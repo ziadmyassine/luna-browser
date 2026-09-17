@@ -130,9 +130,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // The results the bar cannot perform itself (§9.2).
         bar.onExternalAction = { [weak self] action in self?.perform(action) }
         // Weak: the bar holds the session, so a strong capture here is a cycle.
-        session.presentCommandBar = { [weak bar, weak controller] _ in
+        session.presentCommandBar = { [weak bar, weak controller] mode in
             guard let bar, let window = controller?.window else { return }
-            bar.present(.newTab, in: window)
+            bar.present(mode, in: window)
         }
     }
 

@@ -26,13 +26,40 @@
 import AppKit
 import BrowserKit
 
-/// `⌘T` and `⌘L` (§9.1, §20.1).
-enum CommandBarMode {
+/// `⌘T` and `⌘L` (§9.1, §20.1), plus the pills that hand off to the bar.
+///
+/// The mode carries two separate things, and conflating them is what made the
+/// New Tab page open a *second* empty tab: what the field starts with, and
+/// which tab a chosen result lands in.
+enum CommandBarMode: Equatable {
     /// `⌘T`: empty. Choosing a result opens a new tab.
     case newTab
     /// `⌘L`: prefilled with the current URL and selected. Choosing a result
     /// navigates the tab you are already on.
     case editCurrentURL
+    /// A pill handing off to the bar — the top bar's (§4) or the New Tab page's
+    /// (§30.19). Starts from whatever was typed into it, and navigates the tab
+    /// you are already standing on, because that is the tab you meant to fill.
+    case search(String)
+}
+
+extension CommandBarMode {
+
+    /// Whether a chosen result opens a **new** tab or navigates the current one.
+    /// This is the half of the mode that was wrong: the New Tab page's pill ran
+    /// as `.newTab`, so committing left the empty page behind and opened a
+    /// second tab next to it.
+    var opensNewTab: Bool { self == .newTab }
+
+    /// What the field starts with. `currentURL` is only read when the mode
+    /// actually wants it.
+    func prefill(currentURL: () -> String) -> String {
+        switch self {
+        case .newTab: ""
+        case .editCurrentURL: currentURL()
+        case let .search(text): text
+        }
+    }
 }
 
 @MainActor
@@ -90,7 +117,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
         // Before `begin`: the selected-suffix machinery needs the field editor,
         // which only exists once the field is first responder.
         window.makeFirstResponder(panel.field)
-        let prefill = mode == .editCurrentURL ? currentURLText : ""
+        let prefill = mode.prefill { self.currentURLText }
         panel.field.begin(
             with: prefill,
             placeholder: mode == .editCurrentURL ? "Edit address" : "Search or enter address",
@@ -247,17 +274,15 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
         case let .activateTab(id):
             session.activateTab(id)
         case let .open(url):
-            switch mode {
-            case .newTab:
+            // §9.1: `⌘L` and a pill both edit *this* tab's address; only `⌘T`
+            // asks for a new one. A new tab is the only sensible answer when
+            // there is no tab to edit.
+            if mode.opensNewTab {
                 _ = session.newTab(url: url, kind: .today)
-            case .editCurrentURL:
-                // §9.1: `⌘L` edits *this* tab's address. A new tab is the only
-                // sensible answer when there is no tab to edit.
-                if let id = session.activeTabID, let controller = session.controller(for: id) {
-                    controller.load(url)
-                } else {
-                    _ = session.newTab(url: url, kind: .today)
-                }
+            } else if let id = session.activeTabID, let controller = session.controller(for: id) {
+                controller.load(url)
+            } else {
+                _ = session.newTab(url: url, kind: .today)
             }
         case .unarchiveTab, .command:
             onExternalAction?(action)

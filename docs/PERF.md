@@ -235,3 +235,14 @@ IDLE 81 MB RSS / 31 MB footprint, 0 WebKit helper processes (§19.4 expects 0)
 PERF command-bar first 27.7 ms, median 7.8 ms (budget 100 ms)
 PERF sidebar frame median 0.02 ms, p95 0.20 ms (budget 8.33 ms)
 ```
+
+### 2026-09-18 00:05 — Apple M4, 16 GB, macOS 26.5.2
+
+```
+TABS 295 MB RSS / 809 MB footprint  (budget 3.5 GB = 3584 MB)
+HIBERNATED 111 MB RSS / 112 MB footprint, WebKit processes 8 → 3, tabs still holding a WKWebView: 0 (must be 0), WKWebViews still alive after release: 0 of 5 (must be 0)
+LAUNCH median 268 ms  (budget 800 ms)  min 182 max 421
+IDLE 69 MB RSS / 28 MB footprint, 0 WebKit helper processes (§19.4 expects 0)
+PERF command-bar first 26.3 ms, median 9.6 ms (budget 100 ms)
+PERF sidebar frame median 0.02 ms, p95 0.52 ms (budget 8.33 ms)
+```

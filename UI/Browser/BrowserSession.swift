@@ -120,7 +120,7 @@ final class BrowserSession {
     /// argument is the query to open with — empty for a plain `⌘T`. The Command
     /// Bar's host sets this; without it `⌘T` opens a blank tab, which is an
     /// honest degradation rather than a dead key.
-    var presentCommandBar: ((String) -> Void)?
+    var presentCommandBar: ((CommandBarMode) -> Void)?
 
     /// `⌘L`. The sidebar or top bar sets this to focus and select its URL pill.
     var focusURLField: (() -> Void)?

@@ -40,7 +40,7 @@ enum InternalPagesInstaller {
             case .commandBar, .addFavorite:
                 // §30.19: the New Tab pill hands off to the Command Bar rather
                 // than being a second input surface with its own ranking.
-                session.presentCommandBar?("")
+                session.presentCommandBar?(.search(""))
             case let .restore(id):
                 session.unarchiveTab(id)
             case .retry, .proceed:

@@ -61,7 +61,7 @@ final class TopBarTabStrip: NSView {
         pill.onNavigate = { [weak self] url in self?.session.load(url) }
         // Search is the Command Bar's surface (§9.1), not the pill's, and
         // `presentCommandBar` is already the way in.
-        pill.onSearch = { [weak self] text in self?.session.presentCommandBar?(text) }
+        pill.onSearch = { [weak self] text in self?.session.presentCommandBar?(.search(text)) }
         content.addSubview(pill)
     }
 
