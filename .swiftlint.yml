@@ -1,0 +1,25 @@
+# Community defaults. Opt-in rules stay off until one earns its place.
+included:
+  - App
+  - UI
+  - Design
+  - BrowserKit/Sources
+  - BrowserKit/Tests
+
+excluded:
+  - Luna.xcodeproj
+  - DerivedData
+  - .build
+  - BrowserKit/.build
+  - inspiration
+
+disabled_rules:
+  - todo # TODO.md is the plan; in-code TODOs are fine while milestones land.
+
+line_length:
+  warning: 140
+  ignores_comments: true
+  ignores_urls: true
+
+identifier_name:
+  min_length: 2

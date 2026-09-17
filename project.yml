@@ -1,0 +1,70 @@
+name: Luna
+
+options:
+  minimumXcodeGenVersion: "2.46.0"
+  createIntermediateGroups: true
+
+packages:
+  BrowserKit:
+    path: BrowserKit
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    # Swift 6 language mode already enables the concurrency upcoming features.
+    # ExistentialAny is the one Swift-7-bound feature worth having from day one.
+    # INTERNAL_IMPORTS_BY_DEFAULT / MEMBER_IMPORT_VISIBILITY are deliberately off:
+    # they change public API spelling and buy nothing yet.
+    SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY: "YES"
+    MACOSX_DEPLOYMENT_TARGET: "26.0"
+    # M0 signs ad-hoc ("Sign to Run Locally"). No certificate exists yet and none
+    # is needed to run locally. Real signing — Developer ID + notarisation — is M4
+    # (TODO.md §24.4, D8), and the §31.1 iCloud spike is what first requires it.
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_ENTITLEMENTS: ""
+    DEVELOPMENT_TEAM: ""
+    # Hardened runtime lands with real signing in M4 (TODO.md §24).
+    ENABLE_HARDENED_RUNTIME: "NO"
+    # App Sandbox stays OFF on purpose: it blocks default-browser registration,
+    # which is why the Mac App Store is ruled out (TODO.md §22.1, D8).
+    ENABLE_APP_SANDBOX: "NO"
+    GENERATE_INFOPLIST_FILE: "NO"
+
+targets:
+  Luna:
+    type: application
+    platform: macOS
+    settings:
+      base:
+        PRODUCT_NAME: Luna
+        PRODUCT_BUNDLE_IDENTIFIER: dk.novapps.luna
+        INFOPLIST_FILE: App/Info.plist
+    sources:
+      - path: App
+        excludes:
+          - Info.plist
+      # Referenced so it shows up in Xcode, never copied into Resources.
+      - path: App/Info.plist
+        buildPhase: none
+      - path: UI
+      - path: Design
+    dependencies:
+      - package: BrowserKit
+
+schemes:
+  Luna:
+    build:
+      targets:
+        Luna: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release

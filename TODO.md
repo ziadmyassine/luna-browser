@@ -109,7 +109,7 @@ luna/
 
 ## 3. Milestones
 
-- [ ] **M0 — Skeleton** (§4): app launches, one window, one hardcoded webview, loads a URL, quits cleanly.
+- [x] **M0 — Skeleton** (§4): app launches, one window, one hardcoded webview, loads a URL, quits cleanly. **DONE 2026-09-17.** Builds warning-free, 2 unit tests pass, `check-no-appkit` guard green, window opens at 1200×800 and renders `example.com`, quits with no crash report. The §31.1 sync spike is **not** done — it needs a Developer ID certificate that does not exist yet, so it moves to the front of M1.
 - [ ] **M1 — Usable browser** (§4, §6, §7, §9, §11): tabs, sidebar, command bar, back/forward, session restore. *Dogfoodable.*
 - [ ] **M2 — Arc-ness** (§5, §8, §10, §12, §13, §30): Spaces, split view, theming/motion, archive, pinned/favorites, mini window, reference-UI parity.
 - [ ] **M3 — Real-world browser** (§14–§18): downloads, find, zoom, media/PiP, permissions, content blocking, history search, import.
@@ -135,6 +135,7 @@ luna/
   > **Gotcha:** a custom scheme handler only fires for resources loaded *within a document loaded from that same scheme*. Internal pages must be navigated to as `luna://…`, not injected into an `about:blank`.
 - [ ] **4.5 Error pages** — replace WebKit's default failure with our styled page (offline, DNS, TLS, blocked-by-us), with a Retry button routed through the scheme handler.
 - [ ] **4.6 User-Agent policy** — default to system UA + `applicationNameForUserAgent`. Ship a per-site UA override table (Safari UA / Chrome UA) because some sites gate on Chrome. Add a UI toggle in the site menu.
+  > **Gotcha (verified in M0):** `applicationNameForUserAgent` **appends to** WebKit's default UA, it does not replace it — and WebKit's default contains **no `Version/` and no `Safari/` token at all**. So a bare `Luna/1.0` ships a UA that compat-sniffing sites reject. Put the Safari tokens first and the product token last, the way Edge and Chrome-on-iOS do: `Version/<os> Safari/605.1.15 Luna/<CFBundleShortVersionString>`. Read the version from `Bundle` so it cannot rot. Confirmed in the wild: Ora sets a *complete* UA string here and consequently ships a doubled `Mozilla/5.0 … AppleWebKit …` prefix; Nook gets it right.
   > **Gotcha:** we inherit **Safari's exact web-compat profile**, including every site that was only ever tested against Chromium. Budget real time for a per-site quirks list. This is the single biggest ongoing cost of choosing WebKit (it's the top complaint about Orion).
 - [ ] **4.7 Favicons** — WebKit exposes **no public favicon API**. Implement `FaviconService`: parse `<link rel="icon|apple-touch-icon">` via a small injected script at `documentEnd`, fall back to `/favicon.ico`, fall back to a generated monogram tile from the domain + Space gradient. Cache to disk keyed by eTLD+1, with a memory LRU.
   - Acceptance: 50 mixed sites show correct icons; no icon ever flashes a broken-image glyph.
@@ -180,12 +181,16 @@ luna/
 - [ ] **7.6 Sidebar-on-right option** (differentiator; Arc doesn't do it well).
 - [ ] **7.7 Traffic-light handling**: custom titlebar, `titlebarAppearsTransparent`, `NSWindow.toolbar` removed; traffic lights must be inset into the sidebar and must re-position correctly when the sidebar collapses, on fullscreen enter/exit, and in the Mini Window.
   > **Gotcha:** manual traffic-light repositioning is the #1 source of visual bugs in Arc-style browsers. Write a single `TrafficLightLayoutManager` and unit-test its output for the 6 window states rather than nudging frames in 4 different view controllers.
+  > **Gotcha (verified in `NSWindow.h`, M0):** `minSize`/`contentMinSize` and `maxSize`/`contentMaxSize` are **ignored when the content view uses Auto Layout** — the header says so verbatim. Setting `window.minSize` looks right, compiles, and does nothing. Enforce size floors with `greaterThanOrEqualToConstant` constraints on the content view instead. This bites again at §10.1's split-pane min-width clamps and §7.1's 180–420 px sidebar range.
 
 ---
 
 ## 8. Design system, theming & motion
 
 - [ ] **8.1 Token file** (`Design/Tokens.swift`) — semantic only: `surface/0..3`, `textPrimary/Secondary/Tertiary`, `separator`, `accent`, `dangerous`, `overlayScrim`, `focusRing`. Every token resolves for light **and** dark. **No literal hex outside this file.**
+  > **Gotcha (measured in M0, not assumed):** **`.secondaryLabelColor` and `.tertiaryLabelColor` do not meet §21.4 in light mode.** `.secondaryLabelColor` is black at 50 %, which measures **3.95:1** on a white window — under the 4.5:1 floor. Reaching for the system colour for secondary or tertiary text is therefore an accessibility regression, not a shortcut. Luna's `Text.secondary` uses 60 % (5.74:1 light / 6.77:1 dark).
+  > Also measured: on macOS 26 `controlBackgroundColor` and `textBackgroundColor` resolve to **exactly** `windowBackgroundColor`, so a system-backed `Surface.raised` would be invisible. It has to be a custom value.
+  > `.separatorColor` **is** correct for §8.4's hairline — it already resolves to 10 % black / 10 % white and tracks Increase Contrast. Do not hand-roll that one.
 - [ ] **8.2 Space gradients** — each Space carries a 2-stop gradient. Ship ~12 curated pairs plus a custom picker. The gradient is used at 3 intensities: full (Space badge, 28 px circle), 12–18 % wash (sidebar background), and a 3–4 px bar/edge glow at the top of the content area.
 - [ ] **8.3 Live window tinting from the page** — blend `webView.themeColor` (fallback `underPageBackgroundColor`) into the sidebar/titlebar wash, clamped for contrast (never let a site produce unreadable chrome), animated over ~0.25 s when it changes. This is the single most "Arc-feeling" effect in the whole app; get it right.
 - [ ] **8.4 Materials** — on **macOS 26 (D9)** the native Liquid Glass surfaces are the first choice for the §30.1/§30.2/§30.11 chrome. `NSVisualEffectView` with `.sidebar` / `.headerView` materials and `.followsWindowActiveState` is the fallback *and* the Reduce Transparency path, so it gets built either way. 1 px hairlines at ~10 % white / ~8 % black; selection = translucent fill + inner hairline, never a hard blue rect.
@@ -280,6 +285,7 @@ luna/
 - [ ] **14.6 Verification codes** — if §14.1 shows we can read synchronizable TOTP secrets, offer one-tap fill for `one-time-code` fields. If not, at minimum autofill from the clipboard when the user copies a code out of the Passwords app, and don't pretend to more.
 - [ ] **14.7 Native-messaging bridge for password extensions** — implement the host side of native messaging in our `WKWebExtensionController` delegate so **1Password, Bitwarden and friends** work through §16. For many users this is the real answer, and it's also the mechanism the iCloud Passwords extension would need if Apple ever allowlists us — build the bridge now, gated behind an explicit per-extension permission.
 - [ ] **14.8 Security rules (non-negotiable)** — never persist anything from a `type=password` field without an explicit user action; never fill cross-origin or into an iframe whose origin doesn't match the page; require a recent user gesture before filling; never expose credentials to page JavaScript; and treat a fill into a page reached via a redirect chain as suspicious. Autofill of addresses and payment cards stays **out of scope** — say so in settings rather than half-building it.
+- [ ] **14.10 Passkeys need an Apple-gated entitlement — budget it into M4.** WebAuthn in a third-party WKWebView requires `com.apple.developer.web-browser.public-key-credential`, which is request-only. Until it is granted, `PublicKeyCredential` is present in the DOM but dead, so sites offer a passkey flow that silently fails — worse than not offering it. Nook's workaround is to inject a script suppressing `PublicKeyCredential` while waiting; do the same, and **request the entitlement early** because the turnaround is Apple's, not ours. Verify the exact entitlement name against current documentation before filing.
 - [ ] **14.9 File a Feedback / DTS request** asking for third-party browsers to be able to participate in Password AutoFill or the iCloud Passwords helper allowlist. Low odds, near-zero cost, and it dates our attempt if the policy ever changes.
 
 ## 15. Downloads
@@ -326,6 +332,10 @@ luna/
 - [ ] **18.2 Zoom** — `pageZoom`, `⌘+/-/0`, persisted **per eTLD+1**.
 - [ ] **18.3 Reader mode** — inject a Readability-class extractor, render into our own `luna://reader` template with our typography tokens, font-size/width/theme controls.
 - [ ] **18.4 PiP & media** — auto-PiP a playing video when its tab goes background (make it an opt-in setting), global mute-all, per-tab mute, Now Playing / media-key integration via `MPNowPlayingInfoCenter` + `MPRemoteCommandCenter`.
+- [ ] **18.8 Web-compat defaults that differ from Safari (found in M0, verify each before relying on it)**
+  - `mediaTypesRequiringUserActionForPlayback` must be `[]` to match Safari. Setting `[.audio]` breaks YouTube, because SPA navigations call `play()` outside a user gesture.
+  - **Clipboard access and `allowsPictureInPictureMediaPlayback` are on by default in Safari but off for third-party `WKWebView`.** The only known route is KVC onto private preferences (`javaScriptCanAccessClipboard`, `DOMPasteAllowed`). **This collides head-on with D10 (no private SPI in shipping code)** — so it is a decision, not a task: accept a visible web-compat gap, or carve a narrow, documented exception to D10 for preference keys that cannot crash. Escalate to Martin before either.
+  - **Do NOT set the private `mediaDevicesEnabled` preference.** It makes the WebContent process eagerly register with `com.apple.audio.AudioComponentRegistrar`, which is denied to third-party WKWebView apps, and the process crashes. `getUserMedia` works through the `WKUIDelegate` permission path (§4.2) without it. A clean example of why D10 exists.
 - [ ] **18.5 Print & Save** — `NSPrintOperation` via `webView.printOperation(with:)`, Save as PDF, Save as Web Archive (`createWebArchiveData`), Save Page.
 - [ ] **18.6 Screenshot/capture tool** — full-page and region capture via `takeSnapshot` + `WKSnapshotConfiguration`, copy or save.
 - [ ] **18.7 Boosts v1** — per-site user CSS and user JS, stored in `boosts`, applied via `WKUserScript` at `documentStart`/`documentEnd` and a per-site style rule; include a "Zap" element picker that generates a hiding rule by clicking an element.
@@ -375,6 +385,8 @@ luna/
 - [ ] **22.3 Handle `application(_:open:)`** → route to Mini Window or the Space chosen by the routing rules (§25.3).
 - [ ] **22.4 Services, Share menu, Shortcuts (App Intents)** — "Open URL in Space X", "Save tab to…", "Archive all tabs".
 - [ ] **22.5 Menu bar** — a complete, correct macOS menu (File/Edit/View/History/Bookmarks/Window/Help) even though the UI is chromeless. Every command discoverable here.
+  > **Gotcha (proved with a running probe in M0):** **`@main` on a nib-less `NSApplicationDelegate` does not work.** The inherited `main()` is just `exit(NSApplicationMain(...))`, and `NSApplicationMain` only installs a delegate when it loads a **main nib**. With no nib, `NSApp.delegate` stays nil, neither launch callback fires, and the app sits in a dead run loop with no window and no crash. Luna's `AppDelegate` therefore declares its own `static func main()`: `NSApplication.shared` → assign the delegate → `withExtendedLifetime(delegate) { app.run() }`. The `withExtendedLifetime` is load-bearing — `NSApplication.delegate` is a **weak** reference, so a local delegate deallocates immediately without it.
+  > **Cosmetic, for when the real Edit menu is built:** AppKit auto-injects Writing Tools, AutoFill, Dictation and Emoji & Symbols into any menu titled "Edit" — and currently injects Dictation twice and Emoji & Symbols three times. Harmless, but don't add them by hand as well.
 - [ ] **22.6 Multi-window & multi-display**, fullscreen, Stage Manager, Spaces (the macOS kind) sanity checks. Restore window frames per screen config.
 - [ ] **22.7 Continuity** — Handoff of the active tab to/from iPhone/iPad Safari where possible.
 
