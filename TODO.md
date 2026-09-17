@@ -1,9 +1,11 @@
-# Project "ARCWK" — An Arc-style browser on WebKit (macOS)
+# Project "Luna" — an Arc-style browser on WebKit (macOS)
 
 > **Status:** planning only. Nothing is built yet. This file is the single source of truth for scope, architecture decisions, and task breakdown.
 > **Owner:** Martin (NovApps ApS)
 > **Written:** 2026-09-17
-> **Target:** macOS 15.4+ native app, Swift 6, AppKit shell + SwiftUI surfaces, WKWebView (system WebKit).
+> **Target:** macOS 26+ native app, Swift 6, AppKit shell + SwiftUI surfaces, WKWebView (system WebKit).
+> **Bundle ID:** `dk.novapps.luna` · **Internal scheme:** `luna://` · **Licence:** proprietary, source-visible.
+> **All 16 open questions were answered on 2026-09-17 — read §32 first. Where §32 contradicts an older section, §32 wins.**
 
 ---
 
@@ -24,6 +26,10 @@ The three sentences that define the product:
 - A custom account system, our own sync servers, or telemetry-by-default. Sync is **iCloud only** (§31) — no logins, no backend of ours.
 - A password manager of our own. We write into **Apple's** Passwords / iCloud Keychain instead — see §14, and read §14.1 before promising anything.
 - Mac App Store distribution for v1 (sandbox blocks default-browser registration; see §22).
+- Monetisation of any kind — no licence keys, no payments, no accounts (D15).
+- Telemetry or analytics, even opt-in (D16).
+- AI features in v1. §30.4 reserves the layout slot and nothing else.
+- General extension support in v1 — only the §14.7 password bridge. See §16.
 
 ### 0.3 Ground rules for agents
 - **Never invent an API.** Every WebKit API named in this document has been verified to exist. If you need something not listed here, check `WKWebView.h` / `WKWebsiteDataStore.h` in the WebKit source (`github.com/WebKit/WebKit/tree/main/Source/WebKit/UIProcess/API/Cocoa`) *before* designing around it. Private/underscored SPI (`_WK*`) is **banned** unless a task explicitly authorises it, because it breaks on OS updates and blocks notarisation-free distribution debugging.
@@ -31,6 +37,7 @@ The three sentences that define the product:
 - **Do not skip the "Gotcha" boxes.** They are the results of research, not speculation; ignoring them is how this project dies at 60% complete.
 - **Design tokens are law.** Everything visual references §8's token table. No raw hex values in view code.
 - **Performance budget is law.** See §19. A browser that eats 12 GB with 40 tabs is a failed product regardless of how pretty the sidebar is.
+- **Reference, never copy (§33).** Three other browsers are cloned on Martin's machine for study. **Nook and Ora are GPL-3.0, Zen is MPL-2.0, and Luna is proprietary (D12).** Read them to learn *which API solves a problem* or *where another app keeps its data* — those are facts. Never copy their code, their file structure wholesale, their comments or their strings. If one of their files is open in one pane and a Luna file in the other, stop.
 - When a task says "match Arc", the acceptance criterion is *felt behaviour*, not pixel-identical copying. Do not clone Arc's exact artwork, icon set, wordmark, or copy strings — build our own visual identity on the same interaction skeleton.
 
 ### 0.4 Glossary (use these exact names in code)
@@ -62,18 +69,23 @@ The three sentences that define the product:
 | D6 | Content blocking via `WKContentRuleList` compiled from EasyList-derived JSON | Native, in-engine, no network interception needed | JS-based blocker (slow, visible flicker) |
 | D7 | Extensions via **`WKWebExtension` / `WKWebExtensionContext` / `WKWebExtensionController`** (macOS 15.4+) | Apple's supported path; aligns us with other WebKit browsers | Orion-style custom WebExtensions reimplementation (years of work; Orion is ~70% of the API after 5 years) |
 | D8 | Distribution: Developer ID + notarisation + **Sparkle 2** | Sandbox blocks `LSSetDefaultHandlerForURLScheme`, so MAS is impossible for a default browser | Mac App Store |
-| D9 | Minimum OS = **macOS 15.4** | Required for `WKWebExtension`. Dropping below that means no extensions at all. If we must support 14.x, extensions become a 15.4+ conditional feature. | macOS 13/14 |
+| D9 | Minimum OS = **macOS 26** | Native Liquid Glass materials do most of the §30.1/§30.2/§30.11 chrome for us instead of hand-stacked `NSVisualEffectView`; `WKWebExtension` (15.4+) is included either way. Narrower audience accepted — early adopters of a new browser skew current. | macOS 15.4 / 14 |
 | D10 | No private SPI in shipping code | Stability + upgradability | `_WKWebsiteDataStore`, `_WKDownload` etc. |
 | D11 | **Sync over iCloud (CloudKit private database, `CKSyncEngine`)** | No servers, no accounts, no support burden, data stays in the user's own iCloud; matches the Apple-native positioning | Custom sync backend (cost + privacy surface + an account system we said we wouldn't build) |
+| D12 | **Closed source, public repo** — no `LICENSE` file, all rights reserved | Free product with nothing to protect commercially, but proprietary keeps forks of a browser carrying our name and our update channel off the internet | MIT/Apache-2.0 (revisit at 1.0) |
+| D13 | **Both layouts ship in v1** — sidebar layout *and* top-bar layout (§30.12) | It is a core part of Martin's reference, not a stretch goal | Sidebar-only v1 |
+| D14 | **Blocklists are fetched at runtime, never bundled** | EasyList is GPL/CC-BY-SA and Luna is proprietary (D12); never shipping the lists inside our binary removes the licence question entirely, and blocking improves without an app update | Bundling EasyList |
+| D15 | **Free. No monetisation.** | No licence keys, no payment processor, no VAT handling, no dunning, no entitlement checks in Sparkle | Paid one-off / subscription |
+| D16 | **Zero telemetry.** Opt-in crash reports only, URLs scrubbed | A privacy-positioned browser that phones home has no story to tell. Deletes a Privacy Policy section and an SDK | Opt-in analytics |
 
-> **Gotcha — D9 is a product decision, not just technical.** macOS 15.4 shipped March 2025; by the time we ship this is fine, but confirm with Martin before writing 15.4-only code paths everywhere.
+> **Gotcha — D9 changed on 2026-09-17 (§32).** It was 15.4; it is now **macOS 26**, and Liquid Glass is the reason. **Verify the exact API surface and availability against the shipping SDK before designing around it** (§0.3) — a guessed API name spreading through the Design layer is exactly the failure §0.3 exists to prevent. If it does not behave as §30 needs, the fallback is hand-built `NSVisualEffectView` stacks, *not* a lower deployment target.
 
 ---
 
 ## 2. Repo layout (create this in M0)
 
 ```
-arcwk/
+luna/
 ├── App/                     # NSApplicationDelegate, URL handling, default-browser flow
 ├── BrowserKit/              # SPM local package — engine layer, no UI
 │   ├── Engine/              # WebViewController, delegates, process pool, data stores
@@ -119,8 +131,8 @@ arcwk/
   - `WKDownloadDelegate` (`WKDownload`, macOS 11.3+): see §15.
   - Acceptance: `window.open`, `target=_blank`, JS alerts, camera prompt, and a PDF link all behave.
 - [ ] **4.3 Navigation state observation** — KVO/`publisher` on `url`, `title`, `isLoading`, `estimatedProgress`, `canGoBack/Forward`, `themeColor`, `underPageBackgroundColor`, `serverTrust`, `hasOnlySecureContent`, `fullscreenState`, `cameraCaptureState`, `microphoneCaptureState`.
-- [ ] **4.4 `arcwk://` internal pages** via `WKURLSchemeHandler` (new tab, settings-embedded docs, error pages, archive view).
-  > **Gotcha:** a custom scheme handler only fires for resources loaded *within a document loaded from that same scheme*. Internal pages must be navigated to as `arcwk://…`, not injected into an `about:blank`.
+- [ ] **4.4 `luna://` internal pages** via `WKURLSchemeHandler` (new tab, settings-embedded docs, error pages, archive view).
+  > **Gotcha:** a custom scheme handler only fires for resources loaded *within a document loaded from that same scheme*. Internal pages must be navigated to as `luna://…`, not injected into an `about:blank`.
 - [ ] **4.5 Error pages** — replace WebKit's default failure with our styled page (offline, DNS, TLS, blocked-by-us), with a Retry button routed through the scheme handler.
 - [ ] **4.6 User-Agent policy** — default to system UA + `applicationNameForUserAgent`. Ship a per-site UA override table (Safari UA / Chrome UA) because some sites gate on Chrome. Add a UI toggle in the site menu.
   > **Gotcha:** we inherit **Safari's exact web-compat profile**, including every site that was only ever tested against Chromium. Budget real time for a per-site quirks list. This is the single biggest ongoing cost of choosing WebKit (it's the top complaint about Orion).
@@ -176,7 +188,8 @@ arcwk/
 - [ ] **8.1 Token file** (`Design/Tokens.swift`) — semantic only: `surface/0..3`, `textPrimary/Secondary/Tertiary`, `separator`, `accent`, `dangerous`, `overlayScrim`, `focusRing`. Every token resolves for light **and** dark. **No literal hex outside this file.**
 - [ ] **8.2 Space gradients** — each Space carries a 2-stop gradient. Ship ~12 curated pairs plus a custom picker. The gradient is used at 3 intensities: full (Space badge, 28 px circle), 12–18 % wash (sidebar background), and a 3–4 px bar/edge glow at the top of the content area.
 - [ ] **8.3 Live window tinting from the page** — blend `webView.themeColor` (fallback `underPageBackgroundColor`) into the sidebar/titlebar wash, clamped for contrast (never let a site produce unreadable chrome), animated over ~0.25 s when it changes. This is the single most "Arc-feeling" effect in the whole app; get it right.
-- [ ] **8.4 Materials** — `NSVisualEffectView` with `.sidebar` / `.headerView` materials, `.followsWindowActiveState`; 1 px hairlines at ~10 % white / ~8 % black; selection = translucent fill + inner hairline, never a hard blue rect.
+- [ ] **8.4 Materials** — on **macOS 26 (D9)** the native Liquid Glass surfaces are the first choice for the §30.1/§30.2/§30.11 chrome. `NSVisualEffectView` with `.sidebar` / `.headerView` materials and `.followsWindowActiveState` is the fallback *and* the Reduce Transparency path, so it gets built either way. 1 px hairlines at ~10 % white / ~8 % black; selection = translucent fill + inner hairline, never a hard blue rect.
+  > **Verify before you build (§0.3):** confirm the Liquid Glass API names and availability in the current SDK. One wrong assumption here propagates through every chrome surface in the app.
 - [ ] **8.5 Motion spec** — codify and reuse:
   | Interaction | Animation |
   |---|---|
@@ -279,7 +292,9 @@ arcwk/
 
 ---
 
-## 16. Extensions (`WKWebExtension`)
+## 16. Extensions (`WKWebExtension`) — **v2, except §14.7**
+
+> **Decided 2026-09-17 (§32):** general extension support is **out of v1**. The only extension-adjacent thing we build now is the **native-messaging bridge in §14.7**, so 1Password and Bitwarden work. Everything below waits for M5/v2 — do not start §16.2–§16.6 without explicit go-ahead.
 
 - [ ] **16.1 Host plumbing**: one `WKWebExtensionController` per **profile** (data store), `WKWebExtensionContext` per installed extension, wire the controller into every `WKWebViewConfiguration` of that profile.
 - [ ] **16.2 Install from a folder / `.zip` on disk** (developer + power-user path). There is no third-party WebKit extension store; sourcing is the user's problem in v1.
@@ -287,20 +302,20 @@ arcwk/
 - [ ] **16.4 Toolbar/action surface** — extension action buttons need a home; put them in a compact row at the sidebar bottom or in the site menu, not a fake Chrome toolbar.
 - [ ] **16.5 Compatibility reality check**: WebKit's implementation tracks the W3C WebExtensions standard and does **not** cover 100 % of Chrome's MV3 surface. Test against a fixed set: uBlock Origin Lite, Bitwarden, 1Password, Dark Reader, Vimium-class, a translate extension. Document what fails.
 - [ ] **16.6** Per-Space extension enable/disable (big differentiator vs Safari).
-  > **Gotcha:** requires macOS 15.4+. If Martin insists on macOS 14 support, this whole section becomes `@available`-gated and the app must degrade gracefully (hide all extension UI, don't crash).
+  > **Resolved:** D9 is now macOS 26, so `WKWebExtension` availability stopped being a constraint. This section is still v2 — see the section header.
 
 ---
 
 ## 17. Content blocking & privacy
 
-- [ ] **17.1 Rule pipeline**: fetch EasyList/EasyPrivacy → convert to the WebKit content-blocker JSON schema → `WKContentRuleListStore.compileContentRuleList(forIdentifier:encodedContentRuleList:)` → cache the compiled list keyed by a content hash.
+- [ ] **17.1 Rule pipeline**: fetch EasyList/EasyPrivacy → convert to the WebKit content-blocker JSON schema → `WKContentRuleListStore.compileContentRuleList(forIdentifier:encodedContentRuleList:)` → cache the compiled list keyed by a content hash. **Lists download on first run and refresh on a schedule — they are never bundled in the app (D14).** Handle the offline first run without looking broken: blocking simply reports itself as not-yet-ready rather than silently doing nothing.
   > **Gotchas:** compilation is **expensive** (seconds) — do it off the main thread, at install/update time only, never at launch on the hot path. The engine cap is **~150,000 rules**; large combined lists must be split across multiple identifiers or pruned. `if-domain`/`unless-domain` require lowercase, punycoded domains or rules silently never match.
 - [ ] **17.2 Default lists**: ads + trackers + annoyances (cookie banners), each toggleable; per-site "disable blocking here" that persists in `siteSettings`.
 - [ ] **17.3 Cosmetic filtering** — element-hiding rules via `css-display-none` action type, injected as a rule list (not runtime JS) to avoid flicker.
 - [ ] **17.4 Blocked-count badge** per tab + a per-site privacy sheet listing blocked domains.
 - [ ] **17.5 ITP is already on** via WebKit — surface it, don't rebuild it. Add a "Clear all site data for this site" one-click action.
 - [ ] **17.6 HTTPS-only mode** with an interstitial for downgrades.
-- [ ] **17.7 Safe Browsing decision** — Google's Safe Browsing v4/v5 API is **non-commercial-use-only and deprecated for new commercial use**; the commercial path is **Web Risk** (paid, per-lookup). Options: (a) ship without malware/phishing lists in v1 and say so honestly; (b) budget for Web Risk; (c) use a hash-prefix local list from an open dataset. **Escalate to Martin — this has cost and legal implications.**
+- [x] **17.7 Safe Browsing — DECIDED 2026-09-17: option (a), ship without it and say so plainly.** Safe Browsing v4/v5 is non-commercial-only and deprecated for new commercial use; Web Risk is paid per-lookup *and* puts a third party in the URL path, which contradicts D16. Remaining work is copy, not code: an honest paragraph in Settings → Privacy and in the Privacy Policy saying Luna does not check URLs against a malware or phishing list, and noting that macOS still applies XProtect and Gatekeeper to anything downloaded. Revisit only if a free, privacy-preserving list appears.
 - [ ] **17.8 Permission prompts** (camera/mic/location/notifications) rendered as our own non-modal chip anchored to the sidebar, with per-site persistence in `siteSettings`.
 
 ---
@@ -309,7 +324,7 @@ arcwk/
 
 - [ ] **18.1 Find in page** — `webView.find(_:configuration:completionHandler:)` with a custom UI, match count, prev/next, highlight-all. (Do **not** hand-roll JS find; the native API exists.)
 - [ ] **18.2 Zoom** — `pageZoom`, `⌘+/-/0`, persisted **per eTLD+1**.
-- [ ] **18.3 Reader mode** — inject a Readability-class extractor, render into our own `arcwk://reader` template with our typography tokens, font-size/width/theme controls.
+- [ ] **18.3 Reader mode** — inject a Readability-class extractor, render into our own `luna://reader` template with our typography tokens, font-size/width/theme controls.
 - [ ] **18.4 PiP & media** — auto-PiP a playing video when its tab goes background (make it an opt-in setting), global mute-all, per-tab mute, Now Playing / media-key integration via `MPNowPlayingInfoCenter` + `MPRemoteCommandCenter`.
 - [ ] **18.5 Print & Save** — `NSPrintOperation` via `webView.printOperation(with:)`, Save as PDF, Save as Web Archive (`createWebArchiveData`), Save Page.
 - [ ] **18.6 Screenshot/capture tool** — full-page and region capture via `takeSnapshot` + `WKSnapshotConfiguration`, copy or save.
@@ -371,6 +386,7 @@ arcwk/
 - [ ] **23.2 Import**:
   - **Safari**: `~/Library/Safari/Bookmarks.plist` (binary plist tree), History from `~/Library/Safari/History.db` (SQLite). **Both are protected by TCC** — the user must grant Full Disk Access, or we import from an exported HTML file. Implement the exported-file path first; treat direct reads as a bonus with a clear permission prompt.
   - **Chrome/Edge/Brave**: `~/Library/Application Support/Google/Chrome/Default/Bookmarks` (JSON) + `History` (SQLite; copy the file first — Chrome holds a lock). **Do not attempt to import Chrome passwords** (Keychain-encrypted, requires prompting for the login keychain; out of scope).
+  - **Dia** — **build this importer first (§32).** It is Martin's daily browser, so it is both the priority and the source of real dogfooding data. Chromium-family, so expect JSON bookmarks plus a locked History SQLite (copy before reading). Find its actual container path on a running install; do not assume it mirrors Chrome's.
   - **Arc**: JSON sidebar/StorableSidebar.json export if available; otherwise bookmarks HTML.
   - Generic: Netscape bookmarks HTML import/export.
 - [ ] **23.3 Onboarding** — 4 screens max: pick theme, import, create first Spaces, set as default browser. Must be skippable and re-runnable.
@@ -382,12 +398,13 @@ arcwk/
 
 - [ ] **24.1 Testing**: unit tests on frecency, hibernation policy, URL parsing/canonicalisation, blocklist conversion, traffic-light layout. UI tests for launch → command bar → navigate → split → quit → restore. A manual **Top-100-sites compat matrix** re-run each milestone (this is how we catch WebKit-vs-Chrome breakage).
 - [ ] **24.2 Crash reporting** — Sentry or a self-hosted alternative; **opt-in**, with scrubbed URLs (never send full URLs or page content).
-- [ ] **24.3 Telemetry** — opt-in only, aggregate only, documented in-app. Default off. (Orion's zero-telemetry stance is a marketing asset; consider matching it.)
+- [x] **24.3 Telemetry — DECIDED 2026-09-17: there is none.** No analytics, opt-in or otherwise (D16). §24.2 crash reporting stays, opt-in and URL-scrubbed. Settings should say "Luna collects no usage data" and mean it literally. This is a marketing asset and a maintenance saving at the same time.
 - [ ] **24.4 Signing & notarisation** — Developer ID Application cert, Hardened Runtime on, `notarytool submit --wait`, staple the ticket, ship a signed DMG. Entitlements: `com.apple.security.network.client`, camera/mic/location usage strings. Keep the entitlement set minimal.
 - [ ] **24.5 Sparkle 2 auto-update** — EdDSA-signed appcast over HTTPS, delta updates, "beta channel" toggle.
   > **Gotcha:** Xcode re-signs `Sparkle.framework` but historically not its embedded XPC services/helpers — if notarisation rejects you for "Hardened Runtime disabled in Autoupdate.app", that's the cause. Verify with `codesign -dv --entitlements -` on every nested binary in CI.
 - [ ] **24.6 CI** — build + test + sign + notarise on tag; archive dSYMs.
-- [ ] **24.7 Legal & docs** — Privacy Policy (must state: history/bookmarks local-only, what search suggestions send and to whom, what crash reports contain), Terms, open-source licence attributions (EasyList is GPL/CC-BY-SA — **check licence compatibility before bundling lists**), and a `SECURITY.md` with a disclosure address.
+- [ ] **24.7 Legal & docs** — Privacy Policy must state: history and bookmarks are local-only · sync goes to the user's own iCloud and never to us (§31.11) · what search suggestions send and to whom · what crash reports contain · that **no usage data is collected at all** (D16) · and that Luna does **not** check URLs against a malware/phishing list (§17.7). Plus Terms, third-party attributions, and a `SECURITY.md` with a disclosure address.
+  - **Licence: proprietary, all rights reserved (D12).** No `LICENSE` file in the repo, and a short "source-visible, not open source" line in the README so nobody assumes otherwise. Because blocklists are never bundled (D14), there is no EasyList licence to reconcile.
 - [ ] **24.8 Website + changelog + a real support channel.**
 
 ---
@@ -427,17 +444,26 @@ Keep this table current. Every entry is a thing a Chromium-based project would g
 
 ---
 
-## 27. Open questions for Martin (answer before M1 ends)
+## 27. Open questions for Martin — **ALL ANSWERED 2026-09-17**
 
-1. **The "other browser" you like** — partially answered by the screenshot in `inspiration/`, now transcribed in **§30**. Confirm which of those elements are must-haves vs. nice-to-haves, and name the browser so we can check its behaviour directly.
-2. **Minimum macOS** — 15.4 (extensions work) or 14.0 (bigger audience, no extensions)?
-3. **Name, bundle ID, icon direction.** Bundle ID convention in your other projects is `apptek.*` — same here, or a new namespace?
-4. **Extensions in v1 or v2?** It's the largest single chunk in this list.
-5. **Safe Browsing**: ship without it and say so, or pay for Web Risk?
-6. **Telemetry**: zero-telemetry as a marketing position, or opt-in analytics?
-7. **Monetisation**: free, paid one-off, subscription? This changes the Sparkle/licensing work and the Privacy Policy.
-8. **Is an iOS companion ever likely?** (Determines how strictly `BrowserKit` avoids AppKit.)
-9. ~~Are sync and the iOS app in v1?~~ **Answered:** sync is in, via **iCloud** (§31). Remaining sub-questions: does **history** sync or only Spaces/tabs/favorites (§31.5)? And does the §31.1 spike come back clean, or do we have to choose between iCloud and being the default browser?
+Every question here was answered on 2026-09-17. The answers and their consequences live in **§32**, and the decisions themselves are folded into §1's table and the relevant sections. This section is kept as a record of what was once uncertain, not as a live list.
+
+| # | Question | Answer |
+|---|---|---|
+| 1 | The "other browser" you like — name it | **It is a concept, not a shipping browser.** There is no live app to check behaviour against, so §30's written transcription is authoritative and we own every interaction it doesn't specify. |
+| 2 | Minimum macOS | **macOS 26+** (D9) |
+| 3 | Name, bundle ID, icon direction | **Luna**, `dk.novapps.luna`, new namespace. Icon direction still open (§8.9, M6). |
+| 4 | Extensions in v1 or v2? | **v2** — except the §14.7 native-messaging password bridge, which is v1. |
+| 5 | Safe Browsing | **Ship without it and say so** (§17.7) |
+| 6 | Telemetry | **Zero.** Opt-in crash reports only (D16, §24.3) |
+| 7 | Monetisation | **Free. None.** (D15) |
+| 8 | Is an iOS companion ever likely? | **Unsure — keep the door open cheaply.** `BrowserKit` stays free of AppKit types; no iOS work is scheduled or promised. |
+| 9 | Sync scope | iCloud, with history synced as **typed/bookmarked visits only** (§31.5). The §31.1 spike result comes back to Martin before any sync code is written. |
+
+**Genuinely still open** (none of it blocks M0):
+- Icon and wordmark direction (§8.9) — placeholder until M6.
+- Whether §31.1's outcome forces the sandbox + helper split. Martin decides on the spike's evidence, not in advance.
+- The exact Liquid Glass API surface on the shipping macOS 26 SDK (§8.4). Verify it; do not assume it.
 
 ---
 
@@ -487,7 +513,7 @@ Transcribed from the reference captures in `inspiration/`. These are **observed 
 - [ ] **30.1 Floating window treatment** — the whole window is detached and rounded (~18–22 px radius) with the desktop wallpaper visible around it, and the chrome is translucent and tinted by the wallpaper/theme rather than opaque grey. Implies: no standard titlebar, full-window custom shape, heavy `NSVisualEffectView` use, and a shadow that reads on both light and dark desktops.
 - [ ] **30.2 Circular glass control buttons** — sidebar-toggle, back, and reload are separate round translucent buttons in a row beside the traffic lights, not a toolbar. Sizes ~34–38 px, hairline border at ~10 % white, hover lifts the fill.
 - [ ] **30.3 Domain-only URL pill** — the address field shows just `apple.com`, not the full URL, as a wide rounded pill. Full URL appears on focus/edit (`⌘L`). Right side of the pill holds small inline action icons.
-- [ ] **30.4 Inline assistant/action slots in the URL pill** — the reference has two AI icons plus a sliders/settings glyph docked inside the address pill. Decide in §25.6 whether we ship equivalents; reserve the layout slot now so it isn't retrofitted later.
+- [ ] **30.4 Inline action slots in the URL pill** — the reference docks two AI icons plus a sliders/settings glyph inside the address pill. **Decided 2026-09-17: no AI in v1 (§32).** Build the pill with those slots reserved and sized, filled only with the settings/site-menu glyph, so adding something later is a fill rather than a relayout. Do not ship an AI affordance that does nothing.
 - [ ] **30.5 "Essentials" tile grid** — pinned sites render as large rounded glass **tiles with icon only** (2-up in the screenshot, wrapping to a grid), visually distinct from the text tab rows below. This is our §7.1 Favorites row — build it as tiles, not a compact icon strip.
 - [ ] **30.6 Folder rows + explicit "Add Tab" row** — an `Archive` folder row and a `+ Add Tab` row sit between the Essentials grid and the tab list, as first-class list rows with the same metrics as tabs.
 - [ ] **30.7 Active-tab treatment** — selected row is a filled translucent pill with a visible hairline border and slightly brighter text; it spans the sidebar width with ~8 px inset. Inactive rows have no background at all.
@@ -498,7 +524,7 @@ Transcribed from the reference captures in `inspiration/`. These are **observed 
 
 ### From `non-side-bar-tab-ui.png` — the sidebar-off layout
 
-- [ ] **30.12 Top-bar mode is a real second layout, not just a collapsed sidebar** — with the sidebar off, a single translucent bar spans the window: traffic lights → sidebar toggle → back → pinned Essentials as small tiles → **centred** URL pill → a right-hand action cluster. Tabs are not visible at all in this mode; switching happens via the Command Bar. Build it as its own layout controller, with a shared model, and animate the transition between modes.
+- [ ] **30.12 Top-bar mode is a real second layout, not just a collapsed sidebar — CONFIRMED FOR v1 (D13)** — with the sidebar off, a single translucent bar spans the window: traffic lights → sidebar toggle → back → pinned Essentials as small tiles → **centred** URL pill → a right-hand action cluster. Tabs are not visible at all in this mode; switching happens via the Command Bar. Build it as its own layout controller, with a shared model, and animate the transition between modes.
 - [ ] **30.13 Chrome tint follows the page in both layouts** — the reference shows the whole top bar washed pink/lavender on GitHub. Same mechanism as §8.3; make sure the tint pipeline isn't wired only to the sidebar.
 - [ ] **30.14 Right action cluster** — extension action icons, `+` (new tab), downloads, and profile/account sit in their own translucent capsule, divided from the pinned tiles by a hairline. This is the natural home for the §16.4 extension buttons — build the capsule once and let both layouts host it.
 
@@ -534,6 +560,7 @@ Everything the user *structures* follows them between Macs — and later, iPhone
   - Build a Developer ID-signed, **non-sandboxed** app with `com.apple.developer.icloud-services` + `com.apple.developer.icloud-container-identifiers` + an embedded provisioning profile; confirm it reaches `cloudd` (no `CKError 6` / "Error connecting to CloudKit daemon") and that `LSSetDefaultHandlerForURLScheme` still works.
   - If those turn out to be mutually exclusive, pick from: (a) sandbox the app and set the default-browser handler from a **non-sandboxed helper/login item**; (b) keep the app unsandboxed and sync via an iCloud Drive ubiquity container instead of CloudKit; (c) drop iCloud sync. Record the outcome in `docs/SYNC.md`.
   - Acceptance: a written answer with a working signed build, before anyone designs a record schema.
+  - **Decided 2026-09-17: do not pre-pick a fallback.** Run the spike, write `docs/SYNC.md`, and **stop for Martin's call** before any sync code. All three options above stay on the table until there is evidence.
   > **Why this is first:** §22.1 already establishes that the App Sandbox blocks default-browser registration, and App Sandbox is the configuration Apple documents CloudKit against. The whole sync design rests on which of those constraints bends. Do not build §31.2+ until this is answered.
 - [ ] **31.2 Container + schema** — one CloudKit container, private database, custom record zones per data class (`spaces`, `tabs`, `favorites`, `bookmarks`, `boosts`, `settings`, optionally `history`). Zones are the unit of atomic change and of "reset this data type", so split them along the lines the settings UI exposes.
 - [ ] **31.3 `CKSyncEngine` integration** (macOS 14+) — let the engine own scheduling, retries, change tokens and subscriptions. **Persist `stateSerialization` across launches** or the engine re-syncs from the wrong token; store it alongside the GRDB database (§11.1).
@@ -541,7 +568,7 @@ Everything the user *structures* follows them between Macs — and later, iPhone
 - [ ] **31.5 Decide and document exactly what syncs**
   - **Syncs:** Spaces (name, colour, order), pinned tabs, Today-tab list, Favorites, bookmarks, boosts, per-site settings, zoom levels, keyboard remaps, general settings.
   - **Never syncs:** cookies, logins, and website storage. A `WKWebsiteDataStore` is local, opaque and not portable — we cannot and should not ship it anywhere. Say this plainly in the UI so nobody expects to stay logged in across Macs.
-  - **Decide:** full history. It's high-volume and the most sensitive thing we hold; options are (a) don't sync it, (b) sync only typed/bookmarked visits, (c) sync all with a retention cap. Default recommendation: (b).
+  - **DECIDED 2026-09-17: option (b).** Only **typed and bookmarked visits** sync — enough for the Command Bar to rank sensibly on a second Mac without shipping every page the user has ever opened to iCloud, even encrypted (§31.8). Link, redirect and embed visits stay local forever.
 - [ ] **31.6 Open tabs across devices** — publish a lightweight per-device record (device name, Space, open tab list, updated-at) and render it behind the §30.21 button. Fixed cap per device, refreshed on foreground and on tab-set change, throttled — this is a presence feed, not a live mirror.
 - [ ] **31.7 Account & availability states** — handle no iCloud account, signed out mid-session, iCloud Drive disabled, storage full, network offline, and account switch (wipe local sync state and re-seed on identity change). Every one of these degrades to a working local-only browser with a quiet status line in settings, never a modal.
 - [ ] **31.8 Sensitive fields** — put URLs and titles in `encryptedValues` on the `CKRecord` so they're end-to-end encrypted rather than merely server-side encrypted. Note in docs that Advanced Data Protection strengthens this further but that we don't require it.
@@ -549,3 +576,55 @@ Everything the user *structures* follows them between Macs — and later, iPhone
 - [ ] **31.10 Sync settings UI** — master toggle, per-data-type toggles matching the §31.2 zones, "last synced" timestamp, "sync now", and a destructive "remove all Luna data from iCloud" that deletes the zones.
 - [ ] **31.11 Legal & privacy** — Privacy Policy must state what goes to iCloud, that it lands in the user's own account rather than ours, that we never see it, and what leaves the device unencrypted (nothing, per §31.8). Ties into §24.7.
 - [ ] **31.12 Testing** — two Macs on one account: create/rename/reorder/delete in both, offline edits on both then reconnect, conflicting renames, account switch, storage-full simulation, and a cold restore onto a wiped machine. Automate what's automatable; the rest goes in a written release checklist.
+
+---
+
+## 32. Decision log — 2026-09-17
+
+Sixteen questions, answered in one sitting. **Where this log contradicts an older section, this log wins**, and the section gets corrected when someone next touches it.
+
+### Product shape
+
+| Decision | Consequence |
+|---|---|
+| **Name is Luna**, bundle `dk.novapps.luna`, internal scheme `luna://` | "ARCWK" is dead everywhere — doc, code, scheme, repo. |
+| **Free forever, no monetisation** (D15) | No licensing code, no store integration, no VAT or refund policy, no entitlement checks in Sparkle. |
+| **Zero telemetry**, opt-in scrubbed crash reports only (D16) | §24.3 becomes a paragraph of copy instead of a feature. One less SDK, one less Privacy Policy section, one fewer thing to defend. |
+| **Closed source, public repo** (D12) | No `LICENSE` file; README must say "source-visible, not open source". Directly constrains what we may borrow — see §33. |
+| **No AI in v1** | §30.4 reserves the layout slot and ships nothing behind it. §25.6 stays in the backlog with its privacy story unwritten. |
+| **No Safe Browsing** (§17.7) | Must be stated honestly in Settings and in the Privacy Policy rather than quietly omitted. |
+
+### Platform & scope
+
+| Decision | Consequence |
+|---|---|
+| **macOS 26+** (D9) | Native Liquid Glass carries the §30 chrome. Verify the API surface before building on it (§8.4). Smaller audience, knowingly accepted. |
+| **Both layouts in v1** (D13) | §30.12's top-bar layout is a real layout controller with its own traffic-light states and tint wiring. Budget for it in M2 and expect §7.7's edge cases to double. |
+| **Extensions v2; password bridge v1** | Build §14.7 native messaging so 1Password and Bitwarden work. §16.2–§16.6 need explicit go-ahead. |
+| **iOS: door open, nothing scheduled** | `BrowserKit` imports no AppKit. Enforce with a build check, not good intentions. |
+| **Blocklists fetched at runtime** (D14) | First run needs a network fetch; the offline case must degrade honestly, not silently. |
+| **History sync = typed + bookmarked only** (§31.5) | Link visits never leave the Mac. |
+| **§31.1 fallback: Martin decides on evidence** | Run the spike, write `docs/SYNC.md`, stop. No pre-committed plan B. |
+| **Dia importer first** (§23.2) | Martin's daily browser, so it is both the priority importer and where dogfooding data comes from. |
+| **Cadence: one milestone at a time, autonomous within it** | Return at milestone boundaries and at any blocker, with something runnable and the spike results written down. |
+
+---
+
+## 33. Reference implementations (local only — never in this repo)
+
+Three open-source browsers are cloned at `~/Desktop/Projects/other browsers/` on Martin's machine, with a feature→file map in `BROWSER-INVENTORY.md`. They exist on that machine only. They must never be committed here, vendored, or referenced by a path that assumes they exist.
+
+| Repo | Stack | Licence | Why it is useful |
+|---|---|---|---|
+| `ora-browser/` — the-ora/browser | Swift 5.9 + SwiftUI + WebKit, macOS 15+ | **GPL-3.0** | Closest to our shape. Ships a working **iCloud Keychain autofill** service and a filter-list fetch → compile → cache pipeline that matches D14. |
+| `nook/` — nook-browser/nook | Swift 6 + SwiftUI + WKWebView, macOS 15.5+ | **GPL-3.0** | Largest surface: a `WKWebExtension` host with **native messaging and Bitwarden biometrics**, Peek, split view, site routing, and importers for **Arc, Dia and Safari**. |
+| `zen-desktop/` — zen-browser/desktop | Firefox 156 fork (JS/mjs + patches) | **MPL-2.0** | Different engine, so no WebKit answers — but the best available reference for *interaction* design on spaces, Glance, compact mode, boosts and folders. |
+
+> **Hard rule — the licence firewall.** Nook and Ora are **GPL-3.0**, Zen is **MPL-2.0**, and Luna is **proprietary** (D12). Copying their code into Luna would be a licence violation, and "I rewrote it a bit" is not a defence when the structure came across with it. **You may take:** which API solves a problem · that an approach is possible at all · where another app stores its data on disk · what an interaction should feel like. **You may not take:** source, file structure copied wholesale, comments, or strings. When in doubt, read Apple's docs and write it yourself — it is usually faster than deciding how much rewriting is enough.
+
+### Immediate leads (evidence, not answers — verify each yourself)
+
+- **§14.1 password spike** — Ora ships iCloud Keychain autofill and Nook ships native messaging with Bitwarden biometric unlock. That is strong evidence both §14.2 and §14.7 are achievable from a Developer ID app. It is *not* proof of what Apple permits us specifically; still build the throwaway signed build and write `docs/PASSWORDS.md`.
+- **§23.2 Dia importer** — Nook has an `ImportManager/Dia.swift`, so Dia's on-disk layout is known to be readable. Get the actual paths from the running install on Martin's Mac rather than from their source.
+- **§17.1 blocking pipeline** — both Swift browsers already do fetch → convert → compile → cache against the ~150k rule cap, which confirms the approach scales at our size. Write ours from the WebKit documentation.
+- **§30 interaction detail** — Zen's spaces, Glance and compact-mode behaviour are the closest shipping analogue to §13 and §7.2. Watch them run; read §30 for what we actually build.
