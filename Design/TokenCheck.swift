@@ -21,11 +21,16 @@
 //      while these values were chosen:
 //          swiftc -swift-version 6 -strict-concurrency=complete \
 //                 -target arm64-apple-macos26.0 -DTOKENCHECK_MAIN \
-//                 Design/Tokens.swift Design/Metrics.swift \
-//                 Design/Motion.swift Design/TokenCheck.swift -o /tmp/tokencheck
+//                 Design/Tokens.swift Design/ColourMath.swift \
+//                 Design/Accessibility.swift Design/Metrics.swift \
+//                 Design/Motion.swift Design/TokenCheck*.swift \
+//                 -o /tmp/tokencheck
 //          /tmp/tokencheck
 //      (`Glass.swift` and `GradientBridge.swift` are excluded: one needs a
 //      window server to show anything, the other needs BrowserKit.)
+//
+//  Two companion files run in the same pass: `+Numbers` holds §1/§3's metrics
+//  and §6's budget, `+Effects` holds §2's wash, §5's shadow and §7's bloom.
 //
 
 #if DEBUG || TOKENCHECK_MAIN
@@ -35,15 +40,16 @@ import AppKit
 enum TokenCheck {
 
     /// §21.4's floor for text.
-    private static let textFloor = 4.5
+    static let textFloor = 4.5
     /// WCAG 1.4.11's floor for a UI component boundary.
     private static let borderFloor = 3.0
-    /// §6's budget. The two entries tied to real work are exempt by name.
-    private static let motionBudget: TimeInterval = 0.35
+    /// §6's budget. The two exempt entries are checked by value instead — see
+    /// `TokenCheck+Numbers.swift`.
+    static let motionBudget: TimeInterval = 0.35
 
     /// Computed, not stored: `NSAppearance` is not `Sendable`, so a `static let`
     /// of them is a Swift 6 error. Same reason `TypeScale` uses computed fonts.
-    private static var appearances: [(String, NSAppearance)] {
+    static var appearances: [(String, NSAppearance)] {
         [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)]
             .compactMap { name, id in NSAppearance(named: id).map { (name, $0) } }
     }
@@ -60,6 +66,30 @@ enum TokenCheck {
          ("tertiary", Tokens.Text.tertiary)]
     }
 
+    /// The translucent fills (§3.1/§3.4 hover, §3.4 selection, §2's pill).
+    /// Kept apart from `surfaces` because they are washes over glass, not
+    /// planes: the opacity rule below applies to the planes and the *reverse*
+    /// rule applies to these.
+    private static var washes: [(String, NSColor)] {
+        [("hover", Tokens.Surface.hover),
+         ("selected", Tokens.Surface.selected),
+         ("chromeFill", Tokens.Surface.chromeFill)]
+    }
+
+    /// The same three by alpha, which is the only way to reach their Increase
+    /// Contrast variants (there is no appearance to resolve them against).
+    private static var washInks: [(String, InkAlphas)] {
+        [("hover", Tokens.Ink.hover),
+         ("selected", Tokens.Ink.selected),
+         ("chromeFill", Tokens.Ink.chromeFill)]
+    }
+
+    /// §7's bloom bands, inner edge to outer.
+    static var bloom: [(String, NSColor)] {
+        [("core", Tokens.Bloom.core), ("amber", Tokens.Bloom.amber),
+         ("mint", Tokens.Bloom.mint), ("lavender", Tokens.Bloom.lavender)]
+    }
+
     /// Empty means the design system still holds.
     static func failures() -> [String] {
         guard appearances.count == 2 else {
@@ -67,6 +97,7 @@ enum TokenCheck {
         }
         return checkResolution() + checkTextContrast() + checkSurfaceSeparation()
             + checkLines() + checkIncreaseContrast() + checkWash() + checkMetrics() + checkMotion()
+            + checkFills() + checkBloom() + checkShadow()
     }
 
     /// Trips a debug assertion listing every failure.
@@ -74,23 +105,79 @@ enum TokenCheck {
         let failures = failures()
         assert(failures.isEmpty, "Design tokens regressed:\n  " + failures.joined(separator: "\n  "))
     }
+}
 
-    // MARK: Colours
+// MARK: - Colours
+
+/// An extension rather than more of the enum above so the checks can keep
+/// growing: a type body has a length limit, the roster of tokens does not.
+extension TokenCheck {
 
     /// Every token must actually produce a colour in every appearance. A
     /// dynamic colour whose provider returns something unconvertible resolves
     /// to nothing and paints invisibly — silently, which is the bad part.
     private static func checkResolution() -> [String] {
         var failures: [String] = []
-        let all = surfaces + texts
+        let all = surfaces + texts + bloom + washes
+            + [("disabled", Tokens.Text.disabled)]
             + [("hairline", Tokens.Line.hairline), ("border", Tokens.Line.border)]
             + [("tint", Tokens.Accent.tint), ("danger", Tokens.Accent.danger)]
+            + [("shadow.popover", Tokens.Shadow.popover.color)]
         for (name, appearance) in appearances {
             for (token, color) in all where color.srgbComponents(for: appearance).alpha <= 0 {
                 failures.append("\(token) resolves to nothing in \(name)")
             }
             for (token, color) in surfaces where color.srgbComponents(for: appearance).alpha < 1 {
                 failures.append("Surface.\(token) is translucent in \(name) — surfaces must be opaque")
+            }
+            // The mirror image, and the whole reason these tokens exist: an
+            // opaque "wash" over Liquid Glass is a plate, and the surface it
+            // covers stops being glass (§2).
+            for (token, color) in washes where color.srgbComponents(for: appearance).alpha >= 1 {
+                failures.append("Surface.\(token) is opaque in \(name) — it washes over glass, it does not replace it")
+            }
+        }
+        return failures
+    }
+
+    /// §3.1/§3.4's hover and selection washes and §2's pill fill are surfaces
+    /// the moment text lands on them, so §21.4 applies to what the eye sees:
+    /// the ink, over the wash, over the plane. `Text.tertiary` is excluded by
+    /// name — it is already at the floor on the bare planes (4.63:1 worst), so
+    /// it has no headroom to spend on a fill and `Tokens.swift` says so.
+    private static func checkFills() -> [String] {
+        var failures: [String] = []
+        for (name, appearance) in appearances {
+            let isDark = appearance.isDark
+            for contrast in [false, true] {
+                // `primary` is system-backed and cannot be resolved "under
+                // Increase Contrast" at all (file header); it only ever gets
+                // stronger, so its rest value is the conservative one to test.
+                let readable: [(String, NSColor)] = [
+                    ("primary", Tokens.Text.primary),
+                    ("secondary", Tokens.Ink.secondary.color(contrast: contrast, dark: isDark))
+                ]
+                for (wash, alphas) in washInks {
+                    let fill = alphas.color(contrast: contrast, dark: isDark)
+                    for (plane, surface) in surfaces {
+                        let seen = fill.flattened(over: surface, in: appearance)
+                        for (text, ink) in readable {
+                            let ratio = ink.contrastRatio(over: seen, in: appearance)
+                            guard ratio < textFloor else { continue }
+                            failures.append(String(
+                                format: "Text.%@ on Surface.%@ over %@ (%@%@) is %.2f:1 — §21.4 needs 4.5:1",
+                                text, wash, plane, name, contrast ? "+contrast" : "", ratio
+                            ))
+                        }
+                    }
+                }
+                // §3.4 needs a selected row to still read as selected under the
+                // pointer, so the two washes may never converge.
+                let hover = Tokens.Ink.hover.alpha(contrast: contrast, dark: isDark)
+                let selected = Tokens.Ink.selected.alpha(contrast: contrast, dark: isDark)
+                if selected <= hover {
+                    failures.append("Ink.selected (\(selected)) is not above Ink.hover (\(hover)) — hovering a selected row would erase it")
+                }
             }
         }
         return failures
@@ -154,13 +241,19 @@ enum TokenCheck {
             failures.append("Ink.hairlineContrast is below §2's 0.20")
         }
         let inks: [(String, InkAlphas)] = [
-            ("secondary", Tokens.Ink.secondary), ("tertiary", Tokens.Ink.tertiary), ("border", Tokens.Ink.border)
+            ("secondary", Tokens.Ink.secondary), ("tertiary", Tokens.Ink.tertiary), ("border", Tokens.Ink.border),
+            ("hover", Tokens.Ink.hover), ("selected", Tokens.Ink.selected), ("chromeFill", Tokens.Ink.chromeFill),
+            // Including `disabled`: a dimmed control still has to be *findable*
+            // for the users who turn Increase Contrast on, even though §21.4
+            // does not apply to its label (`Text.disabled`).
+            ("disabled", Tokens.Ink.disabled), ("popoverShadow", Tokens.Ink.popoverShadow)
         ]
         for (token, alphas) in inks {
             if alphas.contrastLight < alphas.light || alphas.contrastDark < alphas.dark {
                 failures.append("Ink.\(token) gets *weaker* under Increase Contrast")
             }
         }
+        failures += checkDisabledExemption()
         for (name, appearance) in appearances {
             let isDark = appearance.isDark
             for (surface, plane) in surfaces {
@@ -185,88 +278,20 @@ enum TokenCheck {
         return failures
     }
 
-    /// §2: the page-derived wash may never push pill text under 4.5:1. Tested
-    /// with the worst tints a site can hand us — a white and a black
-    /// `theme-color`, plus a saturated one.
-    private static func checkWash() -> [String] {
+    /// §3.1's disabled dim is exempt from §21.4 *because* it is dimmer than
+    /// the quietest tier anyone is meant to read. Checked rather than
+    /// asserted: past `tertiary` it is no longer a dim, it is unreadable body
+    /// text with a note attached, and the exemption stops being honest.
+    private static func checkDisabledExemption() -> [String] {
         var failures: [String] = []
-        let tints: [(String, NSColor)] = [("white", .white), ("black", .black), ("yellow", .systemYellow), ("blue", .systemBlue)]
-        for (name, appearance) in appearances {
-            for (tint, color) in tints {
-                let washed = Tokens.wash(color, over: Tokens.Surface.raised, keeping: Tokens.Text.primary)
-                let ratio = Tokens.Text.primary.contrastRatio(over: washed, in: appearance)
-                if ratio < textFloor {
-                    failures.append(String(format: "wash(%@) in %@ leaves text at %.2f:1 — §2 says drop it instead", tint, name, ratio))
+        for contrast in [false, true] {
+            for isDark in [false, true] {
+                let dim = Tokens.Ink.disabled.alpha(contrast: contrast, dark: isDark)
+                let quietest = Tokens.Ink.tertiary.alpha(contrast: contrast, dark: isDark)
+                if dim >= quietest {
+                    failures.append("Ink.disabled (\(dim)) is not dimmer than Ink.tertiary (\(quietest)) — §21.4's exemption assumes it is")
                 }
             }
-        }
-        return failures
-    }
-
-    // MARK: Numbers
-
-    private static func checkMetrics() -> [String] {
-        var failures: [String] = []
-        let width = Tokens.Metric.sidebarWidth
-        if !(width.min < width.default && width.default < width.max) {
-            failures.append("Metric.sidebarWidth is not min < default < max")
-        }
-        if width.clamp(width.min - 100) != width.min || width.clamp(width.max + 100) != width.max {
-            failures.append("SpanMetric.clamp does not clamp")
-        }
-        let rounded: [(String, RoundedMetric)] = [
-            ("urlPill", Tokens.Metric.urlPill), ("essentialsTile", Tokens.Metric.essentialsTile),
-            ("controlCircle", Tokens.Metric.controlCircle), ("controlSquircle", Tokens.Metric.controlSquircle),
-            ("bottomCircle", Tokens.Metric.bottomCircle), ("spaceDotsPill", Tokens.Metric.spaceDotsPill),
-            ("downloadsPopover", Tokens.Metric.downloadsPopover), ("resizeHandle", Tokens.Metric.resizeHandle)
-        ]
-        for (name, metric) in rounded {
-            if metric.width <= 0 || metric.height <= 0 {
-                failures.append("Metric.\(name) has a non-positive dimension")
-            }
-            if metric.cornerRadius * 2 > Swift.min(metric.width, metric.height) {
-                failures.append("Metric.\(name) radius exceeds half its shorter side")
-            }
-        }
-        let scalars: [(String, CGFloat)] = [
-            ("rowHeight", Tokens.Metric.rowHeight), ("rowInset", Tokens.Metric.rowInset),
-            ("faviconSize", Tokens.Metric.faviconSize), ("rowCornerRadius", Tokens.Metric.rowCornerRadius),
-            ("essentialsTileGap", Tokens.Metric.essentialsTileGap), ("essentialsIcon", Tokens.Metric.essentialsIcon),
-            ("spaceDot", Tokens.Metric.spaceDot), ("windowCornerRadius", Tokens.Metric.windowCornerRadius),
-            ("contentCardRadius", Tokens.Metric.contentCardRadius), ("contentCardGap", Tokens.Metric.contentCardGap),
-            ("topBarHeight", Tokens.Metric.topBarHeight), ("hairline", Tokens.Metric.hairline)
-        ]
-        failures += scalars.filter { $0.1 <= 0 }.map { "Metric.\($0.0) is not positive" }
-        return failures
-    }
-
-    /// §6: nothing over 0.35 s except the two entries tied to real work.
-    private static func checkMotion() -> [String] {
-        let timed: [(String, MotionSpec)] = [
-            ("rowHover", Tokens.Motion.rowHover), ("controlHover", Tokens.Motion.controlHover),
-            ("selectedRowMove", Tokens.Motion.selectedRowMove), ("tabInsert", Tokens.Motion.tabInsert),
-            ("spaceSwitch", Tokens.Motion.spaceSwitch), ("spaceSwitchCrossfade", Tokens.Motion.spaceSwitchCrossfade),
-            ("sidebarCollapse", Tokens.Motion.sidebarCollapse), ("sidebarCollapseOpacity", Tokens.Motion.sidebarCollapseOpacity),
-            ("layoutSwitch", Tokens.Motion.layoutSwitch), ("splitDividerSnap", Tokens.Motion.splitDividerSnap),
-            ("cardFullscreen", Tokens.Motion.cardFullscreen), ("commandBarIn", Tokens.Motion.commandBarIn),
-            ("popoverIn", Tokens.Motion.popoverIn), ("hoverPeek", Tokens.Motion.hoverPeek),
-            ("themeWash", Tokens.Motion.themeWash), ("reloadArcIn", Tokens.Motion.reloadArcIn),
-            ("reloadArcOut", Tokens.Motion.reloadArcOut), ("particleDissolve", Tokens.Motion.particleDissolve),
-            ("particleSettle", Tokens.Motion.particleSettle)
-        ]
-        var failures = timed.filter { $0.1.duration > motionBudget }
-            .map { String(format: "Motion.%@ is %.2f s — §6 caps at 0.35 s", $0.0, $0.1.duration) }
-        failures += timed.filter { $0.1.duration <= 0 }.map { "Motion.\($0.0) has no duration" }
-
-        // A spring must produce a usable animation, or a view falls back to an
-        // instant change and the spec is a lie.
-        for (name, spec) in timed where spec.isSpring {
-            if !Tokens.Motion.reduceMotion && spec.springAnimation(keyPath: "position") == nil {
-                failures.append("Motion.\(name) claims to be a spring but builds no animation")
-            }
-        }
-        if Tokens.Motion.downloadsParticleSweep.duration != 0.40 {
-            failures.append("Motion.downloadsParticleSweep must stay at §5.1's 0.40 s")
         }
         return failures
     }

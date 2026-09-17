@@ -50,6 +50,7 @@ targets:
         buildPhase: none
       - path: UI
       - path: Design
+      - path: Features
     dependencies:
       - package: BrowserKit
 

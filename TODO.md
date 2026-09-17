@@ -197,7 +197,8 @@ luna/
   > Also measured: on macOS 26 `controlBackgroundColor` and `textBackgroundColor` resolve to **exactly** `windowBackgroundColor`, so a system-backed `Surface.raised` would be invisible. It has to be a custom value.
   > `.separatorColor` **is** correct for §8.4's hairline — it resolves to ~9.8 % black / white, which is the spec value. **Correction (M1): the earlier claim that it tracks Increase Contrast was wrong** — see the gotcha below. Its resting value is right; the contrast promotion has to be done by hand.
   > **Gotcha (measured on macOS 26.5, and it changes how all UI code is written):** **Increase Contrast is not an `NSAppearance`.** `NSAppearance(named: .accessibilityHighContrastAqua)` returns the *identical object* (`===`) as `.aqua`, so no dynamic-colour provider can observe it and `NSColor` never gets invalidated. Every token must therefore branch on `NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast` at resolve time, **and every view that draws text or hairlines must redraw on `NSWorkspace.accessibilityDisplayOptionsDidChangeNotification`.** A view that only listens for appearance changes will silently ignore Increase Contrast forever.
-- [ ] **8.2 Space gradients** — each Space carries a 2-stop gradient. Ship ~12 curated pairs plus a custom picker. The gradient is used at 3 intensities: full (Space badge, 28 px circle), 12–18 % wash (sidebar background), and a 3–4 px bar/edge glow at the top of the content area.
+- [ ] **8.2 Space gradients** — **still unbuilt as of M1: every new Space gets the same default pair.** The twelve curated gradients have no home in `Design/` yet, which is the one visible gap in Spaces.
+- [ ] **8.2a (original wording)** — each Space carries a 2-stop gradient. Ship ~12 curated pairs plus a custom picker. The gradient is used at 3 intensities: full (Space badge, 28 px circle), 12–18 % wash (sidebar background), and a 3–4 px bar/edge glow at the top of the content area.
 - [ ] **8.3 Live window tinting from the page** — blend `webView.themeColor` (fallback `underPageBackgroundColor`) into the sidebar/titlebar wash, clamped for contrast (never let a site produce unreadable chrome), animated over ~0.25 s when it changes. This is the single most "Arc-feeling" effect in the whole app; get it right.
 - [ ] **8.4 Materials** — on **macOS 26 (D9)** the native Liquid Glass surfaces are the first choice for the §30.1/§30.2/§30.11 chrome. `NSVisualEffectView` with `.sidebar` / `.headerView` materials and `.followsWindowActiveState` is the fallback *and* the Reduce Transparency path, so it gets built either way. 1 px hairlines at ~10 % white / ~8 % black; selection = translucent fill + inner hairline, never a hard blue rect.
   > **Verify before you build (§0.3):** confirm the Liquid Glass API names and availability in the current SDK. One wrong assumption here propagates through every chrome surface in the app.
@@ -228,12 +229,16 @@ luna/
   > **Correction (M1):** the original wording said "normalised by sampled visit count". Do **not** normalise. A mean makes one typed visit tie a hundred of them. Firefox divides by the sample and then multiplies back by `visit_count`, which for a ≤10-visit window is the plain Σ with extra arithmetic. The sum is the correct and simpler form.
   - Visit-type weights (Firefox-derived starting point): typed 200, bookmarked 140, link 120, redirect/embed 0.
   - Recency buckets (days): ≤4 → 1.0, ≤14 → 0.7, ≤31 → 0.5, ≤90 → 0.3, else 0.1.
-  - **Adaptive history**: remember (typedString → chosenURL). On update `use_count = use_count * 0.9 + 1` (asymptote 10). Adaptive matches rank *above* all frecency results.
+  - **Adaptive history**: remember (typedString → chosenURL). On update `use_count = use_count * 0.9 + 1`. Adaptive matches rank *above* all frecency results.
+  > **Clarification (M1):** 10 is the **fixed point** of `x = 0.9x + 1`, not a clamp — the formula is self-limiting and converges to 10 from below without reaching it. Do not add a `min(_, 10)`; it looks correct and hides the fact that no clamp is needed.
+  > **Correction (M1):** §9.2 lists "open tabs", "pinned/favorites" and "bookmarks" as three sources. In Luna's model an Essential or pinned tab **is** a `Tab` with a `kind`, and §11.1 no longer creates a `bookmarks` table. It is one source, not three.
   - Acceptance: after a week of dogfooding, the intended result is #1 for ≥90 % of 2-character queries in a manual 30-query test set.
 - [ ] **9.4 Inline autofill** of the top URL completion with selected-suffix behaviour; `→` accepts, `Esc` cancels.
 - [ ] **9.5 Search engines** — Google/DuckDuckGo/Kagi/Brave/Bing + custom; **bang-style keywords** (`yt cats` → YouTube). Per-Space default.
 - [ ] **9.6 Privacy** — suggestions network call must be disableable and must never fire for strings that look like URLs, credentials, or local paths.
 - [ ] **9.7 Perf** — results must render within **one frame (16 ms)** of keystroke for local sources; network suggestions merge in asynchronously without reordering under the user's cursor.
+  > **Correction (M1):** this reads as though only network suggestions are asynchronous. **The local store query is asynchronous too, and it is the harder case because it always runs.** It needs the same no-reorder rule: once the user has pressed ↓/↑, late results may only be *appended*. The in-memory sources (tabs, Spaces, adaptive table) are what must resolve synchronously inside the frame; the adaptive table is therefore loaded into memory up front, precisely because adaptive rows rank #1 and cannot arrive a frame late.
+  > **Also:** §9.4's "`Esc` cancels" and §9.1's "`Esc` dismisses" collide. Precedence is two-stage — the first `Esc` cancels an inline completion, the second dismisses the panel.
 
 ---
 
@@ -304,7 +309,8 @@ luna/
 
 ## 15. Downloads
 
-- [ ] **15.1 `WKDownloadDelegate`** — two traps found in M1: **`WKDownload.delegate` is `weak`**, so the delegate must be retained somewhere or downloads die silently; and **`decideDestinationUsing` must answer `(url, true)`** — the second value grants the sandbox extension, and `false` fails the write.
+- [ ] **15.1 `WKDownloadDelegate`** — one real trap: **`WKDownload.delegate` is `weak`**, so it must be retained somewhere or downloads die silently with no error.
+  > **Retracted (verified against `MacOSX26.5.sdk` by probe):** an earlier note here claimed `decideDestinationUsing` must answer `(url, true)`, the second value granting a sandbox extension. **That is stale and does not compile on macOS 26.5.** The SDK's `WKDownloadDelegate` has exactly one required method and it completes with a single `NSURL * _Nullable`. Use the `async -> URL?` form. Left in place as a warning: a plausible-sounding API detail repeated from memory survives review easily.
 - [ ] **15.1a (original wording)** — `decideDestinationUsing:suggestedFilename:` (uniquify into `~/Downloads` or user path), progress via `download.progress`, `didFailWithError:resumeData:` with **resume support**, `didFinish`.
 - [ ] **15.2 Route "should this be a download?"** through `decidePolicyFor navigationResponse` → `.download` when `!canShowMIMEType` or `Content-Disposition: attachment`; also handle `navigationAction` → `.download` for `download` attributes.
 - [ ] **15.3 Downloads UI**: sidebar popover + a persistent panel; reveal in Finder, retry, open, clear; quarantine flag set correctly (`com.apple.quarantine`) so Gatekeeper still protects the user.
@@ -346,7 +352,7 @@ luna/
 - [ ] **18.1 Find in page** — `webView.find(_:configuration:completionHandler:)` with a custom UI, match count, prev/next, highlight-all. (Do **not** hand-roll JS find; the native API exists.)
 - [ ] **18.2 Zoom** — `pageZoom`, `⌘+/-/0`, persisted **per eTLD+1**.
 - [ ] **18.3 Reader mode** — inject a Readability-class extractor, render into our own `luna://reader` template with our typography tokens, font-size/width/theme controls.
-- [ ] **18.4 PiP & media** — **there is no public per-tab audio API.** `requestMediaPlaybackState()` reports a muted autoplay video as "playing", and `_isPlayingAudio` is SPI, banned by D10. Real audibility comes from a small capture-phase JS listener. Budget for that rather than expecting a property.
+- [ ] **18.4 PiP & media** — **there is no public per-tab audio API, and no public per-tab mute either.** `WKWebView` exposes only `setAllMediaPlaybackSuspended`, so §7.3's click-to-mute cannot be per-tab without either suspending all playback or injecting script. Decide which before promising it in the UI. `requestMediaPlaybackState()` reports a muted autoplay video as "playing", and `_isPlayingAudio` is SPI, banned by D10. Real audibility comes from a small capture-phase JS listener. Budget for that rather than expecting a property.
 - [ ] **18.4a (original wording)** — auto-PiP a playing video when its tab goes background (make it an opt-in setting), global mute-all, per-tab mute, Now Playing / media-key integration via `MPNowPlayingInfoCenter` + `MPRemoteCommandCenter`.
 - [ ] **18.8 Web-compat defaults that differ from Safari (found in M0, verify each before relying on it)**
   - `mediaTypesRequiringUserActionForPlayback` must be `[]` to match Safari. Setting `[.audio]` breaks YouTube, because SPA navigations call `play()` outside a user gesture.

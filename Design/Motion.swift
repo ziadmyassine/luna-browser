@@ -156,6 +156,25 @@ extension Tokens {
         /// cached reload (§7).
         static let reloadSkipThreshold: TimeInterval = 0.15
 
+        /// §3.4's loading shimmer: a highlight sweeping across the row title,
+        /// **not a spinner**. 1.1 s per pass, repeating for as long as the tab
+        /// is loading.
+        ///
+        /// **Legitimately exempt from §6's 0.35 s cap.** That cap governs
+        /// *discrete transitions* — the time between a user's action and the
+        /// interface settling — and this one never settles: it is a repeating
+        /// progress indicator whose duration is a rate, not a delay. Nobody
+        /// waits 1.1 s for it, because nothing is pending on it finishing.
+        /// Squeezed under 0.35 s it would read as a strobe on a row the user
+        /// is trying to read, which is worse on every axis including §21.2's.
+        /// `TokenCheck` checks it **by value**, next to §5.1's particle sweep,
+        /// rather than against the budget — so deleting the exemption fails the
+        /// check instead of quietly capping a loading indicator at a flicker.
+        ///
+        /// Linear: a repeating ease-out pulses at the seam where it loops.
+        /// Reduce Motion: do not run it — the title simply stays put (§21.2).
+        static let rowShimmer = MotionSpec(1.10, .linear)
+
         // MARK: Accessibility
 
         /// §21.2. Read live on every access — the user can turn Reduce Motion

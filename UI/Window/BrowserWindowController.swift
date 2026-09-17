@@ -34,7 +34,11 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
 
     private(set) var chromeState: ChromeState = .sidebar(width: Tokens.Metric.sidebarWidth.default)
 
-    convenience init(url: URL) {
+    /// Builds the window and its two hosts. It opens **empty**: the content
+    /// card is filled by `setContent` once `BrowserSession` has a selected tab,
+    /// because a window that loads a page of its own would be a web view for a
+    /// tab nobody chose (§19.4). Wave 2 replaced M0's placeholder web view here.
+    convenience init() {
         let window = NSWindow(
             contentRect: NSRect(
                 x: 0,
@@ -57,10 +61,6 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         buildContent(in: window)
         trafficLights = TrafficLightLayoutManager(window: window)
         apply(chromeState, animated: false)
-
-        let webView = WebViewFactory.makeWebView()
-        card.setContent(webView)
-        webView.load(URLRequest(url: url))
     }
 
     // MARK: - The window itself

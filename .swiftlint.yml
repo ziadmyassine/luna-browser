@@ -3,6 +3,7 @@ included:
   - App
   - UI
   - Design
+  - Features
   - BrowserKit/Sources
   - BrowserKit/Tests
   - Tests

@@ -71,6 +71,7 @@ are near-black and white respectively. The OS does the expensive part for free.
 | Action capsule, control buttons, Essentials tiles | Liquid Glass, clear, over the bar |
 | Downloads popover | Liquid Glass `.regular` + a heavier panel shadow |
 | Content card | Opaque `Surface.base` — never translucent; a web page behind glass is unreadable |
+| URL pill | `.control` glass **plus** a translucent page-derived wash — the one page-tinted surface in the app |
 
 **Page-derived pill wash.** Blend `themeColor` (fallback `underPageBackgroundColor`) into the URL pill
 fill at **12–18 %**, animated over 0.25 s, clamped so pill text always clears 4.5:1 (§21.4). If the
@@ -96,7 +97,10 @@ adds a visible border to each control.
 Vertical order, top to bottom:
 
 ### 3.1 Control row — height 52 pt, top-aligned
-`[traffic lights] · gap · [sidebar toggle squircle 28] · gap 16 · [back circle 35] · gap 8 · [reload circle 35]`
+`[traffic lights] [sidebar toggle 28] ·············· [back 35] [reload 35]`
+> **Corrected in M1** against `inspiration/main-tab-bar-and-ui.png`: the toggle sits beside the traffic
+> lights, and back/reload are pinned to the **trailing** edge (centres ~209 / ~251 pt), not grouped after the
+> toggle. The row must also *measure* the traffic lights rather than assume a width.
 
 - Traffic lights are **system-drawn**, inset into the sidebar. A single `TrafficLightLayoutManager` owns
   their frame for all six window states (§7.7 — this is the #1 bug source in Arc-style browsers).
@@ -111,7 +115,8 @@ Vertical order, top to bottom:
 - Click or `⌘L` → expands to the full URL, selected, in edit mode. `Esc` reverts.
 
 ### 3.3 Essentials grid — 2 across, wrapping
-- Tiles 128 × 42, radius 12, 10 pt gap, 8 pt outer inset.
+- Tiles 128 × 42, radius 12, 10 pt gap, 8 pt outer inset. **Tile width flexes:** 8 + 128 + 10 + 128 + 8 = 282,
+  which does not fit a 280 pt sidebar, and the grid must survive the 180–420 pt resize range regardless.
 - **Icon only, centred, 22 pt.** No label. Visually distinct from the text rows below (§30.5).
 - Translucent fill + hairline. Active Essential gets a brighter fill and a 1 pt accent ring.
 
@@ -186,7 +191,13 @@ On completion the filename **dissolves into particles and reassembles**:
 2. Particles displace upward and outward with per-particle jitter, fading to 0 over **0.22 s**, swept
    left → right so the dissolve reads as directional.
 3. They settle back into place over **0.18 s** with a 0.04 s stagger, ease-out.
-4. Total **0.4 s**. Rendered in a `CAEmitterLayer` or a Metal layer — never 1200 `CALayer`s.
+4. Total **0.4 s**, and the stagger lives **inside** each phase: a given particle's dissolve spans 0.18 s
+   starting at `sweepIndex × 0.04`, so 0.22 + 0.18 = 0.40 overall.
+5. **One composited node**, not 1200 `CALayer`s — that is the rule. `CAEmitterLayer` turns out not to
+   satisfy step 3: it is a simulation with no handle on an individual particle, so "settle back into
+   place with a 0.04 s stagger" is unreachable, and its single `emitterPosition` cannot sample glyph
+   shape. A single layer-backed view drawing every particle itself is correct and costs ~0.3 ms of an
+   8.3 ms frame at 120 Hz.
 - **Reduce Motion: the animation does not run.** The filename simply appears.
 
 ---
@@ -223,7 +234,11 @@ desktop reload. What it shows:
 
 1. The page blurs heavily (illegible) and desaturates toward the surface colour.
 2. A **prismatic arc** sweeps down from the top: a concave-up crescent, horizontally centred, banded
-   **white → amber → lavender → mint** from inner to outer edge, soft-edged and heavily blurred.
+   **white → amber → mint → lavender** from inner to outer edge, soft-edged and heavily blurred.
+   > **Corrected in M1.** This originally read "white → amber → lavender → mint". The clip was sampled at
+   > t = 1.40/1.55/1.70 s by ridge-tracking hue and chroma: amber sits at hue 56°, mint at 194°, lavender at
+   > 277°, composites `#EEECCA` / `#E1EBEF` / `#E2D0EE`. Mint and lavender were transposed. Values live in
+   > `Tokens.Bloom`.
 3. The arc descends and dissipates; the screen reaches near-flat surface colour.
 4. Content returns as a **staggered de-blur**: title first, then body, then chrome icons.
 
@@ -232,13 +247,18 @@ Total in the clip: **~2.3 s**, which is a gesture-driven mobile interaction.
 **Adaptation for Luna.** A 2.3 s full-page blur on every desktop reload would be obnoxious and breaks the
 0.35 s budget. The animation is therefore **bound to real load progress**, not to a fixed duration:
 
+- **The frozen snapshot is released at `progress >= 0.5`**, not only at `didFinish` — otherwise a ten-second
+  load sits under a stale picture of the previous page.
 - **Arc in:** 0.25 s ease-out on reload commit. Blur is **light (8 pt), not illegible** — the page stays
   readable throughout.
 - **Arc hold:** persists while loading, drifting slowly downward. Honest progress, not theatre.
 - **Arc out + de-blur:** 0.30 s on `didFinish`, staggered 40 ms across the viewport top-to-bottom.
 - A load finishing under 0.15 s plays **nothing** — no flash on cached reloads.
 - Implemented as a `CAGradientLayer` arc over the content card with a `CIGaussianBlur` on the snapshot,
-  never on the live webview (blurring a live `WKWebView` costs a full-frame composite per frame).
+  never on the live webview. **It must be `webView.takeSnapshot`, not a layer capture:** a `WKWebView` renders
+  out-of-process, so its local layer is a remote proxy with no backing store and `CALayer.render(in:)` returns
+  blank for page content. The snapshot is blurred **once** into a `CGImage` — measured 6.8 ms for 3200×2000 at
+  sigma 16 — after which steady state is six composited quads and zero CPU.
 - **Reduce Motion: no blur, no arc.** A 2 pt progress line at the top of the content card instead.
 
 ---

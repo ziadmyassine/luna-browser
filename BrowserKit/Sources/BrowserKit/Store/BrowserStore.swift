@@ -31,7 +31,10 @@ public struct HistoryHit: Sendable, Hashable {
 /// touches the disk, so navigation never waits on it. **Call ``flush()`` before quitting.**
 public actor BrowserStore {
 
-    private let pool: DatabasePool
+    // Internal, not private, for exactly one reason: `BrowserStore+InputHistory`
+    // is a separate file (§9.3's adaptive history, which nothing in wave 1 read)
+    // and a `private` member is file-scoped. Still unreachable outside the module.
+    let pool: DatabasePool
     private var pendingVisits: [PendingVisit] = []
     private var flushTask: Task<Void, Never>?
 

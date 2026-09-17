@@ -23,10 +23,17 @@
 //
 //  System-backed vs custom, at a glance:
 //    system  Surface.base, Text.primary, Accent.tint, Accent.danger
-//    custom  Surface.raised, Surface.glassFallback, Text.secondary,
-//            Text.tertiary, Line.border
+//    custom  Surface.raised, Surface.glassFallback, Surface.hover,
+//            Surface.selected, Surface.chromeFill, Text.secondary,
+//            Text.tertiary, Text.disabled, Line.border, Shadow.popover,
+//            Bloom.*
 //    hybrid  Line.hairline (`.separatorColor` normally, promoted by hand
 //            under Increase Contrast — see the comment there)
+//
+//  Opaque planes vs translucent washes: `Surface.base`/`raised`/`glassFallback`
+//  are planes and are opaque. `Surface.hover`/`selected`/`chromeFill` are
+//  washes that sit *over* Liquid Glass and must stay translucent or the glass
+//  they cover stops being glass. `TokenCheck` asserts both halves.
 //
 //  MEASURED, and it changes how every one of these is written: on macOS 26.5
 //  **Increase Contrast is not an appearance.** `NSAppearance(named:)` maps
@@ -85,6 +92,46 @@ enum Tokens {
         static var glassFallback: NSColor {
             dynamicColor(light: 0xE4_E4_E4, dark: 0x23_23_23)
         }
+
+        // The three below are **washes, not planes**: translucent by
+        // construction, because everything they cover is Liquid Glass and an
+        // opaque plate over glass is just a plate. They are ink — black on
+        // light, white on dark — rather than a fixed white, since a 6 % white
+        // over light-mode glass is not a hover state, it is nothing.
+        //
+        // A wash sits under text and therefore spends §21.4 headroom. Measured
+        // over every plane, in both themes and both contrast modes:
+        // `Text.primary` stays above 6.9:1 and `Text.secondary` above 4.68:1
+        // through all three. `Text.tertiary` does **not** — see its comment.
+
+        /// §3.1 and §3.4's "hover **lifts the fill**", at §3.4's 6 %.
+        ///
+        /// Custom: AppKit has no translucent hover fill to borrow —
+        /// `selectedContentBackgroundColor` is an opaque accent rectangle,
+        /// which §8.4 rules out ("never a hard blue rect"). Until this existed
+        /// the sidebar and the top bar could only brighten their glyphs on
+        /// hover, which is the half of the rule that shows least.
+        static var hover: NSColor { inkColor("luna.surface.hover", Ink.hover) }
+
+        /// §3.4's selected-row pill: the same wash at twice the lift, so a
+        /// selected row still reads as selected while the pointer sits on it.
+        /// §3.4 also asks for a visible border on it — that is `Line.border`.
+        ///
+        /// **Unselected rows get no fill at all** (§30.7); this is not a
+        /// default row background.
+        static var selected: NSColor { inkColor("luna.surface.selected", Ink.selected) }
+
+        /// §2's URL-pill fill — the pill is `.control` glass **plus** a
+        /// page-derived wash, and the only page-tinted surface in the app.
+        ///
+        /// It exists because `wash(_:over:upTo:keeping:)` returns a *fill*, and
+        /// a fill built on an opaque plane (`raised`) put an opaque plate over
+        /// the pill's glass and stopped it being glass. Blending on top of this
+        /// instead keeps the result translucent: `blended` is alpha-correct, so
+        /// §2's 12–18 % stays 12–18 % of what reaches the eye through the
+        /// glass. Pass it as `over:`; it is not a plane and nothing should
+        /// paint text directly against it without flattening first.
+        static var chromeFill: NSColor { inkColor("luna.surface.chromeFill", Ink.chromeFill) }
     }
 
     // MARK: - Text
@@ -113,7 +160,32 @@ enum Tokens {
         /// 26 % — **1.88:1**, less than half the floor. These are the lowest
         /// alphas that still clear 4.5:1 on the worst surface:
         /// 4.94 / 4.77 / 4.63 light, 5.12 / 4.73 / 4.99 dark.
+        ///
+        /// **Not for text on a washed row.** Those ratios are on the bare
+        /// planes and they are the floor — 4.63:1 worst — so any fill *under*
+        /// the text spends headroom this tier does not have. Measured with
+        /// `Surface.selected` beneath it, tertiary drops to 3.78:1 (`raised`,
+        /// dark). `primary` and `secondary` survive every wash with room to
+        /// spare and `TokenCheck` proves it; this one does not, and §3.4 asks
+        /// for *brighter* text on a selected row anyway.
         static var tertiary: NSColor { inkColor("luna.text.tertiary", Ink.tertiary) }
+
+        /// §3.1's disabled dim — the back button at **35 %** when `canGoBack`
+        /// is false, and any other control that is showing but inert.
+        ///
+        /// **Exempt from §21.4's 4.5:1 floor, and the only token here that
+        /// is.** WCAG 2.1 SC 1.4.3 exempts incidental text and names *inactive
+        /// user-interface components* in the exemption: a disabled control is
+        /// deliberately de-emphasised and cannot be operated, so a ratio that
+        /// says "do not read this, you cannot use it" is the correct outcome
+        /// rather than a regression. It measures ~2.4:1 on `base` in light.
+        ///
+        /// That exemption is exactly why this token may sit below the floor
+        /// where `Text.tertiary` may not. **Do not reach for it to dim live
+        /// text** — a tab title, a subtitle, a hint — no matter how quiet the
+        /// design wants that text to be. `Text.tertiary` is the floor for
+        /// anything a user is meant to read.
+        static var disabled: NSColor { inkColor("luna.text.disabled", Ink.disabled) }
     }
 
     // MARK: - Lines
@@ -165,31 +237,75 @@ enum Tokens {
         static var danger: NSColor { .systemRed }
     }
 
-    // MARK: - Accessibility
+    // MARK: - Reload bloom (§7)
 
-    /// The three display settings the chrome has to obey (§21.2). Read **live**
-    /// on every access — the user can flip any of them while Luna is running,
-    /// and a value cached at launch is a bug that only shows up in a bug report.
+    /// The §7 reload arc's gradient bands, **inner edge to outer**:
+    /// `core` → `amber` → `mint` → `lavender`, white through to violet.
     ///
-    /// To react rather than merely re-read, observe
-    /// `NSWorkspace.accessibilityDisplayOptionsDidChangeNotification` on
-    /// `NSWorkspace.shared.notificationCenter` — `Glass` does exactly that.
-    enum A11y {
-        static var reduceMotion: Bool {
-            NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        }
+    /// **Measured, not chosen.** Sampled from
+    /// `inspiration/refresh-animation-ui.mov` by ridge-tracking hue and chroma
+    /// across three frames (t ≈ 1.40 / 1.55 / 1.70 s), then tuned until a real
+    /// `CAGradientLayer` composite matched the clip to within ~1.2×
+    /// saturation per band. Do not round them, and do not "correct" them from
+    /// the `#EEECCA` / `#E1EBEF` / `#E2D0EE` triple §7 quotes — those are these
+    /// bands *already composited* over the clip's paper-white page, so
+    /// adopting them would apply the page twice. §7's prose also had mint and
+    /// lavender transposed; the order below is the corrected one.
+    ///
+    /// **Theme-independent on purpose — this is not an oversight, do not add a
+    /// dark variant.** These are *light emitted over page content*, not
+    /// chrome: the arc is additive bloom over a blurred snapshot of whatever
+    /// the page happens to be, so it has no surface to contrast against and
+    /// nothing to re-tune per theme. A dark-mode set would make the same page
+    /// bloom a different colour depending on a system setting, which is the
+    /// one thing the reference never does. `TokenCheck` asserts every band
+    /// resolves *identically* in light and dark, so that "fix" fails the check
+    /// instead of shipping.
+    ///
+    /// Increase Contrast is not consulted either: there is nothing here to
+    /// read, and §21.2's handle on this animation is Reduce Motion — which §7
+    /// turns into "no blur, no arc" via `Motion.reduceMotion`, not into a
+    /// louder arc.
+    enum Bloom {
+        /// #FFFFFF at 22 %. The flat inner core of the crescent.
+        static var core: NSColor { NSColor(srgb: 0xFF_FF_FF, alpha: 0.22) }
 
-        static var reduceTransparency: Bool {
-            NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
-        }
+        /// #F7F0A8 at 23 % — hue 56°.
+        static var amber: NSColor { NSColor(srgb: 0xF7_F0_A8, alpha: 0.23) }
 
-        static var increaseContrast: Bool {
-            NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
-        }
+        /// #BBE9F5 at 24 % — hue 194°.
+        static var mint: NSColor { NSColor(srgb: 0xBB_E9_F5, alpha: 0.24) }
 
-        /// §21.2 / §8: Spaces must be separable by icon and label, not gradient.
-        static var differentiateWithoutColour: Bool {
-            NSWorkspace.shared.accessibilityDisplayShouldDifferentiateWithoutColor
+        /// #D3ADF0 at 44 % — hue 277°, and the outermost band. It carries the
+        /// whole visible edge of the arc as it fades out, which is why its
+        /// alpha nearly doubles rather than continuing the gentle ramp.
+        static var lavender: NSColor { NSColor(srgb: 0xD3_AD_F0, alpha: 0.44) }
+    }
+
+    // MARK: - Shadow (§5)
+
+    /// The chrome's only drop shadow.
+    enum Shadow {
+        /// §2/§5's "heavier panel shadow" under the downloads popover.
+        ///
+        /// **This shadow is standing in for a material that does not exist.**
+        /// §2 asks for "Liquid Glass, heavier"; `NSGlassEffectView.Style` ships
+        /// `.regular` and `.clear` and nothing else (verified against
+        /// MacOSX26.5.sdk — see `Glass.swift`), so the popover's extra visual
+        /// weight has to come from the shadow or from nowhere. Do not delete
+        /// it in favour of a heavier glass style; there isn't one.
+        ///
+        /// Black in both themes — a shadow is absent light, not a colour — but
+        /// roughly twice the alpha in dark mode, where a soft edge against a
+        /// dark desktop otherwise disappears. Increase Contrast pushes it
+        /// further still: the popover renders *outside* the window, so its own
+        /// edge is all that separates it from an arbitrary backdrop.
+        static var popover: ShadowMetric {
+            ShadowMetric(
+                radius: 20,
+                offset: CGSize(width: 0, height: -4),
+                color: shadowInkColor("luna.shadow.popover", Ink.popoverShadow)
+            )
         }
     }
 
@@ -212,151 +328,23 @@ enum Tokens {
         /// §2's hairline promotion. There is no rest value: below Increase
         /// Contrast the hairline *is* `.separatorColor`.
         static let hairlineContrast = 0.20
-    }
 
-    // MARK: - Page-derived wash (§2)
-
-    /// The §2 URL-pill wash: blends a page's `themeColor` into a chrome fill,
-    /// backing the fraction off until `text` still clears §21.4's 4.5:1, and
-    /// dropping the wash entirely rather than shipping unreadable chrome.
-    ///
-    /// This is the blend *helper* only. Deciding when to apply it, animating it
-    /// over `Motion.themeWash`, and skipping it under Reduce Transparency
-    /// (§2) are the consuming view's job.
-    ///
-    /// - Parameters:
-    ///   - tint: the page colour, already bridged from `RGBA`.
-    ///   - fill: the un-washed pill fill.
-    ///   - fraction: §2's upper bound, 12–18 %. Stepped down in 2 % increments.
-    ///   - text: the colour that must stay readable on the result.
-    /// - Returns: a dynamic colour that re-clamps per appearance. Equal to
-    ///   `fill` wherever even 12 % fails.
-    static func wash(
-        _ tint: NSColor,
-        over fill: NSColor,
-        upTo fraction: Double = 0.18,
-        keeping text: NSColor
-    ) -> NSColor {
-        NSColor(name: nil) { appearance in
-            var amount = fraction
-            while amount >= 0.12 {
-                let candidate = fill.blended(toward: tint, fraction: amount, in: appearance)
-                if text.contrastRatio(over: candidate, in: appearance) >= 4.5 {
-                    return candidate
-                }
-                amount -= 0.02
-            }
-            return fill
-        }
-    }
-}
-
-// MARK: - Colour maths
-
-extension NSColor {
-
-    /// sRGB components resolved for `appearance`. Straight-alpha, 0...1.
-    ///
-    /// A dynamic colour only knows its value while an appearance is current,
-    /// which is why this takes one rather than reading a global.
-    func srgbComponents(for appearance: NSAppearance) -> SRGB {
-        var out = SRGB(red: 0, green: 0, blue: 0, alpha: 0)
-        appearance.performAsCurrentDrawingAppearance {
-            guard let srgb = self.usingColorSpace(.sRGB) else { return }
-            out = SRGB(
-                red: Double(srgb.redComponent),
-                green: Double(srgb.greenComponent),
-                blue: Double(srgb.blueComponent),
-                alpha: Double(srgb.alphaComponent)
-            )
-        }
-        return out
-    }
-
-    /// WCAG 2.1 contrast ratio of this colour **composited over** `background`.
-    ///
-    /// Compositing first is the point: Luna's text tokens are translucent ink,
-    /// so comparing their raw values against a surface would report a ratio
-    /// that never appears on screen.
-    func contrastRatio(over background: NSColor, in appearance: NSAppearance) -> Double {
-        let back = background.srgbComponents(for: appearance)
-        let front = srgbComponents(for: appearance)
-        let composited = SRGB(
-            red: front.red * front.alpha + back.red * (1 - front.alpha),
-            green: front.green * front.alpha + back.green * (1 - front.alpha),
-            blue: front.blue * front.alpha + back.blue * (1 - front.alpha),
-            alpha: 1
-        )
-        let lhs = composited.relativeLuminance, rhs = back.relativeLuminance
-        return (max(lhs, rhs) + 0.05) / (min(lhs, rhs) + 0.05)
-    }
-
-    /// Linear sRGB blend toward `other`, resolved for `appearance`.
-    func blended(toward other: NSColor, fraction: Double, in appearance: NSAppearance) -> NSColor {
-        let from = srgbComponents(for: appearance)
-        let to = other.srgbComponents(for: appearance)
-        let mix = { (lhs: Double, rhs: Double) in lhs + (rhs - lhs) * fraction }
-        return NSColor(
-            srgbRed: mix(from.red, to.red),
-            green: mix(from.green, to.green),
-            blue: mix(from.blue, to.blue),
-            alpha: from.alpha
-        )
-    }
-}
-
-/// Straight-alpha sRGB, 0...1. A named type rather than a tuple because four
-/// unlabelled `Double`s in a row is how a red ends up in the blue channel.
-struct SRGB: Sendable {
-    var red: Double
-    var green: Double
-    var blue: Double
-    var alpha: Double
-
-    /// WCAG 2.1 relative luminance. Alpha is ignored — composite first.
-    var relativeLuminance: Double {
-        let linear = { (channel: Double) in
-            channel <= 0.03928 ? channel / 12.92 : pow((channel + 0.055) / 1.055, 2.4)
-        }
-        return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue)
-    }
-}
-
-// MARK: - Appearance helpers
-
-extension NSAppearance {
-
-    /// True for `darkAqua` and its vibrant / high-contrast variants.
-    var isDark: Bool {
-        bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-    }
-}
-
-// MARK: - Token constructors
-
-/// A translucent token's alpha in each theme, plus the pair Increase Contrast
-/// switches to.
-struct InkAlphas: Sendable {
-    var light: Double
-    var dark: Double
-    var contrastLight: Double
-    var contrastDark: Double
-
-    /// The pair in force right now.
-    var inForce: (light: Double, dark: Double) {
-        Tokens.A11y.increaseContrast ? (contrastLight, contrastDark) : (light, dark)
-    }
-
-    /// One specific variant, for `TokenCheck` — which has to reach the
-    /// contrast branch without being able to turn the system setting on.
-    func color(contrast: Bool, dark isDark: Bool) -> NSColor {
-        let alpha = switch (isDark, contrast) {
-        case (true, true): contrastDark
-        case (true, false): dark
-        case (false, true): contrastLight
-        case (false, false): light
-        }
-        return NSColor(white: isDark ? 1 : 0, alpha: alpha)
+        /// §3.4's 6 %. Doubled under Increase Contrast: a 6 % wash is the first
+        /// thing to vanish for the users who turn that setting on.
+        static let hover = InkAlphas(light: 0.06, dark: 0.06, contrastLight: 0.12, contrastDark: 0.12)
+        /// §3.4's selected pill, twice `hover` so the two stay separable.
+        /// Capped by §21.4, not by taste — `TokenCheck.checkFills` re-derives
+        /// what the row's text measures once this wash is under it.
+        static let selected = InkAlphas(light: 0.12, dark: 0.12, contrastLight: 0.22, contrastDark: 0.22)
+        /// §2's URL-pill fill. Low enough that the glass behind it still reads
+        /// as glass, high enough to give the page wash something to blend into.
+        static let chromeFill = InkAlphas(light: 0.08, dark: 0.10, contrastLight: 0.14, contrastDark: 0.16)
+        /// §3.1's 35 % dim. Exempt from §21.4 — see `Text.disabled`. It still
+        /// gains under Increase Contrast, because "disabled" has to remain
+        /// *legible as a control* even when it is not readable as text.
+        static let disabled = InkAlphas(light: 0.35, dark: 0.35, contrastLight: 0.50, contrastDark: 0.50)
+        /// §5's panel shadow — black in both themes, see `Shadow.popover`.
+        static let popoverShadow = InkAlphas(light: 0.24, dark: 0.46, contrastLight: 0.40, contrastDark: 0.62)
     }
 }
 
@@ -367,29 +355,17 @@ private func dynamicColor(light: UInt32, dark: UInt32) -> NSColor {
     }
 }
 
-/// Translucent ink — black on light, white on dark. Translucent rather than a
-/// fixed grey so the token keeps its ratio on whichever surface it lands on.
-///
-/// The Increase Contrast branch is taken *here*, not inside the provider,
-/// because the provider cannot see the setting (file header). The two variants
-/// get different colour names because an `NSColor` name is its identity.
-private func inkColor(_ name: String, _ alphas: InkAlphas) -> NSColor {
-    let contrast = Tokens.A11y.increaseContrast
-    let pair = alphas.inForce
-    return NSColor(name: NSColor.Name(contrast ? name + ".contrast" : name)) { appearance in
-        let isDark = appearance.isDark
-        return NSColor(white: isDark ? 1 : 0, alpha: isDark ? pair.dark : pair.light)
-    }
-}
-
 private extension NSColor {
-    /// 0xRRGGBB, sRGB, opaque. The only hex entry point in the codebase.
-    convenience init(srgb hex: UInt32) {
+    /// 0xRRGGBB, sRGB. The only hex entry point in the codebase, and private on
+    /// purpose: §8.1's "no literal hex outside this file" is then a matter of
+    /// visibility rather than of review. `alpha` defaults to opaque, for the
+    /// planes; `Bloom` passes its measured emission alphas.
+    convenience init(srgb hex: UInt32, alpha: CGFloat = 1) {
         self.init(
             srgbRed: CGFloat((hex >> 16) & 0xFF) / 255,
             green: CGFloat((hex >> 8) & 0xFF) / 255,
             blue: CGFloat(hex & 0xFF) / 255,
-            alpha: 1
+            alpha: alpha
         )
     }
 }
