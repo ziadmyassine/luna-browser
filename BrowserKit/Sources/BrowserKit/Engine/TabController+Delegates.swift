@@ -19,6 +19,30 @@ extension TabController: WKNavigationDelegate {
             decisionHandler(.allow)
             return
         }
+        // §4.4 comes first, because `NavigationPolicy.disposition` would hand a
+        // `luna://` URL straight to `.display` — which is right for Luna's own
+        // navigation and wrong for a page that links to one.
+        if url.scheme?.lowercased() == InternalPages.scheme {
+            decisionHandler(decideInternalPage(url, navigationAction))
+            return
+        }
+        // §17, main frame only — a sub-frame does not change the site the user is
+        // on, and re-scoping the rule lists for one would disable blocking for the
+        // whole page.
+        if navigationAction.targetFrame?.isMainFrame ?? false {
+            ContentBlocker.shared.apply(to: webView.configuration.userContentController, host: url.host())
+            // §17.6. `preferredHTTPSNavigationPolicy` cannot do this: measured, both of
+            // its values end an http-only navigation at `about:blank` with `didFinish`
+            // and **no** delegate error, so there is no hook to put an interstitial on.
+            // Luna upgrades and cancels itself instead. `bypassedURL` is the user having
+            // already said "continue anyway" on the downgrade page.
+            if case let .upgrade(upgraded) = ContentBlocker.shared.httpsDecision(for: url),
+               url != bypassedURL {
+                decisionHandler(.cancel)
+                load(upgraded)
+                return
+            }
+        }
         switch NavigationPolicy.disposition(for: url) {
         case .display:
             decisionHandler(.allow)
@@ -81,36 +105,91 @@ extension TabController: WKNavigationDelegate {
         publishState()
     }
 
+    /// §4.5: nothing committed, so WebKit is about to show its own grey default
+    /// page. Ours goes there instead.
     public func webView(
         _ webView: WKWebView,
         didFailProvisionalNavigation navigation: WKNavigation!,
         withError error: Error
     ) {
-        reportNavigationFailure(error)
+        guard reportNavigationFailure(error) else { return }
+        presentErrorPage(for: error, in: webView)
     }
 
+    /// A failure *after* `didCommit` leaves a partly-rendered page on screen.
+    /// Replacing it with an error page would throw away content the user can
+    /// already read, so this one only reports.
     public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        reportNavigationFailure(error)
+        _ = reportNavigationFailure(error)
     }
 
     public func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         recoverFromDeadProcess()
     }
 
-    private func reportNavigationFailure(_ error: Error) {
+    /// §4.4's two rules in one place: only Luna may navigate to a `luna://` URL,
+    /// and an action URL is performed rather than loaded.
+    ///
+    /// The trust signal is the *source document's* scheme, because that is the
+    /// one thing web content cannot forge — a link, a form, an iframe and a
+    /// `location.href` on `https://evil.example` all report `https` here, while
+    /// Luna's own loads either carry the one-shot token or come from another
+    /// internal page.
+    private func decideInternalPage(
+        _ url: URL,
+        _ navigationAction: WKNavigationAction
+    ) -> WKNavigationActionPolicy {
+        let sourceScheme = navigationAction.sourceFrame.request.url?.scheme
+        guard allowsInternalNavigation(to: url, fromDocumentScheme: sourceScheme) else { return .cancel }
+        guard case let .action(action) = InternalPages.route(url) else { return .allow }
+        // Not a document: cancel the navigation and do the thing it stands for.
+        perform(action)
+        return .cancel
+    }
+
+    /// Replaces WebKit's default failure page with §4.5's (§4.4 for the route).
+    ///
+    /// The failing URL comes from the error rather than from `webView.url`:
+    /// nothing committed, so the web view still reports the *previous* page — or
+    /// nothing at all for a tab's first load.
+    private func presentErrorPage(for error: Error, in webView: WKWebView) {
+        let nsError = error as NSError
+        let failing = nsError.userInfo[NSURLErrorFailingURLErrorKey] as? URL ?? fallbackURL
+        // An internal page cannot fail — the handler answers every task — so a
+        // `luna://` failure here is something else, and routing to another
+        // internal page would be a loop with no exit.
+        guard failing?.scheme?.lowercased() != InternalPages.scheme else { return }
+        // §17.6: an https failure Luna is itself the reason for. The interstitial
+        // offers the http original rather than a retry that would fail identically.
+        if let failing, let origin = ContentBlocker.shared.downgradeOrigin(for: failing) {
+            showErrorPage(.httpsDowngrade, for: origin)
+            return
+        }
+        let kind = InternalPageError.kind(for: error)
+        // Only where our own copy is vague: repeating "you're offline" in
+        // smaller type underneath "You're offline" is noise.
+        let detail = (kind == .generic || kind == .tls) ? nsError.localizedDescription : nil
+        showErrorPage(kind, for: failing, detail: detail)
+    }
+
+    /// - Returns: whether this was a real failure, rather than one of the two
+    ///   that mean "WebKit handed the navigation somewhere else".
+    @discardableResult
+    private func reportNavigationFailure(_ error: Error) -> Bool {
         publishState()
         // `.cancelled` is what a policy decision of `.cancel` and every download handoff
         // look like from here. Surfacing it would put an error page over a working
         // download.
         let nsError = error as NSError
-        guard !(nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled) else { return }
+        guard !(nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled) else { return false }
         // "Frame load interrupted": what a `.download` policy decision looks like from
         // here. Modern `WKError` has no case for it — the constant only exists as the
         // deprecated `WebKitErrorFrameLoadInterruptedByPolicyChange = 102` in legacy
         // `WebKitErrors.h`, so it is matched by domain and code rather than by importing
         // a symbol that warns.
-        guard !(nsError.domain == "WebKitErrorDomain" && nsError.code == 102) else { return }
+        guard !(nsError.domain == "WebKitErrorDomain" && nsError.code == 102) else { return false }
         delegate?.tabController(self, didFailWith: error)
+        return true
     }
 }
 

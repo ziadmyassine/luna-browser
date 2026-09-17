@@ -43,12 +43,14 @@ extension BrowserSession {
     /// §19.2: the active tab plus the last three stay awake, and so does
     /// anything making noise. Everything else loses its web view — and with it
     /// its WebContent process — while keeping its title, icon and blob.
+    /// §19.2's budget, applied the moment a new web view is created.
+    ///
+    /// Delegated to the lifecycle pass rather than reimplemented here: this used
+    /// to hibernate anything outside MRU-4 *instantly*, with no grace period and
+    /// no exemption for unsaved form input — so typing into a fifth tab and
+    /// switching away could drop what you typed. One policy, one place.
     func enforceLiveTabBudget() {
-        let keep = Set(recentTabs.prefix(Self.liveTabBudget))
-        for (id, controller) in controllers where !keep.contains(id) && !controller.state.isPlayingAudio {
-            controller.hibernate()
-            cacheSession(of: controller)
-        }
+        TabLifecycle.enforceBudget(in: self)
     }
 
     func promote(_ id: UUID) {
@@ -68,7 +70,11 @@ extension BrowserSession {
     }
 
     func noteVisit(_ url: URL, title: String, tabID: UUID) {
-        guard recordedURL[tabID] != url, let scheme = url.scheme, scheme != "about" else { return }
+        // `about:` and `luna:` are chrome, not places the user went. Letting
+        // them in would put the New Tab page and the archive into history,
+        // and then into the Command Bar's suggestions (§9.2).
+        guard recordedURL[tabID] != url, let scheme = url.scheme,
+              scheme != "about", scheme != InternalPages.scheme else { return }
         recordedURL[tabID] = url
         let kind = pendingVisitKind.removeValue(forKey: tabID) ?? .link
         let store = store

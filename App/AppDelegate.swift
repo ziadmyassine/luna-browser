@@ -82,6 +82,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func startSession(in controller: BrowserWindowController) async {
         do {
             let store = try BrowserStore(path: Self.databaseURL)
+            // §17.1: compiles cached rule lists and schedules the refresh. Before the
+            // session, so the first web view is built with the lists already applied.
+            ContentBlocker.shared.start(browserStore: store)
             let session = try await BrowserSession.restored(store: store)
             self.store = store
             self.session = session
@@ -98,6 +101,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
             wireCommandBar(session, in: controller)
             wireDownloads(session, topBar: topBar)
+            // §4.4: the New Tab page, the archive browser and the token→CSS
+            // palette. Must follow the sidebar, whose Archive row it claims.
+            InternalPagesInstaller.install(session: session, sidebar: sidebar)
+            // §19.2/§19.5: the hibernation sweep, the auto-archive clock and the
+            // memory-pressure source. Before the first tab, so the budget is
+            // never briefly unenforced.
+            session.installLifecycle()
+            // A Space with nothing in it would otherwise show an empty content
+            // card. A restore that *has* tabs deliberately selects none of them
+            // (§19.4) — that is the memory budget, not a missing page.
+            if session.activeTabID == nil, session.tabs.isEmpty {
+                session.newTab(url: InternalPages.Page.newTab.url)
+            }
             render()
         } catch {
             NSApp.presentError(error)

@@ -39,14 +39,14 @@ public final class TabController: NSObject {
 
     static let mediaMessageName = "lunaMedia"
 
-    private let mediaRelay = MediaMessageRelay()
+    private let messageRelay = ScriptMessageRelay()
 
     public init(id: UUID, dataStore: WKWebsiteDataStore) {
         self.id = id
         self.dataStore = dataStore
         state = TabState()
         super.init()
-        mediaRelay.owner = self
+        messageRelay.owner = self
     }
 
     // MARK: - Lifecycle
@@ -104,6 +104,10 @@ public final class TabController: NSObject {
         // An explicit navigation replaces the stored session; restoring it first would
         // pay for a full page load we are about to throw away.
         savedInteractionState = nil
+        // Only Luna's own code reaches this method, so a `luna://` URL arriving here
+        // is trusted by construction (§4.4). Web content's route in is
+        // `decidePolicyFor`, which has no such token and is refused there.
+        if url.scheme?.lowercased() == InternalPages.scheme { expectedInternalLoad = url }
         let webView = ensureWebView(restoringSession: false)
         Self.load(url, into: webView)
     }
@@ -117,6 +121,22 @@ public final class TabController: NSObject {
             webView.load(URLRequest(url: url))
         }
     }
+
+    // MARK: - Internal pages (§4.4, §4.5)
+    //
+    // Only the stored state is here — a Swift extension cannot add any. The
+    // behaviour is in `InternalPages/TabController+InternalPages.swift`.
+
+    /// The one `luna://` URL this tab may navigate to next, because Luna asked
+    /// for it. Consumed on the matching decision.
+    var expectedInternalLoad: URL?
+
+    /// The URL the user chose from an interstitial's "Continue Anyway", live for
+    /// that one navigation and cleared when it commits. **§17's blocking must
+    /// let this URL through**, or the button does nothing. `internal(set)`
+    /// because `private` is file-scoped and the setter is next door; nothing
+    /// outside `BrowserKit` can write it.
+    public internal(set) var bypassedURL: URL?
 
     public func reload() { webView?.reload() }
     public func stop() { webView?.stopLoading() }
@@ -166,11 +186,15 @@ public final class TabController: NSObject {
         let controller = webView.configuration.userContentController
         // Adding a name that is already registered raises `NSInvalidArgumentException`;
         // removing one that is not is a no-op. Always pay the cheap call.
-        controller.removeScriptMessageHandler(forName: Self.mediaMessageName)
-        controller.add(mediaRelay, name: Self.mediaMessageName)
-        controller.addUserScript(
-            WKUserScript(source: Self.mediaScript, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
-        )
+        for name in [Self.mediaMessageName, ContentBlocker.blockedMessageName] {
+            controller.removeScriptMessageHandler(forName: name)
+            controller.add(messageRelay, name: name)
+        }
+        for source in [Self.mediaScript, ContentBlocker.blockedCountScript] {
+            controller.addUserScript(
+                WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
+            )
+        }
 
         // WebKit posts these on the main thread; `assumeIsolated` states that instead of
         // hiding it behind an unchecked conformance.
@@ -209,6 +233,7 @@ public final class TabController: NSObject {
         let controller = view.configuration.userContentController
         controller.removeAllUserScripts()
         controller.removeScriptMessageHandler(forName: Self.mediaMessageName)
+        controller.removeScriptMessageHandler(forName: ContentBlocker.blockedMessageName)
 
         // Picture-in-Picture and element fullscreen outlive their web view: without this
         // a hibernated tab leaves a floating video playing with nothing behind it. The
@@ -258,6 +283,12 @@ public final class TabController: NSObject {
         state.title = ""
         state.themeColor = nil
         audibleFrames.removeAll()
+        // The interstitial bypass is good for the one navigation it was granted
+        // for. Leaving it set would quietly allowlist the site for as long as the
+        // tab lives (§4.5).
+        bypassedURL = nil
+        // §17.4's count is per document, and the page's own counter restarts too.
+        ContentBlocker.shared.resetBlockedCount(tab: id)
     }
 
     func publishState() {
@@ -303,6 +334,13 @@ public final class TabController: NSObject {
         }
     }
 
+    /// §17.4's count, from `ContentBlocker`'s page script. A heuristic by
+    /// necessity: WebKit exposes no blocked-load callback.
+    func handleBlockedMessage(_ message: WKScriptMessage) {
+        guard let body = message.body as? [String: Any], let count = body["count"] as? Int else { return }
+        ContentBlocker.shared.setBlockedCount(count, tab: id)
+    }
+
     func handleMediaMessage(_ message: WKScriptMessage) {
         guard let body = message.body as? [String: Any],
               let audible = body["audible"] as? Bool
@@ -338,23 +376,4 @@ public final class TabController: NSObject {
       post();
     })();
     """
-}
-
-/// `WKUserContentController` retains its message handlers **strongly**. Registering the
-/// controller itself would close a cycle — controller → web view → configuration →
-/// content controller → controller — that never releases, so a tab dropped without
-/// `hibernate()` would keep its whole WebContent process alive and its `deinit` would
-/// never run to notice. The relay holds the controller weakly, so forgetting is
-/// survivable rather than a leaked process.
-@MainActor
-final class MediaMessageRelay: NSObject, WKScriptMessageHandler {
-    weak var owner: TabController?
-
-    func userContentController(
-        _ userContentController: WKUserContentController,
-        didReceive message: WKScriptMessage
-    ) {
-        guard message.name == TabController.mediaMessageName else { return }
-        owner?.handleMediaMessage(message)
-    }
 }

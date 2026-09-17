@@ -41,6 +41,9 @@ public enum WebViewFactory {
         // shape where per-tab handlers are safe; it keeps the process pool, data store
         // and preferences that carry the opener relationship.
         configuration.userContentController = WKUserContentController()
+        // §17.1: the popup's fresh controller starts with no rule lists on it, so a
+        // `target="_blank"` window would load unfiltered without this second call.
+        ContentBlocker.shared.apply(to: configuration.userContentController)
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.allowsBackForwardNavigationGestures = true
@@ -68,6 +71,15 @@ public enum WebViewFactory {
         // One controller per web view: script message handler names are registered on
         // the controller, so a shared one makes handlers collide across tabs.
         configuration.userContentController = WKUserContentController()
+        // §17.1's compiled `WKContentRuleList`s. Per-site exemptions re-apply on
+        // navigation (`TabController.decidePolicyFor`); this is the resting set.
+        ContentBlocker.shared.apply(to: configuration.userContentController)
+
+        // §4.4. Registered here and nowhere else: `setURLSchemeHandler` raises
+        // `NSInvalidArgumentException` for a scheme that already has one, and the
+        // `createWebViewWith` path above deliberately does **not** re-register —
+        // a popup arrives carrying the opener's configuration, which already has it.
+        configuration.setURLSchemeHandler(InternalPageHandler.shared, forURLScheme: InternalPages.scheme)
         return configuration
     }
 }

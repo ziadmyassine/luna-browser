@@ -168,7 +168,10 @@ final class BrowserSession {
     /// exempt as well, checked live.
     static let liveTabBudget = 4
     private static let activeSpaceKey = "luna.activeSpaceID"
-    static let blankPage = URL(string: "about:blank")!
+    /// What a tab with no URL of its own opens — ⌘T and popups. The New Tab
+    /// page rather than `about:blank`, so §30.19's surface is reachable from
+    /// more than an empty Space.
+    static let blankPage = InternalPages.Page.newTab.url
 
     // MARK: - Restore (§6.2, §19.4)
 
