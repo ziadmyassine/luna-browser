@@ -120,6 +120,78 @@ extension TokenCheck {
         return failures
     }
 
+    /// §7's 1× pair, **re-derived rather than restated**. Both are functions of
+    /// `Ink.glassTint`, so nudging that one alpha has to move both or the
+    /// adaptation silently stops being the thing the comments describe:
+    ///
+    ///   · `glassTintControl` is half of `glassTint`, exactly.
+    ///   · `glassTintDense` is `glassTint` + 0.16 — the measured step, see
+    ///     `DisplayScale.swift` for the sweep it comes from.
+    ///
+    /// Plus the two invariants that make §7 honest at all: the order is
+    /// control < plain < dense in every variant, and none of the three may
+    /// reach opacity, because a chrome tint that hides the desktop is not
+    /// glass being optimised, it is glass being replaced.
+    static func checkGlassOptimisation() -> [String] {
+        var failures: [String] = []
+        let tolerance = 0.006
+        /// Past this the chrome transmits less than a third of the desktop.
+        let ceiling = 0.70
+        /// The measured step: ≈ +4 luminance units on `.regular` glass.
+        let denseStep = 0.16
+        for contrast in [false, true] {
+            for isDark in [false, true] {
+                let variant = "\(isDark ? "dark" : "light")\(contrast ? "+contrast" : "")"
+                let plain = Tokens.Ink.glassTint.alpha(contrast: contrast, dark: isDark)
+                let dense = Tokens.Ink.glassTintDense.alpha(contrast: contrast, dark: isDark)
+                let control = Tokens.Ink.glassTintControl.alpha(contrast: contrast, dark: isDark)
+                failures += glassTintOrder(plain: plain, dense: dense, control: control, variant: variant)
+                if abs(control - plain / 2) > tolerance {
+                    failures.append(String(
+                        format: "Ink.glassTintControl is %.3f in %@ — §7 derives it as half of glassTint (%.3f)",
+                        control, variant, plain / 2
+                    ))
+                }
+                if abs(dense - (plain + denseStep)) > tolerance {
+                    failures.append(String(
+                        format: "Ink.glassTintDense is %.3f in %@ — the measured step puts it at %.3f",
+                        dense, variant, plain + denseStep
+                    ))
+                }
+                if dense > ceiling {
+                    failures.append(String(
+                        format: "Ink.glassTintDense is %.3f in %@ — past %.2f the chrome stops sampling the desktop (§2)",
+                        dense, variant, ceiling
+                    ))
+                }
+            }
+        }
+        return failures
+    }
+
+    /// §7's ordering, split out of `checkGlassOptimisation` for the complexity
+    /// limit. The control must stay lighter than the bar it sits on, and the
+    /// optimised bar must actually be denser than the plain one — "increased
+    /// alpha" is the claim §7 makes and this is where it stops being prose.
+    private static func glassTintOrder(plain: Double, dense: Double, control: Double, variant: String) -> [String] {
+        var failures: [String] = []
+        if dense <= plain {
+            failures.append(String(
+                format: "Ink.glassTintDense (%.3f) is not above glassTint (%.3f) in %@ — §7 says the 1× bar thickens",
+                dense, plain, variant
+            ))
+        }
+        if control >= plain {
+            failures.append(String(
+                format: "Ink.glassTintControl (%.3f) is not below glassTint (%.3f) in %@ — the control would read as a slab",
+                control, plain, variant
+            ))
+        }
+        for (token, alpha) in [("glassTintDense", dense), ("glassTintControl", control)] where !(0...1).contains(alpha) || alpha >= 1 {
+            failures.append(String(format: "Ink.%@ is %.3f in %@ — a tint is not a plane", token, alpha, variant))
+        }
+        return failures
+    }
 }
 
 #endif

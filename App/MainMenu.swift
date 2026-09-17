@@ -69,6 +69,10 @@ enum MainMenu {
         return menu(name, [
             item("About \(name)", #selector(NSApplication.orderFrontStandardAboutPanel(_:))),
             .separator(),
+            // SETTINGS-SPEC §2's `⌘,`. Opens the window or brings the one that
+            // is already open forward; there is exactly one for the life of the
+            // app, and it does not need a session, so it works during a cold
+            // launch (see `AppDelegate.validateMenuItem`).
             item("Settings…", #selector(AppDelegate.showSettings(_:)), ","),
             .separator(),
             item("Hide \(name)", #selector(NSApplication.hide(_:)), "h"),
@@ -136,8 +140,38 @@ enum MainMenu {
             item("Show Next Tab", #selector(AppDelegate.nextTab(_:)),
                  arrow: NSRightArrowFunctionKey, modifiers: [.command, .option]),
             .separator(),
-            item("Bring All to Front", #selector(NSApplication.arrangeInFront(_:)))
+            item("Bring All to Front", #selector(NSApplication.arrangeInFront(_:))),
+            .separator(),
+            submenu(settingsSectionsMenu())
         ])
+    }
+
+    /// SETTINGS-SPEC §2's `⌘F` and `⌘1…⌘9`, as menu items rather than as an
+    /// event monitor (§22.5).
+    ///
+    /// **They live after the Spaces menu on purpose.** Measured against macOS
+    /// 26.5: AppKit's key-equivalent search stops at the *first* item whose key
+    /// equivalent matches, in menu-bar order, and consumes the event there even
+    /// when that item is disabled or has no target. The Spaces menu already owns
+    /// `⌘1…⌘N`, so putting these earlier would break Space switching outright,
+    /// while putting them later leaves the first N shadowed — which is why
+    /// `SettingsWindowController` also claims `switchToSpace(_:)`. Every one of
+    /// the nine is still reachable by clicking, on every launch.
+    private static func settingsSectionsMenu() -> NSMenu {
+        var items: [NSMenuItem] = [
+            item("Search Settings", #selector(SettingsWindowController.focusSettingsSearch(_:)), "f"),
+            .separator()
+        ]
+        for (index, section) in SettingsSectionRegistry.all.enumerated() {
+            let entry = item(
+                section.title,
+                #selector(SettingsWindowController.goToSettingsSection(_:)),
+                index < 9 ? String(index + 1) : ""
+            )
+            entry.tag = index
+            items.append(entry)
+        }
+        return menu("Settings", items)
     }
 
     private static func helpMenu() -> NSMenu {

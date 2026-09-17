@@ -321,15 +321,6 @@ extension Tokens {
         /// like. This is low enough that the page reads through it as itself.
         static let scrimStrength: CGFloat = 0.55
 
-        // MARK: History (§6.4)
-
-        /// §6.4's floating history panel. As wide as the Command Bar — they are
-        /// the same kind of surface over the same page, and two transient
-        /// panels of different widths read as two different apps. The height is
-        /// a ceiling, not a size: the panel shrinks to the window when the
-        /// window is shorter, and to its rows when there are few of them.
-        static let historyPanel = CGSize(width: windowMinWidth, height: 520)
-
         // MARK: Settings window
 
         /// The Settings window's own sidebar. Narrower than the browser's —
@@ -360,38 +351,6 @@ extension Tokens {
         /// way past, so the width can be as generous as the gesture wants.
         static let sidebarPeekEdge: CGFloat = 24
 
-        // MARK: Downloads popover (§5)
-
-        /// ~330 × 58, radius 14.
-        static let downloadsPopover = RoundedMetric(width: 330, height: 58, cornerRadius: 14)
-        static let downloadsFileIcon: CGFloat = 34
-        static let downloadsConfirm = RoundedMetric(width: 30, height: 30, cornerRadius: 9)
-        /// The side of §5's pointer tail — the square that is rotated 45° and
-        /// half-buried in the popover's bottom edge, so the tip reaches
-        /// `tail × √2 / 2` below the body.
-        ///
-        /// §5 draws the tail and gives it no number. Deriving it from the
-        /// popover's own corner radius is what keeps it proportioned to the
-        /// surface it grows out of instead of to a number nobody measured.
-        static let downloadsPopoverTail = downloadsPopover.cornerRadius
-
-        // MARK: Reload bloom (§7)
-
-        /// §7's "**light (8 pt), not illegible**" blur on the frozen snapshot.
-        /// Points, not pixels: the snapshot comes back at the display's backing
-        /// scale, so the caller scales this into snapshot space or the blur is
-        /// half as strong on 1x and twice as strong on a future 3x.
-        static let reloadBlurRadius: CGFloat = 8
-        /// §7's Reduce Motion path: a 2 pt progress line across the top of the
-        /// content card, and no blur and no arc at all.
-        static let reloadProgressLine: CGFloat = 2
-
-        // MARK: Window (M0 — consumed by `BrowserWindowController`)
-
-        static let windowMinWidth: CGFloat = 640
-        static let windowMinHeight: CGFloat = 480
-        static let windowDefaultWidth: CGFloat = 1200
-        static let windowDefaultHeight: CGFloat = 800
     }
 
     /// §1's type scale. System font throughout (§8.6/§8.7).

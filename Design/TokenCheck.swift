@@ -21,13 +21,18 @@
 //      while these values were chosen:
 //          swiftc -swift-version 6 -strict-concurrency=complete \
 //                 -target arm64-apple-macos26.0 -DTOKENCHECK_MAIN \
+//                 -enable-upcoming-feature ExistentialAny \
 //                 Design/Tokens.swift Design/ColourMath.swift \
 //                 Design/Accessibility.swift Design/Metrics.swift \
-//                 Design/Motion.swift Design/TokenCheck*.swift \
+//                 Design/Motion.swift Design/Glass.swift \
+//                 Design/DisplayScale.swift Design/TokenCheck*.swift \
 //                 -o /tmp/tokencheck
 //          /tmp/tokencheck
-//      (`Glass.swift` and `GradientBridge.swift` are excluded: one needs a
-//      window server to show anything, the other needs BrowserKit.)
+//      (`GradientBridge.swift` is excluded: it needs BrowserKit. `Glass.swift`
+//      used to be excluded too — it needs a window server to *show* anything —
+//      but §7's tokens live in `DisplayScale.swift`, which needs it to
+//      compile. Nothing below builds a glass view, so the binary still runs
+//      headless.)
 //
 //  Two companion files run in the same pass: `+Numbers` holds §1/§3's metrics
 //  and §6's budget, `+Effects` holds §2's wash, §5's shadow and §7's bloom.
@@ -84,6 +89,14 @@ enum TokenCheck {
          ("chromeFill", Tokens.Ink.chromeFill)]
     }
 
+    /// §2's chrome tint and §7's two 1× replacements for it. Plane tints, not
+    /// ink, so they are checked apart from `washes`.
+    static var glassTints: [(String, NSColor)] {
+        [("glassTint", Tokens.Surface.glassTint),
+         ("glassTintDense", Tokens.Surface.glassTintDense),
+         ("glassTintControl", Tokens.Surface.glassTintControl)]
+    }
+
     /// §7's bloom bands, inner edge to outer.
     static var bloom: [(String, NSColor)] {
         [("core", Tokens.Bloom.core), ("amber", Tokens.Bloom.amber),
@@ -95,9 +108,10 @@ enum TokenCheck {
         guard appearances.count == 2 else {
             return ["only \(appearances.count)/2 appearances resolved — the SDK renamed one"]
         }
-        return checkResolution() + checkTextContrast() + checkSurfaceSeparation()
-            + checkLines() + checkIncreaseContrast() + checkWash() + checkMetrics() + checkMotion()
-            + checkFills() + checkBloom() + checkShadow()
+        let colours = checkResolution() + checkTextContrast() + checkSurfaceSeparation()
+            + checkLines() + checkIncreaseContrast() + checkFills()
+        let effects = checkWash() + checkBloom() + checkShadow() + checkGlassOptimisation()
+        return colours + effects + checkMetrics() + checkMotion()
     }
 
     /// Trips a debug assertion listing every failure.
@@ -119,7 +133,7 @@ extension TokenCheck {
     private static func checkResolution() -> [String] {
         var failures: [String] = []
         let all = surfaces + texts + bloom + washes
-            + [("glassTint", Tokens.Surface.glassTint), ("frost", Tokens.Surface.frost)]
+            + glassTints + [("frost", Tokens.Surface.frost)]
             + [("disabled", Tokens.Text.disabled)]
             + [("hairline", Tokens.Line.hairline), ("border", Tokens.Line.border)]
             + [("tint", Tokens.Accent.tint), ("danger", Tokens.Accent.danger)]
@@ -137,14 +151,15 @@ extension TokenCheck {
             for (token, color) in washes where color.srgbComponents(for: appearance).alpha >= 1 {
                 failures.append("Surface.\(token) is opaque in \(name) — it washes over glass, it does not replace it")
             }
-            // `glassTint` is a wash too, but it is not in `washes`: those are
-            // ink (black on light), this is a plane tint (white on light), and
-            // the contrast matrix below is built for the first kind. The one
-            // rule it shares is the one that matters — an opaque tint would
-            // stop the chrome sampling the desktop, which is all of §2.
-            let tint = Tokens.Surface.glassTint.srgbComponents(for: appearance)
-            if tint.alpha >= 1 {
-                failures.append("Surface.glassTint is opaque in \(name) — §2's chrome samples what is behind the window")
+            // The glass tints are washes too, but they are not in `washes`:
+            // those are ink (black on light), these are plane tints (white on
+            // light), and the contrast matrix below is built for the first
+            // kind. The one rule they share is the one that matters — an
+            // opaque tint would stop the chrome sampling the desktop, which is
+            // all of §2, and §7's 1× pair are the ones with room to get that
+            // wrong.
+            for (token, colour) in glassTints where colour.srgbComponents(for: appearance).alpha >= 1 {
+                failures.append("Surface.\(token) is opaque in \(name) — §2's chrome samples what is behind the window")
             }
             // And `frost`, for the same reason from the other side: it is the
             // fallback plane held at part strength, and at full strength it
@@ -262,7 +277,12 @@ extension TokenCheck {
             // Including `disabled`: a dimmed control still has to be *findable*
             // for the users who turn Increase Contrast on, even though §21.4
             // does not apply to its label (`Text.disabled`).
-            ("disabled", Tokens.Ink.disabled), ("popoverShadow", Tokens.Ink.popoverShadow)
+            ("disabled", Tokens.Ink.disabled), ("popoverShadow", Tokens.Ink.popoverShadow),
+            // §7's pair: a 1× display is not a reason for Increase Contrast to
+            // buy less than it does at 2×.
+            ("glassTint", Tokens.Ink.glassTint),
+            ("glassTintDense", Tokens.Ink.glassTintDense),
+            ("glassTintControl", Tokens.Ink.glassTintControl)
         ]
         for (token, alphas) in inks {
             if alphas.contrastLight < alphas.light || alphas.contrastDark < alphas.dark {

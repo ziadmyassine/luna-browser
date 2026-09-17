@@ -22,7 +22,7 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
 
     private let card = ContentCardView()
     private var trafficLights: TrafficLightLayoutManager?
-    private var chrome: NSView?
+    private(set) var chrome: NSView?
 
     // The chrome's four switchable constraints: a left column in the sidebar
     // layout, a top bar in the other. Two are active at a time.
@@ -382,41 +382,6 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
             Tokens.Motion.sidebarCollapse
         default:
             Tokens.Motion.layoutSwitch
-        }
-    }
-
-    // MARK: - NSWindowDelegate
-
-    /// macOS fullscreen keeps the chrome — a browser without its tab list in
-    /// fullscreen is unusable. Only the window's own corners change: the system
-    /// frame is square there, and a rounded mask would show as black notches.
-    func windowDidEnterFullScreen(_ notification: Notification) {
-        (window?.contentView as? WindowRootView)?.isWindowFullScreen = true
-        relayoutChrome()
-    }
-
-    func windowDidExitFullScreen(_ notification: Notification) {
-        (window?.contentView as? WindowRootView)?.isWindowFullScreen = false
-        relayoutChrome()
-    }
-
-    /// **The traffic lights change size without changing anyone's bounds.**
-    ///
-    /// §3.1's control row lays its three circles out *against* the lights —
-    /// measured, because `TrafficLightLayoutManager` owns their frames — and
-    /// macOS takes the lights away in fullscreen and puts them back on the way
-    /// out. Neither edge resizes the row, so nothing marks it dirty, and the
-    /// row kept whichever placement it happened to have when it last laid out:
-    /// the toggle sitting on top of the green light after a return to windowed.
-    /// The same call fixes the peek, for the same reason.
-    private func relayoutChrome() {
-        guard let chrome else { return }
-        for layout in chrome.subviews { layout.needsLayout = true }
-        // AppKit restores the buttons *after* posting the notification on the
-        // way out of fullscreen, so the pass that matters is the next one.
-        DispatchQueue.main.async { [weak chrome] in
-            guard let chrome else { return }
-            for layout in chrome.subviews { layout.needsLayout = true }
         }
     }
 }

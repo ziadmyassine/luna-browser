@@ -33,6 +33,12 @@
 //      solid colour — vibrancy is not an acceptable answer to "reduce
 //      transparency" anyway.
 //
+//  §7's 1× adaptation lives next door in `DisplayScale.swift`, which owns the
+//  setting, the detection and the re-skin pass. What lives *here* is the only
+//  part of it that touches the material: the `optimised` parameter threaded
+//  through the style table at the bottom of this file. Nothing else in Luna
+//  may read it.
+//
 
 import AppKit
 

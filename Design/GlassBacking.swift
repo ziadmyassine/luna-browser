@@ -28,18 +28,32 @@ final class GlassBackingView: NSView {
     private let curve: CALayerCornerCurve
     private let corners: CACornerMask
     private var glass: NSGlassEffectView?
+    /// Non-nil pins this backing to one side of §7's table whatever display it
+    /// lands on. Exactly one caller sets it: `Glass.previewTile`, which has to
+    /// show the 1× rendering *and* the 2× one side by side on one screen.
+    private let pinned: Bool?
+    /// Which half of §7's table is on screen now, so a display change that
+    /// resolves to the same answer costs nothing.
+    private var optimised: Bool
 
     init(
         style: Glass.Style,
         cornerRadius: CGFloat,
         cornerCurve: CALayerCornerCurve,
-        maskedCorners: CACornerMask
+        maskedCorners: CACornerMask,
+        pinned: Bool? = nil
     ) {
         self.style = style
         self.radius = cornerRadius
         self.curve = cornerCurve
         self.corners = maskedCorners
+        self.pinned = pinned
+        // No window yet, so `isOptimised(for: nil)` is the honest answer and it
+        // is the *unoptimised* one — a Retina user must see today's chrome, and
+        // `viewDidMoveToWindow` re-resolves against the real screen first.
+        self.optimised = pinned ?? Glass.isOptimised(for: nil)
         super.init(frame: .zero)
+        Glass.beginObservingDisplayChanges()
         wantsLayer = true
         layer?.cornerCurve = cornerCurve
         // **The mask is how a circle stays a circle.** `NSGlassEffectView` has
@@ -131,7 +145,7 @@ final class GlassBackingView: NSView {
     /// below, and darkening that by half took the sidebar under the content
     /// pane's own colour. The plane is already doing the tint's job there.
     private func applyTint() {
-        glass?.tintColor = wantsOpaquePlane ? nil : style.tint
+        glass?.tintColor = wantsOpaquePlane ? nil : style.tint(optimised: optimised)
     }
 
     /// **The plane goes up on `will`, and comes down on `did`.**
@@ -146,6 +160,10 @@ final class GlassBackingView: NSView {
     /// sample, which is the only time the plane is wanted.
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        // §7: the scale factor belongs to the window's **current** screen, so a
+        // backing re-asks every time it changes window — and `.auto` can flip in
+        // either direction on the way.
+        refreshForDisplay()
         isWindowFullScreen = window?.styleMask.contains(.fullScreen) ?? false
         guard let window else { return }
         let center = NotificationCenter.default
@@ -207,13 +225,31 @@ final class GlassBackingView: NSView {
         rebuild()
     }
 
+    /// AppKit's own per-view hook for a backing-store change. It fires for every
+    /// view in a window whose `backingScaleFactor` or colour space changed — but
+    /// never for a view with no window, which is why `DisplayScale` watches the
+    /// window-level notification too.
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        refreshForDisplay()
+    }
+
+    /// Re-resolves §7's column for the display this view is actually on.
+    func refreshForDisplay() {
+        guard pinned == nil else { return }
+        let wanted = Glass.isOptimised(for: window)
+        guard wanted != optimised else { return }
+        optimised = wanted
+        rebuild()
+    }
+
     private func rebuild() {
         glass?.removeFromSuperview()
         glass = nil
 
         if !Tokens.A11y.reduceTransparency {
             let view = NSGlassEffectView(frame: bounds)
-            view.style = style.glassStyle
+            view.style = style.glassStyle(optimised: optimised)
             // When the backing is masking, the shape is the mask's; a second
             // radius inside it would round the corners the mask keeps square.
             view.cornerRadius = corners == Glass.allCorners ? radius : 0
@@ -268,19 +304,22 @@ final class GlassBackingView: NSView {
 
 extension Glass.Style {
 
-    var glassStyle: NSGlassEffectView.Style {
+    /// §7: at 1×, `.clear` transmits 2.5× more backdrop structure than
+    /// `.regular` — measured — and the row backing is where that shows.
+    func glassStyle(optimised: Bool) -> NSGlassEffectView.Style {
         switch self {
         case .sidebar, .topBar, .popover: .regular
-        case .control: .clear
+        case .control: optimised ? .regular : .clear
         }
     }
 
     /// The §2 tint handed to `NSGlassEffectView`, or nil for the surfaces that
     /// take the material neat.
-    var tint: NSColor? {
+    func tint(optimised: Bool) -> NSColor? {
         switch self {
-        case .sidebar, .topBar: Tokens.Surface.glassTint
-        case .control, .popover: nil
+        case .sidebar, .topBar: optimised ? Tokens.Surface.glassTintDense : Tokens.Surface.glassTint
+        case .control: optimised ? Tokens.Surface.glassTintControl : nil
+        case .popover: nil
         }
     }
 

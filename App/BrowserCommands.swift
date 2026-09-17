@@ -82,6 +82,13 @@ extension AppDelegate {
         downloadsPanel?.toggle()
     }
 
+    // MARK: - Settings (SETTINGS-SPEC §2)
+
+    /// `⌘,`. Opens the Settings window, or focuses the one already open.
+    @objc func showSettings(_ sender: Any?) {
+        showSettings()
+    }
+
     // MARK: - Layout and Spaces
 
     /// `⌘S` (§8): hides and shows the sidebar. **Not** the layout switch —
@@ -93,11 +100,6 @@ extension AppDelegate {
     /// Named for what it does, and the name is now ours.
     @objc func toggleSidebarVisibility(_ sender: Any?) {
         toggleSidebar()
-    }
-
-    /// `⌘,`.
-    @objc func showSettings(_ sender: Any?) {
-        showSettings()
     }
 
     /// `⌘1…⌘9` (§5.3). The item's tag is its index in `session.spaces`.
@@ -129,6 +131,10 @@ extension AppDelegate: NSMenuItemValidation {
         // Before the session guard: hiding the sidebar is a window command and
         // works on an empty window.
         if let sidebar = validateSidebarToggle(menuItem) { return sidebar }
+        // Settings needs no session. It can be opened during a cold launch —
+        // several of its sections exist to say what is not wired up yet — and a
+        // dimmed `⌘,` on a slow first run would be a bug, not a safeguard.
+        if menuItem.action == #selector(showSettings(_:)) { return true }
         guard let session else { return false }
         return validateNavigation(menuItem, in: session)
             ?? validateSessionCommand(menuItem, in: session)

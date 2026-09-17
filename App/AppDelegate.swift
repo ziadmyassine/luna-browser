@@ -54,6 +54,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var adaptive: AdaptiveHistory?
     private var downloads: DownloadManager?
     /// `⌘,`. One instance, re-shown rather than rebuilt.
+    /// SETTINGS-SPEC §1's separate window. **One instance, reused** — `⌘,`
+    /// opens it the first time and focuses it every time after, and it survives
+    /// being closed because `isReleasedWhenClosed` is off.
     private var settingsWindow: SettingsWindowController?
     /// §15.3's secondary surface. `BrowserCommands` opens it as well as the
     /// top bar's button, so it is not file-private.
@@ -64,6 +67,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Both must be in place before the app finishes launching, or the first
         // frame shows up without a menu bar.
         NSApp.setActivationPolicy(.regular)
+        // Before anything reads a setting: the registration domain is what a
+        // key's declared default *is* (SETTINGS-SPEC §6), and it is not
+        // persisted, so it is re-published on every launch.
+        SettingsDefaults.register()
         MainMenu.install(into: NSApp)
     }
 
@@ -72,6 +79,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Fails the launch loudly if a token drifted out of §1 / §6 / §21.4.
         TokenCheck.run()
         #endif
+
+        // SETTINGS-SPEC §3.2. `NSApp.appearance` starts nil — "follow System
+        // Settings" — so a stored Light or Dark choice is silently lost on every
+        // relaunch unless something re-applies it. Before the window, so the
+        // first frame is drawn in the theme the user chose rather than flashing
+        // the system one.
+        AppearanceSection.applyStoredTheme()
 
         let controller = BrowserWindowController()
         browserWindow = controller

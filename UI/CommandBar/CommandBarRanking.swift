@@ -216,7 +216,7 @@ enum CommandBarRanking {
         return CommandBarResult(
             source: .search,
             title: query,
-            subtitle: "Search DuckDuckGo",
+            subtitle: "Search \(SearchSettings.current.engine.title)",
             action: .open(url),
             symbolName: "magnifyingglass"
         )

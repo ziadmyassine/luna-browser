@@ -19,6 +19,7 @@
 
 import BrowserKit
 import Foundation
+import Synchronization
 
 // MARK: - What a row does
 
@@ -158,21 +159,17 @@ enum CommandBarURL {
         return URL(string: "\(scheme)://\(host)\(rest)")
     }
 
-    //  ponytail: §9.5 (per-Space engine, bang keywords) is not built, so this
-    //  is one fixed engine. DuckDuckGo because §32 committed to zero telemetry
-    //  and §9.6 to not leaking queries. Swap for the Space's engine when §9.5
-    //  lands.
+    //  ponytail: §9.5's per-Space engine and bang keywords are still not built.
+    //  One engine for the whole app — but the user's, not a constant.
     /// Where a string that is **not** a URL goes. The floor under every text
     /// entry point: the Command Bar's search row and §3.2's URL pill both
     /// commit through here, so they cannot disagree about what a query means.
+    ///
+    /// §9.7: synchronous, no I/O — see `SearchSettings`.
     static func search(for query: String) -> URL? {
-        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-        var components = URLComponents()
-        components.scheme = "https"
-        components.host = "duckduckgo.com"
-        components.path = "/"
-        components.queryItems = [URLQueryItem(name: "q", value: query)]
-        return components.url
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return SearchSettings.current.url(searching: query)
     }
 
     /// `https://example.com/a` → `example.com/a`. What §9.4 autofills and what a
@@ -269,5 +266,132 @@ enum CommandBarURL {
         let labels = stripPort(host).split(separator: ".", omittingEmptySubsequences: false)
         guard labels.count >= 2, labels.allSatisfy({ !$0.isEmpty }), let tld = labels.last else { return false }
         return tld.count >= 2 && tld.allSatisfy(\.isLetter)
+    }
+}
+
+// MARK: - §3.4's search engine
+
+/// The engines §23.1 §3.4 offers. Every one is a **template** carrying a `%s`
+/// placeholder, the built-ins included, so `.custom` is not a second code path.
+enum SearchEngine: String, Sendable, Hashable, CaseIterable {
+    case duckDuckGo
+    case google
+    case bing
+    case kagi
+    case custom
+
+    /// §9.6/§32's shipped default, and first in `allCases`: the popup's order.
+    static let fallback = SearchEngine.duckDuckGo
+
+    /// Nil for `.custom`, whose template is the user's `search.customEngineURL`.
+    var template: String? {
+        switch self {
+        case .duckDuckGo: "https://duckduckgo.com/?q=%s"
+        case .google: "https://www.google.com/search?q=%s"
+        case .bing: "https://www.bing.com/search?q=%s"
+        case .kagi: "https://kagi.com/search?q=%s"
+        case .custom: nil
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .duckDuckGo: "DuckDuckGo"
+        case .google: "Google"
+        case .bing: "Bing"
+        case .kagi: "Kagi"
+        case .custom: "Custom"
+        }
+    }
+}
+
+/// An engine plus the custom template only `.custom` consults.
+struct SearchEngineSetting: Sendable, Hashable {
+
+    /// The token a template substitutes the query for (§3.4).
+    static let placeholder = "%s"
+
+    var engine: SearchEngine = .fallback
+    /// Kept while another engine is selected: switching away and back must not
+    /// erase what the user typed.
+    var customTemplate: String = ""
+
+    /// Usable only once it carries the placeholder **and** parses as an http
+    /// URL with the query substituted: `%s` alone is not a URL, and a URL
+    /// without `%s` searches for nothing.
+    static func isUsable(_ template: String) -> Bool {
+        url(from: template, searching: "luna") != nil
+    }
+
+    /// In force, or nil when `.custom` is selected and not usable yet.
+    var activeTemplate: String? {
+        if let built = engine.template { return built }
+        return Self.isUsable(customTemplate) ? customTemplate : nil
+    }
+
+    /// Falls back to `SearchEngine.fallback` rather than returning nil: §9.2's
+    /// search row is the floor, and a half-typed custom engine must not remove it.
+    func url(searching query: String) -> URL? {
+        let template = activeTemplate ?? SearchEngine.fallback.template
+        return template.flatMap { Self.url(from: $0, searching: query) }
+    }
+
+    /// RFC 3986's unreserved set and nothing else.
+    ///
+    /// **Measured, and it fixes a live bug.** The hard-coded engine built its
+    /// URL with `URLComponents.queryItems`, which leaves `+`, `/` and `?`
+    /// unescaped in a query value — so `a+b` reached the engine as `q=a+b`, two
+    /// words. A space is still `%20`, exactly as before.
+    private static let queryValueAllowed = CharacterSet(
+        charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
+    )
+
+    private static func url(from template: String, searching query: String) -> URL? {
+        guard template.contains(placeholder),
+              let escaped = query.addingPercentEncoding(withAllowedCharacters: queryValueAllowed)
+        else { return nil }
+        let text = template.replacingOccurrences(of: placeholder, with: escaped)
+        guard let url = URL(string: text), url.scheme?.hasPrefix("http") == true, url.host != nil else { return nil }
+        return url
+    }
+}
+
+/// The one live copy of §3.4's engine choice.
+///
+/// **Not `UserDefaults`:** `search(for:)` runs inside `controlTextDidChange` in
+/// the same frame as the keystroke (§9.7, 9.6 ms median), and a defaults read
+/// there is a cross-process lookup on a path that has none today. Defaults are
+/// read **once**, lazily, when `storage` is first touched.
+///
+/// **Not `@MainActor`:** `CommandBarRanking` is deliberately non-isolated so its
+/// tests can hand-compute an order without a window, and it calls `search(for:)`.
+enum SearchSettings {
+
+    static let engineKey = "search.engine"
+    static let customEngineKey = "search.customEngineURL"
+
+    private static let storage = Mutex(stored())
+
+    /// One uncontended `os_unfair_lock` acquire and a two-field copy.
+    static var current: SearchEngineSetting { storage.withLock { $0 } }
+
+    /// Re-reads `UserDefaults`. `SettingsDefaults.restoreAll()` removes the keys
+    /// without telling this cache, so something has to; never a keystroke path.
+    static func reload() { storage.withLock { $0 = stored() } }
+
+    /// Live value first — it is what the next keystroke reads — then disk.
+    static func apply(_ setting: SearchEngineSetting) {
+        storage.withLock { $0 = setting }
+        let defaults = UserDefaults.standard
+        defaults.set(setting.engine.rawValue, forKey: engineKey)
+        defaults.set(setting.customTemplate, forKey: customEngineKey)
+    }
+
+    private static func stored() -> SearchEngineSetting {
+        let defaults = UserDefaults.standard
+        return SearchEngineSetting(
+            engine: defaults.string(forKey: engineKey).flatMap(SearchEngine.init(rawValue:)) ?? .fallback,
+            customTemplate: defaults.string(forKey: customEngineKey) ?? ""
+        )
     }
 }

@@ -34,7 +34,8 @@ extension TokenCheck {
             ("controlCircle", Tokens.Metric.controlCircle), ("controlSquircle", Tokens.Metric.controlSquircle),
             ("bottomCircle", Tokens.Metric.bottomCircle), ("spaceDotsPill", Tokens.Metric.spaceDotsPill),
             ("rowTrailingChip", Tokens.Metric.rowTrailingChip),
-            ("downloadsPopover", Tokens.Metric.downloadsPopover), ("resizeHandle", Tokens.Metric.resizeHandle)
+            ("downloadsPopover", Tokens.Metric.downloadsPopover), ("resizeHandle", Tokens.Metric.resizeHandle),
+            ("glassPreviewTile", Tokens.Metric.glassPreviewTile)
         ]
         for (name, metric) in rounded {
             if metric.width <= 0 || metric.height <= 0 {
@@ -61,7 +62,12 @@ extension TokenCheck {
             ("chromeGap", Tokens.Metric.chromeGap), ("chromeGapWide", Tokens.Metric.chromeGapWide),
             ("controlRowGap", Tokens.Metric.controlRowGap), ("capsuleHeight", Tokens.Metric.capsuleHeight),
             ("downloadsPopoverTail", Tokens.Metric.downloadsPopoverTail),
-            ("reloadBlurRadius", Tokens.Metric.reloadBlurRadius), ("reloadProgressLine", Tokens.Metric.reloadProgressLine)
+            ("reloadBlurRadius", Tokens.Metric.reloadBlurRadius), ("reloadProgressLine", Tokens.Metric.reloadProgressLine),
+            ("settingsDefaultWidth", Tokens.Metric.settingsDefaultWidth),
+            ("settingsDefaultHeight", Tokens.Metric.settingsDefaultHeight),
+            ("settingsMinWidth", Tokens.Metric.settingsMinWidth),
+            ("settingsMinHeight", Tokens.Metric.settingsMinHeight),
+            ("settingsListWidth", Tokens.Metric.settingsListWidth)
         ]
         failures += scalars.filter { $0.1 <= 0 }.map { "Metric.\($0.0) is not positive" }
         return failures + checkRowInsets()
@@ -143,6 +149,31 @@ extension TokenCheck {
         }
         if metric.downloadsPopoverTail > metric.downloadsPopover.height / 2 {
             failures.append("Metric.downloadsPopoverTail is longer than half the popover — the tail would swallow the body")
+        }
+        return failures + checkSettingsWindow()
+    }
+
+    /// §23.1 §1's settings window. Three claims, none of them restated from the
+    /// numbers: the window can actually be resized down, the section list
+    /// leaves a detail pane behind at the *smallest* the window goes, and the
+    /// preview tile fits in that pane. A list that is wider than the pane it
+    /// shares the window with is the failure mode here, and it only shows up
+    /// once someone drags the window in.
+    private static func checkSettingsWindow() -> [String] {
+        var failures: [String] = []
+        let metric = Tokens.Metric.self
+        if metric.settingsMinWidth >= metric.settingsDefaultWidth
+            || metric.settingsMinHeight >= metric.settingsDefaultHeight {
+            failures.append("Metric.settings minimum is not below its default — the window would open at its floor")
+        }
+        let pane = metric.settingsMinWidth - metric.settingsListWidth
+        if pane <= metric.settingsListWidth {
+            failures.append(String(
+                format: "Metric.settingsListWidth leaves a %.0f pt detail pane at the minimum width — the list would dominate", pane
+            ))
+        }
+        if metric.glassPreviewTile.width + 2 * metric.chromeGapWide > pane {
+            failures.append("Metric.glassPreviewTile does not fit the §3.2 pane at the settings window's minimum width")
         }
         return failures
     }

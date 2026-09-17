@@ -68,6 +68,24 @@ final class DownloadItem {
     func finish() {
         state = .finished
         progress = nil
+        openIfSafeAndAsked()
+    }
+
+    /// §3.5's "Open *safe* files after downloading", and the reason it is a
+    /// setting rather than a policy: it defaults **off**, which is the opposite
+    /// of what Safari ships, because it is the single behaviour named most
+    /// often in macOS malware write-ups.
+    ///
+    /// "Safe" is `DownloadRisk`'s definition, not a second one: anything that
+    /// would have stopped and asked on the way in never opens by itself on the
+    /// way out. The open goes through `NSWorkspace`, so the quarantine flag
+    /// `DownloadManager` wrote is still what Gatekeeper reads.
+    private func openIfSafeAndAsked() {
+        guard UserDefaults.standard.bool(forKey: DownloadDestination.autoOpenKey),
+              !DownloadRisk.isRisky(filename: filename),
+              let destination, isOnDisk
+        else { return }
+        NSWorkspace.shared.open(destination)
     }
 
     func fail(_ error: any Error, resumeData: Data?) {
@@ -131,8 +149,29 @@ final class DownloadItem {
 /// so the uniquifier can be tested without writing to `~/Downloads`.
 enum DownloadDestination {
 
-    /// `~/Downloads`, created if the user deleted it.
+    /// §3.5's "Save files to". Settings writes a path here; nothing else does.
+    static let directoryKey = "downloads.directory"
+    /// §3.5's "Open safe files after downloading". Read by `DownloadItem.finish()`.
+    static let autoOpenKey = "downloads.autoOpen"
+
+    /// Where the bytes land: the user's folder if they picked one and it is
+    /// still writable, otherwise `~/Downloads`.
+    ///
+    /// The writability check is not belt-and-braces. The folder is chosen once
+    /// and used for months; by the time it is an ejected volume or a deleted
+    /// directory, WebKit's only answer is a download that fails with an error
+    /// nobody connects to a setting. Falling back is the safe half — Settings
+    /// owns the visible half, and refuses to store a folder that fails this.
     static var folder: URL {
+        if let path = UserDefaults.standard.string(forKey: directoryKey), !path.isEmpty {
+            let chosen = URL(filePath: path, directoryHint: .isDirectory)
+            if isWritable(chosen) { return chosen }
+        }
+        return systemDownloads
+    }
+
+    /// `~/Downloads`, created if the user deleted it.
+    static var systemDownloads: URL {
         let manager = FileManager.default
         if let url = try? manager.url(
             for: .downloadsDirectory,
@@ -143,6 +182,27 @@ enum DownloadDestination {
             return url
         }
         return manager.homeDirectoryForCurrentUser.appending(path: "Downloads", directoryHint: .isDirectory)
+    }
+
+    /// Whether Luna can actually write into `url` — tested by writing, not by
+    /// asking.
+    ///
+    /// `FileManager.isWritableFile(atPath:)` reads the POSIX mode bits and
+    /// nothing else, so it answers *true* for `~/Desktop` and `~/Documents`
+    /// while TCC is still refusing the write. Luna is unsandboxed (D8), so
+    /// there is no security-scoped bookmark to restore and no entitlement to
+    /// check — creating and deleting a dot-file is the only check that agrees
+    /// with what the download will do.
+    static func isWritable(_ url: URL) -> Bool {
+        let manager = FileManager.default
+        var isDirectory: ObjCBool = false
+        guard manager.fileExists(atPath: url.path(percentEncoded: false), isDirectory: &isDirectory),
+              isDirectory.boolValue
+        else { return false }
+        let probe = url.appending(path: ".luna-write-test-\(UUID().uuidString)", directoryHint: .notDirectory)
+        guard manager.createFile(atPath: probe.path(percentEncoded: false), contents: nil) else { return false }
+        try? manager.removeItem(at: probe)
+        return true
     }
 
     /// Makes a server-supplied filename safe to write.

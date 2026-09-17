@@ -7,6 +7,17 @@ import WebKit
 /// companion remains possible (§25.5, §32). `Tools/check-no-appkit.sh` enforces it.
 public enum WebViewFactory {
 
+    /// §3.9's user-agent popup. Stored in `advanced.userAgent` as its raw value.
+    ///
+    /// **Why only ``UserAgentMode/default`` uses `applicationNameForUserAgent`.**
+    /// That property *appends* to WebKit's default UA; it cannot remove the
+    /// `Luna/` token nor change `AppleWebKit/605.1.15`. So the three impersonating
+    /// modes replace the whole string through `WKWebView.customUserAgent`, and the
+    /// Default mode leaves `customUserAgent` nil so the appended form is untouched.
+    public enum UserAgentMode: String, CaseIterable, Sendable {
+        case `default`, safari, chrome, custom
+    }
+
     /// Appended to WebKit's default user agent — it does **not** replace it (§4.6).
     ///
     /// The default UA is `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)
@@ -17,10 +28,90 @@ public enum WebViewFactory {
     ///
     /// `Version/` tracks the Safari whose web-compat profile we inherit (§26) — review
     /// it on each macOS release rather than letting it rot.
-    private static var applicationNameForUserAgent: String {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
-        return "Version/26.0 Safari/605.1.15 Luna/\(version)"
+    public static var applicationNameForUserAgent: String {
+        "\(safariTokens) Luna/\(shortVersion)"
     }
+
+    /// The Safari compat tokens, without Luna's. `Version/` and `Safari/` move
+    /// together; splitting them is what produces a UA no real browser sends.
+    public static let safariTokens = "Version/26.0 Safari/605.1.15"
+
+    /// WebKit's own default UA prefix, measured on macOS 26.5 by reading
+    /// `navigator.userAgent` out of a web view built with no application name.
+    /// `SectionsBTests.testWebKitBasePrefixIsStillWhatWeThinkItIs` re-measures it,
+    /// so a WebKit update that moves it fails the test rather than silently
+    /// shipping a UA that names the wrong engine.
+    public static let webKitBase = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        + "AppleWebKit/605.1.15 (KHTML, like Gecko)"
+
+    /// Chrome's macOS UA. The major version is the one thing here that is not
+    /// measured from this machine — nothing on it runs Chrome — so it is a
+    /// constant to review beside `Version/` above, not a derived value.
+    public static let chromeUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        + "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
+
+    private static var shortVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
+    }
+
+    // MARK: - §3.9's two Advanced settings
+
+    public enum Key {
+        public static let userAgent = "advanced.userAgent"
+        public static let customUserAgent = "advanced.userAgentCustom"
+        public static let webInspector = "advanced.webInspector"
+    }
+
+    public static var userAgentMode: UserAgentMode {
+        get { UserDefaults.standard.string(forKey: Key.userAgent).flatMap(UserAgentMode.init(rawValue:)) ?? .default }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: Key.userAgent) }
+    }
+
+    /// The §3.9 text field's value. Empty means "behave as Default" — a mode the
+    /// user has selected but not filled in must not send an empty UA.
+    public static var customUserAgentString: String {
+        get { UserDefaults.standard.string(forKey: Key.customUserAgent) ?? "" }
+        set { UserDefaults.standard.set(newValue, forKey: Key.customUserAgent) }
+    }
+
+    /// Required (macOS 13.3+): without it the Web Inspector silently does nothing (§4.1).
+    /// Defaults to **on**, which is what every Luna web view did before it was a setting.
+    public static var isWebInspectorEnabled: Bool {
+        get { UserDefaults.standard.object(forKey: Key.webInspector) as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: Key.webInspector) }
+    }
+
+    /// What `WKWebView.customUserAgent` should be for `mode`.
+    ///
+    /// - Returns: nil for Default — and for a Custom mode with nothing typed in —
+    ///   which is what leaves ``applicationNameForUserAgent``'s appended string in place.
+    public static func customUserAgent(for mode: UserAgentMode) -> String? {
+        switch mode {
+        case .default:
+            nil
+        case .safari:
+            "\(webKitBase) \(safariTokens)"
+        case .chrome:
+            chromeUserAgent
+        case .custom:
+            customUserAgentString.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? nil
+                : customUserAgentString
+        }
+    }
+
+    /// Re-reads both Advanced settings onto a web view that already exists.
+    ///
+    /// `customUserAgent` takes effect on the **next** navigation, not on the page
+    /// already loaded — WebKit sends the UA with the request. The Settings window
+    /// says so rather than pretending the change is instant.
+    @MainActor
+    public static func applyAdvancedSettings(to webView: WKWebView) {
+        webView.customUserAgent = customUserAgent(for: userAgentMode)
+        webView.isInspectable = isWebInspectorEnabled
+    }
+
+    // MARK: - Construction
 
     /// Creates a configured web view. Every Luna web view comes from here.
     @MainActor
@@ -48,8 +139,7 @@ public enum WebViewFactory {
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.allowsBackForwardNavigationGestures = true
         webView.allowsMagnification = true
-        // Required (macOS 13.3+): without it the Web Inspector silently does nothing (§4.1).
-        webView.isInspectable = true
+        applyAdvancedSettings(to: webView)
         return webView
     }
 

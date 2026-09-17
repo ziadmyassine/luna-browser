@@ -137,7 +137,13 @@ final class HistoryPanel: NSView {
         empty.translatesAutoresizingMaskIntoConstraints = false
 
         for view in [title, field, scroll, empty] { body.addSubview(view) }
+        constrain(title: title)
+    }
 
+    /// The other half of `buildBody`, split only because the two together
+    /// crossed SwiftLint's 50-line function limit. Configuring the subviews and
+    /// constraining them were already the two halves.
+    private func constrain(title: NSTextField) {
         let inset = HistoryPanelMetrics.inset
         let centre = body.centerXAnchor.constraint(equalTo: centerXAnchor)
         centreConstraint = centre
