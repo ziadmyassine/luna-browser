@@ -108,23 +108,23 @@ final class SidebarControlRow: NSView {
         // the centre of a 52 pt row — centring here instead would leave them a
         // point apart, which is exactly the misalignment this row is fixing.
         let centreY = lights?.midY ?? bounds.midY
-        let y = centreY - circle.height / 2
+        let originY = centreY - circle.height / 2
         let lightsTrailing = lights?.maxX ?? Tokens.Metric.trafficLightInset
         toggle.frame = NSRect(
             x: lightsTrailing + Tokens.Metric.chromeGapWide,
-            y: y,
+            y: originY,
             width: circle.width,
             height: circle.height
         ).integral
         reload.frame = NSRect(
             x: bounds.maxX - inset - circle.width,
-            y: y,
+            y: originY,
             width: circle.width,
             height: circle.height
         ).integral
         back.frame = NSRect(
             x: reload.frame.minX - Tokens.Metric.controlPairGap - circle.width,
-            y: y,
+            y: originY,
             width: circle.width,
             height: circle.height
         ).integral

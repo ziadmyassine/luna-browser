@@ -108,6 +108,14 @@ extension TokenCheck {
         if metric.rowGap >= metric.rowHeight {
             failures.append("Metric.rowGap eats the whole row")
         }
+        return failures + checkChromeShapes()
+    }
+
+    /// The shapes the rows sit in — split out of `checkRowInsets` only because
+    /// the two together tripped the complexity limit. Same checks, same order.
+    private static func checkChromeShapes() -> [String] {
+        var failures: [String] = []
+        let metric = Tokens.Metric.self
         // §4's measured finding: the action capsule is taller than the pill it
         // sits beside. Equal heights mean someone "tidied" one into the other.
         if metric.capsuleHeight <= metric.urlPill.height {
