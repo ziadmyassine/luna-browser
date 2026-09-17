@@ -10,7 +10,6 @@
   <a href="https://swift.org"><img src="https://badgen.net/badge/Swift/6.0/orange" alt="Swift 6.0"></a>
   <a href="https://developer.apple.com/documentation/webkit"><img src="https://badgen.net/badge/Engine/WebKit/purple" alt="WebKit"></a>
   <a href="TODO.md"><img src="https://badgen.net/badge/Status/planning/yellow" alt="Status: planning"></a>
-  <img src="https://badgen.net/badge/Source/visible,%20not%20open/red" alt="Source-visible, not open source">
 </p>
 
 > [!IMPORTANT]
@@ -37,7 +36,4 @@ macOS 26+, Xcode 26+, Swift 6.
 
 ## Licence
 
-**Source-visible, not open source.** All rights reserved. There is no `LICENSE` file and none is
-implied: you may read this code, but you may not copy, modify, redistribute or ship derivatives of it.
-
-Luna is a product of NovApps ApS.
+Open source. Licence to be finalised.
