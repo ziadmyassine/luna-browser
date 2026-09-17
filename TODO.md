@@ -37,7 +37,7 @@ The three sentences that define the product:
 - **Do not skip the "Gotcha" boxes.** They are the results of research, not speculation; ignoring them is how this project dies at 60% complete.
 - **Design tokens are law.** Everything visual references §8's token table. No raw hex values in view code.
 - **Performance budget is law.** See §19. A browser that eats 12 GB with 40 tabs is a failed product regardless of how pretty the sidebar is.
-- **Borrowing is legal now, but attribution is not optional (§33).** Luna is GPL-3.0-or-later (D12), same licence as Nook and Ora, so their code *may* be reused. Every reused fragment needs a header naming the source repo, file and commit, and an entry in `THIRD_PARTY_NOTICES.md`. Prefer writing it yourself anyway: borrowed architecture drags in assumptions you did not make and cannot debug at 3am.
+- **We write every line ourselves (§33).** The other browsers are a **reference**, not a source. Read them to understand *how* someone solved a problem, close the file, then write Luna's version from the API docs and your own understanding. GPL now makes copying legal — it does not make it a good idea. Code you did not reason through is code you cannot debug at 3am, and inherited architecture carries assumptions you never made. Verbatim reuse needs Martin's explicit sign-off, per fragment.
 - When a task says "match Arc", the acceptance criterion is *felt behaviour*, not pixel-identical copying. Do not clone Arc's exact artwork, icon set, wordmark, or copy strings — build our own visual identity on the same interaction skeleton.
 
 ### 0.4 Glossary (use these exact names in code)
@@ -620,15 +620,19 @@ Three open-source browsers are cloned at `~/Desktop/Projects/other browsers/` on
 | `nook/` — nook-browser/nook | Swift 6 + SwiftUI + WKWebView, macOS 15.5+ | **GPL-3.0** | Largest surface: a `WKWebExtension` host with **native messaging and Bitwarden biometrics**, Peek, split view, site routing, and importers for **Arc, Dia and Safari**. |
 | `zen-desktop/` — zen-browser/desktop | Firefox 156 fork (JS/mjs + patches) | **MPL-2.0** | Different engine, so no WebKit answers — but the best available reference for *interaction* design on spaces, Glance, compact mode, boosts and folders. |
 
-> **The firewall came down on 2026-09-17.** Luna is **GPL-3.0-or-later** (D12), so **Nook and Ora code may be reused directly** — same licence, no conversion needed. **Zen is MPL-2.0**, which is one-way compatible: MPL code may be brought *into* a GPL work, but nothing GPL goes back the other way.
+> **The rule: reference, never copy. We write every line of Luna ourselves.**
 >
-> **The obligations that replace it, all non-negotiable:**
-> 1. Every borrowed file or fragment carries a header naming the **source repo, file path, commit hash and licence**.
-> 2. `THIRD_PARTY_NOTICES.md` lists every one of them, and is current before any release.
-> 3. The whole of Luna stays GPL-3.0-or-later. Borrowing is a one-way door — you cannot un-GPL a file later.
-> 4. A borrowed MPL file stays MPL and our modifications to it get published.
+> GPL (D12) means copying Nook or Ora would now be *legal*. We still don't. This is a quality decision, not a legal one, and it does not change when the licence changes.
 >
-> **Still prefer writing it ourselves.** Their architecture carries their assumptions: Nook's 3,000-line `BrowserManager` god-object and 4,000-line `Tab.swift` are exactly what §0.3 and the performance budget exist to prevent. Borrow a *solved hard problem* — a keychain call sequence, a rule-list conversion edge case, a data path — not a design.
+> **Why.** Code you didn't reason through is code you can't debug at 3am — and a browser is a 3am product. Their architecture carries their assumptions: Nook's ~3,000-line `BrowserManager` god-object and ~4,000-line `Tab.swift` are precisely what §0.3's rules and §19's budgets exist to prevent, and pasting from them imports the design along with the lines. Every borrowed fragment is also a fragment nobody on this project understands well enough to change safely.
+>
+> **How to use them properly.** Open their implementation to answer a *specific* question — which API did they call, in what order, what edge case is that guard for, where does that app keep its data on disk. Write down the answer. **Close the file.** Then write Luna's version from Apple's documentation and your own understanding of our model. If the result resembles theirs, that's convergence on a correct solution, which is fine. If you cannot write it without their file open, you do not understand the problem yet — that is the signal to keep reading, not to paste.
+>
+> **What they are genuinely good for:** confirming an approach is possible at all (§14.1's password spike) · naming the API that solves something WebKit documents badly · revealing an edge case you'd have hit in week three · on-disk paths and data formats (§23.2's Dia importer) · and, for Zen, how an interaction should *feel*. None of that is copyrightable. All of it is the valuable part.
+>
+> **If verbatim reuse is ever genuinely the right answer** — a gnarly, well-tested algorithm nobody should rewrite — it needs Martin's explicit sign-off for that specific fragment, a header naming the source repo, file path, commit hash and licence, and an entry in `THIRD_PARTY_NOTICES.md` before the next release. Treat it as an exception that has not happened yet.
+>
+> **Licence mechanics, for when it matters:** Luna is GPL-3.0-or-later; Nook and Ora are the same licence, and Zen's MPL-2.0 is one-way compatible into GPL. So nothing here is a legal trap. The rule above is ours, and it is stricter than the law on purpose.
 
 ### Immediate leads (evidence, not answers — verify each yourself)
 
