@@ -299,7 +299,12 @@ final class TopBarURLPill: NSView, TopBarThemed, NSTextFieldDelegate {
         let icon = TopBarMetrics.glyph
         let span = max(sliders.frame.minX - TopBarMetrics.gap - inset, 0)
         let textMax = max(span - icon - TopBarMetrics.gap, 0)
-        let textWidth = isEditing ? textMax : min(field.intrinsicContentSize.width.rounded(.up), textMax)
+        // `fittingSize`, not `intrinsicContentSize`: measured on macOS 26.5, a
+        // label's intrinsic width is the glyph run alone (91 pt for
+        // "example.com" at 15 pt) while the cell insets its title by 2 pt on
+        // each side and needs 95 pt to draw it — so a frame sized to the
+        // intrinsic width tail-truncates a domain that fits the pill twice over.
+        let textWidth = isEditing ? textMax : min(field.fittingSize.width.rounded(.up), textMax)
         // Centred as a group at rest (as the reference draws it); pinned left
         // while editing, where the text is a full URL and needs the room.
         let group = icon + TopBarMetrics.gap + textWidth

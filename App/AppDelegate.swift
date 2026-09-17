@@ -50,6 +50,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// use counts against the same `inputHistory` rows.
     private var adaptive: AdaptiveHistory?
     private var downloads: DownloadManager?
+    /// §15.3's secondary surface. `BrowserCommands` opens it as well as the
+    /// top bar's button, so it is not file-private.
+    private(set) var downloadsPanel: DownloadsListPanel?
     private var observation: ObservationToken?
 
     func applicationWillFinishLaunching(_ notification: Notification) {
@@ -148,6 +151,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func wireDownloads(_ session: BrowserSession, topBar: TopBarView) {
         let manager = DownloadManager()
         downloads = manager
+        let panel = DownloadsListPanel(manager: manager)
+        downloadsPanel = panel
+        // §30.15: the completion popover is the primary surface and appears by
+        // itself; the button and the View menu open the secondary panel.
+        topBar.onDownloads = { [weak panel] _ in panel?.toggle() }
         session.onDownload = { [weak manager] download in manager?.begin(download) }
         // §5's popover points at the top bar's downloads button when the bar is
         // showing; it falls back to a plain window-anchored panel when it is not.

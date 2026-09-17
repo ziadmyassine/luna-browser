@@ -583,7 +583,11 @@ Transcribed from the reference captures in `inspiration/`. These are **observed 
 
 ### From `refresh-animation-ui.mov`
 
-- [ ] **30.23 Reload motion** — watch the clip and transcribe the reload/refresh animation into the §8.5 motion table before building the reload control. Not yet transcribed; it's a video and this document only covers the stills.
+- [~] **30.23 Reload motion — DEFERRED 2026-09-17 by Martin.** Transcribed and built; `Features/Reload/`
+  exists, is tested, and is intentionally **not wired into the app**. The prismatic arc
+  (white → amber → mint → lavender, sampled from the clip) is recorded in `docs/UI-SPEC.md` §7. Do not
+  reconnect it without asking. Original note follows.
+- [ ] **30.23a (original wording)** — watch the clip and transcribe the reload/refresh animation into the §8.5 motion table before building the reload control. Not yet transcribed; it's a video and this document only covers the stills.
 
 ---
 

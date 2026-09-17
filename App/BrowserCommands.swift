@@ -74,6 +74,14 @@ extension AppDelegate {
         session?.goForward()
     }
 
+    // MARK: - Downloads (§15.3)
+
+    /// `⌘⌥L`. Toggles §30.15's secondary surface; the completion popover is
+    /// the primary one and shows itself.
+    @objc func showDownloads(_ sender: Any?) {
+        downloadsPanel?.toggle()
+    }
+
     // MARK: - Layout and Spaces
 
     /// `⌘S` (§8): toggles the sidebar, and toggles back from top-bar mode.
@@ -108,20 +116,36 @@ extension AppDelegate: NSMenuItemValidation {
     /// has no history to walk until it is woken, which is the truth.
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         guard let session else { return false }
+        return validateNavigation(menuItem, in: session)
+            ?? validateSessionCommand(menuItem, in: session)
+    }
+
+    /// Reads the live controller, so it answers `nil` for anything it does not
+    /// own rather than guessing.
+    private func validateNavigation(_ item: NSMenuItem, in session: BrowserSession) -> Bool? {
         let active = session.activeTabID.flatMap { session.controller(for: $0) }
-        switch menuItem.action {
+        switch item.action {
         case #selector(goBack(_:)):
             return active?.state.canGoBack ?? false
         case #selector(goForward(_:)):
             return active?.state.canGoForward ?? false
         case #selector(stopLoading(_:)):
             return active?.state.isLoading ?? false
+        default:
+            return nil
+        }
+    }
+
+    private func validateSessionCommand(_ item: NSMenuItem, in session: BrowserSession) -> Bool {
+        switch item.action {
         case #selector(reloadPage(_:)), #selector(closeTab(_:)):
             return session.activeTabID != nil
         case #selector(previousTab(_:)), #selector(nextTab(_:)):
             return session.tabs.count > 1
         case #selector(reopenArchivedTab(_:)):
             return !session.archived.isEmpty
+        case #selector(showDownloads(_:)):
+            return downloadsPanel != nil
         case #selector(undo(_:)):
             return session.undoManager.canUndo
         case #selector(redo(_:)):

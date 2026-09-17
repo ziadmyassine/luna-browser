@@ -106,7 +106,12 @@ enum MainMenu {
             item("Toggle Sidebar", #selector(AppDelegate.toggleChromeLayout(_:)), "s"),
             .separator(),
             item("Reload Page", #selector(AppDelegate.reloadPage(_:)), "r"),
-            item("Stop Loading", #selector(AppDelegate.stopLoading(_:)), ".")
+            item("Stop Loading", #selector(AppDelegate.stopLoading(_:)), "."),
+            .separator(),
+            // §22.5: the downloads panel is only otherwise reachable from the
+            // top bar's button, which the sidebar layout does not show at all.
+            // ⌘⌥L is free in the §20.1 map and is what Safari uses.
+            item("Downloads", #selector(AppDelegate.showDownloads(_:)), "l", modifiers: [.command, .option])
         ])
     }
 

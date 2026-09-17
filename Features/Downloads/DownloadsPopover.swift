@@ -64,7 +64,6 @@ final class DownloadsPopover {
         let panel = makePanel()
         let content = PopoverContentView(
             item: item,
-            tailSide: Self.tailSide,
             tailRise: Self.tailRise,
             onConfirm: { [weak self] in self?.dismiss(animated: true) },
             onHoverChanged: { [weak self] hovering in
@@ -221,8 +220,9 @@ private final class PopoverContentView: NSView {
     private let row: DownloadsPopoverRowView
     private let body: NSView
     private let tail: NSView
-    private let tailSide: CGFloat
     private let tailRise: CGFloat
+    /// Width and height of the diamond's bounding box.
+    private var tailDiagonal: CGFloat { tailRise * 2 }
     private let onHoverChanged: (Bool) -> Void
 
     /// Where in this view's width the tail points. Set by the controller once
@@ -231,12 +231,10 @@ private final class PopoverContentView: NSView {
 
     init(
         item: DownloadItem,
-        tailSide: CGFloat,
         tailRise: CGFloat,
         onConfirm: @escaping () -> Void,
         onHoverChanged: @escaping (Bool) -> Void
     ) {
-        self.tailSide = tailSide
         self.tailRise = tailRise
         self.onHoverChanged = onHoverChanged
         self.row = DownloadsPopoverRowView(item: item, onConfirm: onConfirm)
@@ -247,12 +245,15 @@ private final class PopoverContentView: NSView {
         super.init(frame: .zero)
         wantsLayer = true
 
+        // Sized before they are in the tree, for the reason
+        // `DownloadsPopoverRowView` already records about `confirmBacking`: a
+        // glass backing that first lays out at zero has nothing to scale from.
+        tail.setFrameSize(CGSize(width: tailDiagonal, height: tailDiagonal))
+        body.setFrameSize(Tokens.Metric.downloadsPopover.size)
+
         // Behind the body, so the body's glass composites over the half of the
         // diamond that is inside it and the two read as one surface.
         addSubview(tail)
-        // A square turned on its point is the tail. Not a metric — 45° is what
-        // "on its point" means.
-        tail.frameCenterRotation = 45
 
         addSubview(body)
         body.addSubview(row)
@@ -270,12 +271,35 @@ private final class PopoverContentView: NSView {
         super.layout()
         body.frame = CGRect(x: 0, y: tailRise, width: bounds.width, height: bounds.height - tailRise)
         row.frame = body.bounds
-        tail.frame = CGRect(
-            x: tailCentreX - tailSide / 2,
-            y: tailRise - tailSide / 2,
-            width: tailSide,
-            height: tailSide
-        )
+        // The square's corners sit `tailRise` from its centre along both axes,
+        // so this is exactly the box the rotated square occupied: the tip meets
+        // y = 0 and the opposite corner sits inside the body.
+        tail.frame = CGRect(x: tailCentreX - tailRise, y: 0, width: tailDiagonal, height: tailDiagonal)
+        maskTail()
+    }
+
+    /// A square turned on its point — **masked, not rotated.**
+    ///
+    /// **Measured at runtime (M1 integration):** with
+    /// `tail.frameCenterRotation = 45` the app died the instant the panel was
+    /// ordered in, `EXC_BREAKPOINT` / "Invalid view geometry: y is NaN" raised
+    /// from `NSViewActuallyUpdateFrameFromLayoutEngine`. Auto Layout cannot
+    /// express a rotation, and `Glass.backing` puts an `NSGlassEffectView` in
+    /// here that lays its own `contentView` out with constraints — solved
+    /// inside a rotated frame, the engine hands back NaN and AppKit traps on
+    /// the next layout pass. A mask draws the same diamond with no rotation.
+    private func maskTail() {
+        let box = tail.bounds
+        let diamond = CGMutablePath()
+        diamond.move(to: CGPoint(x: box.midX, y: box.minY))
+        diamond.addLine(to: CGPoint(x: box.maxX, y: box.midY))
+        diamond.addLine(to: CGPoint(x: box.midX, y: box.maxY))
+        diamond.addLine(to: CGPoint(x: box.minX, y: box.midY))
+        diamond.closeSubpath()
+        let mask = tail.layer?.mask as? CAShapeLayer ?? CAShapeLayer()
+        mask.frame = box
+        mask.path = diamond
+        tail.layer?.mask = mask
     }
 
     // MARK: Hover cancels the auto-dismiss (§5)

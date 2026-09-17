@@ -342,7 +342,7 @@ final class TopBarView: NSView {
     }
 
     private static func applyTokens(from view: NSView) {
-        (view as? TopBarThemed)?.applyTokens()
+        (view as? any TopBarThemed)?.applyTokens()
         for subview in view.subviews { applyTokens(from: subview) }
     }
 }

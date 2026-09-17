@@ -83,6 +83,12 @@ page-derived wash is disabled outright.
 > so obeying it literally made the sidebar and the card the same colour and the card vanished. There is a
 > dedicated `Surface.glassFallback` token for exactly this.
 
+> **Expect this to look like a bug (M1).** Because the chrome genuinely samples what is behind the window,
+> another app's window sitting under Luna shows through the sidebar as a hard-edged translucent panel with
+> its own corner radius. It was investigated as a rendering defect and reproduced 1:1 with a Finder window;
+> the "artifact" was that window. It stops at the content card because the card is opaque, which is also
+> why top-bar mode looks clean — the card is full-bleed there. Nothing to fix; this is §2 working.
+
 **Verified API (M1).** macOS 26.5 provides `NSGlassEffectView` (`contentView`, `cornerRadius`, `tintColor`,
 `style`) with `Style.regular` / `.clear`, plus `NSGlassEffectContainerView` for merging adjacent glass.
 There is **no heavy or thick style** — weight comes from shadow, not material. There is no `NSLiquidGlass*`
@@ -183,6 +189,13 @@ the same transaction — never as a second step, or they visibly jump.
 - Middle truncation is required — `97103328759-202…01-2026-08-31.pdf` keeps both the prefix and the
   extension, which head- or tail-truncation would each destroy.
 - Appears on download completion, auto-dismisses after 4 s, or on confirm. Hovering cancels the timer.
+> **Gotcha (crashed the app, found by runtime bisect):** **never set `frameCenterRotation` on a view that
+> contains a `Glass` backing.** `Glass.backing` puts an `NSGlassEffectView` inside, which lays its own
+> `contentView` out with constraints — and Auto Layout cannot express a rotation, so the engine returns
+> **NaN** and AppKit traps in `_NSViewValidateGeometry` ("Invalid view geometry: y is NaN") on the next
+> layout pass, with no frames of ours in the stack. The tail's diamond is a `CAShapeLayer` mask on an
+> unrotated view of the same bounding box instead. It crashed on *every* completed download; the TCC
+> dialog only made the timing deterministic.
 - The full downloads panel is the secondary surface; **this popover is primary** (§30.15).
 
 ### 5.1 Completion animation — the particle sweep
@@ -227,7 +240,22 @@ Every entry degrades to instant under Reduce Motion.
 
 ---
 
-## 7. Reload / refresh animation
+## 7. Reload / refresh animation — **DEFERRED 2026-09-17**
+
+> **Not in scope. Do not wire this up, and do not spend time on it.**
+> **Two defects were found by running it before it was set aside — fix these first if it is revived:**
+> 1. `updateLayer()` never runs, because AppKit skips the display pass for a hidden view, so
+>    `arcLayer.colors` stays nil and **the bloom plays with no arc at all**. Set `needsDisplay = true`
+>    in `begin()`.
+> 2. `layoutBands`' `contentsRect` comment has the axis backwards — it is **y-up**, so `y: index/count`
+>    composites the five snapshot strips in reverse vertical order.
+> With both fixed the arc measured correctly over a flat grey page (white 164 → amber → mint → lavender
+> over base 138), and a sub-0.15 s reload correctly drew nothing.
+> `Features/Reload/` is built, tested and deliberately left **unreferenced** — it is dead code by choice,
+> not by oversight, so a future view-hierarchy audit does not "fix" it back in. The spec below is kept
+> because the transcription work is done and the arc colours were sampled from the reference video; it is
+> a record, not a task. Reviving it is wiring, not rebuilding.
+
 
 Transcribed from `refresh-animation-ui.mov`, which is an **iPhone pull-to-refresh** at 120 fps — not a
 desktop reload. What it shows:

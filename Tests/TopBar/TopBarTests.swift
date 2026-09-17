@@ -94,3 +94,22 @@ final class TopBarActionCapsuleTests: XCTestCase {
         XCTAssertEqual(button.accessibilityLabel(), "Downloads")
     }
 }
+
+@MainActor
+final class TopBarURLPillLayoutTests: XCTestCase {
+
+    /// The one piece of §4 layout worth a test: `NSTextField.intrinsicContentSize`
+    /// reports the glyph run *without* the cell's 2 pt title inset on each side,
+    /// so a label framed to it tail-truncates a domain that fits the pill with
+    /// 90 pt to spare. The pill measures with `fittingSize` for that reason.
+    func testTheDomainLabelIsWideEnoughToDrawItsString() throws {
+        let pill = TopBarURLPill(frame: NSRect(origin: .zero, size: Tokens.Metric.urlPill.size))
+        pill.apply(url: URL(string: "https://example.com"), icon: nil, tint: nil)
+        pill.layoutSubtreeIfNeeded()
+
+        let label = try XCTUnwrap(pill.subviews.compactMap { $0 as? NSTextField }.first)
+        let cell = try XCTUnwrap(label.cell)
+        XCTAssertEqual(label.stringValue, "example.com")
+        XCTAssertGreaterThanOrEqual(label.frame.width, cell.cellSize.width)
+    }
+}
