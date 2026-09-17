@@ -167,6 +167,11 @@ final class TopBarTabStrip: NSView {
 
     override func layout() {
         super.layout()
+        // Bounds-derived frames never animate — see `Motion.immediately`.
+        Tokens.Motion.immediately { placeContents() }
+    }
+
+    private func placeContents() {
         let height = bounds.height
         var originX: CGFloat = 0
         var activeFrame: NSRect?

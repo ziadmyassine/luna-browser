@@ -44,14 +44,14 @@ sidebar's own content reflows. The ratios exist to fix proportions once, not to 
 | `essentialsTile` | 128 × 42 pt, radius 12 | — |
 | `essentialsTileGap` / `essentialsInset` | 12 / 10 pt | 10 / 8 |
 | `essentialsIcon` | 16 pt (`= faviconSize`) | 22 |
-| `controlCircle` (**toggle**, back, reload) | 35 pt | toggle was a squircle |
+| `controlCircle` (**toggle**, back, reload) | 28 pt | 35, and before that a squircle for the toggle |
 | `controlPairGap` (back ↔ reload) | 5 pt | 8 |
 | `trafficLightInset` (leading **and** top) | 18 pt | 8 leading, 18 top |
 | `controlSquircle` (top-bar tab tile only) | 28 pt, radius 9 | — |
 | `bottomCircle` (avatar, archive) | 34 pt | — |
 | `spaceDotsPill` | 56 × 22 pt, radius 11 | — |
 | `spaceDot` | 6 pt | — |
-| `glyphSize` (chrome SF Symbols) | 17 pt | 18 |
+| `glyphSize` (chrome SF Symbols) | 16 pt | 17, and 18 before that |
 | `windowCornerRadius` | 25 pt | 18 |
 | `contentCardRadius` | 25 pt (`= windowCornerRadius`) | 16 |
 | `contentCardGap` | **gone** — the page is flush (§3.6) | 8 pt |
@@ -96,6 +96,13 @@ are near-black and white respectively. The OS does the expensive part for free.
 fill at **12–18 %**, animated over 0.25 s, clamped so pill text always clears 4.5:1 (§21.4). If the
 clamp cannot be met, drop the wash entirely rather than shipping unreadable chrome.
 
+**Fullscreen.** Glass composites what is behind the *window*, and in macOS fullscreen there is nothing
+behind it — the sidebar rendered very nearly black in dark mode. The chrome planes (sidebar, top bar)
+therefore paint `Surface.glassFallback` **behind** the glass whenever the window is fullscreen: dark grey
+in dark, light grey in light, with the material still on top of it. Only in fullscreen — painting it
+always would be sampled by the glass in every window state and the wallpaper would stop coming through,
+which is the whole look.
+
 **Reduce Transparency.** Every glass surface falls back to solid **`Surface.glassFallback`**, and the
 page-derived wash is disabled outright.
 > **Corrected in M1:** this originally said `Surface.base`. But the content card is also `Surface.base`,
@@ -122,26 +129,39 @@ adds a visible border to each control.
 Vertical order, top to bottom:
 
 ### 3.1 Control row — height 52 pt, top-aligned
-`[traffic lights] [sidebar toggle 35] ·············· [back 35] [reload 35]`
+`[traffic lights] [sidebar toggle 28] ·············· [back 28] [reload 28]`
 > **Corrected in M1** against `inspiration/main-tab-bar-and-ui.png`: the toggle sits beside the traffic
 > lights, and back/reload are pinned to the **trailing** edge, not grouped after the toggle. The row must
 > also *measure* the traffic lights rather than assume a width.
-> **Corrected again:** the toggle is the **same 35 pt circle** as its two neighbours, not a 28 pt
-> squircle — all three measure 100 px across. Back and reload are 5 pt apart, not 8, and the whole trio
-> sits on the traffic lights' centre line rather than centred in the 52 pt row (the two are 1 pt apart,
-> and the row asks the window for the line rather than guessing).
+> **Corrected again:** the toggle is the **same circle** as its two neighbours, not a squircle. Back and
+> reload are 5 pt apart, not 8, and the whole trio sits on the traffic lights' centre line rather than
+> centred in the 52 pt row (the two are 1 pt apart, and the row asks the window for the line rather than
+> guessing).
+> **Corrected a third time — the circle is 28 pt, not 35.** 35 is what the reference measures, but the
+> reference's sidebar is 268 pt of a 2146 px capture, and at Luna's scale a 35 pt circle is a control as
+> tall as the row pill beneath it. 28 is the top-bar capsule item, so both layouts now agree on one
+> diameter. The glyph came down with it, 17 → 16.
+> **The three were also drawn one point taller than wide.** They are centred on the traffic lights'
+> midpoint, which is fractional, and `NSRect.integral` rounds the origin down and the far edge *up* — a
+> 28 × 28 circle placed at a fractional y comes out 28 × 29 and reads as an egg. Chrome controls snap
+> their **origin** only (`NSRect.pixelAligned`); a size that came from a token is not the layout's to
+> round.
 
 - Traffic lights are **system-drawn**, inset into the sidebar **18 pt from the window's leading edge and
   18 pt from its top — one number, both axes**. They were 8 pt in and 18 pt down, which is unequal
   padding into a corner and the first thing the eye catches. A single `TrafficLightLayoutManager` owns
   their frame for all six window states (§7.7 — this is the #1 bug source in Arc-style browsers).
-- Buttons are circular glass with a hairline border; **hover lifts the fill** (not the border).
+- Back and reload are circular glass with a hairline border; **hover lifts the fill** (not the border).
+- **The toggle carries no glass at rest.** Back and reload are navigation and hold their material; the
+  toggle is furniture, and a third bright circle beside the traffic lights is the first thing the eye
+  lands on when the window opens. It is a bare glyph until the pointer arrives, and the glass fades in
+  under it on §6's control-hover curve.
 - Back is disabled-dimmed at 35 % when `canGoBack` is false. Reload becomes a **stop** glyph while loading.
 
 ### 3.2 URL pill — full width less 8 pt each side, 34 pt tall, full radius, flush under the control row
-> **Corrected:** not "12 pt below the control row". The 52 pt row already carries ~8 pt of clear space
-> below its 35 pt buttons, and that *is* the gap the reference measures between reload and the pill. A
-> second gap on top of it doubles a space that is already right.
+> **Corrected:** not "12 pt below the control row". The 52 pt row already carries clear space below its
+> buttons, and that *is* the gap the reference measures between reload and the pill. A second gap on top
+> of it doubles a space that is already right.
 - **Domain only**: `apple.com`, not the full URL (§30.3). eTLD+1 plus subdomain when meaningful.
 - Left-aligned text at 12 pt inset; trailing **sliders glyph** (site menu) at 10 pt from the right edge.
 - Two further icon slots are **reserved and sized** to the left of the sliders glyph but render nothing.
@@ -153,6 +173,13 @@ Vertical order, top to bottom:
   which does not fit a 280 pt sidebar, and the grid must survive the 180–420 pt resize range regardless.
 - **Icon only, centred, 22 pt.** No label. Visually distinct from the text rows below (§30.5).
 - Translucent fill + hairline. Active Essential gets a brighter fill and a 1 pt accent ring.
+- **Pinning** (§6.6's other half): right-click a row → *Pin Tab*, or drag it up into the grid. Pinning
+  moves the tab into the Essentials section **and puts its page away** — the tile is the tab, so the page
+  costs no WebContent process until it is clicked again (§19.2). A pinned tab cannot be closed, only
+  unpinned (right-click → *Unpin Tab*, or drag it back down); `⌘W` on one puts the page away and leaves
+  the tile.
+  > **This was half-implemented and looked broken.** `pinTab` put the page away and never changed the
+  > tab's kind, so the row left the list, no tile appeared, and the command did nothing visible.
 
 ### 3.4 List rows — 38 pt of pitch around a 35 pt pill
 Order: `Archive` folder row → **separator** → `+ Add Tab` row → tabs.
@@ -168,6 +195,9 @@ Order: `Archive` folder row → **separator** → `+ Add Tab` row → tabs.
   dissolve rather than spending three characters saying the obvious.
 - **Selected row:** filled translucent pill spanning sidebar width minus 8 pt each side, radius 10,
   **visible hairline border**, brighter text. **Unselected rows have no background at all** (§30.7).
+  > **No accent anywhere on it.** The pill used to take an `Accent.tint` border while the list had focus.
+  > A blue ring around the current tab is a system list; Luna's selection is the glass plus §3.4's wash,
+  > and the hairline is `Line.border` in every focus state.
 - **Status dot** leads the row only when the tab has unread/updated content (the Discord row in the
   reference). Audio gets a **trailing** speaker glyph, click-to-mute.
 - **Hover** reveals a trailing close/archive affordance and lifts the row fill to 6 %. That affordance is
@@ -195,6 +225,14 @@ instead of leaving a crescent of glass inside each one.
 > any edge — the page runs to the glass. The floating read comes from the window's glass and its shadow
 > against the wallpaper, not from a moat around the page.
 
+**The pane carries the glass edge.** It is opaque, so the chrome's material stops dead at its leading
+edge and the two planes met with nothing between them. A `Line.border` hairline runs down that edge,
+following the rounded leading corners and nothing else — the same edge every other glass surface has.
+
+**Hiding the sidebar gives the page the whole window.** No reserved strip for the traffic lights: they
+keep their place in the titlebar and float over the page. Reserving 52 pt for them would leave a band of
+empty glass across the top, which is not "hidden".
+
 Entering page fullscreen animates the pane to fill the window over 0.3 s.
 
 ### 3.7 Sidebar resize handle
@@ -212,7 +250,9 @@ within 160–420 pt, double-click resets to 280. The hit area is 8 pt wide; the 
 
 One 52 pt glass bar spanning the window. **Content is flush full-bleed below it — no inset card, no gap.**
 
-`[traffic lights] [sidebar toggle 28] [back 35] [tab tiles …] [ACTIVE TAB pill] [tab tiles …] [hairline] [action capsule]`
+`[traffic lights] [sidebar toggle 28] [back 28] [tab tiles …] [ACTIVE TAB pill] [tab tiles …] [hairline] [action capsule]`
+> Both are `controlCircle`, and the toggle is bare at rest — the same three decisions as §3.1, so the two
+> layouts do not disagree about what a chrome button is.
 
 - **Tabs are visible in this mode as a horizontal strip.** Inactive tabs render as 28 pt icon-only tiles;
   the **active tab expands into the URL pill** showing its domain, favicon and sliders glyph. This is why
@@ -223,11 +263,33 @@ One 52 pt glass bar spanning the window. **Content is flush full-bleed below it 
 - **Action capsule**: its own rounded glass capsule, separated by a vertical hairline, holding
   `[+ new tab] [downloads] [profile]`. Extension action buttons dock here when extensions ship (v2) —
   build the capsule to host a variable number of items now.
+  > **Corrected: the capsule is one glass surface, not three merged ones.** It gave each item its own
+  > `.control` backing and handed them to `NSGlassEffectContainerView`, on the theory that Liquid Glass
+  > unions neighbours within `spacing`. On screen it did not: three separate bright circles, each with
+  > its own specular rim, and the white `+` and `↓` washed out against those rims. The glass is applied
+  > once, to the capsule, at full radius; the items inside it are bare glyphs.
 
 ### 4.1 Switching layouts
-The sidebar toggle animates between the two. Sidebar width collapses to 0 while the top bar's height
-animates 0 → 52 and its contents stagger in at 20 ms intervals. Total 0.3 s. Traffic lights re-anchor in
-the same transaction — never as a second step, or they visibly jump.
+**The switch is a setting, not a button.** `Settings.chromeLayout` (`⌘,`) chooses the layout; the sidebar
+toggle and `⌘S` only hide and show the sidebar within it. The two are different decisions taken at
+different rates — one is a reflex, several times a minute, the other a preference taken once — and a
+control that did both meant the reflex silently changed the preference.
+
+When the layout does change, sidebar width collapses to 0 while the top bar's height animates 0 → 52 and
+its contents stagger in at 20 ms intervals. Total 0.3 s. Traffic lights re-anchor in the same transaction
+— never as a second step, or they visibly jump.
+
+> **A layout pass must never be caught in that transaction.** The switch calls `layoutSubtreeIfNeeded()`
+> with `allowsImplicitAnimation` on, and any `layout()` that sets subview frames from `bounds` then has
+> every assignment routed through the animator instead of landing. Coming back from top-bar layout, the
+> sidebar drew its control buttons 1001 pt to the right and its list 1070 pt wide — the frames the pass
+> computed were correct and were never applied, and the sidebar looked empty. Bounds-derived frames are a
+> consequence of the layout, not a change to animate: they go through `Motion.immediately`. The animation
+> belongs to whatever moved `bounds`.
+
+> **`NSTableView` does not survive being hidden.** While the top bar shows, the sidebar is `isHidden`
+> inside a 52 pt host, so the list has no visible rect and AppKit releases the row views it was
+> recycling. The list reloads when its layout comes back on screen.
 
 ---
 
@@ -344,7 +406,10 @@ Total in the clip: **~2.3 s**, which is a gesture-driven mobile interaction.
 
 ## 8. Behaviour
 
-- **Keyboard:** the §20.1 default map applies. `⌘S` toggles the sidebar, and in top-bar mode toggles back.
+- **Keyboard:** the §20.1 default map applies. `⌘S` **hides and shows the sidebar**; `⌘,` opens Settings.
+  > **Corrected.** `⌘S` used to swap sidebar layout for top-bar layout, so a reflex the user performs
+  > several times a minute silently changed a preference they set once. Which layout the window wears is
+  > now `Settings.chromeLayout`, and `⌘S` is only a reveal. In top-bar layout it is dimmed.
 - **Every chrome control is keyboard reachable** with a visible focus ring (§21.1, §20.2).
 - **Drag and drop:** rows reorder within a section, move between sections, and drop onto a Space dot to
   move to that Space.

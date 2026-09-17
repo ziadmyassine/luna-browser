@@ -32,6 +32,10 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     private var chromeFillsWidth: NSLayoutConstraint?
 
     private var stateBeforeFullscreen: ChromeState?
+    /// The width to come back to when the sidebar is shown again. Not the
+    /// default: a user who dragged the sidebar to 200 pt and hid it expects
+    /// 200 pt back.
+    private var widthBeforeCollapse: CGFloat?
 
     private(set) var chromeState: ChromeState = .sidebar(width: Tokens.Metric.sidebarWidth.default)
 
@@ -142,6 +146,13 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         apply(state, animated: true)
     }
 
+    /// The launch path: the layout the user chose is applied before there is
+    /// anything on screen to animate, and animating it would show the wrong
+    /// layout for 0.30 s first.
+    func setChromeStateWithoutAnimation(_ state: ChromeState) {
+        apply(state, animated: false)
+    }
+
     /// §3.7's live drag. **Not animated**: the pointer is already the
     /// animation, and a 0.20 s spring on every drag event puts the divider
     /// permanently behind the mouse. Ignored unless the sidebar is showing —
@@ -149,6 +160,35 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     func setSidebarWidth(_ width: CGFloat) {
         guard case .sidebar = chromeState else { return }
         apply(.sidebar(width: Tokens.Metric.sidebarWidth.clamp(width)), animated: false)
+    }
+
+    /// `⌘S` and §3.1's toggle: the sidebar slides out to zero width and the page
+    /// takes the whole window (§4.1's curve, `Motion.sidebarCollapse`).
+    ///
+    /// **This is not the layout switch.** Which chrome the window wears is a
+    /// setting (`Settings.chromeLayout`); this only hides and shows it. In
+    /// top-bar layout there is no sidebar to hide and the call is a no-op.
+    func setSidebarCollapsed(_ collapsed: Bool) {
+        switch (collapsed, chromeState) {
+        case let (true, .sidebar(width)):
+            widthBeforeCollapse = width
+            apply(.sidebarCollapsed, animated: true)
+        case (false, .sidebarCollapsed):
+            let width = widthBeforeCollapse ?? Tokens.Metric.sidebarWidth.default
+            apply(.sidebar(width: width), animated: true)
+        default:
+            break
+        }
+    }
+
+    var isSidebarCollapsed: Bool { chromeState == .sidebarCollapsed }
+
+    /// Whether `⌘S` has anything to do in the current layout.
+    var canCollapseSidebar: Bool {
+        switch chromeState {
+        case .sidebar, .sidebarCollapsed: true
+        case .topBar, .fullscreen: false
+        }
     }
 
     /// Page fullscreen (§3.6): the card grows to fill the window and the chrome

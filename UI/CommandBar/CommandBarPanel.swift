@@ -93,7 +93,12 @@ final class CommandBarPanel: NSView {
         body.addSubview(field)
         body.addSubview(results)
 
-        let inset = CommandBarMetrics.padding + Tokens.Metric.rowInset
+        // A result row is `[icon] [title]` at `padding + rowInset`, so the
+        // query lines up with the **titles** it is filtering, not with the
+        // icon column beside them. The two are the same list read top to
+        // bottom, and they were a favicon's width out of step.
+        let rowInset = CommandBarMetrics.padding + Tokens.Metric.rowInset
+        let inset = rowInset + Tokens.Metric.faviconSize + CommandBarMetrics.padding
         let top = body.topAnchor.constraint(
             equalTo: topAnchor,
             constant: bounds.height * CommandBarMetrics.topAnchorFraction
@@ -105,12 +110,23 @@ final class CommandBarPanel: NSView {
             body.widthAnchor.constraint(equalToConstant: CommandBarMetrics.width),
             top,
 
-            field.topAnchor.constraint(equalTo: body.topAnchor),
+            // **Centred in the input row, not stretched over it.** An
+            // `NSTextField` draws its single line at the *top* of whatever
+            // frame it is given, so a 52 pt field put the placeholder hard
+            // against the panel's top edge, above the rounded corners — the
+            // misalignment in Martin's capture. The row is still 52 pt; the
+            // field is its own height inside it.
+            field.centerYAnchor.constraint(
+                equalTo: body.topAnchor,
+                constant: CommandBarMetrics.inputHeight / 2
+            ),
             field.leadingAnchor.constraint(equalTo: body.leadingAnchor, constant: inset),
-            field.trailingAnchor.constraint(equalTo: body.trailingAnchor, constant: -inset),
-            field.heightAnchor.constraint(equalToConstant: CommandBarMetrics.inputHeight),
+            field.trailingAnchor.constraint(equalTo: body.trailingAnchor, constant: -rowInset),
 
-            results.topAnchor.constraint(equalTo: field.bottomAnchor),
+            results.topAnchor.constraint(
+                equalTo: body.topAnchor,
+                constant: CommandBarMetrics.inputHeight
+            ),
             results.leadingAnchor.constraint(equalTo: body.leadingAnchor),
             results.trailingAnchor.constraint(equalTo: body.trailingAnchor),
             results.bottomAnchor.constraint(equalTo: body.bottomAnchor, constant: -CommandBarMetrics.padding)

@@ -7,7 +7,7 @@
 //  second layout, not a collapsed sidebar — `ContentCardView` already knows
 //  that (`cardInsets` for `.topBar` has no gap and no corners).
 //
-//      [traffic lights] [toggle 28] [back 35] [tiles … PILL … tiles] [|] [capsule]
+//      [traffic lights] [toggle 28] [back 28] [tiles … PILL … tiles] [|] [capsule]
 //
 //  Three things are deliberately absent:
 //    · **No reload button.** The reference omits it; §4 makes reload `⌘R` and
@@ -34,8 +34,9 @@ enum TopBarMetrics {
     /// §4: inactive tabs are 28 pt icon-only tiles — the same square as the
     /// sidebar toggle.
     static var tile: RoundedMetric { Tokens.Metric.controlSquircle }
-    /// One capsule item. Round, so §2's merged glass unions into a capsule
-    /// with properly rounded ends however many items there are.
+    /// One capsule item, and the diameter every other chrome button in the app
+    /// borrows (`Tokens.Metric.controlCircle`). Round because the capsule it
+    /// sits in is a cylinder with rounded ends.
     static var capsuleItem: RoundedMetric { .circle(Tokens.Metric.controlSquircle.width) }
     /// The capsule's padding around its items. Half a `rowInset`, which lands
     /// the capsule at 36 pt tall — the measured height in the reference.
@@ -80,7 +81,10 @@ final class TopBarView: NSView {
     private static let profileItem = "luna.topBar.profile"
 
     private let session: BrowserSession
-    private let toggle = TopBarButton(metric: Tokens.Metric.controlSquircle, glass: true)
+    /// Both circles, both `controlCircle`, and the toggle carries no glass at
+    /// rest — the same three decisions as §3.1's sidebar row, so the two
+    /// layouts do not disagree about what a chrome button looks like.
+    private let toggle = TopBarButton(metric: Tokens.Metric.controlCircle, glass: false)
     private let backButton = TopBarButton(metric: Tokens.Metric.controlCircle, glass: true)
     private let strip: TopBarTabStrip
     private let separator = TopBarSeparator()
@@ -128,7 +132,7 @@ final class TopBarView: NSView {
         toggle.icon = TopBarButton.symbol("sidebar.leading")
         toggle.setAccessibilityLabel(String(localized: "Toggle Sidebar"))
         toggle.target = nil
-        toggle.action = #selector(AppDelegate.toggleChromeLayout(_:))
+        toggle.action = #selector(AppDelegate.toggleSidebarVisibility(_:))
 
         backButton.icon = TopBarButton.symbol("chevron.backward")
         backButton.setAccessibilityLabel(String(localized: "Back"))

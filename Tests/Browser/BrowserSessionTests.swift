@@ -111,6 +111,67 @@ final class BrowserSessionTests: XCTestCase {
         XCTAssertNotNil(all.first?.archivedAt)
     }
 
+    /// §3.3: pinning moves the tab into the Essentials section **and** puts
+    /// its page away. It used only to do the second half, so the row left the
+    /// list, no tile appeared, and the command looked like it did nothing.
+    func testPinningMovesTheTabIntoEssentials() async throws {
+        let store = try makeStore()
+        try await store.seedIfEmpty()
+        let seeded = try await store.spaces()
+        let space = try XCTUnwrap(seeded.first)
+        let tab = Tab(spaceID: space.id, kind: .today, url: url("pin-me"), order: 0)
+        try await store.upsert(tab)
+
+        let session = try await BrowserSession.restored(store: store)
+        session.pinTab(tab.id)
+
+        XCTAssertEqual(session.tab(tab.id)?.kind, .essential, "a pinned tab is an Essential")
+        XCTAssertEqual(
+            session.tabs.filter { $0.kind == .essential }.map(\.id),
+            [tab.id],
+            "…and it is what the grid renders"
+        )
+        XCTAssertNil(session.controller(for: tab.id), "pinning puts the page away")
+
+        await session.persist()
+        let stored = try await store.tabs(inSpace: space.id, includeArchived: false)
+        XCTAssertEqual(stored.first?.kind, .essential, "and it survives a relaunch as one")
+    }
+
+    /// §3.3: unpinning is the only way out of the grid, and it does not open
+    /// the page.
+    func testUnpinningReturnsTheTabToToday() async throws {
+        let store = try makeStore()
+        try await store.seedIfEmpty()
+        let seeded = try await store.spaces()
+        let space = try XCTUnwrap(seeded.first)
+        let tab = Tab(spaceID: space.id, kind: .essential, url: url("pinned"), order: 0)
+        try await store.upsert(tab)
+
+        let session = try await BrowserSession.restored(store: store)
+        session.unpinTab(tab.id)
+
+        XCTAssertEqual(session.tab(tab.id)?.kind, .today)
+        XCTAssertNil(session.controller(for: tab.id), "unpinning is not opening")
+    }
+
+    /// A pinned tab cannot be closed, only unpinned (§3.3): `⌘W` on one puts
+    /// the page away and leaves the tile.
+    func testClosingAPinnedTabKeepsIt() async throws {
+        let store = try makeStore()
+        try await store.seedIfEmpty()
+        let seeded = try await store.spaces()
+        let space = try XCTUnwrap(seeded.first)
+        let tab = Tab(spaceID: space.id, kind: .essential, url: url("stays"), order: 0)
+        try await store.upsert(tab)
+
+        let session = try await BrowserSession.restored(store: store)
+        session.closeTab(tab.id)
+
+        XCTAssertEqual(session.tab(tab.id)?.kind, .essential, "the tile is the tab; it stays")
+        XCTAssertTrue(session.archived.isEmpty)
+    }
+
     private func url(_ path: String) -> URL {
         URL(string: "https://example.com/\(path)")!
     }

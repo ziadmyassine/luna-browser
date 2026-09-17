@@ -19,6 +19,23 @@
 
 import AppKit
 
+extension NSRect {
+
+    /// Snaps the **origin** to whole points and leaves the size alone.
+    ///
+    /// **`.integral` is the wrong tool for a control.** It rounds the origin
+    /// *down* and the far edge *up*, so a 28 × 28 circle placed at a fractional
+    /// y — which is what centring on the traffic lights' midpoint gives — comes
+    /// out 28 × 29 and draws as an egg. Every "circle" in the chrome was one
+    /// point taller than it was wide, which is exactly what it looked like.
+    ///
+    /// A size from `Tokens.Metric` is already a whole number and is not the
+    /// layout's to round; only where it lands is.
+    var pixelAligned: NSRect {
+        NSRect(x: origin.x.rounded(), y: origin.y.rounded(), width: size.width, height: size.height)
+    }
+}
+
 /// A user-resizable span (§3.7: drag to resize, double-click resets).
 struct SpanMetric: Sendable {
     var `default`: CGFloat
@@ -172,10 +189,17 @@ extension Tokens {
 
         // MARK: Controls (§3.1, §3.5)
 
-        /// Sidebar toggle, back and reload: 35 pt circles. All three, measured
-        /// at 100 px each — the toggle is **not** the smaller squircle §3.1
-        /// describes, it is the same circle as its neighbours.
-        static let controlCircle = RoundedMetric.circle(35)
+        /// Sidebar toggle, back and reload: 28 pt circles. All three.
+        ///
+        /// **Retuned down from 35.** 35 is what the reference measures, but the
+        /// reference's sidebar is 268 pt of a 2146 px capture and Luna's rows,
+        /// type and favicons all landed smaller than that arithmetic predicted;
+        /// a 35 pt circle beside a 35 pt row pill is a control the same height
+        /// as the content it sits above, which is why it read as heavy. 28 is
+        /// the top bar's capsule item — the one control in the app Martin
+        /// called the right size — so the two layouts now agree on one number
+        /// instead of disagreeing on two.
+        static let controlCircle = RoundedMetric.circle(28)
         /// The top bar's icon-only tab tile: 28 pt, radius 9. §3.1's sidebar
         /// toggle used to borrow this; it does not any more.
         static let controlSquircle = RoundedMetric(width: 28, height: 28, cornerRadius: 9)
@@ -197,11 +221,15 @@ extension Tokens {
         static let spaceDot: CGFloat = 6
         /// SF Symbol point size for every chrome glyph (§3.1, §3.5, §4).
         ///
-        /// The same 18 pt as `faviconSize`, and still its own token: a symbol's
+        /// The same 16 pt as `faviconSize`, and still its own token: a symbol's
         /// point size and a favicon image's edge are different measurements
         /// that happen to agree today, and the views were reaching for
         /// `faviconSize` to size glyphs for want of anything better.
-        static let glyphSize: CGFloat = 17
+        ///
+        /// Down from 17 with `controlCircle`: a 17 pt glyph in a 28 pt circle
+        /// leaves 5.5 pt of padding and reads as a glyph that outgrew its
+        /// button. 16 is what the top bar has always drawn.
+        static let glyphSize: CGFloat = 16
 
         // MARK: Chrome gaps (§3.1, §3.2, §4)
 

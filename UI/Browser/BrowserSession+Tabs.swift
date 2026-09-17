@@ -111,6 +111,12 @@ extension BrowserSession {
     /// there is no "close a pinned tab", because the tile *is* the tab.
     func pinTab(_ id: UUID, at index: Int = .max) {
         guard let tab = list.tab(id), tab.kind != .essential else { return }
+        // **This is the line that was missing.** Pinning put the page away and
+        // never moved the tab into the Essentials section, so the row vanished
+        // from the list, no tile appeared, and "Pin Tab" looked like it did
+        // nothing at all. `reorderTab` is what changes a tab's kind, and it
+        // registers the undo.
+        reorderTab(id, to: index, kind: .essential)
         putPinnedTabAway(id, in: tab.spaceID)
     }
 

@@ -137,6 +137,15 @@ final class SidebarViewController: NSViewController {
         controlRow.update(canGoBack: state?.canGoBack ?? false, isLoading: state?.isLoading ?? false)
     }
 
+    /// Called by `ChromeHostView` when this layout comes back on screen.
+    /// Everything is re-read and the list's row views are rebuilt — see
+    /// `ChromeHostView.onShowSidebar` for why the rebuild is not optional.
+    func willAppear() {
+        list.reload()
+        refresh()
+        view.needsLayout = true
+    }
+
     /// §3.2 / §20.1's `⌘L`.
     func beginEditingURL() {
         pill.beginEditing()
@@ -221,11 +230,24 @@ final class SidebarViewController: NSViewController {
 
     override func viewDidLayout() {
         super.viewDidLayout()
+        // Every frame below is computed from `bounds`, so none of them may
+        // animate — see `Motion.immediately`. Without this the §4.1 layout
+        // switch's own transaction swallowed the whole pass.
+        Tokens.Motion.immediately { layoutSubviews() }
+    }
+
+    private func layoutSubviews() {
         let bounds = view.bounds
         let inset = Tokens.Metric.rowInset
         let bar = Tokens.Metric.topBarHeight
 
         controlRow.frame = NSRect(x: 0, y: bounds.maxY - bar, width: bounds.width, height: bar)
+        // The row places its buttons against the **traffic lights**, which move
+        // and disappear without its own bounds changing — entering fullscreen
+        // takes them away and leaves the row exactly 52 pt tall and exactly as
+        // wide. Nothing would mark it dirty, so the row kept a hole at its head
+        // where three lights used to be.
+        controlRow.needsLayout = true
         let pillHeight = Tokens.Metric.urlPill.height
         // Flush under the control row, not §3.2's 12 pt below it: the row is
         // 52 pt and its buttons are only 35, so the row already carries ~8 pt

@@ -35,7 +35,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// AppKit's `NSWindow.windowController` is weak, so somebody has to own the
     /// controller. One window in M1; §22.6's window manager arrives when there
     /// is more than one to manage.
-    private var browserWindow: BrowserWindowController?
+    /// `fileprivate` would do, except `BrowserCommands` is a separate file:
+    /// the commands extension needs it to validate the View menu.
+    private(set) var browserWindow: BrowserWindowController?
     private let chrome = ChromeHostView()
 
     private(set) var store: BrowserStore?
@@ -50,6 +52,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// use counts against the same `inputHistory` rows.
     private var adaptive: AdaptiveHistory?
     private var downloads: DownloadManager?
+    /// `⌘,`. One instance, re-shown rather than rebuilt.
+    private var settingsWindow: SettingsWindowController?
     /// §15.3's secondary surface. `BrowserCommands` opens it as well as the
     /// top bar's button, so it is not file-private.
     private(set) var downloadsPanel: DownloadsListPanel?
@@ -96,9 +100,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.sidebar = sidebar
             self.topBar = topBar
             chrome.install(sidebar: sidebar.view, topBar: topBar)
+            // The list's row views do not survive the layout it is hidden in;
+            // see `ChromeHostView.onShowSidebar`.
+            chrome.onShowSidebar = { [weak sidebar] in sidebar?.willAppear() }
             controller.setChrome(chrome)
-            chrome.setLayout(controller.chromeState)
             wireSidebar(sidebar, in: controller)
+            // §7.1: the layout the user chose in Settings, applied before the
+            // first frame the window shows with content in it.
+            applyChromeLayout(in: controller, animated: false)
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(settingsDidChange),
+                name: Settings.didChange,
+                object: nil
+            )
 
             wireCommandBar(session, in: controller)
             wireDownloads(session, topBar: topBar)
@@ -128,7 +143,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// **Until this existed none of them were connected**, which is why §3.7's
     /// resize handle drew, hovered, dragged — and did nothing at all.
     private func wireSidebar(_ sidebar: SidebarViewController, in controller: BrowserWindowController) {
-        sidebar.onToggleSidebar = { [weak self] in self?.toggleChromeLayout() }
+        sidebar.onToggleSidebar = { [weak self] in self?.toggleSidebar() }
         sidebar.onSubmitURL = { [weak self] text in self?.open(text) }
         // Live during the drag and again on mouse-up: `setSidebarWidth` is
         // idempotent and the committed value is the one that gets persisted.
@@ -136,6 +151,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // §7.1: come back at the width the user left, not at the default — and
         // without animating a width the user never saw change.
         controller.setSidebarWidth(sidebar.preferredWidth)
+        sidebar.willAppear()
     }
 
     /// §3.2's pill commits here: a URL is loaded, anything else is a search.
@@ -167,7 +183,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case let .unarchiveTab(id):
             session?.unarchiveTab(id)
         case .command(.toggleSidebar):
-            toggleChromeLayout()
+            toggleSidebar()
         case .command(.newSpace):
             guard let session else { return }
             // §23.1's rename UI does not exist yet, so the Space arrives named
@@ -220,15 +236,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MainMenu.setSpaces(session.spaces.map(\.name), in: NSApp)
     }
 
-    /// `⌘S` (§8, §4.1): sidebar ↔ top bar, cross-fading the chrome while the
-    /// window controller re-anchors the traffic lights in its own transaction.
-    func toggleChromeLayout() {
+    /// `⌘S` and §3.1's toggle button: **hide or show the sidebar**, so the page
+    /// takes the whole window.
+    ///
+    /// It used to swap sidebar layout for top-bar layout, which meant a reflex
+    /// the user performs several times a minute silently changed a preference
+    /// they set once. The layout is now `Settings.chromeLayout` and lives in
+    /// the Settings window; this is only a reveal.
+    func toggleSidebar() {
+        guard let controller = browserWindow, controller.canCollapseSidebar else { return }
+        controller.setSidebarCollapsed(!controller.isSidebarCollapsed)
+    }
+
+    /// `⌘,`.
+    func showSettings() {
+        let window = settingsWindow ?? SettingsWindowController()
+        settingsWindow = window
+        window.present()
+    }
+
+    @objc private func settingsDidChange() {
         guard let controller = browserWindow else { return }
-        let next: ChromeState = controller.chromeState == .topBar
-            ? .sidebar(width: Tokens.Metric.sidebarWidth.default)
-            : .topBar
-        chrome.setLayout(next)
-        controller.setChromeState(next)
+        applyChromeLayout(in: controller, animated: true)
+    }
+
+    /// Puts the window into whichever chrome `Settings.chromeLayout` names.
+    /// The cross-fade and the frame animation run on the same tick (§4.1).
+    private func applyChromeLayout(in controller: BrowserWindowController, animated: Bool) {
+        let state: ChromeState = switch Settings.chromeLayout {
+        case .sidebar: .sidebar(width: sidebar?.preferredWidth ?? Tokens.Metric.sidebarWidth.default)
+        case .topBar: .topBar
+        }
+        guard state != controller.chromeState else { return }
+        chrome.setLayout(state)
+        if animated {
+            controller.setChromeState(state)
+        } else {
+            controller.setChromeStateWithoutAnimation(state)
+        }
     }
 
     // MARK: - Termination

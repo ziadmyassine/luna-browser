@@ -62,23 +62,28 @@ final class SidebarUtilityBar: NSView {
 
     override func layout() {
         super.layout()
+        // Bounds-derived frames never animate — see `Motion.immediately`.
+        Tokens.Motion.immediately { placeContents() }
+    }
+
+    private func placeContents() {
         let inset = Tokens.Metric.rowInset
         let circle = Tokens.Metric.bottomCircle
         let midY = (bounds.height - circle.height) / 2
-        avatar.frame = NSRect(x: inset, y: midY, width: circle.width, height: circle.height).integral
+        avatar.frame = NSRect(x: inset, y: midY, width: circle.width, height: circle.height).pixelAligned
         archive.frame = NSRect(
             x: bounds.maxX - inset - circle.width,
             y: midY,
             width: circle.width,
             height: circle.height
-        ).integral
+        ).pixelAligned
         let pill = dots.intrinsicContentSize
         dots.frame = NSRect(
             x: (bounds.width - pill.width) / 2,
             y: (bounds.height - pill.height) / 2,
             width: pill.width,
             height: pill.height
-        ).integral
+        ).pixelAligned
     }
 }
 
@@ -145,6 +150,11 @@ final class SpaceDotsView: NSView {
     /// be a 6 pt click and a 6 pt §6.6 drop target, which no one can hit.
     override func layout() {
         super.layout()
+        // Bounds-derived frames never animate — see `Motion.immediately`.
+        Tokens.Motion.immediately { placeContents() }
+    }
+
+    private func placeContents() {
         guard !dots.isEmpty else { return }
         let slot = bounds.width / CGFloat(dots.count)
         for (index, dot) in dots.enumerated() {
@@ -196,7 +206,7 @@ final class SpaceDotView: NSView {
             y: (bounds.height - size) / 2,
             width: size,
             height: size
-        ).integral
+        ).pixelAligned
         mark.cornerRadius = size / 2
         // §3.5's "100 % white / 35 %" as Luna's ink tiers: `primary` is the
         // full-strength label colour in both themes, `tertiary` the dimmest

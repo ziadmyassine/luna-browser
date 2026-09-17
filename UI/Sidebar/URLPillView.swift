@@ -210,6 +210,11 @@ final class URLPillView: NSView, NSTextFieldDelegate {
     /// glyph is optically smaller than its box.
     override func layout() {
         super.layout()
+        // Bounds-derived frames never animate — see `Motion.immediately`.
+        Tokens.Motion.immediately { placeContents() }
+    }
+
+    private func placeContents() {
         let glyph = Tokens.Metric.glyphSize
         sliders.frame = NSRect(
             x: bounds.maxX - Tokens.Metric.pillGlyphInset - glyph,

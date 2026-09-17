@@ -143,12 +143,16 @@ final class ContentCardGeometryTests: XCTestCase {
         XCTAssertFalse(ChromeState.topBar.cardIsInset)
     }
 
-    /// With no sidebar the lights still need their row, or they sit on the page.
-    /// Nothing is rounded there: every edge the page has is a window edge.
-    func testCollapsedSidebarKeepsTheControlRowClear() {
+    /// Hiding the sidebar gives the page the whole window — no reserved row for
+    /// the traffic lights, which keep their own place in the titlebar and float
+    /// over the page. Nothing is rounded: every edge the page has is a window
+    /// edge.
+    func testCollapsedSidebarFillsTheWindow() {
         let insets = ChromeState.sidebarCollapsed.cardInsets
-        XCTAssertEqual(insets.top, row)
+        XCTAssertEqual(insets.top, 0)
         XCTAssertEqual(insets.left, 0)
+        XCTAssertEqual(insets.right, 0)
+        XCTAssertEqual(insets.bottom, 0)
         XCTAssertFalse(ChromeState.sidebarCollapsed.cardIsInset)
     }
 

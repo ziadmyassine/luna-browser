@@ -121,10 +121,20 @@ extension TokenCheck {
         if metric.capsuleHeight <= metric.urlPill.height {
             failures.append("Metric.capsuleHeight is not above urlPill.height — §4's capsule measures taller")
         }
-        // §3.1: the toggle is the same circle as back and reload, not the
-        // top bar's 28 pt tile. It looked "tidy" as a squircle and it was wrong.
-        if metric.controlCircle.width != 35 || metric.controlCircle.cornerRadius * 2 != metric.controlCircle.width {
-            failures.append("Metric.controlCircle is no longer the reference's 35 pt circle")
+        // §3.1: the toggle, back and reload are one circle, and it is the same
+        // diameter as a top-bar capsule item — the two layouts agreeing on what
+        // a chrome button is. It looked "tidy" as a squircle and it was wrong,
+        // and at 35 it was a control as tall as the rows beneath it.
+        if metric.controlCircle.cornerRadius * 2 != metric.controlCircle.width {
+            failures.append("Metric.controlCircle is not a circle")
+        }
+        if metric.controlCircle.width != metric.controlSquircle.width {
+            failures.append("Metric.controlCircle has drifted from the top bar's item size")
+        }
+        // A glyph has to fit its button with padding left over; at 17 in a
+        // 28 pt circle it read as a glyph that outgrew the control.
+        if metric.glyphSize >= metric.controlCircle.width * 0.65 {
+            failures.append("Metric.glyphSize crowds controlCircle — the button reads as all glyph")
         }
         // The content pane is flush to three window edges, so anything smaller
         // than the window's own radius shows glass inside the window corners.

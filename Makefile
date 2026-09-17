@@ -8,7 +8,16 @@ gen:
 build:
 	$(XCODEBUILD) -configuration Debug build
 
+# `touch` + `lsregister` are not ceremony. Launch Services caches an app's
+# icon against its path, and a Debug build always has the same path — so a
+# re-exported icon keeps showing the old art in the Dock and the Finder until
+# the bundle's date changes and it is re-registered. The bundle was right; the
+# cache was stale.
+LSREGISTER := /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+
 run: build
+	touch DerivedData/Build/Products/Debug/Luna.app
+	$(LSREGISTER) -f DerivedData/Build/Products/Debug/Luna.app
 	open DerivedData/Build/Products/Debug/Luna.app
 
 test:

@@ -118,6 +118,18 @@ final class TabListController: NSObject {
         setActive(activeTabID)
     }
 
+    /// Rebuilds every row from scratch and re-places the pills.
+    ///
+    /// `show(_:activeTabID:)` diffs and does nothing when the rows are
+    /// unchanged, which is right on every path but one: coming back from a
+    /// layout where this list was hidden, the rows are unchanged *and* the row
+    /// views are gone. This is the path for that.
+    func reload() {
+        table.reloadData()
+        table.needsLayout = true
+        movePills()
+    }
+
     /// One tab's live state changed — title, loading, audio (§4.3). Only that
     /// row is touched, so a busy page does not redraw the list.
     func update(_ id: UUID, state: TabState) {
@@ -340,7 +352,12 @@ final class RowPillView: NSView {
 
     enum Role { case selected, hover }
 
-    var isFocused = false { didSet { needsDisplay = true } }
+    /// Kept for the callers that track the table's focus. **It no longer
+    /// changes what is drawn**: a selected row used to take an accent-coloured
+    /// border while the list had focus, and a blue ring around the current tab
+    /// is a system list, not this one. The selection reads as glass — the
+    /// material plus §3.4's wash — in every focus state.
+    var isFocused = false
 
     private let role: Role
 
@@ -365,10 +382,11 @@ final class RowPillView: NSView {
         layer.backgroundColor = (role == .selected ? Tokens.Surface.selected : Tokens.Surface.hover).cgColor
         // §3.4 gives the selected row a visible border and the hover lift none:
         // a border that appeared under the pointer would read as a second
-        // selection.
+        // selection. The border is the glass's own edge — `Line.border`, never
+        // the accent: **no blue anywhere on a selected tab.**
         let bordered = role == .selected
         layer.borderWidth = bordered ? Tokens.Metric.hairline : 0
-        layer.borderColor = bordered ? (isFocused ? Tokens.Accent.tint : Tokens.Line.border).cgColor : nil
+        layer.borderColor = bordered ? Tokens.Line.border.cgColor : nil
     }
 
     override func viewDidChangeEffectiveAppearance() {

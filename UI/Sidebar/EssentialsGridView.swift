@@ -133,6 +133,11 @@ final class EssentialsGridView: NSView {
 
     override func layout() {
         super.layout()
+        // Bounds-derived frames never animate — see `Motion.immediately`.
+        Tokens.Motion.immediately { placeContents() }
+    }
+
+    private func placeContents() {
         let inset = Tokens.Metric.essentialsInset
         let gap = Tokens.Metric.essentialsTileGap
         let tileHeight = Tokens.Metric.essentialsTile.height
@@ -146,7 +151,7 @@ final class EssentialsGridView: NSView {
                 y: bounds.maxY - inset - CGFloat(row + 1) * tileHeight - CGFloat(row) * gap,
                 width: max(tileWidth, 0),
                 height: tileHeight
-            ).integral
+            ).pixelAligned
         }
     }
 

@@ -230,6 +230,11 @@ final class SidebarRowView: NSView {
 
     override func layout() {
         super.layout()
+        // Bounds-derived frames never animate — see `Motion.immediately`.
+        Tokens.Motion.immediately { placeContents() }
+    }
+
+    private func placeContents() {
         let inset = Tokens.Metric.rowInset
         let glyph = Tokens.Metric.faviconSize
         icon.frame = NSRect(
@@ -237,7 +242,7 @@ final class SidebarRowView: NSView {
             y: (bounds.height - glyph) / 2,
             width: glyph,
             height: glyph
-        ).integral
+        ).pixelAligned
 
         let dotSize = Tokens.Metric.spaceDot
         dot.frame = NSRect(
@@ -245,7 +250,7 @@ final class SidebarRowView: NSView {
             y: (bounds.height - dotSize) / 2,
             width: dotSize,
             height: dotSize
-        ).integral
+        ).pixelAligned
 
         // **Inset from the pill, not from the row.** The pill is already
         // `rowInset` inside the row, so one inset put the chip flush against
@@ -256,7 +261,7 @@ final class SidebarRowView: NSView {
             y: (bounds.height - chip.height) / 2,
             width: chip.width,
             height: chip.height
-        ).integral
+        ).pixelAligned
 
         // The pill is `rowInset` inside the row, and the title keeps that same
         // inset inside the pill — so it ends two insets short of the row.

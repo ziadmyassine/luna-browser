@@ -86,6 +86,11 @@ final class TopBarButton: NSButton {
 
     override func layout() {
         super.layout()
+        // Bounds-derived frames never animate — see `Motion.immediately`.
+        Tokens.Motion.immediately { placeContents() }
+    }
+
+    private func placeContents() {
         hoverFill.frame = bounds
         let size = TopBarMetrics.glyph
         glyph.frame = NSRect(
@@ -159,11 +164,11 @@ final class TopBarButton: NSButton {
         // so the dimmest ink tier stands in — it is a real token and it is the
         // right *direction*. See the report: `Tokens.Text.disabled` is missing.
         glyph.contentTintColor = isEnabled ? Tokens.Text.primary : Tokens.Text.tertiary
-        // ponytail: `Line.border` stands in for the missing `Surface.hoverFill`
-        // (§3.4 asks for 6 %); swap the token in when it exists, nothing else
-        // changes.
+        // §3.4's 6 % lift. This used to borrow `Line.border` because the note
+        // said no hover token existed; `Surface.hover` is that token and it is
+        // the same 6 %, so the stand-in is gone.
         effectiveAppearance.performAsCurrentDrawingAppearance {
-            self.hoverFill.layer?.backgroundColor = Tokens.Line.border.cgColor
+            self.hoverFill.layer?.backgroundColor = Tokens.Surface.hover.cgColor
         }
         needsDisplay = true
     }

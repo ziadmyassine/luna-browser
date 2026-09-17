@@ -35,19 +35,43 @@ final class GlassButton: NSView {
     /// §3.1: back dims when `canGoBack` is false.
     var isEnabled = true { didSet { refresh() } }
 
+    /// When the button carries its glass.
+    ///
+    /// §3.1's sidebar toggle is `.onHover`: three bright glass circles in a row
+    /// beside the traffic lights is more chrome than the reference has, and the
+    /// toggle is the one of the three that is not a navigation control. At rest
+    /// it is a bare glyph on the sidebar plane; the material arrives under the
+    /// pointer and leaves with it, on §6's control-hover curve.
+    enum GlassMode {
+        case always
+        case onHover
+    }
+
     private let shape: RoundedMetric
     private let pointSize: CGFloat
+    private let glassMode: GlassMode
     private let glyph = NSImageView()
+    /// The `.control` backing. Held because `.onHover` fades it; `Glass.apply`
+    /// hands it back for exactly this.
+    private var glass = NSView()
     private var isHovering = false
     private var isPressed = false
 
-    init(shape: RoundedMetric, symbolName: String, pointSize: CGFloat, label: String) {
+    init(
+        shape: RoundedMetric,
+        symbolName: String,
+        pointSize: CGFloat,
+        label: String,
+        glassMode: GlassMode = .always
+    ) {
         self.shape = shape
         self.pointSize = pointSize
+        self.glassMode = glassMode
         super.init(frame: NSRect(origin: .zero, size: NSSize(width: shape.width, height: shape.height)))
         wantsLayer = true
         layer?.cornerCurve = .continuous
-        Glass.apply(.control, to: self, cornerRadius: shape.cornerRadius)
+        glass = Glass.apply(.control, to: self, cornerRadius: shape.cornerRadius)
+        glass.alphaValue = glassMode == .always ? 1 : 0
 
         glyph.imageScaling = .scaleProportionallyUpOrDown
         glyph.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .regular)
@@ -90,13 +114,18 @@ final class GlassButton: NSView {
 
     override func layout() {
         super.layout()
+        // Bounds-derived frames never animate — see `Motion.immediately`.
+        Tokens.Motion.immediately { placeContents() }
+    }
+
+    private func placeContents() {
         let side = min(pointSize, min(bounds.width, bounds.height))
         glyph.frame = NSRect(
             x: (bounds.width - side) / 2,
             y: (bounds.height - side) / 2,
             width: side,
             height: side
-        ).integral
+        ).pixelAligned
     }
 
     // MARK: - State
@@ -155,6 +184,7 @@ final class GlassButton: NSView {
         isHovering = hovering
         Tokens.Motion.animate(Tokens.Motion.controlHover) { context in
             context.allowsImplicitAnimation = true
+            if glassMode == .onHover { glass.animator().alphaValue = hovering ? 1 : 0 }
             refresh()
         }
     }

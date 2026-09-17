@@ -46,9 +46,13 @@ extension ChromeState {
             // is the only thing that insets it.
             return NSEdgeInsets(top: 0, left: width, bottom: 0, right: 0)
         case .sidebarCollapsed:
-            // No sidebar to inset from, but the traffic lights still need their
-            // row — without it they would sit on top of the page.
-            return NSEdgeInsets(top: row, left: 0, bottom: 0, right: 0)
+            // **Flush, lights and all.** Hiding the sidebar means the page
+            // fills the window; reserving a 52 pt strip for the traffic lights
+            // would leave a band of empty glass across the top, which is not
+            // "hidden". The lights keep their own place in the titlebar and
+            // float over the page, which is what every browser that has this
+            // mode does.
+            return NSEdgeInsets()
         case .topBar:
             // §4: flush full-bleed below the bar.
             return NSEdgeInsets(top: row, left: 0, bottom: 0, right: 0)
@@ -179,12 +183,23 @@ final class ContentCardView: NSView {
         // through the crescent between the two.
         layer?.maskedCorners = [.layerMinXMinYCorner, .layerMinXMaxYCorner]
         layer?.cornerRadius = isInset ? Tokens.Metric.contentCardRadius : 0
+        // The edge is drawn by `updateLayer` and turns off with the corners.
+        needsDisplay = true
     }
 
     override var wantsUpdateLayer: Bool { true }
 
     override func updateLayer() {
-        layer?.backgroundColor = Tokens.Surface.base.cgColor
+        guard let layer else { return }
+        layer.backgroundColor = Tokens.Surface.base.cgColor
+        // **The glass edge** (§3.6). The pane is opaque, so the chrome's
+        // material stops dead at its leading edge and the two planes met with
+        // nothing between them. `Line.border` is that edge — the same hairline
+        // every other glass surface in the app carries, drawn on the side where
+        // the page meets the sidebar. It follows `maskedCorners`, so it runs
+        // down the rounded leading edge and nowhere else.
+        layer.borderWidth = isInset ? Tokens.Metric.hairline : 0
+        layer.borderColor = isInset ? Tokens.Line.border.cgColor : nil
     }
 
     override func viewDidChangeEffectiveAppearance() {

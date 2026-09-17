@@ -181,6 +181,32 @@ extension Tokens {
         /// on while Luna is running, and a value cached at launch is a bug.
         static var reduceMotion: Bool { Tokens.A11y.reduceMotion }
 
+        /// Runs `changes` with **every** animation off — implicit AppKit ones and
+        /// CoreAnimation's alike.
+        ///
+        /// This is for manual layout: a `layout()` or `viewDidLayout` that sets
+        /// subview frames from `bounds`. Such a pass can run inside somebody
+        /// else's animation transaction — the §4.1 layout switch calls
+        /// `layoutSubtreeIfNeeded()` with `allowsImplicitAnimation` on — and
+        /// every `frame` assignment then goes through the animator instead of
+        /// landing. The sidebar came back from top-bar layout with its control
+        /// buttons 1001 pt to the right and its list 1070 pt wide: the frames
+        /// the pass computed were correct and were never applied.
+        ///
+        /// A frame computed from `bounds` is a consequence of the layout, not a
+        /// change to animate. The animation belongs to whatever moved `bounds`.
+        @MainActor
+        static func immediately(_ changes: () -> Void) {
+            NSAnimationContext.beginGrouping()
+            NSAnimationContext.current.duration = 0
+            NSAnimationContext.current.allowsImplicitAnimation = false
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            changes()
+            CATransaction.commit()
+            NSAnimationContext.endGrouping()
+        }
+
         /// Runs `changes` on `spec`'s timing, or instantly under Reduce Motion.
         ///
         /// Timed specs only. A spring belongs in a `CASpringAnimation` — ask

@@ -84,9 +84,20 @@ extension AppDelegate {
 
     // MARK: - Layout and Spaces
 
-    /// `⌘S` (§8): toggles the sidebar, and toggles back from top-bar mode.
-    @objc func toggleChromeLayout(_ sender: Any?) {
-        toggleChromeLayout()
+    /// `⌘S` (§8): hides and shows the sidebar. **Not** the layout switch —
+    /// that is `Settings.chromeLayout`, reached with `⌘,`.
+    ///
+    /// **Not called `toggleSidebar(_:)`.** That selector is `NSSplitViewController`'s,
+    /// and something in the responder chain answers to it: the menu item
+    /// validated as enabled, the click went somewhere, and nothing happened.
+    /// Named for what it does, and the name is now ours.
+    @objc func toggleSidebarVisibility(_ sender: Any?) {
+        toggleSidebar()
+    }
+
+    /// `⌘,`.
+    @objc func showSettings(_ sender: Any?) {
+        showSettings()
     }
 
     /// `⌘1…⌘9` (§5.3). The item's tag is its index in `session.spaces`.
@@ -115,9 +126,24 @@ extension AppDelegate: NSMenuItemValidation {
     /// ignored. Back and forward read the live controller — a hibernated tab
     /// has no history to walk until it is woken, which is the truth.
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        // Before the session guard: hiding the sidebar is a window command and
+        // works on an empty window.
+        if let sidebar = validateSidebarToggle(menuItem) { return sidebar }
         guard let session else { return false }
         return validateNavigation(menuItem, in: session)
             ?? validateSessionCommand(menuItem, in: session)
+    }
+
+    /// Keeps the View menu honest: the item says what the next press will do,
+    /// and dims in the layout that has no sidebar to hide. Once the sidebar is
+    /// hidden this menu item and `⌘S` are the only ways back — the toggle
+    /// button goes with the sidebar.
+    private func validateSidebarToggle(_ item: NSMenuItem) -> Bool? {
+        guard item.action == #selector(toggleSidebarVisibility(_:)) else { return nil }
+        item.title = browserWindow?.isSidebarCollapsed == true
+            ? String(localized: "Show Sidebar")
+            : String(localized: "Hide Sidebar")
+        return browserWindow?.canCollapseSidebar ?? false
     }
 
     /// Reads the live controller, so it answers `nil` for anything it does not

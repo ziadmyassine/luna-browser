@@ -19,6 +19,16 @@ import AppKit
 @MainActor
 final class ChromeHostView: NSView {
 
+    /// Fired when the sidebar becomes the visible layout, before the fade.
+    ///
+    /// **`NSTableView` does not survive being hidden.** While the top bar is
+    /// showing, the sidebar is `isHidden` inside a host that is 52 pt tall, so
+    /// the list has no visible rect and AppKit releases every row view it was
+    /// recycling. Unhiding restores the frame but not the rows — the list came
+    /// back empty, which is exactly what "the website tabs on the left are
+    /// gone" was. The list reloads on this.
+    var onShowSidebar: (() -> Void)?
+
     private var sidebar: NSView?
     private var topBar: NSView?
 
@@ -68,6 +78,7 @@ final class ChromeHostView: NSView {
         let incoming = showingTopBar ? topBar : sidebar
         let outgoing = showingTopBar ? sidebar : topBar
         incoming?.isHidden = false
+        if !showingTopBar { onShowSidebar?() }
         guard animated else {
             incoming?.alphaValue = 1
             outgoing?.alphaValue = 0

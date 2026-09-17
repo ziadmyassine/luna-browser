@@ -69,6 +69,8 @@ enum MainMenu {
         return menu(name, [
             item("About \(name)", #selector(NSApplication.orderFrontStandardAboutPanel(_:))),
             .separator(),
+            item("Settings…", #selector(AppDelegate.showSettings(_:)), ","),
+            .separator(),
             item("Hide \(name)", #selector(NSApplication.hide(_:)), "h"),
             item("Hide Others", #selector(NSApplication.hideOtherApplications(_:)), "h",
                  modifiers: [.command, .option]),
@@ -103,7 +105,9 @@ enum MainMenu {
 
     private static func viewMenu() -> NSMenu {
         menu("View", [
-            item("Toggle Sidebar", #selector(AppDelegate.toggleChromeLayout(_:)), "s"),
+            // Hides and shows the sidebar. Which layout the window wears is a
+            // setting (`⌘,`), not something a reflex keystroke should change.
+            item("Hide Sidebar", #selector(AppDelegate.toggleSidebarVisibility(_:)), "s"),
             .separator(),
             item("Reload Page", #selector(AppDelegate.reloadPage(_:)), "r"),
             item("Stop Loading", #selector(AppDelegate.stopLoading(_:)), "."),

@@ -63,8 +63,12 @@ enum Glass {
     ///
     /// Idempotent: calling it again replaces the previous backing rather than
     /// stacking a second one.
+    ///
+    /// - Returns: the backing, for the callers that fade it — §3.1's sidebar
+    ///   toggle carries its glass only while the pointer is on it.
+    @discardableResult
     @MainActor
-    static func apply(_ style: Style, to view: NSView, cornerRadius: CGFloat = 0) {
+    static func apply(_ style: Style, to view: NSView, cornerRadius: CGFloat = 0) -> NSView {
         for existing in view.subviews where existing is GlassBackingView {
             existing.removeFromSuperview()
         }
@@ -76,6 +80,7 @@ enum Glass {
         // `GlassBackingView.layout()`.
         backing.autoresizingMask = [.width, .height]
         view.addSubview(backing, positioned: .below, relativeTo: nil)
+        return backing
     }
 
     /// Merges glass surfaces that sit within `spacing` of each other into one —
@@ -147,7 +152,52 @@ private final class GlassBackingView: NSView {
     /// "fill the backing", which is what they were always meant to say.
     override func layout() {
         super.layout()
+        // **Actions off.** A layout pass can run inside somebody else's
+        // animation transaction — AppKit restoring a window from Stage Manager
+        // is one — and an implicitly animated `frame` on a glass view sweeps
+        // the effect across the surface over the next few frames. That sweep is
+        // the flash: the sidebar is briefly glass over nothing. The frame is a
+        // consequence of the layout, never something to animate.
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
         glass?.frame = bounds
+        CATransaction.commit()
+    }
+
+    /// §21 / item 8: **glass has nothing to sample in fullscreen.**
+    ///
+    /// `NSGlassEffectView` composites what is behind the window, and in
+    /// fullscreen there is no desktop behind it — so the sidebar renders as
+    /// very nearly black in dark mode and very nearly white in light. The
+    /// backdrop is the same opaque plane Reduce Transparency already falls back
+    /// to, painted *under* the glass rather than instead of it: dark grey in
+    /// dark, light grey in light, with the material still on top of it.
+    ///
+    /// It is only painted in fullscreen. Painting it always would be sampled by
+    /// the glass in every window state and the wallpaper would stop coming
+    /// through, which is the whole look.
+    private var isWindowFullScreen = false {
+        didSet {
+            guard isWindowFullScreen != oldValue else { return }
+            needsDisplay = true
+        }
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        isWindowFullScreen = window?.styleMask.contains(.fullScreen) ?? false
+        guard let window else { return }
+        let center = NotificationCenter.default
+        for name: Notification.Name in [
+            NSWindow.didEnterFullScreenNotification,
+            NSWindow.didExitFullScreenNotification
+        ] {
+            center.addObserver(self, selector: #selector(windowFullScreenChanged), name: name, object: window)
+        }
+    }
+
+    @objc private func windowFullScreenChanged() {
+        isWindowFullScreen = window?.styleMask.contains(.fullScreen) ?? false
     }
 
     /// Solid under Reduce Transparency, so AppKit can skip what is behind it.
@@ -185,8 +235,10 @@ private final class GlassBackingView: NSView {
         guard let layer else { return }
         layer.cornerRadius = radius
 
-        // §2 / §21.2: Reduce Transparency ⇒ solid.
-        layer.backgroundColor = Tokens.A11y.reduceTransparency ? style.solidFallback.cgColor : nil
+        // §2 / §21.2: Reduce Transparency ⇒ solid. Fullscreen ⇒ the same plane
+        // *behind* the glass, because there is no desktop left to sample.
+        let needsPlane = Tokens.A11y.reduceTransparency || (isWindowFullScreen && style.hasBackdrop)
+        layer.backgroundColor = needsPlane ? style.solidFallback.cgColor : nil
 
         // §2 / §21.2: Increase Contrast ⇒ a visible border on every control.
         let highContrast = Tokens.A11y.increaseContrast
@@ -212,6 +264,17 @@ private extension Glass.Style {
         switch self {
         case .sidebar, .topBar: Tokens.Surface.glassTint
         case .control, .popover: nil
+        }
+    }
+
+    /// Whether this surface paints its `solidFallback` behind the glass when
+    /// the window is fullscreen. The chrome planes do — they are what the user
+    /// is looking at and they would otherwise be black. Controls do not: a
+    /// control's job is to read as raised above whatever the plane became.
+    var hasBackdrop: Bool {
+        switch self {
+        case .sidebar, .topBar: true
+        case .control, .popover: false
         }
     }
 

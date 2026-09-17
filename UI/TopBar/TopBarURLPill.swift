@@ -285,6 +285,11 @@ final class TopBarURLPill: NSView, TopBarThemed, NSTextFieldDelegate {
 
     override func layout() {
         super.layout()
+        // Bounds-derived frames never animate — see `Motion.immediately`.
+        Tokens.Motion.immediately { placeContents() }
+    }
+
+    private func placeContents() {
         wash.frame = bounds
 
         let inset = Tokens.Metric.rowInset

@@ -12,10 +12,13 @@
 //  and the capsule re-sizes itself. That is the one piece of future-proofing
 //  M1 asks for, and it costs an array instead of three outlets.
 //
-//  The capsule shape is not drawn. Each item carries its own `.control` glass
-//  and `Glass.merging` unions them: Liquid Glass merges neighbours within
-//  `spacing`, so N round items become one capsule with correctly rounded ends
-//  for any N — which is exactly why the items are circles and not squircles.
+//  **The capsule is one glass surface, not N merged ones.** It used to give
+//  every item its own `.control` backing and hand them to
+//  `Glass.merging`, on the theory that Liquid Glass unions neighbours within
+//  `spacing`. On screen it did not union them: three separate bright circles,
+//  each with its own specular rim, and white glyphs washed out against the
+//  rims. So the glass is applied once, to the capsule, at full radius — which
+//  is what "one cylinder" means — and the items inside it are bare glyphs.
 //
 
 import AppKit
@@ -47,16 +50,20 @@ final class TopBarActionCapsule: NSView {
         didSet { rebuild() }
     }
 
-    private let row = NSView()
-    private let merged: NSView
     private var buttons: [TopBarButton] = []
 
     override init(frame frameRect: NSRect) {
-        merged = Glass.merging(row, spacing: TopBarMetrics.gap)
         super.init(frame: frameRect)
-        addSubview(merged)
+        wantsLayer = true
+        layer?.cornerCurve = .continuous
+        Glass.apply(.control, to: self, cornerRadius: Self.height / 2)
         setAccessibilityRole(.group)
         setAccessibilityLabel(String(localized: "Actions"))
+    }
+
+    /// The cylinder's height: one item plus its padding, top and bottom.
+    private static var height: CGFloat {
+        TopBarMetrics.capsuleItem.height + TopBarMetrics.capsuleInset * 2
     }
 
     @available(*, unavailable)
@@ -78,14 +85,16 @@ final class TopBarActionCapsule: NSView {
     private func rebuild() {
         for button in buttons { button.removeFromSuperview() }
         buttons = items.enumerated().map { index, item in
-            let button = TopBarButton(metric: TopBarMetrics.capsuleItem, glass: true)
+            // `glass: false`: the cylinder around them is the glass. A second
+            // material per item is what made the three read as three.
+            let button = TopBarButton(metric: TopBarMetrics.capsuleItem, glass: false)
             button.icon = TopBarButton.symbol(item.symbolName)
             button.setAccessibilityLabel(item.label)
             button.toolTip = item.label
             button.tag = index
             button.target = self
             button.action = #selector(itemPressed)
-            row.addSubview(button)
+            addSubview(button)
             return button
         }
         invalidateIntrinsicContentSize()
@@ -102,21 +111,21 @@ final class TopBarActionCapsule: NSView {
     override var intrinsicContentSize: NSSize {
         let item = TopBarMetrics.capsuleItem
         let inset = TopBarMetrics.capsuleInset
-        guard !buttons.isEmpty else { return NSSize(width: 0, height: item.height + inset * 2) }
+        guard !buttons.isEmpty else { return NSSize(width: 0, height: Self.height) }
         let count = CGFloat(buttons.count)
         return NSSize(
             width: count * item.width + (count - 1) * TopBarMetrics.gap + inset * 2,
-            height: item.height + inset * 2
+            height: Self.height
         )
     }
 
     override func layout() {
         super.layout()
-        // The container is documented to host `contentView`; `row` is sized
-        // here as well so the item frames below are valid either way.
-        merged.frame = bounds
-        row.frame = bounds
+        // Bounds-derived frames never animate — see `Motion.immediately`.
+        Tokens.Motion.immediately { placeContents() }
+    }
 
+    private func placeContents() {
         let item = TopBarMetrics.capsuleItem
         let originY = ((bounds.height - item.height) / 2).rounded()
         var originX = TopBarMetrics.capsuleInset
