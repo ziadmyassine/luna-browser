@@ -41,6 +41,9 @@ targets:
         PRODUCT_NAME: Luna
         PRODUCT_BUNDLE_IDENTIFIER: dk.novapps.luna
         INFOPLIST_FILE: App/Info.plist
+        # Names the Icon Composer bundle below, minus its .icon extension.
+        # actool compiles it into Assets.car and writes CFBundleIconName for us.
+        ASSETCATALOG_COMPILER_APPICON_NAME: luna
     sources:
       - path: App
         excludes:
@@ -51,6 +54,11 @@ targets:
       - path: UI
       - path: Design
       - path: Features
+      # The icon stays with the rest of the artwork rather than moving into the
+      # app sources; it is a build input, not code.
+      - path: assets/icon/final/luna.icon
+        type: file
+        buildPhase: resources
     dependencies:
       - package: BrowserKit
 

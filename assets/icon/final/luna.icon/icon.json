@@ -19,6 +19,7 @@
     {
       "layers" : [
         {
+          "glass" : true,
           "image-name" : "luna-icon-v3-transparent 2.png",
           "name" : "luna-icon-v3-transparent 2"
         }
