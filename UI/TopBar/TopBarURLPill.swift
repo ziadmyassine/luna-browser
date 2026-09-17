@@ -139,7 +139,10 @@ final class TopBarURLPill: NSView, TopBarThemed, NSTextFieldDelegate {
         tintSource = tint
         // §2: Reduce Transparency disables the wash outright.
         if let tint, !Tokens.A11y.reduceTransparency {
-            washColor = Tokens.wash(tint, over: Tokens.Surface.raised, keeping: Tokens.Text.primary)
+            // `chromeFill`, not `raised`: `raised` is an opaque plane and a
+            // theme colour blended onto it becomes an opaque plate — the pill
+            // simply turned grey on any site with a near-neutral theme colour.
+            washColor = Tokens.wash(tint, over: Tokens.Surface.chromeFill, keeping: Tokens.Text.primary)
         } else {
             washColor = nil
         }

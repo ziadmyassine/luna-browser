@@ -7,22 +7,27 @@
 //  tab, and which section a drop lands in) are asserted in `Tests/Sidebar/`
 //  instead of discovered by dragging a row in a running app.
 //
-//  The order is `Archive` → separator → `+ Add Tab` → tabs. §3.4's prose puts
-//  the rule *after* both commands; `inspiration/main-tab-bar-and-ui.png` puts
-//  it between them, and the image wins (§30). The rule reads as the end of the
-//  Archive section, not as the end of the commands. Essentials are **not** in
-//  this list; they are the §3.3 grid above the scroll view.
+//  The order is `+ Add Tab` → separator → tabs.
+//
+//  **`Archive` is not a row here any more.** It was a second way into the same
+//  page the bottom bar's button already opens, sitting directly under the
+//  pinned tiles where the eye lands first — a history button at the top of a
+//  list of live tabs. History belongs with the other standing destinations at
+//  the foot of the sidebar, and that is the only place it is now. The rule
+//  stays: it closes off the command and opens the tab list.
+//
+//  Essentials are **not** in this list; they are the §3.3 grid above the
+//  scroll view.
 //
 
 import BrowserKit
 import Foundation
 
-/// One line of the sidebar list. `Archive` and `+ Add Tab` are first-class rows
-/// with identical metrics to a tab (§30.6), not header decoration.
+/// One line of the sidebar list. `+ Add Tab` is a first-class row with
+/// identical metrics to a tab (§30.6), not header decoration.
 enum SidebarRow: Hashable, Sendable {
-    case archive
     case addTab
-    /// The rule between the commands and the tabs. Not selectable.
+    /// The rule between the command and the tabs. Not selectable.
     case separator
     case tab(UUID)
 }
@@ -31,10 +36,9 @@ enum SidebarRow: Hashable, Sendable {
 /// today's tabs, in the order `BrowserSession` hands them over.
 struct SidebarList: Equatable, Sendable {
 
-    /// The fixed head. The rule sits **between** the two commands, closing off
-    /// `Archive` — measured, against §3.4's prose. Its length is what every
-    /// drop index is measured from, and that has not changed.
-    static let leading: [SidebarRow] = [.archive, .separator, .addTab]
+    /// The fixed head: the one command, then the rule that closes it off. Its
+    /// length is what every drop index is measured from.
+    static let leading: [SidebarRow] = [.addTab, .separator]
 
     /// Tabs in list order (pinned first), excluding Essentials.
     let listed: [Tab]
@@ -59,7 +63,7 @@ struct SidebarList: Equatable, Sendable {
         rows.indices.contains(row) ? rows[row] : nil
     }
 
-    /// The tab a row shows, or nil for `Archive` / `+ Add Tab` / the separator.
+    /// The tab a row shows, or nil for `+ Add Tab` / the separator.
     func tab(at row: Int) -> Tab? {
         guard case let .tab(id)? = self[row] else { return nil }
         return listed.first { $0.id == id }

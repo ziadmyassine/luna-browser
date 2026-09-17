@@ -51,8 +51,15 @@ final class EssentialsGridView: NSView {
     }
 
     private var tabs: [Tab] = []
-    private var tiles: [GlassButton] = []
+    /// Keyed by tab, **not** an array, so a tile survives a pin, an unpin or a
+    /// reorder and can animate from where it was to where it now belongs. A
+    /// rebuilt array of fresh views has nowhere to animate from, which is what
+    /// made pinning a tab a jump-cut.
+    private var tiles: [UUID: GlassButton] = [:]
+    private var order: [UUID] = []
     private var activeTabID: UUID?
+    /// Set when the grid's contents changed; consumed by the next `layout()`.
+    private var animatesNextPlacement = false
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -73,8 +80,9 @@ final class EssentialsGridView: NSView {
         guard tabs != self.tabs else {
             // Icons arrive after the tab does (§4.7), so they are re-read even
             // when the tabs themselves have not changed.
-            for (tile, tab) in zip(tiles, tabs) {
-                tile.isAccented = tab.id == activeTabID
+            for tab in tabs {
+                guard let tile = tiles[tab.id] else { continue }
+                tile.isSelected = tab.id == activeTabID
                 if let icon = SidebarIcons.favicon(for: tab) { tile.setImage(icon) }
             }
             return
@@ -84,29 +92,63 @@ final class EssentialsGridView: NSView {
     }
 
     private func rebuild() {
-        for tile in tiles { tile.removeFromSuperview() }
-        tiles = tabs.map { tab in
-            let tile = GlassButton(
-                shape: Tokens.Metric.essentialsTile,
-                symbolName: "globe",
-                pointSize: Tokens.Metric.essentialsIcon,
-                // §8/§21.1: the site's name, never its URL.
-                label: Self.siteName(for: tab)
-            )
-            if let icon = SidebarIcons.favicon(for: tab) { tile.setImage(icon) }
-            tile.isAccented = tab.id == activeTabID
-            tile.onActivate = { [weak self] in self?.onActivate?(tab.id) }
-            tile.dragItem = { SidebarDrag.item(for: tab.id) }
-            tile.menuBuilder = { [weak self] in
-                let menu = NSMenu()
-                menu.addItem(SidebarMenu.item(title: "Unpin Tab") { self?.onUnpin?(tab.id) })
-                return menu
+        let wasEmpty = order.isEmpty
+        let next = tabs.map(\.id)
+        // Gone: faded out where it stood, then dropped. Removing it outright is
+        // what made an unpin look like the tile had been deleted off-screen.
+        for (id, tile) in tiles where !next.contains(id) {
+            tiles.removeValue(forKey: id)
+            Tokens.Motion.animate(Tokens.Motion.tabInsert) { context in
+                context.allowsImplicitAnimation = true
+                tile.animator().alphaValue = 0
+            } completion: {
+                MainActor.assumeIsolated { tile.removeFromSuperview() }
             }
-            addSubview(tile)
-            return tile
         }
+        for tab in tabs {
+            let tile = tiles[tab.id] ?? makeTile(for: tab)
+            tiles[tab.id] = tile
+            if let icon = SidebarIcons.favicon(for: tab) { tile.setImage(icon) }
+            tile.isSelected = tab.id == activeTabID
+        }
+        order = next
+        // The first population is the sidebar being built; there is no "from".
+        animatesNextPlacement = !wasEmpty
         invalidateIntrinsicContentSize()
         needsLayout = true
+        superview?.needsLayout = true
+    }
+
+    private func makeTile(for tab: Tab) -> GlassButton {
+        let tile = GlassButton(
+            shape: Tokens.Metric.essentialsTile,
+            symbolName: "globe",
+            pointSize: Tokens.Metric.essentialsIcon,
+            // §8/§21.1: the site's name, never its URL.
+            label: Self.siteName(for: tab),
+            // A pinned tile is dormant until it is the tab you are on, or the
+            // pointer is over it. Glass is what says "this one" — there is no
+            // accent ring anywhere in Luna's chrome.
+            glassMode: .dormant
+        )
+        tile.onActivate = { [weak self] in self?.onActivate?(tab.id) }
+        tile.dragItem = { SidebarDrag.item(for: tab.id) }
+        tile.menuBuilder = { [weak self] in
+            let menu = NSMenu()
+            menu.addItem(SidebarMenu.item(title: "Unpin Tab") { self?.onUnpin?(tab.id) })
+            return menu
+        }
+        // Arrives at zero and fades up into its slot over the same spec the
+        // list uses for a row arriving, so pinning reads as one movement.
+        tile.alphaValue = order.isEmpty ? 1 : 0
+        addSubview(tile)
+        if !order.isEmpty {
+            Tokens.Motion.animate(Tokens.Motion.tabInsert) { context in
+                context.allowsImplicitAnimation = true
+                tile.animator().alphaValue = 1
+            }
+        }
+        return tile
     }
 
     private static func siteName(for tab: Tab) -> String {
@@ -131,10 +173,21 @@ final class EssentialsGridView: NSView {
         return NSSize(width: NSView.noIntrinsicMetric, height: height)
     }
 
+    /// Bounds-derived frames never animate — see `Motion.immediately` — except
+    /// on the pass that follows a pin, an unpin or a reorder, where the move
+    /// from the old slot to the new one is the whole point.
     override func layout() {
         super.layout()
-        // Bounds-derived frames never animate — see `Motion.immediately`.
-        Tokens.Motion.immediately { placeContents() }
+        let animated = animatesNextPlacement && !Tokens.Motion.reduceMotion
+        animatesNextPlacement = false
+        guard animated else {
+            Tokens.Motion.immediately { placeContents() }
+            return
+        }
+        Tokens.Motion.animate(Tokens.Motion.tabInsert) { context in
+            context.allowsImplicitAnimation = true
+            placeContents()
+        }
     }
 
     private func placeContents() {
@@ -142,7 +195,8 @@ final class EssentialsGridView: NSView {
         let gap = Tokens.Metric.essentialsTileGap
         let tileHeight = Tokens.Metric.essentialsTile.height
         let tileWidth = (bounds.width - 2 * inset - CGFloat(Self.columns - 1) * gap) / CGFloat(Self.columns)
-        for (index, tile) in tiles.enumerated() {
+        for (index, id) in order.enumerated() {
+            guard let tile = tiles[id] else { continue }
             let column = index % Self.columns
             let row = index / Self.columns
             // Top-down in an unflipped view: the first row sits highest.

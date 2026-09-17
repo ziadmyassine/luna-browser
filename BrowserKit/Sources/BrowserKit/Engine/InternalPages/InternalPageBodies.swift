@@ -56,25 +56,38 @@ extension InternalPages {
         """
     }
 
-    // MARK: - Archive (§6.4)
+    // MARK: - History (§6.4)
+    //
+    // Luna's word for the shelf is "the archive" and the user's word is
+    // "history"; the page wears the user's. The route stays `luna://archive`
+    // because a URL is not a label.
+    //
+    // It is laid out like the §3.4 tab list rather than like a web page: a
+    // title and its filter on one line, then rounded rows carrying a favicon,
+    // a title and a subtitle, with the Restore affordance appearing on hover
+    // the way a row's trailing chip does. Before this it was a bare `<h1>`,
+    // a full-width field and a stack of hairline-separated lines — correct,
+    // and visibly not part of the same app as the window around it.
 
     @MainActor
     static func archiveHTML() -> String {
         let archived = content?().archived ?? []
         let rows = archived.map(archiveRow).joined()
         let list = rows.isEmpty
-            ? "<p class=\"empty\">Nothing archived yet.</p>"
+            ? "<p class=\"empty\">Nothing here yet. Closed tabs are kept for a while and show up here.</p>"
             : "<ul class=\"rows\">\(rows)</ul>"
         let body = """
-        <main class="archive">
-        <h1>Archive</h1>
-        <input class="search" id="q" type="search" placeholder="Search archive"\
-         aria-label="Search archive" autofocus>
+        <main class="history">
+        <header class="head">
+        <h1>History</h1>
+        <input class="search" id="q" type="search" placeholder="Search history"\
+         aria-label="Search history" autofocus>
+        </header>
         \(list)
         <p class="empty" id="none" hidden>No matches.</p>
         </main>
         """
-        return document(title: "Archive", bodyClass: "", body: body, script: archiveScript)
+        return document(title: "History", bodyClass: "", body: body, script: archiveScript)
     }
 
     @MainActor
@@ -91,7 +104,7 @@ extension InternalPages {
         <a class="row" href="\(href)">\(icon(for: entry.url))\
         <span class="text"><span class="title">\(HTML.escape(title))</span>\
         <span class="sub">\(HTML.escape(subtitle))</span></span>\
-        <span class="go">Restore</span></a></li>
+        <span class="go plate">Restore</span></a></li>
         """
     }
 

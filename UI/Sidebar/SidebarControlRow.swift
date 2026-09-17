@@ -21,10 +21,11 @@
 //    lights — which is why this row asks the window for that line rather than
 //    centring in its own 52 pt.
 //
-//  The circle is 28, not the 35 the reference measures: at Luna's scale a 35 pt
-//  control is as tall as the row pill beneath it, and 28 is what the top bar's
-//  capsule items are. The toggle alone carries its glass on hover — see
-//  `GlassButton.GlassMode`.
+//  The circle is `Metric.sidebarCircle` — the URL pill's own height — so the
+//  sidebar's head is one stack of equal-height controls instead of three small
+//  buttons above a bigger one. All three carry their glass at rest: the toggle
+//  is how you get the sidebar back, and a control you cannot see until you
+//  happen to sweep the pointer over it is not one.
 //
 
 import AppKit
@@ -37,25 +38,24 @@ final class SidebarControlRow: NSView {
     /// Reload, or stop while the page is loading.
     var onReloadOrStop: ((_ isLoading: Bool) -> Void)?
 
-    /// **Glass on hover only.** Back and reload are navigation and carry their
-    /// material at rest; the toggle is furniture, and a third bright circle
-    /// beside the traffic lights is the first thing the eye lands on when the
-    /// window opens. See `GlassButton.GlassMode`.
+    /// **Always glass.** It briefly carried its material on hover only; that
+    /// made the one control that brings a hidden sidebar back invisible until
+    /// the pointer found it, which is the wrong trade for the one button on
+    /// this row that is not reachable any other way.
     private let toggle = GlassButton(
-        shape: Tokens.Metric.controlCircle,
+        shape: Tokens.Metric.sidebarCircle,
         symbolName: "sidebar.leading",
         pointSize: Tokens.Metric.glyphSize,
-        label: "Hide Sidebar",
-        glassMode: .onHover
+        label: "Hide Sidebar"
     )
     private let back = GlassButton(
-        shape: Tokens.Metric.controlCircle,
+        shape: Tokens.Metric.sidebarCircle,
         symbolName: "chevron.backward",
         pointSize: Tokens.Metric.glyphSize,
         label: "Back"
     )
     private let reload = GlassButton(
-        shape: Tokens.Metric.controlCircle,
+        shape: Tokens.Metric.sidebarCircle,
         symbolName: "arrow.clockwise",
         pointSize: Tokens.Metric.glyphSize,
         label: "Reload"
@@ -120,7 +120,7 @@ final class SidebarControlRow: NSView {
 
     private func placeButtons() {
         let inset = Tokens.Metric.rowInset
-        let circle = Tokens.Metric.controlCircle
+        let circle = Tokens.Metric.sidebarCircle
         let lights = trafficLights
         // §3.1: the three buttons share the traffic lights' centre line. The
         // lights sit `trafficLightInset` from the window's top, which is not

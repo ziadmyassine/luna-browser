@@ -35,6 +35,10 @@ final class URLPillView: NSView, NSTextFieldDelegate {
 
     private let field = NSTextField(labelWithString: "")
     private let wash = NSView()
+    /// The `.control` backing, built the first time the pill is reached for —
+    /// see `updateGlass`.
+    private var glass: NSView?
+    private var isHovering = false
     // A bare glyph, not a `GlassButton`: the reference draws no bubble around
     // the sliders, and a glass control inside a glass pill is two materials.
     private let sliders = RowGlyphView()
@@ -47,7 +51,6 @@ final class URLPillView: NSView, NSTextFieldDelegate {
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.cornerCurve = .continuous
-        Glass.apply(.control, to: self, cornerRadius: Tokens.Metric.urlPill.cornerRadius)
 
         wash.wantsLayer = true
         wash.layer?.cornerCurve = .continuous
@@ -108,8 +111,15 @@ final class URLPillView: NSView, NSTextFieldDelegate {
         guard force || tint != washTint else { return }
         washTint = tint
         // §2: the page-derived wash is disabled outright under Reduce Transparency.
+        // **`over:` is `chromeFill`, not `raised`.** `raised` is an *opaque
+        // plane*, so blending a page's theme colour on top of it produced an
+        // opaque plate: on a site whose theme colour is a near-neutral grey
+        // (getroosta.app is one) the pill stopped being translucent and simply
+        // turned grey. `chromeFill` is the translucent wash base `Tokens` ships
+        // for exactly this — blending is alpha-correct, so §2's 12–18 % stays
+        // 12–18 % of what reaches the eye *through* the glass.
         washColor = if let tint, !Tokens.A11y.reduceTransparency {
-            Tokens.wash(NSColor(tint), over: Tokens.Surface.raised, keeping: Tokens.Text.primary)
+            Tokens.wash(NSColor(tint), over: Tokens.Surface.chromeFill, keeping: Tokens.Text.primary)
         } else {
             nil
         }
@@ -129,6 +139,7 @@ final class URLPillView: NSView, NSTextFieldDelegate {
     /// pill just re-selects.
     func beginEditing() {
         isEditing = true
+        updateGlass()
         field.stringValue = displayedURL?.absoluteString ?? ""
         field.isEditable = true
         field.isSelectable = true
@@ -140,6 +151,7 @@ final class URLPillView: NSView, NSTextFieldDelegate {
     private func endEditing(commit: Bool) {
         let typed = field.stringValue
         isEditing = false
+        updateGlass()
         field.isEditable = false
         field.isSelectable = false
         field.stringValue = Self.domain(of: displayedURL)
@@ -182,8 +194,59 @@ final class URLPillView: NSView, NSTextFieldDelegate {
     override func updateLayer() {
         guard let layer else { return }
         layer.cornerRadius = Tokens.Metric.urlPill.cornerRadius
+        // §3.2: a well cut into the sidebar, not a plate sitting on it. The
+        // glass fades in above this when the pill is reached for.
+        layer.backgroundColor = Tokens.Surface.well.cgColor
         layer.borderWidth = Tokens.Metric.hairline
-        layer.borderColor = (isEditing ? Tokens.Accent.tint : Tokens.Line.border).cgColor
+        // **Never the accent.** An editing pill used to take a system-blue
+        // ring; the material is what says the pill is live, the same way it
+        // does for a selected row and a pinned tile.
+        layer.borderColor = Tokens.Line.border.cgColor
+    }
+
+    // MARK: - Dormant material
+
+    /// The pill carries its glass when it is **being used** — hovered, or open
+    /// for editing — and is a bordered plate on the sidebar's own plane the
+    /// rest of the time.
+    ///
+    /// Constant glass is what made it the brightest thing in the sidebar: a
+    /// second lit surface directly under three lit circles, with the eye drawn
+    /// to an address the user already knows.
+    private func updateGlass() {
+        let target: CGFloat = (isHovering || isEditing) ? 1 : 0
+        guard let view = glass ?? (target > 0 ? makeGlass() : nil), view.alphaValue != target else { return }
+        Tokens.Motion.animate(Tokens.Motion.controlHover) { context in
+            context.allowsImplicitAnimation = true
+            view.animator().alphaValue = target
+        }
+    }
+
+    private func makeGlass() -> NSView {
+        let view = Glass.apply(.control, to: self, cornerRadius: Tokens.Metric.urlPill.cornerRadius)
+        view.alphaValue = 0
+        glass = view
+        return view
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas where area.owner === self { removeTrackingArea(area) }
+        addTrackingArea(NSTrackingArea(
+            rect: .zero,
+            options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+            owner: self
+        ))
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        isHovering = true
+        updateGlass()
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        isHovering = false
+        updateGlass()
     }
 
     override func viewDidChangeEffectiveAppearance() {

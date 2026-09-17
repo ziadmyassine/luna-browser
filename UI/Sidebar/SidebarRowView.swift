@@ -44,7 +44,6 @@ struct SidebarRowContent: Equatable {
     /// Drawn when there is no favicon — and for the command rows' own glyphs.
     var symbolName: String = "globe"
     var favicon: NSImage?
-    var tintsSymbolWithAccent: Bool = false
     /// §3.4: leads the row only for unread/updated content.
     var hasUnread: Bool = false
     var isLoading: Bool = false
@@ -164,10 +163,11 @@ final class SidebarRowView: NSView {
             ? Tokens.Text.tertiary
             : (bright ? Tokens.Text.primary : Tokens.Text.secondary)
         shimmer.textColor = Tokens.Text.primary
-        dot.layer?.backgroundColor = Tokens.Accent.tint.cgColor
-        icon.contentTintColor = content.favicon != nil
-            ? nil
-            : (content.tintsSymbolWithAccent ? Tokens.Accent.tint : Tokens.Text.secondary)
+        // **Ink, not accent.** Luna's chrome carries no system blue: the unread
+        // mark is a full-strength dot in the same ink the title is set in, and
+        // it reads because it is bright, not because it is a different hue.
+        dot.layer?.backgroundColor = Tokens.Text.primary.cgColor
+        icon.contentTintColor = content.favicon != nil ? nil : Tokens.Text.secondary
         trailing.tint = bright ? Tokens.Text.primary : Tokens.Text.secondary
     }
 

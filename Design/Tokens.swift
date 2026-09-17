@@ -134,6 +134,18 @@ enum Tokens {
         /// paint text directly against it without flattening first.
         static var chromeFill: NSColor { inkColor("luna.surface.chromeFill", Ink.chromeFill) }
 
+        /// A **well**: the resting fill of a dormant chrome control — §3.2's
+        /// URL pill and §3.3's pinned tiles.
+        ///
+        /// **Darker than the surface it is cut into, in both themes.** It was
+        /// `hover`, which is ink — white on dark — so a dormant tile came out
+        /// *lighter* than the sidebar and read as a raised plate, the opposite
+        /// of `inspiration/main-tab-bar-and-ui.png`, where the field and the
+        /// tiles are recessed wells with a lighter hairline on the edge. This
+        /// is black in both themes (`recessInkColor`); the hairline is
+        /// `Line.border` as before, and it is what catches the edge.
+        static var well: NSColor { recessInkColor("luna.surface.well", Ink.well) }
+
         /// §2's chrome tint: what `Glass.Style.sidebar` / `.topBar` hand to
         /// `NSGlassEffectView.tintColor`.
         ///
@@ -361,7 +373,12 @@ enum Tokens {
         /// tint heavy enough to hide that would be a coloured rectangle.
         /// Increase Contrast thickens it, because a surface that is barely
         /// there is exactly what that setting exists to firm up.
-        static let glassTint = InkAlphas(light: 0.32, dark: 0.34, contrastLight: 0.48, contrastDark: 0.50)
+        static let glassTint = InkAlphas(light: 0.46, dark: 0.50, contrastLight: 0.60, contrastDark: 0.64)
+        /// `Surface.well` — a dormant control's recess. Deep enough in dark
+        /// mode to read as cut into the plane rather than drawn on it; light
+        /// mode needs far less, because a light surface shows a darkening at a
+        /// much lower alpha.
+        static let well = InkAlphas(light: 0.06, dark: 0.22, contrastLight: 0.12, contrastDark: 0.32)
         /// §3.1's 35 % dim. Exempt from §21.4 — see `Text.disabled`. It still
         /// gains under Increase Contrast, because "disabled" has to remain
         /// *legible as a control* even when it is not readable as text.

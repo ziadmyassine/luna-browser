@@ -29,6 +29,12 @@ final class ChromeHostView: NSView {
     /// gone" was. The list reloads on this.
     var onShowSidebar: (() -> Void)?
 
+    /// The pointer arrived on, or left, whichever layout is showing. §7.2's
+    /// hover-peek keeps the hidden sidebar out for as long as this is true —
+    /// the edge strip that summoned it is underneath the sidebar by then, so
+    /// it cannot be the one to answer.
+    var onPointerInside: ((Bool) -> Void)?
+
     private var sidebar: NSView?
     private var topBar: NSView?
 
@@ -99,6 +105,19 @@ final class ChromeHostView: NSView {
             }
         }
     }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas where area.owner === self { removeTrackingArea(area) }
+        addTrackingArea(NSTrackingArea(
+            rect: .zero,
+            options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+            owner: self
+        ))
+    }
+
+    override func mouseEntered(with event: NSEvent) { onPointerInside?(true) }
+    override func mouseExited(with event: NSEvent) { onPointerInside?(false) }
 
     /// §30.1: dragging the chrome moves the window. `ContentCardView` returns
     /// false for the same reason — a web page is not a drag handle. Controls

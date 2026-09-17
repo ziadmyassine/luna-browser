@@ -20,16 +20,16 @@ final class SidebarRowModelTests: XCTestCase {
         Tab(spaceID: space, kind: kind, url: URL(string: "https://\(name).example")!, title: name)
     }
 
-    /// `Archive` → separator → `+ Add Tab` → tabs, Essentials excluded. The
-    /// rule sits **between** the commands, which is what the reference shows —
-    /// §3.4's prose puts it after both.
+    /// `+ Add Tab` → separator → tabs, Essentials excluded. **Archive is not a
+    /// row.** It was a second door to the page the bottom bar's History button
+    /// already opens, and it sat where the eye lands first.
     func testRowOrder() {
         let essential = tab(.essential, "e")
         let pinned = tab(.pinned, "p")
         let today = tab(.today, "t")
         let list = SidebarList(tabs: [today, essential, pinned])
 
-        XCTAssertEqual(list.rows, [.archive, .separator, .addTab, .tab(pinned.id), .tab(today.id)])
+        XCTAssertEqual(list.rows, [.addTab, .separator, .tab(pinned.id), .tab(today.id)])
         XCTAssertEqual(list.essentials, [essential])
         XCTAssertEqual(list.listed.map(\.id), [pinned.id, today.id])
     }
@@ -38,8 +38,8 @@ final class SidebarRowModelTests: XCTestCase {
         let pinned = tab(.pinned, "p")
         let list = SidebarList(tabs: [pinned])
 
-        XCTAssertEqual(list.row(of: pinned.id), 3)
-        XCTAssertEqual(list.tab(at: 3), pinned)
+        XCTAssertEqual(list.row(of: pinned.id), 2)
+        XCTAssertEqual(list.tab(at: 2), pinned)
         XCTAssertNil(list.tab(at: 0))
         XCTAssertNil(list.tab(at: 99))
         XCTAssertNil(list[99])
@@ -52,8 +52,7 @@ final class SidebarRowModelTests: XCTestCase {
         XCTAssertTrue(list.isSelectable(0))
         XCTAssertFalse(list.isSelectable(1))
         XCTAssertTrue(list.isSelectable(2))
-        XCTAssertTrue(list.isSelectable(3))
-        XCTAssertFalse(list.isSelectable(4))
+        XCTAssertFalse(list.isSelectable(3))
     }
 
     /// §6.6: the row index a drop landed on maps to a section plus an index
@@ -61,12 +60,12 @@ final class SidebarRowModelTests: XCTestCase {
     func testDropTargets() {
         let list = SidebarList(tabs: [tab(.pinned, "p1"), tab(.pinned, "p2"), tab(.today, "t1")])
 
-        XCTAssertEqual(list.dropTarget(insertingAt: 3).kind, .pinned)
-        XCTAssertEqual(list.dropTarget(insertingAt: 3).index, 0)
-        XCTAssertEqual(list.dropTarget(insertingAt: 4).index, 1)
-        XCTAssertEqual(list.dropTarget(insertingAt: 5).kind, .today)
-        XCTAssertEqual(list.dropTarget(insertingAt: 5).index, 0)
-        XCTAssertEqual(list.dropTarget(insertingAt: 6).index, 1)
+        XCTAssertEqual(list.dropTarget(insertingAt: 2).kind, .pinned)
+        XCTAssertEqual(list.dropTarget(insertingAt: 2).index, 0)
+        XCTAssertEqual(list.dropTarget(insertingAt: 3).index, 1)
+        XCTAssertEqual(list.dropTarget(insertingAt: 4).kind, .today)
+        XCTAssertEqual(list.dropTarget(insertingAt: 4).index, 0)
+        XCTAssertEqual(list.dropTarget(insertingAt: 5).index, 1)
         // Never inside the leading command group.
         XCTAssertEqual(list.dropTarget(insertingAt: 0).kind, .pinned)
         XCTAssertEqual(list.dropTarget(insertingAt: 0).index, 0)
@@ -77,14 +76,14 @@ final class SidebarRowModelTests: XCTestCase {
     func testDropAtTopWithoutPinnedSectionIsToday() {
         let list = SidebarList(tabs: [tab(.today, "t1")])
 
-        XCTAssertEqual(list.dropTarget(insertingAt: 3).kind, .today)
-        XCTAssertEqual(list.dropTarget(insertingAt: 3).index, 0)
+        XCTAssertEqual(list.dropTarget(insertingAt: 2).kind, .today)
+        XCTAssertEqual(list.dropTarget(insertingAt: 2).index, 0)
     }
 
     /// AppKit reports the row under the pointer; a drop belongs in the gap
     /// below it once the pointer is past the midpoint.
     func testInsertionRowClampsToTheFirstTab() {
-        XCTAssertEqual(SidebarList.insertionRow(forRow: 0, isBelowMidpoint: false), 3)
+        XCTAssertEqual(SidebarList.insertionRow(forRow: 0, isBelowMidpoint: false), 2)
         XCTAssertEqual(SidebarList.insertionRow(forRow: 4, isBelowMidpoint: false), 4)
         XCTAssertEqual(SidebarList.insertionRow(forRow: 4, isBelowMidpoint: true), 5)
     }

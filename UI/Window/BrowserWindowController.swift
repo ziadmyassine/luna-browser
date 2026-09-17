@@ -30,6 +30,15 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     private var chromeHeight: NSLayoutConstraint?
     private var chromeFillsHeight: NSLayoutConstraint?
     private var chromeFillsWidth: NSLayoutConstraint?
+    /// How far the chrome is pushed off the window's leading edge. Zero in
+    /// every layout except a hidden sidebar, which parks at `-width` and comes
+    /// back to zero for §7.2's peek.
+    private var chromeLeading: NSLayoutConstraint?
+
+    /// §7.2's hover-peek: the strip that notices the pointer and the little
+    /// state machine that debounces it.
+    private let peekEdge = SidebarPeekEdgeView()
+    private let peek = SidebarPeekController()
 
     private var stateBeforeFullscreen: ChromeState?
     /// The width to come back to when the sidebar is shown again. Not the
@@ -65,6 +74,8 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         window.delegate = self
         buildContent(in: window)
         trafficLights = TrafficLightLayoutManager(window: window)
+        peek.onChange = { [weak self] peeking in self?.applyPeek(peeking) }
+        peekEdge.onPointerInside = { [weak self] inside in self?.peek.setPointerInEdge(inside) }
         apply(chromeState, animated: false)
     }
 
@@ -99,12 +110,19 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         // Applied before any subview so the glass stays behind them.
         Glass.apply(.sidebar, to: root)
         card.pin(in: root)
+        peekEdge.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(peekEdge, positioned: .above, relativeTo: card)
         NSLayoutConstraint.activate([
             // `NSWindow.minSize` is documented as ignored once the content view
             // uses Auto Layout (verified verbatim in NSWindow.h, M0), so the
             // size floor lives in the constraint system instead.
             root.widthAnchor.constraint(greaterThanOrEqualToConstant: Tokens.Metric.windowMinWidth),
-            root.heightAnchor.constraint(greaterThanOrEqualToConstant: Tokens.Metric.windowMinHeight)
+            root.heightAnchor.constraint(greaterThanOrEqualToConstant: Tokens.Metric.windowMinHeight),
+
+            peekEdge.topAnchor.constraint(equalTo: root.topAnchor),
+            peekEdge.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            peekEdge.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            peekEdge.widthAnchor.constraint(equalToConstant: Tokens.Metric.sidebarPeekEdge)
         ])
     }
 
@@ -119,18 +137,23 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         chromeHeight = nil
         chromeFillsHeight = nil
         chromeFillsWidth = nil
+        chromeLeading = nil
         guard let view, let root = window?.contentView else { return }
 
         view.translatesAutoresizingMaskIntoConstraints = false
-        // Above the card: §7.2's hover-peek slides the sidebar *over* the page.
-        root.addSubview(view, positioned: .above, relativeTo: card)
+        // Above the card **and above the peek strip**: §7.2's hover-peek slides
+        // the sidebar *over* the page, and once it has arrived it is the thing
+        // the pointer is on.
+        root.addSubview(view, positioned: .above, relativeTo: peekEdge)
         chromeWidth = view.widthAnchor.constraint(equalToConstant: Tokens.Metric.sidebarWidth.default)
         chromeHeight = view.heightAnchor.constraint(equalToConstant: Tokens.Metric.topBarHeight)
         chromeFillsHeight = view.bottomAnchor.constraint(equalTo: root.bottomAnchor)
         chromeFillsWidth = view.trailingAnchor.constraint(equalTo: root.trailingAnchor)
+        let leading = view.leadingAnchor.constraint(equalTo: root.leadingAnchor)
+        chromeLeading = leading
         NSLayoutConstraint.activate([
             view.topAnchor.constraint(equalTo: root.topAnchor),
-            view.leadingAnchor.constraint(equalTo: root.leadingAnchor)
+            leading
         ])
         applyChromeGeometry(chromeState)
     }
@@ -139,6 +162,11 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     func setContent(_ view: NSView?) {
         card.setContent(view)
     }
+
+    /// The page's frame inside the window's content view. §9.1's Command Bar
+    /// centres on this rather than on the window, so it does not sit half a
+    /// sidebar to the left of where the user is looking.
+    var contentFrame: NSRect { card.frame }
 
     // MARK: - Chrome state
 
@@ -174,14 +202,51 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
             widthBeforeCollapse = width
             apply(.sidebarCollapsed, animated: true)
         case (false, .sidebarCollapsed):
-            let width = widthBeforeCollapse ?? Tokens.Metric.sidebarWidth.default
-            apply(.sidebar(width: width), animated: true)
+            apply(.sidebar(width: parkedSidebarWidth), animated: true)
         default:
             break
         }
     }
 
     var isSidebarCollapsed: Bool { chromeState == .sidebarCollapsed }
+
+    /// The width the hidden sidebar parks at, and comes back at for a peek.
+    private var parkedSidebarWidth: CGFloat {
+        widthBeforeCollapse ?? Tokens.Metric.sidebarWidth.default
+    }
+
+    // MARK: - §7.2's hover-peek
+
+    /// `ChromeHostView` reports the pointer arriving on and leaving the sidebar
+    /// itself; the edge strip reports the other half. Either one keeps the peek
+    /// open — see `SidebarPeekController`.
+    func setPointerInsideChrome(_ inside: Bool) {
+        peek.setPointerInSidebar(inside)
+    }
+
+    /// Slides the hidden sidebar over the page, and back off it.
+    ///
+    /// **The page does not move.** Only the chrome's leading constraint and its
+    /// opacity change; the card's insets are the collapsed ones throughout, so
+    /// nothing reflows for a glance at the tab list.
+    private func applyPeek(_ peeking: Bool) {
+        guard chromeState == .sidebarCollapsed, let chrome else { return }
+        let width = parkedSidebarWidth
+        // The lights are hidden while the page has the whole window; a peeked
+        // sidebar is a sidebar, and it has a control row with a hole in it if
+        // they are not there.
+        trafficLights?.isPeeking = peeking
+        // The lights coming and going does not change any view's bounds, so
+        // nothing else would mark the control row dirty — and it lays its
+        // buttons out *against* the lights. See `SidebarControlRow`.
+        for layout in chrome.subviews { layout.needsLayout = true }
+        Tokens.Motion.animate(Tokens.Motion.sidebarCollapse) { context in
+            context.allowsImplicitAnimation = true
+            chromeLeading?.constant = peeking ? 0 : -width
+            chrome.alphaValue = peeking ? 1 : 0
+            window?.contentView?.layoutSubtreeIfNeeded()
+        }
+    }
 
     /// Whether `⌘S` has anything to do in the current layout.
     var canCollapseSidebar: Bool {
@@ -204,10 +269,26 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     private func apply(_ state: ChromeState, animated: Bool) {
         let previous = chromeState
         chromeState = state
+        // A peek belongs to the collapsed state and to nothing else. Both flags
+        // are reset rather than left to the controller's own `onChange`: that
+        // callback early-returns once the state has already moved on, and a
+        // stale `isPeeking` would leave the traffic lights showing over a
+        // full-bleed page the next time the sidebar was hidden.
+        trafficLights?.isPeeking = false
+        peek.isEnabled = state == .sidebarCollapsed
+        peekEdge.isEnabled = state == .sidebarCollapsed
+        let insets = state.cardInsets
+        // **The page is told its final width before the chrome starts moving.**
+        // See `ContentCardView.beginGeometryTransition` — a web view that is
+        // re-laid out on every frame of a 0.20 s slide is the "resizing is very
+        // obvious" this fixes.
+        if animated, let root = window?.contentView {
+            card.beginGeometryTransition(toWidth: root.bounds.width - insets.left - insets.right)
+        }
         let body = { [self] in
             applyChromeGeometry(state)
             card.isInset = state.cardIsInset
-            card.setInsets(state.cardInsets)
+            card.setInsets(insets)
             // In the same transaction, never as a second step: a re-anchor one
             // frame later is exactly the visible jump §4.1 warns about.
             trafficLights?.apply(state)
@@ -218,6 +299,8 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
                 // Without this the constraint constants snap instead of sliding.
                 context.allowsImplicitAnimation = true
                 body()
+            } completion: { [card] in
+                MainActor.assumeIsolated { card.endGeometryTransition() }
             }
         } else {
             body()
@@ -234,21 +317,37 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
             chromeWidth?.constant = width
             chromeWidth?.isActive = true
             chromeFillsHeight?.isActive = true
+            chromeLeading?.constant = 0
             chrome.alphaValue = 1
         case .topBar:
             chromeWidth?.isActive = false
             chromeFillsHeight?.isActive = false
             chromeHeight?.isActive = true
             chromeFillsWidth?.isActive = true
+            chromeLeading?.constant = 0
             chrome.alphaValue = 1
-        case .sidebarCollapsed, .fullscreen:
-            // §4.1: the sidebar collapses to zero width rather than vanishing,
-            // so the card slides across instead of jumping.
+        case .sidebarCollapsed:
+            // **It slides out, it does not shrink.** Collapsing the width to
+            // zero squeezed the tab list, the pill and the control row through
+            // 280 pt of relayout on the way out — visible, and pointless work.
+            // Parking it at `-width` keeps it whole, and leaves it exactly one
+            // constraint away from §7.2's peek.
+            chromeHeight?.isActive = false
+            chromeFillsWidth?.isActive = false
+            chromeWidth?.constant = parkedSidebarWidth
+            chromeWidth?.isActive = true
+            chromeFillsHeight?.isActive = true
+            chromeLeading?.constant = -parkedSidebarWidth
+            chrome.alphaValue = 0
+        case .fullscreen:
+            // Page fullscreen has no peek and nothing to come back to, so the
+            // chrome goes to zero width and stays where it is.
             chromeHeight?.isActive = false
             chromeFillsWidth?.isActive = false
             chromeWidth?.constant = 0
             chromeWidth?.isActive = true
             chromeFillsHeight?.isActive = true
+            chromeLeading?.constant = 0
             chrome.alphaValue = 0
         }
     }
@@ -275,36 +374,5 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
 
     func windowDidExitFullScreen(_ notification: Notification) {
         (window?.contentView as? WindowRootView)?.isWindowFullScreen = false
-    }
-}
-
-/// The window's shape: a rounded, clipping plane that everything else lives
-/// inside (§1 `windowCornerRadius`, §30.1). 25 pt, measured off the reference's
-/// own macOS 26 window — and the radius the content pane matches, so the two
-/// sets of corners nest.
-private final class WindowRootView: NSView {
-
-    var isWindowFullScreen = false {
-        didSet {
-            guard isWindowFullScreen != oldValue else { return }
-            updateCornerRadius()
-        }
-    }
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        wantsLayer = true
-        layer?.cornerCurve = .continuous
-        layer?.masksToBounds = true
-        updateCornerRadius()
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("Luna builds its views in code")
-    }
-
-    private func updateCornerRadius() {
-        layer?.cornerRadius = isWindowFullScreen ? 0 : Tokens.Metric.windowCornerRadius
     }
 }

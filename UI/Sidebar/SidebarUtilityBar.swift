@@ -2,8 +2,13 @@
 //  SidebarUtilityBar.swift
 //  Luna
 //
-//  §3.5: `[profile avatar 34] ··· [space dots pill 56 × 22] ··· [archive 34]`,
+//  §3.5: `[profile avatar 34] ··· [space dots pill 56 × 22] ··· [history 34]`,
 //  pinned to the bottom at 52 pt.
+//
+//  The trailing circle opens the archive page, and is called **History** —
+//  that is what a user looking for a page they closed goes looking for, and
+//  "archive" is Luna's internal word for the same shelf. It carries a clock
+//  glyph for the same reason: a box means storage, a clock means "earlier".
 //
 //  The dots are the Space switcher (§30.9). §8 requires them to be usable with
 //  Differentiate Without Colour on, so each dot carries the Space's **name** as
@@ -18,7 +23,7 @@ import BrowserKit
 final class SidebarUtilityBar: NSView {
 
     var onProfile: (() -> Void)?
-    var onArchive: (() -> Void)?
+    var onHistory: (() -> Void)?
     var onSwitchSpace: ((UUID) -> Void)?
     /// §6.6: a tab was dropped on a Space dot.
     var onMoveTabToSpace: ((UUID, UUID) -> Void)?
@@ -29,21 +34,21 @@ final class SidebarUtilityBar: NSView {
         pointSize: Tokens.Metric.glyphSize,
         label: "Profile"
     )
-    private let archive = GlassButton(
+    private let history = GlassButton(
         shape: Tokens.Metric.bottomCircle,
-        symbolName: "archivebox",
+        symbolName: "clock.arrow.circlepath",
         pointSize: Tokens.Metric.glyphSize,
-        label: "Archive"
+        label: "History"
     )
     private let dots = SpaceDotsView()
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         avatar.onActivate = { [weak self] in self?.onProfile?() }
-        archive.onActivate = { [weak self] in self?.onArchive?() }
+        history.onActivate = { [weak self] in self?.onHistory?() }
         dots.onSwitch = { [weak self] id in self?.onSwitchSpace?(id) }
         dots.onDrop = { [weak self] tab, space in self?.onMoveTabToSpace?(tab, space) }
-        for view in [avatar, archive, dots] { addSubview(view) }
+        for view in [avatar, history, dots] { addSubview(view) }
     }
 
     @available(*, unavailable)
@@ -71,7 +76,7 @@ final class SidebarUtilityBar: NSView {
         let circle = Tokens.Metric.bottomCircle
         let midY = (bounds.height - circle.height) / 2
         avatar.frame = NSRect(x: inset, y: midY, width: circle.width, height: circle.height).pixelAligned
-        archive.frame = NSRect(
+        history.frame = NSRect(
             x: bounds.maxX - inset - circle.width,
             y: midY,
             width: circle.width,

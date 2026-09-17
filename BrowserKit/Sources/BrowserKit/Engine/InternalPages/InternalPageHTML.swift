@@ -29,7 +29,10 @@ extension InternalPages {
     public static let paletteVariables: [String] = [
         "--luna-surface-base", "--luna-surface-raised", "--luna-surface-hover",
         "--luna-text-primary", "--luna-text-secondary", "--luna-text-tertiary",
-        "--luna-line-hairline", "--luna-line-border", "--luna-accent", "--luna-danger",
+        // No `--luna-accent`: nothing on an internal page is accent-coloured.
+        // Selection and focus are ink here, the same way they are material in
+        // the chrome — there is no system blue anywhere in Luna.
+        "--luna-line-hairline", "--luna-line-border", "--luna-danger",
         "--luna-hairline", "--luna-gap", "--luna-gap-wide",
         "--luna-row-height", "--luna-row-radius", "--luna-row-inset", "--luna-favicon",
         "--luna-tile-w", "--luna-tile-h", "--luna-tile-radius", "--luna-tile-gap", "--luna-tile-icon",
@@ -69,8 +72,12 @@ extension InternalPages {
       -webkit-font-smoothing:antialiased;
     }
     a{color:inherit;text-decoration:none}
+    /* **Ink, not accent.** A focus ring still has to be unmistakable, and this
+       one is — but Luna's chrome has no system blue anywhere, and an internal
+       page is Luna's UI. `Highlight` is the OS's own focus colour as a
+       fallback, for a page rendered before the palette lands. */
     :focus-visible{
-      outline:medium solid var(--luna-accent,AccentColor);
+      outline:medium solid var(--luna-text-primary,Highlight);
       outline-offset:var(--luna-hairline);
     }
     .plate{
@@ -121,26 +128,45 @@ extension InternalPages {
     }
     .tile.add{color:var(--luna-text-tertiary,GrayText);justify-content:center}
 
-    /* Archive (§6.4) */
-    .archive{
+    /* History (§6.4) — the archive, laid out like the §3.4 tab list. */
+    .history{
       max-width:calc(var(--luna-tile-w) * 5);
       margin-inline:auto;padding:var(--luna-gap-wide);
-      display:flex;flex-direction:column;gap:var(--luna-gap);
+      display:flex;flex-direction:column;gap:var(--luna-gap-wide);
     }
-    .archive h1{font-size:var(--luna-size-pill,large);font-weight:600;margin:0}
+    /* The rule under the header is §3.4's own: the sidebar closes its command
+       group with a hairline before the tabs start, and this page has the same
+       shape — a fixed head, then a list. */
+    .history .head{
+      display:flex;align-items:center;gap:var(--luna-gap-wide);flex-wrap:wrap;
+      padding-inline:var(--luna-row-inset);
+      padding-bottom:var(--luna-gap-wide);
+      border-bottom:var(--luna-hairline,thin) solid var(--luna-line-hairline,ButtonBorder);
+    }
+    .history h1{
+      flex:0 0 auto;margin:0;
+      font-size:var(--luna-size-pill,large);font-weight:600;
+    }
+    /* Title and filter share a line: the list is the page, and a full-width
+       field above it read as a form to fill in rather than as a way to narrow
+       what is already there. */
     .search{
-      height:var(--luna-pill-h);width:100%;
+      flex:1 1 auto;min-width:0;
+      height:var(--luna-pill-h);
       padding-inline:var(--luna-pill-inset);
       border-radius:calc(var(--luna-pill-h) / 2);
-      background:var(--luna-surface-raised,Field);
+      background:var(--luna-surface-hover,Field);
       border:var(--luna-hairline,thin) solid var(--luna-line-border,ButtonBorder);
       color:var(--luna-text-primary,FieldText);
       font-size:var(--luna-size-row,medium);
       -webkit-appearance:none;appearance:none;
     }
-    .rows{margin:0;padding:0;list-style:none;display:flex;flex-direction:column}
-    .rows li+li{border-top:var(--luna-hairline,thin) solid var(--luna-line-hairline,ButtonBorder)}
-    .rows li[hidden]+li{border-top:0}
+    /* Pills with a gap, not lines with rules between them: §3.4's rows have no
+       separators, and neither do these. */
+    .rows{
+      margin:0;padding:0;list-style:none;
+      display:flex;flex-direction:column;gap:calc(var(--luna-hairline) * 3);
+    }
     .row{
       display:flex;align-items:center;gap:var(--luna-row-inset);
       min-height:var(--luna-row-height);
@@ -149,17 +175,31 @@ extension InternalPages {
       transition:background-color var(--luna-motion-hover,0s) ease-out;
     }
     .row:hover{background:var(--luna-surface-hover,Canvas)}
-    .row .text{min-width:0;display:flex;flex-direction:column}
+    .row .text{min-width:0;flex:1 1 auto;display:flex;flex-direction:column}
     .row .title{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
     .row .sub{
       overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
       color:var(--luna-text-tertiary,GrayText);font-size:var(--luna-size-label,small);
     }
+    /* The trailing chip, on hover and on keyboard focus — §3.4's row does the
+       same thing with its close button. It keeps its space at all times, so
+       nothing reflows under the pointer. */
     .row .go{
-      margin-inline-start:auto;flex:0 0 auto;
+      flex:0 0 auto;
+      display:inline-flex;align-items:center;
+      padding-block:calc(var(--luna-hairline) * 3);
+      padding-inline:var(--luna-row-inset);
+      border-radius:calc(var(--luna-row-radius) / 2);
       color:var(--luna-text-secondary,CanvasText);font-size:var(--luna-size-label,small);
+      opacity:0;
+      transition:opacity var(--luna-motion-hover,0s) ease-out;
     }
-    .empty{color:var(--luna-text-secondary,GrayText);padding:var(--luna-gap-wide);text-align:center}
+    .row:hover .go,.row:focus-visible .go{opacity:1}
+    .empty{
+      color:var(--luna-text-secondary,GrayText);
+      padding:var(--luna-gap-wide);text-align:center;
+      max-width:calc(var(--luna-tile-w) * 3);margin-inline:auto;
+    }
 
     /* Favicons — sub-resources of a luna:// document, which is the only place a
        luna:// sub-resource loads at all (§4.4). Never an image element: a

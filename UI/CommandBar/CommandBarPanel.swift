@@ -10,12 +10,14 @@
 //  own follow-the-parent bookkeeping on every move and resize, to buy something
 //  this does not need — the bar is modal over exactly one window and dies with it.
 //
-//  The scrim is real glass, not a dimming fill. `Glass` is the only permitted
-//  route to Liquid Glass (contract rule 3), glass over in-window content is a
-//  genuine backdrop blur, and it already falls back to a solid surface under
-//  Reduce Transparency and gains a border under Increase Contrast (§21.2) — all
-//  of which a hand-rolled scrim would have to reimplement, and one of which it
-//  would forget.
+//  The scrim is `Glass.scrim()` — a **within-window** backdrop, and the one
+//  surface in Luna that is deliberately not Liquid Glass. Liquid Glass samples
+//  what is behind the *window*, so over a live page it replaced the page
+//  rather than blurring it, and in fullscreen (no desktop to sample) the page
+//  disappeared behind a near-black plate. See `Glass.scrim()` for the whole
+//  argument; the important part here is that the choice is still made in
+//  `Design/Glass.swift` and this file only asks for it by name (contract
+//  rule 3).
 //
 
 import AppKit
@@ -45,6 +47,9 @@ enum CommandBarMetrics {
     /// UI-SPEC §6: "anchored 20 % from window top". **Missing token** — it is a
     /// ratio rather than a length, so `Tokens.Metric` has nowhere to put it today.
     static let topAnchorFraction: CGFloat = 0.20
+    /// How hard the §9.1 backdrop is applied. **Missing token**, and a ratio
+    /// rather than a length, so `Tokens.Metric` has nowhere to put it today.
+    static let scrimStrength: CGFloat = 0.72
 }
 
 /// The full-window overlay: scrim, panel, input and results.
@@ -61,6 +66,16 @@ final class CommandBarPanel: NSView {
     let body = CommandBarPanelBody()
 
     private var topAnchorConstraint: NSLayoutConstraint?
+    private var centreConstraint: NSLayoutConstraint?
+
+    /// The region the bar belongs over: the **page**, not the window.
+    ///
+    /// The panel covers the whole window so nothing behind it is clickable, but
+    /// centring the bar in the window put it visibly off-centre over the page
+    /// — half a sidebar's width to the left of where the user is looking. This
+    /// is `ContentCardView`'s frame, read live so it survives a resize and a
+    /// sidebar drag under an open bar.
+    var contentRegion: (() -> NSRect)?
 
     init(frame frameRect: NSRect, resultsView: CommandBarResultsView) {
         self.results = resultsView
@@ -76,15 +91,25 @@ final class CommandBarPanel: NSView {
     }
 
     private func buildScrim() {
-        let scrim = Glass.backing(.sidebar)
+        let scrim = Glass.scrim()
         scrim.frame = bounds
         scrim.autoresizingMask = [.width, .height]
+        // **Held short of full strength.** A backdrop at 1.0 is a wall: the
+        // page stops being context and the bar's own glass has nothing but the
+        // scrim to sample, so it flattens into a plate. At this weight the page
+        // is still there, softened, and the glass above it still reads as a
+        // material.
+        scrim.alphaValue = CommandBarMetrics.scrimStrength
         addSubview(scrim)
     }
 
     private func buildBody() {
         body.wantsLayer = true
         body.translatesAutoresizingMaskIntoConstraints = false
+        // §2's popover material: `.regular` glass, **untinted**. The chrome's
+        // tint darkens a dark theme by design (it is what makes the sidebar
+        // read as dense), and a bar floating over a page wants the opposite —
+        // it should look like a pane of the desktop, not like more chrome.
         Glass.apply(.popover, to: body, cornerRadius: CommandBarMetrics.cornerRadius)
         addSubview(body)
 
@@ -99,14 +124,13 @@ final class CommandBarPanel: NSView {
         // bottom, and they were a favicon's width out of step.
         let rowInset = CommandBarMetrics.padding + Tokens.Metric.rowInset
         let inset = rowInset + Tokens.Metric.faviconSize + CommandBarMetrics.padding
-        let top = body.topAnchor.constraint(
-            equalTo: topAnchor,
-            constant: bounds.height * CommandBarMetrics.topAnchorFraction
-        )
+        let top = body.topAnchor.constraint(equalTo: topAnchor, constant: 0)
         topAnchorConstraint = top
+        let centre = body.centerXAnchor.constraint(equalTo: centerXAnchor, constant: 0)
+        centreConstraint = centre
 
         NSLayoutConstraint.activate([
-            body.centerXAnchor.constraint(equalTo: centerXAnchor),
+            centre,
             body.widthAnchor.constraint(equalToConstant: CommandBarMetrics.width),
             top,
 
@@ -140,11 +164,21 @@ final class CommandBarPanel: NSView {
         body.setAccessibilityElement(true)
     }
 
-    /// UI-SPEC §6 anchors the panel to a *fraction* of the window, so a constant
-    /// set once is wrong the moment the window is resized under an open bar.
+    /// UI-SPEC §6 anchors the panel to a *fraction* of the surface it is over,
+    /// so a constant set once is wrong the moment the window is resized — or
+    /// the sidebar dragged — under an open bar. Both constants are re-derived
+    /// here, against the page rather than the window.
     override func layout() {
         super.layout()
-        topAnchorConstraint?.constant = bounds.height * CommandBarMetrics.topAnchorFraction
+        // An empty region means nobody told us where the page is; the window
+        // is the honest fallback, not a zero-sized rect at the origin.
+        let reported = contentRegion?() ?? bounds
+        let region = reported.isEmpty ? bounds : reported
+        // Auto Layout measures a top constant downwards; `region` is in this
+        // view's own bottom-left coordinates.
+        topAnchorConstraint?.constant =
+            (bounds.maxY - region.maxY) + region.height * CommandBarMetrics.topAnchorFraction
+        centreConstraint?.constant = region.midX - bounds.midX
     }
 
     /// Clicks reach here up the responder chain: the scrim is a glass view with no

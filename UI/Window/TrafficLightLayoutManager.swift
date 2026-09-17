@@ -89,6 +89,26 @@ final class TrafficLightLayoutManager {
     private var state: ChromeState = .sidebarCollapsed
     private let natural: [CGPoint]
 
+    /// §7.2: the sidebar is peeking over a hidden-sidebar window, so the lights
+    /// belong back on screen for as long as it is there.
+    var isPeeking = false {
+        didSet {
+            guard isPeeking != oldValue else { return }
+            layoutButtons()
+        }
+    }
+
+    /// **Hidden while the page has the whole window.**
+    ///
+    /// `⌘S` means "give the page the window", and three lights floating over
+    /// the top-left corner of a web page is the one piece of chrome that did
+    /// not go away — sitting on the site's own navigation more often than not.
+    /// They come back the moment there is a sidebar to put them in, which
+    /// includes a peek.
+    private var hidesButtons: Bool {
+        state == .sidebarCollapsed && !isPeeking
+    }
+
     init(window: NSWindow) {
         self.window = window
         // Captured before anything moves them: these are AppKit's own origins
@@ -139,6 +159,12 @@ final class TrafficLightLayoutManager {
         guard let window, !window.styleMask.contains(.fullScreen) else { return }
         let buttons = Self.buttons(of: window)
         guard let first = buttons.first, let titlebar = first.superview else { return }
+
+        // Before the placement, and unconditionally: a hidden button still has
+        // a frame, and AppKit resets `isHidden` on some titlebar rebuilds the
+        // same way it resets the origins.
+        let hidden = hidesButtons
+        for button in buttons where button.isHidden != hidden { button.isHidden = hidden }
 
         let system = TrafficLightMetrics(
             natural: natural,

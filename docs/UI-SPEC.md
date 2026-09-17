@@ -42,13 +42,14 @@ sidebar's own content reflows. The ratios exist to fix proportions once, not to 
 | `separatorRowHeight` | 12 pt | 8 |
 | `urlPill` | 266 × 34 pt, radius 17 (full) | × 32, radius 16 |
 | `essentialsTile` | 128 × 42 pt, radius 12 | — |
-| `essentialsTileGap` / `essentialsInset` | 12 / 10 pt | 10 / 8 |
+| `essentialsTileGap` / `essentialsInset` | 8 / 8 pt (`= rowInset`) | 12 / 10 |
 | `essentialsIcon` | 16 pt (`= faviconSize`) | 22 |
-| `controlCircle` (**toggle**, back, reload) | 28 pt | 35, and before that a squircle for the toggle |
+| `controlCircle` (top bar: back, capsule items) | 28 pt | 35, and before that a squircle for the toggle |
+| `sidebarCircle` (**toggle**, back, reload) | 34 pt (`= urlPill.height`) | 28 |
 | `controlPairGap` (back ↔ reload) | 5 pt | 8 |
 | `trafficLightInset` (leading **and** top) | 18 pt | 8 leading, 18 top |
 | `controlSquircle` (top-bar tab tile only) | 28 pt, radius 9 | — |
-| `bottomCircle` (avatar, archive) | 34 pt | — |
+| `bottomCircle` (avatar, history) | 34 pt (`= sidebarCircle`) | — |
 | `spaceDotsPill` | 56 × 22 pt, radius 11 | — |
 | `spaceDot` | 6 pt | — |
 | `glyphSize` (chrome SF Symbols) | 16 pt | 17, and 18 before that |
@@ -57,6 +58,8 @@ sidebar's own content reflows. The ratios exist to fix proportions once, not to 
 | `contentCardGap` | **gone** — the page is flush (§3.6) | 8 pt |
 | `panelInset` (Command Bar, downloads list) | 8 pt | was `contentCardGap` |
 | `topBarHeight` | 52 pt | — |
+| `sidebarPeekEdge` (§3.8 hover-peek trigger strip) | 4 pt | — |
+| `settingsSidebarWidth` / `settingsWindow` | 196 pt / 720 × 460 pt | was a 420 × 160 box |
 | `hairline` | 1 pt @ 10 % white / 8 % black | — |
 
 **Colour rules.** `Accent.tint` and `Accent.danger` are **fill and ring only** — as text they measure
@@ -91,6 +94,40 @@ are near-black and white respectively. The OS does the expensive part for free.
 | Downloads popover | Liquid Glass `.regular` + a heavier panel shadow |
 | Content card | Opaque `Surface.base` — never translucent; a web page behind glass is unreadable |
 | URL pill | `.control` glass **plus** a translucent page-derived wash — the one page-tinted surface in the app |
+| Command Bar scrim | **`NSVisualEffectView` at `.withinWindow`** — the one surface that is deliberately not Liquid Glass |
+
+**A dormant control is a well, not a plate.** §3.2's URL pill and §3.3's pinned tiles rest on
+`Surface.well` — **black in both themes** — with a `Line.border` hairline catching the edge, so they read
+as cut *into* the sidebar. They were `Surface.hover`, which is ink and therefore white on dark, so they
+came out lighter than the plane around them and read as raised: the opposite of
+`inspiration/main-tab-bar-and-ui.png`. `Surface.well` is the only token built with `recessInkColor`.
+
+**The chrome tint is heavier, and it is off in fullscreen.** `Ink.glassTint` went 0.32/0.34 → 0.46/0.50:
+untinted `.regular` glass samples the desktop so faithfully that the sidebar read as a pane of wallpaper
+rather than as a surface. But the tint is *black* in dark mode by construction (`surfaceTintColor`), and
+in fullscreen the glass is sampling the opaque `glassFallback` plane rather than a bright desktop —
+darkening that by half took the sidebar under the content pane's own colour. So the tint is dropped
+wherever the backdrop plane is up, which is exactly where it has nothing to do.
+
+**Glass is the highlight, and nothing in the chrome is ever accent-blue.** A selected pinned tile, a
+selected row, the pill you are typing in, the section you are looking at in Settings: all of them say so
+by carrying the material, and all of them are a bordered plate when they do not. The accent ring, the
+accent border and `NSSegmentedControl`'s solid blue block are gone from every one of them. The unread dot
+is `Text.primary`; an internal page's focus ring is `--luna-text-primary`; `--luna-accent` is no longer
+part of the internal-page palette at all.
+
+**Why the Command Bar's scrim is not glass.** Liquid Glass composites what is behind the *window*, so
+over a live page in the same window it does not blur the page — it replaces it. In fullscreen, with no
+desktop left to sample, the page behind the Command Bar disappeared entirely behind a near-black plate.
+`NSVisualEffectView` at `.withinWindow` is the only API that blurs in-window content, and that is what
+§9.1's "blurred backdrop scrim" describes. Its material is `.sidebar` — the most see-through of the
+in-window materials — and it is applied at **0.72**, not at full strength. `.hudWindow` and
+`.fullScreenUI` both blur beautifully and then flatten everything above them into one dark wall: the page
+stops being context, and the bar's own Liquid Glass has nothing but the scrim left to sample, so it
+reads as a plate. The bar itself keeps §2's **untinted** `.popover` glass for the same reason the
+chrome's tint exists — a bar floating over a page should look like a pane of the desktop, not like more
+chrome. The choice still lives in `Design/Glass.swift` (`Glass.scrim()`); no other file knows which
+material it got.
 
 **Page-derived pill wash.** Blend `themeColor` (fallback `underPageBackgroundColor`) into the URL pill
 fill at **12–18 %**, animated over 0.25 s, clamped so pill text always clears 4.5:1 (§21.4). If the
@@ -102,6 +139,10 @@ therefore paint `Surface.glassFallback` **behind** the glass whenever the window
 in dark, light grey in light, with the material still on top of it. Only in fullscreen — painting it
 always would be sampled by the glass in every window state and the wallpaper would stop coming through,
 which is the whole look.
+> **The plane goes up on `willEnterFullScreen`, not on `did`.** `styleMask` does not carry `.fullScreen`
+> until the transition finishes, so reading it on `didEnterFullScreen` left the sidebar black for the
+> whole half-second zoom and only grey once the window had landed. Leaving is driven by
+> `didExitFullScreen` for the mirror-image reason: the plane has to survive the zoom back out.
 
 **Reduce Transparency.** Every glass surface falls back to solid **`Surface.glassFallback`**, and the
 page-derived wash is disabled outright.
@@ -141,6 +182,11 @@ Vertical order, top to bottom:
 > reference's sidebar is 268 pt of a 2146 px capture, and at Luna's scale a 35 pt circle is a control as
 > tall as the row pill beneath it. 28 is the top-bar capsule item, so both layouts now agree on one
 > diameter. The glyph came down with it, 17 → 16.
+> **Corrected a fourth time — and it is 34 here, 28 on the bar.** 28 read as three small buttons
+> floating above a bigger one: the URL pill directly beneath them is 34, and so is §3.5's bottom row, so
+> the sidebar's head was the only thing in the column that did not line up. `sidebarCircle` is
+> `urlPill.height`, derived rather than written down again. The **top bar keeps 28**, because its back
+> button has to match the capsule items at the other end of the same bar.
 > **The three were also drawn one point taller than wide.** They are centred on the traffic lights'
 > midpoint, which is fractional, and `NSRect.integral` rounds the origin down and the far edge *up* — a
 > 28 × 28 circle placed at a fractional y comes out 28 × 29 and reads as an egg. Chrome controls snap
@@ -152,10 +198,10 @@ Vertical order, top to bottom:
   padding into a corner and the first thing the eye catches. A single `TrafficLightLayoutManager` owns
   their frame for all six window states (§7.7 — this is the #1 bug source in Arc-style browsers).
 - Back and reload are circular glass with a hairline border; **hover lifts the fill** (not the border).
-- **The toggle carries no glass at rest.** Back and reload are navigation and hold their material; the
-  toggle is furniture, and a third bright circle beside the traffic lights is the first thing the eye
-  lands on when the window opens. It is a bare glyph until the pointer arrives, and the glass fades in
-  under it on §6's control-hover curve.
+- **All three carry their glass at rest.** The toggle spent one build as a bare glyph that only took
+  its material on hover; that made the single control which brings a hidden sidebar back invisible until
+  the pointer happened to find it, which is the wrong trade for the one button on this row that is not
+  reachable any other way.
 - Back is disabled-dimmed at 35 % when `canGoBack` is false. Reload becomes a **stop** glyph while loading.
 
 ### 3.2 URL pill — full width less 8 pt each side, 34 pt tall, full radius, flush under the control row
@@ -167,12 +213,27 @@ Vertical order, top to bottom:
 - Two further icon slots are **reserved and sized** to the left of the sliders glyph but render nothing.
   AI and extension actions live in the top-bar action capsule, not here.
 - Click or `⌘L` → expands to the full URL, selected, in edit mode. `Esc` reverts.
+- **Dormant at rest.** The pill is a bordered plate on the sidebar's plane until it is hovered or opened
+  for editing, and it takes its glass then. Constant glass made it the brightest thing in the column — a
+  second lit surface directly under three lit circles, pulling the eye to an address the user already
+  knows. **No accent ring while editing**: the material is what says the pill is live.
+- **The page-derived wash blends over `Surface.chromeFill`, not `Surface.raised`.** `raised` is an
+  *opaque plane*, so a theme colour blended onto it produced an opaque plate: on a site whose theme
+  colour is a near-neutral grey the pill stopped being translucent and simply turned grey.
 
 ### 3.3 Essentials grid — 2 across, wrapping
-- Tiles 128 × 42, radius 12, 10 pt gap, 8 pt outer inset. **Tile width flexes:** 8 + 128 + 10 + 128 + 8 = 282,
-  which does not fit a 280 pt sidebar, and the grid must survive the 180–420 pt resize range regardless.
-- **Icon only, centred, 22 pt.** No label. Visually distinct from the text rows below (§30.5).
-- Translucent fill + hairline. Active Essential gets a brighter fill and a 1 pt accent ring.
+- Tiles 128 × 42, radius 12, **8 pt gap, 8 pt outer inset — both `rowInset`**. The grid used to sit at
+  10 pt against the pill's and the rows' 8, two points proud of everything above and below it; and its
+  12 pt inner gutter was wider than its outer margin. **Tile width flexes:** the grid must survive the
+  160–420 pt resize range.
+- **Icon only, centred, 16 pt.** No label. Visually distinct from the text rows below (§30.5).
+- **Dormant, and glass when it is the tab you are on.** A tile at rest is `Surface.hover` plus a
+  hairline; the material arrives when the tile is selected or hovered and leaves with the pointer.
+  There is **no accent ring** — glass is Luna's highlight, everywhere, and nothing in the chrome turns
+  blue to say "this one".
+- **Pinning and unpinning animate.** Tiles are keyed by tab, so one survives a pin, an unpin or a
+  reorder and travels to its new slot on §6's `tabInsert` spring; a new tile fades up, a removed one
+  fades out where it stood, and the list below slides with the grid's height instead of snapping.
 - **Pinning** (§6.6's other half): right-click a row → *Pin Tab*, or drag it up into the grid. Pinning
   moves the tab into the Essentials section **and puts its page away** — the tile is the tab, so the page
   costs no WebContent process until it is clicked again (§19.2). A pinned tab cannot be closed, only
@@ -182,10 +243,13 @@ Vertical order, top to bottom:
   > tab's kind, so the row left the list, no tile appeared, and the command did nothing visible.
 
 ### 3.4 List rows — 38 pt of pitch around a 35 pt pill
-Order: `Archive` folder row → **separator** → `+ Add Tab` row → tabs.
-> **Corrected:** the rule sits *between* the two commands, not after both. It reads as the end of the
-> Archive section. It also spans the sidebar edge to edge, not inset like a row pill, and its row is
-> 12 pt tall — 6 pt of clear space either side of the hairline.
+Order: `+ Add Tab` row → **separator** → tabs.
+> **`Archive` is no longer a row here.** It was a second door to the page §3.5's bottom-bar button
+> already opens, sitting directly under the pinned tiles where the eye lands first — a history button at
+> the top of a list of live tabs. History belongs with the other standing destinations at the foot of the
+> sidebar, and that is the only place it is now.
+> The rule stays and still closes off the command group. It spans the sidebar edge to edge, not inset
+> like a row pill, and its row is 12 pt tall — 6 pt of clear space either side of the hairline.
 
 - `[status dot 6] [favicon 16] [title 13 pt, single line, **faded**, never ellipsised] [trailing affordance]`
 - **The favicon is square-inset inside the pill**: the same 9.5 pt of padding on its leading edge as
@@ -207,10 +271,21 @@ Order: `Archive` folder row → **separator** → `+ Add Tab` row → tabs.
 - **Selected and hover fills are `Surface.selected` / `Surface.hover`.** Clear glass alone is very nearly
   the sidebar's own glass, and a selected row read as unselected until these were asked for.
 - Loading shows a shimmer sweep across the title, not a spinner.
-- `Archive` and `+ Add Tab` are first-class rows with identical metrics to tabs (§30.6).
+- `+ Add Tab` is a first-class row with identical metrics to a tab (§30.6).
+- **The unread dot is ink, not accent.** It was `Accent.tint`; it is `Text.primary` now, and it reads
+  because it is bright rather than because it is a different hue.
+- **Reordering opens a gap.** The list's drop feedback is `NSTableView.DraggingDestinationFeedbackStyle.gap`,
+  not the default insertion rule: the rows animate apart to make a slot the size of the row being
+  dragged, so the tab's landing place is visible and locked the whole way down. A 2 pt line between two
+  rows that never move reads as a static list with a ghost floating over it.
 
 ### 3.5 Bottom utility bar — 52 pt, pinned
-`[profile avatar circle 34, left] ··· [space dots pill 56 × 22, centred] ··· [archive circle 34, right]`
+`[profile avatar circle 34, left] ··· [space dots pill 56 × 22, centred] ··· [history circle 34, right]`
+
+> **It is called History and it carries a clock.** Luna's internal word for the shelf is "the archive";
+> the user's word for what they are looking for is "history". The route stays `luna://archive` — a URL is
+> not a label — and the glyph is `clock.arrow.circlepath`, because a box means storage and a clock means
+> "earlier".
 
 - **Space dots** are the Space switcher: one 6 pt dot per Space, active dot 100 % white, inactive 35 %.
   Click a dot to switch; the pill widens by 8 pt per Space beyond three.
@@ -229,15 +304,26 @@ instead of leaving a crescent of glass inside each one.
 edge and the two planes met with nothing between them. A `Line.border` hairline runs down that edge,
 following the rounded leading corners and nothing else — the same edge every other glass surface has.
 
-**Hiding the sidebar gives the page the whole window.** No reserved strip for the traffic lights: they
-keep their place in the titlebar and float over the page. Reserving 52 pt for them would leave a band of
-empty glass across the top, which is not "hidden".
+**Hiding the sidebar gives the page the whole window — traffic lights included.** They used to keep
+their place in the titlebar and float over the page, which meant the one piece of chrome that did *not*
+go away was sitting on top of the site's own navigation. `⌘S` means "give the page the window", so the
+lights are hidden with everything else and come back the moment there is a sidebar to put them in —
+including §3.8's peek.
+
+**The page is revealed, not resized.** Its width is a constraint of its own, set to the *destination*
+width before the chrome starts moving, and the page is anchored to the card's trailing edge. So a
+sidebar collapse costs WebKit **one** relayout instead of one per frame of a 0.20 s slide, nothing under
+the pointer shifts, and a heavy site stops stuttering on `⌘S`.
 
 Entering page fullscreen animates the pane to fill the window over 0.3 s.
 
 ### 3.7 Sidebar resize handle
-A `◁|▷` handle floating on the sidebar/content divider, **appearing on hover after 0.1 s**. Drag resizes
-within 160–420 pt, double-click resets to 280. The hit area is 8 pt wide; the drawn handle is 20 × 32.
+An invisible 8 pt grab strip on the sidebar/content divider. Drag resizes within 160–420 pt, double-click
+resets to 280.
+> **Nothing is drawn.** §3.7 asked for a `◁|▷` glyph to fade in on hover, and on screen it read as a
+> piece of UI that had come loose: a small mark floating over the page, attached to neither surface,
+> appearing for no reason the user had asked for. The resize cursor already says the divider is
+> draggable, which is what every native split view relies on.
 > **This was drawn, hovered, dragged — and did nothing.** `SidebarViewController` reports the width out
 > through `onWidthChange`, and nothing was ever connected to it; the same was true of the sidebar toggle
 > and of committing text in the URL pill. `AppDelegate.wireSidebar` is where all three now land. A live
@@ -246,13 +332,34 @@ within 160–420 pt, double-click resets to 280. The hit area is 8 pt wide; the 
 
 ---
 
+### 3.8 Hover-peek — the hidden sidebar
+
+With the sidebar hidden, pushing the pointer into the window's leading **4 pt** brings it back **over**
+the page after §6's 0.10 s intent delay, and lets it go again 0.10 s after the pointer leaves both the
+strip and the sidebar itself.
+
+- **The page does not move.** Only the chrome's leading constraint and its opacity animate; the card's
+  insets stay collapsed, so nothing reflows for a glance at the tab list.
+- The hidden sidebar parks at `-width` rather than collapsing to zero width: it keeps its layout, and it
+  is one constraint away from coming back.
+- The traffic lights come back with it, and go again with it.
+- The asymmetry is deliberate: the same delay guards both edges, because the pointer leaves the trigger
+  strip the instant the sidebar arrives over it, and a zero-delay close would flicker.
+
+---
+
 ## 4. Top-bar layout
 
 One 52 pt glass bar spanning the window. **Content is flush full-bleed below it — no inset card, no gap.**
 
-`[traffic lights] [sidebar toggle 28] [back 28] [tab tiles …] [ACTIVE TAB pill] [tab tiles …] [hairline] [action capsule]`
-> Both are `controlCircle`, and the toggle is bare at rest — the same three decisions as §3.1, so the two
-> layouts do not disagree about what a chrome button is.
+`[traffic lights] [back 28] [tab tiles …] [ACTIVE TAB pill] [tab tiles …] [hairline] [action capsule]`
+> **There is no sidebar toggle on this bar.** There is no sidebar in this layout to hide, so the button
+> either did nothing or silently changed a preference. Back is `TopBarMetrics.capsuleItem` — the same
+> circle as the new-tab, downloads and profile buttons at the other end of the bar, so the bar has one
+> button size.
+> **Switching the active tab animates.** The outgoing tab's pill collapses into a tile and the incoming
+> tile expands into the pill, each seeded at the other's frame, with every tile after them sliding along
+> on §6's `tabInsert` spring. The strip is one ordered run, and it used to jump.
 
 - **Tabs are visible in this mode as a horizontal strip.** Inactive tabs render as 28 pt icon-only tiles;
   the **active tab expands into the URL pill** showing its domain, favicon and sliders glyph. This is why
@@ -411,6 +518,10 @@ Total in the clip: **~2.3 s**, which is a gesture-driven mobile interaction.
   > several times a minute silently changed a preference they set once. Which layout the window wears is
   > now `Settings.chromeLayout`, and `⌘S` is only a reveal. In top-bar layout it is dimmed.
 - **Every chrome control is keyboard reachable** with a visible focus ring (§21.1, §20.2).
+- **Settings is shaped like the browser** (§3, §3.6): a glass column of sections and an opaque
+  `Surface.base` pane beside it, rounded on its leading edge. Sections live in `SettingsPane.all` — one
+  struct and one view each — so adding one touches no window, list or selection code. It replaced a
+  420 × 160 box with a segmented control in it, which read as a different app.
 - **Drag and drop:** rows reorder within a section, move between sections, and drop onto a Space dot to
   move to that Space.
 - **VoiceOver:** Essentials tiles are icon-only, so each needs an explicit label — the site name, not the

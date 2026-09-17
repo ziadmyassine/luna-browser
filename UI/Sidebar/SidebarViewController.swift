@@ -28,6 +28,8 @@ final class SidebarViewController: NSViewController {
     /// the Command Bar's URL-or-query parse — that parse is not the pill's job.
     var onSubmitURL: ((String) -> Void)?
     var onSiteMenu: (() -> Void)?
+    /// §3.5's bottom-bar History button. The one way into the page — it used
+    /// to also be a row at the head of the list.
     var onOpenArchive: (() -> Void)?
     var onProfileMenu: (() -> Void)?
     /// Live during a §3.7 drag; the width constraint belongs to the window.
@@ -48,6 +50,10 @@ final class SidebarViewController: NSViewController {
     private let handle = SidebarResizeHandle()
     private var shownSpaceID: UUID?
     private var isAttached = false
+    /// The Essentials grid's height on the last layout pass. When it changes —
+    /// a tab was pinned or unpinned — everything below it moves, and that move
+    /// is animated instead of snapping.
+    private var lastGridHeight: CGFloat?
 
     init(session: BrowserSession) {
         self.session = session
@@ -171,7 +177,7 @@ final class SidebarViewController: NSViewController {
         handle.onWidthCommitted = { [weak self] width in self?.onWidthChange?(width) }
 
         utility.onProfile = { [weak self] in self?.onProfileMenu?() }
-        utility.onArchive = { [weak self] in self?.onOpenArchive?() }
+        utility.onHistory = { [weak self] in self?.onOpenArchive?() }
         utility.onSwitchSpace = { [weak self] id in self?.session.switchSpace(id) }
         utility.onMoveTabToSpace = { [weak self] tab, space in self?.session.moveTab(tab, toSpace: space) }
 
@@ -189,7 +195,6 @@ final class SidebarViewController: NSViewController {
             guard let self else { return }
             session.activateTab(session.newTab(url: nil, kind: .today))
         }
-        list.onOpenArchive = { [weak self] in self?.onOpenArchive?() }
         list.onPinTab = { [weak self] id in self?.session.pinTab(id) }
         list.onDragSessionChange = { [weak self] isDragging in
             guard let self else { return }
@@ -233,7 +238,22 @@ final class SidebarViewController: NSViewController {
         // Every frame below is computed from `bounds`, so none of them may
         // animate — see `Motion.immediately`. Without this the §4.1 layout
         // switch's own transaction swallowed the whole pass.
-        Tokens.Motion.immediately { layoutSubviews() }
+        //
+        // The one exception is the pass where the Essentials grid changed
+        // height: the list and the scroll view below it have to travel, and
+        // snapping them is what made pinning a tab look like a redraw rather
+        // than a movement.
+        let gridHeight = essentials.intrinsicContentSize.height
+        let moved = lastGridHeight.map { $0 != gridHeight } ?? false
+        lastGridHeight = gridHeight
+        guard moved, !Tokens.Motion.reduceMotion else {
+            Tokens.Motion.immediately { layoutSubviews() }
+            return
+        }
+        Tokens.Motion.animate(Tokens.Motion.tabInsert) { context in
+            context.allowsImplicitAnimation = true
+            layoutSubviews()
+        }
     }
 
     private func layoutSubviews() {

@@ -208,6 +208,22 @@ func surfaceTintColor(_ name: String, _ alphas: InkAlphas) -> NSColor {
     }
 }
 
+/// A **recess**: black in both themes, at a per-theme alpha.
+///
+/// Neither of the two above says "this sits *below* the plane around it".
+/// `inkColor` goes white on dark and `surfaceTintColor` goes white on light, so
+/// each of them lifts one theme and sinks the other. A well is absent light in
+/// both — the same physics as a shadow — which is exactly what the reference's
+/// search field and pinned tiles are: cut into the sidebar, darker than it, with
+/// a lighter hairline catching the edge.
+func recessInkColor(_ name: String, _ alphas: InkAlphas) -> NSColor {
+    let contrast = Tokens.A11y.increaseContrast
+    let pair = alphas.inForce
+    return NSColor(name: NSColor.Name(contrast ? name + ".contrast" : name)) { appearance in
+        NSColor(white: 0, alpha: appearance.isDark ? pair.dark : pair.light)
+    }
+}
+
 /// A drop shadow's colour: **black in both themes**, with a per-theme alpha.
 ///
 /// Not `inkColor`, which flips to white on dark — a white shadow is a glow, and

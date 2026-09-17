@@ -30,30 +30,46 @@ final class GlassButton: NSView {
     /// The right-click menu, built on demand so it always reflects the
     /// button's current tab rather than the one it was created with.
     var menuBuilder: (() -> NSMenu?)?
-    /// §3.3: the active Essential carries a 1 pt accent ring.
-    var isAccented = false { didSet { refresh() } }
+    /// §3.3: this button is the **selected** one — the active Essential.
+    ///
+    /// **Selection is the material, not a ring.** It used to draw a 1 pt accent
+    /// border, which is the system-blue highlight Luna does not have anywhere
+    /// else. A `.dormant` button carries no glass until it is hovered or
+    /// selected; arriving at it *is* the highlight.
+    var isSelected = false {
+        didSet {
+            guard isSelected != oldValue else { return }
+            updateGlass(animated: true)
+            refresh()
+        }
+    }
     /// §3.1: back dims when `canGoBack` is false.
     var isEnabled = true { didSet { refresh() } }
 
     /// When the button carries its glass.
     ///
-    /// §3.1's sidebar toggle is `.onHover`: three bright glass circles in a row
-    /// beside the traffic lights is more chrome than the reference has, and the
-    /// toggle is the one of the three that is not a navigation control. At rest
-    /// it is a bare glyph on the sidebar plane; the material arrives under the
-    /// pointer and leaves with it, on §6's control-hover curve.
+    /// **Glass is Luna's highlight.** Nothing in the chrome turns blue to say
+    /// "this one" — it turns to material. A `.dormant` button is a bare glyph
+    /// on the plane it sits on until the pointer arrives or it becomes the
+    /// selected one, and the material fades in and out on §6's control-hover
+    /// curve. §3.3's pinned tiles are the case this was built for.
     enum GlassMode {
         case always
-        case onHover
+        case dormant
     }
 
     private let shape: RoundedMetric
     private let pointSize: CGFloat
     private let glassMode: GlassMode
     private let glyph = NSImageView()
-    /// The `.control` backing. Held because `.onHover` fades it; `Glass.apply`
-    /// hands it back for exactly this.
-    private var glass = NSView()
+    /// The `.control` backing, **built on demand**.
+    ///
+    /// A dormant button that has never been hovered has no glass view at all.
+    /// That matters: a sidebar with eight pinned tiles used to stand up eight
+    /// live `NSGlassEffectView`s to hold at alpha 0, and every one of them
+    /// re-composites when the app comes back to the foreground — which is a
+    /// large part of what the sidebar's activation flash was made of.
+    private var glass: NSView?
     private var isHovering = false
     private var isPressed = false
 
@@ -70,8 +86,7 @@ final class GlassButton: NSView {
         super.init(frame: NSRect(origin: .zero, size: NSSize(width: shape.width, height: shape.height)))
         wantsLayer = true
         layer?.cornerCurve = .continuous
-        glass = Glass.apply(.control, to: self, cornerRadius: shape.cornerRadius)
-        glass.alphaValue = glassMode == .always ? 1 : 0
+        updateGlass(animated: false)
 
         glyph.imageScaling = .scaleProportionallyUpOrDown
         glyph.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .regular)
@@ -137,7 +152,7 @@ final class GlassButton: NSView {
         if !isEnabled {
             ink = Tokens.Text.tertiary
         } else {
-            ink = (isHovering || isPressed) ? Tokens.Text.primary : Tokens.Text.secondary
+            ink = (isHovering || isPressed || isSelected) ? Tokens.Text.primary : Tokens.Text.secondary
         }
         if glyph.image?.isTemplate ?? true { glyph.contentTintColor = ink }
         needsDisplay = true
@@ -149,9 +164,57 @@ final class GlassButton: NSView {
     override func updateLayer() {
         guard let layer else { return }
         layer.cornerRadius = shape.cornerRadius
-        let ringed = isAccented || (window?.firstResponder === self)
-        layer.borderWidth = ringed ? Tokens.Metric.hairline : 0
-        layer.borderColor = ringed ? Tokens.Accent.tint.cgColor : nil
+        // **No ring.** Selection is `updateGlass`; keyboard focus is AppKit's
+        // own focus ring, drawn through `drawFocusRingMask` below. A border
+        // here used to be the accent-coloured highlight this app does not have.
+        //
+        // A `.dormant` button keeps a *plate* instead: the §3.4 wash and the
+        // same hairline every other glass surface carries, so a pinned tile is
+        // still a tile when it is not the one you are on. Dormant meant
+        // "invisible" for one build and the grid read as icons floating on the
+        // sidebar with nothing under them — which is not what the reference
+        // shows either.
+        let plated = glassMode == .dormant
+        layer.borderWidth = plated ? Tokens.Metric.hairline : 0
+        layer.borderColor = plated ? Tokens.Line.border.cgColor : nil
+        // The well stays under the glass rather than swapping out from under
+        // it: the material is clear, so a lit tile is the same recess with
+        // sheen on it, which is what the reference shows.
+        layer.backgroundColor = plated ? Tokens.Surface.well.cgColor : nil
+    }
+
+    /// Whether the material is showing right now.
+    private var wantsGlass: Bool {
+        switch glassMode {
+        case .always: true
+        case .dormant: isHovering || isPressed || isSelected
+        }
+    }
+
+    private func updateGlass(animated: Bool) {
+        let target: CGFloat = wantsGlass ? 1 : 0
+        // The plate under the glass comes and goes with it.
+        needsDisplay = true
+        // Nothing to fade out of: a dormant button that has never been reached
+        // has no backing, and building one to set it to zero is the cost this
+        // is avoiding.
+        guard let view = glass ?? (target > 0 ? makeGlass() : nil) else { return }
+        guard animated else {
+            view.alphaValue = target
+            return
+        }
+        Tokens.Motion.animate(Tokens.Motion.controlHover) { context in
+            context.allowsImplicitAnimation = true
+            view.animator().alphaValue = target
+        }
+    }
+
+    /// Builds the backing the first time it is needed, below everything else.
+    private func makeGlass() -> NSView {
+        let view = Glass.apply(.control, to: self, cornerRadius: shape.cornerRadius)
+        view.alphaValue = 0
+        glass = view
+        return view
     }
 
     override func viewDidChangeEffectiveAppearance() {
@@ -182,9 +245,9 @@ final class GlassButton: NSView {
     private func setHovering(_ hovering: Bool) {
         guard hovering != isHovering, isEnabled else { return }
         isHovering = hovering
+        updateGlass(animated: true)
         Tokens.Motion.animate(Tokens.Motion.controlHover) { context in
             context.allowsImplicitAnimation = true
-            if glassMode == .onHover { glass.animator().alphaValue = hovering ? 1 : 0 }
             refresh()
         }
     }

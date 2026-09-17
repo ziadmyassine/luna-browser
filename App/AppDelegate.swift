@@ -103,6 +103,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // The list's row views do not survive the layout it is hidden in;
             // see `ChromeHostView.onShowSidebar`.
             chrome.onShowSidebar = { [weak sidebar] in sidebar?.willAppear() }
+            // §7.2: the pointer resting on a peeked sidebar keeps it out. The
+            // edge strip that summoned it is underneath by then.
+            chrome.onPointerInside = { [weak controller] inside in
+                controller?.setPointerInsideChrome(inside)
+            }
             controller.setChrome(chrome)
             wireSidebar(sidebar, in: controller)
             // §7.1: the layout the user chose in Settings, applied before the
@@ -169,6 +174,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.adaptive = adaptive
         let bar = CommandBarController(session: session, adaptive: adaptive)
         commandBar = bar
+        // §9.1: the bar belongs over the page, not over the window.
+        bar.contentRegion = { [weak controller] in controller?.contentFrame ?? .zero }
         // The results the bar cannot perform itself (§9.2).
         bar.onExternalAction = { [weak self] action in self?.perform(action) }
         // Weak: the bar holds the session, so a strong capture here is a cycle.

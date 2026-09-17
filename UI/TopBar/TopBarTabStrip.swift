@@ -33,6 +33,9 @@ final class TopBarTabStrip: NSView {
     private var order: [UUID] = []
     private var activeID: UUID?
     private var scrolledTo: UUID?
+    /// Set by `reload()` when the active tab changed, consumed by the next
+    /// `layout()`. See `placeContents`.
+    private var animatesNextPlacement = false
 
     init(session: BrowserSession) {
         self.session = session
@@ -76,8 +79,15 @@ final class TopBarTabStrip: NSView {
     /// favicon update does not rebuild the strip.
     func reload() {
         let tabs = session.tabs
+        let previousActive = activeID
         order = tabs.map(\.id)
         activeID = session.activeTabID
+        // A switch between two tabs is the one reload worth animating: the
+        // outgoing tab collapses from pill to tile and the incoming one
+        // expands. A first load, or a tab arriving or leaving, is not — there
+        // is no "from" to slide out of.
+        let isSwitch = previousActive != nil && activeID != nil && previousActive != activeID
+        animatesNextPlacement = isSwitch
         // Every reload re-honours §4's "the active tab is always scrolled into
         // view"; live title changes arrive through `apply(_:for:)` instead and
         // do not fight the user's own scrolling.
@@ -87,17 +97,34 @@ final class TopBarTabStrip: NSView {
             tile.removeFromSuperview()
             tiles.removeValue(forKey: id)
         }
+        // Where the two views that swap roles should start from, so the swap
+        // reads as one shape growing and another shrinking rather than as two
+        // views teleporting past each other.
+        var pillSeed: NSRect?
+        let pillWas = pill.frame
         for (index, tab) in tabs.enumerated() {
             let help = Self.position(index, of: tabs.count)
             if tab.id == activeID {
-                if let stale = tiles.removeValue(forKey: tab.id) { stale.removeFromSuperview() }
+                if let stale = tiles.removeValue(forKey: tab.id) {
+                    pillSeed = stale.frame
+                    stale.removeFromSuperview()
+                }
                 pill.setAccessibilityHelp(help)
                 applyActive(state(for: tab), id: tab.id)
             } else {
+                let fresh = tiles[tab.id] == nil
                 configureTile(for: tab, help: help)
+                // The tab that just stopped being active: its tile is brand new
+                // and belongs where the pill is standing right now.
+                if isSwitch, fresh, tab.id == previousActive, let tile = tiles[tab.id] {
+                    Tokens.Motion.immediately { tile.frame = pillWas }
+                }
             }
         }
         pill.isHidden = activeID == nil
+        if isSwitch, let pillSeed {
+            Tokens.Motion.immediately { pill.frame = pillSeed }
+        }
         needsLayout = true
     }
 
@@ -165,10 +192,24 @@ final class TopBarTabStrip: NSView {
 
     // MARK: - Geometry
 
+    /// Bounds-derived frames never animate — see `Motion.immediately` — with
+    /// one exception: the frame a tab's view lands on is bounds-derived *and*
+    /// role-derived, and when the role changed, the move from the old frame to
+    /// the new one is exactly the thing that should be seen. §4's strip is one
+    /// ordered run and the pill is the wide element in it, so a switch slides
+    /// every tile after it along; without this it all jumped.
     override func layout() {
         super.layout()
-        // Bounds-derived frames never animate — see `Motion.immediately`.
-        Tokens.Motion.immediately { placeContents() }
+        let animated = animatesNextPlacement && !Tokens.Motion.reduceMotion
+        animatesNextPlacement = false
+        guard animated else {
+            Tokens.Motion.immediately { placeContents() }
+            return
+        }
+        Tokens.Motion.animate(Tokens.Motion.tabInsert) { context in
+            context.allowsImplicitAnimation = true
+            placeContents()
+        }
     }
 
     private func placeContents() {

@@ -31,7 +31,6 @@ final class TabListController: NSObject {
     var onActivateTab: ((UUID) -> Void)?
     var onCloseTab: ((UUID) -> Void)?
     var onToggleMute: ((UUID) -> Void)?
-    var onOpenArchive: (() -> Void)?
     var onAddTab: (() -> Void)?
     /// §6.6: a row was dropped into a section at an index.
     var onMoveTab: ((UUID, TabKind, Int) -> Void)?
@@ -77,6 +76,13 @@ final class TabListController: NSObject {
         // §30.7: unselected rows have no background at all, and the selected
         // one is our own glass pill — AppKit must not paint either.
         table.selectionHighlightStyle = .none
+        // §6.6: **a gap, not a line.** AppKit's default drop feedback is a
+        // 2 pt insertion rule drawn between two rows — the dragged tab has no
+        // place to be and the rows never move, so the list reads as static
+        // while a ghost floats over it. `.gap` makes the table open a slot the
+        // size of the row being dragged and animate its neighbours apart, so
+        // the tab's landing place is visible and locked the whole way down.
+        table.draggingDestinationFeedbackStyle = .gap
         table.allowsMultipleSelection = false
         table.allowsEmptySelection = true
         table.dataSource = self
@@ -180,8 +186,6 @@ final class TabListController: NSObject {
 
     func content(for row: Int) -> SidebarRowContent {
         switch list[row] {
-        case .archive:
-            return SidebarRowContent(title: "Archive", symbolName: "folder", tintsSymbolWithAccent: true)
         case .addTab:
             return SidebarRowContent(title: "Add Tab", symbolName: "plus")
         case .separator, .none:
@@ -282,8 +286,8 @@ final class TabListController: NSObject {
 
     // MARK: - Commands
 
-    /// Only tabs have a menu: `Archive`, `+ Add Tab` and the rule are commands,
-    /// and a context menu on a command is a menu with nothing in it.
+    /// Only tabs have a menu: `+ Add Tab` and the rule are commands, and a
+    /// context menu on a command is a menu with nothing in it.
     private func contextMenu(forRow row: Int) -> NSMenu? {
         guard case let .tab(id)? = list[row] else { return nil }
         let menu = NSMenu()
@@ -295,7 +299,6 @@ final class TabListController: NSObject {
 
     @objc private func rowClicked() {
         switch list[table.clickedRow] {
-        case .archive: onOpenArchive?()
         case .addTab: onAddTab?()
         default: break // Tabs activate through the selection change.
         }
@@ -316,7 +319,6 @@ final class TabListController: NSObject {
         case .nextTab: selectAdjacentTab(offset: 1)
         case .confirm:
             switch list[table.selectedRow] {
-            case .archive: onOpenArchive?()
             case .addTab: onAddTab?()
             default: return false
             }

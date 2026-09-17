@@ -7,9 +7,13 @@
 //  second layout, not a collapsed sidebar — `ContentCardView` already knows
 //  that (`cardInsets` for `.topBar` has no gap and no corners).
 //
-//      [traffic lights] [toggle 28] [back 28] [tiles … PILL … tiles] [|] [capsule]
+//      [traffic lights] [back 28] [tiles … PILL … tiles] [|] [capsule]
 //
-//  Three things are deliberately absent:
+//  Four things are deliberately absent:
+//    · **No sidebar toggle.** There is no sidebar in this layout to hide, so
+//      the button was a control that either did nothing or silently changed a
+//      preference. `⌘S` still works wherever there is a sidebar; which chrome
+//      the window wears is Settings' decision (`Settings.chromeLayout`).
 //    · **No reload button.** The reference omits it; §4 makes reload `⌘R` and
 //      the site menu inside the pill.
 //    · **No traffic-light layout.** `TrafficLightLayoutManager` owns those
@@ -31,12 +35,11 @@ enum TopBarMetrics {
     static var gap: CGFloat { Tokens.Metric.rowInset }
     /// §3.1's "gap 16", and the bar's own leading / trailing inset.
     static var clusterGap: CGFloat { Tokens.Metric.rowInset * 2 }
-    /// §4: inactive tabs are 28 pt icon-only tiles — the same square as the
-    /// sidebar toggle.
+    /// §4: inactive tabs are 28 pt icon-only tiles.
     static var tile: RoundedMetric { Tokens.Metric.controlSquircle }
-    /// One capsule item, and the diameter every other chrome button in the app
-    /// borrows (`Tokens.Metric.controlCircle`). Round because the capsule it
-    /// sits in is a cylinder with rounded ends.
+    /// One capsule item, and the diameter **every** button on this bar uses —
+    /// back included. Round because the capsule it sits in is a cylinder with
+    /// rounded ends.
     static var capsuleItem: RoundedMetric { .circle(Tokens.Metric.controlSquircle.width) }
     /// The capsule's padding around its items. Half a `rowInset`, which lands
     /// the capsule at 36 pt tall — the measured height in the reference.
@@ -81,11 +84,10 @@ final class TopBarView: NSView {
     private static let profileItem = "luna.topBar.profile"
 
     private let session: BrowserSession
-    /// Both circles, both `controlCircle`, and the toggle carries no glass at
-    /// rest — the same three decisions as §3.1's sidebar row, so the two
-    /// layouts do not disagree about what a chrome button looks like.
-    private let toggle = TopBarButton(metric: Tokens.Metric.controlCircle, glass: false)
-    private let backButton = TopBarButton(metric: Tokens.Metric.controlCircle, glass: true)
+    /// **The capsule item's circle**, so back is the same size as the new-tab,
+    /// downloads and profile buttons at the other end of the bar. The bar has
+    /// one button size and this is it.
+    private let backButton = TopBarButton(metric: TopBarMetrics.capsuleItem, glass: true)
     private let strip: TopBarTabStrip
     private let separator = TopBarSeparator()
     private let capsule = TopBarActionCapsule()
@@ -123,17 +125,10 @@ final class TopBarView: NSView {
 
     // MARK: - Build
 
-    /// Both controls send their action to `nil`, so it travels the responder
-    /// chain to the same `AppDelegate` method the menu item calls. A button
-    /// with its own copy of "toggle the layout" is a second implementation to
-    /// keep in step with `⌘S`, and §22.5 already says the key map is declared
-    /// once and implemented once.
+    /// Back sends its action to `nil`, so it travels the responder chain to the
+    /// same `AppDelegate` method the menu item calls — §22.5's "declared once,
+    /// implemented once".
     private func buildControls() {
-        toggle.icon = TopBarButton.symbol("sidebar.leading")
-        toggle.setAccessibilityLabel(String(localized: "Toggle Sidebar"))
-        toggle.target = nil
-        toggle.action = #selector(AppDelegate.toggleSidebarVisibility(_:))
-
         backButton.icon = TopBarButton.symbol("chevron.backward")
         backButton.setAccessibilityLabel(String(localized: "Back"))
         backButton.target = nil
@@ -176,7 +171,7 @@ final class TopBarView: NSView {
     }
 
     private func buildLayout() {
-        let views: [NSView] = [toggle, backButton, strip, separator, capsule]
+        let views: [NSView] = [backButton, strip, separator, capsule]
         for view in views {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
@@ -184,7 +179,7 @@ final class TopBarView: NSView {
         }
         // Measured from the real window buttons in `updateTrafficLightReserve`;
         // this is only the floor until there is a window to measure.
-        let leading = toggle.leadingAnchor.constraint(
+        let leading = backButton.leadingAnchor.constraint(
             equalTo: leadingAnchor,
             constant: Tokens.Metric.rowInset
         )
@@ -192,7 +187,6 @@ final class TopBarView: NSView {
 
         NSLayoutConstraint.activate([
             leading,
-            backButton.leadingAnchor.constraint(equalTo: toggle.trailingAnchor, constant: TopBarMetrics.clusterGap),
             strip.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: TopBarMetrics.clusterGap),
             strip.topAnchor.constraint(equalTo: topAnchor),
             strip.bottomAnchor.constraint(equalTo: bottomAnchor),
@@ -266,6 +260,11 @@ final class TopBarView: NSView {
     /// have to remember to.
     override func viewDidUnhide() {
         super.viewDidUnhide()
+        // **Only when this really is the layout coming on screen.** AppKit
+        // un-hides views for reasons of its own — a window returning from
+        // Stage Manager or from the Dock among them — and replaying a fade-in
+        // stagger there is a flash of chrome nobody asked to see.
+        guard window != nil, !isHiddenOrHasHiddenAncestor else { return }
         playEntranceStagger()
     }
 
@@ -277,7 +276,7 @@ final class TopBarView: NSView {
     /// can drive it explicitly from inside its own transaction instead.
     /// Reduce Motion (§21.2) makes it instant.
     func playEntranceStagger() {
-        let views: [NSView] = [toggle, backButton, strip, separator, capsule]
+        let views: [NSView] = [backButton, strip, separator, capsule]
         for view in views {
             view.wantsLayer = true
             view.alphaValue = 1

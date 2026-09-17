@@ -79,7 +79,6 @@ enum InternalPageTheme {
             contrast ? NSColor(white: dark ? 1 : 0, alpha: Tokens.Ink.hairlineContrast) : .separatorColor
         },
         Swatch(name: "--luna-line-border") { Tokens.Ink.border.color(contrast: $0, dark: $1) },
-        Swatch(name: "--luna-accent") { _, _ in Tokens.Accent.tint },
         Swatch(name: "--luna-danger") { _, _ in Tokens.Accent.danger }
     ]
 

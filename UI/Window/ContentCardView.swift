@@ -80,6 +80,11 @@ final class ContentCardView: NSView {
     private var content: NSView?
     private var insetsBeforeFullscreen: NSEdgeInsets?
     private var isInsetBeforeFullscreen = true
+    /// The content's own width. Normally the card's, but held at the *final*
+    /// width for the length of a layout transition — see
+    /// `beginGeometryTransition(toWidth:)`.
+    private var contentWidth: NSLayoutConstraint?
+    private var isTransitioning = false
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -104,12 +109,55 @@ final class ContentCardView: NSView {
         guard let view else { return }
         view.translatesAutoresizingMaskIntoConstraints = false
         addSubview(view)
+        // **Trailing-pinned and width-driven, not four edges.** Pinning the
+        // leading edge as well would make the page's width a function of the
+        // card's frame on every single frame of the sidebar animation, which is
+        // a full WebKit relayout per frame at 120 Hz. With the width as its own
+        // constraint, a transition can hand the page its destination size once
+        // and let the card's mask do the rest.
+        let width = view.widthAnchor.constraint(equalToConstant: bounds.width)
+        contentWidth = width
         NSLayoutConstraint.activate([
             view.topAnchor.constraint(equalTo: topAnchor),
-            view.leadingAnchor.constraint(equalTo: leadingAnchor),
+            view.trailingAnchor.constraint(equalTo: trailingAnchor),
             view.bottomAnchor.constraint(equalTo: bottomAnchor),
-            view.trailingAnchor.constraint(equalTo: trailingAnchor)
+            width
         ])
+    }
+
+    // MARK: - Layout transitions
+
+    /// Tells the page how wide it is **about to** be, before the card starts
+    /// moving, and holds it there until `endGeometryTransition`.
+    ///
+    /// Hiding the sidebar used to be the most obviously expensive thing in the
+    /// app: the page re-flowed 280 pt wider over 0.20 s, one relayout per
+    /// frame, and on a heavy site that is a visible stutter and a column of
+    /// text that jumps four times on the way. Now it re-flows **once**, to its
+    /// final width, and the card slides its own edge across to reveal it. The
+    /// page is anchored to the trailing edge, which does not move, so nothing
+    /// under the pointer shifts either.
+    func beginGeometryTransition(toWidth width: CGFloat) {
+        isTransitioning = true
+        contentWidth?.constant = max(width, 0)
+    }
+
+    /// Hands the width back to the card's own bounds.
+    func endGeometryTransition() {
+        isTransitioning = false
+        syncContentWidth()
+    }
+
+    private func syncContentWidth() {
+        guard !isTransitioning, let contentWidth, contentWidth.constant != bounds.width else { return }
+        contentWidth.constant = bounds.width
+    }
+
+    /// A live window resize is the pointer's own animation and wants the page
+    /// to track it; only a scripted transition holds the width still.
+    override func layout() {
+        super.layout()
+        syncContentWidth()
     }
 
     // MARK: - Geometry

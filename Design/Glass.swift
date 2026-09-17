@@ -83,6 +83,43 @@ enum Glass {
         return backing
     }
 
+    /// A **within-window** backdrop: blurs what is inside the window behind it.
+    ///
+    /// **Liquid Glass cannot do this, and that is not a limitation to work
+    /// around — it is what the material is.** `NSGlassEffectView` composites
+    /// what is behind the *window*: the desktop, the wallpaper, another app.
+    /// Put it over a live web page in the same window and the page is not
+    /// blurred, it is *replaced* — and in fullscreen, where there is no desktop
+    /// to sample at all, it goes very nearly black and the page behind the
+    /// Command Bar vanished completely.
+    ///
+    /// The Command Bar's scrim is the one surface in Luna that has to blur
+    /// in-window content, so it is the one surface that is not glass.
+    /// `NSVisualEffectView` at `.withinWindow` is the only API that does this
+    /// job, it is what §9.1's "blurred backdrop scrim" describes, and it brings
+    /// its own Reduce Transparency and Increase Contrast handling. It lives
+    /// here, behind a name, for the same reason everything else does: so no
+    /// other file has to know which material it got.
+    @MainActor
+    static func scrim() -> NSView {
+        let view = NSVisualEffectView()
+        view.blendingMode = .withinWindow
+        // **The lightest in-window material that still genuinely blurs.**
+        // `.hudWindow` and `.fullScreenUI` both blur beautifully and then
+        // flatten everything above them into one dark plate — the Command
+        // Bar's own Liquid Glass stopped looking like a material at all, and
+        // the page behind it stopped being visible as context. `.sidebar` is
+        // the most see-through of the in-window materials: the page is still
+        // there, softened, and a glass surface on top of it still reads as
+        // glass.
+        view.material = .sidebar
+        // Not `.followsWindowActiveState`: the bar is modal over this window
+        // and a scrim that thins out when the window loses focus is a scrim
+        // that stops hiding the page mid-interaction.
+        view.state = .active
+        return view
+    }
+
     /// Merges glass surfaces that sit within `spacing` of each other into one —
     /// the §3.1 control cluster, the §3.3 Essentials grid, the §4 action
     /// capsule. Apple documents this as a render-pass saving, so use it
@@ -179,25 +216,85 @@ private final class GlassBackingView: NSView {
     private var isWindowFullScreen = false {
         didSet {
             guard isWindowFullScreen != oldValue else { return }
+            applyTint()
             needsDisplay = true
         }
     }
 
+    /// **No tint over the fullscreen backdrop.** §2's chrome tint is what makes
+    /// the sidebar read as dense over a desktop — it is *black* in dark mode,
+    /// deliberately, because the glass is sampling a bright wallpaper. In
+    /// fullscreen there is no wallpaper: the glass is sampling the opaque plane
+    /// below, and darkening that by half took the sidebar under the content
+    /// pane's own colour. The plane is already doing the tint's job there.
+    private func applyTint() {
+        glass?.tintColor = isWindowFullScreen && style.hasBackdrop ? nil : style.tint
+    }
+
+    /// **The plane goes up on `will`, and comes down on `did`.**
+    ///
+    /// `styleMask` does not carry `.fullScreen` until the transition finishes,
+    /// so reading it on `didEnterFullScreen` meant the sidebar spent the whole
+    /// half-second zoom as glass with nothing behind it — black — and only
+    /// turned grey once the window had landed. Entering is therefore driven by
+    /// `willEnterFullScreen`, which fires before the first frame of the zoom,
+    /// and leaving by `didExitFullScreen`, so the plane is still there for the
+    /// zoom back out. Both edges then happen while there is no desktop to
+    /// sample, which is the only time the plane is wanted.
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         isWindowFullScreen = window?.styleMask.contains(.fullScreen) ?? false
         guard let window else { return }
         let center = NotificationCenter.default
-        for name: Notification.Name in [
-            NSWindow.didEnterFullScreenNotification,
-            NSWindow.didExitFullScreenNotification
-        ] {
-            center.addObserver(self, selector: #selector(windowFullScreenChanged), name: name, object: window)
-        }
+        center.addObserver(
+            self,
+            selector: #selector(windowWillEnterFullScreen),
+            name: NSWindow.willEnterFullScreenNotification,
+            object: window
+        )
+        center.addObserver(
+            self,
+            selector: #selector(windowDidExitFullScreen),
+            name: NSWindow.didExitFullScreenNotification,
+            object: window
+        )
+        center.addObserver(
+            self,
+            selector: #selector(applicationDidBecomeActive),
+            name: NSApplication.didBecomeActiveNotification,
+            object: nil
+        )
+        center.addObserver(
+            self,
+            selector: #selector(applicationDidBecomeActive),
+            name: NSWindow.didDeminiaturizeNotification,
+            object: window
+        )
     }
 
-    @objc private func windowFullScreenChanged() {
-        isWindowFullScreen = window?.styleMask.contains(.fullScreen) ?? false
+    /// **Settles the material the instant the app comes back.**
+    ///
+    /// Returning from the Dock, from Stage Manager or from another app runs a
+    /// layout pass inside AppKit's own animation transaction, and an implicitly
+    /// animated frame on a glass view sweeps the effect across the surface over
+    /// the next few frames — which is what the sidebar's flash looked like.
+    /// `layout()` already disables actions; this puts the frame back *before*
+    /// the first frame is composited rather than waiting for the pass that
+    /// transaction schedules.
+    @objc private func applicationDidBecomeActive() {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        glass?.frame = bounds
+        layer?.displayIfNeeded()
+        CATransaction.commit()
+    }
+
+    @objc private func windowWillEnterFullScreen() {
+        isWindowFullScreen = true
+    }
+
+    @objc private func windowDidExitFullScreen() {
+        isWindowFullScreen = false
     }
 
     /// Solid under Reduce Transparency, so AppKit can skip what is behind it.
@@ -218,12 +315,13 @@ private final class GlassBackingView: NSView {
             // §2: the chrome planes are tinted so they read as surfaces rather
             // than as a pane of wallpaper. Controls are not — `.clear` glass
             // over an already-tinted bar is what makes them read as raised.
-            view.tintColor = style.tint
+            view.tintColor = nil
             // The header only guarantees placement for `contentView`, so give
             // it an empty one rather than relying on a bare glass view.
             view.contentView = NSView(frame: bounds)
             addSubview(view)
             glass = view
+            applyTint()
         }
 
         needsDisplay = true

@@ -99,6 +99,11 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
 
     var isPresented: Bool { panel != nil }
 
+    /// Where the page is inside the window, so §9.1's panel sits over the page
+    /// rather than over the window. Set by the assembly seam; without it the
+    /// bar falls back to centring on the window.
+    var contentRegion: (() -> NSRect)?
+
     // MARK: - §9.1 presentation
 
     func present(_ mode: CommandBarMode, in window: NSWindow) {
@@ -109,6 +114,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
         refreshSources()
 
         let panel = CommandBarPanel(frame: root.bounds, resultsView: resultsView)
+        panel.contentRegion = contentRegion
         panel.onBackgroundClick = { [weak self] in self?.dismiss() }
         panel.field.inputDelegate = self
         root.addSubview(panel, positioned: .above, relativeTo: nil)

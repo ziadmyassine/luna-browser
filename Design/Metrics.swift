@@ -178,11 +178,18 @@ extension Tokens {
 
         /// 128 × 42, radius 12. Icon only — no label (§30.5).
         static let essentialsTile = RoundedMetric(width: 128, height: 42, cornerRadius: 12)
-        static let essentialsTileGap: CGFloat = 12
-        /// The grid's own inset from the sidebar's edges — wider than
-        /// `rowInset`, measured at 10 pt, because a tile is a box and a row is
-        /// not.
-        static let essentialsInset: CGFloat = 10
+        /// The gap between two tiles, and the same number as the grid's inset
+        /// from the sidebar's edges — an even grid, not a grid with a wider
+        /// gutter down its middle than around its outside.
+        static let essentialsTileGap = rowInset
+        /// The grid's own inset from the sidebar's edges.
+        ///
+        /// **`rowInset`, so the tiles line up with everything else.** It was
+        /// 10 pt against the URL pill's and the row pills' 8, which put the
+        /// grid two points proud of both the surface above it and the list
+        /// below it — a misalignment small enough to be invisible one element
+        /// at a time and obvious down the length of the sidebar.
+        static let essentialsInset = rowInset
         /// A pinned tile's icon is the same 16 pt favicon a row draws; the tile
         /// is roomy, the icon is not (measured 43 px).
         static let essentialsIcon = faviconSize
@@ -200,6 +207,18 @@ extension Tokens {
         /// called the right size — so the two layouts now agree on one number
         /// instead of disagreeing on two.
         static let controlCircle = RoundedMetric.circle(28)
+        /// §3.1's three sidebar circles — toggle, back, reload.
+        ///
+        /// **The URL pill's own height, so the sidebar's head is one stack of
+        /// equal-height controls.** 28 pt beside a 34 pt pill read as a row of
+        /// small buttons floating above a bigger one; matching the pill makes
+        /// the two rows agree, and it is the same circle §3.5's bottom row has
+        /// always drawn. The top bar keeps `controlCircle` — its capsule items
+        /// are 28 and the back button has to match *them*.
+        ///
+        /// Derived, not written down again: if the pill's height moves, these
+        /// move with it, which is the whole reason it is not a literal 34.
+        static let sidebarCircle = RoundedMetric.circle(urlPill.height)
         /// The top bar's icon-only tab tile: 28 pt, radius 9. §3.1's sidebar
         /// toggle used to borrow this; it does not any more.
         static let controlSquircle = RoundedMetric(width: 28, height: 28, cornerRadius: 9)
@@ -273,11 +292,32 @@ extension Tokens {
         static let panelInset: CGFloat = 8
         /// Both the top-bar layout's bar and the sidebar's control / utility rows (§3.1, §3.5, §4).
         static let topBarHeight: CGFloat = 52
+
+        // MARK: Settings window
+
+        /// The Settings window's own sidebar. Narrower than the browser's —
+        /// it holds four words, not a tab list.
+        static let settingsSidebarWidth: CGFloat = 196
+        /// The Settings window's resting size.
+        static let settingsWindow = CGSize(width: 720, height: 460)
+        /// One segment of a Settings picker.
+        static let settingsSegmentWidth: CGFloat = 140
+        /// A Settings pane's inset from the window's edges. `chromeGapWide`
+        /// doubled: a settings pane breathes where chrome does not.
+        static let settingsPaneInset = chromeGapWide * 2
         /// 1 pt. The *colour* is `Tokens.Line.hairline`.
         static let hairline: CGFloat = 1
-        /// §3.7: 8 pt hit area, 20 × 32 drawn handle.
+        /// §3.7: the divider's 8 pt grab strip. Nothing is drawn on it — see
+        /// `SidebarResizeHandle`.
         static let resizeHandleHitWidth: CGFloat = 8
+        /// §3.7's drawn handle, kept as a token because `TokenCheck` measures
+        /// it. The handle itself is no longer painted.
         static let resizeHandle = RoundedMetric(width: 20, height: 32, cornerRadius: 10)
+        /// §7.2: how close to the window's leading edge the pointer has to get
+        /// before a hidden sidebar peeks out. 4 pt — narrow enough that it is
+        /// never crossed on the way to something else, wide enough to be hit by
+        /// shoving the pointer at the edge without aiming.
+        static let sidebarPeekEdge: CGFloat = 4
 
         // MARK: Downloads popover (§5)
 
@@ -349,5 +389,12 @@ extension Tokens {
         static var sectionLabel: NSFont { .monospacedDigitSystemFont(ofSize: 12, weight: .semibold) }
         /// 14 pt — the §5 downloads filename.
         static var downloadFilename: NSFont { .monospacedDigitSystemFont(ofSize: 14, weight: .regular) }
+        /// 15 pt semibold — a Settings group's title. One step above the body
+        /// and the only place in Luna a heading appears over chrome.
+        static var settingsHeading: NSFont { .systemFont(ofSize: 15, weight: .semibold) }
+        /// 12 pt — the explanatory line under a Settings control. Plain, not
+        /// `sectionLabel`: this is prose, and semibold tabular prose is a
+        /// label pretending to be a sentence.
+        static var settingsCaption: NSFont { .systemFont(ofSize: 12, weight: .regular) }
     }
 }
