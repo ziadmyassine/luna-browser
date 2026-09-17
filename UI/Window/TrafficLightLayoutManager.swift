@@ -1,0 +1,162 @@
+//
+//  TrafficLightLayoutManager.swift
+//  Luna
+//
+//  THE single owner of the traffic lights' frames (TODO.md §7.7, UI-SPEC §3.1).
+//  Nothing else in the app may touch a standard window button's frame. Manual
+//  repositioning spread across view controllers is the #1 visual bug source in
+//  Arc-style browsers; the geometry therefore lives in a pure function that is
+//  unit-tested for every `ChromeState` (see `Tests/Window/`).
+//
+//  Measured on macOS 26 with a running probe, not assumed:
+//    · the buttons live in `NSTitlebarView`, 32 pt tall, unflipped;
+//    · they are 14 × 14 at x = 9 / 32 / 55 (23 pt apart), y = 9;
+//    · **AppKit resets those frames on every window resize** — which is exactly
+//      the bug. Re-application is not optional, so this class owns it.
+//    · neither `NSTitlebarView` nor `NSTitlebarContainerView` clips, but hit
+//      testing still stops at the container's bounds, so a button hung below the
+//      titlebar would draw and not click. `TrafficLightLayout` clamps instead.
+//
+
+import AppKit
+
+/// Which chrome the window is showing. Drives both traffic-light placement and
+/// the content card's geometry (UI-SPEC §3, §4).
+enum ChromeState: Sendable, Equatable {
+    case sidebar(width: CGFloat)
+    case sidebarCollapsed
+    case topBar
+    case fullscreen
+}
+
+/// What AppKit tells us about the buttons — measured at runtime, never assumed.
+struct TrafficLightMetrics: Sendable, Equatable {
+    /// Button origins as AppKit lays them out, in titlebar coordinates.
+    var natural: [CGPoint]
+    var buttonHeight: CGFloat
+    var titlebarHeight: CGFloat
+}
+
+/// Pure geometry: no window, no AppKit state, no side effects — so the placement
+/// for every state can be asserted in a test instead of eyeballed in a running
+/// app (§7.7). This is the point of the type.
+enum TrafficLightLayout {
+
+    /// Where the standard window buttons belong, in their superview's
+    /// (`NSTitlebarView`, bottom-left origin) coordinates.
+    ///
+    /// The lights sit at the same place in every chrome layout by design: the
+    /// sidebar's control row and the top bar are both `controlRowHeight` tall
+    /// and both start at the window's top-left, so switching layout or
+    /// collapsing the sidebar must not move them. A test pins that down.
+    ///
+    /// - Returns: `nil` when the system owns the frames (fullscreen), meaning
+    ///   "do not touch".
+    static func origins(
+        for state: ChromeState,
+        system: TrafficLightMetrics,
+        controlRowHeight: CGFloat,
+        leading: CGFloat
+    ) -> [CGPoint]? {
+        if case .fullscreen = state { return nil }
+        guard let first = system.natural.first else { return nil }
+
+        // Ideally centred in the control row. The titlebar is shorter than the
+        // row, and a button hung below it stops hit-testing, so clamp to the
+        // titlebar: at the measured macOS 26 sizes that lands 1 pt off centre.
+        let ideal = ((controlRowHeight - system.buttonHeight) / 2).rounded()
+        let floor = max(system.titlebarHeight - system.buttonHeight, 0)
+        let fromTop = min(max(ideal, 0), floor)
+        let originY = system.titlebarHeight - fromTop - system.buttonHeight
+
+        // Keep AppKit's own spacing: translate the natural row, never rebuild it.
+        return system.natural.map { CGPoint(x: leading + ($0.x - first.x), y: originY) }
+    }
+}
+
+/// Applies `TrafficLightLayout` to a real window, and re-applies it every time
+/// AppKit undoes the work (resize, fullscreen, any titlebar mutation).
+@MainActor
+final class TrafficLightLayoutManager {
+
+    private static let buttonTypes: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
+
+    private weak var window: NSWindow?
+    private var state: ChromeState = .sidebarCollapsed
+    private let natural: [CGPoint]
+
+    init(window: NSWindow) {
+        self.window = window
+        // Captured before anything moves them: these are AppKit's own origins
+        // and only the deltas between them are used, so they never go stale.
+        natural = Self.buttons(of: window).map(\.frame.origin)
+        observe(window)
+    }
+
+    /// Single entry point. Call it inside the same animation transaction as the
+    /// layout change it belongs to — a second step is a visible jump (§4.1).
+    func apply(_ state: ChromeState) {
+        self.state = state
+        layoutButtons()
+    }
+
+    // MARK: - Re-application
+
+    private func observe(_ window: NSWindow) {
+        let center = NotificationCenter.default
+        // Target/action observers are zeroing-weak since 10.11, so there is
+        // nothing to unregister and no `deinit` to reason about.
+        for name: Notification.Name in [
+            NSWindow.didResizeNotification,
+            NSWindow.didEnterFullScreenNotification,
+            NSWindow.didExitFullScreenNotification
+        ] {
+            center.addObserver(self, selector: #selector(systemDidRelayout), name: name, object: window)
+        }
+        // Catches the rest: anything that re-lays the titlebar resets the frames.
+        if let titlebar = Self.buttons(of: window).first?.superview {
+            titlebar.postsFrameChangedNotifications = true
+            center.addObserver(
+                self,
+                selector: #selector(systemDidRelayout),
+                name: NSView.frameDidChangeNotification,
+                object: titlebar
+            )
+        }
+    }
+
+    /// Posted synchronously on the main thread by AppKit (`queue:` is deliberately
+    /// not used: an enqueued re-apply lands a frame late and reads as a jump).
+    @objc private func systemDidRelayout(_ notification: Notification) {
+        layoutButtons()
+    }
+
+    private func layoutButtons() {
+        guard let window, !window.styleMask.contains(.fullScreen) else { return }
+        let buttons = Self.buttons(of: window)
+        guard let first = buttons.first, let titlebar = first.superview else { return }
+
+        let system = TrafficLightMetrics(
+            natural: natural,
+            buttonHeight: first.frame.height,
+            titlebarHeight: titlebar.bounds.height
+        )
+        guard let origins = TrafficLightLayout.origins(
+            for: state,
+            system: system,
+            controlRowHeight: Tokens.Metric.topBarHeight,
+            leading: Tokens.Metric.rowInset
+        ), origins.count == buttons.count else { return }
+
+        // Set directly, not through `animator()`: the placement is identical in
+        // every managed state, so there is nothing to interpolate, and this runs
+        // inside the caller's transaction anyway.
+        for (button, origin) in zip(buttons, origins) where button.frame.origin != origin {
+            button.setFrameOrigin(origin)
+        }
+    }
+
+    private static func buttons(of window: NSWindow) -> [NSButton] {
+        buttonTypes.compactMap { window.standardWindowButton($0) }
+    }
+}

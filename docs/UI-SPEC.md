@@ -43,6 +43,11 @@ sidebar's own content reflows. The ratios exist to fix proportions once, not to 
 | `topBarHeight` | 52 pt | — |
 | `hairline` | 1 pt @ 10 % white / 8 % black | — |
 
+**Colour rules.** `Accent.tint` and `Accent.danger` are **fill and ring only** — as text they measure
+4.02:1 and 3.57:1 and fail §21.4. Ask for a dedicated token before colouring any text.
+Secondary and tertiary text are separated by **size and weight, not alpha**: §21.4's floor compresses them
+to ~0.04 alpha apart, which is invisible.
+
 **Typography.** Sidebar rows **15 pt**, URL pill **17 pt**, top-bar URL **15 pt**, section labels 12 pt
 semibold. System font throughout, monospaced digits for any numeric badge.
 > This deliberately departs from §8.6's 13 pt. The reference is visibly roomier than Arc and 13 pt looks
@@ -64,15 +69,24 @@ are near-black and white respectively. The OS does the expensive part for free.
 | Sidebar | Liquid Glass, regular |
 | Top bar | Liquid Glass, regular |
 | Action capsule, control buttons, Essentials tiles | Liquid Glass, clear, over the bar |
-| Downloads popover | Liquid Glass, heavier, own shadow |
+| Downloads popover | Liquid Glass `.regular` + a heavier panel shadow |
 | Content card | Opaque `Surface.base` — never translucent; a web page behind glass is unreadable |
 
 **Page-derived pill wash.** Blend `themeColor` (fallback `underPageBackgroundColor`) into the URL pill
 fill at **12–18 %**, animated over 0.25 s, clamped so pill text always clears 4.5:1 (§21.4). If the
 clamp cannot be met, drop the wash entirely rather than shipping unreadable chrome.
 
-**Reduce Transparency.** Every glass surface falls back to solid `Surface.base` / `Surface.raised`, and
-the page-derived wash is disabled outright. **Increase Contrast** promotes every hairline to 20 % and
+**Reduce Transparency.** Every glass surface falls back to solid **`Surface.glassFallback`**, and the
+page-derived wash is disabled outright.
+> **Corrected in M1:** this originally said `Surface.base`. But the content card is also `Surface.base`,
+> so obeying it literally made the sidebar and the card the same colour and the card vanished. There is a
+> dedicated `Surface.glassFallback` token for exactly this.
+
+**Verified API (M1).** macOS 26.5 provides `NSGlassEffectView` (`contentView`, `cornerRadius`, `tintColor`,
+`style`) with `Style.regular` / `.clear`, plus `NSGlassEffectContainerView` for merging adjacent glass.
+There is **no heavy or thick style** — weight comes from shadow, not material. There is no `NSLiquidGlass*`
+type. Since the deployment target is macOS 26, the `NSVisualEffectView` fallback §8.4 imagined is dead code
+and is not built; the path that actually runs is Reduce Transparency → solid colour. **Increase Contrast** promotes every hairline to 20 % and
 adds a visible border to each control.
 
 ---

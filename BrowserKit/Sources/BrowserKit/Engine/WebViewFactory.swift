@@ -25,18 +25,21 @@ public enum WebViewFactory {
     /// Creates a configured web view. Every Luna web view comes from here.
     @MainActor
     public static func makeWebView(dataStore: WKWebsiteDataStore = .default()) -> WKWebView {
-        let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = dataStore
-        configuration.applicationNameForUserAgent = applicationNameForUserAgent
-        configuration.allowsAirPlayForMediaPlayback = true
-        configuration.preferences.isElementFullscreenEnabled = true
+        makeWebView(configuration: makeConfiguration(dataStore: dataStore))
+    }
 
-        let pagePreferences = WKWebpagePreferences()
-        pagePreferences.allowsContentJavaScript = true
-        configuration.defaultWebpagePreferences = pagePreferences
-
-        // One controller per web view: script message handler names are registered on
-        // the controller, so a shared one makes handlers collide across tabs.
+    /// Builds a web view around a configuration WebKit handed us — the `WKUIDelegate`
+    /// `createWebViewWith` path (§4.2). The popup **must** use that exact configuration
+    /// or `window.opener` and `target="_blank"` break, so only the view-level properties
+    /// are applied here.
+    @MainActor
+    public static func makeWebView(configuration: WKWebViewConfiguration) -> WKWebView {
+        // A popup's configuration arrives carrying the *opener's* user content
+        // controller. Registering a handler name that is already on it raises
+        // `NSInvalidArgumentException`, and tearing the popup down would unregister the
+        // opener's handlers and scripts. A fresh controller per web view is the only
+        // shape where per-tab handlers are safe; it keeps the process pool, data store
+        // and preferences that carry the opener relationship.
         configuration.userContentController = WKUserContentController()
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
@@ -45,5 +48,26 @@ public enum WebViewFactory {
         // Required (macOS 13.3+): without it the Web Inspector silently does nothing (§4.1).
         webView.isInspectable = true
         return webView
+    }
+
+    @MainActor
+    public static func makeConfiguration(dataStore: WKWebsiteDataStore = .default()) -> WKWebViewConfiguration {
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = dataStore
+        configuration.applicationNameForUserAgent = applicationNameForUserAgent
+        configuration.allowsAirPlayForMediaPlayback = true
+        configuration.preferences.isElementFullscreenEnabled = true
+        // §18.8: must stay empty to match Safari. `[.audio]` blocks the programmatic
+        // `play()` an SPA navigation makes outside a user gesture, which breaks YouTube.
+        configuration.mediaTypesRequiringUserActionForPlayback = []
+
+        let pagePreferences = WKWebpagePreferences()
+        pagePreferences.allowsContentJavaScript = true
+        configuration.defaultWebpagePreferences = pagePreferences
+
+        // One controller per web view: script message handler names are registered on
+        // the controller, so a shared one makes handlers collide across tabs.
+        configuration.userContentController = WKUserContentController()
+        return configuration
     }
 }

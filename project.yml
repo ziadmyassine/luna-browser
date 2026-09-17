@@ -53,6 +53,21 @@ targets:
     dependencies:
       - package: BrowserKit
 
+  LunaTests:
+    type: bundle.unit-test
+    platform: macOS
+    settings:
+      base:
+        # The app supplies its own Info.plist; a test bundle has nothing to
+        # supply, so it needs the generated one the base settings turn off.
+        GENERATE_INFOPLIST_FILE: "YES"
+    # Tests live at the repo root, not under UI/: the app target compiles that
+    # whole path, so a test file there would ship inside the app.
+    sources:
+      - path: Tests
+    dependencies:
+      - target: Luna
+
 schemes:
   Luna:
     build:
@@ -62,6 +77,8 @@ schemes:
       config: Debug
     test:
       config: Debug
+      targets:
+        - LunaTests
     profile:
       config: Release
     analyze:

@@ -13,6 +13,7 @@ run: build
 
 test:
 	swift test --package-path BrowserKit
+	xcodebuild -scheme Luna -configuration Debug -derivedDataPath ./DerivedData test
 
 lint:
 	swiftlint lint --quiet --strict

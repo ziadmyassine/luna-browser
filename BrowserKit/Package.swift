@@ -12,8 +12,18 @@ let package = Package(
     products: [
         .library(name: "BrowserKit", targets: ["BrowserKit"])
     ],
+    dependencies: [
+        // GRDB 7 is the Swift 6 line: Sendable-audited, strict-concurrency clean, and it
+        // ships `SQLITE_ENABLE_FTS5` so §11.2's full-text index needs no custom SQLite.
+        // Exact pin (§0.3): a storage engine is not a thing to let float. Bump deliberately.
+        .package(url: "https://github.com/groue/GRDB.swift", exact: "7.11.1")
+    ],
     targets: [
-        .target(name: "BrowserKit", swiftSettings: swiftSettings),
+        .target(
+            name: "BrowserKit",
+            dependencies: [.product(name: "GRDB", package: "GRDB.swift")],
+            swiftSettings: swiftSettings
+        ),
         .testTarget(
             name: "BrowserKitTests",
             dependencies: ["BrowserKit"],

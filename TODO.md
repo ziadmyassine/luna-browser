@@ -139,6 +139,10 @@ luna/
   > **Gotcha:** we inherit **Safari's exact web-compat profile**, including every site that was only ever tested against Chromium. Budget real time for a per-site quirks list. This is the single biggest ongoing cost of choosing WebKit (it's the top complaint about Orion).
 - [ ] **4.7 Favicons** — WebKit exposes **no public favicon API**. Implement `FaviconService`: parse `<link rel="icon|apple-touch-icon">` via a small injected script at `documentEnd`, fall back to `/favicon.ico`, fall back to a generated monogram tile from the domain + Space gradient. Cache to disk keyed by eTLD+1, with a memory LRU.
   - Acceptance: 50 mixed sites show correct icons; no icon ever flashes a broken-image glyph.
+  > **Corrections from the M1 build:**
+  > - **The cache key is host-minus-`www.`, not eTLD+1.** Foundation ships no public-suffix list, and naive last-two-labels hands `a.github.io` whatever `b.github.io` cached. Revisit only if we ever bundle a PSL.
+  > - **SVG favicons do not decode in ImageIO**, so they fall through to `/favicon.ico`.
+  > - The monogram fallback tier needs the Space gradient, so it belongs to the UI layer, not to `FaviconService`.
 
 ---
 
@@ -160,7 +164,8 @@ luna/
 ## 6. Tab model, lifecycle & session persistence
 
 - [ ] **6.1 `Tab` model**: id, spaceId, kind (`pinned|today|favorite`), url, title, faviconKey, themeColor, createdAt, lastActiveAt, archivedAt, parentTabId (for tree/child grouping), `interactionState: Data?`, snapshot path.
-- [ ] **6.2 Session persistence via `interactionState`** — capture `webView.interactionState` on background/blur/quit; restore into a fresh webview to bring back full back/forward history and scroll position. Store as `Data` blob in SQLite.
+- [ ] **6.2 Session persistence via `interactionState`** — **the blob must be cached outside the web view, at every `didFinish`.** `interactionState` reads back **nil once the WebContent process is dead**, which is precisely the case §19.3 has to recover from. Read it late and there is nothing to restore.
+- [ ] **6.2a (original wording)** — capture `webView.interactionState` on background/blur/quit; restore into a fresh webview to bring back full back/forward history and scroll position. Store as `Data` blob in SQLite.
   - Acceptance: quit with 30 tabs across 3 Spaces → relaunch restores order, scroll positions, and back-history for each.
 - [ ] **6.3 Auto-archive** — background task archives Today tabs idle > N hours (default 12; user-settable 6h/12h/24h/never). Pinned/Favorites exempt. Archive keeps title/url/favicon/snapshot for 30 days.
 - [ ] **6.4 Archive browser** (`⌘⇧A`) with search + restore.
@@ -190,7 +195,8 @@ luna/
 - [ ] **8.1 Token file** (`Design/Tokens.swift`) — semantic only: `surface/0..3`, `textPrimary/Secondary/Tertiary`, `separator`, `accent`, `dangerous`, `overlayScrim`, `focusRing`. Every token resolves for light **and** dark. **No literal hex outside this file.**
   > **Gotcha (measured in M0, not assumed):** **`.secondaryLabelColor` and `.tertiaryLabelColor` do not meet §21.4 in light mode.** `.secondaryLabelColor` is black at 50 %, which measures **3.95:1** on a white window — under the 4.5:1 floor. Reaching for the system colour for secondary or tertiary text is therefore an accessibility regression, not a shortcut. Luna's `Text.secondary` uses 60 % (5.74:1 light / 6.77:1 dark).
   > Also measured: on macOS 26 `controlBackgroundColor` and `textBackgroundColor` resolve to **exactly** `windowBackgroundColor`, so a system-backed `Surface.raised` would be invisible. It has to be a custom value.
-  > `.separatorColor` **is** correct for §8.4's hairline — it already resolves to 10 % black / 10 % white and tracks Increase Contrast. Do not hand-roll that one.
+  > `.separatorColor` **is** correct for §8.4's hairline — it resolves to ~9.8 % black / white, which is the spec value. **Correction (M1): the earlier claim that it tracks Increase Contrast was wrong** — see the gotcha below. Its resting value is right; the contrast promotion has to be done by hand.
+  > **Gotcha (measured on macOS 26.5, and it changes how all UI code is written):** **Increase Contrast is not an `NSAppearance`.** `NSAppearance(named: .accessibilityHighContrastAqua)` returns the *identical object* (`===`) as `.aqua`, so no dynamic-colour provider can observe it and `NSColor` never gets invalidated. Every token must therefore branch on `NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast` at resolve time, **and every view that draws text or hairlines must redraw on `NSWorkspace.accessibilityDisplayOptionsDidChangeNotification`.** A view that only listens for appearance changes will silently ignore Increase Contrast forever.
 - [ ] **8.2 Space gradients** — each Space carries a 2-stop gradient. Ship ~12 curated pairs plus a custom picker. The gradient is used at 3 intensities: full (Space badge, 28 px circle), 12–18 % wash (sidebar background), and a 3–4 px bar/edge glow at the top of the content area.
 - [ ] **8.3 Live window tinting from the page** — blend `webView.themeColor` (fallback `underPageBackgroundColor`) into the sidebar/titlebar wash, clamped for contrast (never let a site produce unreadable chrome), animated over ~0.25 s when it changes. This is the single most "Arc-feeling" effect in the whole app; get it right.
 - [ ] **8.4 Materials** — on **macOS 26 (D9)** the native Liquid Glass surfaces are the first choice for the §30.1/§30.2/§30.11 chrome. `NSVisualEffectView` with `.sidebar` / `.headerView` materials and `.followsWindowActiveState` is the fallback *and* the Reduce Transparency path, so it gets built either way. 1 px hairlines at ~10 % white / ~8 % black; selection = translucent fill + inner hairline, never a hard blue rect.
@@ -218,7 +224,8 @@ luna/
 - [ ] **9.1 Input surface** — floating rounded panel, blurred backdrop scrim, opens over the current tab; `⌘T` = new-tab mode (empty), `⌘L` = edit-current-URL mode (prefilled+selected).
 - [ ] **9.2 Result sources**, merged and deduped: open tabs (all Spaces, badged with Space colour) · pinned/favorites · history · bookmarks · archive · search suggestions (engine's suggest endpoint) · app commands ("New Space", "Clear cookies for this site", "Toggle sidebar") · direct URL/IP/`localhost` detection · math/unit quick answers.
 - [ ] **9.3 Ranking = frecency + adaptive input history.** Implement explicitly:
-  - Score each URL from its **10 most recent visits**: `score = Σ (visitTypeWeight × recencyWeight)` normalised by sampled visit count.
+  - Score each URL from its **10 most recent visits**: `score = Σ (visitTypeWeight × recencyWeight)`.
+  > **Correction (M1):** the original wording said "normalised by sampled visit count". Do **not** normalise. A mean makes one typed visit tie a hundred of them. Firefox divides by the sample and then multiplies back by `visit_count`, which for a ≤10-visit window is the plain Σ with extra arithmetic. The sum is the correct and simpler form.
   - Visit-type weights (Firefox-derived starting point): typed 200, bookmarked 140, link 120, redirect/embed 0.
   - Recency buckets (days): ≤4 → 1.0, ≤14 → 0.7, ≤31 → 0.5, ≤90 → 0.3, else 0.1.
   - **Adaptive history**: remember (typedString → chosenURL). On update `use_count = use_count * 0.9 + 1` (asymptote 10). Adaptive matches rank *above* all frecency results.
@@ -243,7 +250,14 @@ luna/
 
 ## 11. History, bookmarks & the data layer
 
-- [ ] **11.1 GRDB schema + migrations**: `places(id, url, host, title, frecency, lastVisit, visitCount)`, `visits(id, placeId, at, type, fromVisitId)`, `bookmarks(tree)`, `tabs`, `spaces`, `profiles`, `archive`, `downloads`, `inputHistory(typed, placeId, useCount)`, `siteSettings`, `boosts`.
+- [ ] **11.1 GRDB schema + migrations**: `places(id, url, host, title, lastVisit, visitCount)`, `visits(id, placeId, at, type, fromVisitId)`, `bookmarks(tree)`, `tabs`, `spaces`, `profiles`, `downloads`, `inputHistory(typed, placeId, useCount)`, `siteSettings`, `boosts`.
+  > **Corrections from the M1 build — these are better than the original design:**
+  > - **`archive` is a VIEW** over `tabs WHERE archivedAt IS NOT NULL`, not a table. An archived tab is still a tab; a copy would be a second source of truth and a second thing to sync (§31).
+  > - **`places.frecency` is deliberately absent.** §9.3 scores from the 10 most recent visits, so the score is computed per query. A cached frecency is a stale frecency.
+  > - `bookmarks`, `downloads` and `boosts` are not created yet — no consumer exists, and adding a table is a cheap migration.
+  > - GRDB pinned at **exactly 7.11.1** (the Swift 6 line: Sendable-audited and ships `SQLITE_ENABLE_FTS5`, so no custom SQLite build). A storage engine should not float.
+  > - Every `BrowserStore` method is **`async throws`**, so the actor suspends on GRDB's pool instead of serialising the whole app behind its slowest query.
+  > - `recordVisit` **buffers**; the buffer commits after ~1 s, on the next search, or on `flush()`. **The app delegate must `await store.flush()` on quit and on resign-active** or the last second of history is lost.
 - [ ] **11.2 FTS5 full-text index** over title + URL + (optional, opt-in) page text captured at `didFinish`. Full-text history search is a genuine differentiator — Arc users ask for it constantly.
 - [ ] **11.3 History UI** (`⌘Y`): grouped by day, searchable, multi-select delete, "clear last hour / day / everything", per-site "forget this site" that also purges the matching `WKWebsiteDataStore` records via `removeData(ofTypes:for:completionHandler:)`.
 - [ ] **11.4 Bookmarks** — folder tree, but surfaced as *Favorites/Pinned* in the UI; keep an importable/exportable HTML representation.
@@ -290,7 +304,8 @@ luna/
 
 ## 15. Downloads
 
-- [ ] **15.1 `WKDownloadDelegate`** — `decideDestinationUsing:suggestedFilename:` (uniquify into `~/Downloads` or user path), progress via `download.progress`, `didFailWithError:resumeData:` with **resume support**, `didFinish`.
+- [ ] **15.1 `WKDownloadDelegate`** — two traps found in M1: **`WKDownload.delegate` is `weak`**, so the delegate must be retained somewhere or downloads die silently; and **`decideDestinationUsing` must answer `(url, true)`** — the second value grants the sandbox extension, and `false` fails the write.
+- [ ] **15.1a (original wording)** — `decideDestinationUsing:suggestedFilename:` (uniquify into `~/Downloads` or user path), progress via `download.progress`, `didFailWithError:resumeData:` with **resume support**, `didFinish`.
 - [ ] **15.2 Route "should this be a download?"** through `decidePolicyFor navigationResponse` → `.download` when `!canShowMIMEType` or `Content-Disposition: attachment`; also handle `navigationAction` → `.download` for `download` attributes.
 - [ ] **15.3 Downloads UI**: sidebar popover + a persistent panel; reveal in Finder, retry, open, clear; quarantine flag set correctly (`com.apple.quarantine`) so Gatekeeper still protects the user.
 - [ ] **15.4** Warn on executable/dmg/pkg types; block silent auto-downloads from background frames.
@@ -331,7 +346,8 @@ luna/
 - [ ] **18.1 Find in page** — `webView.find(_:configuration:completionHandler:)` with a custom UI, match count, prev/next, highlight-all. (Do **not** hand-roll JS find; the native API exists.)
 - [ ] **18.2 Zoom** — `pageZoom`, `⌘+/-/0`, persisted **per eTLD+1**.
 - [ ] **18.3 Reader mode** — inject a Readability-class extractor, render into our own `luna://reader` template with our typography tokens, font-size/width/theme controls.
-- [ ] **18.4 PiP & media** — auto-PiP a playing video when its tab goes background (make it an opt-in setting), global mute-all, per-tab mute, Now Playing / media-key integration via `MPNowPlayingInfoCenter` + `MPRemoteCommandCenter`.
+- [ ] **18.4 PiP & media** — **there is no public per-tab audio API.** `requestMediaPlaybackState()` reports a muted autoplay video as "playing", and `_isPlayingAudio` is SPI, banned by D10. Real audibility comes from a small capture-phase JS listener. Budget for that rather than expecting a property.
+- [ ] **18.4a (original wording)** — auto-PiP a playing video when its tab goes background (make it an opt-in setting), global mute-all, per-tab mute, Now Playing / media-key integration via `MPNowPlayingInfoCenter` + `MPRemoteCommandCenter`.
 - [ ] **18.8 Web-compat defaults that differ from Safari (found in M0, verify each before relying on it)**
   - `mediaTypesRequiringUserActionForPlayback` must be `[]` to match Safari. Setting `[.audio]` breaks YouTube, because SPA navigations call `play()` outside a user gesture.
   - **Clipboard access and `allowsPictureInPictureMediaPlayback` are on by default in Safari but off for third-party `WKWebView`.** The only known route is KVC onto private preferences (`javaScriptCanAccessClipboard`, `DOMPasteAllowed`). **This collides head-on with D10 (no private SPI in shipping code)** — so it is a decision, not a task: accept a visible web-compat gap, or carve a narrow, documented exception to D10 for preference keys that cannot crash. Escalate to Martin before either.
@@ -350,6 +366,7 @@ luna/
   - Policy: keep the active tab + last N used (default 3) + anything playing audio/video + anything with unsaved form input (detect via `beforeunload`-style heuristic) alive; hibernate the rest after 5 min idle or immediately under memory pressure (`DispatchSource.makeMemoryPressureSource`).
   - Reference point: a hibernated tab in mainstream browsers still costs ~39 MB if you keep the renderer warm — our target is ~0 by dropping the webview entirely and paying a wake cost instead.
 - [ ] **19.3 Process pool strategy** — share one `WKProcessPool` per profile; WebKit gives each webview its own WebContent process until an internal cap, then shares. Do **not** create a pool per tab (memory explodes) and do not assume you can control the cap.
+  > **Recovery policy (M1, measured):** cap rebuilds at **3 per 60 s with a growing delay**. Respawning instantly into a post-wake XPC state is a crash loop, not a recovery. Also call `closeAllMediaPresentations()` when hibernating, or a hibernated tab leaves an orphaned Picture-in-Picture window on screen.
   > **Gotcha (verified bug class):** on macOS, a backgrounded app's WebContent processes get suspended after ~16 minutes, and under memory pressure they can fail to resume, leaving a dead white window. Detect `webViewWebContentProcessDidTerminate(_:)` **and** a heartbeat check on window activation; auto-reload from `interactionState` and show a subtle "restored" toast rather than a blank page.
 - [ ] **19.4 Lazy everything** — never create a webview for a tab the user hasn't selected (restored sessions start fully hibernated).
 - [ ] **19.5 Instruments pass** per milestone: Allocations, Leaks, Time Profiler, Animation Hitches. Record numbers in `docs/PERF.md` so regressions are visible.
