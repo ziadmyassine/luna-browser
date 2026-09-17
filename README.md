@@ -1,7 +1,7 @@
 <div align="center">
   <img width="150" height="150" src="assets/icon/final/luna-icon-light.png" alt="Luna">
   <h1>Luna</h1>
-  <p><strong>Just the page.</strong></p>
+  <p><strong>Browse the dark side.</strong></p>
   <p>A native WebKit browser for macOS.</p>
 </div>
 <br/>
