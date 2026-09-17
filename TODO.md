@@ -1,10 +1,10 @@
 # Project "Luna" — an Arc-style browser on WebKit (macOS)
 
 > **Status:** planning only. Nothing is built yet. This file is the single source of truth for scope, architecture decisions, and task breakdown.
-> **Owner:** Martin (NovApps ApS)
+> **Owner:** Martin
 > **Written:** 2026-09-17
 > **Target:** macOS 26+ native app, Swift 6, AppKit shell + SwiftUI surfaces, WKWebView (system WebKit).
-> **Bundle ID:** `dk.novapps.luna` · **Internal scheme:** `luna://` · **Licence:** proprietary, source-visible.
+> **Bundle ID:** `dk.novapps.luna` · **Internal scheme:** `luna://` · **Licence:** **GPL-3.0-or-later** at publication (D12).
 > **All 16 open questions were answered on 2026-09-17 — read §32 first. Where §32 contradicts an older section, §32 wins.**
 
 ---
@@ -37,7 +37,7 @@ The three sentences that define the product:
 - **Do not skip the "Gotcha" boxes.** They are the results of research, not speculation; ignoring them is how this project dies at 60% complete.
 - **Design tokens are law.** Everything visual references §8's token table. No raw hex values in view code.
 - **Performance budget is law.** See §19. A browser that eats 12 GB with 40 tabs is a failed product regardless of how pretty the sidebar is.
-- **Reference, never copy (§33).** Three other browsers are cloned on Martin's machine for study. **Nook and Ora are GPL-3.0, Zen is MPL-2.0, and Luna is proprietary (D12).** Read them to learn *which API solves a problem* or *where another app keeps its data* — those are facts. Never copy their code, their file structure wholesale, their comments or their strings. If one of their files is open in one pane and a Luna file in the other, stop.
+- **Borrowing is legal now, but attribution is not optional (§33).** Luna is GPL-3.0-or-later (D12), same licence as Nook and Ora, so their code *may* be reused. Every reused fragment needs a header naming the source repo, file and commit, and an entry in `THIRD_PARTY_NOTICES.md`. Prefer writing it yourself anyway: borrowed architecture drags in assumptions you did not make and cannot debug at 3am.
 - When a task says "match Arc", the acceptance criterion is *felt behaviour*, not pixel-identical copying. Do not clone Arc's exact artwork, icon set, wordmark, or copy strings — build our own visual identity on the same interaction skeleton.
 
 ### 0.4 Glossary (use these exact names in code)
@@ -72,9 +72,9 @@ The three sentences that define the product:
 | D9 | Minimum OS = **macOS 26** | Native Liquid Glass materials do most of the §30.1/§30.2/§30.11 chrome for us instead of hand-stacked `NSVisualEffectView`; `WKWebExtension` (15.4+) is included either way. Narrower audience accepted — early adopters of a new browser skew current. | macOS 15.4 / 14 |
 | D10 | No private SPI in shipping code | Stability + upgradability | `_WKWebsiteDataStore`, `_WKDownload` etc. |
 | D11 | **Sync over iCloud (CloudKit private database, `CKSyncEngine`)** | No servers, no accounts, no support burden, data stays in the user's own iCloud; matches the Apple-native positioning | Custom sync backend (cost + privacy surface + an account system we said we wouldn't build) |
-| D12 | **Closed source, public repo** — no `LICENSE` file, all rights reserved | Free product with nothing to protect commercially, but proprietary keeps forks of a browser carrying our name and our update channel off the internet | MIT/Apache-2.0 (revisit at 1.0) |
+| D12 | **Open source under GPL-3.0-or-later**, licence file added at publication *(revised 2026-09-17, was: closed source)* | Matches Nook and Ora exactly, which makes reuse of their work legal instead of forbidden (§33), and makes "audit us yourself" the strongest form of the zero-telemetry claim (D16). GPL also forces anyone who forks Luna to stay open. Note that copyright does not stop a fork using the **name** — trademark does, and that is a separate, later decision. | MIT/Apache-2.0 (no reuse of GPL prior art); proprietary (rejected) |
 | D13 | **Both layouts ship in v1** — sidebar layout *and* top-bar layout (§30.12) | It is a core part of Martin's reference, not a stretch goal | Sidebar-only v1 |
-| D14 | **Blocklists are fetched at runtime, never bundled** | EasyList is GPL/CC-BY-SA and Luna is proprietary (D12); never shipping the lists inside our binary removes the licence question entirely, and blocking improves without an app update | Bundling EasyList |
+| D14 | **Blocklists are fetched at runtime, never bundled** | The licence reason disappeared when D12 became GPL — EasyList would now be compatible. The **operational** reason stands and is the better one: blocking improves without shipping an app update, and the binary stays small | Bundling EasyList |
 | D15 | **Free. No monetisation.** | No licence keys, no payment processor, no VAT handling, no dunning, no entitlement checks in Sparkle | Paid one-off / subscription |
 | D16 | **Zero telemetry.** Opt-in crash reports only, URLs scrubbed | A privacy-positioned browser that phones home has no story to tell. Deletes a Privacy Policy section and an SDK | Opt-in analytics |
 
@@ -404,7 +404,7 @@ luna/
   > **Gotcha:** Xcode re-signs `Sparkle.framework` but historically not its embedded XPC services/helpers — if notarisation rejects you for "Hardened Runtime disabled in Autoupdate.app", that's the cause. Verify with `codesign -dv --entitlements -` on every nested binary in CI.
 - [ ] **24.6 CI** — build + test + sign + notarise on tag; archive dSYMs.
 - [ ] **24.7 Legal & docs** — Privacy Policy must state: history and bookmarks are local-only · sync goes to the user's own iCloud and never to us (§31.11) · what search suggestions send and to whom · what crash reports contain · that **no usage data is collected at all** (D16) · and that Luna does **not** check URLs against a malware/phishing list (§17.7). Plus Terms, third-party attributions, and a `SECURITY.md` with a disclosure address.
-  - **Licence: proprietary, all rights reserved (D12).** No `LICENSE` file in the repo, and a short "source-visible, not open source" line in the README so nobody assumes otherwise. Because blocklists are never bundled (D14), there is no EasyList licence to reconcile.
+  - **Licence: GPL-3.0-or-later (D12).** Add `LICENSE` at publication, keep `THIRD_PARTY_NOTICES.md` current from the first borrowed line, and make the corresponding source of every released build available — including Sparkle-delivered updates, which are distribution. Sparkle (MIT) and GRDB (MIT) are GPL-compatible; check any new dependency before adding it. Blocklists are still never bundled (D14), so EasyList never enters the picture.
 - [ ] **24.8 Website + changelog + a real support channel.**
 
 ---
@@ -590,7 +590,7 @@ Sixteen questions, answered in one sitting. **Where this log contradicts an olde
 | **Name is Luna**, bundle `dk.novapps.luna`, internal scheme `luna://` | "ARCWK" is dead everywhere — doc, code, scheme, repo. |
 | **Free forever, no monetisation** (D15) | No licensing code, no store integration, no VAT or refund policy, no entitlement checks in Sparkle. |
 | **Zero telemetry**, opt-in scrubbed crash reports only (D16) | §24.3 becomes a paragraph of copy instead of a feature. One less SDK, one less Privacy Policy section, one fewer thing to defend. |
-| **Closed source, public repo** (D12) | No `LICENSE` file; README must say "source-visible, not open source". Directly constrains what we may borrow — see §33. |
+| **Open source, GPL-3.0-or-later** (D12) *(revised same day — this row supersedes the original "closed source" answer)* | `LICENSE` lands at publication. Unlocks legal reuse of Nook and Ora (§33) and obliges us to publish source for every released build. |
 | **No AI in v1** | §30.4 reserves the layout slot and ships nothing behind it. §25.6 stays in the backlog with its privacy story unwritten. |
 | **No Safe Browsing** (§17.7) | Must be stated honestly in Settings and in the Privacy Policy rather than quietly omitted. |
 
@@ -620,7 +620,15 @@ Three open-source browsers are cloned at `~/Desktop/Projects/other browsers/` on
 | `nook/` — nook-browser/nook | Swift 6 + SwiftUI + WKWebView, macOS 15.5+ | **GPL-3.0** | Largest surface: a `WKWebExtension` host with **native messaging and Bitwarden biometrics**, Peek, split view, site routing, and importers for **Arc, Dia and Safari**. |
 | `zen-desktop/` — zen-browser/desktop | Firefox 156 fork (JS/mjs + patches) | **MPL-2.0** | Different engine, so no WebKit answers — but the best available reference for *interaction* design on spaces, Glance, compact mode, boosts and folders. |
 
-> **Hard rule — the licence firewall.** Nook and Ora are **GPL-3.0**, Zen is **MPL-2.0**, and Luna is **proprietary** (D12). Copying their code into Luna would be a licence violation, and "I rewrote it a bit" is not a defence when the structure came across with it. **You may take:** which API solves a problem · that an approach is possible at all · where another app stores its data on disk · what an interaction should feel like. **You may not take:** source, file structure copied wholesale, comments, or strings. When in doubt, read Apple's docs and write it yourself — it is usually faster than deciding how much rewriting is enough.
+> **The firewall came down on 2026-09-17.** Luna is **GPL-3.0-or-later** (D12), so **Nook and Ora code may be reused directly** — same licence, no conversion needed. **Zen is MPL-2.0**, which is one-way compatible: MPL code may be brought *into* a GPL work, but nothing GPL goes back the other way.
+>
+> **The obligations that replace it, all non-negotiable:**
+> 1. Every borrowed file or fragment carries a header naming the **source repo, file path, commit hash and licence**.
+> 2. `THIRD_PARTY_NOTICES.md` lists every one of them, and is current before any release.
+> 3. The whole of Luna stays GPL-3.0-or-later. Borrowing is a one-way door — you cannot un-GPL a file later.
+> 4. A borrowed MPL file stays MPL and our modifications to it get published.
+>
+> **Still prefer writing it ourselves.** Their architecture carries their assumptions: Nook's 3,000-line `BrowserManager` god-object and 4,000-line `Tab.swift` are exactly what §0.3 and the performance budget exist to prevent. Borrow a *solved hard problem* — a keychain call sequence, a rule-list conversion edge case, a data path — not a design.
 
 ### Immediate leads (evidence, not answers — verify each yourself)
 
