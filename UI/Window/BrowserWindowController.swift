@@ -3,7 +3,8 @@
 //  Luna
 //
 //  The floating browser window (UI-SPEC §3.6/§4, TODO.md §30.1): no titlebar,
-//  no toolbar, rounded at 18 pt, detached, with the wallpaper visible around it.
+//  no toolbar, rounded at `windowCornerRadius`, detached, with the wallpaper
+//  visible around it.
 //  It hosts exactly two things — a chrome view (the sidebar or the top bar,
 //  built in wave 2) and the content card — and switches between `ChromeState`s.
 //
@@ -89,9 +90,9 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     private func buildContent(in window: NSWindow) {
         let root = WindowRootView()
         window.contentView = root
-        // The window's glass plane. This is what shows through the §3.6 gap and
-        // the only reason the card reads as floating. Applied before any subview
-        // so the glass stays behind them.
+        // The window's glass plane. The sidebar is a window of it: the content
+        // pane is opaque and flush, so this is what the chrome is made of.
+        // Applied before any subview so the glass stays behind them.
         Glass.apply(.sidebar, to: root)
         card.pin(in: root)
         NSLayoutConstraint.activate([
@@ -139,6 +140,15 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
 
     func setChromeState(_ state: ChromeState) {
         apply(state, animated: true)
+    }
+
+    /// §3.7's live drag. **Not animated**: the pointer is already the
+    /// animation, and a 0.20 s spring on every drag event puts the divider
+    /// permanently behind the mouse. Ignored unless the sidebar is showing —
+    /// a width applied while collapsed would expand it.
+    func setSidebarWidth(_ width: CGFloat) {
+        guard case .sidebar = chromeState else { return }
+        apply(.sidebar(width: Tokens.Metric.sidebarWidth.clamp(width)), animated: false)
     }
 
     /// Page fullscreen (§3.6): the card grows to fill the window and the chrome
@@ -218,7 +228,7 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
 
     /// macOS fullscreen keeps the chrome — a browser without its tab list in
     /// fullscreen is unusable. Only the window's own corners change: the system
-    /// frame is square there, and an 18 pt mask would show as black notches.
+    /// frame is square there, and a rounded mask would show as black notches.
     func windowDidEnterFullScreen(_ notification: Notification) {
         (window?.contentView as? WindowRootView)?.isWindowFullScreen = true
     }
@@ -228,8 +238,10 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     }
 }
 
-/// The window's shape: an 18 pt rounded, clipping plane that everything else
-/// lives inside (§1 `windowCornerRadius`, §30.1).
+/// The window's shape: a rounded, clipping plane that everything else lives
+/// inside (§1 `windowCornerRadius`, §30.1). 25 pt, measured off the reference's
+/// own macOS 26 window — and the radius the content pane matches, so the two
+/// sets of corners nest.
 private final class WindowRootView: NSView {
 
     var isWindowFullScreen = false {

@@ -27,6 +27,26 @@ extension TabListController: NSTableViewDataSource {
         return SidebarDrag.item(for: id)
     }
 
+    /// The §3.3 grid is zero points tall until something is pinned, so it has
+    /// to be told a drag is happening rather than discovering one itself.
+    func tableView(
+        _ tableView: NSTableView,
+        draggingSession session: NSDraggingSession,
+        willBeginAt screenPoint: NSPoint,
+        forRowIndexes rowIndexes: IndexSet
+    ) {
+        onDragSessionChange?(true)
+    }
+
+    func tableView(
+        _ tableView: NSTableView,
+        draggingSession session: NSDraggingSession,
+        endedAt screenPoint: NSPoint,
+        operation: NSDragOperation
+    ) {
+        onDragSessionChange?(false)
+    }
+
     func tableView(
         _ tableView: NSTableView,
         validateDrop info: any NSDraggingInfo,
@@ -74,7 +94,7 @@ extension TabListController: NSTableViewDataSource {
 extension TabListController: NSTableViewDelegate {
 
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
-        list[row] == .separator ? Tokens.Metric.rowInset : Tokens.Metric.rowHeight
+        list[row] == .separator ? Tokens.Metric.separatorRowHeight : Tokens.Metric.rowHeight
     }
 
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
@@ -144,15 +164,17 @@ final class SeparatorRowView: NSView {
 
     override var wantsUpdateLayer: Bool { false }
 
+    /// Edge to edge, not inset like a row pill: the reference runs the rule the
+    /// full width of the sidebar, which is what makes it read as the end of a
+    /// section rather than as a very thin row.
     override func draw(_ dirtyRect: NSRect) {
         Tokens.Line.hairline.setFill()
-        let rule = NSRect(
-            x: Tokens.Metric.rowInset,
+        NSRect(
+            x: 0,
             y: (bounds.height - Tokens.Metric.hairline) / 2,
-            width: bounds.width - 2 * Tokens.Metric.rowInset,
+            width: bounds.width,
             height: Tokens.Metric.hairline
-        )
-        rule.fill()
+        ).fill()
     }
 }
 
@@ -167,8 +189,18 @@ final class SidebarTableView: NSTableView {
     var onFocusChange: (() -> Void)?
     /// The row under the pointer, or nil when the pointer left the list.
     var onHover: ((Int?) -> Void)?
+    /// Right-click on a row. Built on demand, and deliberately **not** through
+    /// `NSTableView.menu`: a single menu on the table cannot know which row it
+    /// was summoned from, and a menu per row view dies with the recycled view.
+    var onContextMenu: ((Int) -> NSMenu?)?
 
     override var acceptsFirstResponder: Bool { true }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let row = row(at: convert(event.locationInWindow, from: nil))
+        guard row >= 0 else { return super.menu(for: event) }
+        return onContextMenu?(row) ?? super.menu(for: event)
+    }
 
     override func becomeFirstResponder() -> Bool {
         defer { onFocusChange?() }

@@ -64,7 +64,11 @@ final class URLPillView: NSView, NSTextFieldDelegate {
         field.setAccessibilityLabel("Address")
         addSubview(field)
 
-        sliders.configure(symbolName: "slider.horizontal.3", label: "Site settings")
+        sliders.configure(
+            symbolName: "slider.horizontal.3",
+            label: "Site settings",
+            pointSize: Tokens.Metric.glyphSize
+        )
         sliders.onActivate = { [weak self] in self?.onSiteMenu?() }
         addSubview(sliders)
         refresh()
@@ -200,24 +204,28 @@ final class URLPillView: NSView, NSTextFieldDelegate {
 
     // MARK: - Layout
 
+    /// §3.2's own two insets, which until now were both silently `rowInset`:
+    /// the domain starts 12 pt in and the sliders glyph sits 10 pt from the
+    /// trailing edge. Both are measured, and they are deliberately unequal — a
+    /// glyph is optically smaller than its box.
     override func layout() {
         super.layout()
-        let inset = Tokens.Metric.rowInset
-        let glyph = Tokens.Metric.faviconSize
+        let glyph = Tokens.Metric.glyphSize
         sliders.frame = NSRect(
-            x: bounds.maxX - inset - glyph,
+            x: bounds.maxX - Tokens.Metric.pillGlyphInset - glyph,
             y: (bounds.height - glyph) / 2,
             width: glyph,
             height: glyph
         ).integral
         // §3.2: two further slots, reserved and sized, rendering nothing.
-        let reserved = 2 * (glyph + inset)
+        let reserved = 2 * (glyph + Tokens.Metric.chromeGap)
         let textRight = sliders.frame.minX - reserved
         let height = field.intrinsicContentSize.height
+        let textLeft = Tokens.Metric.pillTextInset
         field.frame = NSRect(
-            x: inset,
+            x: textLeft,
             y: (bounds.height - height) / 2,
-            width: max(textRight - inset, 0),
+            width: max(textRight - textLeft, 0),
             height: height
         ).integral
     }

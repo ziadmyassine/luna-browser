@@ -82,17 +82,17 @@ final class DownloadsListPanel: NSWindowController {
             button(String(localized: "Clear"), #selector(clearCompleted))
         ])
         buttons.orientation = .horizontal
-        buttons.spacing = Tokens.Metric.contentCardGap
+        buttons.spacing = Tokens.Metric.panelInset
         buttons.distribution = .fill
 
         let stack = NSStackView(views: [scroll, buttons])
         stack.orientation = .vertical
-        stack.spacing = Tokens.Metric.contentCardGap
+        stack.spacing = Tokens.Metric.panelInset
         stack.edgeInsets = NSEdgeInsets(
-            top: Tokens.Metric.contentCardGap,
-            left: Tokens.Metric.contentCardGap,
-            bottom: Tokens.Metric.contentCardGap,
-            right: Tokens.Metric.contentCardGap
+            top: Tokens.Metric.panelInset,
+            left: Tokens.Metric.panelInset,
+            bottom: Tokens.Metric.panelInset,
+            right: Tokens.Metric.panelInset
         )
         stack.setHuggingPriority(.defaultLow, for: .vertical)
         return stack
@@ -184,7 +184,7 @@ private final class DownloadListRowView: NSTableCellView {
         icon.imageScaling = .scaleProportionallyUpOrDown
         let stack = NSStackView(views: [icon, name, NSView(), status])
         stack.orientation = .horizontal
-        stack.spacing = Tokens.Metric.contentCardGap
+        stack.spacing = Tokens.Metric.panelInset
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
         NSLayoutConstraint.activate([

@@ -41,7 +41,7 @@ enum CommandBarMetrics {
     static let cornerRadius = Tokens.Metric.contentCardRadius
     /// The input row — the same height as the chrome bars it covers.
     static let inputHeight = Tokens.Metric.topBarHeight
-    static let padding = Tokens.Metric.contentCardGap
+    static let padding = Tokens.Metric.panelInset
     /// UI-SPEC §6: "anchored 20 % from window top". **Missing token** — it is a
     /// ratio rather than a length, so `Tokens.Metric` has nowhere to put it today.
     static let topAnchorFraction: CGFloat = 0.20

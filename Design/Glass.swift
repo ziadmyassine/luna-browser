@@ -70,6 +70,10 @@ enum Glass {
         }
         let backing = backing(style, cornerRadius: cornerRadius)
         backing.frame = view.bounds
+        // The mask is enough for the *backing*: its margins are zero, so the
+        // constraints AppKit derives read "fill", whatever size it starts at.
+        // What could not survive a zero start is the glass inside it — see
+        // `GlassBackingView.layout()`.
         backing.autoresizingMask = [.width, .height]
         view.addSubview(backing, positioned: .below, relativeTo: nil)
     }
@@ -127,6 +131,25 @@ private final class GlassBackingView: NSView {
 
     override var wantsUpdateLayer: Bool { true }
 
+    /// **Framed by hand, never by `autoresizingMask`.**
+    ///
+    /// A backing is built before its host has a size, so the glass inside it
+    /// starts at `.zero` — and autoresizing cannot scale a zero frame, so it
+    /// stayed zero for the life of the window. Two consequences, both of which
+    /// shipped: the sidebar had no glass over most of its height (the effect
+    /// covered a strip at the bottom and nothing else), and the required
+    /// `NSAutoresizingMaskLayoutConstraint`s AppKit derives from that stale
+    /// frame — `V:|-(6790)-[glass]` — became part of the window's fitting
+    /// size, ratcheting the window taller on every layout pass until it was
+    /// 6800 pt tall with its bottom bar far below the screen.
+    ///
+    /// Setting the frame here is the fix: the derived constraints collapse to
+    /// "fill the backing", which is what they were always meant to say.
+    override func layout() {
+        super.layout()
+        glass?.frame = bounds
+    }
+
     /// Solid under Reduce Transparency, so AppKit can skip what is behind it.
     override var isOpaque: Bool { Tokens.A11y.reduceTransparency }
 
@@ -142,10 +165,13 @@ private final class GlassBackingView: NSView {
             let view = NSGlassEffectView(frame: bounds)
             view.style = style.glassStyle
             view.cornerRadius = radius
+            // §2: the chrome planes are tinted so they read as surfaces rather
+            // than as a pane of wallpaper. Controls are not — `.clear` glass
+            // over an already-tinted bar is what makes them read as raised.
+            view.tintColor = style.tint
             // The header only guarantees placement for `contentView`, so give
             // it an empty one rather than relying on a bare glass view.
             view.contentView = NSView(frame: bounds)
-            view.autoresizingMask = [.width, .height]
             addSubview(view)
             glass = view
         }
@@ -177,6 +203,15 @@ private extension Glass.Style {
         switch self {
         case .sidebar, .topBar, .popover: .regular
         case .control: .clear
+        }
+    }
+
+    /// The §2 tint handed to `NSGlassEffectView`, or nil for the surfaces that
+    /// take the material neat.
+    var tint: NSColor? {
+        switch self {
+        case .sidebar, .topBar: Tokens.Surface.glassTint
+        case .control, .popover: nil
         }
     }
 

@@ -119,6 +119,7 @@ extension TokenCheck {
     private static func checkResolution() -> [String] {
         var failures: [String] = []
         let all = surfaces + texts + bloom + washes
+            + [("glassTint", Tokens.Surface.glassTint)]
             + [("disabled", Tokens.Text.disabled)]
             + [("hairline", Tokens.Line.hairline), ("border", Tokens.Line.border)]
             + [("tint", Tokens.Accent.tint), ("danger", Tokens.Accent.danger)]
@@ -135,6 +136,15 @@ extension TokenCheck {
             // covers stops being glass (§2).
             for (token, color) in washes where color.srgbComponents(for: appearance).alpha >= 1 {
                 failures.append("Surface.\(token) is opaque in \(name) — it washes over glass, it does not replace it")
+            }
+            // `glassTint` is a wash too, but it is not in `washes`: those are
+            // ink (black on light), this is a plane tint (white on light), and
+            // the contrast matrix below is built for the first kind. The one
+            // rule it shares is the one that matters — an opaque tint would
+            // stop the chrome sampling the desktop, which is all of §2.
+            let tint = Tokens.Surface.glassTint.srgbComponents(for: appearance)
+            if tint.alpha >= 1 {
+                failures.append("Surface.glassTint is opaque in \(name) — §2's chrome samples what is behind the window")
             }
         }
         return failures

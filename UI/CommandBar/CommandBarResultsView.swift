@@ -205,7 +205,7 @@ private final class CommandBarRowView: NSView {
         let stack = NSStackView(views: [icon, title, subtitle, badgeDot, badgeName])
         stack.orientation = .horizontal
         stack.alignment = .centerY
-        stack.spacing = Tokens.Metric.contentCardGap
+        stack.spacing = Tokens.Metric.panelInset
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.setHuggingPriority(.defaultHigh, for: .horizontal)
         // The title yields to the subtitle last: a truncated title is a row you
@@ -214,7 +214,7 @@ private final class CommandBarRowView: NSView {
         subtitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         addSubview(stack)
 
-        let inset = Tokens.Metric.rowInset + Tokens.Metric.contentCardGap
+        let inset = Tokens.Metric.rowInset + Tokens.Metric.panelInset
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: Tokens.Metric.rowHeight),
             stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),

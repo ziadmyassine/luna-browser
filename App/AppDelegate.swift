@@ -98,6 +98,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             chrome.install(sidebar: sidebar.view, topBar: topBar)
             controller.setChrome(chrome)
             chrome.setLayout(controller.chromeState)
+            wireSidebar(sidebar, in: controller)
 
             wireCommandBar(session, in: controller)
             wireDownloads(session, topBar: topBar)
@@ -118,6 +119,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } catch {
             NSApp.presentError(error)
         }
+    }
+
+    /// The sidebar's outbound closures. It deliberately owns none of these:
+    /// toggling the layout and resizing the window's chrome column are the
+    /// window controller's, and turning typed text into a URL is §9.2's.
+    ///
+    /// **Until this existed none of them were connected**, which is why §3.7's
+    /// resize handle drew, hovered, dragged — and did nothing at all.
+    private func wireSidebar(_ sidebar: SidebarViewController, in controller: BrowserWindowController) {
+        sidebar.onToggleSidebar = { [weak self] in self?.toggleChromeLayout() }
+        sidebar.onSubmitURL = { [weak self] text in self?.open(text) }
+        // Live during the drag and again on mouse-up: `setSidebarWidth` is
+        // idempotent and the committed value is the one that gets persisted.
+        sidebar.onWidthChange = { [weak controller] width in controller?.setSidebarWidth(width) }
+        // §7.1: come back at the width the user left, not at the default — and
+        // without animating a width the user never saw change.
+        controller.setSidebarWidth(sidebar.preferredWidth)
+    }
+
+    /// §3.2's pill commits here: a URL is loaded, anything else is a search.
+    /// Both shapes come from `CommandBarURL` so the pill and the Command Bar
+    /// cannot disagree about which is which (§9.2).
+    private func open(_ text: String) {
+        guard let url = CommandBarURL.direct(from: text) ?? CommandBarURL.search(for: text) else { return }
+        session?.load(url)
     }
 
     /// `⌘T` and `⌘L` (§9.1). The bar is one object shared by both entry points

@@ -33,6 +33,7 @@ extension TokenCheck {
             ("urlPill", Tokens.Metric.urlPill), ("essentialsTile", Tokens.Metric.essentialsTile),
             ("controlCircle", Tokens.Metric.controlCircle), ("controlSquircle", Tokens.Metric.controlSquircle),
             ("bottomCircle", Tokens.Metric.bottomCircle), ("spaceDotsPill", Tokens.Metric.spaceDotsPill),
+            ("rowTrailingChip", Tokens.Metric.rowTrailingChip),
             ("downloadsPopover", Tokens.Metric.downloadsPopover), ("resizeHandle", Tokens.Metric.resizeHandle)
         ]
         for (name, metric) in rounded {
@@ -48,10 +49,14 @@ extension TokenCheck {
             ("faviconSize", Tokens.Metric.faviconSize), ("rowCornerRadius", Tokens.Metric.rowCornerRadius),
             ("essentialsTileGap", Tokens.Metric.essentialsTileGap), ("essentialsIcon", Tokens.Metric.essentialsIcon),
             ("spaceDot", Tokens.Metric.spaceDot), ("windowCornerRadius", Tokens.Metric.windowCornerRadius),
-            ("contentCardRadius", Tokens.Metric.contentCardRadius), ("contentCardGap", Tokens.Metric.contentCardGap),
+            ("contentCardRadius", Tokens.Metric.contentCardRadius), ("panelInset", Tokens.Metric.panelInset),
             ("topBarHeight", Tokens.Metric.topBarHeight), ("hairline", Tokens.Metric.hairline),
             ("rowGap", Tokens.Metric.rowGap), ("rowFaviconInset", Tokens.Metric.rowFaviconInset),
-            ("rowTitleInset", Tokens.Metric.rowTitleInset), ("pillTextInset", Tokens.Metric.pillTextInset),
+            ("rowTitleInset", Tokens.Metric.rowTitleInset), ("rowIconGap", Tokens.Metric.rowIconGap),
+            ("rowTitleFade", Tokens.Metric.rowTitleFade), ("separatorRowHeight", Tokens.Metric.separatorRowHeight),
+            ("rowTrailingGlyph", Tokens.Metric.rowTrailingGlyph),
+            ("essentialsInset", Tokens.Metric.essentialsInset), ("controlPairGap", Tokens.Metric.controlPairGap),
+            ("trafficLightInset", Tokens.Metric.trafficLightInset), ("pillTextInset", Tokens.Metric.pillTextInset),
             ("pillGlyphInset", Tokens.Metric.pillGlyphInset), ("glyphSize", Tokens.Metric.glyphSize),
             ("chromeGap", Tokens.Metric.chromeGap), ("chromeGapWide", Tokens.Metric.chromeGapWide),
             ("controlRowGap", Tokens.Metric.controlRowGap), ("capsuleHeight", Tokens.Metric.capsuleHeight),
@@ -64,27 +69,38 @@ extension TokenCheck {
 
     /// §3.4's row geometry, re-derived rather than trusted.
     ///
-    /// The insets are the one place M1 overrode the spec from the reference
-    /// (§3.4 says 12 / 40 pt, `inspiration/main-tab-bar-and-ui.png` measures
-    /// ~15 / ~41), so what is checked is the *rule* the reference follows —
-    /// the favicon centred in the row's leading `rowHeight` zone — and that it
-    /// still lands on the measured numbers.
+    /// The insets are the one place §3.4's prose is overridden by the
+    /// reference, so what is checked is the *rule* the reference follows — the
+    /// favicon square-inset inside the pill, the same padding leading as above
+    /// and below — and that it still lands on the measured numbers (17.2 and
+    /// 44.9 px/2.848, from `inspiration/main-tab-bar-and-ui.png`).
     private static func checkRowInsets() -> [String] {
         var failures: [String] = []
         let metric = Tokens.Metric.self
         let leading = metric.rowFaviconInset - metric.rowInset
-        let trailing = metric.rowHeight - metric.rowFaviconInset - metric.faviconSize
-        if abs(leading - trailing) > 0.01 {
+        let vertical = (metric.rowPillHeight - metric.faviconSize) / 2
+        if abs(leading - vertical) > 0.01 {
             failures.append(String(
-                format: "Metric.rowFaviconInset leaves %.1f before the favicon and %.1f after — §3.4 centres it in the leading zone",
-                leading, trailing
+                format: "Metric.rowFaviconInset leaves %.1f before the favicon and %.1f above it — §3.4 insets it squarely",
+                leading, vertical
             ))
         }
-        if abs(metric.rowFaviconInset - 15) > 0.5 || abs(metric.rowTitleInset - 41) > 0.5 {
+        if abs(metric.rowFaviconInset - 17.5) > 0.5 || abs(metric.rowTitleInset - 45.5) > 0.5 {
             failures.append(String(
-                format: "row insets are %.1f / %.1f — the reference measures ~15 / ~41",
+                format: "row insets are %.1f / %.1f — the reference measures ~17.5 / ~45.5",
                 metric.rowFaviconInset, metric.rowTitleInset
             ))
+        }
+        if metric.rowPillHeight <= 0 || metric.rowPillHeight >= metric.rowHeight {
+            failures.append("Metric.rowPillHeight is not a pill inside its row")
+        }
+        // The chip has to be able to hold its glyph with padding left over, or
+        // it is not a chip, it is a glyph with a border.
+        if metric.rowTrailingGlyph >= metric.rowTrailingChip.width {
+            failures.append("Metric.rowTrailingGlyph fills rowTrailingChip — the chip needs padding to read as a button")
+        }
+        if metric.rowTrailingChip.height > metric.rowPillHeight {
+            failures.append("Metric.rowTrailingChip is taller than the pill it sits in")
         }
         if metric.rowTitleInset <= metric.rowFaviconInset + metric.faviconSize {
             failures.append("Metric.rowTitleInset overlaps the favicon")
@@ -96,6 +112,16 @@ extension TokenCheck {
         // sits beside. Equal heights mean someone "tidied" one into the other.
         if metric.capsuleHeight <= metric.urlPill.height {
             failures.append("Metric.capsuleHeight is not above urlPill.height — §4's capsule measures taller")
+        }
+        // §3.1: the toggle is the same circle as back and reload, not the
+        // top bar's 28 pt tile. It looked "tidy" as a squircle and it was wrong.
+        if metric.controlCircle.width != 35 || metric.controlCircle.cornerRadius * 2 != metric.controlCircle.width {
+            failures.append("Metric.controlCircle is no longer the reference's 35 pt circle")
+        }
+        // The content pane is flush to three window edges, so anything smaller
+        // than the window's own radius shows glass inside the window corners.
+        if metric.contentCardRadius < metric.windowCornerRadius {
+            failures.append("Metric.contentCardRadius is inside windowCornerRadius — the corners would not nest")
         }
         if metric.downloadsPopoverTail > metric.downloadsPopover.height / 2 {
             failures.append("Metric.downloadsPopoverTail is longer than half the popover — the tail would swallow the body")

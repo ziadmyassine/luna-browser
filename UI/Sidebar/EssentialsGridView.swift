@@ -2,15 +2,22 @@
 //  EssentialsGridView.swift
 //  Luna
 //
-//  §3.3. Two across, wrapping, **icon only at 22 pt with no label** (§30.5) —
-//  which is exactly why each tile carries an explicit VoiceOver label naming
-//  the *site*, never the URL (§8, §21.1).
+//  §3.3, and what the user calls **pinned tabs**: the two-across grid of tiles
+//  directly under the URL pill. Icon only, no label (§30.5) — which is exactly
+//  why each tile carries an explicit VoiceOver label naming the *site*, never
+//  the URL (§8, §21.1).
+//
+//  A pinned tab is a `.essential` tab. Pinning closes the page but keeps the
+//  tile, so clicking one wakes it again; the only way to remove a tile is to
+//  unpin it (right-click, or drag it back down into the list). Both routes
+//  come through `BrowserSession.unpinTab`.
 //
 //  Tile width flexes. §1's 128 pt tile is the design intent at a 280 pt
-//  sidebar, but 8 + 128 + 10 + 128 + 8 is 282 — two points wider than the
-//  sidebar it was measured from — and §1 says the sidebar's own content
-//  reflows when it is resized. The height, radius, gap and icon size are the
-//  tokens; the width is what is left over.
+//  sidebar, but 10 + 128 + 12 + 128 + 10 is 288 — wider than the sidebar it
+//  was measured from — and §1 says the sidebar's own content reflows when it
+//  is resized. The height, radius, gap and icon size are the tokens; the width
+//  is what is left over. Measured: 42 pt tall, 10 pt outer inset, 12 pt gap,
+//  and a 16 pt icon — the same favicon a list row draws, not a 22 pt glyph.
 //
 
 import AppKit
@@ -23,8 +30,25 @@ final class EssentialsGridView: NSView {
     private static let columns = 2
 
     var onActivate: ((UUID) -> Void)?
-    /// A tab dropped on the grid becomes an Essential at this index (§6.6).
+    /// A tab dropped on the grid is **pinned** at this index (§6.6).
     var onDrop: ((UUID, Int) -> Void)?
+    /// Right-click → Unpin. The tab goes back to the top of today's tabs.
+    var onUnpin: ((UUID) -> Void)?
+
+    /// A row is being dragged somewhere in the sidebar.
+    ///
+    /// **An empty grid is zero points tall, so it cannot be dropped on** — and
+    /// dragging a tab up here is one of the two ways to pin one, which made
+    /// pinning the *first* tab impossible. While a drag is live the grid opens
+    /// to one tile's height and draws the slot the tab would land in.
+    var isAwaitingDrop = false {
+        didSet {
+            guard isAwaitingDrop != oldValue, tabs.isEmpty else { return }
+            invalidateIntrinsicContentSize()
+            needsDisplay = true
+            superview?.needsLayout = true
+        }
+    }
 
     private var tabs: [Tab] = []
     private var tiles: [GlassButton] = []
@@ -73,6 +97,11 @@ final class EssentialsGridView: NSView {
             tile.isAccented = tab.id == activeTabID
             tile.onActivate = { [weak self] in self?.onActivate?(tab.id) }
             tile.dragItem = { SidebarDrag.item(for: tab.id) }
+            tile.menuBuilder = { [weak self] in
+                let menu = NSMenu()
+                menu.addItem(SidebarMenu.item(title: "Unpin Tab") { self?.onUnpin?(tab.id) })
+                return menu
+            }
             addSubview(tile)
             return tile
         }
@@ -91,16 +120,20 @@ final class EssentialsGridView: NSView {
     }
 
     override var intrinsicContentSize: NSSize {
-        guard rowCount > 0 else { return NSSize(width: NSView.noIntrinsicMetric, height: 0) }
         let tile = Tokens.Metric.essentialsTile.height
+        guard rowCount > 0 else {
+            let open = tile + 2 * Tokens.Metric.essentialsInset
+            return NSSize(width: NSView.noIntrinsicMetric, height: isAwaitingDrop ? open : 0)
+        }
         let gap = Tokens.Metric.essentialsTileGap
-        let height = CGFloat(rowCount) * tile + CGFloat(rowCount - 1) * gap + 2 * Tokens.Metric.rowInset
+        let height = CGFloat(rowCount) * tile + CGFloat(rowCount - 1) * gap
+            + 2 * Tokens.Metric.essentialsInset
         return NSSize(width: NSView.noIntrinsicMetric, height: height)
     }
 
     override func layout() {
         super.layout()
-        let inset = Tokens.Metric.rowInset
+        let inset = Tokens.Metric.essentialsInset
         let gap = Tokens.Metric.essentialsTileGap
         let tileHeight = Tokens.Metric.essentialsTile.height
         let tileWidth = (bounds.width - 2 * inset - CGFloat(Self.columns - 1) * gap) / CGFloat(Self.columns)
@@ -115,6 +148,28 @@ final class EssentialsGridView: NSView {
                 height: tileHeight
             ).integral
         }
+    }
+
+    /// The empty grid's drop slot. Drawn only while a drag is live, because the
+    /// rest of the time there is nothing here and nothing to hint at.
+    override func draw(_ dirtyRect: NSRect) {
+        guard isAwaitingDrop, tabs.isEmpty else { return }
+        let inset = Tokens.Metric.essentialsInset
+        let slot = bounds.insetBy(dx: inset, dy: inset)
+        let path = NSBezierPath(
+            roundedRect: slot,
+            xRadius: Tokens.Metric.essentialsTile.cornerRadius,
+            yRadius: Tokens.Metric.essentialsTile.cornerRadius
+        )
+        path.lineWidth = Tokens.Metric.hairline
+        path.setLineDash([6, 4], count: 2, phase: 0)
+        Tokens.Line.border.setStroke()
+        path.stroke()
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        needsDisplay = true
     }
 
     // MARK: - Drop (§6.6)
@@ -135,7 +190,7 @@ final class EssentialsGridView: NSView {
 
     /// Which slot the pointer is over, in reading order.
     private func insertionIndex(at point: NSPoint) -> Int {
-        let inset = Tokens.Metric.rowInset
+        let inset = Tokens.Metric.essentialsInset
         let gap = Tokens.Metric.essentialsTileGap
         let tileWidth = (bounds.width - 2 * inset - CGFloat(Self.columns - 1) * gap) / CGFloat(Self.columns)
         let column = min(max(Int((point.x - inset) / max(tileWidth + gap, 1)), 0), Self.columns - 1)

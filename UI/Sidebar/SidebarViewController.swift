@@ -6,9 +6,9 @@
 //  utility bar, with the §3.7 resize handle floating on the trailing divider.
 //
 //  The view itself draws **nothing**. `BrowserWindowController` already applies
-//  `Glass.sidebar` to the window's root plane and insets the content card 8 pt
-//  from this view's trailing edge (§3.6), so a second glass surface here would
-//  be a second render pass showing the same thing.
+//  `Glass.sidebar` to the window's root plane and butts the content pane
+//  against this view's trailing edge (§3.6), so a second glass surface here
+//  would be a second render pass showing the same thing.
 //
 //  Contract rule 4 lives here: this is the one place that observes
 //  `NSWorkspace.accessibilityDisplayOptionsDidChangeNotification` and fans it
@@ -167,9 +167,10 @@ final class SidebarViewController: NSViewController {
         utility.onMoveTabToSpace = { [weak self] tab, space in self?.session.moveTab(tab, toSpace: space) }
 
         essentials.onActivate = { [weak self] id in self?.session.activateTab(id) }
-        essentials.onDrop = { [weak self] id, index in
-            self?.session.reorderTab(id, to: index, kind: .essential)
-        }
+        // Dragging a row up into the grid is one of the two ways to pin
+        // (§3.3); `pinTab` is what makes it also put the page away.
+        essentials.onDrop = { [weak self] id, index in self?.session.pinTab(id, at: index) }
+        essentials.onUnpin = { [weak self] id in self?.session.unpinTab(id) }
     }
 
     private func wireList() {
@@ -180,6 +181,12 @@ final class SidebarViewController: NSViewController {
             session.activateTab(session.newTab(url: nil, kind: .today))
         }
         list.onOpenArchive = { [weak self] in self?.onOpenArchive?() }
+        list.onPinTab = { [weak self] id in self?.session.pinTab(id) }
+        list.onDragSessionChange = { [weak self] isDragging in
+            guard let self else { return }
+            essentials.isAwaitingDrop = isDragging
+            view.needsLayout = true
+        }
         list.onMoveTab = { [weak self] id, kind, index in
             self?.session.reorderTab(id, to: index, kind: kind)
         }
@@ -220,9 +227,14 @@ final class SidebarViewController: NSViewController {
 
         controlRow.frame = NSRect(x: 0, y: bounds.maxY - bar, width: bounds.width, height: bar)
         let pillHeight = Tokens.Metric.urlPill.height
+        // Flush under the control row, not §3.2's 12 pt below it: the row is
+        // 52 pt and its buttons are only 35, so the row already carries ~8 pt
+        // of clear space below them — which is exactly the gap the reference
+        // measures between the reload button and the top of the pill. Adding a
+        // second gap on top of it doubles a space that is already right.
         pill.frame = NSRect(
             x: inset,
-            y: controlRow.frame.minY - inset - pillHeight,
+            y: controlRow.frame.minY - pillHeight,
             width: max(bounds.width - 2 * inset, 0),
             height: pillHeight
         ).integral

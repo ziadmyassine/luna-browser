@@ -35,6 +35,11 @@ final class TabListController: NSObject {
     var onAddTab: (() -> Void)?
     /// §6.6: a row was dropped into a section at an index.
     var onMoveTab: ((UUID, TabKind, Int) -> Void)?
+    /// Right-click → Pin Tab. The tab becomes a tile in the §3.3 grid.
+    var onPinTab: ((UUID) -> Void)?
+    /// A row drag started or finished. The §3.3 grid opens a drop slot while
+    /// one is live — see `EssentialsGridView.isAwaitingDrop`.
+    var onDragSessionChange: ((Bool) -> Void)?
 
     private(set) var list = SidebarList()
     /// Live per-tab state, pushed in by `BrowserSession.onTabStateChange`.
@@ -44,8 +49,8 @@ final class TabListController: NSObject {
     var mutedTabIDs: Set<UUID> = []
 
     let table = SidebarTableView()
-    private let selectionPill = SelectionPillView()
-    private let hoverPill = Glass.backing(.control, cornerRadius: Tokens.Metric.rowCornerRadius)
+    private let selectionPill = RowPillView(role: .selected)
+    private let hoverPill = RowPillView(role: .hover)
     private(set) var hoveredRow: Int?
     private var activeTabID: UUID?
     var isApplyingSelection = false
@@ -81,6 +86,7 @@ final class TabListController: NSObject {
         table.onCommandKey = { [weak self] command in self?.handle(command) ?? false }
         table.onFocusChange = { [weak self] in self?.movePills() }
         table.onHover = { [weak self] row in self?.setHovered(row) }
+        table.onContextMenu = { [weak self] row in self?.contextMenu(forRow: row) }
 
         for pill in [selectionPill, hoverPill] {
             pill.alphaValue = 0
@@ -237,7 +243,10 @@ final class TabListController: NSObject {
             fade(pill, to: 0)
             return
         }
-        let target = table.rect(ofRow: row).insetBy(dx: Tokens.Metric.rowInset, dy: 0)
+        // `rowHeight` is pitch; `rowPillHeight` is paint. Insetting vertically
+        // is what stops two adjacent selected pills fusing into one slab.
+        let target = table.rect(ofRow: row)
+            .insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.rowPillInset)
         let wasParked = pill.alphaValue == 0 || pill.frame == .zero
         if !wasParked, let spring = spec.springAnimation(keyPath: "position") {
             let from = pill.layer?.position ?? .zero
@@ -260,6 +269,17 @@ final class TabListController: NSObject {
     }
 
     // MARK: - Commands
+
+    /// Only tabs have a menu: `Archive`, `+ Add Tab` and the rule are commands,
+    /// and a context menu on a command is a menu with nothing in it.
+    private func contextMenu(forRow row: Int) -> NSMenu? {
+        guard case let .tab(id)? = list[row] else { return nil }
+        let menu = NSMenu()
+        menu.addItem(SidebarMenu.item(title: "Pin Tab") { [weak self] in self?.onPinTab?(id) })
+        menu.addItem(.separator())
+        menu.addItem(SidebarMenu.item(title: "Close Tab") { [weak self] in self?.onCloseTab?(id) })
+        return menu
+    }
 
     @objc private func rowClicked() {
         switch list[table.clickedRow] {
@@ -298,6 +318,7 @@ final class TabListController: NSObject {
     /// §21.2, contract rule 4: Increase Contrast is not an appearance.
     func accessibilityDisplayOptionsChanged() {
         selectionPill.needsDisplay = true
+        hoverPill.needsDisplay = true
         let visible = table.rows(in: table.visibleRect)
         for row in visible.lowerBound ..< visible.upperBound {
             (table.view(atColumn: 0, row: row, makeIfNecessary: false) as? SidebarRowView)?
@@ -306,15 +327,26 @@ final class TabListController: NSObject {
     }
 }
 
-/// The §3.4 selected-row pill: clear glass with a **visible hairline border**,
-/// promoted to the accent colour when the list has keyboard focus (§20.2).
+/// §3.4's two row fills: the selected pill and the hover lift.
+///
+/// **Clear glass alone was not visible.** The pill was `Glass.control` plus a
+/// hairline and nothing else, and `.clear` glass over the sidebar's own glass
+/// is very nearly the sidebar — a selected row read as unselected. `Tokens`
+/// has carried `Surface.selected` and `Surface.hover` for exactly this since
+/// M1; they were simply never asked for. Both are translucent washes, so the
+/// glass under them is still glass.
 @MainActor
-final class SelectionPillView: NSView {
+final class RowPillView: NSView {
+
+    enum Role { case selected, hover }
 
     var isFocused = false { didSet { needsDisplay = true } }
 
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
+    private let role: Role
+
+    init(role: Role) {
+        self.role = role
+        super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerCurve = .continuous
         Glass.apply(.control, to: self, cornerRadius: Tokens.Metric.rowCornerRadius)
@@ -330,8 +362,18 @@ final class SelectionPillView: NSView {
     override func updateLayer() {
         guard let layer else { return }
         layer.cornerRadius = Tokens.Metric.rowCornerRadius
-        layer.borderWidth = Tokens.Metric.hairline
-        layer.borderColor = (isFocused ? Tokens.Accent.tint : Tokens.Line.border).cgColor
+        layer.backgroundColor = (role == .selected ? Tokens.Surface.selected : Tokens.Surface.hover).cgColor
+        // §3.4 gives the selected row a visible border and the hover lift none:
+        // a border that appeared under the pointer would read as a second
+        // selection.
+        let bordered = role == .selected
+        layer.borderWidth = bordered ? Tokens.Metric.hairline : 0
+        layer.borderColor = bordered ? (isFocused ? Tokens.Accent.tint : Tokens.Line.border).cgColor : nil
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        needsDisplay = true
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }

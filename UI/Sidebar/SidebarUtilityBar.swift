@@ -26,13 +26,13 @@ final class SidebarUtilityBar: NSView {
     private let avatar = GlassButton(
         shape: Tokens.Metric.bottomCircle,
         symbolName: "person.crop.circle",
-        pointSize: Tokens.Metric.faviconSize,
+        pointSize: Tokens.Metric.glyphSize,
         label: "Profile"
     )
     private let archive = GlassButton(
         shape: Tokens.Metric.bottomCircle,
         symbolName: "archivebox",
-        pointSize: Tokens.Metric.faviconSize,
+        pointSize: Tokens.Metric.glyphSize,
         label: "Archive"
     )
     private let dots = SpaceDotsView()

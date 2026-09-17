@@ -46,31 +46,35 @@ enum TrafficLightLayout {
     /// (`NSTitlebarView`, bottom-left origin) coordinates.
     ///
     /// The lights sit at the same place in every chrome layout by design: the
-    /// sidebar's control row and the top bar are both `controlRowHeight` tall
-    /// and both start at the window's top-left, so switching layout or
-    /// collapsing the sidebar must not move them. A test pins that down.
+    /// sidebar's control row and the top bar both start at the window's
+    /// top-left, so switching layout or collapsing the sidebar must not move
+    /// them. A test pins that down.
+    ///
+    /// **`inset` is one number for both axes.** It used to be a leading inset
+    /// plus a vertical centring in the control row, which put the lights 8 pt
+    /// from the window's leading edge and 18 pt from its top — unequal padding
+    /// into a corner, and the first thing the eye catches. The reference insets
+    /// them equally; so does this.
     ///
     /// - Returns: `nil` when the system owns the frames (fullscreen), meaning
     ///   "do not touch".
     static func origins(
         for state: ChromeState,
         system: TrafficLightMetrics,
-        controlRowHeight: CGFloat,
-        leading: CGFloat
+        inset: CGFloat
     ) -> [CGPoint]? {
         if case .fullscreen = state { return nil }
         guard let first = system.natural.first else { return nil }
 
-        // Ideally centred in the control row. The titlebar is shorter than the
-        // row, and a button hung below it stops hit-testing, so clamp to the
-        // titlebar: at the measured macOS 26 sizes that lands 1 pt off centre.
-        let ideal = ((controlRowHeight - system.buttonHeight) / 2).rounded()
+        // A button hung below the titlebar still draws but stops hit-testing,
+        // so the vertical inset is clamped into it. At the measured macOS 26
+        // sizes (32 pt titlebar, 14 pt buttons) 18 pt fits exactly.
         let floor = max(system.titlebarHeight - system.buttonHeight, 0)
-        let fromTop = min(max(ideal, 0), floor)
+        let fromTop = min(max(inset, 0), floor)
         let originY = system.titlebarHeight - fromTop - system.buttonHeight
 
         // Keep AppKit's own spacing: translate the natural row, never rebuild it.
-        return system.natural.map { CGPoint(x: leading + ($0.x - first.x), y: originY) }
+        return system.natural.map { CGPoint(x: inset + ($0.x - first.x), y: originY) }
     }
 }
 
@@ -144,8 +148,7 @@ final class TrafficLightLayoutManager {
         guard let origins = TrafficLightLayout.origins(
             for: state,
             system: system,
-            controlRowHeight: Tokens.Metric.topBarHeight,
-            leading: Tokens.Metric.rowInset
+            inset: Tokens.Metric.trafficLightInset
         ), origins.count == buttons.count else { return }
 
         // Set directly, not through `animator()`: the placement is identical in

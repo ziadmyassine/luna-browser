@@ -158,6 +158,23 @@ enum CommandBarURL {
         return URL(string: "\(scheme)://\(host)\(rest)")
     }
 
+    //  ponytail: §9.5 (per-Space engine, bang keywords) is not built, so this
+    //  is one fixed engine. DuckDuckGo because §32 committed to zero telemetry
+    //  and §9.6 to not leaking queries. Swap for the Space's engine when §9.5
+    //  lands.
+    /// Where a string that is **not** a URL goes. The floor under every text
+    /// entry point: the Command Bar's search row and §3.2's URL pill both
+    /// commit through here, so they cannot disagree about what a query means.
+    static func search(for query: String) -> URL? {
+        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = "duckduckgo.com"
+        components.path = "/"
+        components.queryItems = [URLQueryItem(name: "q", value: query)]
+        return components.url
+    }
+
     /// `https://example.com/a` → `example.com/a`. What §9.4 autofills and what a
     /// row shows: a scheme and a `www.` are noise the user did not type.
     static func displayForm(of url: URL) -> String {

@@ -17,29 +17,45 @@ shared tab/space model (D13). Neither is a special case of the other.
 
 ## 1. Scale and geometry
 
+> **Re-measured 2026-09-17, and the scale it was measured at was wrong.** The first pass read
+> `main-tab-bar-and-ui.png` assuming the reference's sidebar was the 280 pt default, giving 2.725 px/pt.
+> The reference's sidebar is not 280 — it is a resized 268. The capture's real scale comes from the one
+> thing in the frame the app does not control: **the system traffic lights are 23 pt apart** (AppKit lays
+> them out at x = 9 / 32 / 55, verified with a runtime probe) and measure **65.5 px** apart in the file,
+> so the capture is **2.848 px/pt**. Every row below is re-derived at that scale; the ones that moved are
+> marked. The reference is Dia, which uses the system window buttons untouched.
+
 All sizes derive from measured ratios against sidebar width, normalised to a **280 pt** default sidebar.
 Ratios are the source of truth; if the sidebar is resized, chrome metrics do **not** rescale — only the
 sidebar's own content reflows. The ratios exist to fix proportions once, not to drive live layout.
 
-| Token | Value | Ratio |
+| Token | Value | Was |
 |---|---|---|
-| `sidebarWidth` default / min / max | 280 / 180 / 420 pt | 1.000 |
-| `rowHeight` | 40 pt | 0.144 |
+| `sidebarWidth` default / min / max | 280 / 160 / 420 pt | min was 180 |
+| `rowHeight` (pitch) | 38 pt | 40 |
+| `rowGap` / `rowPillHeight` (the drawn pill) | 3 / 35 pt | 4 / — |
 | `rowInset` (pill inset from sidebar edge) | 8 pt | — |
-| `faviconSize` | 18 pt | 0.063 |
-| `rowCornerRadius` | 10 pt | — |
-| `urlPill` | 266 × 32 pt, radius 16 (full) | 0.951 × 0.114 |
-| `essentialsTile` | 128 × 42 pt, radius 12 | 0.459 × 0.150 |
-| `essentialsTileGap` | 10 pt | — |
-| `essentialsIcon` | 22 pt | — |
-| `controlCircle` (back, reload) | 35 pt | 0.125 |
-| `controlSquircle` (sidebar toggle) | 28 pt, radius 9 | 0.097 |
-| `bottomCircle` (avatar, archive) | 34 pt | 0.121 |
-| `spaceDotsPill` | 56 × 22 pt, radius 11 | 0.199 × 0.078 |
+| `faviconSize` | 16 pt | 18 |
+| `rowCornerRadius` | 12 pt | 10 |
+| `rowFaviconInset` / `rowTitleInset` | 17.5 / 45.5 pt | 15 / 41 |
+| `rowIconGap` (favicon → title) | 12 pt | — |
+| `separatorRowHeight` | 12 pt | 8 |
+| `urlPill` | 266 × 34 pt, radius 17 (full) | × 32, radius 16 |
+| `essentialsTile` | 128 × 42 pt, radius 12 | — |
+| `essentialsTileGap` / `essentialsInset` | 12 / 10 pt | 10 / 8 |
+| `essentialsIcon` | 16 pt (`= faviconSize`) | 22 |
+| `controlCircle` (**toggle**, back, reload) | 35 pt | toggle was a squircle |
+| `controlPairGap` (back ↔ reload) | 5 pt | 8 |
+| `trafficLightInset` (leading **and** top) | 18 pt | 8 leading, 18 top |
+| `controlSquircle` (top-bar tab tile only) | 28 pt, radius 9 | — |
+| `bottomCircle` (avatar, archive) | 34 pt | — |
+| `spaceDotsPill` | 56 × 22 pt, radius 11 | — |
 | `spaceDot` | 6 pt | — |
-| `windowCornerRadius` | 18 pt | — |
-| `contentCardRadius` | 16 pt | — |
-| `contentCardGap` | 8 pt | — |
+| `glyphSize` (chrome SF Symbols) | 17 pt | 18 |
+| `windowCornerRadius` | 25 pt | 18 |
+| `contentCardRadius` | 25 pt (`= windowCornerRadius`) | 16 |
+| `contentCardGap` | **gone** — the page is flush (§3.6) | 8 pt |
+| `panelInset` (Command Bar, downloads list) | 8 pt | was `contentCardGap` |
 | `topBarHeight` | 52 pt | — |
 | `hairline` | 1 pt @ 10 % white / 8 % black | — |
 
@@ -48,10 +64,13 @@ sidebar's own content reflows. The ratios exist to fix proportions once, not to 
 Secondary and tertiary text are separated by **size and weight, not alpha**: §21.4's floor compresses them
 to ~0.04 alpha apart, which is invisible.
 
-**Typography.** Sidebar rows **15 pt**, URL pill **17 pt**, top-bar URL **15 pt**, section labels 12 pt
-semibold. System font throughout, monospaced digits for any numeric badge.
-> This deliberately departs from §8.6's 13 pt. The reference is visibly roomier than Arc and 13 pt looks
-> undersized at a 40 pt row. §8.6 should be corrected, not this.
+**Typography.** Sidebar rows **13 pt**, URL pill **13 pt**, top-bar URL **13 pt**, section labels 12 pt
+semibold. System font throughout, monospaced digits for any **numeric** face — not for titles.
+> **Corrected.** This said 15 / 17 pt, on the strength of the same bad scale as §1's table. Re-measured,
+> the reference's row titles and its URL pill have the **same** 20 px x-height and 25 px cap height, which
+> at 2.848 px/pt is a 13 pt system font — §8.6's original number, which was right.
+> Titles also drop `monospacedDigitSystemFont`: §1 asks for tabular digits "wherever a number is shown",
+> and a page title is not a number. Monospaced digits visibly widen a title like "iPhone 18 Pro".
 
 ---
 
@@ -103,17 +122,26 @@ adds a visible border to each control.
 Vertical order, top to bottom:
 
 ### 3.1 Control row — height 52 pt, top-aligned
-`[traffic lights] [sidebar toggle 28] ·············· [back 35] [reload 35]`
+`[traffic lights] [sidebar toggle 35] ·············· [back 35] [reload 35]`
 > **Corrected in M1** against `inspiration/main-tab-bar-and-ui.png`: the toggle sits beside the traffic
-> lights, and back/reload are pinned to the **trailing** edge (centres ~209 / ~251 pt), not grouped after the
-> toggle. The row must also *measure* the traffic lights rather than assume a width.
+> lights, and back/reload are pinned to the **trailing** edge, not grouped after the toggle. The row must
+> also *measure* the traffic lights rather than assume a width.
+> **Corrected again:** the toggle is the **same 35 pt circle** as its two neighbours, not a 28 pt
+> squircle — all three measure 100 px across. Back and reload are 5 pt apart, not 8, and the whole trio
+> sits on the traffic lights' centre line rather than centred in the 52 pt row (the two are 1 pt apart,
+> and the row asks the window for the line rather than guessing).
 
-- Traffic lights are **system-drawn**, inset into the sidebar. A single `TrafficLightLayoutManager` owns
+- Traffic lights are **system-drawn**, inset into the sidebar **18 pt from the window's leading edge and
+  18 pt from its top — one number, both axes**. They were 8 pt in and 18 pt down, which is unequal
+  padding into a corner and the first thing the eye catches. A single `TrafficLightLayoutManager` owns
   their frame for all six window states (§7.7 — this is the #1 bug source in Arc-style browsers).
 - Buttons are circular glass with a hairline border; **hover lifts the fill** (not the border).
 - Back is disabled-dimmed at 35 % when `canGoBack` is false. Reload becomes a **stop** glyph while loading.
 
-### 3.2 URL pill — 266 × 32, full radius, 12 pt below the control row
+### 3.2 URL pill — full width less 8 pt each side, 34 pt tall, full radius, flush under the control row
+> **Corrected:** not "12 pt below the control row". The 52 pt row already carries ~8 pt of clear space
+> below its 35 pt buttons, and that *is* the gap the reference measures between reload and the pill. A
+> second gap on top of it doubles a space that is already right.
 - **Domain only**: `apple.com`, not the full URL (§30.3). eTLD+1 plus subdomain when meaningful.
 - Left-aligned text at 12 pt inset; trailing **sliders glyph** (site menu) at 10 pt from the right edge.
 - Two further icon slots are **reserved and sized** to the left of the sliders glyph but render nothing.
@@ -126,16 +154,28 @@ Vertical order, top to bottom:
 - **Icon only, centred, 22 pt.** No label. Visually distinct from the text rows below (§30.5).
 - Translucent fill + hairline. Active Essential gets a brighter fill and a 1 pt accent ring.
 
-### 3.4 List rows — 40 pt each
-Order: `Archive` folder row → `+ Add Tab` row → separator → tabs.
+### 3.4 List rows — 38 pt of pitch around a 35 pt pill
+Order: `Archive` folder row → **separator** → `+ Add Tab` row → tabs.
+> **Corrected:** the rule sits *between* the two commands, not after both. It reads as the end of the
+> Archive section. It also spans the sidebar edge to edge, not inset like a row pill, and its row is
+> 12 pt tall — 6 pt of clear space either side of the hairline.
 
-- `[status dot 6] [favicon 18] [title 15 pt, single line, tail-truncated] [trailing affordance]`
-- Favicon at 12 pt from the pill's left edge; title starts 40 pt in.
+- `[status dot 6] [favicon 16] [title 13 pt, single line, **faded**, never ellipsised] [trailing affordance]`
+- **The favicon is square-inset inside the pill**: the same 9.5 pt of padding on its leading edge as
+  above and below it, which lands it 17.5 pt from the sidebar's edge. The title clears it by 12 pt, so it
+  starts 45.5 pt in, and stops 8 pt short of the pill's trailing edge.
+- **A title that does not fit fades out over the last 24 pt.** No `…`: the reference lets the last glyph
+  dissolve rather than spending three characters saying the obvious.
 - **Selected row:** filled translucent pill spanning sidebar width minus 8 pt each side, radius 10,
   **visible hairline border**, brighter text. **Unselected rows have no background at all** (§30.7).
 - **Status dot** leads the row only when the tab has unread/updated content (the Discord row in the
   reference). Audio gets a **trailing** speaker glyph, click-to-mute.
-- **Hover** reveals a trailing close/archive affordance and lifts the row fill to 6 %.
+- **Hover** reveals a trailing close/archive affordance and lifts the row fill to 6 %. That affordance is
+  an **18 pt rounded-square chip with its own translucent fill** holding an 11 pt glyph, inset a full
+  `rowInset` inside the pill's trailing edge — measured off Martin's close-button reference. A bare glyph
+  floating in the pill, which is what §3.4's silence produced, reads as part of the title.
+- **Selected and hover fills are `Surface.selected` / `Surface.hover`.** Clear glass alone is very nearly
+  the sidebar's own glass, and a selected row read as unselected until these were asked for.
 - Loading shows a shimmer sweep across the title, not a spinner.
 - `Archive` and `+ Add Tab` are first-class rows with identical metrics to tabs (§30.6).
 
@@ -146,14 +186,25 @@ Order: `Archive` folder row → `+ Add Tab` row → separator → tabs.
   Click a dot to switch; the pill widens by 8 pt per Space beyond three.
 - Avatar is the active profile; click opens the profile menu.
 
-### 3.6 Content card
-Rounded 16 pt, opaque, inset 8 pt from the sidebar and from the window's top, right and bottom edges. The
-gap shows the window's glass through it — **this is what makes the whole thing read as floating** (§30.11).
-Entering page fullscreen animates the card to fill the window over 0.3 s.
+### 3.6 Content pane
+Opaque, **flush** to the window's top, bottom and trailing edges and flush against the sidebar. Only its
+two **leading** corners are rounded, at `windowCornerRadius`, so they nest with the window's own corners
+instead of leaving a crescent of glass inside each one.
+> **Corrected.** This said "inset 8 pt from the sidebar and from the window's top, right and bottom
+> edges", and called the gap "what makes the whole thing read as floating". The reference has no gap on
+> any edge — the page runs to the glass. The floating read comes from the window's glass and its shadow
+> against the wallpaper, not from a moat around the page.
+
+Entering page fullscreen animates the pane to fill the window over 0.3 s.
 
 ### 3.7 Sidebar resize handle
 A `◁|▷` handle floating on the sidebar/content divider, **appearing on hover after 0.1 s**. Drag resizes
-within 180–420 pt, double-click resets to 280. The hit area is 8 pt wide; the drawn handle is 20 × 32.
+within 160–420 pt, double-click resets to 280. The hit area is 8 pt wide; the drawn handle is 20 × 32.
+> **This was drawn, hovered, dragged — and did nothing.** `SidebarViewController` reports the width out
+> through `onWidthChange`, and nothing was ever connected to it; the same was true of the sidebar toggle
+> and of committing text in the URL pill. `AppDelegate.wireSidebar` is where all three now land. A live
+> drag applies the width **unanimated** — the pointer is the animation, and a 0.20 s spring per drag
+> event leaves the divider permanently behind the mouse.
 
 ---
 

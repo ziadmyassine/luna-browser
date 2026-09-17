@@ -46,8 +46,16 @@ extension BrowserSession {
 
     /// Archives the tab — §6.3's soft delete, which keeps title, URL and icon —
     /// and releases its web view. Undoable.
+    ///
+    /// **A pinned tab cannot be closed**, only unpinned: closing one puts its
+    /// page away and leaves the tile, which is what `pinTab` already does. So
+    /// `⌘W` on a pinned tab is "put this away", not "throw it out".
     func closeTab(_ id: UUID) {
         guard let index = list.indexInSection(of: id), var tab = list.tab(id) else { return }
+        if tab.kind == .essential {
+            putPinnedTabAway(id, in: tab.spaceID)
+            return
+        }
         tab.archivedAt = Date()
         forget(id)
         persistAll(list.remove(id))
@@ -91,6 +99,42 @@ extension BrowserSession {
         tab.kind = kind
         persistAll(list.insert(tab, at: index))
         registerUndo("Move Tab") { $0.reorderTab(id, to: oldIndex, kind: oldKind) }
+        notifyChange()
+    }
+
+    /// Pins a tab into the §3.3 grid — the tiles under the URL pill.
+    ///
+    /// **Pinning closes the page and keeps the tab.** The tile stays until the
+    /// user unpins it, and clicking one wakes the page again from the same
+    /// `interactionState` the tab was carrying, so a pinned tab costs a row in
+    /// SQLite and no WebContent process (§19.2). That is the whole behaviour:
+    /// there is no "close a pinned tab", because the tile *is* the tab.
+    func pinTab(_ id: UUID, at index: Int = .max) {
+        guard let tab = list.tab(id), tab.kind != .essential else { return }
+        putPinnedTabAway(id, in: tab.spaceID)
+    }
+
+    /// Drops a pinned tab's page without dropping the tab: the tile stays, the
+    /// WebContent process goes, and the selection moves to something that still
+    /// has a page to show — a tab selected with no web view is an empty card.
+    private func putPinnedTabAway(_ id: UUID, in spaceID: UUID) {
+        // `discardController` caches the session blob onto the `Tab` on its way
+        // out, so the tile comes back to where the user left the page rather
+        // than to the top of it (§6.2).
+        discardController(id)
+        recentTabs.removeAll { $0 == id }
+        if activeTabBySpace[spaceID] == id {
+            activeTabBySpace[spaceID] = recentTabs.first { list.tab($0)?.spaceID == spaceID }
+                ?? list[spaceID].first { $0.kind != .essential }?.id
+        }
+        notifyChange()
+    }
+
+    /// The only way a tile leaves the grid (§3.3). The tab lands back at the
+    /// top of today's tabs, still cold — unpinning is not opening.
+    func unpinTab(_ id: UUID) {
+        guard list.tab(id)?.kind == .essential else { return }
+        reorderTab(id, to: 0, kind: .today)
         notifyChange()
     }
 

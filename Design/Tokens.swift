@@ -24,7 +24,8 @@
 //  System-backed vs custom, at a glance:
 //    system  Surface.base, Text.primary, Accent.tint, Accent.danger
 //    custom  Surface.raised, Surface.glassFallback, Surface.hover,
-//            Surface.selected, Surface.chromeFill, Text.secondary,
+//            Surface.selected, Surface.chromeFill, Surface.glassTint,
+//            Text.secondary,
 //            Text.tertiary, Text.disabled, Line.border, Shadow.popover,
 //            Bloom.*
 //    hybrid  Line.hairline (`.separatorColor` normally, promoted by hand
@@ -132,6 +133,22 @@ enum Tokens {
         /// glass. Pass it as `over:`; it is not a plane and nothing should
         /// paint text directly against it without flattening first.
         static var chromeFill: NSColor { inkColor("luna.surface.chromeFill", Ink.chromeFill) }
+
+        /// §2's chrome tint: what `Glass.Style.sidebar` / `.topBar` hand to
+        /// `NSGlassEffectView.tintColor`.
+        ///
+        /// **Untinted glass is too thin.** `.regular` on its own samples the
+        /// desktop so faithfully that the sidebar reads as a pane of the
+        /// wallpaper rather than as a surface, and the reference's chrome is
+        /// visibly denser and more saturated than what is behind it. The tint
+        /// is what buys that density back, and it is a *plane* tint rather than
+        /// ink (`surfaceTintColor`): deeper over a dark desktop, milkier over a
+        /// light one.
+        ///
+        /// It does not apply under Reduce Transparency — there is no glass left
+        /// to tint, `Surface.glassFallback` is already opaque, and a tint on
+        /// top of it would just be a second, dimmer plane.
+        static var glassTint: NSColor { surfaceTintColor("luna.surface.glassTint", Ink.glassTint) }
     }
 
     // MARK: - Text
@@ -339,6 +356,12 @@ enum Tokens {
         /// §2's URL-pill fill. Low enough that the glass behind it still reads
         /// as glass, high enough to give the page wash something to blend into.
         static let chromeFill = InkAlphas(light: 0.08, dark: 0.10, contrastLight: 0.14, contrastDark: 0.16)
+        /// §2's chrome tint — see `Surface.glassTint`. Well short of opaque:
+        /// the whole point of §2 is that the chrome samples the desktop, and a
+        /// tint heavy enough to hide that would be a coloured rectangle.
+        /// Increase Contrast thickens it, because a surface that is barely
+        /// there is exactly what that setting exists to firm up.
+        static let glassTint = InkAlphas(light: 0.32, dark: 0.34, contrastLight: 0.48, contrastDark: 0.50)
         /// §3.1's 35 % dim. Exempt from §21.4 — see `Text.disabled`. It still
         /// gains under Increase Contrast, because "disabled" has to remain
         /// *legible as a control* even when it is not readable as text.

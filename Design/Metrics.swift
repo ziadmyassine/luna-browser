@@ -78,43 +78,78 @@ extension Tokens {
 
         // MARK: Sidebar (§1, §3)
 
-        /// 280 / 180 / 420 pt. Everything else in §1 is proportioned to the default.
-        static let sidebarWidth = SpanMetric(default: 280, min: 180, max: 420)
-        /// 40 pt — tabs, `Archive` and `+ Add Tab` alike (§3.4, §30.6).
-        static let rowHeight: CGFloat = 40
+        /// 280 / 160 / 420 pt. Everything else in §1 is proportioned to the default.
+        static let sidebarWidth = SpanMetric(default: 280, min: 160, max: 420)
+        /// 38 pt of row **pitch** — tabs, `Archive` and `+ Add Tab` alike
+        /// (§3.4, §30.6). The drawn pill is `rowPillHeight`, which is this less
+        /// `rowGap`; the reference measures 109 px of pitch around a 100 px
+        /// pill at its 2.848 px/pt capture scale.
+        static let rowHeight: CGFloat = 38
         /// 8 pt inset of the row pill from each sidebar edge (§3.4).
         static let rowInset: CGFloat = 8
-        static let faviconSize: CGFloat = 18
-        static let rowCornerRadius: CGFloat = 10
+        /// 16 pt. Measured at 44 px in `inspiration/main-tab-bar-and-ui.png`,
+        /// for both a list row's favicon and an Essentials tile's icon.
+        static let faviconSize: CGFloat = 16
+        static let rowCornerRadius: CGFloat = 12
         /// The vertical breathing space between two row pills (§3.4).
         ///
-        /// §3.4 gives no number — it sizes the pill only horizontally
-        /// ("sidebar width minus 8 pt each side"). 4 pt is what keeps two
-        /// adjacent *selected* pills from fusing into one 80 pt slab at
-        /// `rowHeight` 40 and `rowCornerRadius` 10, which is the failure the
-        /// reference clearly does not have. Half `chromeGap`, so it moves with
-        /// the rest of the chrome rather than on its own.
-        static let rowGap: CGFloat = 4
+        /// Measured: 109 px of pitch minus a 100 px pill is 9 px, which is
+        /// 3 pt at the reference's capture scale. The pill is inset half of
+        /// this at the top and half at the bottom — see `rowPillInset`.
+        static let rowGap: CGFloat = 3
+        /// Half `rowGap`: what the selection pill is inset by, vertically,
+        /// inside its row.
+        static let rowPillInset = rowGap / 2
+        /// The drawn height of a row's pill — 35 pt, the 100 px the reference
+        /// measures. `rowHeight` is the pitch, this is the paint.
+        static let rowPillHeight = rowHeight - rowGap
+        /// 12 pt between the favicon and the title. Measured: the title's ink
+        /// starts 12 pt past the favicon's trailing edge.
+        static let rowIconGap: CGFloat = 12
+        /// The rule between `Archive` and `+ Add Tab` gets its own short row
+        /// (§3.4). 12 pt: the reference puts 6 pt of clear space either side of
+        /// the hairline, which is what separates the two command rows without
+        /// opening a gap the size of a tab.
+        static let separatorRowHeight: CGFloat = 12
 
-        /// 15 pt to the favicon's leading edge (§3.4).
+        /// 17.5 pt to the favicon's leading edge (§3.4).
         ///
-        /// **Measured correction.** §3.4 says the favicon sits 12 pt from the
-        /// pill's left edge and the title 40 pt in. In
-        /// `inspiration/main-tab-bar-and-ui.png` they measure ~15 pt and
-        /// ~41 pt, because the reference is not using flat insets at all: the
-        /// favicon is **centred in the row's leading `rowHeight`-wide zone**,
-        /// inside the `rowInset` the pill already carries —
-        /// 8 + (40 − 8 − 18) / 2 = 15 — and the title clears the favicon by
-        /// another `rowInset`: 15 + 18 + 8 = 41. Derived rather than written
-        /// down so both follow `rowHeight` and `faviconSize` if either moves.
-        static let rowFaviconInset = rowInset + (rowHeight - rowInset - faviconSize) / 2
-        /// 41 pt to the title's leading edge (§3.4). See `rowFaviconInset`.
-        static let rowTitleInset = rowFaviconInset + faviconSize + rowInset
+        /// **Measured correction, twice over.** §3.4 says the favicon sits
+        /// 12 pt from the pill's left edge and the title 40 pt in; M1 read
+        /// ~15 / ~41 off the reference. Re-measured against the capture's real
+        /// scale (the system traffic lights are 23 pt apart and 65.5 px apart
+        /// in the file, so 2.848 px/pt) they are **17.2 / 44.9**, and the rule
+        /// behind them is simpler than the one M1 inferred: the favicon is
+        /// **square-inset inside the pill** — the same 9.5 pt of padding on its
+        /// leading edge as above and below it — and the title clears it by
+        /// `rowIconGap`. Derived, so both follow the pill if it is retuned.
+        static let rowFaviconInset = rowInset + (rowPillHeight - faviconSize) / 2
+        /// 45.5 pt to the title's leading edge (§3.4). See `rowFaviconInset`.
+        static let rowTitleInset = rowFaviconInset + faviconSize + rowIconGap
+        /// The row's trailing affordance (§3.4): close on hover, speaker when a
+        /// tab is making noise.
+        ///
+        /// **It is a chip, not a bare glyph.** Measured off Martin's close-button
+        /// reference: a ~18 pt rounded square carrying its own translucent fill,
+        /// with an 11 pt `xmark` inside it — a bare 16 pt glyph floating in the
+        /// pill, which is what this was, reads as part of the title rather than
+        /// as something to click.
+        static let rowTrailingChip = RoundedMetric(width: 18, height: 18, cornerRadius: 6)
+        /// The glyph inside `rowTrailingChip`. Deliberately well short of the
+        /// chip: the padding is what makes the chip read as a button.
+        static let rowTrailingGlyph: CGFloat = 11
+        /// How far the title's ink stops short of the pill's trailing edge, and
+        /// the width of the §3.4 fade that hides the cut. A title that does not
+        /// fit is **faded out, never ellipsised** — the reference lets the last
+        /// glyph dissolve rather than spending three characters on an `…`.
+        static let rowTitleFade: CGFloat = 24
 
         // MARK: URL pill (§3.2)
 
-        /// 266 × 32, full radius.
-        static let urlPill = RoundedMetric(width: 266, height: 32, cornerRadius: 16)
+        /// 266 × 34, full radius. The height is measured (98 px); the width is
+        /// only the top bar's — in the sidebar the pill spans the width it is
+        /// given, less `rowInset` each side.
+        static let urlPill = RoundedMetric(width: 266, height: 34, cornerRadius: 17)
         /// §3.2: the domain starts 12 pt from the pill's leading edge.
         static let pillTextInset: CGFloat = 12
         /// §3.2: the sliders glyph sits 10 pt from the pill's trailing edge.
@@ -126,15 +161,32 @@ extension Tokens {
 
         /// 128 × 42, radius 12. Icon only — no label (§30.5).
         static let essentialsTile = RoundedMetric(width: 128, height: 42, cornerRadius: 12)
-        static let essentialsTileGap: CGFloat = 10
-        static let essentialsIcon: CGFloat = 22
+        static let essentialsTileGap: CGFloat = 12
+        /// The grid's own inset from the sidebar's edges — wider than
+        /// `rowInset`, measured at 10 pt, because a tile is a box and a row is
+        /// not.
+        static let essentialsInset: CGFloat = 10
+        /// A pinned tile's icon is the same 16 pt favicon a row draws; the tile
+        /// is roomy, the icon is not (measured 43 px).
+        static let essentialsIcon = faviconSize
 
         // MARK: Controls (§3.1, §3.5)
 
-        /// Back and reload: 35 pt circles.
+        /// Sidebar toggle, back and reload: 35 pt circles. All three, measured
+        /// at 100 px each — the toggle is **not** the smaller squircle §3.1
+        /// describes, it is the same circle as its neighbours.
         static let controlCircle = RoundedMetric.circle(35)
-        /// Sidebar toggle: 28 pt, radius 9.
+        /// The top bar's icon-only tab tile: 28 pt, radius 9. §3.1's sidebar
+        /// toggle used to borrow this; it does not any more.
         static let controlSquircle = RoundedMetric(width: 28, height: 28, cornerRadius: 9)
+        /// 5 pt between back and reload — measured at 14 px. Tighter than
+        /// `chromeGap`: the pair reads as one control, not two.
+        static let controlPairGap: CGFloat = 5
+        /// 18 pt from the window's leading **and** top edges to the traffic
+        /// lights (§3.1). One number for both axes on purpose: the reference
+        /// insets them equally (52 px left, 51.5 px top) and unequal padding
+        /// into a corner is the first thing the eye catches.
+        static let trafficLightInset: CGFloat = 18
         /// Profile avatar and archive: 34 pt circles.
         static let bottomCircle = RoundedMetric.circle(34)
         /// The Space switcher (§3.5): 56 × 22, radius 11, widening 8 pt per
@@ -149,7 +201,7 @@ extension Tokens {
         /// point size and a favicon image's edge are different measurements
         /// that happen to agree today, and the views were reaching for
         /// `faviconSize` to size glyphs for want of anything better.
-        static let glyphSize: CGFloat = 18
+        static let glyphSize: CGFloat = 17
 
         // MARK: Chrome gaps (§3.1, §3.2, §4)
 
@@ -178,10 +230,19 @@ extension Tokens {
 
         // MARK: Window and content card (§1, §3.6, §4)
 
-        static let windowCornerRadius: CGFloat = 18
-        static let contentCardRadius: CGFloat = 16
-        /// The 8 pt gap that shows the window's glass and makes the card float (§30.11).
-        static let contentCardGap: CGFloat = 8
+        /// 25 pt. Measured off the reference's own window corner (72 px), which
+        /// is a macOS 26 window rather than a shape Luna invented.
+        static let windowCornerRadius: CGFloat = 25
+        /// The content pane's corners **match the window's**, because the pane
+        /// is flush against three of the window's edges: a smaller radius would
+        /// leave a crescent of glass showing inside each window corner. Only
+        /// the two leading corners are actually drawn — see `ContentCardView`.
+        static let contentCardRadius = windowCornerRadius
+        /// A generic 8 pt inset for the panels that are not the content pane —
+        /// the Command Bar and the downloads list. **There is no content-card
+        /// gap any more:** the reference runs the page flush to the window's
+        /// top, bottom and trailing edges (§3.6).
+        static let panelInset: CGFloat = 8
         /// Both the top-bar layout's bar and the sidebar's control / utility rows (§3.1, §3.5, §4).
         static let topBarHeight: CGFloat = 52
         /// 1 pt. The *colour* is `Tokens.Line.hairline`.
@@ -237,12 +298,25 @@ extension Tokens {
     /// `static let NSFont` is a Swift 6 strict-concurrency error. Computed
     /// statics have no storage and are safe.
     enum TypeScale {
-        /// 15 pt — sidebar rows (§1; deliberately roomier than §8.6's 13 pt).
-        static var sidebarRow: NSFont { .monospacedDigitSystemFont(ofSize: 15, weight: .regular) }
-        /// 17 pt — the sidebar URL pill.
-        static var urlPill: NSFont { .monospacedDigitSystemFont(ofSize: 17, weight: .regular) }
-        /// 15 pt — the same pill in top-bar layout, where it shares the bar.
-        static var topBarURL: NSFont { .monospacedDigitSystemFont(ofSize: 15, weight: .regular) }
+        /// 13 pt — sidebar rows.
+        ///
+        /// **Re-measured, and it overturns §1's 15 pt.** In
+        /// `inspiration/main-tab-bar-and-ui.png` the row titles have a 20 px
+        /// x-height and a 25 px cap height, which at the capture's 2.848 px/pt
+        /// scale is a 13 pt system font — §8.6's original number. 15 pt was
+        /// inferred from a scale that assumed the reference's sidebar was
+        /// 280 pt; the sidebar is 268 pt and the type is 13.
+        ///
+        /// **Plain, not `monospacedDigit`.** §1 asks for tabular digits
+        /// "wherever a number is shown"; a page title is not a number, and
+        /// monospaced digits visibly widen a title like "iPhone 18 Pro". The
+        /// numeric faces below keep them.
+        static var sidebarRow: NSFont { .systemFont(ofSize: 13, weight: .regular) }
+        /// 13 pt — the sidebar URL pill, measured at the **same** x-height as
+        /// the rows. §1's 17 pt came from the same bad scale as the 15 pt above.
+        static var urlPill: NSFont { .systemFont(ofSize: 13, weight: .regular) }
+        /// 13 pt — the same pill in top-bar layout, where it shares the bar.
+        static var topBarURL: NSFont { .systemFont(ofSize: 13, weight: .regular) }
         /// 12 pt semibold — section labels.
         static var sectionLabel: NSFont { .monospacedDigitSystemFont(ofSize: 12, weight: .semibold) }
         /// 14 pt — the §5 downloads filename.

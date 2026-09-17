@@ -2,7 +2,7 @@
 //  SidebarRowView.swift
 //  Luna
 //
-//  One 40 pt row (§3.4): `[status dot] [favicon 18] [title 15 pt] [trailing]`.
+//  One 38 pt row (§3.4): `[status dot] [favicon 16] [title 13 pt] [trailing]`.
 //  `Archive` and `+ Add Tab` are the same view with a symbol instead of a
 //  favicon — §30.6 says they are first-class rows with identical metrics, so
 //  they are literally the same class.
@@ -13,11 +13,17 @@
 //  scroll at 120 fps: a reused row view owns four subviews, lays them out with
 //  arithmetic instead of constraints, and never allocates a glass effect.
 //
-//  Two spec deltas, both measured off `inspiration/main-tab-bar-and-ui.png`:
-//  §3.4's "favicon 12 pt from the pill's left edge" would leave a 2 pt gap to a
-//  title starting 40 pt in; the reference measures ~15 pt and ~41 pt, which is
-//  the favicon centred in a `rowHeight`-wide leading zone. And Luna has no
-//  intra-row gap token, so `rowInset` is used as the row's single spacing unit.
+//  Three spec deltas, all measured off `inspiration/main-tab-bar-and-ui.png`:
+//
+//  · §3.4's "favicon 12 pt from the pill's left edge, title 40 pt in" measures
+//    17.5 / 45.5 — the favicon is square-inset inside the pill and the title
+//    clears it by `rowIconGap`. The numbers live in `Metrics`, derived.
+//  · §3.4's "single line, tail-truncated" is wrong: the reference **fades** an
+//    over-long title out against the pill's trailing edge rather than spending
+//    three characters on an `…`. That is what `titleClip` and `fade` are for —
+//    the labels are laid out at their natural width inside a clipping box that
+//    carries a gradient mask, so the last glyph dissolves instead of being cut.
+//  · 13 pt, plain system font. See `Tokens.TypeScale.sidebarRow`.
 //
 
 import AppKit
@@ -58,10 +64,13 @@ final class SidebarRowView: NSView {
 
     private let icon = NSImageView()
     private let dot = NSView()
+    /// Clips and fades both title layers. See the header.
+    private let titleClip = NSView()
     private let title = NSTextField(labelWithString: "")
     /// The bright copy the §3.4 shimmer sweeps across. Hidden unless loading.
     private let shimmer = NSTextField(labelWithString: "")
     private let shimmerMask = CAGradientLayer()
+    private let fadeMask = CAGradientLayer()
     private let trailing = RowGlyphView()
     private var content = SidebarRowContent()
 
@@ -77,17 +86,25 @@ final class SidebarRowView: NSView {
         )
         dot.wantsLayer = true
         dot.layer?.cornerRadius = Tokens.Metric.spaceDot / 2
+        trailing.chromed = true
         for label in [title, shimmer] {
             label.font = Tokens.TypeScale.sidebarRow
-            label.lineBreakMode = .byTruncatingTail
+            // Clipping, not truncating: the fade below is what ends an
+            // over-long title, and an ellipsis would be drawn *before* it.
+            label.lineBreakMode = .byClipping
             label.cell?.usesSingleLineMode = true
+            titleClip.addSubview(label)
         }
+        titleClip.wantsLayer = true
+        titleClip.layer?.masksToBounds = true
         shimmer.wantsLayer = true
         shimmerMask.startPoint = CGPoint(x: 0, y: 0.5)
         shimmerMask.endPoint = CGPoint(x: 1, y: 0.5)
+        fadeMask.startPoint = CGPoint(x: 0, y: 0.5)
+        fadeMask.endPoint = CGPoint(x: 1, y: 0.5)
         trailing.onActivate = { [weak self] in self?.onTrailing?() }
 
-        for view in [icon, dot, title, shimmer, trailing] { addSubview(view) }
+        for view in [icon, dot, titleClip, trailing] { addSubview(view) }
         setAccessibilityElement(true)
         setAccessibilityRole(.cell)
     }
@@ -124,11 +141,16 @@ final class SidebarRowView: NSView {
             trailing.isHidden = false
             trailing.configure(
                 symbolName: muted ? "speaker.slash.fill" : "speaker.wave.2.fill",
-                label: muted ? "Unmute tab" : "Mute tab"
+                label: muted ? "Unmute tab" : "Mute tab",
+                pointSize: Tokens.Metric.rowTrailingGlyph
             )
         case .close:
             trailing.isHidden = false
-            trailing.configure(symbolName: "xmark", label: "Archive tab")
+            trailing.configure(
+                symbolName: "xmark",
+                label: "Archive tab",
+                pointSize: Tokens.Metric.rowTrailingGlyph
+            )
         }
     }
 
@@ -210,26 +232,36 @@ final class SidebarRowView: NSView {
         super.layout()
         let inset = Tokens.Metric.rowInset
         let glyph = Tokens.Metric.faviconSize
-        let iconX = inset + (Tokens.Metric.rowHeight - inset - glyph) / 2
-        icon.frame = NSRect(x: iconX, y: (bounds.height - glyph) / 2, width: glyph, height: glyph).integral
-
-        let dotSize = Tokens.Metric.spaceDot
-        dot.frame = NSRect(
-            x: Tokens.Metric.rowHeight,
-            y: (bounds.height - dotSize) / 2,
-            width: dotSize,
-            height: dotSize
-        ).integral
-
-        trailing.frame = NSRect(
-            x: bounds.maxX - inset - glyph,
+        icon.frame = NSRect(
+            x: Tokens.Metric.rowFaviconInset,
             y: (bounds.height - glyph) / 2,
             width: glyph,
             height: glyph
         ).integral
 
-        let titleX = Tokens.Metric.rowHeight + (content.hasUnread ? dotSize + inset : 0)
-        let titleRight = trailing.isHidden ? bounds.maxX - inset : trailing.frame.minX - inset
+        let dotSize = Tokens.Metric.spaceDot
+        dot.frame = NSRect(
+            x: Tokens.Metric.rowTitleInset,
+            y: (bounds.height - dotSize) / 2,
+            width: dotSize,
+            height: dotSize
+        ).integral
+
+        // **Inset from the pill, not from the row.** The pill is already
+        // `rowInset` inside the row, so one inset put the chip flush against
+        // the pill's edge; the reference keeps a full inset inside it.
+        let chip = Tokens.Metric.rowTrailingChip
+        trailing.frame = NSRect(
+            x: bounds.maxX - 2 * inset - chip.width,
+            y: (bounds.height - chip.height) / 2,
+            width: chip.width,
+            height: chip.height
+        ).integral
+
+        // The pill is `rowInset` inside the row, and the title keeps that same
+        // inset inside the pill — so it ends two insets short of the row.
+        let titleX = Tokens.Metric.rowTitleInset + (content.hasUnread ? dotSize + inset : 0)
+        let titleRight = trailing.isHidden ? bounds.maxX - 2 * inset : trailing.frame.minX - Tokens.Metric.chromeGap
         let height = title.intrinsicContentSize.height
         let box = NSRect(
             x: titleX,
@@ -237,35 +269,104 @@ final class SidebarRowView: NSView {
             width: max(titleRight - titleX, 0),
             height: height
         ).integral
-        title.frame = box
-        shimmer.frame = box
-        // A standalone `CALayer` animates its own frame changes implicitly, and
+        titleClip.frame = box
+
+        // Laid out at their *natural* width so nothing truncates; the clip box
+        // and `fade` are what end the line.
+        let natural = ceil(title.intrinsicContentSize.width)
+        let inner = NSRect(x: 0, y: 0, width: max(natural, box.width), height: box.height)
+        title.frame = inner
+        shimmer.frame = inner
+        // Standalone `CALayer`s animate their own frame changes implicitly, and
         // a scroll re-lays every visible row.
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         shimmerMask.frame = shimmer.bounds
+        applyFade(overflowing: natural > box.width, width: box.width)
         CATransaction.commit()
+    }
+
+    /// §3.4's fade. Nil mask when the title fits: a gradient that is opaque
+    /// end to end still costs a masked composite on every row of every scroll.
+    private func applyFade(overflowing: Bool, width: CGFloat) {
+        guard overflowing, width > Tokens.Metric.rowTitleFade else {
+            titleClip.layer?.mask = nil
+            return
+        }
+        let ink = Tokens.Text.primary
+        fadeMask.frame = titleClip.bounds
+        fadeMask.colors = [ink.cgColor, ink.cgColor, ink.withAlphaComponent(0).cgColor]
+        fadeMask.locations = [0, NSNumber(value: Double(1 - Tokens.Metric.rowTitleFade / width)), 1]
+        titleClip.layer?.mask = fadeMask
     }
 }
 
-/// The row's trailing glyph: a button with no chrome of its own, because §3.4
-/// gives it none. Its own accessibility element so VoiceOver can reach mute and
+/// The row's trailing affordance: close on hover, speaker while a tab is making
+/// noise (§3.4). Its own accessibility element so VoiceOver can reach mute and
 /// archive without a mouse (§21.1).
+///
+/// **A chip, not a bare glyph.** §3.4 describes no chrome around it and that is
+/// what shipped — a floating `xmark` that read as part of the title. Martin's
+/// close-button reference draws a rounded square with its own translucent fill
+/// behind the glyph, and the fill is the only thing that says "click me".
+/// `chromed` is off for the URL pill's sliders, which the reference genuinely
+/// does draw bare.
 @MainActor
 final class RowGlyphView: NSImageView {
 
     var onActivate: (() -> Void)?
     var tint: NSColor = Tokens.Text.secondary { didSet { contentTintColor = tint } }
 
-    func configure(symbolName: String, label: String) {
+    /// Draws the chip. Off by default so the §3.2 sliders glyph stays bare.
+    var chromed = false { didSet { needsDisplay = true } }
+
+    private var isHovering = false
+
+    func configure(symbolName: String, label: String, pointSize: CGFloat = Tokens.Metric.faviconSize) {
         image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)
-        symbolConfiguration = NSImage.SymbolConfiguration(
-            pointSize: Tokens.Metric.faviconSize,
-            weight: .regular
-        )
+        symbolConfiguration = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .regular)
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel(label)
+    }
+
+    /// The chip is painted here rather than on the layer because `NSImageView`
+    /// draws its own image in `draw(_:)` — a layer background would sit on top
+    /// of the glyph, not behind it.
+    override func draw(_ dirtyRect: NSRect) {
+        if chromed {
+            (isHovering ? Tokens.Surface.selected : Tokens.Surface.hover).setFill()
+            let radius = Tokens.Metric.rowTrailingChip.cornerRadius
+            NSBezierPath(roundedRect: bounds, xRadius: radius, yRadius: radius).fill()
+        }
+        super.draw(dirtyRect)
+    }
+
+    // MARK: - Hover
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas where area.owner === self { removeTrackingArea(area) }
+        addTrackingArea(NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+            owner: self
+        ))
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        isHovering = true
+        needsDisplay = true
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        isHovering = false
+        needsDisplay = true
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        needsDisplay = true
     }
 
     override func mouseDown(with event: NSEvent) {

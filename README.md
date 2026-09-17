@@ -34,7 +34,7 @@ keyboard-driven interface that stays out of the way, rather than breadth of feat
 
 macOS 26+, Xcode 26+, Swift 6.
 
-## Licence
+## License
 
 Luna will be released under the **GNU General Public License v3.0 or later**.
 The `LICENSE` file lands at publication.

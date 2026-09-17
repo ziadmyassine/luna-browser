@@ -20,14 +20,16 @@ final class SidebarRowModelTests: XCTestCase {
         Tab(spaceID: space, kind: kind, url: URL(string: "https://\(name).example")!, title: name)
     }
 
-    /// §3.4: `Archive` → `+ Add Tab` → separator → tabs, Essentials excluded.
+    /// `Archive` → separator → `+ Add Tab` → tabs, Essentials excluded. The
+    /// rule sits **between** the commands, which is what the reference shows —
+    /// §3.4's prose puts it after both.
     func testRowOrder() {
         let essential = tab(.essential, "e")
         let pinned = tab(.pinned, "p")
         let today = tab(.today, "t")
         let list = SidebarList(tabs: [today, essential, pinned])
 
-        XCTAssertEqual(list.rows, [.archive, .addTab, .separator, .tab(pinned.id), .tab(today.id)])
+        XCTAssertEqual(list.rows, [.archive, .separator, .addTab, .tab(pinned.id), .tab(today.id)])
         XCTAssertEqual(list.essentials, [essential])
         XCTAssertEqual(list.listed.map(\.id), [pinned.id, today.id])
     }
@@ -48,8 +50,8 @@ final class SidebarRowModelTests: XCTestCase {
         let list = SidebarList(tabs: [tab(.today, "t")])
 
         XCTAssertTrue(list.isSelectable(0))
-        XCTAssertTrue(list.isSelectable(1))
-        XCTAssertFalse(list.isSelectable(2))
+        XCTAssertFalse(list.isSelectable(1))
+        XCTAssertTrue(list.isSelectable(2))
         XCTAssertTrue(list.isSelectable(3))
         XCTAssertFalse(list.isSelectable(4))
     }

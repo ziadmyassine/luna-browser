@@ -27,6 +27,9 @@ final class GlassButton: NSView {
     /// sections). Return the pasteboard item for this button's content, or nil
     /// for a button that is not draggable.
     var dragItem: (() -> NSPasteboardItem?)?
+    /// The right-click menu, built on demand so it always reflects the
+    /// button's current tab rather than the one it was created with.
+    var menuBuilder: (() -> NSMenu?)?
     /// §3.3: the active Essential carries a 1 pt accent ring.
     var isAccented = false { didSet { refresh() } }
     /// §3.1: back dims when `canGoBack` is false.
@@ -157,6 +160,10 @@ final class GlassButton: NSView {
     }
 
     // MARK: - Activation
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        menuBuilder?() ?? super.menu(for: event)
+    }
 
     override func mouseDown(with event: NSEvent) {
         guard isEnabled else { return }

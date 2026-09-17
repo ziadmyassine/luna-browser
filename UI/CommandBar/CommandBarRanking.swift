@@ -205,18 +205,11 @@ enum CommandBarRanking {
         }
     }
 
-    //  ponytail: §9.5 (per-Space engine, bang keywords) is not built, so this is
-    //  one fixed engine. DuckDuckGo because §32 committed to zero telemetry and
-    //  §9.6 to not leaking queries. Swap for the Space's engine when §9.5 lands.
-    /// The floor: whatever else happened, a non-empty query can always be searched.
+    /// The floor: whatever else happened, a non-empty query can always be
+    /// searched. The engine lives in `CommandBarURL.search(for:)`, which §3.2's
+    /// pill commits through as well.
     private static func searchRow(query: String, hasDirectURL: Bool) -> CommandBarResult? {
-        guard !query.isEmpty, !hasDirectURL else { return nil }
-        var components = URLComponents()
-        components.scheme = "https"
-        components.host = "duckduckgo.com"
-        components.path = "/"
-        components.queryItems = [URLQueryItem(name: "q", value: query)]
-        guard let url = components.url else { return nil }
+        guard !query.isEmpty, !hasDirectURL, let url = CommandBarURL.search(for: query) else { return nil }
         // `url:` is deliberately left nil while the *action* carries the URL: a
         // search row must not dedupe against a history hit for the same search
         // page, and §9.4 must never autofill the field with a search URL.

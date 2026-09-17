@@ -7,8 +7,11 @@
 //  tab, and which section a drop lands in) are asserted in `Tests/Sidebar/`
 //  instead of discovered by dragging a row in a running app.
 //
-//  §3.4 fixes the order: `Archive` → `+ Add Tab` → separator → tabs. Essentials
-//  are **not** in this list; they are the §3.3 grid above the scroll view.
+//  The order is `Archive` → separator → `+ Add Tab` → tabs. §3.4's prose puts
+//  the rule *after* both commands; `inspiration/main-tab-bar-and-ui.png` puts
+//  it between them, and the image wins (§30). The rule reads as the end of the
+//  Archive section, not as the end of the commands. Essentials are **not** in
+//  this list; they are the §3.3 grid above the scroll view.
 //
 
 import BrowserKit
@@ -28,9 +31,10 @@ enum SidebarRow: Hashable, Sendable {
 /// today's tabs, in the order `BrowserSession` hands them over.
 struct SidebarList: Equatable, Sendable {
 
-    /// §3.4's fixed head. `separator` last, so both commands group together
-    /// above the rule.
-    static let leading: [SidebarRow] = [.archive, .addTab, .separator]
+    /// The fixed head. The rule sits **between** the two commands, closing off
+    /// `Archive` — measured, against §3.4's prose. Its length is what every
+    /// drop index is measured from, and that has not changed.
+    static let leading: [SidebarRow] = [.archive, .separator, .addTab]
 
     /// Tabs in list order (pinned first), excluding Essentials.
     let listed: [Tab]

@@ -2,10 +2,17 @@
 //  ContentCardView.swift
 //  Luna
 //
-//  The web content's host: an **opaque** rounded card floating inside the
-//  window's glass (UI-SPEC §3.6, TODO.md §30.11). The 8 pt gap around it is
-//  what makes the whole window read as floating, so the card owns its own edge
-//  constraints — one place computes the gap, and it animates for free.
+//  The web content's host: an **opaque** pane filling everything the chrome
+//  does not (UI-SPEC §3.6, TODO.md §30.11). The pane owns its own edge
+//  constraints — one place computes the insets, and they animate for free.
+//
+//  **There is no gap any more.** §3.6's "inset 8 pt from the sidebar and from
+//  the window's top, right and bottom edges" is not what
+//  `inspiration/main-tab-bar-and-ui.png` does: the page runs flush to all
+//  three window edges and flush against the sidebar, and only its two
+//  **leading** corners are rounded — at the window's own radius, so they nest
+//  with the window's corners instead of leaving a crescent of glass inside
+//  each one. The floating read comes from the sidebar's glass, not from a moat.
 //
 //  The card is never translucent. A live web page behind glass is unreadable
 //  (UI-SPEC §2), which is why this is the one chrome surface that does not ask
@@ -16,13 +23,14 @@ import AppKit
 
 extension ChromeState {
 
-    /// Whether the content card is the inset floating card (§3.6) or flush
-    /// full-bleed under the top bar (§4). Not a style choice: §4 says the
-    /// top-bar layout has no gap and no card corners at all.
+    /// Whether the pane's **leading** corners are rounded. Only the sidebar
+    /// layout has an edge that is not a window edge, so only it does: under the
+    /// top bar, collapsed, or in fullscreen the pane meets the window on every
+    /// side and the window's own mask is the only corner there is.
     var cardIsInset: Bool {
         switch self {
-        case .sidebar, .sidebarCollapsed: true
-        case .topBar, .fullscreen: false
+        case .sidebar: true
+        case .sidebarCollapsed, .topBar, .fullscreen: false
         }
     }
 
@@ -31,18 +39,18 @@ extension ChromeState {
     /// Pure, and unit-tested alongside the traffic lights: this and
     /// `TrafficLightLayout` are the only two places window geometry is decided.
     var cardInsets: NSEdgeInsets {
-        let gap = Tokens.Metric.contentCardGap
         let row = Tokens.Metric.topBarHeight
         switch self {
         case let .sidebar(width):
-            // §3.6: 8 pt from the sidebar and from the window's other edges.
-            return NSEdgeInsets(top: gap, left: width + gap, bottom: gap, right: gap)
+            // Flush to the window's top, bottom and trailing edges; the sidebar
+            // is the only thing that insets it.
+            return NSEdgeInsets(top: 0, left: width, bottom: 0, right: 0)
         case .sidebarCollapsed:
             // No sidebar to inset from, but the traffic lights still need their
             // row — without it they would sit on top of the page.
-            return NSEdgeInsets(top: row, left: gap, bottom: gap, right: gap)
+            return NSEdgeInsets(top: row, left: 0, bottom: 0, right: 0)
         case .topBar:
-            // §4: flush full-bleed below the bar. No gap, on purpose.
+            // §4: flush full-bleed below the bar.
             return NSEdgeInsets(top: row, left: 0, bottom: 0, right: 0)
         case .fullscreen:
             return NSEdgeInsets()
@@ -54,8 +62,8 @@ extension ChromeState {
 @MainActor
 final class ContentCardView: NSView {
 
-    /// `true` = sidebar layout (rounded, floating). `false` = top-bar layout
-    /// (square, flush). Drives the corner radius; the gap itself is `insets`.
+    /// `true` = sidebar layout, where the pane's leading edge is not a window
+    /// edge and its two leading corners are rounded. `false` everywhere else.
     var isInset: Bool = true {
         didSet {
             guard isInset != oldValue else { return }
@@ -73,8 +81,7 @@ final class ContentCardView: NSView {
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.cornerCurve = .continuous
-        // Clips the page to the card's corners; also why the page can never
-        // paint into the 8 pt gap.
+        // Clips the page to the pane's corners.
         layer?.masksToBounds = true
         updateCornerRadius()
     }
@@ -166,8 +173,11 @@ final class ContentCardView: NSView {
     // MARK: - Appearance
 
     private func updateCornerRadius() {
-        // Square when flush: a full-bleed card has no corners to round, and the
-        // window's own 18 pt mask already rounds it at the window edges.
+        // **Leading corners only.** The trailing edge is the window's, and the
+        // window's own mask already rounds it — rounding it here as well would
+        // round the pane inside a corner that is already round and show glass
+        // through the crescent between the two.
+        layer?.maskedCorners = [.layerMinXMinYCorner, .layerMinXMaxYCorner]
         layer?.cornerRadius = isInset ? Tokens.Metric.contentCardRadius : 0
     }
 

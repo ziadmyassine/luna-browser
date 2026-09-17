@@ -21,21 +21,32 @@ final class TrafficLightLayoutTests: XCTestCase {
         buttonHeight: 14,
         titlebarHeight: 32
     )
-    private let row: CGFloat = 52
-    private let leading: CGFloat = 8
+    private let inset: CGFloat = 18
 
-    private func origins(_ state: ChromeState, system: TrafficLightMetrics? = nil) -> [CGPoint]? {
+    private func origins(
+        _ state: ChromeState,
+        system: TrafficLightMetrics? = nil,
+        inset: CGFloat? = nil
+    ) -> [CGPoint]? {
         TrafficLightLayout.origins(
             for: state,
             system: system ?? self.system,
-            controlRowHeight: row,
-            leading: leading
+            inset: inset ?? self.inset
         )
     }
 
     func testSidebarPlacesAllThreeButtonsFromTheLeadingInset() throws {
         let placed = try XCTUnwrap(origins(.sidebar(width: 280)))
-        XCTAssertEqual(placed.map(\.x), [8, 31, 54])
+        XCTAssertEqual(placed.map(\.x), [18, 41, 64])
+    }
+
+    /// The reason the parameter is one number instead of two: the reference
+    /// insets the lights equally from the window's leading and top edges, and
+    /// 8 pt left against 18 pt top is the asymmetry that got this rewritten.
+    func testTheLeadingAndTopInsetsAreTheSame() throws {
+        let placed = try XCTUnwrap(origins(.sidebar(width: 280)))
+        let fromTop = system.titlebarHeight - placed[0].y - system.buttonHeight
+        XCTAssertEqual(fromTop, placed[0].x)
     }
 
     func testKeepsTheSystemSpacingRatherThanInventingItsOwn() throws {
@@ -69,39 +80,27 @@ final class TrafficLightLayoutTests: XCTestCase {
     /// A button hung below the titlebar still draws (nothing clips) but stops
     /// hit-testing, which is a traffic light you can see and cannot click.
     func testNeverPlacesAButtonOutsideTheTitlebar() throws {
-        for rowHeight in stride(from: CGFloat(20), through: 120, by: 4) {
-            let placed = try XCTUnwrap(TrafficLightLayout.origins(
-                for: .sidebar(width: 280),
-                system: system,
-                controlRowHeight: rowHeight,
-                leading: leading
-            ))
+        for candidate in stride(from: CGFloat(-10), through: 120, by: 2) {
+            let placed = try XCTUnwrap(origins(.sidebar(width: 280), inset: candidate))
             for origin in placed {
-                XCTAssertGreaterThanOrEqual(origin.y, 0, "row \(rowHeight)")
+                XCTAssertGreaterThanOrEqual(origin.y, 0, "inset \(candidate)")
                 XCTAssertLessThanOrEqual(
                     origin.y + system.buttonHeight,
                     system.titlebarHeight,
-                    "row \(rowHeight)"
+                    "inset \(candidate)"
                 )
             }
         }
     }
 
-    /// At the measured macOS 26 sizes the clamp costs 1 pt: the ideal centre of
-    /// a 52 pt row is 26 pt from the top, the clamp lands at 25 pt.
-    func testClampCostsAtMostOnePointAtTheShippingSizes() throws {
-        let placed = try XCTUnwrap(origins(.sidebar(width: 280)))
-        let centreFromTop = system.titlebarHeight - placed[0].y - system.buttonHeight / 2
-        XCTAssertEqual(centreFromTop, row / 2, accuracy: 1)
-    }
-
-    /// When the titlebar is tall enough there is no clamp and the lights are
-    /// exactly centred — this is what the clamp degrades from.
-    func testCentresExactlyWhenTheTitlebarIsAsTallAsTheRow() throws {
-        var tall = system
-        tall.titlebarHeight = row
-        let placed = try XCTUnwrap(origins(.sidebar(width: 280), system: tall))
-        XCTAssertEqual(placed[0].y, (row - system.buttonHeight) / 2)
+    /// The shipping inset fits inside the measured macOS 26 titlebar with
+    /// nothing to clamp, so the lights land exactly where they were asked to.
+    func testTheShippingInsetIsNotClamped() throws {
+        let placed = try XCTUnwrap(origins(.sidebar(width: 280), inset: Tokens.Metric.trafficLightInset))
+        XCTAssertEqual(
+            system.titlebarHeight - placed[0].y - system.buttonHeight,
+            Tokens.Metric.trafficLightInset
+        )
     }
 
     func testNoButtonsMeansNoLayout() {
@@ -115,21 +114,22 @@ final class TrafficLightLayoutTests: XCTestCase {
 /// the sidebar layout, flush and full-bleed under the top bar.
 final class ContentCardGeometryTests: XCTestCase {
 
-    private let gap = Tokens.Metric.contentCardGap
     private let row = Tokens.Metric.topBarHeight
 
-    func testSidebarLayoutInsetsTheCardFromTheSidebarAndEveryWindowEdge() {
+    /// The sidebar is the only thing that insets the page. Everything else is a
+    /// window edge, and the reference runs the page flush to all three.
+    func testSidebarLayoutInsetsTheCardFromTheSidebarAndNothingElse() {
         let insets = ChromeState.sidebar(width: 280).cardInsets
-        XCTAssertEqual(insets.left, 280 + gap)
-        XCTAssertEqual(insets.top, gap)
-        XCTAssertEqual(insets.right, gap)
-        XCTAssertEqual(insets.bottom, gap)
+        XCTAssertEqual(insets.left, 280)
+        XCTAssertEqual(insets.top, 0)
+        XCTAssertEqual(insets.right, 0)
+        XCTAssertEqual(insets.bottom, 0)
         XCTAssertTrue(ChromeState.sidebar(width: 280).cardIsInset)
     }
 
-    func testTheGapSurvivesEverySidebarWidth() {
+    func testTheSidebarEdgeTracksEverySidebarWidth() {
         for width in [Tokens.Metric.sidebarWidth.min, 280, Tokens.Metric.sidebarWidth.max] {
-            XCTAssertEqual(ChromeState.sidebar(width: width).cardInsets.left, width + gap)
+            XCTAssertEqual(ChromeState.sidebar(width: width).cardInsets.left, width)
         }
     }
 
@@ -144,11 +144,12 @@ final class ContentCardGeometryTests: XCTestCase {
     }
 
     /// With no sidebar the lights still need their row, or they sit on the page.
+    /// Nothing is rounded there: every edge the page has is a window edge.
     func testCollapsedSidebarKeepsTheControlRowClear() {
         let insets = ChromeState.sidebarCollapsed.cardInsets
         XCTAssertEqual(insets.top, row)
-        XCTAssertEqual(insets.left, gap)
-        XCTAssertTrue(ChromeState.sidebarCollapsed.cardIsInset)
+        XCTAssertEqual(insets.left, 0)
+        XCTAssertFalse(ChromeState.sidebarCollapsed.cardIsInset)
     }
 
     func testFullscreenFillsTheWindow() {

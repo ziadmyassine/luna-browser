@@ -191,6 +191,23 @@ func inkColor(_ name: String, _ alphas: InkAlphas) -> NSColor {
     }
 }
 
+/// A translucent *plane* tint — the mirror of `inkColor`: **white on light,
+/// black on dark**.
+///
+/// `inkColor` exists to put marks on a surface, so it flips to white in dark
+/// mode to stay legible. A tint that thickens a surface has to go the other
+/// way: over a dark desktop the chrome reads as deeper, over a light one as
+/// milkier. Using ink here would brighten the sidebar in dark mode, which is
+/// the opposite of "less transparent".
+func surfaceTintColor(_ name: String, _ alphas: InkAlphas) -> NSColor {
+    let contrast = Tokens.A11y.increaseContrast
+    let pair = alphas.inForce
+    return NSColor(name: NSColor.Name(contrast ? name + ".contrast" : name)) { appearance in
+        let isDark = appearance.isDark
+        return NSColor(white: isDark ? 0 : 1, alpha: isDark ? pair.dark : pair.light)
+    }
+}
+
 /// A drop shadow's colour: **black in both themes**, with a per-theme alpha.
 ///
 /// Not `inkColor`, which flips to white on dark — a white shadow is a glow, and
