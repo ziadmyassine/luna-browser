@@ -75,7 +75,10 @@ final class InternalPageThemeTests: XCTestCase {
     /// numbers that happens to agree today (§1).
     func testLengthsTrackTheMetricTokens() {
         let css = InternalPageTheme.css()
-        XCTAssertEqual(value(of: "--luna-row-height", in: css, after: ":root{"), "40px")
+        XCTAssertEqual(
+            value(of: "--luna-row-height", in: css, after: ":root{"),
+            "\(Int(Tokens.Metric.rowHeight))px"
+        )
         XCTAssertEqual(
             value(of: "--luna-tile-w", in: css, after: ":root{"),
             "\(Int(Tokens.Metric.essentialsTile.width))px"
