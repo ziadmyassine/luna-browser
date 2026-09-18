@@ -281,7 +281,13 @@ final class SettingsWindowTests: XCTestCase {
             [SettingsMetrics.minWidth, SettingsMetrics.minHeight],
             "§1's 640 × 420 floor is missing from the root view"
         )
-        XCTAssertEqual(window.contentView?.frame.size, SettingsMetrics.contentSize)
+        // **Not the default size.** `windowFrameAutosaveName` restores whatever
+        // the user last dragged the window to, so asserting 720 × 520 here made
+        // this test pass or fail according to the machine's own defaults. What
+        // §1 actually promises is the floor, and that is what is checked.
+        let size = try XCTUnwrap(window.contentView?.frame.size)
+        XCTAssertGreaterThanOrEqual(size.width, SettingsMetrics.minWidth)
+        XCTAssertGreaterThanOrEqual(size.height, SettingsMetrics.minHeight)
         XCTAssertTrue(window.styleMask.contains(.resizable))
         XCTAssertFalse(window.isRestorable, "§1: not restorable into a browser window")
         window.close()

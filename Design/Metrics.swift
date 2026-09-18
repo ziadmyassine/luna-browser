@@ -194,11 +194,15 @@ extension Tokens {
 
         /// 128 × 42, radius 12. Icon only — no label (§30.5).
         static let essentialsTile = RoundedMetric(width: 128, height: 42, cornerRadius: 12)
-        /// The gap between two tiles, and the same number as the grid's inset
-        /// from the sidebar's edges — an even grid, not a grid with a wider
-        /// gutter down its middle than around its outside.
-        static let essentialsTileGap = rowInset
-        /// The grid's own inset from the sidebar's edges.
+        /// The gap between two tiles, across and down.
+        ///
+        /// **5, not `rowInset`.** Two tiles a full row-inset apart read as two
+        /// separate controls that happen to be side by side; the grid is one
+        /// block of pinned sites, and the gutter between them should be the
+        /// smaller number. Martin: "decrease the spacing … between the two
+        /// pinned tabs beside each other".
+        static let essentialsTileGap: CGFloat = 5
+        /// The grid's inset from the sidebar's leading and trailing edges.
         ///
         /// **`rowInset`, so the tiles line up with everything else.** It was
         /// 10 pt against the URL pill's and the row pills' 8, which put the
@@ -206,6 +210,16 @@ extension Tokens {
         /// below it — a misalignment small enough to be invisible one element
         /// at a time and obvious down the length of the sidebar.
         static let essentialsInset = rowInset
+        /// The grid's inset above the first row of tiles and below the last.
+        ///
+        /// **`essentialsTileGap`, and for the reason the tiles' own gutter is
+        /// that number.** The sides are an alignment — the tiles have to agree
+        /// with the pill above and the rows below, and they do so at
+        /// `rowInset`. Top and bottom are a *gap*, and every gap inside the
+        /// grid is the same one: the space between the URL pill and the tiles
+        /// under it reads as the space between two tiles, which is what makes
+        /// the pill and the grid one block.
+        static let essentialsVerticalInset = essentialsTileGap
         /// A pinned tile's icon is the same 16 pt favicon a row draws; the tile
         /// is roomy, the icon is not (measured 43 px).
         static let essentialsIcon = faviconSize
@@ -344,57 +358,22 @@ extension Tokens {
         /// §7.2: how close to the window's leading edge the pointer has to get
         /// before a hidden sidebar peeks out.
         ///
-        /// **It was 4 pt, and 4 pt was unusable.** A screen edge can be 1 pt
-        /// wide because the pointer piles up against it; a *window* edge has
-        /// nothing to stop the pointer, so hitting a 4 pt strip means aiming at
-        /// it. `hoverPeekDelay` is what keeps a wider strip from firing on the
-        /// way past, so the width can be as generous as the gesture wants.
-        static let sidebarPeekEdge: CGFloat = 24
+        /// **It was 4 pt, then 24, and both meant aiming.** A screen edge can be
+        /// 1 pt wide because the pointer piles up against it; a *window* edge
+        /// has nothing to stop the pointer, so a narrow strip has to be hit
+        /// deliberately — and the gesture is "shove the mouse over to the left",
+        /// which lands somewhere in the first inch. 44 is about a thumb's width
+        /// of travel and it catches that shove. Nothing is lost to it: the strip
+        /// never takes a click (`SidebarPeekEdgeView.hitTest` returns nil), and
+        /// `hoverPeekDelay` is what stops a pointer merely crossing it on the
+        /// way somewhere else from flinging a sidebar out.
+        static let sidebarPeekEdge: CGFloat = 44
+        /// §6.6: how far a press has to travel before it stops being a click
+        /// and becomes a drag. AppKit's own threshold for a table drag is 3–4
+        /// pt; 4 is far enough that selecting a tab with a slightly unsteady
+        /// hand does not lift it, and near enough that a deliberate pull is
+        /// answered at once.
+        static let dragThreshold: CGFloat = 4
 
-    }
-
-    /// §1's type scale. System font throughout (§8.6/§8.7).
-    ///
-    /// Every face here is the **monospaced-digit** system font: §1 asks for
-    /// tabular digits "wherever a number is shown", and a badge, a download
-    /// size and a row title are all drawn with these four. The letterforms are
-    /// identical to the plain system font, so this costs nothing and removes
-    /// the chance of someone forgetting it on the one label that jitters.
-    ///
-    /// `var`, not the `let` the contract sketched: `NSFont` is **not**
-    /// `NS_SWIFT_SENDABLE` in the macOS 26.5 SDK (verified in `NSFont.h`), so a
-    /// `static let NSFont` is a Swift 6 strict-concurrency error. Computed
-    /// statics have no storage and are safe.
-    enum TypeScale {
-        /// 13 pt — sidebar rows.
-        ///
-        /// **Re-measured, and it overturns §1's 15 pt.** In
-        /// `inspiration/main-tab-bar-and-ui.png` the row titles have a 20 px
-        /// x-height and a 25 px cap height, which at the capture's 2.848 px/pt
-        /// scale is a 13 pt system font — §8.6's original number. 15 pt was
-        /// inferred from a scale that assumed the reference's sidebar was
-        /// 280 pt; the sidebar is 268 pt and the type is 13.
-        ///
-        /// **Plain, not `monospacedDigit`.** §1 asks for tabular digits
-        /// "wherever a number is shown"; a page title is not a number, and
-        /// monospaced digits visibly widen a title like "iPhone 18 Pro". The
-        /// numeric faces below keep them.
-        static var sidebarRow: NSFont { .systemFont(ofSize: 13, weight: .regular) }
-        /// 13 pt — the sidebar URL pill, measured at the **same** x-height as
-        /// the rows. §1's 17 pt came from the same bad scale as the 15 pt above.
-        static var urlPill: NSFont { .systemFont(ofSize: 13, weight: .regular) }
-        /// 13 pt — the same pill in top-bar layout, where it shares the bar.
-        static var topBarURL: NSFont { .systemFont(ofSize: 13, weight: .regular) }
-        /// 12 pt semibold — section labels.
-        static var sectionLabel: NSFont { .monospacedDigitSystemFont(ofSize: 12, weight: .semibold) }
-        /// 14 pt — the §5 downloads filename.
-        static var downloadFilename: NSFont { .monospacedDigitSystemFont(ofSize: 14, weight: .regular) }
-        /// 15 pt semibold — a Settings group's title. One step above the body
-        /// and the only place in Luna a heading appears over chrome.
-        static var settingsHeading: NSFont { .systemFont(ofSize: 15, weight: .semibold) }
-        /// 12 pt — the explanatory line under a Settings control. Plain, not
-        /// `sectionLabel`: this is prose, and semibold tabular prose is a
-        /// label pretending to be a sentence.
-        static var settingsCaption: NSFont { .systemFont(ofSize: 12, weight: .regular) }
     }
 }

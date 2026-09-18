@@ -32,12 +32,17 @@ final class SettingsSectionList: NSView {
         let stack = NSStackView(views: rows)
         stack.orientation = .vertical
         stack.alignment = .leading
-        stack.spacing = SettingsMetrics.rowGap
+        stack.spacing = SettingsMetrics.sectionRowGap
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
+        // **Inset from the column, not flush to it.** The selected row is a
+        // pill lying on the glass; a pill that runs edge to edge is a band, and
+        // the reference leaves the same `rowInset` either side of it that the
+        // browser sidebar leaves around a tab.
+        let margin = Tokens.Metric.settingsSectionInset
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: margin),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -margin),
             stack.topAnchor.constraint(equalTo: topAnchor),
             // Less-than, not equal: the rows sit at the top and the column's
             // spare height stays spare.
@@ -124,6 +129,11 @@ final class SettingsSectionRowView: NSView {
 
     private let label: NSTextField
     private let icon = NSImageView()
+    /// The rounded square the symbol sits in. **The reference's one structural
+    /// idea in this column**: a tile per section turns a stack of labels with
+    /// glyphs beside them into a list of places, and it is what makes the eye
+    /// land on the row rather than on the word.
+    private let tile = NSView()
 
     init(title: String, symbolName: String) {
         label = NSTextField(labelWithString: title)
@@ -131,24 +141,32 @@ final class SettingsSectionRowView: NSView {
         wantsLayer = true
         layer?.cornerCurve = .continuous
 
-        label.font = Tokens.TypeScale.sidebarRow
+        label.font = Tokens.TypeScale.settingsRow
         label.lineBreakMode = .byTruncatingTail
+        tile.wantsLayer = true
+        tile.layer?.cornerCurve = .continuous
         icon.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
             .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: SettingsMetrics.symbolSize, weight: .regular))
-        icon.setContentHuggingPriority(.required, for: .horizontal)
+        icon.translatesAutoresizingMaskIntoConstraints = false
+        tile.addSubview(icon)
+        tile.setContentHuggingPriority(.required, for: .horizontal)
 
-        let stack = NSStackView(views: [icon, label])
+        let stack = NSStackView(views: [tile, label])
         stack.orientation = .horizontal
         stack.alignment = .centerY
-        stack.spacing = Tokens.Metric.rowIconGap
+        stack.spacing = Tokens.Metric.chromeGap
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
+        let square = Tokens.Metric.settingsSectionIcon
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Tokens.Metric.rowInset),
-            stack.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -Tokens.Metric.rowInset),
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: SettingsMetrics.sectionRowInset),
+            stack.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -SettingsMetrics.sectionRowInset),
             stack.centerYAnchor.constraint(equalTo: centerYAnchor),
-            icon.widthAnchor.constraint(equalToConstant: SettingsMetrics.symbolSize),
-            heightAnchor.constraint(equalToConstant: SettingsMetrics.rowHeight)
+            tile.widthAnchor.constraint(equalToConstant: square.width),
+            tile.heightAnchor.constraint(equalToConstant: square.height),
+            icon.centerXAnchor.constraint(equalTo: tile.centerXAnchor),
+            icon.centerYAnchor.constraint(equalTo: tile.centerYAnchor),
+            heightAnchor.constraint(equalToConstant: Tokens.Metric.settingsSectionRow)
         ])
 
         setAccessibilityElement(true)
@@ -174,6 +192,14 @@ final class SettingsSectionRowView: NSView {
         layer?.backgroundColor = fill?.cgColor
         layer?.borderWidth = isSelected && Tokens.A11y.increaseContrast ? Tokens.Metric.hairline : 0
         layer?.borderColor = Tokens.Line.border.cgColor
+        // **A chip, and it has to read on both fills.** `Surface.well` is a
+        // recess and disappeared into the glass; the tile is the same wash the
+        // selected row carries, which lands one step above the column whether
+        // the row under it is selected or not.
+        tile.layer?.cornerRadius = Tokens.Metric.settingsSectionIcon.cornerRadius
+        tile.layer?.backgroundColor = Tokens.Surface.selected.cgColor
+        tile.layer?.borderWidth = Tokens.Metric.hairline
+        tile.layer?.borderColor = Tokens.Line.border.cgColor
     }
 
     override func viewDidChangeEffectiveAppearance() {

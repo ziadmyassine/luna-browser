@@ -31,24 +31,49 @@ an enforced one, so it is on review to catch.
 |---|---|
 | Window content | 720 × 520, resizable, min 640 × 420 |
 | Window corner | `windowCornerRadius` (25) |
-| Section list width | 196, fixed (not `sidebarWidth`, which is user-dragged) |
-| Section row height | `rowHeight` (38) |
-| Section row radius | `rowCornerRadius` (12) |
-| Row gap | `rowGap` (3) |
+| Section list width | `settingsListWidth` (230), fixed (not `sidebarWidth`, which is user-dragged) |
+| Section row height / radius | `settingsSectionRow` (36) / `rowCornerRadius` (12) |
+| Section icon tile | `settingsSectionIcon` (26, radius 7) |
 | Pane inset | `chromeGapWide` (16) |
-| Control row height | `capsuleHeight` (36) |
-| Gap between control rows | `chromeGap` (8) |
-| Search field | `urlPill` height (34), full list width |
+| Card row height | `settingsCardRow` (52) |
+| Card row inset (text grid) | `chromeGapWide` (16) |
+| Gap between cards | `settingsGroupGap` (26) |
+| Search field | `urlPill` height (34), full radius, full list width |
+| Row and section label face | `TypeScale.settingsRow` (15) |
 | Symbol size | `faviconSize` (16) |
 
 **Materials.** The section list is `Glass.apply(.sidebar, to:)` — the same
-material as the browser sidebar, sampling the wallpaper. The detail pane is
-**opaque** (`Tokens.Surface.base`), exactly as the content card is: a form is
-read, not looked through. Grouped control rows sit on `Glass.backing(.control,
-cornerRadius: rowCornerRadius)`.
+material as the browser sidebar, sampling the wallpaper, on a window that is
+`isOpaque = false` with a clear background so there is something behind it to
+sample. The detail pane is **opaque** (`Tokens.Surface.base`), exactly as the
+content card is: a form is read, not looked through. Grouped control rows sit on
+`Glass.backing(.control, cornerRadius: rowCornerRadius)`.
 
-The window is titled "Luna Settings", uses the standard traffic lights with no
-custom layout manager, and is **not** restorable into a browser window.
+The window is titled "Luna Settings" with the title **hidden** and the titlebar
+transparent over a `.fullSizeContentView`, so the glass column runs the full
+height of the window and the traffic lights sit on it. It uses the standard
+lights with no custom layout manager, and is **not** restorable into a browser
+window.
+
+### 1.1 The shape, re-measured against a reference
+
+Martin's reference (Raycast's settings) is the same two-column window, and three
+things in it are structural rather than decorative. All three are now Luna's:
+
+- **A section row is a tile plus a word.** The symbol sits in a 26 pt rounded
+  square drawn as a `Surface.well` recess — the same well the two search fields
+  in the app sit in. A glyph loose beside a label reads as decoration; a tile
+  reads as a place. The row is 36 pt and the label is 15 pt.
+- **A card is one card.** Its rows butt together and are separated by a hairline
+  that starts at the row's own text inset, not at the card's edge. Rows with a
+  gap between them read as six small panels; ruled rows read as one group. The
+  group's name sits above the card, indented to the same text inset, so every
+  piece of type in the pane lines up on one edge.
+- **There is no title over the pane.** It repeated, in 12 pt semibold, the word
+  the user had just clicked two inches to the left. In its place is a
+  back/forward capsule (`SettingsNavCapsule`) on the pane's top inset, level with
+  the traffic lights across the divider, carrying the one thing the list cannot
+  show: the order the sections were actually visited in.
 
 ---
 
@@ -83,6 +108,10 @@ custom layout manager, and is **not** restorable into a browser window.
   makes the list jump under the pointer.
 - `⌘,` opens the window; `⌘W` closes it; `⌘F` focuses the search field.
   `⌘1`…`⌘9` jump to a section.
+- **Back and forward** walk the visited list. Picking a section after going back
+  truncates whatever was ahead of the cursor, which is the rule a browser's own
+  history has; a direction you cannot go is dimmed, never hidden, so the capsule
+  does not change width while you use it.
 
 ---
 

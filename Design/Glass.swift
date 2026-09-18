@@ -65,13 +65,15 @@ enum Glass {
         _ style: Style,
         cornerRadius: CGFloat = 0,
         cornerCurve: CALayerCornerCurve = .continuous,
-        maskedCorners: CACornerMask = Glass.allCorners
+        maskedCorners: CACornerMask = Glass.allCorners,
+        rimmed: Bool = false
     ) -> NSView {
         GlassBackingView(
             style: style,
             cornerRadius: cornerRadius,
             cornerCurve: cornerCurve,
-            maskedCorners: maskedCorners
+            maskedCorners: maskedCorners,
+            rimmed: rimmed
         )
     }
 
@@ -184,10 +186,15 @@ enum Glass {
         // other way round: the pane is flush to the window here, and the
         // sidebar is the thing floating in front of it, so the corner belongs
         // to the sidebar.
+        // **And rimmed**, which is the other half of the same seam. Where the
+        // sidebar is *not* floating, the page's own leading hairline draws the
+        // join; floating over the page there is no page edge to draw it, so the
+        // plane carries the edge itself.
         backing(
             .sidebar,
             cornerRadius: Tokens.Metric.contentCardRadius,
-            maskedCorners: [.layerMaxXMinYCorner, .layerMaxXMaxYCorner]
+            maskedCorners: [.layerMaxXMinYCorner, .layerMaxXMaxYCorner],
+            rimmed: true
         )
     }
 

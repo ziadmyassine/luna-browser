@@ -6,9 +6,11 @@
 //
 //  **The traffic lights are not laid out here.** `TrafficLightLayoutManager`
 //  owns their frames for all six window states (§7.7); this row only has to
-//  leave their space clear, and it does that by *measuring* them — converting
-//  the zoom button's frame out of the titlebar and into this row — rather than
-//  hard-coding a width that AppKit is free to change.
+//  leave their space clear. It does that by measuring what AppKit owns and
+//  never moves — the buttons' size, and the spacing between them — and deriving
+//  the rest from `trafficLightInset`, the one number the manager places them
+//  with. Reading their live origins instead is a race this row loses on every
+//  resize; see `trafficLights`.
 //
 //  Two deliberate departures from §3.1's written order, both measured off
 //  `inspiration/main-tab-bar-and-ui.png`:
@@ -96,21 +98,43 @@ final class SidebarControlRow: NSView {
 
     // MARK: - Layout
 
-    /// The last traffic light's frame, in this row's coordinates. Measured,
-    /// because `TrafficLightLayoutManager` owns the placement and AppKit owns
-    /// the button sizes — and nil before the row is in a window, when there is
-    /// nothing to measure and the fallbacks below apply.
+    /// The space the three traffic lights occupy, in this row's coordinates —
+    /// or nil when there are none to clear.
+    ///
+    /// **Sizes are measured; positions are not.** AppKit resets the buttons'
+    /// origins on every window resize and `TrafficLightLayoutManager` puts them
+    /// back a beat later, *after* this row has already laid out — so a row that
+    /// read `zoomButton.frame.midY` was reading AppKit's own placement, nine
+    /// points higher than the one that ends up on screen, and drew its three
+    /// circles clipped against the window's top edge until something else made
+    /// it dirty. What does not race is the buttons' size and the spacing
+    /// between them, which AppKit owns and never changes, and
+    /// `trafficLightInset`, which is the single number `TrafficLightLayout`
+    /// places them with. Measure the first, derive the second, and the row
+    /// lands on the lights whatever order the two passes run in.
     private var trafficLights: NSRect? {
-        guard let button = window?.standardWindowButton(.zoomButton),
-              let titlebar = button.superview,
+        guard let window,
+              let close = window.standardWindowButton(.closeButton),
+              let zoom = window.standardWindowButton(.zoomButton),
               // In fullscreen macOS takes the buttons away (they come back on a
               // hover at the top of the screen) but leaves their frames behind.
               // Reserving that space anyway left a hole at the head of the row
               // where three lights used to be.
-              !button.isHiddenOrHasHiddenAncestor,
-              window?.styleMask.contains(.fullScreen) != true
+              !zoom.isHiddenOrHasHiddenAncestor,
+              !window.styleMask.contains(.fullScreen),
+              let root = window.contentView
         else { return nil }
-        return convert(titlebar.convert(button.frame, to: nil), from: nil)
+        let inset = Tokens.Metric.trafficLightInset
+        // Close's leading edge to zoom's trailing edge: AppKit's own spacing,
+        // whatever it is, and the same distance wherever the row happens to be.
+        let span = zoom.frame.maxX - close.frame.minX
+        let corner = convert(NSPoint(x: root.bounds.minX, y: root.bounds.maxY), from: root)
+        return NSRect(
+            x: corner.x + inset,
+            y: corner.y - inset - zoom.frame.height,
+            width: max(span, zoom.frame.width),
+            height: zoom.frame.height
+        )
     }
 
     override func layout() {

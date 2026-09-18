@@ -47,13 +47,19 @@ enum SettingsSearch {
 }
 
 @MainActor
-final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSearchFieldDelegate {
+final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     private let sections: [any SettingsSection]
     private let list: SettingsSectionList
     private let detail = SettingsDetailPane()
-    private let search = NSSearchField()
+    private let search = SettingsSearchField()
     private var selected = 0
+    /// §1's back and forward: the order the sections were actually visited in,
+    /// which the list cannot show. `cursor` is where in it we are standing, so
+    /// going back and then picking a new section truncates the rest — the same
+    /// rule a browser's own history has.
+    private var visited: [Int] = []
+    private var cursor = 0
 
     convenience init() {
         // Built up front, all nine: §2's search has to know what is inside a
@@ -63,7 +69,12 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
         let sections = SettingsSectionRegistry.all.map { $0.init() }
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: SettingsMetrics.contentSize),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            // `.fullSizeContentView`, so the glass column runs the full height
+            // of the window and the traffic lights sit *on* it. A titlebar
+            // across both halves would cut the column off at the top and leave
+            // the one surface in this window that is a material looking like a
+            // panel inside a frame.
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
@@ -79,6 +90,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
         super.init(window: window)
 
         window.title = String(localized: "Luna Settings")
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
         // **The window has to be non-opaque or the glass column dies.**
         // `NSGlassEffectView` composites what is behind the *window*, so on an
         // opaque one the section list has nothing to sample and reads as a flat
@@ -180,21 +193,23 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
         let column = NSView()
         Glass.apply(.sidebar, to: column)
 
-        search.placeholderString = String(localized: "Search settings")
-        search.delegate = self
-        search.sendsWholeSearchString = false
-        search.setAccessibilityLabel(String(localized: "Search settings"))
+        search.onChange = { [weak self] _ in self?.applySearch() }
         search.translatesAutoresizingMaskIntoConstraints = false
         list.onSelect = { [weak self] index in self?.show(index, animated: true) }
+        detail.nav.onBack = { [weak self] in self?.step(-1) }
+        detail.nav.onForward = { [weak self] in self?.step(1) }
         list.translatesAutoresizingMaskIntoConstraints = false
 
         column.addSubview(search)
         column.addSubview(list)
         let inset = Tokens.Metric.rowInset
         NSLayoutConstraint.activate([
-            // Below the traffic lights, which this window draws in the standard
-            // place — the title bar is real here.
-            search.topAnchor.constraint(equalTo: column.topAnchor, constant: SettingsMetrics.paneInset),
+            // Clear of the traffic lights, which sit on this column now: their
+            // own inset, plus their height, plus a gap.
+            search.topAnchor.constraint(
+                equalTo: column.topAnchor,
+                constant: Tokens.Metric.trafficLightInset + SettingsMetrics.groupGap
+            ),
             search.leadingAnchor.constraint(equalTo: column.leadingAnchor, constant: inset),
             search.trailingAnchor.constraint(equalTo: column.trailingAnchor, constant: -inset),
             search.heightAnchor.constraint(equalToConstant: SettingsMetrics.searchHeight),
@@ -213,7 +228,31 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
     /// relaunch in `settings.lastSection`.
     private func show(_ index: Int, animated: Bool) {
         guard sections.indices.contains(index) else { return }
+        record(index)
+        present(index, animated: animated)
+    }
+
+    /// Pushes `index` onto the visited list, dropping whatever was ahead of the
+    /// cursor. Re-picking the section you are already on is not a visit.
+    private func record(_ index: Int) {
+        guard visited.isEmpty || visited[cursor] != index else { return }
+        if !visited.isEmpty { visited.removeSubrange((cursor + 1)...) }
+        visited.append(index)
+        cursor = visited.count - 1
+    }
+
+    /// Moves the cursor without recording anything — `offset` is -1 or +1.
+    private func step(_ offset: Int) {
+        let next = cursor + offset
+        guard visited.indices.contains(next) else { return }
+        cursor = next
+        present(visited[next], animated: true)
+    }
+
+    private func present(_ index: Int, animated: Bool) {
+        guard sections.indices.contains(index) else { return }
         selected = index
+        detail.nav.update(canGoBack: cursor > 0, canGoForward: cursor + 1 < visited.count)
         list.select(index)
         let section = sections[index]
         detail.show(section.view, title: type(of: section).title, animated: animated)
@@ -223,10 +262,6 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
     }
 
     // MARK: - §2's search
-
-    func controlTextDidChange(_ obj: Notification) {
-        applySearch()
-    }
 
     /// §2: the search filters **controls**, not sections. Every section is
     /// filtered, not only the visible one, so switching sections with a live

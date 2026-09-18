@@ -48,6 +48,9 @@ final class SidebarViewController: NSViewController {
     private let list = TabListController()
     private let utility = SidebarUtilityBar()
     private let handle = SidebarResizeHandle()
+    /// §6.6's lift. Built in `viewDidLoad`, because it needs the root view it
+    /// floats a dragged tab over.
+    private var drag: SidebarTabDragController?
     private var shownSpaceID: UUID?
     private var isAttached = false
     /// The Essentials grid's height on the last layout pass. When it changes —
@@ -204,6 +207,7 @@ final class SidebarViewController: NSViewController {
         list.onMoveTab = { [weak self] id, kind, index in
             self?.session.reorderTab(id, to: index, kind: kind)
         }
+        wireDrag()
         list.onToggleMute = { [weak self] id in
             guard let self else { return }
             if list.mutedTabIDs.contains(id) {
@@ -214,6 +218,20 @@ final class SidebarViewController: NSViewController {
             if let state = session.controller(for: id)?.state { list.update(id, state: state) }
             onToggleMute?(id)
         }
+    }
+
+    /// §6.6's lift: the list hands the gesture over, the controller carries it
+    /// between the two sections, and exactly one of these two fires on release.
+    private func wireDrag() {
+        let controller = SidebarTabDragController(host: view, grid: essentials, list: list)
+        controller.onDropInList = { [weak self] id, kind, index in
+            self?.session.reorderTab(id, to: index, kind: kind)
+        }
+        controller.onDropInEssentials = { [weak self] id, index in
+            self?.session.pinTab(id, at: index)
+        }
+        list.onTabPress = { [weak controller] row, event in controller?.track(row: row, event: event) }
+        drag = controller
     }
 
     // MARK: - Accessibility
@@ -256,19 +274,34 @@ final class SidebarViewController: NSViewController {
         }
     }
 
+    /// **Every position is computed, and none is read back.**
+    ///
+    /// This used to walk down the column asking each view where the one above
+    /// it had ended up — `pill.frame.minY`, `essentials.frame.minY`. Inside an
+    /// animated pass that read is a frame behind: setting a frame under
+    /// `allowsImplicitAnimation` routes it through the animator, and the getter
+    /// hands back the value the view still has. So on the pass where the grid
+    /// *shrank*, the scroll view under it was sized against the grid's old
+    /// bottom edge and stayed a tile-row short — an unpinned tab left a 47 pt
+    /// hole between the tiles and the list that only a window resize cleared.
+    /// The column's geometry is arithmetic; it is done here, once, in locals.
     private func layoutSubviews() {
         let bounds = view.bounds
         let inset = Tokens.Metric.rowInset
         let bar = Tokens.Metric.topBarHeight
+        let pillHeight = Tokens.Metric.urlPill.height
+        let gridHeight = essentials.intrinsicContentSize.height
+        let controlTop = bounds.maxY - bar
+        let pillTop = controlTop - pillHeight
+        let gridTop = pillTop - gridHeight
 
-        controlRow.frame = NSRect(x: 0, y: bounds.maxY - bar, width: bounds.width, height: bar)
+        controlRow.frame = NSRect(x: 0, y: controlTop, width: bounds.width, height: bar)
         // The row places its buttons against the **traffic lights**, which move
         // and disappear without its own bounds changing — entering fullscreen
         // takes them away and leaves the row exactly 52 pt tall and exactly as
         // wide. Nothing would mark it dirty, so the row kept a hole at its head
         // where three lights used to be.
         controlRow.needsLayout = true
-        let pillHeight = Tokens.Metric.urlPill.height
         // Flush under the control row, not §3.2's 12 pt below it: the row is
         // 52 pt and its buttons are only 35, so the row already carries ~8 pt
         // of clear space below them — which is exactly the gap the reference
@@ -276,25 +309,19 @@ final class SidebarViewController: NSViewController {
         // second gap on top of it doubles a space that is already right.
         pill.frame = NSRect(
             x: inset,
-            y: controlRow.frame.minY - pillHeight,
+            y: pillTop,
             width: max(bounds.width - 2 * inset, 0),
             height: pillHeight
         ).integral
 
-        let gridHeight = essentials.intrinsicContentSize.height
-        essentials.frame = NSRect(
-            x: 0,
-            y: pill.frame.minY - gridHeight,
-            width: bounds.width,
-            height: gridHeight
-        ).integral
+        essentials.frame = NSRect(x: 0, y: gridTop, width: bounds.width, height: gridHeight).integral
 
         utility.frame = NSRect(x: 0, y: 0, width: bounds.width, height: bar)
         list.scrollView.frame = NSRect(
             x: 0,
-            y: utility.frame.maxY,
+            y: bar,
             width: bounds.width,
-            height: max(essentials.frame.minY - utility.frame.maxY, 0)
+            height: max(gridTop - bar, 0)
         ).integral
 
         // Placed so its 8 pt hit strip is the sidebar's own trailing 8 pt: hit

@@ -105,6 +105,17 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         // it to what we actually draw.
         window.hasShadow = true
         window.isMovableByWindowBackground = true
+        // **A floor the window server honours, as well as one Auto Layout
+        // does.** The root view's `greaterThanOrEqualTo` constraints bind
+        // AppKit's own layout, and nothing else: a window resized from outside
+        // that pass — a system tiling gesture, a drag onto a screen edge,
+        // anything that sets the frame directly — went straight through them
+        // and left the chrome squeezed into a frame smaller than its contents.
+        // `minSize` is what the resize itself is clamped against.
+        window.minSize = NSSize(
+            width: Tokens.Metric.windowMinWidth,
+            height: Tokens.Metric.windowMinHeight
+        )
         // Luna has its own tabs; system window tabs would be a second, worse set.
         window.tabbingMode = .disallowed
     }
@@ -123,9 +134,9 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         peekBackdrop.alphaValue = 0
         root.addSubview(peekBackdrop, positioned: .above, relativeTo: peekEdge)
         NSLayoutConstraint.activate([
-            // `NSWindow.minSize` is documented as ignored once the content view
-            // uses Auto Layout (verified verbatim in NSWindow.h, M0), so the
-            // size floor lives in the constraint system instead.
+            // The floor, in the layout system. `makeFloating` sets the window's
+            // own `minSize` as well, and both are needed: this one binds every
+            // pass AppKit runs, that one binds the resize itself.
             root.widthAnchor.constraint(greaterThanOrEqualToConstant: Tokens.Metric.windowMinWidth),
             root.heightAnchor.constraint(greaterThanOrEqualToConstant: Tokens.Metric.windowMinHeight),
 

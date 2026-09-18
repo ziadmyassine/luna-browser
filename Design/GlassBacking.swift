@@ -27,6 +27,9 @@ final class GlassBackingView: NSView {
     private let radius: CGFloat
     private let curve: CALayerCornerCurve
     private let corners: CACornerMask
+    /// §7.2's floating sidebar: the rim that separates a plane from whatever it
+    /// is floating over. See `Glass.peekPlane`.
+    private let rimmed: Bool
     private var glass: NSGlassEffectView?
     /// Non-nil pins this backing to one side of §7's table whatever display it
     /// lands on. Exactly one caller sets it: `Glass.previewTile`, which has to
@@ -41,12 +44,14 @@ final class GlassBackingView: NSView {
         cornerRadius: CGFloat,
         cornerCurve: CALayerCornerCurve,
         maskedCorners: CACornerMask,
+        rimmed: Bool = false,
         pinned: Bool? = nil
     ) {
         self.style = style
         self.radius = cornerRadius
         self.curve = cornerCurve
         self.corners = maskedCorners
+        self.rimmed = rimmed
         self.pinned = pinned
         // No window yet, so `isOptimised(for: nil)` is the honest answer and it
         // is the *unoptimised* one — a Retina user must see today's chrome, and
@@ -294,9 +299,16 @@ final class GlassBackingView: NSView {
         }
 
         // §2 / §21.2: Increase Contrast ⇒ a visible border on every control.
-        let highContrast = Tokens.A11y.increaseContrast
-        layer.borderWidth = highContrast ? Tokens.Metric.hairline : 0
-        layer.borderColor = highContrast ? Tokens.Line.border.cgColor : nil
+        // A rimmed plane draws the same hairline unconditionally: it is the
+        // edge `ContentCardView` already draws where the page meets the
+        // sidebar, read the other way round. A plane floating *over* the page
+        // has nothing but its own material to end it, and a material without an
+        // edge reads as a smudge rather than as a surface — which is what a
+        // peeked sidebar's trailing side looked like. The hairline follows
+        // `maskedCorners`, so it runs round the rounded edge and nowhere else.
+        let bordered = rimmed || Tokens.A11y.increaseContrast
+        layer.borderWidth = bordered ? Tokens.Metric.hairline : 0
+        layer.borderColor = bordered ? Tokens.Line.border.cgColor : nil
     }
 }
 

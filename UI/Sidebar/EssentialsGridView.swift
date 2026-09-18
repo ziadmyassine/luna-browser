@@ -44,9 +44,18 @@ final class EssentialsGridView: NSView {
     var isAwaitingDrop = false {
         didSet {
             guard isAwaitingDrop != oldValue, tabs.isEmpty else { return }
-            invalidateIntrinsicContentSize()
-            needsDisplay = true
-            superview?.needsLayout = true
+            reflow()
+        }
+    }
+
+    /// The slot §6.6's lift is currently over, or nil when it is somewhere else
+    /// in the sidebar. While it is set the grid lays out with that slot empty —
+    /// the tiles step round it — and draws its outline there.
+    var dropIndex: Int? {
+        didSet {
+            guard dropIndex != oldValue else { return }
+            animatesNextPlacement = true
+            reflow()
         }
     }
 
@@ -114,9 +123,7 @@ final class EssentialsGridView: NSView {
         order = next
         // The first population is the sidebar being built; there is no "from".
         animatesNextPlacement = !wasEmpty
-        invalidateIntrinsicContentSize()
-        needsLayout = true
-        superview?.needsLayout = true
+        reflow()
     }
 
     private func makeTile(for tab: Tab) -> GlassButton {
@@ -151,26 +158,73 @@ final class EssentialsGridView: NSView {
         return tile
     }
 
+    /// The grid changed size or shape: re-measure, re-place, re-draw, and tell
+    /// the sidebar that everything below it has moved.
+    ///
+    /// **Twice, the second time on the next tick.** The sidebar reads this
+    /// view's `intrinsicContentSize` to place everything under it, and a pin or
+    /// an unpin changes that size from inside work that is already running —
+    /// a drop handler, or the completion of the fade that removes a tile. If
+    /// the sidebar's layout pass has been and gone by then, the grid keeps the
+    /// height it had: an unpinned tile left the grid a full row taller than its
+    /// tiles, with the list stranded 47 pt below them until the window was
+    /// resized. One more pass costs nothing and cannot be missed.
+    private func reflow() {
+        invalidateIntrinsicContentSize()
+        needsLayout = true
+        needsDisplay = true
+        superview?.needsLayout = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            invalidateIntrinsicContentSize()
+            superview?.needsLayout = true
+        }
+    }
+
     private static func siteName(for tab: Tab) -> String {
         tab.title.isEmpty ? URLPillView.domain(of: tab.url) : tab.title
     }
 
     // MARK: - Layout
 
+    /// How many slots the grid is laying out: its tiles, plus the one a live
+    /// drag is holding open.
+    private var slotCount: Int {
+        let open = dropIndex == nil ? 0 : 1
+        return max(tabs.count + open, isAwaitingDrop ? 1 : 0)
+    }
+
     private var rowCount: Int {
-        Int((Double(tabs.count) / Double(Self.columns)).rounded(.up))
+        Int((Double(slotCount) / Double(Self.columns)).rounded(.up))
     }
 
     override var intrinsicContentSize: NSSize {
-        let tile = Tokens.Metric.essentialsTile.height
-        guard rowCount > 0 else {
-            let open = tile + 2 * Tokens.Metric.essentialsInset
-            return NSSize(width: NSView.noIntrinsicMetric, height: isAwaitingDrop ? open : 0)
-        }
+        let margin = Tokens.Metric.essentialsVerticalInset
+        guard rowCount > 0 else { return NSSize(width: NSView.noIntrinsicMetric, height: 0) }
         let gap = Tokens.Metric.essentialsTileGap
-        let height = CGFloat(rowCount) * tile + CGFloat(rowCount - 1) * gap
-            + 2 * Tokens.Metric.essentialsInset
+        let height = CGFloat(rowCount) * Tokens.Metric.essentialsTile.height
+            + CGFloat(rowCount - 1) * gap + 2 * margin
         return NSSize(width: NSView.noIntrinsicMetric, height: height)
+    }
+
+    /// One slot's frame, in reading order. The single piece of grid arithmetic:
+    /// the tiles, the drop outline and the drag lift all place themselves with
+    /// it, so they cannot disagree about where a slot is.
+    func slotRect(at index: Int) -> NSRect {
+        let inset = Tokens.Metric.essentialsInset
+        let margin = Tokens.Metric.essentialsVerticalInset
+        let gap = Tokens.Metric.essentialsTileGap
+        let height = Tokens.Metric.essentialsTile.height
+        let width = (bounds.width - 2 * inset - CGFloat(Self.columns - 1) * gap) / CGFloat(Self.columns)
+        let column = index % Self.columns
+        let row = index / Self.columns
+        // Top-down in an unflipped view: the first row sits highest.
+        return NSRect(
+            x: inset + CGFloat(column) * (width + gap),
+            y: bounds.maxY - margin - CGFloat(row + 1) * height - CGFloat(row) * gap,
+            width: max(width, 0),
+            height: height
+        ).pixelAligned
     }
 
     /// Bounds-derived frames never animate — see `Motion.immediately` — except
@@ -191,30 +245,19 @@ final class EssentialsGridView: NSView {
     }
 
     private func placeContents() {
-        let inset = Tokens.Metric.essentialsInset
-        let gap = Tokens.Metric.essentialsTileGap
-        let tileHeight = Tokens.Metric.essentialsTile.height
-        let tileWidth = (bounds.width - 2 * inset - CGFloat(Self.columns - 1) * gap) / CGFloat(Self.columns)
         for (index, id) in order.enumerated() {
             guard let tile = tiles[id] else { continue }
-            let column = index % Self.columns
-            let row = index / Self.columns
-            // Top-down in an unflipped view: the first row sits highest.
-            tile.frame = NSRect(
-                x: inset + CGFloat(column) * (tileWidth + gap),
-                y: bounds.maxY - inset - CGFloat(row + 1) * tileHeight - CGFloat(row) * gap,
-                width: max(tileWidth, 0),
-                height: tileHeight
-            ).pixelAligned
+            // A live drag holds a slot open: everything from it onwards steps
+            // along by one, which is the gap the lift drops into.
+            let slot = dropIndex.map { index >= $0 ? index + 1 : index } ?? index
+            tile.frame = slotRect(at: slot)
         }
     }
 
-    /// The empty grid's drop slot. Drawn only while a drag is live, because the
-    /// rest of the time there is nothing here and nothing to hint at.
+    /// The slot a drop would land in. Drawn only while a drag is live, because
+    /// the rest of the time there is nothing to hint at.
     override func draw(_ dirtyRect: NSRect) {
-        guard isAwaitingDrop, tabs.isEmpty else { return }
-        let inset = Tokens.Metric.essentialsInset
-        let slot = bounds.insetBy(dx: inset, dy: inset)
+        guard let slot = outlinedSlot else { return }
         let path = NSBezierPath(
             roundedRect: slot,
             xRadius: Tokens.Metric.essentialsTile.cornerRadius,
@@ -224,6 +267,13 @@ final class EssentialsGridView: NSView {
         path.setLineDash([6, 4], count: 2, phase: 0)
         Tokens.Line.border.setStroke()
         path.stroke()
+    }
+
+    /// Which slot the outline goes round: the one a lift is over, or — with
+    /// nothing pinned yet and a drag in the air — the first one.
+    private var outlinedSlot: NSRect? {
+        if let dropIndex { return slotRect(at: dropIndex) }
+        return isAwaitingDrop && tabs.isEmpty ? slotRect(at: 0) : nil
     }
 
     override func viewDidChangeEffectiveAppearance() {
@@ -248,12 +298,12 @@ final class EssentialsGridView: NSView {
     }
 
     /// Which slot the pointer is over, in reading order.
-    private func insertionIndex(at point: NSPoint) -> Int {
+    func insertionIndex(at point: NSPoint) -> Int {
         let inset = Tokens.Metric.essentialsInset
         let gap = Tokens.Metric.essentialsTileGap
         let tileWidth = (bounds.width - 2 * inset - CGFloat(Self.columns - 1) * gap) / CGFloat(Self.columns)
         let column = min(max(Int((point.x - inset) / max(tileWidth + gap, 1)), 0), Self.columns - 1)
-        let fromTop = bounds.maxY - inset - point.y
+        let fromTop = bounds.maxY - Tokens.Metric.essentialsVerticalInset - point.y
         let row = max(Int(fromTop / max(Tokens.Metric.essentialsTile.height + gap, 1)), 0)
         return min(row * Self.columns + column, tabs.count)
     }

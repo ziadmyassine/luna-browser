@@ -147,7 +147,7 @@ final class SidebarRowView: NSView {
             trailing.isHidden = false
             trailing.configure(
                 symbolName: "xmark",
-                label: "Archive tab",
+                label: "Close Tab",
                 pointSize: Tokens.Metric.rowTrailingGlyph
             )
         }
@@ -310,12 +310,13 @@ final class SidebarRowView: NSView {
 /// noise (§3.4). Its own accessibility element so VoiceOver can reach mute and
 /// archive without a mouse (§21.1).
 ///
-/// **A chip, not a bare glyph.** §3.4 describes no chrome around it and that is
-/// what shipped — a floating `xmark` that read as part of the title. Martin's
-/// close-button reference draws a rounded square with its own translucent fill
-/// behind the glyph, and the fill is the only thing that says "click me".
-/// `chromed` is off for the URL pill's sliders, which the reference genuinely
-/// does draw bare.
+/// **The chip is the pointer's, not the row's.** §3.4 describes no chrome around
+/// the glyph; a first pass gave it a permanent translucent square, which put a
+/// grey tile on every row the pointer merely passed over. The square is the
+/// affordance for *this* control, so it appears when the pointer is on this
+/// control and not a moment before — glyph alone while the row is hovered, chip
+/// plus a "Close Tab" tip once you are actually on it. `chromed` is off for the
+/// URL pill's sliders, which the reference genuinely does draw bare.
 @MainActor
 final class RowGlyphView: NSImageView {
 
@@ -330,6 +331,9 @@ final class RowGlyphView: NSImageView {
     func configure(symbolName: String, label: String, pointSize: CGFloat = Tokens.Metric.faviconSize) {
         image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)
         symbolConfiguration = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .regular)
+        // The tip is what the chip says once you are on it. Same string as the
+        // VoiceOver label, because they answer the same question.
+        toolTip = label
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel(label)
@@ -339,8 +343,8 @@ final class RowGlyphView: NSImageView {
     /// draws its own image in `draw(_:)` — a layer background would sit on top
     /// of the glyph, not behind it.
     override func draw(_ dirtyRect: NSRect) {
-        if chromed {
-            (isHovering ? Tokens.Surface.selected : Tokens.Surface.hover).setFill()
+        if chromed, isHovering {
+            Tokens.Surface.selected.setFill()
             let radius = Tokens.Metric.rowTrailingChip.cornerRadius
             NSBezierPath(roundedRect: bounds, xRadius: radius, yRadius: radius).fill()
         }

@@ -16,8 +16,9 @@ import AppKit
 @MainActor
 final class SettingsDetailPane: NSView {
 
-    private let header = NSTextField(labelWithString: "")
-    private let rule = NSView()
+    /// §1's back/forward pair. It stands where the pane's title used to —
+    /// see `SettingsNavCapsule` for why that is a trade worth making.
+    let nav = SettingsNavCapsule()
     private let scroll = NSScrollView()
     private let content = FlippedView()
     private let empty = NSTextField(wrappingLabelWithString: "")
@@ -42,7 +43,6 @@ final class SettingsDetailPane: NSView {
 
     override func updateLayer() {
         layer?.backgroundColor = Tokens.Surface.base.cgColor
-        rule.layer?.backgroundColor = Tokens.Line.hairline.cgColor
     }
 
     override func viewDidChangeEffectiveAppearance() {
@@ -59,7 +59,7 @@ final class SettingsDetailPane: NSView {
     /// text. Under Reduce Motion `Motion.animate` runs the same change at zero
     /// duration, so the pane still changes — it just does not fade (§5).
     func show(_ view: NSView, title: String, animated: Bool) {
-        header.stringValue = title
+        setAccessibilityLabel(title)
         hosted?.removeFromSuperview()
         hosted = view
         view.translatesAutoresizingMaskIntoConstraints = false
@@ -121,11 +121,7 @@ final class SettingsDetailPane: NSView {
     // MARK: - Construction
 
     private func build() {
-        header.font = Tokens.TypeScale.sectionLabel
-        header.textColor = Tokens.Text.secondary
-
-        rule.wantsLayer = true
-        rule.translatesAutoresizingMaskIntoConstraints = false
+        nav.translatesAutoresizingMaskIntoConstraints = false
 
         scroll.drawsBackground = false
         scroll.hasVerticalScroller = true
@@ -140,26 +136,21 @@ final class SettingsDetailPane: NSView {
         empty.isHidden = true
         empty.translatesAutoresizingMaskIntoConstraints = false
 
-        header.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(header)
-        addSubview(rule)
+        addSubview(nav)
         addSubview(scroll)
         addSubview(empty)
 
         let inset = SettingsMetrics.paneInset
         NSLayoutConstraint.activate([
-            header.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
-            header.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
-            header.topAnchor.constraint(equalTo: topAnchor, constant: inset),
-
-            rule.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
-            rule.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
-            rule.topAnchor.constraint(equalTo: header.bottomAnchor, constant: SettingsMetrics.controlRowGap),
-            rule.heightAnchor.constraint(equalToConstant: Tokens.Metric.hairline),
+            // The capsule sits on the window's own top inset, level with the
+            // traffic lights across the divider (§3.1's number, so the two
+            // halves of the window start on the same line).
+            nav.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
+            nav.topAnchor.constraint(equalTo: topAnchor, constant: Tokens.Metric.trafficLightInset),
 
             scroll.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
             scroll.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
-            scroll.topAnchor.constraint(equalTo: rule.bottomAnchor, constant: SettingsMetrics.controlRowGap),
+            scroll.topAnchor.constraint(equalTo: nav.bottomAnchor, constant: SettingsMetrics.groupGap),
             scroll.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -inset),
 
             content.leadingAnchor.constraint(equalTo: scroll.contentView.leadingAnchor),

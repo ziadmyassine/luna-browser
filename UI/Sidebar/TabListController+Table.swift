@@ -21,10 +21,17 @@ extension TabListController: NSTableViewDataSource {
         list.count
     }
 
-    /// §6.6 source: only a tab travels. `Archive` and `+ Add Tab` are commands.
+    /// **Nothing here is a drag source any more.** §6.6's reorder is tracked by
+    /// hand — see `SidebarTabDrag.swift` — because a dragging session cannot be
+    /// locked to the column, cannot carry the row's own highlight and cannot
+    /// morph into a §3.3 tile. Returning nil is what stops AppKit starting its
+    /// own session the moment the pointer moves.
+    ///
+    /// The table is still a drag *destination*: an Essentials tile dragged back
+    /// down into the list is an ordinary system drag, and `acceptDrop` below is
+    /// where it lands.
     func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> (any NSPasteboardWriting)? {
-        guard case let .tab(id)? = list[row] else { return nil }
-        return SidebarDrag.item(for: id)
+        nil
     }
 
     /// The §3.3 grid is zero points tall until something is pinned, so it has
@@ -73,19 +80,13 @@ extension TabListController: NSTableViewDataSource {
         var target = list.dropTarget(insertingAt: max(row, SidebarList.leading.count))
         // `reorderTab` takes the index the tab should end up at, so a move
         // *down* within its own section has to account for its own removal.
-        if let source = list.listed.firstIndex(where: { $0.id == id }),
-           list.listed[source].kind == target.kind,
-           sectionIndex(of: source) < target.index {
+        if let source = list.listed.first(where: { $0.id == id }),
+           source.kind == target.kind,
+           let from = sectionIndex(of: id), from < target.index {
             target.index -= 1
         }
         onMoveTab?(id, target.kind, target.index)
         return true
-    }
-
-    /// A tab's index within its own section, which is what `reorderTab` counts.
-    private func sectionIndex(of listedIndex: Int) -> Int {
-        let kind = list.listed[listedIndex].kind
-        return list.listed[..<listedIndex].filter { $0.kind == kind }.count
     }
 }
 
@@ -187,6 +188,14 @@ final class SidebarTableView: NSTableView {
 
     var onCommandKey: ((Command) -> Bool)?
     var onFocusChange: (() -> Void)?
+    /// A press landed on row `n`. The list takes the whole gesture from here —
+    /// see `TabListController.press(row:event:)`.
+    var onRowPress: ((Int, NSEvent) -> Void)?
+    /// The table re-placed its row views. §6.6's gap is drawn *by* offsetting
+    /// those views, so it has to be put back after every pass that overwrites
+    /// them — and the §3.3 grid opening a slot mid-drag resizes the scroll view,
+    /// which is exactly such a pass.
+    var onLayout: (() -> Void)?
     /// The row under the pointer, or nil when the pointer left the list.
     var onHover: ((Int?) -> Void)?
     /// Right-click on a row. Built on demand, and deliberately **not** through
@@ -195,6 +204,30 @@ final class SidebarTableView: NSTableView {
     var onContextMenu: ((Int) -> NSMenu?)?
 
     override var acceptsFirstResponder: Bool { true }
+
+    /// **The press is handed on whole, not passed to `super`.**
+    ///
+    /// `NSTableView.mouseDown` runs its own tracking loop until the mouse comes
+    /// up: it decides selection, and it decides whether the gesture was a drag.
+    /// §6.6's lift needs those drags, so the loop has to be ours (see
+    /// `SidebarTabDrag.swift`) and this is where it is taken over.
+    ///
+    /// A press below the last row is not a row at all. It is the sidebar's own
+    /// plane, and the plane moves the window (§30.1) — which is what makes the
+    /// whole column a drag handle rather than just its top bar.
+    override func layout() {
+        super.layout()
+        onLayout?()
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        let row = row(at: convert(event.locationInWindow, from: nil))
+        guard row >= 0, let onRowPress else {
+            window?.performDrag(with: event)
+            return
+        }
+        onRowPress(row, event)
+    }
 
     override func menu(for event: NSEvent) -> NSMenu? {
         let row = row(at: convert(event.locationInWindow, from: nil))

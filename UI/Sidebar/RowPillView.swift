@@ -1,0 +1,67 @@
+//
+//  RowPillView.swift
+//  Luna
+//
+//  §3.4's two row fills. Split out of `TabListController.swift` to keep that
+//  file inside SwiftLint's length limit; nothing changed on the way across.
+//
+
+import AppKit
+
+/// §3.4's two row fills: the selected pill and the hover lift.
+///
+/// **Clear glass alone was not visible.** The pill was `Glass.control` plus a
+/// hairline and nothing else, and `.clear` glass over the sidebar's own glass
+/// is very nearly the sidebar — a selected row read as unselected. `Tokens`
+/// has carried `Surface.selected` and `Surface.hover` for exactly this since
+/// M1; they were simply never asked for. Both are translucent washes, so the
+/// glass under them is still glass.
+@MainActor
+final class RowPillView: NSView {
+
+    enum Role { case selected, hover }
+
+    /// Kept for the callers that track the table's focus. **It no longer
+    /// changes what is drawn**: a selected row used to take an accent-coloured
+    /// border while the list had focus, and a blue ring around the current tab
+    /// is a system list, not this one. The selection reads as glass — the
+    /// material plus §3.4's wash — in every focus state.
+    var isFocused = false
+
+    private let role: Role
+
+    init(role: Role) {
+        self.role = role
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.cornerCurve = .continuous
+        Glass.apply(.control, to: self, cornerRadius: Tokens.Metric.rowCornerRadius)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("Luna builds its chrome in code; there is no nib to decode.")
+    }
+
+    override var wantsUpdateLayer: Bool { true }
+
+    override func updateLayer() {
+        guard let layer else { return }
+        layer.cornerRadius = Tokens.Metric.rowCornerRadius
+        layer.backgroundColor = (role == .selected ? Tokens.Surface.selected : Tokens.Surface.hover).cgColor
+        // §3.4 gives the selected row a visible border and the hover lift none:
+        // a border that appeared under the pointer would read as a second
+        // selection. The border is the glass's own edge — `Line.border`, never
+        // the accent: **no blue anywhere on a selected tab.**
+        let bordered = role == .selected
+        layer.borderWidth = bordered ? Tokens.Metric.hairline : 0
+        layer.borderColor = bordered ? Tokens.Line.border.cgColor : nil
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        needsDisplay = true
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}

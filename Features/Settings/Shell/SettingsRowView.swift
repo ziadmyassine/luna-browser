@@ -49,7 +49,7 @@ final class SettingsRowView: NSView {
         searchTerms = ([title, subtitle, disabledReason].compactMap { $0 } + extraTerms).map { $0.lowercased() }
         super.init(frame: .zero)
 
-        titleLabel.font = Tokens.TypeScale.sidebarRow
+        titleLabel.font = Tokens.TypeScale.settingsRow
         titleLabel.textColor = isEnabled ? Tokens.Text.primary : Tokens.Text.disabled
         titleLabel.lineBreakMode = .byTruncatingTail
 
@@ -95,11 +95,14 @@ final class SettingsRowView: NSView {
         row.alignment = .centerY
         row.spacing = SettingsMetrics.controlRowGap
         row.distribution = .fill
+        // **The card's grid.** The horizontal inset is the one every other
+        // thing in the pane lines up on — the separators below this row, and
+        // the header above the card it is in.
         row.edgeInsets = NSEdgeInsets(
             top: SettingsMetrics.controlRowGap,
-            left: SettingsMetrics.controlRowGap,
+            left: SettingsMetrics.cardInset,
             bottom: SettingsMetrics.controlRowGap,
-            right: SettingsMetrics.controlRowGap
+            right: SettingsMetrics.cardInset
         )
         row.translatesAutoresizingMaskIntoConstraints = false
         addSubview(row)
@@ -108,9 +111,9 @@ final class SettingsRowView: NSView {
             row.trailingAnchor.constraint(equalTo: trailingAnchor),
             row.topAnchor.constraint(equalTo: topAnchor),
             row.bottomAnchor.constraint(equalTo: bottomAnchor),
-            // A row is at least §1's control height; a subtitle or a reason
-            // grows it rather than squashing into it.
-            heightAnchor.constraint(greaterThanOrEqualToConstant: SettingsMetrics.controlRowHeight)
+            // A row is at least §1's card-row height; a subtitle or a disabled
+            // reason grows it rather than squashing into it.
+            heightAnchor.constraint(greaterThanOrEqualToConstant: SettingsMetrics.cardRowHeight)
         ])
     }
 
@@ -119,7 +122,7 @@ final class SettingsRowView: NSView {
     /// `tertiary` does not have.
     private static func caption(_ string: String, dimmed: Bool) -> NSTextField {
         let label = NSTextField(wrappingLabelWithString: string)
-        label.font = Tokens.TypeScale.sectionLabel
+        label.font = Tokens.TypeScale.settingsCaption
         label.textColor = dimmed ? Tokens.Text.disabled : Tokens.Text.secondary
         label.isSelectable = false
         return label
@@ -183,7 +186,7 @@ final class SettingsRowView: NSView {
             return
         }
         let marked = NSMutableAttributedString(string: plainTitle, attributes: [
-            .font: Tokens.TypeScale.sidebarRow,
+            .font: Tokens.TypeScale.settingsRow,
             .foregroundColor: rowIsEnabled ? Tokens.Text.primary : Tokens.Text.disabled
         ])
         marked.addAttribute(.backgroundColor, value: Tokens.Surface.selected, range: NSRange(range, in: plainTitle))
@@ -211,13 +214,18 @@ final class SettingsRowGroupView: NSView {
     init(title: String?, rows: [NSView]) {
         super.init(frame: .zero)
 
-        let stack = NSStackView(views: rows)
+        // **One card, not a stack of chips.** The reference butts its rows
+        // together and rules between them, starting the rule at the row's own
+        // text rather than at the card's edge — which is what makes six
+        // settings read as one group instead of as six small panels. A gap
+        // between them says the opposite.
+        let stack = NSStackView(views: Self.ruled(rows))
         stack.orientation = .vertical
         stack.alignment = .leading
-        stack.spacing = SettingsMetrics.rowGap
+        stack.spacing = 0
         stack.translatesAutoresizingMaskIntoConstraints = false
         card.addSubview(stack)
-        for row in rows {
+        for row in stack.arrangedSubviews {
             row.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         }
 
@@ -228,7 +236,7 @@ final class SettingsRowGroupView: NSView {
         let outer = NSStackView(views: columns)
         outer.orientation = .vertical
         outer.alignment = .leading
-        outer.spacing = SettingsMetrics.rowGap
+        outer.spacing = SettingsMetrics.controlRowGap
         outer.translatesAutoresizingMaskIntoConstraints = false
         addSubview(outer)
 
@@ -254,10 +262,70 @@ final class SettingsRowGroupView: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
-    private static func header(_ title: String) -> NSTextField {
+    /// The rows with a hairline between each pair — never above the first or
+    /// below the last, where the card's own edge already ends the group.
+    private static func ruled(_ rows: [NSView]) -> [NSView] {
+        rows.enumerated().flatMap { index, row in
+            index == 0 ? [row] : [SettingsRuleView(), row]
+        }
+    }
+
+    /// The group's name, sitting **above** the card and indented to the card's
+    /// own text grid, so it reads as the label on the rows rather than as a
+    /// heading floating over the pane.
+    private static func header(_ title: String) -> NSView {
         let label = NSTextField(labelWithString: title)
-        label.font = Tokens.TypeScale.sectionLabel
-        label.textColor = Tokens.Text.secondary
-        return label
+        label.font = Tokens.TypeScale.settingsRow
+        // **The same ink as the rows it names.** A dimmed header set it apart
+        // from the group instead of attaching it to one; the reference draws it
+        // at full strength, in the row's own face, and lets the position do the
+        // work.
+        label.textColor = Tokens.Text.primary
+        label.translatesAutoresizingMaskIntoConstraints = false
+        let host = NSView()
+        host.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: host.leadingAnchor, constant: SettingsMetrics.cardInset),
+            label.trailingAnchor.constraint(lessThanOrEqualTo: host.trailingAnchor),
+            label.topAnchor.constraint(equalTo: host.topAnchor),
+            label.bottomAnchor.constraint(equalTo: host.bottomAnchor)
+        ])
+        return host
+    }
+}
+
+/// The hairline between two rows of a card. Inset to the card's text grid on
+/// the leading side and run to the card's edge on the trailing one, which is
+/// how every grouped list on the platform draws it.
+@MainActor
+final class SettingsRuleView: NSView {
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        heightAnchor.constraint(equalToConstant: Tokens.Metric.hairline).isActive = true
+        setAccessibilityElement(false)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("Luna builds its chrome in code; there is no nib to decode.")
+    }
+
+    override var wantsUpdateLayer: Bool { false }
+
+    override func draw(_ dirtyRect: NSRect) {
+        Tokens.Line.hairline.setFill()
+        NSRect(
+            x: SettingsMetrics.cardInset,
+            y: 0,
+            width: max(bounds.width - SettingsMetrics.cardInset, 0),
+            height: bounds.height
+        ).fill()
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        needsDisplay = true
     }
 }

@@ -42,7 +42,7 @@ sidebar's own content reflows. The ratios exist to fix proportions once, not to 
 | `separatorRowHeight` | 12 pt | 8 |
 | `urlPill` | 266 × 34 pt, radius 17 (full) | × 32, radius 16 |
 | `essentialsTile` | 128 × 42 pt, radius 12 | — |
-| `essentialsTileGap` / `essentialsInset` | 8 / 8 pt (`= rowInset`) | 12 / 10 |
+| `essentialsTileGap` / `essentialsInset` / `essentialsVerticalInset` | 5 / 8 / 4 pt | 8 / 8 / 8, and 12 / 10 before that |
 | `essentialsIcon` | 16 pt (`= faviconSize`) | 22 |
 | `controlCircle` (top bar: back, capsule items) | 28 pt | 35, and before that a squircle for the toggle |
 | `sidebarCircle` (**toggle**, back, reload) | 34 pt (`= urlPill.height`) | 28 |
@@ -58,10 +58,13 @@ sidebar's own content reflows. The ratios exist to fix proportions once, not to 
 | `contentCardGap` | **gone** — the page is flush (§3.6) | 8 pt |
 | `panelInset` (Command Bar, downloads list) | 8 pt | was `contentCardGap` |
 | `topBarHeight` | 52 pt | — |
-| `sidebarPeekEdge` (§3.8 hover-peek trigger strip) | 24 pt | — |
+| `sidebarPeekEdge` (§3.8 hover-peek trigger strip) | 44 pt | 24, and 4 before that |
+| `dragThreshold` (§6.6, press → lift) | 4 pt | — |
 | `historyPanel` (§3.5's floating History panel) | 640 × 520 (a ceiling) | — |
 | `scrimStrength` (§9.1's backdrop) | 0.55 | — |
-| `settingsSidebarWidth` / `settingsWindow` | 196 pt / 720 × 460 pt | was a 420 × 160 box |
+| `settingsListWidth` / `settingsWindow` | 230 pt / 720 × 520 pt | 196, and a 420 × 160 box before that |
+| `settingsSectionRow` / `settingsSectionIcon` | 36 pt / 26 pt, radius 7 | — |
+| `settingsCardRow` / `settingsGroupGap` | 52 / 26 pt | 36 / 3 |
 | `hairline` | 1 pt @ 10 % white / 8 % black | — |
 
 **Colour rules.** `Accent.tint` and `Accent.danger` are **fill and ring only** — as text they measure
@@ -258,10 +261,16 @@ Vertical order, top to bottom:
   colour is a near-neutral grey the pill stopped being translucent and simply turned grey.
 
 ### 3.3 Essentials grid — 2 across, wrapping
-- Tiles 128 × 42, radius 12, **8 pt gap, 8 pt outer inset — both `rowInset`**. The grid used to sit at
-  10 pt against the pill's and the rows' 8, two points proud of everything above and below it; and its
-  12 pt inner gutter was wider than its outer margin. **Tile width flexes:** the grid must survive the
-  160–420 pt resize range.
+- Tiles 128 × 42, radius 12. **The sides are an alignment; the top, the bottom and the gutter are
+  gaps, and they are not the same number.** The grid is inset `rowInset` (8) from the sidebar's leading
+  and trailing edges, because the tiles have to agree with the URL pill above and the row pills below.
+  Its inner gutter is **5** and its top and bottom margins are **4**: a full row-inset between two tiles
+  read as two separate controls that happened to be side by side, and the same number above them pushed
+  the block a visible step away from the pill it belongs under. **Tile width flexes:** the grid must
+  survive the 160–420 pt resize range.
+- **A live drag holds a slot open.** `dropIndex` is the slot §6.6's lift is over: the tiles step round
+  it, the grid grows by a row when it needs to, and the outline is drawn there rather than only in an
+  empty grid.
 - **Icon only, centred, 16 pt.** No label. Visually distinct from the text rows below (§30.5).
 - **Dormant, and glass when it is the tab you are on.** A tile at rest is `Surface.hover` plus a
   hairline; the material arrives when the tile is selected or hovered and leaves with the pointer.
@@ -300,20 +309,32 @@ Order: `+ Add Tab` row → **separator** → tabs.
   > and the hairline is `Line.border` in every focus state.
 - **Status dot** leads the row only when the tab has unread/updated content (the Discord row in the
   reference). Audio gets a **trailing** speaker glyph, click-to-mute.
-- **Hover** reveals a trailing close/archive affordance and lifts the row fill to 6 %. That affordance is
-  an **18 pt rounded-square chip with its own translucent fill** holding an 11 pt glyph, inset a full
-  `rowInset` inside the pill's trailing edge — measured off Martin's close-button reference. A bare glyph
-  floating in the pill, which is what §3.4's silence produced, reads as part of the title.
+- **Hover** reveals a trailing close affordance and lifts the row fill to 6 %. It is an 11 pt `xmark`
+  inside an **18 pt hit target**, inset a full `rowInset` inside the pill's trailing edge. The
+  rounded-square **chip is drawn only while the pointer is on the chip itself**, together with a
+  *Close Tab* tip: the square is that control's own affordance, and painting it for the whole row put a
+  grey tile on every row the pointer merely crossed. Pressing it closes the tab (§6.3 — archived, and
+  undoable).
 - **Selected and hover fills are `Surface.selected` / `Surface.hover`.** Clear glass alone is very nearly
   the sidebar's own glass, and a selected row read as unselected until these were asked for.
 - Loading shows a shimmer sweep across the title, not a spinner.
 - `+ Add Tab` is a first-class row with identical metrics to a tab (§30.6).
 - **The unread dot is ink, not accent.** It was `Accent.tint`; it is `Text.primary` now, and it reads
   because it is bright rather than because it is a different hue.
-- **Reordering opens a gap.** The list's drop feedback is `NSTableView.DraggingDestinationFeedbackStyle.gap`,
-  not the default insertion rule: the rows animate apart to make a slot the size of the row being
-  dragged, so the tab's landing place is visible and locked the whole way down. A 2 pt line between two
-  rows that never move reads as a static list with a ghost floating over it.
+- **Reordering is a tracked gesture, not a dragging session** (§6.6). A press past `dragThreshold`
+  lifts the row: the pill, the favicon and the title travel as one view, locked to the sidebar's own `x`
+  and following the pointer's `y`, while the rows between the tab's old slot and its new one slide by
+  exactly one row to open the gap under it. Carried up into §3.3's grid the lift **becomes a tile** —
+  the same view, a tile's geometry, §6's `tabInsert` between the two — and the grid opens a slot to
+  receive it; carried back down it becomes a row again.
+  > **Why not `NSTableView`'s own drag and drop.** AppKit hands the pointer a snapshot that floats free
+  > in two dimensions, can be carried out of the window, and leaves the list static behind it. A sidebar
+  > tab has one degree of freedom. None of "lock it to the column", "carry the row's own highlight" or
+  > "morph into a tile" is something a dragging session exposes, so the gesture is tracked by hand and
+  > the table is a drag *destination* only.
+  > **Nothing is committed until the mouse comes up.** The gap is drawn by offsetting row views, which
+  > costs nothing and is thrown away by the reload that follows the drop; a reorder committed per row
+  > crossed would be a SQLite write and an undo entry each time.
 
 ### 3.5 Bottom utility bar — 52 pt, pinned
 `[profile avatar circle 34, left] ··· [space dots pill 56 × 22, centred] ··· [history circle 34, right]`
@@ -359,6 +380,11 @@ go away was sitting on top of the site's own navigation. `⌘S` means "give the 
 lights are hidden with everything else and come back the moment there is a sidebar to put them in —
 including §3.8's peek.
 
+**The sidebar's plane is a window drag handle.** Pressing anywhere that is not a control moves the
+window — the control row, the grid's background, the rule under `+ Add Tab`, and the empty list below the
+last tab. `NSTableView` swallows that press by default, which left the top 52 pt as the only place in a
+280 pt column you could pick the window up by.
+
 **The page is revealed, not resized.** For the length of a chrome transition its width is a constraint of
 its own, set to the *destination* width before the chrome starts moving, with the page anchored to the
 card's trailing edge. So a sidebar collapse costs WebKit **one** relayout instead of one per frame of a
@@ -391,14 +417,15 @@ resets to 280.
 
 ### 3.8 Hover-peek — the hidden sidebar
 
-With the sidebar hidden, pushing the pointer into the window's leading **24 pt** brings it back **over**
+With the sidebar hidden, pushing the pointer into the window's leading **44 pt** brings it back **over**
 the page after §6's 0.10 s intent delay, and lets it go again 0.10 s after the pointer leaves both the
 strip and the sidebar itself.
 
-> **It was 4 pt, and 4 pt was unusable.** A *screen* edge can be one point wide because the pointer piles
-> up against it; a window edge has nothing to stop the pointer, so a narrow strip has to be aimed at. The
-> intent delay is what keeps a wide strip from firing on the way past, so the strip can be as generous as
-> the gesture wants.
+> **It was 4 pt, then 24, and both meant aiming.** A *screen* edge can be one point wide because the
+> pointer piles up against it; a window edge has nothing to stop the pointer. The gesture is "shove the
+> mouse over to the left", which lands somewhere in the first inch, and 44 pt is about the width of that
+> shove. Nothing is spent on it: the strip never takes a click (its `hitTest` returns nil, so the page
+> keeps every event), and the intent delay is what keeps a wide strip from firing on the way past.
 
 - **The page does not move.** Only the chrome's leading constraint and its opacity animate; the card's
   insets stay collapsed, so nothing reflows for a glance at the tab list.
@@ -414,6 +441,10 @@ strip and the sidebar itself.
   the sidebar is on, the pane rounds the edge it shares with it; when the sidebar is floating in front
   of a flush pane, the corner belongs to the sidebar. `Glass.backing` takes a `maskedCorners` set and
   clips to it, because `NSGlassEffectView` has one radius and no corner set of its own.
+- **And it carries the edge itself** (`rimmed`). §3.6's hairline is drawn by the *page*, on the side
+  where the page meets the sidebar; a sidebar floating over a flush pane has no page edge to draw it, so
+  the plane takes the same `Line.border` hairline round its own rounded edge. A material with no edge on
+  it reads as a smudge rather than as a surface.
 - **Nothing blurs the page.** Liquid Glass composites what is behind the *window*, and
   `NSVisualEffectView` at `.withinWindow` will not sample a `WKWebView`'s out-of-process layer — a
   hand-built plane of scrim + frost + tint was tried and the page came through it perfectly sharp. What

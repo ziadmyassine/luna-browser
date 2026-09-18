@@ -53,6 +53,18 @@ final class TabListController: NSObject {
     private(set) var hoveredRow: Int?
     private var activeTabID: UUID?
     var isApplyingSelection = false
+    /// A press landed on a **tab** row. `SidebarTabDragController` runs the rest
+    /// of the gesture from here — see `SidebarTabDrag.swift` for why the list
+    /// does not use `NSTableView`'s own drag and drop for this.
+    var onTabPress: ((_ row: Int, _ event: NSEvent) -> Void)?
+    /// The row being carried, while §6.6's lift is up. Its view is hidden: the
+    /// lift is standing in for it. Internal because the gesture lives in
+    /// `TabListController+Lift.swift`, as `isApplyingSelection` is for the
+    /// delegate next door.
+    var draggedRow: Int?
+    /// Where the lift would land, in row space — or nil while it is over the
+    /// §3.3 grid, where the list's answer is "nowhere, close up".
+    var gapRow: Int?
 
     override init() {
         super.init()
@@ -87,8 +99,8 @@ final class TabListController: NSObject {
         table.allowsEmptySelection = true
         table.dataSource = self
         table.delegate = self
-        table.target = self
-        table.action = #selector(rowClicked)
+        table.onRowPress = { [weak self] row, event in self?.press(row: row, event: event) }
+        table.onLayout = { [weak self] in self?.restoreGap() }
         table.onCommandKey = { [weak self] command in self?.handle(command) ?? false }
         table.onFocusChange = { [weak self] in self?.movePills() }
         table.onHover = { [weak self] row in self?.setHovered(row) }
@@ -175,6 +187,17 @@ final class TabListController: NSObject {
             view.isHovered = row == hoveredRow
         }
         movePills()
+    }
+
+    /// Parks both row fills, or brings them back. §6.6's lift carries §3.4's
+    /// selected pill itself, so while one is up the list's own would be a
+    /// second highlight lying in the row's old place.
+    func setPillsHidden(_ hidden: Bool) {
+        guard hidden else {
+            movePills()
+            return
+        }
+        for pill in [selectionPill, hoverPill] { fade(pill, to: 0) }
     }
 
     /// Keeps the two shared pills behind the row views AppKit keeps adding.
@@ -297,11 +320,37 @@ final class TabListController: NSObject {
         return menu
     }
 
-    @objc private func rowClicked() {
-        switch list[table.clickedRow] {
-        case .addTab: onAddTab?()
-        default: break // Tabs activate through the selection change.
+    /// A press on a row, which is the whole mouse gesture: `NSTableView`'s own
+    /// `mouseDown` runs a tracking loop that never lets go until mouse-up, and
+    /// §6.6's lift needs the drags. See `SidebarTabDrag.swift`.
+    private func press(row: Int, event: NSEvent) {
+        table.window?.makeFirstResponder(table)
+        switch list[row] {
+        case .tab:
+            // Selected on the press, exactly as a table selects: the page is up
+            // before the gesture is over. The lift takes the rest of it.
+            table.selectRowIndexes([row], byExtendingSelection: false)
+            onTabPress?(row, event)
+        case .addTab:
+            guard Self.isClick(event, on: row, in: table) else { return }
+            onAddTab?()
+        case .separator, .none:
+            // Furniture. Dragging it moves the window, like the rest of the
+            // sidebar's plane (§30.1).
+            table.window?.performDrag(with: event)
         }
+    }
+
+    /// Waits out the gesture and reports whether it ended on the same row —
+    /// AppKit's own "did the click land" rule, which `super.mouseDown` would
+    /// have applied for us.
+    private static func isClick(_ event: NSEvent, on row: Int, in table: NSTableView) -> Bool {
+        guard let window = table.window else { return false }
+        while let next = window.nextEvent(matching: [.leftMouseUp, .leftMouseDragged]) {
+            guard next.type == .leftMouseUp else { continue }
+            return table.row(at: table.convert(next.locationInWindow, from: nil)) == row
+        }
+        return false
     }
 
     /// Moves the selection by `offset` tab rows and activates what it lands on
@@ -339,62 +388,4 @@ final class TabListController: NSObject {
                 .accessibilityDisplayOptionsChanged()
         }
     }
-}
-
-/// §3.4's two row fills: the selected pill and the hover lift.
-///
-/// **Clear glass alone was not visible.** The pill was `Glass.control` plus a
-/// hairline and nothing else, and `.clear` glass over the sidebar's own glass
-/// is very nearly the sidebar — a selected row read as unselected. `Tokens`
-/// has carried `Surface.selected` and `Surface.hover` for exactly this since
-/// M1; they were simply never asked for. Both are translucent washes, so the
-/// glass under them is still glass.
-@MainActor
-final class RowPillView: NSView {
-
-    enum Role { case selected, hover }
-
-    /// Kept for the callers that track the table's focus. **It no longer
-    /// changes what is drawn**: a selected row used to take an accent-coloured
-    /// border while the list had focus, and a blue ring around the current tab
-    /// is a system list, not this one. The selection reads as glass — the
-    /// material plus §3.4's wash — in every focus state.
-    var isFocused = false
-
-    private let role: Role
-
-    init(role: Role) {
-        self.role = role
-        super.init(frame: .zero)
-        wantsLayer = true
-        layer?.cornerCurve = .continuous
-        Glass.apply(.control, to: self, cornerRadius: Tokens.Metric.rowCornerRadius)
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("Luna builds its chrome in code; there is no nib to decode.")
-    }
-
-    override var wantsUpdateLayer: Bool { true }
-
-    override func updateLayer() {
-        guard let layer else { return }
-        layer.cornerRadius = Tokens.Metric.rowCornerRadius
-        layer.backgroundColor = (role == .selected ? Tokens.Surface.selected : Tokens.Surface.hover).cgColor
-        // §3.4 gives the selected row a visible border and the hover lift none:
-        // a border that appeared under the pointer would read as a second
-        // selection. The border is the glass's own edge — `Line.border`, never
-        // the accent: **no blue anywhere on a selected tab.**
-        let bordered = role == .selected
-        layer.borderWidth = bordered ? Tokens.Metric.hairline : 0
-        layer.borderColor = bordered ? Tokens.Line.border.cgColor : nil
-    }
-
-    override func viewDidChangeEffectiveAppearance() {
-        super.viewDidChangeEffectiveAppearance()
-        needsDisplay = true
-    }
-
-    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
