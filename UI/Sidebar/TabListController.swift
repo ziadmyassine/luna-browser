@@ -57,6 +57,11 @@ final class TabListController: NSObject {
     /// `TabListController+Lift.swift`, as `isApplyingSelection` is for the
     /// delegate next door.
     var draggedRow: Int?
+    /// Whether a lift is up over this list at all. Not the same question as
+    /// `draggedRow != nil`: a tile carried down from the §3.3 grid has no row
+    /// here to be carried *from*, and the gap it opens is still the list's to
+    /// draw. See `beginIncomingDrag()`.
+    var isDragging = false
     /// Where the lift would land, in row space — or nil while it is over the
     /// §3.3 grid, where the list's answer is "nowhere, close up".
     var gapRow: Int?

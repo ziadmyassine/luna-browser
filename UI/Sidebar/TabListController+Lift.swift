@@ -44,11 +44,29 @@ extension TabListController {
     }
 
     func beginDrag(atRow row: Int) {
+        isDragging = true
         draggedRow = row
         gapRow = row
         setPillsHidden(true)
         table.rowView(atRow: row, makeIfNecessary: false)?.alphaValue = 0
         applyGap(animated: false)
+    }
+
+    /// The same lift, arriving from the §3.3 grid rather than from this list.
+    ///
+    /// **There is no row to take out, only one to make room for.** An
+    /// Essentials tab is not in `SidebarList` at all, so the list had no
+    /// `draggedRow` to measure a gap from and `applyGap` returned without
+    /// moving anything: a tile carried down over the tabs floated over a list
+    /// that never reacted. The gap for an incoming lift is the simpler of the
+    /// two — everything from the landing row down moves one row out of the way
+    /// — and the pills are parked either way, because the lift is carrying
+    /// §3.4's pill itself.
+    func beginIncomingDrag() {
+        isDragging = true
+        draggedRow = nil
+        gapRow = nil
+        setPillsHidden(true)
     }
 
     /// Opens the gap at `row`, or closes it entirely when the lift has left the
@@ -63,17 +81,19 @@ extension TabListController {
     /// see `SidebarTableView.onLayout`. A no-op when no lift is up, which is
     /// every layout pass but the handful during a drag.
     func restoreGap() {
-        guard draggedRow != nil else { return }
+        guard isDragging else { return }
         applyGap(animated: false)
-        table.rowView(atRow: draggedRow ?? 0, makeIfNecessary: false)?.alphaValue = 0
+        guard let dragged = draggedRow else { return }
+        table.rowView(atRow: dragged, makeIfNecessary: false)?.alphaValue = 0
     }
 
     func endDrag() {
-        guard draggedRow != nil else { return }
+        guard isDragging else { return }
+        isDragging = false
         draggedRow = nil
         gapRow = nil
         // **Every row, by frame and by alpha.** `applyGap` is no use here: it
-        // needs a dragged row to measure from, and it has just been cleared.
+        // needs the lift to still be up, and it has just been taken down.
         // The rows are wherever the gap left them, and the one the lift stood
         // in for is still invisible — both are put back from the table's own
         // arithmetic, which is what they should have been all along.
@@ -91,19 +111,27 @@ extension TabListController {
     /// entry each time, and the whole arrangement is thrown away and rebuilt by
     /// the reload that follows the drop.
     private func applyGap(animated: Bool) {
-        guard let dragged = draggedRow else { return }
+        guard isDragging else { return }
+        let dragged = draggedRow
         let target = gapRow ?? table.numberOfRows
         let height = Tokens.Metric.rowHeight
         let body = { [self] in
             for row in 0 ..< table.numberOfRows where row != dragged {
                 guard let view = table.rowView(atRow: row, makeIfNecessary: false) else { continue }
                 // The table is flipped, so "up one row" is a negative offset.
-                let shift: CGFloat = if row > dragged, row < target {
-                    -height
-                } else if row >= target, row < dragged {
-                    height
+                // With no `dragged` row there is nothing to close up behind,
+                // so the gap is one-sided: the landing row and everything
+                // under it step down, and a nil `gapRow` puts them all back.
+                let shift: CGFloat = if let dragged {
+                    if row > dragged, row < target {
+                        -height
+                    } else if row >= target, row < dragged {
+                        height
+                    } else {
+                        0
+                    }
                 } else {
-                    0
+                    row >= target ? height : 0
                 }
                 var frame = table.rect(ofRow: row)
                 frame.origin.y += shift

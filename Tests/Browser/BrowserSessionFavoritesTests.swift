@@ -147,6 +147,51 @@ final class BrowserSessionFavoritesTests: XCTestCase {
         XCTAssertEqual(reopened.favorites(onProfile: home.profileID).map(\.id), [tab.id])
     }
 
+    // MARK: - §6.6 · the drag across the grid's edge
+
+    /// Carrying a tab up into §3.3 selects it, and selecting it is what keeps
+    /// its page: `pinTab` puts a *cold* tile's web view away, and the branch
+    /// that spares the active tab only fires if the selection has already
+    /// moved. Order is the whole test — pin first and the page is torn down
+    /// and rebuilt under the pointer.
+    func testPinningWithSelectionMakesTheTabCurrentAndKeepsItsPage() async throws {
+        let session = try await makeSession(try makeStore())
+        let home = try XCTUnwrap(session.spaces.first)
+        let other = Tab(spaceID: home.id, kind: .today, url: url("elsewhere"), order: 0)
+        let carried = Tab(spaceID: home.id, kind: .today, url: url("carried"), order: 1)
+        session.persistAll(session.list.insert(other))
+        session.persistAll(session.list.insert(carried))
+        session.activateTab(other.id)
+
+        XCTAssertTrue(session.pinTab(carried.id, at: 0, selecting: true))
+
+        XCTAssertEqual(session.tab(carried.id)?.kind, .essential)
+        XCTAssertEqual(session.activeTabID, carried.id, "the tab you carried up there is the tab you are pointing at")
+        XCTAssertNotNil(session.controller(for: carried.id), "the page you dropped must not go out from under you")
+    }
+
+    /// And the same tab carried back down: `reorderTab` moves it, and the
+    /// sidebar follows with `activateTab`, which is what wakes a page §19.2
+    /// put away when it was pinned.
+    func testUnpinningThroughAReorderCanSelectTheTab() async throws {
+        let session = try await makeSession(try makeStore())
+        let home = try XCTUnwrap(session.spaces.first)
+        let resident = Tab(spaceID: home.id, kind: .today, url: url("resident"), order: 0)
+        let tile = Tab(spaceID: home.id, kind: .today, url: url("tile"), order: 1)
+        session.persistAll(session.list.insert(resident))
+        session.persistAll(session.list.insert(tile))
+        session.activateTab(resident.id)
+        XCTAssertTrue(session.pinTab(tile.id))
+        XCTAssertNil(session.controller(for: tile.id), "a tile pinned while cold has no page")
+
+        session.reorderTab(tile.id, to: 0, kind: .today)
+        session.activateTab(tile.id)
+
+        XCTAssertEqual(session.tab(tile.id)?.kind, .today)
+        XCTAssertEqual(session.activeTabID, tile.id)
+        XCTAssertNotNil(session.controller(for: tile.id), "dropping it in the list is what loads it again")
+    }
+
     // MARK: - Helpers
 
     private func makeStore() throws -> BrowserStore {

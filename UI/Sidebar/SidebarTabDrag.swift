@@ -42,8 +42,10 @@ enum SidebarDropTarget: Equatable, Sendable {
 @MainActor
 final class SidebarTabDragController {
 
-    /// Dropped in the list: the §6.6 reorder, committed once.
-    var onDropInList: ((UUID, TabKind, Int) -> Void)?
+    /// Dropped in the list: the §6.6 reorder, committed once. `wasPinned` says
+    /// the tab came down out of the grid, which is the half of §3.3's boundary
+    /// the list sees — the other half is `onDropInEssentials`.
+    var onDropInList: ((_ id: UUID, _ kind: TabKind, _ index: Int, _ wasPinned: Bool) -> Void)?
     /// Dropped in the grid, at that slot. `wasPinned` separates the two things
     /// that look identical from here: moving a tile between slots, and pinning
     /// a row that was not a tile a moment ago.
@@ -144,6 +146,10 @@ final class SidebarTabDragController {
             // Out of the grid for the length of the gesture: its slot closes up
             // behind it, so the index under the pointer is the index it lands at.
             grid.draggedID = id
+            // And the list is told a lift is up even though none of its rows
+            // is the one being carried — otherwise a tile brought down over
+            // the tabs floats above a list that never opens for it.
+            list.beginIncomingDrag()
         } else if let row = list.list.row(of: id) {
             list.beginDrag(atRow: row)
         }
@@ -266,7 +272,7 @@ final class SidebarTabDragController {
                 if kind == destination.kind, let from = list.sectionIndex(of: id), from < destination.index {
                     destination.index -= 1
                 }
-                onDropInList?(id, destination.kind, destination.index)
+                onDropInList?(id, destination.kind, destination.index, kind == .essential)
             case let .essentials(index):
                 // The grid laid its slots out with the dragged tile taken out
                 // of them, so that index is already the one the tab lands at.

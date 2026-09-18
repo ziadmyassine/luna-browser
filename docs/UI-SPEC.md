@@ -116,8 +116,9 @@ state. Raising the tint instead was tried and is wrong: the tint is *black* in d
 a surface rather than through a hole.
 
 The tint is dropped wherever the opaque backdrop is up (fullscreen, §3.8's peek): there the glass is
-sampling `glassFallback` rather than a bright desktop, and darkening that plane by a third takes the
-sidebar under the content pane's own colour.
+sampling a plate rather than a bright desktop, and darkening that plane by a third takes the sidebar
+under the content pane's own colour. In fullscreen the material is hidden outright — see **Fullscreen**
+below — so there is nothing left to tint there at all.
 
 **Glass is the highlight, and nothing in the chrome is ever accent-blue.** A selected pinned tile, a
 selected row, the pill you are typing in, the section you are looking at in Settings: all of them say so
@@ -166,10 +167,15 @@ one surface rather than two that agree only sometimes.
 
 **Fullscreen.** Glass composites what is behind the *window*, and in macOS fullscreen there is nothing
 behind it — the sidebar rendered very nearly black in dark mode. The chrome planes (sidebar, top bar)
-therefore paint `Surface.glassFallback` **behind** the glass whenever the window is fullscreen: dark grey
-in dark, light grey in light, with the material still on top of it. Only in fullscreen — painting it
-always would be sampled by the glass in every window state and the wallpaper would stop coming through,
-which is the whole look.
+therefore paint `Surface.fullScreenChrome` — **#202020 dark**, `glassFallback`'s grey in light — whenever
+the window is fullscreen. Only in fullscreen: painting it always would be sampled by the glass in every
+window state and the wallpaper would stop coming through, which is the whole look.
+> **And the material stands down while it is up.** The plane used to be painted *behind* the glass, with
+> the material still on top. But a material with nothing to sample is not refracting anything — it is a
+> film that lifts the plane a few steps and makes its colour un-nameable, which is why the fullscreen
+> sidebar read as a lighter grey than the token said. In fullscreen the glass is hidden and the plate is
+> the colour, exactly: sampled on screen at #202020 across the sidebar. Controls keep their glass — a
+> control's job is to read as raised above whatever the plane became.
 > **The plane goes up on `willEnterFullScreen`, not on `did`.** `styleMask` does not carry `.fullScreen`
 > until the transition finishes, so reading it on `didEnterFullScreen` left the sidebar black for the
 > whole half-second zoom and only grey once the window had landed. Leaving is driven by
@@ -313,6 +319,16 @@ Vertical order, top to bottom:
   costs no WebContent process until it is clicked again (§19.2). A pinned tab cannot be closed, only
   unpinned (right-click → *Unpin Tab*, or drag it back down); `⌘W` on one puts the page away and leaves
   the tile.
+  > **A tab dragged across the grid's edge is selected by the drop.** Carrying a tab up into the grid or
+  > back down out of it is a decision about *that* tab, taken with it under the hand, and a drop that
+  > left the previous page on screen made the tile you had just made look like it belonged to something
+  > else. So the drop selects it, and selecting it is also what loads it — unpinning does not wake a page
+  > on its own (§19.2). A reorder *within* a section is not that: shuffling the list is housekeeping, and
+  > it leaves the selection alone.
+  > **Selection is taken before the pin, not after.** `pinTab` puts a cold tile's page away and spares
+  > only the tab that is already current, so pinning first would tear the live page down and rebuild it
+  > from `interactionState` a moment later — under the pointer, mid-gesture. `pinTab(selecting:)` moves
+  > the selection first and the existing "except the page you are looking at" branch does the rest.
   > **This was half-implemented and looked broken.** `pinTab` put the page away and never changed the
   > tab's kind, so the row left the list, no tile appeared, and the command did nothing visible.
 
@@ -369,6 +385,11 @@ Order: `+ Add Tab` row → **separator** → tabs.
   > **Nothing is committed until the mouse comes up.** The gap is drawn by offsetting row views, which
   > costs nothing and is thrown away by the reload that follows the drop; a reorder committed per row
   > crossed would be a SQLite write and an undo entry each time.
+  > **A lift arriving from the grid opens the same gap.** An Essentials tab is not a row in the list at
+  > all, so there was no dragged row to measure the gap from and the list sat still while a tile was
+  > carried down over it. The incoming gap is the simpler of the two — the landing row and everything
+  > under it step down by one row, and nothing closes up behind — and the list's two row pills are parked
+  > either way, because the lift is carrying §3.4's pill itself.
   > **There is no drag and drop left in the sidebar.** With the §3.3 tiles on this gesture too, nothing
   > in the column is an `NSDraggingSource` or an `NSDraggingDestination`, and `SidebarDrag`'s pasteboard
   > type is gone. A §3.5 Space dot is the lift's third landing place, beside the list and the grid.

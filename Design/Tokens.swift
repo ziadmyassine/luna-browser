@@ -23,7 +23,8 @@
 //
 //  System-backed vs custom, at a glance:
 //    system  Surface.base, Text.primary, Accent.tint, Accent.danger
-//    custom  Surface.raised, Surface.glassFallback, Surface.hover,
+//    custom  Surface.raised, Surface.glassFallback, Surface.fullScreenChrome,
+//            Surface.hover,
 //            Surface.selected, Surface.chromeFill, Surface.glassTint,
 //            Surface.frost, Surface.well,
 //            Text.secondary,
@@ -93,6 +94,19 @@ enum Tokens {
         /// `raised` in both, so controls still sit above the bar.
         static var glassFallback: NSColor {
             dynamicColor(light: 0xE4_E4_E4, dark: 0x23_23_23)
+        }
+
+        /// What the chrome plane becomes **in fullscreen** (§21, item 8).
+        ///
+        /// Not `glassFallback`, and not a material at all: fullscreen is the one
+        /// state where the glass has nothing behind the window to sample, so
+        /// what it draws is not a refraction but a film over the plane below —
+        /// and the plane's colour stops being the colour you get. The material
+        /// steps aside there (`GlassBackingView.wantsFlatPlane`) and this plate
+        /// is the chrome, exactly. Light keeps `glassFallback`'s grey: the ask
+        /// was about the dark sidebar.
+        static var fullScreenChrome: NSColor {
+            dynamicColor(light: 0xE4_E4_E4, dark: 0x20_20_20)
         }
 
         // The three below are **washes, not planes**: translucent by

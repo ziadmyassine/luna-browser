@@ -122,9 +122,9 @@ final class GlassBackingView: NSView {
     /// `NSGlassEffectView` composites what is behind the window, and in
     /// fullscreen there is no desktop behind it — so the sidebar renders as
     /// very nearly black in dark mode and very nearly white in light. The
-    /// backdrop is the same opaque plane Reduce Transparency already falls back
-    /// to, painted *under* the glass rather than instead of it: dark grey in
-    /// dark, light grey in light, with the material still on top of it.
+    /// backdrop is a plate of its own — `Tokens.Surface.fullScreenChrome`,
+    /// painted *instead of* the material rather than under it. See
+    /// `wantsFlatPlane` for why the material steps aside.
     ///
     /// It is only painted in fullscreen. Painting it always would be sampled by
     /// the glass in every window state and the wallpaper would stop coming
@@ -133,6 +133,7 @@ final class GlassBackingView: NSView {
         didSet {
             guard isWindowFullScreen != oldValue else { return }
             applyTint()
+            glass?.isHidden = wantsFlatPlane
             needsDisplay = true
         }
     }
@@ -142,6 +143,20 @@ final class GlassBackingView: NSView {
     private var wantsOpaquePlane: Bool {
         Tokens.A11y.reduceTransparency || (isWindowFullScreen && style.hasBackdrop)
     }
+
+    /// **In fullscreen the chrome is a plate, and the material stands down.**
+    ///
+    /// The plane below was already doing all the work — there is nothing behind
+    /// the window to refract, so the glass on top was not a refraction of
+    /// anything, only a film that lifted the plane a few steps and made its
+    /// colour un-nameable. Martin asked for #202020 and got something lighter,
+    /// and no value for the plane fixes that while something else is painted
+    /// over it. So the glass is hidden for the length of fullscreen and
+    /// `Tokens.Surface.fullScreenChrome` is the colour, exactly.
+    ///
+    /// Only the surfaces with a backdrop: a control's glass in fullscreen is
+    /// still reading as raised above the plate, which is its whole job.
+    private var wantsFlatPlane: Bool { isWindowFullScreen && style.hasBackdrop }
 
     /// **No tint over the fullscreen backdrop.** §2's chrome tint is what makes
     /// the sidebar read as dense over a desktop — it is *black* in dark mode,
@@ -277,6 +292,7 @@ final class GlassBackingView: NSView {
             // The header only guarantees placement for `contentView`, so give
             // it an empty one rather than relying on a bare glass view.
             view.contentView = NSView(frame: bounds)
+            view.isHidden = wantsFlatPlane
             addSubview(view)
             glass = view
             applyTint()
@@ -302,7 +318,9 @@ final class GlassBackingView: NSView {
         // what "less glass, more frosted" is: the desktop still refracts
         // through, but through a surface rather than through a hole, and the
         // density costs no darkening the way a heavier tint did.
-        layer.backgroundColor = if wantsOpaquePlane {
+        layer.backgroundColor = if wantsFlatPlane {
+            Tokens.Surface.fullScreenChrome.cgColor
+        } else if wantsOpaquePlane {
             style.solidFallback.cgColor
         } else if style.hasBackdrop {
             Tokens.Surface.frost.cgColor

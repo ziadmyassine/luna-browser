@@ -131,8 +131,14 @@ extension BrowserSession {
     ///   or the Profile is already holding Arc's twelve. Refusing is the whole
     ///   behaviour at the cap: quietly evicting the oldest tile would throw away
     ///   a login the user put there on purpose.
+    /// - Parameter selecting: make the tab current on the way in. §6.6's drag
+    ///   across the §3.3 boundary passes true — a tab you carried up there by
+    ///   hand is the tab you are pointing at, so it becomes the one on screen.
+    ///   **Ordering matters:** selection is taken *before* the pin, so the
+    ///   "except the page you are looking at" branch below is the one that
+    ///   runs and the live page is never torn down and rebuilt.
     @discardableResult
-    func pinTab(_ id: UUID, at index: Int = .max) -> Bool {
+    func pinTab(_ id: UUID, at index: Int = .max, selecting: Bool = false) -> Bool {
         guard let tab = list.tab(id), tab.kind != .essential else { return false }
         // Favorites are per Profile (§2), so the cap is per Profile too.
         if let profileID = profileID(ofTab: id), favorites(onProfile: profileID).count >= Self.favoritesCap {
@@ -143,6 +149,7 @@ extension BrowserSession {
         // from the list, no tile appeared, and "Pin Tab" looked like it did
         // nothing at all. `reorderTab` is what changes a tab's kind, and it
         // registers the undo.
+        if selecting { activateTab(id) }
         reorderTab(id, to: index, kind: .essential)
         guard activeTabBySpace[tab.spaceID] != id else {
             notifyChange()

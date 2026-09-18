@@ -229,8 +229,18 @@ final class SidebarViewController: NSViewController {
     /// exactly one of these three fires on release.
     private func wireDrag() {
         let controller = SidebarTabDragController(host: view, grid: essentials, list: list, utility: utility)
-        controller.onDropInList = { [weak self] id, kind, index in
-            self?.session.reorderTab(id, to: index, kind: kind)
+        // **Crossing the grid's edge selects the tab.** Dragging a tab up into
+        // §3.3 or down out of it is a decision about *that* tab, taken with it
+        // under the hand — and a drop that left the old page on screen made the
+        // tile you had just made look like it belonged to something else. A
+        // reorder *within* a section is not that: shuffling the list is
+        // housekeeping, and it leaves the selection alone.
+        controller.onDropInList = { [weak self] id, kind, index, wasPinned in
+            guard let self else { return }
+            session.reorderTab(id, to: index, kind: kind)
+            // Unpinning does not wake a page on its own (§19.2), so this is
+            // also what loads it.
+            if wasPinned { session.activateTab(id) }
         }
         controller.onDropInEssentials = { [weak self] id, index, wasPinned in
             guard let self else { return }
@@ -241,7 +251,7 @@ final class SidebarViewController: NSViewController {
             if wasPinned {
                 session.reorderTab(id, to: index, kind: .essential)
             } else {
-                session.pinTab(id, at: index)
+                session.pinTab(id, at: index, selecting: true)
             }
         }
         controller.onDropOnSpace = { [weak self] id, space in
