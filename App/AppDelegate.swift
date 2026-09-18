@@ -58,9 +58,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// opens it the first time and focuses it every time after, and it survives
     /// being closed because `isReleasedWhenClosed` is off.
     private var settingsWindow: SettingsWindowController?
-    /// §15.3's secondary surface. `BrowserCommands` opens it as well as the
-    /// top bar's button, so it is not file-private.
-    private(set) var downloadsPanel: DownloadsListPanel?
+    /// §15.3's list. `BrowserCommands` opens it as well as the two buttons, so
+    /// it is not file-private.
+    private(set) var downloadsPanel: DownloadsPanelController?
     private var observation: ObservationToken?
 
     func applicationWillFinishLaunching(_ notification: Notification) {
@@ -140,8 +140,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
 
             wireCommandBar(session, in: controller)
-            wireHistory(session, sidebar: sidebar, in: controller)
-            wireDownloads(session, topBar: topBar)
+            wireHistory(session, sidebar: sidebar, topBar: topBar, in: controller)
+            wireDownloads(session, sidebar: sidebar, topBar: topBar, in: controller)
             // §4.4: the New Tab page, the archive browser and the token→CSS
             // palette. Must follow the sidebar, whose Archive row it claims.
             InternalPagesInstaller.install(session: session)
@@ -212,13 +212,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func wireHistory(
         _ session: BrowserSession,
         sidebar: SidebarViewController,
+        topBar: TopBarView,
         in controller: BrowserWindowController
     ) {
         let panel = HistoryPanelController(session: session)
         history = panel
         sidebar.onOpenHistory = { [weak panel, weak controller, weak sidebar] in
             guard let panel, let sidebar, let window = controller?.window else { return }
-            panel.toggle(in: window, from: sidebar.historyAnchor)
+            // The sidebar's button is at the foot of the window, so the pop-out
+            // grows up out of it; the top bar's is at the head, so it grows
+            // down. One panel, one controller, two directions.
+            panel.toggle(in: window, from: sidebar.historyAnchor, edge: .above)
+        }
+        topBar.onHistory = { [weak panel, weak controller] anchor in
+            guard let panel, let window = controller?.window else { return }
+            panel.toggle(in: window, from: anchor, edge: .below)
         }
     }
 
@@ -253,14 +261,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func wireDownloads(_ session: BrowserSession, topBar: TopBarView) {
+    private func wireDownloads(
+        _ session: BrowserSession,
+        sidebar: SidebarViewController,
+        topBar: TopBarView,
+        in controller: BrowserWindowController
+    ) {
         let manager = DownloadManager()
         downloads = manager
-        let panel = DownloadsListPanel(manager: manager)
+        let panel = DownloadsPanelController(manager: manager)
         downloadsPanel = panel
         // §30.15: the completion popover is the primary surface and appears by
-        // itself; the button and the View menu open the secondary panel.
-        topBar.onDownloads = { [weak panel] _ in panel?.toggle() }
+        // itself; these two buttons open the list. Same pop-out, two ends of
+        // the window, so the edge is the caller's to say — exactly as History's
+        // is.
+        topBar.onDownloads = { [weak panel, weak controller] anchor in
+            guard let panel, let window = controller?.window else { return }
+            panel.toggle(in: window, from: anchor, edge: .below)
+        }
+        sidebar.onOpenDownloads = { [weak panel, weak controller, weak sidebar] in
+            guard let panel, let sidebar, let window = controller?.window else { return }
+            panel.toggle(in: window, from: sidebar.downloadsAnchor, edge: .above)
+        }
         session.onDownload = { [weak manager] download in manager?.begin(download) }
         // §5's popover points at the top bar's downloads button when the bar is
         // showing; it falls back to a plain window-anchored panel when it is not.
@@ -270,6 +292,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         manager.webViewProvider = { [weak session] in
             guard let session, let id = session.activeTabID else { return nil }
             return session.controller(for: id)?.webView
+        }
+    }
+
+    /// `⌘⌥L`, from `BrowserCommands`: §15.3's list, on whichever Downloads
+    /// button the layout on screen is showing.
+    ///
+    /// The menu item cannot hand over an anchor the way a button can, so this
+    /// is the one place that has to know which chrome is up. It reads the
+    /// setting rather than the window's state because a *collapsed* sidebar is
+    /// still the sidebar layout — its button is parked off-screen, and the
+    /// pop-out falls back to the corner it would have been in.
+    func showDownloadsList() {
+        guard let panel = downloadsPanel, let window = browserWindow?.window else { return }
+        switch Settings.chromeLayout {
+        case .topBar:
+            guard let anchor = topBar?.downloadsAnchor else { return }
+            panel.toggle(in: window, from: anchor, edge: .below)
+        case .sidebar:
+            guard let sidebar else { return }
+            panel.toggle(in: window, from: sidebar.downloadsAnchor, edge: .above)
         }
     }
 

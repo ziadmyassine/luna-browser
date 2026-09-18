@@ -80,6 +80,15 @@ final class TopBarActionCapsule: NSView {
         return buttons[index]
     }
 
+    /// Dims one item without rebuilding the capsule.
+    ///
+    /// The enabled flag is not part of `TopBarActionItem` on purpose: Back
+    /// changes it on every navigation, and an item list that carried it would
+    /// have to be reassigned — and therefore rebuilt — several times a minute.
+    func setEnabled(_ enabled: Bool, for id: String) {
+        (view(for: id) as? NSButton)?.isEnabled = enabled
+    }
+
     // MARK: - Items
 
     private func rebuild() {

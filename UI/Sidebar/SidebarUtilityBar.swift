@@ -2,13 +2,25 @@
 //  SidebarUtilityBar.swift
 //  Luna
 //
-//  §3.5: `[profile avatar 34] ··· [space dots pill 56 × 22] ··· [history 34]`,
+//  §3.5: `[profile 34] ··· [dots 56 × 22] ··· [downloads 34] [history 34]`,
 //  pinned to the bottom at 52 pt.
 //
 //  The trailing circle opens the archive page, and is called **History** —
 //  that is what a user looking for a page they closed goes looking for, and
 //  "archive" is Luna's internal word for the same shelf. It carries a clock
 //  glyph for the same reason: a box means storage, a clock means "earlier".
+//
+//  **Downloads sits beside it, as its pair.** They are the same kind of thing —
+//  the shelf of what you already have, glanced at rather than worked in, both
+//  opening as a pop-out that stands on its own button — and §4's action capsule
+//  pairs the same two at the other end of the window. The alternative was the
+//  §3.1 control row at the head, which is where *actions on this page* live;
+//  a finished download is not one of those.
+//
+//  The pair is what set §1's sidebar minimum: four controls and a centred pill
+//  need 195 pt, and `Metric.sidebarWidth` records the arithmetic. Below the
+//  width where the pill still fits between the two clusters it is centred in
+//  what is left rather than in the bar — see `placeContents`.
 //
 //  The dots are the Space switcher (§30.9). §8 requires them to be usable with
 //  Differentiate Without Colour on, so each dot carries the Space's **name** as
@@ -24,6 +36,7 @@ final class SidebarUtilityBar: NSView {
 
     var onProfile: (() -> Void)?
     var onHistory: (() -> Void)?
+    var onDownloads: (() -> Void)?
     var onSwitchSpace: ((UUID) -> Void)?
     /// §8.2 / §13.6: a gradient was chosen from a dot's menu, including the
     /// neutral one. Wire to `BrowserSession.setGradient(_:forSpace:)`.
@@ -41,15 +54,24 @@ final class SidebarUtilityBar: NSView {
         pointSize: Tokens.Metric.glyphSize,
         label: "History"
     )
+    /// The same glyph §4's capsule uses, so the two buttons are recognisably
+    /// the same button in two layouts.
+    private let downloads = GlassButton(
+        shape: Tokens.Metric.bottomCircle,
+        symbolName: "arrow.down.to.line",
+        pointSize: Tokens.Metric.glyphSize,
+        label: "Downloads"
+    )
     private let dots = SpaceDotsView()
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         avatar.onActivate = { [weak self] in self?.onProfile?() }
         history.onActivate = { [weak self] in self?.onHistory?() }
+        downloads.onActivate = { [weak self] in self?.onDownloads?() }
         dots.onSwitch = { [weak self] id in self?.onSwitchSpace?(id) }
         dots.onSetGradient = { [weak self] space, gradient in self?.onSetGradient?(space, gradient) }
-        for view in [avatar, history, dots] { addSubview(view) }
+        for view in [avatar, history, downloads, dots] { addSubview(view) }
     }
 
     @available(*, unavailable)
@@ -60,6 +82,9 @@ final class SidebarUtilityBar: NSView {
     /// §6.4's pop-out stands on this. Exposed rather than the whole bar,
     /// because "beside the History button" is a statement about the button.
     var historyAnchor: NSView { history }
+
+    /// §15.3's pop-out stands on this, for the same reason.
+    var downloadsAnchor: NSView { downloads }
 
     /// §6.6: the Space a lift held over `point` would move the tab to, with
     /// `point` in `space`'s coordinates.
@@ -99,13 +124,40 @@ final class SidebarUtilityBar: NSView {
             width: circle.width,
             height: circle.height
         ).pixelAligned
+        // §3.1's pair gap: Downloads and History read as one cluster, the way
+        // back and reload do at the head of the sidebar.
+        downloads.frame = NSRect(
+            x: history.frame.minX - Tokens.Metric.controlPairGap - circle.width,
+            y: midY,
+            width: circle.width,
+            height: circle.height
+        ).pixelAligned
         let pill = dots.intrinsicContentSize
         dots.frame = NSRect(
-            x: (bounds.width - pill.width) / 2,
+            x: dotsOriginX(pillWidth: pill.width, trailingEdge: downloads.frame.minX),
             y: (bounds.height - pill.height) / 2,
             width: pill.width,
             height: pill.height
         ).pixelAligned
+    }
+
+    /// **Centred in the bar while it fits, and centred in what is left when it
+    /// does not.**
+    ///
+    /// The pill grows with the number of Spaces (`spaceDotsPillGrowth`), so
+    /// "does it fit" is not a question §1's minimum can answer once and for
+    /// all: eight Spaces at 220 pt is wider than the gap between the avatar and
+    /// the Downloads button. Clamping to one side would have slid the pill
+    /// under one cluster while leaving clear air under the other; centring the
+    /// overflow keeps it symmetrical, which is the difference between a tight
+    /// bar and a broken one.
+    private func dotsOriginX(pillWidth: CGFloat, trailingEdge: CGFloat) -> CGFloat {
+        let gap = Tokens.Metric.chromeGap
+        let lower = avatar.frame.maxX + gap
+        let upper = trailingEdge - gap - pillWidth
+        let centred = (bounds.width - pillWidth) / 2
+        guard upper >= lower else { return (lower + upper) / 2 }
+        return min(max(centred, lower), upper)
     }
 }
 

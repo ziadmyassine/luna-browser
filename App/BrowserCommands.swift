@@ -76,10 +76,10 @@ extension AppDelegate {
 
     // MARK: - Downloads (§15.3)
 
-    /// `⌘⌥L`. Toggles §30.15's secondary surface; the completion popover is
-    /// the primary one and shows itself.
+    /// `⌘⌥L`. Toggles §30.15's list; the completion popover is the primary
+    /// surface and shows itself.
     @objc func showDownloads(_ sender: Any?) {
-        downloadsPanel?.toggle()
+        showDownloadsList()
     }
 
     // MARK: - Settings (SETTINGS-SPEC §2)

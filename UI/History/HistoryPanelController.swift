@@ -12,49 +12,42 @@
 //  `HistoryPanel`'s header for why it is no longer centred over the page — so
 //  this takes the anchor view rather than a content region.
 //
+//  There are two such buttons now: §3.5's, at the foot of the sidebar, and its
+//  twin in §4's action capsule. They are at opposite ends of the window, so the
+//  caller says which way the pop-out grows and `PopoutController` does the
+//  rest.
+//
 
 import AppKit
 import BrowserKit
 
 @MainActor
-final class HistoryPanelController: NSObject {
+final class HistoryPanelController: PopoutController {
 
     private let session: BrowserSession
-    private var panel: HistoryPanel?
     private var entries: [HistoryEntry] = []
-    private var monitor: Any?
+    /// Set by `toggle(in:from:edge:)` before the panel is built.
+    private var edge: PopoutEdge = .above
 
     init(session: BrowserSession) {
         self.session = session
         super.init()
     }
 
-    var isPresented: Bool { panel != nil }
-
     // MARK: - Presentation
 
-    /// - Parameter anchor: §3.5's History button. The pop-out stands on it, so
-    ///   it is not optional in the way `contentRegion` was — a pop-out with
-    ///   nothing to pop out of falls back to the window's bottom-leading
-    ///   corner, which is where that button is anyway.
-    func toggle(in window: NSWindow, from anchor: NSView) {
-        if isPresented { dismiss() } else { present(in: window, from: anchor) }
+    /// - Parameters:
+    ///   - anchor: the History button. The pop-out stands on it.
+    ///   - edge: which way it grows — up from the sidebar's foot, down from the
+    ///     top bar's capsule.
+    func toggle(in window: NSWindow, from anchor: NSView, edge: PopoutEdge) {
+        self.edge = edge
+        toggle(in: window, from: anchor)
     }
 
-    func present(in window: NSWindow, from anchor: NSView) {
-        guard let root = window.contentView else { return }
-        if panel != nil { dismiss() }
+    override func makePanel(in root: NSView) -> PopoutPanelView {
         entries = session.archived.map(Self.entry)
-
-        let panel = HistoryPanel(frame: root.bounds)
-        // Read live rather than captured: the sidebar can be resized and the
-        // window moved while the pop-out is open, and the button goes with
-        // them. Weak on both sides — the panel outlives neither, but it is the
-        // panel that is holding this closure.
-        panel.anchorRect = { [weak panel, weak anchor] in
-            guard let panel, let anchor, anchor.window != nil else { return .zero }
-            return panel.convert(anchor.bounds, from: anchor)
-        }
+        let panel = HistoryPanel(frame: root.bounds, edge: edge)
         // The live session first — an archived tab that was open this launch
         // still has its icon in memory — then §4.7's on-disk cache by host,
         // which is where every other archived tab's icon lives.
@@ -65,48 +58,33 @@ final class HistoryPanelController: NSObject {
             else { return nil }
             return NSImage(data: data)
         }
-        panel.onBackgroundClick = { [weak self] in self?.dismiss() }
         panel.onFilter = { [weak self] text in self?.filter(text) }
         panel.onChoose = { [weak self] id in self?.restore(id) }
-        root.addSubview(panel, positioned: .above, relativeTo: nil)
-        self.panel = panel
-
-        panel.setEntries(entries)
-        panel.animateIn()
-        panel.focusFilter()
-        installEscapeMonitor()
+        return panel
     }
 
-    func dismiss() {
-        panel?.removeFromSuperview()
-        panel = nil
+    override func panelDidAppear(_ panel: PopoutPanelView) {
+        guard let panel = panel as? HistoryPanel else { return }
+        panel.setEntries(entries)
+        panel.focusFilter()
+    }
+
+    override func panelDidDisappear() {
         entries = []
-        if let monitor { NSEvent.removeMonitor(monitor) }
-        monitor = nil
     }
 
     // MARK: - Behaviour
 
     private func filter(_ text: String) {
+        guard let panel = presented as? HistoryPanel else { return }
         let needle = text.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !needle.isEmpty else { return panel?.setEntries(entries) ?? () }
-        panel?.setEntries(entries.filter { $0.searchText.contains(needle) })
+        guard !needle.isEmpty else { return panel.setEntries(entries) }
+        panel.setEntries(entries.filter { $0.searchText.contains(needle) })
     }
 
     private func restore(_ id: UUID) {
         session.unarchiveTab(id)
         dismiss()
-    }
-
-    /// `esc` closes the panel from anywhere in it, not only from the field —
-    /// the field handles its own because it has a query to clear first.
-    private func installEscapeMonitor() {
-        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            // 53 is `esc`. `charactersIgnoringModifiers` is empty for it.
-            guard event.keyCode == 53, let self, isPresented else { return event }
-            MainActor.assumeIsolated { self.dismiss() }
-            return nil
-        }
     }
 
     // MARK: - Model

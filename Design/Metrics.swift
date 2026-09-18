@@ -111,8 +111,24 @@ extension Tokens {
 
         // MARK: Sidebar (§1, §3)
 
-        /// 280 / 160 / 420 pt. Everything else in §1 is proportioned to the default.
-        static let sidebarWidth = SpanMetric(default: 280, min: 160, max: 420)
+        /// 280 / 220 / 420 pt. Everything else in §1 is proportioned to the
+        /// default.
+        ///
+        /// **The minimum is arithmetic, not taste.** The sidebar's two 52 pt
+        /// rows are the widest things in it, and both stop fitting well before
+        /// the list does:
+        ///
+        ///     §3.5, foot   inset 8 + avatar 34 + gap 8 + dots 56 + gap 8
+        ///                  + downloads 34 + pair 5 + history 34 + inset 8  = 195
+        ///     §3.1, head   lights 18+60 + gap 16 + toggle 34 = 128, and back
+        ///                  starts at W − (8 + 34 + 5 + 34); clear of the
+        ///                  toggle from                                      ≈ 217
+        ///
+        /// It was 160, which is below both — the head's toggle already drew
+        /// over the back button there, and the foot's Space dots would now do
+        /// the same under Downloads. 220 is the first round number that clears
+        /// the worse of the two.
+        static let sidebarWidth = SpanMetric(default: 280, min: 220, max: 420)
         /// 38 pt of row **pitch** — tabs, `Archive` and `+ Add Tab` alike
         /// (§3.4, §30.6). The drawn pill is `rowPillHeight`, which is this less
         /// `rowGap`; the reference measures 109 px of pitch around a 100 px

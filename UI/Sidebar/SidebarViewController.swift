@@ -32,9 +32,13 @@ final class SidebarViewController: NSViewController {
     /// §3.5's bottom-bar History button. The one way into the page — it used
     /// to also be a row at the head of the list.
     var onOpenHistory: (() -> Void)?
+    /// §3.5's Downloads button, History's pair.
+    var onOpenDownloads: (() -> Void)?
 
     /// §6.4's pop-out stands on the bottom bar's History button.
     var historyAnchor: NSView { utility.historyAnchor }
+    /// §15.3's stands on the one beside it.
+    var downloadsAnchor: NSView { utility.downloadsAnchor }
     var onProfileMenu: (() -> Void)?
     /// Live during a §3.7 drag; the width constraint belongs to the window.
     var onWidthChange: ((CGFloat) -> Void)?
@@ -206,6 +210,7 @@ final class SidebarViewController: NSViewController {
 
         utility.onProfile = { [weak self] in self?.onProfileMenu?() }
         utility.onHistory = { [weak self] in self?.onOpenHistory?() }
+        utility.onDownloads = { [weak self] in self?.onOpenDownloads?() }
         utility.onSwitchSpace = { [weak self] id in self?.session.switchSpace(id) }
         // §8.2 / §13.6. The failure is silent on purpose: a colour that did not
         // persist is a cosmetic disappointment on the next launch, not

@@ -7,7 +7,13 @@
 //  second layout, not a collapsed sidebar — `ContentCardView` already knows
 //  that (`cardInsets` for `.topBar` has no gap and no corners).
 //
-//      [traffic lights] [back 28] [tiles … PILL … tiles] [|] [capsule]
+//      [traffic lights] [back] [tiles … PILL … tiles] [|] [capsule]
+//
+//  Both ends of the bar are the same object: `TopBarActionCapsule`, with one
+//  item in it on the left and four on the right. Back used to be a bare glass
+//  circle of the same 28 pt diameter, which is not the same *size* — the
+//  cylinder adds its padding, and one control at 28 beside three at 36 is the
+//  mismatch that reads.
 //
 //  Four things are deliberately absent:
 //    · **No sidebar toggle.** There is no sidebar in this layout to hide, so
@@ -65,8 +71,12 @@ final class TopBarView: NSView {
 
     // MARK: - Seams
 
-    /// The downloads popover (§5) anchors to the button it is passed.
+    /// The downloads pop-out (§5) anchors to the button it is passed.
     var onDownloads: ((NSView) -> Void)?
+    /// §6.4's History pop-out, from the capsule button beside Downloads. The
+    /// sidebar keeps its own at the foot of §3.5; this is that button's twin in
+    /// the layout that has no sidebar to put it in.
+    var onHistory: ((NSView) -> Void)?
     var onProfile: ((NSView) -> Void)?
 
     /// v2's extension action buttons (§16.4, §30.14). The capsule is built to
@@ -77,17 +87,26 @@ final class TopBarView: NSView {
     /// Where agent H's download popover points.
     var downloadsAnchor: NSView? { capsule.view(for: Self.downloadsItem) }
 
+    /// Where §6.4's History pop-out stands.
+    var historyAnchor: NSView? { capsule.view(for: Self.historyItem) }
+
     // MARK: - Views
 
+    private static let backItem = "luna.topBar.back"
     private static let newTabItem = "luna.topBar.newTab"
+    private static let historyItem = "luna.topBar.history"
     private static let downloadsItem = "luna.topBar.downloads"
     private static let profileItem = "luna.topBar.profile"
 
     private let session: BrowserSession
-    /// **The capsule item's circle**, so back is the same size as the new-tab,
-    /// downloads and profile buttons at the other end of the bar. The bar has
-    /// one button size and this is it.
-    private let backButton = TopBarButton(metric: TopBarMetrics.capsuleItem, glass: true)
+    /// **A capsule of one**, not a bare glass circle.
+    ///
+    /// Back and the three buttons at the other end of the bar were already the
+    /// same 28 pt item — but only one of them wore its glass directly, so back
+    /// read as a smaller control than the cylinder holding new-tab, downloads
+    /// and profile. Same class, same padding, same radius: one item in it
+    /// instead of four, and the two ends of the bar are made of the same thing.
+    private let backCapsule = TopBarActionCapsule()
     private let strip: TopBarTabStrip
     private let separator = TopBarSeparator()
     private let capsule = TopBarActionCapsule()
@@ -125,14 +144,19 @@ final class TopBarView: NSView {
 
     // MARK: - Build
 
-    /// Back sends its action to `nil`, so it travels the responder chain to the
-    /// same `AppDelegate` method the menu item calls — §22.5's "declared once,
-    /// implemented once".
+    /// The leading capsule: Back, and nothing else for now.
     private func buildControls() {
-        backButton.icon = TopBarButton.symbol("chevron.backward")
-        backButton.setAccessibilityLabel(String(localized: "Back"))
-        backButton.target = nil
-        backButton.action = #selector(AppDelegate.goBack(_:))
+        backCapsule.items = [TopBarActionItem(
+            id: Self.backItem,
+            symbolName: "chevron.backward",
+            label: String(localized: "Back")
+        ) {
+            // Sent to nil so it travels the responder chain to the same
+            // `AppDelegate` method the menu item calls — §22.5's "declared
+            // once, implemented once".
+            NSApp.sendAction(#selector(AppDelegate.goBack(_:)), to: nil, from: nil)
+        }]
+        backCapsule.setAccessibilityLabel(String(localized: "Back"))
     }
 
     /// `ChromeHostView` keeps **both** layouts alive and cross-fades them, and
@@ -171,7 +195,7 @@ final class TopBarView: NSView {
     }
 
     private func buildLayout() {
-        let views: [NSView] = [backButton, strip, separator, capsule]
+        let views: [NSView] = [backCapsule, strip, separator, capsule]
         for view in views {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
@@ -179,7 +203,7 @@ final class TopBarView: NSView {
         }
         // Measured from the real window buttons in `updateTrafficLightReserve`;
         // this is only the floor until there is a window to measure.
-        let leading = backButton.leadingAnchor.constraint(
+        let leading = backCapsule.leadingAnchor.constraint(
             equalTo: leadingAnchor,
             constant: Tokens.Metric.rowInset
         )
@@ -187,7 +211,7 @@ final class TopBarView: NSView {
 
         NSLayoutConstraint.activate([
             leading,
-            strip.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: TopBarMetrics.clusterGap),
+            strip.leadingAnchor.constraint(equalTo: backCapsule.trailingAnchor, constant: TopBarMetrics.clusterGap),
             strip.topAnchor.constraint(equalTo: topAnchor),
             strip.bottomAnchor.constraint(equalTo: bottomAnchor),
             separator.leadingAnchor.constraint(equalTo: strip.trailingAnchor, constant: TopBarMetrics.clusterGap),
@@ -209,6 +233,14 @@ final class TopBarView: NSView {
             guard let self else { return }
             _ = session.newTab(url: nil, kind: .today)
         }
+        let history = TopBarActionItem(
+            id: Self.historyItem,
+            symbolName: "clock.arrow.circlepath",
+            label: String(localized: "History")
+        ) { [weak self] in
+            guard let self, let anchor = historyAnchor else { return }
+            onHistory?(anchor)
+        }
         let downloads = TopBarActionItem(
             id: Self.downloadsItem,
             symbolName: "arrow.down.to.line",
@@ -225,7 +257,12 @@ final class TopBarView: NSView {
             guard let self, let anchor = capsule.view(for: Self.profileItem) else { return }
             onProfile?(anchor)
         }
-        capsule.items = extensionActions + [newTab, downloads, profile]
+        // **History beside Downloads**, and both before Profile. The sidebar's
+        // foot pairs the same two — they are the same kind of thing, the shelf
+        // of what you already have — so the layout without a sidebar keeps the
+        // pair rather than inventing a second arrangement. Profile stays last
+        // because it is about *who*, not about *what*.
+        capsule.items = extensionActions + [newTab, history, downloads, profile]
     }
 
     // MARK: - State
@@ -233,13 +270,13 @@ final class TopBarView: NSView {
     /// Re-reads everything from the session. Safe to call from the coordinator
     /// as well as from `onChange`.
     func refresh() {
-        backButton.isEnabled = activeState?.canGoBack ?? false
+        backCapsule.setEnabled(activeState?.canGoBack ?? false, for: Self.backItem)
         strip.reload()
     }
 
     /// One tab's live state (§4.3): title, progress, `themeColor`.
     func apply(_ state: TabState, for id: UUID) {
-        if id == session.activeTabID { backButton.isEnabled = state.canGoBack }
+        if id == session.activeTabID { backCapsule.setEnabled(state.canGoBack, for: Self.backItem) }
         strip.apply(state, for: id)
     }
 
@@ -276,7 +313,7 @@ final class TopBarView: NSView {
     /// can drive it explicitly from inside its own transaction instead.
     /// Reduce Motion (§21.2) makes it instant.
     func playEntranceStagger() {
-        let views: [NSView] = [backButton, strip, separator, capsule]
+        let views: [NSView] = [backCapsule, strip, separator, capsule]
         for view in views {
             view.wantsLayer = true
             view.alphaValue = 1
@@ -347,42 +384,5 @@ final class TopBarView: NSView {
     private static func applyTokens(from view: NSView) {
         (view as? any TopBarThemed)?.applyTokens()
         for subview in view.subviews { applyTokens(from: subview) }
-    }
-}
-
-// MARK: - Separator
-
-/// §4's vertical hairline, dividing the tab strip from the action capsule.
-@MainActor
-final class TopBarSeparator: NSView, TopBarThemed {
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        wantsLayer = true
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("Luna builds its chrome in code")
-    }
-
-    override var intrinsicContentSize: NSSize {
-        NSSize(
-            width: Tokens.Metric.hairline,
-            height: Tokens.Metric.topBarHeight - TopBarMetrics.clusterGap * 2
-        )
-    }
-
-    override var wantsUpdateLayer: Bool { true }
-
-    override func updateLayer() {
-        layer?.backgroundColor = Tokens.Line.hairline.cgColor
-    }
-
-    func applyTokens() { needsDisplay = true }
-
-    override func viewDidChangeEffectiveAppearance() {
-        super.viewDidChangeEffectiveAppearance()
-        needsDisplay = true
     }
 }

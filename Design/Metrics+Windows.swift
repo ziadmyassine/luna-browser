@@ -90,6 +90,16 @@ extension Tokens.Metric {
     /// to its rows when there are few of them.
     static let historyPanel = CGSize(width: 320, height: 420)
 
+    /// §5's downloads pop-out, the same surface one size wider.
+    ///
+    /// A filename is longer than a page title and it cannot be shortened the
+    /// way a URL can — `97103328759-2026-01-01-2026-08-31.pdf` has to keep both
+    /// ends, which is what the row's middle truncation is for — so 360 buys the
+    /// extra run of characters that makes the middle ellipsis land between two
+    /// halves rather than next to the extension. Shorter than History's
+    /// ceiling: a download list is a handful of rows, not a month of tabs.
+    static let downloadsPanel = CGSize(width: 360, height: 340)
+
     /// The gap between the History button and the pop-out standing on it —
     /// §3.1's control gap, so the pop-out sits off its button by the same
     /// distance the back and reload circles sit off each other.
