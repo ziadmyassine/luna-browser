@@ -138,5 +138,10 @@ locally. The App Sandbox is off on purpose — it blocks default-browser registr
 
 ## License
 
-Luna will be released under the **GNU General Public License v3.0 or later**.
-The `LICENSE` file lands at publication.
+Luna is licensed under the **GNU General Public License v3.0 or later** — see
+[`LICENSE`](LICENSE).
+
+The consequence is worth stating plainly rather than discovering later: the source of every
+released build has to be available, in-app updates included, because shipping an update is
+distribution. Today's one dependency is GPL-compatible (GRDB, MIT); check any new one
+before adding it.
