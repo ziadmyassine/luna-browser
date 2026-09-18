@@ -35,6 +35,25 @@ enum ChromeLayoutPreference: String, CaseIterable, Sendable {
     }
 }
 
+/// Where §3.2's address pill lives when the window is wearing the sidebar
+/// (§3.2b). Meaningless in top-bar layout, which has exactly one place to put a
+/// pill and puts it there.
+enum SearchBarPlacement: String, CaseIterable, Sendable {
+    /// §3.2 as built: the pill at the head of the sidebar, under §3.1's row.
+    case sidebar
+    /// The pill — and §3.1's three circles with it — floating over the top of
+    /// the page, collapsing to the domain as the page scrolls. See
+    /// `PageChromeBar`.
+    case page
+
+    var title: String {
+        switch self {
+        case .sidebar: String(localized: "In the sidebar")
+        case .page: String(localized: "On the page")
+        }
+    }
+}
+
 /// **Where the tabs are.** One setting, because it is one question the user is
 /// asking — and the two layouts have different answers available to them.
 ///
@@ -75,6 +94,7 @@ enum Settings {
 
     private static let layoutKey = "luna.chromeLayout"
     private static let tabsKey = "luna.tabsPosition"
+    private static let searchBarKey = "luna.searchBarPlacement"
 
     /// Defaults to the sidebar: it is the layout the reference shows and the
     /// one §3 is written against.
@@ -86,6 +106,21 @@ enum Settings {
         set {
             guard newValue != chromeLayout else { return }
             UserDefaults.standard.set(newValue.rawValue, forKey: layoutKey)
+            NotificationCenter.default.post(name: didChange, object: nil)
+        }
+    }
+
+    /// Defaults to the sidebar, because that is where it has always been: a
+    /// setting that moves a landmark must not move it for a user who has never
+    /// heard of the setting.
+    static var searchBarPlacement: SearchBarPlacement {
+        get {
+            UserDefaults.standard.string(forKey: searchBarKey)
+                .flatMap(SearchBarPlacement.init(rawValue:)) ?? .sidebar
+        }
+        set {
+            guard newValue != searchBarPlacement else { return }
+            UserDefaults.standard.set(newValue.rawValue, forKey: searchBarKey)
             NotificationCenter.default.post(name: didChange, object: nil)
         }
     }
@@ -115,5 +150,16 @@ enum Settings {
     /// stored `.centre` — which only the top bar can honour — reads as the left.
     static var sidebarEdge: SidebarEdge {
         tabsPosition(in: .sidebar) == .right ? .trailing : .leading
+    }
+
+    /// Whether §3.2b's bar is the one on screen — the single reader both the
+    /// sidebar and the page bar are driven from.
+    ///
+    /// **Two keys, one answer.** The placement is only meaningful in sidebar
+    /// layout, and asking each surface to remember that is how the sidebar ends
+    /// up having dropped its pill in a layout that has no page bar to put it
+    /// in.
+    static var searchBarIsOnPage: Bool {
+        chromeLayout == .sidebar && searchBarPlacement == .page
     }
 }

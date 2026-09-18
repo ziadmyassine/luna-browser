@@ -221,6 +221,13 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         card.setContent(view)
     }
 
+    /// §3.2b's page bar, over the top of the page rather than beside it. Inside
+    /// the card and not beside it in the root view, so it travels with the pane
+    /// on every layout switch and is clipped to the pane's own corners.
+    func setPageOverlay(_ view: NSView?) {
+        card.setOverlay(view)
+    }
+
     /// The page's frame inside the window's content view. §9.1's Command Bar
     /// centres on this rather than on the window, so it does not sit half a
     /// sidebar to the left of where the user is looking.

@@ -41,12 +41,50 @@ final class URLPillView: NSView, NSTextFieldDelegate {
     /// The `.control` backing, built the first time the pill is reached for —
     /// see `updateGlass`.
     private var glass: NSView?
+    /// The radius the backing was built at. A glass view's corner radius is
+    /// fixed when it is constructed, so a pill that changes height — §3.2b's,
+    /// collapsing — has to be given a new one rather than resized into a
+    /// capsule with the wrong ends.
+    private var glassRadius: CGFloat?
     private var isHovering = false
     // A bare glyph, not a `GlassButton`: the reference draws no bubble around
     // the sliders, and a glass control inside a glass pill is two materials.
     private let sliders = RowGlyphView()
     private var displayedURL: URL?
     private var isEditing = false
+
+    /// §3.2b: the same pill, the other way round — the sliders glyph on the
+    /// **leading** edge and the domain centred in what is left.
+    ///
+    /// Which way round it goes is a fact about what the pill is sitting in, not
+    /// about the pill. In the sidebar it is one row in a column of left-aligned
+    /// rows and its text starts where their text starts. On the page it is a
+    /// lone capsule centred over a window, and a domain pinned to the leading
+    /// edge of a 420 pt capsule reads as a mistake.
+    var centresText = false {
+        didSet {
+            guard centresText != oldValue else { return }
+            needsLayout = true
+        }
+    }
+
+    /// **The material at rest**, rather than only while the pill is being
+    /// reached for.
+    ///
+    /// In the sidebar the pill is a well cut into a glass plane, and constant
+    /// glass made it the brightest thing in the column — a second lit surface
+    /// directly under three lit circles. §3.2b's bar has no plane under it at
+    /// all: it floats over a web page, where a bordered well is a recess in
+    /// nothing and reads as a hole punched in the site. There the pill wears
+    /// what its three neighbours wear, when they wear it, so the four controls
+    /// are one set of objects rather than three and a gap.
+    var alwaysGlass = false {
+        didSet {
+            guard alwaysGlass != oldValue else { return }
+            needsDisplay = true
+            updateGlass()
+        }
+    }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -85,6 +123,17 @@ final class URLPillView: NSView, NSTextFieldDelegate {
 
     override var intrinsicContentSize: NSSize {
         NSSize(width: NSView.noIntrinsicMetric, height: Tokens.Metric.urlPill.height)
+    }
+
+    /// The narrowest this pill can be and still show its whole domain, in
+    /// `centresText` layout. §3.2b's collapsed capsule is sized to this — it
+    /// shrinks to the address rather than to a number someone picked.
+    var fittingWidth: CGFloat {
+        let overhang = (Tokens.Metric.rowTrailingChip.width - Tokens.Metric.pillGlyphSize) / 2
+        let margin = Tokens.Metric.pillGlyphInset - overhang
+            + Tokens.Metric.rowTrailingChip.width
+            + Tokens.Metric.chromeGap
+        return 2 * margin + ceil(field.intrinsicContentSize.width)
     }
 
     // MARK: - Content
@@ -163,17 +212,29 @@ final class URLPillView: NSView, NSTextFieldDelegate {
 
     override var wantsUpdateLayer: Bool { true }
 
+    /// A capsule at any height. §3.2's is always 34 pt, so the token *is* the
+    /// radius there; §3.2b's collapses, and a 17 pt radius on a 22 pt capsule
+    /// is a rectangle with dents in it.
+    private var cornerRadius: CGFloat {
+        min(Tokens.Metric.urlPill.cornerRadius, bounds.height / 2)
+    }
+
     override func updateLayer() {
         guard let layer else { return }
-        layer.cornerRadius = Tokens.Metric.urlPill.cornerRadius
+        layer.cornerRadius = cornerRadius
         // §3.2: a well cut into the sidebar, not a plate sitting on it. The
         // glass fades in above this when the pill is reached for.
-        layer.backgroundColor = Tokens.Surface.well.cgColor
-        layer.borderWidth = Tokens.Metric.hairline
+        //
+        // **Neither, once the glass is permanent.** A `GlassButton` at
+        // `.always` carries no plate and no hairline either: the material is
+        // the whole surface, and a well behind it is a shadow the buttons
+        // beside it do not have.
+        layer.backgroundColor = alwaysGlass ? nil : Tokens.Surface.well.cgColor
+        layer.borderWidth = alwaysGlass ? 0 : Tokens.Metric.hairline
         // **Never the accent.** An editing pill used to take a system-blue
         // ring; the material is what says the pill is live, the same way it
         // does for a selected row and a pinned tile.
-        layer.borderColor = Tokens.Line.border.cgColor
+        layer.borderColor = alwaysGlass ? nil : Tokens.Line.border.cgColor
     }
 
     // MARK: - Dormant material
@@ -185,8 +246,10 @@ final class URLPillView: NSView, NSTextFieldDelegate {
     /// Constant glass is what made it the brightest thing in the sidebar: a
     /// second lit surface directly under three lit circles, with the eye drawn
     /// to an address the user already knows.
+    private var glassTarget: CGFloat { (alwaysGlass || isHovering || isEditing) ? 1 : 0 }
+
     private func updateGlass() {
-        let target: CGFloat = (isHovering || isEditing) ? 1 : 0
+        let target = glassTarget
         guard let view = glass ?? (target > 0 ? makeGlass() : nil), view.alphaValue != target else { return }
         Tokens.Motion.animate(Tokens.Motion.controlHover) { context in
             context.allowsImplicitAnimation = true
@@ -194,11 +257,21 @@ final class URLPillView: NSView, NSTextFieldDelegate {
         }
     }
 
+    @discardableResult
     private func makeGlass() -> NSView {
-        let view = Glass.apply(.control, to: self, cornerRadius: Tokens.Metric.urlPill.cornerRadius)
+        let view = Glass.apply(.control, to: self, cornerRadius: cornerRadius)
         view.alphaValue = 0
         glass = view
+        glassRadius = cornerRadius
         return view
+    }
+
+    /// Rebuilds the backing when the pill has changed height under it. Only
+    /// §3.2b's pill ever does; the sidebar's calls this and finds nothing to do.
+    private func refreshGlassShape() {
+        guard glass != nil, glassRadius != cornerRadius else { return }
+        makeGlass().alphaValue = glassTarget
+        needsDisplay = true
     }
 
     override func updateTrackingAreas() {
@@ -250,27 +323,62 @@ final class URLPillView: NSView, NSTextFieldDelegate {
     override func layout() {
         super.layout()
         // Bounds-derived frames never animate — see `Motion.immediately`.
-        Tokens.Motion.immediately { placeContents() }
+        Tokens.Motion.immediately {
+            placeContents()
+            refreshGlassShape()
+        }
     }
 
     private func placeContents() {
         let glyph = Tokens.Metric.pillGlyphSize
         let chip = Tokens.Metric.rowTrailingChip
         let overhang = (chip.width - glyph) / 2
+        let height = field.intrinsicContentSize.height
+        let inset = Tokens.Metric.pillGlyphInset
+        // §3.2: two further slots, reserved and sized, rendering nothing.
+        let reserved = 2 * (glyph + Tokens.Metric.chromeGap)
+        let chipY = (bounds.height - chip.height) / 2
+        let textY = (bounds.height - height) / 2
+
+        guard !centresText else {
+            sliders.frame = NSRect(
+                x: bounds.minX + inset - overhang,
+                y: chipY,
+                width: chip.width,
+                height: chip.height
+            ).integral
+            // Symmetric margins, so the text is centred in the **pill** rather
+            // than in the space the glyph leaves: an off-centre domain in a
+            // centred capsule is worse than no centring at all.
+            //
+            // **And no reserved slots.** §3.2 holds two glyph-sized places open
+            // for controls that are not built; they belong to a pill that is one
+            // row of a column, where the column's other rows will grow the same
+            // controls. A capsule floating on the page is sized to what it
+            // shows, and 42 pt of held-open nothing at each end is what made it
+            // read as an empty bar with a word in it.
+            let margin = sliders.frame.maxX + Tokens.Metric.chromeGap
+            field.frame = NSRect(
+                x: margin,
+                y: textY,
+                width: max(bounds.width - 2 * margin, 0),
+                height: height
+            ).integral
+            field.alignment = .center
+            return
+        }
+        field.alignment = .natural
         sliders.frame = NSRect(
-            x: bounds.maxX - Tokens.Metric.pillGlyphInset + overhang - chip.width,
-            y: (bounds.height - chip.height) / 2,
+            x: bounds.maxX - inset + overhang - chip.width,
+            y: chipY,
             width: chip.width,
             height: chip.height
         ).integral
-        // §3.2: two further slots, reserved and sized, rendering nothing.
-        let reserved = 2 * (glyph + Tokens.Metric.chromeGap)
         let textRight = sliders.frame.minX - reserved
-        let height = field.intrinsicContentSize.height
         let textLeft = Tokens.Metric.pillTextInset
         field.frame = NSRect(
             x: textLeft,
-            y: (bounds.height - height) / 2,
+            y: textY,
             width: max(textRight - textLeft, 0),
             height: height
         ).integral

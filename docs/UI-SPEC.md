@@ -402,6 +402,43 @@ is one menu, shown from the sidebar pill and from §4's; the top-bar copy adds R
   in Luna and in a bare test app: none appeared. The assignments stay; they are the correct API, they
   cost one line each, and they come back by themselves if a system update starts honouring them.
 
+#### 3.2b Page bar — the pill and §3.1's three circles, on the page
+`Settings ▸ Appearance ▸ Search bar` (SETTINGS-SPEC §3.2) moves the pill out of the sidebar and floats
+it over the top of the content pane instead, taking the sidebar toggle, back and reload with it. The
+sidebar keeps its tabs, its Essentials and its bottom bar — and its top 52 pt, because that row is what
+keeps the traffic lights' corner clear; only its buttons go, and the column closes up over the pill's
+own 34 pt.
+
+| | Open | Collapsed |
+|---|---|---|
+| band | `pageBar` (52) | `pageBarCollapsed` (30) |
+| controls | toggle · back · reload, on the traffic lights' centre line | gone |
+| pill | `pageBarPillWidth` (420) wide, `sidebarCircle` tall, centred on the pane | sized to the domain, `pageBarCollapsedPillHeight` tall |
+| glyph | sliders on the **leading** edge, domain centred | same |
+
+- **The pill wears `.control` glass at rest here**, and takes the buttons' own diameter rather than
+  §3.2's pill height. Both follow from there being no plane under it: a bordered well is a recess cut
+  into a surface, and over a web page there is no surface to cut — it read as a hole punched in the
+  site, beside three controls that were lit. On the page the four are one set of objects, the same
+  material at the same time, and the height comes from `sidebarCircle` so they cannot drift apart.
+  (`sidebarCircle` is defined as a circle of `urlPill.height`, so this is the same 34 pt written the
+  way that keeps it true.) The plate and the hairline go with the well, exactly as they do for a
+  `GlassButton` at `.always`.
+
+- **The page decides which.** At the top of a document the bar is open; once the page has scrolled
+  `pageBarScrollSlack` past where the bar last answered, it collapses. Scrolling back up by the same
+  slack, reaching the top, or arriving anywhere new opens it again. The rule is `PageBarScroll`, a value
+  with no view in it, because the cases that matter are the awkward ones: a momentum wobble must not
+  flip it, and a long scroll down must not mean scrolling all the way back before the address returns.
+- **The offset comes from the page itself.** `WKWebView` publishes no scroll position on macOS — no
+  `scrollView`, no KVO-able offset — so a passive, frame-coalesced listener posts `window.scrollY`
+  through `TabController.scrollMessageName`. It is main-frame only: an ad iframe scrolling itself is not
+  the page moving.
+- **The bar has no background of its own**, which is not an omission. Every control on it already
+  carries its material, and a plane behind them would be a fourth surface over a live web page — the one
+  thing no material here can do honestly (see §2 and `Glass.peekPlane`). What is between the controls is
+  the page, and it stays clickable: the bar hit-tests to its subviews and to nothing else.
+
 ### 3.3 Essentials grid — reshapes around how many tiles are in it
 - Tiles 128 × 42, radius 12. **The sides are an alignment; the top, the bottom and the gutter are
   gaps, and they are not the same number.** The grid is inset `rowInset` (8) from the sidebar's leading

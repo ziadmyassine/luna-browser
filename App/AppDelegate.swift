@@ -45,8 +45,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // Owned because nothing else retains them: `NSView` does not hold its view
     // controller, and `WKDownload.delegate` is weak (see `DownloadManager`).
-    private var sidebar: SidebarViewController?
+    var sidebar: SidebarViewController?
     private var topBar: TopBarView?
+    /// §3.2b's page bar. Owned here for the same reason the other two are:
+    /// `ContentCardView` hosts the view, not the controller behind it. Wired in
+    /// `AppDelegate+PageChrome.swift`.
+    var pageChrome: PageChromeController?
     private var commandBar: CommandBarController?
     private var history: HistoryPanelController?
     /// Exactly one per `BrowserStore` (§9.3): two of them would bump divergent
@@ -129,6 +133,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 controller?.setSpaceGradient(gradient)
             }
             wireSidebar(sidebar, in: controller)
+            wirePageChrome(session, in: controller)
             // §7.1: the layout the user chose in Settings, applied before the
             // first frame the window shows with content in it.
             applyChromeLayout(in: controller, animated: false)
@@ -181,8 +186,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// §3.2's pill commits here: a URL is loaded, anything else is a search.
     /// Both shapes come from `CommandBarURL` so the pill and the Command Bar
-    /// cannot disagree about which is which (§9.2).
-    private func open(_ text: String) {
+    /// cannot disagree about which is which (§9.2). Not `private`: §3.2b's page
+    /// bar commits through the same parse, from `AppDelegate+PageChrome`.
+    func open(_ text: String) {
         guard let url = CommandBarURL.direct(from: text) ?? CommandBarURL.search(for: text) else { return }
         session?.load(url)
     }
@@ -356,6 +362,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Puts the window into whichever chrome `Settings.chromeLayout` names.
     /// The cross-fade and the frame animation run on the same tick (§4.1).
     private func applyChromeLayout(in controller: BrowserWindowController, animated: Bool) {
+        // **Before the early return below, not after it.** §3.2b's placement
+        // can change while the layout does not, and it is the only setting in
+        // this window whose effect is nothing at all if the chrome state
+        // happens to match.
+        applySearchBarPlacement(animated: animated)
         let edge = Settings.sidebarEdge
         let state: ChromeState = switch Settings.chromeLayout {
         // **A hidden sidebar stays hidden.** `⌘S` and this setting are

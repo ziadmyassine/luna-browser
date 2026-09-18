@@ -21,6 +21,7 @@ final class ScriptMessageRelay: NSObject, WKScriptMessageHandler {
         switch message.name {
         case TabController.mediaMessageName: owner?.handleMediaMessage(message)
         case ContentBlocker.blockedMessageName: owner?.handleBlockedMessage(message)
+        case TabController.scrollMessageName: owner?.handleScrollMessage(message)
         default: break
         }
     }

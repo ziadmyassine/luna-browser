@@ -212,3 +212,37 @@ struct TabControllerTests {
         #expect(controller.captureInteractionState() == blob)
     }
 }
+
+/// §3.2b's scroll signal. The script and the handler name are written in two
+/// places that cannot see each other — a string in Swift and a property lookup
+/// in JavaScript — and a typo in either is silent: the page posts into nothing
+/// and the bar simply never collapses.
+@Suite("Page scroll signal (§3.2b)")
+@MainActor
+struct PageScrollSignalTests {
+
+    @Test func theScriptPostsToTheNameTheControllerRegisters() {
+        #expect(TabController.scrollScript.contains(TabController.scrollMessageName))
+    }
+
+    @Test func theNameIsNotOneOfTheOtherTwo() {
+        #expect(TabController.scrollMessageName != TabController.mediaMessageName)
+        #expect(TabController.scrollMessageName != ContentBlocker.blockedMessageName)
+    }
+
+    /// The listener must never be able to delay a scroll, and it must coalesce to
+    /// a frame — posting once per scroll event crosses the process boundary
+    /// hundreds of times a second during a drag.
+    @Test func theListenerIsPassiveAndFrameCoalesced() {
+        #expect(TabController.scrollScript.contains("passive: true"))
+        #expect(TabController.scrollScript.contains("requestAnimationFrame"))
+    }
+
+    /// `scroll` does not bubble, but it does capture — which is the only way one
+    /// listener sees the app-shell sites that scroll an inner element instead of
+    /// the document.
+    @Test func itSeesTheSitesThatScrollSomethingOtherThanTheDocument() {
+        #expect(TabController.scrollScript.contains("capture: true"))
+        #expect(TabController.scrollScript.contains("scrollingElement"))
+    }
+}

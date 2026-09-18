@@ -39,6 +39,13 @@ public final class TabController: NSObject {
 
     static let mediaMessageName = "lunaMedia"
 
+    /// The main frame's scroll offset, whenever it changes — see
+    /// `TabController+Scroll.swift`. Nil unless something is drawing chrome
+    /// that depends on it, and the page script is injected either way: one
+    /// listener that posts a number nobody reads costs less than re-injecting
+    /// scripts when a setting changes.
+    public var onScroll: ((Double) -> Void)?
+
     private let messageRelay = ScriptMessageRelay()
 
     public init(id: UUID, dataStore: WKWebsiteDataStore) {
@@ -186,7 +193,7 @@ public final class TabController: NSObject {
         let controller = webView.configuration.userContentController
         // Adding a name that is already registered raises `NSInvalidArgumentException`;
         // removing one that is not is a no-op. Always pay the cheap call.
-        for name in [Self.mediaMessageName, ContentBlocker.blockedMessageName] {
+        for name in [Self.mediaMessageName, ContentBlocker.blockedMessageName, Self.scrollMessageName] {
             controller.removeScriptMessageHandler(forName: name)
             controller.add(messageRelay, name: name)
         }
@@ -195,6 +202,11 @@ public final class TabController: NSObject {
                 WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
             )
         }
+        // Main frame only: an ad iframe scrolling itself is not the page moving,
+        // and §3.2b's bar collapses on the page moving.
+        controller.addUserScript(
+            WKUserScript(source: Self.scrollScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        )
 
         // WebKit posts these on the main thread; `assumeIsolated` states that instead of
         // hiding it behind an unchecked conformance.
@@ -234,6 +246,7 @@ public final class TabController: NSObject {
         controller.removeAllUserScripts()
         controller.removeScriptMessageHandler(forName: Self.mediaMessageName)
         controller.removeScriptMessageHandler(forName: ContentBlocker.blockedMessageName)
+        controller.removeScriptMessageHandler(forName: Self.scrollMessageName)
 
         // Picture-in-Picture and element fullscreen outlive their web view: without this
         // a hibernated tab leaves a floating video playing with nothing behind it. The

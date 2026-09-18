@@ -63,6 +63,17 @@ final class SidebarControlRow: NSView {
         label: "Reload"
     )
     private var isLoading = false
+
+    /// **False when §3.2b has moved these three onto the page.** The row itself
+    /// stays — it is what keeps the traffic lights' corner clear, and the lights
+    /// do not move when the pill does (`TrafficLightLayout` places them the same
+    /// way in every layout). Only its buttons go.
+    var showsButtons = true {
+        didSet {
+            guard showsButtons != oldValue else { return }
+            for view in [toggle, back, reload] { view.isHidden = !showsButtons }
+        }
+    }
     /// Whether the last pass found the traffic lights. See `placeButtons`.
     private var hadLights = false
 
@@ -101,50 +112,19 @@ final class SidebarControlRow: NSView {
     // MARK: - Layout
 
     /// The space the three traffic lights occupy, in this row's coordinates —
-    /// or nil when there are none to clear.
+    /// or nil when there are none to clear. See `TrafficLightSpace` for why the
+    /// read is derived rather than taken from the buttons' live origins, and
+    /// for the second caller it is shared with.
     ///
-    /// **Sizes are measured; positions are not.** AppKit resets the buttons'
-    /// origins on every window resize and `TrafficLightLayoutManager` puts them
-    /// back a beat later, *after* this row has already laid out — so a row that
-    /// read `zoomButton.frame.midY` was reading AppKit's own placement, nine
-    /// points higher than the one that ends up on screen, and drew its three
-    /// circles clipped against the window's top edge until something else made
-    /// it dirty. What does not race is the buttons' size and the spacing
-    /// between them, which AppKit owns and never changes, and
-    /// `trafficLightInset`, which is the single number `TrafficLightLayout`
-    /// places them with. Measure the first, derive the second, and the row
-    /// lands on the lights whatever order the two passes run in.
+    /// **And nil when they are not on this row at all.** macOS keeps the lights
+    /// at the window's top-left and offers no way to move them, so a sidebar
+    /// standing on the *trailing* edge does not contain them — they float over
+    /// the page instead, which is what every browser that offers a right-hand
+    /// sidebar does. Reserving their space anyway would push the toggle off the
+    /// column entirely; that is what a rect starting left of this row is saying.
     private var trafficLights: NSRect? {
-        guard let window,
-              let close = window.standardWindowButton(.closeButton),
-              let zoom = window.standardWindowButton(.zoomButton),
-              // In fullscreen macOS takes the buttons away (they come back on a
-              // hover at the top of the screen) but leaves their frames behind.
-              // Reserving that space anyway left a hole at the head of the row
-              // where three lights used to be.
-              !zoom.isHiddenOrHasHiddenAncestor,
-              !window.styleMask.contains(.fullScreen),
-              let root = window.contentView
-        else { return nil }
-        let inset = Tokens.Metric.trafficLightInset
-        // Close's leading edge to zoom's trailing edge: AppKit's own spacing,
-        // whatever it is, and the same distance wherever the row happens to be.
-        let span = zoom.frame.maxX - close.frame.minX
-        let corner = convert(NSPoint(x: root.bounds.minX, y: root.bounds.maxY), from: root)
-        let lights = NSRect(
-            x: corner.x + inset,
-            y: corner.y - inset - zoom.frame.height,
-            width: max(span, zoom.frame.width),
-            height: zoom.frame.height
-        )
-        // **And nil when they are not on this row at all.** macOS keeps the
-        // lights at the window's top-left and offers no way to move them, so a
-        // sidebar standing on the *trailing* edge does not contain them — they
-        // float over the page instead, which is what every browser that offers
-        // a right-hand sidebar does. Reserving their space anyway would push
-        // the toggle off the column entirely; that is what a rect starting left
-        // of this row is saying.
-        return lights.minX >= bounds.minX ? lights : nil
+        guard let rect = TrafficLightSpace.rect(in: self), rect.minX >= bounds.minX else { return nil }
+        return rect
     }
 
     override func layout() {

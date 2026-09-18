@@ -192,10 +192,23 @@ underneath — never a silently dead switch (§30.4).
 | Control | Type | Wired to |
 |---|---|---|
 | Theme | Segmented: Auto · Light · Dark | `NSApp.appearance` |
+| Layout | Segmented: Sidebar · Top bar | `Settings.chromeLayout` — UI-SPEC §3 vs §4 |
+| Search bar | Segmented: In the sidebar · On the page | `Settings.searchBarPlacement` — UI-SPEC §3.2b |
 | Material | Segmented: Clear · Opaque | `Glass.density` — UI-SPEC §2a |
 | Optimise glass for this display | Segmented: Auto · On · Off | **§7 below** |
-| Show tab favicons in the sidebar | Toggle | `SidebarIcons.favicon(for:)` — **not** the row model, which holds no image |
 | Sidebar position | Segmented: Left · Right | *disabled* — right-hand sidebar is not built |
+
+**Favicons are no longer a row.** A switch for them was listed here; the sidebar
+has drawn them since M1, every browser draws them, and a preference whose only
+honest default is "on" is one more row to read past.
+
+**"Search bar" is dimmed under the top bar**, because there it has no answer:
+§4 has one place for an address and the tab strip is built around it. Under the
+sidebar it moves UI-SPEC §3.2's pill — and §3.1's back, reload and sidebar
+toggle with it — onto the top of the page, where it collapses to the domain as
+the page scrolls. The two keys resolve to one answer in
+`Settings.searchBarIsOnPage`, so the sidebar cannot drop its pill in a layout
+with no page bar to put it in.
 
 The glass rows carry a **live preview tile** below them: a 160 × 72 sample of
 the real material, redrawn the instant either segment changes. On a 1× display

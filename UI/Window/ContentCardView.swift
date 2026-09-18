@@ -87,6 +87,9 @@ final class ContentCardView: NSView {
     /// top, leading, bottom, trailing — in that order, always.
     private var edges: [NSLayoutConstraint] = []
     private var content: NSView?
+    /// §3.2b's page bar, floating over the page at the pane's top edge — the
+    /// one thing that is allowed inside the card and is not the web content.
+    private var overlay: NSView?
     private var insetsBeforeFullscreen: NSEdgeInsets?
     private var insetEdgeBeforeFullscreen: SidebarEdge? = .leading
     /// The content's leading edge, pinned to the card's. **Active at rest**, so
@@ -121,7 +124,13 @@ final class ContentCardView: NSView {
         content = view
         guard let view else { return }
         view.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(view)
+        // Under the overlay, whichever arrived first: the page bar floats over
+        // the page, and a web view added afterwards would otherwise cover it.
+        if let overlay {
+            addSubview(view, positioned: .below, relativeTo: overlay)
+        } else {
+            addSubview(view)
+        }
         // **Four edges at rest; trailing-pinned and width-driven only while a
         // chrome transition is running.**
         //
@@ -144,6 +153,25 @@ final class ContentCardView: NSView {
             view.trailingAnchor.constraint(equalTo: trailingAnchor),
             view.bottomAnchor.constraint(equalTo: bottomAnchor),
             leading
+        ])
+    }
+
+    /// §3.2b's bar. Pinned across the pane's top edge and as tall as the bar's
+    /// open state — it does not resize when the bar collapses, because the
+    /// controls travel inside a frame that is standing still (see
+    /// `PageChromeBar.layout`). The card clips it, so it takes the pane's two
+    /// rounded leading corners for free.
+    func setOverlay(_ view: NSView?) {
+        overlay?.removeFromSuperview()
+        overlay = view
+        guard let view else { return }
+        view.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(view, positioned: .above, relativeTo: nil)
+        NSLayoutConstraint.activate([
+            view.topAnchor.constraint(equalTo: topAnchor),
+            view.leadingAnchor.constraint(equalTo: leadingAnchor),
+            view.trailingAnchor.constraint(equalTo: trailingAnchor),
+            view.heightAnchor.constraint(equalToConstant: Tokens.Metric.pageBar)
         ])
     }
 

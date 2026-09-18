@@ -65,6 +65,14 @@ final class SidebarViewController: NSViewController {
         }
     }
 
+    /// §3.2b: the pill and §3.1's buttons have moved onto the page. The 52 pt
+    /// row stays — it is what keeps the traffic lights' corner clear.
+    func setSearchBarOnPage(_ onPage: Bool) {
+        controlRow.showsButtons = !onPage
+        pill.isHidden = onPage
+        view.needsLayout = true
+    }
+
     private let session: BrowserSession
     /// §8.2a's sidebar wash — the active Space's gradient at 16 %, behind
     /// everything. First in `loadView`'s subview list so it stays behind.
@@ -352,13 +360,16 @@ final class SidebarViewController: NSViewController {
         wash.frame = bounds
         let inset = Tokens.Metric.rowInset
         let bar = Tokens.Metric.topBarHeight
-        let pillHeight = Tokens.Metric.urlPill.height
+        // §3.2b: the pill is on the page, so the column closes up over its row
+        // — and the control row above it shrinks to what the lights need.
+        let pillHeight = pill.isHidden ? 0 : Tokens.Metric.urlPill.height
+        let head = pill.isHidden ? Tokens.Metric.sidebarHeadlessRow : bar
         let gridHeight = essentials.intrinsicContentSize.height
-        let controlTop = bounds.maxY - bar
+        let controlTop = bounds.maxY - head
         let pillTop = controlTop - pillHeight
         let gridTop = pillTop - gridHeight
 
-        controlRow.frame = NSRect(x: 0, y: controlTop, width: bounds.width, height: bar)
+        controlRow.frame = NSRect(x: 0, y: controlTop, width: bounds.width, height: head)
         // The row places its buttons against the **traffic lights**, which move
         // and disappear without its own bounds changing — entering fullscreen
         // takes them away and leaves the row exactly 52 pt tall and exactly as

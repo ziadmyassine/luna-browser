@@ -115,6 +115,7 @@ final class AppearanceSection: NSObject, SettingsSection {
         body.card(nil, [
             (themeRow(), ["theme", "appearance", "auto", "light", "dark"]),
             (chromeLayoutRow(), ["layout", "chrome", "sidebar", "top bar", "tabs"]),
+            (searchBarRow(), ["search bar", "address bar", "url bar", "on the page", "top of the page"]),
             (tabsRow(), ["tabs", "tab position", "sidebar position", "left", "right", "centre", "center"])
         ])
         body.card("Glass", [
@@ -231,6 +232,31 @@ final class AppearanceSection: NSObject, SettingsSection {
             Settings.chromeLayout = layouts[index]
             // The row below offers a different set of answers now.
             self?.refreshTabsRow()
+        }
+    }
+
+    /// §3.2b. Where the address pill goes **within** the sidebar layout: at the
+    /// head of the column as §3.2 built it, or over the top of the page, taking
+    /// §3.1's back and reload with it and collapsing as the page scrolls.
+    ///
+    /// **Dimmed under the top bar**, because there it has no answer: §4 has one
+    /// place for a pill and the tab strip is built around it. A segmented
+    /// control that silently did nothing would be worse than one that says why
+    /// (§30.4).
+    private func searchBarRow() -> NSView {
+        let places = SearchBarPlacement.allCases
+        let underSidebar = Settings.chromeLayout == .sidebar
+        return SettingsRow.segmented(
+            "Search bar",
+            options: places.map(\.title),
+            selected: places.firstIndex(of: Settings.searchBarPlacement) ?? 0,
+            isEnabled: underSidebar,
+            disabledReason: underSidebar
+                ? nil
+                : "The top bar has one place for the address, and this is it."
+        ) { index in
+            guard places.indices.contains(index) else { return }
+            Settings.searchBarPlacement = places[index]
         }
     }
 
