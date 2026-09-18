@@ -233,38 +233,59 @@ final class PageBarSuggestionsTests: XCTestCase {
         return list
     }
 
-    /// Nothing is selected until the user moves: the first keystroke after a
-    /// pause must not change what Return does under their hands.
-    func testItOpensOnWhatWasTypedRatherThanOnASuggestion() {
-        XCTAssertNil(list().selectedPhrase)
+    /// Return takes the top suggestion without the user arrowing down to it
+    /// first, which is the whole reason the list opens on a row rather than on
+    /// what was typed.
+    func testItOpensOnTheFirstSuggestion() {
+        XCTAssertEqual(list().selectedPhrase, "swift")
     }
 
     func testDownWalksTheListAndUpComesBackOut() {
         let list = list()
         XCTAssertTrue(list.move(1))
-        XCTAssertEqual(list.selectedPhrase, "swift")
-        XCTAssertTrue(list.move(1))
         XCTAssertEqual(list.selectedPhrase, "swift concurrency")
+        XCTAssertTrue(list.move(1))
+        XCTAssertEqual(list.selectedPhrase, "swiftui")
         XCTAssertTrue(list.move(-1))
-        XCTAssertEqual(list.selectedPhrase, "swift")
-        XCTAssertTrue(list.move(-1))
-        XCTAssertNil(list.selectedPhrase, "the typed text is an entry and has to be reachable")
+        XCTAssertEqual(list.selectedPhrase, "swift concurrency")
     }
 
-    /// Off the bottom is the typed text again, not the top — the same way out
-    /// at either end.
+    /// **What was typed stays reachable.** Opening on a suggestion must not
+    /// mean a query can only be searched as the engine would rather have
+    /// spelled it — ↑ off the top of the list is the way back to your own text.
+    func testUpOffTheTopIsTheWayBackToWhatWasTyped() {
+        let list = list()
+        XCTAssertTrue(list.move(-1))
+        XCTAssertNil(list.selectedPhrase)
+    }
+
+    /// Off the bottom is the typed text too — the same way out at either end.
     func testFallingOffTheEndReturnsToWhatWasTyped() {
         let list = list()
-        for _ in 0..<3 { _ = list.move(1) }
+        for _ in 0..<2 { _ = list.move(1) }
         XCTAssertEqual(list.selectedPhrase, "swiftui")
         XCTAssertTrue(list.move(1))
         XCTAssertNil(list.selectedPhrase)
     }
 
-    func testUpFromTheTypedTextLandsOnTheLastRow() {
+    func testDownFromTheTypedTextLandsOnTheFirstRowAgain() {
         let list = list()
-        XCTAssertTrue(list.move(-1))
-        XCTAssertEqual(list.selectedPhrase, "swiftui")
+        _ = list.move(-1)
+        XCTAssertNil(list.selectedPhrase)
+        XCTAssertTrue(list.move(1))
+        XCTAssertEqual(list.selectedPhrase, "swift")
+    }
+
+    /// The pill is the whole highlight. A second grey plate that lit under the
+    /// pointer and then sat there was a second selection the keyboard could not
+    /// move — which is what it looked like.
+    func testARowPaintsNothingOfItsOwn() {
+        let list = list()
+        list.layoutSubtreeIfNeeded()
+        for row in list.subviews.compactMap({ $0 as? PageBarSuggestionRow }) {
+            row.displayIfNeeded()
+            XCTAssertNil(row.layer?.backgroundColor)
+        }
     }
 
     /// With nothing to walk through the field keeps the key, so the caret moves
@@ -276,11 +297,11 @@ final class PageBarSuggestionsTests: XCTestCase {
         XCTAssertTrue(empty.isHidden)
     }
 
-    func testANewSetOfAnswersForgetsTheOldSelection() {
+    func testANewSetOfAnswersSelectsItsOwnFirstRow() {
         let list = list()
         _ = list.move(1)
         list.show(["something else"])
-        XCTAssertNil(list.selectedPhrase)
+        XCTAssertEqual(list.selectedPhrase, "something else")
     }
 
     func testDismissingLeavesNothingToCommit() {

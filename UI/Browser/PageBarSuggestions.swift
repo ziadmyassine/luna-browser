@@ -37,10 +37,10 @@ final class PageBarSuggestions: NSView {
     var onCommit: ((String) -> Void)?
 
     private(set) var phrases: [String] = []
-    /// Which row Return would take. `nil` means "what the user typed", which is
-    /// the state the list opens in: arriving at a suggestion has to be a thing
-    /// the user did, or the first keystroke after a pause changes what Return
-    /// does under their hands.
+    /// Which row Return would take. `nil` is "what the user typed", which stays
+    /// reachable — ↑ off the top of the list lands on it — but it is not where
+    /// the list opens: the top suggestion is, so Return takes it without the
+    /// user having to arrow down to it first.
     private(set) var selected: Int?
 
     private var rows: [PageBarSuggestionRow] = []
@@ -74,7 +74,7 @@ final class PageBarSuggestions: NSView {
 
     func show(_ phrases: [String]) {
         self.phrases = phrases
-        selected = nil
+        selected = phrases.isEmpty ? nil : 0
         rebuild()
         isHidden = phrases.isEmpty
         needsLayout = true
@@ -93,6 +93,7 @@ final class PageBarSuggestions: NSView {
             // Down from the typed text lands on the first row; up from it wraps
             // to the last, which is how every list in this app behaves.
             selected = offset > 0 ? 0 : phrases.count - 1
+
         case let current?:
             let next = current + offset
             // Off either end is back to what the user typed, not a wrap: the
@@ -171,13 +172,12 @@ final class PageBarSuggestionRow: NSView {
     var isSelected = false {
         didSet {
             guard isSelected != oldValue else { return }
-            needsDisplay = true
+            applyTokens()
         }
     }
 
     private let glyph = NSImageView()
     private let label = NSTextField(labelWithString: "")
-    private var isHovering = false
 
     init(phrase: String) {
         super.init(frame: .zero)
@@ -187,11 +187,10 @@ final class PageBarSuggestionRow: NSView {
             systemSymbolName: "magnifyingglass",
             accessibilityDescription: nil
         )?.withSymbolConfiguration(.init(pointSize: Tokens.Metric.faviconSize, weight: .regular))
-        glyph.contentTintColor = Tokens.Text.secondary
         label.stringValue = phrase
         label.font = Tokens.TypeScale.urlPill
-        label.textColor = Tokens.Text.primary
         label.lineBreakMode = .byTruncatingTail
+        applyTokens()
         for view in [glyph, label] { addSubview(view) }
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
@@ -203,13 +202,17 @@ final class PageBarSuggestionRow: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
-    override var wantsUpdateLayer: Bool { true }
-
-    /// **Hover only.** The selection is the glass pill behind these rows, not a
-    /// fill on one of them — see the file header.
-    override func updateLayer() {
-        layer?.cornerRadius = Tokens.Metric.rowCornerRadius
-        layer?.backgroundColor = (isHovering && !isSelected) ? Tokens.Surface.hover.cgColor : nil
+    /// **A row paints nothing.** The highlight is the one glass pill behind
+    /// these rows, and §9.2's list works the same way — it has no hover fill
+    /// either. A second grey plate that lit under the pointer and then sat
+    /// there was a second selection the keyboard could not move.
+    ///
+    /// What selection does change is the ink: §3.4's "brighter text", as a step
+    /// from secondary to primary rather than a fade, because §1 forbids
+    /// separating tiers by alpha alone.
+    private func applyTokens() {
+        label.textColor = isSelected ? Tokens.Text.primary : Tokens.Text.secondary
+        glyph.contentTintColor = isSelected ? Tokens.Text.primary : Tokens.Text.secondary
     }
 
     override func layout() {
@@ -233,32 +236,20 @@ final class PageBarSuggestionRow: NSView {
         }
     }
 
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        for area in trackingAreas where area.owner === self { removeTrackingArea(area) }
-        addTrackingArea(NSTrackingArea(
-            rect: .zero,
-            options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
-            owner: self
-        ))
-    }
-
-    override func mouseEntered(with event: NSEvent) {
-        isHovering = true
-        needsDisplay = true
-    }
-
-    override func mouseExited(with event: NSEvent) {
-        isHovering = false
-        needsDisplay = true
-    }
-
     /// **On mouse-down, not on mouse-up.** The field is first responder while
     /// this list is showing, and a click anywhere else ends its editing — so by
     /// the time a mouse-up arrived the list had already been dismissed out from
     /// under the pointer.
     override func mouseDown(with event: NSEvent) {
         onActivate?()
+    }
+
+    /// The ink is dynamic, and the bar this row sits on changes appearance with
+    /// the page under it — see `PageChromeBar`. Without this the rows keep the
+    /// colours of whatever site was open when they were built.
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        applyTokens()
     }
 
     override func accessibilityPerformPress() -> Bool {

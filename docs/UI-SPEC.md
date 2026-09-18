@@ -469,10 +469,14 @@ pill and lining up with it rather than with the bar.
   `Motion.selectedRowMove`, not a fill switched on and off per row. One backing instead of five, and
   the movement is what makes the highlight readable while the arrows are held down. The rows keep
   their own hover, and give it up under the pill.
-- **The list opens on what was typed, not on a suggestion.** ↓ walks into it and ↑ walks back out the
-  way it came in; off either end is the typed text again rather than a wrap, because the typed text is
-  a real entry and has to be reachable. With no phrases the arrows are left alone and the caret moves
-  as it would in any text field.
+- **The list opens on the first suggestion**, so Return takes it without arrowing down first. What was
+  typed is still a real entry and still reachable: ↑ off the top of the list lands on it, as does ↓ off
+  the bottom — the same way out at either end, rather than a wrap. With no phrases the arrows are left
+  alone and the caret moves as it would in any text field.
+- **A row paints nothing of its own**, hover included, exactly as §9.2's rows do not. A second grey
+  plate that lit under the pointer and then stayed there read as a second selection — one the keyboard
+  could not move. Selection changes the *ink* instead: §3.4's "brighter text", as a step from secondary
+  to primary rather than a fade, because §1 forbids separating tiers by alpha alone.
 - A row commits on **mouse-down**: the field is first responder while the list is showing, so a click
   anywhere else ends editing, and by mouse-up the list had already gone.
 
