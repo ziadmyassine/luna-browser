@@ -35,6 +35,8 @@ enum SidebarDropTarget: Equatable {
     case list(row: Int)
     /// A slot in §3.3's grid, in reading order.
     case essentials(index: Int)
+    /// A Space dot in the §3.5 bar: the tab leaves this Space for that one.
+    case space(id: UUID)
 }
 
 @MainActor
@@ -42,20 +44,29 @@ final class SidebarTabDragController {
 
     /// Dropped in the list: the §6.6 reorder, committed once.
     var onDropInList: ((UUID, TabKind, Int) -> Void)?
-    /// Dropped in the grid: pinned at that slot.
-    var onDropInEssentials: ((UUID, Int) -> Void)?
+    /// Dropped in the grid, at that slot. `wasPinned` separates the two things
+    /// that look identical from here: moving a tile between slots, and pinning
+    /// a row that was not a tile a moment ago.
+    var onDropInEssentials: ((_ id: UUID, _ index: Int, _ wasPinned: Bool) -> Void)?
+    /// Dropped on a §3.5 Space dot.
+    var onDropOnSpace: ((UUID, UUID) -> Void)?
 
     private unowned let host: NSView
     private unowned let grid: EssentialsGridView
     private unowned let list: TabListController
+    private unowned let utility: SidebarUtilityBar
 
     private var lift: SidebarDragLiftView?
     private var target: SidebarDropTarget?
+    /// Where the lift came from. A tile that started in the grid is taken out
+    /// of it for the length of the gesture, and put back by the drop.
+    private var isPinned = false
 
-    init(host: NSView, grid: EssentialsGridView, list: TabListController) {
+    init(host: NSView, grid: EssentialsGridView, list: TabListController, utility: SidebarUtilityBar) {
         self.host = host
         self.grid = grid
         self.list = list
+        self.utility = utility
     }
 
     /// Runs the whole gesture, from the press that started it to the mouse-up
@@ -66,13 +77,28 @@ final class SidebarTabDragController {
     /// responder chain. Escape cancels, which is the one thing every drag on
     /// macOS can do and the one thing a hand-rolled one usually cannot.
     func track(row: Int, event: NSEvent) {
-        guard case let .tab(id)? = list.list[row],
-              let tab = list.list.tab(at: row),
-              let window = host.window
-        else { return }
-        let content = list.content(for: row)
+        guard case let .tab(id)? = list.list[row], let tab = list.list.tab(at: row) else { return }
+        track(id: id, kind: tab.kind, content: list.content(for: row), origin: list.pillRect(ofRow: row, in: host), event: event)
+    }
+
+    /// The same gesture, started on a §3.3 tile. It lifts as a tile, can be
+    /// moved between the grid's slots, and becomes a row on the way down —
+    /// which is the whole point of there being one gesture rather than two.
+    func track(essential id: UUID, from tile: NSView, event: NSEvent) {
+        guard let content = grid.content(for: id) else { return }
+        track(
+            id: id,
+            kind: .essential,
+            content: content,
+            origin: host.convert(tile.bounds, from: tile),
+            event: event
+        )
+    }
+
+    private func track(id: UUID, kind: TabKind, content: SidebarRowContent, origin: NSRect, event: NSEvent) {
+        guard let window = host.window else { return }
+        isPinned = kind == .essential
         let start = host.convert(event.locationInWindow, from: nil)
-        let origin = list.pillRect(ofRow: row, in: host)
         var grabOffset = start.y - origin.midY
         var lifted = false
         var cancelled = false
@@ -88,31 +114,40 @@ final class SidebarTabDragController {
             default:
                 let point = host.convert(next.locationInWindow, from: nil)
                 if !lifted {
-                    guard abs(point.y - start.y) >= Tokens.Metric.dragThreshold else { continue }
+                    guard abs(point.y - start.y) >= Tokens.Metric.dragThreshold
+                        || abs(point.x - start.x) >= Tokens.Metric.dragThreshold
+                    else { continue }
                     lifted = true
                     grabOffset = start.y - origin.midY
-                    begin(id: id, content: content, from: origin, row: row)
+                    begin(id: id, content: content, from: origin)
                 }
-                move(to: point.y - grabOffset)
+                move(to: NSPoint(x: point.x, y: point.y - grabOffset))
             }
         }
 
         guard lifted else { return }
-        finish(id: id, kind: tab.kind, cancelled: cancelled)
+        finish(id: id, kind: kind, cancelled: cancelled)
     }
 
     // MARK: - The gesture
 
-    private func begin(id: UUID, content: SidebarRowContent, from origin: NSRect, row: Int) {
+    private func begin(id: UUID, content: SidebarRowContent, from origin: NSRect) {
         let view = SidebarDragLiftView(content: content)
         view.frame = origin
+        view.shape = isPinned ? .tile : .row
         host.addSubview(view, positioned: .above, relativeTo: nil)
         lift = view
         // The grid is zero points tall until something is pinned, so it has to
         // be opened before the lift can be carried into it.
         grid.isAwaitingDrop = true
-        list.beginDrag(atRow: row)
-        target = .list(row: row)
+        if isPinned {
+            // Out of the grid for the length of the gesture: its slot closes up
+            // behind it, so the index under the pointer is the index it lands at.
+            grid.draggedID = id
+        } else if let row = list.list.row(of: id) {
+            list.beginDrag(atRow: row)
+        }
+        target = nil
         view.lift()
     }
 
@@ -120,81 +155,85 @@ final class SidebarTabDragController {
     /// the pointer: the column *is* the gesture, and the only horizontal
     /// movement the lift ever makes is the morph between a row's width and a
     /// tile's.
-    private func move(to centreY: CGFloat) {
+    private func move(to point: NSPoint) {
         guard let lift else { return }
-        let next = resolveTarget(atY: centreY)
-        let morphed = shape(of: next) != shape(of: target)
+        let next = resolveTarget(at: point)
+        let morphed = target.map { shape(of: next) != shape(of: $0) } ?? false
         if next != target {
             target = next
             apply(next)
         }
-        lift.apply(frame: frame(for: next, centredAt: centreY), shape: shape(of: next), animated: morphed)
+        lift.apply(frame: frame(for: next, at: point), shape: shape(of: next), animated: morphed)
     }
 
-    /// Anything at or above the grid's lower edge belongs to the grid; the rest
-    /// is the list. The grid is open to a tile's height for the whole gesture,
-    /// so there is always a boundary even with nothing pinned yet.
-    private func resolveTarget(atY centreY: CGFloat) -> SidebarDropTarget {
-        guard centreY < grid.frame.minY else {
-            // The lift is locked to the column, so the slot it lands in is the
-            // one under its own leading edge — always the leading column.
-            let point = grid.convert(NSPoint(x: grid.bounds.minX + 1, y: centreY), from: host)
-            return .essentials(index: grid.insertionIndex(at: point))
+    /// Three regions, read from the foot of the sidebar up: a Space dot, the
+    /// list, the grid. The grid is held open to a tile's height for the whole
+    /// gesture, so there is a boundary to cross even with nothing pinned yet.
+    private func resolveTarget(at point: NSPoint) -> SidebarDropTarget {
+        if let space = utility.spaceID(at: point, from: host) { return .space(id: space) }
+        guard point.y < grid.frame.minY else {
+            // **The one place the lift moves sideways.** Two columns of tiles
+            // are two positions, and which of them the lift is over is a
+            // question only the pointer's `x` can answer; everywhere else the
+            // column is the whole gesture.
+            return .essentials(index: grid.insertionIndex(at: grid.convert(point, from: host)))
         }
-        return .list(row: list.insertionRow(atY: centreY, in: host))
+        return .list(row: list.insertionRow(atY: point.y, in: host))
     }
 
-    /// Where the lift sits for a target: a row's pill, or a tile in its slot.
-    /// Both keep the pointer's `y`, so the lift never leaves the hand.
-    private func frame(for target: SidebarDropTarget, centredAt centreY: CGFloat) -> NSRect {
+    /// Where the lift sits for a target: a row's pill, or a tile snapped into
+    /// its slot. Both keep the pointer's `y`, so the lift never leaves the hand.
+    private func frame(for target: SidebarDropTarget, at point: NSPoint) -> NSRect {
         switch target {
-        case .list:
+        case let .essentials(index):
+            let slot = host.convert(grid.slotRect(at: index), from: grid)
+            return NSRect(x: slot.minX, y: point.y - slot.height / 2, width: slot.width, height: slot.height)
+        case .list, .space:
             let inset = Tokens.Metric.rowInset
             let height = Tokens.Metric.rowPillHeight
             return NSRect(
                 x: host.bounds.minX + inset,
-                y: centreY - height / 2,
+                y: point.y - height / 2,
                 width: max(host.bounds.width - 2 * inset, 0),
                 height: height
-            )
-        case let .essentials(index):
-            let slot = host.convert(grid.slotRect(at: index), from: grid)
-            return NSRect(
-                x: slot.minX,
-                y: centreY - slot.height / 2,
-                width: slot.width,
-                height: slot.height
             )
         }
     }
 
     private func apply(_ target: SidebarDropTarget) {
+        grid.dropIndex = nil
+        utility.highlightedSpaceID = nil
         switch target {
         case let .list(row):
-            grid.dropIndex = nil
             list.setGap(row: row)
         case let .essentials(index):
             grid.dropIndex = index
-            // Out of the list entirely: the gap closes up behind it.
+            // Out of the list entirely: its gap closes up behind it.
+            list.setGap(row: nil)
+        case let .space(id):
+            utility.highlightedSpaceID = id
             list.setGap(row: nil)
         }
     }
 
-    private func shape(of target: SidebarDropTarget?) -> SidebarDragLiftView.Shape {
+    private func shape(of target: SidebarDropTarget) -> SidebarDragLiftView.Shape {
         switch target {
         case .essentials: .tile
-        case .list, nil: .row
+        case .list, .space: .row
         }
     }
 
     private func finish(id: UUID, kind: TabKind, cancelled: Bool) {
         let landing = cancelled ? nil : target
         grid.dropIndex = nil
+        grid.draggedID = nil
         grid.isAwaitingDrop = false
+        utility.highlightedSpaceID = nil
         lift?.drop()
         lift = nil
         list.endDrag()
         target = nil
+        isPinned = false
         guard let landing else { return }
         switch landing {
         case let .list(row):
@@ -206,7 +245,11 @@ final class SidebarTabDragController {
             }
             onDropInList?(id, destination.kind, destination.index)
         case let .essentials(index):
-            onDropInEssentials?(id, index)
+            // The grid laid its slots out with the dragged tile taken out of
+            // them, so this index is already the one the tab lands at.
+            onDropInEssentials?(id, index, kind == .essential)
+        case let .space(space):
+            onDropOnSpace?(id, space)
         }
     }
 }

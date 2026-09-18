@@ -182,12 +182,8 @@ final class SidebarViewController: NSViewController {
         utility.onProfile = { [weak self] in self?.onProfileMenu?() }
         utility.onHistory = { [weak self] in self?.onOpenHistory?() }
         utility.onSwitchSpace = { [weak self] id in self?.session.switchSpace(id) }
-        utility.onMoveTabToSpace = { [weak self] tab, space in self?.session.moveTab(tab, toSpace: space) }
 
         essentials.onActivate = { [weak self] id in self?.session.activateTab(id) }
-        // Dragging a row up into the grid is one of the two ways to pin
-        // (§3.3); `pinTab` is what makes it also put the page away.
-        essentials.onDrop = { [weak self] id, index in self?.session.pinTab(id, at: index) }
         essentials.onUnpin = { [weak self] id in self?.session.unpinTab(id) }
     }
 
@@ -199,14 +195,6 @@ final class SidebarViewController: NSViewController {
             session.activateTab(session.newTab(url: nil, kind: .today))
         }
         list.onPinTab = { [weak self] id in self?.session.pinTab(id) }
-        list.onDragSessionChange = { [weak self] isDragging in
-            guard let self else { return }
-            essentials.isAwaitingDrop = isDragging
-            view.needsLayout = true
-        }
-        list.onMoveTab = { [weak self] id, kind, index in
-            self?.session.reorderTab(id, to: index, kind: kind)
-        }
         wireDrag()
         list.onToggleMute = { [weak self] id in
             guard let self else { return }
@@ -220,17 +208,33 @@ final class SidebarViewController: NSViewController {
         }
     }
 
-    /// §6.6's lift: the list hands the gesture over, the controller carries it
-    /// between the two sections, and exactly one of these two fires on release.
+    /// §6.6's lift. Both ends of the sidebar hand their press over to it — a
+    /// list row and a grid tile are the same gesture wearing two shapes — and
+    /// exactly one of these three fires on release.
     private func wireDrag() {
-        let controller = SidebarTabDragController(host: view, grid: essentials, list: list)
+        let controller = SidebarTabDragController(host: view, grid: essentials, list: list, utility: utility)
         controller.onDropInList = { [weak self] id, kind, index in
             self?.session.reorderTab(id, to: index, kind: kind)
         }
-        controller.onDropInEssentials = { [weak self] id, index in
-            self?.session.pinTab(id, at: index)
+        controller.onDropInEssentials = { [weak self] id, index, wasPinned in
+            guard let self else { return }
+            // **Two different verbs for one landing place.** A tile moving
+            // between slots is a reorder inside the Essentials section; a row
+            // arriving is a *pin*, which also puts its page away (§19.2), and
+            // `pinTab` refuses a tab that is already pinned.
+            if wasPinned {
+                session.reorderTab(id, to: index, kind: .essential)
+            } else {
+                session.pinTab(id, at: index)
+            }
+        }
+        controller.onDropOnSpace = { [weak self] id, space in
+            self?.session.moveTab(id, toSpace: space)
         }
         list.onTabPress = { [weak controller] row, event in controller?.track(row: row, event: event) }
+        essentials.onDragTile = { [weak controller] id, tile, event in
+            controller?.track(essential: id, from: tile, event: event)
+        }
         drag = controller
     }
 

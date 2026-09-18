@@ -92,6 +92,9 @@ final class SidebarResizeHandle: NSView {
         onWidthChange?(width(for: event))
     }
 
+    /// §30.1: the sidebar's plane moves the window; a control on it does not.
+    override var mouseDownCanMoveWindow: Bool { false }
+
     override func mouseUp(with event: NSEvent) {
         guard isDragging else { return }
         isDragging = false

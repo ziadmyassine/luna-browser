@@ -226,6 +226,18 @@ final class GlassBackingView: NSView {
     /// Solid under Reduce Transparency, so AppKit can skip what is behind it.
     override var isOpaque: Bool { Tokens.A11y.reduceTransparency }
 
+    /// **Decoration, and decoration takes no events.** A backing sits under its
+    /// host's content and fills it edge to edge, so wherever the host has no
+    /// glyph the deepest view under the pointer is this one — and a view that
+    /// draws no background answers `mouseDownCanMoveWindow` with `true`, which
+    /// on a window that moves by its background means the press was spent
+    /// dragging the window instead of pressing the control. Handing the hit
+    /// test back puts the question to the host, which knows the answer.
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    /// And the same answer for the host that does hit-test to here anyway.
+    override var mouseDownCanMoveWindow: Bool { false }
+
     @objc private func accessibilityDisplayOptionsChanged() {
         rebuild()
     }

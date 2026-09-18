@@ -12,6 +12,11 @@
 //  unpin it (right-click, or drag it back down into the list). Both routes
 //  come through `BrowserSession.unpinTab`.
 //
+//  **Nothing here is an AppKit drop target any more.** A tile is moved by the
+//  same tracked gesture a list row is — see `SidebarTabDrag.swift` — so the
+//  grid's job during a drag is only to say where its slots are, to hold one
+//  open, and to hide the tile that is currently in the air.
+//
 //  Tile width flexes. §1's 128 pt tile is the design intent at a 280 pt
 //  sidebar, but 10 + 128 + 12 + 128 + 10 is 288 — wider than the sidebar it
 //  was measured from — and §1 says the sidebar's own content reflows when it
@@ -30,10 +35,11 @@ final class EssentialsGridView: NSView {
     private static let columns = 2
 
     var onActivate: ((UUID) -> Void)?
-    /// A tab dropped on the grid is **pinned** at this index (§6.6).
-    var onDrop: ((UUID, Int) -> Void)?
     /// Right-click → Unpin. The tab goes back to the top of today's tabs.
     var onUnpin: ((UUID) -> Void)?
+    /// A tile is being carried (§6.6). The sidebar's drag controller runs the
+    /// rest of the gesture from here — the grid does not move its own tiles.
+    var onDragTile: ((UUID, NSView, NSEvent) -> Void)?
 
     /// A row is being dragged somewhere in the sidebar.
     ///
@@ -44,6 +50,17 @@ final class EssentialsGridView: NSView {
     var isAwaitingDrop = false {
         didSet {
             guard isAwaitingDrop != oldValue, tabs.isEmpty else { return }
+            reflow()
+        }
+    }
+
+    /// The tile currently in the air, if the lift started here. It is hidden
+    /// and left out of the slot arithmetic for the length of the gesture, so
+    /// `dropIndex` speaks in the same indices `reorderTab` will be given.
+    var draggedID: UUID? {
+        didSet {
+            guard draggedID != oldValue else { return }
+            for (id, tile) in tiles { tile.isHidden = id == draggedID }
             reflow()
         }
     }
@@ -72,7 +89,6 @@ final class EssentialsGridView: NSView {
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        registerForDraggedTypes([SidebarDrag.tabType])
         setAccessibilityLabel("Essentials")
         setAccessibilityRole(.group)
     }
@@ -139,7 +155,7 @@ final class EssentialsGridView: NSView {
             glassMode: .dormant
         )
         tile.onActivate = { [weak self] in self?.onActivate?(tab.id) }
-        tile.dragItem = { SidebarDrag.item(for: tab.id) }
+        tile.onDragOut = { [weak self] event in self?.onDragTile?(tab.id, tile, event) }
         tile.menuBuilder = { [weak self] in
             let menu = NSMenu()
             menu.addItem(SidebarMenu.item(title: "Unpin Tab") { self?.onUnpin?(tab.id) })
@@ -187,11 +203,17 @@ final class EssentialsGridView: NSView {
 
     // MARK: - Layout
 
-    /// How many slots the grid is laying out: its tiles, plus the one a live
-    /// drag is holding open.
+    /// The tiles that are on the grid right now — everything but the one in
+    /// the air.
+    private var settled: [UUID] {
+        order.filter { $0 != draggedID }
+    }
+
+    /// How many slots the grid is laying out: the settled tiles, plus the one a
+    /// live drag is holding open.
     private var slotCount: Int {
         let open = dropIndex == nil ? 0 : 1
-        return max(tabs.count + open, isAwaitingDrop ? 1 : 0)
+        return max(settled.count + open, isAwaitingDrop ? 1 : 0)
     }
 
     private var rowCount: Int {
@@ -245,7 +267,7 @@ final class EssentialsGridView: NSView {
     }
 
     private func placeContents() {
-        for (index, id) in order.enumerated() {
+        for (index, id) in settled.enumerated() {
             guard let tile = tiles[id] else { continue }
             // A live drag holds a slot open: everything from it onwards steps
             // along by one, which is the gap the lift drops into.
@@ -273,7 +295,7 @@ final class EssentialsGridView: NSView {
     /// nothing pinned yet and a drag in the air — the first one.
     private var outlinedSlot: NSRect? {
         if let dropIndex { return slotRect(at: dropIndex) }
-        return isAwaitingDrop && tabs.isEmpty ? slotRect(at: 0) : nil
+        return isAwaitingDrop && settled.isEmpty ? slotRect(at: 0) : nil
     }
 
     override func viewDidChangeEffectiveAppearance() {
@@ -281,23 +303,9 @@ final class EssentialsGridView: NSView {
         needsDisplay = true
     }
 
-    // MARK: - Drop (§6.6)
-
-    override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
-        SidebarDrag.tabID(in: sender) == nil ? [] : .move
-    }
-
-    override func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation {
-        SidebarDrag.tabID(in: sender) == nil ? [] : .move
-    }
-
-    override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
-        guard let id = SidebarDrag.tabID(in: sender) else { return false }
-        onDrop?(id, insertionIndex(at: convert(sender.draggingLocation, from: nil)))
-        return true
-    }
-
-    /// Which slot the pointer is over, in reading order.
+    /// Which slot the pointer is over, in reading order — and **the index the
+    /// tab would land at**, which is why it counts the settled tiles rather
+    /// than all of them: the one in the air is already out of the way.
     func insertionIndex(at point: NSPoint) -> Int {
         let inset = Tokens.Metric.essentialsInset
         let gap = Tokens.Metric.essentialsTileGap
@@ -305,6 +313,17 @@ final class EssentialsGridView: NSView {
         let column = min(max(Int((point.x - inset) / max(tileWidth + gap, 1)), 0), Self.columns - 1)
         let fromTop = bounds.maxY - Tokens.Metric.essentialsVerticalInset - point.y
         let row = max(Int(fromTop / max(Tokens.Metric.essentialsTile.height + gap, 1)), 0)
-        return min(row * Self.columns + column, tabs.count)
+        return min(row * Self.columns + column, settled.count)
+    }
+
+    /// What §6.6's lift should look like while it is carrying `id` — the same
+    /// title and favicon a list row would draw for that tab, because down there
+    /// it *is* a list row.
+    func content(for id: UUID) -> SidebarRowContent? {
+        guard let tab = tabs.first(where: { $0.id == id }) else { return nil }
+        return SidebarRowContent(
+            title: Self.siteName(for: tab),
+            favicon: SidebarIcons.favicon(for: tab)
+        )
     }
 }

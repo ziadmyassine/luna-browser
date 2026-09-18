@@ -32,13 +32,8 @@ final class TabListController: NSObject {
     var onCloseTab: ((UUID) -> Void)?
     var onToggleMute: ((UUID) -> Void)?
     var onAddTab: (() -> Void)?
-    /// §6.6: a row was dropped into a section at an index.
-    var onMoveTab: ((UUID, TabKind, Int) -> Void)?
     /// Right-click → Pin Tab. The tab becomes a tile in the §3.3 grid.
     var onPinTab: ((UUID) -> Void)?
-    /// A row drag started or finished. The §3.3 grid opens a drop slot while
-    /// one is live — see `EssentialsGridView.isAwaitingDrop`.
-    var onDragSessionChange: ((Bool) -> Void)?
 
     private(set) var list = SidebarList()
     /// Live per-tab state, pushed in by `BrowserSession.onTabStateChange`.
@@ -70,8 +65,6 @@ final class TabListController: NSObject {
         super.init()
         buildTable()
         buildScrollView()
-        table.registerForDraggedTypes([SidebarDrag.tabType])
-        table.setDraggingSourceOperationMask(.move, forLocal: true)
     }
 
     private func buildTable() {
@@ -88,13 +81,6 @@ final class TabListController: NSObject {
         // §30.7: unselected rows have no background at all, and the selected
         // one is our own glass pill — AppKit must not paint either.
         table.selectionHighlightStyle = .none
-        // §6.6: **a gap, not a line.** AppKit's default drop feedback is a
-        // 2 pt insertion rule drawn between two rows — the dragged tab has no
-        // place to be and the rows never move, so the list reads as static
-        // while a ghost floats over it. `.gap` makes the table open a slot the
-        // size of the row being dragged and animate its neighbours apart, so
-        // the tab's landing place is visible and locked the whole way down.
-        table.draggingDestinationFeedbackStyle = .gap
         table.allowsMultipleSelection = false
         table.allowsEmptySelection = true
         table.dataSource = self

@@ -177,6 +177,9 @@ final class URLPillView: NSView, NSTextFieldDelegate {
         endEditing(commit: false)
     }
 
+    /// §30.1: the sidebar's plane moves the window; a control on it does not.
+    override var mouseDownCanMoveWindow: Bool { false }
+
     override func mouseDown(with event: NSEvent) {
         beginEditing()
     }

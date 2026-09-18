@@ -25,13 +25,16 @@ import AppKit
 @MainActor
 final class SidebarDragLiftView: NSView {
 
-    /// Which of §3's two shapes the lift is wearing.
+    /// §3.4's row, or §3.3's tile.
     enum Shape { case row, tile }
+
+    /// Which of §3's two shapes the lift is wearing. Set before the first
+    /// placement by whoever started the gesture — a tile lifts as a tile.
+    var shape: Shape = .row { didSet { needsLayout = true } }
 
     private let pill = RowPillView(role: .selected)
     private let icon = NSImageView()
     private let title = NSTextField(labelWithString: "")
-    private var shape: Shape = .row
 
     init(content: SidebarRowContent) {
         super.init(frame: .zero)

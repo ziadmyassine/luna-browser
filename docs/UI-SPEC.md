@@ -270,7 +270,14 @@ Vertical order, top to bottom:
   survive the 160–420 pt resize range.
 - **A live drag holds a slot open.** `dropIndex` is the slot §6.6's lift is over: the tiles step round
   it, the grid grows by a row when it needs to, and the outline is drawn there rather than only in an
-  empty grid.
+  empty grid. The tile being carried is taken *out* of the grid (`draggedID`) for the length of the
+  gesture, so the slot index under the pointer is already the index the tab lands at.
+- **A tile moves on the same gesture a row does, and stays a tile up here.** Picking one up lifts it as
+  a tile, and it is the one place in the sidebar where a lift moves sideways: two columns are two
+  positions, and which one you are over is a question only the pointer's `x` can answer. Carried down
+  into the list it becomes a row — the tab is unpinned and behaves like any other — and carried back up
+  it becomes a tile again. Dropping one on a slot it already occupies is a reorder inside the Essentials
+  section; dropping a *row* there is a pin, which also puts the page away (§19.2).
 - **Icon only, centred, 16 pt.** No label. Visually distinct from the text rows below (§30.5).
 - **Dormant, and glass when it is the tab you are on.** A tile at rest is `Surface.hover` plus a
   hairline; the material arrives when the tile is selected or hovered and leaves with the pointer.
@@ -335,6 +342,9 @@ Order: `+ Add Tab` row → **separator** → tabs.
   > **Nothing is committed until the mouse comes up.** The gap is drawn by offsetting row views, which
   > costs nothing and is thrown away by the reload that follows the drop; a reorder committed per row
   > crossed would be a SQLite write and an undo entry each time.
+  > **There is no drag and drop left in the sidebar.** With the §3.3 tiles on this gesture too, nothing
+  > in the column is an `NSDraggingSource` or an `NSDraggingDestination`, and `SidebarDrag`'s pasteboard
+  > type is gone. A §3.5 Space dot is the lift's third landing place, beside the list and the grid.
 
 ### 3.5 Bottom utility bar — 52 pt, pinned
 `[profile avatar circle 34, left] ··· [space dots pill 56 × 22, centred] ··· [history circle 34, right]`
@@ -380,10 +390,17 @@ go away was sitting on top of the site's own navigation. `⌘S` means "give the 
 lights are hidden with everything else and come back the moment there is a sidebar to put them in —
 including §3.8's peek.
 
-**The sidebar's plane is a window drag handle.** Pressing anywhere that is not a control moves the
-window — the control row, the grid's background, the rule under `+ Add Tab`, and the empty list below the
-last tab. `NSTableView` swallows that press by default, which left the top 52 pt as the only place in a
-280 pt column you could pick the window up by.
+**The sidebar's plane is a window drag handle — and only the plane.** Pressing anywhere that is not a
+control moves the window: the control row, the grid's background, the rule under `+ Add Tab`, the empty
+list below the last tab. `NSTableView` swallows that press by default, which left the top 52 pt as the
+only place in a 280 pt column you could pick the window up by.
+
+> **Every control has to say so, one at a time.** `NSView.mouseDownCanMoveWindow` answers `true` for any
+> view that draws no background of its own, which is every glass surface in Luna — so on a window that
+> moves by its background, the press that should have picked a pinned tile up picked the *window* up
+> instead, and the tile never saw it. `GlassButton`, the URL pill, a Space dot and the resize handle all
+> answer `false`, and a `GlassBackingView` hit-tests to nil: it is decoration filling its host edge to
+> edge, so wherever the host has no glyph it was the deepest view under the pointer.
 
 **The page is revealed, not resized.** For the length of a chrome transition its width is a constraint of
 its own, set to the *destination* width before the chrome starts moving, with the page anchored to the

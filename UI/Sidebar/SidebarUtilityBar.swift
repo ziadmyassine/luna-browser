@@ -25,8 +25,6 @@ final class SidebarUtilityBar: NSView {
     var onProfile: (() -> Void)?
     var onHistory: (() -> Void)?
     var onSwitchSpace: ((UUID) -> Void)?
-    /// §6.6: a tab was dropped on a Space dot.
-    var onMoveTabToSpace: ((UUID, UUID) -> Void)?
 
     private let avatar = GlassButton(
         shape: Tokens.Metric.bottomCircle,
@@ -47,13 +45,24 @@ final class SidebarUtilityBar: NSView {
         avatar.onActivate = { [weak self] in self?.onProfile?() }
         history.onActivate = { [weak self] in self?.onHistory?() }
         dots.onSwitch = { [weak self] id in self?.onSwitchSpace?(id) }
-        dots.onDrop = { [weak self] tab, space in self?.onMoveTabToSpace?(tab, space) }
         for view in [avatar, history, dots] { addSubview(view) }
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
+    }
+
+    /// §6.6: the Space a lift held over `point` would move the tab to, with
+    /// `point` in `space`'s coordinates.
+    func spaceID(at point: NSPoint, from space: NSView) -> UUID? {
+        dots.spaceID(at: point, from: space)
+    }
+
+    /// The dot the lift is over, marked as such.
+    var highlightedSpaceID: UUID? {
+        get { dots.highlightedSpaceID }
+        set { dots.highlightedSpaceID = newValue }
     }
 
     func show(spaces: [Space], activeSpaceID: UUID) {
@@ -100,7 +109,21 @@ final class SpaceDotsView: NSView {
     private static let restingSpaceCount = 3
 
     var onSwitch: ((UUID) -> Void)?
-    var onDrop: ((UUID, UUID) -> Void)?
+
+    /// §6.6: the Space a lift held over `point` would move the tab to, with
+    /// `point` in `space`'s coordinates. Nil anywhere but on a dot.
+    func spaceID(at point: NSPoint, from space: NSView) -> UUID? {
+        let local = convert(point, from: space)
+        return dots.first { $0.frame.contains(local) }?.space.id
+    }
+
+    /// The dot the lift is over, marked as such. Nil clears the mark.
+    var highlightedSpaceID: UUID? {
+        didSet {
+            guard highlightedSpaceID != oldValue else { return }
+            for dot in dots { dot.isDropTarget = dot.space.id == highlightedSpaceID }
+        }
+    }
 
     private var spaces: [Space] = []
     private var activeSpaceID: UUID?
@@ -133,7 +156,6 @@ final class SpaceDotsView: NSView {
             let dot = SpaceDotView(space: space, position: index + 1, of: spaces.count)
             dot.isActive = space.id == activeSpaceID
             dot.onActivate = { [weak self] in self?.onSwitch?(space.id) }
-            dot.onDropTab = { [weak self] tab in self?.onDrop?(tab, space.id) }
             addSubview(dot)
             return dot
         }
@@ -169,16 +191,16 @@ final class SpaceDotsView: NSView {
 }
 
 /// One dot. Its own view because it is three things at once: a click target, a
-/// §6.6 drop target, and an accessibility element carrying the Space's name.
+/// §6.6 landing place, and an accessibility element carrying the Space's name.
 @MainActor
 final class SpaceDotView: NSView {
 
     let space: Space
     var onActivate: (() -> Void)?
-    var onDropTab: ((UUID) -> Void)?
     var isActive = false { didSet { needsDisplay = true } }
-
-    private var isDropTarget = false { didSet { needsDisplay = true } }
+    /// §6.6's lift is over this dot. Set by `SpaceDotsView`, which is the only
+    /// thing that knows where the lift is.
+    var isDropTarget = false { didSet { needsDisplay = true } }
     private let mark = CALayer()
 
     init(space: Space, position: Int, of count: Int) {
@@ -186,7 +208,6 @@ final class SpaceDotView: NSView {
         super.init(frame: .zero)
         wantsLayer = true
         layer?.addSublayer(mark)
-        registerForDraggedTypes([SidebarDrag.tabType])
         // §8/§21.2: the name, not the gradient, is what identifies a Space.
         toolTip = space.name
         setAccessibilityElement(true)
@@ -227,6 +248,9 @@ final class SpaceDotView: NSView {
         needsDisplay = true
     }
 
+    /// §30.1: the sidebar's plane moves the window; a control on it does not.
+    override var mouseDownCanMoveWindow: Bool { false }
+
     override func mouseUp(with event: NSEvent) {
         guard bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
         onActivate?()
@@ -234,24 +258,6 @@ final class SpaceDotView: NSView {
 
     override func accessibilityPerformPress() -> Bool {
         onActivate?()
-        return true
-    }
-
-    // MARK: - Drop (§6.6 — drop a tab on a dot to move it to that Space)
-
-    override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
-        isDropTarget = SidebarDrag.tabID(in: sender) != nil
-        return isDropTarget ? .move : []
-    }
-
-    override func draggingExited(_ sender: (any NSDraggingInfo)?) {
-        isDropTarget = false
-    }
-
-    override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
-        isDropTarget = false
-        guard let id = SidebarDrag.tabID(in: sender) else { return false }
-        onDropTab?(id)
         return true
     }
 }

@@ -23,10 +23,11 @@ final class GlassButton: NSView {
 
     /// Fired on click, Space or Return.
     var onActivate: (() -> Void)?
-    /// Makes the button a drag source (§6.6 — an Essentials tile moves between
-    /// sections). Return the pasteboard item for this button's content, or nil
-    /// for a button that is not draggable.
-    var dragItem: (() -> NSPasteboardItem?)?
+    /// Makes the button draggable (§6.6 — an Essentials tile moves between
+    /// sections). Handed the **press** that started the gesture, not the drag
+    /// that noticed it, so whoever takes over can lift from where the finger
+    /// went down; nil for a button that does not travel.
+    var onDragOut: ((NSEvent) -> Void)?
     /// The right-click menu, built on demand so it always reflects the
     /// button's current tab rather than the one it was created with.
     var menuBuilder: (() -> NSMenu?)?
@@ -72,6 +73,9 @@ final class GlassButton: NSView {
     private var glass: NSView?
     private var isHovering = false
     private var isPressed = false
+    /// The mouse-down that is still in progress, kept so a drag can be lifted
+    /// from where it actually started rather than from where it was noticed.
+    private var press: NSEvent?
 
     init(
         shape: RoundedMetric,
@@ -270,28 +274,43 @@ final class GlassButton: NSView {
     override func mouseDown(with event: NSEvent) {
         guard isEnabled else { return }
         isPressed = true
+        press = event
         refresh()
     }
 
     override func mouseUp(with event: NSEvent) {
         let inside = bounds.contains(convert(event.locationInWindow, from: nil))
         isPressed = false
+        press = nil
         refresh()
         if isEnabled, inside { onActivate?() }
     }
 
-    /// Drag starts once the pointer leaves the button, which is AppKit's own
-    /// threshold and avoids the hand-rolled 4 pt test the SwiftUI browsers need.
+    /// **The gesture is handed on, not started here.** §6.6's lift is one
+    /// tracked drag from the press to the mouse-up — see `SidebarTabDrag.swift`
+    /// — so this passes the original press along the moment the pointer has
+    /// moved far enough to mean it, and takes no further part.
     override func mouseDragged(with event: NSEvent) {
-        guard let item = dragItem?(), !bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
+        guard let onDragOut, let press, isEnabled else { return }
+        let from = convert(press.locationInWindow, from: nil)
+        let to = convert(event.locationInWindow, from: nil)
+        guard abs(to.x - from.x) >= Tokens.Metric.dragThreshold
+            || abs(to.y - from.y) >= Tokens.Metric.dragThreshold
+        else { return }
         isPressed = false
+        self.press = nil
         refresh()
-        let dragged = NSDraggingItem(pasteboardWriter: item)
-        dragged.setDraggingFrame(bounds, contents: glyph.image)
-        beginDraggingSession(with: [dragged], event: event, source: self)
+        onDragOut(press)
     }
 
     // MARK: - Keyboard (§20.2 — every chrome control is reachable)
+
+    /// §30.1: the sidebar's *plane* moves the window; a control on it does
+    /// not. Without this the press that should have picked a pinned tile up
+    /// picked the window up instead — `NSView` answers `true` by default for
+    /// anything that draws no background of its own, which is every glass
+    /// surface in the app.
+    override var mouseDownCanMoveWindow: Bool { false }
 
     override var acceptsFirstResponder: Bool { isEnabled }
     override var canBecomeKeyView: Bool { isEnabled }
@@ -328,15 +347,5 @@ final class GlassButton: NSView {
         guard isEnabled else { return false }
         onActivate?()
         return true
-    }
-}
-
-extension GlassButton: NSDraggingSource {
-
-    func draggingSession(
-        _ session: NSDraggingSession,
-        sourceOperationMaskFor context: NSDraggingContext
-    ) -> NSDragOperation {
-        .move
     }
 }

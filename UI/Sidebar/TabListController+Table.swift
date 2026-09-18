@@ -2,8 +2,13 @@
 //  TabListController+Table.swift
 //  Luna
 //
-//  The `NSTableView` half of §3.4: data source, delegate, §6.6 drag and drop,
-//  and the table subclass that carries the keyboard (§7.4, §20.2).
+//  The `NSTableView` half of §3.4: data source, delegate, and the table
+//  subclass that carries the keyboard (§7.4, §20.2).
+//
+//  **There is no drag and drop here at all.** §6.6's reorder is a tracked
+//  gesture — `SidebarTabDrag.swift` — and with the Essentials tiles moved onto
+//  it as well, nothing in the sidebar is an `NSDraggingSource` or an
+//  `NSDraggingDestination` any more. One gesture, one code path.
 //
 //  Modified arrows are swallowed rather than passed on — an unhandled `⌘⌥←`
 //  reaching `NSResponder` is the system beep, which is the single most obvious
@@ -19,74 +24,6 @@ extension TabListController: NSTableViewDataSource {
 
     func numberOfRows(in tableView: NSTableView) -> Int {
         list.count
-    }
-
-    /// **Nothing here is a drag source any more.** §6.6's reorder is tracked by
-    /// hand — see `SidebarTabDrag.swift` — because a dragging session cannot be
-    /// locked to the column, cannot carry the row's own highlight and cannot
-    /// morph into a §3.3 tile. Returning nil is what stops AppKit starting its
-    /// own session the moment the pointer moves.
-    ///
-    /// The table is still a drag *destination*: an Essentials tile dragged back
-    /// down into the list is an ordinary system drag, and `acceptDrop` below is
-    /// where it lands.
-    func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> (any NSPasteboardWriting)? {
-        nil
-    }
-
-    /// The §3.3 grid is zero points tall until something is pinned, so it has
-    /// to be told a drag is happening rather than discovering one itself.
-    func tableView(
-        _ tableView: NSTableView,
-        draggingSession session: NSDraggingSession,
-        willBeginAt screenPoint: NSPoint,
-        forRowIndexes rowIndexes: IndexSet
-    ) {
-        onDragSessionChange?(true)
-    }
-
-    func tableView(
-        _ tableView: NSTableView,
-        draggingSession session: NSDraggingSession,
-        endedAt screenPoint: NSPoint,
-        operation: NSDragOperation
-    ) {
-        onDragSessionChange?(false)
-    }
-
-    func tableView(
-        _ tableView: NSTableView,
-        validateDrop info: any NSDraggingInfo,
-        proposedRow row: Int,
-        proposedDropOperation dropOperation: NSTableView.DropOperation
-    ) -> NSDragOperation {
-        guard SidebarDrag.tabID(in: info) != nil else { return [] }
-        // Nothing may land inside the leading command group, and a row never
-        // accepts a drop *onto* it — §6.6 reorders, it does not nest.
-        let clamped = max(row, SidebarList.leading.count)
-        if clamped != row || dropOperation != .above {
-            table.setDropRow(clamped, dropOperation: .above)
-        }
-        return .move
-    }
-
-    func tableView(
-        _ tableView: NSTableView,
-        acceptDrop info: any NSDraggingInfo,
-        row: Int,
-        dropOperation: NSTableView.DropOperation
-    ) -> Bool {
-        guard let id = SidebarDrag.tabID(in: info) else { return false }
-        var target = list.dropTarget(insertingAt: max(row, SidebarList.leading.count))
-        // `reorderTab` takes the index the tab should end up at, so a move
-        // *down* within its own section has to account for its own removal.
-        if let source = list.listed.first(where: { $0.id == id }),
-           source.kind == target.kind,
-           let from = sectionIndex(of: id), from < target.index {
-            target.index -= 1
-        }
-        onMoveTab?(id, target.kind, target.index)
-        return true
     }
 }
 
