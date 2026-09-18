@@ -49,13 +49,27 @@ struct TabPersistenceTests {
             parentTabID: parent.id,
             interactionState: Data([1, 2, 3]),
             hasUnread: true,
-            order: 7
+            order: 7,
+            pinnedURL: URL(string: "https://child.example/home")!
         )
 
         try await store.upsert(tab)
         let restored = try await store.tabs(inSpace: space.id, includeArchived: true).first { $0.id == tab.id }
 
         #expect(restored == tab)
+    }
+
+    /// Schema `v3`. The column is nullable on purpose — nil means "this tab has no home
+    /// to go back to", which is the truth for every tab that is not a tile — so the one
+    /// thing worth asserting is that nil survives as nil rather than arriving back as the
+    /// tab's own URL, which is what a non-null column with a default would have done.
+    @Test func aTabWithNoHomeKeepsNotHavingOne() async throws {
+        let (store, space) = try await storeWithSpace()
+        let tab = Tab(spaceID: space.id, url: URL(string: "https://example.com/somewhere")!)
+        try await store.upsert(tab)
+
+        let restored = try await store.tabs(inSpace: space.id, includeArchived: false)
+        #expect(restored[0].pinnedURL == nil)
     }
 
     /// `upsert` is an update, not a second row — the sidebar writes on every title change.

@@ -32,7 +32,28 @@ enum Schema {
         migrator.registerMigration("v2") { db in
             try scopeFavoritesToProfiles(db)
         }
+        migrator.registerMigration("v3") { db in
+            try rememberWhereATileWasPinned(db)
+        }
         return migrator
+    }
+
+    /// `v3` — a pinned tile remembers the address it was pinned at (§3.3).
+    ///
+    /// **Nullable, and that is the whole design.** Nil means "this tab has no home to go
+    /// back to", which is the truth for every tab that is not a tile and for every tile
+    /// that existed before this column did. Defaulting it to `url` on the way in would
+    /// invent a decision the user never took — the tab's current address is wherever the
+    /// site last walked, not the page they chose to keep — so the backfill below sets it
+    /// only for rows that *are* tiles, where "the address it is showing now" is the best
+    /// available reading of "the address it was pinned at", and leaves everything else nil.
+    ///
+    /// Idempotent on the live schema, like `v2`: the migrator promises this runs once, the
+    /// file on disk promises nothing.
+    static func rememberWhereATileWasPinned(_ db: Database) throws {
+        guard !(try db.columns(in: "tabs").map(\.name).contains("pinnedURL")) else { return }
+        try db.execute(sql: "ALTER TABLE tabs ADD COLUMN pinnedURL TEXT")
+        try db.execute(sql: "UPDATE tabs SET pinnedURL = url WHERE kind = 'essential'")
     }
 
     /// `v2` — Favorites move from per-Space to per-Profile (§2, decision D-S2).

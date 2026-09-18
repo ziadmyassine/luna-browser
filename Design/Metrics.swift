@@ -338,17 +338,15 @@ extension Tokens {
         /// Both the top-bar layout's bar and the sidebar's control / utility rows (§3.1, §3.5, §4).
         static let topBarHeight: CGFloat = 52
 
-        /// §9.1's scrim strength. 1.0 is the material's own output — a real
-        /// blur, and a grey, opaque one; every step below it mixes the sharp,
-        /// saturated page back in, so this is the dial between "blurred" and
-        /// "still there".
-        ///
-        /// The page is meant to stay *legible* behind the bar, not merely
-        /// present: you should be able to see what you were looking at, softened
-        /// and pushed back. 1.0 hid it, and 0.72 read as a grey veil rather than
-        /// as a blur — the veil is what a strong tint at partial alpha looks
-        /// like. This is low enough that the page reads through it as itself.
-        static let scrimStrength: CGFloat = 0.55
+        // **`scrimStrength` is gone, and it was the bug.** §9.1's backdrop was
+        // built at 0.55 to keep the page "legible behind the bar" — but
+        // `alphaValue` on an `NSVisualEffectView` does not thin a material, it
+        // cross-fades the blurred result back over the sharp original, so every
+        // step below 1.0 bought a flat grey film over a page that was still
+        // perfectly readable rather than a softer blur. The legibility the
+        // number was reaching for comes from the *material* — `.sidebar` is the
+        // most see-through of the in-window ones — and the surface it belongs
+        // to is `GlassScrim.swift`, which has the whole argument.
 
         // MARK: Settings window
 

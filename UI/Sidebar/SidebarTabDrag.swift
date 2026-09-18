@@ -166,6 +166,13 @@ final class SidebarTabDragController {
         let next = resolveTarget(at: point)
         let morphed = target.map { shape(of: next) != shape(of: $0) } ?? false
         if next != target {
+            // **One tick per step, in the grid and in the list alike.** The
+            // pointer moves continuously and the list does not — it steps, as
+            // the lift changes places with one neighbour — and this is the only
+            // line that knows a step just happened. The very first target of a
+            // gesture is not one: nothing has been passed yet, the lift has
+            // only just left the ground.
+            if target != nil { Tokens.Haptics.step() }
             target = next
             apply(next)
         }

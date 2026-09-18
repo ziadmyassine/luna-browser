@@ -2,15 +2,18 @@
 //  GlassBacking.swift
 //  Luna
 //
-//  The view behind every `Glass.apply` / `Glass.backing` call, and §2's material
-//  table. Split out of `Design/Glass.swift` to keep that file the *API* — the
-//  four styles and the five entry points — and this one the machinery: the
-//  live Reduce Transparency swap, the fullscreen and peek backdrops, and the
-//  frame discipline a glass view needs to stop it sweeping across the surface
-//  every time AppKit re-lays the window out.
+//  The view behind every `Glass.apply` / `Glass.backing` call. Split out of
+//  `Design/Glass.swift` to keep that file the *API* — the four styles and the
+//  five entry points — and this one the machinery: the live Reduce Transparency
+//  swap, the fullscreen and peek backdrops, and the frame discipline a glass
+//  view needs to stop it sweeping across the surface every time AppKit re-lays
+//  the window out.
 //
-//  Contract rule 4 covers both files: `NSGlassEffectView` is named here and in
-//  `Glass.swift` and nowhere else in Luna.
+//  §2's material table — what each style is actually made of — moved next door
+//  to `GlassMaterials.swift` when this file crossed SwiftLint's 400-line limit.
+//
+//  Contract rule 4 covers all three: `NSGlassEffectView` is named here, in
+//  `Glass.swift` and in `GlassMaterials.swift`, and nowhere else in Luna.
 //
 
 import AppKit
@@ -275,6 +278,13 @@ final class GlassBackingView: NSView {
         refreshForDisplay()
     }
 
+    /// Re-reads §2a's density. Nothing is rebuilt — the density chooses which
+    /// plane `updateLayer` paints behind the glass, and the glass itself is
+    /// unchanged — so this is a redraw and not a swap. See `Glass.density`.
+    func refreshMaterial() {
+        needsDisplay = true
+    }
+
     /// Re-resolves §7's column for the display this view is actually on.
     func refreshForDisplay() {
         guard pinned == nil else { return }
@@ -327,14 +337,16 @@ final class GlassBackingView: NSView {
         // what "less glass, more frosted" is: the desktop still refracts
         // through, but through a surface rather than through a hole, and the
         // density costs no darkening the way a heavier tint did.
+        //
+        // How much of it there is, and whether a popover gets one at all, is
+        // §2a's setting — see `Glass.density`. It is read here rather than
+        // cached, so the reapply pass is a redraw.
         layer.backgroundColor = if wantsFlatPlane {
             Tokens.Surface.fullScreenChrome.cgColor
         } else if wantsOpaquePlane {
             style.solidFallback.cgColor
-        } else if style.hasBackdrop {
-            Tokens.Surface.frost.cgColor
         } else {
-            nil
+            style.frost(Glass.density)?.cgColor
         }
 
         // §2 / §21.2: Increase Contrast ⇒ a visible border on every control.
@@ -348,51 +360,5 @@ final class GlassBackingView: NSView {
         let bordered = rimmed || Tokens.A11y.increaseContrast
         layer.borderWidth = bordered ? Tokens.Metric.hairline : 0
         layer.borderColor = bordered ? Tokens.Line.border.cgColor : nil
-    }
-}
-
-// MARK: - §2's material table
-
-extension Glass.Style {
-
-    /// §7: at 1×, `.clear` transmits 2.5× more backdrop structure than
-    /// `.regular` — measured — and the row backing is where that shows.
-    func glassStyle(optimised: Bool) -> NSGlassEffectView.Style {
-        switch self {
-        case .sidebar, .topBar, .popover: .regular
-        case .control: optimised ? .regular : .clear
-        }
-    }
-
-    /// The §2 tint handed to `NSGlassEffectView`, or nil for the surfaces that
-    /// take the material neat.
-    func tint(optimised: Bool) -> NSColor? {
-        switch self {
-        case .sidebar, .topBar: optimised ? Tokens.Surface.glassTintDense : Tokens.Surface.glassTint
-        case .control: optimised ? Tokens.Surface.glassTintControl : nil
-        case .popover: nil
-        }
-    }
-
-    /// Whether this surface paints its `solidFallback` behind the glass when
-    /// the window is fullscreen. The chrome planes do — they are what the user
-    /// is looking at and they would otherwise be black. Controls do not: a
-    /// control's job is to read as raised above whatever the plane became.
-    var hasBackdrop: Bool {
-        switch self {
-        case .sidebar, .topBar: true
-        case .control, .popover: false
-        }
-    }
-
-    /// What this surface becomes when Reduce Transparency is on (§2, §21.2).
-    var solidFallback: NSColor {
-        switch self {
-        // The chrome plane. Not `Surface.base`: the §3.6 content card is
-        // `base`, and a sidebar the same colour as the card is not a sidebar.
-        case .sidebar, .topBar: Tokens.Surface.glassFallback
-        // Controls and the popover already read as raised above the bar.
-        case .control, .popover: Tokens.Surface.raised
-        }
     }
 }

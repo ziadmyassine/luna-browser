@@ -81,11 +81,11 @@ final class CommandBarInputField: NSTextField, NSTextFieldDelegate {
     }
 
     private func applyTokens() {
-        font = Tokens.TypeScale.urlPill
+        font = Tokens.TypeScale.commandBarQuery
         textColor = Tokens.Text.primary
         placeholderAttributedString = NSAttributedString(
             string: placeholderText,
-            attributes: [.font: Tokens.TypeScale.urlPill, .foregroundColor: Tokens.Text.tertiary]
+            attributes: [.font: Tokens.TypeScale.commandBarQuery, .foregroundColor: Tokens.Text.tertiary]
         )
     }
 

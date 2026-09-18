@@ -112,6 +112,7 @@ final class AppearanceSection: NSObject, SettingsSection {
             (sidebarPositionRow(), ["sidebar position", "left", "right"])
         ])
         body.card("Glass", [
+            (densityRow(), ["material", "clear", "opaque", "transparency", "frosted", "see through"]),
             (glassRow(), ["optimise glass for this display", "optimize glass", "liquid glass", "retina", "1x", "blur"]),
             (SettingsRow.accessory("Preview", subtitle: nil, accessory: tileHost),
              ["preview", "optimise glass for this display"])
@@ -144,6 +145,25 @@ final class AppearanceSection: NSObject, SettingsSection {
             UserDefaults.standard.set(theme.rawValue, forKey: Self.themeKey)
             // Nil is meaningful: it hands the choice back to System Settings.
             NSApp.appearance = theme.appearance
+        }
+    }
+
+    /// §2a. **Above the §7 row, because it is the bigger of the two.** This one
+    /// changes how much of the desktop reaches the eye through every chrome
+    /// surface in the app; the row below it changes how one material is
+    /// rendered on one class of display. The preview tile under both shows
+    /// either change, because it is built from the real thing.
+    private func densityRow() -> NSView {
+        let options = GlassDensity.allCases
+        return SettingsRow.segmented(
+            "Material",
+            options: options.map(\.title),
+            selected: options.firstIndex(of: Glass.density) ?? 0
+        ) { [weak self] index in
+            // Assigning re-skins every live glass view in the app and persists
+            // the key, exactly as the §7 setter does.
+            Glass.density = options[index]
+            self?.rebuildTile()
         }
     }
 

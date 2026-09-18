@@ -72,12 +72,28 @@ extension Tokens.Metric {
 
     // MARK: History (§6.4)
 
-    /// §6.4's floating history panel. As wide as the Command Bar — they are
-    /// the same kind of surface over the same page, and two transient
-    /// panels of different widths read as two different apps. The height is
-    /// a ceiling, not a size: the panel shrinks to the window when the
-    /// window is shorter, and to its rows when there are few of them.
-    static let historyPanel = CGSize(width: windowMinWidth, height: 520)
+    /// §6.4's History **pop-out**: the panel the §3.5 bottom-bar button opens,
+    /// beside the button rather than over the page.
+    ///
+    /// **A sidebar's width and a bit**, not the Command Bar's 640. It used to
+    /// be the Command Bar's, because the two were the same kind of surface —
+    /// centred over the page, behind a scrim, dismissed the same way. They are
+    /// not: the Command Bar is where you are looking when you summon it, and
+    /// History is a shelf you glance at beside the button you pressed. A
+    /// centred panel that took the page away for a glance was the surface
+    /// answering a bigger question than the one being asked.
+    ///
+    /// 320 wide keeps a title and its `host · date` subtitle on one line at
+    /// §1's 13 pt while staying visibly a panel *next to* the sidebar rather
+    /// than a second one. The height is a ceiling, not a size: the pop-out
+    /// shrinks to the room between the button and the top of the window, and
+    /// to its rows when there are few of them.
+    static let historyPanel = CGSize(width: 320, height: 420)
+
+    /// The gap between the History button and the pop-out standing on it —
+    /// §3.1's control gap, so the pop-out sits off its button by the same
+    /// distance the back and reload circles sit off each other.
+    static let historyPopoutGap = controlPairGap
 
     // MARK: Window (M0 — consumed by `BrowserWindowController`)
 

@@ -60,8 +60,9 @@ sidebar's own content reflows. The ratios exist to fix proportions once, not to 
 | `topBarHeight` | 52 pt | — |
 | `sidebarPeekEdge` (§3.8 hover-peek trigger strip) | 44 pt | 24, and 4 before that |
 | `dragThreshold` (§6.6, press → lift) | 4 pt | — |
-| `historyPanel` (§3.5's floating History panel) | 640 × 520 (a ceiling) | — |
-| `scrimStrength` (§9.1's backdrop) | 0.55 | — |
+| `historyPanel` (§3.5's History **pop-out**) | 320 × 420 (a ceiling) | 640 × 520 |
+| `historyPopoutGap` (pop-out ↔ its button) | 5 pt (`= controlPairGap`) | — |
+| `scrimStrength` | **gone** — see §9.1 | 0.55 |
 | `settingsListWidth` / `settingsWindow` | 230 pt / 720 × 520 pt | 196, and a 420 × 160 box before that |
 | `settingsSectionRow` / `settingsSectionIcon` | 36 pt / 26 pt, radius 7 | — |
 | `settingsCardRow` / `settingsGroupGap` | 52 / 26 pt | 36 / 3 |
@@ -99,7 +100,8 @@ are near-black and white respectively. The OS does the expensive part for free.
 | Downloads popover | Liquid Glass `.regular` + a heavier panel shadow |
 | Content card | Opaque `Surface.base` — never translucent; a web page behind glass is unreadable |
 | URL pill | `Surface.well` at rest, `.control` glass when hovered or open for editing. **No page tint** |
-| Command Bar scrim | **`NSVisualEffectView` at `.withinWindow`** — the one surface that is deliberately not Liquid Glass |
+| History pop-out | Liquid Glass `.regular` + `Shadow.popover`, standing on the §3.5 button |
+| Command Bar scrim | **`NSVisualEffectView` at `.withinWindow`**, full strength, under `Surface.frost` — the one surface that is deliberately not Liquid Glass |
 
 **A dormant control is a well, not a plate.** §3.2's URL pill and §3.3's pinned tiles rest on
 `Surface.well` — **black in both themes** — with a `Line.border` hairline catching the edge, so they read
@@ -114,6 +116,49 @@ state. Raising the tint instead was tried and is wrong: the tint is *black* in d
 (`surfaceTintColor`), so more of it is a dimmer sidebar rather than a thicker one, which is "darker", not
 "more opaque". Frost separates the two — the material still samples and refracts the desktop, but through
 a surface rather than through a hole.
+
+### 2a. Clear or Opaque — the user's own answer
+
+**How much of the desktop comes through is a setting**, `Glass.density`, stored in
+`appearance.glassDensity` and offered as *Material: Clear / Opaque* in Settings ▸ Appearance ▸ Glass.
+`Clear` is the default and is everything above. `Opaque` swaps `Surface.frost` for
+`Surface.frostOpaque` — the same plane at **0.62 light / 0.66 dark** instead of 0.46/0.50 — and gives
+the popover surfaces a plane of their own (`Surface.popoverFrostOpaque`, over `Surface.raised`, because
+a popover reads as raised *above* the chrome rather than as more of it). Controls are untouched at
+either density: a frosted control reads as a hole rather than as something raised.
+
+**The two alphas are measured off Martin's reference, and the first measurement was wrong** in a way
+worth recording, because it is the easy mistake. Comparing *means* said the panel keeps ~45 % of the
+backdrop's red — "the colour comes through and the shape does not" — and gave 0.86, which on screen was
+a different kind of surface rather than a denser one. Look at the image instead of at its average and
+the wallpaper's shape is plainly still there. A mean cannot see that; contrast can. A flat plane over a
+blurred backdrop compresses contrast by exactly the amount of plane there is, linearly in the alpha and
+independently of what the blur did to the mean:
+
+```
+composite     = a · plate + (1 − a) · blurred backdrop
+sd(composite) =             (1 − a) · sd(blurred backdrop)
+```
+
+| Red channel, off the reference | mean | sd | range |
+|---|---|---|---|
+| panel interior | 52.0 | 10.3 | 38–82 |
+| wallpaper, box-blurred r = 40 | 85–109 | 28.6–35.3 | — |
+| wallpaper, box-blurred r = 60 | 85–107 | 24.7–31.2 | — |
+
+`1 − a = 10.3 / 28 ≈ 0.37`, so **a ≈ 0.63**. The mean agrees independently: `0.66 × 35 + 0.34 × X = 52`
+solves to `X = 85`, exactly where the blurred wallpaper beside the panel sits. Two estimates from
+different statistics landing on the same number is the reason to trust it — and it makes `Opaque` a step
+above `Clear`'s 0.50 rather than a plate, which is what the reference actually shows.
+
+**And it stops short of 1.0, by rule.** At full strength the frost *is* the Reduce Transparency fallback
+plane: there is no glass left above it, and "more opaque" would quietly have become "off".
+`TokenCheck.checkGlassDensity` asserts both halves — opaque is denser than clear in every variant, and
+neither passes 0.95.
+
+Assigning the setting re-skins every live surface in one pass and needs no relaunch, exactly as §7's
+does. It is cheaper than §7's: the density changes a *plane*, not the material, so nothing is rebuilt and
+there is no swap to flash.
 
 The tint is dropped wherever the opaque backdrop is up (fullscreen, §3.8's peek): there the glass is
 sampling a plate rather than a bright desktop, and darkening that plane by a third takes the sidebar
@@ -131,7 +176,22 @@ part of the internal-page palette at all.
 over a live page in the same window it does not blur the page — it replaces it. In fullscreen, with no
 desktop left to sample, the page behind the Command Bar disappeared entirely behind a near-black plate.
 `NSVisualEffectView` at `.withinWindow` is the only API that blurs in-window content, and that is what
-§9.1's "blurred backdrop scrim" describes. Its material is `.sidebar`, applied at `scrimStrength`.
+§9.1's "blurred backdrop scrim" describes. Its material is `.sidebar`, **at full strength, with
+`Surface.frost` painted over it** — §3.8's peeked sidebar's recipe, which is what the backdrop was asked
+to look like.
+
+> **`scrimStrength` is gone, and it was the bug.** The backdrop was built at `alphaValue = 0.55`, and
+> `CommandBarPanel` carried a comment saying exactly why that cannot work: `alphaValue` on an
+> `NSVisualEffectView` does not thin a material, it cross-fades the blurred result back over the sharp
+> original — so every step below 1.0 bought a flat grey film over a page that was still perfectly
+> legible, rather than a softer blur. Two files disagreed and the code was the one that was wrong. The
+> legibility the number was reaching for comes from the *material*: `.sidebar` is the most see-through of
+> the in-window ones, which is why it is the one chosen below.
+>
+> **What it still cannot copy from the peek.** The peek is real glass, so it also refracts the desktop
+> and carries a rim. Neither is available here — no material samples an out-of-process `WKWebView` layer,
+> which is this whole paragraph's finding. The blur and the plane are the parts that can be the same, and
+> they are the parts that read. §2a's setting moves both surfaces together.
 
 Five materials were tried on screen. `.hudWindow` and `.fullScreenUI` blur beautifully and then flatten
 everything above them into one dark wall — the page stops being context and the bar's own Liquid Glass
@@ -139,14 +199,20 @@ has nothing but the scrim left to sample, so it reads as a plate. `.menu` and `.
 take the page away completely. `.selection` barely registers: the page stays sharp and there is no
 backdrop at all. `.sidebar` is the one that blurs while leaving the page visible underneath.
 
-**The strength is the dial between "blurred" and "colourful".** Every in-window material desaturates what
-it blurs, which is what a colourful page turns into behind the bar, and the material's own tint is not
-tunable — a `CIColorControls` saturation boost on the layer collapses the backdrop group into an opaque
-plate, so that lever does not exist either. `alphaValue` mixes a little of the sharp, saturated page back
-over the blurred one: the blur still reads as a blur, and the veil stops reading as grey. The bar itself keeps §2's **untinted** `.popover` glass for the same reason the
+**Desaturation is the material's, and there is no dial for it.** Every in-window material desaturates
+what it blurs, which is what a colourful page turns into behind the bar, and the material's own tint is
+not tunable — a `CIColorControls` saturation boost on the layer collapses the backdrop group into an
+opaque plate, so that lever does not exist either. What `alphaValue` looked like a dial for, it was not:
+see the note above. The bar itself keeps §2's **untinted** `.popover` glass for the same reason the
 chrome's tint exists — a bar floating over a page should look like a pane of the desktop, not like more
-chrome. The choice still lives in `Design/Glass.swift` (`Glass.scrim()`); no other file knows which
-material it got.
+chrome (and §2a gives it a plane when the user asks for one). The choice still lives in
+`Design/Glass.swift` (`Glass.scrim()` → `GlassScrimView`); no other file knows which material it got.
+
+**Its type is a step above the chrome's.** The query is 13 → **15 pt** (`TypeScale.commandBarQuery`) and
+a result row's title and subtitle 13 → **14** (`commandBarRow`). §1's 13 pt is measured off the reference
+and is right for a column of two dozen sidebar rows you scan; the Command Bar is a single modal surface
+in the middle of the window that you look *at* while you type into it, and set at the sidebar's size it
+read as a chrome field that had floated loose. §3.4's 38 pt row has the room.
 
 **The Command Bar's query starts where its rows do.** Indenting it by a favicon's width lined it up
 with the *titles* it filters and left a visible notch out of the panel's top-left corner. The list's
@@ -384,6 +450,23 @@ is one menu, shown from the sidebar pill and from §4's; the top-bar copy adds R
   into the list it becomes a row — the tab is unpinned and behaves like any other — and carried back up
   it becomes a tile again. Dropping one on a slot it already occupies is a reorder inside the Essentials
   section; dropping a *row* there is a pin, which also puts the page away (§19.2).
+- **A tile remembers the link it was pinned at, and closing it goes back there.** `Tab.pinnedURL`
+  (schema `v3`) is set when the tab is pinned and cleared when it is unpinned — the address the user was
+  looking at when they decided to keep it, not wherever the site walked afterwards. That is what makes
+  the two ways a tile's page goes away different things:
+  > **Filed away** — pinning a tab that is not on screen, or §19.2's budget reclaiming a cold one.
+  > Nothing was decided about the page; it simply costs a WebContent process to keep. The blob stays, and
+  > clicking the tile lands where you left off.
+  > **Closed** — `⌘W` on the tile. That *is* a decision, and it is "I am finished with this page". The
+  > tile stays, because a tile is a place you keep; the page does not, so `url` returns to `pinnedURL`
+  > and `interactionState` is dropped — top of the page, no back/forward history.
+  >
+  > Both end in the same visible state, which is why they used to be one call and looked right until you
+  > closed a tile and clicked it again. Order matters inside the closing one: `discardController` caches
+  > the blob it captured onto the row on its way out, so clearing `interactionState` first would put the
+  > closed page's history straight back on the tab it had just been taken off. A tile from before `v3`'s
+  > backfill has no home and is filed away instead — nil means "no home", and inventing one out of the
+  > current address is a worse answer than the behaviour that was already there.
 - **Icon only, centred, 16 pt.** No label. Visually distinct from the text rows below (§30.5).
 - **Dormant, and glass when it is the tab you are on.** A tile at rest is `Surface.hover` plus a
   hairline; the material arrives when the tile is selected or hovered and leaves with the pointer.
@@ -471,6 +554,14 @@ Order: `+ Add Tab` row → **separator** → tabs.
   > **There is no drag and drop left in the sidebar.** With the §3.3 tiles on this gesture too, nothing
   > in the column is an `NSDraggingSource` or an `NSDraggingDestination`, and `SidebarDrag`'s pasteboard
   > type is gone. A §3.5 Space dot is the lift's third landing place, beside the list and the grid.
+  > **Every step is a haptic tick.** The pointer moves continuously and the list does not — it *steps*,
+  > as the lift changes places with one neighbour — and that step is `Tokens.Haptics.step()`, fired the
+  > once per crossing, in §3.3's grid and §3.4's list alike. The pattern is `.alignment`, which is what
+  > the system itself uses when something snaps into a position: a shape onto a guide, a window onto a
+  > screen edge. The first target of a gesture is not a step — nothing has been passed yet — so it is
+  > silent. It is also silent on any Mac without a Force Touch trackpad, and that is correct rather than
+  > broken: `NSHapticFeedbackManager.defaultPerformer` already honours System Settings ▸ Trackpad, so
+  > there is no Luna setting for it and nothing to check before calling.
 
 ### 3.5 Bottom utility bar — 52 pt, pinned
 `[profile avatar circle 34, left] ··· [space dots pill 56 × 22, centred] ··· [history circle 34, right]`
@@ -478,15 +569,33 @@ Order: `+ Add Tab` row → **separator** → tabs.
 > **It is called History and it carries a clock.** Luna's internal word for the shelf is "the archive";
 > the user's word for what they are looking for is "history". The glyph is `clock.arrow.circlepath`,
 > because a box means storage and a clock means "earlier".
-> **It opens a floating panel, not a tab.** Looking something up in your history is a glance, and a
-> glance should not leave a tab behind to close afterwards — and a web page cannot be Liquid Glass, so
-> the one surface in the app that is *about* the tabs looked like a website. `HistoryPanel` is the
-> Command Bar's shell reused: `Glass.scrim()` over the page, an untinted `.popover` body centred on the
-> **pane** (never the window), `esc` or a click outside to dismiss. Title and filter share one line, the
-> filter is §3.2's `Surface.well` pill, and the rows are §3.4's — favicon, title, a quieter host · date,
-> a fill that lifts on hover. Choosing one unarchives the tab where it was. `luna://archive` still
-> resolves and still renders, because a URL someone has bookmarked should not stop working; nothing in
-> the chrome navigates to it any more.
+> **It opens a pop-out from the button, not a tab and not a panel over the page.** Looking something up
+> in your history is a glance, and a glance should not leave a tab behind to close afterwards — and a web
+> page cannot be Liquid Glass, so the one surface in the app that is *about* the tabs looked like a
+> website. `HistoryPanel` is an untinted `.popover` body **standing on the History button**: 320 × 420
+> (a ceiling), leading edge aligned to the button, foot a `historyPopoutGap` above its head, growing
+> upward because up and across is where the window is. `esc` or a click outside dismisses it. Title and
+> filter share one line, the filter is §3.2's `Surface.well` pill, and the rows are §3.4's — favicon,
+> title, a quieter host · date, a fill that lifts on hover. Choosing one unarchives the tab where it was.
+> `luna://archive` still resolves and still renders, because a URL someone has bookmarked should not stop
+> working; nothing in the chrome navigates to it any more.
+> **It was the Command Bar's shell, and that was the same mistake one size smaller.** Scrim, a 640 pt
+> body, centred over the pane: a glance at a shelf took the whole page away and put a window-sized panel
+> where the user was not looking. The Command Bar earns that — you summon it, and it is the thing you are
+> doing. History is opened *from a button*, and a surface opened from a button belongs on it. What is
+> left of the overlay is a transparent sheet that catches the click that dismisses it, which is exactly
+> what an `NSMenu` puts up and for the same reason. **The shadow does what the scrim used to:** with no
+> backdrop behind it the panel has only its own edge, so it carries `Shadow.popover` — the token §6.6's
+> drag lift already uses. It grows out of the button on §6's `commandBarIn`, anchored at the corner
+> standing on it rather than at its own centre.
+> **Every row is one width, and it is the list's.** A pill measured off each row inherits whatever that
+> row's own stack negotiated, so a long title and a short one highlighted differently — and a row wider
+> than the list put glass over the panel's own rounded edge. The pill takes `x` and width from the list,
+> inset `rowInset`, and only `y` and height from the row. The stack is `.width`-aligned rather than
+> `.leading`, so the stack itself is the width every row has; the scroller is `.overlay`, because a
+> legacy one is laid out *beside* the document and would take a scroller's width off the rows; and the
+> scroll view carries a `panelInset` at each end, so the first and last rows are whole rather than sliced
+> by the header above them and the panel's edge below.
 > **The highlight is §9.1's, exactly.** One `.control` glass pill that *moves* on `selectedRowMove`,
 > not a fill per row — the two lists are the same list of the same things over the same page, and a
 > history panel that highlighted differently from the Command Bar would be two designs in one app. The

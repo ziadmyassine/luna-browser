@@ -47,13 +47,13 @@ extension BrowserSession {
     /// Archives the tab — §6.3's soft delete, which keeps title, URL and icon —
     /// and releases its web view. Undoable.
     ///
-    /// **A pinned tab cannot be closed**, only unpinned: closing one puts its
-    /// page away and leaves the tile, which is what `pinTab` already does. So
-    /// `⌘W` on a pinned tab is "put this away", not "throw it out".
+    /// **A pinned tab cannot be closed**, only unpinned: closing one leaves the
+    /// tile and sends it home — see `sendTileHome`. So `⌘W` on a pinned tab is
+    /// "I am finished with this page", not "throw it out".
     func closeTab(_ id: UUID) {
         guard let index = list.indexInSection(of: id), var tab = list.tab(id) else { return }
         if tab.kind == .essential {
-            putPinnedTabAway(id, in: tab.spaceID)
+            sendTileHome(id, in: tab.spaceID)
             return
         }
         tab.archivedAt = Date()
@@ -107,79 +107,6 @@ extension BrowserSession {
         tab.kind = kind
         persistAll(list.insert(tab, at: index))
         registerUndo("Move Tab") { $0.reorderTab(id, to: oldIndex, kind: oldKind) }
-        notifyChange()
-    }
-
-    /// Pins a tab into the §3.3 grid — the tiles under the URL pill.
-    ///
-    /// **Pinning closes the page and keeps the tab.** The tile stays until the
-    /// user unpins it, and clicking one wakes the page again from the same
-    /// `interactionState` the tab was carrying, so a pinned tab costs a row in
-    /// SQLite and no WebContent process (§19.2). That is the whole behaviour:
-    /// there is no "close a pinned tab", because the tile *is* the tab.
-    ///
-    /// **Except the page you are looking at.** Dropping a web view saves a
-    /// WebContent process, which is right for a tab you are filing away and
-    /// wrong for the one on screen: pinning the active tab blanked the content
-    /// pane under the pointer, mid-gesture, and the site you had just dragged
-    /// up there had to be re-loaded by clicking the tile you had only just
-    /// made. A pinned tab that is the current tab keeps its page, and
-    /// `enforceLiveTabBudget` reclaims it on the way out like any other live
-    /// tab — which is the same answer, arrived at a moment later.
-    ///
-    /// - Returns: false when nothing happened — the tab is already a Favorite,
-    ///   or the Profile is already holding Arc's twelve. Refusing is the whole
-    ///   behaviour at the cap: quietly evicting the oldest tile would throw away
-    ///   a login the user put there on purpose.
-    /// - Parameter selecting: make the tab current on the way in. §6.6's drag
-    ///   across the §3.3 boundary passes true — a tab you carried up there by
-    ///   hand is the tab you are pointing at, so it becomes the one on screen.
-    ///   **Ordering matters:** selection is taken *before* the pin, so the
-    ///   "except the page you are looking at" branch below is the one that
-    ///   runs and the live page is never torn down and rebuilt.
-    @discardableResult
-    func pinTab(_ id: UUID, at index: Int = .max, selecting: Bool = false) -> Bool {
-        guard let tab = list.tab(id), tab.kind != .essential else { return false }
-        // Favorites are per Profile (§2), so the cap is per Profile too.
-        if let profileID = profileID(ofTab: id), favorites(onProfile: profileID).count >= Self.favoritesCap {
-            return false
-        }
-        // **This is the line that was missing.** Pinning put the page away and
-        // never moved the tab into the Essentials section, so the row vanished
-        // from the list, no tile appeared, and "Pin Tab" looked like it did
-        // nothing at all. `reorderTab` is what changes a tab's kind, and it
-        // registers the undo.
-        if selecting { activateTab(id) }
-        reorderTab(id, to: index, kind: .essential)
-        guard activeTabBySpace[tab.spaceID] != id else {
-            notifyChange()
-            return true
-        }
-        putPinnedTabAway(id, in: tab.spaceID)
-        return true
-    }
-
-    /// Drops a pinned tab's page without dropping the tab: the tile stays, the
-    /// WebContent process goes, and the selection moves to something that still
-    /// has a page to show — a tab selected with no web view is an empty card.
-    private func putPinnedTabAway(_ id: UUID, in spaceID: UUID) {
-        // `discardController` caches the session blob onto the `Tab` on its way
-        // out, so the tile comes back to where the user left the page rather
-        // than to the top of it (§6.2).
-        discardController(id)
-        recentTabs.removeAll { $0 == id }
-        if activeTabBySpace[spaceID] == id {
-            activeTabBySpace[spaceID] = recentTabs.first { list.tab($0)?.spaceID == spaceID }
-                ?? list[spaceID].first { $0.kind != .essential }?.id
-        }
-        notifyChange()
-    }
-
-    /// The only way a tile leaves the grid (§3.3). The tab lands back at the
-    /// top of today's tabs, still cold — unpinning is not opening.
-    func unpinTab(_ id: UUID) {
-        guard list.tab(id)?.kind == .essential else { return }
-        reorderTab(id, to: 0, kind: .today)
         notifyChange()
     }
 

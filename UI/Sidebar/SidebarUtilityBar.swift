@@ -57,6 +57,10 @@ final class SidebarUtilityBar: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
+    /// §6.4's pop-out stands on this. Exposed rather than the whole bar,
+    /// because "beside the History button" is a statement about the button.
+    var historyAnchor: NSView { history }
+
     /// §6.6: the Space a lift held over `point` would move the tab to, with
     /// `point` in `space`'s coordinates.
     func spaceID(at point: NSPoint, from space: NSView) -> UUID? {

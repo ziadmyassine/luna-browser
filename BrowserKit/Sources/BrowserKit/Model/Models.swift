@@ -75,6 +75,16 @@ public struct Tab: Identifiable, Sendable, Hashable, Codable {
     /// deleted, so `tabs.spaceID`'s `ON DELETE CASCADE` never eats one.
     public var profileID: UUID?
 
+    /// Where a pinned tile **goes back to** when it is closed (schema `v3`).
+    ///
+    /// A tile is a place you keep, not a page you happened to leave open. Set at
+    /// the moment the tab is pinned and cleared when it is unpinned, so it is
+    /// the address the user chose to file away — not wherever the site walked
+    /// afterwards. `closeTab` on a pinned tab returns `url` to this and drops
+    /// `interactionState`; a tab that has merely gone cold keeps both, so
+    /// clicking the tile lands where you left off. Nil for every other kind.
+    public var pinnedURL: URL?
+
     public init(
         id: UUID = UUID(),
         spaceID: UUID,
@@ -90,7 +100,8 @@ public struct Tab: Identifiable, Sendable, Hashable, Codable {
         interactionState: Data? = nil,
         hasUnread: Bool = false,
         order: Int = 0,
-        profileID: UUID? = nil
+        profileID: UUID? = nil,
+        pinnedURL: URL? = nil
     ) {
         self.id = id
         self.spaceID = spaceID
@@ -107,6 +118,7 @@ public struct Tab: Identifiable, Sendable, Hashable, Codable {
         self.hasUnread = hasUnread
         self.order = order
         self.profileID = profileID
+        self.pinnedURL = pinnedURL
     }
 }
 

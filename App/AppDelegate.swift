@@ -205,9 +205,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// §3.5's History button (§6.4). A **floating panel over the page**, not a
-    /// tab: looking something up in your history is a glance, and a glance
-    /// should not leave a tab behind to close afterwards.
+    /// §3.5's History button (§6.4). A **pop-out from the button**, not a tab
+    /// and not a panel over the page: looking something up in your history is a
+    /// glance, and a glance should neither leave a tab behind to close nor take
+    /// the page away while you take it.
     private func wireHistory(
         _ session: BrowserSession,
         sidebar: SidebarViewController,
@@ -215,10 +216,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     ) {
         let panel = HistoryPanelController(session: session)
         history = panel
-        panel.contentRegion = { [weak controller] in controller?.contentFrame ?? .zero }
-        sidebar.onOpenHistory = { [weak panel, weak controller] in
-            guard let panel, let window = controller?.window else { return }
-            panel.toggle(in: window)
+        sidebar.onOpenHistory = { [weak panel, weak controller, weak sidebar] in
+            guard let panel, let sidebar, let window = controller?.window else { return }
+            panel.toggle(in: window, from: sidebar.historyAnchor)
         }
     }
 

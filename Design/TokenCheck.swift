@@ -97,6 +97,15 @@ enum TokenCheck {
          ("glassTintControl", Tokens.Surface.glassTintControl)]
     }
 
+    /// §2's frost and §2a's two opaque planes — every plane painted *behind*
+    /// glass rather than instead of it, which is the rule they share: none of
+    /// them may be opaque.
+    static var frosts: [(String, NSColor)] {
+        [("frost", Tokens.Surface.frost),
+         ("frostOpaque", Tokens.Surface.frostOpaque),
+         ("popoverFrostOpaque", Tokens.Surface.popoverFrostOpaque)]
+    }
+
     /// §7's bloom bands, inner edge to outer.
     static var bloom: [(String, NSColor)] {
         [("core", Tokens.Bloom.core), ("amber", Tokens.Bloom.amber),
@@ -111,6 +120,7 @@ enum TokenCheck {
         let colours = checkResolution() + checkTextContrast() + checkSurfaceSeparation()
             + checkLines() + checkIncreaseContrast() + checkFills()
         let effects = checkWash() + checkBloom() + checkShadow() + checkGlassOptimisation()
+            + checkGlassDensity()
         return colours + effects + checkMetrics() + checkMotion()
     }
 
@@ -133,7 +143,7 @@ extension TokenCheck {
     private static func checkResolution() -> [String] {
         var failures: [String] = []
         let all = surfaces + texts + bloom + washes
-            + glassTints + [("frost", Tokens.Surface.frost)]
+            + glassTints + frosts
             + [("disabled", Tokens.Text.disabled)]
             + [("hairline", Tokens.Line.hairline), ("border", Tokens.Line.border)]
             + [("tint", Tokens.Accent.tint), ("danger", Tokens.Accent.danger)]
@@ -161,11 +171,12 @@ extension TokenCheck {
             for (token, colour) in glassTints where colour.srgbComponents(for: appearance).alpha >= 1 {
                 failures.append("Surface.\(token) is opaque in \(name) — §2's chrome samples what is behind the window")
             }
-            // And `frost`, for the same reason from the other side: it is the
-            // fallback plane held at part strength, and at full strength it
+            // And the frosts, for the same reason from the other side: each is
+            // a fallback plane held at part strength, and at full strength it
             // *is* the fallback plane — there would be no glass left above it.
-            if Tokens.Surface.frost.srgbComponents(for: appearance).alpha >= 1 {
-                failures.append("Surface.frost is opaque in \(name) — §2's chrome samples what is behind the window")
+            // §2a's opaque pair is the one with room to get this wrong.
+            for (token, colour) in frosts where colour.srgbComponents(for: appearance).alpha >= 1 {
+                failures.append("Surface.\(token) is opaque in \(name) — §2's chrome samples what is behind the window")
             }
         }
         return failures
@@ -282,7 +293,11 @@ extension TokenCheck {
             // buy less than it does at 2×.
             ("glassTint", Tokens.Ink.glassTint),
             ("glassTintDense", Tokens.Ink.glassTintDense),
-            ("glassTintControl", Tokens.Ink.glassTintControl)
+            ("glassTintControl", Tokens.Ink.glassTintControl),
+            // §2a's opaque frost: the setting that gives up transparency must
+            // not give the users who asked for *less* of it a thinner surface.
+            ("frost", Tokens.Ink.frost),
+            ("frostOpaque", Tokens.Ink.frostOpaque)
         ]
         for (token, alphas) in inks {
             if alphas.contrastLight < alphas.light || alphas.contrastDark < alphas.dark {

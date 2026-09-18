@@ -123,44 +123,21 @@ enum Glass {
     /// to sample at all, it goes very nearly black and the page behind the
     /// Command Bar vanished completely.
     ///
-    /// The Command Bar's scrim is the one surface in Luna that has to blur
+    /// The Command Bar's backdrop is the one surface in Luna that has to blur
     /// in-window content, so it is the one surface that is not glass.
     /// `NSVisualEffectView` at `.withinWindow` is the only API that does this
     /// job, it is what §9.1's "blurred backdrop scrim" describes, and it brings
     /// its own Reduce Transparency and Increase Contrast handling. It lives
     /// here, behind a name, for the same reason everything else does: so no
     /// other file has to know which material it got.
+    ///
+    /// **At full strength, and frosted like §7.2's peeked sidebar** — see
+    /// `GlassScrim.swift` for the measurement that says why a partial
+    /// `alphaValue` was a grey film rather than a blur, and for what the peek
+    /// and this surface can and cannot have in common.
     @MainActor
     static func scrim() -> NSView {
-        let view = NSVisualEffectView()
-        view.blendingMode = .withinWindow
-        // **The lightest in-window material that still genuinely blurs.**
-        // `.hudWindow` and `.fullScreenUI` both blur beautifully and then
-        // flatten everything above them into one dark plate — the Command
-        // Bar's own Liquid Glass stopped looking like a material at all, and
-        // the page behind it stopped being visible as context. `.sidebar` is
-        // the most see-through of the in-window materials: the page is still
-        // there, softened, and a glass surface on top of it still reads as
-        // glass.
-        view.material = .sidebar
-        // Not `.followsWindowActiveState`: the bar is modal over this window
-        // and a scrim that thins out when the window loses focus is a scrim
-        // that stops hiding the page mid-interaction.
-        view.state = .active
-        // **Held just short of full strength, so the page keeps its colour.**
-        //
-        // Every in-window material desaturates what it blurs, and that grey is
-        // what a colourful page turns into behind the bar. The material is not
-        // tunable and its neighbours are no use: `.selection` barely registers,
-        // `.menu` and `.underWindowBackground` take the page away entirely, and
-        // a `CIColorControls` saturation boost on the layer collapses the
-        // backdrop group into an opaque plate. All four were tried on screen.
-        //
-        // What is left is the mix. A little of the sharp, saturated page
-        // composited back over the blurred one is enough to carry the colour —
-        // the blur still reads as a blur, and the veil stops reading as grey.
-        view.alphaValue = Tokens.Metric.scrimStrength
-        return view
+        GlassScrimView()
     }
 
     /// §7.2's peeked sidebar: **the chrome plane, as a plane of its own.**

@@ -8,6 +8,10 @@
 //  the same table the tab list reads (§11.1) — so filtering is a `contains` over
 //  an array the session is holding anyway. No query, no debounce, no store.
 //
+//  §6.4's panel is a **pop-out from the button that opens it** — see
+//  `HistoryPanel`'s header for why it is no longer centred over the page — so
+//  this takes the anchor view rather than a content region.
+//
 
 import AppKit
 import BrowserKit
@@ -29,17 +33,28 @@ final class HistoryPanelController: NSObject {
 
     // MARK: - Presentation
 
-    func toggle(in window: NSWindow) {
-        if isPresented { dismiss() } else { present(in: window) }
+    /// - Parameter anchor: §3.5's History button. The pop-out stands on it, so
+    ///   it is not optional in the way `contentRegion` was — a pop-out with
+    ///   nothing to pop out of falls back to the window's bottom-leading
+    ///   corner, which is where that button is anyway.
+    func toggle(in window: NSWindow, from anchor: NSView) {
+        if isPresented { dismiss() } else { present(in: window, from: anchor) }
     }
 
-    func present(in window: NSWindow) {
+    func present(in window: NSWindow, from anchor: NSView) {
         guard let root = window.contentView else { return }
         if panel != nil { dismiss() }
         entries = session.archived.map(Self.entry)
 
         let panel = HistoryPanel(frame: root.bounds)
-        panel.contentRegion = contentRegion
+        // Read live rather than captured: the sidebar can be resized and the
+        // window moved while the pop-out is open, and the button goes with
+        // them. Weak on both sides — the panel outlives neither, but it is the
+        // panel that is holding this closure.
+        panel.anchorRect = { [weak panel, weak anchor] in
+            guard let panel, let anchor, anchor.window != nil else { return .zero }
+            return panel.convert(anchor.bounds, from: anchor)
+        }
         // The live session first — an archived tab that was open this launch
         // still has its icon in memory — then §4.7's on-disk cache by host,
         // which is where every other archived tab's icon lives.
@@ -69,10 +84,6 @@ final class HistoryPanelController: NSObject {
         if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil
     }
-
-    /// Where the page is inside the window, so the panel sits over the page and
-    /// not over the window. Set by the assembly seam, like the Command Bar's.
-    var contentRegion: (() -> NSRect)?
 
     // MARK: - Behaviour
 

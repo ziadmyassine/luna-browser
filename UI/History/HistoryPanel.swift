@@ -2,7 +2,8 @@
 //  HistoryPanel.swift
 //  Luna
 //
-//  §6.4's archive, as a **floating panel over the page** rather than as a tab.
+//  §6.4's archive, as a **pop-out from the §3.5 History button** — the same
+//  shape §3.2's site menu takes from the sliders glyph.
 //
 //  It used to be `luna://archive`, an internal page in a new tab. That is the
 //  wrong shape for it twice over: looking something up in your history is a
@@ -11,10 +12,17 @@
 //  the tabs looked like a website. The page still exists and the route still
 //  works; this is what §3.5's History button opens.
 //
-//  The shell is deliberately the Command Bar's: scrim, glass body, centred over
-//  the page, dismissed by `esc` or by a click outside. They are the same kind of
-//  surface over the same content and there is no reason for them to be two
-//  different objects on screen.
+//  **And then it was the Command Bar's shell, which was the same mistake one
+//  size smaller.** Scrim, 640 pt body, centred over the page: a glance at a
+//  shelf took the whole page away and put a window-sized panel where the user
+//  was not looking. The Command Bar earns that — you summon it, and it is the
+//  thing you are doing. History is opened *from a button*, and a surface opened
+//  from a button belongs on it.
+//
+//  So: no scrim, a pop-out standing on the button, and the page still there
+//  behind it. What is left of the overlay is a transparent sheet that catches
+//  the click that dismisses it, which is exactly what an `NSMenu` puts up and
+//  for the same reason.
 //
 
 import AppKit
@@ -28,9 +36,12 @@ enum HistoryPanelMetrics {
     static let headerHeight = Tokens.Metric.topBarHeight
     static let padding = Tokens.Metric.panelInset
     static let inset = Tokens.Metric.chromeGapWide
+    /// How far the pop-out stands off the button it came from.
+    static let gap = Tokens.Metric.historyPopoutGap
 }
 
-/// The full-window overlay: scrim, panel, header and list.
+/// The full-window sheet and the pop-out standing on it: an invisible plane
+/// that catches the click outside, plus the panel, its header and its list.
 @MainActor
 final class HistoryPanel: NSView {
 
@@ -50,17 +61,17 @@ final class HistoryPanel: NSView {
     private let list = HistoryListView()
     private let scroll = NSScrollView()
     private let empty = NSTextField(labelWithString: "")
-    private var centreConstraint: NSLayoutConstraint?
-    private var heightConstraint: NSLayoutConstraint?
 
-    /// Where the page is inside the window — the panel belongs over the page,
-    /// not over the window. See `CommandBarPanel.contentRegion`.
-    var contentRegion: (() -> NSRect)?
+    /// The §3.5 History button, in this view's coordinates — the thing the
+    /// pop-out stands on. Read live, so a sidebar resize or a window resize
+    /// under an open pop-out moves it with the button rather than leaving it
+    /// stranded. An empty rect falls back to the window's bottom-leading
+    /// corner, which is where that button is.
+    var anchorRect: (() -> NSRect)?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         autoresizingMask = [.width, .height]
-        buildScrim()
         buildBody()
     }
 
@@ -87,19 +98,22 @@ final class HistoryPanel: NSView {
 
     // MARK: - Build
 
-    private func buildScrim() {
-        // The same within-window backdrop the Command Bar uses, and at full
-        // strength for the same reason — see `CommandBarPanel.buildScrim`.
-        let scrim = Glass.scrim()
-        scrim.frame = bounds
-        scrim.autoresizingMask = [.width, .height]
-        addSubview(scrim)
-    }
-
     private func buildBody() {
         body.wantsLayer = true
-        body.translatesAutoresizingMaskIntoConstraints = false
+        // **Positioned by frame, and its children by Auto Layout.** The panel's
+        // own geometry is two clamps against a button that moves with a sidebar
+        // drag — see `layout()` — and a constant assigned from inside `layout()`
+        // lands one pass too late to be solved, which put the pop-out at the
+        // window's corner with the right size and the wrong place. The standard
+        // island: `body` keeps `translatesAutoresizingMaskIntoConstraints`, and
+        // everything inside it constrains to its edges as before.
         Glass.apply(.popover, to: body, cornerRadius: HistoryPanelMetrics.cornerRadius)
+        // **The shadow does what the scrim used to.** With a backdrop behind it
+        // the panel was separated from the page by the veil; standing on the
+        // page directly, its own edge is all it has, and §2's popover material
+        // has no heavier weight to ask for (`Tokens.Shadow.popover`). This is
+        // the same token the §6.6 drag lift carries, for the same reason.
+        body.layer.map { Tokens.Shadow.popover.apply(to: $0, in: effectiveAppearance) }
         addSubview(body)
 
         let title = NSTextField(labelWithString: String(localized: "History"))
@@ -124,6 +138,21 @@ final class HistoryPanel: NSView {
         scroll.hasHorizontalScroller = false
         scroll.horizontalScrollElasticity = .none
         scroll.automaticallyAdjustsContentInsets = false
+        // **Overlay, so the scroller does not take width off the rows.** A
+        // legacy scroller is laid out *beside* the document, which would make
+        // the rows a scroller narrower than the list they are measured
+        // against — the one way they could stop being the same width.
+        scroll.scrollerStyle = .overlay
+        // And a row's height of clear space at each end, so the first and last
+        // rows are whole rather than sliced by the header above them and the
+        // panel's own edge below. Without it the top row sat half under the
+        // title and read as a shorter row.
+        scroll.contentInsets = NSEdgeInsets(
+            top: HistoryPanelMetrics.padding,
+            left: 0,
+            bottom: HistoryPanelMetrics.padding,
+            right: 0
+        )
         scroll.documentView = list
         scroll.translatesAutoresizingMaskIntoConstraints = false
 
@@ -145,17 +174,7 @@ final class HistoryPanel: NSView {
     /// constraining them were already the two halves.
     private func constrain(title: NSTextField) {
         let inset = HistoryPanelMetrics.inset
-        let centre = body.centerXAnchor.constraint(equalTo: centerXAnchor)
-        centreConstraint = centre
-        let height = body.heightAnchor.constraint(equalToConstant: HistoryPanelMetrics.size.height)
-        heightConstraint = height
-
         NSLayoutConstraint.activate([
-            centre,
-            body.centerYAnchor.constraint(equalTo: centerYAnchor),
-            body.widthAnchor.constraint(equalToConstant: HistoryPanelMetrics.size.width),
-            height,
-
             title.leadingAnchor.constraint(equalTo: body.leadingAnchor, constant: inset),
             title.centerYAnchor.constraint(
                 equalTo: body.topAnchor,
@@ -181,30 +200,56 @@ final class HistoryPanel: NSView {
         body.setAccessibilityElement(true)
     }
 
-    /// Centred on the **page**, and never taller than the window it floats in.
+    /// **Standing on the button, and never off the window.**
+    ///
+    /// It grows upward from the button's top edge and rightward from its leading
+    /// edge, which is the only direction there is room in: the button is at the
+    /// bottom-leading corner of the sidebar, so up and across is where the
+    /// window is. Both are then clamped, because the sidebar can be dragged to
+    /// 420 and the window can be short.
     override func layout() {
         super.layout()
-        let reported = contentRegion?() ?? bounds
-        let region = reported.isEmpty ? bounds : reported
-        centreConstraint?.constant = region.midX - bounds.midX
-        let ceiling = max(region.height - HistoryPanelMetrics.inset * 2, HistoryPanelMetrics.headerHeight)
-        heightConstraint?.constant = min(HistoryPanelMetrics.size.height, ceiling)
+        let anchor = anchorRect?() ?? .zero
+        // No anchor is the window's bottom-leading corner, which is where that
+        // button is anyway.
+        let button = anchor.isEmpty ? NSRect(origin: bounds.origin, size: .zero) : anchor
+        let gap = HistoryPanelMetrics.gap
+        let inset = HistoryPanelMetrics.inset
+        let size = HistoryPanelMetrics.size
+
+        // The foot sits a gap above the button's head; the head goes as far as
+        // §1's ceiling or the top of the window, whichever comes first. The
+        // header alone is the floor — a pop-out with no room for a single row
+        // still has to be a pop-out.
+        let foot = button.maxY + gap
+        let height = min(size.height, max(bounds.maxY - foot - inset, HistoryPanelMetrics.headerHeight))
+        let x = min(max(button.minX, inset), max(bounds.maxX - size.width - inset, inset))
+        body.frame = NSRect(x: x, y: foot, width: size.width, height: height).integral
+        body.layoutSubtreeIfNeeded()
     }
 
     override func mouseDown(with event: NSEvent) {
         onBackgroundClick?()
     }
 
-    /// The same spec the Command Bar arrives on — they are the same surface.
+    /// §6's `commandBarIn`, **grown from the button** rather than from its own
+    /// centre. The anchor point is the panel's bottom-leading corner, which is
+    /// the corner standing on the control that opened it, so the pop-out
+    /// unfolds out of the button instead of appearing around it.
     func animateIn() {
         layoutSubtreeIfNeeded()
-        guard let scale = Tokens.Motion.commandBarIn.springAnimation(keyPath: "transform.scale") else {
+        guard let layer = body.layer,
+              let scale = Tokens.Motion.commandBarIn.springAnimation(keyPath: "transform.scale")
+        else {
             alphaValue = 1
             return
         }
+        let frame = layer.frame
+        layer.anchorPoint = CGPoint(x: 0, y: 0)
+        layer.position = CGPoint(x: frame.minX, y: frame.minY)
         scale.fromValue = 0.96
         scale.toValue = 1.0
-        body.layer?.add(scale, forKey: "historyIn")
+        layer.add(scale, forKey: "historyIn")
         alphaValue = 0
         Tokens.Motion.animate(Tokens.Motion.commandBarIn) { _ in
             self.animator().alphaValue = 1

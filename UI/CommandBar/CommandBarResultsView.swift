@@ -241,8 +241,8 @@ private final class CommandBarRowView: NSView {
     }
 
     private func applyTokens() {
-        title.font = Tokens.TypeScale.sidebarRow
-        subtitle.font = Tokens.TypeScale.sidebarRow
+        title.font = Tokens.TypeScale.commandBarRow
+        subtitle.font = Tokens.TypeScale.commandBarRow
         badgeName.font = Tokens.TypeScale.sectionLabel
         // §3.4: the selected row has "brighter text"; §1 forbids separating tiers
         // by alpha alone, so the step is primary vs secondary, not a fade.

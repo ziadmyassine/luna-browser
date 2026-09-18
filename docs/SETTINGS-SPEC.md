@@ -192,14 +192,21 @@ underneath — never a silently dead switch (§30.4).
 | Control | Type | Wired to |
 |---|---|---|
 | Theme | Segmented: Auto · Light · Dark | `NSApp.appearance` |
+| Material | Segmented: Clear · Opaque | `Glass.density` — UI-SPEC §2a |
 | Optimise glass for this display | Segmented: Auto · On · Off | **§7 below** |
 | Show tab favicons in the sidebar | Toggle | `SidebarIcons.favicon(for:)` — **not** the row model, which holds no image |
 | Sidebar position | Segmented: Left · Right | *disabled* — right-hand sidebar is not built |
 
-The glass row carries a **live preview tile** beside it: a 160 × 72 sample of
-the real material, redrawn the instant the segment changes. On a 1× display the
-difference is the whole point of the setting, so it must be visible without
+The glass rows carry a **live preview tile** below them: a 160 × 72 sample of
+the real material, redrawn the instant either segment changes. On a 1× display
+the difference is the whole point of the setting, so it must be visible without
 closing the window.
+
+**Material is above "Optimise glass" because it is the bigger of the two.** It
+changes how much of the desktop reaches the eye through every chrome surface in
+the app; the row below it changes how one material is rendered on one class of
+display. Both re-skin every live surface in one pass and neither needs a
+relaunch. UI-SPEC §2a has the alphas and the measurement they come from.
 
 ### 3.3 Privacy & Blocking
 | Control | Type | Wired to |
@@ -339,7 +346,7 @@ update.
 ```
 general.onLaunch            general.confirmClose
 appearance.theme            appearance.glassOptimisation
-appearance.showFavicons
+appearance.glassDensity
 search.engine               search.customEngineURL
 downloads.directory         downloads.askEachTime
 downloads.autoOpen          downloads.clearPolicy

@@ -88,19 +88,15 @@ final class CommandBarPanel: NSView {
     }
 
     private func buildScrim() {
+        // **At full strength, and frosted like §7.2's peeked sidebar.** That is
+        // `Glass.scrim()`'s business now, and the two lines this comment used
+        // to argue for are in `GlassScrim.swift` with the measurement behind
+        // them: `alphaValue` does not thin an `NSVisualEffectView`, it
+        // cross-fades the blurred result back over the sharp original, so the
+        // 0.55 that shipped here bought a grey film rather than a blur.
         let scrim = Glass.scrim()
         scrim.frame = bounds
         scrim.autoresizingMask = [.width, .height]
-        // **At full strength, because anything less is not a blur.**
-        //
-        // `alphaValue` on an `NSVisualEffectView` does not thin the material:
-        // it cross-fades the blurred result back over the sharp original, and
-        // the two together read as a flat grey veil laid on a page that is
-        // still perfectly legible underneath. §9.1 asks for a *blurred* scrim,
-        // which is the material's own job and only happens at 1.0. `.sidebar`
-        // is already the most see-through of the in-window materials — see
-        // `Glass.scrim()` — so the page stays there as context, softened
-        // rather than hidden.
         addSubview(scrim)
     }
 

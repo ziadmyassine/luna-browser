@@ -42,6 +42,20 @@ extension Tokens {
         static var urlPill: NSFont { .systemFont(ofSize: 13, weight: .regular) }
         /// 13 pt — the same pill in top-bar layout, where it shares the bar.
         static var topBarURL: NSFont { .systemFont(ofSize: 13, weight: .regular) }
+        /// 15 pt — §9.1's Command Bar query.
+        ///
+        /// **One step above the chrome, because the bar is not chrome.** The
+        /// sidebar's 13 pt is measured off the reference and is right for a
+        /// column of two dozen rows you scan; the Command Bar is a single
+        /// modal surface in the middle of the window that you look *at* while
+        /// you type into it, and set at the sidebar's size it read as a chrome
+        /// field that had floated loose. It is also the one field in Luna where
+        /// what you typed is the whole content.
+        static var commandBarQuery: NSFont { .systemFont(ofSize: 15, weight: .regular) }
+        /// 14 pt — a §9.1 result row's title and its subtitle, held one step
+        /// under the query so the list still reads as an answer to it rather
+        /// than as more of it. §3.4's 38 pt row has the room.
+        static var commandBarRow: NSFont { .systemFont(ofSize: 14, weight: .regular) }
         /// 12 pt semibold — section labels.
         static var sectionLabel: NSFont { .monospacedDigitSystemFont(ofSize: 12, weight: .semibold) }
         /// 14 pt — the §5 downloads filename.

@@ -30,9 +30,11 @@ enum SettingsDefaults {
         // §3.1 General — `GeneralSettings.onLaunch` / `.confirmClose`
         ("general.onLaunch", "restoreSession"),
         ("general.confirmClose", true),
-        // §3.2 Appearance — `AppearanceSection.theme`, `Glass.optimisation`
+        // §3.2 Appearance — `AppearanceSection.theme`, `Glass.optimisation`,
+        // `Glass.density`
         ("appearance.theme", "auto"),
         ("appearance.glassOptimisation", GlassOptimisation.auto.rawValue),
+        ("appearance.glassDensity", GlassDensity.clear.rawValue),
         // §3.4 Search — `SearchSettings.stored()`
         ("search.engine", SearchEngine.fallback.rawValue),
         ("search.customEngineURL", ""),
@@ -74,9 +76,10 @@ enum SettingsDefaults {
     /// next launch. Three explicit ones rather than a notification — add one
     /// when there is a fourth cache, not before.
     static func restoreAll() {
-        // Before the sweep: the setter persists the key as well as re-skinning
-        // every live glass view, and the loop below clears what it wrote.
+        // Before the sweep: both setters persist their key as well as re-skinning
+        // every live glass view, and the loop below clears what they wrote.
         Glass.optimisation = .auto
+        Glass.density = .clear
         let defaults = UserDefaults.standard
         for key in keys { defaults.removeObject(forKey: key) }
         SearchSettings.reload()

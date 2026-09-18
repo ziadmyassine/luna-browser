@@ -37,7 +37,11 @@ final class HistoryListView: NSView {
         super.init(frame: frameRect)
         rows.orientation = .vertical
         rows.spacing = 0
-        rows.alignment = .leading
+        // Not `.leading`: that aligns arranged subviews at their own widths, so
+        // the rows were as wide as their content and the list was a ragged edge
+        // held straight only by the per-row width constraint below. `.width`
+        // makes the stack itself the one width every row has.
+        rows.alignment = .width
         rows.distribution = .fill
         rows.translatesAutoresizingMaskIntoConstraints = false
 
@@ -130,7 +134,19 @@ final class HistoryListView: NSView {
             selection.isHidden = true
             return
         }
-        let target = convert(row.frame, from: rows).insetBy(dx: Tokens.Metric.rowInset, dy: 0)
+        // **Every pill is the same width, and it is the list's, not the row's.**
+        // A pill measured off each row inherits whatever that row's stack
+        // negotiated, so a long title and a short one highlighted differently —
+        // and a row wider than the list put glass over the panel's own rounded
+        // edge. One width, one inset, taken from the list itself; only `y` and
+        // the height come from the row.
+        let frame = convert(row.frame, from: rows)
+        let target = NSRect(
+            x: bounds.minX + Tokens.Metric.rowInset,
+            y: frame.minY,
+            width: max(bounds.width - 2 * Tokens.Metric.rowInset, 0),
+            height: frame.height
+        )
         selection.isHidden = false
         guard animated, !Tokens.Motion.reduceMotion else {
             selection.frame = target
