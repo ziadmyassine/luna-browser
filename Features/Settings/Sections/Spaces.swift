@@ -2,22 +2,29 @@
 //  Spaces.swift
 //  Luna
 //
-//  docs/SETTINGS-SPEC.md §3.7.
+//  docs/SETTINGS-SPEC.md §3.7, and SPACES-SPEC §6.2/§6.4.
 //
-//  What is wired: New Space and Delete Space, because `BrowserSession` has
-//  `createSpace(name:)` and `deleteSpace(_:)` and both already do the right
-//  thing. What is dimmed: rename, reorder, and changing a Space's profile.
-//  `BrowserSession.spaces` is `private(set)` and carries no rename, reorder or
-//  re-profile call, so the only way to write one from here would be straight
-//  into `BrowserStore` — which persists a name the running window never shows.
-//  A row that appears to work and does not is worse than a dimmed one (§30.4).
+//  Nothing here is dimmed for a missing method any more. `BrowserSession` now
+//  carries `renameSpace`, `reorderSpace`, `setIcon`, `setGradient`,
+//  `setProfile` and `deleteSpace(_:policy:)`, so every row that used to name
+//  the call it was waiting for is wired to it instead — the reason went, the
+//  row stayed (§30.4).
 //
-//  This section is the only one that rebuilds itself: creating or deleting a
-//  Space changes how many rows there are.
+//  **The one thing this section says that no other browser's does** is the
+//  fan-out: Space → Profile is many-to-one, and nothing in Arc, Chrome or
+//  Firefox ever tells you so. A profile row that reads "Work profile · shared
+//  with 3 Spaces" is the whole answer to "why am I still logged in over here",
+//  which is the single most-reported conceptual confusion in every review of
+//  Arc and the oldest open one in Firefox's containers (§9).
+//
+//  This section is the only one that rebuilds itself: creating, renaming,
+//  reordering or deleting a Space changes what the rows say and how many there
+//  are.
 //
 
 import AppKit
 import BrowserKit
+import WebKit
 
 @MainActor
 final class SpacesSection: SettingsSection {
@@ -40,26 +47,31 @@ final class SpacesSection: SettingsSection {
 
     // MARK: Building
 
-    private func build() {
+    /// Internal, not private: the dialogs live in `Spaces+Dialogs.swift` and
+    /// every one of them ends by rebuilding this section.
+    func build() {
         let session = SettingsHost.session
         let spaces = session?.spaces ?? []
         body = SettingsBody()
 
-        var spaceRows = spaces.map { spaceRow($0, canDelete: spaces.count > 1) }
-        spaceRows.append(newSpaceRow())
-        spaceRows.append(renameRow())
-        body.card(String(localized: "Spaces"), spaceRows)
+        // One card per Space. Nine sections' worth of rows in one card was
+        // unreadable the moment a Space grew five settings instead of one, and
+        // the card title is the only place the Space's name can be edited from
+        // without the row labels repeating it four times.
+        for (index, space) in spaces.enumerated() {
+            body.card(space.name, spaceRows(space, at: index, of: spaces, session: session))
+        }
 
-        var profileRows = spaces.map { profileRow(for: $0, session: session) }
-        profileRows.append(deleteProfileDataRow())
-        body.card(String(localized: "Profiles"), profileRows)
+        body.card(String(localized: "Spaces"), [newSpaceRow(sharing: spaces, session: session)])
+        body.card(String(localized: "Profiles"), [clearProfileDataRow(spaces, session: session)])
 
         body.loose(SettingsRow.note(String(localized: """
-        Each Space keeps its own cookies and logins in its own storage (§5.1). Deleting a \
-        Space deletes that storage with it — WebKit refuses to remove a store while any tab \
-        is still using it, so Luna closes every tab in the Space first and then checks the \
-        store really is gone rather than trusting a silent success.
-        """)), terms: ["profile", "cookies", "storage", "data store"])
+        A Space owns its tabs; a **profile** owns the cookies and logins those tabs use, and several \
+        Spaces can share one. Favorites are per profile too, so a tile you add in one Space appears in \
+        every Space on the same profile — which is also why deleting a Space only deletes its cookies \
+        when no other Space is still using them. Light and Dark stay a whole-app setting; a Space's \
+        gradient does not change it.
+        """)), terms: ["profile", "cookies", "storage", "data store", "favorites", "shared"])
 
         install()
     }
@@ -76,102 +88,170 @@ final class SpacesSection: SettingsSection {
         ])
     }
 
-    // MARK: Spaces
+    // MARK: One Space
 
-    private func spaceRow(_ space: Space, canDelete: Bool) -> (view: NSView, terms: [String]) {
+    /// Internal, not private, so `SpacesSectionTests` can build the six rows
+    /// for a synthetic Space without a running session — which is the only way
+    /// to assert that none of them is dimmed any more.
+    func spaceRows(
+        _ space: Space,
+        at index: Int,
+        of spaces: [Space],
+        session: BrowserSession?
+    ) -> [(view: NSView, terms: [String])] {
+        [
+            nameRow(space, session: session),
+            iconRow(space, session: session),
+            gradientRow(space, session: session),
+            positionRow(space, at: index, count: spaces.count, session: session),
+            profileRow(space, session: session),
+            deleteRow(space, canDelete: spaces.count > 1)
+        ]
+    }
+
+    /// §6.2's rename. Commits on Return **and** on losing focus, because
+    /// `SettingsRow.text` sets `sendsActionOnEndEditing` — a name typed and then
+    /// clicked away from is a name the user meant.
+    private func nameRow(_ space: Space, session: BrowserSession?) -> (view: NSView, terms: [String]) {
+        let title = String(localized: "Name")
+        let row = SettingsRow.text(title, value: space.name, placeholder: space.name) { [weak self] typed in
+            let name = typed.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty, name != space.name, let session else { return }
+            Task {
+                do { try await session.renameSpace(space.id, to: name) } catch { NSApp.presentError(error) }
+                self?.build()
+            }
+        }
+        return (row, [title, space.name, "rename", "rename space"])
+    }
+
+    /// §6.2's re-icon. A curated list rather than a free-text SF Symbol name:
+    /// a symbol that does not resolve draws nothing at all, and there is no way
+    /// for a text field to tell the user which of the six thousand names it is.
+    private func iconRow(_ space: Space, session: BrowserSession?) -> (view: NSView, terms: [String]) {
+        let title = String(localized: "Icon")
+        let names = Self.symbols.map(\.name)
+        let row = SettingsRow.popup(
+            title,
+            subtitle: nil,
+            options: Self.symbols.map(\.label),
+            selected: names.firstIndex(of: space.symbolName) ?? 0
+        ) { [weak self] choice in
+            guard let session, names.indices.contains(choice), names[choice] != space.symbolName else { return }
+            Task {
+                do { try await session.setIcon(names[choice], forSpace: space.id) } catch { NSApp.presentError(error) }
+                self?.build()
+            }
+        }
+        return (row, [title, "icon", "symbol"] + Self.symbols.map(\.label))
+    }
+
+    /// §6.2's re-gradient, over agent D's twelve curated pairs (§8.2), with
+    /// **Neutral last** — §13.6's one click back.
+    ///
+    /// Arc needed a help article for "How Do I Restore the Default Theme" and
+    /// Zen has an open issue for being unable to unset a gradient at all, so
+    /// the way out is an entry in the same list as the way in rather than a
+    /// second control somewhere else. Light and Dark stay global; the note at
+    /// the foot of this section says so, as Arc's docs do.
+    private func gradientRow(_ space: Space, session: BrowserSession?) -> (view: NSView, terms: [String]) {
+        let title = String(localized: "Gradient")
+        let palette = Tokens.Gradient.spacePalette + [Tokens.Gradient.neutral]
+        let labels = Tokens.Gradient.spacePaletteNames + [String(localized: "Neutral")]
+        let row = SettingsRow.popup(
+            title,
+            subtitle: nil,
+            options: labels,
+            selected: palette.firstIndex(of: space.gradient) ?? 0
+        ) { [weak self] choice in
+            guard let session, palette.indices.contains(choice), palette[choice] != space.gradient else { return }
+            Task {
+                do {
+                    try await session.setGradient(palette[choice], forSpace: space.id)
+                } catch {
+                    NSApp.presentError(error)
+                }
+                self?.build()
+            }
+        }
+        return (row, [title, "gradient", "colour", "color", "theme", "neutral"] + labels)
+    }
+
+    /// §6.2's reorder, as a position rather than a drag: a list of at most a
+    /// handful of Spaces does not need a drag affordance to be reorderable, and
+    /// every project researched shipped a persisted order with no way to change
+    /// it at all.
+    private func positionRow(
+        _ space: Space,
+        at index: Int,
+        count: Int,
+        session: BrowserSession?
+    ) -> (view: NSView, terms: [String]) {
+        let title = String(localized: "Position in the sidebar")
+        let labels = (1...max(count, 1)).map(String.init)
+        let row = SettingsRow.popup(
+            title,
+            subtitle: nil,
+            options: labels,
+            selected: index
+        ) { [weak self] choice in
+            guard let session, choice != index else { return }
+            Task {
+                do { try await session.reorderSpace(space.id, to: choice) } catch { NSApp.presentError(error) }
+                self?.build()
+            }
+        }
+        return (row, [title, "reorder", "order", "position", "move space"])
+    }
+
+    /// §6.1/§9's fan-out, and §3.3's Profile swap.
+    ///
+    /// The subtitle is the label Arc has nowhere: it names the profile and says
+    /// how many Spaces are on it, so "why am I logged in over there too" has an
+    /// answer on screen instead of in a support article.
+    private func profileRow(_ space: Space, session: BrowserSession?) -> (view: NSView, terms: [String]) {
+        let profiles = (session?.profiles.values.map { $0 } ?? []).sorted { $0.name < $1.name }
+        let current = session?.profile(for: space)
+        let title = String(localized: "Profile")
+        let subtitle = Self.fanOutLabel(
+            profileName: current?.name ?? space.name,
+            spacesOnProfile: current.map { session?.spaces(onProfile: $0.id) ?? [] } ?? [space],
+            favorites: current.map { session?.favorites(onProfile: $0.id).count ?? 0 } ?? 0
+        )
+        let names = profiles.map(\.name)
+        let row = SettingsRow.popup(
+            title,
+            subtitle: subtitle,
+            options: names.isEmpty ? [current?.name ?? space.name] : names,
+            selected: profiles.firstIndex { $0.id == space.profileID } ?? 0
+        ) { [weak self] choice in
+            guard let session, profiles.indices.contains(choice),
+                  profiles[choice].id != space.profileID,
+                  self?.confirmProfileSwap(space, to: profiles[choice]) == true else {
+                self?.build()
+                return
+            }
+            Task {
+                do {
+                    try await session.setProfile(profiles[choice].id, forSpace: space.id)
+                } catch {
+                    NSApp.presentError(error)
+                }
+                self?.build()
+            }
+        }
+        return (row, [title, subtitle, current?.name ?? space.name, "profile", "shared", "cookies"])
+    }
+
+    private func deleteRow(_ space: Space, canDelete: Bool) -> (view: NSView, terms: [String]) {
+        let title = String(localized: "Delete this Space")
         let row = SettingsRow.button(
-            space.name,
+            title,
             action: String(localized: "Delete…"),
             isDestructive: true,
             isEnabled: canDelete,
             disabledReason: canDelete ? nil : String(localized: "A window must always have at least one Space.")
         ) { [weak self] in self?.delete(space) }
-        return (row, [space.name, "space", "delete space"])
-    }
-
-    private func newSpaceRow() -> (view: NSView, terms: [String]) {
-        let title = String(localized: "New Space")
-        let row = SettingsRow.button(title, action: title) { [weak self] in self?.createSpace() }
-        return (row, [title, "add space", "create space"])
-    }
-
-    private func renameRow() -> (view: NSView, terms: [String]) {
-        let title = String(localized: "Rename or reorder a Space")
-        let row = SettingsRow.button(
-            title,
-            action: String(localized: "Rename…"),
-            isEnabled: false,
-            disabledReason: String(localized: "BrowserSession can create and delete Spaces, but cannot yet rename or reorder one.")
-        ) {}
-        return (row, [title, "rename", "reorder"])
-    }
-
-    /// Named at creation on purpose: there is no rename yet, so the name typed
-    /// here is the name the Space keeps. `BrowserCommands`' `⌘⇧N` names it
-    /// "New Space" for the same reason and could call this instead.
-    private func createSpace() {
-        guard let session = SettingsHost.session,
-              let name = SettingsHost.ask(
-                  String(localized: "Name the new Space"),
-                  String(localized: "Its tabs and its logins stay separate from every other Space."),
-                  action: String(localized: "Create"),
-                  placeholder: String(localized: "New Space")
-              )
-        else { return }
-        Task {
-            do { try await session.createSpace(name: name) } catch { NSApp.presentError(error) }
-            build()
-        }
-    }
-
-    private func delete(_ space: Space) {
-        guard let session = SettingsHost.session,
-              SettingsHost.confirm(
-                  String(localized: "Delete the Space “\(space.name)”?"),
-                  String(localized: """
-                  Its tabs close and its cookies, logins and caches are deleted. This cannot be undone.
-                  """),
-                  action: String(localized: "Delete")
-              )
-        else { return }
-        Task {
-            do { try await session.deleteSpace(space.id) } catch { NSApp.presentError(error) }
-            build()
-        }
-    }
-
-    // MARK: Profiles
-
-    /// §5.5's gotcha is why this is dimmed rather than missing: a
-    /// `WKWebsiteDataStore` created with an identifier can never adopt the
-    /// default store's data, so a Space's profile cannot be swapped after the
-    /// fact without silently orphaning a cookie jar in
-    /// `~/Library/WebKit/WebsiteDataStore/`.
-    private func profileRow(for space: Space, session: BrowserSession?) -> (view: NSView, terms: [String]) {
-        let names = (session?.profiles.values.map(\.name) ?? []).sorted()
-        let current = session?.profile(for: space)?.name ?? space.name
-        let title = String(localized: "Profile for \(space.name)")
-        let row = SettingsRow.popup(
-            title,
-            subtitle: nil,
-            options: names.isEmpty ? [current] : names,
-            selected: names.firstIndex(of: current) ?? 0,
-            isEnabled: false,
-            disabledReason: String(localized: "A Space's profile is fixed when the Space is created (§5.5)."),
-            onChange: { _ in }
-        )
-        return (row, [title, current, "profile"])
-    }
-
-    private func deleteProfileDataRow() -> (view: NSView, terms: [String]) {
-        let title = String(localized: "Delete a profile's data")
-        let row = SettingsRow.button(
-            title,
-            action: String(localized: "Delete…"),
-            isDestructive: true,
-            isEnabled: false,
-            disabledReason: String(localized: "BrowserStore has no delete(profileID:), so this would leave a Space pointing at nothing.")
-        ) {}
-        return (row, [title, "clear profile", "website data"])
+        return (row, [title, space.name, "delete space", "remove space"])
     }
 }
