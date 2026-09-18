@@ -32,15 +32,50 @@ an enforced one, so it is on review to catch.
 | Window content | 720 × 520, resizable, min 640 × 420 |
 | Window corner | `windowCornerRadius` (25) |
 | Section list width | `settingsListWidth` (230), fixed (not `sidebarWidth`, which is user-dragged) |
-| Section row height / radius | `settingsSectionRow` (36) / `rowCornerRadius` (12) |
-| Section icon tile | `settingsSectionIcon` (26, radius 7) |
+| Section row **pitch** / pill radius | `settingsSectionRow` (34) / `rowCornerRadius` (12) |
+| Section row pill height | pitch less `rowGap` (3) — the gap comes out of the row |
+| Section icon tile | `settingsSectionIcon` (24, radius 7), no outline |
 | Pane inset | `chromeGapWide` (16) |
-| Card row height | `settingsCardRow` (52) |
+| Card row height | `settingsCardRow` (48) |
 | Card row inset (text grid) | `chromeGapWide` (16) |
-| Gap between cards | `settingsGroupGap` (26) |
-| Search field | `urlPill` height (34), full radius, full list width |
+| Gap between cards | `settingsGroupGap` (26); a note under a card, `chromeGap` (8) |
+| Search field | `urlPill` height (34), `settingsFieldCorner` (10), no border |
+| Nav capsule | `settingsNavCapsule` (64 × 30, radius 10) |
+| Segment | `settingsSegment*` — height 28, radius 8, 14 pt either side of its word |
+| Pushbutton | `settingsButtonHeight` (26), `settingsFieldCorner`, 11 pt inset |
 | Row and section label face | `TypeScale.settingsRow` (15) |
+| Group header | same face, `Text.secondary` |
 | Symbol size | `faviconSize` (16) |
+
+### 1.2 The controls, re-measured against the same reference
+
+The shell was the reference's two columns before this pass; what sat inside it
+was AppKit's defaults. Each of these is a delta that was visible side by side
+with the screenshot, and none of them changes what a control *does*:
+
+- **The nav capsule is one plate with two bare chevrons**, not a pill holding
+  two circular `GlassButton`s. Three rounded shapes where the reference has one.
+- **The search field is a rounded rectangle**, not a full-radius pill, and
+  carries no border: the well is already a recess.
+- **Popups are `isBordered = false`.** Six push bezels down a card turn the pane
+  into a form on a grey background. The menu, the keyboard handling and the
+  VoiceOver role are AppKit's still — only the bezel is gone.
+- **`SettingsPushButton` replaces `.push`**, and **`SettingsTextField` replaces
+  the bezelled field**: both are the row's own wash with `Surface.well` or
+  `Surface.selected` under them. AppKit's push bezel is a near-white plate and
+  its text field is a white box; either one is the brightest thing in the pane.
+- **A segment is as wide as its word**, and an unselected one carries no
+  outline. A fixed 140 pt made "Auto · Light · Dark" cross half the pane.
+- **A row lays its control out with explicit constraints**, not a horizontal
+  stack: a stack sent a switch to the card's trailing edge and left a
+  `SettingsChoice` beside the label with the spare width spread between its
+  segments.
+- **A group header names something the rows do not.** Three of them repeated
+  the title of the only row underneath and are gone; the rest are
+  `Text.secondary`.
+- **A key equivalent is a chip** (`SettingsKeyChip`), and a row that is only a
+  sentence is still a row (`SettingsRow.status`) — a bare `NSTextField` in a
+  card squashes it to one line of type against its own edge.
 
 **Materials.** The section list is `Glass.apply(.sidebar, to:)` — the same
 material as the browser sidebar, sampling the wallpaper, on a window that is
