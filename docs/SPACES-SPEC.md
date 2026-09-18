@@ -463,3 +463,156 @@ device-local.
 - **If extensions ever land, derive a second store UUID per Profile.** Nook
   reuses the Profile's UUID for both page and extension storage, merging them
   into one container.
+
+---
+
+## 13. Arc's shipped defaults and the usage data (added after research)
+
+### 13.1 The number that should shape the whole feature
+
+The Browser Company published usage data when they put Arc into maintenance:
+
+> "Only 5.52% of DAUs use more than one Space regularly."
+> "Arc was simply too different, with too many new things to learn, for too
+> little reward."
+
+**94% of daily Arc users never regularly used a second Space.** Spaces was not
+abandoned for being bad — it was a power-user feature whose cost was paid by the
+entire onboarding surface. And it came back anyway under pressure from the 5.52%,
+who would not let it go. Low reach, extreme attachment.
+
+**D-S11: design for the 94%.** Out of the box: one unnamed Space, **no visible
+switcher**, no chrome tint, no onboarding step. The Space UI appears when the
+user creates a second one. Arc already bends this way, retrofitting collapsed
+Pinned sections to single-Space users after complaints. Spaces must be something
+Luna *grows into*, never a concept it opens with.
+
+### 13.2 `⌘1…⌘9` is the wrong binding, and Luna already ships it
+
+| Product | Spaces / workspaces | ⌘-number is… |
+|---|---|---|
+| Arc | `⌃1…⌃9` | sidebar items |
+| Dia | `Ctrl+1–9` (profiles) | — |
+| Vivaldi | `⌘⇧<n>` | — |
+| **Luna today** | **`⌘1…⌘9`** | **unused** |
+
+Three independent products, three different modifiers, **none of them plain
+⌘-number** — that namespace means "go to tab N" in Safari, Chrome, Firefox, Edge
+and Arc. Arc even shipped a preference controlling what `⌘1–8` indexes *within*
+the sidebar, which is how contested it is.
+
+Luna currently binds `⌘1…⌘9` to Spaces (`MainMenu.setSpaces`) and has **no
+"go to tab N" at all**. So the most valuable shortcut in the app is spent on the
+feature 94% of users will not use twice.
+
+**D-S12: move Spaces to `⌃1…⌃9`. Reserve `⌘1…⌘9` for sidebar items.**
+Add `⌘⌥←/→` for previous/next Space, a two-finger sidebar swipe, and
+"go to <Space>" in the Command Bar. This is a breaking change to a shipped
+binding and is cheaper today than ever again.
+
+### 13.3 Auto-archive — Arc's defaults, and its mistake
+
+- **12 hours** for idle unpinned tabs; viewing a tab resets the timer.
+- Pinned tabs never auto-archive. Media-playing tabs are exempt (retrofitted).
+- Timing is **per Profile**, and it syncs.
+- Little-Arc-style floating windows archive on a separate **6 hour** default.
+- **"Auto Archive can't be disabled."**
+
+That last line is the mistake, and Arc paid for it visibly: a one-time
+explainer banner for new members, a defensive help article ("This can be a little
+tough to get used to at first"), per-Profile timings, and a media exemption. You
+do not ship an apology banner for a feature people understand.
+
+**D-S13: Luna's auto-archive is disableable.** Default 12h, options Off / 6h /
+12h / 24h / 7d / 30d, never archiving a tab that is playing media or holds
+unsaved input (§19.2 already has both exemptions). The behaviour is right; making
+it mandatory is what turns it into data loss.
+
+### 13.4 Favorites: cap it, allow zero, load it lazily
+
+Arc caps Favorites at **12 per Profile**, allows zero, and had to retrofit lazy
+loading: *"We used to keep your Favorites loaded at all times, but now we only
+load them if they've been used recently."* A permanently-resident global tier is
+a memory problem. All three constraints carry to Luna's per-Profile tier.
+
+### 13.5 The global-tier argument, settled by volume
+
+The loudest complaint in this whole category, and the evidence is lopsided:
+
+- **Vivaldi** ships pinned-per-Workspace with **no** global tier. One forum
+  thread asking for one: **118 posts, 61 posters, 45,500 views**, no staff reply.
+  Users also discovered that pinning the same URL into several workspaces creates
+  **separate instances**, which is not what they wanted.
+- **Zen** ships Luna's exact split — global Essentials + per-workspace Pinned —
+  and gets the *opposite* request from roughly **17 people** across two threads.
+
+An order of magnitude. **The split is right**; the refinement is §2's
+per-Profile scoping, which answers Zen's "I don't want YouTube in my work space"
+without answering it with duplication.
+
+### 13.6 Re-tinting: keep it, ship the escape hatches
+
+Nobody asks Arc to remove the tint. Every complaint is about execution:
+
+- Arc shipped *"better contrast in Dark Mode"* for the theme picker in 2022.
+- Arc needed a help article for *"How Do I Restore the Default Theme"* — getting
+  *out* of a theme was not discoverable.
+- Zen shipped the contrast bug outright: on a light gradient *"text like the 'new
+  tab' text and the workspace title become very hard to read."*
+- Zen has an open issue for being unable to reset a gradient to unset.
+- Dia's sidebar refresh went to **"neutral-colored tab groups by default."**
+
+So: derive sidebar and label foregrounds from the **chosen gradient's
+luminance**, not from a fixed token; give one click back to neutral; keep
+Light/Dark **global** and say so in the UI (Arc's docs shout it); honour Reduce
+Motion on the cross-fade and Reduce Transparency on the gradient.
+
+### 13.7 Deleting a Space — a cheap place to beat everyone
+
+Vivaldi closes every tab in the workspace with no undo. Arc shows a titled
+confirmation and, per third-party reports only, archives — **no vendor source
+confirms what happens to the tabs, and there is no documented undo anywhere in
+three years of release notes.** §6.3's archive-and-undo therefore beats both, and
+it is nearly free because `closeTab` already archives.
+
+### 13.8 Space and Folder stay orthogonal
+
+Vivaldi publishes the cleanest articulation of the distinction, and it is the
+argument for §4's node tree:
+
+> "Like Tab Stacks, Workspaces let you organize your tabs into different
+> categories, but the difference is that **when you select a workspace to view,
+> you will see only the tabs for that category** in your window."
+
+A Space **filters** which tabs exist right now. A folder **groups** the visible
+ones. They compose — a Space containing four folders — and neither should
+collapse into the other.
+
+### 13.9 Link routing: the default is contested
+
+Arc's help centre says the shipped default is a floating window: *"By default,
+all links opened from another desktop app open in Little Arc."* The install on
+this machine reads `defaultDestination: { space: { mostRecent } }`, and a later
+Arc release note says *"By default, all Google Meet Links will open in your most
+recent Space"* — so they appear to have drifted away from the floating window.
+Either the setting was changed here or the default moved. **Unresolved; pick
+Luna's own default deliberately rather than inheriting a contested one.**
+
+Rules are `contains` / `is equal to` → a target Space, with a default of
+specific-Space / most-recent-Space / floating-window. **Deleting a Space deletes
+its routes** — Arc states this explicitly.
+
+### 13.10 Smaller shipped behaviours worth copying
+
+- Switching a Space restores that Space's **last-used tab**. Luna already does.
+- New Spaces appear **next to the active Space**, not at the end of the list.
+- A toast when a Space is created while the sidebar is hidden.
+- A pinned tab always resets to its saved URL, and a link that would navigate it
+  away opens a floating window instead. Arc needed a dedicated FAQ for this, so
+  if Luna copies the behaviour it must also explain it.
+- Support **emoji as well as SF Symbols** for Space icons. Arc supports emoji
+  with skin tones, SigmaOS is emoji-first, Vivaldi allows custom icons. SF
+  Symbols alone will not survive contact.
+- Arc had to patch a real cross-profile leak: Command Bar suggestions bleeding
+  between Spaces on different Profiles. §9's rule again, from the other side.
+
