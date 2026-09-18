@@ -9,6 +9,7 @@
 //
 
 import XCTest
+@testable import BrowserKit
 @testable import Luna
 
 @MainActor
@@ -88,16 +89,35 @@ final class PageChromeBarTests: XCTestCase {
         XCTAssertTrue(parts.buttons.allSatisfy(\.isHidden))
     }
 
-    /// The bar covers the top of a live web page. Everything it does not draw
-    /// on belongs to the page — a link under the gap between the buttons and
-    /// the pill has to stay clickable.
-    func testTheGapsBetweenTheControlsBelongToThePage() throws {
+    /// The bar's own band is chrome and takes its clicks; the page keeps the
+    /// rest. The frame stays the open height in both states, so while the bar
+    /// is collapsed its lower 22 pt is live page and a link there has to work.
+    func testOnlyTheBandTakesClicks() throws {
         let wide = bar(width: 1600)
         let parts = try XCTUnwrap(controls(of: wide))
         let lastButton = try XCTUnwrap(parts.buttons.map(\.frame.maxX).max())
         let gap = NSPoint(x: (lastButton + parts.pill.frame.minX) / 2, y: wide.bounds.midY)
-        XCTAssertNil(wide.hitTest(gap))
+        XCTAssertNotNil(wide.hitTest(gap), "the open bar spans its whole frame")
         XCTAssertNotNil(wide.hitTest(NSPoint(x: parts.pill.frame.midX, y: parts.pill.frame.midY)))
+
+        wide.setCollapsed(true, animated: false)
+        wide.layoutSubtreeIfNeeded()
+        let belowTheStrip = NSPoint(x: gap.x, y: wide.bounds.maxY - Tokens.Metric.pageBar + 1)
+        XCTAssertNil(wide.hitTest(belowTheStrip), "a collapsed bar gives the page back its room")
+    }
+
+    /// The bar is a plane in the page's colour, so what is drawn on it has to
+    /// be inked for *that* colour rather than for the app's. One appearance on
+    /// the subtree is how every token on it — text, glyph ink, glass fallback —
+    /// gets that answer at once.
+    func testTheBarTakesTheAppearanceThePageCallsFor() {
+        let light = bar(width: 1200)
+        light.setPageColour(RGBA(r: 1, g: 1, b: 1, a: 1))
+        XCTAssertEqual(light.appearance?.name, .aqua)
+
+        let dark = bar(width: 1200)
+        dark.setPageColour(RGBA(r: 0.07, g: 0.07, b: 0.07, a: 1))
+        XCTAssertEqual(dark.appearance?.name, .darkAqua)
     }
 }
 
@@ -113,20 +133,34 @@ final class URLPillLayoutTests: XCTestCase {
         return pill
     }
 
-    /// Over a page there is no plane for a well to be cut into, so the pill
-    /// carries the material its neighbours carry — and drops the plate and the
-    /// hairline that go with being a recess, exactly as `GlassButton` does at
-    /// `.always`.
-    func testThePageBarsPillWearsItsMaterialAtRest() {
-        let plain = pill(centred: true)
-        XCTAssertNil(plain.subviews.first { NSStringFromClass(type(of: $0)).contains("GlassBacking") })
+    private func backing(of view: NSView) -> NSView? {
+        view.subviews.first { NSStringFromClass(type(of: $0)).contains("GlassBacking") }
+    }
+
+    /// The three surfaces a pill can be, and what each one is made of. §3.2's
+    /// well is lit only while it is being used; §3.2b's open pill is lit at
+    /// rest with no plate under it; its collapsed pill is nothing at all,
+    /// because the bar's own plane is the surface it would be drawn on.
+    func testEachSurfaceIsMadeOfWhatItSaysItIs() {
+        let well = pill(centred: false)
+        well.displayIfNeeded()
+        XCTAssertNil(backing(of: well), "a resting well has no material yet")
+        XCTAssertNotNil(well.layer?.backgroundColor)
+        XCTAssertEqual(well.layer?.borderWidth, Tokens.Metric.hairline)
+
         let glassy = pill(centred: true)
-        glassy.alwaysGlass = true
-        glassy.layoutSubtreeIfNeeded()
+        glassy.surface = .glass
         glassy.displayIfNeeded()
-        XCTAssertNotNil(glassy.subviews.first { NSStringFromClass(type(of: $0)).contains("GlassBacking") })
+        XCTAssertNotNil(backing(of: glassy))
         XCTAssertNil(glassy.layer?.backgroundColor)
         XCTAssertEqual(glassy.layer?.borderWidth, 0)
+
+        let bare = pill(centred: true)
+        bare.surface = .bare
+        bare.displayIfNeeded()
+        XCTAssertNil(bare.layer?.backgroundColor)
+        XCTAssertEqual(bare.layer?.borderWidth, 0)
+        XCTAssertEqual(backing(of: bare)?.alphaValue ?? 0, 0, "a bare pill shows no material")
     }
 
     /// A 17 pt radius on a 22 pt capsule is a rectangle with dents in it, and
@@ -153,5 +187,77 @@ final class URLPillLayoutTests: XCTestCase {
         let pill = pill(centred: true)
         XCTAssertGreaterThan(pill.fittingWidth, pill.siteMenuAnchor.frame.width)
         XCTAssertLessThan(pill.fittingWidth, Tokens.Metric.pageBarPillWidth)
+    }
+}
+
+/// §3.4's completions under §3.2b's pill. The list is a value-ish object — it
+/// holds phrases and an index — so the keyboard rule can be written down rather
+/// than discovered by arrowing through a live one.
+@MainActor
+final class PageBarSuggestionsTests: XCTestCase {
+
+    private func list(_ phrases: [String] = ["swift", "swift concurrency", "swiftui"]) -> PageBarSuggestions {
+        let list = PageBarSuggestions()
+        list.show(phrases)
+        return list
+    }
+
+    /// Nothing is selected until the user moves: the first keystroke after a
+    /// pause must not change what Return does under their hands.
+    func testItOpensOnWhatWasTypedRatherThanOnASuggestion() {
+        XCTAssertNil(list().selectedPhrase)
+    }
+
+    func testDownWalksTheListAndUpComesBackOut() {
+        let list = list()
+        XCTAssertTrue(list.move(1))
+        XCTAssertEqual(list.selectedPhrase, "swift")
+        XCTAssertTrue(list.move(1))
+        XCTAssertEqual(list.selectedPhrase, "swift concurrency")
+        XCTAssertTrue(list.move(-1))
+        XCTAssertEqual(list.selectedPhrase, "swift")
+        XCTAssertTrue(list.move(-1))
+        XCTAssertNil(list.selectedPhrase, "the typed text is an entry and has to be reachable")
+    }
+
+    /// Off the bottom is the typed text again, not the top — the same way out
+    /// at either end.
+    func testFallingOffTheEndReturnsToWhatWasTyped() {
+        let list = list()
+        for _ in 0..<3 { _ = list.move(1) }
+        XCTAssertEqual(list.selectedPhrase, "swiftui")
+        XCTAssertTrue(list.move(1))
+        XCTAssertNil(list.selectedPhrase)
+    }
+
+    func testUpFromTheTypedTextLandsOnTheLastRow() {
+        let list = list()
+        XCTAssertTrue(list.move(-1))
+        XCTAssertEqual(list.selectedPhrase, "swiftui")
+    }
+
+    /// With nothing to walk through the field keeps the key, so the caret moves
+    /// as it would in any other text field.
+    func testAnEmptyListLeavesTheArrowKeysAlone() {
+        let empty = list([])
+        XCTAssertFalse(empty.move(1))
+        XCTAssertFalse(empty.move(-1))
+        XCTAssertTrue(empty.isHidden)
+    }
+
+    func testANewSetOfAnswersForgetsTheOldSelection() {
+        let list = list()
+        _ = list.move(1)
+        list.show(["something else"])
+        XCTAssertNil(list.selectedPhrase)
+    }
+
+    func testDismissingLeavesNothingToCommit() {
+        let list = list()
+        _ = list.move(1)
+        list.dismiss()
+        XCTAssertNil(list.selectedPhrase)
+        XCTAssertTrue(list.isHidden)
+        XCTAssertEqual(list.fittingHeight, 0)
     }
 }

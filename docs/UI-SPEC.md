@@ -402,42 +402,64 @@ is one menu, shown from the sidebar pill and from §4's; the top-bar copy adds R
   in Luna and in a bare test app: none appeared. The assignments stay; they are the correct API, they
   cost one line each, and they come back by themselves if a system update starts honouring them.
 
-#### 3.2b Page bar — the pill and §3.1's three circles, on the page
-`Settings ▸ Appearance ▸ Search bar` (SETTINGS-SPEC §3.2) moves the pill out of the sidebar and floats
-it over the top of the content pane instead, taking the sidebar toggle, back and reload with it. The
-sidebar keeps its tabs, its Essentials and its bottom bar — and its top 52 pt, because that row is what
-keeps the traffic lights' corner clear; only its buttons go, and the column closes up over the pill's
-own 34 pt.
+#### 3.2b Page bar — the pill and §3.1's three circles, on a bar over the page
+`Settings ▸ Appearance ▸ Search bar` (SETTINGS-SPEC §3.2) moves the pill out of the sidebar and onto a
+bar across the top of the content pane, taking the sidebar toggle, back and reload with it. The sidebar
+keeps its tabs, its Essentials and its bottom bar — and its top 52 pt, because that row is what keeps
+the traffic lights' corner clear; with its buttons gone it shrinks to `sidebarHeadlessRow` and the
+column closes up over the pill's own 34 pt.
 
 | | Open | Collapsed |
 |---|---|---|
 | band | `pageBar` (52) | `pageBarCollapsed` (30) |
 | controls | toggle · back · reload, on the traffic lights' centre line | gone |
-| pill | `pageBarPillWidth` (420) wide, `sidebarCircle` tall, centred on the pane | sized to the domain, `pageBarCollapsedPillHeight` tall |
+| pill | `pageBarPillWidth` (420) wide, `sidebarCircle` tall, `.glass` | sized to the domain, `.bare` |
 | glyph | sliders on the **leading** edge, domain centred | same |
 
-- **The pill wears `.control` glass at rest here**, and takes the buttons' own diameter rather than
-  §3.2's pill height. Both follow from there being no plane under it: a bordered well is a recess cut
-  into a surface, and over a web page there is no surface to cut — it read as a hole punched in the
-  site, beside three controls that were lit. On the page the four are one set of objects, the same
-  material at the same time, and the height comes from `sidebarCircle` so they cannot drift apart.
-  (`sidebarCircle` is defined as a circle of `urlPill.height`, so this is the same 34 pt written the
-  way that keeps it true.) The plate and the hairline go with the well, exactly as they do for a
-  `GlassButton` at `.always`.
-
-- **The page decides which.** At the top of a document the bar is open; once the page has scrolled
-  `pageBarScrollSlack` past where the bar last answered, it collapses. Scrolling back up by the same
-  slack, reaching the top, or arriving anywhere new opens it again. The rule is `PageBarScroll`, a value
-  with no view in it, because the cases that matter are the awkward ones: a momentum wobble must not
-  flip it, and a long scroll down must not mean scrolling all the way back before the address returns.
+- **The bar is a plane in the page's own colour**, from `TabState.pageBackground` — WebKit's
+  `underPageBackgroundColor`, which is the colour the document is actually painted on. Not
+  `themeColor`: that is a decoration a site may offer and most do not, while this is measured from the
+  document and is always there.
+- **It had to be a plane, and the reason is measured.** Floating controls over the page were tried
+  first. No material in Luna can react to a page — `NSGlassEffectView` composites what is behind the
+  *window*, and `NSVisualEffectView` will not sample a `WKWebView`'s out-of-process layer (§2,
+  `Glass.peekPlane`) — so over a white site the glass showed a light desktop and three white circles
+  disappeared into a white page. A plane taken from the page reads as the site's own top edge and, more
+  to the point, is a *known* surface for the controls to stand on.
+- **The bar wears the appearance its plane calls for.** Everything drawn on it resolves from an
+  `NSAppearance`, so `NSColor.wantsLightInk(in:)` picks one for the whole subtree and the domain, the
+  glyph ink and the glass fallbacks all follow. A dark app over a white site gets dark glyphs on the
+  bar and light ones everywhere else: the bar is the one surface in Luna whose background is not
+  Luna's.
+- **The page decides which state.** At the top of a document the bar is open; once the page has
+  scrolled `pageBarScrollSlack` past where the bar last answered, it collapses to the thin strip of
+  site colour with the domain in it. Scrolling back up by the same slack, reaching the top, or arriving
+  anywhere new opens it again. The rule is `PageBarScroll`, a value with no view in it, because the
+  cases that matter are the awkward ones: a momentum wobble must not flip it, and a long scroll down
+  must not mean scrolling all the way back before the address returns.
 - **The offset comes from the page itself.** `WKWebView` publishes no scroll position on macOS — no
   `scrollView`, no KVO-able offset — so a passive, frame-coalesced listener posts `window.scrollY`
-  through `TabController.scrollMessageName`. It is main-frame only: an ad iframe scrolling itself is not
-  the page moving.
-- **The bar has no background of its own**, which is not an omission. Every control on it already
-  carries its material, and a plane behind them would be a fourth surface over a live web page — the one
-  thing no material here can do honestly (see §2 and `Glass.peekPlane`). What is between the controls is
-  the page, and it stays clickable: the bar hit-tests to its subviews and to nothing else.
+  through `TabController.scrollMessageName`. It is main-frame only: an ad iframe scrolling itself is
+  not the page moving.
+- **Only the band takes clicks.** The overlay is pinned to the whole pane so the suggestion list below
+  the pill can be clicked at all (hit testing stops at a superview's bounds), and `PageChromeBar.hitTest`
+  gives everything outside the band back to the page.
+
+##### 3.2b.i Suggestions under the pill
+Typing in the pill drops §3.4's completions below it on the §5 popover material, the same width as the
+pill and lining up with it rather than with the bar.
+
+- **`SearchSuggestions` and nothing else.** That object owns the one network call in the query path,
+  states exactly what leaves the Mac, and exists so `UI/CommandBar` stays free of a wire. A second
+  fetcher here would be a second answer to a question that has one. It is not `CommandBarResultsView`
+  either: that ranks tabs, history and commands around `CommandBarResult`, which is §9's model, and
+  borrowing it would put a `UI/CommandBar` type on a surface `CommandBarPrivacyTests` does not cover.
+- **The list opens on what was typed, not on a suggestion.** ↓ walks into it and ↑ walks back out the
+  way it came in; off either end is the typed text again rather than a wrap, because the typed text is
+  a real entry and has to be reachable. With no phrases the arrows are left alone and the caret moves
+  as it would in any text field.
+- A row commits on **mouse-down**: the field is first responder while the list is showing, so a click
+  anywhere else ends editing, and by mouse-up the list had already gone.
 
 ### 3.3 Essentials grid — reshapes around how many tiles are in it
 - Tiles 128 × 42, radius 12. **The sides are an alignment; the top, the bottom and the gutter are

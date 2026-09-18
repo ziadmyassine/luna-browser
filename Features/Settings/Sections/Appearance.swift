@@ -94,6 +94,9 @@ final class AppearanceSection: NSObject, SettingsSection {
     // MARK: Section
 
     private let body = SettingsBody()
+    /// §3.2b's row, held so the layout row above can take it away — see
+    /// `refreshSearchBarRow`.
+    private var searchBarHost: NSView?
     /// Holds whichever tile is current. Rebuilt, not mutated: the material is
     /// chosen when the glass view is constructed.
     private let tileHost = NSView()
@@ -230,34 +233,39 @@ final class AppearanceSection: NSObject, SettingsSection {
             // The setter posts `Settings.didChange`; `AppDelegate` is listening
             // and re-anchors the running window. Nothing here reaches for it.
             Settings.chromeLayout = layouts[index]
-            // The row below offers a different set of answers now.
+            // The two rows below answer to the layout: one offers a different
+            // set of answers now, the other has no answer at all.
             self?.refreshTabsRow()
+            self?.refreshSearchBarRow()
         }
     }
 
     /// §3.2b. Where the address pill goes **within** the sidebar layout: at the
-    /// head of the column as §3.2 built it, or over the top of the page, taking
-    /// §3.1's back and reload with it and collapsing as the page scrolls.
+    /// head of the column as §3.2 built it, or on a bar across the top of the
+    /// page, taking §3.1's back and reload with it.
     ///
-    /// **Dimmed under the top bar**, because there it has no answer: §4 has one
-    /// place for a pill and the tab strip is built around it. A segmented
-    /// control that silently did nothing would be worse than one that says why
-    /// (§30.4).
+    /// **Gone under the top bar, not dimmed.** §4 has one place for a pill and
+    /// the tab strip is built around it, so under that layout this is not a
+    /// question with a greyed-out answer — it is not a question. A dimmed row
+    /// is for a control that has an answer Luna cannot honour yet (§30.4);
+    /// this one has none to have.
     private func searchBarRow() -> NSView {
         let places = SearchBarPlacement.allCases
-        let underSidebar = Settings.chromeLayout == .sidebar
-        return SettingsRow.segmented(
+        let row = SettingsRow.segmented(
             "Search bar",
             options: places.map(\.title),
-            selected: places.firstIndex(of: Settings.searchBarPlacement) ?? 0,
-            isEnabled: underSidebar,
-            disabledReason: underSidebar
-                ? nil
-                : "The top bar has one place for the address, and this is it."
+            selected: places.firstIndex(of: Settings.searchBarPlacement) ?? 0
         ) { index in
             guard places.indices.contains(index) else { return }
             Settings.searchBarPlacement = places[index]
         }
+        searchBarHost = row
+        row.isHidden = Settings.chromeLayout != .sidebar
+        return row
+    }
+
+    private func refreshSearchBarRow() {
+        searchBarHost?.isHidden = Settings.chromeLayout != .sidebar
     }
 
     /// §3/§4's tab position — the sidebar's side, or the strip's alignment.

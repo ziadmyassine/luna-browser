@@ -202,9 +202,11 @@ underneath — never a silently dead switch (§30.4).
 has drawn them since M1, every browser draws them, and a preference whose only
 honest default is "on" is one more row to read past.
 
-**"Search bar" is dimmed under the top bar**, because there it has no answer:
-§4 has one place for an address and the tab strip is built around it. Under the
-sidebar it moves UI-SPEC §3.2's pill — and §3.1's back, reload and sidebar
+**"Search bar" is gone under the top bar, not dimmed.** §4 has one place for an
+address and the tab strip is built around it, so under that layout this is not a
+question with a greyed-out answer — it is not a question. A dimmed row is for a
+control that has an answer Luna cannot honour yet; this one has none to have.
+Under the sidebar it moves UI-SPEC §3.2's pill — and §3.1's back, reload and sidebar
 toggle with it — onto the top of the page, where it collapses to the domain as
 the page scrolls. The two keys resolve to one answer in
 `Settings.searchBarIsOnPage`, so the sidebar cannot drop its pill in a layout

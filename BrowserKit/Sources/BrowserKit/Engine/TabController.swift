@@ -295,6 +295,7 @@ public final class TabController: NSObject {
     func resetPerDocumentState() {
         state.title = ""
         state.themeColor = nil
+        state.pageBackground = nil
         audibleFrames.removeAll()
         // The interstitial bypass is good for the one navigation it was granted
         // for. Leaving it set would quietly allowlist the site for as long as the
@@ -323,6 +324,14 @@ public final class TabController: NSObject {
             // first paint are not a white flash. Assigning the web view's own colour
             // keeps this AppKit-free; nil restores WebKit's default.
             webView.underPageBackgroundColor = webView.themeColor
+            // **Read back, not read across.** The line above hands WebKit the
+            // site's own `theme-color` when it offers one; nil puts WebKit's
+            // computed colour back. Either way what comes out is the colour the
+            // page is actually painted on, which is what §3.2b's bar matches —
+            // and it is only ever read here, never observed, because observing
+            // a property this method assigns is a loop with no exit.
+            next.pageBackground = webView.underPageBackgroundColor
+                .flatMap { ColorBridge.rgba(from: $0.cgColor) }
             next.isPlayingAudio = !audibleFrames.isEmpty
         } else {
             // A cold tab keeps its identity (url, title, tint) and loses everything that

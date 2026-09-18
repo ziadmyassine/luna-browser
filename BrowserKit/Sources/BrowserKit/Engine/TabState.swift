@@ -15,6 +15,15 @@ public struct TabState: Sendable, Equatable {
     public var canGoBack: Bool
     public var canGoForward: Bool
     public var themeColor: RGBA?
+    /// **What is behind the page**, as WebKit computes it — the colour an
+    /// over-scroll shows, and the one the top of the document is painted on.
+    ///
+    /// Not `themeColor`, and the difference is the point: a `<meta
+    /// name="theme-color">` is a decoration the site offers to browser chrome
+    /// and most sites do not offer one, while this is measured from the
+    /// document and is always there. Chrome that has to *match* the page — see
+    /// §3.2b's bar — needs the second question answered, not the first.
+    public var pageBackground: RGBA?
     public var hasOnlySecureContent: Bool
     public var isPlayingAudio: Bool
 
@@ -26,6 +35,7 @@ public struct TabState: Sendable, Equatable {
         canGoBack: Bool = false,
         canGoForward: Bool = false,
         themeColor: RGBA? = nil,
+        pageBackground: RGBA? = nil,
         hasOnlySecureContent: Bool = false,
         isPlayingAudio: Bool = false
     ) {
@@ -36,6 +46,7 @@ public struct TabState: Sendable, Equatable {
         self.canGoBack = canGoBack
         self.canGoForward = canGoForward
         self.themeColor = themeColor
+        self.pageBackground = pageBackground
         self.hasOnlySecureContent = hasOnlySecureContent
         self.isPlayingAudio = isPlayingAudio
     }

@@ -43,6 +43,7 @@ final class PageChromeController {
         bar.isHidden = true
         bar.onToggleSidebar = { [weak self] in self?.onToggleSidebar?() }
         bar.onSubmitURL = { [weak self] text in self?.onSubmitURL?(text) }
+        bar.onTyping = { [weak self] text in self?.suggest(text) }
         bar.onBack = { [weak self] in self?.session.goBack() }
         bar.onReloadOrStop = { [weak self] isLoading in
             guard let self else { return }
@@ -94,12 +95,14 @@ final class PageChromeController {
         let tab = session.tabs.first { $0.id == session.activeTabID }
         let state = session.activeTabID.flatMap { session.controller(for: $0)?.state }
         show(url: state?.url ?? tab?.url)
+        bar.setPageColour(state?.pageBackground)
         bar.update(canGoBack: state?.canGoBack ?? false, isLoading: state?.isLoading ?? false)
     }
 
     private func apply(_ id: UUID, _ state: TabState) {
         guard isActive, id == session.activeTabID else { return }
         show(url: state.url)
+        bar.setPageColour(state.pageBackground)
         bar.update(canGoBack: state.canGoBack, isLoading: state.isLoading)
     }
 
@@ -112,6 +115,28 @@ final class PageChromeController {
         shownURL = url
         scroll.reset()
         bar.setCollapsed(false, animated: false)
+    }
+
+    // MARK: - §3.4's completions
+
+    /// Asks the engine for what is being typed in the pill.
+    ///
+    /// **`SearchSuggestions` and nothing else**, which is the object that owns
+    /// the one network call in the query path and says what leaves the Mac. The
+    /// debounce, the cache and the cancellation are all its; this only hands
+    /// over the query and hands back the answer, and drops an answer that
+    /// arrives after the user has moved on.
+    private func suggest(_ text: String) {
+        let typed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !typed.isEmpty, CommandBarURL.direct(from: typed) == nil else {
+            SearchSuggestions.shared.cancel()
+            bar.showSuggestions([])
+            return
+        }
+        if let cached = SearchSuggestions.shared.cached(for: typed) { bar.showSuggestions(cached) }
+        SearchSuggestions.shared.request(typed) { [weak self] phrases in
+            self?.bar.showSuggestions(phrases)
+        }
     }
 
     // MARK: - Scroll

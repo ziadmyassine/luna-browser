@@ -62,6 +62,24 @@ extension NSColor {
         return (max(lhs, rhs) + 0.05) / (min(lhs, rhs) + 0.05)
     }
 
+    /// Whether light ink reads better on this colour than dark ink does.
+    ///
+    /// **Which appearance a surface implies**, for the one piece of chrome that
+    /// takes its plane from the page rather than from the app (§3.2b's bar).
+    /// Everything drawn on it — text tokens, glyph ink, the glass fallbacks —
+    /// comes from an `NSAppearance`, so the honest way to make them all right at
+    /// once is to give that subtree the appearance its background calls for.
+    ///
+    /// Not a luminance threshold picked by eye: this is WCAG's own ratio for
+    /// white over this colour against black over it, so the crossover lands
+    /// where contrast actually says it does rather than at a round number.
+    func wantsLightInk(in appearance: NSAppearance) -> Bool {
+        let luminance = srgbComponents(for: appearance).relativeLuminance
+        let onWhite = 1.05 / (luminance + 0.05)
+        let onBlack = (luminance + 0.05) / 0.05
+        return onWhite > onBlack
+    }
+
     /// This colour composited over `backdrop`, opaque — what the eye actually
     /// receives when a translucent fill sits on a plane.
     ///

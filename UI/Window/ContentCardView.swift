@@ -156,11 +156,17 @@ final class ContentCardView: NSView {
         ])
     }
 
-    /// §3.2b's bar. Pinned across the pane's top edge and as tall as the bar's
-    /// open state — it does not resize when the bar collapses, because the
-    /// controls travel inside a frame that is standing still (see
-    /// `PageChromeBar.layout`). The card clips it, so it takes the pane's two
-    /// rounded leading corners for free.
+    /// §3.2b's bar.
+    ///
+    /// **Pinned to all four edges, not to a 52 pt strip.** The bar draws in the
+    /// strip and hit-tests only its own band, so a smaller frame would have
+    /// been the honest size — until the address pill grew a suggestion list
+    /// that hangs below it. Hit testing stops at a superview's bounds, so a
+    /// list drawn outside a 52 pt host would have been visible and unclickable.
+    /// What keeps the page's clicks is `PageChromeBar.hitTest`, which is where
+    /// that decision belongs anyway.
+    ///
+    /// The card clips it, so it takes the pane's rounded leading corners free.
     func setOverlay(_ view: NSView?) {
         overlay?.removeFromSuperview()
         overlay = view
@@ -171,7 +177,7 @@ final class ContentCardView: NSView {
             view.topAnchor.constraint(equalTo: topAnchor),
             view.leadingAnchor.constraint(equalTo: leadingAnchor),
             view.trailingAnchor.constraint(equalTo: trailingAnchor),
-            view.heightAnchor.constraint(equalToConstant: Tokens.Metric.pageBar)
+            view.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
     }
 
