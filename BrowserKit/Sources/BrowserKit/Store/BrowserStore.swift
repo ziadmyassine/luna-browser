@@ -56,16 +56,38 @@ public actor BrowserStore {
 
     // MARK: - Spaces, profiles, tabs
 
+    /// Every Space in display order, with `order` renumbered to `0..<n` when it has drifted.
+    ///
+    /// **The self-heal is the point** (§6.2). Every delete leaves a gap, every insert-in-the
+    /// middle leaves a collision, and reordering is the biggest hole in the prior art —
+    /// Nook persists an index and has no reorder function, Ora has no order field at all,
+    /// Refrax sorts by `position` and never writes it. Renumbering on load means a reorder is
+    /// "write the new indices and reload" rather than "and now repair everything downstream",
+    /// and it means a gap can never accumulate into a visible bug.
+    ///
+    /// Ties break on name so two rows sharing an `order` renumber deterministically rather
+    /// than swapping places on alternate launches.
+    ///
+    /// The common case stays a pure read: the write only happens when the persisted order
+    /// actually differs from `0..<n`.
     public func spaces() async throws -> [Space] {
-        try await pool.read { db in
+        let persisted = try await pool.read { db in
             try Space.fetchAll(db, sql: #"SELECT * FROM spaces ORDER BY "order", name"#)
         }
-    }
-
-    public func profiles() async throws -> [Profile] {
-        try await pool.read { db in
-            try Profile.fetchAll(db, sql: "SELECT * FROM profiles ORDER BY name")
+        let healed = persisted.enumerated().map { index, space -> Space in
+            var renumbered = space
+            renumbered.order = index
+            return renumbered
         }
+        guard healed != persisted else { return persisted }
+
+        let drifted = healed.filter { space in
+            persisted.contains { $0.id == space.id && $0.order != space.order }
+        }
+        try await pool.write { db in
+            for space in drifted { try space.update(db) }
+        }
+        return healed
     }
 
     public func tabs(inSpace spaceID: UUID, includeArchived: Bool) async throws -> [Tab] {
@@ -90,7 +112,15 @@ public actor BrowserStore {
         try await pool.write { db in try space.upsert(db) }
     }
 
+    /// Persists a profile, refusing the one identifier WebKit cannot be handed (§3.1).
+    ///
+    /// The write side of the all-zero guard. `dataStoreForIdentifier:` throws an Objective-C
+    /// exception on a zero UUID and Swift cannot catch it, so the cheapest place to stop a
+    /// bad value is before it reaches the disk that a later launch will read it back from.
     public func upsert(_ profile: Profile) async throws {
+        guard profile.hasUsableDataStoreIdentifier else {
+            throw BrowserStoreError.invalidDataStoreIdentifier(profileID: profile.id)
+        }
         try await pool.write { db in try profile.upsert(db) }
     }
 

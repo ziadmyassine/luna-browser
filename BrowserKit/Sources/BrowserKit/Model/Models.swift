@@ -62,6 +62,18 @@ public struct Tab: Identifiable, Sendable, Hashable, Codable {
     public var interactionState: Data?
     public var hasUnread: Bool
     public var order: Int
+    /// The Profile a Favorite belongs to — set for `.essential` rows, `nil` for every other
+    /// kind (§2, schema `v2`).
+    ///
+    /// Favorites are scoped **per Profile**, not per Space: a Favorite is a logged-in app
+    /// tile, and a tile that opens in a Space whose cookie jar never saw that login is a
+    /// broken tile. Arc keys its Favorites container the same way — `topAppsContainerIDs` is
+    /// a flat profile → container pair, not something a Space owns.
+    ///
+    /// The row keeps its home `spaceID` as well. That is deliberate: the session re-homes a
+    /// shared Favorite onto a surviving Space of the same Profile before a Space row is
+    /// deleted, so `tabs.spaceID`'s `ON DELETE CASCADE` never eats one.
+    public var profileID: UUID?
 
     public init(
         id: UUID = UUID(),
@@ -77,7 +89,8 @@ public struct Tab: Identifiable, Sendable, Hashable, Codable {
         parentTabID: UUID? = nil,
         interactionState: Data? = nil,
         hasUnread: Bool = false,
-        order: Int = 0
+        order: Int = 0,
+        profileID: UUID? = nil
     ) {
         self.id = id
         self.spaceID = spaceID
@@ -93,6 +106,7 @@ public struct Tab: Identifiable, Sendable, Hashable, Codable {
         self.interactionState = interactionState
         self.hasUnread = hasUnread
         self.order = order
+        self.profileID = profileID
     }
 }
 
@@ -137,5 +151,46 @@ public struct Profile: Identifiable, Sendable, Hashable, Codable {
         self.id = id
         self.name = name
         self.dataStoreIdentifier = dataStoreIdentifier
+    }
+}
+
+// MARK: - The all-zero data store identifier (§3.1)
+
+public extension UUID {
+    /// `00000000-0000-0000-0000-000000000000`.
+    ///
+    /// `WKWebsiteDataStore.dataStoreForIdentifier:` documents *"Throws exception if
+    /// identifier is 0"*. That is an **Objective-C exception, which Swift cannot catch**,
+    /// so a zero identifier is an uncatchable crash rather than an error a call site can
+    /// handle. It is therefore checked at the persistence boundary, where it can still be
+    /// turned into data, not at the WebKit boundary, where it can only be turned into a
+    /// stack trace.
+    static let zero = UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+
+    /// Whether this is the identifier WebKit refuses (see ``zero``).
+    var isZero: Bool { self == .zero }
+}
+
+public extension Profile {
+    /// False when `dataStoreIdentifier` is the all-zero UUID — the one value that must
+    /// never reach `WKWebsiteDataStore(forIdentifier:)`.
+    ///
+    /// `profiles.dataStoreIdentifier` is `NOT NULL UNIQUE` with no value check, and SQLite
+    /// cannot gain a `CHECK` constraint without rebuilding the table every `spaces.profileID`
+    /// foreign key points at. So the invariant is enforced in Swift, on both sides of the
+    /// column: ``BrowserStore/upsert(_:)-(Profile)`` refuses to write a zero identifier, and
+    /// ``BrowserStore/profiles()`` repairs one it finds on read.
+    var hasUsableDataStoreIdentifier: Bool { !dataStoreIdentifier.isZero }
+
+    /// This profile with a freshly minted `dataStoreIdentifier` if the persisted one is
+    /// unusable, and unchanged otherwise.
+    ///
+    /// Minting a new one loses nothing recoverable: a zero identifier addresses no store
+    /// on disk, because nothing could ever have created one under it. The profile's *name*
+    /// and its `id` — the identity every `Space` references, and the only one §10 allows to
+    /// sync — survive. The user gets an empty cookie jar for that profile instead of a crash.
+    func repairingDataStoreIdentifier() -> Profile {
+        guard !hasUsableDataStoreIdentifier else { return self }
+        return Profile(id: id, name: name, dataStoreIdentifier: UUID())
     }
 }
