@@ -99,6 +99,11 @@ final class ContentCardView: NSView {
     /// layout transition and inactive the rest of the time — see
     /// `beginGeometryTransition(toWidth:)`.
     private var contentWidth: NSLayoutConstraint?
+    /// The content's top edge. §3.2b's bar stands **above** the page rather
+    /// than over it, so the page starts under the bar's band — see
+    /// `setContentTopInset`.
+    private var contentTop: NSLayoutConstraint?
+    private var pageBarInset: CGFloat = 0
     /// Cancels the watchdog when a transition ends the ordinary way.
     private var transitionWatchdog: Task<Void, Never>?
 
@@ -148,8 +153,10 @@ final class ContentCardView: NSView {
         let width = view.widthAnchor.constraint(equalToConstant: bounds.width)
         width.isActive = false
         contentWidth = width
+        let top = view.topAnchor.constraint(equalTo: topAnchor, constant: pageBarInset)
+        contentTop = top
         NSLayoutConstraint.activate([
-            view.topAnchor.constraint(equalTo: topAnchor),
+            top,
             view.trailingAnchor.constraint(equalTo: trailingAnchor),
             view.bottomAnchor.constraint(equalTo: bottomAnchor),
             leading
@@ -179,6 +186,35 @@ final class ContentCardView: NSView {
             view.trailingAnchor.constraint(equalTo: trailingAnchor),
             view.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
+    }
+
+    /// How far §3.2b's bar pushes the page down.
+    ///
+    /// **Above the page, not over it.** The bar takes the site's own colour, so
+    /// laid over the page it merged with the top of the document — and hid
+    /// whatever the document had put there. The page starts below it instead,
+    /// in both of the bar's states, which means the 22 pt between them is a
+    /// real change of height and the page reflows for it.
+    ///
+    /// That reflow is affordable because it is rare: the bar changes state at
+    /// most once per reversal of scroll direction (`PageBarScroll` holds it
+    /// through `pageBarScrollSlack` of travel), not once per frame. Zero when
+    /// the bar is not on screen, which is every layout but §3.2b's.
+    func setContentTopInset(_ inset: CGFloat, animated: Bool) {
+        guard inset != pageBarInset else { return }
+        pageBarInset = inset
+        guard let contentTop else { return }
+        let assign: () -> Void = {
+            contentTop.constant = inset
+            self.layoutSubtreeIfNeeded()
+        }
+        guard animated else { return Tokens.Motion.immediately(assign) }
+        // The same spec the bar collapses on, so the page and the bar arrive
+        // together rather than one chasing the other.
+        Tokens.Motion.animate(Tokens.Motion.sidebarCollapse) { context in
+            context.allowsImplicitAnimation = true
+            assign()
+        }
     }
 
     // MARK: - Layout transitions

@@ -21,6 +21,12 @@
 //  of plain text, and would put a `UI/CommandBar` type on a surface the privacy
 //  test does not cover.
 //
+//  **The selection is §9.2's, though**, because that is the one thing the two
+//  lists genuinely share: one `.control` glass pill that *moves* between rows on
+//  `Motion.selectedRowMove`, rather than a fill switched on and off per row. It
+//  is cheaper — one backing instead of five — and the movement is what makes the
+//  highlight readable when the arrows are held down.
+//
 
 import AppKit
 
@@ -38,6 +44,8 @@ final class PageBarSuggestions: NSView {
     private(set) var selected: Int?
 
     private var rows: [PageBarSuggestionRow] = []
+    /// §9.2's selector: one pill, moved, not five fills toggled.
+    private let selection = Glass.backing(.control, cornerRadius: Tokens.Metric.rowCornerRadius)
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -46,6 +54,8 @@ final class PageBarSuggestions: NSView {
         layer?.cornerRadius = Tokens.Metric.rowCornerRadius
         layer?.masksToBounds = true
         Glass.apply(.popover, to: self, cornerRadius: Tokens.Metric.rowCornerRadius)
+        selection.isHidden = true
+        addSubview(selection)
         isHidden = true
     }
 
@@ -89,7 +99,7 @@ final class PageBarSuggestions: NSView {
             // typed text is a real entry in this list and has to be reachable.
             selected = phrases.indices.contains(next) ? next : nil
         }
-        refreshSelection()
+        refreshSelection(animated: true)
         return true
     }
 
@@ -103,14 +113,28 @@ final class PageBarSuggestions: NSView {
         rows = phrases.map { phrase in
             let row = PageBarSuggestionRow(phrase: phrase)
             row.onActivate = { [weak self] in self?.onCommit?(phrase) }
-            addSubview(row)
+            addSubview(row, positioned: .above, relativeTo: selection)
             return row
         }
-        refreshSelection()
+        refreshSelection(animated: false)
     }
 
-    private func refreshSelection() {
+    private func refreshSelection(animated: Bool) {
         for (index, row) in rows.enumerated() { row.isSelected = index == selected }
+        guard let index = selected, rows.indices.contains(index) else {
+            selection.isHidden = true
+            return
+        }
+        let target = rows[index].frame
+        selection.isHidden = false
+        guard animated, !target.isEmpty else {
+            Tokens.Motion.immediately { selection.frame = target }
+            return
+        }
+        Tokens.Motion.animate(Tokens.Motion.selectedRowMove) { context in
+            context.allowsImplicitAnimation = true
+            selection.animator().frame = target
+        }
     }
 
     // MARK: - Layout
@@ -129,6 +153,9 @@ final class PageBarSuggestions: NSView {
                     height: Tokens.Metric.rowHeight
                 ).integral
             }
+            // The pill follows the frames it was placed against; a resize that
+            // moved the rows without moving it would leave it behind.
+            refreshSelection(animated: false)
         }
     }
 }
@@ -178,11 +205,11 @@ final class PageBarSuggestionRow: NSView {
 
     override var wantsUpdateLayer: Bool { true }
 
+    /// **Hover only.** The selection is the glass pill behind these rows, not a
+    /// fill on one of them — see the file header.
     override func updateLayer() {
         layer?.cornerRadius = Tokens.Metric.rowCornerRadius
-        layer?.backgroundColor = isSelected
-            ? Tokens.Surface.selected.cgColor
-            : (isHovering ? Tokens.Surface.hover.cgColor : nil)
+        layer?.backgroundColor = (isHovering && !isSelected) ? Tokens.Surface.hover.cgColor : nil
     }
 
     override func layout() {

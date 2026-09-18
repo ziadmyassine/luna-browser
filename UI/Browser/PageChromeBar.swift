@@ -50,6 +50,9 @@ final class PageChromeBar: NSView {
     /// What is being typed in the pill, for whoever asks the engine. Nil until
     /// `PageChromeController` wires it; the list simply stays empty.
     var onTyping: ((String) -> Void)?
+    /// How much room the bar is taking, whenever that changes. The page starts
+    /// below it — see `ContentCardView.setContentTopInset`.
+    var onBandHeight: ((_ height: CGFloat, _ animated: Bool) -> Void)?
 
     /// The page's colour, as a plane. Behind everything, and the only thing on
     /// this bar that is painted rather than placed.
@@ -164,6 +167,9 @@ final class PageChromeBar: NSView {
     func setCollapsed(_ collapsed: Bool, animated: Bool) {
         guard collapsed != isCollapsed else { return }
         isCollapsed = collapsed
+        // Before the bar moves, not after: the page's own animation runs on the
+        // same spec, and telling it afterwards would start it a frame late.
+        onBandHeight?(bandHeight, animated)
         // Un-hidden *before* the fade in either direction: a view cannot fade
         // from `isHidden`, and the fade out hides it again on completion.
         if !collapsed { for view in buttons { view.isHidden = false } }
@@ -225,10 +231,14 @@ final class PageChromeBar: NSView {
         pill.surface = isCollapsed ? .bare : .glass
     }
 
+    /// The room the bar is taking right now, for the page below it.
+    var bandHeight: CGFloat {
+        isCollapsed ? Tokens.Metric.pageBarCollapsed : Tokens.Metric.pageBar
+    }
+
     /// The band the plane fills, in this view's coordinates.
     private var band: NSRect {
-        let height = isCollapsed ? Tokens.Metric.pageBarCollapsed : Tokens.Metric.pageBar
-        return NSRect(x: bounds.minX, y: bounds.maxY - height, width: bounds.width, height: height)
+        NSRect(x: bounds.minX, y: bounds.maxY - bandHeight, width: bounds.width, height: bandHeight)
     }
 
     private func placeControls() {

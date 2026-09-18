@@ -25,6 +25,9 @@ final class PageChromeController {
     /// Text committed in the pill, for the same URL-or-query parse the
     /// sidebar's pill commits through (§9.2).
     var onSubmitURL: ((String) -> Void)?
+    /// How far the page has to start down the pane. Zero whenever the bar is
+    /// not the address bar on screen.
+    var onBandHeight: ((_ height: CGFloat, _ animated: Bool) -> Void)?
 
     var view: NSView { bar }
 
@@ -44,6 +47,10 @@ final class PageChromeController {
         bar.onToggleSidebar = { [weak self] in self?.onToggleSidebar?() }
         bar.onSubmitURL = { [weak self] text in self?.onSubmitURL?(text) }
         bar.onTyping = { [weak self] text in self?.suggest(text) }
+        bar.onBandHeight = { [weak self] height, animated in
+            guard let self, isActive else { return }
+            onBandHeight?(height, animated)
+        }
         bar.onBack = { [weak self] in self?.session.goBack() }
         bar.onReloadOrStop = { [weak self] isLoading in
             guard let self else { return }
@@ -66,6 +73,8 @@ final class PageChromeController {
     func setActive(_ active: Bool, animated: Bool) {
         guard active != isActive else { return }
         isActive = active
+        // The page gives up the band, or takes it back, with the bar itself.
+        onBandHeight?(active ? bar.bandHeight : 0, animated)
         if active {
             bar.isHidden = false
             // Forget whatever the last page had scrolled to: the bar comes back

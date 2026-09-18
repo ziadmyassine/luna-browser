@@ -173,6 +173,37 @@ final class URLPillLayoutTests: XCTestCase {
         XCTAssertEqual(short.layer?.cornerRadius, short.frame.height / 2)
     }
 
+    /// A capsule sized one point short of its own text does not lose a pixel
+    /// off the last letter — it drops characters until an ellipsis fits, which
+    /// is what turned `apple.com` into `apple.c…`. The sizing and the placing
+    /// read one margin now, and this is what holds them together.
+    func testTheFittingWidthIsWideEnoughForTheTextToSurviveTheLayout() {
+        for surface in [URLPillView.Surface.glass, .bare] {
+            let pill = pill(centred: true)
+            pill.surface = surface
+            pill.frame = NSRect(x: 0, y: 0, width: pill.fittingWidth, height: Tokens.Metric.urlPill.height)
+            pill.layoutSubtreeIfNeeded()
+            let text = pill.subviews.compactMap { $0 as? NSTextField }.first
+            XCTAssertNotNil(text)
+            XCTAssertGreaterThanOrEqual(
+                (text?.frame.width ?? 0) + 1,
+                text?.intrinsicContentSize.width ?? 0,
+                "\(surface) truncates at its own fitting width"
+            )
+        }
+    }
+
+    /// A collapsed bar is the page's own top edge with an address in it, and a
+    /// control floating in that strip is the one thing on it that is not the
+    /// site. The menu comes back the moment the page scrolls up.
+    func testTheSiteMenuGoesAwayWithTheSurface() {
+        let bare = pill(centred: true)
+        bare.surface = .bare
+        XCTAssertTrue(bare.siteMenuAnchor.isHidden)
+        bare.surface = .glass
+        XCTAssertFalse(bare.siteMenuAnchor.isHidden)
+    }
+
     /// §3.2's pill puts the glyph on the trailing edge; §3.2b's puts it on the
     /// leading one, which is the only difference between them.
     func testTheGlyphSwapsEndsWithTheLayout() {

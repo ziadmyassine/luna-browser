@@ -24,6 +24,9 @@ extension AppDelegate {
         page.onToggleSidebar = { [weak self] in self?.toggleSidebar() }
         // The same URL-or-query parse the sidebar's pill commits through (§9.2).
         page.onSubmitURL = { [weak self] text in self?.open(text) }
+        page.onBandHeight = { [weak controller] height, animated in
+            controller?.setPageBarInset(height, animated: animated)
+        }
         controller.setPageOverlay(page.view)
     }
 

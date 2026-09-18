@@ -92,7 +92,14 @@ final class URLPillView: NSView, NSTextFieldDelegate {
     var surface: Surface = .well {
         didSet {
             guard surface != oldValue else { return }
+            // **The site menu goes with the surface.** A collapsed bar is the
+            // page's own top edge with an address in it; a control floating in
+            // that strip is the one thing on it that is not the site. The menu
+            // is a scroll away — the bar opens again the moment the page moves
+            // up — and §3.2's pill in the sidebar still carries it.
+            sliders.isHidden = surface == .bare
             needsDisplay = true
+            needsLayout = true
             updateGlass()
         }
     }

@@ -414,7 +414,7 @@ column closes up over the pill's own 34 pt.
 | band | `pageBar` (52) | `pageBarCollapsed` (30) |
 | controls | toggle · back · reload, on the traffic lights' centre line | gone |
 | pill | `pageBarPillWidth` (420) wide, `sidebarCircle` tall, `.glass` | sized to the domain, `.bare` |
-| glyph | sliders on the **leading** edge, domain centred | same |
+| glyph | sliders on the **leading** edge, domain centred | **none** — the strip carries the address and nothing else |
 
 - **The bar is a plane in the page's own colour**, from `TabState.pageBackground` — WebKit's
   `underPageBackgroundColor`, which is the colour the document is actually painted on. Not
@@ -431,6 +431,17 @@ column closes up over the pill's own 34 pt.
   glyph ink and the glass fallbacks all follow. A dark app over a white site gets dark glyphs on the
   bar and light ones everywhere else: the bar is the one surface in Luna whose background is not
   Luna's.
+- **The collapsed pill is sized to its address, and both ends read one margin.** They read two for a
+  while — the sizing derived the margin from the tokens, the placing from the glyph's rounded frame —
+  and they disagreed by half a point per end. A capsule a point short of its own text does not lose a
+  pixel off the last letter; it drops characters until an ellipsis fits, which is what turned
+  `apple.com` into `apple.c…`.
+- **The bar stands above the page, not over it.** It takes the site's own colour, so laid on top it
+  merged with the document's top edge and hid whatever the document had put there. The page starts
+  below the band instead, in both states — which makes the 22 pt between them a real change of height,
+  and the page reflows for it. That is affordable because it is rare: the bar changes state at most
+  once per reversal of scroll direction, never once per frame, and the page's animation runs on the
+  same `sidebarCollapse` spec so the two arrive together.
 - **The page decides which state.** At the top of a document the bar is open; once the page has
   scrolled `pageBarScrollSlack` past where the bar last answered, it collapses to the thin strip of
   site colour with the domain in it. Scrolling back up by the same slack, reaching the top, or arriving
@@ -454,6 +465,10 @@ pill and lining up with it rather than with the bar.
   fetcher here would be a second answer to a question that has one. It is not `CommandBarResultsView`
   either: that ranks tabs, history and commands around `CommandBarResult`, which is §9's model, and
   borrowing it would put a `UI/CommandBar` type on a surface `CommandBarPrivacyTests` does not cover.
+- **The selection is §9.2's**: one `.control` glass pill that moves between rows on
+  `Motion.selectedRowMove`, not a fill switched on and off per row. One backing instead of five, and
+  the movement is what makes the highlight readable while the arrows are held down. The rows keep
+  their own hover, and give it up under the pill.
 - **The list opens on what was typed, not on a suggestion.** ↓ walks into it and ↑ walks back out the
   way it came in; off either end is the typed text again rather than a wrap, because the typed text is
   a real entry and has to be reachable. With no phrases the arrows are left alone and the caret moves

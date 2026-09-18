@@ -228,6 +228,11 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         card.setOverlay(view)
     }
 
+    /// §3.2b: the bar stands above the page, so the page starts below it.
+    func setPageBarInset(_ inset: CGFloat, animated: Bool) {
+        card.setContentTopInset(inset, animated: animated)
+    }
+
     /// The page's frame inside the window's content view. §9.1's Command Bar
     /// centres on this rather than on the window, so it does not sit half a
     /// sidebar to the left of where the user is looking.

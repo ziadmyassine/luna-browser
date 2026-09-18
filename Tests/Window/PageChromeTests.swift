@@ -142,3 +142,53 @@ final class SearchBarPlacementTests: XCTestCase {
         }
     }
 }
+
+/// §3.2b's bar stands **above** the page, so the page starts below it — in both
+/// states, which makes the band a real height the page has to answer to.
+@MainActor
+final class PageBarInsetTests: XCTestCase {
+
+    func testTheBandIsTheOpenHeightUntilItCollapses() {
+        let bar = PageChromeBar()
+        XCTAssertEqual(bar.bandHeight, Tokens.Metric.pageBar)
+        bar.setCollapsed(true, animated: false)
+        XCTAssertEqual(bar.bandHeight, Tokens.Metric.pageBarCollapsed)
+        bar.setCollapsed(false, animated: false)
+        XCTAssertEqual(bar.bandHeight, Tokens.Metric.pageBar)
+    }
+
+    /// Reported before the bar moves, so the page's animation and the bar's
+    /// start on the same frame rather than one chasing the other.
+    func testEveryStateChangeTellsThePageWhatRoomItHas() {
+        let bar = PageChromeBar()
+        var reported: [CGFloat] = []
+        bar.onBandHeight = { height, _ in reported.append(height) }
+        bar.setCollapsed(true, animated: false)
+        bar.setCollapsed(false, animated: false)
+        XCTAssertEqual(reported, [Tokens.Metric.pageBarCollapsed, Tokens.Metric.pageBar])
+    }
+
+    /// A state it is already in is not a change, and must not reflow the page.
+    func testSettingTheSameStateTwiceSaysNothing() {
+        let bar = PageChromeBar()
+        bar.setCollapsed(true, animated: false)
+        var reported = 0
+        bar.onBandHeight = { _, _ in reported += 1 }
+        bar.setCollapsed(true, animated: false)
+        XCTAssertEqual(reported, 0)
+    }
+
+    /// The card takes the inset once and ignores a repeat of it, because the
+    /// repeat would animate a constraint to the value it already holds.
+    func testTheCardOnlyMovesThePageWhenTheInsetActuallyChanges() {
+        let card = ContentCardView()
+        let page = NSView()
+        card.setContent(page)
+        card.setContentTopInset(Tokens.Metric.pageBar, animated: false)
+        card.layoutSubtreeIfNeeded()
+        let top = page.frame.maxY
+        card.setContentTopInset(Tokens.Metric.pageBar, animated: false)
+        card.layoutSubtreeIfNeeded()
+        XCTAssertEqual(page.frame.maxY, top)
+    }
+}
