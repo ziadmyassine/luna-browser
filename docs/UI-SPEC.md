@@ -271,6 +271,15 @@ Vertical order, top to bottom:
   name — checked against all 9,524 in `CoreGlyphs.bundle`. `SiteMenuGlyph` draws it as a template image
   with real holes punched in the knobs, so it takes its colour from `contentTintColor` and this stays
   the one glyph in Luna that is drawn rather than named.
+- **It is 13 pt, not `glyphSize`'s 16.** 16 is the size of a glyph that is its own button — the three
+  §3.1 circles, the §3.5 bar — and this one is not: it sits inside a control that is already a landmark,
+  beside text set at 13. At 16 it was the loudest mark in a pill whose whole job is to be quiet.
+- **It takes §3.4's close-button chip on hover**, out of the same two tokens: an 18 pt `rowTrailingChip`
+  hit target with the glyph centred in it, drawn only while the pointer is on the glyph itself. The
+  pill's own glass says the *pill* is live; the chip says the glyph is a button rather than a badge
+  printed on one. `pillGlyphInset` is measured to the mark the eye sees, so the chip is placed by
+  centring it on where the glyph would have been rather than being inset itself — insetting the chip
+  would shift the glyph 2.5 pt inwards the moment it gained a background it only shows on hover.
 - Two further icon slots are **reserved and sized** to the left of the sliders glyph but render nothing.
   AI and extension actions live in the top-bar action capsule, not here.
 - Click or `⌘L` → expands to the full URL, selected, in edit mode. `Esc` reverts.

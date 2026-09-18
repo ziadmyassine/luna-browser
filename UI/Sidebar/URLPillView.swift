@@ -64,10 +64,15 @@ final class URLPillView: NSView, NSTextFieldDelegate {
         addSubview(field)
 
         sliders.configure(
-            image: SiteMenuGlyph.image(),
+            image: SiteMenuGlyph.image(size: Tokens.Metric.pillGlyphSize),
             label: String(localized: "Site settings"),
-            pointSize: Tokens.Metric.glyphSize
+            pointSize: Tokens.Metric.pillGlyphSize
         )
+        // The §3.4 close button's chip, on the §3.2 glyph: the affordance for
+        // *this* control, appearing when the pointer is on this control. The
+        // pill's own glass says the pill is live; the chip says the glyph is a
+        // button rather than a badge on it.
+        sliders.chromed = true
         sliders.onActivate = { [weak self] in self?.onSiteMenu?() }
         addSubview(sliders)
         refresh()
@@ -235,6 +240,13 @@ final class URLPillView: NSView, NSTextFieldDelegate {
     /// the domain starts 12 pt in and the sliders glyph sits 10 pt from the
     /// trailing edge. Both are measured, and they are deliberately unequal — a
     /// glyph is optically smaller than its box.
+    ///
+    /// **The inset is the glyph's, and the chip grows past it.** `pillGlyphInset`
+    /// is measured to the mark the eye sees, so the hover chip — which is
+    /// bigger than the glyph inside it — is placed by centring it on where the
+    /// glyph would have been rather than by being inset itself. Insetting the
+    /// chip instead would move the glyph 2.5 pt further in the moment it gained
+    /// a background it only shows on hover.
     override func layout() {
         super.layout()
         // Bounds-derived frames never animate — see `Motion.immediately`.
@@ -242,12 +254,14 @@ final class URLPillView: NSView, NSTextFieldDelegate {
     }
 
     private func placeContents() {
-        let glyph = Tokens.Metric.glyphSize
+        let glyph = Tokens.Metric.pillGlyphSize
+        let chip = Tokens.Metric.rowTrailingChip
+        let overhang = (chip.width - glyph) / 2
         sliders.frame = NSRect(
-            x: bounds.maxX - Tokens.Metric.pillGlyphInset - glyph,
-            y: (bounds.height - glyph) / 2,
-            width: glyph,
-            height: glyph
+            x: bounds.maxX - Tokens.Metric.pillGlyphInset + overhang - chip.width,
+            y: (bounds.height - chip.height) / 2,
+            width: chip.width,
+            height: chip.height
         ).integral
         // §3.2: two further slots, reserved and sized, rendering nothing.
         let reserved = 2 * (glyph + Tokens.Metric.chromeGap)

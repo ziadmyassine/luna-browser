@@ -315,15 +315,17 @@ final class SidebarRowView: NSView {
 /// grey tile on every row the pointer merely passed over. The square is the
 /// affordance for *this* control, so it appears when the pointer is on this
 /// control and not a moment before — glyph alone while the row is hovered, chip
-/// plus a "Close Tab" tip once you are actually on it. `chromed` is off for the
-/// URL pill's sliders, which the reference genuinely does draw bare.
+/// plus a "Close Tab" tip once you are actually on it. §3.2's sliders glyph
+/// asks for the same chip, for the same reason and out of the same two tokens.
 @MainActor
 final class RowGlyphView: NSImageView {
 
     var onActivate: (() -> Void)?
     var tint: NSColor = Tokens.Text.secondary { didSet { contentTintColor = tint } }
 
-    /// Draws the chip. Off by default so the §3.2 sliders glyph stays bare.
+    /// Draws the chip. Off by default: a glyph that is its own button — the
+    /// §3.1 circles, the §3.5 bar — already has a shape, and a second one
+    /// inside it is two backgrounds.
     var chromed = false { didSet { needsDisplay = true } }
 
     private var isHovering = false

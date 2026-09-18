@@ -189,6 +189,14 @@ extension Tokens {
         /// Tighter than `pillTextInset` on purpose — a glyph is optically
         /// smaller than its box, and the reference reads as even.
         static let pillGlyphInset: CGFloat = 10
+        /// §3.2's sliders glyph, and **not** `glyphSize`. 16 pt is the size of
+        /// a glyph that is its own button — the three §3.1 circles, the §3.5
+        /// bar — and the sliders is not one of those: it sits inside a control
+        /// that is already a landmark, next to text at 13. At 16 it was the
+        /// loudest thing in a pill whose job is to be quiet. It takes the
+        /// §3.4 close button's chip on hover, so it is sized to sit in one the
+        /// way that glyph does.
+        static let pillGlyphSize: CGFloat = 13
 
         // MARK: Essentials (§3.3)
 
