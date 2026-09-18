@@ -104,6 +104,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // §17.1: compiles cached rule lists and schedules the refresh. Before the
             // session, so the first web view is built with the lists already applied.
             ContentBlocker.shared.start(browserStore: store)
+            SitePermissions.shared.start(browserStore: store)
             let session = try await BrowserSession.restored(store: store)
             self.store = store
             self.session = session
@@ -298,11 +299,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.setSidebarCollapsed(!controller.isSidebarCollapsed)
     }
 
-    /// `⌘,`.
-    func showSettings() {
+    /// `⌘,`, and §3.2's site menu, which lands on the section it names.
+    func showSettings(section: String? = nil) {
         let window = settingsWindow ?? SettingsWindowController()
         settingsWindow = window
-        window.present()
+        window.present(section: section)
     }
 
     @objc private func settingsDidChange() {
@@ -372,15 +373,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Which means that until this branch existed, **every test run in this
     /// repo migrated and wrote the user's live database.** Measured: the
     /// schema-version row in `~/Library/Application Support/dk.novapps.luna/`
-    /// moved during this wave and its mtime tracked the test runs. No test
-    /// constructs that path — the app does, on their behalf, and a test that
-    /// carefully builds its own fixture store is not protected by doing so.
+    /// moved during this wave and its mtime tracked the test runs. A test that
+    /// carefully builds its own fixture store is not protected by doing so —
+    /// no test constructs that path, the app does, on their behalf.
     ///
     /// A throwaway directory per run is the fix, and it is here rather than in
     /// the tests because there is no test to put it in: the offending open
-    /// happens in app launch.
-    /// Internal, not private, so `AppDelegateDatabaseTests` can assert the
-    /// branch below actually fires in this host configuration.
+    /// happens in app launch. Internal, not private, so
+    /// `AppDelegateDatabaseTests` can assert the branch below actually fires.
     static var databaseURL: URL {
         guard !isRunningTests else {
             return URL.temporaryDirectory

@@ -72,6 +72,13 @@ final class BrowserSession {
     /// tab, and nothing selected means no web view anywhere (§19.4).
     var activeTabID: UUID? { activeTabBySpace[activeSpaceID] }
 
+    /// The tab that is actually on screen, as far as §3.2's Picture-in-Picture
+    /// hand-off is concerned. Not the same question as `activeTabID`: switching
+    /// Space moves `activeSpaceID` first, so by the time `activateTab` runs the
+    /// tab being *left* is no longer derivable. Written only by
+    /// `BrowserSession+PictureInPicture.swift`.
+    var presentedTabID: UUID?
+
     /// Structural changes — the tab list, the Space list, the selection.
     ///
     /// **Register, do not assign.** The sidebar, the top bar and the app are
@@ -109,6 +116,9 @@ final class BrowserSession {
     private var tabStateObservers: [UUID: (UUID, TabState) -> Void] = [:]
 
     func notifyChange() {
+        // §3.2's Automatic Picture-In-Picture, before the observers run: the
+        // selection has already moved by the time anything is told about it.
+        handOffPictureInPicture(to: activeTabID)
         onChange?()
         // Snapshot: an observer may unregister itself from inside its callback.
         for observer in Array(changeObservers.values) { observer() }

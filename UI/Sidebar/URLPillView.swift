@@ -33,6 +33,9 @@ final class URLPillView: NSView, NSTextFieldDelegate {
     var onSubmit: ((String) -> Void)?
     /// The trailing sliders glyph (§3.2's site menu).
     var onSiteMenu: (() -> Void)?
+    /// What §3.2's menu hangs off: the glyph itself, not the pill, so it opens
+    /// from the control that was pressed.
+    var siteMenuAnchor: NSView { sliders }
 
     private let field = NSTextField(labelWithString: "")
     /// The `.control` backing, built the first time the pill is reached for —
@@ -61,8 +64,8 @@ final class URLPillView: NSView, NSTextFieldDelegate {
         addSubview(field)
 
         sliders.configure(
-            symbolName: "slider.horizontal.3",
-            label: "Site settings",
+            image: SiteMenuGlyph.image(),
+            label: String(localized: "Site settings"),
             pointSize: Tokens.Metric.glyphSize
         )
         sliders.onActivate = { [weak self] in self?.onSiteMenu?() }

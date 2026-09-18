@@ -141,7 +141,7 @@ final class GlassBackingView: NSView {
     /// Whether the opaque plane is up: fullscreen, or Reduce Transparency,
     /// which has no glass left to put anything behind.
     private var wantsOpaquePlane: Bool {
-        Tokens.A11y.reduceTransparency || (isWindowFullScreen && style.hasBackdrop)
+        Tokens.A11y.reduceTransparency || wantsFlatPlane
     }
 
     /// **In fullscreen the chrome is a plate, and the material stands down.**
@@ -156,7 +156,16 @@ final class GlassBackingView: NSView {
     ///
     /// Only the surfaces with a backdrop: a control's glass in fullscreen is
     /// still reading as raised above the plate, which is its whole job.
-    private var wantsFlatPlane: Bool { isWindowFullScreen && style.hasBackdrop }
+    ///
+    /// **And not the plane a peeked sidebar floats on.** `rimmed` is set by
+    /// exactly one caller — `Glass.peekPlane` — and it means "this surface is
+    /// over the page rather than part of the window's own chrome". A sidebar
+    /// the user is *always* looking at in fullscreen should be the flat plate
+    /// Martin asked for; a sidebar that slid out over the page for a glance is
+    /// a different surface with a different job, and flattening it to #202020
+    /// made a panel that is meant to read as floating look like a hole cut in
+    /// the page. It keeps its material in every window state.
+    private var wantsFlatPlane: Bool { isWindowFullScreen && style.hasBackdrop && !rimmed }
 
     /// **No tint over the fullscreen backdrop.** §2's chrome tint is what makes
     /// the sidebar read as dense over a desktop — it is *black* in dark mode,

@@ -176,6 +176,14 @@ window state and the wallpaper would stop coming through, which is the whole loo
 > sidebar read as a lighter grey than the token said. In fullscreen the glass is hidden and the plate is
 > the colour, exactly: sampled on screen at #202020 across the sidebar. Controls keep their glass — a
 > control's job is to read as raised above whatever the plane became.
+> **The peeked sidebar is exempt.** §7.2's floating plane is fullscreen's one un-flattened chrome
+> surface. A sidebar that is *always* showing in fullscreen is the window's own edge and should be the
+> plate; a sidebar that slid out over the page for a glance is a panel floating in front of it, and
+> flattening that to the same #202020 made it read as a hole cut in the page rather than as something
+> on top of it. It keeps `Surface.frost`, §2's tint and its rim in every window state. Measured: the
+> windowed peek samples #2A2419 over a gold wallpaper — the desktop refracting through — and the
+> fullscreen peek #252525, the same construction with nothing behind the window to sample. That gap is
+> physics, not a token; what matters is that it is a floating plane in both, and not the plate.
 > **The plane goes up on `willEnterFullScreen`, not on `did`.** `styleMask` does not carry `.fullScreen`
 > until the transition finishes, so reading it on `didEnterFullScreen` left the sidebar black for the
 > whole half-second zoom and only grey once the window had landed. Leaving is driven by
@@ -258,6 +266,11 @@ Vertical order, top to bottom:
 > of it doubles a space that is already right.
 - **Domain only**: `apple.com`, not the full URL (§30.3). eTLD+1 plus subdomain when meaningful.
 - Left-aligned text at 12 pt inset; trailing **sliders glyph** (site menu) at 10 pt from the right edge.
+- **The sliders glyph is drawn, not an SF Symbol.** The family ships `slider.horizontal.3` (three bars)
+  and `slider.horizontal.2.square` (two, in a box); the bare pair the reference shows exists under no
+  name — checked against all 9,524 in `CoreGlyphs.bundle`. `SiteMenuGlyph` draws it as a template image
+  with real holes punched in the knobs, so it takes its colour from `contentTintColor` and this stays
+  the one glyph in Luna that is drawn rather than named.
 - Two further icon slots are **reserved and sized** to the left of the sliders glyph but render nothing.
   AI and extension actions live in the top-bar action capsule, not here.
 - Click or `⌘L` → expands to the full URL, selected, in edit mode. `Esc` reverts.
@@ -268,7 +281,51 @@ Vertical order, top to bottom:
 - **It does not take the page's colour.** See §2: the wash is withdrawn, and the pill is the same
   `Surface.well` on every site.
 
-### 3.3 Essentials grid — 2 across, wrapping
+#### 3.2a Site menu
+The sliders glyph opens a plain `NSMenu` — on macOS 26 that *is* the liquid-glass menu, with the
+system's own material, blur, submenu chevrons, keyboard navigation and Reduce Transparency handling. It
+is one menu, shown from the sidebar pill and from §4's; the top-bar copy adds Reload at the top, because
+§4 gives that layout no reload button.
+
+| Item | Scope | Wired to |
+|---|---|---|
+| Share… | page | `NSSharingServicePicker.standardShareMenuItem` |
+| Copy Link | page | `NSPasteboard` — URL **and** string, so a plain text field gets the address |
+| Block Ads & Trackers | **per site** | `ContentBlocker.isDisabled(forHost:)` / `setDisabled(_:forHost:)` |
+| Automatic Picture-In-Picture | **per site**, default on | `SitePermissions` → `TabController.enterAutomaticPictureInPicture` |
+| Local Network | **per site**, default off | `SitePermissions` → a `WKContentRuleList` that refuses private-network loads |
+| Site Settings ▸ Clear Cache / Clear Cookies | **per site** | `WKWebsiteDataStore.dataRecords`, filtered to this site's registrable domain |
+| Site Settings ▸ Advanced Settings | app | opens SETTINGS-SPEC §3.9 |
+| Connection is secure | page, disabled caption | scheme plus `WKWebView.hasOnlySecureContent` |
+
+- **Per-site is the whole point.** "Block ads" as a global preference is a decision made once and then
+  fought with on the four sites it breaks. These answers are taken about *this* site, where the problem
+  was noticed, and they are the only place those answers can be given — SETTINGS-SPEC §3.3 has given up
+  its copy of the exemption list rather than keep a second one a window away.
+- **A checkmark means the thing is on for this site**, not that an exemption is: Block Ads & Trackers is
+  ticked when blocking is running here.
+- **Automatic Picture-In-Picture is JavaScript because WebKit gives no other door.** `WKWebView` can
+  *close* every media presentation and there is no matching call to open one; `webkitSetPresentationMode`
+  is what Safari's own automatic PiP drives. The video must be playing, unmuted and at least 320 px wide
+  — a muted background autoplay banner popping out over the screen is the feature at its worst. Coming
+  back to the tab always puts the video back in the page, permission or not.
+- **Local Network is a content rule list, and a page served *from* the local network is exempt.** macOS
+  asks an app once whether it may reach the LAN; a browser has to ask per site, and WebKit exposes no
+  per-origin hook. What a rule list does well is refuse the loads: a page that has not been given the
+  permission cannot fetch `192.168.1.1`, `printer.local` or `localhost`. `unless-top-url` carries the
+  same patterns as the trigger, so `localhost:3000` may load its own assets and reach the rest of the
+  LAN without being asked — the difference between a permission and a firewall.
+  > **No `|` anywhere in those patterns.** WebKit's URL-filter engine takes a documented subset of
+  > regular expressions and it is smaller than it looks: `Disjunctions are not supported yet` is what
+  > `([:/]|$)` came back with. Alternation is spelled out as separate patterns, `172.16–172.31` is three
+  > character classes, and `\d` is not available either. A test hands the JSON to WebKit, because the
+  > compile is a fire-and-forget `Task` and a refused pattern fails completely silently.
+- **`NSMenuItem.image` is set and macOS 26 does not draw it.** Measured with five images on five items —
+  template symbol, non-template symbol, explicit 16 pt, a plain red square and a named AppKit template —
+  in Luna and in a bare test app: none appeared. The assignments stay; they are the correct API, they
+  cost one line each, and they come back by themselves if a system update starts honouring them.
+
+### 3.3 Essentials grid — reshapes around how many tiles are in it
 - Tiles 128 × 42, radius 12. **The sides are an alignment; the top, the bottom and the gutter are
   gaps, and they are not the same number.** The grid is inset `rowInset` (8) from the sidebar's leading
   and trailing edges, because the tiles have to agree with the URL pill above and the row pills below.
@@ -279,6 +336,18 @@ Vertical order, top to bottom:
   even at the same length — a horizontal neighbour is a hand's width away, a vertical one is directly
   underneath — so they are separate numbers. **Tile width flexes:** the grid must survive the
   160–420 pt resize range.
+- **Two across was a fixed number, and a fixed number is wrong at both ends.** One pinned tab sat in a
+  half-width tile with a hole beside it; eight made four rows of the narrowest column on screen. The
+  shape is derived instead — `EssentialsGridView.shape(for:)`, static and pure for the same reason
+  `ChromeState.cardInsets` is: **as few rows as will hold them, then as evenly as they divide.** Four
+  across is the ceiling, so `rows = ⌈n/4⌉` and `columns = ⌈n/rows⌉`. That gives 1, 2, 3 and 4 across in
+  one row, then 3 + 2 for five, 3 + 3 for six, 4 + 3 for seven and 4 + 4 for eight. Five spreads to 3
+  and not 4 because the columns come from the row count, which is what makes it read as 3 + 2 rather
+  than as 4 + 1. A short last row is **left-aligned** — the grid fills in reading order, and a centred
+  orphan breaks the column the tiles above it stand in. The tiles change width to fill the row; height,
+  radius, gutter and icon stay the tokens they were.
+- **The shape counts the slot a live drag is holding open**, so carrying a fifth tile up reshapes the
+  grid to 3 + 2 while the lift is still in the air rather than after the drop.
 - **A live drag holds a slot open.** `dropIndex` is the slot §6.6's lift is over: the tiles step round
   it, the grid grows by a row when it needs to, and the outline is drawn there rather than only in an
   empty grid. The tile being carried is taken *out* of the grid (`draggedID`) for the length of the

@@ -2,10 +2,18 @@
 //  EssentialsGridView.swift
 //  Luna
 //
-//  §3.3, and what the user calls **pinned tabs**: the two-across grid of tiles
-//  directly under the URL pill. Icon only, no label (§30.5) — which is exactly
-//  why each tile carries an explicit VoiceOver label naming the *site*, never
-//  the URL (§8, §21.1).
+//  §3.3, and what the user calls **pinned tabs**: the grid of tiles directly
+//  under the URL pill. Icon only, no label (§30.5) — which is exactly why each
+//  tile carries an explicit VoiceOver label naming the *site*, never the URL
+//  (§8, §21.1).
+//
+//  **The grid reshapes around how many tiles are in it.** Two across was a
+//  fixed number, and a fixed number is wrong at both ends: one pinned tab sat
+//  in a half-width tile with a hole beside it, and eight made four rows of a
+//  column that is already the narrowest thing on screen. The shape is now
+//  derived — see `columns` — so one tab is one wide tile, four are a single
+//  row, five are 3 + 2 and eight are 4 + 4. The tiles change width to fill the
+//  row; their height, radius and icon are the tokens they always were.
 //
 //  A pinned tab is a `.essential` tab. Pinning closes the page but keeps the
 //  tile, so clicking one wakes it again; the only way to remove a tile is to
@@ -31,8 +39,9 @@ import BrowserKit
 @MainActor
 final class EssentialsGridView: NSView {
 
-    /// Tiles per row (§3.3: "2 across, wrapping").
-    private static let columns = 2
+    /// The most tiles §3.3 will put in one row. Past four, a 42 pt tile in a
+    /// 280 pt column is narrower than its own corner radius is round.
+    private static let maxColumns = 4
 
     var onActivate: ((UUID) -> Void)?
     /// Right-click → Unpin. The tab goes back to the top of today's tabs.
@@ -226,9 +235,26 @@ final class EssentialsGridView: NSView {
         return max(settled.count + open, isAwaitingDrop ? 1 : 0)
     }
 
-    private var rowCount: Int {
-        Int((Double(slotCount) / Double(Self.columns)).rounded(.up))
+    /// **As few rows as will hold them, then as evenly as they divide.**
+    ///
+    /// Rows first: four across is the ceiling, so five tiles need two rows and
+    /// nine need three. Then the columns are whatever spreads that many tiles
+    /// over that many rows — 5 over 2 is 3 and not 4, which is what makes five
+    /// tiles read as 3 + 2 rather than as 4 + 1. A short last row is left-
+    /// aligned, because the grid fills in reading order and a centred orphan
+    /// would break the column the tiles above it stand in.
+    ///
+    /// Static and pure, for the same reason `ChromeState.cardInsets` is: §3.3's
+    /// shape is arithmetic, and arithmetic can be asserted without a window.
+    static func shape(for count: Int) -> (rows: Int, columns: Int) {
+        guard count > 0 else { return (0, 1) }
+        let rows = Int((Double(count) / Double(maxColumns)).rounded(.up))
+        return (rows, max(Int((Double(count) / Double(rows)).rounded(.up)), 1))
     }
+
+    private var rowCount: Int { Self.shape(for: slotCount).rows }
+
+    private var columns: Int { Self.shape(for: slotCount).columns }
 
     override var intrinsicContentSize: NSSize {
         let margin = Tokens.Metric.essentialsVerticalInset
@@ -247,9 +273,10 @@ final class EssentialsGridView: NSView {
         let gutter = Tokens.Metric.essentialsTileGap
         let rowGap = Tokens.Metric.essentialsRowGap
         let height = Tokens.Metric.essentialsTile.height
-        let width = (bounds.width - 2 * inset - CGFloat(Self.columns - 1) * gutter) / CGFloat(Self.columns)
-        let column = index % Self.columns
-        let row = index / Self.columns
+        let across = columns
+        let width = (bounds.width - 2 * inset - CGFloat(across - 1) * gutter) / CGFloat(across)
+        let column = index % across
+        let row = index / across
         // Top-down in an unflipped view: the first row sits highest.
         return NSRect(
             x: inset + CGFloat(column) * (width + gutter),
@@ -319,12 +346,13 @@ final class EssentialsGridView: NSView {
     func insertionIndex(at point: NSPoint) -> Int {
         let inset = Tokens.Metric.essentialsInset
         let gap = Tokens.Metric.essentialsTileGap
-        let tileWidth = (bounds.width - 2 * inset - CGFloat(Self.columns - 1) * gap) / CGFloat(Self.columns)
-        let column = min(max(Int((point.x - inset) / max(tileWidth + gap, 1)), 0), Self.columns - 1)
+        let across = columns
+        let tileWidth = (bounds.width - 2 * inset - CGFloat(across - 1) * gap) / CGFloat(across)
+        let column = min(max(Int((point.x - inset) / max(tileWidth + gap, 1)), 0), across - 1)
         let fromTop = bounds.maxY - Tokens.Metric.essentialsVerticalInset - point.y
         let pitch = Tokens.Metric.essentialsTile.height + Tokens.Metric.essentialsRowGap
         let row = max(Int(fromTop / max(pitch, 1)), 0)
-        return min(row * Self.columns + column, settled.count)
+        return min(row * across + column, settled.count)
     }
 
     /// What §6.6's lift should look like while it is carrying `id` — the same

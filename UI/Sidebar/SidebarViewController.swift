@@ -29,7 +29,6 @@ final class SidebarViewController: NSViewController {
     /// Text committed in the URL pill. Wire to `BrowserSession.load(_:)` via
     /// the Command Bar's URL-or-query parse — that parse is not the pill's job.
     var onSubmitURL: ((String) -> Void)?
-    var onSiteMenu: (() -> Void)?
     /// §3.5's bottom-bar History button. The one way into the page — it used
     /// to also be a row at the head of the list.
     var onOpenHistory: (() -> Void)?
@@ -192,7 +191,13 @@ final class SidebarViewController: NSViewController {
             if isLoading { session.stop() } else { session.reload() }
         }
         pill.onSubmit = { [weak self] text in self?.onSubmitURL?(text) }
-        pill.onSiteMenu = { [weak self] in self?.onSiteMenu?() }
+        // §3.2's menu is about the page, and every answer in it is one the
+        // session already holds — so it opens itself rather than being routed
+        // out to the coordinator and straight back in.
+        pill.onSiteMenu = { [weak self] in
+            guard let self else { return }
+            SiteMenu.present(from: pill.siteMenuAnchor)
+        }
         handle.onWidthChange = { [weak self] width in self?.onWidthChange?(width) }
         handle.onWidthCommitted = { [weak self] width in self?.onWidthChange?(width) }
 

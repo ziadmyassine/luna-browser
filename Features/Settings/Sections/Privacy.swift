@@ -3,7 +3,15 @@
 //  Luna
 //
 //  docs/SETTINGS-SPEC.md §3.3 — the blocking toggles, the filter-list status
-//  block, HTTPS-Only, the per-site exemption list, and §17.7's paragraph.
+//  block, HTTPS-Only, and §17.7's paragraph.
+//
+//  **The per-site exemption list is not here any more.** Which sites have
+//  blocking turned off is a per-site answer, and per-site answers now live in
+//  one place: §3.2's site menu, behind the sliders glyph on the URL pill. A
+//  second copy of them here was a list you could only ever *remove* from — you
+//  could not turn blocking off for a site from it — sitting a window away from
+//  the page the answer is about. What stays is what is genuinely global: which
+//  filter lists run at all, HTTPS-Only, and clearing everything.
 //
 //  The row stack and §2's search come from `SettingsBody` in `General.swift`;
 //  the app wiring and the two confirmation dialogs come from `SettingsHost` in
@@ -26,7 +34,6 @@ final class PrivacySection: SettingsSection {
     private let body = SettingsBody()
     private let statusLabel = NSTextField(labelWithString: "")
     private let spinner = NSProgressIndicator()
-    private let exemptions = NSStackView()
 
     var view: NSView { body.view }
     var searchIndex: [String] { body.searchIndex }
@@ -35,10 +42,8 @@ final class PrivacySection: SettingsSection {
     init() {
         buildBlocking()
         buildFilterLists()
-        buildSites()
         buildSafeBrowsingNote()
         observeStatus()
-        Task { await reloadExemptions() }
     }
 
     // MARK: Rows
@@ -97,14 +102,22 @@ final class PrivacySection: SettingsSection {
         let row = SettingsRow.accessory(title, subtitle: nil, accessory: accessory)
         body.card(nil, [(row, [title, "rules", "refresh", "easylist", "update"])])
         render(ContentBlocker.shared.status)
+        buildPerSiteNote()
     }
 
-    private func buildSites() {
-        exemptions.orientation = .vertical
-        exemptions.alignment = .leading
-        exemptions.spacing = 0
-        let title = String(localized: "Sites with blocking turned off")
-        body.card(title, [(exemptions, [title, "exceptions", "allowlist", "per-site"])])
+    /// Where the exemption list went. A sentence, not a control: the user who
+    /// comes here looking for it needs telling once, and telling them is not
+    /// the same as putting the switch back.
+    private func buildPerSiteNote() {
+        let text = String(localized: """
+        Blocking is turned on and off for one site at a time from the sliders button in \
+        the address bar, beside the site's name. That menu also clears the site's cache \
+        and its cookies.
+        """)
+        body.loose(
+            SettingsRow.note(text),
+            terms: ["exceptions", "allowlist", "per-site", "site settings", "turn off for this site"]
+        )
     }
 
     /// §17.7, and it is required copy rather than a nicety. Luna has no Safe
@@ -162,42 +175,6 @@ final class PrivacySection: SettingsSection {
     /// daily timer ever compile.
     @objc private func refreshNow() {
         Task { await ContentBlocker.shared.refresh(force: true) }
-    }
-
-    // MARK: Per-site exemptions
-
-    private func reloadExemptions() async {
-        var hosts: [String] = []
-        if let store = SettingsHost.store {
-            hosts = ((try? await store.blockingExemptions())?.blockingDisabled ?? []).sorted()
-        }
-        for view in exemptions.arrangedSubviews { view.removeFromSuperview() }
-        guard !hosts.isEmpty else {
-            add(SettingsRow.status(String(localized: "None. Blocking is on everywhere.")))
-            return
-        }
-        for host in hosts {
-            let remove = SettingsPushButton(title: String(localized: "Remove"), isDestructive: false)
-            remove.target = self
-            remove.action = #selector(removeHost(_:))
-            remove.identifier = NSUserInterfaceItemIdentifier(host)
-            add(SettingsRow.accessory(host, subtitle: nil, accessory: remove))
-        }
-    }
-
-    /// A row in this list is a row in the card it is in: it spans the card, so
-    /// its Remove button lands on the same trailing edge every other control in
-    /// the pane does. An arranged subview left to hug its own text put the
-    /// button immediately after the host name instead.
-    private func add(_ row: NSView) {
-        exemptions.addArrangedSubview(row)
-        row.widthAnchor.constraint(equalTo: exemptions.widthAnchor).isActive = true
-    }
-
-    @objc private func removeHost(_ sender: NSButton) {
-        guard let host = sender.identifier?.rawValue else { return }
-        ContentBlocker.shared.setDisabled(false, forHost: host)
-        Task { await reloadExemptions() }
     }
 
     // MARK: Clearing

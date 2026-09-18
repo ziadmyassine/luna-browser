@@ -329,7 +329,12 @@ final class RowGlyphView: NSImageView {
     private var isHovering = false
 
     func configure(symbolName: String, label: String, pointSize: CGFloat = Tokens.Metric.faviconSize) {
-        image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)
+        configure(image: NSImage(systemSymbolName: symbolName, accessibilityDescription: nil), label: label, pointSize: pointSize)
+    }
+
+    /// The same, for the one glyph SF Symbols does not have — `SiteMenuGlyph`.
+    func configure(image glyph: NSImage?, label: String, pointSize: CGFloat = Tokens.Metric.faviconSize) {
+        image = glyph
         symbolConfiguration = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .regular)
         // The tip is what the chip says once you are on it. Same string as the
         // VoiceOver label, because they answer the same question.

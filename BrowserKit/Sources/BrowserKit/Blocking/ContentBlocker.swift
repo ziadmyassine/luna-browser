@@ -69,12 +69,20 @@ public final class ContentBlocker {
     private var ruleCounts: [Category: Int] = [:]
     private var disabledHosts: Set<String> = []
     var insecureHosts: Set<String> = []
+    /// §3.2's Local Network permission, compiled once. Internal rather than private
+    /// because the list that fills it lives in `ContentBlockerLocalNetwork.swift` and
+    /// `private` is file-scoped; still unreachable outside the module.
+    var localNetworkList: WKContentRuleList?
     private var blockedCounts: [UUID: Int] = [:]
     /// https URL → the http URL it was upgraded from, so a failure can be told apart from
     /// an ordinary one. Bounded: this is a breadcrumb, not a history.
     var upgrades: [String: URL] = [:]
     weak var browserStore: BrowserStore?
     private var refreshTask: Task<Void, Never>?
+
+    /// Same reason as `localNetworkList` above: the compile for §3.2's list is written
+    /// next door and needs the store this one was handed.
+    var ruleListStore: WKContentRuleListStore { store }
 
     init(store: WKContentRuleListStore = .default(), defaults: UserDefaults = .standard) {
         self.store = store
@@ -88,6 +96,9 @@ public final class ContentBlocker {
     public func start(browserStore: BrowserStore?) {
         self.browserStore = browserStore
         Task { await loadCached() }
+        // §3.2's Local Network permission. Nine rules, so it is compiled on the spot —
+        // the 2.9 s figure above belongs to the 80,000-rule filter lists, not to this.
+        Task { await prepareLocalNetworkList() }
         if let browserStore {
             Task { [weak self] in
                 let hosts = try? await browserStore.blockingExemptions()
@@ -208,7 +219,10 @@ public final class ContentBlocker {
 
     /// Old hashes leave compiled lists behind, and each one is tens of megabytes on disk.
     private func removeStaleIdentifiers() async {
-        let keep = Set(Category.allCases.flatMap { identifiers(for: $0) })
+        var keep = Set(Category.allCases.flatMap { identifiers(for: $0) })
+        // Not a category's list, and it carries the same `luna-` prefix the sweep matches
+        // on — without this line every refresh deleted §3.2's Local Network rules.
+        keep.insert(Self.localNetworkIdentifier)
         guard let available = await store.availableIdentifiers() else { return }
         for identifier in available where identifier.hasPrefix(Self.prefix) && !keep.contains(identifier) {
             try? await store.removeContentRuleList(forIdentifier: identifier)
@@ -233,6 +247,14 @@ public final class ContentBlocker {
     /// list is a pointer hand-off, not a compile.
     public func apply(to controller: WKUserContentController, host: String? = nil) {
         controller.removeAllContentRuleLists()
+        // §3.2's Local Network permission is **not** part of ad blocking and is not
+        // covered by turning ad blocking off for a site: they are two answers to two
+        // questions, and a user who allows this site's ads has not thereby let it talk
+        // to the printer. A nil host is the resting configuration, before the first
+        // navigation says where it is going — refused, which is the safe direction.
+        if let localNetworkList, !SitePermissions.shared.isAllowed(.localNetwork, forHost: host) {
+            controller.add(localNetworkList)
+        }
         guard !isDisabled(forHost: host) else { return }
         for category in Category.allCases where isEnabled(category) {
             for list in compiled[category] ?? [] { controller.add(list) }

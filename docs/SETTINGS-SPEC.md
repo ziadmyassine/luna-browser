@@ -209,8 +209,17 @@ closing the window.
 | Block annoyances | Toggle | `.annoyances` |
 | Filter list status | Static: rule count + last refresh + "Refresh Now" | `ContentBlocker.refresh(force: true)`, `onStatusChange` |
 | HTTPS-Only Mode | Toggle | **existing** `blocking.httpsOnly` |
-| Sites with blocking disabled | List + Remove | `isDisabled(forHost:)` / `setDisabled(_:forHost:)` |
 | Clear all site data | Button, confirms first | `WKWebsiteDataStore` |
+
+**The per-site exemption list is not here.** "Sites with blocking disabled" was
+a list you could only ever *remove* from — there was no way to turn blocking off
+for a site from it — sitting a window away from the page the answer is about.
+Per-site answers now live in exactly one place, UI-SPEC §3.2a's site menu behind
+the sliders glyph on the address pill, which is where the problem is noticed and
+where the same menu also clears that site's cache and cookies. What stays in this
+section is what is genuinely global: which filter lists run at all, HTTPS-Only,
+and clearing everything. A one-sentence note under the filter-list card says
+where the switch went; a sentence is not a second copy of the control.
 
 A plain paragraph states that Luna does **not** check URLs against a malware or
 phishing list, and that macOS still applies XProtect and Gatekeeper (§17.7).

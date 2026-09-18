@@ -85,7 +85,7 @@ final class TopBarURLPill: NSView, TopBarThemed, NSTextFieldDelegate {
         configureField()
         addSubview(field)
 
-        sliders.icon = TopBarButton.symbol("slider.horizontal.3")
+        sliders.icon = SiteMenuGlyph.image(size: TopBarMetrics.glyph)
         sliders.setAccessibilityLabel(String(localized: "Site Settings"))
         sliders.target = self
         sliders.action = #selector(showSiteMenu)
@@ -216,18 +216,24 @@ final class TopBarURLPill: NSView, TopBarThemed, NSTextFieldDelegate {
 
     // MARK: - Site menu
 
-    /// §4 gives the top-bar layout no reload button; reload lives in `⌘R` and
-    /// here. The item is nil-targeted, so it reaches the same `AppDelegate`
-    /// method `⌘R` does rather than being a second implementation of reload.
+    /// §3.2's menu, which the top bar shows from the same glyph the sidebar
+    /// does — one menu, two places it hangs off, so a user who switches layout
+    /// does not have to learn a second one.
+    ///
+    /// §4 gives this layout no reload button, so Reload is added here and
+    /// nowhere else. The item is nil-targeted, which puts it through the same
+    /// `AppDelegate` method `⌘R` does rather than being a second implementation.
     @objc private func showSiteMenu() {
-        let menu = NSMenu()
+        let menu = SiteMenu.build()
         let reload = NSMenuItem(
             title: String(localized: "Reload"),
             action: #selector(AppDelegate.reloadPage(_:)),
             keyEquivalent: "r"
         )
         reload.keyEquivalentModifierMask = .command
-        menu.addItem(reload)
+        reload.image = TopBarButton.symbol("arrow.clockwise")
+        menu.insertItem(reload, at: 0)
+        menu.insertItem(.separator(), at: 1)
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sliders.bounds.maxY), in: sliders)
     }
 
