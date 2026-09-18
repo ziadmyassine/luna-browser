@@ -25,6 +25,7 @@
 //    system  Surface.base, Text.primary, Accent.tint, Accent.danger
 //    custom  Surface.raised, Surface.glassFallback, Surface.hover,
 //            Surface.selected, Surface.chromeFill, Surface.glassTint,
+//            Surface.frost, Surface.well,
 //            Text.secondary,
 //            Text.tertiary, Text.disabled, Line.border, Shadow.popover,
 //            Bloom.*
@@ -161,6 +162,22 @@ enum Tokens {
         /// to tint, `Surface.glassFallback` is already opaque, and a tint on
         /// top of it would just be a second, dimmer plane.
         static var glassTint: NSColor { surfaceTintColor("luna.surface.glassTint", Ink.glassTint) }
+
+        /// §2's **frost**: `glassFallback` at partial alpha, painted *behind*
+        /// the chrome's glass in every window state.
+        ///
+        /// "Make the sidebar more opaque" is not "make the sidebar darker", and
+        /// raising `glassTint` to get it was the wrong lever: the tint is black
+        /// on dark, so more of it is a dimmer sidebar rather than a thicker one.
+        /// Frost is the right one. It is the same plane the chrome falls back
+        /// to under Reduce Transparency and in fullscreen, held at half
+        /// strength: the material still samples and refracts the desktop, but
+        /// it is doing so through a surface rather than through a window, so
+        /// the wallpaper reads as *behind* the chrome instead of as the chrome.
+        ///
+        /// Translucent by construction — an opaque frost is just the fallback
+        /// plane, and there would be no glass left.
+        static var frost: NSColor { frostColor("luna.surface.frost", over: glassFallback, Ink.frost) }
     }
 
     // MARK: - Text
@@ -373,7 +390,11 @@ enum Tokens {
         /// tint heavy enough to hide that would be a coloured rectangle.
         /// Increase Contrast thickens it, because a surface that is barely
         /// there is exactly what that setting exists to firm up.
-        static let glassTint = InkAlphas(light: 0.46, dark: 0.50, contrastLight: 0.60, contrastDark: 0.64)
+        static let glassTint = InkAlphas(light: 0.32, dark: 0.34, contrastLight: 0.48, contrastDark: 0.50)
+        /// §2's frost — see `Surface.frost`. Half-strength, so the desktop is
+        /// still legibly *there* behind the chrome; Increase Contrast thickens
+        /// it toward the opaque plane, for the same reason the tint thickens.
+        static let frost = InkAlphas(light: 0.46, dark: 0.50, contrastLight: 0.68, contrastDark: 0.72)
         /// `Surface.well` — a dormant control's recess. Deep enough in dark
         /// mode to read as cut into the plane rather than drawn on it; light
         /// mode needs far less, because a light surface shows a darkening at a

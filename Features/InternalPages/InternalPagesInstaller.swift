@@ -5,6 +5,12 @@
 //  The one assembly call that turns `BrowserKit`'s `luna://` handler into a
 //  working New Tab page (§30.19) and archive browser (§6.4).
 //
+//  **§3.5's History button no longer comes through here.** It opens
+//  `HistoryPanel` — a floating panel over the page — rather than a tab on
+//  `luna://archive`; the route still resolves and still renders, because a URL
+//  someone has bookmarked should not stop working, but nothing in the chrome
+//  navigates to it any more.
+//
 //  `BrowserKit` cannot reach the tab list, the Command Bar or `Design/`, so the
 //  three things internal pages need from the app are set here, once, and read
 //  live afterwards. Everything captures the session **weakly**: these are
@@ -17,7 +23,7 @@ import BrowserKit
 @MainActor
 enum InternalPagesInstaller {
 
-    static func install(session: BrowserSession, sidebar: SidebarViewController?) {
+    static func install(session: BrowserSession) {
         // §8.1's tokens, as CSS. Generated once: light, dark and both contrast
         // variants all ship in the block and the page picks with `prefers-*`.
         InternalPages.palette = InternalPageTheme.css()
@@ -47,11 +53,6 @@ enum InternalPagesInstaller {
                 // Performed by `TabController` itself; never routed here.
                 break
             }
-        }
-
-        // §30.6's Archive row and §3.5's archive button both land on the page.
-        sidebar?.onOpenArchive = { [weak session] in
-            session?.newTab(url: InternalPages.Page.archive.url)
         }
     }
 

@@ -47,9 +47,6 @@ enum CommandBarMetrics {
     /// UI-SPEC §6: "anchored 20 % from window top". **Missing token** — it is a
     /// ratio rather than a length, so `Tokens.Metric` has nowhere to put it today.
     static let topAnchorFraction: CGFloat = 0.20
-    /// How hard the §9.1 backdrop is applied. **Missing token**, and a ratio
-    /// rather than a length, so `Tokens.Metric` has nowhere to put it today.
-    static let scrimStrength: CGFloat = 0.72
 }
 
 /// The full-window overlay: scrim, panel, input and results.
@@ -94,12 +91,16 @@ final class CommandBarPanel: NSView {
         let scrim = Glass.scrim()
         scrim.frame = bounds
         scrim.autoresizingMask = [.width, .height]
-        // **Held short of full strength.** A backdrop at 1.0 is a wall: the
-        // page stops being context and the bar's own glass has nothing but the
-        // scrim to sample, so it flattens into a plate. At this weight the page
-        // is still there, softened, and the glass above it still reads as a
-        // material.
-        scrim.alphaValue = CommandBarMetrics.scrimStrength
+        // **At full strength, because anything less is not a blur.**
+        //
+        // `alphaValue` on an `NSVisualEffectView` does not thin the material:
+        // it cross-fades the blurred result back over the sharp original, and
+        // the two together read as a flat grey veil laid on a page that is
+        // still perfectly legible underneath. §9.1 asks for a *blurred* scrim,
+        // which is the material's own job and only happens at 1.0. `.sidebar`
+        // is already the most see-through of the in-window materials — see
+        // `Glass.scrim()` — so the page stays there as context, softened
+        // rather than hidden.
         addSubview(scrim)
     }
 

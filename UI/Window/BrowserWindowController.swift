@@ -40,6 +40,12 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     private let peekEdge = SidebarPeekEdgeView()
     private let peek = SidebarPeekController()
 
+    /// Told whenever the hidden sidebar starts or stops floating over the page.
+    /// The chrome host draws its own opaque plane for it — the window's glass
+    /// is *behind* the content card and cannot help a surface in front of it.
+    /// See `ChromeHostView.isPeeking`.
+    var onPeekChange: ((Bool) -> Void)?
+
     private var stateBeforeFullscreen: ChromeState?
     /// The width to come back to when the sidebar is shown again. Not the
     /// default: a user who dragged the sidebar to 200 pt and hid it expects
@@ -236,6 +242,7 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         // sidebar is a sidebar, and it has a control row with a hole in it if
         // they are not there.
         trafficLights?.isPeeking = peeking
+        onPeekChange?(peeking)
         // The lights coming and going does not change any view's bounds, so
         // nothing else would mark the control row dirty — and it lays its
         // buttons out *against* the lights. See `SidebarControlRow`.
@@ -275,15 +282,20 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         // stale `isPeeking` would leave the traffic lights showing over a
         // full-bleed page the next time the sidebar was hidden.
         trafficLights?.isPeeking = false
+        onPeekChange?(false)
         peek.isEnabled = state == .sidebarCollapsed
         peekEdge.isEnabled = state == .sidebarCollapsed
         let insets = state.cardInsets
+        let spec = Self.motion(from: previous, to: state)
         // **The page is told its final width before the chrome starts moving.**
         // See `ContentCardView.beginGeometryTransition` — a web view that is
         // re-laid out on every frame of a 0.20 s slide is the "resizing is very
         // obvious" this fixes.
         if animated, let root = window?.contentView {
-            card.beginGeometryTransition(toWidth: root.bounds.width - insets.left - insets.right)
+            card.beginGeometryTransition(
+                toWidth: root.bounds.width - insets.left - insets.right,
+                over: spec.duration
+            )
         }
         let body = { [self] in
             applyChromeGeometry(state)
@@ -295,7 +307,7 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
             window?.contentView?.layoutSubtreeIfNeeded()
         }
         if animated {
-            Tokens.Motion.animate(Self.motion(from: previous, to: state)) { context in
+            Tokens.Motion.animate(spec) { context in
                 // Without this the constraint constants snap instead of sliding.
                 context.allowsImplicitAnimation = true
                 body()
@@ -370,9 +382,31 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     /// frame is square there, and a rounded mask would show as black notches.
     func windowDidEnterFullScreen(_ notification: Notification) {
         (window?.contentView as? WindowRootView)?.isWindowFullScreen = true
+        relayoutChrome()
     }
 
     func windowDidExitFullScreen(_ notification: Notification) {
         (window?.contentView as? WindowRootView)?.isWindowFullScreen = false
+        relayoutChrome()
+    }
+
+    /// **The traffic lights change size without changing anyone's bounds.**
+    ///
+    /// §3.1's control row lays its three circles out *against* the lights —
+    /// measured, because `TrafficLightLayoutManager` owns their frames — and
+    /// macOS takes the lights away in fullscreen and puts them back on the way
+    /// out. Neither edge resizes the row, so nothing marks it dirty, and the
+    /// row kept whichever placement it happened to have when it last laid out:
+    /// the toggle sitting on top of the green light after a return to windowed.
+    /// The same call fixes the peek, for the same reason.
+    private func relayoutChrome() {
+        guard let chrome else { return }
+        for layout in chrome.subviews { layout.needsLayout = true }
+        // AppKit restores the buttons *after* posting the notification on the
+        // way out of fullscreen, so the pass that matters is the next one.
+        DispatchQueue.main.async { [weak chrome] in
+            guard let chrome else { return }
+            for layout in chrome.subviews { layout.needsLayout = true }
+        }
     }
 }

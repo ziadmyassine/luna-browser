@@ -80,11 +80,15 @@ final class ContentCardView: NSView {
     private var content: NSView?
     private var insetsBeforeFullscreen: NSEdgeInsets?
     private var isInsetBeforeFullscreen = true
-    /// The content's own width. Normally the card's, but held at the *final*
-    /// width for the length of a layout transition — see
+    /// The content's leading edge, pinned to the card's. **Active at rest**, so
+    /// the page is exactly as wide as the pane with no bookkeeping at all.
+    private var contentLeading: NSLayoutConstraint?
+    /// The content's width, held at the *final* value for the length of a
+    /// layout transition and inactive the rest of the time — see
     /// `beginGeometryTransition(toWidth:)`.
     private var contentWidth: NSLayoutConstraint?
-    private var isTransitioning = false
+    /// Cancels the watchdog when a transition ends the ordinary way.
+    private var transitionWatchdog: Task<Void, Never>?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -109,19 +113,28 @@ final class ContentCardView: NSView {
         guard let view else { return }
         view.translatesAutoresizingMaskIntoConstraints = false
         addSubview(view)
-        // **Trailing-pinned and width-driven, not four edges.** Pinning the
-        // leading edge as well would make the page's width a function of the
-        // card's frame on every single frame of the sidebar animation, which is
-        // a full WebKit relayout per frame at 120 Hz. With the width as its own
-        // constraint, a transition can hand the page its destination size once
-        // and let the card's mask do the rest.
+        // **Four edges at rest; trailing-pinned and width-driven only while a
+        // chrome transition is running.**
+        //
+        // The width is the interesting half — see `beginGeometryTransition` —
+        // but it must not be the *resting* state. A constant carries no
+        // relationship, so keeping it meant re-deriving it from `bounds` on
+        // every layout pass, and writing a constraint constant from inside
+        // `layout()` is not reliably picked up: the pass that reads it has
+        // already run. A window resized in one jump — the zoom button, a
+        // hidden sidebar — left the page at the old width with the pane's own
+        // grey showing beside it, which is exactly the band in Martin's
+        // captures. Auto Layout keeps the resting case right for free.
+        let leading = view.leadingAnchor.constraint(equalTo: leadingAnchor)
+        contentLeading = leading
         let width = view.widthAnchor.constraint(equalToConstant: bounds.width)
+        width.isActive = false
         contentWidth = width
         NSLayoutConstraint.activate([
             view.topAnchor.constraint(equalTo: topAnchor),
             view.trailingAnchor.constraint(equalTo: trailingAnchor),
             view.bottomAnchor.constraint(equalTo: bottomAnchor),
-            width
+            leading
         ])
     }
 
@@ -137,27 +150,32 @@ final class ContentCardView: NSView {
     /// final width, and the card slides its own edge across to reveal it. The
     /// page is anchored to the trailing edge, which does not move, so nothing
     /// under the pointer shifts either.
-    func beginGeometryTransition(toWidth width: CGFloat) {
-        isTransitioning = true
+    ///
+    /// - Parameter duration: how long the caller's animation runs. A watchdog
+    ///   hands the width back after it, so a dropped completion handler cannot
+    ///   strand the page at a width the pane has since grown past — the failure
+    ///   this used to have, and the one that is invisible until it isn't.
+    func beginGeometryTransition(toWidth width: CGFloat, over duration: TimeInterval) {
+        // Deactivate before activating: the two contradict each other, and an
+        // over-constrained instant is a console full of broken-constraint logs.
+        contentLeading?.isActive = false
         contentWidth?.constant = max(width, 0)
+        contentWidth?.isActive = true
+        transitionWatchdog?.cancel()
+        transitionWatchdog = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(duration + Tokens.Motion.hoverPeekDelay))
+            guard !Task.isCancelled else { return }
+            self?.endGeometryTransition()
+        }
     }
 
-    /// Hands the width back to the card's own bounds.
+    /// Hands the width back to Auto Layout.
     func endGeometryTransition() {
-        isTransitioning = false
-        syncContentWidth()
-    }
-
-    private func syncContentWidth() {
-        guard !isTransitioning, let contentWidth, contentWidth.constant != bounds.width else { return }
-        contentWidth.constant = bounds.width
-    }
-
-    /// A live window resize is the pointer's own animation and wants the page
-    /// to track it; only a scripted transition holds the width still.
-    override func layout() {
-        super.layout()
-        syncContentWidth()
+        transitionWatchdog?.cancel()
+        transitionWatchdog = nil
+        guard contentLeading?.isActive == false else { return }
+        contentWidth?.isActive = false
+        contentLeading?.isActive = true
     }
 
     // MARK: - Geometry

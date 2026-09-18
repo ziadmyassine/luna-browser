@@ -59,6 +59,22 @@ struct RoundedMetric: Sendable {
     static func circle(_ diameter: CGFloat) -> RoundedMetric {
         RoundedMetric(width: diameter, height: diameter, cornerRadius: diameter / 2)
     }
+
+    /// The corner curve this shape wants.
+    ///
+    /// **A continuous curve at `radius == height / 2` is a squircle, not a
+    /// circle**, and the difference is exactly the "still a bit longer than
+    /// wide" in §3.1's three buttons: a superellipse has straight flanks, so a
+    /// 34 × 34 one reads as a rounded square that has been stretched. Apple's
+    /// own continuous curve is defined for radii *below* half the side; at or
+    /// above it there is nothing left to be continuous with and the only right
+    /// answer is a real arc.
+    ///
+    /// Everything squircular — the §3.3 tiles, the §3.6 card, the window —
+    /// still gets `.continuous`, which is where it belongs.
+    var cornerCurve: CALayerCornerCurve {
+        cornerRadius * 2 >= Swift.min(width, height) ? .circular : .continuous
+    }
 }
 
 /// A drop shadow (§5). The colour carries its own alpha, so `shadowOpacity`
@@ -293,6 +309,27 @@ extension Tokens {
         /// Both the top-bar layout's bar and the sidebar's control / utility rows (§3.1, §3.5, §4).
         static let topBarHeight: CGFloat = 52
 
+        /// §9.1's scrim strength. 1.0 is the material's own output — a real
+        /// blur, and a grey, opaque one; every step below it mixes the sharp,
+        /// saturated page back in, so this is the dial between "blurred" and
+        /// "still there".
+        ///
+        /// The page is meant to stay *legible* behind the bar, not merely
+        /// present: you should be able to see what you were looking at, softened
+        /// and pushed back. 1.0 hid it, and 0.72 read as a grey veil rather than
+        /// as a blur — the veil is what a strong tint at partial alpha looks
+        /// like. This is low enough that the page reads through it as itself.
+        static let scrimStrength: CGFloat = 0.55
+
+        // MARK: History (§6.4)
+
+        /// §6.4's floating history panel. As wide as the Command Bar — they are
+        /// the same kind of surface over the same page, and two transient
+        /// panels of different widths read as two different apps. The height is
+        /// a ceiling, not a size: the panel shrinks to the window when the
+        /// window is shorter, and to its rows when there are few of them.
+        static let historyPanel = CGSize(width: windowMinWidth, height: 520)
+
         // MARK: Settings window
 
         /// The Settings window's own sidebar. Narrower than the browser's —
@@ -314,10 +351,14 @@ extension Tokens {
         /// it. The handle itself is no longer painted.
         static let resizeHandle = RoundedMetric(width: 20, height: 32, cornerRadius: 10)
         /// §7.2: how close to the window's leading edge the pointer has to get
-        /// before a hidden sidebar peeks out. 4 pt — narrow enough that it is
-        /// never crossed on the way to something else, wide enough to be hit by
-        /// shoving the pointer at the edge without aiming.
-        static let sidebarPeekEdge: CGFloat = 4
+        /// before a hidden sidebar peeks out.
+        ///
+        /// **It was 4 pt, and 4 pt was unusable.** A screen edge can be 1 pt
+        /// wide because the pointer piles up against it; a *window* edge has
+        /// nothing to stop the pointer, so hitting a 4 pt strip means aiming at
+        /// it. `hoverPeekDelay` is what keeps a wider strip from firing on the
+        /// way past, so the width can be as generous as the gesture wants.
+        static let sidebarPeekEdge: CGFloat = 24
 
         // MARK: Downloads popover (§5)
 

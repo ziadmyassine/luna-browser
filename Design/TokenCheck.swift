@@ -119,7 +119,7 @@ extension TokenCheck {
     private static func checkResolution() -> [String] {
         var failures: [String] = []
         let all = surfaces + texts + bloom + washes
-            + [("glassTint", Tokens.Surface.glassTint)]
+            + [("glassTint", Tokens.Surface.glassTint), ("frost", Tokens.Surface.frost)]
             + [("disabled", Tokens.Text.disabled)]
             + [("hairline", Tokens.Line.hairline), ("border", Tokens.Line.border)]
             + [("tint", Tokens.Accent.tint), ("danger", Tokens.Accent.danger)]
@@ -145,6 +145,12 @@ extension TokenCheck {
             let tint = Tokens.Surface.glassTint.srgbComponents(for: appearance)
             if tint.alpha >= 1 {
                 failures.append("Surface.glassTint is opaque in \(name) — §2's chrome samples what is behind the window")
+            }
+            // And `frost`, for the same reason from the other side: it is the
+            // fallback plane held at part strength, and at full strength it
+            // *is* the fallback plane — there would be no glass left above it.
+            if Tokens.Surface.frost.srgbComponents(for: appearance).alpha >= 1 {
+                failures.append("Surface.frost is opaque in \(name) — §2's chrome samples what is behind the window")
             }
         }
         return failures

@@ -30,7 +30,7 @@ final class SidebarViewController: NSViewController {
     var onSiteMenu: (() -> Void)?
     /// §3.5's bottom-bar History button. The one way into the page — it used
     /// to also be a row at the head of the list.
-    var onOpenArchive: (() -> Void)?
+    var onOpenHistory: (() -> Void)?
     var onProfileMenu: (() -> Void)?
     /// Live during a §3.7 drag; the width constraint belongs to the window.
     var onWidthChange: ((CGFloat) -> Void)?
@@ -177,7 +177,7 @@ final class SidebarViewController: NSViewController {
         handle.onWidthCommitted = { [weak self] width in self?.onWidthChange?(width) }
 
         utility.onProfile = { [weak self] in self?.onProfileMenu?() }
-        utility.onHistory = { [weak self] in self?.onOpenArchive?() }
+        utility.onHistory = { [weak self] in self?.onOpenHistory?() }
         utility.onSwitchSpace = { [weak self] id in self?.session.switchSpace(id) }
         utility.onMoveTabToSpace = { [weak self] tab, space in self?.session.moveTab(tab, toSpace: space) }
 

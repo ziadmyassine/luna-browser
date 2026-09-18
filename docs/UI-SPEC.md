@@ -58,7 +58,9 @@ sidebar's own content reflows. The ratios exist to fix proportions once, not to 
 | `contentCardGap` | **gone** — the page is flush (§3.6) | 8 pt |
 | `panelInset` (Command Bar, downloads list) | 8 pt | was `contentCardGap` |
 | `topBarHeight` | 52 pt | — |
-| `sidebarPeekEdge` (§3.8 hover-peek trigger strip) | 4 pt | — |
+| `sidebarPeekEdge` (§3.8 hover-peek trigger strip) | 24 pt | — |
+| `historyPanel` (§3.5's floating History panel) | 640 × 520 (a ceiling) | — |
+| `scrimStrength` (§9.1's backdrop) | 0.55 | — |
 | `settingsSidebarWidth` / `settingsWindow` | 196 pt / 720 × 460 pt | was a 420 × 160 box |
 | `hairline` | 1 pt @ 10 % white / 8 % black | — |
 
@@ -102,12 +104,17 @@ as cut *into* the sidebar. They were `Surface.hover`, which is ink and therefore
 came out lighter than the plane around them and read as raised: the opposite of
 `inspiration/main-tab-bar-and-ui.png`. `Surface.well` is the only token built with `recessInkColor`.
 
-**The chrome tint is heavier, and it is off in fullscreen.** `Ink.glassTint` went 0.32/0.34 → 0.46/0.50:
-untinted `.regular` glass samples the desktop so faithfully that the sidebar read as a pane of wallpaper
-rather than as a surface. But the tint is *black* in dark mode by construction (`surfaceTintColor`), and
-in fullscreen the glass is sampling the opaque `glassFallback` plane rather than a bright desktop —
-darkening that by half took the sidebar under the content pane's own colour. So the tint is dropped
-wherever the backdrop plane is up, which is exactly where it has nothing to do.
+**Density is frost, not tint.** `Ink.glassTint` stays at 0.32/0.34 — it is what stops untinted
+`.regular` glass reading as a pane of wallpaper — and the chrome's *opacity* is a second, separate token:
+`Surface.frost`, which is `glassFallback` at 0.46/0.50, painted **behind** the glass in every window
+state. Raising the tint instead was tried and is wrong: the tint is *black* in dark mode by construction
+(`surfaceTintColor`), so more of it is a dimmer sidebar rather than a thicker one, which is "darker", not
+"more opaque". Frost separates the two — the material still samples and refracts the desktop, but through
+a surface rather than through a hole.
+
+The tint is dropped wherever the opaque backdrop is up (fullscreen, §3.8's peek): there the glass is
+sampling `glassFallback` rather than a bright desktop, and darkening that plane by a third takes the
+sidebar under the content pane's own colour.
 
 **Glass is the highlight, and nothing in the chrome is ever accent-blue.** A selected pinned tile, a
 selected row, the pill you are typing in, the section you are looking at in Settings: all of them say so
@@ -120,11 +127,19 @@ part of the internal-page palette at all.
 over a live page in the same window it does not blur the page — it replaces it. In fullscreen, with no
 desktop left to sample, the page behind the Command Bar disappeared entirely behind a near-black plate.
 `NSVisualEffectView` at `.withinWindow` is the only API that blurs in-window content, and that is what
-§9.1's "blurred backdrop scrim" describes. Its material is `.sidebar` — the most see-through of the
-in-window materials — and it is applied at **0.72**, not at full strength. `.hudWindow` and
-`.fullScreenUI` both blur beautifully and then flatten everything above them into one dark wall: the page
-stops being context, and the bar's own Liquid Glass has nothing but the scrim left to sample, so it
-reads as a plate. The bar itself keeps §2's **untinted** `.popover` glass for the same reason the
+§9.1's "blurred backdrop scrim" describes. Its material is `.sidebar`, applied at `scrimStrength`.
+
+Five materials were tried on screen. `.hudWindow` and `.fullScreenUI` blur beautifully and then flatten
+everything above them into one dark wall — the page stops being context and the bar's own Liquid Glass
+has nothing but the scrim left to sample, so it reads as a plate. `.menu` and `.underWindowBackground`
+take the page away completely. `.selection` barely registers: the page stays sharp and there is no
+backdrop at all. `.sidebar` is the one that blurs while leaving the page visible underneath.
+
+**The strength is the dial between "blurred" and "colourful".** Every in-window material desaturates what
+it blurs, which is what a colourful page turns into behind the bar, and the material's own tint is not
+tunable — a `CIColorControls` saturation boost on the layer collapses the backdrop group into an opaque
+plate, so that lever does not exist either. `alphaValue` mixes a little of the sharp, saturated page back
+over the blurred one: the blur still reads as a blur, and the veil stops reading as grey. The bar itself keeps §2's **untinted** `.popover` glass for the same reason the
 chrome's tint exists — a bar floating over a page should look like a pane of the desktop, not like more
 chrome. The choice still lives in `Design/Glass.swift` (`Glass.scrim()`); no other file knows which
 material it got.
@@ -136,7 +151,10 @@ clamp cannot be met, drop the wash entirely rather than shipping unreadable chro
 **Fullscreen.** Glass composites what is behind the *window*, and in macOS fullscreen there is nothing
 behind it — the sidebar rendered very nearly black in dark mode. The chrome planes (sidebar, top bar)
 therefore paint `Surface.glassFallback` **behind** the glass whenever the window is fullscreen: dark grey
-in dark, light grey in light, with the material still on top of it. Only in fullscreen — painting it
+in dark, light grey in light, with the material still on top of it. **§3.8's peek forces the same plane**
+for the same reason from the other side — a sidebar floating over an opaque page is floating over
+something the material cannot see, and without the plane the page showed straight through the gaps
+between its rows (`Glass.setOpaqueBackdrop`). Only in fullscreen — painting it
 always would be sampled by the glass in every window state and the wallpaper would stop coming through,
 which is the whole look.
 > **The plane goes up on `willEnterFullScreen`, not on `did`.** `styleMask` does not carry `.fullScreen`
@@ -192,7 +210,19 @@ Vertical order, top to bottom:
 > 28 × 28 circle placed at a fractional y comes out 28 × 29 and reads as an egg. Chrome controls snap
 > their **origin** only (`NSRect.pixelAligned`); a size that came from a token is not the layout's to
 > round.
+> **And then they were squircles.** A `.continuous` corner curve at `radius == side / 2` is a
+> superellipse, with straight flanks — which is the "still a bit longer than wide" left after the
+> rounding was fixed. Apple's continuous curve is defined for radii *below* half the side; at or above
+> it the only right answer is a real arc. `RoundedMetric.cornerCurve` returns `.circular` exactly when
+> the shape is a circle, the button's layer and its focus ring follow it, and `GlassBackingView` masks
+> to it — `NSGlassEffectView` has no corner curve of its own, so clipping is the only lever there is.
+> Everything that really is a squircle (the §3.3 tiles, the §3.6 pane, the window) is unchanged.
 
+- **The lights change without changing anyone's bounds.** macOS takes them away entering fullscreen and
+  puts them back on the way out, and the row is 52 pt and exactly as wide either way — so nothing marks
+  it dirty and it kept whichever placement it last computed, which is the toggle sitting on top of the
+  green light after a return to windowed. Both fullscreen edges mark the chrome for layout, and again on
+  the next runloop turn, because AppKit restores the buttons *after* it posts the notification.
 - Traffic lights are **system-drawn**, inset into the sidebar **18 pt from the window's leading edge and
   18 pt from its top — one number, both axes**. They were 8 pt in and 18 pt down, which is unequal
   padding into a corner and the first thing the eye catches. A single `TrafficLightLayoutManager` owns
@@ -283,9 +313,17 @@ Order: `+ Add Tab` row → **separator** → tabs.
 `[profile avatar circle 34, left] ··· [space dots pill 56 × 22, centred] ··· [history circle 34, right]`
 
 > **It is called History and it carries a clock.** Luna's internal word for the shelf is "the archive";
-> the user's word for what they are looking for is "history". The route stays `luna://archive` — a URL is
-> not a label — and the glyph is `clock.arrow.circlepath`, because a box means storage and a clock means
-> "earlier".
+> the user's word for what they are looking for is "history". The glyph is `clock.arrow.circlepath`,
+> because a box means storage and a clock means "earlier".
+> **It opens a floating panel, not a tab.** Looking something up in your history is a glance, and a
+> glance should not leave a tab behind to close afterwards — and a web page cannot be Liquid Glass, so
+> the one surface in the app that is *about* the tabs looked like a website. `HistoryPanel` is the
+> Command Bar's shell reused: `Glass.scrim()` over the page, an untinted `.popover` body centred on the
+> **pane** (never the window), `esc` or a click outside to dismiss. Title and filter share one line, the
+> filter is §3.2's `Surface.well` pill, and the rows are §3.4's — favicon, title, a quieter host · date,
+> a fill that lifts on hover. Choosing one unarchives the tab where it was. `luna://archive` still
+> resolves and still renders, because a URL someone has bookmarked should not stop working; nothing in
+> the chrome navigates to it any more.
 
 - **Space dots** are the Space switcher: one 6 pt dot per Space, active dot 100 % white, inactive 35 %.
   Click a dot to switch; the pill widens by 8 pt per Space beyond three.
@@ -310,10 +348,18 @@ go away was sitting on top of the site's own navigation. `⌘S` means "give the 
 lights are hidden with everything else and come back the moment there is a sidebar to put them in —
 including §3.8's peek.
 
-**The page is revealed, not resized.** Its width is a constraint of its own, set to the *destination*
-width before the chrome starts moving, and the page is anchored to the card's trailing edge. So a
-sidebar collapse costs WebKit **one** relayout instead of one per frame of a 0.20 s slide, nothing under
-the pointer shifts, and a heavy site stops stuttering on `⌘S`.
+**The page is revealed, not resized.** For the length of a chrome transition its width is a constraint of
+its own, set to the *destination* width before the chrome starts moving, with the page anchored to the
+card's trailing edge. So a sidebar collapse costs WebKit **one** relayout instead of one per frame of a
+0.20 s slide, nothing under the pointer shifts, and a heavy site stops stuttering on `⌘S`.
+
+> **That width is never the resting state.** It was, and a constant carries no relationship, so it had to
+> be re-derived from `bounds` on every layout pass — and a constraint constant written from inside
+> `layout()` is not reliably picked up, because the pass that would read it has already run. A window
+> resized in one jump (the zoom button, or a hidden sidebar) left the page at its old width with the
+> pane's own grey showing beside it. At rest the page is pinned on all four edges and Auto Layout keeps
+> it right for free; the width constraint is swapped in for the transition and swapped back out at the
+> end, with a watchdog on the duration so a dropped completion handler cannot strand it.
 
 Entering page fullscreen animates the pane to fill the window over 0.3 s.
 
@@ -334,15 +380,25 @@ resets to 280.
 
 ### 3.8 Hover-peek — the hidden sidebar
 
-With the sidebar hidden, pushing the pointer into the window's leading **4 pt** brings it back **over**
+With the sidebar hidden, pushing the pointer into the window's leading **24 pt** brings it back **over**
 the page after §6's 0.10 s intent delay, and lets it go again 0.10 s after the pointer leaves both the
 strip and the sidebar itself.
+
+> **It was 4 pt, and 4 pt was unusable.** A *screen* edge can be one point wide because the pointer piles
+> up against it; a window edge has nothing to stop the pointer, so a narrow strip has to be aimed at. The
+> intent delay is what keeps a wide strip from firing on the way past, so the strip can be as generous as
+> the gesture wants.
 
 - **The page does not move.** Only the chrome's leading constraint and its opacity animate; the card's
   insets stay collapsed, so nothing reflows for a glance at the tab list.
 - The hidden sidebar parks at `-width` rather than collapsing to zero width: it keeps its layout, and it
   is one constraint away from coming back.
 - The traffic lights come back with it, and go again with it.
+- **The peeked sidebar paints its own plane.** The window's glass is behind the content pane, not in
+  front of it, so a sidebar floating over the page had no background at all. `ChromeHostView` carries a
+  `.sidebar` backing with §2's opaque backdrop forced on, faded in with the slide and built only the
+  first time it is needed — a window whose sidebar is simply *on* never stands one up, because a second
+  plane there would double the tint.
 - The asymmetry is deliberate: the same delay guards both edges, because the pointer leaves the trigger
   strip the instant the sidebar arrives over it, and a zero-delay close would flicker.
 

@@ -48,6 +48,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var sidebar: SidebarViewController?
     private var topBar: TopBarView?
     private var commandBar: CommandBarController?
+    private var history: HistoryPanelController?
     /// Exactly one per `BrowserStore` (§9.3): two of them would bump divergent
     /// use counts against the same `inputHistory` rows.
     private var adaptive: AdaptiveHistory?
@@ -108,6 +109,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             chrome.onPointerInside = { [weak controller] inside in
                 controller?.setPointerInsideChrome(inside)
             }
+            // §7.2: a peeked sidebar is floating over an opaque page, where the
+            // window's own glass cannot reach it. The host puts its own plane up.
+            controller.onPeekChange = { [weak chrome] peeking in chrome?.isPeeking = peeking }
             controller.setChrome(chrome)
             wireSidebar(sidebar, in: controller)
             // §7.1: the layout the user chose in Settings, applied before the
@@ -121,10 +125,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
 
             wireCommandBar(session, in: controller)
+            wireHistory(session, sidebar: sidebar, in: controller)
             wireDownloads(session, topBar: topBar)
             // §4.4: the New Tab page, the archive browser and the token→CSS
             // palette. Must follow the sidebar, whose Archive row it claims.
-            InternalPagesInstaller.install(session: session, sidebar: sidebar)
+            InternalPagesInstaller.install(session: session)
             // §19.2/§19.5: the hibernation sweep, the auto-archive clock and the
             // memory-pressure source. Before the first tab, so the budget is
             // never briefly unenforced.
@@ -182,6 +187,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         session.presentCommandBar = { [weak bar, weak controller] mode in
             guard let bar, let window = controller?.window else { return }
             bar.present(mode, in: window)
+        }
+    }
+
+    /// §3.5's History button (§6.4). A **floating panel over the page**, not a
+    /// tab: looking something up in your history is a glance, and a glance
+    /// should not leave a tab behind to close afterwards.
+    private func wireHistory(
+        _ session: BrowserSession,
+        sidebar: SidebarViewController,
+        in controller: BrowserWindowController
+    ) {
+        let panel = HistoryPanelController(session: session)
+        history = panel
+        panel.contentRegion = { [weak controller] in controller?.contentFrame ?? .zero }
+        sidebar.onOpenHistory = { [weak panel, weak controller] in
+            guard let panel, let window = controller?.window else { return }
+            panel.toggle(in: window)
         }
     }
 

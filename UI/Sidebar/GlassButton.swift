@@ -85,7 +85,10 @@ final class GlassButton: NSView {
         self.glassMode = glassMode
         super.init(frame: NSRect(origin: .zero, size: NSSize(width: shape.width, height: shape.height)))
         wantsLayer = true
-        layer?.cornerCurve = .continuous
+        // §3.1's three buttons are circles, and a continuous curve at half the
+        // side is a squircle — see `RoundedMetric.cornerCurve`. The tiles stay
+        // continuous, because they actually are squircles.
+        layer?.cornerCurve = shape.cornerCurve
         updateGlass(animated: false)
 
         glyph.imageScaling = .scaleProportionallyUpOrDown
@@ -164,6 +167,7 @@ final class GlassButton: NSView {
     override func updateLayer() {
         guard let layer else { return }
         layer.cornerRadius = shape.cornerRadius
+        layer.cornerCurve = shape.cornerCurve
         // **No ring.** Selection is `updateGlass`; keyboard focus is AppKit's
         // own focus ring, drawn through `drawFocusRingMask` below. A border
         // here used to be the accent-coloured highlight this app does not have.
@@ -211,7 +215,12 @@ final class GlassButton: NSView {
 
     /// Builds the backing the first time it is needed, below everything else.
     private func makeGlass() -> NSView {
-        let view = Glass.apply(.control, to: self, cornerRadius: shape.cornerRadius)
+        let view = Glass.apply(
+            .control,
+            to: self,
+            cornerRadius: shape.cornerRadius,
+            cornerCurve: shape.cornerCurve
+        )
         view.alphaValue = 0
         glass = view
         return view
@@ -289,7 +298,11 @@ final class GlassButton: NSView {
     override var focusRingMaskBounds: NSRect { bounds }
 
     override func drawFocusRingMask() {
-        NSBezierPath(roundedRect: bounds, xRadius: shape.cornerRadius, yRadius: shape.cornerRadius).fill()
+        if shape.cornerCurve == .circular {
+            NSBezierPath(ovalIn: bounds).fill()
+        } else {
+            NSBezierPath(roundedRect: bounds, xRadius: shape.cornerRadius, yRadius: shape.cornerRadius).fill()
+        }
     }
 
     override func becomeFirstResponder() -> Bool {

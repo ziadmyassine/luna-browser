@@ -224,6 +224,28 @@ func recessInkColor(_ name: String, _ alphas: InkAlphas) -> NSColor {
     }
 }
 
+/// A **frost**: an existing opaque plane, handed back at a per-theme alpha.
+///
+/// The other four constructors invent a colour from an alpha; this one keeps a
+/// colour and only changes how much of it there is. §2's frost has to be the
+/// *same* grey the chrome falls back to under Reduce Transparency — a second,
+/// independently-chosen neutral would drift from it the first time either moved
+/// — so the plane is passed in and resolved per appearance rather than spelled
+/// again here. Nothing in this file names a colour, and this does not either.
+func frostColor(_ name: String, over plane: NSColor, _ alphas: InkAlphas) -> NSColor {
+    let contrast = Tokens.A11y.increaseContrast
+    let pair = alphas.inForce
+    return NSColor(name: NSColor.Name(contrast ? name + ".contrast" : name)) { appearance in
+        let srgb = plane.srgbComponents(for: appearance)
+        return NSColor(
+            srgbRed: srgb.red,
+            green: srgb.green,
+            blue: srgb.blue,
+            alpha: appearance.isDark ? pair.dark : pair.light
+        )
+    }
+}
+
 /// A drop shadow's colour: **black in both themes**, with a per-theme alpha.
 ///
 /// Not `inkColor`, which flips to white on dark — a white shadow is a glow, and
