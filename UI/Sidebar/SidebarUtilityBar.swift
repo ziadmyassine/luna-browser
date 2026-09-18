@@ -27,6 +27,9 @@ final class SidebarUtilityBar: NSView {
     var onSwitchSpace: ((UUID) -> Void)?
     /// §6.6: a tab was dropped on a Space dot.
     var onMoveTabToSpace: ((UUID, UUID) -> Void)?
+    /// §8.2 / §13.6: a gradient was chosen from a dot's menu, including the
+    /// neutral one. Wire to `BrowserSession.setGradient(_:forSpace:)`.
+    var onSetGradient: ((UUID, GradientPair) -> Void)?
 
     private let avatar = GlassButton(
         shape: Tokens.Metric.bottomCircle,
@@ -48,6 +51,7 @@ final class SidebarUtilityBar: NSView {
         history.onActivate = { [weak self] in self?.onHistory?() }
         dots.onSwitch = { [weak self] id in self?.onSwitchSpace?(id) }
         dots.onDrop = { [weak self] tab, space in self?.onMoveTabToSpace?(tab, space) }
+        dots.onSetGradient = { [weak self] space, gradient in self?.onSetGradient?(space, gradient) }
         for view in [avatar, history, dots] { addSubview(view) }
     }
 
@@ -101,6 +105,7 @@ final class SpaceDotsView: NSView {
 
     var onSwitch: ((UUID) -> Void)?
     var onDrop: ((UUID, UUID) -> Void)?
+    var onSetGradient: ((UUID, GradientPair) -> Void)?
 
     private var spaces: [Space] = []
     private var activeSpaceID: UUID?
@@ -134,6 +139,7 @@ final class SpaceDotsView: NSView {
             dot.isActive = space.id == activeSpaceID
             dot.onActivate = { [weak self] in self?.onSwitch?(space.id) }
             dot.onDropTab = { [weak self] tab in self?.onDrop?(tab, space.id) }
+            dot.onSetGradient = { [weak self] gradient in self?.onSetGradient?(space.id, gradient) }
             addSubview(dot)
             return dot
         }
@@ -176,10 +182,11 @@ final class SpaceDotView: NSView {
     let space: Space
     var onActivate: (() -> Void)?
     var onDropTab: ((UUID) -> Void)?
+    var onSetGradient: ((GradientPair) -> Void)?
     var isActive = false { didSet { needsDisplay = true } }
 
     private var isDropTarget = false { didSet { needsDisplay = true } }
-    private let mark = CALayer()
+    private let mark = CAGradientLayer()
 
     init(space: Space, position: Int, of count: Int) {
         self.space = space
@@ -213,12 +220,22 @@ final class SpaceDotView: NSView {
             height: size
         ).pixelAligned
         mark.cornerRadius = size / 2
-        // §3.5's "100 % white / 35 %" as Luna's ink tiers: `primary` is the
-        // full-strength label colour in both themes, `tertiary` the dimmest
-        // that still clears §21.4.
-        mark.backgroundColor = (isActive ? Tokens.Text.primary : Tokens.Text.tertiary).cgColor
-        mark.borderWidth = isDropTarget ? Tokens.Metric.hairline : 0
-        mark.borderColor = isDropTarget ? Tokens.Accent.tint.cgColor : nil
+        // §8.2a's full intensity, and the whole point of the twelve pairs: the
+        // dots were `Text.primary` / `Text.tertiary`, so every Space looked
+        // identical no matter what gradient it carried.
+        let stops = Tokens.Gradient.planes(space.gradient, at: .full, in: effectiveAppearance)
+        mark.startPoint = CGPoint(x: 0, y: 1)
+        mark.endPoint = CGPoint(x: 1, y: 0)
+        mark.colors = [stops.start.cgColor, stops.end.cgColor]
+        // §3.5's "100 % / 35 %" step, kept — but the inactive dot is now a
+        // dimmer version of *its own* colour rather than of a shared ink.
+        mark.opacity = isActive ? 1 : 0.45
+        // §21.2 Differentiate Without Colour: the active dot is also the only
+        // one wearing a ring, so "which Space am I in" never depends on being
+        // able to tell two hues apart. The drop ring outranks it — during a
+        // §6.6 drag the question is where the tab is about to land.
+        mark.borderWidth = isDropTarget || isActive ? Tokens.Metric.hairline : 0
+        mark.borderColor = isDropTarget ? Tokens.Accent.tint.cgColor : Tokens.Text.primary.cgColor
         CATransaction.commit()
     }
 
@@ -235,6 +252,44 @@ final class SpaceDotView: NSView {
     override func accessibilityPerformPress() -> Bool {
         onActivate?()
         return true
+    }
+
+    // MARK: - §8.2 / §13.6 the colour menu
+
+    /// Right-click a dot to recolour its Space, and — the part Arc needed a
+    /// help article for — to leave a colour again.
+    ///
+    /// A menu on the dot rather than a Settings pane because the dot is the one
+    /// place a Space is *visible*: Arc's "How Do I Restore the Default Theme"
+    /// exists because getting out of a theme was somewhere else entirely, and
+    /// Zen has an open issue for not being able to unset a gradient at all.
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let menu = NSMenu()
+        menu.addItem(SidebarMenu.header("Colour for \(space.name)"))
+        for (index, gradient) in Tokens.Gradient.spacePalette.enumerated() {
+            let item = SidebarMenu.item(title: Tokens.Gradient.spacePaletteNames[index]) { [weak self] in
+                self?.onSetGradient?(gradient)
+            }
+            item.image = SidebarMenu.swatch(gradient, in: effectiveAppearance)
+            item.state = gradient == space.gradient ? .on : .off
+            menu.addItem(item)
+        }
+        menu.addItem(.separator())
+        // §13.6's one click back to neutral. Always present, never conditional
+        // on the Space already carrying a colour — a way out that only appears
+        // once you are lost is not a way out.
+        let reset = SidebarMenu.item(title: "No Colour") { [weak self] in
+            self?.onSetGradient?(Tokens.Gradient.neutral)
+        }
+        reset.image = SidebarMenu.swatch(Tokens.Gradient.neutral, in: effectiveAppearance)
+        reset.state = Tokens.Gradient.isNeutral(space.gradient) ? .on : .off
+        menu.addItem(reset)
+        menu.addItem(.separator())
+        // Arc's own documentation shouts this, and it is the combination that
+        // works: colour is per Space, Light/Dark is not. Saying so here is
+        // cheaper than the support article that follows from not saying it.
+        menu.addItem(SidebarMenu.header("Light and Dark apply to every Space"))
+        return menu
     }
 
     // MARK: - Drop (§6.6 — drop a tab on a dot to move it to that Space)

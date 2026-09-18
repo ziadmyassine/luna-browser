@@ -13,6 +13,7 @@
 //
 
 import AppKit
+import BrowserKit
 
 @MainActor
 enum SidebarMenu {
@@ -21,6 +22,42 @@ enum SidebarMenu {
     /// else has to stay alive for it to fire.
     static func item(title: String, action: @escaping () -> Void) -> NSMenuItem {
         ClosureMenuItem(title: title, action: action)
+    }
+
+    /// A caption: a disabled item that titles a group or states a rule.
+    ///
+    /// Not `NSMenuItem.sectionHeader(title:)` — that one is a *heading*, and
+    /// the second use here is a sentence ("Light and Dark apply to every
+    /// Space") rather than a label for what follows it.
+    static func header(_ title: String) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        item.isEnabled = false
+        return item
+    }
+
+    /// §8.2a's gradient, drawn small enough to sit in a menu.
+    ///
+    /// Not a template image: a swatch whose whole content is its colour would
+    /// come back as a grey blob if AppKit were allowed to tint it.
+    static func swatch(_ gradient: GradientPair, in appearance: NSAppearance) -> NSImage {
+        let side = Tokens.Metric.menuSwatch
+        let image = NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
+            var drawn = false
+            appearance.performAsCurrentDrawingAppearance {
+                let path = NSBezierPath(ovalIn: rect.insetBy(dx: 0.5, dy: 0.5))
+                Tokens.Gradient.nsGradient(gradient, at: .full, in: appearance)?
+                    .draw(in: path, angle: -45)
+                // §21.2 Differentiate Without Colour, and legibility besides: a
+                // light swatch on a light menu needs an edge to have a shape.
+                Tokens.Line.border.setStroke()
+                path.lineWidth = Tokens.Metric.hairline
+                path.stroke()
+                drawn = true
+            }
+            return drawn
+        }
+        image.isTemplate = false
+        return image
     }
 }
 

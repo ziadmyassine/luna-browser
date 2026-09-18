@@ -5,10 +5,12 @@
 //  §3, top to bottom: control row → URL pill → Essentials grid → list →
 //  utility bar, with the §3.7 resize handle floating on the trailing divider.
 //
-//  The view itself draws **nothing**. `BrowserWindowController` already applies
-//  `Glass.sidebar` to the window's root plane and butts the content pane
-//  against this view's trailing edge (§3.6), so a second glass surface here
-//  would be a second render pass showing the same thing.
+//  The view itself draws **one thing**: §8.2a's Space wash, behind everything
+//  else. `BrowserWindowController` already applies `Glass.sidebar` to the
+//  window's root plane and butts the content pane against this view's trailing
+//  edge (§3.6), so a second glass surface here would be a second render pass
+//  showing the same thing — but a *tint* laid on that glass is not a second
+//  surface, and it is the only thing that makes two Spaces look different.
 //
 //  Contract rule 4 lives here: this is the one place that observes
 //  `NSWorkspace.accessibilityDisplayOptionsDidChangeNotification` and fans it
@@ -42,6 +44,9 @@ final class SidebarViewController: NSViewController {
     var preferredWidth: CGFloat { SidebarResizeHandle.storedWidth }
 
     private let session: BrowserSession
+    /// §8.2a's sidebar wash — the active Space's gradient at 16 %, behind
+    /// everything. First in `loadView`'s subview list so it stays behind.
+    private let wash = SpaceWashView()
     private let controlRow = SidebarControlRow()
     private let pill = URLPillView()
     private let essentials = EssentialsGridView()
@@ -67,7 +72,7 @@ final class SidebarViewController: NSViewController {
 
     override func loadView() {
         let root = NSView()
-        for subview in [controlRow, pill, essentials, list.scrollView, utility, handle] {
+        for subview in [wash, controlRow, pill, essentials, list.scrollView, utility, handle] {
             root.addSubview(subview)
         }
         view = root
@@ -117,11 +122,16 @@ final class SidebarViewController: NSViewController {
             essentials.alphaValue = 0
             list.scrollView.alphaValue = 0
         }
+        if let space = session.space(session.activeSpaceID) { wash.show(space.gradient) }
         essentials.show(session.tabs.filter { $0.kind == .essential }, activeTabID: session.activeTabID)
         list.show(session.tabs, activeTabID: session.activeTabID)
         utility.show(spaces: session.spaces, activeSpaceID: session.activeSpaceID)
         refreshActiveTab()
         if switchingSpace {
+            // §21.2: Reduce Motion takes the fade away rather than shortening
+            // it. `Motion.animate` already degrades to a zero duration, so the
+            // two lines below land in this frame — the content does not sit at
+            // alpha 0 waiting for an animation that is not going to run.
             Tokens.Motion.animate(Tokens.Motion.spaceSwitchCrossfade) { context in
                 context.allowsImplicitAnimation = true
                 essentials.animator().alphaValue = 1
@@ -180,6 +190,12 @@ final class SidebarViewController: NSViewController {
         utility.onHistory = { [weak self] in self?.onOpenHistory?() }
         utility.onSwitchSpace = { [weak self] id in self?.session.switchSpace(id) }
         utility.onMoveTabToSpace = { [weak self] tab, space in self?.session.moveTab(tab, toSpace: space) }
+        // §8.2 / §13.6. The failure is silent on purpose: a colour that did not
+        // persist is a cosmetic disappointment on the next launch, not
+        // something to interrupt the user mid-browse with a dialog.
+        utility.onSetGradient = { [weak self] space, gradient in
+            Task { try? await self?.session.setGradient(gradient, forSpace: space) }
+        }
 
         essentials.onActivate = { [weak self] id in self?.session.activateTab(id) }
         // Dragging a row up into the grid is one of the two ways to pin
@@ -258,6 +274,7 @@ final class SidebarViewController: NSViewController {
 
     private func layoutSubviews() {
         let bounds = view.bounds
+        wash.frame = bounds
         let inset = Tokens.Metric.rowInset
         let bar = Tokens.Metric.topBarHeight
 

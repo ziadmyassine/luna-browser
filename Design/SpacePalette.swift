@@ -178,6 +178,28 @@ extension Tokens {
             )
         }
 
+        /// The wash's two stops **as they are painted**, which is not what
+        /// `planes` returns and must not be confused with it.
+        ///
+        /// `planes` flattens the wash so §21.4 can be measured against what the
+        /// eye receives. This is the layer that produces that result: the pair
+        /// held at `washAlpha` so the Liquid Glass underneath is still glass.
+        /// Painting `planes`' opaque answer over the sidebar would put a plate
+        /// on top of the material and there would be no glass left.
+        ///
+        /// Under **Reduce Transparency** (§21.2) the two coincide: there is no
+        /// glass to see through, `Surface.glassFallback` is already the plane,
+        /// and the opaque flattened pair is the correct thing to paint.
+        static func washStops(_ gradient: GradientPair, in appearance: NSAppearance) -> (start: NSColor, end: NSColor) {
+            guard !Tokens.A11y.reduceTransparency else {
+                return planes(gradient, at: .wash, in: appearance)
+            }
+            return (
+                NSColor(gradient.start).withAlphaComponent(washAlpha),
+                NSColor(gradient.end).withAlphaComponent(washAlpha)
+            )
+        }
+
         /// The drawable gradient at `intensity`. Nil only if AppKit rejects the
         /// stops, which sRGB components in 0...1 never do.
         static func nsGradient(
