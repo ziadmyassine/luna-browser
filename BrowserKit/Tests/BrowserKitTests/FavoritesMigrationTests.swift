@@ -129,6 +129,101 @@ struct FavoritesMigrationTests {
         #expect(demoted.spaceID == spaces[12 % 2].id, "it stays in the Space it already lives in")
     }
 
+    /// An archived Favorite is reachable, not theoretical: `deleteSpace(policy: .archiveTabs)`
+    /// archives one whose Profile has no other Space left to home it in. It must survive the
+    /// trim untouched — the filter that stops it being *counted* must not become the thing
+    /// that demotes it, which is why `archivedAt IS NULL` appears in the outer `WHERE` too.
+    @Test func leavesArchivedFavoritesAloneEntirely() async throws {
+        let fixture = try await seeded()
+        let (store, profile, spaces) = (fixture.store, fixture.profile, fixture.spaces)
+        let archived = Tab(
+            spaceID: spaces[0].id,
+            kind: .essential,
+            url: URL(string: "https://archived.example")!,
+            archivedAt: Date(),
+            profileID: profile.id
+        )
+        try await store.upsert(archived)
+        for index in 0..<12 {
+            try await store.upsert(
+                Tab(
+                    spaceID: spaces[index % 2].id,
+                    kind: .essential,
+                    url: URL(string: "https://live\(index).example")!,
+                    profileID: profile.id
+                )
+            )
+        }
+
+        try await store.rerunFavoritesMigration()
+
+        let all = try await store.allTabsForTesting()
+        #expect(all.count == 13)
+        #expect(all.filter { $0.kind == .essential }.count == 13, "twelve live plus one archived, none demoted")
+        let survivor = try #require(all.first { $0.id == archived.id })
+        #expect(survivor.kind == .essential)
+        #expect(survivor.profileID == profile.id, "it is still a Favorite, it is just not on the shelf")
+        // The shelf itself is still exactly twelve.
+        #expect(try await store.favorites(onProfile: profile.id).count == 12)
+    }
+
+    /// The displacement the filter exists to prevent: a recently-archived tile must not push
+    /// a live one out of the twelve just by being newer.
+    @Test func anArchivedFavoriteCannotDisplaceALiveOne() async throws {
+        let fixture = try await seeded()
+        let (store, profile, spaces) = (fixture.store, fixture.profile, fixture.spaces)
+        let now = Date()
+        // Archived and the most recently active of the lot — the strongest possible claim
+        // on a slot, and it still gets none.
+        try await store.upsert(
+            Tab(
+                spaceID: spaces[0].id,
+                kind: .essential,
+                url: URL(string: "https://archived.example")!,
+                lastActiveAt: now,
+                archivedAt: now,
+                profileID: profile.id
+            )
+        )
+        var live: [UUID] = []
+        for index in 0..<12 {
+            let tab = Tab(
+                spaceID: spaces[index % 2].id,
+                kind: .essential,
+                url: URL(string: "https://live\(index).example")!,
+                lastActiveAt: now.addingTimeInterval(-Double(index) - 1),
+                profileID: profile.id
+            )
+            live.append(tab.id)
+            try await store.upsert(tab)
+        }
+
+        try await store.rerunFavoritesMigration()
+
+        let shelf = try await store.favorites(onProfile: profile.id)
+        #expect(Set(shelf.map(\.id)) == Set(live), "every live favourite keeps its slot")
+    }
+
+    /// The store's read has to agree with the trim, and with the session — which holds
+    /// archived tabs in its archive rather than in `TabList`.
+    @Test func favoritesOnProfileExcludesArchivedOnes() async throws {
+        let fixture = try await seeded()
+        let (store, profile, spaces) = (fixture.store, fixture.profile, fixture.spaces)
+        let live = Tab(spaceID: spaces[0].id, kind: .essential, url: URL(string: "https://a.example")!, profileID: profile.id)
+        try await store.upsert(live)
+        try await store.upsert(
+            Tab(
+                spaceID: spaces[0].id,
+                kind: .essential,
+                url: URL(string: "https://b.example")!,
+                archivedAt: Date(),
+                profileID: profile.id
+            )
+        )
+
+        #expect(try await store.favorites(onProfile: profile.id).map(\.id) == [live.id])
+    }
+
     /// The cap is per Profile, not global: a second Profile gets its own twelve.
     @Test func capsPerProfileNotGlobally() async throws {
         let store = try makeTemporaryStore()

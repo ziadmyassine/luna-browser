@@ -18,14 +18,20 @@ public extension BrowserStore {
     /// resident global tier is a memory problem.
     static let favoritesCap = 12
 
-    /// Every Favorite on a Profile, across all of its Spaces, in display order.
+    /// Every *live* Favorite on a Profile, across all of its Spaces, in display order.
+    ///
+    /// Archived ones are excluded, matching both the session — which keeps archived tabs in
+    /// its archive rather than in `TabList` — and `v2`'s cap trim. A Favorite can be archived:
+    /// `deleteSpace(_:policy: .archiveTabs)` archives one whose Profile has no other Space
+    /// left to home it in. It is still a Favorite, it is just not on the shelf right now, so
+    /// it neither shows up here nor counts against ``favoritesCap``.
     func favorites(onProfile profileID: UUID) async throws -> [Tab] {
         try await pool.read { db in
             try Tab.fetchAll(
                 db,
                 sql: #"""
                 SELECT * FROM tabs
-                WHERE profileID = ? AND kind = 'essential'
+                WHERE profileID = ? AND kind = 'essential' AND archivedAt IS NULL
                 ORDER BY "order", createdAt
                 """#,
                 arguments: [profileID]

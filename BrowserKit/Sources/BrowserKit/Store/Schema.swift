@@ -76,15 +76,32 @@ enum Schema {
         // so keep the twelve most recently active and demote the rest to pinned tabs in the
         // Space they already live in. Demote, never delete: §13.7's whole argument is that
         // this is the cheap place to beat Vivaldi, which closes tabs with no undo.
+        //
+        // **`archivedAt IS NULL` appears twice, and both are load-bearing.**
+        //
+        // An archived Favorite is a reachable state, not a theoretical one: §2 says Favorites
+        // never *auto*-archive, but `deleteSpace(_:policy: .archiveTabs)` archives one when its
+        // Profile has no other Space left to home it in. So:
+        //
+        //   · in the ranking, so an archived tile cannot displace a live one out of the twelve;
+        //   · in the outer `WHERE`, because without it an archived row falls out of the ranked
+        //     set and is therefore caught by `NOT IN` and silently demoted — the filter that
+        //     protects it from being counted would be the very thing that demotes it.
+        //
+        // This also makes the SQL agree with the runtime, which is the real requirement: the
+        // session holds archived tabs in `session.archived` rather than in `TabList`, so
+        // `favorites(onProfile:)` already never counts them. A migration that disagreed with
+        // the code reading its output is worse than either rule on its own.
         try db.execute(sql: """
         UPDATE tabs SET kind = 'pinned', profileID = NULL
          WHERE kind = 'essential'
+           AND archivedAt IS NULL
            AND id NOT IN (
              SELECT id FROM (
                SELECT id, ROW_NUMBER() OVER (
                             PARTITION BY profileID ORDER BY lastActiveAt DESC, createdAt DESC
                           ) AS tier
-                 FROM tabs WHERE kind = 'essential'
+                 FROM tabs WHERE kind = 'essential' AND archivedAt IS NULL
              ) WHERE tier <= 12
            )
         """)
