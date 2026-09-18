@@ -36,7 +36,7 @@ extension BrowserSession {
             url: url ?? Self.blankPage,
             order: list.nextOrder(kind: kind, in: activeSpaceID)
         )
-        persistAll(list.insert(tab))
+        persistAll(list.insert(tab, at: TabList.openIndex(for: kind)))
         // A URL Luna opens on the user's behalf is a typed visit; a link click
         // reaches us through the engine instead (§9.3).
         if url != nil { pendingVisitKind[tab.id] = .typed }
@@ -72,13 +72,13 @@ extension BrowserSession {
     /// on the first keystroke after a relaunch.
     func reopenLastArchived() {
         guard let newest = archived.first else { return }
-        restoreArchived(newest, at: .max)
+        restoreArchived(newest, at: TabList.openIndex(for: newest.kind))
     }
 
     /// §6.4 / §9.2: pull one specific tab back out of the archive.
     func unarchiveTab(_ id: UUID) {
         guard let tab = archived.first(where: { $0.id == id }) else { return }
-        restoreArchived(tab, at: .max)
+        restoreArchived(tab, at: TabList.openIndex(for: tab.kind))
     }
 
     /// Every tab this window knows about, across **all** Spaces — `tabs` is the
@@ -157,7 +157,10 @@ extension BrowserSession {
         notifyChange()
     }
 
-    private func restoreArchived(_ tab: Tab, at index: Int) {
+    /// - Parameter index: where in its section it goes back, or nil for the
+    ///   end of it. Undo hands over the index it was closed from; reopening
+    ///   from the archive has no such memory and is simply a tab opening now.
+    private func restoreArchived(_ tab: Tab, at index: Int?) {
         var restored = tab
         restored.archivedAt = nil
         // A Favorite can reach the archive by one route only — its Space was

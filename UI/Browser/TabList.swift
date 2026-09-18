@@ -79,6 +79,19 @@ struct TabList: Sendable {
         (self[spaceID].filter { $0.kind == kind }.map(\.order).max() ?? -1) + 1
     }
 
+    /// Where a tab that is being **opened now** belongs in its section — the
+    /// `index` to hand `insert(_:at:)`.
+    ///
+    /// **Today's tabs stack newest-first.** The list is a record of what you
+    /// are doing, read from the top, and a new tab appended to the bottom of a
+    /// long day's browsing opens off the end of the scroll — the one tab you
+    /// definitely want to see is the one you cannot. Pinned tabs and Favorites
+    /// are the opposite: those are slots the user placed deliberately, so a new
+    /// one joins the end rather than pushing the arrangement down.
+    static func openIndex(for kind: TabKind) -> Int? {
+        kind == .today ? 0 : nil
+    }
+
     // MARK: - Profiles (§2)
 
     /// Every Favorite on a Profile, ordered — the per-Profile tier itself.

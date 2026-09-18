@@ -593,6 +593,11 @@ Order: `+ Add Tab` row → **separator** → tabs.
   > looked up from the view at that moment: the table builds a row view once and then moves it up the
   > list as tabs are closed above it, so a row index captured when the view was made goes stale, and
   > pressing close on a tab used to mute the tab underneath it.
+- **Today's tabs stack newest-first.** A new tab goes to the *top* of the section, not the bottom: the
+  list is a record of what you are doing and it is read from the top, and a tab appended to the end of a
+  long day's browsing opens off the bottom of the scroll — the one tab you certainly want to see is the
+  one you cannot. Pinned tiles and Favorites are the opposite and still join the end, because those are
+  slots the user placed deliberately and a new one must not push the arrangement down.
 - **Selected and hover fills are `Surface.selected` / `Surface.hover`.** Clear glass alone is very nearly
   the sidebar's own glass, and a selected row read as unselected until these were asked for.
 - Loading shows a shimmer sweep across the title, not a spinner.
