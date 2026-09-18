@@ -97,7 +97,12 @@ final class SettingsSectionList: NSView {
     }
 }
 
-/// One row of §2's list: `rowHeight` of pitch, `rowCornerRadius` of pill.
+/// One row of §2's list.
+///
+/// **The pill is shorter than the row's pitch.** The reference puts its rows on
+/// a `settingsSectionRow` grid and leaves a `rowGap` between one pill and the
+/// next, so nine selected states in a row could never touch; a pill that filled
+/// its pitch made the list read as a stack of bars.
 @MainActor
 final class SettingsSectionRowView: NSView {
 
@@ -166,7 +171,7 @@ final class SettingsSectionRowView: NSView {
             tile.heightAnchor.constraint(equalToConstant: square.height),
             icon.centerXAnchor.constraint(equalTo: tile.centerXAnchor),
             icon.centerYAnchor.constraint(equalTo: tile.centerYAnchor),
-            heightAnchor.constraint(equalToConstant: Tokens.Metric.settingsSectionRow)
+            heightAnchor.constraint(equalToConstant: SettingsMetrics.sectionPillHeight)
         ])
 
         setAccessibilityElement(true)
@@ -198,8 +203,10 @@ final class SettingsSectionRowView: NSView {
         // the row under it is selected or not.
         tile.layer?.cornerRadius = Tokens.Metric.settingsSectionIcon.cornerRadius
         tile.layer?.backgroundColor = Tokens.Surface.selected.cgColor
-        tile.layer?.borderWidth = Tokens.Metric.hairline
-        tile.layer?.borderColor = Tokens.Line.border.cgColor
+        // **No outline.** The reference's tile is a plate with a glyph on it;
+        // a hairline round a 24 pt square at this size reads as a second,
+        // smaller selection state inside the row's own.
+        tile.layer?.borderWidth = 0
     }
 
     override func viewDidChangeEffectiveAppearance() {

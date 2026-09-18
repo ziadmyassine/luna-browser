@@ -65,9 +65,12 @@ enum SettingsMetrics {
 
     // MARK: The reference's shape (§1, re-measured)
 
-    /// One row of the left column, and the gap between two of them.
+    /// One row of the left column: its **pitch**, the gap the pill leaves to
+    /// its neighbour, and what is left for the pill itself. The reference's
+    /// list is on a fixed grid — the gap comes out of the row, not on top of it.
     static let sectionRowHeight = Tokens.Metric.settingsSectionRow
     static let sectionRowGap = Tokens.Metric.rowGap
+    static let sectionPillHeight = Tokens.Metric.settingsSectionRow - Tokens.Metric.rowGap
     /// The tile's inset inside the row's own pill. Smaller than the pill's
     /// inset from the column, so the two insets add up to the reference's
     /// 14 pt from the glass edge to the tile.
@@ -80,6 +83,9 @@ enum SettingsMetrics {
     static let cardInset = Tokens.Metric.chromeGapWide
     /// One card to the next, header included.
     static let groupGap = Tokens.Metric.settingsGroupGap
+    /// The one corner the whole window is rounded to below the window itself:
+    /// the search field, the nav capsule, and every plate a control sits on.
+    static let fieldCorner = Tokens.Metric.settingsFieldCorner
 
     // MARK: Motion (§5) — reused, never invented
 

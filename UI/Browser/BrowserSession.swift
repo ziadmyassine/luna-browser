@@ -145,11 +145,19 @@ final class BrowserSession {
 
     /// The gradient a new Space takes, given the ones already in use.
     ///
-    /// §8.2's twelve curated pairs and the next-unused rule live in `Design`,
-    /// which is where the rest of the colour lives; the session only asks. The
-    /// override exists so a test can pin the answer without a design system
+    /// **Neutral, and colour is something the user asks for.** §8.2's twelve
+    /// curated pairs and the next-unused rule live in `Design`, and handing a
+    /// new Space one of them automatically meant the sidebar changed colour on
+    /// its own — a window the user had not asked to look different came back
+    /// looking different, and the only way out was a menu they had no reason to
+    /// open. Neutral washes to nothing, so a Space that was never given a
+    /// colour looks exactly like the sidebar always did; `Tokens.Gradient.next`
+    /// is still there, and the dot's colour menu and §3.7's Gradient popup are
+    /// how a Space gets one.
+    ///
+    /// The override exists so a test can pin the answer without a design system
     /// behind it, and nothing in the app sets it.
-    var nextGradient: ([GradientPair]) -> GradientPair = { Tokens.Gradient.next(after: $0) }
+    var nextGradient: ([GradientPair]) -> GradientPair = { _ in Tokens.Gradient.neutral }
 
     // MARK: - State
     //

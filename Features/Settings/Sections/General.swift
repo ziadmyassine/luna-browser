@@ -47,7 +47,7 @@ final class SettingsBody {
     init() {
         view.orientation = .vertical
         view.alignment = .leading
-        view.spacing = Tokens.Metric.chromeGap
+        view.spacing = Tokens.Metric.settingsGroupGap
         view.translatesAutoresizingMaskIntoConstraints = false
     }
 
@@ -65,8 +65,16 @@ final class SettingsBody {
     }
 
     /// A standalone row — a note, or the live host below.
+    ///
+    /// **It sits close to the card above it.** The stack's own spacing is the
+    /// gap between one *group* and the next; a sentence explaining the card it
+    /// follows, floated out to that distance, reads as the opening line of the
+    /// next group instead of as a footnote on the last one.
     func loose(_ child: NSView, terms: [String]) {
         entries.append(Entry(view: child, terms: terms.map { $0.lowercased() }, card: nil))
+        if let previous = view.arrangedSubviews.last {
+            view.setCustomSpacing(Tokens.Metric.chromeGap, after: previous)
+        }
         add(child)
     }
 
@@ -192,7 +200,7 @@ final class GeneralSection: NSObject, SettingsSection {
 
     override init() {
         super.init()
-        body.card("Default browser", [
+        body.card(nil, [
             (defaultBrowserRow(), ["default browser", "set as default", "links"])
         ])
         body.loose(status, terms: ["default browser"])

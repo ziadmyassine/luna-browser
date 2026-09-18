@@ -13,9 +13,16 @@ import AppKit
 ///
 /// **`NSSegmentedControl` paints its selection as a solid accent-blue block**,
 /// which is the one thing this app's chrome never does: selection here is the
-/// material. So the picker is two capsules — a plate each, glass on the one
-/// that is chosen — and it looks like the row pills and the pinned tiles it
-/// sits a window away from.
+/// material. So the picker is a run of plates with a wash on the one that is
+/// chosen, and it looks like the row pills and the pinned tiles it sits a
+/// window away from.
+///
+/// **A segment is as wide as its word.** Every segment used to be a fixed
+/// 140 pt, which is wider than "Auto", "Light" and "Dark" put together need and
+/// wide enough that three of them crossed half the pane — the row read as three
+/// buttons that happened to be next to each other rather than as one choice
+/// with three settings. The reference sizes a segment from its label, leaves
+/// two points between them, and lets the group end where the words do.
 @MainActor
 final class SettingsChoice: NSView {
 
@@ -43,7 +50,7 @@ final class SettingsChoice: NSView {
         }
         let stack = NSStackView(views: buttons)
         stack.orientation = .horizontal
-        stack.spacing = Tokens.Metric.chromeGap
+        stack.spacing = Tokens.Metric.settingsSegmentGap
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
         NSLayoutConstraint.activate([
@@ -65,7 +72,7 @@ final class SettingsChoice: NSView {
     }
 }
 
-/// One capsule in a `SettingsChoice`.
+/// One segment in a `SettingsChoice`.
 @MainActor
 final class SettingsChoiceButton: NSView {
 
@@ -79,23 +86,22 @@ final class SettingsChoiceButton: NSView {
     }
 
     private let label = NSTextField(labelWithString: "")
-    private var glass: NSView?
     private var isHovering = false
 
     init(title: String) {
         super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerCurve = .continuous
-        layer?.cornerRadius = Tokens.Metric.urlPill.cornerRadius
         label.stringValue = title
         label.font = Tokens.TypeScale.sidebarRow
         label.alignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false
         addSubview(label)
+        let inset = Tokens.Metric.settingsSegmentInset
         NSLayoutConstraint.activate([
-            widthAnchor.constraint(equalToConstant: Tokens.Metric.settingsSegmentWidth),
-            heightAnchor.constraint(equalToConstant: Tokens.Metric.urlPill.height),
-            label.centerXAnchor.constraint(equalTo: centerXAnchor),
+            heightAnchor.constraint(equalToConstant: Tokens.Metric.settingsSegmentHeight),
+            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
+            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
             label.centerYAnchor.constraint(equalTo: centerYAnchor)
         ])
         setAccessibilityElement(true)
@@ -110,10 +116,6 @@ final class SettingsChoiceButton: NSView {
     }
 
     private func refresh() {
-        if isSelected, glass == nil {
-            glass = Glass.apply(.control, to: self, cornerRadius: Tokens.Metric.urlPill.cornerRadius)
-        }
-        glass?.alphaValue = isSelected ? 1 : 0
         label.textColor = isSelected || isHovering ? Tokens.Text.primary : Tokens.Text.secondary
         setAccessibilityValue(isSelected)
         needsDisplay = true
@@ -123,8 +125,13 @@ final class SettingsChoiceButton: NSView {
 
     override func updateLayer() {
         guard let layer else { return }
-        layer.borderWidth = Tokens.Metric.hairline
-        layer.borderColor = Tokens.Line.border.cgColor
+        layer.cornerRadius = Tokens.Metric.settingsSegmentCorner
+        // **No outline on the ones you have not chosen.** Bordering every
+        // segment drew the group as a row of empty boxes and put the same
+        // weight on the two answers you did not give as on the one you did.
+        // The wash is the whole signal, which is how selection reads
+        // everywhere else in the app.
+        layer.borderWidth = 0
         layer.backgroundColor = isSelected
             ? Tokens.Surface.selected.cgColor
             : (isHovering ? Tokens.Surface.hover.cgColor : nil)

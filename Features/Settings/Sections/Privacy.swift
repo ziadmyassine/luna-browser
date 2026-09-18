@@ -86,8 +86,9 @@ final class PrivacySection: SettingsSection {
         statusLabel.lineBreakMode = .byTruncatingTail
         statusLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
-        let button = NSButton(title: String(localized: "Refresh Now"), target: self, action: #selector(refreshNow))
-        button.bezelStyle = .push
+        let button = SettingsPushButton(title: String(localized: "Refresh Now"), isDestructive: false)
+        button.target = self
+        button.action = #selector(refreshNow)
         let accessory = NSStackView(views: [statusLabel, spinner, button])
         accessory.orientation = .horizontal
         accessory.spacing = Tokens.Metric.chromeGap
@@ -101,7 +102,7 @@ final class PrivacySection: SettingsSection {
     private func buildSites() {
         exemptions.orientation = .vertical
         exemptions.alignment = .leading
-        exemptions.spacing = Tokens.Metric.rowGap
+        exemptions.spacing = 0
         let title = String(localized: "Sites with blocking turned off")
         body.card(title, [(exemptions, [title, "exceptions", "allowlist", "per-site"])])
     }
@@ -172,18 +173,25 @@ final class PrivacySection: SettingsSection {
         }
         for view in exemptions.arrangedSubviews { view.removeFromSuperview() }
         guard !hosts.isEmpty else {
-            let empty = NSTextField(labelWithString: String(localized: "None. Blocking is on everywhere."))
-            empty.font = Tokens.TypeScale.sidebarRow
-            empty.textColor = Tokens.Text.secondary
-            exemptions.addArrangedSubview(empty)
+            add(SettingsRow.status(String(localized: "None. Blocking is on everywhere.")))
             return
         }
         for host in hosts {
-            let remove = NSButton(title: String(localized: "Remove"), target: self, action: #selector(removeHost(_:)))
-            remove.bezelStyle = .push
+            let remove = SettingsPushButton(title: String(localized: "Remove"), isDestructive: false)
+            remove.target = self
+            remove.action = #selector(removeHost(_:))
             remove.identifier = NSUserInterfaceItemIdentifier(host)
-            exemptions.addArrangedSubview(SettingsRow.accessory(host, subtitle: nil, accessory: remove))
+            add(SettingsRow.accessory(host, subtitle: nil, accessory: remove))
         }
+    }
+
+    /// A row in this list is a row in the card it is in: it spans the card, so
+    /// its Remove button lands on the same trailing edge every other control in
+    /// the pane does. An arranged subview left to hug its own text put the
+    /// button immediately after the host name instead.
+    private func add(_ row: NSView) {
+        exemptions.addArrangedSubview(row)
+        row.widthAnchor.constraint(equalTo: exemptions.widthAnchor).isActive = true
     }
 
     @objc private func removeHost(_ sender: NSButton) {

@@ -82,39 +82,45 @@ final class SettingsRowView: NSView {
         labels.orientation = .vertical
         labels.alignment = .leading
         labels.spacing = SettingsMetrics.rowGap
-        labels.setHuggingPriority(.defaultLow, for: .horizontal)
+        labels.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(labels)
 
-        var columns: [NSView] = [labels]
-        if let control {
-            control.setContentHuggingPriority(.required, for: .horizontal)
-            control.setContentCompressionResistancePriority(.required, for: .horizontal)
-            columns.append(control)
-        }
-        let row = NSStackView(views: columns)
-        row.orientation = .horizontal
-        row.alignment = .centerY
-        row.spacing = SettingsMetrics.controlRowGap
-        row.distribution = .fill
-        // **The card's grid.** The horizontal inset is the one every other
-        // thing in the pane lines up on — the separators below this row, and
-        // the header above the card it is in.
-        row.edgeInsets = NSEdgeInsets(
-            top: SettingsMetrics.controlRowGap,
-            left: SettingsMetrics.cardInset,
-            bottom: SettingsMetrics.controlRowGap,
-            right: SettingsMetrics.cardInset
-        )
-        row.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(row)
-        NSLayoutConstraint.activate([
-            row.leadingAnchor.constraint(equalTo: leadingAnchor),
-            row.trailingAnchor.constraint(equalTo: trailingAnchor),
-            row.topAnchor.constraint(equalTo: topAnchor),
-            row.bottomAnchor.constraint(equalTo: bottomAnchor),
+        // **Explicit constraints, not a horizontal stack.** A stack decides
+        // which of its two views absorbs the row's spare width, and it decided
+        // differently for a switch (which has an intrinsic size) than for a
+        // `SettingsChoice` (which does not): the switch went to the trailing
+        // edge and the segments stayed beside the label with the spare width
+        // spread *between* the segments. The reference has one rule — the
+        // label starts at the card's text inset, the control ends at it — so
+        // that is what is written here, and nothing infers it.
+        let inset = SettingsMetrics.cardInset
+        let pad = SettingsMetrics.controlRowGap
+        var layout: [NSLayoutConstraint] = [
+            labels.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
+            labels.topAnchor.constraint(greaterThanOrEqualTo: topAnchor, constant: pad),
+            labels.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -pad),
+            labels.centerYAnchor.constraint(equalTo: centerYAnchor),
             // A row is at least §1's card-row height; a subtitle or a disabled
             // reason grows it rather than squashing into it.
             heightAnchor.constraint(greaterThanOrEqualToConstant: SettingsMetrics.cardRowHeight)
-        ])
+        ]
+
+        if let control {
+            control.translatesAutoresizingMaskIntoConstraints = false
+            control.setContentHuggingPriority(.required, for: .horizontal)
+            control.setContentCompressionResistancePriority(.required, for: .horizontal)
+            addSubview(control)
+            layout += [
+                control.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
+                control.centerYAnchor.constraint(equalTo: centerYAnchor),
+                control.topAnchor.constraint(greaterThanOrEqualTo: topAnchor, constant: pad),
+                control.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -pad),
+                labels.trailingAnchor.constraint(lessThanOrEqualTo: control.leadingAnchor, constant: -pad)
+            ]
+        } else {
+            layout.append(labels.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -inset))
+        }
+        NSLayoutConstraint.activate(layout)
     }
 
     /// `Text.secondary`, not `tertiary`: §21.4's floor is measured on the bare
@@ -276,11 +282,13 @@ final class SettingsRowGroupView: NSView {
     private static func header(_ title: String) -> NSView {
         let label = NSTextField(labelWithString: title)
         label.font = Tokens.TypeScale.settingsRow
-        // **The same ink as the rows it names.** A dimmed header set it apart
-        // from the group instead of attaching it to one; the reference draws it
-        // at full strength, in the row's own face, and lets the position do the
-        // work.
-        label.textColor = Tokens.Text.primary
+        // **A step below the rows it names.** At full strength the header was
+        // the same ink, the same size and the same face as the row under it,
+        // so a card opened with two lines of identical type and the eye had to
+        // read both to find out which one was the group. The reference keeps
+        // the size and the position and drops the ink one step, which says
+        // "label" without spending a second type size on it.
+        label.textColor = Tokens.Text.secondary
         label.translatesAutoresizingMaskIntoConstraints = false
         let host = NSView()
         host.addSubview(label)
@@ -327,5 +335,307 @@ final class SettingsRuleView: NSView {
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
         needsDisplay = true
+    }
+}
+
+/// §4's pushbutton, drawn flat.
+///
+/// **AppKit's `.push` bezel is the loudest thing in the pane.** It is a
+/// near-white plate with a shadow under it, and next to a bare popup and a
+/// switch it read as the one control that had been dropped in from another
+/// app — "Set as Default" pulled the eye before the row it belonged to. The
+/// reference's button is the row's own wash with a hairline round it and the
+/// label at full strength, which is what this draws.
+///
+/// Still an `NSButton`, so `isEnabled`, the key-view loop, `⌥`-clicking,
+/// VoiceOver's `AXButton` role and the `performClick` path are AppKit's and
+/// not re-earned here — only `draw` is ours, and only because the bezel is.
+@MainActor
+final class SettingsPushButton: NSButton {
+
+    var onActivate: (() -> Void)?
+
+    private let isDestructive: Bool
+    private var isHovering = false {
+        didSet {
+            guard isHovering != oldValue else { return }
+            needsDisplay = true
+        }
+    }
+
+    init(title: String, isDestructive: Bool) {
+        self.isDestructive = isDestructive
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.cornerCurve = .continuous
+        isBordered = false
+        self.title = title
+        target = self
+        action = #selector(fire)
+        translatesAutoresizingMaskIntoConstraints = false
+        heightAnchor.constraint(equalToConstant: Tokens.Metric.settingsButtonHeight).isActive = true
+        applyTitle()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("Luna builds its chrome in code; there is no nib to decode.")
+    }
+
+    @objc private func fire() { onActivate?() }
+
+    /// The title is attributed, so `isEnabled` has to dim it by hand — AppKit
+    /// only dims the ones it drew itself.
+    override var isEnabled: Bool {
+        didSet {
+            guard isEnabled != oldValue else { return }
+            applyTitle()
+        }
+    }
+
+    private func applyTitle() {
+        let ink: NSColor = if !isEnabled {
+            Tokens.Text.disabled
+        } else if isDestructive {
+            Tokens.Accent.danger
+        } else {
+            Tokens.Text.primary
+        }
+        attributedTitle = NSAttributedString(string: title, attributes: [
+            .font: Tokens.TypeScale.sidebarRow,
+            .foregroundColor: ink
+        ])
+        needsDisplay = true
+    }
+
+    /// Room either side of the label — a flat button with none is a word.
+    override var intrinsicContentSize: NSSize {
+        var size = super.intrinsicContentSize
+        size.width += 2 * Tokens.Metric.settingsButtonInset
+        size.height = Tokens.Metric.settingsButtonHeight
+        return size
+    }
+
+    override func updateLayer() {
+        guard let layer else { return }
+        layer.cornerRadius = SettingsMetrics.fieldCorner
+        layer.backgroundColor = (isHovering && isEnabled ? Tokens.Surface.hover : Tokens.Surface.selected).cgColor
+        layer.borderWidth = Tokens.Metric.hairline
+        layer.borderColor = Tokens.Line.border.cgColor
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        // `wantsUpdateLayer` is false on a control that draws a title, so the
+        // plate is refreshed on the way into `super.draw`.
+        updateLayer()
+        super.draw(dirtyRect)
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        applyTitle()
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas where area.owner === self { removeTrackingArea(area) }
+        addTrackingArea(NSTrackingArea(
+            rect: .zero,
+            options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+            owner: self
+        ))
+    }
+
+    override func mouseEntered(with event: NSEvent) { isHovering = true }
+
+    override func mouseExited(with event: NSEvent) { isHovering = false }
+}
+
+/// §4's text field, drawn as a well.
+///
+/// **AppKit's bezel is a white plate in a dark pane.** The stock field arrives
+/// with a light background and a hard border, so a Space's name sat in the one
+/// bright rectangle in the window and pulled harder than the Space it named.
+/// The reference's fields are the recess the search field is: `Surface.well`,
+/// the same corner, no outline, and the text at the row's own size.
+///
+/// Still an `NSTextField`, so editing, the field editor, undo, Services and
+/// VoiceOver are AppKit's — only the bezel is redrawn.
+@MainActor
+final class SettingsTextField: NSTextField {
+
+    init(string: String) {
+        super.init(frame: .zero)
+        stringValue = string
+        isBordered = false
+        isBezeled = false
+        drawsBackground = false
+        focusRingType = .none
+        usesSingleLineMode = true
+        cell?.wraps = false
+        cell?.isScrollable = true
+        wantsLayer = true
+        layer?.cornerCurve = .continuous
+        applyTokens()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("Luna builds its chrome in code; there is no nib to decode.")
+    }
+
+    private func applyTokens() {
+        font = Tokens.TypeScale.settingsRow
+        textColor = isEnabled ? Tokens.Text.primary : Tokens.Text.disabled
+        needsDisplay = true
+    }
+
+    /// Room either side of the text, and the height the rest of the row's
+    /// controls stand at.
+    override var intrinsicContentSize: NSSize {
+        var size = super.intrinsicContentSize
+        size.height = Tokens.Metric.capsuleHeight - Tokens.Metric.chromeGap
+        return size
+    }
+
+    /// A field with no inset puts its caret against the corner.
+    override var isEnabled: Bool {
+        didSet { applyTokens() }
+    }
+
+    override func drawFocusRingMask() {}
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard let layer else {
+            super.draw(dirtyRect)
+            return
+        }
+        layer.cornerRadius = SettingsMetrics.fieldCorner
+        layer.backgroundColor = Tokens.Surface.well.cgColor
+        layer.borderWidth = 0
+        super.draw(dirtyRect)
+    }
+
+    /// The text sits off the well's edge on both sides, the same inset the
+    /// search field gives its own.
+    override class var cellClass: AnyClass? {
+        get { SettingsTextFieldCell.self }
+        set { super.cellClass = newValue }
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        applyTokens()
+    }
+}
+
+/// The inset that keeps a field's text and its caret off the well's corner.
+@MainActor
+final class SettingsTextFieldCell: NSTextFieldCell {
+
+    /// **`NSTextFieldCell` does not centre its text.** It draws from the top of
+    /// whatever rect it is handed, so a field standing at the row's control
+    /// height had its text against the well's top edge. The inset is therefore
+    /// horizontal *and* vertical, measured from the line height the cell
+    /// reports for the font it was given.
+    override func drawingRect(forBounds rect: NSRect) -> NSRect {
+        super.drawingRect(forBounds: centred(rect))
+    }
+
+    private func centred(_ rect: NSRect) -> NSRect {
+        let line = (font ?? Tokens.TypeScale.settingsRow).boundingRectForFont.height
+        let inset = max((rect.height - line) / 2, 0)
+        return rect.insetBy(dx: Tokens.Metric.pillTextInset, dy: inset)
+    }
+
+    override func edit(
+        withFrame rect: NSRect,
+        in controlView: NSView,
+        editor: NSText,
+        delegate: Any?,
+        event: NSEvent?
+    ) {
+        super.edit(
+            withFrame: centred(rect),
+            in: controlView,
+            editor: editor,
+            delegate: delegate,
+            event: event
+        )
+    }
+
+    override func select(
+        withFrame rect: NSRect,
+        in controlView: NSView,
+        editor: NSText,
+        delegate: Any?,
+        start: Int,
+        length: Int
+    ) {
+        super.select(
+            withFrame: centred(rect),
+            in: controlView,
+            editor: editor,
+            delegate: delegate,
+            start: start,
+            length: length
+        )
+    }
+}
+
+/// A key equivalent, drawn the way the reference draws one: the glyphs on a
+/// small recessed plate rather than loose at the end of the row.
+///
+/// **It is a label, not a control** — §3.6's table is read-only — so it carries
+/// no hover, no press and nothing for the key loop. The plate is there because
+/// `⌥⌘H` set as plain text next to a sentence reads as part of the sentence;
+/// on a chip it reads as a key.
+@MainActor
+final class SettingsKeyChip: NSView {
+
+    private let label: NSTextField
+
+    init(key: String) {
+        label = NSTextField(labelWithString: key)
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.cornerCurve = .continuous
+        label.font = Tokens.TypeScale.sidebarRow
+        label.alignment = .center
+        label.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(label)
+        let inset = Tokens.Metric.chromeGap
+        NSLayoutConstraint.activate([
+            heightAnchor.constraint(equalToConstant: Tokens.Metric.settingsSegmentHeight),
+            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
+            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor)
+        ])
+        setAccessibilityElement(true)
+        setAccessibilityRole(.staticText)
+        setAccessibilityLabel(key)
+        applyTint()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("Luna builds its chrome in code; there is no nib to decode.")
+    }
+
+    private func applyTint() {
+        label.textColor = Tokens.Text.secondary
+        needsDisplay = true
+    }
+
+    override var wantsUpdateLayer: Bool { true }
+
+    override func updateLayer() {
+        layer?.cornerRadius = Tokens.Metric.settingsSegmentCorner
+        layer?.backgroundColor = Tokens.Surface.well.cgColor
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        applyTint()
     }
 }

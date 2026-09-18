@@ -41,7 +41,7 @@ final class SearchSection: SettingsSection {
         // Re-sync in case `SettingsDefaults.restoreAll()` removed the keys
         // while nothing was watching. Once, on open — never per keystroke.
         SearchSettings.reload()
-        body.card("Search engine", [
+        body.card(nil, [
             (engineRow(), ["search engine", "duckduckgo", "google", "bing", "kagi", "custom"]),
             (customRow(), ["custom engine url", "search engine", "%s", "placeholder"])
         ])

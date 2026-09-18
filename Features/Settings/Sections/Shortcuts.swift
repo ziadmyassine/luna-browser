@@ -120,13 +120,19 @@ final class ShortcutsSection: SettingsSection {
 
     /// A label, not a control: §3.6's table is read-only, so there is nothing
     /// here for `SettingsRow` to build and nothing for the user to operate.
+    ///
+    /// A command with **no** key equivalent gets a dash rather than an empty
+    /// chip: a plate with nothing on it reads as a shortcut that failed to
+    /// load, and most of this table is commands that simply have none.
     private static func keyLabel(_ key: String) -> NSView {
-        let label = NSTextField(labelWithString: key.isEmpty ? "—" : key)
-        label.font = Tokens.TypeScale.sidebarRow
-        label.textColor = Tokens.Text.secondary
-        label.alignment = .right
-        label.setAccessibilityLabel(key.isEmpty ? "No shortcut" : key)
-        return label
+        guard !key.isEmpty else {
+            let dash = NSTextField(labelWithString: "—")
+            dash.font = Tokens.TypeScale.sidebarRow
+            dash.textColor = Tokens.Text.tertiary
+            dash.setAccessibilityLabel(String(localized: "No shortcut"))
+            return dash
+        }
+        return SettingsKeyChip(key: key)
     }
 
     private func rebindingRow() -> NSView {

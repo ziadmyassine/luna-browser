@@ -43,6 +43,32 @@ extension Tokens.Metric {
     /// The gap between one card and the next, header included.
     static let settingsGroupGap: CGFloat = 26
 
+    /// The back/forward capsule at the head of the detail pane. **A rounded
+    /// rectangle, not a pill**: the reference's capsule is a plate with two
+    /// bare chevrons on it, and a fully-rounded end would make it read as two
+    /// round buttons that happen to touch — which is the thing it is not.
+    static let settingsNavCapsule = RoundedMetric(width: 64, height: 30, cornerRadius: 10)
+    /// One chevron's hit area inside that capsule.
+    static let settingsNavButton: CGFloat = 28
+    /// The search field over the section list, and every plate a control in
+    /// the pane sits on. The reference rounds them to the same corner it
+    /// rounds the capsule to, so the column and the pane agree on one radius.
+    static let settingsFieldCorner: CGFloat = 10
+    /// A pushbutton in a card — "Set as Default", "Refresh Now". Flat, with
+    /// the row's own wash under it rather than AppKit's bright push bezel.
+    static let settingsButtonHeight: CGFloat = 26
+    static let settingsButtonInset: CGFloat = 11
+
+    /// One segment of a pick-one control. **Sized to its word, not to a
+    /// column.** The first build gave every segment a fixed 140 pt, so "Auto ·
+    /// Light · Dark" ran half the width of the pane and read as three buttons
+    /// rather than as one choice; the reference sets a segment's width from its
+    /// label and leaves the segments almost touching.
+    static let settingsSegmentHeight: CGFloat = 28
+    static let settingsSegmentInset: CGFloat = 14
+    static let settingsSegmentGap: CGFloat = 2
+    static let settingsSegmentCorner: CGFloat = 8
+
     /// §23.1 §3.2's live glass preview tile: the sample of the real
     /// material that sits beside the Appearance row. `rowCornerRadius`'s
     /// 12 rather than a new radius — the tile is a rounded card in a

@@ -71,6 +71,14 @@ enum SettingsRow {
         let popup = NSPopUpButton(frame: .zero, pullsDown: false)
         popup.addItems(withTitles: options)
         popup.selectItem(at: clamp(selected, options.count))
+        // **Bare, not bezelled.** AppKit's push bezel is a bright plate, and
+        // six of them down a card turned the pane into a form on a grey
+        // background — the reference puts the *value* on the right of the row
+        // and nothing under it, so the card stays one surface. The menu, the
+        // keyboard handling and the VoiceOver role are untouched.
+        popup.isBordered = false
+        popup.font = Tokens.TypeScale.settingsRow
+        popup.contentTintColor = Tokens.Text.secondary
         let action = SettingsAction { sender in
             onChange((sender as? NSPopUpButton)?.indexOfSelectedItem ?? 0)
         }
@@ -93,7 +101,7 @@ enum SettingsRow {
         disabledReason: String? = nil,
         onChange: @escaping (String) -> Void
     ) -> NSView {
-        let field = NSTextField(string: value)
+        let field = SettingsTextField(string: value)
         field.placeholderString = placeholder
         field.cell?.sendsActionOnEndEditing = true
         field.widthAnchor.constraint(equalToConstant: Tokens.Metric.urlPill.width).isActive = true
@@ -113,11 +121,25 @@ enum SettingsRow {
         disabledReason: String? = nil,
         onTap: @escaping () -> Void
     ) -> NSView {
-        let bridge = SettingsAction { _ in onTap() }
-        let button = NSButton(title: action, target: bridge, action: #selector(SettingsAction.fire(_:)))
-        button.bezelStyle = .push
-        button.hasDestructiveAction = isDestructive
-        return row(title, nil, button, isEnabled, disabledReason, terms: [action]).retaining(bridge)
+        let button = SettingsPushButton(title: action, isDestructive: isDestructive)
+        button.onActivate = onTap
+        return row(title, nil, button, isEnabled, disabledReason, terms: [action])
+    }
+
+    /// A row that is only a sentence — an empty state, a count, a line of
+    /// status. **It is still a row**: the same card inset, the same minimum
+    /// height and the same hairline above it as every other one. A bare
+    /// `NSTextField` dropped into a card instead sat against the card's own
+    /// edge and squashed the card to the height of one line of type, which is
+    /// what "Sites with blocking turned off" looked like before this existed.
+    static func status(_ text: String) -> NSView {
+        SettingsRowView(
+            title: text,
+            subtitle: nil,
+            control: nil,
+            isEnabled: true,
+            disabledReason: nil
+        )
     }
 
     /// A row whose right-hand side is built by the section — a status line, a

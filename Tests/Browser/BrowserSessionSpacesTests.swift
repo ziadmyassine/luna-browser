@@ -94,10 +94,17 @@ final class BrowserSessionSpacesTests: XCTestCase {
         XCTAssertEqual(persisted.map(\.order), [0, 1, 2])
     }
 
-    /// §8.2: a new Space takes the next unused pair from agent D's twelve, so
-    /// three Spaces are three different colours. Every Space was identical
-    /// before the palette existed, which was the one visible gap in Spaces.
-    func testNewSpacesTakeDistinctGradientsFromThePalette() async throws {
+    /// §8.2, **as the owner settled it**: a new Space is neutral, and colour is
+    /// something the user asks for.
+    ///
+    /// This test used to assert the opposite — three Spaces, three pairs off
+    /// the palette — and that was the shipped behaviour for exactly as long as
+    /// it took to see it: the sidebar changed colour on its own, on a window
+    /// nobody had asked to look different, and the only way back was a menu
+    /// there was no reason to open. `Tokens.Gradient.next(after:)` still hands
+    /// out twelve distinct pairs and `SpaceGradientTests` still proves it; what
+    /// changed is that nothing calls it until the user picks one.
+    func testNewSpacesAreNeutralUntilTheUserPicksAColour() async throws {
         let session = try await makeSession(try makeStore())
         let made = try await [
             session.createSpace(name: "One"),
@@ -105,13 +112,28 @@ final class BrowserSessionSpacesTests: XCTestCase {
             session.createSpace(name: "Three")
         ]
 
-        XCTAssertEqual(Set(made.map(\.gradient)).count, 3, "three Spaces, three gradients")
         for space in made {
             XCTAssertTrue(
+                Tokens.Gradient.isNeutral(space.gradient),
+                "a Space nobody has coloured washes to nothing"
+            )
+            XCTAssertFalse(
                 Tokens.Gradient.spacePalette.contains(space.gradient),
-                "and each of them is one of the twelve curated pairs"
+                "and it is not quietly holding one of the twelve"
             )
         }
+    }
+
+    /// The other half of the same decision: the twelve are still reachable, and
+    /// `setGradient` is how a Space gets one.
+    func testAUserChosenGradientSticks() async throws {
+        let session = try await makeSession(try makeStore())
+        let space = try await session.createSpace(name: "One")
+        let chosen = Tokens.Gradient.spacePalette[4]
+
+        try await session.setGradient(chosen, forSpace: space.id)
+
+        XCTAssertEqual(session.spaces.first { $0.id == space.id }?.gradient, chosen)
     }
 
     // MARK: - Goal 7 · many Spaces, one Profile

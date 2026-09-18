@@ -116,7 +116,7 @@ final class AppearanceSection: NSObject, SettingsSection {
             tileHost.heightAnchor.constraint(equalToConstant: Self.previewTileSize.height)
         ])
 
-        body.card("Theme", [
+        body.card(nil, [
             (themeRow(), ["theme", "appearance", "auto", "light", "dark"]),
             (chromeLayoutRow(), ["chrome layout", "sidebar", "top bar", "tabs", "layout"]),
             (faviconRow(), ["show tab favicons in the sidebar", "favicons", "icons"]),
