@@ -226,9 +226,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             toggleSidebar()
         case .command(.newSpace):
             guard let session else { return }
-            // §23.1's rename UI does not exist yet, so the Space arrives named
-            // and the user renames it there when it does.
-            Task { try? await session.createSpace(name: String(localized: "New Space")) }
+            // A Space made from the Command Bar gets its **own** Profile, and
+            // the `profileID:` is passed rather than defaulted: many Spaces to
+            // one Profile is now reachable (§6.1), so "new Profile" is a
+            // choice this call site is making, not one it is inheriting.
+            // Settings ▸ Spaces is where the other answer is offered.
+            Task { try? await session.createSpace(name: String(localized: "New Space"), profileID: nil) }
         case .activateTab, .open:
             // The bar performs these itself; they never reach here.
             break
@@ -274,6 +277,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // tab the user has selected and wrong for any other (§19.4).
         browserWindow?.setContent(session.activeTabID.flatMap { session.webView(for: $0) })
         MainMenu.setSpaces(session.spaces.map(\.name), in: NSApp)
+        // §13.2's `⌘1…⌘9`. `session.tabs` is already in the sidebar's order —
+        // Favorites, then Pinned, then Today — so the number in the menu is the
+        // row on screen. Nine at most; `setSidebarItems` truncates.
+        MainMenu.setSidebarItems(session.tabs.map(\.title), in: NSApp)
     }
 
     /// `⌘S` and §3.1's toggle button: **hide or show the sidebar**, so the page
@@ -353,11 +360,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         browserWindow = nil
     }
 
-    private static var databaseURL: URL {
+    /// **`LunaTests` is a unit-test bundle hosted by this app** (`project.yml`:
+    /// `dependencies: - target: Luna`), so `xcodebuild test` launches the real
+    /// `AppDelegate`, runs `applicationDidFinishLaunching`, and opens whatever
+    /// this property returns — *before* the first test method is entered and
+    /// whether or not that test wanted a session.
+    ///
+    /// Which means that until this branch existed, **every test run in this
+    /// repo migrated and wrote the user's live database.** Measured: the
+    /// schema-version row in `~/Library/Application Support/dk.novapps.luna/`
+    /// moved during this wave and its mtime tracked the test runs. No test
+    /// constructs that path — the app does, on their behalf, and a test that
+    /// carefully builds its own fixture store is not protected by doing so.
+    ///
+    /// A throwaway directory per run is the fix, and it is here rather than in
+    /// the tests because there is no test to put it in: the offending open
+    /// happens in app launch.
+    /// Internal, not private, so `AppDelegateDatabaseTests` can assert the
+    /// branch below actually fires in this host configuration.
+    static var databaseURL: URL {
+        guard !isRunningTests else {
+            return URL.temporaryDirectory
+                .appending(path: "luna-tests-\(UUID().uuidString)")
+                .appending(path: "luna.sqlite")
+        }
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL.temporaryDirectory
         return support
             .appending(path: Bundle.main.bundleIdentifier ?? "dk.novapps.luna")
             .appending(path: "luna.sqlite")
+    }
+
+    /// XCTest publishes this for every bundle it loads, host app included. Not
+    /// `NSClassFromString("XCTestCase")` — that links only after the bundle is
+    /// injected, which is after the database has already been opened.
+    static var isRunningTests: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     }
 }

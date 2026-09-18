@@ -12,9 +12,10 @@
 //  keeps it small (§0.3, §19, §33) is that navigation lives in `TabController`,
 //  persistence in `BrowserStore`, ordering in `TabList`, geometry in
 //  `BrowserWindowController` — and anything a *view* can compute from `tabs`
-//  does not get a method here. It is three files:
+//  does not get a method here. It is four files:
 //
-//      BrowserSession.swift         state, restore, Spaces and profiles (§5)
+//      BrowserSession.swift         state, restore, the Space list (§5)
+//      BrowserSession+Spaces.swift  the Space lifecycle and Favorites (§6, §2)
 //      BrowserSession+Tabs.swift    the tab API, navigation, persistence, undo
 //      BrowserSession+Engine.swift  controllers, hibernation, WebKit callbacks
 //
@@ -53,7 +54,11 @@ final class BrowserSession {
 
     // MARK: - The contract surface
 
-    private(set) var spaces: [Space]
+    /// The Space list, ordered. Written only by `BrowserSession+Spaces.swift`,
+    /// which is why the setter is internal rather than `private(set)`: Swift's
+    /// `private` is file-scoped and the coordinator is four files. Views read it
+    /// and never assign, exactly as they never assign `list`.
+    var spaces: [Space]
 
     private(set) var activeSpaceID: UUID {
         didSet { UserDefaults.standard.set(activeSpaceID.uuidString, forKey: Self.activeSpaceKey) }
@@ -138,6 +143,14 @@ final class BrowserSession {
     /// keep a closed window alive.
     weak var hostWindow: NSWindow?
 
+    /// The gradient a new Space takes, given the ones already in use.
+    ///
+    /// §8.2's twelve curated pairs and the next-unused rule live in `Design`,
+    /// which is where the rest of the colour lives; the session only asks. The
+    /// override exists so a test can pin the answer without a design system
+    /// behind it, and nothing in the app sets it.
+    var nextGradient: ([GradientPair]) -> GradientPair = { Tokens.Gradient.next(after: $0) }
+
     // MARK: - State
     //
     // `internal`, not `private`, only because Swift's `private` is file-scoped
@@ -197,7 +210,7 @@ final class BrowserSession {
             store: store,
             spaces: spaces,
             profiles: try await store.profiles(),
-            list: TabList(tabs),
+            list: TabList(tabs, profiles: Dictionary(uniqueKeysWithValues: spaces.map { ($0.id, $0.profileID) })),
             archived: archived.sorted { ($0.archivedAt ?? .distantPast) > ($1.archivedAt ?? .distantPast) },
             activeSpaceID: (spaces.first { $0.id == remembered } ?? spaces[0]).id
         )
@@ -222,11 +235,17 @@ final class BrowserSession {
     enum SessionError: LocalizedError {
         case noSpaces
         case lastSpace
+        case unknownSpace
+        case unknownProfile
+        case emptyName
 
         var errorDescription: String? {
             switch self {
             case .noSpaces: "Luna's database has no Spaces in it."
             case .lastSpace: "The last Space cannot be deleted."
+            case .unknownSpace: "That Space no longer exists."
+            case .unknownProfile: "That profile no longer exists."
+            case .emptyName: "A Space needs a name."
             }
         }
     }
@@ -254,55 +273,6 @@ final class BrowserSession {
             notifyChange()
         }
         enforceLiveTabBudget()
-    }
-
-    /// Every Space Luna creates gets its own `Profile`, so its logins are
-    /// genuinely independent and survive a relaunch (§5.5). Sharing one profile
-    /// across Spaces is a settings choice that does not exist yet (§5.2), and
-    /// §5.5's gotcha is why it cannot be retrofitted later: the default store
-    /// has no identifier, and an identified store can never adopt it.
-    func createSpace(name: String) async throws {
-        let profile = Profile(name: name)
-        let space = Space(
-            name: name,
-            symbolName: Self.defaultSpaceSymbol,
-            gradient: .defaultSpace,
-            profileID: profile.id,
-            order: spaces.count
-        )
-        try await store.upsert(profile)
-        try await store.upsert(space)
-        profiles[profile.id] = profile
-        spaces.append(space)
-        list.addSpace(space.id)
-        switchSpace(space.id)
-    }
-
-    /// §5.1's deletion order, which is the whole reason this is `async`:
-    /// `remove(forIdentifier:)` **fails while any live `WKWebView` still uses
-    /// the store**, so every tab in the profile is torn down first, then the
-    /// rows go, then the store — and `ProfileStore` verifies it is really gone.
-    func deleteSpace(_ id: UUID) async throws {
-        guard spaces.count > 1, let index = spaces.firstIndex(where: { $0.id == id }) else {
-            throw SessionError.lastSpace
-        }
-        let space = spaces.remove(at: index)
-        for tab in list[id] { discardController(tab.id) }
-        list.removeSpace(id)
-        activeTabBySpace[id] = nil
-        if activeSpaceID == id, let next = spaces.first {
-            switchSpace(next.id)
-        }
-        // Cascades the tab rows (§11.1).
-        try await store.delete(spaceID: id)
-        notifyChange()
-
-        // A profile another Space still names keeps its cookie jar.
-        guard let profile = profiles[space.profileID],
-              !spaces.contains(where: { $0.profileID == space.profileID })
-        else { return }
-        try await profileStore.remove(profile)
-        profiles[profile.id] = nil
     }
 
     /// The data store every tab in this Space is built against.

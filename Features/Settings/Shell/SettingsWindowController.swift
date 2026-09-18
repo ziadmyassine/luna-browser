@@ -16,11 +16,16 @@
 //  `greaterThanOrEqualToConstant`s on the root view instead.
 //
 //  **Every command here arrives through `MainMenu`.** Luna installs no
-//  `NSEvent` monitor and overrides no `performKeyEquivalent` (§22.5); the four
+//  `NSEvent` monitor and overrides no `performKeyEquivalent` (§22.5); the
 //  `@objc` actions at the bottom are ordinary nil-targeted menu actions that
 //  reach this controller because an `NSWindowController` sits in its key
-//  window's responder chain. That is measured, not assumed — see the comment
-//  on `switchToSpace(_:)`.
+//  window's responder chain.
+//
+//  This used to also claim `switchToSpace(_:)`, to take `⌘1…⌘9` back from the
+//  Spaces menu that shadowed it. SPACES-SPEC §13.2 moved Spaces to `⌃1…⌃9`, at
+//  which point that shim stopped being dead and started being wrong: it made
+//  `⌃1` navigate sections instead of switching Space whenever this window was
+//  key. Deleted. `⌘1…⌘9` now arrives from `AppDelegate.goToSidebarItem(_:)`.
 //
 
 import AppKit
@@ -300,23 +305,11 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         close()
     }
 
-    /// `⌘1…⌘9`, arriving by the Spaces menu.
-    ///
-    /// **Measured, and it is the reason this method exists at all.** AppKit's
-    /// key-equivalent search stops at the *first* item whose key equivalent
-    /// matches, in menu order, and swallows the event there whether that item
-    /// is enabled, disabled, or has no target at all (probed against macOS 26.5:
-    /// a disabled first match returns `true` from `performKeyEquivalent` and the
-    /// enabled second match never runs). The Spaces menu is built before the
-    /// Window menu and already owns `⌘1…⌘N`, so `⌘1` inside Settings can only be
-    /// reached by claiming `switchToSpace(_:)` — which is safe, because it only
-    /// resolves here while this window is key.
-    @objc func switchToSpace(_ sender: Any?) {
-        goToSettingsSection(sender)
-    }
-
-    /// `⌘(N+1)…⌘9` — the section items the Spaces menu does not shadow — and
-    /// every click on Window ▸ Settings ▸ <section>.
+    /// Every click on Window ▸ Settings ▸ <section>, and `⌘1…⌘9` — which
+    /// arrives from `AppDelegate.goToSidebarItem(_:)`, not from an item of this
+    /// menu's own. See `MainMenu.setSidebarItems`: AppKit erases a duplicate
+    /// ⌘-number rather than shadowing it, so only one family in the whole bar
+    /// can carry one and View ▸ Sidebar Items is it.
     @objc func goToSettingsSection(_ sender: Any?) {
         guard let item = sender as? NSMenuItem else { return }
         show(item.tag, animated: true)

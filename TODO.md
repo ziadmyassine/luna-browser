@@ -47,7 +47,7 @@ The three sentences that define the product:
 | **Profile** | The cookie/storage container. 1 profile may back N Spaces. Backed by `WKWebsiteDataStore(forIdentifier:)`. |
 | **Pinned tab** | Persistent, never auto-archives, lives in the upper section of a Space's sidebar list. |
 | **Today tab** | Ephemeral tab, auto-archives after N hours (default 12). Lower section of sidebar. |
-| **Favorite** | App-icon-sized tile pinned above all Spaces; global, survives Space switching. |
+| **Favorite** | App-icon-sized tile. **Per *Profile*, not per Space and not global** — every Space sharing a Profile shares its Favorites, because a Favorite is a logged-in app tile and the login lives in the Profile. Read off Arc's own `topAppsContainerIDs`, which is keyed by profile (`docs/SPACES-SPEC.md` §2). Luna's code currently scopes them per Space; §46's old "global" wording was wrong too. |
 | **Archive** | Soft-delete. Tab leaves the sidebar, its URL/title/snapshot go to the Archive list, recoverable. |
 | **Peek** | A transient full-window overlay preview of a link, dismissible with `Esc`, promotable to a real tab. |
 | **Mini Window** | Our "Little Arc": a small chromeless window used for links opened from other apps. |
@@ -149,15 +149,41 @@ luna/
 
 ## 5. Spaces & profiles (storage isolation)
 
+> **Full contract: `docs/SPACES-SPEC.md`** (2026-09-18). Arc is installed on this
+> machine, so its model was read off its own `StorableSidebar.json` rather than
+> from documentation; Zen, Floorp, Ora, Nook, Refrax, Crest, Firefox containers
+> and Chromium profiles were read from source. The spec supersedes the lines
+> below where they disagree, and §11 of it lists every correction.
+>
+> **Dia is not a second target.** Its `User Data` holds plain Chromium profiles
+> and tab groups, with no space or sidebar keys at all — the same company shipped
+> Arc with Spaces and its successor without them. What the owner uses in Dia
+> today is **folders**, so §4 of the spec designs the sidebar as a node tree now
+> and ships folders later (S6): retrofitting a tree onto a flat list with real
+> user data is the expensive version of that work.
+
+
 - [ ] **5.1 `ProfileStore`** wrapping `WKWebsiteDataStore(forIdentifier: UUID)`.
   - Persist the UUID ↔ profile-name mapping ourselves (in SQLite). Identifiers are **not** recoverable from WebKit alone beyond `WKWebsiteDataStore.allDataStoreIdentifiers`.
   - Deletion: `WKWebsiteDataStore.remove(forIdentifier:)` — **fails while any live `WKWebView` still uses the store.** Tear down and deallocate every tab in that profile, then remove, then verify against `allDataStoreIdentifiers`.
   - Data lands in `~/Library/WebKit/WebsiteDataStore/<UUID>/`.
 - [ ] **5.2 Space model**: name, icon (SF Symbol), gradient pair, profile id, ordered pinned tabs, ordered today tabs, "auto-archive after" override.
+- [ ] **5.10 Move Space switching to `⌃1…⌃9`; reserve `⌘1…⌘9` for sidebar items.** Shipped code binds Spaces to `⌘1…⌘9` (`MainMenu.setSpaces`) and Luna has **no "go to tab N" at all**, so the most valuable shortcut namespace in the app is spent on Spaces. Arc puts Spaces on `⌃1…⌃9` and ⌘-number on sidebar items; Dia uses `Ctrl+1–9`; Vivaldi uses `⌘⇧<n>`. Three products, three modifiers, none of them plain ⌘-number — which means "go to tab N" in Safari, Chrome, Firefox, Edge and Arc. Add `⌘⌥←/→` for prev/next Space and a two-finger sidebar swipe. Breaking change to a shipped binding; cheaper now than ever again.
+- [ ] **5.11 Design for the 94%.** The Browser Company published the number when Arc went into maintenance: **"Only 5.52% of DAUs use more than one Space regularly."** Their own diagnosis was that Arc "was simply too different, with too many new things to learn, for too little reward" — and Spaces came back anyway, because the 5.52% would not let go. Low reach, extreme attachment. **Out of the box Luna shows one unnamed Space, no switcher, no chrome tint and no onboarding step; the Space UI appears when a second Space is created.** Spaces is something Luna grows into, never something it opens with.
+- [ ] **5.12 Auto-archive must be disableable (§12.3).** Arc's default is **12 h** idle for unpinned tabs, reset on view, per-Profile timing, synced, with pinned and media-playing tabs exempt — and **"Auto Archive can't be disabled."** That last decision cost them a one-time explainer banner for new members and a defensive help article. Ship 12 h as the default with Off / 6 h / 12 h / 24 h / 7 d / 30 d, never archiving a tab playing media or holding unsaved input (§19.2 already has both exemptions).
+- [ ] **5.13 Favorites: cap 12, allow zero, load lazily.** Arc's caps, including the lazy load it had to retrofit — *"We used to keep your Favorites loaded at all times, but now we only load them if they've been used recently."* A permanently-resident global tier is a memory problem.
+- [ ] **5.14 Gradient legibility and a route back to neutral (§8.2).** Derive sidebar and label foregrounds from the chosen gradient's **luminance**, not a fixed token; one click back to neutral; keep Light/Dark **global** and label it as global; honour Reduce Motion on the cross-fade and Reduce Transparency on the gradient. Zen shipped the contrast bug (light gradient → unreadable titles) and has an open issue for being unable to unset a gradient; Arc needed a help article for "How Do I Restore the Default Theme" and shipped a dark-mode contrast fix; Dia's refresh went to neutral tab groups by default.
+- [ ] **5.6 Space lifecycle — the gaps `docs/SPACES-SPEC.md` §10 scopes.** `renameSpace` / `reorderSpace` / `setIcon` / `setGradient` do not exist (four Settings rows are dimmed for it); `createSpace` always mints a fresh Profile, so **many-Spaces-to-one-Profile is modelled and unreachable**; `BrowserStore` has no `delete(profileID:)`, so profile rows orphan; deleting a Space destroys its tabs un-undoably instead of offering to adopt or archive them.
+  > **Reordering is the biggest hole in the entire prior art — nobody implements it.** Nook persists an index with no reorder function, Ora has no order field at all, Refrax sorts by `position` but never reorders. Copy Nook's one good idea: on load, compare the persisted order against `0..<n` and renumber if it differs. That self-heal makes `reorderSpace` trivial and immunises `delete(spaceID:)` against the gaps every delete leaves.
+  > **Store deletion is a retry loop, not a call.** Crest and DuckDuckGo arrived at the same shape independently: release the web views → check `allDataStoreIdentifiers` → `remove(forIdentifier:)` → on failure fall back to `removeData(ofTypes:modifiedSince:)` so the *data* goes even if the directory survives → back off `[125ms, 250ms, 500ms, 1s, 2s, 4s]` → persist the id to a pending-removal set in `UserDefaults` (**not** GRDB — it must survive a database wipe). Plus an orphan sweep at launch, because WebKit is the registry.
+- [ ] **5.7 "Last tab" must be evaluated over the window, never over the visible Space.** zen#9272: Zen evaluated it per-Space, so closing the one tab in Space B quit the browser while Space A had five open — and it took the window-close path, so nothing restored. One user lost ~500 tabs. Floorp's equivalent (floorp#2152) is **still open**, the maintainer conceding the design is hard. Luna is safe today only because `closeTab` archives and never closes a window; decide this in the close handler before adding any window-close rule.
+- [ ] **5.8 Make the Profile boundary visible (spec §9).** The most-cited confusion in both ecosystems, predicted by Mozilla in 2016 and still live: two identical "Switch to tab" rows for the same site in two Profiles, no way to tell which account. §9.2's Space-colour badge is not enough — the Space colour does not say whose cookies you are about to use. Profile identity belongs on the Command Bar, history, archive and downloads.
+- [ ] **5.9 Key `siteSettings` on `(profileID, host)`, not host alone.** Firefox shipped per-container permission isolation and left it **off by default**, so camera access granted in Work leaks to Personal; Chrome's is genuinely per-profile. Luna claims real isolation, so it has to be real here too.
 - [ ] **5.3 Space switcher UI**: horizontally swipeable strip at the bottom of the sidebar + `⌘1…⌘9` + `⌃⇥`-style cycling. Switching cross-fades the sidebar content and re-tints the whole window (§8).
 - [ ] **5.4 Per-Space default search engine + per-Space "open links here" rule** (the foundation for §25's link routing).
 - [ ] **5.5 Cookie/session sanity tests**: log into the same site in two Spaces with separate profiles; confirm independent sessions survive relaunch.
-  > **Gotcha:** the *default* data store and non-persistent stores have **no identifier**. Decide at Space-creation time; you cannot retroactively adopt the default store into an identified one. Migrating a user from "shared" to "separate" logs them out — warn in the UI.
+  > **Correction (2026-09-18):** the default-store warning is stale. **Luna never uses the default store** — `ProfileStore.dataStore(for:)` always calls `WKWebsiteDataStore(forIdentifier:)`, so the real migration is identified → identified. Two things follow. (a) `fetchData(of:)` / `restoreData(_:)` exist in the macOS 26 SDK (verified in the header on this machine) and **might** copy a session between stores — the header does not say cross-store restore is supported, so **spike it before promising it in the UI** (§15.1 precedent). (b) Reassigning a Profile must **rebuild every web view in that Space**, or already-loaded tabs keep writing to the old store — exactly Nook's shipped bug, and zen#15023.
+  > **The all-zero UUID throws an Objective-C exception Swift cannot catch** ("Throws exception if identifier is 0", `WKWebsiteDataStore.h`). `dataStoreIdentifier` is a `NOT NULL UNIQUE` blob with no value check and nothing validates it on read. Guard it at the GRDB read boundary; none of the five researched codebases does.
 - [ ] **5.6 Private/incognito window** = `WKWebsiteDataStore.nonPersistent()`, visually distinct tint, excluded from history writes, no crash-restore.
 
 ---
@@ -193,7 +219,9 @@ luna/
 
 ## 8. Design system, theming & motion
 
-- [ ] **8.1 Token file** (`Design/Tokens.swift`) — semantic only: `surface/0..3`, `textPrimary/Secondary/Tertiary`, `separator`, `accent`, `dangerous`, `overlayScrim`, `focusRing`. Every token resolves for light **and** dark. **No literal hex outside this file.**
+- [ ] **8.1 Token file** (`Design/Tokens.swift`) — semantic only: `surface/0..3`, `textPrimary/Secondary/Tertiary`, `separator`, `accent`, `dangerous`, `overlayScrim`, `focusRing`. Every token resolves for light **and** dark. **No literal hex outside `Design/`'s token files, and every hex entry point is `private`.**
+  > **Amended 2026-09-18.** "This file" was literally false once the twelve Space gradients shipped. They are `GradientPair`/`RGBA` values that cross the SQLite boundary and become *user data* the moment someone picks one, so they are not `NSColor` and cannot be chrome tokens — and `Tokens.swift` was 380 lines against SwiftLint's 400 limit, so they did not fit either. They live in `Design/SpacePalette.swift`, whose header says so.
+  > The rule is kept by the mechanism it always relied on rather than by the filename: each file's hex initialiser is `private`, and `SpacePalette`'s can only produce a `GradientPair`, so nothing there can spell a chrome colour even by accident.
   > **Gotcha (measured in M0, not assumed):** **`.secondaryLabelColor` and `.tertiaryLabelColor` do not meet §21.4 in light mode.** `.secondaryLabelColor` is black at 50 %, which measures **3.95:1** on a white window — under the 4.5:1 floor. Reaching for the system colour for secondary or tertiary text is therefore an accessibility regression, not a shortcut. Luna's `Text.secondary` uses 60 % (5.74:1 light / 6.77:1 dark).
   > Also measured: on macOS 26 `controlBackgroundColor` and `textBackgroundColor` resolve to **exactly** `windowBackgroundColor`, so a system-backed `Surface.raised` would be invisible. It has to be a custom value.
   > `.separatorColor` **is** correct for §8.4's hairline — it resolves to ~9.8 % black / white, which is the spec value. **Correction (M1): the earlier claim that it tracks Increase Contrast was wrong** — see the gotcha below. Its resting value is right; the contrast promotion has to be done by hand.
@@ -395,7 +423,7 @@ luna/
 ## 20. Keyboard & input
 
 - [ ] **20.1 Ship this default map** (all remappable in settings):
-  `⌘T` command bar/new tab · `⌘L` edit URL · `⌘S` toggle sidebar · `⌘W` archive tab · `⌘⇧T` reopen last archived · `⌘D` pin/unpin · `⌘⇧K` archive all Today tabs · `⌘1…9` Spaces · `⌥`+click → split · `⇧`+click → Peek · `⌘⇧A` archive view · `⌘Y` history · `⌘F` find · `⌘R`/`⌘⇧R` reload/hard reload · `⌘[`/`⌘]` back/forward · `⌘⌥←/→` prev/next tab · `⌘⇧←/→` resize split · `⌘⌥I` Web Inspector · `⌘,` settings · `⌘N`/`⌘⇧N` window/private window · `⌘⌥N` mini window.
+  `⌘T` command bar/new tab · `⌘L` edit URL · `⌘S` toggle sidebar · `⌘W` archive tab · `⌘⇧T` reopen last archived · `⌘D` pin/unpin · `⌘⇧K` archive all Today tabs · `⌃1…⌃9` Spaces (**not** `⌘1…9` — see §5.10) · `⌥`+click → split · `⇧`+click → Peek · `⌘⇧A` archive view · `⌘Y` history · `⌘F` find · `⌘R`/`⌘⇧R` reload/hard reload · `⌘[`/`⌘]` back/forward · `⌘⌥←/→` prev/next tab · `⌘⇧←/→` resize split · `⌘⌥I` Web Inspector · `⌘,` settings · `⌘N`/`⌘⇧N` window/private window · `⌘⌥N` mini window.
   - **Do not collide with system or common web-app shortcuts** — audit against Gmail/Figma/Notion before finalising.
 - [ ] **20.2 Full keyboard-only operation** — every action reachable without a mouse; visible focus ring on all chrome controls.
 - [ ] **20.3 Customisable shortcuts UI** with conflict detection.

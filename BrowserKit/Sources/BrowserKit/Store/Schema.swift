@@ -29,7 +29,84 @@ enum Schema {
             try createHistory(db)
             try createCommandBarAndSiteSettings(db)
         }
+        migrator.registerMigration("v2") { db in
+            try scopeFavoritesToProfiles(db)
+        }
         return migrator
+    }
+
+    /// `v2` — Favorites move from per-Space to per-Profile (§2, decision D-S2).
+    ///
+    /// Specified by the session layer, implemented here. A Favorite is a logged-in app tile,
+    /// so it belongs to the cookie jar that holds the login, not to the tab list it happens
+    /// to have been created in. Arc keys its Favorites container by profile
+    /// (`topAppsContainerIDs`) and this is the same key.
+    ///
+    /// **Nothing in this migration deletes a row.** The cap trim *demotes* overflow to
+    /// `pinned` instead, because two Spaces on one Profile pool their favourites and a user
+    /// who has never seen a cap should not lose tiles to one being introduced.
+    ///
+    /// Safely re-runnable. GRDB records `v2` and runs each migration inside a transaction, so
+    /// a half-applied migration cannot be committed — but the column add is still guarded on
+    /// the live schema and every statement below is idempotent on its own, because "this can
+    /// only run once" is a promise about the migrator, not about the file on disk.
+    static func scopeFavoritesToProfiles(_ db: Database) throws {
+        let existing = try db.columns(in: "tabs").map(\.name)
+        if !existing.contains("profileID") {
+            // `ON DELETE CASCADE`: a Favorite cannot outlive the cookie jar that holds its
+            // login — the tile would open a logged-out page in a profile that no longer exists.
+            try db.execute(sql: """
+            ALTER TABLE tabs ADD COLUMN profileID BLOB REFERENCES profiles(id) ON DELETE CASCADE
+            """)
+        }
+        try db.execute(sql: "CREATE INDEX IF NOT EXISTS tabs_on_profileID ON tabs(profileID)")
+
+        // A favourite belongs to the Profile of the Space it was created in. That Space is
+        // still its home `spaceID` afterwards; only the *scope* has changed.
+        try db.execute(sql: """
+        UPDATE tabs
+           SET profileID = (SELECT profileID FROM spaces WHERE spaces.id = tabs.spaceID)
+         WHERE kind = 'essential' AND profileID IS NULL
+        """)
+        // Nothing else carries one. `pinned` stays per Space and `today` is per Space by
+        // definition, so a stray value here would be a second, disagreeing source of truth.
+        try db.execute(sql: "UPDATE tabs SET profileID = NULL WHERE kind <> 'essential'")
+
+        // Arc caps Favorites at 12 per Profile. Pooling two Spaces' favourites can exceed it,
+        // so keep the twelve most recently active and demote the rest to pinned tabs in the
+        // Space they already live in. Demote, never delete: §13.7's whole argument is that
+        // this is the cheap place to beat Vivaldi, which closes tabs with no undo.
+        //
+        // **`archivedAt IS NULL` appears twice, and both are load-bearing.**
+        //
+        // An archived Favorite is a reachable state, not a theoretical one: §2 says Favorites
+        // never *auto*-archive, but `deleteSpace(_:policy: .archiveTabs)` archives one when its
+        // Profile has no other Space left to home it in. So:
+        //
+        //   · in the ranking, so an archived tile cannot displace a live one out of the twelve;
+        //   · in the outer `WHERE`, because without it an archived row falls out of the ranked
+        //     set and is therefore caught by `NOT IN` and silently demoted — the filter that
+        //     protects it from being counted would be the very thing that demotes it.
+        //
+        // This also makes the SQL agree with the runtime, which is the real requirement: the
+        // session holds archived tabs in `session.archived` rather than in `TabList`, so
+        // `favorites(onProfile:)` already never counts them. A migration that disagreed with
+        // the code reading its output is worse than either rule on its own.
+        try db.execute(sql: """
+        UPDATE tabs SET kind = 'pinned', profileID = NULL
+         WHERE kind = 'essential'
+           AND archivedAt IS NULL
+           AND id NOT IN (
+             SELECT id FROM (
+               SELECT id, ROW_NUMBER() OVER (
+                            PARTITION BY profileID ORDER BY lastActiveAt DESC, createdAt DESC
+                          ) AS tier
+                 FROM tabs WHERE kind = 'essential' AND archivedAt IS NULL
+             ) WHERE tier <= 12
+           )
+        """)
+        // The demotion leaves gaps in `order` within the Space it demoted into. `TabList`
+        // renumbers on load, exactly as `spaces()` does, so a gap is not a defect here.
     }
 
     private static func createProfilesSpacesTabs(_ db: Database) throws {

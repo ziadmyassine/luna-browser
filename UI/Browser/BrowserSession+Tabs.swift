@@ -84,8 +84,13 @@ extension BrowserSession {
     /// Every tab this window knows about, across **all** Spaces — `tabs` is the
     /// active Space only. The Command Bar's cross-Space switching and its
     /// archive rows (§9.2) are the reason this exists.
+    /// De-duplicated: Favorites are per Profile (§2), so every Space sharing a
+    /// Profile resolves the same tiles and a plain `flatMap` would list each of
+    /// them once per Space — which the Command Bar would show as duplicate
+    /// switch-to-tab rows for the same tab.
     func allTabs(includeArchived: Bool) -> [Tab] {
-        let open = spaces.flatMap { list[$0.id] }
+        var seen: Set<UUID> = []
+        let open = spaces.flatMap { list[$0.id] }.filter { seen.insert($0.id).inserted }
         return includeArchived ? open + archived : open
     }
 
@@ -95,7 +100,10 @@ extension BrowserSession {
         guard var tab = list.tab(id), let oldIndex = list.indexInSection(of: id) else { return }
         let oldKind = tab.kind
         // Deliberately not `forget`: reordering a tab must not cost its web view.
-        list.remove(id)
+        // Persisted, not discarded: pulling a tab out of the Favorites tier
+        // renumbers that tier across the whole Profile, and some of the rows it
+        // renumbers live in other Spaces.
+        persistAll(list.remove(id))
         tab.kind = kind
         persistAll(list.insert(tab, at: index))
         registerUndo("Move Tab") { $0.reorderTab(id, to: oldIndex, kind: oldKind) }
@@ -118,8 +126,18 @@ extension BrowserSession {
     /// made. A pinned tab that is the current tab keeps its page, and
     /// `enforceLiveTabBudget` reclaims it on the way out like any other live
     /// tab — which is the same answer, arrived at a moment later.
-    func pinTab(_ id: UUID, at index: Int = .max) {
-        guard let tab = list.tab(id), tab.kind != .essential else { return }
+    ///
+    /// - Returns: false when nothing happened — the tab is already a Favorite,
+    ///   or the Profile is already holding Arc's twelve. Refusing is the whole
+    ///   behaviour at the cap: quietly evicting the oldest tile would throw away
+    ///   a login the user put there on purpose.
+    @discardableResult
+    func pinTab(_ id: UUID, at index: Int = .max) -> Bool {
+        guard let tab = list.tab(id), tab.kind != .essential else { return false }
+        // Favorites are per Profile (§2), so the cap is per Profile too.
+        if let profileID = profileID(ofTab: id), favorites(onProfile: profileID).count >= Self.favoritesCap {
+            return false
+        }
         // **This is the line that was missing.** Pinning put the page away and
         // never moved the tab into the Essentials section, so the row vanished
         // from the list, no tile appeared, and "Pin Tab" looked like it did
@@ -128,9 +146,10 @@ extension BrowserSession {
         reorderTab(id, to: index, kind: .essential)
         guard activeTabBySpace[tab.spaceID] != id else {
             notifyChange()
-            return
+            return true
         }
         putPinnedTabAway(id, in: tab.spaceID)
+        return true
     }
 
     /// Drops a pinned tab's page without dropping the tab: the tile stays, the
@@ -157,12 +176,36 @@ extension BrowserSession {
         notifyChange()
     }
 
+    /// True when moving this tab into that Space crosses a **Profile**
+    /// boundary — the case that costs the user their session, and the one that
+    /// must never happen silently. Ask before `moveTab`, and say
+    /// ``crossProfileMoveWarning``.
+    func moveCrossesProfileBoundary(_ id: UUID, toSpace spaceID: UUID) -> Bool {
+        guard let from = profileID(ofTab: id), let to = space(spaceID)?.profileID else { return false }
+        return from != to
+    }
+
+    /// Arc's wording, which is the best of the four researched: Firefox refuses
+    /// the operation outright with a 500-word essay, Chrome refuses it in a
+    /// comment (`// Profiles must be the same.`), and Zen allows it silently and
+    /// it does not work (zen#11268).
+    static let crossProfileMoveWarning = String(localized: """
+    This Space uses a different profile. You could be logged out of an account if you're not \
+    logged into it in the other profile.
+    """)
+
     func moveTab(_ id: UUID, toSpace spaceID: UUID) {
         guard var tab = list.tab(id), tab.spaceID != spaceID,
               spaces.contains(where: { $0.id == spaceID }) else { return }
         let from = tab.spaceID
         let oldIndex = list.indexInSection(of: id) ?? 0
         let oldKind = tab.kind
+        // A Favorite is a login tile and Favorites belong to the Profile (§2),
+        // so one carried across a Profile boundary lands as a pinned tab rather
+        // than joining another cookie jar's tiles.
+        if oldKind == .essential, moveCrossesProfileBoundary(id, toSpace: spaceID) {
+            tab.kind = .pinned
+        }
         // The web view belongs to the old Space's data store; it has to die here
         // or the tab would carry the old profile's cookies across (§5.1).
         discardController(id)
@@ -183,6 +226,16 @@ extension BrowserSession {
     private func restoreArchived(_ tab: Tab, at index: Int) {
         var restored = tab
         restored.archivedAt = nil
+        // A Favorite can reach the archive by one route only — its Space was
+        // deleted and the Profile had no other Space to keep it in — and the
+        // Profile it comes back to may have filled the twelve since. Coming back
+        // as a pinned tab is the honest answer; silently making a thirteenth
+        // tile is not.
+        if restored.kind == .essential,
+           let profileID = space(restored.spaceID)?.profileID,
+           favorites(onProfile: profileID).count >= Self.favoritesCap {
+            restored.kind = .pinned
+        }
         archived.removeAll { $0.id == tab.id }
         persistAll(list.insert(restored, at: index))
         registerUndo("Close Tab") { $0.closeTab(restored.id) }
