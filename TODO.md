@@ -47,7 +47,7 @@ The three sentences that define the product:
 | **Profile** | The cookie/storage container. 1 profile may back N Spaces. Backed by `WKWebsiteDataStore(forIdentifier:)`. |
 | **Pinned tab** | Persistent, never auto-archives, lives in the upper section of a Space's sidebar list. |
 | **Today tab** | Ephemeral tab, auto-archives after N hours (default 12). Lower section of sidebar. |
-| **Favorite** | App-icon-sized tile pinned above all Spaces; global, survives Space switching. |
+| **Favorite** | App-icon-sized tile. **Per *Profile*, not per Space and not global** — every Space sharing a Profile shares its Favorites, because a Favorite is a logged-in app tile and the login lives in the Profile. Read off Arc's own `topAppsContainerIDs`, which is keyed by profile (`docs/SPACES-SPEC.md` §2). Luna's code currently scopes them per Space; §46's old "global" wording was wrong too. |
 | **Archive** | Soft-delete. Tab leaves the sidebar, its URL/title/snapshot go to the Archive list, recoverable. |
 | **Peek** | A transient full-window overlay preview of a link, dismissible with `Esc`, promotable to a real tab. |
 | **Mini Window** | Our "Little Arc": a small chromeless window used for links opened from other apps. |
@@ -149,15 +149,36 @@ luna/
 
 ## 5. Spaces & profiles (storage isolation)
 
+> **Full contract: `docs/SPACES-SPEC.md`** (2026-09-18). Arc is installed on this
+> machine, so its model was read off its own `StorableSidebar.json` rather than
+> from documentation; Zen, Floorp, Ora, Nook, Refrax, Crest, Firefox containers
+> and Chromium profiles were read from source. The spec supersedes the lines
+> below where they disagree, and §11 of it lists every correction.
+>
+> **Dia is not a second target.** Its `User Data` holds plain Chromium profiles
+> and tab groups, with no space or sidebar keys at all — the same company shipped
+> Arc with Spaces and its successor without them. What the owner uses in Dia
+> today is **folders**, so §4 of the spec designs the sidebar as a node tree now
+> and ships folders later (S6): retrofitting a tree onto a flat list with real
+> user data is the expensive version of that work.
+
+
 - [ ] **5.1 `ProfileStore`** wrapping `WKWebsiteDataStore(forIdentifier: UUID)`.
   - Persist the UUID ↔ profile-name mapping ourselves (in SQLite). Identifiers are **not** recoverable from WebKit alone beyond `WKWebsiteDataStore.allDataStoreIdentifiers`.
   - Deletion: `WKWebsiteDataStore.remove(forIdentifier:)` — **fails while any live `WKWebView` still uses the store.** Tear down and deallocate every tab in that profile, then remove, then verify against `allDataStoreIdentifiers`.
   - Data lands in `~/Library/WebKit/WebsiteDataStore/<UUID>/`.
 - [ ] **5.2 Space model**: name, icon (SF Symbol), gradient pair, profile id, ordered pinned tabs, ordered today tabs, "auto-archive after" override.
+- [ ] **5.6 Space lifecycle — the gaps `docs/SPACES-SPEC.md` §10 scopes.** `renameSpace` / `reorderSpace` / `setIcon` / `setGradient` do not exist (four Settings rows are dimmed for it); `createSpace` always mints a fresh Profile, so **many-Spaces-to-one-Profile is modelled and unreachable**; `BrowserStore` has no `delete(profileID:)`, so profile rows orphan; deleting a Space destroys its tabs un-undoably instead of offering to adopt or archive them.
+  > **Reordering is the biggest hole in the entire prior art — nobody implements it.** Nook persists an index with no reorder function, Ora has no order field at all, Refrax sorts by `position` but never reorders. Copy Nook's one good idea: on load, compare the persisted order against `0..<n` and renumber if it differs. That self-heal makes `reorderSpace` trivial and immunises `delete(spaceID:)` against the gaps every delete leaves.
+  > **Store deletion is a retry loop, not a call.** Crest and DuckDuckGo arrived at the same shape independently: release the web views → check `allDataStoreIdentifiers` → `remove(forIdentifier:)` → on failure fall back to `removeData(ofTypes:modifiedSince:)` so the *data* goes even if the directory survives → back off `[125ms, 250ms, 500ms, 1s, 2s, 4s]` → persist the id to a pending-removal set in `UserDefaults` (**not** GRDB — it must survive a database wipe). Plus an orphan sweep at launch, because WebKit is the registry.
+- [ ] **5.7 "Last tab" must be evaluated over the window, never over the visible Space.** zen#9272: Zen evaluated it per-Space, so closing the one tab in Space B quit the browser while Space A had five open — and it took the window-close path, so nothing restored. One user lost ~500 tabs. Floorp's equivalent (floorp#2152) is **still open**, the maintainer conceding the design is hard. Luna is safe today only because `closeTab` archives and never closes a window; decide this in the close handler before adding any window-close rule.
+- [ ] **5.8 Make the Profile boundary visible (spec §9).** The most-cited confusion in both ecosystems, predicted by Mozilla in 2016 and still live: two identical "Switch to tab" rows for the same site in two Profiles, no way to tell which account. §9.2's Space-colour badge is not enough — the Space colour does not say whose cookies you are about to use. Profile identity belongs on the Command Bar, history, archive and downloads.
+- [ ] **5.9 Key `siteSettings` on `(profileID, host)`, not host alone.** Firefox shipped per-container permission isolation and left it **off by default**, so camera access granted in Work leaks to Personal; Chrome's is genuinely per-profile. Luna claims real isolation, so it has to be real here too.
 - [ ] **5.3 Space switcher UI**: horizontally swipeable strip at the bottom of the sidebar + `⌘1…⌘9` + `⌃⇥`-style cycling. Switching cross-fades the sidebar content and re-tints the whole window (§8).
 - [ ] **5.4 Per-Space default search engine + per-Space "open links here" rule** (the foundation for §25's link routing).
 - [ ] **5.5 Cookie/session sanity tests**: log into the same site in two Spaces with separate profiles; confirm independent sessions survive relaunch.
-  > **Gotcha:** the *default* data store and non-persistent stores have **no identifier**. Decide at Space-creation time; you cannot retroactively adopt the default store into an identified one. Migrating a user from "shared" to "separate" logs them out — warn in the UI.
+  > **Correction (2026-09-18):** the default-store warning is stale. **Luna never uses the default store** — `ProfileStore.dataStore(for:)` always calls `WKWebsiteDataStore(forIdentifier:)`, so the real migration is identified → identified. Two things follow. (a) `fetchData(of:)` / `restoreData(_:)` exist in the macOS 26 SDK (verified in the header on this machine) and **might** copy a session between stores — the header does not say cross-store restore is supported, so **spike it before promising it in the UI** (§15.1 precedent). (b) Reassigning a Profile must **rebuild every web view in that Space**, or already-loaded tabs keep writing to the old store — exactly Nook's shipped bug, and zen#15023.
+  > **The all-zero UUID throws an Objective-C exception Swift cannot catch** ("Throws exception if identifier is 0", `WKWebsiteDataStore.h`). `dataStoreIdentifier` is a `NOT NULL UNIQUE` blob with no value check and nothing validates it on read. Guard it at the GRDB read boundary; none of the five researched codebases does.
 - [ ] **5.6 Private/incognito window** = `WKWebsiteDataStore.nonPersistent()`, visually distinct tint, excluded from history writes, no crash-restore.
 
 ---
