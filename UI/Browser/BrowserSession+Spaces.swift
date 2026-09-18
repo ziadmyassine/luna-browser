@@ -223,6 +223,49 @@ extension BrowserSession {
         }
     }
 
+    // MARK: - Launch
+
+    /// Deletes every `WKWebsiteDataStore` on disk that no Profile names, and
+    /// drains the deferred-removal queue while it is there (spec §3.1, §3.2).
+    ///
+    /// **This is the one call that makes store deletion eventually consistent.**
+    /// `remove(forIdentifier:)` fails while any live `WKWebView` still uses the
+    /// store, and a web view goes away when ARC says so rather than when the
+    /// user clicks Delete — so a removal that loses that race is queued in
+    /// `UserDefaults` and finished here, on the next launch, when nothing is
+    /// holding anything. Without it the queue is written and never read.
+    ///
+    /// Cheap, because WebKit is the registry: a delete that failed yesterday is
+    /// still listed today, so orphan recovery costs one diff. DuckDuckGo relies
+    /// on exactly this — *"If this fails, we are going to still clean them next
+    /// time as WebKit keeps track of all stores for us."*
+    ///
+    /// Launch work, not window work: it runs once per process even though a
+    /// `BrowserSession` is per window, because a second window sweeping the same
+    /// disk would race the first one's removals. Detached from the launch path
+    /// so a slow WebKit answer never delays the first paint.
+    func sweepOrphanedProfileStores() {
+        guard !Self.hasSweptOrphanStores else { return }
+        // **Never from a test.** The sweep deletes every store on disk that this
+        // session's database does not name, and a test's database is a temporary
+        // file holding two rows — so a test that installed the lifecycle would
+        // delete the *user's* real cookie jars and call it orphan recovery. The
+        // only safe thing to key on is the harness itself: XCTest is loaded in a
+        // test run and in nothing else.
+        guard NSClassFromString("XCTestCase") == nil else { return }
+        Self.hasSweptOrphanStores = true
+        let store = store
+        let profileStore = profileStore
+        Task {
+            guard let live = try? await store.liveDataStoreIdentifiers() else { return }
+            await profileStore.sweepOrphans(keeping: live)
+        }
+    }
+
+    /// Process-wide, because the disk is. Main-actor isolated with the rest of
+    /// the session, so "once" means once.
+    static var hasSweptOrphanStores = false
+
     // MARK: - Plumbing
     //
     // Internal rather than private: `BrowserSession+SpaceDeletion.swift` is the

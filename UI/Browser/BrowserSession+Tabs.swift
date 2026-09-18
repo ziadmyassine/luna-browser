@@ -213,6 +213,16 @@ extension BrowserSession {
     private func restoreArchived(_ tab: Tab, at index: Int) {
         var restored = tab
         restored.archivedAt = nil
+        // A Favorite can reach the archive by one route only — its Space was
+        // deleted and the Profile had no other Space to keep it in — and the
+        // Profile it comes back to may have filled the twelve since. Coming back
+        // as a pinned tab is the honest answer; silently making a thirteenth
+        // tile is not.
+        if restored.kind == .essential,
+           let profileID = space(restored.spaceID)?.profileID,
+           favorites(onProfile: profileID).count >= Self.favoritesCap {
+            restored.kind = .pinned
+        }
         archived.removeAll { $0.id == tab.id }
         persistAll(list.insert(restored, at: index))
         registerUndo("Close Tab") { $0.closeTab(restored.id) }

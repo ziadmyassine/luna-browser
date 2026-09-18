@@ -37,7 +37,15 @@ import WebKit
 extension BrowserSession {
 
     /// §19.2 / §6.3 / §6.8, running. Idempotent.
-    func installLifecycle() { TabLifecycle.install(in: self) }
+    ///
+    /// Also the launch sweep for orphaned `WKWebsiteDataStore`s — one call, one
+    /// place the app already calls, and the drain for the deferred store-removal
+    /// queue. It lives in `BrowserSession+Spaces.swift`, with the rest of the
+    /// profile lifecycle.
+    func installLifecycle() {
+        TabLifecycle.install(in: self)
+        sweepOrphanedProfileStores()
+    }
 }
 
 /// The lifecycle pass. One per session.
