@@ -342,11 +342,22 @@ Add:
 
 1. **Warn when the target Space is on a different Profile**, using Arc's wording.
    Crossing Profiles is a session-losing operation and must never be silent.
-2. **Never re-home a tab in place across a Profile boundary.** Even Firefox's
-   native implementation refuses: *"A load which switched container must not
-   commit in the tab it started in"* — it always opens a new tab and leaves the
-   original. Preserves back/forward semantics and avoids a history that spans two
-   cookie jars.
+2. **Moving a tab across a Profile boundary moves it, after a warning. DECIDED
+   2026-09-18 by the owner, and this supersedes the paragraph that was here.**
+   The rejected alternative was Firefox's, which never re-homes a tab in place —
+   it opens a new tab in the target and leaves the original, enforced by an
+   assert: *"a load which switched container must not commit in the tab it
+   started in."* That protects a back/forward history from spanning two cookie
+   jars, and it is why Firefox does it.
+   Luna does not, because dragging a tab somewhere and having it stay put is not
+   what the gesture means. The tab moves, its web view is discarded so no cookie
+   crosses, and the user is warned first in Arc's words: *"you could be logged
+   out of an account if you're not logged into it in the other profile."* A
+   Favorite crossing a boundary lands as a **pinned** tab rather than joining
+   another Profile's tier.
+   The cost we are accepting: a tab's back/forward history can contain entries
+   loaded under a different Profile. Worth knowing when §6.2's `interactionState`
+   restore is next touched.
 3. Keep drag-onto-a-Space-dot. Two cheap additions from Zen worth stealing: a
    hover-the-sidebar-edge auto-switch during a drag (20 pt threshold), and
    re-tinting the dragged ghost to the destination Space's colour as it crosses.
