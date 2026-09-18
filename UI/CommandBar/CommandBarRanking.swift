@@ -51,6 +51,11 @@ struct CommandBarSources: Sendable {
     /// synchronous one.
     var history: [HistoryHit] = []
     var commands: [AppCommand] = AppCommand.allCases
+    /// §3.4's suggestions, already fetched and parsed by
+    /// `Features/Search/SearchSuggestions`. Strings, not URLs: the engine
+    /// template turns them into one here, exactly as it does for a typed query,
+    /// so a suggestion cannot carry a destination Luna did not build.
+    var suggestions: [String] = []
 }
 
 /// A row plus the Profile whose cookie jar it belongs to, if any. Only an open
@@ -108,6 +113,7 @@ enum CommandBarRanking {
         if let search = searchRow(query: query, hasDirectURL: hasDirect) {
             rows.append(unscoped(search))
         }
+        rows.append(contentsOf: suggestionRows(query: query, sources: sources).map(unscoped))
 
         return Array(dedupe(order(rows)).prefix(limit))
     }
@@ -242,6 +248,33 @@ enum CommandBarRanking {
             action: .open(url),
             symbolName: "magnifyingglass"
         )
+    }
+
+    /// §3.4's suggestions as rows, in the order the engine returned them —
+    /// which is its ranking, and re-sorting it here would be Luna second-
+    /// guessing the only party that has seen more than one user's query.
+    /// `score` counts down so `order(_:)` preserves that within the tier.
+    ///
+    /// The engine's echo of the query is dropped: `searchRow` is already that
+    /// row, one tier up, and two identical lines is what makes a suggestion
+    /// list look broken.
+    private static func suggestionRows(query: String, sources: CommandBarSources) -> [CommandBarResult] {
+        guard !query.isEmpty else { return [] }
+        let typed = query.lowercased()
+        let setting = SearchSettings.current
+        var rank = 0.0
+        return sources.suggestions.compactMap { phrase in
+            guard phrase.lowercased() != typed, let url = setting.url(searching: phrase) else { return nil }
+            rank -= 1
+            return CommandBarResult(
+                source: .suggestion,
+                title: phrase,
+                subtitle: "Search \(setting.engine.title)",
+                action: .open(url),
+                score: rank,
+                symbolName: "magnifyingglass"
+            )
+        }
     }
 
     // MARK: - Order and dedupe

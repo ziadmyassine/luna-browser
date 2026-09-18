@@ -2,8 +2,8 @@
 //  Search.swift
 //  Luna
 //
-//  §23.1 §3.4. The section that actually removes a hard-coded value: the
-//  engine was a constant inside `CommandBarURL.search(for:)` and is now
+//  §23.1 §3.4. The section that actually removes a hard-coded value: the engine
+//  was a constant inside `CommandBarURL.search(for:)` and is now
 //  `SearchSettings`, which the §3.2 URL pill and the §9.2 Command Bar both
 //  commit through — so they still cannot disagree about what a query means.
 //
@@ -14,11 +14,13 @@
 //  `Mutex` and this section writes *through* it: the in-memory half first, the
 //  persisted half second. Nothing here is on the keystroke path.
 //
-//  **Suggestions ship disabled and would ship off.** §9.6's suggest endpoint
-//  does not exist, and D16 says Luna collects nothing — a suggestions switch
-//  sends every keystroke to a third party, which is the one thing the privacy
-//  policy already written rules out. Default-off is not a nicety here; an
-//  on-by-default suggest box would contradict a published document.
+//  **Suggestions are built, and default on.** They fetch from the engine that
+//  is already chosen here and from nowhere else — see `SearchSuggestions`,
+//  which owns the one network call in the query path and states exactly what
+//  leaves the Mac.
+//
+//  A broken custom URL is reported by the field itself rather than by a
+//  sentence under it: red text means Luna is not using what is typed there.
 //
 
 import AppKit
@@ -31,7 +33,7 @@ final class SearchSection: SettingsSection {
     static let symbolName = "magnifyingglass"
 
     private let body = SettingsBody()
-    private let validation = SettingsNoteHost()
+    private let custom: SettingsTextField
 
     var view: NSView { body.view }
     var searchIndex: [String] { body.searchIndex }
@@ -41,15 +43,13 @@ final class SearchSection: SettingsSection {
         // Re-sync in case `SettingsDefaults.restoreAll()` removed the keys
         // while nothing was watching. Once, on open — never per keystroke.
         SearchSettings.reload()
+        custom = SettingsTextField(string: SearchSettings.current.customTemplate)
         body.card(nil, [
             (engineRow(), ["search engine", "duckduckgo", "google", "bing", "kagi", "custom"]),
-            (customRow(), ["custom engine url", "search engine", "%s", "placeholder"])
+            (customRow(), ["custom engine url", "search engine", "%s", "placeholder"]),
+            (suggestionsRow(), ["search suggestions", "autocomplete", "complete"])
         ])
-        body.loose(validation, terms: ["search engine", "custom engine url"])
-        body.card("Suggestions", [
-            (suggestionsRow(), ["search suggestions", "autocomplete", "privacy"])
-        ])
-        refreshValidation()
+        refreshValidity()
     }
 
     // MARK: Rows
@@ -64,62 +64,58 @@ final class SearchSection: SettingsSection {
             var setting = SearchSettings.current
             setting.engine = options[index]
             SearchSettings.apply(setting)
-            self?.refreshValidation()
+            self?.refreshValidity()
         }
     }
 
-    /// Always editable, whichever engine is selected.
-    ///
-    /// The declared row API builds a control once and returns an opaque view,
-    /// so a field that enabled itself when the popup reached "Custom" would have
-    /// to be hand-rolled — which §4 forbids. Keeping it live costs nothing:
-    /// `SearchEngineSetting` only consults the template when `.custom` is
-    /// selected, and a user who types their engine before choosing it in the
-    /// popup gets the order they expected rather than a dead field.
+    /// Always editable, whichever engine is selected: `SearchEngineSetting` only
+    /// consults the template when `.custom` is chosen, and a user who types
+    /// their engine before picking it in the popup gets the order they expected
+    /// rather than a dead field.
     private func customRow() -> NSView {
-        SettingsRow.text(
-            "Custom engine URL",
-            value: SearchSettings.current.customTemplate,
-            placeholder: "https://example.com/search?q=\(SearchEngineSetting.placeholder)"
-        ) { [weak self] text in
+        custom.placeholderString = "https://example.com/search?q=\(SearchEngineSetting.placeholder)"
+        custom.cell?.sendsActionOnEndEditing = true
+        custom.widthAnchor.constraint(equalToConstant: Tokens.Metric.urlPill.width).isActive = true
+        let action = SettingsAction { [weak self] sender in
             var setting = SearchSettings.current
-            setting.customTemplate = text
+            setting.customTemplate = (sender as? NSTextField)?.stringValue ?? ""
             SearchSettings.apply(setting)
-            self?.refreshValidation()
+            self?.refreshValidity()
         }
+        custom.target = action
+        custom.action = #selector(SettingsAction.fire(_:))
+        return SettingsRow
+            .accessory("Custom engine URL", subtitle: nil, accessory: custom)
+            .retaining(action)
     }
 
     private func suggestionsRow() -> NSView {
-        SettingsRow.toggle(
-            "Search suggestions",
-            subtitle: "Would send every keystroke to the search engine.",
-            value: false,
-            isEnabled: false,
-            disabledReason: "Luna has no suggestions endpoint, and it would default to off when it does."
-        ) { _ in }
+        SettingsRow.toggle("Search suggestions", value: SearchSettings.current.suggestions) { on in
+            var setting = SearchSettings.current
+            setting.suggestions = on
+            SearchSettings.apply(setting)
+        }
     }
 
-    // MARK: Validation
+    // MARK: Validity
 
-    /// §3.4's "validated" — as a line the user can read, because the declared
-    /// row API has nowhere to put an error badge and a field that silently
-    /// discards what you typed is worse than one that explains itself.
-    private func refreshValidation() {
-        validation.setText(Self.validationText(SearchSettings.current))
-    }
-
-    static func validationText(_ setting: SearchEngineSetting) -> String {
-        let token = SearchEngineSetting.placeholder
-        guard setting.engine == .custom else {
-            return "Searches go to \(setting.engine.title). The custom URL is kept, not used."
-        }
-        if setting.customTemplate.isEmpty {
-            return "Enter a URL containing \(token) — Luna puts the query there."
-        }
-        guard SearchEngineSetting.isUsable(setting.customTemplate) else {
-            return "Not in use: needs an http or https URL containing \(token). "
-                + "Searching \(SearchEngine.fallback.title) until it does."
-        }
-        return "Searches go to your custom engine."
+    /// §3.4's "validated", as the field's own ink.
+    ///
+    /// A sentence under the row spelled out which engine searches went to and
+    /// what the custom URL needed, which is three lines to say what the popup
+    /// one row up already says. What it could not be replaced by is nothing:
+    /// a custom template without `%s` is silently ignored and searches fall
+    /// back to DuckDuckGo, so the field has to admit when Luna is not using it.
+    private func refreshValidity() {
+        let setting = SearchSettings.current
+        let broken = setting.engine == .custom
+            && !setting.customTemplate.isEmpty
+            && !SearchEngineSetting.isUsable(setting.customTemplate)
+        custom.warns = broken
+        custom.setAccessibilityHelp(
+            broken
+                ? "Not in use: needs an http or https URL containing \(SearchEngineSetting.placeholder)."
+                : nil
+        )
     }
 }

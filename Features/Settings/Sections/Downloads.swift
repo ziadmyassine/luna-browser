@@ -12,6 +12,15 @@
 //  §30.4: a dimmed row that says why beats a switch that flips and does
 //  nothing.
 //
+//  **The folder is a pop-up, not an `NSPathControl`.** The path control was one
+//  native control doing the work of two, which is why it was chosen — but it
+//  draws the folder's name hard against its *leading* edge and its chevron
+//  against the trailing one, and it is as wide as the row lets it be. So the
+//  word "Downloads" sat inches away from the control it belonged to, with the
+//  row's own label on the far side of the gap. A pop-up puts the name and the
+//  chevron together, and makes this row look like the two below it instead of
+//  like a control borrowed from another window.
+//
 
 import AppKit
 
@@ -23,7 +32,7 @@ final class DownloadsSection: SettingsSection {
     static let symbolName = "arrow.down.circle"
 
     private let body = SettingsBody()
-    private let path = NSPathControl()
+    private let folder = NSPopUpButton(frame: .zero, pullsDown: true)
 
     var view: NSView { body.view }
     var searchIndex: [String] { body.searchIndex }
@@ -35,24 +44,40 @@ final class DownloadsSection: SettingsSection {
 
     // MARK: Where files go
 
-    /// §3.5's "path popup + Choose…" is one native control, not two.
-    ///
-    /// Measured in `NSPathControl.h`: "If the control isEditable and has the
-    /// pathStyle set to NSPathStylePopUp, an additional choice in the pop up
-    /// menu will allow selecting another location. By default, an NSOpenPanel
-    /// will be configured based on the allowedTypes." So `public.folder` plus
-    /// editable *is* the Choose… item, with the system's own panel.
+    /// A pull-down: item 0 is the title, so the button reads as the folder in
+    /// force and the menu offers the only thing there is to do about it.
     private func saveLocationRow() -> (view: NSView, terms: [String]) {
-        path.pathStyle = .popUp
-        path.isEditable = true
-        path.allowedTypes = ["public.folder"]
-        path.url = DownloadDestination.folder
-        path.target = self
-        path.action = #selector(chooseFolder(_:))
+        folder.isBordered = false
+        folder.font = Tokens.TypeScale.settingsRow
+        folder.contentTintColor = Tokens.Text.secondary
+        folder.target = self
+        folder.action = #selector(folderMenuChose(_:))
+        refreshFolder()
 
         let title = String(localized: "Save files to")
-        let row = SettingsRow.accessory(title, subtitle: nil, accessory: path)
+        let row = SettingsRow.accessory(title, subtitle: nil, accessory: folder)
         return (view: row, terms: [title, "folder", "location", "directory"])
+    }
+
+    /// The title carries the folder's own icon, at the row's text size — a
+    /// download destination is a place on disk, and the icon is what says so in
+    /// less room than the path would take.
+    private func refreshFolder() {
+        let url = DownloadDestination.folder
+        folder.removeAllItems()
+        folder.addItem(withTitle: url.lastPathComponent)
+        let icon = NSWorkspace.shared.icon(forFile: url.path(percentEncoded: false))
+        icon.size = NSSize(width: Tokens.Metric.glyphSize, height: Tokens.Metric.glyphSize)
+        folder.item(at: 0)?.image = icon
+        folder.menu?.addItem(.separator())
+        folder.addItem(withTitle: String(localized: "Other…"))
+    }
+
+    @objc private func folderMenuChose(_ sender: NSPopUpButton) {
+        // Index 0 is the pull-down's own title and 1 is the separator; the only
+        // item that does anything is the last one.
+        guard sender.indexOfSelectedItem == sender.numberOfItems - 1 else { return }
+        chooseFolder()
     }
 
     /// Luna is unsandboxed (D8), so there is no security-scoped bookmark to
@@ -60,25 +85,32 @@ final class DownloadsSection: SettingsSection {
     /// the persistence. What replaces the bookmark is the write test: TCC still
     /// applies to `~/Desktop` and `~/Documents`, and it is the one thing a
     /// permissions check can see and `isWritableFile(atPath:)` cannot.
-    @objc private func chooseFolder(_ sender: NSPathControl) {
-        guard let chosen = sender.clickedPathItem?.url ?? sender.url else { return }
+    private func chooseFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = DownloadDestination.folder
+        panel.prompt = String(localized: "Choose")
+        guard panel.runModal() == .OK, let chosen = panel.url else { return }
         guard DownloadDestination.isWritable(chosen) else {
             let alert = NSAlert()
             alert.alertStyle = .warning
-            alert.messageText = String(localized: "Luna cannot save files to “\(chosen.lastPathComponent)”.")
+            alert.messageText = String(localized: "Luna cannot save files to \u{201C}\(chosen.lastPathComponent)\u{201D}.")
             alert.informativeText = String(localized: """
             Writing a test file there failed. Either the folder is read-only, or macOS has \
             not granted Luna access to it. Pick a different folder, or grant access in \
-            System Settings › Privacy & Security › Files and Folders.
+            System Settings \u{203A} Privacy & Security \u{203A} Files and Folders.
             """)
             alert.runModal()
             // The setting is unchanged, so the control must go back to showing
             // the folder downloads will actually land in.
-            sender.url = DownloadDestination.folder
+            refreshFolder()
             return
         }
         UserDefaults.standard.set(chosen.path(percentEncoded: false), forKey: DownloadDestination.directoryKey)
-        sender.url = DownloadDestination.folder
+        refreshFolder()
     }
 
     // MARK: The three policy rows

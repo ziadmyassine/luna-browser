@@ -110,16 +110,85 @@ final class SectionsATests: XCTestCase {
         XCTAssertNil(CommandBarURL.search(for: "   \n "))
     }
 
-    func testTheValidatorSaysWhichEngineIsActuallyInUse() {
-        let live = SearchSection.validationText(SearchEngineSetting(engine: .custom, customTemplate: "https://e.example/?q=%s"))
-        XCTAssertTrue(live.contains("custom engine"), live)
-        let broken = SearchSection.validationText(SearchEngineSetting(engine: .custom, customTemplate: "https://e.example/"))
-        XCTAssertTrue(broken.contains("Not in use"), broken)
-        XCTAssertTrue(broken.contains(SearchEngine.fallback.title), broken)
-        let empty = SearchSection.validationText(SearchEngineSetting(engine: .custom))
-        XCTAssertTrue(empty.contains(SearchEngineSetting.placeholder), empty)
-        let google = SearchSection.validationText(SearchEngineSetting(engine: .google))
-        XCTAssertTrue(google.contains("Google"), google)
+    /// The sentence under the row is gone; what it was protecting is not. A
+    /// custom template without `%s` is silently ignored — searches fall back to
+    /// DuckDuckGo — so the field has to be able to say so, and `isUsable` is
+    /// what it asks.
+    func testAnUnusableCustomTemplateIsDetectableWithoutRunningTheField() {
+        XCTAssertTrue(SearchEngineSetting.isUsable("https://e.example/?q=%s"))
+        XCTAssertFalse(SearchEngineSetting.isUsable("https://e.example/"))
+        XCTAssertFalse(SearchEngineSetting.isUsable(""))
+        XCTAssertNil(SearchEngineSetting(engine: .custom, customTemplate: "https://e.example/").activeTemplate)
+        // And the fallback still happens, so nothing breaks while it is wrong.
+        XCTAssertEqual(
+            SearchEngineSetting(engine: .custom, customTemplate: "nope").url(searching: "luna")?.host,
+            SearchEngineSetting(engine: .duckDuckGo).url(searching: "luna")?.host
+        )
+    }
+
+    // MARK: - §3.4 suggestions
+
+    /// **On by default**, and the key is what a fresh install reads.
+    func testSuggestionsAreOnUntilTheUserTurnsThemOff() {
+        UserDefaults.standard.removeObject(forKey: SearchSettings.suggestionsKey)
+        SearchSettings.reload()
+        XCTAssertTrue(SearchSettings.current.suggestions)
+
+        var setting = SearchSettings.current
+        setting.suggestions = false
+        SearchSettings.apply(setting)
+        SearchSettings.reload()
+        XCTAssertFalse(SearchSettings.current.suggestions, "the switch has to survive the window closing")
+        UserDefaults.standard.removeObject(forKey: SearchSettings.suggestionsKey)
+        SearchSettings.reload()
+    }
+
+    /// Nothing is asked of an engine that has no suggestion endpoint, and
+    /// nothing at all is asked while the switch is off — §9.6 as an assertion
+    /// rather than as a paragraph.
+    func testOnlyAnEngineWithAnEndpointIsEverAsked() {
+        XCTAssertNotNil(SearchEngineSetting(engine: .duckDuckGo).suggestURL(for: "luna"))
+        XCTAssertNotNil(SearchEngineSetting(engine: .google).suggestURL(for: "luna"))
+        XCTAssertNotNil(SearchEngineSetting(engine: .bing).suggestURL(for: "luna"))
+        XCTAssertNil(SearchEngineSetting(engine: .kagi).suggestURL(for: "luna"))
+        XCTAssertNil(
+            SearchEngineSetting(engine: .custom, customTemplate: "https://e.example/?q=%s").suggestURL(for: "luna"),
+            "a search template says nothing about where that engine's suggestions live"
+        )
+        XCTAssertNil(SearchEngineSetting(engine: .duckDuckGo, suggestions: false).suggestURL(for: "luna"))
+        XCTAssertNil(SearchEngineSetting(engine: .duckDuckGo).suggestURL(for: ""))
+
+        // Every endpoint is https, and the query is escaped the same way a
+        // search URL's is.
+        let url = SearchEngineSetting(engine: .duckDuckGo).suggestURL(for: "a b")
+        XCTAssertEqual(url?.scheme, "https")
+        XCTAssertEqual(url?.absoluteString.contains("a%20b"), true)
+    }
+
+    /// One parser for all three engines, asserted against the shape each of
+    /// them actually returns.
+    func testTheOpenSearchPayloadIsParsedAndDeduplicated() {
+        let payload = Data(#"["git", ["github", "git bash", "GitHub", "  ", "gitlab"]]"#.utf8)
+        XCTAssertEqual(SearchSuggestions.parse(payload), ["github", "git bash", "gitlab"])
+        XCTAssertEqual(SearchSuggestions.parse(Data("not json".utf8)), [])
+        XCTAssertEqual(SearchSuggestions.parse(Data(#"["git"]"#.utf8)), [])
+        XCTAssertEqual(SearchSuggestions.parse(Data(#"["git", "nope"]"#.utf8)), [])
+    }
+
+    /// The engine's echo of what you typed is dropped: `searchRow` is already
+    /// that line, a tier above, and two identical rows read as a bug.
+    func testSuggestionRowsSitBelowTheSearchRowAndNeverRepeatIt() {
+        SearchSettings.apply(SearchEngineSetting(engine: .duckDuckGo))
+        var sources = CommandBarSources()
+        sources.suggestions = ["git", "github", "gitlab"]
+        let rows = CommandBarRanking.merge(query: "git", sources: sources, limit: 10)
+
+        XCTAssertEqual(rows.first?.source, .search)
+        XCTAssertEqual(rows.first?.title, "git")
+        XCTAssertEqual(rows.dropFirst().map(\.title), ["github", "gitlab"])
+        XCTAssertTrue(rows.dropFirst().allSatisfy { $0.source == .suggestion })
+        // The engine's order is its ranking, and Luna does not re-sort it.
+        XCTAssertEqual(rows.dropFirst().map(\.title), ["github", "gitlab"])
     }
 
     // MARK: - §3.1 general

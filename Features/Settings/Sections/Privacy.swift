@@ -5,17 +5,15 @@
 //  docs/SETTINGS-SPEC.md §3.3 — the blocking toggles, the filter-list status
 //  block, HTTPS-Only, and §17.7's paragraph.
 //
-//  **The per-site exemption list is not here any more.** Which sites have
-//  blocking turned off is a per-site answer, and per-site answers now live in
-//  one place: §3.2's site menu, behind the sliders glyph on the URL pill. A
-//  second copy of them here was a list you could only ever *remove* from — you
-//  could not turn blocking off for a site from it — sitting a window away from
-//  the page the answer is about. What stays is what is genuinely global: which
-//  filter lists run at all, HTTPS-Only, and clearing everything.
+//  **These toggles are what the site menu's switch is an exception to.** The
+//  sliders glyph on the URL pill answers "block on *this* site"; it can only
+//  turn off what is on globally, and there is nowhere else to say which filter
+//  lists run at all. So the two surfaces are not duplicates and deleting these
+//  would leave the per-site switch with nothing to switch. What did move out is
+//  the per-site exemption *list*, which is now only in the menu.
 //
 //  The row stack and §2's search come from `SettingsBody` in `General.swift`;
-//  the app wiring and the two confirmation dialogs come from `SettingsHost` in
-//  `Shell/`.
+//  the app wiring and the confirmation dialog come from `SettingsHost`.
 //
 
 import AppKit
@@ -100,35 +98,22 @@ final class PrivacySection: SettingsSection {
 
         let title = String(localized: "Filter lists")
         let row = SettingsRow.accessory(title, subtitle: nil, accessory: accessory)
-        body.card(nil, [(row, [title, "rules", "refresh", "easylist", "update"])])
+        // The search terms carry what a three-sentence signpost used to say in
+        // prose: someone hunting for the exemption list types "allowlist" or
+        // "per-site", and §2's search brings them to the row the menu switches.
+        body.card(nil, [(row, [title, "rules", "refresh", "easylist", "update",
+                               "exceptions", "allowlist", "per-site"])])
         render(ContentBlocker.shared.status)
-        buildPerSiteNote()
     }
 
-    /// Where the exemption list went. A sentence, not a control: the user who
-    /// comes here looking for it needs telling once, and telling them is not
-    /// the same as putting the switch back.
-    private func buildPerSiteNote() {
-        let text = String(localized: """
-        Blocking is turned on and off for one site at a time from the sliders button in \
-        the address bar, beside the site's name. That menu also clears the site's cache \
-        and its cookies.
-        """)
-        body.loose(
-            SettingsRow.note(text),
-            terms: ["exceptions", "allowlist", "per-site", "site settings", "turn off for this site"]
-        )
-    }
-
-    /// §17.7, and it is required copy rather than a nicety. Luna has no Safe
-    /// Browsing service and no plan for one; a privacy section that stays quiet
-    /// about that lets the user believe they are protected against something
-    /// they are not.
+    /// §17.7, and required copy rather than a nicety: Luna has no Safe Browsing
+    /// service, and a privacy section that stays quiet about that lets the user
+    /// believe they are protected against something they are not.
     private func buildSafeBrowsingNote() {
         let text = String(localized: """
-        Luna does not check the addresses you visit against a malware or phishing list. \
-        No such list is downloaded and nothing about your browsing leaves this Mac. \
-        macOS still applies XProtect and Gatekeeper to anything you download and run.
+        Luna does not check the addresses you visit against a malware or phishing list, and \
+        nothing about your browsing leaves this Mac. macOS still applies XProtect and \
+        Gatekeeper to anything you download and run.
         """)
         body.loose(SettingsRow.note(text), terms: ["malware", "phishing", "safe browsing", "xprotect", "gatekeeper"])
 

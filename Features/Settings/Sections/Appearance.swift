@@ -13,14 +13,13 @@
 //  rebuilt from `Glass.previewTile(size:optimised:)` on the same runloop turn
 //  as the segment change.
 //
-//  Two of §3.2's four rows are disabled, for different reasons:
-//    · **Sidebar position** — §3.2 already declares it disabled; the right-hand
-//      sidebar is not built.
-//    · **Show tab favicons** — §3.2 lists it as wired to "sidebar row model",
-//      but the only chokepoint is `SidebarIcons.favicon(for:)`, which this
-//      milestone does not own. The accessor below is published so wiring it is
-//      one `guard`; until that guard exists the row is dimmed rather than
-//      silently inert (§30.4).
+//  **Favicons are no longer a setting.** §3.2 listed a switch for them; the
+//  sidebar has drawn them since M1, every browser draws them, and nobody turns
+//  them off. A preference whose only honest default is "on" is one more row to
+//  read past, so `SidebarIcons.favicon(for:)` now just draws them.
+//
+//  Sidebar position stays, dimmed: §3.2 declares it, and the right-hand sidebar
+//  is not built.
 //
 
 import AppKit
@@ -59,18 +58,9 @@ final class AppearanceSection: NSObject, SettingsSection {
     }
 
     static let themeKey = "appearance.theme"
-    static let showFaviconsKey = "appearance.showFavicons"
 
     static var theme: Theme {
         UserDefaults.standard.string(forKey: themeKey).flatMap(Theme.init(rawValue:)) ?? .auto
-    }
-
-    /// Defaults on: the sidebar has drawn favicons since M1, and a setting that
-    /// changes what the app looks like on first launch is a setting that has
-    /// been misused. Read by `SidebarIcons.favicon(for:)`, the one chokepoint both the
-    /// sidebar list and the Essentials grid route through.
-    static var showFavicons: Bool {
-        UserDefaults.standard.object(forKey: showFaviconsKey) as? Bool ?? true
     }
 
     /// Reads `appearance.theme` back onto the app.
@@ -118,8 +108,7 @@ final class AppearanceSection: NSObject, SettingsSection {
 
         body.card(nil, [
             (themeRow(), ["theme", "appearance", "auto", "light", "dark"]),
-            (chromeLayoutRow(), ["chrome layout", "sidebar", "top bar", "tabs", "layout"]),
-            (faviconRow(), ["show tab favicons in the sidebar", "favicons", "icons"]),
+            (chromeLayoutRow(), ["layout", "chrome", "sidebar", "top bar", "tabs"]),
             (sidebarPositionRow(), ["sidebar position", "left", "right"])
         ])
         body.card("Glass", [
@@ -162,7 +151,6 @@ final class AppearanceSection: NSObject, SettingsSection {
         let options: [GlassOptimisation] = [.auto, .on, .off]
         return SettingsRow.segmented(
             "Optimise glass for this display",
-            subtitle: "Thickens the material where one point is one pixel, so the specular rim survives.",
             options: ["Auto", "On", "Off"],
             selected: options.firstIndex(of: Glass.optimisation) ?? 0
         ) { [weak self] index in
@@ -196,39 +184,25 @@ final class AppearanceSection: NSObject, SettingsSection {
         Tokens.Motion.animate(Tokens.Motion.layoutSwitch) { _ in swap() }
     }
 
-    /// Which chrome the window wears.
+    /// Which chrome the window wears — and the reason `⌘S` could stop meaning
+    /// "swap the layout". Revealing the sidebar is a reflex performed several
+    /// times a minute; choosing between the two layouts is a preference taken
+    /// once. The reflex kept `⌘S`; the preference moved here.
     ///
-    /// This row is the reason `⌘S` could stop meaning "swap the layout".
-    /// Revealing the sidebar is a reflex performed several times a minute;
-    /// choosing between the two layouts is a preference taken once, and a
-    /// keystroke that did both let the reflex silently change the preference.
-    /// The reflex kept `⌘S`; the preference moved here.
+    /// The segment names are the whole explanation: "Sidebar" and "Top bar" say
+    /// where the tabs go, and the sentence that used to spell that out was
+    /// telling the user what they were already looking at.
     private func chromeLayoutRow() -> NSView {
         let layouts = ChromeLayoutPreference.allCases
-        let current = Settings.chromeLayout
         return SettingsRow.segmented(
-            "Chrome layout",
-            subtitle: current.detail,
+            "Layout",
             options: layouts.map(\.title),
-            selected: layouts.firstIndex(of: current) ?? 0
+            selected: layouts.firstIndex(of: Settings.chromeLayout) ?? 0
         ) { index in
             guard layouts.indices.contains(index) else { return }
             // The setter posts `Settings.didChange`; `AppDelegate` is listening
             // and re-anchors the running window. Nothing here reaches for it.
             Settings.chromeLayout = layouts[index]
-        }
-    }
-
-    private func faviconRow() -> NSView {
-        SettingsRow.toggle(
-            "Show tab favicons in the sidebar",
-            value: Self.showFavicons
-        ) { value in
-            UserDefaults.standard.set(value, forKey: Self.showFaviconsKey)
-            // `SidebarIcons.favicon(for:)` is the one chokepoint — the sidebar
-            // list and the Essentials grid both read through it — but nothing
-            // re-reads it on its own, so the change has to be announced.
-            SettingsHost.session?.notifyChange()
         }
     }
 

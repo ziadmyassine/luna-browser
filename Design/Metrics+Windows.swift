@@ -49,6 +49,17 @@ extension Tokens.Metric {
     static let settingsControlInset: CGFloat = 12
     static let settingsSegmentGap: CGFloat = 2
 
+    /// The pick-one switch, and **why Luna draws its own**.
+    ///
+    /// Measured on macOS 26: `NSSwitch` is 54 × 24 at every `controlSize` —
+    /// `.small` and `.mini` are accepted and ignored. Fifty-four points is
+    /// twice `settingsControl`'s width budget and nearly half again the height,
+    /// so a card of them read as a row of levers beside 13 pt type. This is the
+    /// size the pane actually has room for; `SettingsSwitch` draws it.
+    static let settingsSwitch = RoundedMetric(width: 36, height: 20, cornerRadius: 10)
+    /// Inset either side of the knob inside the track.
+    static let settingsSwitchKnobInset: CGFloat = 2
+
     /// The back/forward capsule at the head of the detail pane.
     static let settingsNavCapsule = RoundedMetric(width: 64, height: 30, cornerRadius: 10)
 

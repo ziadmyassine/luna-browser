@@ -412,10 +412,19 @@ final class SettingsPushButton: NSButton {
     @objc private func fire() { onActivate?() }
 
     /// The title is attributed, so `isEnabled` has to dim it by hand — AppKit
-    /// only dims the ones it drew itself.
+    /// only dims the ones it drew itself. `title` is overridden for the same
+    /// reason: `attributedTitle` wins once it is set, so assigning the plain
+    /// string alone would change nothing on screen.
     override var isEnabled: Bool {
         didSet {
             guard isEnabled != oldValue else { return }
+            applyTitle()
+        }
+    }
+
+    override var title: String {
+        didSet {
+            guard title != oldValue else { return }
             applyTitle()
         }
     }
@@ -432,6 +441,7 @@ final class SettingsPushButton: NSButton {
             .font: Tokens.TypeScale.settingsRow,
             .foregroundColor: ink
         ])
+        invalidateIntrinsicContentSize()
         needsDisplay = true
     }
 
@@ -503,9 +513,28 @@ final class SettingsTextField: NSTextField {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
+    /// Set when what is typed here is not being used — a custom search
+    /// template with no `%s` in it. The ink carries it, because the alternative
+    /// was a sentence under the row saying the same thing in thirty words.
+    var warns = false {
+        didSet {
+            guard warns != oldValue else { return }
+            Tokens.Motion.animate(Tokens.Motion.controlHover) { context in
+                context.allowsImplicitAnimation = true
+                self.applyTokens()
+            }
+        }
+    }
+
     private func applyTokens() {
         font = Tokens.TypeScale.settingsRow
-        textColor = isEnabled ? Tokens.Text.primary : Tokens.Text.disabled
+        textColor = if !isEnabled {
+            Tokens.Text.disabled
+        } else if warns {
+            Tokens.Accent.danger
+        } else {
+            Tokens.Text.primary
+        }
         needsDisplay = true
     }
 
@@ -587,6 +616,177 @@ final class SettingsTextFieldCell: NSTextFieldCell {
             start: start,
             length: length
         )
+    }
+}
+
+/// §4's switch.
+///
+/// **AppKit's is 54 × 24 and will not be told otherwise.** Measured on macOS 26:
+/// `NSSwitch` returns the same fitting size at `.large`, `.regular`, `.small`
+/// and `.mini` — the property is accepted and ignored. That is twice the width
+/// every other control in the pane was built to (`settingsControl`, 28), and a
+/// card of them read as a row of levers rather than of settings.
+///
+/// So this is the one system control Luna replaces, and it is replaced rather
+/// than *scaled*: a layer transform would rasterise the system's crisp rim and
+/// then blur it, and would leave the click target somewhere the switch is not.
+/// What is re-earned by hand is written out below — the key loop, Space, the
+/// `AXCheckBox` role and its value, the focus ring, and Reduce Motion. The
+/// on-state keeps the system accent, because a switch that is on is the one
+/// place in this window where the user's own accent choice is the answer every
+/// other Mac app gives.
+@MainActor
+final class SettingsSwitch: NSControl {
+
+    var onChange: ((Bool) -> Void)?
+
+    var isOn = false {
+        didSet {
+            guard isOn != oldValue else { return }
+            refresh(animated: true)
+        }
+    }
+
+    private let track = CALayer()
+    private let knob = CALayer()
+
+    init(isOn: Bool) {
+        self.isOn = isOn
+        super.init(frame: .zero)
+        wantsLayer = true
+        translatesAutoresizingMaskIntoConstraints = false
+        let metric = Tokens.Metric.settingsSwitch
+        NSLayoutConstraint.activate([
+            widthAnchor.constraint(equalToConstant: metric.width),
+            heightAnchor.constraint(equalToConstant: metric.height)
+        ])
+        track.cornerRadius = metric.cornerRadius
+        track.cornerCurve = metric.cornerCurve
+        track.borderWidth = Tokens.Metric.hairline
+        knob.cornerRadius = (metric.height - 2 * Tokens.Metric.settingsSwitchKnobInset) / 2
+        layer?.addSublayer(track)
+        layer?.addSublayer(knob)
+        setAccessibilityElement(true)
+        setAccessibilityRole(.checkBox)
+        refresh(animated: false)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("Luna builds its chrome in code; there is no nib to decode.")
+    }
+
+    override var intrinsicContentSize: NSSize { Tokens.Metric.settingsSwitch.size }
+
+    override func layout() {
+        super.layout()
+        // Bounds-derived, so it may never animate — the knob's *travel* is what
+        // animates, and that is driven from `refresh(animated:)`.
+        Tokens.Motion.immediately {
+            track.frame = bounds
+            knob.frame = knobFrame
+        }
+    }
+
+    private var knobFrame: NSRect {
+        let inset = Tokens.Metric.settingsSwitchKnobInset
+        let diameter = bounds.height - 2 * inset
+        return NSRect(
+            x: isOn ? bounds.width - diameter - inset : inset,
+            y: inset,
+            width: diameter,
+            height: diameter
+        )
+    }
+
+    // MARK: - Paint
+
+    private func refresh(animated: Bool) {
+        setAccessibilityValue(isOn)
+        let paint = {
+            self.track.backgroundColor = self.isOn && self.isEnabled
+                ? Tokens.Accent.tint.cgColor
+                : Tokens.Surface.well.cgColor
+            self.track.borderColor = self.isOn && self.isEnabled
+                ? NSColor.clear.cgColor
+                : Tokens.Line.border.cgColor
+            // White in both themes, exactly as AppKit's own knob is: the knob is
+            // the moving part, and it has to read against the accent as well as
+            // against the well.
+            self.knob.backgroundColor = (self.isEnabled ? NSColor.white : Tokens.Text.disabled).cgColor
+            self.knob.frame = self.knobFrame
+        }
+        guard animated, !Tokens.Motion.reduceMotion else {
+            Tokens.Motion.immediately(paint)
+            return
+        }
+        Tokens.Motion.animate(Tokens.Motion.selectedRowMove) { context in
+            context.allowsImplicitAnimation = true
+            paint()
+        }
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        refresh(animated: false)
+    }
+
+    override var isEnabled: Bool {
+        didSet {
+            guard isEnabled != oldValue else { return }
+            setAccessibilityEnabled(isEnabled)
+            refresh(animated: false)
+        }
+    }
+
+    // MARK: - Input
+
+    private func toggle() {
+        guard isEnabled else { return }
+        isOn.toggle()
+        onChange?(isOn)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        guard bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
+        toggle()
+    }
+
+    /// Space, which is what AppKit's switch answers to. Return is deliberately
+    /// left alone: it belongs to the window's default button, not to a row.
+    override func keyDown(with event: NSEvent) {
+        guard event.charactersIgnoringModifiers == " " else {
+            super.keyDown(with: event)
+            return
+        }
+        toggle()
+    }
+
+    override var acceptsFirstResponder: Bool { isEnabled }
+
+    override var canBecomeKeyView: Bool { acceptsFirstResponder && !isHiddenOrHasHiddenAncestor }
+
+    override func becomeFirstResponder() -> Bool {
+        needsDisplay = true
+        return true
+    }
+
+    override func resignFirstResponder() -> Bool {
+        needsDisplay = true
+        return true
+    }
+
+    override func drawFocusRingMask() {
+        let metric = Tokens.Metric.settingsSwitch
+        NSBezierPath(roundedRect: bounds, xRadius: metric.cornerRadius, yRadius: metric.cornerRadius).fill()
+    }
+
+    override var focusRingMaskBounds: NSRect { bounds }
+
+    override func accessibilityPerformPress() -> Bool {
+        guard isEnabled else { return false }
+        toggle()
+        return true
     }
 }
 

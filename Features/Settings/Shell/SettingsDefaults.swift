@@ -30,13 +30,13 @@ enum SettingsDefaults {
         // §3.1 General — `GeneralSettings.onLaunch` / `.confirmClose`
         ("general.onLaunch", "restoreSession"),
         ("general.confirmClose", true),
-        // §3.2 Appearance — `AppearanceSettings.theme` / `.showFavicons`, `Glass.optimisation`
+        // §3.2 Appearance — `AppearanceSection.theme`, `Glass.optimisation`
         ("appearance.theme", "auto"),
         ("appearance.glassOptimisation", GlassOptimisation.auto.rawValue),
-        ("appearance.showFavicons", true),
         // §3.4 Search — `SearchSettings.stored()`
         ("search.engine", SearchEngine.fallback.rawValue),
         ("search.customEngineURL", ""),
+        ("search.suggestions", true),
         // §3.5 Downloads — `DownloadDestination.folder` / `.autoOpenKey`
         ("downloads.directory", ""),
         ("downloads.askEachTime", false),

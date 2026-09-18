@@ -8,13 +8,13 @@
 //  `CommandBarRankingTests` instead of by driving a window.
 //
 //  **§9.6 privacy, structurally rather than as a promise.** Nothing under
-//  `UI/CommandBar` references a networking type. A query leaves this module in
-//  exactly three shapes: a tab id to activate, a URL to *navigate to*, or an app
-//  command. Search-engine suggestions (§9.2, §9.6) are deliberately not built —
-//  they are the one source that would need a network call, and they are deferred
-//  until §9.6's opt-out exists. `CommandBarPrivacyTests` greps these sources for
-//  networking symbols and fails if one ever appears, so the guarantee outlives
-//  this comment.
+//  `UI/CommandBar` references a networking type, and `CommandBarPrivacyTests`
+//  greps these sources to keep it that way. Suggestions are the one §9.2 source
+//  that needs a network call, so the call lives outside this module entirely —
+//  `Features/Search/SearchSuggestions` fetches them and the controller hands
+//  the finished strings in as just another local array. What this module does
+//  with a query is still only one of three things: activate a tab, open a URL,
+//  or run a command.
 //
 
 import BrowserKit
@@ -73,8 +73,12 @@ enum CommandBarSource: Sendable, Hashable, Comparable, CaseIterable {
     case history
     case archive
     case command
-    /// The floor: there is always something to do with a query.
+    /// The floor: there is always something to do with a query, and what the
+    /// user actually typed outranks anything an engine guessed they meant.
     case search
+    /// §3.4's suggestions, when they are switched on. Last on purpose — they
+    /// are the only rows in the list that came from somewhere else.
+    case suggestion
 }
 
 /// The Space badge §9.2 asks for on a cross-Space tab. `RGBA`, not `NSColor`,
@@ -303,6 +307,25 @@ enum SearchEngine: String, Sendable, Hashable, CaseIterable {
         case .custom: "Custom"
         }
     }
+
+    /// Where §3.4's suggestions come from, as a `%s` template like the one
+    /// above. All three speak OpenSearch — `["what you typed", ["a", "b"]]` —
+    /// so `SearchSuggestions` has one parser rather than three.
+    ///
+    /// **Nil is the honest answer for the other two.** Kagi's autosuggest is
+    /// behind its session cookie and answers nothing useful without one, and a
+    /// custom engine has given Luna a *search* template and said nothing about
+    /// where its suggestions live. Guessing either would send the query
+    /// somewhere the user did not name, which is the one thing this must not
+    /// do; those engines simply have no suggestions.
+    var suggestTemplate: String? {
+        switch self {
+        case .duckDuckGo: "https://duckduckgo.com/ac/?q=%s&type=list"
+        case .google: "https://suggestqueries.google.com/complete/search?client=firefox&q=%s"
+        case .bing: "https://api.bing.com/osjson.aspx?query=%s"
+        case .kagi, .custom: nil
+        }
+    }
 }
 
 /// An engine plus the custom template only `.custom` consults.
@@ -315,6 +338,19 @@ struct SearchEngineSetting: Sendable, Hashable {
     /// Kept while another engine is selected: switching away and back must not
     /// erase what the user typed.
     var customTemplate: String = ""
+    /// §3.4's suggestions. **On**, which is a change of position and worth
+    /// stating: it means a query you are still typing reaches the engine you
+    /// have already chosen to send your searches to, and nowhere else. It is
+    /// one switch away from off, and off means nothing leaves the Mac until you
+    /// press Return.
+    var suggestions: Bool = true
+
+    /// Where to ask for suggestions, or nil when they are off, the engine has
+    /// no endpoint, or the query is empty.
+    func suggestURL(for query: String) -> URL? {
+        guard suggestions, !query.isEmpty, let template = engine.suggestTemplate else { return nil }
+        return Self.url(from: template, searching: query)
+    }
 
     /// Usable only once it carries the placeholder **and** parses as an http
     /// URL with the query substituted: `%s` alone is not a URL, and a URL
@@ -369,6 +405,7 @@ enum SearchSettings {
 
     static let engineKey = "search.engine"
     static let customEngineKey = "search.customEngineURL"
+    static let suggestionsKey = "search.suggestions"
 
     private static let storage = Mutex(stored())
 
@@ -385,13 +422,15 @@ enum SearchSettings {
         let defaults = UserDefaults.standard
         defaults.set(setting.engine.rawValue, forKey: engineKey)
         defaults.set(setting.customTemplate, forKey: customEngineKey)
+        defaults.set(setting.suggestions, forKey: suggestionsKey)
     }
 
     private static func stored() -> SearchEngineSetting {
         let defaults = UserDefaults.standard
         return SearchEngineSetting(
             engine: defaults.string(forKey: engineKey).flatMap(SearchEngine.init(rawValue:)) ?? .fallback,
-            customTemplate: defaults.string(forKey: customEngineKey) ?? ""
+            customTemplate: defaults.string(forKey: customEngineKey) ?? "",
+            suggestions: defaults.object(forKey: suggestionsKey) as? Bool ?? true
         )
     }
 }

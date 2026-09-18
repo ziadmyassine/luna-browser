@@ -19,8 +19,11 @@
 //  synchronous pass only. A list row moving a frame after you stopped typing is
 //  survivable; the text under your caret changing is not.
 //
-//  §9.6: there is no networking here. See `CommandBarModel`'s header, and
-//  `CommandBarPrivacyTests`, which enforces it.
+//  §9.6: there is no networking here, and `CommandBarPrivacyTests` enforces
+//  that by grep. §3.4's suggestions are fetched by `SearchSuggestions` over in
+//  `Features/Search` and arrive as a plain `[String]` — a third pass over the
+//  same merge, after the synchronous one and the history one, under exactly the
+//  same rule: it may not move a row the user is standing on.
 //
 
 import AppKit
@@ -162,6 +165,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
         panel.removeFromSuperview()
         self.panel = nil
         generation += 1 // Orphan any query still in flight.
+        SearchSuggestions.shared.cancel()
         // Hand the keyboard back to the page, or the user is typing into nothing.
         if let id = session.activeTabID, let content = session.webView(for: id) {
             window?.makeFirstResponder(content)
@@ -207,6 +211,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
         let token = generation
 
         sources.history = []
+        sources.suggestions = SearchSuggestions.shared.cached(for: typed) ?? []
         let local = CommandBarRanking.merge(query: typed, sources: sources, limit: CommandBarMetrics.visibleRows)
         apply(local, appendOnly: false)
         // §9.4, synchronous pass only — see the file header.
@@ -220,11 +225,29 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
             // answer to a question nobody is asking.
             guard let self, token == self.generation, self.panel?.field.typedText == typed else { return }
             self.sources.history = hits
-            self.apply(
-                CommandBarRanking.merge(query: typed, sources: self.sources, limit: CommandBarMetrics.visibleRows),
-                appendOnly: self.selectionIsUserDriven
-            )
+            self.remerge(typed)
         }
+
+        // §3.4. Nothing is asked for while the query still reads as an address:
+        // a half-typed hostname is not a search, and sending it would be sending
+        // a site the user is about to visit to an engine they did not ask.
+        guard CommandBarURL.direct(from: typed) == nil else {
+            SearchSuggestions.shared.cancel()
+            return
+        }
+        SearchSuggestions.shared.request(typed) { [weak self] phrases in
+            guard let self, token == self.generation, self.panel?.field.typedText == typed else { return }
+            self.sources.suggestions = phrases
+            self.remerge(typed)
+        }
+    }
+
+    /// A later source has landed. Same merge, same §9.7 rule.
+    private func remerge(_ typed: String) {
+        apply(
+            CommandBarRanking.merge(query: typed, sources: sources, limit: CommandBarMetrics.visibleRows),
+            appendOnly: selectionIsUserDriven
+        )
     }
 
     private func apply(_ new: [CommandBarResult], appendOnly: Bool) {

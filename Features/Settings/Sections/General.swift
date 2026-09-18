@@ -2,10 +2,9 @@
 //  General.swift
 //  Luna
 //
-//  §23.1 §3.1, plus the two pieces of scaffolding the other three B sections
-//  share — `SettingsBody` and `SettingsNoteHost`. They live here rather than in
-//  a fifth file because between them they are ninety lines and one of them is
-//  three properties; a `Shared/` directory for that is a directory to maintain.
+//  §23.1 §3.1, plus `SettingsBody` — the row stack the other three B sections
+//  share. It lives here rather than in a fifth file because it is fifty lines;
+//  a `Shared/` directory for that is a directory to maintain.
 //
 //  **Two of §3.1's four rows ship disabled, and that is a finding rather than a
 //  shortcut.** §3.1 lists "On launch" as wired to `general.onLaunch` +
@@ -99,32 +98,6 @@ final class SettingsBody {
     }
 }
 
-/// A `SettingsRow.note` whose text changes while the window is open.
-///
-/// The declared row API has no mutable note and no subtitle on a button, yet
-/// §3.1 wants a *live* default-browser status line and §3.4 wants live
-/// validation of the custom engine. Rebuilding the note into a host is the
-/// smallest honest answer: one view in the hierarchy, one string to set.
-final class SettingsNoteHost: NSView {
-
-    private var text: String?
-
-    func setText(_ next: String) {
-        guard next != text else { return }
-        text = next
-        subviews.forEach { $0.removeFromSuperview() }
-        let note = SettingsRow.note(next)
-        note.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(note)
-        NSLayoutConstraint.activate([
-            note.leadingAnchor.constraint(equalTo: leadingAnchor),
-            note.trailingAnchor.constraint(equalTo: trailingAnchor),
-            note.topAnchor.constraint(equalTo: topAnchor),
-            note.bottomAnchor.constraint(equalTo: bottomAnchor)
-        ])
-    }
-}
-
 // MARK: - §3.1
 
 @MainActor
@@ -180,19 +153,12 @@ final class GeneralSection: NSObject, SettingsSection {
         return current.standardizedFileURL == Bundle.main.bundleURL.standardizedFileURL
     }
 
-    /// The §3.1 status line. Names the *other* browser when it is not Luna —
-    /// "Luna is not your default browser" tells the user nothing they can act
-    /// on, and the name is what makes the button's effect predictable.
-    static var statusLine: String {
-        if isDefaultBrowser { return "Luna opens web links from other apps." }
-        guard let other = defaultBrowser else { return "macOS has no default browser set for web links." }
-        return "\(FileManager.default.displayName(atPath: other.path)) currently opens web links."
-    }
-
     // MARK: Section
 
     private let body = SettingsBody()
-    private let status = SettingsNoteHost()
+    /// Owned rather than built by `SettingsRow.button`, because it is the one
+    /// control in the pane whose title changes while the window is open.
+    private let setDefault = SettingsPushButton(title: "", isDestructive: false)
 
     var view: NSView { body.view }
     var searchIndex: [String] { body.searchIndex }
@@ -203,17 +169,16 @@ final class GeneralSection: NSObject, SettingsSection {
         body.card(nil, [
             (defaultBrowserRow(), ["default browser", "set as default", "links"])
         ])
-        body.loose(status, terms: ["default browser"])
         body.card("Startup and tabs", [
             (onLaunchRow(), ["on launch", "startup", "restore last session", "new tab"]),
             (autoArchiveRow(), ["auto-archive tabs after", "archive", "idle tabs", "6 hours", "12 hours", "24 hours", "never"]),
             (confirmCloseRow(), ["confirm before closing a window with multiple tabs", "close", "warn"])
         ])
-        status.setText(Self.statusLine)
+        refreshStatus()
         // The user can change the handler in System Settings while this window
-        // is open, and macOS posts nothing when they do — so the status is
-        // re-read whenever Luna comes back to the front, which is the moment
-        // after they would have done it.
+        // is open, and macOS posts nothing when they do — so it is re-read
+        // whenever Luna comes back to the front, which is the moment after they
+        // would have done it.
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(refreshStatus),
@@ -222,19 +187,19 @@ final class GeneralSection: NSObject, SettingsSection {
         )
     }
 
+    /// The button *is* the status: "Set as Default" means Luna is not, and a
+    /// dimmed "Luna is the default" means it is. A sentence underneath naming
+    /// whichever other browser holds the handler said nothing the user could
+    /// act on from here, and it was the one line in §3.1 that went stale.
     @objc private func refreshStatus() {
-        status.setText(Self.statusLine)
+        let isDefault = Self.isDefaultBrowser
+        setDefault.title = isDefault ? "Luna is the default" : "Set as Default"
+        setDefault.isEnabled = !isDefault
     }
 
     private func defaultBrowserRow() -> NSView {
-        SettingsRow.button(
-            "Default browser",
-            action: Self.isDefaultBrowser ? "Luna is the default" : "Set as Default",
-            isEnabled: !Self.isDefaultBrowser,
-            disabledReason: Self.isDefaultBrowser ? "Luna is already the default browser." : nil
-        ) { [weak self] in
-            self?.setAsDefault()
-        }
+        setDefault.onActivate = { [weak self] in self?.setAsDefault() }
+        return SettingsRow.accessory("Default browser", subtitle: nil, accessory: setDefault)
     }
 
     /// Both schemes, because a handler for `https` alone still leaves plain

@@ -33,14 +33,6 @@ enum ChromeLayoutPreference: String, CaseIterable, Sendable {
         case .topBar: String(localized: "Top bar")
         }
     }
-
-    /// One line under the control, because "top bar" does not say what moves.
-    var detail: String {
-        switch self {
-        case .sidebar: String(localized: "Tabs run down a column on the left.")
-        case .topBar: String(localized: "Tabs run across a single bar at the top.")
-        }
-    }
 }
 
 enum Settings {

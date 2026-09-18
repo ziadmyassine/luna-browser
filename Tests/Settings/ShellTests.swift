@@ -28,7 +28,7 @@ final class SettingsDefaultsTests: XCTestCase {
         let keys = Set(SettingsDefaults.keys)
         for declared in [
             "general.onLaunch", "general.confirmClose",
-            "appearance.theme", "appearance.glassOptimisation", "appearance.showFavicons",
+            "appearance.theme", "appearance.glassOptimisation",
             "search.engine", "search.customEngineURL",
             "downloads.directory", "downloads.askEachTime", "downloads.autoOpen", "downloads.clearPolicy",
             "advanced.userAgent", "advanced.showDevelopMenu", "advanced.webInspector",
@@ -161,8 +161,9 @@ final class SettingsRowTests: XCTestCase {
         XCTAssertTrue(row.acceptsFirstResponder, "§4: a disabled row is still focusable")
         XCTAssertEqual(row.accessibilityHelp(), reason)
         XCTAssertEqual(row.accessibilityLabel(), "Sidebar position")
-        let toggle = try XCTUnwrap(Self.control(in: row, of: NSSwitch.self))
+        let toggle = try XCTUnwrap(Self.control(in: row, of: SettingsSwitch.self))
         XCTAssertFalse(toggle.isEnabled, "a disabled row's control must not be operable")
+        XCTAssertFalse(toggle.acceptsFirstResponder, "and the row, not the switch, holds the focus")
     }
 
     /// An enabled row is a group: the control inside it is what the key-view
@@ -170,10 +171,32 @@ final class SettingsRowTests: XCTestCase {
     func testEnabledRowDefersToItsControl() throws {
         let row = try XCTUnwrap(SettingsRow.toggle("Block ads", value: true) { _ in } as? SettingsRowView)
         XCTAssertFalse(row.acceptsFirstResponder)
-        let toggle = try XCTUnwrap(Self.control(in: row, of: NSSwitch.self))
+        let toggle = try XCTUnwrap(Self.control(in: row, of: SettingsSwitch.self))
         XCTAssertTrue(toggle.isEnabled)
         XCTAssertEqual(toggle.accessibilityLabel(), "Block ads")
-        XCTAssertEqual(toggle.state, .on)
+        XCTAssertTrue(toggle.isOn)
+        // §8: hand-drawn, so the role VoiceOver reads is ours to get right.
+        XCTAssertEqual(toggle.accessibilityRole(), .checkBox)
+        XCTAssertEqual(toggle.accessibilityValue() as? Bool, true)
+    }
+
+    /// AppKit's own switch is a fixed 54 × 24 at every `controlSize` — measured,
+    /// and the reason `SettingsSwitch` exists. If a later macOS starts honouring
+    /// `controlSize`, this is the test that says the workaround can go.
+    func testTheSwitchIsTheSizeThePaneWasBuiltFor() throws {
+        let row = try XCTUnwrap(SettingsRow.toggle("Block ads", value: true) { _ in } as? SettingsRowView)
+        let toggle = try XCTUnwrap(Self.control(in: row, of: SettingsSwitch.self))
+        XCTAssertEqual(toggle.intrinsicContentSize, Tokens.Metric.settingsSwitch.size)
+        XCTAssertLessThan(toggle.intrinsicContentSize.height, Tokens.Metric.settingsControl)
+
+        let appKit = NSSwitch()
+        appKit.controlSize = .mini
+        appKit.sizeToFit()
+        XCTAssertGreaterThan(
+            appKit.fittingSize.width,
+            toggle.intrinsicContentSize.width,
+            "NSSwitch honours controlSize again — SettingsSwitch may be able to go"
+        )
     }
 
     /// The closure bridge is retained by the row. `NSControl.target` is weak, so
@@ -181,10 +204,12 @@ final class SettingsRowTests: XCTestCase {
     func testToggleActuallyCallsBack() throws {
         var seen: Bool?
         let row = try XCTUnwrap(SettingsRow.toggle("Block ads", value: false) { seen = $0 } as? SettingsRowView)
-        let toggle = try XCTUnwrap(Self.control(in: row, of: NSSwitch.self))
-        toggle.state = .on
-        _ = toggle.target?.perform(toggle.action, with: toggle)
+        let toggle = try XCTUnwrap(Self.control(in: row, of: SettingsSwitch.self))
+        // Through the accessibility press, which is the same path a click and
+        // the space bar take — and the one a VoiceOver user takes.
+        XCTAssertTrue(toggle.accessibilityPerformPress())
         XCTAssertEqual(seen, true)
+        XCTAssertTrue(toggle.isOn)
     }
 
     /// §2's search reads these; a row that indexes nothing can never be found.

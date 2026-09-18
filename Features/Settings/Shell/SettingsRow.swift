@@ -7,11 +7,12 @@
 //  like one window and makes §2's search, §4's disabled rule and §8's labelling
 //  decisions taken once.
 //
-//  The switch and the popup stay AppKit's: §5 says never re-animate a system
-//  control, and a hand-drawn one would have to re-earn every keyboard,
-//  VoiceOver and Increase Contrast behaviour it already ships. The button, the
-//  text field and the picker are drawn here because their AppKit bezels are the
-//  only bright plates in an otherwise dark pane.
+//  The popup stays AppKit's: §5 says never re-animate a system control, and a
+//  hand-drawn menu would have to re-earn every keyboard and VoiceOver behaviour
+//  it already ships. The button, the text field and the picker are drawn here
+//  because their AppKit bezels are the only bright plates in an otherwise dark
+//  pane — and the switch is drawn because AppKit's is a fixed 54 × 24 and there
+//  is no room for it (`SettingsSwitch`).
 //
 
 import AppKit
@@ -29,14 +30,12 @@ enum SettingsRow {
         disabledReason: String? = nil,
         onChange: @escaping (Bool) -> Void
     ) -> NSView {
-        let toggle = NSSwitch()
-        toggle.state = value ? .on : .off
-        let action = SettingsAction { sender in
-            onChange((sender as? NSSwitch)?.state == .on)
-        }
-        toggle.target = action
-        toggle.action = #selector(SettingsAction.fire(_:))
-        return row(title, subtitle, toggle, isEnabled, disabledReason).retaining(action)
+        // `SettingsSwitch`, not `NSSwitch`: AppKit's is 54 × 24 at every
+        // `controlSize` — measured — which is twice what this pane's controls
+        // are built to. See the view.
+        let toggle = SettingsSwitch(isOn: value)
+        toggle.onChange = onChange
+        return row(title, subtitle, toggle, isEnabled, disabledReason)
     }
 
     static func segmented(
@@ -123,7 +122,7 @@ enum SettingsRow {
     /// Still a row: the same inset, height and hairline as any other. A bare
     /// `NSTextField` in a card sat against the card's edge and squashed it to
     /// one line of type.
-    static func status(_ text: String) -> NSView {
+    static func status(_ text: String) -> SettingsRowView {
         SettingsRowView(
             title: text,
             subtitle: nil,
@@ -135,7 +134,7 @@ enum SettingsRow {
 
     /// A row whose right-hand side is built by the section — a status line, a
     /// path control, a key-equivalent label.
-    static func accessory(_ title: String, subtitle: String?, accessory: NSView) -> NSView {
+    static func accessory(_ title: String, subtitle: String?, accessory: NSView) -> SettingsRowView {
         SettingsRowView(
             title: title,
             subtitle: subtitle,

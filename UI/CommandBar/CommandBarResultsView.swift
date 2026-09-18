@@ -273,6 +273,7 @@ private final class CommandBarRowView: NSView {
         case .archive: "archived tab"
         case .command: "command"
         case .search: "search"
+        case .suggestion: "suggestion"
         }
     }
 
