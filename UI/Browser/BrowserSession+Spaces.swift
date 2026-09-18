@@ -244,27 +244,66 @@ extension BrowserSession {
     /// `BrowserSession` is per window, because a second window sweeping the same
     /// disk would race the first one's removals. Detached from the launch path
     /// so a slow WebKit answer never delays the first paint.
+    /// Redirects the sweep away from the disk, and is the **only** way to make
+    /// it run inside a test.
+    ///
+    /// The two safety rules this shape encodes, and why it is a sink rather than
+    /// a boolean:
+    ///
+    /// · **The default is safe.** Unset — the value the app always has — the
+    ///   sweep goes to the real `ProfileStore`, and only when the process is not
+    ///   a test run.
+    /// · **"Sweep the real disk from a test" is unspellable.** A flag the test
+    ///   flips would leave the disk reachable, and one test that forgot to put
+    ///   the flag back would arm it for every test after it. Here, switching the
+    ///   guard off and pointing the sweep somewhere harmless are the *same act*:
+    ///   there is no argument to this API that lets a test reach
+    ///   `WKWebsiteDataStore.remove(forIdentifier:)`.
+    ///
+    /// What a test gains is the thing worth asserting — the identifier set that
+    /// was handed over, which is what decides which stores survive.
+    var orphanSweepSink: ((Set<UUID>) async -> Void)? {
+        get { Self.sinks[ObjectIdentifier(self)] }
+        set { Self.sinks[ObjectIdentifier(self)] = newValue }
+    }
+
     func sweepOrphanedProfileStores() {
-        guard !Self.hasSweptOrphanStores else { return }
-        // **Never from a test.** The sweep deletes every store on disk that this
+        // **Never from a test**, unless the test has already routed the sweep
+        // away from the disk. The sweep deletes every store on disk that this
         // session's database does not name, and a test's database is a temporary
         // file holding two rows — so a test that installed the lifecycle would
         // delete the *user's* real cookie jars and call it orphan recovery. The
         // only safe thing to key on is the harness itself: XCTest is loaded in a
         // test run and in nothing else.
-        guard NSClassFromString("XCTestCase") == nil else { return }
-        Self.hasSweptOrphanStores = true
+        let sink = orphanSweepSink
+        guard sink != nil || NSClassFromString("XCTestCase") == nil else { return }
+        // Once per process — but only for the disk. Two windows racing each
+        // other's removals is what that rule exists to prevent, and a redirected
+        // sweep removes nothing, so it is not what the rule is about.
+        if sink == nil {
+            guard !Self.hasSweptOrphanStores else { return }
+            Self.hasSweptOrphanStores = true
+        }
         let store = store
         let profileStore = profileStore
         Task {
+            // The set is the whole decision: everything WebKit lists and this
+            // does not name is deleted. An empty or stale one is not a weaker
+            // sweep, it is a sweep that takes the user's live cookie jars.
             guard let live = try? await store.liveDataStoreIdentifiers() else { return }
-            await profileStore.sweepOrphans(keeping: live)
+            guard let sink else { return await profileStore.sweepOrphans(keeping: live) }
+            await sink(live)
         }
     }
 
     /// Process-wide, because the disk is. Main-actor isolated with the rest of
     /// the session, so "once" means once.
     static var hasSweptOrphanStores = false
+
+    /// Per-session sinks. A stored property cannot live in an extension, and the
+    /// alternative is a property on `BrowserSession` itself that reads as app
+    /// state rather than as the test seam it is.
+    private static var sinks: [ObjectIdentifier: (Set<UUID>) async -> Void] = [:]
 
     // MARK: - Plumbing
     //
