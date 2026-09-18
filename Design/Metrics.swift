@@ -212,14 +212,13 @@ extension Tokens {
         static let essentialsInset = rowInset
         /// The grid's inset above the first row of tiles and below the last.
         ///
-        /// **`essentialsTileGap`, and for the reason the tiles' own gutter is
-        /// that number.** The sides are an alignment — the tiles have to agree
-        /// with the pill above and the rows below, and they do so at
-        /// `rowInset`. Top and bottom are a *gap*, and every gap inside the
-        /// grid is the same one: the space between the URL pill and the tiles
-        /// under it reads as the space between two tiles, which is what makes
-        /// the pill and the grid one block.
-        static let essentialsVerticalInset = essentialsTileGap
+        /// **6, tuned by eye against the URL pill.** The sides are an
+        /// alignment — the tiles have to agree with the pill above and the rows
+        /// below, and they do so at `rowInset`. Top and bottom are a *gap*, and
+        /// a gap is a judgement: `rowInset` pushed the grid a visible step away
+        /// from the pill it belongs under, and the tiles' own gutter closed it
+        /// up a shade too far. This is the one Martin settled on.
+        static let essentialsVerticalInset: CGFloat = 6
         /// A pinned tile's icon is the same 16 pt favicon a row draws; the tile
         /// is roomy, the icon is not (measured 43 px).
         static let essentialsIcon = faviconSize

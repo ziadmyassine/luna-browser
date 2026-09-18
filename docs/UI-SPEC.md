@@ -42,7 +42,7 @@ sidebar's own content reflows. The ratios exist to fix proportions once, not to 
 | `separatorRowHeight` | 12 pt | 8 |
 | `urlPill` | 266 × 34 pt, radius 17 (full) | × 32, radius 16 |
 | `essentialsTile` | 128 × 42 pt, radius 12 | — |
-| `essentialsTileGap` / `essentialsInset` / `essentialsVerticalInset` | 5 / 8 / 4 pt | 8 / 8 / 8, and 12 / 10 before that |
+| `essentialsTileGap` / `essentialsInset` / `essentialsVerticalInset` | 5 / 8 / 6 pt | 8 / 8 / 8, and 12 / 10 before that |
 | `essentialsIcon` | 16 pt (`= faviconSize`) | 22 |
 | `controlCircle` (top bar: back, capsule items) | 28 pt | 35, and before that a squircle for the toggle |
 | `sidebarCircle` (**toggle**, back, reload) | 34 pt (`= urlPill.height`) | 28 |
@@ -264,7 +264,7 @@ Vertical order, top to bottom:
 - Tiles 128 × 42, radius 12. **The sides are an alignment; the top, the bottom and the gutter are
   gaps, and they are not the same number.** The grid is inset `rowInset` (8) from the sidebar's leading
   and trailing edges, because the tiles have to agree with the URL pill above and the row pills below.
-  Its inner gutter is **5** and its top and bottom margins are **4**: a full row-inset between two tiles
+  Its inner gutter is **5** and its top and bottom margins are **6**: a full row-inset between two tiles
   read as two separate controls that happened to be side by side, and the same number above them pushed
   the block a visible step away from the pill it belongs under. **Tile width flexes:** the grid must
   survive the 160–420 pt resize range.
