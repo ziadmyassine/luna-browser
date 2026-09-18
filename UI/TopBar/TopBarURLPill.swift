@@ -62,7 +62,12 @@ final class TopBarURLPill: NSView, TopBarThemed, NSTextFieldDelegate {
     private let wash = NSView()
     private let favicon = NSImageView()
     private let field = NSTextField()
-    private let sliders = TopBarButton(metric: TopBarMetrics.tile, glass: false)
+    /// §3.2's sliders, at `pillGlyphSize` and wearing §3.4's chip — the same
+    /// glyph in the same shape the sidebar's pill draws it in, and for the same
+    /// reason: 16 pt is the size of a glyph that is its own button, and this one
+    /// sits inside a control that is already a landmark. At 16 it was the
+    /// loudest mark in a pill whose whole job is to be quiet.
+    private let sliders = RowGlyphView()
 
     private var url: URL?
     private var tintSource: NSColor?
@@ -85,10 +90,13 @@ final class TopBarURLPill: NSView, TopBarThemed, NSTextFieldDelegate {
         configureField()
         addSubview(field)
 
-        sliders.icon = SiteMenuGlyph.image(size: TopBarMetrics.glyph)
-        sliders.setAccessibilityLabel(String(localized: "Site Settings"))
-        sliders.target = self
-        sliders.action = #selector(showSiteMenu)
+        sliders.configure(
+            image: SiteMenuGlyph.image(size: Tokens.Metric.pillGlyphSize),
+            label: String(localized: "Site settings"),
+            pointSize: Tokens.Metric.pillGlyphSize
+        )
+        sliders.chromed = true
+        sliders.onActivate = { [weak self] in self?.showSiteMenu() }
         addSubview(sliders)
 
         setAccessibilityRole(.textField)
@@ -223,7 +231,7 @@ final class TopBarURLPill: NSView, TopBarThemed, NSTextFieldDelegate {
     /// §4 gives this layout no reload button, so Reload is added here and
     /// nowhere else. The item is nil-targeted, which puts it through the same
     /// `AppDelegate` method `⌘R` does rather than being a second implementation.
-    @objc private func showSiteMenu() {
+    private func showSiteMenu() {
         let menu = SiteMenu.build()
         let reload = NSMenuItem(
             title: String(localized: "Reload"),
@@ -302,12 +310,18 @@ final class TopBarURLPill: NSView, TopBarThemed, NSTextFieldDelegate {
         wash.frame = bounds
 
         let inset = Tokens.Metric.rowInset
-        let tile = TopBarMetrics.tile
+        // **The inset is the glyph's, and the chip grows past it** — the same
+        // placement `URLPillView` records: `pillGlyphInset` is measured to the
+        // mark the eye lands on, so the hover chip is centred on where the
+        // glyph would have been rather than being inset itself.
+        let mark = Tokens.Metric.pillGlyphSize
+        let chip = Tokens.Metric.rowTrailingChip
+        let overhang = (chip.width - mark) / 2
         sliders.frame = NSRect(
-            x: bounds.maxX - inset - tile.width,
-            y: ((bounds.height - tile.height) / 2).rounded(),
-            width: tile.width,
-            height: tile.height
+            x: bounds.maxX - Tokens.Metric.pillGlyphInset + overhang - chip.width,
+            y: ((bounds.height - chip.height) / 2).rounded(),
+            width: chip.width,
+            height: chip.height
         )
 
         let icon = TopBarMetrics.glyph
