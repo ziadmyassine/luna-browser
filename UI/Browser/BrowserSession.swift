@@ -145,12 +145,11 @@ final class BrowserSession {
 
     /// The gradient a new Space takes, given the ones already in use.
     ///
-    /// A hook rather than a call into `Design` because §8.2's twelve curated
-    /// pairs and the next-unused rule are the identity stream's, not the
-    /// session's — and because a session in a test has no design system behind
-    /// it. Unset, every new Space takes `GradientPair.defaultSpace`, which is
-    /// exactly what shipped before the palette existed.
-    var nextGradient: (([GradientPair]) -> GradientPair)?
+    /// §8.2's twelve curated pairs and the next-unused rule live in `Design`,
+    /// which is where the rest of the colour lives; the session only asks. The
+    /// override exists so a test can pin the answer without a design system
+    /// behind it, and nothing in the app sets it.
+    var nextGradient: ([GradientPair]) -> GradientPair = { Tokens.Gradient.next(after: $0) }
 
     // MARK: - State
     //

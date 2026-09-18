@@ -94,6 +94,26 @@ final class BrowserSessionSpacesTests: XCTestCase {
         XCTAssertEqual(persisted.map(\.order), [0, 1, 2])
     }
 
+    /// §8.2: a new Space takes the next unused pair from agent D's twelve, so
+    /// three Spaces are three different colours. Every Space was identical
+    /// before the palette existed, which was the one visible gap in Spaces.
+    func testNewSpacesTakeDistinctGradientsFromThePalette() async throws {
+        let session = try await makeSession(try makeStore())
+        let made = try await [
+            session.createSpace(name: "One"),
+            session.createSpace(name: "Two"),
+            session.createSpace(name: "Three")
+        ]
+
+        XCTAssertEqual(Set(made.map(\.gradient)).count, 3, "three Spaces, three gradients")
+        for space in made {
+            XCTAssertTrue(
+                Tokens.Gradient.spacePalette.contains(space.gradient),
+                "and each of them is one of the twelve curated pairs"
+            )
+        }
+    }
+
     // MARK: - Goal 7 · many Spaces, one Profile
 
     /// The proof that many-to-one is real: not that the field matches, but that

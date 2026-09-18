@@ -110,7 +110,7 @@ extension BrowserSession {
         let space = Space(
             name: name,
             symbolName: Self.defaultSpaceSymbol,
-            gradient: nextGradient?(spaces.map(\.gradient)) ?? .defaultSpace,
+            gradient: nextGradient(spaces.map(\.gradient)),
             profileID: profile.id,
             order: index
         )
