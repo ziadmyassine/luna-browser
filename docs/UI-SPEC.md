@@ -282,7 +282,13 @@ Vertical order, top to bottom:
   gutter reads as the tile being taken off you and put somewhere. It goes where the hand goes, bounded by
   the grid, while the grid's own outline says where it will land; letting go is the movement that puts
   it there, and the tile it is standing in for stays hidden until the lift has come to rest on top of
-  it. Carried down
+  it.
+  > **The move is committed before anything is revealed.** The row and the tile the lift stands in for
+  > are hidden, not gone, and they are hidden where the tab came *from* — so putting them back before the
+  > model has moved shows the tab in the place it just left. It read as the tile darting out to its old
+  > slot and sliding back, and as a row sitting in the list for the whole length of a settle into the
+  > grid. Commit, then reveal: the tile is un-hidden where it now belongs, and there is nothing to
+  > slide. Carried down
   into the list it becomes a row — the tab is unpinned and behaves like any other — and carried back up
   it becomes a tile again. Dropping one on a slot it already occupies is a reorder inside the Essentials
   section; dropping a *row* there is a pin, which also puts the page away (§19.2).

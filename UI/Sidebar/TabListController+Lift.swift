@@ -69,11 +69,19 @@ extension TabListController {
     }
 
     func endDrag() {
-        guard let row = draggedRow else { return }
+        guard draggedRow != nil else { return }
         draggedRow = nil
         gapRow = nil
-        applyGap(animated: false)
-        table.rowView(atRow: row, makeIfNecessary: false)?.alphaValue = 1
+        // **Every row, by frame and by alpha.** `applyGap` is no use here: it
+        // needs a dragged row to measure from, and it has just been cleared.
+        // The rows are wherever the gap left them, and the one the lift stood
+        // in for is still invisible — both are put back from the table's own
+        // arithmetic, which is what they should have been all along.
+        for row in 0 ..< table.numberOfRows {
+            guard let view = table.rowView(atRow: row, makeIfNecessary: false) else { continue }
+            view.frame = table.rect(ofRow: row)
+            view.alphaValue = 1
+        }
         movePills()
     }
 

@@ -30,7 +30,7 @@ import AppKit
 import BrowserKit
 
 /// Where a lift would land if it were dropped now.
-enum SidebarDropTarget: Equatable {
+enum SidebarDropTarget: Equatable, Sendable {
     /// An insertion index in §3.4's row space.
     case list(row: Int)
     /// A slot in §3.3's grid, in reading order.
@@ -242,15 +242,21 @@ final class SidebarTabDragController {
         let lift = lift
         self.lift = nil
         utility.highlightedSpaceID = nil
-        list.endDrag()
         target = nil
         isPinned = false
 
-        // A tile landing in the grid keeps its slot open until it is standing
-        // in it; everything else is done with the grid the moment it is let go.
-        guard case let .essentials(index)? = landing else {
-            clearGrid()
-            lift?.drop()
+        // **The move is committed before anything is revealed.**
+        //
+        // The row and the tile the lift is standing in for are *hidden*, not
+        // gone, and they are hidden at the place the tab came from. Putting
+        // them back before the model has moved therefore shows the tab in the
+        // place it just left — for one frame in the grid, where it read as the
+        // tile darting off and then sliding back, and for the whole length of
+        // the settle when a row was carried up into the grid. Commit, then
+        // reveal: the tile is un-hidden where it now belongs, and there is
+        // nothing to slide.
+        let landed: @MainActor @Sendable () -> Void = { [weak self] in
+            guard let self else { return }
             switch landing {
             case let .list(row):
                 var destination = list.list.dropTarget(insertingAt: row)
@@ -261,27 +267,27 @@ final class SidebarTabDragController {
                     destination.index -= 1
                 }
                 onDropInList?(id, destination.kind, destination.index)
+            case let .essentials(index):
+                // The grid laid its slots out with the dragged tile taken out
+                // of them, so that index is already the one the tab lands at.
+                onDropInEssentials?(id, index, kind == .essential)
             case let .space(space):
                 onDropOnSpace?(id, space)
-            case .essentials, nil:
+            case nil:
                 break
             }
-            return
+            clearGrid()
+            list.endDrag()
         }
 
-        // The grid laid its slots out with the dragged tile taken out of them,
-        // so this index is already the one the tab lands at.
-        let slot = host.convert(grid.slotRect(at: index), from: grid)
-        guard let lift else {
-            clearGrid()
-            onDropInEssentials?(id, index, kind == .essential)
+        // A tile landing in the grid keeps its slot open until it is standing
+        // in it; everything else is done with the grid the moment it is let go.
+        guard case let .essentials(index)? = landing, let lift else {
+            landed()
+            lift?.drop()
             return
         }
-        lift.settle(into: slot) { [weak self] in
-            guard let self else { return }
-            clearGrid()
-            onDropInEssentials?(id, index, kind == .essential)
-        }
+        lift.settle(into: host.convert(grid.slotRect(at: index), from: grid), then: landed)
     }
 
     /// Puts the grid back to its resting shape: no slot held open, no tile in
