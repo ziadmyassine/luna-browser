@@ -28,6 +28,46 @@ final class SpaceGradientTests: XCTestCase {
             .compactMap { name, id in NSAppearance(named: id).map { (name, $0) } }
     }
 
+    // MARK: - Neutral is the absence of a colour, not a thirteenth one
+
+    /// A Space nobody has coloured must look **exactly** like the sidebar did
+    /// before Spaces had colours.
+    ///
+    /// `washStops` cannot give that on its own: neutral is a real desaturated
+    /// grey pair, so it hands back grey at `washAlpha` and the sidebar came up
+    /// a visibly greyer column. `SpaceWashView.washColors` is where the
+    /// absence is decided, and this is the test that says so — without it,
+    /// "No Colour" is just the thirteenth colour in the palette.
+    @MainActor
+    func testANeutralSpacePaintsNoWashAtAll() throws {
+        for (name, appearance) in appearances {
+            let colors = SpaceWashView.washColors(for: Tokens.Gradient.neutral, in: appearance)
+            for stop in colors {
+                XCTAssertEqual(
+                    stop.alphaComponent, 0, accuracy: 0.001,
+                    "in \(name): a neutral Space still laid a film over the glass"
+                )
+            }
+        }
+    }
+
+    /// The other half: a colour the user *did* pick still reaches the sidebar,
+    /// so the guard above cannot be widened into "the wash never paints".
+    @MainActor
+    func testAChosenGradientStillWashesTheSidebar() throws {
+        for (name, appearance) in appearances {
+            for gradient in Tokens.Gradient.spacePalette {
+                let colors = SpaceWashView.washColors(for: gradient, in: appearance)
+                for stop in colors {
+                    XCTAssertGreaterThan(
+                        stop.alphaComponent, 0,
+                        "in \(name): a Space the user coloured washed to nothing"
+                    )
+                }
+            }
+        }
+    }
+
     // MARK: - Goal 14: twelve gradients, and new Spaces differ
 
     func testPaletteHasTwelveDistinctPairs() {

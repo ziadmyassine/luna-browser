@@ -97,10 +97,31 @@ final class SpaceWashView: NSView {
         apply(animated: false)
     }
 
+    /// The two stops the wash lands on — and **neutral paints nothing at all.**
+    ///
+    /// `washStops` hands back a desaturated grey pair for neutral, which is a
+    /// 16 % grey film over the glass: a visibly greyer sidebar, not the sidebar
+    /// as it was before Spaces had colours. A Space nobody has coloured has to
+    /// be indistinguishable from no Space colour, or "no colour" is just a
+    /// thirteenth colour.
+    ///
+    /// Two clear stops rather than `isHidden`, so the cross-fade still runs in
+    /// both directions: picking a colour fades up from nothing and "No Colour"
+    /// fades back down to it, instead of the layer snapping in and out under
+    /// the tab list.
+    ///
+    /// A `static` with the appearance passed in, rather than a method reading
+    /// `effectiveAppearance`, so the neutral rule above can be proved without
+    /// standing a window up around it.
+    static func washColors(for gradient: GradientPair, in appearance: NSAppearance) -> [NSColor] {
+        guard !Tokens.Gradient.isNeutral(gradient) else { return [.clear, .clear] }
+        let stops = Tokens.Gradient.washStops(gradient, in: appearance)
+        return [stops.start, stops.end]
+    }
+
     private func apply(animated: Bool) {
         guard let gradient else { return }
-        let stops = Tokens.Gradient.washStops(gradient, in: effectiveAppearance)
-        let colors = [stops.start.cgColor, stops.end.cgColor]
+        let colors = Self.washColors(for: gradient, in: effectiveAppearance).map(\.cgColor)
         guard animated, !Tokens.Motion.reduceMotion else {
             Tokens.Motion.immediately { wash.colors = colors }
             return
