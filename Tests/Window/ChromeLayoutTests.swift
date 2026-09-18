@@ -165,3 +165,74 @@ final class ContentCardGeometryTests: XCTestCase {
         XCTAssertFalse(ChromeState.fullscreen.cardIsInset)
     }
 }
+
+// MARK: - §8.2a's corner fill
+
+/// The two notches `ContentCardView`'s rounded leading corners leave, which
+/// `SpaceCornerFillView` paints the Space's colour into.
+///
+/// Geometry, asserted rather than eyeballed — the same reason `cardInsets` and
+/// `TrafficLightLayout` are pure functions. Getting this shape wrong does not
+/// crash; it lays a tinted stripe down the edge of the page, which is the exact
+/// failure the mask exists to prevent.
+@MainActor
+final class SpaceCornerFillTests: XCTestCase {
+
+    private let bounds = NSRect(x: 0, y: 0, width: 305, height: 720)
+    private let column: CGFloat = 280
+
+    private var path: CGPath {
+        SpaceCornerFillView.notches(in: bounds, besideColumnOf: column)
+    }
+
+    /// **Nothing to the left of the sidebar's trailing edge.** That region is
+    /// already carrying the sidebar's own wash; painting it here as well would
+    /// be 16 % laid over 16 %, and the column would come up darker than the
+    /// notches it is supposed to match.
+    func testTheFillNeverReachesBackOverTheSidebar() {
+        XCTAssertGreaterThanOrEqual(path.boundingBox.minX, column - 0.001)
+    }
+
+    /// And nothing beyond the corner: the fill is two corners, not a stripe
+    /// down the page's leading edge.
+    func testTheFillStopsAtTheCornerRadius() {
+        XCTAssertLessThanOrEqual(
+            path.boundingBox.maxX,
+            column + Tokens.Metric.contentCardRadius + 0.001,
+            "the fill ran past the card's corner and onto the page"
+        )
+    }
+
+    /// One notch at the top and one at the bottom, each exactly as tall as the
+    /// radius — the middle of the card's leading edge is square and needs none.
+    func testThereIsANotchAtEachEndAndNothingBetween() {
+        let radius = Tokens.Metric.contentCardRadius
+        XCTAssertTrue(path.contains(CGPoint(x: column + 1, y: bounds.maxY - 1)), "no notch at the top")
+        XCTAssertTrue(path.contains(CGPoint(x: column + 1, y: bounds.minY + 1)), "no notch at the bottom")
+        XCTAssertFalse(
+            path.contains(CGPoint(x: column + 1, y: bounds.midY)),
+            "the straight part of the card's leading edge is being painted over"
+        )
+        XCTAssertFalse(
+            path.contains(CGPoint(x: column + 1, y: bounds.maxY - radius - 2)),
+            "the notch is taller than the corner it fills"
+        )
+    }
+
+    /// The disc the card's corner takes out is *not* painted — that area is the
+    /// card itself, and the fill sits below it.
+    func testTheArcFollowsTheCardsOwnCorner() {
+        let radius = Tokens.Metric.contentCardRadius
+        // Well inside the quarter disc, near its centre.
+        let insideTheCard = CGPoint(x: column + radius - 2, y: bounds.maxY - radius + 2)
+        XCTAssertFalse(path.contains(insideTheCard), "the fill is painting under the card's corner, not around it")
+    }
+
+    /// A window shorter than two radii has no straight edge left between the
+    /// corners; the guard returns an empty path rather than two overlapping
+    /// notches.
+    func testAWindowTooShortForTwoCornersPaintsNothing() {
+        let squat = NSRect(x: 0, y: 0, width: 305, height: Tokens.Metric.contentCardRadius)
+        XCTAssertTrue(SpaceCornerFillView.notches(in: squat, besideColumnOf: column).isEmpty)
+    }
+}

@@ -36,6 +36,10 @@ final class SidebarViewController: NSViewController {
     var onProfileMenu: (() -> Void)?
     /// Live during a §3.7 drag; the width constraint belongs to the window.
     var onWidthChange: ((CGFloat) -> Void)?
+    /// §8.2a: the active Space's pair, for the two card corners this view
+    /// cannot paint into — `ChromeHostView` clips, so the window fills them.
+    /// See `SpaceCornerFillView`.
+    var onSpaceGradientChange: ((GradientPair) -> Void)?
     /// No mute exists on `BrowserSession` or `TabController` (see the report);
     /// the sidebar draws the state and hands the intent over.
     var onToggleMute: ((UUID) -> Void)?
@@ -125,7 +129,10 @@ final class SidebarViewController: NSViewController {
             essentials.alphaValue = 0
             list.scrollView.alphaValue = 0
         }
-        if let space = session.space(session.activeSpaceID) { wash.show(space.gradient) }
+        if let space = session.space(session.activeSpaceID) {
+            wash.show(space.gradient)
+            onSpaceGradientChange?(space.gradient)
+        }
         essentials.show(session.tabs.filter { $0.kind == .essential }, activeTabID: session.activeTabID)
         list.show(session.tabs, activeTabID: session.activeTabID)
         utility.show(spaces: session.spaces, activeSpaceID: session.activeSpaceID)

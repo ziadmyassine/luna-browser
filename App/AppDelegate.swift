@@ -124,6 +124,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 controller?.setPointerInsideChrome(inside)
             }
             controller.setChrome(chrome)
+            sidebar.onSpaceGradientChange = { [weak controller] gradient in
+                controller?.setSpaceGradient(gradient)
+            }
             wireSidebar(sidebar, in: controller)
             // §7.1: the layout the user chose in Settings, applied before the
             // first frame the window shows with content in it.

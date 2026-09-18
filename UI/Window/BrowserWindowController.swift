@@ -21,6 +21,10 @@ import WebKit
 final class BrowserWindowController: NSWindowController, NSWindowDelegate {
 
     private let card = ContentCardView()
+    /// §8.2a's wash, in the two places the sidebar's own copy cannot reach.
+    /// See `SpaceCornerFillView` for why it is a second view.
+    private let cornerFill = SpaceCornerFillView()
+    private var cornerFillWidth: NSLayoutConstraint?
     private var trafficLights: TrafficLightLayoutManager?
     private(set) var chrome: NSView?
 
@@ -128,6 +132,20 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         // Applied before any subview so the glass stays behind them.
         Glass.apply(.sidebar, to: root)
         card.pin(in: root)
+        // **Below the card**, so the only place it can show is the notch the
+        // card's rounded leading corners leave. Above the card it would be a
+        // tinted stripe down the page's edge.
+        cornerFill.translatesAutoresizingMaskIntoConstraints = false
+        cornerFill.isHidden = true
+        root.addSubview(cornerFill, positioned: .below, relativeTo: card)
+        let fillWidth = cornerFill.widthAnchor.constraint(equalToConstant: 0)
+        cornerFillWidth = fillWidth
+        NSLayoutConstraint.activate([
+            cornerFill.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            cornerFill.topAnchor.constraint(equalTo: root.topAnchor),
+            cornerFill.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            fillWidth
+        ])
         peekEdge.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(peekEdge, positioned: .above, relativeTo: card)
         peekBackdrop.translatesAutoresizingMaskIntoConstraints = false
@@ -340,6 +358,28 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
+    /// §8.2a: the Space's colour, for the corner fill as well as for the
+    /// sidebar's own wash. The sidebar is where the gradient is known and the
+    /// window is where the card's geometry is, so it is handed across rather
+    /// than looked up twice.
+    func setSpaceGradient(_ gradient: GradientPair) {
+        cornerFill.show(gradient)
+    }
+
+    /// `.sidebar` is the only state whose card has a rounded leading corner —
+    /// `ChromeState.cardIsInset` says so, and this follows it exactly.
+    private func showCornerFill(besideColumnOf width: CGFloat) {
+        cornerFill.columnWidth = width
+        cornerFillWidth?.constant = width + Tokens.Metric.contentCardRadius
+        cornerFill.isHidden = false
+        cornerFill.needsLayout = true
+    }
+
+    private func hideCornerFill() {
+        cornerFill.isHidden = true
+        cornerFillWidth?.constant = 0
+    }
+
     private func applyChromeGeometry(_ state: ChromeState) {
         guard let chrome else { return }
         // Deactivate before activating: the two pairs contradict each other.
@@ -352,6 +392,7 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
             chromeFillsHeight?.isActive = true
             chromeLeading?.constant = 0
             chrome.alphaValue = 1
+            showCornerFill(besideColumnOf: width)
         case .topBar:
             chromeWidth?.isActive = false
             chromeFillsHeight?.isActive = false
@@ -359,6 +400,7 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
             chromeFillsWidth?.isActive = true
             chromeLeading?.constant = 0
             chrome.alphaValue = 1
+            hideCornerFill()
         case .sidebarCollapsed:
             // **It slides out, it does not shrink.** Collapsing the width to
             // zero squeezed the tab list, the pill and the control row through
@@ -372,6 +414,7 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
             chromeFillsHeight?.isActive = true
             chromeLeading?.constant = -parkedSidebarWidth
             chrome.alphaValue = 0
+            hideCornerFill()
         case .fullscreen:
             // Page fullscreen has no peek and nothing to come back to, so the
             // chrome goes to zero width and stays where it is.
@@ -382,6 +425,7 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
             chromeFillsHeight?.isActive = true
             chromeLeading?.constant = 0
             chrome.alphaValue = 0
+            hideCornerFill()
         }
     }
 
