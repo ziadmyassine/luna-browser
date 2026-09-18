@@ -204,14 +204,14 @@ final class SpaceGradientTests: XCTestCase {
                 let ink = foreground(on: gradient, appearance: appearance)
                 let full = Tokens.Gradient.ratio(ink, on: Tokens.Gradient.planes(gradient, at: .full, in: appearance),
                                                  in: appearance)
-                let wash = Tokens.Gradient.ratio(Tokens.Text.primary,
-                                                 on: Tokens.Gradient.planes(gradient, at: .wash, in: appearance),
-                                                 in: appearance)
+                let washed = Tokens.Gradient.planes(gradient, at: .wash, in: appearance)
+                let wash = Tokens.Gradient.ratio(Tokens.Text.primary, on: washed, in: appearance)
+                let washSecondary = Tokens.Gradient.ratio(Tokens.Text.secondary, on: washed, in: appearance)
                 let isWhite = ink.srgbComponents(for: appearance).relativeLuminance > 0.5
                 print(String(
-                    format: "GRADIENT %-8@ %-5@ ink=%-5@ full=%5.2f wash(primary)=%5.2f",
+                    format: "GRADIENT %-8@ %-5@ ink=%-5@ full=%5.2f wash/primary=%5.2f wash/secondary=%5.2f",
                     Tokens.Gradient.spacePaletteNames[index] as NSString, theme as NSString,
-                    (isWhite ? "white" : "black") as NSString, full, wash
+                    (isWhite ? "white" : "black") as NSString, full, wash, washSecondary
                 ))
             }
         }
