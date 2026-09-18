@@ -64,6 +64,13 @@ final class DownloadsPanelListView: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
+    /// **The list reads downwards, so it opens at the top.** An unflipped view
+    /// has its origin at the bottom, and that origin is where `NSScrollView`
+    /// opens the document it is given — so the shelf came up showing its oldest
+    /// end, and the newest download, which is the first row, was a scroll away
+    /// off the top of the panel.
+    override var isFlipped: Bool { true }
+
     // MARK: - Content
 
     /// **Rows are rebuilt only when the list of downloads changes.** Progress
