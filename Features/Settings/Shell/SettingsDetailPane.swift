@@ -2,13 +2,9 @@
 //  SettingsDetailPane.swift
 //  Luna
 //
-//  §1's detail pane: **opaque**, not glass. "A form is read, not looked
-//  through" — the same reasoning that makes the §3.6 content card opaque, and
-//  the same token: `Tokens.Surface.base`.
-//
-//  (§1 names the token `Tokens.Surface.card`. There is no such token; `base` is
-//  what `ContentCardView` paints the content card with and is what §1 means.
-//  Reported rather than added, because `Design/` is agent D's.)
+//  §1's detail pane: **opaque**, not glass — a form is read, not looked
+//  through. The same reasoning and the same token as the §3.6 content card,
+//  `Tokens.Surface.base`.
 //
 
 import AppKit
@@ -52,12 +48,9 @@ final class SettingsDetailPane: NSView {
 
     // MARK: - Hosting a section
 
-    /// Swaps in `view` on §5's `spaceSwitchCrossfade`.
-    ///
-    /// The new pane fades up from nothing rather than dissolving through the
-    /// old one: two opaque forms cross-dissolving reads as a double image on
-    /// text. Under Reduce Motion `Motion.animate` runs the same change at zero
-    /// duration, so the pane still changes — it just does not fade (§5).
+    /// Swaps in `view` on §5's `spaceSwitchCrossfade`. The new pane fades up
+    /// from nothing rather than dissolving through the old one — two opaque
+    /// forms cross-dissolving reads as a double image on text.
     func show(_ view: NSView, title: String, animated: Bool) {
         setAccessibilityLabel(title)
         hosted?.removeFromSuperview()
@@ -81,11 +74,9 @@ final class SettingsDetailPane: NSView {
     }
 
     /// §5: rows that survive a search fade back in on `rowHover`, staggered by
-    /// index and **capped at 6** so a long section does not ripple.
-    ///
-    /// Core Animation rather than a timer: `beginTime` + `fillMode = .backwards`
-    /// holds a row invisible until its turn without a dispatch hop per row, and
-    /// without handing a non-`Sendable` view to a `@Sendable` closure.
+    /// index and capped at 6 so a long section does not ripple. Core Animation
+    /// rather than a timer — `beginTime` + `fillMode = .backwards` holds a row
+    /// invisible until its turn with no dispatch hop per row.
     func staggerVisibleRows() {
         guard !Tokens.Motion.reduceMotion else { return }
         let spec = Tokens.Motion.rowHover
@@ -104,14 +95,14 @@ final class SettingsDetailPane: NSView {
     }
 
     /// §2's "the match highlighted", applied to whatever the hosted section
-    /// built — the window does not need to know how it was assembled.
+    /// built.
     func highlight(_ query: String) {
         for row in SettingsRowView.rows(in: content) { row.highlight(query) }
     }
 
-    /// What the pane says when the search has hidden everything in it. §2 puts
-    /// the "which sections still match" answer in the list; this is the other
-    /// half, because a blank form reads as a broken one.
+    /// What the pane says when the search has hidden everything in it — §2 puts
+    /// the other half of that answer in the list, and a blank form reads as a
+    /// broken one.
     func setEmpty(_ message: String?) {
         empty.stringValue = message ?? ""
         empty.isHidden = message == nil
@@ -142,9 +133,8 @@ final class SettingsDetailPane: NSView {
 
         let inset = SettingsMetrics.paneInset
         NSLayoutConstraint.activate([
-            // The capsule sits on the window's own top inset, level with the
-            // traffic lights across the divider (§3.1's number, so the two
-            // halves of the window start on the same line).
+            // Level with the traffic lights across the divider, so the two
+            // halves of the window start on the same line.
             nav.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
             nav.topAnchor.constraint(equalTo: topAnchor, constant: Tokens.Metric.trafficLightInset),
 

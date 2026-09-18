@@ -25,49 +25,32 @@ extension Tokens.Metric {
     static let settingsMinWidth: CGFloat = 640
     static let settingsMinHeight: CGFloat = 420
 
-    /// The section list. **Fixed, and deliberately not `sidebarWidth`** —
-    /// that one is a `SpanMetric` because the user drags it (§3.7), and a
-    /// nine-row settings list has nothing to drag for.
+    /// The section list. Fixed, and deliberately not `sidebarWidth` — that one
+    /// is a `SpanMetric` because the user drags it (§3.7); a nine-row list has
+    /// nothing to drag for.
     static let settingsListWidth: CGFloat = 230
-    /// A section row in the Settings column: its pitch, and the rounded square
-    /// its symbol sits in. The tile is what makes the column read as a list of
-    /// *places* rather than as a stack of labels with glyphs beside them.
+    /// A section row: its pitch, and the rounded square its symbol sits in. The
+    /// gap between two pills comes out of the pitch, not on top of it.
     static let settingsSectionRow: CGFloat = 34
     static let settingsSectionIcon = RoundedMetric(width: 24, height: 24, cornerRadius: 7)
-    /// The section row's own inset from the column's edges — the selected pill
-    /// stops short of the glass on both sides rather than running edge to edge.
+    /// The pill's inset from the column's edges.
     static let settingsSectionInset: CGFloat = 8
-    /// A control row inside a §1 card. Taller than a sidebar row by half again:
-    /// it carries a switch or a popup, and often a second line under the label.
-    static let settingsCardRow: CGFloat = 48
-    /// The gap between one card and the next, header included.
-    static let settingsGroupGap: CGFloat = 26
+    /// A control row inside a card, and the gap from one card to the next.
+    static let settingsCardRow: CGFloat = 44
+    static let settingsGroupGap: CGFloat = 24
 
-    /// The back/forward capsule at the head of the detail pane. **A rounded
-    /// rectangle, not a pill**: the reference's capsule is a plate with two
-    /// bare chevrons on it, and a fully-rounded end would make it read as two
-    /// round buttons that happen to touch — which is the thing it is not.
-    static let settingsNavCapsule = RoundedMetric(width: 64, height: 30, cornerRadius: 10)
-    /// One chevron's hit area inside that capsule.
-    static let settingsNavButton: CGFloat = 28
-    /// The search field over the section list, and every plate a control in
-    /// the pane sits on. The reference rounds them to the same corner it
-    /// rounds the capsule to, so the column and the pane agree on one radius.
-    static let settingsFieldCorner: CGFloat = 10
-    /// A pushbutton in a card — "Set as Default", "Refresh Now". Flat, with
-    /// the row's own wash under it rather than AppKit's bright push bezel.
-    static let settingsButtonHeight: CGFloat = 26
-    static let settingsButtonInset: CGFloat = 11
-
-    /// One segment of a pick-one control. **Sized to its word, not to a
-    /// column.** The first build gave every segment a fixed 140 pt, so "Auto ·
-    /// Light · Dark" ran half the width of the pane and read as three buttons
-    /// rather than as one choice; the reference sets a segment's width from its
-    /// label and leaves the segments almost touching.
-    static let settingsSegmentHeight: CGFloat = 28
-    static let settingsSegmentInset: CGFloat = 14
+    /// **One height and one corner for every control in the pane** — button,
+    /// segment, key chip, text field. The browser's chrome does the same thing
+    /// with `capsuleHeight` and `controlCircle`: a window where each control
+    /// picked its own size read as a form, not as Luna.
+    static let settingsControl: CGFloat = 28
+    static let settingsControlCorner: CGFloat = 8
+    /// Room either side of a button's or a segment's label.
+    static let settingsControlInset: CGFloat = 12
     static let settingsSegmentGap: CGFloat = 2
-    static let settingsSegmentCorner: CGFloat = 8
+
+    /// The back/forward capsule at the head of the detail pane.
+    static let settingsNavCapsule = RoundedMetric(width: 64, height: 30, cornerRadius: 10)
 
     /// §23.1 §3.2's live glass preview tile: the sample of the real
     /// material that sits beside the Appearance row. `rowCornerRadius`'s

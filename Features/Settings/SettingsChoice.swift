@@ -2,27 +2,22 @@
 //  SettingsChoice.swift
 //  Luna
 //
-//  The pick-one control Settings uses everywhere, kept from Martin's first
-//  Settings window when the rest of that file was superseded by `Shell/`.
-//  The reason it exists is in the doc comment below and it is a measured one.
+//  The pick-one control Settings uses everywhere.
+//
+//  **`NSSegmentedControl` paints its selection as a solid accent-blue block**,
+//  which is the one thing this app's chrome never does: selection here is a
+//  wash, exactly as it is on a sidebar row. So a segment is a plate with
+//  `Surface.selected` on the one that is chosen, nothing on the others, and no
+//  outline anywhere — bordering all three put the same weight on the two
+//  answers you did not give as on the one you did.
+//
+//  A segment is also as wide as its word. Every one used to be a fixed 140 pt,
+//  which put "Auto · Light · Dark" across half the pane and read as three
+//  buttons rather than one choice.
 //
 
 import AppKit
 
-/// A pick-one control, in Luna's idiom rather than AppKit's.
-///
-/// **`NSSegmentedControl` paints its selection as a solid accent-blue block**,
-/// which is the one thing this app's chrome never does: selection here is the
-/// material. So the picker is a run of plates with a wash on the one that is
-/// chosen, and it looks like the row pills and the pinned tiles it sits a
-/// window away from.
-///
-/// **A segment is as wide as its word.** Every segment used to be a fixed
-/// 140 pt, which is wider than "Auto", "Light" and "Dark" put together need and
-/// wide enough that three of them crossed half the pane — the row read as three
-/// buttons that happened to be next to each other rather than as one choice
-/// with three settings. The reference sizes a segment from its label, leaves
-/// two points between them, and lets the group end where the words do.
 @MainActor
 final class SettingsChoice: NSView {
 
@@ -72,7 +67,7 @@ final class SettingsChoice: NSView {
     }
 }
 
-/// One segment in a `SettingsChoice`.
+/// One segment.
 @MainActor
 final class SettingsChoiceButton: NSView {
 
@@ -81,7 +76,7 @@ final class SettingsChoiceButton: NSView {
     var isSelected = false {
         didSet {
             guard isSelected != oldValue else { return }
-            refresh()
+            refresh(animated: true)
         }
     }
 
@@ -93,13 +88,13 @@ final class SettingsChoiceButton: NSView {
         wantsLayer = true
         layer?.cornerCurve = .continuous
         label.stringValue = title
-        label.font = Tokens.TypeScale.sidebarRow
+        label.font = Tokens.TypeScale.settingsRow
         label.alignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false
         addSubview(label)
-        let inset = Tokens.Metric.settingsSegmentInset
+        let inset = SettingsMetrics.controlInset
         NSLayoutConstraint.activate([
-            heightAnchor.constraint(equalToConstant: Tokens.Metric.settingsSegmentHeight),
+            heightAnchor.constraint(equalToConstant: SettingsMetrics.controlHeight),
             label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
             label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
             label.centerYAnchor.constraint(equalTo: centerYAnchor)
@@ -107,7 +102,7 @@ final class SettingsChoiceButton: NSView {
         setAccessibilityElement(true)
         setAccessibilityRole(.radioButton)
         setAccessibilityLabel(title)
-        refresh()
+        refresh(animated: false)
     }
 
     @available(*, unavailable)
@@ -115,22 +110,27 @@ final class SettingsChoiceButton: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
-    private func refresh() {
-        label.textColor = isSelected || isHovering ? Tokens.Text.primary : Tokens.Text.secondary
+    private func refresh(animated: Bool) {
         setAccessibilityValue(isSelected)
-        needsDisplay = true
+        let ink = isSelected || isHovering ? Tokens.Text.primary : Tokens.Text.secondary
+        guard animated, !Tokens.Motion.reduceMotion else {
+            label.textColor = ink
+            needsDisplay = true
+            return
+        }
+        Tokens.Motion.animate(Tokens.Motion.controlHover) { context in
+            context.allowsImplicitAnimation = true
+            self.label.textColor = ink
+            self.needsDisplay = true
+            self.displayIfNeeded()
+        }
     }
 
     override var wantsUpdateLayer: Bool { true }
 
     override func updateLayer() {
         guard let layer else { return }
-        layer.cornerRadius = Tokens.Metric.settingsSegmentCorner
-        // **No outline on the ones you have not chosen.** Bordering every
-        // segment drew the group as a row of empty boxes and put the same
-        // weight on the two answers you did not give as on the one you did.
-        // The wash is the whole signal, which is how selection reads
-        // everywhere else in the app.
+        layer.cornerRadius = SettingsMetrics.controlCorner
         layer.borderWidth = 0
         layer.backgroundColor = isSelected
             ? Tokens.Surface.selected.cgColor
@@ -139,7 +139,7 @@ final class SettingsChoiceButton: NSView {
 
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
-        refresh()
+        refresh(animated: false)
     }
 
     override func updateTrackingAreas() {
@@ -154,12 +154,12 @@ final class SettingsChoiceButton: NSView {
 
     override func mouseEntered(with event: NSEvent) {
         isHovering = true
-        refresh()
+        refresh(animated: true)
     }
 
     override func mouseExited(with event: NSEvent) {
         isHovering = false
-        refresh()
+        refresh(animated: true)
     }
 
     override func mouseUp(with event: NSEvent) {

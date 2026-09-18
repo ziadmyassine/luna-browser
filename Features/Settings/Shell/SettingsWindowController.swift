@@ -30,12 +30,9 @@
 
 import AppKit
 
-/// §2's match rule, in one place.
-///
-/// Deliberately the *same* rule agents B and C implement in their own
-/// `filter(_:)` — one trimmed, lowercased needle, matched as a substring. A
-/// window that dimmed a section on a different rule than the one that hides its
-/// rows would show a bright section with nothing in it.
+/// §2's match rule, in one place — the same one every section's `filter(_:)`
+/// uses. A window that dimmed a section on a different rule than the one that
+/// hides its rows would show a bright section with nothing in it.
 enum SettingsSearch {
 
     static func normalise(_ query: String) -> String {
@@ -67,18 +64,14 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private var cursor = 0
 
     convenience init() {
-        // Built up front, all nine: §2's search has to know what is inside a
-        // section the user has not opened, and `searchIndex` is an instance
-        // property. Nine stacks of AppKit controls cost a few milliseconds
-        // once, and every later query is then a string comparison.
+        // All nine up front: §2's search has to know what is inside a section
+        // the user has not opened, and every later query is then a string
+        // comparison.
         let sections = SettingsSectionRegistry.all.map { $0.init() }
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: SettingsMetrics.contentSize),
-            // `.fullSizeContentView`, so the glass column runs the full height
-            // of the window and the traffic lights sit *on* it. A titlebar
-            // across both halves would cut the column off at the top and leave
-            // the one surface in this window that is a material looking like a
-            // panel inside a frame.
+            // `.fullSizeContentView`, so the glass column runs the window's full
+            // height and the traffic lights sit *on* it.
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -97,26 +90,26 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         window.title = String(localized: "Luna Settings")
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
-        // **The window has to be non-opaque or the glass column dies.**
-        // `NSGlassEffectView` composites what is behind the *window*, so on an
-        // opaque one the section list has nothing to sample and reads as a flat
-        // plate. Measured by Martin on his own first Settings window; the
-        // detail pane still paints `Surface.base` over its own half, so only
-        // the column is see-through.
+        // **Non-opaque, or the glass column dies.** `NSGlassEffectView`
+        // composites what is behind the *window*, so on an opaque one the
+        // section list has nothing to sample and reads as a flat plate. The
+        // detail pane paints `Surface.base` over its own half, so only the
+        // column is see-through.
         window.isOpaque = false
         window.backgroundColor = .clear
-        // §1: the standard traffic lights, with no custom layout manager. This
-        // window is a form; the browser window is the one that is a shape.
         window.isReleasedWhenClosed = false
-        // §1: "not restorable into a browser window". Without this, AppKit
-        // encodes the window into the app's saved state and reopens it on
-        // launch — with `⌘,` as the only way in, that is never what was meant.
+        // §1: not restorable. Without this AppKit reopens it on launch, which
+        // with `⌘,` as the only way in is never what was meant.
         window.isRestorable = false
         window.delegate = self
         window.center()
         windowFrameAutosaveName = "LunaSettingsWindow"
 
         window.contentView = buildContent()
+        // §2's search is where a `⌘,` lands: the alternative is AppKit picking
+        // the first thing that accepts first responder, which is a *disabled*
+        // row (§4 keeps those in the key loop).
+        window.initialFirstResponder = search
         show(SettingsSectionRegistry.index(ofID: SettingsDefaults.lastSection), animated: false)
     }
 
@@ -129,8 +122,15 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     /// `⌘,`: opens the window, or brings the one that is already open forward.
     /// There is exactly one, for the life of the app.
-    func present() {
+    ///
+    /// - Parameter section: a `SettingsSection.id` to land on, for the callers
+    ///   that are asking a specific question — §3.2's site menu sends "Advanced
+    ///   Settings" here. nil keeps whichever section the user was last on.
+    func present(section: String? = nil) {
         let wasVisible = window?.isVisible ?? false
+        if let section, let index = sections.firstIndex(where: { type(of: $0).id == section }) {
+            show(index, animated: wasVisible)
+        }
         showWindow(self)
         window?.makeKeyAndOrderFront(self)
         NSApp.activate()
@@ -141,13 +141,11 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     }
 
     /// §5's `commandBarIn`: scale 0.96 → 1.0 plus a fade, the same entrance the
-    /// Command Bar uses. Reduce Motion degrades it with no second code path —
-    /// `springAnimation` returns nil and `Motion.animate` runs at zero duration.
+    /// Command Bar uses. Reduce Motion degrades it with no second code path.
     private func animateIn() {
         guard let window, let root = window.contentView else { return }
-        // Lay out before animating, the same order `CommandBarPanel` uses: a
-        // scale animation applied to a tree that has not had its first pass
-        // scales whatever geometry it happens to have.
+        // Lay out first: a scale applied to a tree that has not had its first
+        // pass scales whatever geometry it happens to have.
         root.layoutSubtreeIfNeeded()
         root.wantsLayer = true
         guard let scale = Tokens.Motion.commandBarIn.springAnimation(keyPath: "transform.scale") else {
@@ -176,8 +174,6 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             column.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             column.topAnchor.constraint(equalTo: root.topAnchor),
             column.bottomAnchor.constraint(equalTo: root.bottomAnchor),
-            // §1: fixed, and deliberately not `sidebarWidth` — that one is
-            // user-dragged and this one is not.
             column.widthAnchor.constraint(equalToConstant: SettingsMetrics.listWidth),
 
             detail.leadingAnchor.constraint(equalTo: column.trailingAnchor),
@@ -185,7 +181,6 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             detail.topAnchor.constraint(equalTo: root.topAnchor),
             detail.bottomAnchor.constraint(equalTo: root.bottomAnchor),
 
-            // §1's floor. `NSWindow.minSize` is ignored under Auto Layout.
             root.widthAnchor.constraint(greaterThanOrEqualToConstant: SettingsMetrics.minWidth),
             root.heightAnchor.constraint(greaterThanOrEqualToConstant: SettingsMetrics.minHeight)
         ])
@@ -209,8 +204,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         column.addSubview(list)
         let inset = Tokens.Metric.rowInset
         NSLayoutConstraint.activate([
-            // Clear of the traffic lights, which sit on this column now: their
-            // own inset, plus their height, plus a gap.
+            // Clear of the traffic lights, which sit on this column now.
             search.topAnchor.constraint(
                 equalTo: column.topAnchor,
                 constant: Tokens.Metric.trafficLightInset + SettingsMetrics.groupGap
@@ -268,11 +262,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     // MARK: - §2's search
 
-    /// §2: the search filters **controls**, not sections. Every section is
-    /// filtered, not only the visible one, so switching sections with a live
-    /// query lands on an already-filtered pane; a section with no matches is
-    /// dimmed in the list rather than removed, because removing rows makes the
-    /// list jump under the pointer.
+    /// §2: the search filters **controls**, not sections, and filters every
+    /// section rather than only the visible one — so switching sections with a
+    /// live query lands on an already-filtered pane.
     private func applySearch() {
         let query = SettingsSearch.normalise(search.stringValue)
         for section in sections { section.filter(query) }
@@ -296,11 +288,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         window?.makeFirstResponder(search)
     }
 
-    /// `⌘W`. The File menu's "Close Tab" is the first `⌘W` in menu order and
-    /// AppKit stops at the first match, so the only way this window closes on
-    /// `⌘W` is by claiming that selector while it is key. Implementing it here
-    /// rather than branching inside `AppDelegate.closeTab` keeps the browser
-    /// command exactly as it was.
+    /// `⌘W`. "Close Tab" is the first `⌘W` in menu order and AppKit stops at
+    /// the first match, so the only way this window closes on `⌘W` is to claim
+    /// that selector while it is key.
     @objc func closeTab(_ sender: Any?) {
         close()
     }

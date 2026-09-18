@@ -32,19 +32,19 @@ an enforced one, so it is on review to catch.
 | Window content | 720 × 520, resizable, min 640 × 420 |
 | Window corner | `windowCornerRadius` (25) |
 | Section list width | `settingsListWidth` (230), fixed (not `sidebarWidth`, which is user-dragged) |
+| Type | `TypeScale.settingsRow` — **13 pt, the sidebar's own face** |
+| Caption under a row | `TypeScale.settingsCaption` (11) |
+| Every control in the pane | `settingsControl` (28) high, `settingsControlCorner` (8) |
 | Section row **pitch** / pill radius | `settingsSectionRow` (34) / `rowCornerRadius` (12) |
 | Section row pill height | pitch less `rowGap` (3) — the gap comes out of the row |
 | Section icon tile | `settingsSectionIcon` (24, radius 7), no outline |
 | Pane inset | `chromeGapWide` (16) |
-| Card row height | `settingsCardRow` (48) |
+| Card row height | `settingsCardRow` (44) |
 | Card row inset (text grid) | `chromeGapWide` (16) |
 | Gap between cards | `settingsGroupGap` (26); a note under a card, `chromeGap` (8) |
-| Search field | `urlPill` height (34), `settingsFieldCorner` (10), no border |
+| Search field | `urlPill`, exactly as `HistoryFilterField` draws it |
 | Nav capsule | `settingsNavCapsule` (64 × 30, radius 10) |
-| Segment | `settingsSegment*` — height 28, radius 8, 14 pt either side of its word |
-| Pushbutton | `settingsButtonHeight` (26), `settingsFieldCorner`, 11 pt inset |
-| Row and section label face | `TypeScale.settingsRow` (15) |
-| Group header | same face, `Text.secondary` |
+| Group header | the row's face, `Text.secondary` |
 | Symbol size | `faviconSize` (16) |
 
 ### 1.2 The controls, re-measured against the same reference
@@ -77,12 +77,36 @@ with the screenshot, and none of them changes what a control *does*:
   sentence is still a row (`SettingsRow.status`) — a bare `NSTextField` in a
   card squashes it to one line of type against its own edge.
 
-**Materials.** The section list is `Glass.apply(.sidebar, to:)` — the same
-material as the browser sidebar, sampling the wallpaper, on a window that is
-`isOpaque = false` with a clear background so there is something behind it to
-sample. The detail pane is **opaque** (`Tokens.Surface.base`), exactly as the
-content card is: a form is read, not looked through. Grouped control rows sit on
-`Glass.backing(.control, cornerRadius: rowCornerRadius)`.
+### 1.3 The second pass
+
+- **The type is the sidebar's**, 13 pt, not 15. A form set two points larger
+  than the window behind it reads as a different app.
+- **One height and one corner for every control** — `settingsControl` (28) and
+  `settingsControlCorner` (8) — the way the browser's chrome standardises on
+  `capsuleHeight` and `controlCircle`. A window where each control picked its
+  own size read as a form, not as Luna.
+- **Nothing on the right is glass** (see Materials above).
+- **The search field is the browser's**, `urlPill` and all, rather than a
+  near-miss of it.
+- **The accent focus ring is suppressed unless focus arrived from a key press.**
+  §4 keeps disabled rows in the key loop, so AppKit made the first one the
+  window's initial responder and drew a blue halo round a dimmed row. `⌘,` now
+  lands on the search field, and the ring returns on `Tab`.
+
+
+**Materials — and there is exactly one.** The section list is
+`Glass.apply(.sidebar, to:)`, the same material as the browser sidebar, on a
+window that is `isOpaque = false` so there is something behind it to sample.
+Everything on the right is **flat**: the pane is `Surface.base`, a card is
+`Surface.raised` with `Line.border`, and a control is `Surface.well` (dormant)
+or `Surface.selected` (chosen) — the same three planes the browser's chrome
+uses.
+
+Cards were `Glass.backing(.control,…)` for one build and it is a mistake worth
+recording: the pane under them is opaque, so a material there has nothing to
+refract, and nine of them stacked down a form turned the whole window into
+something to look at rather than to read. Glass earns its place where there is a
+desktop behind it. On a form there is not.
 
 The window is titled "Luna Settings" with the title **hidden** and the titlebar
 transparent over a `.fullSizeContentView`, so the glass column runs the full

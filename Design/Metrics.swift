@@ -349,8 +349,6 @@ extension Tokens {
         static let settingsSidebarWidth: CGFloat = 196
         /// The Settings window's resting size.
         static let settingsWindow = CGSize(width: 720, height: 460)
-        /// One segment of a Settings picker.
-        static let settingsSegmentWidth: CGFloat = 140
         /// A Settings pane's inset from the window's edges. `chromeGapWide`
         /// doubled: a settings pane breathes where chrome does not.
         static let settingsPaneInset = chromeGapWide * 2

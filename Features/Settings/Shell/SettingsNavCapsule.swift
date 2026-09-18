@@ -4,19 +4,13 @@
 //
 //  The back/forward pair at the head of §1's detail pane.
 //
-//  **It replaces the pane's title.** The pane used to open with the section's
-//  name and a hairline under it — which repeats, in 12 pt semibold, the word
-//  the user has just clicked in the list two inches to the left. The reference
-//  spends that space on the one thing the list cannot do: retracing the order
-//  the sections were actually visited in. `⌘,` → General → Privacy → back is a
-//  gesture; "Privacy" written above Privacy is not.
+//  **It replaces the pane's title**, which repeated in semibold the word the
+//  user had just clicked two inches to the left. This spends that space on the
+//  one thing the list cannot do: retracing the order the sections were actually
+//  visited in.
 //
-//  **One plate, two bare chevrons.** The first build of this made each chevron
-//  a `GlassButton`, so the capsule showed two circles inside a pill — three
-//  rounded shapes stacked where the reference has one. The reference's capsule
-//  is a single rounded rectangle with the glyphs drawn straight onto it, and
-//  the only thing that ever moves is the glyph's ink: full strength when you
-//  can go that way, `Text.disabled` when you cannot.
+//  One plate, two bare glyphs — not two buttons inside a capsule, which is
+//  three rounded shapes where there should be one.
 //
 
 import AppKit
@@ -35,7 +29,6 @@ final class SettingsNavCapsule: NSView {
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.cornerCurve = .continuous
-        Glass.apply(.control, to: self, cornerRadius: Tokens.Metric.settingsNavCapsule.cornerRadius)
         divider.wantsLayer = true
         back.onActivate = { [weak self] in self?.onBack?() }
         forward.onActivate = { [weak self] in self?.onForward?() }
@@ -50,7 +43,7 @@ final class SettingsNavCapsule: NSView {
     }
 
     /// §4: a direction you cannot go is dimmed, not hidden — a capsule that
-    /// changed width as you moved through the sections would be a moving target.
+    /// changed width as you moved would be a moving target.
     func update(canGoBack: Bool, canGoForward: Bool) {
         back.isEnabled = canGoBack
         forward.isEnabled = canGoForward
@@ -69,9 +62,8 @@ final class SettingsNavCapsule: NSView {
             let half = bounds.width / 2
             back.frame = NSRect(x: 0, y: 0, width: half, height: bounds.height).pixelAligned
             forward.frame = NSRect(x: half, y: 0, width: half, height: bounds.height).pixelAligned
-            // The rule is short of the plate's edges on purpose: a divider that
-            // runs the full height cuts the capsule in two, and the reference
-            // draws one that only separates the glyphs.
+            // Short of the plate's edges: a rule that runs the full height cuts
+            // the capsule in two rather than separating the glyphs.
             let inset = bounds.height / 4
             divider.frame = NSRect(
                 x: half,
@@ -85,6 +77,11 @@ final class SettingsNavCapsule: NSView {
     override var wantsUpdateLayer: Bool { true }
 
     override func updateLayer() {
+        guard let layer else { return }
+        layer.cornerRadius = Tokens.Metric.settingsNavCapsule.cornerRadius
+        layer.backgroundColor = Tokens.Surface.raised.cgColor
+        layer.borderWidth = Tokens.Metric.hairline
+        layer.borderColor = Tokens.Line.border.cgColor
         divider.layer?.backgroundColor = Tokens.Line.hairline.cgColor
     }
 
@@ -94,8 +91,8 @@ final class SettingsNavCapsule: NSView {
     }
 }
 
-/// One chevron on the capsule's plate. Not a `GlassButton`: it carries no
-/// material of its own, because the capsule under it already is one.
+/// One chevron on the capsule's plate. It carries no plate of its own — hover
+/// lifts the glyph's ink, because there is no room for a second surface in here.
 @MainActor
 final class SettingsNavChevron: NSView {
 
@@ -104,7 +101,7 @@ final class SettingsNavChevron: NSView {
     var isEnabled = true {
         didSet {
             guard isEnabled != oldValue else { return }
-            applyTint()
+            applyTint(animated: true)
         }
     }
 
@@ -112,7 +109,7 @@ final class SettingsNavChevron: NSView {
     private var isHovering = false {
         didSet {
             guard isHovering != oldValue else { return }
-            applyTint()
+            applyTint(animated: true)
         }
     }
 
@@ -132,7 +129,7 @@ final class SettingsNavChevron: NSView {
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel(label)
-        applyTint()
+        applyTint(animated: false)
     }
 
     @available(*, unavailable)
@@ -140,10 +137,8 @@ final class SettingsNavChevron: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
-    /// The only thing that changes. Hover lifts the glyph rather than lighting
-    /// a plate under it — there is no room for a second material in here.
-    private func applyTint() {
-        icon.contentTintColor = if !isEnabled {
+    private func applyTint(animated: Bool) {
+        let ink: NSColor = if !isEnabled {
             Tokens.Text.disabled
         } else if isHovering {
             Tokens.Text.primary
@@ -151,11 +146,19 @@ final class SettingsNavChevron: NSView {
             Tokens.Text.secondary
         }
         setAccessibilityEnabled(isEnabled)
+        guard animated else {
+            icon.contentTintColor = ink
+            return
+        }
+        Tokens.Motion.animate(Tokens.Motion.controlHover) { context in
+            context.allowsImplicitAnimation = true
+            self.icon.contentTintColor = ink
+        }
     }
 
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
-        applyTint()
+        applyTint(animated: false)
     }
 
     override func updateTrackingAreas() {

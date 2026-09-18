@@ -2,14 +2,12 @@
 //  SettingsSearchField.swift
 //  Luna
 //
-//  §2's search, as the reference draws it: a rounded-rectangle well with a
-//  magnifier in it, sitting above the section list rather than in a title bar.
+//  §2's search: the same well `HistoryFilterField` draws, with the same tokens
+//  and the same corner, so the app's search fields are one object twice rather
+//  than two near-misses.
 //
-//  **Not `NSSearchField`.** The stock control brings a bezel, a focus ring and
-//  a system-blue selection that belong to a form, not to a piece of chrome —
-//  it read as an inspector field dropped into Luna's sidebar. This is the same
-//  pill `HistoryFilterField` draws, with the same tokens, so the two search
-//  fields in the app are the same object twice rather than two near-misses.
+//  **Not `NSSearchField`** — the stock control brings a bezel, a focus ring and
+//  a system-blue selection that belong to a form, not to chrome.
 //
 
 import AppKit
@@ -95,18 +93,10 @@ final class SettingsSearchField: NSView, NSTextFieldDelegate {
 
     override func updateLayer() {
         guard let layer else { return }
-        // **A rounded rectangle, not a pill.** The reference's field is the
-        // same corner as the capsule across the divider and as the selected
-        // row under it, so the column reads as one shape repeated at three
-        // sizes. A half-height radius made it a lozenge floating over a list
-        // of squares.
-        layer.cornerRadius = SettingsMetrics.fieldCorner
+        layer.cornerRadius = Tokens.Metric.urlPill.cornerRadius
         layer.backgroundColor = Tokens.Surface.well.cgColor
-        // No border. The well is already a recess; outlining it as well drew
-        // the eye to the field before the list, which is the wrong order — the
-        // field is how you get out of a nine-section list, not the first thing
-        // in it.
-        layer.borderWidth = 0
+        layer.borderWidth = Tokens.Metric.hairline
+        layer.borderColor = Tokens.Line.border.cgColor
     }
 
     override func viewDidChangeEffectiveAppearance() {

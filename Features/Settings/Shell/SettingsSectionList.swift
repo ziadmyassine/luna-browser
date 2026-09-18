@@ -4,11 +4,10 @@
 //
 //  §2's section list: nine rows, exactly one selected, always.
 //
-//  **A stack of views rather than an `NSTableView`.** Nine rows never scroll and
-//  never change, so there is no cell reuse to do and no scroll position to keep
-//  honest — and §2's "a section with no matches is dimmed, not removed" is one
-//  property on a row here instead of a data-source shuffle that would make the
-//  list jump under the pointer, which is exactly what §2 forbids.
+//  A stack of views rather than an `NSTableView` — nine rows never scroll and
+//  never change, so there is no cell reuse and no scroll position to keep
+//  honest, and §2's "dimmed, not removed" is one property on a row here instead
+//  of a data-source shuffle that would make the list jump under the pointer.
 //
 
 import AppKit
@@ -35,10 +34,9 @@ final class SettingsSectionList: NSView {
         stack.spacing = SettingsMetrics.sectionRowGap
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
-        // **Inset from the column, not flush to it.** The selected row is a
-        // pill lying on the glass; a pill that runs edge to edge is a band, and
-        // the reference leaves the same `rowInset` either side of it that the
-        // browser sidebar leaves around a tab.
+        // Inset from the column: the selected row is a pill lying on the glass,
+        // and a pill that runs edge to edge is a band. Same inset either side
+        // as the browser sidebar leaves around a tab.
         let margin = Tokens.Metric.settingsSectionInset
         NSLayoutConstraint.activate([
             stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: margin),
@@ -97,12 +95,9 @@ final class SettingsSectionList: NSView {
     }
 }
 
-/// One row of §2's list.
-///
-/// **The pill is shorter than the row's pitch.** The reference puts its rows on
-/// a `settingsSectionRow` grid and leaves a `rowGap` between one pill and the
-/// next, so nine selected states in a row could never touch; a pill that filled
-/// its pitch made the list read as a stack of bars.
+/// One row of §2's list. The pill is shorter than the row's pitch, so nine
+/// selected states could never touch — a pill that filled its pitch made the
+/// list read as a stack of bars.
 @MainActor
 final class SettingsSectionRowView: NSView {
 
@@ -112,7 +107,7 @@ final class SettingsSectionRowView: NSView {
         didSet {
             guard isSelected != oldValue else { return }
             setAccessibilityValue(isSelected)
-            needsDisplay = true
+            redraw(animated: true)
         }
     }
 
@@ -128,16 +123,14 @@ final class SettingsSectionRowView: NSView {
     private var isHovered = false {
         didSet {
             guard isHovered != oldValue else { return }
-            needsDisplay = true
+            redraw(animated: true)
         }
     }
 
     private let label: NSTextField
     private let icon = NSImageView()
-    /// The rounded square the symbol sits in. **The reference's one structural
-    /// idea in this column**: a tile per section turns a stack of labels with
-    /// glyphs beside them into a list of places, and it is what makes the eye
-    /// land on the row rather than on the word.
+    /// The rounded square the symbol sits in: a tile per section turns a stack
+    /// of labels with glyphs beside them into a list of places.
     private let tile = NSView()
 
     init(title: String, symbolName: String) {
@@ -190,22 +183,17 @@ final class SettingsSectionRowView: NSView {
 
     override func updateLayer() {
         layer?.cornerRadius = SettingsMetrics.rowCornerRadius
-        // §3.4's table, reused: a selected row keeps its pill under the
-        // pointer, and an unselected row gets no fill at all until it is
-        // hovered (§30.7).
+        // §3.4, reused: a selected row keeps its pill under the pointer, and an
+        // unselected row gets no fill at all until it is hovered (§30.7).
         let fill: NSColor? = isSelected ? Tokens.Surface.selected : (isHovered ? Tokens.Surface.hover : nil)
         layer?.backgroundColor = fill?.cgColor
         layer?.borderWidth = isSelected && Tokens.A11y.increaseContrast ? Tokens.Metric.hairline : 0
         layer?.borderColor = Tokens.Line.border.cgColor
-        // **A chip, and it has to read on both fills.** `Surface.well` is a
-        // recess and disappeared into the glass; the tile is the same wash the
-        // selected row carries, which lands one step above the column whether
-        // the row under it is selected or not.
+        // The tile carries the same wash the selected row does, so it lands one
+        // step above the column whether the row under it is selected or not —
+        // `Surface.well` is a recess and disappeared into the glass.
         tile.layer?.cornerRadius = Tokens.Metric.settingsSectionIcon.cornerRadius
         tile.layer?.backgroundColor = Tokens.Surface.selected.cgColor
-        // **No outline.** The reference's tile is a plate with a glyph on it;
-        // a hairline round a 24 pt square at this size reads as a second,
-        // smaller selection state inside the row's own.
         tile.layer?.borderWidth = 0
     }
 
@@ -213,6 +201,20 @@ final class SettingsSectionRowView: NSView {
         super.viewDidChangeEffectiveAppearance()
         needsDisplay = true
         applyTint()
+    }
+
+    /// §5: the pill fades in and out on `controlHover`, like every other hover
+    /// in the app, rather than snapping between two fills.
+    private func redraw(animated: Bool) {
+        guard animated, !Tokens.Motion.reduceMotion else {
+            needsDisplay = true
+            return
+        }
+        Tokens.Motion.animate(Tokens.Motion.controlHover) { context in
+            context.allowsImplicitAnimation = true
+            self.needsDisplay = true
+            self.displayIfNeeded()
+        }
     }
 
     private func applyTint() {

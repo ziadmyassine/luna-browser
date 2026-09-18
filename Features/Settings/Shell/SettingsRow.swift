@@ -5,15 +5,13 @@
 //  §4's shared row widgets. **Every** control in every §3 section comes from
 //  here; no section hand-rolls one, which is what keeps nine sections looking
 //  like one window and makes §2's search, §4's disabled rule and §8's labelling
-//  decisions that were taken once.
+//  decisions taken once.
 //
-//  The signatures are `SETTINGS-CONTRACT.md`'s, verbatim and frozen: agents B
-//  and C compiled against them while this file was being written.
-//
-//  Controls are **stock AppKit** — `NSSwitch`, `NSSegmentedControl`,
-//  `NSPopUpButton`, `NSTextField`, `NSButton`. §5 says never re-animate a system
-//  control, and a hand-drawn switch would also have to re-earn every keyboard,
-//  VoiceOver and Increase Contrast behaviour AppKit already ships.
+//  The switch and the popup stay AppKit's: §5 says never re-animate a system
+//  control, and a hand-drawn one would have to re-earn every keyboard,
+//  VoiceOver and Increase Contrast behaviour it already ships. The button, the
+//  text field and the picker are drawn here because their AppKit bezels are the
+//  only bright plates in an otherwise dark pane.
 //
 
 import AppKit
@@ -51,8 +49,7 @@ enum SettingsRow {
         onChange: @escaping (Int) -> Void
     ) -> NSView {
         // `SettingsChoice`, not `NSSegmentedControl`: the latter paints its
-        // selection as a solid accent-blue block, which is the one thing Luna's
-        // chrome never does — selection here is the material.
+        // selection as a solid accent-blue block, which Luna's chrome never does.
         let control = SettingsChoice(labels: options)
         control.selectedIndex = clamp(selected, options.count)
         control.onSelect = onChange
@@ -71,10 +68,9 @@ enum SettingsRow {
         let popup = NSPopUpButton(frame: .zero, pullsDown: false)
         popup.addItems(withTitles: options)
         popup.selectItem(at: clamp(selected, options.count))
-        // **Bare, not bezelled.** AppKit's push bezel is a bright plate, and
-        // six of them down a card turned the pane into a form on a grey
-        // background — the reference puts the *value* on the right of the row
-        // and nothing under it, so the card stays one surface. The menu, the
+        // Bare, not bezelled: six push bezels down a card turned the pane into
+        // a form on a grey background. The value sits at the right of the row
+        // with nothing under it, so the card stays one surface. The menu, the
         // keyboard handling and the VoiceOver role are untouched.
         popup.isBordered = false
         popup.font = Tokens.TypeScale.settingsRow
@@ -87,12 +83,9 @@ enum SettingsRow {
         return row(title, subtitle, popup, isEnabled, disabledReason, terms: options).retaining(action)
     }
 
-    /// Commits on Return **and** on losing focus.
-    ///
-    /// `NSCell.sendsActionOnEndEditing` is the second half: without it a user
-    /// who types a custom engine and clicks straight back to the browser loses
-    /// what they typed, which is the single most common way a settings text
-    /// field is wrong.
+    /// Commits on Return **and** on losing focus — without
+    /// `sendsActionOnEndEditing` a user who types a custom engine and clicks
+    /// straight back to the browser loses what they typed.
     static func text(
         _ title: String,
         value: String,
@@ -126,12 +119,10 @@ enum SettingsRow {
         return row(title, nil, button, isEnabled, disabledReason, terms: [action])
     }
 
-    /// A row that is only a sentence — an empty state, a count, a line of
-    /// status. **It is still a row**: the same card inset, the same minimum
-    /// height and the same hairline above it as every other one. A bare
-    /// `NSTextField` dropped into a card instead sat against the card's own
-    /// edge and squashed the card to the height of one line of type, which is
-    /// what "Sites with blocking turned off" looked like before this existed.
+    /// A row that is only a sentence — an empty state, a count, a status line.
+    /// Still a row: the same inset, height and hairline as any other. A bare
+    /// `NSTextField` in a card sat against the card's edge and squashed it to
+    /// one line of type.
     static func status(_ text: String) -> NSView {
         SettingsRowView(
             title: text,
@@ -156,11 +147,8 @@ enum SettingsRow {
 
     // MARK: - Prose and grouping
 
-    /// §17.7's paragraph, and any other block of explanation.
-    ///
-    /// Plain text, not markdown: §4's sketch called the parameter
-    /// `markdownish`, the contract settled on `text`, and no caller passes
-    /// anything but a sentence. Named in the report rather than guessed at.
+    /// §17.7's paragraph, and any other block of explanation. Plain text, not
+    /// markdown — no caller passes anything but a sentence.
     static func note(_ text: String) -> NSView {
         let label = NSTextField(wrappingLabelWithString: text)
         label.font = Tokens.TypeScale.sidebarRow
@@ -204,9 +192,8 @@ enum SettingsRow {
         )
     }
 
-    /// A `selected:` a section computed from a `firstIndex(of:) ?? 0` can still
-    /// be out of range if the options list changed under it; AppKit throws for
-    /// a bad segment index rather than ignoring it.
+    /// A `selected:` computed from `firstIndex(of:) ?? 0` can still be out of
+    /// range if the options changed under it, and AppKit throws for a bad index.
     private static func clamp(_ index: Int, _ count: Int) -> Int {
         guard count > 0 else { return 0 }
         return min(max(index, 0), count - 1)
@@ -214,10 +201,8 @@ enum SettingsRow {
 }
 
 /// Turns an AppKit target/action pair back into the closure the caller passed.
-///
-/// `NSControl.target` is **weak**, so this is retained by the row it belongs to
-/// — see `SettingsRowView.retain(_:)`. Without that the closure dies before the
-/// first click and the control silently does nothing.
+/// `NSControl.target` is weak, so the row retains this — see
+/// `SettingsRowView.retaining(_:)`.
 @MainActor
 final class SettingsAction: NSObject {
 

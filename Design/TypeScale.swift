@@ -49,17 +49,14 @@ extension Tokens {
         /// 15 pt semibold — a Settings group's title. One step above the body
         /// and the only place in Luna a heading appears over chrome.
         static var settingsHeading: NSFont { .systemFont(ofSize: 15, weight: .semibold) }
-        /// 15 pt — a Settings control row's label, and a section name in the
-        /// window's own column.
-        ///
-        /// **Deliberately two points above `sidebarRow`.** The browser sidebar
-        /// is scanned: forty titles down a 280 pt column, where 13 pt is what
-        /// fits. A settings form is *read*, one line at a time, and the
-        /// reference sets it a step larger for exactly that reason.
-        static var settingsRow: NSFont { .systemFont(ofSize: 15, weight: .regular) }
-        /// 12 pt — the explanatory line under a Settings control. Plain, not
-        /// `sectionLabel`: this is prose, and semibold tabular prose is a
-        /// label pretending to be a sentence.
-        static var settingsCaption: NSFont { .systemFont(ofSize: 12, weight: .regular) }
+        /// 13 pt — a Settings control row's label, and a section name in the
+        /// window's own column. **The sidebar's face, deliberately**: Settings
+        /// is the same app, and a form set two points larger than the window
+        /// behind it reads as a different one.
+        static var settingsRow: NSFont { sidebarRow }
+        /// 11 pt — the explanatory line under a Settings control. Plain, not
+        /// `sectionLabel`: this is prose, and semibold tabular prose is a label
+        /// pretending to be a sentence.
+        static var settingsCaption: NSFont { .systemFont(ofSize: 11, weight: .regular) }
     }
 }
