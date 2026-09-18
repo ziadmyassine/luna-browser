@@ -45,7 +45,10 @@ extension TabListController: NSTableViewDelegate {
         view.configure(content(for: row))
         view.isSelected = row == table.selectedRow
         view.isHovered = row == hoveredRow
-        view.onTrailing = { [weak self] in self?.trailingTapped(at: row) }
+        view.onTrailing = { [weak self, weak view] trailing in
+            guard let view else { return }
+            self?.trailingTapped(trailing, on: view)
+        }
         return view
     }
 
@@ -69,14 +72,22 @@ extension TabListController: NSTableViewDelegate {
         onActivateTab?(id)
     }
 
-    private func trailingTapped(at row: Int) {
-        guard case let .tab(id)? = list[row] else { return }
-        // §3.4: the trailing slot is the speaker until the row is hovered, at
-        // which point it is close/archive. Whatever is drawn is what is hit.
-        if row == hoveredRow {
-            onCloseTab?(id)
-        } else {
-            onToggleMute?(id)
+    /// §3.4: the trailing slot is the speaker until the row is hovered, at
+    /// which point it is close. **Whatever is drawn is what is hit** — so the
+    /// row reports the glyph it was actually showing rather than the list
+    /// re-deriving it, which is a second chance to disagree.
+    ///
+    /// The row is looked up **now**, from the view. `viewFor` runs once and the
+    /// table then moves that view between rows as tabs come and go, so a row
+    /// index captured in the closure goes stale the moment a tab is inserted
+    /// above it — which is how pressing close on one tab came to mute the tab
+    /// underneath.
+    private func trailingTapped(_ trailing: SidebarRowContent.Trailing, on view: SidebarRowView) {
+        guard case let .tab(id)? = list[table.row(for: view)] else { return }
+        switch trailing {
+        case .close: onCloseTab?(id)
+        case .audio: onToggleMute?(id)
+        case .none: break
         }
     }
 }

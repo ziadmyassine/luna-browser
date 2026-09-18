@@ -587,6 +587,12 @@ Order: `+ Add Tab` row → **separator** → tabs.
   *Close Tab* tip: the square is that control's own affordance, and painting it for the whole row put a
   grey tile on every row the pointer merely crossed. Pressing it closes the tab (§6.3 — archived, and
   undoable).
+  > **Whatever is drawn is what is hit, and the row is resolved when you press.** The speaker and the
+  > `xmark` share one slot, so the affordance reports the glyph it was actually showing rather than the
+  > list re-deriving it from hover — a second chance to disagree. And the row a press belongs to is
+  > looked up from the view at that moment: the table builds a row view once and then moves it up the
+  > list as tabs are closed above it, so a row index captured when the view was made goes stale, and
+  > pressing close on a tab used to mute the tab underneath it.
 - **Selected and hover fills are `Surface.selected` / `Surface.hover`.** Clear glass alone is very nearly
   the sidebar's own glass, and a selected row read as unselected until these were asked for.
 - Loading shows a shimmer sweep across the title, not a spinner.
