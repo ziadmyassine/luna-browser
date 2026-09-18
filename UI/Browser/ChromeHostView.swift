@@ -35,28 +35,8 @@ final class ChromeHostView: NSView {
     /// it cannot be the one to answer.
     var onPointerInside: ((Bool) -> Void)?
 
-    /// §7.2: the chrome is floating **over the page** rather than sitting in
-    /// its own column of the window.
-    ///
-    /// The window's glass is behind the content card, not in front of it, so a
-    /// peeked sidebar had nothing under it at all — the page showed straight
-    /// through the gaps between its rows. This puts the chrome plane back: the
-    /// same `.sidebar` material, with the opaque backdrop forced on, because
-    /// glass cannot see in-window content and a peek is nothing but in-window
-    /// content (`Glass.setOpaqueBackdrop`).
-    var isPeeking = false {
-        didSet {
-            guard isPeeking != oldValue else { return }
-            updateBackdrop(animated: true)
-        }
-    }
-
     private var sidebar: NSView?
     private var topBar: NSView?
-    /// Built the first time the sidebar peeks, and never for a window whose
-    /// sidebar is simply on — where the window's own glass is already there and
-    /// a second plane would double §2's tint.
-    private var backdrop: NSView?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -124,29 +104,6 @@ final class ChromeHostView: NSView {
                 if faded?.alphaValue == 0 { faded?.isHidden = true }
             }
         }
-    }
-
-    private func updateBackdrop(animated: Bool) {
-        let target: CGFloat = isPeeking ? 1 : 0
-        guard let view = backdrop ?? (target > 0 ? makeBackdrop() : nil) else { return }
-        guard animated else {
-            view.alphaValue = target
-            return
-        }
-        // The same spec the slide runs on, so the plane arrives with the
-        // sidebar rather than fading in behind it.
-        Tokens.Motion.animate(Tokens.Motion.sidebarCollapse) { context in
-            context.allowsImplicitAnimation = true
-            view.animator().alphaValue = target
-        }
-    }
-
-    private func makeBackdrop() -> NSView {
-        let view = Glass.apply(.sidebar, to: self)
-        Glass.setOpaqueBackdrop(true, on: self)
-        view.alphaValue = 0
-        backdrop = view
-        return view
     }
 
     override func updateTrackingAreas() {

@@ -58,10 +58,23 @@ enum Glass {
     static func backing(
         _ style: Style,
         cornerRadius: CGFloat = 0,
-        cornerCurve: CALayerCornerCurve = .continuous
+        cornerCurve: CALayerCornerCurve = .continuous,
+        maskedCorners: CACornerMask = Glass.allCorners
     ) -> NSView {
-        GlassBackingView(style: style, cornerRadius: cornerRadius, cornerCurve: cornerCurve)
+        GlassBackingView(
+            style: style,
+            cornerRadius: cornerRadius,
+            cornerCurve: cornerCurve,
+            maskedCorners: maskedCorners
+        )
     }
+
+    /// The default for `maskedCorners`: all four, which is what a radius means
+    /// unless a caller says otherwise.
+    static let allCorners: CACornerMask = [
+        .layerMinXMinYCorner, .layerMinXMaxYCorner,
+        .layerMaxXMinYCorner, .layerMaxXMaxYCorner
+    ]
 
     /// Puts `style` behind `view`'s own content, resizing with it.
     ///
@@ -142,23 +155,34 @@ enum Glass {
         return view
     }
 
-    /// Forces the opaque chrome plane behind `view`'s glass, and drops the
-    /// §2 tint while it is up.
+    /// §7.2's peeked sidebar: **the chrome plane, as a plane of its own.**
     ///
-    /// **For glass that floats over in-window content.** The material samples
-    /// what is behind the *window*, so a chrome surface sliding over a live web
-    /// page — §7.2's hover-peek is the only one — composites the desktop and
-    /// the page together and reads as having no background at all. The plane is
-    /// the same one fullscreen already puts up for the same reason: there, the
-    /// thing the glass cannot see is the wallpaper; here it is the page.
+    /// The window's own glass is behind the content pane, not in front of it,
+    /// so a sidebar sliding over the page had nothing under it at all and the
+    /// page showed through the gaps between its rows. This is the same
+    /// `.sidebar` material the window is made of, standing on its own in front
+    /// of the pane — so the peeked sidebar wears over a website exactly the
+    /// finish it wears over the wallpaper: the desktop through the glass,
+    /// §2's frost behind it and §2's tint in it.
     ///
-    /// Idempotent, and a no-op on a view with no glass (Reduce Transparency
-    /// has already made it a plane).
+    /// It does not blur the *page* — no material can. `NSGlassEffectView`
+    /// composites what is behind the window, and `NSVisualEffectView` at
+    /// `.withinWindow` will not sample a `WKWebView`'s out-of-process layer.
+    /// Both were tried on screen. What the material *does* give is the right
+    /// surface, which is what "floating" meant.
     @MainActor
-    static func setOpaqueBackdrop(_ on: Bool, on view: NSView) {
-        for backing in view.subviews.compactMap({ $0 as? GlassBackingView }) {
-            backing.forcesBackdrop = on
-        }
+    static func peekPlane() -> NSView {
+        // **Rounded on the trailing edge, and nowhere else.** §3.6's content
+        // pane rounds the edge that is not a window edge — the one it shares
+        // with the sidebar — and a peeked sidebar is that same seam read the
+        // other way round: the pane is flush to the window here, and the
+        // sidebar is the thing floating in front of it, so the corner belongs
+        // to the sidebar.
+        backing(
+            .sidebar,
+            cornerRadius: Tokens.Metric.contentCardRadius,
+            maskedCorners: [.layerMaxXMinYCorner, .layerMaxXMaxYCorner]
+        )
     }
 
     /// Merges glass surfaces that sit within `spacing` of each other into one —

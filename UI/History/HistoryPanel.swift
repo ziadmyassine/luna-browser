@@ -47,7 +47,7 @@ final class HistoryPanel: NSView {
     let body = HistoryPanelBody()
     let field = HistoryFilterField()
 
-    private let rows = NSStackView()
+    private let list = HistoryListView()
     private let scroll = NSScrollView()
     private let empty = NSTextField(labelWithString: "")
     private var centreConstraint: NSLayoutConstraint?
@@ -74,13 +74,8 @@ final class HistoryPanel: NSView {
     /// Replaces the list. Cheap enough to call on every keystroke: the archive
     /// is capped by §19.5's sweep and the rows are plain views.
     func setEntries(_ entries: [HistoryEntry]) {
-        for view in rows.arrangedSubviews { view.removeFromSuperview() }
-        for entry in entries {
-            let row = HistoryRowView(entry: entry, icon: iconProvider?(entry))
-            row.onClick = { [weak self] in self?.onChoose?(entry.id) }
-            rows.addArrangedSubview(row)
-            row.widthAnchor.constraint(equalTo: rows.widthAnchor).isActive = true
-        }
+        list.iconProvider = iconProvider
+        list.setEntries(entries)
         empty.isHidden = !entries.isEmpty
         scroll.isHidden = entries.isEmpty
         needsLayout = true
@@ -115,11 +110,13 @@ final class HistoryPanel: NSView {
         field.translatesAutoresizingMaskIntoConstraints = false
         field.onChange = { [weak self] text in self?.onFilter?(text) }
         field.onCancel = { [weak self] in self?.onBackgroundClick?() }
+        // The field has focus, so it is where ↓/↑/↩ arrive; the list is what
+        // they mean. §9.1's bar does exactly this.
+        field.onMoveSelection = { [weak self] offset in self?.list.move(by: offset) }
+        field.onCommit = { [weak self] in self?.list.activateSelection() }
 
-        rows.orientation = .vertical
-        rows.spacing = 0
-        rows.alignment = .leading
-        rows.translatesAutoresizingMaskIntoConstraints = false
+        list.translatesAutoresizingMaskIntoConstraints = false
+        list.onActivate = { [weak self] entry in self?.onChoose?(entry.id) }
 
         scroll.drawsBackground = false
         scroll.contentView.drawsBackground = false
@@ -127,7 +124,7 @@ final class HistoryPanel: NSView {
         scroll.hasHorizontalScroller = false
         scroll.horizontalScrollElasticity = .none
         scroll.automaticallyAdjustsContentInsets = false
-        scroll.documentView = rows
+        scroll.documentView = list
         scroll.translatesAutoresizingMaskIntoConstraints = false
 
         empty.stringValue = String(localized: "Nothing here yet. Closed tabs are kept for a while and show up here.")
@@ -166,7 +163,7 @@ final class HistoryPanel: NSView {
             scroll.leadingAnchor.constraint(equalTo: body.leadingAnchor, constant: HistoryPanelMetrics.padding),
             scroll.trailingAnchor.constraint(equalTo: body.trailingAnchor, constant: -HistoryPanelMetrics.padding),
             scroll.bottomAnchor.constraint(equalTo: body.bottomAnchor, constant: -HistoryPanelMetrics.padding),
-            rows.widthAnchor.constraint(equalTo: scroll.widthAnchor),
+            list.widthAnchor.constraint(equalTo: scroll.widthAnchor),
 
             empty.leadingAnchor.constraint(equalTo: body.leadingAnchor, constant: inset),
             empty.trailingAnchor.constraint(equalTo: body.trailingAnchor, constant: -inset),

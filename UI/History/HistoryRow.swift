@@ -33,17 +33,32 @@ struct HistoryEntry: Identifiable, Sendable {
 final class HistoryRowView: NSView {
 
     var onClick: (() -> Void)?
+    /// The pointer arrived on this row. §9.1's list moves one pill rather than
+    /// filling a row, so the row reports and the list decides.
+    var onHover: (() -> Void)?
+
+    let entry: HistoryEntry
+
+    /// **This row is the highlighted one.** It carries no fill of its own — the
+    /// highlight is `HistoryListView`'s single glass pill, exactly as it is in
+    /// the Command Bar. All a row does is brighten its text, which is §3.4's
+    /// "brighter text on the selected row".
+    var isSelected = false {
+        didSet {
+            guard isSelected != oldValue else { return }
+            applyTokens()
+            setAccessibilitySelected(isSelected)
+        }
+    }
 
     private let icon = NSImageView()
     private let title = NSTextField(labelWithString: "")
     private let subtitle = NSTextField(labelWithString: "")
-    private var isHovering = false
 
     init(entry: HistoryEntry, icon image: NSImage?) {
+        self.entry = entry
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
-        wantsLayer = true
-        layer?.cornerCurve = .continuous
 
         icon.image = image ?? NSImage(systemSymbolName: "globe", accessibilityDescription: nil)
         icon.image?.isTemplate = image == nil
@@ -106,19 +121,12 @@ final class HistoryRowView: NSView {
         // Not `sectionLabel`: that is semibold tabular, for a heading, and it
         // came out *heavier* than the title it was supposed to sit under.
         subtitle.font = Tokens.TypeScale.settingsCaption
-        title.textColor = isHovering ? Tokens.Text.primary : Tokens.Text.secondary
+        title.textColor = isSelected ? Tokens.Text.primary : Tokens.Text.secondary
         subtitle.textColor = Tokens.Text.tertiary
-        if icon.image?.isTemplate ?? false { icon.contentTintColor = Tokens.Text.secondary }
+        if icon.image?.isTemplate ?? false {
+            icon.contentTintColor = isSelected ? Tokens.Text.primary : Tokens.Text.secondary
+        }
         needsDisplay = true
-    }
-
-    override var wantsUpdateLayer: Bool { true }
-
-    override func updateLayer() {
-        guard let layer else { return }
-        layer.cornerRadius = Tokens.Metric.rowCornerRadius
-        // §3.4: hover lifts the fill, and an unselected row has none at all.
-        layer.backgroundColor = isHovering ? Tokens.Surface.hover.cgColor : nil
     }
 
     override func viewDidChangeEffectiveAppearance() {
@@ -126,7 +134,7 @@ final class HistoryRowView: NSView {
         applyTokens()
     }
 
-    // MARK: - Hover (§6, 0.12 s)
+    // MARK: - Hover (§6)
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
@@ -138,17 +146,7 @@ final class HistoryRowView: NSView {
         ))
     }
 
-    override func mouseEntered(with event: NSEvent) { setHovering(true) }
-    override func mouseExited(with event: NSEvent) { setHovering(false) }
-
-    private func setHovering(_ hovering: Bool) {
-        guard hovering != isHovering else { return }
-        isHovering = hovering
-        Tokens.Motion.animate(Tokens.Motion.rowHover) { context in
-            context.allowsImplicitAnimation = true
-            applyTokens()
-        }
-    }
+    override func mouseEntered(with event: NSEvent) { onHover?() }
 
     /// Swallowed, not ignored: the panel's scrim dismisses on `mouseDown`, and
     /// letting a row's press walk up there would tear the panel down before the
@@ -174,6 +172,10 @@ final class HistoryFilterField: NSView, NSTextFieldDelegate {
     var onChange: ((String) -> Void)?
     /// `esc` with nothing typed — the panel takes it as "close".
     var onCancel: (() -> Void)?
+    /// `↓` / `↑`. The field has focus, so it is where they land.
+    var onMoveSelection: ((Int) -> Void)?
+    /// `↩` on the highlighted row.
+    var onCommit: (() -> Void)?
 
     private let field = NSTextField()
 
@@ -261,13 +263,25 @@ final class HistoryFilterField: NSView, NSTextFieldDelegate {
     }
 
     func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
-        guard selector == #selector(NSResponder.cancelOperation(_:)) else { return false }
-        guard field.stringValue.isEmpty else {
-            field.stringValue = ""
-            onChange?("")
-            return true
+        switch selector {
+        case #selector(NSResponder.moveDown(_:)):
+            onMoveSelection?(1)
+        case #selector(NSResponder.moveUp(_:)):
+            onMoveSelection?(-1)
+        case #selector(NSResponder.insertNewline(_:)):
+            onCommit?()
+        case #selector(NSResponder.cancelOperation(_:)):
+            // The query first, the panel second: `esc` on a filtered list means
+            // "show me everything again", and only then "close".
+            guard field.stringValue.isEmpty else {
+                field.stringValue = ""
+                onChange?("")
+                return true
+            }
+            onCancel?()
+        default:
+            return false
         }
-        onCancel?()
         return true
     }
 }

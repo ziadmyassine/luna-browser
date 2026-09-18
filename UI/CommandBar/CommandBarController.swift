@@ -95,9 +95,23 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
         self.adaptive = adaptive
         super.init()
         resultsView.onActivate = { [weak self] result in self?.commit(result) }
+        // §4.7's icons. An open tab's is in memory — it may be a page Luna
+        // fetched this launch and never wrote out — and everything else comes
+        // from the on-disk cache by host.
+        resultsView.iconProvider = { [weak self] result in self?.favicon(for: result) }
     }
 
     var isPresented: Bool { panel != nil }
+
+    private func favicon(for result: CommandBarResult) -> NSImage? {
+        if case let .activateTab(id) = result.action, let image = session.favicon(for: id) {
+            return image
+        }
+        guard let host = result.url?.host(),
+              let data = FaviconService.shared.favicon(forHost: host)
+        else { return nil }
+        return NSImage(data: data)
+    }
 
     /// Where the page is inside the window, so §9.1's panel sits over the page
     /// rather than over the window. Set by the assembly seam; without it the

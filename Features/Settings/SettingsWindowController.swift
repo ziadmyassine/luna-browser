@@ -36,6 +36,16 @@ final class SettingsWindowController: NSWindowController {
         )
         window.title = String(localized: "Settings")
         window.titlebarAppearsTransparent = true
+        // **The same window Luna's own is.** The sidebar column here is
+        // `.sidebar` glass, and glass composites what is behind the *window* —
+        // so on an opaque window it had nothing to sample and came out as a
+        // flat plate beside a browser sidebar that is a pane of the desktop.
+        // Clearing the window's own drawing is what lets the material through;
+        // the pane on the right is opaque in its own right, exactly as §3.6's
+        // content card is.
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.hasShadow = true
         window.isReleasedWhenClosed = false
         window.center()
         self.init(window: window)

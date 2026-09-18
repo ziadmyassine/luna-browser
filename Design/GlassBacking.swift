@@ -26,12 +26,19 @@ final class GlassBackingView: NSView {
     private let style: Glass.Style
     private let radius: CGFloat
     private let curve: CALayerCornerCurve
+    private let corners: CACornerMask
     private var glass: NSGlassEffectView?
 
-    init(style: Glass.Style, cornerRadius: CGFloat, cornerCurve: CALayerCornerCurve) {
+    init(
+        style: Glass.Style,
+        cornerRadius: CGFloat,
+        cornerCurve: CALayerCornerCurve,
+        maskedCorners: CACornerMask
+    ) {
         self.style = style
         self.radius = cornerRadius
         self.curve = cornerCurve
+        self.corners = maskedCorners
         super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerCurve = cornerCurve
@@ -40,7 +47,10 @@ final class GlassBackingView: NSView {
         // same superellipse `CALayer` would — the flat-flanked shape that read
         // as "longer than wide". Clipping the backing to a real arc is the only
         // lever there is, and it costs nothing on a 34 pt button.
-        layer?.masksToBounds = cornerCurve == .circular
+        // The mask is how a circle stays a circle, and the only way to round
+        // some corners and not others: `NSGlassEffectView` has one radius and
+        // no corner set of its own, so the backing does the clipping.
+        layer?.masksToBounds = cornerCurve == .circular || maskedCorners != Glass.allCorners
         rebuild()
         // NotificationCenter holds observers weakly and zeroes them on dealloc,
         // so there is nothing to remove — which keeps `deinit` free of the
@@ -108,21 +118,10 @@ final class GlassBackingView: NSView {
         }
     }
 
-    /// §7.2: set while this surface is floating over in-window content, where
-    /// the glass has nothing it can see. Same plane, same reason — see
-    /// `Glass.setOpaqueBackdrop`.
-    var forcesBackdrop = false {
-        didSet {
-            guard forcesBackdrop != oldValue else { return }
-            applyTint()
-            needsDisplay = true
-        }
-    }
-
-    /// Whether the opaque plane is up: fullscreen, a forced peek, or Reduce
-    /// Transparency, which has no glass left to put anything behind.
+    /// Whether the opaque plane is up: fullscreen, or Reduce Transparency,
+    /// which has no glass left to put anything behind.
     private var wantsOpaquePlane: Bool {
-        Tokens.A11y.reduceTransparency || ((isWindowFullScreen || forcesBackdrop) && style.hasBackdrop)
+        Tokens.A11y.reduceTransparency || (isWindowFullScreen && style.hasBackdrop)
     }
 
     /// **No tint over the fullscreen backdrop.** §2's chrome tint is what makes
@@ -215,7 +214,9 @@ final class GlassBackingView: NSView {
         if !Tokens.A11y.reduceTransparency {
             let view = NSGlassEffectView(frame: bounds)
             view.style = style.glassStyle
-            view.cornerRadius = radius
+            // When the backing is masking, the shape is the mask's; a second
+            // radius inside it would round the corners the mask keeps square.
+            view.cornerRadius = corners == Glass.allCorners ? radius : 0
             // §2: the chrome planes are tinted so they read as surfaces rather
             // than as a pane of wallpaper. Controls are not — `.clear` glass
             // over an already-tinted bar is what makes them read as raised.
@@ -237,6 +238,7 @@ final class GlassBackingView: NSView {
         guard let layer else { return }
         layer.cornerRadius = radius
         layer.cornerCurve = curve
+        layer.maskedCorners = corners
 
         // §2 / §21.2: Reduce Transparency ⇒ solid. Fullscreen, or floating over
         // the page ⇒ the same plane *behind* the glass, because there is

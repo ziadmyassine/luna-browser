@@ -109,9 +109,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             chrome.onPointerInside = { [weak controller] inside in
                 controller?.setPointerInsideChrome(inside)
             }
-            // §7.2: a peeked sidebar is floating over an opaque page, where the
-            // window's own glass cannot reach it. The host puts its own plane up.
-            controller.onPeekChange = { [weak chrome] peeking in chrome?.isPeeking = peeking }
             controller.setChrome(chrome)
             wireSidebar(sidebar, in: controller)
             // §7.1: the layout the user chose in Settings, applied before the

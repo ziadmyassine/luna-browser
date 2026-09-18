@@ -119,12 +119,13 @@ final class CommandBarPanel: NSView {
         body.addSubview(field)
         body.addSubview(results)
 
-        // A result row is `[icon] [title]` at `padding + rowInset`, so the
-        // query lines up with the **titles** it is filtering, not with the
-        // icon column beside them. The two are the same list read top to
-        // bottom, and they were a favicon's width out of step.
+        // **Flush with the rows, not with their titles.** Indenting the query
+        // by a favicon's width lined it up with the text it filters and left
+        // the panel with a visible notch out of its top-left corner — the
+        // field started a centimetre in from everything below it. The list's
+        // own leading edge is the panel's left margin, and that is where the
+        // query starts too.
         let rowInset = CommandBarMetrics.padding + Tokens.Metric.rowInset
-        let inset = rowInset + Tokens.Metric.faviconSize + CommandBarMetrics.padding
         let top = body.topAnchor.constraint(equalTo: topAnchor, constant: 0)
         topAnchorConstraint = top
         let centre = body.centerXAnchor.constraint(equalTo: centerXAnchor, constant: 0)
@@ -145,7 +146,7 @@ final class CommandBarPanel: NSView {
                 equalTo: body.topAnchor,
                 constant: CommandBarMetrics.inputHeight / 2
             ),
-            field.leadingAnchor.constraint(equalTo: body.leadingAnchor, constant: inset),
+            field.leadingAnchor.constraint(equalTo: body.leadingAnchor, constant: rowInset),
             field.trailingAnchor.constraint(equalTo: body.trailingAnchor, constant: -rowInset),
 
             results.topAnchor.constraint(

@@ -28,6 +28,12 @@ final class CommandBarResultsView: NSView {
     /// Called when a row is clicked. Keyboard commits go through the input field.
     var onActivate: ((CommandBarResult) -> Void)?
 
+    /// A result's favicon, asked for as each row is built. §4.7's icons are
+    /// what make a list of eight sites scannable; a column of identical grey
+    /// glyphs is not. Nil falls back to the row's own symbol, which is what a
+    /// command and an un-cached site still get.
+    var iconProvider: ((CommandBarResult) -> NSImage?)?
+
     private(set) var results: [CommandBarResult] = []
     private(set) var selectedID: String?
 
@@ -102,7 +108,7 @@ final class CommandBarResultsView: NSView {
     private func rebuildRows() {
         for view in rows.arrangedSubviews { view.removeFromSuperview() }
         for result in results {
-            let row = CommandBarRowView(result: result)
+            let row = CommandBarRowView(result: result, favicon: iconProvider?(result))
             row.onClick = { [weak self] in self?.onActivate?(result) }
             rows.addArrangedSubview(row)
             row.widthAnchor.constraint(equalTo: rows.widthAnchor).isActive = true
@@ -147,13 +153,17 @@ private final class CommandBarRowView: NSView {
     }
 
     private let icon = NSImageView()
+    /// §4.7's cached icon for this result, or nil for a command and for a site
+    /// Luna has never fetched one from.
+    private let favicon: NSImage?
     private let title = NSTextField(labelWithString: "")
     private let subtitle = NSTextField(labelWithString: "")
     private let badgeDot = NSView()
     private let badgeName = NSTextField(labelWithString: "")
 
-    init(result: CommandBarResult) {
+    init(result: CommandBarResult, favicon: NSImage?) {
         self.result = result
+        self.favicon = favicon
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         wantsLayer = true
@@ -187,7 +197,10 @@ private final class CommandBarRowView: NSView {
     }
 
     private func build() {
-        icon.image = NSImage(systemSymbolName: result.symbolName, accessibilityDescription: nil)
+        // A site's icon is its own colours, not chrome ink — so a favicon is
+        // never a template and `applyTokens` leaves its tint alone.
+        icon.image = favicon ?? NSImage(systemSymbolName: result.symbolName, accessibilityDescription: nil)
+        favicon?.isTemplate = false
         icon.imageScaling = .scaleProportionallyUpOrDown
         title.stringValue = result.title
         title.lineBreakMode = .byTruncatingTail
@@ -236,7 +249,9 @@ private final class CommandBarRowView: NSView {
         title.textColor = isSelected ? Tokens.Text.primary : Tokens.Text.secondary
         subtitle.textColor = Tokens.Text.tertiary
         badgeName.textColor = Tokens.Text.tertiary
-        icon.contentTintColor = isSelected ? Tokens.Text.primary : Tokens.Text.secondary
+        if favicon == nil {
+            icon.contentTintColor = isSelected ? Tokens.Text.primary : Tokens.Text.secondary
+        }
         // A Space colour is a fill, which is the one thing §1 permits it to be.
         badgeDot.layer?.backgroundColor = result.badge.map { NSColor($0.colour).cgColor }
     }

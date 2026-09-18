@@ -144,6 +144,15 @@ chrome's tint exists — a bar floating over a page should look like a pane of t
 chrome. The choice still lives in `Design/Glass.swift` (`Glass.scrim()`); no other file knows which
 material it got.
 
+**The Command Bar's query starts where its rows do.** Indenting it by a favicon's width lined it up
+with the *titles* it filters and left a visible notch out of the panel's top-left corner. The list's
+leading edge is the panel's left margin, and that is where the query starts.
+
+**Its rows carry real favicons** (§4.7): the live session's icon for a tab that is open, the on-disk
+cache by host for everything else, and the row's own symbol only when there is neither. A column of
+identical grey glyphs is not a list you can scan. A favicon is never a template — a site's icon is its
+own colours, not chrome ink — so selection brightens the title and leaves the icon alone.
+
 **Page-derived pill wash.** Blend `themeColor` (fallback `underPageBackgroundColor`) into the URL pill
 fill at **12–18 %**, animated over 0.25 s, clamped so pill text always clears 4.5:1 (§21.4). If the
 clamp cannot be met, drop the wash entirely rather than shipping unreadable chrome.
@@ -151,10 +160,7 @@ clamp cannot be met, drop the wash entirely rather than shipping unreadable chro
 **Fullscreen.** Glass composites what is behind the *window*, and in macOS fullscreen there is nothing
 behind it — the sidebar rendered very nearly black in dark mode. The chrome planes (sidebar, top bar)
 therefore paint `Surface.glassFallback` **behind** the glass whenever the window is fullscreen: dark grey
-in dark, light grey in light, with the material still on top of it. **§3.8's peek forces the same plane**
-for the same reason from the other side — a sidebar floating over an opaque page is floating over
-something the material cannot see, and without the plane the page showed straight through the gaps
-between its rows (`Glass.setOpaqueBackdrop`). Only in fullscreen — painting it
+in dark, light grey in light, with the material still on top of it. Only in fullscreen — painting it
 always would be sampled by the glass in every window state and the wallpaper would stop coming through,
 which is the whole look.
 > **The plane goes up on `willEnterFullScreen`, not on `did`.** `styleMask` does not carry `.fullScreen`
@@ -324,6 +330,11 @@ Order: `+ Add Tab` row → **separator** → tabs.
 > a fill that lifts on hover. Choosing one unarchives the tab where it was. `luna://archive` still
 > resolves and still renders, because a URL someone has bookmarked should not stop working; nothing in
 > the chrome navigates to it any more.
+> **The highlight is §9.1's, exactly.** One `.control` glass pill that *moves* on `selectedRowMove`,
+> not a fill per row — the two lists are the same list of the same things over the same page, and a
+> history panel that highlighted differently from the Command Bar would be two designs in one app. The
+> pointer and `↓`/`↑` drive the same selection; the filter field owns the keystrokes, because it is what
+> has focus, and hands them down.
 
 - **Space dots** are the Space switcher: one 6 pt dot per Space, active dot 100 % white, inactive 35 %.
   Click a dot to switch; the pill widens by 8 pt per Space beyond three.
@@ -394,11 +405,20 @@ strip and the sidebar itself.
 - The hidden sidebar parks at `-width` rather than collapsing to zero width: it keeps its layout, and it
   is one constraint away from coming back.
 - The traffic lights come back with it, and go again with it.
-- **The peeked sidebar paints its own plane.** The window's glass is behind the content pane, not in
-  front of it, so a sidebar floating over the page had no background at all. `ChromeHostView` carries a
-  `.sidebar` backing with §2's opaque backdrop forced on, faded in with the slide and built only the
-  first time it is needed — a window whose sidebar is simply *on* never stands one up, because a second
-  plane there would double the tint.
+- **The peeked sidebar stands on a plane of its own** (`Glass.peekPlane()`). The window's glass is
+  behind the content pane, not in front of it, so a sidebar floating over the page had no background at
+  all and the page read straight through the gaps between its rows. The plane is the same `.sidebar`
+  material the window is made of, a sibling of the chrome so the host's clipping is not between the
+  material and what it samples, sharing the chrome's four edges so it slides with it.
+- **It is rounded on its trailing edge, and nowhere else** — §3.6's seam read the other way round. When
+  the sidebar is on, the pane rounds the edge it shares with it; when the sidebar is floating in front
+  of a flush pane, the corner belongs to the sidebar. `Glass.backing` takes a `maskedCorners` set and
+  clips to it, because `NSGlassEffectView` has one radius and no corner set of its own.
+- **Nothing blurs the page.** Liquid Glass composites what is behind the *window*, and
+  `NSVisualEffectView` at `.withinWindow` will not sample a `WKWebView`'s out-of-process layer — a
+  hand-built plane of scrim + frost + tint was tried and the page came through it perfectly sharp. What
+  the material gives instead is the right *surface*, which is what "floating" meant: over a website the
+  peeked sidebar wears exactly the finish it wears over the wallpaper.
 - The asymmetry is deliberate: the same delay guards both edges, because the pointer leaves the trigger
   strip the instant the sidebar arrives over it, and a zero-delay close would flicker.
 
@@ -578,6 +598,10 @@ Total in the clip: **~2.3 s**, which is a gesture-driven mobile interaction.
   `Surface.base` pane beside it, rounded on its leading edge. Sections live in `SettingsPane.all` — one
   struct and one view each — so adding one touches no window, list or selection code. It replaced a
   420 × 160 box with a segmented control in it, which read as a different app.
+  > **The window is `isOpaque = false` with a clear background, like the browser's.** The column is
+  > `.sidebar` glass, and glass composites what is behind the *window* — so on an opaque window it had
+  > nothing to sample and came out as a flat plate beside a browser sidebar that is a pane of the
+  > desktop. The pane on the right is opaque in its own right, exactly as §3.6's content card is.
 - **Drag and drop:** rows reorder within a section, move between sections, and drop onto a Space dot to
   move to that Space.
 - **VoiceOver:** Essentials tiles are icon-only, so each needs an explicit label — the site name, not the

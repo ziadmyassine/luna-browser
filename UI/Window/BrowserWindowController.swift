@@ -40,11 +40,12 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     private let peekEdge = SidebarPeekEdgeView()
     private let peek = SidebarPeekController()
 
-    /// Told whenever the hidden sidebar starts or stops floating over the page.
-    /// The chrome host draws its own opaque plane for it — the window's glass
-    /// is *behind* the content card and cannot help a surface in front of it.
-    /// See `ChromeHostView.isPeeking`.
-    var onPeekChange: ((Bool) -> Void)?
+    /// §7.2: the chrome plane a peeked sidebar floats on.
+    ///
+    /// A sibling of the chrome rather than a subview of it, so the host's own
+    /// clipping does not sit between the material and what it samples; it
+    /// shares the chrome's four edges, so it slides with it for free.
+    private let peekBackdrop = Glass.peekPlane()
 
     private var stateBeforeFullscreen: ChromeState?
     /// The width to come back to when the sidebar is shown again. Not the
@@ -118,6 +119,9 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         card.pin(in: root)
         peekEdge.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(peekEdge, positioned: .above, relativeTo: card)
+        peekBackdrop.translatesAutoresizingMaskIntoConstraints = false
+        peekBackdrop.alphaValue = 0
+        root.addSubview(peekBackdrop, positioned: .above, relativeTo: peekEdge)
         NSLayoutConstraint.activate([
             // `NSWindow.minSize` is documented as ignored once the content view
             // uses Auto Layout (verified verbatim in NSWindow.h, M0), so the
@@ -150,7 +154,13 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         // Above the card **and above the peek strip**: §7.2's hover-peek slides
         // the sidebar *over* the page, and once it has arrived it is the thing
         // the pointer is on.
-        root.addSubview(view, positioned: .above, relativeTo: peekEdge)
+        root.addSubview(view, positioned: .above, relativeTo: peekBackdrop)
+        NSLayoutConstraint.activate([
+            peekBackdrop.topAnchor.constraint(equalTo: view.topAnchor),
+            peekBackdrop.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            peekBackdrop.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            peekBackdrop.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
         chromeWidth = view.widthAnchor.constraint(equalToConstant: Tokens.Metric.sidebarWidth.default)
         chromeHeight = view.heightAnchor.constraint(equalToConstant: Tokens.Metric.topBarHeight)
         chromeFillsHeight = view.bottomAnchor.constraint(equalTo: root.bottomAnchor)
@@ -242,7 +252,6 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         // sidebar is a sidebar, and it has a control row with a hole in it if
         // they are not there.
         trafficLights?.isPeeking = peeking
-        onPeekChange?(peeking)
         // The lights coming and going does not change any view's bounds, so
         // nothing else would mark the control row dirty — and it lays its
         // buttons out *against* the lights. See `SidebarControlRow`.
@@ -251,6 +260,7 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
             context.allowsImplicitAnimation = true
             chromeLeading?.constant = peeking ? 0 : -width
             chrome.alphaValue = peeking ? 1 : 0
+            peekBackdrop.alphaValue = peeking ? 1 : 0
             window?.contentView?.layoutSubtreeIfNeeded()
         }
     }
@@ -282,7 +292,7 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         // stale `isPeeking` would leave the traffic lights showing over a
         // full-bleed page the next time the sidebar was hidden.
         trafficLights?.isPeeking = false
-        onPeekChange?(false)
+        peekBackdrop.alphaValue = 0
         peek.isEnabled = state == .sidebarCollapsed
         peekEdge.isEnabled = state == .sidebarCollapsed
         let insets = state.cardInsets
