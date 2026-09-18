@@ -110,9 +110,17 @@ desktop behind it. On a form there is not.
 
 The window is titled "Luna Settings" with the title **hidden** and the titlebar
 transparent over a `.fullSizeContentView`, so the glass column runs the full
-height of the window and the traffic lights sit on it. It uses the standard
-lights with no custom layout manager, and is **not** restorable into a browser
-window.
+height of the window and the traffic lights sit on it. It is **not** restorable
+into a browser window.
+
+Its root view is `WindowRootView` — the browser window's own — so the two windows
+are cut to the same 25 pt corner. It wore the system's before, which is rounder,
+and one app with two window shapes is a difference you see without being able to
+name it. And `TrafficLightLayoutManager` — §7.7's single owner of a window
+button's frame — puts the lights at `trafficLightInset` here too, which the
+column above was already laid out from: the search field clears that number, and
+until the lights were moved to meet it they sat at AppKit's own 9 pt and the two
+disagreed.
 
 ### 1.1 The shape, re-measured against a reference
 

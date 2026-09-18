@@ -63,6 +63,10 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private var visited: [Int] = []
     private var cursor = 0
 
+    /// Held for its lifetime: it re-applies the placement AppKit undoes on
+    /// every resize, which is the whole reason the class exists.
+    private var lights: TrafficLightLayoutManager?
+
     convenience init() {
         // All nine up front: §2's search has to know what is inside a section
         // the user has not opened, and every later query is then a string
@@ -106,6 +110,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         windowFrameAutosaveName = "LunaSettingsWindow"
 
         window.contentView = buildContent()
+        // §7.7: the one owner of a window button's frame, here so Settings'
+        // lights sit at the same inset as the sidebar's rather than AppKit's.
+        lights = TrafficLightLayoutManager(pinningLightsIn: window)
         // §2's search is where a `⌘,` lands: the alternative is AppKit picking
         // the first thing that accepts first responder, which is a *disabled*
         // row (§4 keeps those in the key loop).
@@ -164,7 +171,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     // MARK: - Content
 
     private func buildContent() -> NSView {
-        let root = NSView()
+        // The same shape the browser window is cut to. A Luna window has one
+        // radius, and Settings was wearing the system's instead.
+        let root = WindowRootView()
         let column = buildColumn()
         column.translatesAutoresizingMaskIntoConstraints = false
         detail.translatesAutoresizingMaskIntoConstraints = false

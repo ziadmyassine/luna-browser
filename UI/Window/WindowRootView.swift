@@ -2,9 +2,12 @@
 //  WindowRootView.swift
 //  Luna
 //
-//  The browser window's shape, and nothing else. Split out of
+//  A Luna window's shape, and nothing else. Split out of
 //  `BrowserWindowController` to keep that file under SwiftLint's length limit —
-//  it is the window controller's root view and belongs to it.
+//  it started as that window's root view and is now every window's, Settings
+//  included: one app has one corner radius, and a second window wearing the
+//  system's instead is the kind of difference you see without being able to
+//  name it.
 //
 
 import AppKit
@@ -13,6 +16,10 @@ import AppKit
 /// inside (§1 `windowCornerRadius`, §30.1). 25 pt, measured off the reference's
 /// own macOS 26 window — and the radius the content pane matches, so the two
 /// sets of corners nest.
+///
+/// It only shows on a window that is `isOpaque = false` with a clear
+/// background: the system's own mask is rounder than this, so what makes the
+/// corner Luna's is the content stopping short of it.
 final class WindowRootView: NSView {
 
     var isWindowFullScreen = false {

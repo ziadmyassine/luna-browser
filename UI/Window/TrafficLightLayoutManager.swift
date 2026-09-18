@@ -137,6 +137,16 @@ final class TrafficLightLayoutManager {
         state.isSidebarCollapsed && !isPeeking
     }
 
+    /// For a window that has no chrome to be in — Settings — whose lights must
+    /// nevertheless land where every other Luna window's do. `.topBar` is the
+    /// state that means exactly that: no sidebar to sit in, `trafficLightInset`
+    /// from both edges. Settings' own column is already laid out from that
+    /// number, so without this the lights and the content it clears disagree.
+    convenience init(pinningLightsIn window: NSWindow) {
+        self.init(window: window)
+        apply(.topBar)
+    }
+
     init(window: NSWindow) {
         self.window = window
         // Captured before anything moves them: these are AppKit's own origins
