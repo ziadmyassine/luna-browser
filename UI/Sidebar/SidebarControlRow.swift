@@ -63,6 +63,8 @@ final class SidebarControlRow: NSView {
         label: "Reload"
     )
     private var isLoading = false
+    /// Whether the last pass found the traffic lights. See `placeButtons`.
+    private var hadLights = false
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -146,6 +148,18 @@ final class SidebarControlRow: NSView {
         let inset = Tokens.Metric.rowInset
         let circle = Tokens.Metric.sidebarCircle
         let lights = trafficLights
+        // **A nil that was not nil a moment ago is worth asking about twice.**
+        // The buttons are legitimately gone in fullscreen and while the sidebar
+        // is hidden, and then this row closes up around the space they left.
+        // But AppKit also rebuilds the titlebar from time to time, and a pass
+        // that lands inside that rebuild measures nothing and lays the toggle
+        // out over the lights it could not see. One more pass on the next tick
+        // settles it, and costs nothing when they really are gone: the second
+        // pass finds nil as well and stops asking.
+        if lights == nil, hadLights {
+            DispatchQueue.main.async { [weak self] in self?.needsLayout = true }
+        }
+        hadLights = lights != nil
         // §3.1: the three buttons share the traffic lights' centre line. The
         // lights sit `trafficLightInset` from the window's top, which is not
         // the centre of a 52 pt row — centring here instead would leave them a

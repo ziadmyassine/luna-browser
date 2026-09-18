@@ -181,13 +181,27 @@ final class SidebarTabDragController {
         return .list(row: list.insertionRow(atY: point.y, in: host))
     }
 
-    /// Where the lift sits for a target: a row's pill, or a tile snapped into
-    /// its slot. Both keep the pointer's `y`, so the lift never leaves the hand.
+    /// Where the lift sits for a target: a row's pill, or a tile under the hand.
+    /// Both keep the pointer's `y`, so the lift never leaves it.
+    ///
+    /// **A tile is not snapped to its slot while it is in the air.** Jumping
+    /// between two positions as the pointer crosses the gutter reads as the
+    /// tile being taken off you and put somewhere; the grid's own outline is
+    /// already saying where it will land, so the tile itself can simply go
+    /// where the hand goes, bounded by the area it belongs to. Letting go is
+    /// what puts it in the slot — see `SidebarDragLiftView.settle`.
     private func frame(for target: SidebarDropTarget, at point: NSPoint) -> NSRect {
         switch target {
         case let .essentials(index):
             let slot = host.convert(grid.slotRect(at: index), from: grid)
-            return NSRect(x: slot.minX, y: point.y - slot.height / 2, width: slot.width, height: slot.height)
+            let area = host.convert(grid.bounds, from: grid).insetBy(dx: Tokens.Metric.essentialsInset, dy: 0)
+            let free = point.x - slot.width / 2
+            return NSRect(
+                x: min(max(free, area.minX), max(area.maxX - slot.width, area.minX)),
+                y: point.y - slot.height / 2,
+                width: slot.width,
+                height: slot.height
+            )
         case .list, .space:
             let inset = Tokens.Metric.rowInset
             let height = Tokens.Metric.rowPillHeight
@@ -225,31 +239,56 @@ final class SidebarTabDragController {
 
     private func finish(id: UUID, kind: TabKind, cancelled: Bool) {
         let landing = cancelled ? nil : target
-        grid.dropIndex = nil
-        grid.draggedID = nil
-        grid.isAwaitingDrop = false
+        let lift = lift
+        self.lift = nil
         utility.highlightedSpaceID = nil
-        lift?.drop()
-        lift = nil
         list.endDrag()
         target = nil
         isPinned = false
-        guard let landing else { return }
-        switch landing {
-        case let .list(row):
-            var destination = list.list.dropTarget(insertingAt: row)
-            // `reorderTab` takes the index the tab ends up at, so a move *down*
-            // within its own section has to account for its own removal.
-            if kind == destination.kind, let from = list.sectionIndex(of: id), from < destination.index {
-                destination.index -= 1
+
+        // A tile landing in the grid keeps its slot open until it is standing
+        // in it; everything else is done with the grid the moment it is let go.
+        guard case let .essentials(index)? = landing else {
+            clearGrid()
+            lift?.drop()
+            switch landing {
+            case let .list(row):
+                var destination = list.list.dropTarget(insertingAt: row)
+                // `reorderTab` takes the index the tab ends up at, so a move
+                // *down* within its own section has to account for its own
+                // removal.
+                if kind == destination.kind, let from = list.sectionIndex(of: id), from < destination.index {
+                    destination.index -= 1
+                }
+                onDropInList?(id, destination.kind, destination.index)
+            case let .space(space):
+                onDropOnSpace?(id, space)
+            case .essentials, nil:
+                break
             }
-            onDropInList?(id, destination.kind, destination.index)
-        case let .essentials(index):
-            // The grid laid its slots out with the dragged tile taken out of
-            // them, so this index is already the one the tab lands at.
-            onDropInEssentials?(id, index, kind == .essential)
-        case let .space(space):
-            onDropOnSpace?(id, space)
+            return
         }
+
+        // The grid laid its slots out with the dragged tile taken out of them,
+        // so this index is already the one the tab lands at.
+        let slot = host.convert(grid.slotRect(at: index), from: grid)
+        guard let lift else {
+            clearGrid()
+            onDropInEssentials?(id, index, kind == .essential)
+            return
+        }
+        lift.settle(into: slot) { [weak self] in
+            guard let self else { return }
+            clearGrid()
+            onDropInEssentials?(id, index, kind == .essential)
+        }
+    }
+
+    /// Puts the grid back to its resting shape: no slot held open, no tile in
+    /// the air, no room reserved for one.
+    private func clearGrid() {
+        grid.dropIndex = nil
+        grid.draggedID = nil
+        grid.isAwaitingDrop = false
     }
 }

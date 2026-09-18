@@ -42,7 +42,7 @@ sidebar's own content reflows. The ratios exist to fix proportions once, not to 
 | `separatorRowHeight` | 12 pt | 8 |
 | `urlPill` | 266 × 34 pt, radius 17 (full) | × 32, radius 16 |
 | `essentialsTile` | 128 × 42 pt, radius 12 | — |
-| `essentialsTileGap` / `essentialsInset` / `essentialsVerticalInset` | 5 / 8 / 6 pt | 8 / 8 / 8, and 12 / 10 before that |
+| `essentialsTileGap` / `essentialsRowGap` / `essentialsInset` / `essentialsVerticalInset` | 5 / 6 / 8 / 6 pt | 8 / 8 / 8, and 12 / 10 before that |
 | `essentialsIcon` | 16 pt (`= faviconSize`) | 22 |
 | `controlCircle` (top bar: back, capsule items) | 28 pt | 35, and before that a squircle for the toggle |
 | `sidebarCircle` (**toggle**, back, reload) | 34 pt (`= urlPill.height`) | 28 |
@@ -264,17 +264,25 @@ Vertical order, top to bottom:
 - Tiles 128 × 42, radius 12. **The sides are an alignment; the top, the bottom and the gutter are
   gaps, and they are not the same number.** The grid is inset `rowInset` (8) from the sidebar's leading
   and trailing edges, because the tiles have to agree with the URL pill above and the row pills below.
-  Its inner gutter is **5** and its top and bottom margins are **6**: a full row-inset between two tiles
+  Its gutter between two tiles side by side is **5**; the gap between one row of tiles and the next, and
+  the margin above the first row and below the last, are both **6**. A full row-inset between two tiles
   read as two separate controls that happened to be side by side, and the same number above them pushed
-  the block a visible step away from the pill it belongs under. **Tile width flexes:** the grid must
-  survive the 160–420 pt resize range.
+  the block a visible step away from the pill it belongs under. Across and down are different distances
+  even at the same length — a horizontal neighbour is a hand's width away, a vertical one is directly
+  underneath — so they are separate numbers. **Tile width flexes:** the grid must survive the
+  160–420 pt resize range.
 - **A live drag holds a slot open.** `dropIndex` is the slot §6.6's lift is over: the tiles step round
   it, the grid grows by a row when it needs to, and the outline is drawn there rather than only in an
   empty grid. The tile being carried is taken *out* of the grid (`draggedID`) for the length of the
   gesture, so the slot index under the pointer is already the index the tab lands at.
 - **A tile moves on the same gesture a row does, and stays a tile up here.** Picking one up lifts it as
   a tile, and it is the one place in the sidebar where a lift moves sideways: two columns are two
-  positions, and which one you are over is a question only the pointer's `x` can answer. Carried down
+  positions, and which one you are over is a question only the pointer's `x` can answer. **It is not
+  snapped to a slot while it is in the air** — jumping between two positions as the pointer crosses the
+  gutter reads as the tile being taken off you and put somewhere. It goes where the hand goes, bounded by
+  the grid, while the grid's own outline says where it will land; letting go is the movement that puts
+  it there, and the tile it is standing in for stays hidden until the lift has come to rest on top of
+  it. Carried down
   into the list it becomes a row — the tab is unpinned and behaves like any other — and carried back up
   it becomes a tile again. Dropping one on a slot it already occupies is a reorder inside the Essentials
   section; dropping a *row* there is a pin, which also puts the page away (§19.2).

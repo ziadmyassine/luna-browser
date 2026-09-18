@@ -223,9 +223,8 @@ final class EssentialsGridView: NSView {
     override var intrinsicContentSize: NSSize {
         let margin = Tokens.Metric.essentialsVerticalInset
         guard rowCount > 0 else { return NSSize(width: NSView.noIntrinsicMetric, height: 0) }
-        let gap = Tokens.Metric.essentialsTileGap
         let height = CGFloat(rowCount) * Tokens.Metric.essentialsTile.height
-            + CGFloat(rowCount - 1) * gap + 2 * margin
+            + CGFloat(rowCount - 1) * Tokens.Metric.essentialsRowGap + 2 * margin
         return NSSize(width: NSView.noIntrinsicMetric, height: height)
     }
 
@@ -235,15 +234,16 @@ final class EssentialsGridView: NSView {
     func slotRect(at index: Int) -> NSRect {
         let inset = Tokens.Metric.essentialsInset
         let margin = Tokens.Metric.essentialsVerticalInset
-        let gap = Tokens.Metric.essentialsTileGap
+        let gutter = Tokens.Metric.essentialsTileGap
+        let rowGap = Tokens.Metric.essentialsRowGap
         let height = Tokens.Metric.essentialsTile.height
-        let width = (bounds.width - 2 * inset - CGFloat(Self.columns - 1) * gap) / CGFloat(Self.columns)
+        let width = (bounds.width - 2 * inset - CGFloat(Self.columns - 1) * gutter) / CGFloat(Self.columns)
         let column = index % Self.columns
         let row = index / Self.columns
         // Top-down in an unflipped view: the first row sits highest.
         return NSRect(
-            x: inset + CGFloat(column) * (width + gap),
-            y: bounds.maxY - margin - CGFloat(row + 1) * height - CGFloat(row) * gap,
+            x: inset + CGFloat(column) * (width + gutter),
+            y: bounds.maxY - margin - CGFloat(row + 1) * height - CGFloat(row) * rowGap,
             width: max(width, 0),
             height: height
         ).pixelAligned
@@ -312,7 +312,8 @@ final class EssentialsGridView: NSView {
         let tileWidth = (bounds.width - 2 * inset - CGFloat(Self.columns - 1) * gap) / CGFloat(Self.columns)
         let column = min(max(Int((point.x - inset) / max(tileWidth + gap, 1)), 0), Self.columns - 1)
         let fromTop = bounds.maxY - Tokens.Metric.essentialsVerticalInset - point.y
-        let row = max(Int(fromTop / max(Tokens.Metric.essentialsTile.height + gap, 1)), 0)
+        let pitch = Tokens.Metric.essentialsTile.height + Tokens.Metric.essentialsRowGap
+        let row = max(Int(fromTop / max(pitch, 1)), 0)
         return min(row * Self.columns + column, settled.count)
     }
 

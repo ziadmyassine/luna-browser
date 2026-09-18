@@ -96,6 +96,31 @@ final class SidebarDragLiftView: NSView {
         }
     }
 
+    /// **Comes to rest in the slot, then hands over.** A tile carried around
+    /// the §3.3 grid is not snapped to a slot while it is in the air — it goes
+    /// where the hand goes — so letting go has to be the movement that puts it
+    /// away. `commit` runs when it lands, not when it is released: the real
+    /// tile stays hidden until the lift is standing exactly on top of it, which
+    /// is what makes the hand-off invisible.
+    func settle(into frame: NSRect, then commit: @escaping @MainActor @Sendable () -> Void) {
+        guard !Tokens.Motion.reduceMotion else {
+            self.frame = frame
+            commit()
+            removeFromSuperview()
+            return
+        }
+        Tokens.Motion.animate(Tokens.Motion.tabInsert) { context in
+            context.allowsImplicitAnimation = true
+            animator().frame = frame
+        } completion: { [self] in
+            MainActor.assumeIsolated {
+                layoutContents()
+                commit()
+                drop()
+            }
+        }
+    }
+
     // MARK: - Geometry
 
     /// Moves the lift, and — when `animated` — morphs it between §3.4's row and

@@ -194,22 +194,6 @@ extension Tokens {
 
         /// 128 × 42, radius 12. Icon only — no label (§30.5).
         static let essentialsTile = RoundedMetric(width: 128, height: 42, cornerRadius: 12)
-        /// The gap between two tiles, across and down.
-        ///
-        /// **5, not `rowInset`.** Two tiles a full row-inset apart read as two
-        /// separate controls that happen to be side by side; the grid is one
-        /// block of pinned sites, and the gutter between them should be the
-        /// smaller number. Martin: "decrease the spacing … between the two
-        /// pinned tabs beside each other".
-        static let essentialsTileGap: CGFloat = 5
-        /// The grid's inset from the sidebar's leading and trailing edges.
-        ///
-        /// **`rowInset`, so the tiles line up with everything else.** It was
-        /// 10 pt against the URL pill's and the row pills' 8, which put the
-        /// grid two points proud of both the surface above it and the list
-        /// below it — a misalignment small enough to be invisible one element
-        /// at a time and obvious down the length of the sidebar.
-        static let essentialsInset = rowInset
         /// The grid's inset above the first row of tiles and below the last.
         ///
         /// **6, tuned by eye against the URL pill.** The sides are an
@@ -219,6 +203,30 @@ extension Tokens {
         /// from the pill it belongs under, and the tiles' own gutter closed it
         /// up a shade too far. This is the one Martin settled on.
         static let essentialsVerticalInset: CGFloat = 6
+        /// The gutter between two tiles **side by side**.
+        ///
+        /// **5, not `rowInset`.** Two tiles a full row-inset apart read as two
+        /// separate controls that happen to be side by side; the grid is one
+        /// block of pinned sites, and the gutter between them should be the
+        /// smaller number. Martin: "decrease the spacing … between the two
+        /// pinned tabs beside each other".
+        static let essentialsTileGap: CGFloat = 5
+        /// The gap between one **row** of tiles and the next.
+        ///
+        /// Its own number, and the same one as the margin above the grid: a
+        /// tile's horizontal neighbour is a hand's width away and its vertical
+        /// one is directly under it, so the two gaps are not the same distance
+        /// even when they are the same length. This is the vertical rhythm the
+        /// URL pill sets, carried down through the grid.
+        static let essentialsRowGap = essentialsVerticalInset
+        /// The grid's inset from the sidebar's leading and trailing edges.
+        ///
+        /// **`rowInset`, so the tiles line up with everything else.** It was
+        /// 10 pt against the URL pill's and the row pills' 8, which put the
+        /// grid two points proud of both the surface above it and the list
+        /// below it — a misalignment small enough to be invisible one element
+        /// at a time and obvious down the length of the sidebar.
+        static let essentialsInset = rowInset
         /// A pinned tile's icon is the same 16 pt favicon a row draws; the tile
         /// is roomy, the icon is not (measured 43 px).
         static let essentialsIcon = faviconSize
