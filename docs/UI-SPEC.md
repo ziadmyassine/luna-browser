@@ -85,8 +85,8 @@ semibold. System font throughout, monospaced digits for any **numeric** face —
 ## 2. Materials and tint
 
 **Decided:** the chrome is a **native macOS 26 Liquid Glass surface sampling what is behind the window**
-(wallpaper, other windows). It is *not* tinted by the page. The single exception is the **URL pill**,
-which carries a subtle wash derived from `webView.themeColor`.
+(wallpaper, other windows). It is **not tinted by the page**, anywhere. The URL pill used to be the one
+exception and is not one any more — see the wash note below.
 
 This is why the same chrome reads violet over a violet wallpaper and pink over a pink one while the pages
 are near-black and white respectively. The OS does the expensive part for free.
@@ -98,7 +98,7 @@ are near-black and white respectively. The OS does the expensive part for free.
 | Action capsule, control buttons, Essentials tiles | Liquid Glass, clear, over the bar |
 | Downloads popover | Liquid Glass `.regular` + a heavier panel shadow |
 | Content card | Opaque `Surface.base` — never translucent; a web page behind glass is unreadable |
-| URL pill | `.control` glass **plus** a translucent page-derived wash — the one page-tinted surface in the app |
+| URL pill | `Surface.well` at rest, `.control` glass when hovered or open for editing. **No page tint** |
 | Command Bar scrim | **`NSVisualEffectView` at `.withinWindow`** — the one surface that is deliberately not Liquid Glass |
 
 **A dormant control is a well, not a plate.** §3.2's URL pill and §3.3's pinned tiles rest on
@@ -156,9 +156,13 @@ cache by host for everything else, and the row's own symbol only when there is n
 identical grey glyphs is not a list you can scan. A favicon is never a template — a site's icon is its
 own colours, not chrome ink — so selection brightens the title and leaves the icon alone.
 
-**Page-derived pill wash.** Blend `themeColor` (fallback `underPageBackgroundColor`) into the URL pill
-fill at **12–18 %**, animated over 0.25 s, clamped so pill text always clears 4.5:1 (§21.4). If the
-clamp cannot be met, drop the wash entirely rather than shipping unreadable chrome.
+**Page-derived pill wash — withdrawn.** The rule was: blend `themeColor` into the URL pill fill at
+12–18 %, animated over 0.25 s, clamped so the pill's text still clears 4.5:1 (§21.4). It was built, it
+was correct, and on screen it was wrong: the one fixed landmark in the sidebar changed shade with every
+navigation. getroosta.app and YouTube lifted it, Apple's pages left it where it was, and a control that
+is a different colour on every site is not a control you stop noticing. The pill is `Surface.well` in
+every state and on every page — the same recess a pinned tile rests in, so the head of the sidebar is
+one surface rather than two that agree only sometimes.
 
 **Fullscreen.** Glass composites what is behind the *window*, and in macOS fullscreen there is nothing
 behind it — the sidebar rendered very nearly black in dark mode. The chrome planes (sidebar, top bar)
@@ -171,8 +175,7 @@ which is the whole look.
 > whole half-second zoom and only grey once the window had landed. Leaving is driven by
 > `didExitFullScreen` for the mirror-image reason: the plane has to survive the zoom back out.
 
-**Reduce Transparency.** Every glass surface falls back to solid **`Surface.glassFallback`**, and the
-page-derived wash is disabled outright.
+**Reduce Transparency.** Every glass surface falls back to solid **`Surface.glassFallback`**.
 > **Corrected in M1:** this originally said `Surface.base`. But the content card is also `Surface.base`,
 > so obeying it literally made the sidebar and the card the same colour and the card vanished. There is a
 > dedicated `Surface.glassFallback` token for exactly this.
@@ -256,9 +259,8 @@ Vertical order, top to bottom:
   for editing, and it takes its glass then. Constant glass made it the brightest thing in the column — a
   second lit surface directly under three lit circles, pulling the eye to an address the user already
   knows. **No accent ring while editing**: the material is what says the pill is live.
-- **The page-derived wash blends over `Surface.chromeFill`, not `Surface.raised`.** `raised` is an
-  *opaque plane*, so a theme colour blended onto it produced an opaque plate: on a site whose theme
-  colour is a near-neutral grey the pill stopped being translucent and simply turned grey.
+- **It does not take the page's colour.** See §2: the wash is withdrawn, and the pill is the same
+  `Surface.well` on every site.
 
 ### 3.3 Essentials grid — 2 across, wrapping
 - Tiles 128 × 42, radius 12. **The sides are an alignment; the top, the bottom and the gutter are
@@ -283,12 +285,18 @@ Vertical order, top to bottom:
   the grid, while the grid's own outline says where it will land; letting go is the movement that puts
   it there, and the tile it is standing in for stays hidden until the lift has come to rest on top of
   it.
-  > **The move is committed before anything is revealed.** The row and the tile the lift stands in for
-  > are hidden, not gone, and they are hidden where the tab came *from* — so putting them back before the
-  > model has moved shows the tab in the place it just left. It read as the tile darting out to its old
-  > slot and sliding back, and as a row sitting in the list for the whole length of a settle into the
-  > grid. Commit, then reveal: the tile is un-hidden where it now belongs, and there is nothing to
-  > slide. Carried down
+  > **The move is committed before anything is revealed, and the revealed tile is placed first.** The
+  > row and the tile the lift stands in for are hidden, not gone, and they are hidden where the tab came
+  > *from* — so putting them back before the model has moved shows the tab in the place it just left.
+  > A hidden tile is also not laid out, so it still carries the frame it had when it was picked up, and
+  > the pass that reveals it is an animated one: it reappeared at its old slot and slid to the new one
+  > under the lift that had just settled there. Commit, place, then reveal.
+
+- **Pinning the tab you are looking at keeps its page.** Pinning drops a tab's web view to save a
+  WebContent process (§19.2), which is right for a tab you are filing away and wrong for the one on
+  screen: the pane went blank under the pointer, mid-gesture, and the site you had just dragged up there
+  had to be re-loaded by clicking the tile you had only just made. The current tab keeps its page; the
+  live-tab budget reclaims it on the way out like any other. Carried down
   into the list it becomes a row — the tab is unpinned and behaves like any other — and carried back up
   it becomes a tile again. Dropping one on a slot it already occupies is a reorder inside the Essentials
   section; dropping a *row* there is a pin, which also puts the page away (§19.2).
@@ -325,6 +333,11 @@ Order: `+ Add Tab` row → **separator** → tabs.
   dissolve rather than spending three characters saying the obvious.
 - **Selected row:** filled translucent pill spanning sidebar width minus 8 pt each side, radius 10,
   **visible hairline border**, brighter text. **Unselected rows have no background at all** (§30.7).
+  > **And no focus ring on a click.** AppKit makes a clicked control that accepts first responder the
+  > window's first responder and draws the accent ring round it — a blue halo on a pinned tile, which is
+  > the one colour Luna's chrome never uses. A press already says which control you are on, because the
+  > material lights up under it; the ring is restored the moment focus arrives from the key loop, which
+  > is the case §20.2 is about.
   > **No accent anywhere on it.** The pill used to take an `Accent.tint` border while the list had focus.
   > A blue ring around the current tab is a system list; Luna's selection is the glass plus §3.4's wash,
   > and the hairline is `Line.border` in every focus state.
@@ -589,7 +602,7 @@ Every entry degrades to instant under Reduce Motion.
 | Row hover fill | 0.12 s ease-out |
 | Control button hover lift | 0.10 s ease-out |
 | Selected-row pill move | 0.20 s spring, response 0.28, damping 0.80 |
-| URL pill theme wash | 0.25 s ease-in-out |
+| URL pill theme wash | **withdrawn** — see §2 |
 | Split divider snap | 0.12 s |
 | Downloads popover in | 0.20 s spring, scale 0.94 → 1.0, from the tail anchor |
 | Downloads particle sweep | **0.40 s** (see §5.1) |

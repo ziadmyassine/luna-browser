@@ -60,6 +60,16 @@ final class EssentialsGridView: NSView {
     var draggedID: UUID? {
         didSet {
             guard draggedID != oldValue else { return }
+            // **Put it where it belongs before showing it.** A hidden tile is
+            // not laid out, so it still carries the frame it had when it was
+            // picked up — and the pass that reveals it is an animated one, so
+            // it appeared back at its old slot and slid to the new one under
+            // the lift that had just settled there. That slide is the "goes a
+            // bit out and then rests": the tile, not the lift.
+            if let revealed = oldValue, let tile = tiles[revealed],
+               let slot = settled.firstIndex(of: revealed) {
+                Tokens.Motion.immediately { tile.frame = slotRect(at: slot) }
+            }
             for (id, tile) in tiles { tile.isHidden = id == draggedID }
             reflow()
         }

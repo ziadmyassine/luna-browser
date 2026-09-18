@@ -109,6 +109,15 @@ extension BrowserSession {
     /// `interactionState` the tab was carrying, so a pinned tab costs a row in
     /// SQLite and no WebContent process (§19.2). That is the whole behaviour:
     /// there is no "close a pinned tab", because the tile *is* the tab.
+    ///
+    /// **Except the page you are looking at.** Dropping a web view saves a
+    /// WebContent process, which is right for a tab you are filing away and
+    /// wrong for the one on screen: pinning the active tab blanked the content
+    /// pane under the pointer, mid-gesture, and the site you had just dragged
+    /// up there had to be re-loaded by clicking the tile you had only just
+    /// made. A pinned tab that is the current tab keeps its page, and
+    /// `enforceLiveTabBudget` reclaims it on the way out like any other live
+    /// tab — which is the same answer, arrived at a moment later.
     func pinTab(_ id: UUID, at index: Int = .max) {
         guard let tab = list.tab(id), tab.kind != .essential else { return }
         // **This is the line that was missing.** Pinning put the page away and
@@ -117,6 +126,10 @@ extension BrowserSession {
         // nothing at all. `reorderTab` is what changes a tab's kind, and it
         // registers the undo.
         reorderTab(id, to: index, kind: .essential)
+        guard activeTabBySpace[tab.spaceID] != id else {
+            notifyChange()
+            return
+        }
         putPinnedTabAway(id, in: tab.spaceID)
     }
 

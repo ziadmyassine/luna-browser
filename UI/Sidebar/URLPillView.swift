@@ -2,22 +2,23 @@
 //  URLPillView.swift
 //  Luna
 //
-//  §3.2. Domain only at rest (`apple.com`, never the full URL — §30.3), the
-//  full URL selected for editing on click or ⌘L, `Esc` reverts.
+//  §3.2's address pill: the domain at rest, the full URL while editing, and a
+//  sliders glyph on its trailing edge.
 //
-//  This is the **only** page-derived tint in the app (§2). The wash is applied
-//  through `Tokens.wash`, which backs the fraction off until the pill's text
-//  still clears §21.4's 4.5:1 and drops the wash entirely when even the floor
-//  fails. Reduce Transparency disables it outright.
+//  **It does not take the page's colour.** §2 made this the one page-derived
+//  tint in the app: the site's `themeColor`, washed over `Surface.chromeFill`
+//  and clamped until the pill's text still cleared §21.4. On screen that meant
+//  the one fixed landmark in the sidebar changed shade with every navigation —
+//  getroosta.app and YouTube lifted it, Apple's pages left it where it was —
+//  and a control that is a different colour on every site is not a control you
+//  stop noticing. It is `Surface.well` now, in every state and on every page:
+//  the same recess a pinned tile rests in, so the head of the sidebar is one
+//  surface rather than two that agree only sometimes.
 //
-//  Material note: §2's table lists every glass surface in the chrome and the
-//  URL pill is deliberately not among them — it is the one surface that *is*
-//  page-tinted. `Tokens.wash` returns a fill, not a tint hook, and `Glass`
-//  rightly exposes none, so the pill is glass while the page offers no theme
-//  colour and a washed plate over that glass once it does.
-//
-//  Two icon slots sit reserved and sized to the left of the sliders glyph and
-//  render nothing (§3.4/§30.4): AI and extension actions live in the top bar.
+//  The pill carries its glass when it is being *used* — hovered, or open for
+//  editing — and is a bordered well the rest of the time. Constant glass made
+//  it the brightest thing in the sidebar: a second lit surface directly under
+//  three lit circles, with the eye drawn to an address the user already knows.
 //
 
 import AppKit
@@ -34,7 +35,6 @@ final class URLPillView: NSView, NSTextFieldDelegate {
     var onSiteMenu: (() -> Void)?
 
     private let field = NSTextField(labelWithString: "")
-    private let wash = NSView()
     /// The `.control` backing, built the first time the pill is reached for —
     /// see `updateGlass`.
     private var glass: NSView?
@@ -43,8 +43,6 @@ final class URLPillView: NSView, NSTextFieldDelegate {
     // the sliders, and a glass control inside a glass pill is two materials.
     private let sliders = RowGlyphView()
     private var displayedURL: URL?
-    private var washTint: RGBA?
-    private var washColor: NSColor?
     private var isEditing = false
 
     override init(frame frameRect: NSRect) {
@@ -52,11 +50,6 @@ final class URLPillView: NSView, NSTextFieldDelegate {
         wantsLayer = true
         layer?.cornerCurve = .continuous
 
-        wash.wantsLayer = true
-        wash.layer?.cornerCurve = .continuous
-        wash.layer?.cornerRadius = Tokens.Metric.urlPill.cornerRadius
-        wash.autoresizingMask = [.width, .height]
-        addSubview(wash)
 
         field.font = Tokens.TypeScale.urlPill
         field.lineBreakMode = .byTruncatingTail
@@ -88,12 +81,11 @@ final class URLPillView: NSView, NSTextFieldDelegate {
 
     // MARK: - Content
 
-    /// Domain at rest; the wash follows the page's theme colour (§2).
-    func show(url: URL?, themeColor: RGBA?) {
+    /// Domain at rest.
+    func show(url: URL?) {
         displayedURL = url
         if !isEditing { field.stringValue = Self.domain(of: url) }
         field.setAccessibilityValue(url?.absoluteString ?? "")
-        setWash(themeColor)
     }
 
     /// `apple.com`, not `https://www.apple.com/iphone` (§30.3). `www.` is the
@@ -101,36 +93,6 @@ final class URLPillView: NSView, NSTextFieldDelegate {
     static func domain(of url: URL?) -> String {
         guard let host = url?.host(percentEncoded: false), !host.isEmpty else { return "" }
         return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
-    }
-
-    // MARK: - The §2 wash
-
-    private func setWash(_ tint: RGBA?, force: Bool = false) {
-        // Compared on the *tint*, not the resulting colour: `Tokens.wash` hands
-        // back a dynamic `NSColor`, and two of those are never usefully equal.
-        guard force || tint != washTint else { return }
-        washTint = tint
-        // §2: the page-derived wash is disabled outright under Reduce Transparency.
-        // **`over:` is `chromeFill`, not `raised`.** `raised` is an *opaque
-        // plane*, so blending a page's theme colour on top of it produced an
-        // opaque plate: on a site whose theme colour is a near-neutral grey
-        // (getroosta.app is one) the pill stopped being translucent and simply
-        // turned grey. `chromeFill` is the translucent wash base `Tokens` ships
-        // for exactly this — blending is alpha-correct, so §2's 12–18 % stays
-        // 12–18 % of what reaches the eye *through* the glass.
-        washColor = if let tint, !Tokens.A11y.reduceTransparency {
-            Tokens.wash(NSColor(tint), over: Tokens.Surface.chromeFill, keeping: Tokens.Text.primary)
-        } else {
-            nil
-        }
-        Tokens.Motion.animate(Tokens.Motion.themeWash) { context in
-            context.allowsImplicitAnimation = true
-            applyWash()
-        }
-    }
-
-    private func applyWash() {
-        wash.layer?.backgroundColor = washColor?.cgColor
     }
 
     // MARK: - Editing (§3.2, ⌘L)
@@ -188,7 +150,6 @@ final class URLPillView: NSView, NSTextFieldDelegate {
 
     private func refresh() {
         field.textColor = Tokens.Text.primary
-        applyWash()
         needsDisplay = true
     }
 
@@ -258,13 +219,10 @@ final class URLPillView: NSView, NSTextFieldDelegate {
     }
 
     /// §21.2 / contract rule 4: Increase Contrast is not an appearance, so the
-    /// border and the wash clamp have to be re-resolved on the workspace
-    /// notification or the setting is ignored forever. `SidebarViewController`
-    /// owns the single observer and calls this.
+    /// border has to be re-resolved on the workspace notification or the
+    /// setting is ignored forever. `SidebarViewController` owns the single
+    /// observer and calls this.
     func accessibilityDisplayOptionsChanged() {
-        // Re-clamped, not cleared: the contrast floor that `Tokens.wash` checks
-        // moves with Increase Contrast, and so does the Reduce Transparency veto.
-        setWash(washTint, force: true)
         refresh()
     }
 

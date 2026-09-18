@@ -142,7 +142,7 @@ final class SidebarViewController: NSViewController {
     private func refreshActiveTab() {
         let tab = session.tabs.first { $0.id == session.activeTabID }
         let state = session.activeTabID.flatMap { session.controller(for: $0)?.state }
-        pill.show(url: state?.url ?? tab?.url, themeColor: state?.themeColor ?? tab?.themeColor)
+        pill.show(url: state?.url ?? tab?.url)
         controlRow.update(canGoBack: state?.canGoBack ?? false, isLoading: state?.isLoading ?? false)
     }
 

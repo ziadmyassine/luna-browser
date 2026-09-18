@@ -324,7 +324,17 @@ final class GlassButton: NSView {
         }
     }
 
+    /// **The ring is a keyboard affordance, and a click is not the keyboard.**
+    ///
+    /// AppKit makes a clicked view that accepts first responder the window's
+    /// first responder, and then draws the accent ring round it — a blue halo
+    /// on a pinned tile, which is the one colour Luna's chrome never uses
+    /// anywhere. A press already says which control you are on, because the
+    /// material lights up under it. The ring comes back the moment focus
+    /// arrives from the key loop instead, which is the case §20.2 is about.
     override func becomeFirstResponder() -> Bool {
+        focusRingType = NSApp.currentEvent?.type == .keyDown ? .default : .none
+        noteFocusRingMaskChanged()
         needsDisplay = true
         return super.becomeFirstResponder()
     }
