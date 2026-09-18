@@ -356,10 +356,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Puts the window into whichever chrome `Settings.chromeLayout` names.
     /// The cross-fade and the frame animation run on the same tick (§4.1).
     private func applyChromeLayout(in controller: BrowserWindowController, animated: Bool) {
+        let edge = Settings.sidebarEdge
         let state: ChromeState = switch Settings.chromeLayout {
-        case .sidebar: .sidebar(width: sidebar?.preferredWidth ?? Tokens.Metric.sidebarWidth.default)
+        // **A hidden sidebar stays hidden.** `⌘S` and this setting are
+        // different decisions, and rebuilding the state from the layout alone
+        // put the column back on screen every time any preference changed.
+        case .sidebar where controller.isSidebarCollapsed: .sidebarCollapsed(edge: edge)
+        case .sidebar: .sidebar(
+            width: sidebar?.preferredWidth ?? Tokens.Metric.sidebarWidth.default,
+            edge: edge
+        )
         case .topBar: .topBar
         }
+        // The handle drags the divider, and which way is "wider" depends on
+        // which side the column is on.
+        sidebar?.sidebarEdge = edge
         guard state != controller.chromeState else { return }
         chrome.setLayout(state)
         if animated {

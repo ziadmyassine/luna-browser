@@ -29,7 +29,22 @@ final class GlassBackingView: NSView {
     private let style: Glass.Style
     private let radius: CGFloat
     private let curve: CALayerCornerCurve
-    private let corners: CACornerMask
+    private var corners: CACornerMask
+
+    /// Which corners the radius applies to.
+    ///
+    /// Settable for exactly one caller: §7.2's peek plane rounds the edge it
+    /// shares with the page, and that edge moves when the sidebar changes
+    /// sides. Everything else passes its mask in and never looks at it again.
+    var maskedCorners: CACornerMask {
+        get { corners }
+        set {
+            guard newValue != corners else { return }
+            corners = newValue
+            layer?.masksToBounds = curve == .circular || newValue != Glass.allCorners
+            needsDisplay = true
+        }
+    }
     /// §7.2's floating sidebar: the rim that separates a plane from whatever it
     /// is floating over. See `Glass.peekPlane`.
     private let rimmed: Bool

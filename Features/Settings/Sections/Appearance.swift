@@ -18,8 +18,12 @@
 //  them off. A preference whose only honest default is "on" is one more row to
 //  read past, so `SidebarIcons.favicon(for:)` now just draws them.
 //
-//  Sidebar position stays, dimmed: §3.2 declares it, and the right-hand sidebar
-//  is not built.
+//  **The Tabs row changes shape with the row above it.** §3's sidebar is a
+//  column — two sides, no middle — and §4's strip runs along a bar, which has
+//  all three. So the segments are rebuilt when the layout changes rather than
+//  one of them sitting there permanently dimmed: a disabled answer still has to
+//  be read past, and "Centre" under the sidebar is not an answer that is
+//  temporarily unavailable, it is one the question does not have.
 //
 
 import AppKit
@@ -93,6 +97,8 @@ final class AppearanceSection: NSObject, SettingsSection {
     /// Holds whichever tile is current. Rebuilt, not mutated: the material is
     /// chosen when the glass view is constructed.
     private let tileHost = NSView()
+    /// §3.2's tab position control, kept so the layout row can re-label it.
+    private var tabsChoice: SettingsChoice?
 
     var view: NSView { body.view }
     var searchIndex: [String] { body.searchIndex }
@@ -109,7 +115,7 @@ final class AppearanceSection: NSObject, SettingsSection {
         body.card(nil, [
             (themeRow(), ["theme", "appearance", "auto", "light", "dark"]),
             (chromeLayoutRow(), ["layout", "chrome", "sidebar", "top bar", "tabs"]),
-            (sidebarPositionRow(), ["sidebar position", "left", "right"])
+            (tabsRow(), ["tabs", "tab position", "sidebar position", "left", "right", "centre", "center"])
         ])
         body.card("Glass", [
             (densityRow(), ["material", "clear", "opaque", "transparency", "frosted", "see through"]),
@@ -218,21 +224,46 @@ final class AppearanceSection: NSObject, SettingsSection {
             "Layout",
             options: layouts.map(\.title),
             selected: layouts.firstIndex(of: Settings.chromeLayout) ?? 0
-        ) { index in
+        ) { [weak self] index in
             guard layouts.indices.contains(index) else { return }
             // The setter posts `Settings.didChange`; `AppDelegate` is listening
             // and re-anchors the running window. Nothing here reaches for it.
             Settings.chromeLayout = layouts[index]
+            // The row below offers a different set of answers now.
+            self?.refreshTabsRow()
         }
     }
 
-    private func sidebarPositionRow() -> NSView {
-        SettingsRow.segmented(
-            "Sidebar position",
-            options: ["Left", "Right"],
-            selected: 0,
-            isEnabled: false,
-            disabledReason: "A right-hand sidebar is not built yet."
-        ) { _ in }
+    /// §3/§4's tab position — the sidebar's side, or the strip's alignment.
+    ///
+    /// One row, because it is one question. The answers it offers come from
+    /// the layout, and `refreshTabsRow` is what keeps them current when the row
+    /// above changes: the segments are rebuilt in place, so the user sees the
+    /// middle one appear the moment they choose the top bar.
+    private func tabsRow() -> NSView {
+        let layout = Settings.chromeLayout
+        let options = TabsPosition.cases(for: layout)
+        let (row, choice) = SettingsRow.segmentedPair(
+            "Tabs",
+            options: options.map(\.title),
+            selected: options.firstIndex(of: Settings.tabsPosition(in: layout)) ?? 0
+        ) { index in
+            // Re-read rather than captured: the answers change under this
+            // closure every time the layout does.
+            let current = TabsPosition.cases(for: Settings.chromeLayout)
+            guard current.indices.contains(index) else { return }
+            Settings.tabsPosition = current[index]
+        }
+        tabsChoice = choice
+        return row
+    }
+
+    private func refreshTabsRow() {
+        let layout = Settings.chromeLayout
+        let options = TabsPosition.cases(for: layout)
+        tabsChoice?.setLabels(
+            options.map(\.title),
+            selected: options.firstIndex(of: Settings.tabsPosition(in: layout)) ?? 0
+        )
     }
 }

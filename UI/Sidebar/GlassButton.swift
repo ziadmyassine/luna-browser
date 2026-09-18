@@ -57,6 +57,12 @@ final class GlassButton: NSView {
     enum GlassMode {
         case always
         case dormant
+        /// Never. The button is a bare glyph because something around it is
+        /// already the material — §3.5's Downloads/History pair sit inside one
+        /// cylinder, and a second backing per button is what made the top bar's
+        /// capsule read as three separate bright circles before it was built
+        /// the same way (`TopBarActionCapsule`).
+        case none
     }
 
     private let shape: RoundedMetric
@@ -196,6 +202,7 @@ final class GlassButton: NSView {
         switch glassMode {
         case .always: true
         case .dormant: isHovering || isPressed || isSelected
+        case .none: false
         }
     }
 

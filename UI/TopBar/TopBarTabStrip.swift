@@ -13,6 +13,14 @@
 //  already has the elastic bounce, the trackpad handling and the 120 fps path
 //  §19.1 asks for, and a hand-rolled clipper would have none of them.
 //
+//  **Where the run sits in the bar is `Settings.tabsPosition`**, and it is
+//  centred by default. The strip spans everything between Back and the
+//  separator, so "centred" means centred in *that* span rather than in the
+//  window: the two clusters it sits between are different widths, and a run
+//  centred on the window would be visibly off-centre between them — which is
+//  the thing the eye actually measures. When the tabs overflow the span the
+//  alignment stops meaning anything and the run scrolls from its leading edge.
+//
 //  Tiles are icon-only, so §8 and §21.1 require an explicit VoiceOver label —
 //  the page title, or the site name when there is no title, **never the URL**.
 //  The strip itself is a tab list and each item carries its position and count.
@@ -36,6 +44,8 @@ final class TopBarTabStrip: NSView {
     /// Set by `reload()` when the active tab changed, consumed by the next
     /// `layout()`. See `placeContents`.
     private var animatesNextPlacement = false
+    /// §4's alignment, cached rather than read per layout pass.
+    private var tabsPosition = Settings.tabsPosition(in: .topBar)
 
     init(session: BrowserSession) {
         self.session = session
@@ -66,6 +76,20 @@ final class TopBarTabStrip: NSView {
         // `presentCommandBar` is already the way in.
         pill.onSearch = { [weak self] text in self?.session.presentCommandBar?(.search(text)) }
         content.addSubview(pill)
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(settingsDidChange),
+            name: Settings.didChange,
+            object: nil
+        )
+    }
+
+    @objc private func settingsDidChange() {
+        let position = Settings.tabsPosition(in: .topBar)
+        guard position != tabsPosition else { return }
+        tabsPosition = position
+        needsLayout = true
     }
 
     @available(*, unavailable)
@@ -212,9 +236,36 @@ final class TopBarTabStrip: NSView {
         }
     }
 
+    /// The clear run in front of the first tile, which is what the alignment
+    /// actually is.
+    ///
+    /// It is padding *inside* the document view rather than an offset applied
+    /// to it: a document narrower than its clip view is anchored at the clip's
+    /// leading edge and stays there whatever origin it is given, so the space
+    /// has to be part of the content for the scroll view to keep honouring it.
+    private var leadingPad: CGFloat {
+        let total = contentWidth
+        let span = bounds.width
+        guard total < span else { return 0 }
+        return switch tabsPosition {
+        case .left: 0
+        case .centre: ((span - total) / 2).rounded()
+        case .right: span - total
+        }
+    }
+
+    /// The run's own width — every tile plus the pill, with a gap between.
+    private var contentWidth: CGFloat {
+        let gap = TopBarMetrics.gap
+        let total = order.reduce(CGFloat.zero) { running, id in
+            running + (id == activeID ? Tokens.Metric.urlPill.width : TopBarMetrics.tile.width) + gap
+        }
+        return max(total - gap, 0)
+    }
+
     private func placeContents() {
         let height = bounds.height
-        var originX: CGFloat = 0
+        var originX = leadingPad
         var activeFrame: NSRect?
 
         for id in order {

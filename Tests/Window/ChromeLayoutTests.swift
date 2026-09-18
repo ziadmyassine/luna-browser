@@ -36,7 +36,7 @@ final class TrafficLightLayoutTests: XCTestCase {
     }
 
     func testSidebarPlacesAllThreeButtonsFromTheLeadingInset() throws {
-        let placed = try XCTUnwrap(origins(.sidebar(width: 280)))
+        let placed = try XCTUnwrap(origins(.sidebar(width: 280, edge: .leading)))
         XCTAssertEqual(placed.map(\.x), [18, 41, 64])
     }
 
@@ -44,13 +44,13 @@ final class TrafficLightLayoutTests: XCTestCase {
     /// insets the lights equally from the window's leading and top edges, and
     /// 8 pt left against 18 pt top is the asymmetry that got this rewritten.
     func testTheLeadingAndTopInsetsAreTheSame() throws {
-        let placed = try XCTUnwrap(origins(.sidebar(width: 280)))
+        let placed = try XCTUnwrap(origins(.sidebar(width: 280, edge: .leading)))
         let fromTop = system.titlebarHeight - placed[0].y - system.buttonHeight
         XCTAssertEqual(fromTop, placed[0].x)
     }
 
     func testKeepsTheSystemSpacingRatherThanInventingItsOwn() throws {
-        let placed = try XCTUnwrap(origins(.sidebar(width: 280)))
+        let placed = try XCTUnwrap(origins(.sidebar(width: 280, edge: .leading)))
         let placedGaps = zip(placed, placed.dropFirst()).map { $1.x - $0.x }
         let naturalGaps = zip(system.natural, system.natural.dropFirst()).map { $1.x - $0.x }
         XCTAssertEqual(placedGaps, naturalGaps)
@@ -60,14 +60,14 @@ final class TrafficLightLayoutTests: XCTestCase {
     /// must not move the lights. Both surfaces are a `topBarHeight` row at the
     /// window's top-left, so the frames are identical — no jump to animate.
     func testPlacementIsIdenticalInEveryChromeLayout() throws {
-        let sidebar = try XCTUnwrap(origins(.sidebar(width: 280)))
-        XCTAssertEqual(try XCTUnwrap(origins(.sidebarCollapsed)), sidebar)
+        let sidebar = try XCTUnwrap(origins(.sidebar(width: 280, edge: .leading)))
+        XCTAssertEqual(try XCTUnwrap(origins(.sidebarCollapsed(edge: .leading))), sidebar)
         XCTAssertEqual(try XCTUnwrap(origins(.topBar)), sidebar)
     }
 
     func testSidebarWidthDoesNotMoveTheLights() throws {
-        let narrow = try XCTUnwrap(origins(.sidebar(width: Tokens.Metric.sidebarWidth.min)))
-        let wide = try XCTUnwrap(origins(.sidebar(width: Tokens.Metric.sidebarWidth.max)))
+        let narrow = try XCTUnwrap(origins(.sidebar(width: Tokens.Metric.sidebarWidth.min, edge: .leading)))
+        let wide = try XCTUnwrap(origins(.sidebar(width: Tokens.Metric.sidebarWidth.max, edge: .leading)))
         XCTAssertEqual(narrow, wide)
     }
 
@@ -81,7 +81,7 @@ final class TrafficLightLayoutTests: XCTestCase {
     /// hit-testing, which is a traffic light you can see and cannot click.
     func testNeverPlacesAButtonOutsideTheTitlebar() throws {
         for candidate in stride(from: CGFloat(-10), through: 120, by: 2) {
-            let placed = try XCTUnwrap(origins(.sidebar(width: 280), inset: candidate))
+            let placed = try XCTUnwrap(origins(.sidebar(width: 280, edge: .leading), inset: candidate))
             for origin in placed {
                 XCTAssertGreaterThanOrEqual(origin.y, 0, "inset \(candidate)")
                 XCTAssertLessThanOrEqual(
@@ -96,7 +96,7 @@ final class TrafficLightLayoutTests: XCTestCase {
     /// The shipping inset fits inside the measured macOS 26 titlebar with
     /// nothing to clamp, so the lights land exactly where they were asked to.
     func testTheShippingInsetIsNotClamped() throws {
-        let placed = try XCTUnwrap(origins(.sidebar(width: 280), inset: Tokens.Metric.trafficLightInset))
+        let placed = try XCTUnwrap(origins(.sidebar(width: 280, edge: .leading), inset: Tokens.Metric.trafficLightInset))
         XCTAssertEqual(
             system.titlebarHeight - placed[0].y - system.buttonHeight,
             Tokens.Metric.trafficLightInset
@@ -106,7 +106,7 @@ final class TrafficLightLayoutTests: XCTestCase {
     func testNoButtonsMeansNoLayout() {
         var empty = system
         empty.natural = []
-        XCTAssertNil(origins(.sidebar(width: 280), system: empty))
+        XCTAssertNil(origins(.sidebar(width: 280, edge: .leading), system: empty))
     }
 }
 
@@ -119,17 +119,42 @@ final class ContentCardGeometryTests: XCTestCase {
     /// The sidebar is the only thing that insets the page. Everything else is a
     /// window edge, and the reference runs the page flush to all three.
     func testSidebarLayoutInsetsTheCardFromTheSidebarAndNothingElse() {
-        let insets = ChromeState.sidebar(width: 280).cardInsets
+        let insets = ChromeState.sidebar(width: 280, edge: .leading).cardInsets
         XCTAssertEqual(insets.left, 280)
         XCTAssertEqual(insets.top, 0)
         XCTAssertEqual(insets.right, 0)
         XCTAssertEqual(insets.bottom, 0)
-        XCTAssertTrue(ChromeState.sidebar(width: 280).cardIsInset)
+        XCTAssertTrue(ChromeState.sidebar(width: 280, edge: .leading).cardIsInset)
+    }
+
+    /// The mirror image, and the whole of what "sidebar on the right" is: the
+    /// page is inset from the trailing edge instead of the leading one, and the
+    /// corners it rounds move with it.
+    func testATrailingSidebarInsetsTheOtherEdge() {
+        let state = ChromeState.sidebar(width: 280, edge: .trailing)
+        XCTAssertEqual(state.cardInsets.right, 280)
+        XCTAssertEqual(state.cardInsets.left, 0)
+        XCTAssertEqual(state.cardInsets.top, 0)
+        XCTAssertEqual(state.cardInsets.bottom, 0)
+        XCTAssertEqual(state.cardInsetEdge, .trailing)
+    }
+
+    /// The two sides take the same room, on opposite edges. A test rather than
+    /// an assumption because the insets are written out per case: a copy-paste
+    /// that left `left:` in the trailing branch would put the page under the
+    /// sidebar and look like a z-order bug.
+    func testBothSidesInsetTheSameAmount() {
+        for width in [Tokens.Metric.sidebarWidth.min, 280, Tokens.Metric.sidebarWidth.max] {
+            let leading = ChromeState.sidebar(width: width, edge: .leading).cardInsets
+            let trailing = ChromeState.sidebar(width: width, edge: .trailing).cardInsets
+            XCTAssertEqual(leading.left, trailing.right, "width \(width)")
+            XCTAssertEqual(leading.right, trailing.left, "width \(width)")
+        }
     }
 
     func testTheSidebarEdgeTracksEverySidebarWidth() {
         for width in [Tokens.Metric.sidebarWidth.min, 280, Tokens.Metric.sidebarWidth.max] {
-            XCTAssertEqual(ChromeState.sidebar(width: width).cardInsets.left, width)
+            XCTAssertEqual(ChromeState.sidebar(width: width, edge: .leading).cardInsets.left, width)
         }
     }
 
@@ -148,12 +173,12 @@ final class ContentCardGeometryTests: XCTestCase {
     /// over the page. Nothing is rounded: every edge the page has is a window
     /// edge.
     func testCollapsedSidebarFillsTheWindow() {
-        let insets = ChromeState.sidebarCollapsed.cardInsets
+        let insets = ChromeState.sidebarCollapsed(edge: .leading).cardInsets
         XCTAssertEqual(insets.top, 0)
         XCTAssertEqual(insets.left, 0)
         XCTAssertEqual(insets.right, 0)
         XCTAssertEqual(insets.bottom, 0)
-        XCTAssertFalse(ChromeState.sidebarCollapsed.cardIsInset)
+        XCTAssertFalse(ChromeState.sidebarCollapsed(edge: .leading).cardIsInset)
     }
 
     func testFullscreenFillsTheWindow() {
@@ -226,6 +251,24 @@ final class SpaceCornerFillTests: XCTestCase {
         // Well inside the quarter disc, near its centre.
         let insideTheCard = CGPoint(x: column + radius - 2, y: bounds.maxY - radius + 2)
         XCTAssertFalse(path.contains(insideTheCard), "the fill is painting under the card's corner, not around it")
+    }
+
+    /// A trailing sidebar's notches are the same two corners reflected about
+    /// the window's centre line — so everything asserted above holds, measured
+    /// from the other edge.
+    func testTheTrailingSidebarsNotchesAreTheMirrorImage() {
+        let mirrored = SpaceCornerFillView.notches(in: bounds, besideColumnOf: column, on: .trailing)
+        XCTAssertLessThanOrEqual(
+            mirrored.boundingBox.maxX,
+            bounds.maxX - column + 0.001,
+            "the fill reached back over a trailing sidebar"
+        )
+        XCTAssertGreaterThanOrEqual(
+            mirrored.boundingBox.minX,
+            bounds.maxX - column - Tokens.Metric.contentCardRadius - 0.001,
+            "the fill ran past the card's corner and onto the page"
+        )
+        XCTAssertEqual(mirrored.boundingBox.width, path.boundingBox.width, accuracy: 0.001)
     }
 
     /// A window shorter than two radii has no straight edge left between the

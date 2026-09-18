@@ -53,6 +53,18 @@ final class SidebarViewController: NSViewController {
     /// The width §7.1 asks to be persisted, for the window to apply at launch.
     var preferredWidth: CGFloat { SidebarResizeHandle.storedWidth }
 
+    /// Which side of the window the column is standing on. The window
+    /// controller owns the constraint; this is what the two things *inside* the
+    /// sidebar that are not symmetric need to know — the resize handle's
+    /// divider, and which way a drag means "wider".
+    var sidebarEdge: SidebarEdge = .leading {
+        didSet {
+            guard sidebarEdge != oldValue else { return }
+            handle.edge = sidebarEdge
+            view.needsLayout = true
+        }
+    }
+
     private let session: BrowserSession
     /// §8.2a's sidebar wash — the active Space's gradient at 16 %, behind
     /// everything. First in `loadView`'s subview list so it stays behind.
@@ -375,13 +387,17 @@ final class SidebarViewController: NSViewController {
             height: max(gridTop - bar, 0)
         ).integral
 
-        // Placed so its 8 pt hit strip is the sidebar's own trailing 8 pt: hit
+        // Placed so its 8 pt hit strip is the sidebar's own inner 8 pt: hit
         // testing stops at a superview's bounds, so a handle centred on the
         // divider would have half a dead hit area. The drawn glyph still
-        // overhangs into the §3.6 gap, which is where §3.7 wants it.
+        // overhangs into the §3.6 gap, which is where §3.7 wants it. Which edge
+        // is "inner" is the one the page is on, so it follows the column.
         let handleWidth = Tokens.Metric.resizeHandle.width
+        let hit = Tokens.Metric.resizeHandleHitWidth
         handle.frame = NSRect(
-            x: bounds.maxX - (handleWidth + Tokens.Metric.resizeHandleHitWidth) / 2,
+            x: sidebarEdge == .trailing
+                ? bounds.minX - (handleWidth - hit) / 2
+                : bounds.maxX - (handleWidth + hit) / 2,
             y: 0,
             width: handleWidth,
             height: bounds.height

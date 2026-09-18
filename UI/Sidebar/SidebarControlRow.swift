@@ -131,12 +131,20 @@ final class SidebarControlRow: NSView {
         // whatever it is, and the same distance wherever the row happens to be.
         let span = zoom.frame.maxX - close.frame.minX
         let corner = convert(NSPoint(x: root.bounds.minX, y: root.bounds.maxY), from: root)
-        return NSRect(
+        let lights = NSRect(
             x: corner.x + inset,
             y: corner.y - inset - zoom.frame.height,
             width: max(span, zoom.frame.width),
             height: zoom.frame.height
         )
+        // **And nil when they are not on this row at all.** macOS keeps the
+        // lights at the window's top-left and offers no way to move them, so a
+        // sidebar standing on the *trailing* edge does not contain them — they
+        // float over the page instead, which is what every browser that offers
+        // a right-hand sidebar does. Reserving their space anyway would push
+        // the toggle off the column entirely; that is what a rect starting left
+        // of this row is saying.
+        return lights.minX >= bounds.minX ? lights : nil
     }
 
     override func layout() {

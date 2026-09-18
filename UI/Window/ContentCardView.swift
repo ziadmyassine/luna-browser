@@ -23,16 +23,19 @@ import AppKit
 
 extension ChromeState {
 
-    /// Whether the pane's **leading** corners are rounded. Only the sidebar
-    /// layout has an edge that is not a window edge, so only it does: under the
-    /// top bar, collapsed, or in fullscreen the pane meets the window on every
-    /// side and the window's own mask is the only corner there is.
-    var cardIsInset: Bool {
+    /// Which of the pane's vertical edges is **not** a window edge, and
+    /// therefore which pair of corners is rounded. Only the sidebar layout has
+    /// such an edge, and which one it is depends on the side the sidebar is on:
+    /// under the top bar, collapsed, or in fullscreen the pane meets the window
+    /// on every side and the window's own mask is the only corner there is.
+    var cardInsetEdge: SidebarEdge? {
         switch self {
-        case .sidebar: true
-        case .sidebarCollapsed, .topBar, .fullscreen: false
+        case let .sidebar(_, edge): edge
+        case .sidebarCollapsed, .topBar, .fullscreen: nil
         }
     }
+
+    var cardIsInset: Bool { cardInsetEdge != nil }
 
     /// The card's inset from the window's content view, per layout.
     ///
@@ -41,10 +44,13 @@ extension ChromeState {
     var cardInsets: NSEdgeInsets {
         let row = Tokens.Metric.topBarHeight
         switch self {
-        case let .sidebar(width):
-            // Flush to the window's top, bottom and trailing edges; the sidebar
-            // is the only thing that insets it.
-            return NSEdgeInsets(top: 0, left: width, bottom: 0, right: 0)
+        case let .sidebar(width, edge):
+            // Flush to the window's top and bottom and to the edge the sidebar
+            // is *not* on; the sidebar is the only thing that insets it.
+            return switch edge {
+            case .leading: NSEdgeInsets(top: 0, left: width, bottom: 0, right: 0)
+            case .trailing: NSEdgeInsets(top: 0, left: 0, bottom: 0, right: width)
+            }
         case .sidebarCollapsed:
             // **Flush, lights and all.** Hiding the sidebar means the page
             // fills the window; reserving a 52 pt strip for the traffic lights
@@ -66,20 +72,23 @@ extension ChromeState {
 @MainActor
 final class ContentCardView: NSView {
 
-    /// `true` = sidebar layout, where the pane's leading edge is not a window
-    /// edge and its two leading corners are rounded. `false` everywhere else.
-    var isInset: Bool = true {
+    /// The pane's non-window edge — the one it shares with the sidebar — whose
+    /// two corners are rounded. Nil everywhere the pane meets the window on all
+    /// four sides.
+    var insetEdge: SidebarEdge? = .leading {
         didSet {
-            guard isInset != oldValue else { return }
+            guard insetEdge != oldValue else { return }
             updateCornerRadius()
         }
     }
+
+    var isInset: Bool { insetEdge != nil }
 
     /// top, leading, bottom, trailing — in that order, always.
     private var edges: [NSLayoutConstraint] = []
     private var content: NSView?
     private var insetsBeforeFullscreen: NSEdgeInsets?
-    private var isInsetBeforeFullscreen = true
+    private var insetEdgeBeforeFullscreen: SidebarEdge? = .leading
     /// The content's leading edge, pinned to the card's. **Active at rest**, so
     /// the page is exactly as wide as the pane with no bookkeeping at all.
     private var contentLeading: NSLayoutConstraint?
@@ -223,10 +232,10 @@ final class ContentCardView: NSView {
         guard on == (insetsBeforeFullscreen == nil) else { return }
         if on {
             insetsBeforeFullscreen = insets
-            isInsetBeforeFullscreen = isInset
+            insetEdgeBeforeFullscreen = insetEdge
         }
         let target = on ? NSEdgeInsets() : (insetsBeforeFullscreen ?? insets)
-        let targetIsInset = on ? false : isInsetBeforeFullscreen
+        let targetEdge: SidebarEdge? = on ? nil : insetEdgeBeforeFullscreen
         if !on { insetsBeforeFullscreen = nil }
 
         // `Tokens.Motion.animate` owns the Reduce Motion check (§21.2);
@@ -234,7 +243,7 @@ final class ContentCardView: NSView {
         // corner radius animate rather than snap.
         Tokens.Motion.animate(Tokens.Motion.cardFullscreen) { context in
             context.allowsImplicitAnimation = true
-            self.isInset = targetIsInset
+            self.insetEdge = targetEdge
             self.setInsets(target)
             self.superview?.layoutSubtreeIfNeeded()
         }
@@ -243,11 +252,14 @@ final class ContentCardView: NSView {
     // MARK: - Appearance
 
     private func updateCornerRadius() {
-        // **Leading corners only.** The trailing edge is the window's, and the
-        // window's own mask already rounds it — rounding it here as well would
-        // round the pane inside a corner that is already round and show glass
-        // through the crescent between the two.
-        layer?.maskedCorners = [.layerMinXMinYCorner, .layerMinXMaxYCorner]
+        // **One pair of corners, on the side the sidebar is.** The other edge
+        // is the window's, and the window's own mask already rounds it —
+        // rounding it here as well would round the pane inside a corner that is
+        // already round and show glass through the crescent between the two.
+        layer?.maskedCorners = switch insetEdge {
+        case .trailing: [.layerMaxXMinYCorner, .layerMaxXMaxYCorner]
+        case .leading, nil: [.layerMinXMinYCorner, .layerMinXMaxYCorner]
+        }
         layer?.cornerRadius = isInset ? Tokens.Metric.contentCardRadius : 0
         // The edge is drawn by `updateLayer` and turns off with the corners.
         needsDisplay = true

@@ -43,6 +43,15 @@ final class SpaceCornerFillView: NSView {
         }
     }
 
+    /// The side the sidebar — and therefore the card's rounded pair — is on.
+    /// The whole shape is mirrored for `.trailing`; see `notches`.
+    var edge: SidebarEdge = .leading {
+        didSet {
+            guard edge != oldValue else { return }
+            needsLayout = true
+        }
+    }
+
     private let fill = CAGradientLayer()
     private let shape = CAShapeLayer()
     private var gradient: GradientPair?
@@ -50,7 +59,6 @@ final class SpaceCornerFillView: NSView {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
-        fill.startPoint = CGPoint(x: 0, y: 1)
         fill.mask = shape
         layer?.addSublayer(fill)
         setAccessibilityElement(false)
@@ -79,12 +87,17 @@ final class SpaceCornerFillView: NSView {
         // Bounds-derived, so it may never animate — see `Motion.immediately`.
         Tokens.Motion.immediately {
             fill.frame = bounds
-            // The ramp finishes at the column's trailing edge and holds its
-            // last colour across the notches, so a notch is the colour the
-            // sidebar ends on rather than a step further along the gradient.
-            fill.endPoint = CGPoint(x: bounds.width > 0 ? columnWidth / bounds.width : 1, y: 0)
+            // The ramp finishes at the column's inner edge and holds its last
+            // colour across the notches, so a notch is the colour the sidebar
+            // ends on rather than a step further along the gradient. It runs
+            // the other way when the sidebar is on the trailing edge, because
+            // "where the sidebar ends" is then on the right.
+            let fraction = bounds.width > 0 ? columnWidth / bounds.width : 1
+            let mirrored = edge == .trailing
+            fill.startPoint = CGPoint(x: mirrored ? 1 : 0, y: 1)
+            fill.endPoint = CGPoint(x: mirrored ? 1 - fraction : fraction, y: 0)
             shape.frame = bounds
-            shape.path = Self.notches(in: bounds, besideColumnOf: columnWidth)
+            shape.path = Self.notches(in: bounds, besideColumnOf: columnWidth, on: edge)
         }
         apply()
     }
@@ -97,7 +110,21 @@ final class SpaceCornerFillView: NSView {
     /// `static`, and taking its geometry rather than reading `bounds`, so the
     /// shape can be asserted in a test instead of eyeballed in a running window
     /// — the same reason `TrafficLightLayout` and `cardInsets` are pure.
-    static func notches(in bounds: NSRect, besideColumnOf columnWidth: CGFloat) -> CGPath {
+    /// A trailing sidebar's notches are this shape reflected about the window's
+    /// vertical centre line — the same two corners, read the other way round —
+    /// so the path is built once and mirrored rather than written twice.
+    static func notches(
+        in bounds: NSRect,
+        besideColumnOf columnWidth: CGFloat,
+        on edge: SidebarEdge = .leading
+    ) -> CGPath {
+        let path = leadingNotches(in: bounds, besideColumnOf: columnWidth)
+        guard edge == .trailing else { return path }
+        var mirror = CGAffineTransform(translationX: bounds.width, y: 0).scaledBy(x: -1, y: 1)
+        return path.copy(using: &mirror) ?? path
+    }
+
+    private static func leadingNotches(in bounds: NSRect, besideColumnOf columnWidth: CGFloat) -> CGPath {
         let radius = Tokens.Metric.contentCardRadius
         let path = CGMutablePath()
         let x = columnWidth

@@ -20,13 +20,41 @@
 
 import AppKit
 
+/// Which window edge §3's sidebar stands on.
+///
+/// **The traffic lights do not move with it.** macOS puts them at the window's
+/// top-left and there is no API that does otherwise, so a right-hand sidebar
+/// leaves them floating over the page's top-left corner — which is what every
+/// browser that offers this does, and the honest alternative to pretending the
+/// choice is symmetric.
+enum SidebarEdge: String, Sendable, Equatable, CaseIterable {
+    case leading
+    case trailing
+}
+
 /// Which chrome the window is showing. Drives both traffic-light placement and
 /// the content card's geometry (UI-SPEC §3, §4).
 enum ChromeState: Sendable, Equatable {
-    case sidebar(width: CGFloat)
-    case sidebarCollapsed
+    case sidebar(width: CGFloat, edge: SidebarEdge)
+    case sidebarCollapsed(edge: SidebarEdge)
     case topBar
     case fullscreen
+
+    /// The side the sidebar is on, in the two states that have one.
+    ///
+    /// The collapsed state carries it as well: a hidden sidebar parks off the
+    /// edge it belongs to and §7.2's peek slides back in from that same edge,
+    /// so "which side" outlives "is it showing".
+    var sidebarEdge: SidebarEdge? {
+        switch self {
+        case let .sidebar(_, edge), let .sidebarCollapsed(edge): edge
+        case .topBar, .fullscreen: nil
+        }
+    }
+
+    var isSidebarCollapsed: Bool {
+        if case .sidebarCollapsed = self { true } else { false }
+    }
 }
 
 /// What AppKit tells us about the buttons — measured at runtime, never assumed.
@@ -86,7 +114,7 @@ final class TrafficLightLayoutManager {
     private static let buttonTypes: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
 
     private weak var window: NSWindow?
-    private var state: ChromeState = .sidebarCollapsed
+    private var state: ChromeState = .sidebarCollapsed(edge: .leading)
     private let natural: [CGPoint]
 
     /// §7.2: the sidebar is peeking over a hidden-sidebar window, so the lights
@@ -106,7 +134,7 @@ final class TrafficLightLayoutManager {
     /// They come back the moment there is a sidebar to put them in, which
     /// includes a peek.
     private var hidesButtons: Bool {
-        state == .sidebarCollapsed && !isPeeking
+        state.isSidebarCollapsed && !isPeeking
     }
 
     init(window: NSWindow) {

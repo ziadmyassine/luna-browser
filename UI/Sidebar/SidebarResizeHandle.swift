@@ -28,6 +28,11 @@ final class SidebarResizeHandle: NSView {
     /// Fired once at the end of a drag or on a double-click reset.
     var onWidthCommitted: ((CGFloat) -> Void)?
 
+    /// Which side of the window the sidebar is on. It decides what the pointer
+    /// means: for a leading column the width *is* the pointer's x, and for a
+    /// trailing one it is the distance back from the column's own far edge.
+    var edge: SidebarEdge = .leading
+
     private static let defaultsKey = "dk.novapps.luna.sidebar.width"
 
     private var isDragging = false
@@ -103,12 +108,16 @@ final class SidebarResizeHandle: NSView {
         onWidthCommitted?(final)
     }
 
-    /// Sidebar width the pointer implies, clamped to §1's 180–420 pt.
+    /// Sidebar width the pointer implies, clamped to §1's range.
     private func width(for event: NSEvent) -> CGFloat {
-        // The sidebar's own leading edge is the window's, so the pointer's x in
-        // sidebar coordinates *is* the width the user is asking for.
         guard let sidebar = superview else { return Tokens.Metric.sidebarWidth.default }
-        return Tokens.Metric.sidebarWidth.clamp(sidebar.convert(event.locationInWindow, from: nil).x)
+        // One of the sidebar's vertical edges is the window's and the other is
+        // the divider. The pointer's x in sidebar coordinates is measured from
+        // the leading one, so for a leading column that *is* the width being
+        // asked for and for a trailing column it is the width less that x.
+        let x = sidebar.convert(event.locationInWindow, from: nil).x
+        let asked = edge == .trailing ? sidebar.bounds.width - x : x
+        return Tokens.Metric.sidebarWidth.clamp(asked)
     }
 
     override func viewDidChangeEffectiveAppearance() {

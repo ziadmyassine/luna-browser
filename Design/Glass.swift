@@ -156,13 +156,13 @@ enum Glass {
     /// Both were tried on screen. What the material *does* give is the right
     /// surface, which is what "floating" meant.
     @MainActor
-    static func peekPlane() -> NSView {
-        // **Rounded on the trailing edge, and nowhere else.** §3.6's content
-        // pane rounds the edge that is not a window edge — the one it shares
-        // with the sidebar — and a peeked sidebar is that same seam read the
-        // other way round: the pane is flush to the window here, and the
-        // sidebar is the thing floating in front of it, so the corner belongs
-        // to the sidebar.
+    static func peekPlane(on edge: SidebarEdge = .leading) -> NSView {
+        // **Rounded on the edge it shares with the page, and nowhere else.**
+        // §3.6's content pane rounds the edge that is not a window edge — the
+        // one it shares with the sidebar — and a peeked sidebar is that same
+        // seam read the other way round: the pane is flush to the window here,
+        // and the sidebar is the thing floating in front of it, so the corner
+        // belongs to the sidebar. Which corner that is follows the side.
         // **And rimmed**, which is the other half of the same seam. Where the
         // sidebar is *not* floating, the page's own leading hairline draws the
         // join; floating over the page there is no page edge to draw it, so the
@@ -170,9 +170,26 @@ enum Glass {
         backing(
             .sidebar,
             cornerRadius: Tokens.Metric.contentCardRadius,
-            maskedCorners: [.layerMaxXMinYCorner, .layerMaxXMaxYCorner],
+            maskedCorners: peekCorners(on: edge),
             rimmed: true
         )
+    }
+
+    /// Moves a plane built by `peekPlane` to the other edge.
+    ///
+    /// The plane is built once and lives for the window's lifetime, so changing
+    /// sides is a mask change rather than a rebuild — and it stays in this file,
+    /// which is the only one allowed to know what a glass backing is made of
+    /// (contract rule 4).
+    @MainActor
+    static func setPeekEdge(_ edge: SidebarEdge, on plane: NSView) {
+        (plane as? GlassBackingView)?.maskedCorners = peekCorners(on: edge)
+    }
+
+    private static func peekCorners(on edge: SidebarEdge) -> CACornerMask {
+        edge == .trailing
+            ? [.layerMinXMinYCorner, .layerMinXMaxYCorner]
+            : [.layerMaxXMinYCorner, .layerMaxXMaxYCorner]
     }
 
     /// Merges glass surfaces that sit within `spacing` of each other into one —

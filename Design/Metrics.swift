@@ -119,7 +119,7 @@ extension Tokens {
         /// the list does:
         ///
         ///     §3.5, foot   inset 8 + avatar 34 + gap 8 + dots 56 + gap 8
-        ///                  + downloads 34 + pair 5 + history 34 + inset 8  = 195
+        ///                  + the 68 pt Downloads/History cylinder + inset 8 = 190
         ///     §3.1, head   lights 18+60 + gap 16 + toggle 34 = 128, and back
         ///                  starts at W − (8 + 34 + 5 + 34); clear of the
         ///                  toggle from                                      ≈ 217

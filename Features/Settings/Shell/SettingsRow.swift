@@ -47,12 +47,40 @@ enum SettingsRow {
         disabledReason: String? = nil,
         onChange: @escaping (Int) -> Void
     ) -> NSView {
+        segmentedPair(
+            title,
+            subtitle: subtitle,
+            options: options,
+            selected: selected,
+            isEnabled: isEnabled,
+            disabledReason: disabledReason,
+            onChange: onChange
+        ).row
+    }
+
+    /// `segmented`, with the control handed back as well.
+    ///
+    /// Rows are opaque `NSView`s everywhere else on purpose — a section that can
+    /// reach into its own row can drift from what `SettingsRow` guarantees. The
+    /// one exception is a choice whose **answers** change while the window is
+    /// open: §3.2's tab position offers a middle segment under the top bar and
+    /// two under the sidebar, and the row that decides which sits directly
+    /// above it.
+    static func segmentedPair(
+        _ title: String,
+        subtitle: String? = nil,
+        options: [String],
+        selected: Int,
+        isEnabled: Bool = true,
+        disabledReason: String? = nil,
+        onChange: @escaping (Int) -> Void
+    ) -> (row: NSView, choice: SettingsChoice) {
         // `SettingsChoice`, not `NSSegmentedControl`: the latter paints its
         // selection as a solid accent-blue block, which Luna's chrome never does.
         let control = SettingsChoice(labels: options)
         control.selectedIndex = clamp(selected, options.count)
         control.onSelect = onChange
-        return row(title, subtitle, control, isEnabled, disabledReason, terms: options)
+        return (row(title, subtitle, control, isEnabled, disabledReason, terms: options), control)
     }
 
     static func popup(

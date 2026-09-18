@@ -23,27 +23,23 @@ final class SettingsChoice: NSView {
 
     var onSelect: ((Int) -> Void)?
 
-    var selectedIndex: Int = 0 {
-        didSet {
-            guard selectedIndex != oldValue else { return }
+    var selectedIndex: Int {
+        get { selectedIndexStorage }
+        set {
+            guard newValue != selectedIndexStorage else { return }
+            selectedIndexStorage = newValue
             apply()
         }
     }
 
+    private var selectedIndexStorage = 0
+
     private var buttons: [SettingsChoiceButton] = []
+    private let stack = NSStackView()
 
     init(labels: [String]) {
         super.init(frame: .zero)
         setAccessibilityRole(.radioGroup)
-        buttons = labels.enumerated().map { index, label in
-            let button = SettingsChoiceButton(title: label)
-            button.onActivate = { [weak self] in
-                self?.selectedIndex = index
-                self?.onSelect?(index)
-            }
-            return button
-        }
-        let stack = NSStackView(views: buttons)
         stack.orientation = .horizontal
         stack.spacing = Tokens.Metric.settingsSegmentGap
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -54,6 +50,29 @@ final class SettingsChoice: NSView {
             stack.trailingAnchor.constraint(equalTo: trailingAnchor),
             stack.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
+        setLabels(labels, selected: 0)
+    }
+
+    /// **The answers themselves can change.** Almost every choice in Settings
+    /// has a fixed set of segments; one does not — §3.2's tab position offers a
+    /// middle segment in the top-bar layout and only two in the sidebar's, and
+    /// the row that decides which is directly above it. Rebuilding the segments
+    /// is cheaper and more honest than dimming one that cannot apply.
+    func setLabels(_ labels: [String], selected: Int) {
+        for button in buttons { stack.removeArrangedSubview(button); button.removeFromSuperview() }
+        buttons = labels.enumerated().map { index, label in
+            let button = SettingsChoiceButton(title: label)
+            button.onActivate = { [weak self] in
+                self?.selectedIndex = index
+                self?.onSelect?(index)
+            }
+            stack.addArrangedSubview(button)
+            return button
+        }
+        // Assigned directly, not through the property: its `didSet` early-exits
+        // on an unchanged value, and after a relabel "unchanged" still means the
+        // wrong button is lit.
+        selectedIndexStorage = min(max(selected, 0), max(labels.count - 1, 0))
         apply()
     }
 

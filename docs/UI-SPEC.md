@@ -31,7 +31,7 @@ sidebar's own content reflows. The ratios exist to fix proportions once, not to 
 
 | Token | Value | Was |
 |---|---|---|
-| `sidebarWidth` default / min / max | 280 / 160 / 420 pt | min was 180 |
+| `sidebarWidth` default / min / max | 280 / **220** / 420 pt | min was 180, then 160 |
 | `rowHeight` (pitch) | 38 pt | 40 |
 | `rowGap` / `rowPillHeight` (the drawn pill) | 3 / 35 pt | 4 / — |
 | `rowInset` (pill inset from sidebar edge) | 8 pt | — |
@@ -61,6 +61,7 @@ sidebar's own content reflows. The ratios exist to fix proportions once, not to 
 | `sidebarPeekEdge` (§3.8 hover-peek trigger strip) | 44 pt | 24, and 4 before that |
 | `dragThreshold` (§6.6, press → lift) | 4 pt | — |
 | `historyPanel` (§3.5's History **pop-out**) | 320 × 420 (a ceiling) | 640 × 520 |
+| `downloadsPanel` (§15.3's list, the same pop-out) | 360 × 340 (a ceiling) | was an `NSPanel` |
 | `historyPopoutGap` (pop-out ↔ its button) | 5 pt (`= controlPairGap`) | — |
 | `scrimStrength` | **gone** — see §9.1 | 0.55 |
 | `settingsListWidth` / `settingsWindow` | 230 pt / 720 × 520 pt | 196, and a 420 × 160 box before that |
@@ -101,6 +102,7 @@ are near-black and white respectively. The OS does the expensive part for free.
 | Content card | Opaque `Surface.base` — never translucent; a web page behind glass is unreadable |
 | URL pill | `Surface.well` at rest, `.control` glass when hovered or open for editing. **No page tint** |
 | History pop-out | Liquid Glass `.regular` + `Shadow.popover`, standing on the §3.5 button |
+| Downloads pop-out | The same surface, standing on whichever Downloads button the layout shows |
 | Command Bar scrim | **`NSVisualEffectView` at `.withinWindow`**, full strength, under `Surface.frost` — the one surface that is deliberately not Liquid Glass |
 
 **A dormant control is a well, not a plate.** §3.2's URL pill and §3.3's pinned tiles rest on
@@ -564,7 +566,22 @@ Order: `+ Add Tab` row → **separator** → tabs.
   > there is no Luna setting for it and nothing to check before calling.
 
 ### 3.5 Bottom utility bar — 52 pt, pinned
-`[profile avatar circle 34, left] ··· [space dots pill 56 × 22, centred] ··· [history circle 34, right]`
+`[profile avatar circle 34, left] ··· [space dots pill 56 × 22, centred] ··· [downloads | history, right]`
+
+> **Downloads and History are one cylinder, not two circles.** They are the same kind of thing — the
+> shelf of what you already have, glanced at rather than worked in, both opening as a pop-out that stands
+> on its own button — and §4's action capsule pairs the same two at the other end of the window. Two
+> glass discs 5 pt apart read as two controls that happen to be near each other, each with its own
+> specular rim catching the light at a different angle; the material is applied **once**, at
+> `bottomCircle.height / 2`, and the two buttons inside it are bare glyphs. Same finding, same fix, as
+> the action capsule's. The cylinder is exactly one `bottomCircle` tall — two of them fused, not a new
+> size — so the foot stays one row of equal-height controls.
+> **The other home considered was §3.1's control row**, and it is the wrong one: that row is where
+> *actions on this page* live, and a finished download is not one of those.
+> **The pill is centred in the bar while it fits, and in what is left when it does not.** The dots widen
+> by 8 pt per Space beyond three, so "does it fit" is not a question §1's minimum can settle once:
+> clamping to one side would slide the pill under one cluster and leave clear air under the other, so the
+> overflow is centred instead and stays symmetrical.
 
 > **It is called History and it carries a clock.** Luna's internal word for the shelf is "the archive";
 > the user's word for what they are looking for is "history". The glyph is `clock.arrow.circlepath`,
@@ -607,9 +624,10 @@ Order: `+ Add Tab` row → **separator** → tabs.
 - Avatar is the active profile; click opens the profile menu.
 
 ### 3.6 Content pane
-Opaque, **flush** to the window's top, bottom and trailing edges and flush against the sidebar. Only its
-two **leading** corners are rounded, at `windowCornerRadius`, so they nest with the window's own corners
-instead of leaving a crescent of glass inside each one.
+Opaque, **flush** to the window's top and bottom, flush to the window edge the sidebar is *not* on, and
+flush against the sidebar. Only the two corners on the edge it **shares with the sidebar** are rounded,
+at `windowCornerRadius`, so they nest with the window's own corners instead of leaving a crescent of
+glass inside each one. With the sidebar on the right (§3.9) the whole thing mirrors, corner fill and all.
 > **Corrected.** This said "inset 8 pt from the sidebar and from the window's top, right and bottom
 > edges", and called the gap "what makes the whole thing read as floating". The reference has no gap on
 > any edge — the page runs to the glass. The floating read comes from the window's glass and its shadow
@@ -653,8 +671,10 @@ card's trailing edge. So a sidebar collapse costs WebKit **one** relayout instea
 Entering page fullscreen animates the pane to fill the window over 0.3 s.
 
 ### 3.7 Sidebar resize handle
-An invisible 8 pt grab strip on the sidebar/content divider. Drag resizes within 160–420 pt, double-click
-resets to 280.
+An invisible 8 pt grab strip on the sidebar/content divider — whichever of the sidebar's two vertical
+edges is the one the page is on. Drag resizes within 220–420 pt, double-click resets to 280. With the
+sidebar on the right the pointer's meaning inverts: the width asked for is measured back from the
+column's far edge.
 > **Nothing is drawn.** §3.7 asked for a `◁|▷` glyph to fade in on hover, and on screen it read as a
 > piece of UI that had come loose: a small mark floating over the page, attached to neither surface,
 > appearing for no reason the user had asked for. The resize cursor already says the divider is
@@ -666,6 +686,22 @@ resets to 280.
 > event leaves the divider permanently behind the mouse.
 
 ---
+
+### 3.9 Which side, and where the tabs go
+**One setting, because it is one question.** `Settings.tabsPosition` is Left / Centre / Right, and the
+layout decides which of those it can offer: §3's sidebar is a column, so it has two sides and no middle;
+§4's strip runs along a bar, so it has all three. Settings ▸ Appearance ▸ **Tabs** rebuilds its segments
+when the Layout row above it changes rather than dimming one — a disabled answer still has to be read
+past, and "Centre" under the sidebar is not temporarily unavailable, it is an answer the question does
+not have. A stored `.centre` is remembered rather than rewritten, and a sidebar reads it as the left.
+
+**The default is Centre**, which is where §4's strip belongs and which the sidebar has always read as
+left — so nobody's chrome moves who has not asked for it to.
+
+> **The traffic lights do not follow the sidebar.** macOS puts them at the window's top-left and offers
+> no API that says otherwise, so a right-hand sidebar leaves them floating over the page's top-left
+> corner — which is what every browser that offers this does. §3.1's control row therefore stops
+> reserving their space when it is not the thing they are on, and closes up around it.
 
 ### 3.8 Hover-peek — the hidden sidebar
 
@@ -711,11 +747,13 @@ strip and the sidebar itself.
 
 One 52 pt glass bar spanning the window. **Content is flush full-bleed below it — no inset card, no gap.**
 
-`[traffic lights] [back 28] [tab tiles …] [ACTIVE TAB pill] [tab tiles …] [hairline] [action capsule]`
+`[traffic lights] [back] [tab tiles …] [ACTIVE TAB pill] [tab tiles …] [hairline] [action capsule]`
 > **There is no sidebar toggle on this bar.** There is no sidebar in this layout to hide, so the button
-> either did nothing or silently changed a preference. Back is `TopBarMetrics.capsuleItem` — the same
-> circle as the new-tab, downloads and profile buttons at the other end of the bar, so the bar has one
-> button size.
+> either did nothing or silently changed a preference.
+> **Back is a capsule of one**, and both ends of the bar are the same object. It was a bare glass circle
+> of `TopBarMetrics.capsuleItem` — the same 28 pt *item* as the buttons at the other end, which is not
+> the same *size*: the cylinder adds its padding, and one control at 28 beside three at 36 is the
+> mismatch the eye catches. Same class, same radius, one item in it.
 > **Switching the active tab animates.** The outgoing tab's pill collapses into a tile and the incoming
 > tile expands into the pill, each seeded at the other's frame, with every tile after them sliding along
 > on §6's `tabInsert` spring. The strip is one ordered run, and it used to jump.
@@ -726,9 +764,19 @@ One 52 pt glass bar spanning the window. **Content is flush full-bleed below it 
   > This supersedes §30.12's claim that tabs are invisible in this mode.
 - **No reload button** in this layout — the reference omits it. Reload is `⌘R` and the site menu.
 - The strip scrolls horizontally when it overflows; the active tab is always scrolled into view.
+- **Where the run sits is `Settings.tabsPosition`** (§3.9), and it is **centred** by default. "Centred"
+  means centred in the span between Back and the hairline, not in the window: the two clusters it sits
+  between are different widths, and a run centred on the window reads as off-centre between them —
+  which is the thing the eye actually measures. When the tabs overflow the span the alignment stops
+  meaning anything and the run scrolls from its leading edge. The clear run is padding *inside* the
+  scroll view's document, because a document narrower than its clip view is anchored at the clip's
+  leading edge whatever origin it is given.
 - **Action capsule**: its own rounded glass capsule, separated by a vertical hairline, holding
-  `[+ new tab] [downloads] [profile]`. Extension action buttons dock here when extensions ship (v2) —
-  build the capsule to host a variable number of items now.
+  `[+ new tab] [history] [downloads] [profile]`. Extension action buttons dock here when extensions ship
+  (v2) — build the capsule to host a variable number of items now.
+  > **History is here because there is no sidebar to put it in**, and it sits beside Downloads because
+  > §3.5 pairs the same two at the other end of the window. Profile stays last: it is about *who*, not
+  > about *what*.
   > **Corrected: the capsule is one glass surface, not three merged ones.** It gave each item its own
   > `.control` backing and handed them to `NSGlassEffectContainerView`, on the theory that Liquid Glass
   > unions neighbours within `spacing`. On screen it did not: three separate bright circles, each with
@@ -759,7 +807,7 @@ its contents stagger in at 20 ms intervals. Total 0.3 s. Traffic lights re-ancho
 
 ---
 
-## 5. Downloads popover
+## 5. Downloads popover — and the list behind it
 
 - **Renders outside the window bounds**, floating above the top edge, with a **visible pointer tail**
   into the downloads button. It is an `NSPanel`, not an in-window view.
@@ -768,6 +816,19 @@ its contents stagger in at 20 ms intervals. Total 0.3 s. Traffic lights re-ancho
 - Middle truncation is required — `97103328759-202…01-2026-08-31.pdf` keeps both the prefix and the
   extension, which head- or tail-truncation would each destroy.
 - Appears on download completion, auto-dismisses after 4 s, or on confirm. Hovering cancels the timer.
+
+**The list is a pop-out, not a panel.** §15.3's list — everything downloaded, with open, reveal, retry
+and clear — was an `NSPanel`: a standard titled utility window with a table and a row of push buttons.
+Pressing a button in Liquid Glass chrome and being handed that is a different application answering; it
+takes focus off the page, it has to be closed rather than glanced away from, and it was the only surface
+in Luna that looked like it was built in 2012. It is now §3.5's pop-out at `downloadsPanel`, standing on
+whichever Downloads button the layout shows — down from §4's capsule, up from §3.5's cylinder — with
+`⌘⌥L` opening the same thing. The completion popover above is untouched and is still an `NSPanel`,
+because that one genuinely has to draw past the window's edge.
+
+> `PopoutPanelView` is the shared surface: sheet, glass body, `Shadow.popover`, the two clamps and the
+> spring. The only thing that differs between History and Downloads is **which way it grows** out of its
+> button, so the caller says `.above` or `.below` and nothing else changes.
 > **Gotcha (crashed the app, found by runtime bisect):** **never set `frameCenterRotation` on a view that
 > contains a `Glass` backing.** `Glass.backing` puts an `NSGlassEffectView` inside, which lays its own
 > `contentView` out with constraints — and Auto Layout cannot express a rotation, so the engine returns

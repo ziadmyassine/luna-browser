@@ -35,12 +35,46 @@ enum ChromeLayoutPreference: String, CaseIterable, Sendable {
     }
 }
 
+/// **Where the tabs are.** One setting, because it is one question the user is
+/// asking — and the two layouts have different answers available to them.
+///
+/// §3's sidebar is a column, so it has two sides and no middle. §4's strip runs
+/// along a bar, so it has all three. The stored value is therefore the superset,
+/// and a sidebar reads `.centre` as `.left`: a preference the current layout
+/// cannot honour is remembered rather than rewritten, so switching back to the
+/// top bar gets the centre the user asked for instead of whatever the sidebar
+/// had to fall back to.
+enum TabsPosition: String, CaseIterable, Sendable {
+    case left
+    case centre
+    case right
+
+    /// What the layout can actually offer. The Settings row is built from this,
+    /// which is why the middle segment appears and disappears with the layout
+    /// rather than sitting there dimmed.
+    static func cases(for layout: ChromeLayoutPreference) -> [TabsPosition] {
+        switch layout {
+        case .sidebar: [.left, .right]
+        case .topBar: [.left, .centre, .right]
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .left: String(localized: "Left")
+        case .centre: String(localized: "Centre")
+        case .right: String(localized: "Right")
+        }
+    }
+}
+
 enum Settings {
 
     /// Posted after any setting changes, on the main thread.
     static let didChange = Notification.Name("luna.settings.didChange")
 
     private static let layoutKey = "luna.chromeLayout"
+    private static let tabsKey = "luna.tabsPosition"
 
     /// Defaults to the sidebar: it is the layout the reference shows and the
     /// one §3 is written against.
@@ -54,5 +88,32 @@ enum Settings {
             UserDefaults.standard.set(newValue.rawValue, forKey: layoutKey)
             NotificationCenter.default.post(name: didChange, object: nil)
         }
+    }
+
+    /// §3/§4's tab position. **Centre by default**, which is where §4's strip
+    /// belongs and which a sidebar reads as the left it has always been.
+    static var tabsPosition: TabsPosition {
+        get {
+            UserDefaults.standard.string(forKey: tabsKey)
+                .flatMap(TabsPosition.init(rawValue:)) ?? .centre
+        }
+        set {
+            guard newValue != tabsPosition else { return }
+            UserDefaults.standard.set(newValue.rawValue, forKey: tabsKey)
+            NotificationCenter.default.post(name: didChange, object: nil)
+        }
+    }
+
+    /// The tab position as the layout on screen can honour it: a sidebar has
+    /// two sides, so `.centre` reads as `.left` there.
+    static func tabsPosition(in layout: ChromeLayoutPreference) -> TabsPosition {
+        let stored = tabsPosition
+        return TabsPosition.cases(for: layout).contains(stored) ? stored : .left
+    }
+
+    /// Which window edge §3's sidebar stands on. A column has two sides, so a
+    /// stored `.centre` — which only the top bar can honour — reads as the left.
+    static var sidebarEdge: SidebarEdge {
+        tabsPosition(in: .sidebar) == .right ? .trailing : .leading
     }
 }
