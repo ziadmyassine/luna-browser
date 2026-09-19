@@ -277,12 +277,13 @@ final class SidebarViewController: NSViewController {
     /// exactly one of these three fires on release.
     private func wireDrag() {
         let controller = SidebarTabDragController(host: view, grid: essentials, list: list, utility: utility)
-        // **Crossing the grid's edge selects the tab.** Dragging a tab up into
-        // §3.3 or down out of it is a decision about *that* tab, taken with it
-        // under the hand — and a drop that left the old page on screen made the
-        // tile you had just made look like it belonged to something else. A
-        // reorder *within* a section is not that: shuffling the list is
-        // housekeeping, and it leaves the selection alone.
+        // **Picking a tab up is choosing it**, wherever it is put down: a drop
+        // that left the previous page on screen made the thing under the hand
+        // look like it belonged to something else. A row does this without
+        // being asked — the press selects before the lift is off the ground
+        // (`TabListController.press`) — but a tile's press goes straight to the
+        // lift and its `onActivate` never fires, so the drops say it instead.
+        // Escape and a §3.5 Space dot are the two that are not a landing.
         controller.onDropInList = { [weak self] id, kind, index, wasPinned in
             guard let self else { return }
             session.reorderTab(id, to: index, kind: kind)
@@ -297,6 +298,9 @@ final class SidebarViewController: NSViewController {
             // arriving is a *pin*, which also puts its page away (§19.2), and
             // `pinTab` refuses a tab that is already pinned.
             if wasPinned {
+                // Selected first, for `pinTab(selecting:)`'s reason: §19.2
+                // keeps a pinned tab's page put away, and this is what loads it.
+                session.activateTab(id)
                 session.reorderTab(id, to: index, kind: .essential)
             } else {
                 session.pinTab(id, at: index, selecting: true)
