@@ -156,7 +156,10 @@ final class SidebarDragLiftView: NSView {
             // row's pill starts.
             let inset = Tokens.Metric.rowFaviconInset - Tokens.Metric.rowInset
             icon.frame = NSRect(x: inset, y: (bounds.height - glyph) / 2, width: glyph, height: glyph).pixelAligned
-            let titleX = icon.frame.maxX + Tokens.Metric.rowIconGap
+            // `rowTitleGap`, not `rowIconGap`: the lift is a tab row, and it
+            // has to carry the tighter gap the rows it left are drawn with or
+            // the title steps sideways the moment the tab is picked up.
+            let titleX = icon.frame.maxX + Tokens.Metric.rowTitleGap
             let height = title.intrinsicContentSize.height
             title.frame = NSRect(
                 x: titleX,

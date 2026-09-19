@@ -152,9 +152,13 @@ extension Tokens {
         /// The drawn height of a row's pill — 35 pt, the 100 px the reference
         /// measures. `rowHeight` is the pitch, this is the paint.
         static let rowPillHeight = rowHeight - rowGap
-        /// 12 pt between the favicon and the title. Measured: the title's ink
-        /// starts 12 pt past the favicon's trailing edge.
+        /// 12 pt between an icon and its label — the site menu, History,
+        /// Downloads. A sidebar tab row uses `rowTitleGap`.
         static let rowIconGap: CGFloat = 12
+        /// The same gap in a tab row, **2 pt tighter on request**. Its own
+        /// number so the other three lists are not dragged along with it, and
+        /// the reason `rowTitleInset` measures 43.5 rather than §3.4's 45.5.
+        static let rowTitleGap: CGFloat = 10
         /// The rule between `Archive` and `+ Add Tab` gets its own short row
         /// (§3.4). 12 pt: the reference puts 6 pt of clear space either side of
         /// the hairline, which is what separates the two command rows without
@@ -173,8 +177,8 @@ extension Tokens {
         /// leading edge as above and below it — and the title clears it by
         /// `rowIconGap`. Derived, so both follow the pill if it is retuned.
         static let rowFaviconInset = rowInset + (rowPillHeight - faviconSize) / 2
-        /// 45.5 pt to the title's leading edge (§3.4). See `rowFaviconInset`.
-        static let rowTitleInset = rowFaviconInset + faviconSize + rowIconGap
+        /// 43.5 pt to the title's leading edge: §3.4's 45.5, less `rowTitleGap`.
+        static let rowTitleInset = rowFaviconInset + faviconSize + rowTitleGap
         /// The row's trailing affordance (§3.4): close on hover, speaker when a
         /// tab is making noise.
         ///

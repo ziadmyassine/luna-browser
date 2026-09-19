@@ -54,6 +54,7 @@ extension TokenCheck {
             ("topBarHeight", Tokens.Metric.topBarHeight), ("hairline", Tokens.Metric.hairline),
             ("rowGap", Tokens.Metric.rowGap), ("rowFaviconInset", Tokens.Metric.rowFaviconInset),
             ("rowTitleInset", Tokens.Metric.rowTitleInset), ("rowIconGap", Tokens.Metric.rowIconGap),
+            ("rowTitleGap", Tokens.Metric.rowTitleGap),
             ("rowTitleFade", Tokens.Metric.rowTitleFade), ("separatorRowHeight", Tokens.Metric.separatorRowHeight),
             ("rowTrailingGlyph", Tokens.Metric.rowTrailingGlyph),
             ("essentialsInset", Tokens.Metric.essentialsInset), ("controlPairGap", Tokens.Metric.controlPairGap),
@@ -92,9 +93,13 @@ extension TokenCheck {
                 leading, vertical
             ))
         }
-        if abs(metric.rowFaviconInset - 17.5) > 0.5 || abs(metric.rowTitleInset - 45.5) > 0.5 {
+        // 43.5, not §3.4's 45.5: `rowTitleGap` is deliberately 2 pt tighter
+        // than the reference in the tab list, and only there. The check still
+        // runs — it is what catches the *next* drift — it just expects the
+        // number Luna actually ships.
+        if abs(metric.rowFaviconInset - 17.5) > 0.5 || abs(metric.rowTitleInset - 43.5) > 0.5 {
             failures.append(String(
-                format: "row insets are %.1f / %.1f — the reference measures ~17.5 / ~45.5",
+                format: "row insets are %.1f / %.1f — Luna draws 17.5 / 43.5 (§3.4's 45.5, less rowTitleGap)",
                 metric.rowFaviconInset, metric.rowTitleInset
             ))
         }
