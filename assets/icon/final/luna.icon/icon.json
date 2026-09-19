@@ -21,7 +21,14 @@
         {
           "glass" : true,
           "image-name" : "luna-icon-v3-transparent 2.png",
-          "name" : "luna-icon-v3-transparent 2"
+          "name" : "luna-icon-v3-transparent 2",
+          "position" : {
+            "scale" : 0.9,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
         }
       ],
       "shadow" : {
