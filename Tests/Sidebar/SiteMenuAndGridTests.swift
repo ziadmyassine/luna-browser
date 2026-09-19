@@ -150,3 +150,50 @@ final class LocalNetworkRuleTests: XCTestCase {
         XCTAssertFalse(BrowserStore.SitePermission.localNetwork.defaultsToAllowed)
     }
 }
+
+/// §3.2a's glyphs, which fail by *disappearing*.
+///
+/// Both halves of that are here. A misspelt SF Symbol makes no image and no
+/// fallback box — the label is drawn without it and the item is one gap out of
+/// line with its neighbours — and the tab stop is what keeps the words in a
+/// column in the first place, so an item whose symbol did not resolve must
+/// still start its word where the rest of them start theirs.
+@MainActor
+final class SiteMenuGlyphTests: XCTestCase {
+
+    func testEveryGlyphTheSiteMenuDrawsExists() {
+        for name in SiteMenu.Glyph.all {
+            XCTAssertNotNil(
+                NSImage(systemSymbolName: name, accessibilityDescription: nil),
+                "the system has no symbol called \(name)"
+            )
+        }
+    }
+
+    func testALabelCarriesItsGlyphAndLinesTheWordUp() {
+        let label = SidebarMenu.label(symbol: SiteMenu.Glyph.secure, title: "Connection is secure")
+        XCTAssertNotNil(
+            label.attribute(.attachment, at: 0, effectiveRange: nil),
+            "the glyph is the one thing `NSMenuItem.image` cannot do"
+        )
+        XCTAssertEqual(label.string, "\u{FFFC}\tConnection is secure")
+
+        let paragraph = label.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
+        XCTAssertEqual(
+            paragraph?.tabStops.first?.location,
+            Tokens.Metric.menuGlyph + Tokens.Metric.rowIconGap
+        )
+    }
+
+    /// A name the system does not have costs the icon and nothing else: no
+    /// crash, no empty attachment, and the word still starts in the column.
+    func testALabelWithoutAGlyphKeepsItsWordInTheColumn() {
+        let label = SidebarMenu.label(symbol: "luna.not.a.symbol", title: "Copy Link")
+        XCTAssertEqual(label.string, "\tCopy Link")
+        let paragraph = label.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
+        XCTAssertEqual(
+            paragraph?.tabStops.first?.location,
+            Tokens.Metric.menuGlyph + Tokens.Metric.rowIconGap
+        )
+    }
+}

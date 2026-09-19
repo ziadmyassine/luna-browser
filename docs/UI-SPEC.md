@@ -404,10 +404,17 @@ is one menu, shown from the sidebar pill and from §4's; the top-bar copy adds R
   > `([:/]|$)` came back with. Alternation is spelled out as separate patterns, `172.16–172.31` is three
   > character classes, and `\d` is not available either. A test hands the JSON to WebKit, because the
   > compile is a fire-and-forget `Task` and a refused pattern fails completely silently.
-- **`NSMenuItem.image` is set and macOS 26 does not draw it.** Measured with five images on five items —
-  template symbol, non-template symbol, explicit 16 pt, a plain red square and a named AppKit template —
-  in Luna and in a bare test app: none appeared. The assignments stay; they are the correct API, they
-  cost one line each, and they come back by themselves if a system update starts honouring them.
+- **The glyphs are in the titles, because `NSMenuItem.image` is not drawn on this macOS.** Measured with
+  five images on five items — template symbol, non-template symbol, explicit 16 pt, a plain red square
+  and a named AppKit template — in Luna and in a bare test app: none appeared. `SidebarMenu.label`
+  (§3.4a) puts the symbol in `attributedTitle` instead, and this menu and the tab menu share it, so the
+  two cannot drift apart on size, tint or alignment. `SiteMenu.Glyph` names every symbol in one place
+  and a test walks it: a misspelt name costs the icon silently, leaving one item out of the column.
+- **Share is the exception and it is AppKit's.** `standardShareMenuItem` arrives with its own glyph
+  already drawn in the image column — the only item on this build that gets one — so it is left as it
+  comes. Dressing it like the rest put a second share glyph beside the first.
+- **A disabled caption needs no quieter ink.** AppKit dims the whole item, attached glyph included;
+  applying secondary ink on top of that reads as faded rather than quiet. Measured, both ways.
 
 #### 3.2b Page bar — the pill and §3.1's three circles, on a bar over the page
 `Settings ▸ Appearance ▸ Search bar` (SETTINGS-SPEC §3.2) moves the pill out of the sidebar and onto a

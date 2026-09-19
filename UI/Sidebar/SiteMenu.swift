@@ -23,6 +23,13 @@
 //  panel would be a worse copy of it that also had to re-implement keyboard
 //  navigation, VoiceOver and Reduce Transparency.
 //
+//  **The glyphs ride in the titles, because `NSMenuItem.image` draws nothing here.**
+//  This file carried the `image` assignments for months with nothing to show for them
+//  — the measurement is in `SidebarMenu.label(symbol:title:in:)`, and §3.4a's tab menu
+//  is where the way round it was found. The same helper draws both menus now, so the
+//  two surfaces cannot drift apart on icon size, tint or alignment. Share is the one
+//  exception, and it is AppKit's: that item arrives with its own glyph already drawn.
+//
 
 import AppKit
 import BrowserKit
@@ -62,6 +69,10 @@ enum SiteMenu {
         // behaviour with it.
         let picker = NSSharingServicePicker(items: [page.url])
         sharePicker = picker
+        // **Left alone: this is the one item macOS draws an image for.** AppKit gives
+        // it its own share glyph and draws it in the image column, measured in the same
+        // probe as everything else here — dressing it the way the rest are dressed put a
+        // second share glyph beside the first and pushed the word out of the column.
         menu.addItem(picker.standardShareMenuItem)
         menu.addItem(copyLink(page.url))
         menu.addItem(.separator())
@@ -70,14 +81,14 @@ enum SiteMenu {
         menu.addItem(permission(
             .automaticPictureInPicture,
             title: String(localized: "Automatic Picture-In-Picture"),
-            symbol: "pip",
+            symbol: Glyph.pictureInPicture,
             host: page.host,
             thenReload: false
         ))
         menu.addItem(permission(
             .localNetwork,
             title: String(localized: "Local Network"),
-            symbol: nil,
+            symbol: Glyph.localNetwork,
             host: page.host,
             thenReload: true
         ))
@@ -85,7 +96,7 @@ enum SiteMenu {
 
         let settings = NSMenuItem(title: String(localized: "Site Settings"), action: nil, keyEquivalent: "")
         settings.submenu = siteSettings(host: page.host)
-        menu.addItem(settings)
+        menu.addItem(glyph(Glyph.siteSettings, on: settings))
 
         if let security = security(page) {
             menu.addItem(.separator())
@@ -130,8 +141,7 @@ enum SiteMenu {
             NSPasteboard.general.writeObjects([url as NSURL])
             NSPasteboard.general.setString(url.absoluteString, forType: .string)
         }
-        item.image = symbol("link")
-        return item
+        return glyph(Glyph.link, on: item)
     }
 
     /// §17.2's per-site exemption, read the way round a user thinks about it:
@@ -143,14 +153,13 @@ enum SiteMenu {
             reapplyRules(reload: true)
         }
         item.state = on ? .on : .off
-        item.image = symbol("hand.raised")
-        return item
+        return glyph(Glyph.blocking, on: item)
     }
 
     private static func permission(
         _ permission: BrowserStore.SitePermission,
         title: String,
-        symbol name: String?,
+        symbol name: String,
         host: String,
         thenReload reload: Bool
     ) -> NSMenuItem {
@@ -163,23 +172,22 @@ enum SiteMenu {
             if reload { reapplyRules(reload: true) }
         }
         item.state = on ? .on : .off
-        if let name { item.image = symbol(name) }
-        return item
+        return glyph(name, on: item)
     }
 
     private static func siteSettings(host: String) -> NSMenu {
         let menu = NSMenu()
         menu.autoenablesItems = false
-        menu.addItem(SidebarMenu.item(title: String(localized: "Clear Cache")) {
+        menu.addItem(glyph(Glyph.cache, on: SidebarMenu.item(title: String(localized: "Clear Cache")) {
             clear(SiteData.caches, host: host, thenReload: true)
-        })
-        menu.addItem(SidebarMenu.item(title: String(localized: "Clear Cookies")) {
+        }))
+        menu.addItem(glyph(Glyph.cookies, on: SidebarMenu.item(title: String(localized: "Clear Cookies")) {
             clear(SiteData.cookies, host: host, thenReload: true)
-        })
+        }))
         menu.addItem(.separator())
-        menu.addItem(SidebarMenu.item(title: String(localized: "Advanced Settings")) {
+        menu.addItem(glyph(Glyph.advanced, on: SidebarMenu.item(title: String(localized: "Advanced Settings")) {
             (NSApp.delegate as? AppDelegate)?.showSettings(section: AdvancedSection.id)
-        })
+        }))
         return menu
     }
 
@@ -200,8 +208,11 @@ enum SiteMenu {
             keyEquivalent: ""
         )
         item.isEnabled = false
-        item.image = symbol(secure ? "lock" : "lock.open")
-        return item
+        // Drawn like any other item and then dimmed by AppKit, attachment and all —
+        // measured, because an attributed title could as easily have come out at full
+        // strength beside a greyed word. No hand-applied secondary ink: on top of the
+        // system's own dimming it reads as faded rather than quiet.
+        return glyph(secure ? Glyph.secure : Glyph.insecure, on: item)
     }
 
     // MARK: - Doing the work
@@ -257,19 +268,49 @@ enum SiteMenu {
         }
     }
 
-    /// The reference draws a glyph beside each item, and these are set for it.
+    // MARK: - The glyphs
+
+    /// Puts the reference's glyph beside an item's word.
     ///
-    /// **macOS 26 does not draw them.** Measured, on this build, with a probe
-    /// that put five images on five menu items — a template symbol, a
-    /// non-template one, one with an explicit 16 pt size, a plain red square
-    /// and a named AppKit template — and popped the menu up: none of the five
-    /// appeared, in Luna or in a bare test app. `NSMenuItem.image` is the only
-    /// API there is for this, it is set correctly, and the system currently
-    /// declines. Left in place rather than deleted: it costs one assignment,
-    /// it is what the menu is supposed to look like, and it comes back by
-    /// itself if a system update starts honouring it again.
-    private static func symbol(_ name: String) -> NSImage? {
-        NSImage(systemSymbolName: name, accessibilityDescription: nil)?
-            .withSymbolConfiguration(.init(pointSize: Tokens.Metric.menuSwatch, weight: .regular))
+    /// **Not `NSMenuItem.image`, which draws nothing on this macOS.** That was measured
+    /// with five images on five items — template symbol, non-template symbol, explicit
+    /// size, a plain red square and a named AppKit template — in Luna and in a bare test
+    /// app, and not one of them appeared. `SidebarMenu.label(symbol:title:in:)` puts the
+    /// symbol in the *title* instead, which is drawn, and keeps the native highlight, the
+    /// arrow keys and the submenu chevron that a custom `NSMenuItem.view` would have cost.
+    ///
+    /// Read `item.title` before writing it: `attributedTitle` is what `title` returns once
+    /// one is set, so this may be applied to any item exactly once. The plain title stays
+    /// underneath for VoiceOver and type-select.
+    @discardableResult
+    private static func glyph(_ name: String, on item: NSMenuItem) -> NSMenuItem {
+        item.attributedTitle = SidebarMenu.label(symbol: name, title: item.title)
+        return item
+    }
+
+    /// Every symbol this menu draws, named in one place.
+    ///
+    /// A misspelt SF Symbol is not an error and not a fallback box — `NSImage` returns nil
+    /// and the label is simply drawn without its glyph, one item silently out of line with
+    /// the rest. `SiteMenuGlyphTests` walks this list so that a name the system does not
+    /// have is a test failure instead.
+    enum Glyph {
+        static let link = "link"
+        static let blocking = "hand.raised"
+        static let pictureInPicture = "pip"
+        static let localNetwork = "network"
+        static let siteSettings = "gearshape"
+        static let cache = "internaldrive"
+        static let cookies = "trash"
+        /// The sliders that open this menu in the first place (§3.2), which is as close as
+        /// the family comes to "the rest of the settings are through here".
+        static let advanced = "slider.horizontal.3"
+        static let secure = "lock"
+        static let insecure = "lock.open"
+
+        static let all = [
+            link, blocking, pictureInPicture, localNetwork,
+            siteSettings, cache, cookies, advanced, secure, insecure
+        ]
     }
 }
