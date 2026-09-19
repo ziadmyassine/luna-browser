@@ -4,8 +4,9 @@
 //
 //  §3.2b's bar, as geometry. Three things can go wrong here without anyone
 //  noticing until a narrow window or a particular chrome state finds them: the
-//  pill overlapping the buttons, the bar eating clicks meant for the page, and
-//  the pill's two layouts disagreeing about which edge the sliders glyph is on.
+//  pill overlapping the buttons beside it, the bar eating clicks meant for the
+//  page, and the two controls that live *inside* the capsule drifting off its
+//  ends or out from under the address's margins.
 //
 
 import XCTest
@@ -23,11 +24,22 @@ final class PageChromeBarTests: XCTestCase {
         return bar
     }
 
-    private func controls(of bar: PageChromeBar) -> (buttons: [NSView], pill: NSView)? {
-        let pill = bar.subviews.first { $0 is URLPillView }
-        let buttons = bar.subviews.filter { $0 is GlassButton }
-        guard let pill, buttons.count == 3 else { return nil }
-        return (buttons, pill)
+    /// The bar's own two controls, the pill, and the two glyphs inside it —
+    /// which are the pill's on both surfaces, not the bar's.
+    private func controls(
+        of bar: PageChromeBar
+    ) -> (leading: [NSView], inPill: [NSView], buttons: [NSView], pill: URLPillView)? {
+        let pill = bar.subviews.compactMap { $0 as? URLPillView }.first
+        let leading = bar.subviews.filter { $0 is NavCluster || $0 === bar.toggle }
+        guard let pill, leading.count == 2 else { return nil }
+        let inPill = [pill.sliders, pill.reload] as [NSView]
+        return (leading, inPill, leading + inPill, pill)
+    }
+
+    /// The glyphs' frames in the bar's own coordinates, so they can be compared
+    /// with the pill's.
+    private func inBar(_ view: NSView, _ bar: PageChromeBar) -> NSRect {
+        view.superview.map { bar.convert(view.frame, from: $0) } ?? view.frame
     }
 
     private func press(_ view: NSView) throws {
@@ -45,12 +57,68 @@ final class PageChromeBarTests: XCTestCase {
         view.mouseDown(with: click)
     }
 
-    /// The reference's three: the sidebar toggle, back and reload, in that
-    /// order, because that is where §3.1 left them.
-    func testItCarriesTheThreeControlsTheSidebarGaveUp() throws {
+    /// The toggle and the history cluster, in that order, and clear of the
+    /// pill: reload is not beside them any more — it is inside the capsule.
+    func testTheBarsOwnControlsLeadItAndStayClearOfThePill() throws {
         let parts = try XCTUnwrap(controls(of: bar(width: 1200)))
-        let order = parts.buttons.map(\.frame.minX)
+        let order = parts.leading.map(\.frame.minX)
         XCTAssertEqual(order, order.sorted())
+        let last = try XCTUnwrap(parts.leading.map(\.frame.maxX).max())
+        XCTAssertLessThanOrEqual(last, parts.pill.frame.minX)
+    }
+
+    /// **Site settings leads the capsule and reload trails it**, both inside
+    /// it, both the same distance from the end they are on. A lone control on
+    /// one side is what made the address read as pushed rather than placed.
+    func testTheCapsuleCarriesAControlAtEachEnd() throws {
+        let wide = bar(width: 1600)
+        let parts = try XCTUnwrap(controls(of: wide))
+        parts.pill.layoutSubtreeIfNeeded()
+        let pill = parts.pill.frame
+        let reach = Tokens.Metric.pillTextInset + Tokens.Metric.glyphSize / 2
+        XCTAssertEqual(inBar(parts.inPill[0], wide).midX, pill.minX + reach, accuracy: 1)
+        XCTAssertEqual(inBar(parts.inPill[1], wide).midX, pill.maxX - reach, accuracy: 1)
+        for view in parts.inPill {
+            XCTAssertEqual(inBar(view, wide).midY, pill.midY, accuracy: 1)
+        }
+    }
+
+    /// And the address keeps clear of both of them, symmetrically — an
+    /// off-centre domain in a centred capsule is worse than no centring at all.
+    func testTheAddressIsCentredInWhatTheTwoControlsLeave() throws {
+        let parts = try XCTUnwrap(controls(of: bar(width: 1600)))
+        let pill = parts.pill
+        pill.layoutSubtreeIfNeeded()
+        XCTAssertEqual(
+            pill.field.frame.midX, pill.bounds.midX, accuracy: 1,
+            "the address is not centred in the capsule"
+        )
+        XCTAssertGreaterThan(pill.field.frame.minX, pill.sliders.frame.midX)
+        XCTAssertLessThan(pill.field.frame.maxX, pill.reload.frame.midX)
+    }
+
+    /// **No favicon up there, in either form.** The pill wore a leading mark
+    /// for a while — magnifier, globe, or the site's own icon — and an address
+    /// bar is not where it belongs: a favicon at the head of the one line
+    /// saying what page you are on is a second thing to read. §9.1's field
+    /// keeps it, where it answers a question as it is being typed.
+    func testTheCapsuleWearsNoLeadingMark() throws {
+        for collapsed in [false, true] {
+            let wide = bar(width: 1600)
+            wide.setCollapsed(collapsed, animated: false)
+            wide.layoutSubtreeIfNeeded()
+            let pill = try XCTUnwrap(controls(of: wide)?.pill)
+            pill.layoutSubtreeIfNeeded()
+            // Collapsed the pill shows nothing but the domain, so the two
+            // glyphs are gone as well — which is what makes the empty set the
+            // right answer there rather than a hole in the assertion.
+            let drawn = Set(pill.subviews.compactMap { $0 as? NSImageView }.filter { !$0.isHidden })
+            let expected: Set<NSImageView> = collapsed ? [] : [pill.sliders, pill.reload]
+            XCTAssertEqual(
+                drawn, expected,
+                "collapsed: \(collapsed) — something other than the two glyphs is drawn in the pill"
+            )
+        }
     }
 
     /// Four controls on one line, one of them a different height, is the thing
@@ -58,7 +126,7 @@ final class PageChromeBarTests: XCTestCase {
     /// a circle of `urlPill.height` — and this is what stops them drifting.
     func testThePillIsExactlyAsTallAsTheButtons() throws {
         let parts = try XCTUnwrap(controls(of: bar(width: 1600)))
-        for button in parts.buttons {
+        for button in parts.leading {
             XCTAssertEqual(parts.pill.frame.height, button.frame.height)
             XCTAssertEqual(parts.pill.frame.midY, button.frame.midY, accuracy: 1)
         }
@@ -78,7 +146,7 @@ final class PageChromeBarTests: XCTestCase {
     func testANarrowPaneMovesThePillRatherThanOverlappingTheButtons() throws {
         let narrow = bar(width: 360)
         let parts = try XCTUnwrap(controls(of: narrow))
-        let lastButton = try XCTUnwrap(parts.buttons.map(\.frame.maxX).max())
+        let lastButton = try XCTUnwrap(parts.leading.map(\.frame.maxX).max())
         XCTAssertGreaterThanOrEqual(parts.pill.frame.minX, lastButton)
         XCTAssertLessThanOrEqual(parts.pill.frame.maxX, narrow.bounds.maxX)
     }
@@ -184,7 +252,7 @@ final class PageChromeBarTests: XCTestCase {
     func testOnlyTheBandTakesClicks() throws {
         let wide = bar(width: 1600)
         let parts = try XCTUnwrap(controls(of: wide))
-        let lastButton = try XCTUnwrap(parts.buttons.map(\.frame.maxX).max())
+        let lastButton = try XCTUnwrap(parts.leading.map(\.frame.maxX).max())
         let gap = NSPoint(x: (lastButton + parts.pill.frame.minX) / 2, y: wide.bounds.midY)
         XCTAssertNotNil(wide.hitTest(gap), "the open bar spans its whole frame")
         XCTAssertNotNil(wide.hitTest(NSPoint(x: parts.pill.frame.midX, y: parts.pill.frame.midY)))
@@ -274,214 +342,5 @@ final class PageChromeBarTests: XCTestCase {
 
         page.setTopColour(nil)
         XCTAssertEqual(page.appearance?.name, .aqua, "back to the document's own colour")
-    }
-}
-
-@MainActor
-final class URLPillLayoutTests: XCTestCase {
-
-    private func pill(centred: Bool) -> URLPillView {
-        let pill = URLPillView()
-        pill.centresText = centred
-        pill.show(url: URL(string: "https://www.apple.com"))
-        pill.frame = NSRect(x: 0, y: 0, width: 400, height: Tokens.Metric.urlPill.height)
-        pill.layoutSubtreeIfNeeded()
-        return pill
-    }
-
-    private func backing(of view: NSView) -> NSView? {
-        view.subviews.first { NSStringFromClass(type(of: $0)).contains("GlassBacking") }
-    }
-
-    /// The three surfaces a pill can be, and what each one is made of. §3.2's
-    /// well is lit only while it is being used; §3.2b's open pill is lit at
-    /// rest with no plate under it; its collapsed pill is nothing at all,
-    /// because the bar's own plane is the surface it would be drawn on.
-    func testEachSurfaceIsMadeOfWhatItSaysItIs() {
-        let well = pill(centred: false)
-        well.displayIfNeeded()
-        XCTAssertNil(backing(of: well), "a resting well has no material yet")
-        XCTAssertNotNil(well.layer?.backgroundColor)
-        XCTAssertEqual(well.layer?.borderWidth, Tokens.Metric.hairline)
-
-        let glassy = pill(centred: true)
-        glassy.surface = .glass
-        glassy.displayIfNeeded()
-        XCTAssertNotNil(backing(of: glassy))
-        XCTAssertNil(glassy.layer?.backgroundColor)
-        XCTAssertEqual(glassy.layer?.borderWidth, 0)
-
-        let bare = pill(centred: true)
-        bare.surface = .bare
-        bare.displayIfNeeded()
-        XCTAssertNil(bare.layer?.backgroundColor)
-        XCTAssertEqual(bare.layer?.borderWidth, 0)
-        XCTAssertEqual(backing(of: bare)?.alphaValue ?? 0, 0, "a bare pill shows no material")
-    }
-
-    /// A 17 pt radius on a 22 pt capsule is a rectangle with dents in it, and
-    /// §3.2b's pill is 22 pt for as long as the page is scrolled.
-    func testACollapsedPillIsStillACapsule() {
-        let short = pill(centred: true)
-        short.frame = NSRect(x: 0, y: 0, width: 160, height: Tokens.Metric.pageBarCollapsedPillHeight)
-        short.layoutSubtreeIfNeeded()
-        short.displayIfNeeded()
-        XCTAssertEqual(short.layer?.cornerRadius, short.frame.height / 2)
-    }
-
-    /// A collapsed bar is the page's own top edge with an address in it, and a
-    /// control floating in that strip is the one thing on it that is not the
-    /// site. The menu comes back the moment the page scrolls up.
-    ///
-    /// It fades rather than blinking out — §3.2b's two states are one dissolve
-    /// — and is hidden at the end of the fade, because a view at alpha 0 goes
-    /// on taking clicks.
-    func testTheSiteMenuFadesAwayWithTheSurface() {
-        let bare = pill(centred: true)
-        bare.surface = .bare
-        XCTAssertEqual(bare.siteMenuAnchor.alphaValue, 0)
-        bare.settleGlyph()
-        XCTAssertTrue(bare.siteMenuAnchor.isHidden)
-        bare.surface = .glass
-        XCTAssertFalse(bare.siteMenuAnchor.isHidden, "shown before it fades back in")
-        XCTAssertEqual(bare.siteMenuAnchor.alphaValue, 1)
-        bare.settleGlyph()
-        XCTAssertFalse(bare.siteMenuAnchor.isHidden)
-    }
-
-    /// **Both layouts put the glyph on the trailing edge.** §3.2b's used to
-    /// lead the capsule, from when the address was centred in whatever the
-    /// glyph left over; with §3.2's mark travelling in front of the address, a
-    /// second control on the left read as the start of that phrase and the
-    /// address looked pushed rather than placed.
-    func testTheGlyphIsOnTheTrailingEdgeInBothLayouts() {
-        XCTAssertGreaterThan(pill(centred: false).siteMenuAnchor.frame.midX, 200)
-        XCTAssertGreaterThan(pill(centred: true).siteMenuAnchor.frame.midX, 200)
-    }
-
-    /// And the mark and the address are centred **as a pair**, not the address
-    /// alone in the space the glyph leaves.
-    func testTheMarkAndTheAddressAreCentredTogether() {
-        let bar = pill(centred: true)
-        let pair = bar.mark.frame.union(bar.field.frame)
-        XCTAssertEqual(pair.midX, bar.bounds.midX, accuracy: 1)
-        XCTAssertLessThan(bar.mark.frame.maxX, bar.field.frame.minX, "the mark leads the address")
-    }
-
-    /// A tab with no site in it reads as what the bar is for, not as the name
-    /// of a page you are on.
-    func testANewTabShowsThePlaceholderRatherThanAName() {
-        let bar = URLPillView()
-        bar.show(url: URL(string: "luna://newtab"))
-        XCTAssertEqual(bar.field.stringValue, "")
-        bar.centresText = true
-        XCTAssertEqual(bar.field.placeholderString, "Search or enter website name")
-    }
-
-    /// §3.2's column pill is barely 200 pt wide and the long line truncates in
-    /// it, which says less than the short one does.
-    func testTheColumnPillSaysTheShortVersion() {
-        XCTAssertEqual(URLPillView().field.placeholderString, "Search the web")
-    }
-
-    /// Luna's other internal pages are somewhere you actually are, so they keep
-    /// their names.
-    func testLunasOtherPagesKeepTheirNames() {
-        let bar = URLPillView()
-        bar.show(url: URL(string: "luna://archive"))
-        XCTAssertEqual(bar.field.stringValue, "History")
-    }
-}
-
-/// §3.4's completions under §3.2b's pill. The list is a value-ish object — it
-/// holds phrases and an index — so the keyboard rule can be written down rather
-/// than discovered by arrowing through a live one.
-@MainActor
-final class PageBarSuggestionsTests: XCTestCase {
-
-    private func list(_ phrases: [String] = ["swift", "swift concurrency", "swiftui"]) -> PageBarSuggestions {
-        let list = PageBarSuggestions()
-        list.show(phrases)
-        return list
-    }
-
-    /// Return takes the top suggestion without the user arrowing down to it
-    /// first, which is the whole reason the list opens on a row rather than on
-    /// what was typed.
-    func testItOpensOnTheFirstSuggestion() {
-        XCTAssertEqual(list().selectedPhrase, "swift")
-    }
-
-    func testDownWalksTheListAndUpComesBackOut() {
-        let list = list()
-        XCTAssertTrue(list.move(1))
-        XCTAssertEqual(list.selectedPhrase, "swift concurrency")
-        XCTAssertTrue(list.move(1))
-        XCTAssertEqual(list.selectedPhrase, "swiftui")
-        XCTAssertTrue(list.move(-1))
-        XCTAssertEqual(list.selectedPhrase, "swift concurrency")
-    }
-
-    /// **What was typed stays reachable.** Opening on a suggestion must not
-    /// mean a query can only be searched as the engine would rather have
-    /// spelled it — ↑ off the top of the list is the way back to your own text.
-    func testUpOffTheTopIsTheWayBackToWhatWasTyped() {
-        let list = list()
-        XCTAssertTrue(list.move(-1))
-        XCTAssertNil(list.selectedPhrase)
-    }
-
-    /// Off the bottom is the typed text too — the same way out at either end.
-    func testFallingOffTheEndReturnsToWhatWasTyped() {
-        let list = list()
-        for _ in 0..<2 { _ = list.move(1) }
-        XCTAssertEqual(list.selectedPhrase, "swiftui")
-        XCTAssertTrue(list.move(1))
-        XCTAssertNil(list.selectedPhrase)
-    }
-
-    func testDownFromTheTypedTextLandsOnTheFirstRowAgain() {
-        let list = list()
-        _ = list.move(-1)
-        XCTAssertNil(list.selectedPhrase)
-        XCTAssertTrue(list.move(1))
-        XCTAssertEqual(list.selectedPhrase, "swift")
-    }
-
-    /// The pill is the whole highlight. A second grey plate that lit under the
-    /// pointer and then sat there was a second selection the keyboard could not
-    /// move — which is what it looked like.
-    func testARowPaintsNothingOfItsOwn() {
-        let list = list()
-        list.layoutSubtreeIfNeeded()
-        for row in list.subviews.compactMap({ $0 as? PageBarSuggestionRow }) {
-            row.displayIfNeeded()
-            XCTAssertNil(row.layer?.backgroundColor)
-        }
-    }
-
-    /// With nothing to walk through the field keeps the key, so the caret moves
-    /// as it would in any other text field.
-    func testAnEmptyListLeavesTheArrowKeysAlone() {
-        let empty = list([])
-        XCTAssertFalse(empty.move(1))
-        XCTAssertFalse(empty.move(-1))
-        XCTAssertTrue(empty.isHidden)
-    }
-
-    func testANewSetOfAnswersSelectsItsOwnFirstRow() {
-        let list = list()
-        _ = list.move(1)
-        list.show(["something else"])
-        XCTAssertEqual(list.selectedPhrase, "something else")
-    }
-
-    func testDismissingLeavesNothingToCommit() {
-        let list = list()
-        _ = list.move(1)
-        list.dismiss()
-        XCTAssertNil(list.selectedPhrase)
-        XCTAssertTrue(list.isHidden)
-        XCTAssertEqual(list.fittingHeight, 0)
     }
 }

@@ -17,18 +17,61 @@ import AppKit
 
 extension URLPillView {
 
-    /// The margin `centresText` layout keeps at each end.
-    private var centredMargin: CGFloat {
-        // Bare, there is no glyph to clear and the text keeps §3.2's own inset.
-        // Read from the surface, not from the glyph's `isHidden`: the glyph
-        // fades out over §3.2b's morph and is hidden at the end of it, and a
-        // margin that waited for that would size the collapsed capsule for a
-        // control it is in the middle of dropping.
-        guard surface != .bare else { return Tokens.Metric.pillTextInset }
-        let overhang = (Tokens.Metric.rowTrailingChip.width - Tokens.Metric.pillGlyphSize) / 2
-        let trailingEdge = (Tokens.Metric.pillGlyphInset - overhang
-            + Tokens.Metric.rowTrailingChip.width).rounded(.up)
-        return trailingEdge + Tokens.Metric.chromeGap
+    /// How big the pill's two glyphs are drawn, which is a fact about the pill
+    /// they are in.
+    ///
+    /// **16 on the bar, 13 in the column.** `glyphSize` is the size of a glyph
+    /// that is its own button — the §3.1 circles, §3.2b's toggle and history
+    /// cluster — and on that bar these two are exactly that: four controls in a
+    /// row, one of them a different size being the thing the eye finds first.
+    /// The column's pill is a different argument, and `pillGlyphSize` is the
+    /// token that already makes it: a glyph inside a control that is already a
+    /// landmark, beside text set at 13, in a pill barely 200 pt wide. At 16 it
+    /// was the loudest thing in it.
+    var glyphInk: CGFloat {
+        centresText ? Tokens.Metric.glyphSize : Tokens.Metric.pillGlyphSize
+    }
+
+    /// How far that ink sits from its own end of the pill. `pillGlyphInset` is
+    /// §3.2's measured number and is tighter than the text's on purpose — a
+    /// glyph is optically smaller than its box.
+    private var glyphInset: CGFloat {
+        centresText ? Tokens.Metric.pillTextInset : Tokens.Metric.pillGlyphInset
+    }
+
+    /// The glyph's hit target: the ink plus a gap's worth of padding, so a
+    /// control the size of a word is still something you can hit, without the
+    /// box hanging off the end of the pill it is inside.
+    private var glyphBox: CGFloat { glyphInk + Tokens.Metric.chromeGap }
+
+    /// **Which end the sliders glyph is on**, which is a fact about whether
+    /// this pill also carries a reload.
+    ///
+    /// One affordance on a pill goes on the trailing edge — that is where §3.2
+    /// has always drawn it, and where §3.4's rows draw theirs. A *second* one
+    /// has to take the other end, and site settings is the one that describes
+    /// what the address is, so it leads and reload trails.
+    private var slidersLead: Bool { onReload != nil }
+
+    /// The room a glyph takes out of the text's line: the mark, its inset, and
+    /// the gap between it and the address.
+    private var glyphRun: CGFloat { glyphInset + glyphInk + Tokens.Metric.chromeGap }
+
+    /// What the text keeps clear at each end.
+    ///
+    /// Collapsed there is no control to clear and the text keeps §3.2's own
+    /// inset. Read from the surface rather than from a glyph's `isHidden`:
+    /// they fade out across §3.2b's morph and are hidden at the end of it, and
+    /// a margin that waited for that would size the collapsed capsule for
+    /// something it is in the middle of dropping.
+    private var margins: (leading: CGFloat, trailing: CGFloat) {
+        guard surface != .bare else {
+            return (Tokens.Metric.pillTextInset, Tokens.Metric.pillTextInset)
+        }
+        // A pill with both is symmetric, which is what lets §3.2b centre the
+        // address in the capsule rather than in the space one glyph leaves.
+        guard slidersLead else { return (Tokens.Metric.pillTextInset, glyphRun) }
+        return (glyphRun, glyphRun)
     }
 
     /// A capsule at any height: §3.2's is always 34 pt, but §3.2b's collapses,
@@ -56,15 +99,17 @@ extension URLPillView {
         Tokens.Motion.immediately {
             placeContents()
             refreshGlassShape()
+            // **And the corner has to be re-cut.** `cornerRadius` is half the
+            // pill's height, `updateLayer` is where it is applied, and nothing
+            // marks a view for display merely because it was resized — so the
+            // radius was whatever the height happened to be the last time
+            // something else asked for a redraw. In the sidebar that was a pass
+            // during the column's first layout, at a fraction of the final
+            // height, and the pill stayed a rounded rectangle for the rest of
+            // the session. `wantsUpdateLayer` makes asking again nearly free.
+            needsDisplay = true
         }
     }
-
-    /// The leading mark's box, and the room the text gives up for it.
-    ///
-    /// Square and `faviconSize`, because it is §3.4's favicon slot — see
-    /// `URLPillView.mark`.
-    private var markBox: CGFloat { Tokens.Metric.faviconSize }
-    private var markRun: CGFloat { markBox + Tokens.Metric.chromeGap }
 
     /// How wide what the field is *showing* needs to draw in full — the
     /// address, or the placeholder when there is no address.
@@ -89,82 +134,54 @@ extension URLPillView {
     }
 
     private func placeContents() {
-        let glyph = Tokens.Metric.pillGlyphSize
-        let chip = Tokens.Metric.rowTrailingChip
-        let overhang = (chip.width - glyph) / 2
+        let box = min(glyphBox, bounds.height)
         let height = field.intrinsicContentSize.height
-        let inset = Tokens.Metric.pillGlyphInset
-        // §3.2: two further slots, reserved and sized, rendering nothing.
-        let reserved = 2 * (glyph + Tokens.Metric.chromeGap)
-        let chipY = (bounds.height - chip.height) / 2
         let textY = (bounds.height - height) / 2
-        let markY = (bounds.height - markBox) / 2
+        let boxY = (bounds.height - box) / 2
+        // Inset to the **ink**, not to the box: the box is a hit target and is
+        // bigger than the mark inside it, so insetting it would put the mark
+        // further in than the number says.
+        let overhang = (box - glyphInk) / 2
+        field.alignment = .natural
 
+        let leadingX = glyphInset - overhang
+        let trailingX = bounds.maxX - glyphInset + overhang - box
+        // Reload always trails. The sliders takes the other end when there is
+        // one to take, and the trailing edge itself when there is not.
+        sliders.frame = NSRect(
+            x: slidersLead ? leadingX : trailingX,
+            y: boxY,
+            width: box,
+            height: box
+        ).integral
+        reload.frame = NSRect(x: trailingX, y: boxY, width: box, height: box).integral
+
+        let margin = margins
+        let run = max(bounds.width - margin.leading - margin.trailing, 0)
         guard !centresText else {
-            // **Trailing, the same side as §3.2's.** It led the capsule when
-            // the text was centred in whatever the glyph left over, and a lone
-            // control on the left of a centred phrase reads as the start of it
-            // — the address looked pushed rather than placed. One control, one
-            // side, in both layouts.
-            sliders.frame = NSRect(
-                x: bounds.maxX - inset + overhang - chip.width,
-                y: chipY,
-                width: chip.width,
-                height: chip.height
+            // **One line, centred between them.** Symmetric margins, so it is
+            // centred in the *pill* rather than in the space one glyph leaves:
+            // an off-centre domain in a centred capsule is worse than no
+            // centring at all. What is centred is the address alone — or the
+            // placeholder, measured the same way, which is the whole of what a
+            // new tab shows.
+            //
+            let text = min(ceil(textWidth), run)
+            field.frame = NSRect(
+                x: margin.leading + max((run - text) / 2, 0),
+                y: textY,
+                width: text,
+                height: height
             ).integral
-            // Symmetric margins, so the text is centred in the **pill** rather
-            // than in the space the glyph leaves: an off-centre domain in a
-            // centred capsule is worse than no centring at all.
-            //
-            // **And no reserved slots.** §3.2 holds two glyph-sized places open
-            // for controls that are not built; they belong to a pill that is one
-            // row of a column, where the column's other rows will grow the same
-            // controls. A capsule floating on the page is sized to what it
-            // shows, and 42 pt of held-open nothing at each end is what made it
-            // read as an empty bar with a word in it.
-            //
-            // **The mark travels with the text, and the pair is what is
-            // centred.** Pinning it to the leading edge would leave it stranded
-            // a long way from the address it is about, with the sliders glyph
-            // already there; kept against the text it reads as one phrase —
-            // what this is, then what it says.
-            let margin = centredMargin
-            let box = max(bounds.width - 2 * margin, 0)
-            let natural = ceil(textWidth)
-            let text = min(natural, max(box - markRun, 0))
-            let run = markRun + text
-            let start = margin + max((box - run) / 2, 0)
-            mark.frame = NSRect(x: start, y: markY, width: markBox, height: markBox).integral
-            field.frame = NSRect(x: start + markRun, y: textY, width: text, height: height).integral
-            // Centred in a box it exactly fits, so this only matters while the
-            // address is long enough to be truncated — and a truncated address
-            // is read from its front.
-            field.alignment = .natural
             return
         }
-        field.alignment = .natural
-        sliders.frame = NSRect(
-            x: bounds.maxX - inset + overhang - chip.width,
-            y: chipY,
-            width: chip.width,
-            height: chip.height
-        ).integral
-        let textRight = sliders.frame.minX - reserved
-        // The mark takes §3.2's own text inset and the text starts after it —
-        // a column of rows reads down its leading edge, so that is where the
-        // thing that says what this row *is* belongs.
-        mark.frame = NSRect(
-            x: Tokens.Metric.pillTextInset,
-            y: markY,
-            width: markBox,
-            height: markBox
-        ).integral
-        let textLeft = Tokens.Metric.pillTextInset + markRun
-        field.frame = NSRect(
-            x: textLeft,
-            y: textY,
-            width: max(textRight - textLeft, 0),
-            height: height
-        ).integral
+        // **The two reserved slots are gone.** §3.2 held two further
+        // glyph-sized places open beside the sliders for AI and extension
+        // actions that are not built and that §16.4 puts in §4's action capsule
+        // anyway. They cost 42 pt, and in a column barely 200 pt wide — with a
+        // real control now at each end — that was most of the line: the short
+        // placeholder itself truncated, to `Search the…`. A slot held open for
+        // nothing is not worth a word of the address.
+        field.frame = NSRect(x: margin.leading, y: textY, width: run, height: height).integral
     }
 }

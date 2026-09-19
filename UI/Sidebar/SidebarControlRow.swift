@@ -2,7 +2,13 @@
 //  SidebarControlRow.swift
 //  Luna
 //
-//  §3.1, 52 pt: `[traffic lights] · [toggle 28] ··· [back 28] [reload 28]`.
+//  §3.1, 52 pt: `[traffic lights] · [toggle] ··· [back · forward] [reload]`.
+//
+//  **Back is no longer one button.** It grows a forward half when there is
+//  somewhere forward to go, and the two share one capsule divided by a
+//  hairline — see `NavCluster`. Reload stays its own circle beside it: §3.2b's
+//  bar puts reload inside the capsule because it has a 420 pt one to put it
+//  in, and this column's pill is 200 pt with a domain already in it.
 //
 //  **The traffic lights are not laid out here.** `TrafficLightLayoutManager`
 //  owns their frames for all six window states (§7.7); this row only has to
@@ -37,6 +43,8 @@ final class SidebarControlRow: NSView {
 
     var onToggleSidebar: (() -> Void)?
     var onBack: (() -> Void)?
+    /// Forward, which appears only when there is one — see `NavCluster`.
+    var onForward: (() -> Void)?
     /// Reload, or stop while the page is loading.
     var onReloadOrStop: ((_ isLoading: Bool) -> Void)?
 
@@ -50,12 +58,7 @@ final class SidebarControlRow: NSView {
         pointSize: Tokens.Metric.glyphSize,
         label: "Hide Sidebar"
     )
-    private let back = GlassButton(
-        shape: Tokens.Metric.sidebarCircle,
-        symbolName: "chevron.backward",
-        pointSize: Tokens.Metric.glyphSize,
-        label: "Back"
-    )
+    private let nav = NavCluster()
     private let reload = GlassButton(
         shape: Tokens.Metric.sidebarCircle,
         symbolName: "arrow.clockwise",
@@ -71,7 +74,7 @@ final class SidebarControlRow: NSView {
     var showsButtons = true {
         didSet {
             guard showsButtons != oldValue else { return }
-            for view in [toggle, back, reload] { view.isHidden = !showsButtons }
+            for view in [toggle, nav, reload] { view.isHidden = !showsButtons }
         }
     }
     /// Whether the last pass found the traffic lights. See `placeButtons`.
@@ -80,12 +83,13 @@ final class SidebarControlRow: NSView {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         toggle.onActivate = { [weak self] in self?.onToggleSidebar?() }
-        back.onActivate = { [weak self] in self?.onBack?() }
+        nav.onBack = { [weak self] in self?.onBack?() }
+        nav.onForward = { [weak self] in self?.onForward?() }
         reload.onActivate = { [weak self] in
             guard let self else { return }
             onReloadOrStop?(isLoading)
         }
-        for view in [toggle, back, reload] { addSubview(view) }
+        for view in [toggle, nav, reload] { addSubview(view) }
     }
 
     @available(*, unavailable)
@@ -99,14 +103,23 @@ final class SidebarControlRow: NSView {
 
     // MARK: - State
 
-    /// §3.1: back dims when there is nowhere to go, and reload becomes a stop
-    /// glyph for as long as the page is loading.
-    func update(canGoBack: Bool, isLoading: Bool) {
-        back.isEnabled = canGoBack
-        guard isLoading != self.isLoading else { return }
-        self.isLoading = isLoading
-        reload.setSymbol(isLoading ? "xmark" : "arrow.clockwise")
-        reload.setAccessibilityLabel(isLoading ? "Stop" : "Reload")
+    /// §3.1: back dims when there is nowhere to go, forward is simply not there
+    /// until there is, and reload becomes a stop glyph while the page loads.
+    func update(canGoBack: Bool, canGoForward: Bool, isLoading: Bool) {
+        let was = nav.intrinsicContentSize.width
+        nav.update(canGoBack: canGoBack, canGoForward: canGoForward)
+        if isLoading != self.isLoading {
+            self.isLoading = isLoading
+            reload.setSymbol(isLoading ? "xmark" : "arrow.clockwise")
+            reload.setAccessibilityLabel(isLoading ? "Stop" : "Reload")
+        }
+        guard nav.intrinsicContentSize.width != was else { return }
+        // The cluster has changed shape and it is pinned to the trailing edge,
+        // so its leading end travels. Nothing else on this row moves.
+        Tokens.Motion.animate(Tokens.Motion.sidebarCollapse) { context in
+            context.allowsImplicitAnimation = true
+            placeButtons()
+        }
     }
 
     // MARK: - Layout
@@ -169,10 +182,11 @@ final class SidebarControlRow: NSView {
             width: circle.width,
             height: circle.height
         ).pixelAligned
-        back.frame = NSRect(
-            x: reload.frame.minX - Tokens.Metric.controlPairGap - circle.width,
+        let navWidth = nav.intrinsicContentSize.width
+        nav.frame = NSRect(
+            x: reload.frame.minX - Tokens.Metric.controlPairGap - navWidth,
             y: originY,
-            width: circle.width,
+            width: navWidth,
             height: circle.height
         ).pixelAligned
     }

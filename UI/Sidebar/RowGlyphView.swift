@@ -27,14 +27,27 @@ import AppKit
 final class RowGlyphView: NSImageView {
 
     var onActivate: (() -> Void)?
-    var tint: NSColor = Tokens.Text.secondary { didSet { contentTintColor = tint } }
+    var tint: NSColor = Tokens.Text.secondary { didSet { applyTint() } }
+
+    /// **Hover lifts the ink instead of drawing a chip.** The chip is a badge's
+    /// affordance — it says "this mark you are reading is also a button" — and
+    /// it is right on a tab row, where the glyph appears inside a title. A
+    /// glyph that is plainly one of a row of controls, like §3.2's two inside
+    /// the pill, wants what every other control in Luna's chrome does: the
+    /// secondary-to-primary step the `GlassButton`s beside it take. A rounded
+    /// rectangle inside a capsule would be two shapes.
+    var liftsInk = false { didSet { applyTint() } }
 
     /// Draws the chip. Off by default: a glyph that is its own button — the
     /// §3.1 circles, the §3.5 bar — already has a shape, and a second one
     /// inside it is two backgrounds.
     var chromed = false { didSet { needsDisplay = true } }
 
-    private var isHovering = false
+    private var isHovering = false { didSet { applyTint() } }
+
+    private func applyTint() {
+        contentTintColor = liftsInk && isHovering ? Tokens.Text.primary : tint
+    }
 
     func configure(symbolName: String, label: String, pointSize: CGFloat = Tokens.Metric.faviconSize) {
         configure(image: NSImage(systemSymbolName: symbolName, accessibilityDescription: nil), label: label, pointSize: pointSize)
@@ -84,6 +97,11 @@ final class RowGlyphView: NSImageView {
     override func mouseExited(with event: NSEvent) {
         isHovering = false
         needsDisplay = true
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        applyTint()
     }
 
     override func viewDidChangeEffectiveAppearance() {

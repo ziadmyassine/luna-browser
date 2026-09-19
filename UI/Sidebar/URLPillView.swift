@@ -3,7 +3,14 @@
 //  Luna
 //
 //  §3.2's address pill: the domain at rest, the full URL while editing, and a
-//  sliders glyph on its trailing edge.
+//  control at each end of it — site settings leading, reload trailing.
+//
+//  **Both ends are the pill's, on both surfaces.** The page bar grew them first
+//  and owned them as siblings laid over the capsule; the sidebar's pill then
+//  wanted the same two, and two implementations of "a glyph inside this pill"
+//  is two sets of the same hover, fade and inset bugs. They live here, and a
+//  pill without a `onReload` simply does not show one — which is how §4's top
+//  bar keeps the pill it has always had.
 //
 //  **It does not take the page's colour.** §2 made this the one page-derived
 //  tint in the app: the site's `themeColor`, washed over `Surface.chromeFill`
@@ -31,8 +38,19 @@ final class URLPillView: NSView, NSTextFieldDelegate {
     /// it is a URL or a query and forwards it to `BrowserSession.load(_:)`;
     /// URL-or-query parsing is the Command Bar's, not the pill's.
     var onSubmit: ((String) -> Void)?
-    /// The trailing sliders glyph (§3.2's site menu).
+    /// The leading sliders glyph (§3.2's site menu).
     var onSiteMenu: (() -> Void)?
+    /// Reload, or stop while the page is loading — the trailing glyph. **Nil
+    /// means there is no such glyph**: §4's top bar has its own reload button
+    /// beside the pill, and a second one inside it would be two.
+    var onReload: ((_ isLoading: Bool) -> Void)? {
+        didSet {
+            reload.isHidden = onReload == nil
+            // The sliders glyph changes ends with it — see
+            // `URLPillLayout.slidersLead`.
+            needsLayout = true
+        }
+    }
     // §3.2b's bar, and the only subscriber to any of these. The sidebar's pill
     // leaves them nil and behaves as it always has: what was typed goes out, the
     // arrows move the list (true swallows the key), Return asks it for a phrase,
@@ -48,6 +66,20 @@ final class URLPillView: NSView, NSTextFieldDelegate {
     /// command. §3.2b's bar opens itself on it — a 22 pt capsule is a fine
     /// thing to *read* an address in and a poor one to type in.
     var onBeginEditing: (() -> Void)?
+    /// **Hand the whole job to §9.1 instead of opening in place.**
+    ///
+    /// Set, a click or `⌘L` opens the Command Bar on the current URL and this
+    /// pill never enters edit mode at all. That is the right answer wherever
+    /// there is nowhere to put a list of completions: the sidebar's pill is one
+    /// row of a 200 pt column, and editing an address there meant typing a URL
+    /// into a box narrower than the URL with no suggestions under it — while
+    /// two hundred points away `⌘T` already had the field, the history, the
+    /// ranking and the list. §4's top-bar pill has handed off this way since it
+    /// was built.
+    ///
+    /// Nil is §3.2b's bar, which edits in place because it *does* have somewhere
+    /// for the list to go: `PageBarSuggestions`, hanging off its own capsule.
+    var onHandOff: (() -> Void)?
     /// What §3.2's menu hangs off: the glyph itself, not the pill, so it opens
     /// from the control that was pressed.
     var siteMenuAnchor: NSView { sliders }
@@ -63,28 +95,26 @@ final class URLPillView: NSView, NSTextFieldDelegate {
     /// capsule with the wrong ends.
     private var glassRadius: CGFloat?
     private var isHovering = false
-    // A bare glyph, not a `GlassButton`: the reference draws no bubble around
-    // the sliders, and a glass control inside a glass pill is two materials.
+    // Bare glyphs, not `GlassButton`s: a glass control inside a glass pill is
+    // two materials, and the reference draws no bubble around either.
     let sliders = RowGlyphView()
-    /// §3.2's leading mark — what the pill is *about*. See `LeadingMark`.
-    let mark = NSImageView()
-    // Internal for `URLPillMark.swift`, the same way `field` and `sliders` are
-    // internal for `URLPillLayout.swift`: still the pill's, still untouched
-    // from anywhere else.
+    let reload = RowGlyphView()
+    private var isLoading = false
+    // Internal for `URLPillMark.swift`, as `field` and `sliders` are for
+    // `URLPillLayout.swift`: still the pill's, still untouched from elsewhere.
     var displayedURL: URL?
     var isEditing = false
-    /// The mark now showing, so an unchanged answer costs nothing. A stored
-    /// property, so it cannot live in the extension beside the rest of it.
-    var markState: LeadingMark?
-
-    /// §3.2b: the same pill, the other way round — the sliders glyph on the
-    /// **leading** edge and the domain centred in what is left. Which way round
-    /// it goes is a fact about what the pill sits in: a column of left-aligned
-    /// rows, or a lone capsule centred over a window.
+    /// §3.2b: the same pill, the other way round — the domain centred in a
+    /// capsule rather than read down a column's leading edge. Which way round
+    /// it goes is a fact about what the pill sits in.
+    ///
     var centresText = false {
         didSet {
             guard centresText != oldValue else { return }
             applyPlaceholder()
+            // The two glyphs are drawn at the size the pill they are in calls
+            // for — see `URLPillLayout.glyphInk`.
+            applyGlyphs()
             needsLayout = true
         }
     }
@@ -96,9 +126,9 @@ final class URLPillView: NSView, NSTextFieldDelegate {
         /// brightest thing in the column — a second lit surface under three lit
         /// circles, with the eye drawn to an address the user knows.
         case well
-        /// §3.2b, open: the material at rest and no plate under it, because its
-        /// three neighbours on that bar are glass at rest and four controls in a
-        /// row with one of them a recess reads as a gap in the set.
+        /// §3.2b, open: the material at rest and no plate under it — what
+        /// stands beside it on that bar is glass at rest too, and a recess
+        /// among them reads as a gap in the set.
         case glass
         /// §3.2b, collapsed: nothing. The bar's own plane is the surface, and a
         /// capsule on it would be a control inside a control.
@@ -120,8 +150,8 @@ final class URLPillView: NSView, NSTextFieldDelegate {
             // direction — a hidden view cannot fade — and hidden again by
             // `settleGlyph()` once the fade has finished, because a view at
             // alpha 0 still takes clicks.
-            if surface != .bare { sliders.isHidden = false }
-            sliders.alphaValue = surface == .bare ? 0 : 1
+            if surface != .bare { sliders.isHidden = false; reload.isHidden = onReload == nil }
+            for glyph in [sliders, reload] { glyph.alphaValue = surface == .bare ? 0 : 1 }
             needsDisplay = true
             needsLayout = true
             updateGlass()
@@ -133,7 +163,6 @@ final class URLPillView: NSView, NSTextFieldDelegate {
         wantsLayer = true
         layer?.cornerCurve = .continuous
 
-
         field.font = Tokens.TypeScale.urlPill
         field.lineBreakMode = .byTruncatingTail
         field.focusRingType = .none
@@ -144,35 +173,25 @@ final class URLPillView: NSView, NSTextFieldDelegate {
         applyPlaceholder()
         addSubview(field)
 
-        sliders.configure(
-            image: SiteMenuGlyph.image(size: Tokens.Metric.pillGlyphSize),
-            label: String(localized: "Site settings"),
-            pointSize: Tokens.Metric.pillGlyphSize
-        )
-        // The §3.4 close button's chip, on the §3.2 glyph: the affordance for
-        // *this* control, appearing when the pointer is on this control. The
-        // pill's own glass says the pill is live; the chip says the glyph is a
-        // button rather than a badge on it.
-        sliders.chromed = true
+        // **The same mark, the same size and the same hover as the buttons on
+        // the bar beside it.** This was a drawn two-slider glyph at 13 pt
+        // carrying §3.4's close-button chip — a badge's treatment, from when it
+        // was a badge printed on a pill in a column. It is a control on a row
+        // of controls now, so it is an SF Symbol at `glyphSize` whose hover
+        // lifts the ink, which is what every other glyph in Luna's chrome does.
+        // A chip here would be a rounded rectangle inside a capsule.
+        for glyph in [sliders, reload] {
+            glyph.liftsInk = true
+            addSubview(glyph)
+        }
+        applyGlyphs()
         sliders.onActivate = { [weak self] in self?.onSiteMenu?() }
-        addSubview(sliders)
-
-        // **§3.4's favicon slot, in the pill**, which is why it is sized in
-        // `faviconSize` rather than `pillGlyphSize`: a slot that shows a site's
-        // own mark most of the time is a favicon box that sometimes draws a
-        // symbol, and that is the size a favicon is legible at.
-        mark.imageScaling = .scaleProportionallyUpOrDown
-        mark.symbolConfiguration = NSImage.SymbolConfiguration(
-            pointSize: Tokens.Metric.faviconSize,
-            weight: .regular
-        )
-        // It is a mark, not a button: what it says is already true of the pill,
-        // and there is nothing for a click on it to mean that clicking the pill
-        // does not already mean.
-        mark.setAccessibilityElement(false)
-        addSubview(mark)
+        reload.onActivate = { [weak self] in
+            guard let self else { return }
+            onReload?(isLoading)
+        }
+        reload.isHidden = true
         refresh()
-        refreshMark()
     }
 
     @available(*, unavailable)
@@ -185,91 +204,36 @@ final class URLPillView: NSView, NSTextFieldDelegate {
     }
 
 
-    // MARK: - Editing (§3.2, ⌘L)
 
-    /// Expands to the full URL, selected. Idempotent, so ⌘L on an already-open
-    /// pill just re-selects.
-    func beginEditing() {
-        let wasEditing = isEditing
-        isEditing = true
-        updateGlass()
-        // A new tab opens empty, not with `luna://newtab` selected in it: the
-        // address of a blank page is not something anyone means to edit, and
-        // selecting it only means the first keystroke has to clear it.
-        let blank = Self.label(of: displayedURL).isEmpty
-        field.stringValue = blank ? "" : (displayedURL?.absoluteString ?? "")
-        field.isEditable = true
-        field.isSelectable = true
-        refreshMark()
+    /// §3.1: reload becomes a **stop** glyph for as long as the page is
+    /// loading. The same swap the sidebar's own circle made before the control
+    /// moved inside the pill.
+    func setLoading(_ loading: Bool) {
+        guard loading != isLoading else { return }
+        isLoading = loading
+        applyGlyphs()
+    }
+
+    /// Both glyphs, at the size and in the state the pill is in now.
+    private func applyGlyphs() {
+        sliders.configure(
+            symbolName: "slider.horizontal.3",
+            label: String(localized: "Site settings"),
+            pointSize: glyphInk
+        )
+        reload.configure(
+            symbolName: isLoading ? "xmark" : "arrow.clockwise",
+            label: isLoading ? String(localized: "Stop") : String(localized: "Reload"),
+            pointSize: glyphInk
+        )
         needsLayout = true
-        window?.makeFirstResponder(field)
-        field.currentEditor()?.selectAll(nil)
-        needsDisplay = true
-        // Only on the way in. This is idempotent — ⌘L on an open pill just
-        // re-selects — and a bar that re-opened on every ⌘L would fight the
-        // scroll rule for a state it is already in.
-        if !wasEditing { onBeginEditing?() }
-    }
-
-    private func endEditing(commit: Bool) {
-        // Asked before the field is torn down: the list is dismissed on the way
-        // out, and a phrase read after that is a phrase read from nothing.
-        let chosen = commit ? chosenCompletion?() : nil
-        let typed = chosen ?? field.stringValue
-        isEditing = false
-        updateGlass()
-        field.isEditable = false
-        field.isSelectable = false
-        field.stringValue = Self.label(of: displayedURL)
-        refreshMark()
-        needsLayout = true
-        if window?.firstResponder !== self { window?.makeFirstResponder(self) }
-        needsDisplay = true
-        onEndEditing?(commit)
-        if commit, !typed.isEmpty { onSubmit?(typed) }
-    }
-
-    func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
-        switch selector {
-        case #selector(NSResponder.cancelOperation(_:)):
-            endEditing(commit: false) // §3.2: Esc reverts.
-        case #selector(NSResponder.insertNewline(_:)):
-            endEditing(commit: true)
-        case #selector(NSResponder.moveDown(_:)):
-            return onMoveSelection?(1) ?? false
-        case #selector(NSResponder.moveUp(_:)):
-            return onMoveSelection?(-1) ?? false
-        default:
-            return false
-        }
-        return true
-    }
-
-    func controlTextDidChange(_ obj: Notification) {
-        guard isEditing else { return }
-        refreshMark()
-        // §3.2b centres the mark and the text together, so the pair has to be
-        // re-placed on every keystroke, not only when the mark itself changes.
-        needsLayout = true
-        onTyping?(field.stringValue)
-    }
-
-    func controlTextDidEndEditing(_ obj: Notification) {
-        guard isEditing else { return }
-        endEditing(commit: false)
-    }
-
-    /// §30.1: the sidebar's plane moves the window; a control on it does not.
-    override var mouseDownCanMoveWindow: Bool { false }
-
-    override func mouseDown(with event: NSEvent) {
-        beginEditing()
     }
 
     // MARK: - Appearance
 
     private func refresh() {
         field.textColor = Tokens.Text.primary
+        for glyph in [sliders, reload] { glyph.tint = Tokens.Text.secondary }
         needsDisplay = true
     }
 
@@ -315,7 +279,9 @@ final class URLPillView: NSView, NSTextFieldDelegate {
         }
     }
 
-    private func updateGlass() {
+    // Internal for `URLPillEditing.swift`: opening and closing the pill is what
+    // lights its material.
+    func updateGlass() {
         let target = glassTarget
         guard let view = glass ?? (target > 0 ? makeGlass() : nil), view.alphaValue != target else { return }
         Tokens.Motion.animate(Tokens.Motion.controlHover) { context in
@@ -354,6 +320,7 @@ final class URLPillView: NSView, NSTextFieldDelegate {
     /// completes; nothing else changes `surface`.
     func settleGlyph() {
         sliders.isHidden = sliders.alphaValue == 0
+        reload.isHidden = onReload == nil || reload.alphaValue == 0
     }
 
     override func updateTrackingAreas() {

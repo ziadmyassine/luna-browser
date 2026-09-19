@@ -189,7 +189,11 @@ final class SidebarViewController: NSViewController {
         let tab = session.tabs.first { $0.id == session.activeTabID }
         let state = session.activeTabID.flatMap { session.controller(for: $0)?.state }
         pill.show(url: state?.url ?? tab?.url)
-        controlRow.update(canGoBack: state?.canGoBack ?? false, isLoading: state?.isLoading ?? false)
+        controlRow.update(
+            canGoBack: state?.canGoBack ?? false,
+            canGoForward: state?.canGoForward ?? false,
+            isLoading: state?.isLoading ?? false
+        )
     }
 
     /// Called by `ChromeHostView` when this layout comes back on screen.
@@ -216,11 +220,20 @@ final class SidebarViewController: NSViewController {
     private func wireControls() {
         controlRow.onToggleSidebar = { [weak self] in self?.onToggleSidebar?() }
         controlRow.onBack = { [weak self] in self?.session.goBack() }
+        controlRow.onForward = { [weak self] in self?.session.goForward() }
+        pill.onSubmit = { [weak self] text in self?.onSubmitURL?(text) }
+        // **The pill hands off to §9.1 rather than opening itself.** A click or
+        // `⌘L` on the sidebar's address opens the Command Bar on the current
+        // URL — the field is wider than this column, and it is the only one of
+        // the two with history, ranking and a list of completions under it.
+        // §3.2b's pill still edits in place; it has a list of its own.
+        pill.onHandOff = { [weak self] in
+            self?.session.presentCommandBar?(.editCurrentURL)
+        }
         controlRow.onReloadOrStop = { [weak self] isLoading in
             guard let self else { return }
             if isLoading { session.stop() } else { session.reload() }
         }
-        pill.onSubmit = { [weak self] text in self?.onSubmitURL?(text) }
         // §3.2's menu is about the page, and every answer in it is one the
         // session already holds — so it opens itself rather than being routed
         // out to the coordinator and straight back in.

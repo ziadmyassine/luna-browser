@@ -183,10 +183,14 @@ final class PageBarSuggestionRow: NSView {
         super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerCurve = .continuous
-        glyph.image = NSImage(
-            systemSymbolName: "magnifyingglass",
-            accessibilityDescription: nil
-        )?.withSymbolConfiguration(.init(pointSize: Tokens.Metric.faviconSize, weight: .regular))
+        glyph.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)
+        // The same configuration §9.1's field gives its own mark, so the two
+        // magnifiers are the same weight at the same size in the same box.
+        glyph.symbolConfiguration = NSImage.SymbolConfiguration(
+            pointSize: Tokens.Metric.faviconSize,
+            weight: .regular
+        )
+        glyph.imageScaling = .scaleProportionallyUpOrDown
         label.stringValue = phrase
         label.font = Tokens.TypeScale.urlPill
         label.lineBreakMode = .byTruncatingTail
@@ -215,22 +219,31 @@ final class PageBarSuggestionRow: NSView {
         glyph.contentTintColor = isSelected ? Tokens.Text.primary : Tokens.Text.secondary
     }
 
+    /// **§9.1's row, not §3.4's.** These were laid out on the tab list's
+    /// numbers — `rowFaviconInset` and `rowTitleInset`, which are derived from
+    /// the *tab pill's* height and carry §3.4's own 9 pt icon gap. A row of
+    /// completions is not a tab; it is the same row the Command Bar shows for
+    /// the same query, and the two sat a point and a half apart from each
+    /// other. One inset and one gap, taken from the panel that already had
+    /// them: `CommandBarResultRow` starts its icon at `rowInset + panelInset`
+    /// and its title one `panelInset` after it.
     override func layout() {
         super.layout()
         Tokens.Motion.immediately {
             let size = Tokens.Metric.faviconSize
+            let inset = Tokens.Metric.rowInset + Tokens.Metric.panelInset
             glyph.frame = NSRect(
-                x: Tokens.Metric.rowFaviconInset,
+                x: inset,
                 y: (bounds.height - size) / 2,
                 width: size,
                 height: size
             ).integral
-            let left = Tokens.Metric.rowTitleInset
+            let left = inset + size + Tokens.Metric.panelInset
             let height = label.intrinsicContentSize.height
             label.frame = NSRect(
                 x: left,
                 y: (bounds.height - height) / 2,
-                width: max(bounds.width - left - Tokens.Metric.rowInset, 0),
+                width: max(bounds.width - left - inset, 0),
                 height: height
             ).integral
         }

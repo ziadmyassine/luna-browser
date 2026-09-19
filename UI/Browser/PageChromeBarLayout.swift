@@ -1,0 +1,153 @@
+//
+//  PageChromeBarLayout.swift
+//  Luna
+//
+//  Where §3.2b's bar puts the four controls, the pill and the list under it,
+//  and which part of it takes a click.
+//
+//  Split out of `PageChromeBar.swift` for the reason `URLPillLayout.swift` was
+//  split out of `URLPillView.swift`: that file crosses SwiftLint's 400-line
+//  limit otherwise. Nothing changed on the way across.
+//
+//  The handful of members this reaches are `internal` rather than `private`
+//  for the same reason the pill's `field` and `sliders` are, and with the same
+//  caveat: they are still the bar's, and nothing outside these two files
+//  touches any of them.
+//
+
+import AppKit
+
+extension PageChromeBar {
+
+    // MARK: - Layout
+
+    /// The bar's frame is the **open** band, whatever state it is in: nothing
+    /// here resizes, so the plane and the controls can travel inside a frame
+    /// that is standing still. `hitTest` is what keeps the part of it the plane
+    /// does not cover from taking the page's clicks.
+    override func layout() {
+        super.layout()
+        Tokens.Motion.immediately { applyState() }
+    }
+
+    /// The surface before the frames: the pill's own contents are laid out
+    /// against the margins its surface keeps, and the collapsed one keeps
+    /// narrower ones.
+    func applyState() {
+        pill.surface = isCollapsed ? .bare : .glass
+        placeControls()
+        for view in buttons { view.alphaValue = isCollapsed ? 0 : 1 }
+    }
+
+    /// The room the bar is taking right now, for the page below it.
+    var bandHeight: CGFloat {
+        isCollapsed ? Tokens.Metric.pageBarCollapsed : Tokens.Metric.pageBar
+    }
+
+    /// The band the plane fills, in this view's coordinates.
+    var band: NSRect {
+        NSRect(x: bounds.minX, y: bounds.maxY - bandHeight, width: bounds.width, height: bandHeight)
+    }
+
+    func placeControls() {
+        let circle = Tokens.Metric.sidebarCircle
+        let lights = TrafficLightSpace.rect(in: self)
+        let strip = band
+        plane.frame = strip
+
+        // **The traffic lights are the centre line whenever they are on
+        // screen.** The pane is flush to the window's top in every state this
+        // bar appears in, so the lights' centre is a line this view shares with
+        // §3.1's control row — and the two must agree, because with the sidebar
+        // showing they are 280 pt apart on the same row of pixels.
+        let centreY = isCollapsed ? strip.midY : (lights?.midY ?? strip.midY)
+
+        // With the sidebar showing, the lights are 280 pt to the left of this
+        // view and `maxX` comes back negative — which is exactly right, and why
+        // this is a `max` rather than a branch on the chrome state.
+        let start = max(
+            lights.map { $0.maxX + Tokens.Metric.chromeGapWide } ?? 0,
+            Tokens.Metric.pageBarInset
+        )
+        var x = start
+        for view in buttons {
+            // Each asks how wide it is, because one of them changes: the
+            // history cluster is a circle until there is a forward to go to and
+            // a capsule after that (`NavCluster`).
+            let width = view.intrinsicContentSize.width
+            view.frame = NSRect(
+                x: x,
+                y: centreY - circle.height / 2,
+                width: width,
+                height: circle.height
+            ).pixelAligned
+            x += width + Tokens.Metric.controlPairGap
+        }
+        let buttonsEnd = x - Tokens.Metric.controlPairGap
+
+        // **The buttons' own diameter, not the pill's own height token.** The
+        // two are the same 34 pt today — `sidebarCircle` is defined as a circle
+        // of `urlPill.height` — and on this bar they have to *stay* the same:
+        // four controls on one line, one of them a different height, is the
+        // thing the eye finds first.
+        //
+        // **Centred on the pane when there is room, and pushed off centre when
+        // there is not.** A 640 pt window with a sidebar open leaves about
+        // 230 pt beside the buttons; a pill centred in that overlaps them, and
+        // an overlapping pill is worse than an off-centre one.
+        //
+        // **The open layout places the pill, and the collapsed one keeps that
+        // place exactly — the same x and the same width.** Both were worked out
+        // separately before: open, clear of the buttons; collapsed, sized to the
+        // domain and centred in what was left of the bar. Even once they shared
+        // a centre the capsule still travelled, because its two edges did: it
+        // drew in from 420 pt to the width of `apple.com` while its material was
+        // fading, which is the address sliding in from the side that the two
+        // states were supposed to stop doing.
+        //
+        // **It can keep the width because collapsed it has no surface.** A
+        // `.bare` pill draws nothing but its centred domain, so 420 pt of it is
+        // 420 pt of nothing with a word in the middle — and the word is already
+        // on the centre line the open pill put it on. Nothing moves sideways at
+        // any point of the change; the height and the material are all of it.
+        // It also puts the truncation question beyond reach: a domain that fits
+        // the open pill fits the collapsed one, because they are the same pill.
+        let right = bounds.maxX - Tokens.Metric.pageBarInset
+        let left = buttonsEnd + Tokens.Metric.chromeGapWide
+        let width = min(Tokens.Metric.pageBarPillWidth, max(right - left, 0))
+        let height = isCollapsed ? Tokens.Metric.pageBarCollapsedPillHeight : circle.height
+        pill.frame = NSRect(
+            x: min(max(bounds.midX - width / 2, left), max(right - width, left)),
+            y: centreY - height / 2,
+            width: width,
+            height: height
+        ).pixelAligned
+
+        // Under the pill and exactly as wide: the list is the pill's own
+        // continuation, so it lines up with it rather than with the bar.
+        let listHeight = suggestions.fittingHeight
+        suggestions.frame = NSRect(
+            x: pill.frame.minX,
+            y: pill.frame.minY - Tokens.Metric.chromeGap - listHeight,
+            width: pill.frame.width,
+            height: listHeight
+        ).integral
+    }
+
+    // MARK: - Events
+
+    /// **Only the band takes events.** The bar's frame is the open band's
+    /// height whichever state it is in, so while it is collapsed the lower
+    /// 22 pt of it is over live page and must behave like page: a link there
+    /// has to stay clickable.
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard let hit = super.hitTest(point) else { return nil }
+        // A control, a row of the list, or the list's own material: theirs.
+        guard hit === self || hit === plane else { return hit }
+        return band.contains(convert(point, from: superview)) ? self : nil
+    }
+
+    /// The bar is chrome, so dragging it moves the window — the same as the
+    /// sidebar's own plane. The controls on it override this themselves.
+    override var mouseDownCanMoveWindow: Bool { true }
+}

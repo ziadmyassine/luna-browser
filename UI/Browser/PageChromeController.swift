@@ -61,6 +61,7 @@ final class PageChromeController {
         bar.onEditingBegan = { [weak self] in self?.isEditing = true }
         bar.onEditingEnded = { [weak self] committed in self?.editingEnded(committed) }
         bar.onBack = { [weak self] in self?.session.goBack() }
+        bar.onForward = { [weak self] in self?.session.goForward() }
         bar.onReloadOrStop = { [weak self] isLoading in
             guard let self else { return }
             if isLoading { session.stop() } else { session.reload() }
@@ -117,14 +118,18 @@ final class PageChromeController {
         let state = session.activeTabID.flatMap { session.controller(for: $0)?.state }
         show(url: state?.url ?? tab?.url, isLoading: state?.isLoading ?? false)
         bar.setPageColour(state?.pageBackground)
-        bar.update(canGoBack: state?.canGoBack ?? false, isLoading: state?.isLoading ?? false)
+        bar.update(
+            canGoBack: state?.canGoBack ?? false,
+            canGoForward: state?.canGoForward ?? false,
+            isLoading: state?.isLoading ?? false
+        )
     }
 
     private func apply(_ id: UUID, _ state: TabState) {
         guard isActive, id == session.activeTabID else { return }
         show(url: state.url, isLoading: state.isLoading)
         bar.setPageColour(state.pageBackground)
-        bar.update(canGoBack: state.canGoBack, isLoading: state.isLoading)
+        bar.update(canGoBack: state.canGoBack, canGoForward: state.canGoForward, isLoading: state.isLoading)
     }
 
     /// **Arriving anywhere opens the bar**, whatever the last page had scrolled

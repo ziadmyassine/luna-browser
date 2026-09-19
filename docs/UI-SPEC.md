@@ -334,6 +334,20 @@ Vertical order, top to bottom:
   the pointer happened to find it, which is the wrong trade for the one button on this row that is not
   reachable any other way.
 - Back is disabled-dimmed at 35 % when `canGoBack` is false. Reload becomes a **stop** glyph while loading.
+- **Forward appears; it does not dim.** Back and forward are not the same answer to the same question.
+  Back is on every page and is dimmed on the first one, so the eye learns where it is. Forward is
+  unreachable on the great majority of pages — nothing has been gone back from — so a permanently
+  dimmed chevron beside a live one would be a control that spends its whole life saying no. Once
+  `canGoForward` is true the circle grows a second half and the two share **one capsule divided by a
+  hairline**, which is the reference. One plate, two bare glyphs: a backing per chevron is what made
+  §4's action capsule read as separate bright discs. `NavCluster`, used by §3.1 and §3.2b alike.
+- **The morph stands still.** Nothing inside the capsule is laid out against its bounds — all three are
+  placed off the leading edge at fixed distances — so the trailing edge is the only thing that travels
+  and back never moves under the pointer. Measured against the bounds, a *shrink* re-reads them at the
+  final width on its first frame: the divider jumps into the middle of back and the forward chevron
+  slides left across it while fading. The fade is 0.20 s arriving, against an edge moving away from it,
+  and 0.10 s leaving, against an edge coming at it — otherwise the chevron is at half opacity on the
+  frame the edge sweeps through it and hangs outside a capsule that has already passed.
 
 ### 3.2 URL pill — full width less 8 pt each side, 34 pt tall, full radius, flush under the control row
 > **Corrected:** not "12 pt below the control row". The 52 pt row already carries clear space below its
@@ -347,6 +361,41 @@ Vertical order, top to bottom:
   you actually are. "Website name" rather than "URL" because that is what people type: `apple.com`,
   not a scheme.
 - Left-aligned text at 12 pt inset; trailing **sliders glyph** (site menu) at 10 pt from the right edge.
+- **One affordance goes on the trailing edge; a second takes the other end.** That is where §3.2 has
+  always drawn the sliders and where §3.4's rows draw theirs. A pill that also carries a reload —
+  §3.2b's, which has 420 pt to put one in — moves site settings to the leading edge and keeps reload
+  trailing; site settings is the one that says what the address *is*, so it leads. The sidebar's pill
+  has no reload inside it: §3.1's circle is directly above, and this column is 200 pt wide with a
+  domain already in it.
+- **And the glyph is sized to the pill it is in.** `glyphSize` (16) on §3.2b's bar, where these are two
+  of four controls in a row and one of a different size is the thing the eye finds first;
+  `pillGlyphSize` (13) in the column, beside text set at 13. Hover **lifts the ink** rather than drawing
+  §3.4's chip: a chip says "this mark you are reading is also a button", which is right on a tab row and
+  wrong for a control plainly standing in a row of controls — and a rounded rectangle inside a capsule
+  is two shapes.
+- **The sliders glyph is an SF Symbol now** — `slider.horizontal.3`, the same family, weight and size as
+  everything else in the chrome. It was drawn (see below) at a heavier stroke than its neighbours, which
+  read as a different set of controls on a bar that has four of them.
+- **The two reserved slots are gone.** §3.2 held two further glyph-sized places open beside the sliders
+  for AI and extension actions, which §16.4 puts in §4's action capsule anyway. They cost 42 pt, and in a
+  column barely 200 pt wide — with a real control at the end of it — that was most of the line: the short
+  placeholder itself truncated, to `Search the…`.
+- **No leading mark.** The pill wore one for a while — a magnifier while what was in it read as a search,
+  a globe or the site's favicon while it read as an address. Martin's verdict was that an address bar is
+  not where it belongs: a favicon at the head of the one line saying what page you are on is a second
+  thing to read, on both surfaces and in both of §3.2b's forms. The rule survives in §9.1's field, which
+  is answering a question as it is being typed rather than labelling a page you are already on.
+- **A click on the sidebar's pill opens §9.1 instead of the pill.** There is nowhere in a 200 pt column
+  to put a list of completions, so editing an address there meant typing a URL into a box narrower than
+  the URL with nothing under it — while `⌘T` two hundred points away already had the field, the history,
+  the ranking and the list. The click and `⌘L` both open the Command Bar on the current URL
+  (`.editCurrentURL`). §4's top-bar pill has handed off this way since it was built. §3.2b's pill still
+  edits in place, because it *does* have somewhere for the list to go (§3.2b.i).
+- **The corner is re-cut on every layout pass.** `cornerRadius` is half the pill's height and
+  `updateLayer` is where it lands, and nothing marks a view for display merely because it was resized —
+  so the radius was whatever the height happened to be the last time something else asked for a redraw.
+  In the sidebar that was a pass during the column's first layout, at a fraction of the final height,
+  and the pill stayed a visibly rounded *rectangle* for the rest of the session.
 - **The sliders glyph is drawn, not an SF Symbol.** The family ships `slider.horizontal.3` (three bars)
   and `slider.horizontal.2.square` (two, in a box); the bare pair the reference shows exists under no
   name — checked against all 9,524 in `CoreGlyphs.bundle`. `SiteMenuGlyph` draws it as a template image
@@ -363,9 +412,9 @@ Vertical order, top to bottom:
   would shift the glyph 2.5 pt inwards the moment it gained a background it only shows on hover.
 - Two further icon slots are **reserved and sized** to the left of the sliders glyph but render nothing.
   AI and extension actions live in the top-bar action capsule, not here.
-- **A leading mark says what the address *is*.** A **magnifier** while what is in the pill reads as a
-  search, the site's **favicon** when it reads as an address Luna already has a mark for, and a
-  **globe** when it reads as an address and no mark has arrived. It answers while you type, before
+- **A leading mark says what a *query* is** — in §9.1's field, not here. A **magnifier** while what is
+  typed reads as a search, the site's **favicon** when it reads as an address Luna already has a mark
+  for, and a **globe** when it reads as an address and no mark has arrived. It answers while you type, before
   Return decides anything: the same string can be either, and which one it is is a rule rather than
   something the user should have to hold in their head — `apple.com` is a place, `apple news` is a
   question, and the mark is the pill saying which it read. It asks `CommandBarURL.direct`, exactly as
@@ -374,18 +423,13 @@ Vertical order, top to bottom:
   on the web is the one answer here that is untrue. Sized `faviconSize` rather than `pillGlyphSize`,
   because it is §3.4's favicon slot in a pill — a slot that shows a site's own mark most of the time
   is a favicon box that sometimes draws a symbol.
-  > **Where it sits depends on which pill this is.** In the sidebar's column it takes §3.2's own text
-  > inset and the address starts after it, because a column of rows is read down its leading edge. In
-  > §3.2b's centred capsule the mark travels *with* the text and the pair is what is centred: pinned to
-  > the leading edge it would be stranded a long way from the address it is about, and kept against the
-  > text it reads as one phrase — what this is, then what it says.
-  > **Which is why the sliders glyph moved to §3.2b's trailing edge**, where §3.2's already is. A lone
-  > control on the left of a centred phrase reads as the start of it, and the address looked pushed
-  > rather than placed. One control, one side, in both layouts.
-  > **And the same mark leads §9.1's Command Bar field**, in the result rows' own icon column, so the
-  > query sits above the rows' titles and the bar reads as one column with the list it filters. That
-  > is a change from "flush with the rows": flush with their *icons* is what it was, and the address
-  > was a favicon's width to the left of everything it was finding.
+  > **It sits in §9.1's result rows' own icon column**, so the query sits above the rows' titles and
+  > the bar reads as one column with the list it filters. That is a change from "flush with the rows":
+  > flush with their *icons* is what it was, and the query was a favicon's width to the left of
+  > everything it was finding.
+  > **It was tried in the address bar and taken back out** — twice, on both pills and in both of
+  > §3.2b's forms. See §3.2's "No leading mark": the glyph answers a question being typed, and an
+  > address bar showing a page you are already on is not asking one.
 - Click or `⌘L` → expands to the full URL, selected, in edit mode. `Esc` reverts.
 - **Dormant at rest.** The pill is a bordered plate on the sidebar's plane until it is hovered or opened
   for editing, and it takes its glass then. Constant glass made it the brightest thing in the column — a
@@ -456,7 +500,8 @@ is one menu, shown from the sidebar pill and from §4's; the top-bar copy adds R
 
 #### 3.2b Page bar — the pill and §3.1's three circles, on a bar over the page
 `Settings ▸ Appearance ▸ Search bar` (SETTINGS-SPEC §3.2) moves the pill out of the sidebar and onto a
-bar across the top of the content pane, taking the sidebar toggle, back and reload with it. The sidebar
+bar across the top of the content pane, taking the sidebar toggle and the back/forward cluster with it —
+and reload, which moves *inside* the capsule where there is 420 pt to hold it. The sidebar
 keeps its tabs, its Essentials and its bottom bar — and its top 52 pt, because that row is what keeps
 the traffic lights' corner clear; with its buttons gone it shrinks to `sidebarHeadlessRow` and the
 column closes up over the pill's own 34 pt.
@@ -464,9 +509,9 @@ column closes up over the pill's own 34 pt.
 | | Open | Collapsed |
 |---|---|---|
 | band | `pageBar` (52) | `pageBarCollapsed` (30) |
-| controls | toggle · back · reload, on the traffic lights' centre line | gone |
+| controls | toggle · back(·forward), on the traffic lights' centre line | gone |
 | pill | `pageBarPillWidth` (420) wide, `sidebarCircle` tall, `.glass` | **the same frame**, `pageBarCollapsedPillHeight` (22) tall, `.bare` |
-| glyph | sliders on the **trailing** edge, mark and address centred | **none** — the strip carries the address and nothing else |
+| glyphs | site settings **leading**, reload **trailing**, both inside the capsule; address centred between them | **none** — the strip carries the address and nothing else |
 
 - **The bar is a plane in the page's own colour**, from `TabState.pageBackground` — WebKit's
   `underPageBackgroundColor`, which is the colour the document is actually painted on. Not
@@ -594,6 +639,11 @@ pill and lining up with it rather than with the bar.
 - **The selection is §9.2's**: one `.control` glass pill that moves between rows on
   `Motion.selectedRowMove`, not a fill switched on and off per row. One backing instead of five, and
   the movement is what makes the highlight readable while the arrows are held down.
+- **And so is the row's geometry.** The icon starts at `rowInset + panelInset` and the text one
+  `panelInset` after it — `CommandBarResultRow`'s numbers, because these are the same rows §9.1 shows
+  for the same query. They were laid out on §3.4's `rowFaviconInset` / `rowTitleInset` instead, which
+  are derived from a *tab pill's* height and carry §3.4's own tighter icon gap, and the two lists sat a
+  point and a half apart from each other on screen.
 - **The list opens on the first suggestion**, so Return takes it without arrowing down first. What was
   typed is still a real entry and still reachable: ↑ off the top of the list lands on it, as does ↓ off
   the bottom — the same way out at either end, rather than a wrap. With no phrases the arrows are left
