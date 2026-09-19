@@ -155,10 +155,10 @@ extension Tokens {
         /// 12 pt between an icon and its label — the site menu, History,
         /// Downloads. A sidebar tab row uses `rowTitleGap`.
         static let rowIconGap: CGFloat = 12
-        /// The same gap in a tab row, **2 pt tighter on request**. Its own
+        /// The same gap in a tab row, **3 pt tighter on request**. Its own
         /// number so the other three lists are not dragged along with it, and
-        /// the reason `rowTitleInset` measures 43.5 rather than §3.4's 45.5.
-        static let rowTitleGap: CGFloat = 10
+        /// the reason `rowTitleInset` measures 42.5 rather than §3.4's 45.5.
+        static let rowTitleGap: CGFloat = 9
         /// The rule between `Archive` and `+ Add Tab` gets its own short row
         /// (§3.4). 12 pt: the reference puts 6 pt of clear space either side of
         /// the hairline, which is what separates the two command rows without
@@ -177,7 +177,7 @@ extension Tokens {
         /// leading edge as above and below it — and the title clears it by
         /// `rowIconGap`. Derived, so both follow the pill if it is retuned.
         static let rowFaviconInset = rowInset + (rowPillHeight - faviconSize) / 2
-        /// 43.5 pt to the title's leading edge: §3.4's 45.5, less `rowTitleGap`.
+        /// 42.5 pt to the title's leading edge: §3.4's 45.5, less `rowTitleGap`.
         static let rowTitleInset = rowFaviconInset + faviconSize + rowTitleGap
         /// The row's trailing affordance (§3.4): close on hover, speaker when a
         /// tab is making noise.
@@ -191,11 +191,15 @@ extension Tokens {
         /// The glyph inside `rowTrailingChip`. Deliberately well short of the
         /// chip: the padding is what makes the chip read as a button.
         static let rowTrailingGlyph: CGFloat = 11
-        /// How far the title's ink stops short of the pill's trailing edge, and
-        /// the width of the §3.4 fade that hides the cut. A title that does not
-        /// fit is **faded out, never ellipsised** — the reference lets the last
-        /// glyph dissolve rather than spending three characters on an `…`.
-        static let rowTitleFade: CGFloat = 24
+        /// The width of the §3.4 fade that ends an over-long title, which is
+        /// **faded out, never ellipsised** — the reference lets the last glyph
+        /// dissolve rather than spending three characters on an `…`.
+        ///
+        /// 12, not the 24 this shipped with: the fade is spent inside the
+        /// title's own box, on top of the slot the row reserves for the close
+        /// chip, so at 24 the ink read as solid only to 50 pt short of the
+        /// pill's edge — the blur started long before the tab ended.
+        static let rowTitleFade: CGFloat = 12
 
         // MARK: URL pill (§3.2)
 

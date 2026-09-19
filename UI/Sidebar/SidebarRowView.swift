@@ -290,7 +290,11 @@ final class SidebarRowView: NSView {
     static func titleColumn(inRowOfWidth width: CGFloat, hasUnread: Bool) -> (x: CGFloat, width: CGFloat) {
         let x = Tokens.Metric.rowTitleInset
             + (hasUnread ? Tokens.Metric.spaceDot + Tokens.Metric.rowInset : 0)
-        let right = trailingSlotX(inRowOfWidth: width) - Tokens.Metric.chromeGap
+        // Half an inset before the slot, not the full `chromeGap` two controls
+        // would take between them. The title's last glyphs are already
+        // dissolving by the time they reach here — `rowTitleFade` is the gap,
+        // and 8 pt of clearance on top of it is 8 pt of pill left empty.
+        let right = trailingSlotX(inRowOfWidth: width) - Tokens.Metric.rowInset / 2
         return (x, max(right - x, 0))
     }
 

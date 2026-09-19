@@ -172,7 +172,7 @@ final class SidebarRowColumnTests: XCTestCase {
         let column = SidebarRowView.titleColumn(inRowOfWidth: width, hasUnread: false)
         XCTAssertEqual(
             column.x + column.width,
-            SidebarRowView.trailingSlotX(inRowOfWidth: width) - Tokens.Metric.chromeGap,
+            SidebarRowView.trailingSlotX(inRowOfWidth: width) - Tokens.Metric.rowInset / 2,
             accuracy: 0.01
         )
     }
