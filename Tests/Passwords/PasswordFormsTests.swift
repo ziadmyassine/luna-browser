@@ -106,11 +106,22 @@ final class PasswordFormsTests: XCTestCase {
 
     // MARK: - §14.10
 
-    func testSuppressionScriptRemovesTheInterface() {
+    /// The interface is deliberately **left in place**. Sites bundle unrelated
+    /// sign-in options into the same lazily-loaded region they gate on
+    /// `window.PublicKeyCredential` — GitHub fetches "Continue with Google" and
+    /// "Continue with Apple" in the fragment it only asks for when that
+    /// interface exists — so deleting it takes two working sign-in methods down
+    /// with the passkey button. What Luna denies instead is the authenticator.
+    func testSuppressionScriptDeniesTheAuthenticatorWithoutRemovingTheInterface() {
         let source = PasskeySupport.suppressionScript
-        XCTAssertTrue(source.contains("delete window.PublicKeyCredential"))
-        // A site that skipped feature detection must get the error the spec
-        // defines, not a hang.
+        XCTAssertFalse(
+            source.contains("delete window.PublicKeyCredential"),
+            "deleting the interface hides more than passkeys"
+        )
+        XCTAssertTrue(source.contains("isUserVerifyingPlatformAuthenticatorAvailable"))
+        XCTAssertTrue(source.contains("isConditionalMediationAvailable"))
+        // A site that skipped those gates must get the error the spec defines,
+        // not a hang.
         XCTAssertTrue(source.contains("NotSupportedError"))
         // Non-passkey credential requests must still work.
         XCTAssertTrue(source.contains("options.publicKey"))

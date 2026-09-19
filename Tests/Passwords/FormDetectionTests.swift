@@ -266,7 +266,13 @@ final class FormDetectionTests: XCTestCase {
 
     /// What a *website's* script sees, which is the page world — not the
     /// client world Luna's own `callAsyncJavaScript` runs in.
-    func testPasskeyInterfaceIsHiddenFromThePage() async throws {
+    ///
+    /// The measurement that matters is no longer "is the interface gone" but
+    /// "does the interface admit to an authenticator". A page that finds
+    /// `PublicKeyCredential` missing hides more than passkeys: GitHub's
+    /// sign-in page loads Google, Apple *and* the passkey button from one
+    /// fragment it fetches only when that interface exists (§14.10).
+    func testThePageSeesWebAuthnWithNoAuthenticatorBehindIt() async throws {
         guard !PasskeySupport.isAvailable else {
             throw XCTSkip("this build carries the entitlement, so nothing is suppressed")
         }
@@ -281,6 +287,12 @@ final class FormDetectionTests: XCTestCase {
         let probe = """
         var out = { present: typeof window.PublicKeyCredential !== 'undefined' };
         try {
+          out.platform = await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+        } catch (e) { out.platform = e.name; }
+        try {
+          out.conditional = await window.PublicKeyCredential.isConditionalMediationAvailable();
+        } catch (e) { out.conditional = e.name; }
+        try {
           await navigator.credentials.get({ publicKey: { challenge: new Uint8Array(1) } });
           out.get = 'resolved';
         } catch (e) { out.get = e.name; }
@@ -290,7 +302,12 @@ final class FormDetectionTests: XCTestCase {
             probe, arguments: [:], in: nil, contentWorld: .page
         ) as? String
         let decoded = try XCTUnwrap(result)
-        XCTAssertTrue(decoded.contains("\"present\":false"), "feature detection still succeeds: \(decoded)")
+        XCTAssertTrue(
+            decoded.contains("\"present\":true"),
+            "the interface must survive, or sites hide sign-in options that work: \(decoded)"
+        )
+        XCTAssertTrue(decoded.contains("\"platform\":false"), "a passkey gate answered yes: \(decoded)")
+        XCTAssertTrue(decoded.contains("\"conditional\":false"), "a passkey gate answered yes: \(decoded)")
         XCTAssertTrue(decoded.contains("NotSupportedError"), "a direct call must fail definitely, not hang: \(decoded)")
     }
 }

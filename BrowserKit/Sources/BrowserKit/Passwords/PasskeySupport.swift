@@ -20,21 +20,34 @@ import WebKit
 /// is the one §14.10 sets out — **request it early, because the wait is
 /// Apple's** — and it lands with the Developer ID work in M4 (§24.4).
 ///
-/// # Why Luna actively hides passkeys until then
+/// # Why Luna says "no authenticator" rather than "no WebAuthn"
 ///
-/// This is the part that is easy to get wrong by doing nothing. Without the
+/// This is the part that is easy to get wrong in either direction. Without the
 /// entitlement, `window.PublicKeyCredential` is still **present** in the DOM —
 /// WebKit defines the interface regardless — so feature detection succeeds and
-/// a site cheerfully shows "Sign in with a passkey". The call then fails, or
-/// worse hangs on a sheet that never appears. The user is left on a login page
-/// whose only offered method does not work, and the password field they could
-/// have used is behind a "use another method" link they have no reason to
-/// press.
+/// a site cheerfully shows "Sign in with a passkey". The call then fails. The
+/// user is left on a login page whose only offered method does not work, and
+/// the password field they could have used is behind a "use another method"
+/// link they have no reason to press. **A dead passkey button is worse than no
+/// passkey button.**
 ///
-/// A dead passkey button is **worse than no passkey button**. So until the
-/// entitlement is real, Luna removes the interface and lets sites fall back to
-/// passwords — which Luna does support. This is the workaround §14.10 names,
-/// and `suppressionScript` is it.
+/// The first version of this file therefore deleted the interface outright, so
+/// that a page saw a browser which had never shipped WebAuthn. That is too
+/// blunt, and GitHub's sign-in page is the case that proves it: "Continue with
+/// Google", "Continue with Apple" and the passkey button all arrive in one
+/// lazily-fetched fragment, and GitHub only fetches that fragment when
+/// `window.PublicKeyCredential` exists. Delete the interface and two sign-in
+/// methods that have nothing to do with passkeys vanish with it — leaving a
+/// login page that looks broken rather than one that looks passwordless. Sites
+/// group their sign-in options together far more often than they gate them
+/// apart, so this is not a GitHub quirk to special-case.
+///
+/// So the interface stays, and Luna answers the question a site actually asks
+/// before offering a passkey: **is a platform authenticator available?** No —
+/// which is the plain truth about this build, and a state the spec already
+/// defines, so a site meeting it is on its documented path rather than a
+/// bespoke one. GitHub then loads its fragment, shows Google and Apple, and
+/// hides the passkey button on its own. `suppressionScript` is that answer.
 ///
 /// The check is at runtime, not compile time: the day a signed build carries
 /// the entitlement, ``isAvailable`` turns true on its own, the script stops
@@ -72,33 +85,54 @@ public enum PasskeySupport {
     ///
     /// Three things, and each is load-bearing:
     ///
-    ///  · **`delete window.PublicKeyCredential`** so `if (window.PublicKeyCredential)`
-    ///    — the detection every WebAuthn library performs — is false.
+    ///  · **The interface is left in place.** Deleting it takes unrelated
+    ///    sign-in options down with it, for the reason set out above this type.
+    ///  · **`isUserVerifyingPlatformAuthenticatorAvailable` resolves false**,
+    ///    which is the gate a site checks before offering a platform passkey,
+    ///    and **`isConditionalMediationAvailable` resolves false**, which is
+    ///    the same question asked of the autofill-style passkey field. Both are
+    ///    the honest answer for a build that has no authenticator behind them.
     ///  · **`navigator.credentials.get/create` reject** for `publicKey` requests
     ///    with `NotSupportedError`, which is the error the spec defines for an
     ///    authenticator that cannot serve the request. Libraries that skipped
-    ///    detection and called straight in get a *defined* failure they already
-    ///    handle, instead of a hang. Requests that are not `publicKey`
-    ///    (`password`, `federated`) are passed through untouched.
-    ///  · **`isUserVerifyingPlatformAuthenticatorAvailable` is gone with the
-    ///    interface**, which is what conditional-UI sites check before showing
-    ///    a passkey field at all.
+    ///    the gates above and called straight in get a *defined* failure they
+    ///    already handle, instead of WebKit's own `NotAllowedError`, which reads
+    ///    as "the user cancelled" and invites a retry. Requests that are not
+    ///    `publicKey` (`password`, `federated`) are passed through untouched.
     ///
-    /// Written to be indistinguishable from a browser that never shipped
-    /// WebAuthn: the properties are deleted, not stubbed with something a page
-    /// can detect and complain about.
+    /// `getClientCapabilities` is WebAuthn L3's replacement for those two
+    /// predicates. It is wrapped only where WebKit has shipped it, and only the
+    /// keys that name an authenticator are overridden — the rest are left at
+    /// whatever WebKit reported, because they are not this script's to answer.
     ///
     /// `forMainFrameOnly: false` at the call site — a federated login in an
     /// iframe checks for the same interface.
     public static let suppressionScript = """
     (function () {
       'use strict';
-      try {
-        delete window.PublicKeyCredential;
-        delete window.AuthenticatorAttestationResponse;
-        delete window.AuthenticatorAssertionResponse;
-        delete window.AuthenticatorResponse;
-      } catch (e) { /* a frozen window is still better served by the wrappers below */ }
+      var credential = window.PublicKeyCredential;
+      if (typeof credential !== 'undefined') {
+        var no = function () { return Promise.resolve(false); };
+        try {
+          credential.isUserVerifyingPlatformAuthenticatorAvailable = no;
+          credential.isConditionalMediationAvailable = no;
+        } catch (e) { /* a frozen interface is still served by the wrappers below */ }
+
+        var reported = credential.getClientCapabilities;
+        if (typeof reported === 'function') {
+          var gates = ['passkeyPlatformAuthenticator', 'userVerifyingPlatformAuthenticator',
+                       'conditionalCreate', 'conditionalGet', 'hybridTransport'];
+          try {
+            credential.getClientCapabilities = function () {
+              return reported.apply(credential, arguments).then(function (capabilities) {
+                var answer = Object.assign({}, capabilities);
+                gates.forEach(function (gate) { if (gate in answer) { answer[gate] = false; } });
+                return answer;
+              });
+            };
+          } catch (e) { /* as above */ }
+        }
+      }
 
       if (!navigator.credentials) { return; }
       var reject = function (name) {
@@ -141,8 +175,8 @@ public enum PasskeySupport {
             ? String(localized: "Passkeys are available. Luna uses the passkeys in your Apple Passwords.")
             : String(localized: """
             Passkeys are turned off. Using them needs an entitlement only Apple can grant a browser, \
-            and Luna has not been granted it yet. Until then Luna hides passkeys from sites rather \
-            than offering a sign-in button that cannot work, so sites fall back to a password.
+            and Luna has not been granted it yet. Until then Luna tells sites it has no passkey \
+            authenticator, so they offer you a password instead of a button that cannot work.
             """)
     }
 }
