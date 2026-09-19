@@ -19,13 +19,65 @@ import AppKit
 struct HistoryEntry: Identifiable, Sendable {
     let id: UUID
     let title: String
+    /// Where the tab was — the host, or the whole URL when there is no host to
+    /// take. **Not the time**: the two used to be one string, and see
+    /// ``HistoryTimestamp`` for what that cost.
     let subtitle: String
+    /// When it was closed, already formatted. See ``HistoryTimestamp``.
+    let when: String
     /// The archived tab's host, for the favicon cache. An archived tab has no
     /// live controller and therefore no in-session icon; the on-disk cache is
     /// the only place its icon still exists (§4.7).
     let host: String
     /// Lower-cased title and host, which is what the filter matches on.
     let searchText: String
+}
+
+/// When an archived tab was closed, in the width a 320 pt pop-out has for it.
+///
+/// **A cut date is worse than a coarse one.** The row used to carry
+/// `"github.com · Sep 20, 2026 at 12:24 PM"` as one middle-truncated label,
+/// and at the panel's width that is what the reader actually got:
+/// `"github…:24 PM"` — a host you cannot identify and a time you cannot
+/// place, from the one part of the row that was supposed to say *when*. The
+/// full date and time measures 135 pt beside a 156 pt title and a 59 pt host in
+/// a text column 244 pt wide; there was never room for all three, and the
+/// truncation only decided which of them lost.
+///
+/// So the time is spent where it tells the reader something they do not already
+/// know. Today's tabs are the panel's whole business — this is where a tab you
+/// closed by accident goes — and for those the day is not in question, so the
+/// row gives the clock. Anything older gives the date instead, and the year
+/// only once it is not this one. Every case fits, which is the point.
+///
+/// Pure and locale-taking, so the three branches can be asserted at a fixed
+/// date without waiting for a year to turn.
+enum HistoryTimestamp {
+
+    /// - Parameter now: today, injectable for the tests.
+    static func string(for date: Date, now: Date = Date(), calendar: Calendar = .current) -> String {
+        if calendar.isDate(date, inSameDayAs: now) { return clock.string(from: date) }
+        let sameYear = calendar.component(.year, from: date) == calendar.component(.year, from: now)
+        return (sameYear ? day : dayAndYear).string(from: date)
+    }
+
+    /// `setLocalizedDateFormatFromTemplate`, not a literal format: the template
+    /// says *which* fields, and the locale keeps the order it puts them in.
+    private static func formatter(template: String) -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.setLocalizedDateFormatFromTemplate(template)
+        return formatter
+    }
+
+    private static let clock: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
+    private static let day = formatter(template: "d MMM")
+    private static let dayAndYear = formatter(template: "d MMM y")
 }
 
 /// One row of the panel.
@@ -54,6 +106,7 @@ final class HistoryRowView: NSView {
     private let icon = NSImageView()
     private let title = NSTextField(labelWithString: "")
     private let subtitle = NSTextField(labelWithString: "")
+    private let when = NSTextField(labelWithString: "")
 
     init(entry: HistoryEntry, icon image: NSImage?) {
         self.entry = entry
@@ -66,14 +119,17 @@ final class HistoryRowView: NSView {
         title.stringValue = entry.title
         title.lineBreakMode = .byTruncatingTail
         subtitle.stringValue = entry.subtitle
-        subtitle.lineBreakMode = .byTruncatingMiddle
+        // Tail, not middle: a host is identified by its front, and `github…`
+        // is a site where `gi…om` is a shrug.
+        subtitle.lineBreakMode = .byTruncatingTail
+        when.stringValue = entry.when
+        when.alignment = .right
 
-        let text = NSStackView(views: [title, subtitle])
+        let text = NSStackView(views: [title, subtitle, when])
         text.orientation = .horizontal
         text.alignment = .firstBaseline
         text.spacing = Tokens.Metric.panelInset
-        title.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
-        subtitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        applyTextPriorities()
 
         let stack = NSStackView(views: [icon, text])
         stack.orientation = .horizontal
@@ -124,13 +180,46 @@ final class HistoryRowView: NSView {
         applyTokens()
     }
 
+    /// **Who gives way, in a row that is always one label too wide.**
+    ///
+    /// The time never does. It is the shortest of the three, it is the answer
+    /// to the question the panel is for, and half a timestamp is not a shorter
+    /// timestamp — it is a wrong one. The host yields first (a clipped URL is
+    /// still a URL) and the title second, which is `CommandBarResultsView`'s
+    /// order with a third column added in front of it.
+    ///
+    /// One over `.defaultHigh` rather than `.required`: the time outranks the
+    /// title without being able to out-argue the row's own width, so a list
+    /// laid out before it has been given one narrows quietly instead of
+    /// breaking a constraint.
+    ///
+    /// The hugging priorities are the other half. Slack goes to the lowest,
+    /// which is the host — so the time sits against the row's trailing edge and
+    /// the dates line up down the panel instead of stepping in and out with the
+    /// titles in front of them.
+    private func applyTextPriorities() {
+        let overTitle = NSLayoutConstraint.Priority(
+            rawValue: NSLayoutConstraint.Priority.defaultHigh.rawValue + 1
+        )
+        title.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
+        subtitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        when.setContentCompressionResistancePriority(overTitle, for: .horizontal)
+        title.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+        subtitle.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        when.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+    }
+
     private func applyTokens() {
         title.font = Tokens.TypeScale.sidebarRow
         // Not `sectionLabel`: that is semibold tabular, for a heading, and it
         // came out *heavier* than the title it was supposed to sit under.
         subtitle.font = Tokens.TypeScale.settingsCaption
+        // §1 asks for tabular digits wherever a number is shown, and a column
+        // of clock times is the case it was written for.
+        when.font = Tokens.TypeScale.rowTimestamp
         title.textColor = isSelected ? Tokens.Text.primary : Tokens.Text.secondary
         subtitle.textColor = Tokens.Text.tertiary
+        when.textColor = Tokens.Text.tertiary
         if icon.image?.isTemplate ?? false {
             icon.contentTintColor = isSelected ? Tokens.Text.primary : Tokens.Text.secondary
         }

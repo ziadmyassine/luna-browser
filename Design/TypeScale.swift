@@ -77,6 +77,11 @@ extension Tokens {
         /// `sectionLabel`: this is prose, and semibold tabular prose is a label
         /// pretending to be a sentence.
         static var settingsCaption: NSFont { .systemFont(ofSize: 11, weight: .regular) }
+        /// 11 pt tabular — the caption's twin, for the one place it is holding
+        /// a number: §6.4's row stamps each archived tab with the time it was
+        /// closed, and a column of times set in proportional digits walks left
+        /// and right as the minutes change under it.
+        static var rowTimestamp: NSFont { .monospacedDigitSystemFont(ofSize: 11, weight: .regular) }
 
         /// The weight an SF Symbol has to be set at to draw the same *stroke*
         /// as the glyphs beside it.

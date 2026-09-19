@@ -89,23 +89,19 @@ final class HistoryPanelController: PopoutController {
 
     // MARK: - Model
 
+    /// The host and the time are **two strings, not one**: the row sets them as
+    /// separate labels so that the one which has to give way is the host. See
+    /// `HistoryTimestamp`.
     private static func entry(_ tab: Tab) -> HistoryEntry {
         let host = tab.url.host() ?? tab.url.absoluteString
         let title = tab.title.isEmpty ? host : tab.title
-        let when = tab.archivedAt.map(formatter.string(from:)) ?? ""
         return HistoryEntry(
             id: tab.id,
             title: title,
-            subtitle: when.isEmpty ? host : "\(host) · \(when)",
+            subtitle: host,
+            when: tab.archivedAt.map { HistoryTimestamp.string(for: $0) } ?? "",
             host: tab.url.host() ?? "",
             searchText: (title + " " + host).lowercased()
         )
     }
-
-    private static let formatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter
-    }()
 }
