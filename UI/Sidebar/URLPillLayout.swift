@@ -66,7 +66,8 @@ extension URLPillView {
     private var markBox: CGFloat { Tokens.Metric.faviconSize }
     private var markRun: CGFloat { markBox + Tokens.Metric.chromeGap }
 
-    /// How wide the address needs to draw in full.
+    /// How wide what the field is *showing* needs to draw in full — the
+    /// address, or the placeholder when there is no address.
     ///
     /// Asked of the **cell**, not of `intrinsicContentSize` and not of the
     /// string. A truncating `NSTextField` answers `noIntrinsicMetric` for its
@@ -76,8 +77,14 @@ extension URLPillView {
     /// `New T…` in a bar with 600 pt to spare. `cellSize` is the one of the
     /// three that answers the question actually being asked: how wide this
     /// cell has to be to show all of itself.
+    ///
+    /// Measured through a *copy* of the cell, because the placeholder has to be
+    /// measured as though it were the value, and the live cell is mid-edit.
     private var textWidth: CGFloat {
-        guard field.attributedStringValue.length > 0, let width = field.cell?.cellSize.width else { return 0 }
+        let showing = field.stringValue.isEmpty ? (field.placeholderString ?? "") : field.stringValue
+        guard !showing.isEmpty, let cell = field.cell?.copy() as? NSTextFieldCell else { return 0 }
+        cell.stringValue = showing
+        let width = cell.cellSize.width
         return width.isFinite ? width : 0
     }
 
@@ -94,8 +101,13 @@ extension URLPillView {
         let markY = (bounds.height - markBox) / 2
 
         guard !centresText else {
+            // **Trailing, the same side as §3.2's.** It led the capsule when
+            // the text was centred in whatever the glyph left over, and a lone
+            // control on the left of a centred phrase reads as the start of it
+            // — the address looked pushed rather than placed. One control, one
+            // side, in both layouts.
             sliders.frame = NSRect(
-                x: bounds.minX + inset - overhang,
+                x: bounds.maxX - inset + overhang - chip.width,
                 y: chipY,
                 width: chip.width,
                 height: chip.height

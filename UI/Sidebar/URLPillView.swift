@@ -84,6 +84,7 @@ final class URLPillView: NSView, NSTextFieldDelegate {
     var centresText = false {
         didSet {
             guard centresText != oldValue else { return }
+            applyPlaceholder()
             needsLayout = true
         }
     }
@@ -140,6 +141,7 @@ final class URLPillView: NSView, NSTextFieldDelegate {
         field.isBordered = false
         field.drawsBackground = false
         field.setAccessibilityLabel("Address")
+        applyPlaceholder()
         addSubview(field)
 
         sliders.configure(
@@ -183,19 +185,6 @@ final class URLPillView: NSView, NSTextFieldDelegate {
     }
 
 
-    // MARK: - Content
-
-    /// Domain at rest.
-    func show(url: URL?) {
-        displayedURL = url
-        if !isEditing {
-            field.stringValue = Self.domain(of: url)
-            needsLayout = true
-        }
-        field.setAccessibilityValue(url?.absoluteString ?? "")
-        refreshMark()
-    }
-
     // MARK: - Editing (§3.2, ⌘L)
 
     /// Expands to the full URL, selected. Idempotent, so ⌘L on an already-open
@@ -204,7 +193,11 @@ final class URLPillView: NSView, NSTextFieldDelegate {
         let wasEditing = isEditing
         isEditing = true
         updateGlass()
-        field.stringValue = displayedURL?.absoluteString ?? ""
+        // A new tab opens empty, not with `luna://newtab` selected in it: the
+        // address of a blank page is not something anyone means to edit, and
+        // selecting it only means the first keystroke has to clear it.
+        let blank = Self.label(of: displayedURL).isEmpty
+        field.stringValue = blank ? "" : (displayedURL?.absoluteString ?? "")
         field.isEditable = true
         field.isSelectable = true
         refreshMark()
@@ -227,7 +220,7 @@ final class URLPillView: NSView, NSTextFieldDelegate {
         updateGlass()
         field.isEditable = false
         field.isSelectable = false
-        field.stringValue = Self.domain(of: displayedURL)
+        field.stringValue = Self.label(of: displayedURL)
         refreshMark()
         needsLayout = true
         if window?.firstResponder !== self { window?.makeFirstResponder(self) }

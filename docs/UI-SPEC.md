@@ -340,6 +340,12 @@ Vertical order, top to bottom:
 > buttons, and that *is* the gap the reference measures between reload and the pill. A second gap on top
 > of it doubles a space that is already right.
 - **Domain only**: `apple.com`, not the full URL (§30.3). eTLD+1 plus subdomain when meaningful.
+- **A new tab shows the placeholder, not a name.** `Search or enter website name`, with nothing in the
+  field and nothing selected when it opens for editing. `New Tab` is a label for a *row* in a list of
+  tabs; in an address bar it reads as the name of a site you are on, and it stood where the one line
+  saying what the bar is for should be. Luna's other pages keep their names — `History` is somewhere
+  you actually are. "Website name" rather than "URL" because that is what people type: `apple.com`,
+  not a scheme.
 - Left-aligned text at 12 pt inset; trailing **sliders glyph** (site menu) at 10 pt from the right edge.
 - **The sliders glyph is drawn, not an SF Symbol.** The family ships `slider.horizontal.3` (three bars)
   and `slider.horizontal.2.square` (two, in a box); the bare pair the reference shows exists under no
@@ -371,9 +377,11 @@ Vertical order, top to bottom:
   > **Where it sits depends on which pill this is.** In the sidebar's column it takes §3.2's own text
   > inset and the address starts after it, because a column of rows is read down its leading edge. In
   > §3.2b's centred capsule the mark travels *with* the text and the pair is what is centred: pinned to
-  > the leading edge it would be stranded a long way from the address it is about, with the sliders
-  > glyph already there, and kept against the text it reads as one phrase — what this is, then what it
-  > says.
+  > the leading edge it would be stranded a long way from the address it is about, and kept against the
+  > text it reads as one phrase — what this is, then what it says.
+  > **Which is why the sliders glyph moved to §3.2b's trailing edge**, where §3.2's already is. A lone
+  > control on the left of a centred phrase reads as the start of it, and the address looked pushed
+  > rather than placed. One control, one side, in both layouts.
   > **And the same mark leads §9.1's Command Bar field**, in the result rows' own icon column, so the
   > query sits above the rows' titles and the bar reads as one column with the list it filters. That
   > is a change from "flush with the rows": flush with their *icons* is what it was, and the address
@@ -458,7 +466,7 @@ column closes up over the pill's own 34 pt.
 | band | `pageBar` (52) | `pageBarCollapsed` (30) |
 | controls | toggle · back · reload, on the traffic lights' centre line | gone |
 | pill | `pageBarPillWidth` (420) wide, `sidebarCircle` tall, `.glass` | **the same frame**, `pageBarCollapsedPillHeight` (22) tall, `.bare` |
-| glyph | sliders on the **leading** edge, domain centred | **none** — the strip carries the address and nothing else |
+| glyph | sliders on the **trailing** edge, mark and address centred | **none** — the strip carries the address and nothing else |
 
 - **The bar is a plane in the page's own colour**, from `TabState.pageBackground` — WebKit's
   `underPageBackgroundColor`, which is the colour the document is actually painted on. Not

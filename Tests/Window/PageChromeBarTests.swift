@@ -349,11 +349,47 @@ final class URLPillLayoutTests: XCTestCase {
         XCTAssertFalse(bare.siteMenuAnchor.isHidden)
     }
 
-    /// §3.2's pill puts the glyph on the trailing edge; §3.2b's puts it on the
-    /// leading one, which is the only difference between them.
-    func testTheGlyphSwapsEndsWithTheLayout() {
+    /// **Both layouts put the glyph on the trailing edge.** §3.2b's used to
+    /// lead the capsule, from when the address was centred in whatever the
+    /// glyph left over; with §3.2's mark travelling in front of the address, a
+    /// second control on the left read as the start of that phrase and the
+    /// address looked pushed rather than placed.
+    func testTheGlyphIsOnTheTrailingEdgeInBothLayouts() {
         XCTAssertGreaterThan(pill(centred: false).siteMenuAnchor.frame.midX, 200)
-        XCTAssertLessThan(pill(centred: true).siteMenuAnchor.frame.midX, 200)
+        XCTAssertGreaterThan(pill(centred: true).siteMenuAnchor.frame.midX, 200)
+    }
+
+    /// And the mark and the address are centred **as a pair**, not the address
+    /// alone in the space the glyph leaves.
+    func testTheMarkAndTheAddressAreCentredTogether() {
+        let bar = pill(centred: true)
+        let pair = bar.mark.frame.union(bar.field.frame)
+        XCTAssertEqual(pair.midX, bar.bounds.midX, accuracy: 1)
+        XCTAssertLessThan(bar.mark.frame.maxX, bar.field.frame.minX, "the mark leads the address")
+    }
+
+    /// A tab with no site in it reads as what the bar is for, not as the name
+    /// of a page you are on.
+    func testANewTabShowsThePlaceholderRatherThanAName() {
+        let bar = URLPillView()
+        bar.show(url: URL(string: "luna://newtab"))
+        XCTAssertEqual(bar.field.stringValue, "")
+        bar.centresText = true
+        XCTAssertEqual(bar.field.placeholderString, "Search or enter website name")
+    }
+
+    /// §3.2's column pill is barely 200 pt wide and the long line truncates in
+    /// it, which says less than the short one does.
+    func testTheColumnPillSaysTheShortVersion() {
+        XCTAssertEqual(URLPillView().field.placeholderString, "Search the web")
+    }
+
+    /// Luna's other internal pages are somewhere you actually are, so they keep
+    /// their names.
+    func testLunasOtherPagesKeepTheirNames() {
+        let bar = URLPillView()
+        bar.show(url: URL(string: "luna://archive"))
+        XCTAssertEqual(bar.field.stringValue, "History")
     }
 }
 

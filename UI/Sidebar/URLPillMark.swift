@@ -2,8 +2,9 @@
 //  URLPillMark.swift
 //  Luna
 //
-//  §3.2's leading mark: the one glyph that says whether what is in the address
-//  bar is a **place** or a **question**.
+//  What §3.2's pill says it is: the leading mark — the one glyph that says
+//  whether what is in the address bar is a **place** or a **question** — and
+//  the text beside it.
 //
 //  Split out of `URLPillView.swift` for the reason `URLPillLayout.swift` was:
 //  that file crosses SwiftLint's 400-line limit otherwise. Nothing changed on
@@ -17,6 +18,36 @@ import AppKit
 import BrowserKit
 
 extension URLPillView {
+
+    // MARK: - Content
+
+    /// **What the bar is for, said in the bar.** With no site in it the pill was
+    /// a lone magnifier over empty space. "Website name" rather than "URL"
+    /// because that is what people type: `apple.com`, not a scheme.
+    ///
+    /// **Two strings, because there are two pills.** §3.2b's capsule is 420 pt
+    /// of centred glass and says the whole sentence; §3.2's is one row of a
+    /// column barely 200 pt wide, and after the mark, the glyph and §3.2's two
+    /// reserved slots it has about 100 pt of text box — where the long line
+    /// truncates to `Search or enter website nam…`, which says less than the
+    /// short one does. A placeholder that does not fit is not a placeholder.
+    func applyPlaceholder() {
+        field.placeholderString = centresText
+            ? String(localized: "Search or enter website name")
+            : String(localized: "Search the web")
+    }
+
+
+    /// Domain at rest.
+    func show(url: URL?) {
+        displayedURL = url
+        if !isEditing {
+            field.stringValue = Self.label(of: url)
+            needsLayout = true
+        }
+        field.setAccessibilityValue(url?.absoluteString ?? "")
+        refreshMark()
+    }
 
     // MARK: - The leading mark (§3.2)
 
@@ -82,6 +113,19 @@ extension URLPillView {
         // A favicon is not the same shape as a glyph, so the text's start moves
         // with the mark rather than being reserved for the widest of the two.
         needsLayout = true
+    }
+
+    /// What the pill reads at rest — the domain, or **nothing at all on a new
+    /// tab**, where the placeholder is the truer answer.
+    ///
+    /// A new tab is the one page with no address worth showing. `New Tab` is a
+    /// label for a *row* in a list of tabs; in an address bar it reads as the
+    /// name of a site you are on, and it took the place of the one line that
+    /// says what the bar is for. Luna's other pages keep their names —
+    /// `History` is somewhere you actually are.
+    static func label(of url: URL?) -> String {
+        guard let url, case .page(.newTab) = InternalPages.route(url) else { return domain(of: url) }
+        return ""
     }
 
     /// `apple.com`, not `https://www.apple.com/iphone` (§30.3). `www.` is the
