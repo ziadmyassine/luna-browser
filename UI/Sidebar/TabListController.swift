@@ -95,7 +95,12 @@ final class TabListController: NSObject {
         table.dataSource = self
         table.delegate = self
         table.onRowPress = { [weak self] row, event in self?.press(row: row, event: event) }
-        table.onLayout = { [weak self] in self?.restoreGap() }
+        // The pills are not rows: §3.7's resize re-lays every row and leaves
+        // them at the old width until the next click. This is what moves them.
+        table.onLayout = { [weak self] in
+            self?.restoreGap()
+            self?.movePills(animated: false)
+        }
         table.onCommandKey = { [weak self] command in self?.handle(command) ?? false }
         table.onFocusChange = { [weak self] in self?.movePills() }
         table.onHover = { [weak self] row in self?.setHovered(row) }
@@ -289,15 +294,17 @@ final class TabListController: NSObject {
     }
 
     /// The two shared pills follow the rows instead of each row owning a fill.
-    func movePills() {
+    /// `animated: false` where the move is not the pill's own — a spring
+    /// chasing a live resize drag arrives after the row it belongs to.
+    func movePills(animated: Bool = true) {
         selectionPill.isFocused = table.window?.firstResponder === table
         let selected = table.selectedRow >= 0 ? table.selectedRow : nil
-        place(selectionPill, at: selected, spec: Tokens.Motion.selectedRowMove)
+        place(selectionPill, at: selected, spec: animated ? Tokens.Motion.selectedRowMove : nil)
         let hovered = hoveredRow.flatMap { list.isSelectable($0) && $0 != selected ? $0 : nil }
-        place(hoverPill, at: hovered, spec: Tokens.Motion.rowHover)
+        place(hoverPill, at: hovered, spec: animated ? Tokens.Motion.rowHover : nil)
     }
 
-    private func place(_ pill: NSView, at row: Int?, spec: MotionSpec) {
+    private func place(_ pill: NSView, at row: Int?, spec: MotionSpec?) {
         guard let row, row < table.numberOfRows else {
             fade(pill, to: 0)
             return
@@ -307,14 +314,19 @@ final class TabListController: NSObject {
         let target = table.rect(ofRow: row)
             .insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.rowPillInset)
         let wasParked = pill.alphaValue == 0 || pill.frame == .zero
-        if !wasParked, let spring = spec.springAnimation(keyPath: "position") {
+        if !wasParked, let spring = spec?.springAnimation(keyPath: "position") {
             let from = pill.layer?.position ?? .zero
             pill.frame = target
             spring.fromValue = NSValue(point: from)
             spring.toValue = NSValue(point: pill.layer?.position ?? .zero)
             pill.layer?.add(spring, forKey: "position")
         } else {
-            pill.frame = target
+            // Layer-backed frames animate themselves; `SidebarRowView.layout`
+            // takes the same precaution for the same reason.
+            Tokens.Motion.immediately {
+                pill.layer?.removeAnimation(forKey: "position")
+                pill.frame = target
+            }
         }
         fade(pill, to: 1)
     }
