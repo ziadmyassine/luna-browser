@@ -99,4 +99,25 @@ final class SidebarRowModelTests: XCTestCase {
         XCTAssertEqual(URLPillView.domain(of: URL(string: "https://www.apple.com")!), "apple.com")
         XCTAssertEqual(URLPillView.domain(of: nil), "")
     }
+
+    /// §4.7's icon follows the page, not the snapshot the sidebar was last
+    /// handed. An in-tab navigation raises no `onChange` — it writes the tab and
+    /// publishes a `TabState` — so a row that asked its stored `Tab` for the
+    /// host kept drawing the previous site's favicon, and its fallback name kept
+    /// saying the previous site's domain, until something unrelated reloaded the
+    /// list. Both read the live URL now, so this asserts the name and the icon
+    /// path in one: they are the same `url` in `tabContent`.
+    @MainActor
+    func testARowFollowsTheTabToItsNewSite() throws {
+        let moving = Tab(spaceID: space, kind: .today, url: URL(string: "https://google.com")!)
+        let controller = TabListController()
+        controller.show([moving], activeTabID: moving.id)
+        let row = try XCTUnwrap(controller.list.row(of: moving.id))
+
+        XCTAssertEqual(controller.content(for: row).title, "google.com")
+
+        controller.update(moving.id, state: TabState(url: URL(string: "https://itslearning.com/main")!))
+
+        XCTAssertEqual(controller.content(for: row).title, "itslearning.com")
+    }
 }

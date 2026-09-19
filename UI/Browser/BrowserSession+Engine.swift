@@ -127,6 +127,14 @@ extension BrowserSession: TabControllerDelegate {
         if var tab = tab(id) {
             var changed = false
             if let url = state.url, tab.url != url {
+                // A different site is a different mark. `faviconPNG` is this
+                // session's answer for the tab and it outlives the page it was
+                // fetched for, so leaving it in place is what carried the last
+                // site's icon onto the new one until the fetch landed — a tab
+                // strip showing Google's G on a page that is not Google's. The
+                // §4.7 fallback (host → cache) takes over, and it is keyed on
+                // the URL being assigned right here.
+                if url.host() != tab.url.host() { faviconPNG[id] = nil }
                 tab.url = url
                 changed = true
             }

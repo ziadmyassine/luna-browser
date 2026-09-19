@@ -221,6 +221,12 @@ final class TabListController: NSObject {
         // already overruled.
         let pageTitle = state?.title.isEmpty == false ? (state?.title ?? "") : tab.title
         let title = tab.customTitle ?? pageTitle
+        // **Where the tab is now, not where the snapshot left it.** `tab` is the
+        // copy taken at the last `notifyChange()`, and an in-tab navigation
+        // raises none — it writes the tab and publishes a `TabState`. Reading
+        // the host off the snapshot is what kept the row wearing the icon of the
+        // site it had already left.
+        let url = state?.url ?? tab.url
         let muted = mutedTabIDs.contains(tab.id)
         let trailing: SidebarRowContent.Trailing
         if hoveredRow.flatMap({ list[$0] }) == .tab(tab.id) {
@@ -231,11 +237,11 @@ final class TabListController: NSObject {
             trailing = .none
         }
         return SidebarRowContent(
-            title: title.isEmpty ? URLPillView.domain(of: tab.url) : title,
+            title: title.isEmpty ? URLPillView.domain(of: url) : title,
             // §3.4a: a chosen symbol replaces the favicon, so the row draws its symbol
             // slot instead — which is the path `+ Add Tab` has always taken.
             symbolName: tab.customSymbolName ?? SidebarRowContent.siteFallbackSymbol,
-            favicon: tab.customSymbolName == nil ? SidebarIcons.favicon(for: tab) : nil,
+            favicon: tab.customSymbolName == nil ? SidebarIcons.favicon(for: url) : nil,
             hasUnread: tab.hasUnread,
             isLoading: state?.isLoading ?? false,
             trailing: trailing
