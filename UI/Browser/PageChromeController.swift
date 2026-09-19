@@ -173,14 +173,26 @@ final class PageChromeController {
         guard let id, let controller = session.controller(for: id) else { return }
         listeningTo = id
         controller.onScroll = { [weak self] offset in self?.pageScrolled(to: offset) }
+        controller.onTopColour = { [weak self] colour in self?.bar.setTopColour(colour) }
+        // Taken rather than waited for: this tab is already scrolled to wherever
+        // it was left, and the bar should wear that on the frame it appears on
+        // rather than on the user's next drag.
+        bar.setTopColour(controller.topColour)
     }
 
     /// Hands the closure back. The engine holds it strongly, and it captures
     /// `self` weakly — so a controller that went away without this would leave
     /// a live page posting into nothing, once per frame of every scroll.
     private func stopListening() {
-        if let listeningTo { session.controller(for: listeningTo)?.onScroll = nil }
+        if let listeningTo, let controller = session.controller(for: listeningTo) {
+            controller.onScroll = nil
+            controller.onTopColour = nil
+        }
         listeningTo = nil
+        // That colour was the other tab's. The document's own background is what
+        // is left, and `refresh` sets that for whichever tab is showing now — in
+        // the same turn, so nothing is ever drawn in between.
+        bar.setTopColour(nil)
     }
 
     /// One animation per state change, not one per frame — see

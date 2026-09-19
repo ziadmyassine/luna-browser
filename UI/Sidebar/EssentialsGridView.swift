@@ -111,6 +111,9 @@ final class EssentialsGridView: NSView {
     private var activeTabID: UUID?
     /// Set when the grid's contents changed; consumed by the next `layout()`.
     private var animatesNextPlacement = false
+    /// Tiles made since the last placement, which have **nowhere to come from**.
+    /// Consumed by `placeContents`; see the comment there.
+    private var arriving: Set<UUID> = []
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -196,6 +199,7 @@ final class EssentialsGridView: NSView {
         // Arrives at zero and fades up into its slot over the same spec the
         // list uses for a row arriving, so pinning reads as one movement.
         tile.alphaValue = order.isEmpty ? 1 : 0
+        arriving.insert(tab.id)
         addSubview(tile)
         if !order.isEmpty {
             Tokens.Motion.animate(Tokens.Motion.tabInsert) { context in
@@ -322,7 +326,19 @@ final class EssentialsGridView: NSView {
             // A live drag holds a slot open: everything from it onwards steps
             // along by one, which is the gap the lift drops into.
             let slot = dropIndex.map { index >= $0 ? index + 1 : index } ?? index
-            tile.frame = slotRect(at: slot)
+            let frame = slotRect(at: slot)
+            // **A tile that has just been built has nowhere to come from.** It
+            // is a fresh `NSView`, so its frame is the view's origin — the foot
+            // of the grid's leading edge — and an animated pass therefore flew
+            // it up and across to its slot. That is what a pin looked like: the
+            // lift came to rest in the right place and a second tile then
+            // arrived from the corner to stand in it. It lands where it belongs
+            // and fades up there instead; the fade is `makeTile`'s.
+            guard arriving.remove(id) == nil else {
+                Tokens.Motion.immediately { tile.frame = frame }
+                continue
+            }
+            tile.frame = frame
         }
     }
 

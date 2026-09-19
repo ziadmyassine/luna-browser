@@ -18,6 +18,49 @@ import WebKit
 import XCTest
 @testable import Luna
 
+/// §3.3's grid as a set of views, which is where the *arrival* of a tile can go
+/// wrong in a way arithmetic cannot see.
+@MainActor
+final class EssentialsGridArrivalTests: XCTestCase {
+
+    private func grid() -> EssentialsGridView {
+        let grid = EssentialsGridView()
+        grid.frame = NSRect(x: 0, y: 0, width: 280, height: 120)
+        return grid
+    }
+
+    private func tabs(_ count: Int) -> [Tab] {
+        (0..<count).map { index in
+            Tab(
+                spaceID: UUID(),
+                kind: .essential,
+                url: URL(string: "https://example.com/\(index)")!,
+                order: index
+            )
+        }
+    }
+
+    /// **A tile that has just been pinned lands in its slot.** It is a fresh
+    /// view, so its frame is the grid's own origin until something places it,
+    /// and the pass that places it is the animated one — so the tile flew up
+    /// from the foot of the leading edge into the slot the lift had just come
+    /// to rest in. The tiles that were already there still travel; only the
+    /// one with nowhere to travel *from* is exempt.
+    func testANewlyPinnedTileDoesNotFlyInFromTheCorner() {
+        let grid = grid()
+        let pinned = tabs(3)
+        grid.show(Array(pinned.prefix(2)), activeTabID: nil)
+        grid.layoutSubtreeIfNeeded()
+        grid.show(pinned, activeTabID: nil)
+        grid.layoutSubtreeIfNeeded()
+
+        let tiles = grid.subviews.compactMap { $0 as? GlassButton }
+        XCTAssertEqual(tiles.count, 3)
+        XCTAssertEqual(tiles[2].frame, grid.slotRect(at: 2))
+        XCTAssertNil(tiles[2].layer?.animation(forKey: "position"), "the new tile flew to its slot")
+    }
+}
+
 @MainActor
 final class EssentialsGridShapeTests: XCTestCase {
 

@@ -1,15 +1,22 @@
 import Foundation
 import WebKit
 
-/// How far down the page is, for the one piece of chrome that needs to know:
-/// §3.2b's page bar, which collapses as the page moves away from its top.
+/// How far down the page is, and what colour it is up at the top of it, for the
+/// one piece of chrome that needs to know: §3.2b's page bar, which collapses as
+/// the page moves away from its top and is painted in the page's own colour.
 ///
 /// **WebKit publishes no scroll position on macOS.** `WKWebView` has no
 /// `scrollView` outside UIKit and no KVO-able offset, so the only supported way
 /// to ask is to have the page tell us — the same shape `mediaScript` and
 /// `ContentBlocker.blockedCountScript` already use, and for the same reason.
 ///
-/// The offset is delivered through a closure rather than through `TabState`: a
+/// **And it publishes no colour but the document's.** `underPageBackgroundColor`
+/// is one answer for the whole page, so a bar taking it stayed white all the way
+/// down a site whose next section is black. What is actually under the bar's
+/// bottom edge is a question only the page can answer, so it is asked in the
+/// same script, on the same frame boundary, and travels with the offset.
+///
+/// Both are delivered through closures rather than through `TabState`: a
 /// `TabState` change re-renders a sidebar row, and a scroll is not news to a
 /// sidebar row. This fires on a frame boundary for as long as a drag lasts, so
 /// nothing that reads tab state may be woken by it.
@@ -23,29 +30,126 @@ extension TabController {
               let offset = body["y"] as? Double
         else { return }
         onScroll?(offset)
+        setTopColour(Self.sampledColour(from: body["top"]))
     }
 
-    /// Posts `window.scrollY` on a frame boundary, and once at document end so
-    /// a bar that is already showing learns where a restored page resumed.
+    /// The colour the page reported for the strip under the bar, or nil for "no
+    /// single colour" — which is what the script says when its sample points
+    /// disagree, and is a different answer from black.
+    ///
+    /// Held as well as published, because it is the tab's and not the bar's: a
+    /// tab that comes back into view is already scrolled, and its chrome should
+    /// not have to wait for the next drag to find that out.
+    func setTopColour(_ colour: RGBA?) {
+        guard colour != topColour else { return }
+        topColour = colour
+        onTopColour?(colour)
+    }
+
+    /// The sample as posted: three sRGB components in 0...1, or nothing. Kept
+    /// pure and separate from the message so the shape the script promises can
+    /// be asserted without a web view to post it.
+    static func sampledColour(from sample: Any?) -> RGBA? {
+        guard let parts = sample as? [NSNumber], parts.count == 3 else { return nil }
+        let values = parts.map(\.doubleValue)
+        guard values.allSatisfy({ $0 >= 0 && $0 <= 1 }) else { return nil }
+        return RGBA(r: values[0], g: values[1], b: values[2], a: 1)
+    }
+
+    /// Posts `window.scrollY` and the colour under the top of the viewport on a
+    /// frame boundary, and once at document end so a bar that is already showing
+    /// learns where a restored page resumed and what it resumed on.
     ///
     /// `passive`, so the listener can never delay a scroll, and `capture`, so it
     /// also sees the app-shell sites that scroll an inner element rather than
     /// the document — `scroll` does not bubble, but it does capture.
+    ///
+    /// **Three points, and they have to agree.** The bar is one colour across
+    /// the whole pane, so a top edge that is two colours has no right answer and
+    /// the sample says so; the bar then falls back to the document's own
+    /// background, which is what a centred card on a tinted page wants anyway.
+    /// **Down the z-order at each point, not up the DOM from it.** Each point
+    /// takes `elementsFromPoint` — everything painted at that pixel, front to
+    /// back — and stops at the first opaque background, because the element on
+    /// top is very often a transparent `<div>` in a stack of them.
+    ///
+    /// It was an ancestor walk first, and that is wrong in the ordinary case: a
+    /// site with a **sticky transparent header** over a dark section answered
+    /// *white*. The header is what is under the point, its ancestors are the
+    /// body, and the dark section is a sibling painted *behind* it — which no
+    /// walk up the tree can reach. Measured on `getroosta.app`, where the
+    /// ancestor walk said `255,255,255` and the stack says `12,12,13`.
+    ///
+    /// A background *image* anywhere in front ends the sample with no answer
+    /// rather than with the colour behind it: a photo or a gradient has no one
+    /// colour either, and the honest reply is the one that leaves the bar on
+    /// the document's own.
+    ///
+    /// **Sampled at most every 4 pt of travel.** `elementFromPoint` is a hit
+    /// test, and running three of them per frame of every drag for a colour that
+    /// cannot have changed in four points of scrolling is work the page is
+    /// paying for. A resize clears that cache and asks again: the viewport's top
+    /// edge moves without a scroll when the bar itself changes height, and a
+    /// responsive layout can put something else entirely under it.
     static let scrollScript = """
     (function () {
       var h = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.lunaScroll;
       if (!h) { return; }
+      var painted = function (x, y) {
+        if (!document.elementsFromPoint) { return null; }
+        var stack = document.elementsFromPoint(x, y);
+        for (var i = 0; i < stack.length; i++) {
+          var style = window.getComputedStyle(stack[i]);
+          if (style.backgroundImage && style.backgroundImage !== 'none') { return null; }
+          var text = style.backgroundColor || '';
+          var open = text.indexOf('(');
+          if (open < 0) { continue; }
+          var parts = text.slice(open + 1, text.lastIndexOf(')')).split(',');
+          if (parts.length < 3) { continue; }
+          if (parts.length > 3 && parseFloat(parts[3]) < 0.99) { continue; }
+          return [parseFloat(parts[0]) / 255, parseFloat(parts[1]) / 255, parseFloat(parts[2]) / 255];
+        }
+        return null;
+      };
+      var sample = function () {
+        var width = window.innerWidth || 0;
+        var y = Math.min(6, Math.max((window.innerHeight || 0) - 1, 0));
+        var found = null;
+        for (var i = 1; i <= 3; i++) {
+          var colour = painted(width * i / 4, y);
+          if (!colour) { return null; }
+          if (found && (found[0] !== colour[0] || found[1] !== colour[1] || found[2] !== colour[2])) {
+            return null;
+          }
+          found = colour;
+        }
+        return found;
+      };
+      var lastY = null;
+      var lastTop = null;
+      var top = function (y) {
+        if (lastY !== null && Math.abs(y - lastY) < 4) { return lastTop; }
+        lastY = y;
+        lastTop = sample();
+        return lastTop;
+      };
       var pending = false;
       var post = function () {
         pending = false;
         var target = document.scrollingElement;
-        h.postMessage({ y: window.scrollY || (target ? target.scrollTop : 0) || 0 });
+        var y = window.scrollY || (target ? target.scrollTop : 0) || 0;
+        h.postMessage({ y: y, top: top(y) });
       };
-      window.addEventListener('scroll', function () {
+      var schedule = function () {
         if (pending) { return; }
         pending = true;
         window.requestAnimationFrame(post);
-      }, { passive: true, capture: true });
+      };
+      window.addEventListener('scroll', schedule, { passive: true, capture: true });
+      window.addEventListener('resize', function () {
+        lastY = null;
+        schedule();
+      }, { passive: true });
       post();
     })();
     """

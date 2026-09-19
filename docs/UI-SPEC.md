@@ -427,6 +427,22 @@ column closes up over the pill's own 34 pt.
   `underPageBackgroundColor`, which is the colour the document is actually painted on. Not
   `themeColor`: that is a decoration a site may offer and most do not, while this is measured from the
   document and is always there.
+- **And the plane follows the page down.** `pageBackground` is one answer for a whole document, so a
+  bar wearing it stayed white all the way down a site whose second section is black — the plane stopped
+  being the page's top edge the moment the page moved. What is under the bar is a question only the page
+  can answer, so the scroll script answers it too: three points across the top of the viewport, each
+  taking everything painted at that pixel — `elementsFromPoint`, front to back — and stopping at the
+  first opaque background. **Down the z-order, not up the DOM**: an ancestor walk was tried and is
+  wrong in the ordinary case, because a site with a sticky transparent header over a dark section
+  answers *white* — the header is what is under the point, its ancestors are the body, and the dark
+  section is a sibling painted behind it. Measured on `getroosta.app`: the ancestor walk said
+  `255,255,255` where the stack says `12,12,13`. The three have to **agree** — the bar is one colour
+  across the whole pane, so a top edge that is two colours has no right answer, and the sample says
+  nothing rather than picking one. Nothing means the document's own
+  background, which is what a centred card on a tinted page wanted anyway. The change crosses on
+  `Motion.themeWash`, the same 0.25 s a navigation changes it on. The hit tests are the cost, so the
+  sample is skipped for moves under 4 pt and re-taken on a resize — the viewport's top edge moves
+  without a scroll when the bar itself changes height.
 - **It had to be a plane, and the reason is measured.** Floating controls over the page were tried
   first. No material in Luna can react to a page — `NSGlassEffectView` composites what is behind the
   *window*, and `NSVisualEffectView` will not sample a `WKWebView`'s out-of-process layer (§2,
@@ -585,6 +601,12 @@ pill and lining up with it rather than with the bar.
 - **Pinning and unpinning animate.** Tiles are keyed by tab, so one survives a pin, an unpin or a
   reorder and travels to its new slot on §6's `tabInsert` spring; a new tile fades up, a removed one
   fades out where it stood, and the list below slides with the grid's height instead of snapping.
+  > **A tile that has just been made does not travel, because it has nowhere to travel from.** It is a
+  > fresh view, so its frame is the grid's own origin until something places it, and the pass that
+  > places it is the animated one — so a pin ended with the lift coming to rest in the right slot and a
+  > second tile then flying up to it out of the foot of the leading edge. It lands in its slot and fades
+  > up there; the tiles that were already in the grid still travel, because they have somewhere to come
+  > from. Same rule as the hidden tile above, and the same symptom that gave it away.
 - **Pinning** (§6.6's other half): right-click a row → *Pin* (§3.4a), or drag it up into the grid. Pinning
   moves the tab into the Essentials section **and puts its page away** — the tile is the tab, so the page
   costs no WebContent process until it is clicked again (§19.2). A pinned tab cannot be closed, only

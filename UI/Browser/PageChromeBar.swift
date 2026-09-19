@@ -22,6 +22,12 @@
 //  own top edge rather than as something laid over it, and it is a *known*
 //  surface, which is what the controls on it need.
 //
+//  **And it follows the page down.** `pageBackground` is one answer for a whole
+//  document, so a bar wearing it stayed white all the way down a site whose
+//  second section is black: the plane stopped being the page's top edge the
+//  moment the page moved. What is under the bar is a question only the page can
+//  answer, so `TabController+Scroll` asks it as the page scrolls.
+//
 //  **And the bar wears the appearance that plane calls for.** Everything drawn
 //  here — the domain, the glyph ink, the glass fallbacks — resolves from an
 //  `NSAppearance`, so one assignment re-inks all of it at once. A dark app over
@@ -87,6 +93,10 @@ final class PageChromeBar: NSView {
     private let suggestions = PageBarSuggestions()
     private var isLoading = false
     private(set) var isCollapsed = false
+    /// The document's own background, the strip under the bar, and whichever of
+    /// the two is on the plane right now.
+    private var documentColour: NSColor?
+    private var topColour: NSColor?
     private var pageColour: NSColor?
 
     private var buttons: [NSView] { [toggle, back, reload] }
@@ -179,9 +189,27 @@ final class PageChromeBar: NSView {
     /// the first paint — and then the bar falls back to the content pane's own
     /// plane, which is exactly what is behind it at that moment.
     func setPageColour(_ colour: RGBA?) {
-        let resolved = colour.map(NSColor.init)
-        guard resolved != pageColour else { return }
-        pageColour = resolved
+        documentColour = colour.map(NSColor.init)
+        refreshPlane()
+    }
+
+    /// The colour the page reports for the strip right under this bar, which is
+    /// the more useful question and the one `pageBackground` cannot answer.
+    ///
+    /// Nil is the page saying it has no single colour up there — two columns in
+    /// different shades, a card over a tint — and then the document's own
+    /// background is the right answer again. See `TabController+Scroll`.
+    func setTopColour(_ colour: RGBA?) {
+        topColour = colour.map(NSColor.init)
+        refreshPlane()
+    }
+
+    /// The two colours resolve here and nowhere else, so there is one plane and
+    /// one rule for what it wears.
+    private func refreshPlane() {
+        let colour = topColour ?? documentColour
+        guard colour != pageColour else { return }
+        pageColour = colour
         applyPlane(animated: true)
     }
 

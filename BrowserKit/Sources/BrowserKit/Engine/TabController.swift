@@ -52,6 +52,20 @@ public final class TabController: NSObject {
     /// scripts when a setting changes.
     public var onScroll: ((Double) -> Void)?
 
+    /// The colour under the top edge of the visible page, as the page itself
+    /// reports it — see `TabController+Scroll.swift`. Nil means "no single
+    /// colour up there", and the document's own background is then the answer.
+    ///
+    /// Stored as well as published because it belongs to the tab: a tab that is
+    /// selected again is still scrolled to wherever it was, and the chrome that
+    /// matches it should not have to wait for the next drag to find that out.
+    /// The setter lives next door, with the script that feeds it.
+    public internal(set) var topColour: RGBA?
+
+    /// `topColour` whenever it changes — and only then. The page posts a sample
+    /// on every frame of a drag; nearly all of them say what the last one did.
+    public var onTopColour: ((RGBA?) -> Void)?
+
     private let messageRelay = ScriptMessageRelay()
 
     public init(id: UUID, dataStore: WKWebsiteDataStore) {
@@ -302,6 +316,9 @@ public final class TabController: NSObject {
         state.title = ""
         state.themeColor = nil
         state.pageBackground = nil
+        // Published, not just cleared: the chrome is painted in this and the
+        // new document has not reported its own yet.
+        setTopColour(nil)
         audibleFrames.removeAll()
         // The interstitial bypass is good for the one navigation it was granted
         // for. Leaving it set would quietly allowlist the site for as long as the

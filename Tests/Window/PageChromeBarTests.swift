@@ -208,6 +208,24 @@ final class PageChromeBarTests: XCTestCase {
         dark.setPageColour(RGBA(r: 0.07, g: 0.07, b: 0.07, a: 1))
         XCTAssertEqual(dark.appearance?.name, .darkAqua)
     }
+
+    /// The plane follows the page down: a document's own background is one
+    /// answer for the whole site, and the strip actually under the bar is a
+    /// better one wherever the page has it. Nil is the page saying it has no
+    /// single colour up there — two columns, a card over a tint — and the
+    /// document's background is what is left, not black and not the last
+    /// section's colour.
+    func testTheStripUnderTheBarBeatsTheDocumentsOwnColour() {
+        let page = bar(width: 1200)
+        page.setPageColour(RGBA(r: 1, g: 1, b: 1, a: 1))
+        XCTAssertEqual(page.appearance?.name, .aqua)
+
+        page.setTopColour(RGBA(r: 0.05, g: 0.05, b: 0.05, a: 1))
+        XCTAssertEqual(page.appearance?.name, .darkAqua, "scrolled onto a black section")
+
+        page.setTopColour(nil)
+        XCTAssertEqual(page.appearance?.name, .aqua, "back to the document's own colour")
+    }
 }
 
 @MainActor

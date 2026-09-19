@@ -246,3 +246,49 @@ struct PageScrollSignalTests {
         #expect(TabController.scrollScript.contains("scrollingElement"))
     }
 }
+
+/// §3.2b's plane follows the page down, which means the page has to say what
+/// colour it is under the bar. The sample is three numbers or nothing, and
+/// "nothing" is a real answer — the top edge of a page can genuinely have no
+/// single colour, and reading that as black would paint the bar black.
+@Suite("Page colour sample (§3.2b)")
+@MainActor
+struct PageColourSampleTests {
+
+    @Test func theScriptAsksThePageWhatIsDrawnUnderTheBar() {
+        #expect(TabController.scrollScript.contains("elementsFromPoint"))
+        #expect(TabController.scrollScript.contains("getComputedStyle"))
+        #expect(TabController.scrollScript.contains("top: top(y)"))
+    }
+
+    /// The hit tests are the cost of this, so they are not run per frame of a
+    /// drag — and a resize is the one thing that changes the answer without a
+    /// scroll, because the bar's own two heights resize the page.
+    @Test func theSampleIsCachedAcrossSmallMovesAndDroppedOnAResize() {
+        #expect(TabController.scrollScript.contains("< 4"))
+        #expect(TabController.scrollScript.contains("'resize'"))
+    }
+
+    @Test func threeComponentsAreAColour() {
+        let sample = [1.0, 0.5, 0.0].map(NSNumber.init(value:))
+        #expect(TabController.sampledColour(from: sample) == RGBA(r: 1, g: 0.5, b: 0, a: 1))
+    }
+
+    /// Every shape that is not three components in range is the page saying it
+    /// has no answer, and none of them may come out as a colour — least of all
+    /// as an all-zero one, which is black.
+    @Test func anythingElseIsNoColourAtAll() {
+        let samples: [Any?] = [
+            nil,
+            NSNull(),
+            [1.0, 1.0].map(NSNumber.init(value:)),
+            [1.0, 1.0, 1.0, 1.0].map(NSNumber.init(value:)),
+            [1.0, 2.0, 0.0].map(NSNumber.init(value:)),
+            [-0.5, 0.0, 0.0].map(NSNumber.init(value:)),
+            "rgb(255, 255, 255)"
+        ]
+        for sample in samples {
+            #expect(TabController.sampledColour(from: sample) == nil)
+        }
+    }
+}
