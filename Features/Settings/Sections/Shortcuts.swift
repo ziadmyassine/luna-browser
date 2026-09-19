@@ -3,18 +3,25 @@
 //  Luna
 //
 //  §23.1 §3.6: every `MainMenu` command and its key equivalent, grouped by
-//  menu, searchable, read-only.
+//  menu, searchable — and, for the ones that are Luna's to move, editable.
 //
-//  **Read from the live menu bar, not from a second copy of the key map.**
-//  §22.5 declares the map once, in `MainMenu.swift`, and that file belongs to
-//  agent A — so this section walks `NSApplication.mainMenu` instead of
-//  restating it. That is not only ownership: a hand-maintained table would be
-//  wrong the first time somebody adds a menu item, and a shortcuts list that
-//  lies is worse than no shortcuts list. Nothing here mutates a menu.
+//  **Still read from the live menu bar, not from a second copy of the key map.**
+//  The rows, their titles and the menus they are grouped under all come from
+//  walking `NSApplication.mainMenu`, exactly as they did when this table was
+//  read-only. A hand-maintained list would be wrong the first time somebody
+//  added a menu item, and a shortcuts list that lies is worse than no shortcuts
+//  list at all.
 //
-//  **Rebinding is disabled**, with §3.6's reason. Making the map editable means
-//  moving it out of `MainMenu` and into storage that survives a relaunch, which
-//  is a separate piece of work and not one to imply with a live-looking button.
+//  What is new is the join: an item is matched to its `BrowserCommand` **by
+//  selector**, which is the one thing a menu item and a command table are
+//  guaranteed to agree about. A match that is customisable gets a recorder; a
+//  match that is not, and anything with no match at all, gets the label it
+//  always had. So the numbered families — nine Spaces, nine sidebar rows, built
+//  per session and not in the table — are listed and are not editable, which is
+//  the truth about them.
+//
+//  §3.6's "rebinding is not implemented" note is gone, along with the dead
+//  button that carried it.
 //
 
 import AppKit
@@ -34,6 +41,8 @@ final class ShortcutsSection: SettingsSection {
         /// Rendered as the user sees it: "⇧⌘T". Empty when the command has no
         /// key equivalent, which is most of them.
         var key: String
+        /// The table entry this item's selector matched, if any.
+        var commandID: String?
     }
 
     // MARK: Reading the menu bar
@@ -44,6 +53,12 @@ final class ShortcutsSection: SettingsSection {
     /// Separators and the menu-bar items themselves are skipped; a submenu's
     /// contents are flattened under the *top-level* title, because "File ▸
     /// Recent" is still a File shortcut to anyone reading this list.
+    ///
+    /// **Hidden items are skipped too**, which they did not used to be. They
+    /// carry real shortcuts — a command's alternate bindings are hidden items,
+    /// and so are the sidebar rows a Space has not grown into yet — but every
+    /// one of them duplicates a row that is already visible, so listing them
+    /// prints the same command twice with two different keystrokes beside it.
     static func commands(in menu: NSMenu) -> [Command] {
         menu.items.flatMap { top -> [Command] in
             guard let submenu = top.submenu else { return [] }
@@ -54,72 +69,187 @@ final class ShortcutsSection: SettingsSection {
     private static func leaves(of menu: NSMenu, under title: String) -> [Command] {
         menu.items.flatMap { item -> [Command] in
             if let submenu = item.submenu { return leaves(of: submenu, under: title) }
-            guard !item.isSeparatorItem, !item.title.isEmpty else { return [] }
-            return [Command(menu: title, title: item.title, key: keyEquivalent(of: item))]
+            guard !item.isSeparatorItem, !item.isHidden, !item.title.isEmpty else { return [] }
+            return [Command(
+                menu: title,
+                title: item.title,
+                key: keyEquivalent(of: item),
+                commandID: command(for: item)?.id
+            )]
         }
+    }
+
+    /// The table entry a menu item is an instance of. Matched on selector: the
+    /// title is the user's to change through a rename and the key equivalent is
+    /// the user's to change outright, so neither can be the join.
+    private static func command(for item: NSMenuItem) -> BrowserCommand? {
+        guard let action = item.action else { return nil }
+        return BrowserCommand.all.first { $0.action == action }
     }
 
     /// AppKit's own display order for modifiers: ⌃ ⌥ ⇧ ⌘.
     ///
     /// An **uppercase** `keyEquivalent` implies Shift without it appearing in
-    /// `keyEquivalentModifierMask` — that is the convention `MainMenu` uses for
-    /// `⇧⌘T`, and reading the mask alone would print it as "⌘T", which is a
-    /// different, already-taken shortcut.
+    /// `keyEquivalentModifierMask`. `BrowserCommand` never spells a shortcut
+    /// that way — `KeyBinding` normalises shift into the mask — but AppKit's own
+    /// items and anything built by hand still can, and reading the mask alone
+    /// would print such an item as "⌘T", which is a different, already-taken
+    /// shortcut.
     static func keyEquivalent(of item: NSMenuItem) -> String {
         let key = item.keyEquivalent
         guard let first = key.unicodeScalars.first else { return "" }
-        let flags = item.keyEquivalentModifierMask
-        let shifted = flags.contains(.shift) || (key.count == 1 && Character(first).isUppercase)
-        var text = ""
-        if flags.contains(.control) { text += "⌃" }
-        if flags.contains(.option) { text += "⌥" }
-        if shifted { text += "⇧" }
-        if flags.contains(.command) { text += "⌘" }
-        return text + displayKey(key)
-    }
-
-    /// The private-use scalars `NSLeftArrowFunctionKey` and friends, plus the
-    /// whitespace keys that have no glyph of their own.
-    private static let named: [UInt32: String] = [
-        UInt32(NSLeftArrowFunctionKey): "←", UInt32(NSRightArrowFunctionKey): "→",
-        UInt32(NSUpArrowFunctionKey): "↑", UInt32(NSDownArrowFunctionKey): "↓",
-        UInt32(NSHomeFunctionKey): "↖", UInt32(NSEndFunctionKey): "↘",
-        UInt32(NSPageUpFunctionKey): "⇞", UInt32(NSPageDownFunctionKey): "⇟",
-        0x7F: "⌫", 0x0D: "↩", 0x09: "⇥", 0x1B: "⎋", 0x20: "Space"
-    ]
-
-    private static func displayKey(_ key: String) -> String {
-        guard key.count == 1, let scalar = key.unicodeScalars.first else { return key.uppercased() }
-        return named[scalar.value] ?? key.uppercased()
+        var modifiers = item.keyEquivalentModifierMask
+        if key.count == 1, Character(first).isUppercase { modifiers.insert(.shift) }
+        return KeyBinding(key, modifiers).display
     }
 
     // MARK: Section
 
     private let body = SettingsBody()
+    /// Every recorder on screen, by command id — so Reset All can re-print them
+    /// all without rebuilding the pane.
+    private var recorders: [String: SettingsShortcutRecorder] = [:]
+    private var resetButtons: [String: NSButton] = [:]
 
     var view: NSView { body.view }
     var searchIndex: [String] { body.searchIndex }
     func filter(_ query: String) { body.filter(query) }
 
     init() {
-        body.card(nil, [(rebindingRow(), ["customise shortcuts", "customize shortcuts", "rebind", "change shortcut"])])
+        body.card(nil, [(resetAllRow(), ["reset shortcuts", "restore defaults", "customise", "customize"])])
         // `NSApplication.mainMenu` is nil in a unit-test host that never
         // installed one; an empty table is the right outcome, not a crash.
         let commands = NSApplication.shared.mainMenu.map(Self.commands(in:)) ?? []
         for menu in commands.map(\.menu).uniqued() {
             let rows = commands.filter { $0.menu == menu }.map { command in
-                (view: Self.row(command), terms: [command.title, menu, command.key])
+                (view: row(command), terms: [command.title, menu, command.key])
             }
             body.card(menu, rows)
         }
+        body.loose(SettingsRow.note(String(localized: """
+        Click a shortcut to record a new one. Escape cancels, Delete clears it. \
+        A shortcut needs ⌘, ⌃ or ⌥ — without one it would be typed into the page instead. \
+        Shortcuts macOS owns, and the numbered ones built from your Spaces and tabs, are shown but cannot be moved.
+        """)), terms: ["help", "how to change a shortcut"])
     }
 
-    private static func row(_ command: Command) -> NSView {
-        SettingsRow.accessory(command.title, subtitle: nil, accessory: keyLabel(command.key))
+    // MARK: Rows
+
+    private func row(_ command: Command) -> NSView {
+        guard let id = command.commandID,
+              let entry = BrowserCommand.command(id: id),
+              entry.isCustomisable
+        else {
+            return SettingsRow.accessory(command.title, subtitle: nil, accessory: Self.keyLabel(command.key))
+        }
+        return SettingsRow.accessory(command.title, subtitle: nil, accessory: editor(for: entry))
     }
 
-    /// A label, not a control: §3.6's table is read-only, so there is nothing
-    /// here for `SettingsRow` to build and nothing for the user to operate.
+    /// The recorder, and the Reset that only exists once there is something to
+    /// reset to.
+    private func editor(for command: BrowserCommand) -> NSView {
+        let recorder = SettingsShortcutRecorder(binding: KeyBindings.primary(for: command))
+        recorder.onRecord = { [weak self] binding in self?.record(binding, for: command) }
+        recorders[command.id] = recorder
+
+        let reset = Self.resetButton()
+        reset.target = self
+        reset.action = #selector(resetOne(_:))
+        reset.identifier = NSUserInterfaceItemIdentifier(command.id)
+        reset.isHidden = !KeyBindings.isCustomised(command)
+        resetButtons[command.id] = reset
+
+        let stack = NSStackView(views: [reset, recorder])
+        stack.orientation = .horizontal
+        stack.spacing = Tokens.Metric.rowGap
+        stack.alignment = .centerY
+        return stack
+    }
+
+    /// Borderless and unlabelled: it is one glyph beside the chip it undoes, and
+    /// a bezelled button there would be the loudest thing in the pane.
+    private static func resetButton() -> NSButton {
+        let button = NSButton()
+        button.image = NSImage(
+            systemSymbolName: "arrow.counterclockwise",
+            accessibilityDescription: String(localized: "Reset to the default shortcut")
+        )
+        button.imagePosition = .imageOnly
+        button.isBordered = false
+        button.contentTintColor = Tokens.Text.tertiary
+        button.setAccessibilityLabel(String(localized: "Reset to the default shortcut"))
+        return button
+    }
+
+    // MARK: Editing
+
+    /// Commits a recorded keystroke, or refuses it and says who has it.
+    ///
+    /// **Refuses rather than steals.** Taking a shortcut off whichever command
+    /// held it would leave that command silently unbound, discoverable only by
+    /// pressing it and watching nothing happen — and the user cannot see the
+    /// other row from here to know what they just cost themselves.
+    private func record(_ binding: KeyBinding?, for command: BrowserCommand) {
+        if let binding, let clash = KeyBindings.conflict(for: binding, ignoring: command) {
+            recorders[command.id]?.show(KeyBindings.primary(for: command))
+            let alert = NSAlert()
+            alert.messageText = String(localized: "\(binding.display) is already taken.")
+            alert.informativeText = String(localized: """
+            \(clash.explanation) Change that one first, or pick a different keystroke for \(command.title).
+            """)
+            alert.addButton(withTitle: String(localized: "OK"))
+            alert.runModal()
+            return
+        }
+        KeyBindings.set(binding, for: command)
+        refresh(command)
+    }
+
+    @objc private func resetOne(_ sender: NSButton) {
+        guard let id = sender.identifier?.rawValue, let command = BrowserCommand.command(id: id) else { return }
+        KeyBindings.reset(command)
+        refresh(command)
+    }
+
+    private func refresh(_ command: BrowserCommand) {
+        recorders[command.id]?.show(KeyBindings.primary(for: command))
+        resetButtons[command.id]?.isHidden = !KeyBindings.isCustomised(command)
+    }
+
+    private func resetAllRow() -> NSView {
+        SettingsRow.button(
+            "Shortcuts you have changed",
+            action: "Reset All",
+            isDestructive: true
+        ) { [weak self] in
+            self?.confirmResetAll()
+        }
+    }
+
+    /// Asks first: it throws away every override in one go, and the only record
+    /// of what they were is the table the user is looking at.
+    private func confirmResetAll() {
+        guard KeyBindings.hasAnyCustomisation else {
+            let alert = NSAlert()
+            alert.messageText = String(localized: "Nothing to reset.")
+            alert.informativeText = String(localized: "Every shortcut is the one Luna ships with.")
+            alert.addButton(withTitle: String(localized: "OK"))
+            alert.runModal()
+            return
+        }
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Reset every shortcut?")
+        alert.informativeText = String(localized: "Each one goes back to the keystroke Luna ships with.")
+        alert.addButton(withTitle: String(localized: "Reset All"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        KeyBindings.resetAll()
+        for command in BrowserCommand.all { refresh(command) }
+    }
+
+    /// A label, not a control: a command macOS owns, or one built from live data
+    /// rather than from the table, is read-only — so there is nothing here for
+    /// the user to operate.
     ///
     /// A command with **no** key equivalent gets a dash rather than an empty
     /// chip: a plate with nothing on it reads as a shortcut that failed to
@@ -133,15 +263,6 @@ final class ShortcutsSection: SettingsSection {
             return dash
         }
         return SettingsKeyChip(key: key)
-    }
-
-    private func rebindingRow() -> NSView {
-        SettingsRow.button(
-            "Customise shortcuts",
-            action: "Edit…",
-            isEnabled: false,
-            disabledReason: "Custom shortcuts are not implemented yet."
-        ) {}
     }
 }
 

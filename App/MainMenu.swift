@@ -5,14 +5,20 @@
 //  The menu bar, built in code — there is no MainMenu.nib.
 //
 //  §22.5: every user-facing command is discoverable here, because a command
-//  that is only a keystroke is a command nobody finds. The §20.1 key map is
-//  therefore declared **once**, in this file, and `AppDelegate` implements the
-//  selectors (`BrowserCommands.swift`). Luna installs no event monitors and
-//  overrides no `performKeyEquivalent`.
+//  that is only a keystroke is a command nobody finds. This file owns the
+//  **structure** — which menu a command is in and what it sits beside — and
+//  `BrowserCommand` owns the map of titles, selectors and keystrokes.
+//  `AppDelegate` implements the selectors (`BrowserCommands.swift`). Luna
+//  installs no event monitors and overrides no `performKeyEquivalent`.
 //
-//  Bookmarks and a History list are absent on purpose: they have no commands
-//  yet (§11.3, §11.4), and a menu of permanently dimmed items is worse than a
-//  shorter menu.
+//  **Rebinding rebuilds the whole bar rather than editing an item in place**
+//  (`rebuild`). Not caution: this file already records two measured ways a live
+//  menu bar refuses a key equivalent — a ⌘-number added to one is stripped on
+//  the way in, and a duplicate ⌘-number erases the later item's key. Both were
+//  found by writing to a bar that was already installed. Building a fresh bar
+//  and assigning it is the path that is known to work, it is what launch does,
+//  and it costs one menu's worth of `NSMenuItem`s on a keystroke the user
+//  presses about twice a year.
 //
 //  Cosmetic, verified in M0: AppKit auto-injects Writing Tools, AutoFill,
 //  Dictation and Emoji & Symbols into any menu titled "Edit". Do not add them
@@ -53,6 +59,13 @@ enum MainMenu {
         app.helpMenu = help
     }
 
+    /// A fresh bar wearing the current bindings. The Spaces and Sidebar Items
+    /// submenus come back empty — they are built from the session, so the caller
+    /// re-runs `setSpaces` and `setSidebarItems` after this.
+    static func rebuild(in app: NSApplication) {
+        install(into: app)
+    }
+
     /// Rebuilds the Spaces menu from the session (§5.3).
     ///
     /// **`⌃1…⌃9`, not `⌘1…⌘9` (spec §13.2, D-S12).** Plain ⌘-number means "go
@@ -72,20 +85,17 @@ enum MainMenu {
         guard let menu = app.mainMenu?.items.first(where: { $0.tag == spacesTag })?.submenu else { return }
         menu.removeAllItems()
         for (index, name) in names.enumerated() {
-            let entry = item(
-                name,
-                #selector(AppDelegate.switchToSpace(_:)),
-                index < 9 ? String(index + 1) : "",
-                modifiers: .control
+            let entry = NSMenuItem(
+                title: name,
+                action: #selector(AppDelegate.switchToSpace(_:)),
+                keyEquivalent: index < 9 ? String(index + 1) : ""
             )
+            entry.keyEquivalentModifierMask = .control
             entry.tag = index
             menu.addItem(entry)
         }
         menu.addItem(.separator())
-        menu.addItem(item("Previous Space", #selector(AppDelegate.previousSpace(_:)),
-                          arrow: NSLeftArrowFunctionKey, modifiers: [.control, .option]))
-        menu.addItem(item("Next Space", #selector(AppDelegate.nextSpace(_:)),
-                          arrow: NSRightArrowFunctionKey, modifiers: [.control, .option]))
+        for entry in items(.previousSpace) + items(.nextSpace) { menu.addItem(entry) }
     }
 
     /// Rebuilds View ▸ Sidebar Items from the active Space's tabs — §13.2's
@@ -137,7 +147,12 @@ enum MainMenu {
     /// because the alternative does not work: see `setSidebarItems`.
     private static func sidebarItemsMenu() -> NSMenuItem {
         let entries = (0..<9).map { index -> NSMenuItem in
-            let entry = item("", #selector(AppDelegate.goToSidebarItem(_:)), String(index + 1))
+            let entry = NSMenuItem(
+                title: "",
+                action: #selector(AppDelegate.goToSidebarItem(_:)),
+                keyEquivalent: String(index + 1)
+            )
+            entry.keyEquivalentModifierMask = .command
             entry.tag = index
             entry.isHidden = true
             return entry
@@ -152,92 +167,96 @@ enum MainMenu {
     private static func appMenu() -> NSMenu {
         let name = appName
         return menu(name, [
-            item("About \(name)", #selector(NSApplication.orderFrontStandardAboutPanel(_:))),
+            plain("About \(name)", #selector(NSApplication.orderFrontStandardAboutPanel(_:))),
             .separator(),
             // SETTINGS-SPEC §2's `⌘,`. Opens the window or brings the one that
             // is already open forward; there is exactly one for the life of the
             // app, and it does not need a session, so it works during a cold
             // launch (see `AppDelegate.validateMenuItem`).
-            item("Settings…", #selector(AppDelegate.showSettings(_:)), ","),
+            item(.settings),
             .separator(),
-            item("Hide \(name)", #selector(NSApplication.hide(_:)), "h"),
-            item("Hide Others", #selector(NSApplication.hideOtherApplications(_:)), "h",
-                 modifiers: [.command, .option]),
-            item("Show All", #selector(NSApplication.unhideAllApplications(_:))),
+            plain("Hide \(name)", #selector(NSApplication.hide(_:)), "h"),
+            plain("Hide Others", #selector(NSApplication.hideOtherApplications(_:)), "h",
+                  modifiers: [.command, .option]),
+            plain("Show All", #selector(NSApplication.unhideAllApplications(_:))),
             .separator(),
-            item("Quit \(name)", #selector(NSApplication.terminate(_:)), "q")
+            plain("Quit \(name)", #selector(NSApplication.terminate(_:)), "q")
         ])
     }
 
     private static func fileMenu() -> NSMenu {
-        menu("File", [
-            item("New Tab", #selector(AppDelegate.newTab(_:)), "t"),
-            item("Open Location…", #selector(AppDelegate.editLocation(_:)), "l"),
-            .separator(),
-            item("Close Tab", #selector(AppDelegate.closeTab(_:)), "w"),
-            item("Reopen Last Archived Tab", #selector(AppDelegate.reopenArchivedTab(_:)), "T")
-        ])
+        menu("File", flatten([
+            [item(.newTab)], items(.openLocation),
+            [.separator()],
+            items(.duplicateTab), items(.resetPinnedTab),
+            [.separator()],
+            items(.closeTab), items(.closeAllTabs), items(.cleanUpTabs), items(.reopenArchivedTab),
+            [.separator()],
+            items(.closeWindow)
+        ]))
     }
 
     private static func editMenu() -> NSMenu {
-        menu("Edit", [
-            item("Undo", Selector(("undo:")), "z"),
-            item("Redo", Selector(("redo:")), "Z"),
-            .separator(),
-            item("Cut", #selector(NSText.cut(_:)), "x"),
-            item("Copy", #selector(NSText.copy(_:)), "c"),
-            item("Paste", #selector(NSText.paste(_:)), "v"),
-            .separator(),
-            item("Select All", #selector(NSText.selectAll(_:)), "a")
-        ])
+        menu("Edit", flatten([
+            items(.undo), items(.redo),
+            [.separator()],
+            items(.cut), items(.copy), items(.paste),
+            [.separator()],
+            items(.selectAll),
+            [.separator()],
+            // §11.2's two: the address the user is looking at, plain or wrapped
+            // in the link syntax every notes app in the dock understands.
+            items(.copyURL), items(.copyMarkdown)
+        ]))
     }
 
     private static func viewMenu() -> NSMenu {
-        menu("View", [
+        menu("View", flatten([
             // Hides and shows the sidebar. Which layout the window wears is a
             // setting (`⌘,`), not something a reflex keystroke should change.
-            item("Hide Sidebar", #selector(AppDelegate.toggleSidebarVisibility(_:)), "s"),
+            items(.toggleSidebar),
             // §20.1's `⌘D`. Favorites are the sidebar's top tier and are
             // **per Profile**, so this is a View command, not a File one —
             // Luna has no Bookmarks menu to put it in and is not growing one
             // for a single item.
-            item("Add to Favorites", #selector(AppDelegate.toggleFavorite(_:)), "d"),
-            .separator(),
+            items(.toggleFavorite),
+            [.separator()],
             // §13.2's `⌘1…⌘9`. **In View, not in Window, and that is measured
             // rather than a taste call** — see `setSidebarItems`.
-            sidebarItemsMenu(),
-            .separator(),
-            item("Reload Page", #selector(AppDelegate.reloadPage(_:)), "r"),
-            item("Stop Loading", #selector(AppDelegate.stopLoading(_:)), "."),
-            .separator(),
+            [sidebarItemsMenu()],
+            [.separator()],
+            items(.reloadPage), items(.forceReloadPage), items(.stopLoading),
+            [.separator()],
+            items(.zoomIn), items(.zoomOut), items(.actualSize),
+            [.separator()],
             // §22.5: the downloads panel is only otherwise reachable from the
             // top bar's button, which the sidebar layout does not show at all.
             // ⌘⌥L is free in the §20.1 map and is what Safari uses.
-            item("Downloads", #selector(AppDelegate.showDownloads(_:)), "l", modifiers: [.command, .option])
-        ])
+            items(.showDownloads)
+        ]))
     }
 
     private static func historyMenu() -> NSMenu {
-        menu("History", [
-            item("Back", #selector(AppDelegate.goBack(_:)), "["),
-            item("Forward", #selector(AppDelegate.goForward(_:)), "]")
-        ])
+        menu("History", flatten([
+            items(.goBack), items(.goForward),
+            [.separator()],
+            // §6.4's pop-out. It hangs off a button in both layouts and had no
+            // keystroke at all, which made it the one §22.5 violation left.
+            items(.showHistory)
+        ]))
     }
 
     private static func windowMenu() -> NSMenu {
-        menu("Window", [
-            item("Minimize", #selector(NSWindow.performMiniaturize(_:)), "m"),
-            item("Zoom", #selector(NSWindow.performZoom(_:))),
-            .separator(),
-            item("Show Previous Tab", #selector(AppDelegate.previousTab(_:)),
-                 arrow: NSLeftArrowFunctionKey, modifiers: [.command, .option]),
-            item("Show Next Tab", #selector(AppDelegate.nextTab(_:)),
-                 arrow: NSRightArrowFunctionKey, modifiers: [.command, .option]),
-            .separator(),
-            item("Bring All to Front", #selector(NSApplication.arrangeInFront(_:))),
-            .separator(),
-            submenu(settingsSectionsMenu())
-        ])
+        menu("Window", flatten([
+            items(.minimize),
+            [plain("Zoom", #selector(NSWindow.performZoom(_:)))],
+            [.separator()],
+            items(.previousTab), items(.nextTab),
+            [.separator()],
+            [plain("Bring All to Front", #selector(NSApplication.arrangeInFront(_:)))],
+            [.separator()],
+            [submenu(settingsSectionsMenu())]
+        ]))
     }
 
     /// SETTINGS-SPEC §2's `⌘F`, and the nine sections as **clickable items with
@@ -263,22 +282,17 @@ enum MainMenu {
     /// equivalent (probed), so all nine arrive whether or not that many tabs are
     /// open.
     private static func settingsSectionsMenu() -> NSMenu {
-        var items: [NSMenuItem] = [
-            item("Search Settings", #selector(SettingsWindowController.focusSettingsSearch(_:)), "f"),
-            .separator()
-        ]
+        var entries: [NSMenuItem] = items(.searchSettings) + [.separator()]
         for (index, section) in SettingsSectionRegistry.all.enumerated() {
-            let entry = item(section.title, #selector(SettingsWindowController.goToSettingsSection(_:)))
+            let entry = plain(section.title, #selector(SettingsWindowController.goToSettingsSection(_:)))
             entry.tag = index
-            items.append(entry)
+            entries.append(entry)
         }
-        return menu("Settings", items)
+        return menu("Settings", entries)
     }
 
     private static func helpMenu() -> NSMenu {
-        menu("Help", [
-            item("\(appName) Help", #selector(NSApplication.showHelp(_:)), "?")
-        ])
+        menu("Help", [plain("\(appName) Help", #selector(NSApplication.showHelp(_:)), "?")])
     }
 
     // MARK: - Construction
@@ -304,6 +318,8 @@ enum MainMenu {
         return menu
     }
 
+    private static func flatten(_ groups: [[NSMenuItem]]) -> [NSMenuItem] { groups.flatMap { $0 } }
+
     /// Wraps a menu in the menu-bar item that owns it.
     private static func submenu(_ menu: NSMenu) -> NSMenuItem {
         let item = NSMenuItem(title: menu.title, action: nil, keyEquivalent: "")
@@ -311,8 +327,33 @@ enum MainMenu {
         return item
     }
 
-    /// A first-responder command. An uppercase `key` implies Shift, per AppKit convention.
-    private static func item(
+    /// The command as the user sees it, plus a hidden item per alternate
+    /// binding. A hidden item is not in the menu and still answers its key
+    /// equivalent — the same behaviour §13.2's sidebar rows were built on.
+    static func items(_ command: BrowserCommand) -> [NSMenuItem] {
+        let bindings = KeyBindings.bindings(for: command)
+        let visible = item(command)
+        return [visible] + bindings.dropFirst().map { binding in
+            let alternate = NSMenuItem(title: command.title, action: command.action, keyEquivalent: binding.key)
+            alternate.keyEquivalentModifierMask = binding.modifiers
+            alternate.isHidden = true
+            return alternate
+        }
+    }
+
+    /// The printed item: the command's title, its selector and whichever
+    /// keystroke `KeyBindings` says it wears today.
+    static func item(_ command: BrowserCommand) -> NSMenuItem {
+        let binding = KeyBindings.primary(for: command)
+        let item = NSMenuItem(title: command.title, action: command.action, keyEquivalent: binding?.key ?? "")
+        item.keyEquivalentModifierMask = binding?.modifiers ?? []
+        return item
+    }
+
+    /// A menu entry that is not a `BrowserCommand`: AppKit's own, and the
+    /// Settings section rows. An uppercase `key` implies Shift, per AppKit
+    /// convention.
+    private static func plain(
         _ title: String,
         _ action: Selector,
         _ key: String = "",
@@ -321,18 +362,5 @@ enum MainMenu {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
         item.keyEquivalentModifierMask = modifiers
         return item
-    }
-
-    /// An arrow-key command. `NSLeftArrowFunctionKey` and friends are `Int`
-    /// constants in the private-use plane, not characters, so they have to be
-    /// spelled as a scalar — `"←"` in a source file does not work.
-    private static func item(
-        _ title: String,
-        _ action: Selector,
-        arrow: Int,
-        modifiers: NSEvent.ModifierFlags
-    ) -> NSMenuItem {
-        let key = UnicodeScalar(UInt32(arrow)).map { String(Character($0)) } ?? ""
-        return item(title, action, key, modifiers: modifiers)
     }
 }

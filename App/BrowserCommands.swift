@@ -217,6 +217,7 @@ extension AppDelegate: NSMenuItemValidation {
         guard let session else { return false }
         return validateFavoriteToggle(menuItem, in: session)
             ?? validateNavigation(menuItem, in: session)
+            ?? validatePageCommand(menuItem, in: session)
             ?? validateSessionCommand(menuItem, in: session)
     }
 

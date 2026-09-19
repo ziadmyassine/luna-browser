@@ -46,13 +46,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // Owned because nothing else retains them: `NSView` does not hold its view
     // controller, and `WKDownload.delegate` is weak (see `DownloadManager`).
     var sidebar: SidebarViewController?
-    private var topBar: TopBarView?
+    private(set) var topBar: TopBarView?
     /// §3.2b's page bar. Owned here for the same reason the other two are:
     /// `ContentCardView` hosts the view, not the controller behind it. Wired in
     /// `AppDelegate+PageChrome.swift`.
     var pageChrome: PageChromeController?
     private var commandBar: CommandBarController?
-    private var history: HistoryPanelController?
+    /// §6.4's pop-out. Not private: `⌘Y` opens it too (`BrowserCommands+Page`).
+    private(set) var historyPanel: HistoryPanelController?
     /// Exactly one per `BrowserStore` (§9.3): two of them would bump divergent
     /// use counts against the same `inputHistory` rows.
     private var adaptive: AdaptiveHistory?
@@ -76,6 +77,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // persisted, so it is re-published on every launch.
         SettingsDefaults.register()
         MainMenu.install(into: NSApp)
+        // §3.6: a rebound shortcut rebuilds the bar. Before the first window.
+        observeShortcutChanges()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -225,7 +228,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         in controller: BrowserWindowController
     ) {
         let panel = HistoryPanelController(session: session)
-        history = panel
+        historyPanel = panel
         sidebar.onOpenHistory = { [weak panel, weak controller, weak sidebar] in
             guard let panel, let sidebar, let window = controller?.window else { return }
             // The sidebar's button is at the foot of the window, so the pop-out
@@ -326,7 +329,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Re-reads the session. Structural only — a tab's progress and title reach
     /// their row through `addTabStateObserver`, not through here.
-    private func render() {
+    func render() {
         guard let session else { return }
         // `webView(for:)` wakes a cold tab, which is exactly right for the one
         // tab the user has selected and wrong for any other (§19.4).
