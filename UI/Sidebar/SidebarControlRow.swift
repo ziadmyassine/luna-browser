@@ -137,9 +137,10 @@ final class SidebarControlRow: NSView {
         let circle = Tokens.Metric.sidebarCircle
         let lights = trafficLights
         // **A nil that was not nil a moment ago is worth asking about twice.**
-        // The buttons are legitimately gone in fullscreen and while the sidebar
-        // is hidden, and then this row closes up around the space they left.
-        // But AppKit also rebuilds the titlebar from time to time, and a pass
+        // The buttons are legitimately gone while the sidebar is hidden, and
+        // then this row closes up around the space they left. But AppKit also
+        // rebuilds the titlebar from time to time — entering fullscreen is one
+        // such rebuild, and the lights are moved rather than lost — and a pass
         // that lands inside that rebuild measures nothing and lays the toggle
         // out over the lights it could not see. One more pass on the next tick
         // settles it, and costs nothing when they really are gone: the second

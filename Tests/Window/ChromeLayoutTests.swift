@@ -71,10 +71,33 @@ final class TrafficLightLayoutTests: XCTestCase {
         XCTAssertEqual(narrow, wide)
     }
 
-    /// In fullscreen the system owns the buttons — it slides them into the menu
-    /// bar overlay. `nil` means "do not touch", and the manager obeys it.
-    func testFullscreenIsSystemOwned() {
+    /// §3.6's page fullscreen: the page has the window and there is no chrome
+    /// for the lights to sit in, so nobody places them. `nil` means "do not
+    /// touch", and the manager obeys it.
+    ///
+    /// Window fullscreen — the green button — is a different thing and keeps
+    /// its `.sidebar` state throughout; see `TrafficLightStrip`.
+    func testPageFullscreenIsSystemOwned() {
         XCTAssertNil(origins(.fullscreen))
+    }
+
+    /// **The container is measured, not named.** Fullscreen takes AppKit's
+    /// titlebar out of the window and the lights move into a strip of Luna's
+    /// own; what has to survive the move is the distance from the window's top
+    /// edge, because that is what "the same position as windowed" means. So the
+    /// inset is measured down from whatever container is passed, whatever its
+    /// height, and the x placement does not depend on it at all.
+    func testMeasuresFromItsContainersTopEdgeWhateverThatContainerIs() throws {
+        let titlebar = try XCTUnwrap(origins(.sidebar(width: 280, edge: .leading)))
+        for height in [system.titlebarHeight, 52, 900] as [CGFloat] {
+            var container = system
+            container.titlebarHeight = height
+            let placed = try XCTUnwrap(origins(.sidebar(width: 280, edge: .leading), system: container))
+            XCTAssertEqual(placed.map(\.x), titlebar.map(\.x), "height \(height)")
+            for origin in placed {
+                XCTAssertEqual(height - origin.y - container.buttonHeight, inset, "height \(height)")
+            }
+        }
     }
 
     /// A button hung below the titlebar still draws (nothing clips) but stops

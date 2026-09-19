@@ -24,18 +24,20 @@ import AppKit
 enum TrafficLightSpace {
 
     /// The rectangle the three lights occupy, in `view`'s coordinates — or nil
-    /// when there are none to clear.
+    /// when there are none to clear: while the chrome that hosts them is off
+    /// screen, and while `⌘S` has given the page the whole window.
     ///
-    /// Nil in fullscreen, where macOS takes the buttons away (they come back on
-    /// a hover at the top of the screen) but leaves their frames behind, and
-    /// nil while the chrome that hosts them is off screen.
+    /// **Fullscreen is not one of those.** It used to be — macOS takes the
+    /// titlebar out of the window there and hangs it off the top of the screen
+    /// — but `TrafficLightLayoutManager` now catches the lights on the way out
+    /// and keeps them in the window's corner, so a fullscreen sidebar has the
+    /// same three circles to clear as a windowed one.
     @MainActor
     static func rect(in view: NSView) -> NSRect? {
         guard let window = view.window,
               let close = window.standardWindowButton(.closeButton),
               let zoom = window.standardWindowButton(.zoomButton),
               !zoom.isHiddenOrHasHiddenAncestor,
-              !window.styleMask.contains(.fullScreen),
               let root = window.contentView
         else { return nil }
         let inset = Tokens.Metric.trafficLightInset

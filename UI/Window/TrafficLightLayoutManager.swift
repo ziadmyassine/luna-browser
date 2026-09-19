@@ -16,6 +16,10 @@
 //    · neither `NSTitlebarView` nor `NSTitlebarContainerView` clips, but hit
 //      testing still stops at the container's bounds, so a button hung below the
 //      titlebar would draw and not click. `TrafficLightLayout` clamps instead.
+//    · **fullscreen takes the titlebar out of the window entirely** and hangs it
+//      off the top of the screen, to slide down on a hover. The lights go with
+//      it, and §3.1's sidebar is left with a hole where they were. So this class
+//      owns where they *live* as well as where they sit: see `TrafficLightStrip`.
 //
 
 import AppKit
@@ -84,8 +88,14 @@ enum TrafficLightLayout {
     /// into a corner, and the first thing the eye catches. The reference insets
     /// them equally; so does this.
     ///
-    /// - Returns: `nil` when the system owns the frames (fullscreen), meaning
-    ///   "do not touch".
+    /// **`system.titlebarHeight` is whichever container holds the buttons**, not
+    /// necessarily AppKit's titlebar: fullscreen takes that away and the lights
+    /// move into `TrafficLightStrip` instead. Both are unflipped and both have
+    /// their top edge on the window's, so one piece of arithmetic serves both —
+    /// which is the point of measuring the container rather than naming it.
+    ///
+    /// - Returns: `nil` when the system owns the frames (page fullscreen, §3.6),
+    ///   meaning "do not touch".
     static func origins(
         for state: ChromeState,
         system: TrafficLightMetrics,
@@ -106,6 +116,22 @@ enum TrafficLightLayout {
     }
 }
 
+/// The lights' home in fullscreen, where AppKit's titlebar is not in the window
+/// any more: a strip along the window's top edge, the titlebar's own height, in
+/// front of the chrome so the three buttons sit on the sidebar rather than under
+/// it. It holds AppKit's real buttons, so they keep their real actions.
+///
+/// **It hit-tests to nothing of its own.** A plain view answers for every point
+/// inside its bounds, and this one lies across the top of §3.1's control row —
+/// so the sidebar's toggle would have stopped taking clicks the moment the
+/// window went fullscreen.
+private final class TrafficLightStrip: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        let hit = super.hitTest(point)
+        return hit === self ? nil : hit
+    }
+}
+
 /// Applies `TrafficLightLayout` to a real window, and re-applies it every time
 /// AppKit undoes the work (resize, fullscreen, any titlebar mutation).
 @MainActor
@@ -116,6 +142,13 @@ final class TrafficLightLayoutManager {
     private weak var window: NSWindow?
     private var state: ChromeState = .sidebarCollapsed(edge: .leading)
     private let natural: [CGPoint]
+    /// AppKit's own titlebar, and its height — captured at init, because
+    /// fullscreen is precisely the state in which neither can be read. The
+    /// first is where the buttons go home to, the second is the height the
+    /// strip stands in for so the lights land on the same line either way.
+    private weak var naturalSuperview: NSView?
+    private let naturalTitlebarHeight: CGFloat
+    private var strip: TrafficLightStrip?
 
     /// §7.2: the sidebar is peeking over a hidden-sidebar window, so the lights
     /// belong back on screen for as long as it is there.
@@ -151,7 +184,10 @@ final class TrafficLightLayoutManager {
         self.window = window
         // Captured before anything moves them: these are AppKit's own origins
         // and only the deltas between them are used, so they never go stale.
-        natural = Self.buttons(of: window).map(\.frame.origin)
+        let buttons = Self.buttons(of: window)
+        natural = buttons.map(\.frame.origin)
+        naturalSuperview = buttons.first?.superview
+        naturalTitlebarHeight = buttons.first?.superview?.bounds.height ?? 0
         observe(window)
     }
 
@@ -194,9 +230,9 @@ final class TrafficLightLayoutManager {
     }
 
     private func layoutButtons() {
-        guard let window, !window.styleMask.contains(.fullScreen) else { return }
+        guard let window else { return }
         let buttons = Self.buttons(of: window)
-        guard let first = buttons.first, let titlebar = first.superview else { return }
+        guard let first = buttons.first, let container = container(for: window, holding: buttons) else { return }
 
         // Before the placement, and unconditionally: a hidden button still has
         // a frame, and AppKit resets `isHidden` on some titlebar rebuilds the
@@ -207,7 +243,7 @@ final class TrafficLightLayoutManager {
         let system = TrafficLightMetrics(
             natural: natural,
             buttonHeight: first.frame.height,
-            titlebarHeight: titlebar.bounds.height
+            titlebarHeight: container.bounds.height
         )
         guard let origins = TrafficLightLayout.origins(
             for: state,
@@ -221,6 +257,52 @@ final class TrafficLightLayoutManager {
         for (button, origin) in zip(buttons, origins) where button.frame.origin != origin {
             button.setFrameOrigin(origin)
         }
+    }
+
+    // MARK: - Where they live
+
+    /// The view the lights are laid out in, moving them there first if that is
+    /// not where they currently are.
+    ///
+    /// Windowed, that is AppKit's titlebar and nothing moves: the titlebar is
+    /// what *groups* the three — hovering one shows all three glyphs — and that
+    /// is not worth trading away for a corner they already sit in. Fullscreen
+    /// there is no titlebar left in the window to group them, so the strip
+    /// takes them and §3.1's row keeps its lights.
+    private func container(for window: NSWindow, holding buttons: [NSButton]) -> NSView? {
+        guard window.styleMask.contains(.fullScreen), let root = window.contentView else {
+            sendHome(buttons)
+            return buttons.first?.superview
+        }
+        let strip = strip ?? {
+            let new = TrafficLightStrip()
+            self.strip = new
+            return new
+        }()
+        // Above everything, every pass: the chrome is rebuilt on a layout
+        // switch and a strip left behind it is three lights under a sidebar.
+        if strip.superview !== root || root.subviews.last !== strip {
+            root.addSubview(strip, positioned: .above, relativeTo: nil)
+        }
+        strip.frame = NSRect(
+            x: root.bounds.minX,
+            y: root.bounds.maxY - naturalTitlebarHeight,
+            width: root.bounds.width,
+            height: naturalTitlebarHeight
+        )
+        for button in buttons where button.superview !== strip { strip.addSubview(button) }
+        return strip
+    }
+
+    /// Hands the buttons back to AppKit's titlebar and takes the strip down.
+    /// Called on every windowed pass rather than on the exit notification alone,
+    /// because AppKit restores the titlebar after posting it — and a set of
+    /// lights that came home one frame late is a set that visibly jumped.
+    private func sendHome(_ buttons: [NSButton]) {
+        guard let titlebar = naturalSuperview else { return }
+        for button in buttons where button.superview !== titlebar { titlebar.addSubview(button) }
+        strip?.removeFromSuperview()
+        strip = nil
     }
 
     private static func buttons(of window: NSWindow) -> [NSButton] {
