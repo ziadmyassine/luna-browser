@@ -322,10 +322,11 @@ editable shortcut sits in a box — `SettingsShortcutRecorder`, a well with a
 hairline and a pointing-hand cursor — and clicking it records the next
 keystroke; Escape cancels, Delete clears, and a keystroke with no ⌘/⌃/⌥ is
 refused. A shortcut that cannot be moved is printed flat (`SettingsKeyChip`,
-`isFixed`), with a caption saying why: "Standard macOS shortcut", or, for the
-numbered families built per session rather than from the table, "Numbered from
-your sidebar" and "Numbered from your Spaces". A legend above the table states
-the rule, and search matches "editable" and "cannot be changed".
+`isFixed`) and says nothing more — with one exception: the numbered families,
+which are built per session rather than from the table and would otherwise be
+taken for macOS's, carry "Numbered from your sidebar" and "Numbered from your
+Spaces". A legend above the table states the rule, and search matches
+"editable" and "cannot be changed".
 
 ### 3.7 Spaces & Profiles
 | Control | Type | Wired to |

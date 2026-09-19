@@ -46,8 +46,9 @@ final class ShortcutsSection: SettingsSection {
         /// "can I change this?" rather than a match and a separate flag.
         var editableID: String?
         /// Why it cannot be moved, short enough to sit under the title as a
-        /// tag. Nil when it can be, and nil when the row carries no shortcut —
-        /// there is nothing to explain about a command that has none.
+        /// tag. Nil when it can be, and nil for the ordinary case — the flat
+        /// printing already says a row is fixed, and only the two families that
+        /// would be mistaken for macOS's need a sentence on top of it.
         var fixedReason: String?
     }
 
@@ -76,34 +77,35 @@ final class ShortcutsSection: SettingsSection {
         menu.items.flatMap { item -> [Command] in
             if let submenu = item.submenu { return leaves(of: submenu, under: title) }
             guard !item.isSeparatorItem, !item.isHidden, !item.title.isEmpty else { return [] }
-            let key = keyEquivalent(of: item)
             let editable = command(for: item).flatMap { $0.isCustomisable ? $0 : nil }
             return [Command(
                 menu: title,
                 title: item.title,
-                key: key,
+                key: keyEquivalent(of: item),
                 editableID: editable?.id,
-                fixedReason: editable == nil && !key.isEmpty ? reason(for: item) : nil
+                fixedReason: editable == nil ? reason(for: item) : nil
             )]
         }
     }
 
-    /// Why a shortcut is not the user's to move, in three or four words.
+    /// Why a shortcut is not the user's to move — **only where the drawing
+    /// would otherwise mislead**.
     ///
-    /// The numbered families get their own sentence because "macOS owns it" is
-    /// simply untrue of them: `⌘1…⌘9` and `⌃1…⌃9` are Luna's, they are just not
-    /// one command each. They are built per session from the sidebar rows and
-    /// Spaces that exist right now, so there is no single thing to rebind — and
-    /// a user who is told the wrong reason goes looking for the setting that
-    /// would fix it.
-    private static func reason(for item: NSMenuItem) -> String {
+    /// Everything else says it by being printed flat, and a caption repeated
+    /// down forty rows of the app, Edit and Window menus is noise that stops
+    /// being read by the third one. The numbered families are the exception,
+    /// and they earn it: `⌘1…⌘9` and `⌃1…⌃9` are Luna's own, so a user who
+    /// assumes they are the platform's goes looking for a setting that cannot
+    /// exist. They are built per session from the sidebar rows and Spaces that
+    /// exist right now, which is why there is no one thing to rebind.
+    private static func reason(for item: NSMenuItem) -> String? {
         switch item.action {
         case #selector(AppDelegate.goToSidebarItem(_:)):
             return String(localized: "Numbered from your sidebar")
         case #selector(AppDelegate.switchToSpace(_:)):
             return String(localized: "Numbered from your Spaces")
         default:
-            return String(localized: "Standard macOS shortcut")
+            return nil
         }
     }
 

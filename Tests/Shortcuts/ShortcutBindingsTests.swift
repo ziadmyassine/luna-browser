@@ -260,7 +260,6 @@ final class MainMenuBindingTests: XCTestCase {
 
         let quit = try XCTUnwrap(rows.first { $0.key == "⌘Q" })
         XCTAssertNil(quit.editableID)
-        XCTAssertEqual(quit.fixedReason, "Standard macOS shortcut")
     }
 
     /// A command in the table that macOS owns the keystroke for — `⌘Z` and its
@@ -270,7 +269,6 @@ final class MainMenuBindingTests: XCTestCase {
         let rows = ShortcutsSection.commands(in: try XCTUnwrap(NSApp.mainMenu))
         let undo = try XCTUnwrap(rows.first { $0.title == BrowserCommand.undo.title })
         XCTAssertNil(undo.editableID)
-        XCTAssertEqual(undo.fixedReason, "Standard macOS shortcut")
     }
 
     /// "macOS owns it" would be a lie about `⌘1…⌘9`: they are Luna's, they are
@@ -286,14 +284,20 @@ final class MainMenuBindingTests: XCTestCase {
         XCTAssertTrue(rows.filter { $0.key == "⌘1" || $0.key == "⌃1" }.allSatisfy { $0.editableID == nil })
     }
 
-    /// A command with no keystroke has nothing to explain. Left ungated, every
-    /// About, Services and Show All row grew a caption saying macOS owns a
-    /// shortcut that is not there.
-    func testARowWithNoShortcutIsNotGivenAReason() throws {
+    /// **Only the numbered families carry a caption.** Every other fixed row
+    /// says so by being printed flat; the same sentence repeated down the app,
+    /// Edit and Window menus was noise nobody reads past the third time.
+    func testNoOtherFixedRowCarriesACaption() throws {
         MainMenu.rebuild(in: NSApplication.shared)
-        let rows = ShortcutsSection.commands(in: try XCTUnwrap(NSApp.mainMenu))
-        let bare = rows.filter { $0.key.isEmpty }
-        XCTAssertFalse(bare.isEmpty, "the premise: most menu items carry no shortcut")
-        XCTAssertTrue(bare.allSatisfy { $0.fixedReason == nil }, "\(bare.filter { $0.fixedReason != nil })")
+        MainMenu.setSidebarItems(["Inbox"], in: NSApplication.shared)
+        MainMenu.setSpaces(["Personal", "Work"], in: NSApplication.shared)
+        let captioned = ShortcutsSection.commands(in: try XCTUnwrap(NSApp.mainMenu))
+            .filter { $0.fixedReason != nil }
+        XCTAssertFalse(captioned.isEmpty, "the premise: the numbered rows do carry one")
+        let numbered = ["Numbered from your sidebar", "Numbered from your Spaces"]
+        XCTAssertTrue(
+            captioned.allSatisfy { numbered.contains($0.fixedReason ?? "") },
+            "\(captioned.map { ($0.title, $0.fixedReason) })"
+        )
     }
 }
