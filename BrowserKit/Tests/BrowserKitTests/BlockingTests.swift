@@ -282,4 +282,39 @@ struct BlockingTests {
         blocker.allowInsecure(host: "Legacy.example.org")
         #expect(blocker.httpsDecision(for: URL(string: "http://legacy.example.org/x")!) == .proceed)
     }
+
+    // MARK: - §17.1's schedule
+
+    /// **The interval has to be an interval.** It used to pick the *delay* and
+    /// nothing else: a launch five minutes after the last refresh slept a minute
+    /// and then re-fetched all three lists regardless, and because the lists
+    /// upstream are rebuilt several times a day it very often recompiled them
+    /// too — three multi-second compiles, on a machine that relaunches Luna
+    /// twenty times an afternoon.
+    @Test func aRefreshInsideTheIntervalWaitsForTheIntervalRatherThanRunningAgain() {
+        let day: TimeInterval = 24 * 60 * 60
+        let now = Date()
+        let grace = ContentBlocker.postLaunchDelay
+
+        // Never refreshed: as soon as launch is out of the way.
+        #expect(ContentBlocker.refreshDelay(since: nil, now: now, interval: day) == grace)
+
+        // Refreshed a moment ago: not again for very nearly a day.
+        let justNow = ContentBlocker.refreshDelay(since: now.addingTimeInterval(-60), now: now, interval: day)
+        #expect(justNow > day - 120)
+
+        // Half way through: the remainder, not the whole interval and not now.
+        let halfWay = ContentBlocker.refreshDelay(since: now.addingTimeInterval(-day / 2), now: now, interval: day)
+        #expect(abs(halfWay - day / 2) < 1)
+
+        // Overdue: the launch grace, and never less than it.
+        #expect(ContentBlocker.refreshDelay(
+            since: now.addingTimeInterval(-2 * day), now: now, interval: day
+        ) == grace)
+        // A hair short of due still waits out the grace rather than firing into
+        // the first page the user asked for.
+        #expect(ContentBlocker.refreshDelay(
+            since: now.addingTimeInterval(-day + 1), now: now, interval: day
+        ) >= grace)
+    }
 }

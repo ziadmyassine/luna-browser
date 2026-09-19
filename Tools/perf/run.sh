@@ -6,6 +6,7 @@
 #   ./Tools/perf/run.sh tabs       the 40-tab memory budget only
 #   ./Tools/perf/run.sh launch     cold launch + idle cost only
 #   ./Tools/perf/run.sh page       what Luna's stack adds to a page load
+#   ./Tools/perf/run.sh blocking   §17.1's fetch-convert-compile, against a heartbeat
 #   ./Tools/perf/run.sh ui         the command bar and sidebar budgets only
 #
 # Every run appends its summary lines to docs/PERF.md with the date and the
@@ -62,6 +63,13 @@ run_page() {
     "$BIN" page 15 2>/dev/null | tee -a "$LOG"
 }
 
+run_blocking() {
+    echo "== §17.1 the once-a-day filter-list refresh, and what it costs the main thread =="
+    # Forced, because the point is to time the compile. It fetches ~1.8 MB and
+    # compiles ~187,000 rules into this tool's own rule store, never Luna's.
+    "$BIN" blocking 2>/dev/null | tee -a "$LOG"
+}
+
 run_ui() {
     echo "== §19.1 command bar (budget 100 ms) and sidebar frame cost (budget 8.33 ms) =="
     cd "$ROOT"
@@ -81,8 +89,9 @@ case "$WHAT" in
     tabs) run_tabs ;;
     launch) run_launch ;;
     page) run_page ;;
+    blocking) run_blocking ;;
     ui) run_ui ;;
-    *) run_tabs; run_launch; run_page; run_ui ;;
+    *) run_tabs; run_launch; run_page; run_blocking; run_ui ;;
 esac
 
 rm -rf "$PERFHOME"
@@ -93,7 +102,7 @@ rm -rf "$PERFHOME"
 $(( $(sysctl -n hw.memsize) / 1073741824 )) GB, macOS $(sw_vers -productVersion)"
     echo ""
     echo '```'
-    grep -E "^(LAUNCH|INTERACTIVE|PHASES|IDLE|TABS|HIBERNATED|PAGE|PERF) " "$LOG" \
+    grep -E "^(LAUNCH|INTERACTIVE|PHASES|IDLE|TABS|HIBERNATED|PAGE|BLOCKING|PERF) " "$LOG" \
         || echo "(no summary lines — see the run output)"
     echo '```'
 } >> "$ROOT/docs/PERF.md"

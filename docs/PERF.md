@@ -11,6 +11,7 @@ Tools/perf/run.sh            # all of it, appends a dated block below
 Tools/perf/run.sh tabs       # the 40-tab memory budget only
 Tools/perf/run.sh launch     # cold launch, to interactive, + the idle cost of a restore
 Tools/perf/run.sh page       # what Luna's own stack adds to a page load
+Tools/perf/run.sh blocking   # §17.1's fetch-convert-compile, against a heartbeat
 Tools/perf/run.sh ui         # command bar + sidebar frame cost (the opt-in XCTests)
 ```
 
@@ -26,7 +27,8 @@ from rather than pretending to a trend.
 |---|---|---|
 | Cold launch to interactive < 800 ms | 09-19, M1 Pro: **356 ms** median of 7 under load, **~275 ms** idle, 40 tabs to restore | **PASS, 2.2× headroom** |
 | Cold launch to first window | 09-17, M4: **242 ms** · 09-19, M1 Pro: **245 ms** | a lower bound — see *Launch* |
-| Luna's own cost per page load | 09-19, M1 Pro: **+6.6 to +7.4 ms** over a bare `WKWebView`, all in `TabController.attach` | no budget; stated |
+| Luna's own cost per page load | 09-19, M1 Pro: **+5.9 ms** over one frame, **+7.9 ms** over eleven, all in `TabController.attach` | no budget; stated |
+| §17.1's list refresh | 09-19, M1 Pro: **13.0 s**, worst stall **166 ms**, 0.6 s of main thread — now once a day rather than most launches | no budget; stated |
 | New-tab command bar < 100 ms | 09-17, M4: **54.7 ms** first, **8.8 ms** median | **PASS** |
 | **40 tabs / 3 Spaces / 6 live < 3.5 GB RSS** | 09-17, M4: **165–310 MB RSS, 785–842 MB footprint** | **PASS, ~4× headroom** |
 | Sidebar frame ≤ 8.33 ms (120 fps) | 09-17, M4: **0.05 ms** median, **0.97 ms** p95 | **PASS, 8× headroom** |
@@ -248,29 +250,95 @@ root. The disk half of the number is therefore the best case.
 
 ## Page load
 
-`Tools/perf/run.sh page` loads the same local HTML document three ways, rotating the
-order every round so that no arm always pays for the WebContent and GPU processes the
-next one finds warm:
+`Tools/perf/run.sh page` loads the same local document four ways, rotating the order
+every round so no arm always pays for the WebContent and GPU processes the next one
+finds warm. Two documents, because two of Luna's three document-end scripts are
+injected into **every frame**: one plain page says what a document costs, and the
+same page wrapped around ten same-origin iframes says what the all-frames ones cost
+on a page shaped like a real one.
 
-| | median | what it includes |
+| | 1 frame | 11 frames |
 |---|---|---|
-| bare `WKWebView` | 65.9 ms | WebKit's own defaults, nothing of Luna's |
-| `WebViewFactory.makeWebView` | 65.5 ms | + the scheme handler, the UA, the preferences, `ContentBlocker.apply` |
-| `TabController` | 73.3 ms | + four user scripts, four message handlers, eight KVO observations |
+| bare `WKWebView` | 65.6 ms | 69.3 ms |
+| `WebViewFactory.makeWebView` | +3.2 | +1.4 |
+| `TabController`, §14 off | +1.6 | +5.5 |
+| `TabController` | +1.2 | +1.0 |
+| **Luna, total** | **+5.9 ms** | **+7.9 ms** |
 
-**Luna costs a page load 7.4 ms, and every bit of it is in `TabController.attach`.**
-The configuration is free to within the measurement — `−0.4 ms`, which is noise.
+And the same thing with no page in it at all — `activate()` builds the web view,
+registers four message handlers, adds the scripts and installs the KVO observations,
+and loads nothing:
 
-A local file on purpose. The question is what *Luna* adds, and against a real site
-that answer is buried under several hundred milliseconds of network that varies by
-more than the thing being measured. The page is deliberately ordinary: 300 list
-items, a stylesheet, a script, an image and a `theme-color`.
+**building a web view: bare 2.42 ms, Luna 2.62 ms (+0.20 ms).**
 
-Read the 7.4 ms as **per tab wake, not per navigation**. It is the cost of building a
-web view and dressing it, which Luna pays when a cold tab is selected (§19.2) and not
-when an already-live tab goes to another page. Against the 66 ms a bare cold load
-costs — most of it spawning a WebContent process — it is not where a page's time goes.
+Three things follow, and the third is the one worth acting on:
 
+- **Luna's configuration is free.** The scheme handler, the user agent, the
+  preferences and `ContentBlocker.apply` are inside the noise.
+- **Building the web view is free.** +0.2 ms. Whatever the rest costs, it is not
+  setup — it is work that happens while the page loads.
+- **The cost is the document-end scripts, and it scales with frame count.** 2.8 ms
+  over one frame, 6.5 ms over eleven — about **0.37 ms per extra frame**, because
+  `mediaScript`, `ContentBlocker.blockedCountScript` and §14's form detection are all
+  injected `forMainFrameOnly: false`. A news site with thirty ad frames pays ten
+  times what this page does. §14's share is flat at ~1 ms however many frames there
+  are, so it is not the one to chase.
+
+A local file on purpose: against a real site the answer is buried under several
+hundred milliseconds of network that varies by more than the thing being measured.
+The page is deliberately ordinary — 300 list items, a stylesheet, a script, an image
+and a `theme-color`.
+
+Read the totals as **per tab wake, not per navigation**. This is the cost of building
+a web view and dressing it, which Luna pays when a cold tab is selected (§19.2) and
+not when a live tab goes to another page.
+
+### What is left, and where it is
+
+The per-frame scripts are the whole of it, and three of them share one array in
+`TabController.attach`. Two things would pay for themselves there and neither is done
+yet:
+
+- **`mediaScript` posts from every frame at document end**, whether or not that frame
+  has any media, and each message lands in `handleMediaMessage` → `publishState()`.
+  Eleven frames is eleven round trips and eleven publishes to say nothing changed.
+  The initial post only exists to establish "not audible", which is already the
+  resting state after `resetPerDocumentState`.
+- **Three separate `WKUserScript`s are injected into every frame** where one would
+  do. Each is compiled and evaluated per frame on its own.
+
+Both live in `TabController.swift`, which was being rewritten in the same working
+tree while this was measured (§3.2b's page colour), so they are stated here rather
+than done: two agents editing one file is how a merge eats a fix.
+
+## §17.1 The filter-list refresh
+
+`Tools/perf/run.sh blocking` forces a full fetch-convert-compile of all three lists
+with a 10 ms heartbeat timer running, because a compile does not block the main
+thread outright — it stalls it in bursts, and the number that matters is how long the
+app went without answering.
+
+**13.0 s wall, worst main-thread stall 166 ms, two stalls over 100 ms, 0.6 s of main
+thread lost in total.**
+
+That is the once-a-day job, and until 2026-09-19 it was not once a day.
+
+`refreshInterval` picked the *delay* and nothing else: a launch inside the 24 hours
+slept 60 s and then re-fetched all three lists anyway. Only an **unchanged** list
+skipped its compile — and the lists upstream are rebuilt several times a day
+(`last-modified` moves hourly), so a launch a few minutes after the last refresh
+routinely paid the fetch, the convert and the compile again. On a machine that
+relaunches Luna twenty times an afternoon, which is every machine Luna is built on,
+that is 1.8 MB down and 13 s of this, over and over.
+
+It is now an interval: `ContentBlocker.refreshDelay` returns the launch grace when a
+refresh is genuinely due and the remainder of the interval when it is not, so a
+session that lives a day still gets its update and a relaunch does not. The grace
+itself went from **5 s to 30 s** — 5 s is not "after launch", it is during the first
+page the user asked for, and nothing about a refresh is urgent when the cached lists
+are already attached. And a compile that did happen now leaves a second before the
+next one starts: it does not make the stalls smaller, it puts a responsive second
+between them instead of running three of them together.
 
 ## Command bar
 

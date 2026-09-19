@@ -327,28 +327,38 @@ case "page":
     app.setActivationPolicy(.accessory)
     app.finishLaunching()
 
-    // **A local file, not a website.** The question here is what *Luna* costs a
+    // **Local files, not websites.** The question here is what *Luna* costs a
     // page load — its four injected scripts, its four message handlers, its
-    // eight KVO observations and the `publishState` behind them — and against a
-    // real site that answer is buried under several hundred milliseconds of
-    // network that varies by more than the thing being measured. The page is
-    // deliberately ordinary: a few hundred nodes, a stylesheet, a script, an
-    // image, and a `theme-color`, which is the one meta tag Luna reads back.
-    let document = """
-    <!doctype html><html><head><meta charset="utf-8">
-    <meta name="theme-color" content="#1f6feb"><title>luna-perf</title>
-    <style>body{font:14px/1.5 -apple-system;margin:2rem}li{padding:2px}</style>
-    </head><body><h1>luna-perf</h1><ul>
-    \(Array(repeating: "<li>a row of the sort a page is made of</li>", count: 300).joined())
-    </ul><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
-    <script>document.title = "ready " + document.querySelectorAll("li").length;</script>
-    </body></html>
-    """
-    let file = URL(fileURLWithPath: NSTemporaryDirectory()).appending(path: "luna-perf-page.html")
-    try Data(document.utf8).write(to: file)
+    // KVO observations and the `publishState` behind them — and against a real
+    // site that answer is buried under several hundred milliseconds of network
+    // that varies by more than the thing being measured.
+    //
+    // Two documents, because two of Luna's scripts are injected into **every
+    // frame**: a plain page says what one document costs, and the same page
+    // wrapped around ten same-origin iframes says what the all-frames ones
+    // cost when a page is shaped like a real one with ads in it.
+    func writePage(iframes: Int) throws -> URL {
+        let rows = Array(repeating: "<li>a row of the sort a page is made of</li>", count: 300).joined()
+        let frames = (0..<iframes)
+            .map { _ in #"<iframe src="about:blank" width="60" height="40"></iframe>"# }
+            .joined()
+        let document = """
+        <!doctype html><html><head><meta charset="utf-8">
+        <meta name="theme-color" content="#1f6feb"><title>luna-perf</title>
+        <style>body{font:14px/1.5 -apple-system;margin:2rem}li{padding:2px}</style>
+        </head><body><h1>luna-perf</h1><ul>\(rows)</ul>\(frames)
+        <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
+        <script>document.title = "ready " + document.querySelectorAll("li").length;</script>
+        </body></html>
+        """
+        let file = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appending(path: "luna-perf-page-\(iframes).html")
+        try Data(document.utf8).write(to: file)
+        return file
+    }
 
     /// Milliseconds from `start` until the view has begun **and** finished a
-    /// load. Polled, and both arms are polled by the same function on purpose:
+    /// load. Polled, and every arm is polled by the same function on purpose:
     /// a navigation delegate on one side and `isLoading` on the other would be
     /// two different moments dressed as one comparison.
     func timeLoad(_ view: @autoclosure () -> WKWebView?, since start: DispatchTime) -> Double? {
@@ -366,60 +376,151 @@ case "page":
         return nil
     }
 
-    var bare: [Double] = []
-    var factory: [Double] = []
-    var luna: [Double] = []
+    /// One load of `file` through `arm`, timed. See the note in `tabs`:
+    /// top-level code's autorelease pool never drains, and a web view read
+    /// outside a pool never dies.
+    func load(_ file: URL, through arm: String) -> Double? {
+        var result: Double?
+        autoreleasepool {
+            switch arm {
+            case "bare":
+                let configuration = WKWebViewConfiguration()
+                configuration.websiteDataStore = .nonPersistent()
+                let view = WKWebView(frame: .zero, configuration: configuration)
+                let start = DispatchTime.now()
+                // Exactly what `TabController.load` does for a file URL —
+                // `load(URLRequest)` on one fails silently without the grant.
+                view.loadFileURL(file, allowingReadAccessTo: file.deletingLastPathComponent())
+                result = timeLoad(view, since: start)
+            case "factory":
+                // Luna's configuration and nothing else: the scheme handler,
+                // the user agent, the preferences and `ContentBlocker.apply`,
+                // without the scripts and observations `attach` puts on top.
+                let view = WebViewFactory.makeWebView(dataStore: .nonPersistent())
+                let start = DispatchTime.now()
+                view.loadFileURL(file, allowingReadAccessTo: file.deletingLastPathComponent())
+                result = timeLoad(view, since: start)
+            default:
+                PasswordSettings.isEnabled = arm != "no-passwords"
+                let controller = TabController(id: UUID(), dataStore: .nonPersistent())
+                let start = DispatchTime.now()
+                controller.load(file)
+                result = timeLoad(controller.webView, since: start)
+                controller.hibernate()
+                PasswordSettings.isEnabled = true
+            }
+        }
+        return result
+    }
 
-    for round in 0..<repeats {
-        // Rotated, because the first web view of a round pays for whatever the
-        // next two then find warm.
-        let order = ["bare", "factory", "luna"]
-        for arm in Array(order[(round % 3)...] + order[..<(round % 3)]) {
-            // See the note in `tabs`: top-level code's autorelease pool never
-            // drains, and a web view read outside a pool never dies.
+    let arms = ["bare", "factory", "no-passwords", "luna"]
+    for iframes in [0, 10] {
+        let file = try writePage(iframes: iframes)
+        var times: [String: [Double]] = [:]
+        for round in 0..<repeats {
+            // Rotated, because the first web view of a round pays for the
+            // WebContent and GPU processes the rest of it finds warm.
+            let turn = round % arms.count
+            for arm in Array(arms[turn...] + arms[..<turn]) {
+                if let ms = load(file, through: arm) { times[arm, default: []].append(ms) }
+            }
+        }
+        let median = arms.reduce(into: [String: Double]()) { $0[$1] = Measure.median(times[$1] ?? []) }
+        print("  \(iframes == 0 ? "one frame" : "\(iframes + 1) frames"):")
+        for arm in arms {
+            print(String(format: "    %-13@ median %6.1f ms  min %6.1f max %6.1f  (n=%d)",
+                         arm as NSString, median[arm] ?? 0,
+                         times[arm]?.min() ?? 0, times[arm]?.max() ?? 0, times[arm]?.count ?? 0))
+        }
+        print(String(format: "PAGE %d frame(s): bare %.1f ms, %+.1f configuration, %+.1f scripts and observers "
+                     + "(of which %+.1f is §14's form detection), Luna %.1f ms (%+.1f ms)",
+                     iframes + 1, median["bare"] ?? 0,
+                     (median["factory"] ?? 0) - (median["bare"] ?? 0),
+                     (median["luna"] ?? 0) - (median["factory"] ?? 0),
+                     (median["luna"] ?? 0) - (median["no-passwords"] ?? 0),
+                     median["luna"] ?? 0, (median["luna"] ?? 0) - (median["bare"] ?? 0)))
+    }
+
+    // **Setup, with no page in it at all.** Everything above measures a load;
+    // this measures only the building of the thing that does the loading.
+    // `activate()` on a controller with no URL builds the web view, registers
+    // the handlers, adds the scripts and installs the observations, and loads
+    // nothing.
+    var bareSetup: [Double] = []
+    var lunaSetup: [Double] = []
+    for round in 0..<(repeats * 2) {
+        for arm in round.isMultiple(of: 2) ? ["bare", "luna"] : ["luna", "bare"] {
             autoreleasepool {
                 if arm == "bare" {
                     let configuration = WKWebViewConfiguration()
                     configuration.websiteDataStore = .nonPersistent()
+                    let start = DispatchTime.now()
                     let view = WKWebView(frame: .zero, configuration: configuration)
-                    let start = DispatchTime.now()
-                    // Exactly what `TabController.load` does for a file URL —
-                    // `load(URLRequest)` on one fails silently without the grant.
-                    view.loadFileURL(file, allowingReadAccessTo: file.deletingLastPathComponent())
-                    if let ms = timeLoad(view, since: start) { bare.append(ms) }
-                } else if arm == "factory" {
-                    // Luna's configuration and nothing else: the scheme handler,
-                    // the user agent, the preferences and `ContentBlocker.apply`,
-                    // without the scripts, handlers and observations that
-                    // `TabController.attach` puts on top.
-                    let view = WebViewFactory.makeWebView(dataStore: .nonPersistent())
-                    let start = DispatchTime.now()
-                    view.loadFileURL(file, allowingReadAccessTo: file.deletingLastPathComponent())
-                    if let ms = timeLoad(view, since: start) { factory.append(ms) }
+                    bareSetup.append(Double(DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds) / 1e6)
+                    _ = view
                 } else {
                     let controller = TabController(id: UUID(), dataStore: .nonPersistent())
                     let start = DispatchTime.now()
-                    controller.load(file)
-                    if let ms = timeLoad(controller.webView, since: start) { luna.append(ms) }
+                    controller.activate()
+                    lunaSetup.append(Double(DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds) / 1e6)
                     controller.hibernate()
                 }
             }
         }
     }
+    print(String(format: "PAGE building a web view: bare %.2f ms, Luna %.2f ms (%+.2f ms)",
+                 Measure.median(bareSetup), Measure.median(lunaSetup),
+                 Measure.median(lunaSetup) - Measure.median(bareSetup)))
 
-    let bareMedian = Measure.median(bare)
-    let factoryMedian = Measure.median(factory)
-    let lunaMedian = Measure.median(luna)
-    for (name, values) in [("bare WKWebView", bare), ("WebViewFactory", factory), ("TabController", luna)] {
-        print(String(format: "  %@: median %.1f ms  min %.1f max %.1f  (n=%d)",
-                     name, Measure.median(values), values.min() ?? 0, values.max() ?? 0, values.count))
+// MARK: - blocking (§17.1: what a filter-list refresh costs the main thread)
+
+case "blocking":
+    let app = NSApplication.shared
+    app.setActivationPolicy(.accessory)
+    app.finishLaunching()
+
+    // **A heartbeat, because a compile does not block the main thread outright.**
+    // `WKContentRuleListStore.compileContentRuleList` keeps the run loop turning
+    // and stalls it in bursts, so the number that matters is not "did it block"
+    // but "how long did it go without answering". A 10 ms timer that misses its
+    // slot by 300 ms is a window that missed 300 ms of a drag.
+    // `@MainActor` so the timer's `@Sendable` closure may hold it: a main-actor
+    // class is Sendable, and the timer only ever fires on the main run loop.
+    @MainActor final class Heartbeat {
+        var last = DispatchTime.now()
+        var gaps: [Double] = []
+        func beat() {
+            let now = DispatchTime.now()
+            gaps.append(Double(now.uptimeNanoseconds - last.uptimeNanoseconds) / 1_000_000)
+            last = now
+        }
     }
-    print(String(format: "PAGE bare %.1f ms, %+.1f ms configuration, %+.1f ms scripts and observers, "
-                 + "Luna %.1f ms (%+.1f ms)",
-                 bareMedian, factoryMedian - bareMedian, lunaMedian - factoryMedian,
-                 lunaMedian, lunaMedian - bareMedian))
+    let heartbeat = Heartbeat()
+    let timer = Timer(timeInterval: 0.01, repeats: true) { _ in
+        MainActor.assumeIsolated { heartbeat.beat() }
+    }
+    RunLoop.main.add(timer, forMode: .common)
+
+    print("  fetching and compiling all three lists (this is the once-a-day job)…")
+    let start = DispatchTime.now()
+    var done = false
+    Task { @MainActor in
+        await ContentBlocker.shared.refresh(force: true)
+        done = true
+    }
+    pump(seconds: 300) { !done }
+    let total = Double(DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds) / 1000
+
+    timer.invalidate()
+    // The first gap is from the timer being installed, not from any stall.
+    let gaps = heartbeat.gaps.dropFirst()
+    let stalls = gaps.filter { $0 > 100 }
+    let lost = gaps.map { max(0, $0 - 10) }.reduce(0, +)
+    print(String(format: "BLOCKING refresh %.1f s, worst main-thread stall %.0f ms, "
+                 + "%d stalls over 100 ms, %.1f s of main thread lost in total",
+                 total / 1_000_000, gaps.max() ?? 0, stalls.count, lost / 1000))
 
 default:
     print("usage: luna-perf seed <db> <spaces> <tabs> | launch <binary> <runs> "
-          + "| tabs <total> <spaces> <live> | page <repeats> | leak")
+          + "| tabs <total> <spaces> <live> | page <repeats> | blocking | leak")
 }

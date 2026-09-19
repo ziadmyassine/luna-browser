@@ -133,13 +133,45 @@ public final class ContentBlocker {
         publishStatus()
     }
 
+    /// How long after launch a refresh that **is** due waits before starting.
+    ///
+    /// It was 5 s, which is not "after launch" — it is during the first page the
+    /// user asked for, and the refresh competes with it for the network and for
+    /// the main thread. Nothing about a refresh is urgent: the cached lists are
+    /// already attached by the time this is scheduled, so the only thing waiting
+    /// is a list that is at most a day stale.
+    static let postLaunchDelay: TimeInterval = 30
+
+    /// How long to wait before refreshing, given when the last one landed.
+    ///
+    /// **``refreshInterval`` used to pick the delay and nothing else, so it was
+    /// not an interval at all.** A launch inside the 24 hours slept a minute and
+    /// then re-fetched all three lists anyway; the only thing the interval
+    /// bought was that an *unchanged* list skipped its compile. The lists
+    /// upstream are rebuilt several times a day, so on a machine that relaunches
+    /// Luna often — which is every machine Luna is built on — a changed list
+    /// meant the full fetch, convert and compile again, minutes after the last
+    /// one. That is ~1.8 MB down and three multi-second compiles, most of them
+    /// for nothing.
+    ///
+    /// Pure, and separate from the task that sleeps on it, so the schedule can
+    /// be asserted without waiting a day for it.
+    static func refreshDelay(since last: Date?, now: Date, interval: TimeInterval) -> TimeInterval {
+        let elapsed = now.timeIntervalSince(last ?? .distantPast)
+        guard elapsed < interval else { return postLaunchDelay }
+        // Not due. Sleep out the remainder rather than refreshing early — a
+        // session that lives that long still gets its daily update.
+        return max(postLaunchDelay, interval - elapsed)
+    }
+
     private func scheduleRefresh() {
-        let last = defaults.object(forKey: Key.lastRefresh) as? Date ?? .distantPast
-        let due = Date().timeIntervalSince(last) >= refreshInterval
+        let delay = Self.refreshDelay(
+            since: defaults.object(forKey: Key.lastRefresh) as? Date,
+            now: Date(),
+            interval: refreshInterval
+        )
         refreshTask = Task { [weak self] in
-            // Launch first. Even the download competes for the network with the first
-            // page the user asked for (§19.1).
-            try? await Task.sleep(for: .seconds(due ? 5 : 60))
+            try? await Task.sleep(for: .seconds(delay))
             await self?.refresh()
         }
     }
@@ -152,13 +184,22 @@ public final class ContentBlocker {
         status = .updating
         var failures: [String] = []
 
+        var compiledSomething = false
         for category in Category.allCases {
             guard isEnabled(category) else {
                 compiled[category] = nil
                 continue
             }
             do {
-                try await update(category, force: force)
+                // **A breath between compiles.** Each one stalls the main thread
+                // for up to 353 ms at a time (measured, see `docs/PERF.md`), and
+                // three of them back to back is three hitches with nothing
+                // between them. This costs the refresh a second and gives the
+                // window that second to answer in. Only after one that actually
+                // compiled: a category whose hash is unchanged does no work and
+                // has nothing to recover from.
+                if compiledSomething { try? await Task.sleep(for: .seconds(1)) }
+                compiledSomething = try await update(category, force: force)
             } catch {
                 failures.append("\(category.rawValue): \(error.localizedDescription)")
             }
@@ -169,7 +210,10 @@ public final class ContentBlocker {
         publishStatus(failures: failures)
     }
 
-    private func update(_ category: Category, force: Bool) async throws {
+    /// - Returns: whether this category was actually compiled. False means the
+    ///   list came back unchanged and the compiled one it already had still stands.
+    @discardableResult
+    private func update(_ category: Category, force: Bool) async throws -> Bool {
         let (data, response) = try await URLSession.shared.data(from: category.source)
         if let http = response as? HTTPURLResponse, http.statusCode != 200 {
             throw URLError(.badServerResponse)
@@ -179,7 +223,7 @@ public final class ContentBlocker {
         // The content hash is the cache key (§17.1). An unchanged list must not pay 2.9 s
         // of compile again, so a matching hash plus a list the store still holds is the
         // whole of the work.
-        if !force, hash == defaults.string(forKey: Key.hash(category)), compiled[category] != nil { return }
+        if !force, hash == defaults.string(forKey: Key.hash(category)), compiled[category] != nil { return false }
 
         // Parsing and JSON-encoding 80,000 rules is ~1.4 s of pure CPU; it has no business
         // on the main actor. The compile itself cannot move — the API is main-actor — so
@@ -215,6 +259,7 @@ public final class ContentBlocker {
         defaults.set(ruleCount, forKey: Key.ruleCount(category))
         ruleCounts[category] = ruleCount
         compiled[category] = lists
+        return true
     }
 
     /// Old hashes leave compiled lists behind, and each one is tens of megabytes on disk.
