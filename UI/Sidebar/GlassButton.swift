@@ -102,7 +102,6 @@ final class GlassButton: NSView {
         updateGlass(animated: false)
 
         glyph.imageScaling = .scaleProportionallyUpOrDown
-        glyph.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .regular)
         addSubview(glyph)
         setSymbol(symbolName)
 
@@ -121,7 +120,16 @@ final class GlassButton: NSView {
 
     /// Swaps the glyph — reload → stop while loading (§3.1), speaker → speaker
     /// slash when muted (§3.4).
+    ///
+    /// **The weight is set here and not at init**, because it belongs to the
+    /// mark rather than to the button: the same circle holds `arrow.clockwise`
+    /// and then `xmark`, and §3.1's back chevron needs a heavier setting than
+    /// either to carry their ink. See `TypeScale.glyphWeight(for:)`.
     func setSymbol(_ name: String) {
+        glyph.symbolConfiguration = NSImage.SymbolConfiguration(
+            pointSize: pointSize,
+            weight: Tokens.TypeScale.glyphWeight(for: name)
+        )
         glyph.image = NSImage(systemSymbolName: name, accessibilityDescription: nil)
         glyph.contentTintColor = nil
         refresh()

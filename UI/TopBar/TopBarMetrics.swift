@@ -30,23 +30,6 @@ enum TopBarMetrics {
     /// Glyph and favicon size for every control on the bar.
     static var glyph: CGFloat { Tokens.Metric.faviconSize }
 
-    /// The weight a symbol has to be drawn at to carry the same ink as the rest
-    /// of the bar's glyphs.
-    ///
-    /// **SF Symbols size to a shared cap height, not to a shared amount of
-    /// mark.** Measured at `glyph` pt, `plus` covers 36 pt² of ink in a 14 × 14
-    /// box, `arrow.down.to.line` 57, `clock.arrow.circlepath` 79 and
-    /// `person.crop.circle` 116 — and `chevron.backward` 28, in a box 8 pt
-    /// wide. Back is a bare pair of diagonals and nothing else, so at the same
-    /// nominal size it is the faintest thing on the bar, sitting a bar's width
-    /// from the heaviest cluster on it. Semibold puts it at 39, just past
-    /// `plus`, without making it taller than its neighbours.
-    ///
-    /// A chevron is the only mark this is true of, so it is the only one named.
-    static func weight(for symbolName: String) -> NSFont.Weight {
-        symbolName.hasPrefix("chevron.") ? .semibold : .regular
-    }
-
     /// How far the traffic lights' centre line falls below the bar's own, in
     /// AppKit's sense where a positive constant moves a view **down**.
     ///

@@ -5,6 +5,11 @@
 //  §1's type scale. Split out of `Metrics.swift` when that file crossed
 //  SwiftLint's 400-line limit; nothing changed on the way across.
 //
+//  It owns SF Symbol weight as well as font weight, and for the same reason:
+//  this is the only file in Luna permitted to name an `NSFont.Weight`, and a
+//  symbol is a face like any other. The size those symbols are set at is a
+//  metric and stays in `Metrics.glyphSize`.
+//
 
 import AppKit
 
@@ -72,5 +77,32 @@ extension Tokens {
         /// `sectionLabel`: this is prose, and semibold tabular prose is a label
         /// pretending to be a sentence.
         static var settingsCaption: NSFont { .systemFont(ofSize: 11, weight: .regular) }
+
+        /// The weight an SF Symbol has to be set at to carry the same ink as
+        /// the glyphs beside it.
+        ///
+        /// **One nominal size is not one apparent size.** SF Symbols are set to
+        /// a shared cap height, not to a shared amount of mark, and Luna's
+        /// chrome puts them shoulder to shoulder. Measured at `glyphSize`, as
+        /// lit area in pt² and as the mark's own width:
+        ///
+        ///     sidebar.leading         18.5 pt wide   101
+        ///     person.crop.circle      16.0            116
+        ///     clock.arrow.circlepath  17.5             79
+        ///     arrow.down.to.line      12.0             57
+        ///     arrow.clockwise         14.0             56
+        ///     xmark                   12.5             49
+        ///     plus                    13.0             36
+        ///     chevron.backward         7.5             28
+        ///
+        /// Back is two thin diagonals and nothing else: the faintest mark in
+        /// the chrome and half the width of anything it stands next to — §3.1's
+        /// toggle, at 18.5 pt, is its immediate neighbour. Semibold puts it at
+        /// 39 and 9 pt wide, level with `plus`, and leaves it no taller than
+        /// the rest. Nothing else here is a bare stroke, so nothing else is
+        /// corrected; a chevron is the rule's whole subject.
+        static func glyphWeight(for symbolName: String) -> NSFont.Weight {
+            symbolName.hasPrefix("chevron.") ? .semibold : .regular
+        }
     }
 }

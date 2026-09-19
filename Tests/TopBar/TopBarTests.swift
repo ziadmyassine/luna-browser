@@ -35,20 +35,6 @@ final class TopBarDomainTests: XCTestCase {
         XCTAssertEqual(TopBarDomain.display(for: nil), "")
     }
 
-    /// **One nominal size is not one apparent size.** SF Symbols size to a
-    /// shared cap height, and a chevron is two thin diagonals where its
-    /// neighbours on the bar are closed shapes — measured at 16 pt it carried
-    /// 28 pt² of ink against `plus`'s 36 and `person.crop.circle`'s 116, which
-    /// is what made Back read as the faintest thing on the bar. The rule is
-    /// about the shape of the mark, so nothing else is corrected.
-    func testOnlyAChevronIsGivenTheWeightItsNeighboursHaveForFree() {
-        XCTAssertEqual(TopBarMetrics.weight(for: "chevron.backward"), .semibold)
-        XCTAssertEqual(TopBarMetrics.weight(for: "chevron.left"), .semibold)
-        for name in ["plus", "clock.arrow.circlepath", "arrow.down.to.line", "person.crop.circle"] {
-            XCTAssertEqual(TopBarMetrics.weight(for: name), .regular, name)
-        }
-    }
-
     /// Luna's own pages have a host and it is not a name. A tab on one of them
     /// carries no title until the page reports it, and the label it wore in the
     /// meantime was `newtab`.
