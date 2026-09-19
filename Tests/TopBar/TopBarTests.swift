@@ -52,6 +52,44 @@ final class TopBarDomainTests: XCTestCase {
     }
 }
 
+/// §4's alignment (`TopBarTabRun`): a centred run is centred **in the bar**,
+/// not in the strip it happens to live in.
+final class TopBarTabRunTests: XCTestCase {
+
+    /// A strip inset 146 pt on the left and 193 on the right, inside a 1070 pt
+    /// bar: the numbers the running app actually produces. The bar's centre is
+    /// 389 pt along a 731 pt strip — nowhere near its middle, which is the
+    /// whole bug.
+    private let span: CGFloat = 731
+    private let barCentre: CGFloat = 389
+
+    private func pad(_ position: TabsPosition, run: CGFloat) -> CGFloat {
+        TopBarTabRun.leadingPad(position: position, run: run, span: span, barCentre: barCentre)
+    }
+
+    func testACentredRunStraddlesTheBarsCentreNotTheStrips() {
+        let run: CGFloat = 172
+        XCTAssertEqual(pad(.centre, run: run) + run / 2, barCentre, accuracy: 0.5)
+        // What it used to do, and what the eye caught: 23 pt off.
+        XCTAssertEqual(pad(.centre, run: run) - (span - run) / 2, 23.5, accuracy: 0.5)
+    }
+
+    /// Centring is the only position that asks where the bar's middle is; left
+    /// and right are about the strip's own edges and must not have moved.
+    func testLeftAndRightStillMeasureFromTheStripsOwnEdges() {
+        XCTAssertEqual(pad(.left, run: 172), 0)
+        XCTAssertEqual(pad(.right, run: 172), span - 172)
+    }
+
+    /// A run too wide to reach the middle starts as close to it as it can
+    /// rather than sliding out under the cluster beside it.
+    func testAWideRunIsClampedIntoTheStrip() {
+        XCTAssertEqual(pad(.centre, run: 700), 31, accuracy: 0.5)
+        XCTAssertEqual(pad(.centre, run: span), 0)
+        XCTAssertEqual(pad(.centre, run: span + 100), 0)
+    }
+}
+
 @MainActor
 final class TopBarActionCapsuleTests: XCTestCase {
 

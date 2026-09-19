@@ -23,36 +23,15 @@
 //    · **No reload button.** The reference omits it; §4 makes reload `⌘R` and
 //      the site menu inside the pill.
 //    · **No traffic-light layout.** `TrafficLightLayoutManager` owns those
-//      frames for every window state (§7.7). The bar only measures how much
-//      room they take and starts after it.
+//      frames for every window state (§7.7). The bar asks `TrafficLightSpace`
+//      where they landed and stands beside them on their centre line, as
+//      §3.1's row does — so the corner reads the same in either layout.
 //    · **No page tint on the bar itself.** §2: the chrome samples what is
 //      *behind the window*. The URL pill carries the only page-derived colour.
 //
 
 import AppKit
 import BrowserKit
-
-/// §4 gives no gap table of its own, so the bar borrows §3.1's: 8 pt between
-/// tight neighbours, 16 pt between clusters. Both are derived from an existing
-/// token rather than written down again — there is no `chromeGap` token yet,
-/// and rule 2 forbids inventing one here.
-enum TopBarMetrics {
-    /// §3.1's "gap 8".
-    static var gap: CGFloat { Tokens.Metric.rowInset }
-    /// §3.1's "gap 16", and the bar's own leading / trailing inset.
-    static var clusterGap: CGFloat { Tokens.Metric.rowInset * 2 }
-    /// §4: inactive tabs are 28 pt icon-only tiles.
-    static var tile: RoundedMetric { Tokens.Metric.controlSquircle }
-    /// One capsule item, and the diameter **every** button on this bar uses —
-    /// back included. Round because the capsule it sits in is a cylinder with
-    /// rounded ends.
-    static var capsuleItem: RoundedMetric { .circle(Tokens.Metric.controlSquircle.width) }
-    /// The capsule's padding around its items. Half a `rowInset`, which lands
-    /// the capsule at 36 pt tall — the measured height in the reference.
-    static var capsuleInset: CGFloat { Tokens.Metric.rowInset / 2 }
-    /// Glyph and favicon size for every control on the bar.
-    static var glyph: CGFloat { Tokens.Metric.faviconSize }
-}
 
 /// Anything on the bar holding a token *by value*, and therefore needing to be
 /// told when the accessibility display options flip.
@@ -195,14 +174,22 @@ final class TopBarView: NSView {
     }
 
     private func buildLayout() {
-        let views: [NSView] = [backCapsule, strip, separator, capsule]
-        for view in views {
+        for view in [backCapsule, strip, separator, capsule] as [NSView] {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
-            view.centerYAnchor.constraint(equalTo: centerYAnchor).isActive = true
         }
-        // Measured from the real window buttons in `updateTrafficLightReserve`;
-        // this is only the floor until there is a window to measure.
+        // Not the bar's own centre: the traffic lights' (see the token). **And
+        // not the strip**, which is pinned top and bottom — a centre line as
+        // well is a third vertical constraint and one of the three gets
+        // dropped. It stands its own tabs on the line instead.
+        NSLayoutConstraint.activate([backCapsule, separator, capsule].map {
+            $0.centerYAnchor.constraint(
+                equalTo: centerYAnchor,
+                constant: TopBarMetrics.lightsCentreOffset
+            )
+        })
+        // Set from the lights in `alignToTrafficLights`; this is the floor
+        // until there is a window to ask.
         let leading = backCapsule.leadingAnchor.constraint(
             equalTo: leadingAnchor,
             constant: Tokens.Metric.rowInset
@@ -344,18 +331,19 @@ final class TopBarView: NSView {
 
     // MARK: - Geometry
 
-    /// The bar starts after the traffic lights, and it *measures* them rather
-    /// than assuming a width: `TrafficLightLayoutManager` owns their placement
-    /// and a second copy of that arithmetic here would be the §7.7 bug.
+    /// Where the bar starts: after the traffic lights, a cluster gap on.
+    ///
+    /// **Derived, not read off the live buttons.** AppKit resets their origins
+    /// on every resize and `TrafficLightLayoutManager` puts them back a beat
+    /// later, so a bar that believed what it saw in between laid Back against
+    /// the green light rather than a gap from it. `TrafficLightSpace` is the
+    /// shared answer, and §3.1's control row asks it the very same question.
+    ///
+    /// The other half of standing beside them — their centre line — is a
+    /// constant and is set once; see `TopBarMetrics.lightsCentreOffset`.
     private func updateTrafficLightReserve() {
-        guard let window else { return }
-        let types: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
-        let edge = types
-            .compactMap { window.standardWindowButton($0) }
-            .map { convert($0.bounds, from: $0).maxX }
-            .max()
-        guard let edge else { return }
-        let reserve = edge + TopBarMetrics.clusterGap
+        guard let lights = TrafficLightSpace.rect(in: self) else { return }
+        let reserve = lights.maxX + TopBarMetrics.clusterGap
         guard let leadingInset, abs(leadingInset.constant - reserve) > .ulpOfOne else { return }
         leadingInset.constant = reserve
     }
