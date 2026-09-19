@@ -104,6 +104,17 @@ final class SidebarRowView: NSView {
         titleClip.wantsLayer = true
         titleClip.layer?.masksToBounds = true
         shimmer.wantsLayer = true
+        // **Hidden from the start, not from the first load.** `updateShimmer`
+        // is what shows and hides this, and `configure` only calls it when
+        // `isLoading` *changes* — which is right for a recycled view, whose
+        // `content` describes the shimmer it is currently wearing, and wrong
+        // for a new one, which starts with `isLoading` false and an
+        // `NSTextField` that is visible by default. So a row built for a tab
+        // that never loads kept a full-strength copy of its own title sitting
+        // on top of the dimmer one, and the list came out in two inks with no
+        // pattern to them: which rows were bright depended on which came out
+        // of the reuse pool having once carried a load.
+        shimmer.isHidden = true
         shimmerMask.startPoint = CGPoint(x: 0, y: 0.5)
         shimmerMask.endPoint = CGPoint(x: 1, y: 0.5)
         fadeMask.startPoint = CGPoint(x: 0, y: 0.5)
@@ -166,19 +177,25 @@ final class SidebarRowView: NSView {
     // MARK: - Ink
 
     private func refreshInk() {
-        // §3.4: the selected row has brighter text; hover promotes it the same
-        // way, because Luna has no translucent hover-fill token to lift instead.
-        let bright = isSelected || isHovered
+        // §3.4: **the selected row is the only bright title in the list.** The
+        // hover used to promote the ink too, on the grounds that there was no
+        // translucent hover fill to lift instead — there is one now, and it is
+        // `hoverPill`, so the reason has outlived itself. Two bright rows at
+        // once is one too many: the list answers "which tab am I on" by having
+        // exactly one title brighter than the rest.
         title.textColor = content.isLoading
             ? Tokens.Text.tertiary
-            : (bright ? Tokens.Text.primary : Tokens.Text.secondary)
+            : (isSelected ? Tokens.Text.primary : Tokens.Text.secondary)
         shimmer.textColor = Tokens.Text.primary
         // **Ink, not accent.** Luna's chrome carries no system blue: the unread
         // mark is a full-strength dot in the same ink the title is set in, and
         // it reads because it is bright, not because it is a different hue.
         dot.layer?.backgroundColor = Tokens.Text.primary.cgColor
         icon.contentTintColor = content.favicon != nil ? nil : Tokens.Text.secondary
-        trailing.tint = bright ? Tokens.Text.primary : Tokens.Text.secondary
+        // The trailing glyph keeps the hover, because it *is* the hover: the
+        // close chip is only reachable on the row the pointer is on, and it
+        // has to be legible while it is being aimed at.
+        trailing.tint = isSelected || isHovered ? Tokens.Text.primary : Tokens.Text.secondary
     }
 
     override func viewDidChangeEffectiveAppearance() {
