@@ -138,6 +138,20 @@ struct FaviconServiceTests {
         #expect(FaviconService.png(from: Data()) == nil)
         #expect(FaviconService.png(from: Self.onePixelPNG) != nil)
     }
+
+    /// Why `rasterize` exists. ImageIO hands back a source with no images at all
+    /// for a vector, and several sites serve one straight from `/favicon.ico` —
+    /// so without the seam those hosts have no icon. If this ever starts passing
+    /// an SVG, the seam is dead code and should go.
+    @Test func cannotReadAVectorWithoutTheAppsHelp() {
+        #expect(FaviconService.png(from: Self.squareSVG) == nil)
+        #expect(FaviconService.rasterize == nil, "BrowserKit must not install one itself")
+    }
+
+    /// A vector icon, as small as one gets.
+    static let squareSVG = Data("""
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16"/></svg>
+    """.utf8)
 }
 
 @Suite("TabController lifecycle (§19.2)")

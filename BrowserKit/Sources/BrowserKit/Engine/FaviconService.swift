@@ -9,8 +9,14 @@ import WebKit
 ///
 /// Everything handed out is **PNG bytes that have already been decoded once**. That is
 /// the guarantee behind "no icon ever flashes a broken-image glyph" (§4.7): bytes that
-/// ImageIO cannot read never reach the cache, so the sidebar's only two cases are a
+/// nothing here can read never reach the cache, so the sidebar's only two cases are a
 /// real icon or nil (where the UI draws its monogram tile).
+///
+/// "Read" is two decoders, because a favicon is no longer always a bitmap. ImageIO
+/// answers for PNG, ICO and the rest; SVG it cannot open at all, and a site that
+/// serves one — even from `/favicon.ico`, which several do — had no icon in Luna as
+/// far as this file was concerned. Drawing a vector needs AppKit, which rule 1 keeps
+/// out of this module, so the app installs the renderer: see `rasterize`.
 @MainActor
 public final class FaviconService {
 
@@ -25,6 +31,27 @@ public final class FaviconService {
 
     /// Test seam: how many hosts the memory tier is holding.
     var memoryCount: Int { memory.count }
+
+    /// The longest edge a cached icon is kept at. A favicon is drawn at 16 pt; this
+    /// leaves room for a Retina scale factor and for §3.3's larger Essentials tile,
+    /// and nothing beyond that is worth the bytes.
+    nonisolated static let maxPixelSize = 128
+
+    // MARK: - App-supplied seam
+    //
+    // Rule 1 keeps AppKit out of `BrowserKit`, and AppKit is the only thing on this
+    // machine that rasterises SVG (`NSImage` reads one; ImageIO returns an empty
+    // source for it). So the renderer is set once at assembly by
+    // `Features/Favicons/VectorIconRasterizer` — the same shape of seam as
+    // `InternalPages.content`.
+
+    /// Draws vector icon bytes into a PNG whose longest edge is the given number of
+    /// pixels, or nil for bytes it cannot read either. Only ever asked about bytes
+    /// ImageIO has already refused, so in practice only about vectors.
+    ///
+    /// Unset — in tests, and before assembly — leaves the old behaviour exactly: a
+    /// vector is not an icon and the next candidate gets its turn.
+    @MainActor public static var rasterize: (@MainActor (Data, Int) -> Data?)?
 
     init(directory: URL = FaviconService.defaultDirectory, memoryLimit: Int = 128) {
         self.directory = directory
@@ -62,7 +89,12 @@ public final class FaviconService {
         if let fallback = URL(string: "https://\(key)/favicon.ico") { candidates.append(fallback) }
 
         for candidate in candidates {
-            guard let png = await Self.downloadPNG(from: candidate) else { continue }
+            guard let bytes = await Self.download(from: candidate) else { continue }
+            // ImageIO first, the app's vector renderer second. The decode happens
+            // here rather than inside the download because the seam is main-actor
+            // bound and the download deliberately is not.
+            guard let png = Self.png(from: bytes) ?? Self.rasterize?(bytes, Self.maxPixelSize)
+            else { continue }
             store(png, for: key)
             let file = fileURL(for: key)
             await Self.write(png, to: file)
@@ -121,12 +153,14 @@ public final class FaviconService {
         }
     }
 
-    private nonisolated static func downloadPNG(from url: URL) async -> Data? {
+    /// The candidate's bytes, whatever they turn out to be. Decoding is the caller's
+    /// (see `fetchFavicon`); this only refuses what is not worth decoding.
+    private nonisolated static func download(from url: URL) async -> Data? {
         guard let (data, response) = try? await URLSession.shared.data(from: url) else { return nil }
         if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) { return nil }
         // An icon is kilobytes. Anything past this is a mislabelled page or a trap.
         guard !data.isEmpty, data.count <= 2_000_000 else { return nil }
-        return png(from: data)
+        return data
     }
 
     private nonisolated static func write(_ data: Data, to file: URL) async {
@@ -139,8 +173,8 @@ public final class FaviconService {
 
     /// Decodes, picks the largest sub-image (a `.ico` packs several and lists the
     /// smallest first) and re-encodes as a bounded PNG. Returns nil for anything
-    /// ImageIO cannot read — including SVG icons, which fall through to the next
-    /// candidate rather than becoming a broken image.
+    /// ImageIO cannot read — which is no longer the end of the line for an SVG:
+    /// `fetchFavicon` offers those bytes to `rasterize` before moving on.
     nonisolated static func png(from data: Data) -> Data? {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
         let count = CGImageSourceGetCount(source)
@@ -160,7 +194,7 @@ public final class FaviconService {
         let options: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: 128
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize
         ]
         guard let image = CGImageSourceCreateThumbnailAtIndex(source, bestIndex, options as CFDictionary)
             ?? CGImageSourceCreateImageAtIndex(source, bestIndex, nil)

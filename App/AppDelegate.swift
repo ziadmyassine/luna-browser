@@ -104,6 +104,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Restores the last session (§6.2) and hands the UI its source of truth.
     private func startSession(in controller: BrowserWindowController) async {
         do {
+            // §4.7's second decoder. Before the first web view, so no page can
+            // finish loading and be told its SVG mark is not an icon.
+            VectorIconRasterizer.install()
             let store = try BrowserStore(path: Self.databaseURL)
             // §17.1: compiles cached rule lists and schedules the refresh. Before the
             // session, so the first web view is built with the lists already applied.
