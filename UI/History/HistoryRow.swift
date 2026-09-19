@@ -135,6 +135,12 @@ final class HistoryRowView: NSView {
         stack.orientation = .horizontal
         stack.alignment = .centerY
         stack.spacing = Tokens.Metric.rowIconGap
+        // The row's slack belongs to the text, not to the space after it: the
+        // favicon is a fixed 16 pt either way, and a `text` that hugs is a
+        // `text` that stops short of the row's trailing edge — which takes the
+        // timestamp with it and leaves the column of stamps ragged.
+        icon.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+        text.setHuggingPriority(.defaultLow, for: .horizontal)
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
 
