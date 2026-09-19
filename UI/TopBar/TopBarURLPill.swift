@@ -28,8 +28,11 @@ enum TopBarDomain {
     /// subdomain except `www` is. Same rule as `BrowserKit`'s favicon key.
     static func display(for url: URL?) -> String {
         guard let url else { return "" }
+        // Luna's own pages have a host, and it is not a name: a New Tab whose
+        // `<title>` has not arrived yet was labelled `newtab` until it did.
+        if let name = InternalPages.name(for: url) { return name }
         guard let host = url.host(percentEncoded: false), !host.isEmpty else {
-            // `about:blank`, `luna:…` — there is no host to shorten.
+            // `about:blank` — there is no host to shorten.
             return url.absoluteString
         }
         let lower = host.lowercased()

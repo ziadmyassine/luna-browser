@@ -39,6 +39,26 @@ public enum InternalPages {
             case let .error(error): error.pageURL
             }
         }
+
+        /// What the page calls itself — **the same string it sets as its own
+        /// `<title>`**, which is the point: a tab showing one of these has no
+        /// title until the load lands, and a label that fell back to the host
+        /// said `newtab` for as long as that took. Two spellings of the same
+        /// page, one of them briefly.
+        public var name: String {
+            switch self {
+            case .newTab: "New Tab"
+            case .archive: "History"
+            case let .error(error): copy(for: error.kind).title
+            }
+        }
+    }
+
+    /// The name Luna's own pages go by, for a URL that is one — and nil for
+    /// every URL that has a host worth showing instead.
+    public static func name(for url: URL) -> String? {
+        guard case let .page(page) = route(url) else { return nil }
+        return page.name
     }
 
     /// A link on an internal page that the engine cannot perform itself.

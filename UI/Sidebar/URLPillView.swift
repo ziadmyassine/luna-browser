@@ -170,8 +170,14 @@ final class URLPillView: NSView, NSTextFieldDelegate {
 
     /// `apple.com`, not `https://www.apple.com/iphone` (§30.3). `www.` is the
     /// one subdomain that is never meaningful.
+    ///
+    /// Luna's own pages answer with their name instead. They have a host like
+    /// anything else and it is not a name — a tab on `luna://newtab` carries no
+    /// title until the page reports one, and until then this was its label.
     static func domain(of url: URL?) -> String {
-        guard let host = url?.host(percentEncoded: false), !host.isEmpty else { return "" }
+        guard let url else { return "" }
+        if let name = InternalPages.name(for: url) { return name }
+        guard let host = url.host(percentEncoded: false), !host.isEmpty else { return "" }
         return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
     }
 

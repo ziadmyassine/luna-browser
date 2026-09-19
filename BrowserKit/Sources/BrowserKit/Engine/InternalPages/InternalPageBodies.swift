@@ -36,7 +36,7 @@ extension InternalPages {
         <ul class="grid" aria-label="Favorites">\(tiles.joined())</ul>
         </main>
         """
-        return document(title: "New Tab", bodyClass: "", body: body)
+        return document(title: Page.newTab.name, bodyClass: "", body: body)
     }
 
     @MainActor
@@ -87,7 +87,7 @@ extension InternalPages {
         <p class="empty" id="none" hidden>No matches.</p>
         </main>
         """
-        return document(title: "History", bodyClass: "", body: body, script: archiveScript)
+        return document(title: Page.archive.name, bodyClass: "", body: body, script: archiveScript)
     }
 
     @MainActor
@@ -174,7 +174,9 @@ extension InternalPages {
     <circle cx="12" cy="12" r="9"/><path d="M12 7v6"/><path d="M12 16.5v.01"/></svg>
     """
 
-    private static func copy(for kind: InternalPageError.Kind) -> (title: String, message: String) {
+    /// Shared with `Page.name`: an error page's title is what a tab showing it
+    /// is called, and the two must not be able to disagree.
+    static func copy(for kind: InternalPageError.Kind) -> (title: String, message: String) {
         switch kind {
         case .offline:
             ("You're offline", "Luna can't reach the network. Check your Wi-Fi or Ethernet connection.")
