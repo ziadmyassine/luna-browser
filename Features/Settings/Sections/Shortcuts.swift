@@ -41,8 +41,14 @@ final class ShortcutsSection: SettingsSection {
         /// Rendered as the user sees it: "⇧⌘T". Empty when the command has no
         /// key equivalent, which is most of them.
         var key: String
-        /// The table entry this item's selector matched, if any.
-        var commandID: String?
+        /// The table entry this item matched, **if that entry is Luna's to
+        /// move**. Nil is what makes a row read-only, so there is one answer to
+        /// "can I change this?" rather than a match and a separate flag.
+        var editableID: String?
+        /// Why it cannot be moved, short enough to sit under the title as a
+        /// tag. Nil when it can be, and nil when the row carries no shortcut —
+        /// there is nothing to explain about a command that has none.
+        var fixedReason: String?
     }
 
     // MARK: Reading the menu bar
@@ -70,12 +76,34 @@ final class ShortcutsSection: SettingsSection {
         menu.items.flatMap { item -> [Command] in
             if let submenu = item.submenu { return leaves(of: submenu, under: title) }
             guard !item.isSeparatorItem, !item.isHidden, !item.title.isEmpty else { return [] }
+            let key = keyEquivalent(of: item)
+            let editable = command(for: item).flatMap { $0.isCustomisable ? $0 : nil }
             return [Command(
                 menu: title,
                 title: item.title,
-                key: keyEquivalent(of: item),
-                commandID: command(for: item)?.id
+                key: key,
+                editableID: editable?.id,
+                fixedReason: editable == nil && !key.isEmpty ? reason(for: item) : nil
             )]
+        }
+    }
+
+    /// Why a shortcut is not the user's to move, in three or four words.
+    ///
+    /// The numbered families get their own sentence because "macOS owns it" is
+    /// simply untrue of them: `⌘1…⌘9` and `⌃1…⌃9` are Luna's, they are just not
+    /// one command each. They are built per session from the sidebar rows and
+    /// Spaces that exist right now, so there is no single thing to rebind — and
+    /// a user who is told the wrong reason goes looking for the setting that
+    /// would fix it.
+    private static func reason(for item: NSMenuItem) -> String {
+        switch item.action {
+        case #selector(AppDelegate.goToSidebarItem(_:)):
+            return String(localized: "Numbered from your sidebar")
+        case #selector(AppDelegate.switchToSpace(_:)):
+            return String(localized: "Numbered from your Spaces")
+        default:
+            return String(localized: "Standard macOS shortcut")
         }
     }
 
@@ -117,30 +145,45 @@ final class ShortcutsSection: SettingsSection {
 
     init() {
         body.card(nil, [(resetAllRow(), ["reset shortcuts", "restore defaults", "customise", "customize"])])
+        // **Above the table, not below it.** It is the key to the drawing, and
+        // a legend a reader only meets after scrolling past sixty rows they
+        // could not interpret has been printed too late to have been a legend.
+        body.loose(SettingsRow.note(String(localized: """
+        Shortcuts in a box are yours to change: click one and press the new keys. \
+        Escape cancels, Delete clears it, and a shortcut needs ⌘, ⌃ or ⌥ — without one it would be \
+        typed into the page instead. The rest are printed flat: they belong to macOS, or are numbered \
+        from your Spaces and sidebar, and cannot be moved.
+        """)), terms: ["help", "how to change a shortcut", "editable", "cannot be changed", "locked"])
         // `NSApplication.mainMenu` is nil in a unit-test host that never
         // installed one; an empty table is the right outcome, not a crash.
         let commands = NSApplication.shared.mainMenu.map(Self.commands(in:)) ?? []
         for menu in commands.map(\.menu).uniqued() {
             let rows = commands.filter { $0.menu == menu }.map { command in
-                (view: row(command), terms: [command.title, menu, command.key])
+                (view: row(command), terms: Self.terms(command))
             }
             body.card(menu, rows)
         }
-        body.loose(SettingsRow.note(String(localized: """
-        Click a shortcut to record a new one. Escape cancels, Delete clears it. \
-        A shortcut needs ⌘, ⌃ or ⌥ — without one it would be typed into the page instead. \
-        Shortcuts macOS owns, and the numbered ones built from your Spaces and tabs, are shown but cannot be moved.
-        """)), terms: ["help", "how to change a shortcut"])
+    }
+
+    /// §2's search matches a row on what it says *and* on what it is, so
+    /// "editable" lists everything that can be rebound and nothing else.
+    private static func terms(_ command: Command) -> [String] {
+        [command.title, command.menu, command.key]
+            + (command.fixedReason.map { [$0] } ?? [])
+            + [command.editableID == nil
+                ? String(localized: "cannot be changed")
+                : String(localized: "editable")]
     }
 
     // MARK: Rows
 
     private func row(_ command: Command) -> NSView {
-        guard let id = command.commandID,
-              let entry = BrowserCommand.command(id: id),
-              entry.isCustomisable
-        else {
-            return SettingsRow.accessory(command.title, subtitle: nil, accessory: Self.keyLabel(command.key))
+        guard let id = command.editableID, let entry = BrowserCommand.command(id: id) else {
+            return SettingsRow.accessory(
+                command.title,
+                subtitle: command.fixedReason,
+                accessory: Self.keyLabel(command.key)
+            )
         }
         return SettingsRow.accessory(command.title, subtitle: nil, accessory: editor(for: entry))
     }
@@ -249,7 +292,7 @@ final class ShortcutsSection: SettingsSection {
 
     /// A label, not a control: a command macOS owns, or one built from live data
     /// rather than from the table, is read-only — so there is nothing here for
-    /// the user to operate.
+    /// the user to operate, and `isFixed` takes the box away to say so.
     ///
     /// A command with **no** key equivalent gets a dash rather than an empty
     /// chip: a plate with nothing on it reads as a shortcut that failed to
@@ -262,7 +305,7 @@ final class ShortcutsSection: SettingsSection {
             dash.setAccessibilityLabel(String(localized: "No shortcut"))
             return dash
         }
-        return SettingsKeyChip(key: key)
+        return SettingsKeyChip(key: key, isFixed: true)
     }
 }
 

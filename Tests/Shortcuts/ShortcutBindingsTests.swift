@@ -246,4 +246,54 @@ final class MainMenuBindingTests: XCTestCase {
         XCTAssertEqual(zoomIn.count, 1)
         XCTAssertEqual(zoomIn.first?.key, "⌘+")
     }
+
+    // MARK: - Which rows can be changed
+
+    /// The row carries its own answer, so the pane cannot draw a recorder on a
+    /// shortcut nothing can rebind.
+    func testARowSaysWhetherItIsTheUsersToChange() throws {
+        MainMenu.rebuild(in: NSApplication.shared)
+        let rows = ShortcutsSection.commands(in: try XCTUnwrap(NSApp.mainMenu))
+        let newTab = try XCTUnwrap(rows.first { $0.title == BrowserCommand.newTab.title })
+        XCTAssertEqual(newTab.editableID, BrowserCommand.newTab.id)
+        XCTAssertNil(newTab.fixedReason, "an editable row explains nothing; the box says it")
+
+        let quit = try XCTUnwrap(rows.first { $0.key == "⌘Q" })
+        XCTAssertNil(quit.editableID)
+        XCTAssertEqual(quit.fixedReason, "Standard macOS shortcut")
+    }
+
+    /// A command in the table that macOS owns the keystroke for — `⌘Z` and its
+    /// neighbours — is listed and fixed, not listed and quietly editable.
+    func testACommandMacOSOwnsIsListedAsFixed() throws {
+        MainMenu.rebuild(in: NSApplication.shared)
+        let rows = ShortcutsSection.commands(in: try XCTUnwrap(NSApp.mainMenu))
+        let undo = try XCTUnwrap(rows.first { $0.title == BrowserCommand.undo.title })
+        XCTAssertNil(undo.editableID)
+        XCTAssertEqual(undo.fixedReason, "Standard macOS shortcut")
+    }
+
+    /// "macOS owns it" would be a lie about `⌘1…⌘9`: they are Luna's, they are
+    /// just built per session rather than from the table. A user told the wrong
+    /// reason goes looking for a setting that cannot exist.
+    func testTheNumberedFamiliesSayWhyTheyCannotMove() throws {
+        MainMenu.rebuild(in: NSApplication.shared)
+        MainMenu.setSidebarItems(["Inbox"], in: NSApplication.shared)
+        MainMenu.setSpaces(["Personal", "Work"], in: NSApplication.shared)
+        let rows = ShortcutsSection.commands(in: try XCTUnwrap(NSApp.mainMenu))
+        XCTAssertEqual(rows.first { $0.key == "⌘1" }?.fixedReason, "Numbered from your sidebar")
+        XCTAssertEqual(rows.first { $0.key == "⌃1" }?.fixedReason, "Numbered from your Spaces")
+        XCTAssertTrue(rows.filter { $0.key == "⌘1" || $0.key == "⌃1" }.allSatisfy { $0.editableID == nil })
+    }
+
+    /// A command with no keystroke has nothing to explain. Left ungated, every
+    /// About, Services and Show All row grew a caption saying macOS owns a
+    /// shortcut that is not there.
+    func testARowWithNoShortcutIsNotGivenAReason() throws {
+        MainMenu.rebuild(in: NSApplication.shared)
+        let rows = ShortcutsSection.commands(in: try XCTUnwrap(NSApp.mainMenu))
+        let bare = rows.filter { $0.key.isEmpty }
+        XCTAssertFalse(bare.isEmpty, "the premise: most menu items carry no shortcut")
+        XCTAssertTrue(bare.allSatisfy { $0.fixedReason == nil }, "\(bare.filter { $0.fixedReason != nil })")
+    }
 }

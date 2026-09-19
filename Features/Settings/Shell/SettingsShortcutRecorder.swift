@@ -170,7 +170,17 @@ final class SettingsShortcutRecorder: NSView {
                 : (binding.map { String(localized: "Shortcut \($0.display). Click to change.") }
                     ?? String(localized: "No shortcut. Click to set one."))
         )
+        toolTip = isRecording
+            ? String(localized: "Press the new shortcut, or Escape to cancel.")
+            : String(localized: "Click, then press the new shortcut. Delete clears it.")
         needsDisplay = true
+    }
+
+    /// The pointer says what the border implies. A box you can click and a box
+    /// you cannot are one hairline apart at a glance; the cursor changing as it
+    /// crosses the edge settles it without the user having to click to find out.
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .pointingHand)
     }
 
     override var wantsUpdateLayer: Bool { true }

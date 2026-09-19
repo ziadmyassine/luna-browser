@@ -790,15 +790,24 @@ final class SettingsSwitch: NSControl {
     }
 }
 
-/// A key equivalent, on the same well every other read-only value sits in. A
-/// label, not a control: §3.6's table is read-only.
+/// A key equivalent, on the same well every other read-only value sits in.
+///
+/// **`isFixed` is the whole of §3.6's "which of these can I change?".** A
+/// shortcut the user can move is drawn by `SettingsShortcutRecorder`, which is
+/// this chip plus a click target: same well, same border, same corner. Drawn
+/// identically, a shortcut that is nobody's to move looked exactly like one
+/// that is, and the only way to find out was to click it. A fixed chip
+/// therefore drops the well and the border and prints flat, so the boxes down
+/// the right-hand side of the table are precisely the rows that are yours.
 @MainActor
 final class SettingsKeyChip: NSView {
 
     private let label: NSTextField
+    private let isFixed: Bool
 
-    init(key: String) {
+    init(key: String, isFixed: Bool = false) {
         label = NSTextField(labelWithString: key)
+        self.isFixed = isFixed
         super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerCurve = .continuous
@@ -814,7 +823,7 @@ final class SettingsKeyChip: NSView {
         ])
         setAccessibilityElement(true)
         setAccessibilityRole(.staticText)
-        setAccessibilityLabel(key)
+        setAccessibilityLabel(isFixed ? String(localized: "Shortcut \(key). This one cannot be changed.") : key)
         applyTint()
     }
 
@@ -824,7 +833,7 @@ final class SettingsKeyChip: NSView {
     }
 
     private func applyTint() {
-        label.textColor = Tokens.Text.secondary
+        label.textColor = isFixed ? Tokens.Text.tertiary : Tokens.Text.secondary
         needsDisplay = true
     }
 
@@ -832,6 +841,14 @@ final class SettingsKeyChip: NSView {
 
     override func updateLayer() {
         layer?.cornerRadius = SettingsMetrics.controlCorner
+        // Nothing drawn at all, rather than a paler well: a faint box is still a
+        // box, and at a glance it would read as a control that happens to be
+        // dimmed — which is the one thing this must not say.
+        guard !isFixed else {
+            layer?.backgroundColor = nil
+            layer?.borderWidth = 0
+            return
+        }
         layer?.backgroundColor = Tokens.Surface.well.cgColor
         layer?.borderWidth = Tokens.Metric.hairline
         layer?.borderColor = Tokens.Line.border.cgColor

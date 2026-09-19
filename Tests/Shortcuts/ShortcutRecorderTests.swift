@@ -119,6 +119,23 @@ final class ShortcutRecorderTests: XCTestCase {
         XCTAssertFalse(recorder.isListening, "the monitor is process-wide and would have outlived the view")
     }
 
+    /// The distinction §3.6 leans on, measured rather than described: the two
+    /// controls sat on the same well with the same hairline, so the pane drew a
+    /// shortcut you can change and one you cannot identically, and the only way
+    /// to tell them apart was to click one.
+    func testAFixedShortcutIsNotDrawnAsSomethingYouCanClick() throws {
+        let editable = SettingsShortcutRecorder(binding: KeyBinding("t"))
+        editable.updateLayer()
+        let border = try XCTUnwrap(editable.layer?.borderWidth)
+        XCTAssertGreaterThan(border, 0, "the editable chip is a bordered well")
+        XCTAssertNotNil(editable.layer?.backgroundColor)
+
+        let fixed = SettingsKeyChip(key: "⌘Q", isFixed: true)
+        fixed.updateLayer()
+        XCTAssertEqual(fixed.layer?.borderWidth, 0, "a fixed shortcut keeps no box")
+        XCTAssertNil(fixed.layer?.backgroundColor, "nor a well, which would read as a dimmed control")
+    }
+
     private static func keyDown(_ characters: String, _ flags: NSEvent.ModifierFlags) -> NSEvent {
         NSEvent.keyEvent(
             with: .keyDown,

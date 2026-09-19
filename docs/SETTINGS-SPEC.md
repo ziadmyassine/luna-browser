@@ -73,9 +73,10 @@ with the screenshot, and none of them changes what a control *does*:
 - **A group header names something the rows do not.** Three of them repeated
   the title of the only row underneath and are gone; the rest are
   `Text.secondary`.
-- **A key equivalent is a chip** (`SettingsKeyChip`), and a row that is only a
-  sentence is still a row (`SettingsRow.status`) — a bare `NSTextField` in a
-  card squashes it to one line of type against its own edge.
+- **A key equivalent is a chip** (`SettingsKeyChip`) when it is a control and
+  flat type when it is not (§3.6), and a row that is only a sentence is still a
+  row (`SettingsRow.status`) — a bare `NSTextField` in a card squashes it to one
+  line of type against its own edge.
 
 ### 1.3 The second pass
 
@@ -308,10 +309,23 @@ Auto-open defaults off on purpose. It is the setting Safari ships on and it is
 the one most often named in macOS malware write-ups.
 
 ### 3.6 Shortcuts
-Read-only table of every `MainMenu` command and its key equivalent, grouped by
-menu, searchable. **Rebinding is disabled** with the reason "Custom shortcuts
-are not implemented yet" — the key map is declared once in `MainMenu` (§22.5)
-and making it editable is a separate piece of work.
+A table of every `MainMenu` command and its key equivalent, read by walking
+`NSApplication.mainMenu`, grouped by menu, searchable — and editable wherever
+the command is Luna's to move. A row is joined to its `BrowserCommand` **by
+selector**, the one thing a live menu item and the command table cannot disagree
+about; the key map is still declared once, in `BrowserCommand`, and rebinding
+rebuilds the whole bar (`MainMenu.rebuild`) because a live menu item silently
+refuses a new ⌘-number.
+
+**Which rows are editable is carried by the drawing, not by a sentence.** An
+editable shortcut sits in a box — `SettingsShortcutRecorder`, a well with a
+hairline and a pointing-hand cursor — and clicking it records the next
+keystroke; Escape cancels, Delete clears, and a keystroke with no ⌘/⌃/⌥ is
+refused. A shortcut that cannot be moved is printed flat (`SettingsKeyChip`,
+`isFixed`), with a caption saying why: "Standard macOS shortcut", or, for the
+numbered families built per session rather than from the table, "Numbered from
+your sidebar" and "Numbered from your Spaces". A legend above the table states
+the rule, and search matches "editable" and "cannot be changed".
 
 ### 3.7 Spaces & Profiles
 | Control | Type | Wired to |
