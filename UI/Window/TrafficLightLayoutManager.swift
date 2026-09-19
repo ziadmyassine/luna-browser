@@ -279,6 +279,11 @@ final class TrafficLightLayoutManager {
             self.strip = new
             return new
         }()
+        let height = Self.stripHeight(
+            titlebar: naturalTitlebarHeight,
+            buttonHeight: buttons.first?.frame.height ?? 0,
+            inset: Tokens.Metric.trafficLightInset
+        )
         // Above everything, every pass: the chrome is rebuilt on a layout
         // switch and a strip left behind it is three lights under a sidebar.
         if strip.superview !== root || root.subviews.last !== strip {
@@ -286,12 +291,28 @@ final class TrafficLightLayoutManager {
         }
         strip.frame = NSRect(
             x: root.bounds.minX,
-            y: root.bounds.maxY - naturalTitlebarHeight,
+            y: root.bounds.maxY - height,
             width: root.bounds.width,
-            height: naturalTitlebarHeight
+            height: height
         )
         for button in buttons where button.superview !== strip { strip.addSubview(button) }
         return strip
+    }
+
+    /// **The strip has to be tall enough to hold the inset, or the lights land
+    /// higher in fullscreen than the titlebar lands them windowed.**
+    ///
+    /// `TrafficLightLayout` measures the inset down from whatever container it
+    /// is given and refuses to hang a button below it — so a container shorter
+    /// than `inset + buttonHeight` clamps, and the clamp is the one way the two
+    /// window states can disagree about where the lights go. The strip stands in
+    /// for AppKit's titlebar, and that height is read in `init`, before the
+    /// window has ever been on screen: it is not a number to stake the placement
+    /// on. Taking the larger of the two costs nothing when the measurement is
+    /// right — the strip draws nothing and hit-tests to nothing — and keeps the
+    /// two states on the same line when it is not.
+    nonisolated static func stripHeight(titlebar: CGFloat, buttonHeight: CGFloat, inset: CGFloat) -> CGFloat {
+        max(titlebar, inset + buttonHeight)
     }
 
     /// Hands the buttons back to AppKit's titlebar and takes the strip down.

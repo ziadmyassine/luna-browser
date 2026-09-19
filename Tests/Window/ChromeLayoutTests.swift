@@ -126,6 +126,35 @@ final class TrafficLightLayoutTests: XCTestCase {
         )
     }
 
+    /// **Fullscreen has to land the lights on the line the titlebar lands them
+    /// on.** In fullscreen the buttons move into a strip of Luna's own, and
+    /// `origins` clamps the inset into whatever container it is given — so a
+    /// strip shorter than the inset plus a button would put the lights higher
+    /// than windowed, which is the only way the two states can disagree. The
+    /// titlebar height the strip stands in for is read before the window has
+    /// ever been on screen, so the strip takes the larger of the two.
+    func testTheFullscreenStripAlwaysHoldsTheWholeInset() throws {
+        let inset = Tokens.Metric.trafficLightInset
+        let windowed = try XCTUnwrap(origins(.sidebar(width: 280, edge: .leading), inset: inset))
+        for measured in stride(from: CGFloat(0), through: 40, by: 2) {
+            var strip = system
+            strip.titlebarHeight = TrafficLightLayoutManager.stripHeight(
+                titlebar: measured,
+                buttonHeight: system.buttonHeight,
+                inset: inset
+            )
+            let placed = try XCTUnwrap(origins(.sidebar(width: 280, edge: .leading), system: strip, inset: inset))
+            XCTAssertEqual(placed.map(\.x), windowed.map(\.x), "titlebar measured \(measured)")
+            for origin in placed {
+                XCTAssertEqual(
+                    strip.titlebarHeight - origin.y - strip.buttonHeight,
+                    inset,
+                    "titlebar measured \(measured)"
+                )
+            }
+        }
+    }
+
     func testNoButtonsMeansNoLayout() {
         var empty = system
         empty.natural = []
