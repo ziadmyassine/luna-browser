@@ -155,21 +155,32 @@ final class SidebarRowInkTests: XCTestCase {
     }
 }
 
-/// §3.4's title column, which is the other way a title can dim under the
-/// pointer: the close chip is revealed on hover, and a column that gave the
-/// chip's slot back when the chip was absent lost 26 pt the moment the pointer
-/// arrived — moving §3.4's trailing fade left across a long title. The ink
-/// stayed put and the title still went grey at the end. So the column takes no
-/// hover either, and reserves the slot on every row.
+/// §3.4's title column, which is the other half of "how bright is a title" —
+/// the ink says what colour it is, this says how much of it survives the fade.
+///
+/// The slot the close chip sits in is given back when no chip is in it, so a
+/// resting title runs to the pill's inner edge. That is a decision, not an
+/// accident: it means the column moves when the pointer arrives, which is how
+/// a long title's last glyphs dissolve on hover. Martin chose it with both
+/// versions in front of him, and `rowTitleFade` at 12 is what keeps the shift
+/// to about two characters.
 @MainActor
 final class SidebarRowColumnTests: XCTestCase {
 
     private let width = Tokens.Metric.sidebarWidth.default
 
-    /// The whole point: the slot is reserved whether or not a glyph is in it,
-    /// so no row's title moves because the pointer arrived.
-    func testTheTitleColumnLeavesTheTrailingSlotClearOnEveryRow() {
-        let column = SidebarRowView.titleColumn(inRowOfWidth: width, hasUnread: false)
+    /// Nothing in the slot: the title runs to the pill's inner edge, which is
+    /// one `rowInset` inside the pill and two inside the row.
+    func testARowWithNoTrailingGlyphRunsToThePillsEdge() {
+        let column = SidebarRowView.titleColumn(inRowOfWidth: width, hasUnread: false, slotOccupied: false)
+        XCTAssertEqual(column.x + column.width, width - 2 * Tokens.Metric.rowInset, accuracy: 0.01)
+    }
+
+    /// A glyph in the slot: the title stops half an inset short of it — the
+    /// fade is the rest of the gap, so a full `chromeGap` here would be pill
+    /// left empty for nothing.
+    func testAGlyphInTheSlotPushesTheTitleBackByHalfAnInset() {
+        let column = SidebarRowView.titleColumn(inRowOfWidth: width, hasUnread: false, slotOccupied: true)
         XCTAssertEqual(
             column.x + column.width,
             SidebarRowView.trailingSlotX(inRowOfWidth: width) - Tokens.Metric.rowInset / 2,
@@ -177,8 +188,17 @@ final class SidebarRowColumnTests: XCTestCase {
         )
     }
 
-    /// The slot itself has to fit inside the pill, or reserving it is a fiction
-    /// and the chip goes on drawing over the title's last glyphs.
+    /// The whole cost of the decision, stated as a number so it cannot drift
+    /// upward unnoticed: what the title gives up when the chip appears.
+    func testTheChipCostsTheTitleTwentyTwoPoints() {
+        let resting = SidebarRowView.titleColumn(inRowOfWidth: width, hasUnread: false, slotOccupied: false)
+        let hovered = SidebarRowView.titleColumn(inRowOfWidth: width, hasUnread: false, slotOccupied: true)
+        XCTAssertEqual(resting.width - hovered.width, 22, accuracy: 0.01)
+        XCTAssertEqual(resting.x, hovered.x, accuracy: 0.01)
+    }
+
+    /// The slot has to be where the chip is actually drawn, or reserving it is
+    /// a fiction and the chip goes on top of the title's last glyphs.
     func testTheReservedSlotIsWhereTheChipIsActuallyDrawn() {
         let slot = SidebarRowView.trailingSlotX(inRowOfWidth: width)
         XCTAssertEqual(
@@ -188,21 +208,27 @@ final class SidebarRowColumnTests: XCTestCase {
         )
     }
 
-    /// §3.4's unread dot pushes the title right. It must not also push the
-    /// title's trailing edge, or an unread tab would fade differently.
+    /// §3.4's unread dot pushes the title right. It must not also move the
+    /// title's trailing edge, or an unread tab would fade somewhere else.
     func testTheUnreadDotMovesOnlyTheTitlesLeadingEdge() {
-        let plain = SidebarRowView.titleColumn(inRowOfWidth: width, hasUnread: false)
-        let unread = SidebarRowView.titleColumn(inRowOfWidth: width, hasUnread: true)
-        XCTAssertGreaterThan(unread.x, plain.x)
-        XCTAssertEqual(unread.x + unread.width, plain.x + plain.width, accuracy: 0.01)
+        for occupied in [false, true] {
+            let plain = SidebarRowView.titleColumn(inRowOfWidth: width, hasUnread: false, slotOccupied: occupied)
+            let unread = SidebarRowView.titleColumn(inRowOfWidth: width, hasUnread: true, slotOccupied: occupied)
+            XCTAssertGreaterThan(unread.x, plain.x)
+            XCTAssertEqual(unread.x + unread.width, plain.x + plain.width, accuracy: 0.01)
+        }
     }
 
     /// A sidebar dragged to its narrowest still has to produce a box, not a
     /// negative width — `NSRect` would happily take one and flip the box.
     func testAVeryNarrowRowStillProducesANonNegativeColumn() {
-        XCTAssertGreaterThanOrEqual(SidebarRowView.titleColumn(inRowOfWidth: 0, hasUnread: true).width, 0)
+        XCTAssertGreaterThanOrEqual(
+            SidebarRowView.titleColumn(inRowOfWidth: 0, hasUnread: true, slotOccupied: true).width, 0
+        )
         XCTAssertGreaterThan(
-            SidebarRowView.titleColumn(inRowOfWidth: Tokens.Metric.sidebarWidth.min, hasUnread: true).width,
+            SidebarRowView.titleColumn(
+                inRowOfWidth: Tokens.Metric.sidebarWidth.min, hasUnread: true, slotOccupied: true
+            ).width,
             0
         )
     }

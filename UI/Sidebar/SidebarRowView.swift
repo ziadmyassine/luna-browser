@@ -186,8 +186,8 @@ final class SidebarRowView: NSView {
     /// answers "which tab am I on" by having exactly one title brighter than
     /// the rest, and a pointer resting anywhere must not add a second.
     ///
-    /// Colour is only half of it: a title can also dim by being re-laid, and
-    /// ``titleColumn`` is where that half is held.
+    /// Colour is only half of it: a title also dims by being re-laid, which
+    /// is ``titleColumn``'s half and is deliberately not held still.
     ///
     /// Pure, so the rule can be asserted without a window to hover in.
     static func titleInk(isSelected: Bool, isLoading: Bool) -> NSColor {
@@ -274,27 +274,40 @@ final class SidebarRowView: NSView {
 
     /// §3.4's title column: where the title starts, and how wide it may be.
     ///
-    /// **The trailing slot is reserved on every row, drawn in or not.** The
-    /// column used to take the slot back whenever the row had no glyph in it,
-    /// which meant it grew and shrank as the pointer moved: the close chip is
-    /// revealed on hover, the title gives up 26 pt, and a title long enough to
-    /// need §3.4's trailing fade starts dissolving 26 pt earlier than it did a
-    /// frame ago. That reads as the title dimming under the pointer — the one
-    /// thing ``titleInk`` exists to prevent, reached through geometry rather
-    /// than through colour, which is why taking hover out of the ink rule did
-    /// not settle it. Reserving the slot costs every row those 26 pt and buys
-    /// a column that does not move.
+    /// **The trailing slot is given back when nothing is in it.** A row with
+    /// no glyph runs its title to the pill's inner edge and lets §3.4's fade
+    /// end there; a row drawing the close chip or the speaker stops half an
+    /// inset short of the slot and fades before it.
     ///
-    /// Pure, like ``titleInk``, and taking no hover for the same reason: the
-    /// rule is in the signature, so it cannot quietly grow one back.
-    static func titleColumn(inRowOfWidth width: CGFloat, hasUnread: Bool) -> (x: CGFloat, width: CGFloat) {
+    /// That is Martin's call, made with both versions in front of him, and it
+    /// is worth writing down which way the trade runs. The column moving is
+    /// how a title dims under the pointer — the close chip appears, the box
+    /// loses 22 pt, and the last glyphs of a long title dissolve where they
+    /// were solid a frame earlier. Reserving the slot on every row holds the
+    /// title still and costs every row 22 pt of pill it mostly does not need:
+    /// a tab is hovered for a moment and read for hours. The tab list is read
+    /// far more often than it is pointed at, so the resting state wins.
+    ///
+    /// What makes the trade affordable is `rowTitleFade` at 12 rather than
+    /// 24: the shift is a ramp moving two characters, not four.
+    ///
+    /// Pure, like ``titleInk``, so both states can be asserted without a
+    /// window to hover in. It takes the *slot*, not the hover — an audio row
+    /// has a glyph without a pointer anywhere near it.
+    static func titleColumn(
+        inRowOfWidth width: CGFloat,
+        hasUnread: Bool,
+        slotOccupied: Bool
+    ) -> (x: CGFloat, width: CGFloat) {
         let x = Tokens.Metric.rowTitleInset
             + (hasUnread ? Tokens.Metric.spaceDot + Tokens.Metric.rowInset : 0)
         // Half an inset before the slot, not the full `chromeGap` two controls
         // would take between them. The title's last glyphs are already
         // dissolving by the time they reach here — `rowTitleFade` is the gap,
         // and 8 pt of clearance on top of it is 8 pt of pill left empty.
-        let right = trailingSlotX(inRowOfWidth: width) - Tokens.Metric.rowInset / 2
+        let right = slotOccupied
+            ? trailingSlotX(inRowOfWidth: width) - Tokens.Metric.rowInset / 2
+            : width - 2 * Tokens.Metric.rowInset
         return (x, max(right - x, 0))
     }
 
@@ -333,10 +346,13 @@ final class SidebarRowView: NSView {
         ).pixelAligned
 
         // The pill is `rowInset` inside the row, and the title keeps that same
-        // inset inside the pill — so it ends two insets short of the row, less
-        // the trailing slot, which `titleColumn` reserves whether or not this
-        // row is currently drawing anything in it.
-        let column = Self.titleColumn(inRowOfWidth: bounds.width, hasUnread: content.hasUnread)
+        // inset inside the pill — so it ends two insets short of the row,
+        // less the trailing slot on the rows that are drawing one.
+        let column = Self.titleColumn(
+            inRowOfWidth: bounds.width,
+            hasUnread: content.hasUnread,
+            slotOccupied: !trailing.isHidden
+        )
         let height = title.intrinsicContentSize.height
         let box = NSRect(
             x: column.x,
