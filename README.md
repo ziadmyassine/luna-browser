@@ -8,6 +8,7 @@
   <a href="https://swift.org"><img src="https://badgen.net/badge/Swift/6.0/orange" alt="Swift 6.0"></a>
   <a href="https://developer.apple.com/documentation/webkit"><img src="https://badgen.net/badge/Engine/WebKit/purple" alt="WebKit"></a>
   <a href="TODO.md"><img src="https://badgen.net/badge/Status/in%20development/yellow" alt="Status: in development"></a>
+  <a href="LICENSE"><img src="https://badgen.net/badge/License/GPL-3.0/green" alt="GPL-3.0"></a>
 </p>
 
 Luna is a macOS browser built with AppKit and WebKit — one `WKWebView` per tab, SQLite for
