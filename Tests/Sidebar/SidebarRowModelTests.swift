@@ -121,3 +121,36 @@ final class SidebarRowModelTests: XCTestCase {
         XCTAssertEqual(controller.content(for: row).title, "itslearning.com")
     }
 }
+
+/// §3.4's title ink, which is the answer to "which tab am I on".
+///
+/// Martin has asked for this rule twice, from two directions: first that only
+/// the selected row is bright, and then that a pointer resting on a row must
+/// not change any title's colour. `titleInk` takes no `isHovered`, so the
+/// second half is true by construction — these are here so it stays that way.
+@MainActor
+final class SidebarRowInkTests: XCTestCase {
+
+    func testOnlyTheSelectedRowIsBright() {
+        XCTAssertEqual(SidebarRowView.titleInk(isSelected: true, isLoading: false), Tokens.Text.primary)
+        XCTAssertEqual(SidebarRowView.titleInk(isSelected: false, isLoading: false), Tokens.Text.secondary)
+    }
+
+    /// A loading row is quieter than either, selected or not — §3.4's shimmer
+    /// is what says it is working, and it sweeps over a dimmed title.
+    func testALoadingRowIsQuieterThanBoth() {
+        XCTAssertEqual(SidebarRowView.titleInk(isSelected: true, isLoading: true), Tokens.Text.tertiary)
+        XCTAssertEqual(SidebarRowView.titleInk(isSelected: false, isLoading: true), Tokens.Text.tertiary)
+    }
+
+    /// The three tiers are three colours. If two of them ever resolve to the
+    /// same ink the rule above still passes and the list stops saying anything.
+    func testTheThreeTiersAreActuallyDifferent() {
+        let inks = [
+            SidebarRowView.titleInk(isSelected: true, isLoading: false),
+            SidebarRowView.titleInk(isSelected: false, isLoading: false),
+            SidebarRowView.titleInk(isSelected: false, isLoading: true)
+        ]
+        XCTAssertEqual(Set(inks).count, 3)
+    }
+}

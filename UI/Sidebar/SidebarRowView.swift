@@ -176,16 +176,24 @@ final class SidebarRowView: NSView {
 
     // MARK: - Ink
 
+    /// §3.4's title ink.
+    ///
+    /// **The selected row is the only bright title in the list**, and hover is
+    /// not an input here — which is the point of the signature. The hover used
+    /// to promote the ink too, on the grounds that there was no translucent
+    /// hover fill to lift instead; there is one now, `hoverPill`, so the reason
+    /// has outlived itself. Two bright rows at once is one too many: the list
+    /// answers "which tab am I on" by having exactly one title brighter than
+    /// the rest, and a pointer resting anywhere must not add a second.
+    ///
+    /// Pure, so the rule can be asserted without a window to hover in.
+    static func titleInk(isSelected: Bool, isLoading: Bool) -> NSColor {
+        if isLoading { return Tokens.Text.tertiary }
+        return isSelected ? Tokens.Text.primary : Tokens.Text.secondary
+    }
+
     private func refreshInk() {
-        // §3.4: **the selected row is the only bright title in the list.** The
-        // hover used to promote the ink too, on the grounds that there was no
-        // translucent hover fill to lift instead — there is one now, and it is
-        // `hoverPill`, so the reason has outlived itself. Two bright rows at
-        // once is one too many: the list answers "which tab am I on" by having
-        // exactly one title brighter than the rest.
-        title.textColor = content.isLoading
-            ? Tokens.Text.tertiary
-            : (isSelected ? Tokens.Text.primary : Tokens.Text.secondary)
+        title.textColor = Self.titleInk(isSelected: isSelected, isLoading: content.isLoading)
         shimmer.textColor = Tokens.Text.primary
         // **Ink, not accent.** Luna's chrome carries no system blue: the unread
         // mark is a full-strength dot in the same ink the title is set in, and
