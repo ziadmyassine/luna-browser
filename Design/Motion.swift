@@ -97,6 +97,15 @@ extension Tokens {
 
         /// Tab insert / remove: height + fade, and the list must not jump.
         static let tabInsert = MotionSpec(response: 0.22, damping: 0.85, settling: 0.22)
+        /// §3.3's selection glow coming up under a pinned tile: opacity and a
+        /// 0.94 → 1 scale, together, from the tile's own centre.
+        ///
+        /// **A spring, and slower than `controlHover`.** Hover is a state the
+        /// pointer can scrub in and out of a dozen times a second, so it is
+        /// short and timed; the glow answers a *click*, happens once, and is
+        /// the one thing on screen saying which tile you just landed on. The
+        /// light settling rather than switching on is the whole of it.
+        static let essentialGlow = MotionSpec(response: 0.26, damping: 0.78, settling: 0.26)
         /// §6 gives only a response and damping for the Space switch itself.
         static let spaceSwitch = MotionSpec(response: 0.30, damping: 0.70, settling: 0.30)
         /// The sidebar content cross-fade that rides along with it.

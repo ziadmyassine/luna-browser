@@ -25,6 +25,12 @@
 //  grid's job during a drag is only to say where its slots are, to hold one
 //  open, and to hide the tile that is currently in the air.
 //
+//  **The tile you are on is lit, in that site's own colour.** One glow for the
+//  whole grid, because only one tile can be the tab you are on — see
+//  `EssentialGlowView` for what it draws and `FaviconTint` for where the colour
+//  comes from. It lies *over* the tiles rather than under them and answers no
+//  hit test, so the tile underneath still takes the click.
+//
 //  Tile width flexes. §1's 128 pt tile is the design intent at a 280 pt
 //  sidebar, but 10 + 128 + 12 + 128 + 10 is 288 — wider than the sidebar it
 //  was measured from — and §1 says the sidebar's own content reflows when it
@@ -41,7 +47,10 @@ final class EssentialsGridView: NSView {
 
     /// The most tiles §3.3 will put in one row. Past four, a 42 pt tile in a
     /// 280 pt column is narrower than its own corner radius is round.
-    private static let maxColumns = 4
+    ///
+    /// Not private: the arithmetic that spends it lives next door, in
+    /// `EssentialsGridView+Layout.swift`.
+    static let maxColumns = 4
 
     var onActivate: ((UUID) -> Void)?
     /// Right-click → Unpin. The tab goes back to the top of today's tabs.
@@ -86,6 +95,9 @@ final class EssentialsGridView: NSView {
                 Tokens.Motion.immediately { tile.frame = slotRect(at: slot) }
             }
             for (id, tile) in tiles { tile.isHidden = id == draggedID }
+            // A tile in the air is out of `settled`, so this puts its light out
+            // with it rather than leaving a glow round an empty slot.
+            relight(blooming: false)
             reflow()
         }
     }
@@ -107,8 +119,15 @@ final class EssentialsGridView: NSView {
     /// rebuilt array of fresh views has nowhere to animate from, which is what
     /// made pinning a tab a jump-cut.
     private var tiles: [UUID: GlassButton] = [:]
-    private var order: [UUID] = []
+    /// Not private: `EssentialsGridView+Layout.swift` derives the grid's shape
+    /// from it. Nothing outside that pair of files reads it.
+    var order: [UUID] = []
     private var activeTabID: UUID?
+    /// §3.3's light, and the tile it is currently on. One view for the grid:
+    /// only one tile can be the tab you are on, and the header above has what
+    /// a backing view per tile cost the sidebar the last time one was tried.
+    private let glow = EssentialGlowView()
+    private var litID: UUID?
     /// Set when the grid's contents changed; consumed by the next `layout()`.
     private var animatesNextPlacement = false
     /// Tiles made since the last placement, which have **nowhere to come from**.
@@ -117,6 +136,11 @@ final class EssentialsGridView: NSView {
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
+        // The glow reaches past the tile it is on, and a tile in the top row
+        // stands `essentialsVerticalInset` from this view's own edge — so
+        // clipping here would cut the light off square along the grid's top.
+        clipsToBounds = false
+        addSubview(glow)
         setAccessibilityLabel("Essentials")
         setAccessibilityRole(.group)
     }
@@ -138,6 +162,9 @@ final class EssentialsGridView: NSView {
                 tile.isSelected = tab.id == activeTabID
                 if let icon = SidebarIcons.favicon(for: tab) { tile.setImage(icon) }
             }
+            // The tabs are the same; which one you are *on* may not be, and on
+            // this path nothing else would notice.
+            relight(blooming: true)
             return
         }
         self.tabs = tabs
@@ -175,6 +202,7 @@ final class EssentialsGridView: NSView {
         order = next
         // The first population is the sidebar being built; there is no "from".
         animatesNextPlacement = !wasEmpty
+        relight(blooming: !wasEmpty)
         reflow()
     }
 
@@ -200,7 +228,9 @@ final class EssentialsGridView: NSView {
         // list uses for a row arriving, so pinning reads as one movement.
         tile.alphaValue = order.isEmpty ? 1 : 0
         arriving.insert(tab.id)
-        addSubview(tile)
+        // Under the glow, which was added first and has to stay on top of every
+        // tile there will ever be.
+        addSubview(tile, positioned: .below, relativeTo: glow)
         if !order.isEmpty {
             Tokens.Motion.animate(Tokens.Motion.tabInsert) { context in
                 context.allowsImplicitAnimation = true
@@ -237,71 +267,33 @@ final class EssentialsGridView: NSView {
         tab.listTitle.isEmpty ? URLPillView.domain(of: tab.url) : tab.listTitle
     }
 
+    // MARK: - The light
+
+    /// Lights the pinned tile that is the tab you are on, and puts out the one
+    /// that was.
+    ///
+    /// - Parameter blooming: whether this pass could have come from a click.
+    ///   §3.3's glow *appears*, and the appear belongs to the press that caused
+    ///   it: the pass that builds the sidebar has to arrive with the light
+    ///   already on, and a refresh that leaves the same tile lit must not
+    ///   replay it — which is why the tile has to have changed as well.
+    private func relight(blooming: Bool) {
+        let lit = activeTabID.flatMap { settled.contains($0) ? $0 : nil }
+        let moved = lit != litID
+        litID = lit
+        glow.show(lit.flatMap(tint(for:)), blooming: blooming && moved && lit != nil)
+        // The glow's frame is `placeContents`' to set, and on this path — a
+        // click, with the same tabs in the same order — nothing else would
+        // have asked for a pass.
+        needsLayout = true
+    }
+
+    /// The colour a tile glows in: the site's own, out of its favicon.
+    private func tint(for id: UUID) -> NSColor? {
+        tabs.first { $0.id == id }.map(FaviconTint.glow(for:))
+    }
+
     // MARK: - Layout
-
-    /// The tiles that are on the grid right now — everything but the one in
-    /// the air.
-    private var settled: [UUID] {
-        order.filter { $0 != draggedID }
-    }
-
-    /// How many slots the grid is laying out: the settled tiles, plus the one a
-    /// live drag is holding open.
-    private var slotCount: Int {
-        let open = dropIndex == nil ? 0 : 1
-        return max(settled.count + open, isAwaitingDrop ? 1 : 0)
-    }
-
-    /// **As few rows as will hold them, then as evenly as they divide.**
-    ///
-    /// Rows first: four across is the ceiling, so five tiles need two rows and
-    /// nine need three. Then the columns are whatever spreads that many tiles
-    /// over that many rows — 5 over 2 is 3 and not 4, which is what makes five
-    /// tiles read as 3 + 2 rather than as 4 + 1. A short last row is left-
-    /// aligned, because the grid fills in reading order and a centred orphan
-    /// would break the column the tiles above it stand in.
-    ///
-    /// Static and pure, for the same reason `ChromeState.cardInsets` is: §3.3's
-    /// shape is arithmetic, and arithmetic can be asserted without a window.
-    static func shape(for count: Int) -> (rows: Int, columns: Int) {
-        guard count > 0 else { return (0, 1) }
-        let rows = Int((Double(count) / Double(maxColumns)).rounded(.up))
-        return (rows, max(Int((Double(count) / Double(rows)).rounded(.up)), 1))
-    }
-
-    private var rowCount: Int { Self.shape(for: slotCount).rows }
-
-    private var columns: Int { Self.shape(for: slotCount).columns }
-
-    override var intrinsicContentSize: NSSize {
-        let margin = Tokens.Metric.essentialsVerticalInset
-        guard rowCount > 0 else { return NSSize(width: NSView.noIntrinsicMetric, height: 0) }
-        let height = CGFloat(rowCount) * Tokens.Metric.essentialsTile.height
-            + CGFloat(rowCount - 1) * Tokens.Metric.essentialsRowGap + 2 * margin
-        return NSSize(width: NSView.noIntrinsicMetric, height: height)
-    }
-
-    /// One slot's frame, in reading order. The single piece of grid arithmetic:
-    /// the tiles, the drop outline and the drag lift all place themselves with
-    /// it, so they cannot disagree about where a slot is.
-    func slotRect(at index: Int) -> NSRect {
-        let inset = Tokens.Metric.essentialsInset
-        let margin = Tokens.Metric.essentialsVerticalInset
-        let gutter = Tokens.Metric.essentialsTileGap
-        let rowGap = Tokens.Metric.essentialsRowGap
-        let height = Tokens.Metric.essentialsTile.height
-        let across = columns
-        let width = (bounds.width - 2 * inset - CGFloat(across - 1) * gutter) / CGFloat(across)
-        let column = index % across
-        let row = index / across
-        // Top-down in an unflipped view: the first row sits highest.
-        return NSRect(
-            x: inset + CGFloat(column) * (width + gutter),
-            y: bounds.maxY - margin - CGFloat(row + 1) * height - CGFloat(row) * rowGap,
-            width: max(width, 0),
-            height: height
-        ).pixelAligned
-    }
 
     /// Bounds-derived frames never animate — see `Motion.immediately` — except
     /// on the pass that follows a pin, an unpin or a reorder, where the move
@@ -334,7 +326,20 @@ final class EssentialsGridView: NSView {
             // lift came to rest in the right place and a second tile then
             // arrived from the corner to stand in it. It lands where it belongs
             // and fades up there instead; the fade is `makeTile`'s.
-            guard arriving.remove(id) == nil else {
+            let arrived = arriving.remove(id) != nil
+            // The light stands where its tile stands, off the same arithmetic
+            // in the same pass — so it rides a reorder along with the tile
+            // instead of working its slot out separately and landing a tile
+            // behind. It only comes from nowhere for the same reason the tile
+            // does, and then it lands rather than flying.
+            if id == litID {
+                if arrived {
+                    Tokens.Motion.immediately { glow.frame = frame }
+                } else {
+                    glow.frame = frame
+                }
+            }
+            guard !arrived else {
                 Tokens.Motion.immediately { tile.frame = frame }
                 continue
             }
@@ -367,21 +372,6 @@ final class EssentialsGridView: NSView {
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
         needsDisplay = true
-    }
-
-    /// Which slot the pointer is over, in reading order — and **the index the
-    /// tab would land at**, which is why it counts the settled tiles rather
-    /// than all of them: the one in the air is already out of the way.
-    func insertionIndex(at point: NSPoint) -> Int {
-        let inset = Tokens.Metric.essentialsInset
-        let gap = Tokens.Metric.essentialsTileGap
-        let across = columns
-        let tileWidth = (bounds.width - 2 * inset - CGFloat(across - 1) * gap) / CGFloat(across)
-        let column = min(max(Int((point.x - inset) / max(tileWidth + gap, 1)), 0), across - 1)
-        let fromTop = bounds.maxY - Tokens.Metric.essentialsVerticalInset - point.y
-        let pitch = Tokens.Metric.essentialsTile.height + Tokens.Metric.essentialsRowGap
-        let row = max(Int(fromTop / max(pitch, 1)), 0)
-        return min(row * across + column, settled.count)
     }
 
     /// What §6.6's lift should look like while it is carrying `id` — the same

@@ -620,6 +620,32 @@ pill and lining up with it rather than with the bar.
   hairline; the material arrives when the tile is selected or hovered and leaves with the pointer.
   There is **no accent ring** — glass is Luna's highlight, everywhere, and nothing in the chrome turns
   blue to say "this one".
+- **The tile you are on glows, in that site's own colour.** A lit ring just outside the tile's hairline
+  (`essentialsGlowRim`, 1.5) with a bloom carrying past it (`essentialsGlowReach`, 7), 5 % of the same
+  colour inside the glass, and it **appears** — opacity and a 0.94 → 1 rise together on `essentialGlow`,
+  from the tile's own centre. Reference: `inspiration/pinned-tab-glow-*.png`, at about half their gauge,
+  which is what "not too thick" asked for. **On click, never on hover** — hover is already answered by
+  the material arriving, and a glow that followed the pointer round the grid would be four answers to
+  one question.
+  > **The colour comes out of the favicon, not out of `theme-color`.** A pinned tab's page is closed
+  > until you click it, so there is no `TabState` to read a theme colour from and the glow would arrive
+  > a second after the click that asked for it. `FaviconTint` weights the icon's pixels by **chroma,
+  > squared**, which is how X's black-and-white mark with one red notification dot comes out red rather
+  > than grey. An icon with no colour in it — or one whose colours cancel — glows in `Text.secondary`
+  > instead: the chrome's own ink, white on a dark sidebar and near-black on a light one. Not
+  > `Accent.tint`, which would put the system's blue highlight back on the one surface this is about.
+  > A dark mark is lifted to a brightness that can emit (floors of 0.55 saturation and 0.70 brightness,
+  > ceiling of 0.95 saturation), because a favicon's colour was chosen to be *read* at 16 pt and not to
+  > be given off at the edge of a tile.
+  > **One glow for the grid, and it lies over the tiles.** Only one tile can be the tab you are on, and
+  > `EssentialsGridView`'s header has what a backing view per tile cost the sidebar last time. Over
+  > rather than under, because a selected tile carries `NSGlassEffectView` and the material composites
+  > what is behind the *window* — under it the 5 % inside the glass simply vanished. Over it, the view
+  > answers no hit test at all, or it would swallow every click on the pinned tab you are on.
+  > **The ring is layers with a continuous corner, not a stroked `CGPath`.** There is no public API for
+  > a squircle's outline, so a path round a §3.3 tile pinches at the corners where the tile does not; a
+  > `CALayer` with `cornerCurve` and a border draws the real curve, and the bloom is that border's own
+  > shadow rather than a `shadowPath`, so it follows the ring instead of the box.
 - **Pinning and unpinning animate.** Tiles are keyed by tab, so one survives a pin, an unpin or a
   reorder and travels to its new slot on §6's `tabInsert` spring; a new tile fades up, a removed one
   fades out where it stood, and the list below slides with the grid's height instead of snapping.
