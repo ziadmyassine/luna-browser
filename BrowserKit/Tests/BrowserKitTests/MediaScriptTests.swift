@@ -41,16 +41,16 @@ struct MediaScriptTests {
     }
     """
 
-    /// A context with the stand-in document and `mediaScript` already run in it,
+    /// A context with the stand-in document and `script` already run in it,
     /// with `media` as the frame's `<video>`/`<audio>` elements at that moment.
-    private func context(media: String = "[]") throws -> JSContext {
+    private func context(media: String = "[]", running script: String? = nil) throws -> JSContext {
         let context = try #require(JSContext())
         context.exceptionHandler = { _, value in
             Issue.record("JavaScript threw: \(value?.toString() ?? "?")")
         }
         context.evaluateScript(Self.document)
         context.evaluateScript("__media = \(media);")
-        context.evaluateScript(TabController.mediaScript)
+        context.evaluateScript(script ?? TabController.mediaScript)
         return context
     }
 
@@ -101,5 +101,22 @@ struct MediaScriptTests {
     @Test func mutedAndSilentMediaAreNotAudible() throws {
         #expect(try posts(context(media: "[__playing(false, true, 1)]")).isEmpty)
         #expect(try posts(context(media: "[__playing(false, false, 0)]")).isEmpty)
+    }
+
+    // MARK: - Still true once it is not injected on its own
+
+    /// The three per-frame scripts go into a frame as **one** `WKUserScript`
+    /// (`UserScriptsTests`), which means this one now runs with the other two
+    /// either side of it. So the behaviour above is asserted again against the
+    /// source that actually ships — the merged one, with the real blocked-count
+    /// and form-detection sources in it, not a copy of this script alone.
+    @Test func theMergedScriptBehavesAsThisOneDid() throws {
+        let merged = TabController.documentEndScript().source
+        #expect(try posts(context(running: merged)).isEmpty)
+
+        let playing = try context(media: "[__playing(false, false, 1)]", running: merged)
+        #expect(try posts(playing).count == 1)
+        for _ in 0 ..< 20 { playing.evaluateScript("__fire('volumechange');") }
+        #expect(try posts(playing).count == 1)
     }
 }

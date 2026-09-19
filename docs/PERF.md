@@ -252,18 +252,18 @@ root. The disk half of the number is therefore the best case.
 
 `Tools/perf/run.sh page` loads the same local document four ways, rotating the order
 every round so no arm always pays for the WebContent and GPU processes the next one
-finds warm. Two documents, because two of Luna's three document-end scripts are
-injected into **every frame**: one plain page says what a document costs, and the
-same page wrapped around ten same-origin iframes says what the all-frames ones cost
-on a page shaped like a real one.
+finds warm. Three documents, because Luna's document-end script is injected into **every
+frame**: a plain page says what a document costs, and the same page wrapped around
+ten and then thirty same-origin iframes says what that costs on a page shaped like a
+real one.
 
-| | 1 frame | 11 frames |
-|---|---|---|
-| bare `WKWebView` | 65.6 ms | 69.3 ms |
-| `WebViewFactory.makeWebView` | +3.2 | +1.4 |
-| `TabController`, §14 off | +1.6 | +5.5 |
-| `TabController` | +1.2 | +1.0 |
-| **Luna, total** | **+5.9 ms** | **+7.9 ms** |
+| | 1 frame | 11 frames | 31 frames |
+|---|---|---|---|
+| bare `WKWebView` | 65.6 ms | 69.3 ms | ~75 ms |
+| `WebViewFactory.makeWebView` | +3.2 | +1.4 | ~+0 |
+| `TabController`, §14 off | +1.6 | +5.5 | — |
+| `TabController` | +1.2 | +1.0 | — |
+| **Luna, total** | **+5.9 ms** | **+7.9 ms** | **+14 ms** |
 
 And the same thing with no page in it at all — `activate()` builds the web view,
 registers four message handlers, adds the scripts and installs the KVO observations,
@@ -314,14 +314,40 @@ on a machine too busy to see a millisecond. Eleven fewer process hops and eleven
 fewer publishes is work that is not being done; it is not a number this bench can
 put on the page.
 
-### What is still left
+### Merging the per-frame scripts: measured, and a dead heat
 
-**Three separate `WKUserScript`s are injected into every frame** where one would do —
-`mediaScript`, `ContentBlocker.blockedCountScript` and §14's form detection — and each
-is compiled and evaluated per frame on its own. Merging them is the remaining
-per-frame win, and it is not free of judgement: three IIFEs in one script share a
-failure, so the join has to isolate them, which is three features' code in one
-string. Worth doing deliberately, not in passing.
+The obvious next move was to stop injecting three `WKUserScript`s into every frame
+where one would do — `mediaScript`, `ContentBlocker.blockedCountScript` and §14's form
+detection, all `forMainFrameOnly: false`. On a thirty-iframe page that is ninety
+injections against thirty.
+
+It buys nothing. Two harness binaries, interleaved, ten rounds each on a 31-frame
+page, Luna's delta over a bare `WKWebView`:
+
+| | median | mean |
+|---|---|---|
+| three scripts | +14.0 ms | +14.35 ms |
+| one script | +15.2 ms | +14.53 ms |
+
+A dead heat, and if anything the merged one is nominally behind. **Three
+`WKUserScript`s are not three compiles per frame**: WebKit compiles a source once and
+evaluates it per frame, and what the frame pays for is the evaluating — the same code
+either way. That also corrects what the 0.37 ms per frame above means. It is not the
+*number* of scripts; it is the work they do when they run, which is a `querySelectorAll`,
+a MutationObserver and a handful of listeners, and none of that goes away by
+concatenating the sources.
+
+It is merged anyway, for the one thing it does buy: a single place that decides what
+every frame gets, tested by `UserScriptsTests`. The join wraps each source in its own
+`try`/`catch`, because three separate scripts fail separately — one throwing left the
+other two installed — and one script would have taken that away; the test throws from
+the middle of three and checks the third still ran. **Nothing here is a speed claim,
+and nothing else should be merged hoping for one.**
+
+What is actually left on a page load, then, is the work those scripts do in each
+frame, and every bit of it is a feature: the speaker badge, the blocked count and
+autofill. Removing the cost means removing one of those, which is a product decision
+and not a performance one.
 
 ## §17.1 The filter-list refresh
 

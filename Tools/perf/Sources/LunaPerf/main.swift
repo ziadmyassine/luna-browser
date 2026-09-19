@@ -333,10 +333,10 @@ case "page":
     // site that answer is buried under several hundred milliseconds of network
     // that varies by more than the thing being measured.
     //
-    // Two documents, because two of Luna's scripts are injected into **every
+    // Three documents, because Luna's document-end script goes into **every
     // frame**: a plain page says what one document costs, and the same page
-    // wrapped around ten same-origin iframes says what the all-frames ones
-    // cost when a page is shaped like a real one with ads in it.
+    // wrapped around ten and then thirty same-origin iframes says what that
+    // costs on a page shaped like a real one with ads in it.
     func writePage(iframes: Int) throws -> URL {
         let rows = Array(repeating: "<li>a row of the sort a page is made of</li>", count: 300).joined()
         let frames = (0..<iframes)
@@ -414,7 +414,7 @@ case "page":
     }
 
     let arms = ["bare", "factory", "no-passwords", "luna"]
-    for iframes in [0, 10] {
+    for iframes in [0, 10, 30] {
         let file = try writePage(iframes: iframes)
         var times: [String: [Double]] = [:]
         for round in 0..<repeats {

@@ -227,16 +227,7 @@ public final class TabController: NSObject {
             controller.removeScriptMessageHandler(forName: name)
             controller.add(messageRelay, name: name)
         }
-        var documentEnd = [Self.mediaScript, ContentBlocker.blockedCountScript]
-        // §14: not injected at all when the feature is off, rather than
-        // injected and ignored. A user who declines autofill should not pay a
-        // MutationObserver on every frame of every page for it.
-        if PasswordSettings.isEnabled { documentEnd.append(PasswordForms.script) }
-        for source in documentEnd {
-            controller.addUserScript(
-                WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
-            )
-        }
+        controller.addUserScript(Self.documentEndScript())
         // §14.10: hides `PublicKeyCredential` until Apple grants the
         // entitlement, so sites offer a password instead of a passkey button
         // that cannot work. Returns nil — and injects nothing — once it is
@@ -276,6 +267,49 @@ public final class TabController: NSObject {
             webView.observe(\.underPageBackgroundColor, options: [.new]) { republish($0, $1) }
         ]
         self.webView = webView
+    }
+
+    /// The document-end scripts **every frame on the page** gets, as one
+    /// `WKUserScript` rather than three.
+    ///
+    /// They are `forMainFrameOnly: false` because the things they watch live in
+    /// subframes — an embedded player makes sound, an ad frame is where a
+    /// blocked request happens, a sign-in form is very often in an iframe — so
+    /// a news page with thirty ad frames is thirty injections of each.
+    ///
+    /// **This is one seam, not a saving. It was measured and it is a dead
+    /// heat**: 31-frame page, two harness binaries interleaved, ten rounds
+    /// each, `+14.53 ms` merged against `+14.35 ms` split (`docs/PERF.md`).
+    /// Three `WKUserScript`s are not three compiles per frame — WebKit compiles
+    /// a source once and evaluates it per frame — and what the frame pays for is
+    /// the evaluating, which is the same code either way. What it buys is one
+    /// place that decides what every frame gets; do not read a speed claim into
+    /// it, and do not merge anything else hoping for one.
+    ///
+    /// **The `try`/`catch` is not new error-hiding.** WebKit ran the three
+    /// independently, so one of them throwing left the other two installed;
+    /// joining them into one script is exactly what would have taken that away.
+    /// ``isolated(_:)`` puts it back and nothing else. They share no scope
+    /// either: each source is its own IIFE, as it was when WebKit held them
+    /// apart.
+    static func documentEndScript() -> WKUserScript {
+        var sources = [mediaScript, ContentBlocker.blockedCountScript]
+        // §14: not injected at all when the feature is off, rather than
+        // injected and ignored. A user who declines autofill should not pay a
+        // MutationObserver on every frame of every page for it.
+        if PasswordSettings.isEnabled { sources.append(PasswordForms.script) }
+        return WKUserScript(
+            source: isolated(sources),
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: false
+        )
+    }
+
+    /// `sources` joined so that one of them throwing does not take the rest
+    /// with it. Pure, and separate from the script that uses it, so the
+    /// isolation can be asserted with sources that actually throw.
+    static func isolated(_ sources: [String]) -> String {
+        sources.map { "try {\n\($0)\n} catch (error) {}" }.joined(separator: "\n")
     }
 
     /// Everything that has to happen before the last reference to the web view goes
