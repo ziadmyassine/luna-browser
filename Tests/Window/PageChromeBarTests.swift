@@ -195,6 +195,55 @@ final class PageChromeBarTests: XCTestCase {
         XCTAssertNil(wide.hitTest(belowTheStrip), "a collapsed bar gives the page back its room")
     }
 
+    // MARK: - Fullscreen
+
+    private func windowed(_ bar: PageChromeBar) -> NSWindow {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1200, height: 800),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView?.addSubview(bar)
+        bar.frame = NSRect(x: 0, y: 0, width: 1200, height: Tokens.Metric.pageBar)
+        bar.layoutSubtreeIfNeeded()
+        return window
+    }
+
+    /// **Fullscreen takes the traffic lights out of the window and hands them
+    /// back, and neither edge resizes this bar.** `placeControls` measures
+    /// against them, so without this the bar keeps a placement made when they
+    /// were somewhere else — which is §3.2b's dissolve turning into a move, in
+    /// fullscreen only. §3.1's control row is fixed the same way, but that pass
+    /// walks the chrome host's subviews and this bar is an overlay on the card.
+    func testTheLightsMovingMarksTheBarForAFreshLayout() {
+        let bar = bar(width: 1200)
+        let window = windowed(bar)
+        XCTAssertFalse(bar.needsLayout)
+
+        NotificationCenter.default.post(name: NSWindow.didEnterFullScreenNotification, object: window)
+        XCTAssertTrue(bar.needsLayout, "entering fullscreen left the bar measured against the old lights")
+
+        bar.layoutSubtreeIfNeeded()
+        NotificationCenter.default.post(name: NSWindow.didExitFullScreenNotification, object: window)
+        XCTAssertTrue(bar.needsLayout, "coming back out left the bar measured against the old lights")
+    }
+
+    /// The notification is posted for every window in the app, and another
+    /// window's fullscreen moved nothing this bar can see.
+    func testAnotherWindowsFullscreenIsNotThisBarsBusiness() {
+        let bar = bar(width: 1200)
+        _ = windowed(bar)
+        let other = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 400),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        NotificationCenter.default.post(name: NSWindow.didEnterFullScreenNotification, object: other)
+        XCTAssertFalse(bar.needsLayout)
+    }
+
     /// The bar is a plane in the page's colour, so what is drawn on it has to
     /// be inked for *that* colour rather than for the app's. One appearance on
     /// the subtree is how every token on it — text, glyph ink, glass fallback —

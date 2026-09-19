@@ -122,6 +122,7 @@ final class PageChromeBar: NSView {
         for view in buttons + [pill, suggestions] { addSubview(view) }
         wirePill()
         applyPlane(animated: false)
+        watchForTheLights() // The one thing that moves without resizing this view.
     }
 
     @available(*, unavailable)

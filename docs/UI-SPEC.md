@@ -481,6 +481,18 @@ column closes up over the pill's own 34 pt.
   anywhere new opens it again. The rule is `PageBarScroll`, a value with no view in it, because the
   cases that matter are the awkward ones: a momentum wobble must not flip it, and a long scroll down
   must not mean scrolling all the way back before the address returns.
+- **The bar hears about the traffic lights itself.** Its controls are laid out *against* the lights, and
+  macOS takes them out of the window on the way into fullscreen and hands them back on the way out —
+  without resizing anything, so nothing marks the bar dirty and it keeps a placement measured against
+  lights that have moved. In fullscreen that put the buttons a light's width off wherever the pane is
+  the whole window and the open pill off the centre line the collapsed one shares, which turned the
+  dissolve below into a move. §3.1's control row has the same dependency and is fixed by
+  `BrowserWindowController.relayoutChrome` — but that pass walks the **chrome host's** subviews and this
+  bar is not one of them: it is an overlay on the content card, so it observes
+  `didEnter`/`didExitFullScreen` itself (`PageBarLights.swift`), twice per edge, because AppKit restores
+  the buttons after posting. **The general rule is in §21 / item 8: fullscreen keeps the same views, so
+  a chrome fix reads as already applying there — and the things it moves out from under them are the
+  material and the lights.**
 - **The change between them is a dissolve, not a move.** The pill keeps its frame across the collapse —
   the same x and the same width — and loses only its height, its glass and its glyph, where it stands.
   Both were worked out separately before: open, clear of the buttons; collapsed, sized to the domain and
