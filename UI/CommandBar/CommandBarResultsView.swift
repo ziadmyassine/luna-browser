@@ -96,6 +96,14 @@ final class CommandBarResultsView: NSView {
 
     override func layout() {
         super.layout()
+        // **The rows first, then the pill that measures them.** A view is laid
+        // out before its children, so on the pass that follows a rebuild the
+        // stack's rows still had no frames and the highlight was placed on a
+        // zero rect — invisible. It stayed there until something else asked for
+        // a layout, which on a freshly opened bar was the history query coming
+        // back from SQLite: the highlight arrived about a second after the list
+        // it belongs to, on a row that had been selected the whole time.
+        rows.layoutSubtreeIfNeeded()
         moveSelectionPill(animated: false)
     }
 
