@@ -373,7 +373,7 @@ is one menu, shown from the sidebar pill and from §4's; the top-bar copy adds R
 
 | Item | Scope | Wired to |
 |---|---|---|
-| Share… | page | `NSSharingServicePicker.standardShareMenuItem` |
+| Share… | page | `NSSharingServicePicker.show(relativeTo:of:preferredEdge:)`, from the sliders glyph |
 | Copy Link | page | `NSPasteboard` — URL **and** string, so a plain text field gets the address |
 | Block Ads & Trackers | **per site** | `ContentBlocker.isDisabled(forHost:)` / `setDisabled(_:forHost:)` |
 | Automatic Picture-In-Picture | **per site**, default on | `SitePermissions` → `TabController.enterAutomaticPictureInPicture` |
@@ -410,9 +410,15 @@ is one menu, shown from the sidebar pill and from §4's; the top-bar copy adds R
   (§3.4a) puts the symbol in `attributedTitle` instead, and this menu and the tab menu share it, so the
   two cannot drift apart on size, tint or alignment. `SiteMenu.Glyph` names every symbol in one place
   and a test walks it: a misspelt name costs the icon silently, leaving one item out of the column.
-- **Share arrives with an image and it is cleared.** `standardShareMenuItem` is the one item on this
-  build whose `image` macOS *does* draw, so dressing it while it still had one showed two share glyphs
-  side by side; AppKit's own is a size larger and a few points left of the column the rest sit in.
+- **Share is Luna's own item, not `standardShareMenuItem`.** The system's item draws a share glyph that
+  nothing on the item controls: `image` is nil before the menu opens and still nil after `menu.update()`
+  — probed — and AppKit draws one anyway, a size under this menu's glyphs and in the column they stand
+  in. Dressed like every other row it came out as two share marks side by side, with the word pushed a
+  glyph's width past every other word; left undressed it is AppKit's smaller mark and a title 4 pt short
+  of the column. An ordinary item showing the same picker from the same glyph has one mark, in the
+  column, and gives up nothing but AppKit assembling the row. Still not a submenu: the reference's
+  chevron is `sharingServices(forItems:)`, deprecated since macOS 13 with Apple's own note pointing at
+  the picker.
 - **§4's Reload row is dressed by the same helper.** That layout has no reload button, so its copy of
   this menu grows a row at the top — the only item here that one layout adds, and the one that would
   otherwise be the single glyph-less line in a menu of glyphs.

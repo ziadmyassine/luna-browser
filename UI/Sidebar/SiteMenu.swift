@@ -27,9 +27,8 @@
 //  This file carried the `image` assignments for months with nothing to show for them
 //  — the measurement is in `SidebarMenu.label(symbol:title:in:)`, and §3.4a's tab menu
 //  is where the way round it was found. The same helper draws both menus now, so the
-//  two surfaces cannot drift apart on icon size, tint or alignment. Share is the one item
-//  AppKit *does* draw an image for, so that image is cleared before it is dressed — see
-//  `build()`.
+//  two surfaces cannot drift apart on icon size, tint or alignment. Share is dressed by
+//  the same helper as the rest, which is why it is an ordinary item — see `build(from:)`.
 //
 
 import AppKit
@@ -41,13 +40,17 @@ enum SiteMenu {
 
     /// Opens the menu under `anchor` — §3.2's sliders glyph, or §4's.
     static func present(from anchor: NSView) {
-        build().popUp(positioning: nil, at: NSPoint(x: 0, y: anchor.bounds.maxY), in: anchor)
+        build(from: anchor).popUp(positioning: nil, at: NSPoint(x: 0, y: anchor.bounds.maxY), in: anchor)
     }
 
     /// The menu for whatever page is on screen right now. Built fresh every
     /// time: every item in it is a statement about the current tab, and a menu
     /// held over from the last one would be checkmarks for another site.
-    static func build() -> NSMenu {
+    ///
+    /// - Parameter anchor: the glyph the menu hangs off, which the share sheet
+    ///   hangs off too — the menu is gone by the time Share fires, and a
+    ///   picker needs a view on screen to point at.
+    static func build(from anchor: NSView) -> NSMenu {
         let menu = NSMenu()
         // Closure items are their own target so AppKit would enable them anyway;
         // turning this off is for the two that must stay *dis*abled.
@@ -57,26 +60,33 @@ enum SiteMenu {
             return menu
         }
 
-        // **`standardShareMenuItem`, not a hand-rolled submenu.** The reference
-        // shows Share with a chevron, which is `sharingServices(forItems:)` —
-        // deprecated since macOS 13, with Apple's own deprecation note pointing
-        // here. This item reads "Share…" and opens the system picker on the
-        // spot instead of nesting, and it lists the same ten destinations
-        // (measured). A submenu is not worth building a stale copy of the
-        // system's share sheet to get.
+        // **The system picker, from an ordinary item.** Not
+        // `NSSharingServicePicker.standardShareMenuItem`, and not a submenu
+        // either: the reference's chevron is `sharingServices(forItems:)`,
+        // deprecated since macOS 13 with Apple's own note pointing at the
+        // picker, and a submenu is not worth building a stale copy of the share
+        // sheet to get. What this item shows is the same sheet with the same
+        // destinations; all it gives up is AppKit assembling the row.
         //
-        // The picker is **held, not let go**: the item is its, and a picker
-        // that falls out of scope at the end of this function takes the item's
-        // behaviour with it.
-        let picker = NSSharingServicePicker(items: [page.url])
-        sharePicker = picker
-        // **This is the one item macOS does draw an image for**, and the image has to go
-        // for that reason: measured, a dressed share item with AppKit's own glyph still on
-        // it showed two share glyphs side by side. Cleared, it lands in the same column as
-        // every other item here — AppKit's is drawn a size larger and a few points to the
-        // left of where the rest of them sit.
-        let share = picker.standardShareMenuItem
-        share.image = nil
+        // Which it assembles wrong here. **`standardShareMenuItem` draws a
+        // share glyph that nothing on the item controls**: `image` is nil
+        // before the menu opens and still nil after `menu.update()` — probed —
+        // and AppKit draws one regardless, a size under this menu's own glyphs
+        // and in the column they stand in. Dressed like every other row that
+        // came out as two share marks side by side, with the word pushed a
+        // glyph's width past every other word; left undressed it is AppKit's
+        // smaller mark and a title 4 pt short of the column. An item Luna makes
+        // itself has one mark, in the column, and it is the one
+        // `SidebarMenu.label` draws for the rest of the menu.
+        //
+        // The picker is **held, not let go**: a picker that falls out of scope
+        // as the closure returns takes the sheet with it.
+        let share = SidebarMenu.item(title: String(localized: "Share…")) { [weak anchor, url = page.url] in
+            guard let anchor else { return }
+            let picker = NSSharingServicePicker(items: [url])
+            sharePicker = picker
+            picker.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .minY)
+        }
         menu.addItem(glyph(Glyph.share, on: share))
         menu.addItem(copyLink(page.url))
         menu.addItem(.separator())
@@ -123,8 +133,8 @@ enum SiteMenu {
 
     private static var session: BrowserSession? { (NSApp.delegate as? AppDelegate)?.session }
 
-    /// See `build()`. One at a time: the menu is modal, so the previous one is
-    /// always finished with by the time the next is made.
+    /// See `build(from:)`. One at a time: the sheet is modal, so the previous
+    /// one is always finished with by the time the next is asked for.
     private static var sharePicker: NSSharingServicePicker?
 
     private static var current: Page? {

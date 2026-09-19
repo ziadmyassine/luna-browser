@@ -235,7 +235,7 @@ final class TopBarURLPill: NSView, TopBarThemed, NSTextFieldDelegate {
     /// nowhere else. The item is nil-targeted, which puts it through the same
     /// `AppDelegate` method `⌘R` does rather than being a second implementation.
     private func showSiteMenu() {
-        let menu = SiteMenu.build()
+        let menu = SiteMenu.build(from: sliders)
         let reload = NSMenuItem(
             title: String(localized: "Reload"),
             action: #selector(AppDelegate.reloadPage(_:)),
