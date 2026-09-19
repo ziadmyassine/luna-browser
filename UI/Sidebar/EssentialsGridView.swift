@@ -281,11 +281,30 @@ final class EssentialsGridView: NSView {
         let lit = activeTabID.flatMap { settled.contains($0) ? $0 : nil }
         let moved = lit != litID
         litID = lit
+        // **Stood in the right place before it is lit**, or the pop plays at
+        // the tile you came *from* and the light teleports afterwards: the
+        // layout pass that would otherwise place it does not run until later
+        // in the loop, and the appear starts here.
+        placeGlow()
         glow.show(lit.flatMap(tint(for:)), blooming: blooming && moved && lit != nil)
-        // The glow's frame is `placeContents`' to set, and on this path — a
-        // click, with the same tabs in the same order — nothing else would
-        // have asked for a pass.
-        needsLayout = true
+    }
+
+    /// Where the light stands: its tile's slot, or nowhere.
+    private var litSlot: NSRect? {
+        guard let litID, let index = settled.firstIndex(of: litID) else { return nil }
+        // A live drag holds a slot open, exactly as it does for the tiles.
+        let slot = dropIndex.map { index >= $0 ? index + 1 : index } ?? index
+        return slotRect(at: slot)
+    }
+
+    /// **The light never travels.** It is one view moved between tiles, so an
+    /// animated pass — a pin, an unpin, a reorder — would slide it across the
+    /// grid from the tile you left to the tile you clicked, and that slide is
+    /// the thing this is not: the glow goes out where it was and appears where
+    /// it now is. Always immediate, inside an animated pass or out of one.
+    private func placeGlow() {
+        guard let frame = litSlot else { return }
+        Tokens.Motion.immediately { glow.frame = frame }
     }
 
     /// The colour a tile glows in: the site's own, out of its favicon.
@@ -326,25 +345,13 @@ final class EssentialsGridView: NSView {
             // lift came to rest in the right place and a second tile then
             // arrived from the corner to stand in it. It lands where it belongs
             // and fades up there instead; the fade is `makeTile`'s.
-            let arrived = arriving.remove(id) != nil
-            // The light stands where its tile stands, off the same arithmetic
-            // in the same pass — so it rides a reorder along with the tile
-            // instead of working its slot out separately and landing a tile
-            // behind. It only comes from nowhere for the same reason the tile
-            // does, and then it lands rather than flying.
-            if id == litID {
-                if arrived {
-                    Tokens.Motion.immediately { glow.frame = frame }
-                } else {
-                    glow.frame = frame
-                }
-            }
-            guard !arrived else {
+            guard arriving.remove(id) == nil else {
                 Tokens.Motion.immediately { tile.frame = frame }
                 continue
             }
             tile.frame = frame
         }
+        placeGlow()
     }
 
     /// The slot a drop would land in. Drawn only while a drag is live, because

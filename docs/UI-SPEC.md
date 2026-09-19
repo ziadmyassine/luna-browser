@@ -622,8 +622,11 @@ pill and lining up with it rather than with the bar.
   blue to say "this one".
 - **The tile you are on glows, in that site's own colour.** A lit ring just outside the tile's hairline
   (`essentialsGlowRim`, 1.5) with a bloom carrying past it (`essentialsGlowReach`, 7), 5 % of the same
-  colour inside the glass, and it **appears** — opacity and a 0.94 → 1 rise together on `essentialGlow`,
-  from the tile's own centre. Reference: `inspiration/pinned-tab-glow-*.png`, at about half their gauge,
+  colour inside the glass, and it **appears with a pop** — opacity and a 1.06 → 1 scale together on
+  `essentialGlow`, from the tile's own centre. It **flares out and settles**, it does not grow in:
+  rendered at 0.88, 0.94, 1.00 and 1.06 over a real tile, anything under 1 puts the lit ring *inside*
+  the tile's hairline with the grey line still outside it, which reads as a second smaller box drawn on
+  the tile rather than as light. Reference: `inspiration/pinned-tab-glow-*.png`, at about half their gauge,
   which is what "not too thick" asked for. **On click, never on hover** — hover is already answered by
   the material arriving, and a glow that followed the pointer round the grid would be four answers to
   one question.
@@ -642,6 +645,12 @@ pill and lining up with it rather than with the bar.
   > rather than under, because a selected tile carries `NSGlassEffectView` and the material composites
   > what is behind the *window* — under it the 5 % inside the glass simply vanished. Over it, the view
   > answers no hit test at all, or it would swallow every click on the pinned tab you are on.
+  > **The light never travels.** It is one view moved between tiles, so the animated pass that a pin,
+  > an unpin or a click's reload brings with it slid the glow across the grid from the tile you left to
+  > the tile you pressed — the "morph between" Martin rejected. Its frame is set **immediately** in
+  > every pass, animated or not, and it is set *before* the appear starts rather than by the layout pass
+  > that follows: placed late, the pop played at the tile you came from and the light teleported after
+  > it. It goes out where it was and appears where it now is, in one frame.
   > **The ring is layers with a continuous corner, not a stroked `CGPath`.** There is no public API for
   > a squircle's outline, so a path round a §3.3 tile pinches at the corners where the tile does not; a
   > `CALayer` with `cornerCurve` and a border draws the real curve, and the bloom is that border's own

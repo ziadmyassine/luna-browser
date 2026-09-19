@@ -160,6 +160,32 @@ final class EssentialGlowTests: XCTestCase {
         XCTAssertEqual(glow(in: grid)?.frame, grid.slotRect(at: 2))
     }
 
+    /// **The light does not slide from the tile you left**, and it is standing
+    /// on the new one *before* it lights.
+    ///
+    /// Both halves were the same bug seen from different ends. The glow is one
+    /// view moved between tiles, so a frame set inside the grid's animated pass
+    /// — which a pin, an unpin or the reload a click brings with it all run —
+    /// carried it across the grid; and a frame left to the layout pass that
+    /// follows meant the appear played at the tile you came from and the light
+    /// teleported afterwards. There is no layout pass here on purpose: the
+    /// frame has to be right the moment `show` returns.
+    func testTheLightDoesNotTravelToTheTileYouPressed() {
+        let grid = grid()
+        var pinned = tabs(3)
+        grid.show(pinned, activeTabID: pinned[0].id)
+        grid.layoutSubtreeIfNeeded()
+        // A changed tab, which is what clicking a pinned tile really delivers:
+        // the page wakes, and the whole grid rebuilds on `tabInsert`.
+        pinned[2].title = "Woken"
+        grid.show(pinned, activeTabID: pinned[2].id)
+
+        let lit = glow(in: grid)
+        XCTAssertEqual(lit?.frame, grid.slotRect(at: 2))
+        XCTAssertNil(lit?.layer?.animation(forKey: "position"), "the light slid to its new tile")
+        XCTAssertNil(lit?.layer?.animation(forKey: "bounds"))
+    }
+
     /// The tab you are on is one of §3.4's rows, not a tile: there is nothing
     /// up here to light, and a glow left burning round the last pinned tab you
     /// visited would say you were still on it.

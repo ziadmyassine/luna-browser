@@ -35,10 +35,17 @@ import AppKit
 @MainActor
 final class EssentialGlowView: NSView {
 
-    /// 0.94 → 1, the same rise §5's popover comes in on. Small on purpose: the
-    /// glow is already outside the tile, so a larger one reads as the *tile*
-    /// growing rather than as the light coming up.
-    private static let rise = 0.94
+    /// **1.06 → 1: the light flares out and settles, it does not grow in.**
+    ///
+    /// Every other appear in Luna comes up from under 1 — §5's popover from
+    /// 0.94, the Command Bar from 0.96 — and this one cannot, because it is a
+    /// ring round a tile rather than a panel. Rendered at 0.88, 0.94, 1.00 and
+    /// 1.06 over a real tile: anything under 1 puts the lit ring *inside* the
+    /// tile's own hairline, with the grey line still showing outside it, and
+    /// what that reads as is a second smaller box drawn on the tile. Starting
+    /// wide, the ring is clear of the tile for the whole movement and the pop
+    /// is light flaring rather than a shape changing size.
+    private static let flare = 1.06
 
     /// Whether the glow is on. `alphaValue` is the *animated* answer and is
     /// somewhere between the two for a quarter of a second either way; this is
@@ -111,7 +118,7 @@ final class EssentialGlowView: NSView {
         guard blooming,
               let scale = Tokens.Motion.essentialGlow.springAnimation(keyPath: "transform.scale")
         else { return }
-        scale.fromValue = Self.rise
+        scale.fromValue = Self.flare
         scale.toValue = 1.0
         layer?.add(scale, forKey: "essentialGlow")
     }
