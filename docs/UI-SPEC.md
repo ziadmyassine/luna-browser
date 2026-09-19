@@ -63,7 +63,7 @@ sidebar's own content reflows. The ratios exist to fix proportions once, not to 
 | `historyPanel` (§3.5's History **pop-out**) | 320 × 420 (a ceiling) | 640 × 520 |
 | `downloadsPanel` (§15.3's list, the same pop-out) | 360 × 340 (a ceiling) | was an `NSPanel` |
 | `historyPopoutGap` (pop-out ↔ its button) | 5 pt (`= controlPairGap`) | — |
-| `scrimStrength` | **gone** — see §9.1 | 0.55 |
+| `scrimStrength` | **gone**, with the scrim itself — see §9.1 | 0.55 |
 | `settingsListWidth` / `settingsWindow` | 230 pt / 720 × 520 pt | 196, and a 420 × 160 box before that |
 | `settingsSectionRow` / `settingsSectionIcon` | 36 pt / 26 pt, radius 7 | — |
 | `settingsCardRow` / `settingsGroupGap` | 52 / 26 pt | 36 / 3 |
@@ -103,7 +103,7 @@ are near-black and white respectively. The OS does the expensive part for free.
 | URL pill | `Surface.well` at rest, `.control` glass when hovered or open for editing. **No page tint** |
 | History pop-out | Liquid Glass `.regular` + `Shadow.popover`, standing on the §3.5 button |
 | Downloads pop-out | The same surface, standing on whichever Downloads button the layout shows |
-| Command Bar scrim | **`NSVisualEffectView` at `.withinWindow`**, full strength, under `Surface.frost` — the one surface that is deliberately not Liquid Glass |
+| Command Bar backdrop | **None.** The bar floats over the page as it is — see §9.1 |
 
 **A dormant control is a well, not a plate.** §3.2's URL pill and §3.3's pinned tiles rest on
 `Surface.well` — **black in both themes** — with a `Line.border` hairline catching the edge, so they read
@@ -174,41 +174,48 @@ accent border and `NSSegmentedControl`'s solid blue block are gone from every on
 is `Text.primary`; an internal page's focus ring is `--luna-text-primary`; `--luna-accent` is no longer
 part of the internal-page palette at all.
 
-**Why the Command Bar's scrim is not glass.** Liquid Glass composites what is behind the *window*, so
-over a live page in the same window it does not blur the page — it replaces it. In fullscreen, with no
-desktop left to sample, the page behind the Command Bar disappeared entirely behind a near-black plate.
-`NSVisualEffectView` at `.withinWindow` is the only API that blurs in-window content, and that is what
-§9.1's "blurred backdrop scrim" describes. Its material is `.sidebar`, **at full strength, with
-`Surface.frost` painted over it** — §3.8's peeked sidebar's recipe, which is what the backdrop was asked
-to look like.
+**The Command Bar has no backdrop, and that is the third answer to the question.** §9.1 asked for a
+"blurred backdrop scrim" and Luna built one twice, because Liquid Glass cannot be it: glass composites
+what is behind the *window*, so over a live page in the same window it does not blur the page, it
+replaces it, and in fullscreen — no desktop left to sample — the page disappeared behind a near-black
+plate. `NSVisualEffectView` at `.withinWindow` is the only API that blurs in-window content, so the
+backdrop was the one surface in Luna deliberately not made of glass.
 
-> **`scrimStrength` is gone, and it was the bug.** The backdrop was built at `alphaValue = 0.55`, and
-> `CommandBarPanel` carried a comment saying exactly why that cannot work: `alphaValue` on an
-> `NSVisualEffectView` does not thin a material, it cross-fades the blurred result back over the sharp
-> original — so every step below 1.0 bought a flat grey film over a page that was still perfectly
-> legible, rather than a softer blur. Two files disagreed and the code was the one that was wrong. The
-> legibility the number was reaching for comes from the *material*: `.sidebar` is the most see-through of
-> the in-window ones, which is why it is the one chosen below.
+> **Two versions of it, and the second is what Martin actually saw.** The first was built at
+> `alphaValue = 0.55`, and `CommandBarPanel` carried a comment saying exactly why that cannot work:
+> `alphaValue` on an `NSVisualEffectView` does not thin a material, it cross-fades the blurred result
+> back over the sharp original — so every step below 1.0 bought a flat grey film over a page that was
+> still perfectly legible. Two files disagreed and the code was the one that was wrong. The second went
+> to full strength and painted `Surface.frost` over it, borrowing §3.8's peeked-sidebar recipe on the
+> argument that a blur wants a *surface* to be rather than a hole — and that plane followed §2a's
+> density, so at `.opaque` it was `Ink.frostOpaque`: **0.66 in dark mode**. Measured off a capture over
+> apple.com: the page's shapes do survive the blur, and are then flattened under a sheet two thirds of
+> the way to solid. What read was the sheet.
 >
-> **What it still cannot copy from the peek.** The peek is real glass, so it also refracts the desktop
-> and carries a rim. Neither is available here — no material samples an out-of-process `WKWebView` layer,
-> which is this whole paragraph's finding. The blur and the plane are the parts that can be the same, and
-> they are the parts that read. §2a's setting moves both surfaces together.
+> **Why the peek's recipe never transferred.** That plane stands over the *desktop*, which glass
+> refracts at full brightness, and the frost is what stops the wallpaper reading as the chrome. This one
+> stood over a page the blur had already softened, at a setting whose whole subject is how much desktop
+> comes through — a question this surface does not ask. So §2a moves the chrome and had no business
+> here.
 
-Five materials were tried on screen. `.hudWindow` and `.fullScreenUI` blur beautifully and then flatten
-everything above them into one dark wall — the page stops being context and the bar's own Liquid Glass
-has nothing but the scrim left to sample, so it reads as a plate. `.menu` and `.underWindowBackground`
-take the page away completely. `.selection` barely registers: the page stays sharp and there is no
-backdrop at all. `.sidebar` is the one that blurs while leaving the page visible underneath.
+Shown the blur on its own, with the plane gone, Martin's answer was that the backdrop is not wanted at
+all: *"just remove the blur around it completely, it is not needed."* So there is no scrim, no
+`Glass.scrim()` and no `GlassScrim.swift`. `CommandBarPanel` still covers the window — that is what stops
+a click reaching the page and what carries §9.1's dismissal — and simply draws nothing while doing it.
+The finding about what glass composites is kept where it still decides something, in `Glass.peekPlane`.
 
-**Desaturation is the material's, and there is no dial for it.** Every in-window material desaturates
-what it blurs, which is what a colourful page turns into behind the bar, and the material's own tint is
-not tunable — a `CIColorControls` saturation boost on the layer collapses the backdrop group into an
-opaque plate, so that lever does not exist either. What `alphaValue` looked like a dial for, it was not:
-see the note above. The bar itself keeps §2's **untinted** `.popover` glass for the same reason the
+Five materials had been tried on screen before the surface was dropped, and the record is worth keeping
+for the next thing that wants an in-window blur. `.hudWindow` and `.fullScreenUI` blur beautifully and
+then flatten everything above them into one dark wall. `.menu` and `.underWindowBackground` take the page
+away completely. `.selection` barely registers. `.sidebar` is the one that blurs while leaving the page
+visible underneath, and it is what the backdrop used until it was removed.
+
+**Desaturation was the material's, and there was no dial for it.** Every in-window material desaturates
+what it blurs, and the material's own tint is not tunable — a `CIColorControls` saturation boost on the
+layer collapses the backdrop group into an opaque plate. What `alphaValue` looked like a dial for, it was
+not: see the note above. The bar itself keeps §2's **untinted** `.popover` glass for the same reason the
 chrome's tint exists — a bar floating over a page should look like a pane of the desktop, not like more
-chrome (and §2a gives it a plane when the user asks for one). The choice still lives in
-`Design/Glass.swift` (`Glass.scrim()` → `GlassScrimView`); no other file knows which material it got.
+chrome (and §2a gives it a plane when the user asks for one).
 
 **Its type is a step above the chrome's.** The query is 13 → **15 pt** (`TypeScale.commandBarQuery`) and
 a result row's title and subtitle 13 → **14** (`commandBarRow`). §1's 13 pt is measured off the reference

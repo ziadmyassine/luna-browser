@@ -118,9 +118,12 @@ extension Glass {
 
     @MainActor
     private static func refreshDensity(in view: NSView) {
+        // Every glass surface in the app is a `GlassBackingView`, so this is the
+        // whole pass. §9.1's Command Bar backdrop used to be the exception — it
+        // carried the same frost from a different class and moved with the
+        // setting, which is exactly what made it wrong: at `.opaque` the bar sat
+        // on a 0.66 sheet. There is no backdrop now (`CommandBarPanel`).
         (view as? GlassBackingView)?.refreshMaterial()
-        // §9.1's backdrop carries the same frost, so it moves with the setting.
-        (view as? GlassScrimView)?.refreshMaterial()
         for subview in view.subviews { refreshDensity(in: subview) }
     }
 }

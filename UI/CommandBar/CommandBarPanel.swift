@@ -2,22 +2,33 @@
 //  CommandBarPanel.swift
 //  Luna
 //
-//  §9.1's surface: "a floating rounded panel over the current tab with a blurred
-//  backdrop scrim, anchored ~20 % from the window top".
+//  §9.1's surface: "a floating rounded panel over the current tab, anchored
+//  ~20 % from the window top".
 //
 //  A view in the browser window rather than a child `NSPanel`. A second window
 //  would bring its own key-window dance, its own first-responder transfer and its
 //  own follow-the-parent bookkeeping on every move and resize, to buy something
 //  this does not need — the bar is modal over exactly one window and dies with it.
 //
-//  The scrim is `Glass.scrim()` — a **within-window** backdrop, and the one
-//  surface in Luna that is deliberately not Liquid Glass. Liquid Glass samples
-//  what is behind the *window*, so over a live page it replaced the page
-//  rather than blurring it, and in fullscreen (no desktop to sample) the page
-//  disappeared behind a near-black plate. See `Glass.scrim()` for the whole
-//  argument; the important part here is that the choice is still made in
-//  `Design/Glass.swift` and this file only asks for it by name (contract
-//  rule 3).
+//  **AND NO BACKDROP.** §9.1 asked for a "blurred backdrop scrim" and Luna had
+//  one, in two shapes, and neither earned its keep. At `alphaValue = 0.55` an
+//  `NSVisualEffectView` does not thin — it cross-fades the blurred result back
+//  over the sharp original, so the bar sat on a grey film over a perfectly
+//  legible page. At full strength with §2's frost over it, the frost followed
+//  §2a's density, and at `.opaque` that is `Ink.frostOpaque`: **0.66 in dark
+//  mode**, a sheet two thirds of the way to solid with the blur buried under
+//  it. Martin looked at the third version — the blur on its own, no plane —
+//  and said the backdrop is not needed at all: *"just remove the blur around
+//  it completely."*
+//
+//  So the panel floats over the page as it is. This view still covers the
+//  window, because it is what stops a click reaching the page and what carries
+//  §9.1's dismissal (`mouseDown` below) — it simply draws nothing while doing
+//  it. `Glass.scrim()` and `GlassScrim.swift` went with the plane; the finding
+//  that sent that surface to `NSVisualEffectView` in the first place — glass
+//  composites what is behind the *window*, so it replaces a page rather than
+//  blurring it, and goes near-black in fullscreen — is kept where it is still
+//  load-bearing, in `Glass.peekPlane`.
 //
 
 import AppKit
@@ -78,26 +89,12 @@ final class CommandBarPanel: NSView {
         self.results = resultsView
         super.init(frame: frameRect)
         autoresizingMask = [.width, .height]
-        buildScrim()
         buildBody()
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
-    }
-
-    private func buildScrim() {
-        // **At full strength, and frosted like §7.2's peeked sidebar.** That is
-        // `Glass.scrim()`'s business now, and the two lines this comment used
-        // to argue for are in `GlassScrim.swift` with the measurement behind
-        // them: `alphaValue` does not thin an `NSVisualEffectView`, it
-        // cross-fades the blurred result back over the sharp original, so the
-        // 0.55 that shipped here bought a grey film rather than a blur.
-        let scrim = Glass.scrim()
-        scrim.frame = bounds
-        scrim.autoresizingMask = [.width, .height]
-        addSubview(scrim)
     }
 
     private func buildBody() {
@@ -179,9 +176,12 @@ final class CommandBarPanel: NSView {
         centreConstraint?.constant = region.midX - bounds.midX
     }
 
-    /// Clicks reach here up the responder chain: the scrim is a glass view with no
-    /// `mouseDown` of its own, so its press walks up to this. `CommandBarPanelBody`
-    /// stops the presses that land on the panel, which is the only reason it is a
+    /// §9.1's dismissal: a press anywhere but the bar closes it.
+    ///
+    /// It lands here directly now that there is no backdrop in the way — this
+    /// view is empty but not absent, and `hitTest` answers with it for every
+    /// point the bar itself does not claim. `CommandBarPanelBody` stops the
+    /// presses that land on the panel, which is the only reason it is a
     /// subclass — without it, clicking the bar's own background would dismiss it.
     override func mouseDown(with event: NSEvent) {
         onBackgroundClick?()

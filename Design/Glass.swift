@@ -113,32 +113,18 @@ enum Glass {
         return backing
     }
 
-    /// A **within-window** backdrop: blurs what is inside the window behind it.
-    ///
-    /// **Liquid Glass cannot do this, and that is not a limitation to work
-    /// around — it is what the material is.** `NSGlassEffectView` composites
-    /// what is behind the *window*: the desktop, the wallpaper, another app.
-    /// Put it over a live web page in the same window and the page is not
-    /// blurred, it is *replaced* — and in fullscreen, where there is no desktop
-    /// to sample at all, it goes very nearly black and the page behind the
-    /// Command Bar vanished completely.
-    ///
-    /// The Command Bar's backdrop is the one surface in Luna that has to blur
-    /// in-window content, so it is the one surface that is not glass.
-    /// `NSVisualEffectView` at `.withinWindow` is the only API that does this
-    /// job, it is what §9.1's "blurred backdrop scrim" describes, and it brings
-    /// its own Reduce Transparency and Increase Contrast handling. It lives
-    /// here, behind a name, for the same reason everything else does: so no
-    /// other file has to know which material it got.
-    ///
-    /// **At full strength, and frosted like §7.2's peeked sidebar** — see
-    /// `GlassScrim.swift` for the measurement that says why a partial
-    /// `alphaValue` was a grey film rather than a blur, and for what the peek
-    /// and this surface can and cannot have in common.
-    @MainActor
-    static func scrim() -> NSView {
-        GlassScrimView()
-    }
+    // THERE IS NO `scrim()` ANY MORE, and the gap is deliberate. §9.1 asked the
+    // Command Bar for a "blurred backdrop scrim", and because Liquid Glass
+    // cannot blur in-window content — it composites what is behind the
+    // *window*, so over a live page it replaces the page, and in fullscreen it
+    // goes near-black — that surface was the one thing in Luna built from
+    // `NSVisualEffectView` at `.withinWindow` instead. It worked. Martin's
+    // answer, having seen it with and without §2's frost over it, was that the
+    // Command Bar does not want a backdrop at all: *"just remove the blur
+    // around it completely, it is not needed."* `CommandBarPanel` now floats
+    // over the page as it is, and its own full-window view still swallows the
+    // clicks. The finding above is kept in `peekPlane`, where it still decides
+    // something.
 
     /// §7.2's peeked sidebar: **the chrome plane, as a plane of its own.**
     ///
