@@ -453,7 +453,12 @@ public final class TabController: NSObject {
         else { return }
         let frame = message.frameInfo.isMainFrame
             ? "" : (message.frameInfo.request.url?.absoluteString ?? "subframe")
-        if audible { audibleFrames.insert(frame) } else { audibleFrames.remove(frame) }
+        // Only when the set actually moved. `publishState` reads eight properties
+        // off the web view and converts two colours, and a message that says what
+        // the last one said is not news — the script below already drops most of
+        // those, and this is the half of the guard that does not trust a page.
+        let changed = audible ? audibleFrames.insert(frame).inserted : audibleFrames.remove(frame) != nil
+        guard changed else { return }
         publishState()
     }
 
@@ -463,8 +468,26 @@ public final class TabController: NSObject {
     ///
     /// Media events do not bubble, so the listeners are registered in the capture phase;
     /// that is the only way one document-level listener sees every `<video>`.
-    private static let mediaScript = """
+    /// **It only speaks when the answer changes.** This runs in *every* frame
+    /// (`forMainFrameOnly: false`, because an embedded player lives in a
+    /// subframe), and it used to post from every one of them at document end to
+    /// say what silence already said: a page with ten ad iframes was ten
+    /// messages across the process boundary and ten `publishState` calls before
+    /// it had finished loading. `false` is what the tab already is — nothing
+    /// reaches `audibleFrames` until something says otherwise, and
+    /// `resetPerDocumentState` empties it on every navigation — so the opening
+    /// `post()` has nothing to report unless the frame is *already* making
+    /// noise, which is the autoplay case it is there for.
+    ///
+    /// The same latch pays again during playback: `volumechange` fires on every
+    /// tick of a volume drag, and all but the one that crosses zero say what the
+    /// last one did.
+    ///
+    /// Internal rather than private so `MediaScriptTests` can **run** it —
+    /// the same reason `scrollScript` is, and the same lesson behind it.
+    static let mediaScript = """
     (function () {
+      var last = false;
       var post = function () {
         var h = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.lunaMedia;
         if (!h) { return; }
@@ -474,6 +497,8 @@ public final class TabController: NSObject {
           var m = media[i];
           if (!m.paused && !m.muted && m.volume > 0) { audible = true; break; }
         }
+        if (audible === last) { return; }
+        last = audible;
         h.postMessage({ audible: audible });
       };
       ['play', 'playing', 'pause', 'ended', 'volumechange', 'emptied'].forEach(function (name) {

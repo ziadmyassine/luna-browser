@@ -293,23 +293,35 @@ Read the totals as **per tab wake, not per navigation**. This is the cost of bui
 a web view and dressing it, which Luna pays when a cold tab is selected (§19.2) and
 not when a live tab goes to another page.
 
-### What is left, and where it is
+### Counting messages, because the clock could not see them
 
-The per-frame scripts are the whole of it, and three of them share one array in
-`TabController.attach`. Two things would pay for themselves there and neither is done
-yet:
+`mediaScript` is injected into every frame on the page — `forMainFrameOnly: false`,
+because an embedded player lives in a subframe — and it used to post from every one
+of them at document end. Eleven frames was eleven messages across the process
+boundary and eleven `publishState()` calls, each reading eight properties off the web
+view and converting two colours, all to say that silence is still silent.
 
-- **`mediaScript` posts from every frame at document end**, whether or not that frame
-  has any media, and each message lands in `handleMediaMessage` → `publishState()`.
-  Eleven frames is eleven round trips and eleven publishes to say nothing changed.
-  The initial post only exists to establish "not audible", which is already the
-  resting state after `resetPerDocumentState`.
-- **Three separate `WKUserScript`s are injected into every frame** where one would
-  do. Each is compiled and evaluated per frame on its own.
+It now latches: it posts when the answer *changes*, and `false` is what the tab
+already is. `BrowserKitTests/MediaScriptTests` runs the script in a `JSContext` and
+asserts the count rather than the clock — a silent frame posts **nothing**, an
+autoplaying one posts **once**, twenty `volumechange` events during a volume drag
+post **once**, and every real change still gets through. `handleMediaMessage` carries
+the other half of the guard, because a count is only as good as the page reporting it.
 
-Both live in `TabController.swift`, which was being rewritten in the same working
-tree while this was measured (§3.2b's page colour), so they are stated here rather
-than done: two agents editing one file is how a merge eats a fix.
+**This is a count, not a time.** Interleaved runs of two harness binaries could not
+resolve it: base +9.4, +9.2, +9.8, +10.4 ms against opt +9.3, +12.6, +9.6, +18.2 ms,
+on a machine too busy to see a millisecond. Eleven fewer process hops and eleven
+fewer publishes is work that is not being done; it is not a number this bench can
+put on the page.
+
+### What is still left
+
+**Three separate `WKUserScript`s are injected into every frame** where one would do —
+`mediaScript`, `ContentBlocker.blockedCountScript` and §14's form detection — and each
+is compiled and evaluated per frame on its own. Merging them is the remaining
+per-frame win, and it is not free of judgement: three IIFEs in one script share a
+failure, so the join has to isolate them, which is three features' code in one
+string. Worth doing deliberately, not in passing.
 
 ## §17.1 The filter-list refresh
 
