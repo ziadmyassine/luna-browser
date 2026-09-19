@@ -53,6 +53,13 @@ final class PageChromeBar: NSView {
     /// How much room the bar is taking, whenever that changes. The page starts
     /// below it — see `ContentCardView.setContentTopInset`.
     var onBandHeight: ((_ height: CGFloat, _ animated: Bool) -> Void)?
+    /// The pill has been reached for, and the bar is open by the time this
+    /// fires. It stays open for as long as the editing lasts.
+    var onEditingBegan: (() -> Void)?
+    /// Editing is over, and the bar is the page's again. `committed` is Return:
+    /// a navigation is on its way and arriving opens the bar anyway, so taking
+    /// it back for the fraction of a second in between is a flinch.
+    var onEditingEnded: ((_ committed: Bool) -> Void)?
 
     /// The page's colour, as a plane. Behind everything, and the only thing on
     /// this bar that is painted rather than placed.
@@ -103,7 +110,7 @@ final class PageChromeBar: NSView {
             SiteMenu.present(from: pill.siteMenuAnchor)
         }
         for view in buttons + [pill, suggestions] { addSubview(view) }
-        wireSuggestions()
+        wirePill()
         applyPlane(animated: false)
     }
 
@@ -113,14 +120,31 @@ final class PageChromeBar: NSView {
     }
 
     /// The pill owns the keystrokes and the list owns the selection, so the
-    /// four hooks between them are all there is to it: what was typed goes out,
-    /// the arrows move the list, Return asks it for a phrase, and the end of
+    /// hooks between them are all there is to it: what was typed goes out, the
+    /// arrows move the list, Return asks it for a phrase, and the end of
     /// editing takes it away.
-    private func wireSuggestions() {
+    ///
+    /// **And the pill being touched at all opens the bar.** A press on the
+    /// collapsed capsule used to start editing inside 22 pt of it — a full URL
+    /// or a query in a capsule sized to `apple.com`, with no room under it for
+    /// the list and no buttons beside it. So the click opens the bar first and
+    /// the typing happens in the pill that grows out of it. The bar then stays
+    /// open for as long as the editing lasts, whatever the page does: see
+    /// `PageChromeController.pageScrolled(to:)`.
+    private func wirePill() {
         pill.onTyping = { [weak self] text in self?.onTyping?(text) }
         pill.onMoveSelection = { [weak self] offset in self?.suggestions.move(offset) ?? false }
         pill.chosenCompletion = { [weak self] in self?.suggestions.selectedPhrase }
-        pill.onEndEditing = { [weak self] in self?.suggestions.dismiss() }
+        pill.onBeginEditing = { [weak self] in
+            guard let self else { return }
+            setCollapsed(false, animated: true)
+            onEditingBegan?()
+        }
+        pill.onEndEditing = { [weak self] committed in
+            guard let self else { return }
+            suggestions.dismiss()
+            onEditingEnded?(committed)
+        }
         suggestions.onCommit = { [weak self] phrase in
             guard let self else { return }
             suggestions.dismiss()
@@ -176,6 +200,7 @@ final class PageChromeBar: NSView {
         guard animated else {
             Tokens.Motion.immediately { applyState() }
             for view in buttons { view.isHidden = collapsed }
+            pill.settleGlyph()
             return
         }
         Tokens.Motion.animate(Tokens.Motion.sidebarCollapse) { context in
@@ -188,6 +213,8 @@ final class PageChromeBar: NSView {
                 // trust the captured value: another change may have landed.
                 guard let self else { return }
                 for view in self.buttons { view.isHidden = view.alphaValue == 0 }
+                // The pill's own glyph faded with them, and for the same reason.
+                self.pill.settleGlyph()
             }
         }
     }
@@ -225,10 +252,13 @@ final class PageChromeBar: NSView {
         Tokens.Motion.immediately { applyState() }
     }
 
+    /// The surface before the frames: the pill's own contents are laid out
+    /// against the margins its surface keeps, and the collapsed one keeps
+    /// narrower ones.
     private func applyState() {
+        pill.surface = isCollapsed ? .bare : .glass
         placeControls()
         for view in buttons { view.alphaValue = isCollapsed ? 0 : 1 }
-        pill.surface = isCollapsed ? .bare : .glass
     }
 
     /// The room the bar is taking right now, for the page below it.
@@ -283,16 +313,29 @@ final class PageChromeBar: NSView {
         // there is not.** A 640 pt window with a sidebar open leaves about
         // 230 pt beside the buttons; a pill centred in that overlaps them, and
         // an overlapping pill is worse than an off-centre one.
-        let height = isCollapsed ? Tokens.Metric.pageBarCollapsedPillHeight : circle.height
-        let left = isCollapsed
-            ? Tokens.Metric.pageBarInset
-            : buttonsEnd + Tokens.Metric.chromeGapWide
+        //
+        // **The open layout places the pill, and the collapsed one keeps that
+        // place exactly — the same x and the same width.** Both were worked out
+        // separately before: open, clear of the buttons; collapsed, sized to the
+        // domain and centred in what was left of the bar. Even once they shared
+        // a centre the capsule still travelled, because its two edges did: it
+        // drew in from 420 pt to the width of `apple.com` while its material was
+        // fading, which is the address sliding in from the side that the two
+        // states were supposed to stop doing.
+        //
+        // **It can keep the width because collapsed it has no surface.** A
+        // `.bare` pill draws nothing but its centred domain, so 420 pt of it is
+        // 420 pt of nothing with a word in the middle — and the word is already
+        // on the centre line the open pill put it on. Nothing moves sideways at
+        // any point of the change; the height and the material are all of it.
+        // It also puts the truncation question beyond reach: a domain that fits
+        // the open pill fits the collapsed one, because they are the same pill.
         let right = bounds.maxX - Tokens.Metric.pageBarInset
-        let ceiling = isCollapsed ? pill.fittingWidth : Tokens.Metric.pageBarPillWidth
-        let width = min(ceiling, max(right - left, 0))
-        let centred = bounds.midX - width / 2
+        let left = buttonsEnd + Tokens.Metric.chromeGapWide
+        let width = min(Tokens.Metric.pageBarPillWidth, max(right - left, 0))
+        let height = isCollapsed ? Tokens.Metric.pageBarCollapsedPillHeight : circle.height
         pill.frame = NSRect(
-            x: min(max(centred, left), max(right - width, left)),
+            x: min(max(bounds.midX - width / 2, left), max(right - width, left)),
             y: centreY - height / 2,
             width: width,
             height: height

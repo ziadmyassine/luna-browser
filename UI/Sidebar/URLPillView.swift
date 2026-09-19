@@ -33,14 +33,21 @@ final class URLPillView: NSView, NSTextFieldDelegate {
     var onSubmit: ((String) -> Void)?
     /// The trailing sliders glyph (§3.2's site menu).
     var onSiteMenu: (() -> Void)?
-    // §3.2b's suggestion list, and the only subscriber to any of these four.
-    // The sidebar's pill leaves them nil and behaves as it always has: what was
-    // typed goes out, the arrows move the list (true swallows the key), Return
-    // asks it for a phrase, and the end of editing takes it away.
+    // §3.2b's bar, and the only subscriber to any of these. The sidebar's pill
+    // leaves them nil and behaves as it always has: what was typed goes out, the
+    // arrows move the list (true swallows the key), Return asks it for a phrase,
+    // and the two ends of editing are where the bar opens and gives itself back.
     var onTyping: ((String) -> Void)?
     var onMoveSelection: ((Int) -> Bool)?
     var chosenCompletion: (() -> String?)?
-    var onEndEditing: (() -> Void)?
+    /// Editing is over. `committed` is Return rather than Esc or a click away,
+    /// which is the one thing a subscriber cannot work out for itself: `onSubmit`
+    /// arrives after this, and only sometimes.
+    var onEndEditing: ((_ committed: Bool) -> Void)?
+    /// The other end of that pair: editing has just started, by click or by a
+    /// command. §3.2b's bar opens itself on it — a 22 pt capsule is a fine
+    /// thing to *read* an address in and a poor one to type in.
+    var onBeginEditing: (() -> Void)?
     /// What §3.2's menu hangs off: the glyph itself, not the pill, so it opens
     /// from the control that was pressed.
     var siteMenuAnchor: NSView { sliders }
@@ -97,7 +104,15 @@ final class URLPillView: NSView, NSTextFieldDelegate {
             // that strip is the one thing on it that is not the site. The menu
             // is a scroll away — the bar opens again the moment the page moves
             // up — and §3.2's pill in the sidebar still carries it.
-            sliders.isHidden = surface == .bare
+            //
+            // It *fades* with it: §3.2b's two states are one dissolve, and a
+            // glyph that blinks out on the first frame is the one thing in that
+            // dissolve which reads as a cut. Shown before the fade in either
+            // direction — a hidden view cannot fade — and hidden again by
+            // `settleGlyph()` once the fade has finished, because a view at
+            // alpha 0 still takes clicks.
+            if surface != .bare { sliders.isHidden = false }
+            sliders.alphaValue = surface == .bare ? 0 : 1
             needsDisplay = true
             needsLayout = true
             updateGlass()
@@ -165,6 +180,7 @@ final class URLPillView: NSView, NSTextFieldDelegate {
     /// Expands to the full URL, selected. Idempotent, so ⌘L on an already-open
     /// pill just re-selects.
     func beginEditing() {
+        let wasEditing = isEditing
         isEditing = true
         updateGlass()
         field.stringValue = displayedURL?.absoluteString ?? ""
@@ -173,6 +189,10 @@ final class URLPillView: NSView, NSTextFieldDelegate {
         window?.makeFirstResponder(field)
         field.currentEditor()?.selectAll(nil)
         needsDisplay = true
+        // Only on the way in. This is idempotent — ⌘L on an open pill just
+        // re-selects — and a bar that re-opened on every ⌘L would fight the
+        // scroll rule for a state it is already in.
+        if !wasEditing { onBeginEditing?() }
     }
 
     private func endEditing(commit: Bool) {
@@ -187,7 +207,7 @@ final class URLPillView: NSView, NSTextFieldDelegate {
         field.stringValue = Self.domain(of: displayedURL)
         if window?.firstResponder !== self { window?.makeFirstResponder(self) }
         needsDisplay = true
-        onEndEditing?()
+        onEndEditing?(commit)
         if commit, !typed.isEmpty { onSubmit?(typed) }
     }
 
@@ -293,10 +313,25 @@ final class URLPillView: NSView, NSTextFieldDelegate {
 
     /// Rebuilds the backing when the pill has changed height under it — only
     /// §3.2b's ever does; the sidebar's finds nothing to do.
+    ///
+    /// **It carries the alpha across rather than jumping to the target.** A
+    /// glass view's radius is fixed when it is built, so a pill that collapses
+    /// has to be given a new backing — and the height that forces it changes on
+    /// the same frame the material starts fading. Rebuilding at the target
+    /// finished that fade instantly: the glass cut out at the top of a 0.20 s
+    /// morph instead of dissolving through it.
     func refreshGlassShape() {
-        guard glass != nil, glassRadius != cornerRadius else { return }
-        makeGlass().alphaValue = glassTarget
+        guard let current = glass, glassRadius != cornerRadius else { return }
+        makeGlass().alphaValue = current.alphaValue
+        updateGlass()
         needsDisplay = true
+    }
+
+    /// Hides the site-menu glyph once it has finished fading out, or leaves it
+    /// alone if it faded back in. §3.2b's bar calls this when its own animation
+    /// completes; nothing else changes `surface`.
+    func settleGlyph() {
+        sliders.isHidden = sliders.alphaValue == 0
     }
 
     override func updateTrackingAreas() {

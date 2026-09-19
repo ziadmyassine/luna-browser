@@ -30,6 +30,21 @@ final class PageChromeBarTests: XCTestCase {
         return (buttons, pill)
     }
 
+    private func press(_ view: NSView) throws {
+        let click = try XCTUnwrap(NSEvent.mouseEvent(
+            with: .leftMouseDown,
+            location: .zero,
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: 0,
+            context: nil,
+            eventNumber: 0,
+            clickCount: 1,
+            pressure: 1
+        ))
+        view.mouseDown(with: click)
+    }
+
     /// The reference's three: the sidebar toggle, back and reload, in that
     /// order, because that is where §3.1 left them.
     func testItCarriesTheThreeControlsTheSidebarGaveUp() throws {
@@ -68,17 +83,56 @@ final class PageChromeBarTests: XCTestCase {
         XCTAssertLessThanOrEqual(parts.pill.frame.maxX, narrow.bounds.maxX)
     }
 
-    /// Collapsed, the pill shrinks to the address it is showing instead of
-    /// holding a 420 pt capsule open over the page.
-    func testCollapsingShrinksThePillToItsDomain() throws {
+    /// Collapsed, the pill keeps its place and its width and loses its height.
+    /// It can: with no surface under it there is nothing to see but the centred
+    /// domain, so a 420 pt capsule collapsed is 420 pt of nothing with a word in
+    /// the middle — and the word is on the line the open pill put it on.
+    func testCollapsingChangesTheHeightAndNothingElse() throws {
         let wide = bar(width: 1600)
         let open = try XCTUnwrap(controls(of: wide)).pill.frame
         wide.setCollapsed(true, animated: false)
         wide.layoutSubtreeIfNeeded()
         let shut = try XCTUnwrap(controls(of: wide)).pill.frame
-        XCTAssertLessThan(shut.width, open.width)
+        XCTAssertEqual(shut.minX, open.minX, accuracy: 1)
+        XCTAssertEqual(shut.width, open.width, accuracy: 1)
         XCTAssertLessThan(shut.height, open.height)
-        XCTAssertEqual(shut.midX, wide.bounds.midX, accuracy: 1)
+    }
+
+    /// **The address does not travel between the two states**, at any width.
+    /// Collapsing used to work the pill's place and its width out from scratch —
+    /// centred in what was left of the bar, sized to the domain — so on a pane
+    /// narrow enough to push the open pill off centre the address slid in from
+    /// the side, and even centred its two edges still drew inwards as the glass
+    /// faded. Neither edge moves now.
+    func testCollapsingLeavesTheAddressWhereItWas() throws {
+        for width in [CGFloat(1600), 420] {
+            let bar = bar(width: width)
+            let open = try XCTUnwrap(controls(of: bar)).pill.frame
+            bar.setCollapsed(true, animated: false)
+            bar.layoutSubtreeIfNeeded()
+            let shut = try XCTUnwrap(controls(of: bar)).pill.frame
+            XCTAssertEqual(shut.minX, open.minX, accuracy: 1, "\(width) pt: the pill moved sideways")
+            XCTAssertEqual(shut.maxX, open.maxX, accuracy: 1, "\(width) pt: the pill changed width")
+        }
+    }
+
+    /// **And the whole domain survives the collapse.** It did not: the capsule
+    /// was sized to its own text, and a width a point short does not lose a
+    /// pixel off the last letter — it drops characters until an ellipsis fits,
+    /// which is what turned `apple.com` into `apple.c…`. The collapsed pill is
+    /// the open pill's width now, and the open one has a glyph to clear that
+    /// the collapsed one does not, so it has strictly more room than it needs.
+    func testTheWholeAddressStillFitsWhenTheBarCollapses() throws {
+        let wide = bar(width: 1600)
+        wide.setCollapsed(true, animated: false)
+        wide.layoutSubtreeIfNeeded()
+        let pill = try XCTUnwrap(controls(of: wide)?.pill as? URLPillView)
+        pill.layoutSubtreeIfNeeded()
+        XCTAssertGreaterThanOrEqual(
+            pill.field.frame.width,
+            pill.field.intrinsicContentSize.width,
+            "the domain is truncated in the collapsed bar"
+        )
     }
 
     func testCollapsingTakesTheButtonsAwayRatherThanMovingThem() throws {
@@ -87,6 +141,41 @@ final class PageChromeBarTests: XCTestCase {
         wide.layoutSubtreeIfNeeded()
         let parts = try XCTUnwrap(controls(of: wide))
         XCTAssertTrue(parts.buttons.allSatisfy(\.isHidden))
+    }
+
+    /// §3.2b: a press on the collapsed address opens the bar rather than
+    /// starting a whole URL inside a 22 pt capsule. The page is told about the
+    /// room it gives up in the same breath, because the bar has grown.
+    func testPressingTheCollapsedAddressOpensTheBar() throws {
+        let wide = bar(width: 1600)
+        wide.setCollapsed(true, animated: false)
+        wide.layoutSubtreeIfNeeded()
+        let pill = try XCTUnwrap(controls(of: wide)?.pill as? URLPillView)
+        var band: [CGFloat] = []
+        var began = 0
+        wide.onBandHeight = { height, _ in band.append(height) }
+        wide.onEditingBegan = { began += 1 }
+        try press(pill)
+        XCTAssertFalse(wide.isCollapsed)
+        XCTAssertEqual(band, [Tokens.Metric.pageBar])
+        XCTAssertEqual(began, 1)
+    }
+
+    /// And the end of it says which end it was. Return means a navigation is on
+    /// its way and arriving opens the bar anyway; Esc means the bar goes back to
+    /// wherever the page had it.
+    func testTheEndOfEditingSaysWhetherItWasCommitted() throws {
+        let wide = bar(width: 1600)
+        let pill = try XCTUnwrap(controls(of: wide)?.pill as? URLPillView)
+        let editor = NSTextView()
+        var ends: [Bool] = []
+        wide.onEditingEnded = { ends.append($0) }
+
+        try press(pill)
+        _ = pill.control(pill.field, textView: editor, doCommandBy: #selector(NSResponder.insertNewline(_:)))
+        try press(pill)
+        _ = pill.control(pill.field, textView: editor, doCommandBy: #selector(NSResponder.cancelOperation(_:)))
+        XCTAssertEqual(ends, [true, false])
     }
 
     /// The bar's own band is chrome and takes its clicks; the page keeps the
@@ -173,34 +262,23 @@ final class URLPillLayoutTests: XCTestCase {
         XCTAssertEqual(short.layer?.cornerRadius, short.frame.height / 2)
     }
 
-    /// A capsule sized one point short of its own text does not lose a pixel
-    /// off the last letter — it drops characters until an ellipsis fits, which
-    /// is what turned `apple.com` into `apple.c…`. The sizing and the placing
-    /// read one margin now, and this is what holds them together.
-    func testTheFittingWidthIsWideEnoughForTheTextToSurviveTheLayout() {
-        for surface in [URLPillView.Surface.glass, .bare] {
-            let pill = pill(centred: true)
-            pill.surface = surface
-            pill.frame = NSRect(x: 0, y: 0, width: pill.fittingWidth, height: Tokens.Metric.urlPill.height)
-            pill.layoutSubtreeIfNeeded()
-            let text = pill.subviews.compactMap { $0 as? NSTextField }.first
-            XCTAssertNotNil(text)
-            XCTAssertGreaterThanOrEqual(
-                (text?.frame.width ?? 0) + 1,
-                text?.intrinsicContentSize.width ?? 0,
-                "\(surface) truncates at its own fitting width"
-            )
-        }
-    }
-
     /// A collapsed bar is the page's own top edge with an address in it, and a
     /// control floating in that strip is the one thing on it that is not the
     /// site. The menu comes back the moment the page scrolls up.
-    func testTheSiteMenuGoesAwayWithTheSurface() {
+    ///
+    /// It fades rather than blinking out — §3.2b's two states are one dissolve
+    /// — and is hidden at the end of the fade, because a view at alpha 0 goes
+    /// on taking clicks.
+    func testTheSiteMenuFadesAwayWithTheSurface() {
         let bare = pill(centred: true)
         bare.surface = .bare
+        XCTAssertEqual(bare.siteMenuAnchor.alphaValue, 0)
+        bare.settleGlyph()
         XCTAssertTrue(bare.siteMenuAnchor.isHidden)
         bare.surface = .glass
+        XCTAssertFalse(bare.siteMenuAnchor.isHidden, "shown before it fades back in")
+        XCTAssertEqual(bare.siteMenuAnchor.alphaValue, 1)
+        bare.settleGlyph()
         XCTAssertFalse(bare.siteMenuAnchor.isHidden)
     }
 
@@ -209,15 +287,6 @@ final class URLPillLayoutTests: XCTestCase {
     func testTheGlyphSwapsEndsWithTheLayout() {
         XCTAssertGreaterThan(pill(centred: false).siteMenuAnchor.frame.midX, 200)
         XCTAssertLessThan(pill(centred: true).siteMenuAnchor.frame.midX, 200)
-    }
-
-    /// §3.2b's collapsed capsule is sized to this, so it has to be a width the
-    /// domain actually fits in — and narrower than the open pill, or collapsing
-    /// would make the bar bigger.
-    func testTheFittingWidthHoldsTheDomainAndNoMore() {
-        let pill = pill(centred: true)
-        XCTAssertGreaterThan(pill.fittingWidth, pill.siteMenuAnchor.frame.width)
-        XCTAssertLessThan(pill.fittingWidth, Tokens.Metric.pageBarPillWidth)
     }
 }
 

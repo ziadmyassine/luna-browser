@@ -18,27 +18,17 @@ import AppKit
 extension URLPillView {
 
     /// The margin `centresText` layout keeps at each end.
-    ///
-    /// **One number, read by both the sizing and the placing.** It was two —
-    /// `fittingWidth` derived it from the tokens and `placeContents` derived it
-    /// from the glyph's rounded frame — and they disagreed by half a point per
-    /// end. A capsule sized one point short of its own text does not lose a
-    /// pixel off the last letter; it drops characters until an ellipsis fits,
-    /// which is what turned `apple.com` into `apple.c…`.
     private var centredMargin: CGFloat {
         // Bare, there is no glyph to clear and the text keeps §3.2's own inset.
-        guard !sliders.isHidden else { return Tokens.Metric.pillTextInset }
+        // Read from the surface, not from the glyph's `isHidden`: the glyph
+        // fades out over §3.2b's morph and is hidden at the end of it, and a
+        // margin that waited for that would size the collapsed capsule for a
+        // control it is in the middle of dropping.
+        guard surface != .bare else { return Tokens.Metric.pillTextInset }
         let overhang = (Tokens.Metric.rowTrailingChip.width - Tokens.Metric.pillGlyphSize) / 2
         let trailingEdge = (Tokens.Metric.pillGlyphInset - overhang
             + Tokens.Metric.rowTrailingChip.width).rounded(.up)
         return trailingEdge + Tokens.Metric.chromeGap
-    }
-
-    /// The narrowest this pill can be and still show its whole domain, in
-    /// `centresText` layout — §3.2b's collapsed capsule shrinks to the address
-    /// rather than to a number someone picked.
-    var fittingWidth: CGFloat {
-        2 * centredMargin + field.intrinsicContentSize.width.rounded(.up)
     }
 
     /// A capsule at any height: §3.2's is always 34 pt, but §3.2b's collapses,

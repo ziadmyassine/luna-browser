@@ -28,6 +28,16 @@ struct PageBarScroll {
     /// The offset the last decision was taken at.
     private var anchor: Double = 0
 
+    /// Nothing has been heard from this page yet.
+    ///
+    /// **The first offset a document reports is where it starts, not a scroll.**
+    /// WebKit restores the scroll position on a reload and on back/forward, and
+    /// plenty of pages jump to an anchor of their own the moment they load — so
+    /// the first thing heard from a page can be `y = 4000`. Measured from an
+    /// anchor of zero that is a 4000 pt scroll down, and the bar collapsed on
+    /// arrival at exactly the sites where the address was most worth showing.
+    private var isFresh = true
+
     /// How far the page has to travel to change the bar's mind.
     static var slack: Double { Double(Tokens.Metric.pageBarScrollSlack) }
 
@@ -35,6 +45,7 @@ struct PageBarScroll {
     mutating func reset() {
         isCollapsed = false
         anchor = 0
+        isFresh = true
     }
 
     /// Feeds in the page's vertical offset.
@@ -43,8 +54,15 @@ struct PageBarScroll {
     ///   once per state change rather than once per frame.
     @discardableResult
     mutating func page(movedTo offset: Double) -> Bool {
-        let travelled = offset - anchor
         let was = isCollapsed
+        // Wherever the page starts is where this one starts measuring from.
+        guard !isFresh else {
+            isFresh = false
+            anchor = offset
+            isCollapsed = false
+            return isCollapsed != was
+        }
+        let travelled = offset - anchor
         // **The top of the page always shows the bar.** Without this a page left
         // a slack's worth down — a short flick, a restored scroll position —
         // would sit there collapsed with a clear gap above its content.

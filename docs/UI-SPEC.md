@@ -420,7 +420,7 @@ column closes up over the pill's own 34 pt.
 |---|---|---|
 | band | `pageBar` (52) | `pageBarCollapsed` (30) |
 | controls | toggle · back · reload, on the traffic lights' centre line | gone |
-| pill | `pageBarPillWidth` (420) wide, `sidebarCircle` tall, `.glass` | sized to the domain, `.bare` |
+| pill | `pageBarPillWidth` (420) wide, `sidebarCircle` tall, `.glass` | **the same frame**, `pageBarCollapsedPillHeight` (22) tall, `.bare` |
 | glyph | sliders on the **leading** edge, domain centred | **none** — the strip carries the address and nothing else |
 
 - **The bar is a plane in the page's own colour**, from `TabState.pageBackground` — WebKit's
@@ -438,11 +438,11 @@ column closes up over the pill's own 34 pt.
   glyph ink and the glass fallbacks all follow. A dark app over a white site gets dark glyphs on the
   bar and light ones everywhere else: the bar is the one surface in Luna whose background is not
   Luna's.
-- **The collapsed pill is sized to its address, and both ends read one margin.** They read two for a
-  while — the sizing derived the margin from the tokens, the placing from the glyph's rounded frame —
-  and they disagreed by half a point per end. A capsule a point short of its own text does not lose a
-  pixel off the last letter; it drops characters until an ellipsis fits, which is what turned
-  `apple.com` into `apple.c…`.
+- **The collapsed pill is not sized to its address.** It was, and a capsule a point short of its own
+  text does not lose a pixel off the last letter — it drops characters until an ellipsis fits, which is
+  what turned `apple.com` into `apple.c…`. It keeps the open pill's width instead, which puts the
+  question out of reach: the open pill has a glyph to clear that the collapsed one does not, so the
+  collapsed one has strictly more room than the address it is showing needs.
 - **The bar stands above the page, not over it.** It takes the site's own colour, so laid on top it
   merged with the document's top edge and hid whatever the document had put there. The page starts
   below the band instead, in both states — which makes the 22 pt between them a real change of height,
@@ -455,6 +455,30 @@ column closes up over the pill's own 34 pt.
   anywhere new opens it again. The rule is `PageBarScroll`, a value with no view in it, because the
   cases that matter are the awkward ones: a momentum wobble must not flip it, and a long scroll down
   must not mean scrolling all the way back before the address returns.
+- **The change between them is a dissolve, not a move.** The pill keeps its frame across the collapse —
+  the same x and the same width — and loses only its height, its glass and its glyph, where it stands.
+  Both were worked out separately before: open, clear of the buttons; collapsed, sized to the domain and
+  centred in what was left of the bar. Those are different sums whenever the buttons are in the way, so
+  the address slid in from the side; and even once they shared a centre, the capsule's two edges still
+  drew inwards from 420 pt to the width of `apple.com` while the material faded, which is the same
+  sideways motion by another route. The glass and the glyph fade rather than cut, which takes some care:
+  a glass backing's radius is fixed when it is built, so the height change forces a new one mid-fade,
+  and it is given the alpha the old one had reached instead of the target it was heading for.
+- **Arriving opens the bar, and arriving is more than a new address.** A load *starting* counts too — a
+  reload, a form post and a same-address navigation all leave the URL exactly where it was, and every
+  one of them is an arrival. And the first offset a new document reports is treated as where it
+  *starts*, not as a scroll: WebKit restores the scroll position on a reload and on back/forward, and
+  plenty of pages jump to an anchor of their own as they load, so the first thing heard from a document
+  can be `y = 4000`. Measured from an anchor of zero that reads as a long scroll down, and the bar
+  collapsed the instant the site appeared — at exactly the sites where the address was most worth
+  showing.
+- **Pressing the address opens the bar.** A press on the collapsed capsule used to start the editing
+  inside 22 pt of it — a whole URL or a query in a capsule sized to `apple.com`, with no buttons beside
+  it and nowhere for §3.2b.i's list to go. It opens first, and the typing happens in the pill that
+  grows out of it, so there is one place to type and it is always the open one. The bar is then held
+  open for as long as the editing lasts, whatever the page does underneath: the scroll rule keeps
+  running and is handed the bar back the moment editing ends. Return is the exception — a navigation is
+  on its way and arriving opens the bar anyway, so it is not collapsed for the moment in between.
 - **The offset comes from the page itself.** `WKWebView` publishes no scroll position on macOS — no
   `scrollView`, no KVO-able offset — so a passive, frame-coalesced listener posts `window.scrollY`
   through `TabController.scrollMessageName`. It is main-frame only: an ad iframe scrolling itself is
@@ -474,8 +498,7 @@ pill and lining up with it rather than with the bar.
   borrowing it would put a `UI/CommandBar` type on a surface `CommandBarPrivacyTests` does not cover.
 - **The selection is §9.2's**: one `.control` glass pill that moves between rows on
   `Motion.selectedRowMove`, not a fill switched on and off per row. One backing instead of five, and
-  the movement is what makes the highlight readable while the arrows are held down. The rows keep
-  their own hover, and give it up under the pill.
+  the movement is what makes the highlight readable while the arrows are held down.
 - **The list opens on the first suggestion**, so Return takes it without arrowing down first. What was
   typed is still a real entry and still reachable: ↑ off the top of the list lands on it, as does ↓ off
   the bottom — the same way out at either end, rather than a wrap. With no phrases the arrows are left

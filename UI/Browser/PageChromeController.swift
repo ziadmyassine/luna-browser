@@ -38,6 +38,13 @@ final class PageChromeController {
     /// handed back when the selection moves.
     private var listeningTo: UUID?
     private var shownURL: URL?
+    /// Whether the tab was loading last time it was heard from, so that a load
+    /// *starting* can be told from a load going on.
+    private var wasLoading = false
+    /// The pill is being typed in. The bar is held open for the whole of it —
+    /// the collapse rule keeps running underneath, it just does not get the bar
+    /// until the user is finished.
+    private var isEditing = false
     private var scroll = PageBarScroll()
     private var observations: [ObservationToken] = []
 
@@ -51,6 +58,8 @@ final class PageChromeController {
             guard let self, isActive else { return }
             onBandHeight?(height, animated)
         }
+        bar.onEditingBegan = { [weak self] in self?.isEditing = true }
+        bar.onEditingEnded = { [weak self] committed in self?.editingEnded(committed) }
         bar.onBack = { [weak self] in self?.session.goBack() }
         bar.onReloadOrStop = { [weak self] isLoading in
             guard let self else { return }
@@ -73,6 +82,8 @@ final class PageChromeController {
     func setActive(_ active: Bool, animated: Bool) {
         guard active != isActive else { return }
         isActive = active
+        // Whatever was being typed went with the bar.
+        isEditing = false
         // The page gives up the band, or takes it back, with the bar itself.
         onBandHeight?(active ? bar.bandHeight : 0, animated)
         if active {
@@ -80,6 +91,7 @@ final class PageChromeController {
             // Forget whatever the last page had scrolled to: the bar comes back
             // open, and `refresh` reinstates it from the tab that is showing now.
             shownURL = nil
+            wasLoading = false
             refresh()
         } else {
             stopListening()
@@ -103,24 +115,29 @@ final class PageChromeController {
         listen(to: session.activeTabID)
         let tab = session.tabs.first { $0.id == session.activeTabID }
         let state = session.activeTabID.flatMap { session.controller(for: $0)?.state }
-        show(url: state?.url ?? tab?.url)
+        show(url: state?.url ?? tab?.url, isLoading: state?.isLoading ?? false)
         bar.setPageColour(state?.pageBackground)
         bar.update(canGoBack: state?.canGoBack ?? false, isLoading: state?.isLoading ?? false)
     }
 
     private func apply(_ id: UUID, _ state: TabState) {
         guard isActive, id == session.activeTabID else { return }
-        show(url: state.url)
+        show(url: state.url, isLoading: state.isLoading)
         bar.setPageColour(state.pageBackground)
         bar.update(canGoBack: state.canGoBack, isLoading: state.isLoading)
     }
 
-    /// A new address opens the bar, whatever the last page had scrolled to.
-    /// Arriving somewhere is exactly the moment the address is worth showing,
-    /// and the page underneath is at its own top.
-    private func show(url: URL?) {
+    /// **Arriving anywhere opens the bar**, whatever the last page had scrolled
+    /// to: that is the moment the address is worth showing, and it is also the
+    /// moment the page under it is about to be replaced.
+    ///
+    /// A new address is one way in. A load *starting* is the other, and it is
+    /// needed as well — a reload, a form post and a same-address navigation all
+    /// leave the URL exactly where it was, and every one of them is an arrival.
+    private func show(url: URL?, isLoading: Bool) {
         bar.show(url: url)
-        guard url != shownURL else { return }
+        defer { wasLoading = isLoading }
+        guard url != shownURL || (isLoading && !wasLoading) else { return }
         shownURL = url
         scroll.reset()
         bar.setCollapsed(false, animated: false)
@@ -168,8 +185,21 @@ final class PageChromeController {
 
     /// One animation per state change, not one per frame — see
     /// `PageBarScroll.page(movedTo:)`, which is the whole of the rule.
+    ///
+    /// The rule is asked either way, so a page scrolled while the pill is open
+    /// is not forgotten: it is what the bar is handed back to the moment the
+    /// editing ends.
     private func pageScrolled(to offset: Double) {
-        guard isActive, scroll.page(movedTo: offset) else { return }
+        guard isActive, scroll.page(movedTo: offset), !isEditing else { return }
+        bar.setCollapsed(scroll.isCollapsed, animated: true)
+    }
+
+    /// The bar goes back to whatever the page had it at — unless Return was
+    /// pressed, in which case a navigation is coming and `show(url:)` opens the
+    /// bar for it. Collapsing in between would be a flinch on the way out.
+    private func editingEnded(_ committed: Bool) {
+        isEditing = false
+        guard isActive, !committed else { return }
         bar.setCollapsed(scroll.isCollapsed, animated: true)
     }
 }
