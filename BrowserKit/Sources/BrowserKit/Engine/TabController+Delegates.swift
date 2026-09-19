@@ -103,10 +103,35 @@ extension TabController: WKNavigationDelegate {
         refreshFavicon()
     }
 
+    /// §14.8's redirect flag starts clean here, and **only** here.
+    ///
+    /// The two obvious alternatives are both wrong, which is why this callback
+    /// exists at all:
+    ///
+    ///  · `didCommit` runs *after* the redirect callback, so clearing there
+    ///    would erase the very thing the flag recorded.
+    ///  · `decidePolicyFor` runs **again for every redirect target** — that is
+    ///    how a redirect chain is observable at all — so clearing there would
+    ///    erase the flag on the hop that set it.
+    ///
+    /// `didStartProvisionalNavigation` fires once per navigation, before any
+    /// redirect in that navigation, which is exactly the boundary wanted.
+    public func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        passwords.sawServerRedirect = false
+        publishState()
+    }
+
     public func webView(
         _ webView: WKWebView,
         didReceiveServerRedirectForProvisionalNavigation navigation: WKNavigation!
     ) {
+        // §14.8: "treat a fill into a page reached via a redirect chain as
+        // suspicious". Noted, not blocked — a great many real logins redirect
+        // through an identity provider, so refusing here would break more
+        // sign-ins than it protected. The flag rides along on the offer and the
+        // popover says where the password is about to go, which is the one
+        // judgement the user can make and Luna cannot.
+        passwords.sawServerRedirect = true
         publishState()
     }
 

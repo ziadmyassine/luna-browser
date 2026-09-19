@@ -19,6 +19,11 @@ extension BrowserSession {
 
     func activateTab(_ id: UUID) {
         guard var tab = list.tab(id) else { return }
+        // §14: the picker is anchored to a field in the page being left, and
+        // the chip asks about a sign-in on it. Both are meaningless over a
+        // different tab, and the picker would be actively misleading —
+        // pointing at coordinates that now belong to someone else's form.
+        if activeTabID != id { passwordUI.dismissAll() }
         activeTabBySpace[tab.spaceID] = id
         promote(id)
         tab.lastActiveAt = Date()

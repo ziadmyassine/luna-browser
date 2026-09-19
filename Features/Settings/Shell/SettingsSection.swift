@@ -68,7 +68,8 @@ enum SettingsMetrics {
     static let searchStaggerCap = 6
 }
 
-/// §3's nine sections, in §2's order — which is also the `⌘1…⌘9` order.
+/// §3's ten sections, in §2's order — which is also the `⌘1…⌘9` order for
+/// the first nine.
 @MainActor
 enum SettingsSectionRegistry {
 
@@ -79,6 +80,7 @@ enum SettingsSectionRegistry {
         GeneralSection.self,
         AppearanceSection.self,
         PrivacySection.self,
+        PasswordsSection.self,
         SearchSection.self,
         DownloadsSection.self,
         ShortcutsSection.self,

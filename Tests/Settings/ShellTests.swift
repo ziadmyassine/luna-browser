@@ -114,16 +114,16 @@ final class SettingsSearchTests: XCTestCase {
 @MainActor
 final class SettingsSectionRegistryTests: XCTestCase {
 
-    func testAllNineSectionsAreRegisteredInSpecOrder() {
+    func testEverySectionIsRegisteredInSpecOrder() {
         XCTAssertEqual(SettingsSectionRegistry.ids, [
-            "general", "appearance", "privacy", "search", "downloads",
+            "general", "appearance", "privacy", "passwords", "search", "downloads",
             "shortcuts", "spaces", "extensions", "advanced"
         ])
     }
 
     /// Measured against the SDK rather than eyeballed: an SF Symbol that does
     /// not exist renders as nothing at all, and a section with no icon in a
-    /// nine-row list is the kind of thing nobody notices until it ships.
+    /// ten-row list is the kind of thing nobody notices until it ships.
     func testEverySectionSymbolResolves() {
         for section in SettingsSectionRegistry.all {
             XCTAssertNotNil(

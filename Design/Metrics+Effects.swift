@@ -26,6 +26,24 @@ extension Tokens.Metric {
     /// surface it grows out of instead of to a number nobody measured.
     static let downloadsPopoverTail = downloadsPopover.cornerRadius
 
+    // MARK: Password autofill (§14.3, §14.4)
+
+    /// The credential picker anchored to a login field. Narrower than §5's
+    /// downloads popover because its content is one line of username rather
+    /// than a middle-truncated filename, and a picker as wide as the page's
+    /// form reads as part of the page — which is the one thing §14.3 says it
+    /// must never look like.
+    static let passwordPopover = RoundedMetric(width: 288, height: 44, cornerRadius: 12)
+    /// The gap between the bottom of the login field and the top of the
+    /// popover, so the field's own focus ring stays visible underneath it.
+    static let passwordPopoverOffset: CGFloat = 6
+    /// The most rows shown before the list scrolls. Five is the point past
+    /// which a picker stops being a glance and starts being a list to read.
+    static let passwordPopoverMaxRows = 5
+    /// §14.4's save chip. Wider than the picker: it carries a sentence and
+    /// three buttons rather than a username.
+    static let passwordChip = RoundedMetric(width: 360, height: 92, cornerRadius: 14)
+
     // MARK: Reload bloom (§7)
 
     /// §7's "**light (8 pt), not illegible**" blur on the frozen snapshot.
@@ -36,7 +54,6 @@ extension Tokens.Metric {
     /// §7's Reduce Motion path: a 2 pt progress line across the top of the
     /// content card, and no blur and no arc at all.
     static let reloadProgressLine: CGFloat = 2
-}
 
     // MARK: Essentials glow (§3.3)
 
@@ -70,3 +87,4 @@ extension Tokens.Metric {
     /// much less on a light one, where a coloured haze over a near-white plane
     /// has nothing to be brighter than and the rim does the work instead.
     static let essentialsGlowBloom: Float = 0.85
+}

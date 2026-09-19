@@ -255,6 +255,36 @@ A plain paragraph states that Luna does **not** check URLs against a malware or
 phishing list, and that macOS still applies XProtect and Gatekeeper (§17.7).
 That copy is required, not optional.
 
+### 3.3a Passwords
+| Control | Type | Wired to |
+|---|---|---|
+| Offer to fill passwords | Toggle | `PasswordSettings.isEnabled` |
+| Offer to save passwords | Toggle | `PasswordSettings.offersToSave` |
+| Suggest strong passwords | Toggle | `PasswordSettings.offersGeneratedPasswords` |
+| Saved to | Status line | `CredentialStore.refreshCapability()`, re-probed on open |
+| Passkeys | Toggle, **disabled**, with its reason | `PasskeySupport.isAvailable` |
+| Manage saved passwords | Button "Open Passwords…" | the Passwords app |
+
+Two notes carry copy that is **required, not decorative** — the same standing as
+§17.7's Safe Browsing paragraph:
+
+1. Luna has no vault of its own; everything goes into Apple's Keychain, and
+   there is no Luna account or server.
+2. Luna **cannot read** what Safari and the Passwords app already saved. Those
+   are in Apple's own keychain access groups and no setting changes that. An
+   empty list must never read as "you have no saved passwords".
+
+The passkey row is the §30.4 case done properly: dimmed, still focusable, still
+read by VoiceOver, with the real reason — an entitlement only Apple can grant —
+as its accessibility help. It flips to enabled on its own when the entitlement
+arrives, because it is rendered from the live process entitlement rather than a
+build flag.
+
+**Not here, and said so rather than half-built:** addresses and payment-card
+autofill (§14.8 puts them out of scope), and any editor for saved passwords —
+the Passwords app is where they live, and a second place to change one is a
+second place for it to be wrong.
+
 ### 3.4 Search
 | Control | Type | Wired to |
 |---|---|---|
@@ -500,8 +530,13 @@ blur radius and no third style.
 
 - **Sync** — no Developer ID certificate exists, so §31 cannot be built or
   tested. Not even a disabled row; it would imply a roadmap commitment.
-- **Passwords** — §14.1 is a spike that has not run. The Settings window must
-  not hint at a password manager that may never ship in this shape.
+- ~~**Passwords**~~ — **moved into §3.3a on 2026-09-19.** The objection was that
+  §14.1 had not run and the window "must not hint at a password manager that may
+  never ship in this shape". The spike has now run (`docs/PASSWORDS.md`), and
+  what shipped is not a password manager: it is a bridge into the user's own
+  Keychain. The section states both halves of the spike's answer — what works
+  today and what is waiting on a signature — which is the condition the
+  objection was really asking for.
 - **Per-site permissions** (camera, mic, location) — §17.8's chip UI is unbuilt,
   so there is no data to list yet.
 - **Telemetry / usage reporting** — there is nothing to toggle. D16 says none is

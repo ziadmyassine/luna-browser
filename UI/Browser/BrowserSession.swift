@@ -145,6 +145,12 @@ final class BrowserSession {
     /// left to stall invisibly.
     var onDownload: ((WKDownload) -> Void)?
 
+    /// §14's two floating panels — the credential picker and the save chip.
+    /// One property, so neither can be presented without the other being
+    /// reachable to dismiss. The behaviour is in
+    /// `UI/Passwords/BrowserSession+Passwords.swift`.
+    let passwordUI = PasswordUI()
+
     /// Undo for close / archive / move (§6.7), driven by the app's `undo:` /
     /// `redo:`. AppKit's text fields keep their own.
     let undoManager = UndoManager()

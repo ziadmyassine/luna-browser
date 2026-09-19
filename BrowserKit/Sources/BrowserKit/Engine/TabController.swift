@@ -68,12 +68,21 @@ public final class TabController: NSObject {
 
     private let messageRelay = ScriptMessageRelay()
 
+    /// §14's password state for this tab: the form the page is showing, the
+    /// frame it lives in, and the §14.8 gate every fill passes through.
+    ///
+    /// One stored property rather than five, because a Swift extension cannot
+    /// carry storage and §33's 4,000-line manager starts exactly here. The
+    /// behaviour is all next door in `Passwords/`.
+    public let passwords = PasswordCoordinator()
+
     public init(id: UUID, dataStore: WKWebsiteDataStore) {
         self.id = id
         self.dataStore = dataStore
         state = TabState()
         super.init()
         messageRelay.owner = self
+        passwords.tab = self
     }
 
     // MARK: - Lifecycle
@@ -213,14 +222,27 @@ public final class TabController: NSObject {
         let controller = webView.configuration.userContentController
         // Adding a name that is already registered raises `NSInvalidArgumentException`;
         // removing one that is not is a no-op. Always pay the cheap call.
-        for name in [Self.mediaMessageName, ContentBlocker.blockedMessageName, Self.scrollMessageName] {
+        for name in [Self.mediaMessageName, ContentBlocker.blockedMessageName,
+                     Self.scrollMessageName, PasswordForms.messageName] {
             controller.removeScriptMessageHandler(forName: name)
             controller.add(messageRelay, name: name)
         }
-        for source in [Self.mediaScript, ContentBlocker.blockedCountScript] {
+        var documentEnd = [Self.mediaScript, ContentBlocker.blockedCountScript]
+        // §14: not injected at all when the feature is off, rather than
+        // injected and ignored. A user who declines autofill should not pay a
+        // MutationObserver on every frame of every page for it.
+        if PasswordSettings.isEnabled { documentEnd.append(PasswordForms.script) }
+        for source in documentEnd {
             controller.addUserScript(
                 WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
             )
+        }
+        // §14.10: hides `PublicKeyCredential` until Apple grants the
+        // entitlement, so sites offer a password instead of a passkey button
+        // that cannot work. Returns nil — and injects nothing — once it is
+        // granted. `documentStart`, because feature detection runs early.
+        if let passkeyGuard = PasskeySupport.userScript() {
+            controller.addUserScript(passkeyGuard)
         }
         // Main frame only: an ad iframe scrolling itself is not the page moving,
         // and §3.2b's bar collapses on the page moving.
@@ -267,6 +289,7 @@ public final class TabController: NSObject {
         controller.removeScriptMessageHandler(forName: Self.mediaMessageName)
         controller.removeScriptMessageHandler(forName: ContentBlocker.blockedMessageName)
         controller.removeScriptMessageHandler(forName: Self.scrollMessageName)
+        controller.removeScriptMessageHandler(forName: PasswordForms.messageName)
 
         // Picture-in-Picture and element fullscreen outlive their web view: without this
         // a hibernated tab leaves a floating video playing with nothing behind it. The
@@ -326,6 +349,9 @@ public final class TabController: NSObject {
         bypassedURL = nil
         // §17.4's count is per document, and the page's own counter restarts too.
         ContentBlocker.shared.resetBlockedCount(tab: id)
+        // §14: the form belonged to the document that just went away, and so
+        // did any popover pointing at it.
+        delegate?.tabControllerDidDismissPasswordUI(self)
     }
 
     func publishState() {
