@@ -61,16 +61,38 @@ extension BrowserSession {
             sendTileHome(id, in: tab.spaceID)
             return
         }
+        // Read before the removal, while the closing tab still has neighbours.
+        let successor = rowBelow(id, in: tab.spaceID)
         tab.archivedAt = Date()
         forget(id)
         persistAll(list.remove(id))
         write(tab)
         if activeTabBySpace[tab.spaceID] == id {
-            activeTabBySpace[tab.spaceID] = recentTabs.first { list.tab($0)?.spaceID == tab.spaceID }
+            activeTabBySpace[tab.spaceID] = successor
+                ?? recentTabs.first { list.tab($0)?.spaceID == tab.spaceID }
         }
         archived.insert(tab, at: 0)
         registerUndo("Close Tab") { $0.restoreArchived(tab, at: index) }
         notifyChange()
+    }
+
+    /// Where the selection goes when the tab showing is closed: **the row
+    /// under it in §3.4's list**, or the row above it when it was the last one.
+    ///
+    /// It used to be the most recently used tab in the Space, which is a
+    /// different question and a worse answer here. Closing a run of tabs from
+    /// the top sent the selection somewhere down the list and the next `⌘W`
+    /// closed that one instead, so the list unravelled from two ends at once;
+    /// and with §3.4 stacking today's tabs newest-first, the recent tab is very
+    /// often the one *above*, which reads as the list moving backwards.
+    ///
+    /// The list's own order is the one thing the user can see, so the answer is
+    /// read straight off it — Favorites excluded, because those are §3.3's grid
+    /// rather than rows, and a closed row must not select a tile.
+    private func rowBelow(_ id: UUID, in spaceID: UUID) -> UUID? {
+        let rows = list[spaceID].filter { $0.kind != .essential }
+        guard let index = rows.firstIndex(where: { $0.id == id }) else { return nil }
+        return (rows.dropFirst(index + 1).first ?? rows[..<index].last)?.id
     }
 
     /// `⌘⇧T`. The archive is seeded from SQLite at restore, so this still works
