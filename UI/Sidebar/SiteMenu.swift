@@ -27,8 +27,9 @@
 //  This file carried the `image` assignments for months with nothing to show for them
 //  — the measurement is in `SidebarMenu.label(symbol:title:in:)`, and §3.4a's tab menu
 //  is where the way round it was found. The same helper draws both menus now, so the
-//  two surfaces cannot drift apart on icon size, tint or alignment. Share is the one
-//  exception, and it is AppKit's: that item arrives with its own glyph already drawn.
+//  two surfaces cannot drift apart on icon size, tint or alignment. Share is the one item
+//  AppKit *does* draw an image for, so that image is cleared before it is dressed — see
+//  `build()`.
 //
 
 import AppKit
@@ -69,11 +70,14 @@ enum SiteMenu {
         // behaviour with it.
         let picker = NSSharingServicePicker(items: [page.url])
         sharePicker = picker
-        // **Left alone: this is the one item macOS draws an image for.** AppKit gives
-        // it its own share glyph and draws it in the image column, measured in the same
-        // probe as everything else here — dressing it the way the rest are dressed put a
-        // second share glyph beside the first and pushed the word out of the column.
-        menu.addItem(picker.standardShareMenuItem)
+        // **This is the one item macOS does draw an image for**, and the image has to go
+        // for that reason: measured, a dressed share item with AppKit's own glyph still on
+        // it showed two share glyphs side by side. Cleared, it lands in the same column as
+        // every other item here — AppKit's is drawn a size larger and a few points to the
+        // left of where the rest of them sit.
+        let share = picker.standardShareMenuItem
+        share.image = nil
+        menu.addItem(glyph(Glyph.share, on: share))
         menu.addItem(copyLink(page.url))
         menu.addItem(.separator())
 
@@ -283,7 +287,7 @@ enum SiteMenu {
     /// one is set, so this may be applied to any item exactly once. The plain title stays
     /// underneath for VoiceOver and type-select.
     @discardableResult
-    private static func glyph(_ name: String, on item: NSMenuItem) -> NSMenuItem {
+    static func glyph(_ name: String, on item: NSMenuItem) -> NSMenuItem {
         item.attributedTitle = SidebarMenu.label(symbol: name, title: item.title)
         return item
     }
@@ -295,7 +299,12 @@ enum SiteMenu {
     /// the rest. `SiteMenuGlyphTests` walks this list so that a name the system does not
     /// have is a test failure instead.
     enum Glyph {
+        static let share = "square.and.arrow.up"
         static let link = "link"
+        /// §4's layout has no reload button, so its copy of this menu grows a Reload row
+        /// (`TopBarURLPill`). The glyph is named here with the rest so the row that only
+        /// one layout ever sees is covered by the same test as the rows everyone sees.
+        static let reload = "arrow.clockwise"
         static let blocking = "hand.raised"
         static let pictureInPicture = "pip"
         static let localNetwork = "network"
@@ -309,7 +318,7 @@ enum SiteMenu {
         static let insecure = "lock.open"
 
         static let all = [
-            link, blocking, pictureInPicture, localNetwork,
+            share, link, reload, blocking, pictureInPicture, localNetwork,
             siteSettings, cache, cookies, advanced, secure, insecure
         ]
     }

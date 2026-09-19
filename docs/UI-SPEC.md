@@ -410,9 +410,12 @@ is one menu, shown from the sidebar pill and from §4's; the top-bar copy adds R
   (§3.4a) puts the symbol in `attributedTitle` instead, and this menu and the tab menu share it, so the
   two cannot drift apart on size, tint or alignment. `SiteMenu.Glyph` names every symbol in one place
   and a test walks it: a misspelt name costs the icon silently, leaving one item out of the column.
-- **Share is the exception and it is AppKit's.** `standardShareMenuItem` arrives with its own glyph
-  already drawn in the image column — the only item on this build that gets one — so it is left as it
-  comes. Dressing it like the rest put a second share glyph beside the first.
+- **Share arrives with an image and it is cleared.** `standardShareMenuItem` is the one item on this
+  build whose `image` macOS *does* draw, so dressing it while it still had one showed two share glyphs
+  side by side; AppKit's own is a size larger and a few points left of the column the rest sit in.
+- **§4's Reload row is dressed by the same helper.** That layout has no reload button, so its copy of
+  this menu grows a row at the top — the only item here that one layout adds, and the one that would
+  otherwise be the single glyph-less line in a menu of glyphs.
 - **A disabled caption needs no quieter ink.** AppKit dims the whole item, attached glyph included;
   applying secondary ink on top of that reads as faded rather than quiet. Measured, both ways.
 

@@ -242,8 +242,10 @@ final class TopBarURLPill: NSView, TopBarThemed, NSTextFieldDelegate {
             keyEquivalent: "r"
         )
         reload.keyEquivalentModifierMask = .command
-        reload.image = TopBarButton.symbol("arrow.clockwise")
-        menu.insertItem(reload, at: 0)
+        // Dressed the way every other row in this menu is dressed. `image` is not drawn
+        // on this macOS (§3.2a), so this row — the first one, and the only one this
+        // layout adds — was the one item in a menu of glyphs that had none.
+        menu.insertItem(SiteMenu.glyph(SiteMenu.Glyph.reload, on: reload), at: 0)
         menu.insertItem(.separator(), at: 1)
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sliders.bounds.maxY), in: sliders)
     }
