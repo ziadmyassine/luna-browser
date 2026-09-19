@@ -123,8 +123,8 @@ final class GlassButton: NSView {
     ///
     /// **The weight is set here and not at init**, because it belongs to the
     /// mark rather than to the button: the same circle holds `arrow.clockwise`
-    /// and then `xmark`, and §3.1's back chevron needs a heavier setting than
-    /// either to carry their ink. See `TypeScale.glyphWeight(for:)`.
+    /// and then `xmark`, and §3.1's back chevron needs a lighter setting than
+    /// either to draw their line. See `TypeScale.glyphWeight(for:)`.
     func setSymbol(_ name: String) {
         glyph.symbolConfiguration = NSImage.SymbolConfiguration(
             pointSize: pointSize,

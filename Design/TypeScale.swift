@@ -78,31 +78,39 @@ extension Tokens {
         /// pretending to be a sentence.
         static var settingsCaption: NSFont { .systemFont(ofSize: 11, weight: .regular) }
 
-        /// The weight an SF Symbol has to be set at to carry the same ink as
-        /// the glyphs beside it.
+        /// The weight an SF Symbol has to be set at to draw the same *stroke*
+        /// as the glyphs beside it.
         ///
-        /// **One nominal size is not one apparent size.** SF Symbols are set to
-        /// a shared cap height, not to a shared amount of mark, and Luna's
-        /// chrome puts them shoulder to shoulder. Measured at `glyphSize`, as
-        /// lit area in pt² and as the mark's own width:
+        /// **One nominal weight is not one apparent weight.** SF Symbols are
+        /// set to a shared cap height, and a mark that is small for its height
+        /// is drawn heavier to stay legible at it. Measured at `glyphSize`, as
+        /// the median run of ink across the mark — which is what the eye
+        /// compares when it calls one icon thicker than another:
         ///
-        ///     sidebar.leading         18.5 pt wide   101
-        ///     person.crop.circle      16.0            116
-        ///     clock.arrow.circlepath  17.5             79
-        ///     arrow.down.to.line      12.0             57
-        ///     arrow.clockwise         14.0             56
-        ///     xmark                   12.5             49
-        ///     plus                    13.0             36
-        ///     chevron.backward         7.5             28
+        ///     sidebar.leading         1.25 pt
+        ///     plus                    1.38
+        ///     arrow.down.to.line      1.38
+        ///     arrow.clockwise         1.62
+        ///     clock.arrow.circlepath  1.62
+        ///     chevron.backward        2.00   ← at the same `.regular`
         ///
-        /// Back is two thin diagonals and nothing else: the faintest mark in
-        /// the chrome and half the width of anything it stands next to — §3.1's
-        /// toggle, at 18.5 pt, is its immediate neighbour. Semibold puts it at
-        /// 39 and 9 pt wide, level with `plus`, and leaves it no taller than
-        /// the rest. Nothing else here is a bare stroke, so nothing else is
+        /// Back is two short diagonals in a box 7.5 pt wide against its
+        /// neighbours' 12 to 18.5, and SF Symbols pays for that smallness in
+        /// stroke: at the weight everything else is set at, it is the heaviest
+        /// line in the chrome — visibly thicker than the reload arrow it stands
+        /// next to in §3.1 and §3.2b. `.light` draws it at 1.50, between the
+        /// sidebar toggle and reload, and level with the top bar's median.
+        ///
+        /// **This used to read `.semibold`, and it was measuring the wrong
+        /// thing.** Total ink said the chevron was the faintest mark on the bar
+        /// — it is, because it is the smallest — and the correction made from
+        /// that took its stroke to 3.00, twice the reload arrow's. Small is not
+        /// the same as light, and only one of the two is a defect.
+        ///
+        /// Nothing else here is small for its height, so nothing else is
         /// corrected; a chevron is the rule's whole subject.
         static func glyphWeight(for symbolName: String) -> NSFont.Weight {
-            symbolName.hasPrefix("chevron.") ? .semibold : .regular
+            symbolName.hasPrefix("chevron.") ? .light : .regular
         }
     }
 }

@@ -73,10 +73,10 @@ final class TopBarButton: NSButton {
         fatalError("Luna builds its chrome in code")
     }
 
-    /// An SF Symbol sized to the bar's glyph size, and weighted so it carries
-    /// the same ink as the rest of them — see `TypeScale.glyphWeight(for:)`, for
-    /// why one nominal size is not one apparent size. Nil only for a name the
-    /// installed SF Symbols set does not have.
+    /// An SF Symbol sized to the bar's glyph size, and weighted so it draws the
+    /// same line as the rest of them — see `TypeScale.glyphWeight(for:)`, for
+    /// why one nominal weight is not one apparent weight. Nil only for a name
+    /// the installed SF Symbols set does not have.
     static func symbol(_ name: String) -> NSImage? {
         let configuration = NSImage.SymbolConfiguration(
             pointSize: TopBarMetrics.glyph,

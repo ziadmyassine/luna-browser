@@ -4,8 +4,10 @@
 //
 //  `TypeScale.glyphWeight(for:)` is one line, and it is the kind of line that
 //  gets "simplified" back to `.regular` by someone who reads it as a stray
-//  special case. The measurements it exists for are in its doc comment; what is
-//  asserted here is that it still applies to exactly one shape of mark.
+//  special case — or flipped the wrong way by someone measuring how much ink a
+//  glyph has rather than how thick its line is, which is how it came to say
+//  `.semibold` for a while. The measurements are in its doc comment; what is
+//  asserted here is the direction and the one shape of mark it applies to.
 //
 
 import AppKit
@@ -14,18 +16,23 @@ import XCTest
 
 final class GlyphWeightTests: XCTestCase {
 
-    /// A chevron is two thin diagonals: at §3's 16 pt it covers 28 pt² of ink
-    /// in a box 7.5 pt wide, against `sidebar.leading` — its neighbour in
-    /// §3.1's control row and in §3.2b's page bar — at 101 in a box 18.5 wide.
-    /// Semibold is what closes that.
-    func testAChevronIsSetHeavierWhereverItIsDrawn() {
-        XCTAssertEqual(Tokens.TypeScale.glyphWeight(for: "chevron.backward"), .semibold)
-        XCTAssertEqual(Tokens.TypeScale.glyphWeight(for: "chevron.left"), .semibold)
-        XCTAssertEqual(Tokens.TypeScale.glyphWeight(for: "chevron.right"), .semibold)
+    /// A chevron is small for its cap height, and SF Symbols pays for that in
+    /// stroke: at `.regular` it draws a 2.00 pt line where `arrow.clockwise`
+    /// beside it in §3.1 and §3.2b draws 1.62 and the sidebar toggle draws
+    /// 1.25. `.light` puts it at 1.50, in among them.
+    ///
+    /// **The assertion is `.light` and not `.semibold` on purpose.** It was
+    /// semibold, from measuring total ink instead of stroke — the chevron has
+    /// the least ink in the chrome because it is the smallest mark in it, which
+    /// is not the same thing as being the lightest.
+    func testAChevronIsSetLighterWhereverItIsDrawn() {
+        XCTAssertEqual(Tokens.TypeScale.glyphWeight(for: "chevron.backward"), .light)
+        XCTAssertEqual(Tokens.TypeScale.glyphWeight(for: "chevron.left"), .light)
+        XCTAssertEqual(Tokens.TypeScale.glyphWeight(for: "chevron.right"), .light)
     }
 
-    /// Everything else in the chrome is a closed shape and already carries its
-    /// weight. Correcting those too would only move the mismatch.
+    /// Everything else in the chrome is drawn at the size it was designed for
+    /// and needs no correction. Touching those would only move the mismatch.
     func testEveryOtherChromeGlyphIsLeftAlone() {
         let names = [
             "sidebar.leading", "arrow.clockwise", "xmark", "plus",
