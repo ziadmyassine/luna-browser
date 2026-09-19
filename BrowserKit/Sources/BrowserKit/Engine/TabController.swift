@@ -31,6 +31,12 @@ public final class TabController: NSObject {
     /// them is — an embedded player lives in a subframe.
     var audibleFrames: Set<String> = []
 
+    /// §3.4a's mute. The *answer*; the page script that enforces it is in
+    /// `TabController+Mute.swift`, which is also the only thing that writes this.
+    /// Not `private`, for the same reason `audibleFrames` is not: a Swift extension
+    /// cannot carry storage, so the flag lives here and the behaviour lives next door.
+    var mutedStorage = false
+
     /// §19.3 guard: a page that kills its own WebContent process on load would otherwise
     /// make us rebuild it forever.
     private var recoveries: [Date] = []

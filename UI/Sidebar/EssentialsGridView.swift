@@ -46,6 +46,12 @@ final class EssentialsGridView: NSView {
     var onActivate: ((UUID) -> Void)?
     /// Right-click → Unpin. The tab goes back to the top of today's tabs.
     var onUnpin: ((UUID) -> Void)?
+    /// §3.4a's menu for a tile, which is the same menu §3.4's rows get — a tile is a tab.
+    /// Nil leaves the tile with no menu at all rather than a shorter one: a second,
+    /// smaller answer to the same right-click is the thing this is here to avoid.
+    var menuActions: ((UUID) -> TabMenu.Actions?)?
+    /// Whether that tab is muted, for the menu's wording.
+    var isMuted: ((UUID) -> Bool)?
     /// A tile is being carried (§6.6). The sidebar's drag controller runs the
     /// rest of the gesture from here — the grid does not move its own tiles.
     var onDragTile: ((UUID, NSView, NSEvent) -> Void)?
@@ -152,7 +158,15 @@ final class EssentialsGridView: NSView {
         for tab in tabs {
             let tile = tiles[tab.id] ?? makeTile(for: tab)
             tiles[tab.id] = tile
-            if let icon = SidebarIcons.favicon(for: tab) { tile.setImage(icon) }
+            // §3.4a: the icon and the name the user chose outrank the site's, and a tile
+            // outlives a rename — it is reused across `show`, so this is the only place
+            // either can be re-read.
+            if let symbol = tab.customSymbolName {
+                tile.setSymbol(symbol)
+            } else if let icon = SidebarIcons.favicon(for: tab) {
+                tile.setImage(icon)
+            }
+            tile.setAccessibilityLabel(Self.siteName(for: tab))
             tile.isSelected = tab.id == activeTabID
         }
         order = next
@@ -176,9 +190,8 @@ final class EssentialsGridView: NSView {
         tile.onActivate = { [weak self] in self?.onActivate?(tab.id) }
         tile.onDragOut = { [weak self] event in self?.onDragTile?(tab.id, tile, event) }
         tile.menuBuilder = { [weak self] in
-            let menu = NSMenu()
-            menu.addItem(SidebarMenu.item(title: "Unpin Tab") { self?.onUnpin?(tab.id) })
-            return menu
+            guard let self, let actions = menuActions?(tab.id) else { return nil }
+            return TabMenu.build(for: tab, isMuted: isMuted?(tab.id) ?? false, actions: actions)
         }
         // Arrives at zero and fades up into its slot over the same spec the
         // list uses for a row arriving, so pinning reads as one movement.
@@ -217,7 +230,7 @@ final class EssentialsGridView: NSView {
     }
 
     private static func siteName(for tab: Tab) -> String {
-        tab.title.isEmpty ? URLPillView.domain(of: tab.url) : tab.title
+        tab.listTitle.isEmpty ? URLPillView.domain(of: tab.url) : tab.listTitle
     }
 
     // MARK: - Layout
@@ -362,7 +375,8 @@ final class EssentialsGridView: NSView {
         guard let tab = tabs.first(where: { $0.id == id }) else { return nil }
         return SidebarRowContent(
             title: Self.siteName(for: tab),
-            favicon: SidebarIcons.favicon(for: tab)
+            symbolName: tab.customSymbolName ?? SidebarRowContent.siteFallbackSymbol,
+            favicon: tab.customSymbolName == nil ? SidebarIcons.favicon(for: tab) : nil
         )
     }
 }

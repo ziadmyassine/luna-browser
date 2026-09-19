@@ -27,6 +27,9 @@ extension BrowserSession {
         let controller = TabController(id: tab.id, dataStore: dataStore(forSpace: tab.spaceID))
         controller.delegate = self
         controller.restore(interactionState: tab.interactionState, fallbackURL: tab.url)
+        // §3.4a: a muted tab that went cold comes back muted. The controller is new, so
+        // it starts at the default and has to be told.
+        controller.isMuted = mutedTabIDs.contains(tab.id)
         controllers[tab.id] = controller
         return controller
     }

@@ -73,11 +73,17 @@ final class TopBarButton: NSButton {
         fatalError("Luna builds its chrome in code")
     }
 
-    /// An SF Symbol sized to the bar's glyph size. Nil only for a name the
+    /// An SF Symbol sized to the bar's glyph size, and weighted so it carries
+    /// the same ink as the rest of them — see `TopBarMetrics.weight(for:)`, for
+    /// why one nominal size is not one apparent size. Nil only for a name the
     /// installed SF Symbols set does not have.
     static func symbol(_ name: String) -> NSImage? {
-        NSImage(systemSymbolName: name, accessibilityDescription: nil)?
-            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: TopBarMetrics.glyph, weight: .regular))
+        let configuration = NSImage.SymbolConfiguration(
+            pointSize: TopBarMetrics.glyph,
+            weight: TopBarMetrics.weight(for: name)
+        )
+        return NSImage(systemSymbolName: name, accessibilityDescription: nil)?
+            .withSymbolConfiguration(configuration)
     }
 
     // MARK: - Geometry
@@ -109,6 +115,17 @@ final class TopBarButton: NSButton {
     }
 
     // MARK: - Hover (§3.1: hover lifts the fill, not the border)
+
+    /// §3.4a's right-click, built when it is asked for.
+    ///
+    /// Not `NSView.menu`, which is one menu assigned once: every item in a tab's menu
+    /// states that tab's *current* answer — whether it is pinned, whether it is muted — and
+    /// a menu held over from the last press would be checkmarks for another moment.
+    var menuBuilder: (() -> NSMenu?)?
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        menuBuilder?() ?? super.menu(for: event)
+    }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()

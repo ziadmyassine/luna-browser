@@ -585,10 +585,10 @@ pill and lining up with it rather than with the bar.
 - **Pinning and unpinning animate.** Tiles are keyed by tab, so one survives a pin, an unpin or a
   reorder and travels to its new slot on §6's `tabInsert` spring; a new tile fades up, a removed one
   fades out where it stood, and the list below slides with the grid's height instead of snapping.
-- **Pinning** (§6.6's other half): right-click a row → *Pin Tab*, or drag it up into the grid. Pinning
+- **Pinning** (§6.6's other half): right-click a row → *Pin* (§3.4a), or drag it up into the grid. Pinning
   moves the tab into the Essentials section **and puts its page away** — the tile is the tab, so the page
   costs no WebContent process until it is clicked again (§19.2). A pinned tab cannot be closed, only
-  unpinned (right-click → *Unpin Tab*, or drag it back down); `⌘W` on one puts the page away and leaves
+  unpinned (right-click → *Unpin*, or drag it back down); `⌘W` on one puts the page away and leaves
   the tile.
   > **A tab dragged across the grid's edge is selected by the drop.** Carrying a tab up into the grid or
   > back down out of it is a decision about *that* tab, taken with it under the hand, and a drop that
@@ -701,6 +701,85 @@ Order: `+ Add Tab` row → **separator** → tabs.
 > by 8 pt per Space beyond three, so "does it fit" is not a question §1's minimum can settle once:
 > clamping to one side would slide the pill under one cluster and leave clear air under the other, so the
 > overflow is centred instead and stays symmetrical.
+#### 3.4a Tab context menu — right-click a row, or a §3.3 tile
+`[Pin] · [Duplicate] · [Copy Link] · [Rename… | Change Icon… | Mute Site] · [Close]`
+
+Seven items in five groups, taken from `inspiration/tab-context-menu.png`. A plain `NSMenu`, for the
+reason §3.2a gives: on macOS 26 that **is** the liquid-glass menu — AppKit draws its own material,
+its own blur, its own submenu chevrons — and a hand-rolled panel would be a worse copy that also had
+to reimplement keyboard navigation, VoiceOver and Reduce Transparency.
+
+> **The glyphs are in the titles, because `NSMenuItem.image` draws nothing on this macOS.** §3.2a
+> recorded that as a dead end; it is a dead *property*, not a dead requirement. Re-measured with a
+> five-way probe in a bare AppKit app — a plain system symbol, one through
+> `withSymbolConfiguration`, one explicitly sized with `isTemplate` on, a hand-drawn red square and
+> a named AppKit template — and **none of the five appeared**. An `NSTextAttachment` in
+> `attributedTitle` is drawn, because it is text rather than a menu image, and it keeps everything a
+> custom `NSMenuItem.view` would have cost: the native highlight, arrow-key navigation, the
+> key-equivalent column on the right, and the plain `title` underneath for VoiceOver and type-select.
+> A **tab stop** at `menuGlyph + rowIconGap` is what lines the words up in a column instead of each
+> one starting after its own glyph — the same two tokens §3.4's rows use for the same relationship.
+> The symbol is tinted by hand rather than left as a template: the thing drawing it is a text run,
+> which tints nothing, so an untinted template comes out black on a dark menu.
+> **`menuGlyph` is 12 pt, two under the `menuSwatch` beside it.** A swatch is a solid disc and reads
+> at any size; a symbol is a line drawing, and at 14 it was heavier than the word next to it and
+> pulled the eye off the text. 12 sits just under the menu font's cap height, which is where a glyph
+> introduces a label instead of competing with it.
+
+> **The reference has seventeen items and this has seven, and the ten missing are declined rather
+> than deferred.** Split, Chat With This Tab, the three Group commands, Move to Profile, Move to
+> Window and both Bookmarks rows are features Luna either does not have or reaches another way, and a
+> menu that lists what an app cannot do teaches the user to stop reading it. *Copy Link as Markdown*
+> becomes plain **Copy Link**, which is the same pasteboard §3.2a's site menu writes — copying a link
+> from the row and copying it from the pill must not produce two different answers.
+> **The groups stay even though most now hold one item.** The grouping is what makes seven items
+> scannable at a glance: the one that files the tab away, the one that copies it, the three that
+> change what it *is*, the one that ends it.
+
+- **One menu, both halves of the sidebar.** A §3.3 tile is a tab, so a tile gets this menu too, with
+  *Pin* reading **Unpin** — which is the item §3.3 has promised since the grid was built and never
+  had. A shorter, second answer to the same right-click would be two menus, not one.
+- **Every item closes over a `UUID`, never a row index.** The table recycles row views and moves them
+  between rows, so an index captured when the menu was built is stale as soon as a tab is inserted
+  above it — the bug that once made pressing close on one tab mute the tab underneath (§3.4).
+- **Duplicate carries the session, not just the address** (`interactionState`, read off the live
+  controller where there is one — the row's copy is only as fresh as the last settled load, §6.2).
+  You duplicate a tab to keep the trail you are on and go somewhere else from it. The copy lands
+  directly below the original; a duplicate of a *tile* is an ordinary tab, because a tile is a place
+  the user put something and it is capped at twelve per Profile.
+- **Rename and Change Icon persist; Mute does not.** `Tab.customTitle` and `Tab.customSymbolName`
+  (schema `v4`, two nullable columns, no backfill) outrank the page's own title and the site's
+  favicon everywhere a tab is drawn — the row, the tile, §6.6's lift, and §9.2's switch-to-tab rows,
+  which also *search* by the name the user gave. A mute is a decision about the noise a page is
+  making now: a tab that came back silent after a relaunch, with nothing on screen to say why, is a
+  bug report, not a feature.
+  > **Nil is not the empty string, in both columns.** Nil means "the user has not named this tab" and
+  > the page's title answers; a stored `""` would look identical in the sidebar and keep overriding
+  > the page's title with nothing forever. So a rename to blank normalises to nil, which is also the
+  > way back — the dialog says so, and puts the page's own title in as the placeholder.
+  > Both are picked, not typed: the icon comes from a curated list for the reason §3.7's Space icon
+  > row gives (a symbol name that does not resolve draws *nothing*, and a text field cannot say which
+  > of the six thousand names it is), and it is its own list rather than the Spaces one — a Space icon
+  > names a mode and a tab icon names a page, so the two vocabularies barely overlap.
+- **Mute is per tab and it really mutes.** There is no public WebKit API for it: Safari's rides on
+  `_setPageMuted:`, which is SPI, and the two public calls that come close are the wrong shape —
+  `pauseAllMediaPlayback()` stops the picture too and `setAllMediaPlaybackSuspended(true)` refuses to
+  let it start again. Mute means *keep playing, quietly*, which is a property of the media elements,
+  so it is set on the media elements and kept there by three things: a `volumechange` listener in the
+  **capture** phase (media events do not bubble — the same finding §4.3's audible-tab badge is built
+  on), a `MutationObserver` for the players every modern site builds in JavaScript, and a re-assert on
+  `didCommit` rather than `didFinish`, because an autoplaying page is making noise long before the
+  load settles. Its one honest limit: `evaluateJavaScript` does not reach subframes, so an embedded
+  player in an iframe keeps playing and the row's speaker badge — which *is* injected into every
+  frame — is right to keep showing.
+  > **The mute lives on `BrowserSession`, not on the `TabController`.** A controller is thrown away
+  > every time a tab goes cold (§19.2), so a mute held there would evaporate and the tab would come
+  > back making noise; `ensureController` re-asserts it on the way up. §3.4's speaker glyph reads the
+  > same set, which is what stops the row and the sound disagreeing.
+- **`Close` shows `⌘W` and does not install it.** A context menu's key equivalents are live only
+  while it is open; the rest of the time §20.1's responder chain has the command. On a tile, Close is
+  still §3.3's "send the tile home".
+
 
 > **It is called History and it carries a clock.** Luna's internal word for the shelf is "the archive";
 > the user's word for what they are looking for is "history". The glyph is `clock.arrow.circlepath`,

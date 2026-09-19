@@ -23,6 +23,10 @@
 //  When the tabs overflow the span the alignment stops meaning anything and
 //  the run scrolls from its leading edge.
 //
+//  Right-clicking a tile opens §3.4a's tab menu — the same seven items a §3.4 sidebar row
+//  and a §3.3 tile get, from the same binding on `BrowserSession`. The layout you are in is
+//  not supposed to change what you can do to a tab.
+//
 //  Tiles are icon-only, so §8 and §21.1 require an explicit VoiceOver label —
 //  the page title, or the site name when there is no title, **never the URL**.
 //  The strip itself is a tab list and each item carries its position and count.
@@ -190,11 +194,25 @@ final class TopBarTabStrip: NSView {
     private func configureTile(for tab: Tab, help: String) {
         let tile = tiles[tab.id] ?? makeTile(tab.id)
         tiles[tab.id] = tile
-        tile.icon = session.favicon(for: tab.id) ?? TopBarButton.symbol("globe")
-        let label = tab.title.isEmpty ? TopBarDomain.display(for: tab.url) : tab.title
+        // §3.4a: the icon and the name the user chose outrank the site's.
+        tile.icon = tab.customSymbolName.flatMap(TopBarButton.symbol)
+            ?? session.favicon(for: tab.id)
+            ?? TopBarButton.symbol("globe")
+        let label = tab.listTitle.isEmpty ? TopBarDomain.display(for: tab.url) : tab.listTitle
         tile.setAccessibilityLabel(label)
         tile.setAccessibilityHelp(help)
         tile.toolTip = label
+        // §3.4a. The tab is re-read inside the closure rather than captured: a tile is
+        // reused across reloads, so the `tab` this pass was configured from is a snapshot
+        // and the menu has to state what is true when it opens.
+        tile.menuBuilder = { [weak self] in
+            guard let self, let current = session.tab(tab.id) else { return nil }
+            return TabMenu.build(
+                for: current,
+                isMuted: session.isMuted(tab.id),
+                actions: session.tabMenuActions(for: tab.id)
+            )
+        }
     }
 
     private func makeTile(_ id: UUID) -> TopBarButton {

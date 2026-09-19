@@ -50,7 +50,9 @@ struct TabPersistenceTests {
             interactionState: Data([1, 2, 3]),
             hasUnread: true,
             order: 7,
-            pinnedURL: URL(string: "https://child.example/home")!
+            pinnedURL: URL(string: "https://child.example/home")!,
+            customTitle: "Invoices",
+            customSymbolName: "star"
         )
 
         try await store.upsert(tab)

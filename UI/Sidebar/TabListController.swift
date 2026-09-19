@@ -32,14 +32,18 @@ final class TabListController: NSObject {
     var onCloseTab: ((UUID) -> Void)?
     var onToggleMute: ((UUID) -> Void)?
     var onAddTab: (() -> Void)?
-    /// Right-click → Pin Tab. The tab becomes a tile in the §3.3 grid.
-    var onPinTab: ((UUID) -> Void)?
+    /// §3.4a's menu, bound to one tab — `BrowserSession.tabMenuActions(for:)`. Nil leaves
+    /// the rows with no context menu rather than a shorter one: a second, smaller answer
+    /// to the same right-click is exactly what §3.4a exists to avoid.
+    var menuActions: ((UUID) -> TabMenu.Actions?)?
 
     private(set) var list = SidebarList()
     /// Live per-tab state, pushed in by `BrowserSession.onTabStateChange`.
     var liveStates: [UUID: TabState] = [:]
-    /// Muted tabs. Local because neither `BrowserSession` nor `TabController`
-    /// exposes a mute — see the milestone report.
+    /// Muted tabs (§3.4a), mirrored from `BrowserSession.mutedTabIDs` so a row can draw
+    /// its speaker without asking. The session is the truth — it is what re-asserts the
+    /// mute on a tab waking from hibernation — and `SidebarViewController.refresh()` is
+    /// what keeps the two in step.
     var mutedTabIDs: Set<UUID> = []
 
     let table = SidebarTableView()
@@ -212,7 +216,11 @@ final class TabListController: NSObject {
 
     private func tabContent(_ tab: Tab) -> SidebarRowContent {
         let state = liveStates[tab.id]
-        let title = state?.title.isEmpty == false ? (state?.title ?? "") : tab.title
+        // §3.4a: a name the user typed outranks both the live title and the stored one.
+        // The live title is the page's most current answer to a question the user has
+        // already overruled.
+        let pageTitle = state?.title.isEmpty == false ? (state?.title ?? "") : tab.title
+        let title = tab.customTitle ?? pageTitle
         let muted = mutedTabIDs.contains(tab.id)
         let trailing: SidebarRowContent.Trailing
         if hoveredRow.flatMap({ list[$0] }) == .tab(tab.id) {
@@ -224,7 +232,10 @@ final class TabListController: NSObject {
         }
         return SidebarRowContent(
             title: title.isEmpty ? URLPillView.domain(of: tab.url) : title,
-            favicon: SidebarIcons.favicon(for: tab),
+            // §3.4a: a chosen symbol replaces the favicon, so the row draws its symbol
+            // slot instead — which is the path `+ Add Tab` has always taken.
+            symbolName: tab.customSymbolName ?? SidebarRowContent.siteFallbackSymbol,
+            favicon: tab.customSymbolName == nil ? SidebarIcons.favicon(for: tab) : nil,
             hasUnread: tab.hasUnread,
             isLoading: state?.isLoading ?? false,
             trailing: trailing
@@ -299,17 +310,6 @@ final class TabListController: NSObject {
     }
 
     // MARK: - Commands
-
-    /// Only tabs have a menu: `+ Add Tab` and the rule are commands, and a
-    /// context menu on a command is a menu with nothing in it.
-    private func contextMenu(forRow row: Int) -> NSMenu? {
-        guard case let .tab(id)? = list[row] else { return nil }
-        let menu = NSMenu()
-        menu.addItem(SidebarMenu.item(title: "Pin Tab") { [weak self] in self?.onPinTab?(id) })
-        menu.addItem(.separator())
-        menu.addItem(SidebarMenu.item(title: "Close Tab") { [weak self] in self?.onCloseTab?(id) })
-        return menu
-    }
 
     /// A press on a row, which is the whole mouse gesture: `NSTableView`'s own
     /// `mouseDown` runs a tracking loop that never lets go until mouse-up, and

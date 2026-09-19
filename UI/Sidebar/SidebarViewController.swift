@@ -160,6 +160,9 @@ final class SidebarViewController: NSViewController {
             onSpaceGradientChange?(space.gradient)
         }
         essentials.show(session.tabs.filter { $0.kind == .essential }, activeTabID: session.activeTabID)
+        // §3.4a: before `show`, so the rows are configured against the current answer
+        // rather than the one from before a mute landed.
+        list.mutedTabIDs = session.mutedTabIDs
         list.show(session.tabs, activeTabID: session.activeTabID)
         utility.show(spaces: session.spaces, activeSpaceID: session.activeSpaceID)
         refreshActiveTab()
@@ -241,6 +244,11 @@ final class SidebarViewController: NSViewController {
 
         essentials.onActivate = { [weak self] id in self?.session.activateTab(id) }
         essentials.onUnpin = { [weak self] id in self?.session.unpinTab(id) }
+        // §3.4a's menu, on the §3.3 tiles as well as the §3.4 rows: a tile *is* a tab, and
+        // a menu that changed its mind about what you can do to one depending on which
+        // half of the sidebar it is standing in would be two menus, not one.
+        essentials.menuActions = { [weak self] id in self?.session.tabMenuActions(for: id) }
+        essentials.isMuted = { [weak self] id in self?.session.isMuted(id) ?? false }
     }
 
     private func wireList() {
@@ -250,15 +258,15 @@ final class SidebarViewController: NSViewController {
             guard let self else { return }
             session.activateTab(session.newTab(url: nil, kind: .today))
         }
-        list.onPinTab = { [weak self] id in self?.session.pinTab(id) }
+        list.menuActions = { [weak self] id in self?.session.tabMenuActions(for: id) }
         wireDrag()
         list.onToggleMute = { [weak self] id in
             guard let self else { return }
-            if list.mutedTabIDs.contains(id) {
-                list.mutedTabIDs.remove(id)
-            } else {
-                list.mutedTabIDs.insert(id)
-            }
+            // The session owns the answer — it is what silences the page and what puts the
+            // mute back when a cold tab wakes up. The list's copy follows it rather than
+            // leading, so the row's speaker and the sound cannot disagree.
+            session.setMuted(!session.isMuted(id), tab: id)
+            list.mutedTabIDs = session.mutedTabIDs
             if let state = session.controller(for: id)?.state { list.update(id, state: state) }
             onToggleMute?(id)
         }

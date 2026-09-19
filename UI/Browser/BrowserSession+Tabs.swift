@@ -183,6 +183,9 @@ extension BrowserSession {
     private func forget(_ id: UUID) {
         discardController(id)
         recentTabs.removeAll { $0 == id }
+        // §3.4a's mute is a fact about a live page, and this tab no longer has one. A
+        // reopened tab comes back audible, which is the same answer a relaunch gives.
+        mutedTabIDs.remove(id)
         faviconPNG[id] = nil
         recordedURL[id] = nil
         pendingVisitKind[id] = nil

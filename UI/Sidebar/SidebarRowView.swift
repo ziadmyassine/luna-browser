@@ -40,9 +40,13 @@ struct SidebarRowContent: Equatable {
         case close
     }
 
+    /// What a tab row draws when the site has no favicon and the user has chosen no icon
+    /// of their own (§3.4a).
+    static let siteFallbackSymbol = "globe"
+
     var title: String = ""
     /// Drawn when there is no favicon — and for the command rows' own glyphs.
-    var symbolName: String = "globe"
+    var symbolName: String = SidebarRowContent.siteFallbackSymbol
     var favicon: NSImage?
     /// §3.4: leads the row only for unread/updated content.
     var hasUnread: Bool = false

@@ -35,7 +35,31 @@ enum Schema {
         migrator.registerMigration("v3") { db in
             try rememberWhereATileWasPinned(db)
         }
+        migrator.registerMigration("v4") { db in
+            try letTheUserNameATab(db)
+        }
         return migrator
+    }
+
+    /// `v4` — a tab carries the name and the icon the user gave it (§3.4a).
+    ///
+    /// **Two nullable columns and no backfill**, which is the whole design. Nil means "the user
+    /// has not named this tab" and "the user has not chosen an icon", and the page's own title and
+    /// the site's own favicon are the answers — which is true for every tab that existed before
+    /// this column did and for every tab opened since. Seeding `customTitle` from `title` would
+    /// freeze whatever the page happened to be called at migration time into a name the user never
+    /// typed, and the first navigation would leave the row lying about the page it is showing.
+    ///
+    /// Idempotent on the live schema, like `v2` and `v3`: the migrator promises this runs once,
+    /// the file on disk promises nothing.
+    static func letTheUserNameATab(_ db: Database) throws {
+        let existing = try db.columns(in: "tabs").map(\.name)
+        if !existing.contains("customTitle") {
+            try db.execute(sql: "ALTER TABLE tabs ADD COLUMN customTitle TEXT")
+        }
+        if !existing.contains("customSymbolName") {
+            try db.execute(sql: "ALTER TABLE tabs ADD COLUMN customSymbolName TEXT")
+        }
     }
 
     /// `v3` — a pinned tile remembers the address it was pinned at (§3.3).

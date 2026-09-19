@@ -182,13 +182,16 @@ enum CommandBarRanking {
     private static func tabRows(tokens: [String], sources: CommandBarSources) -> [RankedRow] {
         let qualify = spansSeveralProfiles(sources)
         return sources.tabs.compactMap { tab in
-            let haystack = "\(tab.title) \(CommandBarURL.displayForm(of: tab.url))"
+            // §3.4a: a renamed tab is found and shown under the name the user gave it.
+            // Its own title is deliberately *not* also in the haystack — a tab you renamed
+            // "Invoices" should not keep answering to whatever the page calls itself.
+            let haystack = "\(tab.listTitle) \(CommandBarURL.displayForm(of: tab.url))"
             guard matches(tokens, haystack) else { return nil }
             let archived = tab.archivedAt != nil
             let space = sources.spaces[tab.spaceID]
             let result = CommandBarResult(
                 source: archived ? .archive : .openTab,
-                title: tab.title.isEmpty ? CommandBarURL.displayForm(of: tab.url) : tab.title,
+                title: tab.listTitle.isEmpty ? CommandBarURL.displayForm(of: tab.url) : tab.listTitle,
                 subtitle: CommandBarURL.displayForm(of: tab.url),
                 action: archived ? .unarchiveTab(tab.id) : .activateTab(tab.id),
                 url: tab.url,

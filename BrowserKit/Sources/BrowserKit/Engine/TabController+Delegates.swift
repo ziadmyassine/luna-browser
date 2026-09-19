@@ -87,6 +87,11 @@ extension TabController: WKNavigationDelegate {
 
     public func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         resetPerDocumentState()
+        // A new document starts unmuted however the tab is set: `muted` is a property of
+        // the media elements, and these are new ones. Re-asserted here rather than at
+        // `didFinish` because the audio of an autoplaying page starts long before the
+        // load settles (§3.4a).
+        reapplyMute()
         publishState()
     }
 

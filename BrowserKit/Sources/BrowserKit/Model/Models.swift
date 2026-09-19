@@ -85,6 +85,20 @@ public struct Tab: Identifiable, Sendable, Hashable, Codable {
     /// clicking the tile lands where you left off. Nil for every other kind.
     public var pinnedURL: URL?
 
+    /// The name the user gave this tab, overriding whatever the page calls itself (schema `v4`).
+    ///
+    /// Nil is not the empty string: nil means "this tab has no name of its own", and the page's
+    /// `title` is the answer. A rename that cleared to `""` would be indistinguishable from a page
+    /// that has not reported a title yet, and the row would fall back to the domain forever.
+    public var customTitle: String?
+
+    /// The SF Symbol the user chose for this tab, drawn in place of the favicon (schema `v4`).
+    ///
+    /// Nil means "use the site's icon", which is every tab until somebody says otherwise. Stored as
+    /// a name rather than an image for the same reason `Space.symbolName` is: an image is not a
+    /// value that crosses the SQLite boundary, and `Design` is the only layer allowed to resolve one.
+    public var customSymbolName: String?
+
     public init(
         id: UUID = UUID(),
         spaceID: UUID,
@@ -101,7 +115,9 @@ public struct Tab: Identifiable, Sendable, Hashable, Codable {
         hasUnread: Bool = false,
         order: Int = 0,
         profileID: UUID? = nil,
-        pinnedURL: URL? = nil
+        pinnedURL: URL? = nil,
+        customTitle: String? = nil,
+        customSymbolName: String? = nil
     ) {
         self.id = id
         self.spaceID = spaceID
@@ -119,6 +135,21 @@ public struct Tab: Identifiable, Sendable, Hashable, Codable {
         self.order = order
         self.profileID = profileID
         self.pinnedURL = pinnedURL
+        self.customTitle = customTitle
+        self.customSymbolName = customSymbolName
+    }
+}
+
+public extension Tab {
+
+    /// What a list should call this tab: the name the user gave it, else the page's own (§3.4a).
+    ///
+    /// Still possibly empty — a page that has not reported a title yet has none to give — so the
+    /// surfaces that draw it keep their own fallback to the domain. This decides *which* title,
+    /// not whether there is one.
+    var listTitle: String {
+        guard let customTitle, !customTitle.isEmpty else { return title }
+        return customTitle
     }
 }
 

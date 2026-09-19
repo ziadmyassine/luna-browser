@@ -188,6 +188,13 @@ final class BrowserSession {
     /// Absent means the user followed a link.
     var pendingVisitKind: [UUID: VisitKind] = [:]
     var recordedURL: [UUID: URL] = [:]
+    /// §3.4a's muted tabs. Held here rather than on the `TabController` because a
+    /// controller is discarded every time a tab goes cold (§19.2) and a mute that
+    /// evaporated when the tab hibernated would come back making noise. Deliberately
+    /// **not** on the `Tab` row: a mute answers the sound happening now, and a tab that
+    /// came back silent after a relaunch with nothing on screen to say why would be a
+    /// bug report, not a feature. See `setMuted(_:tab:)`.
+    var mutedTabIDs: Set<UUID> = []
     /// §6.3's archive, newest first. Held in memory because `allTabs` and
     /// `⌘⇧T` are synchronous and an archived tab is the same row as an open one
     /// (§11.1: `archive` is a view over `tabs`, not a second table).
