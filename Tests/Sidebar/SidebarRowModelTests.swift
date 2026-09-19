@@ -154,3 +154,56 @@ final class SidebarRowInkTests: XCTestCase {
         XCTAssertEqual(Set(inks).count, 3)
     }
 }
+
+/// §3.4's title column, which is the other way a title can dim under the
+/// pointer: the close chip is revealed on hover, and a column that gave the
+/// chip's slot back when the chip was absent lost 26 pt the moment the pointer
+/// arrived — moving §3.4's trailing fade left across a long title. The ink
+/// stayed put and the title still went grey at the end. So the column takes no
+/// hover either, and reserves the slot on every row.
+@MainActor
+final class SidebarRowColumnTests: XCTestCase {
+
+    private let width = Tokens.Metric.sidebarWidth.default
+
+    /// The whole point: the slot is reserved whether or not a glyph is in it,
+    /// so no row's title moves because the pointer arrived.
+    func testTheTitleColumnLeavesTheTrailingSlotClearOnEveryRow() {
+        let column = SidebarRowView.titleColumn(inRowOfWidth: width, hasUnread: false)
+        XCTAssertEqual(
+            column.x + column.width,
+            SidebarRowView.trailingSlotX(inRowOfWidth: width) - Tokens.Metric.chromeGap,
+            accuracy: 0.01
+        )
+    }
+
+    /// The slot itself has to fit inside the pill, or reserving it is a fiction
+    /// and the chip goes on drawing over the title's last glyphs.
+    func testTheReservedSlotIsWhereTheChipIsActuallyDrawn() {
+        let slot = SidebarRowView.trailingSlotX(inRowOfWidth: width)
+        XCTAssertEqual(
+            slot + Tokens.Metric.rowTrailingChip.width,
+            width - 2 * Tokens.Metric.rowInset,
+            accuracy: 0.01
+        )
+    }
+
+    /// §3.4's unread dot pushes the title right. It must not also push the
+    /// title's trailing edge, or an unread tab would fade differently.
+    func testTheUnreadDotMovesOnlyTheTitlesLeadingEdge() {
+        let plain = SidebarRowView.titleColumn(inRowOfWidth: width, hasUnread: false)
+        let unread = SidebarRowView.titleColumn(inRowOfWidth: width, hasUnread: true)
+        XCTAssertGreaterThan(unread.x, plain.x)
+        XCTAssertEqual(unread.x + unread.width, plain.x + plain.width, accuracy: 0.01)
+    }
+
+    /// A sidebar dragged to its narrowest still has to produce a box, not a
+    /// negative width — `NSRect` would happily take one and flip the box.
+    func testAVeryNarrowRowStillProducesANonNegativeColumn() {
+        XCTAssertGreaterThanOrEqual(SidebarRowView.titleColumn(inRowOfWidth: 0, hasUnread: true).width, 0)
+        XCTAssertGreaterThan(
+            SidebarRowView.titleColumn(inRowOfWidth: Tokens.Metric.sidebarWidth.min, hasUnread: true).width,
+            0
+        )
+    }
+}
