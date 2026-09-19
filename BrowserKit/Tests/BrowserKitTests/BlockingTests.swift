@@ -317,4 +317,17 @@ struct BlockingTests {
             since: now.addingTimeInterval(-day + 1), now: now, interval: day
         ) >= grace)
     }
+
+    /// **A first run does not get the grace.** It is affordable only because the
+    /// cached lists are already attached while it runs; with nothing compiled,
+    /// waiting is not staleness, it is unfiltered browsing — D14 keeps the lists
+    /// out of the bundle, so a first run genuinely has nothing to block with.
+    @Test func aFirstRunWithNothingCompiledDoesNotWaitTheFullGrace() {
+        let day: TimeInterval = 24 * 60 * 60
+        let now = Date()
+        #expect(ContentBlocker.firstRunDelay < ContentBlocker.postLaunchDelay)
+        #expect(ContentBlocker.refreshDelay(
+            since: nil, now: now, interval: day, grace: ContentBlocker.firstRunDelay
+        ) == ContentBlocker.firstRunDelay)
+    }
 }

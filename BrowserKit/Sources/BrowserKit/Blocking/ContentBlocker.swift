@@ -142,6 +142,15 @@ public final class ContentBlocker {
     /// is a list that is at most a day stale.
     static let postLaunchDelay: TimeInterval = 30
 
+    /// What a machine with **no** compiled lists waits instead.
+    ///
+    /// The grace above is affordable because the cached lists are already
+    /// attached while it runs — the only thing waiting is a list a day stale. On
+    /// a first run nothing is attached and nothing is blocked, so the wait is
+    /// not a day of staleness, it is half a minute of unfiltered browsing
+    /// (D14: lists are never bundled). Five seconds, as it was for everyone.
+    static let firstRunDelay: TimeInterval = 5
+
     /// How long to wait before refreshing, given when the last one landed.
     ///
     /// **``refreshInterval`` used to pick the delay and nothing else, so it was
@@ -156,19 +165,36 @@ public final class ContentBlocker {
     ///
     /// Pure, and separate from the task that sleeps on it, so the schedule can
     /// be asserted without waiting a day for it.
-    static func refreshDelay(since last: Date?, now: Date, interval: TimeInterval) -> TimeInterval {
+    /// - Parameter grace: how long to wait when a refresh is due — see
+    ///   ``postLaunchDelay`` and ``firstRunDelay``.
+    static func refreshDelay(
+        since last: Date?,
+        now: Date,
+        interval: TimeInterval,
+        grace: TimeInterval = postLaunchDelay
+    ) -> TimeInterval {
         let elapsed = now.timeIntervalSince(last ?? .distantPast)
-        guard elapsed < interval else { return postLaunchDelay }
+        guard elapsed < interval else { return grace }
         // Not due. Sleep out the remainder rather than refreshing early — a
         // session that lives that long still gets its daily update.
-        return max(postLaunchDelay, interval - elapsed)
+        return max(grace, interval - elapsed)
+    }
+
+    /// True when some category has a compiled list cached from a previous run.
+    ///
+    /// Read from the hashes rather than from `compiled`, because `loadCached()`
+    /// is a `Task` and this is called from `start()` on the way past it: the
+    /// dictionary is reliably empty here whether or not the store has anything.
+    private var hasCachedLists: Bool {
+        Category.allCases.contains { defaults.string(forKey: Key.hash($0)) != nil }
     }
 
     private func scheduleRefresh() {
         let delay = Self.refreshDelay(
             since: defaults.object(forKey: Key.lastRefresh) as? Date,
             now: Date(),
-            interval: refreshInterval
+            interval: refreshInterval,
+            grace: hasCachedLists ? Self.postLaunchDelay : Self.firstRunDelay
         )
         refreshTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(delay))

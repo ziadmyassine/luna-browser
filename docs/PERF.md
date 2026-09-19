@@ -348,7 +348,10 @@ refresh is genuinely due and the remainder of the interval when it is not, so a
 session that lives a day still gets its update and a relaunch does not. The grace
 itself went from **5 s to 30 s** — 5 s is not "after launch", it is during the first
 page the user asked for, and nothing about a refresh is urgent when the cached lists
-are already attached. And a compile that did happen now leaves a second before the
+are already attached. **Unless they are not**: a machine with nothing compiled keeps
+the old 5 s, because there the wait is not a day of staleness, it is unfiltered
+browsing, and D14 keeps the lists out of the bundle so a first run genuinely has
+nothing. And a compile that did happen now leaves a second before the
 next one starts: it does not make the stalls smaller, it puts a responsive second
 between them instead of running three of them together.
 
