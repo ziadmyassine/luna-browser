@@ -455,10 +455,24 @@ column closes up over the pill's own 34 pt.
   `255,255,255` where the stack says `12,12,13`. The three have to **agree** — the bar is one colour
   across the whole pane, so a top edge that is two colours has no right answer, and the sample says
   nothing rather than picking one. Nothing means the document's own
-  background, which is what a centred card on a tinted page wanted anyway. The change crosses on
+  background, which is what a centred card on a tinted page wanted anyway. A layer carrying a
+  background **image** cannot answer either, so the walk **steps over it** and keeps going down the
+  stack. It used to end the sample there, and that is the "the bar goes white over a black page" bug:
+  `getroosta.app` lays a two-stop `linear-gradient` (`div.horizon`) over `footer.night`, so from
+  roughly 6500 pt down every sample came back empty and the bar fell to the document's white — over a
+  footer measured at `12,12,13`, with the screen reading `13,13,14` under the bar. Stepping over
+  never loses anything: what "nothing" falls back to *is* the document's background, which is the
+  bottom of every stack, so giving up early only threw away the opaque surfaces painted between.
+  The change crosses on
   `Motion.themeWash`, the same 0.25 s a navigation changes it on. The hit tests are the cost, so the
   sample is skipped for moves under 4 pt and re-taken on a resize — the viewport's top edge moves
   without a scroll when the bar itself changes height.
+- **A page coming back out of the cache says so itself.** Back and Forward are served from WebKit's
+  page cache, which restores a document **without re-running user scripts** — so nothing posted,
+  `resetPerDocumentState` had already cleared the colour, and the bar went on wearing the page that
+  had just been left until the next scroll. The listeners survive the restore, so the script also
+  listens for `pageshow`, drops the 4 pt cache and asks again. Measured: from a page at `#3a0a0a`
+  back to one at `#0a0a14`, the bar stayed red until the page was scrolled.
 - **It had to be a plane, and the reason is measured.** Floating controls over the page were tried
   first. No material in Luna can react to a page — `NSGlassEffectView` composites what is behind the
   *window*, and `NSVisualEffectView` will not sample a `WKWebView`'s out-of-process layer (§2,

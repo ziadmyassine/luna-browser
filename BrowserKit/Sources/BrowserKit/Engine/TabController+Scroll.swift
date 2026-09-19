@@ -57,8 +57,9 @@ extension TabController {
     }
 
     /// Posts `window.scrollY` and the colour under the top of the viewport on a
-    /// frame boundary, and once at document end so a bar that is already showing
-    /// learns where a restored page resumed and what it resumed on.
+    /// frame boundary, once at document end and again on `pageshow`, so a bar
+    /// that is already showing learns where a restored page resumed and what it
+    /// resumed on.
     ///
     /// `passive`, so the listener can never delay a scroll, and `capture`, so it
     /// also sees the app-shell sites that scroll an inner element rather than
@@ -80,17 +81,37 @@ extension TabController {
     /// walk up the tree can reach. Measured on `getroosta.app`, where the
     /// ancestor walk said `255,255,255` and the stack says `12,12,13`.
     ///
-    /// A background *image* anywhere in front ends the sample with no answer
-    /// rather than with the colour behind it: a photo or a gradient has no one
-    /// colour either, and the honest reply is the one that leaves the bar on
-    /// the document's own.
+    /// A background *image* means that element cannot answer — it is skipped,
+    /// and the walk goes on behind it. It used to end the sample instead, and
+    /// that is the bug Martin reported as "the bar goes white over a black
+    /// page": `getroosta.app` lays a two-stop `linear-gradient` (`div.horizon`)
+    /// over `footer.night`, so from roughly 6500 pt down every sample came back
+    /// with no answer and the bar fell to the document's own background —
+    /// **white**, over a footer measured at `12,12,13`.
+    ///
+    /// Giving up there never bought anything. What "no answer" falls back to is
+    /// the document's own background, which is what the last two entries of any
+    /// stack are; so stopping at the image only throws away the opaque surfaces
+    /// painted *between* it and the document, and answers the same thing when
+    /// there are none. A photo still reads as the page behind it, which is what
+    /// it read as before.
+    ///
+    /// **And a restored page says so itself.** Back and forward are served from
+    /// WebKit's page cache, which restores the document without re-running user
+    /// scripts — so nothing posted, `resetPerDocumentState` had already cleared
+    /// the colour, and the bar wore the page it had just left until the next
+    /// scroll. The listeners are still live in a restored document, so
+    /// `pageshow` is the one event that covers both: it fires on every load
+    /// after this script is injected, and on every restore out of the cache.
     ///
     /// **Sampled at most every 4 pt of travel.** `elementFromPoint` is a hit
     /// test, and running three of them per frame of every drag for a colour that
     /// cannot have changed in four points of scrolling is work the page is
     /// paying for. A resize clears that cache and asks again: the viewport's top
     /// edge moves without a scroll when the bar itself changes height, and a
-    /// responsive layout can put something else entirely under it.
+    /// responsive layout can put something else entirely under it. `pageshow`
+    /// clears it for the same reason — a page coming back out of the cache is a
+    /// different document under the same bar, at whatever offset it was left at.
     static let scrollScript = """
     (function () {
       var h = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.lunaScroll;
@@ -100,7 +121,7 @@ extension TabController {
         var stack = document.elementsFromPoint(x, y);
         for (var i = 0; i < stack.length; i++) {
           var style = window.getComputedStyle(stack[i]);
-          if (style.backgroundImage && style.backgroundImage !== 'none') { return null; }
+          if (style.backgroundImage && style.backgroundImage !== 'none') { continue; }
           var text = style.backgroundColor || '';
           var open = text.indexOf('(');
           if (open < 0) { continue; }
@@ -147,6 +168,10 @@ extension TabController {
       };
       window.addEventListener('scroll', schedule, { passive: true, capture: true });
       window.addEventListener('resize', function () {
+        lastY = null;
+        schedule();
+      }, { passive: true });
+      window.addEventListener('pageshow', function () {
         lastY = null;
         schedule();
       }, { passive: true });
