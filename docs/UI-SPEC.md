@@ -442,7 +442,15 @@ column closes up over the pill's own 34 pt.
 - **The bar is a plane in the page's own colour**, from `TabState.pageBackground` — WebKit's
   `underPageBackgroundColor`, which is the colour the document is actually painted on. Not
   `themeColor`: that is a decoration a site may offer and most do not, while this is measured from the
-  document and is always there.
+  document and is always there. **Observed, never read back.** `publishState` used to hand WebKit the
+  site's `theme-color` and read the property in the same statement, and nil hands the question *back*
+  to WebKit, which answers it off the next paint — so the read returned the document that had just
+  gone away, and nothing re-read it afterwards. Measured on two documents, `#0a0a14` then `#3a0a0a`:
+  `didFinish` for the second reported the first's `10,10,20`, and Back to the first reported
+  `58,10,10`. It has its own KVO now, and the only two writes are the `themeColor` observation and
+  `resetPerDocumentState`'s clear — a pinned colour belongs to the document that offered it. A side
+  effect worth having: a site that repaints itself (its own dark-mode toggle) changes no URL, no title
+  and no loading flag, and the bar follows it now where before nothing carried the news out.
 - **And the plane follows the page down.** `pageBackground` is one answer for a whole document, so a
   bar wearing it stayed white all the way down a site whose second section is black — the plane stopped
   being the page's top edge the moment the page moved. What is under the bar is a question only the page

@@ -262,8 +262,18 @@ public final class TabController: NSObject {
             webView.observe(\.estimatedProgress, options: [.new]) { republish($0, $1) },
             webView.observe(\.canGoBack, options: [.new]) { republish($0, $1) },
             webView.observe(\.canGoForward, options: [.new]) { republish($0, $1) },
-            webView.observe(\.themeColor, options: [.new]) { republish($0, $1) },
-            webView.observe(\.hasOnlySecureContent, options: [.new]) { republish($0, $1) }
+            webView.observe(\.hasOnlySecureContent, options: [.new]) { republish($0, $1) },
+            // The site offering a `theme-color` is what decides the colour behind
+            // the page, so this one hands it over before it publishes.
+            webView.observe(\.themeColor, options: [.new]) { [weak self] _, _ in
+                MainActor.assumeIsolated {
+                    self?.matchBackgroundToTheme()
+                    self?.publishState()
+                }
+            },
+            // WebKit answers this off a paint, so it lands after the navigation
+            // callbacks rather than in them — see `publishState`.
+            webView.observe(\.underPageBackgroundColor, options: [.new]) { republish($0, $1) }
         ]
         self.webView = webView
     }
@@ -339,6 +349,13 @@ public final class TabController: NSObject {
         state.title = ""
         state.themeColor = nil
         state.pageBackground = nil
+        // And un-pinned in the web view, not only in the state: a colour handed
+        // to WebKit by `matchBackgroundToTheme` stays until it is taken back, so
+        // a site with a `theme-color` would paint the *next* document's
+        // over-scroll in its own. nil gives the question back to WebKit, which
+        // answers it off this document's first paint — through the observation,
+        // which is why nothing has to read it back here.
+        webView?.underPageBackgroundColor = nil
         // Published, not just cleared: the chrome is painted in this and the
         // new document has not reported its own yet.
         setTopColour(nil)
@@ -352,6 +369,25 @@ public final class TabController: NSObject {
         // §14: the form belonged to the document that just went away, and so
         // did any popover pointing at it.
         delegate?.tabControllerDidDismissPasswordUI(self)
+    }
+
+    /// Hands WebKit the site's own `theme-color` to paint behind the page — the
+    /// colour over-scroll and the gap before first paint show — or nil, which
+    /// gives the question back to WebKit and its computed answer.
+    ///
+    /// **Written where the answer changes, never off a read.** This and
+    /// `resetPerDocumentState`'s clear are the only two writes: the site offering
+    /// a `theme-color` is one, a new document starting is the other. That is what
+    /// lets the property be observed — a write wakes the observation, the
+    /// observation publishes, and publishing writes nothing.
+    ///
+    /// `publishState` wrote it too, which is what the old comment there called a
+    /// loop with no exit. It would in fact have stopped after one turn: WebKit's
+    /// setter coalesces, and assigning a value equal to the one it holds posts no
+    /// change at all (measured). The real cost was never the loop — it was that
+    /// the write forced a read of an answer WebKit had not worked out yet.
+    func matchBackgroundToTheme() {
+        webView?.underPageBackgroundColor = webView?.themeColor
     }
 
     func publishState() {
@@ -369,16 +405,15 @@ public final class TabController: NSObject {
             if let themeColor = webView.themeColor {
                 next.themeColor = ColorBridge.rgba(from: themeColor.cgColor)
             }
-            // The page's own colour behind the page, so over-scroll and the gap before
-            // first paint are not a white flash. Assigning the web view's own colour
-            // keeps this AppKit-free; nil restores WebKit's default.
-            webView.underPageBackgroundColor = webView.themeColor
-            // **Read back, not read across.** The line above hands WebKit the
-            // site's own `theme-color` when it offers one; nil puts WebKit's
-            // computed colour back. Either way what comes out is the colour the
-            // page is actually painted on, which is what §3.2b's bar matches —
-            // and it is only ever read here, never observed, because observing
-            // a property this method assigns is a loop with no exit.
+            // **Read, never written.** This is the colour the page is actually
+            // painted on, which is what §3.2b's bar matches; it is written only by
+            // `matchBackgroundToTheme` and by `resetPerDocumentState`, and observed
+            // like every other property here. This method used to assign it and
+            // read it back in the same statement, and that answer was **behind**:
+            // nil hands the question back to WebKit, which recomputes off the next
+            // paint, so the read returned the document that had just gone away.
+            // Measured on two local pages, A `#0a0a14` and B `#3a0a0a`: `didFinish`
+            // for B reported A's `10,10,20`, and Back to A reported B's `58,10,10`.
             next.pageBackground = webView.underPageBackgroundColor
                 .flatMap { ColorBridge.rgba(from: $0.cgColor) }
             next.isPlayingAudio = !audibleFrames.isEmpty
