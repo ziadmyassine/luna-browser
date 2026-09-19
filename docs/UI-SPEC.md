@@ -357,6 +357,27 @@ Vertical order, top to bottom:
   would shift the glyph 2.5 pt inwards the moment it gained a background it only shows on hover.
 - Two further icon slots are **reserved and sized** to the left of the sliders glyph but render nothing.
   AI and extension actions live in the top-bar action capsule, not here.
+- **A leading mark says what the address *is*.** A **magnifier** while what is in the pill reads as a
+  search, the site's **favicon** when it reads as an address Luna already has a mark for, and a
+  **globe** when it reads as an address and no mark has arrived. It answers while you type, before
+  Return decides anything: the same string can be either, and which one it is is a rule rather than
+  something the user should have to hold in their head — `apple.com` is a place, `apple news` is a
+  question, and the mark is the pill saying which it read. It asks `CommandBarURL.direct`, exactly as
+  the commit path does, so a pill showing a globe cannot then run a search. Luna's own pages are a
+  search, not a globe: `luna://` is a scheme the bar accepts, and a globe over a page that is nowhere
+  on the web is the one answer here that is untrue. Sized `faviconSize` rather than `pillGlyphSize`,
+  because it is §3.4's favicon slot in a pill — a slot that shows a site's own mark most of the time
+  is a favicon box that sometimes draws a symbol.
+  > **Where it sits depends on which pill this is.** In the sidebar's column it takes §3.2's own text
+  > inset and the address starts after it, because a column of rows is read down its leading edge. In
+  > §3.2b's centred capsule the mark travels *with* the text and the pair is what is centred: pinned to
+  > the leading edge it would be stranded a long way from the address it is about, with the sliders
+  > glyph already there, and kept against the text it reads as one phrase — what this is, then what it
+  > says.
+  > **And the same mark leads §9.1's Command Bar field**, in the result rows' own icon column, so the
+  > query sits above the rows' titles and the bar reads as one column with the list it filters. That
+  > is a change from "flush with the rows": flush with their *icons* is what it was, and the address
+  > was a favicon's width to the left of everything it was finding.
 - Click or `⌘L` → expands to the full URL, selected, in edit mode. `Esc` reverts.
 - **Dormant at rest.** The pill is a bordered plate on the sidebar's plane until it is hovered or opened
   for editing, and it takes its glass then. Constant glass made it the brightest thing in the column — a

@@ -66,8 +66,16 @@ final class URLPillView: NSView, NSTextFieldDelegate {
     // A bare glyph, not a `GlassButton`: the reference draws no bubble around
     // the sliders, and a glass control inside a glass pill is two materials.
     let sliders = RowGlyphView()
-    private var displayedURL: URL?
-    private var isEditing = false
+    /// §3.2's leading mark — what the pill is *about*. See `LeadingMark`.
+    let mark = NSImageView()
+    // Internal for `URLPillMark.swift`, the same way `field` and `sliders` are
+    // internal for `URLPillLayout.swift`: still the pill's, still untouched
+    // from anywhere else.
+    var displayedURL: URL?
+    var isEditing = false
+    /// The mark now showing, so an unchanged answer costs nothing. A stored
+    /// property, so it cannot live in the extension beside the rest of it.
+    var markState: LeadingMark?
 
     /// §3.2b: the same pill, the other way round — the sliders glyph on the
     /// **leading** edge and the domain centred in what is left. Which way round
@@ -146,7 +154,23 @@ final class URLPillView: NSView, NSTextFieldDelegate {
         sliders.chromed = true
         sliders.onActivate = { [weak self] in self?.onSiteMenu?() }
         addSubview(sliders)
+
+        // **§3.4's favicon slot, in the pill**, which is why it is sized in
+        // `faviconSize` rather than `pillGlyphSize`: a slot that shows a site's
+        // own mark most of the time is a favicon box that sometimes draws a
+        // symbol, and that is the size a favicon is legible at.
+        mark.imageScaling = .scaleProportionallyUpOrDown
+        mark.symbolConfiguration = NSImage.SymbolConfiguration(
+            pointSize: Tokens.Metric.faviconSize,
+            weight: .regular
+        )
+        // It is a mark, not a button: what it says is already true of the pill,
+        // and there is nothing for a click on it to mean that clicking the pill
+        // does not already mean.
+        mark.setAccessibilityElement(false)
+        addSubview(mark)
         refresh()
+        refreshMark()
     }
 
     @available(*, unavailable)
@@ -164,21 +188,12 @@ final class URLPillView: NSView, NSTextFieldDelegate {
     /// Domain at rest.
     func show(url: URL?) {
         displayedURL = url
-        if !isEditing { field.stringValue = Self.domain(of: url) }
+        if !isEditing {
+            field.stringValue = Self.domain(of: url)
+            needsLayout = true
+        }
         field.setAccessibilityValue(url?.absoluteString ?? "")
-    }
-
-    /// `apple.com`, not `https://www.apple.com/iphone` (§30.3). `www.` is the
-    /// one subdomain that is never meaningful.
-    ///
-    /// Luna's own pages answer with their name instead. They have a host like
-    /// anything else and it is not a name — a tab on `luna://newtab` carries no
-    /// title until the page reports one, and until then this was its label.
-    static func domain(of url: URL?) -> String {
-        guard let url else { return "" }
-        if let name = InternalPages.name(for: url) { return name }
-        guard let host = url.host(percentEncoded: false), !host.isEmpty else { return "" }
-        return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+        refreshMark()
     }
 
     // MARK: - Editing (§3.2, ⌘L)
@@ -192,6 +207,8 @@ final class URLPillView: NSView, NSTextFieldDelegate {
         field.stringValue = displayedURL?.absoluteString ?? ""
         field.isEditable = true
         field.isSelectable = true
+        refreshMark()
+        needsLayout = true
         window?.makeFirstResponder(field)
         field.currentEditor()?.selectAll(nil)
         needsDisplay = true
@@ -211,6 +228,8 @@ final class URLPillView: NSView, NSTextFieldDelegate {
         field.isEditable = false
         field.isSelectable = false
         field.stringValue = Self.domain(of: displayedURL)
+        refreshMark()
+        needsLayout = true
         if window?.firstResponder !== self { window?.makeFirstResponder(self) }
         needsDisplay = true
         onEndEditing?(commit)
@@ -235,6 +254,10 @@ final class URLPillView: NSView, NSTextFieldDelegate {
 
     func controlTextDidChange(_ obj: Notification) {
         guard isEditing else { return }
+        refreshMark()
+        // §3.2b centres the mark and the text together, so the pair has to be
+        // re-placed on every keystroke, not only when the mark itself changes.
+        needsLayout = true
         onTyping?(field.stringValue)
     }
 

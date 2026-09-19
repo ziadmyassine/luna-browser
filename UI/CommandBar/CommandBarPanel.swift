@@ -67,6 +67,18 @@ final class CommandBarPanel: NSView {
     let field = CommandBarInputField()
     let results: CommandBarResultsView
 
+    /// §9.1's leading mark: a **magnifier** while what is typed is a search, and
+    /// the site's **favicon** — or a **globe** — the moment it reads as an
+    /// address. The same glyph §3.2's pill wears, by the same rule, because it
+    /// is the same question asked of the same string.
+    ///
+    /// It sits in the rows' favicon column, so the mark is above the rows'
+    /// icons and the query is above their titles: the bar and the list it
+    /// filters read as one column, and what you are typing lines up with what
+    /// it is finding.
+    private let mark = NSImageView()
+    private var markState: URLPillView.LeadingMark?
+
     /// A click that lands on the scrim rather than the panel (§9.1 dismissal).
     var onBackgroundClick: (() -> Void)?
 
@@ -109,8 +121,19 @@ final class CommandBarPanel: NSView {
 
         field.translatesAutoresizingMaskIntoConstraints = false
         results.translatesAutoresizingMaskIntoConstraints = false
+        mark.translatesAutoresizingMaskIntoConstraints = false
+        mark.imageScaling = .scaleProportionallyUpOrDown
+        mark.symbolConfiguration = NSImage.SymbolConfiguration(
+            pointSize: Tokens.Metric.faviconSize,
+            weight: .regular
+        )
+        // It is a mark, not a control: it says what the field already says, and
+        // the field is what VoiceOver should land on.
+        mark.setAccessibilityElement(false)
+        body.addSubview(mark)
         body.addSubview(field)
         body.addSubview(results)
+        showMark(for: "")
 
         // **Flush with the rows, not with their titles.** Indenting the query
         // by a favicon's width lined it up with the text it filters and left
@@ -139,7 +162,17 @@ final class CommandBarPanel: NSView {
                 equalTo: body.topAnchor,
                 constant: CommandBarMetrics.inputHeight / 2
             ),
-            field.leadingAnchor.constraint(equalTo: body.leadingAnchor, constant: rowInset),
+            // The mark takes the rows' icon column and the query starts where
+            // their titles do — the same `rowInset` and the same gap the result
+            // rows' own stack uses, so the two line up exactly.
+            mark.leadingAnchor.constraint(equalTo: body.leadingAnchor, constant: rowInset),
+            mark.centerYAnchor.constraint(equalTo: field.centerYAnchor),
+            mark.widthAnchor.constraint(equalToConstant: Tokens.Metric.faviconSize),
+            mark.heightAnchor.constraint(equalToConstant: Tokens.Metric.faviconSize),
+            field.leadingAnchor.constraint(
+                equalTo: mark.trailingAnchor,
+                constant: Tokens.Metric.panelInset
+            ),
             field.trailingAnchor.constraint(equalTo: body.trailingAnchor, constant: -rowInset),
 
             results.topAnchor.constraint(
@@ -157,6 +190,28 @@ final class CommandBarPanel: NSView {
         body.setAccessibilityRole(.comboBox)
         body.setAccessibilityLabel("Command Bar")
         body.setAccessibilityElement(true)
+    }
+
+    /// Point the mark at what is in the field now. Called on every keystroke —
+    /// `apply` is a no-op when the answer has not changed, which most
+    /// keystrokes do not change.
+    func showMark(for text: String) {
+        let next = URLPillView.LeadingMark.reading(text)
+        guard next != markState else { return }
+        markState = next
+        switch next {
+        case .search:
+            mark.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)
+            mark.image?.isTemplate = true
+            mark.contentTintColor = Tokens.Text.secondary
+        case .link:
+            mark.image = NSImage(systemSymbolName: "globe", accessibilityDescription: nil)
+            mark.image?.isTemplate = true
+            mark.contentTintColor = Tokens.Text.secondary
+        case let .site(favicon):
+            mark.image = favicon
+            mark.contentTintColor = nil
+        }
     }
 
     /// UI-SPEC §6 anchors the panel to a *fraction* of the surface it is over,

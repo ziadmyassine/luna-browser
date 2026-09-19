@@ -59,6 +59,28 @@ extension URLPillView {
         }
     }
 
+    /// The leading mark's box, and the room the text gives up for it.
+    ///
+    /// Square and `faviconSize`, because it is §3.4's favicon slot — see
+    /// `URLPillView.mark`.
+    private var markBox: CGFloat { Tokens.Metric.faviconSize }
+    private var markRun: CGFloat { markBox + Tokens.Metric.chromeGap }
+
+    /// How wide the address needs to draw in full.
+    ///
+    /// Asked of the **cell**, not of `intrinsicContentSize` and not of the
+    /// string. A truncating `NSTextField` answers `noIntrinsicMetric` for its
+    /// width — a -1 that became a zero-width frame and a bar with a magnifier
+    /// and no address in it — and the string's own `size()` is a couple of
+    /// points short of what the cell draws in, which truncated `New Tab` to
+    /// `New T…` in a bar with 600 pt to spare. `cellSize` is the one of the
+    /// three that answers the question actually being asked: how wide this
+    /// cell has to be to show all of itself.
+    private var textWidth: CGFloat {
+        guard field.attributedStringValue.length > 0, let width = field.cell?.cellSize.width else { return 0 }
+        return width.isFinite ? width : 0
+    }
+
     private func placeContents() {
         let glyph = Tokens.Metric.pillGlyphSize
         let chip = Tokens.Metric.rowTrailingChip
@@ -69,6 +91,7 @@ extension URLPillView {
         let reserved = 2 * (glyph + Tokens.Metric.chromeGap)
         let chipY = (bounds.height - chip.height) / 2
         let textY = (bounds.height - height) / 2
+        let markY = (bounds.height - markBox) / 2
 
         guard !centresText else {
             sliders.frame = NSRect(
@@ -87,14 +110,24 @@ extension URLPillView {
             // controls. A capsule floating on the page is sized to what it
             // shows, and 42 pt of held-open nothing at each end is what made it
             // read as an empty bar with a word in it.
+            //
+            // **The mark travels with the text, and the pair is what is
+            // centred.** Pinning it to the leading edge would leave it stranded
+            // a long way from the address it is about, with the sliders glyph
+            // already there; kept against the text it reads as one phrase —
+            // what this is, then what it says.
             let margin = centredMargin
-            field.frame = NSRect(
-                x: margin,
-                y: textY,
-                width: max(bounds.width - 2 * margin, 0),
-                height: height
-            ).integral
-            field.alignment = .center
+            let box = max(bounds.width - 2 * margin, 0)
+            let natural = ceil(textWidth)
+            let text = min(natural, max(box - markRun, 0))
+            let run = markRun + text
+            let start = margin + max((box - run) / 2, 0)
+            mark.frame = NSRect(x: start, y: markY, width: markBox, height: markBox).integral
+            field.frame = NSRect(x: start + markRun, y: textY, width: text, height: height).integral
+            // Centred in a box it exactly fits, so this only matters while the
+            // address is long enough to be truncated — and a truncated address
+            // is read from its front.
+            field.alignment = .natural
             return
         }
         field.alignment = .natural
@@ -105,7 +138,16 @@ extension URLPillView {
             height: chip.height
         ).integral
         let textRight = sliders.frame.minX - reserved
-        let textLeft = Tokens.Metric.pillTextInset
+        // The mark takes §3.2's own text inset and the text starts after it —
+        // a column of rows reads down its leading edge, so that is where the
+        // thing that says what this row *is* belongs.
+        mark.frame = NSRect(
+            x: Tokens.Metric.pillTextInset,
+            y: markY,
+            width: markBox,
+            height: markBox
+        ).integral
+        let textLeft = Tokens.Metric.pillTextInset + markRun
         field.frame = NSRect(
             x: textLeft,
             y: textY,

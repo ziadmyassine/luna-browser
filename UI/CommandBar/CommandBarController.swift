@@ -210,6 +210,10 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
         generation += 1
         let token = generation
 
+        // §9.1's mark, before the ranking: what the string *is* does not depend
+        // on what the search finds, and the glyph should not wait on SQLite.
+        panel?.showMark(for: typed)
+
         sources.history = []
         sources.suggestions = SearchSuggestions.shared.cached(for: typed) ?? []
         let local = CommandBarRanking.merge(query: typed, sources: sources, limit: CommandBarMetrics.visibleRows)
