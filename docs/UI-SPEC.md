@@ -754,6 +754,15 @@ Order: `+ Add Tab` row → **separator** → tabs.
   long day's browsing opens off the bottom of the scroll — the one tab you certainly want to see is the
   one you cannot. Pinned tiles and Favorites are the opposite and still join the end, because those are
   slots the user placed deliberately and a new one must not push the arrangement down.
+- **The list scrolls with no scroller.** Not a hidden one, not an overlay one — none. An overlay
+  scroller is drawn *over* the content, and the content here is a pill inset 8 pt from the sidebar's
+  trailing edge with the close affordance a `rowInset` inside that, so it lands on the one strip of the
+  row the pointer is already on: narrow while it fades in, then knob-and-track wide the moment the
+  pointer comes near, which over this list is nearly always, because the pointer is over the list in
+  order to use the list. A scroller is a place to drag and a read-out of position; the first is the
+  wheel, the trackpad, the arrow keys and `scrollRowToVisible`, all of which work with no scroller
+  present, and the second the rows say better — a row cut off at the edge is the list telling you there
+  is more, in the list's own terms.
 - **Selected and hover fills are `Surface.selected` / `Surface.hover`.** Clear glass alone is very nearly
   the sidebar's own glass, and a selected row read as unselected until these were asked for.
 - Loading shows a shimmer sweep across the title, not a spinner.

@@ -107,12 +107,24 @@ final class TabListController: NSObject {
         }
     }
 
+    /// **No scroller at all**, which `.overlay` is not: overlay draws *over* the
+    /// content, and the content is a pill inset 8 pt from the sidebar's edge
+    /// with the close affordance a `rowInset` inside that — so it came down on
+    /// the one strip of the row the pointer is already on, narrow as it faded
+    /// in and then knob-and-track wide as soon as the pointer neared it, which
+    /// over this list is nearly always: the pointer is here to use the list.
+    ///
+    /// Nothing is lost with it gone: a scroller is a place to drag and a
+    /// read-out of position; the first is the wheel, the trackpad, the arrow
+    /// keys and `scrollRowToVisible`, and the second the rows say better.
+    /// Hence the property, not a scroller subclass drawing nothing: that is
+    /// still a view AppKit lays out, hit-tests and hands to VoiceOver.
     private func buildScrollView() {
         scrollView.documentView = table
         scrollView.drawsBackground = false
-        scrollView.hasVerticalScroller = true
-        scrollView.autohidesScrollers = true
-        scrollView.scrollerStyle = .overlay
+        scrollView.hasVerticalScroller = false
+        scrollView.hasHorizontalScroller = false
+        scrollView.horizontalScrollElasticity = .none
         scrollView.contentView.drawsBackground = false
         scrollView.automaticallyAdjustsContentInsets = false
     }
