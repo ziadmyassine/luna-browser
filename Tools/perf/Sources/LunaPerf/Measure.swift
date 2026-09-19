@@ -105,8 +105,8 @@ enum Measure {
     /// This is the honest external definition of "launched": the first frame the
     /// user can see. It is a **lower bound** on §19.1's "to interactive" —
     /// Luna shows its window before it touches SQLite on purpose (`AppDelegate`),
-    /// so the session restore lands after this point. `LUNA_PERF_READY` (below)
-    /// is what would close that gap; nothing writes it yet.
+    /// so the session restore lands after this point. ``waitForReady(at:since:timeout:)``
+    /// is the other end of that gap.
     static func waitForWindow(pid: Int32, since start: DispatchTime, timeout: TimeInterval) -> Double? {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
@@ -118,6 +118,61 @@ enum Measure {
             usleep(1000)
         }
         return nil
+    }
+
+    /// Milliseconds from now until Luna writes its launch tape to `path`, or nil
+    /// on timeout.
+    ///
+    /// **This is "to interactive", and it is the app's own answer.** `App/LaunchTrace`
+    /// writes the file once the window has the restored session in it; the elapsed
+    /// times inside it are measured from `exec`, so they include dyld and the Swift
+    /// runtime, which a stopwatch started in `main()` cannot see. The file is written
+    /// atomically, so polling can never catch it half-built.
+    static func waitForReady(at path: String, since start: DispatchTime, timeout: TimeInterval) -> Double? {
+        waitForLaunch(pid: nil, readyPath: path, since: start, timeout: timeout).ready
+    }
+
+    /// Both ends of a launch in one poll: the first on-screen window, and the
+    /// moment Luna says it is interactive. Returns as soon as the ready file
+    /// lands, whether or not a window was ever reported.
+    ///
+    /// **The window half is allowed to come back nil, and often does.** It asks
+    /// the window server for windows that are *on screen*, and a background app
+    /// spawned by a harness may have none: under Stage Manager a window that is
+    /// not the frontmost app's is off to the side, and this poll cannot see it.
+    /// Measured — Luna wrote its tape at 316 ms in a run where the same window
+    /// was still unreported 20 s later. The ready file is the number to trust;
+    /// the window time is the one to compare it against when it is there.
+    static func waitForLaunch(
+        pid: Int32?,
+        readyPath: String,
+        since start: DispatchTime,
+        timeout: TimeInterval
+    ) -> (window: Double?, ready: Double?) {
+        let deadline = Date().addingTimeInterval(timeout)
+        var window: Double?
+        while Date() < deadline {
+            // The window server call is the expensive half of this loop, so it
+            // stops being made once it has answered.
+            if window == nil, let pid, hasWindow(pid: pid) { window = elapsed(since: start) }
+            if FileManager.default.fileExists(atPath: readyPath) { return (window, elapsed(since: start)) }
+            usleep(1000)
+        }
+        return (window, nil)
+    }
+
+    private static func elapsed(since start: DispatchTime) -> Double {
+        Double(DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds) / 1_000_000
+    }
+
+    /// The milestone lines Luna wrote, `name<TAB>ms` each.
+    static func readTape(at path: String) -> [(name: String, ms: Double)] {
+        guard let text = try? String(contentsOfFile: path, encoding: .utf8) else { return [] }
+        return text.split(separator: "\n").compactMap { line in
+            let parts = line.split(separator: "\t")
+            guard parts.count == 2, let ms = Double(parts[1]) else { return nil }
+            return (String(parts[0]), ms)
+        }
     }
 
     private static func hasWindow(pid: Int32) -> Bool {

@@ -5,6 +5,7 @@
 #   ./Tools/perf/run.sh            everything
 #   ./Tools/perf/run.sh tabs       the 40-tab memory budget only
 #   ./Tools/perf/run.sh launch     cold launch + idle cost only
+#   ./Tools/perf/run.sh page       what Luna's stack adds to a page load
 #   ./Tools/perf/run.sh ui         the command bar and sidebar budgets only
 #
 # Every run appends its summary lines to docs/PERF.md with the date and the
@@ -15,16 +16,20 @@
 #  · "Cold launch" here is a warm-file-cache launch. Emptying the page cache
 #    needs `purge`, which needs root, so the number is the best case for disk
 #    and the honest case for everything else.
-#  · The launch scenario replaces Luna's database with a seeded 40-tab session
-#    and puts the real one back afterwards. It is a `mv`, not a delete — if this
-#    script is killed halfway, the original is at <support>.perfbak.
+#  · The launch scenario never touches your real session. `CFFIXED_USER_HOME`
+#    moves Luna's whole Application Support directory into a scratch home for
+#    the duration, so the seeded 40-tab database lives there and the real one is
+#    not moved, copied or opened. It used to `mv` the real directory aside and
+#    put it back, which is a data-loss window for every second the script runs —
+#    and it cannot run at all while you have Luna open.
 #
 set -e
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 PERF="$ROOT/Tools/perf"
 APP="$ROOT/DerivedData/Build/Products/Debug/Luna.app/Contents/MacOS/Luna"
-SUPPORT="$HOME/Library/Application Support/dk.novapps.luna"
+PERFHOME=$(mktemp -d -t luna-perf-home)
+SUPPORT="$PERFHOME/Library/Application Support/dk.novapps.luna"
 LOG=$(mktemp -t luna-perf)
 WHAT=${1:-all}
 
@@ -43,13 +48,18 @@ run_tabs() {
 run_launch() {
     [ -x "$APP" ] || { echo "no build at $APP — run 'make build' first"; return 0; }
     echo "== §19.1 cold launch (budget 800 ms), with a seeded 40-tab session =="
-    # Luna's real database goes aside, not away.
-    [ -d "$SUPPORT" ] && mv "$SUPPORT" "$SUPPORT.perfbak"
+    # The seeded session lives in a scratch home. Luna's real one is never
+    # opened, and the instances launched here cannot collide with a Luna you
+    # already have running.
     "$BIN" seed "$SUPPORT/luna.sqlite" 3 40
-    "$BIN" launch "$APP" 5 2>/dev/null | tee -a "$LOG"
-    rm -rf "$SUPPORT"
-    [ -d "$SUPPORT.perfbak" ] && mv "$SUPPORT.perfbak" "$SUPPORT"
+    CFFIXED_USER_HOME="$PERFHOME" "$BIN" launch "$APP" 5 2>/dev/null | tee -a "$LOG"
+    rm -rf "$PERFHOME"
     return 0
+}
+
+run_page() {
+    echo "== what Luna's own stack adds to a page load =="
+    "$BIN" page 15 2>/dev/null | tee -a "$LOG"
 }
 
 run_ui() {
@@ -70,9 +80,12 @@ run_ui() {
 case "$WHAT" in
     tabs) run_tabs ;;
     launch) run_launch ;;
+    page) run_page ;;
     ui) run_ui ;;
-    *) run_tabs; run_launch; run_ui ;;
+    *) run_tabs; run_launch; run_page; run_ui ;;
 esac
+
+rm -rf "$PERFHOME"
 
 {
     echo ""
@@ -80,7 +93,8 @@ esac
 $(( $(sysctl -n hw.memsize) / 1073741824 )) GB, macOS $(sw_vers -productVersion)"
     echo ""
     echo '```'
-    grep -E "^(LAUNCH|IDLE|TABS|HIBERNATED|PERF) " "$LOG" || echo "(no summary lines — see the run output)"
+    grep -E "^(LAUNCH|INTERACTIVE|PHASES|IDLE|TABS|HIBERNATED|PAGE|PERF) " "$LOG" \
+        || echo "(no summary lines — see the run output)"
     echo '```'
 } >> "$ROOT/docs/PERF.md"
 

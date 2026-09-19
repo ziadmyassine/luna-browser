@@ -105,6 +105,8 @@ case "launch":
     let binary = arguments[1]
     let runs = Int(arguments[2]) ?? 5
     var times: [Double] = []
+    var readyTimes: [Double] = []
+    var tape: [(name: String, ms: Double)] = []
     var idle: (rss: Int, footprint: Int) = (0, 0)
     var helperCount = 0
 
@@ -112,16 +114,33 @@ case "launch":
         let baseline = Measure.webKitHelpers()
         let process = Process()
         process.executableURL = URL(fileURLWithPath: binary)
+        // §19.1's "to interactive" is Luna's own to report: it knows when the
+        // window has the restored session in it and nothing outside can see that
+        // moment. The file must not exist beforehand or the poll below answers
+        // instantly with the last run's answer.
+        let readyPath = NSTemporaryDirectory() + "luna-perf-ready-\(run)"
+        try? FileManager.default.removeItem(atPath: readyPath)
+        var environment = ProcessInfo.processInfo.environment
+        environment["LUNA_PERF_READY"] = readyPath
+        process.environment = environment
         let start = DispatchTime.now()
         try process.run()
-        guard let milliseconds = Measure.waitForWindow(pid: process.processIdentifier, since: start, timeout: 20)
-        else {
-            print("  run \(run): no window within 20 s")
+        let launched = Measure.waitForLaunch(
+            pid: process.processIdentifier, readyPath: readyPath, since: start, timeout: 20
+        )
+        if let window = launched.window { times.append(window) }
+        guard let ready = launched.ready else {
+            print("  run \(run): never became interactive within 20 s")
             process.terminate()
             continue
         }
-        times.append(milliseconds)
-        print(String(format: "  run %d: %.0f ms to first window", run, milliseconds))
+        readyTimes.append(ready)
+        tape = Measure.readTape(at: readyPath)
+        print(String(format: "  run %d: %.0f ms to interactive, %@",
+                     run, ready,
+                     launched.window.map { String(format: "%.0f ms to first window", $0) }
+                        ?? "window never reported on screen"))
+        try? FileManager.default.removeItem(atPath: readyPath)
 
         if run == runs {
             // Let the session restore land, then measure what a restored Luna
@@ -134,8 +153,21 @@ case "launch":
         process.terminate()
         pump(seconds: 2)
     }
-    print(String(format: "LAUNCH median %.0f ms  (budget 800 ms)  min %.0f max %.0f",
-                 Measure.median(times), times.min() ?? 0, times.max() ?? 0))
+    if !times.isEmpty {
+        print(String(format: "LAUNCH median %.0f ms to first window  min %.0f max %.0f",
+                     Measure.median(times), times.min() ?? 0, times.max() ?? 0))
+    }
+    if !readyTimes.isEmpty {
+        print(String(format: "INTERACTIVE median %.0f ms  (budget 800 ms)  min %.0f max %.0f",
+                     Measure.median(readyTimes), readyTimes.min() ?? 0, readyTimes.max() ?? 0))
+        // The milestones of the last run, as deltas: which phase spent what.
+        var previous = 0.0
+        let phases = tape.map { milestone -> String in
+            defer { previous = milestone.ms }
+            return String(format: "%@ +%.0f", milestone.name, milestone.ms - previous)
+        }
+        print("PHASES " + phases.joined(separator: ", ") + " (ms since exec, last run)")
+    }
     print("IDLE \(Measure.mb(idle.rss)) RSS / \(Measure.mb(idle.footprint)) footprint, "
           + "\(helperCount) WebKit helper processes (§19.4 expects 0)")
 
@@ -287,7 +319,107 @@ case "leak":
         print("  \(host): web view released after \(died.map { "\(Int($0)) s" } ?? "never (>90 s)")")
     }
 
+// MARK: - page (what Luna's own stack adds to a page load)
+
+case "page":
+    let repeats = Int(arguments.count > 1 ? arguments[1] : "") ?? 10
+    let app = NSApplication.shared
+    app.setActivationPolicy(.accessory)
+    app.finishLaunching()
+
+    // **A local file, not a website.** The question here is what *Luna* costs a
+    // page load — its four injected scripts, its four message handlers, its
+    // eight KVO observations and the `publishState` behind them — and against a
+    // real site that answer is buried under several hundred milliseconds of
+    // network that varies by more than the thing being measured. The page is
+    // deliberately ordinary: a few hundred nodes, a stylesheet, a script, an
+    // image, and a `theme-color`, which is the one meta tag Luna reads back.
+    let document = """
+    <!doctype html><html><head><meta charset="utf-8">
+    <meta name="theme-color" content="#1f6feb"><title>luna-perf</title>
+    <style>body{font:14px/1.5 -apple-system;margin:2rem}li{padding:2px}</style>
+    </head><body><h1>luna-perf</h1><ul>
+    \(Array(repeating: "<li>a row of the sort a page is made of</li>", count: 300).joined())
+    </ul><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
+    <script>document.title = "ready " + document.querySelectorAll("li").length;</script>
+    </body></html>
+    """
+    let file = URL(fileURLWithPath: NSTemporaryDirectory()).appending(path: "luna-perf-page.html")
+    try Data(document.utf8).write(to: file)
+
+    /// Milliseconds from `start` until the view has begun **and** finished a
+    /// load. Polled, and both arms are polled by the same function on purpose:
+    /// a navigation delegate on one side and `isLoading` on the other would be
+    /// two different moments dressed as one comparison.
+    func timeLoad(_ view: @autoclosure () -> WKWebView?, since start: DispatchTime) -> Double? {
+        var began = false
+        let deadline = Date().addingTimeInterval(30)
+        while Date() < deadline {
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.002))
+            guard let view = view() else { continue }
+            if view.isLoading {
+                began = true
+            } else if began {
+                return Double(DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds) / 1_000_000
+            }
+        }
+        return nil
+    }
+
+    var bare: [Double] = []
+    var factory: [Double] = []
+    var luna: [Double] = []
+
+    for round in 0..<repeats {
+        // Rotated, because the first web view of a round pays for whatever the
+        // next two then find warm.
+        let order = ["bare", "factory", "luna"]
+        for arm in Array(order[(round % 3)...] + order[..<(round % 3)]) {
+            // See the note in `tabs`: top-level code's autorelease pool never
+            // drains, and a web view read outside a pool never dies.
+            autoreleasepool {
+                if arm == "bare" {
+                    let configuration = WKWebViewConfiguration()
+                    configuration.websiteDataStore = .nonPersistent()
+                    let view = WKWebView(frame: .zero, configuration: configuration)
+                    let start = DispatchTime.now()
+                    // Exactly what `TabController.load` does for a file URL —
+                    // `load(URLRequest)` on one fails silently without the grant.
+                    view.loadFileURL(file, allowingReadAccessTo: file.deletingLastPathComponent())
+                    if let ms = timeLoad(view, since: start) { bare.append(ms) }
+                } else if arm == "factory" {
+                    // Luna's configuration and nothing else: the scheme handler,
+                    // the user agent, the preferences and `ContentBlocker.apply`,
+                    // without the scripts, handlers and observations that
+                    // `TabController.attach` puts on top.
+                    let view = WebViewFactory.makeWebView(dataStore: .nonPersistent())
+                    let start = DispatchTime.now()
+                    view.loadFileURL(file, allowingReadAccessTo: file.deletingLastPathComponent())
+                    if let ms = timeLoad(view, since: start) { factory.append(ms) }
+                } else {
+                    let controller = TabController(id: UUID(), dataStore: .nonPersistent())
+                    let start = DispatchTime.now()
+                    controller.load(file)
+                    if let ms = timeLoad(controller.webView, since: start) { luna.append(ms) }
+                    controller.hibernate()
+                }
+            }
+        }
+    }
+
+    let bareMedian = Measure.median(bare)
+    let factoryMedian = Measure.median(factory)
+    let lunaMedian = Measure.median(luna)
+    for (name, values) in [("bare WKWebView", bare), ("WebViewFactory", factory), ("TabController", luna)] {
+        print(String(format: "  %@: median %.1f ms  min %.1f max %.1f  (n=%d)",
+                     name, Measure.median(values), values.min() ?? 0, values.max() ?? 0, values.count))
+    }
+    print(String(format: "PAGE bare %.1f ms, %+.1f ms configuration, %+.1f ms scripts and observers, "
+                 + "Luna %.1f ms (%+.1f ms)",
+                 bareMedian, factoryMedian - bareMedian, lunaMedian - factoryMedian,
+                 lunaMedian, lunaMedian - bareMedian))
+
 default:
     print("usage: luna-perf seed <db> <spaces> <tabs> | launch <binary> <runs> "
-          + "| tabs <total> <spaces> <live> | leak")
+          + "| tabs <total> <spaces> <live> | page <repeats> | leak")
 }

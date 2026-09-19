@@ -134,7 +134,19 @@ public actor BrowserStore {
     }
 
     /// One default Profile and one default Space, so a first run is never an empty window.
+    ///
+    /// **Asks before it opens a transaction it will not use.** Every launch
+    /// calls this and every launch but the first has nothing to do, and a
+    /// `write` block that decides to do nothing has still taken SQLite's write
+    /// lock and paid for a transaction, on a launch that was only ever going to
+    /// read two counts. The guard is repeated inside the
+    /// write because the read is not the decision: two processes opening the
+    /// same fresh database would both see it empty.
     public func seedIfEmpty() async throws {
+        let seeded = try await pool.read { db in
+            try Profile.fetchCount(db) > 0 || Space.fetchCount(db) > 0
+        }
+        guard !seeded else { return }
         try await pool.write { db in
             guard try Profile.fetchCount(db) == 0, try Space.fetchCount(db) == 0 else { return }
             let profile = Profile(name: "Personal")

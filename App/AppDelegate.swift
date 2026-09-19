@@ -25,6 +25,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// inherited `NSApplicationDelegate.main()` leaves `NSApp.delegate` nil and
     /// the app launches to a dead run loop.
     static func main() {
+        // Everything before this line is dyld, the Swift runtime and the ObjC
+        // class registry — see `LaunchTrace.sinceExec`.
+        LaunchTrace.mark("main")
         let app = NSApplication.shared
         let delegate = AppDelegate()
         // `NSApplication.delegate` is weak and nothing else owns us.
@@ -69,6 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var observation: ObservationToken?
 
     func applicationWillFinishLaunching(_ notification: Notification) {
+        LaunchTrace.mark("appkit")
         // Both must be in place before the app finishes launching, or the first
         // frame shows up without a menu bar.
         NSApp.setActivationPolicy(.regular)
@@ -79,13 +83,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MainMenu.install(into: NSApp)
         // §3.6: a rebound shortcut rebuilds the bar. Before the first window.
         observeShortcutChanges()
+        LaunchTrace.mark("menu")
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // The gap between this and `menu` is AppKit's own: it is what
+        // `-[NSApplication finishLaunching]` does between the two notifications,
+        // and it is ~40 ms of every launch that no Luna code is in. It has a
+        // milestone of its own because without one it looks like ours — it was
+        // read as the cost of the line below for most of an afternoon.
+        LaunchTrace.mark("didFinish")
         #if DEBUG
         // Fails the launch loudly if a token drifted out of §1 / §6 / §21.4.
+        // **Measured at 3 ms**, so it stays in front of the first frame, where a
+        // launch-time check belongs. `docs/PERF.md` has the tape.
         TokenCheck.run()
+        LaunchTrace.mark("tokens")
         #endif
+
+        // The database is opened before the window, and not on this thread —
+        // see ``openStore()``.
+        let opening = Self.openStore()
 
         // SETTINGS-SPEC §3.2. `NSApp.appearance` starts nil — "follow System
         // Settings" — so a stored Light or Dark choice is silently lost on every
@@ -98,24 +116,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         browserWindow = controller
         controller.showWindow(self)
         NSApp.activate()
+        LaunchTrace.mark("window")
 
-        // The window is on screen before the database is touched: §19.1's
-        // 800 ms cold launch is a frame budget, not a disk budget.
-        Task { await startSession(in: controller) }
+        // The window is on screen before the session is restored into it:
+        // §19.1's 800 ms cold launch is a frame budget, not a disk budget.
+        Task { await startSession(in: controller, opening: opening) }
+    }
+
+    /// Opens the store **off the main thread**, as early as launch can ask for
+    /// it.
+    ///
+    /// `BrowserStore.init` is synchronous — it creates the directory, opens the
+    /// pool and runs the migrator — so where it used to be called, it was main
+    /// thread time inside the launch, in series with a window it has nothing to
+    /// say about. Detached and started first, it runs while AppKit builds that
+    /// window instead.
+    ///
+    /// **Say what this bought: 10–20 ms of main thread, and no measurable
+    /// change in the launch total.** Luna reaches interactive in ~280 ms and
+    /// over half of that is AppKit and dyld before any of this code runs
+    /// (`docs/PERF.md` has the tape), so moving our own work off the critical
+    /// path is worth doing and is not worth claiming a number for.
+    ///
+    /// Failures travel in the task and are presented where the old call threw,
+    /// in `startSession`, rather than being swallowed out here.
+    private static func openStore() -> Task<BrowserStore, any Error> {
+        let path = databaseURL
+        return Task.detached(priority: .userInitiated) {
+            let store = try BrowserStore(path: path)
+            // Idempotent, and the session restore's first call is a read once
+            // this one has run — which is the point of doing it here.
+            try await store.seedIfEmpty()
+            return store
+        }
     }
 
     /// Restores the last session (§6.2) and hands the UI its source of truth.
-    private func startSession(in controller: BrowserWindowController) async {
+    private func startSession(
+        in controller: BrowserWindowController,
+        opening: Task<BrowserStore, any Error>
+    ) async {
         do {
             // §4.7's second decoder. Before the first web view, so no page can
             // finish loading and be told its SVG mark is not an icon.
             VectorIconRasterizer.install()
-            let store = try BrowserStore(path: Self.databaseURL)
+            let store = try await opening.value
+            LaunchTrace.mark("store")
             // §17.1: compiles cached rule lists and schedules the refresh. Before the
             // session, so the first web view is built with the lists already applied.
             ContentBlocker.shared.start(browserStore: store)
             SitePermissions.shared.start(browserStore: store)
             let session = try await BrowserSession.restored(store: store)
+            LaunchTrace.mark("session")
             self.store = store
             self.session = session
             session.hostWindow = controller.window
@@ -150,6 +202,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 object: nil
             )
 
+            LaunchTrace.mark("chrome")
             wireCommandBar(session, in: controller)
             wireHistory(session, sidebar: sidebar, topBar: topBar, in: controller)
             wireDownloads(session, sidebar: sidebar, topBar: topBar, in: controller)
@@ -167,6 +220,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 session.newTab(url: InternalPages.Page.newTab.url)
             }
             render()
+            // §19.1's "to interactive": the window has the restored session in
+            // it. `Tools/perf` is polling for the file this writes.
+            LaunchTrace.ready()
         } catch {
             NSApp.presentError(error)
         }
