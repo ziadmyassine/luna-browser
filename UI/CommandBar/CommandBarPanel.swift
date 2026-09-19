@@ -218,8 +218,23 @@ final class CommandBarPanel: NSView {
     /// so a constant set once is wrong the moment the window is resized — or
     /// the sidebar dragged — under an open bar. Both constants are re-derived
     /// here, against the page rather than the window.
+    ///
+    /// **Derived before `super.layout()`, never after.** The constraint pass
+    /// that actually places `body` runs *inside* `super.layout()`, and AppKit
+    /// marks this view clean the moment `layout()` returns — so a constant set
+    /// on the way out is handed to a view the framework has just stopped
+    /// asking about. It does not reach the screen on this pass and it does not
+    /// schedule another one; the bar stays where the stale constants put it
+    /// until something *else* dirties the panel, which on `⌘T` is whenever the
+    /// history query lands or the first key is pressed.
+    ///
+    /// Both constants start at zero, and zero is not a harmless place: it is
+    /// the window's top edge, centred on the window rather than on the page.
+    /// Measured in a 1200×800 window with the sidebar out, the first pass left
+    /// the bar at `(280, 740)` and the second put it at `(392, 551)` — **112 pt
+    /// to the left and 189 pt too high**, held for as long as nothing asked for
+    /// another pass. That is the bar Martin saw flash up and to the left.
     override func layout() {
-        super.layout()
         // An empty region means nobody told us where the page is; the window
         // is the honest fallback, not a zero-sized rect at the origin.
         let reported = contentRegion?() ?? bounds
@@ -229,6 +244,7 @@ final class CommandBarPanel: NSView {
         topAnchorConstraint?.constant =
             (bounds.maxY - region.maxY) + region.height * CommandBarMetrics.topAnchorFraction
         centreConstraint?.constant = region.midX - bounds.midX
+        super.layout()
     }
 
     /// §9.1's dismissal: a press anywhere but the bar closes it.
