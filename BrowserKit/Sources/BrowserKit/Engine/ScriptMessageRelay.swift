@@ -21,6 +21,7 @@ final class ScriptMessageRelay: NSObject, WKScriptMessageHandler {
         switch message.name {
         case TabController.mediaMessageName: owner?.handleMediaMessage(message)
         case ContentBlocker.blockedMessageName: owner?.handleBlockedMessage(message)
+        case ContentBlocker.youTubeMessageName: owner?.handleYouTubeMessage(message)
         case TabController.scrollMessageName: owner?.handleScrollMessage(message)
         // §14. The coordinator re-checks the frame's origin before it acts on
         // anything here — the relay only routes.

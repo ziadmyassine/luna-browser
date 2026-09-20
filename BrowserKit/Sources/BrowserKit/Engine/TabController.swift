@@ -40,6 +40,10 @@ public final class TabController: NSObject {
     /// §19.3 guard: a page that kills its own WebContent process on load would otherwise
     /// make us rebuild it forever.
     private var recoveries: [Date] = []
+
+    /// Whether §17.2's YouTube script is in the current script set — see
+    /// `refreshUserScriptsIfNeeded(host:)`, which is the only thing that reads it.
+    private var youTubeScriptInstalled = false
     private static let recoveryLimit = 3
     private static let recoveryWindow: TimeInterval = 60
 
@@ -223,23 +227,12 @@ public final class TabController: NSObject {
         // Adding a name that is already registered raises `NSInvalidArgumentException`;
         // removing one that is not is a no-op. Always pay the cheap call.
         for name in [Self.mediaMessageName, ContentBlocker.blockedMessageName,
-                     Self.scrollMessageName, PasswordForms.messageName] {
+                     Self.scrollMessageName, PasswordForms.messageName,
+                     ContentBlocker.youTubeMessageName] {
             controller.removeScriptMessageHandler(forName: name)
             controller.add(messageRelay, name: name)
         }
-        controller.addUserScript(Self.documentEndScript())
-        // §14.10: hides `PublicKeyCredential` until Apple grants the
-        // entitlement, so sites offer a password instead of a passkey button
-        // that cannot work. Returns nil — and injects nothing — once it is
-        // granted. `documentStart`, because feature detection runs early.
-        if let passkeyGuard = PasskeySupport.userScript() {
-            controller.addUserScript(passkeyGuard)
-        }
-        // Main frame only: an ad iframe scrolling itself is not the page moving,
-        // and §3.2b's bar collapses on the page moving.
-        controller.addUserScript(
-            WKUserScript(source: Self.scrollScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
-        )
+        installUserScripts(into: controller, host: state.url?.host())
 
         // WebKit posts these on the main thread; `assumeIsolated` states that instead of
         // hiding it behind an unchecked conformance.
@@ -267,6 +260,59 @@ public final class TabController: NSObject {
             webView.observe(\.underPageBackgroundColor, options: [.new]) { republish($0, $1) }
         ]
         self.webView = webView
+    }
+
+    /// Every user script this tab runs, installed from scratch.
+    ///
+    /// **`removeAllUserScripts()` first, because `WKUserContentController` has no way to
+    /// remove one.** That is the whole reason this is a function and not four lines in
+    /// `attach`: §17.2's YouTube script is the first script whose presence depends on a
+    /// setting *and* on the site, so it is the first one that ever has to come back off.
+    private func installUserScripts(into controller: WKUserContentController, host: String?) {
+        controller.removeAllUserScripts()
+        youTubeScriptInstalled = ContentBlocker.shared.blocksYouTubeAds(forHost: host)
+
+        controller.addUserScript(Self.documentEndScript())
+        // §14.10: hides `PublicKeyCredential` until Apple grants the
+        // entitlement, so sites offer a password instead of a passkey button
+        // that cannot work. Returns nil — and injects nothing — once it is
+        // granted. `documentStart`, because feature detection runs early.
+        if let passkeyGuard = PasskeySupport.userScript() {
+            controller.addUserScript(passkeyGuard)
+        }
+        // Main frame only: an ad iframe scrolling itself is not the page moving,
+        // and §3.2b's bar collapses on the page moving.
+        controller.addUserScript(
+            WKUserScript(source: Self.scrollScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        )
+        // §17.2. `documentStart` is load-bearing and not a preference: YouTube's bundle
+        // caches its own `JSON.parse` and `Response.prototype.text` on the way up, and a
+        // hook installed after it has run is measurably never called at all. Every
+        // frame, because a `youtube-nocookie` embed is a frame and plays the same
+        // pre-roll; the script's first act is to check its own hostname and leave.
+        if youTubeScriptInstalled {
+            controller.addUserScript(
+                WKUserScript(
+                    source: ContentBlocker.youTubeScript,
+                    injectionTime: .atDocumentStart,
+                    forMainFrameOnly: false
+                )
+            )
+        }
+    }
+
+    /// Re-installs the scripts when — and only when — §17.2's answer for the site the
+    /// tab is headed to differs from the answer it was built with.
+    ///
+    /// Called from `decidePolicyFor`, which is early enough: WebKit takes the script set
+    /// when it creates the document, and the document does not exist yet. Guarded rather
+    /// than unconditional because `removeAllUserScripts()` throws away WebKit's compiled
+    /// copy of four sources, and doing that on every navigation to buy nothing is the
+    /// kind of cost §19.1 is made of.
+    func refreshUserScriptsIfNeeded(host: String?) {
+        guard let controller = webView?.configuration.userContentController else { return }
+        guard ContentBlocker.shared.blocksYouTubeAds(forHost: host) != youTubeScriptInstalled else { return }
+        installUserScripts(into: controller, host: host)
     }
 
     /// The document-end scripts **every frame on the page** gets, as one
@@ -334,6 +380,7 @@ public final class TabController: NSObject {
         controller.removeScriptMessageHandler(forName: ContentBlocker.blockedMessageName)
         controller.removeScriptMessageHandler(forName: Self.scrollMessageName)
         controller.removeScriptMessageHandler(forName: PasswordForms.messageName)
+        controller.removeScriptMessageHandler(forName: ContentBlocker.youTubeMessageName)
 
         // Picture-in-Picture and element fullscreen outlive their web view: without this
         // a hibernated tab leaves a floating video playing with nothing behind it. The
@@ -479,6 +526,15 @@ public final class TabController: NSObject {
     func handleBlockedMessage(_ message: WKScriptMessage) {
         guard let body = message.body as? [String: Any], let count = body["count"] as? Int else { return }
         ContentBlocker.shared.setBlockedCount(count, tab: id)
+    }
+
+    /// §17.2's YouTube script, reporting its running total. Main frame only: on a watch
+    /// page that is the frame the ads are in, and accepting subframes would have two
+    /// counters overwriting one slot.
+    func handleYouTubeMessage(_ message: WKScriptMessage) {
+        guard message.frameInfo.isMainFrame,
+              let body = message.body as? [String: Any], let count = body["count"] as? Int else { return }
+        ContentBlocker.shared.setYouTubeBlockedCount(count, tab: id)
     }
 
     func handleMediaMessage(_ message: WKScriptMessage) {

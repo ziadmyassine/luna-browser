@@ -73,7 +73,15 @@ public final class ContentBlocker {
     /// because the list that fills it lives in `ContentBlockerLocalNetwork.swift` and
     /// `private` is file-scoped; still unreachable outside the module.
     var localNetworkList: WKContentRuleList?
+    /// §17.2's YouTube cosmetics, compiled once. Internal for the same reason
+    /// `localNetworkList` is: the code that fills it lives in
+    /// `ContentBlockerYouTube.swift` and `private` is file-scoped.
+    var youTubeList: WKContentRuleList?
     private var blockedCounts: [UUID: Int] = [:]
+    /// §17.2's YouTube ads, counted separately from the heuristic above because they are
+    /// not failed loads and there is nothing heuristic about them — the page says it
+    /// dropped an ad schedule or seeked past an ad, and that is a fact.
+    private var youTubeCounts: [UUID: Int] = [:]
     /// https URL → the http URL it was upgraded from, so a failure can be told apart from
     /// an ordinary one. Bounded: this is a breadcrumb, not a history.
     var upgrades: [String: URL] = [:]
@@ -99,6 +107,9 @@ public final class ContentBlocker {
         // §3.2's Local Network permission. Nine rules, so it is compiled on the spot —
         // the 2.9 s figure above belongs to the 80,000-rule filter lists, not to this.
         Task { await prepareLocalNetworkList() }
+        // §17.2's YouTube list. Twenty-three `css-display-none` rules, same order of
+        // magnitude as the nine above and compiled on the spot for the same reason.
+        Task { await prepareYouTubeList() }
         if let browserStore {
             Task { [weak self] in
                 let hosts = try? await browserStore.blockingExemptions()
@@ -294,6 +305,7 @@ public final class ContentBlocker {
         // Not a category's list, and it carries the same `luna-` prefix the sweep matches
         // on — without this line every refresh deleted §3.2's Local Network rules.
         keep.insert(Self.localNetworkIdentifier)
+        keep.insert(Self.youTubeIdentifier)
         guard let available = await store.availableIdentifiers() else { return }
         for identifier in available where identifier.hasPrefix(Self.prefix) && !keep.contains(identifier) {
             try? await store.removeContentRuleList(forIdentifier: identifier)
@@ -329,6 +341,13 @@ public final class ContentBlocker {
         guard !isDisabled(forHost: host) else { return }
         for category in Category.allCases where isEnabled(category) {
             for list in compiled[category] ?? [] { controller.add(list) }
+        }
+        // §17.2's YouTube cosmetics ride with the `ads` category, on the host the
+        // navigation is headed for. It is a separate list rather than lines in EasyList
+        // because EasyList is fetched and this is ours — and because it must be
+        // attachable on a first run, before any list has been fetched at all.
+        if let youTubeList, Self.isYouTube(host: host), blocksYouTubeAds(forHost: host) {
+            controller.add(youTubeList)
         }
     }
 
@@ -397,14 +416,26 @@ public final class ContentBlocker {
     })();
     """
 
-    public func blockedCount(tab: UUID) -> Int { blockedCounts[tab] ?? 0 }
+    public func blockedCount(tab: UUID) -> Int { (blockedCounts[tab] ?? 0) + (youTubeCounts[tab] ?? 0) }
 
     /// Call with the running total the page reports; it resets itself on navigation.
     public func setBlockedCount(_ count: Int, tab: UUID) { blockedCounts[tab] = count }
 
-    public func resetBlockedCount(tab: UUID) { blockedCounts[tab] = 0 }
+    /// The same contract as ``setBlockedCount(_:tab:)``, for §17.2's YouTube script.
+    /// Summed into ``blockedCount(tab:)`` rather than folded into the same slot, because
+    /// the two counters are two running totals from two scripts and adding a number to
+    /// a total that is about to be overwritten loses it.
+    public func setYouTubeBlockedCount(_ count: Int, tab: UUID) { youTubeCounts[tab] = count }
 
-    public func forgetTab(_ tab: UUID) { blockedCounts[tab] = nil }
+    public func resetBlockedCount(tab: UUID) {
+        blockedCounts[tab] = 0
+        youTubeCounts[tab] = 0
+    }
+
+    public func forgetTab(_ tab: UUID) {
+        blockedCounts[tab] = nil
+        youTubeCounts[tab] = nil
+    }
 
     // MARK: - Identifiers, hashing, keys
 

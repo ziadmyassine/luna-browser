@@ -31,6 +31,10 @@ extension TabController: WKNavigationDelegate {
         // whole page.
         if navigationAction.targetFrame?.isMainFrame ?? false {
             ContentBlocker.shared.apply(to: webView.configuration.userContentController, host: url.host())
+            // §17.2. The rule lists above are swapped per navigation; the YouTube
+            // script has to be too, and for the same reason — "disable blocking here"
+            // has to mean here.
+            refreshUserScriptsIfNeeded(host: url.host())
             // §17.6. `preferredHTTPSNavigationPolicy` cannot do this: measured, both of
             // its values end an http-only navigation at `about:blank` with `didFinish`
             // and **no** delegate error, so there is no hook to put an interstitial on.

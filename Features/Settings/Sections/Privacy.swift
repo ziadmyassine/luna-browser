@@ -59,7 +59,13 @@ final class PrivacySection: SettingsSection {
         let title: String
         let list: String
         switch category {
-        case .ads: (title, list) = (String(localized: "Block ads"), "EasyList")
+        // §17.2: the ads toggle carries YouTube's in-player ads too, and the
+        // subtitle says so because the alternative is what sent Martin here —
+        // a switch that reads "Block ads", is on, and leaves the pre-roll
+        // playing. EasyList genuinely cannot do that one: the ad and the video
+        // arrive on the same host, in the same `MediaSource`, scheduled by a
+        // field inside the same JSON as the video itself.
+        case .ads: (title, list) = (String(localized: "Block ads"), "EasyList, plus YouTube's in-player ads")
         case .trackers: (title, list) = (String(localized: "Block trackers"), "EasyPrivacy")
         case .annoyances: (title, list) = (String(localized: "Block annoyances"), "Fanboy Annoyance")
         }
@@ -68,7 +74,9 @@ final class PrivacySection: SettingsSection {
         ) { enabled in
             ContentBlocker.shared.setEnabled(enabled, for: category)
         }
-        return (row, [title, list, "blocking"])
+        var terms = [title, list, "blocking"]
+        if category == .ads { terms += ["youtube", "video ads", "pre-roll", "mid-roll"] }
+        return (row, terms)
     }
 
     private func httpsOnlyRow() -> (view: NSView, terms: [String]) {
