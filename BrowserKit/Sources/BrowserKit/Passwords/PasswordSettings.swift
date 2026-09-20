@@ -13,6 +13,7 @@ public enum PasswordSettings {
         public static let enabled = "passwords.enabled"
         public static let offerToSave = "passwords.offerToSave"
         public static let generate = "passwords.generate"
+        public static let requireAuthentication = "passwords.requireAuthentication"
     }
 
     /// The master switch. Off means the detection script is not injected at
@@ -33,5 +34,17 @@ public enum PasswordSettings {
     public static var offersGeneratedPasswords: Bool {
         get { UserDefaults.standard.object(forKey: Key.generate) as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: Key.generate) }
+    }
+
+    /// Touch ID, or the login password, in front of every fill.
+    ///
+    /// **On by default**, which is the one place §14 chooses friction. Safari
+    /// does the same, and a saved password is otherwise readable by anyone who
+    /// reaches an unlocked Mac — a bar low enough that leaving it to the user
+    /// to discover would be the wrong default. It is a switch, not a law: a
+    /// user who finds it tedious can turn it off in Settings.
+    public static var requiresAuthentication: Bool {
+        get { UserDefaults.standard.object(forKey: Key.requireAuthentication) as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: Key.requireAuthentication) }
     }
 }

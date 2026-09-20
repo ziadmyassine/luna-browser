@@ -64,21 +64,56 @@ final class PublicSuffixTests: XCTestCase {
 
     // MARK: - Things that are not sites
 
-    func testHostsWithNoRegistrableDomain() {
-        XCTAssertNil(PublicSuffix.siteKey(forHost: "localhost"))
-        XCTAssertNil(PublicSuffix.siteKey(forHost: "192.168.1.1"))
-        XCTAssertNil(PublicSuffix.siteKey(forHost: "[::1]"))
+    /// A host with no registrable domain is its own site key.
+    ///
+    /// This used to return nil for all of these, on the reasoning that there
+    /// was "no site here". The reasoning was wrong, and the cost was the whole
+    /// feature going silently dead on `http://localhost:8080/` — the first
+    /// place anyone building a login form tries it — and on every router and
+    /// NAS on a home network. An exact host is a perfectly good key; what
+    /// §14.3 forbids is a *wildcard* spanning two owners, and there is no
+    /// wildcard here.
+    func testHostsWithNoRegistrableDomainAreTheirOwnSite() {
+        XCTAssertEqual(PublicSuffix.siteKey(forHost: "localhost"), "localhost")
+        XCTAssertEqual(PublicSuffix.siteKey(forHost: "localhost."), "localhost")
+        XCTAssertEqual(PublicSuffix.siteKey(forHost: "LocalHost"), "localhost")
+        XCTAssertEqual(PublicSuffix.siteKey(forHost: "nas"), "nas")
+        XCTAssertEqual(PublicSuffix.siteKey(forHost: "192.168.1.1"), "192.168.1.1")
+        XCTAssertEqual(PublicSuffix.siteKey(forHost: "127.0.0.1"), "127.0.0.1")
+        XCTAssertEqual(PublicSuffix.siteKey(forHost: "[::1]"), "::1")
+        XCTAssertEqual(PublicSuffix.siteKey(forHost: "::1"), "::1")
+    }
+
+    /// The exact-host key must stay exact. The PSL path would reduce every
+    /// dotted quad to its last two labels, which would make `10.0.0.1` and
+    /// `192.168.1.1` the same site and offer one router's password to another.
+    func testExactHostsNeverWiden() {
+        XCTAssertFalse(PublicSuffix.isSameSite("10.0.0.1", "192.168.1.1"))
+        XCTAssertFalse(PublicSuffix.isSameSite("10.0.0.1", "10.0.0.2"))
+        XCTAssertFalse(PublicSuffix.isSameSite("localhost", "notlocalhost"))
+        XCTAssertFalse(PublicSuffix.isSameSite("localhost", "localhost.evil.com"))
+        XCTAssertFalse(PublicSuffix.isSameSite("nas", "nas.example.com"))
+        XCTAssertTrue(PublicSuffix.isSameSite("localhost", "localhost"))
+        XCTAssertTrue(PublicSuffix.isSameSite("10.0.0.1", "10.0.0.1"))
+    }
+
+    func testMalformedHostsStillHaveNoSite() {
         XCTAssertNil(PublicSuffix.siteKey(forHost: ""))
         XCTAssertNil(PublicSuffix.siteKey(forHost: nil))
         XCTAssertNil(PublicSuffix.siteKey(forHost: "a..b.com"))
+        XCTAssertNil(PublicSuffix.siteKey(forHost: "."))
     }
 
     /// Nil on either side is never a match — "we could not work out what site
-    /// this is" must not read as "same site".
+    /// this is" must not read as "same site". Note that two *identical* unknown
+    /// hosts still do not match: the comparison is between site keys, and two
+    /// absent keys are not one key.
     func testUnknownHostsNeverMatch() {
         XCTAssertFalse(PublicSuffix.isSameSite(nil, nil))
-        XCTAssertFalse(PublicSuffix.isSameSite("localhost", "localhost"))
-        XCTAssertFalse(PublicSuffix.isSameSite("192.168.1.1", "192.168.1.1"))
+        XCTAssertFalse(PublicSuffix.isSameSite("co.uk", "co.uk"))
+        XCTAssertFalse(PublicSuffix.isSameSite("a..b.com", "a..b.com"))
+        XCTAssertFalse(PublicSuffix.isSameSite("", ""))
+        XCTAssertFalse(PublicSuffix.isSameSite(nil, "example.com"))
     }
 
     // MARK: - The attacks the rule exists to stop

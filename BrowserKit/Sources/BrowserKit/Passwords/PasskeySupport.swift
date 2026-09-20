@@ -57,10 +57,13 @@ public enum PasskeySupport {
     /// The entitlement, spelled once.
     public static let entitlement = "com.apple.developer.web-browser.public-key-credential"
 
-    /// The sibling entitlement a default browser needs. Not used here, but
-    /// named so the M4 request covers both in one submission rather than two
-    /// round trips through Apple.
-    public static let browserEntitlement = "com.apple.developer.web-browser"
+    // There is deliberately no second entitlement named here. An earlier
+    // version carried `com.apple.developer.web-browser` as "the one a default
+    // browser needs", to be filed alongside. That is wrong: it is **iOS and
+    // iPadOS only**, per Apple's entitlement documentation, and is about being
+    // the default browser there. macOS needs nothing of the sort — a macOS app
+    // becomes the default browser by declaring the `http` and `https` schemes
+    // in `CFBundleURLTypes` and calling `LSSetDefaultHandlerForURLScheme`.
 
     /// Whether this build may actually perform WebAuthn.
     ///

@@ -68,9 +68,52 @@ public actor CredentialStore {
 
     public private(set) var capability: Capability = .unknown
 
-    /// The Keychain service label. Shown in Keychain Access beside the item, so
-    /// it is the product name rather than a bundle identifier.
+    /// Shown in Keychain Access beside the item, so it names the product and
+    /// the site rather than a bundle identifier.
     private static let label = "Luna"
+
+    /// **What marks an item as Luna's own.**
+    ///
+    /// `kSecAttrCreator` and not `kSecAttrService`, which is what this used
+    /// first and is a real bug rather than a style choice: `kSecAttrService`
+    /// is an attribute of `kSecClassGenericPassword`, and on an *internet*
+    /// password the Keychain **silently ignores it** — in a query and in an
+    /// add. Measured: the same query with `service: "Luna"` and with a random
+    /// impossible service name returned the identical row, and items Luna
+    /// wrote came back with no service attribute at all.
+    ///
+    /// So the filter was inert, and `baseQuery` matched on `kSecAttrServer`
+    /// alone — every internet password for that host in the user's keychain,
+    /// whoever wrote it. On this Mac that meant Luna's picker offering a
+    /// `github.com` item created in 2025, a year before this feature existed;
+    /// by the account name, `git-credential-osxkeychain`'s, whose "password"
+    /// is a personal access token. Filling it would have typed a token into a
+    /// login form, and `save`/`delete` share the same query, so an update or a
+    /// "never for this site" could have rewritten or destroyed another app's
+    /// credential.
+    ///
+    /// `kSecAttrCreator` is a four-character code valid on both classes and is
+    /// honoured: verified by adding one item and querying with a different
+    /// creator, which returns nothing. `'Luna'`.
+    private static let creator = FourCharCode(0x4C75_6E61)
+
+    /// The other half of the same fix, and the half that makes saving work.
+    ///
+    /// `kSecAttrCreator` scopes a *query* but is **not part of the Keychain's
+    /// uniqueness constraint**, which for an internet password is (server,
+    /// account, protocol, port, path, securityDomain, authenticationType).
+    /// So with the creator alone, Luna could read its own items but could not
+    /// add one for a (host, account) another application already held —
+    /// `SecItemAdd` returned `errSecDuplicateItem` and the save silently
+    /// failed. Exactly the case that matters: the user's own GitHub account,
+    /// already in the keychain from `git`.
+    ///
+    /// `kSecAttrSecurityDomain` *is* part of that key and is honoured in
+    /// queries, so it does both jobs at once. Measured: two items with the
+    /// same server and account coexist when their security domains differ, a
+    /// scoped query returns only Luna's, and a scoped delete leaves the other
+    /// one untouched.
+    private static let securityDomain = "luna"
 
     private init() {}
 
@@ -136,7 +179,9 @@ public actor CredentialStore {
         attributes.removeValue(forKey: kSecAttrSynchronizable as String)
         attributes[kSecAttrAccount as String] = credential.username
         attributes[kSecValueData as String] = Data(credential.password.utf8)
-        attributes[kSecAttrLabel as String] = credential.site
+        // Names Luna in Keychain Access, so a user looking at two rows for one
+        // site can tell which is ours. Display only — nothing queries on it.
+        attributes[kSecAttrLabel as String] = "\(credential.site) (\(Self.label))"
         if let origin = credential.originURL {
             attributes[kSecAttrPath as String] = origin.path
             attributes[kSecAttrProtocol as String] = origin.scheme?.lowercased() == "http"
@@ -217,7 +262,8 @@ public actor CredentialStore {
             // would hand back the already-migrated items and rewrite them on
             // every launch.
             kSecAttrSynchronizable as String: kCFBooleanFalse as Any,
-            kSecAttrService as String: Self.label,
+            kSecAttrCreator as String: Self.creator,
+            kSecAttrSecurityDomain as String: Self.securityDomain,
             kSecMatchLimit as String: kSecMatchLimitAll,
             kSecReturnAttributes as String: true,
             kSecReturnData as String: true
@@ -261,7 +307,8 @@ public actor CredentialStore {
     public func refreshCapability() -> Capability {
         let probe: [String: Any] = [
             kSecClass as String: kSecClassInternetPassword,
-            kSecAttrService as String: Self.label,
+            kSecAttrCreator as String: Self.creator,
+            kSecAttrSecurityDomain as String: Self.securityDomain,
             kSecAttrServer as String: "capability-probe.luna.invalid",
             kSecAttrAccount as String: "probe",
             kSecAttrSynchronizable as String: kCFBooleanTrue as Any,
@@ -307,7 +354,8 @@ public actor CredentialStore {
     private func baseQuery(site: String) -> [String: Any] {
         [
             kSecClass as String: kSecClassInternetPassword,
-            kSecAttrService as String: Self.label,
+            kSecAttrCreator as String: Self.creator,
+            kSecAttrSecurityDomain as String: Self.securityDomain,
             kSecAttrServer as String: site,
             kSecAttrSynchronizable as String: kSecAttrSynchronizableAny
         ]

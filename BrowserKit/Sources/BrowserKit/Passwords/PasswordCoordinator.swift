@@ -240,11 +240,25 @@ public final class PasswordCoordinator {
     /// coordinator, the tab or the state.
     public func fill(_ credential: Credential) async {
         isOffering = false
-        guard let webView = tab?.webView, let form else { return }
+        guard let webView = tab?.webView, let requested = form else { return }
         // Re-checked at the moment of the fill, not only when the offer was
         // built: a page can navigate between Luna deciding to offer and the
         // user clicking, and the credential must not follow it somewhere else.
         guard PublicSuffix.isSameSite(webView.url?.host(), credential.site) else { return }
+
+        // Touch ID **before** the Keychain read, so a cancelled prompt means
+        // the password was never fetched into this process at all.
+        guard await PasswordAuthorization.confirmFill(for: credential.site) else { return }
+
+        // That prompt is modal and can sit there as long as the user likes,
+        // which is ample time for the page underneath to navigate or re-render.
+        // So everything the first two guards established is established again
+        // on the other side of it, against the form the page is showing *now*.
+        guard let webView = tab?.webView, let current = form, current.id == requested.id,
+              PublicSuffix.isSameSite(webView.url?.host(), credential.site)
+        else { return }
+        let form = current
+
         let password = await CredentialStore.shared.password(for: credential)
         await PasswordForms.fill(
             form, username: credential.username, password: password, in: webView, frame: formFrame

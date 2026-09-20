@@ -262,6 +262,43 @@ final class FormDetectionTests: XCTestCase {
         XCTAssertFalse(decoded.contains("swallowed"), "the fill went through the patched setter: \(decoded)")
     }
 
+    // MARK: - §14.4
+
+    /// One sign-in must report **one** submit.
+    ///
+    /// A real `<button type="submit">` inside a `<form>` fires the script's
+    /// click handler *and* the form's own submit event. Both are needed —
+    /// plenty of forms have only one of them — so the script reports once and
+    /// suppresses the identical follow-up. Without this the chip is built
+    /// twice over itself and the Keychain is read twice on every sign-in.
+    func testOneSubmitIsReportedOnce() async throws {
+        let (webView, sink) = await load("""
+        <form onsubmit="return false"><input type="text" name="username">
+        <input type="password" name="password">
+        <button type="submit">Sign in</button></form>
+        """)
+        _ = await firstForm(sink)
+
+        _ = try await webView.evaluateJavaScript("""
+        (function () {
+          document.querySelector('input[type=text]').value = 'someone';
+          document.querySelector('input[type=password]').value = 'secret';
+          document.querySelector('button').click();
+          return 1;
+        })()
+        """)
+        // Long enough for both handlers and the click handler's own setTimeout.
+        try await Task.sleep(for: .milliseconds(900))
+
+        let submits = sink.events.filter { if case .submitted = $0 { return true } else { return false } }
+        XCTAssertEqual(submits.count, 1, "one sign-in reported \(submits.count) submits")
+        if case let .submitted(username, password)? = submits.first {
+            XCTAssertEqual(username, "someone")
+            XCTAssertEqual(password, "secret")
+        }
+        withExtendedLifetime(webView) {}
+    }
+
     // MARK: - §14.10
 
     /// What a *website's* script sees, which is the page world — not the

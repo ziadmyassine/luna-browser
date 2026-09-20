@@ -186,15 +186,34 @@ public enum PasswordForms {
       var counter = 0;
       var current = null;
       var lastSent = '';
+      var lastSubmit = '';
+      var lastSubmitAt = 0;
 
       var post = function (payload) {
         var h = handler();
         if (!h) { return; }
+        var stamp = JSON.stringify(payload);
+        if (payload.kind === 'submitted') {
+          // A real `<button type="submit">` inside a `<form>` fires the click
+          // handler *and* the form's own submit event, so one sign-in arrives
+          // twice and the chip is built twice over itself.
+          //
+          // Content alone cannot settle it — someone who mistypes and retries
+          // with the same password has to be offered the save again — so the
+          // window is short rather than permanent. It is kept apart from
+          // `lastSent` because a submit passing through that one would mask
+          // the next detection of the very same form.
+          var now = Date.now();
+          if (stamp === lastSubmit && now - lastSubmitAt < 1500) { return; }
+          lastSubmit = stamp;
+          lastSubmitAt = now;
+          h.postMessage(payload);
+          return;
+        }
         // Identical consecutive reports are the common case under the
         // observer; sending them would wake Swift and re-lay-out a popover to
         // put it exactly where it already is.
-        var stamp = JSON.stringify(payload);
-        if (payload.kind !== 'submitted' && stamp === lastSent) { return; }
+        if (stamp === lastSent) { return; }
         lastSent = stamp;
         h.postMessage(payload);
       };

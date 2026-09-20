@@ -39,11 +39,30 @@ public enum PublicSuffix {
 
     /// The eTLD+1 of `host`, lowercased — `"www.bbc.co.uk"` → `"bbc.co.uk"`.
     ///
-    /// - Returns: nil for an IP address, for a host with no dot (`localhost`),
-    ///   and for a host that *is* a public suffix with nothing registered under
-    ///   it (`co.uk` alone). All three are "there is no site here to match a
-    ///   credential against", and nil is how the fill flow declines.
+    /// A host that has **no registrable domain** — `localhost`, an intranet
+    /// name with no dot, an IPv4 or IPv6 literal — is its own site key, matched
+    /// whole and never widened. That is not a weakening of §14.3: the rule
+    /// there exists to stop a *wildcard* from spanning two owners, and an exact
+    /// host cannot span anything. `localhost` matches `localhost` and nothing
+    /// else.
+    ///
+    /// Returning nil for these instead — which is what this did first — reads
+    /// as the safe choice and is not one. It makes the whole feature silently
+    /// inert on `http://localhost:8080/`, which is the first place anyone
+    /// building a login form tries it, and on every router and NAS on a home
+    /// network. Safari and Chrome both key these on the exact host; so does
+    /// Luna now.
+    ///
+    /// Two consequences worth naming, both shared with Safari:
+    /// every dev server on `localhost` shares one credential space regardless
+    /// of port, and two different routers that both answer on `192.168.1.1`
+    /// look like one site.
+    ///
+    /// - Returns: nil only for a host that *is* a public suffix with nothing
+    ///   registered under it (`co.uk` alone), and for a malformed name. Both
+    ///   mean "there is no site here", and nil is how the fill flow declines.
     public static func siteKey(forHost host: String?) -> String? {
+        if let literal = exactHostKey(host) { return literal }
         guard let normalised = normalise(host) else { return nil }
         let labels = normalised.split(separator: ".").map(String.init)
         guard labels.count >= 2 else { return nil }
@@ -99,6 +118,40 @@ public enum PublicSuffix {
     /// IPv4 is rejected by shape rather than by parsing: a host whose every
     /// label is numeric has no registrable domain, so there is no site key to
     /// hand a credential to. IPv6 arrives bracketed and contains a colon.
+    /// Hosts that are their own site key: no registrable domain exists, so the
+    /// exact name is the strongest key available and the only honest one.
+    ///
+    /// Kept apart from ``normalise(_:)`` on purpose — the eTLD+1 path below is
+    /// unchanged, and nothing here can widen a real domain name.
+    ///
+    /// - Returns: the canonical host, or nil when `host` is a normal domain
+    ///   name (or junk) and belongs on the PSL path.
+    static func exactHostKey(_ host: String?) -> String? {
+        guard var value = host?.lowercased(), !value.isEmpty else { return nil }
+        if value.hasSuffix(".") { value.removeLast() }
+        guard !value.isEmpty else { return nil }
+
+        // IPv6, bracketed (`[::1]`) or bare — `URL.host()` strips the brackets,
+        // but a caller holding the raw authority may not have.
+        if value.contains(":") || value.hasPrefix("[") {
+            let bare = value.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+            guard !bare.isEmpty, bare.contains(":"),
+                  bare.allSatisfy({ $0.isHexDigit || $0 == ":" || $0 == "." })
+            else { return nil }
+            return bare
+        }
+
+        let labels = value.split(separator: ".", omittingEmptySubsequences: false)
+        guard labels.allSatisfy({ !$0.isEmpty }) else { return nil }
+        // A single label — `localhost`, `nas`, any intranet short name.
+        if labels.count == 1 { return value }
+        // An IPv4 literal, and anything else all-numeric: matched whole, which
+        // is what keeps `10.0.0.1` and `192.168.1.1` distinct. The PSL path
+        // would reduce both to `0.1`.
+        if labels.allSatisfy({ $0.allSatisfy(\.isNumber) }) { return value }
+        return nil
+    }
+
     static func normalise(_ host: String?) -> String? {
         guard var value = host?.lowercased(), !value.isEmpty else { return nil }
         if value.hasSuffix(".") { value.removeLast() }

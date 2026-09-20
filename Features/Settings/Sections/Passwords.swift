@@ -54,6 +54,10 @@ final class PasswordsSection: SettingsSection {
         let saveDetail = String(localized: "Ask after you sign in with a password Luna has not seen")
         let generate = String(localized: "Suggest strong passwords")
         let generateDetail = String(localized: "On sign-up forms, offer a generated password")
+        let auth = String(localized: "Require Touch ID to fill")
+        // Names the fallback, because a Mac without Touch ID would otherwise
+        // read this row as one that does nothing for them.
+        let authDetail = String(localized: "Ask for Touch ID, or your login password, before filling")
 
         body.card(String(localized: "Autofill"), [
             (SettingsRow.toggle(fill, subtitle: fillDetail, value: PasswordSettings.isEnabled) { on in
@@ -64,7 +68,10 @@ final class PasswordsSection: SettingsSection {
             }, [save, saveDetail, "save", "remember"]),
             (SettingsRow.toggle(generate, subtitle: generateDetail, value: PasswordSettings.offersGeneratedPasswords) { on in
                 PasswordSettings.offersGeneratedPasswords = on
-            }, [generate, generateDetail, "generate", "strong", "random"])
+            }, [generate, generateDetail, "generate", "strong", "random"]),
+            (SettingsRow.toggle(auth, subtitle: authDetail, value: PasswordSettings.requiresAuthentication) { on in
+                PasswordSettings.requiresAuthentication = on
+            }, [auth, authDetail, "touch id", "biometric", "fingerprint", "authenticate", "unlock"])
         ])
     }
 
