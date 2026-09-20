@@ -213,6 +213,40 @@ final class SpaceSwipeTests: XCTestCase {
         XCTAssertNil(Self.resolve(-travel * 0.4, active: 1, of: 3).landing)
     }
 
+    /// **The bug this cap exists for.** A trackpad flick is accelerated by the
+    /// system and routinely delivers several hundred points in one stroke, so
+    /// before the travel was capped a single firm swipe from the first of two
+    /// Spaces ran through the second and into the create zone — the gesture you
+    /// use to *change* Space made one instead. Whatever the stroke, a swipe
+    /// forward from a Space that has a Space after it lands on that Space.
+    func testAHardSwipeLandsOnTheNextSpaceRatherThanMakingOne() {
+        for stroke in [travel, travel * 4, travel * 40] {
+            let swipe = Self.resolve(stroke, active: 0, of: 2)
+            XCTAssertEqual(swipe.landing, 1, "a \(stroke) pt stroke")
+            XCTAssertFalse(swipe.createsSpace, "a \(stroke) pt stroke made a Space")
+            XCTAssertEqual(swipe.creation, 0, "a \(stroke) pt stroke opened the ring")
+            XCTAssertLessThanOrEqual(swipe.travel, 1, "a \(stroke) pt stroke ran past the next Space")
+        }
+    }
+
+    /// The same cap backwards, and it is what keeps the indicator on the strip:
+    /// one Space per gesture, in either direction.
+    func testAHardSwipeBackLandsOnThePreviousSpaceAndNoFurther() {
+        let swipe = Self.resolve(-travel * 40, active: 2, of: 3)
+        XCTAssertEqual(swipe.landing, 1)
+        XCTAssertEqual(swipe.travel, -1)
+    }
+
+    /// **The create zone is only reachable from the last Space**, which is the
+    /// whole of why the cap is safe: there is nowhere else "further" could
+    /// possibly mean anything but "the one after this".
+    func testOnlyTheLastSpaceCanReachTheCreateZone() {
+        for active in 0..<3 {
+            let swipe = Self.resolve(Tokens.Metric.spaceCreateTravel * 10, active: active, of: 3)
+            XCTAssertEqual(swipe.createsSpace, active == 2, "Space \(active) of 3")
+        }
+    }
+
     /// **The leading end simply stops.** There is nothing before the first
     /// Space, so the indicator does not move and nothing is offered.
     func testTheFirstSpaceHasNothingBehindIt() {
@@ -229,6 +263,18 @@ final class SpaceSwipeTests: XCTestCase {
         let swipe = Self.resolve(travel * 1.5, active: 2, of: 3)
         XCTAssertNil(swipe.landing)
         XCTAssertGreaterThan(swipe.creation, 0)
+    }
+
+    /// The `+`'s slot is the only place past the last Space, so the indicator
+    /// reaches it and stops there rather than running off the strip.
+    func testTheIndicatorNeverLeavesTheStrip() {
+        for active in 0..<3 {
+            for stroke in [-travel * 40, travel * 40] {
+                let swipe = Self.resolve(stroke, active: active, of: 3)
+                XCTAssertGreaterThanOrEqual(swipe.travel, -1, "Space \(active), \(stroke) pt")
+                XCTAssertLessThanOrEqual(swipe.travel, 1, "Space \(active), \(stroke) pt")
+            }
+        }
     }
 
     /// **The resistance, stated as the test that would fail if someone tidied
@@ -260,9 +306,9 @@ final class SpaceSwipeTests: XCTestCase {
     /// the moment the ring closes, rather than sitting on the last Space while
     /// something else fills up beside it.
     func testTheIndicatorReachesTheNewSlotExactlyAsTheRingCloses() {
-        let last = 2
-        let swipe = Self.resolve(Tokens.Metric.spaceCreateTravel, active: last, of: last + 1)
+        let swipe = Self.resolve(Tokens.Metric.spaceCreateTravel, active: 2, of: 3)
         XCTAssertEqual(swipe.travel, 1, accuracy: 0.001)
+        XCTAssertEqual(swipe.creation, 1, accuracy: 0.001)
     }
 
     /// A gesture in a window with no Spaces cannot mean anything, and must not

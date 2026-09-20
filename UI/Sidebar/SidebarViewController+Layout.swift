@@ -110,6 +110,10 @@ extension SidebarViewController {
             height: max(gridTop - foot, 0)
         ).integral
 
+        // §30.9's three borrowed views — the still, the `+` and the editor —
+        // are framed against the page the column has just computed.
+        spaces?.layoutPages()
+
         // Placed so its 8 pt hit strip is the sidebar's own inner 8 pt: hit
         // testing stops at a superview's bounds, so a handle centred on the
         // divider would have half a dead hit area. The drawn glyph still

@@ -63,7 +63,7 @@ final class SidebarViewController: NSViewController {
     }
 
     /// §3.2b: the pill and §3.1's buttons have moved onto the page. The 52 pt
-    /// row stays — it is what keeps the traffic lights' corner clear.
+    /// row stays — it keeps the traffic lights' corner clear.
     func setSearchBarOnPage(_ onPage: Bool) {
         controlRow.showsButtons = !onPage
         pill.isHidden = onPage
@@ -86,10 +86,13 @@ final class SidebarViewController: NSViewController {
     /// §3.5's profile line, directly above the Space strip. See the view.
     let profile = SidebarProfileLabel()
     let handle = SidebarResizeHandle()
+    /// §30.9's page turn: the Space arriving, and the `+` standing in for the
+    /// one that does not exist. Both draw nothing until the gesture asks.
+    let preview = SpacePreviewView()
+    let creation = SpaceCreationView()
     /// §30.9's swipe, §6.1's create and §6.2's way into Settings — everything
-    /// the foot of the sidebar does *to* Spaces rather than with them. Built in
-    /// `viewDidLoad`, because it drives views this controller has not made yet.
-    private var spaces: SidebarSpaceGestures?
+    /// the foot of the sidebar does *to* Spaces. Built in `viewDidLoad`.
+    var spaces: SidebarSpaceGestures?
     /// §6.6's lift. Built in `viewDidLoad`, because it needs the root view it
     /// floats a dragged tab over.
     private var drag: SidebarTabDragController?
@@ -116,12 +119,16 @@ final class SidebarViewController: NSViewController {
         // about the column, and the column is what the hand is resting on.
         root.onScroll = { [weak self] event in self?.spaces?.scrollWheel(with: event) ?? false }
         // The list is the part of the column a hand rests on, and a scroll view
-        // consumes both axes — so it offers the swipe every event first. See
-        // `SidebarScrollView`.
+        // consumes both axes — so it offers the swipe every event first.
         (list.scrollView as? SidebarScrollView)?.onScroll = { [weak self] event in
             self?.spaces?.scrollWheel(with: event) ?? false
         }
-        for subview in [wash, controlRow, pill, essentials, list.scrollView, profile, utility, handle] {
+        // The still goes **under** the live column (an overlap belongs to the
+        // Space the window is in) and the `+` over both, because it is the one
+        // mark that has to stay visible while the two pass each other.
+        for subview in [
+            wash, preview, controlRow, pill, essentials, list.scrollView, creation, profile, utility, handle
+        ] {
             root.addSubview(subview)
         }
         view = root
@@ -133,7 +140,10 @@ final class SidebarViewController: NSViewController {
             session: session,
             utility: utility,
             wash: wash,
-            content: [essentials, list.scrollView]
+            content: [essentials, list.scrollView],
+            preview: preview,
+            creation: creation,
+            host: view
         )
         wireControls()
         wireList()

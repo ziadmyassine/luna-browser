@@ -15,13 +15,23 @@
 //  clamp at the leading end, the doubled travel that makes a Space — is in
 //  those twenty lines and is asserted by `SpaceSwipeTests`.
 //
+//  **One Space per gesture, however hard the flick**, and this is the rule that
+//  was missing. The travel used to accumulate without a ceiling, so a single
+//  firm swipe from the first of two Spaces ran 80 pt to reach the second and
+//  then kept going into the 160 pt that makes a new one — and the gesture the
+//  user performs to *change* Space created one instead. A trackpad flick is
+//  accelerated by the system and routinely delivers several hundred points in
+//  one stroke; no threshold survives that. A page swipe turns one page.
+//
+//  So the create zone is not somewhere a long swipe can reach. It is only
+//  there **when there is no next Space**, which is the only situation in which
+//  "further" can mean anything other than "the one after this".
+//
 //  **Two thresholds, deliberately unequal.** Moving between Spaces commits at
 //  half of `Metric.spaceSwipeTravel`; creating one needs the whole of
-//  `Metric.spaceCreateTravel` *past the last Space*, which is twice as far
-//  again. That asymmetry is the resistance the feature was asked for, and it
-//  is the difference between a gesture you perform a hundred times a day and
-//  one whose result you would have to go and undo. See those two tokens for
-//  the argument.
+//  `Metric.spaceCreateTravel`, which is twice as far again. That asymmetry is
+//  the resistance the feature was asked for: reaching the end of the Spaces you
+//  have is not the same act as making another, and it should not cost the same.
 //
 //  **Nothing is decided while the fingers are down.** `.changed` only moves the
 //  read-out; the switch and the create both happen on `.ended`. A gesture that
@@ -37,8 +47,8 @@ import BrowserKit
 struct SpaceSwipe: Equatable {
 
     /// The indicator's position relative to the active Space, in Spaces: −1 is
-    /// the previous one, +1 the next. Clamped to the Spaces that exist, except
-    /// at the trailing end, where it runs on into the slot the `+` stands in.
+    /// the previous one, +1 the next, and **it never leaves that range**. Where
+    /// there is no next Space, +1 is the slot the `+` stands in instead.
     var travel: CGFloat
     /// 0…1 — how much of §30.9's ring is drawn. 1 is a closed circle.
     var creation: CGFloat
@@ -55,39 +65,46 @@ struct SpaceSwipe: Equatable {
     ///   - activeIndex: the Space the window is in.
     ///   - count: how many there are.
     static func resolve(offset: CGFloat, activeIndex: Int, count: Int) -> SpaceSwipe {
-        guard count > 0, activeIndex >= 0, activeIndex < count else {
-            return SpaceSwipe(travel: 0, creation: 0, landing: nil, createsSpace: false)
-        }
-        let spaces = offset / Tokens.Metric.spaceSwipeTravel
-        let last = CGFloat(count - 1 - activeIndex)
-        let first = CGFloat(-activeIndex)
+        guard count > 0, activeIndex >= 0, activeIndex < count else { return .rest }
+        let reach = offset / Tokens.Metric.spaceSwipeTravel
 
-        // Past the last Space there is nowhere to go, so the travel stops being
-        // a distance and becomes an intention: the indicator crosses into the
-        // `+`'s slot at exactly the rate the ring fills, and arrives as it
-        // closes. One mark, one meaning.
-        if spaces > last {
-            let beyond = (spaces - last) * Tokens.Metric.spaceSwipeTravel
-            let creation = min(beyond / Tokens.Metric.spaceCreateTravel, 1)
+        guard offset > 0 else {
+            // Backward, and the first Space simply stops: a rubber band here
+            // would be motion that means nothing, which is worse than none.
+            guard activeIndex > 0 else { return .rest }
+            let travel = max(reach, -1)
             return SpaceSwipe(
-                travel: last + creation,
-                creation: creation,
-                landing: nil,
-                createsSpace: creation >= 1
+                travel: travel,
+                creation: 0,
+                landing: travel <= -0.5 ? activeIndex - 1 : nil,
+                createsSpace: false
             )
         }
-        // The leading end has nothing to offer, so it simply stops. A rubber
-        // band here would be motion that means nothing, which is worse than
-        // no motion at all.
-        let travel = max(spaces, first)
-        let landing = activeIndex + Int(travel.rounded())
-        return SpaceSwipe(
-            travel: travel,
-            creation: 0,
-            landing: landing == activeIndex ? nil : landing,
-            createsSpace: false
-        )
+
+        // Forward, with a Space to go to. **Capped at one**, so a hard flick
+        // arrives at the next Space rather than sailing through it — see the
+        // file header for what happened without this line.
+        guard activeIndex == count - 1 else {
+            let travel = min(reach, 1)
+            return SpaceSwipe(
+                travel: travel,
+                creation: 0,
+                landing: travel >= 0.5 ? activeIndex + 1 : nil,
+                createsSpace: false
+            )
+        }
+
+        // Forward from the last Space, where "further" has only one meaning.
+        // The travel stops being a distance and becomes an intention: the
+        // indicator crosses into the `+`'s slot at exactly the rate the ring
+        // fills, and arrives as it closes. One mark, one meaning.
+        let creation = min(offset / Tokens.Metric.spaceCreateTravel, 1)
+        return SpaceSwipe(travel: creation, creation: creation, landing: nil, createsSpace: creation >= 1)
     }
+
+    /// Nothing happening — the resting read-out, and what a gesture in a window
+    /// with no Spaces resolves to.
+    static let rest = SpaceSwipe(travel: 0, creation: 0, landing: nil, createsSpace: false)
 }
 
 /// The gesture itself: the events, the live read-out, and the one commit.
@@ -97,10 +114,17 @@ final class SpaceSwipeController {
     /// The Spaces, newest answer each time — the session is the truth and this
     /// holds none of it.
     var spaces: () -> (all: [UUID], active: UUID?) = { ([], nil) }
-    var onSwitch: ((UUID) -> Void)?
-    var onNewSpace: (() -> Void)?
-    /// The read-out: the dot strip, the wash, and the content that rides along.
+    /// The read-out: the dot strip, the wash, and the pages that ride along.
     var onUpdate: ((SpaceSwipe) -> Void)?
+    /// The fingers came up. Carries where the gesture had got to and whether
+    /// it was a release rather than a cancel.
+    ///
+    /// **What happens next is not this object's call.** There is a page still
+    /// half way across the column when the hand leaves, and settling it is the
+    /// same act as deciding what the gesture meant — see
+    /// `SidebarSpaceGestures.settle`. A controller that switched the Space here
+    /// would switch it under a column that had not finished moving.
+    var onFinish: ((SpaceSwipe, Bool) -> Void)?
 
     /// Points accumulated in this gesture, positive toward the next Space.
     private var offset: CGFloat = 0
@@ -196,20 +220,10 @@ final class SpaceSwipeController {
         let active = state.active.flatMap { state.all.firstIndex(of: $0) }
         let resolved = active.map {
             SpaceSwipe.resolve(offset: offset, activeIndex: $0, count: state.all.count)
-        }
+        } ?? .rest
         reset()
         ownsMomentum = true
-        // The read-out goes back to rest **before** the commit, so the Space
-        // switch animates from the resting strip rather than from a strip still
-        // holding the gesture's last frame.
-        onUpdate?(SpaceSwipe(travel: 0, creation: 0, landing: nil, createsSpace: false))
-        guard committing, let resolved else { return }
-        guard !resolved.createsSpace else {
-            onNewSpace?()
-            return
-        }
-        guard let landing = resolved.landing, state.all.indices.contains(landing) else { return }
-        onSwitch?(state.all[landing])
+        onFinish?(resolved, committing)
     }
 }
 
