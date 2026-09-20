@@ -294,7 +294,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func perform(_ action: CommandBarAction) {
         switch action {
         case let .unarchiveTab(id):
-            session?.unarchiveTab(id)
+            // Not resuming the session: a row in §9's list is a place to go,
+            // not a tab to pick up where it was left. See `unarchiveTab`.
+            session?.unarchiveTab(id, resumingSession: false)
         case .command(.toggleSidebar):
             toggleSidebar()
         case .command(.newSpace):

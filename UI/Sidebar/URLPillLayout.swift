@@ -33,12 +33,18 @@ extension URLPillView {
         centresText ? Tokens.Metric.barPillGlyphSize : Tokens.Metric.pillGlyphSize
     }
 
-    /// How far that ink sits from its own end of the pill. `pillGlyphInset` is
-    /// §3.2's measured number and is tighter than the text's on purpose — a
-    /// glyph is optically smaller than its box.
-    private var glyphInset: CGFloat {
-        centresText ? Tokens.Metric.pillTextInset : Tokens.Metric.pillGlyphInset
-    }
+    /// How far that ink sits from its own end of the pill: **the text's own
+    /// inset, on both pills.**
+    ///
+    /// The column's used to be `pillGlyphInset`, two points tighter, on the
+    /// argument that a glyph is optically smaller than its box and can afford
+    /// to sit closer in. On §3.2b's 420 pt bar that reads as intended; in a
+    /// 240 pt column, with the capsule's corner curving away right behind it,
+    /// it reads as site settings falling off the end of the pill — which is
+    /// what Martin saw. The bar is the one that looks right, so the column now
+    /// measures the same: whatever is at either end of a pill stands the same
+    /// distance in as the address does.
+    private var glyphInset: CGFloat { Tokens.Metric.pillTextInset }
 
     /// The glyph's hit target: the ink plus a gap's worth of padding, so a
     /// control the size of a word is still something you can hit, without the
@@ -83,17 +89,15 @@ extension URLPillView {
 
     // MARK: - Layout
 
-    /// §3.2's own two insets, which until now were both silently `rowInset`:
-    /// the domain starts 12 pt in and the sliders glyph sits 10 pt from the
-    /// trailing edge. Both are measured, and they are deliberately unequal — a
-    /// glyph is optically smaller than its box.
+    /// §3.2's inset, which until now was silently `rowInset`: everything on the
+    /// pill — the address at one end, a glyph at either — stands
+    /// `pillTextInset` in from the edge nearest it. See `glyphInset`.
     ///
-    /// **The inset is the glyph's, and the chip grows past it.** `pillGlyphInset`
-    /// is measured to the mark the eye sees, so the hover chip — which is
+    /// **The inset is the glyph's ink, and its hit box grows past it.** The
+    /// number is measured to the mark the eye sees, so the box — which is
     /// bigger than the glyph inside it — is placed by centring it on where the
     /// glyph would have been rather than by being inset itself. Insetting the
-    /// chip instead would move the glyph 2.5 pt further in the moment it gained
-    /// a background it only shows on hover.
+    /// box instead would move the glyph a further half-gap in.
     override func layout() {
         super.layout()
         // Bounds-derived frames never animate — see `Motion.immediately`.

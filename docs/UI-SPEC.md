@@ -311,6 +311,13 @@ Vertical order, top to bottom:
 > 28 × 28 circle placed at a fractional y comes out 28 × 29 and reads as an egg. Chrome controls snap
 > their **origin** only (`NSRect.pixelAligned`); a size that came from a token is not the layout's to
 > round.
+> **The lights coming and going is not a layout change, and has to be made into one.** `⌘S` takes the
+> traffic lights away with the sidebar and §3.8's peek lends them back; neither changes any view's
+> bounds, so nothing in AppKit marks this row — which lays its toggle out *against* the lights — as
+> needing another pass. Hiding the sidebar and showing it again therefore left the toggle where a row
+> with no lights to clear correctly puts it: at the row inset, under the close button. Every view that
+> places itself against the lights is a `TrafficLightNeighbour` (this row and §3.2b's bar), and both the
+> peek and every chrome-state change mark all of them for layout.
 > **And then they were squircles.** A `.continuous` corner curve at `radius == side / 2` is a
 > superellipse, with straight flanks — which is the "still a bit longer than wide" left after the
 > rounding was fixed. Apple's continuous curve is defined for radii *below* half the side; at or above
@@ -366,7 +373,11 @@ Vertical order, top to bottom:
   saying what the bar is for should be. Luna's other pages keep their names — `History` is somewhere
   you actually are. "Website name" rather than "URL" because that is what people type: `apple.com`,
   not a scheme.
-- Left-aligned text at 12 pt inset; trailing **sliders glyph** (site menu) at 10 pt from the right edge.
+- Left-aligned text at 12 pt inset; trailing **sliders glyph** (site menu) at the same 12 pt from the
+  right edge. It was 10 — a glyph is optically smaller than its box and can afford to sit closer in —
+  and on §3.2b's 420 pt capsule that reads as intended, but in a 240 pt column, with the capsule's
+  corner curving away right behind it, it read as site settings falling off the end of the pill.
+  Whatever is at either end of a pill now stands as far in as the address does.
 - **One affordance goes on the trailing edge; a second takes the other end.** That is where §3.2 has
   always drawn the sliders and where §3.4's rows draw theirs. A pill that also carries a reload —
   §3.2b's, which has 420 pt to put one in — moves site settings to the leading edge and keeps reload
@@ -813,7 +824,11 @@ whose insets are derived from a tab pill's height.
   > tab's kind, so the row left the list, no tile appeared, and the command did nothing visible.
 
 ### 3.4 List rows — 38 pt of pitch around a 35 pt pill
-Order: `+ Add Tab` row → **separator** → tabs.
+Order: `+ New Tab` row → **separator** → tabs.
+> **It was `+ Add Tab` and it made a blank tab.** That is the one tab nobody wants: the next thing
+> anybody does with one is reach for the address bar. The row asks the question instead — it opens §9.1
+> in `.newTab`, so what it lands on is still a new tab, and closing the bar without choosing leaves the
+> list exactly as it was rather than one empty page longer.
 > **`Archive` is no longer a row here.** It was a second door to the page §3.5's bottom-bar button
 > already opens, sitting directly under the pinned tiles where the eye lands first — a history button at
 > the top of a list of live tabs. History belongs with the other standing destinations at the foot of the
@@ -868,7 +883,7 @@ Order: `+ Add Tab` row → **separator** → tabs.
 - **Selected and hover fills are `Surface.selected` / `Surface.hover`.** Clear glass alone is very nearly
   the sidebar's own glass, and a selected row read as unselected until these were asked for.
 - Loading shows a shimmer sweep across the title, not a spinner.
-- `+ Add Tab` is a first-class row with identical metrics to a tab (§30.6).
+- `+ New Tab` is a first-class row with identical metrics to a tab (§30.6).
 - **The unread dot is ink, not accent.** It was `Accent.tint`; it is `Text.primary` now, and it reads
   because it is bright rather than because it is a different hue.
 - **Reordering is a tracked gesture, not a dragging session** (§6.6). A press past `dragThreshold`
@@ -1060,7 +1075,7 @@ lights are hidden with everything else and come back the moment there is a sideb
 including §3.8's peek.
 
 **The sidebar's plane is a window drag handle — and only the plane.** Pressing anywhere that is not a
-control moves the window: the control row, the grid's background, the rule under `+ Add Tab`, the empty
+control moves the window: the control row, the grid's background, the rule under `+ New Tab`, the empty
 list below the last tab. `NSTableView` swallows that press by default, which left the top 52 pt as the
 only place in a 280 pt column you could pick the window up by.
 
@@ -1124,6 +1139,12 @@ left — so nobody's chrome moves who has not asked for it to.
 With the sidebar hidden, pushing the pointer into the window's leading **44 pt** brings it back **over**
 the page after §6's 0.10 s intent delay, and lets it go again 0.10 s after the pointer leaves both the
 strip and the sidebar itself.
+
+**The strip starts below §3.2b's band.** The top `pageBar` points of that edge do not peek, because with
+the sidebar hidden that corner is where §3.2b puts the sidebar toggle — and a strip that ran the full
+height pulled the sidebar out from under the pointer on its way to that button. The button then moved a
+column's width to the right, the pointer followed it off the strip, the peek closed, and the button went
+back: it could not be hit at all.
 
 > **It was 4 pt, then 24, and both meant aiming.** A *screen* edge can be one point wide because the
 > pointer piles up against it; a window edge has nothing to stop the pointer. The gesture is "shove the
@@ -1293,6 +1314,17 @@ Every entry degrades to instant under Reduce Motion.
 | Downloads particle sweep | **0.40 s** (see §5.1) |
 | Page reload bloom | **tied to load duration** (see §7) |
 | Content card → fullscreen | 0.30 s ease-in-out |
+
+> **The selected-row pill moves for ↓ and ↑, and for nothing else.** A list that has just been rebuilt
+> has no continuity for a slide to describe, and one that has not changed has nowhere to slide — so the
+> highlight is always *placed* from `layout()`, and animated only when the selection moved inside a list
+> that stood still. Moving it from the method that replaces the list instead measured rows that had not
+> been laid out at their new size yet: while somebody typed fast in the Command Bar, the pill slid to
+> somewhere slightly wrong on every re-rank and the next layout pass pulled it back.
+>
+> **The Command Bar's own opening is 0.18 s of that same thread**, so nothing replaces its list while it
+> is opening: asynchronous results that land inside that window are held and applied the moment it
+> closes. See TODO.md §9.7.
 
 ---
 

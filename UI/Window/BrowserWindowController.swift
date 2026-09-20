@@ -172,7 +172,15 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
             root.widthAnchor.constraint(greaterThanOrEqualToConstant: Tokens.Metric.windowMinWidth),
             root.heightAnchor.constraint(greaterThanOrEqualToConstant: Tokens.Metric.windowMinHeight),
 
-            peekEdge.topAnchor.constraint(equalTo: root.topAnchor),
+            // **It starts below the bar, not at the window's top corner.**
+            // With the sidebar hidden, §3.2b puts the sidebar toggle on the
+            // page at exactly this corner — so a strip that ran the full height
+            // meant reaching for that button pulled the sidebar out over it.
+            // The button then moved (the column is 280 pt wide), the pointer
+            // followed it off the strip, the peek closed, and the button went
+            // back: Martin could not land on it at all. Nothing above this line
+            // triggers a peek; the whole leading edge below it still does.
+            peekEdge.topAnchor.constraint(equalTo: root.topAnchor, constant: Tokens.Metric.pageBar),
             peekEdge.bottomAnchor.constraint(equalTo: root.bottomAnchor),
             peekEdge.widthAnchor.constraint(equalToConstant: Tokens.Metric.sidebarPeekEdge)
         ])
@@ -306,10 +314,7 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         // sidebar is a sidebar, and it has a control row with a hole in it if
         // they are not there.
         trafficLights?.isPeeking = peeking
-        // The lights coming and going does not change any view's bounds, so
-        // nothing else would mark the control row dirty — and it lays its
-        // buttons out *against* the lights. See `SidebarControlRow`.
-        for layout in chrome.subviews { layout.needsLayout = true }
+        markChromeForTrafficLights()
         Tokens.Motion.animate(Tokens.Motion.sidebarCollapse) { context in
             context.allowsImplicitAnimation = true
             // The park is a push off the edge the sidebar belongs to, so the
@@ -320,6 +325,21 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
             peekBackdrop.alphaValue = peeking ? 1 : 0
             window?.contentView?.layoutSubtreeIfNeeded()
         }
+    }
+
+    /// **The lights coming and going does not change any view's bounds**, so
+    /// nothing else marks the sidebar's control row dirty — and that row lays
+    /// its buttons out *against* the lights (see `SidebarControlRow`).
+    ///
+    /// Both callers need it, and the second one is the bug Martin photographed:
+    /// `⌘S` twice left the sidebar toggle sitting under the traffic lights. The
+    /// hidden sidebar's row had legitimately laid itself out with no lights to
+    /// clear — the toggle starts at the row inset when there are none — and
+    /// showing the column again gave the lights back without asking the row to
+    /// look for them a second time.
+    private func markChromeForTrafficLights() {
+        guard let root = window?.contentView else { return }
+        TrafficLightSpace.neighboursNeedLayout(in: root)
     }
 
     /// Whether `⌘S` has anything to do in the current layout.
@@ -372,6 +392,7 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
             // In the same transaction, never as a second step: a re-anchor one
             // frame later is exactly the visible jump §4.1 warns about.
             trafficLights?.apply(state)
+            markChromeForTrafficLights()
             window?.contentView?.layoutSubtreeIfNeeded()
         }
         if animated {

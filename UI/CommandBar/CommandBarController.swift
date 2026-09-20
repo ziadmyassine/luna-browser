@@ -109,14 +109,24 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
 
     var isPresented: Bool { panel != nil }
 
+    /// One decoded icon per host, for the life of the window. §9.7 is a
+    /// per-*keystroke* budget and the list is rebuilt on every one of them, so
+    /// without this eight rows cost eight cache lookups and eight
+    /// `NSImage(data:)` decodes per character typed — on the main thread,
+    /// inside the 16 ms the local results are supposed to land in.
+    private var icons: [String: NSImage] = [:]
+
     private func favicon(for result: CommandBarResult) -> NSImage? {
         if case let .activateTab(id) = result.action, let image = session.favicon(for: id) {
             return image
         }
-        guard let host = result.url?.host(),
-              let data = FaviconService.shared.favicon(forHost: host)
-        else { return nil }
-        return NSImage(data: data)
+        guard let host = result.url?.host() else { return nil }
+        if let cached = icons[host] { return cached }
+        guard let data = FaviconService.shared.favicon(forHost: host), let image = NSImage(data: data) else {
+            return nil
+        }
+        icons[host] = image
+        return image
     }
 
     /// Where the page is inside the window, so §9.1's panel sits over the page
@@ -145,6 +155,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
         let panel = CommandBarPanel(frame: root.bounds, resultsView: resultsView, anchor: anchor)
         panel.contentRegion = contentRegion
         panel.onBackgroundClick = { [weak self] in self?.dismiss() }
+        panel.onOpened = { [weak self] in self?.showDeferredRows() }
         panel.field.inputDelegate = self
         root.addSubview(panel, positioned: .above, relativeTo: nil)
         self.panel = panel
@@ -184,6 +195,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
             anchor.onDismiss?()
         }
         generation += 1 // Orphan any query still in flight.
+        deferredRows = nil
         SearchSuggestions.shared.cancel()
         // Hand the keyboard back to the page, or the user is typing into nothing.
         if let id = session.activeTabID, let content = session.webView(for: id) {
@@ -273,6 +285,9 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
         )
     }
 
+    /// Results that landed while the bar was opening, shown the moment it has.
+    private var deferredRows: ([CommandBarResult], String?)?
+
     private func apply(_ new: [CommandBarResult], appendOnly: Bool) {
         let rows: [CommandBarResult]
         let selection: String?
@@ -283,7 +298,25 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
             rows = new
             selection = new.first?.id
         }
-        resultsView.setResults(Array(rows.prefix(CommandBarMetrics.visibleRows)), selecting: selection)
+        let visible = Array(rows.prefix(CommandBarMetrics.visibleRows))
+        // **Not while the bar is opening.** Replacing the list rebuilds eight
+        // row views and re-draws them under live glass, on the thread running
+        // the bar's own 0.18 s animation. Opening on an *address* is where it
+        // bit: `⌘T` on a new tab asks SQLite a question whose answer it already
+        // shows, while a URL comes back with rows that land mid-morph.
+        guard panel?.isOpening != true else {
+            deferredRows = (visible, selection)
+            return
+        }
+        resultsView.setResults(visible, selecting: selection)
+        announce(count: resultsView.results.count)
+    }
+
+    /// The bar has opened: show whatever landed while it was opening.
+    private func showDeferredRows() {
+        guard let (rows, selection) = deferredRows else { return }
+        deferredRows = nil
+        resultsView.setResults(rows, selecting: selection)
         announce(count: resultsView.results.count)
     }
 

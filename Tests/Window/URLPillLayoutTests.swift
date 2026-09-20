@@ -136,6 +136,35 @@ final class URLPillLayoutTests: XCTestCase {
         XCTAssertLessThan(Tokens.Metric.barPillGlyphSize, Tokens.Metric.glyphSize)
     }
 
+    /// **And it stands as far in as the address does**, on both pills.
+    ///
+    /// The column's glyph used to sit two points closer to its own end than the
+    /// text did, on the argument that a glyph is optically smaller than its
+    /// box. On §3.2b's 420 pt capsule that reads as intended; in a 240 pt
+    /// column, with the capsule's corner curving away right behind it, it reads
+    /// as site settings falling off the end of the pill.
+    func testTheGlyphStandsAsFarInAsTheAddressDoes() {
+        let column = pill(centred: false)
+        XCTAssertEqual(
+            column.bounds.maxX - inkEdge(of: column.sliders, in: column, leading: false),
+            Tokens.Metric.pillTextInset,
+            accuracy: 0.5
+        )
+        let capsule = pill(centred: true)
+        XCTAssertEqual(
+            inkEdge(of: capsule.sliders, in: capsule, leading: true) - capsule.bounds.minX,
+            Tokens.Metric.pillTextInset,
+            accuracy: 0.5
+        )
+    }
+
+    /// Where the **mark** ends, not where its hit box does: the box is the ink
+    /// plus a gap's worth of padding, and it is the ink the eye measures.
+    private func inkEdge(of glyph: NSView, in pill: URLPillView, leading: Bool) -> CGFloat {
+        let overhang = (glyph.frame.width - pill.glyphInk) / 2
+        return leading ? glyph.frame.minX + overhang : glyph.frame.maxX - overhang
+    }
+
     /// And both fit inside the pill they are in, at both sizes: a hit target
     /// hanging off the end of a capsule takes clicks meant for what is beside
     /// it.

@@ -54,6 +54,17 @@ extension CommandBarPanel {
         return min(max(rect.midX - width / 2, leading), trailing) + width / 2
     }
 
+    /// A constant, written only when it is actually different.
+    ///
+    /// This runs on **every** layout pass, and while the bar is opening there
+    /// is one of those per frame — so five unconditional writes to five
+    /// constraints is five invalidations of a layout that was about to be
+    /// correct anyway, per frame, for numbers that have not moved.
+    private func set(_ constraint: NSLayoutConstraint?, to value: CGFloat) {
+        guard let constraint, constraint.constant != value else { return }
+        constraint.constant = value
+    }
+
     /// The pill's place, in this view's coordinates — or nil when the bar is
     /// floating, and when the pill has left the window under it.
     private var anchorRect: NSRect? {
@@ -88,11 +99,11 @@ extension CommandBarPanel {
         // is dragged while the bar is open, and the pill moves with both.
         if let rect = anchorRect {
             let width = anchoredWidth(for: rect)
-            topAnchorConstraint?.constant = bounds.maxY - rect.maxY - inputPadding
-            centreConstraint?.constant = anchoredCentre(for: rect, width: width) - bounds.midX
-            widthConstraint?.constant = width
-            fieldCentreConstraint?.constant = inputHeight / 2
-            resultsTopConstraint?.constant = inputHeight
+            set(topAnchorConstraint, to: bounds.maxY - rect.maxY - inputPadding)
+            set(centreConstraint, to: anchoredCentre(for: rect, width: width) - bounds.midX)
+            set(widthConstraint, to: width)
+            set(fieldCentreConstraint, to: inputHeight / 2)
+            set(resultsTopConstraint, to: inputHeight)
             super.layout()
             return
         }
@@ -111,24 +122,34 @@ extension CommandBarPanel {
     /// §6 `commandBarIn`: 0.18 s spring, scale 0.96 → 1.0 + fade.
     ///
     /// Reduce Motion degrades it to instant with no second code path:
-    /// `springAnimation` returns nil, and `Motion.animate` runs at zero duration.
+    /// `springAnimation` returns nil, and `Motion.animate` runs at zero
+    /// duration.
     func animateIn() {
+        beginOpening()
         layoutSubtreeIfNeeded()
+        // **The body fades, not the panel.** This view is the whole window, and
+        // an `alphaValue` on it puts every pixel of it — including the page
+        // showing through — into a transparency layer for the length of the
+        // animation. The body is the only thing on this view that draws.
+        alphaValue = 1
+        body.alphaValue = 0
         guard anchorRect == nil else { return revealFromPill() }
         guard let scale = Tokens.Motion.commandBarIn.springAnimation(keyPath: "transform.scale") else {
-            alphaValue = 1
+            body.alphaValue = 1
+            finishOpening()
             return
         }
         scale.fromValue = 0.96
         scale.toValue = 1.0
         body.layer?.add(scale, forKey: "commandBarIn")
-        alphaValue = 0
         Tokens.Motion.animate(Tokens.Motion.commandBarIn) { _ in
-            self.animator().alphaValue = 1
+            self.body.animator().alphaValue = 1
+        } completion: { [weak self] in
+            MainActor.assumeIsolated { self?.finishOpening() }
         }
     }
 
-    /// The same 0.18 s spring, spent on **more glass rather than a new pane**.
+    /// The same 0.18 s, spent on **more glass rather than a new pane**.
     ///
     /// The floating bar scales up from 0.96 because it is arriving: there was
     /// nothing there a moment ago. This one is not arriving — the pill it is
@@ -143,42 +164,50 @@ extension CommandBarPanel {
     /// starts at zero. Animating the width as well meant a second property
     /// re-laying the panel out every frame for a change nobody can see through
     /// the fade, and the first version did it by masking the body — which puts
-    /// an offscreen pass around a live glass panel over a live web page, and is
-    /// what made this stutter on the page bar.
+    /// an offscreen pass around a live glass panel over a live web page.
     ///
-    /// Nothing expensive happens after this returns: the rows are built and
-    /// their favicons read off disk *before* the bar is shown, so the animation
-    /// is committed to the render server with the main thread's work already
-    /// done.
+    /// **And the glass is what has to grow, not a clip over it.** Cutting the
+    /// body's layer down and animating the cut instead — a rounded
+    /// `masksToBounds` on the presentation layer, which would have cost no
+    /// layout at all — does not work over `NSGlassEffectView`: the material is
+    /// composited outside the layer that is supposed to be clipping it, so the
+    /// bar opened as eight rows of text floating over the sidebar with no
+    /// panel behind them. Measured, on screen, and thrown away.
+    ///
+    /// **One frame of nothing first.** The panel, its glass and its eight rows
+    /// are all built in the runloop turn that opens the bar, and the window
+    /// server has a fresh glass backdrop to set up over a live web page on the
+    /// first composite. Starting the spring in that same turn spends its first
+    /// frames competing with that work, which is the part Martin could feel.
+    /// The panel is laid out and left invisible instead, and the animation
+    /// starts on the next turn — by which time the expensive frame has already
+    /// been drawn.
     private func revealFromPill() {
-        // **The body fades, not the panel.** This view is the whole window, and
-        // an `alphaValue` on it puts every pixel of it — including the page
-        // showing through — into a transparency layer for the length of the
-        // animation. The body is the only thing on this view that draws.
-        alphaValue = 1
-        body.alphaValue = 0
-        // Measured, not computed: the panel has just been laid out at the size
-        // the list asks for, and that is the height to grow to.
         let target = body.frame.height
         let height = body.heightAnchor.constraint(equalToConstant: inputHeight)
         revealConstraint = height
         height.isActive = true
         layoutSubtreeIfNeeded()
-        Tokens.Motion.animate(Tokens.Motion.commandBarIn) { context in
-            context.allowsImplicitAnimation = true
-            height.animator().constant = target
-            self.body.animator().alphaValue = 1
-        } completion: { [weak self] in
-            MainActor.assumeIsolated {
-                // Off, not left at the target. **The list goes on changing size
-                // after the bar has opened** — the history query lands, then
-                // the engine's suggestions, and each re-ranks the rows — and a
-                // required height frozen at what the first pass asked for would
-                // clip everything that arrived after it. That is what a
-                // fullscreen page bar showed: an input row with an empty band
-                // under it, and the rows cut off below the glass.
-                self?.revealConstraint?.isActive = false
-                self?.revealConstraint = nil
+        DispatchQueue.main.async { [weak self] in
+            guard let self, revealConstraint === height else { return self?.finishOpening() ?? () }
+            Tokens.Motion.animate(Tokens.Motion.commandBarIn) { context in
+                context.allowsImplicitAnimation = true
+                height.animator().constant = target
+                self.body.animator().alphaValue = 1
+            } completion: { [weak self] in
+                MainActor.assumeIsolated {
+                    // Off, not left at the target. **The list goes on changing
+                    // size after the bar has opened** — the history query
+                    // lands, then the engine's suggestions, and each re-ranks
+                    // the rows — and a required height frozen at what the first
+                    // pass asked for would clip everything that arrived after
+                    // it. That is what a fullscreen page bar showed: an input
+                    // row with an empty band under it, and the rows cut off
+                    // below the glass.
+                    self?.revealConstraint?.isActive = false
+                    self?.revealConstraint = nil
+                    self?.finishOpening()
+                }
             }
         }
     }

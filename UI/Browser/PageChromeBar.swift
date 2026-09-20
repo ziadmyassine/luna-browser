@@ -61,7 +61,7 @@ import AppKit
 import BrowserKit
 
 @MainActor
-final class PageChromeBar: NSView {
+final class PageChromeBar: NSView, TrafficLightNeighbour {
 
     var onToggleSidebar: (() -> Void)?
     var onBack: (() -> Void)?

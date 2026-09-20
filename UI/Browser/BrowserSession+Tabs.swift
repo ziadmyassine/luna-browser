@@ -103,8 +103,22 @@ extension BrowserSession {
     }
 
     /// §6.4 / §9.2: pull one specific tab back out of the archive.
-    func unarchiveTab(_ id: UUID) {
-        guard let tab = archived.first(where: { $0.id == id }) else { return }
+    ///
+    /// - Parameter resumingSession: whether the tab comes back **where it was
+    ///   left** — its back/forward list and its scroll position, which is what
+    ///   `interactionState` carries. True for the two gestures that mean
+    ///   "reopen the tab I closed" (`⌘⇧T` and §11's list), and false for §9's
+    ///   Command Bar.
+    ///
+    ///   The bar is an address bar: its rows are places, and the archive's rows
+    ///   sit in the same list as history's and look exactly like them. Choosing
+    ///   one and landing half way down the page you were on last week is the
+    ///   session resuming behind a gesture that never asked for it — which is
+    ///   what Martin hit on an `iPhone 18 Pro` row. Same tab, same Space, same
+    ///   name; it simply starts at the top of the page.
+    func unarchiveTab(_ id: UUID, resumingSession: Bool = true) {
+        guard var tab = archived.first(where: { $0.id == id }) else { return }
+        if !resumingSession { tab.interactionState = nil }
         restoreArchived(tab, at: TabList.openIndex(for: tab.kind))
     }
 

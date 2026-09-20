@@ -233,3 +233,27 @@ final class SidebarRowColumnTests: XCTestCase {
         )
     }
 }
+
+/// The row at the top of §3.4's list.
+///
+/// It read `+ Add Tab` and it made a blank tab, which is the one tab nobody
+/// wants: the next thing anybody does with one is reach for the address bar.
+/// It asks the question instead now — the row opens §9.1 in `.newTab`, so
+/// closing the bar without choosing leaves the list exactly as it was rather
+/// than one empty page longer.
+@MainActor
+final class SidebarAddRowTests: XCTestCase {
+
+    func testTheFirstRowIsCalledNewTab() {
+        XCTAssertEqual(TabListController().content(for: 0).title, "New Tab")
+    }
+
+    /// And it is still a row with a symbol rather than a favicon, which is how
+    /// `SidebarRowView` knows to draw its glyph slot.
+    func testItStillDrawsItsOwnGlyph() {
+        let content = TabListController().content(for: 0)
+        XCTAssertEqual(content.symbolName, "plus")
+        XCTAssertNil(content.favicon)
+    }
+}
+

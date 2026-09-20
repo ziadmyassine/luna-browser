@@ -102,6 +102,25 @@ final class CommandBarPanel: NSView {
     /// The pill this bar grew out of, or nil for §9.1's floating panel.
     let anchor: CommandBarAnchor?
 
+    /// True from the moment `animateIn` is called until the bar has finished
+    /// opening. **Nothing may rebuild the list while it is true** — see
+    /// `CommandBarController.apply`.
+    private(set) var isOpening = false
+
+    /// Called once, when the opening animation has finished — or immediately,
+    /// when there was none to run.
+    var onOpened: (() -> Void)?
+
+    /// Ends the opening window, at most once.
+    func finishOpening() {
+        guard isOpening else { return }
+        isOpening = false
+        onOpened?()
+    }
+
+    /// Starts it. Only `animateIn` calls this.
+    func beginOpening() { isOpening = true }
+
     /// How tall the input row is: a chrome bar's 52 pt when the panel floats,
     /// and the pill's own height **plus a margin above and below** when it grew
     /// from one. Read live, because §3.2b's pill is 22 pt collapsed and 34 open.

@@ -271,10 +271,10 @@ final class SidebarViewController: NSViewController {
     private func wireList() {
         list.onActivateTab = { [weak self] id in self?.session.activateTab(id) }
         list.onCloseTab = { [weak self] id in self?.session.closeTab(id) }
-        list.onAddTab = { [weak self] in
-            guard let self else { return }
-            session.activateTab(session.newTab(url: nil, kind: .today))
-        }
+        // §9.1, not a blank tab. The Command Bar opens in `.newTab` — so what
+        // it lands on is a *new* tab — and closing it without choosing leaves
+        // the list exactly as it was rather than one empty page longer.
+        list.onAddTab = { [weak self] in self?.session.presentCommandBar?(.newTab, nil) }
         list.menuActions = { [weak self] id in self?.session.tabMenuActions(for: id) }
         wireDrag()
         list.onToggleMute = { [weak self] id in

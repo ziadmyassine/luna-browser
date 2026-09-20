@@ -39,7 +39,7 @@
 import AppKit
 
 @MainActor
-final class SidebarControlRow: NSView {
+final class SidebarControlRow: NSView, TrafficLightNeighbour {
 
     var onToggleSidebar: (() -> Void)?
     var onBack: (() -> Void)?

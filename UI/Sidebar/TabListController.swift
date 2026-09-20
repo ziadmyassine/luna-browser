@@ -222,7 +222,12 @@ final class TabListController: NSObject {
     func content(for row: Int) -> SidebarRowContent {
         switch list[row] {
         case .addTab:
-            return SidebarRowContent(title: "Add Tab", symbolName: "plus")
+            // **"New Tab", and it opens §9.1 rather than an empty page.** The
+            // row used to be `+ Add Tab` and used to make a blank tab, which is
+            // the one tab nobody wants: the next thing you do with it is reach
+            // for the address bar. It now asks the question the blank tab was
+            // standing in for.
+            return SidebarRowContent(title: "New Tab", symbolName: "plus")
         case .separator, .none:
             return SidebarRowContent()
         case .tab:
