@@ -40,6 +40,21 @@ enum SidebarMenu {
         return item
     }
 
+    /// §6.2 from the foot of the sidebar — the two verbs every surface down
+    /// there offers on a right-click.
+    ///
+    /// One builder rather than three copies because the *region* is what
+    /// carries the menu, not any one control in it: the profile line, the Space
+    /// strip and the bar they sit in are one thing to a user aiming at "the
+    /// Spaces bit", and a menu that appeared on two of the three would read as
+    /// a menu that sometimes fails.
+    static func spaces(edit: @escaping () -> Void, new: @escaping () -> Void) -> NSMenu {
+        let menu = NSMenu()
+        menu.addItem(item(title: String(localized: "Edit Spaces…"), action: edit))
+        menu.addItem(item(title: String(localized: "New Space"), action: new))
+        return menu
+    }
+
     /// **A menu item's title with its glyph drawn into it**, which is the only way to put
     /// an icon in a menu on this macOS.
     ///

@@ -1,0 +1,291 @@
+//
+//  SpaceDotView.swift
+//  Luna
+//
+//  One §3.5 dot, and §30.9's `+` that stands where the next one would.
+//
+//  The dot is its own view because it is four things at once: a click target, a
+//  §6.6 landing place, an accessibility element carrying the Space's name, and
+//  — since §30.9 — a read-out of a gesture that is still in the user's hand.
+//
+//  **It is told where to draw its mark; it does not work it out.** `bounds`
+//  is the dot's *slot*, which is as wide as the gap to its neighbour and is not
+//  necessarily symmetric about the dot: the first and last slots run out to the
+//  pill's edges. Centring the mark in the slot is what made the row of dots
+//  crooked in the first place — see `SpaceDotsView`'s header — so the strip
+//  computes every centre in one pass and hands each dot the one that is its.
+//
+
+import AppKit
+import BrowserKit
+
+/// One dot.
+@MainActor
+final class SpaceDotView: NSView {
+
+    let space: Space
+    var onActivate: (() -> Void)?
+    var onSetGradient: ((GradientPair) -> Void)?
+    var onEditSpaces: (() -> Void)?
+
+    /// This is the Space the window is actually in.
+    ///
+    /// **It is the accessibility answer, not the drawn one.** `wearsRing` is
+    /// what the eye follows, and mid-swipe that is the Space you are *about* to
+    /// be in — which is the right thing to show a hand and the wrong thing to
+    /// tell VoiceOver, because nothing has happened yet.
+    var isActive = false {
+        didSet {
+            guard isActive != oldValue else { return }
+            setAccessibilitySelected(isActive)
+        }
+    }
+
+    /// §6.6's lift is over this dot. Set by `SpaceDotsView`, which is the only
+    /// thing that knows where the lift is.
+    var isDropTarget = false { didSet { needsDisplay = true } }
+
+    /// Where in the slot the 6 pt mark goes, from the slot's leading edge.
+    var markCentreX: CGFloat = 0 {
+        didSet {
+            guard markCentreX != oldValue else { return }
+            needsDisplay = true
+        }
+    }
+
+    /// 0…1 — how much of §3.5's "100 % / 35 %" step this dot has. 1 on the
+    /// Space you are in, and a fraction of it mid-swipe, so the ink moves from
+    /// one dot to the next with the finger rather than jumping at the end.
+    var presence: CGFloat = 0 {
+        didSet {
+            guard presence != oldValue else { return }
+            needsDisplay = true
+        }
+    }
+
+    /// The dot a release would land on. Normally the active one; during a
+    /// §30.9 swipe it is the Space you are about to get.
+    var wearsRing = false { didSet { needsDisplay = true } }
+
+    // A gradient layer, because §8.2a's dot is the Space's own pair of stops
+    // rather than a shared ink — `updateLayer` sets `colors` on it.
+    private let mark = CAGradientLayer()
+
+    init(space: Space, position: Int, of count: Int) {
+        self.space = space
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.addSublayer(mark)
+        // §8/§21.2: the name, not the gradient, is what identifies a Space.
+        toolTip = space.name
+        setAccessibilityElement(true)
+        setAccessibilityRole(.radioButton)
+        setAccessibilityLabel(space.name)
+        setAccessibilityValue("\(position) of \(count)")
+        setAccessibilitySelected(false)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("Luna builds its chrome in code; there is no nib to decode.")
+    }
+
+    override var wantsUpdateLayer: Bool { true }
+
+    override func updateLayer() {
+        let size = Tokens.Metric.spaceDot
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        mark.frame = NSRect(
+            x: markCentreX - size / 2,
+            y: (bounds.height - size) / 2,
+            width: size,
+            height: size
+        ).pixelAligned
+        mark.cornerRadius = size / 2
+        // §8.2a's full intensity, and the whole point of the twelve pairs: the
+        // dots were `Text.primary` / `Text.tertiary`, so every Space looked
+        // identical no matter what gradient it carried.
+        let stops = Tokens.Gradient.planes(space.gradient, at: .full, in: effectiveAppearance)
+        mark.startPoint = CGPoint(x: 0, y: 1)
+        mark.endPoint = CGPoint(x: 1, y: 0)
+        mark.colors = [stops.start.cgColor, stops.end.cgColor]
+        // §3.5's "100 % / 35 %" step, kept — but the inactive dot is now a
+        // dimmer version of *its own* colour rather than of a shared ink, and
+        // the step is crossed continuously so a swipe can sit between two.
+        mark.opacity = Float(Self.restingInk + (1 - Self.restingInk) * max(0, min(presence, 1)))
+        // §21.2 Differentiate Without Colour: exactly one dot wears a ring, so
+        // "which Space am I in" never depends on being able to tell two hues
+        // apart — and mid-swipe it is the answer to "which one am I getting".
+        // The drop ring outranks it: during a §6.6 drag the question is where
+        // the tab is about to land.
+        mark.borderWidth = isDropTarget || wearsRing ? Tokens.Metric.hairline : 0
+        mark.borderColor = isDropTarget ? Tokens.Accent.tint.cgColor : Tokens.Text.primary.cgColor
+        CATransaction.commit()
+    }
+
+    /// §3.5's inactive dot, as a fraction of full ink.
+    static let restingInk: CGFloat = 0.45
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        needsDisplay = true
+    }
+
+    /// §30.1: the sidebar's plane moves the window; a control on it does not.
+    override var mouseDownCanMoveWindow: Bool { false }
+
+    override func mouseUp(with event: NSEvent) {
+        guard bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
+        onActivate?()
+    }
+
+    override func accessibilityPerformPress() -> Bool {
+        onActivate?()
+        return true
+    }
+
+    // MARK: - §8.2 / §13.6 the colour menu
+
+    /// Right-click a dot to recolour its Space, to — the part Arc needed a help
+    /// article for — leave a colour again, and to open §6.2's other five
+    /// settings in the window that holds them.
+    ///
+    /// A menu on the dot rather than only a Settings pane because the dot is
+    /// the one place a Space is *visible*: Arc's "How Do I Restore the Default
+    /// Theme" exists because getting out of a theme was somewhere else
+    /// entirely, and Zen has an open issue for not being able to unset a
+    /// gradient at all. Colour stays here, in the hand; renaming, reordering
+    /// and the Profile are a window away rather than a menu deeper.
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let menu = NSMenu()
+        menu.addItem(SidebarMenu.header("Colour for \(space.name)"))
+        for (index, gradient) in Tokens.Gradient.spacePalette.enumerated() {
+            let item = SidebarMenu.item(title: Tokens.Gradient.spacePaletteNames[index]) { [weak self] in
+                self?.onSetGradient?(gradient)
+            }
+            item.image = SidebarMenu.swatch(gradient, in: effectiveAppearance)
+            item.state = gradient == space.gradient ? .on : .off
+            menu.addItem(item)
+        }
+        menu.addItem(.separator())
+        // §13.6's one click back to neutral. Always present, never conditional
+        // on the Space already carrying a colour — a way out that only appears
+        // once you are lost is not a way out.
+        let reset = SidebarMenu.item(title: "No Colour") { [weak self] in
+            self?.onSetGradient?(Tokens.Gradient.neutral)
+        }
+        reset.image = SidebarMenu.swatch(Tokens.Gradient.neutral, in: effectiveAppearance)
+        reset.state = Tokens.Gradient.isNeutral(space.gradient) ? .on : .off
+        menu.addItem(reset)
+        menu.addItem(.separator())
+        menu.addItem(SidebarMenu.item(title: String(localized: "Edit “\(space.name)”…")) { [weak self] in
+            self?.onEditSpaces?()
+        })
+        menu.addItem(.separator())
+        // Arc's own documentation shouts this, and it is the combination that
+        // works: colour is per Space, Light/Dark is not. Saying so here is
+        // cheaper than the support article that follows from not saying it.
+        menu.addItem(SidebarMenu.header("Light and Dark apply to every Space"))
+        return menu
+    }
+}
+
+/// §30.9's `+`: the mark that stands where the next Space would, once the swipe
+/// has run out of Spaces to reach.
+///
+/// **The ring is the gesture's own progress bar, and it is deliberately slow to
+/// fill.** Switching Space is a flick; creating one is not something to do by
+/// accident with the same flick, so the travel that closes this circle is twice
+/// the travel that moves a Space (`Metric.spaceCreateTravel` against
+/// `spaceSwipeTravel`). A closed ring is the gesture saying, before the fingers
+/// come up, that letting go now makes a Space.
+@MainActor
+final class SpaceCreateMarkView: NSView {
+
+    /// 0…1. 1 is a closed circle.
+    var progress: CGFloat = 0 {
+        didSet {
+            guard progress != oldValue else { return }
+            needsDisplay = true
+        }
+    }
+
+    private let ring = CAShapeLayer()
+    private let plus = CALayer()
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        ring.fillColor = nil
+        ring.lineCap = .round
+        layer?.addSublayer(ring)
+        layer?.addSublayer(plus)
+        setAccessibilityElement(false)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("Luna builds its chrome in code; there is no nib to decode.")
+    }
+
+    override var wantsUpdateLayer: Bool { true }
+
+    override func updateLayer() {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        let line = Tokens.Metric.spaceCreateRingLine
+        let circle = bounds.insetBy(dx: line / 2, dy: line / 2)
+        // Anticlockwise from 12 o'clock in AppKit's y-up space is clockwise on
+        // screen, which is the direction every progress ring on this platform
+        // sweeps.
+        let path = CGMutablePath()
+        path.addArc(
+            center: CGPoint(x: bounds.midX, y: bounds.midY),
+            radius: circle.width / 2,
+            startAngle: .pi / 2,
+            endAngle: .pi / 2 - 2 * .pi,
+            clockwise: true
+        )
+        ring.path = path
+        ring.lineWidth = line
+        ring.strokeColor = Tokens.Text.primary.cgColor
+        ring.strokeEnd = max(0, min(progress, 1))
+        // The glyph fades in over the first half of the travel: at the moment
+        // the ring appears the finger has not yet said it means it.
+        let glyph = Tokens.Metric.spaceCreatePlus
+        plus.frame = NSRect(
+            x: (bounds.width - glyph) / 2,
+            y: (bounds.height - glyph) / 2,
+            width: glyph,
+            height: glyph
+        ).pixelAligned
+        plus.contents = Self.plusImage(in: effectiveAppearance)
+        plus.opacity = Float(max(0, min(progress * 2, 1)))
+        CATransaction.commit()
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        needsDisplay = true
+    }
+
+    /// Tinted by hand for `SidebarMenu.glyph`'s reason: nothing here is a
+    /// control, so nothing tints a template image on this layer's behalf.
+    private static func plusImage(in appearance: NSAppearance) -> NSImage? {
+        let side = Tokens.Metric.spaceCreatePlus
+        guard let base = NSImage(systemSymbolName: "plus", accessibilityDescription: nil)?
+            .withSymbolConfiguration(.init(pointSize: side, weight: .semibold))
+        else { return nil }
+        return NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
+            var drawn = false
+            appearance.performAsCurrentDrawingAppearance {
+                base.draw(in: rect)
+                Tokens.Text.primary.setFill()
+                rect.fill(using: .sourceAtop)
+                drawn = true
+            }
+            return drawn
+        }
+    }
+}

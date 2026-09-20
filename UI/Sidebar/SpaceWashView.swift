@@ -82,6 +82,69 @@ final class SpaceWashView: NSView {
         apply(animated: !isFirst)
     }
 
+    /// **While §30.9's swipe is in the hand**: the Space you are in, blended
+    /// `mix` of the way toward the one you are sliding toward.
+    ///
+    /// The wash is the largest thing on screen that says which Space this is,
+    /// so it is also the most honest place to show a Space arriving. It moves
+    /// with the fingers and it moves back when they stop, which is what makes
+    /// an abandoned swipe read as abandoned rather than as a switch that did
+    /// not take.
+    ///
+    /// Never animated: `mix` already *is* the animation, one frame per event.
+    /// Passing `nil` or `mix: 0` restores the active pair — the swipe's own
+    /// reset, and what `SidebarViewController` calls when the gesture ends.
+    ///
+    /// **A straight four-channel lerp, not `blended(toward:)`.** That one is
+    /// alpha-correct for laying a translucent fill *over* a colour, which means
+    /// a target of zero alpha contributes nothing — so sliding from a coloured
+    /// Space toward a neutral one would have shown no change at all, in the one
+    /// direction where the whole wash is what is going away. A cross-fade is
+    /// not a layer over another layer; it is two layers, one of which is
+    /// leaving, and alpha is one of the things travelling.
+    /// - Parameters:
+    ///   - lower: the Space on the left of where the indicator currently is.
+    ///   - upper: the one on its right. The two are the same pair whenever the
+    ///     indicator is sitting on a Space rather than between two.
+    ///   - mix: 0 is all `lower`, 1 all `upper`.
+    func preview(between lower: GradientPair, and upper: GradientPair, mix: CGFloat) {
+        let fraction = max(0, min(Double(mix), 1))
+        let appearance = effectiveAppearance
+        let here = Self.washColors(for: lower, in: appearance)
+        let there = Self.washColors(for: upper, in: appearance)
+        let blended = zip(here, there).map { Self.lerp($0, $1, fraction, in: appearance).cgColor }
+        Tokens.Motion.immediately { wash.colors = blended }
+    }
+
+    /// The fingers came up. Back to the Space the window is actually in, with
+    /// no animation: either the swipe was abandoned and the wash was never more
+    /// than a point or two away from here, or it committed and `show(_:)` is
+    /// about to cross-fade to somewhere else entirely.
+    func endPreview() {
+        apply(animated: false)
+    }
+
+    /// `fraction` of the way from `from` to `to`, alpha included.
+    ///
+    /// A fully transparent end has **no hue to travel toward**, and `.clear` is
+    /// stored as transparent black — so mixing its channels in would drag a
+    /// Space's colour through grey on its way out. Neutral is exactly that
+    /// case, and it is the one pair a user reaches for when they want the tint
+    /// gone. Either end being clear therefore fades the *other* end's hue by
+    /// alpha alone.
+    static func lerp(_ from: NSColor, _ to: NSColor, _ fraction: Double, in appearance: NSAppearance) -> NSColor {
+        let lhs = from.srgbComponents(for: appearance)
+        let rhs = to.srgbComponents(for: appearance)
+        let hue = lhs.alpha == 0 ? rhs : rhs.alpha == 0 ? lhs : nil
+        let mix = { (start: Double, end: Double) in start + (end - start) * fraction }
+        return NSColor(
+            srgbRed: hue?.red ?? mix(lhs.red, rhs.red),
+            green: hue?.green ?? mix(lhs.green, rhs.green),
+            blue: hue?.blue ?? mix(lhs.blue, rhs.blue),
+            alpha: mix(lhs.alpha, rhs.alpha)
+        )
+    }
+
     override func layout() {
         super.layout()
         // Bounds-derived, so it may never animate — see `Motion.immediately`.

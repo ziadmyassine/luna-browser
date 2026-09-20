@@ -26,7 +26,11 @@ import BrowserKit
 @MainActor
 final class TabListController: NSObject {
 
-    let scrollView = NSScrollView()
+    /// `SidebarScrollView`, not `NSScrollView`: §30.9's swipe is caught on the
+    /// sidebar's plane, and a scroll view consumes both axes — so without the
+    /// subclass the gesture would work everywhere except over the rows, which
+    /// is most of the column and all of the part a hand rests on.
+    let scrollView: NSScrollView = SidebarScrollView()
 
     var onActivateTab: ((UUID) -> Void)?
     var onCloseTab: ((UUID) -> Void)?

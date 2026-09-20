@@ -69,10 +69,49 @@ extension TokenCheck {
             ("settingsDefaultHeight", Tokens.Metric.settingsDefaultHeight),
             ("settingsMinWidth", Tokens.Metric.settingsMinWidth),
             ("settingsMinHeight", Tokens.Metric.settingsMinHeight),
-            ("settingsListWidth", Tokens.Metric.settingsListWidth)
+            ("settingsListWidth", Tokens.Metric.settingsListWidth),
+            ("spaceSwipeTravel", Tokens.Metric.spaceSwipeTravel),
+            ("spaceCreateTravel", Tokens.Metric.spaceCreateTravel),
+            ("spaceCreateRing", Tokens.Metric.spaceCreateRing),
+            ("spaceCreateRingLine", Tokens.Metric.spaceCreateRingLine),
+            ("spaceCreatePlus", Tokens.Metric.spaceCreatePlus),
+            ("spaceSwipeParallax", Tokens.Metric.spaceSwipeParallax),
+            ("sidebarProfileRow", Tokens.Metric.sidebarProfileRow)
         ]
         failures += scalars.filter { $0.1 <= 0 }.map { "Metric.\($0.0) is not positive" }
-        return failures + checkRowInsets()
+        return failures + checkSpaceSwipe() + checkRowInsets()
+    }
+
+    /// §30.9's gesture, re-derived rather than restated.
+    ///
+    /// **The asymmetry is the feature.** Switching Space and creating one are
+    /// the same two fingers continued, and the only thing standing between a
+    /// reflex performed a hundred times a day and a Space nobody asked for is
+    /// that the second half of the travel is longer than the first. Tidying the
+    /// two numbers into one — or into the same one — is the change this check
+    /// exists to fail.
+    private static func checkSpaceSwipe() -> [String] {
+        var failures: [String] = []
+        let metric = Tokens.Metric.self
+        if metric.spaceCreateTravel <= metric.spaceSwipeTravel {
+            failures.append(String(
+                format: "Metric.spaceCreateTravel is %.0f against a %.0f Space — making one is no harder than reaching one",
+                metric.spaceCreateTravel, metric.spaceSwipeTravel
+            ))
+        }
+        // The ring stands in a dot's slot, so it has to fit the pill it stands in.
+        if metric.spaceCreateRing > metric.spaceDotsPill.height {
+            failures.append("Metric.spaceCreateRing is taller than the pill it stands in")
+        }
+        // A `+` that fills its ring is a `+` in a box, and the ring is the part
+        // carrying the progress.
+        if metric.spaceCreatePlus + 2 * metric.spaceCreateRingLine >= metric.spaceCreateRing {
+            failures.append("Metric.spaceCreatePlus fills spaceCreateRing — the ring needs room to read as a ring")
+        }
+        if metric.spaceCreateRingLine <= metric.hairline {
+            failures.append("Metric.spaceCreateRingLine is at hairline — a progress ring has to be legible when part-drawn")
+        }
+        return failures
     }
 
     /// §3.4's row geometry, re-derived rather than trusted.

@@ -303,7 +303,14 @@ extension SpacesSection {
     /// §13.10: Arc supports emoji as well as SF Symbols, and SigmaOS is
     /// emoji-first. Luna is symbols-only for now and that is named in the
     /// report rather than pretended away.
+    ///
+    /// **The first entry is the one a Space is born with.** It was missing, and
+    /// it made the picker lie: `firstIndex(of:) ?? 0` showed "Grid" selected on
+    /// every Space that had never been re-iconed, which was all of them.
+    /// `SpaceAppearanceView` marks the icon a Space actually wears, so the same
+    /// gap showed up honestly instead — as a grid with nothing chosen in it.
     static let symbols: [(label: String, name: String)] = [
+        (String(localized: "Moon"), BrowserSession.defaultSpaceSymbol),
         (String(localized: "Grid"), "square.grid.2x2"),
         (String(localized: "Planet"), "globe.americas"),
         (String(localized: "Briefcase"), "briefcase"),

@@ -70,16 +70,26 @@ final class SidebarViewController: NSViewController {
         view.needsLayout = true
     }
 
+    // **Internal rather than private from here down**, and only because Swift's
+    // `private` is file-scoped: `SidebarViewController+Layout.swift` is the
+    // other half of this class, and every position in the column is computed
+    // there. Nothing outside this file's pair touches them.
     private let session: BrowserSession
     /// §8.2a's sidebar wash — the active Space's gradient at 16 %, behind
     /// everything. First in `loadView`'s subview list so it stays behind.
-    private let wash = SpaceWashView()
-    private let controlRow = SidebarControlRow()
-    private let pill = URLPillView()
-    private let essentials = EssentialsGridView()
-    private let list = TabListController()
-    private let utility = SidebarUtilityBar()
-    private let handle = SidebarResizeHandle()
+    let wash = SpaceWashView()
+    let controlRow = SidebarControlRow()
+    let pill = URLPillView()
+    let essentials = EssentialsGridView()
+    let list = TabListController()
+    let utility = SidebarUtilityBar()
+    /// §3.5's profile line, directly above the Space strip. See the view.
+    let profile = SidebarProfileLabel()
+    let handle = SidebarResizeHandle()
+    /// §30.9's swipe, §6.1's create and §6.2's way into Settings — everything
+    /// the foot of the sidebar does *to* Spaces rather than with them. Built in
+    /// `viewDidLoad`, because it drives views this controller has not made yet.
+    private var spaces: SidebarSpaceGestures?
     /// §6.6's lift. Built in `viewDidLoad`, because it needs the root view it
     /// floats a dragged tab over.
     private var drag: SidebarTabDragController?
@@ -88,7 +98,7 @@ final class SidebarViewController: NSViewController {
     /// The Essentials grid's height on the last layout pass. When it changes —
     /// a tab was pinned or unpinned — everything below it moves, and that move
     /// is animated instead of snapping.
-    private var lastGridHeight: CGFloat?
+    var lastGridHeight: CGFloat?
 
     init(session: BrowserSession) {
         self.session = session
@@ -101,8 +111,17 @@ final class SidebarViewController: NSViewController {
     }
 
     override func loadView() {
-        let root = NSView()
-        for subview in [wash, controlRow, pill, essentials, list.scrollView, utility, handle] {
+        let root = SidebarRootView()
+        // §30.9 is caught here rather than on any one child: the gesture is
+        // about the column, and the column is what the hand is resting on.
+        root.onScroll = { [weak self] event in self?.spaces?.scrollWheel(with: event) ?? false }
+        // The list is the part of the column a hand rests on, and a scroll view
+        // consumes both axes — so it offers the swipe every event first. See
+        // `SidebarScrollView`.
+        (list.scrollView as? SidebarScrollView)?.onScroll = { [weak self] event in
+            self?.spaces?.scrollWheel(with: event) ?? false
+        }
+        for subview in [wash, controlRow, pill, essentials, list.scrollView, profile, utility, handle] {
             root.addSubview(subview)
         }
         view = root
@@ -110,6 +129,12 @@ final class SidebarViewController: NSViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        spaces = SidebarSpaceGestures(
+            session: session,
+            utility: utility,
+            wash: wash,
+            content: [essentials, list.scrollView]
+        )
         wireControls()
         wireList()
         NSWorkspace.shared.notificationCenter.addObserver(
@@ -162,6 +187,12 @@ final class SidebarViewController: NSViewController {
         list.mutedTabIDs = session.mutedTabIDs
         list.show(session.tabs, activeTabID: session.activeTabID)
         utility.show(spaces: session.spaces, activeSpaceID: session.activeSpaceID)
+        // §3.5's line, and §9's fan-out made visible: the Profile is derived
+        // from the Space, so it changes on a Space switch **and** on a
+        // re-profile without one.
+        profile.show(profileName: session.space(session.activeSpaceID).flatMap {
+            session.profile(for: $0)?.name
+        })
         refreshActiveTab()
         if switchingSpace {
             // §21.2: Reduce Motion takes the fade away rather than shortening
@@ -197,6 +228,9 @@ final class SidebarViewController: NSViewController {
     /// Everything is re-read and the list's row views are rebuilt — see
     /// `ChromeHostView.onShowSidebar` for why the rebuild is not optional.
     func willAppear() {
+        // A swipe whose fingers left while this column was off screen has no
+        // release to wait for. Silent — see `SpaceSwipeController.cancel`.
+        spaces?.cancel()
         list.reload()
         refresh()
         view.needsLayout = true
@@ -249,6 +283,13 @@ final class SidebarViewController: NSViewController {
         handle.onWidthCommitted = { [weak self] width in self?.onWidthChange?(width) }
 
         utility.onProfile = { [weak self] in self?.onProfileMenu?() }
+        // §6.2 lives in Settings and there is one window of it, so the foot of
+        // the sidebar asks the app for it rather than growing its own copy —
+        // the same route §3.2's site menu takes to the Privacy section.
+        utility.onEditSpaces = { [weak self] in self?.spaces?.editSpaces() }
+        utility.onNewSpace = { [weak self] in self?.spaces?.createSpace() }
+        profile.onEditSpaces = { [weak self] in self?.spaces?.editSpaces() }
+        profile.onNewSpace = { [weak self] in self?.spaces?.createSpace() }
         utility.onHistory = { [weak self] in self?.onOpenHistory?() }
         utility.onDownloads = { [weak self] in self?.onOpenDownloads?() }
         utility.onSwitchSpace = { [weak self] id in self?.session.switchSpace(id) }
@@ -340,107 +381,12 @@ final class SidebarViewController: NSViewController {
     @objc private func accessibilityDisplayOptionsChanged() {
         pill.accessibilityDisplayOptionsChanged()
         list.accessibilityDisplayOptionsChanged()
+        profile.accessibilityDisplayOptionsChanged()
         Self.redraw(view)
     }
 
     private static func redraw(_ view: NSView) {
         view.needsDisplay = true
         for subview in view.subviews { redraw(subview) }
-    }
-
-    // MARK: - Layout
-
-    override func viewDidLayout() {
-        super.viewDidLayout()
-        // Every frame below is computed from `bounds`, so none of them may
-        // animate — see `Motion.immediately`. Without this the §4.1 layout
-        // switch's own transaction swallowed the whole pass.
-        //
-        // The one exception is the pass where the Essentials grid changed
-        // height: the list and the scroll view below it have to travel, and
-        // snapping them is what made pinning a tab look like a redraw rather
-        // than a movement.
-        let gridHeight = essentials.intrinsicContentSize.height
-        let moved = lastGridHeight.map { $0 != gridHeight } ?? false
-        lastGridHeight = gridHeight
-        guard moved, !Tokens.Motion.reduceMotion else {
-            Tokens.Motion.immediately { layoutSubviews() }
-            return
-        }
-        Tokens.Motion.animate(Tokens.Motion.tabInsert) { context in
-            context.allowsImplicitAnimation = true
-            layoutSubviews()
-        }
-    }
-
-    /// **Every position is computed, and none is read back.**
-    ///
-    /// This used to walk down the column asking each view where the one above
-    /// it had ended up — `pill.frame.minY`, `essentials.frame.minY`. Inside an
-    /// animated pass that read is a frame behind: setting a frame under
-    /// `allowsImplicitAnimation` routes it through the animator, and the getter
-    /// hands back the value the view still has. So on the pass where the grid
-    /// *shrank*, the scroll view under it was sized against the grid's old
-    /// bottom edge and stayed a tile-row short — an unpinned tab left a 47 pt
-    /// hole between the tiles and the list that only a window resize cleared.
-    /// The column's geometry is arithmetic; it is done here, once, in locals.
-    private func layoutSubviews() {
-        let bounds = view.bounds
-        wash.frame = bounds
-        let inset = Tokens.Metric.rowInset
-        let bar = Tokens.Metric.topBarHeight
-        // §3.2b: the pill is on the page, so the column closes up over its row
-        // — and the control row above it shrinks to what the lights need.
-        let pillHeight = pill.isHidden ? 0 : Tokens.Metric.urlPill.height
-        let head = pill.isHidden ? Tokens.Metric.sidebarHeadlessRow : bar
-        let gridHeight = essentials.intrinsicContentSize.height
-        let controlTop = bounds.maxY - head
-        let pillTop = controlTop - pillHeight
-        let gridTop = pillTop - gridHeight
-
-        controlRow.frame = NSRect(x: 0, y: controlTop, width: bounds.width, height: head)
-        // The row places its buttons against the **traffic lights**, which move
-        // and disappear without its own bounds changing — entering fullscreen
-        // takes them away and leaves the row exactly 52 pt tall and exactly as
-        // wide. Nothing would mark it dirty, so the row kept a hole at its head
-        // where three lights used to be.
-        controlRow.needsLayout = true
-        // Flush under the control row, not §3.2's 12 pt below it: the row is
-        // 52 pt and its buttons are only 35, so the row already carries ~8 pt
-        // of clear space below them — which is exactly the gap the reference
-        // measures between the reload button and the top of the pill. Adding a
-        // second gap on top of it doubles a space that is already right.
-        pill.frame = NSRect(
-            x: inset,
-            y: pillTop,
-            width: max(bounds.width - 2 * inset, 0),
-            height: pillHeight
-        ).integral
-
-        essentials.frame = NSRect(x: 0, y: gridTop, width: bounds.width, height: gridHeight).integral
-
-        utility.frame = NSRect(x: 0, y: 0, width: bounds.width, height: bar)
-        list.scrollView.frame = NSRect(
-            x: 0,
-            y: bar,
-            width: bounds.width,
-            height: max(gridTop - bar, 0)
-        ).integral
-
-        // Placed so its 8 pt hit strip is the sidebar's own inner 8 pt: hit
-        // testing stops at a superview's bounds, so a handle centred on the
-        // divider would have half a dead hit area. The drawn glyph still
-        // overhangs into the §3.6 gap, which is where §3.7 wants it. Which edge
-        // is "inner" is the one the page is on, so it follows the column.
-        let handleWidth = Tokens.Metric.resizeHandle.width
-        let hit = Tokens.Metric.resizeHandleHitWidth
-        handle.frame = NSRect(
-            x: sidebarEdge == .trailing
-                ? bounds.minX - (handleWidth - hit) / 2
-                : bounds.maxX - (handleWidth + hit) / 2,
-            y: 0,
-            width: handleWidth,
-            height: bounds.height
-        ).integral
     }
 }

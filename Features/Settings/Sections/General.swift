@@ -54,11 +54,26 @@ final class SettingsBody {
     /// labels a search should match it on — its title first, then any word a
     /// user would plausibly type for it.
     func card(_ title: String?, _ rows: [(view: NSView, terms: [String])]) {
+        install(SettingsRow.group(title, rows.map(\.view)), rows: rows)
+    }
+
+    /// A card the section built for itself, with its rows named separately so
+    /// §2's search can still empty it.
+    ///
+    /// The one caller is §3.7's Space card, which is headed by the Space's own
+    /// gradient rather than by a line of type — see `SpaceCardView`. Everything
+    /// downstream of this point treats it like any other card: the rows hide
+    /// one by one as the query narrows, and the card goes when the last of them
+    /// does.
+    func card(_ made: NSView, rows: [(view: NSView, terms: [String])]) {
+        install(made, rows: rows)
+    }
+
+    private func install(_ card: NSView, rows: [(view: NSView, terms: [String])]) {
         let index = cards.count
         for row in rows {
             entries.append(Entry(view: row.view, terms: row.terms.map { $0.lowercased() }, card: index))
         }
-        let card = SettingsRow.group(title, rows.map(\.view))
         cards.append(card)
         add(card)
     }
