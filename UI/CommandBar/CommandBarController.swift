@@ -29,42 +29,6 @@
 import AppKit
 import BrowserKit
 
-/// `⌘T` and `⌘L` (§9.1, §20.1), plus the pills that hand off to the bar.
-///
-/// The mode carries two separate things, and conflating them is what made the
-/// New Tab page open a *second* empty tab: what the field starts with, and
-/// which tab a chosen result lands in.
-enum CommandBarMode: Equatable {
-    /// `⌘T`: empty. Choosing a result opens a new tab.
-    case newTab
-    /// `⌘L`: prefilled with the current URL and selected. Choosing a result
-    /// navigates the tab you are already on.
-    case editCurrentURL
-    /// A pill handing off to the bar — the top bar's (§4) or the New Tab page's
-    /// (§30.19). Starts from whatever was typed into it, and navigates the tab
-    /// you are already standing on, because that is the tab you meant to fill.
-    case search(String)
-}
-
-extension CommandBarMode {
-
-    /// Whether a chosen result opens a **new** tab or navigates the current one.
-    /// This is the half of the mode that was wrong: the New Tab page's pill ran
-    /// as `.newTab`, so committing left the empty page behind and opened a
-    /// second tab next to it.
-    var opensNewTab: Bool { self == .newTab }
-
-    /// What the field starts with. `currentURL` is only read when the mode
-    /// actually wants it.
-    func prefill(currentURL: () -> String) -> String {
-        switch self {
-        case .newTab: ""
-        case .editCurrentURL: currentURL()
-        case let .search(text): text
-        }
-    }
-}
-
 @MainActor
 final class CommandBarController: NSObject, CommandBarInputDelegate {
 
@@ -148,7 +112,6 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
         if panel != nil { dismiss() }
         self.mode = mode
         self.anchor = anchor
-        anchor?.view.isHidden = true
         selectionIsUserDriven = false
         refreshSources()
 
@@ -171,7 +134,15 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
         )
 
         runQuery(prefill)
-        panel.animateIn()
+        panel.prepareToOpen()
+        // **In the same turn as `prepareToOpen`, so it is the same commit.**
+        // The pill going and the bar arriving are one swap at one corner: the
+        // screen holds the frame it has until the panel is drawn, and what it
+        // draws next is the same capsule in the same place with a caret in it.
+        // Hidden a turn earlier — which is where it used to be — that corner
+        // of the chrome is empty for as long as the panel takes to build.
+        anchor?.view.isHidden = true
+        openWhenReady()
 
         NotificationCenter.default.addObserver(
             self,
@@ -181,8 +152,43 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
         )
     }
 
+    /// True between `prepareToOpen` and the moment the bar actually opens —
+    /// see `openWhenReady`. The bar is standing at the pill's size for all of
+    /// it, so there is nothing to see while it lasts.
+    private var isWaitingToOpen = false
+
+    /// **The bar opens once, with the list it is going to have.**
+    ///
+    /// Two things happen between the click and a settled list, and neither is
+    /// free: the panel's first composite (65 ms, measured — see
+    /// `prepareToOpen`) and the store's answer to the opening query (about 9 ms
+    /// of SQLite, which cannot start until the main thread lets go of it).
+    /// Opening before both have landed is what Martin was watching: the morph
+    /// began on a list built from open tabs alone, the history arrived halfway
+    /// through, and the rows re-ranked under it.
+    ///
+    /// So the bar stands at the pill's own size and waits for whichever comes
+    /// first: the opening query landing, the first keystroke, or
+    /// `openDeadline`. The deadline is the honest half — a store that is busy
+    /// must not be able to hold the bar shut — and on a warm store, where the
+    /// query lands about 6 ms after the panel is drawn, it never fires.
+    private func openWhenReady() {
+        isWaitingToOpen = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + CommandBarMetrics.openDeadline) { [weak self] in
+            self?.openBar()
+        }
+    }
+
+    /// Opens it, at most once per presentation.
+    private func openBar() {
+        guard isWaitingToOpen, let panel else { return }
+        isWaitingToOpen = false
+        panel.animateIn()
+    }
+
     func dismiss() {
         guard let panel else { return }
+        isWaitingToOpen = false
         NotificationCenter.default.removeObserver(self, name: NSWindow.didResignKeyNotification, object: nil)
         let window = panel.window
         panel.removeFromSuperview()
@@ -227,6 +233,13 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
             await self?.adaptive.loadIfNeeded()
             guard let self, self.isPresented, let field = self.panel?.field else { return }
             self.sources.adaptive = self.adaptive.snapshot
+            // **Only when it could change the answer.** `adaptiveRows` is
+            // skipped for an empty query and an empty table matches no prefix,
+            // so on `⌘T` this was a second full merge *and* a second trip to
+            // SQLite — 9 ms of store query, measured, on the first open of
+            // every session — for a list that came back byte for byte the
+            // same, in the middle of opening the bar.
+            guard !self.adaptive.snapshot.isEmpty, !field.typedText.isEmpty else { return }
             self.runQuery(field.typedText)
         }
     }
@@ -235,6 +248,10 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
     func inputDidChange(_ typed: String) {
         selectionIsUserDriven = false
         runQuery(typed)
+        // Somebody typed into a bar that has not finished opening. Whatever
+        // `openWhenReady` was waiting for, it is answering a question the user
+        // has already moved past.
+        openBar()
     }
 
     private func runQuery(_ typed: String) {
@@ -261,6 +278,8 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
             guard let self, token == self.generation, self.panel?.field.typedText == typed else { return }
             self.sources.history = hits
             self.remerge(typed)
+            // The list the bar will open with is now complete.
+            self.openBar()
         }
 
         // §3.4. Nothing is asked for while the query still reads as an address:
@@ -301,9 +320,9 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
         let visible = Array(rows.prefix(CommandBarMetrics.visibleRows))
         // **Not while the bar is opening.** Replacing the list rebuilds eight
         // row views and re-draws them under live glass, on the thread running
-        // the bar's own 0.18 s animation. Opening on an *address* is where it
-        // bit: `⌘T` on a new tab asks SQLite a question whose answer it already
-        // shows, while a URL comes back with rows that land mid-morph.
+        // the bar's own 0.18 s animation. The bar now waits for the store
+        // before it opens (`openWhenReady`), so what still lands in this window
+        // is the slow half — the engine's suggestions, over the network.
         guard panel?.isOpening != true else {
             deferredRows = (visible, selection)
             return
@@ -312,12 +331,19 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
         announce(count: resultsView.results.count)
     }
 
-    /// The bar has opened: show whatever landed while it was opening.
+    /// The bar has opened: add whatever landed while it was opening, **without
+    /// moving what is already there**.
+    ///
+    /// §9.7's no-reorder rule is written for the user's cursor, and this is the
+    /// same rule one step earlier: a list that re-ranks itself the instant the
+    /// bar settles is a list nobody can read, whether or not a highlight has
+    /// been moved yet. The rows the bar opened with keep their places; a late
+    /// arrival takes the first free one, and takes none at all when the list is
+    /// already full. The next keystroke re-ranks everything anyway.
     private func showDeferredRows() {
-        guard let (rows, selection) = deferredRows else { return }
+        guard let (rows, _) = deferredRows else { return }
         deferredRows = nil
-        resultsView.setResults(rows, selecting: selection)
-        announce(count: resultsView.results.count)
+        apply(rows, appendOnly: true)
     }
 
     /// §21.1: the result count on every change, so a VoiceOver user is not left

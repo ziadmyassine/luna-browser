@@ -21,32 +21,56 @@ import AppKit
 /// grey tile on every row the pointer merely passed over. The square is the
 /// affordance for *this* control, so it appears when the pointer is on this
 /// control and not a moment before — glyph alone while the row is hovered, chip
-/// plus a "Close Tab" tip once you are actually on it. §3.2's sliders glyph
-/// asks for the same chip, for the same reason and out of the same two tokens.
+/// plus a "Close Tab" tip once you are actually on it.
+///
+/// **And every one of these glyphs wears it.** For a while the two inside §3.2's
+/// pill lifted their ink instead, on the argument that a rounded rectangle
+/// inside a capsule is two shapes. Martin's reference for a non-glass button —
+/// the three captures of a reload glyph at rest, under the pointer and under a
+/// press — is that chip, and he asked for it by name on "the close tab icon or
+/// site settings icon in the search bar". It is the same control in both
+/// places, so it is the same affordance, and one behaviour is one set of bugs.
+///
+/// The fill is §3.4's pair: `Surface.hover` under the pointer, `Surface.selected`
+/// under a press, cross-fading on §6's `controlHover` — which is what the
+/// reference measures at, near enough (7.6 % and 12.8 % of white over a dark
+/// bar, against Luna's 6 and 12). It is painted by the view's **own layer**,
+/// under the image rather than over it: an `NSImageView` draws its image into
+/// that layer's contents, so a background is behind the glyph and a sublayer
+/// would be in front of it.
 @MainActor
 final class RowGlyphView: NSImageView {
 
     var onActivate: (() -> Void)?
     var tint: NSColor = Tokens.Text.secondary { didSet { applyTint() } }
 
-    /// **Hover lifts the ink instead of drawing a chip.** The chip is a badge's
-    /// affordance — it says "this mark you are reading is also a button" — and
-    /// it is right on a tab row, where the glyph appears inside a title. A
-    /// glyph that is plainly one of a row of controls, like §3.2's two inside
-    /// the pill, wants what every other control in Luna's chrome does: the
-    /// secondary-to-primary step the `GlassButton`s beside it take. A rounded
-    /// rectangle inside a capsule would be two shapes.
-    var liftsInk = false { didSet { applyTint() } }
+    private var isHovering = false { didSet { applyState() } }
+    private var isPressed = false { didSet { applyState() } }
 
-    /// Draws the chip. Off by default: a glyph that is its own button — the
-    /// §3.1 circles, the §3.5 bar — already has a shape, and a second one
-    /// inside it is two backgrounds.
-    var chromed = false { didSet { needsDisplay = true } }
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.cornerCurve = Tokens.Metric.rowTrailingChip.cornerCurve
+    }
 
-    private var isHovering = false { didSet { applyTint() } }
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("Luna builds its chrome in code; there is no nib to decode.")
+    }
 
     private func applyTint() {
-        contentTintColor = liftsInk && isHovering ? Tokens.Text.primary : tint
+        contentTintColor = isHovering || isPressed ? Tokens.Text.primary : tint
+    }
+
+    /// The chip's fill, or nil at rest.
+    private var chip: NSColor? {
+        if isPressed { return Tokens.Surface.selected }
+        return isHovering ? Tokens.Surface.hover : nil
+    }
+
+    private func applyState(animated: Bool = true) {
+        applyTint()
+        Tokens.Motion.wash(layer, to: chip, animated: animated)
     }
 
     func configure(symbolName: String, label: String, pointSize: CGFloat = Tokens.Metric.faviconSize) {
@@ -65,16 +89,14 @@ final class RowGlyphView: NSImageView {
         setAccessibilityLabel(label)
     }
 
-    /// The chip is painted here rather than on the layer because `NSImageView`
-    /// draws its own image in `draw(_:)` — a layer background would sit on top
-    /// of the glyph, not behind it.
-    override func draw(_ dirtyRect: NSRect) {
-        if chromed, isHovering {
-            Tokens.Surface.selected.setFill()
-            let radius = Tokens.Metric.rowTrailingChip.cornerRadius
-            NSBezierPath(roundedRect: bounds, xRadius: radius, yRadius: radius).fill()
-        }
-        super.draw(dirtyRect)
+    override func layout() {
+        super.layout()
+        // The chip is the hit box, which is what the glyph's own frame is —
+        // see `URLPillLayout.placeContents`. Never taller than it is round.
+        layer?.cornerRadius = min(
+            Tokens.Metric.rowTrailingChip.cornerRadius,
+            min(bounds.width, bounds.height) / 2
+        )
     }
 
     // MARK: - Hover
@@ -91,29 +113,35 @@ final class RowGlyphView: NSImageView {
 
     override func mouseEntered(with event: NSEvent) {
         isHovering = true
-        needsDisplay = true
     }
 
     override func mouseExited(with event: NSEvent) {
         isHovering = false
-        needsDisplay = true
     }
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        applyTint()
+        applyState(animated: false)
     }
 
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
+        // Both colours were resolved into the appearance they were set in, so
+        // the chip is re-resolved rather than merely re-drawn.
+        applyState(animated: false)
         needsDisplay = true
     }
 
     override func mouseDown(with event: NSEvent) {
-        // Swallowed so the row does not also treat this as a selection click.
+        // The press is swallowed rather than ignored: the row underneath
+        // treats a `mouseDown` as a selection click, and this one is not.
+        isPressed = true
+        Tokens.Motion.swell(self, to: Tokens.Motion.pressSwell)
     }
 
     override func mouseUp(with event: NSEvent) {
+        isPressed = false
+        Tokens.Motion.swell(self, to: 1)
         guard bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
         onActivate?()
     }

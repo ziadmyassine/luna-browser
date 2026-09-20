@@ -92,7 +92,6 @@ final class SidebarRowView: NSView {
         )
         dot.wantsLayer = true
         dot.layer?.cornerRadius = Tokens.Metric.spaceDot / 2
-        trailing.chromed = true
         for label in [title, shimmer] {
             label.font = Tokens.TypeScale.sidebarRow
             // Clipping, not truncating: the fade below is what ends an

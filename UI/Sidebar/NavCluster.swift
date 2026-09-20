@@ -73,6 +73,14 @@ final class NavCluster: NSView {
         divider.wantsLayer = true
         back.onActivate = { [weak self] in self?.onBack?() }
         forward.onActivate = { [weak self] in self?.onForward?() }
+        // **The capsule is what the press is against.** Both halves are
+        // `.none` buttons, so neither has a material to swell — this does, and
+        // it is the shape the pointer is actually on. With back alone that is
+        // the circle from Martin's reference; with forward out it is the whole
+        // capsule, which is right for the same reason the glass is one piece.
+        for half in [back, forward] {
+            half.onPressChange = { [weak self] pressed in self?.setPressed(pressed) }
+        }
         for view in [back, divider, forward] { addSubview(view) }
         setAccessibilityRole(.group)
         setAccessibilityLabel(String(localized: "History"))
@@ -133,6 +141,11 @@ final class NavCluster: NSView {
         } completion: { [weak self] in
             MainActor.assumeIsolated { self?.settle() }
         }
+    }
+
+    /// §6 `controlPress`, on behalf of whichever half is down.
+    private func setPressed(_ pressed: Bool) {
+        Tokens.Motion.swell(self, to: pressed ? Tokens.Motion.pressSwell : 1)
     }
 
     /// A view at alpha 0 still hit-tests, so a faded chevron would go on eating

@@ -318,6 +318,12 @@ Vertical order, top to bottom:
 > with no lights to clear correctly puts it: at the row inset, under the close button. Every view that
 > places itself against the lights is a `TrafficLightNeighbour` (this row and §3.2b's bar), and both the
 > peek and every chrome-state change mark all of them for layout.
+> **Hover is a fill again, and a press is a shape** (M1). §3.1 has always said hover lifts the *fill*,
+> and for a long time only the glyph could be lifted, because there was no translucent wash to lift a
+> surface with. There is now: the three circles carry `Surface.hover` over their material under the
+> pointer, `Surface.selected` under a press, and the press also swells the material 5 % and springs it
+> back (§6). Back and forward are the exception that proves it — they are bare glyphs in the history
+> capsule's material, so the *capsule* takes the swell.
 > **And then they were squircles.** A `.continuous` corner curve at `radius == side / 2` is a
 > superellipse, with straight flanks — which is the "still a bit longer than wide" left after the
 > rounding was fixed. Apple's continuous curve is defined for radii *below* half the side; at or above
@@ -423,13 +429,22 @@ Vertical order, top to bottom:
     clamped inside it where it does not, which in the column means leading-aligned with the pill and
     overhanging the page — which is what a panel floating over a page is entitled to do.
   - **What opens is the height, and only the height.** The input row is already on the line the address
-    was on and the extra width is there on the first frame, under an alpha starting at zero; the glass
-    grows from the pill's height to the bar's on §6's `commandBarIn`. Two earlier versions were worse:
-    masking the body put an offscreen pass around a live glass panel over a live web page, and fading
-    `alphaValue` on the panel — which covers the whole window — put every pixel of the page showing
-    through it into a transparency layer for the length of the animation. Both stuttered. The rows and
-    their favicons are built *before* the bar is shown, so nothing expensive runs after the animation
-    is committed.
+    was on and the extra width is there on the first frame; the glass grows from the pill's height to
+    the bar's on §6's `commandBarIn`. Two earlier versions were worse: masking the body put an
+    offscreen pass around a live glass panel over a live web page, and fading `alphaValue` on the panel
+    — which covers the whole window — put every pixel of the page showing through it into a
+    transparency layer for the length of the animation. Both stuttered.
+  - **The bar is drawn before it opens, at the pill's size** (M1), and there is no fade left in the
+    anchored case at all. A Command Bar's first frame costs about 65 ms — a fresh glass backdrop over a
+    live page, eight rows of text, and a field taking the window's first responder with it, measured —
+    and wherever that lands, four frames are dropped. So it lands on a bar the size of a pill, in the
+    pill's place, in the same commit that hides the pill: what the user sees is the address bar they
+    clicked becoming a field. The reveal then has nothing left to build, and the spring is a height.
+  - **And it waits for the store before it opens.** The opening query's history lands about 9 ms after
+    that first composite, and opening without it meant the morph grew around one list and settled on
+    another — rows re-ranking under the pointer a quarter-second after the click, which is what Martin
+    saw twice. The bar holds at the pill's size until the query lands, the user types, or 100 ms have
+    passed, whichever comes first. On a warm store the deadline never fires.
 - **`⌘L` belongs to whichever address bar is on screen**, and all three now answer it the same way:
   §3.2's pill, §3.2b's and §4's each hand the address to §9.1 standing on themselves. The claim is
   chained rather than assigned — each layout answers only for itself and passes the command on — and
@@ -860,6 +875,12 @@ Order: `+ New Tab` row → **separator** → tabs.
   *Close Tab* tip: the square is that control's own affordance, and painting it for the whole row put a
   grey tile on every row the pointer merely crossed. Pressing it closes the tab (§6.3 — archived, and
   undoable).
+  > **The chip is every glyph button's, not just this one's** (M1). §3.2's two glyphs inside the URL
+  > pill lifted their ink instead, on the argument that a rounded rectangle inside a capsule is two
+  > shapes; Martin's macOS 26 reference for a plain button is that chip, and he asked for it on the
+  > site-settings glyph by name. One class draws it for all of them (`RowGlyphView`): hover is
+  > `Surface.hover`, a press is `Surface.selected` and a 5 % swell, and both cross-fade on §6's
+  > `controlHover`.
   > **Whatever is drawn is what is hit, and the row is resolved when you press.** The speaker and the
   > `xmark` share one slot, so the affordance reports the glyph it was actually showing rather than the
   > list re-deriving it from hover — a second chance to disagree. And the row a press belongs to is
@@ -1078,6 +1099,14 @@ including §3.8's peek.
 control moves the window: the control row, the grid's background, the rule under `+ New Tab`, the empty
 list below the last tab. `NSTableView` swallows that press by default, which left the top 52 pt as the
 only place in a 280 pt column you could pick the window up by.
+
+> **One window, one handle** (M1). §3.2b's page bar is chrome too, and it used to move the window as
+> well — so with the sidebar out there were two drag surfaces, one of them the band the user is aiming
+> at for the pill, the toggle and the history cluster. It is over the *page*, inside the card, clipped
+> to the page's corners, and it no longer moves anything. The exception is a hidden sidebar: with the
+> column put away that bar is the only chrome above the page, and a window whose only handle has been
+> put away is one you cannot move. Asked at mouse-down rather than stored, so it cannot be a copy of a
+> chrome state that has since changed.
 
 > **Every control has to say so, one at a time.** `NSView.mouseDownCanMoveWindow` answers `true` for any
 > view that draws no background of its own, which is every glass surface in Luna — so on a window that
@@ -1307,6 +1336,7 @@ Every entry degrades to instant under Reduce Motion.
 | Tab insert / remove | 0.22 s spring height + fade, no list jump |
 | Row hover fill | 0.12 s ease-out |
 | Control button hover lift | 0.10 s ease-out |
+| Control button press | fill one step up, + 5 % swell on a 0.16 s spring, damping 0.62 |
 | Selected-row pill move | 0.20 s spring, response 0.28, damping 0.80 |
 | URL pill theme wash | **withdrawn** — see §2 |
 | Split divider snap | 0.12 s |
@@ -1323,8 +1353,22 @@ Every entry degrades to instant under Reduce Motion.
 > somewhere slightly wrong on every re-rank and the next layout pass pulled it back.
 >
 > **The Command Bar's own opening is 0.18 s of that same thread**, so nothing replaces its list while it
-> is opening: asynchronous results that land inside that window are held and applied the moment it
-> closes. See TODO.md §9.7.
+> is opening: asynchronous results that land inside that window are held, and applied *append-only* the
+> moment it closes — a row the bar opened with never moves. The bar also waits, standing at the pill's
+> own size, until the store has answered the query it is opening with (100 ms at the outside), so what
+> the morph grows around is the list it is going to keep. See TODO.md §9.7.
+
+> **Hover and press are a fill and a shape, on every button in the chrome.** Hover is `Surface.hover`
+> over whatever the control is made of; a press is `Surface.selected` — the same wash at twice the lift
+> — plus a 5 % swell that springs back when the button is let go. Both classes of button answer the
+> same way: `GlassButton` washes above its material, `RowGlyphView` paints the chip on its own layer
+> under the glyph. A button with no material of its own (`GlassMode.none`, the two chevrons inside
+> §3.1's history capsule) hands the press to the surface that *has* one, because half a capsule
+> swelling inside the other half is not a press.
+>
+> Measured against the macOS 26 controls Martin captured for the reference: theirs lift about 10.7 %
+> on hover and 12.8 % under a press; Luna's are §3.4's own 6 % and 12 %, because those are the two
+> steps the rest of the app is built from.
 
 ---
 

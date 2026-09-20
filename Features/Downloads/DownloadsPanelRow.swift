@@ -219,7 +219,6 @@ final class DownloadsPanelRowView: NSView {
         name.lineBreakMode = .byTruncatingMiddle
         name.cell?.truncatesLastVisibleLine = true
         status.lineBreakMode = .byTruncatingTail
-        action.chromed = true
         action.onActivate = { [weak self] in self?.onAction?() }
 
         let text = NSStackView(views: [name, status])

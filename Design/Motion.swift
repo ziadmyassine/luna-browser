@@ -90,6 +90,31 @@ extension Tokens {
         static let rowHover = MotionSpec(0.12)
         /// Control button hover *lift* — the fill, not the border (§3.1).
         static let controlHover = MotionSpec(0.10)
+        /// **A glass control being pressed**, and the one place §6 asks for a
+        /// spring on a state the pointer holds.
+        ///
+        /// The fill is the hover fill again, one step up — `wash` does that on
+        /// `controlHover`, because a press is a state and states cross-fade.
+        /// What this spec is for is the *shape*: the material swells under the
+        /// finger and springs back when it is let go, which is how a Liquid
+        /// Glass control answers a click on macOS 26 and what Martin asked for
+        /// in as many words — "that liquid glass click where the button almost
+        /// pops out".
+        ///
+        /// Lightly damped on purpose. The swell is a twentieth, so at 0.8 the
+        /// return is a ramp and there is no pop in it at all; at 0.62 it passes
+        /// its rest size by about a third of a point on the way back, which is
+        /// under a pixel of overshoot and the whole of what makes it read as
+        /// release rather than as decay.
+        static let controlPress = MotionSpec(response: 0.16, damping: 0.62, settling: 0.18)
+        /// How far `controlPress` swells: **5 %, and it is a scale rather than
+        /// a length**, which is why it lives here rather than in `Metric`.
+        ///
+        /// Measured against the reference captures: a 36 pt circle grows by
+        /// 1.8 pt, a 21 pt glyph chip by one. Big enough to see at the edge of
+        /// a capsule, small enough that a pressed control is still the same
+        /// control in the same place.
+        static let pressSwell: CGFloat = 1.05
         /// The selected-row pill sliding to a new row.
         static let selectedRowMove = MotionSpec(response: 0.28, damping: 0.80, settling: 0.20)
 
@@ -218,6 +243,59 @@ extension Tokens {
             changes()
             CATransaction.commit()
             NSAnimationContext.endGrouping()
+        }
+
+        /// **The hover and press fill, on every button in the chrome** (§3.1,
+        /// §3.4): a wash that fades in under the pointer and one step up under
+        /// a press, painted by the control's own layer so it is behind whatever
+        /// the control draws and in front of whatever it is made of.
+        ///
+        /// `nil` is the resting state and fades the fill out. The colour is the
+        /// caller's — `Surface.hover` and `Surface.selected` are the two §3.4
+        /// names — and the timing is `controlHover` for both directions,
+        /// because hover is a state the pointer can scrub in and out of a dozen
+        /// times a second and none of those passes should linger.
+        ///
+        /// A `CALayer` property rather than a view's `animator()`: the fill is
+        /// on the layer under the button's contents, which is the only place
+        /// that is *behind* an `NSImageView`'s image and in front of a glass
+        /// backing. That means the timing comes off a `CATransaction` rather
+        /// than an `NSAnimationContext`, and Reduce Motion has to be checked
+        /// here — see this file's header.
+        @MainActor
+        static func wash(_ layer: CALayer?, to colour: NSColor?, animated: Bool = true) {
+            guard let layer else { return }
+            let instant = !animated || reduceMotion
+            CATransaction.begin()
+            CATransaction.setDisableActions(instant)
+            CATransaction.setAnimationDuration(instant ? 0 : controlHover.duration)
+            CATransaction.setAnimationTimingFunction(controlHover.timingFunction)
+            layer.backgroundColor = (colour ?? .clear).cgColor
+            CATransaction.commit()
+        }
+
+        /// `controlPress`'s swell: scales `view` about its own centre and
+        /// springs it there.
+        ///
+        /// The scale is written to the model layer as well as animated, so a
+        /// control that is *held* stays swollen for as long as the button is
+        /// down rather than springing back under the finger.
+        ///
+        /// Reduce Motion lands it without the spring, which for a 5 % scale is
+        /// very nearly nothing — and that is the right answer: the press still
+        /// reads, through the fill, which is not motion.
+        @MainActor
+        static func swell(_ view: NSView, to scale: CGFloat) {
+            guard let layer = view.layer else { return }
+            let from = (layer.presentation() ?? layer).value(forKeyPath: "transform.scale.x") as? CGFloat ?? 1
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            layer.transform = CATransform3DMakeScale(scale, scale, 1)
+            CATransaction.commit()
+            guard let spring = controlPress.springAnimation(keyPath: "transform.scale") else { return }
+            spring.fromValue = from
+            spring.toValue = scale
+            layer.add(spring, forKey: "controlPress")
         }
 
         /// Runs `changes` on `spec`'s timing, or instantly under Reduce Motion.

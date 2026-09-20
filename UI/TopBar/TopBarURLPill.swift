@@ -98,7 +98,6 @@ final class TopBarURLPill: NSView, TopBarThemed, NSTextFieldDelegate {
             label: String(localized: "Site settings"),
             pointSize: Tokens.Metric.pillGlyphSize
         )
-        sliders.chromed = true
         sliders.onActivate = { [weak self] in self?.showSiteMenu() }
         addSubview(sliders)
 

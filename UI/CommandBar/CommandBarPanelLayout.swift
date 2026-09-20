@@ -119,6 +119,42 @@ extension CommandBarPanel {
         super.layout()
     }
 
+    /// Everything the bar needs in place before it opens: added, laid out,
+    /// and **drawn at the pill's own size**, so that what the first composite
+    /// puts on screen is the capsule the user just clicked, in its place, with
+    /// their caret in it.
+    ///
+    /// The first frame of a Command Bar is expensive in a way no amount of
+    /// tuning makes cheap — a fresh `NSGlassEffectView` over a live web page,
+    /// eight rows of text, and a field that takes the window's first responder
+    /// with it. Measured here, from the click to the commit that draws it:
+    /// 65 ms, of which 20 is the commit and 15 is `makeFirstResponder`. That is
+    /// four dropped frames, and they land wherever this is called.
+    ///
+    /// So they land *before* the animation rather than inside it, and they land
+    /// on a bar the size of a pill rather than on one the size of the list:
+    /// the glass the window server sets up here is the glass the reveal then
+    /// grows, so the reveal's own first frame has nothing left to build. The
+    /// bar Martin watched stall in the middle was doing that work on frame one,
+    /// at full size, with an alpha ramp over the top of it.
+    ///
+    /// The floating bar keeps its fade, because it really is arriving out of
+    /// nothing — there is no pill under it to be the first frame.
+    func prepareToOpen() {
+        alphaValue = 1
+        guard anchorRect != nil else {
+            body.alphaValue = 0
+            layoutSubtreeIfNeeded()
+            return
+        }
+        body.alphaValue = 1
+        layoutSubtreeIfNeeded()
+        let height = body.heightAnchor.constraint(equalToConstant: inputHeight)
+        revealConstraint = height
+        height.isActive = true
+        layoutSubtreeIfNeeded()
+    }
+
     /// §6 `commandBarIn`: 0.18 s spring, scale 0.96 → 1.0 + fade.
     ///
     /// Reduce Motion degrades it to instant with no second code path:
@@ -126,14 +162,8 @@ extension CommandBarPanel {
     /// duration.
     func animateIn() {
         beginOpening()
+        if let height = revealConstraint { return revealFromPill(height) }
         layoutSubtreeIfNeeded()
-        // **The body fades, not the panel.** This view is the whole window, and
-        // an `alphaValue` on it puts every pixel of it — including the page
-        // showing through — into a transparency layer for the length of the
-        // animation. The body is the only thing on this view that draws.
-        alphaValue = 1
-        body.alphaValue = 0
-        guard anchorRect == nil else { return revealFromPill() }
         guard let scale = Tokens.Motion.commandBarIn.springAnimation(keyPath: "transform.scale") else {
             body.alphaValue = 1
             finishOpening()
@@ -158,13 +188,12 @@ extension CommandBarPanel {
     /// opens instead is the glass itself, from the pill's height down to the
     /// bar's, with the rows already in place behind it.
     ///
-    /// **Height only, and only the height.** The one thing that grows is the
-    /// glass: the input row is already where the pill's text was, and the extra
-    /// width the list needs is there on the first frame, under an alpha that
-    /// starts at zero. Animating the width as well meant a second property
-    /// re-laying the panel out every frame for a change nobody can see through
-    /// the fade, and the first version did it by masking the body — which puts
-    /// an offscreen pass around a live glass panel over a live web page.
+    /// **Height only, and nothing else at all.** Not the width: the room the
+    /// list needs is there on the first frame, and animating it too meant a
+    /// second property re-laying the panel out every frame for a change nobody
+    /// can see. And no longer the alpha either — the bar is already on screen
+    /// at the pill's size when this runs (`prepareToOpen`), so a fade would be
+    /// the capsule the user is looking at dimming itself and coming back.
     ///
     /// **And the glass is what has to grow, not a clip over it.** Cutting the
     /// body's layer down and animating the cut instead — a rounded
@@ -174,40 +203,34 @@ extension CommandBarPanel {
     /// bar opened as eight rows of text floating over the sidebar with no
     /// panel behind them. Measured, on screen, and thrown away.
     ///
-    /// **One frame of nothing first.** The panel, its glass and its eight rows
-    /// are all built in the runloop turn that opens the bar, and the window
-    /// server has a fresh glass backdrop to set up over a live web page on the
-    /// first composite. Starting the spring in that same turn spends its first
-    /// frames competing with that work, which is the part Martin could feel.
-    /// The panel is laid out and left invisible instead, and the animation
-    /// starts on the next turn — by which time the expensive frame has already
-    /// been drawn.
-    private func revealFromPill() {
-        let target = body.frame.height
-        let height = body.heightAnchor.constraint(equalToConstant: inputHeight)
-        revealConstraint = height
-        height.isActive = true
-        layoutSubtreeIfNeeded()
-        DispatchQueue.main.async { [weak self] in
-            guard let self, revealConstraint === height else { return self?.finishOpening() ?? () }
-            Tokens.Motion.animate(Tokens.Motion.commandBarIn) { context in
-                context.allowsImplicitAnimation = true
-                height.animator().constant = target
-                self.body.animator().alphaValue = 1
-            } completion: { [weak self] in
-                MainActor.assumeIsolated {
-                    // Off, not left at the target. **The list goes on changing
-                    // size after the bar has opened** — the history query
-                    // lands, then the engine's suggestions, and each re-ranks
-                    // the rows — and a required height frozen at what the first
-                    // pass asked for would clip everything that arrived after
-                    // it. That is what a fullscreen page bar showed: an input
-                    // row with an empty band under it, and the rows cut off
-                    // below the glass.
-                    self?.revealConstraint?.isActive = false
-                    self?.revealConstraint = nil
-                    self?.finishOpening()
-                }
+    /// - Parameter height: the constraint holding the bar at the pill's height,
+    ///   installed by `prepareToOpen`. It is let go of at the end, because
+    ///   **the list goes on changing size after the bar has opened** — the
+    ///   engine's suggestions land, and every keystroke re-ranks the rows — and
+    ///   a required height frozen at what the opening pass asked for would clip
+    ///   everything that arrived after it. That is what a fullscreen page bar
+    ///   showed: an input row with an empty band under it, and the rows cut off
+    ///   below the glass.
+    private func revealFromPill(_ height: NSLayoutConstraint) {
+        // **Asked of the list, not of the body.** The target has to be read
+        // now rather than when the bar was prepared — the store's answer has
+        // landed since, and that is what the bar was waiting for — but taking
+        // it off `body.frame` means letting the height constraint go, laying
+        // out, and putting it back, which resizes the glass twice for a number
+        // nobody sees. Measured, that round trip cost 26 ms on the frame the
+        // animation was about to start on. The list can simply be asked how
+        // tall it wants to be, which is the same arithmetic the two constraints
+        // below `results` do: the input row, the rows, and the panel's own
+        // bottom margin.
+        let target = inputHeight + results.fittingSize.height + CommandBarMetrics.padding
+        Tokens.Motion.animate(Tokens.Motion.commandBarIn) { context in
+            context.allowsImplicitAnimation = true
+            height.animator().constant = target
+        } completion: { [weak self] in
+            MainActor.assumeIsolated {
+                self?.revealConstraint?.isActive = false
+                self?.revealConstraint = nil
+                self?.finishOpening()
             }
         }
     }

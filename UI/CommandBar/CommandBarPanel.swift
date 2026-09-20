@@ -58,6 +58,14 @@ enum CommandBarMetrics {
     /// UI-SPEC §6: "anchored 20 % from window top". **Missing token** — it is a
     /// ratio rather than a length, so `Tokens.Metric` has nowhere to put it today.
     static let topAnchorFraction: CGFloat = 0.20
+    /// How long the bar will wait, behind the pill, for the store to answer the
+    /// query it is opening with — see `CommandBarController.openWhenReady`.
+    ///
+    /// A timeout rather than a duration: on a warm store the query lands in
+    /// about 9 ms and this never fires. It is the guarantee that a busy store
+    /// cannot hold the bar shut, and 0.10 s is the longest a click may go
+    /// unanswered before the delay stops reading as *nothing happened yet*.
+    static let openDeadline: TimeInterval = 0.10
 }
 
 /// The full-window overlay: scrim, panel, input and results.

@@ -137,7 +137,23 @@ extension PageChromeBar {
         return band.contains(convert(point, from: superview)) ? self : nil
     }
 
-    /// The bar is chrome, so dragging it moves the window — the same as the
-    /// sidebar's own plane. The controls on it override this themselves.
-    override var mouseDownCanMoveWindow: Bool { true }
+    /// **The window has one handle at a time, and it is the chrome that is on
+    /// screen.** In this layout that is §3's column: the sidebar's plane moves
+    /// the window, and this bar — which is over the *page*, inside the card,
+    /// clipped to the page's own corners — does not.
+    ///
+    /// It used to move it too, on the reasoning that a chrome bar is a chrome
+    /// bar. Two handles on one window is one too many: Martin's report is that
+    /// with the sidebar out he can drag the window from a band that belongs to
+    /// the page, which is also the band §3.2b asks him to aim at for the pill,
+    /// the toggle and the history cluster.
+    ///
+    /// The exception is the state where there is no column to drag by. With
+    /// the sidebar hidden this bar is the only chrome above the page, and a
+    /// window whose only handle has been put away is one the user cannot move
+    /// at all. Computed rather than stored: AppKit asks at mouse-down, so the
+    /// answer is never a copy of a state that has since changed.
+    override var mouseDownCanMoveWindow: Bool {
+        (window?.windowController as? BrowserWindowController)?.chromeState.isSidebarCollapsed ?? false
+    }
 }

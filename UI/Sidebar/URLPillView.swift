@@ -156,16 +156,12 @@ final class URLPillView: NSView {
         addSubview(field)
 
         // **The same mark, the same size and the same hover as the buttons on
-        // the bar beside it.** This was a drawn two-slider glyph at 13 pt
-        // carrying §3.4's close-button chip — a badge's treatment, from when it
-        // was a badge printed on a pill in a column. It is a control on a row
-        // of controls now, so it is an SF Symbol at `glyphSize` whose hover
-        // lifts the ink, which is what every other glyph in Luna's chrome does.
-        // A chip here would be a rounded rectangle inside a capsule.
-        for glyph in [sliders, reload] {
-            glyph.liftsInk = true
-            addSubview(glyph)
-        }
+        // the bar beside it.** This was a drawn two-slider glyph at 13 pt from
+        // when it was a badge printed on a pill in a column; it is a control on
+        // a row of controls now, so it is an SF Symbol at `glyphSize` that
+        // hovers and presses exactly as the reload beside it does — see
+        // `RowGlyphView`, which is where that behaviour lives for all of them.
+        for glyph in [sliders, reload] { addSubview(glyph) }
         applyGlyphs()
         sliders.onActivate = { [weak self] in self?.onSiteMenu?() }
         reload.onActivate = { [weak self] in

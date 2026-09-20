@@ -346,3 +346,33 @@ final class PageChromeBarTests: XCTestCase {
         XCTAssertEqual(page.appearance?.name, .aqua, "back to the document's own colour")
     }
 }
+
+/// §30.1, and Martin's report: **one window has one handle.**
+///
+/// The sidebar's plane is what moves the window in this layout. §3.2b's bar is
+/// over the page, inside the card, and dragging it used to move the window as
+/// well — two handles, one of them on the band the user is aiming at for the
+/// pill and the toggle. The exception is a hidden sidebar, where this bar is
+/// the only chrome left above the page.
+@MainActor
+final class PageChromeBarDragTests: XCTestCase {
+
+    private func bar(in state: ChromeState) throws -> PageChromeBar {
+        let controller = BrowserWindowController()
+        controller.setChromeStateWithoutAnimation(state)
+        let bar = PageChromeBar()
+        controller.setPageOverlay(bar)
+        _ = try XCTUnwrap(controller.window?.contentView)
+        return bar
+    }
+
+    func testTheBarDoesNotMoveTheWindowWhileTheSidebarIsOnScreen() throws {
+        let bar = try bar(in: .sidebar(width: Tokens.Metric.sidebarWidth.default, edge: .leading))
+        XCTAssertFalse(bar.mouseDownCanMoveWindow)
+    }
+
+    func testItDoesWhenTheSidebarHasBeenPutAway() throws {
+        let bar = try bar(in: .sidebarCollapsed(edge: .leading))
+        XCTAssertTrue(bar.mouseDownCanMoveWindow, "with the column gone there is nothing else left to drag by")
+    }
+}
