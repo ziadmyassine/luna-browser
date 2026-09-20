@@ -129,6 +129,14 @@ final class SpacePreviewView: NSView {
 
 /// One §3.3 tile of the still: the plate and the favicon, and nothing that
 /// makes a tile a control — no glow, no hover, no menu.
+///
+/// **The plate, and deliberately not the glass.** A real tile is a `.dormant`
+/// `GlassButton`: at rest it wears `Surface.well` and a hairline, and the
+/// material only comes up under the pointer or on the tab you are on. Drawing
+/// the material here lit every tile in the Space you were swiping toward, so
+/// every pinned tab arrived looking selected — which is what "all the pinned
+/// tabs are highlighted" was. A still of a column nobody is pointing at has
+/// nothing lit in it.
 @MainActor
 final class SpacePreviewTile: NSView {
 
@@ -138,12 +146,24 @@ final class SpacePreviewTile: NSView {
         super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerCurve = .continuous
-        Glass.apply(.control, to: self, cornerRadius: Tokens.Metric.essentialsTile.cornerRadius)
+        layer?.cornerRadius = Tokens.Metric.essentialsTile.cornerRadius
         icon.image = image ?? SpacePreviewRow.placeholder
         icon.imageScaling = .scaleProportionallyUpOrDown
         icon.contentTintColor = image == nil ? Tokens.Text.secondary : nil
         addSubview(icon)
+        applyTokens()
         setAccessibilityElement(false)
+    }
+
+    private func applyTokens() {
+        layer?.backgroundColor = Tokens.Surface.well.cgColor
+        layer?.borderWidth = Tokens.Metric.hairline
+        layer?.borderColor = Tokens.Line.border.cgColor
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        applyTokens()
     }
 
     @available(*, unavailable)
@@ -228,12 +248,24 @@ final class SpacePreviewRow: NSView {
                 width: side,
                 height: side
             ).pixelAligned
-            let leading = Tokens.Metric.rowTitleInset
+            // **The same column and the same box a real row gives its title.**
+            // A label draws its one line at the *top* of whatever frame it is
+            // given, so handing it the full row height put "New Tab" a third of
+            // a row above the favicon beside it — visible for the length of a
+            // swipe and corrected the moment the real list arrived. The box is
+            // the type's own height, centred, exactly as `SidebarRowView` does
+            // it.
+            let column = SidebarRowView.titleColumn(
+                inRowOfWidth: bounds.width,
+                hasUnread: false,
+                slotOccupied: false
+            )
+            let height = title.intrinsicContentSize.height
             title.frame = NSRect(
-                x: leading,
-                y: 0,
-                width: max(bounds.width - leading - Tokens.Metric.rowInset, 0),
-                height: bounds.height
+                x: column.x,
+                y: (bounds.height - height) / 2,
+                width: column.width,
+                height: height
             ).integral
         }
     }

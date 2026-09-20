@@ -161,7 +161,7 @@ final class SpaceSwatchChip: NSView {
             // colour a swatch is showing is the whole of the colour it offers:
             // a border painted over the edge of a 28 pt circle takes a tenth of
             // it away, and that tenth is the darkest part of the ramp.
-            let ring = Tokens.Metric.spaceCreateRingLine
+            let ring = Tokens.Metric.spaceSwatchRing
             disc.frame = bounds.insetBy(dx: ring * 2, dy: ring * 2)
             disc.cornerRadius = disc.frame.width / 2
             let stops = Tokens.Gradient.planes(gradient, at: .full, in: effectiveAppearance)

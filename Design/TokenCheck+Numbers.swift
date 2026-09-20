@@ -74,8 +74,7 @@ extension TokenCheck {
             ("spaceCreateTravel", Tokens.Metric.spaceCreateTravel),
             ("spaceCreateRing", Tokens.Metric.spaceCreateRing),
             ("spaceCreateRingLine", Tokens.Metric.spaceCreateRingLine),
-            ("spaceCreateDiscLine", Tokens.Metric.spaceCreateDiscLine),
-            ("spaceCreatePlus", Tokens.Metric.spaceCreatePlus),
+            ("spaceSwatchRing", Tokens.Metric.spaceSwatchRing),
             ("spaceSwipeSpeed", Tokens.Metric.spaceSwipeSpeed),
             ("sidebarProfileRow", Tokens.Metric.sidebarProfileRow),
             ("sidebarProfileGap", Tokens.Metric.sidebarProfileGap),
@@ -102,33 +101,15 @@ extension TokenCheck {
                 metric.spaceCreateTravel, metric.spaceSwipeTravel
             ))
         }
-        // The ring stands in a dot's slot, so it has to fit the pill it stands in.
-        if metric.spaceCreateRing > metric.spaceDotsPill.height {
-            failures.append("Metric.spaceCreateRing is taller than the pill it stands in")
-        }
-        // A `+` that fills its ring is a `+` in a box, and the ring is the part
-        // carrying the progress.
-        if metric.spaceCreatePlus + 2 * metric.spaceCreateRingLine >= metric.spaceCreateRing {
-            failures.append("Metric.spaceCreatePlus fills spaceCreateRing — the ring needs room to read as a ring")
+        // The ring is drawn **around** the glass disc, so it has to be bigger
+        // than one — and by enough to read as a ring with a button in it
+        // rather than as a border painted on the button's edge.
+        if metric.spaceCreateRing <= metric.bottomCircle.width + 2 * metric.spaceCreateRingLine {
+            failures.append("Metric.spaceCreateRing does not clear the disc it is drawn around")
         }
         if metric.spaceCreateRingLine <= metric.hairline {
             failures.append("Metric.spaceCreateRingLine is at hairline — a progress ring has to be legible when part-drawn")
         }
-        // One affordance at two sizes reads as one only if the two rings carry
-        // the same weight, and a ring's weight is its stroke over its diameter
-        // — not its stroke in points. See `Metric.spaceCreateDiscLine`.
-        let strip = metric.spaceCreateRingLine / metric.spaceCreateRing
-        let disc = metric.spaceCreateDiscLine / metric.bottomCircle.width
-        if abs(strip - disc) > 0.02 {
-            failures.append(String(
-                format: "The §30.9 rings are drawn at %.3f and %.3f of their own diameter — one mark, two weights",
-                strip, disc
-            ))
-        }
-        // §3.5's strip is a row of separate marks. Under a dot of clear space
-        // they merge into a dashed line; over two they stop being a row. The
-        // dots' own test asserts the same band at every count — this is the
-        // token saying so before a strip is ever laid out.
         let gap = metric.spaceDotPitch - metric.spaceDot
         if gap < metric.spaceDot || gap > metric.spaceDot * 2 {
             failures.append(String(

@@ -194,43 +194,27 @@ final class SpaceDotsLayoutTests: XCTestCase {
         }
     }
 
-    /// §30.9's `+` takes a step of its own, so the pill makes room for it —
-    /// otherwise the ring would have to be drawn over the last Space's dot,
-    /// which is the one place it must not be.
-    func testThePillMakesRoomForTheCreateRing() {
+    /// **The strip is dots and only dots.** §30.9's `+` stood at the end of
+    /// it for one build and grew the pill as the swipe ran past the last
+    /// Space — an answer to "make a new one" sitting in the middle of the
+    /// answer to "which one am I in". The pill is one shape whatever the
+    /// gesture is doing.
+    func testTheStripHoldsNothingButItsDots() {
         let strip = Self.strip(spaces: 3)
         let resting = strip.intrinsicContentSize.width
-        strip.creation = 0.5
-        XCTAssertEqual(strip.intrinsicContentSize.width - resting, SpaceDotsView.createStep)
-        strip.creation = 0
-        XCTAssertEqual(strip.intrinsicContentSize.width, resting)
+        for reach in [CGFloat(0.5), 1] {
+            strip.creation = reach
+            XCTAssertEqual(strip.intrinsicContentSize.width, resting, "the pill grew at \(reach)")
+        }
     }
 
-    /// **The `+` stands in the row, not beside it.** It used to be centred in a
-    /// slot of its own at the end of the pill, which put it 25 pt out from a
-    /// run laid out on 14 — visibly detached from the Spaces it is offering to
-    /// extend. Its step is the one that leaves the same clear air between the
-    /// last dot and the ring as there is between any two dots.
-    func testTheCreateRingStandsAtTheSameClearAirAsTheDots() {
-        let dot = Tokens.Metric.spaceDot
-        let betweenDots = Tokens.Metric.spaceDotPitch - dot
-        let betweenDotAndRing = SpaceDotsView.createStep - dot / 2 - Tokens.Metric.spaceCreateRing / 2
-        XCTAssertEqual(betweenDotAndRing, betweenDots, accuracy: 0.001)
-    }
-
-    /// **The ring never lands on the last Space's dot.** It is wider than the
-    /// strip's own pitch, so a slot sized like a dot's would have drawn the two
-    /// marks on top of each other — and the one dot the ring must never touch
-    /// is the Space you are about to leave behind.
-    func testTheCreateRingClearsTheLastDot() {
+    /// Past the last Space there is nowhere to land, so no dot may wear the
+    /// ring claiming there is.
+    func testNoDotOffersItselfOnceTheSwipeHasLeftTheSpacesThatExist() {
         let strip = Self.strip(spaces: 3)
-        strip.creation = 1
-        strip.frame = NSRect(origin: .zero, size: strip.intrinsicContentSize)
-        strip.layoutSubtreeIfNeeded()
+        strip.creation = 0.5
         let dots = strip.subviews.compactMap { $0 as? SpaceDotView }
-        let ring = strip.subviews.compactMap { $0 as? SpaceCreateMarkView }.first
-        let lastMark = (dots.last?.frame.minX ?? 0) + (dots.last?.markCentreX ?? 0)
-        XCTAssertGreaterThan(ring?.frame.minX ?? 0, lastMark + Tokens.Metric.spaceDot / 2)
+        XCTAssertTrue(dots.allSatisfy { !$0.wearsRing })
     }
 
     // MARK: - Bits

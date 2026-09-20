@@ -64,17 +64,21 @@ extension Tokens.Metric {
 
     /// How far two fingers travel across the sidebar for **one Space**.
     ///
-    /// **A column's width, because the gesture now moves a column.** It was 80
-    /// while the swipe only leaned the content 40 pt and let the strip do the
-    /// talking. The swipe is a page turn now: the live column travels its own
-    /// full width and the next one travels in behind it, so 80 meant the page
-    /// ran at three times the speed of the hand pushing it — which is what
-    /// "the scroll is multiplied" was describing. At a default 280 pt sidebar
-    /// the page is about 264 pt across and this is 220, so it tracks the
-    /// fingers to within a fifth. Not derived from `sidebarWidth`: the handle
-    /// is draggable and `SpaceSwipe.resolve` is arithmetic that has to mean the
-    /// same thing at every width.
-    static let spaceSwipeTravel: CGFloat = 220
+    /// **One swipe across a trackpad, and no more than that.** Changing Space
+    /// is a reflex performed dozens of times a day, and a reflex that needs a
+    /// second stroke is not one — this is short enough that a single
+    /// comfortable slide crosses the half of it that commits. It was 220 for
+    /// one build, which is about the width the page travels: the column then
+    /// tracked the fingers almost exactly, and the gesture cost more than what
+    /// it did was worth. The page leads the hand by about two to one at 120,
+    /// which is a page turn following a flick rather than a sheet being
+    /// dragged, and that is the right trade the moment the distance is the
+    /// thing being complained about.
+    ///
+    /// The **resistance lives in `spaceCreateTravel` alone**, which is the
+    /// whole point of having two numbers: reaching a Space you already have
+    /// should be free, and making one should not be.
+    static let spaceSwipeTravel: CGFloat = 120
 
     /// The fastest §30.9's page is allowed to travel, in points of page per
     /// second of gesture.
@@ -98,39 +102,56 @@ extension Tokens.Metric {
     /// How far **past the last Space** the same two fingers travel to close
     /// §30.9's ring and make a new one.
     ///
-    /// **Twice `spaceSwipeTravel`, and that ratio is the whole of the
-    /// resistance.** Moving between Spaces is a reflex performed many times a
-    /// day; creating one is a thing you do a handful of times ever, and the two
-    /// are the same gesture continued. Anything that can be reached by
-    /// over-flicking the reflex will be reached by accident, so the second half
-    /// of the gesture is deliberately heavier than the first — the ring is only
-    /// closed by a hand that kept going on purpose.
-    static let spaceCreateTravel: CGFloat = 440
-
-    /// §30.9's ring, standing in the slot where the new dot will be. 14 pt
-    /// leaves 4 pt of pill above and below it, which is the same air the 6 pt
-    /// dots have around them once the ring is counted as the mark.
-    static let spaceCreateRing: CGFloat = 14
-
-    /// The strip ring's stroke. Above `hairline`: a 1 pt circle 14 pt across
-    /// reads as a smudge rather than as a ring, and this one is a progress
-    /// read-out whose *fullness* has to be legible at a glance.
-    static let spaceCreateRingLine: CGFloat = 1.5
-
-    /// The same ring at the sidebar's own size (`SpaceCreationView`), and
-    /// **deliberately not the same stroke**.
+    /// **Three times `spaceSwipeTravel`, and this is the only place any
+    /// resistance lives.** Moving between Spaces is a reflex; creating one is
+    /// a thing you do a handful of times ever, and the two are the same gesture
+    /// continued — so anything that can be reached by over-flicking the reflex
+    /// will be reached by accident. The ratio was two for one build, when the
+    /// switch itself was long; now that a switch is one easy slide, a create
+    /// has to be a deliberate stroke rather than the same slide continued.
     ///
-    /// The two marks are one affordance at two sizes, which is a claim about
-    /// how they *read*, not about how many points wide their outlines are. A
-    /// ring's weight to the eye is its stroke against its diameter: 1.5 on a
-    /// 14 pt mark is a tenth, and the same tenth on the 34 pt disc is this. At
-    /// the strip's 1.5 the big ring was a hairline drawn round a glass button —
-    /// thin enough that how full it was could not be read at the distance the
-    /// hand is actually looking, which is the one thing it is there to say.
-    static let spaceCreateDiscLine: CGFloat = 3.5
+    /// It stops short of a full trackpad's width on purpose: resistance that
+    /// cannot be overcome in one gesture is not resistance, it is a dead end.
+    static let spaceCreateTravel: CGFloat = 360
 
-    /// The `+` inside the ring, sized to clear the stroke on both sides.
-    static let spaceCreatePlus: CGFloat = 7
+    /// §30.9's ring, drawn **around** the sidebar's `+` disc.
+    ///
+    /// **There is one of these now, and it used to be two.** A 14 pt copy also
+    /// stood in the §3.5 strip, on the reasoning that one affordance at two
+    /// sizes is one thing to learn. In the hand it was the opposite: the strip
+    /// is a read-out of *which Space*, and a `+` in it is an answer to a
+    /// different question sitting in the middle of that answer — so the strip
+    /// is dots and only dots, and the gesture is read where the gesture is
+    /// happening.
+    ///
+    /// 46 against a 34 pt disc leaves 6 pt of clear sidebar between the glass
+    /// and the ring. Drawn *outside* rather than on the disc's own edge for
+    /// `SpaceSwatchChip`'s reason: a ring painted over the edge of a glass
+    /// button takes a bite out of the button.
+    static let spaceCreateRing: CGFloat = 46
+
+    /// The ring's stroke.
+    ///
+    /// A ring reads by its weight **against its own diameter**, not by its
+    /// width in points: at the 1.5 pt the 14 pt strip mark was drawn with, a
+    /// ring this size was a hairline round a glass button — too thin to read
+    /// how full it was, which is the only thing it says. This is the same
+    /// tenth of a diameter at the size it is actually drawn.
+    static let spaceCreateRingLine: CGFloat = 4
+
+    /// The ring a chosen §6.2 swatch wears (`SpaceSwatchChip`).
+    ///
+    /// Its own number, and it borrowed `spaceCreateRingLine` for one build —
+    /// which is how thickening a gesture's progress ring would have gone on to
+    /// resize a grid of colours. They are the same size today and they answer
+    /// to nothing in common: this is a selection mark on a 28 pt disc, that is
+    /// a read-out on a 46 pt one.
+    ///
+    /// The disc inside is inset by **twice** it, so the ring is drawn outside
+    /// the colour with a stroke's worth of air between the two — a border
+    /// painted over the edge of the disc takes a tenth of the colour away, and
+    /// that tenth is the darkest part of the ramp.
+    static let spaceSwatchRing: CGFloat = 1.5
 
     /// §3.5's profile line, which names the profile the window's cookies
     /// belong to.

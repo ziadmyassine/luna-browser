@@ -2,7 +2,12 @@
 //  SpaceDotView.swift
 //  Luna
 //
-//  One §3.5 dot, and §30.9's `+` that stands where the next one would.
+//  One §3.5 dot.
+//
+//  It held §30.9's `+` too, standing where the next Space would be as the swipe
+//  ran past the last one. The strip is dots and only dots now — see
+//  `SpaceDotsView`'s header — and the `+` is drawn in the column, where the
+//  gesture is actually happening (`SpaceCreationView`).
 //
 //  The dot is its own view because it is four things at once: a click target, a
 //  §6.6 landing place, an accessibility element carrying the Space's name, and
@@ -200,104 +205,5 @@ final class SpaceDotView: NSView {
         // cheaper than the support article that follows from not saying it.
         menu.addItem(SidebarMenu.header("Light and Dark apply to every Space"))
         return menu
-    }
-}
-
-/// §30.9's `+`: the mark that stands where the next Space would, once the swipe
-/// has run out of Spaces to reach.
-///
-/// **The ring is the gesture's own progress bar, and it is deliberately slow to
-/// fill.** Switching Space is a flick; creating one is not something to do by
-/// accident with the same flick, so the travel that closes this circle is twice
-/// the travel that moves a Space (`Metric.spaceCreateTravel` against
-/// `spaceSwipeTravel`). A closed ring is the gesture saying, before the fingers
-/// come up, that letting go now makes a Space.
-@MainActor
-final class SpaceCreateMarkView: NSView {
-
-    /// 0…1. 1 is a closed circle.
-    var progress: CGFloat = 0 {
-        didSet {
-            guard progress != oldValue else { return }
-            needsDisplay = true
-        }
-    }
-
-    private let ring = CAShapeLayer()
-    private let plus = CALayer()
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        wantsLayer = true
-        ring.fillColor = nil
-        ring.lineCap = .round
-        layer?.addSublayer(ring)
-        layer?.addSublayer(plus)
-        setAccessibilityElement(false)
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("Luna builds its chrome in code; there is no nib to decode.")
-    }
-
-    override var wantsUpdateLayer: Bool { true }
-
-    override func updateLayer() {
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        let line = Tokens.Metric.spaceCreateRingLine
-        let circle = bounds.insetBy(dx: line / 2, dy: line / 2)
-        // Anticlockwise from 12 o'clock in AppKit's y-up space is clockwise on
-        // screen, which is the direction every progress ring on this platform
-        // sweeps.
-        let path = CGMutablePath()
-        path.addArc(
-            center: CGPoint(x: bounds.midX, y: bounds.midY),
-            radius: circle.width / 2,
-            startAngle: .pi / 2,
-            endAngle: .pi / 2 - 2 * .pi,
-            clockwise: true
-        )
-        ring.path = path
-        ring.lineWidth = line
-        ring.strokeColor = Tokens.Text.primary.cgColor
-        ring.strokeEnd = max(0, min(progress, 1))
-        // The glyph fades in over the first half of the travel: at the moment
-        // the ring appears the finger has not yet said it means it.
-        let glyph = Tokens.Metric.spaceCreatePlus
-        plus.frame = NSRect(
-            x: (bounds.width - glyph) / 2,
-            y: (bounds.height - glyph) / 2,
-            width: glyph,
-            height: glyph
-        ).pixelAligned
-        plus.contents = Self.plusImage(in: effectiveAppearance)
-        plus.opacity = Float(max(0, min(progress * 2, 1)))
-        CATransaction.commit()
-    }
-
-    override func viewDidChangeEffectiveAppearance() {
-        super.viewDidChangeEffectiveAppearance()
-        needsDisplay = true
-    }
-
-    /// Tinted by hand for `SidebarMenu.glyph`'s reason: nothing here is a
-    /// control, so nothing tints a template image on this layer's behalf.
-    private static func plusImage(in appearance: NSAppearance) -> NSImage? {
-        let side = Tokens.Metric.spaceCreatePlus
-        guard let base = NSImage(systemSymbolName: "plus", accessibilityDescription: nil)?
-            .withSymbolConfiguration(.init(pointSize: side, weight: .semibold))
-        else { return nil }
-        return NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
-            var drawn = false
-            appearance.performAsCurrentDrawingAppearance {
-                base.draw(in: rect)
-                Tokens.Text.primary.setFill()
-                rect.fill(using: .sourceAtop)
-                drawn = true
-            }
-            return drawn
-        }
     }
 }

@@ -27,6 +27,13 @@
 //  to stand them 28 pt apart to fill itself. Both are pure and static, so the
 //  claim is a test rather than a screenshot.
 //
+//  **The strip is dots and only dots.** §30.9's `+` stood at the end of it for
+//  one build, growing the pill as the swipe ran past the last Space. It read
+//  wrong in the hand for a reason that is obvious once seen: this strip answers
+//  *which Space*, and a `+` is an answer to a different question sitting in the
+//  middle of that answer. The gesture is read where the gesture is happening —
+//  `SpaceCreationView`, in the column — and the pill stays one shape.
+//
 //  **Three dots at a time, and the rest of the run slides through them.** A
 //  pill sized to its dots is a pill with no ceiling, and twelve Spaces filled
 //  the footer with marks too small to count and too narrow to hit. The strip is
@@ -74,22 +81,16 @@ final class SpaceDotsView: NSView {
         }
     }
 
-    /// 0…1: how far past the last Space the finger has gone. 1 is a closed
-    /// ring, which is the gesture saying the Space will be created on release.
+    /// 0…1: how far past the last Space the finger has gone.
+    ///
+    /// Nothing on the strip is *drawn* for it — the `+` and the ring live in
+    /// the column now. It is still read here for one thing: past the last
+    /// Space there is no Space to land on, so no dot may wear the ring saying
+    /// there is.
     var creation: CGFloat = 0 {
         didSet {
             guard creation != oldValue else { return }
-            let wasOpen = oldValue > 0
-            create.progress = creation
-            create.isHidden = creation <= 0
-            // The strip makes room for the Space that is about to exist, once,
-            // as the ring appears and again as it goes — never per frame. A
-            // pill whose width tracked the finger would drag every dot under it
-            // back and forth for the whole of the gesture, and the dots are
-            // what the gesture is being read on.
-            guard wasOpen != (creation > 0) else { return }
-            invalidateIntrinsicContentSize()
-            superview?.needsLayout = true
+            applyTravel()
         }
     }
 
@@ -114,7 +115,6 @@ final class SpaceDotsView: NSView {
     private var spaces: [Space] = []
     private var activeSpaceID: UUID?
     private var dots: [SpaceDotView] = []
-    private let create = SpaceCreateMarkView()
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -125,8 +125,6 @@ final class SpaceDotsView: NSView {
         // cut off by the pill, which is what lets the run slide rather than
         // re-deal itself every time the indicator moves.
         layer?.masksToBounds = true
-        create.isHidden = true
-        addSubview(create)
         setAccessibilityElement(true)
         setAccessibilityRole(.tabGroup)
         setAccessibilityLabel("Spaces")
@@ -150,7 +148,7 @@ final class SpaceDotsView: NSView {
             dot.onActivate = { [weak self] in self?.onSwitch?(space.id) }
             dot.onSetGradient = { [weak self] gradient in self?.onSetGradient?(space.id, gradient) }
             dot.onEditSpaces = { [weak self] in self?.onEditSpaces?() }
-            addSubview(dot, positioned: .below, relativeTo: create)
+            addSubview(dot)
             return dot
         }
         setAccessibilityChildren(dots)
@@ -241,25 +239,9 @@ final class SpaceDotsView: NSView {
             + 2 * Tokens.Metric.spaceDotsPill.cornerRadius
     }
 
-    /// Centre to centre from the last dot to §30.9's `+`.
-    ///
-    /// **The same clear air the dots have, which is not the same pitch.** The
-    /// ring is 14 pt against a 6 pt dot, so standing it at `spaceDotPitch`
-    /// would leave 4 pt between the two marks where every other pair has 8, and
-    /// the `+` would read as crowded onto the last Space. Giving it a slot of
-    /// its own and centring it in that slot — which is what this used to do —
-    /// left it marooned 25 pt out from a row laid out on 14, which is what
-    /// "it spawns way too far to the right" was describing. This is the one
-    /// pitch that puts the same gap between the last dot and the ring as there
-    /// is between any two dots.
-    static var createStep: CGFloat {
-        (Tokens.Metric.spaceDotPitch - Tokens.Metric.spaceDot)
-            + (Tokens.Metric.spaceDot + Tokens.Metric.spaceCreateRing) / 2
-    }
-
     override var intrinsicContentSize: NSSize {
         NSSize(
-            width: Self.width(forDots: dots.count) + (creation > 0 ? Self.createStep : 0),
+            width: Self.width(forDots: dots.count),
             height: Tokens.Metric.spaceDotsPill.height
         )
     }
@@ -284,11 +266,7 @@ final class SpaceDotsView: NSView {
 
     private func placeContents() {
         guard !dots.isEmpty else { return }
-        // The `+`'s step comes off the end first, and the dots are centred in
-        // what is left — so making room for a Space slides the existing ones
-        // aside rather than squeezing them together.
-        let showsCreate = creation > 0
-        let strip = bounds.width - (showsCreate ? Self.createStep : 0)
+        let strip = bounds.width
         let start = Self.windowStart(indicator: indicator, count: dots.count)
         let centres = Self.centres(count: dots.count, in: strip, from: start)
         let pitch = Tokens.Metric.spaceDotPitch
@@ -308,14 +286,6 @@ final class SpaceDotsView: NSView {
             dot.alphaValue = alpha
             dot.isHidden = alpha <= 0
         }
-        guard showsCreate, let last = centres.last else { return }
-        let side = Tokens.Metric.spaceCreateRing
-        create.frame = NSRect(
-            x: last + Self.createStep - side / 2,
-            y: (bounds.height - side) / 2,
-            width: side,
-            height: side
-        ).pixelAligned
     }
 
     // MARK: - §30.9's swipe, read out on the strip
