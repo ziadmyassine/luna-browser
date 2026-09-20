@@ -57,3 +57,127 @@ final class CommandBarPanelPlacementTests: XCTestCase {
         XCTAssertEqual(panel.body.frame, first)
     }
 }
+
+/// §3.2 and §3.2b hand the address to §9.1, and §9.1 **stands on the pill that
+/// handed it over** rather than opening in the middle of the page. So the
+/// panel's four numbers stop being a fraction of the page and become the pill's
+/// own: its leading edge, its width, its top, and its height for the input row.
+@MainActor
+final class CommandBarAnchoredPlacementTests: XCTestCase {
+
+    private var window: NSWindow?
+
+    /// A sidebar-width pill near the top of a real window — the panel refuses
+    /// to read an anchor that is not in the window it is in, which is the one
+    /// state where converting coordinates would answer nonsense.
+    private func anchored(
+        pill frame: NSRect = NSRect(x: 8, y: 700, width: 244, height: Tokens.Metric.urlPill.height)
+    ) -> (panel: CommandBarPanel, pill: URLPillView) {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1200, height: 800),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: true
+        )
+        self.window = window
+        let root = window.contentView ?? NSView()
+        let pill = URLPillView()
+        pill.frame = frame
+        root.addSubview(pill)
+        let panel = CommandBarPanel(
+            frame: root.bounds,
+            resultsView: CommandBarResultsView(frame: .zero),
+            anchor: CommandBarAnchor(view: pill)
+        )
+        root.addSubview(panel)
+        panel.layoutSubtreeIfNeeded()
+        return (panel, pill)
+    }
+
+    /// The bar stands on the pill's line, and is **wider than it**: a bar
+    /// exactly as wide as a 244 pt sidebar pill is a column of ellipses, so it
+    /// takes a `chromeGapWide` at each end and never less than
+    /// `commandBarMinWidth`.
+    func testTheBarStandsOnThePillsLineAndOutgrowsIt() {
+        let (panel, pill) = anchored()
+        // A margin above the pill's own top edge, so the query is not hard
+        // against the glass — the field stays on the pill's centre line, which
+        // `testTheFieldSitsOnTheLineTheAddressWasOn` is what checks.
+        XCTAssertEqual(
+            panel.body.frame.maxY,
+            pill.frame.maxY + CommandBarMetrics.padding,
+            accuracy: 0.5
+        )
+        XCTAssertEqual(
+            panel.body.frame.width,
+            max(pill.frame.width + 2 * Tokens.Metric.chromeGapWide, Tokens.Metric.commandBarMinWidth),
+            accuracy: 0.5
+        )
+        XCTAssertGreaterThan(panel.body.frame.width, pill.frame.width)
+        XCTAssertNotEqual(panel.body.frame.width, CommandBarMetrics.width)
+    }
+
+    /// It keeps the pill's centre line where it can — §3.2b's capsule is
+    /// centred over the page and its bar belongs on the same axis.
+    func testItKeepsThePillsCentreWhenThereIsRoom() {
+        let wide = NSRect(x: 380, y: 740, width: 420, height: Tokens.Metric.urlPill.height)
+        let (panel, pill) = anchored(pill: wide)
+        XCTAssertEqual(panel.body.frame.midX, pill.frame.midX, accuracy: 0.5)
+    }
+
+    /// And gives that up at the window's edge rather than hanging off it. A
+    /// sidebar's pill is 140 pt from the leading edge, where a 360 pt bar
+    /// centred on it would start 40 pt off screen; clamped, it lands
+    /// leading-aligned with the pill, which is where a bar growing out of the
+    /// first thing in a column belongs anyway.
+    func testTheWindowsEdgePushesItOffThatCentre() {
+        let (panel, pill) = anchored()
+        XCTAssertGreaterThanOrEqual(panel.body.frame.minX, Tokens.Metric.chromeGap)
+        XCTAssertEqual(panel.body.frame.minX, pill.frame.minX, accuracy: 0.5)
+    }
+
+    /// And it is more glass than the pill was, downwards — that is the whole of
+    /// the morph. A bar that grew *upwards* or centred itself on the pill would
+    /// cover the page's top edge and the controls beside it.
+    func testTheGlassItAddsGoesDownwards() {
+        let (panel, pill) = anchored()
+        XCTAssertGreaterThan(panel.body.frame.height, pill.frame.height)
+        XCTAssertLessThan(panel.body.frame.minY, pill.frame.minY)
+    }
+
+    /// The input row is the pill's height, not a chrome bar's 52: the field has
+    /// to sit on the line the address was already on.
+    func testTheFieldSitsOnTheLineTheAddressWasOn() {
+        let (panel, pill) = anchored()
+        let field = panel.convert(panel.field.frame, from: panel.field.superview)
+        XCTAssertEqual(field.midY, pill.frame.midY, accuracy: 1)
+    }
+
+    /// The pill moves — a window resize, a sidebar drag — and the bar moves
+    /// with it. Every constant is re-derived per pass for exactly this.
+    func testItFollowsThePillItGrewFrom() {
+        let wide = NSRect(x: 380, y: 740, width: 420, height: Tokens.Metric.urlPill.height)
+        let (panel, pill) = anchored(pill: wide)
+        pill.frame = pill.frame.offsetBy(dx: 60, dy: -40)
+        panel.needsLayout = true
+        panel.layoutSubtreeIfNeeded()
+        XCTAssertEqual(panel.body.frame.midX, pill.frame.midX, accuracy: 0.5)
+        XCTAssertEqual(
+            panel.body.frame.maxY,
+            pill.frame.maxY + CommandBarMetrics.padding,
+            accuracy: 0.5
+        )
+    }
+
+    /// And the list starts below that margin, not against the field: the input
+    /// row is the pill's height plus a margin at each end of it.
+    func testTheListClearsTheField() {
+        let (panel, pill) = anchored()
+        let results = panel.convert(panel.results.frame, from: panel.results.superview)
+        XCTAssertEqual(
+            panel.body.frame.maxY - results.maxY,
+            pill.frame.height + 2 * CommandBarMetrics.padding,
+            accuracy: 0.5
+        )
+    }
+}

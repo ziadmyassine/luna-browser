@@ -22,9 +22,6 @@ final class PageChromeController {
     /// The bar's sidebar toggle — the one control that brings a hidden sidebar
     /// back when the pill is not in it.
     var onToggleSidebar: (() -> Void)?
-    /// Text committed in the pill, for the same URL-or-query parse the
-    /// sidebar's pill commits through (§9.2).
-    var onSubmitURL: ((String) -> Void)?
     /// How far the page has to start down the pane. Zero whenever the bar is
     /// not the address bar on screen.
     var onBandHeight: ((_ height: CGFloat, _ animated: Bool) -> Void)?
@@ -41,7 +38,7 @@ final class PageChromeController {
     /// Whether the tab was loading last time it was heard from, so that a load
     /// *starting* can be told from a load going on.
     private var wasLoading = false
-    /// The pill is being typed in. The bar is held open for the whole of it —
+    /// §9.1 is standing on the pill. The bar is held open for the whole of it —
     /// the collapse rule keeps running underneath, it just does not get the bar
     /// until the user is finished.
     private var isEditing = false
@@ -52,14 +49,17 @@ final class PageChromeController {
         self.session = session
         bar.isHidden = true
         bar.onToggleSidebar = { [weak self] in self?.onToggleSidebar?() }
-        bar.onSubmitURL = { [weak self] text in self?.onSubmitURL?(text) }
-        bar.onTyping = { [weak self] text in self?.suggest(text) }
+        // §3.2b's pill hands the address over to §9.1, which opens standing on
+        // the pill rather than in the middle of the page (`CommandBarAnchor`).
+        bar.onHandOff = { [weak self] anchor in
+            self?.session.presentCommandBar?(.editCurrentURL, anchor)
+        }
         bar.onBandHeight = { [weak self] height, animated in
             guard let self, isActive else { return }
             onBandHeight?(height, animated)
         }
         bar.onEditingBegan = { [weak self] in self?.isEditing = true }
-        bar.onEditingEnded = { [weak self] committed in self?.editingEnded(committed) }
+        bar.onEditingEnded = { [weak self] in self?.editingEnded() }
         bar.onBack = { [weak self] in self?.session.goBack() }
         bar.onForward = { [weak self] in self?.session.goForward() }
         bar.onReloadOrStop = { [weak self] isLoading in
@@ -80,6 +80,15 @@ final class PageChromeController {
     /// already resolved — this does not read `Settings` itself, because the
     /// same two keys decide what the *sidebar* drops and one reader for both
     /// is what keeps them from disagreeing.
+    /// Whether this bar is the address bar on screen — `⌘L`'s question.
+    var isOnScreen: Bool { isActive }
+
+    /// §20.1's `⌘L`: the same hand-off a click on the pill makes.
+    func beginEditing() {
+        guard isActive else { return }
+        bar.pill.handOff()
+    }
+
     func setActive(_ active: Bool, animated: Bool) {
         guard active != isActive else { return }
         isActive = active
@@ -148,28 +157,6 @@ final class PageChromeController {
         bar.setCollapsed(false, animated: false)
     }
 
-    // MARK: - §3.4's completions
-
-    /// Asks the engine for what is being typed in the pill.
-    ///
-    /// **`SearchSuggestions` and nothing else**, which is the object that owns
-    /// the one network call in the query path and says what leaves the Mac. The
-    /// debounce, the cache and the cancellation are all its; this only hands
-    /// over the query and hands back the answer, and drops an answer that
-    /// arrives after the user has moved on.
-    private func suggest(_ text: String) {
-        let typed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !typed.isEmpty, CommandBarURL.direct(from: typed) == nil else {
-            SearchSuggestions.shared.cancel()
-            bar.showSuggestions([])
-            return
-        }
-        if let cached = SearchSuggestions.shared.cached(for: typed) { bar.showSuggestions(cached) }
-        SearchSuggestions.shared.request(typed) { [weak self] phrases in
-            self?.bar.showSuggestions(phrases)
-        }
-    }
-
     // MARK: - Scroll
 
     private func listen(to id: UUID?) {
@@ -211,12 +198,15 @@ final class PageChromeController {
         bar.setCollapsed(scroll.isCollapsed, animated: true)
     }
 
-    /// The bar goes back to whatever the page had it at — unless Return was
-    /// pressed, in which case a navigation is coming and `show(url:)` opens the
-    /// bar for it. Collapsing in between would be a flinch on the way out.
-    private func editingEnded(_ committed: Bool) {
+    /// The bar goes back to whatever the page had it at.
+    ///
+    /// A committed address is not a special case any more: §9.1 navigates the
+    /// tab itself, and the arrival opens the bar again through `show(url:)` on
+    /// the same turn — so there is no window in which this could collapse the
+    /// bar and be undone a frame later.
+    private func editingEnded() {
         isEditing = false
-        guard isActive, !committed else { return }
+        guard isActive else { return }
         bar.setCollapsed(scroll.isCollapsed, animated: true)
     }
 }

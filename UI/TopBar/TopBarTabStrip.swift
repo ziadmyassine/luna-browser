@@ -80,7 +80,12 @@ final class TopBarTabStrip: NSView {
         pill.onNavigate = { [weak self] url in self?.session.load(url) }
         // Search is the Command Bar's surface (§9.1), not the pill's, and
         // `presentCommandBar` is already the way in.
-        pill.onSearch = { [weak self] text in self?.session.presentCommandBar?(.search(text)) }
+        pill.onSearch = { [weak self] text in
+            guard let self else { return }
+            // Out of the pill it was typed in, not out of the middle of the
+            // window: §4's bar hands off the same way §3.2's does.
+            session.presentCommandBar?(.search(text), CommandBarAnchor(view: pill))
+        }
         content.addSubview(pill)
 
         NotificationCenter.default.addObserver(

@@ -111,7 +111,7 @@ extension Tokens {
 
         // MARK: Sidebar (§1, §3)
 
-        /// 280 / 220 / 420 pt. Everything else in §1 is proportioned to the
+        /// 280 / 250 / 420 pt. Everything else in §1 is proportioned to the
         /// default.
         ///
         /// **The minimum is arithmetic, not taste.** The sidebar's two 52 pt
@@ -120,15 +120,24 @@ extension Tokens {
         ///
         ///     §3.5, foot   inset 8 + avatar 34 + gap 8 + dots 56 + gap 8
         ///                  + the 68 pt Downloads/History cylinder + inset 8 = 190
-        ///     §3.1, head   lights 18+60 + gap 16 + toggle 34 = 128, and back
-        ///                  starts at W − (8 + 34 + 5 + 34); clear of the
-        ///                  toggle from                                      ≈ 217
+        ///     §3.1, head   lights 18+60 + gap 16 + toggle 34 = 128, and the
+        ///                  history cluster starts at W − (8 + 34 + 5 + 68);
+        ///                  measured clear of the toggle from            ≈ 243
         ///
-        /// It was 160, which is below both — the head's toggle already drew
-        /// over the back button there, and the foot's Space dots would now do
-        /// the same under Downloads. 220 is the first round number that clears
-        /// the worse of the two.
-        static let sidebarWidth = SpanMetric(default: 280, min: 220, max: 420)
+        /// It was 160, then 220. **220 was the arithmetic for a back button
+        /// that was one circle.** §3.1's history control is now a capsule that
+        /// grows a second 34 pt half the moment there is a forward to go to
+        /// (`NavCluster`), and every point it grows is a point its leading end
+        /// travels towards the toggle — which is what Martin photographed: the
+        /// two overlapping at the old minimum.
+        ///
+        /// **250, not the 260 that keeps a full `chromeGap` between them.**
+        /// Martin asked for the smallest that does not overlap; the measured
+        /// touching point is 243, and at 250 the toggle and the capsule are
+        /// 7 pt apart — one short of a gap, and plainly still two controls.
+        /// Below that they are closer than the tight pair at the other end of
+        /// the row, which is where spacing stops reading as spacing.
+        static let sidebarWidth = SpanMetric(default: 280, min: 250, max: 420)
         /// 38 pt of row **pitch** — tabs, `Archive` and `+ Add Tab` alike
         /// (§3.4, §30.6). The drawn pill is `rowPillHeight`, which is this less
         /// `rowGap`; the reference measures 109 px of pitch around a 100 px
@@ -221,6 +230,17 @@ extension Tokens {
         /// §3.4 close button's chip on hover, so it is sized to sit in one the
         /// way that glyph does.
         static let pillGlyphSize: CGFloat = 13
+        /// The same two glyphs on §3.2b's bar — 14, and its own number.
+        ///
+        /// The bar's pill stands in a row of controls that *are* their own
+        /// buttons, so its glyphs started at `glyphSize` to agree with them.
+        /// They read a step louder than the address between them all the same:
+        /// a glyph inside a capsule is measured against what shares the
+        /// capsule, not against what stands beside it. 14 is that step down,
+        /// and not the column's 13 — this pill is 420 pt wide with the ink at
+        /// arm's length from the text, where the column's is 244 with the two
+        /// nearly touching.
+        static let barPillGlyphSize: CGFloat = 14
 
         // MARK: Essentials (§3.3)
 
@@ -359,6 +379,17 @@ extension Tokens {
         /// gap any more:** the reference runs the page flush to the window's
         /// top, bottom and trailing edges (§3.6).
         static let panelInset: CGFloat = 8
+        /// The narrowest §9.1's bar is allowed to be when it has grown out of
+        /// an address pill (§3.2) rather than opening over the page.
+        ///
+        /// **Measured off the row, not chosen.** A result row spends a fixed
+        /// ~140 pt on things that do not shrink — two insets, the favicon, the
+        /// stack's gaps, the Space dot and the Profile name §21.2 requires
+        /// beside it — so a 264 pt sidebar pill leaves about 120 pt for the
+        /// title, and every row in the list read `OpenAI | Rese…`. At 360 the
+        /// titles survive, and the bar overhangs the column onto the page,
+        /// which is what a panel floating over a page is entitled to do.
+        static let commandBarMinWidth: CGFloat = 360
         /// Both the top-bar layout's bar and the sidebar's control / utility rows (§3.1, §3.5, §4).
         static let topBarHeight: CGFloat = 52
 

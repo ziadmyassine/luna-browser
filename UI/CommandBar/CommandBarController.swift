@@ -79,6 +79,9 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
     private let resultsView = CommandBarResultsView(frame: .zero)
     private var panel: CommandBarPanel?
     private var mode: CommandBarMode = .newTab
+    /// The pill the open bar is standing in, if it grew out of one. Held so
+    /// dismissal can give it back — see `present(_:in:from:)`.
+    private var anchor: CommandBarAnchor?
 
     /// Everything local, snapshotted when the bar opens — never rebuilt per
     /// keystroke (§9.7).
@@ -123,14 +126,23 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
 
     // MARK: - §9.1 presentation
 
-    func present(_ mode: CommandBarMode, in window: NSWindow) {
+    /// - Parameter anchor: the address pill the bar should grow out of (§3.2,
+    ///   §3.2b), or nil for `⌘T`'s panel over the page.
+    ///
+    ///   **The pill goes away for the duration.** The bar stands exactly where
+    ///   it was, at its width and its corner, showing what it was showing — so
+    ///   leaving the pill underneath would be the address drawn twice on the
+    ///   same 34 pt, once behind glass.
+    func present(_ mode: CommandBarMode, in window: NSWindow, from anchor: CommandBarAnchor? = nil) {
         guard let root = window.contentView else { return }
         if panel != nil { dismiss() }
         self.mode = mode
+        self.anchor = anchor
+        anchor?.view.isHidden = true
         selectionIsUserDriven = false
         refreshSources()
 
-        let panel = CommandBarPanel(frame: root.bounds, resultsView: resultsView)
+        let panel = CommandBarPanel(frame: root.bounds, resultsView: resultsView, anchor: anchor)
         panel.contentRegion = contentRegion
         panel.onBackgroundClick = { [weak self] in self?.dismiss() }
         panel.field.inputDelegate = self
@@ -164,6 +176,13 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
         let window = panel.window
         panel.removeFromSuperview()
         self.panel = nil
+        // The pill is its own again — and whatever opened for the bar's sake
+        // hears about it: §3.2b's bar was held open for the typing.
+        if let anchor {
+            anchor.view.isHidden = false
+            self.anchor = nil
+            anchor.onDismiss?()
+        }
         generation += 1 // Orphan any query still in flight.
         SearchSuggestions.shared.cancel()
         // Hand the keyboard back to the page, or the user is typing into nothing.

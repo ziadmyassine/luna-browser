@@ -20,16 +20,17 @@ extension URLPillView {
     /// How big the pill's two glyphs are drawn, which is a fact about the pill
     /// they are in.
     ///
-    /// **16 on the bar, 13 in the column.** `glyphSize` is the size of a glyph
-    /// that is its own button — the §3.1 circles, §3.2b's toggle and history
-    /// cluster — and on that bar these two are exactly that: four controls in a
-    /// row, one of them a different size being the thing the eye finds first.
-    /// The column's pill is a different argument, and `pillGlyphSize` is the
-    /// token that already makes it: a glyph inside a control that is already a
-    /// landmark, beside text set at 13, in a pill barely 200 pt wide. At 16 it
-    /// was the loudest thing in it.
+    /// **14 on the bar, 13 in the column**, and neither is `glyphSize`.
+    ///
+    /// 16 is the size of a glyph that is its own button — the §3.1 circles,
+    /// §3.2b's toggle and history cluster — and the bar's pair started there to
+    /// agree with the row of controls they sit in. What a glyph is measured
+    /// against, though, is what shares its surface: inside a capsule with an
+    /// address in it, 16 read as the loudest mark on the bar. The column's pill
+    /// makes the same argument a step further — `pillGlyphSize` is ink beside
+    /// text set at 13 with barely a finger's width between them.
     var glyphInk: CGFloat {
-        centresText ? Tokens.Metric.glyphSize : Tokens.Metric.pillGlyphSize
+        centresText ? Tokens.Metric.barPillGlyphSize : Tokens.Metric.pillGlyphSize
     }
 
     /// How far that ink sits from its own end of the pill. `pillGlyphInset` is

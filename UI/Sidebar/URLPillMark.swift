@@ -30,10 +30,10 @@ extension URLPillView {
     ///
     /// **Two strings, because there are two pills.** §3.2b's capsule is 420 pt
     /// of centred glass and says the whole sentence; §3.2's is one row of a
-    /// column barely 200 pt wide, and after its two glyphs and §3.2's two
-    /// reserved slots it has about 100 pt of text box — where the long line
-    /// truncates to `Search or enter website nam…`, which says less than the
-    /// short one does. A placeholder that does not fit is not a placeholder.
+    /// column that starts at 260 pt, and after its two glyphs it has about
+    /// 180 pt of text box — where the long line, which measures 181, truncates
+    /// to `Search or enter website nam…`. That says less than the short one
+    /// does: a placeholder that does not fit is not a placeholder.
     func applyPlaceholder() {
         field.placeholderString = centresText
             ? String(localized: "Search or enter website name")
@@ -41,13 +41,13 @@ extension URLPillView {
     }
 
 
-    /// Domain at rest.
+    /// Domain at rest — which is the only state the pill has. It used to check
+    /// that it was not overwriting something half-typed; nothing is ever typed
+    /// here now (see `URLPillView.onHandOff`).
     func show(url: URL?) {
         displayedURL = url
-        if !isEditing {
-            field.stringValue = Self.label(of: url)
-            needsLayout = true
-        }
+        field.stringValue = Self.label(of: url)
+        needsLayout = true
         field.setAccessibilityValue(url?.absoluteString ?? "")
     }
 

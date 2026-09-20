@@ -131,11 +131,13 @@ final class BrowserSession {
 
     // MARK: - Collaborators the app plugs in
 
-    /// `⌘T`, and the top bar's pill when what was typed is not a URL. The
-    /// argument is the query to open with — empty for a plain `⌘T`. The Command
-    /// Bar's host sets this; without it `⌘T` opens a blank tab, which is an
-    /// honest degradation rather than a dead key.
-    var presentCommandBar: ((CommandBarMode) -> Void)?
+    /// `⌘T`, and every address pill that hands the job over. The first argument
+    /// is what the bar opens with; the second is the pill it should **grow out
+    /// of** — §3.2's and §3.2b's pass themselves, and `⌘T` passes nil and gets
+    /// §9.1's panel over the page. The Command Bar's host sets this; without it
+    /// `⌘T` opens a blank tab, which is an honest degradation rather than a
+    /// dead key.
+    var presentCommandBar: ((CommandBarMode, CommandBarAnchor?) -> Void)?
 
     /// `⌘L`. The sidebar or top bar sets this to focus and select its URL pill.
     var focusURLField: (() -> Void)?

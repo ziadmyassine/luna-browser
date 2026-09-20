@@ -229,21 +229,23 @@ final class PageChromeBarTests: XCTestCase {
         XCTAssertEqual(began, 1)
     }
 
-    /// And the end of it says which end it was. Return means a navigation is on
-    /// its way and arriving opens the bar anyway; Esc means the bar goes back to
-    /// wherever the page had it.
-    func testTheEndOfEditingSaysWhetherItWasCommitted() throws {
+    /// **And it hands the address to §9.1 rather than opening a field.** The
+    /// anchor it sends is the pill itself, which is what lets the bar grow out
+    /// of the capsule that was pressed; the bar gets itself back when §9.1
+    /// closes, through the anchor's own callback.
+    func testPressingTheAddressHandsItToTheCommandBarStandingOnThePill() throws {
         let wide = bar(width: 1600)
         let pill = try XCTUnwrap(controls(of: wide)?.pill as? URLPillView)
-        let editor = NSTextView()
-        var ends: [Bool] = []
-        wide.onEditingEnded = { ends.append($0) }
+        var anchors: [CommandBarAnchor] = []
+        var ends = 0
+        wide.onHandOff = { anchors.append($0) }
+        wide.onEditingEnded = { ends += 1 }
 
         try press(pill)
-        _ = pill.control(pill.field, textView: editor, doCommandBy: #selector(NSResponder.insertNewline(_:)))
-        try press(pill)
-        _ = pill.control(pill.field, textView: editor, doCommandBy: #selector(NSResponder.cancelOperation(_:)))
-        XCTAssertEqual(ends, [true, false])
+        XCTAssertEqual(anchors.count, 1)
+        XCTAssertIdentical(anchors.first?.view, pill)
+        anchors.first?.onDismiss?()
+        XCTAssertEqual(ends, 1)
     }
 
     /// The bar's own band is chrome and takes its clicks; the page keeps the

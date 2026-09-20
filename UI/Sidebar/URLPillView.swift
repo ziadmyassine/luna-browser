@@ -2,8 +2,18 @@
 //  URLPillView.swift
 //  Luna
 //
-//  §3.2's address pill: the domain at rest, the full URL while editing, and a
-//  control at each end of it — site settings leading, reload trailing.
+//  §3.2's address pill: the domain, and a control at each end of it — site
+//  settings leading, reload trailing.
+//
+//  **It is not an editable field, on either surface.** Both pills hand the
+//  whole job to §9.1, which grows out of the pill it was handed by
+//  (`CommandBarAnchor`): that is where the field, the history, the ranking, the
+//  autofill and the list of completions already are. The sidebar's pill has
+//  handed off since there was nowhere in a 200 pt column to put a list; §3.2b's
+//  used to edit in place with a list of search phrases under it, which was a
+//  second, thinner answer to a question §9.1 answers completely — it knew
+//  nothing of open tabs, history or commands, and it was the only place in Luna
+//  where typing an address got you a different set of suggestions.
 //
 //  **Both ends are the pill's, on both surfaces.** The page bar grew them first
 //  and owned them as siblings laid over the capsule; the sidebar's pill then
@@ -22,22 +32,18 @@
 //  the same recess a pinned tile rests in, so the head of the sidebar is one
 //  surface rather than two that agree only sometimes.
 //
-//  The pill carries its glass when it is being *used* — hovered, or open for
-//  editing — and is a bordered well the rest of the time. Constant glass made
-//  it the brightest thing in the sidebar: a second lit surface directly under
-//  three lit circles, with the eye drawn to an address the user already knows.
+//  The pill carries its glass when it is being *reached for* — hovered — and is
+//  a bordered well the rest of the time. Constant glass made it the brightest
+//  thing in the sidebar: a second lit surface directly under three lit circles,
+//  with the eye drawn to an address the user already knows.
 //
 
 import AppKit
 import BrowserKit
 
 @MainActor
-final class URLPillView: NSView, NSTextFieldDelegate {
+final class URLPillView: NSView {
 
-    /// The text the user committed with Return. The coordinator decides whether
-    /// it is a URL or a query and forwards it to `BrowserSession.load(_:)`;
-    /// URL-or-query parsing is the Command Bar's, not the pill's.
-    var onSubmit: ((String) -> Void)?
     /// The leading sliders glyph (§3.2's site menu).
     var onSiteMenu: (() -> Void)?
     /// Reload, or stop while the page is loading — the trailing glyph. **Nil
@@ -51,34 +57,12 @@ final class URLPillView: NSView, NSTextFieldDelegate {
             needsLayout = true
         }
     }
-    // §3.2b's bar, and the only subscriber to any of these. The sidebar's pill
-    // leaves them nil and behaves as it always has: what was typed goes out, the
-    // arrows move the list (true swallows the key), Return asks it for a phrase,
-    // and the two ends of editing are where the bar opens and gives itself back.
-    var onTyping: ((String) -> Void)?
-    var onMoveSelection: ((Int) -> Bool)?
-    var chosenCompletion: (() -> String?)?
-    /// Editing is over. `committed` is Return rather than Esc or a click away,
-    /// which is the one thing a subscriber cannot work out for itself: `onSubmit`
-    /// arrives after this, and only sometimes.
-    var onEndEditing: ((_ committed: Bool) -> Void)?
-    /// The other end of that pair: editing has just started, by click or by a
-    /// command. §3.2b's bar opens itself on it — a 22 pt capsule is a fine
-    /// thing to *read* an address in and a poor one to type in.
-    var onBeginEditing: (() -> Void)?
-    /// **Hand the whole job to §9.1 instead of opening in place.**
+    /// **Where the address is actually edited.** A click, or `⌘L`, opens §9.1
+    /// on the current URL — anchored to this pill, so what the user sees is
+    /// this capsule growing the field and the list it never had.
     ///
-    /// Set, a click or `⌘L` opens the Command Bar on the current URL and this
-    /// pill never enters edit mode at all. That is the right answer wherever
-    /// there is nowhere to put a list of completions: the sidebar's pill is one
-    /// row of a 200 pt column, and editing an address there meant typing a URL
-    /// into a box narrower than the URL with no suggestions under it — while
-    /// two hundred points away `⌘T` already had the field, the history, the
-    /// ranking and the list. §4's top-bar pill has handed off this way since it
-    /// was built.
-    ///
-    /// Nil is §3.2b's bar, which edits in place because it *does* have somewhere
-    /// for the list to go: `PageBarSuggestions`, hanging off its own capsule.
+    /// A pill with nothing wired here is inert, which is the honest fallback:
+    /// it is a label that has no bar to open.
     var onHandOff: (() -> Void)?
     /// What §3.2's menu hangs off: the glyph itself, not the pill, so it opens
     /// from the control that was pressed.
@@ -103,7 +87,6 @@ final class URLPillView: NSView, NSTextFieldDelegate {
     // Internal for `URLPillMark.swift`, as `field` and `sliders` are for
     // `URLPillLayout.swift`: still the pill's, still untouched from elsewhere.
     var displayedURL: URL?
-    var isEditing = false
     /// §3.2b: the same pill, the other way round — the domain centred in a
     /// capsule rather than read down a column's leading edge. Which way round
     /// it goes is a fact about what the pill sits in.
@@ -166,7 +149,6 @@ final class URLPillView: NSView, NSTextFieldDelegate {
         field.font = Tokens.TypeScale.urlPill
         field.lineBreakMode = .byTruncatingTail
         field.focusRingType = .none
-        field.delegate = self
         field.isBordered = false
         field.drawsBackground = false
         field.setAccessibilityLabel("Address")
@@ -261,13 +243,16 @@ final class URLPillView: NSView, NSTextFieldDelegate {
 
     // MARK: - Dormant material
 
-    /// The pill carries its glass when it is **being used** — hovered, or open
-    /// for editing — and is a bordered plate on the sidebar's own plane the
-    /// rest of the time.
+    /// The pill carries its glass when it is **being reached for** — hovered —
+    /// and is a bordered plate on the sidebar's own plane the rest of the time.
     ///
     /// Constant glass is what made it the brightest thing in the sidebar: a
     /// second lit surface directly under three lit circles, with the eye drawn
     /// to an address the user already knows.
+    ///
+    /// There is no third state for "open": the pill does not open. §9.1 stands
+    /// in its place while the address is being edited, and this view is hidden
+    /// for the whole of it — see `CommandBarAnchor`.
     private var glassTarget: CGFloat {
         switch surface {
         case .glass: 1
@@ -275,13 +260,11 @@ final class URLPillView: NSView, NSTextFieldDelegate {
         // colour is a second surface announcing itself on a bar built to
         // disappear into the site.
         case .bare: 0
-        case .well: (isHovering || isEditing) ? 1 : 0
+        case .well: isHovering ? 1 : 0
         }
     }
 
-    // Internal for `URLPillEditing.swift`: opening and closing the pill is what
-    // lights its material.
-    func updateGlass() {
+    private func updateGlass() {
         let target = glassTarget
         guard let view = glass ?? (target > 0 ? makeGlass() : nil), view.alphaValue != target else { return }
         Tokens.Motion.animate(Tokens.Motion.controlHover) { context in
@@ -356,4 +339,17 @@ final class URLPillView: NSView, NSTextFieldDelegate {
         refresh()
     }
 
+    // MARK: - The hand-off (§3.2, §9.1, ⌘L)
+
+    /// Opens §9.1 on this pill. §20.1's `⌘L` arrives here, and so does a click.
+    func handOff() {
+        onHandOff?()
+    }
+
+    /// §30.1: the sidebar's plane moves the window; a control on it does not.
+    override var mouseDownCanMoveWindow: Bool { false }
+
+    override func mouseDown(with event: NSEvent) {
+        handOff()
+    }
 }

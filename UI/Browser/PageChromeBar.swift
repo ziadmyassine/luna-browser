@@ -48,6 +48,14 @@
 //  `URLPillView`, which carries the same pair in the sidebar. This bar wires
 //  the reload closure and nothing else.
 //
+//  **And the address is not typed here either.** The pill hands the whole job
+//  to §9.1, which opens *on* this capsule and grows down out of it
+//  (`CommandBarAnchor`) — the same hand-off the sidebar's pill makes, so the
+//  two address bars now behave identically rather than offering two different
+//  sets of suggestions. What this bar had instead was `PageBarSuggestions`: a
+//  list of search phrases and nothing else, no open tabs, no history, no
+//  commands, no autofill. It is gone, and so is editing in place.
+//
 
 import AppKit
 import BrowserKit
@@ -61,20 +69,17 @@ final class PageChromeBar: NSView {
     /// `NavCluster`.
     var onForward: (() -> Void)?
     var onReloadOrStop: ((_ isLoading: Bool) -> Void)?
-    var onSubmitURL: ((String) -> Void)?
-    /// What is being typed in the pill, for whoever asks the engine. Nil until
-    /// `PageChromeController` wires it; the list simply stays empty.
-    var onTyping: ((String) -> Void)?
+    /// The pill wants §9.1, standing in its place. Wired to
+    /// `BrowserSession.presentCommandBar` by `PageChromeController`.
+    var onHandOff: ((CommandBarAnchor) -> Void)?
     /// How much room the bar is taking, whenever that changes. The page starts
     /// below it — see `ContentCardView.setContentTopInset`.
     var onBandHeight: ((_ height: CGFloat, _ animated: Bool) -> Void)?
     /// The pill has been reached for, and the bar is open by the time this
-    /// fires. It stays open for as long as the editing lasts.
+    /// fires. It stays open for as long as §9.1 is standing on it.
     var onEditingBegan: (() -> Void)?
-    /// Editing is over, and the bar is the page's again. `committed` is Return:
-    /// a navigation is on its way and arriving opens the bar anyway, so taking
-    /// it back for the fraction of a second in between is a flinch.
-    var onEditingEnded: ((_ committed: Bool) -> Void)?
+    /// §9.1 has closed and the bar is the page's again.
+    var onEditingEnded: (() -> Void)?
 
     /// The page's colour, as a plane. Behind everything, and the only thing on
     /// this bar that is painted rather than placed.
@@ -88,8 +93,6 @@ final class PageChromeBar: NSView {
     )
     let nav = NavCluster()
     let pill = URLPillView()
-    /// §3.4's completions, hanging off the bottom of the pill.
-    let suggestions = PageBarSuggestions()
     private var isLoading = false
     private(set) var isCollapsed = false
     /// The document's own background, the strip under the bar, and whichever of
@@ -112,13 +115,12 @@ final class PageChromeBar: NSView {
         toggle.onActivate = { [weak self] in self?.onToggleSidebar?() }
         nav.onBack = { [weak self] in self?.onBack?() }
         nav.onForward = { [weak self] in self?.onForward?() }
-        pill.onSubmit = { [weak self] text in self?.onSubmitURL?(text) }
         pill.onReload = { [weak self] isLoading in self?.onReloadOrStop?(isLoading) }
         pill.onSiteMenu = { [weak self] in
             guard let self else { return }
             SiteMenu.present(from: pill.siteMenuAnchor)
         }
-        for view in buttons + [pill, suggestions] { addSubview(view) }
+        for view in buttons + [pill] { addSubview(view) }
         wirePill()
         applyPlane(animated: false)
         watchForTheLights() // The one thing that moves without resizing this view.
@@ -129,43 +131,26 @@ final class PageChromeBar: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
-    /// The pill owns the keystrokes and the list owns the selection, so the
-    /// hooks between them are all there is to it: what was typed goes out, the
-    /// arrows move the list, Return asks it for a phrase, and the end of
-    /// editing takes it away.
+    /// **The pill being touched at all opens the bar.** A press on the collapsed
+    /// capsule would otherwise hand §9.1 a 22 pt anchor sized to `apple.com`
+    /// and let it grow out of that; the bar it belongs to is 52 pt with a
+    /// 420 pt pill in it, and that is the shape the panel should take.
     ///
-    /// **And the pill being touched at all opens the bar.** A press on the
-    /// collapsed capsule used to start editing inside 22 pt of it — a full URL
-    /// or a query in a capsule sized to `apple.com`, with no room under it for
-    /// the list and no buttons beside it. So the click opens the bar first and
-    /// the typing happens in the pill that grows out of it. The bar then stays
-    /// open for as long as the editing lasts, whatever the page does: see
-    /// `PageChromeController.pageScrolled(to:)`.
+    /// **Opened without animation**, unlike every other change of this state:
+    /// the panel reads the pill's frame on the frame it is created, and a pill
+    /// two hundred milliseconds into a morph would be read mid-flight. Nothing
+    /// is lost — the panel covers the bar for the whole of the animation that
+    /// is not being run.
+    ///
+    /// The bar then stays open for as long as §9.1 is standing on it, whatever
+    /// the page does: see `PageChromeController.pageScrolled(to:)`.
     private func wirePill() {
-        pill.onTyping = { [weak self] text in self?.onTyping?(text) }
-        pill.onMoveSelection = { [weak self] offset in self?.suggestions.move(offset) ?? false }
-        pill.chosenCompletion = { [weak self] in self?.suggestions.selectedPhrase }
-        pill.onBeginEditing = { [weak self] in
+        pill.onHandOff = { [weak self] in
             guard let self else { return }
-            setCollapsed(false, animated: true)
+            setCollapsed(false, animated: false)
             onEditingBegan?()
+            onHandOff?(CommandBarAnchor(view: pill) { [weak self] in self?.onEditingEnded?() })
         }
-        pill.onEndEditing = { [weak self] committed in
-            guard let self else { return }
-            suggestions.dismiss()
-            onEditingEnded?(committed)
-        }
-        suggestions.onCommit = { [weak self] phrase in
-            guard let self else { return }
-            suggestions.dismiss()
-            onSubmitURL?(phrase)
-        }
-    }
-
-    /// The engine's answers, from `SearchSuggestions` by way of the controller.
-    func showSuggestions(_ phrases: [String]) {
-        suggestions.show(phrases)
-        needsLayout = true
     }
 
     // MARK: - State

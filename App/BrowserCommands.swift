@@ -25,7 +25,7 @@ extension AppDelegate {
     @objc func newTab(_ sender: Any?) {
         guard let session else { return }
         if let present = session.presentCommandBar {
-            present(.newTab)
+            present(.newTab, nil)
         } else {
             session.newTab(url: nil, kind: .today)
         }

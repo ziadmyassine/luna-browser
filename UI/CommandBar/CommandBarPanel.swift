@@ -85,8 +85,43 @@ final class CommandBarPanel: NSView {
     /// What VoiceOver notifications are posted against — the combo box itself.
     let body = CommandBarPanelBody()
 
-    private var topAnchorConstraint: NSLayoutConstraint?
-    private var centreConstraint: NSLayoutConstraint?
+    var topAnchorConstraint: NSLayoutConstraint?
+    var centreConstraint: NSLayoutConstraint?
+    var widthConstraint: NSLayoutConstraint?
+    /// The two constants the input row's height is spent on: where the field is
+    /// centred, and where the list starts. Both move when the bar is wearing a
+    /// pill's height rather than a chrome bar's.
+    var fieldCentreConstraint: NSLayoutConstraint?
+    var resultsTopConstraint: NSLayoutConstraint?
+    /// The reveal's own height: **required, and temporary**. It exists only
+    /// while an anchored bar is opening — see `revealFromPill` — because that
+    /// is the only moment the glass is allowed to disagree with the list about
+    /// how tall it should be.
+    var revealConstraint: NSLayoutConstraint?
+
+    /// The pill this bar grew out of, or nil for §9.1's floating panel.
+    let anchor: CommandBarAnchor?
+
+    /// How tall the input row is: a chrome bar's 52 pt when the panel floats,
+    /// and the pill's own height **plus a margin above and below** when it grew
+    /// from one. Read live, because §3.2b's pill is 22 pt collapsed and 34 open.
+    ///
+    /// The margin is the difference between a pill and a panel. 34 pt is the
+    /// right height for a capsule whose own edges hold the address off the
+    /// chrome around it; the same 34 at the top of a panel puts the query hard
+    /// against the glass with the first result under its chin. The field stays
+    /// on the pill's own centre line regardless — the panel starts that margin
+    /// *above* where the pill did, which is what keeps the two lined up.
+    var inputHeight: CGFloat {
+        guard let anchor else { return CommandBarMetrics.inputHeight }
+        return anchor.view.bounds.height + 2 * inputPadding
+    }
+
+    /// Zero when the bar is floating: `CommandBarMetrics.inputHeight` is 52 pt
+    /// for a field that is 20, and already all the room it needs.
+    var inputPadding: CGFloat {
+        anchor == nil ? 0 : CommandBarMetrics.padding
+    }
 
     /// The region the bar belongs over: the **page**, not the window.
     ///
@@ -97,8 +132,9 @@ final class CommandBarPanel: NSView {
     /// sidebar drag under an open bar.
     var contentRegion: (() -> NSRect)?
 
-    init(frame frameRect: NSRect, resultsView: CommandBarResultsView) {
+    init(frame frameRect: NSRect, resultsView: CommandBarResultsView, anchor: CommandBarAnchor? = nil) {
         self.results = resultsView
+        self.anchor = anchor
         super.init(frame: frameRect)
         autoresizingMask = [.width, .height]
         buildBody()
@@ -116,7 +152,11 @@ final class CommandBarPanel: NSView {
         // tint darkens a dark theme by design (it is what makes the sidebar
         // read as dense), and a bar floating over a page wants the opposite —
         // it should look like a pane of the desktop, not like more chrome.
-        Glass.apply(.popover, to: body, cornerRadius: CommandBarMetrics.cornerRadius)
+        // **A pill's own corner when the bar grew out of one.** The panel's
+        // 25 pt card radius on a capsule 34 pt tall is rounder than the capsule
+        // it is replacing, so the first frame of the reveal changes the shape
+        // of the thing the user clicked. `urlPill.cornerRadius` is that shape.
+        Glass.apply(.popover, to: body, cornerRadius: bodyRadius)
         addSubview(body)
 
         field.translatesAutoresizingMaskIntoConstraints = false
@@ -146,10 +186,24 @@ final class CommandBarPanel: NSView {
         topAnchorConstraint = top
         let centre = body.centerXAnchor.constraint(equalTo: centerXAnchor, constant: 0)
         centreConstraint = centre
+        // A constant rather than a constant *value*: anchored, the bar is as
+        // wide as the pill it grew from, and that width follows a sidebar drag.
+        let width = body.widthAnchor.constraint(equalToConstant: CommandBarMetrics.width)
+        widthConstraint = width
+        let fieldCentre = field.centerYAnchor.constraint(
+            equalTo: body.topAnchor,
+            constant: CommandBarMetrics.inputHeight / 2
+        )
+        fieldCentreConstraint = fieldCentre
+        let resultsTop = results.topAnchor.constraint(
+            equalTo: body.topAnchor,
+            constant: CommandBarMetrics.inputHeight
+        )
+        resultsTopConstraint = resultsTop
 
         NSLayoutConstraint.activate([
             centre,
-            body.widthAnchor.constraint(equalToConstant: CommandBarMetrics.width),
+            width,
             top,
 
             // **Centred in the input row, not stretched over it.** An
@@ -158,10 +212,7 @@ final class CommandBarPanel: NSView {
             // against the panel's top edge, above the rounded corners — the
             // misalignment in Martin's capture. The row is still 52 pt; the
             // field is its own height inside it.
-            field.centerYAnchor.constraint(
-                equalTo: body.topAnchor,
-                constant: CommandBarMetrics.inputHeight / 2
-            ),
+            fieldCentre,
             // The mark takes the rows' icon column and the query starts where
             // their titles do — the same `rowInset` and the same gap the result
             // rows' own stack uses, so the two line up exactly.
@@ -175,14 +226,36 @@ final class CommandBarPanel: NSView {
             ),
             field.trailingAnchor.constraint(equalTo: body.trailingAnchor, constant: -rowInset),
 
-            results.topAnchor.constraint(
-                equalTo: body.topAnchor,
-                constant: CommandBarMetrics.inputHeight
-            ),
+            resultsTop,
             results.leadingAnchor.constraint(equalTo: body.leadingAnchor),
-            results.trailingAnchor.constraint(equalTo: body.trailingAnchor),
-            results.bottomAnchor.constraint(equalTo: body.bottomAnchor, constant: -CommandBarMetrics.padding)
+            results.trailingAnchor.constraint(equalTo: body.trailingAnchor)
         ])
+
+        // **The list is what makes the glass as tall as it is** — on both
+        // placements, and through Auto Layout rather than through a number this
+        // file would have to keep up to date. That matters because the list
+        // changes size after the bar is already on screen: the history query
+        // lands, then the engine's suggestions, and each one re-ranks the rows.
+        //
+        // Anchored it is *almost* required. The reveal needs the glass to be
+        // shorter than the list for 0.18 s, so it puts a required height on the
+        // body and takes it off again at the end (`revealFromPill`); this
+        // constraint is the one that is violated for exactly that long, and
+        // `masksToBounds` is what makes the difference a reveal rather than
+        // rows floating over the page.
+        let bottom = results.bottomAnchor.constraint(
+            equalTo: body.bottomAnchor,
+            constant: -CommandBarMetrics.padding
+        )
+        if anchor != nil {
+            bottom.priority = NSLayoutConstraint.Priority(999)
+            body.layer?.masksToBounds = true
+        }
+        bottom.isActive = true
+        finishBody()
+    }
+
+    private func finishBody() {
 
         // §21.1: an edit field plus a list of results is a combo box, and that is
         // what VoiceOver expects from a bar like this. The field and the list keep
@@ -214,39 +287,6 @@ final class CommandBarPanel: NSView {
         }
     }
 
-    /// UI-SPEC §6 anchors the panel to a *fraction* of the surface it is over,
-    /// so a constant set once is wrong the moment the window is resized — or
-    /// the sidebar dragged — under an open bar. Both constants are re-derived
-    /// here, against the page rather than the window.
-    ///
-    /// **Derived before `super.layout()`, never after.** The constraint pass
-    /// that actually places `body` runs *inside* `super.layout()`, and AppKit
-    /// marks this view clean the moment `layout()` returns — so a constant set
-    /// on the way out is handed to a view the framework has just stopped
-    /// asking about. It does not reach the screen on this pass and it does not
-    /// schedule another one; the bar stays where the stale constants put it
-    /// until something *else* dirties the panel, which on `⌘T` is whenever the
-    /// history query lands or the first key is pressed.
-    ///
-    /// Both constants start at zero, and zero is not a harmless place: it is
-    /// the window's top edge, centred on the window rather than on the page.
-    /// Measured in a 1200×800 window with the sidebar out, the first pass left
-    /// the bar at `(280, 740)` and the second put it at `(392, 551)` — **112 pt
-    /// to the left and 189 pt too high**, held for as long as nothing asked for
-    /// another pass. That is the bar Martin saw flash up and to the left.
-    override func layout() {
-        // An empty region means nobody told us where the page is; the window
-        // is the honest fallback, not a zero-sized rect at the origin.
-        let reported = contentRegion?() ?? bounds
-        let region = reported.isEmpty ? bounds : reported
-        // Auto Layout measures a top constant downwards; `region` is in this
-        // view's own bottom-left coordinates.
-        topAnchorConstraint?.constant =
-            (bounds.maxY - region.maxY) + region.height * CommandBarMetrics.topAnchorFraction
-        centreConstraint?.constant = region.midX - bounds.midX
-        super.layout()
-    }
-
     /// §9.1's dismissal: a press anywhere but the bar closes it.
     ///
     /// It lands here directly now that there is no backdrop in the way — this
@@ -256,25 +296,6 @@ final class CommandBarPanel: NSView {
     /// subclass — without it, clicking the bar's own background would dismiss it.
     override func mouseDown(with event: NSEvent) {
         onBackgroundClick?()
-    }
-
-    /// §6 `commandBarIn`: 0.18 s spring, scale 0.96 → 1.0 + fade.
-    ///
-    /// Reduce Motion degrades it to instant with no second code path:
-    /// `springAnimation` returns nil, and `Motion.animate` runs at zero duration.
-    func animateIn() {
-        layoutSubtreeIfNeeded()
-        guard let scale = Tokens.Motion.commandBarIn.springAnimation(keyPath: "transform.scale") else {
-            alphaValue = 1
-            return
-        }
-        scale.fromValue = 0.96
-        scale.toValue = 1.0
-        body.layer?.add(scale, forKey: "commandBarIn")
-        alphaValue = 0
-        Tokens.Motion.animate(Tokens.Motion.commandBarIn) { _ in
-            self.animator().alphaValue = 1
-        }
     }
 }
 

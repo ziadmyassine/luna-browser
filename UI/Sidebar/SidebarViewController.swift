@@ -26,9 +26,6 @@ final class SidebarViewController: NSViewController {
 
     // Wired by the coordinator — none of these have a `BrowserSession` call.
     var onToggleSidebar: (() -> Void)?
-    /// Text committed in the URL pill. Wire to `BrowserSession.load(_:)` via
-    /// the Command Bar's URL-or-query parse — that parse is not the pill's job.
-    var onSubmitURL: ((String) -> Void)?
     /// §3.5's bottom-bar History button. The one way into the page — it used
     /// to also be a row at the head of the list.
     var onOpenHistory: (() -> Void)?
@@ -205,9 +202,16 @@ final class SidebarViewController: NSViewController {
         view.needsLayout = true
     }
 
-    /// §3.2 / §20.1's `⌘L`.
+    /// §3.2 / §20.1's `⌘L`: §9.1, standing on the pill.
     func beginEditingURL() {
-        pill.beginEditing()
+        pill.handOff()
+    }
+
+    /// Whether §3.2's pill is the address bar the user can see — which is
+    /// `⌘L`'s question, and not one this controller can answer from the
+    /// setting alone: the whole sidebar is hidden in §4's layout.
+    var showsURLPill: Bool {
+        pill.window != nil && !pill.isHiddenOrHasHiddenAncestor
     }
 
     /// §7.4's `⌘⌥←/→`, for the window's key map.
@@ -221,14 +225,14 @@ final class SidebarViewController: NSViewController {
         controlRow.onToggleSidebar = { [weak self] in self?.onToggleSidebar?() }
         controlRow.onBack = { [weak self] in self?.session.goBack() }
         controlRow.onForward = { [weak self] in self?.session.goForward() }
-        pill.onSubmit = { [weak self] text in self?.onSubmitURL?(text) }
-        // **The pill hands off to §9.1 rather than opening itself.** A click or
-        // `⌘L` on the sidebar's address opens the Command Bar on the current
-        // URL — the field is wider than this column, and it is the only one of
-        // the two with history, ranking and a list of completions under it.
-        // §3.2b's pill still edits in place; it has a list of its own.
+        // **The pill hands off to §9.1 rather than opening itself**, and §9.1
+        // opens *on the pill*: the bar takes its place, at its width, and grows
+        // down out of it (`CommandBarAnchor`). The field, the history, the
+        // ranking and the list are all already there, and none of them would
+        // fit in a 260 pt column. §3.2b's pill now does exactly the same.
         pill.onHandOff = { [weak self] in
-            self?.session.presentCommandBar?(.editCurrentURL)
+            guard let self else { return }
+            session.presentCommandBar?(.editCurrentURL, CommandBarAnchor(view: pill))
         }
         controlRow.onReloadOrStop = { [weak self] isLoading in
             guard let self else { return }

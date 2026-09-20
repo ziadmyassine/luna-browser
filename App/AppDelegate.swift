@@ -192,6 +192,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             wireSidebar(sidebar, in: controller)
             wirePageChrome(session, in: controller)
+            // Last of the three address bars to claim `⌘L`, and the one that
+            // knows which of them is on screen.
+            wireEditLocation(session, sidebar: sidebar)
             // §7.1: the layout the user chose in Settings, applied before the
             // first frame the window shows with content in it.
             applyChromeLayout(in: controller, animated: false)
@@ -236,7 +239,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// resize handle drew, hovered, dragged — and did nothing at all.
     private func wireSidebar(_ sidebar: SidebarViewController, in controller: BrowserWindowController) {
         sidebar.onToggleSidebar = { [weak self] in self?.toggleSidebar() }
-        sidebar.onSubmitURL = { [weak self] text in self?.open(text) }
         // Live during the drag and again on mouse-up: `setSidebarWidth` is
         // idempotent and the committed value is the one that gets persisted.
         sidebar.onWidthChange = { [weak controller] width in controller?.setSidebarWidth(width) }
@@ -244,15 +246,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // without animating a width the user never saw change.
         controller.setSidebarWidth(sidebar.preferredWidth)
         sidebar.willAppear()
-    }
-
-    /// §3.2's pill commits here: a URL is loaded, anything else is a search.
-    /// Both shapes come from `CommandBarURL` so the pill and the Command Bar
-    /// cannot disagree about which is which (§9.2). Not `private`: §3.2b's page
-    /// bar commits through the same parse, from `AppDelegate+PageChrome`.
-    func open(_ text: String) {
-        guard let url = CommandBarURL.direct(from: text) ?? CommandBarURL.search(for: text) else { return }
-        session?.load(url)
     }
 
     /// `⌘T` and `⌘L` (§9.1). The bar is one object shared by both entry points
@@ -267,9 +260,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // The results the bar cannot perform itself (§9.2).
         bar.onExternalAction = { [weak self] action in self?.perform(action) }
         // Weak: the bar holds the session, so a strong capture here is a cycle.
-        session.presentCommandBar = { [weak bar, weak controller] mode in
+        session.presentCommandBar = { [weak bar, weak controller] mode, anchor in
             guard let bar, let window = controller?.window else { return }
-            bar.present(mode, in: window)
+            bar.present(mode, in: window, from: anchor)
         }
     }
 

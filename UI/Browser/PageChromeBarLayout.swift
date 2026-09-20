@@ -2,8 +2,8 @@
 //  PageChromeBarLayout.swift
 //  Luna
 //
-//  Where §3.2b's bar puts the four controls, the pill and the list under it,
-//  and which part of it takes a click.
+//  Where §3.2b's bar puts its controls and its pill, and which part of it takes
+//  a click.
 //
 //  Split out of `PageChromeBar.swift` for the reason `URLPillLayout.swift` was
 //  split out of `URLPillView.swift`: that file crosses SwiftLint's 400-line
@@ -122,16 +122,6 @@ extension PageChromeBar {
             width: width,
             height: height
         ).pixelAligned
-
-        // Under the pill and exactly as wide: the list is the pill's own
-        // continuation, so it lines up with it rather than with the bar.
-        let listHeight = suggestions.fittingHeight
-        suggestions.frame = NSRect(
-            x: pill.frame.minX,
-            y: pill.frame.minY - Tokens.Metric.chromeGap - listHeight,
-            width: pill.frame.width,
-            height: listHeight
-        ).integral
     }
 
     // MARK: - Events
@@ -142,7 +132,7 @@ extension PageChromeBar {
     /// has to stay clickable.
     override func hitTest(_ point: NSPoint) -> NSView? {
         guard let hit = super.hitTest(point) else { return nil }
-        // A control, a row of the list, or the list's own material: theirs.
+        // A control or the pill: theirs.
         guard hit === self || hit === plane else { return hit }
         return band.contains(convert(point, from: superview)) ? self : nil
     }

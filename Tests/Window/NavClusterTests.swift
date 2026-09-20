@@ -107,3 +107,74 @@ final class NavClusterTests: XCTestCase {
         XCTAssertEqual(back?.isEnabled, false)
     }
 }
+
+/// What the capsule's second half costs the column it sits in.
+///
+/// §3.1's head is `[lights] [toggle] ··· [back·forward] [reload]`, and the
+/// cluster is pinned to the trailing edge — so every point it grows is a point
+/// its leading end travels towards the toggle. At the old 220 pt minimum the
+/// two overlapped the moment there was a forward to go to, which is what Martin
+/// photographed. The minimum is arithmetic (see `Metric.sidebarWidth`), and
+/// this is that arithmetic run against the real row.
+@MainActor
+final class SidebarHeadRoomTests: XCTestCase {
+
+    private var window: NSWindow?
+
+    /// In a real window, because the row leaves the traffic lights' corner
+    /// clear and there are no lights to clear without one.
+    private func head(width: CGFloat, canGoForward: Bool) -> SidebarControlRow {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1200, height: 800),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: true
+        )
+        self.window = window
+        let row = SidebarControlRow()
+        row.frame = NSRect(x: 0, y: 748, width: width, height: Tokens.Metric.topBarHeight)
+        window.contentView?.addSubview(row)
+        row.update(canGoBack: true, canGoForward: canGoForward, isLoading: false)
+        row.layoutSubtreeIfNeeded()
+        return row
+    }
+
+    /// Leading to trailing: the toggle, then the cluster, then reload.
+    private func parts(of row: SidebarControlRow) -> [NSRect] {
+        row.subviews.filter { !$0.isHidden }.map(\.frame).sorted { $0.minX < $1.minX }
+    }
+
+    /// **Nothing on the head touches at the narrowest the column can be
+    /// dragged**, with the capsule at its widest. This is the whole of the
+    /// change: the same row at 220 has the capsule 22 pt inside the toggle.
+    ///
+    /// The bar is `controlPairGap` rather than `chromeGap`, because that is the
+    /// floor the minimum was chosen against — the cluster and reload sit that
+    /// close on purpose, and nothing on this row should be closer than the pair
+    /// that is deliberately tight.
+    func testTheHeadFitsAtTheMinimumWidthWithForwardShowing() throws {
+        let row = head(width: Tokens.Metric.sidebarWidth.min, canGoForward: true)
+        let frames = parts(of: row)
+        XCTAssertEqual(frames.count, 3)
+        for (left, right) in zip(frames, frames.dropFirst()) {
+            XCTAssertGreaterThanOrEqual(
+                right.minX - left.maxX,
+                Tokens.Metric.controlPairGap,
+                "two of the head's controls are closer than the tight pair"
+            )
+        }
+    }
+
+    /// And the cluster still ends where it always has — at the trailing inset,
+    /// one `controlPairGap` short of reload. It grows leftwards into the room
+    /// the new minimum is there to keep clear.
+    func testTheCapsuleGrowsIntoTheRoomRatherThanOffTheEnd() throws {
+        let row = head(width: Tokens.Metric.sidebarWidth.min, canGoForward: true)
+        let frames = parts(of: row)
+        let reload = try XCTUnwrap(frames.last)
+        let nav = frames[1]
+        XCTAssertEqual(reload.maxX, row.bounds.maxX - Tokens.Metric.rowInset, accuracy: 0.5)
+        XCTAssertEqual(reload.minX - nav.maxX, Tokens.Metric.controlPairGap, accuracy: 0.5)
+        XCTAssertEqual(nav.width, Tokens.Metric.sidebarCircle.width * 2, accuracy: 0.5)
+    }
+}

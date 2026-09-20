@@ -2,8 +2,7 @@
 //  URLPillLayoutTests.swift
 //  LunaTests
 //
-//  §3.2's pill on both surfaces — a row of a column and a capsule on a bar —
-//  and the list of completions that hangs off the second one.
+//  §3.2's pill on both surfaces — a row of a column and a capsule on a bar.
 //
 //  Split out of `PageChromeBarTests.swift`, which is about the *bar*: what it
 //  holds, where it puts it and which part of it takes a click. What is inside
@@ -126,13 +125,15 @@ final class URLPillLayoutTests: XCTestCase {
         XCTAssertFalse(bare.reload.isHidden)
     }
 
-    /// **13 in a column, 16 on a bar.** `glyphSize` is the size of a glyph that
-    /// is its own button, which is what these two are among four controls on
-    /// §3.2b's bar. In a 200 pt column beside 13 pt text, 16 was the loudest
-    /// thing in the pill.
+    /// **13 in a column, 14 on a bar, and 16 nowhere.** `glyphSize` is the size
+    /// of a glyph that is its own button, which is what the controls *beside*
+    /// §3.2b's pill are — but a glyph inside a capsule is measured against the
+    /// address it shares the capsule with, and at 16 it was the loudest mark on
+    /// the bar. The column takes the step further for the same reason.
     func testTheGlyphsAreSizedToThePillTheyAreIn() {
         XCTAssertEqual(pill(centred: false).glyphInk, Tokens.Metric.pillGlyphSize)
-        XCTAssertEqual(pill(centred: true).glyphInk, Tokens.Metric.glyphSize)
+        XCTAssertEqual(pill(centred: true).glyphInk, Tokens.Metric.barPillGlyphSize)
+        XCTAssertLessThan(Tokens.Metric.barPillGlyphSize, Tokens.Metric.glyphSize)
     }
 
     /// And both fit inside the pill they are in, at both sizes: a hit target
@@ -150,25 +151,30 @@ final class URLPillLayoutTests: XCTestCase {
         }
     }
 
-    /// **A pill that hands off never opens.** There is nowhere in a 200 pt
-    /// column to put a list of completions, and §9.1 already has the field, the
-    /// history and the ranking — so the click and the `⌘L` go there instead.
-    func testAPillThatHandsOffDoesNotOpenForEditing() throws {
-        let column = pill(centred: false)
-        var handOffs = 0
-        column.onHandOff = { handOffs += 1 }
+    /// **Neither pill is a field.** A click and a `⌘L` both go to §9.1, on both
+    /// surfaces: that is where the field, the history, the ranking, the
+    /// autofill and the list already are, and two address bars offering two
+    /// different sets of suggestions was the thing this replaced.
+    func testBothSurfacesHandTheAddressToTheCommandBar() {
+        for centred in [false, true] {
+            let bar = pill(centred: centred)
+            var handOffs = 0
+            bar.onHandOff = { handOffs += 1 }
 
-        column.beginEditing()
-        XCTAssertEqual(handOffs, 1)
-        XCTAssertFalse(column.isEditing, "the pill opened as well as handing off")
-        XCTAssertFalse(column.field.isEditable)
+            bar.handOff()
+            XCTAssertEqual(handOffs, 1, "centred: \(centred)")
+            XCTAssertFalse(bar.field.isEditable, "centred: \(centred) — the pill opened for typing")
+        }
     }
 
-    /// And §3.2b's still does, because it has a list of its own hanging off it.
-    func testThePageBarsPillStillEditsInPlace() {
-        let capsule = pill(centred: true)
-        capsule.beginEditing()
-        XCTAssertTrue(capsule.isEditing)
+    /// And a press on the pill is that same hand-off, not a selection or a
+    /// caret: the whole capsule is the button.
+    func testAClickOnThePillIsTheHandOff() {
+        let bar = pill(centred: false)
+        var handOffs = 0
+        bar.onHandOff = { handOffs += 1 }
+        bar.mouseDown(with: NSEvent())
+        XCTAssertEqual(handOffs, 1)
     }
 
     /// A tab with no site in it reads as what the bar is for, not as the name
@@ -181,8 +187,8 @@ final class URLPillLayoutTests: XCTestCase {
         XCTAssertEqual(bar.field.placeholderString, "Search or enter website name")
     }
 
-    /// §3.2's column pill is barely 200 pt wide and the long line truncates in
-    /// it, which says less than the short one does.
+    /// §3.2's column pill starts at 244 pt of glass and the long line truncates
+    /// in it, which says less than the short one does.
     func testTheColumnPillSaysTheShortVersion() {
         XCTAssertEqual(URLPillView().field.placeholderString, "Search the web")
     }
@@ -193,135 +199,5 @@ final class URLPillLayoutTests: XCTestCase {
         let bar = URLPillView()
         bar.show(url: URL(string: "luna://archive"))
         XCTAssertEqual(bar.field.stringValue, "History")
-    }
-}
-
-/// §3.4's completions under §3.2b's pill. The list is a value-ish object — it
-/// holds phrases and an index — so the keyboard rule can be written down rather
-/// than discovered by arrowing through a live one.
-@MainActor
-final class PageBarSuggestionsTests: XCTestCase {
-
-    private func list(_ phrases: [String] = ["swift", "swift concurrency", "swiftui"]) -> PageBarSuggestions {
-        let list = PageBarSuggestions()
-        list.show(phrases)
-        return list
-    }
-
-    /// Return takes the top suggestion without the user arrowing down to it
-    /// first, which is the whole reason the list opens on a row rather than on
-    /// what was typed.
-    func testItOpensOnTheFirstSuggestion() {
-        XCTAssertEqual(list().selectedPhrase, "swift")
-    }
-
-    func testDownWalksTheListAndUpComesBackOut() {
-        let list = list()
-        XCTAssertTrue(list.move(1))
-        XCTAssertEqual(list.selectedPhrase, "swift concurrency")
-        XCTAssertTrue(list.move(1))
-        XCTAssertEqual(list.selectedPhrase, "swiftui")
-        XCTAssertTrue(list.move(-1))
-        XCTAssertEqual(list.selectedPhrase, "swift concurrency")
-    }
-
-    /// **What was typed stays reachable.** Opening on a suggestion must not
-    /// mean a query can only be searched as the engine would rather have
-    /// spelled it — ↑ off the top of the list is the way back to your own text.
-    func testUpOffTheTopIsTheWayBackToWhatWasTyped() {
-        let list = list()
-        XCTAssertTrue(list.move(-1))
-        XCTAssertNil(list.selectedPhrase)
-    }
-
-    /// Off the bottom is the typed text too — the same way out at either end.
-    func testFallingOffTheEndReturnsToWhatWasTyped() {
-        let list = list()
-        for _ in 0..<2 { _ = list.move(1) }
-        XCTAssertEqual(list.selectedPhrase, "swiftui")
-        XCTAssertTrue(list.move(1))
-        XCTAssertNil(list.selectedPhrase)
-    }
-
-    func testDownFromTheTypedTextLandsOnTheFirstRowAgain() {
-        let list = list()
-        _ = list.move(-1)
-        XCTAssertNil(list.selectedPhrase)
-        XCTAssertTrue(list.move(1))
-        XCTAssertEqual(list.selectedPhrase, "swift")
-    }
-
-    /// The pill is the whole highlight. A second grey plate that lit under the
-    /// pointer and then sat there was a second selection the keyboard could not
-    /// move — which is what it looked like.
-    func testARowPaintsNothingOfItsOwn() {
-        let list = list()
-        list.layoutSubtreeIfNeeded()
-        for row in list.subviews.compactMap({ $0 as? PageBarSuggestionRow }) {
-            row.displayIfNeeded()
-            XCTAssertNil(row.layer?.backgroundColor)
-        }
-    }
-
-    /// With nothing to walk through the field keeps the key, so the caret moves
-    /// as it would in any other text field.
-    func testAnEmptyListLeavesTheArrowKeysAlone() {
-        let empty = list([])
-        XCTAssertFalse(empty.move(1))
-        XCTAssertFalse(empty.move(-1))
-        XCTAssertTrue(empty.isHidden)
-    }
-
-    func testANewSetOfAnswersSelectsItsOwnFirstRow() {
-        let list = list()
-        _ = list.move(1)
-        list.show(["something else"])
-        XCTAssertEqual(list.selectedPhrase, "something else")
-    }
-
-    func testDismissingLeavesNothingToCommit() {
-        let list = list()
-        _ = list.move(1)
-        list.dismiss()
-        XCTAssertNil(list.selectedPhrase)
-        XCTAssertTrue(list.isHidden)
-        XCTAssertEqual(list.fittingHeight, 0)
-    }
-}
-
-/// §3.4's completions under §3.2b's pill, as geometry.
-///
-/// They are the same rows §9.1 shows for the same query, so they have to be
-/// drawn the same way. These were laid out on §3.4's tab-row numbers —
-/// `rowFaviconInset` and `rowTitleInset`, derived from the tab pill's height
-/// and carrying §3.4's own 9 pt icon gap — and the two lists sat a point and a
-/// half apart from each other on screen.
-@MainActor
-final class PageBarSuggestionRowTests: XCTestCase {
-
-    private func row() -> PageBarSuggestionRow {
-        let row = PageBarSuggestionRow(phrase: "what is my ip")
-        row.frame = NSRect(x: 0, y: 0, width: 420, height: Tokens.Metric.rowHeight)
-        row.layoutSubtreeIfNeeded()
-        return row
-    }
-
-    private func parts(_ row: PageBarSuggestionRow) -> (glyph: NSView, label: NSView)? {
-        let views = row.subviews
-        guard views.count == 2 else { return nil }
-        return (views[0], views[1])
-    }
-
-    func testTheIconStartsWhereTheCommandBarsDoes() throws {
-        let parts = try XCTUnwrap(parts(row()))
-        XCTAssertEqual(parts.glyph.frame.minX, Tokens.Metric.rowInset + Tokens.Metric.panelInset)
-        XCTAssertEqual(parts.glyph.frame.width, Tokens.Metric.faviconSize)
-    }
-
-    /// One `panelInset` after the icon — the spacing `CommandBarResultRow`'s
-    /// stack view uses, and not §3.4's tighter tab-row gap.
-    func testTheTextClearsTheIconByTheCommandBarsGap() throws {
-        let parts = try XCTUnwrap(parts(row()))
-        XCTAssertEqual(parts.label.frame.minX - parts.glyph.frame.maxX, Tokens.Metric.panelInset)
     }
 }

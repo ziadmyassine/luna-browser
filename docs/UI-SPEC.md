@@ -31,7 +31,7 @@ sidebar's own content reflows. The ratios exist to fix proportions once, not to 
 
 | Token | Value | Was |
 |---|---|---|
-| `sidebarWidth` default / min / max | 280 / **220** / 420 pt | min was 180, then 160 |
+| `sidebarWidth` default / min / max | 280 / **250** / 420 pt | min was 180, then 160, then 220 |
 | `rowHeight` (pitch) | 38 pt | 40 |
 | `rowGap` / `rowPillHeight` (the drawn pill) | 3 / 35 pt | 4 / — |
 | `rowInset` (pill inset from sidebar edge) | 8 pt | — |
@@ -341,6 +341,12 @@ Vertical order, top to bottom:
   `canGoForward` is true the circle grows a second half and the two share **one capsule divided by a
   hairline**, which is the reference. One plate, two bare glyphs: a backing per chevron is what made
   §4's action capsule read as separate bright discs. `NavCluster`, used by §3.1 and §3.2b alike.
+- **And the column's minimum width is the price of it.** The cluster is pinned to the trailing edge, so
+  every point the second half adds is a point its leading end travels towards the toggle: at the old
+  220 pt minimum the two overlapped by 22 pt the moment there was a forward to go to. `sidebarWidth.min`
+  is 250 — the measured touching point is 243, and Martin asked for the smallest that does not overlap
+  rather than the smallest that keeps a full `chromeGap`. `SidebarHeadRoomTests` runs that sum against
+  the real row.
 - **The morph stands still.** Nothing inside the capsule is laid out against its bounds — all three are
   placed off the leading edge at fixed distances — so the trailing edge is the only thing that travels
   and back never moves under the pointer. Measured against the bounds, a *shrink* re-reads them at the
@@ -367,9 +373,12 @@ Vertical order, top to bottom:
   trailing; site settings is the one that says what the address *is*, so it leads. The sidebar's pill
   has no reload inside it: §3.1's circle is directly above, and this column is 200 pt wide with a
   domain already in it.
-- **And the glyph is sized to the pill it is in.** `glyphSize` (16) on §3.2b's bar, where these are two
-  of four controls in a row and one of a different size is the thing the eye finds first;
-  `pillGlyphSize` (13) in the column, beside text set at 13. Hover **lifts the ink** rather than drawing
+- **And the glyph is sized to the pill it is in, not to what stands beside it.** `barPillGlyphSize`
+  (14) on §3.2b's bar and `pillGlyphSize` (13) in the column — and `glyphSize` (16) on neither. 16 is
+  the size of a glyph that *is* its own button, which is what the toggle and the history cluster beside
+  the bar's pill are; a glyph inside a capsule is measured against the address it shares the capsule
+  with, and at 16 it was the loudest mark on the bar. The column takes the step further: the ink there
+  is a finger's width from text set at 13. Hover **lifts the ink** rather than drawing
   §3.4's chip: a chip says "this mark you are reading is also a button", which is right on a tab row and
   wrong for a control plainly standing in a row of controls — and a rounded rectangle inside a capsule
   is two shapes.
@@ -385,12 +394,38 @@ Vertical order, top to bottom:
   not where it belongs: a favicon at the head of the one line saying what page you are on is a second
   thing to read, on both surfaces and in both of §3.2b's forms. The rule survives in §9.1's field, which
   is answering a question as it is being typed rather than labelling a page you are already on.
-- **A click on the sidebar's pill opens §9.1 instead of the pill.** There is nowhere in a 200 pt column
-  to put a list of completions, so editing an address there meant typing a URL into a box narrower than
-  the URL with nothing under it — while `⌘T` two hundred points away already had the field, the history,
-  the ranking and the list. The click and `⌘L` both open the Command Bar on the current URL
-  (`.editCurrentURL`). §4's top-bar pill has handed off this way since it was built. §3.2b's pill still
-  edits in place, because it *does* have somewhere for the list to go (§3.2b.i).
+- **Neither pill is a field. A click opens §9.1, standing on the pill.** Both surfaces hand the whole
+  job over — the field, the history, the ranking, the autofill and the list are all the Command Bar's —
+  and the bar opens *on the pill that handed it over*: same line, same corner, a little wider, with the
+  glass growing downwards to hold the list. The click and `⌘L` both open it on the current URL
+  (`.editCurrentURL`), and the pill is hidden for the duration, because the bar's own input row is
+  showing what the pill was showing.
+  - The sidebar's pill has handed off since there was nowhere in a 250 pt column to put a list of
+    completions. §3.2b's used to edit in place with §3.4's search phrases under it, which was a second
+    and much thinner answer to a question §9.1 answers completely: it knew nothing of open tabs,
+    history or commands, had no autofill, and made the page bar the one place in Luna where typing an
+    address got you a different set of suggestions. It is gone, and so is editing in place.
+  - **The bar is wider than the pill it grew from** — a `chromeGapWide` at each end, and never less
+    than `commandBarMinWidth` (360). A result row spends about 140 pt on its icon, its insets and
+    §21.2's Profile badge whatever is left over, so a bar exactly as wide as a 244 pt sidebar pill was
+    a column of `OpenAI | Rese…`. It keeps the pill's centre line where the window's edge allows and is
+    clamped inside it where it does not, which in the column means leading-aligned with the pill and
+    overhanging the page — which is what a panel floating over a page is entitled to do.
+  - **What opens is the height, and only the height.** The input row is already on the line the address
+    was on and the extra width is there on the first frame, under an alpha starting at zero; the glass
+    grows from the pill's height to the bar's on §6's `commandBarIn`. Two earlier versions were worse:
+    masking the body put an offscreen pass around a live glass panel over a live web page, and fading
+    `alphaValue` on the panel — which covers the whole window — put every pixel of the page showing
+    through it into a transparency layer for the length of the animation. Both stuttered. The rows and
+    their favicons are built *before* the bar is shown, so nothing expensive runs after the animation
+    is committed.
+- **`⌘L` belongs to whichever address bar is on screen**, and all three now answer it the same way:
+  §3.2's pill, §3.2b's and §4's each hand the address to §9.1 standing on themselves. The claim is
+  chained rather than assigned — each layout answers only for itself and passes the command on — and
+  the page bar and the column are asked last, because they are the two that can be hidden by a setting
+  rather than by a layout. Before this, `⌘L` in the sidebar layout did **nothing at all**: the top
+  bar's claim was the whole chain, it answered "not my layout", and the fallback that would have opened
+  §9.1 was never reached, because the closure it tests for was not nil.
 - **The corner is re-cut on every layout pass.** `cornerRadius` is half the pill's height and
   `updateLayer` is where it lands, and nothing marks a view for display merely because it was resized —
   so the radius was whatever the height happened to be the last time something else asked for a redraw.
@@ -612,48 +647,36 @@ column closes up over the pill's own 34 pt.
   can be `y = 4000`. Measured from an anchor of zero that reads as a long scroll down, and the bar
   collapsed the instant the site appeared — at exactly the sites where the address was most worth
   showing.
-- **Pressing the address opens the bar.** A press on the collapsed capsule used to start the editing
-  inside 22 pt of it — a whole URL or a query in a capsule sized to `apple.com`, with no buttons beside
-  it and nowhere for §3.2b.i's list to go. It opens first, and the typing happens in the pill that
-  grows out of it, so there is one place to type and it is always the open one. The bar is then held
-  open for as long as the editing lasts, whatever the page does underneath: the scroll rule keeps
-  running and is handed the bar back the moment editing ends. Return is the exception — a navigation is
-  on its way and arriving opens the bar anyway, so it is not collapsed for the moment in between.
+- **Pressing the address opens the bar, then hands it to §9.1.** A press on the collapsed capsule
+  would otherwise give the Command Bar a 22 pt anchor sized to `apple.com` to grow out of; the bar it
+  belongs to is 52 pt with a 420 pt pill in it, and that is the shape the panel should take. So the bar
+  opens first — **unanimated**, unlike every other change of this state, because the panel reads the
+  pill's frame on the frame it is created and a pill two hundred milliseconds into a morph would be
+  read mid-flight. Nothing is lost: the panel covers the bar for the whole of the animation that is not
+  being run. The bar is then held open for as long as §9.1 stands on it, whatever the page does
+  underneath: the scroll rule keeps running and is handed the bar back when the Command Bar closes. A
+  committed address is not a special case — §9.1 navigates the tab itself and arriving opens the bar
+  again on the same turn.
 - **The offset comes from the page itself.** `WKWebView` publishes no scroll position on macOS — no
   `scrollView`, no KVO-able offset — so a passive, frame-coalesced listener posts `window.scrollY`
   through `TabController.scrollMessageName`. It is main-frame only: an ad iframe scrolling itself is
   not the page moving.
-- **Only the band takes clicks.** The overlay is pinned to the whole pane so the suggestion list below
-  the pill can be clicked at all (hit testing stops at a superview's bounds), and `PageChromeBar.hitTest`
-  gives everything outside the band back to the page.
+- **Only the band takes clicks.** The bar's frame is the *open* band's height in both states, so that
+  nothing inside it has to resize while the two states cross-fade — which means that while it is
+  collapsed its lower 22 pt is over live page. `PageChromeBar.hitTest` gives everything outside the
+  band back to the page, so a link there stays clickable.
 
-##### 3.2b.i Suggestions under the pill
-Typing in the pill drops §3.4's completions below it on the §5 popover material, the same width as the
-pill and lining up with it rather than with the bar.
+##### 3.2b.i Suggestions under the pill — **removed 2026-09-20**
+Typing in the pill used to drop §3.4's search completions below it on the §5 popover material, the same
+width as the pill and lining up with it rather than with the bar.
 
-- **`SearchSuggestions` and nothing else.** That object owns the one network call in the query path,
-  states exactly what leaves the Mac, and exists so `UI/CommandBar` stays free of a wire. A second
-  fetcher here would be a second answer to a question that has one. It is not `CommandBarResultsView`
-  either: that ranks tabs, history and commands around `CommandBarResult`, which is §9's model, and
-  borrowing it would put a `UI/CommandBar` type on a surface `CommandBarPrivacyTests` does not cover.
-- **The selection is §9.2's**: one `.control` glass pill that moves between rows on
-  `Motion.selectedRowMove`, not a fill switched on and off per row. One backing instead of five, and
-  the movement is what makes the highlight readable while the arrows are held down.
-- **And so is the row's geometry.** The icon starts at `rowInset + panelInset` and the text one
-  `panelInset` after it — `CommandBarResultRow`'s numbers, because these are the same rows §9.1 shows
-  for the same query. They were laid out on §3.4's `rowFaviconInset` / `rowTitleInset` instead, which
-  are derived from a *tab pill's* height and carry §3.4's own tighter icon gap, and the two lists sat a
-  point and a half apart from each other on screen.
-- **The list opens on the first suggestion**, so Return takes it without arrowing down first. What was
-  typed is still a real entry and still reachable: ↑ off the top of the list lands on it, as does ↓ off
-  the bottom — the same way out at either end, rather than a wrap. With no phrases the arrows are left
-  alone and the caret moves as it would in any text field.
-- **A row paints nothing of its own**, hover included, exactly as §9.2's rows do not. A second grey
-  plate that lit under the pointer and then stayed there read as a second selection — one the keyboard
-  could not move. Selection changes the *ink* instead: §3.4's "brighter text", as a step from secondary
-  to primary rather than a fade, because §1 forbids separating tiers by alpha alone.
-- A row commits on **mouse-down**: the field is first responder while the list is showing, so a click
-  anywhere else ends editing, and by mouse-up the list had already gone.
+It is gone, with the in-place editing it belonged to. Both address pills now hand the whole job to §9.1,
+which grows out of the pill (§3.2) — so the completions under a page bar's address are the same ranked
+list of tabs, history, commands and suggestions that `⌘T` shows, drawn by the same rows, instead of a
+second and thinner list that knew only about search phrases. Two things the list got right were worth
+keeping and are now §9.1's problem alone: one moving `.control` glass pill for the selection rather than
+a fill per row, and a row geometry taken from `CommandBarResultRow` rather than from §3.4's tab rows,
+whose insets are derived from a tab pill's height.
 
 ### 3.3 Essentials grid — reshapes around how many tiles are in it
 - Tiles 128 × 42, radius 12. **The sides are an alignment; the top, the bottom and the gutter are
@@ -879,23 +902,6 @@ Order: `+ Add Tab` row → **separator** → tabs.
   > broken: `NSHapticFeedbackManager.defaultPerformer` already honours System Settings ▸ Trackpad, so
   > there is no Luna setting for it and nothing to check before calling.
 
-### 3.5 Bottom utility bar — 52 pt, pinned
-`[profile avatar circle 34, left] ··· [space dots pill 56 × 22, centred] ··· [downloads | history, right]`
-
-> **Downloads and History are one cylinder, not two circles.** They are the same kind of thing — the
-> shelf of what you already have, glanced at rather than worked in, both opening as a pop-out that stands
-> on its own button — and §4's action capsule pairs the same two at the other end of the window. Two
-> glass discs 5 pt apart read as two controls that happen to be near each other, each with its own
-> specular rim catching the light at a different angle; the material is applied **once**, at
-> `bottomCircle.height / 2`, and the two buttons inside it are bare glyphs. Same finding, same fix, as
-> the action capsule's. The cylinder is exactly one `bottomCircle` tall — two of them fused, not a new
-> size — so the foot stays one row of equal-height controls.
-> **The other home considered was §3.1's control row**, and it is the wrong one: that row is where
-> *actions on this page* live, and a finished download is not one of those.
-> **The pill is centred in the bar while it fits, and in what is left when it does not.** The dots widen
-> by 8 pt per Space beyond three, so "does it fit" is not a question §1's minimum can settle once:
-> clamping to one side would slide the pill under one cluster and leave clear air under the other, so the
-> overflow is centred instead and stays symmetrical.
 #### 3.4a Tab context menu — right-click a row, or a §3.3 tile
 `[Pin] · [Duplicate] · [Copy Link] · [Rename… | Change Icon… | Mute Site] · [Close]`
 
@@ -975,6 +981,23 @@ to reimplement keyboard navigation, VoiceOver and Reduce Transparency.
   while it is open; the rest of the time §20.1's responder chain has the command. On a tile, Close is
   still §3.3's "send the tile home".
 
+### 3.5 Bottom utility bar — 52 pt, pinned
+`[profile avatar circle 34, left] ··· [space dots pill 56 × 22, centred] ··· [downloads | history, right]`
+
+> **Downloads and History are one cylinder, not two circles.** They are the same kind of thing — the
+> shelf of what you already have, glanced at rather than worked in, both opening as a pop-out that stands
+> on its own button — and §4's action capsule pairs the same two at the other end of the window. Two
+> glass discs 5 pt apart read as two controls that happen to be near each other, each with its own
+> specular rim catching the light at a different angle; the material is applied **once**, at
+> `bottomCircle.height / 2`, and the two buttons inside it are bare glyphs. Same finding, same fix, as
+> the action capsule's. The cylinder is exactly one `bottomCircle` tall — two of them fused, not a new
+> size — so the foot stays one row of equal-height controls.
+> **The other home considered was §3.1's control row**, and it is the wrong one: that row is where
+> *actions on this page* live, and a finished download is not one of those.
+> **The pill is centred in the bar while it fits, and in what is left when it does not.** The dots widen
+> by 8 pt per Space beyond three, so "does it fit" is not a question §1's minimum can settle once:
+> clamping to one side would slide the pill under one cluster and leave clear air under the other, so the
+> overflow is centred instead and stays symmetrical.
 
 > **It is called History and it carries a clock.** Luna's internal word for the shelf is "the archive";
 > the user's word for what they are looking for is "history". The glyph is `clock.arrow.circlepath`,

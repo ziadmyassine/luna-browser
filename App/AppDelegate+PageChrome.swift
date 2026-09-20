@@ -22,12 +22,35 @@ extension AppDelegate {
         let page = PageChromeController(session: session)
         pageChrome = page
         page.onToggleSidebar = { [weak self] in self?.toggleSidebar() }
-        // The same URL-or-query parse the sidebar's pill commits through (§9.2).
-        page.onSubmitURL = { [weak self] text in self?.open(text) }
         page.onBandHeight = { [weak controller] height, animated in
             controller?.setPageBarInset(height, animated: animated)
         }
         controller.setPageOverlay(page.view)
+    }
+
+    /// §20.1's `⌘L` belongs to whichever address bar is on screen — §3.2's in
+    /// the column, §3.2b's on the page, §4's in the top bar — and all three now
+    /// answer it the same way: by handing the address to §9.1, which opens
+    /// standing on the pill that asked (`CommandBarAnchor`).
+    ///
+    /// **Chained, not assigned**, which is how `TopBarView` claims it: each
+    /// layout answers only for itself and passes the command on otherwise. This
+    /// one is registered last and asks the two questions the others cannot —
+    /// whether the page bar is the one showing, and whether the column's pill
+    /// is on screen at all.
+    ///
+    /// Without it `⌘L` did nothing in the sidebar layout: the top bar's claim
+    /// was the whole chain, it answered "not my layout", and the fallback in
+    /// `editLocation()` was never reached because the closure it tests for was
+    /// not nil.
+    func wireEditLocation(_ session: BrowserSession, sidebar: SidebarViewController?) {
+        let previous = session.focusURLField
+        session.focusURLField = { [weak self, weak sidebar] in
+            guard let self else { return previous?() ?? () }
+            if let page = pageChrome, page.isOnScreen { return page.beginEditing() }
+            if let sidebar, sidebar.showsURLPill { return sidebar.beginEditingURL() }
+            previous?()
+        }
     }
 
     /// The sidebar drops the pill and the page bar picks it up, or the other way
