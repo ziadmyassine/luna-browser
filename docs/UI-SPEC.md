@@ -65,7 +65,7 @@ sidebar's own content reflows. The ratios exist to fix proportions once, not to 
 | `historyPopoutGap` (pop-out ↔ its button) | 5 pt (`= controlPairGap`) | — |
 | `scrimStrength` | **gone**, with the scrim itself — see §9.1 | 0.55 |
 | `settingsListWidth` / `settingsWindow` | 230 pt / 720 × 520 pt | 196, and a 420 × 160 box before that |
-| `settingsSectionRow` / `settingsSectionIcon` | 36 pt / 26 pt, radius 7 | — |
+| §2's section row | **the sidebar's own**: `rowHeight` 38 / `rowPillHeight` 35 / `rowCornerRadius` 12 | `settingsSectionRow` 34 with a 24 pt icon tile |
 | `settingsCardRow` / `settingsGroupGap` | 52 / 26 pt | 36 / 3 |
 | `hairline` | 1 pt @ 10 % white / 8 % black | — |
 

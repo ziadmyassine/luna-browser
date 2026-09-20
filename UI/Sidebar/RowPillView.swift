@@ -65,3 +65,45 @@ final class RowPillView: NSView {
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
+
+// MARK: - Moving one pill between rows
+
+/// **One pill travels; it is never re-created per row.** Both lists that wear
+/// §3.4's fills — the sidebar's tabs and §2's section list — keep exactly two
+/// of these and move them, which is what makes the selection *slide* from one
+/// row to the next instead of blinking out of one and into another. It lives
+/// here rather than in either list so the two cannot drift apart: a settings
+/// row and a tab row answer the pointer on the same spring.
+extension RowPillView {
+
+    /// Move to `target`, springing on `spec` — or land there with no animation
+    /// when the pill was parked, which is a pill arriving rather than moving.
+    func move(to target: NSRect, spec: MotionSpec?) {
+        let wasParked = alphaValue == 0 || frame == .zero
+        if !wasParked, let spring = spec?.springAnimation(keyPath: "position") {
+            let from = layer?.position ?? .zero
+            frame = target
+            spring.fromValue = NSValue(point: from)
+            spring.toValue = NSValue(point: layer?.position ?? .zero)
+            layer?.add(spring, forKey: "position")
+        } else {
+            // Layer-backed frames animate themselves; `SidebarRowView.layout`
+            // takes the same precaution for the same reason.
+            Tokens.Motion.immediately {
+                layer?.removeAnimation(forKey: "position")
+                frame = target
+            }
+        }
+        fade(to: 1)
+    }
+
+    /// Park the pill, or bring it back. A row with nothing selected and nothing
+    /// hovered has no fill at all (§30.7).
+    func fade(to alpha: CGFloat) {
+        guard alphaValue != alpha else { return }
+        Tokens.Motion.animate(Tokens.Motion.rowHover) { context in
+            context.allowsImplicitAnimation = true
+            animator().alphaValue = alpha
+        }
+    }
+}

@@ -304,7 +304,7 @@ final class SettingsWindowTests: XCTestCase {
         XCTAssertEqual(
             Set(floors.map(\.constant)),
             [SettingsMetrics.minWidth, SettingsMetrics.minHeight],
-            "§1's 640 × 420 floor is missing from the root view"
+            "§1's 640 × 480 floor is missing from the root view"
         )
         // **Not an equality against `contentSize`.** `windowFrameAutosaveName`
         // is set on this window on purpose (§1: it comes back the size you left

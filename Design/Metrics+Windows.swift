@@ -23,18 +23,22 @@ extension Tokens.Metric {
     static let settingsDefaultWidth: CGFloat = 720
     static let settingsDefaultHeight: CGFloat = 520
     static let settingsMinWidth: CGFloat = 640
-    static let settingsMinHeight: CGFloat = 420
+    /// **480, not §1's original 420.** The floor has to hold §2's ten rows,
+    /// and on the sidebar's 38 pt pitch they are 377 pt tall: 84 pt of search
+    /// and its gaps above them plus `chromeGapWide` below comes to 477. At 420
+    /// the list ran past the bottom of the window it was constrained inside,
+    /// which is a broken constraint at the minimum size rather than a scroll.
+    static let settingsMinHeight: CGFloat = 480
 
     /// The section list. Fixed, and deliberately not `sidebarWidth` — that one
     /// is a `SpanMetric` because the user drags it (§3.7); a nine-row list has
     /// nothing to drag for.
     static let settingsListWidth: CGFloat = 230
-    /// A section row: its pitch, and the rounded square its symbol sits in. The
-    /// gap between two pills comes out of the pitch, not on top of it.
-    static let settingsSectionRow: CGFloat = 34
-    static let settingsSectionIcon = RoundedMetric(width: 24, height: 24, cornerRadius: 7)
-    /// The pill's inset from the column's edges.
-    static let settingsSectionInset: CGFloat = 8
+    // A section row has no metrics of its own any more: §2's list is the
+    // browser sidebar with sections where the tabs are, so it reads `rowHeight`,
+    // `rowPillHeight`, `rowGap` and `rowInset` directly (`SettingsMetrics`).
+    // `settingsSectionRow` (34) and `settingsSectionIcon` (a 24 pt rounded
+    // square behind every glyph) are gone with the design they described.
     /// A control row inside a card, and the gap from one card to the next.
     static let settingsCardRow: CGFloat = 44
     static let settingsGroupGap: CGFloat = 24

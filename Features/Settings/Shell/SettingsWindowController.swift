@@ -12,7 +12,7 @@
 //
 //  **`NSWindow.minSize` is not used.** It is documented as ignored once the
 //  content view uses Auto Layout — verbatim in `NSWindow.h`, and the browser
-//  window learned it in M0 — so §1's 640 × 420 floor is a pair of
+//  window learned it in M0 — so §1's 640 × 480 floor is a pair of
 //  `greaterThanOrEqualToConstant`s on the root view instead.
 //
 //  **Every command here arrives through `MainMenu`.** Luna installs no
@@ -224,9 +224,19 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
             list.topAnchor.constraint(equalTo: search.bottomAnchor, constant: SettingsMetrics.controlRowGap),
             list.leadingAnchor.constraint(equalTo: column.leadingAnchor),
-            list.trailingAnchor.constraint(equalTo: column.trailingAnchor),
-            list.bottomAnchor.constraint(lessThanOrEqualTo: column.bottomAnchor, constant: -SettingsMetrics.paneInset)
+            list.trailingAnchor.constraint(equalTo: column.trailingAnchor)
         ])
+        // The list stands at its own height — ten rows at the sidebar's pitch —
+        // and keeps `paneInset` off the bottom of the column **if it can**.
+        // Not required: `settingsMinHeight` is sized so it always can, and a
+        // required constraint here would be one AppKit breaks, with a console
+        // full of it, the moment anything else moved.
+        let floor = list.bottomAnchor.constraint(
+            lessThanOrEqualTo: column.bottomAnchor,
+            constant: -SettingsMetrics.paneInset
+        )
+        floor.priority = .defaultHigh
+        floor.isActive = true
         return column
     }
 

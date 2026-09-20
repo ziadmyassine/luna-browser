@@ -29,15 +29,16 @@ an enforced one, so it is on review to catch.
 
 | Thing | Value |
 |---|---|
-| Window content | 720 × 520, resizable, min 640 × 420 |
+| Window content | 720 × 520, resizable, min 640 × 480 |
 | Window corner | `windowCornerRadius` (25) |
 | Section list width | `settingsListWidth` (230), fixed (not `sidebarWidth`, which is user-dragged) |
 | Type | `TypeScale.settingsRow` — **13 pt, the sidebar's own face** |
 | Caption under a row | `TypeScale.settingsCaption` (11) |
 | Every control in the pane | `settingsControl` (28) high, `settingsControlCorner` (8) |
-| Section row **pitch** / pill radius | `settingsSectionRow` (34) / `rowCornerRadius` (12) |
-| Section row pill height | pitch less `rowGap` (3) — the gap comes out of the row |
-| Section icon tile | `settingsSectionIcon` (24, radius 7), no outline |
+| Section row **pitch** / pill radius | `rowHeight` (38) / `rowCornerRadius` (12) — the sidebar's |
+| Section row pill height | `rowPillHeight` (35): the pitch less `rowGap`, which comes out of the row |
+| Section row glyph / title column | `rowFaviconInset` (17.5) / `rowTitleInset` (42.5) — the sidebar's |
+| Section icon tile | **none.** See §2.1 |
 | Pane inset | `chromeGapWide` (16) |
 | Card row height | `settingsCardRow` (44) |
 | Card row inset (text grid) | `chromeGapWide` (16) |
@@ -180,6 +181,31 @@ things in it are structural rather than decorative. All three are now Luna's:
   truncates whatever was ahead of the cursor, which is the rule a browser's own
   history has; a direction you cannot go is dimmed, never hidden, so the capsule
   does not change width while you use it.
+
+### 2.1 The list is the browser's sidebar
+
+Not "like" it: the same views, the same tokens, the same springs. §2's rows are
+laid out on `rowHeight` / `rowPillHeight` / `rowGap`, their glyph and title stand
+on `rowFaviconInset` and `rowTitleInset`, and the two fills are `RowPillView` —
+§3.4's **glass** pills, one selected and one hover, moved between rows on
+`selectedRowMove` and `rowHover` by `RowPillView.move(to:spec:)`, which both
+lists now share. A section row itself draws nothing at all.
+
+Three things it stopped doing, all of them Martin's report that Settings did not
+look like the app:
+
+- **The selected row was a flat `Surface.selected` wash** painted on the row's
+  own layer. Over the column's glass that is a grey band; the sidebar's answer
+  is clear glass *plus* that wash, which is why a selected tab reads as a raised
+  surface. It is the same class now, so it cannot drift again.
+- **Every glyph sat on a 24 pt rounded square** carrying `Surface.selected`. Ten
+  of them turned a list of places into a row of buttons, and put a
+  selected-looking shape on nine rows that were not selected. Gone; the symbol
+  sits on the column, 16 pt, like a favicon.
+- **The pitch was 34 pt around a 31 pt pill.** It is the sidebar's 38 around 35.
+  Ten rows are 40 pt taller for it, which is why §1's height floor moved from
+  420 to 480 — at 420 the list ran past the bottom of the column it is
+  constrained inside.
 
 ---
 

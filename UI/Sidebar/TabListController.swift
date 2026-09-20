@@ -213,7 +213,7 @@ final class TabListController: NSObject {
             movePills()
             return
         }
-        for pill in [selectionPill, hoverPill] { fade(pill, to: 0) }
+        for pill in [selectionPill, hoverPill] { pill.fade(to: 0) }
     }
 
     /// Keeps the two shared pills behind the row views AppKit keeps adding.
@@ -313,39 +313,17 @@ final class TabListController: NSObject {
         place(hoverPill, at: hovered, spec: animated ? Tokens.Motion.rowHover : nil)
     }
 
-    private func place(_ pill: NSView, at row: Int?, spec: MotionSpec?) {
+    private func place(_ pill: RowPillView, at row: Int?, spec: MotionSpec?) {
         guard let row, row < table.numberOfRows else {
-            fade(pill, to: 0)
+            pill.fade(to: 0)
             return
         }
         // `rowHeight` is pitch; `rowPillHeight` is paint. Insetting vertically
         // is what stops two adjacent selected pills fusing into one slab.
-        let target = table.rect(ofRow: row)
-            .insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.rowPillInset)
-        let wasParked = pill.alphaValue == 0 || pill.frame == .zero
-        if !wasParked, let spring = spec?.springAnimation(keyPath: "position") {
-            let from = pill.layer?.position ?? .zero
-            pill.frame = target
-            spring.fromValue = NSValue(point: from)
-            spring.toValue = NSValue(point: pill.layer?.position ?? .zero)
-            pill.layer?.add(spring, forKey: "position")
-        } else {
-            // Layer-backed frames animate themselves; `SidebarRowView.layout`
-            // takes the same precaution for the same reason.
-            Tokens.Motion.immediately {
-                pill.layer?.removeAnimation(forKey: "position")
-                pill.frame = target
-            }
-        }
-        fade(pill, to: 1)
-    }
-
-    private func fade(_ pill: NSView, to alpha: CGFloat) {
-        guard pill.alphaValue != alpha else { return }
-        Tokens.Motion.animate(Tokens.Motion.rowHover) { context in
-            context.allowsImplicitAnimation = true
-            pill.animator().alphaValue = alpha
-        }
+        pill.move(
+            to: table.rect(ofRow: row).insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.rowPillInset),
+            spec: spec
+        )
     }
 
     // MARK: - Commands
