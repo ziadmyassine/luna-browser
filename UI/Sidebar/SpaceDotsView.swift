@@ -19,9 +19,12 @@
 //  every seam, which made `spaceID(at:)` — §6.6's drop target — ambiguous
 //  exactly where two Spaces meet.
 //
-//  `centres(count:in:)` instead derives one **integer** pitch for the whole
-//  run and centres the run in the pill, so every gap is the same number of
-//  points and the two end margins are equal. It is pure and static so the
+//  `centres(count:in:)` instead lays the run out on `Metric.spaceDotPitch` —
+//  one constant, the same at every count — and centres it, so every gap is the
+//  same whole number of points and the two end margins are equal. The **pill**
+//  is then sized to the run rather than the run divided into the pill, which is
+//  the other half of the same mistake: a fixed 56 pt pill holding two dots had
+//  to stand them 28 pt apart to fill itself. Both are pure and static, so the
 //  claim is a test rather than a screenshot.
 //
 //  §8 requires the strip to be usable with Differentiate Without Colour on, so
@@ -36,9 +39,6 @@ import BrowserKit
 /// §3.5's Space switcher: one 6 pt dot per Space, the active one at full ink.
 @MainActor
 final class SpaceDotsView: NSView {
-
-    /// §3.5: the pill widens past this many Spaces.
-    static let restingSpaceCount = 3
 
     var onSwitch: ((UUID) -> Void)?
     var onSetGradient: ((UUID, GradientPair) -> Void)?
@@ -142,42 +142,55 @@ final class SpaceDotsView: NSView {
 
     // MARK: - Geometry
 
-    /// **One integer pitch for the whole run, and the run centred in the pill.**
+    /// **One pitch for the whole run, and the run centred in `width`.**
     ///
-    /// Every gap is then the same whole number of points and the two end
-    /// margins are equal, at any count — which is what the old
+    /// Every gap is then `Metric.spaceDotPitch` exactly and the two end margins
+    /// are equal, at any count — which is what the old
     /// slot-per-dot-then-round arithmetic could not do at a count that does not
     /// divide the pill evenly, and three is one of those. See the file header.
     ///
-    /// `.rounded(.down)` on the pitch rather than `.rounded()`: the run has to
-    /// fit inside the pill it is centred in, and a pitch rounded up overflows
-    /// it by up to half a point per gap.
+    /// `width` is a parameter rather than `bounds.width` so the claim can be
+    /// tested without a window, and so the `+`'s slot can be taken off the end
+    /// before the dots are centred in what is left.
     ///
-    /// **The parity step is not a rounding nicety, it is the last point.** A
-    /// run of whole-point gaps can only sit exactly in the middle of a
-    /// whole-point pill if what is left over either side is *even* — and at six
-    /// Spaces it is not: 80 pt of pill less a 13 pt pitch leaves 15, which is
-    /// 8 pt of margin at one end and 7 at the other. Taking the pitch down by
-    /// one point flips the leftover even and the strip is symmetric again. The
-    /// alternative is half-point centres, and a 6 pt dot drawn across two
-    /// pixels is a blurred dot, which is worse than a dot one point closer to
-    /// its neighbour.
+    /// The one rounding left is `first`, and against `width(forDots:)` it never
+    /// fires: what the run does not use is `spaceDot + 2 × cornerRadius`, which
+    /// is even. It stays because this is handed a width, and a width it was not
+    /// given the arithmetic for is better half a point off centre than half a
+    /// point off the pixel grid — a 6 pt dot drawn across two pixels is a
+    /// blurred dot.
     static func centres(count: Int, in width: CGFloat) -> [CGFloat] {
         guard count > 0 else { return [] }
-        var pitch = (width / CGFloat(count)).rounded(.down)
-        if count > 1, Int(width - pitch * CGFloat(count - 1)) % 2 != 0 { pitch -= 1 }
+        let pitch = Tokens.Metric.spaceDotPitch
         let run = pitch * CGFloat(count - 1)
         let first = ((width - run) / 2).rounded()
         return (0..<count).map { first + CGFloat($0) * pitch }
     }
 
-    /// The pill's resting width: §3.5's 56 pt, plus a slot for every Space past
-    /// the third and one more while §30.9's `+` is showing.
+    /// How wide a pill holding `count` dots is: the run, plus a dot, plus an
+    /// end cap either side.
+    ///
+    /// **The end inset is the pill's own corner radius**, which is not a
+    /// coincidence dressed up as a rule: at radius 11 the pill's end is a
+    /// half-circle 11 pt deep, so a dot 11 pt from the edge sits exactly on
+    /// that cap's centre. Any other number is a dot that looks pushed into the
+    /// curve or marooned short of it.
+    static func width(forDots count: Int) -> CGFloat {
+        Tokens.Metric.spaceDotPitch * CGFloat(max(count - 1, 0))
+            + Tokens.Metric.spaceDot
+            + 2 * Tokens.Metric.spaceDotsPill.cornerRadius
+    }
+
+    /// The slot §30.9's `+` takes at the end of the strip.
+    ///
+    /// Wider than a dot's pitch, because the ring is wider than a dot: at the
+    /// strip's own 12 pt the ring would be drawn over the last Space, which is
+    /// the one mark it must not touch.
+    static var createSlot: CGFloat { Tokens.Metric.spaceCreateRing + Tokens.Metric.chromeGap }
+
     override var intrinsicContentSize: NSSize {
-        let slots = dots.count + (creation > 0 ? 1 : 0)
-        let extra = max(slots - Self.restingSpaceCount, 0)
-        return NSSize(
-            width: Tokens.Metric.spaceDotsPill.width + CGFloat(extra) * Tokens.Metric.spaceDotsPillGrowth,
+        NSSize(
+            width: Self.width(forDots: dots.count) + (creation > 0 ? Self.createSlot : 0),
             height: Tokens.Metric.spaceDotsPill.height
         )
     }
@@ -195,23 +208,26 @@ final class SpaceDotsView: NSView {
 
     private func placeContents() {
         guard !dots.isEmpty else { return }
-        let slots = dots.count + (creation > 0 ? 1 : 0)
-        let centres = Self.centres(count: slots, in: bounds.width)
+        // The `+`'s slot comes off the end first, and the dots are centred in
+        // what is left — so making room for a Space slides the existing ones
+        // aside rather than squeezing them together.
+        let showsCreate = creation > 0
+        let strip = bounds.width - (showsCreate ? Self.createSlot : 0)
+        let centres = Self.centres(count: dots.count, in: strip)
         for (index, dot) in dots.enumerated() {
             let leading = index == 0 ? 0 : ((centres[index - 1] + centres[index]) / 2).rounded()
-            // Only the *last slot* runs out to the pill's edge, and while the
-            // `+` is showing that slot is the `+`'s — so the last dot stops
-            // half way to it rather than owning the ground the ring stands on.
-            let trailing = index == slots - 1
-                ? bounds.width
+            // The last dot runs out to the strip's trailing edge, which is the
+            // pill's own unless the `+` has taken a slot off it.
+            let trailing = index == dots.count - 1
+                ? strip
                 : ((centres[index] + centres[index + 1]) / 2).rounded()
             dot.frame = NSRect(x: leading, y: 0, width: trailing - leading, height: bounds.height)
             dot.markCentreX = centres[index] - leading
         }
-        guard let plus = centres.last, slots > dots.count else { return }
+        guard showsCreate else { return }
         let side = Tokens.Metric.spaceCreateRing
         create.frame = NSRect(
-            x: plus - side / 2,
+            x: strip + (Self.createSlot - side) / 2,
             y: (bounds.height - side) / 2,
             width: side,
             height: side

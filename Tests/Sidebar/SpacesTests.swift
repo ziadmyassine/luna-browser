@@ -5,13 +5,16 @@
 //  The two pieces of §3.5/§30.9 arithmetic that are worth more than a
 //  screenshot: where the Space dots go, and what a two-finger swipe means.
 //
-//  **The dot row is here because it shipped crooked.** The strip used to size
-//  each dot's slot with `.integral`, which rounds a slot's leading edge down
-//  and its trailing edge up, independently of its neighbours — so three dots in
-//  a 56 pt pill drew with gaps of 18 and 19 pt and the run sat off centre. That
-//  is not a bug a test can catch by asserting a number someone typed; it is
-//  caught by asserting the *property* the layout is supposed to have, at every
-//  count, which is what `evenlySpaced` does below.
+//  **The dot row is here because it shipped crooked, and then because it
+//  shipped loose.** The strip used to size each dot's slot with `.integral`,
+//  which rounds a slot's leading edge down and its trailing edge up,
+//  independently of its neighbours — so three dots in a 56 pt pill drew with
+//  gaps of 18 and 19 pt and the run sat off centre. The slot was also the
+//  pill's width divided by the count, so the *spacing* was a consequence of how
+//  wide the pill happened to be: two Spaces stood 28 pt apart and eight stood
+//  12 pt apart, in the same strip. Neither is a bug a test can catch by
+//  asserting a number someone typed; both are caught by asserting the
+//  *properties* the layout is supposed to have, at every count.
 //
 
 import AppKit
@@ -23,11 +26,56 @@ import XCTest
 final class SpaceDotsLayoutTests: XCTestCase {
 
     /// **The reported defect, at the count it was reported at.** Three Spaces
-    /// is the pill's resting size and the most common window there is.
-    func testThreeDotsAreEvenlySpacedInTheRestingPill() {
-        let centres = SpaceDotsView.centres(count: 3, in: Tokens.Metric.spaceDotsPill.width)
+    /// is the most common window there is.
+    func testThreeDotsAreEvenlySpaced() {
+        let centres = SpaceDotsView.centres(count: 3, in: Self.pillWidth(for: 3))
         XCTAssertEqual(centres.count, 3)
         XCTAssertEqual(centres[1] - centres[0], centres[2] - centres[1], "the two gaps differ")
+    }
+
+    /// **The second reported defect: the dots stood much too far apart** — and
+    /// then, for one build, much too close.
+    ///
+    /// The gap is asserted as a *band* rather than as `spaceDotPitch` written
+    /// out a second time, because a test that restates the token it is checking
+    /// passes whatever the token becomes. What matters is the range in which a
+    /// row of dots reads as one group of separate marks: under a dot's width
+    /// apart they start to merge into a dashed line, and over two they stop
+    /// being a row. The same claim holds at every count, which is the part the
+    /// old width-divided-by-count arithmetic could not manage — it put two
+    /// Spaces four diameters apart and eight Spaces one.
+    func testTheGapBetweenTwoDotsReadsAsOneRowAtEveryCount() {
+        let dot = Tokens.Metric.spaceDot
+        for count in 2...8 {
+            let centres = SpaceDotsView.centres(count: count, in: Self.pillWidth(for: count))
+            let gaps = Set(zip(centres, centres.dropFirst()).map { $1 - $0 - dot })
+            XCTAssertEqual(gaps.count, 1, "gaps \(gaps.sorted()) differ with \(count) Spaces")
+            guard let gap = gaps.first else { return XCTFail("no gaps with \(count) Spaces") }
+            XCTAssertGreaterThanOrEqual(gap, dot, "\(count) Spaces are closer than a dot apart")
+            XCTAssertLessThanOrEqual(gap, dot * 2, "\(count) Spaces are further than two dots apart")
+        }
+    }
+
+    /// The pill is sized to its dots rather than the dots divided into the
+    /// pill, so two Spaces do not sit in the middle of a pill built for three.
+    func testThePillIsSizedToTheDotsItHolds() {
+        var last = SpaceDotsView.width(forDots: 1)
+        for count in 2...8 {
+            let width = SpaceDotsView.width(forDots: count)
+            XCTAssertEqual(width - last, Tokens.Metric.spaceDotPitch, accuracy: 0.001, "\(count) Spaces")
+            last = width
+        }
+    }
+
+    /// A dot sits on the centre of the pill's end cap — the inset is the
+    /// radius, which is what stops it looking pushed into the curve.
+    func testTheEndDotsSitOnTheCapsCentre() {
+        for count in 1...8 {
+            let width = Self.pillWidth(for: count)
+            let centres = SpaceDotsView.centres(count: count, in: width)
+            XCTAssertEqual(centres.first, Tokens.Metric.spaceDotsPill.cornerRadius + Tokens.Metric.spaceDot / 2)
+            XCTAssertEqual(centres.last, width - Tokens.Metric.spaceDotsPill.cornerRadius - Tokens.Metric.spaceDot / 2)
+        }
     }
 
     /// Every count the pill is ever asked to hold, against the width it holds
@@ -52,7 +100,7 @@ final class SpaceDotsLayoutTests: XCTestCase {
     /// One Space is one dot in the middle of the pill, not one dot at the head
     /// of a row that happens to have nothing after it.
     func testASingleDotIsCentred() {
-        let width = Tokens.Metric.spaceDotsPill.width
+        let width = Self.pillWidth(for: 1)
         XCTAssertEqual(SpaceDotsView.centres(count: 1, in: width), [width / 2])
     }
 
@@ -80,6 +128,7 @@ final class SpaceDotsLayoutTests: XCTestCase {
         XCTAssertEqual(dots.count, 4)
         XCTAssertEqual(dots.first?.frame.minX, 0)
         XCTAssertEqual(dots.last?.frame.maxX, strip.bounds.width)
+        XCTAssertEqual(strip.bounds.width, SpaceDotsView.width(forDots: 4))
         for (left, right) in zip(dots, dots.dropFirst()) {
             XCTAssertEqual(left.frame.maxX, right.frame.minX, "slots overlap or leave a gap between them")
         }
@@ -104,17 +153,31 @@ final class SpaceDotsLayoutTests: XCTestCase {
         let strip = Self.strip(spaces: 3)
         let resting = strip.intrinsicContentSize.width
         strip.creation = 0.5
-        XCTAssertGreaterThan(strip.intrinsicContentSize.width, resting)
+        XCTAssertEqual(strip.intrinsicContentSize.width - resting, SpaceDotsView.createSlot)
         strip.creation = 0
         XCTAssertEqual(strip.intrinsicContentSize.width, resting)
+    }
+
+    /// **The ring never lands on the last Space's dot.** It is wider than the
+    /// strip's own pitch, so a slot sized like a dot's would have drawn the two
+    /// marks on top of each other — and the one dot the ring must never touch
+    /// is the Space you are about to leave behind.
+    func testTheCreateRingClearsTheLastDot() {
+        let strip = Self.strip(spaces: 3)
+        strip.creation = 1
+        strip.frame = NSRect(origin: .zero, size: strip.intrinsicContentSize)
+        strip.layoutSubtreeIfNeeded()
+        let dots = strip.subviews.compactMap { $0 as? SpaceDotView }
+        let ring = strip.subviews.compactMap { $0 as? SpaceCreateMarkView }.first
+        let lastMark = (dots.last?.frame.minX ?? 0) + (dots.last?.markCentreX ?? 0)
+        XCTAssertGreaterThan(ring?.frame.minX ?? 0, lastMark + Tokens.Metric.spaceDot / 2)
     }
 
     // MARK: - Bits
 
     /// What `SpaceDotsView.intrinsicContentSize` hands back for `count`.
     private static func pillWidth(for count: Int) -> CGFloat {
-        let extra = max(count - SpaceDotsView.restingSpaceCount, 0)
-        return Tokens.Metric.spaceDotsPill.width + CGFloat(extra) * Tokens.Metric.spaceDotsPillGrowth
+        SpaceDotsView.width(forDots: count)
     }
 
     private static func strip(spaces count: Int) -> SpaceDotsView {

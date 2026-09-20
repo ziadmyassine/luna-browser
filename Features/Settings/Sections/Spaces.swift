@@ -71,6 +71,14 @@ final class SpacesSection: SettingsSection {
         appearance?.close()
         body = SettingsBody()
 
+        // §6.1 above the cards it makes, not in a card of its own — see
+        // `SettingsRow.heading`.
+        let add = newSpaceButton(sharing: spaces, session: session)
+        body.heading(
+            SettingsRow.heading(String(localized: "Spaces"), accessory: add.view),
+            terms: add.terms
+        )
+
         for (index, space) in spaces.enumerated() {
             let rows = spaceRows(space, at: index, of: spaces, session: session)
             body.card(
@@ -86,7 +94,6 @@ final class SpacesSection: SettingsSection {
             )
         }
 
-        body.card(String(localized: "Spaces"), [newSpaceRow(sharing: spaces, session: session)])
         body.card(String(localized: "Profiles"), [clearProfileDataRow(spaces, session: session)])
 
         body.loose(SettingsRow.note(String(localized: """

@@ -69,6 +69,17 @@ final class SettingsBody {
         install(made, rows: rows)
     }
 
+    /// A heading the cards under it belong to — `SettingsRow.heading`.
+    ///
+    /// The stack's own spacing is the gap between one *group* and the next, and
+    /// a heading floated out to that distance is a heading for nothing. The
+    /// cards that follow sit a card's distance below it instead.
+    func heading(_ child: NSView, terms: [String]) {
+        entries.append(Entry(view: child, terms: terms.map { $0.lowercased() }, card: nil))
+        add(child)
+        view.setCustomSpacing(Tokens.Metric.chromeGap, after: child)
+    }
+
     private func install(_ card: NSView, rows: [(view: NSView, terms: [String])]) {
         let index = cards.count
         for row in rows {

@@ -25,6 +25,17 @@
 //  fading it is how you land under the floor. The two lines are told apart by
 //  size and weight instead, which costs nothing and is measured for free.
 //
+//  **Neutral paints no plate at all, and that is the same rule the sidebar's
+//  wash already follows.** `SpaceWashView.washColors` returns two clear stops
+//  for the neutral pair, because a Space nobody has coloured has to be
+//  indistinguishable from no Space colour — otherwise "no colour" is just a
+//  thirteenth colour. The card said otherwise: it painted neutral's desaturated
+//  grey as a plate, which is a light surface, which made §13.6 correctly derive
+//  **black** ink for it — one card in the section wearing black text in a dark
+//  window. With no plate the header is the card's own surface and the ink is
+//  the chrome's own, white in dark and black in light, like every other word in
+//  the pane.
+//
 //  The corner button opens §6.2's two appearance settings — the icon and the
 //  gradient — in the one place the Space is actually showing them. See
 //  `SpaceAppearanceView` for why they left the row list.
@@ -136,7 +147,10 @@ final class SpaceCardView: NSView {
     private func applyInk() {
         let theme = effectiveAppearance
         header.show(space.gradient)
-        let ink = Tokens.Gradient.foreground(on: space.gradient, at: .full, in: theme)
+        // See the file header: no plate, no derived ink. The chrome's own.
+        let ink = Tokens.Gradient.isNeutral(space.gradient)
+            ? Tokens.Text.primary
+            : Tokens.Gradient.foreground(on: space.gradient, at: .full, in: theme)
         name.textColor = ink
         fanOut.textColor = ink
         symbol.contentTintColor = ink
@@ -180,7 +194,12 @@ final class SpaceHeaderPlate: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
+    /// **Neutral paints nothing**, exactly as `SpaceWashView.washColors` does
+    /// and for the same reason — see `SpaceCardView`'s header.
     func show(_ gradient: GradientPair) {
+        guard !Tokens.Gradient.isNeutral(gradient) else {
+            return Tokens.Motion.immediately { plate.colors = [] }
+        }
         let stops = Tokens.Gradient.planes(gradient, at: .full, in: effectiveAppearance)
         Tokens.Motion.immediately { plate.colors = [stops.start.cgColor, stops.end.cgColor] }
     }

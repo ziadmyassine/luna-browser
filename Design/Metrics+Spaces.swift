@@ -19,6 +19,35 @@ import Foundation
 
 extension Tokens.Metric {
 
+    // MARK: - §3.5's Space strip
+
+    /// Centre to centre between two Space dots.
+    ///
+    /// **It is a constant, and it used to be a division.** The strip took the
+    /// pill's width and split it by the number of Spaces, so the spacing was a
+    /// consequence of how wide the pill happened to be: two Spaces in a 56 pt
+    /// pill stood 28 pt apart — four dot diameters of glass between two marks
+    /// whose whole job is to read as one row — and eight Spaces in a 96 pt pill
+    /// stood 12 pt apart. One strip, two densities, neither chosen. A page
+    /// indicator has one spacing; the pill is what changes size.
+    ///
+    /// **14, and it was 12 for one build.** Two diameters is where a page
+    /// control usually sits, and at a 6 pt dot that put the marks 6 pt apart —
+    /// tight enough that three of them started to read as one dashed line
+    /// rather than as three things. A dot and a third of clear space between
+    /// them is where a row still reads as a group and the individual dots are
+    /// still individual, which is the whole job of the strip.
+    static let spaceDotPitch: CGFloat = 14
+
+    /// Between §3.5's profile line and the Space strip it labels.
+    ///
+    /// **Its own number because both neighbours are fixed and this is the only
+    /// thing left to tune.** The caption was 18 pt clear of the dots when it
+    /// stood above the utility bar, and `rowGap`'s 3 pt put it close enough to
+    /// touch. A label belongs to the thing under it at about half a line of
+    /// leading, which at 11 pt type is this.
+    static let sidebarProfileGap: CGFloat = 6
+
     // MARK: - SPACES-SPEC D-S12's swipe, read out on §30.9's strip
 
     /// How far two fingers travel across the sidebar for **one Space**.
@@ -65,10 +94,15 @@ extension Tokens.Metric {
     /// strip, both of which can show a Space that is not loaded.
     static let spaceSwipeParallax: CGFloat = 40
 
-    /// §3.5's profile line: the row above the Space strip that names the
-    /// profile the window's cookies belong to. One line of 11 pt type with the
-    /// chrome's own 8 pt of air under it.
-    static let sidebarProfileRow: CGFloat = 20
+    /// §3.5's profile line, which names the profile the window's cookies
+    /// belong to.
+    ///
+    /// **One line of 11 pt type and nothing else.** It used to be 20 — a line
+    /// with padding, sitting above the utility bar — and between that padding
+    /// and the 15 pt of bar above the Space pill the caption ended up 18 pt
+    /// clear of the dots it labels. It is 14 because that is what the type
+    /// needs; the distance to the strip is `rowGap`, set where it is laid out.
+    static let sidebarProfileRow: CGFloat = 14
 
     /// A gradient swatch in a menu (§8.2's picker).
     ///

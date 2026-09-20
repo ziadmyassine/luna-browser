@@ -321,11 +321,17 @@ extension Tokens {
         static let trafficLightInset: CGFloat = 18
         /// Profile avatar and archive: 34 pt circles.
         static let bottomCircle = RoundedMetric.circle(34)
-        /// The Space switcher (§3.5): 56 × 22, radius 11, widening 8 pt per
-        /// Space beyond three.
+        /// The Space switcher (§3.5): 22 tall, radius 11.
+        ///
+        /// **Only the height and the radius are laid out with.** The strip
+        /// sizes the pill to the dots it holds — `SpaceDotsView.width(forDots:)`
+        /// over `Metric.spaceDotPitch`, with the radius as the end inset —
+        /// because a fixed 56 pt holding two dots had to push them 28 pt apart
+        /// to fill itself, which is four dot diameters of empty glass between
+        /// two marks that mean "these are next to each other". The width is
+        /// §1's quoted resting size, and is what `TokenCheck` measures the
+        /// radius against.
         static let spaceDotsPill = RoundedMetric(width: 56, height: 22, cornerRadius: 11)
-        /// Widening per Space past the third (§3.5).
-        static let spaceDotsPillGrowth: CGFloat = 8
         static let spaceDot: CGFloat = 6
         /// SF Symbol point size for every chrome glyph (§3.1, §3.5, §4).
         ///

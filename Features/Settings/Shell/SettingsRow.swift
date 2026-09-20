@@ -194,6 +194,41 @@ enum SettingsRow {
         return host
     }
 
+    /// A section heading with one control beside it — §3.7's
+    /// `Spaces … [New Space]`.
+    ///
+    /// **A verb that makes a new card belongs above the cards, not in one.** As
+    /// a row it needed a card of its own, and that card needed a heading, so
+    /// the pane read `Spaces` ▸ card ▸ `New Space` ▸ `[New Space]` — the same
+    /// two words three times, in a plate that looked like one more Space. The
+    /// heading and the button are one line: the label says what the cards below
+    /// are, and the control adds one.
+    ///
+    /// Both are inset to the card's own text grid, so the word lines up with
+    /// the names below it and the button lines up with the controls.
+    static func heading(_ title: String, accessory: NSView) -> NSView {
+        let label = NSTextField(labelWithString: title)
+        label.font = Tokens.TypeScale.settingsRow
+        label.textColor = Tokens.Text.secondary
+        label.translatesAutoresizingMaskIntoConstraints = false
+        accessory.translatesAutoresizingMaskIntoConstraints = false
+        let host = NSView()
+        host.addSubview(label)
+        host.addSubview(accessory)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: host.leadingAnchor, constant: SettingsMetrics.cardInset),
+            label.centerYAnchor.constraint(equalTo: accessory.centerYAnchor),
+            label.trailingAnchor.constraint(
+                lessThanOrEqualTo: accessory.leadingAnchor,
+                constant: -SettingsMetrics.controlRowGap
+            ),
+            accessory.trailingAnchor.constraint(equalTo: host.trailingAnchor, constant: -SettingsMetrics.cardInset),
+            accessory.topAnchor.constraint(equalTo: host.topAnchor),
+            accessory.bottomAnchor.constraint(equalTo: host.bottomAnchor)
+        ])
+        return host
+    }
+
     /// §1's glass-backed card of rows, with an optional label above it.
     static func group(_ title: String?, _ rows: [NSView]) -> NSView {
         SettingsRowGroupView(title: title, rows: rows)

@@ -85,13 +85,24 @@ extension SidebarViewController {
         essentials.frame = NSRect(x: 0, y: gridTop, width: bounds.width, height: gridHeight).integral
 
         utility.frame = NSRect(x: 0, y: 0, width: bounds.width, height: bar)
-        // §3.5's profile line stands **on** the utility bar rather than inside
-        // it: the bar's three clusters are already centred against each other
-        // at 52 pt, and a line of type squeezed in beside them would have to
-        // come out of the Space strip's air.
+        // **§3.5's profile line stands on the Space strip, not on the bar.**
+        //
+        // The bar is 52 pt and its three clusters are centred on its midline,
+        // which leaves 15 pt of empty air above the 22 pt Space pill — so a
+        // caption parked above the *bar* sat that 15 pt clear of the dots it
+        // belongs to, and read as the last line of the tab list instead of as
+        // the label on the strip. It is placed against the strip's own top edge
+        // instead and is allowed to overlap the bar's dead air to get there;
+        // the pill does not move, so the dots stay in line with the avatar and
+        // the cylinder either side of them.
         let profileRow = profile.isHidden ? 0 : Tokens.Metric.sidebarProfileRow
-        profile.frame = NSRect(x: 0, y: bar, width: bounds.width, height: profileRow).integral
-        let foot = bar + profileRow
+        profile.frame = NSRect(
+            x: 0,
+            y: SidebarUtilityBar.spaceStripTop + Tokens.Metric.sidebarProfileGap,
+            width: bounds.width,
+            height: profileRow
+        ).integral
+        let foot = profile.isHidden ? bar : profile.frame.maxY
         list.scrollView.frame = NSRect(
             x: 0,
             y: foot,

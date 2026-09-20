@@ -76,7 +76,9 @@ extension TokenCheck {
             ("spaceCreateRingLine", Tokens.Metric.spaceCreateRingLine),
             ("spaceCreatePlus", Tokens.Metric.spaceCreatePlus),
             ("spaceSwipeParallax", Tokens.Metric.spaceSwipeParallax),
-            ("sidebarProfileRow", Tokens.Metric.sidebarProfileRow)
+            ("sidebarProfileRow", Tokens.Metric.sidebarProfileRow),
+            ("sidebarProfileGap", Tokens.Metric.sidebarProfileGap),
+            ("spaceDotPitch", Tokens.Metric.spaceDotPitch)
         ]
         failures += scalars.filter { $0.1 <= 0 }.map { "Metric.\($0.0) is not positive" }
         return failures + checkSpaceSwipe() + checkRowInsets()
@@ -110,6 +112,17 @@ extension TokenCheck {
         }
         if metric.spaceCreateRingLine <= metric.hairline {
             failures.append("Metric.spaceCreateRingLine is at hairline — a progress ring has to be legible when part-drawn")
+        }
+        // §3.5's strip is a row of separate marks. Under a dot of clear space
+        // they merge into a dashed line; over two they stop being a row. The
+        // dots' own test asserts the same band at every count — this is the
+        // token saying so before a strip is ever laid out.
+        let gap = metric.spaceDotPitch - metric.spaceDot
+        if gap < metric.spaceDot || gap > metric.spaceDot * 2 {
+            failures.append(String(
+                format: "Metric.spaceDotPitch leaves %.0f pt between %.0f pt dots — a row wants one to two dots of air",
+                gap, metric.spaceDot
+            ))
         }
         return failures
     }
@@ -227,6 +240,7 @@ extension TokenCheck {
     static func checkMotion() -> [String] {
         let timed: [(String, MotionSpec)] = [
             ("rowHover", Tokens.Motion.rowHover), ("controlHover", Tokens.Motion.controlHover),
+            ("controlPress", Tokens.Motion.controlPress), ("essentialGlow", Tokens.Motion.essentialGlow),
             ("selectedRowMove", Tokens.Motion.selectedRowMove), ("tabInsert", Tokens.Motion.tabInsert),
             ("spaceSwitch", Tokens.Motion.spaceSwitch), ("spaceSwitchCrossfade", Tokens.Motion.spaceSwitchCrossfade),
             ("sidebarCollapse", Tokens.Motion.sidebarCollapse), ("sidebarCollapseOpacity", Tokens.Motion.sidebarCollapseOpacity),

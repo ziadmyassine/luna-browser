@@ -29,15 +29,18 @@ extension SpacesSection {
     /// fresh `Profile`, so many Spaces to one Profile could be stored and never
     /// made. The popup's first entry is a new profile; the rest are the ones
     /// that exist.
-    func newSpaceRow(
+    /// **A button beside the section's heading, not a row in a card.** As a row
+    /// it needed a card, and the card needed a heading, so the pane read
+    /// `Spaces` ▸ card ▸ `New Space` ▸ `[New Space]`. The heading names what
+    /// the cards below it are and this adds one; see `SettingsRow.heading`.
+    func newSpaceButton(
         sharing spaces: [Space],
         session: BrowserSession?
     ) -> (view: NSView, terms: [String]) {
         let title = String(localized: "New Space")
-        let row = SettingsRow.button(title, action: title) { [weak self] in
-            self?.createSpace(session: session)
-        }
-        return (row, [title, "add space", "create space", "share profile"])
+        let button = SettingsPushButton(title: title, isDestructive: false)
+        button.onActivate = { [weak self] in self?.createSpace(session: session) }
+        return (button, [title, "add space", "create space", "share profile"])
     }
 
     private func createSpace(session: BrowserSession?) {

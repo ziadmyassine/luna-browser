@@ -117,6 +117,19 @@ final class SidebarUtilityBar: NSView {
         NSSize(width: NSView.noIntrinsicMetric, height: Tokens.Metric.topBarHeight)
     }
 
+    /// Where the Space strip's **top edge** sits, measured from the bar's
+    /// bottom — which is where §3.5's profile line has to stand.
+    ///
+    /// Arithmetic rather than `dots.frame.maxY`, and static rather than an
+    /// instance read, because the column lays the caption out in the same pass
+    /// that lays this bar out: a frame read there is a frame from the pass
+    /// before. The pill is centred on the bar's midline with the avatar and the
+    /// cylinder, so its top is the one thing about it that never depends on how
+    /// many Spaces there are.
+    static var spaceStripTop: CGFloat {
+        (Tokens.Metric.topBarHeight + Tokens.Metric.spaceDotsPill.height) / 2
+    }
+
     override func layout() {
         super.layout()
         // Bounds-derived frames never animate — see `Motion.immediately`.
@@ -162,8 +175,8 @@ final class SidebarUtilityBar: NSView {
     /// **Centred in the bar while it fits, and centred in what is left when it
     /// does not.**
     ///
-    /// The pill grows with the number of Spaces (`spaceDotsPillGrowth`), so
-    /// "does it fit" is not a question §1's minimum can answer once and for
+    /// The pill is sized to the dots it holds (`SpaceDotsView.width(forDots:)`),
+    /// so "does it fit" is not a question §1's minimum can answer once and for
     /// all: eight Spaces at 220 pt is wider than the gap between the avatar and
     /// the cylinder. Clamping to one side would have slid the pill under one
     /// cluster while leaving clear air under the other; centring the overflow
