@@ -17,11 +17,18 @@
 //
 //  **One Space per gesture, however hard the flick**, and this is the rule that
 //  was missing. The travel used to accumulate without a ceiling, so a single
-//  firm swipe from the first of two Spaces ran 80 pt to reach the second and
-//  then kept going into the 160 pt that makes a new one — and the gesture the
-//  user performs to *change* Space created one instead. A trackpad flick is
-//  accelerated by the system and routinely delivers several hundred points in
-//  one stroke; no threshold survives that. A page swipe turns one page.
+//  firm swipe from the first of two Spaces reached the second and then kept
+//  going into the create zone past it — and the gesture the user performs to
+//  *change* Space made one instead. A trackpad flick is accelerated by the
+//  system and routinely delivers several hundred points in one stroke; no
+//  threshold survives that. A page swipe turns one page.
+//
+//  **The acceleration is taken off before any of that arithmetic runs**, which
+//  is a separate fix for a separate complaint: a capped gesture still felt
+//  multiplied, because the page was tracking a delta the system had already
+//  scaled by how fast the fingers moved. `damped(_:since:at:)` puts a ceiling
+//  on how much page one event may carry per second of hand, which leaves a
+//  deliberate drag untouched and clips the multiplier off a flick.
 //
 //  So the create zone is not somewhere a long swipe can reach. It is only
 //  there **when there is no next Space**, which is the only situation in which
@@ -132,6 +139,9 @@ final class SpaceSwipeController {
     /// from a horizontal one that meant it.
     private var drift: CGFloat = 0
     private var isTracking = false
+    /// When the last event this gesture counted arrived, for
+    /// `Metric.spaceSwipeSpeed`'s ceiling. 0 means "nothing yet".
+    private var lastEventTime: TimeInterval = 0
     /// This gesture was ours, and its momentum tail is ours too — see
     /// `scrollWheel`.
     private var ownsMomentum = false
@@ -187,6 +197,7 @@ final class SpaceSwipeController {
         drift = 0
         isTracking = false
         ownsMomentum = false
+        lastEventTime = 0
     }
 
     private func track(_ event: NSEvent) -> Bool {
@@ -194,7 +205,8 @@ final class SpaceSwipeController {
         // on this platform means "back" — Safari's two-finger swipe, and every
         // horizontal list in AppKit. Toward the *next* Space is therefore the
         // negative one, and this is the single place the sign is flipped.
-        offset -= event.scrollingDeltaX
+        offset -= Self.damped(event.scrollingDeltaX, since: lastEventTime, at: event.timestamp)
+        lastEventTime = event.timestamp
         drift += abs(event.scrollingDeltaY)
         guard isTracking else {
             // A vertical flick always carries a little sideways travel, so the
@@ -205,6 +217,29 @@ final class SpaceSwipeController {
             return update()
         }
         return update()
+    }
+
+    /// One event's `scrollingDeltaX`, with the system's acceleration taken
+    /// back off the top.
+    ///
+    /// **A trackpad does not report distance; it reports scaled distance.**
+    /// macOS multiplies a precise scroll by how fast the fingers were moving,
+    /// so the same eighty points of hand arrive as eighty points when dragged
+    /// and as three hundred when flicked — and a page bound to that delta races
+    /// out from under the fingers pushing it. What this takes off is only the
+    /// multiplier: the event may carry as much travel as
+    /// `Metric.spaceSwipeSpeed` allows for the time since the last one, which a
+    /// deliberate drag never comes near and a flick exceeds several times over.
+    ///
+    /// The interval is clamped at both ends rather than trusted. A first
+    /// `.changed` has nothing to measure from, and a frame the app spent
+    /// elsewhere would otherwise hand one event the budget of ten — so the gap
+    /// is read as a frame in both cases, which is what it was in all but name.
+    static func damped(_ delta: CGFloat, since last: TimeInterval, at now: TimeInterval) -> CGFloat {
+        let frame: TimeInterval = 1.0 / 60
+        let interval = last > 0 ? min(max(now - last, 1.0 / 240), frame) : frame
+        let ceiling = Tokens.Metric.spaceSwipeSpeed * CGFloat(interval)
+        return min(max(delta, -ceiling), ceiling)
     }
 
     @discardableResult

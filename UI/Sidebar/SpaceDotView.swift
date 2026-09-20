@@ -106,10 +106,22 @@ final class SpaceDotView: NSView {
         // §8.2a's full intensity, and the whole point of the twelve pairs: the
         // dots were `Text.primary` / `Text.tertiary`, so every Space looked
         // identical no matter what gradient it carried.
-        let stops = Tokens.Gradient.planes(space.gradient, at: .full, in: effectiveAppearance)
+        //
+        // **A Space nobody has coloured is drawn in the chrome's own ink**, not
+        // in neutral's grey. `Gradient.neutral` is a real pair of greys because
+        // §8.2a needs *something* to interpolate a wash toward, but painting it
+        // is the same mistake `SpaceWashView.washColors` refuses to make: "no
+        // colour" then reads as a thirteenth colour, and the dot for the Space
+        // you are in — the one mark on the strip that has to be unmissable —
+        // came out dimmer than the tab titles above it. Uncoloured, it is
+        // `Text.primary`: full white in the dark, and §3.5's own 45 % step
+        // still separates it from the Spaces either side.
+        let ink = Tokens.Gradient.isNeutral(space.gradient)
+            ? (start: Tokens.Text.primary, end: Tokens.Text.primary)
+            : Tokens.Gradient.planes(space.gradient, at: .full, in: effectiveAppearance)
         mark.startPoint = CGPoint(x: 0, y: 1)
         mark.endPoint = CGPoint(x: 1, y: 0)
-        mark.colors = [stops.start.cgColor, stops.end.cgColor]
+        mark.colors = [ink.start.cgColor, ink.end.cgColor]
         // §3.5's "100 % / 35 %" step, kept — but the inactive dot is now a
         // dimmer version of *its own* colour rather than of a shared ink, and
         // the step is crossed continuously so a swipe can sit between two.

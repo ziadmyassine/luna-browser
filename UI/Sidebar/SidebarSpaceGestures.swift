@@ -168,8 +168,15 @@ final class SidebarSpaceGestures {
         let target = state.creation > 0 ? nil : neighbour(towards: state.travel)
         guard target?.id != previewing else { return }
         previewing = target?.id
+        // **The same split §3 makes, made here too.** `SidebarList` is what the
+        // real column divides a Space's tabs with, so the still is built from
+        // it rather than from a flat `session.list[…]` — which is what used to
+        // draw the §3.3 tiles as ordinary rows and let the pinned tabs arrive
+        // unpinned and then correct themselves.
+        let column = SidebarList(tabs: target.map { session.list[$0.id] } ?? [])
         preview.show(
-            tabs: target.map { session.list[$0.id] } ?? [],
+            essentials: column.essentials,
+            listed: column.listed,
             gradient: target?.gradient ?? Tokens.Gradient.neutral,
             icon: { [weak session] tab in
                 if let image = session?.favicon(for: tab.id) { return image }

@@ -20,6 +20,15 @@
 //  what replaces it is the real list, cross-faded by §6's
 //  `spaceSwitchCrossfade` so the seam is not a frame anyone can catch.
 //
+//  **The picture is of the whole column, pinned tabs included.** It used to be
+//  a flat run of rows built from every tab in the Space — which put the §3.3
+//  tiles in it as ordinary rows, so a Space with pinned tabs arrived looking
+//  like a Space without any and then rearranged itself the moment the real
+//  column took over. A still that has to be corrected is worse than no still:
+//  the correction is the one frame the cross-fade exists to hide. So the grid
+//  is drawn as a grid, with `EssentialsGridView`'s own slot arithmetic, and the
+//  rows below it start where §3.4's rows start — with `New Tab` and its rule.
+//
 //  Only what fits is drawn. A Space with sixty tabs is a Space whose first
 //  dozen rows are what identifies it at a glance, and drawing the other
 //  forty-eight into a view that lives for 300 ms is work nobody sees.
@@ -28,13 +37,14 @@
 import AppKit
 import BrowserKit
 
-/// A still of one Space's column: its §8.2a wash, its §3.3 tiles' worth of
-/// height, and as many §3.4 rows as the frame has room for.
+/// A still of one Space's column: its §8.2a wash, its §3.3 tiles and as many
+/// §3.4 rows as the frame has room for.
 @MainActor
 final class SpacePreviewView: NSView {
 
     private let wash = SpaceWashView()
-    private var rows: [SpacePreviewRow] = []
+    private var tiles: [SpacePreviewTile] = []
+    private var rows: [NSView] = []
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -54,19 +64,42 @@ final class SpacePreviewView: NSView {
     /// Never takes a click: the gesture owns the pointer while this is up.
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
-    /// - Parameter icon: the favicon for a tab, from whichever cache the caller
-    ///   has — the live session first, §4.7's on-disk store after it. Nil draws
-    ///   the same placeholder a cold row draws.
-    func show(tabs: [Tab], gradient: GradientPair, icon: (Tab) -> NSImage?) {
+    /// - Parameters:
+    ///   - essentials: the Space's §3.3 tiles, in grid order.
+    ///   - listed: everything §3.4 puts in the scroll view, pinned tabs first —
+    ///     which is `SidebarList.listed`, the same order the real list uses.
+    ///   - icon: the favicon for a tab, from whichever cache the caller has —
+    ///     the live session first, §4.7's on-disk store after it. Nil draws the
+    ///     same placeholder a cold row draws.
+    func show(essentials: [Tab], listed: [Tab], gradient: GradientPair, icon: (Tab) -> NSImage?) {
         wash.show(gradient)
+        for tile in tiles { tile.removeFromSuperview() }
         for row in rows { row.removeFromSuperview() }
-        rows = tabs.map { tab in
-            let row = SpacePreviewRow(title: tab.title.isEmpty ? (tab.url.host() ?? "") : tab.title, icon: icon(tab))
-            addSubview(row)
-            return row
+        tiles = essentials.map { tab in
+            let tile = SpacePreviewTile(icon: icon(tab))
+            addSubview(tile)
+            return tile
         }
+        // §3.4's own head: the one command and the rule that closes it off. The
+        // rows below have to start where the real list's rows start, or every
+        // title in the still is a row out from the title that replaces it.
+        let head: [NSView] = [
+            SpacePreviewRow(title: String(localized: "New Tab"), icon: Self.plus, isDimmed: true),
+            SpacePreviewRule()
+        ]
+        rows = head + listed.map { tab in
+            SpacePreviewRow(
+                title: tab.title.isEmpty ? (tab.url.host() ?? "") : tab.title,
+                icon: icon(tab),
+                isDimmed: false
+            )
+        }
+        for row in rows { addSubview(row) }
         needsLayout = true
     }
+
+    private static let plus = NSImage(systemSymbolName: "plus", accessibilityDescription: nil)?
+        .withSymbolConfiguration(.init(pointSize: Tokens.Metric.faviconSize, weight: .regular))
 
     override func layout() {
         super.layout()
@@ -76,14 +109,74 @@ final class SpacePreviewView: NSView {
 
     private func placeContents() {
         wash.frame = bounds
-        let pitch = Tokens.Metric.rowHeight
-        var top = bounds.maxY
+        // The grid hangs from the top of the page, exactly as §3.3 hangs from
+        // under the URL pill, and the list starts where it ends.
+        let gridHeight = EssentialsGridView.height(forTiles: tiles.count)
+        let grid = NSRect(x: 0, y: bounds.maxY - gridHeight, width: bounds.width, height: gridHeight)
+        for (index, tile) in tiles.enumerated() {
+            tile.frame = EssentialsGridView.slotRect(at: index, of: tiles.count, in: grid)
+        }
+        var top = grid.minY
         for row in rows {
-            top -= pitch
-            row.frame = NSRect(x: 0, y: top, width: bounds.width, height: pitch).integral
+            let height = row is SpacePreviewRule ? Tokens.Metric.separatorRowHeight : Tokens.Metric.rowHeight
+            top -= height
+            row.frame = NSRect(x: 0, y: top, width: bounds.width, height: height).integral
             // Off the bottom is off the picture. See the file header.
             row.isHidden = top < bounds.minY
         }
+    }
+}
+
+/// One §3.3 tile of the still: the plate and the favicon, and nothing that
+/// makes a tile a control — no glow, no hover, no menu.
+@MainActor
+final class SpacePreviewTile: NSView {
+
+    private let icon = NSImageView()
+
+    init(icon image: NSImage?) {
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.cornerCurve = .continuous
+        Glass.apply(.control, to: self, cornerRadius: Tokens.Metric.essentialsTile.cornerRadius)
+        icon.image = image ?? SpacePreviewRow.placeholder
+        icon.imageScaling = .scaleProportionallyUpOrDown
+        icon.contentTintColor = image == nil ? Tokens.Text.secondary : nil
+        addSubview(icon)
+        setAccessibilityElement(false)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("Luna builds its chrome in code; there is no nib to decode.")
+    }
+
+    override func layout() {
+        super.layout()
+        Tokens.Motion.immediately {
+            let side = Tokens.Metric.essentialsIcon
+            icon.frame = NSRect(
+                x: (bounds.width - side) / 2,
+                y: (bounds.height - side) / 2,
+                width: side,
+                height: side
+            ).pixelAligned
+        }
+    }
+}
+
+/// §3.4's rule between the command row and the tabs, as the still draws it.
+@MainActor
+final class SpacePreviewRule: NSView {
+
+    override func draw(_ dirtyRect: NSRect) {
+        Tokens.Line.hairline.setFill()
+        NSRect(
+            x: 0,
+            y: (bounds.height - Tokens.Metric.hairline) / 2,
+            width: bounds.width,
+            height: Tokens.Metric.hairline
+        ).fill()
     }
 }
 
@@ -97,16 +190,15 @@ final class SpacePreviewRow: NSView {
     private let icon = NSImageView()
     private let title = NSTextField(labelWithString: "")
 
-    init(title text: String, icon image: NSImage?) {
+    init(title text: String, icon image: NSImage?, isDimmed: Bool) {
         super.init(frame: .zero)
-        icon.image = image ?? NSImage(systemSymbolName: "globe", accessibilityDescription: nil)?
-            .withSymbolConfiguration(.init(pointSize: Tokens.Metric.faviconSize, weight: .regular))
+        icon.image = image ?? Self.placeholder
         icon.imageScaling = .scaleProportionallyUpOrDown
         title.stringValue = text
         title.lineBreakMode = .byTruncatingTail
         addSubview(icon)
         addSubview(title)
-        applyTokens(hasFavicon: image != nil)
+        applyTokens(isTinted: image == nil || isDimmed)
         setAccessibilityElement(false)
     }
 
@@ -115,12 +207,15 @@ final class SpacePreviewRow: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
-    private func applyTokens(hasFavicon: Bool) {
+    static let placeholder = NSImage(systemSymbolName: "globe", accessibilityDescription: nil)?
+        .withSymbolConfiguration(.init(pointSize: Tokens.Metric.faviconSize, weight: .regular))
+
+    private func applyTokens(isTinted: Bool) {
         title.font = Tokens.TypeScale.sidebarRow
         // The still is of a Space you are not in yet, so every row in it is an
         // inactive row: §3.4's secondary ink, never the selected pill's.
         title.textColor = Tokens.Text.secondary
-        icon.contentTintColor = hasFavicon ? nil : Tokens.Text.secondary
+        icon.contentTintColor = isTinted ? Tokens.Text.secondary : nil
     }
 
     override func layout() {

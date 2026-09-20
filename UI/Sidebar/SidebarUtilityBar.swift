@@ -117,17 +117,30 @@ final class SidebarUtilityBar: NSView {
         NSSize(width: NSView.noIntrinsicMetric, height: Tokens.Metric.topBarHeight)
     }
 
-    /// Where the Space strip's **top edge** sits, measured from the bar's
-    /// bottom — which is where §3.5's profile line has to stand.
+    /// Where the Space strip's **bottom edge** sits, measured from the bar's
+    /// bottom.
+    ///
+    /// **The same as the avatar's and the cylinder's, which is not the same as
+    /// centred.** All three used to be centred on the bar's midline, and three
+    /// things centred in a 52 pt bar do not line up unless they are the same
+    /// height: the 34 pt circles sat 9 pt off the bottom and the 22 pt pill sat
+    /// 15, so the footer read as a row with one item floating in it. A row of
+    /// controls of different heights lines up on the edge they share, and the
+    /// one they share here is the bottom — it is the sidebar's own margin.
+    static var spaceStripBottom: CGFloat {
+        (Tokens.Metric.topBarHeight - Tokens.Metric.bottomCircle.height) / 2
+    }
+
+    /// Where the Space strip's **top edge** sits — which is where §3.5's
+    /// profile line has to stand.
     ///
     /// Arithmetic rather than `dots.frame.maxY`, and static rather than an
     /// instance read, because the column lays the caption out in the same pass
     /// that lays this bar out: a frame read there is a frame from the pass
-    /// before. The pill is centred on the bar's midline with the avatar and the
-    /// cylinder, so its top is the one thing about it that never depends on how
-    /// many Spaces there are.
+    /// before. The pill's height never depends on how many Spaces there are, so
+    /// neither does this.
     static var spaceStripTop: CGFloat {
-        (Tokens.Metric.topBarHeight + Tokens.Metric.spaceDotsPill.height) / 2
+        spaceStripBottom + Tokens.Metric.spaceDotsPill.height
     }
 
     override func layout() {
@@ -139,19 +152,21 @@ final class SidebarUtilityBar: NSView {
     private func placeContents() {
         let inset = Tokens.Metric.rowInset
         let circle = Tokens.Metric.bottomCircle
-        let midY = (bounds.height - circle.height) / 2
-        avatar.frame = NSRect(x: inset, y: midY, width: circle.width, height: circle.height).pixelAligned
+        // One baseline for the whole footer — see `spaceStripBottom`, which is
+        // this same number, named where the column has to read it.
+        let foot = Self.spaceStripBottom
+        avatar.frame = NSRect(x: inset, y: foot, width: circle.width, height: circle.height).pixelAligned
         let cylinder = library.intrinsicContentSize
         library.frame = NSRect(
             x: bounds.maxX - inset - cylinder.width,
-            y: midY,
+            y: foot,
             width: cylinder.width,
             height: cylinder.height
         ).pixelAligned
         let pill = dots.intrinsicContentSize
         dots.frame = NSRect(
             x: dotsOriginX(pillWidth: pill.width, trailingEdge: library.frame.minX),
-            y: (bounds.height - pill.height) / 2,
+            y: foot,
             width: pill.width,
             height: pill.height
         ).pixelAligned

@@ -5,6 +5,8 @@
 //  The two pieces of §3.5/§30.9 arithmetic that are worth more than a
 //  screenshot: where the Space dots go, and what a two-finger swipe means.
 //
+//  The swipe's own arithmetic is next door, in `SpaceSwipeTests.swift`.
+//
 //  **The dot row is here because it shipped crooked, and then because it
 //  shipped loose.** The strip used to size each dot's slot with `.integral`,
 //  which rounds a slot's leading edge down and its trailing edge up,
@@ -48,6 +50,7 @@ final class SpaceDotsLayoutTests: XCTestCase {
         let dot = Tokens.Metric.spaceDot
         for count in 2...8 {
             let centres = SpaceDotsView.centres(count: count, in: Self.pillWidth(for: count))
+            XCTAssertEqual(centres.count, count, "\(count) Spaces")
             let gaps = Set(zip(centres, centres.dropFirst()).map { $1 - $0 - dot })
             XCTAssertEqual(gaps.count, 1, "gaps \(gaps.sorted()) differ with \(count) Spaces")
             guard let gap = gaps.first else { return XCTFail("no gaps with \(count) Spaces") }
@@ -57,20 +60,65 @@ final class SpaceDotsLayoutTests: XCTestCase {
     }
 
     /// The pill is sized to its dots rather than the dots divided into the
-    /// pill, so two Spaces do not sit in the middle of a pill built for three.
-    func testThePillIsSizedToTheDotsItHolds() {
+    /// pill, so two Spaces do not sit in the middle of a pill built for three
+    /// — **and it stops growing at the window**, which is the other half of the
+    /// same rule: a strip whose width tracked the Space count had no ceiling,
+    /// and twelve Spaces filled a footer that also holds two other clusters.
+    func testThePillGrowsByAPitchUntilTheWindowIsFullAndThenStops() {
+        let window = Tokens.Metric.spaceDotWindow
         var last = SpaceDotsView.width(forDots: 1)
         for count in 2...8 {
             let width = SpaceDotsView.width(forDots: count)
-            XCTAssertEqual(width - last, Tokens.Metric.spaceDotPitch, accuracy: 0.001, "\(count) Spaces")
+            let grown = count <= window ? Tokens.Metric.spaceDotPitch : 0
+            XCTAssertEqual(width - last, grown, accuracy: 0.001, "\(count) Spaces")
             last = width
         }
+    }
+
+    /// **The window holds the indicator in the middle and stops at both
+    /// ends**, so the Space you are in is always on the strip and the first and
+    /// last never drift off their own pill.
+    func testTheWindowKeepsTheIndicatorInItAndStopsAtBothEnds() {
+        let window = Tokens.Metric.spaceDotWindow
+        for count in 1...8 {
+            for active in 0..<count {
+                let start = SpaceDotsView.windowStart(indicator: CGFloat(active), count: count)
+                XCTAssertGreaterThanOrEqual(start, 0, "\(active) of \(count)")
+                XCTAssertLessThanOrEqual(start, CGFloat(max(count - window, 0)), "\(active) of \(count)")
+                let position = CGFloat(active) - start
+                XCTAssertGreaterThanOrEqual(position, 0, "Space \(active) of \(count) is off the leading end")
+                XCTAssertLessThanOrEqual(position, CGFloat(window - 1), "Space \(active) of \(count) is off the end")
+            }
+        }
+    }
+
+    /// The window moves **with** the finger, not in steps: half a Space of
+    /// swipe moves the run half a slot, so the strip scrolls at exactly the
+    /// rate the column does.
+    func testTheWindowSlidesContinuouslyRatherThanPaging() {
+        let start = SpaceDotsView.windowStart(indicator: 3, count: 8)
+        let half = SpaceDotsView.windowStart(indicator: 3.5, count: 8)
+        XCTAssertEqual(half - start, 0.5, accuracy: 0.001)
+    }
+
+    /// Only the window's worth of dots is drawn, and the ones outside it are
+    /// faded rather than snapped away — a mark cut in half by the pill's edge
+    /// reads as a drawing bug.
+    func testOnlyTheWindowIsInkedAndItsEdgeIsAFade() {
+        let window = Tokens.Metric.spaceDotWindow
+        let start = SpaceDotsView.windowStart(indicator: 4, count: 8)
+        for index in 0..<8 {
+            let alpha = SpaceDotsView.alpha(forDot: index, from: start)
+            let inside = CGFloat(index) >= start && CGFloat(index) <= start + CGFloat(window - 1)
+            XCTAssertEqual(alpha, inside ? 1 : 0, accuracy: 0.001, "dot \(index)")
+        }
+        XCTAssertEqual(SpaceDotsView.alpha(forDot: 0, from: 0.5), 0.5, accuracy: 0.001)
     }
 
     /// A dot sits on the centre of the pill's end cap — the inset is the
     /// radius, which is what stops it looking pushed into the curve.
     func testTheEndDotsSitOnTheCapsCentre() {
-        for count in 1...8 {
+        for count in 1...Tokens.Metric.spaceDotWindow {
             let width = Self.pillWidth(for: count)
             let centres = SpaceDotsView.centres(count: count, in: width)
             XCTAssertEqual(centres.first, Tokens.Metric.spaceDotsPill.cornerRadius + Tokens.Metric.spaceDot / 2)
@@ -83,7 +131,7 @@ final class SpaceDotsLayoutTests: XCTestCase {
     /// the gaps are equal, the two end margins are equal, and every centre is a
     /// whole point — a dot on a half point is a dot drawn over two pixels.
     func testEveryCountIsEvenlySpacedSymmetricAndOnWholePoints() {
-        for count in 1...8 {
+        for count in 1...Tokens.Metric.spaceDotWindow {
             let width = Self.pillWidth(for: count)
             let centres = SpaceDotsView.centres(count: count, in: width)
             XCTAssertEqual(centres.count, count)
@@ -106,7 +154,7 @@ final class SpaceDotsLayoutTests: XCTestCase {
 
     /// The dots have to stay inside the pill they are drawn in, mark and all.
     func testTheRunNeverOverflowsThePill() {
-        for count in 1...8 {
+        for count in 1...Tokens.Metric.spaceDotWindow {
             let width = Self.pillWidth(for: count)
             let radius = Tokens.Metric.spaceDot / 2
             let centres = SpaceDotsView.centres(count: count, in: width)
@@ -123,12 +171,12 @@ final class SpaceDotsLayoutTests: XCTestCase {
     /// first — which is what the old, independently rounded slots left to
     /// chance at every seam.
     func testTheSlotsAbutAndCoverThePill() {
-        let strip = Self.strip(spaces: 4)
+        let strip = Self.strip(spaces: 3)
         let dots = strip.subviews.compactMap { $0 as? SpaceDotView }
-        XCTAssertEqual(dots.count, 4)
+        XCTAssertEqual(dots.count, 3)
         XCTAssertEqual(dots.first?.frame.minX, 0)
         XCTAssertEqual(dots.last?.frame.maxX, strip.bounds.width)
-        XCTAssertEqual(strip.bounds.width, SpaceDotsView.width(forDots: 4))
+        XCTAssertEqual(strip.bounds.width, SpaceDotsView.width(forDots: 3))
         for (left, right) in zip(dots, dots.dropFirst()) {
             XCTAssertEqual(left.frame.maxX, right.frame.minX, "slots overlap or leave a gap between them")
         }
@@ -138,24 +186,36 @@ final class SpaceDotsLayoutTests: XCTestCase {
     /// slot's middle happens to be — the first and last slots run out to the
     /// pill's edges and are not symmetric about their dot.
     func testEachDotIsToldItsOwnCentreRatherThanGuessingFromItsSlot() {
-        let strip = Self.strip(spaces: 5)
+        let strip = Self.strip(spaces: 3)
         let dots = strip.subviews.compactMap { $0 as? SpaceDotView }
-        let centres = SpaceDotsView.centres(count: 5, in: strip.bounds.width)
+        let centres = SpaceDotsView.centres(count: 3, in: strip.bounds.width)
         for (dot, centre) in zip(dots, centres) {
             XCTAssertEqual(dot.frame.minX + dot.markCentreX, centre, accuracy: 0.001)
         }
     }
 
-    /// §30.9's `+` takes a slot of its own, so the pill makes room for it —
+    /// §30.9's `+` takes a step of its own, so the pill makes room for it —
     /// otherwise the ring would have to be drawn over the last Space's dot,
     /// which is the one place it must not be.
     func testThePillMakesRoomForTheCreateRing() {
         let strip = Self.strip(spaces: 3)
         let resting = strip.intrinsicContentSize.width
         strip.creation = 0.5
-        XCTAssertEqual(strip.intrinsicContentSize.width - resting, SpaceDotsView.createSlot)
+        XCTAssertEqual(strip.intrinsicContentSize.width - resting, SpaceDotsView.createStep)
         strip.creation = 0
         XCTAssertEqual(strip.intrinsicContentSize.width, resting)
+    }
+
+    /// **The `+` stands in the row, not beside it.** It used to be centred in a
+    /// slot of its own at the end of the pill, which put it 25 pt out from a
+    /// run laid out on 14 — visibly detached from the Spaces it is offering to
+    /// extend. Its step is the one that leaves the same clear air between the
+    /// last dot and the ring as there is between any two dots.
+    func testTheCreateRingStandsAtTheSameClearAirAsTheDots() {
+        let dot = Tokens.Metric.spaceDot
+        let betweenDots = Tokens.Metric.spaceDotPitch - dot
+        let betweenDotAndRing = SpaceDotsView.createStep - dot / 2 - Tokens.Metric.spaceCreateRing / 2
+        XCTAssertEqual(betweenDotAndRing, betweenDots, accuracy: 0.001)
     }
 
     /// **The ring never lands on the last Space's dot.** It is wider than the
@@ -189,136 +249,5 @@ final class SpaceDotsLayoutTests: XCTestCase {
         strip.frame = NSRect(origin: .zero, size: strip.intrinsicContentSize)
         strip.layoutSubtreeIfNeeded()
         return strip
-    }
-}
-
-/// §30.9's two-finger swipe, as arithmetic. The gesture itself needs a
-/// trackpad; what it *means* does not.
-@MainActor
-final class SpaceSwipeTests: XCTestCase {
-
-    private let travel = Tokens.Metric.spaceSwipeTravel
-
-    /// Half a Space commits — a flick is short, and a gesture that needed the
-    /// whole distance would be a drag.
-    func testHalfASpaceOfTravelLandsOnTheNextOne() {
-        XCTAssertEqual(Self.resolve(travel * 0.6, active: 0, of: 3).landing, 1)
-        XCTAssertEqual(Self.resolve(-travel * 0.6, active: 1, of: 3).landing, 0)
-    }
-
-    /// …and under half of it does not. This is the whole of "I changed my mind
-    /// half way".
-    func testLessThanHalfASpaceStaysWhereItIs() {
-        XCTAssertNil(Self.resolve(travel * 0.4, active: 1, of: 3).landing)
-        XCTAssertNil(Self.resolve(-travel * 0.4, active: 1, of: 3).landing)
-    }
-
-    /// **The bug this cap exists for.** A trackpad flick is accelerated by the
-    /// system and routinely delivers several hundred points in one stroke, so
-    /// before the travel was capped a single firm swipe from the first of two
-    /// Spaces ran through the second and into the create zone — the gesture you
-    /// use to *change* Space made one instead. Whatever the stroke, a swipe
-    /// forward from a Space that has a Space after it lands on that Space.
-    func testAHardSwipeLandsOnTheNextSpaceRatherThanMakingOne() {
-        for stroke in [travel, travel * 4, travel * 40] {
-            let swipe = Self.resolve(stroke, active: 0, of: 2)
-            XCTAssertEqual(swipe.landing, 1, "a \(stroke) pt stroke")
-            XCTAssertFalse(swipe.createsSpace, "a \(stroke) pt stroke made a Space")
-            XCTAssertEqual(swipe.creation, 0, "a \(stroke) pt stroke opened the ring")
-            XCTAssertLessThanOrEqual(swipe.travel, 1, "a \(stroke) pt stroke ran past the next Space")
-        }
-    }
-
-    /// The same cap backwards, and it is what keeps the indicator on the strip:
-    /// one Space per gesture, in either direction.
-    func testAHardSwipeBackLandsOnThePreviousSpaceAndNoFurther() {
-        let swipe = Self.resolve(-travel * 40, active: 2, of: 3)
-        XCTAssertEqual(swipe.landing, 1)
-        XCTAssertEqual(swipe.travel, -1)
-    }
-
-    /// **The create zone is only reachable from the last Space**, which is the
-    /// whole of why the cap is safe: there is nowhere else "further" could
-    /// possibly mean anything but "the one after this".
-    func testOnlyTheLastSpaceCanReachTheCreateZone() {
-        for active in 0..<3 {
-            let swipe = Self.resolve(Tokens.Metric.spaceCreateTravel * 10, active: active, of: 3)
-            XCTAssertEqual(swipe.createsSpace, active == 2, "Space \(active) of 3")
-        }
-    }
-
-    /// **The leading end simply stops.** There is nothing before the first
-    /// Space, so the indicator does not move and nothing is offered.
-    func testTheFirstSpaceHasNothingBehindIt() {
-        let swipe = Self.resolve(-travel * 3, active: 0, of: 3)
-        XCTAssertEqual(swipe.travel, 0)
-        XCTAssertNil(swipe.landing)
-        XCTAssertEqual(swipe.creation, 0)
-        XCTAssertFalse(swipe.createsSpace)
-    }
-
-    /// Past the last Space there is no Space to land on — the gesture has
-    /// stopped being a switch.
-    func testPastTheLastSpaceThereIsNoLanding() {
-        let swipe = Self.resolve(travel * 1.5, active: 2, of: 3)
-        XCTAssertNil(swipe.landing)
-        XCTAssertGreaterThan(swipe.creation, 0)
-    }
-
-    /// The `+`'s slot is the only place past the last Space, so the indicator
-    /// reaches it and stops there rather than running off the strip.
-    func testTheIndicatorNeverLeavesTheStrip() {
-        for active in 0..<3 {
-            for stroke in [-travel * 40, travel * 40] {
-                let swipe = Self.resolve(stroke, active: active, of: 3)
-                XCTAssertGreaterThanOrEqual(swipe.travel, -1, "Space \(active), \(stroke) pt")
-                XCTAssertLessThanOrEqual(swipe.travel, 1, "Space \(active), \(stroke) pt")
-            }
-        }
-    }
-
-    /// **The resistance, stated as the test that would fail if someone tidied
-    /// the two thresholds into one.** A whole Space's worth of travel *past the
-    /// last Space* — twice what it takes to switch one, and well past what a
-    /// reflex flick delivers — still leaves the ring open.
-    func testASpacesWorthOfOvershootDoesNotMakeASpace() {
-        let swipe = Self.resolve(travel, active: 1, of: 2)
-        XCTAssertLessThan(swipe.creation, 1)
-        XCTAssertFalse(swipe.createsSpace)
-        XCTAssertGreaterThan(swipe.creation, 0, "the ring is not even showing — the overshoot said nothing")
-    }
-
-    /// The ring closes at exactly `spaceCreateTravel` past the last Space, and
-    /// not before.
-    func testTheRingClosesAtTheCreateTravelAndNotBefore() {
-        let create = Tokens.Metric.spaceCreateTravel
-        XCTAssertFalse(Self.resolve(create * 0.99, active: 0, of: 1).createsSpace)
-        XCTAssertTrue(Self.resolve(create, active: 0, of: 1).createsSpace)
-        XCTAssertEqual(Self.resolve(create, active: 0, of: 1).creation, 1)
-    }
-
-    /// The ring never over-fills, however far the fingers go.
-    func testTheRingStopsAtAFullCircle() {
-        XCTAssertEqual(Self.resolve(Tokens.Metric.spaceCreateTravel * 4, active: 0, of: 1).creation, 1)
-    }
-
-    /// **One mark, one meaning**: the indicator arrives in the `+`'s slot at
-    /// the moment the ring closes, rather than sitting on the last Space while
-    /// something else fills up beside it.
-    func testTheIndicatorReachesTheNewSlotExactlyAsTheRingCloses() {
-        let swipe = Self.resolve(Tokens.Metric.spaceCreateTravel, active: 2, of: 3)
-        XCTAssertEqual(swipe.travel, 1, accuracy: 0.001)
-        XCTAssertEqual(swipe.creation, 1, accuracy: 0.001)
-    }
-
-    /// A gesture in a window with no Spaces cannot mean anything, and must not
-    /// crash trying.
-    func testAnEmptyOrOutOfRangeWindowResolvesToNothing() {
-        XCTAssertNil(Self.resolve(travel * 10, active: 0, of: 0).landing)
-        XCTAssertFalse(Self.resolve(travel * 10, active: 4, of: 2).createsSpace)
-    }
-
-    private static func resolve(_ offset: CGFloat, active: Int, of count: Int) -> SpaceSwipe {
-        SpaceSwipe.resolve(offset: offset, activeIndex: active, count: count)
     }
 }

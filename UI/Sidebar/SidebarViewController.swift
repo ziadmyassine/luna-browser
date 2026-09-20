@@ -74,7 +74,9 @@ final class SidebarViewController: NSViewController {
     // `private` is file-scoped: `SidebarViewController+Layout.swift` is the
     // other half of this class, and every position in the column is computed
     // there. Nothing outside this file's pair touches them.
-    private let session: BrowserSession
+    /// Not private: `+Drag.swift` makes the session calls each §6.6 landing
+    /// means, for the same reason `+Layout.swift` reads the subviews.
+    let session: BrowserSession
     /// §8.2a's sidebar wash — the active Space's gradient at 16 %, behind
     /// everything. First in `loadView`'s subview list so it stays behind.
     let wash = SpaceWashView()
@@ -94,8 +96,8 @@ final class SidebarViewController: NSViewController {
     /// the foot of the sidebar does *to* Spaces. Built in `viewDidLoad`.
     var spaces: SidebarSpaceGestures?
     /// §6.6's lift. Built in `viewDidLoad`, because it needs the root view it
-    /// floats a dragged tab over.
-    private var drag: SidebarTabDragController?
+    /// floats a dragged tab over. Not private: `+Drag.swift` is what builds it.
+    var drag: SidebarTabDragController?
     private var shownSpaceID: UUID?
     private var isAttached = false
     /// The Essentials grid's height on the last layout pass. When it changes —
@@ -186,6 +188,13 @@ final class SidebarViewController: NSViewController {
             // §6: the sidebar's content cross-fades over 0.18 s on a Space switch.
             essentials.alphaValue = 0
             list.scrollView.alphaValue = 0
+            // **A Space switch replaces the column; it does not move it.** The
+            // grid animates its height when a tab is pinned, because everything
+            // below it travels. Two Spaces with different numbers of pinned
+            // tabs are not that — nothing travelled — and left animating, the
+            // new tiles slid in from the old grid's shape for 0.22 s after the
+            // cross-fade was over. Forgetting the height snaps the next pass.
+            lastGridHeight = nil
         }
         if let space = session.space(session.activeSpaceID) {
             wash.show(space.gradient)
@@ -338,50 +347,6 @@ final class SidebarViewController: NSViewController {
             if let state = session.controller(for: id)?.state { list.update(id, state: state) }
             onToggleMute?(id)
         }
-    }
-
-    /// §6.6's lift. Both ends of the sidebar hand their press over to it — a
-    /// list row and a grid tile are the same gesture wearing two shapes — and
-    /// exactly one of these three fires on release.
-    private func wireDrag() {
-        let controller = SidebarTabDragController(host: view, grid: essentials, list: list, utility: utility)
-        // **Picking a tab up is choosing it**, wherever it is put down: a drop
-        // that left the previous page on screen made the thing under the hand
-        // look like it belonged to something else. A row does this without
-        // being asked — the press selects before the lift is off the ground
-        // (`TabListController.press`) — but a tile's press goes straight to the
-        // lift and its `onActivate` never fires, so the drops say it instead.
-        // Escape and a §3.5 Space dot are the two that are not a landing.
-        controller.onDropInList = { [weak self] id, kind, index, wasPinned in
-            guard let self else { return }
-            session.reorderTab(id, to: index, kind: kind)
-            // Unpinning does not wake a page on its own (§19.2), so this is
-            // also what loads it.
-            if wasPinned { session.activateTab(id) }
-        }
-        controller.onDropInEssentials = { [weak self] id, index, wasPinned in
-            guard let self else { return }
-            // **Two different verbs for one landing place.** A tile moving
-            // between slots is a reorder inside the Essentials section; a row
-            // arriving is a *pin*, which also puts its page away (§19.2), and
-            // `pinTab` refuses a tab that is already pinned.
-            if wasPinned {
-                // Selected first, for `pinTab(selecting:)`'s reason: §19.2
-                // keeps a pinned tab's page put away, and this is what loads it.
-                session.activateTab(id)
-                session.reorderTab(id, to: index, kind: .essential)
-            } else {
-                session.pinTab(id, at: index, selecting: true)
-            }
-        }
-        controller.onDropOnSpace = { [weak self] id, space in
-            self?.session.moveTab(id, toSpace: space)
-        }
-        list.onTabPress = { [weak controller] row, event in controller?.track(row: row, event: event) }
-        essentials.onDragTile = { [weak controller] id, tile, event in
-            controller?.track(essential: id, from: tile, event: event)
-        }
-        drag = controller
     }
 
     // MARK: - Accessibility

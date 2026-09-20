@@ -15,8 +15,13 @@
 //
 //  **It is the same mark at two sizes, deliberately.** Both carry a `plus` and
 //  both wear a ring that closes at exactly the moment letting go would make the
-//  Space, drawn at the same `Metric.spaceCreateRingLine`. Two different
-//  affordances for one gesture would be two things to learn.
+//  Space. The one thing that is not shared is the stroke: a ring reads by its
+//  weight *against its own diameter*, so the strip's 1.5 pt on a 14 pt mark is
+//  `Metric.spaceCreateDiscLine` here, and drawing the two at the same number of
+//  points made this one a hairline round a glass button — too thin to read how
+//  full it was, which is the only thing it says. Two different affordances for
+//  one gesture would be two things to learn; one affordance drawn to the same
+//  weight at both sizes is one.
 //
 //  It draws nothing at rest and never hit-tests: this is a read-out of
 //  something happening in the hand, not a button. The `+` a pointer can press
@@ -108,7 +113,7 @@ final class SpaceCreationView: NSView {
 
     override func updateLayer() {
         let side = Tokens.Metric.bottomCircle.width
-        let line = Tokens.Metric.spaceCreateRingLine
+        let line = Tokens.Metric.spaceCreateDiscLine
         let circle = CGRect(origin: .zero, size: CGSize(width: side, height: side))
             .insetBy(dx: line / 2, dy: line / 2)
         Tokens.Motion.immediately {

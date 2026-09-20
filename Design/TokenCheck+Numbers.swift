@@ -74,8 +74,9 @@ extension TokenCheck {
             ("spaceCreateTravel", Tokens.Metric.spaceCreateTravel),
             ("spaceCreateRing", Tokens.Metric.spaceCreateRing),
             ("spaceCreateRingLine", Tokens.Metric.spaceCreateRingLine),
+            ("spaceCreateDiscLine", Tokens.Metric.spaceCreateDiscLine),
             ("spaceCreatePlus", Tokens.Metric.spaceCreatePlus),
-            ("spaceSwipeParallax", Tokens.Metric.spaceSwipeParallax),
+            ("spaceSwipeSpeed", Tokens.Metric.spaceSwipeSpeed),
             ("sidebarProfileRow", Tokens.Metric.sidebarProfileRow),
             ("sidebarProfileGap", Tokens.Metric.sidebarProfileGap),
             ("spaceDotPitch", Tokens.Metric.spaceDotPitch)
@@ -112,6 +113,17 @@ extension TokenCheck {
         }
         if metric.spaceCreateRingLine <= metric.hairline {
             failures.append("Metric.spaceCreateRingLine is at hairline — a progress ring has to be legible when part-drawn")
+        }
+        // One affordance at two sizes reads as one only if the two rings carry
+        // the same weight, and a ring's weight is its stroke over its diameter
+        // — not its stroke in points. See `Metric.spaceCreateDiscLine`.
+        let strip = metric.spaceCreateRingLine / metric.spaceCreateRing
+        let disc = metric.spaceCreateDiscLine / metric.bottomCircle.width
+        if abs(strip - disc) > 0.02 {
+            failures.append(String(
+                format: "The §30.9 rings are drawn at %.3f and %.3f of their own diameter — one mark, two weights",
+                strip, disc
+            ))
         }
         // §3.5's strip is a row of separate marks. Under a dot of clear space
         // they merge into a dashed line; over two they stop being a row. The
