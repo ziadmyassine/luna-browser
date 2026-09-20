@@ -50,7 +50,7 @@ sidebar's own content reflows. The ratios exist to fix proportions once, not to 
 | `trafficLightInset` (leading **and** top) | 18 pt | 8 leading, 18 top |
 | `controlSquircle` (top-bar tab tile only) | 28 pt, radius 9 | — |
 | `bottomCircle` (avatar, history) | 34 pt (`= sidebarCircle`) | — |
-| `spaceDotsPill` | 56 × 22 pt, radius 11 | — |
+| `spaceDotsPill` / `spaceDotChip` | 56 × 22 pt, radius 11 / 14 pt (= `spaceDotPitch`) | — |
 | `spaceDot` | 6 pt | — |
 | `glyphSize` (chrome SF Symbols) | 16 pt | 17, and 18 before that |
 | `windowCornerRadius` | 25 pt | 18 |
@@ -1073,6 +1073,13 @@ to reimplement keyboard navigation, VoiceOver and Reduce Transparency.
 
 - **Space dots** are the Space switcher: one 6 pt dot per Space, active dot 100 % white, inactive 35 %.
   Click a dot to switch; the pill widens by 8 pt per Space beyond three.
+  > **A dot answers the pointer like every other button** (§3.4, §6). It wears §3.4's washes on a chip
+  > the size of its own slot — `spaceDotChip`, which is `spaceDotPitch`, because a 6 pt hover target is
+  > no target — and hands its **press to the pill**, which is the glass under it and the thing that
+  > swells. That is `NavCluster`'s rule: a control with no material of its own does not swell, the one
+  > holding it does. Before this the dots were the only controls in the chrome that said nothing at all
+  > until the Space had already changed. Measured on screen: hover changes exactly 14 × 14 pt, a press
+  > changes the whole 42 × 22 pt pill.
 - Avatar is the active profile; click opens the profile menu.
 
 ### 3.6 Content pane

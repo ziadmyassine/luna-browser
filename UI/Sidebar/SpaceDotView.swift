@@ -72,15 +72,30 @@ final class SpaceDotView: NSView {
     /// §30.9 swipe it is the Space you are about to get.
     var wearsRing = false { didSet { needsDisplay = true } }
 
+    /// §6's press, handed to whoever owns the material under the dot — which
+    /// is the pill, not this. `NavCluster` does the same thing for the same
+    /// reason: a control with no surface of its own has nothing to swell.
+    var onPressChange: ((Bool) -> Void)?
+
     // A gradient layer, because §8.2a's dot is the Space's own pair of stops
     // rather than a shared ink — `updateLayer` sets `colors` on it.
     private let mark = CAGradientLayer()
+    /// §3.4's wash, under the mark: the dot is 6 pt of ink and a 6 pt hover
+    /// target would be no target at all, so the chip is the dot's whole slot
+    /// (`Metric.spaceDotChip`) and the pointer lights it from anywhere in it.
+    /// It carries the mark rather than sitting beside it, so the two are one
+    /// shape and the slot's asymmetry stays in `markCentreX` where it belongs.
+    private let chip = CALayer()
+    private var isHovering = false
+    private var isPressed = false
 
     init(space: Space, position: Int, of count: Int) {
         self.space = space
         super.init(frame: .zero)
         wantsLayer = true
-        layer?.addSublayer(mark)
+        chip.cornerCurve = .continuous
+        chip.addSublayer(mark)
+        layer?.addSublayer(chip)
         // §8/§21.2: the name, not the gradient, is what identifies a Space.
         toolTip = space.name
         setAccessibilityElement(true)
@@ -99,11 +114,22 @@ final class SpaceDotView: NSView {
 
     override func updateLayer() {
         let size = Tokens.Metric.spaceDot
+        let side = Tokens.Metric.spaceDotChip
         CATransaction.begin()
         CATransaction.setDisableActions(true)
+        // The chip is centred on the mark, and the mark is centred in the chip
+        // — so the two are one shape from here on and the slot's own asymmetry
+        // stays where it belongs, in `markCentreX`.
+        chip.frame = NSRect(
+            x: markCentreX - side / 2,
+            y: (bounds.height - side) / 2,
+            width: side,
+            height: side
+        ).pixelAligned
+        chip.cornerRadius = side / 2
         mark.frame = NSRect(
-            x: markCentreX - size / 2,
-            y: (bounds.height - size) / 2,
+            x: (side - size) / 2,
+            y: (side - size) / 2,
             width: size,
             height: size
         ).pixelAligned
@@ -147,14 +173,79 @@ final class SpaceDotView: NSView {
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
         needsDisplay = true
+        // A dynamic `NSColor` resolved into a `CGColor` does not follow the
+        // appearance it was resolved in, so the chip is repainted rather than
+        // left in the old one's ink.
+        applyWash(animated: false)
     }
+
+    // MARK: - §3.4's two washes
+
+    /// Nothing at rest, `Surface.hover` under the pointer, `Surface.selected`
+    /// under a press — the same two steps every other button in the chrome
+    /// answers with, on the one control in the sidebar that had no answer at
+    /// all: the dots took a click and said nothing until the Space changed.
+    private var washColour: NSColor? {
+        if isPressed { return Tokens.Surface.selected }
+        return isHovering ? Tokens.Surface.hover : nil
+    }
+
+    private func applyWash(animated: Bool = true) {
+        Tokens.Motion.wash(chip, to: washColour, animated: animated)
+    }
+
+    // MARK: - Input
 
     /// §30.1: the sidebar's plane moves the window; a control on it does not.
     override var mouseDownCanMoveWindow: Bool { false }
 
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(
+            rect: .zero,
+            options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+            owner: self
+        ))
+    }
+
+    override func mouseEntered(with event: NSEvent) { setHovering(true) }
+
+    override func mouseExited(with event: NSEvent) { setHovering(false) }
+
+    private func setHovering(_ hovering: Bool) {
+        guard hovering != isHovering else { return }
+        isHovering = hovering
+        applyWash()
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        setPressed(true)
+    }
+
+    /// The press follows the pointer out of the dot and back in, like every
+    /// other button's: a finger that has slid off the control is no longer
+    /// pressing it, and the wash has to say so before the mouse comes up.
+    override func mouseDragged(with event: NSEvent) {
+        setPressed(bounds.contains(convert(event.locationInWindow, from: nil)))
+    }
+
     override func mouseUp(with event: NSEvent) {
-        guard bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
+        let inside = bounds.contains(convert(event.locationInWindow, from: nil))
+        setPressed(false)
+        // **No `mouseExited` arrives while a button is down**, so a release
+        // that lands off the dot has to clear the hover itself — otherwise the
+        // chip is left lit on a dot the pointer is nowhere near.
+        setHovering(inside)
+        guard inside else { return }
         onActivate?()
+    }
+
+    private func setPressed(_ pressed: Bool) {
+        guard pressed != isPressed else { return }
+        isPressed = pressed
+        applyWash()
+        onPressChange?(pressed)
     }
 
     override func accessibilityPerformPress() -> Bool {

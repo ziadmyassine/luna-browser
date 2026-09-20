@@ -333,6 +333,14 @@ extension Tokens {
         /// radius against.
         static let spaceDotsPill = RoundedMetric(width: 56, height: 22, cornerRadius: 11)
         static let spaceDot: CGFloat = 6
+        /// The chip a hovered or pressed Space dot wears (§3.4's washes), and
+        /// **the dot's own slot**: `spaceDotPitch`, so the run reads as a row
+        /// of places the pointer moves between rather than as marks with gaps.
+        /// At a 22 pt pill that leaves 4 pt of glass above and below it, and
+        /// the end inset is the pill's radius — 11 — so the first and last
+        /// chips keep the same 4 pt off the cap. Only ever one is lit, so two
+        /// touching at the seam is not a state that exists.
+        static let spaceDotChip = spaceDotPitch
         /// SF Symbol point size for every chrome glyph (§3.1, §3.5, §4).
         ///
         /// The same 16 pt as `faviconSize`, and still its own token: a symbol's

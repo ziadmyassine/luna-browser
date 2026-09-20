@@ -148,6 +148,11 @@ final class SpaceDotsView: NSView {
             dot.onActivate = { [weak self] in self?.onSwitch?(space.id) }
             dot.onSetGradient = { [weak self] gradient in self?.onSetGradient?(space.id, gradient) }
             dot.onEditSpaces = { [weak self] in self?.onEditSpaces?() }
+            // **The pill is what a press is against.** A dot is 6 pt of ink
+            // with no material of its own; this strip is one piece of glass
+            // holding all of them, so it takes §6's swell on their behalf —
+            // the rule `NavCluster` follows for its two bare chevrons.
+            dot.onPressChange = { [weak self] pressed in self?.setPressed(pressed) }
             addSubview(dot)
             return dot
         }
@@ -308,6 +313,11 @@ final class SpaceDotsView: NSView {
         // The run slides with the finger, so every frame of the swipe is a
         // placement — not a repaint of dots that stayed where they were.
         Tokens.Motion.immediately { placeContents() }
+    }
+
+    /// §6's `controlPress`, on behalf of whichever dot is down.
+    private func setPressed(_ pressed: Bool) {
+        Tokens.Motion.swell(self, to: pressed ? Tokens.Motion.pressSwell : 1)
     }
 
     // MARK: - §6.2 from the one place a Space is visible
