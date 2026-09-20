@@ -8,3 +8,17 @@ DerivedData/
 .build/
 *.xcuserstate
 xcuserdata/
+
+# Signing material. None of this has ever been committed and none of it ever
+# should be: the source is public, the private key is what proves a build is
+# NovApps'. A signature can be read by anyone and forged by no one — a leaked
+# key is the only way that stops being true.
+*.p12
+*.cer
+*.certSigningRequest
+*.pem
+*.mobileprovision
+*.provisionprofile
+AuthKey_*.p8
+.env
+.env.*

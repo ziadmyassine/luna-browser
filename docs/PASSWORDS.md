@@ -109,10 +109,44 @@ the turnaround is theirs, not ours. It is how Chrome and Firefox reach passkeys
 held in Apple Passwords on macOS, so the mechanism is real and proven — it is
 the grant that is uncertain.
 
-Budget the request into **M4**, and file it early: the wait is the long pole,
-and it costs nothing to be waiting while the rest of M4 happens. File
-`com.apple.developer.web-browser` in the same submission — a default browser
-needs it and it is the same form.
+### What the request actually costs
+
+Verified against Apple's entitlement documentation rather than assumed, because
+the first version of this section got it wrong:
+
+- The request form is
+  <https://developer.apple.com/contact/request/macos-browsers-passkeys/>.
+- Apple requires the **Account Holder role on an *organisation's* Apple
+  Developer account**. An individual membership does not qualify. For Luna that
+  means an organisation enrolment — a D-U-N-S number and a legal entity — not
+  just the $99.
+- Apple reviews against published criteria, and Luna now meets them: an
+  address field, search, curated bookmarks, direct navigation to the requested
+  URL, and no rewriting of destination content.
+
+  The first criterion — `http` and `https` declared in `CFBundleURLTypes` —
+  was **not** met until this was written. `App/Info.plist` had no
+  `CFBundleURLTypes` key at all, which also meant LaunchServices never listed
+  Luna as a browser: `NSWorkspace.urlsForApplications(toOpen:)` for an `https`
+  URL returned Safari, Dia and Chrome and not Luna, so §3.1's "Set as Default"
+  button could not have worked and discarded the resulting error in silence.
+  One missing key blocked the entitlement request, the default-browser feature
+  and §12.2's links-from-other-apps at once. It is declared now; the rest of
+  §22.2 (document types, Handoff activity types, category) is still open.
+
+**Do not** file `com.apple.developer.web-browser` alongside it. An earlier draft
+of this document said to, on the grounds that a default browser needs it. That
+is wrong: it is an **iOS and iPadOS** entitlement, and macOS default-browser
+registration needs no entitlement at all — it needs the `CFBundleURLTypes`
+declaration above.
+
+Whether to file at all is a real choice and not an obvious yes. The entitlement
+is granted to a **team ID**, not to source code, so passkeys would work in
+official signed builds and not in a build someone makes from this repository.
+That split already exists for notarisation, but passkeys make it user-visible.
+If Luna would rather not have a feature that only the official binary has,
+declining is coherent — the cost is that Luna never supports passkeys, and the
+suppression script below becomes permanent rather than temporary.
 
 ### What Luna does in the meantime, and why it is not "nothing"
 
@@ -180,6 +214,87 @@ passkeys work. Nothing needs editing.
 
 ---
 
+## 5a. Only Luna's own items — and how that was got wrong first
+
+`CredentialStore` scoped every query with `kSecAttrService: "Luna"`. That
+attribute belongs to `kSecClassGenericPassword`; on an **internet** password
+the Keychain **silently ignores it**, in a query and in an add. Measured: the
+same query run with `service: "Luna"` and with a random impossible service name
+returned the identical row, and items came back with no service attribute at
+all.
+
+So the filter did nothing and `baseQuery` matched on `kSecAttrServer` alone —
+every internet password for that host in the user's keychain, whoever wrote it.
+On the machine where this was found, Luna's picker was offering a `github.com`
+credential **created in 2025**, a year before this feature existed; by its
+account name, `git-credential-osxkeychain`'s, whose secret is a personal access
+token rather than a password. Three consequences, all from one wrong constant:
+
+- a fill would have typed another application's token into a login form;
+- `save` shares the query, so an update could have rewritten another app's item;
+- `delete` shares it too, so "never for this site" could have destroyed one.
+
+And `migrateLocalItemsToSynced()` was the worst of them: `kSecMatchLimitAll`
+with `kSecReturnData`, re-adding every row it found as Luna's own and deleting
+the original. Dormant only because the entitlement wall keeps `capability` at
+`.local` — it would have run on the first launch after Luna was signed, which
+is the plan.
+
+The fix is two attributes, because one was not enough:
+
+| | |
+|---|---|
+| `kSecAttrCreator` = `'Luna'` | honoured in queries, so reads are scoped |
+| `kSecAttrSecurityDomain` = `"luna"` | **part of the uniqueness constraint** (server, account, protocol, port, path, securityDomain, authenticationType), so Luna can add its own row for a (host, account) another application already holds |
+
+With the creator alone, reads were correct but `SecItemAdd` returned
+`errSecDuplicateItem` for exactly the case that matters — the user's own GitHub
+account, already in the keychain from `git` — and the save failed silently.
+`Tests/Passwords/CredentialOwnershipTests.swift` stages a deliberately foreign
+item under an RFC 2606 `.invalid` host and pins all three: not offered, not
+overwritten, not deleted.
+
+**Consequence for the user:** Luna's picker shows only what Luna saved. A
+password already in the keychain from another application — or in the Passwords
+app — is not Luna's to offer, and §3 above is why it never will be.
+
+---
+
+## 5b. The picker, and why it is Luna's own
+
+Safari's password panel — the one with the Passwords app icon, the account,
+the site and a fingerprint — is not reachable from a third-party browser.
+Measured, not assumed: a plain unsigned `WKWebView` was pointed at a login
+page for a site that *did* have a saved Apple password, and its password field
+focused. No key icon, no panel. `Password AutoFill` is scoped to "your app's
+associated domain", which requires the *website operator* to name your app in
+a file on their server — not something a browser can have for every site.
+Apple's "Password use in web browsers" page reads like it says otherwise, but
+the sentence is about `WebAuthentication` challenges and every topic on it is
+passkeys. Kagi say the same of Orion in their own documentation: third-party
+browsers "cannot sync with the Keychain used by Safari".
+
+So Luna draws its own, as Chrome, Firefox, Arc, Zen and Orion all do. What is
+copied from Safari is the *shape*, all of which is free:
+
+| | |
+|---|---|
+| The site's favicon | from §4.7's cache, falling back to a key glyph |
+| Account and site on two lines | one account can be right on one site and wrong on a lookalike |
+| A fingerprint on the row | says what the click costs before it is spent |
+| "All saved passwords…" | **not** Safari's "Other Passwords for this site" — Luna cannot read those, and a row promising a list it cannot fetch would be a lie in the one piece of chrome that has to be trustworthy |
+
+Touch ID is `LocalAuthentication`, which needs no entitlement and works in a
+build made from source. It runs in `PasswordCoordinator.fill` **before**
+`CredentialStore.password(for:)`, so a cancelled prompt means the secret was
+never fetched into the process. The policy is `.deviceOwnerAuthentication`, so
+a Mac with no Touch ID falls through to the login password rather than losing
+autofill; if there is no lock at all, the fill proceeds, because refusing would
+protect nothing. It is on by default and `passwords.requireAuthentication`
+turns it off.
+
+---
+
 ## 6. §14.8's security rules, and where each is enforced
 
 | Rule | Enforced in |
@@ -196,6 +311,28 @@ Note the deliberate asymmetry: **matching a credential to a site uses eTLD+1,
 but trusting a frame uses a strict origin.** A same-site check on frames would
 let `evil.example.com` inside `bank.example.com` collect the password, which is
 the attack the rule exists for.
+
+### Hosts with no registrable domain
+
+`localhost`, a dotless intranet name, and IP literals have no eTLD+1. The first
+version of `PublicSuffix` returned nil for all of them and called that the safe
+answer. It is not an answer at all: every password path begins with
+`guard let site = PublicSuffix.siteKey(...)`, so the whole feature went
+**silently dead** on `http://localhost:8080/` — which is the first place anyone
+building a login form tries it — and on every router, NAS and printer on a home
+network. Nothing appeared and nothing explained why.
+
+These are now their own site key, matched whole: `localhost` matches
+`localhost` and nothing else, and `10.0.0.1` does not match `192.168.1.1`.
+That does not weaken §14.3's rule, which exists to stop a *wildcard* spanning
+two owners; an exact host cannot span anything. Safari and Chrome key these the
+same way.
+
+Two consequences, both shared with Safari and both worth knowing:
+
+- every dev server on `localhost` shares one credential space, because the key
+  is the host and ports are not part of it;
+- two different routers that both answer on `192.168.1.1` look like one site.
 
 ---
 
