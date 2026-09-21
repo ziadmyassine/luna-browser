@@ -26,11 +26,26 @@ import XCTest
 final class FaviconTintTests: XCTestCase {
 
     /// A 32 pt icon painted by `body`, which is what a favicon arrives as.
-    private func icon(_ body: @escaping (NSRect) -> Void) -> NSImage {
-        NSImage(size: NSSize(width: 32, height: 32), flipped: false) { rect in
-            body(rect)
-            return true
-        }
+    ///
+    /// **Painted into sRGB, not into a drawing handler.** A handler renders in
+    /// the *display's* profile, and the trip back to sRGB that `FaviconTint`
+    /// makes lifts a pure cyan's red channel to 0.09 on a P3 screen. Squared
+    /// chroma turns that rounding into a fifth of a vote, red and cyan stop
+    /// cancelling, and `testColoursThatCancelFallBackToTheInkAsWell` passes or
+    /// fails by monitor. A real favicon arrives as a tagged PNG and is never
+    /// resampled through the screen, so sRGB here is the honest fixture.
+    private func icon(_ body: (NSRect) -> Void) -> NSImage {
+        let side = 32
+        let context = CGContext(
+            data: nil, width: side, height: side, bitsPerComponent: 8,
+            bytesPerRow: side * 4, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )!
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: false)
+        body(NSRect(x: 0, y: 0, width: side, height: side))
+        NSGraphicsContext.restoreGraphicsState()
+        return NSImage(cgImage: context.makeImage()!, size: NSSize(width: side, height: side))
     }
 
     private func components(_ colour: NSColor) -> (
