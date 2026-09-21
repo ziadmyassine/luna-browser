@@ -6,36 +6,30 @@
 //  re-icon, re-gradient, re-profile, delete — and the per-Profile Favorites
 //  tier those operations have to keep whole.
 //
-//  Three things here are not obvious, and they are the reason the file exists:
+//  Three things here are not obvious, and they are why the file exists:
 //
-//  · Changing a Space's Profile rebuilds every web view in it. Nook's
-//    `assign(spaceId:toProfile:)` sets the field and persists and does nothing
-//    else, so every already-loaded tab keeps writing to the old cookie jar
-//    until something unloads it; zen#15023 is the same bug with a greyed-out
-//    menu item for feedback. A `WKWebView`'s data store is fixed at
-//    construction, so the only honest fix is Ora's: destroy, recreate, restore
-//    the transient state. `interactionState` survives — it is the tab's
-//    back/forward history and scroll position, not the store's. The session
-//    does not: the user is logged out in that Space, and the UI has to say so
-//    before the call, not after.
+//  · Changing a Space's Profile rebuilds every web view in it. A `WKWebView`'s
+//    data store is fixed at construction, so setting the field without
+//    rebuilding leaves every loaded tab writing to the old cookie jar until
+//    something unloads it — Nook's `assign(spaceId:toProfile:)` does exactly
+//    that, and zen#15023 is the same bug. The fix is destroy, recreate, restore:
+//    `interactionState` survives, because it is the tab's history and scroll
+//    position rather than the store's. The session does not, so the UI has to
+//    say the user will be logged out before the call, not after.
 //
-//  · Deleting a Space never destroys a tab. `.archiveTabs` archives them
-//    (`closeTab` already does, so it is nearly free) and `.adopt(into:)`
-//    re-homes them. Either way the rows move to a surviving Space before the
-//    Space row goes, because `tabs.spaceID` cascades and a cascade is not
-//    undoable. Vivaldi closes the tabs with no undo; Arc has no documented undo
-//    anywhere in three years of release notes.
+//  · Deleting a Space never destroys a tab. `.archiveTabs` archives them and
+//    `.adopt(into:)` re-homes them; either way the rows move to a surviving
+//    Space before the Space row goes, because `tabs.spaceID` cascades and a
+//    cascade is not undoable. Vivaldi closes the tabs with no undo.
 //
-//  · Favorites belong to the Profile (§2, and the owner's locked decision).
-//    An `.essential` row still keeps a home Space for the foreign key, so every
-//    operation that removes or re-points a Space re-homes the Profile's
-//    Favorites onto a Space that survives it first — `keepFavorites(ofSpace:)`.
+//  · Favorites belong to the Profile (§2). An `.essential` row still keeps a
+//    home Space for the foreign key, so every operation that removes or
+//    re-points a Space first re-homes the Profile's Favorites onto a Space that
+//    survives it — `keepFavorites(ofSpace:)`.
 //
 //  Not here, deliberately: no window-close-on-last-tab rule. When one comes it
 //  is evaluated over the window, never the visible Space. zen#9272 took the
-//  other path, quit the browser while another Space still held five tabs by the
-//  window-close route rather than a session end, and one user lost ~500 tabs.
-//  floorp#2152 is the same bug, still open.
+//  other path and one user lost ~500 tabs; floorp#2152 is the same bug, open.
 //
 
 import AppKit
@@ -59,9 +53,8 @@ extension BrowserSession {
     // MARK: - Reading
 
     /// Which Spaces share a Profile — the fan-out C's Settings label needs, and
-    /// the set every Favorites operation is scoped to. Arc has no UI anywhere
-    /// showing this, and it is the root of the most-reported conceptual
-    /// confusion in every review of it.
+    /// the set every Favorites operation is scoped to. Arc shows this nowhere,
+    /// and it is the most-reported conceptual confusion in reviews of it.
     func spaces(onProfile id: UUID) -> [Space] {
         spaces.filter { $0.profileID == id }
     }
@@ -89,9 +82,9 @@ extension BrowserSession {
     /// A new Space, optionally sharing an existing Profile.
     ///
     /// `profileID: nil` mints a fresh Profile, which is what every Space got
-    /// before this existed — so many-Spaces-to-one-Profile was modelled in the
-    /// schema and unreachable from the app. Passing an existing id is how Work
-    /// and Work Admin end up in one cookie jar.
+    /// before this existed — many-Spaces-to-one-Profile was in the schema and
+    /// unreachable from the app. Passing an existing id is how Work and Work
+    /// Admin end up in one cookie jar.
     ///
     /// The Space lands next to the active one, not at the end (§13.10).
     @discardableResult
@@ -143,8 +136,7 @@ extension BrowserSession {
     ///
     /// Trivial only because `BrowserStore.spaces()` renumbers drifted order to
     /// `0..<n` on load, so this never has to defend against the gaps a delete
-    /// leaves. That self-heal is the one good idea in this area in any project
-    /// researched; reordering itself is implemented in none of them.
+    /// leaves.
     func reorderSpace(_ id: UUID, to index: Int) async throws {
         guard let from = spaces.firstIndex(where: { $0.id == id }) else { throw SessionError.unknownSpace }
         let to = min(max(index, 0), spaces.count - 1)
@@ -156,14 +148,13 @@ extension BrowserSession {
 
     // MARK: - Changing a Space's Profile (§3.3)
 
-    /// Re-points a Space at another Profile **and rebuilds every web view in
-    /// it**, which is the half everybody else skips.
+    /// Re-points a Space at another Profile and rebuilds every web view in it.
     ///
     /// The rebuild is not cosmetic: a `WKWebView`'s `websiteDataStore` is fixed
     /// when it is constructed, so a tab loaded before the switch keeps reading
-    /// and writing the old Profile's cookies for as long as its web view
-    /// lives. Setting the field without rebuilding is a silent cross-profile
-    /// leak. Warn with ``crossProfileMoveWarning`` before calling this.
+    /// and writing the old Profile's cookies for as long as its web view lives.
+    /// Setting the field without rebuilding is a silent cross-profile leak.
+    /// Warn with ``crossProfileMoveWarning`` before calling this.
     func setProfile(_ profileID: UUID, forSpace id: UUID) async throws {
         guard let space = space(id) else { throw SessionError.unknownSpace }
         guard profiles[profileID] != nil else { throw SessionError.unknownProfile }
@@ -228,53 +219,52 @@ extension BrowserSession {
     /// Deletes every `WKWebsiteDataStore` on disk that no Profile names, and
     /// drains the deferred-removal queue while it is there (spec §3.1, §3.2).
     ///
-    /// This is the one call that makes store deletion eventually consistent.
-    /// `remove(forIdentifier:)` fails while any live `WKWebView` still uses the
-    /// store, and a web view goes away when ARC says so rather than when the
-    /// user clicks Delete — so a removal that loses that race is queued in
-    /// `UserDefaults` and finished here, on the next launch, when nothing is
-    /// holding anything. Without it the queue is written and never read.
+    /// Redirects the sweep away from the disk, and the only way to run it
+    /// inside a test.
     ///
-    /// Cheap, because WebKit is the registry: a delete that failed yesterday is
-    /// still listed today, so orphan recovery costs one diff. DuckDuckGo relies
-    /// on exactly this — *"If this fails, we are going to still clean them next
-    /// time as WebKit keeps track of all stores for us."*
+    /// A sink rather than a boolean, for two reasons:
     ///
-    /// Launch work, not window work: it runs once per process even though a
-    /// `BrowserSession` is per window, because a second window sweeping the same
-    /// disk would race the first one's removals. Detached from the launch path
-    /// so a slow WebKit answer never delays the first paint.
-    /// Redirects the sweep away from the disk, and is the only way to make
-    /// it run inside a test.
-    ///
-    /// The two safety rules this shape encodes, and why it is a sink rather than
-    /// a boolean:
-    ///
-    /// · The default is safe. Unset — the value the app always has — the
-    ///   sweep goes to the real `ProfileStore`, and only when the process is not
-    ///   a test run.
+    /// · The default is safe. Unset — the value the app always has — the sweep
+    ///   goes to the real `ProfileStore`, and only when the process is not a
+    ///   test run.
     /// · "Sweep the real disk from a test" is unspellable. A flag the test
     ///   flips would leave the disk reachable, and one test that forgot to put
-    ///   the flag back would arm it for every test after it. Here, switching the
-    ///   guard off and pointing the sweep somewhere harmless are the same act:
-    ///   there is no argument to this API that lets a test reach
+    ///   it back would arm it for every test after. Here, switching the guard
+    ///   off and pointing the sweep somewhere harmless are the same act: no
+    ///   argument to this API reaches
     ///   `WKWebsiteDataStore.remove(forIdentifier:)`.
     ///
-    /// What a test gains is the thing worth asserting — the identifier set that
-    /// was handed over, which is what decides which stores survive.
+    /// What a test gains is the identifier set that was handed over, which is
+    /// what decides which stores survive.
     var orphanSweepSink: ((Set<UUID>) async -> Void)? {
         get { Self.sinks[ObjectIdentifier(self)] }
         set { Self.sinks[ObjectIdentifier(self)] = newValue }
     }
 
+    /// The one call that makes store deletion eventually consistent.
+    ///
+    /// `remove(forIdentifier:)` fails while any live `WKWebView` still uses the
+    /// store, and a web view goes away when ARC says so rather than when the
+    /// user clicks Delete — so a removal that loses that race is queued in
+    /// `UserDefaults` and finished here on the next launch. Without it the
+    /// queue is written and never read.
+    ///
+    /// Cheap, because WebKit is the registry: a delete that failed yesterday is
+    /// still listed today, so orphan recovery costs one diff. DuckDuckGo relies
+    /// on the same property.
+    ///
+    /// Launch work, not window work: once per process even though a
+    /// `BrowserSession` is per window, because a second window sweeping the
+    /// same disk would race the first one's removals. Detached from the launch
+    /// path so a slow WebKit answer never delays the first paint.
     func sweepOrphanedProfileStores() {
-        // Never from a test, unless the test has already routed the sweep
-        // away from the disk. The sweep deletes every store on disk that this
-        // session's database does not name, and a test's database is a temporary
-        // file holding two rows — so a test that installed the lifecycle would
-        // delete the user's real cookie jars and call it orphan recovery. The
-        // only safe thing to key on is the harness itself: XCTest is loaded in a
-        // test run and in nothing else.
+        // Never from a test, unless the test has already routed the sweep away
+        // from the disk. This deletes every store on disk that the session's
+        // database does not name, and a test's database is a temporary file
+        // holding two rows — so a test that installed the lifecycle would delete
+        // the user's real cookie jars and call it orphan recovery. The only safe
+        // thing to key on is the harness: XCTest is loaded in a test run and in
+        // nothing else.
         let sink = orphanSweepSink
         guard sink != nil || NSClassFromString("XCTestCase") == nil else { return }
         // Once per process — but only for the disk. Two windows racing each
@@ -288,8 +278,8 @@ extension BrowserSession {
         let profileStore = profileStore
         Task {
             // The set is the whole decision: everything WebKit lists and this
-            // does not name is deleted. An empty or stale one is not a weaker
-            // sweep, it is a sweep that takes the user's live cookie jars.
+            // does not name is deleted. An empty or stale set is not a weaker
+            // sweep, it is one that takes the user's live cookie jars.
             guard let live = try? await store.liveDataStoreIdentifiers() else { return }
             guard let sink else { return await profileStore.sweepOrphans(keeping: live) }
             await sink(live)
