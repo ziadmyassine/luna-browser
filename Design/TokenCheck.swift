@@ -3,14 +3,12 @@
 //  Luna
 //
 //  The design system's regression net. It resolves every colour token in both
-//  themes and both contrast modes, and re-derives the contrast ratios quoted in
-//  `Tokens.swift` instead of trusting them. If someone nudges an alpha and
-//  drops a text token under §21.4's 4.5:1, this fails.
+//  themes and both contrast modes and re-derives the ratios Tokens.swift quotes
+//  instead of trusting them, so nudging an alpha under §21.4's 4.5:1 fails here.
 //
-//  The Increase Contrast half is checked through `Tokens.Ink` rather than an
-//  appearance, because macOS 26 has no high-contrast `NSAppearance` to resolve
-//  against — `NSAppearance(named: .accessibilityHighContrastAqua)` hands back
-//  the identical object as `.aqua`. See the `Tokens.swift` header.
+//  The Increase Contrast half goes through `Tokens.Ink` rather than an
+//  appearance: macOS 26 has no high-contrast `NSAppearance` to resolve against
+//  (Tokens.swift's header).
 //
 //  Two ways to run it:
 //
@@ -29,10 +27,8 @@
 //                 -o /tmp/tokencheck
 //          /tmp/tokencheck
 //      (`GradientBridge.swift` is excluded: it needs BrowserKit. `Glass.swift`
-//      used to be excluded too — it needs a window server to *show* anything —
-//      but §7's tokens live in `DisplayScale.swift`, which needs it to
-//      compile. Nothing below builds a glass view, so the binary still runs
-//      headless.)
+//      is included because `DisplayScale.swift` needs it to compile; nothing
+//      below builds a glass view, so the binary still runs headless.)
 //
 //  Two companion files run in the same pass: `+Numbers` holds §1/§3's metrics
 //  and §6's budget, `+Effects` holds §2's wash, §5's shadow and §7's bloom.
@@ -72,9 +68,8 @@ enum TokenCheck {
     }
 
     /// The translucent fills (§3.1/§3.4 hover, §3.4 selection, §2's pill).
-    /// Kept apart from `surfaces` because they are washes over glass, not
-    /// planes: the opacity rule below applies to the planes and the *reverse*
-    /// rule applies to these.
+    /// Apart from `surfaces` because they wash over glass rather than replace
+    /// it: the opacity rule below runs the other way for these.
     private static var washes: [(String, NSColor)] {
         [("hover", Tokens.Surface.hover),
          ("selected", Tokens.Surface.selected),
@@ -97,9 +92,8 @@ enum TokenCheck {
          ("glassTintControl", Tokens.Surface.glassTintControl)]
     }
 
-    /// §2's frost and §2a's two opaque planes — every plane painted *behind*
-    /// glass rather than instead of it, which is the rule they share: none of
-    /// them may be opaque.
+    /// §2's frost and §2a's two opaque planes — every plane painted behind
+    /// glass rather than instead of it. None of them may be opaque.
     static var frosts: [(String, NSColor)] {
         [("frost", Tokens.Surface.frost),
          ("frostOpaque", Tokens.Surface.frostOpaque),
@@ -137,9 +131,9 @@ enum TokenCheck {
 /// growing: a type body has a length limit, the roster of tokens does not.
 extension TokenCheck {
 
-    /// Every token must actually produce a colour in every appearance. A
-    /// dynamic colour whose provider returns something unconvertible resolves
-    /// to nothing and paints invisibly — silently, which is the bad part.
+    /// Every token must produce a colour in every appearance. A dynamic colour
+    /// whose provider returns something unconvertible resolves to nothing and
+    /// paints invisibly, without complaining.
     private static func checkResolution() -> [String] {
         var failures: [String] = []
         let all = surfaces + texts + bloom + washes
@@ -161,20 +155,17 @@ extension TokenCheck {
             for (token, color) in washes where color.srgbComponents(for: appearance).alpha >= 1 {
                 failures.append("Surface.\(token) is opaque in \(name) — it washes over glass, it does not replace it")
             }
-            // The glass tints are washes too, but they are not in `washes`:
-            // those are ink (black on light), these are plane tints (white on
-            // light), and the contrast matrix below is built for the first
-            // kind. The one rule they share is the one that matters — an
-            // opaque tint would stop the chrome sampling the desktop, which is
-            // all of §2, and §7's 1× pair are the ones with room to get that
-            // wrong.
+            // The glass tints are washes too, but not in `washes`: those are
+            // ink (black on light), these are plane tints (white on light), and
+            // the contrast matrix below is built for the first kind. The rule
+            // they share is the one that matters — an opaque tint stops the
+            // chrome sampling the desktop, which is all of §2.
             for (token, colour) in glassTints where colour.srgbComponents(for: appearance).alpha >= 1 {
                 failures.append("Surface.\(token) is opaque in \(name) — §2's chrome samples what is behind the window")
             }
-            // And the frosts, for the same reason from the other side: each is
-            // a fallback plane held at part strength, and at full strength it
-            // *is* the fallback plane — there would be no glass left above it.
-            // §2a's opaque pair is the one with room to get this wrong.
+            // And the frosts, from the other side: each is a fallback plane
+            // held at part strength, and at full strength it is the fallback
+            // plane, with no glass left above it.
             for (token, colour) in frosts where colour.srgbComponents(for: appearance).alpha >= 1 {
                 failures.append("Surface.\(token) is opaque in \(name) — §2's chrome samples what is behind the window")
             }
@@ -182,19 +173,18 @@ extension TokenCheck {
         return failures
     }
 
-    /// §3.1/§3.4's hover and selection washes and §2's pill fill are surfaces
-    /// the moment text lands on them, so §21.4 applies to what the eye sees:
-    /// the ink, over the wash, over the plane. `Text.tertiary` is excluded by
-    /// name — it is already at the floor on the bare planes (4.63:1 worst), so
-    /// it has no headroom to spend on a fill and `Tokens.swift` says so.
+    /// The washes become surfaces the moment text lands on them, so §21.4
+    /// applies to what the eye sees: ink over wash over plane. `Text.tertiary`
+    /// is excluded by name — at 4.63:1 worst on the bare planes it has no
+    /// headroom left to spend on a fill.
     private static func checkFills() -> [String] {
         var failures: [String] = []
         for (name, appearance) in appearances {
             let isDark = appearance.isDark
             for contrast in [false, true] {
-                // `primary` is system-backed and cannot be resolved "under
-                // Increase Contrast" at all (file header); it only ever gets
-                // stronger, so its rest value is the conservative one to test.
+                // `primary` is system-backed and cannot be resolved under
+                // Increase Contrast at all; it only gets stronger, so its rest
+                // value is the conservative one to test.
                 let readable: [(String, NSColor)] = [
                     ("primary", Tokens.Text.primary),
                     ("secondary", Tokens.Ink.secondary.color(contrast: contrast, dark: isDark))
@@ -244,8 +234,8 @@ extension TokenCheck {
     }
 
     /// The M0 trap: on macOS 26 several system background colours resolve to
-    /// *exactly* `windowBackgroundColor`, so a surface that looks distinct in
-    /// the source can be invisible on screen.
+    /// exactly `windowBackgroundColor`, so a surface that looks distinct in the
+    /// source can be invisible on screen.
     private static func checkSurfaceSeparation() -> [String] {
         var failures: [String] = []
         for (name, appearance) in appearances {
@@ -329,10 +319,10 @@ extension TokenCheck {
         return failures
     }
 
-    /// §3.1's disabled dim is exempt from §21.4 *because* it is dimmer than
-    /// the quietest tier anyone is meant to read. Checked rather than
-    /// asserted: past `tertiary` it is no longer a dim, it is unreadable body
-    /// text with a note attached, and the exemption stops being honest.
+    /// §3.1's disabled dim is exempt from §21.4 because it is dimmer than the
+    /// quietest tier anyone is meant to read. Checked rather than asserted:
+    /// past `tertiary` it is unreadable body text with a note attached, and the
+    /// exemption stops being honest.
     private static func checkDisabledExemption() -> [String] {
         var failures: [String] = []
         for contrast in [false, true] {
