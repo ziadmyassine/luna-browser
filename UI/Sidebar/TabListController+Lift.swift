@@ -17,9 +17,7 @@ extension TabListController {
 
     /// The pill a row draws, in `space`'s coordinates — where the lift starts.
     func pillRect(ofRow row: Int, in space: NSView) -> NSRect {
-        let rect = table.rect(ofRow: row)
-            .insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.rowPillInset)
-        return space.convert(rect, from: table)
+        space.convert(pillBox(ofRow: row), from: table)
     }
 
     /// Where a lift centred at `centreY` would land: the row its gap opens at,

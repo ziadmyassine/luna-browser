@@ -80,11 +80,27 @@ extension TabListController {
             pill.fade(to: 0, animated: spec != nil)
             return
         }
-        // `rowHeight` is pitch; `rowPillHeight` is paint. Insetting vertically
-        // is what stops two adjacent selected pills fusing into one slab.
-        pill.move(
-            to: table.rect(ofRow: row).insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.rowPillInset),
-            spec: spec
-        )
+        pill.move(to: pillBox(ofRow: row), spec: spec)
+    }
+
+    /// The fill's box for one row.
+    ///
+    /// `rowHeight` is pitch and `rowPillHeight` is paint, so the vertical inset
+    /// is what stops two adjacent selected pills fusing into one slab.
+    ///
+    /// The leading edge follows §3.4b's indent. A tab inside a folder steps in
+    /// by `groupIndent` and everything it draws steps in with it — a pill that
+    /// stayed at the column's edge reached out past the folder's own header and
+    /// made the row look like it belonged to the list rather than to the folder.
+    func pillBox(ofRow row: Int) -> NSRect {
+        var box = table.rect(ofRow: row)
+            .insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.rowPillInset)
+        // Read the same way `tabContent` reads it, not from `content(for:)` —
+        // this runs on every pill move and that builds a whole row's worth of
+        // state to answer one question.
+        guard let tab = list.tab(at: row), list.group(ofTab: tab.id) != nil else { return box }
+        box.origin.x += Tokens.Metric.groupIndent
+        box.size.width -= Tokens.Metric.groupIndent
+        return box
     }
 }
