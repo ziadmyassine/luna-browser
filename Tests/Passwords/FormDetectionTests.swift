@@ -6,8 +6,8 @@
 //  markup — not asserted against as a string.
 //
 //  The script is the part of §14 with the most heuristics and the least type
-//  checking, and both bugs found during its bring-up were invisible to every
-//  other kind of test:
+//  checking. Both bugs found during its bring-up were invisible to every other
+//  kind of test:
 //
 //  · a page holding a login form and any second password field anywhere
 //    reported the login form as a signup, so Luna offered to generate a new
@@ -18,7 +18,7 @@
 //    that will not match next time.
 //
 //  Neither is reachable from a unit test of the Swift side, and neither would
-//  have been caught by reading the script. They are both pinned below.
+//  have been caught by reading the script.
 //
 
 import WebKit

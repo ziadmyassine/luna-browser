@@ -2,17 +2,16 @@
 //  SettingsRow.swift
 //  Luna
 //
-//  §4's shared row widgets. Every control in every §3 section comes from
-//  here; no section hand-rolls one, which is what keeps nine sections looking
-//  like one window and makes §2's search, §4's disabled rule and §8's labelling
+//  §4's shared row widgets. Every control in every §3 section comes from here
+//  and no section hand-rolls one, which keeps nine sections looking like one
+//  window and makes §2's search, §4's disabled rule and §8's labelling
 //  decisions taken once.
 //
 //  The popup stays AppKit's: §5 says never re-animate a system control, and a
 //  hand-drawn menu would have to re-earn every keyboard and VoiceOver behaviour
-//  it already ships. The button, the text field and the picker are drawn here
-//  because their AppKit bezels are the only bright plates in an otherwise dark
-//  pane — and the switch is drawn because AppKit's is a fixed 54 × 24 and there
-//  is no room for it (`SettingsSwitch`).
+//  it ships. The button, text field and picker are drawn here because their
+//  AppKit bezels are the only bright plates in an otherwise dark pane, and the
+//  switch because AppKit's is a fixed 54 × 24 (`SettingsSwitch`).
 //
 
 import AppKit

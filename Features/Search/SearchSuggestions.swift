@@ -5,12 +5,11 @@
 //  §3.4's search suggestions: the completions the chosen engine offers while
 //  you are still typing.
 //
-//  This file exists so that `UI/CommandBar` still cannot reach the network.
-//  §9.6 is enforced by `CommandBarPrivacyTests`, which greps every source under
-//  `UI/CommandBar` for a networking symbol and fails if one appears. That test
-//  is not worked around here — it is the reason the fetch lives in `Features/`
-//  instead. The Command Bar asks for `[String]` and is handed `[String]`; it
-//  never learns that a wire was involved.
+//  This file exists so `UI/CommandBar` still cannot reach the network. §9.6 is
+//  enforced by `CommandBarPrivacyTests`, which greps every source under
+//  `UI/CommandBar` for a networking symbol; the fetch lives in `Features/`
+//  because of it, not around it. The Command Bar asks for `[String]` and is
+//  handed `[String]`.
 //
 //  What leaves the Mac, exactly. The query, to the engine already chosen in
 //  §3.4, over https, with no cookies, no cache and no credentials (see
@@ -18,11 +17,10 @@
 //  custom engine have no endpoint here and so send nothing at all — see
 //  `SearchEngine.suggestTemplate`.
 //
-//  And how little of it. Keystrokes are not queries. A pass is held for
-//  `debounce` before it is allowed to leave, and the one in flight is cancelled
-//  the moment another keystroke arrives, so a typed word costs about one
-//  request rather than one per letter. Answers are remembered for the life of
-//  the window, which makes backspacing free.
+//  And how little of it. A pass is held for `debounce` before it may leave and
+//  the one in flight is cancelled the moment another keystroke arrives, so a
+//  typed word costs about one request rather than one per letter. Answers are
+//  remembered for the life of the window, which makes backspacing free.
 //
 
 import Foundation
