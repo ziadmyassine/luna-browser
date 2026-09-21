@@ -111,6 +111,46 @@ final class OnboardingScreenTests: XCTestCase {
         XCTAssertEqual(lowest.accessibilityLabel(), OnboardingPage.welcome.continueTitle)
     }
 
+    /// The mark is the appearance's own rendition of the icon.
+    ///
+    /// `NSApp.applicationIconImage` is not, and neither is
+    /// `NSImage(named: CFBundleIconName)`: both hand back one flattened
+    /// rendering of a document that carries an Aqua and a DarkAqua one —
+    /// measured as the same pixels under either — so the white tile stayed on
+    /// a dark page. The threshold is loose on purpose; what is being asserted
+    /// is that there are two renditions, not what they are.
+    func testTheMarkIsDrawnForTheAppearanceItIsOn() {
+        let view = laidOutScreen()
+        guard let badge = descendants(of: view, ofType: NSImageView.self)
+            .max(by: { $0.frame.width < $1.frame.width }), let mark = badge.image
+        else { return XCTFail("no mark") }
+        let light = Self.luminance(of: mark, in: .aqua)
+        let dark = Self.luminance(of: mark, in: .darkAqua)
+        XCTAssertGreaterThan(light - dark, 0.2, "the mark is one rendition whatever the page is wearing")
+    }
+
+    /// Mean brightness of `image` drawn under `appearance`, alpha included.
+    private static func luminance(of image: NSImage, in appearance: NSAppearance.Name) -> Double {
+        let side = 64
+        guard let named = NSAppearance(named: appearance), let rep = NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: side, pixelsHigh: side, bitsPerSample: 8,
+            samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
+        ) else { return -1 }
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+        let previous = NSAppearance.current
+        NSAppearance.current = named
+        image.draw(in: CGRect(x: 0, y: 0, width: side, height: side))
+        NSAppearance.current = previous
+        NSGraphicsContext.restoreGraphicsState()
+        let samples = stride(from: 4, to: side - 4, by: 4).flatMap { x in
+            stride(from: 4, to: side - 4, by: 4).compactMap { rep.colorAt(x: x, y: $0)?.usingColorSpace(.sRGB) }
+        }
+        guard !samples.isEmpty else { return -1 }
+        return samples.reduce(0) { $0 + $1.brightnessComponent * $1.alphaComponent } / Double(samples.count)
+    }
+
     /// Nothing is behind the first page, so Back is not offered there.
     func testBackIsNotOfferedOnTheFirstPage() {
         let view = laidOutScreen()

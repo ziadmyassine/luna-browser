@@ -1593,10 +1593,13 @@ is an answer, and it never asks twice (`OnboardingState.hasRun`).
   The machine's answer is supplied by the window controller rather than read
   by the view, so the rule is provable without the test depending on the Mac
   it runs on.
-- **The mark is the app's own icon, from the catalog.**
-  `NSApp.applicationIconImage` is one flattened rendering of a `.icon`
-  document that carries an Aqua and a DarkAqua one, which is a black tile on a
-  white page. `CFBundleIconName` through `NSImage(named:)` keeps both.
+- **The mark is the app's own icon at the appearance it is drawn on**, from
+  `assets/icon/mark/Mark.xcassets`. Neither `NSApp.applicationIconImage` nor
+  `NSImage(named: CFBundleIconName)` will do it: the `.icon` document carries
+  an Aqua rendition and a DarkAqua one, and both of those hand back a single
+  flattened rendering — measured as identical pixels under either appearance
+  — so the white tile sat on a dark page. An imageset with a dark variant is
+  the thing AppKit resolves, and `OnboardingScreenTests` measures the two.
 - **The rows arrive staggered** on §6's `tabInsert`, 20 ms apart — the same
   stagger a layout switch gives its contents. Each one carries its own progress
   while the import runs; a bar under a list of five browsers says less than the

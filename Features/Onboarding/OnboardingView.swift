@@ -73,18 +73,15 @@ final class OnboardingView: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
-    /// Luna's mark, from the asset catalog rather than from
-    /// `NSApp.applicationIconImage`.
+    /// Luna's mark, from `Mark.xcassets` rather than from the app icon.
     ///
     /// The `.icon` document carries an Aqua rendition and a DarkAqua one, and
-    /// the application icon is one flattened rendering of the pair — the dark
-    /// tile, which on a page that is white in light mode is a black square.
-    /// The catalog entry keeps both and an `NSImageView` picks by appearance.
+    /// both `NSApp.applicationIconImage` and `NSImage(named: CFBundleIconName)`
+    /// hand back one flattened rendering of the pair — measured: the same
+    /// pixels under either appearance, so the white tile stayed on a dark
+    /// page. An imageset with a dark variant is the thing AppKit resolves.
     private static var appIcon: NSImage? {
-        guard let name = Bundle.main.object(forInfoDictionaryKey: "CFBundleIconName") as? String,
-              let icon = NSImage(named: name)
-        else { return NSApp.applicationIconImage }
-        return icon
+        NSImage(named: "LunaMark") ?? NSApp.applicationIconImage
     }
 
     // MARK: - Pages
