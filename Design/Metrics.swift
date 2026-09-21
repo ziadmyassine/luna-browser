@@ -131,10 +131,25 @@ extension Tokens {
         /// `Settings.sidebarWidth` resolves it; `sidebarFootFloor` is the
         /// other answer.
         static let sidebarWidth = SpanMetric(default: 280, min: 250, max: 420)
-        /// 190: the §3.5 foot, which is the floor no layout gets under. The
-        /// head can empty out — §3.2b takes its buttons onto the page — and
-        /// this cannot. The arithmetic is the first line above.
-        static let sidebarFootFloor: CGFloat = 190
+        /// What §3.5's foot occupies, which is the width no column gets
+        /// under: the head can empty out — §3.2b takes its buttons onto the
+        /// page — and this cannot. 190, and derived rather than written down
+        /// because every part of it is already a token; the first line above
+        /// is the same sum in prose. At exactly this the avatar, the Space
+        /// strip and the Downloads/History cylinder touch their gaps, and the
+        /// strip stops being centred in the bar (`dotsOriginX`).
+        static let sidebarFootWidth = 2 * rowInset + bottomCircle.width
+            + 2 * chromeGap + spaceDotsPill.width + 2 * bottomCircle.width
+
+        /// The minimum where §3.1's head is not in the column.
+        ///
+        /// 220, not the 190 the foot touches at, for the reason 250 is not
+        /// 243: a column dragged to the width where three clusters meet is a
+        /// bar with no air in it. The 30 pt is also the Essentials grid, which
+        /// is the one thing here that keeps shrinking rather than stopping —
+        /// it divides the width across up to four columns, so a tile is 47 pt
+        /// wide at 220 against 40 at 190.
+        static let sidebarFootFloor: CGFloat = 220
         /// 38 pt of row pitch — tabs, `Archive` and `+ Add Tab` alike (§3.4,
         /// §30.6). The drawn pill is `rowPillHeight`, this less `rowGap`; the
         /// reference measures 109 px of pitch around a 100 px pill at its

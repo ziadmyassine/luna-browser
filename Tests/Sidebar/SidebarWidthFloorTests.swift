@@ -7,7 +7,7 @@
 //  §1's 250 is §3.1's arithmetic — the head with the traffic lights to clear
 //  and its three circles in it — and that head is only in the column in one of
 //  the four combinations `Settings.chromeLayout` and `Settings.searchBarPlacement`
-//  make. The other three are held up by §3.5's foot instead, at 190.
+//  make. The other three stand on §3.5's foot instead, at 220.
 //
 //  `SidebarHeadRoomTests` is the other half: the head's arithmetic run against
 //  the real row at both floors. This file is the foot's, and the resolution
@@ -35,7 +35,7 @@ final class SidebarWidthFloorTests: XCTestCase {
 
     // MARK: - Which floor applies
 
-    /// The one case §1's minimum is for, and the reason it is not simply 190.
+    /// The one case §1's minimum is for, and the reason it is not simply 220.
     func testALeadingColumnWithThePillInItKeepsTheWideFloor() {
         let span = Settings.sidebarWidth(searchBarOnPage: false, edge: .leading)
         XCTAssertEqual(span.min, Tokens.Metric.sidebarWidth.min)
@@ -100,36 +100,39 @@ final class SidebarWidthFloorTests: XCTestCase {
         bar.subviews.filter { !$0.isHidden }.map(\.frame).sorted { $0.minX < $1.minX }
     }
 
-    /// The floor itself: §3.5's three clusters clear each other at 190 and the
-    /// strip is still centred in the bar rather than shoved off one side.
+    /// The floor itself: §3.5's three clusters have air between them at it.
     ///
     /// The Space strip stops widening at `spaceDotWindow`, so this is the
     /// widest the middle cluster ever is — a fourth Space scrolls the pill
     /// instead of growing it, which is what makes one number a floor at all.
-    func testTheFootClearsItselfAtTheNarrowFloor() {
+    func testTheFootHasAirInItAtTheFloor() {
         for spaces in [Tokens.Metric.spaceDotWindow, Tokens.Metric.spaceDotWindow + 1] {
             let bar = foot(width: Tokens.Metric.sidebarFootFloor, spaces: spaces)
             let parts = clusters(of: bar)
             XCTAssertEqual(parts.count, 3, "\(spaces) Spaces")
             for (left, right) in zip(parts, parts.dropFirst()) {
-                XCTAssertEqual(
-                    right.minX - left.maxX, Tokens.Metric.chromeGap, accuracy: 0.5,
-                    "190 is the width where both gaps close to exactly one, at \(spaces) Spaces"
+                XCTAssertGreaterThanOrEqual(
+                    right.minX - left.maxX, Tokens.Metric.chromeGap,
+                    "§3.5's clusters are closer than a chrome gap at \(spaces) Spaces"
                 )
             }
         }
     }
 
-    /// One point under it is not a floor any more. The assertion is the gap
-    /// closing, not a crash: nothing here breaks at 189, it just stops being
-    /// three clusters with air between them.
-    func testItIsTheNarrowestWidthThatDoes() {
-        let bar = foot(width: Tokens.Metric.sidebarFootFloor - 1, spaces: Tokens.Metric.spaceDotWindow)
-        let parts = clusters(of: bar)
-        let gaps = zip(parts, parts.dropFirst()).map { $1.minX - $0.maxX }
+    /// And `sidebarFootWidth` is where that air runs out, which is what makes
+    /// the floor above it a choice rather than the only answer. Both gaps are
+    /// exactly one `chromeGap` here and one of them is less a point below —
+    /// the derived sum is right, and 220 is 30 pt of deliberate daylight.
+    func testTheFootRunsOutOfAirAtTheWidthItOccupies() {
+        let fits = clusters(of: foot(width: Tokens.Metric.sidebarFootWidth, spaces: Tokens.Metric.spaceDotWindow))
+        for (left, right) in zip(fits, fits.dropFirst()) {
+            XCTAssertEqual(right.minX - left.maxX, Tokens.Metric.chromeGap, accuracy: 0.5)
+        }
+        let under = clusters(of: foot(width: Tokens.Metric.sidebarFootWidth - 1, spaces: Tokens.Metric.spaceDotWindow))
+        let gaps = zip(under, under.dropFirst()).map { $1.minX - $0.maxX }
         XCTAssertTrue(
             gaps.contains { $0 < Tokens.Metric.chromeGap },
-            "190 is not the smallest width §3.5's foot fits in — the arithmetic has moved"
+            "§3.5's foot fits in less than Metric.sidebarFootWidth — the sum has moved"
         )
     }
 }

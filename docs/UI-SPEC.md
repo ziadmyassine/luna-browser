@@ -32,7 +32,8 @@ sidebar's own content reflows. The ratios exist to fix proportions once, not to 
 | Token | Value | Was |
 |---|---|---|
 | `sidebarWidth` default / min / max | 280 / **250** / 420 pt | min was 180, then 160, then 220 |
-| `sidebarFootFloor` — the min where §3.1's head is not in the column | **190** pt | — |
+| `sidebarFootFloor` — the min where §3.1's head is not in the column | **220** pt | — |
+| `sidebarFootWidth` — what §3.5's foot occupies, derived | 190 pt | — |
 | `rowHeight` (pitch) | 38 pt | 40 |
 | `rowGap` / `rowPillHeight` (the drawn pill) | 3 / 35 pt | 4 / — |
 | `rowInset` (pill inset from sidebar edge) | 8 pt | — |
@@ -365,10 +366,13 @@ Vertical order, top to bottom:
   circles onto the page, leaving a row holding nothing but the traffic lights' corner; and a trailing
   column does not contain the lights at all — macOS keeps them at the window's top-left — so its
   toggle starts at `rowInset` instead of 78 pt in, which is 86 pt off the 243. Either one puts the
-  head under §3.5's foot, and then `sidebarFootFloor` answers: **190**, the width at which the foot's
-  avatar, Space strip and Downloads/History cylinder close to exactly one `chromeGap` apart.
+  head under §3.5's foot, and then `sidebarFootFloor` answers: **220**. The foot itself occupies
+  `sidebarFootWidth` — 190, derived from the tokens it is made of, the width at which the avatar, the
+  Space strip and the Downloads/History cylinder close to exactly one `chromeGap` apart — and 220
+  stands off it for the reason 250 stands off 243, plus the Essentials grid, which is the one thing in
+  the column that keeps shrinking rather than stopping: a tile is 47 pt wide at 220 against 40 at 190.
   `Settings.sidebarWidth` is the single reader that resolves the two, and `SidebarWidthFloorTests`
-  runs the foot's sum against the real bar.
+  runs both sums against the real bar.
 - **The morph stands still.** Nothing inside the capsule is laid out against its bounds — all three are
   placed off the leading edge at fixed distances — so the trailing edge is the only thing that travels
   and back never moves under the pointer. Measured against the bounds, a *shrink* re-reads them at the

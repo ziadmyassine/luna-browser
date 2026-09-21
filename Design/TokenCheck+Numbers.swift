@@ -32,10 +32,15 @@ extension TokenCheck {
         // `Settings.sidebarWidth` swaps one minimum for the other, so the
         // narrow one has to be a floor under the wide one and still leave a
         // range the default sits inside — otherwise §3.7's double-click resets
-        // to a width its own span would clamp back out.
+        // to a width its own span would clamp back out. And it has to stay
+        // above what §3.5's foot occupies, which is the one part of the column
+        // that cannot be taken away: the floor is a choice, that is not.
         let floor = Tokens.Metric.sidebarFootFloor
-        if !(floor > 0 && floor <= width.min) {
+        if !(floor <= width.min) {
             failures.append("Metric.sidebarFootFloor is not a floor under Metric.sidebarWidth.min")
+        }
+        if !(floor >= Tokens.Metric.sidebarFootWidth) {
+            failures.append("Metric.sidebarFootFloor is narrower than §3.5's foot")
         }
         return failures + checkRoundedMetrics() + checkPositiveMetrics()
             + checkSpaceSwipe() + checkRowInsets()
