@@ -242,6 +242,28 @@ extension Tokens {
         /// nearly touching.
         static let barPillGlyphSize: CGFloat = 14
 
+        // MARK: Load line (§3.2c)
+
+        /// §3.2c's load line: **2 pt**, which is the thickness §7 wrote down
+        /// for the progress line it never shipped, and what the reference
+        /// measures (4 px in a 2x capture).
+        static let loadLineHeight: CGFloat = 2
+        /// How far the line stands in from each end of the pill it is under.
+        ///
+        /// `pillTextInset`, because §3.2's rule is already that **whatever is
+        /// at either end of a pill stands as far in as the address does** — so
+        /// the line starts under the first letter of the domain and ends under
+        /// the last place a letter could be. Measured at 11.5 pt in the
+        /// reference, which is this number at that capture's scale.
+        static let loadLineInset: CGFloat = pillTextInset
+        /// And how far it sits above the pill's bottom edge: **twice its own
+        /// weight**, so the gap under it reads as clearance rather than as a
+        /// border trying to be one. 4 pt is also what the reference measures,
+        /// and at `loadLineInset` in from the end of a 34 pt capsule the
+        /// curve has come within 0.75 pt of the bottom — so the line lies on
+        /// the pill's flat run and never crosses its corner.
+        static let loadLineFloor: CGFloat = loadLineHeight * 2
+
         // MARK: Essentials (§3.3)
 
         /// 128 × 42, radius 12. Icon only — no label (§30.5).

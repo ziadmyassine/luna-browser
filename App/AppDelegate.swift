@@ -70,6 +70,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// it is not file-private.
     private(set) var downloadsPanel: DownloadsPanelController?
     private var observation: ObservationToken?
+    /// §3.2c's window-edge line. Two tokens — see `wireLoadLine`.
+    var loadLineObservations: [ObservationToken] = []
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         LaunchTrace.mark("appkit")
@@ -192,6 +194,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             wireSidebar(sidebar, in: controller)
             wirePageChrome(session, in: controller)
+            wireLoadLine(session, in: controller)
             // Last of the three address bars to claim `⌘L`, and the one that
             // knows which of them is on screen.
             wireEditLocation(session, sidebar: sidebar)

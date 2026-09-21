@@ -184,6 +184,7 @@ final class TopBarTabStrip: NSView {
             icon: session.favicon(for: id),
             tint: state.themeColor.map { NSColor($0) }
         )
+        pill.setLoad(state, for: id)
     }
 
     /// The live state when the tab is warm, the persisted row when it is not —

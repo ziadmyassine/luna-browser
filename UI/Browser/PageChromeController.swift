@@ -105,6 +105,9 @@ final class PageChromeController {
             refresh()
         } else {
             stopListening()
+            // §3.2c: the bar is leaving, so the line goes with it rather than
+            // finishing a load the user cannot see the address of.
+            bar.pill.setLoad(nil, for: nil)
         }
         guard animated else {
             Tokens.Motion.immediately { bar.alphaValue = active ? 1 : 0 }
@@ -126,6 +129,9 @@ final class PageChromeController {
         let tab = session.tabs.first { $0.id == session.activeTabID }
         let state = session.activeTabID.flatMap { session.controller(for: $0)?.state }
         show(url: state?.url ?? tab?.url, isLoading: state?.isLoading ?? false)
+        // §3.2c. Nil for a tab with no live web view, which is a tab that has
+        // nothing to be loading.
+        bar.pill.setLoad(state, for: session.activeTabID)
         bar.setPageColour(state?.pageBackground)
         bar.update(
             canGoBack: state?.canGoBack ?? false,
@@ -137,6 +143,7 @@ final class PageChromeController {
     private func apply(_ id: UUID, _ state: TabState) {
         guard isActive, id == session.activeTabID else { return }
         show(url: state.url, isLoading: state.isLoading)
+        bar.pill.setLoad(state, for: id)
         bar.setPageColour(state.pageBackground)
         bar.update(canGoBack: state.canGoBack, canGoForward: state.canGoForward, isLoading: state.isLoading)
     }

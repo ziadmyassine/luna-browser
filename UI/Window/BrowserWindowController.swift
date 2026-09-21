@@ -52,6 +52,15 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     /// clipping does not sit between the material and what it samples; it
     /// shares the chrome's four edges, so it slides with it for free.
     private let peekBackdrop = Glass.peekPlane()
+    /// §3.2c's fallback: the load line, across the window's top edge, for the
+    /// chrome states that have no address bar on screen to put it under. See
+    /// `ChromeState.loadProgressHost`.
+    private let loadLine = LoadProgressLine()
+    /// §3.2b's placement, as the one reader resolved it. Told rather than read
+    /// (`AppDelegate.applySearchBarPlacement`): the sidebar, the page bar and
+    /// this line all have to agree about which address bar is up, and three
+    /// readers of two settings is how they stop agreeing.
+    private var searchBarOnPage = false
     /// The peek strip's two possible homes — it lies along whichever window
     /// edge the hidden sidebar parks behind.
     private var peekEdgeLeading: NSLayoutConstraint?
@@ -187,6 +196,45 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         peekEdgeLeading = peekEdge.leadingAnchor.constraint(equalTo: root.leadingAnchor)
         peekEdgeTrailing = peekEdge.trailingAnchor.constraint(equalTo: root.trailingAnchor)
         peekEdgeLeading?.isActive = true
+
+        // **Last, so it is above everything** — including the chrome, which
+        // `setChrome` inserts directly above `peekBackdrop` and therefore
+        // below this. §7.2's peek slides a sidebar over the page at exactly
+        // this corner, and a progress line the peek covers is a progress line
+        // that disappears whenever the pointer brushes the window's edge.
+        loadLine.translatesAutoresizingMaskIntoConstraints = false
+        loadLine.isHidden = true
+        root.addSubview(loadLine, positioned: .above, relativeTo: peekBackdrop)
+        NSLayoutConstraint.activate([
+            loadLine.topAnchor.constraint(equalTo: root.topAnchor),
+            loadLine.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            loadLine.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            loadLine.heightAnchor.constraint(equalToConstant: Tokens.Metric.loadLineHeight)
+        ])
+    }
+
+    // MARK: - §3.2c's load line
+
+    /// §3.2b's placement, from the one reader that owns it. Which address bar
+    /// is on screen decides whether this window's top edge is the one wearing
+    /// the load line.
+    func setSearchBarOnPage(_ onPage: Bool) {
+        guard onPage != searchBarOnPage else { return }
+        searchBarOnPage = onPage
+        updateLoadLineHost()
+    }
+
+    /// The active tab's load, for the fallback line. Fed **whether or not this
+    /// window is the host**: `⌘S` in the middle of a load moves the line from
+    /// the pill to the window's edge, and a line that started counting only
+    /// once it was shown would come back empty half way through a page.
+    func setLoadProgress(_ state: TabState?, for tab: UUID?) {
+        guard let state else { return loadLine.clear() }
+        loadLine.show(state, for: tab)
+    }
+
+    private func updateLoadLineHost() {
+        loadLine.isHidden = chromeState.loadProgressHost(searchBarOnPage: searchBarOnPage) != .windowTop
     }
 
     // MARK: - Hosting
@@ -364,6 +412,9 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     private func apply(_ state: ChromeState, animated: Bool) {
         let previous = chromeState
         chromeState = state
+        // §3.2c: hiding the sidebar takes the address bar away with it, and the
+        // window's top edge takes the load line over.
+        updateLoadLineHost()
         // A peek belongs to the collapsed state and to nothing else. Both flags
         // are reset rather than left to the controller's own `onChange`: that
         // callback early-returns once the state has already moved on, and a

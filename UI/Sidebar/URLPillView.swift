@@ -83,6 +83,9 @@ final class URLPillView: NSView {
     // two materials, and the reference draws no bubble around either.
     let sliders = RowGlyphView()
     let reload = RowGlyphView()
+    /// §3.2c's load line. Not private: `URLPillLayout.swift` places it, as it
+    /// places everything else on the pill.
+    let loadLine = LoadProgressLine()
     private var isLoading = false
     // Internal for `URLPillMark.swift`, as `field` and `sliders` are for
     // `URLPillLayout.swift`: still the pill's, still untouched from elsewhere.
@@ -169,6 +172,10 @@ final class URLPillView: NSView {
             onReload?(isLoading)
         }
         reload.isHidden = true
+        // Above the glyphs and the field: it is 2 pt of ink along an edge
+        // nothing else reaches, and it takes no clicks (`hitTest`), so the
+        // order costs the pill nothing and never has to be thought about.
+        addSubview(loadLine)
         refresh()
     }
 
@@ -190,6 +197,17 @@ final class URLPillView: NSView {
         guard loading != isLoading else { return }
         isLoading = loading
         applyGlyphs()
+    }
+
+    /// §3.2c: how far the page in this pill has loaded.
+    ///
+    /// Nil is not zero — it is "there is no live tab behind this pill", which
+    /// is a tab that was never warm and a bar that has just been handed back
+    /// the window. The line clears rather than animating out of a load it was
+    /// never shown.
+    func setLoad(_ state: TabState?, for tab: UUID?) {
+        guard let state else { return loadLine.clear() }
+        loadLine.show(state, for: tab)
     }
 
     /// Both glyphs, at the size and in the state the pill is in now.

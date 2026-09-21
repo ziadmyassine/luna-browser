@@ -71,6 +71,9 @@ final class TopBarURLPill: NSView, TopBarThemed, NSTextFieldDelegate {
     /// sits inside a control that is already a landmark. At 16 it was the
     /// loudest mark in a pill whose whole job is to be quiet.
     private let sliders = RowGlyphView()
+    /// §3.2c's load line — the same line, at the same inset, as the one under
+    /// §3.2's pill in the column. Three address bars, one progress indicator.
+    private let loadLine = LoadProgressLine()
 
     private var url: URL?
     private var tintSource: NSColor?
@@ -100,6 +103,7 @@ final class TopBarURLPill: NSView, TopBarThemed, NSTextFieldDelegate {
         )
         sliders.onActivate = { [weak self] in self?.showSiteMenu() }
         addSubview(sliders)
+        addSubview(loadLine)
 
         setAccessibilityRole(.textField)
         setAccessibilityLabel(String(localized: "Address"))
@@ -134,6 +138,13 @@ final class TopBarURLPill: NSView, TopBarThemed, NSTextFieldDelegate {
         favicon.image = icon ?? TopBarButton.symbol("globe")
         if !isEditing { applyDisplay() }
         setWash(tint)
+    }
+
+    /// §3.2c: how far the active tab has loaded. Fed from the same `TabState`
+    /// the wash and the title come from, and carrying the tab's id — the pill
+    /// is reused across a tab switch, and a switch is not progress.
+    func setLoad(_ state: TabState, for tab: UUID) {
+        loadLine.show(state, for: tab)
     }
 
     private func applyDisplay() {
@@ -312,6 +323,7 @@ final class TopBarURLPill: NSView, TopBarThemed, NSTextFieldDelegate {
 
     private func placeContents() {
         wash.frame = bounds
+        loadLine.frame = LoadProgressLine.frame(inPill: bounds)
 
         let inset = Tokens.Metric.rowInset
         // **The inset is the glyph's, and the chip grows past it** — the same

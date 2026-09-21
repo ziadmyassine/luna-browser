@@ -139,6 +139,9 @@ extension URLPillView {
     }
 
     private func placeContents() {
+        // §3.2c, before anything that can return early: the line is the one
+        // thing on the pill whose place does not depend on what else is on it.
+        loadLine.frame = LoadProgressLine.frame(inPill: bounds)
         let box = min(glyphBox, bounds.height)
         let height = field.intrinsicContentSize.height
         let textY = (bounds.height - height) / 2

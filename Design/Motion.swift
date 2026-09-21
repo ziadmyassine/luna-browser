@@ -140,6 +140,24 @@ extension Tokens {
         /// The sidebar content cross-fade that rides along with it.
         static let spaceSwitchCrossfade = MotionSpec(0.18)
 
+        // MARK: The load line (§3.2c)
+
+        /// How long the fill takes to reach a newly reported progress value.
+        ///
+        /// Ease-out, and well inside §6's budget — this is not the shimmer's
+        /// case. `estimatedProgress` arrives in **jumps**, a handful of them
+        /// across a load, and each jump is a discrete change with a start and
+        /// an end. What must never happen is the opposite mistake: a fill that
+        /// runs on a clock of its own is a progress bar that lies, so this
+        /// spec times the *travel* between two honest values and nothing else.
+        static let loadLineAdvance = MotionSpec(0.20, .easeOut)
+        /// The line arriving, and leaving once the page has finished.
+        ///
+        /// A load is over the moment `didFinish` lands; the line is not, or the
+        /// last thing the user sees of it is a bar that vanished at four
+        /// fifths. It runs to full on `loadLineAdvance` and then fades on this.
+        static let loadLineFade = MotionSpec(0.20)
+
         // MARK: Layout
 
         /// Sidebar collapse / expand — the width half.

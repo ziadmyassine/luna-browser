@@ -242,7 +242,8 @@ extension TokenCheck {
             ("popoverIn", Tokens.Motion.popoverIn), ("hoverPeek", Tokens.Motion.hoverPeek),
             ("themeWash", Tokens.Motion.themeWash), ("reloadArcIn", Tokens.Motion.reloadArcIn),
             ("reloadArcOut", Tokens.Motion.reloadArcOut), ("particleDissolve", Tokens.Motion.particleDissolve),
-            ("particleSettle", Tokens.Motion.particleSettle)
+            ("particleSettle", Tokens.Motion.particleSettle),
+            ("loadLineAdvance", Tokens.Motion.loadLineAdvance), ("loadLineFade", Tokens.Motion.loadLineFade)
         ]
         var failures = timed.filter { $0.1.duration > motionBudget }
             .map { String(format: "Motion.%@ is %.2f s — §6 caps at 0.35 s", $0.0, $0.1.duration) }

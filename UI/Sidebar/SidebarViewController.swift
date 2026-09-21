@@ -236,6 +236,9 @@ final class SidebarViewController: NSViewController {
         let tab = session.tabs.first { $0.id == session.activeTabID }
         let state = session.activeTabID.flatMap { session.controller(for: $0)?.state }
         pill.show(url: state?.url ?? tab?.url)
+        // §3.2c. The id goes with the state so the line can tell a tab switch
+        // from progress — a new tab's load is not the old one's, continued.
+        pill.setLoad(state, for: session.activeTabID)
         controlRow.update(
             canGoBack: state?.canGoBack ?? false,
             canGoForward: state?.canGoForward ?? false,

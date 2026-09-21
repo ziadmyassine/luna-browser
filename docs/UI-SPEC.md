@@ -704,6 +704,49 @@ keeping and are now §9.1's problem alone: one moving `.control` glass pill for 
 a fill per row, and a row geometry taken from `CommandBarResultRow` rather than from §3.4's tab rows,
 whose insets are derived from a tab pill's height.
 
+### 3.2c Load line — a 2 pt line under the address, on whichever address bar is on screen
+Transcribed from the reference Martin sent, measured at that capture's 2x: a **2 pt** accent line lying
+on the pill's bottom run, **12 pt in from each end** and **4 pt up from the bottom edge**, growing from
+the leading end. It is drawn *inside* the capsule, not under it — a rule below a pill is a divider
+between it and whatever comes next, and this belongs to the address.
+
+| | Value | Why |
+|---|---|---|
+| thickness | `loadLineHeight` = 2 | measured (4 px at 2x); the thickness §7 already wrote down for a progress line |
+| inset, each end | `loadLineInset` = `pillTextInset` = 12 | §3.2's rule: whatever is at either end of a pill stands as far in as the address does. Measured 11.5 |
+| above the bottom edge | `loadLineFloor` = 4 | twice its own weight. At 12 pt in, a 34 pt capsule's curve is within 0.75 pt of the bottom, so the line lies on the flat run |
+| colour | `Accent.tint` | §1 allows the accent as **fill**, which is all this is — never text, never a border |
+
+**One line, three pills.** §3.2's in the column, §3.2b's on the page and §4's active tab all place it
+through `LoadProgressLine.frame(inPill:)`, because a line 8 pt in on one surface and 12 on another is
+two lines. §3.2b's collapsed capsule keeps it: the bar is 22 pt of the page's own colour with a domain
+in it, and the line is the only thing left that can say the page is still arriving.
+
+**With no address bar on screen, the window's top edge takes it.** That is the sidebar layout with the
+sidebar hidden (`⌘S`) and the search bar still in the column — the pill is parked off screen — and page
+fullscreen, which takes the chrome with it. `ChromeState.loadProgressHost(searchBarOnPage:)` is the
+whole rule, pure and tested the way `cardInsets` is; the window controller only ever asks whether the
+answer is `.windowTop`. The fallback line is fed **whether or not it is the host**, so `⌘S` half way
+through a load moves a line that is already at the right fraction rather than one starting again from
+nothing. It is added above the chrome, because §3.8's peek slides a sidebar over that exact corner.
+
+**Three rules, and all three are about not drawing.** They are what separates a progress bar from
+decoration:
+1. **A load under `reloadSkipThreshold` (0.15 s) plays nothing.** §7 wrote that rule for the bloom and it
+   is the same rule here — a cached reload is over before a bar could say anything true about it, and a
+   line flashing on every back-navigation is noise on the most common navigation there is. The reveal is
+   *armed* rather than shown, and a load that finishes first cancels it.
+2. **It never retreats.** `estimatedProgress` falls when a load commits a new document; a redirect two
+   thirds of the way through a page is not the page getting further away.
+3. **It finishes before it leaves.** The fill runs to full on `loadLineAdvance` and only then fades on
+   `loadLineFade`, so the last thing seen is a full line and not a bar that vanished at four fifths.
+
+A tab switch is not progress: the line carries the tab's id and starts over when it changes, because §4's
+pill is literally the same view across a switch. Reduce Motion needs no special path — every step goes
+through `Tokens.Motion`, which degrades each to an instant change (§21.2). It is decorative to
+VoiceOver: loading is announced by §3.4's rows and by the reload glyph becoming a stop, not by 2 pt of
+ink.
+
 ### 3.3 Essentials grid — reshapes around how many tiles are in it
 - Tiles 128 × 42, radius 12. **The sides are an alignment; the top, the bottom and the gutter are
   gaps, and they are not the same number.** The grid is inset `rowInset` (8) from the sidebar's leading
