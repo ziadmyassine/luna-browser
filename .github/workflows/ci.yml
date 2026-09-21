@@ -103,20 +103,20 @@ jobs:
             test
 
   lint:
-    name: SwiftLint (advisory)
-    # Advisory on purpose, and `continue-on-error` is the line to delete.
+    name: SwiftLint
+    # Gating, and it took a wave to get here. It started at 67 violations: the
+    # config took 41 of those — `x` is the right name for an x coordinate — and
+    # the rest were fixed rather than configured away, by splitting functions
+    # and moving type bodies into extensions.
     #
-    # It started at 67 violations. The config took 41 of those — `x` is the
-    # right name for an x coordinate — and the rest were fixed rather than
-    # configured away: four functions split, four type bodies moved into
-    # extensions, two files split in half, one parser taken from complexity 18
-    # to 9.
+    # The last three outlived that wave only because they sat in files other
+    # sessions were rewriting at the time: `AppDelegate`'s class body, and the
+    # two long checks in `TokenCheck+Numbers`. Both were split along seams the
+    # files already had — `AppDelegate+Downloads` and `AppDelegate+CommandBar`
+    # beside the `+Quit` and `+PageChrome` that were there first.
     #
-    # Three are left, and all three are in files another session is rewriting
-    # right now: `AppDelegate` at 295 lines of class body, and the two long
-    # checks in `TokenCheck+Numbers`. Delete this line once those land, and the
-    # job gates.
-    continue-on-error: true
+    # There is no `continue-on-error` any more, which is the point: a lint
+    # nobody has to pass drifts straight back to 67.
     # SwiftLint ships a statically linked Linux binary, so this costs nothing:
     # free runner, no Swift runtime to install, no Homebrew.
     runs-on: ubuntu-latest
@@ -142,8 +142,9 @@ jobs:
 
 # Deliberately absent:
 #
-#   * **swiftformat.** `swiftformat --lint .` fails 317 of 321 files today — it
-#     has never been run, so switching it on is a 317-file rewrite, not a check.
-#     That belongs in one deliberate commit on a quiet tree; with several agents
+#   * **swiftformat.** It has never been run here, so it fails all but a handful
+#     of the tree and switching it on is a whole-repo rewrite, not a check. That
+#     belongs in one deliberate commit on a quiet tree; with several agents
 #     writing into this tree at once it is the worst diff to land by surprise.
+#     `CLAUDE.md` carries the measurement, so it goes stale in one place.
 #   * **A release job.** See the header: §24.4's certificate first.
