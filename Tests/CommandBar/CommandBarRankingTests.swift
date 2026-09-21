@@ -318,4 +318,58 @@ final class CommandBarRankingTests: XCTestCase {
 
         XCTAssertLessThan(perKeystroke, .milliseconds(5), "local merge must fit in one 16 ms frame (§9.7)")
     }
+
+    // MARK: - An address is an instruction (§9.3)
+
+    /// Typing the address of a page you already have open goes to the page.
+    ///
+    /// `directURL` outranks `openTab` by tier, so the top row was always the
+    /// typed address — but the dedupe then handed it the tab's own action, and
+    /// the one string that unambiguously means "go here" was the one that would
+    /// not. It is a new tab, in `⌘T`'s mode, and a load in the pill's.
+    func testTypingTheAddressOfAnOpenTabOpensItRatherThanSwitchingToIt() {
+        var sources = CommandBarSources()
+        sources.tabs = [tab("https://google.com/", title: "Google", minutesAgo: 1)]
+
+        let results = CommandBarRanking.merge(query: "google.com", sources: sources, limit: 8)
+        let top = try? XCTUnwrap(results.first)
+        XCTAssertEqual(top?.source, .directURL)
+        guard case .open = top?.action else {
+            return XCTFail("A typed address must go to the page, not to a tab that happens to be on it.")
+        }
+        XCTAssertFalse(
+            results.contains { if case .activateTab = $0.action { true } else { false } },
+            "Nothing in an address's list switches tabs — the address is the instruction."
+        )
+    }
+
+    /// And its name still finds it. The tab's title is not an address, so it
+    /// answers the way everything that is not an address answers: with what you
+    /// already have open.
+    func testTypingTheNameOfThatSameTabSwitchesToIt() {
+        var sources = CommandBarSources()
+        sources.tabs = [tab("https://google.com/", title: "Google", minutesAgo: 1)]
+
+        let results = CommandBarRanking.merge(query: "google", sources: sources, limit: 8)
+        let row = try? XCTUnwrap(results.first { $0.source == .openTab })
+        XCTAssertEqual(row?.title, "Google")
+        guard case .activateTab = row?.action else {
+            return XCTFail("A tab found by name is switched to (§19.4).")
+        }
+    }
+
+    /// The adaptive tier is not a way round it. A remembered `(typed → URL)`
+    /// pair ranks above everything, and it used to adopt the open tab's action
+    /// on the way past.
+    func testAnAdaptiveMatchOnAnAddressStillOpensThePage() {
+        var sources = CommandBarSources()
+        sources.tabs = [tab("https://google.com/", title: "Google", minutesAgo: 1)]
+        sources.adaptive = [AdaptiveEntry(typed: "google.com", url: url("https://google.com/"), useCount: 9)]
+
+        let results = CommandBarRanking.merge(query: "google.com", sources: sources, limit: 8)
+        XCTAssertFalse(
+            results.contains { if case .activateTab = $0.action { true } else { false } },
+            "A lesson learned about an address must not turn the address into a tab switch."
+        )
+    }
 }

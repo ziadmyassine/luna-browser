@@ -101,7 +101,7 @@ enum CommandBarRanking {
         }
         rows.append(contentsOf: suggestionRows(query: query, sources: sources))
 
-        return Array(dedupe(order(rows)).prefix(limit))
+        return Array(dedupe(order(rows), adoptingOpenTabs: !hasDirect).prefix(limit))
     }
 
     /// §9.4's completion: the top URL-bearing row, if what the user typed is a
@@ -287,9 +287,18 @@ enum CommandBarRanking {
     }
 
     /// §9.2 "merged and deduped". The best-ranked row for a URL wins its place —
-    /// but it inherits the open tab's action when one exists, so a page that is
-    /// both #1 by adaptive history and already open switches to the live tab
-    /// instead of loading a second copy of it (§19.4).
+    /// and, unless the query is itself an address, it inherits the open tab's
+    /// action when one exists, so a page that is both #1 by adaptive history and
+    /// already open switches to the live tab instead of loading a second copy of
+    /// it (§19.4).
+    ///
+    /// **An address you typed is never answered with a tab you already have.**
+    /// `directURL`'s own tier says a guess must not outrank an instruction, and
+    /// adoption was doing exactly that from underneath: typing `google.com` with
+    /// google.com open put `Switch to tab` on the top row, so the one string
+    /// that unambiguously means "go here" was the one that would not. Type the
+    /// address and you get the page; type the tab's *name* — `google` — and the
+    /// open tab answers, because a name is a search of what you have.
     ///
     /// One row per URL, flatly, because every row on offer is in one Space and
     /// one cookie jar. This used to keep a row per (URL, jar) pair and was the
@@ -297,7 +306,7 @@ enum CommandBarRanking {
     /// row whose "Switch to tab" teleported you into whichever the loop reached
     /// last. The bar no longer offers the other Space at all, so two jars can no
     /// longer meet in the list and there is nothing left to tell apart.
-    private static func dedupe(_ rows: [CommandBarResult]) -> [CommandBarResult] {
+    private static func dedupe(_ rows: [CommandBarResult], adoptingOpenTabs: Bool) -> [CommandBarResult] {
         var slot: [String: Int] = [:]
         /// URLs whose kept row already carries a live tab's action.
         var live: Set<String> = []
@@ -310,7 +319,7 @@ enum CommandBarRanking {
                 out.append(row)
                 continue
             }
-            guard isTab, !live.contains(row.id) else { continue }
+            guard isTab, adoptingOpenTabs, !live.contains(row.id) else { continue }
             adopt(row, into: &out[index], marking: &live)
         }
         return out
