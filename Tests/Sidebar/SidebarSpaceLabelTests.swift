@@ -76,17 +76,22 @@ final class SidebarSpaceLabelTests: XCTestCase {
         XCTAssertNotNil(clip(of: view).layer?.mask)
     }
 
-    /// The promise the number is about: the ramp starts after the tenth
-    /// character, so all ten of them are solid ink.
-    func testTenCharactersAreSolidBeforeTheRampStarts() {
+    /// The dissolve begins inside the cap rather than after it. At a ramp the
+    /// width of a row's, the last glyph read as a letter that had been cut;
+    /// `sidebarSpaceNameFade` starts it about two characters early so the tail
+    /// thins instead of stopping.
+    func testTheRampStartsBeforeTheCapRatherThanAfterIt() {
         let view = caption(long)
         guard let mask = clip(of: view).layer?.mask as? CAGradientLayer,
               let stop = mask.locations?[1] else {
             return XCTFail("§3.5's caption is not masked at \(long.count) characters")
         }
         let solid = mask.frame.width * CGFloat(truncating: stop)
-        let ten = width(ofText: String(long.prefix(SidebarSpaceLabel.visibleCharacters)))
-        XCTAssertGreaterThanOrEqual(solid, ten - 1)
+        let cap = SidebarSpaceLabel.visibleCharacters
+        XCTAssertLessThan(solid, width(ofText: String(long.prefix(cap))), "the ramp starts at the cap or past it")
+        // And not so early that the cap stops meaning anything: what is left
+        // solid is still most of the name the line promises.
+        XCTAssertGreaterThan(solid, width(ofText: String(long.prefix(cap - 4))))
     }
 
     // MARK: - The cap itself

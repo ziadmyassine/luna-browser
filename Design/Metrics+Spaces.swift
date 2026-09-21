@@ -194,6 +194,17 @@ extension Tokens.Metric {
     /// now (`SidebarSpaceLabel`).
     static let sidebarSpaceNameRow: CGFloat = 14
 
+    /// How far that caption takes to dissolve, which is twice what a §3.4 row
+    /// takes.
+    ///
+    /// The row's 12 pt is a ramp on a title that ends against the pill's inner
+    /// edge, where the eye already expects the line to stop. This one ends in
+    /// clear air over the Space strip, and at 12 pt the last glyph read as a
+    /// letter that had been cut rather than a name that ran out. 24 starts the
+    /// dissolve about two characters inside the cap and carries it two past,
+    /// so the tail thins rather than stopping.
+    static let sidebarSpaceNameFade = 2 * rowTitleFade
+
     /// A gradient swatch in a menu (§8.2's picker).
     ///
     /// 14 pt, a ceiling rather than a preference: `NSMenuItem.image` is laid out

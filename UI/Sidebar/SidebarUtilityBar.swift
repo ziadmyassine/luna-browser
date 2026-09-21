@@ -84,7 +84,6 @@ final class SidebarUtilityBar: NSView {
             // other pop-out in this bar does (`SidebarActionCapsule`).
             SidebarMenu.profile(
                 name: profile,
-                fanOut: profileFanOut,
                 manage: { [weak self] in self?.onManageProfiles?() }
             ).popUp(positioning: nil, at: NSPoint(x: 0, y: avatar.bounds.maxY), in: avatar)
         }
@@ -273,7 +272,7 @@ final class SidebarUtilityBar: NSView {
 @MainActor
 final class SidebarSpaceLabel: NSView {
 
-    /// How much of the name this line shows before the fade takes the rest.
+    /// How far along the name this line reads before the fade takes over.
     ///
     /// §6.2 stores 32, which is long enough for a name that says what the
     /// Space is for, and far longer than a line over a 56 pt strip can carry:
@@ -282,6 +281,10 @@ final class SidebarSpaceLabel: NSView {
     /// glance this line is read at actually uses — enough to tell two Spaces
     /// apart — and the whole name is a hover away in the tooltip and written
     /// out on the Space's card in Settings.
+    ///
+    /// It is the line's reach rather than a count of solid glyphs: the ramp is
+    /// `sidebarSpaceNameFade` and starts inside the tenth character, so the
+    /// last two or three of them are already thinning.
     static let visibleCharacters = 10
 
     /// Right-click here or on the strip below — §6.2's rows are in Settings.
@@ -335,13 +338,13 @@ final class SidebarSpaceLabel: NSView {
     }
 
     /// How wide this name is allowed to be drawn: what `visibleCharacters` of
-    /// it measure, plus the ramp that dissolves what follows.
+    /// it measure, plus the overhang the ramp trails off into.
     ///
     /// Measured off the name rather than off an average glyph, because the cap
     /// counts characters — ten wide letters are wider than ten narrow ones and
-    /// both of them are ten letters. Adding the ramp is what keeps all ten
-    /// legible: a box cut exactly at the tenth glyph fades the ninth and the
-    /// tenth away with it.
+    /// both of them are ten letters. The overhang is what keeps the dissolve
+    /// from ending on a hard edge: the ramp is wider than it, so it is already
+    /// faint by the time the box runs out.
     static func shownWidth(of name: String) -> CGFloat {
         ceil(textWidth(String(name.prefix(visibleCharacters)))) + Tokens.Metric.rowTitleFade
     }
@@ -417,11 +420,13 @@ final class SidebarSpaceLabel: NSView {
         return max((cell - textWidth(field.stringValue)) / 2, 0)
     }
 
-    /// §3.4's fade, on one line instead of forty. Nil when the name fits: a
+    /// The ramp, which is §3.4's idea at `sidebarSpaceNameFade` rather than a
+    /// row's width. Nil when the name fits: a
     /// gradient that is opaque end to end is a masked composite drawing
     /// nothing.
     private func applyFade(overflowing: Bool, width: CGFloat) {
-        guard overflowing, width > Tokens.Metric.rowTitleFade else {
+        let ramp = Tokens.Metric.sidebarSpaceNameFade
+        guard overflowing, width > ramp else {
             clip.layer?.mask = nil
             return
         }
@@ -429,7 +434,7 @@ final class SidebarSpaceLabel: NSView {
         // token belongs in it.
         fadeMask.frame = clip.bounds
         fadeMask.colors = [NSColor.black.cgColor, NSColor.black.cgColor, NSColor.clear.cgColor]
-        fadeMask.locations = [0, NSNumber(value: Double(1 - Tokens.Metric.rowTitleFade / width)), 1]
+        fadeMask.locations = [0, NSNumber(value: Double(1 - ramp / width)), 1]
         clip.layer?.mask = fadeMask
     }
 

@@ -335,8 +335,12 @@ line over §3.5's strip is the one place a name is drawn in a 220 pt column at
 `TypeScale.settingsCaption`, and 32 characters do not fit there at any width §1
 allows: the reported name ran from inset to inset and ended in an ellipsis. Ten
 is what the glance that line is read at uses — enough to tell two Spaces apart —
-and the cut is §3.4's fade rather than an ellipsis, so the eleventh character
-dissolves instead of being replaced by punctuation. The box is measured off the
+and the cut is §3.4's fade rather than an ellipsis, so the tail dissolves
+instead of being replaced by punctuation. Ten is the line's reach, not a count
+of solid glyphs: `sidebarSpaceNameFade` is twice a row's ramp and starts about
+two characters inside the cap, because a row's 12 pt ends against the pill's
+inner edge and this one ends in clear air, where a short ramp read as a letter
+that had been cut rather than a name that ran out. The box is measured off the
 name's own first ten characters, because the cap counts characters and ten wide
 letters are wider than ten narrow ones. The whole name stays a hover away, in
 the tooltip and in VoiceOver, and is drawn whole on the Space's card here.

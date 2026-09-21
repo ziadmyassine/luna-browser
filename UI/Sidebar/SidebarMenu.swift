@@ -55,16 +55,16 @@ enum SidebarMenu {
         return menu
     }
 
-    /// §9's fan-out, on §3.5's Profile button.
+    /// Whose cookies these are, on §3.5's Profile button, with the one verb
+    /// that was missing from the sidebar entirely: a Profile could be switched
+    /// between and never named, made or renamed from anywhere.
     ///
-    /// The same two facts the caption over the strip used to state — whose
-    /// cookies, and who else is in them — with the one verb that was missing
-    /// from the sidebar entirely: a Profile could be switched between and
-    /// never named, made or renamed from anywhere.
-    static func profile(name: String?, fanOut: String?, manage: @escaping () -> Void) -> NSMenu {
+    /// §9's fan-out is not here. It stood under the name as a second header
+    /// and made a three-line menu out of one command — and the button's
+    /// tooltip already states it, which is where a sentence that long belongs.
+    static func profile(name: String?, manage: @escaping () -> Void) -> NSMenu {
         let menu = NSMenu()
         menu.addItem(header(name.map { String(localized: "\($0) profile") } ?? String(localized: "Profile")))
-        if let fanOut { menu.addItem(header(fanOut)) }
         menu.addItem(.separator())
         menu.addItem(item(title: String(localized: "Manage Profiles…"), action: manage))
         return menu
