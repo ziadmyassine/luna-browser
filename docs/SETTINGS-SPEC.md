@@ -225,6 +225,13 @@ underneath — never a silently dead switch (§30.4).
 | On launch | Popup: Restore last session · New tab · Specific Space | `general.onLaunch` + `BrowserSession.restored` |
 | Auto-archive tabs after | Popup: 6h · 12h · 24h · Never | **existing** `luna.autoArchiveHours` |
 | Confirm before closing a window with multiple tabs | Toggle | `general.confirmClose` |
+| Ask before quitting Luna | Toggle | `general.confirmQuit` — read by `AppDelegate.applicationShouldTerminate` |
+
+> **Added: the quit guard, and it is the only row in this card with a reader.**
+> ⌘Q is next to ⌘W and takes every window with it. The toggle defaults **on**, and §3.1's
+> sheet (UI-SPEC §5.2) carries its own way off — *Quit, and don't ask again* writes
+> `general.confirmQuit = false`. A preference you can only turn **off** from a dialog is a trap,
+> which is why it is also here.
 
 ### 3.2 Appearance
 | Control | Type | Wired to |

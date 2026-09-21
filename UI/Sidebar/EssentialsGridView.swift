@@ -113,7 +113,10 @@ final class EssentialsGridView: NSView {
         }
     }
 
-    private var tabs: [Tab] = []
+    /// Not private: `+Light.swift` reads a tile's tab to get its favicon's
+    /// tint, for the same reason `+Layout.swift` reads `order` — Swift's
+    /// `private` is file-scoped and this class is three files.
+    var tabs: [Tab] = []
     /// Keyed by tab, **not** an array, so a tile survives a pin, an unpin or a
     /// reorder and can animate from where it was to where it now belongs. A
     /// rebuilt array of fresh views has nowhere to animate from, which is what
@@ -122,12 +125,13 @@ final class EssentialsGridView: NSView {
     /// Not private: `EssentialsGridView+Layout.swift` derives the grid's shape
     /// from it. Nothing outside that pair of files reads it.
     var order: [UUID] = []
-    private var activeTabID: UUID?
+    var activeTabID: UUID?
     /// §3.3's light, and the tile it is currently on. One view for the grid:
     /// only one tile can be the tab you are on, and the header above has what
     /// a backing view per tile cost the sidebar the last time one was tried.
-    private let glow = EssentialGlowView()
-    private var litID: UUID?
+    /// Both are `+Light.swift`'s; see `tabs`.
+    let glow = EssentialGlowView()
+    var litID: UUID?
     /// Set when the grid's contents changed; consumed by the next `layout()`.
     private var animatesNextPlacement = false
     /// Tiles made since the last placement, which have **nowhere to come from**.
@@ -152,7 +156,17 @@ final class EssentialsGridView: NSView {
 
     // MARK: - Content
 
-    func show(_ tabs: [Tab], activeTabID: UUID?) {
+    /// The tiles, and whether what changed is an **edit** to this grid or a
+    /// different grid entirely.
+    ///
+    /// **A Space switch is the second.** A tile that leaves fades out where it
+    /// stood, because an unpin that simply deleted the tile read as the tab
+    /// being thrown away — but across a Space switch *every* tile leaves at
+    /// once, and a fade holds the Space you just left drawn over the Space you
+    /// just arrived in for a fifth of a second. `SidebarViewController` is
+    /// already cross-fading the whole column for this; the tiles must not bring
+    /// a second transition to it.
+    func show(_ tabs: [Tab], activeTabID: UUID?, replacing: Bool = false) {
         self.activeTabID = activeTabID
         guard tabs != self.tabs else {
             // Icons arrive after the tab does (§4.7), so they are re-read even
@@ -168,16 +182,23 @@ final class EssentialsGridView: NSView {
             return
         }
         self.tabs = tabs
-        rebuild()
+        rebuild(replacing: replacing)
     }
 
-    private func rebuild() {
-        let wasEmpty = order.isEmpty
+    private func rebuild(replacing: Bool) {
+        // A replacement is the same as the first population: there is no "from"
+        // for anything to arrive out of, so nothing arrives — it is simply
+        // already there when the column fades up.
+        let wasEmpty = order.isEmpty || replacing
         let next = tabs.map(\.id)
         // Gone: faded out where it stood, then dropped. Removing it outright is
         // what made an unpin look like the tile had been deleted off-screen.
         for (id, tile) in tiles where !next.contains(id) {
             tiles.removeValue(forKey: id)
+            guard !replacing else {
+                tile.removeFromSuperview()
+                continue
+            }
             Tokens.Motion.animate(Tokens.Motion.tabInsert) { context in
                 context.allowsImplicitAnimation = true
                 tile.animator().alphaValue = 0
@@ -186,7 +207,7 @@ final class EssentialsGridView: NSView {
             }
         }
         for tab in tabs {
-            let tile = tiles[tab.id] ?? makeTile(for: tab)
+            let tile = tiles[tab.id] ?? makeTile(for: tab, quietly: replacing)
             tiles[tab.id] = tile
             // §3.4a: the icon and the name the user chose outrank the site's, and a tile
             // outlives a rename — it is reused across `show`, so this is the only place
@@ -202,11 +223,14 @@ final class EssentialsGridView: NSView {
         order = next
         // The first population is the sidebar being built; there is no "from".
         animatesNextPlacement = !wasEmpty
-        relight(blooming: !wasEmpty)
+        relight(blooming: !wasEmpty, replacing: replacing)
         reflow()
     }
 
-    private func makeTile(for tab: Tab) -> GlassButton {
+    /// `quietly` is a tile that is not *arriving* — the grid it belongs to is
+    /// being replaced wholesale, so it is already there when the column comes
+    /// back rather than fading up inside it.
+    private func makeTile(for tab: Tab, quietly: Bool = false) -> GlassButton {
         let tile = GlassButton(
             shape: Tokens.Metric.essentialsTile,
             symbolName: "globe",
@@ -226,12 +250,13 @@ final class EssentialsGridView: NSView {
         }
         // Arrives at zero and fades up into its slot over the same spec the
         // list uses for a row arriving, so pinning reads as one movement.
-        tile.alphaValue = order.isEmpty ? 1 : 0
+        let arrives = !quietly && !order.isEmpty
+        tile.alphaValue = arrives ? 0 : 1
         arriving.insert(tab.id)
         // Under the glow, which was added first and has to stay on top of every
         // tile there will ever be.
         addSubview(tile, positioned: .below, relativeTo: glow)
-        if !order.isEmpty {
+        if arrives {
             Tokens.Motion.animate(Tokens.Motion.tabInsert) { context in
                 context.allowsImplicitAnimation = true
                 tile.animator().alphaValue = 1
@@ -265,51 +290,6 @@ final class EssentialsGridView: NSView {
 
     private static func siteName(for tab: Tab) -> String {
         tab.listTitle.isEmpty ? URLPillView.domain(of: tab.url) : tab.listTitle
-    }
-
-    // MARK: - The light
-
-    /// Lights the pinned tile that is the tab you are on, and puts out the one
-    /// that was.
-    ///
-    /// - Parameter blooming: whether this pass could have come from a click.
-    ///   §3.3's glow *appears*, and the appear belongs to the press that caused
-    ///   it: the pass that builds the sidebar has to arrive with the light
-    ///   already on, and a refresh that leaves the same tile lit must not
-    ///   replay it — which is why the tile has to have changed as well.
-    private func relight(blooming: Bool) {
-        let lit = activeTabID.flatMap { settled.contains($0) ? $0 : nil }
-        let moved = lit != litID
-        litID = lit
-        // **Stood in the right place before it is lit**, or the pop plays at
-        // the tile you came *from* and the light teleports afterwards: the
-        // layout pass that would otherwise place it does not run until later
-        // in the loop, and the appear starts here.
-        placeGlow()
-        glow.show(lit.flatMap(tint(for:)), blooming: blooming && moved && lit != nil)
-    }
-
-    /// Where the light stands: its tile's slot, or nowhere.
-    private var litSlot: NSRect? {
-        guard let litID, let index = settled.firstIndex(of: litID) else { return nil }
-        // A live drag holds a slot open, exactly as it does for the tiles.
-        let slot = dropIndex.map { index >= $0 ? index + 1 : index } ?? index
-        return slotRect(at: slot)
-    }
-
-    /// **The light never travels.** It is one view moved between tiles, so an
-    /// animated pass — a pin, an unpin, a reorder — would slide it across the
-    /// grid from the tile you left to the tile you clicked, and that slide is
-    /// the thing this is not: the glow goes out where it was and appears where
-    /// it now is. Always immediate, inside an animated pass or out of one.
-    private func placeGlow() {
-        guard let frame = litSlot else { return }
-        Tokens.Motion.immediately { glow.frame = frame }
-    }
-
-    /// The colour a tile glows in: the site's own, out of its favicon.
-    private func tint(for id: UUID) -> NSColor? {
-        tabs.first { $0.id == id }.map(FaviconTint.glow(for:))
     }
 
     // MARK: - Layout

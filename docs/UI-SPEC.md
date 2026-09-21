@@ -1387,6 +1387,37 @@ On completion the filename **dissolves into particles and reassembles**:
 
 ---
 
+### 5.2 Quit sheet — ⌘Q asks first
+
+A glass panel in the browser window, not an `NSAlert`: the app icon at `topBarHeight`, the question
+at `TypeScale.pageTitle`, one sentence of what is actually at stake, and three answers in a row.
+
+| | |
+|---|---|
+| Surface | `Glass.popover` + `Shadow.popover`, `contentCardRadius`, half a chrome bar above centre |
+| Width | the **answers'** width, floored at three quarters of `windowMinWidth` |
+| Answers | `Quit, and don't ask again` — gap — `Cancel` `esc` — `Quit` `↩` |
+| Backdrop | **none** — §9.1's finding, and it holds here |
+
+- **The caption is the point.** Luna restores the session, so the honest line is the tab and Space
+  count plus the promise. A download in flight replaces it: that is the one thing quitting destroys
+  rather than parks, and a warning that overstates what it guards is one you learn to click through.
+- **The two groups are held apart.** *Quit, and don't ask again* changes a setting; the other two
+  answer this press. Evenly spaced, the permanent one is picked by muscle memory aiming at the
+  temporary.
+- **The recommended answer is filled with the accent**, and it is the only control in Luna that is —
+  §2's "no system blue anywhere" survives everywhere else. Its two other states are AppKit's own
+  `withSystemEffect` variants, so the hover and press match every stock control in whichever accent
+  the user picked. `Tokens.Accent.onTint` carries the whole argument.
+- **The key hint is the button's end cap**, full height and flush with the trailing edge, with the
+  glyph dead centre of it. Inset from the edge, the capsule's own fill came back in the last four
+  points and read as a chip that had come loose.
+- **Escape and a click that missed both mean stay**, and an answer arrives exactly once.
+- `applicationShouldTerminate` answers `.terminateCancel` while the question is up and the answer
+  re-enters it — **not** `.terminateLater`, which parks the app in a nested modal loop.
+
+---
+
 ## 6. Motion
 
 Nothing exceeds **0.35 s** except the two cases marked, which are tied to real work rather than taste.

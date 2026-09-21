@@ -40,6 +40,35 @@ final class EssentialsGridArrivalTests: XCTestCase {
         }
     }
 
+    /// Every tile on the grid, fading ones included — which is the whole point:
+    /// a tile on its way out is still a tile on screen.
+    private static func tiles(in grid: EssentialsGridView) -> [GlassButton] {
+        grid.subviews.compactMap { $0 as? GlassButton }
+    }
+
+    /// **A Space switch replaces this grid; an unpin edits it**, and the two
+    /// had the same answer for one build.
+    ///
+    /// A tile that leaves fades out where it stood, because removing it
+    /// outright made an unpin look like the tab had been deleted off-screen.
+    /// Across a Space switch *every* tile leaves at once, and `NSView` keeps a
+    /// view being faded on screen for the length of the fade — so the Space
+    /// just left stayed drawn over the Space just arrived in for a fifth of a
+    /// second. That is the flash of old tabs, and this is the pair of claims
+    /// that separates the two cases.
+    func testAnUnpinnedTileFadesWhereItStoodAndAReplacedSpaceLeavesNothing() {
+        let unpinning = grid()
+        let pinned = tabs(3)
+        unpinning.show(pinned, activeTabID: nil)
+        unpinning.show(Array(pinned.dropLast()), activeTabID: nil)
+        XCTAssertEqual(Self.tiles(in: unpinning).count, 3, "the unpinned tile vanished instead of fading out")
+
+        let switching = grid()
+        switching.show(pinned, activeTabID: nil)
+        switching.show(tabs(2), activeTabID: nil, replacing: true)
+        XCTAssertEqual(Self.tiles(in: switching).count, 2, "the previous Space's tiles are still on screen")
+    }
+
     /// **A tile that has just been pinned lands in its slot.** It is a fresh
     /// view, so its frame is the grid's own origin until something places it,
     /// and the pass that places it is the animated one — so the tile flew up

@@ -77,6 +77,25 @@ extension Tokens {
         /// `sectionLabel`: this is prose, and semibold tabular prose is a label
         /// pretending to be a sentence.
         static var settingsCaption: NSFont { .systemFont(ofSize: 11, weight: .regular) }
+        /// 26 pt semibold — the title on one of Luna's **own pages** (§4.4):
+        /// §4.5's failures, and nothing else yet.
+        ///
+        /// **A page is not chrome, and the chrome's face is what made these
+        /// look wrong.** An internal page was set entirely in `urlPill` and
+        /// `sectionLabel` — 13 pt and 12 pt — because those were the tokens
+        /// that happened to be reachable from the CSS bridge. The result reads
+        /// as a sidebar that has got loose in the window: correct type, at a
+        /// size chosen for a 268 pt column, centred in a thousand points of
+        /// content. The chrome is set small because it is beside what you came
+        /// for; a page *is* what you came for.
+        ///
+        /// Plain, not `monospacedDigit`: the same reason `sidebarRow` is.
+        static var pageTitle: NSFont { .systemFont(ofSize: 26, weight: .semibold) }
+        /// 15 pt — the sentence under a `pageTitle`. `commandBarQuery`'s size,
+        /// for the same reason it is 15: a surface you look *at* rather than
+        /// past. The page's small print stays on `sectionLabel`.
+        static var pageBody: NSFont { .systemFont(ofSize: 15, weight: .regular) }
+
         /// 11 pt tabular — the caption's twin, for the one place it is holding
         /// a number: §6.4's row stamps each archived tab with the time it was
         /// closed, and a column of times set in proportional digits walks left

@@ -11,7 +11,11 @@
 //  one. And **how much of the gesture is the hand's** — macOS scales a precise
 //  scroll by how fast the fingers moved, so the deltas an event carries are not
 //  a distance, and everything above is arithmetic on a number that has already
-//  been multiplied unless something takes the multiplier back off.
+//  been multiplied unless something takes the multiplier back off. What is
+//  asserted about that is the *shape* of the curve rather than one number on
+//  it: it answers the hand everywhere, it never outruns the hand, it never
+//  exceeds the ceiling, and it leaves a slow drag alone. A hard clip passes
+//  three of those four and fails the first, which is exactly how it felt.
 //
 
 import AppKit
@@ -158,29 +162,59 @@ final class SpaceSwipeTests: XCTestCase {
         XCTAssertFalse(Self.resolve(travel * 10, active: 4, of: 2).createsSpace)
     }
 
-    // MARK: - The acceleration, taken back off
+    // MARK: - The acceleration, bent back off
+
+    private static let frame = 1.0 / 60
+    /// One frame's worth of honest hand, which is what the curve's knee is.
+    private static var knee: CGFloat { Tokens.Metric.spaceSwipeSpeed * CGFloat(frame) }
 
     /// **The reported defect: "the scroll is like multiplied".** A trackpad
     /// does not report how far the fingers moved — macOS scales the delta by
     /// how fast they moved, so a flick arrives as several times the travel the
-    /// hand actually covered and the page races out from under it. A frame
-    /// carrying four times a hand's worth of movement is clipped to a hand's.
-    func testAnAcceleratedFlickIsClippedToWhatAHandCanCover() {
-        let frame = 1.0 / 60
-        let honest = Tokens.Metric.spaceSwipeSpeed * CGFloat(frame)
-        let clipped = SpaceSwipeController.damped(honest * 4, since: 1, at: 1 + frame)
-        XCTAssertEqual(clipped, honest, accuracy: 0.001)
-        XCTAssertEqual(SpaceSwipeController.damped(-honest * 4, since: 1, at: 1 + frame), -honest, accuracy: 0.001)
+    /// hand actually covered and the page races out from under it. Four times a
+    /// hand's worth of movement in one frame comes back as about a hand's.
+    func testAnAcceleratedFlickIsFoldedBackTowardWhatAHandCanCover() {
+        let folded = SpaceSwipeController.damped(Self.knee * 4, since: 1, at: 1 + Self.frame)
+        XCTAssertLessThan(folded, Self.knee)
+        XCTAssertGreaterThan(folded, Self.knee * 0.9)
+        XCTAssertEqual(SpaceSwipeController.damped(-Self.knee * 4, since: 1, at: 1 + Self.frame), -folded)
     }
 
-    /// …and a deliberate drag passes through untouched, which is the whole
+    /// However hard the flick, and whichever way.
+    func testNoEventEverCarriesMoreThanTheCeiling() {
+        for delta in [Self.knee * 2, Self.knee * 40, Self.knee * 4000] {
+            XCTAssertLessThan(SpaceSwipeController.damped(delta, since: 1, at: 1 + Self.frame), Self.knee)
+            XCTAssertGreaterThan(SpaceSwipeController.damped(-delta, since: 1, at: 1 + Self.frame), -Self.knee)
+        }
+    }
+
+    /// …and a deliberate drag passes through as itself, which is the whole
     /// reason this is a ceiling and not a gain. A slow drag is barely
     /// accelerated to begin with, so scaling it down would only make the one
     /// gesture that was already honest feel sticky.
-    func testADeliberateDragIsNotDampedAtAll() {
-        let frame = 1.0 / 60
-        for delta in [CGFloat(1), 4, -6] {
-            XCTAssertEqual(SpaceSwipeController.damped(delta, since: 1, at: 1 + frame), delta, accuracy: 0.001)
+    func testADeliberateDragIsAllButUntouched() {
+        for delta in [Self.knee / 20, Self.knee / 8, -Self.knee / 8] {
+            let damped = SpaceSwipeController.damped(delta, since: 1, at: 1 + Self.frame)
+            XCTAssertEqual(damped, delta, accuracy: abs(delta) * 0.03, "\(delta) pt lost more than 3 %")
+        }
+    }
+
+    /// **The bug the curve exists for, stated as arithmetic.** This was a hard
+    /// clip for one build, which is a worse gesture than no damping at all: a
+    /// ceiling low enough to catch a flick catches every event of an ordinary
+    /// swipe too, so every frame comes back as *exactly* the ceiling and the
+    /// page travels at one fixed speed whatever the hand is doing. A curve that
+    /// is still answering the hand keeps rising all the way up, and it never
+    /// rises faster than the hand did — which is the pair of claims that rules
+    /// out both a clip and a gain.
+    func testTheResponseKeepsAnsweringTheHandAndNeverOutrunsIt() {
+        var previous: CGFloat = 0
+        for step in 1...200 {
+            let delta = Self.knee * CGFloat(step) / 20
+            let damped = SpaceSwipeController.damped(delta, since: 1, at: 1 + Self.frame)
+            XCTAssertGreaterThan(damped, previous, "the curve stopped answering at \(delta) pt")
+            XCTAssertLessThanOrEqual(damped, delta, "the curve outran the hand at \(delta) pt")
+            previous = damped
         }
     }
 
@@ -188,17 +222,35 @@ final class SpaceSwipeTests: XCTestCase {
     /// as on a 60 Hz one.** Twice the events, half the budget each, and the
     /// same total travel for the same hand.
     func testTheCeilingIsASpeedRatherThanAnAmountPerEvent() {
-        let sixty = SpaceSwipeController.damped(1000, since: 1, at: 1 + 1.0 / 60)
-        let twenty = SpaceSwipeController.damped(1000, since: 1, at: 1 + 1.0 / 120)
+        let sixty = SpaceSwipeController.damped(10_000, since: 1, at: 1 + Self.frame)
+        let twenty = SpaceSwipeController.damped(10_000, since: 1, at: 1 + 1.0 / 120)
         XCTAssertEqual(sixty, twenty * 2, accuracy: 0.001)
     }
 
     /// The first event of a gesture has nothing to measure from, and a frame
     /// the app spent elsewhere must not hand one event the budget of ten.
     func testAGapWithNothingBehindItIsReadAsOneFrame() {
-        let frame = SpaceSwipeController.damped(1000, since: 1, at: 1 + 1.0 / 60)
+        let frame = SpaceSwipeController.damped(1000, since: 1, at: 1 + Self.frame)
         XCTAssertEqual(SpaceSwipeController.damped(1000, since: 0, at: 99), frame, accuracy: 0.001)
         XCTAssertEqual(SpaceSwipeController.damped(1000, since: 1, at: 2), frame, accuracy: 0.001)
+    }
+
+    /// **The create gesture has to be completable in one stroke**, which is
+    /// what the hard clip's 900 pt/s took away: `spaceCreateTravel` then needed
+    /// four tenths of a second of sustained movement, and a trackpad stroke
+    /// does not last that long. Resistance that cannot be overcome in one
+    /// gesture is not resistance, it is a dead end.
+    func testAFirmStrokeCanStillCloseTheRing() {
+        let stroke = 0.3
+        var offset: CGFloat = 0
+        var last = 1.0
+        // A flick the system has already multiplied, at 120 Hz, for 0.3 s.
+        for step in 1...Int(stroke * 120) {
+            let now = 1 + Double(step) / 120
+            offset += SpaceSwipeController.damped(60, since: last, at: now)
+            last = now
+        }
+        XCTAssertGreaterThan(offset, Tokens.Metric.spaceCreateTravel)
     }
 
     private static func resolve(_ offset: CGFloat, active: Int, of count: Int) -> SpaceSwipe {

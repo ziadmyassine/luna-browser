@@ -61,6 +61,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// use counts against the same `inputHistory` rows.
     private var adaptive: AdaptiveHistory?
     private var downloads: DownloadManager?
+    /// How many downloads are still running, or nil before there is a manager
+    /// to ask. §3.1's quit sheet is the only caller: a download is the one
+    /// thing in Luna that quitting destroys rather than parks.
+    var downloadsInFlight: Int? {
+        downloads.map { manager in manager.items.filter { $0.state == .inProgress }.count }
+    }
+
+    /// §3.1's quit guard, both halves of it — see `AppDelegate+Quit.swift`.
+    ///
+    /// `isQuitConfirmed` is what makes the second `terminate` go through
+    /// instead of asking again. `isQuitFromLogOut` is what stops it asking at
+    /// all when the quit is not the user's: logging out, restarting or shutting
+    /// down gives every app a few seconds and no keyboard, and a modal nobody
+    /// can answer is a machine that will not shut down.
+    var isQuitConfirmed = false
+    private(set) var isQuitFromLogOut = false
     /// `⌘,`. One instance, re-shown rather than rebuilt.
     /// SETTINGS-SPEC §1's separate window. **One instance, reused** — `⌘,`
     /// opens it the first time and focuses it every time after, and it survives
@@ -102,6 +118,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         TokenCheck.run()
         LaunchTrace.mark("tokens")
         #endif
+
+        // Before anything that could be interrupted: the notification arrives
+        // moments before `applicationShouldTerminate` does, and the whole point
+        // of it is to be there first.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(powerOffIsComing),
+            name: NSWorkspace.willPowerOffNotification,
+            object: nil
+        )
 
         // The database is opened before the window, and not on this thread —
         // see ``openStore()``.
@@ -460,7 +486,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// `recordVisit` buffers and `interactionState` dies with its WebContent
     /// process, so quitting has real async work to do. `.terminateLater` is the
     /// only way to do it — `applicationWillTerminate` cannot await.
+    @objc private func powerOffIsComing() {
+        isQuitFromLogOut = true
+    }
+
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        // §3.1: ask first, and answer `.cancel` while the question is up.
+        // `AppDelegate+Quit.swift` has why it cannot be `.terminateLater`.
+        if wantsQuitConfirmation(sender) {
+            presentQuitSheet()
+            return .terminateCancel
+        }
         guard session != nil else { return .terminateNow }
         Task {
             await flush()

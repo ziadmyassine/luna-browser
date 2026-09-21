@@ -79,7 +79,30 @@ enum InternalPageTheme {
             contrast ? NSColor(white: dark ? 1 : 0, alpha: Tokens.Ink.hairlineContrast) : .separatorColor
         },
         Swatch(name: "--luna-line-border") { Tokens.Ink.border.color(contrast: $0, dark: $1) },
-        Swatch(name: "--luna-danger") { _, _ in Tokens.Accent.danger }
+        Swatch(name: "--luna-danger") { _, _ in Tokens.Accent.danger },
+        // The two washes §3.3 and §3.4 cut their wells and their selected row
+        // with. A page has no glass to lay them over — see the note on
+        // `--luna-shadow` — but it has the same two jobs: a recess a mark sits
+        // in, and the one control on the surface that is the answer.
+        // Built here rather than taken from `Surface.well`, for the reason the
+        // hairline above is: `recessInkColor` reads the *live* Increase
+        // Contrast setting, so asking it four times would write this machine's
+        // current answer into all four blocks. A recess is black in both
+        // themes — see `recessInkColor` — which is the one thing that must not
+        // be copied wrong.
+        Swatch(name: "--luna-surface-well") { contrast, dark in
+            NSColor(white: 0, alpha: Tokens.Ink.well.alpha(contrast: contrast, dark: dark))
+        },
+        Swatch(name: "--luna-surface-selected") { Tokens.Ink.selected.color(contrast: $0, dark: $1) },
+        // **§5's popover shadow, because a page cannot be Liquid Glass.** The
+        // material composites what is behind the *window* and a `WKWebView`'s
+        // layer is out of process, so nothing a page draws can sample anything
+        // (`docs/UI-SPEC.md` §3.8). What is left of the chrome's surface on a
+        // page is its plane, its hairline, its corner — and its shadow, which
+        // is the only one of the four that carries depth. It is the same
+        // shadow the downloads popover stands on, for the same reason: §2 asks
+        // for a heavier material and there is not one.
+        Swatch(name: "--luna-shadow") { _, _ in Tokens.Shadow.popover.color }
     ]
 
     /// `rgb(r g b / a)` — CSS Color 4's space-separated form, which keeps the
@@ -121,6 +144,16 @@ enum InternalPageTheme {
             px("--luna-size-row", Tokens.TypeScale.sidebarRow.pointSize),
             px("--luna-size-pill", Tokens.TypeScale.urlPill.pointSize),
             px("--luna-size-label", Tokens.TypeScale.sectionLabel.pointSize),
+            px("--luna-size-title", Tokens.TypeScale.pageTitle.pointSize),
+            px("--luna-size-body", Tokens.TypeScale.pageBody.pointSize),
+            // A `CALayer` shadow is an offset in AppKit's coordinates and a
+            // Gaussian radius; CSS wants a downward offset and a blur. The
+            // height is negated because down is negative up here and positive
+            // down there, and the radius is passed straight across — the two
+            // blurs are not the same function and a fudge factor would be a
+            // second number nobody could check.
+            px("--luna-shadow-lift", -Tokens.Shadow.popover.offset.height),
+            px("--luna-shadow-reach", Tokens.Shadow.popover.radius),
             // Reduce Motion is `prefers-reduced-motion` in the page, so this
             // stays the resting duration rather than being zeroed here.
             "--luna-motion-hover:\(Tokens.Motion.rowHover.duration)s"

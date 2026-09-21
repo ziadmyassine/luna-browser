@@ -104,12 +104,18 @@ final class SpaceCreationView: NSView {
         let reach = max(0, min(progress, 1))
         let resting = bounds.maxX - inset - hoop
         let travel = bounds.maxX - resting
+        // **Not snapped to the pixel grid**, for `SpaceDotView`'s reason and
+        // more so: this disc exists only while it is moving — it is hidden at
+        // rest — so there is no settled position for alignment to make crisp,
+        // and rounding its origin turned a 280 pt glide into 280 visible steps
+        // under a hand that was moving slowly and deliberately. Down the column
+        // it is snapped, because that is a position that never moves.
         let hoopRect = NSRect(
             x: resting + travel * (1 - reach),
-            y: (bounds.height - hoop) / 2,
+            y: ((bounds.height - hoop) / 2).rounded(),
             width: hoop,
             height: hoop
-        ).pixelAligned
+        )
         disc.frame = hoopRect.insetBy(dx: (hoop - side) / 2, dy: (hoop - side) / 2)
         glyph.frame = NSRect(
             x: (side - Tokens.Metric.glyphSize) / 2,

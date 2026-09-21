@@ -153,6 +153,7 @@ final class GeneralSection: NSObject, SettingsSection {
 
     static let onLaunchKey = "general.onLaunch"
     static let confirmCloseKey = "general.confirmClose"
+    static let confirmQuitKey = "general.confirmQuit"
 
     static var onLaunch: OnLaunch {
         UserDefaults.standard.string(forKey: onLaunchKey).flatMap(OnLaunch.init(rawValue:)) ?? .restoreSession
@@ -163,6 +164,15 @@ final class GeneralSection: NSObject, SettingsSection {
     /// than for the speed.
     static var confirmClose: Bool {
         UserDefaults.standard.object(forKey: confirmCloseKey) as? Bool ?? true
+    }
+
+    /// Defaults **on**, and unlike the row above it this one has a reader:
+    /// `AppDelegate.applicationShouldTerminate` puts `QuitSheetView` up. ⌘Q is
+    /// next to ⌘W and takes every window with it, so the guard is the default
+    /// and the sheet's own third answer is how it comes off — a preference you
+    /// can only turn off from a dialog is a trap, so it is also here.
+    static var confirmQuit: Bool {
+        UserDefaults.standard.object(forKey: confirmQuitKey) as? Bool ?? true
     }
 
     // MARK: Default browser
@@ -198,7 +208,8 @@ final class GeneralSection: NSObject, SettingsSection {
         body.card("Startup and tabs", [
             (onLaunchRow(), ["on launch", "startup", "restore last session", "new tab"]),
             (autoArchiveRow(), ["auto-archive tabs after", "archive", "idle tabs", "6 hours", "12 hours", "24 hours", "never"]),
-            (confirmCloseRow(), ["confirm before closing a window with multiple tabs", "close", "warn"])
+            (confirmCloseRow(), ["confirm before closing a window with multiple tabs", "close", "warn"]),
+            (confirmQuitRow(), ["ask before quitting luna", "quit", "confirm", "command q", "warn"])
         ])
         refreshStatus()
         // The user can change the handler in System Settings while this window
@@ -276,6 +287,16 @@ final class GeneralSection: NSObject, SettingsSection {
     /// `AutoArchive` spells "never" as 0 hours (§6.3).
     static func hoursTitle(_ hours: Double) -> String {
         hours > 0 ? "\(Int(hours)) hours" : "Never"
+    }
+
+    /// Live, where `confirmCloseRow` is not: this one is read on every ⌘Q.
+    private func confirmQuitRow() -> NSView {
+        SettingsRow.toggle(
+            "Ask before quitting Luna",
+            value: Self.confirmQuit
+        ) { value in
+            UserDefaults.standard.set(value, forKey: Self.confirmQuitKey)
+        }
     }
 
     private func confirmCloseRow() -> NSView {

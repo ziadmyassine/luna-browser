@@ -133,7 +133,20 @@ luna/
 - [ ] **4.3 Navigation state observation** — KVO/`publisher` on `url`, `title`, `isLoading`, `estimatedProgress`, `canGoBack/Forward`, `themeColor`, `underPageBackgroundColor`, `serverTrust`, `hasOnlySecureContent`, `fullscreenState`, `cameraCaptureState`, `microphoneCaptureState`.
 - [ ] **4.4 `luna://` internal pages** via `WKURLSchemeHandler` (new tab, settings-embedded docs, error pages, archive view).
   > **Gotcha:** a custom scheme handler only fires for resources loaded *within a document loaded from that same scheme*. Internal pages must be navigated to as `luna://…`, not injected into an `about:blank`.
-- [ ] **4.5 Error pages** — replace WebKit's default failure with our styled page (offline, DNS, TLS, blocked-by-us), with a Retry button routed through the scheme handler.
+- [x] **4.5 Error pages** — replace WebKit's default failure with our styled page (offline, DNS, TLS, blocked-by-us), with a Retry button routed through the scheme handler.
+  > **Redesigned 2026-09-21, and the fault was the type scale.** The pages were built entirely out of
+  > the tokens the CSS bridge happened to export — `urlPill` at 13 pt and `sectionLabel` at 12 — so
+  > every line on a thousand-point page was set for a 268 pt column, and the whole thing read as a
+  > sidebar that had got loose in the window. `TypeScale.pageTitle`/`pageBody` exist for this.
+  > Also: **six marks, not one.** Every kind wore the same exclamation-in-a-circle, which says
+  > "something went wrong" six times and distinguishes nothing; `.generic` keeps it, because that is
+  > honestly all that page knows. The card stands on §5's shadow, the mark sits in a §3.3 well and
+  > the address that failed sits in a §3.2 pill — the shapes this window already has.
+  > **A page cannot be Liquid Glass and this is not a gap to close.** The material composites what is
+  > behind the *window* and a `WKWebView`'s layer is out of process, so a `backdrop-filter` here
+  > would blur `--luna-surface-base`, which is flat. What carries across is the plane, the hairline,
+  > the corner and the shadow — which is exactly the chrome's Reduce Transparency fallback, and a
+  > page is a permanent Reduce Transparency.
   > **Correction, built 2026-09-17:** not every page gets **Retry**. For blocked-by-us and the HTTPS downgrade a retry re-fails by definition, so those two carry **Continue Anyway** instead — `luna://proceed?url=…`, which sets a one-shot `bypassedURL` cleared on the next `didCommit` (and, for the downgrade, persists via `allowInsecure(host:)`). Any blocker must let that one URL through.
 - [ ] **4.6 User-Agent policy** — default to system UA + `applicationNameForUserAgent`. Ship a per-site UA override table (Safari UA / Chrome UA) because some sites gate on Chrome. Add a UI toggle in the site menu.
   > **Gotcha (verified in M0):** `applicationNameForUserAgent` **appends to** WebKit's default UA, it does not replace it — and WebKit's default contains **no `Version/` and no `Safari/` token at all**. So a bare `Luna/1.0` ships a UA that compat-sniffing sites reject. Put the Safari tokens first and the product token last, the way Edge and Chrome-on-iOS do: `Version/<os> Safari/605.1.15 Luna/<CFBundleShortVersionString>`. Read the version from `Bundle` so it cannot rot. Confirmed in the wild: Ora sets a *complete* UA string here and consequently ships a doubled `Mozilla/5.0 … AppleWebKit …` prefix; Nook gets it right.

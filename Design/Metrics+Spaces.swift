@@ -80,24 +80,36 @@ extension Tokens.Metric {
     /// should be free, and making one should not be.
     static let spaceSwipeTravel: CGFloat = 120
 
-    /// The fastest §30.9's page is allowed to travel, in points of page per
-    /// second of gesture.
+    /// Where the system's acceleration starts being taken back off, in points
+    /// of hand per second.
     ///
-    /// **This is the de-accelerator, and it is the other half of why the swipe
-    /// felt multiplied.** `scrollingDeltaX` on a trackpad is not how far the
-    /// fingers moved: macOS scales it by how fast they moved, so one firm flick
-    /// arrives as several hundred points of "travel" for eighty points of hand.
-    /// A flat gain would fix the flick by making a slow, deliberate drag feel
-    /// sticky, because a slow drag is barely accelerated to begin with. A
-    /// **ceiling on speed** touches only the motion that was multiplied: each
-    /// event may contribute at most this much per second of the time since the
-    /// last one, so honest movement passes through untouched and the
-    /// multiplier is clipped off the top.
+    /// **This is the de-accelerator's knee, and it is not a wall.**
+    /// `scrollingDeltaX` on a trackpad is not how far the fingers moved: macOS
+    /// scales it by how fast they moved, so one firm flick arrives as several
+    /// hundred points of "travel" for eighty points of hand. A flat gain would
+    /// fix the flick by making a slow, deliberate drag feel sticky, because a
+    /// slow drag is barely accelerated to begin with. So the curve is 1:1 at
+    /// the bottom and bends over at the top: movement under this speed passes
+    /// through untouched and movement far above it is compressed toward it —
+    /// see `SpaceSwipeController.damped`.
     ///
-    /// 900 pt/s is a fast hand — roughly the whole sidebar in a third of a
-    /// second — and it is stated as a speed rather than as points per event so
-    /// it means the same thing on a 60 Hz panel and a 120 Hz one.
-    static let spaceSwipeSpeed: CGFloat = 900
+    /// **1600, and it was 900 as a hard clip for one build.** Both halves of
+    /// that were wrong in the hand. A hard clip turns every event a real swipe
+    /// delivers into exactly the ceiling, which is a page travelling at one
+    /// fixed speed no matter what the hand is doing — the gesture stops being
+    /// followed and starts being played back. And 900 pt/s is *under* a
+    /// deliberate drag, let alone a flick, so the clip was firing on the whole
+    /// gesture rather than on the accelerated top of it: `spaceCreateTravel`'s
+    /// 360 pt then needed four tenths of a second of sustained movement, which
+    /// is longer than a trackpad stroke lasts, so the ring could not be closed
+    /// in one go at all.
+    ///
+    /// 1600 pt/s is about where a hand stops moving and starts flicking: a
+    /// deliberate drag runs well under it and loses nothing, and a flick
+    /// arrives at three or four times it and is folded back down. Stated as a
+    /// speed rather than as points per event so it means the same thing on a
+    /// 60 Hz panel and a 120 Hz one.
+    static let spaceSwipeSpeed: CGFloat = 1600
 
     /// How far **past the last Space** the same two fingers travel to close
     /// §30.9's ring and make a new one.

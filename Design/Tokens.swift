@@ -281,22 +281,6 @@ enum Tokens {
         static var border: NSColor { inkColor("luna.line.border", Ink.border) }
     }
 
-    // MARK: - Accent
-
-    /// **Fills, rings and glyphs only — never text.** Both are system-backed
-    /// and both measure *under* 4.5:1 as text on Luna's surfaces: the user's
-    /// accent at 4.02:1 on `base` light / 3.52:1 on `raised`, `systemRed` at
-    /// 3.57:1 on `base` light. A view that needs coloured *text* must ask for
-    /// a token here rather than tinting `Text.primary` itself.
-    enum Accent {
-        /// The user's System Settings accent. System-backed on purpose: a
-        /// browser that ignores the accent choice looks foreign on macOS.
-        static var tint: NSColor { .controlAccentColor }
-
-        /// Destructive affordances — close, delete, stop. System-backed.
-        static var danger: NSColor { .systemRed }
-    }
-
     // MARK: - Reload bloom (§7)
 
     /// The §7 reload arc's gradient bands, **inner edge to outer**:

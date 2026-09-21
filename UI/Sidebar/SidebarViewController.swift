@@ -205,11 +205,23 @@ final class SidebarViewController: NSViewController {
             wash.show(space.gradient)
             onSpaceGradientChange?(space.gradient)
         }
-        essentials.show(session.tabs.filter { $0.kind == .essential }, activeTabID: session.activeTabID)
+        // **`replacing:` is the same claim `lastGridHeight = nil` makes, made to
+        // the two halves of the column.** Both of them animate a tab leaving —
+        // the row fades over §6's `tabInsert`, the tile fades where it stood —
+        // and `NSTableView` and the grid alike keep what is leaving *on screen*
+        // for the length of that fade. Across a Space switch that is every row
+        // and every tile at once, so the Space just left stayed drawn, fading,
+        // over the Space just arrived in: the flash of the previous Space's
+        // tabs. One transition per switch, and it is the column's cross-fade.
+        essentials.show(
+            session.tabs.filter { $0.kind == .essential },
+            activeTabID: session.activeTabID,
+            replacing: switchingSpace
+        )
         // §3.4a: before `show`, so the rows are configured against the current answer
         // rather than the one from before a mute landed.
         list.mutedTabIDs = session.mutedTabIDs
-        list.show(session.tabs, activeTabID: session.activeTabID)
+        list.show(session.tabs, activeTabID: session.activeTabID, replacing: switchingSpace)
         utility.show(spaces: session.spaces, activeSpaceID: session.activeSpaceID)
         // §3.5's line, and §9's fan-out made visible: the Profile is derived
         // from the Space, so it changes on a Space switch **and** on a

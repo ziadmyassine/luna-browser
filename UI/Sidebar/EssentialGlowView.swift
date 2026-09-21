@@ -104,11 +104,29 @@ final class EssentialGlowView: NSView {
     /// nothing rather than from where it was: the frame has already jumped to
     /// the new tile by then, and fading the remainder of the old light up to
     /// full there reads as the glow having always been on.
-    func show(_ tint: NSColor?, blooming: Bool) {
+    ///
+    /// - Parameter animated: false puts the light where it belongs in this
+    ///   frame. §6's Space switch is the one caller that asks for it: the grid
+    ///   under this light has been replaced wholesale, and `essentialGlow`
+    ///   outlasts `spaceSwitchCrossfade` by a third — so a light fading out of
+    ///   the Space you left is still burning over the Space you arrived in
+    ///   after that Space has finished fading up, on a tile that is no longer
+    ///   there. There is nothing to cross-fade between: it is not the same
+    ///   light moving, it is a different grid.
+    func show(_ tint: NSColor?, blooming: Bool, animated: Bool = true) {
         if let tint { self.tint = tint }
         paint()
         isLit = tint != nil
         let target: CGFloat = isLit ? 1 : 0
+        guard animated else {
+            // Both of them: the alpha this is overriding and the flare that
+            // may still be springing beside it are the only two animations
+            // this view ever carries.
+            return Tokens.Motion.immediately {
+                layer?.removeAllAnimations()
+                alphaValue = target
+            }
+        }
         guard blooming || target != alphaValue else { return }
         if blooming { alphaValue = 0 }
         Tokens.Motion.animate(Tokens.Motion.essentialGlow) { context in

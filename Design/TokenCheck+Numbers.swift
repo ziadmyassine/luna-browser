@@ -101,6 +101,20 @@ extension TokenCheck {
                 metric.spaceCreateTravel, metric.spaceSwipeTravel
             ))
         }
+        // **The two numbers have to agree about time as well as distance.** A
+        // ceiling on how fast a gesture may travel is also a floor on how long
+        // `spaceCreateTravel` takes to cover, and the two were set apart: at
+        // 900 pt/s the 360 pt ring needed four tenths of a second of unbroken
+        // movement, which is longer than a trackpad stroke lasts — so the one
+        // gesture the resistance is *for* could not be completed at all.
+        // Resistance that cannot be overcome in one stroke is a dead end.
+        let stroke: CGFloat = 0.25
+        if metric.spaceCreateTravel > metric.spaceSwipeSpeed * stroke {
+            failures.append(String(
+                format: "Metric.spaceCreateTravel is %.0f pt at %.0f pt/s — more than one stroke, so the ring cannot close",
+                metric.spaceCreateTravel, metric.spaceSwipeSpeed
+            ))
+        }
         // The ring is drawn **around** the glass disc, so it has to be bigger
         // than one — and by enough to read as a ring with a button in it
         // rather than as a border painted on the button's edge.

@@ -94,12 +94,34 @@ extension RowPillView {
                 frame = target
             }
         }
-        fade(to: 1)
+        // **No spec means no transition at all, alpha included.** A move the
+        // pill did not make — a live resize, a list that has been replaced
+        // under it — lands; it does not arrive.
+        fade(to: 1, animated: spec != nil)
     }
 
     /// Park the pill, or bring it back. A row with nothing selected and nothing
     /// hovered has no fill at all (§30.7).
-    func fade(to alpha: CGFloat) {
+    ///
+    /// **`animated: false` is a cancel, not a shorter fade**, which is why it
+    /// does not take the `alphaValue` short-cut the animated path does: the
+    /// value being asked for may be the one an animation that is still running
+    /// is already heading to, and the whole point of the call is that the pill
+    /// has to be there *now*. §6's Space switch is the case that needs it —
+    /// the list under this pill is a different Space's list by then, and a fill
+    /// still fading out of the Space you left is a glass pill lying in the
+    /// Space you arrived in with no row inside it.
+    ///
+    /// Clearing the animations is safe here because the only two this view ever
+    /// carries are this fade and `move`'s spring, and `move` asks for an
+    /// unanimated fade only on the branch that has just cancelled that spring.
+    func fade(to alpha: CGFloat, animated: Bool = true) {
+        guard animated else {
+            return Tokens.Motion.immediately {
+                layer?.removeAllAnimations()
+                alphaValue = alpha
+            }
+        }
         guard alphaValue != alpha else { return }
         Tokens.Motion.animate(Tokens.Motion.rowHover) { context in
             context.allowsImplicitAnimation = true

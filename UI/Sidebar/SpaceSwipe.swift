@@ -26,9 +26,15 @@
 //  **The acceleration is taken off before any of that arithmetic runs**, which
 //  is a separate fix for a separate complaint: a capped gesture still felt
 //  multiplied, because the page was tracking a delta the system had already
-//  scaled by how fast the fingers moved. `damped(_:since:at:)` puts a ceiling
-//  on how much page one event may carry per second of hand, which leaves a
-//  deliberate drag untouched and clips the multiplier off a flick.
+//  scaled by how fast the fingers moved. `damped(_:since:at:)` bends the top
+//  off how much page one event may carry per second of hand, which leaves a
+//  deliberate drag as itself and folds the multiplier off a flick.
+//
+//  **It bends rather than cutting**, and that distinction is the difference
+//  between a gesture that is followed and one that is played back at you: a
+//  hard ceiling low enough to catch a flick catches *every* event of an
+//  ordinary swipe too, and a page whose every frame is the ceiling travels at
+//  one fixed speed regardless of the hand. See `damped(_:since:at:)`.
 //
 //  So the create zone is not somewhere a long swipe can reach. It is only
 //  there **when there is no next Space**, which is the only situation in which
@@ -230,27 +236,39 @@ final class SpaceSwipeController {
         return update()
     }
 
-    /// One event's `scrollingDeltaX`, with the system's acceleration taken
-    /// back off the top.
+    /// One event's `scrollingDeltaX`, with the system's acceleration bent back
+    /// off the top.
     ///
     /// **A trackpad does not report distance; it reports scaled distance.**
     /// macOS multiplies a precise scroll by how fast the fingers were moving,
     /// so the same eighty points of hand arrive as eighty points when dragged
     /// and as three hundred when flicked — and a page bound to that delta races
-    /// out from under the fingers pushing it. What this takes off is only the
-    /// multiplier: the event may carry as much travel as
-    /// `Metric.spaceSwipeSpeed` allows for the time since the last one, which a
-    /// deliberate drag never comes near and a flick exceeds several times over.
+    /// out from under the fingers pushing it.
+    ///
+    /// **The curve bends; it does not stop.** This was a hard clip for one
+    /// build and a hard clip is a worse gesture than no damping at all: every
+    /// event of a real swipe lands above the ceiling, so every event comes back
+    /// as *exactly* the ceiling and the page travels at one fixed speed no
+    /// matter what the hand does. The gesture stops being followed. `tanh` is
+    /// the same ceiling with the corner taken off — its slope is 1 at the
+    /// origin, so movement well under `Metric.spaceSwipeSpeed` passes through
+    /// as itself, and it flattens smoothly toward the ceiling rather than
+    /// meeting it at an edge. There is no boundary for a hand to sit on top of
+    /// and no discontinuity for a jittery one to chatter across.
     ///
     /// The interval is clamped at both ends rather than trusted. A first
     /// `.changed` has nothing to measure from, and a frame the app spent
     /// elsewhere would otherwise hand one event the budget of ten — so the gap
     /// is read as a frame in both cases, which is what it was in all but name.
+    ///
+    /// Internal rather than private so `SpaceSwipeTests` can assert the curve;
+    /// nothing outside this file calls it.
     static func damped(_ delta: CGFloat, since last: TimeInterval, at now: TimeInterval) -> CGFloat {
         let frame: TimeInterval = 1.0 / 60
         let interval = last > 0 ? min(max(now - last, 1.0 / 240), frame) : frame
         let ceiling = Tokens.Metric.spaceSwipeSpeed * CGFloat(interval)
-        return min(max(delta, -ceiling), ceiling)
+        guard ceiling > 0 else { return 0 }
+        return ceiling * CGFloat(tanh(Double(delta / ceiling)))
     }
 
     @discardableResult
