@@ -90,6 +90,12 @@ jobs:
         # Runs even when the engine half failed. Two separate answers are worth
         # more than one, and they usually fail for unrelated reasons.
         if: ${{ !cancelled() }}
+        # Expect a handful of skips here that do not happen on a developer Mac.
+        # The runner has Reduce Transparency on, so §21.2 builds the opaque
+        # plane and there is no NSGlassEffectView anywhere to read a style or a
+        # tint back off — measured, via Surface.glassFallback arriving where a
+        # frost was expected. The glass tests skip and GlassDensityTests asserts
+        # the fallback instead, which is the only host that path runs on.
         # `-destination` is spelled out rather than left to default: a runner
         # has no "My Mac" to mean, and an ambiguous destination is a confusing
         # failure to read from a log.

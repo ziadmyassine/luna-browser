@@ -174,9 +174,14 @@ final class CommandBarProfileIdentityTests: XCTestCase {
 
     /// The Profile-aware dedupe must not cost the keystroke path anything. 400
     /// tabs spread across two Profiles, which is the shape that exercises every
-    /// new branch, against §9.7's 100 ms budget and the 9.3 ms median it has
-    /// today. Loose on purpose — this catches an accidental O(n²), not a
-    /// microsecond.
+    /// new branch, against §9.7's 100 ms budget.
+    ///
+    /// The bound is one frame rather than the time the merge actually takes.
+    /// Set to 5 ms it failed on a CI runner at 5.03: a bound a hair above the
+    /// measurement tests the machine the suite is running on, and `BudgetTests`
+    /// is where wall-clock assertions of that kind belong. What is worth
+    /// catching here is an accidental O(n²), which misses a frame by orders of
+    /// magnitude rather than by half a percent.
     func testProfileAwareDedupeStaysInsideTheKeystrokeBudget() {
         let workSpace = space("Work", profile: work)
         let personalSpace = space("Personal", profile: personal)
@@ -198,6 +203,6 @@ final class CommandBarProfileIdentityTests: XCTestCase {
         }
         let perKeystroke = (ContinuousClock.now - started) / 20
 
-        XCTAssertLessThan(perKeystroke, .milliseconds(5), "§9.7: local merge fits in one 16 ms frame")
+        XCTAssertLessThan(perKeystroke, .milliseconds(16), "§9.7: local merge fits in one 16 ms frame")
     }
 }

@@ -71,10 +71,9 @@ final class URLPillMarkTests: XCTestCase {
     /// globe. Skipped rather than failed when the cache has nothing — the
     /// branch is about what happens when there is an icon.
     func testASiteWithAnIconWearsIt() throws {
-        let icon = try XCTUnwrap(
-            SidebarIcons.favicon(for: URL(string: "https://apple.com")!),
-            "no cached icon on this machine — nothing to assert"
-        )
+        guard let icon = SidebarIcons.favicon(for: URL(string: "https://apple.com")!) else {
+            throw XCTSkip("no cached icon on this machine — nothing to assert")
+        }
         XCTAssertEqual(Mark.reading("apple.com"), .site(icon))
     }
 

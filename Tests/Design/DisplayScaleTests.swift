@@ -48,6 +48,15 @@ final class DisplayScaleTests: XCTestCase {
         try XCTUnwrap(glassViews(in: view).first, "no NSGlassEffectView found \(message)")
     }
 
+    /// There is nothing to read back on a host with Reduce Transparency on:
+    /// §21.2 builds the opaque plane instead of the material, so every test
+    /// below is asking about a view `GlassBackingView` deliberately did not
+    /// make. Every CI runner has the setting on, which is where this was found
+    /// — `GlassDensityTests` asserts what stands in for the glass there.
+    private func skipWithoutGlass() throws {
+        try XCTSkipIf(Tokens.A11y.reduceTransparency, "Reduce Transparency: §21.2 draws a plane, not glass")
+    }
+
     private func makeWindow() -> NSWindow {
         NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 200, height: 120),
@@ -97,6 +106,7 @@ final class DisplayScaleTests: XCTestCase {
     /// already on screen. Checked on `.control`, which is the style the table
     /// changes most — `.clear` with no tint becomes `.regular` with one.
     func testFlippingTheSettingReSkinsGlassThatIsAlreadyOnScreen() throws {
+        try skipWithoutGlass()
         let window = makeWindow()
         let root = NSView(frame: NSRect(x: 0, y: 0, width: 200, height: 120))
         window.contentView = root
@@ -126,6 +136,7 @@ final class DisplayScaleTests: XCTestCase {
     /// their tint, and a style change here would be a visible regression for
     /// every Retina user.
     func testSidebarKeepsItsStyleAndOnlyChangesTint() throws {
+        try skipWithoutGlass()
         let window = makeWindow()
         let root = NSView(frame: NSRect(x: 0, y: 0, width: 200, height: 120))
         window.contentView = root
@@ -159,6 +170,7 @@ final class DisplayScaleTests: XCTestCase {
     /// It has to show the real difference, so the two tiles must actually
     /// differ — and in §7's terms, not merely somewhere.
     func testTheTwoPreviewTilesRenderDifferentMaterial() throws {
+        try skipWithoutGlass()
         let size = Tokens.Metric.glassPreviewTile.size
         let plain = glassViews(in: Glass.previewTile(size: size, optimised: false))
         let optimised = glassViews(in: Glass.previewTile(size: size, optimised: true))
@@ -178,6 +190,7 @@ final class DisplayScaleTests: XCTestCase {
     /// Pinned: the Settings window shows both columns side by side on one
     /// display, so the tiles must not follow the live setting.
     func testPreviewTilesDoNotFollowTheLiveSetting() throws {
+        try skipWithoutGlass()
         let size = Tokens.Metric.glassPreviewTile.size
         Glass.optimisation = .off
         let tile = Glass.previewTile(size: size, optimised: true)
