@@ -94,7 +94,8 @@ final class SpacesSection: SettingsSection {
                         self?.editAppearance(of: space, from: anchor, session: session)
                     }
                 ),
-                rows: rows
+                rows: rows,
+                inList: true
             )
         }
 

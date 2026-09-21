@@ -26,7 +26,7 @@ extension SpacesSection {
         let add = newProfileButton(session: session)
         body.heading(SettingsRow.heading(String(localized: "Profiles"), accessory: add.view), terms: add.terms)
         for profile in session?.profilesByName ?? [] {
-            body.card(profile.name, profileRows(profile, session: session))
+            body.card(profile.name, profileRows(profile, session: session), inList: true)
         }
     }
 
@@ -40,11 +40,6 @@ extension SpacesSection {
         session: BrowserSession?
     ) -> [(view: NSView, terms: [String])] {
         let spacesOnIt = session?.spaces(onProfile: profile.id) ?? []
-        let fanOut = SpacesSection.fanOutLabel(
-            profileName: profile.name,
-            spacesOnProfile: spacesOnIt,
-            favorites: session?.favorites(onProfile: profile.id).count ?? 0
-        )
         let name = String(localized: "Name")
         let rename = SettingsRow.text(
             name, value: profile.name, placeholder: profile.name, limit: SpaceNameFormatter()
@@ -66,15 +61,32 @@ extension SpacesSection {
             action: String(localized: "Delete…"),
             isDestructive: true,
             isEnabled: canDelete,
-            disabledReason: canDelete ? nil : String(localized: """
-            A profile in use cannot be deleted. Move its Spaces onto another profile first.
-            """)
+            // Keyed off the count rather than off `canDelete`, which is also
+            // false with no session at all — and "0 Spaces are using this" is
+            // not a reason for anything.
+            disabledReason: spacesOnIt.isEmpty ? nil : Self.inUseReason(spacesOnIt.count)
         ) { [weak self] in self?.deleteProfile(profile, session: session) }
+        // Two rows, not three. §9's fan-out stood between them, and on this
+        // card it was the same sentence twice: the Spaces sharing a profile
+        // are listed above, each one carrying that line on its own card, where
+        // it answers the question it exists for — "why am I still logged in
+        // over here" is asked about a Space. Here it only described the card
+        // it was sitting in. The count it was carrying is not lost: the Delete
+        // row states it, and states it where it changes what you can do.
         return [
             (rename, [name, profile.name, "rename profile", "profile name"]),
-            (SettingsRow.note(fanOut), [fanOut, "shared", "spaces", "favorites"]),
-            (delete, [remove, profile.name, "delete profile", "remove profile"])
+            (delete, [remove, profile.name, "delete profile", "remove profile", "shared", "favorites"])
         ]
+    }
+
+    /// Why Delete is dimmed, counting the Spaces that are the reason.
+    ///
+    /// The count is here rather than in a line of its own because this is
+    /// where it changes what the user can do — see `profileRows`.
+    static func inUseReason(_ spaces: Int) -> String {
+        spaces == 1
+            ? String(localized: "1 Space is using this profile. Move it onto another profile first.")
+            : String(localized: "\(spaces) Spaces are using this profile. Move them onto another profile first.")
     }
 
     // MARK: Making one

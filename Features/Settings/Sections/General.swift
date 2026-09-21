@@ -41,6 +41,8 @@ final class SettingsBody {
     let view = NSStackView()
     private var entries: [Entry] = []
     private var cards: [NSView] = []
+    /// Whether the last thing added was a card in a run — see `install`.
+    private var listRun = false
 
     init() {
         view.orientation = .vertical
@@ -52,8 +54,10 @@ final class SettingsBody {
     /// One glass-backed card (§1's "grouped control rows"). Each row carries the
     /// labels a search should match it on — its title first, then any word a
     /// user would plausibly type for it.
-    func card(_ title: String?, _ rows: [(view: NSView, terms: [String])]) {
-        install(SettingsRow.group(title, rows.map(\.view)), rows: rows)
+    /// `inList` marks one of a run of cards that are the same kind of thing,
+    /// which sit `settingsListGap` apart rather than a group's distance.
+    func card(_ title: String?, _ rows: [(view: NSView, terms: [String])], inList: Bool = false) {
+        install(SettingsRow.group(title, rows.map(\.view)), rows: rows, inList: inList)
     }
 
     /// A card the section built for itself, with its rows named separately so
@@ -64,8 +68,8 @@ final class SettingsBody {
     /// downstream of this point treats it like any other card: the rows hide
     /// one by one as the query narrows, and the card goes when the last of them
     /// does.
-    func card(_ made: NSView, rows: [(view: NSView, terms: [String])]) {
-        install(made, rows: rows)
+    func card(_ made: NSView, rows: [(view: NSView, terms: [String])], inList: Bool = false) {
+        install(made, rows: rows, inList: inList)
     }
 
     /// A heading the cards under it belong to — `SettingsRow.heading`.
@@ -77,9 +81,17 @@ final class SettingsBody {
         entries.append(Entry(view: child, terms: terms.map { $0.lowercased() }, card: nil))
         add(child)
         view.setCustomSpacing(Tokens.Metric.chromeGap, after: child)
+        listRun = false
     }
 
-    private func install(_ card: NSView, rows: [(view: NSView, terms: [String])]) {
+    private func install(_ card: NSView, rows: [(view: NSView, terms: [String])], inList: Bool) {
+        // The gap belongs to the pair, so it is set when the second of them
+        // arrives: a run's first card is still a group's distance from
+        // whatever it follows.
+        if inList, listRun, let previous = view.arrangedSubviews.last {
+            view.setCustomSpacing(Tokens.Metric.settingsListGap, after: previous)
+        }
+        listRun = inList
         let index = cards.count
         for row in rows {
             entries.append(Entry(view: row.view, terms: row.terms.map { $0.lowercased() }, card: index))
@@ -100,6 +112,7 @@ final class SettingsBody {
             view.setCustomSpacing(Tokens.Metric.chromeGap, after: previous)
         }
         add(child)
+        listRun = false
     }
 
     var searchIndex: [String] { entries.flatMap(\.terms) }

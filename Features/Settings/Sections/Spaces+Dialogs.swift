@@ -335,18 +335,24 @@ extension SpacesSection {
     /// Layout for it — a stack with a frame is the shape that survives.
     /// Internal for `body`'s reason: every dialog this section raises stands
     /// its fields in one of these, and §9's Profile dialogs are next door.
+    ///
+    /// The width is stated here because the stack takes it away. Adding a view
+    /// to an `NSStackView` turns that view's autoresizing mask off, so the
+    /// frame it was built with is dropped and Auto Layout sizes it to its own
+    /// content — and an empty `NSTextField`'s own content is nothing. Every
+    /// field in every dialog this pane raises came out a few points wide, tall
+    /// enough to be a field and too narrow to type a name into.
     static func stack(_ views: [NSView]) -> NSView {
         let stack = NSStackView(views: views)
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = Tokens.Metric.rowGap
-        stack.frame = NSRect(
-            origin: .zero,
-            size: CGSize(
-                width: Tokens.Metric.urlPill.width,
-                height: Tokens.Metric.urlPill.height * CGFloat(views.count) + Tokens.Metric.rowGap
-            )
-        )
+        for view in views {
+            view.widthAnchor.constraint(equalToConstant: Tokens.Metric.urlPill.width).isActive = true
+        }
+        // Measured rather than counted: a popup and a field are not the same
+        // height, and the old arithmetic assumed they were.
+        stack.frame = NSRect(origin: .zero, size: stack.fittingSize)
         return stack
     }
 }

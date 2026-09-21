@@ -42,6 +42,14 @@ extension TokenCheck {
         if !(floor >= Tokens.Metric.sidebarFootWidth) {
             failures.append("Metric.sidebarFootFloor is narrower than §3.5's foot")
         }
+        // §1's three distances in the pane, in the order they mean: a note
+        // belongs to the card above it, a card belongs to the run it is in,
+        // and a run is its own group. Collapse any two of them and the pane
+        // stops saying which.
+        let list = Tokens.Metric.settingsListGap
+        if !(Tokens.Metric.chromeGap < list && list < Tokens.Metric.settingsGroupGap) {
+            failures.append("Metric.settingsListGap is not between Metric.chromeGap and Metric.settingsGroupGap")
+        }
         return failures + checkRoundedMetrics() + checkPositiveMetrics()
             + checkSpaceSwipe() + checkRowInsets()
     }

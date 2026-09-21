@@ -40,6 +40,16 @@ extension Tokens.Metric {
     /// A control row inside a card, and the gap from one card to the next.
     static let settingsCardRow: CGFloat = 44
     static let settingsGroupGap: CGFloat = 24
+    /// Two cards that are the same kind of thing — §6.2's Spaces, §9's
+    /// Profiles — rather than one group and the next.
+    ///
+    /// Half `settingsGroupGap`, and derived from it because the point is the
+    /// ratio: a run of six cards a full group apart is six sections that
+    /// happen to look alike, and the pane loses the one thing that says they
+    /// are a list. Not `chromeGap`, which already means the tighter thing —
+    /// a note at 8 pt reads as belonging to the card above it, and a Space's
+    /// card does not belong to the Space above it.
+    static let settingsListGap = settingsGroupGap / 2
 
     /// One height and one corner for every control in the pane — button,
     /// segment, key chip, text field. The browser's chrome does the same with
