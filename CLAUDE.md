@@ -71,3 +71,37 @@ being pressed.
   that produced it.
 - `Design/TokenCheck*.swift` asserts the invariants between them at launch. If a
   new token has a relationship to an old one, say so there.
+
+## Comments
+
+The codebase comments heavily on purpose, and it has been cleaned up once
+already because the habit drifts the same way every time: toward restating the
+code, re-arguing decisions settled elsewhere, and narrating how the change was
+arrived at.
+
+- **Say why, not what.** If the line below reads plainly, it needs no comment.
+  What the reader cannot recover from the code is the constraint, the
+  measurement, or the thing that was tried and looked wrong.
+- **Keep the history that stops a repeat, drop the rest.** "Inset from the
+  trailing edge, the capsule's fill came back in the sliver between chip and
+  edge" earns its lines — someone will otherwise re-inset it. "Originally this
+  was a popover, then it became a panel" does not.
+- **Justify a number once, beside the number.** A view that uses a metric
+  points at `Design/Metrics*.swift`; it does not re-derive it. `SpaceSwipe`
+  carried a 96-line header re-arguing constants defined in
+  `Metrics+Spaces.swift`.
+- **A file header names what the file holds** and, if it is not obvious, why it
+  is a separate file. A dozen lines is plenty; it is not the place for a thesis.
+- **No markdown in Swift comments.** No `**bold**`, no `*italic*` — nothing
+  renders it, and `*` inside a comment collides with code voice: a stray italic
+  span once ate the `` `*` `` out of the sentence explaining the public-suffix
+  wildcard. Backticks for symbols, `§` for a `docs/` reference.
+- **Write the requirement, not who asked for it.** No names in source comments.
+- **Attach a doc comment to the thing it documents.** `///` above the wrong
+  member reads as true and is not — `sweepOrphanedProfileStores`'s
+  documentation spent months sitting on the sink beside it.
+- **Then reread it as a stranger.** Hedging, a summary of what was just said,
+  and a closing sentence that restates the opening are the three that creep in.
+
+Comment-only lines are excluded from SwiftLint's `file_length`, so nothing
+stops a file from growing this way except reading it.
