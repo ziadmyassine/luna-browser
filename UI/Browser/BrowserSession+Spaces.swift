@@ -144,7 +144,12 @@ extension BrowserSession {
 
     func renameSpace(_ id: UUID, to name: String) async throws {
         let name = try Self.spaceName(from: name)
+        // Read before the write: `followSpaceRename` needs to know whether the
+        // Profile was still wearing this Space's name to decide whether it
+        // should go on wearing it.
+        let was = space(id)?.name
         try await mutateSpace(id) { $0.name = name }
+        if let was { try await followSpaceRename(of: id, from: was, to: name) }
     }
 
     /// The longest name a Space may carry.

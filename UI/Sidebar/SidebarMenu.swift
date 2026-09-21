@@ -55,6 +55,21 @@ enum SidebarMenu {
         return menu
     }
 
+    /// §9's fan-out, on §3.5's Profile button.
+    ///
+    /// The same two facts the caption over the strip used to state — whose
+    /// cookies, and who else is in them — with the one verb that was missing
+    /// from the sidebar entirely: a Profile could be switched between and
+    /// never named, made or renamed from anywhere.
+    static func profile(name: String?, fanOut: String?, manage: @escaping () -> Void) -> NSMenu {
+        let menu = NSMenu()
+        menu.addItem(header(name.map { String(localized: "\($0) profile") } ?? String(localized: "Profile")))
+        if let fanOut { menu.addItem(header(fanOut)) }
+        menu.addItem(.separator())
+        menu.addItem(item(title: String(localized: "Manage Profiles…"), action: manage))
+        return menu
+    }
+
     /// A menu item's title with its glyph drawn into it, which is the only way to put
     /// an icon in a menu on this macOS.
     ///

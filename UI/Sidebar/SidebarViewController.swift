@@ -87,8 +87,9 @@ final class SidebarViewController: NSViewController {
     let essentials = EssentialsGridView()
     let list = TabListController()
     let utility = SidebarUtilityBar()
-    /// §3.5's profile line, directly above the Space strip. See the view.
-    let profile = SidebarProfileLabel()
+    /// §3.5's caption, directly above the Space strip: the active Space's
+    /// name. See the view.
+    let spaceLabel = SidebarSpaceLabel()
     let handle = SidebarResizeHandle()
     /// §30.9's page turn: the Space arriving, and the `+` standing in for the
     /// one that does not exist. Both draw nothing until the gesture asks.
@@ -131,7 +132,7 @@ final class SidebarViewController: NSViewController {
         // Space the window is in) and the `+` over both, because it is the one
         // mark that has to stay visible while the two pass each other.
         for subview in [
-            wash, preview, controlRow, pill, essentials, list.scrollView, creation, profile, utility, handle
+            wash, preview, controlRow, pill, essentials, list.scrollView, creation, spaceLabel, utility, handle
         ] {
             root.addSubview(subview)
         }
@@ -228,9 +229,13 @@ final class SidebarViewController: NSViewController {
         // §3.5's line, and §9's fan-out made visible: the Profile is derived
         // from the Space, so it changes on a Space switch and on a
         // re-profile without one.
-        profile.show(profileName: session.space(session.activeSpaceID).flatMap {
-            session.profile(for: $0)?.name
-        })
+        let active = session.space(session.activeSpaceID)
+        spaceLabel.show(spaceName: active?.name)
+        // §9's fan-out moved to the control it is about — see `SidebarSpaceLabel`.
+        utility.show(
+            profileName: active.flatMap { session.profile(for: $0)?.name },
+            fanOut: active.map { SpacesSection.fanOut($0, session: session) }
+        )
         refreshActiveTab()
         if makingSpace {
             // Whatever the column was doing, it is not doing it in front of the
@@ -334,8 +339,9 @@ final class SidebarViewController: NSViewController {
         // the same route §3.2's site menu takes to the Privacy section.
         utility.onEditSpaces = { [weak self] in self?.spaces?.editSpaces() }
         utility.onNewSpace = { [weak self] in self?.spaces?.createSpace() }
-        profile.onEditSpaces = { [weak self] in self?.spaces?.editSpaces() }
-        profile.onNewSpace = { [weak self] in self?.spaces?.createSpace() }
+        spaceLabel.onEditSpaces = { [weak self] in self?.spaces?.editSpaces() }
+        spaceLabel.onNewSpace = { [weak self] in self?.spaces?.createSpace() }
+        utility.onManageProfiles = { [weak self] in self?.spaces?.editSpaces() }
         utility.onHistory = { [weak self] in self?.onOpenHistory?() }
         utility.onDownloads = { [weak self] in self?.onOpenDownloads?() }
         utility.onSwitchSpace = { [weak self] id in self?.session.switchSpace(id) }
@@ -383,7 +389,7 @@ final class SidebarViewController: NSViewController {
     @objc private func accessibilityDisplayOptionsChanged() {
         pill.accessibilityDisplayOptionsChanged()
         list.accessibilityDisplayOptionsChanged()
-        profile.accessibilityDisplayOptionsChanged()
+        spaceLabel.accessibilityDisplayOptionsChanged()
         Self.redraw(view)
     }
 

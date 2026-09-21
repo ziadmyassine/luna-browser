@@ -44,7 +44,9 @@ final class SpacesSection: SettingsSection {
     static let symbolName = "square.grid.2x2"
 
     private let container = NSView()
-    private var body = SettingsBody()
+    /// Internal rather than private only because Swift's `private` is
+    /// file-scoped and §9's Profile cards are built in `Profiles+Rows.swift`.
+    var body = SettingsBody()
     /// Retained for as long as it is open: `NSPopover` does not hold itself,
     /// and the section that built it is about to rebuild.
     private var appearance: NSPopover?
@@ -96,7 +98,8 @@ final class SpacesSection: SettingsSection {
             )
         }
 
-        body.card(String(localized: "Profiles"), [clearProfileDataRow(spaces, session: session)])
+        profileCards(session)
+        body.card(nil, [clearProfileDataRow(spaces, session: session)])
 
         body.loose(SettingsRow.note(String(localized: """
         A Space owns its tabs; a **profile** owns the cookies and logins those tabs use, and several \

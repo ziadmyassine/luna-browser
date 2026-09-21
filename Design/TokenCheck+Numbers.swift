@@ -106,8 +106,8 @@ extension TokenCheck {
             ("spaceCreateRingLine", Tokens.Metric.spaceCreateRingLine),
             ("spaceSwatchRing", Tokens.Metric.spaceSwatchRing),
             ("spaceSwipeSpeed", Tokens.Metric.spaceSwipeSpeed),
-            ("sidebarProfileRow", Tokens.Metric.sidebarProfileRow),
-            ("sidebarProfileGap", Tokens.Metric.sidebarProfileGap),
+            ("sidebarSpaceNameRow", Tokens.Metric.sidebarSpaceNameRow),
+            ("sidebarSpaceNameGap", Tokens.Metric.sidebarSpaceNameGap),
             ("spaceDotPitch", Tokens.Metric.spaceDotPitch)
         ]
         return scalars.filter { $0.1 <= 0 }.map { "Metric.\($0.0) is not positive" }

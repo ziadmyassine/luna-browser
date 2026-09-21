@@ -33,7 +33,13 @@ import BrowserKit
 @MainActor
 final class SidebarUtilityBar: NSView {
 
+    /// The avatar was wired to a closure nothing ever set, so §3.5's Profile
+    /// button did nothing at all when pressed. It opens the menu below now.
     var onProfile: (() -> Void)?
+    /// §6.2's rows, for the Profile menu's way into Settings.
+    var onManageProfiles: (() -> Void)?
+    private var profile: String?
+    private var profileFanOut: String?
     var onHistory: (() -> Void)?
     var onDownloads: (() -> Void)?
     var onSwitchSpace: ((UUID) -> Void)?
@@ -45,6 +51,13 @@ final class SidebarUtilityBar: NSView {
     /// §6.1 from the same menu, and from §30.9's swipe past the last Space.
     var onNewSpace: (() -> Void)?
 
+    /// §3.5's Profile control, and §9's fan-out made pressable.
+    ///
+    /// The one place the window says whose cookies it is using, which used to
+    /// be the caption over the strip. A button is the better host: the caption
+    /// could only state the Profile, and this can be asked about it. It is also
+    /// where a picture of the Profile goes when there is one to show — the
+    /// glyph is the placeholder, not the design.
     private let avatar = GlassButton(
         shape: Tokens.Metric.bottomCircle,
         symbolName: "person.crop.circle",
@@ -64,7 +77,17 @@ final class SidebarUtilityBar: NSView {
             (symbolName: "clock.arrow.circlepath", label: String(localized: "History"),
              action: { [weak self] in self?.onHistory?() })
         ])
-        avatar.onActivate = { [weak self] in self?.onProfile?() }
+        avatar.onActivate = { [weak self] in
+            guard let self else { return }
+            onProfile?()
+            // A press opens it where a right-click would, which is what every
+            // other pop-out in this bar does (`SidebarActionCapsule`).
+            SidebarMenu.profile(
+                name: profile,
+                fanOut: profileFanOut,
+                manage: { [weak self] in self?.onManageProfiles?() }
+            ).popUp(positioning: nil, at: NSPoint(x: 0, y: avatar.bounds.maxY), in: avatar)
+        }
         dots.onSwitch = { [weak self] id in self?.onSwitchSpace?(id) }
         dots.onSetGradient = { [weak self] space, gradient in self?.onSetGradient?(space, gradient) }
         dots.onEditSpaces = { [weak self] in self?.onEditSpaces?() }
@@ -117,6 +140,22 @@ final class SidebarUtilityBar: NSView {
     func show(spaces: [Space], activeSpaceID: UUID) {
         dots.show(spaces: spaces, activeSpaceID: activeSpaceID)
         needsLayout = true
+    }
+
+    /// Whose cookies the active Space is using (§9), on the control that is
+    /// about the Profile rather than in a caption about the Space.
+    ///
+    /// `fanOut` is the sentence Settings puts on the Space's card, so the two
+    /// places that answer this question answer it in the same words.
+    func show(profileName: String?, fanOut: String?) {
+        avatar.setAccessibilityLabel(
+            profileName.map { String(localized: "Profile: \($0)") } ?? String(localized: "Profile")
+        )
+        avatar.toolTip = [profileName.map { String(localized: "Cookies and logins for the \($0) profile") }, fanOut]
+            .compactMap { $0 }
+            .joined(separator: "\n")
+        profile = profileName
+        profileFanOut = fanOut
     }
 
     override var intrinsicContentSize: NSSize {
@@ -213,23 +252,26 @@ final class SidebarUtilityBar: NSView {
     }
 }
 
-/// §3.5's profile line: the one place the window says whose cookies it is
-/// using.
+/// §3.5's caption: which Space you are in, over the strip that switches them.
 ///
-/// The fan-out is the reason this exists. Space → Profile is many-to-one
-/// (`SPACES-SPEC` §9) and no other browser tells you which side of it you are
-/// on: Arc's most-reported conceptual confusion is "why am I still logged in
-/// over here", and its answer lives in a support article. Settings names the
-/// profile on each Space's card, but a name you have to open a window to read
-/// is not what you check before typing a password into a shared jar.
+/// It named the Profile until it named the Space. The dots below it say which
+/// Space only by colour and position, and the name the user gave the Space
+/// appeared nowhere in the column at all — not in the strip, not on the list,
+/// not on the tabs. A user who names a Space is owed the name somewhere they
+/// can see it, and this is the line directly over the thing being named.
 ///
-/// It is set in `Text.secondary` — an inactive tab's ink, exactly — and
-/// sits directly over the Space strip, because the two answer one question
-/// between them: which Space, and whose logins. Brighter than that and it
-/// would compete with the tab titles above it for a line that is only ever
-/// glanced at.
+/// Whose cookies moved rather than went: it is on the avatar beside the strip,
+/// which is the Profile's own control and where a picture of one will go. The
+/// fan-out is still the thing that must not be hidden — Space → Profile is
+/// many-to-one (`SPACES-SPEC` §9) and Arc's most-reported conceptual confusion
+/// is "why am I still logged in over here" — and a button carries it better
+/// than a caption did, because it can also be pressed.
+///
+/// It is set in `Text.secondary` — an inactive tab's ink, exactly. Brighter
+/// than that and it would compete with the tab titles above it for a line that
+/// is only ever glanced at.
 @MainActor
-final class SidebarProfileLabel: NSView {
+final class SidebarSpaceLabel: NSView {
 
     /// Right-click here or on the strip below — §6.2's rows are in Settings.
     var onEditSpaces: (() -> Void)?
@@ -251,13 +293,13 @@ final class SidebarProfileLabel: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
-    /// The profile's name, or nothing at all — the line disappears rather than
-    /// standing empty, so the strip below it keeps its air.
-    func show(profileName: String?) {
-        label.stringValue = profileName ?? ""
-        isHidden = (profileName ?? "").isEmpty
-        setAccessibilityLabel(profileName.map { String(localized: "Profile: \($0)") })
-        toolTip = profileName.map { String(localized: "Cookies and logins for the \($0) profile") }
+    /// The active Space's name, or nothing at all — the line disappears rather
+    /// than standing empty, so the strip below it keeps its air.
+    func show(spaceName: String?) {
+        label.stringValue = spaceName ?? ""
+        isHidden = (spaceName ?? "").isEmpty
+        setAccessibilityLabel(spaceName.map { String(localized: "Space: \($0)") })
+        toolTip = spaceName
         needsLayout = true
     }
 

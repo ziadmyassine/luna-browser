@@ -333,7 +333,9 @@ extension SpacesSection {
 
     /// `NSAlert.accessoryView` is laid out by the alert, which does not do Auto
     /// Layout for it — a stack with a frame is the shape that survives.
-    private static func stack(_ views: [NSView]) -> NSView {
+    /// Internal for `body`'s reason: every dialog this section raises stands
+    /// its fields in one of these, and §9's Profile dialogs are next door.
+    static func stack(_ views: [NSView]) -> NSView {
         let stack = NSStackView(views: views)
         stack.orientation = .vertical
         stack.alignment = .leading
