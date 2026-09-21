@@ -10,16 +10,16 @@
 #  a `.DS_Store` — so the first run of this on a Mac raises the automation
 #  prompt for Terminal controlling Finder once, and never again.
 #
-#  usage: Tools/make-dmg.sh [path/to/Luna.app] [out.dmg] [--dark]
+#  usage: Tools/make-dmg.sh [path/to/Luna.app] [out.dmg] [--light]
 #
 set -euo pipefail
 
 APP=${1:-DerivedData/Build/Products/Release/Luna.app}
 OUT=${2:-build/Luna.dmg}
 # A disk image stores one background picture, in the volume's `.DS_Store`, and
-# Finder draws the icon labels in the system's appearance rather than the
-# background's — so light is the one that survives both. `--dark` is here for
-# a release that wants the other plane, not for a Mac that happens to be dark.
+# nothing re-reads it when the appearance changes — so one plane has to serve
+# both kinds of Mac. The dark one does, because of the chips `dmg-background`
+# draws under the labels. `--light` is here for a release that wants the other.
 APPEARANCE=${3:-}
 VOLUME="Luna"
 STAGE=$(mktemp -d)

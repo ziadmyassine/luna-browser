@@ -11,28 +11,28 @@
 //  that has been through a resampler is the one thing on this page a reader
 //  looks at closely.
 //
-//  Light by default, although the app is usually seen dark, and it is not a
-//  preference — it is the only plane that is legible on both kinds of Mac.
-//  Measured here on macOS 26, opening each image fresh under each appearance:
+//  Dark by default, with a chip under each icon label. Finder draws those two
+//  labels itself and takes no colour from us, so the ground under them is the
+//  only lever there is. Measured here on macOS 26, opening each image fresh
+//  under each appearance:
 //
-//    · a LIGHT system draws the two icon labels BLACK whatever is behind them,
-//      so a dark plane is black on near-black;
-//    · a DARK system picks by what is behind them — black over a light plane,
+//    · a LIGHT system draws the labels BLACK whatever is behind them, so a
+//      bare dark plane is black on near-black;
+//    · a DARK system picks by what is behind them — black over a light ground,
 //      white over a dark one.
 //
-//  Light is therefore readable in both and dark in one. A disk image stores a
-//  single background picture, in the volume's `.DS_Store`, so there is no pair
-//  to switch between and no way to hand Finder a colour; `--dark` builds the
-//  other plane for a release that is willing to make that trade.
+//  A light chip is therefore black text on both kinds of Mac, which is what
+//  lets the dark plane ship. A diffuse pool of light does the same thing and
+//  reads as a smudge; a capsule sized to the name reads as the app.
 //
-//  Lighting the ground under the labels does flip a dark system to black text,
-//  which is readable — and it puts a grey smudge across the middle of the
-//  artwork and still does not help a light system. Tried, measured, dropped.
+//  A disk image stores a single background picture, in the volume's
+//  `.DS_Store`, so there is no pair to switch between and nothing re-reads it
+//  when the appearance changes. `--light` builds the other plane.
 //
 //  Two representations in one TIFF, 1x and 2x: Finder picks by display, and a
 //  single-scale PNG is either soft on Retina or twice the size everywhere.
 //
-//  usage: swift Tools/dmg-background.swift out.tiff [--dark]
+//  usage: swift Tools/dmg-background.swift out.tiff [--light]
 //
 
 import AppKit
@@ -41,9 +41,12 @@ import AppKit
 let size = CGSize(width: 640, height: 400)
 let appSlot = CGPoint(x: 165, y: 210)
 let applicationsSlot = CGPoint(x: 475, y: 210)
+/// Where Finder puts the icon labels: measured off a 96 pt icon on this
+/// window's centre line, at text size 12.
+let labelCentre: CGFloat = 146
 
 let arguments = CommandLine.arguments
-let isDark = arguments.contains("--dark")
+let isDark = !arguments.contains("--light")
 let output = arguments.dropFirst().first { !$0.hasPrefix("--") } ?? "background.tiff"
 
 /// The artwork, beside the tool rather than inside the app: it is a build
@@ -84,6 +87,7 @@ func draw(scale: CGFloat) -> NSBitmapImageRep {
 
     plane.draw(in: NSRect(origin: .zero, size: size))
     drawArrow()
+    if isDark { drawLabelChips() }
     drawCaption()
 
     NSGraphicsContext.restoreGraphicsState()
@@ -112,6 +116,36 @@ func drawArrow() {
     head.line(to: end)
     head.line(to: CGPoint(x: end.x - wing, y: end.y - wing))
     head.stroke()
+}
+
+/// Finder draws the two icon labels itself and takes no colour from us, but a
+/// dark system picks the ink from what is behind each one — so the only lever
+/// on a dark plane is the ground. A chip under each label is that lever drawn
+/// as something rather than apologised for: the same frosted capsule the app
+/// puts under a control, sized to the name and centred on the icon's column.
+///
+/// Measured: a light system draws the labels black whatever is behind them, so
+/// a chip is what makes a dark plane legible on both kinds of Mac.
+func drawLabelChips() {
+    let font = NSFont.systemFont(ofSize: 12, weight: .regular)
+    for (slot, text) in [(appSlot, "Luna"), (applicationsSlot, "Applications")] {
+        let measured = (text as NSString).size(withAttributes: [.font: font])
+        let chip = NSRect(
+            x: slot.x - measured.width / 2 - 13,
+            y: labelCentre - 12,
+            width: measured.width + 26,
+            height: 24
+        )
+        NSGraphicsContext.saveGraphicsState()
+        let glow = NSShadow()
+        glow.shadowColor = NSColor(white: 1, alpha: 0.28)
+        glow.shadowBlurRadius = 14
+        glow.shadowOffset = .zero
+        glow.set()
+        NSColor(white: 0.97, alpha: 0.92).setFill()
+        NSBezierPath(roundedRect: chip, xRadius: 12, yRadius: 12).fill()
+        NSGraphicsContext.restoreGraphicsState()
+    }
 }
 
 func drawCaption() {

@@ -1545,26 +1545,34 @@ line of type — "Drag Luna into Applications" — are drawn over it at build ti
 because type that has been through a resampler is the one thing on this page a
 reader looks at closely.
 
-It is **light even though Luna is usually seen dark**, and that is not a
-preference — it is the only plane that is legible on both kinds of Mac. Finder
-draws the two icon labels itself and takes no colour. Measured on macOS 26, each
-plane opened fresh under each appearance:
+It is **dark, with a light chip under each icon label**. Finder draws those two
+labels itself and takes no colour, so the ground under them is the only lever
+there is. Measured on macOS 26, each plane opened fresh under each appearance:
 
 | | light system | dark system |
 |---|---|---|
 | light plane | black labels | black labels |
-| dark plane | **black labels — on near-black** | white labels |
+| bare dark plane | **black labels — on near-black** | white labels |
+| dark plane, chipped | black labels | black labels |
 
 A dark system picks the label colour from what is behind it; a light system
-draws black whatever is there. So the light plane reads in both and the dark
-plane reads in one. Lighting the ground under the labels does flip a dark
-system to black text, which is readable, and it puts a grey smudge across the
-middle of the artwork while still doing nothing for a light system — tried,
-measured, dropped. A disk image stores **one** background picture, in the
-volume's `.DS_Store`, so there is no pair to switch between;
-`Tools/make-dmg.sh … --dark` builds the other plane for a release willing to
-make that trade. The window is 640 × 400 with its toolbar and status bar
-off; the icons sit on the line the arrow is drawn between.
+draws black whatever is there — so a light ground under the name is black text
+on both, which is what lets the dark plane ship. The chip is a capsule sized to
+the name and centred on the icon's column: a diffuse pool of light does the
+same job and reads as a smudge. A disk image stores **one** background picture,
+in the volume's `.DS_Store`, and nothing re-reads it when the appearance
+changes, so one plane has to serve both kinds of Mac;
+`Tools/make-dmg.sh … --light` builds the other. The window is 640 × 400 with
+its toolbar and status bar off; the icons sit on the line the arrow is drawn
+between.
+
+**The app icon on that page is not ours to switch.** macOS 26 has an icon
+appearance of its own — System Settings ▸ Appearance ▸ *Icon & widget style* —
+and pinning it to Dark renders every app's icon dark in light mode, Luna's with
+the rest. Luna ships both renditions (`Assets.car` carries the icon under
+`NSAppearanceNameAqua` and `NSAppearanceNameDarkAqua`), and with the style left
+on Default the light tile appears in light mode. A dark tile on a light Mac is
+that setting, not a missing variant.
 
 **First run** (`Features/Onboarding/`, §30.17–30.18) is a window over the
 browser, not a sheet in front of it: the session is restoring behind it, and a
