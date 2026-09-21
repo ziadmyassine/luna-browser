@@ -104,13 +104,18 @@ jobs:
 
   lint:
     name: SwiftLint (advisory)
-    # **Advisory on purpose, and `continue-on-error` is the line to delete.**
-    # `make lint` has never run on this repo — there is no swiftlint on the dev
-    # Mac — and `--strict` reports 67 violations at 705e2a2. 28 of those are
-    # identifier_name objecting to `x` in geometry code, which is a question
-    # about .swiftlint.yml rather than about the code. A check that is red on
-    # the day it lands teaches everyone to ignore red. Shrink the list, then
-    # drop this and let it gate.
+    # Advisory on purpose, and `continue-on-error` is the line to delete.
+    #
+    # It started at 67 violations. The config took 41 of those — `x` is the
+    # right name for an x coordinate — and the rest were fixed rather than
+    # configured away: four functions split, four type bodies moved into
+    # extensions, two files split in half, one parser taken from complexity 18
+    # to 9.
+    #
+    # Three are left, and all three are in files another session is rewriting
+    # right now: `AppDelegate` at 295 lines of class body, and the two long
+    # checks in `TokenCheck+Numbers`. Delete this line once those land, and the
+    # job gates.
     continue-on-error: true
     # SwiftLint ships a statically linked Linux binary, so this costs nothing:
     # free runner, no Swift runtime to install, no Homebrew.
