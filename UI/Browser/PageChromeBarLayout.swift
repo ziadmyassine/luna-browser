@@ -5,14 +5,11 @@
 //  Where §3.2b's bar puts its controls and its pill, and which part of it takes
 //  a click.
 //
-//  Split out of `PageChromeBar.swift` for the reason `URLPillLayout.swift` was
-//  split out of `URLPillView.swift`: that file crosses SwiftLint's 400-line
-//  limit otherwise. Nothing changed on the way across.
+//  Split out of `PageChromeBar.swift` for that file's length limit.
 //
-//  The handful of members this reaches are `internal` rather than `private`
-//  for the same reason the pill's `field` and `sliders` are, and with the same
-//  caveat: they are still the bar's, and nothing outside these two files
-//  touches any of them.
+//  The handful of members this reaches are `internal` rather than `private`,
+//  like the pill's `field` and `sliders`: still the bar's, and nothing outside
+//  these two files touches them.
 //
 
 import AppKit
@@ -96,22 +93,18 @@ extension PageChromeBar {
         // 230 pt beside the buttons; a pill centred in that overlaps them, and
         // an overlapping pill is worse than an off-centre one.
         //
-        // The open layout places the pill, and the collapsed one keeps that
-        // place exactly — the same x and the same width. Both were worked out
-        // separately before: open, clear of the buttons; collapsed, sized to the
-        // domain and centred in what was left of the bar. Even once they shared
-        // a centre the capsule still travelled, because its two edges did: it
-        // drew in from 420 pt to the width of `apple.com` while its material was
-        // fading, which is the address sliding in from the side that the two
-        // states were supposed to stop doing.
+        // The open layout places the pill and the collapsed one keeps that
+        // place exactly — same x, same width. They were worked out separately
+        // before, and even once they shared a centre the capsule still
+        // travelled, because its two edges did: it drew in from 420 pt to the
+        // width of `apple.com` while its material faded.
         //
-        // It can keep the width because collapsed it has no surface. A
-        // `.bare` pill draws nothing but its centred domain, so 420 pt of it is
-        // 420 pt of nothing with a word in the middle — and the word is already
-        // on the centre line the open pill put it on. Nothing moves sideways at
-        // any point of the change; the height and the material are all of it.
-        // It also puts the truncation question beyond reach: a domain that fits
-        // the open pill fits the collapsed one, because they are the same pill.
+        // It can keep the width because collapsed it has no surface. A `.bare`
+        // pill draws nothing but its centred domain, so 420 pt of it is 420 pt
+        // of nothing with a word in the middle, already on the centre line the
+        // open pill put it on. Nothing moves sideways; the height and the
+        // material are all of it. It also puts truncation beyond reach: a
+        // domain that fits the open pill fits the collapsed one.
         let right = bounds.maxX - Tokens.Metric.pageBarInset
         let left = buttonsEnd + Tokens.Metric.chromeGapWide
         let width = min(Tokens.Metric.pageBarPillWidth, max(right - left, 0))

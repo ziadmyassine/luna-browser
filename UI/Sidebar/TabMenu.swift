@@ -4,35 +4,30 @@
 //
 //  §3.4a's tab menu: right-click a row in §3.4's list.
 //
-//  Seven items, in the reference's own order and its own five groups — pin, then duplicate,
-//  then copy link, then the three that change what the row is, then close. The reference
-//  (`inspiration/tab-context-menu.png`) has seventeen; the fourteen that are not here are
-//  not deferred, they are declined: half of them are features Luna does not have yet
-//  (Split, Chat, Bookmarks, Groups), and a menu that lists what an app cannot do is a menu
-//  that teaches the user to stop reading it. The groups are kept even though most of them
-//  now hold one item, because the grouping is what makes the list scannable: the thing that
-//  files the tab away, the thing that copies it, the things that rename it, the thing that
-//  ends it.
+//  Seven items, in the reference's own order and its five groups: pin, duplicate,
+//  copy link, the three that change what the row is, then close. The reference
+//  (`inspiration/tab-context-menu.png`) has seventeen; the fourteen missing are
+//  declined rather than deferred — half are features Luna does not have yet
+//  (Split, Chat, Bookmarks, Groups), and a menu listing what an app cannot do
+//  teaches the user to stop reading it. The groups stay even where they hold one
+//  item, because the grouping is what makes the list scannable.
 //
-//  A plain `NSMenu`, for the reason `SiteMenu.swift` sets out at length: on macOS 26 that
-//  is the liquid-glass menu, drawn by AppKit with its own material, its own blur and its
-//  own keyboard and VoiceOver handling, and a hand-rolled panel would be a worse copy that
-//  also had to reimplement all three.
+//  A plain `NSMenu`, for the reason `SiteMenu.swift` gives: on macOS 26 that is
+//  the liquid-glass menu, drawn by AppKit with its own material, blur, keyboard
+//  and VoiceOver handling.
 //
-//  The glyphs are in the titles, because `NSMenuItem.image` draws nothing here. That
-//  was measured with a five-way probe in a bare AppKit app — plain symbol, configured
-//  symbol, explicitly sized template, hand-drawn red square, named AppKit template — and
-//  not one of them appeared. An `NSTextAttachment` in `attributedTitle` does, and it keeps
-//  the native highlight, the arrow keys and the key-equivalent column that a custom
-//  `NSMenuItem.view` would have cost. `SidebarMenu.label(symbol:title:in:)` is the whole
-//  mechanism; a tab stop is what lines the words up in a column instead of each one
-//  starting after its own glyph.
+//  The glyphs are in the titles, because `NSMenuItem.image` draws nothing here —
+//  measured with a five-way probe in a bare AppKit app, and not one appeared. An
+//  `NSTextAttachment` in `attributedTitle` does, and keeps the native highlight,
+//  the arrow keys and the key-equivalent column.
+//  `SidebarMenu.label(symbol:title:in:)` is the mechanism; a tab stop is what
+//  lines the words up in a column.
 //
-//  The menu is built per press and holds no row index. `NSTableView` recycles row views
-//  and moves them between rows, so an index captured when the menu was built is stale the
-//  moment a tab is inserted above it — the same bug that once made pressing close on one
-//  tab mute the tab underneath (`TabListController+Table.swift`). Every item below closes
-//  over a `UUID`, which is the only identifier that cannot drift.
+//  The menu is built per press and holds no row index. `NSTableView` recycles
+//  row views and moves them between rows, so an index captured when the menu was
+//  built is stale the moment a tab is inserted above it — the bug that once made
+//  pressing close on one tab mute the tab underneath. Every item closes over a
+//  `UUID`, the only identifier that cannot drift.
 //
 
 import AppKit

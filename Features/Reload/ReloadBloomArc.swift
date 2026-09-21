@@ -12,21 +12,18 @@
 //      white → amber (hue 56°) → mint (hue 194°) → lavender (hue 277°)
 //
 //  compositing over the clip's paper-white page as #EEECCA, #E1EBEF, #E2D0EE.
-//  §7's prose has the last two the wrong way round. The bands are
-//  concentric about a centre well above the top of the screen, which is why
-//  they read as one wide concave-up crescent — and why this is a radial
-//  `CAGradientLayer` with its centre pushed off the top edge rather than
-//  anything hand-drawn.
+//  §7's prose has the last two the wrong way round. The bands are concentric
+//  about a centre well above the top of the screen, which is why they read as
+//  one wide concave-up crescent — and why this is a radial `CAGradientLayer`
+//  with its centre pushed off the top edge rather than anything hand-drawn.
 //
 //  WHY THE BLUR IS A STILL IMAGE. §7 forbids blurring the live `WKWebView`,
-//  and the cheap-looking alternative — a `CIGaussianBlur` in `CALayer.filters`
-//  — is the same trap one layer further down: the render server re-evaluates a
-//  layer filter whenever its inputs change, so an animated radius is a
-//  full-viewport Core Image pass every frame. Instead the snapshot is blurred
-//  once into a `CGImage`, and everything that moves afterwards is
-//  `opacity` and `position`. Steady state is six extra composited quads (five
-//  snapshot strips sharing one texture, plus the gradient) and zero CPU, which
-//  is what keeps §19.1's 120 fps intact over live web content.
+//  and a `CIGaussianBlur` in `CALayer.filters` is the same trap one layer
+//  down: the render server re-evaluates a layer filter whenever its inputs
+//  change, so an animated radius is a full-viewport Core Image pass every
+//  frame. The snapshot is blurred once into a `CGImage` instead, and everything
+//  that moves afterwards is `opacity` and `position`. Steady state is six extra
+//  composited quads and zero CPU, which is what keeps §19.1's 120 fps intact.
 //
 
 import AppKit

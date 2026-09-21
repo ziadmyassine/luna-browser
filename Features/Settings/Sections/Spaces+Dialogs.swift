@@ -7,12 +7,10 @@
 //  profile boundary, clearing a profile's cookies — and the four pure
 //  functions that write their sentences.
 //
-//  Split out of `Spaces.swift` because that file grew past the project's
-//  400-line rule the moment a Space had six settings instead of one. The
-//  strings are `static` and free of AppKit on purpose: a dialog whose wording
-//  can only be checked by clicking it is a dialog whose wording is never
-//  checked, and these four are the ones that have to beat Firefox's and
-//  Chrome's.
+//  Split out of `Spaces.swift` when a Space grew six settings instead of one.
+//  The strings are `static` and free of AppKit on purpose: a dialog whose
+//  wording can only be checked by clicking it is one whose wording is never
+//  checked.
 //
 
 import AppKit
