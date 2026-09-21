@@ -109,8 +109,7 @@ extension TabController: WKNavigationDelegate {
 
     /// §14.8's redirect flag starts clean here, and only here.
     ///
-    /// The two obvious alternatives are both wrong, which is why this callback
-    /// exists at all:
+    /// The two obvious alternatives are both wrong:
     ///
     ///  · `didCommit` runs after the redirect callback, so clearing there
     ///    would erase the very thing the flag recorded.

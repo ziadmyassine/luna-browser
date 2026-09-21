@@ -4,15 +4,13 @@
 //
 //  §3.4a's mute: silencing one tab without pausing it.
 //
-//  There is no public WebKit API for this. Safari's own per-tab mute rides on
-//  `WKWebView._setPageMuted:`, which is SPI — this project checks every AppKit and WebKit
-//  call against the installed SDK headers (`Glass.swift`'s contract, rule 4, is the same
-//  argument one layer up) and a private selector that disappears in a point release is not
-//  a feature, it is a future crash. The two public calls that come close are the wrong
-//  shape: `pauseAllMediaPlayback()` stops the video as well as the sound, and
-//  `setAllMediaPlaybackSuspended(true)` additionally refuses to let it start again. Mute
-//  means keep playing, quietly, which is a property of the media elements. So it is set
-//  on the media elements.
+//  There is no public WebKit API for this. Safari's per-tab mute rides on
+//  `WKWebView._setPageMuted:`, which is SPI, and a private selector that
+//  disappears in a point release is a future crash rather than a feature. The
+//  two public calls that come close are the wrong shape:
+//  `pauseAllMediaPlayback()` stops the video as well as the sound, and
+//  `setAllMediaPlaybackSuspended(true)` also refuses to let it start again.
+//  Mute means keep playing quietly, which is a property of the media elements.
 //
 //  Three things make that hold up on a real page rather than only on a `<video>` that was
 //  already in the DOM when the menu item fired:

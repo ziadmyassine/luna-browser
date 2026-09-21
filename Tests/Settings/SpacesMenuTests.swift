@@ -5,12 +5,12 @@
 //  Goal 11: the key map after §13.2's rebinding — Spaces on ⌃1…⌃9, ⌘1…⌘9 given
 //  to sidebar items, and ⌃⌥←/→ for previous/next Space.
 //
-//  These assertions are not paperwork. Two AppKit behaviours were measured
-//  on macOS 26.5 while this was built, and both destroy shortcuts silently:
-//  the key-equivalent search stops at the first match and consumes the event
-//  there even when that item is disabled, and a ⌘-number that duplicates one
-//  already in the menu bar is erased from the later item — mask intact, key
-//  gone, no error at build time or run time. Nothing but a test sees either.
+//  Two AppKit behaviours measured on macOS 26.5 while this was built, both of
+//  which destroy shortcuts silently: the key-equivalent search stops at the
+//  first match and consumes the event there even when that item is disabled,
+//  and a ⌘-number duplicating one already in the menu bar is erased from the
+//  later item — mask intact, key gone, no error at build or run time. Nothing
+//  but a test sees either.
 //
 
 import AppKit

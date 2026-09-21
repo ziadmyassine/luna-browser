@@ -4,13 +4,11 @@
 //
 //  What `PageChromeBar` shows, and when it is open.
 //
-//  The view is the two states; this is everything that decides between them —
+//  The view is the two states; this is everything that decides between them:
 //  which tab it is looking at, where that tab's page has scrolled to, and
-//  whether §3.2b's setting has the bar on screen at all.
-//
-//  The rule that decides between the two states is `PageBarScroll`, which is a
-//  value with no view in it so it can be asserted rather than eyeballed. This
-//  file is what feeds it and what it drives.
+//  whether §3.2b's setting has the bar on screen at all. The rule itself is
+//  `PageBarScroll`, a value with no view in it so it can be asserted rather
+//  than eyeballed.
 //
 
 import AppKit

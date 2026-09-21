@@ -2,10 +2,9 @@
 //  CommandBarRankingTests.swift
 //  LunaTests
 //
-//  §9.3, asserted against hand-computed numbers — the same way
-//  `FrecencyRankingTests` asserts the store's half. The Command Bar is only as
-//  good as this order, so the expected order is spelled out in the test rather
-//  than derived from the code under test.
+//  §9.3, asserted against hand-computed numbers, the same way
+//  `FrecencyRankingTests` asserts the store's half. The expected order is
+//  spelled out in the test rather than derived from the code under test.
 //
 //  Frecency itself is not re-tested here. `BrowserStore` computes it and owns
 //  its tests; what this file asserts is the half the store cannot see — the tier

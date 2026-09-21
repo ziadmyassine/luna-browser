@@ -3,12 +3,11 @@ import Foundation
 /// §14.5 — a strong password, generated to the site's own rules when it states
 /// them.
 ///
-/// Why the rules matter. The failure this avoids is not aesthetic: a
-/// generator that ignores a bank's "no more than 16 characters, no symbols"
-/// produces a password the form rejects after Luna has offered to save it,
-/// and the user ends up with a saved credential that does not work. Apple
-/// publishes the `passwordrules` attribute for exactly this, Safari honours it,
-/// and every site that bothers to set it is a site with a picky validator.
+/// The failure this avoids is not aesthetic: a generator that ignores a bank's
+/// "no more than 16 characters, no symbols" produces a password the form
+/// rejects after Luna has offered to save it, leaving a saved credential that
+/// does not work. Apple publishes the `passwordrules` attribute for exactly
+/// this, Safari honours it, and a site that sets it has a picky validator.
 ///
 /// The grammar is Apple's "Password Rules" syntax, e.g.
 /// `minlength: 12; maxlength: 20; required: lower, upper; required: digit;

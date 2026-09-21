@@ -6,11 +6,11 @@
 //  longer dimmed for a missing method, the Space → Profile fan-out label, and
 //  §6.4's deletion dialog.
 //
-//  The dialog strings are asserted as pure functions rather than by opening
-//  an `NSAlert`. Wording that can only be checked by clicking it is wording
-//  nobody checks, and these are the sentences that have to beat Firefox's
-//  (tabs, never the data) and Chrome's (the data, never the windows).
-//  The key map lives in `SpacesMenuTests.swift`.
+//  The dialog strings are asserted as pure functions rather than by opening an
+//  `NSAlert`: wording that can only be checked by clicking it is wording nobody
+//  checks. These are the sentences that have to beat Firefox's (tabs, never the
+//  data) and Chrome's (the data, never the windows). The key map lives in
+//  `SpacesMenuTests.swift`.
 //
 
 import AppKit
