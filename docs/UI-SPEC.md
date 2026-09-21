@@ -1144,19 +1144,29 @@ to reimplement keyboard navigation, VoiceOver and Reduce Transparency.
   > still moving at `spaceFlickSpeed` turns the page however far it got. A short stroke still going is
   > a page turn; a long one that has come to rest is a page turn; a short one that has come to rest is
   > a look, and it springs back.
-  > **Making a Space has two clocks, and it used to have one.** The swipe past the last Space fills the
-  > `+`'s ring over the first third of a page and then keeps pushing the column for the other two
-  > thirds before a release makes anything. The ring used to close at the instant the gesture
-  > committed, which makes it a receipt rather than a read-out: by the time it said what you were about
-  > to get, you had it. The hand is told once, by `Haptics.latch`, as the ring closes.
-  > **A flick never makes a Space, and that is now the whole of the resistance.** It used to be
-  > distance — three pages of it — and the create shipped *unperformable*: against the damping ceiling
-  > that needs longer than an ordinary stroke lasts, so the ring closed, because it only costs a third
-  > of the distance, and the release made nothing. Every time. What has to be prevented is a reflex off
-  > the end of the Spaces becoming a Space nobody asked for, and that is a statement about how the
-  > gesture *ended*, not how far it went. Distance punished the deliberate gesture exactly as hard as
-  > the accidental one. `TokenCheck` now holds `spaceCreateReach` under what one stroke can deliver at
-  > the **widest** the column gets, which is the check that was being made against a comfortable width.
+  > **The `+`'s ring is the threshold, not a read-out of one.** Past the last Space the same two
+  > fingers make a new one, and the circle closing is the whole of what it costs: full ring, let go,
+  > Space; short of full, let go, nothing; pan back and it empties under the hand, which is how a
+  > create is called off. `Haptics.latch` ticks as it closes and again if the hand retreats past
+  > `ringReArm` and pushes out afresh. The *disc* keeps its own faster clock — it is in from the edge
+  > and standing still after `spaceCreateEntrance` of the sweep — because the gesture is a thing that
+  > appears and then a thing that fills.
+  > **Both create defects were this one distance being two.** The first asked for three pages and
+  > closed the ring after one, which could not be performed at all: against the damping ceiling three
+  > pages needs longer than a trackpad stroke lasts, so the ring closed and the release made nothing,
+  > every time. The second brought the distance down to a page a hand can cover and left the ring
+  > closing a third of the way in, on the reasoning that a ring should promise rather than receipt —
+  > which is true of a ring that is promising something. This one promised and did not deliver, so all
+  > the early close bought was a more convincing way of being told the wrong thing. **A read-out that
+  > is not the threshold is a read-out of nothing.**
+  > **The resistance is distance and stiffness.** A page is twice what a switch costs, which is the
+  > asymmetry `TokenCheck` holds — against the **widest** the column gets, since a create that cannot
+  > be finished in one stroke is a dead end rather than resistance. And the column does not follow the
+  > hand out there: past the last Space its travel bends over against `spaceCreateGive`, 1:1 under the
+  > fingers at first and stiffer with every point of push, so a whole page of hand leaves it a little
+  > under half way out and the last third of the ring is paid against a column that has all but
+  > stopped. A flick is no longer excluded by how the gesture *ended*, and that is not a relaxation: a
+  > rule that makes a closed circle mean nothing in some releases is the same lie in a different place.
   > **The release is a hand that kept going.** Its duration is the distance left over the speed the
   > fingers let go at (`Motion.spaceSettle`), not one fixed number — released a tenth of a page from
   > home the column used to crawl the last 28 pt over the same 0.18 s it took to cross a whole page

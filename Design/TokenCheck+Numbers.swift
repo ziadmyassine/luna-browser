@@ -71,6 +71,8 @@ extension TokenCheck {
             ("settingsMinHeight", Tokens.Metric.settingsMinHeight),
             ("settingsListWidth", Tokens.Metric.settingsListWidth),
             ("spaceCreateReach", Tokens.Metric.spaceCreateReach),
+            ("spaceCreateGive", Tokens.Metric.spaceCreateGive),
+            ("spaceCreateEntrance", Tokens.Metric.spaceCreateEntrance),
             ("spaceFlickSpeed", Tokens.Metric.spaceFlickSpeed),
             ("spaceFlickReach", Tokens.Metric.spaceFlickReach),
             ("spaceCreateRing", Tokens.Metric.spaceCreateRing),
@@ -96,13 +98,21 @@ extension TokenCheck {
     private static func checkSpaceSwipe() -> [String] {
         var failures: [String] = []
         let metric = Tokens.Metric.self
-        // **Making a Space costs more than reaching one**, which is the whole
-        // asymmetry: a switch commits at half a page, so anything at or under
-        // that would let the reflex make Spaces by overshooting.
-        if metric.spaceCreateReach <= 0.5 {
+        // **Making a Space costs at least twice what reaching one does**, and
+        // this is no longer a comfortable margin — it is the *only* guard.
+        // `SpaceSwipe.resolve` commits a switch at half a page (the 0.5 below
+        // is that literal, and there is no token for it because the page is the
+        // ruler), and a flick past the last Space used to be excluded by how it
+        // ended. It is not any more: the ring is the threshold, and a rule that
+        // made a closed circle mean nothing in some releases was the same lie
+        // as a circle that closed early. So distance carries the whole weight
+        // of telling a reflex from a decision, and it has to be a distance no
+        // reflex covers.
+        let commit: CGFloat = 0.5
+        if metric.spaceCreateReach < commit * 2 {
             failures.append(String(
-                format: "Metric.spaceCreateReach is %.2f pages — making a Space is no harder than reaching one",
-                metric.spaceCreateReach
+                format: "Metric.spaceCreateReach is %.2f pages against a %.2f page switch — a reflex would make Spaces",
+                metric.spaceCreateReach, commit
             ))
         }
         // **The create gesture has to be completable in one stroke, at the
@@ -130,11 +140,28 @@ extension TokenCheck {
                 widest, metric.spaceSwipeSpeed
             ))
         }
-        // **The ring is a promise, not a receipt.** It has to finish drawing
-        // itself with travel still left to pay, or it is telling the user what
-        // they already have.
-        if metric.spaceCreateRingReach >= metric.spaceCreateReach {
-            failures.append("Metric.spaceCreateRingReach closes the ring at the moment it commits — that is a receipt")
+        // **The create zone resists, and the resistance has to be visible in
+        // the column.** `spaceCreateGive` is where its travel bends over, so a
+        // give at or past the reach is a column that follows the hand out as if
+        // it were going somewhere — which is the one thing the gesture must not
+        // look like, because it is the gesture for a Space that does not exist.
+        // Under half the reach is where a whole page of push leaves the column
+        // visibly held rather than visibly leaving.
+        if metric.spaceCreateGive >= metric.spaceCreateReach / 2 {
+            failures.append(String(
+                format: "Metric.spaceCreateGive is %.2f of a %.2f page reach — the column is not resisting, it is leaving",
+                metric.spaceCreateGive, metric.spaceCreateReach
+            ))
+        }
+        // **The `+` has to be standing still while the ring is still filling.**
+        // Its entrance is a fraction of the ring's own sweep, so at 1 it is
+        // still sliding in at the instant the gesture commits and the read-out
+        // is two things moving at once instead of one thing filling.
+        if metric.spaceCreateEntrance <= 0 || metric.spaceCreateEntrance > 0.5 {
+            failures.append(String(
+                format: "Metric.spaceCreateEntrance is %.2f of the ring — the + is still arriving as the ring closes",
+                metric.spaceCreateEntrance
+            ))
         }
         // **A flick is told from a drag by speed alone**, so the threshold has
         // to sit inside the range the gesture can actually report: `damped`

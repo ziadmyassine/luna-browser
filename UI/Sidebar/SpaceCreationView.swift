@@ -101,7 +101,13 @@ final class SpaceCreationView: NSView {
         // The *ring* is what is inset from the edge, not the disc: it is the
         // outermost thing drawn, so it is what has to clear the sidebar's
         // margin.
-        let reach = max(0, min(progress, 1))
+        // **The disc arrives on its own clock, and it is a faster one than the
+        // ring's.** The sweep is the whole asking price now — a page of hand —
+        // and a `+` paced by it would still be crossing the column when the
+        // gesture was half paid for. It lands in the first `spaceCreateEntrance`
+        // of the sweep, which is the shape the gesture is described in: a thing
+        // that appears, and then a thing that fills.
+        let arrival = max(0, min(progress / Tokens.Metric.spaceCreateEntrance, 1))
         let resting = bounds.maxX - inset - hoop
         let travel = bounds.maxX - resting
         // **Not snapped to the pixel grid**, for `SpaceDotView`'s reason and
@@ -111,7 +117,7 @@ final class SpaceCreationView: NSView {
         // under a hand that was moving slowly and deliberately. Down the column
         // it is snapped, because that is a position that never moves.
         let hoopRect = NSRect(
-            x: resting + travel * (1 - reach),
+            x: resting + travel * (1 - arrival),
             y: ((bounds.height - hoop) / 2).rounded(),
             width: hoop,
             height: hoop
@@ -126,7 +132,7 @@ final class SpaceCreationView: NSView {
         drawRing(in: hoopRect)
         // The glass arrives before the ink does: at the moment the disc clears
         // the edge the finger has not said it means it yet.
-        alphaValue = min(reach * 2, 1)
+        alphaValue = min(arrival * 2, 1)
     }
 
     override var wantsUpdateLayer: Bool { true }

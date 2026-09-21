@@ -132,13 +132,26 @@ final class SidebarSpaceGestures {
         turn(to: state.travel)
     }
 
-    /// One tick as §30.9's ring closes, and nothing else for the rest of the
-    /// gesture. The ring is the only thing that changes state mid-swipe, and it
-    /// does it two thirds of a page before the release that acts on it — so
-    /// the hand is told, once, at the moment it becomes true.
+    /// One tick as §30.9's ring closes — **the moment the gesture starts being
+    /// a create** — and one more if the hand backs off far enough to undo it
+    /// and pushes out again.
+    ///
+    /// **It answers a threshold now rather than announcing one.** The ring used
+    /// to close two thirds of a page before the release could act on it, so
+    /// this tick was a warning; the ring *is* the threshold, so it is a detent.
+    /// That makes the retreat worth feeling too: panning back empties the ring
+    /// and calls the create off, and a hand that only feels the arming has been
+    /// told half of it.
+    ///
+    /// **It re-arms low rather than at the threshold itself**, because the
+    /// column has all but stopped moving out there (`spaceCreateGive`) and a
+    /// hand holding a stiff stop is a hand that wobbles across it. Crossing at
+    /// the same point in both directions would buzz.
+    private static let ringReArm: CGFloat = 0.9
+
     private func latchRing(at creation: CGFloat) {
         guard creation >= 1 else {
-            ringHasClosed = false
+            if creation < Self.ringReArm { ringHasClosed = false }
             return
         }
         guard !ringHasClosed else { return }

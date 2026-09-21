@@ -58,11 +58,31 @@ final class SpaceSwipeTests: XCTestCase {
         }
     }
 
-    /// The same claim backwards, and the same claim past the last Space: the
-    /// create zone is one page too, so the gesture never changes gear.
-    func testTheRulerDoesNotChangeWithDirectionOrWithRunningOffTheEnd() {
+    /// The same claim backwards. Every direction with a Space in it is 1:1.
+    func testTheRulerDoesNotChangeWithDirection() {
         XCTAssertEqual(Self.resolve(-page / 2, active: 1, of: 3).travel, -0.5, accuracy: 0.001)
-        XCTAssertEqual(Self.resolve(page / 2, active: 2, of: 3).travel, 0.5, accuracy: 0.001)
+        XCTAssertEqual(Self.resolve(page / 2, active: 1, of: 3).travel, 0.5, accuracy: 0.001)
+    }
+
+    /// **Past the last Space it changes gear, and that is the resistance
+    /// asked for.** There is nowhere for the column to go out there, so it is
+    /// held against a stop instead of carried to one: the same half page of
+    /// hand that moves a whole half page of column between two Spaces moves
+    /// visibly less of one past the last, and every further point of push
+    /// moves it less than the point before.
+    func testTheCreateZoneResistsTheHandInsteadOfCarryingIt() {
+        var previous: CGFloat = 0
+        for fraction in stride(from: 0.1, through: 2.0, by: 0.1) {
+            let held = Self.resolve(page * CGFloat(fraction), active: 2, of: 3).travel
+            let carried = min(CGFloat(fraction), 1)
+            XCTAssertLessThan(held, carried, "\(fraction) of a page was not resisted")
+            XCTAssertGreaterThan(held, previous, "the column stopped answering the hand at \(fraction)")
+            XCTAssertLessThan(held, Tokens.Metric.spaceCreateGive, "the column passed its own stop")
+            previous = held
+        }
+        // …and it starts out following the hand, so crossing into the zone is
+        // one movement rather than a gear change the fingers can feel.
+        XCTAssertEqual(Self.resolve(page * 0.05, active: 2, of: 3).travel, 0.05, accuracy: 0.005)
     }
 
     // MARK: - What a gesture means
@@ -178,8 +198,10 @@ final class SpaceSwipeTests: XCTestCase {
     func testAPagePushedOutAndReleasedMakesASpace() {
         let swipe = Self.resolve(page, speed: slow, active: 1, of: 2)
         XCTAssertTrue(swipe.createsSpace)
-        XCTAssertEqual(swipe.travel, 1, accuracy: 0.001)
         XCTAssertEqual(swipe.creation, 1, accuracy: 0.001)
+        // The column is held, not gone: the rest of that journey belongs to
+        // the release, which makes it in one movement.
+        XCTAssertLessThan(swipe.travel, Tokens.Metric.spaceCreateGive)
     }
 
     /// …and a page that is nearly all the way out is still not a Space.
@@ -187,28 +209,56 @@ final class SpaceSwipeTests: XCTestCase {
         XCTAssertFalse(Self.resolve(page * 0.99, speed: slow, active: 0, of: 1).createsSpace)
     }
 
-    /// **A flick is never a create, and this is the whole of the resistance.**
-    /// What has to be prevented is a reflex off the end of the Spaces turning
-    /// into a Space nobody asked for, and that is a statement about how the
-    /// gesture ended rather than about how far it went — which is why the
-    /// distance could come down far enough to be performable at all.
-    func testAFlickPastTheLastSpaceMakesNothingHoweverFarItWent() {
-        for stroke in [page, page * 4, page * 40] {
-            let swipe = Self.resolve(stroke, speed: fast, active: 0, of: 1)
-            XCTAssertFalse(swipe.createsSpace, "a \(stroke) pt flick made a Space")
-            XCTAssertEqual(swipe.creation, 1, "the ring did not close on a \(stroke) pt flick")
+    /// **A closed ring is a made Space, and nothing else is.** The ring used
+    /// to finish drawing a third of the way in and the gesture to commit at the
+    /// end of the page, on the reasoning that a progress ring should promise
+    /// rather than receipt — which is true of a ring that is promising
+    /// something. A user who did what it said (push until the circle closes,
+    /// let go) got nothing, exactly as they had before the create distance came
+    /// down at all. There is one distance now and the ring is drawn against it.
+    func testTheRingIsFullExactlyWhenALetGoWouldMakeASpace() {
+        for fraction in stride(from: 0.1, through: 3.0, by: 0.1) {
+            let swipe = Self.resolve(page * CGFloat(fraction), speed: slow, active: 0, of: 1)
+            XCTAssertEqual(
+                swipe.createsSpace, swipe.creation >= 1,
+                "at \(fraction) of a page the ring and the release disagreed"
+            )
+        }
+        XCTAssertLessThan(Self.resolve(page * 0.99, active: 0, of: 1).creation, 1)
+        XCTAssertEqual(Self.resolve(page, active: 0, of: 1).creation, 1, accuracy: 0.001)
+    }
+
+    /// **However the hand left.** A flick past the last Space used to make
+    /// nothing however far it went, which is a defensible rule about intent and
+    /// an indefensible one about a read-out: it made a closed circle mean
+    /// nothing in some releases, which is the same lie as a circle that closes
+    /// early. The distance is what tells a reflex from a decision now, and a
+    /// reflex does not cover a page.
+    func testTheRingDecidesRatherThanTheSpeedTheFingersLeftAt() {
+        for speed in [0, slow, fast, fast * 10, -fast] {
+            XCTAssertTrue(
+                Self.resolve(page, speed: speed, active: 0, of: 1).createsSpace,
+                "a closed ring let go of at \(speed) pt/s made nothing"
+            )
+            XCTAssertFalse(
+                Self.resolve(page * 0.9, speed: speed, active: 0, of: 1).createsSpace,
+                "an open ring let go of at \(speed) pt/s made a Space"
+            )
         }
     }
 
-    /// **A closed ring is not a made Space**, which is the promise the ring
-    /// makes: it finishes drawing a third of the way in, and the two thirds
-    /// after it are the asking price.
-    func testTheRingClosesAThirdOfTheWayAndStillHasTwoThirdsToPayFor() {
-        let ring = page * Tokens.Metric.spaceCreateRingReach
-        XCTAssertLessThan(Self.resolve(ring * 0.99, active: 0, of: 1).creation, 1)
-        XCTAssertEqual(Self.resolve(ring, active: 0, of: 1).creation, 1, accuracy: 0.001)
-        XCTAssertFalse(Self.resolve(ring, speed: slow, active: 0, of: 1).createsSpace)
-        XCTAssertEqual(Tokens.Metric.spaceCreateRingReach * 3, Tokens.Metric.spaceCreateReach, accuracy: 0.001)
+    /// **"If the user then pans back then it shouldn't."** The ring empties
+    /// under the hand on the way out again, so calling a create off is the same
+    /// movement that started it, run backwards, and it is watched the whole
+    /// way. Nothing latches.
+    func testPanningBackEmptiesTheRingAndCallsTheCreateOff() {
+        let closed = Self.resolve(page * 1.5, speed: slow, active: 0, of: 1)
+        XCTAssertTrue(closed.createsSpace)
+        let backOff = Self.resolve(page * 0.7, speed: slow, active: 0, of: 1)
+        XCTAssertFalse(backOff.createsSpace)
+        XCTAssertEqual(backOff.creation, 0.7, accuracy: 0.001)
+        // …all the way back to the Space it started from.
+        XCTAssertEqual(Self.resolve(0, active: 0, of: 1), .rest)
     }
 
     /// The ring never over-fills, however far the fingers go.

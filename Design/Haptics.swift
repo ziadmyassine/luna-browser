@@ -61,10 +61,11 @@ extension Tokens {
         /// and the tick is the only way the user finds that out without
         /// watching a 46 pt hoop at the far edge of the column.
         ///
-        /// It fires **once per gesture**, on the way in. A detent that ticked
-        /// again every time the fingers wandered back and forth across the
-        /// threshold would buzz for the rest of the swipe, and there are two
-        /// thirds of a page still to go after this — see `spaceCreateReach`.
+        /// The ring **is** the threshold: from here, letting go makes a Space,
+        /// and panning back until it empties calls that off. So it fires again
+        /// on a second arming — but only after the hand has retreated a good
+        /// way, not at the crossing itself, or a hand holding a stiff stop
+        /// would buzz across it. See `SidebarSpaceGestures.ringReArm`.
         static func latch() {
             NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .drawCompleted)
         }

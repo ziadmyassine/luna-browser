@@ -147,42 +147,71 @@ extension Tokens.Metric {
     static let spaceFlickReach: CGFloat = 0.1
 
     /// How far **past the last Space** the same two fingers travel to make a
-    /// new one, in pages.
+    /// new one, in pages — **and the sweep of §30.9's ring, because they are
+    /// the same distance.**
     ///
-    /// **One whole page, and the gesture is exactly what it looks like**: the
-    /// column is pushed all the way off the side and let go. There is nothing
-    /// to learn and nothing to measure, because the thing being dragged is the
-    /// answer — when the old Space has completely gone, what is left is the new
-    /// one.
+    /// **That they were two distances is the whole of the second create
+    /// defect.** The ring closed a third of the way in and the gesture
+    /// committed at the end, on the reasoning that a progress ring should be a
+    /// promise rather than a receipt — which is good reasoning about a ring
+    /// that is promising something, and this one was promising something that
+    /// then did not happen. A user who does what the read-out tells them to do
+    /// — push until the circle is closed, let go — got nothing, exactly as
+    /// they had before, and the only thing the early close bought was a more
+    /// convincing way to be told the wrong thing. **The ring is the
+    /// threshold.** When it is full, letting go makes a Space; when it is not,
+    /// letting go does not; and panning back empties it, which is how the
+    /// gesture is called off.
     ///
-    /// **It was three pages' worth, and it could not be done.** 360 pt against
-    /// a damping ceiling of 1600 pt/s needs almost a quarter of a second of
-    /// *unbroken, saturated* movement; an ordinary swipe lasts a sixth of a
-    /// second, so the ring closed — it only needed a third of the distance —
-    /// and the release made nothing, every time. A create that reports itself
-    /// as broken is not resistance, and `TokenCheck` now checks this against
-    /// the widest page rather than against a comfortable one.
+    /// **One page of hand, which is twice what changing Space costs**
+    /// (`SpaceSwipe.resolve` commits a switch at half a page) — and that
+    /// asymmetry is now the *only* thing standing between a reflex off the end
+    /// of the Spaces and a Space nobody asked for, so `TokenCheck` holds it.
+    /// A flick used to be excluded by how the gesture ended, and it is not any
+    /// more: a rule that made a closed ring mean nothing in some releases is
+    /// the same lie in a different place.
     ///
-    /// **The resistance moved to `spaceFlickSpeed`, where it belongs.** What
-    /// has to be prevented is a *flick* off the end of the Spaces turning into
-    /// a Space nobody asked for — and that is a statement about how the gesture
-    /// ended, not about how far it went. A flick past the last Space now
-    /// springs back however far it reached; a Space is made by pushing the
-    /// column out and coming to rest there, which is a thing nobody does by
-    /// accident.
+    /// **It was three pages' worth, and it could not be done at all.** 360 pt
+    /// against a damping ceiling of 1600 pt/s needs almost a quarter of a
+    /// second of *unbroken, saturated* movement; an ordinary swipe lasts a
+    /// sixth. One page is the most this can be and still be performable at the
+    /// widest the §3.7 handle goes — see `TokenCheck.checkSpaceSwipe`, which
+    /// checks it against that width rather than a comfortable one.
     static let spaceCreateReach: CGFloat = 1
 
-    /// How far into that page §30.9's ring is **already closed**.
+    /// How far the column is actually pushed by that page of hand, in pages —
+    /// **the resistance**, and the reason a create feels nothing like a swipe.
     ///
-    /// **A third of the way.** The `+` used to finish drawing itself at the
-    /// same instant the gesture committed, and a progress ring that completes
-    /// on the last frame is not a read-out — it is a receipt. Closed early, it
-    /// becomes the thing it was meant to be: *this is what you are about to
-    /// make*, said while there are still two thirds of a page in which to
-    /// decide against it. The rest of the travel is then read as the new Space
-    /// pushing the old column out of the way, which is the other half of what
-    /// the gesture is doing.
-    static let spaceCreateRingReach = spaceCreateReach / 3
+    /// **The create zone is the one place the page stops being the ruler, and
+    /// it stops on purpose.** Everywhere else one page of hand is one page of
+    /// column, because the column is going somewhere and the hand is what
+    /// takes it there. Past the last Space there is nowhere to go: the column
+    /// is being held against a stop while the ring fills, and a stop that the
+    /// hand slides straight through is not one. So the travel bends — 1:1
+    /// under the fingers at first, so the `+` slides in as part of the same
+    /// movement, and stiffer the further it is pushed, until the last third of
+    /// the ring moves the column barely at all.
+    ///
+    /// 0.4, so a whole page of hand leaves the column a little under half way
+    /// out. Far enough to read as pushed and nowhere near far enough to read
+    /// as gone — the rest of that journey is the commit's to make, and it
+    /// makes it in one movement the moment the fingers leave.
+    static let spaceCreateGive: CGFloat = 0.4
+
+    /// How much of the ring's sweep the `+` disc spends **arriving**, as a
+    /// fraction of it.
+    ///
+    /// **The disc is not a progress bar and must not be paced like one.** It
+    /// slides in from the trailing edge, and a disc that took the ring's whole
+    /// sweep to get there would still be crossing the column at the moment the
+    /// gesture was already half paid for. A third: the `+` is *there*, settled
+    /// at its own margin, while there are still two thirds of a ring to fill —
+    /// which is the shape of the gesture as it is actually described, a thing
+    /// that appears and then a thing that fills.
+    ///
+    /// This is the number the ring's sweep used to be, and it belongs here
+    /// instead: the entrance was the part of it that was right.
+    static let spaceCreateEntrance: CGFloat = 1.0 / 3
 
     /// §30.9's ring, drawn **around** the sidebar's `+` disc.
     ///

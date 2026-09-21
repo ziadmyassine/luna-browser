@@ -20,8 +20,13 @@
 //  create asked for three pages of travel, which against the damping ceiling
 //  needs longer than an ordinary stroke lasts — so the `+` closed, because its
 //  ring only costs a third of that, and the release made nothing. Every time.
-//  The two tests that matter most here are the same stroke twice, lifted two
-//  different ways.
+//
+//  It was then reported a second time, and it was the same defect with one
+//  page in place of three: the ring still closed a third of the way in, so a
+//  hand that did what the read-out said — push until the circle is full, let go
+//  — still got nothing. **The ring is the threshold now**, and the two tests
+//  that matter most are a stroke that fills it, which makes a Space however the
+//  fingers left, and a reflex that does not, which never does.
 //
 
 import AppKit
@@ -57,18 +62,51 @@ final class SpaceGestureTests: XCTestCase {
         XCTAssertEqual(session.spaces.count, before + 1)
     }
 
-    /// **The same stroke, lifted while it was still moving, makes nothing** —
-    /// and this is the whole of the resistance. It used to be distance, which
-    /// punished the deliberate gesture exactly as hard as the accidental one
-    /// and is why the deliberate one became impossible. A flick off the end of
-    /// the Spaces is a reflex that overshot; a push that comes to rest is a
-    /// decision.
-    func testTheSameStrokeFlickedMakesNothing() async throws {
+    /// **The same stroke, lifted while it was still moving, makes one too** —
+    /// and that is a rule this deliberately reversed. A flick used to make
+    /// nothing however far it went, which reads as a statement about intent and
+    /// draws as a closed circle that means nothing: the ring had already told
+    /// the hand it was done. A read-out that is not the threshold is a read-out
+    /// of nothing, so the distance carries the whole guard now.
+    func testAClosedRingMakesASpaceHoweverTheHandLeft() async throws {
         let (session, gestures) = try await sidebar()
         let before = session.spaces.count
         push(gestures, page: gestures.contentRect.width, restingBeforeTheLift: false)
+        try await eventually("the editor opened") { gestures.editor != nil }
+        XCTAssertEqual(session.spaces.count, before + 1)
+    }
+
+    /// **…and the reflex it used to be the guard against still makes
+    /// nothing**, because it never fills the ring. A flick off the end of the
+    /// Spaces is over in a handful of events, and against the damping ceiling
+    /// that is a quarter of a page — the `+` is barely in from the edge. This
+    /// is the test that has to hold for the one above to be safe.
+    func testAReflexOffTheEndOfTheSpacesMakesNothing() async throws {
+        let (session, gestures) = try await sidebar()
+        let before = session.spaces.count
+        flick(gestures, events: 6)
         try await settling()
-        XCTAssertEqual(session.spaces.count, before, "a flick past the last Space made one")
+        XCTAssertEqual(session.spaces.count, before, "a reflex past the last Space made a Space")
+        XCTAssertNil(gestures.editor)
+    }
+
+    /// **"If the user then pans back then it shouldn't."** The whole create
+    /// stroke, then most of it again the other way, and the fingers leave from
+    /// a ring that has emptied — the column springs home and nothing is made.
+    func testPushingOutAndPanningBackMakesNothing() async throws {
+        let (session, gestures) = try await sidebar()
+        let before = session.spaces.count
+        var now = 1.0
+        _ = gestures.scrollWheel(with: scroll(dx: 0, dy: 0, phase: .began, at: now))
+        for step in 0..<30 {
+            now += 1.0 / 60
+            // Out for fifteen events, back for fifteen.
+            _ = gestures.scrollWheel(with: scroll(dx: step < 15 ? -30 : 30, dy: 0, phase: .changed, at: now))
+        }
+        now += 0.2
+        _ = gestures.scrollWheel(with: scroll(dx: 0, dy: 0, phase: .ended, at: now))
+        try await settling()
+        XCTAssertEqual(session.spaces.count, before, "a create the hand backed out of was made anyway")
         XCTAssertNil(gestures.editor)
     }
 

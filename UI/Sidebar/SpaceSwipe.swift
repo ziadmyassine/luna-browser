@@ -57,20 +57,36 @@
 //  back. That is the whole of "a little swipe should do a little, and one fast
 //  swipe should still change Space".
 //
-//  **A flick is never a create.** Past the last Space the same two fingers make
-//  a new one, and the resistance that keeps that from happening by accident is
-//  *how the gesture ended*, not how far it went. This used to be three pages of
-//  distance and could not be performed at all: 360 pt against the damping
-//  ceiling needs a quarter of a second of unbroken, saturated movement, and an
-//  ordinary swipe lasts a sixth — so the ring closed, which only costs a third
-//  of that, and the release made nothing. Every time. It is one page now, and
-//  what stops a flick off the end from making a Space is that a flick, by
-//  definition, has not come to rest.
+//  **The ring is the threshold — it does not promise, it decides.** Past the
+//  last Space the same two fingers make a new one, and the circle closing is
+//  the whole of what that costs: full ring, let go, Space; short of full, let
+//  go, nothing; pan back and it empties under the hand, which is how the
+//  gesture is called off after the hand has changed its mind.
 //
-//  **The ring is not the threshold; it is the promise.** It closes a third of
-//  the way in (`Metric.spaceCreateRingReach`), which is where the `+` stops
-//  being a thing appearing and becomes a thing about to happen — and the two
-//  thirds after it are the asking price, watched with the answer already drawn.
+//  **Both create defects were this one distance being two.** The first asked
+//  for three pages and closed the ring after one, which could not be performed
+//  at all — 360 pt against the damping ceiling needs a quarter-second of
+//  unbroken saturated movement and an ordinary swipe lasts a sixth. The second
+//  brought the distance down to a page that a hand can actually cover, and left
+//  the ring closing a third of the way into it on the reasoning that a progress
+//  ring ought to be a promise rather than a receipt. That is true of a ring
+//  that is promising something. This one promised and then did not deliver, so
+//  all the early close bought was a more convincing way of being told the wrong
+//  thing. **A read-out that is not the threshold is a read-out of nothing.**
+//
+//  **What is left of the resistance is distance and stiffness, and they are
+//  enough.** A page is twice what changing Space costs, which is the asymmetry
+//  `TokenCheck` holds; and the column does not follow the hand out there — it
+//  bends over against `Metric.spaceCreateGive`, so a whole page of fingers
+//  leaves it a little under half way and every further point of push moves it
+//  less than the one before. A reflex off the end of the Spaces neither covers
+//  the distance nor looks, at any point, like something being made.
+//
+//  **A flick is not excluded any more, and that is not a relaxation.** It was
+//  excluded by how the gesture *ended*, which reads well and cannot be drawn:
+//  a rule that makes a closed circle mean nothing in some releases is the same
+//  lie as a circle that closes early. Speed still decides a page turn, where
+//  there is no read-out claiming otherwise.
 //
 //  **Nothing is decided while the fingers are down.** `.changed` only moves the
 //  read-out; the switch and the create both happen on `.ended`. A gesture that
@@ -153,24 +169,24 @@ struct SpaceSwipe: Equatable {
 
         // Forward from the last Space, where "further" has only one meaning.
         //
-        // **The ring and the page are two different clocks**, and they used to
-        // be one. The `+` closed at exactly the moment the gesture committed,
-        // which made it a receipt rather than a read-out: by the time it told
-        // you what you were about to get, you had it. The ring now fills over
-        // the first third of the page and the column keeps travelling for the
-        // other two, so the hand is told early and then has to mean it.
+        // **The ring is the threshold.** Full means a release makes a Space,
+        // and it is the only thing that does — see the file header for the two
+        // builds in which it meant something else and the user was told so in
+        // a closed circle.
         //
-        // **A flick makes nothing.** It is the only thing standing between a
-        // reflex performed a hundred times a day and a Space nobody asked for,
-        // and it is a better guard than distance ever was: distance punishes
-        // the deliberate gesture as hard as the accidental one.
-        let creation = min(reach / Tokens.Metric.spaceCreateRingReach, 1)
-        let travel = min(reach / Tokens.Metric.spaceCreateReach, 1)
+        // **The column resists rather than travelling.** There is nowhere for
+        // it to go, so `spaceCreateGive` bends its travel over: 1:1 under the
+        // fingers at first, and stiffer the further it is pushed, so the last
+        // third of the ring is paid for against a column that has all but
+        // stopped moving. `tanh` for `damped`'s reason — a stop with a corner
+        // on it is a place the hand sits and chatters.
+        let give = Tokens.Metric.spaceCreateGive
+        let creation = min(reach / Tokens.Metric.spaceCreateReach, 1)
         return SpaceSwipe(
-            travel: travel,
+            travel: give * CGFloat(tanh(Double(reach / give))),
             creation: creation,
             landing: nil,
-            createsSpace: travel >= 1 && !flicked
+            createsSpace: creation >= 1
         )
     }
 
