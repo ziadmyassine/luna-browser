@@ -31,7 +31,9 @@ import BrowserKit
 import Foundation
 
 actor BrowserImporter {
-    private let store: BrowserStore
+    /// Not private: `BrowserImporter+Placement` is the other half of this
+    /// actor and does the writing.
+    let store: BrowserStore
     private let ledger: ImportLedger
 
     init(store: BrowserStore, ledger: ImportLedger = .standard) {
@@ -239,124 +241,6 @@ actor BrowserImporter {
             }
         }
         return NetscapeBookmarks.write(bookmarks, title: "Luna Bookmarks")
-    }
-
-    // MARK: - Writing
-
-    /// Deduplicates, then writes. This is the whole idempotency story for
-    /// bookmarks, and it reads from the store rather than the ledger on
-    /// purpose: a user who deleted the ledger, or who imports the same sites
-    /// from two browsers, still gets no duplicates.
-    ///
-    /// Two keys, because §23.2's "same URL in a folder" and Luna's model are
-    /// not the same shape:
-    ///
-    /// - Within the incoming list, folder path + URL, so a site bookmarked
-    ///   in two different folders survives as two bookmarks.
-    /// - Against the target Space, the URL alone, because Luna has no
-    ///   folder column yet (§11.1 lists a `bookmarks` table that is not
-    ///   created) and two tabs with one URL in one Space are duplicates by any
-    ///   reading.
-    private func write(
-        _ bookmarks: [ImportedBookmark],
-        into spaceID: UUID,
-        dryRun: Bool
-    ) async throws -> (added: Int, skipped: Int) {
-        let existing = try await store.tabs(inSpace: spaceID, includeArchived: true)
-        var seen = Set(existing.map { Self.dedupKey($0.url) })
-        var order = (existing.map(\.order).max() ?? -1) + 1
-
-        var added = 0
-        var skipped = 0
-        var seenInBatch = Set<String>()
-
-        for bookmark in bookmarks {
-            let key = Self.dedupKey(bookmark.url)
-            let pathKey = bookmark.folderPath.joined(separator: "/") + "\u{1}" + key
-            guard seenInBatch.insert(pathKey).inserted, seen.insert(key).inserted else {
-                skipped += 1
-                continue
-            }
-            added += 1
-            guard !dryRun else { continue }
-
-            let when = bookmark.dateAdded ?? Date()
-            // ponytail: one `upsert` per bookmark, i.e. one transaction each.
-            // Fine at the scale this sees — a whole Dia profile is 44 bookmarks.
-            // If a 5,000-bookmark import ever turns up, `BrowserStore` wants a
-            // bulk `upsert(_ tabs: [Tab])` and this loop becomes one call.
-            try await store.upsert(Tab(
-                spaceID: spaceID,
-                kind: bookmark.placement.tabKind,
-                url: bookmark.url,
-                title: bookmark.title,
-                createdAt: when,
-                lastActiveAt: when,
-                order: order
-            ))
-            order += 1
-        }
-        return (added, skipped)
-    }
-
-    /// Two URLs are the same bookmark when they differ only by a trailing slash
-    /// or by the case of the scheme or host. Anything more aggressive —
-    /// dropping `www.`, sorting query items — starts merging pages that are
-    /// genuinely different, which is worse than one duplicate row.
-    static func dedupKey(_ url: URL) -> String {
-        var string = url.absoluteString
-        if string.hasSuffix("/") { string.removeLast() }
-        guard var components = URLComponents(string: string) else { return string.lowercased() }
-        components.scheme = components.scheme?.lowercased()
-        components.host = components.host?.lowercased()
-        return components.string ?? string
-    }
-
-    // MARK: - Target Space
-
-    private func resolveTargetSpace(
-        explicit: UUID?,
-        name: String,
-        entry: inout ImportLedger.Entry,
-        dryRun: Bool
-    ) async throws -> UUID {
-        if let explicit { return explicit }
-
-        let spaces = try await store.spaces()
-        // A Space the user has deleted since the last import drops its stale
-        // record rather than being resurrected.
-        if let remembered = entry.spaceID, spaces.contains(where: { $0.id == remembered }) {
-            return remembered
-        }
-        // Reusing a Space of the same name keeps repeated imports from
-        // accumulating "Dia", "Dia 2", "Dia 3".
-        if let match = spaces.first(where: { $0.name == name }) {
-            entry.spaceID = match.id
-            return match.id
-        }
-
-        // A dry run creates nothing at all — not the Space, and not the
-        // Profile `seedIfEmpty` would stand up underneath it. It reports the id
-        // it would have used so a screen can still say where things would land.
-        guard !dryRun else { return UUID() }
-
-        // `seedIfEmpty` is a no-op once anything exists; it is here so an
-        // import during onboarding — before the user has opened a window — has
-        // a Profile to hang the Space off.
-        try await store.seedIfEmpty()
-        guard let profile = try await store.profiles().first else {
-            throw ImportError.unreadable(String(localized: "Luna's own database"))
-        }
-        let space = Space(
-            name: name,
-            symbolName: "square.and.arrow.down",
-            gradient: .defaultSpace,
-            profileID: profile.id,
-            order: (spaces.map(\.order).max() ?? -1) + 1
-        )
-        try await store.upsert(space)
-        entry.spaceID = space.id
-        return space.id
     }
 
     // MARK: - Readers
