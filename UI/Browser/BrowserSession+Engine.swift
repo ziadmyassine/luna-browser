@@ -6,9 +6,9 @@
 //  `WKNavigationDelegate` / `WKUIDelegate` callback; this is the short list it
 //  cannot answer itself because answering needs AppKit or the tab list (§4.2).
 //
-//  Split from `BrowserSession.swift` on purpose: the coordinator's own API is
-//  one file and its engine obligations are another, so neither grows into the
-//  4,000-line manager §33 warns about.
+//  Split from `BrowserSession.swift`: the coordinator's own API is one file and
+//  its engine obligations another, so neither grows into the 4,000-line manager
+//  §33 warns about.
 //
 
 import AppKit

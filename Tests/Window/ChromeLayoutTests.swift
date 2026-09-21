@@ -4,8 +4,8 @@
 //
 //  TODO.md §7.7: "write a single `TrafficLightLayoutManager` and unit-test its
 //  output for the window states rather than nudging frames in 4 different view
-//  controllers". This file is that test — it is the reason the geometry is a
-//  pure function instead of a pile of `setFrameOrigin` calls.
+//  controllers". This is that test, and the reason the geometry is a pure
+//  function rather than a pile of `setFrameOrigin` calls.
 //
 //  The fixtures are measured, not invented: a probe run against macOS 26 reports
 //  a 32 pt `NSTitlebarView` holding three 14 × 14 buttons at x = 9 / 32 / 55.

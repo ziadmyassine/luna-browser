@@ -2,13 +2,13 @@
 //  ImportSource.swift
 //  Luna — §23.2, §30.18
 //
-//  Which browsers Luna can import from, where their data actually is, and
-//  which of them are on this Mac. Detection is on-disk only, because a
-//  directory alone is not evidence — `~/Library/Application Support/Arc`,
-//  `Chromium`, `Microsoft Edge`, `Vivaldi` and `com.operasoftware.Opera` all
-//  exist on the development machine as empty leftovers, and none of those
-//  browsers is installed. A source counts as importable only when a profile
-//  directory with a real `History` or `Preferences` is there to read.
+//  Which browsers Luna can import from, where their data is, and which are on
+//  this Mac. Detection is on-disk only, because a directory alone is not
+//  evidence: `~/Library/Application Support/Arc`, `Chromium`, `Microsoft Edge`,
+//  `Vivaldi` and `com.operasoftware.Opera` all exist on the development machine
+//  as empty leftovers with none of those browsers installed. A source counts as
+//  importable only when a profile directory with a real `History` or
+//  `Preferences` is there to read.
 //
 
 import Foundation

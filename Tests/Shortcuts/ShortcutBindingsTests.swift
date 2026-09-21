@@ -5,10 +5,10 @@
 //  §3.6's store and the menu it drives: overrides, conflicts, and the invariant
 //  that Luna does not ship two commands on one keystroke.
 //
-//  Every test that writes a binding puts the whole stored domain back. The
-//  test host is the real app (`AppDelegate`'s `databaseURL` comment has the
-//  full story), so an override left behind here is an override on the
-//  developer's own copy of Luna.
+//  Every test that writes a binding puts the whole stored domain back. The test
+//  host is the real app (`AppDelegate`'s `databaseURL` comment has the story),
+//  so an override left behind here is an override on the developer's own copy
+//  of Luna.
 //
 
 import AppKit
