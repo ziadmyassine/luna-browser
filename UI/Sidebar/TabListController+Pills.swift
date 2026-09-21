@@ -29,6 +29,18 @@ extension TabListController {
     /// chasing a live resize drag, or a §6 Space switch that has replaced every
     /// row under them, arrives after the row it belongs to.
     func movePills(animated: Bool = true) {
+        // §6.6: while a lift is up the list's two fills stay parked, because
+        // the lift is carrying §3.4's selected pill itself, and a second one
+        // lying in the row the tab came from is a ghost that follows the drag
+        // down the column and back up again.
+        //
+        // Guarded here rather than at the call sites, and that is the whole
+        // fix. `setPillsHidden(true)` parks the fills once; every later request
+        // to move one brings them back, because `move(to:spec:)` ends by fading
+        // to 1. A drag is when the list is re-laid most — the §3.3 grid opens
+        // to a tile's height, §3.4b's rule comes out, the gap steps — and each
+        // of those passes reaches `table.onLayout`, which lands here.
+        guard !isDragging else { return }
         selectionPill.isFocused = table.window?.firstResponder === table
         let selected = table.selectedRow >= 0 ? table.selectedRow : nil
         place(selectionPill, at: selected, spec: animated ? Tokens.Motion.selectedRowMove : nil)
@@ -39,6 +51,9 @@ extension TabListController {
     /// Parks both row fills, or brings them back. §6.6's lift carries §3.4's
     /// selected pill itself, so while one is up the list's own would be a
     /// second highlight lying in the row's old place.
+    ///
+    /// Parking is only half of it: `movePills` is what keeps them parked, and
+    /// it has to, because a dozen things ask for a pill move during a drag.
     func setPillsHidden(_ hidden: Bool) {
         guard hidden else {
             movePills()

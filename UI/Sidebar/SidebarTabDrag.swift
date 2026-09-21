@@ -18,9 +18,9 @@
 //  it. Carried up into the §3.3 grid the lift becomes a tile: same view, new
 //  geometry, animated on §6's `tabInsert`. Carried back down it is a row.
 //
-//  §3.4b put two more things in the air. A **group** can be dragged, and it
+//  §3.4b put two more things in the air. A group can be dragged, and it
 //  travels as its header — the name is what the hand is on, and the tabs follow
-//  on the drop. And the **saved tier's rule** comes out for the length of every
+//  on the drop. And the saved tier's rule comes out for the length of every
 //  drag, whether or not anything is saved yet: the zone above it is somewhere a
 //  tab can be put, and a zone that is invisible until you have already used it
 //  is one nobody finds.
@@ -188,21 +188,21 @@ final class SidebarTabDragController {
         // be opened before the lift can be carried into it. A group never goes
         // there, so it never asks for the room.
         grid.isAwaitingDrop = cargo.mayLeaveTheList
-        // §3.4b's rule, before the row is looked up: revealing it inserts a row,
-        // and a row index read a moment earlier would be one out.
+        // The list is told a lift is up first, before anything re-lays it.
+        // That is what parks §3.4's two row fills and keeps them parked: the
+        // lift is carrying the selected pill itself, and every layout pass
+        // between here and the drop would otherwise put a second one back in
+        // the row the tab came from.
+        list.beginIncomingDrag()
+        // Then §3.4b's rule, and only then the row lookup: revealing the rule
+        // inserts a row, so an index read a moment earlier would be one out.
         list.setRevealingSaved(true)
         if cargo.isTile {
             // Out of the grid for the length of the gesture: its slot closes up
             // behind it, so the index under the pointer is the index it lands at.
             grid.draggedID = cargo.id
-            // And the list is told a lift is up even though none of its rows
-            // is the one being carried — otherwise a tile brought down over
-            // the tabs floats above a list that never opens for it.
-            list.beginIncomingDrag()
         } else if let row = row(of: cargo) {
             list.beginDrag(atRow: row)
-        } else {
-            list.beginIncomingDrag()
         }
         target = nil
         view.lift()
