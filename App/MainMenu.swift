@@ -12,13 +12,11 @@
 //  installs no event monitors and overrides no `performKeyEquivalent`.
 //
 //  Rebinding rebuilds the whole bar rather than editing an item in place
-//  (`rebuild`). Not caution: this file already records two measured ways a live
-//  menu bar refuses a key equivalent — a ⌘-number added to one is stripped on
-//  the way in, and a duplicate ⌘-number erases the later item's key. Both were
-//  found by writing to a bar that was already installed. Building a fresh bar
-//  and assigning it is the path that is known to work, it is what launch does,
-//  and it costs one menu's worth of `NSMenuItem`s on a keystroke the user
-//  presses about twice a year.
+//  (`rebuild`). Not caution: this file records two measured ways a live menu bar
+//  refuses a key equivalent — a ⌘-number added to one is stripped on the way in,
+//  and a duplicate ⌘-number erases the later item's key — both found by writing
+//  to a bar that was already installed. Building a fresh bar and assigning it is
+//  what launch does and is known to work.
 //
 //  Cosmetic, verified in M0: AppKit auto-injects Writing Tools, AutoFill,
 //  Dictation and Emoji & Symbols into any menu titled "Edit". Do not add them
@@ -68,12 +66,11 @@ enum MainMenu {
 
     /// Rebuilds the Spaces menu from the session (§5.3).
     ///
-    /// `⌃1…⌃9`, not `⌘1…⌘9` (spec §13.2, D-S12). Plain ⌘-number means "go
-    /// to tab N" in Safari, Chrome, Firefox, Edge and Arc; Arc puts Spaces on
-    /// ⌃-number, Dia on Ctrl-number and Vivaldi on ⌘⇧-number — three products,
-    /// three modifiers, none of them ⌘-number. Luna spent that namespace on a
-    /// feature 94% of Arc's daily users never used twice (§13.1), so it is
-    /// given back to `setSidebarItems` and Spaces move one modifier over.
+    /// `⌃1…⌃9`, not `⌘1…⌘9` (spec §13.2, D-S12). Plain ⌘-number means "go to
+    /// tab N" in Safari, Chrome, Firefox, Edge and Arc; Arc puts Spaces on
+    /// ⌃-number, Dia on Ctrl-number and Vivaldi on ⌘⇧-number. Luna spent that
+    /// namespace on a feature 94% of Arc's daily users never used twice
+    /// (§13.1), so it goes back to `setSidebarItems`.
     ///
     /// A tenth Space is listed and clickable, just without a shortcut — which
     /// is what every other browser does too.
@@ -107,13 +104,12 @@ enum MainMenu {
     /// A ⌘-number cannot be added to a live menu bar, and that is measured.
     /// Instrumented on macOS 26.5 inside the running app: an item built with
     /// `keyEquivalent == "1"` still reports `"1"` on the line before
-    /// `NSMenu.addItem`, and `""` on the line after — modifier mask intact, key
-    /// gone, no error and no warning. `setSpaces` does not hit it because its
-    /// items are ⌃-numbers, and the Settings sections do not hit it because
-    /// they are built during `install`, before `app.mainMenu` is assigned.
-    /// So the nine live from `install` and are only ever renamed; growing the
-    /// menu to fit the tab count silently produces a menu with no shortcuts at
-    /// all, which is exactly what the first build of this did.
+    /// `NSMenu.addItem` and `""` on the line after — modifier mask intact, key
+    /// gone, no error, no warning. `setSpaces` escapes it because its items are
+    /// ⌃-numbers, and the Settings sections because they are built during
+    /// `install`, before `app.mainMenu` is assigned. So the nine live from
+    /// `install` and are only ever renamed; growing the menu to fit the tab
+    /// count silently produces a menu with no shortcuts at all.
     ///
     /// View also has to stay ahead of Window in the bar, which it does:
     /// AppKit's key-equivalent search stops at the first match in menu-bar
@@ -263,19 +259,16 @@ enum MainMenu {
     /// no key equivalent of their own.
     ///
     /// They used to declare `⌘1…⌘9` and AppKit was already deleting them.
-    /// Measured on macOS 26.5 inside the running app: a ⌘-number that duplicates
-    /// one already in the menu bar is erased — not shadowed, erased — with the
-    /// earlier item in menu-bar order keeping the key and the later one coming
-    /// back with `keyEquivalent == ""`, modifier mask intact, no error and no
-    /// warning. View ▸ Sidebar Items is earlier than Window ▸ Settings, so
-    /// re-declaring them here would print a shortcut in the menu that the menu
-    /// does not have.
+    /// Measured on macOS 26.5: a ⌘-number duplicating one already in the menu
+    /// bar is erased, not shadowed — the earlier item in menu-bar order keeps
+    /// the key and the later one comes back with `keyEquivalent == ""`, no
+    /// error, no warning. View ▸ Sidebar Items is earlier than Window ▸
+    /// Settings, so re-declaring them here would print a shortcut the menu does
+    /// not have.
     ///
     /// That is also the receipt on the old Spaces binding: `setSpaces` wrote
-    /// `⌘1…⌘9` into a menu bar that was already live and already carried these
-    /// nine, so Luna's shipped `⌘1` for Spaces never worked — the item was
-    /// built with the key and stripped on the way into the menu. §13.2 is a
-    /// better binding and a repair.
+    /// `⌘1…⌘9` into a bar that was already live and already carried these nine,
+    /// so Luna's shipped `⌘1` for Spaces never worked.
     ///
     /// The window still gets `⌘1…⌘9`: `AppDelegate.goToSidebarItem(_:)` forwards
     /// to it while it is key, and a hidden Sidebar Item still fires its key

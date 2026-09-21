@@ -3,10 +3,10 @@ import WebKit
 
 /// YouTube's in-player ads (§17.2), which are the one thing a rule list cannot reach.
 ///
-/// Why this is a documented exception to D6. D6 chose `WKContentRuleList` over a
-/// JS blocker and §17.3 chose `css-display-none` over runtime CSS, both for good
-/// reasons that still hold everywhere else. They do not hold here, and the reason was
-/// measured against the live site on 2026-09-20 rather than assumed:
+/// A documented exception to D6. D6 chose `WKContentRuleList` over a JS blocker
+/// and §17.3 chose `css-display-none` over runtime CSS; both still hold
+/// everywhere else, and neither holds here. Measured against the live site on
+/// 2026-09-20:
 ///
 /// - The ad and the video come down the same pipe. Every media segment on a watch
 ///   page is fetched from a session-specific `rr2---sn-q4fzene7.googlevideo.com`-style
@@ -21,10 +21,9 @@ import WebKit
 ///   `streamingData` and `videoDetails`. Nothing is fetched to schedule an ad. There is
 ///   no load to block, so `block` has nothing to act on.
 ///
-/// So the only seam left is the one the page itself reads the schedule through, and
-/// that is JavaScript. This is a narrow exception — the static ads (mastheads, in-feed
-/// slots, the panel beside the player) stay on the native path in ``youTubeRules``,
-/// where D6 and §17.3 still apply and there is still no flicker.
+/// So the only seam left is the one the page reads the schedule through, and
+/// that is JavaScript. Narrow: the static ads (mastheads, in-feed slots, the
+/// panel beside the player) stay on the native path in ``youTubeRules``.
 ///
 /// Why ``youTubeScript`` must be injected at `documentStart`, and why that is not a
 /// preference. Measured the same day, by patching a live page from the console:
@@ -65,14 +64,14 @@ extension ContentBlocker {
     /// user has already answered. So this is the `ads` category's answer, scoped to the
     /// site, and nothing more.
     ///
-    /// It deliberately does not ask whether `host` is YouTube. A `youtube-nocookie`
-    /// embed on someone else's page plays the same pre-roll out of the same player, and
-    /// the top-level host there is the someone else. ``youTubeScript`` tests
-    /// `location.hostname` in its own first two lines and returns from any frame that is
-    /// not YouTube's, so the embed is covered and every other site pays one regular
-    /// expression against a string it already has. ``apply(to:host:)`` is the caller
-    /// that does add the `isYouTube` test, because a rule list is per-page and has no
-    /// second chance to check.
+    /// It deliberately does not ask whether `host` is YouTube. A
+    /// `youtube-nocookie` embed on someone else's page plays the same pre-roll
+    /// out of the same player, and the top-level host there is the someone
+    /// else. ``youTubeScript`` tests `location.hostname` in its first two lines
+    /// and returns from any frame that is not YouTube's, so the embed is
+    /// covered and every other site pays one regular expression.
+    /// ``apply(to:host:)`` does add the `isYouTube` test, because a rule list
+    /// is per-page and has no second chance to check.
     public func blocksYouTubeAds(forHost host: String?) -> Bool {
         isEnabled(.ads) && !isDisabled(forHost: host)
     }
@@ -178,10 +177,9 @@ extension ContentBlocker {
     ///    for the content). Skip it if there is a skip button, seek past it if there is
     ///    not.
     ///
-    /// The mute is restored, and that is not a detail. The ad and the video are the
-    /// same element, so muting for the seek and forgetting would hand the user a silent
-    /// video. `mutedByUs` exists only to put it back, and only if we were the ones who
-    /// took it.
+    /// The mute is restored. The ad and the video are the same element, so
+    /// muting for the seek and forgetting would hand the user a silent video.
+    /// `mutedByUs` exists only to put it back, and only if we took it.
     public static let youTubeScript = """
     (function () {
       'use strict';

@@ -3,13 +3,12 @@ import Foundation
 /// eTLD+1 — the "same site" question, answered the way the Public Suffix List
 /// answers it (§14.3).
 ///
-/// Why this exists at all. §14.3 says credentials are matched on eTLD+1 and
-/// "never on a bare substring", and that sentence is the whole security model of
-/// the fill flow. A substring match offers `example.com`'s password to
-/// `example.com.evil.net`; a naive "last two labels" match offers `bbc.co.uk`'s
-/// password to `itv.co.uk`, because both reduce to `co.uk`. Either one hands a
-/// credential to a site that did not earn it, which is the only truly
-/// unrecoverable bug this feature can have.
+/// §14.3 matches credentials on eTLD+1 and "never on a bare substring", which
+/// is the whole security model of the fill flow. A substring match offers
+/// `example.com`'s password to `example.com.evil.net`; a naive "last two
+/// labels" match offers `bbc.co.uk`'s password to `itv.co.uk`, because both
+/// reduce to `co.uk`. Either hands a credential to a site that did not earn
+/// it — the only truly unrecoverable bug this feature can have.
 ///
 /// The algorithm is the PSL's own, not an approximation of it:
 ///
@@ -22,14 +21,13 @@ import Foundation
 ///      fallback we invented, which is what makes a partial table honest:
 ///      an unlisted TLD lands on the same answer the full list would give it.
 ///
-/// The table is a curated subset, and that is a real limitation. The full
-/// list is ~9,000 rules and changes weekly; embedding a stale copy is worse
-/// than embedding a small correct one. What ships here is every multi-label
-/// ICANN suffix in wide use plus the private-section entries that actually host
-/// mutually-distrusting sites (`github.io`, `herokuapp.com`, …) — the cases
-/// where getting it wrong leaks a credential between two strangers' sites.
-/// `Tools/update-public-suffix-list.sh` regenerates this file from the real
-/// list; run it before v1 ships and on a schedule after.
+/// The table is a curated subset, which is a real limitation. The full list is
+/// ~9,000 rules and changes weekly, and a stale copy is worse than a small
+/// correct one. What ships is every multi-label ICANN suffix in wide use plus
+/// the private-section entries that host mutually-distrusting sites
+/// (`github.io`, `herokuapp.com`, …), where getting it wrong leaks a credential
+/// between strangers. `Tools/update-public-suffix-list.sh` regenerates this
+/// file; run it before v1 ships and on a schedule after.
 ///
 /// Rule 4 makes an absent rule narrow, never wide: the worst an unlisted
 /// multi-label suffix can do is treat `a.unlisted.xx` and `b.unlisted.xx` as
@@ -46,12 +44,11 @@ public enum PublicSuffix {
     /// host cannot span anything. `localhost` matches `localhost` and nothing
     /// else.
     ///
-    /// Returning nil for these instead — which is what this did first — reads
-    /// as the safe choice and is not one. It makes the whole feature silently
-    /// inert on `http://localhost:8080/`, which is the first place anyone
-    /// building a login form tries it, and on every router and NAS on a home
-    /// network. Safari and Chrome both key these on the exact host; so does
-    /// Luna now.
+    /// Returning nil instead — which this did first — reads as the safe choice
+    /// and is not one: it makes the feature silently inert on
+    /// `http://localhost:8080/`, the first place anyone building a login form
+    /// tries it, and on every router and NAS on a home network. Safari and
+    /// Chrome both key these on the exact host.
     ///
     /// Two consequences worth naming, both shared with Safari:
     /// every dev server on `localhost` shares one credential space regardless

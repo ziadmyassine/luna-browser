@@ -13,12 +13,11 @@
 //  rules about when a progress bar is allowed to be on screen rather than one
 //  per surface.
 //
-//  It is the pill filling up, not a rule drawn inside one. A line held clear
-//  of the bottom edge, with its own rounded ends, is a second object floating
-//  in the capsule; a line lying on the edge and ending where the corner takes
-//  it away is the bottom of the capsule turning blue. The reference measures
-//  the second: the blue run ends exactly where the capsule's bottom stroke
-//  begins, and its leading end is the corner's curve rather than a cap.
+//  It is the pill filling up, not a rule drawn inside one. A line held clear of
+//  the bottom edge with its own rounded ends is a second object floating in the
+//  capsule. The reference measures the other thing: the blue run ends exactly
+//  where the capsule's bottom stroke begins, and its leading end is the
+//  corner's curve rather than a cap.
 //
 //  When no pill is on screen the window's top edge wears it — see
 //  `LoadProgressHost`. That is the sidebar layout with the sidebar hidden and

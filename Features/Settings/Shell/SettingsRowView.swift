@@ -5,19 +5,18 @@
 //  The views §4's widgets are made of: a control row, a card of rows, the rule
 //  between two of them, and the four controls the pane draws itself.
 //
-//  The disabled row is why a row is a custom view and not a stack of
-//  `NSControl`s. §4 requires a disabled row to be "dimmed, still focusable,
-//  and still read by VoiceOver, with its reason as the accessibility help", and
-//  a disabled `NSControl` is none of those — AppKit drops it out of the key-view
-//  loop and VoiceOver skips it. So the control is disabled and the row takes
-//  over as the focusable, labelled, helped element (§30.4).
+//  The disabled row is why a row is a custom view rather than a stack of
+//  `NSControl`s. §4 requires a disabled row to be "dimmed, still focusable, and
+//  still read by VoiceOver, with its reason as the accessibility help", and a
+//  disabled `NSControl` is none of those — AppKit drops it out of the key-view
+//  loop and VoiceOver skips it. So the control is disabled and the row becomes
+//  the focusable, labelled, helped element (§30.4).
 //
-//  Nothing in here is glass. The pane is opaque because a form is read, not
-//  looked through; a card of `.control` glass on an opaque plane is a material
-//  with nothing to refract, and nine of them stacked down a pane was the whole
-//  window asking to be looked at. A card is `Surface.raised` with the hairline
-//  every other surface carries, and a control is `Surface.well` or
-//  `Surface.selected` — the same three planes the browser's chrome uses.
+//  Nothing here is glass. The pane is opaque because a form is read, not looked
+//  through; a card of `.control` glass on an opaque plane is a material with
+//  nothing to refract, and nine of them stacked down a pane was the whole
+//  window asking to be looked at. A card is `Surface.raised` with the usual
+//  hairline, and a control is `Surface.well` or `Surface.selected`.
 //
 
 import AppKit
@@ -669,12 +668,11 @@ final class SettingsTextFieldCell: NSTextFieldCell {
 ///
 /// So this is the one system control Luna replaces, and it is replaced rather
 /// than scaled: a layer transform would rasterise the system's crisp rim and
-/// then blur it, and would leave the click target somewhere the switch is not.
-/// What is re-earned by hand is written out below — the key loop, Space, the
-/// `AXCheckBox` role and its value, the focus ring, and Reduce Motion. The
-/// on-state keeps the system accent, because a switch that is on is the one
-/// place in this window where the user's own accent choice is the answer every
-/// other Mac app gives.
+/// blur it, and would leave the click target somewhere the switch is not. What
+/// is re-earned by hand is below — the key loop, Space, the `AXCheckBox` role
+/// and value, the focus ring, Reduce Motion. The on-state keeps the system
+/// accent, because a switch that is on is the one place in this window where
+/// the user's accent choice is the answer every other Mac app gives.
 @MainActor
 final class SettingsSwitch: NSControl {
 

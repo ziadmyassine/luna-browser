@@ -4,9 +4,7 @@
 //
 //  Where §9.1's bar stands, how big it is, and how it opens.
 //
-//  Split out of `CommandBarPanel.swift` for the reason `URLPillLayout.swift`
-//  was split out of `URLPillView.swift`: that file crosses SwiftLint's 400-line
-//  limit otherwise. Nothing changed on the way across.
+//  Split out of `CommandBarPanel.swift` for that file's length limit.
 //
 //  The bar has two placements and one of each here. Floating (`⌘T`), it is
 //  `CommandBarMetrics.width` wide and 20 % down the page. Anchored, it has
@@ -77,14 +75,11 @@ extension CommandBarPanel {
     /// the sidebar dragged — under an open bar. Both constants are re-derived
     /// here, against the page rather than the window.
     ///
-    /// Derived before `super.layout()`, never after. The constraint pass
-    /// that actually places `body` runs inside `super.layout()`, and AppKit
-    /// marks this view clean the moment `layout()` returns — so a constant set
-    /// on the way out is handed to a view the framework has just stopped
-    /// asking about. It does not reach the screen on this pass and it does not
-    /// schedule another one; the bar stays where the stale constants put it
-    /// until something else dirties the panel, which on `⌘T` is whenever the
-    /// history query lands or the first key is pressed.
+    /// Derived before `super.layout()`, never after. The constraint pass that
+    /// places `body` runs inside `super.layout()`, and AppKit marks this view
+    /// clean the moment `layout()` returns — so a constant set on the way out
+    /// reaches nothing this pass and schedules no other, leaving the bar where
+    /// the stale constants put it until something else dirties the panel.
     ///
     /// Both constants start at zero, and zero is not a harmless place: it is
     /// the window's top edge, centred on the window rather than on the page.
@@ -124,12 +119,12 @@ extension CommandBarPanel {
     /// puts on screen is the capsule the user just clicked, in its place, with
     /// their caret in it.
     ///
-    /// The first frame of a Command Bar is expensive in a way no amount of
-    /// tuning makes cheap — a fresh `NSGlassEffectView` over a live web page,
-    /// eight rows of text, and a field that takes the window's first responder
-    /// with it. Measured here, from the click to the commit that draws it:
-    /// 65 ms, of which 20 is the commit and 15 is `makeFirstResponder`. That is
-    /// four dropped frames, and they land wherever this is called.
+    /// The first frame of a Command Bar is expensive in a way tuning does not
+    /// fix — a fresh `NSGlassEffectView` over a live web page, eight rows of
+    /// text, and a field taking the window's first responder. Measured from the
+    /// click to the commit that draws it: 65 ms, of which 20 is the commit and
+    /// 15 is `makeFirstResponder`. Four dropped frames, landing wherever this
+    /// is called.
     ///
     /// So they land before the animation rather than inside it, and they land
     /// on a bar the size of a pill rather than on one the size of the list:
@@ -188,20 +183,19 @@ extension CommandBarPanel {
     /// opens instead is the glass itself, from the pill's height down to the
     /// bar's, with the rows already in place behind it.
     ///
-    /// Height only, and nothing else at all. Not the width: the room the
-    /// list needs is there on the first frame, and animating it too meant a
-    /// second property re-laying the panel out every frame for a change nobody
-    /// can see. And no longer the alpha either — the bar is already on screen
-    /// at the pill's size when this runs (`prepareToOpen`), so a fade would be
-    /// the capsule the user is looking at dimming itself and coming back.
+    /// Height only. Not the width — the room the list needs is there on the
+    /// first frame, and animating it meant a second property re-laying the
+    /// panel out every frame for a change nobody can see. Not the alpha either:
+    /// the bar is already on screen at the pill's size when this runs
+    /// (`prepareToOpen`), so a fade would be the capsule the user is looking at
+    /// dimming and coming back.
     ///
-    /// And the glass is what has to grow, not a clip over it. Cutting the
-    /// body's layer down and animating the cut instead — a rounded
-    /// `masksToBounds` on the presentation layer, which would have cost no
-    /// layout at all — does not work over `NSGlassEffectView`: the material is
-    /// composited outside the layer that is supposed to be clipping it, so the
-    /// bar opened as eight rows of text floating over the sidebar with no
-    /// panel behind them. Measured, on screen, and thrown away.
+    /// The glass has to grow, not a clip over it. Cutting the body's layer down
+    /// and animating the cut — a rounded `masksToBounds` on the presentation
+    /// layer, costing no layout at all — does not work over
+    /// `NSGlassEffectView`: the material composites outside the layer meant to
+    /// clip it, so the bar opened as eight rows of text floating over the
+    /// sidebar with no panel behind them.
     ///
     /// - Parameter height: the constraint holding the bar at the pill's height,
     ///   installed by `prepareToOpen`. It is let go of at the end, because

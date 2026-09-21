@@ -22,32 +22,26 @@ import WebKit
 ///
 /// # Why Luna says "no authenticator" rather than "no WebAuthn"
 ///
-/// This is the part that is easy to get wrong in either direction. Without the
-/// entitlement, `window.PublicKeyCredential` is still present in the DOM —
-/// WebKit defines the interface regardless — so feature detection succeeds and
-/// a site cheerfully shows "Sign in with a passkey". The call then fails. The
-/// user is left on a login page whose only offered method does not work, and
-/// the password field they could have used is behind a "use another method"
-/// link they have no reason to press. A dead passkey button is worse than no
-/// passkey button.
+/// Easy to get wrong in either direction. Without the entitlement,
+/// `window.PublicKeyCredential` is still present — WebKit defines the interface
+/// regardless — so feature detection succeeds, a site shows "Sign in with a
+/// passkey", and the call then fails. The user is left on a login page whose
+/// only offered method does not work, with the password field behind a "use
+/// another method" link they have no reason to press.
 ///
-/// The first version of this file therefore deleted the interface outright, so
-/// that a page saw a browser which had never shipped WebAuthn. That is too
-/// blunt, and GitHub's sign-in page is the case that proves it: "Continue with
-/// Google", "Continue with Apple" and the passkey button all arrive in one
-/// lazily-fetched fragment, and GitHub only fetches that fragment when
-/// `window.PublicKeyCredential` exists. Delete the interface and two sign-in
-/// methods that have nothing to do with passkeys vanish with it — leaving a
-/// login page that looks broken rather than one that looks passwordless. Sites
-/// group their sign-in options together far more often than they gate them
-/// apart, so this is not a GitHub quirk to special-case.
+/// The first version deleted the interface outright, so a page saw a browser
+/// that had never shipped WebAuthn. Too blunt, and GitHub's sign-in page proves
+/// it: "Continue with Google", "Continue with Apple" and the passkey button
+/// arrive in one lazily-fetched fragment that GitHub only fetches when
+/// `window.PublicKeyCredential` exists. Delete the interface and two unrelated
+/// sign-in methods vanish with it. Sites group their sign-in options together
+/// far more often than they gate them apart, so this is not a GitHub quirk.
 ///
-/// So the interface stays, and Luna answers the question a site actually asks
-/// before offering a passkey: is a platform authenticator available? No —
-/// which is the plain truth about this build, and a state the spec already
-/// defines, so a site meeting it is on its documented path rather than a
-/// bespoke one. GitHub then loads its fragment, shows Google and Apple, and
-/// hides the passkey button on its own. `suppressionScript` is that answer.
+/// So the interface stays and Luna answers the question a site actually asks
+/// before offering a passkey: is a platform authenticator available? No — the
+/// plain truth about this build, and a state the spec already defines, so a
+/// site meeting it is on its documented path. GitHub then loads its fragment,
+/// shows Google and Apple, and hides the passkey button itself.
 ///
 /// The check is at runtime, not compile time: the day a signed build carries
 /// the entitlement, ``isAvailable`` turns true on its own, the script stops
@@ -96,12 +90,11 @@ public enum PasskeySupport {
     ///    the same question asked of the autofill-style passkey field. Both are
     ///    the honest answer for a build that has no authenticator behind them.
     ///  · `navigator.credentials.get/create` reject for `publicKey` requests
-    ///    with `NotSupportedError`, which is the error the spec defines for an
+    ///    with `NotSupportedError`, the error the spec defines for an
     ///    authenticator that cannot serve the request. Libraries that skipped
-    ///    the gates above and called straight in get a defined failure they
-    ///    already handle, instead of WebKit's own `NotAllowedError`, which reads
-    ///    as "the user cancelled" and invites a retry. Requests that are not
-    ///    `publicKey` (`password`, `federated`) are passed through untouched.
+    ///    the gates above get a defined failure they already handle rather than
+    ///    WebKit's `NotAllowedError`, which reads as "the user cancelled" and
+    ///    invites a retry. Non-`publicKey` requests pass through untouched.
     ///
     /// `getClientCapabilities` is WebAuthn L3's replacement for those two
     /// predicates. It is wrapped only where WebKit has shipped it, and only the

@@ -103,16 +103,15 @@ public enum PasswordForms {
     /// that before reaching here; passing the frame makes it impossible for the
     /// fill to land anywhere else even so.
     ///
-    /// `.defaultClient`, not the page world, and that is also deliberate.
-    /// The detection script runs in the page world because it has to see the
-    /// page's own DOM — but the fill does not need to, since the handles it
-    /// follows are `data-luna-*` attributes, which are DOM state and are
-    /// shared across worlds. Running it in the client world means the
-    /// prototypes and built-ins it relies on are ones the page cannot have
-    /// patched, so a page cannot hook `Object.getOwnPropertyDescriptor` or
-    /// `Event` to observe the fill. Verified against a page that installs
-    /// React's own swallowing value setter: the fill lands, and the page's
-    /// `input`/`change` listeners still fire, because events cross worlds.
+    /// `.defaultClient`, not the page world. The detection script runs in the
+    /// page world because it has to see the page's DOM; the fill does not,
+    /// since the handles it follows are `data-luna-*` attributes, which are DOM
+    /// state and shared across worlds. In the client world the prototypes and
+    /// built-ins it relies on are ones the page cannot have patched, so a page
+    /// cannot hook `Object.getOwnPropertyDescriptor` or `Event` to observe the
+    /// fill. Verified against a page installing React's own swallowing value
+    /// setter: the fill lands and the page's `input`/`change` listeners still
+    /// fire, because events cross worlds.
     @MainActor
     public static func fill(
         _ form: Form,
