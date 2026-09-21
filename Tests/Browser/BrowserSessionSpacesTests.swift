@@ -269,6 +269,32 @@ final class BrowserSessionSpacesTests: XCTestCase {
         }
     }
 
+    // MARK: - Goal 6 · walking between Spaces opens nothing
+
+    /// Coming back to a Space the user had emptied must show it empty. Its
+    /// rows are a §3.3 tile and a §3.4b row that has been closed once, and both
+    /// are places rather than pages: the fallback used to take the newest row
+    /// of any kind, so the walk itself loaded one.
+    func testComingBackToAnEmptiedSpaceOpensNothing() async throws {
+        let session = try await makeSession(try makeStore())
+        let home = try XCTUnwrap(session.spaces.first)
+        let other = try await session.createSpace(name: "Other")
+        var kept = Tab(spaceID: other.id, kind: .pinned, url: url("kept"), order: 0)
+        kept.isDormant = true
+        session.persistAll(session.list.insert(Tab(
+            spaceID: other.id,
+            kind: .essential,
+            url: url("tile"),
+            order: 0
+        )))
+        session.persistAll(session.list.insert(kept))
+        session.switchSpace(home.id)
+
+        session.switchSpace(other.id)
+
+        XCTAssertNil(session.activeTabID, "walking into a Space opened something in it")
+    }
+
     // MARK: - Helpers
 
     private func makeStore() throws -> BrowserStore {

@@ -72,6 +72,39 @@ final class CommandBarRankingTests: XCTestCase {
         return (sources, githubTab)
     }
 
+    // MARK: - §3.4b closed rows
+
+    /// A §3.4b row whose page was closed is not an open tab. It is still in the
+    /// column, so the bar used to offer it as one — and choosing it put the
+    /// site straight back into the folder it had been closed in, which is the
+    /// opposite of what searching for it again asks for.
+    func testARowClosedOnceIsNotOfferedAsAnOpenTab() {
+        var sources = CommandBarSources()
+        var kept = tab("https://git-scm.com/", title: "Git", minutesAgo: 5)
+        kept.kind = .pinned
+        kept.isDormant = true
+        sources.tabs = [kept]
+        sources.history = [HistoryHit(url: url("https://git-scm.com/"), title: "Git", score: 10)]
+
+        let results = CommandBarRanking.merge(query: "git", sources: sources, limit: 8)
+
+        XCTAssertTrue(results.allSatisfy { $0.source != .openTab }, "a closed row was offered as an open tab")
+        XCTAssertTrue(results.contains { $0.source == .history }, "history's row is what takes its place")
+    }
+
+    /// The archive still answers, though: a row closed twice is archived, and
+    /// reopening it is a question the bar does answer.
+    func testAnArchivedRowIsStillOffered() {
+        var sources = CommandBarSources()
+        var gone = tab("https://gitea.example/", title: "Gitea", minutesAgo: 90, archived: true)
+        gone.isDormant = true
+        sources.tabs = [gone]
+
+        let results = CommandBarRanking.merge(query: "git", sources: sources, limit: 8)
+
+        XCTAssertTrue(results.contains { $0.source == .archive })
+    }
+
     // MARK: - §9.3 the merge
 
     /// The whole order, by hand:

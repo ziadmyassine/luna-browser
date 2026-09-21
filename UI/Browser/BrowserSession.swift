@@ -301,10 +301,16 @@ final class BrowserSession {
         guard id != activeSpaceID, spaces.contains(where: { $0.id == id }) else { return }
         activeSpaceID = id
         // Choosing a Space is choosing its tab, so unlike a restore this may
-        // wake one: the Space's last selection, else its most recent tab.
+        // wake one: the Space's last selection, else its most recent open tab.
+        //
+        // Open, and nothing else. A Space the user had emptied came back with a
+        // page on screen, because the fallback took the newest row of any kind
+        // — so a §3.3 tile, or a §3.4b row that had been closed once, was
+        // loaded by the act of walking past the Space. Both are places rather
+        // than pages, and opening one is a gesture the user makes.
         if let remembered = activeTabBySpace[id] {
             activateTab(remembered)
-        } else if let newest = tabs.max(by: { $0.lastActiveAt < $1.lastActiveAt }) {
+        } else if let newest = openableTabs(inSpace: id).max(by: { $0.lastActiveAt < $1.lastActiveAt }) {
             activateTab(newest.id)
         } else {
             notifyChange()

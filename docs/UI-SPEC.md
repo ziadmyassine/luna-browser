@@ -1159,6 +1159,16 @@ deliberately.
 leaving, goes back to the address it was kept at, and wakes when it is clicked — exactly as
 a kept row always did. What changed is where the row is allowed to stand, not what it does.
 
+**Luna never opens a page the user closed.** A dimmed row and a §3.3 tile are places rather
+than pages, and only a click on one loads it. Three paths used to load one without being
+asked, and all three are the same bug: the selection moving to the row under a tab being
+closed, the selection Luna picks when it walks into a Space with nothing open in it, and
+§9.2's bar offering a dimmed row as *Switch to tab* — that last one put the site straight
+back in the folder the moment the user searched for it again, where what they wanted was a
+new tab, and history's own row is what gives them one. Closing the page of the last open row
+therefore leaves the Space with nothing selected, and §3.4's pill leaves with it: a fill
+still lying on the row is the next `⌘W` aimed at the row itself.
+
 **A group is one row with its tabs under it.** It has a name and an icon the user picked, a
 chevron that says which way it is folded, and a §3.4-shaped row exactly like a tab's — same
 pitch, same pill, same hover and selection fills. Its tabs step in by `groupIndent` (16 pt, a favicon's own

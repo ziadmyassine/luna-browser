@@ -167,12 +167,22 @@ enum CommandBarRanking {
     /// with an `archivedAt` (§11.1).
     private static func tabRows(tokens: [String], sources: CommandBarSources) -> [CommandBarResult] {
         sources.tabs.compactMap { tab -> CommandBarResult? in
+            // §3.4b: a row whose page has been closed once is not an open tab,
+            // whatever the column still shows. Offering it as one put the site
+            // the user had just closed back into the folder it was kept in the
+            // moment they searched for it again — the answer they wanted was a
+            // new tab, which is what history's row below gives them.
+            //
+            // Only while it is still a row. Archived, it is the archive's own
+            // result below and comes back as a reopen, which is a different
+            // question with a different answer.
+            let archived = tab.archivedAt != nil
+            guard archived || !tab.isDormant else { return nil }
             // §3.4a: a renamed tab is found and shown under the name the user gave it.
             // Its own title is deliberately not also in the haystack — a tab you renamed
             // "Invoices" should not keep answering to whatever the page calls itself.
             let haystack = "\(tab.listTitle) \(CommandBarURL.displayForm(of: tab.url))"
             guard matches(tokens, haystack) else { return nil }
-            let archived = tab.archivedAt != nil
             return CommandBarResult(
                 source: archived ? .archive : .openTab,
                 title: tab.listTitle.isEmpty ? CommandBarURL.displayForm(of: tab.url) : tab.listTitle,

@@ -97,10 +97,11 @@ extension BrowserSession {
     /// newest-first, the recent tab is often the one above.
     ///
     /// The list's own order is the one thing the user can see, so the answer is
-    /// read straight off it — Favorites excluded, because those are §3.3's grid
-    /// rather than rows, and a closed row must not select a tile.
+    /// read straight off it — tiles and dimmed rows excluded, for
+    /// `openableTabs`' reason: closing a tab must not load the one below it.
+    /// The tab being closed stays in, because its own place is the question.
     private func rowBelow(_ id: UUID, in spaceID: UUID) -> UUID? {
-        let rows = list[spaceID].filter { $0.kind != .essential }
+        let rows = list[spaceID].filter { $0.id == id || ($0.kind != .essential && !$0.isDormant) }
         guard let index = rows.firstIndex(where: { $0.id == id }) else { return nil }
         return (rows.dropFirst(index + 1).first ?? rows[..<index].last)?.id
     }

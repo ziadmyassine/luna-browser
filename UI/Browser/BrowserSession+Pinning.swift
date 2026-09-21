@@ -178,8 +178,19 @@ extension BrowserSession {
         recentTabs.removeAll { $0 == id }
         if activeTabBySpace[spaceID] == id {
             activeTabBySpace[spaceID] = recentTabs.first { list.tab($0)?.spaceID == spaceID }
-                ?? list[spaceID].first { $0.id != id && $0.kind != .essential && !$0.isDormant }?.id
+                ?? openableTabs(inSpace: spaceID, besides: id).first?.id
         }
         notifyChange()
+    }
+
+    /// The rows the selection may move to on its own, in list order.
+    ///
+    /// A §3.3 tile and a §3.4b row that has been closed once are both places
+    /// rather than pages: the tile's page is put away (§19.2) and the dimmed
+    /// row's was ended on purpose. Selecting either loads it, so neither is
+    /// something Luna may choose for the user — only something the user can
+    /// click. Shared with `switchSpace`, which had the same hole.
+    func openableTabs(inSpace spaceID: UUID, besides id: UUID? = nil) -> [Tab] {
+        list[spaceID].filter { $0.id != id && $0.kind != .essential && !$0.isDormant }
     }
 }

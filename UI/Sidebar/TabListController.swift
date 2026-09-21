@@ -191,7 +191,7 @@ final class TabListController: NSObject {
         replacing: Bool = false
     ) {
         shown = (saved, today, essentials)
-        rebuild(activeTabID: activeTabID, replacing: replacing)
+        rebuild(activeTabID: .some(activeTabID), replacing: replacing)
     }
 
     /// Re-derives the rows from what was last handed over and diffs them in.
@@ -199,7 +199,14 @@ final class TabListController: NSObject {
     /// Separate from `show` because two things change the rows without changing
     /// the tabs: a §3.4b group folding, and a lift starting or ending — which
     /// brings the saved tier's rule out and puts it away again.
-    func rebuild(activeTabID: UUID? = nil, replacing: Bool = false) {
+    /// - Parameter activeTabID: the selection to apply, or nothing at all to
+    ///   keep the one already on screen. Two different answers, which is why it
+    ///   is a double optional: `.some(nil)` is "no row is selected", and the
+    ///   single optional this used to take could not say it — a Space whose
+    ///   last page had just been closed handed over a nil that read as "leave
+    ///   it alone", so §3.4's pill stayed lying on the row the user had closed
+    ///   and the next `⌘W` let that row go.
+    func rebuild(activeTabID: UUID?? = nil, replacing: Bool = false) {
         let next = SidebarList(
             saved: shown.saved,
             today: shown.today,
