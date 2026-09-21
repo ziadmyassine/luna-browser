@@ -243,13 +243,19 @@ final class BrowserSession {
             groups[space.id] = try await store.groups(inSpace: space.id)
         }
         let remembered = UserDefaults.standard.string(forKey: activeSpaceKey).flatMap(UUID.init(uuidString:))
-        return BrowserSession(
+        let session = BrowserSession(
             store: store,
             spaces: spaces,
             list: TabList(tabs, groups: groups),
             archived: archived.sorted { ($0.archivedAt ?? .distantPast) > ($1.archivedAt ?? .distantPast) },
             activeSpaceID: (spaces.first { $0.id == remembered } ?? spaces[0]).id
         )
+        // §3.4b's tier holds folders and nothing else, and a database written
+        // before that rule has loose rows standing in it. Here rather than in a
+        // schema migration: the fix is a folder and a run of `groupID`s, which
+        // is this layer's arithmetic and not SQLite's.
+        session.enfoldLooseSavedTabs()
+        return session
     }
 
     private init(

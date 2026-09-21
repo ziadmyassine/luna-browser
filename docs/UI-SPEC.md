@@ -936,9 +936,9 @@ ink.
   > tab's kind, so the row left the list, no tile appeared, and the command did nothing visible.
 
 ### 3.4 List rows — 38 pt of pitch around a 35 pt pill
-Order: §3.4b's saved tier → **separator** → `New Tab` row → tabs.
+Order: §3.4b's pinned folders → **separator** → `New Tab` row → tabs.
 > **The rule moved and the command moved with it.** It used to close off a leading command
-> group: `New Tab`, rule, tabs. §3.4b gave the space above it a job — the saved tier — so the
+> group: `New Tab`, rule, tabs. §3.4b gave the space above it a job — the pinned folders — so the
 > rule now marks the bottom of that tier and `New Tab` sits under it, at the head of the tabs
 > it opens into. With nothing saved there is no tier and no rule, and the list starts at
 > `New Tab` exactly as it always did.
@@ -1119,14 +1119,14 @@ to reimplement keyboard navigation, VoiceOver and Reduce Transparency.
   while it is open; the rest of the time §20.1's responder chain has the command. On a tile, Close is
   still §3.3's "send the tile home".
 
-#### 3.4b Groups and the saved tier — a name around some tabs, and a place to keep them
+#### 3.4b Folders, and the tier that holds them
 
 The list has two tiers, divided by §3.4's rule:
 
 ```
 §3.3 grid          ░ pinned tiles ░
-saved tier          ▸ Research  (3)      ← a group, folded
-                      Invoices           ← a loose saved tab
+pinned folders      ▸ Research  (3)      ← a folder, folded
+                    ▸ Invoices  (1)      ← and another
 ────────────────────────────────────     ← the rule
                     + New Tab
 today               ▾ Trip
@@ -1134,6 +1134,30 @@ today               ▾ Trip
                         hotel.example
                       news.example
 ```
+
+**The tier under the tiles holds folders and nothing else.** There is no such thing as a
+loose kept tab any more, and that is the whole shape of this section: §3.3's grid is the
+pages you reach in one click, the tier under it is the *work* you keep, and work has a name.
+A run of loose rows up there was a second today's-tabs with no name on any of it, and the
+first thing every user did with it was wish for folders.
+
+So a tab dropped in that tier gets a folder made around it, at the slot it was dropped in,
+with its name field already open — one gesture, and the thing that arrives is the thing the
+tier is made of. `BrowserSession.reorderTab` is where that happens, and it is deliberately
+one rule in one place: there are four ways a tab can land there — the drop, the menu, an
+import, an undo — and a rule enforced at four gestures is a rule with three holes in it.
+
+**And "Saved" is gone from the vocabulary.** The tab menu has no *Save Tab*: putting a tab up
+there and putting it in a folder are now one act with one name, and *Add to Folder ▸* is it.
+The folder menu says *Pin Folder* / *Unpin Folder*, which is the tier the user can see —
+pinned tiles above, pinned folders under them. A database written before this rule has loose
+rows in that tier; they are gathered into one folder per Space called *Saved*, which is what
+the tier used to be called, rather than demoted to today's tabs. The user put them up there
+deliberately.
+
+**Nothing changes for a tab inside a folder.** It closes in two presses, dims rather than
+leaving, goes back to the address it was kept at, and wakes when it is clicked — exactly as
+a kept row always did. What changed is where the row is allowed to stand, not what it does.
 
 **A group is one row with its tabs under it.** It has a name and an icon the user picked, a
 chevron that folds it, and a §3.4-shaped row exactly like a tab's — same pitch, same pill,
@@ -1149,9 +1173,9 @@ like every other top-level row, and the indent under it is the whole of what say
 inside.
 
 - **Called a folder everywhere the user can read it.** "Group" is what the code calls the
-  type and what this section is named after; the menus say *New Folder*, *Add to Folder*,
-  *Save Folder*. A folder is what the thing already looks like — a named row with an icon
-  and items under it — and it is the word the feature was asked for in.
+  type; the menus say *New Folder*, *Add to Folder*, *Pin Folder*. A folder is what the thing
+  already looks like — a named row with an icon and items under it — and it is the word the
+  feature was asked for in.
 - **Made empty, and named on its own row.** Right-click the column's empty plane for
   *New Folder*, or `Add to Folder ▸ New Folder` on a tab to make one around it. Either way
   the folder appears immediately and its name field opens on the row with the placeholder
@@ -1162,6 +1186,16 @@ inside.
 - **Renamed the same way, and re-iconned from a submenu.** The folder menu's *Rename* opens
   that same field; *Change Icon ▸* lists the sixteen with the current one ticked. Neither
   carries an ellipsis, because neither opens anything before it commits.
+- **The icon can be an emoji.** Sixteen symbols is a vocabulary; a folder for a trip wants the
+  flag of the country it is to. *Change Icon ▸ Emoji…* opens macOS's own palette over the
+  row's icon slot — its search, its recents and its skin tones, none of which is worth
+  rebuilding badly — and the first character it inserts is the icon. It is the one item in
+  either folder menu that carries an ellipsis, because it is the one that opens something
+  before it commits. `TabGroup.symbolName` holds either a symbol's name or the emoji itself,
+  and `RowEmoji` is the one place that asks which.
+- **A folder's header can be dragged as well as folded.** The two are told apart by whether
+  the hand moved: still, it folds; moved, it lifts. A folder is a slot in this tier like any
+  other and an arrangement you cannot rearrange is not an arrangement.
 - **A tab in the column is renamed on its row too.** §3.4a's *Rename* opens the same field,
   on the name the row is showing. Emptying it — or typing the page's own title back — is how
   a tab goes back to being named by its page. §3.3's tiles and §4's strip keep the dialog and
@@ -1182,7 +1216,7 @@ inside.
   would not have been the one on screen.
 
 **The rule and `New Tab` are one block.** Nothing can be dropped between them: both rows
-mean the saved tier at both halves and both open their gap above the rule, so the command
+mean the pinned tier at both halves and both open their gap above the rule, so the command
 row never drifts off the line it belongs to while a lift goes past. It also makes the saved
 tier's drop target the whole block rather than a hairline — the difference between aiming at
 a row and aiming at a line — and the head of today's tabs is reached from the top half of
@@ -1204,8 +1238,8 @@ that answer was an optional id the blank case shared nil with "nothing has been 
 the guard held and the plane kept whichever Space the previous stroke had drawn on it —
 pinned tiles and all.
 
-**The saved tier is the run above the rule, and what makes it saved is what closing does.**
-A saved tab — loose, or inside a saved group — takes **two presses** to let go:
+**The pinned tier is the run above the rule, and what makes a tab in it kept is what closing
+does.** A tab in a pinned folder takes **two presses** to let go:
 
 | press | what happens |
 |---|---|
@@ -1225,15 +1259,11 @@ disappearing.
   and neither of those is a page anybody closed. A tab that came back from lunch one press
   from deletion would be a data-loss bug wearing a feature's clothes.
 - **`.pinned` is the tier**, and it needed no new column: it already meant "the run above
-  today's tabs" and §3.4b only gives it the behaviour its name always claimed. A user who had
-  deliberately placed tabs up there finds them saved — which is what putting them there was
-  for — rather than finding an empty new section with their tabs still below it.
-- **A group's tier is its tabs' tier.** Carry a group across the rule and its tabs go with it;
-  drop a tab into a saved group and it is saved, whichever side it came from. So "is this tab
-  saved" has one answer wherever it is asked, and `closeTab` never has to look at a group to
-  decide what a press means. *Save Tab* on a tab inside an ordinary group therefore takes it
-  out of the group — the alternative is the one row in the list whose section and behaviour
-  disagree.
+  today's tabs" and §3.4b only gives it the behaviour its name always claimed.
+- **A folder's tier is its tabs' tier.** Carry a folder across the rule and its tabs go with
+  it; drop a tab into a pinned folder and it is kept, whichever side it came from. So "is this
+  tab kept" has one answer wherever it is asked, and `closeTab` never has to look at a folder
+  to decide what a press means.
 
 **The rule is only drawn when there is a tier to close off — or when a drag is up.** With
 nothing saved there is no bottom to mark. But the space above it is somewhere a tab can be
@@ -1248,14 +1278,15 @@ destination table is keyed the same way. A folded group has no tabs on screen to
 so the lower half of its header means "into it, at the end", and its header is outlined while
 a lift is aimed there — the only feedback a folded group can give.
 
-**§3.4a's menu gained two items, and groups have a menu of their own.** A tab gets
-`Save Tab` / `Remove from Saved` and an `Add to Group ▸` submenu (`New Group…`, then every
-existing group, then `Remove from Group`) — a submenu because the number of entries is the
-user's rather than the design's, and a menu that grows by one every time somebody makes a
-group stops being scannable at about the fourth. Neither appears on a §3.3 tile: a tile is
-already kept, by a tier that keeps it harder, and a group may not be pinned at all, so both
-would be offers to demote it. A group header's own menu is five items —
-`Rename… · Change Icon… | Save Group | Ungroup · Close Group` — rather than a longer §3.4a,
+**§3.4a's menu gained one item, and folders have a menu of their own.** A tab gets an
+`Add to Folder ▸` submenu (`New Folder`, then every existing folder, then `Remove from
+Folder`) — a submenu because the number of entries is the user's rather than the design's, and
+a menu that grows by one every time somebody makes a folder stops being scannable at about the
+fourth. It is the only route a menu offers into the pinned tier, and that is the point: there
+is nothing up there but folders. It does not appear on a §3.3 tile, where the grid is one tile
+per page and has no folders in it. A folder header's own menu is five items —
+`Rename · Change Icon ▸ | Pin Folder | Remove Folder, Keep Tabs · Close Folder and Tabs` —
+rather than a longer §3.4a,
 because half of that menu has no meaning on a group: no address to copy, nothing to duplicate,
 no sound to mute. **Ungroup removes a name and never a page**; *Close Group* is the one that
 ends the tabs, and it ends them one at a time through `closeTab` so each lands in §6.3's

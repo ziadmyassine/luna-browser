@@ -91,18 +91,40 @@ final class TabGroupTests: XCTestCase {
         XCTAssertEqual(session.tab(id)?.groupID, group)
     }
 
-    /// Saving one tab takes it out of an ordinary group rather than leaving the
-    /// one row in the list whose section and behaviour disagree.
-    func testSavingOneTabLeavesTheGroupItWasIn() async throws {
+    /// Sending one tab up takes it out of the ordinary group it was in and puts
+    /// it in a new folder of its own: §3.4b's upper tier holds folders and
+    /// nothing else, so there is no loose row for it to become.
+    func testSendingOneTabUpPutsItInAFolderOfItsOwn() async throws {
         let session = try await makeSession()
         let id = session.newTab(url: url("a"))
         let group = try XCTUnwrap(session.createGroup(name: "Work", containing: [id]))
 
         session.setTabSaved(true, tab: id)
 
-        XCTAssertNil(session.tab(id)?.groupID)
-        XCTAssertEqual(session.tab(id)?.kind, .pinned)
+        let moved = try XCTUnwrap(session.tab(id))
+        XCTAssertEqual(moved.kind, .pinned)
+        let folder = try XCTUnwrap(moved.groupID.flatMap { session.group($0) })
+        XCTAssertNotEqual(folder.id, group, "it stayed in the folder it came from")
+        XCTAssertEqual(folder.kind, .pinned)
+        XCTAssertEqual(session.members(ofGroup: folder.id).map(\.id), [id])
         XCTAssertTrue(session.members(ofGroup: group).isEmpty)
+    }
+
+    /// And nothing loose can stand in that tier, however it got there.
+    func testNoTabStandsLooseInTheFolderTier() async throws {
+        let session = try await makeSession()
+        let id = session.newTab(url: url("a"))
+        let space = try XCTUnwrap(session.spaces.first).id
+
+        session.reorderTab(id, to: 0, kind: .pinned)
+
+        XCTAssertTrue(
+            session.slots(inTier: .pinned).allSatisfy { slot in
+                if case .group = slot { return true } else { return false }
+            },
+            "a loose row stood in the folder tier"
+        )
+        XCTAssertTrue(session.list[space].filter { $0.kind == .pinned }.allSatisfy { $0.groupID != nil })
     }
 
     // MARK: - Two presses

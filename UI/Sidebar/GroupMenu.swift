@@ -13,7 +13,7 @@
 //  items would teach the user to stop opening it.
 //
 //  Five items in three groups: the two that change what the folder is, the
-//  one that moves it across the rule, and the two that end it. A plain
+//  one that pins it under §3.3's tiles, and the two that end it. A plain
 //  `NSMenu`, and the glyphs ride in `attributedTitle`, for the reasons §3.4a
 //  records.
 //
@@ -61,11 +61,13 @@ enum GroupMenu {
         menu.addItem(.separator())
 
         // §3.4b: a folder stands on one side of the rule or the other, and its
-        // tabs stand with it. There is no third answer — a folder cannot be
-        // pinned, because §3.3's grid is one tile per tab.
+        // tabs stand with it. Above it is pinned — the tier under §3.3's tiles,
+        // which holds folders and nothing else; below it is one more thing in
+        // among the day's tabs. A folder is never a tile, because §3.3's grid
+        // is one tile per page.
         menu.addItem(SidebarMenu.glyphItem(
-            group.isSaved ? String(localized: "Remove from Saved") : String(localized: "Save Folder"),
-            symbol: group.isSaved ? "tray.and.arrow.up" : "tray.and.arrow.down",
+            group.isSaved ? String(localized: "Unpin Folder") : String(localized: "Pin Folder"),
+            symbol: group.isSaved ? "pin.slash" : "pin",
             action: { actions.setSaved(!group.isSaved) }
         ))
         menu.addItem(.separator())

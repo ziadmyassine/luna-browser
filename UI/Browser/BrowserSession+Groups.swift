@@ -51,23 +51,29 @@ extension BrowserSession {
     /// from the row you right-clicked appears at that row. With no tabs it goes
     /// to the end of its section, because there is nowhere else it could mean.
     ///
+    /// - Parameter kind: which tier, or nil for "wherever its first tab already
+    ///   was". Nil is what a folder made around a row means; `.pinned` is what
+    ///   a tab dropped into the folder tier means, and there the tier is the
+    ///   whole point of the gesture.
+    /// - Parameter slot: where in that tier, or nil for the answer above.
     /// - Returns: nil for a blank name. A group is a label, and a label with no
     ///   text is a row the user cannot tell from any other.
     @discardableResult
     func createGroup(
         name: String,
         symbolName: String = TabGroup.defaultSymbolName,
-        kind: TabKind = .today,
-        containing tabs: [UUID] = []
+        kind: TabKind? = nil,
+        containing tabs: [UUID] = [],
+        at slot: Int? = nil
     ) -> UUID? {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         let members = tabs.compactMap { list.tab($0) }.filter { $0.kind != .essential }
-        let tier = TabGroup.sanitised(members.first?.kind ?? kind)
+        let tier = TabGroup.sanitised(kind ?? members.first?.kind ?? .today)
         // Only a loose tab has a slot to hand over. `indexInSection` counts a
         // grouped tab's place among its siblings, which is not a position in
         // this section at all — so a group made out of one is appended.
-        let slot = members.first.flatMap { $0.groupID == nil ? list.indexInSection(of: $0.id) : nil }
+        let slot = slot ?? members.first.flatMap { $0.groupID == nil ? list.indexInSection(of: $0.id) : nil }
         let group = TabGroup(spaceID: activeSpaceID, name: trimmed, symbolName: symbolName, kind: tier)
         persistAll(list.insertGroup(group, at: slot))
         for member in members { gather(member.id, into: group) }
@@ -114,7 +120,8 @@ extension BrowserSession {
         commit(group)
     }
 
-    /// Carries a group across §3.4b's rule, its tabs with it.
+    /// Carries a group across §3.4b's rule, its tabs with it — into the folder
+    /// tier under §3.3's tiles, or back down among the day's tabs.
     func setGroupSaved(_ saved: Bool, group id: UUID) {
         guard let group = list.group(id), group.isSaved != saved else { return }
         let kind: TabKind = saved ? .pinned : .today
@@ -190,14 +197,13 @@ extension BrowserSession {
         reorderTab(id, to: list.members(ofGroup: group.id).count, kind: group.kind, group: group.id)
     }
 
-    /// §3.4b's *Save* / *Remove from Saved*, for one tab.
+    /// Puts one tab into the folder tier, or takes it back down among the day's
+    /// tabs (§3.4b).
     ///
-    /// It comes out of any group on the way across. A group's tier is its tabs'
-    /// tier, so a tab that stayed in an ordinary group while claiming to be
-    /// saved would be the one row in the list whose section and behaviour
-    /// disagreed — the thing this design exists to make impossible. Saving the
-    /// whole group is the other command, and it is one item further down the
-    /// same menu.
+    /// Up is a folder, always: `reorderTab` is where that rule lives, and it is
+    /// one rule rather than a check at every gesture that can land a tab there.
+    /// Down is loose, at the top of today — a tab coming out of a folder has no
+    /// folder to come out into.
     func setTabSaved(_ saved: Bool, tab id: UUID) {
         guard let tab = list.tab(id), tab.kind != .essential else { return }
         let kind: TabKind = saved ? .pinned : .today
@@ -207,6 +213,24 @@ extension BrowserSession {
     }
 
     func isSaved(_ id: UUID) -> Bool { list.tab(id)?.kind == .pinned }
+
+    /// Gathers every loose tab standing in the folder tier into one folder
+    /// (§3.4b), in every Space. Nothing to do once there are none.
+    ///
+    /// The tier held loose rows until §3.4b's second pass, so a database
+    /// written before it has them and they have nowhere legal to stand. They
+    /// are kept rather than demoted: the user put them up there deliberately,
+    /// and a folder called *Saved* is what that tier used to be called — the
+    /// name says where they came from and can be changed in one gesture.
+    func enfoldLooseSavedTabs() {
+        for space in spaces {
+            let loose = list[space.id].filter { $0.kind == .pinned && $0.groupID == nil }
+            guard !loose.isEmpty else { continue }
+            let group = TabGroup(spaceID: space.id, name: Self.legacySavedGroupName, kind: .pinned)
+            persistAll(list.insertGroup(group, at: 0))
+            for tab in loose { gather(tab.id, into: group) }
+        }
+    }
 
     // MARK: - Plumbing
 

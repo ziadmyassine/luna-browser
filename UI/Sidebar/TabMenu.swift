@@ -46,8 +46,6 @@ enum TabMenu {
     struct Actions {
         var pin: () -> Void
         var unpin: () -> Void
-        /// §3.4b: across the rule, or back under it.
-        var setSaved: (Bool) -> Void
         /// §3.4b: into that folder, or — with nil — out of whatever folder it is in.
         var setGroup: (UUID?) -> Void
         /// §3.4b: a new folder around this tab. It takes no name, because the
@@ -89,16 +87,15 @@ enum TabMenu {
             symbol: pinned ? "pin.slash" : "pin",
             action: pinned ? actions.unpin : actions.pin
         ))
-        // §3.4b, and not on a tile: a tile is already kept, by a tier that keeps it
-        // harder. Offering to save one would be offering to demote it.
+        // §3.4b, and not on a tile: a tile is §3.3's grid, which is one tile per
+        // page and has no folders in it at all.
+        //
+        // There is no *Save* item any more, and its absence is the design. The
+        // tier under the tiles holds folders and nothing else, so "put this tab
+        // up there" and "put this tab in a folder" are now one act with one
+        // name — and *Remove from Folder*, at the foot of the same submenu, is
+        // the way back down.
         if !pinned {
-            let saved = tab.kind == .pinned
-            menu.addItem(item(
-                saved ? String(localized: "Remove from Saved") : String(localized: "Save Tab"),
-                symbol: saved ? "tray.and.arrow.up" : "tray.and.arrow.down",
-                action: { actions.setSaved(!saved) }
-            ))
-            menu.addItem(.separator())
             menu.addItem(groupSubmenu(current: group, others: others, actions: actions))
         }
         menu.addItem(.separator())

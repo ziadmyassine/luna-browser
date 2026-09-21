@@ -143,7 +143,6 @@ extension BrowserSession {
         TabMenu.Actions(
             pin: { [weak self] in self?.pinTab(id) },
             unpin: { [weak self] in self?.unpinTab(id) },
-            setSaved: { [weak self] saved in self?.setTabSaved(saved, tab: id) },
             setGroup: { [weak self] group in self?.moveTab(id, toGroup: group) },
             newGroup: { [weak self] in
                 self?.createGroup(name: BrowserSession.untitledGroupName, containing: [id])
@@ -179,4 +178,8 @@ extension BrowserSession {
     /// nobody chose still beats one with no name at all: an empty row cannot be told
     /// from any other.
     static let untitledGroupName = String(localized: "New Folder")
+
+    /// What §3.4b's tier used to be called, and what the folder holding the
+    /// rows it used to hold loose is named — see `enfoldLooseSavedTabs`.
+    static let legacySavedGroupName = String(localized: "Saved")
 }

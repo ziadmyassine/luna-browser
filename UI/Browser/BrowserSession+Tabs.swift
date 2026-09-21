@@ -175,6 +175,16 @@ extension BrowserSession {
         let oldKind = tab.kind
         let oldGroup = tab.groupID
         let destination = groupID.flatMap { list.group($0) }
+        // §3.4b: the tier under §3.3's tiles holds folders and nothing else, so
+        // a tab arriving there on its own is given one. Here rather than at the
+        // gestures, because there are four ways in — the drop, the menu, an
+        // import, an undo — and a rule enforced in four places is a rule with
+        // three holes in it. The new folder opens its name field, so the drop
+        // ends with the cursor in it.
+        if (destination?.kind ?? kind) == .pinned, destination == nil {
+            createGroup(name: Self.untitledGroupName, kind: .pinned, containing: [id], at: index)
+            return
+        }
         // Deliberately not `forget`: reordering a tab must not cost its web view.
         // Persisted, not discarded: pulling a tab out of the Favorites tier
         // renumbers that tier across the whole Profile, and some of the rows it
