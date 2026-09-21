@@ -7,14 +7,13 @@
 //  a `Shared/` directory for that is a directory to maintain.
 //
 //  Two of §3.1's four rows ship disabled, and that is a finding rather than a
-//  shortcut. §3.1 lists "On launch" as wired to `general.onLaunch` +
-//  `BrowserSession.restored`, and "Confirm before closing" to
-//  `general.confirmClose`. Neither key has a reader: `AppDelegate` restores
-//  unconditionally and `BrowserWindowController` implements no
-//  `windowShouldClose`. Writing them anyway would produce exactly the silently
-//  dead switch §30.4 forbids, so they render dimmed with the reason, the typed
-//  accessors below are published for whoever wires them, and the gap is in the
-//  report instead of in the UI.
+//  shortcut. §3.1 wires "On launch" to `general.onLaunch` +
+//  `BrowserSession.restored` and "Confirm before closing" to
+//  `general.confirmClose`; neither key has a reader, because `AppDelegate`
+//  restores unconditionally and `BrowserWindowController` implements no
+//  `windowShouldClose`. Writing them anyway would be the silently dead switch
+//  §30.4 forbids, so they render dimmed with the reason and the typed accessors
+//  below are published for whoever wires them.
 //
 
 import AppKit

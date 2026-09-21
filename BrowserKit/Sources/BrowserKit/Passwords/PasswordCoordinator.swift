@@ -52,8 +52,7 @@ public struct PasswordSaveRequest: Sendable {
 ///
 /// Split out of `TabController` rather than added to it: a Swift extension
 /// cannot carry storage, and §33's warning about the 4,000-line manager applies
-/// to the engine class most of all. `TabController` holds one reference to this
-/// and forwards two calls.
+/// to the engine class most of all.
 ///
 /// # §14.8, rule by rule, and where each one is enforced
 ///
@@ -135,9 +134,9 @@ public final class PasswordCoordinator {
     ///
     /// The main frame is trusted by definition — it is the page. A subframe
     /// must match it on scheme, host and port: a same-site check would let
-    /// `evil.example.com` inside `bank.example.com` collect the password,
-    /// which is precisely the attack the rule exists for, so this is the one
-    /// place in the feature that does not go through `PublicSuffix`.
+    /// `evil.example.com` inside `bank.example.com` collect the password, which
+    /// is the attack the rule exists for. This is the one place in the feature
+    /// that does not go through `PublicSuffix`.
     func isFrameTrusted(_ frame: WKFrameInfo, in webView: WKWebView) -> Bool {
         if frame.isMainFrame { return true }
         guard let page = webView.url,

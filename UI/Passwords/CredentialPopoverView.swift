@@ -5,13 +5,13 @@
 //  The inside of §14.3's picker: a header naming the site, one row per saved
 //  username, and — when §14.8 has something to say — a caution line.
 //
-//  The caution line is the point of this view, not decoration. §14.8 asks
-//  that a fill into a page reached through a redirect chain be treated as
+//  The caution line is the point of this view, not decoration. §14.8 asks that
+//  a fill into a page reached through a redirect chain be treated as
 //  suspicious, and that an insecure origin be visible. Luna cannot judge
 //  whether a redirect was legitimate; the user can, because only they know
-//  where they meant to go. So the answer is not to block and not to stay
-//  quiet, but to name the site the password is about to be typed into, right
-//  next to the button that types it.
+//  where they meant to go. So it neither blocks nor stays quiet — it names the
+//  site the password is about to be typed into, next to the button that types
+//  it.
 //
 
 import AppKit

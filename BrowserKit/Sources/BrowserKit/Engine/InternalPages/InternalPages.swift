@@ -10,12 +10,12 @@ import Foundation
 //  sub-resource — no favicon, no stylesheet — and fails silently while looking
 //  like it worked. Every internal page is navigated to as `luna://…`.
 //
-//  No colour value lives in `BrowserKit` (contract rule 3). The palette is
-//  a block of CSS custom properties the app hands over in `palette`, generated
+//  No colour value lives in `BrowserKit` (contract rule 3). The palette is a
+//  block of CSS custom properties the app hands over in `palette`, generated
 //  from `Design/Tokens.swift` by `Features/InternalPages/InternalPageTheme`.
-//  Every rule here reads `var(--luna-…, <CSS system colour>)`, so an unset
-//  palette degrades to the OS's own `Canvas`/`CanvasText` rather than to a
-//  second, drifting set of hex values.
+//  Every rule reads `var(--luna-…, <CSS system colour>)`, so an unset palette
+//  degrades to the OS's own `Canvas`/`CanvasText` rather than to a second,
+//  drifting set of hex values.
 
 /// The URL scheme Luna's internal pages are served from.
 public enum InternalPages {
@@ -152,12 +152,12 @@ public enum InternalPages {
     /// a page that could navigate or frame one gets a clickjacking surface over
     /// the archive's restore buttons for free.
     ///
-    /// Web content always has an `http(s)`/`file`/`data`/`blob` source document,
-    /// so refusing everything that is not Luna's own is both sufficient and the
-    /// whole rule. Luna's own loads either have no source document yet, or come
-    /// from another internal page. The one case this would catch wrongly —
-    /// routing an error page after a failure on `https://…` — carries a
-    /// one-shot token instead (`TabController.expectInternalLoad`).
+    /// Web content always has an `http(s)`/`file`/`data`/`blob` source
+    /// document, so refusing everything that is not Luna's own is the whole
+    /// rule. Luna's own loads either have no source document yet or come from
+    /// another internal page. The one case this would catch wrongly — routing
+    /// an error page after a failure on `https://…` — carries a one-shot token
+    /// instead (`TabController.expectInternalLoad`).
     ///
     /// `frame-ancestors 'none'` on every response is the second half of this;
     /// see `InternalPageHandler`.

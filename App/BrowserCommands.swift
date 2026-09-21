@@ -8,9 +8,9 @@
 //  reaches a browser command.
 //
 //  There is no `NSEvent` monitor and no `performKeyEquivalent` override
-//  anywhere in Luna. A shortcut that is not a menu item is undiscoverable
-//  (§22.5) and, worse, invisible to the accessibility system — so the key map
-//  is declared once, in `MainMenu`, and implemented once, here.
+//  anywhere in Luna: a shortcut that is not a menu item is undiscoverable
+//  (§22.5) and invisible to the accessibility system. The key map is declared
+//  once in `MainMenu` and implemented once here.
 //
 
 import AppKit
