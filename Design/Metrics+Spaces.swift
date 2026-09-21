@@ -110,9 +110,38 @@ extension Tokens.Metric {
     /// switch itself was long; now that a switch is one easy slide, a create
     /// has to be a deliberate stroke rather than the same slide continued.
     ///
-    /// It stops short of a full trackpad's width on purpose: resistance that
-    /// cannot be overcome in one gesture is not resistance, it is a dead end.
+    /// **The resistance is now in the two thirds after the ring closes, which
+    /// is where it was always supposed to be.** The ring used to fill over
+    /// exactly this distance, so the gesture had no resistance in it at all:
+    /// the moment the `+` looked finished, it was finished, and every argument
+    /// above about deliberate strokes was being made by a mark that had not
+    /// finished drawing. The `+` now closes in the first third
+    /// (`spaceCreateRingTravel`) and the remaining 240 pt are the asking price
+    /// — the same distance, spent on the part of the gesture that is a
+    /// decision rather than on the part that is an animation.
+    ///
+    /// **It is not longer than that**, however much more resistance it is
+    /// tempting to ask for: `TokenCheck` holds `spaceCreateTravel` under what
+    /// one trackpad stroke can deliver at `spaceSwipeSpeed`, and resistance
+    /// that cannot be overcome in one gesture is not resistance, it is a dead
+    /// end.
     static let spaceCreateTravel: CGFloat = 360
+
+    /// How far into that stroke §30.9's ring is **already closed**.
+    ///
+    /// **A third of the way, which lands on exactly one `spaceSwipeTravel`.**
+    /// The `+` used to finish drawing itself at the same instant the gesture
+    /// committed, and a progress ring that completes on the last frame is not
+    /// a read-out — it is a receipt. Closed early, it becomes the thing it was
+    /// meant to be: *this is what you are about to make*, said while there is
+    /// still two thirds of a stroke in which to decide against it. The rest of
+    /// the travel is then read as the new Space pushing the old column out of
+    /// the way, which is the other half of what the gesture is doing.
+    ///
+    /// That the number lands on one Space's worth of travel is the reason to
+    /// trust it: the `+` is fully drawn by the time the hand has gone one Space
+    /// past the last one, and everything after that is the asking price.
+    static let spaceCreateRingTravel = spaceCreateTravel / 3
 
     /// §30.9's ring, drawn **around** the sidebar's `+` disc.
     ///

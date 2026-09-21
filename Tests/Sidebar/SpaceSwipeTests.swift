@@ -106,22 +106,32 @@ final class SpaceSwipeTests: XCTestCase {
 
     /// **The resistance, stated as the test that would fail if someone tidied
     /// the two thresholds into one.** A whole Space's worth of travel *past the
-    /// last Space* — twice what it takes to switch one, and well past what a
-    /// reflex flick delivers — still leaves the ring open.
+    /// last Space* — a third of what it takes to make one, and well past what a
+    /// reflex flick delivers — closes the ring and makes nothing.
     func testASpacesWorthOfOvershootDoesNotMakeASpace() {
         let swipe = Self.resolve(travel, active: 1, of: 2)
-        XCTAssertLessThan(swipe.creation, 1)
         XCTAssertFalse(swipe.createsSpace)
         XCTAssertGreaterThan(swipe.creation, 0, "the ring is not even showing — the overshoot said nothing")
     }
 
-    /// The ring closes at exactly `spaceCreateTravel` past the last Space, and
+    /// The ring closes at `spaceCreateRingTravel` — a third of the way — and
     /// not before.
-    func testTheRingClosesAtTheCreateTravelAndNotBefore() {
+    func testTheRingClosesAThirdOfTheWayAndNotBefore() {
+        let ring = Tokens.Metric.spaceCreateRingTravel
+        XCTAssertLessThan(Self.resolve(ring * 0.99, active: 0, of: 1).creation, 1)
+        XCTAssertEqual(Self.resolve(ring, active: 0, of: 1).creation, 1, accuracy: 0.001)
+        XCTAssertEqual(ring * 3, Tokens.Metric.spaceCreateTravel, accuracy: 0.001)
+    }
+
+    /// **A closed ring is not a made Space**, which is the whole of the
+    /// resistance: two thirds of the stroke happen with the `+` already drawn,
+    /// and letting go in any of them makes nothing.
+    func testAClosedRingStillHasTwoThirdsOfTheStrokeToPayFor() {
         let create = Tokens.Metric.spaceCreateTravel
+        XCTAssertEqual(Self.resolve(Tokens.Metric.spaceCreateRingTravel, active: 0, of: 1).creation, 1)
+        XCTAssertFalse(Self.resolve(Tokens.Metric.spaceCreateRingTravel, active: 0, of: 1).createsSpace)
         XCTAssertFalse(Self.resolve(create * 0.99, active: 0, of: 1).createsSpace)
         XCTAssertTrue(Self.resolve(create, active: 0, of: 1).createsSpace)
-        XCTAssertEqual(Self.resolve(create, active: 0, of: 1).creation, 1)
     }
 
     /// The ring never over-fills, however far the fingers go.
@@ -129,10 +139,13 @@ final class SpaceSwipeTests: XCTestCase {
         XCTAssertEqual(Self.resolve(Tokens.Metric.spaceCreateTravel * 4, active: 0, of: 1).creation, 1)
     }
 
-    /// **One mark, one meaning**: the indicator arrives in the `+`'s slot at
-    /// the moment the ring closes, rather than sitting on the last Space while
-    /// something else fills up beside it.
-    func testTheIndicatorReachesTheNewSlotExactlyAsTheRingCloses() {
+    /// **The page arrives as the gesture commits**, with the ring long since
+    /// closed: the `+` finishes in the first third and the last two thirds are
+    /// the new Space pushing the old column the rest of the way out.
+    func testThePageArrivesAsTheGestureCommitsAndTheRingClosedLongBefore() {
+        let third = Self.resolve(Tokens.Metric.spaceCreateRingTravel, active: 2, of: 3)
+        XCTAssertEqual(third.creation, 1, accuracy: 0.001)
+        XCTAssertEqual(third.travel, 1.0 / 3, accuracy: 0.001, "the page is a third of the way across")
         let swipe = Self.resolve(Tokens.Metric.spaceCreateTravel, active: 2, of: 3)
         XCTAssertEqual(swipe.travel, 1, accuracy: 0.001)
         XCTAssertEqual(swipe.creation, 1, accuracy: 0.001)

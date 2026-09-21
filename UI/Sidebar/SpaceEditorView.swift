@@ -205,19 +205,41 @@ final class SpaceEditorView: NSView {
         return view.frame.minY
     }
 
-    /// Chips left to right, wrapping when the next one will not fit. Returns
-    /// the bottom of the last row.
+    /// Chips left to right, wrapping. Returns the bottom of the last row.
+    ///
+    /// **Balanced, not greedy.** Filling each row before starting the next is
+    /// what a paragraph does and it is wrong for a palette of a fixed length:
+    /// thirteen colours six to a row leave one chip alone on a line of its own,
+    /// and that orphan is the first thing the eye finds in the whole form. The
+    /// rows are counted first and the chips are then spread over them — six to
+    /// a row becomes five, five and three, which is a grid with a short last
+    /// line instead of a grid with an accident at the bottom.
+    ///
+    /// **Justified, and by the same number in both directions.** The chips are
+    /// a fixed 28 pt — `SpaceSwatchChip` pins its own width, because §6.2's
+    /// popover lays the same chips out on a fixed grid — so the spare width in
+    /// a column the user can drag has nowhere to go but between the columns.
+    /// Spreading it sideways alone gives a block whose rows are 8 pt apart and
+    /// whose columns are twenty: a palette combed out. The spacing the columns
+    /// end up with is therefore the spacing the rows get as well, so the grid
+    /// stays square at every width the §3.7 handle can leave it at, and it
+    /// never closes below the chrome's own gap.
     private func grid(_ chips: [NSView], at top: CGFloat, width: CGFloat) -> CGFloat {
         let side = Tokens.Metric.settingsControl
         let gap = Tokens.Metric.chromeGap
-        let columns = max(Int((width + gap) / (side + gap)), 1)
+        let fit = max(Int((width + gap) / (side + gap)), 1)
+        let rows = max(Int((CGFloat(chips.count) / CGFloat(fit)).rounded(.up)), 1)
+        let columns = max(Int((CGFloat(chips.count) / CGFloat(rows)).rounded(.up)), 1)
+        let spacing = columns > 1
+            ? max((width - CGFloat(columns) * side) / CGFloat(columns - 1), gap)
+            : gap
         var bottom = top
         for (index, chip) in chips.enumerated() {
             let row = index / columns
             let column = index % columns
-            bottom = top - CGFloat(row) * (side + gap) - side
+            bottom = top - CGFloat(row) * (side + spacing) - side
             chip.frame = NSRect(
-                x: Tokens.Metric.rowInset + CGFloat(column) * (side + gap),
+                x: Tokens.Metric.rowInset + CGFloat(column) * (side + spacing),
                 y: bottom,
                 width: side,
                 height: side

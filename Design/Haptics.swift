@@ -2,7 +2,8 @@
 //  Haptics.swift
 //  Luna
 //
-//  The one thing the chrome says with the hand rather than the eye.
+//  The things the chrome says with the hand rather than the eye: a tab that
+//  has changed places, §30.9's ring closing, and the Space that comes of it.
 //
 //  It lives in `Design/` beside `Motion.swift` for the same reason that file
 //  does: a tick under the finger is feel, not behaviour, and the gesture code
@@ -49,6 +50,33 @@ extension Tokens {
         /// rate limiting is what keeps that from buzzing.
         static func step() {
             NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .drawCompleted)
+        }
+
+        /// §30.9's ring has just closed: from here, letting go makes a Space.
+        ///
+        /// **A detent, which is what `.levelChange` is for** — the slider that
+        /// has reached a stop, the value that has clicked over. The ring is not
+        /// snapping to anything, so `.alignment` would be the wrong one of the
+        /// three; it is a threshold the hand has crossed while still moving,
+        /// and the tick is the only way the user finds that out without
+        /// watching a 46 pt hoop at the far edge of the column.
+        ///
+        /// It fires **once per gesture**, on the way in. A detent that ticked
+        /// again every time the fingers wandered back and forth across the
+        /// threshold would buzz for the rest of the swipe, and there are two
+        /// thirds of `spaceCreateTravel` still to go after this.
+        static func latch() {
+            NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .drawCompleted)
+        }
+
+        /// The gesture ended in something being made.
+        ///
+        /// `.generic` rather than the other two on purpose: nothing aligned and
+        /// no level changed — a Space now exists. It is the plainest of the
+        /// three patterns, which is the right weight for a confirmation that
+        /// arrives at the same moment as a whole column of new chrome.
+        static func commit() {
+            NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .drawCompleted)
         }
     }
 }

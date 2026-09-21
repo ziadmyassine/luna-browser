@@ -184,6 +184,11 @@ final class SidebarViewController: NSViewController {
     func refresh() {
         let switchingSpace = shownSpaceID != nil && shownSpaceID != session.activeSpaceID
         shownSpaceID = session.activeSpaceID
+        // §6.1: a Space that has just been made is a Space switch like any
+        // other, and this is the one switch whose column must not come back —
+        // `SpaceEditorView` is standing where it would be. See
+        // `SidebarSpaceGestures.isMakingSpace`.
+        let makingSpace = spaces?.isMakingSpace == true
         if switchingSpace {
             // §6: the sidebar's content cross-fades over 0.18 s on a Space switch.
             essentials.alphaValue = 0
@@ -213,7 +218,12 @@ final class SidebarViewController: NSViewController {
             session.profile(for: $0)?.name
         })
         refreshActiveTab()
-        if switchingSpace {
+        if makingSpace {
+            // Whatever the column was doing, it is not doing it in front of the
+            // editor. Set rather than animated: there is nothing to see.
+            essentials.alphaValue = 0
+            list.scrollView.alphaValue = 0
+        } else if switchingSpace {
             // §21.2: Reduce Motion takes the fade away rather than shortening
             // it. `Motion.animate` already degrades to a zero duration, so the
             // two lines below land in this frame — the content does not sit at

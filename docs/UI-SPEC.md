@@ -1123,6 +1123,13 @@ to reimplement keyboard navigation, VoiceOver and Reduce Transparency.
   > holding it does. Before this the dots were the only controls in the chrome that said nothing at all
   > until the Space had already changed. Measured on screen: hover changes exactly 14 × 14 pt, a press
   > changes the whole 42 × 22 pt pill.
+  > **Making a Space has two clocks, and it used to have one.** The swipe past the last Space fills the
+  > `+`'s ring over `spaceCreateRingTravel` — a third of the way, which lands on exactly one
+  > `spaceSwipeTravel` — and then keeps pushing the page for the other two thirds before a release
+  > makes anything. The ring used to close at the instant the gesture committed, which makes it a
+  > receipt rather than a read-out: by the time it said what you were about to get, you had it. The
+  > resistance `spaceCreateTravel` was raised for now lives where it was always meant to, in the stroke
+  > you take *after* the answer is drawn. The hand is told once, by `Haptics.latch`, as the ring closes.
 - Avatar is the active profile; click opens the profile menu.
 
 ### 3.6 Content pane

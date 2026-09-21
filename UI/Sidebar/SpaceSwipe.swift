@@ -36,9 +36,14 @@
 //
 //  **Two thresholds, deliberately unequal.** Moving between Spaces commits at
 //  half of `Metric.spaceSwipeTravel`; creating one needs the whole of
-//  `Metric.spaceCreateTravel`, which is twice as far again. That asymmetry is
+//  `Metric.spaceCreateTravel`, three times as far. That asymmetry is
 //  the resistance the feature was asked for: reaching the end of the Spaces you
 //  have is not the same act as making another, and it should not cost the same.
+//
+//  **The ring is not the threshold; it is the promise.** It closes a third of
+//  the way in (`Metric.spaceCreateRingTravel`), which is where the `+` stops
+//  being a thing appearing and becomes a thing about to happen — and the two
+//  thirds after it are the asking price, watched with the answer already drawn.
 //
 //  **Nothing is decided while the fingers are down.** `.changed` only moves the
 //  read-out; the switch and the create both happen on `.ended`. A gesture that
@@ -102,11 +107,17 @@ struct SpaceSwipe: Equatable {
         }
 
         // Forward from the last Space, where "further" has only one meaning.
-        // The travel stops being a distance and becomes an intention: the
-        // indicator crosses into the `+`'s slot at exactly the rate the ring
-        // fills, and arrives as it closes. One mark, one meaning.
-        let creation = min(offset / Tokens.Metric.spaceCreateTravel, 1)
-        return SpaceSwipe(travel: creation, creation: creation, landing: nil, createsSpace: creation >= 1)
+        //
+        // **The ring and the page are two different clocks**, and they used to
+        // be one. The `+` closed at exactly the moment the gesture committed,
+        // which made it a receipt rather than a read-out: by the time it told
+        // you what you were about to get, you had it. The ring now fills over
+        // the first `spaceCreateRingTravel` — a third of the way — and the page
+        // keeps travelling for the other two thirds, so the hand is told early
+        // and then has to mean it.
+        let creation = min(offset / Tokens.Metric.spaceCreateRingTravel, 1)
+        let travel = min(offset / Tokens.Metric.spaceCreateTravel, 1)
+        return SpaceSwipe(travel: travel, creation: creation, landing: nil, createsSpace: travel >= 1)
     }
 
     /// Nothing happening — the resting read-out, and what a gesture in a window

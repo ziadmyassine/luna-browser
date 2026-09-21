@@ -33,24 +33,44 @@ import BrowserKit
 @MainActor
 final class SidebarSpaceGestures {
 
-    private let session: BrowserSession
-    private let utility: SidebarUtilityBar
+    /// Not private: `+Editor.swift` is the other half of this class, and
+    /// Swift's `private` is file-scoped.
+    let session: BrowserSession
+    let utility: SidebarUtilityBar
     private let wash: SpaceWashView
     /// The part of the column that rides along with the swipe — §3.3's tiles
     /// and §3.4's list. Not the control row or the pill: those belong to the
     /// window, not to the Space.
-    private let content: [NSView]
+    let content: [NSView]
     /// The Space arriving, and the `+` that stands in for the one that does not
     /// exist yet. Both are owned by the column and handed here, because both
     /// are only ever driven by this gesture.
     private let preview: SpacePreviewView
     private let creation: SpaceCreationView
-    private let host: NSView
+    let host: NSView
     private let swipe = SpaceSwipeController()
     /// Which Space the still is currently showing, so it is rebuilt when the
     /// swipe changes direction and not on every frame.
     private var previewing: UUID?
-    private var editor: SpaceEditorView?
+    var editor: SpaceEditorView?
+    /// True from the moment a create commits until the editor it opens is
+    /// closed.
+    ///
+    /// **The new Space's column is not shown while its editor is up.** The
+    /// editor is a form on the column's own plane, not a sheet over it, and the
+    /// column behind it is a Space that is three decisions from being anything
+    /// — so a `New Tab` row and whatever the Profile pinned into it were
+    /// showing *through* the form asking what the Space is called. The column
+    /// arrives when the form is done with, which is also the first moment it
+    /// says anything true.
+    ///
+    /// `SidebarViewController.refresh` reads it: creating a Space is a Space
+    /// switch, and a switch cross-fades the column back in.
+    /// Written by `+Editor.swift` alone; everything else only reads it.
+    var isMakingSpace = false
+    /// Whether §30.9's ring has already ticked in this gesture — see
+    /// `Tokens.Haptics.latch`.
+    private var ringHasClosed = false
 
     init(
         session: BrowserSession,
@@ -100,9 +120,24 @@ final class SidebarSpaceGestures {
         utility.spaceTravel = state.travel
         utility.spaceCreation = state.creation
         creation.progress = state.creation
+        latchRing(at: state.creation)
         previewWash(travel: state.travel)
         updatePreview(for: state)
         turn(to: state.travel, animated: animated)
+    }
+
+    /// One tick as §30.9's ring closes, and nothing else for the rest of the
+    /// gesture. The ring is the only thing that changes state mid-swipe, and it
+    /// does it two thirds of a `spaceCreateTravel` before the release that acts
+    /// on it — so the hand is told, once, at the moment it becomes true.
+    private func latchRing(at creation: CGFloat) {
+        guard creation >= 1 else {
+            ringHasClosed = false
+            return
+        }
+        guard !ringHasClosed else { return }
+        ringHasClosed = true
+        Tokens.Haptics.latch()
     }
 
     /// The frames of the two borrowed views, and the transforms of everything
@@ -151,7 +186,7 @@ final class SidebarSpaceGestures {
     }
 
     /// The region the Space owns: §3.3's tiles and §3.4's list, as one page.
-    private var contentRect: NSRect {
+    var contentRect: NSRect {
         content.reduce(NSRect.zero) { $0 == .zero ? $1.frame : $0.union($1.frame) }
     }
 
@@ -223,7 +258,10 @@ final class SidebarSpaceGestures {
     private func settle(_ state: SpaceSwipe, committing: Bool) {
         guard committing else { return settle(to: 0, creation: 0, then: nil) }
         if state.createsSpace {
-            return settle(to: 1, creation: 1) { [weak self] in self?.createSpace() }
+            Tokens.Haptics.commit()
+            // The column stays where the gesture left it — off screen. What
+            // arrives in its place is the editor, not the Space's own tabs.
+            return settle(to: 1, creation: 1, revealingColumn: false) { [weak self] in self?.createSpace() }
         }
         guard let landing = state.landing, session.spaces.indices.contains(landing) else {
             return settle(to: 0, creation: 0, then: nil)
@@ -244,21 +282,26 @@ final class SidebarSpaceGestures {
     /// the swap, because for 180 ms both pictures are the same picture.
     ///
     /// Snapping back is the same journey with no commit at the end of it.
-    private func settle(to travel: CGFloat, creation: CGFloat, then commit: (() -> Void)?) {
+    private func settle(
+        to travel: CGFloat,
+        creation: CGFloat,
+        revealingColumn: Bool = true,
+        then commit: (() -> Void)?
+    ) {
         show(SpaceSwipe(travel: travel, creation: creation, landing: nil, createsSpace: false), animated: true)
         let settled = Tokens.Motion.reduceMotion ? 0 : Tokens.Motion.spaceSwitchCrossfade.duration
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(settled))
             guard let self else { return }
             guard let commit else { return show(.rest) }
-            handOff()
+            handOff(revealingColumn: revealingColumn)
             commit()
         }
     }
 
     /// The column back where it belongs and out of sight, the read-out back to
     /// rest, and the still left holding the picture until the real one is ready.
-    private func handOff() {
+    private func handOff(revealingColumn: Bool) {
         Tokens.Motion.immediately {
             for view in content {
                 view.layer?.setAffineTransform(.identity)
@@ -276,7 +319,10 @@ final class SidebarSpaceGestures {
         // Space *switch*, and creating a Space is not one until the write lands.
         Tokens.Motion.animate(Tokens.Motion.spaceSwitchCrossfade) { context in
             context.allowsImplicitAnimation = true
-            for view in content { view.animator().alphaValue = 1 }
+            // A create is the one journey that does not end in the column
+            // coming back: `isMakingSpace` holds it out of sight until the
+            // editor is done with it.
+            if revealingColumn { for view in content { view.animator().alphaValue = 1 } }
             preview.animator().alphaValue = 0
         }
         Task { @MainActor [weak self] in
@@ -284,86 +330,6 @@ final class SidebarSpaceGestures {
             guard let self else { return }
             preview.isHidden = true
             preview.alphaValue = 1
-        }
-    }
-
-    // MARK: - The two verbs
-
-    /// §6.1, from §30.9's swipe and from the footer's menu.
-    ///
-    /// **It is created named, not named and then created.** The gesture that
-    /// asks for it ends with the fingers coming off the trackpad, and a modal
-    /// asking for a name at that moment turns a fluid motion into a form. What
-    /// follows is an editor rather than a dialog — see `SpaceEditorView`.
-    func createSpace() {
-        let name = String(localized: "Space \(session.spaces.count + 1)")
-        Task { [weak self] in
-            guard let self else { return }
-            do {
-                let space = try await session.createSpace(name: name)
-                present(space)
-            } catch {
-                NSApp.presentError(error)
-            }
-        }
-    }
-
-    /// §6.2's rows, in the one window that holds them — the same route §3.2's
-    /// site menu takes to the Privacy section.
-    func editSpaces() {
-        (NSApp.delegate as? AppDelegate)?.showSettings(section: SpacesSection.id)
-    }
-
-    // MARK: - The editor
-
-    /// The Space that has just arrived, with its three settings on it.
-    private func present(_ space: Space) {
-        editor?.removeFromSuperview()
-        let editor = SpaceEditorView(space: space)
-        editor.frame = contentRect
-        editor.onRename = { [weak self] name in self?.write { try await $0.renameSpace(space.id, to: name) } }
-        editor.onGradient = { [weak self] pair in self?.write { try await $0.setGradient(pair, forSpace: space.id) } }
-        editor.onIcon = { [weak self] name in self?.write { try await $0.setIcon(name, forSpace: space.id) } }
-        editor.onClose = { [weak self] in self?.dismissEditor() }
-        host.addSubview(editor, positioned: .below, relativeTo: utility)
-        self.editor = editor
-        editor.focusName()
-        // It arrives the way the Space did: from the trailing edge, on §6's
-        // Space-switch timing, so the editor reads as the last frame of the
-        // gesture rather than as a panel that appeared afterwards.
-        Tokens.Motion.immediately {
-            editor.wantsLayer = true
-            editor.alphaValue = 0
-            let slide = editor.bounds.width / 4
-            editor.layer?.setAffineTransform(CGAffineTransform(translationX: slide, y: 0))
-        }
-        Tokens.Motion.animate(Tokens.Motion.spaceSwitchCrossfade) { context in
-            context.allowsImplicitAnimation = true
-            editor.animator().alphaValue = 1
-            editor.layer?.setAffineTransform(.identity)
-        }
-    }
-
-    private func dismissEditor() {
-        guard let editor else { return }
-        self.editor = nil
-        Tokens.Motion.animate(Tokens.Motion.spaceSwitchCrossfade) { context in
-            context.allowsImplicitAnimation = true
-            editor.animator().alphaValue = 0
-        }
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(Tokens.Motion.spaceSwitchCrossfade.duration))
-            editor.removeFromSuperview()
-        }
-    }
-
-    /// One shape for the editor's three writes. **The failure is presented, not
-    /// swallowed**: a user renaming the Space they just made is owed the reason
-    /// it did not take, unlike a colour chosen in passing from a §3.5 dot.
-    private func write(_ change: @escaping (BrowserSession) async throws -> Void) {
-        Task { [weak self] in
-            guard let self else { return }
-            do { try await change(session) } catch { NSApp.presentError(error) }
         }
     }
 }
