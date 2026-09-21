@@ -94,6 +94,8 @@ enum Settings {
     private static let layoutKey = "luna.chromeLayout"
     private static let tabsKey = "luna.tabsPosition"
     private static let searchBarKey = "luna.searchBarPlacement"
+    private static let tabHintKey = "luna.pinHint.tabDismissed"
+    private static let folderHintKey = "luna.pinHint.folderDismissed"
 
     /// Defaults to the sidebar: it is the layout the reference shows and the
     /// one §3 is written against.
@@ -183,6 +185,34 @@ enum Settings {
             span.min = Tokens.Metric.sidebarFootFloor
         }
         return span
+    }
+
+    /// Whether §3.3a's two wells are still worth drawing — the advice a Space
+    /// with nothing pinned shows where its tiles and its folders would be.
+    ///
+    /// Stored as the dismissal rather than as the showing, so the default is
+    /// the advice: a key that has never been written reads as `false` here and
+    /// as "show it" there, which is what a user who has never heard of either
+    /// setting should get.
+    ///
+    /// One answer for the whole app, not one per Space. It is a piece of advice
+    /// and advice already taken does not need repeating in the Space next door
+    /// — where, by definition, the user is now doing the thing it describes.
+    static var showsPinnedTabHint: Bool {
+        get { !UserDefaults.standard.bool(forKey: tabHintKey) }
+        set { setHint(tabHintKey, shows: newValue, was: showsPinnedTabHint) }
+    }
+
+    /// §3.3a's other well: the §3.4b tier, which holds folders.
+    static var showsPinnedFolderHint: Bool {
+        get { !UserDefaults.standard.bool(forKey: folderHintKey) }
+        set { setHint(folderHintKey, shows: newValue, was: showsPinnedFolderHint) }
+    }
+
+    private static func setHint(_ key: String, shows: Bool, was: Bool) {
+        guard shows != was else { return }
+        UserDefaults.standard.set(!shows, forKey: key)
+        NotificationCenter.default.post(name: didChange, object: nil)
     }
 
     /// Whether §3.2b's bar is the one on screen — the single reader both the

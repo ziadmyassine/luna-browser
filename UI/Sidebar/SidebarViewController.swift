@@ -85,6 +85,10 @@ final class SidebarViewController: NSViewController {
     let controlRow = SidebarControlRow()
     let pill = URLPillView()
     let essentials = EssentialsGridView()
+    /// §3.3a's second well, under the grid: §3.4b's tier with no folder in it
+    /// yet. Its own view rather than a row in the list, because the tier it
+    /// describes has no rows — that is the state it exists for.
+    let folderHint = SidebarPinHintView.folderTier()
     let list = TabListController()
     let utility = SidebarUtilityBar()
     /// §3.5's caption, directly above the Space strip: the active Space's
@@ -106,7 +110,7 @@ final class SidebarViewController: NSViewController {
     /// The Essentials grid's height on the last layout pass. When it changes —
     /// a tab was pinned or unpinned — everything below it moves, and that move
     /// is animated instead of snapping.
-    var lastGridHeight: CGFloat?
+    var lastHeadHeight: CGFloat?
 
     init(session: BrowserSession) {
         self.session = session
@@ -132,7 +136,8 @@ final class SidebarViewController: NSViewController {
         // Space the window is in) and the `+` over both, because it is the one
         // mark that has to stay visible while the two pass each other.
         for subview in [
-            wash, preview, controlRow, pill, essentials, list.scrollView, creation, spaceLabel, utility, handle
+            wash, preview, controlRow, pill, essentials, folderHint, list.scrollView,
+            creation, spaceLabel, utility, handle
         ] {
             root.addSubview(subview)
         }
@@ -145,13 +150,14 @@ final class SidebarViewController: NSViewController {
             session: session,
             utility: utility,
             wash: wash,
-            content: [essentials, list.scrollView],
+            content: [essentials, folderHint, list.scrollView],
             preview: preview,
             creation: creation,
             host: view
         )
         wireControls()
         wireList()
+        wirePinHints()
         NSWorkspace.shared.notificationCenter.addObserver(
             self,
             selector: #selector(accessibilityDisplayOptionsChanged),
@@ -202,13 +208,13 @@ final class SidebarViewController: NSViewController {
             // tabs are not that — nothing travelled — and left animating, the
             // new tiles slid in from the old grid's shape for 0.22 s after the
             // cross-fade was over. Forgetting the height snaps the next pass.
-            lastGridHeight = nil
+            lastHeadHeight = nil
         }
         if let space = session.space(session.activeSpaceID) {
             wash.show(space.gradient)
             onSpaceGradientChange?(space.gradient)
         }
-        // `replacing:` is the same claim `lastGridHeight = nil` makes, made to
+        // `replacing:` is the same claim `lastHeadHeight = nil` makes, made to
         // the two halves of the column. Both of them animate a tab leaving —
         // the row fades over §6's `tabInsert`, the tile fades where it stood —
         // and `NSTableView` and the grid alike keep what is leaving on screen
@@ -216,8 +222,14 @@ final class SidebarViewController: NSViewController {
         // and every tile at once, so the Space just left stayed drawn, fading,
         // over the Space just arrived in: the flash of the previous Space's
         // tabs. One transition per switch, and it is the column's cross-fade.
+        let tiles = session.tabs.filter { $0.kind == .essential }
+        let folders = session.slots(inTier: .pinned)
+        // §3.3a: advice for a Space that has pinned nothing, in the two places
+        // the pinned things would be. Set before `show`, so the grid is the
+        // right height on the pass that places it rather than one pass later.
+        showPinHints(tiles: tiles.isEmpty, folders: folders.isEmpty)
         essentials.show(
-            session.tabs.filter { $0.kind == .essential },
+            tiles,
             activeTabID: session.activeTabID,
             replacing: switchingSpace
         )
@@ -228,9 +240,9 @@ final class SidebarViewController: NSViewController {
         // order, including where a group stands among the loose tabs, so the
         // column has no arrangement of its own to disagree with it.
         list.show(
-            saved: session.slots(inTier: .pinned),
+            saved: folders,
             today: session.slots(inTier: .today),
-            essentials: session.tabs.filter { $0.kind == .essential },
+            essentials: tiles,
             activeTabID: session.activeTabID,
             replacing: switchingSpace
         )

@@ -116,7 +116,10 @@ extension TokenCheck {
             ("spaceSwipeSpeed", Tokens.Metric.spaceSwipeSpeed),
             ("sidebarSpaceNameRow", Tokens.Metric.sidebarSpaceNameRow),
             ("sidebarSpaceNameGap", Tokens.Metric.sidebarSpaceNameGap),
-            ("spaceDotPitch", Tokens.Metric.spaceDotPitch)
+            ("spaceDotPitch", Tokens.Metric.spaceDotPitch),
+            ("pinHintBlock", Tokens.Metric.pinHintBlock), ("pinHintRow", Tokens.Metric.pinHintRow),
+            ("pinHintIcon", Tokens.Metric.pinHintIcon), ("pinHintGap", Tokens.Metric.pinHintGap),
+            ("pinHintChipInset", Tokens.Metric.pinHintChipInset)
         ]
         return scalars.filter { $0.1 <= 0 }.map { "Metric.\($0.0) is not positive" }
     }
@@ -290,7 +293,29 @@ extension TokenCheck {
         if metric.rowGap >= metric.rowHeight {
             failures.append("Metric.rowGap eats the whole row")
         }
-        return failures + checkChromeShapes()
+        return failures + checkPinHints() + checkChromeShapes()
+    }
+
+    /// §3.3a's two wells, against the two shapes they stand in for.
+    private static func checkPinHints() -> [String] {
+        var failures: [String] = []
+        let metric = Tokens.Metric.self
+        // The block well is the grid with nothing in it, and it has to be
+        // visibly taller than the grid with one tile in it — otherwise it
+        // reads as an empty tile rather than as a message.
+        if metric.pinHintBlock <= metric.essentialsTile.height + 2 * metric.essentialsVerticalInset {
+            failures.append("Metric.pinHintBlock is no taller than a one-tile grid — the well would read as a tile")
+        }
+        // Glyph, gap and one line of `TypeScale.sidebarHint`, which is what the
+        // block is measured to hold.
+        let stack = metric.pinHintIcon + metric.pinHintGap + Tokens.TypeScale.sidebarHint.pointSize
+        if metric.pinHintBlock < stack {
+            failures.append("Metric.pinHintBlock cannot hold its own glyph, gap and line")
+        }
+        if metric.pinHintChipInset + metric.rowTrailingChip.height > metric.pinHintRow {
+            failures.append("Metric.pinHintChipInset pushes the dismiss cross out of the row well")
+        }
+        return failures
     }
 
     /// The shapes the rows sit in — split out of `checkRowInsets` only because

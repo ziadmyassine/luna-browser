@@ -935,6 +935,43 @@ ink.
   > **This was half-implemented and looked broken.** `pinTab` put the page away and never changed the
   > tab's kind, so the row left the list, no tile appeared, and the command did nothing visible.
 
+#### 3.3a Empty wells — what a Space with nothing pinned shows instead
+
+A Space that has pinned no tabs and made no folders draws two dashed wells where the pinned
+things would be: a **block** in §3.3's grid, under the URL pill, with a `pin` glyph over
+"Drag a tab here to pin it"; and a **row pill** under it, where §3.4b's first folder will
+stand, with a `folder` glyph beside "Drag a folder here to pin it".
+
+- **Each well appears only for the tier it describes.** Pin one tab and the block goes; make
+  one folder and the row goes. They are independent — a Space with four tiles and no folders
+  draws the row well alone.
+- **Dismissed by the cross in its own corner**, top-right in the block and centred on the
+  trailing edge in the row, where six points down from the top of a 35 pt pill is two and a
+  half off the middle and reads as a slip. The cross is `rowTrailingChip`, so it answers a
+  hover and a press like every other glyph in the column (§6).
+- **One answer for the whole app, not one per Space.** `Settings.showsPinnedTabHint` and its
+  pair store the *dismissal*, so a key nobody has written reads as "show it". Advice already
+  taken does not need repeating in the Space next door — where, by definition, the user is now
+  doing the thing it describes.
+- **The block is the grid's height while it is up, and stays that height under a lift.** §3.3's
+  grid is zero points tall until something is pinned and opens to a tile's height for the
+  length of a drag; the well has already made that movement, so `isAwaitingDrop` adds nothing
+  and nothing jumps when a §6.6 lift comes into the air. The well's own dashed line is the
+  drop outline, and it fills with `Surface.hover` when the lift is over it — a second outline
+  inside it would be two marks for one slot.
+- **Neither well is a drop target of its own.** §6.6 already resolves both zones: the grid's
+  region is the block's, and a point above the list's first row is §3.4b's tier, which is what
+  the row well stands on. So a tab dropped on the row well gets a folder made round it, which
+  is §3.4b's rule and not a second one.
+- **§30.9's still draws both**, for the reason it is built from `SidebarList.rows` — a picture
+  that leaves them out is a column whose rows stand a hundred points too high, and that
+  correction lands inside the cross-fade that exists to hide one.
+
+The reference for both is a browser that draws a star-marked box for its favourites and a
+pin-marked capsule under it. Luna's copy differs — both lines name what you *drag* rather than
+what the tier is called — and Luna draws no section label over either well, because §3 has no
+section labels anywhere else.
+
 ### 3.4 List rows — 38 pt of pitch around a 35 pt pill
 Order: §3.4b's pinned folders → **separator** → `New Tab` row → tabs.
 > **The rule moved and the command moved with it.** It used to close off a leading command

@@ -60,6 +60,25 @@ final class EssentialsGridView: NSView {
     /// A tile is being carried (§6.6). The sidebar's drag controller runs the
     /// rest of the gesture from here — the grid does not move its own tiles.
     var onDragTile: ((UUID, NSView, NSEvent) -> Void)?
+    /// §3.3a's cross was pressed: the user is finished with the advice.
+    var onDismissHint: (() -> Void)?
+
+    /// Whether §3.3a's well is still worth drawing. The grid decides nothing
+    /// here — `Settings.showsPinnedTabHint` is the answer and the column asks
+    /// it — but an empty grid is the only thing that knows there is room.
+    var showsHint = false {
+        didSet {
+            guard showsHint != oldValue else { return }
+            reflow()
+        }
+    }
+
+    /// Whether the well is what this grid is currently drawing.
+    ///
+    /// `tabs`, not `settled`: a grid whose only tile is in the air still has a
+    /// tile, and advice that appeared for the length of a drag and left again
+    /// on the drop would be the third thing moving in that gesture.
+    var isHinting: Bool { showsHint && tabs.isEmpty }
 
     /// A row is being dragged somewhere in the sidebar.
     ///
@@ -102,6 +121,7 @@ final class EssentialsGridView: NSView {
     var dropIndex: Int? {
         didSet {
             guard dropIndex != oldValue else { return }
+            hint.isAimedAt = dropIndex != nil
             animatesNextPlacement = true
             reflow()
         }
@@ -124,6 +144,10 @@ final class EssentialsGridView: NSView {
     /// one tile can be the tab you are on. Both are `+Light.swift`'s; see
     /// `tabs`.
     let glow = EssentialGlowView()
+    /// §3.3a's well. Built with the grid rather than on demand: it is one view
+    /// and it is hidden almost always, which is cheaper than a grid that has to
+    /// remember whether it has one.
+    private let hint = SidebarPinHintView.tabGrid()
     var litID: UUID?
     /// Set when the grid's contents changed; consumed by the next `layout()`.
     private var animatesNextPlacement = false
@@ -137,6 +161,9 @@ final class EssentialsGridView: NSView {
         // stands `essentialsVerticalInset` from this view's edge, so clipping
         // here would cut the light off square along the grid's top.
         clipsToBounds = false
+        hint.isHidden = true
+        hint.onDismiss = { [weak self] in self?.onDismissHint?() }
+        addSubview(hint)
         addSubview(glow)
         setAccessibilityLabel("Essentials")
         setAccessibilityRole(.group)
@@ -303,6 +330,12 @@ final class EssentialsGridView: NSView {
     }
 
     private func placeContents() {
+        hint.isHidden = !isHinting
+        if isHinting {
+            hint.frame = bounds
+                .insetBy(dx: Tokens.Metric.essentialsInset, dy: Tokens.Metric.essentialsVerticalInset)
+                .integral
+        }
         for (index, id) in settled.enumerated() {
             guard let tile = tiles[id] else { continue }
             // A live drag holds a slot open: everything from it onwards steps
@@ -334,7 +367,8 @@ final class EssentialsGridView: NSView {
             yRadius: Tokens.Metric.essentialsTile.cornerRadius
         )
         path.lineWidth = Tokens.Metric.hairline
-        path.setLineDash([6, 4], count: 2, phase: 0)
+        let dash = Tokens.Metric.pinHintDash
+        path.setLineDash(dash, count: dash.count, phase: 0)
         Tokens.Line.border.setStroke()
         path.stroke()
     }
@@ -342,6 +376,10 @@ final class EssentialsGridView: NSView {
     /// Which slot the outline goes round: the one a lift is over, or — with
     /// nothing pinned yet and a drag in the air — the first one.
     private var outlinedSlot: NSRect? {
+        // §3.3a's well is already a dashed box saying a tab goes here, and it
+        // fills under the lift. A second outline inside it would be two marks
+        // for one slot.
+        guard !isHinting else { return nil }
         if let dropIndex { return slotRect(at: dropIndex) }
         return isAwaitingDrop && settled.isEmpty ? slotRect(at: 0) : nil
     }

@@ -51,7 +51,7 @@ extension EssentialsGridView {
     private var columns: Int { Self.shape(for: slotCount).columns }
 
     override var intrinsicContentSize: NSSize {
-        NSSize(width: NSView.noIntrinsicMetric, height: Self.height(forTiles: slotCount))
+        NSSize(width: NSView.noIntrinsicMetric, height: Self.height(forTiles: slotCount, hinting: isHinting))
     }
 
     /// How tall a grid holding `count` tiles stands.
@@ -60,7 +60,14 @@ extension EssentialsGridView {
     /// draw the neighbouring Space's grid — `SpacePreviewView` — and a still
     /// that guessed its own height would hand the swipe a picture the real
     /// column then corrects.
-    static func height(forTiles count: Int) -> CGFloat {
+    static func height(forTiles count: Int, hinting: Bool = false) -> CGFloat {
+        // §3.3a's well stands in the grid's own margins, so an empty grid that
+        // is giving advice is as tall as the advice — and stays that tall for
+        // the length of a drag, which is why the well and not `isAwaitingDrop`
+        // answers first. Nothing moves when a lift comes up.
+        guard !hinting else {
+            return Tokens.Metric.pinHintBlock + 2 * Tokens.Metric.essentialsVerticalInset
+        }
         let rows = shape(for: count).rows
         guard rows > 0 else { return 0 }
         return CGFloat(rows) * Tokens.Metric.essentialsTile.height

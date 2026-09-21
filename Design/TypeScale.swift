@@ -55,6 +55,13 @@ extension Tokens {
         static var commandBarRow: NSFont { .systemFont(ofSize: 14, weight: .regular) }
         /// 12 pt semibold — section labels.
         static var sectionLabel: NSFont { .monospacedDigitSystemFont(ofSize: 12, weight: .semibold) }
+        /// 12 pt semibold — §3.3a's two empty wells, and nothing else.
+        ///
+        /// A label's weight on a sentence, which `settingsCaption` warns
+        /// against and this earns: the line is the only thing in an otherwise
+        /// empty column, and set as prose at 11 it read as a caption on the
+        /// nothing above it rather than as the one instruction on screen.
+        static var sidebarHint: NSFont { .systemFont(ofSize: 12, weight: .semibold) }
         /// 14 pt — the §5 downloads filename.
         static var downloadFilename: NSFont { .monospacedDigitSystemFont(ofSize: 14, weight: .regular) }
         /// 15 pt semibold — a Settings group's title. One step above the body,

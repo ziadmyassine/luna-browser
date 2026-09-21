@@ -40,6 +40,12 @@ final class SpacePreviewView: NSView {
     private let wash = SpaceWashView()
     private var tiles: [SpacePreviewTile] = []
     private var rows: [NSView] = []
+    /// §3.3a's two wells, if the Space being drawn has pinned nothing. They are
+    /// in the still for the same reason §3.4b's rule is: a picture that leaves
+    /// them out is a column whose rows all stand a hundred points too high, and
+    /// the correction lands inside the cross-fade that is meant to hide one.
+    private var blockWell: NSView?
+    private var rowWell: NSView?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -90,7 +96,21 @@ final class SpacePreviewView: NSView {
         }
         rows = column.rows.indices.map { view(forRow: $0, in: column, icon: icon) }
         for row in rows { addSubview(row) }
+        // `showsRule` is `false` exactly when §3.4b's tier is empty, which is
+        // the question the row well is the answer to — the still has no session
+        // to ask a second time.
+        if column.essentials.isEmpty, Settings.showsPinnedTabHint {
+            blockWell = added(SidebarPinHintView.tabGrid())
+        }
+        if !column.showsRule, Settings.showsPinnedFolderHint {
+            rowWell = added(SidebarPinHintView.folderTier())
+        }
         needsLayout = true
+    }
+
+    private func added(_ well: SidebarPinHintView) -> NSView {
+        addSubview(well)
+        return well
     }
 
     /// The Space past the last one: a plane with nothing on it.
@@ -108,8 +128,12 @@ final class SpacePreviewView: NSView {
     private func clear() {
         for tile in tiles { tile.removeFromSuperview() }
         for row in rows { row.removeFromSuperview() }
+        blockWell?.removeFromSuperview()
+        rowWell?.removeFromSuperview()
         tiles = []
         rows = []
+        blockWell = nil
+        rowWell = nil
         needsLayout = true
     }
 
@@ -150,12 +174,28 @@ final class SpacePreviewView: NSView {
         wash.frame = bounds
         // The grid hangs from the top of the page, exactly as §3.3 hangs from
         // under the URL pill, and the list starts where it ends.
-        let gridHeight = EssentialsGridView.height(forTiles: tiles.count)
+        let inset = Tokens.Metric.rowInset
+        let margin = Tokens.Metric.essentialsVerticalInset
+        let gridHeight = EssentialsGridView.height(forTiles: tiles.count, hinting: blockWell != nil)
         let grid = NSRect(x: 0, y: bounds.maxY - gridHeight, width: bounds.width, height: gridHeight)
         for (index, tile) in tiles.enumerated() {
             tile.frame = EssentialsGridView.slotRect(at: index, of: tiles.count, in: grid)
         }
+        // The block well stands inside the grid's own margins, because it is
+        // what the grid is drawing; the row well hangs under it on a margin of
+        // its own, where §3.4b's first folder will be.
+        blockWell?.frame = grid.insetBy(dx: inset, dy: margin).integral
         var top = grid.minY
+        if let rowWell {
+            let height = Tokens.Metric.pinHintRow
+            rowWell.frame = NSRect(
+                x: inset,
+                y: top - margin - height,
+                width: max(bounds.width - 2 * inset, 0),
+                height: height
+            ).integral
+            top -= height + 2 * margin
+        }
         for row in rows {
             let height = row is SpacePreviewRule ? Tokens.Metric.separatorRowHeight : Tokens.Metric.rowHeight
             top -= height
