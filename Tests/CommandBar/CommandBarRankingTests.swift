@@ -72,28 +72,11 @@ final class CommandBarRankingTests: XCTestCase {
         return (sources, githubTab)
     }
 
-    // MARK: - §3.4b closed rows
+    // MARK: - §6.3's archive
 
-    /// A §3.4b row whose page was closed is not an open tab. It is still in the
-    /// column, so the bar used to offer it as one — and choosing it put the
-    /// site straight back into the folder it had been closed in, which is the
-    /// opposite of what searching for it again asks for.
-    func testARowClosedOnceIsNotOfferedAsAnOpenTab() {
-        var sources = CommandBarSources()
-        var kept = tab("https://git-scm.com/", title: "Git", minutesAgo: 5)
-        kept.kind = .pinned
-        kept.isDormant = true
-        sources.tabs = [kept]
-        sources.history = [HistoryHit(url: url("https://git-scm.com/"), title: "Git", score: 10)]
-
-        let results = CommandBarRanking.merge(query: "git", sources: sources, limit: 8)
-
-        XCTAssertTrue(results.allSatisfy { $0.source != .openTab }, "a closed row was offered as an open tab")
-        XCTAssertTrue(results.contains { $0.source == .history }, "history's row is what takes its place")
-    }
-
-    /// The archive still answers, though: a row closed twice is archived, and
-    /// reopening it is a question the bar does answer.
+    /// A row closed twice is archived, and reopening it is a question the bar
+    /// answers — which is the one thing in §9.2's tab list that is not a
+    /// switch. The rest of that line is in `CommandBarTabRowTests`.
     func testAnArchivedRowIsStillOffered() {
         var sources = CommandBarSources()
         var gone = tab("https://gitea.example/", title: "Gitea", minutesAgo: 90, archived: true)
@@ -317,59 +300,5 @@ final class CommandBarRankingTests: XCTestCase {
         let perKeystroke = (ContinuousClock.now - started) / 20
 
         XCTAssertLessThan(perKeystroke, .milliseconds(5), "local merge must fit in one 16 ms frame (§9.7)")
-    }
-
-    // MARK: - An address is an instruction (§9.3)
-
-    /// Typing the address of a page you already have open goes to the page.
-    ///
-    /// `directURL` outranks `openTab` by tier, so the top row was always the
-    /// typed address — but the dedupe then handed it the tab's own action, and
-    /// the one string that unambiguously means "go here" was the one that would
-    /// not. It is a new tab, in `⌘T`'s mode, and a load in the pill's.
-    func testTypingTheAddressOfAnOpenTabOpensItRatherThanSwitchingToIt() {
-        var sources = CommandBarSources()
-        sources.tabs = [tab("https://google.com/", title: "Google", minutesAgo: 1)]
-
-        let results = CommandBarRanking.merge(query: "google.com", sources: sources, limit: 8)
-        let top = try? XCTUnwrap(results.first)
-        XCTAssertEqual(top?.source, .directURL)
-        guard case .open = top?.action else {
-            return XCTFail("A typed address must go to the page, not to a tab that happens to be on it.")
-        }
-        XCTAssertFalse(
-            results.contains { if case .activateTab = $0.action { true } else { false } },
-            "Nothing in an address's list switches tabs — the address is the instruction."
-        )
-    }
-
-    /// And its name still finds it. The tab's title is not an address, so it
-    /// answers the way everything that is not an address answers: with what you
-    /// already have open.
-    func testTypingTheNameOfThatSameTabSwitchesToIt() {
-        var sources = CommandBarSources()
-        sources.tabs = [tab("https://google.com/", title: "Google", minutesAgo: 1)]
-
-        let results = CommandBarRanking.merge(query: "google", sources: sources, limit: 8)
-        let row = try? XCTUnwrap(results.first { $0.source == .openTab })
-        XCTAssertEqual(row?.title, "Google")
-        guard case .activateTab = row?.action else {
-            return XCTFail("A tab found by name is switched to (§19.4).")
-        }
-    }
-
-    /// The adaptive tier is not a way round it. A remembered `(typed → URL)`
-    /// pair ranks above everything, and it used to adopt the open tab's action
-    /// on the way past.
-    func testAnAdaptiveMatchOnAnAddressStillOpensThePage() {
-        var sources = CommandBarSources()
-        sources.tabs = [tab("https://google.com/", title: "Google", minutesAgo: 1)]
-        sources.adaptive = [AdaptiveEntry(typed: "google.com", url: url("https://google.com/"), useCount: 9)]
-
-        let results = CommandBarRanking.merge(query: "google.com", sources: sources, limit: 8)
-        XCTAssertFalse(
-            results.contains { if case .activateTab = $0.action { true } else { false } },
-            "A lesson learned about an address must not turn the address into a tab switch."
-        )
     }
 }

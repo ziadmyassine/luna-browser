@@ -167,17 +167,26 @@ enum CommandBarRanking {
     /// with an `archivedAt` (§11.1).
     private static func tabRows(tokens: [String], sources: CommandBarSources) -> [CommandBarResult] {
         sources.tabs.compactMap { tab -> CommandBarResult? in
-            // §3.4b: a row whose page has been closed once is not an open tab,
-            // whatever the column still shows. Offering it as one put the site
-            // the user had just closed back into the folder it was kept in the
-            // moment they searched for it again — the answer they wanted was a
-            // new tab, which is what history's row below gives them.
+            // Every tab the Space has, whether or not it has a page loaded.
             //
-            // Only while it is still a row. Archived, it is the archive's own
-            // result below and comes back as a reopen, which is a different
-            // question with a different answer.
+            // §3.4b's dormant rows were filtered out here, on the reasoning
+            // that a row whose page has been closed once is not an open tab —
+            // and it cost the bar the one search a user is most likely to run.
+            // A kept tab in a folder is dormant almost all of the time: that is
+            // what §3.4b's first press is for. So a pinned `Google` sitting in
+            // a folder called Google answered to nothing, and typing its name
+            // returned every archived search that mentioned it and no way to
+            // reach the tab itself.
+            //
+            // §19.2 drops the page of everything but the last few tabs anyway,
+            // so "is there a web view" was never the line between a tab you can
+            // switch to and one you cannot. Clicking a dimmed row in the column
+            // opens it where it stands (§3.4b), and so does this.
+            //
+            // Archived is the real line, and it is below: that row comes back
+            // as a reopen, which is a different question with a different
+            // answer.
             let archived = tab.archivedAt != nil
-            guard archived || !tab.isDormant else { return nil }
             // §3.4a: a renamed tab is found and shown under the name the user gave it.
             // Its own title is deliberately not also in the haystack — a tab you renamed
             // "Invoices" should not keep answering to whatever the page calls itself.
@@ -186,7 +195,7 @@ enum CommandBarRanking {
             return CommandBarResult(
                 source: archived ? .archive : .openTab,
                 title: tab.listTitle.isEmpty ? CommandBarURL.displayForm(of: tab.url) : tab.listTitle,
-                subtitle: CommandBarURL.displayForm(of: tab.url),
+                subtitle: archived ? Self.reopens : Self.switches,
                 action: archived ? .unarchiveTab(tab.id) : .activateTab(tab.id),
                 url: tab.url,
                 // Most recently used first within the tier.
@@ -195,6 +204,24 @@ enum CommandBarRanking {
             )
         }
     }
+
+    /// What a tab row will do, in the subtitle's own slot — the same slot the
+    /// search row uses to say `Search Google` rather than repeating the URL.
+    ///
+    /// It used to be the address, which is the one thing a row like this does
+    /// not need to say: the title has already named the tab, and every other
+    /// row in the list is also a line of title over a line of address, so the
+    /// row that was going to do something entirely different looked exactly
+    /// like the ones that were going to load a page. Reported as the bar not
+    /// showing `Switch to tab` when you type a tab's name — it was showing the
+    /// row and saying nothing about it.
+    ///
+    /// Any open tab, whether or not its page is loaded: §19.2 drops cold pages
+    /// and keeps the tabs, so "switch" means the row, not the process.
+    static let switches = String(localized: "Switch to tab")
+    /// §6.3's archive, which is the other half of the same list and the one
+    /// answer here that is not a switch — there is no tab to go to yet.
+    static let reopens = String(localized: "Reopen tab")
 
     /// `BrowserStore.searchHistory` has already matched and ranked these; matching
     /// them again here would only disagree with FTS5 about what a word is.
@@ -312,7 +339,12 @@ enum CommandBarRanking {
         var live: Set<String> = []
         var out: [CommandBarResult] = []
         for row in rows {
-            let isTab = row.source == .openTab || row.source == .archive
+            // Only an open tab is worth inheriting. An archived one used to be
+            // adopted too, which quietly turned every history hit for a page
+            // the user had ever closed into `Reopen tab` — in a Space with a
+            // long archive that was the whole list, and none of those rows
+            // wanted to be a tab coming back out of the shelf.
+            let isTab = row.source == .openTab
             guard let index = slot[row.id] else {
                 slot[row.id] = out.count
                 if isTab { live.insert(row.id) }
@@ -327,10 +359,15 @@ enum CommandBarRanking {
 
     /// A history or adaptive row that is also an open tab switches to the live
     /// tab instead of loading a second copy of it (§19.4), keeping its own rank.
+    ///
+    /// The subtitle comes with the action. A row that says an address and then
+    /// switches tabs is the same mismatch `switches` exists to close, one tier
+    /// further up.
     private static func adopt(_ tab: CommandBarResult, into row: inout CommandBarResult, marking live: inout Set<String>) {
         live.insert(row.id)
         row.action = tab.action
         row.symbolName = tab.symbolName
+        row.subtitle = tab.subtitle
     }
 
     // MARK: - Matching
