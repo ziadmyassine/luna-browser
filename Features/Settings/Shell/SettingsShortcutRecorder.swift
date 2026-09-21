@@ -5,14 +5,13 @@
 //  §3.6's editable key chip: it prints a shortcut, and when you click it, it
 //  listens for the next one.
 //
-//  This is the one place in Luna that installs an `NSEvent` monitor, and the
-//  ban it is stepping around is worth restating rather than quietly breaking.
-//  `BrowserCommands` forbids monitors because a command driven by one is
-//  invisible — not in a menu, not in the accessibility tree, impossible to
-//  discover (§22.5). None of that applies here: nothing is being commanded. The
-//  monitor exists so the keystroke can be read instead of obeyed, which is
-//  exactly what the menu bar would otherwise do with it. Without one, pressing
-//  ⇧⌘T over this control opens a tab.
+//  The one place in Luna that installs an `NSEvent` monitor, and the ban it
+//  steps around is worth restating. `BrowserCommands` forbids monitors because
+//  a command driven by one is invisible: not in a menu, not in the
+//  accessibility tree, impossible to discover (§22.5). Nothing is being
+//  commanded here — the monitor exists so the keystroke can be read instead of
+//  obeyed, which is what the menu bar would otherwise do with it. Without one,
+//  pressing ⇧⌘T over this control opens a tab.
 //
 //  It is local (this process), it matches only `.keyDown`, and it lives only
 //  between the click that starts recording and the keystroke, Escape, or lost

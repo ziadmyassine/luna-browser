@@ -6,20 +6,16 @@
 //  on the two that have one, the key that does the same thing.
 //
 //  Its own control rather than `GlassButton` or `SettingsPushButton`.
-//  `GlassButton` is a shape with a symbol in it — every one in the chrome is
-//  square or round and none of them carries a title. `SettingsPushButton` is
-//  the Settings shell's, sized by `SettingsMetrics`, and a modal in the browser
-//  window is not a settings row. What both of them lack is the thing this is
-//  for: the key hint. The sheet takes the keyboard while it is up, so what
-//  Return and Escape do is not a shortcut the user might discover, it is part
-//  of the answer — and a control that says so is why nobody has to read the
-//  sentence twice.
+//  `GlassButton` is a shape with a symbol in it and carries no title;
+//  `SettingsPushButton` belongs to the Settings shell and is sized by
+//  `SettingsMetrics`. Both lack the key hint, which is what this is for: the
+//  sheet takes the keyboard while it is up, so what Return and Escape do is
+//  part of the answer rather than a shortcut to discover.
 //
-//  The fill is §3.4's, which is the same pair the rest of the chrome answers
-//  the pointer with: `Surface.hover` under it, `Surface.selected` under a
-//  press. The one that is already `selected` — the recommended answer — has
-//  nothing above it to lift to, so it holds still and lets its glyph carry the
-//  press instead. There is no accent here and no blue: §3.4 settled that.
+//  The fill is §3.4's, the same pair the rest of the chrome answers the pointer
+//  with: `Surface.hover` under it, `Surface.selected` under a press. The
+//  recommended answer is already `selected` and has nothing above it to lift
+//  to, so it holds still and lets its glyph carry the press.
 //
 
 import AppKit

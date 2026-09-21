@@ -5,10 +5,9 @@
 //  The `NSTableView` half of §3.4: data source, delegate, and the table
 //  subclass that carries the keyboard (§7.4, §20.2).
 //
-//  There is no drag and drop here at all. §6.6's reorder is a tracked
-//  gesture — `SidebarTabDrag.swift` — and with the Essentials tiles moved onto
-//  it as well, nothing in the sidebar is an `NSDraggingSource` or an
-//  `NSDraggingDestination` any more. One gesture, one code path.
+//  No drag and drop here at all. §6.6's reorder is a tracked gesture
+//  (`SidebarTabDrag.swift`), and with the Essentials tiles on it too, nothing
+//  in the sidebar is an `NSDraggingSource` or `NSDraggingDestination`.
 //
 //  Modified arrows are swallowed rather than passed on — an unhandled `⌘⌥←`
 //  reaching `NSResponder` is the system beep, which is the single most obvious
