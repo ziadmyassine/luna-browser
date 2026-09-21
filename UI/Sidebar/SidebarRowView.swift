@@ -79,9 +79,6 @@ final class SidebarRowView: NSView {
     /// user actually pressed, so it is the one thing it reports.
     var onTrailing: ((SidebarRowContent.Trailing) -> Void)?
 
-    /// The §3.4b chevron was pressed — fold this group, or open it.
-    var onDisclosure: (() -> Void)?
-
     /// A §3.4b folder's name was typed and confirmed. Not called for Escape,
     /// and not called for a name that is only whitespace: both mean the folder
     /// keeps the name it had.
@@ -98,9 +95,12 @@ final class SidebarRowView: NSView {
     // §3.4b's three. Internal rather than private only because Swift's
     // `private` is file-scoped and `SidebarRowView+Group.swift` is the other
     // half of this class; nothing outside that pair touches them.
-    /// §3.4b's fold control. Its own glyph button, so it answers a hover and a
-    /// press like every other one (`RowGlyphView`).
-    let chevron = RowGlyphView()
+    /// §3.4b's fold mark. Not a button: the whole header folds, and a 16 pt
+    /// glyph sitting inside the thing it is about, lighting its own chip and
+    /// swelling under its own press, read as a second target on a row that has
+    /// only one. It is a plain `NSImageView` so that it cannot take a press,
+    /// cannot take a hover, and is not in the hit test at all.
+    let chevron = NSImageView()
     /// The hairline down the leading edge of a group's tabs.
     let spine = NSView()
     /// The outline `isDropTarget` draws. Its own view for `spine`'s reason: this
@@ -167,8 +167,10 @@ final class SidebarRowView: NSView {
             guard let self else { return }
             onTrailing?(content.trailing)
         }
-        chevron.onActivate = { [weak self] in self?.onDisclosure?() }
         chevron.isHidden = true
+        // The header is the control and carries the label; a second element
+        // announcing the same fold is one more stop for no more reach.
+        chevron.setAccessibilityElement(false)
         spine.wantsLayer = true
         spine.isHidden = true
         outline.wantsLayer = true
@@ -198,7 +200,9 @@ final class SidebarRowView: NSView {
         shimmer.stringValue = next.title
         // §3.4b: a folder's glyph is either an SF Symbol's name or an emoji,
         // and an emoji is never a template — see `RowEmoji`.
-        let emoji = RowEmoji.image(next.symbolName, pointSize: Tokens.Metric.faviconSize)
+        let slot = Self.iconSlot(for: next)
+        icon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: slot, weight: .regular)
+        let emoji = RowEmoji.image(next.symbolName, pointSize: slot)
         icon.image = next.favicon
             ?? emoji
             ?? NSImage(systemSymbolName: next.symbolName, accessibilityDescription: nil)
@@ -257,7 +261,7 @@ final class SidebarRowView: NSView {
         )
         shimmer.textColor = Tokens.Text.primary
         icon.alphaValue = content.isDormant ? Tokens.Metric.dormantIconOpacity : 1
-        chevron.tint = isSelected || isHovered ? Tokens.Text.primary : Tokens.Text.secondary
+        chevron.contentTintColor = isSelected || isHovered ? Tokens.Text.primary : Tokens.Text.secondary
         spine.layer?.backgroundColor = Tokens.Line.hairline.cgColor
         outline.layer?.borderColor = Tokens.Line.border.cgColor
         // Ink, not accent. Luna's chrome carries no system blue: the unread
@@ -327,7 +331,6 @@ final class SidebarRowView: NSView {
         // every rename in every list has.
         if !editor.isHidden { return editor }
         if !trailing.isHidden, trailing.frame.contains(local) { return trailing }
-        if !chevron.isHidden, chevron.frame.contains(local) { return chevron }
         return self
     }
 
@@ -358,9 +361,9 @@ final class SidebarRowView: NSView {
         // it. The chevron follows the name instead of leading the row — see
         // `placeChevron`.
         let indent = content.indent
-        let glyph = Tokens.Metric.faviconSize
+        let glyph = Self.iconSlot(for: content)
         icon.frame = NSRect(
-            x: Tokens.Metric.rowFaviconInset + indent,
+            x: Tokens.Metric.rowFaviconInset + indent - (glyph - Tokens.Metric.faviconSize) / 2,
             y: (bounds.height - glyph) / 2,
             width: glyph,
             height: glyph
@@ -418,6 +421,12 @@ final class SidebarRowView: NSView {
         shimmerMask.frame = shimmer.bounds
         applyFade(overflowing: natural > box.width, width: box.width)
         CATransaction.commit()
+    }
+
+    /// The square this row's icon is drawn in — a folder's is the larger one.
+    /// See `Metric.groupIconSize`.
+    static func iconSlot(for content: SidebarRowContent) -> CGFloat {
+        content.disclosure == nil ? Tokens.Metric.faviconSize : Tokens.Metric.groupIconSize
     }
 
     /// What the title gives back to the chevron standing after it. Nothing on a

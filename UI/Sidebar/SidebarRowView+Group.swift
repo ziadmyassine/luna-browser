@@ -20,16 +20,23 @@ extension SidebarRowView {
     /// §3.4b's chevron. It points down when the group is open and into the
     /// column when it is shut — rotated rather than swapped for a second symbol,
     /// so the two states are one shape that turns.
+    ///
+    /// A mark, not a control. What folds the group is the header, so this only
+    /// says which way it is folded; it takes no press and is not in the row's
+    /// hit test.
     func applyDisclosure(_ state: SidebarRowContent.Disclosure?) {
         guard let state else {
             chevron.isHidden = true
             return
         }
         chevron.isHidden = false
-        chevron.configure(
-            symbolName: state == .expanded ? "chevron.down" : "chevron.right",
-            label: state == .expanded ? "Collapse Group" : "Expand Group",
-            pointSize: Tokens.Metric.groupChevron
+        chevron.image = NSImage(
+            systemSymbolName: state == .expanded ? "chevron.down" : "chevron.right",
+            accessibilityDescription: nil
+        )
+        chevron.symbolConfiguration = NSImage.SymbolConfiguration(
+            pointSize: Tokens.Metric.groupChevron,
+            weight: .regular
         )
     }
 

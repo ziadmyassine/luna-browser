@@ -52,10 +52,6 @@ extension TabListController: NSTableViewDelegate {
         // Resolved from the view, like the trailing glyph and for the same
         // reason: the table builds a row view once and then moves it up the
         // list as tabs close above it, so an index captured here goes stale.
-        view.onDisclosure = { [weak self, weak view] in
-            guard let self, let view, case let .group(id)? = list[table.row(for: view)] else { return }
-            onToggleGroup?(id)
-        }
         view.onPickEmoji = { [weak self, weak view] emoji in
             guard let self, let view, case let .group(id)? = list[table.row(for: view)] else { return }
             onSetGroupIcon?(id, emoji)

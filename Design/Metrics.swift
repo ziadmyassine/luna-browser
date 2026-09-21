@@ -191,6 +191,15 @@ extension Tokens {
         /// group's icon rather than competing with it, and `rowTrailingChip`'s
         /// 18 would be two chips of the same weight on one row.
         static let groupChevronSlot = RoundedMetric(width: 16, height: 16, cornerRadius: 5)
+        /// A §3.4b folder's own icon, against a favicon's 16.
+        ///
+        /// A favicon is a picture and fills its square; an SF Symbol drawn at
+        /// the same point size puts about two thirds of that on the row, so a
+        /// folder measured the same as the tabs under it and did not look it.
+        /// The box is centred on the favicon's own column rather than starting
+        /// at its edge, so every icon in the list still shares one centre line
+        /// and the title inset does not move.
+        static let groupIconSize: CGFloat = 20
         static let groupChevron: CGFloat = 9
         /// How far a group's tabs step in from its header — 16, the favicon's
         /// own width, so a member's icon clears its folder's by exactly one

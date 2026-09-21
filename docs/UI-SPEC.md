@@ -1160,9 +1160,16 @@ leaving, goes back to the address it was kept at, and wakes when it is clicked �
 a kept row always did. What changed is where the row is allowed to stand, not what it does.
 
 **A group is one row with its tabs under it.** It has a name and an icon the user picked, a
-chevron that folds it, and a §3.4-shaped row exactly like a tab's — same pitch, same pill,
-same hover and selection fills. Its tabs step in by `groupIndent` (16 pt, a favicon's own
+chevron that says which way it is folded, and a §3.4-shaped row exactly like a tab's — same
+pitch, same pill, same hover and selection fills. Its tabs step in by `groupIndent` (16 pt, a favicon's own
 width) and a hairline runs down the space that opens.
+
+**The chevron is a mark, not a button.** The whole header folds, so the glyph takes no press,
+no hover and no place in the row's hit test — it is a plain image view (§6's register of
+buttons excludes it on purpose). It was a `RowGlyphView` and lit its own chip and swelled
+under its own press, which put a second target inside a row that has one: aiming at a 16 pt
+glyph to do the thing the whole 38 pt row already does is a smaller target for no more reach,
+and a chip appearing inside the heading read as a control the heading did not have.
 
 **The chevron follows the name.** It stands one `rowTitleGap` after the folder's own title,
 not in front of its icon. Leading the row it took the column every other row draws a favicon
@@ -1193,6 +1200,14 @@ inside.
   either folder menu that carries an ellipsis, because it is the one that opens something
   before it commits. `TabGroup.symbolName` holds either a symbol's name or the emoji itself,
   and `RowEmoji` is the one place that asks which.
+- **A folder's icon is drawn at `groupIconSize`, and an emoji is fitted to it.** A favicon is
+  a picture and fills its 16 pt square; a symbol drawn at the same point size puts about two
+  thirds of that on the row, so a folder measured the same as the tabs under it and did not
+  look it. The larger box is centred on the favicon's own column, so the list still reads as
+  one column of icons and the title inset does not move. An emoji goes the other way — Apple
+  Color Emoji at 16 pt draws 20 pt of picture, so one set at the slot's own size was cropped
+  on all four edges. `RowEmoji` measures the ink and picks the font size that fills the slot
+  exactly, then centres the picture on that ink rather than on the line's box.
 - **A folder's header can be dragged as well as folded.** The two are told apart by whether
   the hand moved: still, it folds; moved, it lifts. A folder is a slot in this tier like any
   other and an arrangement you cannot rearrange is not an arrangement.
