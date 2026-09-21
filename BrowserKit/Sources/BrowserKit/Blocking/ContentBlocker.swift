@@ -366,6 +366,66 @@ public final class ContentBlocker {
         }
     }
 
+    // MARK: - Identifiers, hashing, keys
+
+    enum Failure: Error, LocalizedError {
+        case emptyList
+        case notUTF8
+        case compileReturnedNothing
+
+        var errorDescription: String? {
+            switch self {
+            case .emptyList: "The filter list produced no rules."
+            case .notUTF8: "The filter list was not UTF-8."
+            case .compileReturnedNothing: "WebKit compiled the list but returned nothing."
+            }
+        }
+    }
+
+    static let prefix = "luna-"
+
+    /// The content hash is in the identifier, so a changed list is a different list and
+    /// an unchanged one is found by lookup instead of rebuilt.
+    static func identifier(_ category: Category, hash: String, chunk: Int) -> String {
+        "\(prefix)\(category.rawValue)-\(hash)-\(chunk)"
+    }
+
+    static func hash(_ data: Data) -> String {
+        SHA256.hash(data: data).prefix(8).map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// Lowercased, trailing dot removed — `siteSettings` is keyed by host and
+    /// `Example.com.` and `example.com` are the same site.
+    static func normalise(_ host: String?) -> String? {
+        guard var host = host?.lowercased(), !host.isEmpty else { return nil }
+        while host.hasSuffix(".") { host.removeLast() }
+        return host.isEmpty ? nil : host
+    }
+
+    private func identifiers(for category: Category) -> [String] {
+        guard let hash = defaults.string(forKey: Key.hash(category)) else { return [] }
+        let chunks = max(1, defaults.integer(forKey: Key.chunks(category)))
+        return (0 ..< chunks).map { Self.identifier(category, hash: hash, chunk: $0) }
+    }
+
+    enum Key {
+        static let lastRefresh = "blocking.lastRefresh"
+        static let httpsOnly = "blocking.httpsOnly"
+        static func hash(_ category: Category) -> String { "blocking.hash.\(category.rawValue)" }
+        static func chunks(_ category: Category) -> String { "blocking.chunks.\(category.rawValue)" }
+        static func ruleCount(_ category: Category) -> String { "blocking.ruleCount.\(category.rawValue)" }
+        static func enabled(_ category: Category) -> String { "blocking.enabled.\(category.rawValue)" }
+    }
+}
+
+// MARK: - Per-site switches and per-tab counts
+
+/// An extension rather than more of the class above, for `TokenCheck`'s reason:
+/// a type body has a length limit and the roster of small accessors does not.
+/// Everything here is a read or a write of one dictionary — none of it fetches,
+/// compiles or attaches anything.
+extension ContentBlocker {
+
     // MARK: - Per-site (§17.2)
 
     public func isDisabled(forHost host: String?) -> Bool {
@@ -432,56 +492,5 @@ public final class ContentBlocker {
     public func forgetTab(_ tab: UUID) {
         blockedCounts[tab] = nil
         youTubeCounts[tab] = nil
-    }
-
-    // MARK: - Identifiers, hashing, keys
-
-    enum Failure: Error, LocalizedError {
-        case emptyList
-        case notUTF8
-        case compileReturnedNothing
-
-        var errorDescription: String? {
-            switch self {
-            case .emptyList: "The filter list produced no rules."
-            case .notUTF8: "The filter list was not UTF-8."
-            case .compileReturnedNothing: "WebKit compiled the list but returned nothing."
-            }
-        }
-    }
-
-    static let prefix = "luna-"
-
-    /// The content hash is in the identifier, so a changed list is a different list and
-    /// an unchanged one is found by lookup instead of rebuilt.
-    static func identifier(_ category: Category, hash: String, chunk: Int) -> String {
-        "\(prefix)\(category.rawValue)-\(hash)-\(chunk)"
-    }
-
-    static func hash(_ data: Data) -> String {
-        SHA256.hash(data: data).prefix(8).map { String(format: "%02x", $0) }.joined()
-    }
-
-    /// Lowercased, trailing dot removed — `siteSettings` is keyed by host and
-    /// `Example.com.` and `example.com` are the same site.
-    static func normalise(_ host: String?) -> String? {
-        guard var host = host?.lowercased(), !host.isEmpty else { return nil }
-        while host.hasSuffix(".") { host.removeLast() }
-        return host.isEmpty ? nil : host
-    }
-
-    private func identifiers(for category: Category) -> [String] {
-        guard let hash = defaults.string(forKey: Key.hash(category)) else { return [] }
-        let chunks = max(1, defaults.integer(forKey: Key.chunks(category)))
-        return (0 ..< chunks).map { Self.identifier(category, hash: hash, chunk: $0) }
-    }
-
-    enum Key {
-        static let lastRefresh = "blocking.lastRefresh"
-        static let httpsOnly = "blocking.httpsOnly"
-        static func hash(_ category: Category) -> String { "blocking.hash.\(category.rawValue)" }
-        static func chunks(_ category: Category) -> String { "blocking.chunks.\(category.rawValue)" }
-        static func ruleCount(_ category: Category) -> String { "blocking.ruleCount.\(category.rawValue)" }
-        static func enabled(_ category: Category) -> String { "blocking.enabled.\(category.rawValue)" }
     }
 }

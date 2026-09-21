@@ -439,6 +439,16 @@ public final class TabController: NSObject {
     public func resetProcessCrashBudget() {
         recoveries.removeAll()
     }
+}
+
+// MARK: - State
+
+/// An extension rather than more of the class above: `TabController` is the
+/// engine class §33's 4,000-line warning is aimed at, and a type body has a
+/// length limit. Everything here is about what the tab currently *is* — its
+/// published state, the colour behind the page, and the scripts every document
+/// gets — rather than about building or tearing down a web view.
+extension TabController {
 
     // MARK: - State
 

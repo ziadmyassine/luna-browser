@@ -336,6 +336,15 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     private var parkedSidebarWidth: CGFloat {
         widthBeforeCollapse ?? Tokens.Metric.sidebarWidth.default
     }
+}
+
+// MARK: - §7.2's hover-peek, page fullscreen, and the geometry they share
+
+/// An extension rather than more of the class above, which is at the type body
+/// length limit. The split is along the seam the file already had: above is what
+/// the window is made of and what it hosts, below is what moves when the chrome
+/// changes state.
+extension BrowserWindowController {
 
     // MARK: - §7.2's hover-peek
 

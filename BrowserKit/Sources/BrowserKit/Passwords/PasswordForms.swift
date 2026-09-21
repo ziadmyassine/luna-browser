@@ -156,6 +156,14 @@ public enum PasswordForms {
     if (password) { setValue(pass, password); }
     return true;
     """
+}
+
+// MARK: - The page script
+
+/// An extension rather than more of the enum above: the detection script is two
+/// hundred lines of JavaScript, and a type body has a length limit that a string
+/// literal should not be spending.
+extension PasswordForms {
 
     // MARK: - The page script
 
