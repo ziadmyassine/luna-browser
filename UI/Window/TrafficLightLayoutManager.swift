@@ -77,22 +77,21 @@ enum TrafficLightLayout {
     /// Where the standard window buttons belong, in their superview's
     /// (`NSTitlebarView`, bottom-left origin) coordinates.
     ///
-    /// The lights sit at the same place in every chrome layout by design: the
-    /// sidebar's control row and the top bar both start at the window's
-    /// top-left, so switching layout or collapsing the sidebar must not move
-    /// them. A test pins that down.
+    /// The lights sit at the same place in every chrome layout: the sidebar's
+    /// control row and the top bar both start at the window's top-left, so
+    /// switching layout or collapsing the sidebar must not move them. A test
+    /// pins that down.
     ///
-    /// `inset` is one number for both axes. It used to be a leading inset
-    /// plus a vertical centring in the control row, which put the lights 8 pt
-    /// from the window's leading edge and 18 pt from its top — unequal padding
-    /// into a corner, and the first thing the eye catches. The reference insets
-    /// them equally; so does this.
+    /// `inset` is one number for both axes. It used to be a leading inset plus
+    /// a vertical centring in the control row, which put the lights 8 pt from
+    /// the window's leading edge and 18 pt from its top — unequal padding into
+    /// a corner. The reference insets them equally.
     ///
     /// `system.titlebarHeight` is whichever container holds the buttons, not
     /// necessarily AppKit's titlebar: fullscreen takes that away and the lights
-    /// move into `TrafficLightStrip` instead. Both are unflipped and both have
-    /// their top edge on the window's, so one piece of arithmetic serves both —
-    /// which is the point of measuring the container rather than naming it.
+    /// move into `TrafficLightStrip`. Both are unflipped with their top edge on
+    /// the window's, so one piece of arithmetic serves both — which is why the
+    /// container is measured rather than named.
     ///
     /// - Returns: `nil` when the system owns the frames (page fullscreen, §3.6),
     ///   meaning "do not touch".
@@ -303,14 +302,13 @@ final class TrafficLightLayoutManager {
     /// higher in fullscreen than the titlebar lands them windowed.
     ///
     /// `TrafficLightLayout` measures the inset down from whatever container it
-    /// is given and refuses to hang a button below it — so a container shorter
-    /// than `inset + buttonHeight` clamps, and the clamp is the one way the two
-    /// window states can disagree about where the lights go. The strip stands in
-    /// for AppKit's titlebar, and that height is read in `init`, before the
-    /// window has ever been on screen: it is not a number to stake the placement
-    /// on. Taking the larger of the two costs nothing when the measurement is
-    /// right — the strip draws nothing and hit-tests to nothing — and keeps the
-    /// two states on the same line when it is not.
+    /// is given and refuses to hang a button below it, so a container shorter
+    /// than `inset + buttonHeight` clamps — and that clamp is the one way the
+    /// two window states can disagree about where the lights go. The strip's
+    /// height is read in `init`, before the window has been on screen, so it is
+    /// not a number to stake the placement on. Taking the larger of the two
+    /// costs nothing when the measurement is right and keeps the two states on
+    /// the same line when it is not.
     nonisolated static func stripHeight(titlebar: CGFloat, buttonHeight: CGFloat, inset: CGFloat) -> CGFloat {
         max(titlebar, inset + buttonHeight)
     }

@@ -8,11 +8,10 @@
 //  that talks to both `BrowserStore` and the engine. Views own no model state;
 //  they re-read this on `onChange`.
 //
-//  What it deliberately is not: Nook's `BrowserManager` (~4,000 lines). What
-//  keeps it small (§0.3, §19, §33) is that navigation lives in `TabController`,
-//  persistence in `BrowserStore`, ordering in `TabList`, geometry in
-//  `BrowserWindowController` — and anything a view can compute from `tabs`
-//  does not get a method here. It is four files:
+//  What keeps it small (§0.3, §19, §33) is that navigation lives in
+//  `TabController`, persistence in `BrowserStore`, ordering in `TabList` and
+//  geometry in `BrowserWindowController` — and anything a view can compute from
+//  `tabs` does not get a method here. Four files:
 //
 //      BrowserSession.swift         state, restore, the Space list (§5)
 //      BrowserSession+Spaces.swift  the Space lifecycle and Favorites (§6, §2)
@@ -163,18 +162,15 @@ final class BrowserSession {
 
     /// The gradient a new Space takes, given the ones already in use.
     ///
-    /// Neutral, and colour is something the user asks for. §8.2's twelve
-    /// curated pairs and the next-unused rule live in `Design`, and handing a
-    /// new Space one of them automatically meant the sidebar changed colour on
-    /// its own — a window the user had not asked to look different came back
-    /// looking different, and the only way out was a menu they had no reason to
-    /// open. Neutral washes to nothing, so a Space that was never given a
-    /// colour looks exactly like the sidebar always did; `Tokens.Gradient.next`
-    /// is still there, and the dot's colour menu and §3.7's Gradient popup are
-    /// how a Space gets one.
+    /// Neutral: colour is something the user asks for. Handing a new Space one
+    /// of §8.2's twelve curated pairs automatically meant the sidebar changed
+    /// colour on its own, and the only way back was a menu the user had no
+    /// reason to open. Neutral washes to nothing, so a Space that was never
+    /// given a colour looks like the sidebar always did. `Tokens.Gradient.next`
+    /// is still there, behind the dot's colour menu and §3.7's Gradient popup.
     ///
     /// The override exists so a test can pin the answer without a design system
-    /// behind it, and nothing in the app sets it.
+    /// behind it; nothing in the app sets it.
     var nextGradient: ([GradientPair]) -> GradientPair = { _ in Tokens.Gradient.neutral }
 
     // MARK: - State

@@ -7,16 +7,16 @@
 //  for. No AppKit, no actor, no I/O — so `CommandBarRankingTests` can hand-compute
 //  an order and assert it, exactly the way `FrecencyRankingTests` does.
 //
-//  Frecency is not reimplemented here. `BrowserStore` already computes
-//  §9.3's `Σ (visitTypeWeight × recencyWeight)` over each place's ten most recent
-//  visits, in SQL, with its own tests. This file consumes `HistoryHit.score` and
-//  never second-guesses it. What it adds is the half the store cannot see: the
+//  Frecency is not reimplemented here. `BrowserStore` computes §9.3's
+//  `Σ (visitTypeWeight × recencyWeight)` over each place's ten most recent
+//  visits, in SQL, with its own tests; this file consumes `HistoryHit.score`
+//  and never second-guesses it. What it adds is the half the store cannot see:
 //  tier order across sources, dedupe, and adaptive input history.
 //
-//  §9.7, the reason this is a pure function. `merge` runs synchronously on
-//  the main actor inside `controlTextDidChange`, over arrays already in memory,
-//  so local results are on screen in the same frame as the keystroke. The store
-//  query is the only asynchronous part and it merges in afterwards.
+//  §9.7 is why this is pure. `merge` runs synchronously on the main actor
+//  inside `controlTextDidChange`, over arrays already in memory, so local
+//  results are on screen in the same frame as the keystroke. The store query is
+//  the only asynchronous part and merges in afterwards.
 //
 
 import BrowserKit
@@ -122,14 +122,14 @@ enum CommandBarRanking {
     /// prefix of its display form. Returns the whole completion; the field
     /// selects the part beyond `query`.
     ///
-    /// Only the top row, on purpose. Autofilling from row 4 would put text in the
-    /// field that nothing on screen is highlighting.
+    /// Only the top row: autofilling from row 4 would put text in the field
+    /// that nothing on screen is highlighting.
     ///
     /// `query` is used untrimmed, because the caller sets the field's text to
-    /// what comes back and selects everything past `query.count`. Trimming here
-    /// would shift that selection off by the whitespace. Whitespace anywhere in
-    /// the query means it is a search, not an address, so there is nothing to
-    /// complete — which is also what makes the untrimmed comparison safe.
+    /// what comes back and selects everything past `query.count`, so trimming
+    /// would shift that selection by the whitespace. Whitespace anywhere in the
+    /// query means it is a search rather than an address, so there is nothing
+    /// to complete — which is what makes the untrimmed comparison safe.
     static func autofill(query: String, results: [CommandBarResult]) -> String? {
         guard !query.isEmpty, !query.contains(where: \.isWhitespace),
               let url = results.first?.url
@@ -299,15 +299,13 @@ enum CommandBarRanking {
     /// but it inherits the open tab's action and Space badge when one exists,
     /// so a page that is both #1 by adaptive history and already open switches to
     /// the live tab instead of loading a second copy of it (§19.4).
-    /// The Profile boundary stops the dedupe, and that is zen#14371's fix.
-    /// The same URL open in two Spaces on two different Profiles is two pages,
-    /// two logins and two accounts, so it stays two rows. Collapsing them was
-    /// worse than the bug it looks like: the second tab silently overwrote the
-    /// first row's action, so choosing "Switch to tab" teleported you into
-    /// whichever Space the loop reached last.
+    /// The Profile boundary stops the dedupe (zen#14371). The same URL open in
+    /// two Spaces on two Profiles is two pages, two logins and two accounts, so
+    /// it stays two rows. Collapsing them was worse than it looks: the second
+    /// tab silently overwrote the first row's action, so "Switch to tab"
+    /// teleported you into whichever Space the loop reached last.
     ///
-    /// Within one Profile nothing changes: the best-ranked row keeps its place
-    /// and inherits the open tab's action, badge and glyph exactly as before.
+    /// Within one Profile nothing changes.
     private static func dedupe(_ rows: [RankedRow]) -> [CommandBarResult] {
         var slot: [String: Int] = [:]
         /// "url + profile" pairs already reachable from some row on screen.

@@ -7,24 +7,21 @@
 //  it, and §6.2's one way into the Settings section that holds the rest.
 //
 //  Its own object rather than more of `SidebarViewController` because it is the
-//  only part of the column that is a gesture — it has a beginning, a middle
-//  in which nothing has happened yet, and an end that may or may not change the
-//  window. The controller around it lays views out and re-reads the session;
-//  neither of those has a middle.
+//  only part of the column that is a gesture: it has a beginning, a middle in
+//  which nothing has happened yet, and an end that may or may not change the
+//  window. Laying views out and re-reading the session have no middle.
 //
-//  The swipe is a page turn, not a hint. The column used to lean 40 pt and
-//  dim, which says "something is happening" and nothing else — the Space being
-//  reached for stayed invisible until the gesture had already committed, so the
-//  choice was made blind. The live column now translates a full width out while
-//  `SpacePreviewView` translates the neighbouring Space in behind the fingers,
-//  and on release it settles to one side or the other: there is no resting
-//  position between two Spaces, so letting go half way is a decision, not a
-//  place to stop.
+//  The swipe is a page turn, not a hint. The column used to lean 40 pt and dim,
+//  which says "something is happening" and nothing else — the Space being
+//  reached for stayed invisible until the gesture had committed, so the choice
+//  was made blind. The live column now translates a full width out while
+//  `SpacePreviewView` translates the neighbour in behind the fingers, and on
+//  release it settles to one side or the other. There is no resting position
+//  between two Spaces, so letting go half way is a decision.
 //
-//  It holds no Spaces. Every frame asks the session afresh, so a Space
-//  created, deleted or reordered while a finger is down — by a menu, by another
-//  window, by the Settings pane — cannot leave the gesture pointing at one that
-//  is no longer there.
+//  It holds no Spaces. Every frame asks the session afresh, so a Space created,
+//  deleted or reordered while a finger is down cannot leave the gesture
+//  pointing at one that is no longer there.
 //
 
 import AppKit
@@ -58,13 +55,12 @@ final class SidebarSpaceGestures {
     /// True from the moment a create commits until the editor it opens is
     /// closed.
     ///
-    /// The new Space's column is not shown while its editor is up. The
-    /// editor is a form on the column's own plane, not a sheet over it, and the
-    /// column behind it is a Space that is three decisions from being anything
-    /// — so a `New Tab` row and whatever the Profile pinned into it were
-    /// showing through the form asking what the Space is called. The column
-    /// arrives when the form is done with, which is also the first moment it
-    /// says anything true.
+    /// The new Space's column is not shown while its editor is up. The editor
+    /// is a form on the column's own plane rather than a sheet over it, and the
+    /// column behind it is three decisions from being anything — so a `New Tab`
+    /// row and whatever the Profile pinned into it showed through the form
+    /// asking what the Space is called. The column arrives when the form is
+    /// done, which is the first moment it says anything true.
     ///
     /// `SidebarViewController.refresh` reads it: creating a Space is a Space
     /// switch, and a switch cross-fades the column back in.
@@ -136,17 +132,17 @@ final class SidebarSpaceGestures {
     /// a create — and one more if the hand backs off far enough to undo it
     /// and pushes out again.
     ///
-    /// It answers a threshold now rather than announcing one. The ring used
-    /// to close two thirds of a page before the release could act on it, so
-    /// this tick was a warning; the ring is the threshold, so it is a detent.
-    /// That makes the retreat worth feeling too: panning back empties the ring
-    /// and calls the create off, and a hand that only feels the arming has been
+    /// It answers a threshold rather than announcing one. The ring used to
+    /// close two thirds of a page before the release could act on it, which
+    /// made this a warning; the ring is the threshold now, so it is a detent.
+    /// The retreat is worth feeling too: panning back empties the ring and
+    /// calls the create off, and a hand that only feels the arming has been
     /// told half of it.
     ///
-    /// It re-arms low rather than at the threshold itself, because the
-    /// column has all but stopped moving out there (`spaceCreateGive`) and a
-    /// hand holding a stiff stop is a hand that wobbles across it. Crossing at
-    /// the same point in both directions would buzz.
+    /// It re-arms low rather than at the threshold, because the column has all
+    /// but stopped moving out there (`spaceCreateGive`) and a hand holding a
+    /// stiff stop wobbles across it. Crossing at the same point in both
+    /// directions would buzz.
     private static let ringReArm: CGFloat = 0.9
 
     private func latchRing(at creation: CGFloat) {
@@ -162,15 +158,14 @@ final class SidebarSpaceGestures {
     /// The frames of the two borrowed views, and the transforms of everything
     /// that moves.
     ///
-    /// Nothing here ever animates, including on release, and that is a
-    /// stronger claim than it used to be. A frame is a consequence of the
-    /// column's layout, which was never this gesture's to animate (see
-    /// `Motion.immediately`) — but the transforms were handed to Core Animation
-    /// on the way home, and the rest of the read-out was not, so the strip and
-    /// the wash arrived at the new Space while the column was still crossing to
-    /// it. `SpaceSwipeSettle` tweens the travel instead and calls this every
-    /// frame, which makes a release a hand that kept going and leaves exactly
-    /// one way a frame of this gesture is drawn.
+    /// Nothing here ever animates, including on release. A frame is a
+    /// consequence of the column's layout and was never this gesture's to
+    /// animate (`Motion.immediately`), but the transforms used to be handed to
+    /// Core Animation on the way home while the rest of the read-out was not —
+    /// so the strip and the wash arrived at the new Space while the column was
+    /// still crossing to it. `SpaceSwipeSettle` tweens the travel instead and
+    /// calls this every frame, which leaves one way a frame of this gesture is
+    /// drawn.
     private func turn(to travel: CGFloat) {
         let page = contentRect
         Tokens.Motion.immediately {
@@ -299,14 +294,13 @@ final class SidebarSpaceGestures {
 
     /// Runs the column the rest of the way, then commits.
     ///
-    /// The Space changes while the still is standing in for it, which is
-    /// the whole of why the seam does not show. At the end of the journey the
-    /// live column is a full width off screen and `SpacePreviewView` is exactly
-    /// where it used to be, showing the Space that is about to become the real
-    /// one — so the column is put back in place invisible, the switch
-    /// happens behind it, and the still cross-fades out over §6's
-    /// `spaceSwitchCrossfade` as the real list fades in underneath. Nobody sees
-    /// the swap, because for 180 ms both pictures are the same picture.
+    /// The Space changes while the still is standing in for it, which is why
+    /// the seam does not show. At the end of the journey the live column is a
+    /// full width off screen and `SpacePreviewView` is where it used to be,
+    /// showing the Space about to become the real one — so the column is put
+    /// back in place invisible, the switch happens behind it, and the still
+    /// cross-fades out over §6's `spaceSwitchCrossfade` as the real list fades
+    /// in underneath. For 180 ms both pictures are the same picture.
     ///
     /// Snapping back is the same journey with no commit at the end of it.
     private func settle(

@@ -10,11 +10,10 @@
 //  §9.6 privacy, structurally rather than as a promise. Nothing under
 //  `UI/CommandBar` references a networking type, and `CommandBarPrivacyTests`
 //  greps these sources to keep it that way. Suggestions are the one §9.2 source
-//  that needs a network call, so the call lives outside this module entirely —
+//  needing a network call, so the call lives outside this module:
 //  `Features/Search/SearchSuggestions` fetches them and the controller hands
-//  the finished strings in as just another local array. What this module does
-//  with a query is still only one of three things: activate a tab, open a URL,
-//  or run a command.
+//  the finished strings in as another local array. What this module does with a
+//  query is one of three things — activate a tab, open a URL, run a command.
 //
 
 import BrowserKit
