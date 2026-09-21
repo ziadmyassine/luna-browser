@@ -44,6 +44,10 @@ final class TabListController: NSObject {
     var onNewGroup: (() -> Void)?
     /// §3.4b: a folder's name was typed on its own row and confirmed.
     var onRenameGroup: ((UUID, String) -> Void)?
+
+    /// §3.4a's rename, typed on the row. Blank means "give the name back to the
+    /// page" — `BrowserSession.renameTab` is where that is read.
+    var onRenameTab: ((UUID, String) -> Void)?
     /// §3.4a's menu, bound to one tab — `BrowserSession.tabMenuActions(for:)`. Nil leaves
     /// the rows with no context menu rather than a shorter one: a second, smaller answer
     /// to the same right-click is exactly what §3.4a exists to avoid.

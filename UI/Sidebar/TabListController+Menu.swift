@@ -6,6 +6,9 @@
 //  actually call — and §3.4b's second menu, on a group header, which is a different noun
 //  and therefore a different menu rather than a longer version of the first.
 //
+//  Renaming is here rather than in either menu, for both nouns: the name is typed on the
+//  row, and the row is the one thing a menu never knows about.
+//
 //  Split out of `TabListController.swift` for that file's length limit, and it is the
 //  right seam anyway — the wording and the order live in `TabMenu.swift`, the verbs live
 //  on `BrowserSession`, and this is the one place that knows a row is a tab.
@@ -41,7 +44,8 @@ extension TabListController {
             isMuted: mutedTabIDs.contains(tab.id),
             group: list.group(ofTab: tab.id),
             others: list.groups(besides: list.group(ofTab: tab.id)?.id),
-            actions: actions
+            actions: actions,
+            rename: { [weak self] in self?.beginRenaming(tab: tab.id) }
         )
     }
 
@@ -53,9 +57,25 @@ extension TabListController {
     /// a folder made while the list is scrolled away has no view yet.
     func beginRenaming(group id: UUID) {
         guard let row = list.row(ofGroup: id), let group = list.group(id) else { return }
+        beginRenaming(atRow: row, showing: group.name)
+    }
+
+    /// The same field, on a tab (§3.4a's Rename).
+    ///
+    /// It opens on the name the row is showing — the tab's own name if it has
+    /// one, the page's title if it does not — rather than on an empty box over
+    /// a title the user can no longer read. Typing the page's title back, or
+    /// clearing the field, is how the name goes back to the page; `renameTab`
+    /// is where both of those are read.
+    func beginRenaming(tab id: UUID) {
+        guard let row = list.row(of: id), let tab = list.tab(at: row) else { return }
+        beginRenaming(atRow: row, showing: tab.customTitle ?? tab.title)
+    }
+
+    private func beginRenaming(atRow row: Int, showing name: String) {
         table.scrollRowToVisible(row)
         table.window?.makeFirstResponder(table)
         guard let view = table.view(atColumn: 0, row: row, makeIfNecessary: true) as? SidebarRowView else { return }
-        view.beginEditing(group.name)
+        view.beginEditing(name)
     }
 }

@@ -64,12 +64,17 @@ enum TabMenu {
 
     /// - Parameter group: the §3.4b folder this tab is already in, if any.
     /// - Parameter others: every other folder in the list, for the submenu that moves it.
+    /// - Parameter rename: opens the name field on the tab's own row. Only §3.4's column
+    ///   has one — a tile in §3.3's grid and a tab in §4's strip are the same tab drawn
+    ///   somewhere with no line of text to type on — so those two pass nothing and get the
+    ///   dialog instead.
     static func build(
         for tab: Tab,
         isMuted: Bool,
         group: TabGroup? = nil,
         others: [TabGroup] = [],
-        actions: Actions
+        actions: Actions,
+        rename: (() -> Void)? = nil
     ) -> NSMenu {
         let menu = NSMenu()
         // Closure items are their own target, so AppKit would enable them anyway. Off for
@@ -108,12 +113,16 @@ enum TabMenu {
         menu.addItem(copyLink(tab.url))
         menu.addItem(.separator())
 
-        // Ellipses, because both of these ask a question first. macOS reserves the
-        // trailing `…` for a command that opens something before it commits, and these two
-        // are the only items here that do.
-        menu.addItem(item(String(localized: "Rename…"), symbol: "pencil") {
-            askName(for: tab, then: actions.rename)
-        })
+        // The ellipsis follows the dialog. macOS reserves the trailing `…` for a command
+        // that opens something before it commits, so the row that types its new name in
+        // place does not carry one and the two surfaces that still ask do.
+        if let rename {
+            menu.addItem(item(String(localized: "Rename"), symbol: "pencil", action: rename))
+        } else {
+            menu.addItem(item(String(localized: "Rename…"), symbol: "pencil") {
+                askName(for: tab, then: actions.rename)
+            })
+        }
         menu.addItem(item(String(localized: "Change Icon…"), symbol: "photo") {
             askIcon(for: tab, then: actions.setIcon)
         })

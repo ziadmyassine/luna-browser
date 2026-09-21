@@ -75,10 +75,15 @@ extension BrowserSession {
     /// Blank is normalised to nil rather than stored, because `""` and nil would look the
     /// same in the sidebar and behave differently forever after: a stored empty string
     /// would keep overriding the page's title with nothing.
+    ///
+    /// So is the page's own title, and for the field on §3.4's row rather than for the
+    /// dialog: that field opens on the name the row is showing, so a user who opens it and
+    /// changes nothing would otherwise freeze today's title onto the tab for good.
     func renameTab(_ id: UUID, to name: String?) {
         guard var tab = list.tab(id) else { return }
         let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let next = (trimmed?.isEmpty ?? true) ? nil : trimmed
+        let own = (trimmed?.isEmpty ?? true) || trimmed == tab.title
+        let next = own ? nil : trimmed
         guard next != tab.customTitle else { return }
         let previous = tab.customTitle
         tab.customTitle = next

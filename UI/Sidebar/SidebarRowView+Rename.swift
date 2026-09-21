@@ -2,7 +2,9 @@
 //  SidebarRowView+Rename.swift
 //  Luna
 //
-//  §3.4b's rename, typed on the row itself rather than asked for in a sheet.
+//  §3.4a and §3.4b's rename, typed on the row itself rather than asked for in a
+//  sheet. One field for both nouns: a folder's name and a tab's are the same
+//  line of text in the same place, and the row is what knows which it is.
 //
 //  A folder arrives with no name worth keeping — it is made by a right-click
 //  and it has to be called something — so the first thing every new one needs
@@ -10,6 +12,9 @@
 //  has just appeared in, and the answer goes to a row the user can no longer
 //  see. Typing on the row is the same act with nothing in front of it, and it
 //  is what renaming a folder looks like everywhere else on the system.
+//
+//  §3.3's tiles and §4's strip keep the dialog, because neither draws the tab's
+//  name as a line of text there is room to type on.
 //
 //  The field is hidden except while it is being typed into. It is not a second
 //  title: the row draws its name the way every other row draws one, and this
@@ -28,6 +33,11 @@ extension SidebarRowView: NSTextFieldDelegate {
         editor.isBezeled = false
         editor.isBordered = false
         editor.drawsBackground = false
+        // `drawsBackground` answers for the cell; the colour answers for
+        // everything that reads the cell without asking it, and the field
+        // editor is one of those. Left at `textBackgroundColor` it paints the
+        // near-black plate that made the row look like a text box cut into it.
+        editor.backgroundColor = .clear
         editor.focusRingType = .none
         editor.font = Tokens.TypeScale.sidebarRow
         editor.textColor = Tokens.Text.primary
@@ -45,12 +55,14 @@ extension SidebarRowView: NSTextFieldDelegate {
     /// the width it needs and faded where it runs out; a name being typed is
     /// longer than the name that fitted, and a field cut to the old one would
     /// scroll its own text under the caret for no reason.
-    func placeEditor(startingAt x: CGFloat) {
+    /// - Parameter reserve: what the trailing end of the row is already using —
+    ///   §3.4b's chevron on a folder's header, nothing on a tab.
+    func placeEditor(startingAt x: CGFloat, reserving reserve: CGFloat) {
         let height = editor.intrinsicContentSize.height
         editor.frame = NSRect(
             x: x,
             y: (bounds.height - height) / 2,
-            width: max(bounds.width - 2 * Tokens.Metric.rowInset - x, 0),
+            width: max(bounds.width - 2 * Tokens.Metric.rowInset - reserve - x, 0),
             height: height
         ).integral
     }
@@ -67,6 +79,18 @@ extension SidebarRowView: NSTextFieldDelegate {
         // the wrong place for the length of the edit.
         layoutSubtreeIfNeeded()
         window.makeFirstResponder(editor)
+        // The field editor is one shared `NSTextView` the window lends out, and
+        // it arrives wearing whatever the last field left on it. Set every time
+        // rather than once: the row does not own it and cannot keep it.
+        if let live = editor.currentEditor() as? NSTextView {
+            live.drawsBackground = false
+            live.backgroundColor = .clear
+            live.insertionPointColor = Tokens.Text.primary
+            live.selectedTextAttributes = [
+                .backgroundColor: Tokens.Surface.selected,
+                .foregroundColor: Tokens.Text.primary
+            ]
+        }
         editor.currentEditor()?.selectAll(nil)
     }
 
@@ -80,7 +104,10 @@ extension SidebarRowView: NSTextFieldDelegate {
         // is about to stop existing as far as the responder chain is concerned,
         // and a window with no first responder swallows the next arrow key.
         if editor.currentEditor() != nil { window?.makeFirstResponder(superview) }
-        guard commit, !typed.isEmpty else { return }
+        // Blank goes through rather than being dropped here. A folder refuses
+        // it and a tab reads it as "give the name back to the page", and only
+        // the row knows which of the two it is.
+        guard commit else { return }
         onRename?(typed)
     }
 

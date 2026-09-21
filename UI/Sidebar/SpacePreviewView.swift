@@ -98,8 +98,7 @@ final class SpacePreviewView: NSView {
             return SpacePreviewRow(
                 title: group.name,
                 icon: NSImage(systemSymbolName: group.symbolName, accessibilityDescription: nil),
-                isDimmed: true,
-                indent: Tokens.Metric.groupChevronSlot.width
+                isDimmed: true
             )
         case .tab:
             guard let tab = column.tab(at: row) else { return SpacePreviewRule() }

@@ -120,6 +120,17 @@ state. Raising the tint instead was tried and is wrong: the tint is *black* in d
 "more opaque". Frost separates the two — the material still samples and refracts the desktop, but through
 a surface rather than through a hole.
 
+**The tint survives the window going inactive, and Luna is what makes it.**
+`NSGlassEffectView` drops `tintColor` the moment its window stops being the active one, and
+there is no `NSVisualEffectView.state` to ask it not to. Measured on the sidebar, dark mode:
+the plane went from 0.166/0.110/0.293 to 0.259/0.180/0.420 — half again as bright — every
+time the user clicked into another app, and the difference was §2's tint exactly, black at
+`Ink.glassTint`. So `GlassBackingView` paints the same tint over the material for the length
+of an inactive window: the colour is the same in both states and only the layer carrying it
+changes. Inactive now measures 0.172/0.118/0.278 against the active 0.166/0.110/0.293. It is
+off in fullscreen and under Reduce Transparency for the reason the tint itself is — there is
+no material there to have lost one.
+
 ### 2a. Clear or Opaque — the user's own answer
 
 **How much of the desktop comes through is a setting**, `Glass.density`, stored in
@@ -1126,10 +1137,16 @@ today               ▾ Trip
 
 **A group is one row with its tabs under it.** It has a name and an icon the user picked, a
 chevron that folds it, and a §3.4-shaped row exactly like a tab's — same pitch, same pill,
-same hover and selection fills. Its tabs step in by `groupIndent` (16 pt, the width of the
-chevron's slot) and a hairline runs down the space that opens, descending from the chevron
-it belongs to. A member's favicon therefore lands directly under its group's icon: one
-column with a heading on it.
+same hover and selection fills. Its tabs step in by `groupIndent` (16 pt, a favicon's own
+width) and a hairline runs down the space that opens.
+
+**The chevron follows the name.** It stands one `rowTitleGap` after the folder's own title,
+not in front of its icon. Leading the row it took the column every other row draws a favicon
+in and pushed the folder's icon out of it, so a list of folders and tabs had two icon columns
+instead of one; behind the name it costs nothing, because the name is the only thing on the
+row that is ever short. The folder's header therefore starts at the column's own left edge
+like every other top-level row, and the indent under it is the whole of what says a tab is
+inside.
 
 - **Called a folder everywhere the user can read it.** "Group" is what the code calls the
   type and what this section is named after; the menus say *New Folder*, *Add to Folder*,
@@ -1145,6 +1162,11 @@ column with a heading on it.
 - **Renamed the same way, and re-iconned from a submenu.** The folder menu's *Rename* opens
   that same field; *Change Icon ▸* lists the sixteen with the current one ticked. Neither
   carries an ellipsis, because neither opens anything before it commits.
+- **A tab in the column is renamed on its row too.** §3.4a's *Rename* opens the same field,
+  on the name the row is showing. Emptying it — or typing the page's own title back — is how
+  a tab goes back to being named by its page. §3.3's tiles and §4's strip keep the dialog and
+  keep the ellipsis with it: neither draws the name as a line of text there is room to type
+  on.
 - **The fold is persisted.** A group the user put away and found open again the next morning
   has lost the only thing folding it was for. Folding is a row diff like any other, so the
   tabs fade over §6's `tabInsert` rather than blinking out.

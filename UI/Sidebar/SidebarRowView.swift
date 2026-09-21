@@ -331,13 +331,6 @@ final class SidebarRowView: NSView {
     }
 
     func placeGroupFurniture() {
-        let chevronSlot = Tokens.Metric.groupChevronSlot
-        chevron.frame = NSRect(
-            x: Tokens.Metric.groupChevronInset,
-            y: (bounds.height - chevronSlot.height) / 2,
-            width: chevronSlot.width,
-            height: chevronSlot.height
-        ).pixelAligned
         outline.frame = bounds
             .insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.rowPillInset)
             .pixelAligned
@@ -351,10 +344,11 @@ final class SidebarRowView: NSView {
 
     private func placeContents() {
         placeGroupFurniture()
-        // §3.4b: a group header steps aside for its chevron by exactly the width
-        // of the chevron's slot, and a group's tab steps in by the same, so the
-        // two icons land in one column.
-        let indent = content.indent + (content.disclosure == nil ? 0 : Tokens.Metric.groupChevronSlot.width)
+        // §3.4b: a folder's header stands at the column's own left edge and its
+        // tabs step in by `groupIndent`, so the indent alone says what is inside
+        // it. The chevron follows the name instead of leading the row — see
+        // `placeChevron`.
+        let indent = content.indent
         let glyph = Tokens.Metric.faviconSize
         icon.frame = NSRect(
             x: Tokens.Metric.rowFaviconInset + indent,
@@ -395,15 +389,16 @@ final class SidebarRowView: NSView {
         let box = NSRect(
             x: column.x,
             y: (bounds.height - height) / 2,
-            width: column.width,
+            width: column.width - chevronReserve,
             height: height
         ).integral
         titleClip.frame = box
-        placeEditor(startingAt: box.minX)
+        placeEditor(startingAt: box.minX, reserving: chevronReserve)
 
         // Laid out at their natural width so nothing truncates; the clip box
         // and `fade` are what end the line.
         let natural = ceil(title.intrinsicContentSize.width)
+        placeChevron(afterTitleEnding: box.minX + min(natural, box.width))
         let inner = NSRect(x: 0, y: 0, width: max(natural, box.width), height: box.height)
         title.frame = inner
         shimmer.frame = inner
@@ -414,6 +409,12 @@ final class SidebarRowView: NSView {
         shimmerMask.frame = shimmer.bounds
         applyFade(overflowing: natural > box.width, width: box.width)
         CATransaction.commit()
+    }
+
+    /// What the title gives back to the chevron standing after it. Nothing on a
+    /// row without one, and the slot plus its gap on a folder's header.
+    private var chevronReserve: CGFloat {
+        content.disclosure == nil ? 0 : Tokens.Metric.groupChevronSlot.width + Tokens.Metric.rowTitleGap
     }
 
     /// §3.4's fade. Nil mask when the title fits: a gradient that is opaque

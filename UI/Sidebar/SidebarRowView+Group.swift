@@ -33,6 +33,28 @@ extension SidebarRowView {
         )
     }
 
+    /// §3.4b's chevron, at the end of the folder's own name.
+    ///
+    /// After the name rather than before the icon, because the chevron belongs
+    /// to the name and not to the column: leading it, it stood where every
+    /// other row draws a favicon and pushed the folder's own icon out of that
+    /// column, so a list of folders and tabs had two icon columns instead of
+    /// one.
+    ///
+    /// Clamped, for the folder whose name is longer than the row: the name is
+    /// already dissolving into `rowTitleFade` by then, and a chevron carried
+    /// out past the pill's inner edge would be a glyph half off the column.
+    func placeChevron(afterTitleEnding x: CGFloat) {
+        let slot = Tokens.Metric.groupChevronSlot
+        let limit = bounds.width - 2 * Tokens.Metric.rowInset - slot.width
+        chevron.frame = NSRect(
+            x: min(x + Tokens.Metric.rowTitleGap, max(limit, 0)),
+            y: (bounds.height - slot.height) / 2,
+            width: slot.width,
+            height: slot.height
+        ).pixelAligned
+    }
+
     func applyDropTarget() {
         outline.isHidden = !isDropTarget
         outline.layer?.borderColor = Tokens.Line.border.cgColor

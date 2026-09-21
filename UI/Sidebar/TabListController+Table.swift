@@ -57,8 +57,12 @@ extension TabListController: NSTableViewDelegate {
             onToggleGroup?(id)
         }
         view.onRename = { [weak self, weak view] name in
-            guard let self, let view, case let .group(id)? = list[table.row(for: view)] else { return }
-            onRenameGroup?(id, name)
+            guard let self, let view else { return }
+            switch list[table.row(for: view)] {
+            case let .group(id): onRenameGroup?(id, name)
+            case let .tab(id): onRenameTab?(id, name)
+            default: break
+            }
         }
         return view
     }
