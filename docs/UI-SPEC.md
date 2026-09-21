@@ -1573,9 +1573,9 @@ dark Mac. A volume with no background picture at all gets Finder's own icon
 view background, which *does* react (near-black with white labels in dark, white
 with black labels in light) — and has no artwork, no arrow and no instruction
 on it. And `backgroundImageAlias` is a single alias: one picture, resolved once.
-So the choice is art or reaction, and `make dmg` builds **both planes** —
-`Luna.dmg` and `Luna-light.dmg` — because the one place a Mac's appearance can
-pick the art is the download. A page that cannot choose links `Luna.dmg`.
+So the choice is art or reaction, and art wins: one image ships, the dark one,
+because the chips keep it legible on a light Mac and it is what the app looks
+like. `--light` builds the other for anyone who wants it.
 
 **The app icon on that page is not ours to switch.** macOS 26 has an icon
 appearance of its own — System Settings ▸ Appearance ▸ *Icon & widget style* —
