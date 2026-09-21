@@ -224,7 +224,16 @@ final class SidebarViewController: NSViewController {
         // §3.4a: before `show`, so the rows are configured against the current answer
         // rather than the one from before a mute landed.
         list.mutedTabIDs = session.mutedTabIDs
-        list.show(session.tabs, activeTabID: session.activeTabID, replacing: switchingSpace)
+        // §3.4b: the two tiers arrive already arranged — `TabList` owns the
+        // order, including where a group stands among the loose tabs, so the
+        // column has no arrangement of its own to disagree with it.
+        list.show(
+            saved: session.slots(inTier: .pinned),
+            today: session.slots(inTier: .today),
+            essentials: session.tabs.filter { $0.kind == .essential },
+            activeTabID: session.activeTabID,
+            replacing: switchingSpace
+        )
         utility.show(spaces: session.spaces, activeSpaceID: session.activeSpaceID)
         // §3.5's line, and §9's fan-out made visible: the Profile is derived
         // from the Space, so it changes on a Space switch and on a
@@ -371,6 +380,14 @@ final class SidebarViewController: NSViewController {
         // the list exactly as it was rather than one empty page longer.
         list.onAddTab = { [weak self] in self?.session.presentCommandBar?(.newTab, nil) }
         list.menuActions = { [weak self] id in self?.session.tabMenuActions(for: id) }
+        list.groupMenuActions = { [weak self] id in self?.session.groupMenuActions(for: id) }
+        // §3.4b: folding is a fact about the group, so it goes through the
+        // session and comes back as a change like any other. The rows are
+        // diffed, which is what makes the tabs fade out rather than vanish.
+        list.onToggleGroup = { [weak self] id in
+            guard let self, let group = session.group(id) else { return }
+            session.setGroupCollapsed(!group.isCollapsed, forGroup: id)
+        }
         wireDrag()
         list.onToggleMute = { [weak self] id in
             guard let self else { return }

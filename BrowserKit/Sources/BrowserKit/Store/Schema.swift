@@ -16,6 +16,10 @@ extension Tab: FetchableRecord, PersistableRecord {
     public static let databaseTableName = "tabs"
 }
 
+extension TabGroup: FetchableRecord, PersistableRecord {
+    public static let databaseTableName = "tabGroups"
+}
+
 /// The database schema (§11.1), versioned from day one.
 ///
 /// Every change ships as a new `registerMigration` block, never as an edit to `v1`:
@@ -41,7 +45,55 @@ enum Schema {
         migrator.registerMigration("v5") { db in
             try letTheUserPictureAProfile(db)
         }
+        migrator.registerMigration("v6") { db in
+            try letTheUserGroupAndSaveTabs(db)
+        }
         return migrator
+    }
+
+    /// `v6` — tabs can be grouped, and a saved tab outlives its page (§3.4b).
+    ///
+    /// One new table and two nullable-or-defaulted columns. No backfill anywhere, and that
+    /// is the design: nobody has a group yet, so `groupID` is nil for every row that
+    /// existed before this ran, and nobody has closed a saved tab yet, so `isDormant` is
+    /// false for all of them.
+    ///
+    /// The tier itself needs no column. `.pinned` already meant "the run above today's
+    /// tabs" and §3.4b only gives it the behaviour its name always claimed — so a user who
+    /// had deliberately placed tabs up there finds them saved, which is what putting them
+    /// there was for, rather than finding an empty new section and their tabs still below it.
+    ///
+    /// `ON DELETE SET NULL` on `groupID`, not `CASCADE`. Deleting a group must never delete
+    /// pages: ungrouping is the whole of what removing a group means, and the one command
+    /// that does end the tabs (`closeGroup`) archives them itself first, in Swift, where it
+    /// can be undone.
+    ///
+    /// Idempotent on the live schema, like every migration above it: the migrator promises
+    /// this runs once, the file on disk promises nothing.
+    static func letTheUserGroupAndSaveTabs(_ db: Database) throws {
+        if try !db.tableExists("tabGroups") {
+            try db.create(table: "tabGroups") { table in
+                table.primaryKey("id", .blob)
+                // A group is a set of tabs inside one Space, and its tabs cascade with
+                // the Space already — so the group cannot be the one row that survives it.
+                table.column("spaceID", .blob).notNull().indexed().references("spaces", onDelete: .cascade)
+                table.column("name", .text).notNull()
+                table.column("symbolName", .text).notNull()
+                table.column("kind", .text).notNull()
+                table.column("isCollapsed", .boolean).notNull().defaults(to: false)
+                table.column("order", .integer).notNull().defaults(to: 0)
+            }
+        }
+        let existing = try db.columns(in: "tabs").map(\.name)
+        if !existing.contains("groupID") {
+            try db.execute(sql: """
+            ALTER TABLE tabs ADD COLUMN groupID BLOB REFERENCES tabGroups(id) ON DELETE SET NULL
+            """)
+        }
+        if !existing.contains("isDormant") {
+            try db.execute(sql: "ALTER TABLE tabs ADD COLUMN isDormant BOOLEAN NOT NULL DEFAULT 0")
+        }
+        try db.execute(sql: "CREATE INDEX IF NOT EXISTS tabs_on_groupID ON tabs(groupID)")
     }
 
     /// `v5` — a profile carries the picture the user gave it (§9).

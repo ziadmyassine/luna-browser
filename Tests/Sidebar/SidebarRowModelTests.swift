@@ -20,70 +20,201 @@ final class SidebarRowModelTests: XCTestCase {
         Tab(spaceID: space, kind: kind, url: URL(string: "https://\(name).example")!, title: name)
     }
 
-    /// `+ Add Tab` → separator → tabs, Essentials excluded. Archive is not a
-    /// row. It was a second door to the page the bottom bar's History button
-    /// already opens, and it sat where the eye lands first.
+    private func group(_ name: String, kind: TabKind = .today, collapsed: Bool = false) -> TabGroup {
+        TabGroup(spaceID: space, name: name, kind: kind, isCollapsed: collapsed)
+    }
+
+    /// §3.4b's order: the saved tier, the rule, `New Tab`, then today's tabs.
+    /// The rule is under the saved rows and the command is under the rule —
+    /// which is the opposite of where both stood before groups existed.
     func testRowOrder() {
         let essential = tab(.essential, "e")
-        let pinned = tab(.pinned, "p")
+        let saved = tab(.pinned, "s")
         let today = tab(.today, "t")
-        let list = SidebarList(tabs: [today, essential, pinned])
+        let list = SidebarList(saved: [.tab(saved)], today: [.tab(today)], essentials: [essential])
 
-        XCTAssertEqual(list.rows, [.addTab, .separator, .tab(pinned.id), .tab(today.id)])
+        XCTAssertEqual(list.rows, [.tab(saved.id), .separator, .addTab, .tab(today.id)])
         XCTAssertEqual(list.essentials, [essential])
-        XCTAssertEqual(list.listed.map(\.id), [pinned.id, today.id])
+        XCTAssertEqual(list.listed.map(\.id), [saved.id, today.id])
+    }
+
+    /// The rule marks the bottom of the saved tier, so with nothing saved there
+    /// is no bottom to mark: the list starts at `New Tab`, exactly as it did
+    /// before §3.4b.
+    func testTheRuleIsAbsentWithNothingSaved() {
+        let today = tab(.today, "t")
+        let list = SidebarList(today: [.tab(today)])
+
+        XCTAssertFalse(list.showsRule)
+        XCTAssertEqual(list.rows, [.addTab, .tab(today.id)])
+    }
+
+    /// …and it comes out for the length of a drag, because a zone you cannot
+    /// see is a zone you cannot aim at.
+    func testADragRevealsTheRule() {
+        let list = SidebarList(today: [.tab(tab(.today, "t"))], revealingSaved: true)
+
+        XCTAssertTrue(list.showsRule)
+        XCTAssertEqual(list.rows.first, .separator)
+        XCTAssertEqual(list.destination(forRow: 0, isBelowMidpoint: false).kind, .pinned)
+    }
+
+    /// A group is one row with its tabs under it.
+    func testAGroupDrawsItsTabsUnderIt() {
+        let folder = group("Research")
+        let first = tab(.today, "a")
+        let second = tab(.today, "b")
+        let loose = tab(.today, "c")
+        let list = SidebarList(today: [.group(folder, tabs: [first, second]), .tab(loose)])
+
+        XCTAssertEqual(
+            list.rows,
+            [.addTab, .group(folder.id), .tab(first.id), .tab(second.id), .tab(loose.id)]
+        )
+        XCTAssertEqual(list.group(ofTab: first.id), folder)
+        XCTAssertNil(list.group(ofTab: loose.id))
+    }
+
+    /// Folded, it is the header alone — and its tabs are not in `listed`
+    /// either, because nothing is drawing them.
+    func testAFoldedGroupDrawsOnlyItsHeader() {
+        let folder = group("Research", collapsed: true)
+        let inside = tab(.today, "a")
+        let list = SidebarList(today: [.group(folder, tabs: [inside])])
+
+        XCTAssertEqual(list.rows, [.addTab, .group(folder.id)])
+        XCTAssertEqual(list.listed, [])
+        XCTAssertEqual(list.group(at: 1), folder)
+    }
+
+    /// §6.6: which run and which index a drop means. Read from the two halves
+    /// of a row rather than from the gap between two, which is the whole reason
+    /// a group can be dropped into at its end — see `SidebarList`.
+    func testDestinations() {
+        let saved = tab(.pinned, "s")
+        let folder = group("Work")
+        let first = tab(.today, "a")
+        let second = tab(.today, "b")
+        let loose = tab(.today, "c")
+        let list = SidebarList(
+            saved: [.tab(saved)],
+            today: [.group(folder, tabs: [first, second]), .tab(loose)]
+        )
+        // rows: 0 saved · 1 rule · 2 New Tab · 3 header · 4 a · 5 b · 6 loose
+
+        XCTAssertEqual(list.destination(forRow: 0, isBelowMidpoint: false), .init(kind: .pinned, index: 0))
+        XCTAssertEqual(list.destination(forRow: 0, isBelowMidpoint: true), .init(kind: .pinned, index: 1))
+        // The rule and the command both mean the foot of the saved tier above
+        // them; below the command is the head of today's.
+        XCTAssertEqual(list.destination(forRow: 1, isBelowMidpoint: true), .init(kind: .pinned, index: 1))
+        XCTAssertEqual(list.destination(forRow: 2, isBelowMidpoint: false), .init(kind: .pinned, index: 1))
+        XCTAssertEqual(list.destination(forRow: 2, isBelowMidpoint: true), .init(kind: .today, index: 0))
+        // Over the header is before the group; under it is inside, at the top.
+        XCTAssertEqual(list.destination(forRow: 3, isBelowMidpoint: false), .init(kind: .today, index: 0))
+        XCTAssertEqual(
+            list.destination(forRow: 3, isBelowMidpoint: true),
+            .init(kind: .today, groupID: folder.id, index: 0)
+        )
+        XCTAssertEqual(
+            list.destination(forRow: 4, isBelowMidpoint: true),
+            .init(kind: .today, groupID: folder.id, index: 1)
+        )
+        // The end of the group, and — one half-row later — after it.
+        XCTAssertEqual(
+            list.destination(forRow: 5, isBelowMidpoint: true),
+            .init(kind: .today, groupID: folder.id, index: 2)
+        )
+        XCTAssertEqual(list.destination(forRow: 6, isBelowMidpoint: false), .init(kind: .today, index: 1))
+        XCTAssertEqual(list.destination(forRow: 6, isBelowMidpoint: true), .init(kind: .today, index: 2))
+        // Past the last row is the foot of the list.
+        XCTAssertEqual(list.destination(forRow: 99, isBelowMidpoint: false), .init(kind: .today, index: 2))
+    }
+
+    /// A folded group has no rows to drop between, so the one place under its
+    /// header is the end of it.
+    func testDroppingUnderAFoldedHeaderLandsAtTheEndOfTheGroup() {
+        let folder = group("Work", collapsed: true)
+        let list = SidebarList(today: [.group(folder, tabs: [tab(.today, "a"), tab(.today, "b")])])
+
+        XCTAssertEqual(
+            list.destination(forRow: 1, isBelowMidpoint: true),
+            .init(kind: .today, groupID: folder.id, index: 2)
+        )
+    }
+
+    /// §3.4b: a group holds tabs, not other groups. One carried over another
+    /// lands beside it — above when the pointer asked for its first place.
+    func testAGroupCannotLandInsideAGroup() {
+        let folder = group("Work")
+        let list = SidebarList(today: [.tab(tab(.today, "a")), .group(folder, tabs: [tab(.today, "b")])])
+
+        let intoTheTop = SidebarDestination(kind: .today, groupID: folder.id, index: 0)
+        let intoTheEnd = SidebarDestination(kind: .today, groupID: folder.id, index: 1)
+        XCTAssertEqual(list.topLevel(intoTheTop), .init(kind: .today, index: 1))
+        XCTAssertEqual(list.topLevel(intoTheEnd), .init(kind: .today, index: 2))
+        // A loose destination is already top level and comes back untouched.
+        let loose = SidebarDestination(kind: .today, index: 1)
+        XCTAssertEqual(list.topLevel(loose), loose)
+    }
+
+    /// Where a tab stands now in the run a drop counts, which is what §6.6
+    /// subtracts one from for a move further down the same run.
+    func testCurrentIndexIsReadFromTheRunTheDropMeans() {
+        let folder = group("Work")
+        let inside = tab(.today, "a")
+        let loose = tab(.today, "b")
+        let list = SidebarList(today: [.group(folder, tabs: [inside]), .tab(loose)])
+
+        XCTAssertEqual(list.currentIndex(of: loose.id, in: .init(kind: .today, index: 0)), 1)
+        XCTAssertEqual(
+            list.currentIndex(of: inside.id, in: .init(kind: .today, groupID: folder.id, index: 0)),
+            0
+        )
+        // A grouped tab is not in the top-level run, and a loose one is not in
+        // the group — neither is "at index 0 of somewhere it is not".
+        XCTAssertNil(list.currentIndex(of: inside.id, in: .init(kind: .today, index: 0)))
+        XCTAssertNil(list.currentSlotIndex(ofGroup: folder.id, in: .pinned))
+        XCTAssertEqual(list.currentSlotIndex(ofGroup: folder.id, in: .today), 0)
     }
 
     func testRowLookup() {
-        let pinned = tab(.pinned, "p")
-        let list = SidebarList(tabs: [pinned])
+        let saved = tab(.pinned, "s")
+        let list = SidebarList(saved: [.tab(saved)])
 
-        XCTAssertEqual(list.row(of: pinned.id), 2)
-        XCTAssertEqual(list.tab(at: 2), pinned)
-        XCTAssertNil(list.tab(at: 0))
+        XCTAssertEqual(list.row(of: saved.id), 0)
+        XCTAssertEqual(list.tab(at: 0), saved)
+        XCTAssertNil(list.tab(at: 1))
         XCTAssertNil(list.tab(at: 99))
         XCTAssertNil(list[99])
     }
 
-    /// The separator is furniture: the keyboard must not be able to land on it.
-    func testSeparatorIsNotSelectable() {
-        let list = SidebarList(tabs: [tab(.today, "t")])
+    /// The rule is furniture: the keyboard must not be able to land on it. A
+    /// group header is not — Enter on one folds it.
+    func testTheRuleIsNotSelectableAndAGroupIs() {
+        let folder = group("Work")
+        let list = SidebarList(saved: [.tab(tab(.pinned, "s"))], today: [.group(folder, tabs: [])])
 
         XCTAssertTrue(list.isSelectable(0))
         XCTAssertFalse(list.isSelectable(1))
         XCTAssertTrue(list.isSelectable(2))
-        XCTAssertFalse(list.isSelectable(3))
+        XCTAssertTrue(list.isSelectable(3))
+        XCTAssertFalse(list.isSelectable(4))
     }
 
-    /// §6.6: the row index a drop landed on maps to a section plus an index
-    /// within that section, which is what `reorderTab` takes.
-    func testDropTargets() {
-        let list = SidebarList(tabs: [tab(.pinned, "p1"), tab(.pinned, "p2"), tab(.today, "t1")])
+    /// The submenu that moves a tab offers every group but the one it is in.
+    func testGroupsBesidesLeavesOutTheOneItIsIn() {
+        let work = group("Work")
+        let play = group("Play")
+        let list = SidebarList(today: [.group(work, tabs: []), .group(play, tabs: [])])
 
-        XCTAssertEqual(list.dropTarget(insertingAt: 2).kind, .pinned)
-        XCTAssertEqual(list.dropTarget(insertingAt: 2).index, 0)
-        XCTAssertEqual(list.dropTarget(insertingAt: 3).index, 1)
-        XCTAssertEqual(list.dropTarget(insertingAt: 4).kind, .today)
-        XCTAssertEqual(list.dropTarget(insertingAt: 4).index, 0)
-        XCTAssertEqual(list.dropTarget(insertingAt: 5).index, 1)
-        // Never inside the leading command group.
-        XCTAssertEqual(list.dropTarget(insertingAt: 0).kind, .pinned)
-        XCTAssertEqual(list.dropTarget(insertingAt: 0).index, 0)
-    }
-
-    /// With no pinned section there is no pinned row to sit above, so the top
-    /// of the list is the top of today's tabs.
-    func testDropAtTopWithoutPinnedSectionIsToday() {
-        let list = SidebarList(tabs: [tab(.today, "t1")])
-
-        XCTAssertEqual(list.dropTarget(insertingAt: 2).kind, .today)
-        XCTAssertEqual(list.dropTarget(insertingAt: 2).index, 0)
+        XCTAssertEqual(list.groups().map(\.id), [work.id, play.id])
+        XCTAssertEqual(list.groups(besides: work.id).map(\.id), [play.id])
     }
 
     /// AppKit reports the row under the pointer; a drop belongs in the gap
     /// below it once the pointer is past the midpoint.
-    func testInsertionRowClampsToTheFirstTab() {
-        XCTAssertEqual(SidebarList.insertionRow(forRow: 0, isBelowMidpoint: false), 2)
+    func testInsertionRowFollowsTheMidpoint() {
+        XCTAssertEqual(SidebarList.insertionRow(forRow: 0, isBelowMidpoint: false), 0)
         XCTAssertEqual(SidebarList.insertionRow(forRow: 4, isBelowMidpoint: false), 4)
         XCTAssertEqual(SidebarList.insertionRow(forRow: 4, isBelowMidpoint: true), 5)
     }
@@ -111,7 +242,7 @@ final class SidebarRowModelTests: XCTestCase {
     func testARowFollowsTheTabToItsNewSite() throws {
         let moving = Tab(spaceID: space, kind: .today, url: URL(string: "https://google.com")!)
         let controller = TabListController()
-        controller.show([moving], activeTabID: moving.id)
+        controller.show(saved: [], today: [.tab(moving)], essentials: [], activeTabID: moving.id)
         let row = try XCTUnwrap(controller.list.row(of: moving.id))
 
         XCTAssertEqual(controller.content(for: row).title, "google.com")
@@ -134,6 +265,25 @@ final class SidebarRowInkTests: XCTestCase {
     func testOnlyTheSelectedRowIsBright() {
         XCTAssertEqual(SidebarRowView.titleInk(isSelected: true, isLoading: false), Tokens.Text.primary)
         XCTAssertEqual(SidebarRowView.titleInk(isSelected: false, isLoading: false), Tokens.Text.secondary)
+    }
+
+    /// §3.4b: a saved row whose page has been closed reads like a loading one,
+    /// because both are rows with no page behind them right now. Deliberately
+    /// not `Text.disabled` — that tier is for a control that cannot be
+    /// operated, and this row is one click from being open again.
+    func testADimmedRowReadsLikeALoadingOne() {
+        XCTAssertEqual(
+            SidebarRowView.titleInk(isSelected: false, isLoading: false, isDormant: true),
+            Tokens.Text.tertiary
+        )
+        XCTAssertEqual(
+            SidebarRowView.titleInk(isSelected: true, isLoading: false, isDormant: true),
+            Tokens.Text.tertiary
+        )
+        XCTAssertNotEqual(
+            SidebarRowView.titleInk(isSelected: false, isLoading: false, isDormant: true),
+            Tokens.Text.disabled
+        )
     }
 
     /// A loading row is quieter than either, selected or not — §3.4's shimmer
@@ -186,6 +336,24 @@ final class SidebarRowColumnTests: XCTestCase {
             SidebarRowView.trailingSlotX(inRowOfWidth: width) - Tokens.Metric.rowInset / 2,
             accuracy: 0.01
         )
+    }
+
+    /// §3.4b: a group's tab steps in by exactly the width of the chevron's
+    /// slot, which is the same amount a group header steps aside for it — so a
+    /// member's favicon lands in the same column as its group's icon, and the
+    /// two read as one column with a heading on it. Derived from one token, so
+    /// this asserts the consequence rather than the arithmetic.
+    func testAGroupsTabStepsInByTheChevronsSlot() {
+        let loose = SidebarRowView.titleColumn(inRowOfWidth: width, hasUnread: false, slotOccupied: false)
+        let inside = SidebarRowView.titleColumn(
+            inRowOfWidth: width,
+            hasUnread: false,
+            slotOccupied: false,
+            indent: Tokens.Metric.groupIndent
+        )
+        XCTAssertEqual(inside.x - loose.x, Tokens.Metric.groupChevronSlot.width, accuracy: 0.01)
+        // The title gives the space up rather than running past the pill.
+        XCTAssertEqual(loose.width - inside.width, Tokens.Metric.groupIndent, accuracy: 0.01)
     }
 
     /// The whole cost of the decision, stated as a number so it cannot drift

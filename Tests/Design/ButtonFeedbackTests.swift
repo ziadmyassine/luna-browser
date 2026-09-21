@@ -89,6 +89,13 @@ final class ButtonFeedbackTests: XCTestCase {
             ("SpaceEditorButton preferred", SpaceEditorButton(title: "Create Space", isPreferred: true)),
             ("SpaceSwatchChip", SpaceSwatchChip(gradient: .defaultSpace, label: "Blue")),
             ("SpaceSymbolChip", SpaceSymbolChip(symbolName: "moon.stars", label: "Moon")),
+            // §3.4's close/mute chip and §3.4b's fold chevron are the same
+            // class wearing two glyphs, so one entry covers both.
+            ("RowGlyphView", {
+                let glyph = RowGlyphView()
+                glyph.configure(symbolName: "chevron.down", label: "Collapse Group")
+                return glyph
+            }()),
             ("SettingsChoiceButton", SettingsChoiceButton(title: "Light")),
             ("SpaceAppearanceButton", SpaceAppearanceButton()),
             ("OnboardingButton", OnboardingButton(title: "Back", isPreferred: false)),

@@ -183,6 +183,31 @@ extension Tokens {
         /// the hairline, which separates the two command rows without opening a
         /// gap the size of a tab.
         static let separatorRowHeight: CGFloat = 12
+        /// The slot the chevron that folds a §3.4b group stands in, and how far
+        /// a group header's own icon and name step aside for it.
+        ///
+        /// 16 square, `rowInset + 2` from the sidebar's edge: it eats the pill's
+        /// leading padding rather than pushing the header out to a second
+        /// indent, so the header's icon lands where a tab one row further in
+        /// would have put its favicon. The glyph inside is 9 — it introduces the
+        /// group's icon rather than competing with it, and `rowTrailingChip`'s
+        /// 18 would be two chips of the same weight on one row.
+        static let groupChevronSlot = RoundedMetric(width: 16, height: 16, cornerRadius: 5)
+        static let groupChevronInset = rowInset + 2
+        static let groupChevron: CGFloat = 9
+        /// How far a group's tabs step in from a top-level row — the same 16, so
+        /// a member's favicon sits exactly under its group's icon and the two
+        /// read as one column with a heading on it. Derived, so the pair cannot
+        /// drift apart.
+        static let groupIndent = groupChevronSlot.width
+        /// The hairline down the leading edge of a group's tabs, marking what
+        /// belongs to it: half way across the indent, which puts it directly
+        /// under the chevron it descends from.
+        static let groupSpineInset = groupIndent / 2
+        /// What a §3.4b row that has been closed once draws its icon at. The
+        /// title drops to `Text.tertiary` beside it; a favicon has no ink tier,
+        /// so it fades instead.
+        static let dormantIconOpacity: CGFloat = 0.45
 
         /// 17.5 pt to the favicon's leading edge (§3.4).
         ///

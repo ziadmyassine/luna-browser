@@ -16,12 +16,14 @@
 //      BrowserSession.swift         state, restore, the Space list (§5)
 //      BrowserSession+Spaces.swift  the Space lifecycle and Favorites (§6, §2)
 //      BrowserSession+Tabs.swift    the tab API, navigation, persistence, undo
+//      BrowserSession+Groups.swift  §3.4b's groups and the saved tier
 //      BrowserSession+Engine.swift  controllers, hibernation, WebKit callbacks
 //
 //  Two invariants everything depends on:
-//    1. `tabs` is sorted essential → pinned → today, each by `order` — see
-//       `TabList`. `reorderTab(_:to:kind:)` therefore takes a section-relative
-//       index.
+//    1. `tabs` is sorted essential → pinned → today, and inside the last two it
+//       is the order §3.4 draws — a §3.4b group's tabs inline under it. See
+//       `TabList`, which is also where `reorderTab`'s index is defined: it
+//       counts the run the tab is joining, not the whole list.
 //    2. A tab with no `TabController` has no `WKWebView` and no WebContent
 //       process (§19.2). Restoring a session creates no controllers at all
 //       (§19.4); the first `activateTab` creates the first one.
@@ -227,19 +229,25 @@ final class BrowserSession {
         guard !spaces.isEmpty else { throw SessionError.noSpaces }
 
         var tabs: [UUID: [Tab]] = [:]
+        var groups: [UUID: [TabGroup]] = [:]
         var archived: [Tab] = []
         for space in spaces {
             // One query per Space, not two: the archive is the same table.
             let all = try await store.tabs(inSpace: space.id, includeArchived: true)
             tabs[space.id] = all.filter { $0.archivedAt == nil }
             archived += all.filter { $0.archivedAt != nil }
+            groups[space.id] = try await store.groups(inSpace: space.id)
         }
         let remembered = UserDefaults.standard.string(forKey: activeSpaceKey).flatMap(UUID.init(uuidString:))
         return BrowserSession(
             store: store,
             spaces: spaces,
             profiles: try await store.profiles(),
-            list: TabList(tabs, profiles: Dictionary(uniqueKeysWithValues: spaces.map { ($0.id, $0.profileID) })),
+            list: TabList(
+                tabs,
+                groups: groups,
+                profiles: Dictionary(uniqueKeysWithValues: spaces.map { ($0.id, $0.profileID) })
+            ),
             archived: archived.sorted { ($0.archivedAt ?? .distantPast) > ($1.archivedAt ?? .distantPast) },
             activeSpaceID: (spaces.first { $0.id == remembered } ?? spaces[0]).id
         )

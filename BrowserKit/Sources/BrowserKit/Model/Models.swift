@@ -38,9 +38,84 @@ public struct GradientPair: Sendable, Hashable, Codable {
     )
 }
 
-/// Which sidebar section a tab lives in (§7.1).
+/// Which sidebar section a tab lives in (§7.1, §3.4b).
+///
+/// `.pinned` is the **saved** tier: the rows between §3.3's grid and the rule. It was
+/// only ever "the run above today's tabs" and it now carries the behaviour that makes the
+/// name true — closing one keeps the row and drops the page.
 public enum TabKind: String, Sendable, Codable {
     case essential, pinned, today
+
+    /// Whether a tab of this kind outlives its own page. True of §3.3's tiles and
+    /// §3.4b's saved rows, false of the tabs of the day, which are the ones `⌘W` ends.
+    public var keepsTabWhenPageCloses: Bool { self != .today }
+}
+
+/// A named, iconned set of tabs inside one Space (§3.4b).
+///
+/// It stands in §3.4's list as one row with its tabs under it, and it stands in either
+/// section — `kind` is which. Never `.essential`: §3.3's grid is one tile per tab and a
+/// group is a list of them, so there is no tile for a group to be. The two boundaries
+/// that could write one enforce that rather than the type — ``BrowserStore/upsert(_:)-(TabGroup)``
+/// repairs a stray value on the way to disk and ``sanitisedKind`` is what it repairs with.
+///
+/// A group owns no tabs. `Tab.groupID` points the other way, so ungrouping is one write
+/// per tab and deleting a group cannot take its tabs with it (`ON DELETE SET NULL`).
+public struct TabGroup: Identifiable, Sendable, Hashable, Codable {
+    public var id: UUID
+    public var spaceID: UUID
+    public var name: String
+    /// SF Symbol name — resolved to an image in `Design`, never here, exactly as
+    /// `Space.symbolName` is.
+    public var symbolName: String
+    public var kind: TabKind
+    /// Folded shut, drawn as the header alone. Persisted because it is a decision about
+    /// the group rather than about this launch: a group the user folded away and found
+    /// open again the next morning has lost the only thing folding it was for.
+    public var isCollapsed: Bool
+    /// Position among its section's top-level slots, which it shares with the loose tabs
+    /// of that section — a group can sit between two of them. See `TabList`.
+    public var order: Int
+
+    public init(
+        id: UUID = UUID(),
+        spaceID: UUID,
+        name: String,
+        symbolName: String = TabGroup.defaultSymbolName,
+        kind: TabKind = .today,
+        isCollapsed: Bool = false,
+        order: Int = 0
+    ) {
+        self.id = id
+        self.spaceID = spaceID
+        self.name = name
+        self.symbolName = symbolName
+        self.kind = Self.sanitised(kind)
+        self.isCollapsed = isCollapsed
+        self.order = order
+    }
+}
+
+public extension TabGroup {
+
+    /// What a group starts with when the user picks no icon.
+    static let defaultSymbolName = "folder"
+
+    /// Whether this group stands in §3.4b's saved tier.
+    var isSaved: Bool { kind == .pinned }
+
+    /// `kind`, with §3.3's grid ruled out. A group carried there means the ordinary
+    /// section — the nearest true thing to "not a tile".
+    static func sanitised(_ kind: TabKind) -> TabKind { kind == .essential ? .today : kind }
+
+    /// This group with a `kind` the grid cannot be. The read-side repair, paired with the
+    /// write-side refusal in `BrowserStore`, the way `Profile` guards its data store id.
+    func sanitisingKind() -> TabGroup {
+        guard kind == .essential else { return self }
+        var repaired = self
+        repaired.kind = .today
+        return repaired
+    }
 }
 
 /// A tab (§6.1). `interactionState` is WebKit's opaque session blob — back/forward
@@ -97,6 +172,27 @@ public struct Tab: Identifiable, Sendable, Hashable, Codable {
     /// value that crosses the SQLite boundary, and `Design` is the only layer allowed to resolve one.
     public var customSymbolName: String?
 
+    /// The §3.4b group this tab stands in, or nil for a tab loose in its section (schema `v6`).
+    ///
+    /// The pointer is on the tab rather than a list on the group, which is what makes
+    /// `ON DELETE SET NULL` the honest rule for a deleted group: the tabs are still tabs,
+    /// they are simply loose again. A grouped tab's `kind` always matches its group's, so
+    /// "is this saved" has one answer wherever it is asked.
+    public var groupID: UUID?
+
+    /// A saved tab whose page has been closed (schema `v6`).
+    ///
+    /// The whole of §3.4b's two-press close. A saved row is a place the user kept, so the
+    /// first press drops the page and leaves the row — dimmed, back at `pinnedURL`, with no
+    /// session blob. The second press has nothing left to close and means the row itself.
+    ///
+    /// It has to be stored rather than inferred. "No live web view" is true of every tab
+    /// after a relaunch and of every cold one §19.2 has reclaimed, and neither of those is a
+    /// page anybody closed; a tab that came back from lunch one press from deletion would be
+    /// a data-loss bug wearing a feature's clothes. Always false for `.today` rows, which
+    /// are archived by the first press.
+    public var isDormant: Bool
+
     public init(
         id: UUID = UUID(),
         spaceID: UUID,
@@ -115,7 +211,9 @@ public struct Tab: Identifiable, Sendable, Hashable, Codable {
         profileID: UUID? = nil,
         pinnedURL: URL? = nil,
         customTitle: String? = nil,
-        customSymbolName: String? = nil
+        customSymbolName: String? = nil,
+        groupID: UUID? = nil,
+        isDormant: Bool = false
     ) {
         self.id = id
         self.spaceID = spaceID
@@ -135,6 +233,8 @@ public struct Tab: Identifiable, Sendable, Hashable, Codable {
         self.pinnedURL = pinnedURL
         self.customTitle = customTitle
         self.customSymbolName = customSymbolName
+        self.groupID = groupID
+        self.isDormant = isDormant
     }
 }
 

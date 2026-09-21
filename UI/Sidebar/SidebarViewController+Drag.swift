@@ -27,12 +27,17 @@ extension SidebarViewController {
         // (`TabListController.press`) — but a tile's press goes straight to the
         // lift and its `onActivate` never fires, so the drops say it instead.
         // Escape and a §3.5 Space dot are the two that are not a landing.
-        controller.onDropInList = { [weak self] id, kind, index, wasPinned in
+        controller.onDropInList = { [weak self] id, landing, wasPinned in
             guard let self else { return }
-            session.reorderTab(id, to: index, kind: kind)
+            session.reorderTab(id, to: landing.index, kind: landing.kind, group: landing.groupID)
             // Unpinning does not wake a page on its own (§19.2), so this is
             // also what loads it.
             if wasPinned { session.activateTab(id) }
+        }
+        // §3.4b: a group carried across the rule takes its tabs with it, which
+        // is `moveGroup`'s whole job — nothing here has to say so twice.
+        controller.onDropGroup = { [weak self] id, kind, index in
+            self?.session.moveGroup(id, to: index, kind: kind)
         }
         controller.onDropInEssentials = { [weak self] id, index, wasPinned in
             guard let self else { return }

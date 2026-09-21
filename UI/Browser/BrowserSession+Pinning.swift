@@ -62,15 +62,11 @@ extension BrowserSession {
             return false
         }
         if selecting { activateTab(id) }
-        // The tile remembers the link it was made from (§3.3). Read back
-        // rather than taken from `tab` above, because `activateTab` has written
-        // the row since — and recorded before the move, so it is the address
-        // the user was looking at when they decided to keep it.
-        if var home = list.tab(id) {
-            home.pinnedURL = home.url
-            write(home)
-        }
-        // `reorderTab` is what changes a tab's kind, and it registers the undo.
+        // `reorderTab` is what changes a tab's kind, what registers the undo,
+        // and — since §3.4b gave the saved rows the same behaviour — what
+        // records `pinnedURL`. It reads the row back after `activateTab` has
+        // written it, so the home it keeps is the address the user was looking
+        // at when they decided to keep it.
         reorderTab(id, to: index, kind: .essential)
         guard activeTabBySpace[tab.spaceID] != id else {
             notifyChange()
@@ -83,13 +79,12 @@ extension BrowserSession {
     /// The only way a tile leaves the grid (§3.3). The tab lands back at the
     /// top of today's tabs, still cold — unpinning is not opening.
     func unpinTab(_ id: UUID) {
-        guard var tab = list.tab(id), tab.kind == .essential else { return }
-        // It is not a tile any more, so it has nowhere to go home to: from here
-        // on it is an ordinary tab, and an ordinary tab's address is wherever
-        // it is. Leaving the link behind would bring it back the next time the
-        // tab were pinned, which is a decision the user has not taken yet.
-        tab.pinnedURL = nil
-        write(tab)
+        guard list.tab(id)?.kind == .essential else { return }
+        // It is not a tile any more, so it has nowhere to go home to, and
+        // `reorderTab` is what drops the link: from here on it is an ordinary
+        // tab, and an ordinary tab's address is wherever it is. Keeping the old
+        // home would bring it back the next time the tab was kept, which is a
+        // decision the user has not taken yet.
         reorderTab(id, to: 0, kind: .today)
         notifyChange()
     }
@@ -123,27 +118,56 @@ extension BrowserSession {
     /// inventing one out of the current address would be a worse answer than
     /// the behaviour that was already there.
     func sendTileHome(_ id: UUID, in spaceID: UUID) {
+        sendPageHome(id, in: spaceID, markingDormant: false)
+    }
+
+    /// The same close for §3.4b's saved rows, which keep their row for the same
+    /// reason a tile does — and unlike a tile, remember that it happened.
+    ///
+    /// - Parameter markingDormant: whether the row should come back dimmed and
+    ///   one press from being let go. A tile is never dormant: there is no
+    ///   second press to distinguish, because closing a tile again just sends it
+    ///   home again. A saved row has exactly one more press in it, and
+    ///   `Tab.isDormant` is what remembers which one it is on.
+    func sendPageHome(_ id: UUID, in spaceID: UUID, markingDormant: Bool) {
         // Before the write, not after. `discardController` hibernates the
         // controller and caches the blob it captured onto the row; clearing
         // `interactionState` first would put the closed page's history straight
         // back onto the tab it had just been taken off.
         discardController(id)
-        if var tab = list.tab(id), let home = tab.pinnedURL {
-            tab.url = home
-            tab.interactionState = nil
+        if var tab = list.tab(id) {
+            if let home = tab.pinnedURL {
+                tab.url = home
+                tab.interactionState = nil
+                // The row is going to load its home page again, and §9.3 should
+                // hear about that visit rather than dedupe it against the one
+                // this tab recorded before it was closed.
+                recordedURL[id] = nil
+            }
+            tab.isDormant = markingDormant
             write(tab)
-            // The tile is going to load its home page again, and §9.3 should
-            // hear about that visit rather than dedupe it against the one this
-            // tab recorded before it was closed.
-            recordedURL[id] = nil
+            if markingDormant { registerUndo("Close Tab") { $0.wakeDormantTab(id) } }
         }
         releaseSelection(of: id, in: spaceID)
+    }
+
+    /// Puts a dimmed row back to being an open tab (§3.4b) — what clicking one
+    /// does, and what undo does to the press that dimmed it.
+    ///
+    /// It does not load anything on its own. A saved row that has been closed is
+    /// cold like any other cold tab, and `activateTab` is what wakes it; this
+    /// only takes the second press back off it.
+    func wakeDormantTab(_ id: UUID) {
+        guard var tab = list.tab(id), tab.isDormant else { return }
+        tab.isDormant = false
+        write(tab)
+        notifyChange()
     }
 
     /// The selection cannot stay on a tab that no longer has a page. Shared by
     /// both halves above: what differs between them is what happens to the
     /// row, never what happens to the selection.
-    private func releaseSelection(of id: UUID, in spaceID: UUID) {
+    func releaseSelection(of id: UUID, in spaceID: UUID) {
         recentTabs.removeAll { $0 == id }
         if activeTabBySpace[spaceID] == id {
             activeTabBySpace[spaceID] = recentTabs.first { list.tab($0)?.spaceID == spaceID }

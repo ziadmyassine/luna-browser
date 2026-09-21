@@ -925,7 +925,12 @@ ink.
   > tab's kind, so the row left the list, no tile appeared, and the command did nothing visible.
 
 ### 3.4 List rows — 38 pt of pitch around a 35 pt pill
-Order: `+ New Tab` row → **separator** → tabs.
+Order: §3.4b's saved tier → **separator** → `New Tab` row → tabs.
+> **The rule moved and the command moved with it.** It used to close off a leading command
+> group: `New Tab`, rule, tabs. §3.4b gave the space above it a job — the saved tier — so the
+> rule now marks the bottom of that tier and `New Tab` sits under it, at the head of the tabs
+> it opens into. With nothing saved there is no tier and no rule, and the list starts at
+> `New Tab` exactly as it always did.
 > **It was `+ Add Tab` and it made a blank tab.** That is the one tab nobody wants: the next thing
 > anybody does with one is reach for the address bar. The row asks the question instead — it opens §9.1
 > in `.newTab`, so what it lands on is still a new tab, and closing the bar without choosing leaves the
@@ -1102,6 +1107,105 @@ to reimplement keyboard navigation, VoiceOver and Reduce Transparency.
 - **`Close` shows `⌘W` and does not install it.** A context menu's key equivalents are live only
   while it is open; the rest of the time §20.1's responder chain has the command. On a tile, Close is
   still §3.3's "send the tile home".
+
+#### 3.4b Groups and the saved tier — a name around some tabs, and a place to keep them
+
+The list has two tiers, divided by §3.4's rule:
+
+```
+§3.3 grid          ░ pinned tiles ░
+saved tier          ▸ Research  (3)      ← a group, folded
+                      Invoices           ← a loose saved tab
+────────────────────────────────────     ← the rule
+                    + New Tab
+today               ▾ Trip
+                        flights.example
+                        hotel.example
+                      news.example
+```
+
+**A group is one row with its tabs under it.** It has a name and an icon the user picked, a
+chevron that folds it, and a §3.4-shaped row exactly like a tab's — same pitch, same pill,
+same hover and selection fills. Its tabs step in by `groupIndent` (16 pt, the width of the
+chevron's slot) and a hairline runs down the space that opens, descending from the chevron
+it belongs to. A member's favicon therefore lands directly under its group's icon: one
+column with a heading on it.
+
+- **Made from the tab menu**, `Add to Group ▸ New Group…`, in one dialog that asks for the
+  name and the icon together. A tab arrives already named by its page and already wearing a
+  favicon, so §3.4a's *Rename…* and *Change Icon…* are each a correction; a group arrives as
+  nothing at all, and two sheets for one act is one too many. A blank name makes no group.
+- **The fold is persisted.** A group the user put away and found open again the next morning
+  has lost the only thing folding it was for. Folding is a row diff like any other, so the
+  tabs fade over §6's `tabInsert` rather than blinking out.
+- **A group may never be pinned.** §3.3's grid is one tile per tab and a group is a list of
+  them, so there is no tile for one to be. The grid is simply not offered while a group is in
+  the air, and neither is a §3.5 Space dot — a group belongs to the Space it was made in, and
+  a tab carried out of that Space leaves the group behind rather than dragging the name away
+  from the rest of its tabs. Both boundaries that could write a pinned group repair it
+  instead of refusing, the way `Profile` guards its data-store identifier.
+- **Groups and loose tabs share one run of indices**, so a group can stand between two tabs.
+  That is what makes moving either of them renumber both — a `[Tab]` return from the ordering
+  layer would have left a group's index behind on disk and the arrangement after a relaunch
+  would not have been the one on screen.
+
+**The saved tier is the run above the rule, and what makes it saved is what closing does.**
+A saved tab — loose, or inside a saved group — takes **two presses** to let go:
+
+| press | what happens |
+|---|---|
+| first | the page closes, the row stays, **dimmed**, back at the address it was saved at |
+| second | there is no page left to close, so it means the row: archived, and undoable |
+
+Clicking a dimmed row opens it again and takes the second press back off it. So does dragging
+it below the rule: a tab on the ordinary side is an ordinary tab, never one press from
+disappearing.
+
+- **Dimmed is `Text.tertiary` plus a favicon at `dormantIconOpacity`**, which is what a
+  loading row wears — both are rows with no page behind them right now, and both come back at
+  full strength the moment there is one. Deliberately *not* `Text.disabled`, which is the tier
+  for a control that cannot be operated; this row is one click from being open again.
+- **It is a stored column (`Tab.isDormant`, schema `v6`), not something inferred.** "Has no
+  web view" is true of every tab after a relaunch and of every cold one §19.2 has reclaimed,
+  and neither of those is a page anybody closed. A tab that came back from lunch one press
+  from deletion would be a data-loss bug wearing a feature's clothes.
+- **`.pinned` is the tier**, and it needed no new column: it already meant "the run above
+  today's tabs" and §3.4b only gives it the behaviour its name always claimed. A user who had
+  deliberately placed tabs up there finds them saved — which is what putting them there was
+  for — rather than finding an empty new section with their tabs still below it.
+- **A group's tier is its tabs' tier.** Carry a group across the rule and its tabs go with it;
+  drop a tab into a saved group and it is saved, whichever side it came from. So "is this tab
+  saved" has one answer wherever it is asked, and `closeTab` never has to look at a group to
+  decide what a press means. *Save Tab* on a tab inside an ordinary group therefore takes it
+  out of the group — the alternative is the one row in the list whose section and behaviour
+  disagree.
+
+**The rule is only drawn when there is a tier to close off — or when a drag is up.** With
+nothing saved there is no bottom to mark. But the space above it is somewhere a tab can be
+put, and a zone that is invisible until you have already used it is one nobody finds, so the
+rule comes out for the length of every §6.6 lift and goes away again on the drop.
+
+**Where a drop lands is read from the two halves of a row, not from the gap between two.**
+That is the whole reason a group can be dropped into at its end: the gap under a group's last
+tab and the gap over the next slot are the *same* boundary and mean two different things —
+the end of the group, and after it. A pointer knows which half of which row it is on, so the
+destination table is keyed the same way. A folded group has no tabs on screen to drop between,
+so the lower half of its header means "into it, at the end", and its header is outlined while
+a lift is aimed there — the only feedback a folded group can give.
+
+**§3.4a's menu gained two items, and groups have a menu of their own.** A tab gets
+`Save Tab` / `Remove from Saved` and an `Add to Group ▸` submenu (`New Group…`, then every
+existing group, then `Remove from Group`) — a submenu because the number of entries is the
+user's rather than the design's, and a menu that grows by one every time somebody makes a
+group stops being scannable at about the fourth. Neither appears on a §3.3 tile: a tile is
+already kept, by a tier that keeps it harder, and a group may not be pinned at all, so both
+would be offers to demote it. A group header's own menu is five items —
+`Rename… · Change Icon… | Save Group | Ungroup · Close Group` — rather than a longer §3.4a,
+because half of that menu has no meaning on a group: no address to copy, nothing to duplicate,
+no sound to mute. **Ungroup removes a name and never a page**; *Close Group* is the one that
+ends the tabs, and it ends them one at a time through `closeTab` so each lands in §6.3's
+archive with its own undo — and so a *saved* group dims its tabs on the first Close Group and
+lets them go on the second, exactly as pressing close on each of them would.
 
 ### 3.5 Bottom utility bar — 52 pt, pinned
 `[profile avatar circle 34, left] ··· [space dots pill 56 × 22, centred] ··· [downloads | history, right]`

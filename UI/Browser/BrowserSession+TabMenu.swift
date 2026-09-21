@@ -124,7 +124,7 @@ extension BrowserSession {
 
     // MARK: - The menu
 
-    /// §3.4a's seven verbs, bound to one tab.
+    /// §3.4a's verbs, bound to one tab.
     ///
     /// One binding for all three surfaces — §3.4's rows, §3.3's tiles and §4's top-bar
     /// strip. Each of them knows a different thing about a tab (a row index, a grid slot, a
@@ -138,11 +138,29 @@ extension BrowserSession {
         TabMenu.Actions(
             pin: { [weak self] in self?.pinTab(id) },
             unpin: { [weak self] in self?.unpinTab(id) },
+            setSaved: { [weak self] saved in self?.setTabSaved(saved, tab: id) },
+            setGroup: { [weak self] group in self?.moveTab(id, toGroup: group) },
+            newGroup: { [weak self] name, symbol in
+                self?.createGroup(name: name, symbolName: symbol, containing: [id])
+            },
             duplicate: { [weak self] in self?.duplicateTab(id) },
             rename: { [weak self] name in self?.renameTab(id, to: name) },
             setIcon: { [weak self] symbol in self?.setIcon(symbol, forTab: id) },
             setMuted: { [weak self] muted in self?.setMuted(muted, tab: id) },
             close: { [weak self] in self?.closeTab(id) }
+        )
+    }
+
+    /// §3.4b's five, bound to one group. Same shape and the same reasons: the menu is
+    /// modal and outlives nothing, but it is the menu holding these and a window can
+    /// close under it.
+    func groupMenuActions(for id: UUID) -> GroupMenu.Actions {
+        GroupMenu.Actions(
+            rename: { [weak self] name in self?.renameGroup(id, to: name) },
+            setIcon: { [weak self] symbol in self?.setIcon(symbol, forGroup: id) },
+            setSaved: { [weak self] saved in self?.setGroupSaved(saved, group: id) },
+            ungroup: { [weak self] in self?.ungroup(id) },
+            close: { [weak self] in self?.closeGroup(id) }
         )
     }
 }

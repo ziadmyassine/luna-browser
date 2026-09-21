@@ -22,25 +22,49 @@ extension TabListController {
         return space.convert(rect, from: table)
     }
 
-    /// The insertion index a lift centred at `centreY` would drop into. Rows
-    /// are split at their midpoint, and nothing may land in the leading command
-    /// group (§6.6 reorders, it does not nest).
-    func insertionRow(atY centreY: CGFloat, in space: NSView) -> Int {
+    /// Where a lift centred at `centreY` would land: the row its gap opens at,
+    /// and the run and index a drop there means (§3.4b).
+    ///
+    /// The two are answered together because they come from one reading of the
+    /// pointer — which row, and which half of it. Rows are split at their
+    /// midpoint; above the first row is the head of the saved tier, which since
+    /// §3.4b is a place a tab can go.
+    func landing(atY centreY: CGFloat, in space: NSView) -> (row: Int, destination: SidebarDestination) {
         let point = table.convert(NSPoint(x: table.bounds.midX, y: centreY), from: space)
         let row = table.row(at: point)
         guard row >= 0 else {
             // Above the first row or below the last: the two ends of the list.
-            return point.y < 0 ? SidebarList.leading.count : table.numberOfRows
+            let top = point.y < 0
+            return (
+                top ? 0 : table.numberOfRows,
+                list.destination(forRow: top ? 0 : table.numberOfRows, isBelowMidpoint: false)
+            )
         }
-        let rect = table.rect(ofRow: row)
-        return SidebarList.insertionRow(forRow: row, isBelowMidpoint: point.y > rect.midY)
+        let below = point.y > table.rect(ofRow: row).midY
+        return (
+            SidebarList.insertionRow(forRow: row, isBelowMidpoint: below),
+            list.destination(forRow: row, isBelowMidpoint: below)
+        )
     }
 
-    /// A tab's index within its own section, which is what `reorderTab` counts.
-    func sectionIndex(of id: UUID) -> Int? {
-        guard let index = list.listed.firstIndex(where: { $0.id == id }) else { return nil }
-        let kind = list.listed[index].kind
-        return list.listed[..<index].filter { $0.kind == kind }.count
+    /// The header row of the group a landing is inside, for §6.6's outline —
+    /// nil when the drop is a loose one, and nil when the group's own tabs are
+    /// on screen to open a gap between instead.
+    func groupHeaderRow(for destination: SidebarDestination) -> Int? {
+        guard let id = destination.groupID, list.group(id)?.isCollapsed == true else { return nil }
+        return list.row(ofGroup: id)
+    }
+
+    /// Outlines the group a folded drop would land in, or takes the outline
+    /// away. One row at a time: a lift is in one place.
+    func setGroupDropRow(_ row: Int?) {
+        guard row != groupDropRow else { return }
+        let previous = groupDropRow
+        groupDropRow = row
+        for index in [previous, row].compactMap({ $0 }) {
+            (table.view(atColumn: 0, row: index, makeIfNecessary: false) as? SidebarRowView)?
+                .isDropTarget = index == row
+        }
     }
 
     func beginDrag(atRow row: Int) {
@@ -89,6 +113,7 @@ extension TabListController {
 
     func endDrag() {
         guard isDragging else { return }
+        setGroupDropRow(nil)
         isDragging = false
         draggedRow = nil
         gapRow = nil

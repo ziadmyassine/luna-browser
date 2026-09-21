@@ -27,6 +27,9 @@ extension BrowserSession {
         activeTabBySpace[tab.spaceID] = id
         promote(id)
         tab.lastActiveAt = Date()
+        // §3.4b: choosing a dimmed row is opening it again, so the second press
+        // it was holding goes away. Clicking one is the ordinary way back.
+        tab.isDormant = false
         write(tab)
         ensureController(for: tab).activate()
         enforceLiveTabBudget()
@@ -59,6 +62,14 @@ extension BrowserSession {
         guard let index = list.indexInSection(of: id), var tab = list.tab(id) else { return }
         if tab.kind == .essential {
             sendTileHome(id, in: tab.spaceID)
+            return
+        }
+        // §3.4b's two presses. A saved row — loose, or inside a saved group — is
+        // a place the user kept, so the first press ends the page and leaves the
+        // row behind, dimmed and back at the address it was saved at. The second
+        // press has no page left to mean, so it means the row.
+        if tab.kind.keepsTabWhenPageCloses, !tab.isDormant {
+            sendPageHome(id, in: tab.spaceID, markingDormant: true)
             return
         }
         // Read before the removal, while the closing tab still has neighbours.
@@ -133,20 +144,48 @@ extension BrowserSession {
         return includeArchived ? open + archived : open
     }
 
-    /// - Parameter index: position within `kind`'s section, not within
-    ///   `tabs`. Sections run essential → pinned → today.
-    func reorderTab(_ id: UUID, to index: Int, kind: TabKind) {
+    /// - Parameter index: position within the run the tab is joining — a group's
+    ///   members when `group` is given, the Profile's Favorites for `.essential`,
+    ///   else the section's top-level slots (§3.4b).
+    /// - Parameter group: the §3.4b group it lands in, or nil for loose. The
+    ///   group's own tier wins over `kind`: a tab dropped into a saved group is
+    ///   saved, whichever side of the rule it was dragged from.
+    func reorderTab(_ id: UUID, to index: Int, kind: TabKind, group groupID: UUID? = nil) {
         guard var tab = list.tab(id), let oldIndex = list.indexInSection(of: id) else { return }
         let oldKind = tab.kind
+        let oldGroup = tab.groupID
+        let destination = groupID.flatMap { list.group($0) }
         // Deliberately not `forget`: reordering a tab must not cost its web view.
         // Persisted, not discarded: pulling a tab out of the Favorites tier
         // renumbers that tier across the whole Profile, and some of the rows it
         // renumbers live in other Spaces.
         persistAll(list.remove(id))
-        tab.kind = kind
-        persistAll(list.insert(tab, at: index))
-        registerUndo("Move Tab") { $0.reorderTab(id, to: oldIndex, kind: oldKind) }
+        tab.kind = destination?.kind ?? kind
+        tab.groupID = destination?.id
+        persistAll(list.insert(Self.keepingWhatItIsFor(tab, wasKept: oldKind.keepsTabWhenPageCloses), at: index))
+        registerUndo("Move Tab") { $0.reorderTab(id, to: oldIndex, kind: oldKind, group: oldGroup) }
         notifyChange()
+    }
+
+    /// The bookkeeping a tab needs when it crosses into or out of a tier that
+    /// keeps it — §3.3's grid and §3.4b's saved rows.
+    ///
+    /// `pinnedURL` is the address a kept row goes back to when its page is
+    /// closed, so it is recorded at the moment of keeping and cleared at the
+    /// moment of letting go: a tab that walked off somewhere and was then
+    /// dragged down past the rule must not bring a stale home back with it the
+    /// next time it is saved. A tab already in a keeping tier keeps the home it
+    /// has, because that is the page the user chose rather than wherever the
+    /// site has since wandered.
+    static func keepingWhatItIsFor(_ tab: Tab, wasKept: Bool) -> Tab {
+        var tab = tab
+        guard tab.kind.keepsTabWhenPageCloses else {
+            tab.pinnedURL = nil
+            tab.isDormant = false
+            return tab
+        }
+        if !wasKept || tab.pinnedURL == nil { tab.pinnedURL = tab.url }
+        return tab
     }
 
     /// True when moving this tab into that Space crosses a Profile
@@ -173,12 +212,17 @@ extension BrowserSession {
         let from = tab.spaceID
         let oldIndex = list.indexInSection(of: id) ?? 0
         let oldKind = tab.kind
+        let oldGroup = tab.groupID
         // A Favorite is a login tile and Favorites belong to the Profile (§2),
         // so one carried across a Profile boundary lands as a pinned tab rather
         // than joining another cookie jar's tiles.
         if oldKind == .essential, moveCrossesProfileBoundary(id, toSpace: spaceID) {
             tab.kind = .pinned
         }
+        // A §3.4b group belongs to the Space it was made in, so a tab carried
+        // out of that Space leaves the group rather than dragging it along —
+        // the name stays where the rest of its tabs are.
+        tab.groupID = nil
         // The web view belongs to the old Space's data store; it has to die here
         // or the tab would carry the old profile's cookies across (§5.1).
         discardController(id)
@@ -191,7 +235,7 @@ extension BrowserSession {
         }
         registerUndo("Move Tab to Space") { session in
             session.moveTab(id, toSpace: from)
-            session.reorderTab(id, to: oldIndex, kind: oldKind)
+            session.reorderTab(id, to: oldIndex, kind: oldKind, group: oldGroup)
         }
         notifyChange()
     }
@@ -323,10 +367,23 @@ extension BrowserSession {
         }
     }
 
+    /// Everything one `TabList` mutation touched — §3.4b interleaves groups with
+    /// the loose tabs around them, so moving a tab renumbers both.
+    func persistAll(_ writes: TabListWrites) {
+        guard !writes.isEmpty else { return }
+        enqueue { store in
+            for group in writes.groups { try? await store.upsert(group) }
+            for tab in writes.tabs { try? await store.upsert(tab) }
+        }
+    }
+
     /// One chain for every tab write. Unordered `Task`s would let a renumber
     /// land after the row it renumbered — an order that is right on screen
-    /// and wrong after a relaunch.
-    private func enqueue(_ work: @escaping @Sendable (BrowserStore) async -> Void) {
+    /// and wrong after a relaunch. Internal rather than private because
+    /// `BrowserSession+Groups.swift` deletes rows on the same chain, and a
+    /// deletion that overtook the renumber that emptied a group would be a
+    /// foreign key failing on a row nobody can see.
+    func enqueue(_ work: @escaping @Sendable (BrowserStore) async -> Void) {
         let previous = writeChain
         let store = store
         writeChain = Task {

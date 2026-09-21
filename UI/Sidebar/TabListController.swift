@@ -36,12 +36,26 @@ final class TabListController: NSObject {
     var onCloseTab: ((UUID) -> Void)?
     var onToggleMute: ((UUID) -> Void)?
     var onAddTab: (() -> Void)?
+    /// §3.4b: the chevron on a group header, or Enter on one.
+    var onToggleGroup: ((UUID) -> Void)?
+    /// §3.4b's group menu, bound to one group — `BrowserSession.groupMenuActions(for:)`.
+    var groupMenuActions: ((UUID) -> GroupMenu.Actions?)?
     /// §3.4a's menu, bound to one tab — `BrowserSession.tabMenuActions(for:)`. Nil leaves
     /// the rows with no context menu rather than a shorter one: a second, smaller answer
     /// to the same right-click is exactly what §3.4a exists to avoid.
     var menuActions: ((UUID) -> TabMenu.Actions?)?
 
     private(set) var list = SidebarList()
+    /// What the list was last handed, so a drag can rebuild the rows with
+    /// §3.4b's rule revealed without the sidebar having to hand them over again.
+    private var shown: (saved: [SidebarSlot], today: [SidebarSlot], essentials: [Tab]) = ([], [], [])
+    /// A §6.6 lift is up, so the saved tier's rule is out whether or not
+    /// anything is saved — see `SidebarList`'s header.
+    private var isRevealingSaved = false
+    /// The group header a lift is currently aimed inside, which is the only
+    /// feedback a folded group can give: there are no rows in it to open a gap
+    /// between.
+    var groupDropRow: Int?
     /// Live per-tab state, pushed in by `BrowserSession.onTabStateChange`.
     var liveStates: [UUID: TabState] = [:]
     /// Muted tabs (§3.4a), mirrored from `BrowserSession.mutedTabIDs` so a row can draw
@@ -56,8 +70,10 @@ final class TabListController: NSObject {
     /// `TabListController+Pills.swift`, and Swift's `private` is file-scoped.
     let selectionPill = RowPillView(role: .selected)
     let hoverPill = RowPillView(role: .hover)
+    /// The row under the pointer. Internal for `+Content.swift`'s sake, which
+    /// is what decides whether a row draws its close chip or its speaker.
     private(set) var hoveredRow: Int?
-    private var activeTabID: UUID?
+    var activeTabID: UUID?
     var isApplyingSelection = false
     /// A press landed on a tab row. `SidebarTabDragController` runs the rest
     /// of the gesture from here — see `SidebarTabDrag.swift` for why the list
@@ -154,8 +170,29 @@ final class TabListController: NSObject {
     /// drawn, fading, over the Space you had just arrived in. That is the flash
     /// of old tabs. `SidebarViewController` is already cross-fading the whole
     /// column for this; the rows must not bring a second transition to it.
-    func show(_ tabs: [Tab], activeTabID: UUID?, replacing: Bool = false) {
-        let next = SidebarList(tabs: tabs)
+    func show(
+        saved: [SidebarSlot],
+        today: [SidebarSlot],
+        essentials: [Tab],
+        activeTabID: UUID?,
+        replacing: Bool = false
+    ) {
+        shown = (saved, today, essentials)
+        rebuild(activeTabID: activeTabID, replacing: replacing)
+    }
+
+    /// Re-derives the rows from what was last handed over and diffs them in.
+    ///
+    /// Separate from `show` because two things change the rows without changing
+    /// the tabs: a §3.4b group folding, and a lift starting or ending — which
+    /// brings the saved tier's rule out and puts it away again.
+    func rebuild(activeTabID: UUID? = nil, replacing: Bool = false) {
+        let next = SidebarList(
+            saved: shown.saved,
+            today: shown.today,
+            essentials: shown.essentials,
+            revealingSaved: isRevealingSaved
+        )
         let diff = next.rows.difference(from: list.rows)
         list = next
         if replacing {
@@ -169,7 +206,16 @@ final class TabListController: NSObject {
         // The selection pill springs from the row it was on to the row it is
         // on, which across a replacement is a spring between two unrelated
         // rows — it has to be placed, not flown.
-        setActive(activeTabID, movingPills: !replacing)
+        setActive(activeTabID ?? self.activeTabID, movingPills: !replacing)
+    }
+
+    /// §3.4b: the rule comes out for the length of a drag, because a zone you
+    /// cannot see is a zone you cannot aim at. A no-op once something is saved,
+    /// where the rule is already there.
+    func setRevealingSaved(_ revealing: Bool) {
+        guard isRevealingSaved != revealing else { return }
+        isRevealingSaved = revealing
+        rebuild()
     }
 
     /// Rebuilds every row from scratch and re-places the pills.
@@ -225,57 +271,6 @@ final class TabListController: NSObject {
         movePills(animated: animated)
     }
 
-    func content(for row: Int) -> SidebarRowContent {
-        switch list[row] {
-        case .addTab:
-            // "New Tab", and it opens §9.1 rather than an empty page. The
-            // row used to be `+ Add Tab` and used to make a blank tab, which is
-            // the one tab nobody wants: the next thing you do with it is reach
-            // for the address bar. It now asks the question the blank tab was
-            // standing in for.
-            return SidebarRowContent(title: "New Tab", symbolName: "plus")
-        case .separator, .none:
-            return SidebarRowContent()
-        case .tab:
-            guard let tab = list.tab(at: row) else { return SidebarRowContent() }
-            return tabContent(tab)
-        }
-    }
-
-    private func tabContent(_ tab: Tab) -> SidebarRowContent {
-        let state = liveStates[tab.id]
-        // §3.4a: a name the user typed outranks both the live title and the stored one.
-        // The live title is the page's most current answer to a question the user has
-        // already overruled.
-        let pageTitle = state?.title.isEmpty == false ? (state?.title ?? "") : tab.title
-        let title = tab.customTitle ?? pageTitle
-        // Where the tab is now, not where the snapshot left it. `tab` is the
-        // copy taken at the last `notifyChange()`, and an in-tab navigation
-        // raises none — it writes the tab and publishes a `TabState`. Reading
-        // the host off the snapshot is what kept the row wearing the icon of the
-        // site it had already left.
-        let url = state?.url ?? tab.url
-        let muted = mutedTabIDs.contains(tab.id)
-        let trailing: SidebarRowContent.Trailing
-        if hoveredRow.flatMap({ list[$0] }) == .tab(tab.id) {
-            trailing = .close
-        } else if state?.isPlayingAudio == true || muted {
-            trailing = .audio(muted: muted)
-        } else {
-            trailing = .none
-        }
-        return SidebarRowContent(
-            title: title.isEmpty ? URLPillView.domain(of: url) : title,
-            // §3.4a: a chosen symbol replaces the favicon, so the row draws its symbol
-            // slot instead — which is the path `+ Add Tab` has always taken.
-            symbolName: tab.customSymbolName ?? SidebarRowContent.siteFallbackSymbol,
-            favicon: tab.customSymbolName == nil ? SidebarIcons.favicon(for: url) : nil,
-            hasUnread: tab.hasUnread,
-            isLoading: state?.isLoading ?? false,
-            trailing: trailing
-        )
-    }
-
     // MARK: - Selection and hover
 
     private func setActive(_ id: UUID?, movingPills animated: Bool = true) {
@@ -317,6 +312,12 @@ final class TabListController: NSObject {
             // before the gesture is over. The lift takes the rest of it.
             table.selectRowIndexes([row], byExtendingSelection: false)
             onTabPress?(row, event)
+        case let .group(id):
+            // The whole header folds it, not only the chevron: a heading over a
+            // list is the affordance, and aiming at a 16 pt glyph to put a group
+            // away is a smaller target than the thing it is about.
+            guard Self.isClick(event, on: row, in: table) else { return }
+            onToggleGroup?(id)
         case .addTab:
             guard Self.isClick(event, on: row, in: table) else { return }
             onAddTab?()
@@ -355,6 +356,7 @@ final class TabListController: NSObject {
         case .confirm:
             switch list[table.selectedRow] {
             case .addTab: onAddTab?()
+            case let .group(id): onToggleGroup?(id)
             default: return false
             }
         case .close:

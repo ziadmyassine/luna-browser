@@ -172,15 +172,44 @@ final class BrowserSessionTabMenuTests: XCTestCase {
     /// The reference's order and the reference's five groups, which is what "the same UI"
     /// meant. Asserted as a list because it is the one thing about this surface a reader
     /// can check against the screenshot without running the app.
-    func testMenuIsTheSevenItemsInTheReferenceOrder() async throws {
+    func testMenuIsTheReferenceOrder() async throws {
         let session = try await makeSession()
         let id = try tab(in: session, at: url("one"))
         let menu = TabMenu.build(for: try XCTUnwrap(session.tab(id)), isMuted: false, actions: noActions)
 
         XCTAssertEqual(menu.items.map(Self.word), [
-            "Pin", "", "Duplicate", "", "Copy Link", "", "Rename…", "Change Icon…", "Mute Site", "", "Close"
+            "Pin", "Save Tab", "", "Add to Group", "", "Duplicate", "",
+            "Copy Link", "", "Rename…", "Change Icon…", "Mute Site", "", "Close"
         ])
-        XCTAssertEqual(menu.items.filter(\.isSeparatorItem).count, 4)
+        XCTAssertEqual(menu.items.filter(\.isSeparatorItem).count, 5)
+    }
+
+    /// §3.4b's two items are not on a §3.3 tile: a tile is already kept by a tier that
+    /// keeps it harder, and a group may not be pinned at all, so both would be offers to
+    /// demote it.
+    func testATileIsNotOfferedSavingOrGrouping() async throws {
+        let session = try await makeSession()
+        let id = try tab(in: session, at: url("one"))
+        XCTAssertTrue(session.pinTab(id))
+        let menu = TabMenu.build(for: try XCTUnwrap(session.tab(id)), isMuted: false, actions: noActions)
+
+        XCTAssertFalse(menu.items.contains { Self.word($0) == "Save Tab" })
+        XCTAssertFalse(menu.items.contains { Self.word($0) == "Add to Group" })
+    }
+
+    /// A saved tab is offered the way back out, and one already in a group is offered a
+    /// move rather than an add — the item says which act it is.
+    func testTheWordingFollowsWhereTheTabAlreadyIs() async throws {
+        let session = try await makeSession()
+        let id = try tab(in: session, at: url("one"))
+        session.setTabSaved(true, tab: id)
+        let saved = try XCTUnwrap(session.tab(id))
+        XCTAssertTrue(TabMenu.build(for: saved, isMuted: false, actions: noActions).items
+            .contains { Self.word($0) == "Remove from Saved" })
+
+        let group = TabGroup(spaceID: saved.spaceID, name: "Work")
+        let moving = TabMenu.build(for: saved, isMuted: false, group: group, actions: noActions)
+        XCTAssertTrue(moving.items.contains { Self.word($0) == "Move to Group" })
     }
 
     func testMenuSaysUnpinOnATileAndUnmuteOnAMutedTab() async throws {
@@ -207,8 +236,8 @@ final class BrowserSessionTabMenuTests: XCTestCase {
 
     private var noActions: TabMenu.Actions {
         TabMenu.Actions(
-            pin: {}, unpin: {}, duplicate: {}, rename: { _ in }, setIcon: { _ in },
-            setMuted: { _ in }, close: {}
+            pin: {}, unpin: {}, setSaved: { _ in }, setGroup: { _ in }, newGroup: { _, _ in },
+            duplicate: {}, rename: { _ in }, setIcon: { _ in }, setMuted: { _ in }, close: {}
         )
     }
 

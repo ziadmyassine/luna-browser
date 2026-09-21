@@ -52,6 +52,20 @@ struct SidebarRowContent: Equatable {
     var hasUnread: Bool = false
     var isLoading: Bool = false
     var trailing: Trailing = .none
+    /// How far this row's contents step in — `Metric.groupIndent` for a tab
+    /// inside a §3.4b group, zero for everything else. The spine is drawn in the
+    /// space it opens.
+    var indent: CGFloat = 0
+    /// A §3.4b group header's chevron, and which way it points. Nil on every row
+    /// that is not a group.
+    var disclosure: Disclosure?
+    /// §3.4b: a saved row whose page has been closed once. It is still a place
+    /// the user kept, so it is dimmed rather than greyed out — the next press
+    /// lets it go.
+    var isDormant: Bool = false
+
+    /// Whether a group is folded shut, on the row that folds it.
+    enum Disclosure: Equatable { case expanded, collapsed }
 }
 
 @MainActor
@@ -65,10 +79,28 @@ final class SidebarRowView: NSView {
     /// user actually pressed, so it is the one thing it reports.
     var onTrailing: ((SidebarRowContent.Trailing) -> Void)?
 
+    /// The §3.4b chevron was pressed — fold this group, or open it.
+    var onDisclosure: (() -> Void)?
+
     var isSelected = false { didSet { refreshInk() } }
     var isHovered = false { didSet { refreshInk() } }
+    /// §6.6: a lift is aimed inside this §3.4b group. The one feedback a folded
+    /// group can give — there are no rows in it to open a gap between — so the
+    /// header itself is outlined at the pill's own shape.
+    var isDropTarget = false { didSet { applyDropTarget() } }
 
     private let icon = NSImageView()
+    // §3.4b's three. Internal rather than private only because Swift's
+    // `private` is file-scoped and `SidebarRowView+Group.swift` is the other
+    // half of this class; nothing outside that pair touches them.
+    /// §3.4b's fold control. Its own glyph button, so it answers a hover and a
+    /// press like every other one (`RowGlyphView`).
+    let chevron = RowGlyphView()
+    /// The hairline down the leading edge of a group's tabs.
+    let spine = NSView()
+    /// The outline `isDropTarget` draws. Its own view for `spine`'s reason: this
+    /// class allocates no glass and overrides no `draw`, so a border is a layer.
+    let outline = NSView()
     private let dot = NSView()
     /// Clips and fades both title layers. See the header.
     private let titleClip = NSView()
@@ -122,8 +154,17 @@ final class SidebarRowView: NSView {
             guard let self else { return }
             onTrailing?(content.trailing)
         }
+        chevron.onActivate = { [weak self] in self?.onDisclosure?() }
+        chevron.isHidden = true
+        spine.wantsLayer = true
+        spine.isHidden = true
+        outline.wantsLayer = true
+        outline.isHidden = true
+        outline.layer?.borderWidth = Tokens.Metric.hairline
+        outline.layer?.cornerRadius = Tokens.Metric.rowCornerRadius
+        outline.layer?.cornerCurve = .continuous
 
-        for view in [icon, dot, titleClip, trailing] { addSubview(view) }
+        for view in [outline, spine, icon, dot, titleClip, chevron, trailing] { addSubview(view) }
         setAccessibilityElement(true)
         setAccessibilityRole(.cell)
     }
@@ -146,6 +187,8 @@ final class SidebarRowView: NSView {
         icon.image?.isTemplate = next.favicon == nil
         dot.isHidden = !next.hasUnread
         setAccessibilityLabel(next.title)
+        applyDisclosure(next.disclosure)
+        spine.isHidden = next.indent == 0
         applyTrailing(next.trailing)
         refreshInk()
         if next.isLoading != wasLoading { updateShimmer() }
@@ -188,14 +231,17 @@ final class SidebarRowView: NSView {
     /// is ``titleColumn``'s half and is deliberately not held still.
     ///
     /// Pure, so the rule can be asserted without a window to hover in.
-    static func titleInk(isSelected: Bool, isLoading: Bool) -> NSColor {
-        if isLoading { return Tokens.Text.tertiary }
-        return isSelected ? Tokens.Text.primary : Tokens.Text.secondary
-    }
-
     private func refreshInk() {
-        title.textColor = Self.titleInk(isSelected: isSelected, isLoading: content.isLoading)
+        title.textColor = Self.titleInk(
+            isSelected: isSelected,
+            isLoading: content.isLoading,
+            isDormant: content.isDormant
+        )
         shimmer.textColor = Tokens.Text.primary
+        icon.alphaValue = content.isDormant ? Tokens.Metric.dormantIconOpacity : 1
+        chevron.tint = isSelected || isHovered ? Tokens.Text.primary : Tokens.Text.secondary
+        spine.layer?.backgroundColor = Tokens.Line.hairline.cgColor
+        outline.layer?.borderColor = Tokens.Line.border.cgColor
         // Ink, not accent. Luna's chrome carries no system blue: the unread
         // mark is a full-strength dot in the same ink the title is set in, and
         // it reads because it is bright, not because it is a different hue.
@@ -257,7 +303,9 @@ final class SidebarRowView: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? {
         let local = convert(point, from: superview)
         guard bounds.contains(local) else { return nil }
-        return (!trailing.isHidden && trailing.frame.contains(local)) ? trailing : self
+        if !trailing.isHidden, trailing.frame.contains(local) { return trailing }
+        if !chevron.isHidden, chevron.frame.contains(local) { return chevron }
+        return self
     }
 
     // MARK: - Layout
@@ -268,54 +316,34 @@ final class SidebarRowView: NSView {
         Tokens.Motion.immediately { placeContents() }
     }
 
-    /// §3.4's title column: where the title starts, and how wide it may be.
-    ///
-    /// The trailing slot is given back when nothing is in it. A row with
-    /// no glyph runs its title to the pill's inner edge and lets §3.4's fade
-    /// end there; a row drawing the close chip or the speaker stops half an
-    /// inset short of the slot and fades before it.
-    ///
-    /// That was decided with both versions side by side, and the trade is
-    /// worth writing down. The column moving is how a title dims under the
-    /// pointer: the close chip appears, the box loses 22 pt, and the last
-    /// glyphs of a long title dissolve where they were solid a frame earlier.
-    /// Reserving the slot on every row holds the title still and costs every
-    /// row 22 pt of pill it mostly does not need. A tab is hovered for a moment
-    /// and read for hours, so the resting state wins.
-    ///
-    /// `rowTitleFade` at 12 rather than 24 is what makes it affordable: the
-    /// shift is a ramp moving two characters, not four.
-    ///
-    /// Pure, like ``titleInk``, so both states can be asserted without a
-    /// window to hover in. It takes the slot, not the hover — an audio row
-    /// has a glyph without a pointer anywhere near it.
-    static func titleColumn(
-        inRowOfWidth width: CGFloat,
-        hasUnread: Bool,
-        slotOccupied: Bool
-    ) -> (x: CGFloat, width: CGFloat) {
-        let x = Tokens.Metric.rowTitleInset
-            + (hasUnread ? Tokens.Metric.spaceDot + Tokens.Metric.rowInset : 0)
-        // Half an inset before the slot, not the full `chromeGap` two controls
-        // would take between them. The title's last glyphs are already
-        // dissolving by the time they reach here — `rowTitleFade` is the gap,
-        // and 8 pt of clearance on top of it is 8 pt of pill left empty.
-        let right = slotOccupied
-            ? trailingSlotX(inRowOfWidth: width) - Tokens.Metric.rowInset / 2
-            : width - 2 * Tokens.Metric.rowInset
-        return (x, max(right - x, 0))
-    }
-
-    /// Where the trailing glyph's slot begins, occupied or not. See
-    /// ``titleColumn``.
-    static func trailingSlotX(inRowOfWidth width: CGFloat) -> CGFloat {
-        width - 2 * Tokens.Metric.rowInset - Tokens.Metric.rowTrailingChip.width
+    func placeGroupFurniture() {
+        let chevronSlot = Tokens.Metric.groupChevronSlot
+        chevron.frame = NSRect(
+            x: Tokens.Metric.groupChevronInset,
+            y: (bounds.height - chevronSlot.height) / 2,
+            width: chevronSlot.width,
+            height: chevronSlot.height
+        ).pixelAligned
+        outline.frame = bounds
+            .insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.rowPillInset)
+            .pixelAligned
+        spine.frame = NSRect(
+            x: Tokens.Metric.rowInset + Tokens.Metric.groupSpineInset,
+            y: 0,
+            width: Tokens.Metric.hairline,
+            height: bounds.height
+        ).pixelAligned
     }
 
     private func placeContents() {
+        placeGroupFurniture()
+        // §3.4b: a group header steps aside for its chevron by exactly the width
+        // of the chevron's slot, and a group's tab steps in by the same, so the
+        // two icons land in one column.
+        let indent = content.indent + (content.disclosure == nil ? 0 : Tokens.Metric.groupChevronSlot.width)
         let glyph = Tokens.Metric.faviconSize
         icon.frame = NSRect(
-            x: Tokens.Metric.rowFaviconInset,
+            x: Tokens.Metric.rowFaviconInset + indent,
             y: (bounds.height - glyph) / 2,
             width: glyph,
             height: glyph
@@ -323,7 +351,7 @@ final class SidebarRowView: NSView {
 
         let dotSize = Tokens.Metric.spaceDot
         dot.frame = NSRect(
-            x: Tokens.Metric.rowTitleInset,
+            x: Tokens.Metric.rowTitleInset + indent,
             y: (bounds.height - dotSize) / 2,
             width: dotSize,
             height: dotSize
@@ -346,7 +374,8 @@ final class SidebarRowView: NSView {
         let column = Self.titleColumn(
             inRowOfWidth: bounds.width,
             hasUnread: content.hasUnread,
-            slotOccupied: !trailing.isHidden
+            slotOccupied: !trailing.isHidden,
+            indent: indent
         )
         let height = title.intrinsicContentSize.height
         let box = NSRect(

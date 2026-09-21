@@ -4,13 +4,18 @@
 //
 //  §3.4a's tab menu: right-click a row in §3.4's list.
 //
-//  Seven items, in the reference's own order and its five groups: pin, duplicate,
-//  copy link, the three that change what the row is, then close. The reference
-//  (`inspiration/tab-context-menu.png`) has seventeen; the fourteen missing are
-//  declined rather than deferred — half are features Luna does not have yet
-//  (Split, Chat, Bookmarks, Groups), and a menu listing what an app cannot do
+//  In the reference's own order and its groups: pin, §3.4b's save and group,
+//  duplicate, copy link, the three that change what the row is, then close. The
+//  reference (`inspiration/tab-context-menu.png`) has seventeen items; the ones
+//  still missing are declined rather than deferred — Split, Chat, Move to
+//  Profile, Move to Window and both Bookmarks rows are features Luna either does
+//  not have or reaches another way, and a menu listing what an app cannot do
 //  teaches the user to stop reading it. The groups stay even where they hold one
 //  item, because the grouping is what makes the list scannable.
+//
+//  The two §3.4b items are not on a §3.3 tile. A tile is already kept, by a tier
+//  that keeps it harder than the saved one does, and a group may not be pinned at
+//  all — so on a tile both would be offers to demote it.
 //
 //  A plain `NSMenu`, for the reason `SiteMenu.swift` gives: on macOS 26 that is
 //  the liquid-glass menu, drawn by AppKit with its own material, blur, keyboard
@@ -41,6 +46,12 @@ enum TabMenu {
     struct Actions {
         var pin: () -> Void
         var unpin: () -> Void
+        /// §3.4b: across the rule, or back under it.
+        var setSaved: (Bool) -> Void
+        /// §3.4b: into that group, or — with nil — out of whatever group it is in.
+        var setGroup: (UUID?) -> Void
+        /// §3.4b: a new group around this tab, named and iconned in one dialog.
+        var newGroup: (String, String) -> Void
         var duplicate: () -> Void
         /// Nil means "give the name back to the page".
         var rename: (String?) -> Void
@@ -50,7 +61,15 @@ enum TabMenu {
         var close: () -> Void
     }
 
-    static func build(for tab: Tab, isMuted: Bool, actions: Actions) -> NSMenu {
+    /// - Parameter group: the §3.4b group this tab is already in, if any.
+    /// - Parameter others: every other group in the list, for the submenu that moves it.
+    static func build(
+        for tab: Tab,
+        isMuted: Bool,
+        group: TabGroup? = nil,
+        others: [TabGroup] = [],
+        actions: Actions
+    ) -> NSMenu {
         let menu = NSMenu()
         // Closure items are their own target, so AppKit would enable them anyway. Off for
         // the same reason `SiteMenu` turns it off: nothing here may be enabled by accident.
@@ -64,6 +83,18 @@ enum TabMenu {
             symbol: pinned ? "pin.slash" : "pin",
             action: pinned ? actions.unpin : actions.pin
         ))
+        // §3.4b, and not on a tile: a tile is already kept, by a tier that keeps it
+        // harder. Offering to save one would be offering to demote it.
+        if !pinned {
+            let saved = tab.kind == .pinned
+            menu.addItem(item(
+                saved ? String(localized: "Remove from Saved") : String(localized: "Save Tab"),
+                symbol: saved ? "tray.and.arrow.up" : "tray.and.arrow.down",
+                action: { actions.setSaved(!saved) }
+            ))
+            menu.addItem(.separator())
+            menu.addItem(groupSubmenu(current: group, others: others, actions: actions))
+        }
         menu.addItem(.separator())
 
         menu.addItem(item(
@@ -104,6 +135,47 @@ enum TabMenu {
 
     // MARK: - Items
 
+    /// §3.4b's *Add to Group*: the one that makes a new group, then the ones that
+    /// already exist, then the way out of the one this tab is in.
+    ///
+    /// A submenu rather than a run of items in the main menu, because the number of
+    /// entries is the user's rather than the design's — a menu that grows by one every
+    /// time somebody makes a group stops being scannable at about the fourth.
+    ///
+    /// It reads *Add to Group* for a loose tab and *Move to Group* for one that is
+    /// already in one, because those are different acts and the item says which.
+    private static func groupSubmenu(current: TabGroup?, others: [TabGroup], actions: Actions) -> NSMenuItem {
+        let parent = NSMenuItem(
+            title: current == nil ? String(localized: "Add to Group") : String(localized: "Move to Group"),
+            action: nil,
+            keyEquivalent: ""
+        )
+        parent.attributedTitle = SidebarMenu.label(symbol: "folder", title: parent.title)
+        let submenu = NSMenu()
+        submenu.autoenablesItems = false
+        submenu.addItem(item(String(localized: "New Group…"), symbol: "folder.badge.plus") {
+            GroupMenu.ask(
+                title: String(localized: "New group"),
+                confirm: String(localized: "Create"),
+                then: actions.newGroup
+            )
+        })
+        if !others.isEmpty {
+            submenu.addItem(.separator())
+            for group in others {
+                submenu.addItem(item(group.name, symbol: group.symbolName) { actions.setGroup(group.id) })
+            }
+        }
+        if current != nil {
+            submenu.addItem(.separator())
+            submenu.addItem(item(String(localized: "Remove from Group"), symbol: "folder.badge.minus") {
+                actions.setGroup(nil)
+            })
+        }
+        parent.submenu = submenu
+        return parent
+    }
+
     /// One item, with the reference's glyph beside its word.
     ///
     /// The glyph rides in `attributedTitle` rather than in `image`, which is not drawn at
@@ -111,9 +183,7 @@ enum TabMenu {
     /// plain `title` is set as well and stays underneath: it is what VoiceOver reads and
     /// what `typeSelect` matches, and neither should have to step over an attachment.
     private static func item(_ title: String, symbol name: String, action: @escaping () -> Void) -> NSMenuItem {
-        let item = SidebarMenu.item(title: title, action: action)
-        item.attributedTitle = SidebarMenu.label(symbol: name, title: title)
-        return item
+        SidebarMenu.glyphItem(title, symbol: name, action: action)
     }
 
     /// The reference's "Copy Link as Markdown" without the Markdown: this is the plain

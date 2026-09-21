@@ -226,7 +226,11 @@ final class SidebarSpaceGestures {
         // it rather than from a flat `session.list[…]` — which is what used to
         // draw the §3.3 tiles as ordinary rows and let the pinned tabs arrive
         // unpinned and then correct themselves.
-        let column = SidebarList(tabs: target.map { session.list[$0.id] } ?? [])
+        let column = SidebarList(
+            saved: target.map { session.list.drawnSlots(inSpace: $0.id, kind: .pinned) } ?? [],
+            today: target.map { session.list.drawnSlots(inSpace: $0.id, kind: .today) } ?? [],
+            essentials: target.map { session.list[$0.id].filter { $0.kind == .essential } } ?? []
+        )
         preview.show(
             essentials: column.essentials,
             listed: column.listed,

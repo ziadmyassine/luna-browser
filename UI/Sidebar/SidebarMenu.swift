@@ -29,6 +29,23 @@ enum SidebarMenu {
         ClosureMenuItem(title: title, action: action)
     }
 
+    /// One item with the reference's glyph beside its word (§3.4a).
+    ///
+    /// The glyph rides in `attributedTitle` rather than in `image`, which is not
+    /// drawn at all on this macOS — ``label(symbol:title:in:)`` has the
+    /// measurement. The plain `title` is set as well and stays underneath: it is
+    /// what VoiceOver reads and what `typeSelect` matches, and neither should
+    /// have to step over an attachment.
+    ///
+    /// Here rather than in `TabMenu`, where it started, because §3.4b's group
+    /// menu wants the same item and two copies of it would be two chances for
+    /// one menu's glyphs to end up a different size from the other's.
+    static func glyphItem(_ title: String, symbol name: String, action: @escaping () -> Void) -> NSMenuItem {
+        let item = item(title: title, action: action)
+        item.attributedTitle = label(symbol: name, title: title)
+        return item
+    }
+
     /// A caption: a disabled item that titles a group or states a rule.
     ///
     /// Not `NSMenuItem.sectionHeader(title:)` — that one is a heading, and

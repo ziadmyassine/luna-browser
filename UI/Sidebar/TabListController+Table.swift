@@ -44,9 +44,17 @@ extension TabListController: NSTableViewDelegate {
         view.configure(content(for: row))
         view.isSelected = row == table.selectedRow
         view.isHovered = row == hoveredRow
+        view.isDropTarget = row == groupDropRow
         view.onTrailing = { [weak self, weak view] trailing in
             guard let view else { return }
             self?.trailingTapped(trailing, on: view)
+        }
+        // Resolved from the view, like the trailing glyph and for the same
+        // reason: the table builds a row view once and then moves it up the
+        // list as tabs close above it, so an index captured here goes stale.
+        view.onDisclosure = { [weak self, weak view] in
+            guard let self, let view, case let .group(id)? = list[table.row(for: view)] else { return }
+            onToggleGroup?(id)
         }
         return view
     }
@@ -81,7 +89,7 @@ extension TabListController: NSTableViewDelegate {
     /// index captured in the closure goes stale the moment a tab is inserted
     /// above it — which is how pressing close on one tab came to mute the tab
     /// underneath.
-    private func trailingTapped(_ trailing: SidebarRowContent.Trailing, on view: SidebarRowView) {
+    func trailingTapped(_ trailing: SidebarRowContent.Trailing, on view: SidebarRowView) {
         guard case let .tab(id)? = list[table.row(for: view)] else { return }
         switch trailing {
         case .close: onCloseTab?(id)
