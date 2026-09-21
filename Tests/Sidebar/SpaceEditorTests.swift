@@ -193,3 +193,141 @@ final class SpaceEditorGridTests: XCTestCase {
         }
     }
 }
+
+/// What the form does with the name, which until now was nothing unless the
+/// user pressed Return.
+///
+/// §6.1's Space is created before the form opens, carrying the `Space N` the
+/// swipe gave it, so the name in the field is a rename that has to be sent.
+/// The field commits on Return and on losing the focus, and the two buttons
+/// under it are plain `NSView`s: there was nothing for the field to lose the
+/// focus to, so a name typed and confirmed with `Create Space` went nowhere
+/// and the Space kept its placeholder. Reported from a real swipe.
+@MainActor
+final class SpaceEditorNameTests: XCTestCase {
+
+    private var window: NSWindow?
+
+    private func editor(named name: String = "Space 2") -> SpaceEditorView {
+        let space = Space(
+            name: name,
+            symbolName: BrowserSession.defaultSpaceSymbol,
+            gradient: .defaultSpace,
+            profileID: UUID()
+        )
+        let editor = SpaceEditorView(space: space)
+        editor.frame = NSRect(x: 0, y: 0, width: Tokens.Metric.sidebarWidth.default, height: 760)
+        editor.layoutSubtreeIfNeeded()
+        return editor
+    }
+
+    private func descendants<T: NSView>(of root: NSView, ofType type: T.Type) -> [T] {
+        var found: [T] = []
+        for child in root.subviews {
+            if let match = child as? T { found.append(match) }
+            found += descendants(of: child, ofType: type)
+        }
+        return found
+    }
+
+    private func field(_ editor: SpaceEditorView) throws -> NSTextField {
+        try XCTUnwrap(descendants(of: editor, ofType: NSTextField.self).first { $0.isEditable })
+    }
+
+    private func button(_ editor: SpaceEditorView, labelled label: String) throws -> SpaceEditorButton {
+        try XCTUnwrap(
+            descendants(of: editor, ofType: SpaceEditorButton.self)
+                .first { $0.accessibilityLabel() == label }
+        )
+    }
+
+    func testPressingCreateSendsTheNameInTheField() throws {
+        let editor = editor()
+        var renamed: [String] = []
+        editor.onRename = { renamed.append($0) }
+        try field(editor).stringValue = "Reading"
+
+        try button(editor, labelled: "Create Space").onActivate?()
+
+        XCTAssertEqual(renamed, ["Reading"], "the form closed on a name it never sent")
+    }
+
+    /// Escape keeps the Space, so it has to keep the name with it — the form
+    /// is an editor, and the field is the only place that name exists.
+    func testEscapeSendsItToo() throws {
+        let editor = editor()
+        var renamed: [String] = []
+        editor.onRename = { renamed.append($0) }
+        try field(editor).stringValue = "Reading"
+
+        editor.cancelOperation(nil)
+
+        XCTAssertEqual(renamed, ["Reading"])
+    }
+
+    /// Once, not once per route out. The field's own commit fires first when
+    /// the button takes the focus off it, and the button's commit must then
+    /// find nothing left to do.
+    func testTheSameNameIsNeverSentTwice() throws {
+        let editor = editor()
+        var renamed: [String] = []
+        editor.onRename = { renamed.append($0) }
+        let field = try field(editor)
+        field.stringValue = "Reading"
+
+        // The field losing focus, then the button that took it, then Escape.
+        _ = field.target?.perform(field.action, with: field)
+        try button(editor, labelled: "Create Space").onActivate?()
+        editor.cancelOperation(nil)
+
+        XCTAssertEqual(renamed, ["Reading"])
+    }
+
+    /// A name left as the swipe made it is not a rename.
+    func testAnUntouchedNameIsNotSent() throws {
+        let editor = editor(named: "Space 2")
+        var renamed: [String] = []
+        editor.onRename = { renamed.append($0) }
+
+        try button(editor, labelled: "Create Space").onActivate?()
+
+        XCTAssertEqual(renamed, [])
+    }
+
+    /// And the mechanism underneath: a press moves the focus, which is what
+    /// makes the field commit before the form is told to close.
+    func testAPressOnAFormButtonTakesTheFocusOffTheField() throws {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 800),
+            styleMask: [.titled], backing: .buffered, defer: false
+        )
+        self.window = window
+        let editor = editor()
+        window.contentView?.addSubview(editor)
+        editor.layoutSubtreeIfNeeded()
+        let field = try field(editor)
+        XCTAssertTrue(window.makeFirstResponder(field))
+
+        let create = try button(editor, labelled: "Create Space")
+        create.mouseDown(with: press(in: window))
+
+        XCTAssertTrue(
+            window.firstResponder === create,
+            "the field still holds the focus, so it never commits what was typed"
+        )
+    }
+
+    private func press(in window: NSWindow) -> NSEvent {
+        NSEvent.mouseEvent(
+            with: .leftMouseDown,
+            location: NSPoint(x: 10, y: 10),
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: window.windowNumber,
+            context: nil,
+            eventNumber: 0,
+            clickCount: 1,
+            pressure: 1
+        )!
+    }
+}

@@ -60,6 +60,11 @@ final class SpacesSection: SettingsSection {
 
     // MARK: Building
 
+    /// The list is the session's, not `UserDefaults`', and every other way of
+    /// making a Space is outside this window — §6.1's swipe, its footer menu,
+    /// and the Command Bar. See `SettingsSection.willAppear`.
+    func willAppear() { build() }
+
     /// Internal, not private: the dialogs live in `Spaces+Dialogs.swift` and
     /// every one of them ends by rebuilding this section.
     func build() {

@@ -190,7 +190,20 @@ final class SpaceEditorButton: NSView {
 
     override func mouseExited(with event: NSEvent) { isHovering = false }
 
-    override func mouseDown(with event: NSEvent) { isPressed = true }
+    /// Takes the focus as well as the press, which is what `NSButton` does and
+    /// what this had to grow because it is not one.
+    ///
+    /// The form's name field commits on Return and on losing the focus
+    /// (`sendsActionOnEndEditing`). With nothing here to lose it to, a name
+    /// typed and then confirmed with `Create Space` was never committed at
+    /// all: the field kept the focus through the click, the form closed, and
+    /// the Space kept the `Space N` the swipe gave it. It also makes the
+    /// keyboard path below reachable by pointer — until now the only way to
+    /// focus one of these was to Tab onto it.
+    override func mouseDown(with event: NSEvent) {
+        isPressed = true
+        window?.makeFirstResponder(self)
+    }
 
     override func mouseDragged(with event: NSEvent) {
         // A finger that has slid off the button is a press being called off,

@@ -67,8 +67,12 @@ final class SpaceEditorView: NSView {
     private let create: SpaceEditorButton
     private let cancel: SpaceEditorButton
     private var action: SettingsAction?
+    /// The name the Space is known to carry — what `commitName` compares
+    /// against, so the same name is never sent twice.
+    private var committedName: String
 
     init(space: Space) {
+        committedName = space.name
         create = SpaceEditorButton(title: String(localized: "Create Space"), isPreferred: true)
         cancel = SpaceEditorButton(title: String(localized: "Cancel"))
         super.init(frame: .zero)
@@ -91,19 +95,22 @@ final class SpaceEditorView: NSView {
         field.focusRingType = .none
         field.cell?.sendsActionOnEndEditing = true
         field.formatter = SpaceNameFormatter()
-        let commit = SettingsAction { [weak self] sender in
-            let typed = (sender as? NSTextField)?.stringValue ?? ""
-            let name = typed.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !name.isEmpty, name != space.name else { return }
-            self?.onRename?(name)
-        }
+        let commit = SettingsAction { [weak self] _ in self?.commitName() }
         field.target = commit
         field.action = #selector(SettingsAction.fire(_:))
         action = commit
 
         swatches = makeSwatches(chosen: space.gradient)
         symbols = makeSymbols(chosen: space.symbolName)
-        create.onActivate = { [weak self] in self?.onClose?() }
+        create.onActivate = { [weak self] in
+            // Belt and braces. The button takes the focus off the field first
+            // (`SpaceEditorButton.mouseDown`), so by here the name has usually
+            // committed itself already and this is a no-op — but the form is
+            // also closed by Escape and by the column going away, and a name
+            // the user typed must not depend on which of those happened.
+            self?.commitName()
+            self?.onClose?()
+        }
         cancel.onActivate = { [weak self] in self?.onCancel?() }
 
         let views = [heading, caption, nameCard, colourCard, iconCard, create, cancel] as [NSView]
@@ -178,10 +185,24 @@ final class SpaceEditorView: NSView {
         applyTokens()
     }
 
-    /// Escape closes it. Nothing is lost: the Space exists, and the name in the
-    /// field was committed when it was typed.
+    /// Escape closes it, keeping the Space and the name in the field. Escape
+    /// is not `Cancel` — see the file header for why the two differ.
     override func cancelOperation(_ sender: Any?) {
+        commitName()
         onClose?()
+    }
+
+    /// Hands the typed name up, once.
+    ///
+    /// `committedName` rather than `space.name`, which is the Space as it was
+    /// when the form opened and is stale the moment the first rename lands:
+    /// compared against that, every later commit looks like a change and the
+    /// field would re-send the same name on every route out of the form.
+    private func commitName() {
+        let name = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, name != committedName else { return }
+        committedName = name
+        onRename?(name)
     }
 
     override var acceptsFirstResponder: Bool { true }
