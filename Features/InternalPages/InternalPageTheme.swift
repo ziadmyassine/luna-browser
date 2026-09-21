@@ -14,13 +14,13 @@
 //  `InternalPageThemeTests` fails if the emitted variables ever stop matching
 //  `InternalPages.paletteVariables`.
 //
-//  Four variants, because the page picks, not Swift. Light and dark (§8.8)
-//  and Increase Contrast (§21.2) are both `prefers-*` media queries inside the
-//  page. That is not a shortcut, it is the only hook that works: on macOS 26.5
-//  Increase Contrast is not an `NSAppearance` (see `Design/Tokens.swift`), so a
-//  Swift-side branch has nothing to observe and no way to invalidate a page
-//  that is already on screen. The contrast values come from `Tokens.Ink`, which
-//  is exactly how `TokenCheck` reaches the same branch.
+//  Four variants, because the page picks rather than Swift. Light and dark
+//  (§8.8) and Increase Contrast (§21.2) are `prefers-*` media queries inside
+//  the page, which is the only hook that works: on macOS 26.5 Increase Contrast
+//  is not an `NSAppearance` (see `Design/Tokens.swift`), so a Swift-side branch
+//  has nothing to observe and no way to invalidate a page already on screen.
+//  The contrast values come from `Tokens.Ink`, which is how `TokenCheck`
+//  reaches the same branch.
 //
 
 import AppKit

@@ -12,19 +12,16 @@
 //  the page leaves the fingers at the speed the fingers had. This is the other
 //  half: one clock for the whole read-out.
 //
-//  Everything §30.9 draws is a function of one number, and only some of
-//  those things are layer properties. The column and the still are transforms
-//  and animate themselves; the §3.5 dot strip is a row of *frames recomputed
-//  from the travel*, and the §8.2a wash is a gradient mixed from it. Animating
-//  the first two and setting the last two outright is exactly what shipped, and
-//  what it looks like is the strip snapping to the Space it is heading for, and
-//  the whole sidebar changing colour, while the column is still a third of the
-//  way there. Nothing is wrong in any one of those views. They are simply not
-//  being asked the same question at the same time.
+//  Everything §30.9 draws is a function of one number, and only some of those
+//  things are layer properties. The column and the still are transforms and
+//  animate themselves; the §3.5 dot strip is a row of frames recomputed from
+//  the travel, and the §8.2a wash is a gradient mixed from it. Animating the
+//  first two and setting the last two outright is what shipped, and it looked
+//  like the strip snapping to the Space it was heading for, and the sidebar
+//  changing colour, while the column was still a third of the way there.
 //
 //  So the number is tweened and the read-out is applied the one way it is
-//  applied while a finger is down. The release is a hand that kept going, which
-//  is both the simplest thing to implement and the thing it should look like.
+//  applied while a finger is down.
 //
 //  A display link rather than a timer, for `ParticleSweepView`'s reason: this
 //  draws a frame, so it should be asked once per frame by the thing that draws
@@ -66,13 +63,12 @@ final class SpaceSwipeSettle {
     /// gesture the user performed and the app ignored.
     ///
     /// Which is why the arrival does not depend on the display link. A
-    /// `CADisplayLink` is a request to be called when a screen is about to draw
-    /// and nothing more: a view in a window that is off screen, minimised or on
-    /// a sleeping display is not drawn, so the link does not fire and the
-    /// journey never reaches its end. Hanging the commit off it makes the Space
-    /// switch conditional on the animation being watched. So the link paints
-    /// and a deadline arrives, whichever gets there first — and on the normal
-    /// path, where the link is ticking, it is the link.
+    /// `CADisplayLink` is a request to be called when a screen is about to
+    /// draw: a view in a window that is off screen, minimised or on a sleeping
+    /// display is not drawn, the link does not fire, and the journey never
+    /// ends. Hanging the commit off it makes the Space switch conditional on
+    /// the animation being watched. So the link paints and a deadline arrives,
+    /// whichever gets there first.
     func run(
         from: SpaceSwipe,
         to: SpaceSwipe,

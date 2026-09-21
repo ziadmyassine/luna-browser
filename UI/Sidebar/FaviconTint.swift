@@ -5,12 +5,10 @@
 //  The colour a site glows in (§3.3): the one hue in its favicon, pulled
 //  out of the icon's own pixels and cached per host beside the icon itself.
 //
-//  Not the page's `theme-color`, and the difference matters here more than it
-//  does anywhere else in the chrome. A pinned tab's page is closed until you
-//  click it — that is what pinning does — so there is no `TabState` to read a
-//  theme colour from, and the glow would arrive a second after the click that
-//  asked for it. The favicon is the one thing about a pinned site that Luna
-//  already has on disk before the site is woken up.
+//  Not the page's `theme-color`. A pinned tab's page is closed until you click
+//  it, so there is no `TabState` to read a theme colour from and the glow would
+//  arrive a second after the click that asked for it. The favicon is the one
+//  thing about a pinned site that Luna already has on disk.
 //
 //  Weighted by chroma, squared, so a minority of coloured pixels wins. The
 //  reference case is X's tile: a black glyph on white, one red

@@ -5,25 +5,22 @@
 //  §6.2's icon and gradient, taken out of the row list and put behind the Space
 //  card's corner button.
 //
-//  Two popups were the wrong shape for both of these settings. A colour
-//  chosen from a menu of twelve words is a colour you have to open the menu
-//  twelve times to compare, and `NSMenuItem.image` does not draw on this macOS
-//  at all (see `SidebarMenu.label`) — so the swatches in that popup were words
-//  with nothing beside them. An icon chosen from a list of nouns is the same
-//  problem: "Flask" is not a picture of a flask. Both are grids of the thing
-//  itself here, which is the only presentation in which "which one is that"
-//  is not a question.
+//  Two popups were the wrong shape for both settings. A colour chosen from a
+//  menu of twelve words has to be opened twelve times to compare, and
+//  `NSMenuItem.image` does not draw on this macOS (see `SidebarMenu.label`), so
+//  the swatches in that popup were words with nothing beside them. "Flask" is
+//  not a picture of a flask either. Both are grids of the thing itself here.
 //
-//  It is a popover rather than a sheet or a second pane because it is two
-//  settings. A pane would need a way back; a sheet would need a Done button;
-//  a popover is dismissed by looking away from it, which is the right cost for
-//  a choice you can undo by making it again.
+//  A popover rather than a sheet or a second pane, because it is two settings:
+//  a pane would need a way back and a sheet a Done button, where a popover is
+//  dismissed by looking away — the right cost for a choice you can undo by
+//  making it again.
 //
-//  Neutral is in the grid, last, and is not a thirteenth colour: §13.6's one
+//  Neutral is last in the grid and is not a thirteenth colour: §13.6's one
 //  click back. Arc needed a help article for "How Do I Restore the Default
 //  Theme" and Zen has an open issue for being unable to unset a gradient at
-//  all, both of which are what happens when the way out is somewhere other
-//  than the way in.
+//  all, both of which follow from putting the way out somewhere other than the
+//  way in.
 //
 
 import AppKit

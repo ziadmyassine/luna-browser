@@ -7,16 +7,14 @@
 //
 //  The swipe's own arithmetic is next door, in `SpaceSwipeTests.swift`.
 //
-//  The dot row is here because it shipped crooked, and then because it
-//  shipped loose. The strip used to size each dot's slot with `.integral`,
-//  which rounds a slot's leading edge down and its trailing edge up,
-//  independently of its neighbours — so three dots in a 56 pt pill drew with
-//  gaps of 18 and 19 pt and the run sat off centre. The slot was also the
-//  pill's width divided by the count, so the spacing was a consequence of how
-//  wide the pill happened to be: two Spaces stood 28 pt apart and eight stood
-//  12 pt apart, in the same strip. Neither is a bug a test can catch by
-//  asserting a number someone typed; both are caught by asserting the
-//  properties the layout is supposed to have, at every count.
+//  The dot row is here because it shipped crooked and then shipped loose. The
+//  strip used to size each slot with `.integral`, which rounds a leading edge
+//  down and a trailing edge up independently of its neighbours, so three dots
+//  in a 56 pt pill drew with gaps of 18 and 19 pt off centre. The slot was also
+//  the pill's width divided by the count, so two Spaces stood 28 pt apart and
+//  eight stood 12 pt apart in the same strip. Neither is catchable by asserting
+//  a number someone typed; both are caught by asserting the properties the
+//  layout is supposed to have, at every count.
 //
 
 import AppKit
