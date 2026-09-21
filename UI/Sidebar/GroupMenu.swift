@@ -21,8 +21,9 @@
 //  by a right-click and named on its own row, so renaming it later is the same
 //  gesture the user already did once, and the icons are a submenu because a
 //  list of sixteen pictures is a thing to point at rather than a thing to
-//  answer. That is also why nothing here ends in an ellipsis: no item opens
-//  anything before it commits.
+//  answer. Only *Emoji…* ends in an ellipsis, and it earns it: macOS's own
+//  palette opens over the row, and until the user picks from it nothing has
+//  been decided.
 //
 
 import AppKit
@@ -44,12 +45,19 @@ enum GroupMenu {
     }
 
     /// - Parameter rename: opens the name field on the folder's own row.
-    static func build(for group: TabGroup, actions: Actions, rename: @escaping () -> Void) -> NSMenu {
+    /// - Parameter emoji: opens the same field over the folder's icon, with
+    ///   macOS's emoji palette over it.
+    static func build(
+        for group: TabGroup,
+        actions: Actions,
+        rename: @escaping () -> Void,
+        emoji: @escaping () -> Void
+    ) -> NSMenu {
         let menu = NSMenu()
         menu.autoenablesItems = false
 
         menu.addItem(SidebarMenu.glyphItem(String(localized: "Rename"), symbol: "pencil", action: rename))
-        menu.addItem(iconSubmenu(current: group.symbolName, actions: actions))
+        menu.addItem(iconSubmenu(current: group.symbolName, actions: actions, emoji: emoji))
         menu.addItem(.separator())
 
         // §3.4b: a folder stands on one side of the rule or the other, and its
@@ -100,11 +108,24 @@ enum GroupMenu {
     /// A submenu rather than a dialog, for the reason the file header gives, and
     /// a tick rather than a highlight because `NSMenuItem.state` is the one
     /// "this is the current one" macOS draws without being asked.
-    private static func iconSubmenu(current: String, actions: Actions) -> NSMenuItem {
+    private static func iconSubmenu(current: String, actions: Actions, emoji: @escaping () -> Void) -> NSMenuItem {
         let parent = NSMenuItem(title: String(localized: "Change Icon"), action: nil, keyEquivalent: "")
         parent.attributedTitle = SidebarMenu.label(symbol: "photo", title: parent.title)
         let submenu = NSMenu()
         submenu.autoenablesItems = false
+        // First, and with the ellipsis the sixteen below do without: it is the
+        // one item here that opens something before it commits. Above them
+        // rather than below because it is the open end of the list — the
+        // sixteen are a vocabulary and this is every other picture there is.
+        submenu.addItem(SidebarMenu.glyphItem(
+            String(localized: "Emoji…"),
+            symbol: "face.smiling",
+            action: emoji
+        ))
+        // Ticked when the folder is wearing one, which is how the submenu says
+        // that the sixteen below are not the only answer.
+        submenu.items.first?.state = RowEmoji.isEmoji(current) ? .on : .off
+        submenu.addItem(.separator())
         for symbol in symbols {
             let item = SidebarMenu.glyphItem(symbol.label, symbol: symbol.name) { actions.setIcon(symbol.name) }
             item.state = symbol.name == current ? .on : .off

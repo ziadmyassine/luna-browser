@@ -45,6 +45,9 @@ final class TabListController: NSObject {
     /// §3.4b: a folder's name was typed on its own row and confirmed.
     var onRenameGroup: ((UUID, String) -> Void)?
 
+    /// §3.4b's icon, picked from macOS's emoji palette on the folder's own row.
+    var onSetGroupIcon: ((UUID, String) -> Void)?
+
     /// §3.4a's rename, typed on the row. Blank means "give the name back to the
     /// page" — `BrowserSession.renameTab` is where that is read.
     var onRenameTab: ((UUID, String) -> Void)?
@@ -86,7 +89,9 @@ final class TabListController: NSObject {
     /// A press landed on a tab row. `SidebarTabDragController` runs the rest
     /// of the gesture from here — see `SidebarTabDrag.swift` for why the list
     /// does not use `NSTableView`'s own drag and drop for this.
-    var onTabPress: ((_ row: Int, _ event: NSEvent) -> Void)?
+    /// - Returns: whether the press became §6.6's lift. A folder's header uses
+    ///   the answer to decide whether the gesture was a fold or a move.
+    var onTabPress: ((_ row: Int, _ event: NSEvent) -> Bool)?
     /// The row being carried, while §6.6's lift is up. Its view is hidden: the
     /// lift is standing in for it. Internal because the gesture lives in
     /// `TabListController+Lift.swift`, as `isApplyingSelection` is for the
@@ -321,10 +326,17 @@ final class TabListController: NSObject {
             table.selectRowIndexes([row], byExtendingSelection: false)
             onTabPress?(row, event)
         case let .group(id):
-            // The whole header folds it, not only the chevron: a heading over a
-            // list is the affordance, and aiming at a 16 pt glyph to put a group
-            // away is a smaller target than the thing it is about.
-            guard Self.isClick(event, on: row, in: table) else { return }
+            // A folder's header does two things, told apart by whether the hand
+            // moved. Still there it folds — the whole header, not only the
+            // chevron, because a heading over a list is the affordance and a
+            // 16 pt glyph is a smaller target than the thing it is about. Moved
+            // it lifts, because a folder is a slot in §3.4b's list like any
+            // other and has to be movable to be arranged.
+            //
+            // The lift runs the event loop itself, so this cannot ask first: by
+            // the time there is an answer the gesture is over, and the answer
+            // is what it returns.
+            guard onTabPress?(row, event) != true else { return }
             onToggleGroup?(id)
         case .addTab:
             guard Self.isClick(event, on: row, in: table) else { return }

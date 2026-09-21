@@ -64,6 +64,10 @@ actor BrowserImporter {
             reader: reader,
             ledgerKey: ImportLedger.key(request),
             spaceName: request.spaceName,
+            // The browser, not the profile inside it: a folder called "Chrome"
+            // is what the user came looking for, and two of that browser's
+            // profiles belong in the same one.
+            folderName: request.source.displayName,
             surfaces: request.surfaces,
             targetSpaceID: request.targetSpaceID,
             dryRun: dryRun,
@@ -79,6 +83,7 @@ actor BrowserImporter {
         reader: any ProfileReader,
         ledgerKey: String,
         spaceName: String,
+        folderName: String? = nil,
         surfaces: ImportSurfaces = .all,
         targetSpaceID: UUID? = nil,
         dryRun: Bool = false,
@@ -87,24 +92,32 @@ actor BrowserImporter {
         var summary = ImportSummary(isDryRun: dryRun)
         var entry = ledger.entry(ledgerKey)
 
+        // One Space for the whole import. Since `v8` an imported visit joins a
+        // Space's history the way an imported bookmark joins its tabs, and two
+        // answers to "which Space" is how the two halves of one import come
+        // apart.
+        //
+        // Still resolved by whichever surface needs it first rather than up
+        // front, because a browser with nothing to give must not leave an empty
+        // Space behind.
+        var target: UUID?
+
         // Bookmarks first: bounded, and what the user actually looks for. A
         // history import cancelled halfway has still delivered them.
         if surfaces.contains(.bookmarks) {
             progress?(ImportProgress(phase: .bookmarks, completed: 0, total: nil))
             do {
                 let bookmarks = try reader.bookmarks()
-                // No bookmarks, no Space. History in Luna is global (§11.1's
-                // `places`/`visits` have no space column), so a history-only
-                // import needs no Space at all and must not leave an empty one.
                 if !bookmarks.isEmpty {
-                    let spaceID = try await resolveTargetSpace(
-                        explicit: targetSpaceID,
-                        name: spaceName,
-                        entry: &entry,
+                    let spaceID = try await resolveTargetSpace(explicit: targetSpaceID, name: spaceName, entry: &entry, dryRun: dryRun)
+                    target = spaceID
+                    summary.targetSpaceID = spaceID
+                    let result = try await write(
+                        bookmarks,
+                        into: spaceID,
+                        folder: folderName ?? spaceName,
                         dryRun: dryRun
                     )
-                    summary.targetSpaceID = spaceID
-                    let result = try await write(bookmarks, into: spaceID, dryRun: dryRun)
                     summary.bookmarksAdded = result.added
                     summary.bookmarksSkipped = result.skipped
                 }
@@ -115,7 +128,17 @@ actor BrowserImporter {
         }
 
         if surfaces.contains(.history) {
-            await importHistory(reader: reader, entry: &entry, dryRun: dryRun, into: &summary, progress: progress)
+            if target == nil {
+                target = try await resolveTargetSpace(explicit: targetSpaceID, name: spaceName, entry: &entry, dryRun: dryRun)
+                summary.targetSpaceID = target
+            }
+            await importHistory(
+                reader: reader,
+                entry: &entry,
+                target: ImportTarget(space: target, dryRun: dryRun),
+                into: &summary,
+                progress: progress
+            )
         }
 
         progress?(ImportProgress(phase: .finishing, completed: summary.visitsAdded, total: nil))
@@ -123,10 +146,20 @@ actor BrowserImporter {
         return summary
     }
 
+    /// Where an import is putting things: the Space everything lands in, and
+    /// whether this run is only rehearsing.
+    ///
+    /// `space` is nil only if the caller never resolved one, and a visit that
+    /// arrives without a Space is in no Space's history at all.
+    private struct ImportTarget {
+        var space: UUID?
+        var dryRun: Bool
+    }
+
     private func importHistory(
         reader: any ProfileReader,
         entry: inout ImportLedger.Entry,
-        dryRun: Bool,
+        target: ImportTarget,
         into summary: inout ImportSummary,
         progress: (@Sendable (ImportProgress) -> Void)?
     ) async {
@@ -148,7 +181,7 @@ actor BrowserImporter {
                 cursor = page.lastRowID
                 highest = max(highest, page.visits.map(\.sourceStamp).max() ?? highest)
 
-                if !dryRun {
+                if !target.dryRun {
                     // One store transaction per page, not per visit (§11.5):
                     // `recordVisit` buffers and `flush` commits the batch, so
                     // the store's actor is entered and left per page rather
@@ -158,7 +191,8 @@ actor BrowserImporter {
                             url: visit.url,
                             title: visit.title,
                             kind: visit.kind,
-                            at: visit.at
+                            at: visit.at,
+                            inSpace: target.space
                         )
                     }
                     try await store.flush()
@@ -209,7 +243,15 @@ actor BrowserImporter {
             entry: &entry,
             dryRun: dryRun
         )
-        let result = try await write(bookmarks, into: spaceID, dryRun: dryRun)
+        let result = try await write(
+            bookmarks,
+            into: spaceID,
+            // The file's own name. There is no browser to ask — an HTML export
+            // says nothing about who wrote it — and the name the user saved it
+            // under is the nearest true thing.
+            folder: name.isEmpty ? String(localized: "Imported") : name,
+            dryRun: dryRun
+        )
         return ImportSummary(
             isDryRun: dryRun,
             bookmarksAdded: result.added,

@@ -34,9 +34,12 @@ extension TabListController {
         }
         if let group = list.group(at: row) {
             guard let actions = groupMenuActions?(group.id) else { return nil }
-            return GroupMenu.build(for: group, actions: actions) { [weak self] in
-                self?.beginRenaming(group: group.id)
-            }
+            return GroupMenu.build(
+                for: group,
+                actions: actions,
+                rename: { [weak self] in self?.beginRenaming(group: group.id) },
+                emoji: { [weak self] in self?.beginPickingEmoji(group: group.id) }
+            )
         }
         guard let tab = list.tab(at: row), let actions = menuActions?(tab.id) else { return nil }
         return TabMenu.build(
@@ -72,10 +75,23 @@ extension TabListController {
         beginRenaming(atRow: row, showing: tab.customTitle ?? tab.title)
     }
 
+    /// §3.4b's *Emoji…*, on a folder's own row.
+    func beginPickingEmoji(group id: UUID) {
+        guard let row = list.row(ofGroup: id), let view = rowView(at: row) else { return }
+        view.beginPickingEmoji()
+    }
+
     private func beginRenaming(atRow row: Int, showing name: String) {
+        guard let view = rowView(at: row) else { return }
+        view.beginEditing(name)
+    }
+
+    /// The row's view, scrolled to and ready to take the keyboard.
+    /// `makeIfNecessary` matters — a folder made while the list is scrolled
+    /// away has no view yet.
+    private func rowView(at row: Int) -> SidebarRowView? {
         table.scrollRowToVisible(row)
         table.window?.makeFirstResponder(table)
-        guard let view = table.view(atColumn: 0, row: row, makeIfNecessary: true) as? SidebarRowView else { return }
-        view.beginEditing(name)
+        return table.view(atColumn: 0, row: row, makeIfNecessary: true) as? SidebarRowView
     }
 }

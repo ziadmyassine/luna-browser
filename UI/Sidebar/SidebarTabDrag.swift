@@ -116,14 +116,21 @@ final class SidebarTabDragController {
     /// care about out of the queue rather than letting them go through the
     /// responder chain. Escape cancels, which is the one thing every drag on
     /// macOS can do and the one thing a hand-rolled one usually cannot.
-    func track(row: Int, event: NSEvent) {
+    ///
+    /// - Returns: whether the press became a lift. False is a click, and the
+    ///   caller is what knows what a click on that row means — a folder's
+    ///   header both folds and moves, and the two are told apart by whether the
+    ///   hand went anywhere.
+    @discardableResult
+    func track(row: Int, event: NSEvent) -> Bool {
         let origin = list.pillRect(ofRow: row, in: host)
         let content = list.content(for: row)
         if let group = list.list.group(at: row) {
-            track(cargo: .group(group), content: content, origin: origin, event: event)
+            return track(cargo: .group(group), content: content, origin: origin, event: event)
         } else if let tab = list.list.tab(at: row) {
-            track(cargo: .tab(id: tab.id, kind: tab.kind), content: content, origin: origin, event: event)
+            return track(cargo: .tab(id: tab.id, kind: tab.kind), content: content, origin: origin, event: event)
         }
+        return false
     }
 
     /// The same gesture, started on a §3.3 tile. It lifts as a tile, can be
@@ -131,7 +138,7 @@ final class SidebarTabDragController {
     /// which is the whole point of there being one gesture rather than two.
     func track(essential id: UUID, from tile: NSView, event: NSEvent) {
         guard let content = grid.content(for: id) else { return }
-        track(
+        _ = track(
             cargo: .tab(id: id, kind: .essential),
             content: content,
             origin: host.convert(tile.bounds, from: tile),
@@ -139,8 +146,14 @@ final class SidebarTabDragController {
         )
     }
 
-    private func track(cargo: SidebarCargo, content: SidebarRowContent, origin: NSRect, event: NSEvent) {
-        guard let window = host.window else { return }
+    @discardableResult
+    private func track(
+        cargo: SidebarCargo,
+        content: SidebarRowContent,
+        origin: NSRect,
+        event: NSEvent
+    ) -> Bool {
+        guard let window = host.window else { return false }
         self.cargo = cargo
         let start = host.convert(event.locationInWindow, from: nil)
         var grabOffset = start.y - origin.midY
@@ -171,9 +184,10 @@ final class SidebarTabDragController {
 
         guard lifted else {
             self.cargo = nil
-            return
+            return false
         }
         finish(cargo: cargo, cancelled: cancelled)
+        return true
     }
 
     // MARK: - The gesture

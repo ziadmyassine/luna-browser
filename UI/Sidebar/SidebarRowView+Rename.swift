@@ -55,14 +55,19 @@ extension SidebarRowView: NSTextFieldDelegate {
     /// the width it needs and faded where it runs out; a name being typed is
     /// longer than the name that fitted, and a field cut to the old one would
     /// scroll its own text under the caret for no reason.
+    /// - Parameter icon: the row's icon slot, which is where the field stands
+    ///   while it is asking for an emoji. What is being replaced then is the
+    ///   picture, and a field over the name would read as a rename.
     /// - Parameter reserve: what the trailing end of the row is already using —
     ///   §3.4b's chevron on a folder's header, nothing on a tab.
-    func placeEditor(startingAt x: CGFloat, reserving reserve: CGFloat) {
+    func placeEditor(title box: NSRect, icon: NSRect, reserving reserve: CGFloat) {
         let height = editor.intrinsicContentSize.height
+        let x = isPickingEmoji ? icon.minX : box.minX
+        let right = isPickingEmoji ? icon.maxX : bounds.width - 2 * Tokens.Metric.rowInset - reserve
         editor.frame = NSRect(
             x: x,
             y: (bounds.height - height) / 2,
-            width: max(bounds.width - 2 * Tokens.Metric.rowInset - reserve - x, 0),
+            width: max(right - x, 0),
             height: height
         ).integral
     }
@@ -73,25 +78,54 @@ extension SidebarRowView: NSTextFieldDelegate {
         guard let window else { return }
         editor.stringValue = name
         editor.isHidden = false
+        setTitleHidden(true)
         needsLayout = true
         // Laid out before the field takes focus: the field editor copies the
         // frame it finds, so a field still at its old size shows the caret in
         // the wrong place for the length of the edit.
         layoutSubtreeIfNeeded()
         window.makeFirstResponder(editor)
-        // The field editor is one shared `NSTextView` the window lends out, and
-        // it arrives wearing whatever the last field left on it. Set every time
-        // rather than once: the row does not own it and cannot keep it.
-        if let live = editor.currentEditor() as? NSTextView {
-            live.drawsBackground = false
-            live.backgroundColor = .clear
-            live.insertionPointColor = Tokens.Text.primary
-            live.selectedTextAttributes = [
-                .backgroundColor: Tokens.Surface.selected,
-                .foregroundColor: Tokens.Text.primary
-            ]
-        }
+        styleFieldEditor()
         editor.currentEditor()?.selectAll(nil)
+    }
+
+    /// §3.4b's *Emoji…*: the icon slot becomes a one-character field and macOS's
+    /// own palette opens over it.
+    ///
+    /// The palette rather than a grid of Luna's own, because there are three
+    /// thousand emoji and the user already knows where theirs are — it has a
+    /// search field, a frequently-used row and their own skin tones, and none
+    /// of that is worth rebuilding badly. It inserts into whatever field has
+    /// focus, which is the whole reason there is a field here at all: the row
+    /// does not want the text, it wants the one character the palette sends.
+    ///
+    /// The name stays visible. It is the picture being changed, and a row that
+    /// blanked its title to ask about its icon would be asking the wrong
+    /// question.
+    func beginPickingEmoji() {
+        guard let window else { return }
+        isPickingEmoji = true
+        editor.stringValue = ""
+        editor.isHidden = false
+        needsLayout = true
+        layoutSubtreeIfNeeded()
+        window.makeFirstResponder(editor)
+        styleFieldEditor()
+        NSApp.orderFrontCharacterPalette(nil)
+    }
+
+    /// The field editor is one shared `NSTextView` the window lends out, and it
+    /// arrives wearing whatever the last field left on it. Set every time
+    /// rather than once: the row does not own it and cannot keep it.
+    private func styleFieldEditor() {
+        guard let live = editor.currentEditor() as? NSTextView else { return }
+        live.drawsBackground = false
+        live.backgroundColor = .clear
+        live.insertionPointColor = Tokens.Text.primary
+        live.selectedTextAttributes = [
+            .backgroundColor: Tokens.Surface.selected,
+            .foregroundColor: Tokens.Text.primary
+        ]
     }
 
     /// Takes the field away. `commit` false is Escape and every path that is not
@@ -99,7 +133,10 @@ extension SidebarRowView: NSTextFieldDelegate {
     func endEditing(commit: Bool) {
         guard !editor.isHidden else { return }
         let typed = editor.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let wasPickingEmoji = isPickingEmoji
+        isPickingEmoji = false
         editor.isHidden = true
+        setTitleHidden(false)
         // The list gets the focus back, or the whole window has none: the field
         // is about to stop existing as far as the responder chain is concerned,
         // and a window with no first responder swallows the next arrow key.
@@ -107,7 +144,7 @@ extension SidebarRowView: NSTextFieldDelegate {
         // Blank goes through rather than being dropped here. A folder refuses
         // it and a tab reads it as "give the name back to the page", and only
         // the row knows which of the two it is.
-        guard commit else { return }
+        guard commit, !wasPickingEmoji else { return }
         onRename?(typed)
     }
 
@@ -133,5 +170,21 @@ extension SidebarRowView: NSTextFieldDelegate {
     /// responder itself, and that comes back through here.
     public func controlTextDidEndEditing(_ notification: Notification) {
         endEditing(commit: true)
+    }
+
+    /// The emoji arrives as a change rather than as a return: the palette
+    /// inserts a character and then sits there, so waiting for the user to
+    /// confirm would be waiting for a keystroke they have no reason to make.
+    /// The first character closes the field.
+    ///
+    /// Anything that is not an emoji is discarded rather than stored — the
+    /// field is open to the keyboard as well as the palette, and a folder
+    /// wearing the letter `k` is not an icon.
+    public func controlTextDidChange(_ notification: Notification) {
+        guard isPickingEmoji, let first = editor.stringValue.first else { return }
+        let chosen = String(first)
+        endEditing(commit: false)
+        guard RowEmoji.isEmoji(chosen) else { return }
+        onPickEmoji?(chosen)
     }
 }

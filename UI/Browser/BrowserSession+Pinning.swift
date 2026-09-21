@@ -165,11 +165,20 @@ extension BrowserSession {
     /// The selection cannot stay on a tab that no longer has a page. Shared by
     /// both halves above: what differs between them is what happens to the
     /// row, never what happens to the selection.
+    ///
+    /// Never onto the row it is leaving, and never onto a row that has already
+    /// been closed once. §3.4b's saved row takes two presses and `⌘W` is the
+    /// fast one: the fallback used to be "the first row in the Space", which
+    /// for a saved tab at the top of the column was the row that had just been
+    /// closed — so the second `⌘W` landed on it again and took it out of
+    /// Saved, half a second after the first. A dormant row is excluded for the
+    /// same reason wherever it stands: the selection sitting on one is the
+    /// second press already lined up.
     func releaseSelection(of id: UUID, in spaceID: UUID) {
         recentTabs.removeAll { $0 == id }
         if activeTabBySpace[spaceID] == id {
             activeTabBySpace[spaceID] = recentTabs.first { list.tab($0)?.spaceID == spaceID }
-                ?? list[spaceID].first { $0.kind != .essential }?.id
+                ?? list[spaceID].first { $0.id != id && $0.kind != .essential && !$0.isDormant }?.id
         }
         notifyChange()
     }

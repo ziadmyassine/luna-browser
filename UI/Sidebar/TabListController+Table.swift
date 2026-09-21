@@ -56,6 +56,10 @@ extension TabListController: NSTableViewDelegate {
             guard let self, let view, case let .group(id)? = list[table.row(for: view)] else { return }
             onToggleGroup?(id)
         }
+        view.onPickEmoji = { [weak self, weak view] emoji in
+            guard let self, let view, case let .group(id)? = list[table.row(for: view)] else { return }
+            onSetGroupIcon?(id, emoji)
+        }
         view.onRename = { [weak self, weak view] name in
             guard let self, let view else { return }
             switch list[table.row(for: view)] {

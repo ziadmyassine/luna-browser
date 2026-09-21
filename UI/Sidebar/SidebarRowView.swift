@@ -108,16 +108,21 @@ final class SidebarRowView: NSView {
     let outline = NSView()
     private let dot = NSView()
     /// Clips and fades both title layers. See the header.
-    private let titleClip = NSView()
+    let titleClip = NSView()
     private let title = NSTextField(labelWithString: "")
     /// The bright copy the §3.4 shimmer sweeps across. Hidden unless loading.
     private let shimmer = NSTextField(labelWithString: "")
     private let shimmerMask = CAGradientLayer()
-    private let fadeMask = CAGradientLayer()
+    let fadeMask = CAGradientLayer()
     private let trailing = RowGlyphView()
     /// §3.4b's rename, typed on the row itself. Hidden until it is asked for —
     /// see `SidebarRowView+Rename.swift`, which is the rest of it.
     let editor = NSTextField()
+    var onPickEmoji: ((String) -> Void)?
+    /// Which question the field is asking: the row's name, or §3.4b's icon.
+    /// The same field does both, standing over the title for one and over the
+    /// icon for the other — see `SidebarRowView+Rename.swift`.
+    var isPickingEmoji = false
     private var content = SidebarRowContent()
 
     override init(frame frameRect: NSRect) {
@@ -191,9 +196,13 @@ final class SidebarRowView: NSView {
         content = next
         title.stringValue = next.title
         shimmer.stringValue = next.title
+        // §3.4b: a folder's glyph is either an SF Symbol's name or an emoji,
+        // and an emoji is never a template — see `RowEmoji`.
+        let emoji = RowEmoji.image(next.symbolName, pointSize: Tokens.Metric.faviconSize)
         icon.image = next.favicon
+            ?? emoji
             ?? NSImage(systemSymbolName: next.symbolName, accessibilityDescription: nil)
-        icon.image?.isTemplate = next.favicon == nil
+        icon.image?.isTemplate = next.favicon == nil && emoji == nil
         dot.isHidden = !next.hasUnread
         setAccessibilityLabel(next.title)
         applyDisclosure(next.disclosure)
@@ -393,7 +402,7 @@ final class SidebarRowView: NSView {
             height: height
         ).integral
         titleClip.frame = box
-        placeEditor(startingAt: box.minX, reserving: chevronReserve)
+        placeEditor(title: box, icon: icon.frame, reserving: chevronReserve)
 
         // Laid out at their natural width so nothing truncates; the clip box
         // and `fade` are what end the line.
@@ -417,17 +426,4 @@ final class SidebarRowView: NSView {
         content.disclosure == nil ? 0 : Tokens.Metric.groupChevronSlot.width + Tokens.Metric.rowTitleGap
     }
 
-    /// §3.4's fade. Nil mask when the title fits: a gradient that is opaque
-    /// end to end still costs a masked composite on every row of every scroll.
-    private func applyFade(overflowing: Bool, width: CGFloat) {
-        guard overflowing, width > Tokens.Metric.rowTitleFade else {
-            titleClip.layer?.mask = nil
-            return
-        }
-        let ink = Tokens.Text.primary
-        fadeMask.frame = titleClip.bounds
-        fadeMask.colors = [ink.cgColor, ink.cgColor, ink.withAlphaComponent(0).cgColor]
-        fadeMask.locations = [0, NSNumber(value: Double(1 - Tokens.Metric.rowTitleFade / width)), 1]
-        titleClip.layer?.mask = fadeMask
-    }
 }

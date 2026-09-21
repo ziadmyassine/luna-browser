@@ -57,7 +57,7 @@ extension SidebarViewController {
         controller.onDropOnSpace = { [weak self] id, space in
             self?.session.moveTab(id, toSpace: space)
         }
-        list.onTabPress = { [weak controller] row, event in controller?.track(row: row, event: event) }
+        list.onTabPress = { [weak controller] row, event in controller?.track(row: row, event: event) ?? false }
         essentials.onDragTile = { [weak controller] id, tile, event in
             controller?.track(essential: id, from: tile, event: event)
         }
