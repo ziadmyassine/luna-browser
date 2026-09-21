@@ -1566,6 +1566,17 @@ changes, so one plane has to serve both kinds of Mac;
 its toolbar and status bar off; the icons sit on the line the arrow is drawn
 between.
 
+**The backdrop cannot follow the appearance, and three probes say why.** A
+picture with an alpha channel is composited — but onto a fixed white, measured
+identical under both appearances, so a translucent plane is a white page on a
+dark Mac. A volume with no background picture at all gets Finder's own icon
+view background, which *does* react (near-black with white labels in dark, white
+with black labels in light) — and has no artwork, no arrow and no instruction
+on it. And `backgroundImageAlias` is a single alias: one picture, resolved once.
+So the choice is art or reaction, and `make dmg` builds **both planes** —
+`Luna.dmg` and `Luna-light.dmg` — because the one place a Mac's appearance can
+pick the art is the download. A page that cannot choose links `Luna.dmg`.
+
 **The app icon on that page is not ours to switch.** macOS 26 has an icon
 appearance of its own — System Settings ▸ Appearance ▸ *Icon & widget style* —
 and pinning it to Dark renders every app's icon dark in light mode, Luna's with

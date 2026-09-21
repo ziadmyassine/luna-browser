@@ -33,7 +33,19 @@ fmt:
 check: lint
 	Tools/check-no-appkit.sh
 
-# §30.17's installer. Takes whatever is in Debug unless given a path, which is
-# right for looking at it and wrong for shipping one.
+# §30.17's installer. Takes the Release build unless given a path.
+#
+# Two images, because a disk image's backdrop is one picture in the volume's
+# `.DS_Store` and nothing re-reads it when the appearance changes — measured,
+# UI-SPEC §5.3. The only place a Mac's appearance can pick the art is the
+# download, so a release publishes both and the page chooses on
+# `prefers-color-scheme`. `Luna.dmg` is the one to link when it cannot.
+# Spelled out rather than left to the script's own defaults, because the
+# second line below has to name the same app and a neighbouring file.
+APP ?= DerivedData/Build/Products/Release/Luna.app
+DMG ?= build/Luna.dmg
+DMG_LIGHT := $(patsubst %.dmg,%-light.dmg,$(DMG))
+
 dmg:
 	Tools/make-dmg.sh $(APP) $(DMG)
+	Tools/make-dmg.sh $(APP) $(DMG_LIGHT) --light
