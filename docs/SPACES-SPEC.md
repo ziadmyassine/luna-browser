@@ -4,6 +4,11 @@ Written 2026-09-18. This is the source of truth for Spaces, Profiles and the
 sidebar hierarchy. Where it disagrees with §5/§7's older lines in `TODO.md`,
 this wins; the corrections are called out in §11 so nothing is lost silently.
 
+Status re-checked against the code on 2026-09-21: S1 is built, S2's gradients
+are, and S3 is built apart from the two items §10 names. Sections that proposed
+work now done say so where they say it; the research and the decisions behind
+them are unchanged.
+
 Luna's target is **Arc's interaction model**. Arc is installed on this machine,
 so the model below was read off its own `StorableSidebar.json` rather than from
 anybody's blog post. Everything attributed to another browser was read from its
@@ -66,13 +71,15 @@ Profile, and every Space sharing that Profile shares its Favorites.
 | **Pinned** | per Space | Persistent list. Never auto-archives. |
 | **Today** | per Space | Auto-archives on the §12.3 schedule. |
 
-**This is decision D-S2 and it changes existing behaviour.** Luna's `TabList` is
-`[UUID: [Tab]]` keyed by Space, and `.essential` sits inside it, so Favorites are
-currently **per-Space**. `TODO.md` §46 claims the opposite — "global, survives
-Space switching". Both are wrong; Arc's answer is per-Profile, and Zen
-independently lands near it by stripping a tab's workspace id when it is
-promoted to Essential (`ZenPinnedTabManager.mjs:542-544`), making Essentials
-global with an optional per-container mode.
+**This is decision D-S2, and it is built.** `TabList` still stores
+`[UUID: [Tab]]` keyed by Space — an `.essential` row keeps the Space it was
+promoted in — but resolves them per Profile, so every Space sharing that Profile
+lists the same tiles (`TabList.favorites(onProfile:)`). `TODO.md` §46's "global,
+survives Space switching" is the wrong half of it: global across a Profile, not
+across the app. Arc's answer is per-Profile, and Zen independently lands near it
+by stripping a tab's workspace id when it is promoted to Essential
+(`ZenPinnedTabManager.mjs:542-544`), making Essentials global with an optional
+per-container mode.
 
 Per-Profile is the right answer for the same reason the Profile exists at all: a
 Favorite is a logged-in app tile. A tile that opens in a Space whose cookie jar
@@ -107,13 +114,16 @@ Verified in `WKWebsiteDataStore.h` on this machine, not recalled:
     // Default or non-persistent data stores do not have an identifier.
 ```
 
-Three consequences, each a work item:
+Three consequences:
 
 1. **The all-zero UUID throws an Objective-C exception, which Swift cannot
-   catch.** Luna has no guard: `dataStoreIdentifier` is a `NOT NULL UNIQUE` blob
-   column with no value check, and nothing validates it on read. A bad migration
-   or a decode default crashes the app un-catchably. **Guard at the GRDB read
-   boundary.** None of the five codebases researched does this.
+   catch**, so it has to be stopped before WebKit sees it, where it is still
+   data rather than a stack trace. `dataStoreIdentifier` is `NOT NULL UNIQUE`
+   with no value check, and SQLite cannot gain a `CHECK` without rebuilding
+   every table pointing at it, so the invariant is held in Swift on both sides
+   of the column: `BrowserStore.upsert(_:)` refuses to write a zero, and
+   `profiles()` mints a replacement for one it finds on read. None of the five
+   codebases researched does this.
 2. **WebKit is the registry.** `allDataStoreIdentifiers` is the source of truth
    for which stores exist on disk, so a failed delete is always recoverable on a
    later launch and orphan cleanup is cheap. DuckDuckGo relies on exactly this:
@@ -127,7 +137,8 @@ Three consequences, each a work item:
 ### 3.2 Deletion is a retry loop, not a call
 
 Every project that ships this in production arrived at the same shape
-independently — Crest (MPL-2.0) and DuckDuckGo. Luna should too:
+independently — Crest (MPL-2.0) and DuckDuckGo. Luna's is
+`BrowserKit/Store/WebsiteDataStoreRemoval.swift`:
 
 1. Release every `WKWebView` on the store, and drop the cached reference.
 2. Check `allDataStoreIdentifiers`; absent → already done.
@@ -185,12 +196,16 @@ once by a plausible-sounding API detail that did not exist (§15.1). If it works
 "move my logins across" becomes the default and the logout becomes the opt-out.
 If it does not, ship Arc's warning and be honest that it is a fresh session.
 
-**Either way, reassigning a Profile must rebuild every web view in that Space.**
-Nook's `assign(spaceId:toProfile:)` sets the field and persists, and nothing
-else — so every already-loaded tab keeps writing to the old store until
-something unloads it. Ora has the fix in fifteen lines
+**The spike is still to do.** Nothing calls `fetchData`/`restoreData` yet, so
+`setProfile` ships Arc's warning and an honest fresh session.
+
+**Either way, reassigning a Profile must rebuild every web view in that Space**,
+and `setProfile` does. Nook's `assign(spaceId:toProfile:)` sets the field and
+persists, and nothing else — so every already-loaded tab keeps writing to the old
+store until something unloads it. Ora has the fix in fifteen lines
 (`refreshBrowserPageForPrivacySettings`: destroy → recreate, driven by a
-notification). That is the shape Luna's `setProfile` needs.
+notification); Luna discards every controller in the Space, live or cold, because
+a cold one still holds the old store and would hand it to the next `activate()`.
 
 ---
 
@@ -283,21 +298,21 @@ Space is never in the illegal zero-tab state.
 
 ### 6.1 Create
 A new Space takes a name, an SF Symbol and the next gradient. **It must be able
-to join an existing Profile**, which is impossible today: `createSpace(name:)`
-always mints a fresh `Profile`, so many-Spaces-to-one-Profile is modelled and
-unreachable. Signature becomes `createSpace(name:profileID:)`, defaulting to a
-new Profile.
+to join an existing Profile**, or many-Spaces-to-one-Profile is modelled and
+unreachable. Built as `createSpace(name:profileID:)`, defaulting to a new
+Profile.
 
 ### 6.2 Rename, reorder, re-icon, re-gradient
-All missing; four Settings rows are dimmed for it. All are `Space` field writes
-plus a persist and a `notifyChange`.
+All four are `Space` field writes plus a persist and a `notifyChange`, and all
+four are built — from the sidebar's own editor as well as from Settings.
 
 **Reordering is the biggest hole in the entire prior art — nobody implements
 it.** Nook persists an index and has no reorder function; Ora has no order field
-at all; Refrax has `position` and sorts by it but never reorders. Copy Nook's
-one good idea instead: on load, compare the persisted order against `0..<n` and
-renumber if it differs. That self-heal makes `reorderSpace` trivial and
-immunises `delete(spaceID:)` against the gaps every delete leaves.
+at all; Refrax has `position` and sorts by it but never reorders. Nook's one
+good idea was taken instead: `BrowserStore.spaces()` compares the persisted order
+against `0..<n` on load and renumbers if it differs. That self-heal is what makes
+`reorderSpace` trivial, and it immunises `delete(spaceID:)` against the gaps
+every delete leaves.
 
 ### 6.3 Delete a Space
 Luna's `deleteSpace` is already better than most: last-Space guard, tears down
@@ -415,17 +430,20 @@ you are about to use.
 
 ## 10. Scope
 
-**S1 — unblock what is already dimmed.** `renameSpace`, `reorderSpace` with the
-renumber-on-load self-heal, `setIcon`, `setGradient`, `BrowserStore.delete(profileID:)`,
-the all-zero-UUID guard, the orphan sweep at launch.
+**S1 — unblock what is already dimmed. Done.** `renameSpace`, `reorderSpace` with
+the renumber-on-load self-heal, `setIcon`, `setGradient`,
+`BrowserStore.delete(profileID:)`, the all-zero-UUID guard, the orphan sweep at
+launch.
 
-**S2 — identity.** The twelve gradients, and Profile identity on every
-cross-Space surface (§9).
+**S2 — identity. Gradients done.** All twelve, in three measured bands, plus
+§13.6's neutral. Profile identity (§9) reaches the Command Bar's ranking and not
+yet history, archive or downloads.
 
-**S3 — the Profile boundary.** `createSpace(name:profileID:)`, the
-`fetchData`/`restoreData` spike, `setProfile` with a full web-view rebuild, the
-move-across-Profiles warning, the deletion dialog, `siteSettings` keyed on
-`(profileID, host)`.
+**S3 — the Profile boundary. Mostly done.** `createSpace(name:profileID:)`,
+`setProfile` with a full web-view rebuild, the move-across-Profiles warning and
+the deletion dialog are built. Two are not: the `fetchData`/`restoreData` spike
+(§3.3), and `siteSettings`, still keyed on `host` alone — so a permission granted
+in one Profile is granted in all of them.
 
 **S4 — the tree.** `SidebarNode` migration, shipped holding only tabs. Folders
 become a case, not a migration.
@@ -446,15 +464,16 @@ device-local.
 
 ## 11. Corrections to `TODO.md`
 
-1. **§46 "Favorite … global, survives Space switching"** — wrong, and the code
-   disagrees with it too. Favorites are **per Profile** (§2).
+1. **§46 "Favorite … global, survives Space switching"** — global across a
+   Profile, not across the app. Favorites are **per Profile** (§2).
 2. **§5.5's default-store warning** — stale. Luna never uses the default store,
    so the migration is identified → identified. Rewrite as: *a Space changing
    Profile moves it to a different identified store; without a data copy this
    logs the user out of that Space's sites.*
 3. **§5.2 "auto-archive after override"** — listed as part of the Space model; it
    does not exist. Still wanted, now scoped in S5.
-4. **§8.2's twelve gradients** — still unbuilt; every Space is identical. Now S2.
+4. **§8.2's twelve gradients** — built, in three bands measured against the
+   §21.4 contrast floor. `Design/SpacePalette.swift`.
 5. **`WKProcessPool`** — must not appear anywhere, per-Space or shared.
    Deprecated since macOS 12.0: *"Creating and using multiple instances of
    WKProcessPool no longer has any effect."* Nook carries comments claiming a
@@ -498,28 +517,29 @@ user creates a second one. Arc already bends this way, retrofitting collapsed
 Pinned sections to single-Space users after complaints. Spaces must be something
 Luna *grows into*, never a concept it opens with.
 
-### 13.2 `⌘1…⌘9` is the wrong binding, and Luna already ships it
+### 13.2 `⌘1…⌘9` was the wrong binding, and Luna shipped it
 
 | Product | Spaces / workspaces | ⌘-number is… |
 |---|---|---|
 | Arc | `⌃1…⌃9` | sidebar items |
 | Dia | `Ctrl+1–9` (profiles) | — |
 | Vivaldi | `⌘⇧<n>` | — |
-| **Luna today** | **`⌘1…⌘9`** | **unused** |
+| **Luna** | **`⌃1…⌃9`** | **sidebar items** |
 
 Three independent products, three different modifiers, **none of them plain
 ⌘-number** — that namespace means "go to tab N" in Safari, Chrome, Firefox, Edge
 and Arc. Arc even shipped a preference controlling what `⌘1–8` indexes *within*
 the sidebar, which is how contested it is.
 
-Luna currently binds `⌘1…⌘9` to Spaces (`MainMenu.setSpaces`) and has **no
-"go to tab N" at all**. So the most valuable shortcut in the app is spent on the
-feature 94% of users will not use twice.
+Luna bound `⌘1…⌘9` to Spaces, and had **no "go to tab N" at all** — the most
+valuable shortcut in the app spent on the feature 94% of users will not use
+twice.
 
-**D-S12: move Spaces to `⌃1…⌃9`. Reserve `⌘1…⌘9` for sidebar items.**
-Add `⌘⌥←/→` for previous/next Space, a two-finger sidebar swipe, and
-"go to <Space>" in the Command Bar. This is a breaking change to a shipped
-binding and is cheaper today than ever again.
+**D-S12: Spaces on `⌃1…⌃9`, `⌘1…⌘9` for sidebar items.** Done, with the
+two-finger sidebar swipe. Previous/next Space went to **`⌃⌥←/→`**, not this
+document's proposed `⌘⌥←/→` — that pair is Show Previous/Next *Tab* (§7.4,
+§20.1), so Spaces take the same arrows under the same ⌘→⌃ translation as the
+number row. "Go to <Space>" in the Command Bar is still open.
 
 ### 13.3 Auto-archive — Arc's defaults, and its mistake
 
@@ -534,10 +554,16 @@ explainer banner for new members, a defensive help article ("This can be a littl
 tough to get used to at first"), per-Profile timings, and a media exemption. You
 do not ship an apology banner for a feature people understand.
 
-**D-S13: Luna's auto-archive is disableable.** Default 12h, options Off / 6h /
-12h / 24h / 7d / 30d, never archiving a tab that is playing media or holds
-unsaved input (§19.2 already has both exemptions). The behaviour is right; making
-it mandatory is what turns it into data loss.
+**D-S13: Luna's auto-archive is disableable.** Built: default 12h, options
+6h / 12h / 24h / Never, in General settings.
+
+**The media and unsaved-input exemptions are not built.** `AutoArchive.idleTabs`
+exempts pinned tabs, Favorites, already-archived tabs and the tab on screen, and
+nothing else — so a tab left playing audio, or holding a half-written comment, is
+archived at twelve hours like any other. `HibernationPolicy` has both exemptions
+already (§19.2); auto-archive needs to consult them. Until it does, the sentence
+above is only half true, and it is the half that turns the feature into data
+loss.
 
 ### 13.4 Favorites: cap it, allow zero, load it lazily
 
