@@ -169,31 +169,52 @@ public enum PasswordGenerator {
                 $0.trimmingCharacters(in: .whitespacesAndNewlines)
             }
             guard parts.count == 2 else { continue }
-            let key = parts[0].lowercased()
-            let value = parts[1]
-
-            switch key {
-            case "minlength":
-                if let n = Int(value) { rules.minLength = n; sawAnything = true }
-            case "maxlength":
-                if let n = Int(value) { rules.maxLength = n; sawAnything = true }
-            case "max-consecutive":
-                if let n = Int(value) { rules.maxConsecutive = n; sawAnything = true }
-            case "required":
-                let specs = parseSpecs(value)
-                if !specs.isEmpty { rules.required += specs; sawAnything = true }
-            case "allowed":
-                let specs = parseSpecs(value)
-                if !specs.isEmpty { rules.allowed += specs; sawAnything = true }
-            default:
-                continue
-            }
+            if apply(key: parts[0].lowercased(), value: parts[1], to: &rules) { sawAnything = true }
         }
         guard sawAnything else { return nil }
+        fillGaps(&rules)
+        return rules
+    }
 
-        // Fill in what the site did not say. A site that states only
-        // `maxlength: 16` still wants a strong password within it, and a site
-        // that states only `required:` means "and nothing else is allowed".
+    /// One `key: value` clause, applied.
+    ///
+    /// - Returns: whether the clause said anything. An unknown key and a value
+    ///   that does not parse are the same answer — false — which is what keeps
+    ///   `parse` returning nil for a string that yields nothing usable.
+    private static func apply(key: String, value: String, to rules: inout Rules) -> Bool {
+        switch key {
+        case "minlength", "maxlength", "max-consecutive":
+            return applyNumber(key: key, value: value, to: &rules)
+        case "required", "allowed":
+            return applyClasses(key: key, value: value, to: &rules)
+        default:
+            return false
+        }
+    }
+
+    /// The three clauses whose value is a number.
+    private static func applyNumber(key: String, value: String, to rules: inout Rules) -> Bool {
+        guard let number = Int(value) else { return false }
+        switch key {
+        case "minlength": rules.minLength = number
+        case "maxlength": rules.maxLength = number
+        default: rules.maxConsecutive = number
+        }
+        return true
+    }
+
+    /// The two whose value is a list of character classes.
+    private static func applyClasses(key: String, value: String, to rules: inout Rules) -> Bool {
+        let specs = parseSpecs(value)
+        guard !specs.isEmpty else { return false }
+        if key == "required" { rules.required += specs } else { rules.allowed += specs }
+        return true
+    }
+
+    /// Fills in what the site did not say. A site that states only
+    /// `maxlength: 16` still wants a strong password within it, and a site that
+    /// states only `required:` means "and nothing else is allowed".
+    private static func fillGaps(_ rules: inout Rules) {
         if rules.minLength <= 0 { rules.minLength = min(defaultLength, rules.maxLength > 0 ? rules.maxLength : defaultLength) }
         if rules.maxLength <= 0 { rules.maxLength = max(rules.minLength, 64) }
         if rules.maxLength < rules.minLength { rules.maxLength = rules.minLength }
@@ -202,15 +223,13 @@ public enum PasswordGenerator {
         //
         //     required: lower; required: upper; required: digit; allowed: [!@#$%^&*];
         //
-        // Read literally, that permits only the eight symbols — and then
-        // demands a lowercase letter the pool cannot supply, so no password
-        // satisfies it and the generator falls back to its own default,
-        // quietly ignoring the site's length limits. Taking the union is both
-        // what the grammar means and the only reading under which that rule
-        // set is satisfiable at all.
+        // Read literally that permits only the eight symbols, and then demands
+        // a lowercase letter the pool cannot supply — so no password satisfies
+        // it, and the generator falls back to its own default, quietly ignoring
+        // the site's length limits. The union is what the grammar means and the
+        // only reading under which that rule set is satisfiable.
         rules.allowed = rules.required + rules.allowed
         if rules.allowed.isEmpty { rules.allowed = Rules.default.allowed }
-        return rules
     }
 
     /// `lower, upper, [-().&@]` → three specs. A bracketed literal may itself
