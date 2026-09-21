@@ -59,6 +59,9 @@ final class HistoryPanel: PopoutPanelView {
     private let list = HistoryListView()
     private let scroll = NSScrollView()
     private let empty = NSTextField(labelWithString: "")
+    /// What the filter holds, so the empty state can tell "nothing archived"
+    /// apart from "nothing matched".
+    private var query = ""
 
     init(frame frameRect: NSRect, edge: PopoutEdge) {
         super.init(frame: frameRect, size: HistoryPanelMetrics.size, edge: edge)
@@ -77,9 +80,20 @@ final class HistoryPanel: PopoutPanelView {
     func setEntries(_ entries: [HistoryEntry]) {
         list.iconProvider = iconProvider
         list.setEntries(entries)
+        empty.stringValue = Self.emptyMessage(filteredBy: query)
         empty.isHidden = !entries.isEmpty
         scroll.isHidden = entries.isEmpty
         needsLayout = true
+    }
+
+    /// **An empty shelf and an empty search are not the same sentence.** "Closed
+    /// tabs show up here" is an answer to "why is this blank"; typed over a
+    /// filter that matched nothing it answers a question nobody asked, and
+    /// reads as if the archive had emptied itself.
+    private static func emptyMessage(filteredBy query: String) -> String {
+        query.isEmpty
+            ? String(localized: "Nothing here yet. Closed tabs are kept for a while and show up here.")
+            : String(localized: "No matches for “\(query)”.")
     }
 
     func focusFilter() {
@@ -95,7 +109,10 @@ final class HistoryPanel: PopoutPanelView {
         title.translatesAutoresizingMaskIntoConstraints = false
 
         field.translatesAutoresizingMaskIntoConstraints = false
-        field.onChange = { [weak self] text in self?.onFilter?(text) }
+        field.onChange = { [weak self] text in
+            self?.query = text
+            self?.onFilter?(text)
+        }
         field.onCancel = { [weak self] in self?.onBackgroundClick?() }
         // The field has focus, so it is where ↓/↑/↩ arrive; the list is what
         // they mean. §9.1's bar does exactly this.
@@ -129,7 +146,7 @@ final class HistoryPanel: PopoutPanelView {
         scroll.documentView = list
         scroll.translatesAutoresizingMaskIntoConstraints = false
 
-        empty.stringValue = String(localized: "Nothing here yet. Closed tabs are kept for a while and show up here.")
+        empty.stringValue = Self.emptyMessage(filteredBy: query)
         empty.font = Tokens.TypeScale.sidebarRow
         empty.textColor = Tokens.Text.secondary
         empty.alignment = .center
