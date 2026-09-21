@@ -241,7 +241,7 @@ final class SidebarViewController: NSViewController {
         let active = session.space(session.activeSpaceID)
         spaceLabel.show(spaceName: active?.name)
         utility.show(
-            profileName: active?.name,
+            spaceName: active?.name,
             fanOut: active.map { SpacesSection.fanOut($0, session: session) },
             picture: active?.imageData
         )

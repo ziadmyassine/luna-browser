@@ -131,6 +131,31 @@ final class SpacesSectionTests: XCTestCase {
         XCTAssertFalse(label.contains("1 Favorites"), label)
     }
 
+    /// The head names the Space once. It named it twice for as long as the
+    /// second one was the Profile's name — the card read "Personal" over
+    /// "Personal · 3 Favorites" once a Space owned its own jar, which is one
+    /// word of information and two lines of it.
+    func testTheCardsHeadDoesNotSayTheNameTwice() {
+        let space = Self.space("Work")
+        let subtitle = SpacesSection.fanOut(space, session: nil)
+        XCTAssertFalse(subtitle.contains(space.name), subtitle)
+        XCTAssertTrue(subtitle.contains("Favorite"), subtitle)
+    }
+
+    /// The picker in `Spaces+Dialogs` lists several Spaces at once, so that one
+    /// still has to carry the name. Both labels come off the same count.
+    func testThePickersLabelStillNamesItsSpace() {
+        XCTAssertTrue(SpacesSection.fanOutLabel(spaceName: "Work", favorites: 2).contains("Work"))
+        XCTAssertEqual(SpacesSection.favoritesLabel(2), "2 Favorites")
+        XCTAssertEqual(SpacesSection.favoritesLabel(1), "1 Favorite")
+    }
+
+    /// Settings' own list called the section "Spaces & Profiles" for as long as
+    /// there were two lists in it. There is one.
+    func testTheSectionIsNamedForTheOneThingItHolds() {
+        XCTAssertEqual(SpacesSection.title, "Spaces")
+    }
+
     /// §2's search still finds a Space by the words a user would type for the
     /// thing that used to be a Profile — the concept went, the vocabulary
     /// people arrive with did not.

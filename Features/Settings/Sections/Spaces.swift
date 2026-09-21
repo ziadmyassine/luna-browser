@@ -40,12 +40,12 @@ import WebKit
 final class SpacesSection: SettingsSection {
 
     static let id = "spaces"
-    static let title = String(localized: "Spaces & Profiles")
+    static let title = String(localized: "Spaces")
     static let symbolName = "square.grid.2x2"
 
     private let container = NSView()
     /// Internal rather than private only because Swift's `private` is
-    /// file-scoped and §9's Profile cards are built in `Profiles+Rows.swift`.
+    /// file-scoped and the dialogs in `Spaces+Dialogs.swift` rebuild it.
     var body = SettingsBody()
     /// Retained for as long as it is open: `NSPopover` does not hold itself,
     /// and the section that built it is about to rebuild.
@@ -207,11 +207,15 @@ final class SpacesSection: SettingsSection {
         return (row, [title, space.name, "delete space", "remove space", "cookies", "logins"])
     }
 
-    /// What the card's head says under the name: what this Space's own jar
-    /// holds. The same answer whether a session is running or not — a synthetic
-    /// Space in a test has no Favorites, which is what the label should say.
+    /// What the card's head says under the name. It does not repeat the name:
+    /// the line above it is the name, and the fan-out only carried one because
+    /// the name it carried was the Profile's. The picker in `Spaces+Dialogs`
+    /// still needs one, which is why `fanOutLabel` keeps taking it.
+    ///
+    /// The same answer whether a session is running or not — a synthetic Space
+    /// in a test has no Favorites, which is what the label should say.
     static func fanOut(_ space: Space, session: BrowserSession?) -> String {
-        fanOutLabel(spaceName: space.name, favorites: session?.favorites(inSpace: space.id).count ?? 0)
+        favoritesLabel(session?.favorites(inSpace: space.id).count ?? 0)
     }
 
     // MARK: §6.2's appearance

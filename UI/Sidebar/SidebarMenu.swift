@@ -81,9 +81,9 @@ enum SidebarMenu {
     /// tooltip already states it, which is where a sentence that long belongs.
     static func profile(name: String?, manage: @escaping () -> Void) -> NSMenu {
         let menu = NSMenu()
-        menu.addItem(header(name.map { String(localized: "\($0) profile") } ?? String(localized: "Profile")))
+        menu.addItem(header(name ?? String(localized: "Space")))
         menu.addItem(.separator())
-        menu.addItem(item(title: String(localized: "Manage Profiles…"), action: manage))
+        menu.addItem(item(title: String(localized: "Manage Spaces…"), action: manage))
         return menu
     }
 

@@ -80,13 +80,32 @@ final class ProfilePictureTests: XCTestCase {
     private func avatar(picture: Data?) -> GlassButton? {
         let bar = SidebarUtilityBar()
         bar.frame = NSRect(x: 0, y: 0, width: 280, height: Tokens.Metric.topBarHeight)
-        bar.show(profileName: "Personal", fanOut: nil, picture: picture)
+        bar.show(spaceName: "Personal", fanOut: nil, picture: picture)
         bar.layoutSubtreeIfNeeded()
         return bar.subviews.compactMap { $0 as? GlassButton }.first
     }
 
     private func mark(of button: GlassButton) -> NSImageView? {
         button.subviews.compactMap { $0 as? NSImageView }.first
+    }
+
+    /// The button is §3.5's, and it stayed when the Profile went. What it says
+    /// had to change with it: it named a Profile that no longer exists, in an
+    /// accessibility label, a tooltip and the header of its own menu.
+    func testTheButtonSaysSpaceRatherThanProfile() throws {
+        let bar = SidebarUtilityBar()
+        bar.frame = NSRect(x: 0, y: 0, width: 280, height: Tokens.Metric.topBarHeight)
+        bar.show(spaceName: "Personal", fanOut: "3 Favorites", picture: nil)
+        let button = try XCTUnwrap(bar.subviews.compactMap { $0 as? GlassButton }.first)
+        let label = try XCTUnwrap(button.accessibilityLabel())
+        let tip = try XCTUnwrap(button.toolTip)
+        for text in [label, tip] {
+            XCTAssertTrue(text.contains("Personal"), text)
+            XCTAssertFalse(text.lowercased().contains("profile"), text)
+        }
+        let titles = SidebarMenu.profile(name: "Personal", manage: {}).items.map(\.title)
+        XCTAssertFalse(titles.contains { $0.lowercased().contains("profile") }, "\(titles)")
+        XCTAssertTrue(titles.contains { $0.contains("Manage Spaces") }, "\(titles)")
     }
 
     /// A picture is the button, not a mark inside it: it fills the circle and

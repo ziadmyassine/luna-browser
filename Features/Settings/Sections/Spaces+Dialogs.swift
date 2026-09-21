@@ -197,10 +197,15 @@ extension SpacesSection {
     /// it by ending the sharing, so all that is left to say is whose tiles
     /// these are.
     static func fanOutLabel(spaceName: String, favorites: Int) -> String {
-        let tiles = favorites == 1
+        String(localized: "\(spaceName) · \(favoritesLabel(favorites))")
+    }
+
+    /// The count on its own, for the card's head, where the name is already
+    /// the line above. One Favorite must not read "1 Favorites".
+    static func favoritesLabel(_ favorites: Int) -> String {
+        favorites == 1
             ? String(localized: "1 Favorite")
             : String(localized: "\(favorites) Favorites")
-        return String(localized: "\(spaceName) · \(tiles)")
     }
 
     static func deletionTitle(_ space: Space) -> String {

@@ -108,11 +108,4 @@ final class SettingsGroupingTests: XCTestCase {
         let rows = SpacesSection().spaceRows(space, at: 0, of: [space], session: nil)
         XCTAssertTrue(rows.contains { $0.terms.contains("picture") }, "§9's picture row is missing")
     }
-
-    /// The count it was carrying is not lost — it is the reason Delete is
-    /// dimmed, which is where it changes what the user can do.
-    func testTheReasonDeleteIsDimmedCountsTheSpaces() {
-        XCTAssertTrue(SpacesSection.inUseReason(3).contains("3 Spaces are using"), SpacesSection.inUseReason(3))
-        XCTAssertTrue(SpacesSection.inUseReason(1).contains("1 Space is using"), SpacesSection.inUseReason(1))
-    }
 }

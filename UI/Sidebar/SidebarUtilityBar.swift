@@ -38,8 +38,8 @@ final class SidebarUtilityBar: NSView {
     var onProfile: (() -> Void)?
     /// §6.2's rows, for the Profile menu's way into Settings.
     var onManageProfiles: (() -> Void)?
-    private var profile: String?
-    private var profileFanOut: String?
+    private var space: String?
+    private var spaceFanOut: String?
     var onHistory: (() -> Void)?
     var onDownloads: (() -> Void)?
     var onSwitchSpace: ((UUID) -> Void)?
@@ -86,7 +86,7 @@ final class SidebarUtilityBar: NSView {
             // A press opens it where a right-click would, which is what every
             // other pop-out in this bar does (`SidebarActionCapsule`).
             SidebarMenu.profile(
-                name: profile,
+                name: space,
                 manage: { [weak self] in self?.onManageProfiles?() }
             ).popUp(positioning: nil, at: NSPoint(x: 0, y: avatar.bounds.maxY), in: avatar)
         }
@@ -144,23 +144,23 @@ final class SidebarUtilityBar: NSView {
         needsLayout = true
     }
 
-    /// Whose cookies the active Space is using (§9), on the control that is
-    /// about the Profile rather than in a caption about the Space.
+    /// The active Space, on §3.5's button: its picture, its name, and what its
+    /// own jar holds.
     ///
-    /// `fanOut` is the sentence Settings puts on the Space's card, so the two
+    /// `fanOut` is the line Settings puts on the Space's card, so the two
     /// places that answer this question answer it in the same words.
-    func show(profileName: String?, fanOut: String?, picture: Data? = nil) {
+    func show(spaceName: String?, fanOut: String?, picture: Data? = nil) {
         // §9's picture, or the glyph that stands in for one. `setPortrait`
         // takes the symbol back itself when there is nothing to show.
         avatar.setPortrait(ProfilePicture.image(from: picture), fallbackSymbol: Self.avatarSymbol)
         avatar.setAccessibilityLabel(
-            profileName.map { String(localized: "Profile: \($0)") } ?? String(localized: "Profile")
+            spaceName.map { String(localized: "Space: \($0)") } ?? String(localized: "Space")
         )
-        avatar.toolTip = [profileName.map { String(localized: "Cookies and logins for the \($0) profile") }, fanOut]
+        avatar.toolTip = [spaceName.map { String(localized: "Cookies and logins for \($0)") }, fanOut]
             .compactMap { $0 }
             .joined(separator: "\n")
-        profile = profileName
-        profileFanOut = fanOut
+        space = spaceName
+        spaceFanOut = fanOut
     }
 
     override var intrinsicContentSize: NSSize {

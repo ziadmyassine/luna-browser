@@ -103,14 +103,4 @@ extension SpacesSection {
         }
     }
 
-    /// Why Delete is dimmed, counting the Spaces that are the reason.
-    ///
-    /// The count is here rather than in a line of its own because this is
-    /// where it changes what the user can do — see `profileRows`.
-    static func inUseReason(_ spaces: Int) -> String {
-        spaces == 1
-            ? String(localized: "1 Space is using this profile. Move it onto another profile first.")
-            : String(localized: "\(spaces) Spaces are using this profile. Move them onto another profile first.")
-    }
-
 }
