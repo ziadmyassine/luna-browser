@@ -112,6 +112,21 @@ final class CommandBarPanel: NSView {
     /// when there was none to run.
     var onOpened: (() -> Void)?
 
+    /// True from the moment the bar is dismissed until it has left the window.
+    /// It is still drawn for all of it, and it is not a surface any more — see
+    /// `hitTest`.
+    private(set) var isClosing = false
+
+    /// Called once the bar is off screen and out of the tree. The pill it grew
+    /// out of comes back here, at the end of the fold rather than the start of
+    /// it: unhidden a frame earlier there would be an address behind glass and
+    /// an address beside it, on the same 34 pt, for the length of the
+    /// animation.
+    var onClosed: (() -> Void)?
+
+    /// Starts the closing window. Only `animateOut` calls this.
+    func beginClosing() { isClosing = true }
+
     /// Ends the opening window, at most once.
     func finishOpening() {
         guard isOpening else { return }
@@ -325,6 +340,17 @@ final class CommandBarPanel: NSView {
     /// subclass — without it, clicking the bar's own background would dismiss it.
     override func mouseDown(with event: NSEvent) {
         onBackgroundClick?()
+    }
+
+    /// A bar that is closing takes no more clicks.
+    ///
+    /// This view covers the window, so without this the press that dismissed
+    /// it — `esc` aside, that is a click on the page or on the chrome — would
+    /// be followed by a second one landing in the same dead sheet, for as long
+    /// as the fold lasts. Worse on the anchored bar: the pill it is folding
+    /// back into is underneath it.
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        isClosing ? nil : super.hitTest(point)
     }
 }
 

@@ -144,8 +144,8 @@ final class CredentialPopover {
         escapeMonitor = nil
         guard let panel else { return }
         self.panel = nil
-        panel.parent?.removeChildWindow(panel)
-        panel.orderOut(nil)
+        // Out the way it came in — see `Motion.fadePanelOut`.
+        Tokens.Motion.fadePanelOut(panel)
     }
 
     // MARK: - Geometry

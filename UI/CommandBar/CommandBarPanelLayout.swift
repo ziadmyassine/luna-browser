@@ -228,4 +228,84 @@ extension CommandBarPanel {
             }
         }
     }
+
+    // MARK: - Closing
+
+    /// `animateIn` run backwards, and one of each again: the floating bar
+    /// shrinks and fades the way it grew, and the anchored one closes back
+    /// down onto its pill.
+    ///
+    /// It used to be `removeFromSuperview()`, which is a bar that is there and
+    /// then is not. On the floating panel that reads as a window being shut
+    /// rather than a summoned thing going away; on the anchored one it is
+    /// worse, because the whole of what that bar is saying is "I am the pill
+    /// you clicked, opened up" — and a bar that vanishes to reveal the pill
+    /// underneath was never the pill at all. Whatever the way in argued, the
+    /// way out has to argue the same thing or it withdraws it.
+    ///
+    /// Takes the panel out of the window itself and calls `onClosed`, so a
+    /// caller has nothing to remember. Reduce Motion needs no branch here
+    /// either: `springAnimation` gives back nil and `Motion.animate` runs at
+    /// zero duration, so both paths end on the next turn of the run loop.
+    func animateOut() {
+        beginClosing()
+        // Anchored, and open: the glass has somewhere to go back to.
+        if anchor != nil { return collapseToPill() }
+        guard let scale = Tokens.Motion.commandBarIn.springAnimation(keyPath: "transform.scale") else {
+            return finishClosing()
+        }
+        scale.fromValue = 1.0
+        scale.toValue = 0.96
+        // Held, because the layer is about to leave: a scale that snapped back
+        // to full size for the last frame of the fade is a flicker at the one
+        // moment nothing should move.
+        scale.fillMode = .forwards
+        scale.isRemovedOnCompletion = false
+        body.layer?.add(scale, forKey: "commandBarOut")
+        Tokens.Motion.animate(Tokens.Motion.commandBarIn) { _ in
+            self.body.animator().alphaValue = 0
+        } completion: { [weak self] in
+            MainActor.assumeIsolated { self?.finishClosing() }
+        }
+    }
+
+    /// `revealFromPill` in reverse: the same height constraint, the same
+    /// 0.18 s, ending where the reveal started.
+    ///
+    /// Height only, and for the same reasons — the width and the place are the
+    /// pill's own and were never animated, and a fade would be the capsule the
+    /// user is looking at dimming on its way to being itself again. The list
+    /// is clipped rather than scaled, which is what `masksToBounds` on an
+    /// anchored body is for (`activateBodyConstraints`): the rows go under the
+    /// closing edge instead of shrinking with it.
+    private func collapseToPill() {
+        // Whatever height it has *now*, which is not the same as the height it
+        // was heading for: `esc` pressed halfway through the reveal has to
+        // close from where the glass got to, not jump to full size first.
+        let current = revealConstraint?.constant ?? body.frame.height
+        // A bar that never opened has nothing to close. It stands at the
+        // pill's own height until `openWhenReady` lets it go, and folding that
+        // is 0.18 s of nothing between the press and the pill coming back.
+        guard current > inputHeight else { return finishClosing() }
+        let height = revealConstraint ?? body.heightAnchor.constraint(equalToConstant: current)
+        revealConstraint = height
+        height.constant = current
+        height.isActive = true
+        layoutSubtreeIfNeeded()
+        Tokens.Motion.animate(Tokens.Motion.commandBarIn) { context in
+            context.allowsImplicitAnimation = true
+            height.animator().constant = inputHeight
+        } completion: { [weak self] in
+            MainActor.assumeIsolated { self?.finishClosing() }
+        }
+    }
+
+    /// Off screen, out of the tree, and the pill is its own again.
+    private func finishClosing() {
+        revealConstraint?.isActive = false
+        revealConstraint = nil
+        removeFromSuperview()
+        onClosed?()
+        onClosed = nil
+    }
 }

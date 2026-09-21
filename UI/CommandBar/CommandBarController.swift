@@ -183,20 +183,36 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
         panel.animateIn()
     }
 
+    /// Closes the bar: gone at once as far as the rest of the app is
+    /// concerned, and on screen for the 0.18 s it takes to fold back into
+    /// whatever it came out of (`CommandBarPanel.animateOut`).
+    ///
+    /// The keyboard goes back to the page on this line rather than at the end
+    /// of the animation. A field that is still first responder while the bar
+    /// is folding away is a field that eats the next keystroke, and the bar
+    /// has been dismissed — what the user types next belongs to the page.
     func dismiss() {
         guard let panel else { return }
         isWaitingToOpen = false
         NotificationCenter.default.removeObserver(self, name: NSWindow.didResignKeyNotification, object: nil)
         let window = panel.window
-        panel.removeFromSuperview()
         self.panel = nil
         // The pill is its own again — and whatever opened for the bar's sake
-        // hears about it: §3.2b's bar was held open for the typing.
+        // hears about it: §3.2b's bar was held open for the typing. Both at
+        // the end of the fold, so the glass closes back down onto the pill
+        // instead of the two being on the same line together.
         if let anchor {
-            anchor.view.isHidden = false
             self.anchor = nil
-            anchor.onDismiss?()
+            panel.onClosed = { [weak self] in
+                // Unless the bar was reopened on that same pill while this one
+                // was closing, in which case the pill is spoken for and this
+                // is a stale ending.
+                guard self?.anchor?.view !== anchor.view else { return }
+                anchor.view.isHidden = false
+                anchor.onDismiss?()
+            }
         }
+        panel.animateOut()
         generation += 1 // Orphan any query still in flight.
         deferredRows = nil
         SearchSuggestions.shared.cancel()

@@ -78,7 +78,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var isQuitConfirmed = false
     private(set) var isQuitFromLogOut = false
     /// `⌘,`. One instance, re-shown rather than rebuilt.
-    /// SETTINGS-SPEC §1's separate window. **One instance, reused** — `⌘,`
+    /// SETTINGS-SPEC §1's separate window. One instance, reused — `⌘,`
     /// opens it the first time and focuses it every time after, and it survives
     /// being closed because `isReleasedWhenClosed` is off.
     private var settingsWindow: SettingsWindowController?
@@ -95,7 +95,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // frame shows up without a menu bar.
         NSApp.setActivationPolicy(.regular)
         // Before anything reads a setting: the registration domain is what a
-        // key's declared default *is* (SETTINGS-SPEC §6), and it is not
+        // key's declared default is (SETTINGS-SPEC §6), and it is not
         // persisted, so it is re-published on every launch.
         SettingsDefaults.register()
         MainMenu.install(into: NSApp)
@@ -113,7 +113,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         LaunchTrace.mark("didFinish")
         #if DEBUG
         // Fails the launch loudly if a token drifted out of §1 / §6 / §21.4.
-        // **Measured at 3 ms**, so it stays in front of the first frame, where a
+        // Measured at 3 ms, so it stays in front of the first frame, where a
         // launch-time check belongs. `docs/PERF.md` has the tape.
         TokenCheck.run()
         LaunchTrace.mark("tokens")
@@ -151,7 +151,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task { await startSession(in: controller, opening: opening) }
     }
 
-    /// Opens the store **off the main thread**, as early as launch can ask for
+    /// Opens the store off the main thread, as early as launch can ask for
     /// it.
     ///
     /// `BrowserStore.init` is synchronous — it creates the directory, opens the
@@ -160,8 +160,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// say about. Detached and started first, it runs while AppKit builds that
     /// window instead.
     ///
-    /// **Say what this bought: 10–20 ms of main thread, and no measurable
-    /// change in the launch total.** Luna reaches interactive in ~280 ms and
+    /// Say what this bought: 10–20 ms of main thread, and no measurable
+    /// change in the launch total. Luna reaches interactive in ~280 ms and
     /// over half of that is AppKit and dyld before any of this code runs
     /// (`docs/PERF.md` has the tape), so moving our own work off the critical
     /// path is worth doing and is not worth claiming a number for.
@@ -246,7 +246,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // never briefly unenforced.
             session.installLifecycle()
             // A Space with nothing in it would otherwise show an empty content
-            // card. A restore that *has* tabs deliberately selects none of them
+            // card. A restore that has tabs deliberately selects none of them
             // (§19.4) — that is the memory budget, not a missing page.
             if session.activeTabID == nil, session.tabs.isEmpty {
                 session.newTab(url: InternalPages.Page.newTab.url)
@@ -264,7 +264,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// toggling the layout and resizing the window's chrome column are the
     /// window controller's, and turning typed text into a URL is §9.2's.
     ///
-    /// **Until this existed none of them were connected**, which is why §3.7's
+    /// Until this existed none of them were connected, which is why §3.7's
     /// resize handle drew, hovered, dragged — and did nothing at all.
     private func wireSidebar(_ sidebar: SidebarViewController, in controller: BrowserWindowController) {
         sidebar.onToggleSidebar = { [weak self] in self?.toggleSidebar() }
@@ -295,7 +295,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// §3.5's History button (§6.4). A **pop-out from the button**, not a tab
+    /// §3.5's History button (§6.4). A pop-out from the button, not a tab
     /// and not a panel over the page: looking something up in your history is a
     /// glance, and a glance should neither leave a tab behind to close nor take
     /// the page away while you take it.
@@ -330,7 +330,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             toggleSidebar()
         case .command(.newSpace):
             guard let session else { return }
-            // A Space made from the Command Bar gets its **own** Profile, and
+            // A Space made from the Command Bar gets its own Profile, and
             // the `profileID:` is passed rather than defaulted: many Spaces to
             // one Profile is now reachable (§6.1), so "new Profile" is a
             // choice this call site is making, not one it is inheriting.
@@ -363,10 +363,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         downloads = manager
         let panel = DownloadsPanelController(manager: manager)
         downloadsPanel = panel
-        // §30.15: the completion popover is the primary surface and appears by
-        // itself; these two buttons open the list. Same pop-out, two ends of
-        // the window, so the edge is the caller's to say — exactly as History's
-        // is.
+        // §15.3's list is the whole of the downloads UI, and these two
+        // buttons are the two places it stands. Same pop-out, two ends of the
+        // window, so the edge is the caller's to say — exactly as History's is.
         topBar.onDownloads = { [weak panel, weak controller] anchor in
             guard let panel, let window = controller?.window else { return }
             panel.toggle(in: window, from: anchor, edge: .below)
@@ -376,9 +375,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             panel.toggle(in: window, from: sidebar.downloadsAnchor, edge: .above)
         }
         session.onDownload = { [weak manager] download in manager?.begin(download) }
-        // §5's popover points at the top bar's downloads button when the bar is
-        // showing; it falls back to a plain window-anchored panel when it is not.
-        manager.anchorProvider = { [weak topBar] in topBar?.downloadsAnchor }
+        // §5.0: the file leaves the page and lands on whichever Downloads
+        // button this layout is showing.
+        manager.onBegin = { [weak self] item in self?.announceDownload(item) }
+        manager.onFinish = { [weak self] _ in self?.announceCompletion() }
         // `WKDownload.webView` is weak and the originating tab may be cold, so
         // a retry resumes through whichever tab is live now.
         manager.webViewProvider = { [weak session] in
@@ -387,24 +387,118 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// Where a download ends up, in the layout that is on screen: the button
+    /// it lands on, the glass that catches it, and which way a pop-out grows
+    /// out of it.
+    ///
+    /// The one place that knows there are two chromes. §5.0's flight,
+    /// §15.3's list and `⌘⌥L` are all asking this same question, and three
+    /// separate answers to it is how a feature comes to work in one layout and
+    /// not the other.
+    ///
+    /// It reads the setting rather than the window's state, because a
+    /// collapsed sidebar is still the sidebar layout — its button is parked
+    /// off-screen and everything here falls back to the corner it would have
+    /// been in.
+    private struct DownloadsSite {
+        let anchor: NSView
+        let catcher: NSView
+        /// Which way a pop-out grows out of the button — and, because it is the
+        /// same fact, which end of the window the button is at: `.below` means
+        /// it hangs off §4's capsule at the head, `.above` that it stands on
+        /// §3.5's cylinder at the foot.
+        let edge: PopoutEdge
+    }
+
+    private func downloadsSite() -> DownloadsSite? {
+        switch Settings.chromeLayout {
+        case .topBar:
+            guard let bar = topBar, let anchor = bar.downloadsAnchor else { return nil }
+            return DownloadsSite(anchor: anchor, catcher: bar.downloadsCatcher, edge: .below)
+        case .sidebar:
+            guard let sidebar else { return nil }
+            return DownloadsSite(
+                anchor: sidebar.downloadsAnchor,
+                catcher: sidebar.downloadsCatcher,
+                edge: .above
+            )
+        }
+    }
+
     /// `⌘⌥L`, from `BrowserCommands`: §15.3's list, on whichever Downloads
     /// button the layout on screen is showing.
     ///
-    /// The menu item cannot hand over an anchor the way a button can, so this
-    /// is the one place that has to know which chrome is up. It reads the
-    /// setting rather than the window's state because a *collapsed* sidebar is
-    /// still the sidebar layout — its button is parked off-screen, and the
-    /// pop-out falls back to the corner it would have been in.
+    /// The menu item cannot hand over an anchor the way a button can, which is
+    /// what `downloadsSite()` is for.
     func showDownloadsList() {
-        guard let panel = downloadsPanel, let window = browserWindow?.window else { return }
-        switch Settings.chromeLayout {
-        case .topBar:
-            guard let anchor = topBar?.downloadsAnchor else { return }
-            panel.toggle(in: window, from: anchor, edge: .below)
-        case .sidebar:
-            guard let sidebar else { return }
-            panel.toggle(in: window, from: sidebar.downloadsAnchor, edge: .above)
+        guard let panel = downloadsPanel,
+              let window = browserWindow?.window,
+              let site = downloadsSite()
+        else { return }
+        panel.toggle(in: window, from: site.anchor, edge: site.edge)
+    }
+
+    /// §5.0 — a download has started. The file's own icon leaves the page on
+    /// an arc, the Downloads button's glass catches it, and §15.3's list opens
+    /// underneath with the bar running.
+    private func announceDownload(_ item: DownloadItem) {
+        guard let panel = downloadsPanel,
+              let window = browserWindow?.window,
+              let root = window.contentView,
+              let site = downloadsSite()
+        else { return }
+        let button = root.convert(site.anchor.bounds, from: site.anchor)
+        DownloadFlightView.fly(
+            item.icon,
+            from: downloadOrigin(in: root),
+            to: CGPoint(x: button.midX, y: button.midY),
+            in: root
+        ) { [weak panel] in
+            Tokens.Motion.catchDownload(on: site.catcher)
+            panel?.announce(in: window, from: site.anchor, edge: site.edge)
         }
+    }
+
+    /// §5 — a download landed, announced on the Downloads button the layout
+    /// is actually showing: §15.3's list, standing on the button the file was
+    /// thrown at (§5.0) with the same row finishing on it.
+    ///
+    /// One surface, both chromes. There used to be a second one — a panel that
+    /// floated outside the window above the top edge with a tail pointing down
+    /// into the top bar's button — and it was wrong twice over. In the sidebar
+    /// layout it appeared in the opposite corner of the screen from the button
+    /// it was describing, pointing at the sidebar toggle; and in the top bar
+    /// layout, where it was at least aimed correctly, it was a second card
+    /// saying what the list under it already said. A download that has just
+    /// been thrown at a button should be found *at* that button.
+    ///
+    /// A list already standing open is left alone: `announce` is a no-op on a
+    /// panel that is up, and the row it is showing is this one — which is why
+    /// the item itself is not a parameter. The list reads `manager.items`.
+    private func announceCompletion() {
+        guard let site = downloadsSite(), let window = browserWindow?.window else { return }
+        downloadsPanel?.announce(in: window, from: site.anchor, edge: site.edge)
+    }
+
+    /// Where the file leaves from: the pointer, because that is where the
+    /// link the user just clicked was.
+    ///
+    /// There is no honest alternative. WebKit hands over a `WKDownload` and an
+    /// originating frame; it does not say which element started it or where on
+    /// the page that element was drawn, and asking the page through JavaScript
+    /// would be Luna running script on every site to decorate an animation.
+    /// The pointer is right for every download a click started, which is
+    /// almost all of them.
+    ///
+    /// The centre of the content is the fallback, for the ones a click did not
+    /// start — a redirect, a `⌘⌥L` retry, a page that downloaded on load. A
+    /// file appearing to leave from the middle of the page is a thing that
+    /// came from the page, which is exactly what happened.
+    private func downloadOrigin(in root: NSView) -> CGPoint {
+        let centre = CGPoint(x: root.bounds.midX, y: root.bounds.midY)
+        guard let window = root.window else { return centre }
+        let pointer = root.convert(window.convertPoint(fromScreen: NSEvent.mouseLocation), from: nil)
+        return root.bounds.contains(pointer) ? pointer : centre
     }
 
     /// Re-reads the session. Structural only — a tab's progress and title reach
@@ -421,7 +515,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MainMenu.setSidebarItems(session.tabs.map(\.title), in: NSApp)
     }
 
-    /// `⌘S` and §3.1's toggle button: **hide or show the sidebar**, so the page
+    /// `⌘S` and §3.1's toggle button: hide or show the sidebar, so the page
     /// takes the whole window.
     ///
     /// It used to swap sidebar layout for top-bar layout, which meant a reflex
@@ -448,14 +542,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Puts the window into whichever chrome `Settings.chromeLayout` names.
     /// The cross-fade and the frame animation run on the same tick (§4.1).
     private func applyChromeLayout(in controller: BrowserWindowController, animated: Bool) {
-        // **Before the early return below, not after it.** §3.2b's placement
+        // Before the early return below, not after it. §3.2b's placement
         // can change while the layout does not, and it is the only setting in
         // this window whose effect is nothing at all if the chrome state
         // happens to match.
         applySearchBarPlacement(animated: animated)
         let edge = Settings.sidebarEdge
         let state: ChromeState = switch Settings.chromeLayout {
-        // **A hidden sidebar stays hidden.** `⌘S` and this setting are
+        // A hidden sidebar stays hidden. `⌘S` and this setting are
         // different decisions, and rebuilding the state from the layout alone
         // put the column back on screen every time any preference changed.
         case .sidebar where controller.isSidebarCollapsed: .sidebarCollapsed(edge: edge)
@@ -524,14 +618,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         browserWindow = nil
     }
 
-    /// **`LunaTests` is a unit-test bundle hosted by this app** (`project.yml`:
+    /// `LunaTests` is a unit-test bundle hosted by this app (`project.yml`:
     /// `dependencies: - target: Luna`), so `xcodebuild test` launches the real
     /// `AppDelegate`, runs `applicationDidFinishLaunching`, and opens whatever
-    /// this property returns — *before* the first test method is entered and
+    /// this property returns — before the first test method is entered and
     /// whether or not that test wanted a session.
     ///
-    /// Which means that until this branch existed, **every test run in this
-    /// repo migrated and wrote the user's live database.** Measured: the
+    /// Which means that until this branch existed, every test run in this
+    /// repo migrated and wrote the user's live database. Measured: the
     /// schema-version row in `~/Library/Application Support/dk.novapps.luna/`
     /// moved during this wave and its mtime tracked the test runs. A test that
     /// carefully builds its own fixture store is not protected by doing so —

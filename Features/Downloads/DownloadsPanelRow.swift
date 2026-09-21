@@ -9,12 +9,12 @@
 //  quieter line under it. Two surfaces that both answer "what have I already
 //  got" should not look like two designs.
 //
-//  **Middle truncation is required, not stylistic** (§5). A statement called
+//  Middle truncation is required, not stylistic (§5). A statement called
 //  `97103328759-2026-01-01-2026-08-31.pdf` has to keep both ends: head
 //  truncation destroys the account number, tail truncation destroys the
 //  extension, and either leaves the user unable to tell which file landed.
 //
-//  Each row carries one trailing glyph and it is the *useful* one for that
+//  Each row carries one trailing glyph and it is the useful one for that
 //  row's state — Show in Finder for a file that is on disk, Retry for one that
 //  is not. A row that offered both would be offering one that does nothing.
 //
@@ -64,7 +64,7 @@ final class DownloadsPanelListView: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
-    /// **The list reads downwards, so it opens at the top.** An unflipped view
+    /// The list reads downwards, so it opens at the top. An unflipped view
     /// has its origin at the bottom, and that origin is where `NSScrollView`
     /// opens the document it is given — so the shelf came up showing its oldest
     /// end, and the newest download, which is the first row, was a scroll away
@@ -73,7 +73,7 @@ final class DownloadsPanelListView: NSView {
 
     // MARK: - Content
 
-    /// **Rows are rebuilt only when the list of downloads changes.** Progress
+    /// Rows are rebuilt only when the list of downloads changes. Progress
     /// arrives on every KVO tick, several times a second per live download, and
     /// rebuilding the stack that often would throw away the pointer's hover and
     /// restart the selection pill's slide on every frame.
@@ -209,6 +209,10 @@ final class DownloadsPanelRowView: NSView {
     private let name = NSTextField(labelWithString: "")
     private let status = NSTextField(labelWithString: "")
     private let action = RowGlyphView()
+    /// §5.0's read-out. Only a live download has one — a finished file is not
+    /// at 100 %, it is done, and a full bar left lying under it is a control
+    /// still saying something about work that is over.
+    private let progress = DownloadProgressLine()
 
     init(item: DownloadItem) {
         self.item = item
@@ -235,6 +239,12 @@ final class DownloadsPanelRowView: NSView {
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
 
+        // Under the text it describes and across the same column, rather than
+        // across the row: the bar belongs to this download, and one that ran
+        // edge to edge would read as a divider between two rows.
+        progress.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(progress)
+
         NSLayoutConstraint.activate([
             // Two lines, so a row is taller than §3.4's single-line one.
             heightAnchor.constraint(equalToConstant: Tokens.Metric.rowHeight + Tokens.Metric.rowGap * 2),
@@ -244,7 +254,11 @@ final class DownloadsPanelRowView: NSView {
             icon.widthAnchor.constraint(equalToConstant: Tokens.Metric.essentialsIcon),
             icon.heightAnchor.constraint(equalToConstant: Tokens.Metric.essentialsIcon),
             action.widthAnchor.constraint(equalToConstant: Tokens.Metric.rowTrailingChip.width),
-            action.heightAnchor.constraint(equalToConstant: Tokens.Metric.rowTrailingChip.height)
+            action.heightAnchor.constraint(equalToConstant: Tokens.Metric.rowTrailingChip.height),
+            progress.leadingAnchor.constraint(equalTo: stack.leadingAnchor),
+            progress.trailingAnchor.constraint(equalTo: stack.trailingAnchor),
+            progress.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Tokens.Metric.rowGap),
+            progress.heightAnchor.constraint(equalToConstant: Tokens.Metric.loadLineHeight)
         ])
 
         refresh()
@@ -275,7 +289,21 @@ final class DownloadsPanelRowView: NSView {
         // §21.1: the state is spelled out in words, not implied by a glyph.
         setAccessibilityLabel(item.accessibilityLabel)
         applyTrailingGlyph()
+        applyProgress()
         applyTokens()
+    }
+
+    /// The bar, on every tick. A download that has not reported a fraction yet
+    /// still gets its track — the row is already saying "downloading", and a
+    /// line that appears a second later is the row changing shape while the
+    /// user is reading it.
+    private func applyProgress() {
+        guard item.state == .inProgress else {
+            progress.isHidden = true
+            return
+        }
+        progress.isHidden = false
+        progress.advance(to: item.progress?.fractionCompleted ?? 0)
     }
 
     private func applyTrailingGlyph() {
@@ -299,16 +327,35 @@ final class DownloadsPanelRowView: NSView {
         }
     }
 
+    /// `ByteCountFormatter` is not cheap to build and the status line is
+    /// rebuilt several times a second per live download.
+    private static let bytes: ByteCountFormatter = {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        // The same unit at both ends of the sentence, or "900 KB of 1.1 MB"
+        // needs arithmetic to read as progress.
+        formatter.allowsNonnumericFormatting = false
+        return formatter
+    }()
+
     /// The second line: what happened, in words.
     private static func status(of item: DownloadItem) -> String {
         switch item.state {
         case .finished:
             return item.destination?.deletingLastPathComponent().lastPathComponent ?? String(localized: "Finished")
         case .inProgress:
-            guard let fraction = item.progress?.fractionCompleted else {
-                return String(localized: "Downloading…")
+            guard let progress = item.progress else { return String(localized: "Downloading…") }
+            // Bytes when there are bytes to give, a percentage otherwise.
+            // "18.4 MB of 240 MB" is the sentence somebody waiting actually
+            // wants — it says how long as well as how far — and a server that
+            // sent no `Content-Length` leaves `totalUnitCount` at −1, where
+            // the fraction is the only honest thing left to say.
+            guard progress.totalUnitCount > 0 else {
+                return String(localized: "Downloading… \(Int(progress.fractionCompleted * 100))%")
             }
-            return String(localized: "Downloading… \(Int(fraction * 100))%")
+            let done = Self.bytes.string(fromByteCount: progress.completedUnitCount)
+            let total = Self.bytes.string(fromByteCount: progress.totalUnitCount)
+            return String(localized: "\(done) of \(total)")
         case let .failed(reason):
             return reason
         case .cancelled:

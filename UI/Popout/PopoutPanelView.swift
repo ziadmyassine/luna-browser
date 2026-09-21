@@ -5,14 +5,14 @@
 //  The shape §6.4's History panel arrived at, with the second surface that
 //  wants it — Downloads — lifted out of it.
 //
-//  A pop-out is a glass panel **standing on the control that opened it**, over
+//  A pop-out is a glass panel standing on the control that opened it, over
 //  a transparent sheet that catches the click that dismisses it. That is what
 //  an `NSMenu` puts up and for the same reason: a glance opened from a button
 //  belongs on that button, it must not cost the page behind it, and the click
 //  that closes it must not also land on whatever it was over.
 //
-//  The one thing that differs between the two callers is **which way it
-//  grows**. The sidebar's History button is at the foot of §3.5, so its pop-out
+//  The one thing that differs between the two callers is which way it
+//  grows. The sidebar's History button is at the foot of §3.5, so its pop-out
 //  goes up; the top bar's capsule is at the window's head, so its pop-outs go
 //  down. Everything else — the material, the shadow, the clamps, the corner the
 //  spring unfolds from — is the same, so it is written once here.
@@ -61,6 +61,15 @@ class PopoutPanelView: NSView {
     /// The rounded panel. Subclasses add their header and list to it.
     let body = PopoutBodyView()
 
+    /// The pointer entered or left the panel itself — not the sheet behind it.
+    ///
+    /// A pop-out the user opened has no use for this. It exists for one that
+    /// put itself up: §5.0's list appears on its own when a download starts
+    /// and counts itself back down again, and hovering it has to stop the
+    /// clock. A surface that vanishes while you are reading it is worse than
+    /// one that never appeared.
+    var onHoverChanged: ((Bool) -> Void)?
+
     private let preferredSize: CGSize
     private let edge: PopoutEdge
 
@@ -74,13 +83,14 @@ class PopoutPanelView: NSView {
         super.init(frame: frameRect)
         autoresizingMask = [.width, .height]
         body.wantsLayer = true
-        // **Positioned by frame, and its children by Auto Layout.** The panel's
+        // Positioned by frame, and its children by Auto Layout. The panel's
         // own geometry is two clamps against a button that moves with a sidebar
         // drag — see `layout()` — and a constant assigned from inside `layout()`
         // lands one pass too late to be solved, which put the pop-out at the
         // window's corner with the right size and the wrong place.
         Glass.apply(.popover, to: body, cornerRadius: PopoutMetrics.cornerRadius)
         body.layer.map { Tokens.Shadow.popover.apply(to: $0, in: effectiveAppearance) }
+        body.onHoverChanged = { [weak self] hovering in self?.onHoverChanged?(hovering) }
         addSubview(body)
     }
 
@@ -91,7 +101,7 @@ class PopoutPanelView: NSView {
 
     // MARK: - Geometry
 
-    /// **Standing on the button, and never off the window.**
+    /// Standing on the button, and never off the window.
     ///
     /// It grows away from the button along the edge it was given and rightward
     /// from the button's leading edge, which is the only direction there is
@@ -135,9 +145,22 @@ class PopoutPanelView: NSView {
         onBackgroundClick?()
     }
 
+    /// The pop-out is closing: it is still on screen, but it is not a thing
+    /// the pointer can reach any more.
+    ///
+    /// Without this the sheet goes on swallowing clicks for the length of the
+    /// out animation, so a press on the button that closed it — the ordinary
+    /// way anyone closes one of these — would be eaten rather than reopening
+    /// it, and a click on a link would do nothing at all.
+    private var isClosing = false
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        isClosing ? nil : super.hitTest(point)
+    }
+
     // MARK: - Motion
 
-    /// §6's `commandBarIn`, **grown from the button** rather than from its own
+    /// §6's `commandBarIn`, grown from the button rather than from its own
     /// centre. The anchor point is the corner standing on the control that
     /// opened it, so the pop-out unfolds out of the button instead of appearing
     /// around it.
@@ -149,14 +172,8 @@ class PopoutPanelView: NSView {
             alphaValue = 1
             return
         }
-        let frame = layer.frame
-        let corner = CGPoint(x: 0, y: edge == .above ? 0 : 1)
-        layer.anchorPoint = corner
-        layer.position = CGPoint(
-            x: frame.minX + frame.width * corner.x,
-            y: frame.minY + frame.height * corner.y
-        )
-        scale.fromValue = 0.96
+        anchorToButtonCorner(layer)
+        scale.fromValue = Self.foldedScale
         scale.toValue = 1.0
         layer.add(scale, forKey: "popoutIn")
         alphaValue = 0
@@ -164,10 +181,84 @@ class PopoutPanelView: NSView {
             self.animator().alphaValue = 1
         }
     }
+
+    /// `animateIn` run backwards: the same spring, the same corner, the same
+    /// 0.96, folding back into the button it came out of.
+    ///
+    /// It is the mirror on purpose. A surface that unfolds from a control and
+    /// then vanishes on the next frame is two different objects — one that
+    /// arrived and one that was switched off — and the second one takes the
+    /// first one's meaning with it: the pop-out stops reading as a thing that
+    /// belongs to the button and starts reading as a window that was closed.
+    /// The way back to the button is the whole reason the way out of it was
+    /// animated.
+    ///
+    /// It takes itself out of the tree at the end, and under Reduce Motion
+    /// (§21.2) on the next statement — which is exactly what the controller
+    /// used to do always, and why nothing else has to know the difference.
+    func animateOut() {
+        isClosing = true
+        guard let layer = body.layer,
+              let scale = Tokens.Motion.commandBarIn.springAnimation(keyPath: "transform.scale")
+        else { return removeFromSuperview() }
+        anchorToButtonCorner(layer)
+        scale.fromValue = 1.0
+        scale.toValue = Self.foldedScale
+        // Held at the end: the layer is about to leave the tree, and a scale
+        // that snapped back to full size for the last frame of the fade is a
+        // flicker at the one moment nothing should be moving.
+        scale.fillMode = .forwards
+        scale.isRemovedOnCompletion = false
+        layer.add(scale, forKey: "popoutOut")
+        Tokens.Motion.animate(Tokens.Motion.commandBarIn) { _ in
+            self.animator().alphaValue = 0
+        } completion: { [weak self] in
+            MainActor.assumeIsolated { self?.removeFromSuperview() }
+        }
+    }
+
+    /// §6's 0.96: near enough to full size that it reads as the same object
+    /// arriving rather than a small thing growing.
+    private static let foldedScale: CGFloat = 0.96
+
+    /// Moves the layer's anchor point to the corner that stands on the button,
+    /// keeping the frame where it is. Both directions use it, so both pivot on
+    /// the same corner — a fold that came back to a different one would not be
+    /// the way in reversed.
+    private func anchorToButtonCorner(_ layer: CALayer) {
+        let frame = layer.frame
+        let corner = CGPoint(x: 0, y: edge == .above ? 0 : 1)
+        layer.anchorPoint = corner
+        layer.position = CGPoint(
+            x: frame.minX + frame.width * corner.x,
+            y: frame.minY + frame.height * corner.y
+        )
+    }
 }
 
 /// The rounded panel itself. Swallows clicks so they do not reach the sheet.
 @MainActor
 final class PopoutBodyView: NSView {
+
+    /// Forwarded to `PopoutPanelView.onHoverChanged`, which is where the reason
+    /// for it is written down.
+    var onHoverChanged: ((Bool) -> Void)?
+
     override func mouseDown(with event: NSEvent) {}
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas where area.owner === self { removeTrackingArea(area) }
+        // `.activeAlways`: the pop-out stands over the page and the window it
+        // is in need not be key for the pointer resting on it to mean "I am
+        // reading this".
+        addTrackingArea(NSTrackingArea(
+            rect: .zero,
+            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            owner: self
+        ))
+    }
+
+    override func mouseEntered(with event: NSEvent) { onHoverChanged?(true) }
+    override func mouseExited(with event: NSEvent) { onHoverChanged?(false) }
 }

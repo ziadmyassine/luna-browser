@@ -6,7 +6,7 @@
 //  §6.4's History surface, one size wider.
 //
 //  It used to be an `NSPanel`: a standard utility window with a table in it,
-//  on the argument that §30.15 makes the completion popover the primary surface
+//  on the argument that §30.15 made the completion popover the primary surface
 //  and this the secondary one, so it could afford to behave like every other
 //  Mac panel. On screen that argument does not survive contact. Pressing a
 //  button in Liquid Glass chrome and being handed a grey titled window with a
@@ -19,9 +19,11 @@
 //  opened it, the page stays where it was, and a click anywhere else is done
 //  with it.
 //
-//  `DownloadsPopover` — §5's completion toast, an `NSPanel` floating outside
-//  the window with a tail pointing down into the button — is untouched and is
-//  still a panel, because that one genuinely has to draw past the window's edge.
+//  §5's completion toast — an `NSPanel` floating outside the window with a
+//  tail pointing down into the top bar's button — used to sit alongside this,
+//  and is gone. It was aimed at one of Luna's two chromes and duplicated this
+//  panel in the other; a download now announces itself here, on the button it
+//  was thrown at, in both. See `AppDelegate.announceCompletion`.
 //
 
 import AppKit
@@ -44,7 +46,10 @@ final class DownloadsPanel: PopoutPanelView {
     private let list = DownloadsPanelListView()
     private let scroll = NSScrollView()
     private let empty = NSTextField(labelWithString: "")
-    private let clear = NSButton()
+    private let clear = PopoutTextButton(
+        title: String(localized: "Clear"),
+        label: String(localized: "Clear finished downloads")
+    )
 
     init(frame frameRect: NSRect, edge: PopoutEdge) {
         super.init(frame: frameRect, size: DownloadsPanelMetrics.size, edge: edge)
@@ -76,23 +81,7 @@ final class DownloadsPanel: PopoutPanelView {
         title.textColor = Tokens.Text.primary
         title.translatesAutoresizingMaskIntoConstraints = false
 
-        // A borderless text button rather than a bezelled one: a push button's
-        // system bezel is the one piece of stock AppKit chrome that cannot be
-        // made to sit on glass, which is half of what was wrong with the panel
-        // this replaces.
-        clear.isBordered = false
-        clear.title = ""
-        clear.attributedTitle = NSAttributedString(
-            string: String(localized: "Clear"),
-            attributes: [
-                .font: Tokens.TypeScale.settingsCaption,
-                .foregroundColor: Tokens.Text.secondary
-            ]
-        )
-        clear.target = self
-        clear.action = #selector(clearPressed)
-        clear.setAccessibilityLabel(String(localized: "Clear finished downloads"))
-        clear.translatesAutoresizingMaskIntoConstraints = false
+        clear.onActivate = { [weak self] in self?.onClear?() }
 
         list.translatesAutoresizingMaskIntoConstraints = false
         list.onOpen = { [weak self] item in self?.onOpen?(item) }
@@ -156,10 +145,6 @@ final class DownloadsPanel: PopoutPanelView {
         body.setAccessibilityRole(.group)
         body.setAccessibilityLabel(String(localized: "Downloads"))
         body.setAccessibilityElement(true)
-    }
-
-    @objc private func clearPressed() {
-        onClear?()
     }
 
     // MARK: - Keyboard (§20.2)

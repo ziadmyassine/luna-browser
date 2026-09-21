@@ -7,7 +7,7 @@
 //  limit, and it compiles and runs under exactly the same conditions — see
 //  that file's header for both ways to run it.
 //
-//  Same rule as the colour half: **re-derive, do not restate.** §3.4's row
+//  Same rule as the colour half: re-derive, do not restate. §3.4's row
 //  insets are checked by rebuilding the geometry the reference measures, not
 //  by comparing against the numbers `Metrics.swift` already holds.
 //
@@ -34,7 +34,7 @@ extension TokenCheck {
             ("controlCircle", Tokens.Metric.controlCircle), ("controlSquircle", Tokens.Metric.controlSquircle),
             ("bottomCircle", Tokens.Metric.bottomCircle), ("spaceDotsPill", Tokens.Metric.spaceDotsPill),
             ("rowTrailingChip", Tokens.Metric.rowTrailingChip),
-            ("downloadsPopover", Tokens.Metric.downloadsPopover), ("resizeHandle", Tokens.Metric.resizeHandle),
+            ("resizeHandle", Tokens.Metric.resizeHandle),
             ("glassPreviewTile", Tokens.Metric.glassPreviewTile)
         ]
         for (name, metric) in rounded {
@@ -63,7 +63,6 @@ extension TokenCheck {
             ("pillGlyphSize", Tokens.Metric.pillGlyphSize),
             ("chromeGap", Tokens.Metric.chromeGap), ("chromeGapWide", Tokens.Metric.chromeGapWide),
             ("controlRowGap", Tokens.Metric.controlRowGap), ("capsuleHeight", Tokens.Metric.capsuleHeight),
-            ("downloadsPopoverTail", Tokens.Metric.downloadsPopoverTail),
             ("reloadBlurRadius", Tokens.Metric.reloadBlurRadius), ("reloadProgressLine", Tokens.Metric.reloadProgressLine),
             ("settingsDefaultWidth", Tokens.Metric.settingsDefaultWidth),
             ("settingsDefaultHeight", Tokens.Metric.settingsDefaultHeight),
@@ -89,17 +88,17 @@ extension TokenCheck {
 
     /// §30.9's gesture, re-derived rather than restated.
     ///
-    /// **The page is the ruler, and these are the two claims that keeps
-    /// honest.** Everything the gesture measures is a fraction of the column's
+    /// The page is the ruler, and these are the two claims that keeps
+    /// honest. Everything the gesture measures is a fraction of the column's
     /// own width, so the only numbers left to check are the ones that have to
-    /// hold at *every* width the §3.7 handle reaches — and both of the bugs
+    /// hold at every width the §3.7 handle reaches — and both of the bugs
     /// this area has shipped were a number that was fine at one width and
     /// wrong at another.
     private static func checkSpaceSwipe() -> [String] {
         var failures: [String] = []
         let metric = Tokens.Metric.self
-        // **Making a Space costs at least twice what reaching one does**, and
-        // this is no longer a comfortable margin — it is the *only* guard.
+        // Making a Space costs at least twice what reaching one does, and
+        // this is no longer a comfortable margin — it is the only guard.
         // `SpaceSwipe.resolve` commits a switch at half a page (the 0.5 below
         // is that literal, and there is no token for it because the page is the
         // ruler), and a flick past the last Space used to be excluded by how it
@@ -115,8 +114,8 @@ extension TokenCheck {
                 metric.spaceCreateReach, commit
             ))
         }
-        // **The create gesture has to be completable in one stroke, at the
-        // widest the column gets.** This is the check that was being made
+        // The create gesture has to be completable in one stroke, at the
+        // widest the column gets. This is the check that was being made
         // against a comfortable width instead of the worst one, and the create
         // shipped unperformable: a ceiling on how fast a gesture may travel is
         // also a floor on how long a page takes to cover, and at 360 pt the
@@ -124,13 +123,13 @@ extension TokenCheck {
         // movement — longer than an ordinary swipe lasts. Resistance that
         // cannot be overcome in one stroke is not resistance, it is a dead end.
         //
-        // **The stroke is 0.3 s and it was 0.25**, which is not the bound being
+        // The stroke is 0.3 s and it was 0.25, which is not the bound being
         // relaxed to fit a number. The figure has to be the length of the
         // stroke this distance is actually covered by, and that stroke changed:
         // a create used to be a flick continued, so the bound was a flick's,
         // and it is now a deliberate push that ends at rest — `spaceFlickSpeed`
         // excludes the flick by design rather than by distance. A deliberate
-        // push also runs *under* the damping knee, so the ceiling this divides
+        // push also runs under the damping knee, so the ceiling this divides
         // by barely applies to it; 0.3 s is still the conservative reading.
         let stroke: CGFloat = 0.3
         let widest = metric.spaceCreateReach * metric.sidebarWidth.max
@@ -140,8 +139,8 @@ extension TokenCheck {
                 widest, metric.spaceSwipeSpeed
             ))
         }
-        // **The create zone resists, and the resistance has to be visible in
-        // the column.** `spaceCreateGive` is where its travel bends over, so a
+        // The create zone resists, and the resistance has to be visible in
+        // the column. `spaceCreateGive` is where its travel bends over, so a
         // give at or past the reach is a column that follows the hand out as if
         // it were going somewhere — which is the one thing the gesture must not
         // look like, because it is the gesture for a Space that does not exist.
@@ -153,7 +152,7 @@ extension TokenCheck {
                 metric.spaceCreateGive, metric.spaceCreateReach
             ))
         }
-        // **The `+` has to be standing still while the ring is still filling.**
+        // The `+` has to be standing still while the ring is still filling.
         // Its entrance is a fraction of the ring's own sweep, so at 1 it is
         // still sliding in at the instant the gesture commits and the read-out
         // is two things moving at once instead of one thing filling.
@@ -163,7 +162,7 @@ extension TokenCheck {
                 metric.spaceCreateEntrance
             ))
         }
-        // **A flick is told from a drag by speed alone**, so the threshold has
+        // A flick is told from a drag by speed alone, so the threshold has
         // to sit inside the range the gesture can actually report: `damped`
         // holds it under `spaceSwipeSpeed`, and one that met or exceeded the
         // ceiling could never be reached — no swipe would ever turn a page
@@ -183,7 +182,7 @@ extension TokenCheck {
                 metric.spaceFlickReach
             ))
         }
-        // The ring is drawn **around** the glass disc, so it has to be bigger
+        // The ring is drawn around the glass disc, so it has to be bigger
         // than one — and by enough to read as a ring with a button in it
         // rather than as a border painted on the button's edge.
         if metric.spaceCreateRing <= metric.bottomCircle.width + 2 * metric.spaceCreateRingLine {
@@ -205,7 +204,7 @@ extension TokenCheck {
     /// §3.4's row geometry, re-derived rather than trusted.
     ///
     /// The insets are the one place §3.4's prose is overridden by the
-    /// reference, so what is checked is the *rule* the reference follows — the
+    /// reference, so what is checked is the rule the reference follows — the
     /// favicon square-inset inside the pill, the same padding leading as above
     /// and below — and that it still lands on the measured numbers (17.2 and
     /// 44.9 px/2.848, from `inspiration/main-tab-bar-and-ui.png`).
@@ -222,7 +221,7 @@ extension TokenCheck {
         }
         // 42.5, not §3.4's 45.5: `rowTitleGap` is deliberately 3 pt tighter
         // than the reference in the tab list, and only there. The check still
-        // runs — it is what catches the *next* drift — it just expects the
+        // runs — it is what catches the next drift — it just expects the
         // number Luna actually ships.
         if abs(metric.rowFaviconInset - 17.5) > 0.5 || abs(metric.rowTitleInset - 42.5) > 0.5 {
             failures.append(String(
@@ -280,15 +279,18 @@ extension TokenCheck {
         if metric.contentCardRadius < metric.windowCornerRadius {
             failures.append("Metric.contentCardRadius is inside windowCornerRadius — the corners would not nest")
         }
-        if metric.downloadsPopoverTail > metric.downloadsPopover.height / 2 {
-            failures.append("Metric.downloadsPopoverTail is longer than half the popover — the tail would swallow the body")
+        // §5.0: the file shrinks to the mark on the button it lands on, so
+        // the button's glyph has to be the smaller of the two. Equal, and the
+        // flight is an icon sliding across the window at a constant size.
+        if metric.glyphSize >= metric.downloadsFileIcon {
+            failures.append("Metric.glyphSize is not smaller than downloadsFileIcon — §5.0's flight would not shrink")
         }
         return failures + checkSettingsWindow()
     }
 
     /// §23.1 §1's settings window. Three claims, none of them restated from the
     /// numbers: the window can actually be resized down, the section list
-    /// leaves a detail pane behind at the *smallest* the window goes, and the
+    /// leaves a detail pane behind at the smallest the window goes, and the
     /// preview tile fits in that pane. A list that is wider than the pane it
     /// shares the window with is the failure mode here, and it only shows up
     /// once someone drags the window in.
@@ -323,9 +325,9 @@ extension TokenCheck {
             ("cardFullscreen", Tokens.Motion.cardFullscreen), ("commandBarIn", Tokens.Motion.commandBarIn),
             ("popoverIn", Tokens.Motion.popoverIn), ("hoverPeek", Tokens.Motion.hoverPeek),
             ("themeWash", Tokens.Motion.themeWash), ("reloadArcIn", Tokens.Motion.reloadArcIn),
-            ("reloadArcOut", Tokens.Motion.reloadArcOut), ("particleDissolve", Tokens.Motion.particleDissolve),
-            ("particleSettle", Tokens.Motion.particleSettle),
-            ("loadLineAdvance", Tokens.Motion.loadLineAdvance), ("loadLineFade", Tokens.Motion.loadLineFade)
+            ("reloadArcOut", Tokens.Motion.reloadArcOut),
+            ("loadLineAdvance", Tokens.Motion.loadLineAdvance), ("loadLineFade", Tokens.Motion.loadLineFade),
+            ("downloadFlight", Tokens.Motion.downloadFlight), ("downloadCatch", Tokens.Motion.downloadCatch)
         ]
         var failures = timed.filter { $0.1.duration > motionBudget }
             .map { String(format: "Motion.%@ is %.2f s — §6 caps at 0.35 s", $0.0, $0.1.duration) }
@@ -338,28 +340,33 @@ extension TokenCheck {
                 failures.append("Motion.\(name) claims to be a spring but builds no animation")
             }
         }
-        // The two entries §6 exempts: one tied to real work (§5.1), one a
-        // repeating indicator whose duration is a rate rather than a delay
-        // (§3.4's shimmer). Neither belongs in `timed` above.
-        failures += exemption("downloadsParticleSweep", Tokens.Motion.downloadsParticleSweep, 0.40)
+        // The one entry §6 exempts: a repeating indicator whose duration is a
+        // rate rather than a delay (§3.4's shimmer). It does not belong in
+        // `timed` above.
         failures += exemption("rowShimmer", Tokens.Motion.rowShimmer, 1.10)
         if timed.contains(where: { $0.0 == "rowShimmer" }) {
             failures.append("Motion.rowShimmer is in the budget list — it loops, so 0.35 s would make it a strobe")
         }
+        // §5.0: the catch is the bigger of the two answers a control gives,
+        // and that is the whole reason there are two of them. A press is the
+        // user doing something to the button and 5 % confirms it; a catch
+        // happens in a corner they are not looking at. See `downloadCatchSwell`.
+        if Tokens.Motion.downloadCatchSwell <= Tokens.Motion.pressSwell {
+            failures.append("Motion.downloadCatchSwell is no larger than pressSwell — a catch is not a press")
+        }
         return failures
     }
 
-    /// One §6 budget exemption, checked **by value** so the exemption cannot be
-    /// used to smuggle an arbitrary duration past the 0.35 s cap. Neither of
-    /// the two is a spring: a spring settles, and one of these is tied to real
-    /// work (§5.1) while the other repeats forever (§3.4's shimmer).
+    /// One §6 budget exemption, checked by value so the exemption cannot be
+    /// used to smuggle an arbitrary duration past the 0.35 s cap. It is not a
+    /// spring: a spring settles, and §3.4's shimmer repeats forever.
     private static func exemption(_ name: String, _ spec: MotionSpec, _ expected: TimeInterval) -> [String] {
         var failures: [String] = []
         if abs(spec.duration - expected) > 0.001 {
             failures.append(String(format: "Motion.%@ is %.2f s — its §6 exemption is for %.2f s", name, spec.duration, expected))
         }
         if spec.isSpring {
-            failures.append("Motion.\(name) is a spring — a spring settles, and neither exemption is allowed to")
+            failures.append("Motion.\(name) is a spring — a spring settles, and an exemption is not allowed to")
         }
         return failures
     }

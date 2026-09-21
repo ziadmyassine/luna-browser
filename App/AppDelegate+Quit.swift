@@ -21,24 +21,72 @@
 
 import AppKit
 
+/// Whether ⌘Q asks first, as a rule rather than as a state of the app.
+///
+/// Every term is a reason not to ask, and the one that is easy to get wrong is
+/// the last: the sheet is only an answer if there is somewhere to put it. The
+/// `.cancel` this decides is a quit that has already been asked for, so a false
+/// yes is not a question — it is an app that will not quit.
+enum QuitConfirmation {
+
+    /// - Parameters:
+    ///   - setting: §23.1's "Ask before quitting".
+    ///   - alreadyConfirmed: the sheet has been answered with "quit", and this
+    ///     is the second pass — see the file header.
+    ///   - hasSession: there are tabs to lose. Before the session exists there
+    ///     is nothing the question protects.
+    ///   - hasVisibleWindow: there is a browser window on screen to put the
+    ///     sheet on.
+    ///   - isLogOut: the quit was not started by the user. Logging out or
+    ///     shutting down gives the app a few seconds and no keyboard, and a
+    ///     modal nobody can answer is a machine that will not shut down.
+    static func isNeeded(
+        setting: Bool,
+        alreadyConfirmed: Bool,
+        hasSession: Bool,
+        hasVisibleWindow: Bool,
+        isLogOut: Bool
+    ) -> Bool {
+        guard setting, !alreadyConfirmed, hasSession, hasVisibleWindow else { return false }
+        return !isLogOut
+    }
+}
+
 extension AppDelegate {
 
-    /// Whether the sheet should go up now — and false once it has been
-    /// answered with "quit", so the second pass does not ask again.
-    ///
-    /// A quit the user did not start also goes straight through: logging out
-    /// or shutting down gives the app a few seconds and no keyboard, and a
-    /// modal nobody can answer is a machine that will not shut down.
+    /// Whether the sheet should go up now.
     func wantsQuitConfirmation(_ sender: NSApplication) -> Bool {
-        guard !isQuitConfirmed, GeneralSection.confirmQuit else { return false }
-        guard session != nil, browserWindow?.window != nil else { return false }
-        return !isQuitFromLogOut
+        QuitConfirmation.isNeeded(
+            setting: GeneralSection.confirmQuit,
+            alreadyConfirmed: isQuitConfirmed,
+            hasSession: session != nil,
+            hasVisibleWindow: quitSheetHost != nil,
+            isLogOut: isQuitFromLogOut
+        )
+    }
+
+    /// The window the sheet goes up on: the browser window, while it is one
+    /// the user can see.
+    ///
+    /// A closed window is still the window controller's window — `NSWindowController`
+    /// owns it whether or not it is on screen — so "there is a browser window"
+    /// and "there is a browser window to ask in" are different questions.
+    /// Asking the first one meant that with the browser window closed and
+    /// §23.1's Settings window still open, ⌘Q put the sheet on a window nobody
+    /// could see and cancelled the quit that was waiting for it: an app that
+    /// would not quit, with nothing on screen to say why. Miniaturised counts
+    /// as not visible for the same reason, and a quit with no window to ask in
+    /// goes straight through — the tabs it would be protecting were put away
+    /// when the window closed.
+    var quitSheetHost: NSWindow? {
+        guard let window = browserWindow?.window, window.isVisible else { return nil }
+        return window
     }
 
     /// Puts the sheet up over the browser window and wires its answer back to
     /// `NSApp`.
     func presentQuitSheet() {
-        guard let window = browserWindow?.window, let host = window.contentView else { return }
+        guard let window = quitSheetHost, let host = window.contentView else { return }
         // Already up — ⌘Q pressed twice is one question, not two sheets.
         guard host.subviews.compactMap({ $0 as? QuitSheetView }).isEmpty else { return }
 

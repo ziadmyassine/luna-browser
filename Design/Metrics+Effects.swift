@@ -2,7 +2,7 @@
 //  Metrics+Effects.swift
 //  Luna
 //
-//  §5's downloads popover, §7's reload bloom and §3.3's selection glow. Split
+//  §5's downloads chrome, §7's reload bloom and §3.3's selection glow. Split
 //  out of Metrics.swift when it crossed the 400-line file limit.
 //
 
@@ -10,25 +10,20 @@ import Foundation
 
 extension Tokens.Metric {
 
-    // MARK: Downloads popover (§5)
+    // MARK: Downloads (§5, §5.0)
 
-    /// ~330 × 58, radius 14.
-    static let downloadsPopover = RoundedMetric(width: 330, height: 58, cornerRadius: 14)
+    /// The file's own icon, at the size it leaves the page — §5.0's flight
+    /// throws one of these at the Downloads button and shrinks it to
+    /// `glyphSize` on the way, which is why the two are a ratio and not a
+    /// third number. Also the icon a row in §15.3's list carries.
     static let downloadsFileIcon: CGFloat = 34
-    static let downloadsConfirm = RoundedMetric(width: 30, height: 30, cornerRadius: 9)
-    /// The side of §5's pointer tail: a square rotated 45° and half-buried in
-    /// the popover's bottom edge, so the tip reaches `tail × √2 / 2` below the
-    /// body. §5 draws the tail and gives it no number; taking it from the
-    /// popover's own corner radius keeps it proportioned to the surface it
-    /// grows out of.
-    static let downloadsPopoverTail = downloadsPopover.cornerRadius
 
     // MARK: Password autofill (§14.3, §14.4)
 
-    /// The credential picker anchored to a login field. Narrower than §5's
-    /// downloads popover: its content is one line of username, and a picker as
-    /// wide as the page's form reads as part of the page, which §14.3 says it
-    /// must never look like.
+    /// The credential picker anchored to a login field. Deliberately narrow:
+    /// its content is one line of username, and a picker as wide as the page's
+    /// form reads as part of the page, which §14.3 says it must never look
+    /// like.
     static let passwordPopover = RoundedMetric(width: 288, height: 44, cornerRadius: 12)
     /// Gap between the bottom of the login field and the top of the popover, so
     /// the field's focus ring stays visible underneath.

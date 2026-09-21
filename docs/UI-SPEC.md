@@ -98,7 +98,6 @@ are near-black and white respectively. The OS does the expensive part for free.
 | Sidebar | Liquid Glass, regular |
 | Top bar | Liquid Glass, regular |
 | Action capsule, control buttons, Essentials tiles | Liquid Glass, clear, over the bar |
-| Downloads popover | Liquid Glass `.regular` + a heavier panel shadow |
 | Content card | Opaque `Surface.base` — never translucent; a web page behind glass is unreadable |
 | URL pill | `Surface.well` at rest, `.control` glass when hovered or open for editing. **No page tint** |
 | History pop-out | Liquid Glass `.regular` + `Shadow.popover`, standing on the §3.5 button |
@@ -440,6 +439,18 @@ Vertical order, top to bottom:
     and wherever that lands, four frames are dropped. So it lands on a bar the size of a pill, in the
     pill's place, in the same commit that hides the pill: what the user sees is the address bar they
     clicked becoming a field. The reveal then has nothing left to build, and the spring is a height.
+  - **And it closes the way it opened.** The anchored bar's glass runs back down to the pill's height
+    on the same `commandBarIn`, and the pill is unhidden at the end of that rather than the start — a
+    frame earlier and the address is on screen twice on the same 34 pt, which is the whole thing
+    hiding it was for. The floating bar, which grew out of nothing, shrinks to 0.96 and fades the way
+    it arrived. Before this the bar was `removeFromSuperview()`: there, and then not. On the floating
+    panel that reads as a window being shut rather than a summoned thing going away; on the anchored
+    one it is worse, because what that bar is saying is "I am the pill you clicked, opened up" — and a
+    bar that vanishes to reveal the pill underneath was never the pill at all. The way out has to make
+    the same claim the way in made, or it withdraws it. Two things go with it: the bar stops
+    hit-testing on the first closing frame, since it covers the window and the pill it is folding into
+    is underneath it; and a bar that never opened — one still standing at the pill's height waiting for
+    the store — closes at once, because folding a height onto itself is 0.18 s of nothing.
   - **And it waits for the store before it opens.** The opening query's history lands about 9 ms after
     that first composite, and opening without it meant the morph grew around one list and settled on
     another — rows re-ranking under the pointer a quarter-second after the click, which is what Martin
@@ -693,7 +704,7 @@ column closes up over the pill's own 34 pt.
   band back to the page, so a link there stays clickable.
 
 ##### 3.2b.i Suggestions under the pill — **removed 2026-09-20**
-Typing in the pill used to drop §3.4's search completions below it on the §5 popover material, the same
+Typing in the pill used to drop §3.4's search completions below it on `.popover` material, the same
 width as the pill and lining up with it rather than with the bar.
 
 It is gone, with the in-place editing it belonged to. Both address pills now hand the whole job to §9.1,
@@ -1117,7 +1128,13 @@ to reimplement keyboard navigation, VoiceOver and Reduce Transparency.
 > what an `NSMenu` puts up and for the same reason. **The shadow does what the scrim used to:** with no
 > backdrop behind it the panel has only its own edge, so it carries `Shadow.popover` — the token §6.6's
 > drag lift already uses. It grows out of the button on §6's `commandBarIn`, anchored at the corner
-> standing on it rather than at its own centre.
+> standing on it rather than at its own centre — **and folds back into that same corner when it closes**,
+> which is the same spring, the same 0.96 and the same pivot, run the other way. It used to be
+> `removeFromSuperview()`: on screen one frame and gone the next, which reads as a window being closed
+> rather than as a glance ending, and it took the button's ownership of the surface with it. The
+> controller counts the pop-out as gone the moment it is dismissed — `esc`, the button, a click outside —
+> so the next one may open immediately; the view fading is nobody's business but its own, and it stops
+> hit-testing on the first frame so the click that closed it is not eaten by the sheet that is leaving.
 > **Every row is one width, and it is the list's.** A pill measured off each row inherits whatever that
 > row's own stack negotiated, so a long title and a short one highlighted differently — and a row wider
 > than the list put glass over the panel's own rounded edge. The pill takes `x` and width from the list,
@@ -1384,24 +1401,26 @@ its contents stagger in at 20 ms intervals. Total 0.3 s. Traffic lights re-ancho
 
 ---
 
-## 5. Downloads popover — and the list behind it
+## 5. Downloads — the list, and how a file gets to it
 
-- **Renders outside the window bounds**, floating above the top edge, with a **visible pointer tail**
-  into the downloads button. It is an `NSPanel`, not an in-window view.
-- Size ~330 × 58, radius 14. Heavier glass than the bar, with its own shadow.
-- Row: `[file-type icon 34] [filename, middle-truncated, 14 pt] [confirm button 30, radius 9]`
+**One surface, in both chromes.** Everything downloaded — open, reveal, retry, clear — is §3.5's
+pop-out at `downloadsPanel`, standing on whichever Downloads button the layout shows: down from §4's
+capsule, up from §3.5's cylinder, and `⌘⌥L` opens the same thing. It also puts itself up when a
+download starts (§5.0) and when one lands, and counts itself down after **4 s** unless the pointer is
+on it.
+
+- Row: `[file-type icon 34] [filename, middle-truncated, 14 pt] [size or state]`, with §3.2c's line
+  under it while the bytes are moving — see §5.0, item 4.
 - Middle truncation is required — `97103328759-202…01-2026-08-31.pdf` keeps both the prefix and the
   extension, which head- or tail-truncation would each destroy.
-- Appears on download completion, auto-dismisses after 4 s, or on confirm. Hovering cancels the timer.
+- **Completion is announced on the button the file was thrown at**, in both layouts, by
+  `AppDelegate.announceCompletion` → `downloadsSite()`. A list already standing open is showing that
+  row finish and is left exactly as it is.
 
-**The list is a pop-out, not a panel.** §15.3's list — everything downloaded, with open, reveal, retry
-and clear — was an `NSPanel`: a standard titled utility window with a table and a row of push buttons.
-Pressing a button in Liquid Glass chrome and being handed that is a different application answering; it
-takes focus off the page, it has to be closed rather than glanced away from, and it was the only surface
-in Luna that looked like it was built in 2012. It is now §3.5's pop-out at `downloadsPanel`, standing on
-whichever Downloads button the layout shows — down from §4's capsule, up from §3.5's cylinder — with
-`⌘⌥L` opening the same thing. The completion popover above is untouched and is still an `NSPanel`,
-because that one genuinely has to draw past the window's edge.
+**The list is a pop-out, not a panel.** §15.3's list was an `NSPanel`: a standard titled utility window
+with a table and a row of push buttons. Pressing a button in Liquid Glass chrome and being handed that
+is a different application answering; it takes focus off the page, it has to be closed rather than
+glanced away from, and it was the only surface in Luna that looked like it was built in 2012.
 
 > `PopoutPanelView` is the shared surface: sheet, glass body, `Shadow.popover`, the two clamps and the
 > spring. The only thing that differs between History and Downloads is **which way it grows** out of its
@@ -1410,25 +1429,91 @@ because that one genuinely has to draw past the window's edge.
 > contains a `Glass` backing.** `Glass.backing` puts an `NSGlassEffectView` inside, which lays its own
 > `contentView` out with constraints — and Auto Layout cannot express a rotation, so the engine returns
 > **NaN** and AppKit traps in `_NSViewValidateGeometry` ("Invalid view geometry: y is NaN") on the next
-> layout pass, with no frames of ours in the stack. The tail's diamond is a `CAShapeLayer` mask on an
-> unrotated view of the same bounding box instead. It crashed on *every* completed download; the TCC
-> dialog only made the timing deterministic.
-- The full downloads panel is the secondary surface; **this popover is primary** (§30.15).
+> layout pass, with no frames of ours in the stack. It was a rotated square being used as a pointer
+> tail, and the answer was a `CAShapeLayer` mask on an unrotated view of the same bounding box.
 
-### 5.1 Completion animation — the particle sweep
-On completion the filename **dissolves into particles and reassembles**:
-1. Text renders to a bitmap, sampled into ~1200 particles on a grid.
-2. Particles displace upward and outward with per-particle jitter, fading to 0 over **0.22 s**, swept
-   left → right so the dissolve reads as directional.
-3. They settle back into place over **0.18 s** with a 0.04 s stagger, ease-out.
-4. Total **0.4 s**, and the stagger lives **inside** each phase: a given particle's dissolve spans 0.18 s
-   starting at `sweepIndex × 0.04`, so 0.22 + 0.18 = 0.40 overall.
-5. **One composited node**, not 1200 `CALayer`s — that is the rule. `CAEmitterLayer` turns out not to
-   satisfy step 3: it is a simulation with no handle on an individual particle, so "settle back into
-   place with a 0.04 s stagger" is unreachable, and its single `emitterPosition` cannot sample glyph
-   shape. A single layer-backed view drawing every particle itself is correct and costs ~0.3 ms of an
-   8.3 ms frame at 120 Hz.
-- **Reduce Motion: the animation does not run.** The filename simply appears.
+#### The completion popover — **removed 2026-09-21**
+
+A download landing used to put up a second surface: an `NSPanel` floating **outside** the window above
+the top edge, ~330 × 58 at radius 14, with a pointer tail down into §4's Downloads button, a
+middle-truncated filename, a confirm button and a 4 s timer. It was built as §30.15's primary surface,
+with the list behind it as secondary.
+
+It was aimed at one chrome and redundant in the other. A body that floats above the window's top edge
+with its tail pointing *down* is a shape that only exists for a button at the top: hung off §3.5's
+cylinder in the bottom-left it appeared in the opposite corner of the screen with its tail in the
+sidebar toggle, answering the right event at the wrong end of the window. And in the top bar, where it
+was at least aimed correctly, it was a card repeating what the list underneath it already said — two
+answers to one question with one floating over the other.
+
+So there is one answer now, and §5.0 is why it can be: a file that has just been *thrown* at a button
+should be found at that button. `DownloadManager` no longer knows what the announcement looks like; it
+fires `onFinish` and the host puts the list up on `downloadsSite()`'s anchor.
+
+### 5.0 Arrival — the file goes to the button
+
+A download **starting** was the event with nowhere to happen. Everything §5 had was about a download
+*finishing*; until then the only thing that had changed was a number inside a panel nobody had open.
+So:
+
+1. **The file's own icon leaves the page on an arc** and lands on the Downloads button — the real
+   file-type icon at `downloadsFileIcon`, carrying `Shadow.popover` because it crosses an arbitrary
+   page, shrinking to `glyphSize` on the way, solid until the last sixth and then gone.
+   `downloadFlight`: 0.30 s, **linear**, and the linearity is the point — see 2.
+2. **It is a thrown object, and the physics is in the path.** The quadratic's control point is the
+   **corner** of the box the two ends make, nudged away from the landing by one icon, so
+   `x(t) = origin.x(1−t)² + landing.x(1−(1−t)²)` and `y(t) = origin.y(1−t²) + landing.y·t²`:
+   horizontal speed decaying, vertical accelerating as the square. It covers the ground first and
+   turns into the button at the end, in both layouts, and it arrives with pace for the catch to
+   answer. A timing curve on top of this is a second acceleration fighting the first.
+   > **What this replaced, and why.** The first build lifted the *midpoint* straight up, on the
+   > reasoning that a lob goes up before it comes down. It does — but a lob to a button in the
+   > **bottom** corner leaves the page in the wrong direction and then comes back, and the eye
+   > follows that as a detour rather than as a throw. `easeInOut` made it worse at the other end:
+   > the icon *slowed down* into the button, which is the one moment it should be arriving with
+   > pace, so the catch was answering nothing.
+3. **The button's glass catches it**: `downloadCatchSwell` (18 %) springing back to rest on
+   `downloadCatch`. It is the **capsule** that bulges, never the glyph inside it — §6's hand-up rule,
+   for the same reason presses use it. The swell is bigger than a press's 5 % because a press is the
+   user doing something to the button and this happens in a corner they are not looking at.
+4. **Then §15.3's list opens underneath, with the bar running** — `[filename] [4.2 MB of 18 MB]` and
+   §3.2c's line, `loadLineHeight` of `Accent.tint` **over a `Surface.hover` track**. The track is the
+   one difference from the address bar's line: a pill is its own track and a row is not, so without
+   one the line says how far the bytes have come and nothing about how far they have to go.
+   It counts itself down after §5's 4 s, and hovering it stops the clock.
+
+**Both chromes, one animation.** §3.5 puts Downloads at the bottom-left of the window and §4 at the
+top-right; the arc is drawn between two points and knows nothing else, so the layout decides where the
+file goes and not what happens to it. `AppDelegate.downloadsSite()` is the single place that answers
+"which button", for the flight, for the list and for `⌘⌥L` alike.
+
+**It leaves from the pointer.** WebKit does not say which element started a download or where that
+element was drawn, and asking the page would be Luna running script on every site to decorate an
+animation. The pointer is where the link the user just clicked was, which is almost every download;
+the centre of the content is the fallback for the rest, and a file appearing to leave from the middle
+of the page is a thing that came from the page.
+
+**A download the user declined never flies.** The flight fires when the destination is settled, not
+when `WKDownload` arrives — §15.4's confirmation sits between the two, and a file thrown across the
+window behind a modal sheet is a flight nobody sees for a download that did not happen.
+
+- **Reduce Motion: nothing flies and nothing bulges.** The list still opens — that is information,
+  not motion.
+
+---
+
+### 5.1 Completion animation — the particle sweep — **removed 2026-09-21**
+
+The filename in the completion popover dissolved into ~1200 particles and reassembled: a directional
+left → right dissolve over **0.22 s**, a settle back into place over **0.18 s** with a 0.04 s
+per-particle stagger, **0.40 s** total, drawn as **one composited node** rather than 1200 `CALayer`s
+(`CAEmitterLayer` could not do it — a simulation gives no handle on an individual particle, so
+"settle back into place with a stagger" is unreachable, and one `emitterPosition` cannot sample glyph
+shape). It cost ~0.3 ms of an 8.3 ms frame at 120 Hz.
+
+It drew the popover's filename and nothing else, so it went when the popover did. The motion §5 has
+now is §5.0's, at the other end of the download: the arrival is the thing worth animating, because it
+is the thing the user has no other way to find out about.
 
 ---
 
@@ -1460,13 +1545,23 @@ at `TypeScale.pageTitle`, one sentence of what is actually at stake, and three a
 - **Escape and a click that missed both mean stay**, and an answer arrives exactly once.
 - `applicationShouldTerminate` answers `.terminateCancel` while the question is up and the answer
   re-enters it — **not** `.terminateLater`, which parks the app in a nested modal loop.
+- **It only asks where it can be answered.** The `.terminateCancel` above is a quit the user has
+  already asked for, so every yes owes them a sheet they can see: with the browser window closed and
+  §23.1's Settings window keeping the app alive, ⌘Q put the sheet on a window nobody could see and
+  cancelled the quit waiting for it — an app that would not quit, with nothing on screen to say why.
+  A closed window is still the window controller's window, so the test is `isVisible` and not
+  existence. With no window to ask in the quit goes straight through: the tabs the question protects
+  were put away when the window closed. `QuitConfirmation.isNeeded` is the rule, apart from the app
+  it is about, because a wrong answer there is unquittable rather than merely quiet.
 
 ---
 
 ## 6. Motion
 
-Nothing exceeds **0.35 s** except the two cases marked, which are tied to real work rather than taste.
-Every entry degrades to instant under Reduce Motion.
+Nothing exceeds **0.35 s** except the two cases marked, which are not discrete transitions: §7's
+reload bloom is bound to real load progress, and §3.4's row shimmer repeats for as long as the tab is
+loading, so its duration is a rate and not a delay. Every entry degrades to instant under Reduce
+Motion.
 
 | Interaction | Animation |
 |---|---|
@@ -1474,7 +1569,10 @@ Every entry degrades to instant under Reduce Motion.
 | Sidebar collapse / expand | 0.20 s ease-out width + 0.12 s opacity |
 | Layout switch (sidebar ↔ top bar) | 0.30 s, contents stagger 20 ms |
 | Hover-peek reveal | 0.10 s intent delay → 0.15 s ease-out slide |
-| Command Bar in | 0.18 s spring, scale 0.96 → 1.0 + fade, anchored 20 % from window top |
+| Command Bar in / out | 0.18 s spring, scale 0.96 ↔ 1.0 + fade, anchored 20 % from window top |
+| Command Bar in / out, on a pill | the same 0.18 s spent on the glass's height, pill ↔ list (§9.1) |
+| Pop-out in / out (§6.4) | the same spring, 0.96 ↔ 1.0 + fade, pivoting on the button's corner both ways |
+| Panel fade in / out (§14.3, §14.4) | `popoverIn`, and the same fade backwards on the way out |
 | Tab insert / remove | 0.22 s spring height + fade, no list jump |
 | Row hover fill | 0.12 s ease-out |
 | Control button hover lift | 0.10 s ease-out |
@@ -1482,8 +1580,9 @@ Every entry degrades to instant under Reduce Motion.
 | Selected-row pill move | 0.20 s spring, response 0.28, damping 0.80 |
 | URL pill theme wash | **withdrawn** — see §2 |
 | Split divider snap | 0.12 s |
-| Downloads popover in | 0.20 s spring, scale 0.94 → 1.0, from the tail anchor |
-| Downloads particle sweep | **0.40 s** (see §5.1) |
+| Download flight (§5.0) | 0.30 s **linear** along the arc — the acceleration is the path's (§5.0) |
+| Download catch (§5.0) | spring, response 0.24, damping 0.55; the capsule bulges 18 % and springs back |
+| Row loading shimmer (§3.4) | **1.10 s** linear, repeating for as long as the load runs |
 | Page reload bloom | **tied to load duration** (see §7) |
 | Content card → fullscreen | 0.30 s ease-in-out |
 

@@ -246,9 +246,7 @@ final class SidebarRowView: NSView {
         let sweep = CABasicAnimation(keyPath: "locations")
         sweep.fromValue = [-0.6, -0.3, 0]
         sweep.toValue = [1, 1.3, 1.6]
-        // No shimmer token exists in §6; the particle sweep is the nearest
-        // published duration. See the report: `Tokens.Motion.rowShimmer`.
-        sweep.duration = Tokens.Motion.downloadsParticleSweep.duration
+        sweep.duration = Tokens.Motion.rowShimmer.duration
         sweep.repeatCount = .infinity
         shimmerMask.add(sweep, forKey: "shimmer")
     }

@@ -5,19 +5,19 @@
 //  §3.5: `[profile 34] ··· [dots 56 × 22] ··· [downloads | history]`, pinned to
 //  the bottom at 52 pt, with §3.5's profile line standing above it.
 //
-//  The trailing circle opens the archive page, and is called **History** —
+//  The trailing circle opens the archive page, and is called History —
 //  that is what a user looking for a page they closed goes looking for, and
 //  "archive" is Luna's internal word for the same shelf. It carries a clock
 //  glyph for the same reason: a box means storage, a clock means "earlier".
 //
-//  **Downloads sits beside it, as its pair, in one cylinder.** They are the
+//  Downloads sits beside it, as its pair, in one cylinder. They are the
 //  same kind of thing — the shelf of what you already have, glanced at rather
 //  than worked in, both opening as a pop-out that stands on its own button —
 //  and §4's action capsule pairs the same two at the other end of the window,
 //  in one piece of glass. So does this: see `SidebarActionCapsule` for why two
 //  discs 5 pt apart read as two controls and one cylinder reads as a pair. The
 //  alternative home was the §3.1 control row at the head, which is where
-//  *actions on this page* live; a finished download is not one of those.
+//  actions on this page live; a finished download is not one of those.
 //
 //  The pair is what set §1's sidebar minimum: three clusters and a centred pill
 //  need 190 pt, and `Metric.sidebarWidth` records the arithmetic. Below the
@@ -84,6 +84,12 @@ final class SidebarUtilityBar: NSView {
     /// §15.3's pop-out stands on this, for the same reason.
     var downloadsAnchor: NSView { library.button(at: 0) }
 
+    /// §5.0's flight lands on that button and the cylinder catches it —
+    /// the glyph is `GlassMode.none` and has nothing of its own to bulge, so
+    /// this is the same hand-up the press already does. See
+    /// `SidebarActionCapsule`.
+    var downloadsCatcher: NSView { library }
+
     /// §6.6: the Space a lift held over `point` would move the tab to, with
     /// `point` in `space`'s coordinates.
     func spaceID(at point: NSPoint, from space: NSView) -> UUID? {
@@ -117,11 +123,11 @@ final class SidebarUtilityBar: NSView {
         NSSize(width: NSView.noIntrinsicMetric, height: Tokens.Metric.topBarHeight)
     }
 
-    /// Where the Space strip's **bottom edge** sits, measured from the bar's
+    /// Where the Space strip's bottom edge sits, measured from the bar's
     /// bottom.
     ///
-    /// **The same as the avatar's and the cylinder's, which is not the same as
-    /// centred.** All three used to be centred on the bar's midline, and three
+    /// The same as the avatar's and the cylinder's, which is not the same as
+    /// centred. All three used to be centred on the bar's midline, and three
     /// things centred in a 52 pt bar do not line up unless they are the same
     /// height: the 34 pt circles sat 9 pt off the bottom and the 22 pt pill sat
     /// 15, so the footer read as a row with one item floating in it. A row of
@@ -131,7 +137,7 @@ final class SidebarUtilityBar: NSView {
         (Tokens.Metric.topBarHeight - Tokens.Metric.bottomCircle.height) / 2
     }
 
-    /// Where the Space strip's **top edge** sits — which is where §3.5's
+    /// Where the Space strip's top edge sits — which is where §3.5's
     /// profile line has to stand.
     ///
     /// Arithmetic rather than `dots.frame.maxY`, and static rather than an
@@ -187,8 +193,8 @@ final class SidebarUtilityBar: NSView {
         )
     }
 
-    /// **Centred in the bar while it fits, and centred in what is left when it
-    /// does not.**
+    /// Centred in the bar while it fits, and centred in what is left when it
+    /// does not.
     ///
     /// The pill is sized to the dots it holds (`SpaceDotsView.width(forDots:)`),
     /// so "does it fit" is not a question §1's minimum can answer once and for
@@ -210,14 +216,14 @@ final class SidebarUtilityBar: NSView {
 /// §3.5's profile line: the one place the window says whose cookies it is
 /// using.
 ///
-/// **The fan-out is the reason this exists.** Space → Profile is many-to-one
+/// The fan-out is the reason this exists. Space → Profile is many-to-one
 /// (`SPACES-SPEC` §9) and no other browser tells you which side of it you are
 /// on: Arc's most-reported conceptual confusion is "why am I still logged in
 /// over here", and its answer lives in a support article. Settings names the
 /// profile on each Space's card, but a name you have to open a window to read
 /// is not what you check before typing a password into a shared jar.
 ///
-/// It is set in `Text.secondary` — **an inactive tab's ink, exactly** — and
+/// It is set in `Text.secondary` — an inactive tab's ink, exactly — and
 /// sits directly over the Space strip, because the two answer one question
 /// between them: which Space, and whose logins. Brighter than that and it
 /// would compete with the tab titles above it for a line that is only ever

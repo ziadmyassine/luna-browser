@@ -5,11 +5,11 @@
 //  §3, top to bottom: control row → URL pill → Essentials grid → list →
 //  utility bar, with the §3.7 resize handle floating on the trailing divider.
 //
-//  The view itself draws **one thing**: §8.2a's Space wash, behind everything
+//  The view itself draws one thing: §8.2a's Space wash, behind everything
 //  else. `BrowserWindowController` already applies `Glass.sidebar` to the
 //  window's root plane and butts the content pane against this view's trailing
 //  edge (§3.6), so a second glass surface here would be a second render pass
-//  showing the same thing — but a *tint* laid on that glass is not a second
+//  showing the same thing — but a tint laid on that glass is not a second
 //  surface, and it is the only thing that makes two Spaces look different.
 //
 //  Contract rule 4 lives here: this is the one place that observes
@@ -36,6 +36,8 @@ final class SidebarViewController: NSViewController {
     var historyAnchor: NSView { utility.historyAnchor }
     /// §15.3's stands on the one beside it.
     var downloadsAnchor: NSView { utility.downloadsAnchor }
+    /// …and §5.0's flight is caught by the cylinder they are both in.
+    var downloadsCatcher: NSView { utility.downloadsCatcher }
     var onProfileMenu: (() -> Void)?
     /// Live during a §3.7 drag; the width constraint belongs to the window.
     var onWidthChange: ((CGFloat) -> Void)?
@@ -51,7 +53,7 @@ final class SidebarViewController: NSViewController {
     var preferredWidth: CGFloat { SidebarResizeHandle.storedWidth }
 
     /// Which side of the window the column is standing on. The window
-    /// controller owns the constraint; this is what the two things *inside* the
+    /// controller owns the constraint; this is what the two things inside the
     /// sidebar that are not symmetric need to know — the resize handle's
     /// divider, and which way a drag means "wider".
     var sidebarEdge: SidebarEdge = .leading {
@@ -70,7 +72,7 @@ final class SidebarViewController: NSViewController {
         view.needsLayout = true
     }
 
-    // **Internal rather than private from here down**, and only because Swift's
+    // Internal rather than private from here down, and only because Swift's
     // `private` is file-scoped: `SidebarViewController+Layout.swift` is the
     // other half of this class, and every position in the column is computed
     // there. Nothing outside this file's pair touches them.
@@ -93,7 +95,7 @@ final class SidebarViewController: NSViewController {
     let preview = SpacePreviewView()
     let creation = SpaceCreationView()
     /// §30.9's swipe, §6.1's create and §6.2's way into Settings — everything
-    /// the foot of the sidebar does *to* Spaces. Built in `viewDidLoad`.
+    /// the foot of the sidebar does to Spaces. Built in `viewDidLoad`.
     var spaces: SidebarSpaceGestures?
     /// §6.6's lift. Built in `viewDidLoad`, because it needs the root view it
     /// floats a dragged tab over. Not private: `+Drag.swift` is what builds it.
@@ -125,7 +127,7 @@ final class SidebarViewController: NSViewController {
         (list.scrollView as? SidebarScrollView)?.onScroll = { [weak self] event in
             self?.spaces?.scrollWheel(with: event) ?? false
         }
-        // The still goes **under** the live column (an overlap belongs to the
+        // The still goes under the live column (an overlap belongs to the
         // Space the window is in) and the `+` over both, because it is the one
         // mark that has to stay visible while the two pass each other.
         for subview in [
@@ -193,7 +195,7 @@ final class SidebarViewController: NSViewController {
             // §6: the sidebar's content cross-fades over 0.18 s on a Space switch.
             essentials.alphaValue = 0
             list.scrollView.alphaValue = 0
-            // **A Space switch replaces the column; it does not move it.** The
+            // A Space switch replaces the column; it does not move it. The
             // grid animates its height when a tab is pinned, because everything
             // below it travels. Two Spaces with different numbers of pinned
             // tabs are not that — nothing travelled — and left animating, the
@@ -205,10 +207,10 @@ final class SidebarViewController: NSViewController {
             wash.show(space.gradient)
             onSpaceGradientChange?(space.gradient)
         }
-        // **`replacing:` is the same claim `lastGridHeight = nil` makes, made to
-        // the two halves of the column.** Both of them animate a tab leaving —
+        // `replacing:` is the same claim `lastGridHeight = nil` makes, made to
+        // the two halves of the column. Both of them animate a tab leaving —
         // the row fades over §6's `tabInsert`, the tile fades where it stood —
-        // and `NSTableView` and the grid alike keep what is leaving *on screen*
+        // and `NSTableView` and the grid alike keep what is leaving on screen
         // for the length of that fade. Across a Space switch that is every row
         // and every tile at once, so the Space just left stayed drawn, fading,
         // over the Space just arrived in: the flash of the previous Space's
@@ -224,7 +226,7 @@ final class SidebarViewController: NSViewController {
         list.show(session.tabs, activeTabID: session.activeTabID, replacing: switchingSpace)
         utility.show(spaces: session.spaces, activeSpaceID: session.activeSpaceID)
         // §3.5's line, and §9's fan-out made visible: the Profile is derived
-        // from the Space, so it changes on a Space switch **and** on a
+        // from the Space, so it changes on a Space switch and on a
         // re-profile without one.
         profile.show(profileName: session.space(session.activeSpaceID).flatMap {
             session.profile(for: $0)?.name
@@ -303,8 +305,8 @@ final class SidebarViewController: NSViewController {
         controlRow.onToggleSidebar = { [weak self] in self?.onToggleSidebar?() }
         controlRow.onBack = { [weak self] in self?.session.goBack() }
         controlRow.onForward = { [weak self] in self?.session.goForward() }
-        // **The pill hands off to §9.1 rather than opening itself**, and §9.1
-        // opens *on the pill*: the bar takes its place, at its width, and grows
+        // The pill hands off to §9.1 rather than opening itself, and §9.1
+        // opens on the pill: the bar takes its place, at its width, and grows
         // down out of it (`CommandBarAnchor`). The field, the history, the
         // ranking and the list are all already there, and none of them would
         // fit in a 260 pt column. §3.2b's pill now does exactly the same.
@@ -346,7 +348,7 @@ final class SidebarViewController: NSViewController {
 
         essentials.onActivate = { [weak self] id in self?.session.activateTab(id) }
         essentials.onUnpin = { [weak self] id in self?.session.unpinTab(id) }
-        // §3.4a's menu, on the §3.3 tiles as well as the §3.4 rows: a tile *is* a tab, and
+        // §3.4a's menu, on the §3.3 tiles as well as the §3.4 rows: a tile is a tab, and
         // a menu that changed its mind about what you can do to one depending on which
         // half of the sidebar it is standing in would be two menus, not one.
         essentials.menuActions = { [weak self] id in self?.session.tabMenuActions(for: id) }
@@ -357,7 +359,7 @@ final class SidebarViewController: NSViewController {
         list.onActivateTab = { [weak self] id in self?.session.activateTab(id) }
         list.onCloseTab = { [weak self] id in self?.session.closeTab(id) }
         // §9.1, not a blank tab. The Command Bar opens in `.newTab` — so what
-        // it lands on is a *new* tab — and closing it without choosing leaves
+        // it lands on is a new tab — and closing it without choosing leaves
         // the list exactly as it was rather than one empty page longer.
         list.onAddTab = { [weak self] in self?.session.presentCommandBar?(.newTab, nil) }
         list.menuActions = { [weak self] id in self?.session.tabMenuActions(for: id) }
