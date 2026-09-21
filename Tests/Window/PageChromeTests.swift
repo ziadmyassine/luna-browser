@@ -4,12 +4,11 @@
 //
 //  §3.2b: the address bar on the page instead of in the sidebar.
 //
-//  Two things are asserted here and nowhere else. The rule — when the bar
-//  is open — is a value (`PageBarScroll`) precisely so that the awkward cases
-//  can be written down rather than discovered by scrolling a particular site a
-//  particular way. The setting resolves two keys into one answer, and the
-//  bug it exists to prevent is the sidebar dropping its pill in a layout that
-//  has no page bar to put it in.
+//  Two things are asserted here and nowhere else. The rule for when the bar is
+//  open is a value (`PageBarScroll`) so the awkward cases can be written down
+//  rather than discovered by scrolling a particular site a particular way. And
+//  the setting resolves two keys into one answer, which is what stops the
+//  sidebar dropping its pill in a layout that has no page bar to put it in.
 //
 
 import XCTest

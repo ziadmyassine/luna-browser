@@ -12,11 +12,11 @@ import WebKit
 /// nothing here can read never reach the cache, so the sidebar's only two cases are a
 /// real icon or nil (where the UI draws its monogram tile).
 ///
-/// "Read" is two decoders, because a favicon is no longer always a bitmap. ImageIO
-/// answers for PNG, ICO and the rest; SVG it cannot open at all, and a site that
-/// serves one — even from `/favicon.ico`, which several do — had no icon in Luna as
-/// far as this file was concerned. Drawing a vector needs AppKit, which rule 1 keeps
-/// out of this module, so the app installs the renderer: see `rasterize`.
+/// "Read" is two decoders, because a favicon is not always a bitmap. ImageIO
+/// answers for PNG, ICO and the rest; SVG it cannot open at all, and a site
+/// that serves one — even from `/favicon.ico`, which several do — had no icon
+/// at all. Drawing a vector needs AppKit, which rule 1 keeps out of this
+/// module, so the app installs the renderer: see `rasterize`.
 @MainActor
 public final class FaviconService {
 

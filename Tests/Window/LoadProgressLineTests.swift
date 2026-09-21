@@ -4,13 +4,12 @@
 //
 //  §3.2c: the load line, under whichever address bar is on screen.
 //
-//  Two halves, and they fail differently. The geometry half is a placement —
-//  a line lying on the edge of one pill and floating inside another is two
-//  lines — and it is checked by asking the capsule the reference measures
-//  where it is, rather than by restating the tokens. The behaviour half is
-//  about a progress bar's three ways of lying: flashing for a load that was
-//  already over, retreating when a redirect resets `estimatedProgress`, and
-//  vanishing at four fifths.
+//  Two halves, and they fail differently. The geometry half is a placement — a
+//  line lying on the edge of one pill and floating inside another is two lines
+//  — checked by asking the capsule where it is rather than by restating the
+//  tokens. The behaviour half is a progress bar's three ways of lying: flashing
+//  for a load that was already over, retreating when a redirect resets
+//  `estimatedProgress`, and vanishing at four fifths.
 //
 
 import XCTest

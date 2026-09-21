@@ -4,12 +4,10 @@
 //
 //  §6.1's two verbs, and the form the first of them opens.
 //
-//  Its own file because the gesture half of `SidebarSpaceGestures` and this
-//  half fail differently and are read at different times: everything in the
-//  other file happens while a finger is down, and everything in this one
-//  happens after it has gone. The members it reaches for are internal rather
-//  than private for the reason `EssentialsGridView`'s are — Swift's `private`
-//  is file-scoped, and this class is two files.
+//  Its own file because the two halves fail differently and are read at
+//  different times: everything in the other file happens while a finger is
+//  down, and everything here after it has gone. The members it reaches are
+//  internal rather than private only because Swift's `private` is file-scoped.
 //
 
 import AppKit

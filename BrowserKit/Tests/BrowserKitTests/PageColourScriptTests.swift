@@ -11,11 +11,11 @@ import Testing
 /// Back had just left — were in what the script decides, and every
 /// `contains` test went on passing through both of them.
 ///
-/// So the script is evaluated here in `JSContext` against a stand-in document,
-/// which is all it touches: `elementsFromPoint`, `getComputedStyle`,
+/// So the script is evaluated in `JSContext` against a stand-in document, which
+/// is all it touches: `elementsFromPoint`, `getComputedStyle`,
 /// `addEventListener`, `requestAnimationFrame` and the message handler. The
-/// stand-in hands every point the same stack, because what is being asserted is
-/// the walk down one, not the agreement between three.
+/// stand-in hands every point the same stack, because what is asserted is the
+/// walk down one rather than the agreement between three.
 @Suite("Page colour script (§3.2b)")
 @MainActor
 struct PageColourScriptTests {

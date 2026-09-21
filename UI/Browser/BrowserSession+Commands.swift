@@ -5,11 +5,11 @@
 //  The work behind §20.1's newer menu items: page zoom, a reload that means it,
 //  copying the address, and the two bulk tab commands.
 //
-//  They are here rather than in `BrowserSession+Tabs` because that file is the
-//  tab lifecycle and this is a drawer of commands — and because a menu command
-//  needs one thing the lifecycle does not: an honest answer to "can you do this
-//  right now", so the item dims instead of doing nothing. Each pair below is a
-//  `can…` and a `do…` for exactly that reason.
+//  Here rather than in `BrowserSession+Tabs` because that file is the tab
+//  lifecycle and this is a drawer of commands — and because a menu command
+//  needs something the lifecycle does not: an honest answer to "can you do this
+//  right now", so the item dims instead of doing nothing. Hence each `can…` and
+//  `do…` pair.
 //
 
 import AppKit
