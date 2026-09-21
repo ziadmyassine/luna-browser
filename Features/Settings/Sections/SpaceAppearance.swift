@@ -16,11 +16,14 @@
 //  dismissed by looking away — the right cost for a choice you can undo by
 //  making it again.
 //
-//  Neutral is last in the grid and is not a thirteenth colour: §13.6's one
+//  Neutral is first in the grid and is not a thirteenth colour: §13.6's one
 //  click back. Arc needed a help article for "How Do I Restore the Default
 //  Theme" and Zen has an open issue for being unable to unset a gradient at
 //  all, both of which follow from putting the way out somewhere other than the
-//  way in.
+//  way in. It leads the row rather than trailing it because it is the state a
+//  Space starts in — the grid then reads from no colour outward, and the way
+//  back is the first thing the eye lands on instead of the thing it has to
+//  cross twelve colours to reach.
 //
 
 import AppKit
@@ -30,12 +33,12 @@ import BrowserKit
 @MainActor
 final class SpaceAppearanceView: NSView {
 
-    /// §8.2's twelve, and §13.6's neutral after them.
-    static var gradients: [GradientPair] { Tokens.Gradient.spacePalette + [Tokens.Gradient.neutral] }
-    static var gradientNames: [String] { Tokens.Gradient.spacePaletteNames + [String(localized: "No Colour")] }
+    /// §13.6's neutral, and §8.2's twelve after it.
+    static var gradients: [GradientPair] { [Tokens.Gradient.neutral] + Tokens.Gradient.spacePalette }
+    static var gradientNames: [String] { [String(localized: "No Colour")] + Tokens.Gradient.spacePaletteNames }
 
-    /// How many chips fit a row before it wraps. Seven takes §8.2's twelve
-    /// plus neutral in two rows, and the thirteen symbols in two more — so the
+    /// How many chips fit a row before it wraps. Seven takes neutral plus
+    /// §8.2's twelve in two rows, and the thirteen symbols in two more — so the
     /// popover is four rows of chips on one column grid, whichever half of it
     /// you are looking at.
     private static let columns = 7

@@ -42,12 +42,12 @@ final class SpacesSectionTests: XCTestCase {
     /// Icon and gradient left the row list; they did not leave the app.
     /// They are grids on the card's corner button now (`SpaceAppearanceView`),
     /// and the thing worth asserting is that the move cost nothing: every one
-    /// of §8.2's twelve pairs is still offered, §13.6's way back to neutral is
-    /// still the last of them, and all twelve icons are still there.
+    /// of §8.2's twelve pairs is still offered, §13.6's way back to neutral
+    /// leads them, and all twelve icons are still there.
     func testEveryColourAndIconSurvivedTheMoveOffTheRowList() {
         let choices = SpacesSection.appearanceChoices
         XCTAssertEqual(choices.gradients.count, Tokens.Gradient.spacePalette.count + 1)
-        XCTAssertEqual(choices.gradients.last, "No Colour", "§13.6's way out is not the last swatch")
+        XCTAssertEqual(choices.gradients.first, "No Colour", "§13.6's way out is not the first swatch")
         for name in Tokens.Gradient.spacePaletteNames {
             XCTAssertTrue(choices.gradients.contains(name), "“\(name)” is not offered any more")
         }
