@@ -17,67 +17,6 @@
 import AppKit
 import QuartzCore
 
-/// One row of §6.
-///
-/// `response`/`damping` are non-nil for a spring and nil for a timed curve;
-/// `duration` is always meaningful, so a caller that just needs "how long until
-/// this settles" never has to branch.
-struct MotionSpec: Sendable {
-
-    /// The curve a timed spec animates on. Ignored by springs.
-    enum Curve: Sendable { case easeOut, easeInOut, linear }
-
-    var duration: TimeInterval
-    /// SwiftUI-style spring response, in seconds. Nil for a timed spec.
-    var response: Double?
-    /// Spring damping *fraction*, 0...1. Nil for a timed spec.
-    var damping: Double?
-    var curve: Curve
-
-    /// A timed spec.
-    init(_ duration: TimeInterval, _ curve: Curve = .easeOut) {
-        self.duration = duration
-        self.response = nil
-        self.damping = nil
-        self.curve = curve
-    }
-
-    /// A spring. `settling` is what §6 quotes as the visible duration; where §6
-    /// gives only a response, it is the response.
-    init(response: Double, damping: Double, settling duration: TimeInterval) {
-        self.duration = duration
-        self.response = response
-        self.damping = damping
-        self.curve = .easeOut
-    }
-
-    var isSpring: Bool { response != nil }
-
-    var timingFunction: CAMediaTimingFunction {
-        switch curve {
-        case .easeOut: CAMediaTimingFunction(name: .easeOut)
-        case .easeInOut: CAMediaTimingFunction(name: .easeInEaseOut)
-        case .linear: CAMediaTimingFunction(name: .linear)
-        }
-    }
-
-    /// A `CASpringAnimation` matching `response`/`damping`, or nil when this is
-    /// not a spring **or** Reduce Motion is on — in both cases the caller should
-    /// set the value outright instead of animating it.
-    ///
-    /// Unit mass, so SwiftUI's conversion applies directly:
-    /// `stiffness = (2π / response)²`, `damping = 4π · fraction / response`.
-    func springAnimation(keyPath: String) -> CASpringAnimation? {
-        guard !Tokens.Motion.reduceMotion, let response, let damping else { return nil }
-        let animation = CASpringAnimation(keyPath: keyPath)
-        animation.mass = 1
-        animation.stiffness = pow(2 * .pi / response, 2)
-        animation.damping = 4 * .pi * damping / response
-        animation.duration = animation.settlingDuration
-        return animation
-    }
-}
-
 extension Tokens {
 
     /// §6, in full. Companion values that §6 states inline (a cross-fade, a
@@ -139,6 +78,45 @@ extension Tokens {
         static let spaceSwitch = MotionSpec(response: 0.30, damping: 0.70, settling: 0.30)
         /// The sidebar content cross-fade that rides along with it.
         static let spaceSwitchCrossfade = MotionSpec(0.18)
+
+        /// §30.9's page, **released**, finishing its travel on its own — and
+        /// the two bounds the answer is held between.
+        ///
+        /// **A settle is not a transition, it is the rest of a movement the
+        /// hand started**, and the one fixed duration it used to have was wrong
+        /// at both ends of the gesture. Let go a tenth of a page from home and
+        /// the column crawled the last 28 pt over 0.18 s; flick from a
+        /// standstill and it crossed a whole page in the same 0.18 s. Neither
+        /// is the page the fingers were pushing.
+        ///
+        /// So the duration is the distance divided by the speed the hand let go
+        /// at, which is the one formula that makes the animation continue the
+        /// gesture rather than replace it: the page leaves the fingers at the
+        /// speed the fingers had. The bounds are there because the arithmetic
+        /// alone has no floor and no ceiling — a hard flick would land the page
+        /// in a single frame, and a release from a dead stop divides by nothing
+        /// at all.
+        ///
+        /// Ease-out for the same reason: a page carrying momentum decelerates
+        /// into place. It never accelerates away from the hand that let it go.
+        static func spaceSettle(across points: CGFloat, at speed: CGFloat) -> MotionSpec {
+            guard speed > 0 else { return spaceSettleSlowest }
+            let seconds = Double(points / speed)
+            return MotionSpec(
+                min(max(seconds, spaceSettleFastest.duration), spaceSettleSlowest.duration),
+                .easeOut
+            )
+        }
+
+        /// Released mid-flick with almost nothing left to travel. Short enough
+        /// to feel like the hand finished the job and long enough not to read
+        /// as a jump cut.
+        static let spaceSettleFastest = MotionSpec(0.12, .easeOut)
+        /// Released from a standstill, or from far enough out that even a quick
+        /// hand has a page to cover. This is `spaceSwitch`'s settling time,
+        /// which is what §6 asks a Space switch to take when nothing is
+        /// carrying it.
+        static let spaceSettleSlowest = MotionSpec(0.30, .easeOut)
 
         // MARK: The load line (§3.2c)
 

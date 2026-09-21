@@ -49,6 +49,8 @@ final class SidebarSpaceGestures {
     private let creation: SpaceCreationView
     let host: NSView
     private let swipe = SpaceSwipeController()
+    /// The release, run home a frame at a time — see `SpaceSwipeSettle`.
+    private lazy var settling = SpaceSwipeSettle(host: host)
     /// Which Space the still is currently showing, so it is rebuilt when the
     /// swipe changes direction and not on every frame.
     private var previewing: UUID?
@@ -92,8 +94,11 @@ final class SidebarSpaceGestures {
             guard let self else { return ([], nil) }
             return (self.session.spaces.map(\.id), self.session.activeSpaceID)
         }
+        swipe.span = { [weak self] in self?.contentRect.width ?? 0 }
         swipe.onUpdate = { [weak self] state in self?.show(state) }
-        swipe.onFinish = { [weak self] state, committing in self?.settle(state, committing: committing) }
+        swipe.onFinish = { [weak self] state, speed, committing in
+            self?.settle(state, speed: speed, committing: committing)
+        }
     }
 
     /// True when the swipe took the event; false leaves it to the list.
@@ -108,6 +113,7 @@ final class SidebarSpaceGestures {
     /// release to wait for. Silent — nothing is committed by a gesture nobody
     /// finished.
     func cancel() {
+        settling.stop()
         swipe.cancel()
     }
 
@@ -116,20 +122,20 @@ final class SidebarSpaceGestures {
     /// §30.9 in the four places a Space is visible: the strip says which one
     /// you are about to get, the wash blends toward its colour, the live column
     /// translates out and the next one translates in behind it.
-    private func show(_ state: SpaceSwipe, animated: Bool = false) {
+    private func show(_ state: SpaceSwipe) {
         utility.spaceTravel = state.travel
         utility.spaceCreation = state.creation
         creation.progress = state.creation
         latchRing(at: state.creation)
         previewWash(travel: state.travel)
         updatePreview(for: state)
-        turn(to: state.travel, animated: animated)
+        turn(to: state.travel)
     }
 
     /// One tick as §30.9's ring closes, and nothing else for the rest of the
     /// gesture. The ring is the only thing that changes state mid-swipe, and it
-    /// does it two thirds of a `spaceCreateTravel` before the release that acts
-    /// on it — so the hand is told, once, at the moment it becomes true.
+    /// does it two thirds of a page before the release that acts on it — so
+    /// the hand is told, once, at the moment it becomes true.
     private func latchRing(at creation: CGFloat) {
         guard creation >= 1 else {
             ringHasClosed = false
@@ -141,10 +147,18 @@ final class SidebarSpaceGestures {
     }
 
     /// The frames of the two borrowed views, and the transforms of everything
-    /// that moves. **Frames never animate and transforms always may** — a frame
-    /// here is a consequence of the column's layout, which is not this
-    /// gesture's to animate (see `Motion.immediately`).
-    private func turn(to travel: CGFloat, animated: Bool) {
+    /// that moves.
+    ///
+    /// **Nothing here ever animates, including on release**, and that is a
+    /// stronger claim than it used to be. A frame is a consequence of the
+    /// column's layout, which was never this gesture's to animate (see
+    /// `Motion.immediately`) — but the transforms were handed to Core Animation
+    /// on the way home, and the rest of the read-out was not, so the strip and
+    /// the wash arrived at the new Space while the column was still crossing to
+    /// it. `SpaceSwipeSettle` tweens the *travel* instead and calls this every
+    /// frame, which makes a release a hand that kept going and leaves exactly
+    /// one way a frame of this gesture is drawn.
+    private func turn(to travel: CGFloat) {
         let page = contentRect
         Tokens.Motion.immediately {
             preview.frame = page
@@ -163,11 +177,7 @@ final class SidebarSpaceGestures {
             self.preview.layer?.setAffineTransform(CGAffineTransform(translationX: shift + offset, y: 0))
             self.preview.isHidden = travel == 0
         }
-        guard animated else { return Tokens.Motion.immediately(apply) }
-        Tokens.Motion.animate(Tokens.Motion.spaceSwitchCrossfade) { context in
-            context.allowsImplicitAnimation = true
-            apply()
-        }
+        Tokens.Motion.immediately(apply)
     }
 
     /// Re-frames the three views this gesture owns but does not lay out.
@@ -255,19 +265,23 @@ final class SidebarSpaceGestures {
     /// way to one side or springs back to none of it — and the Space changes at
     /// the end of that journey rather than at the start, so the page that
     /// arrives is the page you watched arrive.
-    private func settle(_ state: SpaceSwipe, committing: Bool) {
-        guard committing else { return settle(to: 0, creation: 0, then: nil) }
+    private func settle(_ state: SpaceSwipe, speed: CGFloat, committing: Bool) {
+        guard committing else { return settle(state, to: 0, creation: 0, at: speed, then: nil) }
         if state.createsSpace {
             Tokens.Haptics.commit()
             // The column stays where the gesture left it — off screen. What
             // arrives in its place is the editor, not the Space's own tabs.
-            return settle(to: 1, creation: 1, revealingColumn: false) { [weak self] in self?.createSpace() }
+            return settle(state, to: 1, creation: 1, at: speed, revealingColumn: false) { [weak self] in
+                self?.createSpace()
+            }
         }
         guard let landing = state.landing, session.spaces.indices.contains(landing) else {
-            return settle(to: 0, creation: 0, then: nil)
+            return settle(state, to: 0, creation: 0, at: speed, then: nil)
         }
         let id = session.spaces[landing].id
-        settle(to: state.travel > 0 ? 1 : -1, creation: 0) { [weak self] in self?.session.switchSpace(id) }
+        settle(state, to: state.travel > 0 ? 1 : -1, creation: 0, at: speed) { [weak self] in
+            self?.session.switchSpace(id)
+        }
     }
 
     /// Runs the column the rest of the way, then commits.
@@ -283,15 +297,23 @@ final class SidebarSpaceGestures {
     ///
     /// Snapping back is the same journey with no commit at the end of it.
     private func settle(
+        _ state: SpaceSwipe,
         to travel: CGFloat,
         creation: CGFloat,
+        at speed: CGFloat,
         revealingColumn: Bool = true,
         then commit: (() -> Void)?
     ) {
-        show(SpaceSwipe(travel: travel, creation: creation, landing: nil, createsSpace: false), animated: true)
-        let settled = Tokens.Motion.reduceMotion ? 0 : Tokens.Motion.spaceSwitchCrossfade.duration
-        Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .seconds(settled))
+        let target = SpaceSwipe(travel: travel, creation: creation, landing: nil, createsSpace: false)
+        let spec = Tokens.Motion.spaceSettle(
+            across: abs(travel - state.travel) * contentRect.width,
+            at: abs(speed)
+        )
+        settling.run(from: state, to: target, on: spec) { [weak self] frame in
+            // Every frame, the one way a frame is applied — the release is a
+            // hand that kept going. See `SpaceSwipeSettle`.
+            self?.show(frame)
+        } onArrival: { [weak self] in
             guard let self else { return }
             guard let commit else { return show(.rest) }
             handOff(revealingColumn: revealingColumn)

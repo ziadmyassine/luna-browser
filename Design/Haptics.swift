@@ -64,7 +64,7 @@ extension Tokens {
         /// It fires **once per gesture**, on the way in. A detent that ticked
         /// again every time the fingers wandered back and forth across the
         /// threshold would buzz for the rest of the swipe, and there are two
-        /// thirds of `spaceCreateTravel` still to go after this.
+        /// thirds of a page still to go after this — see `spaceCreateReach`.
         static func latch() {
             NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .drawCompleted)
         }

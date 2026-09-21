@@ -70,8 +70,9 @@ extension TokenCheck {
             ("settingsMinWidth", Tokens.Metric.settingsMinWidth),
             ("settingsMinHeight", Tokens.Metric.settingsMinHeight),
             ("settingsListWidth", Tokens.Metric.settingsListWidth),
-            ("spaceSwipeTravel", Tokens.Metric.spaceSwipeTravel),
-            ("spaceCreateTravel", Tokens.Metric.spaceCreateTravel),
+            ("spaceCreateReach", Tokens.Metric.spaceCreateReach),
+            ("spaceFlickSpeed", Tokens.Metric.spaceFlickSpeed),
+            ("spaceFlickReach", Tokens.Metric.spaceFlickReach),
             ("spaceCreateRing", Tokens.Metric.spaceCreateRing),
             ("spaceCreateRingLine", Tokens.Metric.spaceCreateRingLine),
             ("spaceSwatchRing", Tokens.Metric.spaceSwatchRing),
@@ -86,33 +87,73 @@ extension TokenCheck {
 
     /// §30.9's gesture, re-derived rather than restated.
     ///
-    /// **The asymmetry is the feature.** Switching Space and creating one are
-    /// the same two fingers continued, and the only thing standing between a
-    /// reflex performed a hundred times a day and a Space nobody asked for is
-    /// that the second half of the travel is longer than the first. Tidying the
-    /// two numbers into one — or into the same one — is the change this check
-    /// exists to fail.
+    /// **The page is the ruler, and these are the two claims that keeps
+    /// honest.** Everything the gesture measures is a fraction of the column's
+    /// own width, so the only numbers left to check are the ones that have to
+    /// hold at *every* width the §3.7 handle reaches — and both of the bugs
+    /// this area has shipped were a number that was fine at one width and
+    /// wrong at another.
     private static func checkSpaceSwipe() -> [String] {
         var failures: [String] = []
         let metric = Tokens.Metric.self
-        if metric.spaceCreateTravel <= metric.spaceSwipeTravel {
+        // **Making a Space costs more than reaching one**, which is the whole
+        // asymmetry: a switch commits at half a page, so anything at or under
+        // that would let the reflex make Spaces by overshooting.
+        if metric.spaceCreateReach <= 0.5 {
             failures.append(String(
-                format: "Metric.spaceCreateTravel is %.0f against a %.0f Space — making one is no harder than reaching one",
-                metric.spaceCreateTravel, metric.spaceSwipeTravel
+                format: "Metric.spaceCreateReach is %.2f pages — making a Space is no harder than reaching one",
+                metric.spaceCreateReach
             ))
         }
-        // **The two numbers have to agree about time as well as distance.** A
-        // ceiling on how fast a gesture may travel is also a floor on how long
-        // `spaceCreateTravel` takes to cover, and the two were set apart: at
-        // 900 pt/s the 360 pt ring needed four tenths of a second of unbroken
-        // movement, which is longer than a trackpad stroke lasts — so the one
-        // gesture the resistance is *for* could not be completed at all.
-        // Resistance that cannot be overcome in one stroke is a dead end.
-        let stroke: CGFloat = 0.25
-        if metric.spaceCreateTravel > metric.spaceSwipeSpeed * stroke {
+        // **The create gesture has to be completable in one stroke, at the
+        // widest the column gets.** This is the check that was being made
+        // against a comfortable width instead of the worst one, and the create
+        // shipped unperformable: a ceiling on how fast a gesture may travel is
+        // also a floor on how long a page takes to cover, and at 360 pt the
+        // ring needed almost a quarter of a second of unbroken, saturated
+        // movement — longer than an ordinary swipe lasts. Resistance that
+        // cannot be overcome in one stroke is not resistance, it is a dead end.
+        //
+        // **The stroke is 0.3 s and it was 0.25**, which is not the bound being
+        // relaxed to fit a number. The figure has to be the length of the
+        // stroke this distance is actually covered by, and that stroke changed:
+        // a create used to be a flick continued, so the bound was a flick's,
+        // and it is now a deliberate push that ends at rest — `spaceFlickSpeed`
+        // excludes the flick by design rather than by distance. A deliberate
+        // push also runs *under* the damping knee, so the ceiling this divides
+        // by barely applies to it; 0.3 s is still the conservative reading.
+        let stroke: CGFloat = 0.3
+        let widest = metric.spaceCreateReach * metric.sidebarWidth.max
+        if widest > metric.spaceSwipeSpeed * stroke {
             failures.append(String(
-                format: "Metric.spaceCreateTravel is %.0f pt at %.0f pt/s — more than one stroke, so the ring cannot close",
-                metric.spaceCreateTravel, metric.spaceSwipeSpeed
+                format: "Metric.spaceCreateReach is %.0f pt at the widest sidebar, %.0f pt/s — more than one stroke",
+                widest, metric.spaceSwipeSpeed
+            ))
+        }
+        // **The ring is a promise, not a receipt.** It has to finish drawing
+        // itself with travel still left to pay, or it is telling the user what
+        // they already have.
+        if metric.spaceCreateRingReach >= metric.spaceCreateReach {
+            failures.append("Metric.spaceCreateRingReach closes the ring at the moment it commits — that is a receipt")
+        }
+        // **A flick is told from a drag by speed alone**, so the threshold has
+        // to sit inside the range the gesture can actually report: `damped`
+        // holds it under `spaceSwipeSpeed`, and one that met or exceeded the
+        // ceiling could never be reached — no swipe would ever turn a page
+        // short of half a column, and none would be safe from making a Space.
+        if metric.spaceFlickSpeed >= metric.spaceSwipeSpeed {
+            failures.append(String(
+                format: "Metric.spaceFlickSpeed is %.0f against a %.0f pt/s ceiling — no release can reach it",
+                metric.spaceFlickSpeed, metric.spaceSwipeSpeed
+            ))
+        }
+        // A flick still has to be a swipe rather than a twitch, and it must not
+        // have to be half a page — that is the distance threshold it exists to
+        // stand in for.
+        if metric.spaceFlickReach <= 0 || metric.spaceFlickReach >= 0.5 {
+            failures.append(String(
+                format: "Metric.spaceFlickReach is %.2f pages — a flick is neither a twitch nor half a swipe",
+                metric.spaceFlickReach
             ))
         }
         // The ring is drawn **around** the glass disc, so it has to be bigger

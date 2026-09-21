@@ -6,6 +6,10 @@
 //  anywhere on the sidebar to change Space, and keep sliding past the last one
 //  to make a new one.
 //
+//  **This file is the arithmetic; `SpaceSwipeController.swift` is the wiring.**
+//  They were one file until it crossed SwiftLint's 400-line limit, and the seam
+//  is the one the next paragraph already described.
+//
 //  **The arithmetic is a value type and the wiring is a controller**, because
 //  the two fail for different reasons and only one of them can be tested
 //  without a trackpad. `SpaceSwipe.resolve` is pure: given how far the fingers
@@ -15,20 +19,28 @@
 //  clamp at the leading end, the doubled travel that makes a Space — is in
 //  those twenty lines and is asserted by `SpaceSwipeTests`.
 //
-//  **One Space per gesture, however hard the flick**, and this is the rule that
-//  was missing. The travel used to accumulate without a ceiling, so a single
-//  firm swipe from the first of two Spaces reached the second and then kept
-//  going into the create zone past it — and the gesture the user performs to
-//  *change* Space made one instead. A trackpad flick is accelerated by the
-//  system and routinely delivers several hundred points in one stroke; no
-//  threshold survives that. A page swipe turns one page.
+//  **The page is the ruler.** One page of hand is one page of column, at
+//  whatever width the §3.7 handle has left the sidebar. There is no constant
+//  for "one Space" any more and there should never have been one: every value
+//  it took was a *fraction* of a page, so the column travelled a multiple of
+//  the fingers pushing it — 120 pt against a 280 pt sidebar moved the page two
+//  and a third points per point of hand. That is the multiplication the
+//  gesture was reported for, twice, and damping the trackpad's acceleration
+//  never touched it because the acceleration was not where it came from.
+//
+//  **One Space per gesture, however hard the flick.** The travel used to
+//  accumulate without a ceiling, so a single firm swipe from the first of two
+//  Spaces reached the second and then kept going into the create zone past it
+//  — and the gesture the user performs to *change* Space made one instead. A
+//  page swipe turns one page.
 //
 //  **The acceleration is taken off before any of that arithmetic runs**, which
-//  is a separate fix for a separate complaint: a capped gesture still felt
-//  multiplied, because the page was tracking a delta the system had already
-//  scaled by how fast the fingers moved. `damped(_:since:at:)` bends the top
-//  off how much page one event may carry per second of hand, which leaves a
-//  deliberate drag as itself and folds the multiplier off a flick.
+//  is the other half of pinning the page to the hand: `scrollingDeltaX` is a
+//  distance the system has already scaled by how fast the fingers moved, so a
+//  page bound 1:1 to an undamped delta would sit three pages from the hand.
+//  `damped(_:since:at:)` bends the top off how much page one event may carry
+//  per second of hand, which leaves a deliberate drag as itself and folds the
+//  multiplier off a flick.
 //
 //  **It bends rather than cutting**, and that distinction is the difference
 //  between a gesture that is followed and one that is played back at you: a
@@ -36,18 +48,27 @@
 //  ordinary swipe too, and a page whose every frame is the ceiling travels at
 //  one fixed speed regardless of the hand. See `damped(_:since:at:)`.
 //
-//  So the create zone is not somewhere a long swipe can reach. It is only
-//  there **when there is no next Space**, which is the only situation in which
-//  "further" can mean anything other than "the one after this".
+//  **Distance is not the only way to commit, and that is what makes a page a
+//  page wide affordable.** Half of a 280 pt column is 140 pt of finger, which
+//  is far too much to ask of a reflex — so a release that is *still moving*
+//  turns the page however far it got (`Metric.spaceFlickSpeed`). A short
+//  stroke that is still going is a page turn; a long one that has come to rest
+//  is a page turn; a short one that has come to rest is a look, and it springs
+//  back. That is the whole of "a little swipe should do a little, and one fast
+//  swipe should still change Space".
 //
-//  **Two thresholds, deliberately unequal.** Moving between Spaces commits at
-//  half of `Metric.spaceSwipeTravel`; creating one needs the whole of
-//  `Metric.spaceCreateTravel`, three times as far. That asymmetry is
-//  the resistance the feature was asked for: reaching the end of the Spaces you
-//  have is not the same act as making another, and it should not cost the same.
+//  **A flick is never a create.** Past the last Space the same two fingers make
+//  a new one, and the resistance that keeps that from happening by accident is
+//  *how the gesture ended*, not how far it went. This used to be three pages of
+//  distance and could not be performed at all: 360 pt against the damping
+//  ceiling needs a quarter of a second of unbroken, saturated movement, and an
+//  ordinary swipe lasts a sixth — so the ring closed, which only costs a third
+//  of that, and the release made nothing. Every time. It is one page now, and
+//  what stops a flick off the end from making a Space is that a flick, by
+//  definition, has not come to rest.
 //
 //  **The ring is not the threshold; it is the promise.** It closes a third of
-//  the way in (`Metric.spaceCreateRingTravel`), which is where the `+` stops
+//  the way in (`Metric.spaceCreateRingReach`), which is where the `+` stops
 //  being a thing appearing and becomes a thing about to happen — and the two
 //  thirds after it are the asking price, watched with the answer already drawn.
 //
@@ -80,11 +101,29 @@ struct SpaceSwipe: Equatable {
     ///   - offset: finger travel in points, **positive toward the next Space**.
     ///     `SpaceSwipeController` flips `scrollingDeltaX` into this convention;
     ///     see `accumulate`.
+    ///   - speed: how fast the hand was moving, in points per second, signed
+    ///     the same way. Only a *release* has a meaningful one — see `flicked`.
+    ///   - span: the page's own width. **The ruler**, and the reason there is
+    ///     no "points per Space" token: see the file header.
     ///   - activeIndex: the Space the window is in.
     ///   - count: how many there are.
-    static func resolve(offset: CGFloat, activeIndex: Int, count: Int) -> SpaceSwipe {
-        guard count > 0, activeIndex >= 0, activeIndex < count else { return .rest }
-        let reach = offset / Tokens.Metric.spaceSwipeTravel
+    static func resolve(
+        offset: CGFloat,
+        speed: CGFloat = 0,
+        span: CGFloat,
+        activeIndex: Int,
+        count: Int
+    ) -> SpaceSwipe {
+        guard count > 0, activeIndex >= 0, activeIndex < count, span > 0 else { return .rest }
+        let reach = offset / span
+
+        // **Still moving when the fingers left.** Three conditions, and all
+        // three are the same claim from different sides: it was fast, it was
+        // going the way the page is going — a hand that reversed before lifting
+        // changed its mind — and it was a swipe rather than a twitch.
+        let flicked = abs(speed) >= Tokens.Metric.spaceFlickSpeed
+            && speed * offset > 0
+            && abs(reach) >= Tokens.Metric.spaceFlickReach
 
         guard offset > 0 else {
             // Backward, and the first Space simply stops: a rubber band here
@@ -94,20 +133,20 @@ struct SpaceSwipe: Equatable {
             return SpaceSwipe(
                 travel: travel,
                 creation: 0,
-                landing: travel <= -0.5 ? activeIndex - 1 : nil,
+                landing: travel <= -0.5 || flicked ? activeIndex - 1 : nil,
                 createsSpace: false
             )
         }
 
-        // Forward, with a Space to go to. **Capped at one**, so a hard flick
-        // arrives at the next Space rather than sailing through it — see the
-        // file header for what happened without this line.
+        // Forward, with a Space to go to. **Capped at one page**, so a hard
+        // flick arrives at the next Space rather than sailing through it — see
+        // the file header for what happened without this line.
         guard activeIndex == count - 1 else {
             let travel = min(reach, 1)
             return SpaceSwipe(
                 travel: travel,
                 creation: 0,
-                landing: travel >= 0.5 ? activeIndex + 1 : nil,
+                landing: travel >= 0.5 || flicked ? activeIndex + 1 : nil,
                 createsSpace: false
             )
         }
@@ -118,221 +157,24 @@ struct SpaceSwipe: Equatable {
         // be one. The `+` closed at exactly the moment the gesture committed,
         // which made it a receipt rather than a read-out: by the time it told
         // you what you were about to get, you had it. The ring now fills over
-        // the first `spaceCreateRingTravel` — a third of the way — and the page
-        // keeps travelling for the other two thirds, so the hand is told early
-        // and then has to mean it.
-        let creation = min(offset / Tokens.Metric.spaceCreateRingTravel, 1)
-        let travel = min(offset / Tokens.Metric.spaceCreateTravel, 1)
-        return SpaceSwipe(travel: travel, creation: creation, landing: nil, createsSpace: travel >= 1)
+        // the first third of the page and the column keeps travelling for the
+        // other two, so the hand is told early and then has to mean it.
+        //
+        // **A flick makes nothing.** It is the only thing standing between a
+        // reflex performed a hundred times a day and a Space nobody asked for,
+        // and it is a better guard than distance ever was: distance punishes
+        // the deliberate gesture as hard as the accidental one.
+        let creation = min(reach / Tokens.Metric.spaceCreateRingReach, 1)
+        let travel = min(reach / Tokens.Metric.spaceCreateReach, 1)
+        return SpaceSwipe(
+            travel: travel,
+            creation: creation,
+            landing: nil,
+            createsSpace: travel >= 1 && !flicked
+        )
     }
 
     /// Nothing happening — the resting read-out, and what a gesture in a window
     /// with no Spaces resolves to.
     static let rest = SpaceSwipe(travel: 0, creation: 0, landing: nil, createsSpace: false)
-}
-
-/// The gesture itself: the events, the live read-out, and the one commit.
-@MainActor
-final class SpaceSwipeController {
-
-    /// The Spaces, newest answer each time — the session is the truth and this
-    /// holds none of it.
-    var spaces: () -> (all: [UUID], active: UUID?) = { ([], nil) }
-    /// The read-out: the dot strip, the wash, and the pages that ride along.
-    var onUpdate: ((SpaceSwipe) -> Void)?
-    /// The fingers came up. Carries where the gesture had got to and whether
-    /// it was a release rather than a cancel.
-    ///
-    /// **What happens next is not this object's call.** There is a page still
-    /// half way across the column when the hand leaves, and settling it is the
-    /// same act as deciding what the gesture meant — see
-    /// `SidebarSpaceGestures.settle`. A controller that switched the Space here
-    /// would switch it under a column that had not finished moving.
-    var onFinish: ((SpaceSwipe, Bool) -> Void)?
-
-    /// Points accumulated in this gesture, positive toward the next Space.
-    private var offset: CGFloat = 0
-    /// Cross-axis travel, which is how a vertical scroll that wandered is told
-    /// from a horizontal one that meant it.
-    private var drift: CGFloat = 0
-    private var isTracking = false
-    /// When the last event this gesture counted arrived, for
-    /// `Metric.spaceSwipeSpeed`'s ceiling. 0 means "nothing yet".
-    private var lastEventTime: TimeInterval = 0
-    /// This gesture was ours, and its momentum tail is ours too — see
-    /// `scrollWheel`.
-    private var ownsMomentum = false
-
-    /// Handles `event` if it is this gesture, and says so.
-    ///
-    /// **Momentum never decides anything, and it is not handed back either.** A
-    /// flick's momentum phase keeps delivering deltas for up to a second after
-    /// the fingers have gone: a gesture that kept counting them would commit —
-    /// or worse, create — long after the hand had stopped asking, and one that
-    /// released them to the list would let a Space switch end in the list
-    /// lurching sideways under the new Space's rows. So the tail of a gesture
-    /// this took is swallowed, and the tail of one it did not is passed on
-    /// untouched.
-    ///
-    /// **Every phase is seen, including the ones with no travel in them.** The
-    /// `.ended` event of a horizontal swipe carries zero deltas, so a caller
-    /// that routed events here by axis would never deliver the one event that
-    /// commits the gesture. `SidebarScrollView` therefore offers *all* of them
-    /// and takes this answer for whether it keeps the event — which is also why
-    /// `.ended` resets even when nothing was being tracked: an untracked
-    /// gesture still left travel in `offset`, and the next one must not inherit
-    /// it.
-    func scrollWheel(with event: NSEvent) -> Bool {
-        guard event.momentumPhase.isEmpty else { return ownsMomentum }
-        switch event.phase {
-        case .began:
-            reset()
-            return false
-        case .changed:
-            return track(event)
-        case .ended, .cancelled:
-            guard isTracking else {
-                reset()
-                return false
-            }
-            finish(committing: event.phase == .ended)
-            return true
-        default:
-            return false
-        }
-    }
-
-    /// Cancels an unfinished gesture — the sidebar went away, or the window
-    /// did. Silent: nothing is committed by a gesture nobody finished.
-    func cancel() {
-        guard isTracking else { return }
-        finish(committing: false)
-    }
-
-    private func reset() {
-        offset = 0
-        drift = 0
-        isTracking = false
-        ownsMomentum = false
-        lastEventTime = 0
-    }
-
-    private func track(_ event: NSEvent) -> Bool {
-        // `scrollingDeltaX` is positive when the fingers move **right**, which
-        // on this platform means "back" — Safari's two-finger swipe, and every
-        // horizontal list in AppKit. Toward the *next* Space is therefore the
-        // negative one, and this is the single place the sign is flipped.
-        offset -= Self.damped(event.scrollingDeltaX, since: lastEventTime, at: event.timestamp)
-        lastEventTime = event.timestamp
-        drift += abs(event.scrollingDeltaY)
-        guard isTracking else {
-            // A vertical flick always carries a little sideways travel, so the
-            // gesture has to out-travel its own drift before it claims the
-            // event. Until it does, the list keeps every scroll.
-            guard abs(offset) > Tokens.Metric.dragThreshold, abs(offset) > drift else { return false }
-            isTracking = true
-            return update()
-        }
-        return update()
-    }
-
-    /// One event's `scrollingDeltaX`, with the system's acceleration bent back
-    /// off the top.
-    ///
-    /// **A trackpad does not report distance; it reports scaled distance.**
-    /// macOS multiplies a precise scroll by how fast the fingers were moving,
-    /// so the same eighty points of hand arrive as eighty points when dragged
-    /// and as three hundred when flicked — and a page bound to that delta races
-    /// out from under the fingers pushing it.
-    ///
-    /// **The curve bends; it does not stop.** This was a hard clip for one
-    /// build and a hard clip is a worse gesture than no damping at all: every
-    /// event of a real swipe lands above the ceiling, so every event comes back
-    /// as *exactly* the ceiling and the page travels at one fixed speed no
-    /// matter what the hand does. The gesture stops being followed. `tanh` is
-    /// the same ceiling with the corner taken off — its slope is 1 at the
-    /// origin, so movement well under `Metric.spaceSwipeSpeed` passes through
-    /// as itself, and it flattens smoothly toward the ceiling rather than
-    /// meeting it at an edge. There is no boundary for a hand to sit on top of
-    /// and no discontinuity for a jittery one to chatter across.
-    ///
-    /// The interval is clamped at both ends rather than trusted. A first
-    /// `.changed` has nothing to measure from, and a frame the app spent
-    /// elsewhere would otherwise hand one event the budget of ten — so the gap
-    /// is read as a frame in both cases, which is what it was in all but name.
-    ///
-    /// Internal rather than private so `SpaceSwipeTests` can assert the curve;
-    /// nothing outside this file calls it.
-    static func damped(_ delta: CGFloat, since last: TimeInterval, at now: TimeInterval) -> CGFloat {
-        let frame: TimeInterval = 1.0 / 60
-        let interval = last > 0 ? min(max(now - last, 1.0 / 240), frame) : frame
-        let ceiling = Tokens.Metric.spaceSwipeSpeed * CGFloat(interval)
-        guard ceiling > 0 else { return 0 }
-        return ceiling * CGFloat(tanh(Double(delta / ceiling)))
-    }
-
-    @discardableResult
-    private func update() -> Bool {
-        let state = spaces()
-        guard let active = state.active, let index = state.all.firstIndex(of: active) else { return false }
-        onUpdate?(SpaceSwipe.resolve(offset: offset, activeIndex: index, count: state.all.count))
-        return true
-    }
-
-    private func finish(committing: Bool) {
-        let state = spaces()
-        let active = state.active.flatMap { state.all.firstIndex(of: $0) }
-        let resolved = active.map {
-            SpaceSwipe.resolve(offset: offset, activeIndex: $0, count: state.all.count)
-        } ?? .rest
-        reset()
-        ownsMomentum = true
-        onFinish?(resolved, committing)
-    }
-}
-
-/// The sidebar's own plane, which is where §30.9's swipe is caught.
-///
-/// A view rather than a gesture recogniser: `NSPanGestureRecognizer` does not
-/// see a trackpad *scroll*, only a click-drag, and the two-finger slide the
-/// feature is named after arrives as `scrollWheel` with a phase. `NSEvent`'s
-/// own `trackSwipeEvent` was the other candidate and cannot express this
-/// gesture: it clamps the amount it reports to the range it was given, so the
-/// travel *past* the last Space — the half that makes one — is exactly what it
-/// throws away.
-@MainActor
-final class SidebarRootView: NSView {
-
-    /// Returns true when the swipe took the event.
-    var onScroll: ((NSEvent) -> Bool)?
-
-    override func scrollWheel(with event: NSEvent) {
-        guard onScroll?(event) != true else { return }
-        super.scrollWheel(with: event)
-    }
-}
-
-/// §3.4's list, offering every scroll to §30.9's swipe before taking it.
-///
-/// The list scrolls in one axis and `NSScrollView` consumes both, so without
-/// this the swipe would work everywhere on the sidebar except over the rows —
-/// which is most of the sidebar, and the part a hand rests on.
-///
-/// **It offers the swipe every event rather than deciding by axis**, because
-/// the events that matter most have no axis: `.began` carries no travel and
-/// `.ended` carries none either, and a scroll view that kept those two would
-/// leave the gesture unable to start cleanly or to finish at all. The swipe
-/// answers for each one — it claims nothing until a finger has out-travelled
-/// its own drift — and a scroll it does not claim reaches `super` exactly as
-/// it always did.
-@MainActor
-final class SidebarScrollView: NSScrollView {
-
-    /// Returns true when the swipe took the event.
-    var onScroll: ((NSEvent) -> Bool)?
-
-    override func scrollWheel(with event: NSEvent) {
-        guard onScroll?(event) != true else { return }
-        super.scrollWheel(with: event)
-    }
 }

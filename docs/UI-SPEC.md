@@ -1132,13 +1132,39 @@ to reimplement keyboard navigation, VoiceOver and Reduce Transparency.
   > holding it does. Before this the dots were the only controls in the chrome that said nothing at all
   > until the Space had already changed. Measured on screen: hover changes exactly 14 × 14 pt, a press
   > changes the whole 42 × 22 pt pill.
+  > **The page is the ruler.** One page of hand is one page of column, at whatever width the §3.7
+  > handle has left the sidebar — so there is no "points per Space" number, and there should never have
+  > been one. Every value it held was a *fraction* of a page, which meant the column moved a multiple
+  > of the fingers pushing it: 120 pt against a 280 pt sidebar was two and a third points of column per
+  > point of hand. That is the "it multiplies my swipe" this gesture was reported for twice, and
+  > damping the trackpad's acceleration never touched it because the acceleration was not where it came
+  > from. Half a page commits.
+  > **A flick commits too, and that is what pays for the ruler being a page wide.** Half of a 280 pt
+  > column is 140 pt of finger, which no reflex performed dozens of times a day can cost — so a release
+  > still moving at `spaceFlickSpeed` turns the page however far it got. A short stroke still going is
+  > a page turn; a long one that has come to rest is a page turn; a short one that has come to rest is
+  > a look, and it springs back.
   > **Making a Space has two clocks, and it used to have one.** The swipe past the last Space fills the
-  > `+`'s ring over `spaceCreateRingTravel` — a third of the way, which lands on exactly one
-  > `spaceSwipeTravel` — and then keeps pushing the page for the other two thirds before a release
-  > makes anything. The ring used to close at the instant the gesture committed, which makes it a
-  > receipt rather than a read-out: by the time it said what you were about to get, you had it. The
-  > resistance `spaceCreateTravel` was raised for now lives where it was always meant to, in the stroke
-  > you take *after* the answer is drawn. The hand is told once, by `Haptics.latch`, as the ring closes.
+  > `+`'s ring over the first third of a page and then keeps pushing the column for the other two
+  > thirds before a release makes anything. The ring used to close at the instant the gesture
+  > committed, which makes it a receipt rather than a read-out: by the time it said what you were about
+  > to get, you had it. The hand is told once, by `Haptics.latch`, as the ring closes.
+  > **A flick never makes a Space, and that is now the whole of the resistance.** It used to be
+  > distance — three pages of it — and the create shipped *unperformable*: against the damping ceiling
+  > that needs longer than an ordinary stroke lasts, so the ring closed, because it only costs a third
+  > of the distance, and the release made nothing. Every time. What has to be prevented is a reflex off
+  > the end of the Spaces becoming a Space nobody asked for, and that is a statement about how the
+  > gesture *ended*, not how far it went. Distance punished the deliberate gesture exactly as hard as
+  > the accidental one. `TokenCheck` now holds `spaceCreateReach` under what one stroke can deliver at
+  > the **widest** the column gets, which is the check that was being made against a comfortable width.
+  > **The release is a hand that kept going.** Its duration is the distance left over the speed the
+  > fingers let go at (`Motion.spaceSettle`), not one fixed number — released a tenth of a page from
+  > home the column used to crawl the last 28 pt over the same 0.18 s it took to cross a whole page
+  > from a flick. And the *whole* read-out travels on one clock: the column, the still, §8.2a's wash
+  > and this strip are all functions of one number, but only the first two are layer properties, so
+  > animating those and setting the rest outright made the dots snap to the Space they were heading for
+  > while the column was still a third of the way there. `SpaceSwipeSettle` tweens the number instead,
+  > and every frame of the gesture — finger down or not — is drawn the one way.
 - Avatar is the active profile; click opens the profile menu.
 
 ### 3.6 Content pane

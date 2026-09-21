@@ -62,23 +62,26 @@ extension Tokens.Metric {
 
     // MARK: - SPACES-SPEC D-S12's swipe, read out on §30.9's strip
 
-    /// How far two fingers travel across the sidebar for **one Space**.
+    /// **The page is the ruler, so there is no constant here for one Space.**
     ///
-    /// **One swipe across a trackpad, and no more than that.** Changing Space
-    /// is a reflex performed dozens of times a day, and a reflex that needs a
-    /// second stroke is not one — this is short enough that a single
-    /// comfortable slide crosses the half of it that commits. It was 220 for
-    /// one build, which is about the width the page travels: the column then
-    /// tracked the fingers almost exactly, and the gesture cost more than what
-    /// it did was worth. The page leads the hand by about two to one at 120,
-    /// which is a page turn following a flick rather than a sheet being
-    /// dragged, and that is the right trade the moment the distance is the
-    /// thing being complained about.
+    /// Every number this used to be — 220 for one build, then 120 — was wrong
+    /// at some sidebar width, because the thing the gesture moves is a *page*
+    /// and the §3.7 handle makes a page anything from 250 to 420 pt wide. None
+    /// of them was the page's own width, so the column travelled a **multiple**
+    /// of the hand: 120 against a 280 pt column moved the page two and a third
+    /// points for every point of finger, which is precisely the "it multiplies
+    /// my swipe" this gesture has now been reported for twice. Damping the
+    /// system's acceleration did not touch it, because the multiplier was never
+    /// the acceleration — it was this division.
     ///
-    /// The **resistance lives in `spaceCreateTravel` alone**, which is the
-    /// whole point of having two numbers: reaching a Space you already have
-    /// should be free, and making one should not be.
-    static let spaceSwipeTravel: CGFloat = 120
+    /// **One page of hand is one page of column**, at every width, and half a
+    /// page commits. `SpaceSwipe.resolve` is handed the span for that reason
+    /// and there is no token here to keep in step with it.
+    ///
+    /// What a *short* swipe costs is paid by `spaceFlickSpeed` instead: a
+    /// gesture that is still moving when the fingers leave turns the page
+    /// however far it got. Distance and speed are two ways of saying the same
+    /// thing, and demanding both is what made the swipe feel expensive.
 
     /// Where the system's acceleration starts being taken back off, in points
     /// of hand per second.
@@ -93,16 +96,18 @@ extension Tokens.Metric {
     /// through untouched and movement far above it is compressed toward it —
     /// see `SpaceSwipeController.damped`.
     ///
+    /// **It matters more now than it did**, because the page is pinned to the
+    /// hand: an undamped delta would put the column three pages away from where
+    /// the fingers are. The two changes are one idea — take the multiplier off
+    /// the distance, then spend the distance at 1:1 — and neither works alone.
+    ///
     /// **1600, and it was 900 as a hard clip for one build.** Both halves of
     /// that were wrong in the hand. A hard clip turns every event a real swipe
     /// delivers into exactly the ceiling, which is a page travelling at one
     /// fixed speed no matter what the hand is doing — the gesture stops being
     /// followed and starts being played back. And 900 pt/s is *under* a
     /// deliberate drag, let alone a flick, so the clip was firing on the whole
-    /// gesture rather than on the accelerated top of it: `spaceCreateTravel`'s
-    /// 360 pt then needed four tenths of a second of sustained movement, which
-    /// is longer than a trackpad stroke lasts, so the ring could not be closed
-    /// in one go at all.
+    /// gesture rather than on the accelerated top of it.
     ///
     /// 1600 pt/s is about where a hand stops moving and starts flicking: a
     /// deliberate drag runs well under it and loses nothing, and a flick
@@ -111,49 +116,73 @@ extension Tokens.Metric {
     /// 60 Hz panel and a 120 Hz one.
     static let spaceSwipeSpeed: CGFloat = 1600
 
-    /// How far **past the last Space** the same two fingers travel to close
-    /// §30.9's ring and make a new one.
+    /// The release speed at which a swipe stops being a drag and becomes a
+    /// **flick** — the page turns however far the fingers actually got.
     ///
-    /// **Three times `spaceSwipeTravel`, and this is the only place any
-    /// resistance lives.** Moving between Spaces is a reflex; creating one is
-    /// a thing you do a handful of times ever, and the two are the same gesture
-    /// continued — so anything that can be reached by over-flicking the reflex
-    /// will be reached by accident. The ratio was two for one build, when the
-    /// switch itself was long; now that a switch is one easy slide, a create
-    /// has to be a deliberate stroke rather than the same slide continued.
+    /// **This is what pays for a page being a page wide.** Half of a 280 pt
+    /// column is 140 pt of finger, and a reflex performed dozens of times a day
+    /// cannot cost that: "one single fast swipe should go to the next Space"
+    /// is the whole requirement, and a distance threshold can only meet it by
+    /// being short — which is what put the page two and a third times ahead of
+    /// the hand in the first place. So distance is no longer the only way to
+    /// commit. A short stroke that is still moving when it ends is a page turn;
+    /// a long one that has come to rest is a page turn; a short one that has
+    /// come to rest is a look, and it springs back.
     ///
-    /// **The resistance is now in the two thirds after the ring closes, which
-    /// is where it was always supposed to be.** The ring used to fill over
-    /// exactly this distance, so the gesture had no resistance in it at all:
-    /// the moment the `+` looked finished, it was finished, and every argument
-    /// above about deliberate strokes was being made by a mark that had not
-    /// finished drawing. The `+` now closes in the first third
-    /// (`spaceCreateRingTravel`) and the remaining 240 pt are the asking price
-    /// — the same distance, spent on the part of the gesture that is a
-    /// decision rather than on the part that is an animation.
-    ///
-    /// **It is not longer than that**, however much more resistance it is
-    /// tempting to ask for: `TokenCheck` holds `spaceCreateTravel` under what
-    /// one trackpad stroke can deliver at `spaceSwipeSpeed`, and resistance
-    /// that cannot be overcome in one gesture is not resistance, it is a dead
-    /// end.
-    static let spaceCreateTravel: CGFloat = 360
+    /// **Measured against the damped travel, not the raw delta**, which is why
+    /// it can be a plain number: `damped` holds the reported speed under
+    /// `spaceSwipeSpeed`, so this is a little over a third of the fastest thing
+    /// the gesture can report. A deliberate drag runs at two or three hundred
+    /// points a second and stays well under it; a flick saturates the ceiling
+    /// and clears it four times over. There is a lot of daylight between the
+    /// two, which is the only reason one threshold can tell them apart.
+    static let spaceFlickSpeed: CGFloat = 550
 
-    /// How far into that stroke §30.9's ring is **already closed**.
+    /// The least a flick must still have **covered**, in pages.
     ///
-    /// **A third of the way, which lands on exactly one `spaceSwipeTravel`.**
-    /// The `+` used to finish drawing itself at the same instant the gesture
-    /// committed, and a progress ring that completes on the last frame is not
-    /// a read-out — it is a receipt. Closed early, it becomes the thing it was
-    /// meant to be: *this is what you are about to make*, said while there is
-    /// still two thirds of a stroke in which to decide against it. The rest of
-    /// the travel is then read as the new Space pushing the old column out of
-    /// the way, which is the other half of what the gesture is doing.
+    /// A tenth of a column — under 30 pt. Not resistance: it is the difference
+    /// between a swipe and a twitch. Two fingers landing on the trackpad with a
+    /// little sideways momentum can report one fast event and nothing else, and
+    /// without a floor that would turn the page.
+    static let spaceFlickReach: CGFloat = 0.1
+
+    /// How far **past the last Space** the same two fingers travel to make a
+    /// new one, in pages.
     ///
-    /// That the number lands on one Space's worth of travel is the reason to
-    /// trust it: the `+` is fully drawn by the time the hand has gone one Space
-    /// past the last one, and everything after that is the asking price.
-    static let spaceCreateRingTravel = spaceCreateTravel / 3
+    /// **One whole page, and the gesture is exactly what it looks like**: the
+    /// column is pushed all the way off the side and let go. There is nothing
+    /// to learn and nothing to measure, because the thing being dragged is the
+    /// answer — when the old Space has completely gone, what is left is the new
+    /// one.
+    ///
+    /// **It was three pages' worth, and it could not be done.** 360 pt against
+    /// a damping ceiling of 1600 pt/s needs almost a quarter of a second of
+    /// *unbroken, saturated* movement; an ordinary swipe lasts a sixth of a
+    /// second, so the ring closed — it only needed a third of the distance —
+    /// and the release made nothing, every time. A create that reports itself
+    /// as broken is not resistance, and `TokenCheck` now checks this against
+    /// the widest page rather than against a comfortable one.
+    ///
+    /// **The resistance moved to `spaceFlickSpeed`, where it belongs.** What
+    /// has to be prevented is a *flick* off the end of the Spaces turning into
+    /// a Space nobody asked for — and that is a statement about how the gesture
+    /// ended, not about how far it went. A flick past the last Space now
+    /// springs back however far it reached; a Space is made by pushing the
+    /// column out and coming to rest there, which is a thing nobody does by
+    /// accident.
+    static let spaceCreateReach: CGFloat = 1
+
+    /// How far into that page §30.9's ring is **already closed**.
+    ///
+    /// **A third of the way.** The `+` used to finish drawing itself at the
+    /// same instant the gesture committed, and a progress ring that completes
+    /// on the last frame is not a read-out — it is a receipt. Closed early, it
+    /// becomes the thing it was meant to be: *this is what you are about to
+    /// make*, said while there are still two thirds of a page in which to
+    /// decide against it. The rest of the travel is then read as the new Space
+    /// pushing the old column out of the way, which is the other half of what
+    /// the gesture is doing.
+    static let spaceCreateRingReach = spaceCreateReach / 3
 
     /// §30.9's ring, drawn **around** the sidebar's `+` disc.
     ///

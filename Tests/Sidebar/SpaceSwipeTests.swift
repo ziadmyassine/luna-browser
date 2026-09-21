@@ -5,14 +5,17 @@
 //  §30.9's two-finger swipe, as arithmetic — split out of `SpacesTests.swift`,
 //  which holds the other half: where the dots go.
 //
-//  Two things are asserted here that a trackpad would otherwise be the only
-//  way to find out. **What a gesture means**: the half-a-Space commit, the cap
-//  that keeps one swipe to one Space, and the doubled travel that makes a new
-//  one. And **how much of the gesture is the hand's** — macOS scales a precise
-//  scroll by how fast the fingers moved, so the deltas an event carries are not
-//  a distance, and everything above is arithmetic on a number that has already
-//  been multiplied unless something takes the multiplier back off. What is
-//  asserted about that is the *shape* of the curve rather than one number on
+//  Three things are asserted here that a trackpad would otherwise be the only
+//  way to find out. **That the page is the ruler**: one page of hand is one
+//  page of column at every width the §3.7 handle reaches, which is the claim
+//  the "it multiplies my swipe" defect was the absence of. **What a gesture
+//  means**: the half-a-page commit, the flick that commits without it, the cap
+//  that keeps one swipe to one Space, and the page past the last one that makes
+//  a new one. And **how much of the gesture is the hand's** — macOS scales a
+//  precise scroll by how fast the fingers moved, so the deltas an event carries
+//  are not a distance, and everything above is arithmetic on a number that has
+//  already been multiplied unless something takes the multiplier back off. What
+//  is asserted about that is the *shape* of the curve rather than one number on
 //  it: it answers the hand everywhere, it never outruns the hand, it never
 //  exceeds the ceiling, and it leaves a slow drag alone. A hard clip passes
 //  three of those four and fails the first, which is exactly how it felt.
@@ -28,31 +31,87 @@ import XCTest
 @MainActor
 final class SpaceSwipeTests: XCTestCase {
 
-    private let travel = Tokens.Metric.spaceSwipeTravel
+    /// One page — the sidebar as it ships. Every distance below is a fraction
+    /// of this and of nothing else, which is the point.
+    private let page = Tokens.Metric.sidebarWidth.default
+    /// A release fast enough to be a flick, and one that is not.
+    private var fast: CGFloat { Tokens.Metric.spaceFlickSpeed * 1.5 }
+    private var slow: CGFloat { Tokens.Metric.spaceFlickSpeed * 0.5 }
 
-    /// Half a Space commits — a flick is short, and a gesture that needed the
-    /// whole distance would be a drag.
-    func testHalfASpaceOfTravelLandsOnTheNextOne() {
-        XCTAssertEqual(Self.resolve(travel * 0.6, active: 0, of: 3).landing, 1)
-        XCTAssertEqual(Self.resolve(-travel * 0.6, active: 1, of: 3).landing, 0)
+    // MARK: - The page is the ruler
+
+    /// **The reported defect, stated as arithmetic: "a little swipe is too big
+    /// a move".** The column used to be measured against a constant — 120 pt —
+    /// while the thing it moved was a 280 pt page, so every point of finger
+    /// bought two and a third points of column. The page now goes exactly as
+    /// far as the hand does, at every width the handle reaches.
+    func testOnePageOfHandIsOnePageOfColumn() {
+        for span in [Tokens.Metric.sidebarWidth.min, page, Tokens.Metric.sidebarWidth.max] {
+            for fraction in [0.1, 0.25, 0.5, 0.9] as [CGFloat] {
+                XCTAssertEqual(
+                    Self.resolve(span * fraction, span: span, active: 0, of: 3).travel,
+                    fraction,
+                    accuracy: 0.001,
+                    "\(fraction) of a \(span) pt page"
+                )
+            }
+        }
     }
 
-    /// …and under half of it does not. This is the whole of "I changed my mind
-    /// half way".
-    func testLessThanHalfASpaceStaysWhereItIs() {
-        XCTAssertNil(Self.resolve(travel * 0.4, active: 1, of: 3).landing)
-        XCTAssertNil(Self.resolve(-travel * 0.4, active: 1, of: 3).landing)
+    /// The same claim backwards, and the same claim past the last Space: the
+    /// create zone is one page too, so the gesture never changes gear.
+    func testTheRulerDoesNotChangeWithDirectionOrWithRunningOffTheEnd() {
+        XCTAssertEqual(Self.resolve(-page / 2, active: 1, of: 3).travel, -0.5, accuracy: 0.001)
+        XCTAssertEqual(Self.resolve(page / 2, active: 2, of: 3).travel, 0.5, accuracy: 0.001)
     }
 
-    /// **The bug this cap exists for.** A trackpad flick is accelerated by the
+    // MARK: - What a gesture means
+
+    /// Half a page commits, and under half of it does not. This is the whole of
+    /// "I changed my mind half way".
+    func testHalfAPageLandsOnTheNextSpaceAndLessThanHalfDoesNot() {
+        XCTAssertEqual(Self.resolve(page * 0.6, active: 0, of: 3).landing, 1)
+        XCTAssertEqual(Self.resolve(-page * 0.6, active: 1, of: 3).landing, 0)
+        XCTAssertNil(Self.resolve(page * 0.4, active: 1, of: 3).landing)
+        XCTAssertNil(Self.resolve(-page * 0.4, active: 1, of: 3).landing)
+    }
+
+    /// **"One single fast swipe should also go to the next Space."** Half a
+    /// page is 140 pt of finger, which is far more than a reflex performed
+    /// dozens of times a day can cost — so a release that is still moving turns
+    /// the page however far it got. This is what pays for the ruler being a
+    /// whole page wide.
+    func testAFlickTurnsThePageWithoutTheDistance() {
+        let flick = Self.resolve(page * 0.15, speed: fast, active: 0, of: 3)
+        XCTAssertEqual(flick.landing, 1)
+        XCTAssertEqual(Self.resolve(-page * 0.15, speed: -fast, active: 1, of: 3).landing, 0)
+        // …and the same travel, let go gently, is a look.
+        XCTAssertNil(Self.resolve(page * 0.15, speed: slow, active: 0, of: 3).landing)
+    }
+
+    /// **A hand that reversed before it lifted changed its mind.** Speed alone
+    /// is not intent; speed in the direction the page is going is.
+    func testAFlickBackTheOtherWayCommitsNothing() {
+        XCTAssertNil(Self.resolve(page * 0.2, speed: -fast, active: 0, of: 3).landing)
+        XCTAssertNil(Self.resolve(-page * 0.2, speed: fast, active: 1, of: 3).landing)
+    }
+
+    /// A flick still has to be a swipe. Two fingers landing with a little
+    /// sideways momentum can report one fast event and nothing else.
+    func testATwitchIsNotAFlick() {
+        let twitch = Tokens.Metric.spaceFlickReach / 2
+        XCTAssertNil(Self.resolve(page * twitch, speed: fast * 10, active: 0, of: 3).landing)
+    }
+
+    /// **The bug the cap exists for.** A trackpad flick is accelerated by the
     /// system and routinely delivers several hundred points in one stroke, so
     /// before the travel was capped a single firm swipe from the first of two
     /// Spaces ran through the second and into the create zone — the gesture you
     /// use to *change* Space made one instead. Whatever the stroke, a swipe
     /// forward from a Space that has a Space after it lands on that Space.
     func testAHardSwipeLandsOnTheNextSpaceRatherThanMakingOne() {
-        for stroke in [travel, travel * 4, travel * 40] {
-            let swipe = Self.resolve(stroke, active: 0, of: 2)
+        for stroke in [page, page * 4, page * 40] {
+            let swipe = Self.resolve(stroke, speed: fast, active: 0, of: 2)
             XCTAssertEqual(swipe.landing, 1, "a \(stroke) pt stroke")
             XCTAssertFalse(swipe.createsSpace, "a \(stroke) pt stroke made a Space")
             XCTAssertEqual(swipe.creation, 0, "a \(stroke) pt stroke opened the ring")
@@ -63,7 +122,7 @@ final class SpaceSwipeTests: XCTestCase {
     /// The same cap backwards, and it is what keeps the indicator on the strip:
     /// one Space per gesture, in either direction.
     func testAHardSwipeBackLandsOnThePreviousSpaceAndNoFurther() {
-        let swipe = Self.resolve(-travel * 40, active: 2, of: 3)
+        let swipe = Self.resolve(-page * 40, active: 2, of: 3)
         XCTAssertEqual(swipe.landing, 1)
         XCTAssertEqual(swipe.travel, -1)
     }
@@ -73,15 +132,16 @@ final class SpaceSwipeTests: XCTestCase {
     /// possibly mean anything but "the one after this".
     func testOnlyTheLastSpaceCanReachTheCreateZone() {
         for active in 0..<3 {
-            let swipe = Self.resolve(Tokens.Metric.spaceCreateTravel * 10, active: active, of: 3)
+            let swipe = Self.resolve(page * 10, active: active, of: 3)
             XCTAssertEqual(swipe.createsSpace, active == 2, "Space \(active) of 3")
         }
     }
 
     /// **The leading end simply stops.** There is nothing before the first
-    /// Space, so the indicator does not move and nothing is offered.
+    /// Space, so the indicator does not move and nothing is offered — not even
+    /// to a flick.
     func testTheFirstSpaceHasNothingBehindIt() {
-        let swipe = Self.resolve(-travel * 3, active: 0, of: 3)
+        let swipe = Self.resolve(-page * 3, speed: -fast, active: 0, of: 3)
         XCTAssertEqual(swipe.travel, 0)
         XCTAssertNil(swipe.landing)
         XCTAssertEqual(swipe.creation, 0)
@@ -91,7 +151,7 @@ final class SpaceSwipeTests: XCTestCase {
     /// Past the last Space there is no Space to land on — the gesture has
     /// stopped being a switch.
     func testPastTheLastSpaceThereIsNoLanding() {
-        let swipe = Self.resolve(travel * 1.5, active: 2, of: 3)
+        let swipe = Self.resolve(page * 0.5, active: 2, of: 3)
         XCTAssertNil(swipe.landing)
         XCTAssertGreaterThan(swipe.creation, 0)
     }
@@ -100,7 +160,7 @@ final class SpaceSwipeTests: XCTestCase {
     /// reaches it and stops there rather than running off the strip.
     func testTheIndicatorNeverLeavesTheStrip() {
         for active in 0..<3 {
-            for stroke in [-travel * 40, travel * 40] {
+            for stroke in [-page * 40, page * 40] {
                 let swipe = Self.resolve(stroke, active: active, of: 3)
                 XCTAssertGreaterThanOrEqual(swipe.travel, -1, "Space \(active), \(stroke) pt")
                 XCTAssertLessThanOrEqual(swipe.travel, 1, "Space \(active), \(stroke) pt")
@@ -108,58 +168,60 @@ final class SpaceSwipeTests: XCTestCase {
         }
     }
 
-    /// **The resistance, stated as the test that would fail if someone tidied
-    /// the two thresholds into one.** A whole Space's worth of travel *past the
-    /// last Space* — a third of what it takes to make one, and well past what a
-    /// reflex flick delivers — closes the ring and makes nothing.
-    func testASpacesWorthOfOvershootDoesNotMakeASpace() {
-        let swipe = Self.resolve(travel, active: 1, of: 2)
-        XCTAssertFalse(swipe.createsSpace)
-        XCTAssertGreaterThan(swipe.creation, 0, "the ring is not even showing — the overshoot said nothing")
-    }
+    // MARK: - Making one
 
-    /// The ring closes at `spaceCreateRingTravel` — a third of the way — and
-    /// not before.
-    func testTheRingClosesAThirdOfTheWayAndNotBefore() {
-        let ring = Tokens.Metric.spaceCreateRingTravel
-        XCTAssertLessThan(Self.resolve(ring * 0.99, active: 0, of: 1).creation, 1)
-        XCTAssertEqual(Self.resolve(ring, active: 0, of: 1).creation, 1, accuracy: 0.001)
-        XCTAssertEqual(ring * 3, Tokens.Metric.spaceCreateTravel, accuracy: 0.001)
-    }
-
-    /// **A closed ring is not a made Space**, which is the whole of the
-    /// resistance: two thirds of the stroke happen with the `+` already drawn,
-    /// and letting go in any of them makes nothing.
-    func testAClosedRingStillHasTwoThirdsOfTheStrokeToPayFor() {
-        let create = Tokens.Metric.spaceCreateTravel
-        XCTAssertEqual(Self.resolve(Tokens.Metric.spaceCreateRingTravel, active: 0, of: 1).creation, 1)
-        XCTAssertFalse(Self.resolve(Tokens.Metric.spaceCreateRingTravel, active: 0, of: 1).createsSpace)
-        XCTAssertFalse(Self.resolve(create * 0.99, active: 0, of: 1).createsSpace)
-        XCTAssertTrue(Self.resolve(create, active: 0, of: 1).createsSpace)
-    }
-
-    /// The ring never over-fills, however far the fingers go.
-    func testTheRingStopsAtAFullCircle() {
-        XCTAssertEqual(Self.resolve(Tokens.Metric.spaceCreateTravel * 4, active: 0, of: 1).creation, 1)
-    }
-
-    /// **The page arrives as the gesture commits**, with the ring long since
-    /// closed: the `+` finishes in the first third and the last two thirds are
-    /// the new Space pushing the old column the rest of the way out.
-    func testThePageArrivesAsTheGestureCommitsAndTheRingClosedLongBefore() {
-        let third = Self.resolve(Tokens.Metric.spaceCreateRingTravel, active: 2, of: 3)
-        XCTAssertEqual(third.creation, 1, accuracy: 0.001)
-        XCTAssertEqual(third.travel, 1.0 / 3, accuracy: 0.001, "the page is a third of the way across")
-        let swipe = Self.resolve(Tokens.Metric.spaceCreateTravel, active: 2, of: 3)
+    /// **The reported defect: "I cannot create a new Space anymore."** It used
+    /// to take three pages of travel, which against the damping ceiling needs
+    /// almost a quarter of a second of unbroken, saturated movement — so the
+    /// ring closed, because that only cost a third of it, and the release made
+    /// nothing. Every time. A whole page, pushed out and let go of, makes one.
+    func testAPagePushedOutAndReleasedMakesASpace() {
+        let swipe = Self.resolve(page, speed: slow, active: 1, of: 2)
+        XCTAssertTrue(swipe.createsSpace)
         XCTAssertEqual(swipe.travel, 1, accuracy: 0.001)
         XCTAssertEqual(swipe.creation, 1, accuracy: 0.001)
     }
 
-    /// A gesture in a window with no Spaces cannot mean anything, and must not
-    /// crash trying.
-    func testAnEmptyOrOutOfRangeWindowResolvesToNothing() {
-        XCTAssertNil(Self.resolve(travel * 10, active: 0, of: 0).landing)
-        XCTAssertFalse(Self.resolve(travel * 10, active: 4, of: 2).createsSpace)
+    /// …and a page that is nearly all the way out is still not a Space.
+    func testShortOfAWholePageMakesNothing() {
+        XCTAssertFalse(Self.resolve(page * 0.99, speed: slow, active: 0, of: 1).createsSpace)
+    }
+
+    /// **A flick is never a create, and this is the whole of the resistance.**
+    /// What has to be prevented is a reflex off the end of the Spaces turning
+    /// into a Space nobody asked for, and that is a statement about how the
+    /// gesture ended rather than about how far it went — which is why the
+    /// distance could come down far enough to be performable at all.
+    func testAFlickPastTheLastSpaceMakesNothingHoweverFarItWent() {
+        for stroke in [page, page * 4, page * 40] {
+            let swipe = Self.resolve(stroke, speed: fast, active: 0, of: 1)
+            XCTAssertFalse(swipe.createsSpace, "a \(stroke) pt flick made a Space")
+            XCTAssertEqual(swipe.creation, 1, "the ring did not close on a \(stroke) pt flick")
+        }
+    }
+
+    /// **A closed ring is not a made Space**, which is the promise the ring
+    /// makes: it finishes drawing a third of the way in, and the two thirds
+    /// after it are the asking price.
+    func testTheRingClosesAThirdOfTheWayAndStillHasTwoThirdsToPayFor() {
+        let ring = page * Tokens.Metric.spaceCreateRingReach
+        XCTAssertLessThan(Self.resolve(ring * 0.99, active: 0, of: 1).creation, 1)
+        XCTAssertEqual(Self.resolve(ring, active: 0, of: 1).creation, 1, accuracy: 0.001)
+        XCTAssertFalse(Self.resolve(ring, speed: slow, active: 0, of: 1).createsSpace)
+        XCTAssertEqual(Tokens.Metric.spaceCreateRingReach * 3, Tokens.Metric.spaceCreateReach, accuracy: 0.001)
+    }
+
+    /// The ring never over-fills, however far the fingers go.
+    func testTheRingStopsAtAFullCircle() {
+        XCTAssertEqual(Self.resolve(page * 4, active: 0, of: 1).creation, 1)
+    }
+
+    /// A gesture in a window with no Spaces — or in a column with no width yet
+    /// — cannot mean anything, and must not crash trying.
+    func testAnEmptyWindowOrAnUnlaidColumnResolvesToNothing() {
+        XCTAssertNil(Self.resolve(page * 10, active: 0, of: 0).landing)
+        XCTAssertFalse(Self.resolve(page * 10, active: 4, of: 2).createsSpace)
+        XCTAssertEqual(SpaceSwipe.resolve(offset: 999, span: 0, activeIndex: 0, count: 2), .rest)
     }
 
     // MARK: - The acceleration, bent back off
@@ -168,11 +230,12 @@ final class SpaceSwipeTests: XCTestCase {
     /// One frame's worth of honest hand, which is what the curve's knee is.
     private static var knee: CGFloat { Tokens.Metric.spaceSwipeSpeed * CGFloat(frame) }
 
-    /// **The reported defect: "the scroll is like multiplied".** A trackpad
-    /// does not report how far the fingers moved — macOS scales the delta by
-    /// how fast they moved, so a flick arrives as several times the travel the
-    /// hand actually covered and the page races out from under it. Four times a
-    /// hand's worth of movement in one frame comes back as about a hand's.
+    /// **The multiplier the trackpad itself adds.** macOS scales the delta by
+    /// how fast the fingers moved, so a flick arrives as several times the
+    /// travel the hand actually covered — and now that the page is pinned to
+    /// the hand 1:1, an undamped delta would put the column three pages from
+    /// the fingers pushing it. Four times a hand's worth of movement in one
+    /// frame comes back as about a hand's.
     func testAnAcceleratedFlickIsFoldedBackTowardWhatAHandCanCover() {
         let folded = SpaceSwipeController.damped(Self.knee * 4, since: 1, at: 1 + Self.frame)
         XCTAssertLessThan(folded, Self.knee)
@@ -228,32 +291,49 @@ final class SpaceSwipeTests: XCTestCase {
     }
 
     /// The first event of a gesture has nothing to measure from, and a frame
-    /// the app spent elsewhere must not hand one event the budget of ten.
+    /// the app spent elsewhere must not hand one event the budget of ten. The
+    /// distance and the speed read it from the same place, or a speed measured
+    /// over one interval would be divided out of a distance measured over
+    /// another.
     func testAGapWithNothingBehindItIsReadAsOneFrame() {
         let frame = SpaceSwipeController.damped(1000, since: 1, at: 1 + Self.frame)
         XCTAssertEqual(SpaceSwipeController.damped(1000, since: 0, at: 99), frame, accuracy: 0.001)
         XCTAssertEqual(SpaceSwipeController.damped(1000, since: 1, at: 2), frame, accuracy: 0.001)
+        XCTAssertEqual(SpaceSwipeController.interval(since: 0, at: 99), Self.frame, accuracy: 0.0001)
+        XCTAssertEqual(SpaceSwipeController.interval(since: 1, at: 2), Self.frame, accuracy: 0.0001)
     }
 
-    /// **The create gesture has to be completable in one stroke**, which is
-    /// what the hard clip's 900 pt/s took away: `spaceCreateTravel` then needed
-    /// four tenths of a second of sustained movement, and a trackpad stroke
-    /// does not last that long. Resistance that cannot be overcome in one
-    /// gesture is not resistance, it is a dead end.
-    func testAFirmStrokeCanStillCloseTheRing() {
+    /// **The create gesture has to be completable in one stroke, at the widest
+    /// the column gets.** This is the claim that was false in the shipped
+    /// build: three pages against the ceiling needed longer than a trackpad
+    /// stroke lasts, so the one gesture the resistance is *for* could not be
+    /// performed at all. One deliberate push now clears a page even against a
+    /// sidebar dragged out to its maximum — and this is the worst case twice
+    /// over, because the stroke is simulated at the damping ceiling, which a
+    /// deliberate push never reaches.
+    func testAStrokeCoversAWholePageAtTheWidestTheColumnGets() {
         let stroke = 0.3
         var offset: CGFloat = 0
         var last = 1.0
-        // A flick the system has already multiplied, at 120 Hz, for 0.3 s.
+        // A flick the system has already multiplied, at 120 Hz, for 0.2 s.
         for step in 1...Int(stroke * 120) {
             let now = 1 + Double(step) / 120
             offset += SpaceSwipeController.damped(60, since: last, at: now)
             last = now
         }
-        XCTAssertGreaterThan(offset, Tokens.Metric.spaceCreateTravel)
+        let widest = Tokens.Metric.sidebarWidth.max * Tokens.Metric.spaceCreateReach
+        XCTAssertGreaterThan(offset, widest, "a 0.2 s stroke cannot push a \(widest) pt page out")
     }
 
-    private static func resolve(_ offset: CGFloat, active: Int, of count: Int) -> SpaceSwipe {
-        SpaceSwipe.resolve(offset: offset, activeIndex: active, count: count)
+    // MARK: - Helpers
+
+    private static func resolve(
+        _ offset: CGFloat,
+        speed: CGFloat = 0,
+        span: CGFloat = Tokens.Metric.sidebarWidth.default,
+        active: Int,
+        of count: Int
+    ) -> SpaceSwipe {
+        SpaceSwipe.resolve(offset: offset, speed: speed, span: span, activeIndex: active, count: count)
     }
 }
