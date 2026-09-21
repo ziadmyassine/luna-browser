@@ -4,13 +4,21 @@
 //
 //  §3.2c: how far the page has loaded, drawn as a line under the address.
 //
-//  **Under the search bar, wherever the search bar is.** Luna has three of
-//  them — §3.2's in the column, §3.2b's on the page, §4's in the top bar — and
-//  the line is the same line on all three: `loadLineInset` in from each end,
-//  `loadLineFloor` up from the bottom edge, `loadLineHeight` thick, growing
-//  from the leading end. The host owns the frame; this owns what is in it, so
-//  there is one set of rules about when a progress bar is allowed to be on
-//  screen rather than one per surface.
+//  **On the bottom of the search bar, wherever the search bar is.** Luna has
+//  three of them — §3.2's in the column, §3.2b's on the page, §4's in the top
+//  bar — and the line is the same line on all three: `loadLineHeight` thick,
+//  lying on the inside of the pill's bottom edge, running the pill's whole
+//  width from the leading end, and **cut at both ends by the capsule itself**.
+//  The host owns the frame; this owns what is in it, so there is one set of
+//  rules about when a progress bar is allowed to be on screen rather than one
+//  per surface.
+//
+//  It is the *pill* filling up, not a rule drawn inside one. A line held clear
+//  of the bottom edge, with its own rounded ends, is a second object floating
+//  in the capsule; a line lying on the edge and ending where the corner takes
+//  it away is the bottom of the capsule turning blue. The reference measures
+//  the second: the blue run ends exactly where the capsule's bottom stroke
+//  begins, and its leading end is the corner's curve rather than a cap.
 //
 //  **When no pill is on screen the window's top edge wears it** — see
 //  `LoadProgressHost`. That is the sidebar layout with the sidebar hidden and
@@ -90,13 +98,22 @@ final class LoadProgressLine: NSView {
     /// is exactly the load that should play nothing.
     private var reveal: Task<Void, Never>?
     private let fill = NSView()
+    /// The capsule the line is lying in, as a mask. Nil-pathed until a pill
+    /// places it — the window's top edge (`LoadProgressHost.windowTop`) is a
+    /// square line across the whole window and has no capsule to be cut by.
+    private let clip = CAShapeLayer()
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
         fill.wantsLayer = true
-        fill.layer?.cornerCurve = .continuous
+        // The leading end is the capsule's corner and the trailing end is the
+        // progress head, which is square in the reference: the fill itself is
+        // a plain rectangle and neither end is its own.
         addSubview(fill)
+        // A mask is not a thing to watch move. Its path is re-cut on every
+        // layout pass, and CoreAnimation would happily interpolate each one.
+        clip.actions = ["path": NSNull(), "bounds": NSNull(), "position": NSNull()]
         alphaValue = 0
         refreshInk()
     }
@@ -213,21 +230,57 @@ final class LoadProgressLine: NSView {
 
     // MARK: - Geometry
 
-    /// Where the line goes inside a pill of `bounds` — §3.2c's one placement,
-    /// written once because all three address bars use it and a line that is
-    /// 12 pt in on one surface and 8 on another is two lines.
+    /// Places the line in a pill: §3.2c's one placement, written once because
+    /// all three address bars use it and a line that lies on the edge of one
+    /// surface and floats inside another is two lines.
+    ///
+    /// **Two halves, and the second is what makes it the pill's own bottom.**
+    /// The strip spans the whole capsule, so the fill reaches the far end at
+    /// full; the mask is the capsule, so both ends are taken by the corner
+    /// instead of being held clear of it. Without the mask a full-width strip
+    /// would draw square corners out past the curve.
+    func place(inPill bounds: NSRect, cornerRadius: CGFloat) {
+        frame = Self.frame(inPill: bounds)
+        clip.path = Self.capsule(inPill: bounds, cornerRadius: cornerRadius)
+        layer?.mask = clip
+    }
+
+    /// The strip the line lies in: the pill's full width, on the inside of its
+    /// bottom edge.
     ///
     /// The pill's bottom edge, not its baseline and not below the capsule: the
     /// line belongs *to* the address bar, and a rule drawn underneath one is a
     /// divider between it and whatever is next.
     static func frame(inPill bounds: NSRect) -> NSRect {
-        let inset = Tokens.Metric.loadLineInset
-        return NSRect(
-            x: inset,
+        NSRect(
+            x: 0,
             y: Tokens.Metric.loadLineFloor,
-            width: max(bounds.width - inset * 2, 0),
+            width: bounds.width,
             height: Tokens.Metric.loadLineHeight
         )
+    }
+
+    /// The capsule that cuts the line's ends, **in the line's own
+    /// coordinates** — which is why it is the well's shape and not the pill's:
+    /// the strip already starts at `loadLineFloor`, so the inner edge the line
+    /// lies on is this path's y = 0.
+    ///
+    /// Pure and `static` so the shape can be asked the questions a mask cannot
+    /// answer once it is installed: whether a point on the flat run is in it,
+    /// and whether a point out in the corner is not.
+    static func capsule(inPill bounds: NSRect, cornerRadius: CGFloat) -> CGPath {
+        let inset = Tokens.Metric.loadLineFloor
+        let well = CGRect(
+            x: inset,
+            y: 0,
+            width: max(bounds.width - inset * 2, 0),
+            height: max(bounds.height - inset * 2, 0)
+        )
+        // A capsule narrower than its own corner is a shape `CGPath` will not
+        // draw — §3.2b's pill shrinks with the window, and §4's strip with the
+        // tab count.
+        let radius = max(min(cornerRadius - inset, min(well.width, well.height) / 2), 0)
+        return CGPath(roundedRect: well, cornerWidth: radius, cornerHeight: radius, transform: nil)
     }
 
 
@@ -239,7 +292,6 @@ final class LoadProgressLine: NSView {
 
     private func layoutFill() {
         fill.frame = fillFrame
-        fill.layer?.cornerRadius = bounds.height / 2
     }
 
     /// Leading-anchored, so the line grows the way the language reads and the

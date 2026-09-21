@@ -5,11 +5,12 @@
 //  §3.2c: the load line, under whichever address bar is on screen.
 //
 //  Two halves, and they fail differently. The geometry half is a *placement* —
-//  a line 8 pt in on one pill and 12 on another is two lines — and it is
-//  checked by rebuilding the capsule the reference measures rather than by
-//  restating the tokens. The behaviour half is about a progress bar's three
-//  ways of lying: flashing for a load that was already over, retreating when a
-//  redirect resets `estimatedProgress`, and vanishing at four fifths.
+//  a line lying on the edge of one pill and floating inside another is two
+//  lines — and it is checked by asking the capsule the reference measures
+//  where it is, rather than by restating the tokens. The behaviour half is
+//  about a progress bar's three ways of lying: flashing for a load that was
+//  already over, retreating when a redirect resets `estimatedProgress`, and
+//  vanishing at four fifths.
 //
 
 import XCTest
@@ -23,7 +24,7 @@ final class LoadProgressLineTests: XCTestCase {
 
     private func line() -> LoadProgressLine {
         let line = LoadProgressLine()
-        line.frame = LoadProgressLine.frame(inPill: pill)
+        line.place(inPill: pill, cornerRadius: Tokens.Metric.urlPill.cornerRadius)
         line.layoutSubtreeIfNeeded()
         return line
     }
@@ -34,35 +35,41 @@ final class LoadProgressLineTests: XCTestCase {
 
     // MARK: - Where it goes
 
-    /// The reference draws the line **inside** the capsule, along its bottom
-    /// run: 2 pt thick, a text inset in from each end, and clear of the bottom
-    /// edge by twice its own weight.
-    func testTheLineSitsOnThePillsBottomRunAndNotUnderIt() {
+    /// The reference draws the line **on** the capsule's bottom, not inside it
+    /// at a distance: 2 pt thick, lying on the inner edge with the pill's own
+    /// hairline under it, and spanning the whole pill so that a finished load
+    /// reaches the far end rather than stopping a text inset short.
+    func testTheLineLiesOnThePillsBottomEdgeRatherThanFloatingAboveIt() {
         let frame = LoadProgressLine.frame(inPill: pill)
         XCTAssertEqual(frame.height, Tokens.Metric.loadLineHeight)
-        XCTAssertEqual(frame.minX, Tokens.Metric.loadLineInset)
-        XCTAssertEqual(pill.maxX - frame.maxX, Tokens.Metric.loadLineInset, "both ends stand in equally")
-        XCTAssertEqual(frame.minY, Tokens.Metric.loadLineFloor)
-        XCTAssertLessThan(frame.maxY, pill.height / 2, "it is a line on the pill, not a bar across it")
+        XCTAssertEqual(frame.minY, Tokens.Metric.hairline, "on the inside of the pill's own border")
+        XCTAssertLessThanOrEqual(frame.minY, Tokens.Metric.loadLineHeight, "touching the edge, not clear of it")
+        XCTAssertEqual(frame.minX, 0)
+        XCTAssertEqual(frame.width, pill.width, "the whole capsule, end to end")
     }
 
-    /// And it never crosses the capsule's corner, which is the reason the inset
-    /// is the text's rather than nothing at all. Rebuilt from the circle: at
-    /// `loadLineInset` in from the end of a full-radius pill, the boundary has
-    /// come within a point of the bottom, so a line standing at `loadLineFloor`
-    /// lies on the flat run with the curve already behind it.
-    func testTheLineClearsTheCapsulesCurve() {
-        let radius = pill.height / 2
-        let acrossFromTheCentre = radius - Tokens.Metric.loadLineInset
-        let boundary = radius - (radius * radius - acrossFromTheCentre * acrossFromTheCentre).squareRoot()
-        XCTAssertLessThan(boundary, Tokens.Metric.loadLineFloor)
+    /// And the ends are the capsule's, which is the other half of reading as
+    /// the pill filling up: the mask keeps the strip inside the corner, so the
+    /// leading end is the curve itself rather than a cap drawn short of it.
+    func testTheCapsuleCutsTheLinesEndsRatherThanTheLineStandingClearOfThem() {
+        let radius = Tokens.Metric.urlPill.cornerRadius
+        let path = LoadProgressLine.capsule(inPill: pill, cornerRadius: radius)
+        let onTheFlatRun = CGPoint(x: radius, y: Tokens.Metric.loadLineHeight / 2)
+        let outInTheCorner = CGPoint(x: Tokens.Metric.hairline, y: Tokens.Metric.loadLineHeight / 2)
+        XCTAssertTrue(path.contains(onTheFlatRun), "the line is drawn where the capsule is")
+        XCTAssertFalse(path.contains(outInTheCorner), "and cut where the capsule has curved away")
+        XCTAssertEqual(path.boundingBox.minY, 0, accuracy: 0.001, "the well starts where the line does")
     }
 
-    /// A pill too narrow to hold both insets is a pill with no line in it, not
-    /// a line drawn backwards. §3.2b's capsule shrinks with the window.
-    func testANarrowPillGetsAnEmptyLineRatherThanANegativeOne() {
-        let frame = LoadProgressLine.frame(inPill: NSRect(x: 0, y: 0, width: 10, height: 22))
-        XCTAssertEqual(frame.width, 0)
+    /// A pill too narrow to hold a full corner still gets a shape rather than
+    /// a `CGPath` drawn with a radius bigger than the rect — §3.2b's capsule
+    /// shrinks with the window, and §4's with the tab count.
+    func testANarrowPillGetsACapsuleItCanActuallyDraw() {
+        let narrow = NSRect(x: 0, y: 0, width: 10, height: 22)
+        let path = LoadProgressLine.capsule(inPill: narrow, cornerRadius: 11)
+        XCTAssertFalse(path.isEmpty)
+        XCTAssertLessThanOrEqual(path.boundingBox.width, narrow.width)
+        XCTAssertEqual(LoadProgressLine.frame(inPill: narrow).width, narrow.width)
     }
 
     // MARK: - What it draws

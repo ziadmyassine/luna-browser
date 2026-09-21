@@ -704,23 +704,32 @@ keeping and are now §9.1's problem alone: one moving `.control` glass pill for 
 a fill per row, and a row geometry taken from `CommandBarResultRow` rather than from §3.4's tab rows,
 whose insets are derived from a tab pill's height.
 
-### 3.2c Load line — a 2 pt line under the address, on whichever address bar is on screen
+### 3.2c Load line — a 2 pt line on the bottom of the address bar, wherever the address bar is
 Transcribed from the reference Martin sent, measured at that capture's 2x: a **2 pt** accent line lying
-on the pill's bottom run, **12 pt in from each end** and **4 pt up from the bottom edge**, growing from
-the leading end. It is drawn *inside* the capsule, not under it — a rule below a pill is a divider
-between it and whatever comes next, and this belongs to the address.
+**on the inside of the pill's bottom edge**, running the capsule's whole width from the leading end,
+with **both ends cut by the capsule itself**.
+
+**It is the pill filling up, not a rule drawn inside one.** A line held clear of the bottom edge, with
+its own rounded caps, is a second object floating in the capsule; a line lying on the edge and ending
+where the corner takes it away is the bottom of the capsule turning blue. The reference measures the
+second, to the pixel: the blue run ends exactly where the capsule's bottom stroke begins, and its
+leading end is the corner's curve rather than a cap. (The first draft of this section had it 4 pt up
+and 12 pt in from each end; Martin sent the reference back.)
 
 | | Value | Why |
 |---|---|---|
 | thickness | `loadLineHeight` = 2 | measured (4 px at 2x); the thickness §7 already wrote down for a progress line |
-| inset, each end | `loadLineInset` = `pillTextInset` = 12 | §3.2's rule: whatever is at either end of a pill stands as far in as the address does. Measured 11.5 |
-| above the bottom edge | `loadLineFloor` = 4 | twice its own weight. At 12 pt in, a 34 pt capsule's curve is within 0.75 pt of the bottom, so the line lies on the flat run |
+| above the bottom edge | `loadLineFloor` = `hairline` = 1 | the pill's own border, and nothing more: the line lies on the inside of the well. `hairline` rather than 0 so the geometry does not move when §3.2's pill swaps between its bordered plate and glass |
+| run | the pill's full width | so a finished load reaches the end of the address bar rather than stopping a text inset short |
+| ends | the capsule, as a mask | `LoadProgressLine.capsule(inPill:cornerRadius:)` — the well's shape, in the line's own coordinates, so the strip is cut by the corner instead of being held clear of it |
 | colour | `Accent.tint` | §1 allows the accent as **fill**, which is all this is — never text, never a border |
 
 **One line, three pills.** §3.2's in the column, §3.2b's on the page and §4's active tab all place it
-through `LoadProgressLine.frame(inPill:)`, because a line 8 pt in on one surface and 12 on another is
-two lines. §3.2b's collapsed capsule keeps it: the bar is 22 pt of the page's own colour with a domain
-in it, and the line is the only thing left that can say the page is still arriving.
+through `LoadProgressLine.place(inPill:cornerRadius:)`, because a line lying on the edge of one surface
+and floating inside another is two lines. §3.2b's collapsed capsule keeps it: the bar is 22 pt of the
+page's own colour with a domain in it, and the line is the only thing left that can say the page is
+still arriving. A consequence worth naming: below roughly 4 % the fill is still inside the corner's
+curve and nothing shows, which is the reference's own behaviour — the line emerges from the corner.
 
 **With no address bar on screen, the window's top edge takes it.** That is the sidebar layout with the
 sidebar hidden (`⌘S`) and the search bar still in the column — the pill is parked off screen — and page

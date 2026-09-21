@@ -323,7 +323,7 @@ final class TopBarURLPill: NSView, TopBarThemed, NSTextFieldDelegate {
 
     private func placeContents() {
         wash.frame = bounds
-        loadLine.frame = LoadProgressLine.frame(inPill: bounds)
+        loadLine.place(inPill: bounds, cornerRadius: Tokens.Metric.urlPill.cornerRadius)
 
         let inset = Tokens.Metric.rowInset
         // **The inset is the glyph's, and the chip grows past it** — the same

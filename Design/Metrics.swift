@@ -248,21 +248,21 @@ extension Tokens {
         /// for the progress line it never shipped, and what the reference
         /// measures (4 px in a 2x capture).
         static let loadLineHeight: CGFloat = 2
-        /// How far the line stands in from each end of the pill it is under.
+        /// How far the line sits above the pill's bottom edge: **the pill's own
+        /// border, and nothing more.**
         ///
-        /// `pillTextInset`, because §3.2's rule is already that **whatever is
-        /// at either end of a pill stands as far in as the address does** — so
-        /// the line starts under the first letter of the domain and ends under
-        /// the last place a letter could be. Measured at 11.5 pt in the
-        /// reference, which is this number at that capture's scale.
-        static let loadLineInset: CGFloat = pillTextInset
-        /// And how far it sits above the pill's bottom edge: **twice its own
-        /// weight**, so the gap under it reads as clearance rather than as a
-        /// border trying to be one. 4 pt is also what the reference measures,
-        /// and at `loadLineInset` in from the end of a 34 pt capsule the
-        /// curve has come within 0.75 pt of the bottom — so the line lies on
-        /// the pill's flat run and never crosses its corner.
-        static let loadLineFloor: CGFloat = loadLineHeight * 2
+        /// The line lies *on* the bottom of the well, inside the hairline —
+        /// which is what the reference measures, to the pixel: the blue run
+        /// ends where the capsule's bottom stroke begins, with no gap between
+        /// them. A line standing clear of the edge reads as a second rule
+        /// floating inside the pill rather than as the pill's own bottom
+        /// filling up.
+        ///
+        /// `hairline` rather than 0 so the geometry does not move when the
+        /// pill swaps surface: §3.2's well is bordered on the sidebar's plane
+        /// and borderless as glass, and the line stays on the same inner edge
+        /// either way.
+        static let loadLineFloor: CGFloat = hairline
 
         // MARK: Essentials (§3.3)
 
