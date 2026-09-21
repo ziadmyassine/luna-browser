@@ -55,7 +55,7 @@ extension SidebarRowView {
         let slot = Tokens.Metric.groupChevronSlot
         let limit = bounds.width - 2 * Tokens.Metric.rowInset - slot.width
         chevron.frame = NSRect(
-            x: min(x + Tokens.Metric.rowTitleGap, max(limit, 0)),
+            x: min(x + Tokens.Metric.groupChevronGap, max(limit, 0)),
             y: (bounds.height - slot.height) / 2,
             width: slot.width,
             height: slot.height

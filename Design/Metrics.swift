@@ -201,6 +201,11 @@ extension Tokens {
         /// and the title inset does not move.
         static let groupIconSize: CGFloat = 20
         static let groupChevron: CGFloat = 9
+        /// What stands between a folder's name and the chevron after it —
+        /// tighter than `rowTitleGap`, which is the gap between two different
+        /// things. The chevron belongs to the name, so it sits closer to it
+        /// than the name sits to the icon.
+        static let groupChevronGap: CGFloat = 6
         /// How far a group's tabs step in from its header — 16, the favicon's
         /// own width, so a member's icon clears its folder's by exactly one
         /// icon and the two read as a heading with a column under it. Derived

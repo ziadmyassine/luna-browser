@@ -432,7 +432,7 @@ final class SidebarRowView: NSView {
     /// What the title gives back to the chevron standing after it. Nothing on a
     /// row without one, and the slot plus its gap on a folder's header.
     private var chevronReserve: CGFloat {
-        content.disclosure == nil ? 0 : Tokens.Metric.groupChevronSlot.width + Tokens.Metric.rowTitleGap
+        content.disclosure == nil ? 0 : Tokens.Metric.groupChevronSlot.width + Tokens.Metric.groupChevronGap
     }
 
 }

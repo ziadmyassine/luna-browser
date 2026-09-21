@@ -1181,7 +1181,7 @@ under its own press, which put a second target inside a row that has one: aiming
 glyph to do the thing the whole 38 pt row already does is a smaller target for no more reach,
 and a chip appearing inside the heading read as a control the heading did not have.
 
-**The chevron follows the name.** It stands one `rowTitleGap` after the folder's own title,
+**The chevron follows the name.** It stands one `groupChevronGap` after the folder's own title,
 not in front of its icon. Leading the row it took the column every other row draws a favicon
 in and pushed the folder's icon out of it, so a list of folders and tabs had two icon columns
 instead of one; behind the name it costs nothing, because the name is the only thing on the
