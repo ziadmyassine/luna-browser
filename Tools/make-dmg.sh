@@ -10,12 +10,17 @@
 #  a `.DS_Store` — so the first run of this on a Mac raises the automation
 #  prompt for Terminal controlling Finder once, and never again.
 #
-#  usage: Tools/make-dmg.sh [path/to/Luna.app] [out.dmg]
+#  usage: Tools/make-dmg.sh [path/to/Luna.app] [out.dmg] [--dark]
 #
 set -euo pipefail
 
 APP=${1:-DerivedData/Build/Products/Release/Luna.app}
 OUT=${2:-build/Luna.dmg}
+# A disk image stores one background picture, in the volume's `.DS_Store`, and
+# Finder draws the icon labels in the system's appearance rather than the
+# background's — so light is the one that survives both. `--dark` is here for
+# a release that wants the other plane, not for a Mac that happens to be dark.
+APPEARANCE=${3:-}
 VOLUME="Luna"
 STAGE=$(mktemp -d)
 RW="$STAGE/rw.dmg"
@@ -35,7 +40,7 @@ trap cleanup EXIT
 mkdir -p "$(dirname "$OUT")" "$STAGE/root/.background"
 cp -R "$APP" "$STAGE/root/Luna.app"
 ln -s /Applications "$STAGE/root/Applications"
-swift "$(dirname "$0")/dmg-background.swift" "$STAGE/root/.background/background.tiff" >/dev/null
+swift "$(dirname "$0")/dmg-background.swift" "$STAGE/root/.background/background.tiff" $APPEARANCE >/dev/null
 
 # Sized to the contents plus room to breathe; UDRW because the window's
 # settings have to be written into it before it is compressed.

@@ -282,6 +282,45 @@ final class OnboardingImportListTests: XCTestCase {
         XCTAssertFalse(list.chosen.contains(first), "a card that is ticked will not untick")
     }
 
+    /// A reason the user can act on is a button, not a paragraph. Safari's
+    /// data is readable the moment Full Disk Access is granted, and the
+    /// sentence it replaced spent two lines describing where that switch is.
+    func testAnActionableReasonIsOfferedAsAButton() {
+        let safari = DetectedSource(
+            source: .safari,
+            profiles: [],
+            isAvailable: false,
+            unavailableReason: "Safari needs Full Disk Access.",
+            remedy: .fullDiskAccess
+        )
+        let row = OnboardingImportRow(source: safari)
+        let host = NSView(frame: NSRect(x: 0, y: 0, width: 332, height: OnboardingMetrics.rowHeight))
+        host.addSubview(row)
+        row.frame = host.bounds
+        var pressed = false
+        row.onRemedy = { pressed = true }
+        row.layoutSubtreeIfNeeded()
+        guard let button = row.subviews.compactMap({ $0 as? OnboardingButton }).first else {
+            return XCTFail("no remedy")
+        }
+        XCTAssertEqual(button.accessibilityLabel(), ImportRemedy.fullDiskAccess.title)
+        XCTAssertTrue(button.frame.maxX <= row.bounds.width, "the remedy runs off the card")
+        let aim = NSPoint(x: button.frame.midX, y: button.frame.midY)
+        XCTAssertTrue(row.hitTest(aim) === button, "the card swallowed its own button")
+        XCTAssertTrue(button.accessibilityPerformPress())
+        XCTAssertTrue(pressed)
+        let prose = row.subviews.compactMap { $0 as? NSTextField }.filter { !$0.isHidden }.map(\.stringValue)
+        XCTAssertFalse(prose.contains(safari.unavailableReason ?? ""), "the sentence and the button are both shown")
+    }
+
+    /// And it lands on the pane itself. Without the anchor the button opens
+    /// Privacy & Security at the top, which is a page of nineteen rows.
+    func testTheRemedyOpensTheFullDiskAccessPane() {
+        let url = ImportRemedy.fullDiskAccess.settingsURL
+        XCTAssertEqual(url?.scheme, "x-apple.systempreferences")
+        XCTAssertEqual(url?.query, "Privacy_AllFiles")
+    }
+
     /// The rows are stacked in the order they were given, from the top of the
     /// list rather than the bottom of it.
     func testTheRowsStackFromTheTop() {

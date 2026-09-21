@@ -1537,14 +1537,21 @@ Two surfaces a user sees before Luna has done anything for them, and the only
 two that have to work on a Mac with no Luna data on it at all.
 
 **The disk image** (`Tools/make-dmg.sh`, `Tools/dmg-background.swift`). Luna.app,
-an Applications alias, and an arrow between them on §8.2's default Space
-gradient over a light plane. The backdrop is drawn by a script rather than
-checked in, so the artwork moves when the colour does, and it is **light even
-though Luna is usually seen dark**: Finder draws the two icon labels in the
-system's appearance, not the background's, so a dark backdrop hands a
-light-mode Mac black text on near-black. One line of type — "Drag Luna into
-Applications" — and nothing else. The window is 640 × 400 with its toolbar and
-status bar off; the icons sit on the line the arrow is drawn between.
+an Applications alias, and an arrow between them, on the moon used as a light
+source: an enormous crescent bleeding off the top-right corner, soft enough to
+read as where the light is coming from rather than as a logo printed twice.
+The plane is artwork (`assets/dmg/dmg-background-*.jpg`); the arrow and the one
+line of type — "Drag Luna into Applications" — are drawn over it at build time,
+because type that has been through a resampler is the one thing on this page a
+reader looks at closely.
+
+It is **light even though Luna is usually seen dark**: Finder draws the two icon
+labels in the system's appearance, not the background's, so a dark backdrop
+hands a light-mode Mac black text on near-black. A disk image stores one
+background picture, in the volume's `.DS_Store`, so this is a choice and not a
+pair that switches — `Tools/make-dmg.sh … --dark` builds the other plane for a
+release that wants it. The window is 640 × 400 with its toolbar and status bar
+off; the icons sit on the line the arrow is drawn between.
 
 **First run** (`Features/Onboarding/`, §30.17–30.18) is a window over the
 browser, not a sheet in front of it: the session is restoring behind it, and a
@@ -1570,6 +1577,12 @@ is an answer, and it never asks twice (`OnboardingState.hasRun`).
   with the answer hidden in it. An installed browser Luna cannot read yet keeps
   its place and says why — Safari, which needs Full Disk Access — because that
   one is a thing the user can fix.
+- **Where the reason has an answer, the row carries the answer.** A
+  `DetectedSource` with an `ImportRemedy` shows a button in place of the
+  sentence — `Grant Luna Full Disk Access`, which opens that pane rather than
+  the top of Privacy & Security. Two lines describing where a switch is, when
+  the switch can be one press away, is the paragraph earning its keep by
+  being long.
 - **A card, not a row.** Two chrome capsules tall, the app's own icon at
   `capsuleHeight + rowInset`, the name at `pageBody`, and a tick that fills
   with the accent. It answers the pointer and the finger like every other

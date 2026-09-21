@@ -3,23 +3,25 @@
 //  dmg-background.swift
 //  Luna — §30.17
 //
-//  Draws the disk image's backdrop: Luna's own Space gradient over a light
-//  plane, an arrow between the two icons, and one line of type.
+//  Draws the disk image's backdrop: the moon as a light source, an arrow
+//  between the two icons, and one line of type.
 //
-//  Light, although the app is usually seen dark: Finder draws the two icon
-//  labels in the *system's* appearance, not the background's, so a dark
-//  backdrop hands a light-mode Mac black text on near-black. Light loses less
-//  — dark mode's white labels keep their shadow — and it is the page the
-//  reference sets an installer on anyway.
+//  The plane itself is artwork (`assets/dmg/dmg-background-*.jpg`) and the
+//  two pieces of chrome are drawn here, rather than baked in, because type
+//  that has been through a resampler is the one thing on this page a reader
+//  looks at closely.
 //
-//  A script rather than a checked-in asset so the artwork moves when the colour
-//  does, and standalone rather than part of the app because the installer is
-//  the one surface a user sees before Luna has ever run.
+//  Light by default, although the app is usually seen dark: Finder draws the
+//  two icon labels in the *system's* appearance, not the background's, so a
+//  dark backdrop hands a light-mode Mac black text on near-black. A disk image
+//  stores one background picture, in the volume's `.DS_Store`, so this is a
+//  choice rather than a pair — `--dark` builds the other one for a release
+//  that wants it.
 //
-//  Two representations in one TIFF, 1× and 2×: Finder picks by display, and a
+//  Two representations in one TIFF, 1x and 2x: Finder picks by display, and a
 //  single-scale PNG is either soft on Retina or twice the size everywhere.
 //
-//  usage: swift Tools/dmg-background.swift out.tiff
+//  usage: swift Tools/dmg-background.swift out.tiff [--dark]
 //
 
 import AppKit
@@ -29,12 +31,26 @@ let size = CGSize(width: 640, height: 400)
 let appSlot = CGPoint(x: 165, y: 210)
 let applicationsSlot = CGPoint(x: 475, y: 210)
 
-// `GradientPair.defaultSpace`, which is what a first Space is seeded with.
-let gradientStart = NSColor(srgbRed: 0.45, green: 0.38, blue: 0.92, alpha: 1)
-let gradientEnd = NSColor(srgbRed: 0.24, green: 0.65, blue: 0.94, alpha: 1)
-// `Tokens.Surface.base` in light mode, a shade off white so the window's own
-// edge is visible against it.
-let plane = NSColor(srgbRed: 0.97, green: 0.97, blue: 0.98, alpha: 1)
+let arguments = CommandLine.arguments
+let isDark = arguments.contains("--dark")
+let output = arguments.dropFirst().first { !$0.hasPrefix("--") } ?? "background.tiff"
+
+/// The artwork, beside the tool rather than inside the app: it is a build
+/// input for the installer, and the installer is the one surface a user sees
+/// before Luna has ever run.
+let plane: NSImage = {
+    let name = isDark ? "dmg-background-dark" : "dmg-background-light"
+    let url = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .appending(path: "assets/dmg/\(name).jpg")
+    guard let image = NSImage(contentsOf: url) else { fatalError("no backdrop at \(url.path)") }
+    return image
+}()
+
+// Ink for the arrow and the caption, against whichever plane is under them.
+let ink = isDark ? NSColor(white: 1, alpha: 0.4) : NSColor(white: 0.1, alpha: 0.35)
+let captionInk = isDark ? NSColor(white: 1, alpha: 0.6) : NSColor(white: 0.1, alpha: 0.55)
 
 func draw(scale: CGFloat) -> NSBitmapImageRep {
     let pixels = (width: Int(size.width * scale), height: Int(size.height * scale))
@@ -55,16 +71,7 @@ func draw(scale: CGFloat) -> NSBitmapImageRep {
     NSGraphicsContext.saveGraphicsState()
     NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
 
-    plane.setFill()
-    NSRect(origin: .zero, size: size).fill()
-
-    // The gradient reads as light falling across the plane rather than as a
-    // panel: held at a tenth, corner to corner, the way §8.2a's wash is.
-    let wash = NSGradient(
-        colors: [gradientStart.withAlphaComponent(0.26), gradientEnd.withAlphaComponent(0.14)]
-    )
-    wash?.draw(in: NSRect(origin: .zero, size: size), angle: -35)
-
+    plane.draw(in: NSRect(origin: .zero, size: size))
     drawArrow()
     drawCaption()
 
@@ -74,7 +81,6 @@ func draw(scale: CGFloat) -> NSBitmapImageRep {
 
 /// A thin line with a head on it, between the two slots and clear of both.
 func drawArrow() {
-    let ink = NSColor(white: 0.1, alpha: 0.35)
     ink.setStroke()
     let inset: CGFloat = 96
     let start = CGPoint(x: appSlot.x + inset, y: appSlot.y)
@@ -101,7 +107,7 @@ func drawCaption() {
     let text = "Drag Luna into Applications"
     let attributes: [NSAttributedString.Key: Any] = [
         .font: NSFont.systemFont(ofSize: 13, weight: .regular),
-        .foregroundColor: NSColor(white: 0.1, alpha: 0.55)
+        .foregroundColor: captionInk
     ]
     let measured = (text as NSString).size(withAttributes: attributes)
     (text as NSString).draw(
@@ -110,7 +116,6 @@ func drawCaption() {
     )
 }
 
-let output = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "background.tiff"
 let image = NSImage(size: size)
 for scale in [CGFloat(1), CGFloat(2)] { image.addRepresentation(draw(scale: scale)) }
 guard let data = image.tiffRepresentation else { fatalError("no tiff") }

@@ -31,6 +31,11 @@ final class OnboardingButton: NSView {
         }
     }
 
+    /// The width the title needs, with the pill's own text inset either side.
+    /// For the callers that size a button to its words rather than to a
+    /// column — the remedy on an unreadable browser's card.
+    var fittingWidth: CGFloat { label.fittingSize.width + 2 * Tokens.Metric.pillTextInset }
+
     private let label = NSTextField(labelWithString: "")
     private let isPreferred: Bool
     private var isHovering = false { didSet { if isHovering != oldValue { refresh() } } }

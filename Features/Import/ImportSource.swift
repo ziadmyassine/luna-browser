@@ -148,6 +148,24 @@ struct ChromiumProfile: Sendable, Hashable, Identifiable {
     }
 }
 
+/// What the user can do about a source Luna cannot read, where there is
+/// something to do. Most unavailable sources have no answer — a browser that
+/// is not installed is not a problem to solve — so this is nil far more often
+/// than not.
+enum ImportRemedy: Sendable, Hashable, CaseIterable {
+    case fullDiskAccess
+
+    var title: String { String(localized: "Grant Luna Full Disk Access") }
+
+    /// The Full Disk Access list itself, not the top of Privacy & Security.
+    /// `Privacy_AllFiles` is the anchor macOS uses for that pane; without it
+    /// the button lands the user on a page of nineteen rows and the sentence
+    /// it replaced was more use than the button.
+    var settingsURL: URL? {
+        URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_AllFiles")
+    }
+}
+
 /// A source that is actually on this Mac, with the profiles it offers.
 struct DetectedSource: Sendable, Hashable, Identifiable {
     var source: ImportSource
@@ -156,6 +174,9 @@ struct DetectedSource: Sendable, Hashable, Identifiable {
     var isAvailable: Bool
     /// Why it is unavailable, if it is. Safari's is always Full Disk Access.
     var unavailableReason: String?
+    /// Set when the reason is one the user can act on, so a screen can offer
+    /// the door rather than describe where it is.
+    var remedy: ImportRemedy?
 
     var id: String { source.id }
 }
@@ -264,7 +285,8 @@ enum ImportSourceDetector {
                 isAvailable: readable,
                 unavailableReason: readable
                     ? nil
-                    : ImportError.needsFullDiskAccess(source.displayName).errorDescription
+                    : ImportError.needsFullDiskAccess(source.displayName).errorDescription,
+                remedy: readable ? nil : .fullDiskAccess
             )
         }
 

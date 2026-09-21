@@ -42,6 +42,9 @@ final class OnboardingImportList: NSView {
         rows = sources.map { source in
             let row = OnboardingImportRow(source: source)
             row.onToggle = { [weak self] in self?.toggle(source.source) }
+            if let url = source.remedy?.settingsURL {
+                row.onRemedy = { NSWorkspace.shared.open(url) }
+            }
             return row
         }
         if let start = Self.opening(of: sources, preferring: preferring) {

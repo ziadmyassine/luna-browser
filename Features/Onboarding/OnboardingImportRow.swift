@@ -11,6 +11,10 @@
 //  listed with its reason rather than hidden, because a user looking for
 //  Safari and not finding it concludes Luna cannot do it at all.
 //
+//  Where that reason has an answer, the row carries the answer instead of the
+//  sentence: Safari needs Full Disk Access, and a button that opens the pane
+//  is shorter than the paragraph describing how to find it.
+//
 
 import AppKit
 
@@ -20,6 +24,11 @@ final class OnboardingImportRow: NSView {
     let source: DetectedSource
 
     var onToggle: (() -> Void)?
+
+    /// Pressed on the remedy button, where there is one.
+    var onRemedy: (() -> Void)? {
+        didSet { remedy?.onActivate = onRemedy }
+    }
 
     var isChosen = false {
         didSet {
@@ -48,6 +57,7 @@ final class OnboardingImportRow: NSView {
     private let mark = NSView()
     private let check = NSImageView()
     private let spinner = NSProgressIndicator()
+    private let remedy: OnboardingButton?
     private var isHovering = false { didSet { if isHovering != oldValue { refresh() } } }
     private var isPressed = false {
         didSet {
@@ -59,6 +69,7 @@ final class OnboardingImportRow: NSView {
 
     init(source: DetectedSource) {
         self.source = source
+        remedy = source.remedy.map { OnboardingButton(title: $0.title, isPreferred: false) }
         super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerCurve = .continuous
@@ -73,7 +84,9 @@ final class OnboardingImportRow: NSView {
         // Three, because the card is narrower than it was: Safari's reason —
         // the only one a user can act on — stopped mid-sentence at two.
         reason.maximumNumberOfLines = 3
-        reason.isHidden = source.isAvailable
+        // The sentence and the button are two answers to one question, so the
+        // row shows whichever it has.
+        reason.isHidden = source.isAvailable || remedy != nil
 
         mark.wantsLayer = true
         check.image = NSImage(
@@ -93,6 +106,7 @@ final class OnboardingImportRow: NSView {
 
         glass.alphaValue = 0
         for view in [glass, icon, name, reason, mark, check, spinner] as [NSView] { addSubview(view) }
+        remedy.map(addSubview)
         setAccessibilityElement(true)
         setAccessibilityRole(.checkBox)
         setAccessibilityLabel(source.source.displayName)
@@ -146,6 +160,17 @@ final class OnboardingImportRow: NSView {
     private func layOutText(from left: CGFloat, to right: CGFloat) {
         let width = max(right - left, 0)
         let nameHeight = ceil(name.fittingSize.height)
+        if let remedy {
+            let button = CGSize(
+                width: min(ceil(remedy.fittingWidth), width),
+                height: Tokens.Metric.controlCircle.height
+            )
+            let block = nameHeight + Tokens.Metric.chromeGap + button.height
+            let top = ((bounds.height + block) / 2).rounded()
+            name.frame = NSRect(x: left, y: top - nameHeight, width: width, height: nameHeight)
+            remedy.frame = NSRect(x: left, y: top - block, width: button.width, height: button.height).integral
+            return
+        }
         guard !reason.isHidden else {
             name.frame = NSRect(x: left, y: ((bounds.height - nameHeight) / 2).rounded(), width: width, height: nameHeight)
             return
@@ -229,7 +254,9 @@ final class OnboardingImportRow: NSView {
     /// did not move. Everything inside is decoration.
     override func hitTest(_ point: NSPoint) -> NSView? {
         guard let superview else { return nil }
-        return bounds.contains(convert(point, from: superview)) ? self : nil
+        let local = convert(point, from: superview)
+        guard bounds.contains(local) else { return nil }
+        return remedy?.hitTest(local) ?? self
     }
 
     override func updateTrackingAreas() {
