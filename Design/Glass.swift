@@ -2,10 +2,8 @@
 //  Glass.swift
 //  Luna
 //
-//  THE ONLY FILE IN LUNA PERMITTED TO TOUCH LIQUID GLASS (contract rule 4, §0.3).
-//  Every other file asks for a style by name. One wrong API guess here would
-//  spread through every chrome surface in the app, which is exactly what §0.3
-//  exists to prevent — so nothing below is guessed.
+//  THE ONLY FILE IN LUNA PERMITTED TO TOUCH LIQUID GLASS (contract rule 4,
+//  §0.3). Every other file asks for a style by name.
 //
 //  VERIFIED against the installed SDK, not remembered:
 //    MacOSX26.5.sdk/System/Library/Frameworks/AppKit.framework/.../NSGlassEffectView.h
@@ -18,26 +16,19 @@
 //      @interface NSGlassEffectContainerView : NSView API_AVAILABLE(macos(26.0))
 //          contentView: __kindof NSView?   spacing: CGFloat
 //
-//  Both compile and link under `-swift-version 6 -strict-concurrency=complete`
-//  at `-target arm64-apple-macos26.0`. There is **no** `NSLiquidGlass*` type and
-//  no "heavy"/"thick" style: the SDK ships exactly the two above.
-//
-//  Two spec consequences worth knowing:
+//  There is no `NSLiquidGlass*` type and no "heavy" or "thick" style: the SDK
+//  ships exactly the two above. Two consequences:
 //    · §2 asks for "Liquid Glass, heavier" for the downloads popover. That
-//      style does not exist. The popover uses `.regular` and gets its extra
-//      weight from the shadow §5 already requires on its `NSPanel`.
-//    · The deployment target is macOS 26.0 and `NSGlassEffectView` is macOS
-//      26.0, so there is no OS Luna runs on where glass is missing. §8.4's
-//      `NSVisualEffectView` fallback would be dead code and is not built; the
-//      path that *does* run is Reduce Transparency, which §2 requires to be
-//      solid colour — vibrancy is not an acceptable answer to "reduce
-//      transparency" anyway.
+//      style does not exist; the popover uses `.regular` and gets its weight
+//      from the shadow §5 already requires.
+//    · The deployment target is macOS 26.0 and so is `NSGlassEffectView`, so
+//      §8.4's `NSVisualEffectView` fallback would be dead code and is not
+//      built. The path that does run is Reduce Transparency, which §2 requires
+//      to be solid colour.
 //
-//  §7's 1× adaptation lives next door in `DisplayScale.swift`, which owns the
-//  setting, the detection and the re-skin pass. What lives *here* is the only
-//  part of it that touches the material: the `optimised` parameter threaded
-//  through the style table at the bottom of this file. Nothing else in Luna
-//  may read it.
+//  §7's 1× adaptation lives in DisplayScale.swift. The only part of it here is
+//  the `optimised` parameter threaded through the style table; nothing else in
+//  Luna may read it.
 //
 
 import AppKit
@@ -104,8 +95,8 @@ enum Glass {
         }
         let backing = backing(style, cornerRadius: cornerRadius, cornerCurve: cornerCurve)
         backing.frame = view.bounds
-        // The mask is enough for the *backing*: its margins are zero, so the
-        // constraints AppKit derives read "fill", whatever size it starts at.
+        // The mask is enough for the backing: its margins are zero, so the
+        // constraints AppKit derives read "fill" whatever size it starts at.
         // What could not survive a zero start is the glass inside it — see
         // `GlassBackingView.layout()`.
         backing.autoresizingMask = [.width, .height]
@@ -113,46 +104,36 @@ enum Glass {
         return backing
     }
 
-    // THERE IS NO `scrim()` ANY MORE, and the gap is deliberate. §9.1 asked the
-    // Command Bar for a "blurred backdrop scrim", and because Liquid Glass
-    // cannot blur in-window content — it composites what is behind the
-    // *window*, so over a live page it replaces the page, and in fullscreen it
-    // goes near-black — that surface was the one thing in Luna built from
-    // `NSVisualEffectView` at `.withinWindow` instead. It worked. Martin's
-    // answer, having seen it with and without §2's frost over it, was that the
-    // Command Bar does not want a backdrop at all: *"just remove the blur
-    // around it completely, it is not needed."* `CommandBarPanel` now floats
-    // over the page as it is, and its own full-window view still swallows the
-    // clicks. The finding above is kept in `peekPlane`, where it still decides
-    // something.
+    // THERE IS NO `scrim()`, and the gap is deliberate. Liquid Glass cannot
+    // blur in-window content: it composites what is behind the *window*, so
+    // over a live page it replaces the page and in fullscreen it goes
+    // near-black. §9.1's "blurred backdrop scrim" was therefore the one surface
+    // built from `NSVisualEffectView` at `.withinWindow`. It worked, and it was
+    // then cut — the Command Bar does not want a backdrop at all.
+    // `CommandBarPanel` floats over the page as it is, and its own full-window
+    // view still swallows the clicks. The finding is kept in `peekPlane`, where
+    // it still decides something.
 
-    /// §7.2's peeked sidebar: **the chrome plane, as a plane of its own.**
+    /// §7.2's peeked sidebar: the chrome plane, as a plane of its own.
     ///
     /// The window's own glass is behind the content pane, not in front of it,
-    /// so a sidebar sliding over the page had nothing under it at all and the
-    /// page showed through the gaps between its rows. This is the same
-    /// `.sidebar` material the window is made of, standing on its own in front
-    /// of the pane — so the peeked sidebar wears over a website exactly the
-    /// finish it wears over the wallpaper: the desktop through the glass,
-    /// §2's frost behind it and §2's tint in it.
+    /// so a sidebar sliding over the page had nothing under it and the page
+    /// showed through the gaps between its rows. This is the same `.sidebar`
+    /// material standing on its own in front of the pane, so the peeked sidebar
+    /// wears over a website exactly the finish it wears over the wallpaper.
     ///
-    /// It does not blur the *page* — no material can. `NSGlassEffectView`
+    /// It does not blur the page, and no material can: `NSGlassEffectView`
     /// composites what is behind the window, and `NSVisualEffectView` at
     /// `.withinWindow` will not sample a `WKWebView`'s out-of-process layer.
-    /// Both were tried on screen. What the material *does* give is the right
-    /// surface, which is what "floating" meant.
+    /// Both were tried on screen.
     @MainActor
     static func peekPlane(on edge: SidebarEdge = .leading) -> NSView {
-        // **Rounded on the edge it shares with the page, and nowhere else.**
-        // §3.6's content pane rounds the edge that is not a window edge — the
-        // one it shares with the sidebar — and a peeked sidebar is that same
-        // seam read the other way round: the pane is flush to the window here,
-        // and the sidebar is the thing floating in front of it, so the corner
-        // belongs to the sidebar. Which corner that is follows the side.
-        // **And rimmed**, which is the other half of the same seam. Where the
-        // sidebar is *not* floating, the page's own leading hairline draws the
-        // join; floating over the page there is no page edge to draw it, so the
-        // plane carries the edge itself.
+        // Rounded on the edge it shares with the page and nowhere else. §3.6's
+        // content pane rounds the edge that is not a window edge; a peeked
+        // sidebar is that seam read the other way round, so the corner belongs
+        // to the sidebar. Rimmed for the same reason: where the sidebar is not
+        // floating the page's own leading hairline draws the join, and over the
+        // page there is no page edge to draw it.
         backing(
             .sidebar,
             cornerRadius: Tokens.Metric.contentCardRadius,
@@ -163,10 +144,9 @@ enum Glass {
 
     /// Moves a plane built by `peekPlane` to the other edge.
     ///
-    /// The plane is built once and lives for the window's lifetime, so changing
-    /// sides is a mask change rather than a rebuild — and it stays in this file,
-    /// which is the only one allowed to know what a glass backing is made of
-    /// (contract rule 4).
+    /// The plane lives for the window's lifetime, so changing sides is a mask
+    /// change rather than a rebuild. It stays in this file, which is the only
+    /// one allowed to know what a glass backing is made of (contract rule 4).
     @MainActor
     static func setPeekEdge(_ edge: SidebarEdge, on plane: NSView) {
         (plane as? GlassBackingView)?.maskedCorners = peekCorners(on: edge)
