@@ -1079,6 +1079,20 @@ Order: §3.4b's pinned folders → **separator** → `New Tab` row → tabs.
   > **There is no drag and drop left in the sidebar.** With the §3.3 tiles on this gesture too, nothing
   > in the column is an `NSDraggingSource` or an `NSDraggingDestination`, and `SidebarDrag`'s pasteboard
   > type is gone. A §3.5 Space dot is the lift's third landing place, beside the list and the grid.
+  > **The lift travels to where it lands, then hands over.** Every landing the lift can reach is
+  > somewhere on screen — a slot in §3.3's grid, the gap it has opened in §3.4's list, or a folded
+  > §3.4b folder's own header — so it goes there on `tabInsert` and the move is committed when it
+  > arrives, not when the hand lets go. Only the grid did this; every other drop faded the lift out
+  > wherever the pointer happened to be, which for a drop into a folder was the whole of the
+  > movement: the tab vanished in mid-air and the folder was one row longer the next time you
+  > looked at it. A drop on a §3.5 Space dot still fades where it stands, because the tab is
+  > leaving this column rather than landing in it.
+  > **A shut folder takes the drop on itself and the list stays still.** There is no row inside a
+  > folded group for a gap to open between, so the header fills with `Surface.hover` and takes the
+  > outline — the same pair §3.3a's well answers a lift with — and the lift sinks onto the name it
+  > is being filed under. No gap opens beside it: a list making room under a shut folder is saying
+  > the tab lands next to it while the outline says it lands inside it, which is two answers to one
+  > question.
   > **Every step is a haptic tick.** The pointer moves continuously and the list does not — it *steps*,
   > as the lift changes places with one neighbour — and that step is `Tokens.Haptics.step()`, fired the
   > once per crossing, in §3.3's grid and §3.4's list alike. The pattern is `.alignment`, which is what

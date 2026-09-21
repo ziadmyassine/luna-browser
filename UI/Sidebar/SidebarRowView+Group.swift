@@ -62,9 +62,18 @@ extension SidebarRowView {
         ).pixelAligned
     }
 
+    /// §6.6's answer on a folded group: the header fills and takes an outline,
+    /// which is the same pair §3.3a's well answers a lift with. A line on its
+    /// own was the only feedback a shut folder gave, and a hairline is not much
+    /// of a target for a tab that is about to disappear into it.
+    ///
+    /// The fill fades in and leaves at once: the row is hidden the moment the
+    /// lift moves on, so there is nothing left on screen for a fade out to
+    /// happen in.
     func applyDropTarget() {
         outline.isHidden = !isDropTarget
         outline.layer?.borderColor = Tokens.Line.border.cgColor
+        Tokens.Motion.wash(outline.layer, to: isDropTarget ? Tokens.Surface.hover : nil, animated: isDropTarget)
         needsLayout = true
     }
 }

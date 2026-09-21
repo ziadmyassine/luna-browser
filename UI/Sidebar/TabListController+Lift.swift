@@ -47,6 +47,36 @@ extension TabListController {
         )
     }
 
+    /// Where the gap stands on screen: the pill the lift becomes the moment it
+    /// is let go, so a drop can travel into its place instead of blinking out
+    /// of the air above it.
+    ///
+    /// Derived from `applyGap`'s own shift rather than from the table, because
+    /// the hole is what that shift leaves behind and `rect(ofRow:)` still
+    /// answers for the list the table thinks it has. Rows between the lift's
+    /// own row and the gap close up behind it, so a landing below where the tab
+    /// started stands one row higher than its index.
+    ///
+    /// The hole is a row tall whatever the row at that index is: the shift is
+    /// `rowHeight` for every row it moves, and §3.4's rule is shorter than one.
+    func gapPillRect(forGapRow row: Int, inside group: UUID?, in space: NSView) -> NSRect {
+        let hole = (draggedRow.map { row > $0 } ?? false) ? row - 1 : row
+        let height = Tokens.Metric.rowHeight
+        var top = CGFloat(0)
+        if hole < table.numberOfRows {
+            top = table.rect(ofRow: hole).minY
+        } else if table.numberOfRows > 0 {
+            top = table.rect(ofRow: table.numberOfRows - 1).maxY
+        }
+        var box = NSRect(x: table.bounds.minX, y: top, width: table.bounds.width, height: height)
+            .insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.rowPillInset)
+        if group != nil {
+            box.origin.x += Tokens.Metric.groupIndent
+            box.size.width -= Tokens.Metric.groupIndent
+        }
+        return space.convert(box, from: table)
+    }
+
     /// The header row of the group a landing is inside, for §6.6's outline —
     /// nil when the drop is a loose one, and nil when the group's own tabs are
     /// on screen to open a gap between instead.

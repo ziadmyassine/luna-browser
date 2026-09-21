@@ -100,6 +100,12 @@ final class SidebarTabDragController {
     /// grid is taken out of it for the length of the gesture, and put back by
     /// the drop.
     private var cargo: SidebarCargo?
+    /// Which gesture this is. The lift now travels to its landing place before
+    /// it hands over, so its completion runs a third of a second after the
+    /// mouse came up — long enough for a quick second drag to already be in the
+    /// air, and the teardown that follows a drop would pull the list out from
+    /// under it.
+    private var gesture = 0
 
     init(host: NSView, grid: EssentialsGridView, list: TabListController, utility: SidebarUtilityBar) {
         self.host = host
@@ -193,6 +199,7 @@ final class SidebarTabDragController {
     // MARK: - The gesture
 
     private func begin(cargo: SidebarCargo, content: SidebarRowContent, from origin: NSRect) {
+        gesture += 1
         let view = SidebarDragLiftView(content: content)
         view.frame = origin
         view.shape = cargo.isTile ? .tile : .row
@@ -323,10 +330,14 @@ final class SidebarTabDragController {
         utility.highlightedSpaceID = nil
         switch target {
         case let .list(row, destination):
-            list.setGap(row: row)
             // A folded group has no rows on screen for a gap to open between,
-            // so the header is outlined instead — see `TabListController`.
-            list.setGroupDropRow(list.groupHeaderRow(for: destination))
+            // so the header is lit instead — see `TabListController`. And only
+            // the header: a gap opening under a shut folder is the list saying
+            // the tab lands beside it when it is about to land inside it, which
+            // is two answers to one question.
+            let folded = list.groupHeaderRow(for: destination)
+            list.setGap(row: folded == nil ? row : nil)
+            list.setGroupDropRow(folded)
         case let .essentials(index):
             grid.dropIndex = index
             // Out of the list entirely: its gap closes up behind it.
@@ -364,22 +375,52 @@ final class SidebarTabDragController {
         // the settle when a row was carried up into the grid. Commit, then
         // reveal: the tile is un-hidden where it now belongs, and there is
         // nothing to slide.
+        let mine = gesture
         let landed: @MainActor @Sendable () -> Void = { [weak self] in
             guard let self else { return }
             commit(cargo: cargo, landing: landing)
+            // The drop happened, whatever else has since. The teardown has not:
+            // a second lift is already up and the list belongs to it now.
+            guard mine == gesture else { return }
             clearGrid()
             list.setRevealingSaved(false)
             list.endDrag()
         }
 
-        // A tile landing in the grid keeps its slot open until it is standing
-        // in it; everything else is done with the grid the moment it is let go.
-        guard case let .essentials(index)? = landing, let lift else {
+        // Every landing the lift can reach is somewhere on screen, so it goes
+        // there before it hands over. It used to fade out wherever the hand
+        // let go of it, which for a drop into a folder was the whole of the
+        // movement: the tab vanished in mid-air and the folder was simply one
+        // row longer the next time you looked at it.
+        guard let lift, let rest = restingPlace(for: landing) else {
             landed()
             lift?.drop()
             return
         }
-        lift.settle(into: host.convert(grid.slotRect(at: index), from: grid), then: landed)
+        lift.settle(into: rest, then: landed)
+    }
+
+    /// Where the lift comes to rest before it hands the tab over — nil for a
+    /// cancelled drag and for a Space dot, which is the one landing that is not
+    /// a place in this sidebar.
+    ///
+    /// A shut folder's is its own header, at the header's own pill: there is no
+    /// row inside it to stand in, and a tab sinking onto the name it is being
+    /// filed under is what "it went in there" looks like. The outline stays up
+    /// underneath for the whole of it, because `landed` is what clears it and
+    /// `landed` now runs at the end.
+    private func restingPlace(for landing: SidebarDropTarget?) -> NSRect? {
+        switch landing {
+        case let .essentials(index):
+            return host.convert(grid.slotRect(at: index), from: grid)
+        case let .list(row, destination):
+            if let header = list.groupHeaderRow(for: destination) {
+                return list.pillRect(ofRow: header, in: host)
+            }
+            return list.gapPillRect(forGapRow: row, inside: destination.groupID, in: host)
+        case .space, nil:
+            return nil
+        }
     }
 
     /// The one session call a landing means. `reorderTab` takes the index the
