@@ -124,6 +124,14 @@ final class SpaceAppearanceView: NSView {
 }
 
 /// One gradient, as itself.
+///
+/// **A chip is a button and answers like one.** It cannot take §3.4's wash —
+/// a 6 % white over a swatch is a different colour, which is the one thing a
+/// colour swatch may not show — so the pointer is answered with the ring
+/// instead, at `Text.secondary` under the pointer and `Text.primary` on the
+/// one that is chosen. The press is the swell every other button in the app
+/// performs (`Motion.controlPress`), which costs the swatch nothing: a disc
+/// 5 % larger is the same colour.
 @MainActor
 final class SpaceSwatchChip: NSView {
 
@@ -132,6 +140,13 @@ final class SpaceSwatchChip: NSView {
     var isChosen = false { didSet { needsDisplay = true } }
 
     private let disc = CAGradientLayer()
+    private var isHovering = false { didSet { if isHovering != oldValue { needsDisplay = true } } }
+    private var isPressed = false {
+        didSet {
+            guard isPressed != oldValue else { return }
+            Tokens.Motion.swell(self, to: isPressed ? Tokens.Motion.pressSwell : 1)
+        }
+    }
 
     init(gradient: GradientPair, label: String) {
         self.gradient = gradient
@@ -156,12 +171,12 @@ final class SpaceSwatchChip: NSView {
 
     override func updateLayer() {
         setAccessibilityValue(isChosen)
+        let ring = Tokens.Metric.spaceSwatchRing
         Tokens.Motion.immediately {
             // The ring is drawn **outside** the disc rather than on it, so the
             // colour a swatch is showing is the whole of the colour it offers:
             // a border painted over the edge of a 28 pt circle takes a tenth of
             // it away, and that tenth is the darkest part of the ramp.
-            let ring = Tokens.Metric.spaceSwatchRing
             disc.frame = bounds.insetBy(dx: ring * 2, dy: ring * 2)
             disc.cornerRadius = disc.frame.width / 2
             let stops = Tokens.Gradient.planes(gradient, at: .full, in: effectiveAppearance)
@@ -174,8 +189,15 @@ final class SpaceSwatchChip: NSView {
             disc.borderWidth = Tokens.Metric.hairline
             disc.borderColor = Tokens.Line.border.cgColor
             layer?.cornerRadius = bounds.width / 2
-            layer?.borderWidth = isChosen ? ring : 0
-            layer?.borderColor = Tokens.Text.primary.cgColor
+        }
+        // **Outside `immediately`, because this one is a state and states
+        // cross-fade.** The frames above are bounds-derived and must land on
+        // the frame that changed them; the ring is the chip's answer to a
+        // pointer, on §6's `controlHover` like every other hover in the app.
+        Tokens.Motion.animate(Tokens.Motion.controlHover) { context in
+            context.allowsImplicitAnimation = true
+            self.layer?.borderWidth = self.isChosen || self.isHovering ? ring : 0
+            self.layer?.borderColor = (self.isChosen ? Tokens.Text.primary : Tokens.Text.secondary).cgColor
         }
     }
 
@@ -184,8 +206,30 @@ final class SpaceSwatchChip: NSView {
         needsDisplay = true
     }
 
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas { removeTrackingArea(area) }
+        addTrackingArea(NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect],
+            owner: self
+        ))
+    }
+
+    override func mouseEntered(with event: NSEvent) { isHovering = true }
+
+    override func mouseExited(with event: NSEvent) { isHovering = false }
+
+    override func mouseDown(with event: NSEvent) { isPressed = true }
+
+    override func mouseDragged(with event: NSEvent) {
+        isPressed = bounds.contains(convert(event.locationInWindow, from: nil))
+    }
+
     override func mouseUp(with event: NSEvent) {
-        guard bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
+        let inside = bounds.contains(convert(event.locationInWindow, from: nil))
+        isPressed = false
+        guard inside else { return }
         onActivate?()
     }
 
@@ -197,6 +241,12 @@ final class SpaceSwatchChip: NSView {
 
 /// One SF Symbol, as itself. §13.10: Arc takes emoji too and Luna does not yet
 /// — that gap is in the report rather than pretended away.
+///
+/// **A chip is a button and answers like one**, and this one can take §3.4's
+/// wash where `SpaceSwatchChip` cannot: a symbol is line art on a plane, so a
+/// 6 % lift under the pointer is a lift rather than a different colour. The
+/// press is the same wash at twice it, plus the 5 % swell every other button
+/// in the app performs.
 @MainActor
 final class SpaceSymbolChip: NSView {
 
@@ -210,6 +260,21 @@ final class SpaceSymbolChip: NSView {
     }
 
     private let glyph = NSImageView()
+    private var isHovering = false {
+        didSet {
+            guard isHovering != oldValue else { return }
+            needsDisplay = true
+            applyInk()
+        }
+    }
+    private var isPressed = false {
+        didSet {
+            guard isPressed != oldValue else { return }
+            needsDisplay = true
+            applyInk()
+            Tokens.Motion.swell(self, to: isPressed ? Tokens.Motion.pressSwell : 1)
+        }
+    }
 
     init(symbolName: String, label: String) {
         self.symbolName = symbolName
@@ -243,16 +308,25 @@ final class SpaceSymbolChip: NSView {
 
     override func updateLayer() {
         setAccessibilityValue(isChosen)
-        Tokens.Motion.immediately {
-            layer?.cornerRadius = Tokens.Metric.settingsControlCorner
-            // A fill rather than a ring: a symbol is line art and a hairline
-            // around it is one more line in a grid that is already all lines.
-            layer?.backgroundColor = isChosen ? Tokens.Surface.selected.cgColor : nil
-        }
+        Tokens.Motion.immediately { layer?.cornerRadius = Tokens.Metric.settingsControlCorner }
+        // A fill rather than a ring: a symbol is line art and a hairline
+        // around it is one more line in a grid that is already all lines.
+        // §3.4's two washes on top of that — `Motion.wash` cross-fades them,
+        // so the chosen chip's fill does not blink when the pointer lands.
+        Tokens.Motion.wash(layer, to: fillColour)
+    }
+
+    /// The chosen chip is already wearing the press's own wash, so a press on
+    /// it has nothing louder to go to — the swell is what answers there.
+    private var fillColour: NSColor? {
+        if isChosen || isPressed { return Tokens.Surface.selected }
+        return isHovering ? Tokens.Surface.hover : nil
     }
 
     private func applyInk() {
-        glyph.contentTintColor = isChosen ? Tokens.Text.primary : Tokens.Text.secondary
+        glyph.contentTintColor = isChosen || isHovering || isPressed
+            ? Tokens.Text.primary
+            : Tokens.Text.secondary
     }
 
     override func viewDidChangeEffectiveAppearance() {
@@ -261,8 +335,30 @@ final class SpaceSymbolChip: NSView {
         needsDisplay = true
     }
 
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas { removeTrackingArea(area) }
+        addTrackingArea(NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect],
+            owner: self
+        ))
+    }
+
+    override func mouseEntered(with event: NSEvent) { isHovering = true }
+
+    override func mouseExited(with event: NSEvent) { isHovering = false }
+
+    override func mouseDown(with event: NSEvent) { isPressed = true }
+
+    override func mouseDragged(with event: NSEvent) {
+        isPressed = bounds.contains(convert(event.locationInWindow, from: nil))
+    }
+
     override func mouseUp(with event: NSEvent) {
-        guard bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
+        let inside = bounds.contains(convert(event.locationInWindow, from: nil))
+        isPressed = false
+        guard inside else { return }
         onActivate?()
     }
 

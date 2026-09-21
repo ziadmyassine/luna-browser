@@ -229,9 +229,20 @@ final class SpaceAppearanceButton: NSView {
     }
 
     private let glyph = NSImageView()
+    private var isHovering = false { didSet { if isHovering != oldValue { refresh() } } }
+    private var isPressed = false {
+        didSet {
+            guard isPressed != oldValue else { return }
+            refresh()
+            Tokens.Motion.swell(self, to: isPressed ? Tokens.Motion.pressSwell : 1)
+        }
+    }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.cornerCurve = .continuous
+        layer?.cornerRadius = Tokens.Metric.settingsControlCorner
         glyph.image = NSImage(systemSymbolName: "paintpalette", accessibilityDescription: nil)?
             .withSymbolConfiguration(.init(pointSize: Tokens.Metric.glyphSize, weight: .regular))
         glyph.translatesAutoresizingMaskIntoConstraints = false
@@ -254,8 +265,40 @@ final class SpaceAppearanceButton: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
+    /// §3.4's two washes and §6's swell — the answer every other button in
+    /// the app gives. It had none: a bare glyph that did nothing at all until
+    /// the popover appeared, which is the longest a button in Luna goes
+    /// without admitting it has been clicked.
+    private func refresh() {
+        Tokens.Motion.wash(layer, to: isPressed
+            ? Tokens.Surface.selected
+            : (isHovering ? Tokens.Surface.hover : nil))
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas where area.owner === self { removeTrackingArea(area) }
+        addTrackingArea(NSTrackingArea(
+            rect: .zero,
+            options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+            owner: self
+        ))
+    }
+
+    override func mouseEntered(with event: NSEvent) { isHovering = true }
+
+    override func mouseExited(with event: NSEvent) { isHovering = false }
+
+    override func mouseDown(with event: NSEvent) { isPressed = true }
+
+    override func mouseDragged(with event: NSEvent) {
+        isPressed = bounds.contains(convert(event.locationInWindow, from: nil))
+    }
+
     override func mouseUp(with event: NSEvent) {
-        guard bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
+        let inside = bounds.contains(convert(event.locationInWindow, from: nil))
+        isPressed = false
+        guard inside else { return }
         onActivate?()
     }
 

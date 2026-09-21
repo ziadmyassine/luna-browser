@@ -38,6 +38,7 @@ final class SettingsShortcutRecorder: NSView {
     private var binding: KeyBinding?
     private var monitor: Any?
     private var isRecording = false
+    private var isHovering = false { didSet { if isHovering != oldValue { refresh() } } }
 
     init(binding: KeyBinding?) {
         self.binding = binding
@@ -77,8 +78,31 @@ final class SettingsShortcutRecorder: NSView {
     // MARK: - Recording
 
     override func mouseDown(with event: NSEvent) {
+        // §6's swell, which here says "taken" rather than "held": the chip
+        // changes mode on the way down, so the spring back on `mouseUp` is the
+        // whole of the press. Without it the only thing a click changed was a
+        // word, and a word is not a control answering a finger.
+        Tokens.Motion.swell(self, to: Tokens.Motion.pressSwell)
         isRecording ? stop() : beginRecording()
     }
+
+    override func mouseUp(with event: NSEvent) {
+        Tokens.Motion.swell(self, to: 1)
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas where area.owner === self { removeTrackingArea(area) }
+        addTrackingArea(NSTrackingArea(
+            rect: .zero,
+            options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+            owner: self
+        ))
+    }
+
+    override func mouseEntered(with event: NSEvent) { isHovering = true }
+
+    override func mouseExited(with event: NSEvent) { isHovering = false }
 
     /// The keyboard's way in: §20.2 wants every chrome control operable without
     /// the pointer, and a recorder that can only be started by clicking is a
@@ -163,7 +187,16 @@ final class SettingsShortcutRecorder: NSView {
         label.stringValue = isRecording
             ? String(localized: "Press keys…")
             : (binding?.display ?? String(localized: "—"))
-        label.textColor = isRecording ? Tokens.Accent.tint : Tokens.Text.secondary
+        // **The ink answers the pointer, not the fill.** This chip is drawn as
+        // a well — `Surface.well` is black ink in both themes — and §3.4's
+        // hover wash is white, so lifting the fill here would flip a recess
+        // into a plate on the way past it. §3.1's other half is the one that
+        // applies: the glyph, or here the keystroke, brightens instead.
+        label.textColor = if isRecording {
+            Tokens.Accent.tint
+        } else {
+            isHovering ? Tokens.Text.primary : Tokens.Text.secondary
+        }
         setAccessibilityLabel(
             isRecording
                 ? String(localized: "Recording. Press the new shortcut, or Escape to cancel.")

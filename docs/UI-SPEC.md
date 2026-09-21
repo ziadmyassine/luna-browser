@@ -1500,13 +1500,28 @@ Every entry degrades to instant under Reduce Motion.
 > own size, until the store has answered the query it is opening with (100 ms at the outside), so what
 > the morph grows around is the list it is going to keep. See TODO.md §9.7.
 
-> **Hover and press are a fill and a shape, on every button in the chrome.** Hover is `Surface.hover`
+> **Hover and press are a fill and a shape, on every button Luna draws.** Hover is `Surface.hover`
 > over whatever the control is made of; a press is `Surface.selected` — the same wash at twice the lift
-> — plus a 5 % swell that springs back when the button is let go. Both classes of button answer the
-> same way: `GlassButton` washes above its material, `RowGlyphView` paints the chip on its own layer
-> under the glyph. A button with no material of its own (`GlassMode.none`, the two chevrons inside
-> §3.1's history capsule) hands the press to the surface that *has* one, because half a capsule
-> swelling inside the other half is not a press.
+> — plus a 5 % swell that springs back when the button is let go. `GlassButton` washes above its
+> material, `RowGlyphView` paints the chip on its own layer under the glyph, `TopBarButton` lifts the
+> fill it already had. A button with no material of its own (`GlassMode.none`, the two chevrons inside
+> §3.1's history capsule, an item inside §4's action capsule) hands the press to the surface that
+> *has* one, because half a capsule swelling inside the other half is not a press.
+>
+> **"Every button" is a register now, not a sentence.** This rule was written when the sidebar got it
+> and was then read as describing the app: the top bar, both action capsules, Settings' chevrons, its
+> push button, the two appearance chips and the palette button all shipped with a hover and nothing
+> under the finger. `Tests/Design/ButtonFeedbackTests.swift` is the list, and a new button that does
+> not answer fails it.
+>
+> **Where a wash is the wrong answer, the control answers some other way — it does not skip it.** A
+> colour swatch cannot take a 6 % white without showing a different colour, so `SpaceSwatchChip`
+> answers the pointer with its ring; a control drawn as a well is black ink, so lifting it with white
+> would flip a recess into a plate, and `SettingsShortcutRecorder` brightens its ink instead. Both
+> still swell, because the swell is the one part of the answer that costs a control nothing.
+>
+> **A list row is not a button.** Its highlight is one pill that slides between rows (§3.4), and a
+> full-width plate growing 5 % is the list jumping rather than a control being pressed.
 >
 > Measured against the macOS 26 controls Martin captured for the reference: theirs lift about 10.7 %
 > on hover and 12.8 % under a press; Luna's are §3.4's own 6 % and 12 %, because those are the two

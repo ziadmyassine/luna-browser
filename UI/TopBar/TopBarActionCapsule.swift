@@ -97,6 +97,10 @@ final class TopBarActionCapsule: NSView {
             // `glass: false`: the cylinder around them is the glass. A second
             // material per item is what made the three read as three.
             let button = TopBarButton(metric: TopBarMetrics.capsuleItem, glass: false)
+            // The cylinder is the material, so the cylinder is what swells —
+            // see `TopBarButton.ownsItsMaterial`.
+            button.ownsItsMaterial = false
+            button.onPressChange = { [weak self] pressed in self?.setPressed(pressed) }
             button.icon = TopBarButton.symbol(item.symbolName)
             button.setAccessibilityLabel(item.label)
             button.toolTip = item.label
@@ -108,6 +112,11 @@ final class TopBarActionCapsule: NSView {
         }
         invalidateIntrinsicContentSize()
         needsLayout = true
+    }
+
+    /// §6 `controlPress`, on behalf of whichever item is down.
+    private func setPressed(_ pressed: Bool) {
+        Tokens.Motion.swell(self, to: pressed ? Tokens.Motion.pressSwell : 1)
     }
 
     @objc private func itemPressed(_ sender: NSButton) {

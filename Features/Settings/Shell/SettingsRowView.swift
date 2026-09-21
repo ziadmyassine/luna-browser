@@ -390,11 +390,14 @@ final class SettingsPushButton: NSButton {
     private var isHovering = false {
         didSet {
             guard isHovering != oldValue else { return }
-            Tokens.Motion.animate(Tokens.Motion.controlHover) { context in
-                context.allowsImplicitAnimation = true
-                self.needsDisplay = true
-                self.displayIfNeeded()
-            }
+            redraw()
+        }
+    }
+    private var isPressed = false {
+        didSet {
+            guard isPressed != oldValue else { return }
+            redraw()
+            Tokens.Motion.swell(self, to: isPressed ? Tokens.Motion.pressSwell : 1)
         }
     }
 
@@ -460,10 +463,25 @@ final class SettingsPushButton: NSButton {
         return size
     }
 
+    private func redraw() {
+        Tokens.Motion.animate(Tokens.Motion.controlHover) { context in
+            context.allowsImplicitAnimation = true
+            self.needsDisplay = true
+            self.displayIfNeeded()
+        }
+    }
+
+    /// §3.4's two washes, the way round every other control in the app has
+    /// them: the resting plate is the 6 %, the pointer takes it to 12 %, and
+    /// the press holds it there while the button swells. **It used to be
+    /// inverted** — `selected` at rest and `hover` under the pointer — so the
+    /// one button in Settings with a word on it was also the one that got
+    /// *fainter* when you went for it.
     override func updateLayer() {
         guard let layer else { return }
+        let lifted = isEnabled && (isHovering || isPressed)
         layer.cornerRadius = SettingsMetrics.controlCorner
-        layer.backgroundColor = (isHovering && isEnabled ? Tokens.Surface.hover : Tokens.Surface.selected).cgColor
+        layer.backgroundColor = (lifted ? Tokens.Surface.selected : Tokens.Surface.hover).cgColor
         layer.borderWidth = Tokens.Metric.hairline
         layer.borderColor = Tokens.Line.border.cgColor
     }
@@ -493,6 +511,20 @@ final class SettingsPushButton: NSButton {
     override func mouseEntered(with event: NSEvent) { isHovering = true }
 
     override func mouseExited(with event: NSEvent) { isHovering = false }
+
+    /// The press is taken around `NSControl`'s own tracking loop, which does
+    /// not return until the mouse comes back up — see `TopBarButton.mouseDown`.
+    override func mouseDown(with event: NSEvent) {
+        guard isEnabled else { return }
+        isPressed = true
+        super.mouseDown(with: event)
+        isPressed = false
+    }
+
+    override func highlight(_ flag: Bool) {
+        super.highlight(flag)
+        isPressed = flag && isEnabled
+    }
 }
 
 /// §4's text field, drawn as the well the browser's own two search fields are:

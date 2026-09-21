@@ -82,7 +82,16 @@ final class SpaceEditorButton: NSView {
 
     private let titleLabel = NSTextField(labelWithString: "")
     private var isHovering = false { didSet { if isHovering != oldValue { refresh() } } }
-    private var isPressed = false { didSet { if isPressed != oldValue { refresh() } } }
+    private var isPressed = false {
+        didSet {
+            guard isPressed != oldValue else { return }
+            refresh()
+            // **The swell is the press's alone.** Hanging it off `refresh`
+            // would re-spring the pill every time the pointer crossed its
+            // edge, which is a button that twitches at rest.
+            Tokens.Motion.swell(self, to: isPressed ? Tokens.Motion.pressSwell : 1)
+        }
+    }
 
     init(title: String) {
         super.init(frame: .zero)
@@ -134,6 +143,11 @@ final class SpaceEditorButton: NSView {
         titleLabel.textColor = Tokens.Text.primary
     }
 
+    /// The wash cross-fades on §6's `controlHover`; the press also **swells
+    /// the pill 5 % and springs it back** (`Motion.controlPress`), which is
+    /// what every other button in the chrome does under a finger. It carries
+    /// its own material — there is no capsule around it to hand the gesture
+    /// to — so the swell is this view's.
     private func refresh() {
         Tokens.Motion.animate(Tokens.Motion.controlHover) { context in
             context.allowsImplicitAnimation = true
@@ -165,9 +179,16 @@ final class SpaceEditorButton: NSView {
 
     override func mouseDown(with event: NSEvent) { isPressed = true }
 
+    override func mouseDragged(with event: NSEvent) {
+        // A finger that has slid off the button is a press being called off,
+        // and it should look like one before it is let go.
+        isPressed = bounds.contains(convert(event.locationInWindow, from: nil))
+    }
+
     override func mouseUp(with event: NSEvent) {
+        let inside = bounds.contains(convert(event.locationInWindow, from: nil))
         isPressed = false
-        guard bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
+        guard inside else { return }
         onActivate?()
     }
 

@@ -18,6 +18,14 @@
 //  `Text.secondary` to `Text.primary`, which is §3.1's rule and what the rest
 //  of the sidebar does.
 //
+//  **And the cylinder is what answers the press**, for the same reason: a
+//  `.none` button has nothing of its own to swell, so it hands the gesture up
+//  (`GlassButton.onPressChange`) and this takes it. Without that the two most
+//  used buttons in the foot of the column were the only ones in the chrome
+//  that did nothing at all under the finger — §3.1's press landed on every
+//  button that carried its own material and stopped at the two that do not.
+//  `NavCluster` is the same three lines for the same reason.
+//
 //  The cylinder is exactly `bottomCircle` tall — it is two of those circles
 //  fused, not a new size — so it still sits on the avatar's centre line and
 //  the foot of the sidebar stays one row of equal-height controls.
@@ -49,7 +57,11 @@ final class SidebarActionCapsule: NSView {
         wantsLayer = true
         layer?.cornerCurve = .continuous
         Glass.apply(.control, to: self, cornerRadius: Tokens.Metric.bottomCircle.height / 2)
-        for button in buttons { addSubview(button) }
+        for button in buttons {
+            // After `super.init`, because the closure captures `self`.
+            button.onPressChange = { [weak self] pressed in self?.setPressed(pressed) }
+            addSubview(button)
+        }
         setAccessibilityRole(.group)
         setAccessibilityLabel(String(localized: "Library"))
     }
@@ -57,6 +69,11 @@ final class SidebarActionCapsule: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
+    }
+
+    /// §6 `controlPress`, on behalf of whichever glyph is down.
+    private func setPressed(_ pressed: Bool) {
+        Tokens.Motion.swell(self, to: pressed ? Tokens.Motion.pressSwell : 1)
     }
 
     /// The button at `index`, for a pop-out to stand on. A pop-out anchored to
