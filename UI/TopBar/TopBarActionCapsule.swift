@@ -6,19 +6,17 @@
 //  [profile]` — in its own rounded glass capsule, divided from the tab strip by
 //  a hairline.
 //
-//  Variable item count is the whole design. Extension action buttons dock
-//  here in v2 (§16.4), and retrofitting that means re-laying out the entire
-//  right side of the bar, so the capsule takes an array today: assign `items`
-//  and the capsule re-sizes itself. That is the one piece of future-proofing
-//  M1 asks for, and it costs an array instead of three outlets.
+//  Variable item count is the design. Extension action buttons dock here in v2
+//  (§16.4), and retrofitting that means re-laying out the whole right side of
+//  the bar, so the capsule takes an array: assign `items` and it re-sizes
+//  itself.
 //
-//  The capsule is one glass surface, not N merged ones. It used to give
-//  every item its own `.control` backing and hand them to
-//  `Glass.merging`, on the theory that Liquid Glass unions neighbours within
-//  `spacing`. On screen it did not union them: three separate bright circles,
-//  each with its own specular rim, and white glyphs washed out against the
-//  rims. So the glass is applied once, to the capsule, at full radius — which
-//  is what "one cylinder" means — and the items inside it are bare glyphs.
+//  One glass surface, not N merged ones. Every item used to carry its own
+//  `.control` backing, handed to `Glass.merging` on the theory that Liquid
+//  Glass unions neighbours within `spacing`. On screen it did not union them:
+//  three separate bright circles, each with its own specular rim, and white
+//  glyphs washed out against them. The glass is applied once, to the capsule,
+//  at full radius.
 //
 
 import AppKit

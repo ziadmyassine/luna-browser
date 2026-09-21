@@ -6,13 +6,12 @@
 //  records in Settings, and the thing that has to survive a relaunch.
 //
 //  Shift is always in the mask, never in the letter. AppKit accepts two
-//  spellings of ⇧⌘T: `keyEquivalent "T"` with `.command`, or `keyEquivalent "t"`
-//  with `[.command, .shift]`. `MainMenu` used the first, which is fine for a
-//  table written by hand and wrong for one a user can edit — it makes the shift
-//  bit live in two places, so a recorded keystroke and a declared default of the
-//  same shortcut compare unequal and the conflict check misses. Everything here
-//  normalises to the second spelling: the key is lowercased, and shift is a
-//  modifier like the other three.
+//  spellings of ⇧⌘T: `keyEquivalent "T"` with `.command`, or `"t"` with
+//  `[.command, .shift]`. The first is fine for a table written by hand and
+//  wrong for one a user can edit — the shift bit lives in two places, so a
+//  recorded keystroke and a declared default of the same shortcut compare
+//  unequal and the conflict check misses. Everything normalises to the second:
+//  the key is lowercased and shift is a modifier like the other three.
 //
 //  A shifted symbol keeps whatever the layout produced — ⇧⌘[ records as ⇧⌘{
 //  on a US keyboard, because that is the character AppKit will be matching

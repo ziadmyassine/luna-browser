@@ -5,17 +5,15 @@
 //  §3.1's guard on ⌘Q: what the sheet says, and the two-pass dance AppKit
 //  makes you do to put one up at all.
 //
-//  `applicationShouldTerminate` cannot wait for an answer. It is
-//  synchronous and it has exactly three replies. `.terminateLater` is the one
-//  that looks right and is not: it parks the app in a nested modal run loop,
-//  where the window keeps drawing but the sheet's own animation and its
-//  tracking areas are running inside a loop AppKit is holding open for a
-//  different purpose — and nothing else in Luna is allowed to happen until it
-//  is answered, which includes the `flush()` this file's neighbour still owes
-//  the store. So the first pass answers `.cancel`, puts the sheet up and
-//  returns; the answer calls `NSApp.terminate` again, and the second pass sees
-//  `isQuitConfirmed` and goes straight through to the flush. It is the pattern
-//  every document-based app uses for the same reason.
+//  `applicationShouldTerminate` cannot wait for an answer: it is synchronous
+//  and has three replies. `.terminateLater` looks right and is not — it parks
+//  the app in a nested modal run loop, where the sheet's animation and tracking
+//  areas run inside a loop AppKit is holding open for a different purpose, and
+//  nothing else in Luna may happen until it is answered, including the
+//  `flush()` this file's neighbour still owes the store. So the first pass
+//  answers `.cancel`, puts the sheet up and returns; the answer calls
+//  `NSApp.terminate` again, and the second pass sees `isQuitConfirmed` and goes
+//  through to the flush.
 //
 //  The one thing that must not happen is asking twice, which is why the flag
 //  is set before the second `terminate` rather than after it.

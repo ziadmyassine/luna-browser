@@ -12,14 +12,12 @@
 //  §30.4: a dimmed row that says why beats a switch that flips and does
 //  nothing.
 //
-//  The folder is a pop-up, not an `NSPathControl`. The path control was one
-//  native control doing the work of two, which is why it was chosen — but it
-//  draws the folder's name hard against its leading edge and its chevron
-//  against the trailing one, and it is as wide as the row lets it be. So the
-//  word "Downloads" sat inches away from the control it belonged to, with the
-//  row's own label on the far side of the gap. A pop-up puts the name and the
-//  chevron together, and makes this row look like the two below it instead of
-//  like a control borrowed from another window.
+//  The folder is a pop-up, not an `NSPathControl`. The path control draws the
+//  folder's name hard against its leading edge and its chevron against the
+//  trailing one, and it is as wide as the row lets it be — so the word
+//  "Downloads" sat inches from the control it belonged to. A pop-up puts the
+//  name and the chevron together, and makes this row look like the two below
+//  it.
 //
 
 import AppKit

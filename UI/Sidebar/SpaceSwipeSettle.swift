@@ -23,7 +23,7 @@
 //  So the number is tweened and the read-out is applied the one way it is
 //  applied while a finger is down.
 //
-//  A display link rather than a timer, for `ParticleSweepView`'s reason: this
+//  A display link rather than a timer, for `DownloadFlightView`'s reason: this
 //  draws a frame, so it should be asked once per frame by the thing that draws
 //  them — and on a 120 Hz panel that is 120 times a second, not 60.
 //

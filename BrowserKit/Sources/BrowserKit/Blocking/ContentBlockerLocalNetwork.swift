@@ -10,20 +10,19 @@ import WebKit
 /// the loads. A page that has not been given the permission cannot fetch `192.168.1.1`,
 /// `printer.local` or `localhost`, and one that has been given it can.
 ///
-/// A page served from the local network is exempt. `unless-top-url` carries the same
-/// patterns as the trigger, so `localhost:3000` may load its own assets, talk to its own
-/// API and reach the rest of the LAN without ever being asked — which is the difference
-/// between a permission and a firewall, and the difference between this shipping and this
-/// making Luna useless to develop in.
+/// A page served from the local network is exempt. `unless-top-url` carries the
+/// same patterns as the trigger, so `localhost:3000` may load its own assets,
+/// talk to its own API and reach the rest of the LAN without being asked. That
+/// is the difference between a permission and a firewall.
 ///
 /// Twenty-one rules. Compiling them measured at 0.006 s, four hundred times cheaper than
 /// §17.1's smallest filter list — so unlike those it is compiled on the spot rather than
 /// cached against a content hash.
 ///
-/// The patterns and the JSON are `public` so a test can hand them to WebKit and find out
-/// whether it accepts them. It has to: the compile is a fire-and-forget `Task`, so a
-/// pattern WebKit refuses leaves the list nil, nothing blocked and a checkmark in §3.2's
-/// menu that means nothing — the one failure here that is completely silent.
+/// The patterns and the JSON are `public` so a test can hand them to WebKit and
+/// find out whether it accepts them. It has to: the compile is a
+/// fire-and-forget `Task`, so a pattern WebKit refuses leaves the list nil,
+/// nothing blocked, and a checkmark in §3.2's menu that means nothing.
 extension ContentBlocker {
 
     public static let localNetworkIdentifier = "\(prefix)localnetwork-1"

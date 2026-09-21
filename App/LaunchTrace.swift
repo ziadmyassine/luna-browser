@@ -11,13 +11,12 @@
 //  sidebar and the first page all land after the number stops. "To interactive"
 //  is the budget §19.1 actually states, and nothing was measuring it.
 //
-//  This is the missing end of the tape. `LUNA_PERF_READY` names a file; the
-//  milestones are written to it at the moment the window has content in it, and
-//  the harness polls for the file exactly as it polls for the window. Two
-//  processes, one clock each, no clock shared between them — the elapsed time
-//  is computed here from the kernel's own record of when this process was
-//  `exec`ed, so it counts dyld and the Swift runtime as well, which a stopwatch
-//  started in `main()` would miss.
+//  This is the missing end of the tape. `LUNA_PERF_READY` names a file, the
+//  milestones are written to it once the window has content, and the harness
+//  polls for the file as it polls for the window. Two processes, one clock
+//  each: the elapsed time is computed from the kernel's own record of when this
+//  process was `exec`ed, so it counts dyld and the Swift runtime, which a
+//  stopwatch started in `main()` would miss.
 //
 //  Off costs one environment lookup, once. With `LUNA_PERF_READY` unset
 //  every `mark` is a load and a branch, and nothing is stored.

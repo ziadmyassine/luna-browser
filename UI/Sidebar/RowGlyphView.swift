@@ -23,13 +23,12 @@ import AppKit
 /// control and not a moment before — glyph alone while the row is hovered, chip
 /// plus a "Close Tab" tip once you are actually on it.
 ///
-/// And every one of these glyphs wears it. For a while the two inside §3.2's
-/// pill lifted their ink instead, on the argument that a rounded rectangle
+/// And every one of these glyphs wears it. The two inside §3.2's pill lifted
+/// their ink instead for a while, on the argument that a rounded rectangle
 /// inside a capsule is two shapes. The reference for a non-glass button —
 /// three captures of a reload glyph at rest, under the pointer and under a
 /// press — is that chip, and it was asked for by name on "the close tab icon or
-/// site settings icon in the search bar". It is the same control in both
-/// places, so it is the same affordance, and one behaviour is one set of bugs.
+/// site settings icon in the search bar". Same control, same affordance.
 ///
 /// The fill is §3.4's pair: `Surface.hover` under the pointer, `Surface.selected`
 /// under a press, cross-fading on §6's `controlHover` — which is what the
