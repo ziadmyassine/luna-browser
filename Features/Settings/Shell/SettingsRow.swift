@@ -204,8 +204,10 @@ enum SettingsRow {
     /// heading and the button are one line: the label says what the cards below
     /// are, and the control adds one.
     ///
-    /// Both are inset to the card's own text grid, so the word lines up with
-    /// the names below it and the button lines up with the controls.
+    /// Both sit on the card's own edges rather than its text inset, so the line
+    /// frames the cards below it: the word starts where a card starts and the
+    /// button ends where a card ends. See `SettingsRowGroupView.header`, which
+    /// is the same label without the control.
     static func heading(_ title: String, accessory: NSView) -> NSView {
         let label = NSTextField(labelWithString: title)
         label.font = Tokens.TypeScale.settingsRow
@@ -216,13 +218,13 @@ enum SettingsRow {
         host.addSubview(label)
         host.addSubview(accessory)
         NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: host.leadingAnchor, constant: SettingsMetrics.cardInset),
+            label.leadingAnchor.constraint(equalTo: host.leadingAnchor),
             label.centerYAnchor.constraint(equalTo: accessory.centerYAnchor),
             label.trailingAnchor.constraint(
                 lessThanOrEqualTo: accessory.leadingAnchor,
                 constant: -SettingsMetrics.controlRowGap
             ),
-            accessory.trailingAnchor.constraint(equalTo: host.trailingAnchor, constant: -SettingsMetrics.cardInset),
+            accessory.trailingAnchor.constraint(equalTo: host.trailingAnchor),
             accessory.topAnchor.constraint(equalTo: host.topAnchor),
             accessory.bottomAnchor.constraint(equalTo: host.bottomAnchor)
         ])

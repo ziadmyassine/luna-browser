@@ -278,10 +278,18 @@ final class SettingsRowGroupView: NSView {
         }
     }
 
-    /// The group's name, above the card and indented to the card's own text
-    /// grid, one step down in ink: at full strength it was the same size, face
-    /// and colour as the row beneath it and the eye had to read both to find
-    /// out which was the label.
+    /// The group's name, above the card and **flush with the card's own edge**,
+    /// one step down in ink: at full strength it was the same size, face and
+    /// colour as the row beneath it and the eye had to read both to find out
+    /// which was the label.
+    ///
+    /// **Not the card's text inset, which is where it sat.** Lining the name up
+    /// with the row titles below it looked like the tidier of the two and reads
+    /// as the worse one: the name then starts a `cardInset` inside the only
+    /// vertical rule the pane has — the edge every card is drawn to — so it
+    /// hangs in from nothing and sits closer to the card above it than to the
+    /// one it names. Starting it on that edge is what makes a name and its card
+    /// one block. The rows stay on their own inset; a label is not a row.
     private static func header(_ title: String) -> NSView {
         let label = NSTextField(labelWithString: title)
         label.font = Tokens.TypeScale.settingsRow
@@ -290,7 +298,7 @@ final class SettingsRowGroupView: NSView {
         let host = NSView()
         host.addSubview(label)
         NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: host.leadingAnchor, constant: SettingsMetrics.cardInset),
+            label.leadingAnchor.constraint(equalTo: host.leadingAnchor),
             label.trailingAnchor.constraint(lessThanOrEqualTo: host.trailingAnchor),
             label.topAnchor.constraint(equalTo: host.topAnchor),
             label.bottomAnchor.constraint(equalTo: host.bottomAnchor)

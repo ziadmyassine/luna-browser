@@ -45,7 +45,7 @@ an enforced one, so it is on review to catch.
 | Gap between cards | `settingsGroupGap` (26); a note under a card, `chromeGap` (8) |
 | Search field | `urlPill`, exactly as `HistoryFilterField` draws it |
 | Nav capsule | `settingsNavCapsule` (64 × 30, radius 10) |
-| Group header | the row's face, `Text.secondary` |
+| Group header | the row's face, `Text.secondary`, **flush with the card's edge** |
 | Symbol size | `faviconSize` (16) |
 
 ### 1.2 The controls, re-measured against the same reference
@@ -136,8 +136,11 @@ things in it are structural rather than decorative. All three are now Luna's:
 - **A card is one card.** Its rows butt together and are separated by a hairline
   that starts at the row's own text inset, not at the card's edge. Rows with a
   gap between them read as six small panels; ruled rows read as one group. The
-  group's name sits above the card, indented to the same text inset, so every
-  piece of type in the pane lines up on one edge.
+  group's name sits above the card **on the card's own edge**, not on the rows'
+  text inset: it labels the card, and a name indented under nothing reads as a
+  row of the card above it rather than as the title of the one below. §3.7's
+  `Spaces … [New Space]` is the same line with a control on the far edge, so
+  the pair frames its cards.
 - **There is no title over the pane.** It repeated, in 12 pt semibold, the word
   the user had just clicked two inches to the left. In its place is a
   back/forward capsule (`SettingsNavCapsule`) on the pane's top inset, level with
