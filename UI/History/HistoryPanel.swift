@@ -57,7 +57,6 @@ final class HistoryPanel: PopoutPanelView {
     let field = HistoryFilterField()
 
     private let list = HistoryListView()
-    private let scroll = NSScrollView()
     private let empty = NSTextField(labelWithString: "")
 
     init(frame frameRect: NSRect, edge: PopoutEdge) {
@@ -72,13 +71,15 @@ final class HistoryPanel: PopoutPanelView {
 
     // MARK: - Content
 
-    /// Replaces the list. Cheap enough to call on every keystroke: the archive
-    /// is capped by §19.5's sweep and the rows are plain views.
+    /// Replaces the list. Cheap enough to call on every keystroke — which is
+    /// what it is called on — because `HistoryListView` recycles its rows, so
+    /// this costs the dozen rows the panel is tall however long the archive is.
+    /// It was not, once: see that file's header for the measurement.
     func setEntries(_ entries: [HistoryEntry]) {
         list.iconProvider = iconProvider
         list.setEntries(entries)
         empty.isHidden = !entries.isEmpty
-        scroll.isHidden = entries.isEmpty
+        list.isHidden = entries.isEmpty
         needsLayout = true
     }
 
@@ -102,32 +103,10 @@ final class HistoryPanel: PopoutPanelView {
         field.onMoveSelection = { [weak self] offset in self?.list.move(by: offset) }
         field.onCommit = { [weak self] in self?.list.activateSelection() }
 
+        // The list brings its own scroll view — it is a table, and a table
+        // that is not in one does not recycle anything.
         list.translatesAutoresizingMaskIntoConstraints = false
         list.onActivate = { [weak self] entry in self?.onChoose?(entry.id) }
-
-        scroll.drawsBackground = false
-        scroll.contentView.drawsBackground = false
-        scroll.hasVerticalScroller = true
-        scroll.hasHorizontalScroller = false
-        scroll.horizontalScrollElasticity = .none
-        scroll.automaticallyAdjustsContentInsets = false
-        // Overlay, so the scroller does not take width off the rows. A
-        // legacy scroller is laid out beside the document, which would make
-        // the rows a scroller narrower than the list they are measured
-        // against — the one way they could stop being the same width.
-        scroll.scrollerStyle = .overlay
-        // And a row's height of clear space at each end, so the first and last
-        // rows are whole rather than sliced by the header above them and the
-        // panel's own edge below. Without it the top row sat half under the
-        // title and read as a shorter row.
-        scroll.contentInsets = NSEdgeInsets(
-            top: HistoryPanelMetrics.padding,
-            left: 0,
-            bottom: HistoryPanelMetrics.padding,
-            right: 0
-        )
-        scroll.documentView = list
-        scroll.translatesAutoresizingMaskIntoConstraints = false
 
         empty.stringValue = String(localized: "Nothing here yet. Closed tabs are kept for a while and show up here.")
         empty.font = Tokens.TypeScale.sidebarRow
@@ -138,7 +117,7 @@ final class HistoryPanel: PopoutPanelView {
         empty.isHidden = true
         empty.translatesAutoresizingMaskIntoConstraints = false
 
-        for view in [title, field, scroll, empty] { body.addSubview(view) }
+        for view in [title, field, list, empty] { body.addSubview(view) }
         constrain(title: title)
     }
 
@@ -157,11 +136,10 @@ final class HistoryPanel: PopoutPanelView {
             field.trailingAnchor.constraint(equalTo: body.trailingAnchor, constant: -inset),
             field.centerYAnchor.constraint(equalTo: title.centerYAnchor),
 
-            scroll.topAnchor.constraint(equalTo: body.topAnchor, constant: HistoryPanelMetrics.headerHeight),
-            scroll.leadingAnchor.constraint(equalTo: body.leadingAnchor, constant: HistoryPanelMetrics.padding),
-            scroll.trailingAnchor.constraint(equalTo: body.trailingAnchor, constant: -HistoryPanelMetrics.padding),
-            scroll.bottomAnchor.constraint(equalTo: body.bottomAnchor, constant: -HistoryPanelMetrics.padding),
-            list.widthAnchor.constraint(equalTo: scroll.widthAnchor),
+            list.topAnchor.constraint(equalTo: body.topAnchor, constant: HistoryPanelMetrics.headerHeight),
+            list.leadingAnchor.constraint(equalTo: body.leadingAnchor, constant: HistoryPanelMetrics.padding),
+            list.trailingAnchor.constraint(equalTo: body.trailingAnchor, constant: -HistoryPanelMetrics.padding),
+            list.bottomAnchor.constraint(equalTo: body.bottomAnchor, constant: -HistoryPanelMetrics.padding),
 
             empty.leadingAnchor.constraint(equalTo: body.leadingAnchor, constant: inset),
             empty.trailingAnchor.constraint(equalTo: body.trailingAnchor, constant: -inset),

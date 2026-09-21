@@ -162,4 +162,63 @@ final class BudgetTests: XCTestCase {
         record(String(format: "PERF sidebar frame median %.2f ms, p95 %.2f ms (budget 8.33 ms)", median, worst))
         XCTAssertLessThan(worst, 8.33, "a frame over 8.33 ms cannot be delivered at 120 Hz")
     }
+
+    /// §6.4's pop-out, opened from the History button, against a full archive.
+    ///
+    /// Everything `PopoutController.present` does happens *before*
+    /// `animateIn`, so whatever this costs is a freeze the user sits through
+    /// with nothing on screen to explain it. The archive is the one list in
+    /// the app with no ceiling on it — §6.3 keeps a closed tab for thirty
+    /// days, and thirty days of ordinary use is four figures.
+    ///
+    /// Budget is the command bar's 100 ms, for the same reason: both are a
+    /// surface that has to be there by the time the hand has finished asking.
+    func testHistoryPanelPresentation() async throws {
+        // Today's real archive, and thirty days of it. The first is what this
+        // machine's user is feeling now; the second is what §6.3's retention
+        // has already promised them.
+        for count in [162, 1200] {
+            let (first, median) = try await presentHistory(archived: count)
+            record(String(
+                format: "PERF history pop-out, %d archived: first %.1f ms, median %.1f ms (budget 100 ms)",
+                count, first, median
+            ))
+            XCTAssertLessThan(first, 100, "\(count) archived tabs freeze the app before the pop-out appears")
+            XCTAssertLessThan(median, 100)
+        }
+    }
+
+    /// Opens §6.4's pop-out five times over an archive of `archived` tabs, and
+    /// gives back the first and median cost in milliseconds.
+    private func presentHistory(archived: Int) async throws -> (first: Double, median: Double) {
+        let directory = try XCTUnwrap(directory)
+        let store = try BrowserStore(path: directory.appending(path: "luna-\(archived).sqlite"))
+        try await store.seedIfEmpty()
+        let spaces = try await store.spaces()
+        let space = try XCTUnwrap(spaces.first)
+        for index in 0..<archived {
+            try await store.upsert(Tab(
+                spaceID: space.id,
+                url: URL(string: "https://example\(index % 20).com/page/\(index)")!,
+                title: "A closed tab with a title of about the usual length \(index)",
+                archivedAt: Date().addingTimeInterval(-Double(index) * 60),
+                order: index
+            ))
+        }
+        let session = try await BrowserSession.restored(store: store)
+        XCTAssertEqual(session.archived.count, archived)
+        let history = HistoryPanelController(session: session)
+        let window = window()
+
+        var times: [Double] = []
+        for _ in 0..<5 {
+            let start = CFAbsoluteTimeGetCurrent()
+            history.present(in: window, from: try XCTUnwrap(window.contentView))
+            window.contentView?.layoutSubtreeIfNeeded()
+            times.append((CFAbsoluteTimeGetCurrent() - start) * 1000)
+            history.dismiss()
+        }
+        session.tearDown()
+        return (times[0], percentile(times, 0.5))
+    }
 }

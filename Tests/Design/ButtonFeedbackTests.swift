@@ -131,12 +131,13 @@ final class ButtonFeedbackTests: XCTestCase {
         XCTAssertEqual(scale(of: nav), 1, accuracy: 0.001, "the nav capsule stayed swollen")
     }
 
-    // MARK: - The two `NSButton`s
+    // MARK: - The `NSButton`s
 
-    /// `TopBarButton` and `SettingsPushButton` take their press around
-    /// `NSControl`'s tracking loop, which does not return until the mouse comes
-    /// back up — so `mouseDown` would hang a test. `highlight(_:)` is AppKit's
-    /// own name for the same state and the same override answers it.
+    /// `TopBarButton`, `SettingsPushButton` and `PopoutTextButton` take their
+    /// press around `NSControl`'s tracking loop, which does not return until
+    /// the mouse comes back up — so `mouseDown` would hang a test.
+    /// `highlight(_:)` is AppKit's own name for the same state and the same
+    /// override answers it.
     func testTheAppKitButtonsSwellWhenAppKitSaysTheyAreDown() {
         let swell = Tokens.Motion.pressSwell
 
@@ -153,6 +154,15 @@ final class ButtonFeedbackTests: XCTestCase {
         XCTAssertEqual(scale(of: push), swell, accuracy: 0.001, "the push button does not swell")
         push.highlight(false)
         XCTAssertEqual(scale(of: push), 1, accuracy: 0.001, "the push button stays swollen")
+
+        // §15.3's "Clear", which shipped as a bare `NSButton` and answered
+        // nothing at all.
+        let word = PopoutTextButton(title: "Clear", label: "Clear finished downloads")
+        _ = sized(word, 48)
+        word.highlight(true)
+        XCTAssertEqual(scale(of: word), swell, accuracy: 0.001, "a pop-out's text button does not swell")
+        word.highlight(false)
+        XCTAssertEqual(scale(of: word), 1, accuracy: 0.001, "a pop-out's text button stays swollen")
     }
 
     /// §4's action capsule applies one material for all of its items, so its

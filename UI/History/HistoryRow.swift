@@ -2,14 +2,14 @@
 //  HistoryRow.swift
 //  Luna
 //
-//  The two pieces §6.4's panel is made of: one archived tab as a row, and the
-//  filter above them.
+//  One archived tab as a row: the value it is drawn from, how the time on it is
+//  written, and the view itself.
 //
-//  Both are §3.4's shapes rather than new ones — the row is the sidebar's tab
-//  row (favicon, title, a quieter subtitle, a fill that lifts on hover) and the
-//  filter is §3.2's URL pill (a `Surface.well` recess with a hairline catching
-//  its edge). The history panel is a view of the tab list; it should look like
-//  one.
+//  It is §3.4's shape rather than a new one — the sidebar's tab row, with a
+//  favicon, a title, a quieter subtitle and a fill that lifts on hover. The
+//  history panel is a view of the tab list; it should look like one. The filter
+//  above these rows was here too until this file ran out of room, and is now in
+//  `HistoryFilterField.swift`.
 //
 
 import AppKit
@@ -36,19 +36,16 @@ struct HistoryEntry: Identifiable, Sendable {
 /// When an archived tab was closed, in the width a 320 pt pop-out has for it.
 ///
 /// A cut date is worse than a coarse one. The row used to carry
-/// `"github.com · Sep 20, 2026 at 12:24 PM"` as one middle-truncated label,
-/// and at the panel's width that is what the reader actually got:
-/// `"github…:24 PM"` — a host you cannot identify and a time you cannot
-/// place, from the one part of the row that was supposed to say when. The
-/// full date and time measures 135 pt beside a 156 pt title and a 59 pt host in
-/// a text column 244 pt wide; there was never room for all three, and the
-/// truncation only decided which of them lost.
+/// `"github.com · Sep 20, 2026 at 12:24 PM"` as one middle-truncated label, and
+/// at the panel's width the reader got `"github…:24 PM"` — a host you cannot
+/// identify and a time you cannot place. The full date and time measures 135 pt
+/// beside a 156 pt title and a 59 pt host in a text column 244 pt wide; there
+/// was never room for all three.
 ///
-/// So the time is spent where it tells the reader something they do not already
-/// know. Today's tabs are the panel's whole business — this is where a tab you
-/// closed by accident goes — and for those the day is not in question, so the
-/// row gives the clock. Anything older gives the date instead, and the year
-/// only once it is not this one. Every case fits, which is the point.
+/// So the time is spent where it tells the reader something new. Today's tabs
+/// are the panel's business, and for those the day is not in question, so the
+/// row gives the clock. Anything older gives the date, and the year only once
+/// it is not this one. Every case fits.
 ///
 /// Pure and locale-taking, so the three branches can be asserted at a fixed
 /// date without waiting for a year to turn.
@@ -89,7 +86,9 @@ final class HistoryRowView: NSView {
     /// filling a row, so the row reports and the list decides.
     var onHover: (() -> Void)?
 
-    let entry: HistoryEntry
+    /// Nil until `configure` has been called. A recycled row exists before it
+    /// has anything to say, which is the whole point of recycling it.
+    private(set) var entry: HistoryEntry?
 
     /// This row is the highlighted one. It carries no fill of its own — the
     /// highlight is `HistoryListView`'s single glass pill, exactly as it is in
@@ -108,21 +107,22 @@ final class HistoryRowView: NSView {
     private let subtitle = NSTextField(labelWithString: "")
     private let when = NSTextField(labelWithString: "")
 
-    init(entry: HistoryEntry, icon image: NSImage?) {
-        self.entry = entry
+    /// **Built empty and filled afterwards, because `HistoryListView` recycles
+    /// these.** A row that took its entry in `init` was a row per archived tab,
+    /// and the archive has no ceiling on it — §6.3 keeps a closed tab for
+    /// thirty days.
+    ///
+    /// `translatesAutoresizingMaskIntoConstraints` stays on: an `NSTableView`
+    /// positions its cell views by frame, and the constraints below are all
+    /// internal to the row, which is a combination AppKit is happy with.
+    init() {
         super.init(frame: .zero)
-        translatesAutoresizingMaskIntoConstraints = false
 
-        icon.image = image ?? NSImage(systemSymbolName: "globe", accessibilityDescription: nil)
-        icon.image?.isTemplate = image == nil
         icon.imageScaling = .scaleProportionallyUpOrDown
-        title.stringValue = entry.title
         title.lineBreakMode = .byTruncatingTail
-        subtitle.stringValue = entry.subtitle
         // Tail, not middle: a host is identified by its front, and `github…`
         // is a site where `gi…om` is a shrug.
         subtitle.lineBreakMode = .byTruncatingTail
-        when.stringValue = entry.when
         when.alignment = .right
 
         let text = NSStackView(views: [title, subtitle, when])
@@ -153,7 +153,6 @@ final class HistoryRowView: NSView {
         // which is what `CommandBarResultsView` does with the same two numbers.
         let inset = Tokens.Metric.rowInset + Tokens.Metric.panelInset
         NSLayoutConstraint.activate([
-            heightAnchor.constraint(equalToConstant: Tokens.Metric.rowHeight),
             stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
             stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
             stack.centerYAnchor.constraint(equalTo: centerYAnchor),
@@ -173,8 +172,21 @@ final class HistoryRowView: NSView {
 
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
-        setAccessibilityLabel(entry.title)
         setAccessibilityHelp(String(localized: "Reopen this tab"))
+    }
+
+    /// What this row is showing now. Everything the row is *made of* was built
+    /// once; this is the part that changes as the row is scrolled back into
+    /// use under a different entry.
+    func configure(_ entry: HistoryEntry, icon image: NSImage?) {
+        self.entry = entry
+        icon.image = image ?? NSImage(systemSymbolName: "globe", accessibilityDescription: nil)
+        icon.image?.isTemplate = image == nil
+        title.stringValue = entry.title
+        subtitle.stringValue = entry.subtitle
+        when.stringValue = entry.when
+        setAccessibilityLabel(entry.title)
+        applyTokens()
     }
 
     @available(*, unavailable)
@@ -188,16 +200,16 @@ final class HistoryRowView: NSView {
 
     /// Who gives way, in a row that is always one label too wide.
     ///
-    /// The time never does. It is the shortest of the three, it is the answer
-    /// to the question the panel is for, and half a timestamp is not a shorter
-    /// timestamp — it is a wrong one. The host yields first (a clipped URL is
-    /// still a URL) and the title second, which is `CommandBarResultsView`'s
-    /// order with a third column added in front of it.
+    /// The time never does: it is the shortest of the three, it answers the
+    /// question the panel is for, and half a timestamp is a wrong one rather
+    /// than a shorter one. The host yields first (a clipped URL is still a URL)
+    /// and the title second — `CommandBarResultsView`'s order with a third
+    /// column in front of it.
     ///
-    /// One over `.defaultHigh` rather than `.required`: the time outranks the
-    /// title without being able to out-argue the row's own width, so a list
-    /// laid out before it has been given one narrows quietly instead of
-    /// breaking a constraint.
+    /// One over `.defaultHigh` rather than `.required`, so the time outranks
+    /// the title without out-arguing the row's own width: a list laid out
+    /// before it has been given one narrows quietly instead of breaking a
+    /// constraint.
     ///
     /// The hugging priorities are the other half. Slack goes to the lowest,
     /// which is the host — so the time sits against the row's trailing edge and
@@ -263,128 +275,6 @@ final class HistoryRowView: NSView {
 
     override func accessibilityPerformPress() -> Bool {
         onClick?()
-        return true
-    }
-}
-
-/// §6.4's filter. §3.2's pill shape, because it is the same gesture: a recess
-/// in the surface with a hairline on its edge.
-@MainActor
-final class HistoryFilterField: NSView, NSTextFieldDelegate {
-
-    var onChange: ((String) -> Void)?
-    /// `esc` with nothing typed — the panel takes it as "close".
-    var onCancel: (() -> Void)?
-    /// `↓` / `↑`. The field has focus, so it is where they land.
-    var onMoveSelection: ((Int) -> Void)?
-    /// `↩` on the highlighted row.
-    var onCommit: (() -> Void)?
-
-    private let field = NSTextField()
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        wantsLayer = true
-        layer?.cornerCurve = .continuous
-
-        field.isBordered = false
-        field.isBezeled = false
-        field.drawsBackground = false
-        field.focusRingType = .none
-        field.usesSingleLineMode = true
-        field.cell?.wraps = false
-        field.cell?.isScrollable = true
-        field.delegate = self
-        field.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(field)
-
-        NSLayoutConstraint.activate([
-            heightAnchor.constraint(equalToConstant: Tokens.Metric.urlPill.height),
-            field.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Tokens.Metric.pillTextInset),
-            field.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Tokens.Metric.pillTextInset),
-            field.centerYAnchor.constraint(equalTo: centerYAnchor)
-        ])
-
-        applyTokens()
-        NSWorkspace.shared.notificationCenter.addObserver(
-            self,
-            selector: #selector(accessibilityDisplayOptionsChanged),
-            name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
-            object: nil
-        )
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("Luna builds its chrome in code; there is no nib to decode.")
-    }
-
-    @objc private func accessibilityDisplayOptionsChanged() {
-        applyTokens()
-    }
-
-    private func applyTokens() {
-        field.font = Tokens.TypeScale.urlPill
-        field.textColor = Tokens.Text.primary
-        field.placeholderAttributedString = NSAttributedString(
-            string: String(localized: "Search history"),
-            attributes: [
-                .font: Tokens.TypeScale.urlPill,
-                .foregroundColor: Tokens.Text.tertiary
-            ]
-        )
-        needsDisplay = true
-    }
-
-    override var wantsUpdateLayer: Bool { true }
-
-    override func updateLayer() {
-        guard let layer else { return }
-        layer.cornerRadius = Tokens.Metric.urlPill.cornerRadius
-        layer.backgroundColor = Tokens.Surface.well.cgColor
-        layer.borderWidth = Tokens.Metric.hairline
-        layer.borderColor = Tokens.Line.border.cgColor
-    }
-
-    override func viewDidChangeEffectiveAppearance() {
-        super.viewDidChangeEffectiveAppearance()
-        applyTokens()
-    }
-
-    /// Clicking anywhere in the pill puts the caret in the field, not just the
-    /// 13 pt of text inside it.
-    override func mouseDown(with event: NSEvent) {
-        window?.makeFirstResponder(field)
-    }
-
-    override func becomeFirstResponder() -> Bool {
-        window?.makeFirstResponder(field) ?? false
-    }
-
-    func controlTextDidChange(_ notification: Notification) {
-        onChange?(field.stringValue)
-    }
-
-    func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
-        switch selector {
-        case #selector(NSResponder.moveDown(_:)):
-            onMoveSelection?(1)
-        case #selector(NSResponder.moveUp(_:)):
-            onMoveSelection?(-1)
-        case #selector(NSResponder.insertNewline(_:)):
-            onCommit?()
-        case #selector(NSResponder.cancelOperation(_:)):
-            // The query first, the panel second: `esc` on a filtered list means
-            // "show me everything again", and only then "close".
-            guard field.stringValue.isEmpty else {
-                field.stringValue = ""
-                onChange?("")
-                return true
-            }
-            onCancel?()
-        default:
-            return false
-        }
         return true
     }
 }

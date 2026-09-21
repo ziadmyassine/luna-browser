@@ -298,6 +298,7 @@ That copy is required, not optional.
 | Offer to fill passwords | Toggle | `PasswordSettings.isEnabled` |
 | Offer to save passwords | Toggle | `PasswordSettings.offersToSave` |
 | Suggest strong passwords | Toggle | `PasswordSettings.offersGeneratedPasswords` |
+| Require Touch ID to fill | Toggle, **on by default** | `PasswordSettings.requiresAuthentication` |
 | Saved to | Status line | `CredentialStore.refreshCapability()`, re-probed on open |
 | Passkeys | Toggle, **disabled**, with its reason | `PasskeySupport.isAvailable` |
 | Manage saved passwords | Button "Open Passwords…" | the Passwords app |
@@ -309,7 +310,14 @@ Two notes carry copy that is **required, not decorative** — the same standing 
    there is no Luna account or server.
 2. Luna **cannot read** what Safari and the Passwords app already saved. Those
    are in Apple's own keychain access groups and no setting changes that. An
-   empty list must never read as "you have no saved passwords".
+   empty list must never read as "you have no saved passwords". The same is true
+   of credentials other applications put in the keychain — `git`'s, for one.
+   Luna sees only its own (`docs/PASSWORDS.md` §5a).
+
+The Touch ID row is the one place §14 chooses friction, and it is on by default
+because a saved password is otherwise readable by anyone at an unlocked Mac. Its
+subtitle names the fallback — "Touch ID, or your login password" — so a Mac with
+no Touch ID does not read the row as one that does nothing for them.
 
 The passkey row is the §30.4 case done properly: dimmed, still focusable, still
 read by VoiceOver, with the real reason — an entitlement only Apple can grant —

@@ -13,6 +13,20 @@
 //  without animating, because a list that just changed has no continuity for a
 //  slide to describe.
 //
+//  **It is an `NSTableView`, and it used to be an `NSStackView` with a row in
+//  it per archived tab.** The archive is the one list in Luna with no ceiling:
+//  §6.3 keeps a closed tab for thirty days, which is four figures of rows for
+//  an ordinary week. Every one of them was a built view — six subviews, three
+//  `NSTextField`s and seven constraints each — inside one stack that tied all
+//  of them into a single Auto Layout engine, and all of it was constructed
+//  before `PopoutController` let the pop-out animate in. Measured at 1163 ms
+//  for the 162-row archive this machine actually had, and 35 s for the thirty
+//  days §6.3 has already promised: not a slow list, a frozen app, and getting
+//  worse than linearly. `NSTableView` recycles row views and lays out only
+//  what is visible, so the cost is the dozen rows the panel is tall and does
+//  not depend on the archive at all — the same reasoning `TabListController`'s
+//  header gives, for the same measurement.
+//
 //  Pointer and keyboard drive the same selection. The panel's filter field owns
 //  the keystrokes — it is what has focus — and hands ↓/↑/↩ down here.
 //
@@ -24,37 +38,22 @@ final class HistoryListView: NSView {
 
     /// A row was chosen — by click, or by `↩` on the highlighted one.
     var onActivate: ((HistoryEntry) -> Void)?
-    /// An entry's icon, asked for as each row is built.
+    /// An entry's icon, asked for as each row is filled.
     var iconProvider: ((HistoryEntry) -> NSImage?)?
 
     private(set) var entries: [HistoryEntry] = []
     private(set) var selectedID: UUID?
 
-    private let rows = NSStackView()
-    private let selection = Glass.backing(.control, cornerRadius: Tokens.Metric.rowCornerRadius)
+    private let scroll = NSScrollView()
+    private let table = NSTableView()
+    private let selection = RowPillView(role: .selected)
+    private static let rowIdentifier = NSUserInterfaceItemIdentifier("history.row")
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        rows.orientation = .vertical
-        rows.spacing = 0
-        // Not `.leading`: that aligns arranged subviews at their own widths, so
-        // the rows were as wide as their content and the list was a ragged edge
-        // held straight only by the per-row width constraint below. `.width`
-        // makes the stack itself the one width every row has.
-        rows.alignment = .width
-        rows.distribution = .fill
-        rows.translatesAutoresizingMaskIntoConstraints = false
-
-        selection.isHidden = true
-        addSubview(selection)
-        addSubview(rows)
-        NSLayoutConstraint.activate([
-            rows.leadingAnchor.constraint(equalTo: leadingAnchor),
-            rows.trailingAnchor.constraint(equalTo: trailingAnchor),
-            rows.topAnchor.constraint(equalTo: topAnchor),
-            rows.bottomAnchor.constraint(equalTo: bottomAnchor)
-        ])
-
+        buildTable()
+        buildScroll()
+        addSubview(scroll)
         setAccessibilityRole(.list)
         setAccessibilityLabel(String(localized: "History"))
     }
@@ -64,14 +63,20 @@ final class HistoryListView: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
-    /// The list reads downwards, so it opens at the top. An unflipped view
-    /// has its origin at the bottom, and that origin is where `NSScrollView`
-    /// opens the document it is given — so a long archive came up showing its
-    /// oldest end, and the newest entry, which is the first row, was a scroll
-    /// away off the top of the panel.
-    override var isFlipped: Bool { true }
-
     var isEmpty: Bool { entries.isEmpty }
+
+    override func layout() {
+        super.layout()
+        scroll.frame = bounds
+        // **The pill is placed from here as well as from the selection.** The
+        // list is filled by `panelDidAppear`, which runs before the pop-out has
+        // been laid out — so the first placement measures a table that has not
+        // been given its width yet, and the pill came up the width of a favicon
+        // and stayed there until the pointer moved it. The old stack-backed list
+        // placed it from `layout` for exactly this reason.
+        scroll.layoutSubtreeIfNeeded()
+        movePill(animated: false)
+    }
 
     // MARK: - Content
 
@@ -80,9 +85,10 @@ final class HistoryListView: NSView {
         entries = new
         selectedID = new.first?.id
         guard changed else { return applySelection(animated: true) }
-        rebuildRows()
-        // The new rows have no frames yet, so the pill is placed from `layout()`.
-        needsLayout = true
+        table.reloadData()
+        // A list that has just been replaced has no continuity for a slide to
+        // describe, and the rows the pill would be sliding between are not the
+        // same rows.
         applySelection(animated: false)
     }
 
@@ -101,7 +107,7 @@ final class HistoryListView: NSView {
         let current = entries.firstIndex { $0.id == selectedID } ?? 0
         let next = min(max(current + offset, 0), entries.count - 1)
         select(entries[next].id, animated: true)
-        scrollSelectionIntoView()
+        table.scrollRowToVisible(next)
     }
 
     /// `↩`.
@@ -110,64 +116,106 @@ final class HistoryListView: NSView {
         onActivate?(entry)
     }
 
-    // MARK: - Rows
-
-    private func rebuildRows() {
-        for view in rows.arrangedSubviews { view.removeFromSuperview() }
-        for entry in entries {
-            let row = HistoryRowView(entry: entry, icon: iconProvider?(entry))
-            row.onClick = { [weak self] in self?.onActivate?(entry) }
-            row.onHover = { [weak self] in self?.select(entry.id, animated: true) }
-            rows.addArrangedSubview(row)
-            row.widthAnchor.constraint(equalTo: rows.widthAnchor).isActive = true
-        }
-    }
-
     private func applySelection(animated: Bool) {
-        for case let row as HistoryRowView in rows.arrangedSubviews {
-            row.isSelected = row.entry.id == selectedID
+        for row in 0..<table.numberOfRows {
+            guard let view = table.view(atColumn: 0, row: row, makeIfNecessary: false) as? HistoryRowView
+            else { continue }
+            view.isSelected = view.entry?.id == selectedID
         }
-        moveSelectionPill(animated: animated)
+        movePill(animated: animated)
     }
 
-    override func layout() {
-        super.layout()
-        moveSelectionPill(animated: false)
-    }
-
-    private func moveSelectionPill(animated: Bool) {
-        guard let row = rows.arrangedSubviews.first(where: { ($0 as? HistoryRowView)?.entry.id == selectedID })
+    /// One pill for the whole list, standing behind the rows inside the table's
+    /// own document view — so it scrolls with the rows for free, and a scroll
+    /// costs it nothing.
+    private func movePill(animated: Bool) {
+        guard let index = entries.firstIndex(where: { $0.id == selectedID }), index < table.numberOfRows
         else {
-            selection.isHidden = true
+            selection.fade(to: 0, animated: animated)
             return
         }
-        // Every pill is the same width, and it is the list's, not the row's.
-        // A pill measured off each row inherits whatever that row's stack
-        // negotiated, so a long title and a short one highlighted differently —
-        // and a row wider than the list put glass over the panel's own rounded
-        // edge. One width, one inset, taken from the list itself; only `y` and
-        // the height come from the row.
-        let frame = convert(row.frame, from: rows)
-        let target = NSRect(
-            x: bounds.minX + Tokens.Metric.rowInset,
-            y: frame.minY,
-            width: max(bounds.width - 2 * Tokens.Metric.rowInset, 0),
-            height: frame.height
+        selection.move(
+            to: table.rect(ofRow: index).insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.rowPillInset),
+            spec: animated ? Tokens.Motion.selectedRowMove : nil
         )
-        selection.isHidden = false
-        guard animated, !Tokens.Motion.reduceMotion else {
-            selection.frame = target
-            return
-        }
-        Tokens.Motion.animate(Tokens.Motion.selectedRowMove) { context in
-            context.allowsImplicitAnimation = true
-            selection.animator().frame = target
-        }
     }
 
-    private func scrollSelectionIntoView() {
-        guard let row = rows.arrangedSubviews.first(where: { ($0 as? HistoryRowView)?.entry.id == selectedID })
-        else { return }
-        scrollToVisible(convert(row.frame, from: rows))
+    // MARK: - Build
+
+    private func buildTable() {
+        let column = NSTableColumn(identifier: Self.rowIdentifier)
+        column.resizingMask = .autoresizingMask
+        table.addTableColumn(column)
+        table.headerView = nil
+        table.style = .plain
+        table.backgroundColor = .clear
+        table.usesAutomaticRowHeights = false
+        table.rowHeight = Tokens.Metric.rowHeight
+        table.intercellSpacing = .zero
+        table.gridStyleMask = []
+        // The highlight is the glass pill below, not AppKit's blue plate.
+        table.selectionHighlightStyle = .none
+        table.allowsEmptySelection = true
+        table.dataSource = self
+        table.delegate = self
+        selection.fade(to: 0, animated: false)
+        table.addSubview(selection, positioned: .below, relativeTo: nil)
+    }
+
+    private func buildScroll() {
+        scroll.documentView = table
+        scroll.drawsBackground = false
+        scroll.contentView.drawsBackground = false
+        scroll.hasVerticalScroller = true
+        scroll.hasHorizontalScroller = false
+        scroll.horizontalScrollElasticity = .none
+        scroll.automaticallyAdjustsContentInsets = false
+        // Overlay, so the scroller does not take width off the rows. A legacy
+        // scroller is laid out beside the document, which would make the rows a
+        // scroller narrower than the list they are measured against.
+        scroll.scrollerStyle = .overlay
+        // And a row's height of clear space at each end, so the first and last
+        // rows are whole rather than sliced by the header above them and the
+        // panel's own edge below.
+        scroll.contentInsets = NSEdgeInsets(
+            top: PopoutMetrics.padding,
+            left: 0,
+            bottom: PopoutMetrics.padding,
+            right: 0
+        )
+    }
+}
+
+// MARK: - Rows
+
+extension HistoryListView: NSTableViewDataSource, NSTableViewDelegate {
+
+    func numberOfRows(in tableView: NSTableView) -> Int { entries.count }
+
+    func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+        let view = table.makeView(withIdentifier: Self.rowIdentifier, owner: self) as? HistoryRowView
+            ?? makeRow()
+        let entry = entries[row]
+        view.configure(entry, icon: iconProvider?(entry))
+        view.isSelected = entry.id == selectedID
+        // AppKit adds each new row view on top of everything already in the
+        // table, the pill included, so the pill is put back underneath as the
+        // rows that would cover it arrive.
+        table.addSubview(selection, positioned: .below, relativeTo: nil)
+        return view
+    }
+
+    private func makeRow() -> HistoryRowView {
+        let view = HistoryRowView()
+        view.identifier = Self.rowIdentifier
+        view.onClick = { [weak self, weak view] in
+            guard let entry = view?.entry else { return }
+            self?.onActivate?(entry)
+        }
+        view.onHover = { [weak self, weak view] in
+            guard let entry = view?.entry else { return }
+            self?.select(entry.id, animated: true)
+        }
+        return view
     }
 }
