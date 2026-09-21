@@ -99,8 +99,8 @@ struct KeyBinding: Hashable {
         return parts.joined(separator: "+")
     }
 
-    /// **The modifiers are eaten from the front, and whatever is left is the
-    /// key — separators included.** Cutting at the last `+` instead looks
+    /// The modifiers are eaten from the front, and whatever is left is the
+    /// key — separators included. Cutting at the last `+` instead looks
     /// obviously right and loses ⌘+: `"cmd++"` splits into `"cmd+"` and `""`,
     /// and Zoom In comes back from `UserDefaults` with no key at all. The
     /// modifier names are a closed vocabulary, so reading them left to right is

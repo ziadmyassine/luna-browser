@@ -5,8 +5,8 @@
 //  The views §4's widgets are made of: a control row, a card of rows, the rule
 //  between two of them, and the four controls the pane draws itself.
 //
-//  **The disabled row is why a row is a custom view and not a stack of
-//  `NSControl`s.** §4 requires a disabled row to be "dimmed, still focusable,
+//  The disabled row is why a row is a custom view and not a stack of
+//  `NSControl`s. §4 requires a disabled row to be "dimmed, still focusable,
 //  and still read by VoiceOver, with its reason as the accessibility help", and
 //  a disabled `NSControl` is none of those — AppKit drops it out of the key-view
 //  loop and VoiceOver skips it. So the control is disabled and the row takes
@@ -160,8 +160,8 @@ final class SettingsRowView: NSView {
 
     override var canBecomeKeyView: Bool { acceptsFirstResponder && !isHiddenOrHasHiddenAncestor }
 
-    /// **The ring is a keyboard affordance, and opening a window is not the
-    /// keyboard.** A disabled row accepts first responder so VoiceOver and the
+    /// The ring is a keyboard affordance, and opening a window is not the
+    /// keyboard. A disabled row accepts first responder so VoiceOver and the
     /// key loop can still reach it (§4), and AppKit repaid that by making the
     /// first one the window's initial responder and drawing the accent ring
     /// round it — a blue halo on a dimmed row, on a pane that uses no accent
@@ -473,8 +473,8 @@ final class SettingsPushButton: NSButton {
 
     /// §3.4's two washes, the way round every other control in the app has
     /// them: the resting plate is the 6 %, the pointer takes it to 12 %, and
-    /// the press holds it there while the button swells. **It used to be
-    /// inverted** — `selected` at rest and `hover` under the pointer — so the
+    /// the press holds it there while the button swells. It used to be
+    /// inverted — `selected` at rest and `hover` under the pointer — so the
     /// one button in Settings with a word on it was also the one that got
     /// fainter when you went for it.
     override func updateLayer() {

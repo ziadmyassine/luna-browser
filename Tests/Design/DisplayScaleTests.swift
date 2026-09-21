@@ -9,8 +9,8 @@
 //       §7 names by hand — asking `NSScreen.main` instead, which gets the
 //       right answer on a single-display machine and the wrong one the moment
 //       a window is dragged.
-//    2. Setting `Glass.optimisation` re-skins glass that is **already on
-//       screen**, because the alternative is a setting that needs a relaunch.
+//    2. Setting `Glass.optimisation` re-skins glass that is already on
+//       screen, because the alternative is a setting that needs a relaunch.
 //    3. `previewTile` is pinned: the Settings window shows both columns of
 //       §7's table at once, on one display, so its tiles must not follow the
 //       live setting the way every other glass view does.

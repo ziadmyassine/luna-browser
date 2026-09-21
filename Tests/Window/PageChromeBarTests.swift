@@ -285,8 +285,8 @@ final class PageChromeBarTests: XCTestCase {
         return window
     }
 
-    /// **Fullscreen takes the traffic lights out of the window and hands them
-    /// back, and neither edge resizes this bar.** `placeControls` measures
+    /// Fullscreen takes the traffic lights out of the window and hands them
+    /// back, and neither edge resizes this bar. `placeControls` measures
     /// against them, so without this the bar keeps a placement made when they
     /// were somewhere else — which is §3.2b's dissolve turning into a move, in
     /// fullscreen only. §3.1's control row is fixed the same way, but that pass

@@ -12,8 +12,8 @@
 //  added a menu item, and a shortcuts list that lies is worse than no shortcuts
 //  list at all.
 //
-//  What is new is the join: an item is matched to its `BrowserCommand` **by
-//  selector**, which is the one thing a menu item and a command table are
+//  What is new is the join: an item is matched to its `BrowserCommand` by
+//  selector, which is the one thing a menu item and a command table are
 //  guaranteed to agree about. A match that is customisable gets a recorder; a
 //  match that is not, and anything with no match at all, gets the label it
 //  always had. So the numbered families — nine Spaces, nine sidebar rows, built
@@ -41,8 +41,8 @@ final class ShortcutsSection: SettingsSection {
         /// Rendered as the user sees it: "⇧⌘T". Empty when the command has no
         /// key equivalent, which is most of them.
         var key: String
-        /// The table entry this item matched, **if that entry is Luna's to
-        /// move**. Nil is what makes a row read-only, so there is one answer to
+        /// The table entry this item matched, if that entry is Luna's to
+        /// move. Nil is what makes a row read-only, so there is one answer to
         /// "can I change this?" rather than a match and a separate flag.
         var editableID: String?
         /// Why it cannot be moved, short enough to sit under the title as a
@@ -88,8 +88,8 @@ final class ShortcutsSection: SettingsSection {
         }
     }
 
-    /// Why a shortcut is not the user's to move — **only where the drawing
-    /// would otherwise mislead**.
+    /// Why a shortcut is not the user's to move — only where the drawing
+    /// would otherwise mislead.
     ///
     /// Everything else says it by being printed flat, and a caption repeated
     /// down forty rows of the app, Edit and Window menus is noise that stops

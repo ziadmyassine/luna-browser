@@ -2,8 +2,8 @@
 //  ShortcutRecorderTests.swift
 //  LunaTests
 //
-//  §3.6's capture control, and the one measured question underneath it: **does
-//  a local event monitor see a keystroke before the menu bar acts on it?**
+//  §3.6's capture control, and the one measured question underneath it: does
+//  a local event monitor see a keystroke before the menu bar acts on it?
 //
 //  The whole feature rests on that answer. If the menu got there first, the
 //  recorder would be unusable for exactly the shortcuts people want to change —

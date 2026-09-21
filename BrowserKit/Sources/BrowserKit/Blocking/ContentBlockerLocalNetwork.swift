@@ -10,7 +10,7 @@ import WebKit
 /// the loads. A page that has not been given the permission cannot fetch `192.168.1.1`,
 /// `printer.local` or `localhost`, and one that has been given it can.
 ///
-/// **A page served from the local network is exempt.** `unless-top-url` carries the same
+/// A page served from the local network is exempt. `unless-top-url` carries the same
 /// patterns as the trigger, so `localhost:3000` may load its own assets, talk to its own
 /// API and reach the rest of the LAN without ever being asked — which is the difference
 /// between a permission and a firewall, and the difference between this shipping and this

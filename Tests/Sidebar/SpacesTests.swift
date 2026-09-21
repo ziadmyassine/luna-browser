@@ -7,8 +7,8 @@
 //
 //  The swipe's own arithmetic is next door, in `SpaceSwipeTests.swift`.
 //
-//  **The dot row is here because it shipped crooked, and then because it
-//  shipped loose.** The strip used to size each dot's slot with `.integral`,
+//  The dot row is here because it shipped crooked, and then because it
+//  shipped loose. The strip used to size each dot's slot with `.integral`,
 //  which rounds a slot's leading edge down and its trailing edge up,
 //  independently of its neighbours — so three dots in a 56 pt pill drew with
 //  gaps of 18 and 19 pt and the run sat off centre. The slot was also the
@@ -75,8 +75,8 @@ final class SpaceDotsLayoutTests: XCTestCase {
         }
     }
 
-    /// **The window holds the indicator in the middle and stops at both
-    /// ends**, so the Space you are in is always on the strip and the first and
+    /// The window holds the indicator in the middle and stops at both
+    /// ends, so the Space you are in is always on the strip and the first and
     /// last never drift off their own pill.
     func testTheWindowKeepsTheIndicatorInItAndStopsAtBothEnds() {
         let window = Tokens.Metric.spaceDotWindow

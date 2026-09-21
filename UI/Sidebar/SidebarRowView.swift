@@ -59,8 +59,8 @@ final class SidebarRowView: NSView {
 
     static let reuseIdentifier = NSUserInterfaceItemIdentifier("dk.novapps.luna.sidebar.row")
 
-    /// The trailing affordance was clicked, carrying **what it was drawing at
-    /// the time**. The row cannot know whether that means close or mute — only
+    /// The trailing affordance was clicked, carrying what it was drawing at
+    /// the time. The row cannot know whether that means close or mute — only
     /// the list does — but it is the one thing that knows which of the two the
     /// user actually pressed, so it is the one thing it reports.
     var onTrailing: ((SidebarRowContent.Trailing) -> Void)?

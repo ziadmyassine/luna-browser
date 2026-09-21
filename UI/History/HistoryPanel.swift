@@ -12,8 +12,8 @@
 //  the tabs looked like a website. The page still exists and the route still
 //  works; this is what §3.5's History button opens.
 //
-//  **And then it was the Command Bar's shell, which was the same mistake one
-//  size smaller.** Scrim, 640 pt body, centred over the page: a glance at a
+//  And then it was the Command Bar's shell, which was the same mistake one
+//  size smaller. Scrim, 640 pt body, centred over the page: a glance at a
 //  shelf took the whole page away and put a window-sized panel where the user
 //  was not looking. The Command Bar earns that — you summon it, and it is the
 //  thing you are doing. History is opened from a button, and a surface opened

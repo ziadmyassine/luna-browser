@@ -260,8 +260,8 @@ final class LoadProgressLine: NSView {
         )
     }
 
-    /// The capsule that cuts the line's ends, **in the line's own
-    /// coordinates** — which is why it is the well's shape and not the pill's:
+    /// The capsule that cuts the line's ends, in the line's own
+    /// coordinates — which is why it is the well's shape and not the pill's:
     /// the strip already starts at `loadLineFloor`, so the inner edge the line
     /// lies on is this path's y = 0.
     ///

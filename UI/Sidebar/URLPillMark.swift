@@ -88,8 +88,8 @@ extension URLPillView {
         }
     }
 
-    /// What the pill reads at rest — the domain, or **nothing at all on a new
-    /// tab**, where the placeholder is the truer answer.
+    /// What the pill reads at rest — the domain, or nothing at all on a new
+    /// tab, where the placeholder is the truer answer.
     ///
     /// A new tab is the one page with no address worth showing. `New Tab` is a
     /// label for a row in a list of tabs; in an address bar it reads as the

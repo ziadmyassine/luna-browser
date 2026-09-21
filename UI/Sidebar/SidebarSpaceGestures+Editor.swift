@@ -112,8 +112,8 @@ extension SidebarSpaceGestures {
         }
     }
 
-    /// One shape for the editor's three writes. **The failure is presented, not
-    /// swallowed**: a user renaming the Space they just made is owed the reason
+    /// One shape for the editor's three writes. The failure is presented, not
+    /// swallowed: a user renaming the Space they just made is owed the reason
     /// it did not take, unlike a colour chosen in passing from a §3.5 dot.
     func write(_ change: @escaping (BrowserSession) async throws -> Void) {
         Task { [weak self] in

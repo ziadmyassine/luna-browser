@@ -331,8 +331,8 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
         announce(count: resultsView.results.count)
     }
 
-    /// The bar has opened: add whatever landed while it was opening, **without
-    /// moving what is already there**.
+    /// The bar has opened: add whatever landed while it was opening, without
+    /// moving what is already there.
     ///
     /// §9.7's no-reorder rule is written for the user's cursor, and this is the
     /// same rule one step earlier: a list that re-ranks itself the instant the

@@ -76,8 +76,8 @@ extension BrowserSession {
         notifyChange()
     }
 
-    /// Where the selection goes when the tab showing is closed: **the row
-    /// under it in §3.4's list**, or the row above it when it was the last one.
+    /// Where the selection goes when the tab showing is closed: the row
+    /// under it in §3.4's list, or the row above it when it was the last one.
     ///
     /// It used to be the most recently used tab in the Space, which is a
     /// different question and a worse answer here. Closing a run of tabs from
@@ -104,8 +104,8 @@ extension BrowserSession {
 
     /// §6.4 / §9.2: pull one specific tab back out of the archive.
     ///
-    /// - Parameter resumingSession: whether the tab comes back **where it was
-    ///   left** — its back/forward list and its scroll position, which is what
+    /// - Parameter resumingSession: whether the tab comes back where it was
+    ///   left — its back/forward list and its scroll position, which is what
     ///   `interactionState` carries. True for the two gestures that mean
     ///   "reopen the tab I closed" (`⌘⇧T` and §11's list), and false for §9's
     ///   Command Bar.

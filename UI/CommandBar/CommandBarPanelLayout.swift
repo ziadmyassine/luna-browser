@@ -89,8 +89,8 @@ extension CommandBarPanel {
     /// Both constants start at zero, and zero is not a harmless place: it is
     /// the window's top edge, centred on the window rather than on the page.
     /// Measured in a 1200×800 window with the sidebar out, the first pass left
-    /// the bar at `(280, 740)` and the second put it at `(392, 551)` — **112 pt
-    /// to the left and 189 pt too high**, held for as long as nothing asked for
+    /// the bar at `(280, 740)` and the second put it at `(392, 551)` — 112 pt
+    /// to the left and 189 pt too high, held for as long as nothing asked for
     /// another pass. That is the bar Martin saw flash up and to the left.
     override func layout() {
         // Anchored, there is no fraction to derive: the pill says where.

@@ -101,8 +101,8 @@ final class SpaceCreationView: NSView {
         // The ring is what is inset from the edge, not the disc: it is the
         // outermost thing drawn, so it is what has to clear the sidebar's
         // margin.
-        // **The disc arrives on its own clock, and it is a faster one than the
-        // ring's.** The sweep is the whole asking price now — a page of hand —
+        // The disc arrives on its own clock, and it is a faster one than the
+        // ring's. The sweep is the whole asking price now — a page of hand —
         // and a `+` paced by it would still be crossing the column when the
         // gesture was half paid for. It lands in the first `spaceCreateEntrance`
         // of the sweep, which is the shape the gesture is described in: a thing

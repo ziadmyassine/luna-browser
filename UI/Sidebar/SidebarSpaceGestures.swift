@@ -132,8 +132,8 @@ final class SidebarSpaceGestures {
         turn(to: state.travel)
     }
 
-    /// One tick as §30.9's ring closes — **the moment the gesture starts being
-    /// a create** — and one more if the hand backs off far enough to undo it
+    /// One tick as §30.9's ring closes — the moment the gesture starts being
+    /// a create — and one more if the hand backs off far enough to undo it
     /// and pushes out again.
     ///
     /// It answers a threshold now rather than announcing one. The ring used

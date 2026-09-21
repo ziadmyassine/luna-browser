@@ -365,8 +365,8 @@ final class SettingsMenuTests: XCTestCase {
         let search = try XCTUnwrap(items.first { $0.title == "Search Settings" })
         XCTAssertEqual(search.keyEquivalent, "f")
 
-        // One item per section, tagged with its index — and **no key equivalent
-        // of its own**, because AppKit was already taking it away.
+        // One item per section, tagged with its index — and no key equivalent
+        // of its own, because AppKit was already taking it away.
         //
         // These used to declare ⌘1…⌘9. Measured on macOS 26.5 inside the running
         // app: a ⌘-number that duplicates one already in the menu bar is

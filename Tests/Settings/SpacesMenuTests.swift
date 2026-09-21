@@ -147,8 +147,8 @@ final class SpacesMenuTests: XCTestCase {
         XCTAssertLessThan(spaces, window)
     }
 
-    /// **Exactly one family may claim ⌘-number, and AppKit enforces that more
-    /// harshly than the first-match rule suggests.** Measured on macOS 26.5 in
+    /// Exactly one family may claim ⌘-number, and AppKit enforces that more
+    /// harshly than the first-match rule suggests. Measured on macOS 26.5 in
     /// the running app: a ⌘-number duplicating one already in the bar is
     /// erased — the earlier item in menu-bar order keeps the key, the later
     /// one comes back with `keyEquivalent == ""`, mask intact, no error. So a
@@ -184,8 +184,8 @@ final class SpacesMenuTests: XCTestCase {
     /// (§7.4, and `TODO.md` §20.1 lists it under tabs in the same line that
     /// gives Spaces ⌃-number), so the spec contradicts itself and the shipped
     /// binding wins. Spaces get the ⌘→⌃ translation, which keeps every Space
-    /// command under one modifier. **If this test is changed, the tab bindings
-    /// below must move in the same commit** — the two pairs cannot both be
+    /// command under one modifier. If this test is changed, the tab bindings
+    /// below must move in the same commit — the two pairs cannot both be
     /// ⌘⌥-arrow, and the Spaces menu is searched first, so Spaces would win and
     /// tab switching would silently die.
     func testSpaceAndTabArrowsDoNotCollide() throws {

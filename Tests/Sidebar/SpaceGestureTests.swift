@@ -76,8 +76,8 @@ final class SpaceGestureTests: XCTestCase {
         XCTAssertEqual(session.spaces.count, before + 1)
     }
 
-    /// **…and the reflex it used to be the guard against still makes
-    /// nothing**, because it never fills the ring. A flick off the end of the
+    /// …and the reflex it used to be the guard against still makes
+    /// nothing, because it never fills the ring. A flick off the end of the
     /// Spaces is over in a handful of events, and against the damping ceiling
     /// that is a quarter of a page — the `+` is barely in from the edge. This
     /// is the test that has to hold for the one above to be safe.

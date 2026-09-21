@@ -5,8 +5,8 @@
 //  The Space you have just made, while you are still looking at where it
 //  appeared.
 //
-//  **A Space is three decisions and they are all made in the first ten
-//  seconds**: what it is called, what colour it is, and what mark it carries.
+//  A Space is three decisions and they are all made in the first ten
+//  seconds: what it is called, what colour it is, and what mark it carries.
 //  Creating one from §30.9's swipe used to hand back `Space 3` in the chrome's
 //  default grey and leave all three to a Settings window the user had no reason
 //  to open — so the Space that was supposed to be theirs was the one that

@@ -9,16 +9,16 @@
 //  its own.
 //
 //  The invariant, which `BrowserSession` and the whole sidebar depend on:
-//  **a Space's tabs are sorted essential → pinned → today, each section by
-//  `order`, and `order` is dense and unique within (space, kind).** That is
+//  a Space's tabs are sorted essential → pinned → today, each section by
+//  `order`, and `order` is dense and unique within (space, kind). That is
 //  what makes `reorderTab(_:to:kind:)`'s index section-relative and what makes
 //  a restored session come back in the order the user left it.
 //
 //  ## Favorites are per Profile, not per Space (spec §2, D-S2)
 //
 //  One exception to the sentence above, and it is the biggest model change in
-//  the Spaces wave: `.essential` is numbered and resolved **across every Space
-//  that shares a Profile**, because a Favorite is a logged-in app tile and a
+//  the Spaces wave: `.essential` is numbered and resolved across every Space
+//  that shares a Profile, because a Favorite is a logged-in app tile and a
 //  tile that opens in a Space whose cookie jar never saw that login is a broken
 //  tile. Arc keys its Favorites container by profile — `topAppsContainerIDs` is
 //  a flat profile → container pair, read off its own `StorableSidebar.json` —

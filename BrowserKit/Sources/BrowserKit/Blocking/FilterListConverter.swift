@@ -14,8 +14,8 @@ public enum FilterListConverter {
         public var blocks: [ContentRule] = []
         /// `css-display-none` rules (§17.3) — shipped in the list so there is no flicker.
         public var hides: [ContentRule] = []
-        /// `ignore-previous-rules`. WebKit applies these against rules **earlier in the
-        /// same array**, so they always go last and they never leave their chunk.
+        /// `ignore-previous-rules`. WebKit applies these against rules earlier in the
+        /// same array, so they always go last and they never leave their chunk.
         public var exceptions: [ContentRule] = []
         /// Lines we understood to be rules but could not express. Not an error — EasyList
         /// carries plenty that WebKit has no equivalent for — but a number worth watching.

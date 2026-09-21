@@ -144,8 +144,8 @@ final class SidebarHeadRoomTests: XCTestCase {
         row.subviews.filter { !$0.isHidden }.map(\.frame).sorted { $0.minX < $1.minX }
     }
 
-    /// **Nothing on the head touches at the narrowest the column can be
-    /// dragged**, with the capsule at its widest. This is the whole of the
+    /// Nothing on the head touches at the narrowest the column can be
+    /// dragged, with the capsule at its widest. This is the whole of the
     /// change: the same row at 220 has the capsule 22 pt inside the toggle.
     ///
     /// The bar is `controlPairGap` rather than `chromeGap`, because that is the

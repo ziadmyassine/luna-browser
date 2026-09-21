@@ -46,8 +46,8 @@ final class URLPillView: NSView {
 
     /// The leading sliders glyph (§3.2's site menu).
     var onSiteMenu: (() -> Void)?
-    /// Reload, or stop while the page is loading — the trailing glyph. **Nil
-    /// means there is no such glyph**: §4's top bar has its own reload button
+    /// Reload, or stop while the page is loading — the trailing glyph. Nil
+    /// means there is no such glyph: §4's top bar has its own reload button
     /// beside the pill, and a second one inside it would be two.
     var onReload: ((_ isLoading: Bool) -> Void)? {
         didSet {
@@ -158,8 +158,8 @@ final class URLPillView: NSView {
         applyPlaceholder()
         addSubview(field)
 
-        // **The same mark, the same size and the same hover as the buttons on
-        // the bar beside it.** This was a drawn two-slider glyph at 13 pt from
+        // The same mark, the same size and the same hover as the buttons on
+        // the bar beside it. This was a drawn two-slider glyph at 13 pt from
         // when it was a badge printed on a pill in a column; it is a control on
         // a row of controls now, so it is an SF Symbol at `glyphSize` that
         // hovers and presses exactly as the reload beside it does — see

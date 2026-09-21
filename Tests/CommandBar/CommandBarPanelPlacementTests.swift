@@ -58,8 +58,8 @@ final class CommandBarPanelPlacementTests: XCTestCase {
     }
 }
 
-/// §3.2 and §3.2b hand the address to §9.1, and §9.1 **stands on the pill that
-/// handed it over** rather than opening in the middle of the page. So the
+/// §3.2 and §3.2b hand the address to §9.1, and §9.1 stands on the pill that
+/// handed it over rather than opening in the middle of the page. So the
 /// panel's four numbers stop being a fraction of the page and become the pill's
 /// own: its leading edge, its width, its top, and its height for the input row.
 @MainActor

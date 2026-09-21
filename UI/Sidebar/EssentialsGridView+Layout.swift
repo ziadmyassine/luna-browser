@@ -98,8 +98,8 @@ extension EssentialsGridView {
         ).pixelAligned
     }
 
-    /// Which slot the pointer is over, in reading order — and **the index the
-    /// tab would land at**, which is why it counts the settled tiles rather
+    /// Which slot the pointer is over, in reading order — and the index the
+    /// tab would land at, which is why it counts the settled tiles rather
     /// than all of them: the one in the air is already out of the way.
     func insertionIndex(at point: NSPoint) -> Int {
         let inset = Tokens.Metric.essentialsInset

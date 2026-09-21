@@ -333,8 +333,8 @@ case "page":
     // site that answer is buried under several hundred milliseconds of network
     // that varies by more than the thing being measured.
     //
-    // Three documents, because Luna's document-end script goes into **every
-    // frame**: a plain page says what one document costs, and the same page
+    // Three documents, because Luna's document-end script goes into every
+    // frame: a plain page says what one document costs, and the same page
     // wrapped around ten and then thirty same-origin iframes says what that
     // costs on a page shaped like a real one with ads in it.
     func writePage(iframes: Int) throws -> URL {

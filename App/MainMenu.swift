@@ -221,8 +221,8 @@ enum MainMenu {
             // for a single item.
             items(.toggleFavorite),
             [.separator()],
-            // §13.2's `⌘1…⌘9`. **In View, not in Window, and that is measured
-            // rather than a taste call** — see `setSidebarItems`.
+            // §13.2's `⌘1…⌘9`. In View, not in Window, and that is measured
+            // rather than a taste call — see `setSidebarItems`.
             [sidebarItemsMenu()],
             [.separator()],
             items(.reloadPage), items(.forceReloadPage), items(.stopLoading),
@@ -259,8 +259,8 @@ enum MainMenu {
         ]))
     }
 
-    /// SETTINGS-SPEC §2's `⌘F`, and the nine sections as **clickable items with
-    /// no key equivalent of their own**.
+    /// SETTINGS-SPEC §2's `⌘F`, and the nine sections as clickable items with
+    /// no key equivalent of their own.
     ///
     /// They used to declare `⌘1…⌘9` and AppKit was already deleting them.
     /// Measured on macOS 26.5 inside the running app: a ⌘-number that duplicates

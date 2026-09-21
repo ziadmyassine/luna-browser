@@ -23,8 +23,8 @@
 //  Metal would do it, at the cost of a device, a pipeline, a shader and a
 //  vertex buffer for 0.4 s of animation on a 330 pt popover.
 //
-//  So: **one layer-backed `NSView`, drawing every particle itself once per
-//  frame**, driven by the display link. One composited node, full per-particle
+//  So: one layer-backed `NSView`, drawing every particle itself once per
+//  frame, driven by the display link. One composited node, full per-particle
 //  control, no GPU plumbing. Cost is ~1200 `CGContext` fills into a ~460 × 40 px
 //  backing store, ≈0.3 ms of the 8.3 ms a 120 Hz frame gets, for 0.4 s.
 //

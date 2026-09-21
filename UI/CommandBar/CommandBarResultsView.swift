@@ -144,8 +144,8 @@ final class CommandBarResultsView: NSView {
         selection.isHidden = false
         guard selection.frame != target else { return }
         guard animated else {
-            // **Through `immediately`, because this is a consequence of a
-            // layout and not a change to animate.** A layout pass can run
+            // Through `immediately`, because this is a consequence of a
+            // layout and not a change to animate. A layout pass can run
             // inside somebody else's transaction — the bar's own opening
             // animation is one — and an implicitly animated frame on a glass
             // view sweeps the material across the list over the next few

@@ -49,8 +49,8 @@ struct UserScriptsTests {
 
     // MARK: - The isolation the merge had to put back
 
-    /// **This is the risk the merge introduces and the reason for the
-    /// `try`/`catch`.** Three separate `WKUserScript`s fail separately: one
+    /// This is the risk the merge introduces and the reason for the
+    /// `try`/`catch`. Three separate `WKUserScript`s fail separately: one
     /// throwing leaves the other two installed. One script does not — without
     /// this, a throw in the first would silently cost the page its blocked
     /// count and its autofill.

@@ -144,8 +144,8 @@ final class HistoryRowView: NSView {
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
 
-        // **`rowInset` is where the pill's edge is, not where the content
-        // starts.** The row is the full width of the list and the highlight is
+        // `rowInset` is where the pill's edge is, not where the content
+        // starts. The row is the full width of the list and the highlight is
         // inset `rowInset` into it, so content at that same number sits flush
         // against the glass — the favicon touched the pill's left edge while
         // the right end of it ran on empty, and the highlight read as shifted

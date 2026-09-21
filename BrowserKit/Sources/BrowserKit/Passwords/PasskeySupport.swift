@@ -17,8 +17,8 @@ import WebKit
 /// Luna does not have it today, and cannot: `project.yml` signs ad-hoc
 /// (`CODE_SIGN_IDENTITY: "-"`, no team), and the entitlement is attached to a
 /// provisioning profile issued against a real team. So the order of operations
-/// is the one §14.10 sets out — **request it early, because the wait is
-/// Apple's** — and it lands with the Developer ID work in M4 (§24.4).
+/// is the one §14.10 sets out — request it early, because the wait is
+/// Apple's — and it lands with the Developer ID work in M4 (§24.4).
 ///
 /// # Why Luna says "no authenticator" rather than "no WebAuthn"
 ///
@@ -28,8 +28,8 @@ import WebKit
 /// a site cheerfully shows "Sign in with a passkey". The call then fails. The
 /// user is left on a login page whose only offered method does not work, and
 /// the password field they could have used is behind a "use another method"
-/// link they have no reason to press. **A dead passkey button is worse than no
-/// passkey button.**
+/// link they have no reason to press. A dead passkey button is worse than no
+/// passkey button.
 ///
 /// The first version of this file therefore deleted the interface outright, so
 /// that a page saw a browser which had never shipped WebAuthn. That is too
@@ -59,8 +59,8 @@ public enum PasskeySupport {
 
     // There is deliberately no second entitlement named here. An earlier
     // version carried `com.apple.developer.web-browser` as "the one a default
-    // browser needs", to be filed alongside. That is wrong: it is **iOS and
-    // iPadOS only**, per Apple's entitlement documentation, and is about being
+    // browser needs", to be filed alongside. That is wrong: it is iOS and
+    // iPadOS only, per Apple's entitlement documentation, and is about being
     // the default browser there. macOS needs nothing of the sort — a macOS app
     // becomes the default browser by declaring the `http` and `https` schemes
     // in `CFBundleURLTypes` and calling `LSSetDefaultHandlerForURLScheme`.

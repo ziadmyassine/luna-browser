@@ -80,8 +80,8 @@ public struct ContentRule: Codable, Sendable, Hashable {
     }
 }
 
-/// What the engine actually accepts. **Every number and every string here was measured
-/// against the shipping SDK on 2026-09-17 (macOS 26, Xcode 26.6)** rather than read
+/// What the engine actually accepts. Every number and every string here was measured
+/// against the shipping SDK on 2026-09-17 (macOS 26, Xcode 26.6) rather than read
 /// (§0.3), because each of them fails the whole list rather than the one bad rule.
 public enum ContentRuleLimits {
 

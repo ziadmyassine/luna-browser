@@ -99,8 +99,8 @@ public actor CredentialStore {
 
     /// The other half of the same fix, and the half that makes saving work.
     ///
-    /// `kSecAttrCreator` scopes a query but is **not part of the Keychain's
-    /// uniqueness constraint**, which for an internet password is (server,
+    /// `kSecAttrCreator` scopes a query but is not part of the Keychain's
+    /// uniqueness constraint, which for an internet password is (server,
     /// account, protocol, port, path, securityDomain, authenticationType).
     /// So with the creator alone, Luna could read its own items but could not
     /// add one for a (host, account) another application already held —

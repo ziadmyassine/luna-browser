@@ -121,8 +121,8 @@ final class SpaceDotView: NSView {
         // — so the two are one shape from here on and the slot's own asymmetry
         // stays where it belongs, in `markCentreX`.
         //
-        // **Across, it is not snapped to the pixel grid, and that is what
-        // stopped the strip juddering.** A dot drawn at a fractional x is the
+        // Across, it is not snapped to the pixel grid, and that is what
+        // stopped the strip juddering. A dot drawn at a fractional x is the
         // usual argument for `pixelAligned`, and at rest there is nothing to
         // argue about: `SpaceDotsView.centres` lays the run out on a whole-point
         // pitch and the chip is a whole number wide, so a settled dot lands on

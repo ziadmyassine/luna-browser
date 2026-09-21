@@ -12,8 +12,8 @@
 //  written — was already taken in `PasswordCoordinator`, under test, away from
 //  the view layer.
 //
-//  The one rule this file does own: **password UI belongs to the active tab
-//  only.** A background tab finishing a load and putting a popover over the
+//  The one rule this file does own: password UI belongs to the active tab
+//  only. A background tab finishing a load and putting a popover over the
 //  page the user is reading would be a bug in the obvious direction, and a
 //  save chip from a tab the user has left is a chip they cannot place.
 //

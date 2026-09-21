@@ -33,8 +33,8 @@ extension URLPillView {
         centresText ? Tokens.Metric.barPillGlyphSize : Tokens.Metric.pillGlyphSize
     }
 
-    /// How far that ink sits from its own end of the pill: **the text's own
-    /// inset, on both pills.**
+    /// How far that ink sits from its own end of the pill: the text's own
+    /// inset, on both pills.
     ///
     /// The column's used to be `pillGlyphInset`, two points tighter, on the
     /// argument that a glyph is optically smaller than its box and can afford

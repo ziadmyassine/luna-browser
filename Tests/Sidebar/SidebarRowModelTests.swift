@@ -20,8 +20,8 @@ final class SidebarRowModelTests: XCTestCase {
         Tab(spaceID: space, kind: kind, url: URL(string: "https://\(name).example")!, title: name)
     }
 
-    /// `+ Add Tab` → separator → tabs, Essentials excluded. **Archive is not a
-    /// row.** It was a second door to the page the bottom bar's History button
+    /// `+ Add Tab` → separator → tabs, Essentials excluded. Archive is not a
+    /// row. It was a second door to the page the bottom bar's History button
     /// already opens, and it sat where the eye lands first.
     func testRowOrder() {
         let essential = tab(.essential, "e")

@@ -5,8 +5,8 @@
 //  The rest of §30.9's gesture, after the fingers have gone: the page carried
 //  the remaining distance on the speed the hand let go at.
 //
-//  **A settle is not a transition, it is the end of a movement somebody else
-//  started**, and treating it as a transition is what made the swipe feel like
+//  A settle is not a transition, it is the end of a movement somebody else
+//  started, and treating it as a transition is what made the swipe feel like
 //  two separate things joined at the release. `Motion.spaceSettle(across:at:)`
 //  is the timing half of that — the duration is the distance over the speed, so
 //  the page leaves the fingers at the speed the fingers had. This is the other

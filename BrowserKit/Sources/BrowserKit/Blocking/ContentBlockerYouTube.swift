@@ -26,8 +26,8 @@ import WebKit
 /// slots, the panel beside the player) stay on the native path in ``youTubeRules``,
 /// where D6 and §17.3 still apply and there is still no flicker.
 ///
-/// **Why ``youTubeScript`` must be injected at `documentStart`, and why that is not a
-/// preference.** Measured the same day, by patching a live page from the console:
+/// Why ``youTubeScript`` must be injected at `documentStart`, and why that is not a
+/// preference. Measured the same day, by patching a live page from the console:
 /// `JSON.parse` and `Response.prototype.text` replaced after YouTube's bundle has run
 /// are never called — the bundle caches its own references on the way up, so a hook
 /// installed late sees nothing (`parses: 0`, `rewrites: 0` against a response that

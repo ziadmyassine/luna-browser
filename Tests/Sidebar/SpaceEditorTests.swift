@@ -5,8 +5,8 @@
 //  §6.1's editor, which is laid out by hand in a column the user can drag —
 //  so the only thing holding its grid together is arithmetic.
 //
-//  **The form was reported for its alignment, and alignment is exactly what a
-//  hand-laid column loses first.** Every piece of type in it used to start at
+//  The form was reported for its alignment, and alignment is exactly what a
+//  hand-laid column loses first. Every piece of type in it used to start at
 //  its own edge — the title at `rowInset`, the name a `pillTextInset` further
 //  in because it lived in a pill, the section headings back out at `rowInset`
 //  again — and none of that is visible in the code, which reads as three

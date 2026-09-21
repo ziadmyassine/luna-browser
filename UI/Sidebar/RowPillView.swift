@@ -21,8 +21,8 @@ final class RowPillView: NSView {
 
     enum Role { case selected, hover }
 
-    /// Kept for the callers that track the table's focus. **It no longer
-    /// changes what is drawn**: a selected row used to take an accent-coloured
+    /// Kept for the callers that track the table's focus. It no longer
+    /// changes what is drawn: a selected row used to take an accent-coloured
     /// border while the list had focus, and a blue ring around the current tab
     /// is a system list, not this one. The selection reads as glass — the
     /// material plus §3.4's wash — in every focus state.

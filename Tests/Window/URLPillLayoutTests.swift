@@ -89,8 +89,8 @@ final class URLPillLayoutTests: XCTestCase {
         XCTAssertFalse(bare.siteMenuAnchor.isHidden)
     }
 
-    /// **One affordance goes on the trailing edge; a second one takes the
-    /// other end.** That is where §3.2 has always drawn the sliders and where
+    /// One affordance goes on the trailing edge; a second one takes the
+    /// other end. That is where §3.2 has always drawn the sliders and where
     /// §3.4's rows draw theirs — so a pill with no reload keeps it there, and
     /// only a pill that carries both moves site settings to the front.
     func testTheSlidersTakesTheTrailingEdgeUntilReloadWantsIt() {

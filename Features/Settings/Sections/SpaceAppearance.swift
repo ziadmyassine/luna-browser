@@ -14,8 +14,8 @@
 //  itself here, which is the only presentation in which "which one is that"
 //  is not a question.
 //
-//  It is a popover rather than a sheet or a second pane because it is **two
-//  settings**. A pane would need a way back; a sheet would need a Done button;
+//  It is a popover rather than a sheet or a second pane because it is two
+//  settings. A pane would need a way back; a sheet would need a Done button;
 //  a popover is dismissed by looking away from it, which is the right cost for
 //  a choice you can undo by making it again.
 //
@@ -190,8 +190,8 @@ final class SpaceSwatchChip: NSView {
             disc.borderColor = Tokens.Line.border.cgColor
             layer?.cornerRadius = bounds.width / 2
         }
-        // **Outside `immediately`, because this one is a state and states
-        // cross-fade.** The frames above are bounds-derived and must land on
+        // Outside `immediately`, because this one is a state and states
+        // cross-fade. The frames above are bounds-derived and must land on
         // the frame that changed them; the ring is the chip's answer to a
         // pointer, on §6's `controlHover` like every other hover in the app.
         Tokens.Motion.animate(Tokens.Motion.controlHover) { context in

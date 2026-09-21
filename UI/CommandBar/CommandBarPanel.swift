@@ -15,8 +15,8 @@
 //  `NSVisualEffectView` does not thin — it cross-fades the blurred result back
 //  over the sharp original, so the bar sat on a grey film over a perfectly
 //  legible page. At full strength with §2's frost over it, the frost followed
-//  §2a's density, and at `.opaque` that is `Ink.frostOpaque`: **0.66 in dark
-//  mode**, a sheet two thirds of the way to solid with the blur buried under
+//  §2a's density, and at `.opaque` that is `Ink.frostOpaque`: 0.66 in dark
+//  mode, a sheet two thirds of the way to solid with the blur buried under
 //  it. Martin looked at the third version — the blur on its own, no plane —
 //  and said the backdrop is not needed at all: *"just remove the blur around
 //  it completely."*
@@ -35,8 +35,8 @@ import AppKit
 
 /// The panel's geometry.
 ///
-/// **Every value is derived from an existing `Tokens.Metric`, because `Design/`
-/// has no command-bar entry yet and contract rule 2 forbids inlining one.** The
+/// Every value is derived from an existing `Tokens.Metric`, because `Design/`
+/// has no command-bar entry yet and contract rule 2 forbids inlining one. The
 /// one value with no token at all is called out below; it belongs in
 /// `Tokens.Metric` and is named in this agent's report.
 enum CommandBarMetrics {

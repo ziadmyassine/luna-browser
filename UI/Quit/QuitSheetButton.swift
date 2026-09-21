@@ -129,8 +129,8 @@ final class QuitSheetButton: NSView {
         label.textColor = ink
     }
 
-    /// **The recommended answer is filled with the accent, and it is the only
-    /// control in Luna that is.** See `Tokens.Accent.onTint` for why the rule
+    /// The recommended answer is filled with the accent, and it is the only
+    /// control in Luna that is. See `Tokens.Accent.onTint` for why the rule
     /// it breaks is still a rule. Its two other states are AppKit's own
     /// variants of that colour rather than a second and third blue chosen
     /// here: `withSystemEffect` is what every stock control uses, so the

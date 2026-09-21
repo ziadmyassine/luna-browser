@@ -407,8 +407,8 @@ enum CommandBarRanking {
         return false
     }
 
-    /// §9 / D-S8: **the Profile identity must appear wherever tabs from different
-    /// Profiles can meet**, and the Space colour is not it — a colour says which
+    /// §9 / D-S8: the Profile identity must appear wherever tabs from different
+    /// Profiles can meet, and the Space colour is not it — a colour says which
     /// Space, never whose cookie jar. It rides on the badge's `name` rather than
     /// on a new field, so it reaches the visible chip and VoiceOver through the
     /// path that already exists.

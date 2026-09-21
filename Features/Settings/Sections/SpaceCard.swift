@@ -25,8 +25,8 @@
 //  fading it is how you land under the floor. The two lines are told apart by
 //  size and weight instead, which costs nothing and is measured for free.
 //
-//  **Neutral paints no plate at all, and that is the same rule the sidebar's
-//  wash already follows.** `SpaceWashView.washColors` returns two clear stops
+//  Neutral paints no plate at all, and that is the same rule the sidebar's
+//  wash already follows. `SpaceWashView.washColors` returns two clear stops
 //  for the neutral pair, because a Space nobody has coloured has to be
 //  indistinguishable from no Space colour — otherwise "no colour" is just a
 //  thirteenth colour. The card said otherwise: it painted neutral's desaturated

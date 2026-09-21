@@ -40,8 +40,8 @@ public enum InternalPages {
             }
         }
 
-        /// What the page calls itself — **the same string it sets as its own
-        /// `<title>`**, which is the point: a tab showing one of these has no
+        /// What the page calls itself — the same string it sets as its own
+        /// `<title>`, which is the point: a tab showing one of these has no
         /// title until the load lands, and a label that fell back to the host
         /// said `newtab` for as long as that took. Two spellings of the same
         /// page, one of them briefly.

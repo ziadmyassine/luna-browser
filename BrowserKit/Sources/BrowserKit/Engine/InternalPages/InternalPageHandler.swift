@@ -4,10 +4,10 @@ import WebKit
 /// Serves `luna://` (§4.4). Registered once, centrally, in
 /// `WebViewFactory.makeConfiguration`.
 ///
-/// **Verified against `WKURLSchemeTask.h` (MacOSX26.5.sdk), because the
-/// contract is all exceptions:**
-/// - `didReceiveResponse` (Swift: `didReceive(_:)`) must be called **at least
-///   once per task**, before any
+/// Verified against `WKURLSchemeTask.h` (MacOSX26.5.sdk), because the
+/// contract is all exceptions:
+/// - `didReceiveResponse` (Swift: `didReceive(_:)`) must be called at least
+///   once per task, before any
 ///   data and before `didFinish`. Data before a response, a second response
 ///   after completion, or any callback after `didFinish`/`didFailWithError`
 ///   each raise an Objective-C exception, which is a crash and not a throw.

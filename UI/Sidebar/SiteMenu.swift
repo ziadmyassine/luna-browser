@@ -68,8 +68,8 @@ enum SiteMenu {
         // sheet to get. What this item shows is the same sheet with the same
         // destinations; all it gives up is AppKit assembling the row.
         //
-        // Which it assembles wrong here. **`standardShareMenuItem` draws a
-        // share glyph that nothing on the item controls**: `image` is nil
+        // Which it assembles wrong here. `standardShareMenuItem` draws a
+        // share glyph that nothing on the item controls: `image` is nil
         // before the menu opens and still nil after `menu.update()` — probed —
         // and AppKit draws one regardless, a size under this menu's own glyphs
         // and in the column they stand in. Dressed like every other row that

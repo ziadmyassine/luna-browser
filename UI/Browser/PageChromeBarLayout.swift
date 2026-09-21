@@ -55,8 +55,8 @@ extension PageChromeBar {
         let strip = band
         plane.frame = strip
 
-        // **The traffic lights are the centre line whenever they are on
-        // screen.** The pane is flush to the window's top in every state this
+        // The traffic lights are the centre line whenever they are on
+        // screen. The pane is flush to the window's top in every state this
         // bar appears in, so the lights' centre is a line this view shares with
         // §3.1's control row — and the two must agree, because with the sidebar
         // showing they are 280 pt apart on the same row of pixels.
@@ -91,13 +91,13 @@ extension PageChromeBar {
         // four controls on one line, one of them a different height, is the
         // thing the eye finds first.
         //
-        // **Centred on the pane when there is room, and pushed off centre when
-        // there is not.** A 640 pt window with a sidebar open leaves about
+        // Centred on the pane when there is room, and pushed off centre when
+        // there is not. A 640 pt window with a sidebar open leaves about
         // 230 pt beside the buttons; a pill centred in that overlaps them, and
         // an overlapping pill is worse than an off-centre one.
         //
-        // **The open layout places the pill, and the collapsed one keeps that
-        // place exactly — the same x and the same width.** Both were worked out
+        // The open layout places the pill, and the collapsed one keeps that
+        // place exactly — the same x and the same width. Both were worked out
         // separately before: open, clear of the buttons; collapsed, sized to the
         // domain and centred in what was left of the bar. Even once they shared
         // a centre the capsule still travelled, because its two edges did: it
@@ -137,8 +137,8 @@ extension PageChromeBar {
         return band.contains(convert(point, from: superview)) ? self : nil
     }
 
-    /// **The window has one handle at a time, and it is the chrome that is on
-    /// screen.** In this layout that is §3's column: the sidebar's plane moves
+    /// The window has one handle at a time, and it is the chrome that is on
+    /// screen. In this layout that is §3's column: the sidebar's plane moves
     /// the window, and this bar — which is over the page, inside the card,
     /// clipped to the page's own corners — does not.
     ///

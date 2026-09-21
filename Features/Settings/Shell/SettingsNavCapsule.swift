@@ -114,8 +114,8 @@ final class SettingsNavChevron: NSView {
         }
     }
 
-    /// Told when the chevron goes down and comes back up. **It has no
-    /// material of its own** — the capsule around it is the material — so the
+    /// Told when the chevron goes down and comes back up. It has no
+    /// material of its own — the capsule around it is the material — so the
     /// swell belongs to `SettingsNavCapsule`, exactly as the browser's own
     /// history cluster does it (`NavCluster`). Half a capsule growing inside
     /// the other half is not a press.

@@ -51,8 +51,8 @@ extension BrowserSession {
     /// they have already decided.
     static let zoomLevels: [CGFloat] = [0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3]
 
-    /// **Not persisted, and that is the honest version rather than the finished
-    /// one.** Zoom lives on the `WKWebView`, so it survives as long as the tab
+    /// Not persisted, and that is the honest version rather than the finished
+    /// one. Zoom lives on the `WKWebView`, so it survives as long as the tab
     /// stays awake and is lost when §19.2 hibernates it. Per-site zoom is a
     /// stored preference with its own row in Settings and its own rules about
     /// which of a site's subdomains it covers; promising it here by quietly

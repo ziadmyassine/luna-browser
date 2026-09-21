@@ -21,8 +21,8 @@ final class RowPillTests: XCTestCase {
         return pill
     }
 
-    /// **A §6 Space switch used to leave the old Space's selection burning over
-    /// the new one.** The rows and the tiles both leave in the frame the switch
+    /// A §6 Space switch used to leave the old Space's selection burning over
+    /// the new one. The rows and the tiles both leave in the frame the switch
     /// lands in, but the fill under them faded out over `rowHover` while the
     /// column faded in over `spaceSwitchCrossfade` — so for about a tenth of a
     /// second the Space you had just arrived in had an empty glass pill lying

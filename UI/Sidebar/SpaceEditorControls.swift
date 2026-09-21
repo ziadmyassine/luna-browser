@@ -6,8 +6,8 @@
 //  the sidebar's kit: the plate a group of the form sits on, and the one
 //  labelled button at the foot of it.
 //
-//  **A card, because three settings in a column are three settings and not a
-//  list.** The form used to be a label, a field, a label, a grid, a label and
+//  A card, because three settings in a column are three settings and not a
+//  list. The form used to be a label, a field, a label, a grid, a label and
 //  another grid, all on the same glass with nothing but vertical gaps to say
 //  where one thing stopped and the next began — and a gap is the weakest
 //  boundary a layout has. `Surface.chromeFill` with the chrome's own hairline
@@ -143,8 +143,8 @@ final class SpaceEditorButton: NSView {
         titleLabel.textColor = Tokens.Text.primary
     }
 
-    /// The wash cross-fades on §6's `controlHover`; the press also **swells
-    /// the pill 5 % and springs it back** (`Motion.controlPress`), which is
+    /// The wash cross-fades on §6's `controlHover`; the press also swells
+    /// the pill 5 % and springs it back (`Motion.controlPress`), which is
     /// what every other button in the chrome does under a finger. It carries
     /// its own material — there is no capsule around it to hand the gesture
     /// to — so the swell is this view's.

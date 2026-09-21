@@ -164,8 +164,8 @@ public final class ContentBlocker {
 
     /// How long to wait before refreshing, given when the last one landed.
     ///
-    /// **``refreshInterval`` used to pick the delay and nothing else, so it was
-    /// not an interval at all.** A launch inside the 24 hours slept a minute and
+    /// ``refreshInterval`` used to pick the delay and nothing else, so it was
+    /// not an interval at all. A launch inside the 24 hours slept a minute and
     /// then re-fetched all three lists anyway; the only thing the interval
     /// bought was that an unchanged list skipped its compile. The lists
     /// upstream are rebuilt several times a day, so on a machine that relaunches

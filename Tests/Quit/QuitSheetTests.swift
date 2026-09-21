@@ -28,8 +28,8 @@ final class QuitSheetTests: XCTestCase {
         }
     }
 
-    /// The panel is as wide as its answers, so **no answer may be narrower
-    /// than the words in it**. A fixed width shipped twice and was short both
+    /// The panel is as wide as its answers, so no answer may be narrower
+    /// than the words in it. A fixed width shipped twice and was short both
     /// times — "Cancel" rendered as "Can" and then "Quit" as "Qu" — because a
     /// row that does not fit does not fail, it shaves the lowest-priority
     /// thing in it, and that is always a word. The titles are localised, so

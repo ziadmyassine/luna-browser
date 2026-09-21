@@ -5,8 +5,8 @@
 //  docs/SETTINGS-SPEC.md §3.10 / TODO.md §14 — the three switches, the saved
 //  list, and two paragraphs that have to be true.
 //
-//  **This section replaces a "deliberately not here" entry, and the reason it
-//  can is that §14.1's spike has now run.** The spec's objection was that the
+//  This section replaces a "deliberately not here" entry, and the reason it
+//  can is that §14.1's spike has now run. The spec's objection was that the
 //  window "must not hint at a password manager that may never ship in this
 //  shape". What ships is not a password manager: it is a bridge into the
 //  user's own Keychain, and the spike measured exactly how far that bridge

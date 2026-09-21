@@ -17,7 +17,7 @@ import Foundation
 ///      right. `*` matches exactly one label.
 ///   2. An exception rule (`!`) wins over any wildcard.
 ///   3. Otherwise the longest matching rule wins.
-///   4. *If no rule matches, the prevailing rule is ``** — the public suffix
+///   4. If no rule matches, the prevailing rule is `*` — the public suffix
 ///      is the rightmost label. This is the PSL's specified default, not a
 ///      fallback we invented, which is what makes a partial table honest:
 ///      an unlisted TLD lands on the same answer the full list would give it.

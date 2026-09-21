@@ -90,8 +90,8 @@ public enum PasswordForms {
 
     /// Fills `form` with `username` / `password`.
     ///
-    /// **`callAsyncJavaScript`, not `evaluateJavaScript`, and that is a
-    /// security requirement rather than a style preference.** Arguments are
+    /// `callAsyncJavaScript`, not `evaluateJavaScript`, and that is a
+    /// security requirement rather than a style preference. Arguments are
     /// marshalled by WebKit and bound as real JS values, so the password never
     /// appears inside a source string. Interpolating it would mean quoting it
     /// correctly for JS — a password is exactly the kind of string that breaks

@@ -48,8 +48,8 @@
 //  ordinary swipe too, and a page whose every frame is the ceiling travels at
 //  one fixed speed regardless of the hand. See `damped(_:since:at:)`.
 //
-//  **Distance is not the only way to commit, and that is what makes a page a
-//  page wide affordable.** Half of a 280 pt column is 140 pt of finger, which
+//  Distance is not the only way to commit, and that is what makes a page a
+//  page wide affordable. Half of a 280 pt column is 140 pt of finger, which
 //  is far too much to ask of a reflex — so a release that is still moving
 //  turns the page however far it got (`Metric.spaceFlickSpeed`). A short
 //  stroke that is still going is a page turn; a long one that has come to rest
@@ -74,8 +74,8 @@
 //  all the early close bought was a more convincing way of being told the wrong
 //  thing. A read-out that is not the threshold is a read-out of nothing.
 //
-//  **What is left of the resistance is distance and stiffness, and they are
-//  enough.** A page is twice what changing Space costs, which is the asymmetry
+//  What is left of the resistance is distance and stiffness, and they are
+//  enough. A page is twice what changing Space costs, which is the asymmetry
 //  `TokenCheck` holds; and the column does not follow the hand out there — it
 //  bends over against `Metric.spaceCreateGive`, so a whole page of fingers
 //  leaves it a little under half way and every further point of push moves it

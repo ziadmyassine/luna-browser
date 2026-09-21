@@ -6,8 +6,8 @@
 //  share. It lives here rather than in a fifth file because it is fifty lines;
 //  a `Shared/` directory for that is a directory to maintain.
 //
-//  **Two of §3.1's four rows ship disabled, and that is a finding rather than a
-//  shortcut.** §3.1 lists "On launch" as wired to `general.onLaunch` +
+//  Two of §3.1's four rows ship disabled, and that is a finding rather than a
+//  shortcut. §3.1 lists "On launch" as wired to `general.onLaunch` +
 //  `BrowserSession.restored`, and "Confirm before closing" to
 //  `general.confirmClose`. Neither key has a reader: `AppDelegate` restores
 //  unconditionally and `BrowserWindowController` implements no

@@ -136,8 +136,8 @@ final class ContentCardView: NSView {
         } else {
             addSubview(view)
         }
-        // **Four edges at rest; trailing-pinned and width-driven only while a
-        // chrome transition is running.**
+        // Four edges at rest; trailing-pinned and width-driven only while a
+        // chrome transition is running.
         //
         // The width is the interesting half — see `beginGeometryTransition` —
         // but it must not be the resting state. A constant carries no

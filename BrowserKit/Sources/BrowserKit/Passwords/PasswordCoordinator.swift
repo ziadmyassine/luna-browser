@@ -128,8 +128,8 @@ public final class PasswordCoordinator {
 
     /// §14.8's origin rule.
     ///
-    /// **Compared against `WKFrameInfo.securityOrigin`, never against anything
-    /// the script said.** A script running inside a hostile iframe can claim
+    /// Compared against `WKFrameInfo.securityOrigin`, never against anything
+    /// the script said. A script running inside a hostile iframe can claim
     /// any origin it likes; `frameInfo` is filled in by WebKit from the frame's
     /// actual security origin and is not reachable from page JavaScript.
     ///

@@ -299,8 +299,8 @@ final class TrafficLightLayoutManager {
         return strip
     }
 
-    /// **The strip has to be tall enough to hold the inset, or the lights land
-    /// higher in fullscreen than the titlebar lands them windowed.**
+    /// The strip has to be tall enough to hold the inset, or the lights land
+    /// higher in fullscreen than the titlebar lands them windowed.
     ///
     /// `TrafficLightLayout` measures the inset down from whatever container it
     /// is given and refuses to hang a button below it — so a container shorter

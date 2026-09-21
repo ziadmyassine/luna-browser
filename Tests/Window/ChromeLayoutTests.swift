@@ -126,8 +126,8 @@ final class TrafficLightLayoutTests: XCTestCase {
         )
     }
 
-    /// **Fullscreen has to land the lights on the line the titlebar lands them
-    /// on.** In fullscreen the buttons move into a strip of Luna's own, and
+    /// Fullscreen has to land the lights on the line the titlebar lands them
+    /// on. In fullscreen the buttons move into a strip of Luna's own, and
     /// `origins` clamps the inset into whatever container it is given — so a
     /// strip shorter than the inset plus a button would put the lights higher
     /// than windowed, which is the only way the two states can disagree. The

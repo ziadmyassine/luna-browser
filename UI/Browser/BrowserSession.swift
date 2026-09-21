@@ -23,8 +23,8 @@
 //    1. `tabs` is sorted essential → pinned → today, each by `order` — see
 //       `TabList`. `reorderTab(_:to:kind:)` therefore takes a section-relative
 //       index.
-//    2. **A tab with no `TabController` has no `WKWebView` and no WebContent
-//       process** (§19.2). Restoring a session creates no controllers at all
+//    2. A tab with no `TabController` has no `WKWebView` and no WebContent
+//       process (§19.2). Restoring a session creates no controllers at all
 //       (§19.4); the first `activateTab` creates the first one.
 //
 
@@ -132,8 +132,8 @@ final class BrowserSession {
     // MARK: - Collaborators the app plugs in
 
     /// `⌘T`, and every address pill that hands the job over. The first argument
-    /// is what the bar opens with; the second is the pill it should **grow out
-    /// of** — §3.2's and §3.2b's pass themselves, and `⌘T` passes nil and gets
+    /// is what the bar opens with; the second is the pill it should grow out
+    /// of — §3.2's and §3.2b's pass themselves, and `⌘T` passes nil and gets
     /// §9.1's panel over the page. The Command Bar's host sets this; without it
     /// `⌘T` opens a blank tab, which is an honest degradation rather than a
     /// dead key.

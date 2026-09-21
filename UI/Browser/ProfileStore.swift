@@ -11,8 +11,8 @@
 //      and it lives in SQLite (`profiles.dataStoreIdentifier`). Losing that row
 //      orphans a cookie jar in `~/Library/WebKit/WebsiteDataStore/<UUID>/` —
 //      which is what `sweepOrphans(keeping:)` exists to notice.
-//    · `remove(forIdentifier:)` **fails while any live `WKWebView` still uses
-//      the store**, and a web view goes away when ARC says so, not when the
+//    · `remove(forIdentifier:)` fails while any live `WKWebView` still uses
+//      the store, and a web view goes away when ARC says so, not when the
 //      user clicks Delete. So removal is a retry loop with a deferred queue
 //      (spec §3.2), and the loop itself lives in `BrowserKit` —
 //      `WebsiteDataStoreRemover` — where it can be tested without WebKit.

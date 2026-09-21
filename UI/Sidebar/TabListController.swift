@@ -146,8 +146,8 @@ final class TabListController: NSObject {
     /// The rows, and whether what changed is an edit to this list or a
     /// different list entirely.
     ///
-    /// **A Space switch is the second, and it used to be treated as the
-    /// first.** `apply` is §6's insert: it fades the outgoing rows over
+    /// A Space switch is the second, and it used to be treated as the
+    /// first. `apply` is §6's insert: it fades the outgoing rows over
     /// `tabInsert`, which is exactly right when one tab closes and wrong for
     /// every row at once — `NSTableView` keeps a row being removed on screen
     /// for the length of its animation, so the Space you had just left stayed

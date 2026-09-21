@@ -88,8 +88,8 @@ extension SpacesSection {
     /// Firefox warns about the tab count and says nothing about the cookies and
     /// logins it is about to destroy. Chrome itemises the data and never says
     /// that it force-closes your windows. Luna has to say a third thing neither
-    /// of them has to, because Space → Profile is many-to-one: **whether the
-    /// cookies go at all depends on who else is on this profile.**
+    /// of them has to, because Space → Profile is many-to-one: whether the
+    /// cookies go at all depends on who else is on this profile.
     ///
     /// And it offers the choice §6.3 added rather than announcing a loss: the
     /// tabs are archived, or adopted into another Space. Nothing is destroyed

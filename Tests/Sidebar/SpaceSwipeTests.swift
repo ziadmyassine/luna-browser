@@ -8,8 +8,8 @@
 //  Three things are asserted here that a trackpad would otherwise be the only
 //  way to find out. That the page is the ruler: one page of hand is one
 //  page of column at every width the §3.7 handle reaches, which is the claim
-//  the "it multiplies my swipe" defect was the absence of. **What a gesture
-//  means**: the half-a-page commit, the flick that commits without it, the cap
+//  the "it multiplies my swipe" defect was the absence of. What a gesture
+//  means: the half-a-page commit, the flick that commits without it, the cap
 //  that keeps one swipe to one Space, and the page past the last one that makes
 //  a new one. And how much of the gesture is the hand's — macOS scales a
 //  precise scroll by how fast the fingers moved, so the deltas an event carries
@@ -40,8 +40,8 @@ final class SpaceSwipeTests: XCTestCase {
 
     // MARK: - The page is the ruler
 
-    /// **The reported defect, stated as arithmetic: "a little swipe is too big
-    /// a move".** The column used to be measured against a constant — 120 pt —
+    /// The reported defect, stated as arithmetic: "a little swipe is too big
+    /// a move". The column used to be measured against a constant — 120 pt —
     /// while the thing it moved was a 280 pt page, so every point of finger
     /// bought two and a third points of column. The page now goes exactly as
     /// far as the hand does, at every width the handle reaches.
@@ -64,8 +64,8 @@ final class SpaceSwipeTests: XCTestCase {
         XCTAssertEqual(Self.resolve(page / 2, active: 1, of: 3).travel, 0.5, accuracy: 0.001)
     }
 
-    /// **Past the last Space it changes gear, and that is the resistance
-    /// asked for.** There is nowhere for the column to go out there, so it is
+    /// Past the last Space it changes gear, and that is the resistance
+    /// asked for. There is nowhere for the column to go out there, so it is
     /// held against a stop instead of carried to one: the same half page of
     /// hand that moves a whole half page of column between two Spaces moves
     /// visibly less of one past the last, and every further point of push
@@ -331,8 +331,8 @@ final class SpaceSwipeTests: XCTestCase {
         }
     }
 
-    /// **The ceiling is a speed, so it means the same thing on a 120 Hz panel
-    /// as on a 60 Hz one.** Twice the events, half the budget each, and the
+    /// The ceiling is a speed, so it means the same thing on a 120 Hz panel
+    /// as on a 60 Hz one. Twice the events, half the budget each, and the
     /// same total travel for the same hand.
     func testTheCeilingIsASpeedRatherThanAnAmountPerEvent() {
         let sixty = SpaceSwipeController.damped(10_000, since: 1, at: 1 + Self.frame)
@@ -353,8 +353,8 @@ final class SpaceSwipeTests: XCTestCase {
         XCTAssertEqual(SpaceSwipeController.interval(since: 1, at: 2), Self.frame, accuracy: 0.0001)
     }
 
-    /// **The create gesture has to be completable in one stroke, at the widest
-    /// the column gets.** This is the claim that was false in the shipped
+    /// The create gesture has to be completable in one stroke, at the widest
+    /// the column gets. This is the claim that was false in the shipped
     /// build: three pages against the ceiling needed longer than a trackpad
     /// stroke lasts, so the one gesture the resistance is for could not be
     /// performed at all. One deliberate push now clears a page even against a
