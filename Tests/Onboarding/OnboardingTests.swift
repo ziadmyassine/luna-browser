@@ -125,14 +125,14 @@ final class OnboardingScreenTests: XCTestCase {
 @MainActor
 final class OnboardingImportListTests: XCTestCase {
 
-    private func list(available: Int, unavailable: Int) -> OnboardingImportList {
+    private func list(available: Int, unavailable: Int, preferring: ImportSource? = nil) -> OnboardingImportList {
         let ready = Array(ImportSource.allCases.prefix(available)).map {
             DetectedSource(source: $0, profiles: [ChromiumProfile(directoryName: "Default")], isAvailable: true)
         }
         let greyed = Array(ImportSource.allCases.suffix(unavailable)).map {
             DetectedSource(source: $0, profiles: [], isAvailable: false, unavailableReason: "Not installed.")
         }
-        let list = OnboardingImportList(sources: ready + greyed)
+        let list = OnboardingImportList(sources: ready + greyed, preferring: preferring)
         list.frame = NSRect(x: 0, y: 0, width: 400, height: 320)
         list.layoutSubtreeIfNeeded()
         return list
@@ -170,6 +170,76 @@ final class OnboardingImportListTests: XCTestCase {
         XCTAssertEqual(list.chosen.count, 2)
         XCTAssertTrue(list.row(for: second)?.accessibilityPerformPress() ?? false)
         XCTAssertEqual(list.chosen.count, 1)
+    }
+
+    /// The browser the Mac opens links with is the one already ticked, not
+    /// whichever happens to be first in the list.
+    func testTheDefaultBrowserIsTheOneAlreadyChosen() {
+        let second = ImportSource.allCases[1]
+        XCTAssertEqual(list(available: 3, unavailable: 1, preferring: second).chosen, [second])
+    }
+
+    /// And a default Luna cannot read — Safari without Full Disk Access, a
+    /// browser installed but never opened — falls back rather than opening on
+    /// a tick the user cannot act on.
+    func testAnUnreadableDefaultFallsBackToTheFirstThatWorks() {
+        guard let greyed = ImportSource.allCases.last else { return XCTFail("no sources") }
+        let list = list(available: 2, unavailable: 2, preferring: greyed)
+        XCTAssertEqual(list.chosen, [ImportSource.allCases[0]])
+    }
+
+    /// A card stands in from both edges of its pane, and clear of the top of
+    /// the scroll view: `pressSwell` grows it, and what it grows into is the
+    /// clip view.
+    func testACardHasRoomToSwellWithoutBeingClipped() {
+        let list = list(available: 2, unavailable: 1)
+        guard let row = list.row(for: ImportSource.allCases[0]) else { return XCTFail("no row") }
+        let inset = OnboardingMetrics.cardInset
+        XCTAssertEqual(row.frame.minX, inset, accuracy: 0.5)
+        XCTAssertEqual(row.frame.maxX, list.bounds.width - inset, accuracy: 0.5)
+        let grown = row.frame.insetBy(
+            dx: -row.frame.width * (Tokens.Motion.pressSwell - 1) / 2,
+            dy: -row.frame.height * (Tokens.Motion.pressSwell - 1) / 2
+        )
+        XCTAssertGreaterThanOrEqual(grown.minX, 0)
+        XCTAssertLessThanOrEqual(grown.maxX, list.bounds.width)
+        XCTAssertGreaterThanOrEqual(grown.minY, 0)
+    }
+
+    /// A pointer aimed at the browser's name hits the card, and a card that
+    /// is already ticked unticks. Both halves failed at once: the name is an
+    /// `NSTextField` and a label answers `hitTest` for its own rectangle, so
+    /// the middle of the row — the obvious place to aim, and the only place
+    /// worth aiming at on the row that starts chosen — was not the row.
+    func testTheNameIsPartOfTheCardAndTheCardUnticks() {
+        let list = list(available: 2, unavailable: 1)
+        let window = NSWindow(
+            contentRect: NSRect(origin: .zero, size: list.frame.size),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView?.addSubview(list)
+        list.layoutSubtreeIfNeeded()
+        let first = ImportSource.allCases[0]
+        guard let row = list.row(for: first) else { return XCTFail("no row") }
+        XCTAssertTrue(list.chosen.contains(first), "the list did not open on a tick")
+        let aim = row.convert(NSPoint(x: row.bounds.midX, y: row.bounds.midY), to: nil)
+        XCTAssertTrue(window.contentView?.hitTest(aim) === row, "the name swallowed the press")
+        guard let press = NSEvent.mouseEvent(
+            with: .leftMouseUp,
+            location: aim,
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: window.windowNumber,
+            context: nil,
+            eventNumber: 0,
+            clickCount: 1,
+            pressure: 1
+        ) else { return XCTFail("no event") }
+        row.mouseDown(with: press)
+        row.mouseUp(with: press)
+        XCTAssertFalse(list.chosen.contains(first), "a card that is ticked will not untick")
     }
 
     /// The rows are stacked in the order they were given, from the top of the

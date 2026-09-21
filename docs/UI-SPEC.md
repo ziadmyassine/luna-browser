@@ -1555,8 +1555,9 @@ is an answer, and it never asks twice (`OnboardingState.hasRun`).
 |---|---|
 | Size | `commandBarMinWidth` of prose beside a pane as wide as Settings' detail side, at Settings' height |
 | Left | Opaque `Surface.base`: the page's title at `pageTitle`, one sentence at `pageBody`, two answers at the foot |
-| Right | §8.2's default Space gradient, a quarter of the way back toward the plane, holding what the page is choosing |
+| Right | The sidebar's own material — `Glass.sidebar` under a `SpaceWashView` set to neutral, so it paints nothing and the material is the colour |
 | Answers | `Back` over the preferred one, both the column's width, in the same place on every page |
+| Lights | `TrafficLightLayoutManager(pinningLightsIn:)`, all three, two of them dim — §7.7's one owner, so they land where every other Luna window's do |
 
 - **Three pages**: welcome, transfer, done. The words live in `OnboardingPage`
   and nowhere else, because §30.18's copy warning — the reference promises
@@ -1572,9 +1573,30 @@ is an answer, and it never asks twice (`OnboardingState.hasRun`).
 - **A card, not a row.** Two chrome capsules tall, the app's own icon at
   `capsuleHeight + rowInset`, the name at `pageBody`, and a tick that fills
   with the accent. It answers the pointer and the finger like every other
-  control (§6), because it is one. The first readable browser starts ticked:
-  the screen's answer is "yes, bring it", and a column of empty circles asks
-  the user to work that out from the button.
+  control (§6), because it is one. It stands `margin * 3` in from both sides
+  of its pane — a plate the full width of its half is a table row, and flush
+  to the scroll view it came back from a press with its corner sliced off by
+  the clip.
+- **The chosen card is `Glass.control`; every other card is a plate.** The
+  pointer's own wash is already `Surface.selected`, so a chosen card drawn
+  with the same wash was indistinguishable from the one under the pointer.
+  Picked is the brighter material, not the same material with a mark on it.
+- **The whole card is the target.** Its name and its reason are
+  `NSTextField`s, and a label answers `hitTest` for its own rectangle — so a
+  pointer aimed at the browser's name, which is the middle of the card, landed
+  on a control that is not one. `OnboardingButton` had the same hole.
+  Everything inside either is decoration.
+- **The browser the Mac opens links with starts ticked**, or the first Luna
+  can read. The screen's answer is "yes, bring it", and a column of empty
+  circles asks the user to work that out from the button — and the one they
+  would pick is the one they are switching from. It unticks like any other.
+  The machine's answer is supplied by the window controller rather than read
+  by the view, so the rule is provable without the test depending on the Mac
+  it runs on.
+- **The mark is the app's own icon, from the catalog.**
+  `NSApp.applicationIconImage` is one flattened rendering of a `.icon`
+  document that carries an Aqua and a DarkAqua one, which is a black tile on a
+  white page. `CFBundleIconName` through `NSImage(named:)` keeps both.
 - **The rows arrive staggered** on §6's `tabInsert`, 20 ms apart — the same
   stagger a layout switch gives its contents. Each one carries its own progress
   while the import runs; a bar under a list of five browsers says less than the

@@ -42,7 +42,15 @@ enum OnboardingMetrics {
 
     static var rowGap: CGFloat { Tokens.Metric.chromeGap }
 
-    /// The app's own mark on the first and last page, at the size a window
-    /// corner is rounded to — the biggest round number the chrome owns.
-    static var badge: CGFloat { Tokens.Metric.windowCornerRadius * 5 }
+    /// How far a card stands in from the edges of the pane it is on. Three
+    /// margins, which is a fifth of the pane each side: a card that runs the
+    /// full width of its half is a table row, and this is a thing you pick.
+    /// It is also the slack `pressSwell` needs — a plate flush to the scroll
+    /// view's clip grew into it and came back with its corner sliced off.
+    static var cardInset: CGFloat { margin * 3 }
+
+    /// The app's own mark on the first and last page. Seven window corners:
+    /// it is alone on half a window, and at five it read as an icon someone
+    /// had left on the page rather than as the subject of it.
+    static var badge: CGFloat { Tokens.Metric.windowCornerRadius * 7 }
 }

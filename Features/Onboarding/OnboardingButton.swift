@@ -116,6 +116,13 @@ final class OnboardingButton: NSView {
     /// ever sees it.
     override var mouseDownCanMoveWindow: Bool { false }
 
+    /// The whole pill is the target: its title is an `NSTextField`, which
+    /// answers `hitTest` for itself, and the title is where a pointer aims.
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard let superview else { return nil }
+        return bounds.contains(convert(point, from: superview)) ? self : nil
+    }
+
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         for area in trackingAreas { removeTrackingArea(area) }

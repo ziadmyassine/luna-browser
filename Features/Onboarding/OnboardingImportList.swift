@@ -29,22 +29,24 @@ final class OnboardingImportList: NSView {
     private let content = FlippedView()
     private var rows: [OnboardingImportRow] = []
 
-    /// Already filtered to what is on this Mac — see
-    /// `OnboardingWindowController`, which does it once for the list and the
-    /// import both.
-    init(sources: [DetectedSource]) {
+    /// - Parameters:
+    ///   - sources: already filtered to what is on this Mac — see
+    ///     `OnboardingWindowController`, which does it once for the list and
+    ///     the import both.
+    ///   - preferring: the browser to start ticked. The caller supplies the
+    ///     machine's answer rather than this view reading it, so the rule can
+    ///     be proved without the test depending on which browser opens a link
+    ///     on the Mac the suite is running on.
+    init(sources: [DetectedSource], preferring: ImportSource? = nil) {
         super.init(frame: .zero)
         rows = sources.map { source in
             let row = OnboardingImportRow(source: source)
             row.onToggle = { [weak self] in self?.toggle(source.source) }
             return row
         }
-        // The first available browser starts ticked: the screen's whole point
-        // is that bringing your things across is the expected answer, and a
-        // list of empty circles asks the user to discover that.
-        if let first = sources.first(where: \.isAvailable) {
-            chosen.insert(first.source)
-            rows.first { $0.source.source == first.source }?.isChosen = true
+        if let start = Self.opening(of: sources, preferring: preferring) {
+            chosen.insert(start)
+            rows.first { $0.source.source == start }?.isChosen = true
         }
         scroll.drawsBackground = false
         scroll.hasVerticalScroller = true
@@ -61,6 +63,33 @@ final class OnboardingImportList: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
+    }
+
+    /// Which card the screen opens on: the browser the user already browses
+    /// in, or the first one Luna can read. A tick has to be there from the
+    /// start — bringing your things across is the expected answer, and a list
+    /// of empty circles asks the user to work that out from the button — and
+    /// the one they would pick is the one they are switching from.
+    ///
+    /// It is a tick, not a commitment: the row it lands on unticks like any
+    /// other, which is the whole reason the page has circles rather than a
+    /// list it acts on wholesale.
+    static func opening(of sources: [DetectedSource], preferring: ImportSource?) -> ImportSource? {
+        if let preferring, sources.contains(where: { $0.source == preferring && $0.isAvailable }) {
+            return preferring
+        }
+        return sources.first(where: \.isAvailable)?.source
+    }
+
+    /// The browser macOS hands a link to, when it is one Luna knows.
+    static func systemDefault() -> ImportSource? {
+        guard let web = URL(string: "https://example.com"),
+              let app = NSWorkspace.shared.urlForApplication(toOpen: web),
+              let identifier = Bundle(url: app)?.bundleIdentifier
+        else { return nil }
+        return ImportSource.allCases.first {
+            $0.bundleIdentifier.caseInsensitiveCompare(identifier) == .orderedSame
+        }
     }
 
     /// On disk, which is not the same question as `DetectedSource.isAvailable`:
@@ -97,20 +126,25 @@ final class OnboardingImportList: NSView {
         super.layout()
         Tokens.Motion.immediately {
             scroll.frame = bounds
+            let inset = OnboardingMetrics.cardInset
+            let gap = OnboardingMetrics.rowGap
             let height = CGFloat(rows.count) * OnboardingMetrics.rowHeight
-                + CGFloat(max(rows.count - 1, 0)) * OnboardingMetrics.rowGap
-            content.frame = NSRect(x: 0, y: 0, width: bounds.width, height: max(height, bounds.height))
+                + CGFloat(max(rows.count - 1, 0)) * gap
+            // A gap above and below, for the same reason the cards stand in
+            // from the sides: `pressSwell` grows a card, and the scroll view
+            // clips whatever grows past it.
+            content.frame = NSRect(x: 0, y: 0, width: bounds.width, height: max(height + 2 * gap, bounds.height))
             // Centred while they fit, which is most Macs: three cards pinned
             // to the top of a tall pane read as a list that has been cut off.
-            var top = max((bounds.height - height) / 2, 0).rounded()
+            var top = max((content.frame.height - height) / 2, gap).rounded()
             for row in rows {
                 row.frame = NSRect(
-                    x: 0,
+                    x: inset,
                     y: top,
-                    width: bounds.width,
+                    width: max(bounds.width - 2 * inset, 0),
                     height: OnboardingMetrics.rowHeight
                 ).integral
-                top = row.frame.maxY + OnboardingMetrics.rowGap
+                top = row.frame.maxY + gap
             }
         }
     }

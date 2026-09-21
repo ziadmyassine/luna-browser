@@ -35,8 +35,8 @@ final class OnboardingView: NSView {
     private var page: OnboardingPage = .welcome
     private var isImporting = false
 
-    init(sources: [DetectedSource]) {
-        list = OnboardingImportList(sources: sources)
+    init(sources: [DetectedSource], preferring: ImportSource? = nil) {
+        list = OnboardingImportList(sources: sources, preferring: preferring)
         super.init(frame: .zero)
         wantsLayer = true
 
@@ -48,7 +48,7 @@ final class OnboardingView: NSView {
         body.font = Tokens.TypeScale.pageBody
         body.lineBreakMode = .byWordWrapping
         body.maximumNumberOfLines = 5
-        badge.image = NSApp.applicationIconImage
+        badge.image = Self.appIcon
         badge.imageScaling = .scaleProportionallyUpOrDown
         badge.wantsLayer = true
         badge.setAccessibilityElement(false)
@@ -71,6 +71,20 @@ final class OnboardingView: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
+    }
+
+    /// Luna's mark, from the asset catalog rather than from
+    /// `NSApp.applicationIconImage`.
+    ///
+    /// The `.icon` document carries an Aqua rendition and a DarkAqua one, and
+    /// the application icon is one flattened rendering of the pair — the dark
+    /// tile, which on a page that is white in light mode is a black square.
+    /// The catalog entry keeps both and an `NSImageView` picks by appearance.
+    private static var appIcon: NSImage? {
+        guard let name = Bundle.main.object(forInfoDictionaryKey: "CFBundleIconName") as? String,
+              let icon = NSImage(named: name)
+        else { return NSApp.applicationIconImage }
+        return icon
     }
 
     // MARK: - Pages
@@ -193,7 +207,10 @@ final class OnboardingView: NSView {
         // foot of it, so three pages of different lengths open on one line.
         let bodyHeight = ceil(body.sizeThatFits(NSSize(width: width, height: .greatestFiniteMagnitude)).height)
         let titleHeight = ceil(title.sizeThatFits(NSSize(width: width, height: .greatestFiniteMagnitude)).height)
-        let top = left.bounds.maxY - margin - Tokens.Metric.chromeGapWide
+        // Clear of the traffic lights by the same drop §3.1's headless
+        // sidebar uses, and then the page's own margin again: a 26 pt line
+        // one `chromeGapWide` under three circles reads as their caption.
+        let top = left.bounds.maxY - Tokens.Metric.sidebarHeadlessRow - margin
         title.frame = NSRect(x: margin, y: top - titleHeight, width: width, height: titleHeight).integral
         body.frame = NSRect(x: margin, y: title.frame.minY - gap - bodyHeight, width: width, height: bodyHeight).integral
 
@@ -205,7 +222,10 @@ final class OnboardingView: NSView {
             width: side,
             height: side
         ).integral
-        list.frame = inner.insetBy(dx: margin, dy: margin)
+        // The full pane, not an inset one: `OnboardingImportList` stands its
+        // own cards in from the sides, and a scroll view that stops short of
+        // the edge clips the card nearest it the moment one is pressed.
+        list.frame = inner
         let emptyHeight = ceil(empty.fittingSize.height)
         empty.frame = NSRect(
             x: margin,
@@ -229,23 +249,31 @@ final class OnboardingView: NSView {
     }
 }
 
-/// The right pane: §8.2's default Space gradient, at full strength, with
-/// whatever the page puts on it.
+/// The right pane: the sidebar's own material — §2's glass under §8.2a's
+/// Space wash — with whatever the page puts on it.
+///
+/// Not a colour of its own. It was a flattened gradient blended a quarter of
+/// the way toward the content plane, which is a hand-mixed plate that happens
+/// to resemble Luna rather than a piece of Luna, and it drifts the moment
+/// either end of the pair moves. The sidebar is two views, a material and a
+/// tint; this is the same two.
 @MainActor
 final class OnboardingGradientView: NSView {
 
     let content = NSView()
-    private let wash = CAGradientLayer()
+    private let plane = Glass.backing(.sidebar)
+    private let wash = SpaceWashView()
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
-        wash.startPoint = CGPoint(x: 0, y: 1)
-        wash.endPoint = CGPoint(x: 1, y: 0)
-        layer?.addSublayer(wash)
-        addSubview(content)
+        for view in [plane, wash, content] { addSubview(view) }
+        // Neutral, which `SpaceWashView` paints as nothing at all: the
+        // material is the colour. A Space's own pair on this pane is a tint
+        // over a browser the user has not seen yet, claiming a Space they
+        // have not picked.
+        wash.show(Tokens.Gradient.neutral)
         setAccessibilityElement(false)
-        applyTokens()
     }
 
     @available(*, unavailable)
@@ -256,25 +284,7 @@ final class OnboardingGradientView: NSView {
     override func layout() {
         super.layout()
         Tokens.Motion.immediately {
-            wash.frame = bounds
-            content.frame = bounds
+            for view in [plane, wash, content] { view.frame = bounds }
         }
-    }
-
-    /// The pair at full strength, taken a quarter of the way back toward the
-    /// content plane. Neat, it is a slab of colour the size of half a window —
-    /// louder than anything else Luna draws, and this is a page somebody reads.
-    private func applyTokens() {
-        let stops = Tokens.Gradient.planes(.defaultSpace, at: .full, in: effectiveAppearance)
-        let plane = Tokens.Surface.base
-        wash.colors = [
-            stops.start.blended(toward: plane, fraction: 0.25, in: effectiveAppearance).cgColor,
-            stops.end.blended(toward: plane, fraction: 0.25, in: effectiveAppearance).cgColor
-        ]
-    }
-
-    override func viewDidChangeEffectiveAppearance() {
-        super.viewDidChangeEffectiveAppearance()
-        applyTokens()
     }
 }

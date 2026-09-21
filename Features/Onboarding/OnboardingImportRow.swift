@@ -36,6 +36,12 @@ final class OnboardingImportRow: NSView {
 
     enum State { case idle, running, done, failed }
 
+    /// The chosen card's material. §2's clear glass, the finish the URL pill
+    /// wears, faded in over the plate the other cards keep: a tick alone is a
+    /// mark you have to look for, and the pointer's own wash was already
+    /// `Surface.selected` — so hovering an unpicked card and picking one
+    /// looked identical.
+    private let glass = Glass.backing(.control, cornerRadius: OnboardingMetrics.rowRadius)
     private let icon = NSImageView()
     private let name = NSTextField(labelWithString: "")
     private let reason = NSTextField(labelWithString: "")
@@ -64,7 +70,9 @@ final class OnboardingImportRow: NSView {
         reason.stringValue = source.unavailableReason ?? ""
         reason.font = Tokens.TypeScale.settingsCaption
         reason.lineBreakMode = .byWordWrapping
-        reason.maximumNumberOfLines = 2
+        // Three, because the card is narrower than it was: Safari's reason —
+        // the only one a user can act on — stopped mid-sentence at two.
+        reason.maximumNumberOfLines = 3
         reason.isHidden = source.isAvailable
 
         mark.wantsLayer = true
@@ -83,7 +91,8 @@ final class OnboardingImportRow: NSView {
         spinner.controlSize = .small
         spinner.isDisplayedWhenStopped = false
 
-        for view in [icon, name, reason, mark, check, spinner] as [NSView] { addSubview(view) }
+        glass.alphaValue = 0
+        for view in [glass, icon, name, reason, mark, check, spinner] as [NSView] { addSubview(view) }
         setAccessibilityElement(true)
         setAccessibilityRole(.checkBox)
         setAccessibilityLabel(source.source.displayName)
@@ -108,6 +117,7 @@ final class OnboardingImportRow: NSView {
     override func layout() {
         super.layout()
         Tokens.Motion.immediately {
+            glass.frame = bounds
             let inset = Tokens.Metric.chromeGapWide
             let side = OnboardingMetrics.rowIcon
             icon.frame = NSRect(
@@ -162,6 +172,9 @@ final class OnboardingImportRow: NSView {
         reason.textColor = Tokens.Text.tertiary
         icon.alphaValue = source.isAvailable ? 1 : 0.35
         mark.isHidden = !source.isAvailable || state == .running
+        // The tick is a second view over the circle, so hiding the circle for
+        // the spinner left the two drawn on top of each other.
+        check.isHidden = mark.isHidden
         spinner.isHidden = state != .running
         if state == .running { spinner.startAnimation(nil) } else { spinner.stopAnimation(nil) }
     }
@@ -170,13 +183,14 @@ final class OnboardingImportRow: NSView {
         // A browser that cannot be imported carries no plate at all: with
         // three installed and eight not, a list where every row is a card is a
         // wall with the answer hidden in it.
-        guard source.isAvailable else { return .clear }
-        if isChosen { return Tokens.Surface.selected }
+        guard source.isAvailable, !isChosen else { return .clear }
         return isPressed || isHovering ? Tokens.Surface.selected : Tokens.Surface.hover
     }
 
     private func refresh() {
-        Tokens.Motion.animate(Tokens.Motion.controlHover) { _ in
+        Tokens.Motion.animate(Tokens.Motion.controlHover) { context in
+            context.allowsImplicitAnimation = true
+            glass.animator().alphaValue = isChosen ? 1 : 0
             self.needsDisplay = true
             self.displayIfNeeded()
         }
@@ -207,6 +221,16 @@ final class OnboardingImportRow: NSView {
     /// takes the press for `isMovableByWindowBackground` before the control
     /// ever sees it.
     override var mouseDownCanMoveWindow: Bool { false }
+
+    /// The whole card is the target. Its name and its reason are
+    /// `NSTextField`s, and a label answers `hitTest` for its own rectangle —
+    /// so the pointer aimed at "Arc", which is the middle of the card and the
+    /// obvious place to aim, landed on a control that is not one and the tick
+    /// did not move. Everything inside is decoration.
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard let superview else { return nil }
+        return bounds.contains(convert(point, from: superview)) ? self : nil
+    }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()

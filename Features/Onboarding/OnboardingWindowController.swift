@@ -20,6 +20,11 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
     private let importer: BrowserImporter
     private let sources: [DetectedSource]
     private var onClose: (() -> Void)?
+    /// §7.7's one owner of a window button's frame, held for the window's
+    /// lifetime: AppKit resets the origins on every resize, and first run was
+    /// the one window in Luna wearing the system's corner inset instead of
+    /// `trafficLightInset`.
+    private var lights: TrafficLightLayoutManager?
     /// The import has run — whatever it wrote is in the store and the live
     /// session has not heard about it.
     var onImportFinished: (() -> Void)?
@@ -30,7 +35,7 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
         let installed = sources.filter { OnboardingImportList.isInstalled($0.source) }
         self.sources = installed
         importer = BrowserImporter(store: store)
-        view = OnboardingView(sources: installed)
+        view = OnboardingView(sources: installed, preferring: OnboardingImportList.systemDefault())
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: OnboardingMetrics.size),
             styleMask: [.titled, .closable, .fullSizeContentView],
@@ -40,12 +45,27 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
-        window.standardWindowButton(.miniaturizeButton)?.isHidden = true
-        window.standardWindowButton(.zoomButton)?.isHidden = true
-        window.contentView = view
+        // Non-opaque, or the right pane's glass has nothing behind the window
+        // to sample and reads as a flat plate — and `WindowRootView`'s corner
+        // is the window's only because the system's own mask is rounder.
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        // All three, and two of them dim: the style mask carries neither
+        // `.miniaturizable` nor `.resizable`, so AppKit greys them itself.
+        // Hiding them instead would leave one circle where every other Luna
+        // window — and the reference — has three, and
+        // `TrafficLightLayoutManager` owns `isHidden` as well as the origins.
+        let root = WindowRootView(frame: NSRect(origin: .zero, size: OnboardingMetrics.size))
+        view.frame = root.bounds
+        view.autoresizingMask = [.width, .height]
+        root.addSubview(view)
+        window.contentView = root
         window.center()
         super.init(window: window)
         window.delegate = self
+        // `.topBar` is the state that means "no sidebar to sit in, one inset
+        // from both edges" — which is where every other Luna window puts them.
+        lights = TrafficLightLayoutManager(pinningLightsIn: window)
         view.onFinished = { [weak self] in self?.finish() }
         view.onImportRequested = { [weak self] chosen in self?.runImport(chosen) }
     }
