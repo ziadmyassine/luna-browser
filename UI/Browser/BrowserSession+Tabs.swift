@@ -118,20 +118,34 @@ extension BrowserSession {
 
     /// §6.4 / §9.2: pull one specific tab back out of the archive.
     ///
-    /// - Parameter resumingSession: whether the tab comes back where it was
-    ///   left — its back/forward list and its scroll position, which is what
-    ///   `interactionState` carries. True for the two gestures that mean
-    ///   "reopen the tab I closed" (`⌘⇧T` and §11's list), and false for §9's
-    ///   Command Bar.
+    /// - Parameter resumingSession: whether the tab comes back the way it was
+    ///   put away — where the page was left, and where the row was filed. True
+    ///   for the two gestures that mean "reopen the tab I closed" (`⌘⇧T` and
+    ///   §11's list), and false for §9's Command Bar.
     ///
     ///   The bar is an address bar: its rows are places, and the archive's rows
     ///   sit in the same list as history's and look like them. Choosing one and
     ///   landing half way down the page you were on last week is the session
     ///   resuming behind a gesture that never asked for it. Same tab, same
-    ///   Space, same name; it simply starts at the top of the page.
+    ///   Space, same name; it simply starts at the top of the page, in today's
+    ///   tabs.
     func unarchiveTab(_ id: UUID, resumingSession: Bool = true) {
         guard var tab = archived.first(where: { $0.id == id }) else { return }
-        if !resumingSession { tab.interactionState = nil }
+        guard resumingSession else {
+            // And it comes back loose, as a tab of the day. Where a tab was
+            // filed is not part of the address: a page closed out of a §3.4b
+            // folder was put in one on purpose, and typing its name again is
+            // asking for the page, not for the folder to be re-stocked. Put
+            // back in it, the answer arrived dimmed, two levels in, and one
+            // press from being let go — which is the state the user had just
+            // finished putting it in.
+            tab.interactionState = nil
+            let wasKept = tab.kind.keepsTabWhenPageCloses
+            tab.kind = .today
+            tab.groupID = nil
+            restoreArchived(Self.keepingWhatItIsFor(tab, wasKept: wasKept), at: TabList.openIndex(for: .today))
+            return
+        }
         restoreArchived(tab, at: TabList.openIndex(for: tab.kind))
     }
 

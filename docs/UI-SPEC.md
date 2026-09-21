@@ -1217,6 +1217,14 @@ new tab, and history's own row is what gives them one. Closing the page of the l
 therefore leaves the Space with nothing selected, and §3.4's pill leaves with it: a fill
 still lying on the row is the next `⌘W` aimed at the row itself.
 
+**And the bar hands back a page, not the filing it was in.** A fourth path did the same thing
+from the other end: a tab closed out of a folder is archived *with its `groupID`*, and §9.2's
+*Reopen* put it back into the folder — dimmed, two levels in, one press from being let go,
+which is the state the user had just finished putting it in. `⌘⇧T` and §11's list still mean
+undo and still put a tab back exactly where it was taken from; the bar's rows are places, so
+one chosen there comes back the way any other address from the bar does — a tab of the day, on
+its own, at the top of its page.
+
 **A group is one row with its tabs under it.** It has a name and an icon the user picked, a
 chevron that says which way it is folded, and a §3.4-shaped row exactly like a tab's — same
 pitch, same pill, same hover and selection fills. Its tabs step in by `groupIndent` (16 pt, a favicon's own
