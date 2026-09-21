@@ -1,0 +1,110 @@
+//
+//  SidebarRowView+Rename.swift
+//  Luna
+//
+//  §3.4b's rename, typed on the row itself rather than asked for in a sheet.
+//
+//  A folder arrives with no name worth keeping — it is made by a right-click
+//  and it has to be called something — so the first thing every new one needs
+//  is a name. A dialog for that puts a window in front of the list the folder
+//  has just appeared in, and the answer goes to a row the user can no longer
+//  see. Typing on the row is the same act with nothing in front of it, and it
+//  is what renaming a folder looks like everywhere else on the system.
+//
+//  The field is hidden except while it is being typed into. It is not a second
+//  title: the row draws its name the way every other row draws one, and this
+//  comes out on top for the length of the edit.
+//
+
+import AppKit
+
+extension SidebarRowView: NSTextFieldDelegate {
+
+    /// Set up once, in the initialiser. Borderless and unpainted, because the
+    /// row is already wearing §3.4's selected pill and a bezel inside it would
+    /// be a box inside a box.
+    func prepareEditor() {
+        editor.isHidden = true
+        editor.isBezeled = false
+        editor.isBordered = false
+        editor.drawsBackground = false
+        editor.focusRingType = .none
+        editor.font = Tokens.TypeScale.sidebarRow
+        editor.textColor = Tokens.Text.primary
+        editor.lineBreakMode = .byClipping
+        editor.cell?.usesSingleLineMode = true
+        editor.delegate = self
+        editor.target = self
+        editor.action = #selector(editorCommitted)
+    }
+
+    /// The field's box: one line tall, from the title's own left edge out to the
+    /// pill's inner one.
+    ///
+    /// Not the title's box, which is what it draws over. A title is laid out at
+    /// the width it needs and faded where it runs out; a name being typed is
+    /// longer than the name that fitted, and a field cut to the old one would
+    /// scroll its own text under the caret for no reason.
+    func placeEditor(startingAt x: CGFloat) {
+        let height = editor.intrinsicContentSize.height
+        editor.frame = NSRect(
+            x: x,
+            y: (bounds.height - height) / 2,
+            width: max(bounds.width - 2 * Tokens.Metric.rowInset - x, 0),
+            height: height
+        ).integral
+    }
+
+    /// Opens the field on this row's own name, with the whole of it selected so
+    /// the first keystroke replaces it.
+    func beginEditing(_ name: String) {
+        guard let window else { return }
+        editor.stringValue = name
+        editor.isHidden = false
+        needsLayout = true
+        // Laid out before the field takes focus: the field editor copies the
+        // frame it finds, so a field still at its old size shows the caret in
+        // the wrong place for the length of the edit.
+        layoutSubtreeIfNeeded()
+        window.makeFirstResponder(editor)
+        editor.currentEditor()?.selectAll(nil)
+    }
+
+    /// Takes the field away. `commit` false is Escape and every path that is not
+    /// the user saying yes — the row keeps the name it already had.
+    func endEditing(commit: Bool) {
+        guard !editor.isHidden else { return }
+        let typed = editor.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        editor.isHidden = true
+        // The list gets the focus back, or the whole window has none: the field
+        // is about to stop existing as far as the responder chain is concerned,
+        // and a window with no first responder swallows the next arrow key.
+        if editor.currentEditor() != nil { window?.makeFirstResponder(superview) }
+        guard commit, !typed.isEmpty else { return }
+        onRename?(typed)
+    }
+
+    @objc
+    private func editorCommitted() {
+        endEditing(commit: true)
+    }
+
+    /// Escape abandons the edit. Return is `action`'s, and Tab is left to
+    /// AppKit — a row is not a form, so there is nothing to move on to.
+    public func control(
+        _ control: NSControl,
+        textView: NSTextView,
+        doCommandBy selector: Selector
+    ) -> Bool {
+        guard selector == #selector(NSResponder.cancelOperation(_:)) else { return false }
+        endEditing(commit: false)
+        return true
+    }
+
+    /// Clicking away commits, which is what a name typed and then left alone
+    /// means. Guarded on the field still being up: `endEditing` resigns first
+    /// responder itself, and that comes back through here.
+    public func controlTextDidEndEditing(_ notification: Notification) {
+        endEditing(commit: true)
+    }
+}

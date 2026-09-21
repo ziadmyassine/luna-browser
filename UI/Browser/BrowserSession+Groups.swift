@@ -73,6 +73,10 @@ extension BrowserSession {
         for member in members { gather(member.id, into: group) }
         registerUndo("New Group") { $0.ungroup(group.id) }
         notifyChange()
+        // After the column has the row, never before: what this is for is the
+        // name field opening on it, and a field cannot open on a row that has
+        // not been built yet.
+        onGroupCreated?(group.id)
         return group.id
     }
 

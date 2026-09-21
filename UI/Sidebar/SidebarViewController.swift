@@ -381,6 +381,13 @@ final class SidebarViewController: NSViewController {
         list.onAddTab = { [weak self] in self?.session.presentCommandBar?(.newTab, nil) }
         list.menuActions = { [weak self] id in self?.session.tabMenuActions(for: id) }
         list.groupMenuActions = { [weak self] id in self?.session.groupMenuActions(for: id) }
+        // §3.4b: a folder is made empty and named on its own row. The session
+        // says when the row exists; the column is what opens the field on it.
+        list.onNewGroup = { [weak self] in
+            self?.session.createGroup(name: BrowserSession.untitledGroupName)
+        }
+        list.onRenameGroup = { [weak self] id, name in self?.session.renameGroup(id, to: name) }
+        session.onGroupCreated = { [weak self] id in self?.list.beginRenaming(group: id) }
         // §3.4b: folding is a fact about the group, so it goes through the
         // session and comes back as a change like any other. The rows are
         // diffed, which is what makes the tabs fade out rather than vanish.

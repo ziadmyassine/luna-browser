@@ -99,6 +99,11 @@ struct SidebarList: Equatable, Sendable {
     /// which half of which row it is on; this is keyed the same way.
     private let above: [SidebarDestination]
     private let below: [SidebarDestination]
+    /// Per row, where the gap opens for a drop above and below its midpoint.
+    /// Its own pair rather than `row + 1` arithmetic, because the block the
+    /// rule and New Tab make has no inside — see the initialiser.
+    private let gapAbove: [Int]
+    private let gapBelow: [Int]
 
     init(saved: [SidebarSlot] = [], today: [SidebarSlot] = [], essentials: [Tab] = [], revealingSaved: Bool = false) {
         self.essentials = essentials
@@ -108,11 +113,22 @@ struct SidebarList: Equatable, Sendable {
         build.emit(saved, kind: .pinned)
         let savedEnd = SidebarDestination(kind: .pinned, groupID: nil, index: saved.count)
         if showsRule {
-            // Both halves of the rule mean the saved tier. It *is* the bottom of
-            // it, and a lift hovering there is asking to be kept.
-            build.add(.separator, above: savedEnd, below: savedEnd)
+            // The rule and New Tab are one block: both rows mean the saved tier
+            // at both halves, and both open their gap at the block's top edge.
+            //
+            // Two things follow, and both are the point. Nothing can be dropped
+            // between the rule and New Tab, so the command row never drifts off
+            // the rule it belongs to while a lift goes past. And the saved
+            // tier's target is the whole block rather than a hairline, which is
+            // the difference between aiming at a row and aiming at a line. The
+            // head of today's tabs is still reachable — from the top half of
+            // the first of them, or from the foot of an empty list.
+            let head = build.rows.count
+            build.add(.separator, above: savedEnd, below: savedEnd, gap: head)
+            build.add(.addTab, above: savedEnd, below: savedEnd, gap: head)
+        } else {
+            build.add(.addTab, above: savedEnd, below: SidebarDestination(kind: .today, groupID: nil, index: 0))
         }
-        build.add(.addTab, above: savedEnd, below: SidebarDestination(kind: .today, groupID: nil, index: 0))
         build.emit(today, kind: .today)
 
         savedSlots = saved
@@ -120,6 +136,8 @@ struct SidebarList: Equatable, Sendable {
         rows = build.rows
         above = build.above
         below = build.below
+        gapAbove = build.gapAbove
+        gapBelow = build.gapBelow
         listed = build.listed
         groupsByID = build.groupsByID
         memberDepth = build.memberDepth
@@ -218,10 +236,14 @@ struct SidebarList: Equatable, Sendable {
         (kind == .pinned ? savedSlots : todaySlots).firstIndex { $0.groupID == id }
     }
 
-    /// Row index a drag should snap its gap to when it is over `row`'s upper or
-    /// lower half — AppKit reports the row under the pointer, not the gap.
-    static func insertionRow(forRow row: Int, isBelowMidpoint: Bool) -> Int {
-        max(row + (isBelowMidpoint ? 1 : 0), 0)
+    /// Row index a drag snaps its gap to when it is over `row`'s upper or lower
+    /// half — AppKit reports the row under the pointer, not the gap between two.
+    ///
+    /// Deliberately not `row + 1` for a lower half: a gap inside the rule and
+    /// New Tab block would be a tab landing where no tab may go.
+    func gapRow(forRow row: Int, isBelowMidpoint: Bool) -> Int {
+        guard rows.indices.contains(row) else { return rows.count }
+        return isBelowMidpoint ? gapBelow[row] : gapAbove[row]
     }
 }
 
@@ -235,14 +257,27 @@ private struct Build {
     var rows: [SidebarRow] = []
     var above: [SidebarDestination] = []
     var below: [SidebarDestination] = []
+    var gapAbove: [Int] = []
+    var gapBelow: [Int] = []
     var listed: [Tab] = []
     var groupsByID: [UUID: TabGroup] = [:]
     var memberDepth: [UUID: UUID] = [:]
 
-    mutating func add(_ row: SidebarRow, above: SidebarDestination, below: SidebarDestination) {
+    /// - Parameter gap: the one row both halves open their gap at, for a row
+    ///   that is part of a block. Ordinary rows take the gap above and below
+    ///   themselves, which is what an index in a flat list means.
+    mutating func add(
+        _ row: SidebarRow,
+        above: SidebarDestination,
+        below: SidebarDestination,
+        gap: Int? = nil
+    ) {
+        let index = rows.count
         rows.append(row)
         self.above.append(above)
         self.below.append(below)
+        gapAbove.append(gap ?? index)
+        gapBelow.append(gap ?? index + 1)
     }
 
     mutating func emit(_ slots: [SidebarSlot], kind: TabKind) {

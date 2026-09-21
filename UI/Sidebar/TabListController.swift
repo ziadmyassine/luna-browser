@@ -40,6 +40,10 @@ final class TabListController: NSObject {
     var onToggleGroup: ((UUID) -> Void)?
     /// §3.4b's group menu, bound to one group — `BrowserSession.groupMenuActions(for:)`.
     var groupMenuActions: ((UUID) -> GroupMenu.Actions?)?
+    /// §3.4b: a right-click on the column's empty plane asked for a folder.
+    var onNewGroup: (() -> Void)?
+    /// §3.4b: a folder's name was typed on its own row and confirmed.
+    var onRenameGroup: ((UUID, String) -> Void)?
     /// §3.4a's menu, bound to one tab — `BrowserSession.tabMenuActions(for:)`. Nil leaves
     /// the rows with no context menu rather than a shorter one: a second, smaller answer
     /// to the same right-click is exactly what §3.4a exists to avoid.

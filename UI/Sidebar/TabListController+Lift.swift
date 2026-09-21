@@ -28,7 +28,9 @@ extension TabListController {
     /// The two are answered together because they come from one reading of the
     /// pointer — which row, and which half of it. Rows are split at their
     /// midpoint; above the first row is the head of the saved tier, which since
-    /// §3.4b is a place a tab can go.
+    /// §3.4b is a place a tab can go. The gap row is the list's answer rather
+    /// than this file's arithmetic, because the rule and New Tab are one block
+    /// and only the list knows where its rows begin and end.
     func landing(atY centreY: CGFloat, in space: NSView) -> (row: Int, destination: SidebarDestination) {
         let point = table.convert(NSPoint(x: table.bounds.midX, y: centreY), from: space)
         let row = table.row(at: point)
@@ -42,7 +44,7 @@ extension TabListController {
         }
         let below = point.y > table.rect(ofRow: row).midY
         return (
-            SidebarList.insertionRow(forRow: row, isBelowMidpoint: below),
+            list.gapRow(forRow: row, isBelowMidpoint: below),
             list.destination(forRow: row, isBelowMidpoint: below)
         )
     }

@@ -1131,10 +1131,20 @@ chevron's slot) and a hairline runs down the space that opens, descending from t
 it belongs to. A member's favicon therefore lands directly under its group's icon: one
 column with a heading on it.
 
-- **Made from the tab menu**, `Add to Group ▸ New Group…`, in one dialog that asks for the
-  name and the icon together. A tab arrives already named by its page and already wearing a
-  favicon, so §3.4a's *Rename…* and *Change Icon…* are each a correction; a group arrives as
-  nothing at all, and two sheets for one act is one too many. A blank name makes no group.
+- **Called a folder everywhere the user can read it.** "Group" is what the code calls the
+  type and what this section is named after; the menus say *New Folder*, *Add to Folder*,
+  *Save Folder*. A folder is what the thing already looks like — a named row with an icon
+  and items under it — and it is the word the feature was asked for in.
+- **Made empty, and named on its own row.** Right-click the column's empty plane for
+  *New Folder*, or `Add to Folder ▸ New Folder` on a tab to make one around it. Either way
+  the folder appears immediately and its name field opens on the row with the placeholder
+  name selected, so the first keystroke is the name. No dialog: a sheet for this puts a
+  window in front of the list the folder has just appeared in and asks about a row the user
+  can no longer see. Escape leaves it called *New Folder* — a name nobody chose still beats
+  a row that cannot be told from any other.
+- **Renamed the same way, and re-iconned from a submenu.** The folder menu's *Rename* opens
+  that same field; *Change Icon ▸* lists the sixteen with the current one ticked. Neither
+  carries an ellipsis, because neither opens anything before it commits.
 - **The fold is persisted.** A group the user put away and found open again the next morning
   has lost the only thing folding it was for. Folding is a row diff like any other, so the
   tabs fade over §6's `tabInsert` rather than blinking out.
@@ -1148,6 +1158,20 @@ column with a heading on it.
   That is what makes moving either of them renumber both — a `[Tab]` return from the ordering
   layer would have left a group's index behind on disk and the arrangement after a relaunch
   would not have been the one on screen.
+
+**The rule and `New Tab` are one block.** Nothing can be dropped between them: both rows
+mean the saved tier at both halves and both open their gap above the rule, so the command
+row never drifts off the line it belongs to while a lift goes past. It also makes the saved
+tier's drop target the whole block rather than a hairline — the difference between aiming at
+a row and aiming at a line — and the head of today's tabs is reached from the top half of
+the first of them instead.
+
+**The rule appears with the tier, not with the list.** With nothing saved there is no bottom
+to mark, so there is no rule and the column starts at `New Tab`. A drag is the exception: it
+comes out for the length of one, because a zone you cannot see is a zone you cannot aim at.
+The §30.9 Space-swipe still is built from `SidebarList.rows` for exactly this reason — a
+still with its own idea of the head drew a rule that was both in the wrong place and always
+there, appearing for the length of a swipe and vanishing when the real column arrived.
 
 **The saved tier is the run above the rule, and what makes it saved is what closing does.**
 A saved tab — loose, or inside a saved group — takes **two presses** to let go:

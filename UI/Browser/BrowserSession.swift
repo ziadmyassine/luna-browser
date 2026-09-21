@@ -112,6 +112,11 @@ final class BrowserSession {
     /// above exists. New code registers.
     var onChange: (() -> Void)?
     var onTabStateChange: ((UUID, TabState) -> Void)?
+    /// A §3.4b folder has just been made and its row is on screen. One slot, not
+    /// an observer list: there is exactly one thing to do with a folder that has
+    /// no name yet, which is open its name field, and exactly one column drawing
+    /// the row to open it on.
+    var onGroupCreated: ((UUID) -> Void)?
 
     private var changeObservers: [UUID: () -> Void] = [:]
     private var tabStateObservers: [UUID: (UUID, TabState) -> Void] = [:]

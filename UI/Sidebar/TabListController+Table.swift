@@ -56,6 +56,10 @@ extension TabListController: NSTableViewDelegate {
             guard let self, let view, case let .group(id)? = list[table.row(for: view)] else { return }
             onToggleGroup?(id)
         }
+        view.onRename = { [weak self, weak view] name in
+            guard let self, let view, case let .group(id)? = list[table.row(for: view)] else { return }
+            onRenameGroup?(id, name)
+        }
         return view
     }
 
@@ -153,10 +157,11 @@ final class SidebarTableView: NSTableView {
     var onLayout: (() -> Void)?
     /// The row under the pointer, or nil when the pointer left the list.
     var onHover: ((Int?) -> Void)?
-    /// Right-click on a row. Built on demand, and deliberately not through
+    /// Right-click on a row, or — with nil — on the column's empty plane below
+    /// the last one. Built on demand, and deliberately not through
     /// `NSTableView.menu`: a single menu on the table cannot know which row it
     /// was summoned from, and a menu per row view dies with the recycled view.
-    var onContextMenu: ((Int) -> NSMenu?)?
+    var onContextMenu: ((Int?) -> NSMenu?)?
 
     override var acceptsFirstResponder: Bool { true }
 
@@ -184,10 +189,13 @@ final class SidebarTableView: NSTableView {
         onRowPress(row, event)
     }
 
+    /// The plane below the last row answers too, and has to: a folder made out
+    /// of nothing needs somewhere to be asked for, and the empty part of the
+    /// column is the only surface in §3.4 that belongs to the list as a whole
+    /// rather than to one row of it.
     override func menu(for event: NSEvent) -> NSMenu? {
         let row = row(at: convert(event.locationInWindow, from: nil))
-        guard row >= 0 else { return super.menu(for: event) }
-        return onContextMenu?(row) ?? super.menu(for: event)
+        return onContextMenu?(row < 0 ? nil : row) ?? super.menu(for: event)
     }
 
     override func becomeFirstResponder() -> Bool {

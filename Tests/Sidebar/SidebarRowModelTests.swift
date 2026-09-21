@@ -104,11 +104,11 @@ final class SidebarRowModelTests: XCTestCase {
 
         XCTAssertEqual(list.destination(forRow: 0, isBelowMidpoint: false), .init(kind: .pinned, index: 0))
         XCTAssertEqual(list.destination(forRow: 0, isBelowMidpoint: true), .init(kind: .pinned, index: 1))
-        // The rule and the command both mean the foot of the saved tier above
-        // them; below the command is the head of today's.
+        // The rule and the command are one block and the whole of it is the
+        // foot of the saved tier — see `testNothingLandsBetweenTheRuleAndNewTab`.
         XCTAssertEqual(list.destination(forRow: 1, isBelowMidpoint: true), .init(kind: .pinned, index: 1))
         XCTAssertEqual(list.destination(forRow: 2, isBelowMidpoint: false), .init(kind: .pinned, index: 1))
-        XCTAssertEqual(list.destination(forRow: 2, isBelowMidpoint: true), .init(kind: .today, index: 0))
+        XCTAssertEqual(list.destination(forRow: 2, isBelowMidpoint: true), .init(kind: .pinned, index: 1))
         // Over the header is before the group; under it is inside, at the top.
         XCTAssertEqual(list.destination(forRow: 3, isBelowMidpoint: false), .init(kind: .today, index: 0))
         XCTAssertEqual(
@@ -213,10 +213,46 @@ final class SidebarRowModelTests: XCTestCase {
 
     /// AppKit reports the row under the pointer; a drop belongs in the gap
     /// below it once the pointer is past the midpoint.
-    func testInsertionRowFollowsTheMidpoint() {
-        XCTAssertEqual(SidebarList.insertionRow(forRow: 0, isBelowMidpoint: false), 0)
-        XCTAssertEqual(SidebarList.insertionRow(forRow: 4, isBelowMidpoint: false), 4)
-        XCTAssertEqual(SidebarList.insertionRow(forRow: 4, isBelowMidpoint: true), 5)
+    func testTheGapFollowsTheMidpoint() {
+        // saved tab, rule, New Tab, then three of today's.
+        let list = SidebarList(saved: [.tab(tab(.pinned, "Kept"))], today: (0 ..< 3).map { .tab(tab(.today, "T\($0)")) })
+
+        XCTAssertEqual(list.gapRow(forRow: 0, isBelowMidpoint: false), 0)
+        XCTAssertEqual(list.gapRow(forRow: 4, isBelowMidpoint: false), 4)
+        XCTAssertEqual(list.gapRow(forRow: 4, isBelowMidpoint: true), 5)
+    }
+
+    /// §3.4b: the rule and New Tab are one block, so no half of either opens a
+    /// gap between them — both open it above the rule. A tab dropped there is
+    /// dropped on the saved tier, which is what the whole block now means.
+    func testNothingLandsBetweenTheRuleAndNewTab() throws {
+        let list = SidebarList(saved: [.tab(tab(.pinned, "Kept"))], today: [.tab(tab(.today, "Loose"))])
+        let rule = try XCTUnwrap(list.rows.firstIndex(of: .separator))
+        let addTab = try XCTUnwrap(list.rows.firstIndex(of: .addTab))
+        XCTAssertEqual(addTab, rule + 1, "the block is the two of them, in that order")
+
+        for row in [rule, addTab] {
+            for half in [true, false] {
+                XCTAssertEqual(list.gapRow(forRow: row, isBelowMidpoint: half), rule)
+                XCTAssertEqual(list.destination(forRow: row, isBelowMidpoint: half).kind, .pinned)
+            }
+        }
+        // The head of today's tabs is still reachable — from the first of them.
+        XCTAssertEqual(list.gapRow(forRow: addTab + 1, isBelowMidpoint: false), addTab + 1)
+        XCTAssertEqual(
+            list.destination(forRow: addTab + 1, isBelowMidpoint: false),
+            SidebarDestination(kind: .today, groupID: nil, index: 0)
+        )
+    }
+
+    /// With nothing saved and no lift up there is no rule, so there is no block
+    /// either: New Tab's two halves are the two tiers, as they were before §3.4b.
+    func testWithoutTheRuleNewTabStillDividesTheTwoTiers() throws {
+        let list = SidebarList(today: [.tab(tab(.today, "Loose"))])
+        XCTAssertFalse(list.showsRule)
+        let addTab = try XCTUnwrap(list.rows.firstIndex(of: .addTab))
+        XCTAssertEqual(list.destination(forRow: addTab, isBelowMidpoint: false).kind, .pinned)
+        XCTAssertEqual(list.destination(forRow: addTab, isBelowMidpoint: true).kind, .today)
     }
 
     /// §3.4's rows fall back to `URLPillView.domain` when a tab has no title

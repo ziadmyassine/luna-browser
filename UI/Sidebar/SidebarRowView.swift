@@ -82,6 +82,11 @@ final class SidebarRowView: NSView {
     /// The §3.4b chevron was pressed — fold this group, or open it.
     var onDisclosure: (() -> Void)?
 
+    /// A §3.4b folder's name was typed and confirmed. Not called for Escape,
+    /// and not called for a name that is only whitespace: both mean the folder
+    /// keeps the name it had.
+    var onRename: ((String) -> Void)?
+
     var isSelected = false { didSet { refreshInk() } }
     var isHovered = false { didSet { refreshInk() } }
     /// §6.6: a lift is aimed inside this §3.4b group. The one feedback a folded
@@ -110,6 +115,9 @@ final class SidebarRowView: NSView {
     private let shimmerMask = CAGradientLayer()
     private let fadeMask = CAGradientLayer()
     private let trailing = RowGlyphView()
+    /// §3.4b's rename, typed on the row itself. Hidden until it is asked for —
+    /// see `SidebarRowView+Rename.swift`, which is the rest of it.
+    let editor = NSTextField()
     private var content = SidebarRowContent()
 
     override init(frame frameRect: NSRect) {
@@ -164,7 +172,8 @@ final class SidebarRowView: NSView {
         outline.layer?.cornerRadius = Tokens.Metric.rowCornerRadius
         outline.layer?.cornerCurve = .continuous
 
-        for view in [outline, spine, icon, dot, titleClip, chevron, trailing] { addSubview(view) }
+        prepareEditor()
+        for view in [outline, spine, icon, dot, titleClip, chevron, trailing, editor] { addSubview(view) }
         setAccessibilityElement(true)
         setAccessibilityRole(.cell)
     }
@@ -303,6 +312,11 @@ final class SidebarRowView: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? {
         let local = convert(point, from: superview)
         guard bounds.contains(local) else { return nil }
+        // The field first, and the whole row while it is up: a press anywhere
+        // on a row being renamed belongs to the text, not to the list. Clicking
+        // past the end of a short name to put the caret there is the gesture
+        // every rename in every list has.
+        if !editor.isHidden { return editor }
         if !trailing.isHidden, trailing.frame.contains(local) { return trailing }
         if !chevron.isHidden, chevron.frame.contains(local) { return chevron }
         return self
@@ -385,6 +399,7 @@ final class SidebarRowView: NSView {
             height: height
         ).integral
         titleClip.frame = box
+        placeEditor(startingAt: box.minX)
 
         // Laid out at their natural width so nothing truncates; the clip box
         // and `fade` are what end the line.

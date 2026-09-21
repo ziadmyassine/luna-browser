@@ -48,10 +48,11 @@ enum TabMenu {
         var unpin: () -> Void
         /// §3.4b: across the rule, or back under it.
         var setSaved: (Bool) -> Void
-        /// §3.4b: into that group, or — with nil — out of whatever group it is in.
+        /// §3.4b: into that folder, or — with nil — out of whatever folder it is in.
         var setGroup: (UUID?) -> Void
-        /// §3.4b: a new group around this tab, named and iconned in one dialog.
-        var newGroup: (String, String) -> Void
+        /// §3.4b: a new folder around this tab. It takes no name, because the
+        /// name is typed on the folder's own row the moment it appears.
+        var newGroup: () -> Void
         var duplicate: () -> Void
         /// Nil means "give the name back to the page".
         var rename: (String?) -> Void
@@ -61,8 +62,8 @@ enum TabMenu {
         var close: () -> Void
     }
 
-    /// - Parameter group: the §3.4b group this tab is already in, if any.
-    /// - Parameter others: every other group in the list, for the submenu that moves it.
+    /// - Parameter group: the §3.4b folder this tab is already in, if any.
+    /// - Parameter others: every other folder in the list, for the submenu that moves it.
     static func build(
         for tab: Tab,
         isMuted: Bool,
@@ -135,31 +136,33 @@ enum TabMenu {
 
     // MARK: - Items
 
-    /// §3.4b's *Add to Group*: the one that makes a new group, then the ones that
+    /// §3.4b's folder submenu: the one that makes a new folder, then the ones that
     /// already exist, then the way out of the one this tab is in.
     ///
     /// A submenu rather than a run of items in the main menu, because the number of
     /// entries is the user's rather than the design's — a menu that grows by one every
-    /// time somebody makes a group stops being scannable at about the fourth.
+    /// time somebody makes a folder stops being scannable at about the fourth.
     ///
-    /// It reads *Add to Group* for a loose tab and *Move to Group* for one that is
-    /// already in one, because those are different acts and the item says which.
+    /// It reads Add for a loose tab and Move for one that is already in a folder,
+    /// because those are different acts and the item says which.
+    ///
+    /// New Folder carries no ellipsis and asks nothing. The folder appears with the
+    /// tab already in it and its name field open on its own row, which is one fewer
+    /// window than a dialog and puts the answer where the thing being named is.
     private static func groupSubmenu(current: TabGroup?, others: [TabGroup], actions: Actions) -> NSMenuItem {
         let parent = NSMenuItem(
-            title: current == nil ? String(localized: "Add to Group") : String(localized: "Move to Group"),
+            title: current == nil ? String(localized: "Add to Folder") : String(localized: "Move to Folder"),
             action: nil,
             keyEquivalent: ""
         )
         parent.attributedTitle = SidebarMenu.label(symbol: "folder", title: parent.title)
         let submenu = NSMenu()
         submenu.autoenablesItems = false
-        submenu.addItem(item(String(localized: "New Group…"), symbol: "folder.badge.plus") {
-            GroupMenu.ask(
-                title: String(localized: "New group"),
-                confirm: String(localized: "Create"),
-                then: actions.newGroup
-            )
-        })
+        submenu.addItem(item(
+            String(localized: "New Folder"),
+            symbol: "folder.badge.plus",
+            action: actions.newGroup
+        ))
         if !others.isEmpty {
             submenu.addItem(.separator())
             for group in others {
@@ -168,7 +171,7 @@ enum TabMenu {
         }
         if current != nil {
             submenu.addItem(.separator())
-            submenu.addItem(item(String(localized: "Remove from Group"), symbol: "folder.badge.minus") {
+            submenu.addItem(item(String(localized: "Remove from Folder"), symbol: "folder.badge.minus") {
                 actions.setGroup(nil)
             })
         }

@@ -178,14 +178,14 @@ final class BrowserSessionTabMenuTests: XCTestCase {
         let menu = TabMenu.build(for: try XCTUnwrap(session.tab(id)), isMuted: false, actions: noActions)
 
         XCTAssertEqual(menu.items.map(Self.word), [
-            "Pin", "Save Tab", "", "Add to Group", "", "Duplicate", "",
+            "Pin", "Save Tab", "", "Add to Folder", "", "Duplicate", "",
             "Copy Link", "", "Rename…", "Change Icon…", "Mute Site", "", "Close"
         ])
         XCTAssertEqual(menu.items.filter(\.isSeparatorItem).count, 5)
     }
 
     /// §3.4b's two items are not on a §3.3 tile: a tile is already kept by a tier that
-    /// keeps it harder, and a group may not be pinned at all, so both would be offers to
+    /// keeps it harder, and a folder may not be pinned at all, so both would be offers to
     /// demote it.
     func testATileIsNotOfferedSavingOrGrouping() async throws {
         let session = try await makeSession()
@@ -194,10 +194,10 @@ final class BrowserSessionTabMenuTests: XCTestCase {
         let menu = TabMenu.build(for: try XCTUnwrap(session.tab(id)), isMuted: false, actions: noActions)
 
         XCTAssertFalse(menu.items.contains { Self.word($0) == "Save Tab" })
-        XCTAssertFalse(menu.items.contains { Self.word($0) == "Add to Group" })
+        XCTAssertFalse(menu.items.contains { Self.word($0) == "Add to Folder" })
     }
 
-    /// A saved tab is offered the way back out, and one already in a group is offered a
+    /// A saved tab is offered the way back out, and one already in a folder is offered a
     /// move rather than an add — the item says which act it is.
     func testTheWordingFollowsWhereTheTabAlreadyIs() async throws {
         let session = try await makeSession()
@@ -209,7 +209,7 @@ final class BrowserSessionTabMenuTests: XCTestCase {
 
         let group = TabGroup(spaceID: saved.spaceID, name: "Work")
         let moving = TabMenu.build(for: saved, isMuted: false, group: group, actions: noActions)
-        XCTAssertTrue(moving.items.contains { Self.word($0) == "Move to Group" })
+        XCTAssertTrue(moving.items.contains { Self.word($0) == "Move to Folder" })
     }
 
     func testMenuSaysUnpinOnATileAndUnmuteOnAMutedTab() async throws {
@@ -236,7 +236,7 @@ final class BrowserSessionTabMenuTests: XCTestCase {
 
     private var noActions: TabMenu.Actions {
         TabMenu.Actions(
-            pin: {}, unpin: {}, setSaved: { _ in }, setGroup: { _ in }, newGroup: { _, _ in },
+            pin: {}, unpin: {}, setSaved: { _ in }, setGroup: { _ in }, newGroup: {},
             duplicate: {}, rename: { _ in }, setIcon: { _ in }, setMuted: { _ in }, close: {}
         )
     }

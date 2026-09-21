@@ -60,37 +60,56 @@ final class SpacePreviewView: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
     /// - Parameters:
-    ///   - essentials: the Space's §3.3 tiles, in grid order.
-    ///   - listed: everything §3.4 puts in the scroll view, pinned tabs first —
-    ///     which is `SidebarList.listed`, the same order the real list uses.
+    ///   - column: the Space's list, built exactly as the real one is.
     ///   - icon: the favicon for a tab, from whichever cache the caller has —
     ///     the live session first, §4.7's on-disk store after it. Nil draws the
     ///     same placeholder a cold row draws.
-    func show(essentials: [Tab], listed: [Tab], gradient: GradientPair, icon: (Tab) -> NSImage?) {
+    ///
+    /// The still is drawn from `SidebarList.rows` rather than from a flat run of
+    /// tabs with a head bolted on. The head was written when §3.4 began with New
+    /// Tab and a rule under it; §3.4b put the rule *above* New Tab and takes it
+    /// away entirely for a Space with nothing saved, so a hard-coded head drew a
+    /// rule that was both in the wrong place and always there — one that
+    /// appeared for the length of a swipe and vanished when the real column
+    /// arrived. Asking the list means the still cannot disagree with it again,
+    /// and group headers come along for free.
+    func show(column: SidebarList, gradient: GradientPair, icon: (Tab) -> NSImage?) {
         wash.show(gradient)
         for tile in tiles { tile.removeFromSuperview() }
         for row in rows { row.removeFromSuperview() }
-        tiles = essentials.map { tab in
+        tiles = column.essentials.map { tab in
             let tile = SpacePreviewTile(icon: icon(tab))
             addSubview(tile)
             return tile
         }
-        // §3.4's own head: the one command and the rule that closes it off. The
-        // rows below have to start where the real list's rows start, or every
-        // title in the still is a row out from the title that replaces it.
-        let head: [NSView] = [
-            SpacePreviewRow(title: String(localized: "New Tab"), icon: Self.plus, isDimmed: true),
-            SpacePreviewRule()
-        ]
-        rows = head + listed.map { tab in
-            SpacePreviewRow(
-                title: tab.title.isEmpty ? (tab.url.host() ?? "") : tab.title,
-                icon: icon(tab),
-                isDimmed: false
-            )
-        }
+        rows = column.rows.indices.map { view(forRow: $0, in: column, icon: icon) }
         for row in rows { addSubview(row) }
         needsLayout = true
+    }
+
+    private func view(forRow row: Int, in column: SidebarList, icon: (Tab) -> NSImage?) -> NSView {
+        switch column.rows[row] {
+        case .separator:
+            return SpacePreviewRule()
+        case .addTab:
+            return SpacePreviewRow(title: String(localized: "New Tab"), icon: Self.plus, isDimmed: true)
+        case .group:
+            guard let group = column.group(at: row) else { return SpacePreviewRule() }
+            return SpacePreviewRow(
+                title: group.name,
+                icon: NSImage(systemSymbolName: group.symbolName, accessibilityDescription: nil),
+                isDimmed: true,
+                indent: Tokens.Metric.groupChevronSlot.width
+            )
+        case .tab:
+            guard let tab = column.tab(at: row) else { return SpacePreviewRule() }
+            return SpacePreviewRow(
+                title: tab.title.isEmpty ? (tab.url.host() ?? "") : tab.title,
+                icon: icon(tab),
+                isDimmed: false,
+                indent: column.group(ofTab: tab.id) == nil ? 0 : Tokens.Metric.groupIndent
+            )
+        }
     }
 
     private static let plus = NSImage(systemSymbolName: "plus", accessibilityDescription: nil)?
@@ -205,7 +224,10 @@ final class SpacePreviewRow: NSView {
     private let icon = NSImageView()
     private let title = NSTextField(labelWithString: "")
 
-    init(title text: String, icon image: NSImage?, isDimmed: Bool) {
+    private let indent: CGFloat
+
+    init(title text: String, icon image: NSImage?, isDimmed: Bool, indent: CGFloat = 0) {
+        self.indent = indent
         super.init(frame: .zero)
         icon.image = image ?? Self.placeholder
         icon.imageScaling = .scaleProportionallyUpOrDown
@@ -238,7 +260,7 @@ final class SpacePreviewRow: NSView {
         Tokens.Motion.immediately {
             let side = Tokens.Metric.faviconSize
             icon.frame = NSRect(
-                x: Tokens.Metric.rowFaviconInset,
+                x: Tokens.Metric.rowFaviconInset + indent,
                 y: (bounds.height - side) / 2,
                 width: side,
                 height: side
@@ -253,7 +275,8 @@ final class SpacePreviewRow: NSView {
             let column = SidebarRowView.titleColumn(
                 inRowOfWidth: bounds.width,
                 hasUnread: false,
-                slotOccupied: false
+                slotOccupied: false,
+                indent: indent
             )
             let height = title.intrinsicContentSize.height
             title.frame = NSRect(

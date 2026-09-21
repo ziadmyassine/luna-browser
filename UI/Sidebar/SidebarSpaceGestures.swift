@@ -232,8 +232,7 @@ final class SidebarSpaceGestures {
             essentials: target.map { session.list[$0.id].filter { $0.kind == .essential } } ?? []
         )
         preview.show(
-            essentials: column.essentials,
-            listed: column.listed,
+            column: column,
             gradient: target?.gradient ?? Tokens.Gradient.neutral,
             icon: { [weak session] tab in
                 if let image = session?.favicon(for: tab.id) { return image }

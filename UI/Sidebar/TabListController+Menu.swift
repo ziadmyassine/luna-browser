@@ -23,10 +23,17 @@ extension TabListController {
     /// was summoned from is already stale by the time an item fires — the menu is modal,
     /// and a background tab finishing a load can certainly have arrived by then; the id
     /// cannot drift.
-    func contextMenu(forRow row: Int) -> NSMenu? {
+    func contextMenu(forRow row: Int?) -> NSMenu? {
+        // The plane under the rows belongs to the list rather than to any one
+        // of them, so it is where a folder made out of nothing is asked for.
+        guard let row else {
+            return GroupMenu.plane { [weak self] in self?.onNewGroup?() }
+        }
         if let group = list.group(at: row) {
             guard let actions = groupMenuActions?(group.id) else { return nil }
-            return GroupMenu.build(for: group, actions: actions)
+            return GroupMenu.build(for: group, actions: actions) { [weak self] in
+                self?.beginRenaming(group: group.id)
+            }
         }
         guard let tab = list.tab(at: row), let actions = menuActions?(tab.id) else { return nil }
         return TabMenu.build(
@@ -36,5 +43,19 @@ extension TabListController {
             others: list.groups(besides: list.group(ofTab: tab.id)?.id),
             actions: actions
         )
+    }
+
+    /// Opens the name field on a folder's own row (§3.4b).
+    ///
+    /// Called straight after one is made, which is the whole reason a folder is
+    /// not asked for in a dialog first: the row appears already waiting to be
+    /// named, and the first keystroke is the name. `makeIfNecessary` matters —
+    /// a folder made while the list is scrolled away has no view yet.
+    func beginRenaming(group id: UUID) {
+        guard let row = list.row(ofGroup: id), let group = list.group(id) else { return }
+        table.scrollRowToVisible(row)
+        table.window?.makeFirstResponder(table)
+        guard let view = table.view(atColumn: 0, row: row, makeIfNecessary: true) as? SidebarRowView else { return }
+        view.beginEditing(group.name)
     }
 }
