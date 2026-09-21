@@ -126,7 +126,15 @@ extension Tokens {
         /// 250, not the 260 that keeps a full `chromeGap` between them: the ask
         /// was the smallest that does not overlap, the measured touching point
         /// is 243, and at 250 they are 7 pt apart — plainly two controls.
+        /// And 250 only where §3.1's head is in the column at full width,
+        /// which is one of the four cases the two chrome settings make.
+        /// `Settings.sidebarWidth` resolves it; `sidebarFootFloor` is the
+        /// other answer.
         static let sidebarWidth = SpanMetric(default: 280, min: 250, max: 420)
+        /// 190: the §3.5 foot, which is the floor no layout gets under. The
+        /// head can empty out — §3.2b takes its buttons onto the page — and
+        /// this cannot. The arithmetic is the first line above.
+        static let sidebarFootFloor: CGFloat = 190
         /// 38 pt of row pitch — tabs, `Archive` and `+ Add Tab` alike (§3.4,
         /// §30.6). The drawn pill is `rowPillHeight`, this less `rowGap`; the
         /// reference measures 109 px of pitch around a 100 px pill at its

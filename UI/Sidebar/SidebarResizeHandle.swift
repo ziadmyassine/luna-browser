@@ -3,7 +3,11 @@
 //  Luna
 //
 //  §3.7: an invisible 8 pt grab strip on the sidebar/content divider, dragging
-//  within 180–420 pt, double-clicking back to 280.
+//  between `Settings.sidebarWidth`'s two ends and double-clicking back to 280.
+//
+//  The floor is not one number. It depends on what is standing in the column:
+//  §3.1's head needs more room than §3.5's foot, and §3.2b can take the head's
+//  buttons away. `Settings.sidebarWidth` is the one place that resolves it.
 //
 //  Nothing is drawn. §3.7 asked for a `◁|▷` glyph to fade in on hover, and
 //  on screen it read as a piece of UI that had come loose: a small floating
@@ -37,13 +41,14 @@ final class SidebarResizeHandle: NSView {
 
     private var isDragging = false
 
-    /// The remembered width, clamped into §1's range. Collapsing the sidebar
-    /// never overwrites it — §3.7's double-click has to have something to
-    /// restore, and so does `⌘S`.
+    /// The remembered width, clamped into the range the layout on screen
+    /// allows. Collapsing the sidebar never overwrites it — §3.7's double-click
+    /// has to have something to restore, and so does `⌘S` — and neither does
+    /// reading it back narrower or wider than it was stored.
     static var storedWidth: CGFloat {
         get {
             let stored = UserDefaults.standard.double(forKey: defaultsKey)
-            return stored > 0 ? Tokens.Metric.sidebarWidth.clamp(stored) : Tokens.Metric.sidebarWidth.default
+            return stored > 0 ? Settings.sidebarWidth.clamp(stored) : Tokens.Metric.sidebarWidth.default
         }
         set { UserDefaults.standard.set(Double(newValue), forKey: defaultsKey) }
     }
@@ -108,7 +113,8 @@ final class SidebarResizeHandle: NSView {
         onWidthCommitted?(final)
     }
 
-    /// Sidebar width the pointer implies, clamped to §1's range.
+    /// Sidebar width the pointer implies, clamped to the range the layout on
+    /// screen allows.
     private func width(for event: NSEvent) -> CGFloat {
         guard let sidebar = superview else { return Tokens.Metric.sidebarWidth.default }
         // One of the sidebar's vertical edges is the window's and the other is
@@ -117,7 +123,7 @@ final class SidebarResizeHandle: NSView {
         // asked for and for a trailing column it is the width less that x.
         let x = sidebar.convert(event.locationInWindow, from: nil).x
         let asked = edge == .trailing ? sidebar.bounds.width - x : x
-        return Tokens.Metric.sidebarWidth.clamp(asked)
+        return Settings.sidebarWidth.clamp(asked)
     }
 
     override func viewDidChangeEffectiveAppearance() {

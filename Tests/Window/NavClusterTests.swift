@@ -123,7 +123,12 @@ final class SidebarHeadRoomTests: XCTestCase {
 
     /// In a real window, because the row leaves the traffic lights' corner
     /// clear and there are no lights to clear without one.
-    private func head(width: CGFloat, canGoForward: Bool) -> SidebarControlRow {
+    ///
+    /// `x` is how a trailing column is built: the lights stay at the window's
+    /// top-left whatever side the sidebar is on, so a column standing on the
+    /// other edge does not contain them and `trafficLights` reads nil. Nothing
+    /// else about the row changes.
+    private func head(width: CGFloat, canGoForward: Bool, x: CGFloat = 0) -> SidebarControlRow {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1200, height: 800),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -132,7 +137,7 @@ final class SidebarHeadRoomTests: XCTestCase {
         )
         self.window = window
         let row = SidebarControlRow()
-        row.frame = NSRect(x: 0, y: 748, width: width, height: Tokens.Metric.topBarHeight)
+        row.frame = NSRect(x: x, y: 748, width: width, height: Tokens.Metric.topBarHeight)
         window.contentView?.addSubview(row)
         row.update(canGoBack: true, canGoForward: canGoForward, isLoading: false)
         row.layoutSubtreeIfNeeded()
@@ -176,5 +181,41 @@ final class SidebarHeadRoomTests: XCTestCase {
         XCTAssertEqual(reload.maxX, row.bounds.maxX - Tokens.Metric.rowInset, accuracy: 0.5)
         XCTAssertEqual(reload.minX - nav.maxX, Tokens.Metric.controlPairGap, accuracy: 0.5)
         XCTAssertEqual(nav.width, Tokens.Metric.sidebarCircle.width * 2, accuracy: 0.5)
+    }
+
+    /// The narrow floor, and why there is one.
+    ///
+    /// A trailing column has no lights to clear, so its toggle starts at
+    /// `rowInset` rather than 78 pt in and the head stops being what the
+    /// minimum is for — 86 pt of the 243 above is the lights and the gap after
+    /// them. At `sidebarFootFloor` the same three controls are still clear of
+    /// each other by more than the tight pair, which is what lets §3.5's foot
+    /// set the minimum instead.
+    func testTheHeadFitsAtTheFootsFloorWithNoLightsToClear() throws {
+        let row = head(
+            width: Tokens.Metric.sidebarFootFloor,
+            canGoForward: true,
+            x: 1200 - Tokens.Metric.sidebarFootFloor
+        )
+        let frames = parts(of: row)
+        XCTAssertEqual(frames.count, 3)
+        XCTAssertEqual(frames[0].minX, Tokens.Metric.rowInset, accuracy: 0.5, "no lights, so no corner to clear")
+        for (left, right) in zip(frames, frames.dropFirst()) {
+            XCTAssertGreaterThanOrEqual(
+                right.minX - left.maxX,
+                Tokens.Metric.controlPairGap,
+                "two of the head's controls are closer than the tight pair"
+            )
+        }
+    }
+
+    /// §3.2b's case: the buttons are on the page, so the row is holding the
+    /// lights' corner and nothing else. There is no arithmetic left in it to
+    /// fail, which is the point — the floor is the foot's from here down.
+    func testTheHeadHasNothingToFitOnceTheButtonsAreOnThePage() {
+        let row = head(width: Tokens.Metric.sidebarFootFloor, canGoForward: true)
+        row.showsButtons = false
+        row.layoutSubtreeIfNeeded()
+        XCTAssertEqual(parts(of: row), [])
     }
 }

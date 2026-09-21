@@ -29,6 +29,14 @@ extension TokenCheck {
         if width.clamp(width.min - 100) != width.min || width.clamp(width.max + 100) != width.max {
             failures.append("SpanMetric.clamp does not clamp")
         }
+        // `Settings.sidebarWidth` swaps one minimum for the other, so the
+        // narrow one has to be a floor under the wide one and still leave a
+        // range the default sits inside — otherwise §3.7's double-click resets
+        // to a width its own span would clamp back out.
+        let floor = Tokens.Metric.sidebarFootFloor
+        if !(floor > 0 && floor <= width.min) {
+            failures.append("Metric.sidebarFootFloor is not a floor under Metric.sidebarWidth.min")
+        }
         return failures + checkRoundedMetrics() + checkPositiveMetrics()
             + checkSpaceSwipe() + checkRowInsets()
     }

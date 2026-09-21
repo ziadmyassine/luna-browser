@@ -151,6 +151,40 @@ enum Settings {
         tabsPosition(in: .sidebar) == .right ? .trailing : .leading
     }
 
+    /// §1's width span as the layout on screen can honour it: the same
+    /// `default` and `max`, and the minimum the column standing there actually
+    /// needs.
+    ///
+    /// `Metric.sidebarWidth.min` is §3.1's arithmetic, and §3.1 is only in the
+    /// column at full width in one of the four combinations these two settings
+    /// make. §3.2b takes the pill and the three circles with it onto the page
+    /// (`SidebarControlRow.showsButtons`), leaving a row that holds nothing but
+    /// the traffic lights' corner. A trailing column has no lights to clear at
+    /// all — macOS keeps them at the window's top-left, so a column on the
+    /// other edge does not contain them — and its toggle starts at `rowInset`
+    /// rather than 78 pt in, which is 86 pt off the head's 243. Either one puts
+    /// the head under §3.5's foot, and then the foot is the answer.
+    ///
+    /// Read, never written back: a width dragged to 190 with the pill on the
+    /// page is remembered as 190, reads as 250 while the pill is in the column,
+    /// and is 190 again when it leaves. Rewriting it on the way past would make
+    /// moving a setting twice a way of losing a width the user chose, which is
+    /// the rule `SidebarResizeHandle.storedWidth` already keeps for `⌘S`.
+    static var sidebarWidth: SpanMetric {
+        sidebarWidth(searchBarOnPage: searchBarIsOnPage, edge: sidebarEdge)
+    }
+
+    /// The same answer, told rather than read. Both floors are arithmetic, so
+    /// they can be checked without a `UserDefaults` to write into — and writing
+    /// into one to ask a question posts `didChange` to every window listening.
+    static func sidebarWidth(searchBarOnPage: Bool, edge: SidebarEdge) -> SpanMetric {
+        var span = Tokens.Metric.sidebarWidth
+        if searchBarOnPage || edge == .trailing {
+            span.min = Tokens.Metric.sidebarFootFloor
+        }
+        return span
+    }
+
     /// Whether §3.2b's bar is the one on screen — the single reader both the
     /// sidebar and the page bar are driven from.
     ///

@@ -32,6 +32,7 @@ sidebar's own content reflows. The ratios exist to fix proportions once, not to 
 | Token | Value | Was |
 |---|---|---|
 | `sidebarWidth` default / min / max | 280 / **250** / 420 pt | min was 180, then 160, then 220 |
+| `sidebarFootFloor` — the min where §3.1's head is not in the column | **190** pt | — |
 | `rowHeight` (pitch) | 38 pt | 40 |
 | `rowGap` / `rowPillHeight` (the drawn pill) | 3 / 35 pt | 4 / — |
 | `rowInset` (pill inset from sidebar edge) | 8 pt | — |
@@ -359,6 +360,15 @@ Vertical order, top to bottom:
   is 250 — the measured touching point is 243, and Martin asked for the smallest that does not overlap
   rather than the smallest that keeps a full `chromeGap`. `SidebarHeadRoomTests` runs that sum against
   the real row.
+- **And 250 is only the price where that head is in the column**, which is one of the four cases
+  §3.2b's placement and the sidebar's edge make between them. §3.2b takes the pill and these three
+  circles onto the page, leaving a row holding nothing but the traffic lights' corner; and a trailing
+  column does not contain the lights at all — macOS keeps them at the window's top-left — so its
+  toggle starts at `rowInset` instead of 78 pt in, which is 86 pt off the 243. Either one puts the
+  head under §3.5's foot, and then `sidebarFootFloor` answers: **190**, the width at which the foot's
+  avatar, Space strip and Downloads/History cylinder close to exactly one `chromeGap` apart.
+  `Settings.sidebarWidth` is the single reader that resolves the two, and `SidebarWidthFloorTests`
+  runs the foot's sum against the real bar.
 - **The morph stands still.** Nothing inside the capsule is laid out against its bounds — all three are
   placed off the leading edge at fixed distances — so the trailing edge is the only thing that travels
   and back never moves under the pointer. Measured against the bounds, a *shrink* re-reads them at the
