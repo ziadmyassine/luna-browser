@@ -34,7 +34,7 @@ final class SavePasswordChip {
     private var request: PasswordSaveRequest?
     private var dismissTimer: Timer?
 
-    /// §5's downloads popover auto-dismisses after 4 s. This one does not use
+    /// §5's downloads list takes itself down after 4 s. This one does not use
     /// that interval: a chip asking a question the user has to read and answer
     /// needs longer than one reporting a finished download, and 4 s is enough
     /// to notice it appearing and not enough to decide.

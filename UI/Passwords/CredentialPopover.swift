@@ -11,10 +11,9 @@
 //  possible for an `NSPanel`: the page cannot see it, script it, or find out
 //  what is in it. All a page learns is that it has a password field.
 //
-//  So this is a panel — a child window of the browser window, like §5's
-//  downloads popover — positioned from a rect the page reported. The rect is
-//  the only thing that crosses over, and the worst a lying page can do with
-//  it is put the popover somewhere silly.
+//  So this is a panel — a child window of the browser window — positioned from
+//  a rect the page reported. The rect is the only thing that crosses over, and
+//  the worst a lying page can do with it is put the popover somewhere silly.
 //
 //  Accessibility (§21.1): the panel is a real list of real buttons, so
 //  VoiceOver reads each username; Escape dismisses from anywhere; and the

@@ -5,11 +5,11 @@
 //  Reading another browser's live database, without breaking it or being
 //  blocked by it.
 //
-//  Measured on this Mac, 2026-09-17, against Dia 1.48.0's `Profile 1`:
-//  opening `.../Profile 1/History` in place with `mode=ro` fails with
-//  `database is locked (5)` while Dia is running. Copying the file plus its
-//  sidecar into `TMPDIR` and opening the copy returns 8,247 `urls` and 17,931
-//  `visits`. So the copy is not a precaution, it is the only thing that works.
+//  Measured on 2026-09-17 against Dia 1.48.0's `Profile 1`: opening
+//  `.../Profile 1/History` in place with `mode=ro` fails with `database is
+//  locked (5)` while Dia is running, and copying the file plus its sidecar into
+//  `TMPDIR` returns 8,247 `urls` and 17,931 `visits`. The copy is not a
+//  precaution, it is the only thing that works.
 //
 //  Two details the copy has to get right:
 //

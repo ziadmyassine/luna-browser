@@ -6,15 +6,14 @@
 //  layout the window wears — and the shape for the rest.
 //
 //  It exists because `⌘S` stopped meaning "swap the layout". Hiding the sidebar
-//  and choosing between the two layouts are different decisions taken at
-//  different rates: one is a reflex, several times a minute; the other is a
-//  preference, taken once. A keystroke that did both meant the reflex silently
-//  changed the preference.
+//  and choosing between the layouts are decisions taken at different rates —
+//  one a reflex several times a minute, the other a preference taken once — and
+//  a keystroke that did both meant the reflex silently changed the preference.
 //
-//  `UserDefaults`, like `SidebarResizeHandle.storedWidth` — Luna has no
-//  settings file and no reason to invent one for a single enum. The
-//  notification is what lets a running window follow a change made in the
-//  Settings window without either of them knowing about the other.
+//  `UserDefaults`, like `SidebarResizeHandle.storedWidth`: Luna has no settings
+//  file and no reason to invent one for a single enum. The notification lets a
+//  running window follow a change made in the Settings window without either
+//  knowing about the other.
 //
 
 import Foundation

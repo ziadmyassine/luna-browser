@@ -4,11 +4,10 @@
 //
 //  Goals 14 and 15 of the Spaces wave, proved rather than asserted.
 //
-//  Every ratio below is re-derived from the live SDK — `NSColor` resolved
-//  inside a real `NSAppearance`, composited, and put through WCAG 2.1's
-//  formula. Nothing here trusts a number written in a comment, which is the
-//  point: §13.6's failure in every other browser is not a missing feature, it
-//  is a palette that was never measured against its own ink.
+//  Every ratio below is re-derived from the live SDK: `NSColor` resolved inside
+//  a real `NSAppearance`, composited, put through WCAG 2.1's formula. Nothing
+//  trusts a number written in a comment — §13.6's failure in other browsers is
+//  not a missing feature, it is a palette never measured against its own ink.
 //
 //  Increase Contrast is not exercised as an appearance — it cannot be, on
 //  macOS 26.5 `NSAppearance(named: .accessibilityHighContrastAqua)` is the

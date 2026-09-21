@@ -5,17 +5,16 @@
 //  §3.3's selection glow, in the two halves that can be wrong without anyone
 //  noticing on screen.
 //
-//  The colour, because it fails quietly: a weighting that let the black in
-//  X's mark outvote the red dot would still produce a glow, just the wrong one,
-//  and "the light is a slightly different grey than it should be" is not
-//  something a person reports. The pictures below are the reference's cases
-//  written down — a mark with one saturated patch, a mark with none, and a mark
-//  too dark to emit.
+//  The colour, because it fails quietly: a weighting that let the black in X's
+//  mark outvote the red dot would still produce a glow, just the wrong one, and
+//  nobody reports "the light is a slightly different grey". The cases below are
+//  a mark with one saturated patch, a mark with none, and a mark too dark to
+//  emit.
 //
-//  The wiring, because the glow lies over the tiles and only one of them
-//  at a time: over is what lets the colour reach the glass, and it is also the
-//  arrangement in which a missing `hitTest` override swallows every click on
-//  the pinned tab you are on.
+//  The wiring, because the glow lies over the tiles and only one at a time:
+//  over is what lets the colour reach the glass, and it is also the arrangement
+//  in which a missing `hitTest` override swallows every click on the pinned tab
+//  you are on.
 //
 
 import BrowserKit

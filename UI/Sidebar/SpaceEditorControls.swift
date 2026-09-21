@@ -8,23 +8,20 @@
 //
 //  A card, because three settings in a column are three settings and not a
 //  list. The form used to be a label, a field, a label, a grid, a label and
-//  another grid, all on the same glass with nothing but vertical gaps to say
-//  where one thing stopped and the next began — and a gap is the weakest
+//  another grid on the same glass, separated by vertical gaps — the weakest
 //  boundary a layout has. `Surface.chromeFill` with the chrome's own hairline
-//  round it is the boundary the rest of Luna uses for a well (§3.2's pill,
-//  §3.3's tiles), so a group reads as one object at a glance rather than as
-//  two labels that happen to be near their grids.
+//  round it is what the rest of Luna uses for a well (§3.2's pill, §3.3's
+//  tiles), so a group reads as one object.
 //
-//  A labelled button, because a bare tick is a guess. The circle at the
-//  bottom carried `checkmark` and nothing else, which is legible only if you
-//  already know what it will do — and "it closes the form you are looking at"
-//  and "it makes the Space" are both plausible readings of a tick. The word is
-//  the fix, and it is the only control in the sidebar that needs one.
+//  A labelled button, because a bare tick is a guess: the circle carried
+//  `checkmark` and nothing else, and "it closes the form" and "it makes the
+//  Space" are both plausible readings. It is the only control in the sidebar
+//  that needs a word.
 //
-//  Its own file rather than `SpaceEditorView`'s, for that file's own reason:
-//  §3's column is laid out by hand and the layout is the long half. A control
-//  that draws and tracks a pointer is read when something looks wrong, and the
-//  arithmetic is read when something lands in the wrong place.
+//  Its own file rather than `SpaceEditorView`'s, because §3's column is laid
+//  out by hand and the layout is the long half. A control that draws and tracks
+//  a pointer is read when something looks wrong; the arithmetic is read when
+//  something lands in the wrong place.
 //
 
 import AppKit

@@ -18,9 +18,9 @@
 //
 //  There is no `NSLiquidGlass*` type and no "heavy" or "thick" style: the SDK
 //  ships exactly the two above. Two consequences:
-//    · §2 asks for "Liquid Glass, heavier" for the downloads popover. That
-//      style does not exist; the popover uses `.regular` and gets its weight
-//      from the shadow §5 already requires.
+//    · §2 asks for "Liquid Glass, heavier" where a surface floats above the
+//      chrome rather than being part of it. That style does not exist; those
+//      surfaces use `.regular` and get their weight from `Shadow.popover`.
 //    · The deployment target is macOS 26.0 and so is `NSGlassEffectView`, so
 //      §8.4's `NSVisualEffectView` fallback would be dead code and is not
 //      built. The path that does run is Reduce Transparency, which §2 requires

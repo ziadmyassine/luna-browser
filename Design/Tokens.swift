@@ -69,7 +69,7 @@ enum Tokens {
         static var base: NSColor { .windowBackgroundColor }
 
         /// One visible step above `base`: control fills, Essentials tiles and
-        /// the §5 downloads popover. Also the Reduce Transparency fallback for
+        /// §5's downloads list. Also the Reduce Transparency fallback for
         /// `Glass.Style.control` and `.popover`.
         ///
         /// Custom, because on macOS 26 every candidate system colour
@@ -319,14 +319,14 @@ enum Tokens {
 
     /// The chrome's only drop shadow.
     enum Shadow {
-        /// §2/§5's "heavier panel shadow" under the downloads popover.
+        /// §2's "heavier panel shadow" under a pop-out — §6.4's History,
+        /// §15.3's downloads, and the icon §5.0 throws between them.
         ///
         /// This shadow stands in for a material that does not exist. §2 asks for
         /// "Liquid Glass, heavier"; `NSGlassEffectView.Style` ships `.regular`
         /// and `.clear` and nothing else (verified against MacOSX26.5.sdk — see
-        /// `Glass.swift`), so the popover's extra weight has to come from the
-        /// shadow. Do not delete it in favour of a heavier glass style; there
-        /// isn't one.
+        /// `Glass.swift`), so the extra weight has to come from the shadow. Do
+        /// not delete it in favour of a heavier glass style; there isn't one.
         ///
         /// Black in both themes — a shadow is absent light, not a colour — but
         /// roughly twice the alpha in dark mode, where a soft edge against a

@@ -100,8 +100,8 @@ enum InternalPageTheme {
         // (`docs/UI-SPEC.md` §3.8). What is left of the chrome's surface on a
         // page is its plane, its hairline, its corner — and its shadow, which
         // is the only one of the four that carries depth. It is the same
-        // shadow the downloads popover stands on, for the same reason: §2 asks
-        // for a heavier material and there is not one.
+        // shadow the pop-outs stand on, for the same reason: §2 asks for a
+        // heavier material and there is not one.
         Swatch(name: "--luna-shadow") { _, _ in Tokens.Shadow.popover.color }
     ]
 
