@@ -1517,6 +1517,62 @@ is the thing the user has no other way to find out about.
 
 ---
 
+### 5.3 First run — the installer, and the screen after it
+
+Two surfaces a user sees before Luna has done anything for them, and the only
+two that have to work on a Mac with no Luna data on it at all.
+
+**The disk image** (`Tools/make-dmg.sh`, `Tools/dmg-background.swift`). Luna.app,
+an Applications alias, and an arrow between them on §8.2's default Space
+gradient over a light plane. The backdrop is drawn by a script rather than
+checked in, so the artwork moves when the colour does, and it is **light even
+though Luna is usually seen dark**: Finder draws the two icon labels in the
+system's appearance, not the background's, so a dark backdrop hands a
+light-mode Mac black text on near-black. One line of type — "Drag Luna into
+Applications" — and nothing else. The window is 640 × 400 with its toolbar and
+status bar off; the icons sit on the line the arrow is drawn between.
+
+**First run** (`Features/Onboarding/`, §30.17–30.18) is a window over the
+browser, not a sheet in front of it: the session is restoring behind it, and a
+gate before the thing the gate is about is a form with no context. Closing it
+is an answer, and it never asks twice (`OnboardingState.hasRun`).
+
+| | |
+|---|---|
+| Size | `commandBarMinWidth` of prose beside a pane as wide as Settings' detail side, at Settings' height |
+| Left | Opaque `Surface.base`: the page's title at `pageTitle`, one sentence at `pageBody`, two answers at the foot |
+| Right | §8.2's default Space gradient, a quarter of the way back toward the plane, holding what the page is choosing |
+| Answers | `Back` over the preferred one, both the column's width, in the same place on every page |
+
+- **Three pages**: welcome, transfer, done. The words live in `OnboardingPage`
+  and nowhere else, because §30.18's copy warning — the reference promises
+  "bookmarks, history, and **extensions**" and Luna can import none of the
+  third — is a promise that gets broken in a string literal nobody is looking
+  at. `OnboardingCopyTests` asserts every string the screen can show.
+- **The transfer page lists the browsers that are on this Mac**, and only
+  those. §30.18 asked for the rest greyed out with a reason; on a real Mac that
+  is eight rows of "isn't installed" around the two that are, which is a wall
+  with the answer hidden in it. An installed browser Luna cannot read yet keeps
+  its place and says why — Safari, which needs Full Disk Access — because that
+  one is a thing the user can fix.
+- **A card, not a row.** Two chrome capsules tall, the app's own icon at
+  `capsuleHeight + rowInset`, the name at `pageBody`, and a tick that fills
+  with the accent. It answers the pointer and the finger like every other
+  control (§6), because it is one. The first readable browser starts ticked:
+  the screen's answer is "yes, bring it", and a column of empty circles asks
+  the user to work that out from the button.
+- **The rows arrive staggered** on §6's `tabInsert`, 20 ms apart — the same
+  stagger a layout switch gives its contents. Each one carries its own progress
+  while the import runs; a bar under a list of five browsers says less than the
+  five of them ticking off one at a time.
+- **The import is §23.2's engine, unchanged**, one source at a time, and a
+  failure marks its own row and lets the rest run. What it writes goes straight
+  to the store, so the live session is told to pick it up
+  (`BrowserSession.adoptSpacesWrittenElsewhere`) — additive only, so no open
+  tab is replaced by a refresh it had nothing to do with.
+
+---
+
 ### 5.2 Quit sheet — ⌘Q asks first
 
 A glass panel in the browser window, not an `NSAlert`: the app icon at `topBarHeight`, the question

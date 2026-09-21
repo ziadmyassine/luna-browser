@@ -59,6 +59,7 @@ extension SidebarSpaceGestures {
         editor.onGradient = { [weak self] pair in self?.write { try await $0.setGradient(pair, forSpace: space.id) } }
         editor.onIcon = { [weak self] name in self?.write { try await $0.setIcon(name, forSpace: space.id) } }
         editor.onClose = { [weak self] in self?.dismissEditor() }
+        editor.onCancel = { [weak self] in self?.discard(space) }
         host.addSubview(editor, positioned: .below, relativeTo: utility)
         self.editor = editor
         editor.focusName()
@@ -83,6 +84,16 @@ extension SidebarSpaceGestures {
             editor.animator().alphaValue = 1
             editor.layer?.setAffineTransform(.identity)
         }
+    }
+
+    /// `Cancel`: the Space goes with the form.
+    ///
+    /// A delete rather than a road not taken, because the swipe already made
+    /// it — of a Space seconds old with nothing in it, and `deleteSpace`
+    /// registers its own undo either way.
+    func discard(_ space: Space) {
+        dismissEditor()
+        write { try await $0.deleteSpace(space.id) }
     }
 
     func dismissEditor() {

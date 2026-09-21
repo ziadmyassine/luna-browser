@@ -5,13 +5,12 @@
 //  §6.1's editor, which is laid out by hand in a column the user can drag —
 //  so the only thing holding its grid together is arithmetic.
 //
-//  The form was reported for its alignment, and alignment is exactly what a
-//  hand-laid column loses first. Every piece of type in it used to start at
-//  its own edge — the title at `rowInset`, the name a `pillTextInset` further
-//  in because it lived in a pill, the section headings back out at `rowInset`
-//  again — and none of that is visible in the code, which reads as three
-//  perfectly ordinary calls. It is visible here: `testEveryPieceOfTypeStartsOn
-//  TheSameEdge` is the whole complaint, as one assertion.
+//  The form was reported for its alignment twice, and alignment is exactly
+//  what a hand-laid column loses first: every piece of type in it once started
+//  at its own edge, and none of that is visible in the code, which reads as
+//  three perfectly ordinary calls. It is visible here. There are two edges —
+//  the form's heading on the plates' outer one, everything inside a plate on
+//  the plate's own — and each is an assertion below.
 //
 
 import XCTest
@@ -60,16 +59,13 @@ final class SpaceEditorGridTests: XCTestCase {
         descendants(of: editor, ofType: NSTextField.self).first { $0.stringValue == text }
     }
 
-    /// The complaint, as an assertion. The title, the caption, the name,
-    /// both section headings and the first chip of both grids start on one
-    /// edge — the card's text inset — and the plates are the only thing that
-    /// reaches past it.
-    func testEveryPieceOfTypeStartsOnTheSameEdge() {
+    /// Inside a plate, everything starts on the plate's own text inset: the
+    /// name, both section headings and the first chip of both grids.
+    func testEveryPieceOfTypeInACardStartsOnTheSameEdge() {
         for width in [280, 250, 420] as [CGFloat] {
             let editor = laidOutEditor(width: width)
             let edge = Tokens.Metric.rowInset + Tokens.Metric.settingsControlInset
-            let texts = ["New Space", "Name it, colour it, and it is yours.", "Space 3", "Colour", "Icon"]
-            for text in texts {
+            for text in ["Space 3", "Colour", "Icon"] {
                 guard let found = label(text, in: editor) else { return XCTFail("no \(text) at \(width) pt") }
                 XCTAssertEqual(onForm(found, in: editor).minX, edge, accuracy: 0.5, "\(text) at \(width) pt")
             }
@@ -77,6 +73,43 @@ final class SpaceEditorGridTests: XCTestCase {
             guard let first = chips.first else { return XCTFail("no chips at \(width) pt") }
             XCTAssertEqual(onForm(first, in: editor).minX, edge, accuracy: 0.5, "the palette at \(width) pt")
         }
+    }
+
+    /// The form's own heading is not inside any of them, so it stands on the
+    /// plates' outer edge. Indented to the cards' text inset it read as a
+    /// label belonging to the first card rather than as the title of the form,
+    /// which is what was reported the second time.
+    func testTheTitleStandsOnThePlatesOuterEdge() {
+        for width in [280, 250, 420] as [CGFloat] {
+            let editor = laidOutEditor(width: width)
+            for text in ["New Space", "Name it, colour it, and it is yours."] {
+                guard let found = label(text, in: editor) else { return XCTFail("no \(text) at \(width) pt") }
+                XCTAssertEqual(
+                    onForm(found, in: editor).minX,
+                    Tokens.Metric.rowInset,
+                    accuracy: 0.5,
+                    "\(text) at \(width) pt is indented from the cards under it"
+                )
+            }
+        }
+    }
+
+    /// Two answers at the foot, stacked: the one the form is for on top, the
+    /// one that undoes it under. Both the cards' width, so the column reads as
+    /// one form rather than a form and a footer.
+    func testTheTwoAnswersAreStackedUnderTheCards() {
+        let editor = laidOutEditor(width: 280)
+        let buttons = descendants(of: editor, ofType: SpaceEditorButton.self)
+        XCTAssertEqual(buttons.count, 2, "Create Space, and Cancel under it")
+        guard let create = buttons.first(where: { $0.accessibilityLabel() == "Create Space" }),
+              let cancel = buttons.first(where: { $0.accessibilityLabel() == "Cancel" })
+        else { return XCTFail("the answers are not the two expected") }
+        XCTAssertLessThan(cancel.frame.maxY, create.frame.minY, "Cancel is not under Create Space")
+        XCTAssertEqual(cancel.frame.width, create.frame.width, accuracy: 0.5)
+        XCTAssertEqual(create.frame.minX, Tokens.Metric.rowInset, accuracy: 0.5)
+        let cards = descendants(of: editor, ofType: SpaceEditorCard.self)
+        guard let lowest = cards.map(\.frame.minY).min() else { return XCTFail("no cards") }
+        XCTAssertLessThan(create.frame.maxY, lowest, "the answers are over the cards")
     }
 
     /// Three decisions, three plates, and each one holds its own. A card

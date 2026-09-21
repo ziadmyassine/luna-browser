@@ -86,6 +86,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// opens it the first time and focuses it every time after, and it survives
     /// being closed because `isReleasedWhenClosed` is off.
     private var settingsWindow: SettingsWindowController?
+    /// §30.17's first-run window, alive only while it is on screen.
+    /// `AppDelegate+Onboarding.swift` puts it up.
+    var onboarding: OnboardingWindowController?
     /// §15.3's list. `BrowserCommands` opens it as well as the two buttons, and
     /// `AppDelegate+Downloads.swift` builds it, so it is neither private nor
     /// `private(set)`.
@@ -154,6 +157,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // The window is on screen before the session is restored into it:
         // §19.1's 800 ms cold launch is a frame budget, not a disk budget.
         Task { await startSession(in: controller, opening: opening) }
+    }
+
+    /// The last of the launch, once the chrome is wired: the pages that stand
+    /// on it, the clocks that sweep it, and the first thing on screen.
+    private func openForBusiness(session: BrowserSession, store: BrowserStore) {
+        // §4.4: the New Tab page, the archive browser and the token→CSS
+        // palette. Must follow the sidebar, whose Archive row it claims.
+        InternalPagesInstaller.install(session: session)
+        // §19.2/§19.5: the hibernation sweep, the auto-archive clock and the
+        // memory-pressure source. Before the first tab, so the budget is never
+        // briefly unenforced.
+        session.installLifecycle()
+        // A Space with nothing in it would otherwise show an empty content
+        // card. A restore that has tabs deliberately selects none of them
+        // (§19.4) — that is the memory budget, not a missing page.
+        if session.activeTabID == nil, session.tabs.isEmpty {
+            session.newTab(url: InternalPages.Page.newTab.url)
+        }
+        render()
+        // §19.1's "to interactive": the window has the restored session in it.
+        // `Tools/perf` is polling for the file this writes.
+        LaunchTrace.ready()
+        // §30.17, and after `ready()` on purpose: first run is a window over a
+        // browser that is already up, not a gate in front of it.
+        presentOnboardingIfNeeded(store: store, session: session)
     }
 
     /// Opens the store off the main thread, as early as launch can ask for
@@ -243,23 +271,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             wireCommandBar(session, in: controller)
             wireHistory(session, sidebar: sidebar, topBar: topBar, in: controller)
             wireDownloads(session, sidebar: sidebar, topBar: topBar, in: controller)
-            // §4.4: the New Tab page, the archive browser and the token→CSS
-            // palette. Must follow the sidebar, whose Archive row it claims.
-            InternalPagesInstaller.install(session: session)
-            // §19.2/§19.5: the hibernation sweep, the auto-archive clock and the
-            // memory-pressure source. Before the first tab, so the budget is
-            // never briefly unenforced.
-            session.installLifecycle()
-            // A Space with nothing in it would otherwise show an empty content
-            // card. A restore that has tabs deliberately selects none of them
-            // (§19.4) — that is the memory budget, not a missing page.
-            if session.activeTabID == nil, session.tabs.isEmpty {
-                session.newTab(url: InternalPages.Page.newTab.url)
-            }
-            render()
-            // §19.1's "to interactive": the window has the restored session in
-            // it. `Tools/perf` is polling for the file this writes.
-            LaunchTrace.ready()
+            openForBusiness(session: session, store: store)
         } catch {
             NSApp.presentError(error)
         }

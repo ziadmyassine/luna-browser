@@ -1,6 +1,6 @@
 XCODEBUILD := xcodebuild -project Luna.xcodeproj -scheme Luna -derivedDataPath DerivedData
 
-.PHONY: gen build run test lint fmt check
+.PHONY: gen build run test lint fmt check dmg
 
 gen:
 	xcodegen generate
@@ -32,3 +32,8 @@ fmt:
 
 check: lint
 	Tools/check-no-appkit.sh
+
+# §30.17's installer. Takes whatever is in Debug unless given a path, which is
+# right for looking at it and wrong for shipping one.
+dmg:
+	Tools/make-dmg.sh $(APP) $(DMG)

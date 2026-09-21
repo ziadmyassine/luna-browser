@@ -672,8 +672,10 @@ Transcribed from the reference captures in `inspiration/`. These are **observed 
 
 ### From `transfer-from-other-browsers.png`
 
-- [ ] **30.17 Import screen layout** — two-pane modal: left is headline + one-line body + `Back`/`Continue` pill buttons (solid primary, muted secondary); right is a gradient wash holding selectable browser rows (app icon, name, trailing radio). The selected row lifts into a brighter card with a filled check. Multi-select.
-- [ ] **30.18 Sources to detect and list** — Safari, Chrome, Arc, Dia, Atlas, Helium: i.e. both the Chromium family and the WebKit/Arc family. Detect which are actually installed and list those first; grey the rest.
+- [x] **30.17 Import screen layout** — two-pane modal: left is headline + one-line body + `Back`/`Continue` pill buttons (solid primary, muted secondary); right is a gradient wash holding selectable browser rows (app icon, name, trailing radio). The selected row lifts into a brighter card with a filled check. Multi-select.
+  > **Built** as §30.17's first run, three pages in `Features/Onboarding/` — welcome, transfer, done — over the restored browser rather than in front of it. `UI-SPEC.md` §5.3 has the surface; the disk image the user opens before it is `Tools/make-dmg.sh`.
+- [x] **30.18 Sources to detect and list** — Safari, Chrome, Arc, Dia, Atlas, Helium: i.e. both the Chromium family and the WebKit/Arc family. Detect which are actually installed and list those first; ~~grey the rest~~ leave the rest out.
+  > **Built, with one thing changed.** Greying the rest put eight rows of "isn't installed on this Mac" around the two that are. The screen lists what is installed; an installed browser Luna cannot read yet keeps its place and its reason.
   > **Copy warning:** the reference promises "bookmarks, history, and **extensions**". We cannot import extensions — §16.2 has no store and §16.5 has no parity guarantee. Word our copy as "bookmarks and history" or we ship a promise we break in the first five minutes.
 
 ### From `iphone-mac-sync.png`

@@ -115,6 +115,30 @@ extension BrowserSession {
         return space
     }
 
+    /// Picks up Spaces another part of the app wrote straight to the store —
+    /// today, §23.2's importer during §30.17's first run.
+    ///
+    /// Additive on purpose. Only Spaces this session has never seen are taken,
+    /// so no open tab is replaced and no live web view is torn down by a
+    /// refresh it had nothing to do with.
+    func adoptSpacesWrittenElsewhere() async throws {
+        let known = Set(spaces.map(\.id))
+        let arrived = try await store.spaces().filter { !known.contains($0.id) }
+        guard !arrived.isEmpty else { return }
+        for profile in try await store.profiles() where profiles[profile.id] == nil {
+            profiles[profile.id] = profile
+        }
+        for space in arrived {
+            spaces.append(space)
+            list.addSpace(space.id, profileID: space.profileID)
+            for tab in try await store.tabs(inSpace: space.id, includeArchived: true) {
+                if tab.archivedAt == nil { _ = list.insert(tab) } else { archived.append(tab) }
+            }
+        }
+        try await renumberSpaces()
+        notifyChange()
+    }
+
     // MARK: - Rename, reorder, re-icon, re-gradient (§6.2)
 
     func renameSpace(_ id: UUID, to name: String) async throws {

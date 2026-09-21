@@ -19,18 +19,18 @@
 //  it is closer to the wrong one. Each decision is a plate with its heading
 //  inside it (`SpaceEditorCard`).
 //
-//  One text grid, and everything is on it. The name used to start a
-//  `pillTextInset` further in than the heading above it, because it was inside
-//  a pill and the headings were not. The title and caption sit at `rowInset`
-//  with the cards' outer edges; every card's heading and content sit at
-//  `settingsControlInset` inside their plate. Two edges, both deliberate.
+//  Two edges, both deliberate. The title and caption sit at `rowInset`, on the
+//  cards' outer edge, because the form's heading belongs to the form and not to
+//  the first plate in it; everything inside a card sits at
+//  `settingsControlInset` within its plate.
 //
-//  It edits; it does not gate. The Space already exists by the time this is on
-//  screen — the swipe made it — so there is no Cancel that could undo one, and
-//  closing this leaves a Space behind either way. A form you have to finish is
-//  a form you can fail, and there is nothing here worth failing. The button at
-//  the foot says `Create Space` regardless, because that is the sentence the
-//  user is in the middle of; Escape does the same thing.
+//  Two answers at the foot, and they are not the same answer twice. The Space
+//  already exists by the time this is on screen — the swipe made it — so
+//  `Create Space` keeps what is already there and `Cancel` deletes it again,
+//  which is what cancelling the making of a thing has to mean. Escape keeps
+//  it: the form is an editor, and a keystroke that throws away a Space the
+//  user has just named and coloured, by habit, is the worse of the two
+//  surprises.
 //
 //  The two grids are the ones §3.7's corner button opens (`SpaceAppearanceView`
 //  and its chips) — one picker, two hosts. They are laid out by hand rather
@@ -49,9 +49,10 @@ final class SpaceEditorView: NSView {
     var onRename: ((String) -> Void)?
     var onGradient: ((GradientPair) -> Void)?
     var onIcon: ((String) -> Void)?
-    /// The form is finished with — `Create Space`, or Escape. The Space is
-    /// there either way; see the file header.
+    /// The form is finished with — `Create Space`, or Escape. The Space stays.
     var onClose: (() -> Void)?
+    /// `Cancel`: the Space the swipe made goes away again.
+    var onCancel: (() -> Void)?
 
     private let heading = NSTextField(labelWithString: "")
     private let caption = NSTextField(labelWithString: "")
@@ -64,10 +65,12 @@ final class SpaceEditorView: NSView {
     private var swatches: [SpaceSwatchChip] = []
     private var symbols: [SpaceSymbolChip] = []
     private let create: SpaceEditorButton
+    private let cancel: SpaceEditorButton
     private var action: SettingsAction?
 
     init(space: Space) {
-        create = SpaceEditorButton(title: String(localized: "Create Space"))
+        create = SpaceEditorButton(title: String(localized: "Create Space"), isPreferred: true)
+        cancel = SpaceEditorButton(title: String(localized: "Cancel"))
         super.init(frame: .zero)
         wantsLayer = true
 
@@ -100,8 +103,10 @@ final class SpaceEditorView: NSView {
         swatches = makeSwatches(chosen: space.gradient)
         symbols = makeSymbols(chosen: space.symbolName)
         create.onActivate = { [weak self] in self?.onClose?() }
+        cancel.onActivate = { [weak self] in self?.onCancel?() }
 
-        for view in [heading, caption, nameCard, colourCard, iconCard, create] as [NSView] { addSubview(view) }
+        let views = [heading, caption, nameCard, colourCard, iconCard, create, cancel] as [NSView]
+        for view in views { addSubview(view) }
         nameCard.addSubview(field)
         nameCard.setAccessibilityLabel(String(localized: "Name"))
         colourCard.addSubview(colourLabel)
@@ -207,13 +212,9 @@ final class SpaceEditorView: NSView {
         let width = max(bounds.width - 2 * inset, 0)
         var top = bounds.maxY - Tokens.Metric.chromeGapWide
 
-        // The title block sits on the cards' text edge rather than on their
-        // outer one, so there is one column of type down the whole form and the
-        // plates are the only thing that reaches past it.
         let pad = Tokens.Metric.settingsControlInset
-        let textWidth = max(width - 2 * pad, 0)
-        top = place(heading, at: top, width: textWidth)
-        top = place(caption, at: top - gap / 2, width: textWidth) - Tokens.Metric.chromeGapWide
+        top = place(heading, at: top, width: width)
+        top = place(caption, at: top - gap / 2, width: width) - Tokens.Metric.chromeGapWide
 
         let nameHeight = Tokens.Metric.urlPill.height
         nameCard.frame = NSRect(x: inset, y: top - nameHeight, width: width, height: nameHeight).integral
@@ -229,21 +230,18 @@ final class SpaceEditorView: NSView {
         top = place(colourCard, label: colourLabel, chips: swatches, at: top, width: width) - gap
         top = place(iconCard, label: iconLabel, chips: symbols, at: top, width: width)
 
-        create.frame = NSRect(
-            x: inset,
-            y: top - Tokens.Metric.chromeGapWide - Tokens.Metric.urlPill.height,
-            width: width,
-            height: Tokens.Metric.urlPill.height
-        ).pixelAligned
+        let pill = Tokens.Metric.urlPill.height
+        create.frame = NSRect(x: inset, y: top - Tokens.Metric.chromeGapWide - pill, width: width, height: pill)
+            .pixelAligned
+        cancel.frame = NSRect(x: inset, y: create.frame.minY - gap - pill, width: width, height: pill).pixelAligned
     }
 
     /// A label at its own height rather than at a row's: a 15 pt title and an
     /// 11 pt caption in boxes the same size are two lines that do not sit where
     /// the type says they should.
     private func place(_ label: NSTextField, at top: CGFloat, width: CGFloat) -> CGFloat {
-        let x = Tokens.Metric.rowInset + Tokens.Metric.settingsControlInset
         let height = ceil(label.fittingSize.height)
-        label.frame = NSRect(x: x, y: top - height, width: width, height: height).integral
+        label.frame = NSRect(x: Tokens.Metric.rowInset, y: top - height, width: width, height: height).integral
         return label.frame.minY
     }
 
