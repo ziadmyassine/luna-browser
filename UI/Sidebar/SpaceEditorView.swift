@@ -97,24 +97,8 @@ final class SpaceEditorView: NSView {
         field.action = #selector(SettingsAction.fire(_:))
         action = commit
 
-        swatches = zip(SpaceAppearanceView.gradients, SpaceAppearanceView.gradientNames).map { gradient, label in
-            let chip = SpaceSwatchChip(gradient: gradient, label: label)
-            chip.isChosen = gradient == space.gradient
-            chip.onActivate = { [weak self] in
-                self?.choose(gradient: gradient)
-                self?.onGradient?(gradient)
-            }
-            return chip
-        }
-        symbols = SpacesSection.symbols.map { symbol in
-            let chip = SpaceSymbolChip(symbolName: symbol.name, label: symbol.label)
-            chip.isChosen = symbol.name == space.symbolName
-            chip.onActivate = { [weak self] in
-                self?.choose(symbol: symbol.name)
-                self?.onIcon?(symbol.name)
-            }
-            return chip
-        }
+        swatches = makeSwatches(chosen: space.gradient)
+        symbols = makeSymbols(chosen: space.symbolName)
         create.onActivate = { [weak self] in self?.onClose?() }
 
         for view in [heading, caption, nameCard, colourCard, iconCard, create] as [NSView] { addSubview(view) }
@@ -125,6 +109,35 @@ final class SpaceEditorView: NSView {
         for chip in swatches { colourCard.addSubview(chip) }
         for chip in symbols { iconCard.addSubview(chip) }
         applyTokens()
+    }
+
+    /// §6.2's twelve gradients as chips, with the Space's own pair already
+    /// ticked. Its own method for `makeSymbols`' reason.
+    private func makeSwatches(chosen: GradientPair) -> [SpaceSwatchChip] {
+        zip(SpaceAppearanceView.gradients, SpaceAppearanceView.gradientNames).map { gradient, label in
+            let chip = SpaceSwatchChip(gradient: gradient, label: label)
+            chip.isChosen = gradient == chosen
+            chip.onActivate = { [weak self] in
+                self?.choose(gradient: gradient)
+                self?.onGradient?(gradient)
+            }
+            return chip
+        }
+    }
+
+    /// The icon grid, same shape as `makeSwatches`. Both are out of `init`
+    /// because a grid of chips that each close over `self` is a thing to read
+    /// on its own, not part of assembling a form.
+    private func makeSymbols(chosen: String) -> [SpaceSymbolChip] {
+        SpacesSection.symbols.map { symbol in
+            let chip = SpaceSymbolChip(symbolName: symbol.name, label: symbol.label)
+            chip.isChosen = symbol.name == chosen
+            chip.onActivate = { [weak self] in
+                self?.choose(symbol: symbol.name)
+                self?.onIcon?(symbol.name)
+            }
+            return chip
+        }
     }
 
     @available(*, unavailable)

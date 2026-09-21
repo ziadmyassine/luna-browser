@@ -59,47 +59,7 @@ final class QuitSheetButton: NSView {
             label.centerYAnchor.constraint(equalTo: centerYAnchor)
         ]
         if let hint {
-            hint.font = Tokens.TypeScale.sectionLabel
-            hint.alignment = .center
-            hint.translatesAutoresizingMaskIntoConstraints = false
-            hintWell.wantsLayer = true
-            hintWell.layer?.cornerCurve = .continuous
-            hintWell.translatesAutoresizingMaskIntoConstraints = false
-            hintWell.addSubview(hint)
-            addSubview(hintWell)
-            // The key is the button's end, not a chip floating inside it.
-            // Inset from the trailing edge, the capsule's own fill came back
-            // in the sliver between the chip and the edge — a second
-            // background in the last four points of the control, which at a
-            // glance reads as the chip having come loose. Pinned to all three
-            // edges it is the cap instead: the button is a title and a key,
-            // and the two of them are the whole capsule.
-            constraints += [
-                hintWell.leadingAnchor.constraint(
-                    equalTo: label.trailingAnchor,
-                    constant: Tokens.Metric.chromeGap
-                ),
-                hintWell.trailingAnchor.constraint(equalTo: trailingAnchor),
-                hintWell.topAnchor.constraint(equalTo: topAnchor),
-                hintWell.bottomAnchor.constraint(equalTo: bottomAnchor),
-                // Dead centre of the cap, both ways. An optical nudge toward
-                // the leading edge was tried first, on the theory that the
-                // trailing half of the cap is curve rather than field — and
-                // what it actually looks like is a key that has slipped.
-                // `esc` and the return arrow are both marks in a capsule, and
-                // a mark in a capsule sits in the middle of it.
-                hint.centerXAnchor.constraint(equalTo: hintWell.centerXAnchor),
-                hint.centerYAnchor.constraint(equalTo: hintWell.centerYAnchor),
-                // Which leaves the inset to say how narrow the cap may get.
-                hint.leadingAnchor.constraint(
-                    greaterThanOrEqualTo: hintWell.leadingAnchor,
-                    constant: Tokens.Metric.chromeGap
-                ),
-                hint.trailingAnchor.constraint(
-                    lessThanOrEqualTo: hintWell.trailingAnchor,
-                    constant: -Tokens.Metric.chromeGap
-                )
-            ]
+            constraints += layOutKeyCap(hint)
         } else {
             constraints.append(
                 label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Tokens.Metric.chromeGapWide)
@@ -116,6 +76,51 @@ final class QuitSheetButton: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
+    }
+
+    /// Builds the key cap at the button's trailing end and hands back the
+    /// constraints that hold it there.
+    ///
+    /// Its own method because it is one decision, not part of the button's
+    /// assembly: the key is the button's end rather than a chip floating inside
+    /// it. Inset from the trailing edge, the capsule's own fill came back in the
+    /// sliver between the chip and the edge — a second background in the last
+    /// four points of the control, which reads as the chip having come loose.
+    /// Pinned to all three edges it is the cap instead.
+    private func layOutKeyCap(_ hint: NSTextField) -> [NSLayoutConstraint] {
+        hint.font = Tokens.TypeScale.sectionLabel
+        hint.alignment = .center
+        hint.translatesAutoresizingMaskIntoConstraints = false
+        hintWell.wantsLayer = true
+        hintWell.layer?.cornerCurve = .continuous
+        hintWell.translatesAutoresizingMaskIntoConstraints = false
+        hintWell.addSubview(hint)
+        addSubview(hintWell)
+        return [
+            hintWell.leadingAnchor.constraint(
+                equalTo: label.trailingAnchor,
+                constant: Tokens.Metric.chromeGap
+            ),
+            hintWell.trailingAnchor.constraint(equalTo: trailingAnchor),
+            hintWell.topAnchor.constraint(equalTo: topAnchor),
+            hintWell.bottomAnchor.constraint(equalTo: bottomAnchor),
+            // Dead centre of the cap, both ways. An optical nudge toward the
+            // leading edge was tried first, on the theory that the trailing half
+            // of the cap is curve rather than field, and what it looks like is a
+            // key that has slipped. `esc` and the return arrow are both marks in
+            // a capsule, and a mark in a capsule sits in the middle of it.
+            hint.centerXAnchor.constraint(equalTo: hintWell.centerXAnchor),
+            hint.centerYAnchor.constraint(equalTo: hintWell.centerYAnchor),
+            // Which leaves the inset to say how narrow the cap may get.
+            hint.leadingAnchor.constraint(
+                greaterThanOrEqualTo: hintWell.leadingAnchor,
+                constant: Tokens.Metric.chromeGap
+            ),
+            hint.trailingAnchor.constraint(
+                lessThanOrEqualTo: hintWell.trailingAnchor,
+                constant: -Tokens.Metric.chromeGap
+            )
+        ]
     }
 
     // MARK: - State

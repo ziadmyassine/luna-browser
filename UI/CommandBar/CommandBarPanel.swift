@@ -194,7 +194,17 @@ final class CommandBarPanel: NSView {
         body.addSubview(field)
         body.addSubview(results)
         showMark(for: "")
+        activateBodyConstraints()
+        finishBody()
+    }
 
+    /// The body's geometry: the five constraints the panel keeps a handle on,
+    /// and the fixed ones around them.
+    ///
+    /// Split from `buildBody` because the two halves are read for different
+    /// reasons — one is what the panel is made of, the other is where each piece
+    /// sits — and the second is the half that changes when a placement does.
+    private func activateBodyConstraints() {
         // Flush with the rows, not with their titles. Indenting the query
         // by a favicon's width lined it up with the text it filters and left
         // the panel with a visible notch out of its top-left corner — the
@@ -272,7 +282,6 @@ final class CommandBarPanel: NSView {
             body.layer?.masksToBounds = true
         }
         bottom.isActive = true
-        finishBody()
     }
 
     private func finishBody() {
