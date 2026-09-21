@@ -26,8 +26,7 @@ final class SpaceEditorGridTests: XCTestCase {
         let space = Space(
             name: "Space 3",
             symbolName: BrowserSession.defaultSpaceSymbol,
-            gradient: .defaultSpace,
-            profileID: UUID()
+            gradient: .defaultSpace
         )
         let editor = SpaceEditorView(space: space)
         editor.frame = NSRect(x: 0, y: 0, width: width, height: 760)
@@ -212,8 +211,7 @@ final class SpaceEditorNameTests: XCTestCase {
         let space = Space(
             name: name,
             symbolName: BrowserSession.defaultSpaceSymbol,
-            gradient: .defaultSpace,
-            profileID: UUID()
+            gradient: .defaultSpace
         )
         let editor = SpaceEditorView(space: space)
         editor.frame = NSRect(x: 0, y: 0, width: Tokens.Metric.sidebarWidth.default, height: 760)

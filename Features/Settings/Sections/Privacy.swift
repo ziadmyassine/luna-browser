@@ -190,9 +190,7 @@ final class PrivacySection: SettingsSection {
 
         var stores: [WKWebsiteDataStore] = [.default()]
         if let session = SettingsHost.session {
-            stores += session.spaces
-                .compactMap { session.profile(for: $0) }
-                .map { session.profileStore.dataStore(for: $0) }
+            stores += session.spaces.map { session.profileStore.dataStore(for: $0) }
         }
         let types = WKWebsiteDataStore.allWebsiteDataTypes()
         Task {

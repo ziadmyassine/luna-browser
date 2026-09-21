@@ -235,17 +235,15 @@ final class SidebarViewController: NSViewController {
             replacing: switchingSpace
         )
         utility.show(spaces: session.spaces, activeSpaceID: session.activeSpaceID)
-        // §3.5's line, and §9's fan-out made visible: the Profile is derived
-        // from the Space, so it changes on a Space switch and on a
-        // re-profile without one.
+        // §3.5's caption names the Space; §3.5's avatar wears its picture. One
+        // thing said twice on purpose — the strip below identifies a Space by
+        // colour alone, and a name and a face are what a glance actually reads.
         let active = session.space(session.activeSpaceID)
         spaceLabel.show(spaceName: active?.name)
-        // §9's fan-out moved to the control it is about — see `SidebarSpaceLabel`.
-        let profile = active.flatMap { session.profile(for: $0) }
         utility.show(
-            profileName: profile?.name,
+            profileName: active?.name,
             fanOut: active.map { SpacesSection.fanOut($0, session: session) },
-            picture: profile?.imageData
+            picture: active?.imageData
         )
         refreshActiveTab()
         if makingSpace {

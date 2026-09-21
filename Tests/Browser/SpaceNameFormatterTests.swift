@@ -59,8 +59,7 @@ final class SpaceNameFormatterTests: XCTestCase {
         let space = Space(
             name: "Work",
             symbolName: BrowserSession.defaultSpaceSymbol,
-            gradient: .defaultSpace,
-            profileID: UUID()
+            gradient: .defaultSpace
         )
         let editor = SpaceEditorView(space: space)
         editor.frame = NSRect(x: 0, y: 0, width: Tokens.Metric.sidebarWidth.default, height: 760)

@@ -188,7 +188,6 @@ final class BrowserSession {
 
     let store: BrowserStore
     let profileStore = ProfileStore()
-    var profiles: [UUID: Profile]
     var list: TabList
     var activeTabBySpace: [UUID: UUID] = [:]
     var controllers: [UUID: TabController] = [:]
@@ -247,12 +246,7 @@ final class BrowserSession {
         return BrowserSession(
             store: store,
             spaces: spaces,
-            profiles: try await store.profiles(),
-            list: TabList(
-                tabs,
-                groups: groups,
-                profiles: Dictionary(uniqueKeysWithValues: spaces.map { ($0.id, $0.profileID) })
-            ),
+            list: TabList(tabs, groups: groups),
             archived: archived.sorted { ($0.archivedAt ?? .distantPast) > ($1.archivedAt ?? .distantPast) },
             activeSpaceID: (spaces.first { $0.id == remembered } ?? spaces[0]).id
         )
@@ -261,14 +255,12 @@ final class BrowserSession {
     private init(
         store: BrowserStore,
         spaces: [Space],
-        profiles: [Profile],
         list: TabList,
         archived: [Tab],
         activeSpaceID: UUID
     ) {
         self.store = store
         self.spaces = spaces
-        self.profiles = Dictionary(uniqueKeysWithValues: profiles.map { ($0.id, $0) })
         self.list = list
         self.archived = archived
         self.activeSpaceID = activeSpaceID
@@ -278,7 +270,6 @@ final class BrowserSession {
         case noSpaces
         case lastSpace
         case unknownSpace
-        case unknownProfile
         case emptyName
 
         var errorDescription: String? {
@@ -286,7 +277,6 @@ final class BrowserSession {
             case .noSpaces: "Luna's database has no Spaces in it."
             case .lastSpace: "The last Space cannot be deleted."
             case .unknownSpace: "That Space no longer exists."
-            case .unknownProfile: "That profile no longer exists."
             case .emptyName: "A Space needs a name."
             }
         }
@@ -294,13 +284,12 @@ final class BrowserSession {
 
     // MARK: - Spaces (§5)
     //
-    // A Space names a Profile; a Profile is a `WKWebsiteDataStore` created
-    // with an identifier Luna generated and persisted itself, because WebKit
-    // will not hand the mapping back (§5.1).
+    // A Space is a `WKWebsiteDataStore` created with an identifier Luna
+    // generated and persisted itself, because WebKit will not hand the mapping
+    // back (§5.1). It named a Profile row that held that identifier until §9's
+    // `v7`; one Space, one jar, and nothing in between them now.
 
     func space(_ id: UUID) -> Space? { spaces.first { $0.id == id } }
-
-    func profile(for space: Space) -> Profile? { profiles[space.profileID] }
 
     func switchSpace(_ id: UUID) {
         guard id != activeSpaceID, spaces.contains(where: { $0.id == id }) else { return }
@@ -319,13 +308,13 @@ final class BrowserSession {
 
     /// The data store every tab in this Space is built against.
     func dataStore(forSpace spaceID: UUID) -> WKWebsiteDataStore {
-        guard let space = space(spaceID), let profile = profiles[space.profileID] else {
-            // Unreachable while the schema's foreign key holds. A non-persistent
-            // store is the safe wrong answer: it leaks nothing into a profile
-            // the user did not mean.
+        guard let space = space(spaceID) else {
+            // Unreachable while the Space exists at all. A non-persistent store
+            // is the safe wrong answer: it leaks nothing into a jar the user did
+            // not mean.
             return .nonPersistent()
         }
-        return profileStore.dataStore(for: profile)
+        return profileStore.dataStore(for: space)
     }
 
     /// The SF Symbol a new Space starts with, matching the seeded first Space.
