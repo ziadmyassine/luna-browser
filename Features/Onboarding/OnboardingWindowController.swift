@@ -80,8 +80,16 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
     /// on the middle page, which the copy handles.
     static func shouldPresent() -> Bool { !OnboardingState.hasRun }
 
+    /// First open means first open. The flag is set the moment the window goes
+    /// up rather than when it comes down, because a user who quits Luna from
+    /// the welcome page has still had their first run — and `windowWillClose`
+    /// is not guaranteed to land before the process does, so a quit from that
+    /// page put the whole thing back on the next launch.
+    private func markAsRun() { OnboardingState.hasRun = true }
+
     func present(over host: NSWindow?, onClose: @escaping () -> Void) {
         self.onClose = onClose
+        markAsRun()
         if let host { window?.setFrameOrigin(centred(over: host)) }
         // It arrives rather than appears: the browser window is already up
         // behind it, and a second window cutting in at full strength on the
@@ -102,12 +110,12 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func finish() {
-        OnboardingState.hasRun = true
+        markAsRun()
         close()
     }
 
     func windowWillClose(_ notification: Notification) {
-        OnboardingState.hasRun = true
+        markAsRun()
         onClose?()
         onClose = nil
     }

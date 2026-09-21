@@ -10,6 +10,7 @@
 //  can show, not on the one that happened to be written last.
 //
 
+import BrowserKit
 import XCTest
 @testable import Luna
 
@@ -149,6 +150,29 @@ final class OnboardingScreenTests: XCTestCase {
         }
         guard !samples.isEmpty else { return -1 }
         return samples.reduce(0) { $0 + $1.brightnessComponent * $1.alphaComponent } / Double(samples.count)
+    }
+
+    /// Once, on the first open. The flag goes down when the window goes up,
+    /// not when it comes down: quitting from the welcome page is still a first
+    /// run, and `windowWillClose` is not guaranteed to land before the process
+    /// does.
+    func testFirstRunHappensOnceEvenIfTheWindowIsNeverClosed() throws {
+        let key = "luna.onboarding.hasRun"
+        let was = UserDefaults.standard.object(forKey: key)
+        defer { UserDefaults.standard.set(was, forKey: key) }
+        UserDefaults.standard.removeObject(forKey: key)
+
+        XCTAssertTrue(OnboardingWindowController.shouldPresent(), "a fresh Mac gets first run")
+        let controller = OnboardingWindowController(store: try store(), sources: [])
+        controller.present(over: nil) {}
+        XCTAssertFalse(OnboardingWindowController.shouldPresent(), "first run would come back on the next launch")
+        controller.close()
+    }
+
+    private func store() throws -> BrowserStore {
+        let directory = URL.temporaryDirectory.appending(path: "luna-onboarding-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return try BrowserStore(path: directory.appending(path: "luna.sqlite"))
     }
 
     /// Nothing is behind the first page, so Back is not offered there.
