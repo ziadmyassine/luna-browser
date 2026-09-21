@@ -51,6 +51,20 @@ extension BrowserSession {
         notifyChange()
     }
 
+    /// The picture on §3.5's avatar, or nil to take it off again.
+    ///
+    /// The bytes are already cropped and downsampled by the time they arrive —
+    /// see `ProfilePicture`, which is where a chosen file becomes something
+    /// worth persisting. This is the write, not the policy.
+    func setImage(_ data: Data?, forProfile id: UUID) async throws {
+        guard var profile = profiles[id] else { throw SessionError.unknownProfile }
+        guard profile.imageData != data else { return }
+        profile.imageData = data
+        profiles[id] = profile
+        try await store.upsert(profile)
+        notifyChange()
+    }
+
     /// A Profile still wearing the name of the one Space on it goes on wearing
     /// it — so the Space made by §30.9's swipe stops being `Space 2` the moment
     /// the form that opens after it is given a name.

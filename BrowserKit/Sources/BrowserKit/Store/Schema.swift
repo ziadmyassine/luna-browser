@@ -38,7 +38,26 @@ enum Schema {
         migrator.registerMigration("v4") { db in
             try letTheUserNameATab(db)
         }
+        migrator.registerMigration("v5") { db in
+            try letTheUserPictureAProfile(db)
+        }
         return migrator
+    }
+
+    /// `v5` — a profile carries the picture the user gave it (§9).
+    ///
+    /// One nullable blob and no backfill: nil means "no picture", which is true
+    /// of every profile that existed before the column did, and the glyph on
+    /// §3.5's avatar is what nil draws. The bytes are what the sidebar shows
+    /// rather than what the user picked — the app crops to a square and
+    /// downsamples before it gets here — so a row stays tens of kilobytes and
+    /// the picture cannot outlive the profile it belongs to.
+    ///
+    /// Idempotent on the live schema, like every migration above it: the
+    /// migrator promises this runs once, the file on disk promises nothing.
+    static func letTheUserPictureAProfile(_ db: Database) throws {
+        guard !(try db.columns(in: "profiles").map(\.name).contains("imageData")) else { return }
+        try db.execute(sql: "ALTER TABLE profiles ADD COLUMN imageData BLOB")
     }
 
     /// `v4` — a tab carries the name and the icon the user gave it (§3.4a).

@@ -457,6 +457,21 @@ open tabs with the Space colour; that badge must carry the Profile when the
 Profiles differ, because the Space colour alone does not tell you whose cookies
 you are about to use.
 
+**A Profile can carry a picture, and §3.5's avatar wears it.** A name in a
+tooltip is read; a face is recognised, which is the difference that matters for
+a control the user is glancing at rather than reading. It is set from the
+Profile's card in §6.2 and taken off from the same row.
+
+What is stored is not what was chosen. A picture arrives from a photo library
+at thousands of points and megabytes, and is drawn in a 34 pt circle — so the
+app crops the middle square and downsamples to `ProfilePicture.side` (three
+times the circle) before anything is persisted, and the column holds the PNG
+that is drawn. Cropped rather than fitted, because a portrait letterboxed into
+a circle shows two bands of background where a face should be. It lives in the
+profile row (`v5`, nullable, no backfill) rather than in a file beside it: a
+file is a second thing to keep in step, and this way the picture cannot outlive
+the Profile or be left behind by a delete.
+
 ---
 
 ## 10. Scope

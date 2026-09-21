@@ -60,10 +60,13 @@ final class SidebarUtilityBar: NSView {
     /// glyph is the placeholder, not the design.
     private let avatar = GlassButton(
         shape: Tokens.Metric.bottomCircle,
-        symbolName: "person.crop.circle",
+        symbolName: SidebarUtilityBar.avatarSymbol,
         pointSize: Tokens.Metric.glyphSize,
         label: "Profile"
     )
+    /// What the avatar wears with no picture on the Profile, and what it goes
+    /// back to when one is taken off.
+    static let avatarSymbol = "person.crop.circle"
     /// The same two glyphs §4's capsule uses, in the same order, so the pair is
     /// recognisably the same pair in both layouts.
     private var library: SidebarActionCapsule!
@@ -146,7 +149,10 @@ final class SidebarUtilityBar: NSView {
     ///
     /// `fanOut` is the sentence Settings puts on the Space's card, so the two
     /// places that answer this question answer it in the same words.
-    func show(profileName: String?, fanOut: String?) {
+    func show(profileName: String?, fanOut: String?, picture: Data? = nil) {
+        // §9's picture, or the glyph that stands in for one. `setPortrait`
+        // takes the symbol back itself when there is nothing to show.
+        avatar.setPortrait(ProfilePicture.image(from: picture), fallbackSymbol: Self.avatarSymbol)
         avatar.setAccessibilityLabel(
             profileName.map { String(localized: "Profile: \($0)") } ?? String(localized: "Profile")
         )

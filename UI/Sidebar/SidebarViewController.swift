@@ -232,9 +232,11 @@ final class SidebarViewController: NSViewController {
         let active = session.space(session.activeSpaceID)
         spaceLabel.show(spaceName: active?.name)
         // §9's fan-out moved to the control it is about — see `SidebarSpaceLabel`.
+        let profile = active.flatMap { session.profile(for: $0) }
         utility.show(
-            profileName: active.flatMap { session.profile(for: $0)?.name },
-            fanOut: active.map { SpacesSection.fanOut($0, session: session) }
+            profileName: profile?.name,
+            fanOut: active.map { SpacesSection.fanOut($0, session: session) },
+            picture: profile?.imageData
         )
         refreshActiveTab()
         if makingSpace {

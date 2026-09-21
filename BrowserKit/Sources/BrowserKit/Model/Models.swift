@@ -187,11 +187,26 @@ public struct Profile: Identifiable, Sendable, Hashable, Codable {
     public var id: UUID
     public var name: String
     public var dataStoreIdentifier: UUID
+    /// The picture the user gave this profile, as PNG, or nil for none.
+    ///
+    /// In the row rather than beside it: a file on disk is a second thing to
+    /// keep in step with the profile it belongs to, and every operation here
+    /// already knows how to keep one row honest — deleting the profile deletes
+    /// it, and nothing can leave an orphan behind. It stays small because the
+    /// app that writes it crops and downsamples first; the column holds what is
+    /// drawn, not what was chosen.
+    public var imageData: Data?
 
-    public init(id: UUID = UUID(), name: String, dataStoreIdentifier: UUID = UUID()) {
+    public init(
+        id: UUID = UUID(),
+        name: String,
+        dataStoreIdentifier: UUID = UUID(),
+        imageData: Data? = nil
+    ) {
         self.id = id
         self.name = name
         self.dataStoreIdentifier = dataStoreIdentifier
+        self.imageData = imageData
     }
 }
 
@@ -232,6 +247,6 @@ public extension Profile {
     /// sync — survive. The user gets an empty cookie jar for that profile instead of a crash.
     func repairingDataStoreIdentifier() -> Profile {
         guard !hasUsableDataStoreIdentifier else { return self }
-        return Profile(id: id, name: name, dataStoreIdentifier: UUID())
+        return Profile(id: id, name: name, dataStoreIdentifier: UUID(), imageData: imageData)
     }
 }

@@ -101,16 +101,19 @@ final class SettingsGroupingTests: XCTestCase {
 
     // MARK: - §9's card
 
-    /// Two rows, not three: the fan-out line between them said on a Profile's
+    /// The fan-out line is not one of the card's rows: it said on a Profile's
     /// card what every Space's card above it already says about itself.
-    func testAProfileCardIsNameAndDelete() {
-        let profile = Profile(name: "Personal")
-        let rows = SpacesSection().profileRows(profile, session: nil)
-        XCTAssertEqual(rows.count, 2)
+    ///
+    /// Asserted on the terms rather than on the row count, which is what this
+    /// said first and was wrong within the hour — §9's picture is a row, and a
+    /// count cannot tell a row that was added from a row that came back.
+    func testAProfileCardCarriesNoFanOutLine() {
+        let rows = SpacesSection().profileRows(Profile(name: "Personal"), session: nil)
         XCTAssertFalse(
             rows.contains { $0.terms.contains { $0.contains("profile ·") } },
             "the fan-out line is still on the card"
         )
+        XCTAssertTrue(rows.contains { $0.terms.contains("picture") }, "§9's picture row is missing")
     }
 
     /// The count it was carrying is not lost — it is the reason Delete is
