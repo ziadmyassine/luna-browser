@@ -9,9 +9,9 @@
 //  "a load under 0.15 s plays nothing" rule lives in `ReloadBloomTimeline`.
 //  What is left here is the view: four layers, and when each one moves.
 //
-//  §7's de-blur stagger is the same trick as the blur itself — five horizontal
-//  strips of the one snapshot fading out 40 ms apart, revealing the finished
-//  live page underneath. No filter is ever animated.
+//  §7's de-blur stagger is the blur's own trick again: five horizontal strips
+//  of the one snapshot fading out 40 ms apart, revealing the finished live page
+//  underneath. No filter is ever animated.
 //
 
 import AppKit

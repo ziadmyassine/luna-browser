@@ -6,11 +6,11 @@
 //  block, HTTPS-Only, and §17.7's paragraph.
 //
 //  These toggles are what the site menu's switch is an exception to. The
-//  sliders glyph on the URL pill answers "block on this site"; it can only
-//  turn off what is on globally, and there is nowhere else to say which filter
-//  lists run at all. So the two surfaces are not duplicates and deleting these
-//  would leave the per-site switch with nothing to switch. What did move out is
-//  the per-site exemption list, which is now only in the menu.
+//  sliders glyph on the URL pill answers "block on this site" and can only turn
+//  off what is on globally, and there is nowhere else to say which filter lists
+//  run at all — so the two surfaces are not duplicates, and deleting these
+//  would leave the per-site switch with nothing to switch. The per-site
+//  exemption list did move out, and is now only in the menu.
 //
 //  The row stack and §2's search come from `SettingsBody` in `General.swift`;
 //  the app wiring and the confirmation dialog come from `SettingsHost`.

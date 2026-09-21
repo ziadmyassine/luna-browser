@@ -6,13 +6,13 @@
 //  (`BrowserCommand`). Same rules as `BrowserCommands.swift` — a first-responder
 //  action per command, no event monitors, nothing that is not also a menu item.
 //
-//  They are in their own file because the first one is full, not because they
-//  are a different kind of thing.
+//  In their own file because the first one is full, not because they are a
+//  different kind of thing.
 //
-//  Every one of them validates. A browser command that cannot run should dim
-//  rather than swallow the keystroke, and these are mostly commands with an
-//  obvious empty state: nothing to copy, nothing stale to clean up, no tile to
-//  send home. `validatePageCommand` is reached from `validateMenuItem`'s chain.
+//  Every one validates: a browser command that cannot run should dim rather
+//  than swallow the keystroke, and these mostly have an obvious empty state —
+//  nothing to copy, nothing stale to clean up, no tile to send home.
+//  `validatePageCommand` is reached from `validateMenuItem`'s chain.
 //
 
 import AppKit

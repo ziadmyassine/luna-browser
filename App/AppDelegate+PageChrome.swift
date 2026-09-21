@@ -33,11 +33,10 @@ extension AppDelegate {
     /// answer it the same way: by handing the address to §9.1, which opens
     /// standing on the pill that asked (`CommandBarAnchor`).
     ///
-    /// Chained, not assigned, which is how `TopBarView` claims it: each
-    /// layout answers only for itself and passes the command on otherwise. This
-    /// one is registered last and asks the two questions the others cannot —
-    /// whether the page bar is the one showing, and whether the column's pill
-    /// is on screen at all.
+    /// Chained, not assigned, which is how `TopBarView` claims it: each layout
+    /// answers only for itself and passes the command on otherwise. This one is
+    /// registered last and asks the two questions the others cannot — whether
+    /// the page bar is showing, and whether the column's pill is on screen.
     ///
     /// Without it `⌘L` did nothing in the sidebar layout: the top bar's claim
     /// was the whole chain, it answered "not my layout", and the fallback in

@@ -5,15 +5,13 @@
 //  §3.3's grid arithmetic: how many rows and columns a given number of pinned
 //  tiles makes, where each slot is, and which slot a point falls in.
 //
-//  Split out of `EssentialsGridView.swift` when it crossed SwiftLint's 400-line
-//  file limit, and this is the half that came out because it is the half that
-//  is only arithmetic — it reads the grid's state and touches none of it, so
-//  it can be checked against §3.3 without a window (`shape(for:)` is asserted
-//  directly in `EssentialsGridTests`).
+//  Split out of `EssentialsGridView.swift` for that file's length limit. This
+//  is the half that is only arithmetic: it reads the grid's state and touches
+//  none of it, so it can be checked against §3.3 without a window
+//  (`shape(for:)` is asserted in `EssentialsGridTests`).
 //
-//  `maxColumns`, `order` and `settled` are internal rather than private for one
-//  reason: they are read from here. Nothing outside this pair of files has any
-//  business with any of them.
+//  `maxColumns`, `order` and `settled` are internal rather than private only
+//  because they are read from here.
 //
 
 import AppKit

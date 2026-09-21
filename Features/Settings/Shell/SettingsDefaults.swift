@@ -9,7 +9,7 @@
 //     `restoreAll()` all read `table`.
 //  2. The registered value must equal the reader's own fallback. A
 //     registration domain satisfies a `?? default` read, so a disagreement
-//     here does not produce a second opinion — it silently overrides the first.
+//     silently overrides the reader rather than producing a second opinion.
 //     Each row names the reader it was copied from.
 //
 //  Existing keys keep their spellings (§6), and `luna.activeSpaceID` is

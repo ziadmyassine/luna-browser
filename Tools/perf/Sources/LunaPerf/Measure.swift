@@ -2,11 +2,11 @@
 //  Measure.swift
 //  luna-perf
 //
-//  The measuring instruments. Everything here reads the system's numbers —
-//  `ps`, `footprint`, the window server — rather than anything Luna reports
-//  about itself, because a browser's real cost is spread across processes the
-//  app does not own: WebKit's WebContent, Networking and GPU services are
-//  children of launchd (`ppid == 1`), not of us.
+//  The measuring instruments. Everything reads the system's numbers — `ps`,
+//  `footprint`, the window server — rather than anything Luna reports about
+//  itself, because a browser's real cost is spread across processes the app
+//  does not own: WebKit's WebContent, Networking and GPU services are children
+//  of launchd (`ppid == 1`).
 //
 //  That is also why helper processes are found by diffing the set of live
 //  WebKit XPC services before and after the run: there is no public way to ask

@@ -7,12 +7,12 @@ import os
 // Two jobs live here, and they are the same job seen from either end of the
 // `profiles.dataStoreIdentifier` column:
 //
-//   · Read. The column is `NOT NULL UNIQUE` with no value check. The one value it must
-//     never hold is the all-zero UUID, because `WKWebsiteDataStore(forIdentifier:)` answers
-//     that with an Objective-C exception Swift cannot catch — an uncatchable crash, not an
-//     error any call site can handle. None of the five codebases researched for the spec
-//     guards this. Luna guards it here, at the GRDB boundary, because this is the last place
-//     a bad value is still data.
+//   · Read. The column is `NOT NULL UNIQUE` with no value check. The one value it
+//     must never hold is the all-zero UUID, because
+//     `WKWebsiteDataStore(forIdentifier:)` answers that with an Objective-C exception
+//     Swift cannot catch — an uncatchable crash rather than an error a call site can
+//     handle. None of the five codebases researched for the spec guards it. Luna
+//     guards it at the GRDB boundary, the last place a bad value is still data.
 //
 //   · Delete. `BrowserStore` had no `delete(profileID:)` at all, so a Space delete that
 //     removed the cookie jar still left the profile row behind — an orphan naming a store
