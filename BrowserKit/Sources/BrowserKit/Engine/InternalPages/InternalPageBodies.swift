@@ -184,14 +184,13 @@ extension InternalPages {
     /// whether it is ink or §8.1's danger — there is no colour in this file
     /// either.
     ///
-    /// Six glyphs, not one. Every kind used to wear the same exclamation
-    /// in a circle, which is the mark for "something went wrong" and therefore
-    /// says nothing at all six times. These are the distinctions the sentence
-    /// under them is already making: a network that is not there, a name that
-    /// did not resolve, a certificate that did not check out, a request Luna
-    /// itself stopped, and a site with no encryption to offer. The last one
-    /// keeps the circle, because "something went wrong" is honestly all that
-    /// page knows.
+    /// Six glyphs, not one. Every kind used to wear the same exclamation in a
+    /// circle, which says nothing six times over. These are the distinctions
+    /// the sentence under them already makes: a network that is not there, a
+    /// name that did not resolve, a certificate that did not check out, a
+    /// request Luna stopped, and a site with no encryption to offer. The last
+    /// keeps the circle, because "something went wrong" is all that page
+    /// knows.
     ///
     /// Stroked rather than filled, at the weight SF Symbols draw at this size,
     /// so a mark on one of Luna's pages and a mark in Luna's chrome are the

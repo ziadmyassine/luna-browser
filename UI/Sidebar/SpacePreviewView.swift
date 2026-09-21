@@ -4,30 +4,25 @@
 //
 //  The Space on the other side of the swipe, drawn so it can be seen arriving.
 //
-//  A page turn has to show the page. §30.9 used to lean the column 40 pt
-//  and dim it, which says "something is happening" and nothing else: the Space
-//  you were reaching for stayed invisible until the gesture had already
-//  committed, so the choice was made blind. This is the other half of the
-//  motion — the incoming Space, translating in from the edge the fingers are
-//  heading toward while the live one translates out.
+//  A page turn has to show the page. §30.9 used to lean the column 40 pt and
+//  dim it, which says "something is happening" and nothing else: the Space you
+//  were reaching for stayed invisible until the gesture had committed, so the
+//  choice was made blind. This is the other half of the motion — the incoming
+//  Space translating in from the edge the fingers are heading toward.
 //
-//  It is a still, and it is not the list. §3.4's list is an `NSTableView`
-//  bound to the active Space: there is exactly one, it recycles its rows, and
-//  pointing it at a Space the window is not in would mean tearing down and
-//  rebuilding the thing the user is about to be handed. What a page turn needs
-//  is a picture, not a working list — nothing here hovers, scrolls, closes a
-//  tab or takes a click. It is thrown away the moment the gesture ends, and
-//  what replaces it is the real list, cross-faded by §6's
-//  `spaceSwitchCrossfade` so the seam is not a frame anyone can catch.
+//  It is a still, not the list. §3.4's list is one `NSTableView` bound to the
+//  active Space, and pointing it at a Space the window is not in would mean
+//  tearing down and rebuilding the thing the user is about to be handed. A page
+//  turn needs a picture: nothing here hovers, scrolls, closes a tab or takes a
+//  click, and it is thrown away the moment the gesture ends, cross-faded by
+//  §6's `spaceSwitchCrossfade`.
 //
-//  The picture is of the whole column, pinned tabs included. It used to be
-//  a flat run of rows built from every tab in the Space — which put the §3.3
-//  tiles in it as ordinary rows, so a Space with pinned tabs arrived looking
-//  like a Space without any and then rearranged itself the moment the real
-//  column took over. A still that has to be corrected is worse than no still:
-//  the correction is the one frame the cross-fade exists to hide. So the grid
-//  is drawn as a grid, with `EssentialsGridView`'s own slot arithmetic, and the
-//  rows below it start where §3.4's rows start — with `New Tab` and its rule.
+//  The picture is of the whole column, pinned tabs included. It used to be a
+//  flat run of rows built from every tab, which put the §3.3 tiles in as
+//  ordinary rows — so a Space with pinned tabs arrived looking like a Space
+//  without any and rearranged itself the moment the real column took over, and
+//  that correction is the one frame the cross-fade exists to hide. The grid is
+//  drawn as a grid, with `EssentialsGridView`'s own slot arithmetic.
 //
 //  Only what fits is drawn. A Space with sixty tabs is a Space whose first
 //  dozen rows are what identifies it at a glance, and drawing the other

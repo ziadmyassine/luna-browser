@@ -4,13 +4,12 @@
 //
 //  §14.3's credential picker: a native popover anchored to the field.
 //
-//  The word "native" in §14.3 is a security requirement, not a style note.
-//  An injected DOM overlay lives in the page's own document, which means the
-//  page can read the usernames out of it, restyle it, move it over a different
-//  field, or draw a convincing copy of it and harvest whatever the user picks.
-//  Every one of those is impossible for an `NSPanel`: the page cannot see it,
-//  cannot script it, and cannot find out what is in it. The only thing a page
-//  learns is that it has a password field, which it already knew.
+//  The word "native" in §14.3 is a security requirement, not a style note. An
+//  injected DOM overlay lives in the page's own document, so the page can read
+//  the usernames out of it, restyle it, move it over a different field, or draw
+//  a convincing copy and harvest whatever the user picks. None of that is
+//  possible for an `NSPanel`: the page cannot see it, script it, or find out
+//  what is in it. All a page learns is that it has a password field.
 //
 //  So this is a panel — a child window of the browser window, like §5's
 //  downloads popover — positioned from a rect the page reported. The rect is

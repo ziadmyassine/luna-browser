@@ -13,10 +13,10 @@
 //  inserts a row above it. The controller enforces the no-reorder rule; this view
 //  makes it observable, by putting the highlight back on the same result.
 //
-//  UI-SPEC §3.4 supplies the look: a filled translucent pill at `rowCornerRadius`
-//  inset `rowInset` from each edge, with a visible hairline border and no
-//  background at all on the unselected rows. One pill that moves, rather than a
-//  fill per row — it is cheaper, and it is what §6's `selectedRowMove` describes.
+//  UI-SPEC §3.4 supplies the look: a filled translucent pill at
+//  `rowCornerRadius`, inset `rowInset` from each edge, with a hairline border
+//  and no background on the unselected rows. One pill that moves rather than a
+//  fill per row — cheaper, and what §6's `selectedRowMove` describes.
 //
 
 import AppKit

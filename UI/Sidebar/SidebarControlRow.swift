@@ -10,12 +10,11 @@
 //  bar puts reload inside the capsule because it has a 420 pt one to put it
 //  in, and this column's pill is 200 pt with a domain already in it.
 //
-//  The traffic lights are not laid out here. `TrafficLightLayoutManager`
-//  owns their frames for all six window states (§7.7); this row only has to
-//  leave their space clear. It does that by measuring what AppKit owns and
-//  never moves — the buttons' size, and the spacing between them — and deriving
-//  the rest from `trafficLightInset`, the one number the manager places them
-//  with. Reading their live origins instead is a race this row loses on every
+//  The traffic lights are not laid out here. `TrafficLightLayoutManager` owns
+//  their frames for all six window states (§7.7); this row only leaves their
+//  space clear, by measuring what AppKit owns and never moves — the buttons'
+//  size and their spacing — and deriving the rest from `trafficLightInset`.
+//  Reading their live origins instead is a race this row loses on every
 //  resize; see `trafficLights`.
 //
 //  Two deliberate departures from §3.1's written order, both measured off
@@ -29,11 +28,11 @@
 //    lights — which is why this row asks the window for that line rather than
 //    centring in its own 52 pt.
 //
-//  The circle is `Metric.sidebarCircle` — the URL pill's own height — so the
-//  sidebar's head is one stack of equal-height controls instead of three small
+//  The circle is `Metric.sidebarCircle`, the URL pill's own height, so the
+//  sidebar's head is one stack of equal-height controls rather than three small
 //  buttons above a bigger one. All three carry their glass at rest: the toggle
-//  is how you get the sidebar back, and a control you cannot see until you
-//  happen to sweep the pointer over it is not one.
+//  is how you get the sidebar back, and a control you cannot see until the
+//  pointer sweeps over it is not one.
 //
 
 import AppKit

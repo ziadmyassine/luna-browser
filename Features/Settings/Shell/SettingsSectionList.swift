@@ -4,23 +4,21 @@
 //
 //  §2's section list: ten rows, exactly one selected, always.
 //
-//  It is the browser's sidebar, with sections where the tabs are. Same
-//  material, same pitch, same pill, same insets, same springs — `SidebarRowView`
-//  and this class are two lists of one design, and every number below is the
-//  token that list reads. What that costs is nothing; what it buys is that the
-//  two windows stop being cousins.
+//  It is the browser's sidebar with sections where the tabs are: same
+//  material, pitch, pill, insets and springs. `SidebarRowView` and this class
+//  are two lists of one design, and every number below is the token that list
+//  reads.
 //
-//  Three things were not the sidebar before this pass and are now:
+//  Three things were not the sidebar before and are now:
 //
 //  · The fills are `RowPillView` — §3.4's glass, moved between rows, rather
 //    than a flat wash painted on whichever row was selected. Clear glass over
-//    the column's own glass is what a selected tab is made of, and it is why
-//    the selection reads as a raised surface instead of a grey band.
+//    the column's own glass is what makes the selection read as a raised
+//    surface instead of a grey band.
 //  · No tile behind the symbol. A rounded square carrying `Surface.selected`
-//    sat under every glyph, which made ten section icons into ten buttons and
-//    put a second selected-looking shape on every unselected row.
-//  · The sidebar's pitch: 38 pt of row around a 35 pt pill, not 34 around
-//    31. The list is a third of an inch taller for it — see `settingsMinHeight`.
+//    sat under every glyph, which made ten section icons into ten buttons.
+//  · The sidebar's pitch: 38 pt of row around a 35 pt pill, not 34 around 31.
+//    The list is a third of an inch taller for it (`settingsMinHeight`).
 //
 //  Views laid out with arithmetic rather than constraints, for the reason the
 //  sidebar's rows are: ten fixed rows have nothing to solve, and the pills have
