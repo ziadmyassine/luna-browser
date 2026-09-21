@@ -223,8 +223,10 @@ final class TopBarView: NSView {
             symbolName: "plus",
             label: String(localized: "New Tab")
         ) { [weak self] in
-            guard let self else { return }
-            _ = session.newTab(url: nil, kind: .today)
+            // §9.1, not a blank tab — the same answer §3.4's New Tab row and
+            // `⌘T` give. There is no New Tab page to land on any more, so a `+`
+            // that made a tab would be making an empty one.
+            self?.session.presentCommandBar?(.newTab, nil)
         }
         let history = TopBarActionItem(
             id: Self.historyItem,

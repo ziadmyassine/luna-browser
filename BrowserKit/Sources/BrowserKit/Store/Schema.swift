@@ -50,6 +50,13 @@ enum Schema {
         migrator.registerMigration("v8") { db in
             try giveEverySpaceItsOwnHistory(db)
         }
+        // `v9` — `luna://newtab` is gone, so the tabs standing on it are blank
+        // tabs and are written as what they are. Rewritten rather than deleted:
+        // a closed tab in §6.3's archive is the user's, and a page being
+        // removed is not a reason to take one away.
+        migrator.registerMigration("v9") { db in
+            try db.execute(sql: "UPDATE tabs SET url = 'about:blank' WHERE url = 'luna://newtab'")
+        }
         return migrator
     }
 

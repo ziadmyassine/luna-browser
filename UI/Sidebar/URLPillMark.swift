@@ -76,9 +76,8 @@ extension URLPillView {
         ///
         /// A page Luna serves itself is a search too, not a globe. `luna://`
         /// is a scheme the bar accepts, so the rule would otherwise call the
-        /// new tab a website — and a globe over a page that is nowhere on the
-        /// web is the one answer here that is simply untrue. A new tab is an
-        /// invitation to ask for something, which is what the magnifier says.
+        /// archive a website — and a globe over a page that is nowhere on the
+        /// web is the one answer here that is simply untrue.
         static func reading(_ text: String) -> LeadingMark {
             guard let url = CommandBarURL.direct(from: text) else { return .search }
             guard InternalPages.name(for: url) == nil else { return .search }
@@ -86,16 +85,15 @@ extension URLPillView {
         }
     }
 
-    /// What the pill reads at rest — the domain, or nothing at all on a new
+    /// What the pill reads at rest — the domain, or nothing at all on a blank
     /// tab, where the placeholder is the truer answer.
     ///
-    /// A new tab is the one page with no address worth showing. `New Tab` is a
-    /// label for a row in a list of tabs; in an address bar it reads as the
-    /// name of a site you are on, and it took the place of the one line that
-    /// says what the bar is for. Luna's other pages keep their names —
-    /// `History` is somewhere you actually are.
+    /// A blank tab is the one page with no address worth showing. `about:blank`
+    /// in an address bar reads as somewhere you are, and it takes the place of
+    /// the one line that says what the bar is for. Luna's own pages keep their
+    /// names — `History` is somewhere you actually are.
     static func label(of url: URL?) -> String {
-        guard let url, case .page(.newTab) = InternalPages.route(url) else { return domain(of: url) }
+        guard url == BrowserSession.blankPage else { return domain(of: url) }
         return ""
     }
 
@@ -103,7 +101,7 @@ extension URLPillView {
     /// one subdomain that is never meaningful.
     ///
     /// Luna's own pages answer with their name instead. They have a host like
-    /// anything else and it is not a name — a tab on `luna://newtab` carries no
+    /// anything else and it is not a name — a tab on `luna://archive` carries no
     /// title until the page reports one, and until then this was its label.
     static func domain(of url: URL?) -> String {
         guard let url else { return "" }

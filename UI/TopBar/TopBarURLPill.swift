@@ -29,7 +29,7 @@ enum TopBarDomain {
     static func display(for url: URL?) -> String {
         guard let url else { return "" }
         // Luna's own pages have a host, and it is not a name: a New Tab whose
-        // `<title>` has not arrived yet was labelled `newtab` until it did.
+        // `<title>` has not arrived yet was labelled `archive` until it did.
         if let name = InternalPages.name(for: url) { return name }
         guard let host = url.host(percentEncoded: false), !host.isEmpty else {
             // `about:blank` — there is no host to shorten.

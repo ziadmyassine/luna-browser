@@ -1,6 +1,6 @@
 import Foundation
 
-//  The three pages. Nothing here concatenates a raw string into markup: every
+//  The two pages. Nothing here concatenates a raw string into markup: every
 //  interpolation goes through `HTML.escape` or `HTML.href`, both of which are
 //  the point of `InternalPagesTests.escapesEverythingItRenders`. An error page
 //  renders an attacker-chosen URL by definition, and an archived tab's title is
@@ -11,49 +11,9 @@ extension InternalPages {
     @MainActor
     static func html(for page: Page) -> String {
         switch page {
-        case .newTab: newTabHTML()
         case .archive: archiveHTML()
         case let .error(error): errorHTML(error)
         }
-    }
-
-    // MARK: - New Tab (§30.19)
-    //
-    // §30.20's voice input and §30.21's cross-device button are deliberately
-    // absent: one needs a speech entitlement and the other needs sync, and
-    // neither exists. An affordance that does nothing is worse than no
-    // affordance (§30.4 says so in as many words).
-
-    @MainActor
-    static func newTabHTML() -> String {
-        let favorites = content?().favorites ?? []
-        let tiles = favorites.compactMap(tile) + [addFavoriteTile]
-        let body = """
-        <main class="newtab">
-        <a class="pill plate" href="\(scheme)://commandbar">\
-        <span class="lead" aria-hidden="true">+</span>\
-        <span>Search or type a URL</span></a>
-        <ul class="grid" aria-label="Favorites">\(tiles.joined())</ul>
-        </main>
-        """
-        return document(title: Page.newTab.name, bodyClass: "", body: body)
-    }
-
-    @MainActor
-    private static func tile(_ entry: InternalPageContent.Entry) -> String? {
-        guard let href = HTML.href(entry.url) else { return nil }
-        let label = entry.title.isEmpty ? (entry.url.host() ?? entry.url.absoluteString) : entry.title
-        return """
-        <li><a class="tile plate" href="\(href)">\(icon(for: entry.url))\
-        <span class="label">\(HTML.escape(label))</span></a></li>
-        """
-    }
-
-    private static var addFavoriteTile: String {
-        """
-        <li><a class="tile plate add" href="\(scheme)://addfavorite">\
-        <span>+ Add Favorite</span></a></li>
-        """
     }
 
     // MARK: - History (§6.4)
@@ -176,7 +136,9 @@ extension InternalPages {
             buttons.append("<a class=\"\(role)\" href=\"\(HTML.action(host, url: url))\">\(label)</a>")
         }
         let home = error.offersBypass ? "button key plate" : "button plate"
-        buttons.append("<a class=\"\(home)\" href=\"\(scheme)://newtab\">New Tab</a>")
+        // §9.1, not a page. There is nowhere to send somebody who is stuck on
+        // an error except somewhere they can say where they want to go.
+        buttons.append("<a class=\"\(home)\" href=\"\(scheme)://commandbar\">New Tab</a>")
         return buttons.joined()
     }
 

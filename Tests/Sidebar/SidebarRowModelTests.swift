@@ -256,12 +256,11 @@ final class SidebarRowModelTests: XCTestCase {
     }
 
     /// §3.4's rows fall back to `URLPillView.domain` when a tab has no title
-    /// yet, and a brand new tab never does. Luna's own pages have a host like
-    /// anything else, so the row said `newtab` until the page's `<title>`
-    /// arrived — and the pill above it said the same.
+    /// yet, and a tab that has only just been opened never does. Luna's own
+    /// pages have a host like anything else, so the row said `archive` until
+    /// the page's `<title>` arrived — and the pill above it said the same.
     @MainActor
     func testATabOnLunasOwnPageIsNamedNotHosted() {
-        XCTAssertEqual(URLPillView.domain(of: InternalPages.Page.newTab.url), "New Tab")
         XCTAssertEqual(URLPillView.domain(of: InternalPages.Page.archive.url), "History")
         XCTAssertEqual(URLPillView.domain(of: URL(string: "https://www.apple.com")!), "apple.com")
         XCTAssertEqual(URLPillView.domain(of: nil), "")

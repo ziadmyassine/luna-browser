@@ -169,12 +169,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // memory-pressure source. Before the first tab, so the budget is never
         // briefly unenforced.
         session.installLifecycle()
-        // A Space with nothing in it would otherwise show an empty content
-        // card. A restore that has tabs deliberately selects none of them
-        // (§19.4) — that is the memory budget, not a missing page.
-        if session.activeTabID == nil, session.tabs.isEmpty {
-            session.newTab(url: InternalPages.Page.newTab.url)
-        }
+        // An empty Space opens nothing. It used to be handed a tab on the New
+        // Tab page so the content card had something in it; with that page gone
+        // there is nothing honest to put in a tab nobody asked for, and the
+        // column already says what to do — §3.3a's wells and §30.6's New Tab
+        // row, which opens §9.1 rather than a blank page.
         render()
         // §19.1's "to interactive": the window has the restored session in it.
         // `Tools/perf` is polling for the file this writes.

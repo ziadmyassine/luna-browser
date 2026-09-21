@@ -681,10 +681,10 @@ Transcribed from the reference captures in `inspiration/`. These are **observed 
 
 ### From `iphone-mac-sync.png`
 
-- [ ] **30.19 New Tab page** — big centred "Search or type a URL" pill (leading `+`, trailing mic), a Favorites icon grid with labels and a trailing "Add Favorite" slot, and a cross-device tabs button beneath. Currently missing from this document entirely; it is the most-seen screen in the app, so give it its own design pass.
-  > **Gap found while building it:** the "Add Favorite" slot has nowhere to go. It opens the Command Bar, and the Command Bar creates a **Today** tab — so §9.2 needs a "pin as Essential" commit mode before that slot means anything. Also: §1 of `UI-SPEC.md` has no metric for the large New Tab pill; it is currently derived in CSS as four Essentials tiles wide by `urlPill.height + 2×chromeGap` tall. Give it a real `Metric.newTabPill` rather than leaving the arithmetic in a stylesheet.
-- [ ] **30.20 Voice input** — mic affordance in the New Tab pill and the Command Bar. Needs `SFSpeechRecognizer` + a mic usage string; prefer on-device recognition and say so in the Privacy Policy (§24.7).
-- [ ] **30.21 Cross-device tabs surface** — an "open on my other devices" button on the New Tab page, backed by §31.6.
+- [x] ~~**30.19 New Tab page**~~ — **cut.** It shipped as a centred "Search or type a URL" pill over a Favorites grid, and every route into it already opened §9.1's Command Bar: `⌘T`, §3.4's New Tab row, §4's `+`, and the pill itself, which handed off rather than taking a second line of input. What was left was a page whose only job was to be somewhere to stand while the bar was open. `luna://newtab` no longer routes, a tab with no address is `about:blank`, an empty Space opens no tab, and §3.3a's two wells are what the column says instead. Schema `v9` rewrites the tabs that were standing on it.
+  > The gap that killed it: the "Add Favorite" slot had nowhere to go — it opened the Command Bar, which makes a **Today** tab — so the grid's one affordance of its own was already broken, and §3.3a now says the same thing in the sidebar where the tiles actually are.
+- [ ] **30.20 Voice input** — mic affordance in the Command Bar. Needs `SFSpeechRecognizer` + a mic usage string; prefer on-device recognition and say so in the Privacy Policy (§24.7).
+- [ ] **30.21 Cross-device tabs surface** — an "open on my other devices" button, backed by §31.6. It had a home on §30.19's page; it needs a new one.
 - [ ] **30.22 iOS companion shape** — bottom-anchored URL bar (back · tab switcher · domain · reload · overflow) and an "Added to ★ Favorites" confirmation chip. Reinforces §25.5: keep `BrowserKit` free of AppKit types so the model layer ports as-is.
 
 ### From `refresh-animation-ui.mov`
