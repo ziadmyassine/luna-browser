@@ -84,7 +84,7 @@ final class CommandBarResultsView: NSView {
     /// arrives with the same eight ids. The pill was then animated to a frame
     /// measured off rows that had not been laid out at their new size yet — so
     /// it slid to somewhere slightly wrong and the next layout pass snapped it
-    /// back. That is the highlight Martin saw "moving around a bit weirdly".
+    /// back — the highlight that read as "moving around a bit weirdly".
     func setResults(_ new: [CommandBarResult], selecting id: String?) {
         let contentChanged = new.map(\.id) != results.map(\.id)
         let previous = selectedID

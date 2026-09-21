@@ -113,9 +113,9 @@ final class NavClusterTests: XCTestCase {
 /// §3.1's head is `[lights] [toggle] ··· [back·forward] [reload]`, and the
 /// cluster is pinned to the trailing edge — so every point it grows is a point
 /// its leading end travels towards the toggle. At the old 220 pt minimum the
-/// two overlapped the moment there was a forward to go to, which is what Martin
-/// photographed. The minimum is arithmetic (see `Metric.sidebarWidth`), and
-/// this is that arithmetic run against the real row.
+/// two overlapped the moment there was a forward to go to, which is what the
+/// photographed report shows. The minimum is arithmetic (see
+/// `Metric.sidebarWidth`), and this is that arithmetic run against the real row.
 @MainActor
 final class SidebarHeadRoomTests: XCTestCase {
 

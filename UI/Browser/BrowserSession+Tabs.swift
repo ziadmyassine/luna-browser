@@ -114,7 +114,7 @@ extension BrowserSession {
     ///   sit in the same list as history's and look exactly like them. Choosing
     ///   one and landing half way down the page you were on last week is the
     ///   session resuming behind a gesture that never asked for it — which is
-    ///   what Martin hit on an `iPhone 18 Pro` row. Same tab, same Space, same
+    ///   what an `iPhone 18 Pro` row did. Same tab, same Space, same
     ///   name; it simply starts at the top of the page.
     func unarchiveTab(_ id: UUID, resumingSession: Bool = true) {
         guard var tab = archived.first(where: { $0.id == id }) else { return }

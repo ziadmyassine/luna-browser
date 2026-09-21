@@ -124,9 +124,9 @@ final class SidebarRowModelTests: XCTestCase {
 
 /// §3.4's title ink, which is the answer to "which tab am I on".
 ///
-/// Martin has asked for this rule twice, from two directions: first that only
-/// the selected row is bright, and then that a pointer resting on a row must
-/// not change any title's colour. `titleInk` takes no `isHovered`, so the
+/// The rule has been asked for twice, from two directions: first that only the
+/// selected row is bright, and then that a pointer resting on a row must not
+/// change any title's colour. `titleInk` takes no `isHovered`, so the
 /// second half is true by construction — these are here so it stays that way.
 @MainActor
 final class SidebarRowInkTests: XCTestCase {
@@ -161,9 +161,9 @@ final class SidebarRowInkTests: XCTestCase {
 /// The slot the close chip sits in is given back when no chip is in it, so a
 /// resting title runs to the pill's inner edge. That is a decision, not an
 /// accident: it means the column moves when the pointer arrives, which is how
-/// a long title's last glyphs dissolve on hover. Martin chose it with both
-/// versions in front of him, and `rowTitleFade` at 12 is what keeps the shift
-/// to about two characters.
+/// a long title's last glyphs dissolve on hover. It was chosen with both
+/// versions side by side, and `rowTitleFade` at 12 keeps the shift to about
+/// two characters.
 @MainActor
 final class SidebarRowColumnTests: XCTestCase {
 

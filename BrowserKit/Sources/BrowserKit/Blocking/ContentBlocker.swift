@@ -4,11 +4,10 @@ import WebKit
 
 /// Luna's content blocking (§17.1–§17.4, §17.6): fetch → convert → compile → cache.
 ///
-/// Why this is a `@MainActor` class and not an actor. `WKContentRuleListStore` is
-/// declared `WK_SWIFT_UI_ACTOR`, so every one of its methods is already main-actor
-/// isolated; an actor wrapper around it would hop to the main actor for each call and
-/// buy nothing. The expensive half — parsing a filter list and encoding 80,000 rules to
-/// JSON — is what actually moves off, in ``refresh()``.
+/// A `@MainActor` class rather than an actor: `WKContentRuleListStore` is declared
+/// `WK_SWIFT_UI_ACTOR`, so every method is already main-actor isolated and an actor
+/// wrapper would hop for each call and buy nothing. The expensive half — parsing a
+/// filter list and encoding 80,000 rules to JSON — moves off in ``refresh()``.
 ///
 /// Measured on 2026-09-17, macOS 26 / Xcode 26.6, M-series:
 /// | list | rules | compile |
@@ -18,18 +17,18 @@ import WebKit
 /// | Fanboy Annoyance | 49,087 | 2.01 s |
 ///
 /// A compile does not block the main thread outright — a 10 ms timer kept firing
-/// throughout — but it stalls it for up to 353 ms at a time, which is half of
-/// §19.1's entire 800 ms launch budget in one hitch. Looking an already-compiled list up
-/// by identifier costs 0.000 s. That gap is the whole design: launch looks lists up,
-/// and only an install or a scheduled update ever compiles.
+/// throughout — but stalls it for up to 353 ms at a time, half of §19.1's 800 ms
+/// launch budget in one hitch. Looking an already-compiled list up by identifier
+/// costs 0.000 s. That gap is the design: launch looks lists up, and only an
+/// install or a scheduled update compiles.
 @MainActor
 public final class ContentBlocker {
 
     public static let shared = ContentBlocker()
 
-    /// What blocking can honestly say about itself. The first run with no network has to
-    /// land on ``notReady`` (D14, §32) — lists are never bundled, so there is genuinely
-    /// nothing to block with, and pretending otherwise is the failure §17.1 calls out.
+    /// What blocking can honestly say about itself. A first run with no network lands
+    /// on ``notReady`` (D14, §32): lists are never bundled, so there is nothing to
+    /// block with, and pretending otherwise is the failure §17.1 calls out.
     public enum Status: Sendable, Equatable {
         case notReady
         case updating
@@ -165,14 +164,12 @@ public final class ContentBlocker {
     /// How long to wait before refreshing, given when the last one landed.
     ///
     /// ``refreshInterval`` used to pick the delay and nothing else, so it was
-    /// not an interval at all. A launch inside the 24 hours slept a minute and
-    /// then re-fetched all three lists anyway; the only thing the interval
-    /// bought was that an unchanged list skipped its compile. The lists
-    /// upstream are rebuilt several times a day, so on a machine that relaunches
-    /// Luna often — which is every machine Luna is built on — a changed list
-    /// meant the full fetch, convert and compile again, minutes after the last
-    /// one. That is ~1.8 MB down and three multi-second compiles, most of them
-    /// for nothing.
+    /// not an interval at all: a launch inside the 24 hours slept a minute and
+    /// re-fetched all three lists anyway, and all the interval bought was that
+    /// an unchanged list skipped its compile. Upstream rebuilds several times a
+    /// day, so on a machine that relaunches Luna often a changed list meant the
+    /// full fetch, convert and compile again minutes after the last — ~1.8 MB
+    /// down and three multi-second compiles, most of them for nothing.
     ///
     /// Pure, and separate from the task that sleeps on it, so the schedule can
     /// be asserted without waiting a day for it.

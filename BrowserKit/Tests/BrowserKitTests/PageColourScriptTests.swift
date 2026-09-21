@@ -6,7 +6,7 @@ import Testing
 /// §3.2b's colour sample, run rather than read.
 ///
 /// The rest of `scrollScript`'s coverage asserts that the source contains a
-/// word. That catches a deleted listener and nothing else: both bugs Martin
+/// word. That catches a deleted listener and nothing else: both bugs
 /// reported — a white bar over a black page, and a bar still wearing the page
 /// Back had just left — were in what the script decides, and every
 /// `contains` test went on passing through both of them.
@@ -109,7 +109,7 @@ struct PageColourScriptTests {
         #expect(page.answer == [12, 12, 13])
     }
 
-    /// The bug Martin reported as "it goes white": a section painted behind a
+    /// The bug reported as "it goes white": a section painted behind a
     /// gradient used to end the sample, and the bar fell to the document's own
     /// background. Measured on `getroosta.app` from roughly 6500 pt down, where
     /// `div.horizon` carries

@@ -49,8 +49,8 @@
 //  which is where the blurred wallpaper beside the panel sits. Two estimates
 //  from different statistics landing on the same answer is the reason to trust
 //  it. Hence 0.66 dark — a step above `Ink.frost`'s 0.50 rather than a
-//  different kind of surface, which is what Martin asked for when he saw 0.86:
-//  "start at the clear and decrease the translucency just a bit more". 0.62 in
+//  different kind of surface. The ask, on seeing 0.86, was to start at the
+//  clear and decrease the translucency just a bit more. 0.62 in
 //  light, where a light plane reads as covering at a lower alpha, for the same
 //  reason `Ink.well` is 0.06 light against 0.22 dark.
 //

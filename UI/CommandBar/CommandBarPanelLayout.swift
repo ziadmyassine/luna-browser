@@ -91,7 +91,7 @@ extension CommandBarPanel {
     /// Measured in a 1200×800 window with the sidebar out, the first pass left
     /// the bar at `(280, 740)` and the second put it at `(392, 551)` — 112 pt
     /// to the left and 189 pt too high, held for as long as nothing asked for
-    /// another pass. That is the bar Martin saw flash up and to the left.
+    /// another pass. That is the bar that flashed up and to the left.
     override func layout() {
         // Anchored, there is no fraction to derive: the pill says where.
         // Its rect is re-read on every pass for the same reason the floating
@@ -135,7 +135,7 @@ extension CommandBarPanel {
     /// on a bar the size of a pill rather than on one the size of the list:
     /// the glass the window server sets up here is the glass the reveal then
     /// grows, so the reveal's own first frame has nothing left to build. The
-    /// bar Martin watched stall in the middle was doing that work on frame one,
+    /// bar that stalled in the middle was doing that work on frame one,
     /// at full size, with an alpha ramp over the top of it.
     ///
     /// The floating bar keeps its fade, because it really is arriving out of

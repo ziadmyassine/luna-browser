@@ -278,8 +278,8 @@ final class SidebarRowView: NSView {
     /// end there; a row drawing the close chip or the speaker stops half an
     /// inset short of the slot and fades before it.
     ///
-    /// That is Martin's call, made with both versions in front of him, and it
-    /// is worth writing down which way the trade runs. The column moving is
+    /// That was decided with both versions side by side, and it is worth
+    /// writing down which way the trade runs. The column moving is
     /// how a title dims under the pointer — the close chip appears, the box
     /// loses 22 pt, and the last glyphs of a long title dissolve where they
     /// were solid a frame earlier. Reserving the slot on every row holds the

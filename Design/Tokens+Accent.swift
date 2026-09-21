@@ -35,9 +35,9 @@ extension Tokens {
         /// not always blue, so only AppKit knows what stays legible on it.
         ///
         /// The exception is the quit sheet alone. It is the only surface where
-        /// one of the answers destroys the session, and Martin asked for the
-        /// default answer to be unmistakable rather than one wash-step louder
-        /// than its neighbour. Selected tabs, focus rings and hovered rows are
+        /// one of the answers destroys the session, and the default answer has
+        /// to be unmistakable rather than one wash-step louder than its
+        /// neighbour. Selected tabs, focus rings and hovered rows are
         /// still ink and material.
         static var onTint: NSColor { .alternateSelectedControlTextColor }
     }

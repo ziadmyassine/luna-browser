@@ -6,9 +6,9 @@
 //  place or a question.
 //
 //  The pill no longer wears that answer. It had a leading mark for a while
-//  — a magnifier, a globe, or the site's favicon — and Martin's verdict was
-//  that an address bar is not where it belongs: a favicon at the head of the
-//  one line saying what page you are on is a second thing to read, on both
+//  — a magnifier, a globe, or the site's favicon — and it was cut: an address
+//  bar is not where that answer belongs. A favicon at the head of the one line
+//  saying what page you are on is a second thing to read, on both
 //  surfaces and in both of §3.2b's forms. The rule stays, because §9.1's
 //  Command Bar field does wear it, and there it is answering a question as it
 //  is being typed rather than labelling a page you are already on.

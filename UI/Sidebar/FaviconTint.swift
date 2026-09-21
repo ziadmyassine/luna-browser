@@ -13,7 +13,7 @@
 //  already has on disk before the site is woken up.
 //
 //  Weighted by chroma, squared, so a minority of coloured pixels wins. The
-//  reference Martin gave for this is X's tile: a black glyph on white, one red
+//  reference case is X's tile: a black glyph on white, one red
 //  notification dot, and a red glow. A plain average of those pixels is grey.
 //  Squaring the chroma makes the sixteen red pixels outvote the thousand
 //  colourless ones, which is what the eye does looking at the same icon.

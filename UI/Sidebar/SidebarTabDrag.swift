@@ -8,7 +8,7 @@
 //  the pointer a translucent snapshot that floats free in two dimensions, can
 //  be carried out of the window entirely, and leaves the list behind it static
 //  apart from a 2 pt insertion rule. A sidebar tab has exactly one degree of
-//  freedom — it is somewhere in a column — and Martin's ask is the column's:
+//  freedom — it is somewhere in a column — and the ask is the column's:
 //  *lock it horizontally, move the whole row including its highlight, and show
 //  its landing place the moment it starts moving.* None of those three are
 //  things a dragging session exposes.

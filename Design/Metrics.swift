@@ -121,11 +121,11 @@ extension Tokens {
         /// that was one circle. §3.1's history control is now a capsule that
         /// grows a second 34 pt half as soon as there is a forward to go to
         /// (`NavCluster`), and every point it grows travels towards the toggle.
-        /// Martin photographed the two overlapping at the old minimum.
+        /// The two overlapped at the old minimum.
         ///
-        /// 250, not the 260 that keeps a full `chromeGap` between them: he
-        /// asked for the smallest that does not overlap, the measured touching
-        /// point is 243, and at 250 they are 7 pt apart — plainly two controls.
+        /// 250, not the 260 that keeps a full `chromeGap` between them: the ask
+        /// was the smallest that does not overlap, the measured touching point
+        /// is 243, and at 250 they are 7 pt apart — plainly two controls.
         static let sidebarWidth = SpanMetric(default: 280, min: 250, max: 420)
         /// 38 pt of row pitch — tabs, `Archive` and `+ Add Tab` alike (§3.4,
         /// §30.6). The drawn pill is `rowPillHeight`, this less `rowGap`; the
@@ -176,8 +176,7 @@ extension Tokens {
         /// The row's trailing affordance (§3.4): close on hover, speaker when a
         /// tab is making noise.
         ///
-        /// A chip, not a bare glyph. Measured off Martin's close-button
-        /// reference: an ~18 pt rounded square with its own translucent fill and
+        /// A chip, not a bare glyph. Measured off the close-button reference: an ~18 pt rounded square with its own translucent fill and
         /// an 11 pt `xmark` inside. A bare 16 pt glyph floating in the pill,
         /// which is what this was, reads as part of the title.
         static let rowTrailingChip = RoundedMetric(width: 18, height: 18, cornerRadius: 6)
@@ -258,8 +257,8 @@ extension Tokens {
         /// The gutter between two tiles side by side.
         ///
         /// 5, not `rowInset`. Two tiles a full row-inset apart read as separate
-        /// controls; the grid is one block of pinned sites. Martin: "decrease
-        /// the spacing … between the two pinned tabs beside each other".
+        /// controls; the grid is one block of pinned sites. The ask was to
+        /// decrease the spacing between two pinned tabs beside each other.
         static let essentialsTileGap: CGFloat = 5
         /// The gap between one row of tiles and the next.
         ///
@@ -289,7 +288,7 @@ extension Tokens {
         /// type and favicons all landed smaller than that arithmetic predicted.
         /// A 35 pt circle beside a 35 pt row pill is a control the same height
         /// as the content above it, which is why it read as heavy. 28 is the
-        /// top bar's capsule item, the one control Martin called the right size.
+        /// top bar's capsule item, the one control agreed to be the right size.
         static let controlCircle = RoundedMetric.circle(28)
         /// §3.1's three sidebar circles — toggle, back, reload.
         ///

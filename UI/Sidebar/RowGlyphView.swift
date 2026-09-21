@@ -25,9 +25,9 @@ import AppKit
 ///
 /// And every one of these glyphs wears it. For a while the two inside §3.2's
 /// pill lifted their ink instead, on the argument that a rounded rectangle
-/// inside a capsule is two shapes. Martin's reference for a non-glass button —
-/// the three captures of a reload glyph at rest, under the pointer and under a
-/// press — is that chip, and he asked for it by name on "the close tab icon or
+/// inside a capsule is two shapes. The reference for a non-glass button —
+/// three captures of a reload glyph at rest, under the pointer and under a
+/// press — is that chip, and it was asked for by name on "the close tab icon or
 /// site settings icon in the search bar". It is the same control in both
 /// places, so it is the same affordance, and one behaviour is one set of bugs.
 ///

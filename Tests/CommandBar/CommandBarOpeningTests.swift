@@ -8,7 +8,7 @@
 //  The shape: the first frame the window server draws is the pill's own
 //  size, not the list's. That is what makes the reveal a morph rather than a
 //  panel appearing and then being animated — and it is what keeps the panel's
-//  expensive first composite off the animation, which is the freeze Martin
+//  expensive first composite off the animation, which is the freeze
 //  reported twice.
 //
 //  The list: whatever the bar opens with is what it stays with. Rows that

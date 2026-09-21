@@ -352,7 +352,7 @@ final class PageChromeBarTests: XCTestCase {
     }
 }
 
-/// §30.1, and Martin's report: one window has one handle.
+/// §30.1, and the report behind it: one window has one handle.
 ///
 /// The sidebar's plane is what moves the window in this layout. §3.2b's bar is
 /// over the page, inside the card, and dragging it used to move the window as

@@ -6,29 +6,26 @@
 //  ~20 % from the window top".
 //
 //  A view in the browser window rather than a child `NSPanel`. A second window
-//  would bring its own key-window dance, its own first-responder transfer and its
-//  own follow-the-parent bookkeeping on every move and resize, to buy something
-//  this does not need — the bar is modal over exactly one window and dies with it.
+//  would bring its own key-window dance, first-responder transfer and
+//  follow-the-parent bookkeeping on every move and resize, to buy something the
+//  bar does not need: it is modal over one window and dies with it.
 //
-//  AND NO BACKDROP. §9.1 asked for a "blurred backdrop scrim" and Luna had
-//  one, in two shapes, and neither earned its keep. At `alphaValue = 0.55` an
+//  AND NO BACKDROP. §9.1 asked for a "blurred backdrop scrim" and Luna had one
+//  in two shapes, neither of which earned its keep. At `alphaValue = 0.55` an
 //  `NSVisualEffectView` does not thin — it cross-fades the blurred result back
 //  over the sharp original, so the bar sat on a grey film over a perfectly
-//  legible page. At full strength with §2's frost over it, the frost followed
-//  §2a's density, and at `.opaque` that is `Ink.frostOpaque`: 0.66 in dark
-//  mode, a sheet two thirds of the way to solid with the blur buried under
-//  it. Martin looked at the third version — the blur on its own, no plane —
-//  and said the backdrop is not needed at all: *"just remove the blur around
-//  it completely."*
+//  legible page. At full strength with §2's frost over it the frost followed
+//  §2a's density, and `.opaque` is `Ink.frostOpaque`: 0.66 in dark mode, a
+//  sheet two thirds of the way to solid with the blur buried under it. The
+//  third version, the blur alone, was cut as well.
 //
 //  So the panel floats over the page as it is. This view still covers the
-//  window, because it is what stops a click reaching the page and what carries
-//  §9.1's dismissal (`mouseDown` below) — it simply draws nothing while doing
-//  it. `Glass.scrim()` and `GlassScrim.swift` went with the plane; the finding
-//  that sent that surface to `NSVisualEffectView` in the first place — glass
-//  composites what is behind the window, so it replaces a page rather than
-//  blurring it, and goes near-black in fullscreen — is kept where it is still
-//  load-bearing, in `Glass.peekPlane`.
+//  window — it is what stops a click reaching the page and what carries §9.1's
+//  dismissal (`mouseDown` below) — it simply draws nothing while doing it.
+//  `Glass.scrim()` and `GlassScrim.swift` went with the plane. The finding that
+//  sent that surface to `NSVisualEffectView` in the first place, that glass
+//  composites what is behind the window and so replaces a page rather than
+//  blurring it, is kept where it still decides something: `Glass.peekPlane`.
 //
 
 import AppKit
@@ -37,8 +34,7 @@ import AppKit
 ///
 /// Every value is derived from an existing `Tokens.Metric`, because `Design/`
 /// has no command-bar entry yet and contract rule 2 forbids inlining one. The
-/// one value with no token at all is called out below; it belongs in
-/// `Tokens.Metric` and is named in this agent's report.
+/// one value with no token is called out below.
 enum CommandBarMetrics {
     /// §9.7's cap, and the reason the list is a stack rather than an
     /// `NSTableView`: eight rows never scroll, so there is no view reuse to do
@@ -62,9 +58,9 @@ enum CommandBarMetrics {
     /// query it is opening with — see `CommandBarController.openWhenReady`.
     ///
     /// A timeout rather than a duration: on a warm store the query lands in
-    /// about 9 ms and this never fires. It is the guarantee that a busy store
-    /// cannot hold the bar shut, and 0.10 s is the longest a click may go
-    /// unanswered before the delay stops reading as nothing happened yet.
+    /// about 9 ms and this never fires. It guarantees a busy store cannot hold
+    /// the bar shut, and 0.10 s is the longest a click may go unanswered before
+    /// the delay reads as nothing having happened.
     static let openDeadline: TimeInterval = 0.10
 }
 
@@ -76,13 +72,11 @@ final class CommandBarPanel: NSView {
     let results: CommandBarResultsView
 
     /// §9.1's leading mark: a magnifier while what is typed is a search, and
-    /// the site's favicon — or a globe — the moment it reads as an
-    /// address. The same glyph §3.2's pill wears, by the same rule, because it
-    /// is the same question asked of the same string.
+    /// the site's favicon — or a globe — the moment it reads as an address. The
+    /// same glyph §3.2's pill wears, by the same rule.
     ///
-    /// It sits in the rows' favicon column, so the mark is above the rows'
-    /// icons and the query is above their titles: the bar and the list it
-    /// filters read as one column, and what you are typing lines up with what
+    /// It sits in the rows' favicon column, so the mark is above their icons
+    /// and the query above their titles: what you are typing lines up with what
     /// it is finding.
     private let mark = NSImageView()
     private var markState: URLPillView.LeadingMark?
@@ -101,10 +95,9 @@ final class CommandBarPanel: NSView {
     /// pill's height rather than a chrome bar's.
     var fieldCentreConstraint: NSLayoutConstraint?
     var resultsTopConstraint: NSLayoutConstraint?
-    /// The reveal's own height: required, and temporary. It exists only
-    /// while an anchored bar is opening — see `revealFromPill` — because that
-    /// is the only moment the glass is allowed to disagree with the list about
-    /// how tall it should be.
+    /// The reveal's own height: required, and temporary. It exists only while
+    /// an anchored bar is opening (`revealFromPill`), the one moment the glass
+    /// may disagree with the list about how tall it should be.
     var revealConstraint: NSLayoutConstraint?
 
     /// The pill this bar grew out of, or nil for §9.1's floating panel.
@@ -133,12 +126,12 @@ final class CommandBarPanel: NSView {
     /// and the pill's own height plus a margin above and below when it grew
     /// from one. Read live, because §3.2b's pill is 22 pt collapsed and 34 open.
     ///
-    /// The margin is the difference between a pill and a panel. 34 pt is the
-    /// right height for a capsule whose own edges hold the address off the
-    /// chrome around it; the same 34 at the top of a panel puts the query hard
-    /// against the glass with the first result under its chin. The field stays
-    /// on the pill's own centre line regardless — the panel starts that margin
-    /// above where the pill did, which is what keeps the two lined up.
+    /// The margin is the difference between a pill and a panel. 34 pt suits a
+    /// capsule whose own edges hold the address off the chrome around it; the
+    /// same 34 at the top of a panel puts the query against the glass with the
+    /// first result under its chin. The field stays on the pill's centre line
+    /// either way — the panel starts that margin higher, which keeps the two
+    /// lined up.
     var inputHeight: CGFloat {
         guard let anchor else { return CommandBarMetrics.inputHeight }
         return anchor.view.bounds.height + 2 * inputPadding
@@ -153,8 +146,8 @@ final class CommandBarPanel: NSView {
     /// The region the bar belongs over: the page, not the window.
     ///
     /// The panel covers the whole window so nothing behind it is clickable, but
-    /// centring the bar in the window put it visibly off-centre over the page
-    /// — half a sidebar's width to the left of where the user is looking. This
+    /// centring the bar in the window put it half a sidebar's width to the left
+    /// of where the user is looking. This
     /// is `ContentCardView`'s frame, read live so it survives a resize and a
     /// sidebar drag under an open bar.
     var contentRegion: (() -> NSRect)?
@@ -237,7 +230,7 @@ final class CommandBarPanel: NSView {
             // `NSTextField` draws its single line at the top of whatever
             // frame it is given, so a 52 pt field put the placeholder hard
             // against the panel's top edge, above the rounded corners — the
-            // misalignment in Martin's capture. The row is still 52 pt; the
+            // misalignment the capture shows. The row is still 52 pt; the
             // field is its own height inside it.
             fieldCentre,
             // The mark takes the rows' icon column and the query starts where

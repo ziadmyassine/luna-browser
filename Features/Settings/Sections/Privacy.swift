@@ -60,8 +60,8 @@ final class PrivacySection: SettingsSection {
         let list: String
         switch category {
         // §17.2: the ads toggle carries YouTube's in-player ads too, and the
-        // subtitle says so because the alternative is what sent Martin here —
-        // a switch that reads "Block ads", is on, and leaves the pre-roll
+        // subtitle says so because the alternative is what prompts the bug
+        // report: a switch that reads "Block ads", is on, and leaves the pre-roll
         // playing. EasyList genuinely cannot do that one: the ad and the video
         // arrive on the same host, in the same `MediaSource`, scheduled by a
         // field inside the same JSON as the video itself.

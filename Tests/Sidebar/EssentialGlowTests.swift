@@ -43,7 +43,7 @@ final class FaviconTintTests: XCTestCase {
     }
 
     /// The reference case. X's mark is black and white with one red
-    /// notification dot on it, and the glow Martin asked for is red. A plain
+    /// notification dot on it, and the glow it has to produce is red. A plain
     /// average of those pixels is a grey; only weighting by chroma gets the
     /// answer the eye gives.
     func testOneSaturatedPatchDecidesTheColour() {

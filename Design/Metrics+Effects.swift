@@ -59,8 +59,8 @@ extension Tokens.Metric {
     /// Measured against the reference, then halved. The three tiles in
     /// `inspiration/pinned-tab-glow-*.png` carry a ring about 3 pt thick with a
     /// bloom reaching 14, which at Luna's 5 pt tile gutter has neighbouring
-    /// tiles bleeding into each other. Martin's note was "not too thick (not as
-    /// thick as the references)". Rendered offscreen at 1.0/5, 1.5/7, 2/9 and
+    /// tiles bleeding into each other; the ask was "not too thick (not as thick
+    /// as the references)". Rendered offscreen at 1.0/5, 1.5/7, 2/9 and
     /// 2.5/12, this is the gauge that still reads as light. `reach` is a
     /// Gaussian radius rather than an edge, so the visible part lands inside
     /// the gutter even though the arithmetic runs past it.

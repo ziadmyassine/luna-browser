@@ -93,7 +93,7 @@ final class EssentialsGridArrivalTests: XCTestCase {
 @MainActor
 final class EssentialsGridShapeTests: XCTestCase {
 
-    /// The shapes Martin drew, one per reference: 1, 2, 3 and 4 across in a
+    /// The shapes the references draw, one each: 1, 2, 3 and 4 across in a
     /// single row, then 3 + 2, 3 + 3, 4 + 3 and 4 + 4.
     func testShapeFollowsTheTileCount() {
         let expected: [Int: (rows: Int, columns: Int)] = [

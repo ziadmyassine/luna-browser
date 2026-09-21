@@ -143,9 +143,9 @@ extension PageChromeBar {
     /// clipped to the page's own corners — does not.
     ///
     /// It used to move it too, on the reasoning that a chrome bar is a chrome
-    /// bar. Two handles on one window is one too many: Martin's report is that
-    /// with the sidebar out he can drag the window from a band that belongs to
-    /// the page, which is also the band §3.2b asks him to aim at for the pill,
+    /// bar. Two handles on one window is one too many: with the sidebar out the
+    /// window could be dragged from a band that belongs to the page, which is
+    /// also the band §3.2b asks the pointer to aim at for the pill,
     /// the toggle and the history cluster.
     ///
     /// The exception is the state where there is no column to drag by. With

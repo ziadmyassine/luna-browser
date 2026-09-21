@@ -8,9 +8,9 @@
 //  It is the row, not a picture of the row. §3.4 draws a tab as a selected
 //  glass pill with a favicon and a title on it, and that is what this is: the
 //  same `RowPillView` the list moves between rows, with the same two pieces of
-//  content laid out at the same insets. Martin asked for "the whole tab
-//  rectangle, included the highlighted UI", and the cheapest way to be sure of
-//  that is to build it out of the same parts rather than to snapshot them.
+//  content laid out at the same insets. The ask was the whole tab rectangle
+//  including its highlight, and the cheapest way to be sure of that is to build
+//  it out of the same parts rather than to snapshot them.
 //
 //  The morph is why the title and the icon are laid out by hand instead of
 //  by constraints. A §3.3 tile is the same pill at a different size with the

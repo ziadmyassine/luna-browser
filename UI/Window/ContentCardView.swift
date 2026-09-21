@@ -146,8 +146,8 @@ final class ContentCardView: NSView {
         // `layout()` is not reliably picked up: the pass that reads it has
         // already run. A window resized in one jump — the zoom button, a
         // hidden sidebar — left the page at the old width with the pane's own
-        // grey showing beside it, which is exactly the band in Martin's
-        // captures. Auto Layout keeps the resting case right for free.
+        // grey showing beside it, which is the band the captures show. Auto
+        // Layout keeps the resting case right for free.
         let leading = view.leadingAnchor.constraint(equalTo: leadingAnchor)
         contentLeading = leading
         let width = view.widthAnchor.constraint(equalToConstant: bounds.width)

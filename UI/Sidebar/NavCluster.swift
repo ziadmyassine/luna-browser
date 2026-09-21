@@ -76,7 +76,7 @@ final class NavCluster: NSView {
         // The capsule is what the press is against. Both halves are
         // `.none` buttons, so neither has a material to swell — this does, and
         // it is the shape the pointer is actually on. With back alone that is
-        // the circle from Martin's reference; with forward out it is the whole
+        // the circle from the reference; with forward out it is the whole
         // capsule, which is right for the same reason the glass is one piece.
         for half in [back, forward] {
             half.onPressChange = { [weak self] pressed in self?.setPressed(pressed) }

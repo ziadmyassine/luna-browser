@@ -163,7 +163,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
     /// free: the panel's first composite (65 ms, measured — see
     /// `prepareToOpen`) and the store's answer to the opening query (about 9 ms
     /// of SQLite, which cannot start until the main thread lets go of it).
-    /// Opening before both have landed is what Martin was watching: the morph
+    /// Opening before both have landed is the reported defect: the morph
     /// began on a list built from open tabs alone, the history arrived halfway
     /// through, and the rows re-ranked under it.
     ///

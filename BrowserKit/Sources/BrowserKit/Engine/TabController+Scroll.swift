@@ -83,7 +83,7 @@ extension TabController {
     ///
     /// A background image means that element cannot answer — it is skipped,
     /// and the walk goes on behind it. It used to end the sample instead, and
-    /// that is the bug Martin reported as "the bar goes white over a black
+    /// that is the bug reported as "the bar goes white over a black
     /// page": `getroosta.app` lays a two-stop `linear-gradient` (`div.horizon`)
     /// over `footer.night`, so from roughly 6500 pt down every sample came back
     /// with no answer and the bar fell to the document's own background —

@@ -41,7 +41,7 @@ extension URLPillView {
     /// to sit closer in. On §3.2b's 420 pt bar that reads as intended; in a
     /// 240 pt column, with the capsule's corner curving away right behind it,
     /// it reads as site settings falling off the end of the pill — which is
-    /// what Martin saw. The bar is the one that looks right, so the column now
+    /// what it looked like. The bar is the one that reads right, so the column now
     /// measures the same: whatever is at either end of a pill stands the same
     /// distance in as the address does.
     private var glyphInset: CGFloat { Tokens.Metric.pillTextInset }

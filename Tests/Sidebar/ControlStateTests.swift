@@ -81,7 +81,7 @@ final class ControlPressTests: XCTestCase {
         XCTAssertEqual(reported, [true, false])
     }
 
-    /// And the cluster is what takes it: back alone is the circle in Martin's
+    /// And the cluster is what takes it: back alone is the circle in the
     /// reference, and with forward out it is the whole capsule.
     func testTheHistoryCapsuleSwellsWhenOneOfItsHalvesIsPressed() {
         let cluster = NavCluster()
