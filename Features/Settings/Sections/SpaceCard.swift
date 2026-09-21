@@ -4,37 +4,28 @@
 //
 //  §3.7's Space card: one card per Space, headed by that Space's own gradient.
 //
-//  A list of Spaces should be navigable by looking at it. The section used
-//  to be a column of identical grey cards titled with a word, six settings deep
-//  each, and finding "the blue one" meant reading every heading — which is
-//  exactly the thing the twelve gradients exist to make unnecessary everywhere
-//  else in Luna. The dot at the foot of the sidebar identifies a Space by its
-//  colour; so does the wash behind the column; so, now, does its card. Nothing
-//  here is a new idea, it is §8.2a applied in the one place it had not been.
+//  A list of Spaces should be navigable by looking at it. The section used to
+//  be a column of identical grey cards, and finding "the blue one" meant
+//  reading every heading. The dot at the foot of the sidebar identifies a Space
+//  by its colour; so does the wash behind the column; so does its card now.
 //
-//  The header carries §8.2a's `.full` intensity and §13.6's derived ink,
-//  which is what those two APIs are for: `foreground(on:at:in:)` picks the ink
-//  that clears §21.4 against this pair's two stops in this theme, so a
-//  Space on Mint or Blush is legible in dark mode. That is the bug Zen ships —
-//  "text like the 'new tab' text and the workspace title become very hard to
-//  read" — and it is a one-line call to not ship it.
+//  The header carries §8.2a's `.full` intensity and §13.6's derived ink, which
+//  is what those APIs are for: `foreground(on:at:in:)` picks the ink that clears
+//  §21.4 against this pair's stops in this theme, so a Space on Mint or Blush is
+//  legible in dark mode. That is the bug Zen ships.
 //
-//  The name and the fan-out line are set in the same ink at full strength.
-//  A subtitle would normally step down to `Text.secondary`; there is no such
-//  step available here, because the ink was derived to clear 4.5:1 and
-//  fading it is how you land under the floor. The two lines are told apart by
-//  size and weight instead, which costs nothing and is measured for free.
+//  The name and the fan-out line are set in the same ink at full strength. A
+//  subtitle would normally step down to `Text.secondary`, and there is no such
+//  step here: the ink was derived to clear 4.5:1, and fading it lands under the
+//  floor. Size and weight tell the two lines apart instead.
 //
-//  Neutral paints no plate at all, and that is the same rule the sidebar's
-//  wash already follows. `SpaceWashView.washColors` returns two clear stops
-//  for the neutral pair, because a Space nobody has coloured has to be
-//  indistinguishable from no Space colour — otherwise "no colour" is just a
-//  thirteenth colour. The card said otherwise: it painted neutral's desaturated
-//  grey as a plate, which is a light surface, which made §13.6 correctly derive
-//  black ink for it — one card in the section wearing black text in a dark
+//  Neutral paints no plate at all, which is the rule the sidebar's wash already
+//  follows — a Space nobody has coloured has to be indistinguishable from no
+//  Space colour, or "no colour" is a thirteenth colour. The card painted
+//  neutral's desaturated grey as a plate, which is a light surface, which made
+//  §13.6 correctly derive black ink: one card wearing black text in a dark
 //  window. With no plate the header is the card's own surface and the ink is
-//  the chrome's own, white in dark and black in light, like every other word in
-//  the pane.
+//  the chrome's.
 //
 //  The corner button opens §6.2's two appearance settings — the icon and the
 //  gradient — in the one place the Space is actually showing them. See

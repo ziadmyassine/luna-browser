@@ -9,26 +9,23 @@
 //  `deleteSpace(_:policy:)`, so every row that used to name the call it was
 //  waiting for is wired to it instead — the reason went, the row stayed (§30.4).
 //
-//  One card per Space, and the card is that Space's colour. The section was
-//  a column of identical grey cards six rows deep, which is the one list in
-//  Luna where the twelve gradients were not doing the work they exist for:
-//  finding "the blue one" meant reading every heading. `SpaceCardView` heads
-//  each card with the Space's own pair at §8.2a's full intensity, its icon, its
-//  name and §9's fan-out line — so the section is navigable at a glance and the
-//  rows underneath are only the ones you actually type into.
+//  One card per Space, and the card is that Space's colour. The section was a
+//  column of identical grey cards six rows deep, where finding "the blue one"
+//  meant reading every heading — the one list in Luna where the twelve
+//  gradients were not doing the work they exist for. `SpaceCardView` heads each
+//  card with the Space's own pair at §8.2a's full intensity, its icon, its name
+//  and §9's fan-out line.
 //
-//  Two of the six rows went into the header's corner button. Icon and
-//  gradient were popups listing nouns — "Flask", "Mulberry" — for settings
-//  whose whole content is a picture; `SpaceAppearanceView` shows both as grids
-//  of themselves. That file has the argument.
+//  Two of the six rows went into the header's corner button. Icon and gradient
+//  were popups listing nouns — "Flask", "Mulberry" — for settings whose content
+//  is a picture; `SpaceAppearanceView` shows both as grids of themselves.
 //
-//  The one thing this section says that no other browser's does is the
-//  fan-out: Space → Profile is many-to-one, and nothing in Arc, Chrome or
-//  Firefox ever tells you so. A line that reads "Work profile · shared with 3
-//  Spaces" is the whole answer to "why am I still logged in over here", which
-//  is the single most-reported conceptual confusion in every review of Arc and
-//  the oldest open one in Firefox's containers (§9). It is now on the card's
-//  head rather than under a row, because it describes the Space, not a setting.
+//  The one thing this section says that no other browser's does is the fan-out:
+//  Space → Profile is many-to-one, and nothing in Arc, Chrome or Firefox tells
+//  you so. "Work profile · shared with 3 Spaces" is the whole answer to "why am
+//  I still logged in over here" — the most-reported conceptual confusion in
+//  reviews of Arc and the oldest open one in Firefox's containers (§9). It sits
+//  on the card's head because it describes the Space, not a setting.
 //
 //  This section is the only one that rebuilds itself: creating, renaming,
 //  reordering or deleting a Space changes what the rows say and how many there

@@ -7,11 +7,10 @@
 //  what the file is called, where it goes when that name is taken, and whether
 //  it is the kind of file we stop and ask about.
 //
-//  The model is a reference type on purpose: `DownloadManager` hands the same
-//  object to the popover and to the list panel, and both re-read it as the
-//  download progresses. `WKDownload` is `@MainActor` in the macOS 26.5 SDK
-//  (`WK_SWIFT_UI_ACTOR` on the class), so everything here is too and no
-//  isolation gymnastics are needed.
+//  A reference type on purpose: `DownloadManager` hands the same object to
+//  every surface showing it, and each re-reads it as the download progresses.
+//  `WKDownload` is `@MainActor` in the macOS 26.5 SDK (`WK_SWIFT_UI_ACTOR` on
+//  the class), so everything here is too.
 //
 
 import AppKit

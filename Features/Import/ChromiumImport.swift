@@ -181,9 +181,8 @@ struct ChromiumReader: Sendable {
     /// Keyset-paginated on `visits.id` rather than `LIMIT`/`OFFSET`: keyset is
     /// one index seek per page where `OFFSET` re-scans everything before it and
     /// turns a large profile into quadratic work. `watermark` is fixed for the
-    /// whole run, so `visit_time > ?` and `id > ?` together give a stable total
-    /// order — and the watermark is the whole idempotency story for history
-    /// (see `ImportLedger`).
+    /// run, so `visit_time > ?` and `id > ?` give a stable total order, and the
+    /// watermark is the whole idempotency story for history (`ImportLedger`).
     func visitPage(after watermark: Int64, from rowID: Int64, limit: Int) throws -> VisitPage {
         guard let url = file("History") else { return .empty }
         let reader = try SQLiteReader(readOnly: url)
