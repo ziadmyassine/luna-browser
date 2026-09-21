@@ -2,12 +2,12 @@
 //  MotionSpec.swift
 //  Luna
 //
-//  One row of `docs/UI-SPEC.md` §6, as a value — and the two ways a view can
-//  ask it to run: hand it to `Motion.animate`, or, when the animation has to be
-//  driven a frame at a time, ask it where it has got to.
+//  One row of docs/UI-SPEC.md §6, as a value, and the two ways a view can run
+//  it: hand it to `Motion.animate`, or ask it where it has got to when the
+//  animation has to be driven a frame at a time.
 //
-//  Split out of `Motion.swift` when that file crossed SwiftLint's 400-line
-//  limit. The specs themselves — every named row of §6 — stayed there.
+//  Split out of Motion.swift at the 400-line limit. The specs themselves —
+//  every named row of §6 — stayed there.
 //
 
 import AppKit
@@ -15,8 +15,8 @@ import QuartzCore
 
 /// One row of §6.
 ///
-/// `response`/`damping` are non-nil for a spring and nil for a timed curve;
-/// `duration` is always meaningful, so a caller that just needs "how long until
+/// `response`/`damping` are non-nil for a spring and nil for a timed curve.
+/// `duration` is always meaningful, so a caller that only needs "how long until
 /// this settles" never has to branch.
 struct MotionSpec: Sendable {
 
@@ -57,24 +57,22 @@ struct MotionSpec: Sendable {
         }
     }
 
-    /// **Where a hand-driven animation has got to**, 0…1, on this spec's own
-    /// curve.
+    /// Where a hand-driven animation has got to, 0…1, on this spec's curve.
     ///
-    /// Core Animation cannot always be the one running an animation. §30.9's
-    /// page turn is the case this exists for: on release, the column, the
-    /// still, the §8.2a wash and the §3.5 dot strip all have to move together,
-    /// and only the first two are layer properties — the other two are *frames
-    /// recomputed from a number*. Animating what can be animated and setting
-    /// the rest outright is how the strip came to jump to the Space it was
-    /// heading for while the column was still sliding there.
+    /// §30.9's page turn is the case this exists for. On release the column,
+    /// the still, the §8.2a wash and the §3.5 dot strip all have to move
+    /// together, and only the first two are layer properties — the other two
+    /// are frames recomputed from a number. Animating what can be animated and
+    /// setting the rest outright is how the strip came to jump to its Space
+    /// while the column was still sliding there.
     ///
-    /// So the number is tweened instead, and the read-out keeps being applied
-    /// the one way it is applied while a finger is down. This is what keeps
-    /// that honest: the curve is read off the same `CAMediaTimingFunction` the
-    /// animated half would have used, rather than approximated beside it.
+    /// So the number is tweened instead, and the read-out is applied the same
+    /// way it is while a finger is down. The curve is read off the same
+    /// `CAMediaTimingFunction` the animated half would have used rather than
+    /// approximated beside it.
     ///
-    /// Newton–Raphson on the unit bezier, falling back to bisection on the
-    /// flat stretches where the derivative is too small to divide by. Four
+    /// Newton–Raphson on the unit bezier, falling back to bisection on the flat
+    /// stretches where the derivative is too small to divide by. Four
     /// iterations is well inside a pixel for the curves §6 names.
     func progress(at time: TimeInterval) -> CGFloat {
         guard duration > 0 else { return 1 }
@@ -118,8 +116,8 @@ struct MotionSpec: Sendable {
     }
 
     /// A `CASpringAnimation` matching `response`/`damping`, or nil when this is
-    /// not a spring **or** Reduce Motion is on — in both cases the caller should
-    /// set the value outright instead of animating it.
+    /// not a spring or Reduce Motion is on. In both cases the caller should set
+    /// the value outright instead of animating it.
     ///
     /// Unit mass, so SwiftUI's conversion applies directly:
     /// `stiffness = (2π / response)²`, `damping = 4π · fraction / response`.
