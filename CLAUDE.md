@@ -58,6 +58,14 @@ being pressed.
   XcodeGen from `project.yml` and is not committed.
 - `make build`, `make test`, `make lint`. A direct `xcodebuild` **must** pass
   `-derivedDataPath DerivedData`, or it builds somewhere else entirely.
+- `make lint` is `--strict`, so a warning fails it. CI's lint job is advisory
+  until the last violations clear; `.github/workflows/ci.yml` names them and
+  says which line to delete when they do.
+- **Do not run `make fmt` casually.** The repo has never been through
+  swiftformat, and `swiftformat .` rewrites 325 of 329 files. CI does not run
+  it, and a diff that size buries whatever change it is sitting on top of.
+- Every push and pull request runs `.github/workflows/ci.yml`: the AppKit guard
+  on Linux, then `make gen` and both test suites on a macOS runner.
 - `BrowserKit/` imports no AppKit; `Tools/check-no-appkit.sh` enforces it.
 - Check every AppKit and WebKit call against the installed SDK headers before
   using it (`xcrun --show-sdk-path`). Several things that read as available are
