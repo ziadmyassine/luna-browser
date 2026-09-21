@@ -5,20 +5,22 @@
 //  §30.9's two-finger swipe, as arithmetic — split out of `SpacesTests.swift`,
 //  which holds the other half: where the dots go.
 //
-//  Three things are asserted here that a trackpad would otherwise be the only
-//  way to find out. That the page is the ruler: one page of hand is one
-//  page of column at every width the §3.7 handle reaches, which is the claim
-//  the "it multiplies my swipe" defect was the absence of. What a gesture
-//  means: the half-a-page commit, the flick that commits without it, the cap
-//  that keeps one swipe to one Space, and the page past the last one that makes
-//  a new one. And how much of the gesture is the hand's — macOS scales a
-//  precise scroll by how fast the fingers moved, so the deltas an event carries
-//  are not a distance, and everything above is arithmetic on a number that has
-//  already been multiplied unless something takes the multiplier back off. What
-//  is asserted about that is the shape of the curve rather than one number on
-//  it: it answers the hand everywhere, it never outruns the hand, it never
-//  exceeds the ceiling, and it leaves a slow drag alone. A hard clip passes
-//  three of those four and fails the first, which is exactly how it felt.
+//  Three things a trackpad would otherwise be the only way to find out.
+//
+//  That the page is the ruler: one page of hand is one page of column at every
+//  width the §3.7 handle reaches, which is what the "it multiplies my swipe"
+//  defect was the absence of.
+//
+//  What a gesture means: the half-a-page commit, the flick that commits
+//  without it, the cap that keeps one swipe to one Space, and the page past the
+//  last one that makes a new one.
+//
+//  And how much of the gesture is the hand's. macOS scales a precise scroll by
+//  how fast the fingers moved, so an event's deltas are not a distance, and
+//  everything above is arithmetic on a number that has already been multiplied.
+//  What is asserted is the shape of the curve rather than one point on it: it
+//  answers the hand everywhere, never outruns it, never exceeds the ceiling,
+//  and leaves a slow drag alone. A hard clip passes three of those four.
 //
 
 import AppKit

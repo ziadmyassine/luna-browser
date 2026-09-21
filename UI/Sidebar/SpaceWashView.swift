@@ -7,12 +7,12 @@
 //  Spaces stop looking like the same window — the one visible gap the Spaces
 //  feature still had.
 //
-//  It draws under everything and it is not a second glass surface.
+//  It draws under everything and is not a second glass surface.
 //  `BrowserWindowController` already applies `Glass.sidebar` to the window's
 //  root plane; this is a tint laid on that material, which is why it paints
 //  translucent stops rather than the flattened ones `Tokens.Gradient.planes`
-//  hands back. See `washStops` for the difference — getting it the wrong way
-//  round replaces the glass with a coloured plate.
+//  returns. Getting it the wrong way round replaces the glass with a coloured
+//  plate — see `washStops`.
 //
 //  §21.2 in full, and all three settings are live signals rather than an
 //  appearance:
@@ -85,23 +85,20 @@ final class SpaceWashView: NSView {
     /// While §30.9's swipe is in the hand: the Space you are in, blended
     /// `mix` of the way toward the one you are sliding toward.
     ///
-    /// The wash is the largest thing on screen that says which Space this is,
-    /// so it is also the most honest place to show a Space arriving. It moves
-    /// with the fingers and it moves back when they stop, which is what makes
-    /// an abandoned swipe read as abandoned rather than as a switch that did
-    /// not take.
+    /// The wash is the largest thing on screen saying which Space this is, so
+    /// it is the most honest place to show one arriving. It moves with the
+    /// fingers and back when they stop, which is what makes an abandoned swipe
+    /// read as abandoned rather than as a switch that did not take.
     ///
-    /// Never animated: `mix` already is the animation, one frame per event.
-    /// Passing `nil` or `mix: 0` restores the active pair — the swipe's own
-    /// reset, and what `SidebarViewController` calls when the gesture ends.
+    /// Never animated: `mix` is the animation, one frame per event. `nil` or
+    /// `mix: 0` restores the active pair.
     ///
     /// A straight four-channel lerp, not `blended(toward:)`. That one is
-    /// alpha-correct for laying a translucent fill over a colour, which means
-    /// a target of zero alpha contributes nothing — so sliding from a coloured
-    /// Space toward a neutral one would have shown no change at all, in the one
-    /// direction where the whole wash is what is going away. A cross-fade is
-    /// not a layer over another layer; it is two layers, one of which is
-    /// leaving, and alpha is one of the things travelling.
+    /// alpha-correct for laying a translucent fill over a colour, so a target
+    /// of zero alpha contributes nothing — and sliding from a coloured Space
+    /// toward a neutral one would have shown no change at all, in the one
+    /// direction where the wash is what is going away. A cross-fade is two
+    /// layers, one of them leaving, and alpha is one of the things travelling.
     /// - Parameters:
     ///   - lower: the Space on the left of where the indicator currently is.
     ///   - upper: the one on its right. The two are the same pair whenever the
@@ -168,14 +165,13 @@ final class SpaceWashView: NSView {
     /// be indistinguishable from no Space colour, or "no colour" is just a
     /// thirteenth colour.
     ///
-    /// Two clear stops rather than `isHidden`, so the cross-fade still runs in
-    /// both directions: picking a colour fades up from nothing and "No Colour"
-    /// fades back down to it, instead of the layer snapping in and out under
-    /// the tab list.
+    /// Two clear stops rather than `isHidden`, so the cross-fade runs in both
+    /// directions: picking a colour fades up from nothing and "No Colour" fades
+    /// back down, instead of the layer snapping in and out under the tab list.
     ///
-    /// A `static` with the appearance passed in, rather than a method reading
-    /// `effectiveAppearance`, so the neutral rule above can be proved without
-    /// standing a window up around it.
+    /// A `static` taking the appearance, rather than a method reading
+    /// `effectiveAppearance`, so the neutral rule can be proved without a
+    /// window around it.
     static func washColors(for gradient: GradientPair, in appearance: NSAppearance) -> [NSColor] {
         guard !Tokens.Gradient.isNeutral(gradient) else { return [.clear, .clear] }
         let stops = Tokens.Gradient.washStops(gradient, in: appearance)

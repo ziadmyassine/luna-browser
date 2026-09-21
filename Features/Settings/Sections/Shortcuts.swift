@@ -5,23 +5,17 @@
 //  §23.1 §3.6: every `MainMenu` command and its key equivalent, grouped by
 //  menu, searchable — and, for the ones that are Luna's to move, editable.
 //
-//  Still read from the live menu bar, not from a second copy of the key map.
-//  The rows, their titles and the menus they are grouped under all come from
-//  walking `NSApplication.mainMenu`, exactly as they did when this table was
-//  read-only. A hand-maintained list would be wrong the first time somebody
-//  added a menu item, and a shortcuts list that lies is worse than no shortcuts
-//  list at all.
+//  Read from the live menu bar, not from a second copy of the key map. The
+//  rows, their titles and the menus they are grouped under come from walking
+//  `NSApplication.mainMenu`. A hand-maintained list would be wrong the first
+//  time somebody added a menu item, and a shortcuts list that lies is worse
+//  than none.
 //
-//  What is new is the join: an item is matched to its `BrowserCommand` by
-//  selector, which is the one thing a menu item and a command table are
-//  guaranteed to agree about. A match that is customisable gets a recorder; a
-//  match that is not, and anything with no match at all, gets the label it
-//  always had. So the numbered families — nine Spaces, nine sidebar rows, built
-//  per session and not in the table — are listed and are not editable, which is
-//  the truth about them.
-//
-//  §3.6's "rebinding is not implemented" note is gone, along with the dead
-//  button that carried it.
+//  Items are joined to their `BrowserCommand` by selector, which is the one
+//  thing a menu item and a command table are guaranteed to agree about. A
+//  customisable match gets a recorder; anything else keeps its label. So the
+//  numbered families — nine Spaces, nine sidebar rows, built per session — are
+//  listed and are not editable, which is the truth about them.
 //
 
 import AppKit

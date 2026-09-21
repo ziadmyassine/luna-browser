@@ -15,17 +15,16 @@
 //  window learned it in M0 — so §1's 640 × 480 floor is a pair of
 //  `greaterThanOrEqualToConstant`s on the root view instead.
 //
-//  Every command here arrives through `MainMenu`. Luna installs no
-//  `NSEvent` monitor and overrides no `performKeyEquivalent` (§22.5); the
-//  `@objc` actions at the bottom are ordinary nil-targeted menu actions that
-//  reach this controller because an `NSWindowController` sits in its key
-//  window's responder chain.
+//  Every command here arrives through `MainMenu`. Luna installs no `NSEvent`
+//  monitor and overrides no `performKeyEquivalent` (§22.5); the `@objc` actions
+//  at the bottom are ordinary nil-targeted menu actions that reach this
+//  controller because an `NSWindowController` sits in its key window's
+//  responder chain.
 //
-//  This used to also claim `switchToSpace(_:)`, to take `⌘1…⌘9` back from the
-//  Spaces menu that shadowed it. SPACES-SPEC §13.2 moved Spaces to `⌃1…⌃9`, at
-//  which point that shim stopped being dead and started being wrong: it made
-//  `⌃1` navigate sections instead of switching Space whenever this window was
-//  key. Deleted. `⌘1…⌘9` now arrives from `AppDelegate.goToSidebarItem(_:)`.
+//  It used to claim `switchToSpace(_:)` as well, to take `⌘1…⌘9` back from the
+//  Spaces menu. SPACES-SPEC §13.2 moved Spaces to `⌃1…⌃9`, at which point that
+//  shim made `⌃1` navigate sections instead of switching Space whenever this
+//  window was key. `⌘1…⌘9` now arrives from `AppDelegate.goToSidebarItem(_:)`.
 //
 
 import AppKit

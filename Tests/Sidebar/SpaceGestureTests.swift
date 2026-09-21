@@ -6,27 +6,23 @@
 //  with real phases, through the real controller, into a real session — the
 //  half `SpaceSwipeTests` cannot reach.
 //
-//  This was thought to need a trackpad, and it does not. The gesture reacts
-//  only to a scroll carrying an `NSEvent.Phase`, which no ordinary `NSEvent`
-//  initialiser produces — but `CGEvent(scrollWheelEvent2Source:…)` does, its
-//  `timestamp` arrives on the other side as `NSEvent.timestamp` one nanosecond
-//  for one nanosecond, and both halves of what the gesture measures are
-//  therefore controllable from a test: how far the fingers went, and how fast
-//  they were still going when they left. That second one is the whole of the
-//  difference between a page turn and a new Space, and until now nothing
-//  checked it.
+//  This was thought to need a trackpad and does not. The gesture reacts only to
+//  a scroll carrying an `NSEvent.Phase`, which no ordinary `NSEvent`
+//  initialiser produces — but `CGEvent(scrollWheelEvent2Source:…)` does, and
+//  its `timestamp` arrives as `NSEvent.timestamp` nanosecond for nanosecond. So
+//  both halves of what the gesture measures are controllable from a test: how
+//  far the fingers went, and how fast they were still going when they left.
 //
-//  The defect these were written for: a Space could not be created. The
-//  create asked for three pages of travel, which against the damping ceiling
-//  needs longer than an ordinary stroke lasts — so the `+` closed, because its
-//  ring only costs a third of that, and the release made nothing. Every time.
+//  The defect these were written for: a Space could not be created. The create
+//  asked for three pages of travel, which against the damping ceiling needs
+//  longer than an ordinary stroke lasts, so the `+` closed — its ring cost a
+//  third of that — and the release made nothing, every time.
 //
-//  It was then reported a second time, and it was the same defect with one
-//  page in place of three: the ring still closed a third of the way in, so a
-//  hand that did what the read-out said — push until the circle is full, let go
-//  — still got nothing. The ring is the threshold now, and the two tests
-//  that matter most are a stroke that fills it, which makes a Space however the
-//  fingers left, and a reflex that does not, which never does.
+//  Reported again with one page in place of three: the ring still closed a
+//  third of the way in, so a hand that did what the read-out said still got
+//  nothing. The ring is the threshold now, and the two tests that matter are a
+//  stroke that fills it, which makes a Space however the fingers left, and a
+//  reflex that does not, which never does.
 //
 
 import AppKit

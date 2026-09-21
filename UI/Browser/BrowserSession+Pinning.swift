@@ -4,11 +4,10 @@
 //
 //  §3.3's half of the §6 lifecycle: what it means for a tab to be a tile.
 //
-//  Split out of `BrowserSession+Tabs.swift` for that file's length limit, and
-//  it earns the separation. Everything here turns on one distinction the rest
-//  of the lifecycle does not have to make: a tile's page can go away for two
-//  completely different reasons, and the tile has to come back differently
-//  depending on which one it was.
+//  Split out of `BrowserSession+Tabs.swift` for that file's length limit.
+//  Everything here turns on one distinction the rest of the lifecycle does not
+//  have to make: a tile's page can go away for two different reasons, and the
+//  tile comes back differently depending on which.
 //
 //    · Filed away — pinning a tab that is not the one on screen, or the
 //      §19.2 live-tab budget reclaiming a cold one. Nothing was decided about
@@ -38,13 +37,12 @@ extension BrowserSession {
     /// there is no "close a pinned tab", because the tile is the tab.
     ///
     /// Except the page you are looking at. Dropping a web view saves a
-    /// WebContent process, which is right for a tab you are filing away and
-    /// wrong for the one on screen: pinning the active tab blanked the content
-    /// pane under the pointer, mid-gesture, and the site you had just dragged
-    /// up there had to be re-loaded by clicking the tile you had only just
-    /// made. A pinned tab that is the current tab keeps its page, and
-    /// `enforceLiveTabBudget` reclaims it on the way out like any other live
-    /// tab — which is the same answer, arrived at a moment later.
+    /// WebContent process, which is right for a tab being filed away and wrong
+    /// for the one on screen: pinning the active tab blanked the content pane
+    /// under the pointer, mid-gesture, and the site just dragged up there had
+    /// to be re-loaded from the tile. A pinned tab that is the current tab
+    /// keeps its page, and `enforceLiveTabBudget` reclaims it later like any
+    /// other live tab.
     ///
     /// - Returns: false when nothing happened — the tab is already a Favorite,
     ///   or the Profile is already holding Arc's twelve. Refusing is the whole

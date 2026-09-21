@@ -12,11 +12,11 @@
 //                                  `live` of them awake, measured across every
 //                                  WebKit process they spawn
 //
-//  `tabs` links `BrowserKit` and drives the real `TabController`, so what it
-//  measures is Luna's engine and not an approximation of it. What it does not
-//  have is Luna's chrome — the sidebar, the command bar, AppKit's own
-//  allocations. `launch` measures that half separately; §19.1's budget is the
-//  sum, and `docs/PERF.md` adds them up with that caveat stated.
+//  `tabs` links `BrowserKit` and drives the real `TabController`, so it
+//  measures Luna's engine rather than an approximation. What it does not have
+//  is Luna's chrome — the sidebar, the command bar, AppKit's own allocations.
+//  `launch` measures that half; §19.1's budget is the sum, and `docs/PERF.md`
+//  adds them up with the caveat stated.
 //
 
 import AppKit

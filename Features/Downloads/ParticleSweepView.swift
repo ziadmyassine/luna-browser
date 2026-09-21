@@ -14,19 +14,19 @@
 //  which is the stutter §5.1 is warning about.
 //
 //  `CAEmitterLayer` cannot do the second half of §5.1. It is a simulation:
-//  cells describe birth rate, velocity and lifetime, and there is no handle on
-//  an individual particle afterwards. "Settle back into place over 0.18 s with
-//  a 0.04 s stagger" requires addressing each particle by its home position,
-//  which the emitter model does not offer. Its `emitterPosition` is also a
-//  single point, so particles cannot be sampled from the shape of the text.
+//  cells describe birth rate, velocity and lifetime, with no handle on an
+//  individual particle afterwards, and "settle back into place over 0.18 s with
+//  a 0.04 s stagger" needs each particle addressed by its home position. Its
+//  `emitterPosition` is also a single point, so particles cannot be sampled
+//  from the shape of the text.
 //
 //  Metal would do it, at the cost of a device, a pipeline, a shader and a
 //  vertex buffer for 0.4 s of animation on a 330 pt popover.
 //
-//  So: one layer-backed `NSView`, drawing every particle itself once per
-//  frame, driven by the display link. One composited node, full per-particle
-//  control, no GPU plumbing. Cost is ~1200 `CGContext` fills into a ~460 × 40 px
-//  backing store, ≈0.3 ms of the 8.3 ms a 120 Hz frame gets, for 0.4 s.
+//  So: one layer-backed `NSView` drawing every particle itself once per frame,
+//  driven by the display link. One composited node, full per-particle control,
+//  no GPU plumbing. ~1200 `CGContext` fills into a ~460 × 40 px backing store,
+//  ≈0.3 ms of the 8.3 ms a 120 Hz frame gets, for 0.4 s.
 //
 //  ponytail: per-particle `setFillColor` + `fill`. If that ever shows on a
 //  profile, bucket the particles by alpha and use `CGContext.fill(_ rects:)` —
