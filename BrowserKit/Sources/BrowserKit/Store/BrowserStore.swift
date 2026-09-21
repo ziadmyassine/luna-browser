@@ -20,7 +20,7 @@ public struct HistoryHit: Sendable, Hashable {
     }
 }
 
-/// Luna's SQLite store: Spaces, profiles, tabs and history behind one actor (§11).
+/// Luna's SQLite store: Spaces, tabs and history behind one actor (§11).
 ///
 /// Every method is `async`: the actor delegates straight to GRDB's async pool APIs and
 /// suspends rather than blocking, so it hands its executor back and GRDB's own readers
@@ -54,7 +54,7 @@ public actor BrowserStore {
         try Schema.migrator().migrate(pool)
     }
 
-    // MARK: - Spaces, profiles, tabs
+    // MARK: - Spaces, tabs
 
     /// Every Space in display order, with `order` renumbered to `0..<n` when it has drifted.
     ///
@@ -71,9 +71,10 @@ public actor BrowserStore {
     /// The common case stays a pure read: the write only happens when the persisted order
     /// actually differs from `0..<n`.
     public func spaces() async throws -> [Space] {
-        let persisted = try await pool.read { db in
+        let stored = try await pool.read { db in
             try Space.fetchAll(db, sql: #"SELECT * FROM spaces ORDER BY "order", name"#)
         }
+        let persisted = try await repairingUnusableIdentifiers(in: stored)
         let healed = persisted.enumerated().map { index, space -> Space in
             var renumbered = space
             renumbered.order = index
@@ -108,20 +109,30 @@ public actor BrowserStore {
         try await pool.write { db in try tab.upsert(db) }
     }
 
-    public func upsert(_ space: Space) async throws {
-        try await pool.write { db in try space.upsert(db) }
-    }
-
-    /// Persists a profile, refusing the one identifier WebKit cannot be handed (§3.1).
+    /// Persists a Space, refusing the one identifier WebKit cannot be handed (§3.1).
     ///
     /// The write side of the all-zero guard. `dataStoreForIdentifier:` throws an Objective-C
     /// exception on a zero UUID and Swift cannot catch it, so the cheapest place to stop a
     /// bad value is before it reaches the disk that a later launch will read it back from.
-    public func upsert(_ profile: Profile) async throws {
-        guard profile.hasUsableDataStoreIdentifier else {
-            throw BrowserStoreError.invalidDataStoreIdentifier(profileID: profile.id)
+    public func upsert(_ space: Space) async throws {
+        guard space.hasUsableDataStoreIdentifier else {
+            throw BrowserStoreError.invalidDataStoreIdentifier(spaceID: space.id)
         }
-        try await pool.write { db in try profile.upsert(db) }
+        try await pool.write { db in
+            // The `UNIQUE` index cannot be relied on to raise here: GRDB's upsert names no
+            // conflict target, so SQLite answers a collision on any unique index by
+            // updating the row it hit — and a duplicate jar would overwrite another Space
+            // rather than fail. See `BrowserStoreError.dataStoreIdentifierTaken`.
+            let owner = try UUID.fetchOne(
+                db,
+                sql: "SELECT id FROM spaces WHERE dataStoreIdentifier = ? AND id <> ?",
+                arguments: [space.dataStoreIdentifier, space.id]
+            )
+            if let owner {
+                throw BrowserStoreError.dataStoreIdentifierTaken(spaceID: space.id, by: owner)
+            }
+            try space.upsert(db)
+        }
     }
 
     public func delete(tabID: UUID) async throws {
@@ -133,7 +144,7 @@ public actor BrowserStore {
         _ = try await pool.write { db in try Space.deleteOne(db, key: spaceID) }
     }
 
-    /// One default Profile and one default Space, so a first run is never an empty window.
+    /// One default Space, so a first run is never an empty window.
     ///
     /// Asks before it opens a transaction it will not use. Every launch
     /// calls this and every launch but the first has nothing to do, and a
@@ -143,19 +154,14 @@ public actor BrowserStore {
     /// write because the read is not the decision: two processes opening the
     /// same fresh database would both see it empty.
     public func seedIfEmpty() async throws {
-        let seeded = try await pool.read { db in
-            try Profile.fetchCount(db) > 0 || Space.fetchCount(db) > 0
-        }
+        let seeded = try await pool.read { db in try Space.fetchCount(db) > 0 }
         guard !seeded else { return }
         try await pool.write { db in
-            guard try Profile.fetchCount(db) == 0, try Space.fetchCount(db) == 0 else { return }
-            let profile = Profile(name: "Personal")
-            try profile.insert(db)
+            guard try Space.fetchCount(db) == 0 else { return }
             try Space(
                 name: "Personal",
                 symbolName: "moon.stars.fill",
-                gradient: .defaultSpace,
-                profileID: profile.id
+                gradient: .defaultSpace
             ).insert(db)
         }
     }

@@ -88,7 +88,7 @@ final class SidebarWidthFloorTests: XCTestCase {
         let bar = SidebarUtilityBar()
         bar.frame = NSRect(x: 0, y: 0, width: width, height: Tokens.Metric.topBarHeight)
         let made = (0..<spaces).map {
-            Space(name: "S\($0)", symbolName: "square.grid.2x2", gradient: .defaultSpace, profileID: UUID())
+            Space(name: "S\($0)", symbolName: "square.grid.2x2", gradient: .defaultSpace)
         }
         bar.show(spaces: made, activeSpaceID: made[0].id)
         bar.layoutSubtreeIfNeeded()

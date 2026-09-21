@@ -112,12 +112,14 @@ final class ProfilePictureTests: XCTestCase {
     // MARK: - §6.2's row
 
     /// Remove is there when there is something to remove, and not when there
-    /// is not: a permanently dimmed button beside every profile that has never
+    /// is not: a permanently dimmed button beside every Space that has never
     /// had a picture is a control that mostly means nothing.
     func testRemoveAppearsOnlyOnceAPictureIsSet() throws {
         let data = try XCTUnwrap(ProfilePicture.bytes(of: wide()))
-        let bare = SpacesSection().pictureRow(Profile(name: "Personal"), session: nil)
-        let set = SpacesSection().pictureRow(Profile(name: "Personal", imageData: data), session: nil)
+        let blank = Space(name: "Personal", symbolName: "moon", gradient: .defaultSpace)
+        let pictured = Space(name: "Personal", symbolName: "moon", gradient: .defaultSpace, imageData: data)
+        let bare = SpacesSection().pictureRow(blank, session: nil)
+        let set = SpacesSection().pictureRow(pictured, session: nil)
         XCTAssertEqual(Self.buttons(in: bare.view), ["Choose…"])
         XCTAssertEqual(Self.buttons(in: set.view), ["Replace…", "Remove"])
     }

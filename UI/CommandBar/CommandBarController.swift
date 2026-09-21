@@ -232,11 +232,6 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
         // §9.2: every Space plus the archive, not just the active Space.
         sources.tabs = session.allTabs(includeArchived: true)
         sources.spaces = Dictionary(uniqueKeysWithValues: session.spaces.map { ($0.id, $0) })
-        // §9 / D-S8: a row from another Space has to say whose cookies it is,
-        // and the Space colour does not. Without this the rows still stay apart
-        // per Profile — `CommandBarRanking` derives that from `Space.profileID`
-        // — but they lose the Profile's name off their badge.
-        sources.profiles = session.profiles
         sources.adaptive = adaptive.snapshot
         sources.history = []
 

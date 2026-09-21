@@ -57,10 +57,8 @@ extension BrowserSession {
     @discardableResult
     func pinTab(_ id: UUID, at index: Int = .max, selecting: Bool = false) -> Bool {
         guard let tab = list.tab(id), tab.kind != .essential else { return false }
-        // Favorites are per Profile (§2), so the cap is per Profile too.
-        if let profileID = profileID(ofTab: id), favorites(onProfile: profileID).count >= Self.favoritesCap {
-            return false
-        }
+        // Favorites are per Space (§2), so the cap is per Space too.
+        if favorites(inSpace: tab.spaceID).count >= Self.favoritesCap { return false }
         if selecting { activateTab(id) }
         // `reorderTab` is what changes a tab's kind, what registers the undo,
         // and — since §3.4b gave the saved rows the same behaviour — what

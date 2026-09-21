@@ -6,12 +6,9 @@
 //  bookmarks table (§11.1), so what it writes is a `Tab`, and the tier it
 //  picks is the whole of the decision — three things that are wrong silently:
 //
-//  · Favorites are capped at twelve per Profile and a bookmarks bar is
-//    routinely longer. Written over the cap the rows look right until `v2`'s
-//    migration next runs and demotes whichever twelve it likes.
-//  · `profileID` is the column that makes a Favorite a Favorite. Left nil the
-//    tile still draws — the session derives the Profile from the Space — and
-//    `favorites(onProfile:)` cannot see it.
+//  · Favorites are capped at twelve per Space and a bookmarks bar is routinely
+//    longer. Written over the cap the rows look right until something trims
+//    them and demotes whichever twelve it likes.
 //  · One URL in two folders is one row here, because there are no folders to
 //    tell the two apart.
 //
@@ -46,23 +43,16 @@ final class ImportPlacementTests: XCTestCase {
         XCTAssertEqual(tabs.filter { $0.kind == .pinned }.count, 20 - BrowserStore.favoritesCap)
     }
 
-    /// And the twelve belong to a Profile, which is what `favorites(onProfile:)`
-    /// answers for. Nothing else carries the column.
-    func testAnImportedFavoriteBelongsToAProfile() async throws {
+    /// And the twelve are visible as Favorites, which is what
+    /// `favorites(inSpace:)` answers for.
+    func testAnImportedFavoriteIsVisibleAsOne() async throws {
         let store = try makeStore()
         let summary = try await BrowserImporter(store: store, ledger: makeLedger())
             .importBookmarks(htmlAt: try write(favourites: 20))
 
         let spaceID = try XCTUnwrap(summary.targetSpaceID)
-        let spaces = try await store.spaces()
-        let space = try XCTUnwrap(spaces.first { $0.id == spaceID })
-        let favorites = try await store.favorites(onProfile: space.profileID)
-        XCTAssertEqual(favorites.count, BrowserStore.favoritesCap, "the tiles are invisible to their own Profile")
-
-        let tabs = try await store.tabs(inSpace: spaceID, includeArchived: true)
-        for tab in tabs where tab.kind != .essential {
-            XCTAssertNil(tab.profileID, "\(tab.title) is not a Favorite and should carry no Profile")
-        }
+        let favorites = try await store.favorites(inSpace: spaceID)
+        XCTAssertEqual(favorites.count, BrowserStore.favoritesCap, "the tiles are invisible to their own Space")
     }
 
     /// A bookmarks bar under the cap is all tiles, so the cap is a ceiling
@@ -74,7 +64,6 @@ final class ImportPlacementTests: XCTestCase {
 
         let tabs = try await store.tabs(inSpace: try XCTUnwrap(summary.targetSpaceID), includeArchived: true)
         XCTAssertEqual(tabs.filter { $0.kind == .essential }.count, 4)
-        XCTAssertTrue(tabs.allSatisfy { $0.profileID != nil })
     }
 
     /// The same site filed in two folders is one row. It reads like a loss and
