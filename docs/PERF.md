@@ -414,6 +414,35 @@ the host saw neither and skipped both tests while reporting `** TEST SUCCEEDED *
 test that silently skips is worse than none, so `run.sh` touches the marker and reads the
 numbers back from a file the test writes.
 
+## Hiding the sidebar
+
+Not a §19 budget; measured because it was the most visibly expensive thing the chrome did.
+`⌘S` changes the page's width by 280 pt over 0.20 s, and a web view handed a new width
+re-flows the document — so the question is how many times it is handed one.
+
+Measured on the real app against a page that counts its own `resize` events, 1400 pt window,
+M1 Pro, macOS 27:
+
+| | before | after |
+|---|---|---|
+| hiding the sidebar | **13 re-flows** | **1** |
+| showing it again | **10 re-flows** | **1** |
+
+`ContentCardView.beginGeometryTransition` was already meant to make it one, and did not:
+it swapped the page onto a fixed-width constraint but left the layout pass to the animated
+transaction that followed, so AppKit animated the page's width like any other frame change.
+The fix is a `Tokens.Motion.immediately` layout at the moment the constraint changes, and
+holding the page at the **wider** of the two widths for the whole slide — the final width
+when hiding, the current one when showing — so the card's edge does the moving and the page
+is never resized while anything is animating. `Tests/Window/ChromeTransitionTests` asserts
+both halves.
+
+**What is left is WebKit's, not Luna's.** The one re-flow is asynchronous: the web process
+repaints at the new width a frame or three into the slide, whenever it is ready. A 240 fps
+capture of the transition shows the page's text re-wrapping exactly once, in one frame.
+Removing that last step would mean holding a snapshot over the live view and cross-fading,
+which buys a jump-free slide at the cost of showing a stale page during it.
+
 ## §19.6 energy
 
 - Nothing in Luna calls `ProcessInfo.beginActivity`, `disableSuddenTermination` or
