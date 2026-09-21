@@ -314,6 +314,22 @@ against `0..<n` on load and renumbers if it differs. That self-heal is what make
 `reorderSpace` trivial, and it immunises `delete(spaceID:)` against the gaps
 every delete leaves.
 
+**A name is capped at 32 characters.** Trimmed first, so the cap is spent on the
+name rather than on whitespace around it, and counted in characters so a cut
+never lands inside a flag or a combining accent. 32 is measured against the
+widest place the app shows a name whole — the Settings card's header, whose
+label is 278 pt at the pane's 640 pt minimum and holds 34 characters of ordinary
+text at `TypeScale.settingsHeading`. Past that, every other surface is worse
+rather than truncated: `MainMenu`'s Spaces submenu and §30.9's dot menu put the
+name in an `NSMenu` item, and a menu does not truncate, it grows.
+
+Enforced twice on purpose. `BrowserSession.spaceName(from:)` caps everything
+that reaches the store, because a name arrives from an import or a paste as well
+as from a field; `SpaceNameFormatter` stops the three fields at the same number,
+because a name typed to fifty characters and silently committed as 32 reads as
+the app having lost the end of it. Capped rather than refused — a shortened name
+is what the user meant where an error dialog is not.
+
 ### 6.3 Delete a Space
 Luna's `deleteSpace` is already better than most: last-Space guard, tears down
 every web view, cascades tab rows, removes the store only when no other Space

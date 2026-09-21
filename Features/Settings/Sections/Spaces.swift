@@ -144,7 +144,9 @@ final class SpacesSection: SettingsSection {
     /// clicked away from is a name the user meant.
     private func nameRow(_ space: Space, session: BrowserSession?) -> (view: NSView, terms: [String]) {
         let title = String(localized: "Name")
-        let row = SettingsRow.text(title, value: space.name, placeholder: space.name) { [weak self] typed in
+        let row = SettingsRow.text(
+            title, value: space.name, placeholder: space.name, limit: SpaceNameFormatter()
+        ) { [weak self] typed in
             let name = typed.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !name.isEmpty, name != space.name, let session else { return }
             Task {

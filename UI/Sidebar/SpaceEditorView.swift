@@ -90,6 +90,7 @@ final class SpaceEditorView: NSView {
         field.drawsBackground = false
         field.focusRingType = .none
         field.cell?.sendsActionOnEndEditing = true
+        field.formatter = SpaceNameFormatter()
         let commit = SettingsAction { [weak self] sender in
             let typed = (sender as? NSTextField)?.stringValue ?? ""
             let name = typed.trimmingCharacters(in: .whitespacesAndNewlines)

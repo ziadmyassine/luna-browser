@@ -77,6 +77,50 @@ final class BrowserSessionSpacesTests: XCTestCase {
         }
     }
 
+    /// §6.2's cap, at the layer nothing gets past: a name arrives from an
+    /// import or a paste as well as from a field, and only the field has a
+    /// formatter on it.
+    func testALongNameIsCappedRatherThanRefused() async throws {
+        let store = try makeStore()
+        let session = try await makeSession(store)
+        let id = try XCTUnwrap(session.spaces.first?.id)
+        let long = String(repeating: "a", count: BrowserSession.spaceNameCap * 3)
+
+        try await session.renameSpace(id, to: long)
+        XCTAssertEqual(session.space(id)?.name.count, BrowserSession.spaceNameCap)
+
+        let made = try await session.createSpace(name: long)
+        XCTAssertEqual(made.name.count, BrowserSession.spaceNameCap, "a new Space is capped the same way")
+
+        let persisted = try await store.spaces().first { $0.id == id }
+        XCTAssertEqual(persisted?.name.count, BrowserSession.spaceNameCap, "…and the short one is what is stored")
+    }
+
+    /// The cap counts what a reader sees, not what the encoder writes. A flag
+    /// is one character and several code units, and a name cut by code unit
+    /// ends in half an emoji.
+    func testTheCapCountsCharactersRatherThanBytes() async throws {
+        let session = try await makeSession(try makeStore())
+        let id = try XCTUnwrap(session.spaces.first?.id)
+        let flags = String(repeating: "🇩🇰", count: BrowserSession.spaceNameCap + 4)
+
+        try await session.renameSpace(id, to: flags)
+        let name = try XCTUnwrap(session.space(id)?.name)
+        XCTAssertEqual(name.count, BrowserSession.spaceNameCap)
+        XCTAssertTrue(name.hasSuffix("🇩🇰"), "the last flag was cut in half")
+    }
+
+    /// A name that is only long because of what is around it keeps all of
+    /// itself: the trim happens first, so the cap is spent on the name.
+    func testWhitespaceIsNotSpentAgainstTheCap() async throws {
+        let session = try await makeSession(try makeStore())
+        let id = try XCTUnwrap(session.spaces.first?.id)
+        let padded = String(repeating: " ", count: 40) + "Work" + String(repeating: " ", count: 40)
+
+        try await session.renameSpace(id, to: padded)
+        XCTAssertEqual(session.space(id)?.name, "Work")
+    }
+
     func testReorderSpaceRenumbersEveryoneAndPersists() async throws {
         let store = try makeStore()
         let session = try await makeSession(store)

@@ -46,6 +46,7 @@ extension SpacesSection {
         let profiles = session.profiles.values.sorted { $0.name < $1.name }
         let field = NSTextField(frame: NSRect(origin: .zero, size: Tokens.Metric.urlPill.size))
         field.placeholderString = String(localized: "New Space")
+        field.formatter = SpaceNameFormatter()
         let picker = NSPopUpButton(frame: .zero, pullsDown: false)
         picker.addItem(withTitle: String(localized: "Its own profile — separate cookies and logins"))
         for profile in profiles {

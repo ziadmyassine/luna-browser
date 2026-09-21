@@ -89,6 +89,7 @@ extension BrowserSession {
     /// The Space lands next to the active one, not at the end (§13.10).
     @discardableResult
     func createSpace(name: String, profileID: UUID? = nil) async throws -> Space {
+        let name = try Self.spaceName(from: name)
         let profile: Profile
         if let profileID {
             guard let existing = profiles[profileID] else { throw SessionError.unknownProfile }
@@ -142,9 +143,37 @@ extension BrowserSession {
     // MARK: - Rename, reorder, re-icon, re-gradient (§6.2)
 
     func renameSpace(_ id: UUID, to name: String) async throws {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let name = try Self.spaceName(from: name)
+        try await mutateSpace(id) { $0.name = name }
+    }
+
+    /// The longest name a Space may carry.
+    ///
+    /// 32, measured against the widest place the app shows one whole: the
+    /// Settings card's header, whose label is 278 pt at the pane's 640 pt
+    /// minimum and holds 34 characters of ordinary text at
+    /// `TypeScale.settingsHeading`. Past that every surface is worse rather
+    /// than truncated — `MainMenu`'s Spaces submenu and §30.9's dot menu put
+    /// the name in an `NSMenu` item, and a menu does not truncate, it grows.
+    ///
+    /// `nonisolated` so `SpaceNameFormatter` can read it: a `Formatter`
+    /// override is called by AppKit on the main thread but is not declared on
+    /// it, and this is a constant with nothing to race over.
+    nonisolated static let spaceNameCap = 32
+
+    /// What a typed, pasted or imported name is stored as.
+    ///
+    /// Capped rather than refused. A name arrives from an import or a paste as
+    /// often as from the keyboard, and a shortened name is what the user meant
+    /// where an error dialog is not — `SpaceNameFormatter` is what stops the
+    /// keyboard reaching this, so the only names arriving long are the ones
+    /// nobody typed.
+    static func spaceName(from typed: String) throws -> String {
+        let trimmed = typed.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw SessionError.emptyName }
-        try await mutateSpace(id) { $0.name = trimmed }
+        // `prefix` counts characters, not code units, so an emoji or a
+        // combining accent costs one and never gets cut in half.
+        return String(trimmed.prefix(spaceNameCap)).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     func setIcon(_ symbolName: String, forSpace id: UUID) async throws {
