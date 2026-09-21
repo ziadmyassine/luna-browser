@@ -291,8 +291,13 @@ final class SidebarSpaceLabel: NSView {
     /// Clips the name to `visibleCharacters` and carries the ramp that ends
     /// it. The pair §3.4's rows use, for the reason they use it: three
     /// characters spent on an `…` say less than three more of the name.
-    private let clip = NSView()
-    private let label = NSTextField(labelWithString: "")
+    ///
+    /// Internal rather than private so `SidebarSpaceLabelTests` can measure
+    /// what the cell padded against what the box kept: a glyph drawn outside
+    /// the clip is still inside every frame a test can read, so the two have
+    /// to be compared to catch it.
+    let clip = NSView()
+    let label = NSTextField(labelWithString: "")
     private let fadeMask = CAGradientLayer()
 
     override init(frame frameRect: NSRect) {
@@ -338,12 +343,21 @@ final class SidebarSpaceLabel: NSView {
     /// legible: a box cut exactly at the tenth glyph fades the ninth and the
     /// tenth away with it.
     static func shownWidth(of name: String) -> CGFloat {
-        let head = String(name.prefix(visibleCharacters))
-        let width = NSAttributedString(
-            string: head,
+        ceil(textWidth(String(name.prefix(visibleCharacters)))) + Tokens.Metric.rowTitleFade
+    }
+
+    /// What the glyphs measure, which is not what the field reports.
+    ///
+    /// `NSTextFieldCell` keeps 2 pt of its own either side of the text and
+    /// `intrinsicContentSize` counts none of it, so a box cut to that width
+    /// draws the string 2 pt in and loses the end of it: "Personal" came out
+    /// "Persona". Everything here measures the string, and `placeContents`
+    /// offsets the field by the padding instead of trying to account for it.
+    private static func textWidth(_ text: String) -> CGFloat {
+        NSAttributedString(
+            string: text,
             attributes: [.font: Tokens.TypeScale.settingsCaption]
         ).size().width
-        return ceil(width) + Tokens.Metric.rowTitleFade
     }
 
     private func applyTokens() {
@@ -374,20 +388,33 @@ final class SidebarSpaceLabel: NSView {
     /// Centred whether it is clipped or not. The box holds the head of the
     /// name, never the middle of it, so the strip's caption starts where the
     /// name starts and the fade is always eating the tail.
+    ///
+    /// The field hangs its padding off the leading edge (see `textWidth`), so
+    /// the first glyph stands on the box's edge and the box is exactly as wide
+    /// as the text it is keeping.
     private func placeContents() {
-        let natural = ceil(label.intrinsicContentSize.width)
+        let natural = ceil(Self.textWidth(label.stringValue))
         let room = max(bounds.width - 2 * Tokens.Metric.rowInset, 0)
         let shown = min(natural, min(Self.shownWidth(of: label.stringValue), room))
         let box = NSRect(x: (bounds.width - shown) / 2, y: 0, width: shown, height: bounds.height).integral
         clip.frame = box
+        let pad = Self.padding(of: label)
         let height = label.intrinsicContentSize.height
         label.frame = NSRect(
-            x: 0,
+            x: -pad,
             y: ((box.height - height) / 2).rounded(),
-            width: max(natural, box.width),
+            width: max(natural, box.width) + 2 * pad,
             height: height
-        ).integral
+        )
         applyFade(overflowing: natural > box.width, width: box.width)
+    }
+
+    /// The leading half of what the cell keeps for itself, asked of the cell
+    /// rather than written down: it is 2 pt today on both sides, and the point
+    /// of measuring is that nothing here breaks if it stops being.
+    static func padding(of field: NSTextField) -> CGFloat {
+        let cell = field.cell?.cellSize.width ?? 0
+        return max((cell - textWidth(field.stringValue)) / 2, 0)
     }
 
     /// §3.4's fade, on one line instead of forty. Nil when the name fits: a

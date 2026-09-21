@@ -40,6 +40,24 @@ final class SidebarSpaceLabelTests: XCTestCase {
 
     // MARK: - What is drawn
 
+    /// The one that got away: a box cut to what the field reports is 4 pt
+    /// short of what the field draws, because the cell keeps 2 pt either side
+    /// and counts neither. "Personal" fitted the column twice over and still
+    /// came out "Persona".
+    func testAShortNameKeepsItsLastLetterOutOfTheCellsPadding() {
+        let view = caption("Personal")
+        let pad = SidebarSpaceLabel.padding(of: view.label)
+        XCTAssertGreaterThan(pad, 0, "the cell has stopped padding — the offset in placeContents is now a shift")
+        // Leading glyph on the box's leading edge, trailing glyph inside its
+        // trailing one. Both are measured against the text, not the field.
+        XCTAssertEqual(view.label.frame.minX + pad, 0, accuracy: 0.5)
+        XCTAssertGreaterThanOrEqual(
+            view.label.frame.maxX - pad,
+            clip(of: view).frame.width - 0.5,
+            "the last letter is drawn outside the box that keeps it"
+        )
+    }
+
     /// A name that fits is drawn whole and costs no mask — see `applyFade`.
     func testANameShorterThanTheCapIsDrawnWhole() {
         let view = caption("Personal")
