@@ -2131,4 +2131,10 @@ Total in the clip: **~2.3 s**, which is a gesture-driven mobile interaction.
 ## 9. Out of scope here
 
 Peek (§13), split view (§10), Boosts (§18.7), reader mode (§18.3), extensions (§16, v2), AI surfaces
-(§25.6), the New Tab page (§30.19) and the import screen (§30.17). Each gets its own pass.
+(§25.6) and the import screen (§30.17). Each gets its own pass.
+
+§30.19's New Tab page is not on that list any more: it is gone. Every way into it already
+opened §9.1's Command Bar — `⌘T`, §3.4's New Tab row, §4's `+`, and the page's own pill, which
+handed off rather than taking a second line of input — so what was left was a page whose only
+job was to be somewhere to stand while the bar was open. A tab with no address is `about:blank`,
+an empty Space opens no tab at all, and the two wells in §3.3a are what the column says instead.
