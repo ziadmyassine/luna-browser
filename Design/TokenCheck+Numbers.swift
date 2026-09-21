@@ -118,8 +118,7 @@ extension TokenCheck {
             ("sidebarSpaceNameGap", Tokens.Metric.sidebarSpaceNameGap),
             ("spaceDotPitch", Tokens.Metric.spaceDotPitch),
             ("pinHintBlock", Tokens.Metric.pinHintBlock), ("pinHintRow", Tokens.Metric.pinHintRow),
-            ("pinHintIcon", Tokens.Metric.pinHintIcon), ("pinHintGap", Tokens.Metric.pinHintGap),
-            ("pinHintChipInset", Tokens.Metric.pinHintChipInset)
+            ("pinHintIcon", Tokens.Metric.pinHintIcon), ("pinHintGap", Tokens.Metric.pinHintGap)
         ]
         return scalars.filter { $0.1 <= 0 }.map { "Metric.\($0.0) is not positive" }
     }
@@ -312,8 +311,11 @@ extension TokenCheck {
         if metric.pinHintBlock < stack {
             failures.append("Metric.pinHintBlock cannot hold its own glyph, gap and line")
         }
-        if metric.pinHintChipInset + metric.rowTrailingChip.height > metric.pinHintRow {
-            failures.append("Metric.pinHintChipInset pushes the dismiss cross out of the row well")
+        // The row well draws §3.4's own columns, so its glyph has to fit the
+        // slot a favicon is centred in — otherwise the well and the first real
+        // folder row under it put the same picture in two places.
+        if metric.pinHintIcon > metric.rowPillHeight - 2 * metric.rowPillInset {
+            failures.append("Metric.pinHintIcon is too big for the row well to hold")
         }
         return failures
     }

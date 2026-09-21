@@ -137,17 +137,73 @@ final class PinHintTests: XCTestCase {
 
     /// The default column is wide enough for the longer of the two lines, so
     /// nobody who has not resized anything is read half a sentence.
+    ///
+    /// The box may be wider than the words — the row well keeps the trailing
+    /// slot whether or not the cross is in it — so what is asserted is that
+    /// nothing is cut, not that the two are equal.
     func testTheLongerLineFitsTheColumnAsItComes() {
+        let well = row(atWidth: Tokens.Metric.sidebarWidth.default)
+        let label = well.subviews.compactMap { $0 as? NSTextField }.first
+        XCTAssertGreaterThanOrEqual(
+            label?.frame.width ?? 0,
+            label?.intrinsicContentSize.width ?? 0,
+            "the line was truncated"
+        )
+    }
+
+    private func row(atWidth width: CGFloat) -> SidebarPinHintView {
         let well = SidebarPinHintView.folderTier()
         well.frame = NSRect(
             x: 0,
             y: 0,
-            width: Tokens.Metric.sidebarWidth.default - 2 * Tokens.Metric.rowInset,
+            width: width - 2 * Tokens.Metric.rowInset,
             height: SidebarPinHintView.Shape.row.height
         )
         well.layoutSubtreeIfNeeded()
-        let label = well.subviews.compactMap { $0 as? NSTextField }.first
-        XCTAssertEqual(label?.frame.width, label?.intrinsicContentSize.width, "the line was truncated")
+        return well
+    }
+
+    /// The row well stands in §3.4's own two columns: its glyph centred on the
+    /// favicon column at a folder's size, its line starting where every title
+    /// starts. Centred instead, it read as a banner lying where a row will be
+    /// rather than as the row that is missing.
+    func testTheRowWellStandsInTheColumnsARowStandsIn() {
+        let well = row(atWidth: Tokens.Metric.sidebarWidth.default)
+        let glyph = well.subviews.compactMap { $0 as? NSImageView }.first { !($0 is RowGlyphView) }?.frame ?? .zero
+        let line = well.subviews.compactMap { $0 as? NSTextField }.first?.frame ?? .zero
+        XCTAssertEqual(glyph.width, Tokens.Metric.groupIconSize, "the glyph is not drawn at a folder's size")
+        XCTAssertEqual(
+            glyph.midX,
+            Tokens.Metric.rowFaviconInset - Tokens.Metric.rowInset + Tokens.Metric.faviconSize / 2,
+            accuracy: 0.51,
+            "the well's glyph is off the favicon column"
+        )
+        XCTAssertEqual(
+            line.minX,
+            Tokens.Metric.rowTitleInset - Tokens.Metric.rowInset,
+            accuracy: 0.51,
+            "the well's line does not start where a row's title starts"
+        )
+    }
+
+    /// The cross is revealed on hover, exactly as §3.4's close is — and until
+    /// it is showing it takes no press, however close the pointer gets to the
+    /// corner it will stand in.
+    func testTheCrossIsNotThereUntilThePointerIs() {
+        let well = row(atWidth: Tokens.Metric.sidebarWidth.default)
+        let cross = well.subviews.compactMap { $0 as? RowGlyphView }.first
+        XCTAssertEqual(cross?.isHidden, true, "the cross is standing in the well at rest")
+        let centre = NSPoint(x: cross?.frame.midX ?? 0, y: cross?.frame.midY ?? 0)
+        XCTAssertTrue(
+            well.hitTest(well.convert(centre, to: well.superview)) === well,
+            "a cross nobody can see took the press"
+        )
+    }
+
+    /// Both wells speak in the column's own face. They were set in a section
+    /// label's weight, which would have been the only bold type in §3.
+    func testAWellSpeaksInTheColumnsOwnFace() {
+        XCTAssertEqual(Tokens.TypeScale.sidebarHint, Tokens.TypeScale.sidebarRow)
     }
 
     // MARK: - §30.9's still

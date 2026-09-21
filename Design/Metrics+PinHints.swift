@@ -35,20 +35,18 @@ extension Tokens.Metric {
     /// row will stand and is saying so.
     static let pinHintRow = rowPillHeight
 
-    /// The glyph in either well — a step up from a favicon's 16, because it is
-    /// the only picture in a box that is otherwise a sentence.
-    static let pinHintIcon: CGFloat = 18
-
-    /// Between the glyph and the line it labels, along whichever axis the well
-    /// stacks them on.
-    static let pinHintGap: CGFloat = 8
-
-    /// The dismiss cross's inset from the well's top and trailing edges.
+    /// The glyph in either well.
     ///
-    /// 6, which puts an 18 pt `rowTrailingChip` 2 pt inside the 8 pt margin the
-    /// column already keeps — close enough to the corner to read as the
-    /// corner's, far enough off the dashed line not to sit on it.
-    static let pinHintChipInset: CGFloat = 6
+    /// A folder's, because the row well stands where a folder will and draws
+    /// its glyph in the same column at the same size — so the well and the
+    /// first real row put the same picture in the same place. The block's pin
+    /// takes it too: two wells, one glyph size.
+    static let pinHintIcon = groupIconSize
+
+    /// Between the glyph and the line it labels, in the block — which is the
+    /// one well that stacks them. The row puts its line in §3.4's title column
+    /// and takes the gap from there.
+    static let pinHintGap: CGFloat = 8
 
     /// Both wells, and §3.3's own drop outline: one dash, so the three marks
     /// that mean "something goes here" are the same mark.

@@ -945,10 +945,21 @@ stand, with a `folder` glyph beside "Drag a folder here to pin it".
 - **Each well appears only for the tier it describes.** Pin one tab and the block goes; make
   one folder and the row goes. They are independent — a Space with four tiles and no folders
   draws the row well alone.
-- **Dismissed by the cross in its own corner**, top-right in the block and centred on the
-  trailing edge in the row, where six points down from the top of a 35 pt pill is two and a
-  half off the middle and reads as a slip. The cross is `rowTrailingChip`, so it answers a
-  hover and a press like every other glyph in the column (§6).
+- **Each well is drawn as the thing that is missing, not as a notice about it.** The row well
+  stands in §3.4's own two columns — its `folder` glyph centred on the favicon column at
+  `groupIconSize`, its line starting at `rowTitleInset`, both in `TypeScale.sidebarHint`, which
+  *is* the column's 13 pt row face. The block is the grid, so its content is centred the way a
+  tile's is. One fill, one dash, one corner, one face between them.
+  > It was two dashed boxes of 12 pt semibold grey, centred, which would have been the only bold
+  > type in §3 — a poster about an empty column rather than the column's own voice. Centring the
+  > row well also cost it the room: at the default width its line came out as
+  > "Drag a folder here to pi…".
+- **Dismissed by the cross, which is revealed on hover** exactly as §3.4's close is — a tip is
+  mostly read, not dismissed, and a cross standing in the well at rest took a quarter of the
+  line's room. It stands top-right in the block and in the row's own trailing slot, one
+  `rowInset` inside the well in both. The line keeps that slot clear whether or not the cross is
+  in it, so nothing steps sideways when the pointer arrives. The cross is `rowTrailingChip`, so
+  it answers a hover and a press like every other glyph in the column (§6).
 - **One answer for the whole app, not one per Space.** `Settings.showsPinnedTabHint` and its
   pair store the *dismissal*, so a key nobody has written reads as "show it". Advice already
   taken does not need repeating in the Space next door — where, by definition, the user is now
