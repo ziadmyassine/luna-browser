@@ -2,20 +2,18 @@
 //  CredentialPopover.swift
 //  Luna
 //
-//  §14.3's credential picker: a **native popover anchored to the field**.
+//  §14.3's credential picker: a native popover anchored to the field.
 //
-//  The word "native" in §14.3 is a security requirement, not a style note.
-//  An injected DOM overlay lives in the page's own document, which means the
-//  page can read the usernames out of it, restyle it, move it over a different
-//  field, or draw a convincing copy of it and harvest whatever the user picks.
-//  Every one of those is impossible for an `NSPanel`: the page cannot see it,
-//  cannot script it, and cannot find out what is in it. The only thing a page
-//  learns is that it has a password field, which it already knew.
+//  The word "native" in §14.3 is a security requirement, not a style note. An
+//  injected DOM overlay lives in the page's own document, so the page can read
+//  the usernames out of it, restyle it, move it over a different field, or draw
+//  a convincing copy and harvest whatever the user picks. None of that is
+//  possible for an `NSPanel`: the page cannot see it, script it, or find out
+//  what is in it. All a page learns is that it has a password field.
 //
-//  So this is a panel — a child window of the browser window, like §5's
-//  downloads popover — positioned from a rect the page reported. The rect is
-//  the *only* thing that crosses over, and the worst a lying page can do with
-//  it is put the popover somewhere silly.
+//  So this is a panel — a child window of the browser window — positioned from
+//  a rect the page reported. The rect is the only thing that crosses over, and
+//  the worst a lying page can do with it is put the popover somewhere silly.
 //
 //  Accessibility (§21.1): the panel is a real list of real buttons, so
 //  VoiceOver reads each username; Escape dismisses from anywhere; and the
@@ -35,7 +33,7 @@ final class CredentialPopover {
     /// offers: picking a saved credential fills a username Luna already knows,
     /// and taking a generated password commits the user to one they have never
     /// seen. Collapsing them would have meant dressing the generated password
-    /// up as a `Credential` whose *username* is the password — which reads
+    /// up as a `Credential` whose username is the password — which reads
     /// correctly on screen and disastrously to VoiceOver.
     enum Content {
         case saved(PasswordOffer)
@@ -120,7 +118,7 @@ final class CredentialPopover {
     /// Repositions a picker that is already up, because the field it points at
     /// has moved under it.
     ///
-    /// **Moved, not rebuilt.** The page re-reports its form on every frame of a
+    /// Moved, not rebuilt. The page re-reports its form on every frame of a
     /// scroll; tearing the panel down and building a new one at each report
     /// would flicker, lose the pointer's hover, and re-read the Keychain sixty
     /// times a second. Nothing about the offer has changed — only where it
@@ -146,8 +144,8 @@ final class CredentialPopover {
         escapeMonitor = nil
         guard let panel else { return }
         self.panel = nil
-        panel.parent?.removeChildWindow(panel)
-        panel.orderOut(nil)
+        // Out the way it came in — see `Motion.fadePanelOut`.
+        Tokens.Motion.fadePanelOut(panel)
     }
 
     // MARK: - Geometry
@@ -166,7 +164,7 @@ final class CredentialPopover {
             if origin.y < visible.minY {
                 origin.y = field.maxY + gap
             }
-            // Clamp horizontally *after* the flip: a field near the right edge
+            // Clamp horizontally after the flip: a field near the right edge
             // would otherwise push the panel off-screen whichever way it went.
             origin.x = min(max(origin.x, visible.minX), visible.maxX - size.width)
             origin.y = min(max(origin.y, visible.minY), visible.maxY - size.height)

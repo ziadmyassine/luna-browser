@@ -7,10 +7,10 @@
 //  which is why the pill is not window-centred — it sits wherever the active
 //  tab falls in the strip.
 //
-//  This is the **only page-derived colour in the app** (§2). The chrome samples
-//  what is behind the *window*; the pill alone blends `TabState.themeColor`
-//  through `Tokens.wash`, which backs the fraction off in 2 % steps until the
-//  text still clears §21.4's 4.5:1 and drops the wash entirely if it cannot.
+//  The only page-derived colour in the app (§2). The chrome samples what is
+//  behind the window; the pill alone blends `TabState.themeColor` through
+//  `Tokens.wash`, which backs the fraction off in 2 % steps until the text
+//  still clears §21.4's 4.5:1, and drops the wash if it cannot.
 //
 //  §4 has no reload button by design. Reload is `⌘R` and the site menu behind
 //  the sliders glyph, which is why that menu exists in M1 with one item in it.
@@ -71,6 +71,9 @@ final class TopBarURLPill: NSView, TopBarThemed, NSTextFieldDelegate {
     /// sits inside a control that is already a landmark. At 16 it was the
     /// loudest mark in a pill whose whole job is to be quiet.
     private let sliders = RowGlyphView()
+    /// §3.2c's load line — the same line, at the same inset, as the one under
+    /// §3.2's pill in the column. Three address bars, one progress indicator.
+    private let loadLine = LoadProgressLine()
 
     private var url: URL?
     private var tintSource: NSColor?
@@ -98,9 +101,9 @@ final class TopBarURLPill: NSView, TopBarThemed, NSTextFieldDelegate {
             label: String(localized: "Site settings"),
             pointSize: Tokens.Metric.pillGlyphSize
         )
-        sliders.chromed = true
         sliders.onActivate = { [weak self] in self?.showSiteMenu() }
         addSubview(sliders)
+        addSubview(loadLine)
 
         setAccessibilityRole(.textField)
         setAccessibilityLabel(String(localized: "Address"))
@@ -135,6 +138,13 @@ final class TopBarURLPill: NSView, TopBarThemed, NSTextFieldDelegate {
         favicon.image = icon ?? TopBarButton.symbol("globe")
         if !isEditing { applyDisplay() }
         setWash(tint)
+    }
+
+    /// §3.2c: how far the active tab has loaded. Fed from the same `TabState`
+    /// the wash and the title come from, and carrying the tab's id — the pill
+    /// is reused across a tab switch, and a switch is not progress.
+    func setLoad(_ state: TabState, for tab: UUID) {
+        loadLine.show(state, for: tab)
     }
 
     private func applyDisplay() {
@@ -313,9 +323,10 @@ final class TopBarURLPill: NSView, TopBarThemed, NSTextFieldDelegate {
 
     private func placeContents() {
         wash.frame = bounds
+        loadLine.place(inPill: bounds, cornerRadius: Tokens.Metric.urlPill.cornerRadius)
 
         let inset = Tokens.Metric.rowInset
-        // **The inset is the glyph's, and the chip grows past it** — the same
+        // The inset is the glyph's, and the chip grows past it — the same
         // placement `URLPillView` records: `pillGlyphInset` is measured to the
         // mark the eye lands on, so the hover chip is centred on where the
         // glyph would have been rather than being inset itself.

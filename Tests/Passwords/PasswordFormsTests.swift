@@ -5,7 +5,7 @@
 //  The page→Swift boundary (§14.3) and §14.10's passkey suppression.
 //
 //  Everything decoded here arrives from web content, so these are tests about
-//  **untrusted input**: the question is never "does a well-formed message
+//  untrusted input: the question is never "does a well-formed message
 //  work", it is "does a malformed one fail safely".
 //
 
@@ -106,7 +106,7 @@ final class PasswordFormsTests: XCTestCase {
 
     // MARK: - §14.10
 
-    /// The interface is deliberately **left in place**. Sites bundle unrelated
+    /// The interface is deliberately left in place. Sites bundle unrelated
     /// sign-in options into the same lazily-loaded region they gate on
     /// `window.PublicKeyCredential` — GitHub fetches "Continue with Google" and
     /// "Continue with Apple" in the fragment it only asks for when that

@@ -50,7 +50,7 @@ sidebar's own content reflows. The ratios exist to fix proportions once, not to 
 | `trafficLightInset` (leading **and** top) | 18 pt | 8 leading, 18 top |
 | `controlSquircle` (top-bar tab tile only) | 28 pt, radius 9 | — |
 | `bottomCircle` (avatar, history) | 34 pt (`= sidebarCircle`) | — |
-| `spaceDotsPill` | 56 × 22 pt, radius 11 | — |
+| `spaceDotsPill` / `spaceDotChip` | 56 × 22 pt, radius 11 / 14 pt (= `spaceDotPitch`) | — |
 | `spaceDot` | 6 pt | — |
 | `glyphSize` (chrome SF Symbols) | 16 pt | 17, and 18 before that |
 | `windowCornerRadius` | 25 pt | 18 |
@@ -65,7 +65,7 @@ sidebar's own content reflows. The ratios exist to fix proportions once, not to 
 | `historyPopoutGap` (pop-out ↔ its button) | 5 pt (`= controlPairGap`) | — |
 | `scrimStrength` | **gone**, with the scrim itself — see §9.1 | 0.55 |
 | `settingsListWidth` / `settingsWindow` | 230 pt / 720 × 520 pt | 196, and a 420 × 160 box before that |
-| `settingsSectionRow` / `settingsSectionIcon` | 36 pt / 26 pt, radius 7 | — |
+| §2's section row | **the sidebar's own**: `rowHeight` 38 / `rowPillHeight` 35 / `rowCornerRadius` 12 | `settingsSectionRow` 34 with a 24 pt icon tile |
 | `settingsCardRow` / `settingsGroupGap` | 52 / 26 pt | 36 / 3 |
 | `hairline` | 1 pt @ 10 % white / 8 % black | — |
 
@@ -98,7 +98,6 @@ are near-black and white respectively. The OS does the expensive part for free.
 | Sidebar | Liquid Glass, regular |
 | Top bar | Liquid Glass, regular |
 | Action capsule, control buttons, Essentials tiles | Liquid Glass, clear, over the bar |
-| Downloads popover | Liquid Glass `.regular` + a heavier panel shadow |
 | Content card | Opaque `Surface.base` — never translucent; a web page behind glass is unreadable |
 | URL pill | `Surface.well` at rest, `.control` glass when hovered or open for editing. **No page tint** |
 | History pop-out | Liquid Glass `.regular` + `Shadow.popover`, standing on the §3.5 button |
@@ -311,6 +310,19 @@ Vertical order, top to bottom:
 > 28 × 28 circle placed at a fractional y comes out 28 × 29 and reads as an egg. Chrome controls snap
 > their **origin** only (`NSRect.pixelAligned`); a size that came from a token is not the layout's to
 > round.
+> **The lights coming and going is not a layout change, and has to be made into one.** `⌘S` takes the
+> traffic lights away with the sidebar and §3.8's peek lends them back; neither changes any view's
+> bounds, so nothing in AppKit marks this row — which lays its toggle out *against* the lights — as
+> needing another pass. Hiding the sidebar and showing it again therefore left the toggle where a row
+> with no lights to clear correctly puts it: at the row inset, under the close button. Every view that
+> places itself against the lights is a `TrafficLightNeighbour` (this row and §3.2b's bar), and both the
+> peek and every chrome-state change mark all of them for layout.
+> **Hover is a fill again, and a press is a shape** (M1). §3.1 has always said hover lifts the *fill*,
+> and for a long time only the glyph could be lifted, because there was no translucent wash to lift a
+> surface with. There is now: the three circles carry `Surface.hover` over their material under the
+> pointer, `Surface.selected` under a press, and the press also swells the material 5 % and springs it
+> back (§6). Back and forward are the exception that proves it — they are bare glyphs in the history
+> capsule's material, so the *capsule* takes the swell.
 > **And then they were squircles.** A `.continuous` corner curve at `radius == side / 2` is a
 > superellipse, with straight flanks — which is the "still a bit longer than wide" left after the
 > rounding was fixed. Apple's continuous curve is defined for radii *below* half the side; at or above
@@ -366,7 +378,11 @@ Vertical order, top to bottom:
   saying what the bar is for should be. Luna's other pages keep their names — `History` is somewhere
   you actually are. "Website name" rather than "URL" because that is what people type: `apple.com`,
   not a scheme.
-- Left-aligned text at 12 pt inset; trailing **sliders glyph** (site menu) at 10 pt from the right edge.
+- Left-aligned text at 12 pt inset; trailing **sliders glyph** (site menu) at the same 12 pt from the
+  right edge. It was 10 — a glyph is optically smaller than its box and can afford to sit closer in —
+  and on §3.2b's 420 pt capsule that reads as intended, but in a 240 pt column, with the capsule's
+  corner curving away right behind it, it read as site settings falling off the end of the pill.
+  Whatever is at either end of a pill now stands as far in as the address does.
 - **One affordance goes on the trailing edge; a second takes the other end.** That is where §3.2 has
   always drawn the sliders and where §3.4's rows draw theirs. A pill that also carries a reload —
   §3.2b's, which has 420 pt to put one in — moves site settings to the leading edge and keeps reload
@@ -412,13 +428,34 @@ Vertical order, top to bottom:
     clamped inside it where it does not, which in the column means leading-aligned with the pill and
     overhanging the page — which is what a panel floating over a page is entitled to do.
   - **What opens is the height, and only the height.** The input row is already on the line the address
-    was on and the extra width is there on the first frame, under an alpha starting at zero; the glass
-    grows from the pill's height to the bar's on §6's `commandBarIn`. Two earlier versions were worse:
-    masking the body put an offscreen pass around a live glass panel over a live web page, and fading
-    `alphaValue` on the panel — which covers the whole window — put every pixel of the page showing
-    through it into a transparency layer for the length of the animation. Both stuttered. The rows and
-    their favicons are built *before* the bar is shown, so nothing expensive runs after the animation
-    is committed.
+    was on and the extra width is there on the first frame; the glass grows from the pill's height to
+    the bar's on §6's `commandBarIn`. Two earlier versions were worse: masking the body put an
+    offscreen pass around a live glass panel over a live web page, and fading `alphaValue` on the panel
+    — which covers the whole window — put every pixel of the page showing through it into a
+    transparency layer for the length of the animation. Both stuttered.
+  - **The bar is drawn before it opens, at the pill's size** (M1), and there is no fade left in the
+    anchored case at all. A Command Bar's first frame costs about 65 ms — a fresh glass backdrop over a
+    live page, eight rows of text, and a field taking the window's first responder with it, measured —
+    and wherever that lands, four frames are dropped. So it lands on a bar the size of a pill, in the
+    pill's place, in the same commit that hides the pill: what the user sees is the address bar they
+    clicked becoming a field. The reveal then has nothing left to build, and the spring is a height.
+  - **And it closes the way it opened.** The anchored bar's glass runs back down to the pill's height
+    on the same `commandBarIn`, and the pill is unhidden at the end of that rather than the start — a
+    frame earlier and the address is on screen twice on the same 34 pt, which is the whole thing
+    hiding it was for. The floating bar, which grew out of nothing, shrinks to 0.96 and fades the way
+    it arrived. Before this the bar was `removeFromSuperview()`: there, and then not. On the floating
+    panel that reads as a window being shut rather than a summoned thing going away; on the anchored
+    one it is worse, because what that bar is saying is "I am the pill you clicked, opened up" — and a
+    bar that vanishes to reveal the pill underneath was never the pill at all. The way out has to make
+    the same claim the way in made, or it withdraws it. Two things go with it: the bar stops
+    hit-testing on the first closing frame, since it covers the window and the pill it is folding into
+    is underneath it; and a bar that never opened — one still standing at the pill's height waiting for
+    the store — closes at once, because folding a height onto itself is 0.18 s of nothing.
+  - **And it waits for the store before it opens.** The opening query's history lands about 9 ms after
+    that first composite, and opening without it meant the morph grew around one list and settled on
+    another — rows re-ranking under the pointer a quarter-second after the click, which is what Martin
+    saw twice. The bar holds at the pill's size until the query lands, the user types, or 100 ms have
+    passed, whichever comes first. On a warm store the deadline never fires.
 - **`⌘L` belongs to whichever address bar is on screen**, and all three now answer it the same way:
   §3.2's pill, §3.2b's and §4's each hand the address to §9.1 standing on themselves. The claim is
   chained rather than assigned — each layout answers only for itself and passes the command on — and
@@ -667,7 +704,7 @@ column closes up over the pill's own 34 pt.
   band back to the page, so a link there stays clickable.
 
 ##### 3.2b.i Suggestions under the pill — **removed 2026-09-20**
-Typing in the pill used to drop §3.4's search completions below it on the §5 popover material, the same
+Typing in the pill used to drop §3.4's search completions below it on `.popover` material, the same
 width as the pill and lining up with it rather than with the bar.
 
 It is gone, with the in-place editing it belonged to. Both address pills now hand the whole job to §9.1,
@@ -677,6 +714,58 @@ second and thinner list that knew only about search phrases. Two things the list
 keeping and are now §9.1's problem alone: one moving `.control` glass pill for the selection rather than
 a fill per row, and a row geometry taken from `CommandBarResultRow` rather than from §3.4's tab rows,
 whose insets are derived from a tab pill's height.
+
+### 3.2c Load line — a 2 pt line on the bottom of the address bar, wherever the address bar is
+Transcribed from the reference Martin sent, measured at that capture's 2x: a **2 pt** accent line lying
+**on the inside of the pill's bottom edge**, running the capsule's whole width from the leading end,
+with **both ends cut by the capsule itself**.
+
+**It is the pill filling up, not a rule drawn inside one.** A line held clear of the bottom edge, with
+its own rounded caps, is a second object floating in the capsule; a line lying on the edge and ending
+where the corner takes it away is the bottom of the capsule turning blue. The reference measures the
+second, to the pixel: the blue run ends exactly where the capsule's bottom stroke begins, and its
+leading end is the corner's curve rather than a cap. (The first draft of this section had it 4 pt up
+and 12 pt in from each end; Martin sent the reference back.)
+
+| | Value | Why |
+|---|---|---|
+| thickness | `loadLineHeight` = 2 | measured (4 px at 2x); the thickness §7 already wrote down for a progress line |
+| above the bottom edge | `loadLineFloor` = `hairline` = 1 | the pill's own border, and nothing more: the line lies on the inside of the well. `hairline` rather than 0 so the geometry does not move when §3.2's pill swaps between its bordered plate and glass |
+| run | the pill's full width | so a finished load reaches the end of the address bar rather than stopping a text inset short |
+| ends | the capsule, as a mask | `LoadProgressLine.capsule(inPill:cornerRadius:)` — the well's shape, in the line's own coordinates, so the strip is cut by the corner instead of being held clear of it |
+| colour | `Accent.tint` | §1 allows the accent as **fill**, which is all this is — never text, never a border |
+
+**One line, three pills.** §3.2's in the column, §3.2b's on the page and §4's active tab all place it
+through `LoadProgressLine.place(inPill:cornerRadius:)`, because a line lying on the edge of one surface
+and floating inside another is two lines. §3.2b's collapsed capsule keeps it: the bar is 22 pt of the
+page's own colour with a domain in it, and the line is the only thing left that can say the page is
+still arriving. A consequence worth naming: below roughly 4 % the fill is still inside the corner's
+curve and nothing shows, which is the reference's own behaviour — the line emerges from the corner.
+
+**With no address bar on screen, the window's top edge takes it.** That is the sidebar layout with the
+sidebar hidden (`⌘S`) and the search bar still in the column — the pill is parked off screen — and page
+fullscreen, which takes the chrome with it. `ChromeState.loadProgressHost(searchBarOnPage:)` is the
+whole rule, pure and tested the way `cardInsets` is; the window controller only ever asks whether the
+answer is `.windowTop`. The fallback line is fed **whether or not it is the host**, so `⌘S` half way
+through a load moves a line that is already at the right fraction rather than one starting again from
+nothing. It is added above the chrome, because §3.8's peek slides a sidebar over that exact corner.
+
+**Three rules, and all three are about not drawing.** They are what separates a progress bar from
+decoration:
+1. **A load under `reloadSkipThreshold` (0.15 s) plays nothing.** §7 wrote that rule for the bloom and it
+   is the same rule here — a cached reload is over before a bar could say anything true about it, and a
+   line flashing on every back-navigation is noise on the most common navigation there is. The reveal is
+   *armed* rather than shown, and a load that finishes first cancels it.
+2. **It never retreats.** `estimatedProgress` falls when a load commits a new document; a redirect two
+   thirds of the way through a page is not the page getting further away.
+3. **It finishes before it leaves.** The fill runs to full on `loadLineAdvance` and only then fades on
+   `loadLineFade`, so the last thing seen is a full line and not a bar that vanished at four fifths.
+
+A tab switch is not progress: the line carries the tab's id and starts over when it changes, because §4's
+pill is literally the same view across a switch. Reduce Motion needs no special path — every step goes
+through `Tokens.Motion`, which degrades each to an instant change (§21.2). It is decorative to
+VoiceOver: loading is announced by §3.4's rows and by the reload glyph becoming a stop, not by 2 pt of
+ink.
 
 ### 3.3 Essentials grid — reshapes around how many tiles are in it
 - Tiles 128 × 42, radius 12. **The sides are an alignment; the top, the bottom and the gutter are
@@ -799,6 +888,15 @@ whose insets are derived from a tab pill's height.
   costs no WebContent process until it is clicked again (§19.2). A pinned tab cannot be closed, only
   unpinned (right-click → *Unpin*, or drag it back down); `⌘W` on one puts the page away and leaves
   the tile.
+  > **Putting a page away silences it, explicitly.** Every teardown — this one, §19.2's budget, a
+  > closed tab, a deleted Space — went through `TabController.detach`, which unhooked the view and let
+  > go of it on the reasoning that a deallocated `WKWebView` closes its page and a closed page makes no
+  > sound. That is true of the *last* reference and says nothing about the one before it: WebKit's own
+  > async completions, a floating Picture-in-Picture window, element fullscreen and a snapshot in
+  > flight each outlive the call by an unbounded amount, and for as long as one does, the page is still
+  > playing. Reported as **closing a pinned tab with a video running and still hearing it in the
+  > background**, with nothing left on screen to stop it. Audio is the one leak a user can *hear*, so
+  > `detach` now suspends all media playback first and whichever reference goes last no longer decides.
   > **A tab dragged across the grid's edge is selected by the drop.** Carrying a tab up into the grid or
   > back down out of it is a decision about *that* tab, taken with it under the hand, and a drop that
   > left the previous page on screen made the tile you had just made look like it belonged to something
@@ -813,7 +911,11 @@ whose insets are derived from a tab pill's height.
   > tab's kind, so the row left the list, no tile appeared, and the command did nothing visible.
 
 ### 3.4 List rows — 38 pt of pitch around a 35 pt pill
-Order: `+ Add Tab` row → **separator** → tabs.
+Order: `+ New Tab` row → **separator** → tabs.
+> **It was `+ Add Tab` and it made a blank tab.** That is the one tab nobody wants: the next thing
+> anybody does with one is reach for the address bar. The row asks the question instead — it opens §9.1
+> in `.newTab`, so what it lands on is still a new tab, and closing the bar without choosing leaves the
+> list exactly as it was rather than one empty page longer.
 > **`Archive` is no longer a row here.** It was a second door to the page §3.5's bottom-bar button
 > already opens, sitting directly under the pinned tiles where the eye lands first — a history button at
 > the top of a list of live tabs. History belongs with the other standing destinations at the foot of the
@@ -845,6 +947,12 @@ Order: `+ Add Tab` row → **separator** → tabs.
   *Close Tab* tip: the square is that control's own affordance, and painting it for the whole row put a
   grey tile on every row the pointer merely crossed. Pressing it closes the tab (§6.3 — archived, and
   undoable).
+  > **The chip is every glyph button's, not just this one's** (M1). §3.2's two glyphs inside the URL
+  > pill lifted their ink instead, on the argument that a rounded rectangle inside a capsule is two
+  > shapes; Martin's macOS 26 reference for a plain button is that chip, and he asked for it on the
+  > site-settings glyph by name. One class draws it for all of them (`RowGlyphView`): hover is
+  > `Surface.hover`, a press is `Surface.selected` and a 5 % swell, and both cross-fade on §6's
+  > `controlHover`.
   > **Whatever is drawn is what is hit, and the row is resolved when you press.** The speaker and the
   > `xmark` share one slot, so the affordance reports the glyph it was actually showing rather than the
   > list re-deriving it from hover — a second chance to disagree. And the row a press belongs to is
@@ -868,7 +976,7 @@ Order: `+ Add Tab` row → **separator** → tabs.
 - **Selected and hover fills are `Surface.selected` / `Surface.hover`.** Clear glass alone is very nearly
   the sidebar's own glass, and a selected row read as unselected until these were asked for.
 - Loading shows a shimmer sweep across the title, not a spinner.
-- `+ Add Tab` is a first-class row with identical metrics to a tab (§30.6).
+- `+ New Tab` is a first-class row with identical metrics to a tab (§30.6).
 - **The unread dot is ink, not accent.** It was `Accent.tint`; it is `Text.primary` now, and it reads
   because it is bright rather than because it is a different hue.
 - **Reordering is a tracked gesture, not a dragging session** (§6.6). A press past `dragThreshold`
@@ -1020,7 +1128,13 @@ to reimplement keyboard navigation, VoiceOver and Reduce Transparency.
 > what an `NSMenu` puts up and for the same reason. **The shadow does what the scrim used to:** with no
 > backdrop behind it the panel has only its own edge, so it carries `Shadow.popover` — the token §6.6's
 > drag lift already uses. It grows out of the button on §6's `commandBarIn`, anchored at the corner
-> standing on it rather than at its own centre.
+> standing on it rather than at its own centre — **and folds back into that same corner when it closes**,
+> which is the same spring, the same 0.96 and the same pivot, run the other way. It used to be
+> `removeFromSuperview()`: on screen one frame and gone the next, which reads as a window being closed
+> rather than as a glance ending, and it took the button's ownership of the surface with it. The
+> controller counts the pop-out as gone the moment it is dismissed — `esc`, the button, a click outside —
+> so the next one may open immediately; the view fading is nobody's business but its own, and it stops
+> hit-testing on the first frame so the click that closed it is not eaten by the sheet that is leaving.
 > **Every row is one width, and it is the list's.** A pill measured off each row inherits whatever that
 > row's own stack negotiated, so a long title and a short one highlighted differently — and a row wider
 > than the list put glass over the panel's own rounded edge. The pill takes `x` and width from the list,
@@ -1037,6 +1151,56 @@ to reimplement keyboard navigation, VoiceOver and Reduce Transparency.
 
 - **Space dots** are the Space switcher: one 6 pt dot per Space, active dot 100 % white, inactive 35 %.
   Click a dot to switch; the pill widens by 8 pt per Space beyond three.
+  > **A dot answers the pointer like every other button** (§3.4, §6). It wears §3.4's washes on a chip
+  > the size of its own slot — `spaceDotChip`, which is `spaceDotPitch`, because a 6 pt hover target is
+  > no target — and hands its **press to the pill**, which is the glass under it and the thing that
+  > swells. That is `NavCluster`'s rule: a control with no material of its own does not swell, the one
+  > holding it does. Before this the dots were the only controls in the chrome that said nothing at all
+  > until the Space had already changed. Measured on screen: hover changes exactly 14 × 14 pt, a press
+  > changes the whole 42 × 22 pt pill.
+  > **The page is the ruler.** One page of hand is one page of column, at whatever width the §3.7
+  > handle has left the sidebar — so there is no "points per Space" number, and there should never have
+  > been one. Every value it held was a *fraction* of a page, which meant the column moved a multiple
+  > of the fingers pushing it: 120 pt against a 280 pt sidebar was two and a third points of column per
+  > point of hand. That is the "it multiplies my swipe" this gesture was reported for twice, and
+  > damping the trackpad's acceleration never touched it because the acceleration was not where it came
+  > from. Half a page commits.
+  > **A flick commits too, and that is what pays for the ruler being a page wide.** Half of a 280 pt
+  > column is 140 pt of finger, which no reflex performed dozens of times a day can cost — so a release
+  > still moving at `spaceFlickSpeed` turns the page however far it got. A short stroke still going is
+  > a page turn; a long one that has come to rest is a page turn; a short one that has come to rest is
+  > a look, and it springs back.
+  > **The `+`'s ring is the threshold, not a read-out of one.** Past the last Space the same two
+  > fingers make a new one, and the circle closing is the whole of what it costs: full ring, let go,
+  > Space; short of full, let go, nothing; pan back and it empties under the hand, which is how a
+  > create is called off. `Haptics.latch` ticks as it closes and again if the hand retreats past
+  > `ringReArm` and pushes out afresh. The *disc* keeps its own faster clock — it is in from the edge
+  > and standing still after `spaceCreateEntrance` of the sweep — because the gesture is a thing that
+  > appears and then a thing that fills.
+  > **Both create defects were this one distance being two.** The first asked for three pages and
+  > closed the ring after one, which could not be performed at all: against the damping ceiling three
+  > pages needs longer than a trackpad stroke lasts, so the ring closed and the release made nothing,
+  > every time. The second brought the distance down to a page a hand can cover and left the ring
+  > closing a third of the way in, on the reasoning that a ring should promise rather than receipt —
+  > which is true of a ring that is promising something. This one promised and did not deliver, so all
+  > the early close bought was a more convincing way of being told the wrong thing. **A read-out that
+  > is not the threshold is a read-out of nothing.**
+  > **The resistance is distance and stiffness.** A page is twice what a switch costs, which is the
+  > asymmetry `TokenCheck` holds — against the **widest** the column gets, since a create that cannot
+  > be finished in one stroke is a dead end rather than resistance. And the column does not follow the
+  > hand out there: past the last Space its travel bends over against `spaceCreateGive`, 1:1 under the
+  > fingers at first and stiffer with every point of push, so a whole page of hand leaves it a little
+  > under half way out and the last third of the ring is paid against a column that has all but
+  > stopped. A flick is no longer excluded by how the gesture *ended*, and that is not a relaxation: a
+  > rule that makes a closed circle mean nothing in some releases is the same lie in a different place.
+  > **The release is a hand that kept going.** Its duration is the distance left over the speed the
+  > fingers let go at (`Motion.spaceSettle`), not one fixed number — released a tenth of a page from
+  > home the column used to crawl the last 28 pt over the same 0.18 s it took to cross a whole page
+  > from a flick. And the *whole* read-out travels on one clock: the column, the still, §8.2a's wash
+  > and this strip are all functions of one number, but only the first two are layer properties, so
+  > animating those and setting the rest outright made the dots snap to the Space they were heading for
+  > while the column was still a third of the way there. `SpaceSwipeSettle` tweens the number instead,
+  > and every frame of the gesture — finger down or not — is drawn the one way.
 - Avatar is the active profile; click opens the profile menu.
 
 ### 3.6 Content pane
@@ -1060,9 +1224,17 @@ lights are hidden with everything else and come back the moment there is a sideb
 including §3.8's peek.
 
 **The sidebar's plane is a window drag handle — and only the plane.** Pressing anywhere that is not a
-control moves the window: the control row, the grid's background, the rule under `+ Add Tab`, the empty
+control moves the window: the control row, the grid's background, the rule under `+ New Tab`, the empty
 list below the last tab. `NSTableView` swallows that press by default, which left the top 52 pt as the
 only place in a 280 pt column you could pick the window up by.
+
+> **One window, one handle** (M1). §3.2b's page bar is chrome too, and it used to move the window as
+> well — so with the sidebar out there were two drag surfaces, one of them the band the user is aiming
+> at for the pill, the toggle and the history cluster. It is over the *page*, inside the card, clipped
+> to the page's corners, and it no longer moves anything. The exception is a hidden sidebar: with the
+> column put away that bar is the only chrome above the page, and a window whose only handle has been
+> put away is one you cannot move. Asked at mouse-down rather than stored, so it cannot be a copy of a
+> chrome state that has since changed.
 
 > **Every control has to say so, one at a time.** `NSView.mouseDownCanMoveWindow` answers `true` for any
 > view that draws no background of its own, which is every glass surface in Luna — so on a window that
@@ -1124,6 +1296,12 @@ left — so nobody's chrome moves who has not asked for it to.
 With the sidebar hidden, pushing the pointer into the window's leading **44 pt** brings it back **over**
 the page after §6's 0.10 s intent delay, and lets it go again 0.10 s after the pointer leaves both the
 strip and the sidebar itself.
+
+**The strip starts below §3.2b's band.** The top `pageBar` points of that edge do not peek, because with
+the sidebar hidden that corner is where §3.2b puts the sidebar toggle — and a strip that ran the full
+height pulled the sidebar out from under the pointer on its way to that button. The button then moved a
+column's width to the right, the pointer followed it off the strip, the peek closed, and the button went
+back: it could not be hit at all.
 
 > **It was 4 pt, then 24, and both meant aiming.** A *screen* edge can be one point wide because the
 > pointer piles up against it; a window edge has nothing to stop the pointer. The gesture is "shove the
@@ -1223,24 +1401,26 @@ its contents stagger in at 20 ms intervals. Total 0.3 s. Traffic lights re-ancho
 
 ---
 
-## 5. Downloads popover — and the list behind it
+## 5. Downloads — the list, and how a file gets to it
 
-- **Renders outside the window bounds**, floating above the top edge, with a **visible pointer tail**
-  into the downloads button. It is an `NSPanel`, not an in-window view.
-- Size ~330 × 58, radius 14. Heavier glass than the bar, with its own shadow.
-- Row: `[file-type icon 34] [filename, middle-truncated, 14 pt] [confirm button 30, radius 9]`
+**One surface, in both chromes.** Everything downloaded — open, reveal, retry, clear — is §3.5's
+pop-out at `downloadsPanel`, standing on whichever Downloads button the layout shows: down from §4's
+capsule, up from §3.5's cylinder, and `⌘⌥L` opens the same thing. It also puts itself up when a
+download starts (§5.0) and when one lands, and counts itself down after **4 s** unless the pointer is
+on it.
+
+- Row: `[file-type icon 34] [filename, middle-truncated, 14 pt] [size or state]`, with §3.2c's line
+  under it while the bytes are moving — see §5.0, item 4.
 - Middle truncation is required — `97103328759-202…01-2026-08-31.pdf` keeps both the prefix and the
   extension, which head- or tail-truncation would each destroy.
-- Appears on download completion, auto-dismisses after 4 s, or on confirm. Hovering cancels the timer.
+- **Completion is announced on the button the file was thrown at**, in both layouts, by
+  `AppDelegate.announceCompletion` → `downloadsSite()`. A list already standing open is showing that
+  row finish and is left exactly as it is.
 
-**The list is a pop-out, not a panel.** §15.3's list — everything downloaded, with open, reveal, retry
-and clear — was an `NSPanel`: a standard titled utility window with a table and a row of push buttons.
-Pressing a button in Liquid Glass chrome and being handed that is a different application answering; it
-takes focus off the page, it has to be closed rather than glanced away from, and it was the only surface
-in Luna that looked like it was built in 2012. It is now §3.5's pop-out at `downloadsPanel`, standing on
-whichever Downloads button the layout shows — down from §4's capsule, up from §3.5's cylinder — with
-`⌘⌥L` opening the same thing. The completion popover above is untouched and is still an `NSPanel`,
-because that one genuinely has to draw past the window's edge.
+**The list is a pop-out, not a panel.** §15.3's list was an `NSPanel`: a standard titled utility window
+with a table and a row of push buttons. Pressing a button in Liquid Glass chrome and being handed that
+is a different application answering; it takes focus off the page, it has to be closed rather than
+glanced away from, and it was the only surface in Luna that looked like it was built in 2012.
 
 > `PopoutPanelView` is the shared surface: sheet, glass body, `Shadow.popover`, the two clamps and the
 > spring. The only thing that differs between History and Downloads is **which way it grows** out of its
@@ -1249,32 +1429,139 @@ because that one genuinely has to draw past the window's edge.
 > contains a `Glass` backing.** `Glass.backing` puts an `NSGlassEffectView` inside, which lays its own
 > `contentView` out with constraints — and Auto Layout cannot express a rotation, so the engine returns
 > **NaN** and AppKit traps in `_NSViewValidateGeometry` ("Invalid view geometry: y is NaN") on the next
-> layout pass, with no frames of ours in the stack. The tail's diamond is a `CAShapeLayer` mask on an
-> unrotated view of the same bounding box instead. It crashed on *every* completed download; the TCC
-> dialog only made the timing deterministic.
-- The full downloads panel is the secondary surface; **this popover is primary** (§30.15).
+> layout pass, with no frames of ours in the stack. It was a rotated square being used as a pointer
+> tail, and the answer was a `CAShapeLayer` mask on an unrotated view of the same bounding box.
 
-### 5.1 Completion animation — the particle sweep
-On completion the filename **dissolves into particles and reassembles**:
-1. Text renders to a bitmap, sampled into ~1200 particles on a grid.
-2. Particles displace upward and outward with per-particle jitter, fading to 0 over **0.22 s**, swept
-   left → right so the dissolve reads as directional.
-3. They settle back into place over **0.18 s** with a 0.04 s stagger, ease-out.
-4. Total **0.4 s**, and the stagger lives **inside** each phase: a given particle's dissolve spans 0.18 s
-   starting at `sweepIndex × 0.04`, so 0.22 + 0.18 = 0.40 overall.
-5. **One composited node**, not 1200 `CALayer`s — that is the rule. `CAEmitterLayer` turns out not to
-   satisfy step 3: it is a simulation with no handle on an individual particle, so "settle back into
-   place with a 0.04 s stagger" is unreachable, and its single `emitterPosition` cannot sample glyph
-   shape. A single layer-backed view drawing every particle itself is correct and costs ~0.3 ms of an
-   8.3 ms frame at 120 Hz.
-- **Reduce Motion: the animation does not run.** The filename simply appears.
+#### The completion popover — **removed 2026-09-21**
+
+A download landing used to put up a second surface: an `NSPanel` floating **outside** the window above
+the top edge, ~330 × 58 at radius 14, with a pointer tail down into §4's Downloads button, a
+middle-truncated filename, a confirm button and a 4 s timer. It was built as §30.15's primary surface,
+with the list behind it as secondary.
+
+It was aimed at one chrome and redundant in the other. A body that floats above the window's top edge
+with its tail pointing *down* is a shape that only exists for a button at the top: hung off §3.5's
+cylinder in the bottom-left it appeared in the opposite corner of the screen with its tail in the
+sidebar toggle, answering the right event at the wrong end of the window. And in the top bar, where it
+was at least aimed correctly, it was a card repeating what the list underneath it already said — two
+answers to one question with one floating over the other.
+
+So there is one answer now, and §5.0 is why it can be: a file that has just been *thrown* at a button
+should be found at that button. `DownloadManager` no longer knows what the announcement looks like; it
+fires `onFinish` and the host puts the list up on `downloadsSite()`'s anchor.
+
+### 5.0 Arrival — the file goes to the button
+
+A download **starting** was the event with nowhere to happen. Everything §5 had was about a download
+*finishing*; until then the only thing that had changed was a number inside a panel nobody had open.
+So:
+
+1. **The file's own icon leaves the page on an arc** and lands on the Downloads button — the real
+   file-type icon at `downloadsFileIcon`, carrying `Shadow.popover` because it crosses an arbitrary
+   page, shrinking to `glyphSize` on the way, solid until the last sixth and then gone.
+   `downloadFlight`: 0.30 s, **linear**, and the linearity is the point — see 2.
+2. **It is a thrown object, and the physics is in the path.** The quadratic's control point is the
+   **corner** of the box the two ends make, nudged away from the landing by one icon, so
+   `x(t) = origin.x(1−t)² + landing.x(1−(1−t)²)` and `y(t) = origin.y(1−t²) + landing.y·t²`:
+   horizontal speed decaying, vertical accelerating as the square. It covers the ground first and
+   turns into the button at the end, in both layouts, and it arrives with pace for the catch to
+   answer. A timing curve on top of this is a second acceleration fighting the first.
+   > **What this replaced, and why.** The first build lifted the *midpoint* straight up, on the
+   > reasoning that a lob goes up before it comes down. It does — but a lob to a button in the
+   > **bottom** corner leaves the page in the wrong direction and then comes back, and the eye
+   > follows that as a detour rather than as a throw. `easeInOut` made it worse at the other end:
+   > the icon *slowed down* into the button, which is the one moment it should be arriving with
+   > pace, so the catch was answering nothing.
+3. **The button's glass catches it**: `downloadCatchSwell` (18 %) springing back to rest on
+   `downloadCatch`. It is the **capsule** that bulges, never the glyph inside it — §6's hand-up rule,
+   for the same reason presses use it. The swell is bigger than a press's 5 % because a press is the
+   user doing something to the button and this happens in a corner they are not looking at.
+4. **Then §15.3's list opens underneath, with the bar running** — `[filename] [4.2 MB of 18 MB]` and
+   §3.2c's line, `loadLineHeight` of `Accent.tint` **over a `Surface.hover` track**. The track is the
+   one difference from the address bar's line: a pill is its own track and a row is not, so without
+   one the line says how far the bytes have come and nothing about how far they have to go.
+   It counts itself down after §5's 4 s, and hovering it stops the clock.
+
+**Both chromes, one animation.** §3.5 puts Downloads at the bottom-left of the window and §4 at the
+top-right; the arc is drawn between two points and knows nothing else, so the layout decides where the
+file goes and not what happens to it. `AppDelegate.downloadsSite()` is the single place that answers
+"which button", for the flight, for the list and for `⌘⌥L` alike.
+
+**It leaves from the pointer.** WebKit does not say which element started a download or where that
+element was drawn, and asking the page would be Luna running script on every site to decorate an
+animation. The pointer is where the link the user just clicked was, which is almost every download;
+the centre of the content is the fallback for the rest, and a file appearing to leave from the middle
+of the page is a thing that came from the page.
+
+**A download the user declined never flies.** The flight fires when the destination is settled, not
+when `WKDownload` arrives — §15.4's confirmation sits between the two, and a file thrown across the
+window behind a modal sheet is a flight nobody sees for a download that did not happen.
+
+- **Reduce Motion: nothing flies and nothing bulges.** The list still opens — that is information,
+  not motion.
+
+---
+
+### 5.1 Completion animation — the particle sweep — **removed 2026-09-21**
+
+The filename in the completion popover dissolved into ~1200 particles and reassembled: a directional
+left → right dissolve over **0.22 s**, a settle back into place over **0.18 s** with a 0.04 s
+per-particle stagger, **0.40 s** total, drawn as **one composited node** rather than 1200 `CALayer`s
+(`CAEmitterLayer` could not do it — a simulation gives no handle on an individual particle, so
+"settle back into place with a stagger" is unreachable, and one `emitterPosition` cannot sample glyph
+shape). It cost ~0.3 ms of an 8.3 ms frame at 120 Hz.
+
+It drew the popover's filename and nothing else, so it went when the popover did. The motion §5 has
+now is §5.0's, at the other end of the download: the arrival is the thing worth animating, because it
+is the thing the user has no other way to find out about.
+
+---
+
+### 5.2 Quit sheet — ⌘Q asks first
+
+A glass panel in the browser window, not an `NSAlert`: the app icon at `topBarHeight`, the question
+at `TypeScale.pageTitle`, one sentence of what is actually at stake, and three answers in a row.
+
+| | |
+|---|---|
+| Surface | `Glass.popover` + `Shadow.popover`, `contentCardRadius`, half a chrome bar above centre |
+| Width | the **answers'** width, floored at three quarters of `windowMinWidth` |
+| Answers | `Quit, and don't ask again` — gap — `Cancel` `esc` — `Quit` `↩` |
+| Backdrop | **none** — §9.1's finding, and it holds here |
+
+- **The caption is the point.** Luna restores the session, so the honest line is the tab and Space
+  count plus the promise. A download in flight replaces it: that is the one thing quitting destroys
+  rather than parks, and a warning that overstates what it guards is one you learn to click through.
+- **The two groups are held apart.** *Quit, and don't ask again* changes a setting; the other two
+  answer this press. Evenly spaced, the permanent one is picked by muscle memory aiming at the
+  temporary.
+- **The recommended answer is filled with the accent**, and it is the only control in Luna that is —
+  §2's "no system blue anywhere" survives everywhere else. Its two other states are AppKit's own
+  `withSystemEffect` variants, so the hover and press match every stock control in whichever accent
+  the user picked. `Tokens.Accent.onTint` carries the whole argument.
+- **The key hint is the button's end cap**, full height and flush with the trailing edge, with the
+  glyph dead centre of it. Inset from the edge, the capsule's own fill came back in the last four
+  points and read as a chip that had come loose.
+- **Escape and a click that missed both mean stay**, and an answer arrives exactly once.
+- `applicationShouldTerminate` answers `.terminateCancel` while the question is up and the answer
+  re-enters it — **not** `.terminateLater`, which parks the app in a nested modal loop.
+- **It only asks where it can be answered.** The `.terminateCancel` above is a quit the user has
+  already asked for, so every yes owes them a sheet they can see: with the browser window closed and
+  §23.1's Settings window keeping the app alive, ⌘Q put the sheet on a window nobody could see and
+  cancelled the quit waiting for it — an app that would not quit, with nothing on screen to say why.
+  A closed window is still the window controller's window, so the test is `isVisible` and not
+  existence. With no window to ask in the quit goes straight through: the tabs the question protects
+  were put away when the window closed. `QuitConfirmation.isNeeded` is the rule, apart from the app
+  it is about, because a wrong answer there is unquittable rather than merely quiet.
 
 ---
 
 ## 6. Motion
 
-Nothing exceeds **0.35 s** except the two cases marked, which are tied to real work rather than taste.
-Every entry degrades to instant under Reduce Motion.
+Nothing exceeds **0.35 s** except the two cases marked, which are not discrete transitions: §7's
+reload bloom is bound to real load progress, and §3.4's row shimmer repeats for as long as the tab is
+loading, so its duration is a rate and not a delay. Every entry degrades to instant under Reduce
+Motion.
 
 | Interaction | Animation |
 |---|---|
@@ -1282,17 +1569,62 @@ Every entry degrades to instant under Reduce Motion.
 | Sidebar collapse / expand | 0.20 s ease-out width + 0.12 s opacity |
 | Layout switch (sidebar ↔ top bar) | 0.30 s, contents stagger 20 ms |
 | Hover-peek reveal | 0.10 s intent delay → 0.15 s ease-out slide |
-| Command Bar in | 0.18 s spring, scale 0.96 → 1.0 + fade, anchored 20 % from window top |
+| Command Bar in / out | 0.18 s spring, scale 0.96 ↔ 1.0 + fade, anchored 20 % from window top |
+| Command Bar in / out, on a pill | the same 0.18 s spent on the glass's height, pill ↔ list (§9.1) |
+| Pop-out in / out (§6.4) | the same spring, 0.96 ↔ 1.0 + fade, pivoting on the button's corner both ways |
+| Panel fade in / out (§14.3, §14.4) | `popoverIn`, and the same fade backwards on the way out |
 | Tab insert / remove | 0.22 s spring height + fade, no list jump |
 | Row hover fill | 0.12 s ease-out |
 | Control button hover lift | 0.10 s ease-out |
+| Control button press | fill one step up, + 5 % swell on a 0.16 s spring, damping 0.62 |
 | Selected-row pill move | 0.20 s spring, response 0.28, damping 0.80 |
 | URL pill theme wash | **withdrawn** — see §2 |
 | Split divider snap | 0.12 s |
-| Downloads popover in | 0.20 s spring, scale 0.94 → 1.0, from the tail anchor |
-| Downloads particle sweep | **0.40 s** (see §5.1) |
+| Download flight (§5.0) | 0.30 s **linear** along the arc — the acceleration is the path's (§5.0) |
+| Download catch (§5.0) | spring, response 0.24, damping 0.55; the capsule bulges 18 % and springs back |
+| Row loading shimmer (§3.4) | **1.10 s** linear, repeating for as long as the load runs |
 | Page reload bloom | **tied to load duration** (see §7) |
 | Content card → fullscreen | 0.30 s ease-in-out |
+
+> **The selected-row pill moves for ↓ and ↑, and for nothing else.** A list that has just been rebuilt
+> has no continuity for a slide to describe, and one that has not changed has nowhere to slide — so the
+> highlight is always *placed* from `layout()`, and animated only when the selection moved inside a list
+> that stood still. Moving it from the method that replaces the list instead measured rows that had not
+> been laid out at their new size yet: while somebody typed fast in the Command Bar, the pill slid to
+> somewhere slightly wrong on every re-rank and the next layout pass pulled it back.
+>
+> **The Command Bar's own opening is 0.18 s of that same thread**, so nothing replaces its list while it
+> is opening: asynchronous results that land inside that window are held, and applied *append-only* the
+> moment it closes — a row the bar opened with never moves. The bar also waits, standing at the pill's
+> own size, until the store has answered the query it is opening with (100 ms at the outside), so what
+> the morph grows around is the list it is going to keep. See TODO.md §9.7.
+
+> **Hover and press are a fill and a shape, on every button Luna draws.** Hover is `Surface.hover`
+> over whatever the control is made of; a press is `Surface.selected` — the same wash at twice the lift
+> — plus a 5 % swell that springs back when the button is let go. `GlassButton` washes above its
+> material, `RowGlyphView` paints the chip on its own layer under the glyph, `TopBarButton` lifts the
+> fill it already had. A button with no material of its own (`GlassMode.none`, the two chevrons inside
+> §3.1's history capsule, an item inside §4's action capsule) hands the press to the surface that
+> *has* one, because half a capsule swelling inside the other half is not a press.
+>
+> **"Every button" is a register now, not a sentence.** This rule was written when the sidebar got it
+> and was then read as describing the app: the top bar, both action capsules, Settings' chevrons, its
+> push button, the two appearance chips and the palette button all shipped with a hover and nothing
+> under the finger. `Tests/Design/ButtonFeedbackTests.swift` is the list, and a new button that does
+> not answer fails it.
+>
+> **Where a wash is the wrong answer, the control answers some other way — it does not skip it.** A
+> colour swatch cannot take a 6 % white without showing a different colour, so `SpaceSwatchChip`
+> answers the pointer with its ring; a control drawn as a well is black ink, so lifting it with white
+> would flip a recess into a plate, and `SettingsShortcutRecorder` brightens its ink instead. Both
+> still swell, because the swell is the one part of the answer that costs a control nothing.
+>
+> **A list row is not a button.** Its highlight is one pill that slides between rows (§3.4), and a
+> full-width plate growing 5 % is the list jumping rather than a control being pressed.
+>
+> Measured against the macOS 26 controls Martin captured for the reference: theirs lift about 10.7 %
+> on hover and 12.8 % under a press; Luna's are §3.4's own 6 % and 12 %, because those are the two
+> steps the rest of the app is built from.
 
 ---
 

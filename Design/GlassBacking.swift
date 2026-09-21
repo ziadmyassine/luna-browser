@@ -2,15 +2,13 @@
 //  GlassBacking.swift
 //  Luna
 //
-//  The view behind every `Glass.apply` / `Glass.backing` call. Split out of
-//  `Design/Glass.swift` to keep that file the *API* — the four styles and the
-//  five entry points — and this one the machinery: the live Reduce Transparency
-//  swap, the fullscreen and peek backdrops, and the frame discipline a glass
-//  view needs to stop it sweeping across the surface every time AppKit re-lays
-//  the window out.
+//  The view behind every `Glass.apply` / `Glass.backing` call. Glass.swift is
+//  the API — the four styles and the five entry points — and this is the
+//  machinery: the live Reduce Transparency swap, the fullscreen and peek
+//  backdrops, and the frame discipline that stops a glass view sweeping across
+//  the surface every time AppKit re-lays the window out.
 //
-//  §2's material table — what each style is actually made of — moved next door
-//  to `GlassMaterials.swift` when this file crossed SwiftLint's 400-line limit.
+//  §2's material table is next door in GlassMaterials.swift.
 //
 //  Contract rule 4 covers all three: `NSGlassEffectView` is named here, in
 //  `Glass.swift` and in `GlassMaterials.swift`, and nowhere else in Luna.
@@ -20,9 +18,9 @@ import AppKit
 
 // MARK: - Backing
 
-/// Hosts either real glass or, under Reduce Transparency, a solid fill — and
-/// swaps between them **live**, because the user can change either
-/// accessibility setting while Luna is running (§21.2).
+/// Hosts either real glass or, under Reduce Transparency, a solid fill, and
+/// swaps between them live — the user can change either accessibility setting
+/// while Luna is running (§21.2).
 @MainActor
 final class GlassBackingView: NSView {
 
@@ -51,7 +49,7 @@ final class GlassBackingView: NSView {
     private var glass: NSGlassEffectView?
     /// Non-nil pins this backing to one side of §7's table whatever display it
     /// lands on. Exactly one caller sets it: `Glass.previewTile`, which has to
-    /// show the 1× rendering *and* the 2× one side by side on one screen.
+    /// show the 1× rendering and the 2× one side by side on one screen.
     private let pinned: Bool?
     /// Which half of §7's table is on screen now, so a display change that
     /// resolves to the same answer costs nothing.
@@ -72,21 +70,19 @@ final class GlassBackingView: NSView {
         self.rimmed = rimmed
         self.pinned = pinned
         // No window yet, so `isOptimised(for: nil)` is the honest answer and it
-        // is the *unoptimised* one — a Retina user must see today's chrome, and
+        // is the unoptimised one — a Retina user must see today's chrome, and
         // `viewDidMoveToWindow` re-resolves against the real screen first.
         self.optimised = pinned ?? Glass.isOptimised(for: nil)
         super.init(frame: .zero)
         Glass.beginObservingDisplayChanges()
         wantsLayer = true
         layer?.cornerCurve = cornerCurve
-        // **The mask is how a circle stays a circle.** `NSGlassEffectView` has
-        // no `cornerCurve` of its own, so a radius of half the side gives the
-        // same superellipse `CALayer` would — the flat-flanked shape that read
-        // as "longer than wide". Clipping the backing to a real arc is the only
-        // lever there is, and it costs nothing on a 34 pt button.
         // The mask is how a circle stays a circle, and the only way to round
-        // some corners and not others: `NSGlassEffectView` has one radius and
-        // no corner set of its own, so the backing does the clipping.
+        // some corners and not others. `NSGlassEffectView` has one radius and no
+        // `cornerCurve`, so a radius of half the side gives the same
+        // flat-flanked superellipse `CALayer` would — the shape that read as
+        // "longer than wide". Clipping the backing to a real arc is the only
+        // lever, and it costs nothing on a 34 pt button.
         layer?.masksToBounds = cornerCurve == .circular || maskedCorners != Glass.allCorners
         rebuild()
         // NotificationCenter holds observers weakly and zeroes them on dealloc,
@@ -107,46 +103,38 @@ final class GlassBackingView: NSView {
 
     override var wantsUpdateLayer: Bool { true }
 
-    /// **Framed by hand, never by `autoresizingMask`.**
+    /// Framed by hand, never by `autoresizingMask`.
     ///
     /// A backing is built before its host has a size, so the glass inside it
-    /// starts at `.zero` — and autoresizing cannot scale a zero frame, so it
-    /// stayed zero for the life of the window. Two consequences, both of which
-    /// shipped: the sidebar had no glass over most of its height (the effect
-    /// covered a strip at the bottom and nothing else), and the required
+    /// starts at `.zero`, and autoresizing cannot scale a zero frame — it stayed
+    /// zero for the life of the window. Both consequences shipped: the sidebar
+    /// had glass over a strip at the bottom and nothing else, and the
     /// `NSAutoresizingMaskLayoutConstraint`s AppKit derives from that stale
-    /// frame — `V:|-(6790)-[glass]` — became part of the window's fitting
-    /// size, ratcheting the window taller on every layout pass until it was
-    /// 6800 pt tall with its bottom bar far below the screen.
-    ///
-    /// Setting the frame here is the fix: the derived constraints collapse to
-    /// "fill the backing", which is what they were always meant to say.
+    /// frame — `V:|-(6790)-[glass]` — joined the window's fitting size and
+    /// ratcheted it to 6800 pt tall, bottom bar far below the screen.
     override func layout() {
         super.layout()
-        // **Actions off.** A layout pass can run inside somebody else's
-        // animation transaction — AppKit restoring a window from Stage Manager
-        // is one — and an implicitly animated `frame` on a glass view sweeps
-        // the effect across the surface over the next few frames. That sweep is
-        // the flash: the sidebar is briefly glass over nothing. The frame is a
-        // consequence of the layout, never something to animate.
+        // Actions off. A layout pass can run inside somebody else's animation
+        // transaction — AppKit restoring a window from Stage Manager is one —
+        // and an implicitly animated `frame` on a glass view sweeps the effect
+        // across the surface over the next few frames. That sweep is the flash:
+        // the sidebar is briefly glass over nothing.
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         glass?.frame = bounds
         CATransaction.commit()
     }
 
-    /// §21 / item 8: **glass has nothing to sample in fullscreen.**
+    /// §21 / item 8: glass has nothing to sample in fullscreen.
     ///
     /// `NSGlassEffectView` composites what is behind the window, and in
-    /// fullscreen there is no desktop behind it — so the sidebar renders as
-    /// very nearly black in dark mode and very nearly white in light. The
-    /// backdrop is a plate of its own — `Tokens.Surface.fullScreenChrome`,
-    /// painted *instead of* the material rather than under it. See
-    /// `wantsFlatPlane` for why the material steps aside.
+    /// fullscreen there is no desktop behind it — the sidebar renders very
+    /// nearly black in dark mode and very nearly white in light. The backdrop is
+    /// a plate of its own, `Tokens.Surface.fullScreenChrome`, painted instead of
+    /// the material rather than under it (`wantsFlatPlane`).
     ///
-    /// It is only painted in fullscreen. Painting it always would be sampled by
-    /// the glass in every window state and the wallpaper would stop coming
-    /// through, which is the whole look.
+    /// Only in fullscreen: painted always, the glass would sample it in every
+    /// window state and the wallpaper would stop coming through.
     private var isWindowFullScreen = false {
         didSet {
             guard isWindowFullScreen != oldValue else { return }
@@ -162,53 +150,43 @@ final class GlassBackingView: NSView {
         Tokens.A11y.reduceTransparency || wantsFlatPlane
     }
 
-    /// **In fullscreen the chrome is a plate, and the material stands down.**
+    /// In fullscreen the chrome is a plate and the material stands down.
     ///
-    /// The plane below was already doing all the work — there is nothing behind
-    /// the window to refract, so the glass on top was not a refraction of
-    /// anything, only a film that lifted the plane a few steps and made its
-    /// colour un-nameable. Martin asked for #202020 and got something lighter,
-    /// and no value for the plane fixes that while something else is painted
-    /// over it. So the glass is hidden for the length of fullscreen and
-    /// `Tokens.Surface.fullScreenChrome` is the colour, exactly.
+    /// There is nothing behind the window to refract, so the glass on top was
+    /// not a refraction of anything — only a film that lifted the plane a few
+    /// steps and made its colour un-nameable. No value for the plane fixes that
+    /// while something else is painted over it, so the glass is hidden for the
+    /// length of fullscreen and `Tokens.Surface.fullScreenChrome` is the colour
+    /// exactly.
     ///
     /// Only the surfaces with a backdrop: a control's glass in fullscreen is
-    /// still reading as raised above the plate, which is its whole job.
+    /// still reading as raised above the plate, which is its job.
     ///
-    /// **And not the plane a peeked sidebar floats on.** `rimmed` is set by
-    /// exactly one caller — `Glass.peekPlane` — and it means "this surface is
-    /// over the page rather than part of the window's own chrome". A sidebar
-    /// the user is *always* looking at in fullscreen should be the flat plate
-    /// Martin asked for; a sidebar that slid out over the page for a glance is
-    /// a different surface with a different job, and flattening it to #202020
-    /// made a panel that is meant to read as floating look like a hole cut in
-    /// the page. It keeps its material in every window state.
+    /// And not the plane a peeked sidebar floats on. `rimmed` means "this
+    /// surface is over the page rather than part of the window's own chrome".
+    /// Flattening it made a panel meant to read as floating look like a hole cut
+    /// in the page, so it keeps its material in every window state.
     private var wantsFlatPlane: Bool { isWindowFullScreen && style.hasBackdrop && !rimmed }
 
-    /// **No tint over the fullscreen backdrop.** §2's chrome tint is what makes
-    /// the sidebar read as dense over a desktop — it is *black* in dark mode,
-    /// deliberately, because the glass is sampling a bright wallpaper. In
-    /// fullscreen there is no wallpaper: the glass is sampling the opaque plane
-    /// below, and darkening that by half took the sidebar under the content
-    /// pane's own colour. The plane is already doing the tint's job there.
+    /// No tint over the fullscreen backdrop. §2's chrome tint is black in dark
+    /// mode because the glass is sampling a bright wallpaper; in fullscreen it
+    /// is sampling the opaque plane below, and darkening that by half took the
+    /// sidebar under the content pane's own colour.
     private func applyTint() {
         glass?.tintColor = wantsOpaquePlane ? nil : style.tint(optimised: optimised)
     }
 
-    /// **The plane goes up on `will`, and comes down on `did`.**
+    /// The plane goes up on `will` and comes down on `did`.
     ///
     /// `styleMask` does not carry `.fullScreen` until the transition finishes,
-    /// so reading it on `didEnterFullScreen` meant the sidebar spent the whole
-    /// half-second zoom as glass with nothing behind it — black — and only
-    /// turned grey once the window had landed. Entering is therefore driven by
-    /// `willEnterFullScreen`, which fires before the first frame of the zoom,
-    /// and leaving by `didExitFullScreen`, so the plane is still there for the
-    /// zoom back out. Both edges then happen while there is no desktop to
-    /// sample, which is the only time the plane is wanted.
+    /// so reading it on `didEnterFullScreen` left the sidebar black for the
+    /// whole half-second zoom. Entering is driven by `willEnterFullScreen`,
+    /// which fires before the first frame, and leaving by `didExitFullScreen`,
+    /// so the plane is still there for the zoom back out.
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        // §7: the scale factor belongs to the window's **current** screen, so a
-        // backing re-asks every time it changes window — and `.auto` can flip in
+        // §7: the scale factor belongs to the window's current screen, so a
+        // backing re-asks every time it changes window, and `.auto` can flip in
         // either direction on the way.
         refreshForDisplay()
         isWindowFullScreen = window?.styleMask.contains(.fullScreen) ?? false
@@ -240,15 +218,14 @@ final class GlassBackingView: NSView {
         )
     }
 
-    /// **Settles the material the instant the app comes back.**
+    /// Settles the material the instant the app comes back.
     ///
     /// Returning from the Dock, from Stage Manager or from another app runs a
     /// layout pass inside AppKit's own animation transaction, and an implicitly
-    /// animated frame on a glass view sweeps the effect across the surface over
-    /// the next few frames — which is what the sidebar's flash looked like.
-    /// `layout()` already disables actions; this puts the frame back *before*
-    /// the first frame is composited rather than waiting for the pass that
-    /// transaction schedules.
+    /// animated frame sweeps the effect across the surface — the sidebar's
+    /// flash. `layout()` already disables actions; this puts the frame back
+    /// before the first frame is composited rather than waiting for the pass
+    /// that transaction schedules.
     @objc private func applicationDidBecomeActive() {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -268,13 +245,12 @@ final class GlassBackingView: NSView {
     /// Solid under Reduce Transparency, so AppKit can skip what is behind it.
     override var isOpaque: Bool { Tokens.A11y.reduceTransparency }
 
-    /// **Decoration, and decoration takes no events.** A backing sits under its
-    /// host's content and fills it edge to edge, so wherever the host has no
-    /// glyph the deepest view under the pointer is this one — and a view that
-    /// draws no background answers `mouseDownCanMoveWindow` with `true`, which
-    /// on a window that moves by its background means the press was spent
-    /// dragging the window instead of pressing the control. Handing the hit
-    /// test back puts the question to the host, which knows the answer.
+    /// Decoration takes no events. A backing fills its host edge to edge, so
+    /// wherever the host has no glyph the deepest view under the pointer is this
+    /// one — and a view that draws no background answers
+    /// `mouseDownCanMoveWindow` with `true`, which on a window that moves by its
+    /// background spends the press dragging the window instead of pressing the
+    /// control. Handing the hit test back puts the question to the host.
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
     /// And the same answer for the host that does hit-test to here anyway.
@@ -344,18 +320,17 @@ final class GlassBackingView: NSView {
         layer.maskedCorners = corners
 
         // §2 / §21.2: Reduce Transparency ⇒ solid. Fullscreen, or floating over
-        // the page ⇒ the same plane *behind* the glass, because there is
-        // nothing left for the material to sample.
+        // the page ⇒ the same plane behind the glass, because there is nothing
+        // left for the material to sample.
         //
-        // **Otherwise: frost.** The chrome planes carry `Surface.frost` behind
-        // their glass at all times — the same grey at half strength. That is
-        // what "less glass, more frosted" is: the desktop still refracts
-        // through, but through a surface rather than through a hole, and the
-        // density costs no darkening the way a heavier tint did.
+        // Otherwise frost: the chrome planes carry `Surface.frost` behind their
+        // glass at all times, the same grey at half strength. The desktop still
+        // refracts through, but through a surface rather than a hole, and it
+        // costs no darkening the way a heavier tint did.
         //
-        // How much of it there is, and whether a popover gets one at all, is
-        // §2a's setting — see `Glass.density`. It is read here rather than
-        // cached, so the reapply pass is a redraw.
+        // How much of it, and whether a popover gets one at all, is §2a's
+        // setting (`Glass.density`). Read here rather than cached, so the
+        // reapply pass is a redraw.
         layer.backgroundColor = if wantsFlatPlane {
             Tokens.Surface.fullScreenChrome.cgColor
         } else if wantsOpaquePlane {
@@ -365,13 +340,11 @@ final class GlassBackingView: NSView {
         }
 
         // §2 / §21.2: Increase Contrast ⇒ a visible border on every control.
-        // A rimmed plane draws the same hairline unconditionally: it is the
-        // edge `ContentCardView` already draws where the page meets the
-        // sidebar, read the other way round. A plane floating *over* the page
-        // has nothing but its own material to end it, and a material without an
-        // edge reads as a smudge rather than as a surface — which is what a
-        // peeked sidebar's trailing side looked like. The hairline follows
-        // `maskedCorners`, so it runs round the rounded edge and nowhere else.
+        // A rimmed plane draws the same hairline unconditionally — it is the
+        // edge `ContentCardView` draws where the page meets the sidebar, read
+        // the other way round. A plane floating over the page has nothing but
+        // its own material to end it, and a material without an edge reads as a
+        // smudge. The hairline follows `maskedCorners`.
         let bordered = rimmed || Tokens.A11y.increaseContrast
         layer.borderWidth = bordered ? Tokens.Metric.hairline : 0
         layer.borderColor = bordered ? Tokens.Line.border.cgColor : nil

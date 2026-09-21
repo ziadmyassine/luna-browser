@@ -1,11 +1,11 @@
 import Foundation
 import Security
 
-/// Luna's bridge into **Apple's** password store (§14.2). Luna has no vault of
+/// Luna's bridge into Apple's password store (§14.2). Luna has no vault of
 /// its own, no master password and nothing to breach: every credential here is
 /// a `kSecClassInternetPassword` item in the user's Keychain, and the ones that
 /// can be are `kSecAttrSynchronizable` so they land in iCloud Keychain, appear
-/// in the **Passwords app** and reach the user's iPhone through Apple rather
+/// in the Passwords app and reach the user's iPhone through Apple rather
 /// than through anything we built.
 ///
 /// # What §14.1's spike actually found
@@ -16,33 +16,32 @@ import Security
 ///
 /// | Operation | Result |
 /// |---|---|
-/// | `SecItemAdd` with `kSecAttrSynchronizable: true` | **`-34018` errSecMissingEntitlement** |
-/// | `SecItemAdd` with `kSecUseDataProtectionKeychain: true` | **`-34018`** |
-/// | `SecItemAdd` / `CopyMatching` / `Update` / `Delete`, local item | **`errSecSuccess`** |
+/// | `SecItemAdd` with `kSecAttrSynchronizable: true` | `-34018` errSecMissingEntitlement |
+/// | `SecItemAdd` with `kSecUseDataProtectionKeychain: true` | `-34018` |
+/// | `SecItemAdd` / `CopyMatching` / `Update` / `Delete`, local item | `errSecSuccess` |
 ///
-/// So the iCloud half of §14.2 is **gated on a real signing identity**, not on
-/// code: synchronizable items require the `com.apple.application-identifier`
-/// entitlement, which comes from a provisioning profile, which requires the
-/// Developer ID work that is M4 (§24.4). The local half works today.
+/// So the iCloud half of §14.2 is gated on a signing identity rather than on
+/// code: synchronizable items need the `com.apple.application-identifier`
+/// entitlement, which comes from a provisioning profile, which needs the
+/// Developer ID work in M4 (§24.4). The local half works today.
 ///
-/// **This class is written so that nothing changes when the signature does.**
-/// Every write tries synchronizable first and falls back to local on `-34018`,
-/// latching the answer in ``capability``. The day Luna is signed for real, the
-/// first write succeeds as synchronizable and the same code starts populating
-/// the Passwords app — no migration, no rewrite, no second code path to test.
-/// ``migrateLocalItemsToSynced()`` is what carries the items already written.
+/// Nothing here changes when the signature does. Every write tries
+/// synchronizable first and falls back to local on `-34018`, latching the
+/// answer in ``capability``, so the day Luna is signed the first write succeeds
+/// and the same code starts populating the Passwords app.
+/// ``migrateLocalItemsToSynced()`` carries the items already written.
 ///
-/// # What is *not* reachable, at any signature
+/// # What is not reachable, at any signature
 ///
-/// Items created by **Safari and the Passwords app** live in Apple's own
-/// keychain access groups. Luna is not in those groups and cannot join them:
-/// `keychain-access-groups` only grants groups prefixed by your own team ID.
-/// So Luna can put passwords *into* the Passwords app but can never read the
-/// ones already there. §14.1 asked whether the user sees an ACL prompt or a
-/// hard denial — the answer is neither: the items are simply not in Luna's
-/// search domain, so the query returns `errSecItemNotFound` and there is
-/// nothing to prompt about. The honest UI consequence is in `PasswordsSection`,
-/// and it is the reason Luna does not claim to "use your existing passwords".
+/// Items created by Safari and the Passwords app live in Apple's own keychain
+/// access groups. Luna is not in those groups and cannot join them:
+/// `keychain-access-groups` only grants groups prefixed by your own team ID. So
+/// Luna can put passwords into the Passwords app but can never read the ones
+/// already there. §14.1 asked whether the user sees an ACL prompt or a hard
+/// denial; the answer is neither — the items are not in Luna's search domain,
+/// the query returns `errSecItemNotFound`, and there is nothing to prompt
+/// about. That is why `PasswordsSection` does not claim to "use your existing
+/// passwords".
 public actor CredentialStore {
 
     public static let shared = CredentialStore()
@@ -50,7 +49,7 @@ public actor CredentialStore {
     /// Which half of §14.2 is actually available, latched from the first write.
     public enum Capability: Sendable, Equatable {
         /// Not probed yet. Nothing has been written, so nothing is known —
-        /// distinct from `.local`, which is a *measured* refusal.
+        /// distinct from `.local`, which is a measured refusal.
         case unknown
         /// Synchronizable writes succeed: items reach iCloud Keychain and the
         /// Passwords app. This is §14.2 as written.
@@ -59,10 +58,10 @@ public actor CredentialStore {
         /// except sync, and the UI has to say so rather than implying an
         /// iPhone will see them.
         case local
-        /// The Keychain refused for a reason that is not the entitlement —
-        /// a locked keychain, a damaged one. Carries the raw `OSStatus`
-        /// because the settings pane shows it: a number the user can search
-        /// beats "something went wrong".
+        /// The Keychain refused for a reason that is not the entitlement — a
+        /// locked keychain, a damaged one. Carries the raw `OSStatus` because
+        /// the settings pane shows it: a number the user can search beats
+        /// "something went wrong".
         case unavailable(OSStatus)
     }
 
@@ -72,54 +71,49 @@ public actor CredentialStore {
     /// the site rather than a bundle identifier.
     private static let label = "Luna"
 
-    /// **What marks an item as Luna's own.**
+    /// What marks an item as Luna's own.
     ///
-    /// `kSecAttrCreator` and not `kSecAttrService`, which is what this used
-    /// first and is a real bug rather than a style choice: `kSecAttrService`
-    /// is an attribute of `kSecClassGenericPassword`, and on an *internet*
-    /// password the Keychain **silently ignores it** — in a query and in an
-    /// add. Measured: the same query with `service: "Luna"` and with a random
-    /// impossible service name returned the identical row, and items Luna
-    /// wrote came back with no service attribute at all.
+    /// `kSecAttrCreator`, not `kSecAttrService`, which is what this used first
+    /// and was a real bug: `kSecAttrService` belongs to
+    /// `kSecClassGenericPassword`, and on an internet password the Keychain
+    /// silently ignores it in both a query and an add. Measured — the same query
+    /// with `service: "Luna"` and with an impossible service name returned the
+    /// identical row, and items Luna wrote came back with no service attribute.
     ///
-    /// So the filter was inert, and `baseQuery` matched on `kSecAttrServer`
-    /// alone — every internet password for that host in the user's keychain,
-    /// whoever wrote it. On this Mac that meant Luna's picker offering a
-    /// `github.com` item created in 2025, a year before this feature existed;
-    /// by the account name, `git-credential-osxkeychain`'s, whose "password"
-    /// is a personal access token. Filling it would have typed a token into a
-    /// login form, and `save`/`delete` share the same query, so an update or a
-    /// "never for this site" could have rewritten or destroyed another app's
-    /// credential.
+    /// So the filter was inert and `baseQuery` matched on `kSecAttrServer`
+    /// alone: every internet password for that host, whoever wrote it. On this
+    /// Mac that meant Luna's picker offering a `github.com` item written by
+    /// `git-credential-osxkeychain`, whose "password" is a personal access
+    /// token. Filling it would have typed a token into a login form, and
+    /// `save`/`delete` share the query, so an update or a "never for this site"
+    /// could have rewritten or destroyed another app's credential.
     ///
     /// `kSecAttrCreator` is a four-character code valid on both classes and is
     /// honoured: verified by adding one item and querying with a different
-    /// creator, which returns nothing. `'Luna'`.
+    /// creator, which returns nothing.
     private static let creator = FourCharCode(0x4C75_6E61)
 
     /// The other half of the same fix, and the half that makes saving work.
     ///
-    /// `kSecAttrCreator` scopes a *query* but is **not part of the Keychain's
-    /// uniqueness constraint**, which for an internet password is (server,
-    /// account, protocol, port, path, securityDomain, authenticationType).
-    /// So with the creator alone, Luna could read its own items but could not
-    /// add one for a (host, account) another application already held —
-    /// `SecItemAdd` returned `errSecDuplicateItem` and the save silently
-    /// failed. Exactly the case that matters: the user's own GitHub account,
-    /// already in the keychain from `git`.
+    /// `kSecAttrCreator` scopes a query but is not part of the Keychain's
+    /// uniqueness constraint, which for an internet password is (server,
+    /// account, protocol, port, path, securityDomain, authenticationType). With
+    /// the creator alone Luna could read its own items but could not add one for
+    /// a (host, account) another application already held: `SecItemAdd` returned
+    /// `errSecDuplicateItem` and the save silently failed — the user's own
+    /// GitHub account, already in the keychain from `git`.
     ///
-    /// `kSecAttrSecurityDomain` *is* part of that key and is honoured in
-    /// queries, so it does both jobs at once. Measured: two items with the
-    /// same server and account coexist when their security domains differ, a
-    /// scoped query returns only Luna's, and a scoped delete leaves the other
-    /// one untouched.
+    /// `kSecAttrSecurityDomain` is part of that key and is honoured in queries,
+    /// so it does both jobs. Measured: two items with the same server and
+    /// account coexist when their security domains differ, a scoped query
+    /// returns only Luna's, and a scoped delete leaves the other untouched.
     private static let securityDomain = "luna"
 
     private init() {}
 
     // MARK: - Reading
 
-    /// Every credential saved for `site`, newest first. Passwords are **not**
+    /// Every credential saved for `site`, newest first. Passwords are not
     /// fetched — see ``password(for:)``.
     ///
     /// Queries both synchronizable and local items in one pass
@@ -150,8 +144,8 @@ public actor CredentialStore {
     /// The secret, fetched at the moment of use and never cached.
     ///
     /// Returns nil rather than throwing on every failure path: a caller that
-    /// could distinguish "no such item" from "keychain locked" would have
-    /// nothing different to do, and an error type here invites logging it.
+    /// could tell "no such item" from "keychain locked" would have nothing
+    /// different to do, and an error type here invites logging it.
     public func password(for credential: Credential) -> String? {
         var query = baseQuery(site: credential.site)
         query[kSecAttrAccount as String] = credential.username
@@ -249,7 +243,7 @@ public actor CredentialStore {
     /// does. Safe to call on every launch: it no-ops unless the capability has
     /// actually changed.
     ///
-    /// Each item is re-added *before* its local copy is deleted, so a failure
+    /// Each item is re-added before its local copy is deleted, so a failure
     /// half way through loses nothing — the worst case is a duplicate, which
     /// the next `save` collapses back into one.
     @discardableResult
@@ -258,7 +252,7 @@ public actor CredentialStore {
 
         let query: [String: Any] = [
             kSecClass as String: kSecClassInternetPassword,
-            // Explicitly the *local* half — not `SynchronizableAny`, which
+            // Explicitly the local half — not `SynchronizableAny`, which
             // would hand back the already-migrated items and rewrite them on
             // every launch.
             kSecAttrSynchronizable as String: kCFBooleanFalse as Any,
@@ -325,7 +319,7 @@ public actor CredentialStore {
         case let status:
             capability = .unavailable(status)
         }
-        // **The probe is also the trigger for the migration**, and without this
+        // The probe is also the trigger for the migration, and without this
         // line `migrateLocalItemsToSynced` would be dead code: nothing else
         // notices the moment the capability changes. The day Luna is signed,
         // the first probe after launch is what carries the already-saved
@@ -348,7 +342,7 @@ public actor CredentialStore {
     /// read path and the write path cannot disagree about what "the same item"
     /// means.
     ///
-    /// `kSecAttrSynchronizableAny` is on every *query*: a store that has been
+    /// `kSecAttrSynchronizableAny` is on every query: a store that has been
     /// through the M4 signing change holds both kinds, and a query that named
     /// one kind would quietly stop finding the other half.
     private func baseQuery(site: String) -> [String: Any] {

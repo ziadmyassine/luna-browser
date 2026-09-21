@@ -6,20 +6,19 @@
 //  `Tools/perf` cannot reach.
 //
 //  The harness times `posix_spawn` → first on-screen window, which
-//  `docs/PERF.md` is careful to call a **lower bound**: `AppDelegate` shows the
+//  `docs/PERF.md` is careful to call a lower bound: `AppDelegate` shows the
 //  window before it touches SQLite on purpose, so the session restore, the
 //  sidebar and the first page all land after the number stops. "To interactive"
 //  is the budget §19.1 actually states, and nothing was measuring it.
 //
-//  This is the missing end of the tape. `LUNA_PERF_READY` names a file; the
-//  milestones are written to it at the moment the window has content in it, and
-//  the harness polls for the file exactly as it polls for the window. Two
-//  processes, one clock each, no clock shared between them — the elapsed time
-//  is computed here from the kernel's own record of when this process was
-//  `exec`ed, so it counts dyld and the Swift runtime as well, which a stopwatch
-//  started in `main()` would miss.
+//  This is the missing end of the tape. `LUNA_PERF_READY` names a file, the
+//  milestones are written to it once the window has content, and the harness
+//  polls for the file as it polls for the window. Two processes, one clock
+//  each: the elapsed time is computed from the kernel's own record of when this
+//  process was `exec`ed, so it counts dyld and the Swift runtime, which a
+//  stopwatch started in `main()` would miss.
 //
-//  **Off costs one environment lookup, once.** With `LUNA_PERF_READY` unset
+//  Off costs one environment lookup, once. With `LUNA_PERF_READY` unset
 //  every `mark` is a load and a branch, and nothing is stored.
 //
 
@@ -42,7 +41,7 @@ enum LaunchTrace {
     /// Milliseconds since this process was `exec`ed, from `kinfo_proc` rather
     /// than from a stopwatch we start ourselves.
     ///
-    /// **Everything before `main()` is on the budget too.** dyld resolving
+    /// Everything before `main()` is on the budget too. dyld resolving
     /// WebKit and AppKit, the Swift runtime standing up, the ObjC class
     /// registry — a clock started in `applicationWillFinishLaunching` cannot
     /// see any of it, and on a cold cache that half is not small.

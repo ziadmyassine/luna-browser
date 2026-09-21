@@ -2,7 +2,7 @@ import Foundation
 
 /// One saved login, as the rest of Luna sees it (§14.2).
 ///
-/// **The password is not in here.** A `Credential` is the row you can list,
+/// The password is not in here. A `Credential` is the row you can list,
 /// sort, show in a popover and hand around the app; the secret is fetched from
 /// the Keychain by `CredentialStore.password(for:)` at the moment of a fill and
 /// is never held anywhere a screenshot, a log line or a crash report could
@@ -53,7 +53,7 @@ public struct Credential: Hashable, Sendable, Identifiable {
 /// A password on its way into the Keychain — and the only type in Luna that
 /// carries one.
 ///
-/// Deliberately **not** `Codable`, not `CustomStringConvertible` and not
+/// Deliberately not `Codable`, not `CustomStringConvertible` and not
 /// `Hashable`: every one of those is a way a secret ends up in a log, a
 /// `UserDefaults` value or a diffable snapshot by accident. The only thing you
 /// can do with it is hand it to `CredentialStore`.

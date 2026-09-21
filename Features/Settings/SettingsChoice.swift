@@ -4,7 +4,7 @@
 //
 //  The pick-one control Settings uses everywhere.
 //
-//  **`NSSegmentedControl` paints its selection as a solid accent-blue block**,
+//  `NSSegmentedControl` paints its selection as a solid accent-blue block,
 //  which is the one thing this app's chrome never does: selection here is a
 //  wash, exactly as it is on a sidebar row. So a segment is a plate with
 //  `Surface.selected` on the one that is chosen, nothing on the others, and no
@@ -53,7 +53,7 @@ final class SettingsChoice: NSView {
         setLabels(labels, selected: 0)
     }
 
-    /// **The answers themselves can change.** Almost every choice in Settings
+    /// The answers themselves can change. Almost every choice in Settings
     /// has a fixed set of segments; one does not — §3.2's tab position offers a
     /// middle segment in the top-bar layout and only two in the sidebar's, and
     /// the row that decides which is directly above it. Rebuilding the segments
@@ -101,6 +101,15 @@ final class SettingsChoiceButton: NSView {
 
     private let label = NSTextField(labelWithString: "")
     private var isHovering = false
+    /// A segment is its own plate — the segments sit a gap apart with no track
+    /// behind them — so the swell is this view's rather than a container's.
+    private var isPressed = false {
+        didSet {
+            guard isPressed != oldValue else { return }
+            refresh(animated: true)
+            Tokens.Motion.swell(self, to: isPressed ? Tokens.Motion.pressSwell : 1)
+        }
+    }
 
     init(title: String) {
         super.init(frame: .zero)
@@ -131,7 +140,7 @@ final class SettingsChoiceButton: NSView {
 
     private func refresh(animated: Bool) {
         setAccessibilityValue(isSelected)
-        let ink = isSelected || isHovering ? Tokens.Text.primary : Tokens.Text.secondary
+        let ink = isSelected || isHovering || isPressed ? Tokens.Text.primary : Tokens.Text.secondary
         guard animated, !Tokens.Motion.reduceMotion else {
             label.textColor = ink
             needsDisplay = true
@@ -151,7 +160,10 @@ final class SettingsChoiceButton: NSView {
         guard let layer else { return }
         layer.cornerRadius = SettingsMetrics.controlCorner
         layer.borderWidth = 0
-        layer.backgroundColor = isSelected
+        // §3.4's two washes. The chosen segment already wears the press's own
+        // wash, so a press on the one you are already on answers with the
+        // swell alone — which is right: it is not a change of state.
+        layer.backgroundColor = isSelected || isPressed
             ? Tokens.Surface.selected.cgColor
             : (isHovering ? Tokens.Surface.hover.cgColor : nil)
     }
@@ -181,8 +193,16 @@ final class SettingsChoiceButton: NSView {
         refresh(animated: true)
     }
 
+    override func mouseDown(with event: NSEvent) { isPressed = true }
+
+    override func mouseDragged(with event: NSEvent) {
+        isPressed = bounds.contains(convert(event.locationInWindow, from: nil))
+    }
+
     override func mouseUp(with event: NSEvent) {
-        guard bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
+        let inside = bounds.contains(convert(event.locationInWindow, from: nil))
+        isPressed = false
+        guard inside else { return }
         onActivate?()
     }
 

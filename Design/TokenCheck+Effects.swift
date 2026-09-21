@@ -7,10 +7,9 @@
 //  `TokenCheck.swift`'s length limit; it runs in the same pass, under the same
 //  conditions, and that file's header covers both ways to run it.
 //
-//  What they have in common is that none of them can be checked by contrast
-//  alone. A wash has to stay translucent *and* readable, a shadow has to stay
-//  black and grow in the dark, and a bloom has to stay identical in both
-//  themes — each is a claim `Tokens.swift` makes in prose, re-derived here.
+//  None of them can be checked by contrast alone. A wash has to stay
+//  translucent and readable, a shadow has to stay black and grow in the dark,
+//  and a bloom has to stay identical in both themes.
 //
 
 #if DEBUG || TOKENCHECK_MAIN
@@ -26,11 +25,11 @@ extension TokenCheck {
     /// `theme-color`, plus a saturated one — over both an opaque fill and the
     /// translucent `chromeFill` the pill actually uses.
     ///
-    /// `secondary` is in the `keeping:` list to exercise the clamp itself, not
-    /// because the pill draws with it: at 18 % over `chromeFill` in dark mode
-    /// secondary measures 3.34:1, so this row can only pass if `wash` really
-    /// does step down and, failing that, hand back the un-washed fill. With
-    /// `primary` alone the loop never fires and the clamp goes untested.
+    /// `secondary` is in the `keeping:` list to exercise the clamp, not because
+    /// the pill draws with it: at 18 % over `chromeFill` in dark mode it
+    /// measures 3.34:1, so the row only passes if `wash` steps down and then
+    /// hands back the un-washed fill. With `primary` alone the clamp is never
+    /// reached.
     static func checkWash() -> [String] {
         var failures: [String] = []
         let tints: [(String, NSColor)] = [("white", .white), ("black", .black), ("yellow", .systemYellow), ("blue", .systemBlue)]
@@ -49,9 +48,9 @@ extension TokenCheck {
                                 tint, fill, text, name, ratio
                             ))
                         }
-                        // §2: the pill is the one page-tinted surface *and* it
-                        // is glass. Washing a translucent fill has to leave it
-                        // translucent, or the pill goes back to being a plate.
+                        // §2: the pill is the one page-tinted surface and it is
+                        // glass. Washing a translucent fill has to leave it
+                        // translucent, or the pill is a plate again.
                         let alpha = washed.srgbComponents(for: appearance).alpha
                         if fill == "chromeFill" && alpha >= 1 {
                             failures.append("wash(\(tint)) over chromeFill in \(name) came back opaque — the pill would stop being glass")
@@ -63,10 +62,9 @@ extension TokenCheck {
         return failures
     }
 
-    /// §7's bloom. It is the one colour group with **no** theme or contrast
-    /// variant — emitted light over page content, not chrome — so what is
-    /// checked is that it stays that way, plus the band order §7 got wrong
-    /// once already.
+    /// §7's bloom: the one colour group with no theme or contrast variant,
+    /// because it is emitted light over page content rather than chrome. This
+    /// checks that it stays that way, plus the band order §7 got wrong once.
     static func checkBloom() -> [String] {
         var failures: [String] = []
         guard let light = appearances.first?.1, let dark = appearances.last?.1 else { return failures }
@@ -120,18 +118,17 @@ extension TokenCheck {
         return failures
     }
 
-    /// §7's 1× pair, **re-derived rather than restated**. Both are functions of
-    /// `Ink.glassTint`, so nudging that one alpha has to move both or the
-    /// adaptation silently stops being the thing the comments describe:
+    /// §7's 1× pair, re-derived rather than restated. Both are functions of
+    /// `Ink.glassTint`, so nudging that alpha has to move both:
     ///
     ///   · `glassTintControl` is half of `glassTint`, exactly.
-    ///   · `glassTintDense` is `glassTint` + 0.16 — the measured step, see
-    ///     `DisplayScale.swift` for the sweep it comes from.
+    ///   · `glassTintDense` is `glassTint` + 0.16 — the measured step; see
+    ///     DisplayScale.swift for the sweep it comes from.
     ///
-    /// Plus the two invariants that make §7 honest at all: the order is
+    /// Plus the two invariants that make §7 honest: the order is
     /// control < plain < dense in every variant, and none of the three may
-    /// reach opacity, because a chrome tint that hides the desktop is not
-    /// glass being optimised, it is glass being replaced.
+    /// reach opacity, because a chrome tint that hides the desktop is glass
+    /// being replaced rather than optimised.
     static func checkGlassOptimisation() -> [String] {
         var failures: [String] = []
         let tolerance = 0.006
@@ -171,19 +168,18 @@ extension TokenCheck {
 
     /// §2a's pair, and the two things that make the setting mean anything.
     ///
-    ///   · **Opaque is denser than clear**, in every variant. It is the whole
-    ///     name of the thing, and the two alphas are hand-set from separate
-    ///     measurements rather than derived from each other, so nothing but
-    ///     this stops one drifting past the other.
-    ///   · **Neither reaches 1.0.** At full strength the frost *is*
-    ///     `Surface.glassFallback`, the Reduce Transparency plane — there is no
-    ///     glass left above it, and "more opaque" would have quietly become
-    ///     "off". `checkResolution` asserts the same rule from the colour side;
-    ///     this one catches it in the alpha table, where it is set.
+    ///   · Opaque is denser than clear, in every variant. The two alphas are
+    ///     hand-set from separate measurements rather than derived from each
+    ///     other, so nothing but this stops one drifting past the other.
+    ///   · Neither reaches 1.0. At full strength the frost is
+    ///     `Surface.glassFallback`, the Reduce Transparency plane, with no glass
+    ///     left above it — "more opaque" would have become "off".
+    ///     `checkResolution` asserts the same rule from the colour side; this
+    ///     one catches it in the alpha table, where it is set.
     ///
     /// The ceiling is higher than §7's 0.70 on purpose: that one protects §2's
-    /// "the chrome samples the desktop", which is exactly the claim this setting
-    /// exists to let the user give up.
+    /// "the chrome samples the desktop", which is the claim this setting exists
+    /// to let the user give up.
     static func checkGlassDensity() -> [String] {
         var failures: [String] = []
         /// Short of the plane by a visible margin, not by a rounding error.
@@ -212,8 +208,7 @@ extension TokenCheck {
 
     /// §7's ordering, split out of `checkGlassOptimisation` for the complexity
     /// limit. The control must stay lighter than the bar it sits on, and the
-    /// optimised bar must actually be denser than the plain one — "increased
-    /// alpha" is the claim §7 makes and this is where it stops being prose.
+    /// optimised bar must be denser than the plain one.
     private static func glassTintOrder(plain: Double, dense: Double, control: Double, variant: String) -> [String] {
         var failures: [String] = []
         if dense <= plain {

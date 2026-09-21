@@ -3,14 +3,14 @@
 //  Luna
 //
 //  §2's material table: what each of `Glass.Style`'s four surfaces is made of.
-//  Four small answers — the `NSGlassEffectView` style, the tint, the fullscreen
-//  backdrop and §2a's frost — read by `GlassBackingView` and by nothing else.
+//  The `NSGlassEffectView` style, the tint, the fullscreen backdrop and §2a's
+//  frost, read by `GlassBackingView` and nothing else.
 //
-//  Split out of `GlassBacking.swift` for that file's length limit, and it is
-//  the right seam: that file is the *view* — the live Reduce Transparency swap,
-//  the fullscreen edges, the frame discipline — and this is the table it reads.
-//  Contract rule 4 still covers this file, because the return type of
-//  `glassStyle(optimised:)` names `NSGlassEffectView`.
+//  Split out of GlassBacking.swift for that file's length limit. The seam is
+//  right: that file is the view — the live Reduce Transparency swap, the
+//  fullscreen edges, the frame discipline — and this is the table it reads.
+//  Contract rule 4 still covers this file, because `glassStyle(optimised:)`
+//  names `NSGlassEffectView` in its return type.
 //
 
 import AppKit
@@ -36,10 +36,10 @@ extension Glass.Style {
         }
     }
 
-    /// Whether this surface paints its `solidFallback` behind the glass when
-    /// the window is fullscreen. The chrome planes do — they are what the user
-    /// is looking at and they would otherwise be black. Controls do not: a
-    /// control's job is to read as raised above whatever the plane became.
+    /// Whether this surface paints its `solidFallback` behind the glass in
+    /// fullscreen. The chrome planes do — they are what the user is looking at,
+    /// and they would otherwise be black. Controls do not: a control's job is
+    /// to read as raised above whatever the plane became.
     var hasBackdrop: Bool {
         switch self {
         case .sidebar, .topBar: true
@@ -47,18 +47,18 @@ extension Glass.Style {
         }
     }
 
-    /// §2's frost — the plane painted *behind* this surface's glass in every
+    /// §2's frost — the plane painted behind this surface's glass in every
     /// window state — or nil for the surfaces that take the material neat.
     ///
-    /// **Not the same question as `hasBackdrop`.** That one is about fullscreen,
-    /// where the material stands down entirely and the plane *replaces* it; this
-    /// is the plane the glass sits on top of and samples through, which is why
-    /// the popover can gain one at `.opaque` without also becoming a flat plate
-    /// the moment the window is zoomed.
+    /// Not the same question as `hasBackdrop`. That one is about fullscreen,
+    /// where the material stands down and the plane replaces it; this is the
+    /// plane the glass sits on and samples through, which is how the popover
+    /// gains one at `.opaque` without becoming a flat plate when the window is
+    /// zoomed.
     ///
-    /// A control never gets one at either density: a control is a small shape
-    /// over an already-frosted bar, and frosting it too would leave it reading
-    /// as a hole rather than as something raised (§2).
+    /// A control never gets one at either density: it is a small shape over an
+    /// already-frosted bar, and frosting it would leave it reading as a hole
+    /// rather than as something raised (§2).
     func frost(_ density: GlassDensity) -> NSColor? {
         switch (self, density) {
         case (.sidebar, .clear), (.topBar, .clear): Tokens.Surface.frost

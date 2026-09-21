@@ -1,7 +1,7 @@
 import Foundation
 import WebKit
 
-/// `WKUserContentController` retains its message handlers **strongly**. Registering the
+/// `WKUserContentController` retains its message handlers strongly. Registering the
 /// controller itself would close a cycle — controller → web view → configuration →
 /// content controller → controller — that never releases, so a tab dropped without
 /// `hibernate()` would keep its whole WebContent process alive and its `deinit` would
@@ -21,6 +21,7 @@ final class ScriptMessageRelay: NSObject, WKScriptMessageHandler {
         switch message.name {
         case TabController.mediaMessageName: owner?.handleMediaMessage(message)
         case ContentBlocker.blockedMessageName: owner?.handleBlockedMessage(message)
+        case ContentBlocker.youTubeMessageName: owner?.handleYouTubeMessage(message)
         case TabController.scrollMessageName: owner?.handleScrollMessage(message)
         // §14. The coordinator re-checks the frame's origin before it acts on
         // anything here — the relay only routes.

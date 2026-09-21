@@ -7,16 +7,16 @@
 //  for. No AppKit, no actor, no I/O — so `CommandBarRankingTests` can hand-compute
 //  an order and assert it, exactly the way `FrecencyRankingTests` does.
 //
-//  **Frecency is not reimplemented here.** `BrowserStore` already computes
-//  §9.3's `Σ (visitTypeWeight × recencyWeight)` over each place's ten most recent
-//  visits, in SQL, with its own tests. This file consumes `HistoryHit.score` and
-//  never second-guesses it. What it adds is the half the store cannot see: the
+//  Frecency is not reimplemented here. `BrowserStore` computes §9.3's
+//  `Σ (visitTypeWeight × recencyWeight)` over each place's ten most recent
+//  visits, in SQL, with its own tests; this file consumes `HistoryHit.score`
+//  and never second-guesses it. What it adds is the half the store cannot see:
 //  tier order across sources, dedupe, and adaptive input history.
 //
-//  **§9.7, the reason this is a pure function.** `merge` runs synchronously on
-//  the main actor inside `controlTextDidChange`, over arrays already in memory,
-//  so local results are on screen in the same frame as the keystroke. The store
-//  query is the only asynchronous part and it merges in afterwards.
+//  §9.7 is why this is pure. `merge` runs synchronously on the main actor
+//  inside `controlTextDidChange`, over arrays already in memory, so local
+//  results are on screen in the same frame as the keystroke. The store query is
+//  the only asynchronous part and merges in afterwards.
 //
 
 import BrowserKit
@@ -42,7 +42,7 @@ struct CommandBarSources: Sendable {
     /// is what `Space.profileID` holds.
     ///
     /// Empty is a supported state and degrades honestly: the rows below still
-    /// stay *apart* per Profile — that part is derived from `Space.profileID`
+    /// stay apart per Profile — that part is derived from `Space.profileID`
     /// and needs no name — they simply carry the Space's name alone instead of
     /// "Space · Profile". Nothing here invents a label from a UUID.
     var profiles: [UUID: Profile] = [:]
@@ -59,7 +59,7 @@ struct CommandBarSources: Sendable {
 }
 
 /// A row plus the Profile whose cookie jar it belongs to, if any. Only an open
-/// or archived tab has one — a history hit, a search or a command is not *in* a
+/// or archived tab has one — a history hit, a search or a command is not in a
 /// Profile. It rides alongside the row rather than inside it: `CommandBarResult`
 /// is §9.2's public vocabulary, and the Profile is a ranking concern that is
 /// spent by the time the list is built.
@@ -84,7 +84,7 @@ enum CommandBarRanking {
     /// moving through them."
     ///
     /// Once the user has taken the highlight off the top row, a late-arriving
-    /// merge may only *add*. Everything already on screen keeps its contents and
+    /// merge may only add. Everything already on screen keeps its contents and
     /// its position, so the row under the highlight is still the row they were
     /// looking at — which is the whole of the guarantee, and is why the incoming
     /// list's own order is discarded for the rows that are already showing.
@@ -119,17 +119,17 @@ enum CommandBarRanking {
     }
 
     /// §9.4's completion: the top URL-bearing row, if what the user typed is a
-    /// prefix of its display form. Returns the *whole* completion; the field
+    /// prefix of its display form. Returns the whole completion; the field
     /// selects the part beyond `query`.
     ///
-    /// Only the top row, on purpose. Autofilling from row 4 would put text in the
-    /// field that nothing on screen is highlighting.
+    /// Only the top row: autofilling from row 4 would put text in the field
+    /// that nothing on screen is highlighting.
     ///
-    /// `query` is used **untrimmed**, because the caller sets the field's text to
-    /// what comes back and selects everything past `query.count`. Trimming here
-    /// would shift that selection off by the whitespace. Whitespace anywhere in
-    /// the query means it is a search, not an address, so there is nothing to
-    /// complete — which is also what makes the untrimmed comparison safe.
+    /// `query` is used untrimmed, because the caller sets the field's text to
+    /// what comes back and selects everything past `query.count`, so trimming
+    /// would shift that selection by the whitespace. Whitespace anywhere in the
+    /// query means it is a search rather than an address, so there is nothing
+    /// to complete — which is what makes the untrimmed comparison safe.
     static func autofill(query: String, results: [CommandBarResult]) -> String? {
         guard !query.isEmpty, !query.contains(where: \.isWhitespace),
               let url = results.first?.url
@@ -143,7 +143,7 @@ enum CommandBarRanking {
     // MARK: - Sources
 
     /// §9.3. Firefox's shape, and the right one: a remembered input matches while
-    /// the user is still *on the way to typing it*, so learning "gh" → the repo
+    /// the user is still on the way to typing it, so learning "gh" → the repo
     /// pays off from the first keystroke.
     ///
     /// Skipped for an empty query — every remembered string starts with "", so
@@ -183,7 +183,7 @@ enum CommandBarRanking {
         let qualify = spansSeveralProfiles(sources)
         return sources.tabs.compactMap { tab in
             // §3.4a: a renamed tab is found and shown under the name the user gave it.
-            // Its own title is deliberately *not* also in the haystack — a tab you renamed
+            // Its own title is deliberately not also in the haystack — a tab you renamed
             // "Invoices" should not keep answering to whatever the page calls itself.
             let haystack = "\(tab.listTitle) \(CommandBarURL.displayForm(of: tab.url))"
             guard matches(tokens, haystack) else { return nil }
@@ -241,7 +241,7 @@ enum CommandBarRanking {
     /// pill commits through as well.
     private static func searchRow(query: String, hasDirectURL: Bool) -> CommandBarResult? {
         guard !query.isEmpty, !hasDirectURL, let url = CommandBarURL.search(for: query) else { return nil }
-        // `url:` is deliberately left nil while the *action* carries the URL: a
+        // `url:` is deliberately left nil while the action carries the URL: a
         // search row must not dedupe against a history hit for the same search
         // page, and §9.4 must never autofill the field with a search URL.
         return CommandBarResult(
@@ -284,7 +284,7 @@ enum CommandBarRanking {
 
     /// §9.3's tier order. `CommandBarSource` is `Comparable` by declaration order,
     /// so the tier lives with the cases rather than in a switch that can drift.
-    /// Score only ever breaks ties *within* a tier — an adaptive `useCount` of 3
+    /// Score only ever breaks ties within a tier — an adaptive `useCount` of 3
     /// and a frecency score of 340 are not the same unit and are never compared.
     private static func order(_ rows: [RankedRow]) -> [RankedRow] {
         rows.sorted { left, right in
@@ -296,18 +296,16 @@ enum CommandBarRanking {
     }
 
     /// §9.2 "merged and deduped". The best-ranked row for a URL wins its place —
-    /// but it inherits the open tab's *action* and Space badge when one exists,
+    /// but it inherits the open tab's action and Space badge when one exists,
     /// so a page that is both #1 by adaptive history and already open switches to
     /// the live tab instead of loading a second copy of it (§19.4).
-    /// **The Profile boundary stops the dedupe, and that is zen#14371's fix.**
-    /// The same URL open in two Spaces on two *different* Profiles is two pages,
-    /// two logins and two accounts, so it stays two rows. Collapsing them was
-    /// worse than the bug it looks like: the second tab silently overwrote the
-    /// first row's action, so choosing "Switch to tab" teleported you into
-    /// whichever Space the loop reached last.
+    /// The Profile boundary stops the dedupe (zen#14371). The same URL open in
+    /// two Spaces on two Profiles is two pages, two logins and two accounts, so
+    /// it stays two rows. Collapsing them was worse than it looks: the second
+    /// tab silently overwrote the first row's action, so "Switch to tab"
+    /// teleported you into whichever Space the loop reached last.
     ///
-    /// Within one Profile nothing changes: the best-ranked row keeps its place
-    /// and inherits the open tab's action, badge and glyph exactly as before.
+    /// Within one Profile nothing changes.
     private static func dedupe(_ rows: [RankedRow]) -> [CommandBarResult] {
         var slot: [String: Int] = [:]
         /// "url + profile" pairs already reachable from some row on screen.
@@ -350,7 +348,7 @@ enum CommandBarRanking {
         return out
     }
 
-    /// A history or adaptive row that is *also* an open tab switches to the live
+    /// A history or adaptive row that is also an open tab switches to the live
     /// tab instead of loading a second copy of it (§19.4), keeping its own rank.
     private static func adopt(_ tab: CommandBarResult, into row: inout CommandBarResult, marking live: inout Set<String>) {
         live.insert(row.id)
@@ -407,8 +405,8 @@ enum CommandBarRanking {
         return false
     }
 
-    /// §9 / D-S8: **the Profile identity must appear wherever tabs from different
-    /// Profiles can meet**, and the Space colour is not it — a colour says which
+    /// §9 / D-S8: the Profile identity must appear wherever tabs from different
+    /// Profiles can meet, and the Space colour is not it — a colour says which
     /// Space, never whose cookie jar. It rides on the badge's `name` rather than
     /// on a new field, so it reaches the visible chip and VoiceOver through the
     /// path that already exists.

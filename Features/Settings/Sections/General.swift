@@ -6,15 +6,14 @@
 //  share. It lives here rather than in a fifth file because it is fifty lines;
 //  a `Shared/` directory for that is a directory to maintain.
 //
-//  **Two of §3.1's four rows ship disabled, and that is a finding rather than a
-//  shortcut.** §3.1 lists "On launch" as wired to `general.onLaunch` +
-//  `BrowserSession.restored`, and "Confirm before closing" to
-//  `general.confirmClose`. Neither key has a *reader*: `AppDelegate` restores
-//  unconditionally and `BrowserWindowController` implements no
-//  `windowShouldClose`. Writing them anyway would produce exactly the silently
-//  dead switch §30.4 forbids, so they render dimmed with the reason, the typed
-//  accessors below are published for whoever wires them, and the gap is in the
-//  report instead of in the UI.
+//  Two of §3.1's four rows ship disabled, and that is a finding rather than a
+//  shortcut. §3.1 wires "On launch" to `general.onLaunch` +
+//  `BrowserSession.restored` and "Confirm before closing" to
+//  `general.confirmClose`; neither key has a reader, because `AppDelegate`
+//  restores unconditionally and `BrowserWindowController` implements no
+//  `windowShouldClose`. Writing them anyway would be the silently dead switch
+//  §30.4 forbids, so they render dimmed with the reason and the typed accessors
+//  below are published for whoever wires them.
 //
 
 import AppKit
@@ -54,19 +53,45 @@ final class SettingsBody {
     /// labels a search should match it on — its title first, then any word a
     /// user would plausibly type for it.
     func card(_ title: String?, _ rows: [(view: NSView, terms: [String])]) {
+        install(SettingsRow.group(title, rows.map(\.view)), rows: rows)
+    }
+
+    /// A card the section built for itself, with its rows named separately so
+    /// §2's search can still empty it.
+    ///
+    /// The one caller is §3.7's Space card, which is headed by the Space's own
+    /// gradient rather than by a line of type — see `SpaceCardView`. Everything
+    /// downstream of this point treats it like any other card: the rows hide
+    /// one by one as the query narrows, and the card goes when the last of them
+    /// does.
+    func card(_ made: NSView, rows: [(view: NSView, terms: [String])]) {
+        install(made, rows: rows)
+    }
+
+    /// A heading the cards under it belong to — `SettingsRow.heading`.
+    ///
+    /// The stack's own spacing is the gap between one group and the next, and
+    /// a heading floated out to that distance is a heading for nothing. The
+    /// cards that follow sit a card's distance below it instead.
+    func heading(_ child: NSView, terms: [String]) {
+        entries.append(Entry(view: child, terms: terms.map { $0.lowercased() }, card: nil))
+        add(child)
+        view.setCustomSpacing(Tokens.Metric.chromeGap, after: child)
+    }
+
+    private func install(_ card: NSView, rows: [(view: NSView, terms: [String])]) {
         let index = cards.count
         for row in rows {
             entries.append(Entry(view: row.view, terms: row.terms.map { $0.lowercased() }, card: index))
         }
-        let card = SettingsRow.group(title, rows.map(\.view))
         cards.append(card)
         add(card)
     }
 
     /// A standalone row — a note, or the live host below.
     ///
-    /// **It sits close to the card above it.** The stack's own spacing is the
-    /// gap between one *group* and the next; a sentence explaining the card it
+    /// It sits close to the card above it. The stack's own spacing is the
+    /// gap between one group and the next; a sentence explaining the card it
     /// follows, floated out to that distance, reads as the opening line of the
     /// next group instead of as a footnote on the last one.
     func loose(_ child: NSView, terms: [String]) {
@@ -109,7 +134,7 @@ final class GeneralSection: NSObject, SettingsSection {
 
     // MARK: Keys and typed accessors
 
-    /// §3.1's launch behaviour. **Nothing reads this yet** — see the file
+    /// §3.1's launch behaviour. Nothing reads this yet — see the file
     /// header. Published so `AppDelegate` can, in one `switch`.
     enum OnLaunch: String, Sendable, CaseIterable {
         case restoreSession
@@ -127,16 +152,26 @@ final class GeneralSection: NSObject, SettingsSection {
 
     static let onLaunchKey = "general.onLaunch"
     static let confirmCloseKey = "general.confirmClose"
+    static let confirmQuitKey = "general.confirmQuit"
 
     static var onLaunch: OnLaunch {
         UserDefaults.standard.string(forKey: onLaunchKey).flatMap(OnLaunch.init(rawValue:)) ?? .restoreSession
     }
 
-    /// Defaults **on**: closing a window full of tabs is the one destructive
+    /// Defaults on: closing a window full of tabs is the one destructive
     /// thing a browser does by accident, and §3.1 asks for the guard rather
     /// than for the speed.
     static var confirmClose: Bool {
         UserDefaults.standard.object(forKey: confirmCloseKey) as? Bool ?? true
+    }
+
+    /// Defaults on, and unlike the row above it this one has a reader:
+    /// `AppDelegate.applicationShouldTerminate` puts `QuitSheetView` up. ⌘Q is
+    /// next to ⌘W and takes every window with it, so the guard is the default
+    /// and the sheet's own third answer is how it comes off — a preference you
+    /// can only turn off from a dialog is a trap, so it is also here.
+    static var confirmQuit: Bool {
+        UserDefaults.standard.object(forKey: confirmQuitKey) as? Bool ?? true
     }
 
     // MARK: Default browser
@@ -172,7 +207,8 @@ final class GeneralSection: NSObject, SettingsSection {
         body.card("Startup and tabs", [
             (onLaunchRow(), ["on launch", "startup", "restore last session", "new tab"]),
             (autoArchiveRow(), ["auto-archive tabs after", "archive", "idle tabs", "6 hours", "12 hours", "24 hours", "never"]),
-            (confirmCloseRow(), ["confirm before closing a window with multiple tabs", "close", "warn"])
+            (confirmCloseRow(), ["confirm before closing a window with multiple tabs", "close", "warn"]),
+            (confirmQuitRow(), ["ask before quitting luna", "quit", "confirm", "command q", "warn"])
         ])
         refreshStatus()
         // The user can change the handler in System Settings while this window
@@ -187,7 +223,7 @@ final class GeneralSection: NSObject, SettingsSection {
         )
     }
 
-    /// The button *is* the status: "Set as Default" means Luna is not, and a
+    /// The button is the status: "Set as Default" means Luna is not, and a
     /// dimmed "Luna is the default" means it is. A sentence underneath naming
     /// whichever other browser holds the handler said nothing the user could
     /// act on from here, and it was the one line in §3.1 that went stale.
@@ -250,6 +286,16 @@ final class GeneralSection: NSObject, SettingsSection {
     /// `AutoArchive` spells "never" as 0 hours (§6.3).
     static func hoursTitle(_ hours: Double) -> String {
         hours > 0 ? "\(Int(hours)) hours" : "Never"
+    }
+
+    /// Live, where `confirmCloseRow` is not: this one is read on every ⌘Q.
+    private func confirmQuitRow() -> NSView {
+        SettingsRow.toggle(
+            "Ask before quitting Luna",
+            value: Self.confirmQuit
+        ) { value in
+            UserDefaults.standard.set(value, forKey: Self.confirmQuitKey)
+        }
     }
 
     private func confirmCloseRow() -> NSView {

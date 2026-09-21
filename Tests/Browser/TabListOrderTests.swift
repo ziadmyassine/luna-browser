@@ -2,7 +2,7 @@
 //  TabListOrderTests.swift
 //  LunaTests
 //
-//  Where a tab that is opening **now** lands — `TabList.openIndex(for:)`.
+//  Where a tab that is opening now lands — `TabList.openIndex(for:)`.
 //
 //  It is one line of arithmetic and it decides the first thing the user sees
 //  after `⌘T`, which is exactly the shape of rule that gets changed back by

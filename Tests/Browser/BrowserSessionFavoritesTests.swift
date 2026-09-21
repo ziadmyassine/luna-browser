@@ -2,16 +2,15 @@
 //  BrowserSessionFavoritesTests.swift
 //  LunaTests
 //
-//  Favorites are per **Profile**, not per Space (spec §2, decision D-S2, and
+//  Favorites are per Profile, not per Space (spec §2, decision D-S2, and
 //  the owner's locked wording: "per-profile favourites, but per-space pinned").
 //
-//  This is the biggest model change in the Spaces wave and the one with the
-//  least prior art to lean on. Arc keys its Favorites container by profile — a
-//  flat `topAppsContainerIDs` profile → container pair — and caps the tier at
-//  twelve; Zen strips a tab's workspace id when it is promoted to Essential,
-//  which lands near the same place from the other side. Luna's `TabList` was
-//  keyed by Space with `.essential` inside it, so Favorites were per Space and
-//  `TODO.md` §46 claimed they were global. Both were wrong.
+//  Arc keys its Favorites container by profile — a flat `topAppsContainerIDs`
+//  profile → container pair — and caps the tier at twelve; Zen strips a tab's
+//  workspace id when it is promoted to Essential, landing near the same place
+//  from the other side. Luna's `TabList` was keyed by Space with `.essential`
+//  inside it, so Favorites were per Space while `TODO.md` §46 claimed they were
+//  global. Both were wrong.
 //
 //  The behaviour these assert, in one line each: two Spaces on one Profile see
 //  the same tiles, a Space on another Profile does not, the cap is the
@@ -150,7 +149,7 @@ final class BrowserSessionFavoritesTests: XCTestCase {
     // MARK: - §6.6 · the drag across the grid's edge
 
     /// Carrying a tab up into §3.3 selects it, and selecting it is what keeps
-    /// its page: `pinTab` puts a *cold* tile's web view away, and the branch
+    /// its page: `pinTab` puts a cold tile's web view away, and the branch
     /// that spares the active tab only fires if the selection has already
     /// moved. Order is the whole test — pin first and the page is torn down
     /// and rebuilt under the pointer.

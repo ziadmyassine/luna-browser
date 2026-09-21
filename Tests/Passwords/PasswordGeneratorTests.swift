@@ -3,7 +3,7 @@
 //  LunaTests
 //
 //  §14.5. The rules parser is tested harder than the generator because a
-//  mis-parsed rule set produces a password the *site* rejects, and the user
+//  mis-parsed rule set produces a password the site rejects, and the user
 //  discovers that after Luna has offered to save it.
 //
 

@@ -29,22 +29,23 @@ an enforced one, so it is on review to catch.
 
 | Thing | Value |
 |---|---|
-| Window content | 720 × 520, resizable, min 640 × 420 |
+| Window content | 720 × 520, resizable, min 640 × 480 |
 | Window corner | `windowCornerRadius` (25) |
 | Section list width | `settingsListWidth` (230), fixed (not `sidebarWidth`, which is user-dragged) |
 | Type | `TypeScale.settingsRow` — **13 pt, the sidebar's own face** |
 | Caption under a row | `TypeScale.settingsCaption` (11) |
 | Every control in the pane | `settingsControl` (28) high, `settingsControlCorner` (8) |
-| Section row **pitch** / pill radius | `settingsSectionRow` (34) / `rowCornerRadius` (12) |
-| Section row pill height | pitch less `rowGap` (3) — the gap comes out of the row |
-| Section icon tile | `settingsSectionIcon` (24, radius 7), no outline |
+| Section row **pitch** / pill radius | `rowHeight` (38) / `rowCornerRadius` (12) — the sidebar's |
+| Section row pill height | `rowPillHeight` (35): the pitch less `rowGap`, which comes out of the row |
+| Section row glyph / title column | `rowFaviconInset` (17.5) / `rowTitleInset` (42.5) — the sidebar's |
+| Section icon tile | **none.** See §2.1 |
 | Pane inset | `chromeGapWide` (16) |
 | Card row height | `settingsCardRow` (44) |
 | Card row inset (text grid) | `chromeGapWide` (16) |
 | Gap between cards | `settingsGroupGap` (26); a note under a card, `chromeGap` (8) |
 | Search field | `urlPill`, exactly as `HistoryFilterField` draws it |
 | Nav capsule | `settingsNavCapsule` (64 × 30, radius 10) |
-| Group header | the row's face, `Text.secondary` |
+| Group header | the row's face, `Text.secondary`, **flush with the card's edge** |
 | Symbol size | `faviconSize` (16) |
 
 ### 1.2 The controls, re-measured against the same reference
@@ -135,8 +136,11 @@ things in it are structural rather than decorative. All three are now Luna's:
 - **A card is one card.** Its rows butt together and are separated by a hairline
   that starts at the row's own text inset, not at the card's edge. Rows with a
   gap between them read as six small panels; ruled rows read as one group. The
-  group's name sits above the card, indented to the same text inset, so every
-  piece of type in the pane lines up on one edge.
+  group's name sits above the card **on the card's own edge**, not on the rows'
+  text inset: it labels the card, and a name indented under nothing reads as a
+  row of the card above it rather than as the title of the one below. §3.7's
+  `Spaces … [New Space]` is the same line with a control on the far edge, so
+  the pair frames its cards.
 - **There is no title over the pane.** It repeated, in 12 pt semibold, the word
   the user had just clicked two inches to the left. In its place is a
   back/forward capsule (`SettingsNavCapsule`) on the pane's top inset, level with
@@ -181,6 +185,31 @@ things in it are structural rather than decorative. All three are now Luna's:
   history has; a direction you cannot go is dimmed, never hidden, so the capsule
   does not change width while you use it.
 
+### 2.1 The list is the browser's sidebar
+
+Not "like" it: the same views, the same tokens, the same springs. §2's rows are
+laid out on `rowHeight` / `rowPillHeight` / `rowGap`, their glyph and title stand
+on `rowFaviconInset` and `rowTitleInset`, and the two fills are `RowPillView` —
+§3.4's **glass** pills, one selected and one hover, moved between rows on
+`selectedRowMove` and `rowHover` by `RowPillView.move(to:spec:)`, which both
+lists now share. A section row itself draws nothing at all.
+
+Three things it stopped doing, all of them Martin's report that Settings did not
+look like the app:
+
+- **The selected row was a flat `Surface.selected` wash** painted on the row's
+  own layer. Over the column's glass that is a grey band; the sidebar's answer
+  is clear glass *plus* that wash, which is why a selected tab reads as a raised
+  surface. It is the same class now, so it cannot drift again.
+- **Every glyph sat on a 24 pt rounded square** carrying `Surface.selected`. Ten
+  of them turned a list of places into a row of buttons, and put a
+  selected-looking shape on nine rows that were not selected. Gone; the symbol
+  sits on the column, 16 pt, like a favicon.
+- **The pitch was 34 pt around a 31 pt pill.** It is the sidebar's 38 around 35.
+  Ten rows are 40 pt taller for it, which is why §1's height floor moved from
+  420 to 480 — at 420 the list ran past the bottom of the column it is
+  constrained inside.
+
 ---
 
 ## 3. Sections
@@ -196,6 +225,13 @@ underneath — never a silently dead switch (§30.4).
 | On launch | Popup: Restore last session · New tab · Specific Space | `general.onLaunch` + `BrowserSession.restored` |
 | Auto-archive tabs after | Popup: 6h · 12h · 24h · Never | **existing** `luna.autoArchiveHours` |
 | Confirm before closing a window with multiple tabs | Toggle | `general.confirmClose` |
+| Ask before quitting Luna | Toggle | `general.confirmQuit` — read by `AppDelegate.applicationShouldTerminate` |
+
+> **Added: the quit guard, and it is the only row in this card with a reader.**
+> ⌘Q is next to ⌘W and takes every window with it. The toggle defaults **on**, and §3.1's
+> sheet (UI-SPEC §5.2) carries its own way off — *Quit, and don't ask again* writes
+> `general.confirmQuit = false`. A preference you can only turn **off** from a dialog is a trap,
+> which is why it is also here.
 
 ### 3.2 Appearance
 | Control | Type | Wired to |
@@ -262,6 +298,7 @@ That copy is required, not optional.
 | Offer to fill passwords | Toggle | `PasswordSettings.isEnabled` |
 | Offer to save passwords | Toggle | `PasswordSettings.offersToSave` |
 | Suggest strong passwords | Toggle | `PasswordSettings.offersGeneratedPasswords` |
+| Require Touch ID to fill | Toggle, **on by default** | `PasswordSettings.requiresAuthentication` |
 | Saved to | Status line | `CredentialStore.refreshCapability()`, re-probed on open |
 | Passkeys | Toggle, **disabled**, with its reason | `PasskeySupport.isAvailable` |
 | Manage saved passwords | Button "Open Passwords…" | the Passwords app |
@@ -273,7 +310,14 @@ Two notes carry copy that is **required, not decorative** — the same standing 
    there is no Luna account or server.
 2. Luna **cannot read** what Safari and the Passwords app already saved. Those
    are in Apple's own keychain access groups and no setting changes that. An
-   empty list must never read as "you have no saved passwords".
+   empty list must never read as "you have no saved passwords". The same is true
+   of credentials other applications put in the keychain — `git`'s, for one.
+   Luna sees only its own (`docs/PASSWORDS.md` §5a).
+
+The Touch ID row is the one place §14 chooses friction, and it is on by default
+because a saved password is otherwise readable by anyone at an unlocked Mac. Its
+subtitle names the fallback — "Touch ID, or your login password" — so a Mac with
+no Touch ID does not read the row as one that does nothing for them.
 
 The passkey row is the §30.4 case done properly: dimmed, still focusable, still
 read by VoiceOver, with the real reason — an entitlement only Apple can grant —

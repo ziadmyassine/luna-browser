@@ -65,7 +65,7 @@ final class TopBarDomainTests: XCTestCase {
     }
 }
 
-/// §4's alignment (`TopBarTabRun`): a centred run is centred **in the bar**,
+/// §4's alignment (`TopBarTabRun`): a centred run is centred in the bar,
 /// not in the strip it happens to live in.
 final class TopBarTabRunTests: XCTestCase {
 
@@ -150,7 +150,7 @@ final class TopBarActionCapsuleTests: XCTestCase {
 final class TopBarURLPillLayoutTests: XCTestCase {
 
     /// The one piece of §4 layout worth a test: `NSTextField.intrinsicContentSize`
-    /// reports the glyph run *without* the cell's 2 pt title inset on each side,
+    /// reports the glyph run without the cell's 2 pt title inset on each side,
     /// so a label framed to it tail-truncates a domain that fits the pill with
     /// 90 pt to spare. The pill measures with `fittingSize` for that reason.
     func testTheDomainLabelIsWideEnoughToDrawItsString() throws {

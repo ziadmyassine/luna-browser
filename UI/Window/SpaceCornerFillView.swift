@@ -4,22 +4,19 @@
 //
 //  The two corners `SpaceWashView` cannot reach.
 //
-//  **Why this is a second view and not a wider first one.** `ContentCardView`
-//  rounds only its leading corners (§3.6 — the trailing pair is the window's
-//  own), so in `.sidebar` the card leaves a `contentCardRadius` quarter-disc
-//  notch at its top-leading and bottom-leading corners. What shows through the
-//  notch is `WindowRootView`'s plain `Glass.sidebar` — the sidebar's own wash
-//  never gets there, because the wash is a subview of the sidebar and
-//  `ChromeHostView` sets `masksToBounds = true` on the way in (§7.2 needs that
-//  clip: the sidebar slides in and out of it). So the sidebar's colour stopped
-//  dead at its trailing edge and the two corners read as lighter notches
-//  against it — "the colour does not go all the way", which is exactly what it
-//  looked like.
+//  Why this is a second view rather than a wider first one. `ContentCardView`
+//  rounds only its leading corners (§3.6), so in `.sidebar` the card leaves a
+//  `contentCardRadius` quarter-disc notch at its top-leading and bottom-leading
+//  corners. What shows through is `WindowRootView`'s plain `Glass.sidebar`: the
+//  sidebar's own wash never gets there, because the wash is a subview of the
+//  sidebar and `ChromeHostView` sets `masksToBounds = true` on the way in,
+//  which §7.2's slide needs. So the sidebar's colour stopped dead at its
+//  trailing edge and the two corners read as lighter notches against it.
 //
-//  This view is that patch and nothing else: it sits on the root plane
-//  **below** the card, and its mask is the two notches. Everything else it
-//  could paint is either covered by the opaque card or already painted by the
-//  sidebar's own wash, and painting there as well would lay 16 % over 16 %.
+//  This view is that patch and nothing else: it sits on the root plane below
+//  the card, and its mask is the two notches. Everything else it could paint is
+//  either covered by the opaque card or already painted by the sidebar's own
+//  wash, and painting there too would lay 16 % over 16 %.
 //
 //  It exists only in `.sidebar`. The other three states have no rounded card
 //  corner to fill — `cardIsInset` is false for all of them — which is also why

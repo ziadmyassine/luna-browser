@@ -5,12 +5,12 @@
 //  docs/SETTINGS-SPEC.md §3.3 — the blocking toggles, the filter-list status
 //  block, HTTPS-Only, and §17.7's paragraph.
 //
-//  **These toggles are what the site menu's switch is an exception to.** The
-//  sliders glyph on the URL pill answers "block on *this* site"; it can only
-//  turn off what is on globally, and there is nowhere else to say which filter
-//  lists run at all. So the two surfaces are not duplicates and deleting these
-//  would leave the per-site switch with nothing to switch. What did move out is
-//  the per-site exemption *list*, which is now only in the menu.
+//  These toggles are what the site menu's switch is an exception to. The
+//  sliders glyph on the URL pill answers "block on this site" and can only turn
+//  off what is on globally, and there is nowhere else to say which filter lists
+//  run at all — so the two surfaces are not duplicates, and deleting these
+//  would leave the per-site switch with nothing to switch. The per-site
+//  exemption list did move out, and is now only in the menu.
 //
 //  The row stack and §2's search come from `SettingsBody` in `General.swift`;
 //  the app wiring and the confirmation dialog come from `SettingsHost`.
@@ -59,7 +59,13 @@ final class PrivacySection: SettingsSection {
         let title: String
         let list: String
         switch category {
-        case .ads: (title, list) = (String(localized: "Block ads"), "EasyList")
+        // §17.2: the ads toggle carries YouTube's in-player ads too, and the
+        // subtitle says so because the alternative is what prompts the bug
+        // report: a switch that reads "Block ads", is on, and leaves the pre-roll
+        // playing. EasyList genuinely cannot do that one: the ad and the video
+        // arrive on the same host, in the same `MediaSource`, scheduled by a
+        // field inside the same JSON as the video itself.
+        case .ads: (title, list) = (String(localized: "Block ads"), "EasyList, plus YouTube's in-player ads")
         case .trackers: (title, list) = (String(localized: "Block trackers"), "EasyPrivacy")
         case .annoyances: (title, list) = (String(localized: "Block annoyances"), "Fanboy Annoyance")
         }
@@ -68,7 +74,9 @@ final class PrivacySection: SettingsSection {
         ) { enabled in
             ContentBlocker.shared.setEnabled(enabled, for: category)
         }
-        return (row, [title, list, "blocking"])
+        var terms = [title, list, "blocking"]
+        if category == .ads { terms += ["youtube", "video ads", "pre-roll", "mid-roll"] }
+        return (row, terms)
     }
 
     private func httpsOnlyRow() -> (view: NSView, terms: [String]) {
@@ -153,7 +161,7 @@ final class PrivacySection: SettingsSection {
 
     /// `refresh(force:)` is `async` and does the fetch and the ~1.4 s of parsing
     /// off the main actor, so this returns at once and the spinner carries the
-    /// wait. What it cannot do is move the **compile**: `WKContentRuleListStore`
+    /// wait. What it cannot do is move the compile: `WKContentRuleListStore`
     /// is main-actor API, and compiling the ~186,000 rules across the three
     /// lists stalls the main thread in slices of up to 353 ms. That is the
     /// ceiling of the public API, which is exactly why only this button and the

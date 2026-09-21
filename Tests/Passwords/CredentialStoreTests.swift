@@ -4,7 +4,7 @@
 //
 //  §14.2's bridge.
 //
-//  **These tests deliberately do not write real credentials.** A test suite
+//  These tests deliberately do not write real credentials. A test suite
 //  that adds and removes `kSecClassInternetPassword` items runs against the
 //  developer's actual login keychain — the same one their real passwords are
 //  in — and a bug in the cleanup path is then a bug that deletes someone's
@@ -92,7 +92,7 @@ final class CredentialStoreTests: XCTestCase {
         XCTAssertTrue(BrowserStore.SitePermission.savePasswords.defaultsToAllowed)
     }
 
-    /// The raw value **is** the SQLite column name, so renaming the case
+    /// The raw value is the SQLite column name, so renaming the case
     /// silently orphans every answer already stored.
     func testPermissionColumnNameIsStable() {
         XCTAssertEqual(BrowserStore.SitePermission.savePasswords.rawValue, "savePasswords")

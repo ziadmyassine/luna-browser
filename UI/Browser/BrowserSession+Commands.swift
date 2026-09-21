@@ -5,11 +5,11 @@
 //  The work behind §20.1's newer menu items: page zoom, a reload that means it,
 //  copying the address, and the two bulk tab commands.
 //
-//  They are here rather than in `BrowserSession+Tabs` because that file is the
-//  tab lifecycle and this is a drawer of commands — and because a menu command
-//  needs one thing the lifecycle does not: an honest answer to "can you do this
-//  right now", so the item dims instead of doing nothing. Each pair below is a
-//  `can…` and a `do…` for exactly that reason.
+//  Here rather than in `BrowserSession+Tabs` because that file is the tab
+//  lifecycle and this is a drawer of commands — and because a menu command
+//  needs something the lifecycle does not: an honest answer to "can you do this
+//  right now", so the item dims instead of doing nothing. Hence each `can…` and
+//  `do…` pair.
 //
 
 import AppKit
@@ -51,8 +51,8 @@ extension BrowserSession {
     /// they have already decided.
     static let zoomLevels: [CGFloat] = [0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3]
 
-    /// **Not persisted, and that is the honest version rather than the finished
-    /// one.** Zoom lives on the `WKWebView`, so it survives as long as the tab
+    /// Not persisted, and that is the honest version rather than the finished
+    /// one. Zoom lives on the `WKWebView`, so it survives as long as the tab
     /// stays awake and is lost when §19.2 hibernates it. Per-site zoom is a
     /// stored preference with its own row in Settings and its own rules about
     /// which of a site's subdomains it covers; promising it here by quietly
@@ -102,7 +102,7 @@ extension BrowserSession {
         tabs.filter { $0.kind == .today }.map(\.id)
     }
 
-    /// ⇧⌘K. Archives every Today tab in the Space, as **one** undo step.
+    /// ⇧⌘K. Archives every Today tab in the Space, as one undo step.
     ///
     /// `closeTab` registers its own undo per tab, so without the grouping a user
     /// who closed forty tabs would need forty ⌘Z to get them back — each one
@@ -131,7 +131,7 @@ extension BrowserSession {
     /// ⌥⌘K. Runs §6.3's sweep now instead of waiting for the hour it would have
     /// happened on its own.
     ///
-    /// **The same rule as the clock, not a second one.** A "clean up" that used
+    /// The same rule as the clock, not a second one. A "clean up" that used
     /// its own idea of stale would archive tabs the settings say to keep, and
     /// the user would have no way to find out which idea they had just invoked.
     func cleanUpTabs() {

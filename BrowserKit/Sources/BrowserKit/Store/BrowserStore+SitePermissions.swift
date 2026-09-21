@@ -12,7 +12,7 @@ import GRDB
 /// ponytail: fold all five columns into a `v2` migration next time `Schema.swift` is opened.
 extension BrowserStore {
 
-    /// Which permission a row is carrying. The raw value **is** the column name, so the
+    /// Which permission a row is carrying. The raw value is the column name, so the
     /// two cannot drift apart — and it is a literal from this file, never user input,
     /// which is why interpolating it into SQL is not an injection path.
     public enum SitePermission: String, CaseIterable, Sendable {
@@ -43,7 +43,7 @@ extension BrowserStore {
         }
     }
 
-    /// Every host that has been **answered** for, per permission, with the answer — the
+    /// Every host that has been answered for, per permission, with the answer — the
     /// whole table, because it is read once at launch and then answered from memory (see
     /// `SitePermissions`).
     ///
@@ -87,7 +87,7 @@ extension BrowserStore {
         }
     }
 
-    /// **Nullable, unlike the blocking flags.** "Nobody has answered" and "answered no"
+    /// Nullable, unlike the blocking flags. "Nobody has answered" and "answered no"
     /// are different states here: the default is the permission's, not the column's, and
     /// a `NOT NULL DEFAULT 0` would silently record a refusal for every site that has a
     /// zoom level set.

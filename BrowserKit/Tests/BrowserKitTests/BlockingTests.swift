@@ -69,7 +69,7 @@ struct BlockingTests {
             let isLowercaseASCII = domain == domain.lowercased() && domain.allSatisfy { $0.isASCII }
             #expect(isLowercaseASCII, "\(domain) is not lowercase ASCII")
         }
-        // EasyList's `domain=` means the domain *and* its subdomains; WebKit only widens
+        // EasyList's `domain=` means the domain and its subdomains; WebKit only widens
         // an entry when it starts with `*`. Dropping the star is a rule that compiles
         // fine and never fires — the silent failure §17.1 warns about.
         #expect(domains.contains("*example.com"))
@@ -156,7 +156,7 @@ struct BlockingTests {
         #expect(conversion.skipped >= 1)
     }
 
-    /// §17.3: element hiding ships *in the rule list*, so there is no flicker, and the
+    /// §17.3: element hiding ships in the rule list, so there is no flicker, and the
     /// procedural pseudo-classes WebKit would reject never reach it.
     @Test func convertsElementHidingAndDropsProceduralSelectors() {
         let conversion = FilterListConverter.convert("""
@@ -215,7 +215,7 @@ struct BlockingTests {
         // Same content → same identifier → already in the store, so no compile is due.
         #expect(try await store.contentRuleList(forIdentifier: identifier) != nil)
 
-        // A missing identifier **throws** rather than returning nil, which is the branch
+        // A missing identifier throws rather than returning nil, which is the branch
         // "we have never compiled this" hangs off.
         let next = ContentBlocker.identifier(.ads, hash: ContentBlocker.hash(Data((json + " ").utf8)), chunk: 0)
         await #expect(throws: (any Error).self) { try await store.contentRuleList(forIdentifier: next) }
@@ -285,7 +285,7 @@ struct BlockingTests {
 
     // MARK: - §17.1's schedule
 
-    /// **The interval has to be an interval.** It used to pick the *delay* and
+    /// The interval has to be an interval. It used to pick the delay and
     /// nothing else: a launch five minutes after the last refresh slept a minute
     /// and then re-fetched all three lists regardless, and because the lists
     /// upstream are rebuilt several times a day it very often recompiled them
@@ -318,7 +318,7 @@ struct BlockingTests {
         ) >= grace)
     }
 
-    /// **A first run does not get the grace.** It is affordable only because the
+    /// A first run does not get the grace. It is affordable only because the
     /// cached lists are already attached while it runs; with nothing compiled,
     /// waiting is not staleness, it is unfiltered browsing — D14 keeps the lists
     /// out of the bundle, so a first run genuinely has nothing to block with.

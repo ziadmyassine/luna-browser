@@ -2,18 +2,16 @@
 //  ColourMath.swift
 //  Luna
 //
-//  The arithmetic behind `Tokens.swift`, and **no colour values**: WCAG
-//  contrast, compositing, the ink constructors, and §2's page-derived wash.
-//  Split out for the same reason `Metrics.swift` was — to keep `Tokens.swift`
-//  under SwiftLint's file length limit — and for one more: `Tokens.swift`'s
-//  header claims to be the only file in Luna containing a colour *value*, and
-//  that claim is worth keeping literally true. Nothing here spells a colour;
-//  every function takes one and hands one back.
+//  The arithmetic behind Tokens.swift, and no colour values: WCAG contrast,
+//  compositing, the ink constructors, and §2's page-derived wash. Nothing here
+//  spells a colour; every function takes one and hands one back, which keeps
+//  Tokens.swift's claim to be the only file containing a colour value literally
+//  true.
 //
-//  The hex entry point deliberately did **not** move: `NSColor(srgb:alpha:)`
-//  and `dynamicColor` stay private inside `Tokens.swift`, so §8.1's "no literal
-//  hex outside this file" is enforced by visibility and not only by review.
-//  `inkColor` is here because it takes alphas rather than hex.
+//  The hex entry point deliberately did not move: `NSColor(srgb:alpha:)` and
+//  `dynamicColor` stay private inside Tokens.swift, so §8.1's rule is enforced
+//  by visibility rather than by review. `inkColor` is here because it takes
+//  alphas rather than hex.
 //
 
 import AppKit
@@ -40,15 +38,15 @@ extension NSColor {
         return out
     }
 
-    /// WCAG 2.1 contrast ratio of this colour **composited over** `background`.
+    /// WCAG 2.1 contrast ratio of this colour composited over `background`.
     ///
     /// Compositing first is the point: Luna's text tokens are translucent ink,
-    /// so comparing their raw values against a surface would report a ratio
-    /// that never appears on screen.
+    /// so comparing their raw values against a surface would report a ratio that
+    /// never appears on screen.
     ///
-    /// `background` must be a *plane* — something opaque. A translucent fill
-    /// such as `Surface.hover` is not one; flatten it with
-    /// `flattened(over:in:)` onto the surface underneath it first.
+    /// `background` must be a plane — something opaque. A translucent fill such
+    /// as `Surface.hover` is not one; flatten it with `flattened(over:in:)`
+    /// first.
     func contrastRatio(over background: NSColor, in appearance: NSAppearance) -> Double {
         let back = background.srgbComponents(for: appearance)
         let front = srgbComponents(for: appearance)
@@ -62,17 +60,16 @@ extension NSColor {
         return (max(lhs, rhs) + 0.05) / (min(lhs, rhs) + 0.05)
     }
 
-    /// Whether light ink reads better on this colour than dark ink does.
-    ///
-    /// **Which appearance a surface implies**, for the one piece of chrome that
-    /// takes its plane from the page rather than from the app (§3.2b's bar).
-    /// Everything drawn on it — text tokens, glyph ink, the glass fallbacks —
-    /// comes from an `NSAppearance`, so the honest way to make them all right at
-    /// once is to give that subtree the appearance its background calls for.
+    /// Whether light ink reads better on this colour than dark ink does — which
+    /// appearance a surface implies, for the one piece of chrome that takes its
+    /// plane from the page rather than from the app (§3.2b's bar). Everything
+    /// drawn on it comes from an `NSAppearance`, so the honest way to make it
+    /// all right at once is to give that subtree the appearance its background
+    /// calls for.
     ///
     /// Not a luminance threshold picked by eye: this is WCAG's own ratio for
     /// white over this colour against black over it, so the crossover lands
-    /// where contrast actually says it does rather than at a round number.
+    /// where contrast says it does rather than at a round number.
     func wantsLightInk(in appearance: NSAppearance) -> Bool {
         let luminance = srgbComponents(for: appearance).relativeLuminance
         let onWhite = 1.05 / (luminance + 0.05)
@@ -80,11 +77,9 @@ extension NSColor {
         return onWhite > onBlack
     }
 
-    /// This colour composited over `backdrop`, opaque — what the eye actually
-    /// receives when a translucent fill sits on a plane.
-    ///
-    /// Opaque receivers are handed straight back, so this is free on the
-    /// planes and only does work where there is translucency to resolve.
+    /// This colour composited over `backdrop`, opaque — what the eye receives
+    /// when a translucent fill sits on a plane. Opaque receivers are handed
+    /// straight back.
     func flattened(over backdrop: NSColor, in appearance: NSAppearance) -> NSColor {
         let front = srgbComponents(for: appearance)
         guard front.alpha < 1 else { return self }
@@ -101,19 +96,18 @@ extension NSColor {
     /// `fraction` of the way from this colour toward `other`, resolved for
     /// `appearance` — in sRGB, which is where §2's 12–18 % was eyeballed.
     ///
-    /// **Alpha-correct, and it has to be.** A straight per-channel mix is only
-    /// right when the receiver is opaque. Luna blends a *translucent* fill too
-    /// — §2's URL pill is `Surface.chromeFill` over glass — and there "18 % of
-    /// the way toward the tint" has to mean 18 % of what lands on screen,
-    /// whatever the glass happens to be showing. Compositing both the old and
-    /// the wanted result over an unknown backdrop and solving for the single
-    /// layer that replaces them gives
+    /// Alpha-correct, and it has to be. A straight per-channel mix is only right
+    /// when the receiver is opaque, and Luna blends a translucent fill too: §2's
+    /// URL pill is `Surface.chromeFill` over glass, where "18 % of the way
+    /// toward the tint" has to mean 18 % of what lands on screen. Compositing
+    /// both the old and the wanted result over an unknown backdrop and solving
+    /// for the single layer that replaces them gives
     ///
     ///     alpha' = a + f·(1 − a)
     ///     colour' = (f·other + (1 − f)·a·self) / alpha'
     ///
-    /// in which the backdrop cancels out entirely. At `a = 1` it reduces to
-    /// the plain mix this used to be, so every opaque caller is unchanged.
+    /// in which the backdrop cancels out. At `a = 1` it reduces to the plain
+    /// mix, so every opaque caller is unchanged.
     func blended(toward other: NSColor, fraction: Double, in appearance: NSAppearance) -> NSColor {
         let from = srgbComponents(for: appearance)
         let to = other.srgbComponents(for: appearance)
@@ -176,8 +170,8 @@ struct InkAlphas: Sendable {
         Tokens.A11y.increaseContrast ? (contrastLight, contrastDark) : (light, dark)
     }
 
-    /// One specific variant, for `TokenCheck` — which has to reach the
-    /// contrast branch without being able to turn the system setting on.
+    /// One specific variant, for `TokenCheck` — which has to reach the contrast
+    /// branch without being able to turn the system setting on.
     func alpha(contrast: Bool, dark isDark: Bool) -> Double {
         switch (isDark, contrast) {
         case (true, true): contrastDark
@@ -196,10 +190,9 @@ struct InkAlphas: Sendable {
 /// Translucent ink — black on light, white on dark. Translucent rather than a
 /// fixed grey so the token keeps its ratio on whichever surface it lands on.
 ///
-/// The Increase Contrast branch is taken *here*, not inside the provider,
-/// because the provider cannot see the setting (`Tokens.swift`'s header). The
-/// two variants get different colour names because an `NSColor` name is its
-/// identity.
+/// The Increase Contrast branch is taken here, not inside the provider, because
+/// the provider cannot see the setting (Tokens.swift's header). The two variants
+/// get different colour names because an `NSColor` name is its identity.
 func inkColor(_ name: String, _ alphas: InkAlphas) -> NSColor {
     let contrast = Tokens.A11y.increaseContrast
     let pair = alphas.inForce
@@ -209,14 +202,13 @@ func inkColor(_ name: String, _ alphas: InkAlphas) -> NSColor {
     }
 }
 
-/// A translucent *plane* tint — the mirror of `inkColor`: **white on light,
-/// black on dark**.
+/// A translucent plane tint — the mirror of `inkColor`: white on light, black
+/// on dark.
 ///
-/// `inkColor` exists to put marks on a surface, so it flips to white in dark
-/// mode to stay legible. A tint that thickens a surface has to go the other
-/// way: over a dark desktop the chrome reads as deeper, over a light one as
-/// milkier. Using ink here would brighten the sidebar in dark mode, which is
-/// the opposite of "less transparent".
+/// `inkColor` puts marks on a surface, so it flips to white in dark mode to stay
+/// legible. A tint that thickens a surface goes the other way: over a dark
+/// desktop the chrome reads as deeper, over a light one as milkier. Ink here
+/// would brighten the sidebar in dark mode, the opposite of "less transparent".
 func surfaceTintColor(_ name: String, _ alphas: InkAlphas) -> NSColor {
     let contrast = Tokens.A11y.increaseContrast
     let pair = alphas.inForce
@@ -226,14 +218,14 @@ func surfaceTintColor(_ name: String, _ alphas: InkAlphas) -> NSColor {
     }
 }
 
-/// A **recess**: black in both themes, at a per-theme alpha.
+/// A recess: black in both themes, at a per-theme alpha.
 ///
-/// Neither of the two above says "this sits *below* the plane around it".
-/// `inkColor` goes white on dark and `surfaceTintColor` goes white on light, so
-/// each of them lifts one theme and sinks the other. A well is absent light in
-/// both — the same physics as a shadow — which is exactly what the reference's
-/// search field and pinned tiles are: cut into the sidebar, darker than it, with
-/// a lighter hairline catching the edge.
+/// Neither of the two above says "this sits below the plane around it" —
+/// `inkColor` goes white on dark and `surfaceTintColor` white on light, so each
+/// lifts one theme and sinks the other. A well is absent light in both, the same
+/// physics as a shadow, which is what the reference's search field and pinned
+/// tiles are: cut into the sidebar, darker than it, with a lighter hairline
+/// catching the edge.
 func recessInkColor(_ name: String, _ alphas: InkAlphas) -> NSColor {
     let contrast = Tokens.A11y.increaseContrast
     let pair = alphas.inForce
@@ -242,14 +234,13 @@ func recessInkColor(_ name: String, _ alphas: InkAlphas) -> NSColor {
     }
 }
 
-/// A **frost**: an existing opaque plane, handed back at a per-theme alpha.
+/// A frost: an existing opaque plane, handed back at a per-theme alpha.
 ///
 /// The other four constructors invent a colour from an alpha; this one keeps a
-/// colour and only changes how much of it there is. §2's frost has to be the
-/// *same* grey the chrome falls back to under Reduce Transparency — a second,
-/// independently-chosen neutral would drift from it the first time either moved
-/// — so the plane is passed in and resolved per appearance rather than spelled
-/// again here. Nothing in this file names a colour, and this does not either.
+/// colour and changes how much of it there is. §2's frost has to be the same
+/// grey the chrome falls back to under Reduce Transparency — a second,
+/// independently chosen neutral would drift the first time either moved — so the
+/// plane is passed in and resolved per appearance rather than spelled again.
 func frostColor(_ name: String, over plane: NSColor, _ alphas: InkAlphas) -> NSColor {
     let contrast = Tokens.A11y.increaseContrast
     let pair = alphas.inForce
@@ -264,10 +255,9 @@ func frostColor(_ name: String, over plane: NSColor, _ alphas: InkAlphas) -> NSC
     }
 }
 
-/// A drop shadow's colour: **black in both themes**, with a per-theme alpha.
-///
-/// Not `inkColor`, which flips to white on dark — a white shadow is a glow, and
-/// §5 asks for weight, not for the popover to light up.
+/// A drop shadow's colour: black in both themes, with a per-theme alpha. Not
+/// `inkColor`, which flips to white on dark — a white shadow is a glow, and §5
+/// asks for weight.
 func shadowInkColor(_ name: String, _ alphas: InkAlphas) -> NSColor {
     let contrast = Tokens.A11y.increaseContrast
     let pair = alphas.inForce
@@ -284,13 +274,12 @@ extension Tokens {
     /// backing the fraction off until `text` still clears §21.4's 4.5:1, and
     /// dropping the wash entirely rather than shipping unreadable chrome.
     ///
-    /// This is the blend *helper* only. Deciding when to apply it, animating it
-    /// over `Motion.themeWash`, and skipping it under Reduce Transparency
-    /// (§2) are the consuming view's job.
+    /// The blend helper only. Deciding when to apply it, animating it over
+    /// `Motion.themeWash` and skipping it under Reduce Transparency (§2) are the
+    /// consuming view's job.
     ///
-    /// Hand it `Surface.chromeFill` as the fill and the result stays
-    /// translucent, so the pill keeps its glass; hand it an opaque plane and
-    /// you get an opaque fill, exactly as before.
+    /// Hand it `Surface.chromeFill` and the result stays translucent, so the
+    /// pill keeps its glass; hand it an opaque plane and you get an opaque fill.
     ///
     /// - Parameters:
     ///   - tint: the page colour, already bridged from `RGBA`.
@@ -299,10 +288,9 @@ extension Tokens {
     ///   - text: the colour that must stay readable on the result.
     ///   - backdrop: the plane the washed fill will be seen against. Only
     ///     consulted when `fill` is translucent — a §21.4 ratio has to be
-    ///     measured against what the eye receives, and a translucent wash on
-    ///     its own is not that. Defaults to `Surface.raised`, which is what
-    ///     `.control` glass falls back to under Reduce Transparency and
-    ///     therefore the system's own stand-in for "behind the pill".
+    ///     measured against what the eye receives. Defaults to `Surface.raised`,
+    ///     what `.control` glass falls back to under Reduce Transparency and so
+    ///     the system's own stand-in for "behind the pill".
     /// - Returns: a dynamic colour that re-clamps per appearance. Equal to
     ///   `fill` wherever even 12 % fails.
     static func wash(

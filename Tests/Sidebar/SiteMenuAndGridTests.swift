@@ -6,11 +6,10 @@
 //  asserted here instead of eyeballed: §3.3's grid shape, and the rule list
 //  behind §3.2's Local Network permission.
 //
-//  The rule list is the one that would otherwise fail silently. WebKit refuses
-//  a pattern its URL-filter engine cannot parse by *throwing*, and the compile
-//  is a fire-and-forget `Task` — so a typo in a regex would leave
-//  `localNetworkList` nil, nothing blocked, and a checkmark in the menu that
-//  means nothing at all.
+//  The rule list is the one that would otherwise fail silently: WebKit refuses
+//  a pattern its URL-filter engine cannot parse by throwing, and the compile is
+//  a fire-and-forget `Task`, so a typo in a regex leaves `localNetworkList`
+//  nil, nothing blocked, and a checkmark in the menu that means nothing.
 //
 
 import BrowserKit
@@ -18,7 +17,7 @@ import WebKit
 import XCTest
 @testable import Luna
 
-/// §3.3's grid as a set of views, which is where the *arrival* of a tile can go
+/// §3.3's grid as a set of views, which is where the arrival of a tile can go
 /// wrong in a way arithmetic cannot see.
 @MainActor
 final class EssentialsGridArrivalTests: XCTestCase {
@@ -40,12 +39,41 @@ final class EssentialsGridArrivalTests: XCTestCase {
         }
     }
 
-    /// **A tile that has just been pinned lands in its slot.** It is a fresh
+    /// Every tile on the grid, fading ones included — which is the whole point:
+    /// a tile on its way out is still a tile on screen.
+    private static func tiles(in grid: EssentialsGridView) -> [GlassButton] {
+        grid.subviews.compactMap { $0 as? GlassButton }
+    }
+
+    /// A Space switch replaces this grid; an unpin edits it, and the two
+    /// had the same answer for one build.
+    ///
+    /// A tile that leaves fades out where it stood, because removing it
+    /// outright made an unpin look like the tab had been deleted off-screen.
+    /// Across a Space switch every tile leaves at once, and `NSView` keeps a
+    /// view being faded on screen for the length of the fade — so the Space
+    /// just left stayed drawn over the Space just arrived in for a fifth of a
+    /// second. That is the flash of old tabs, and this is the pair of claims
+    /// that separates the two cases.
+    func testAnUnpinnedTileFadesWhereItStoodAndAReplacedSpaceLeavesNothing() {
+        let unpinning = grid()
+        let pinned = tabs(3)
+        unpinning.show(pinned, activeTabID: nil)
+        unpinning.show(Array(pinned.dropLast()), activeTabID: nil)
+        XCTAssertEqual(Self.tiles(in: unpinning).count, 3, "the unpinned tile vanished instead of fading out")
+
+        let switching = grid()
+        switching.show(pinned, activeTabID: nil)
+        switching.show(tabs(2), activeTabID: nil, replacing: true)
+        XCTAssertEqual(Self.tiles(in: switching).count, 2, "the previous Space's tiles are still on screen")
+    }
+
+    /// A tile that has just been pinned lands in its slot. It is a fresh
     /// view, so its frame is the grid's own origin until something places it,
     /// and the pass that places it is the animated one — so the tile flew up
     /// from the foot of the leading edge into the slot the lift had just come
     /// to rest in. The tiles that were already there still travel; only the
-    /// one with nowhere to travel *from* is exempt.
+    /// one with nowhere to travel from is exempt.
     func testANewlyPinnedTileDoesNotFlyInFromTheCorner() {
         let grid = grid()
         let pinned = tabs(3)
@@ -64,7 +92,7 @@ final class EssentialsGridArrivalTests: XCTestCase {
 @MainActor
 final class EssentialsGridShapeTests: XCTestCase {
 
-    /// The shapes Martin drew, one per reference: 1, 2, 3 and 4 across in a
+    /// The shapes the references draw, one each: 1, 2, 3 and 4 across in a
     /// single row, then 3 + 2, 3 + 3, 4 + 3 and 4 + 4.
     func testShapeFollowsTheTileCount() {
         let expected: [Int: (rows: Int, columns: Int)] = [
@@ -151,7 +179,7 @@ final class LocalNetworkRuleTests: XCTestCase {
     }
 }
 
-/// §3.2a's glyphs, which fail by *disappearing*.
+/// §3.2a's glyphs, which fail by disappearing.
 ///
 /// Both halves of that are here. A misspelt SF Symbol makes no image and no
 /// fallback box — the label is drawn without it and the item is one gap out of

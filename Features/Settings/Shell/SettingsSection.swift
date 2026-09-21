@@ -46,10 +46,13 @@ enum SettingsMetrics {
 
     /// The section list: the row's pitch, the gap between two pills, and what
     /// is left for the pill itself.
-    static let sectionRowHeight = Tokens.Metric.settingsSectionRow
+    ///
+    /// The browser sidebar's own three numbers, not a set of its own that
+    /// came close. They are aliased rather than spelled out so the equality is
+    /// a fact of the code: retune a tab row and §2's list follows it.
+    static let sectionRowHeight = Tokens.Metric.rowHeight
     static let sectionRowGap = Tokens.Metric.rowGap
-    static let sectionPillHeight = Tokens.Metric.settingsSectionRow - Tokens.Metric.rowGap
-    static let sectionRowInset = Tokens.Metric.rowInset - 2
+    static let sectionPillHeight = Tokens.Metric.rowPillHeight
 
     /// A card row, and the inset that is the pane's whole text grid: the rules
     /// between rows start there and so does a group's header, so every piece of

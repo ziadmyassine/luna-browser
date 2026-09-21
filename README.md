@@ -21,7 +21,7 @@ breadth of features.
 - Spaces and Profiles on separate storage containers, so logins stay separate
 - Pinned tiles and auto-archiving Today tabs
 - Content blocking, HTTPS-Only and per-site permissions
-- Password autofill straight into Apple's Keychain — no vault of Luna's own
+- Password autofill from the macOS Keychain, behind Touch ID — no vault of Luna's own
 - Command Bar: URL, search, open tabs and history in one input
 - Search engine customization, including custom `%s` templates
 - Import from Safari, Arc, Chrome, Brave, Edge and seven more

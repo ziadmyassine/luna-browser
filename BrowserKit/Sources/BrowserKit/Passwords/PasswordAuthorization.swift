@@ -8,7 +8,7 @@ import LocalAuthentication
 /// unlocked Mac, and "unlocked" covers a laptop left open for two minutes.
 /// The gate costs a fingerprint and removes that whole class of problem.
 ///
-/// **It runs before the Keychain read, not after.** `PasswordCoordinator.fill`
+/// It runs before the Keychain read, not after. `PasswordCoordinator.fill`
 /// asks here first and only then calls `CredentialStore.password(for:)`, so a
 /// refused or cancelled prompt means the secret was never fetched into the
 /// process at all — there is nothing in memory to have leaked.
@@ -30,7 +30,7 @@ public enum PasswordAuthorization {
     public static var evaluate: @MainActor (String) async -> Bool = { reason in
         let context = LAContext()
         var error: NSError?
-        // No biometrics *and* no password set. Nothing to ask, and refusing
+        // No biometrics and no password set. Nothing to ask, and refusing
         // here would disable autofill on that Mac entirely rather than
         // protecting anything — the machine has no lock to be behind.
         guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else { return true }

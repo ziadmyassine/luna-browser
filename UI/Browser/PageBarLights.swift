@@ -14,9 +14,9 @@ import AppKit
 
 extension PageChromeBar {
 
-    /// **The traffic lights come and go without resizing this bar.**
+    /// The traffic lights come and go without resizing this bar.
     ///
-    /// `placeControls` lays the three circles out *against* the lights
+    /// `placeControls` lays the three circles out against the lights
     /// (`TrafficLightSpace`), and macOS takes them out of the window on the way
     /// into fullscreen and hands them back on the way out. Neither edge changes
     /// this view's bounds, so nothing marks it dirty and the bar keeps whichever
@@ -27,7 +27,7 @@ extension PageChromeBar {
     ///
     /// §3.1's control row has exactly this dependency and is fixed exactly this
     /// way, in `BrowserWindowController.relayoutChrome`. That pass walks the
-    /// **chrome host's** subviews, and this bar is not one of them: it is an
+    /// chrome host's subviews, and this bar is not one of them: it is an
     /// overlay on the content card (`ContentCardView.setOverlay`), so the pass
     /// never reached it and it has to hear the two notifications itself.
     ///
@@ -51,7 +51,7 @@ extension PageChromeBar {
     }
 
     /// Twice, for the reason `relayoutChrome` gives: AppKit restores the buttons
-    /// *after* posting the exit notification, so the pass that has real frames to
+    /// after posting the exit notification, so the pass that has real frames to
     /// read is the one after this.
     @objc func lightsMoved(_ note: Notification) {
         guard let posted = note.object as? NSWindow, posted === window else { return }

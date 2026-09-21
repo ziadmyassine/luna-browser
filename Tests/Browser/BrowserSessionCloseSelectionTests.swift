@@ -6,7 +6,7 @@
 //
 //  It used to be "the most recently used tab in the Space", which answers a
 //  different question. §3.4 stacks today's tabs newest-first, so the recent one
-//  is very often the row *above* — closing down a list walked it backwards —
+//  is very often the row above — closing down a list walked it backwards —
 //  and closing a run of tabs from the top threw the selection somewhere in the
 //  middle, where the next `⌘W` closed a tab the user was not looking at.
 //
@@ -61,7 +61,7 @@ final class BrowserSessionCloseSelectionTests: XCTestCase {
         XCTAssertEqual(session.activeTabID, rows[1])
     }
 
-    /// Closing a tab that is **not** the one showing must not move the
+    /// Closing a tab that is not the one showing must not move the
     /// selection at all — the row below it is the answer to a question nobody
     /// asked.
     func testClosingABackgroundTabLeavesTheSelectionAlone() async throws {
@@ -97,7 +97,7 @@ final class BrowserSessionCloseSelectionTests: XCTestCase {
 
     /// `count` today tabs, in list order top to bottom. They are inserted at
     /// the end of the section rather than through `newTab`, whose §3.4 rule is
-    /// that a new tab goes to the *top* — which would return them reversed and
+    /// that a new tab goes to the top — which would return them reversed and
     /// make every expectation here read backwards.
     private func seed(_ session: BrowserSession, count: Int) throws -> [UUID] {
         let space = try XCTUnwrap(session.spaces.first)

@@ -2,17 +2,15 @@
 //  Spaces+Dialogs.swift
 //  Luna
 //
-//  Everything §3.7's Spaces section *asks* rather than shows: creating a Space
+//  Everything §3.7's Spaces section asks rather than shows: creating a Space
 //  onto a chosen profile, §6.4's deletion dialog, moving a Space across a
 //  profile boundary, clearing a profile's cookies — and the four pure
 //  functions that write their sentences.
 //
-//  Split out of `Spaces.swift` because that file grew past the project's
-//  400-line rule the moment a Space had six settings instead of one. The
-//  strings are `static` and free of AppKit on purpose: a dialog whose wording
-//  can only be checked by clicking it is a dialog whose wording is never
-//  checked, and these four are the ones that have to beat Firefox's and
-//  Chrome's.
+//  Split out of `Spaces.swift` when a Space grew six settings instead of one.
+//  The strings are `static` and free of AppKit on purpose: a dialog whose
+//  wording can only be checked by clicking it is one whose wording is never
+//  checked.
 //
 
 import AppKit
@@ -24,20 +22,23 @@ extension SpacesSection {
 
     // MARK: New Space (§6.1)
 
-    /// **Creating a Space now asks which cookie jar it lands in**, which is the
+    /// Creating a Space now asks which cookie jar it lands in, which is the
     /// half that was modelled and unreachable: `createSpace` always minted a
     /// fresh `Profile`, so many Spaces to one Profile could be stored and never
     /// made. The popup's first entry is a new profile; the rest are the ones
     /// that exist.
-    func newSpaceRow(
+    /// A button beside the section's heading, not a row in a card. As a row
+    /// it needed a card, and the card needed a heading, so the pane read
+    /// `Spaces` ▸ card ▸ `New Space` ▸ `[New Space]`. The heading names what
+    /// the cards below it are and this adds one; see `SettingsRow.heading`.
+    func newSpaceButton(
         sharing spaces: [Space],
         session: BrowserSession?
     ) -> (view: NSView, terms: [String]) {
         let title = String(localized: "New Space")
-        let row = SettingsRow.button(title, action: title) { [weak self] in
-            self?.createSpace(session: session)
-        }
-        return (row, [title, "add space", "create space", "share profile"])
+        let button = SettingsPushButton(title: title, isDestructive: false)
+        button.onActivate = { [weak self] in self?.createSpace(session: session) }
+        return (button, [title, "add space", "create space", "share profile"])
     }
 
     private func createSpace(session: BrowserSession?) {
@@ -85,8 +86,8 @@ extension SpacesSection {
     /// Firefox warns about the tab count and says nothing about the cookies and
     /// logins it is about to destroy. Chrome itemises the data and never says
     /// that it force-closes your windows. Luna has to say a third thing neither
-    /// of them has to, because Space → Profile is many-to-one: **whether the
-    /// cookies go at all depends on who else is on this profile.**
+    /// of them has to, because Space → Profile is many-to-one: whether the
+    /// cookies go at all depends on who else is on this profile.
     ///
     /// And it offers the choice §6.3 added rather than announcing a loss: the
     /// tabs are archived, or adopted into another Space. Nothing is destroyed
@@ -163,7 +164,7 @@ extension SpacesSection {
     // MARK: Profiles
 
     /// Was dimmed for "BrowserStore has no delete(profileID:)". It is not a
-    /// row about deleting the *row* — every profile has at least one Space
+    /// row about deleting the row — every profile has at least one Space
     /// naming it, so a deletable profile cannot be reached from here. What the
     /// user actually wants from this button is the cookie jar emptied, which
     /// WebKit does directly and which is honest about affecting every Space on
@@ -251,7 +252,7 @@ extension SpacesSection {
 
     /// The three clauses, and which of them is true depends on the fan-out.
     ///
-    /// **`sites` is nil exactly when the profile is shared**, because then the
+    /// `sites` is nil exactly when the profile is shared, because then the
     /// cookie jar is not deleted at all — `deleteSpace` only removes a store no
     /// surviving Space names. §6.4's example sentence ("permanently deletes
     /// cookies … Spaces Research and Side Project also use this profile and
@@ -303,7 +304,14 @@ extension SpacesSection {
     /// §13.10: Arc supports emoji as well as SF Symbols, and SigmaOS is
     /// emoji-first. Luna is symbols-only for now and that is named in the
     /// report rather than pretended away.
+    ///
+    /// The first entry is the one a Space is born with. It was missing, and
+    /// it made the picker lie: `firstIndex(of:) ?? 0` showed "Grid" selected on
+    /// every Space that had never been re-iconed, which was all of them.
+    /// `SpaceAppearanceView` marks the icon a Space actually wears, so the same
+    /// gap showed up honestly instead — as a grid with nothing chosen in it.
     static let symbols: [(label: String, name: String)] = [
+        (String(localized: "Moon"), BrowserSession.defaultSpaceSymbol),
         (String(localized: "Grid"), "square.grid.2x2"),
         (String(localized: "Planet"), "globe.americas"),
         (String(localized: "Briefcase"), "briefcase"),

@@ -52,8 +52,7 @@ public struct PasswordSaveRequest: Sendable {
 ///
 /// Split out of `TabController` rather than added to it: a Swift extension
 /// cannot carry storage, and §33's warning about the 4,000-line manager applies
-/// to the engine class most of all. `TabController` holds one reference to this
-/// and forwards two calls.
+/// to the engine class most of all.
 ///
 /// # §14.8, rule by rule, and where each one is enforced
 ///
@@ -101,7 +100,7 @@ public final class PasswordCoordinator {
 
         switch event {
         case let .formDetected(form):
-            // **A detected form is not an offer.** The page reports one on
+            // A detected form is not an offer. The page reports one on
             // load, on every DOM mutation and on every frame of a scroll, so
             // offering here would pop a picker over a page nobody has touched
             // and then rebuild it sixty times a second while the user scrolls
@@ -128,16 +127,16 @@ public final class PasswordCoordinator {
 
     /// §14.8's origin rule.
     ///
-    /// **Compared against `WKFrameInfo.securityOrigin`, never against anything
-    /// the script said.** A script running inside a hostile iframe can claim
+    /// Compared against `WKFrameInfo.securityOrigin`, never against anything
+    /// the script said. A script running inside a hostile iframe can claim
     /// any origin it likes; `frameInfo` is filled in by WebKit from the frame's
     /// actual security origin and is not reachable from page JavaScript.
     ///
-    /// The main frame is trusted by definition — it *is* the page. A subframe
-    /// must match it on scheme, host and port: a same-*site* check would let
-    /// `evil.example.com` inside `bank.example.com` collect the password,
-    /// which is precisely the attack the rule exists for, so this is the one
-    /// place in the feature that does **not** go through `PublicSuffix`.
+    /// The main frame is trusted by definition — it is the page. A subframe
+    /// must match it on scheme, host and port: a same-site check would let
+    /// `evil.example.com` inside `bank.example.com` collect the password, which
+    /// is the attack the rule exists for. This is the one place in the feature
+    /// that does not go through `PublicSuffix`.
     func isFrameTrusted(_ frame: WKFrameInfo, in webView: WKWebView) -> Bool {
         if frame.isMainFrame { return true }
         guard let page = webView.url,
@@ -156,7 +155,7 @@ public final class PasswordCoordinator {
         guard let tab, let site = PublicSuffix.siteKey(forHost: webView.url?.host()) else { return }
         let insecure = webView.url?.scheme?.lowercased() != "https"
 
-        // A signup form wants a *new* password, not an old one (§14.5).
+        // A signup form wants a new password, not an old one (§14.5).
         if form.isSignup, PasswordSettings.offersGeneratedPasswords {
             let rules = form.passwordRules.flatMap(PasswordGenerator.parse) ?? .default
             isOffering = true
@@ -194,7 +193,7 @@ public final class PasswordCoordinator {
         Task { [weak self] in
             let existing = await CredentialStore.shared.credentials(forSite: site)
             let match = existing.first { $0.username == username }
-            // Same username *and* same password: the user signed in with what
+            // Same username and same password: the user signed in with what
             // is already saved, so there is nothing to ask about. This is the
             // overwhelmingly common case, and a chip here would train the user
             // to dismiss the one that matters.
@@ -246,14 +245,14 @@ public final class PasswordCoordinator {
         // user clicking, and the credential must not follow it somewhere else.
         guard PublicSuffix.isSameSite(webView.url?.host(), credential.site) else { return }
 
-        // Touch ID **before** the Keychain read, so a cancelled prompt means
+        // Touch ID before the Keychain read, so a cancelled prompt means
         // the password was never fetched into this process at all.
         guard await PasswordAuthorization.confirmFill(for: credential.site) else { return }
 
         // That prompt is modal and can sit there as long as the user likes,
         // which is ample time for the page underneath to navigate or re-render.
         // So everything the first two guards established is established again
-        // on the other side of it, against the form the page is showing *now*.
+        // on the other side of it, against the form the page is showing now.
         guard let webView = tab?.webView, let current = form, current.id == requested.id,
               PublicSuffix.isSameSite(webView.url?.host(), credential.site)
         else { return }

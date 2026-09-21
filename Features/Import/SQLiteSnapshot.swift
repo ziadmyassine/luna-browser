@@ -5,20 +5,20 @@
 //  Reading another browser's live database, without breaking it or being
 //  blocked by it.
 //
-//  **Measured on this Mac, 2026-09-17, against Dia 1.48.0's `Profile 1`:**
-//  opening `.../Profile 1/History` in place with `mode=ro` fails with
-//  `database is locked (5)` while Dia is running. Copying the file plus its
-//  sidecar into `TMPDIR` and opening the copy returns 8,247 `urls` and 17,931
-//  `visits`. So the copy is not a precaution, it is the only thing that works.
+//  Measured on 2026-09-17 against Dia 1.48.0's `Profile 1`: opening
+//  `.../Profile 1/History` in place with `mode=ro` fails with `database is
+//  locked (5)` while Dia is running, and copying the file plus its sidecar into
+//  `TMPDIR` returns 8,247 `urls` and 17,931 `visits`. The copy is not a
+//  precaution, it is the only thing that works.
 //
 //  Two details the copy has to get right:
 //
-//  1. **Copy the sidecars.** A WAL database's newest writes live entirely in
+//  1. Copy the sidecars. A WAL database's newest writes live entirely in
 //     `-wal`; a rollback-journal database needs `-journal` to roll back
 //     correctly. Dia's live `History` uses a rollback journal today
 //     (`History-journal`, no `-wal`) — Chromium uses both depending on version
 //     and file, so copy whichever exist.
-//  2. **`?immutable=1` is not an alternative.** It skips the lock by promising
+//  2. `?immutable=1` is not an alternative. It skips the lock by promising
 //     the file cannot change, which makes SQLite ignore the WAL entirely and
 //     report `no such table` for data that has not been checkpointed.
 //
@@ -88,7 +88,7 @@ enum SQLiteError: LocalizedError, Equatable {
     }
 }
 
-/// A minimal read-only wrapper over the **system** SQLite.
+/// A minimal read-only wrapper over the system SQLite.
 ///
 /// `import SQLite3` autolinks; no package dependency, which matters for a
 /// project whose premise is staying small. Not `Sendable` on purpose — the
@@ -185,8 +185,8 @@ final class SQLiteReader {
 
 /// Chromium's time epoch, and the guards a conversion needs.
 ///
-/// Times are **microseconds since 1601-01-01 UTC** in every column read here,
-/// and in `Bookmarks` the same number arrives as a JSON *string* — verified in
+/// Times are microseconds since 1601-01-01 UTC in every column read here,
+/// and in `Bookmarks` the same number arrives as a JSON string — verified in
 /// Dia's file, where `date_added` is `"13429579614840426"`. That is the one
 /// detail a default `Decodable` gets wrong.
 ///

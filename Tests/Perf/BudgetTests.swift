@@ -7,7 +7,7 @@
 //  40-tab memory ceiling — are measured against real processes by
 //  `Tools/perf`, because neither is observable from inside a test host.
 //
-//  **These are skipped unless `LUNA_PERF=1`.** A wall-clock assertion in the
+//  These are skipped unless `LUNA_PERF=1`. A wall-clock assertion in the
 //  everyday suite fails for reasons that have nothing to do with the code —
 //  another agent's build, a Spotlight pass — and a flaky red test teaches
 //  people to ignore red tests. `Tools/perf/run.sh` sets the variable; the
@@ -26,9 +26,9 @@ final class BudgetTests: XCTestCase {
     /// test that takes the suite down with it is worse than no test.
     private var directory: URL?
 
-    /// The opt-in is a **file**, not an environment variable, because
+    /// The opt-in is a file, not an environment variable, because
     /// `xcodebuild test` does not pass its environment to a hosted unit test's
-    /// host app — verified: with `LUNA_PERF=1` in the environment *and* as
+    /// host app — verified: with `LUNA_PERF=1` in the environment and as
     /// `TEST_RUNNER_LUNA_PERF=1` on the command line, the test host still saw
     /// neither and skipped. `run.sh` touches this path and removes it after.
     static let enabledMarker = "/tmp/luna-perf-enabled"
@@ -118,7 +118,7 @@ final class BudgetTests: XCTestCase {
     /// §19.1: the sidebar scrolls at 120 fps on ProMotion — 8.33 ms per frame.
     ///
     /// What is measured is the main-thread cost of a scroll step: layout plus a
-    /// synchronous draw of everything on screen. That is a **ceiling test**, not
+    /// synchronous draw of everything on screen. That is a ceiling test, not
     /// a frame-rate reading — it cannot see the compositor, and a test host has
     /// no ProMotion display. If this is over budget, 120 fps is impossible; if
     /// it is under, 120 fps is merely possible, and §19.5's Animation Hitches
@@ -161,5 +161,64 @@ final class BudgetTests: XCTestCase {
         let worst = percentile(frames, 0.95)
         record(String(format: "PERF sidebar frame median %.2f ms, p95 %.2f ms (budget 8.33 ms)", median, worst))
         XCTAssertLessThan(worst, 8.33, "a frame over 8.33 ms cannot be delivered at 120 Hz")
+    }
+
+    /// §6.4's pop-out, opened from the History button, against a full archive.
+    ///
+    /// Everything `PopoutController.present` does happens *before*
+    /// `animateIn`, so whatever this costs is a freeze the user sits through
+    /// with nothing on screen to explain it. The archive is the one list in
+    /// the app with no ceiling on it — §6.3 keeps a closed tab for thirty
+    /// days, and thirty days of ordinary use is four figures.
+    ///
+    /// Budget is the command bar's 100 ms, for the same reason: both are a
+    /// surface that has to be there by the time the hand has finished asking.
+    func testHistoryPanelPresentation() async throws {
+        // Today's real archive, and thirty days of it. The first is what this
+        // machine's user is feeling now; the second is what §6.3's retention
+        // has already promised them.
+        for count in [162, 1200] {
+            let (first, median) = try await presentHistory(archived: count)
+            record(String(
+                format: "PERF history pop-out, %d archived: first %.1f ms, median %.1f ms (budget 100 ms)",
+                count, first, median
+            ))
+            XCTAssertLessThan(first, 100, "\(count) archived tabs freeze the app before the pop-out appears")
+            XCTAssertLessThan(median, 100)
+        }
+    }
+
+    /// Opens §6.4's pop-out five times over an archive of `archived` tabs, and
+    /// gives back the first and median cost in milliseconds.
+    private func presentHistory(archived: Int) async throws -> (first: Double, median: Double) {
+        let directory = try XCTUnwrap(directory)
+        let store = try BrowserStore(path: directory.appending(path: "luna-\(archived).sqlite"))
+        try await store.seedIfEmpty()
+        let spaces = try await store.spaces()
+        let space = try XCTUnwrap(spaces.first)
+        for index in 0..<archived {
+            try await store.upsert(Tab(
+                spaceID: space.id,
+                url: URL(string: "https://example\(index % 20).com/page/\(index)")!,
+                title: "A closed tab with a title of about the usual length \(index)",
+                archivedAt: Date().addingTimeInterval(-Double(index) * 60),
+                order: index
+            ))
+        }
+        let session = try await BrowserSession.restored(store: store)
+        XCTAssertEqual(session.archived.count, archived)
+        let history = HistoryPanelController(session: session)
+        let window = window()
+
+        var times: [Double] = []
+        for _ in 0..<5 {
+            let start = CFAbsoluteTimeGetCurrent()
+            history.present(in: window, from: try XCTUnwrap(window.contentView))
+            window.contentView?.layoutSubtreeIfNeeded()
+            times.append((CFAbsoluteTimeGetCurrent() - start) * 1000)
+            history.dismiss()
+        }
+        session.tearDown()
+        return (times[0], percentile(times, 0.5))
     }
 }

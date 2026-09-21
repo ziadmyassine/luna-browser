@@ -5,16 +5,15 @@
 //  §3.6's overrides: which keystroke each command actually wears, once the user
 //  has had their say.
 //
-//  `UserDefaults`, one key per command (`luna.shortcut.<id>`), like every other
-//  preference Luna keeps. One key per command rather than a single dictionary so
-//  that a command that is renamed, retired or not yet written simply has no key —
-//  a stored blob would have to be migrated, and the thing being migrated is a
-//  keystroke.
+//  `UserDefaults`, one key per command (`luna.shortcut.<id>`). One key rather
+//  than a single dictionary, so a command that is renamed, retired or not yet
+//  written simply has no key — a stored blob would have to be migrated, and the
+//  thing being migrated is a keystroke.
 //
-//  **An override is a full replacement, and an empty one is a real answer.**
-//  There are three states, not two: no key at all (the default stands), a stored
-//  keystroke, and `none` — the user deliberately taking a shortcut away. The
-//  third is why the absence of a value cannot mean "no shortcut".
+//  An override is a full replacement, and an empty one is a real answer: three
+//  states, not two — no key at all (the default stands), a stored keystroke,
+//  and `none`, the user deliberately taking a shortcut away. The third is why
+//  the absence of a value cannot mean "no shortcut".
 //
 //  Nothing here touches a menu. `MainMenu` rebuilds itself when `didChange`
 //  arrives, which is the only way a binding reaches the menu bar — see
@@ -112,7 +111,7 @@ enum KeyBindings {
     /// Who owns `binding` today, or nil if it is free. `ignoring` is the command
     /// being edited — a shortcut is never in conflict with itself.
     ///
-    /// **Alternates count.** ⇧⌘] is not printed anywhere, because it is Show
+    /// Alternates count. ⇧⌘] is not printed anywhere, because it is Show
     /// Next Tab's second binding, and handing it to something else would leave
     /// two live menu items on one keystroke with AppKit picking the winner by
     /// menu order.

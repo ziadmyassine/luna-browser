@@ -2,7 +2,7 @@ import Foundation
 
 /// EasyList-syntax text → WebKit's content-blocker rules (§17.1).
 ///
-/// The governing fact: **one bad rule fails the entire list**, not itself. A rejected
+/// The governing fact: one bad rule fails the entire list, not itself. A rejected
 /// regex, an uppercase domain or an unknown `resource-type` string takes all 150,000
 /// rules down with it. So everything here is a whitelist — a construct we have not
 /// measured as accepted is dropped, and `skipped` counts what went. Coverage is a thing
@@ -14,8 +14,8 @@ public enum FilterListConverter {
         public var blocks: [ContentRule] = []
         /// `css-display-none` rules (§17.3) — shipped in the list so there is no flicker.
         public var hides: [ContentRule] = []
-        /// `ignore-previous-rules`. WebKit applies these against rules **earlier in the
-        /// same array**, so they always go last and they never leave their chunk.
+        /// `ignore-previous-rules`. WebKit applies these against rules earlier in the
+        /// same array, so they always go last and they never leave their chunk.
         public var exceptions: [ContentRule] = []
         /// Lines we understood to be rules but could not express. Not an error — EasyList
         /// carries plenty that WebKit has no equivalent for — but a number worth watching.
@@ -26,7 +26,7 @@ public enum FilterListConverter {
 
         /// Splits into lists that each fit ``ContentRuleLimits/maxRulesPerList``.
         ///
-        /// Every chunk carries the **whole** exception set, because `ignore-previous-rules`
+        /// Every chunk carries the whole exception set, because `ignore-previous-rules`
         /// cannot reach across into another compiled list: an exception separated from the
         /// block rule it cancels is a site that mysteriously breaks. Exceptions are a few
         /// percent of a list, so paying for them per chunk is cheaper than being wrong.
@@ -93,7 +93,7 @@ public enum FilterListConverter {
 
     /// EasyList's procedural pseudo-classes are uBlock/ABP extensions, not CSS. WebKit
     /// rejects the list outright if one reaches it, so they are dropped by name.
-    /// `:has()` is deliberately *not* on this list: it is real CSS and WebKit ships it.
+    /// `:has()` is deliberately not on this list: it is real CSS and WebKit ships it.
     private static let unsupportedSelectorTokens = [
         ":-abp-", ":style(", ":remove(", ":matches-", ":contains(", ":has-text(", ":xpath(",
         ":upward(", ":nth-ancestor(", ":watch-attr(", ":min-text-length(", ":others(", ":if("
@@ -111,7 +111,7 @@ public enum FilterListConverter {
     private static func appendNetwork(pattern: String, action: ContentRule.Action, into result: inout Conversion) {
         var body = pattern
         var options = ""
-        // The option separator is the **last** unescaped `$`; a `$` inside the pattern is
+        // The option separator is the last unescaped `$`; a `$` inside the pattern is
         // legal (query strings have them).
         if let dollar = body.lastIndex(of: "$"), dollar != body.startIndex,
            body[body.index(before: dollar)] != "\\" {
@@ -123,7 +123,7 @@ public enum FilterListConverter {
         guard let parsed = Options.parse(options) else { result.skipped += 1; return }
 
         // `@@…$document` (and its `elemhide`/`generichide` cousins) is EasyList's "turn
-        // blocking off on this site" rule. It is about the *page*, not the resource, so it
+        // blocking off on this site" rule. It is about the page, not the resource, so it
         // becomes an `if-domain` exception rather than a URL match — the one mapping that
         // makes a whitelisted site actually work.
         if action.type == ContentRule.Action.ignorePrevious.type, parsed.isDocumentScope,
@@ -167,7 +167,7 @@ public enum FilterListConverter {
 
     // MARK: - Pattern → url-filter
 
-    /// Metacharacters of the dialect WebKit *does* support. Everything else is a literal
+    /// Metacharacters of the dialect WebKit does support. Everything else is a literal
     /// and is passed through untouched — escaping punctuation WebKit does not treat as
     /// special risks "unsupported escape", which fails the list.
     private static let metacharacters: Set<Character> = [".", "^", "$", "+", "?", "(", ")", "[", "]", "{", "}", "|", "\\"]
@@ -213,7 +213,7 @@ public enum FilterListConverter {
             return ".*"
         case "^":
             // ABP's separator is "any character that is not a letter, digit, `_`, `-`,
-            // `.` or `%`, **or the end of the address**". The "or end" half needs
+            // `.` or `%`, or the end of the address". The "or end" half needs
             // alternation, which WebKit does not have (measured: "Disjunctions are not
             // supported yet"), so only the character class survives. In practice the loss
             // is nil for `||host^` rules: WebKit hands the matcher a canonical URL, which
@@ -239,7 +239,7 @@ public enum FilterListConverter {
             let raw = negated ? String(entry.dropFirst()) : String(entry)
             // Regex-valued domains (`/…/`) are an ABP extension with no WebKit form.
             guard !raw.hasPrefix("/") else { return nil }
-            // EasyList's `domain=` means the domain *and its subdomains*; WebKit's bare
+            // EasyList's `domain=` means the domain and its subdomains; WebKit's bare
             // entry means that host exactly, and `*` in front is what widens it
             // (measured: `example.com` does not match `ads.example.com`; `*example.com`
             // matches both). Getting this wrong is a rule that compiles and never fires.
@@ -263,7 +263,7 @@ extension FilterListConverter {
         /// only means anything on an `@@` exception.
         var isDocumentScope = false
 
-        /// ABP type token → a **measured-valid** WebKit `resource-type`. Anything not in
+        /// ABP type token → a measured-valid WebKit `resource-type`. Anything not in
         /// here is either handled as a flag below or makes the rule unconvertible.
         static let types: [String: String] = [
             "script": "script", "image": "image", "stylesheet": "style-sheet", "css": "style-sheet",

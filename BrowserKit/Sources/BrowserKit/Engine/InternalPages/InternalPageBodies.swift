@@ -134,16 +134,25 @@ extension InternalPages {
     }()
 
     // MARK: - Errors (§4.5)
+    //
+    // One card and six marks. The kind is a class on `.error` and a glyph in
+    // the well; everything else about the page is the same page, because these
+    // six are the same event — Luna could not give you what you asked for, and
+    // here is the one thing you can do about it.
 
     @MainActor
     static func errorHTML(_ error: InternalPageError) -> String {
         let copy = Self.copy(for: error.kind)
-        let target = error.url.map { "<p class=\"target\">\(HTML.escape($0.absoluteString))</p>" } ?? ""
-        let detail = error.detail.map { "<p class=\"target\">\(HTML.escape($0))</p>" } ?? ""
+        let target = error.url.map {
+            "<p class=\"target well\">\(HTML.escape($0.absoluteString))</p>"
+        } ?? ""
+        // The detail is a second voice — a certificate's own words, a
+        // blocklist's name — so it is not dressed as the address.
+        let detail = error.detail.map { "<p class=\"note\">\(HTML.escape($0))</p>" } ?? ""
         let body = """
         <main class="error \(error.kind.rawValue)">
-        <div class="card plate">
-        \(mark)
+        <div class="card pane lifted">
+        <span class="mark well" aria-hidden="true">\(mark(for: error.kind))</span>
         <h1>\(HTML.escape(copy.title))</h1>
         <p>\(HTML.escape(copy.message))</p>
         \(target)\(detail)
@@ -159,20 +168,93 @@ extension InternalPages {
         if let url = error.url {
             let host = error.offersBypass ? "proceed" : "retry"
             let label = error.offersBypass ? "Continue Anyway" : "Try Again"
-            buttons.append("<a class=\"button plate\" href=\"\(HTML.action(host, url: url))\">\(label)</a>")
+            // Continuing is never the recommendation. The two kinds that
+            // offer it are the two Luna stopped on purpose, so the emphasis
+            // goes to the way out rather than to the way through; every other
+            // kind is a failure nobody chose and trying again is the answer.
+            let role = error.offersBypass ? "button plate" : "button key plate"
+            buttons.append("<a class=\"\(role)\" href=\"\(HTML.action(host, url: url))\">\(label)</a>")
         }
-        buttons.append("<a class=\"button plate\" href=\"\(scheme)://newtab\">New Tab</a>")
+        let home = error.offersBypass ? "button key plate" : "button plate"
+        buttons.append("<a class=\"\(home)\" href=\"\(scheme)://newtab\">New Tab</a>")
         return buttons.joined()
     }
 
-    /// One mark for every kind, tinted by `--luna-danger` for the two that
-    /// warn and by `--luna-text-tertiary` for the rest (the stylesheet decides).
-    /// `currentColor` rather than a fill value: there is no colour in this file.
-    private static let mark = """
-    <svg class="mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"\
-     stroke-linecap="round" aria-hidden="true">\
-    <circle cx="12" cy="12" r="9"/><path d="M12 7v6"/><path d="M12 16.5v.01"/></svg>
-    """
+    /// One mark per kind, drawn in `currentColor` so the stylesheet decides
+    /// whether it is ink or §8.1's danger — there is no colour in this file
+    /// either.
+    ///
+    /// Six glyphs, not one. Every kind used to wear the same exclamation in a
+    /// circle, which says nothing six times over. These are the distinctions
+    /// the sentence under them already makes: a network that is not there, a
+    /// name that did not resolve, a certificate that did not check out, a
+    /// request Luna stopped, and a site with no encryption to offer. The last
+    /// keeps the circle, because "something went wrong" is all that page
+    /// knows.
+    ///
+    /// Stroked rather than filled, at the weight SF Symbols draw at this size,
+    /// so a mark on one of Luna's pages and a mark in Luna's chrome are the
+    /// same hand.
+    private static func mark(for kind: InternalPageError.Kind) -> String {
+        svg(paths(for: kind))
+    }
+
+    private static func svg(_ paths: String) -> String {
+        """
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"\
+         stroke-linecap="round" stroke-linejoin="round">\(paths)</svg>
+        """
+    }
+
+    private static func paths(for kind: InternalPageError.Kind) -> String {
+        switch kind {
+        // The Wi-Fi fan, struck through: the arcs are what the menu bar draws,
+        // and the stroke across them is the whole message.
+        case .offline:
+            """
+            <path d="M2.5 8.6a15 15 0 0 1 19 0"/><path d="M5.8 12.5a10 10 0 0 1 12.4 0"/>\
+            <path d="M9.1 16.4a5 5 0 0 1 5.8 0"/><path d="M12 19.9v.01"/><path d="M3 3l18 18"/>
+            """
+        // A search that came back with nothing in it — the name was looked up
+        // and there was no answer, which is not the same as a network failing.
+        // The cross is inside the lens rather than across the whole mark: a
+        // magnifier with a bar through it is the zoom-out control.
+        case .dns:
+            """
+            <circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.2 15.2L20.5 20.5"/>\
+            <path d="M8.4 8.4l4.2 4.2"/><path d="M12.6 8.4l-4.2 4.2"/>
+            """
+        // A lock that is shut, with something wrong inside it. The site
+        // offered encryption and the proof behind it did not check out, which
+        // is not the open lock below — and it is not a lock with a line
+        // through it either: rendered at 28 pt the slash crossed the shackle
+        // and the whole mark read as a scribble.
+        case .tls:
+            """
+            <rect x="4.5" y="10" width="15" height="9.5" rx="2.5"/>\
+            <path d="M8.2 10V6.8a3.8 3.8 0 0 1 7.6 0V10"/>\
+            <path d="M12 12.9v2.3"/><path d="M12 17.1v.01"/>
+            """
+        // A shield with a bar across it. Luna stopped this, and a shield is
+        // the only mark on the page that means "on purpose".
+        case .blocked:
+            """
+            <path d="M12 2.8l8 3v6.1c0 4.9-3.4 8.1-8 9.3-4.6-1.2-8-4.4-8-9.3V5.8z"/>\
+            <path d="M8.8 12h6.4"/>
+            """
+        // The same lock, whole but hanging open: nothing is broken here, there
+        // was simply never a lock on it.
+        case .httpsDowngrade:
+            """
+            <rect x="4.5" y="10" width="15" height="9.5" rx="2.5"/>\
+            <path d="M8.2 10V6.8a3.8 3.8 0 0 1 7.3-1.4"/><path d="M12 13.4v2.6"/>
+            """
+        case .generic:
+            """
+            <circle cx="12" cy="12" r="9"/><path d="M12 7v6"/><path d="M12 16.5v.01"/>
+            """
+        }
+    }
 
     /// Shared with `Page.name`: an error page's title is what a tab showing it
     /// is called, and the two must not be able to disagree.

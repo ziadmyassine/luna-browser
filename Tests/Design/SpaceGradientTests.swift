@@ -4,11 +4,10 @@
 //
 //  Goals 14 and 15 of the Spaces wave, proved rather than asserted.
 //
-//  Every ratio below is re-derived from the live SDK — `NSColor` resolved
-//  inside a real `NSAppearance`, composited, and put through WCAG 2.1's
-//  formula. Nothing here trusts a number written in a comment, which is the
-//  point: §13.6's failure in every other browser is not a missing feature, it
-//  is a palette that was never measured against its own ink.
+//  Every ratio below is re-derived from the live SDK: `NSColor` resolved inside
+//  a real `NSAppearance`, composited, put through WCAG 2.1's formula. Nothing
+//  trusts a number written in a comment — §13.6's failure in other browsers is
+//  not a missing feature, it is a palette never measured against its own ink.
 //
 //  Increase Contrast is not exercised as an appearance — it cannot be, on
 //  macOS 26.5 `NSAppearance(named: .accessibilityHighContrastAqua)` is the
@@ -30,7 +29,7 @@ final class SpaceGradientTests: XCTestCase {
 
     // MARK: - Neutral is the absence of a colour, not a thirteenth one
 
-    /// A Space nobody has coloured must look **exactly** like the sidebar did
+    /// A Space nobody has coloured must look exactly like the sidebar did
     /// before Spaces had colours.
     ///
     /// `washStops` cannot give that on its own: neutral is a real desaturated
@@ -51,7 +50,7 @@ final class SpaceGradientTests: XCTestCase {
         }
     }
 
-    /// The other half: a colour the user *did* pick still reaches the sidebar,
+    /// The other half: a colour the user did pick still reaches the sidebar,
     /// so the guard above cannot be widened into "the wash never paints".
     @MainActor
     func testAChosenGradientStillWashesTheSidebar() throws {
@@ -76,7 +75,7 @@ final class SpaceGradientTests: XCTestCase {
         XCTAssertEqual(Tokens.Gradient.spacePaletteNames.count, Tokens.Gradient.spacePalette.count)
     }
 
-    /// Neutral is reachable and is **not** something `next(after:)` can hand out
+    /// Neutral is reachable and is not something `next(after:)` can hand out
     /// — §13.6: leaving a theme is a thing the user does, never a thing that
     /// happens to them.
     func testNeutralIsOutsideThePalette() {
@@ -125,7 +124,7 @@ final class SpaceGradientTests: XCTestCase {
 
     // MARK: - Goal 15: gradient text is always legible
 
-    /// **The proof.** All twelve pairs × both themes × both stops, at full
+    /// The proof. All twelve pairs × both themes × both stops, at full
     /// intensity — the Space badge and the §3.5 dots, where the gradient is at
     /// its strongest and text sits directly on it.
     func testEveryPairClearsTheTextFloorAtFullIntensityInBothThemes() {
@@ -183,7 +182,7 @@ final class SpaceGradientTests: XCTestCase {
         XCTAssertLessThanOrEqual(Tokens.Gradient.washAlpha, 0.18)
     }
 
-    /// **Zen's bug, as a test.** On a light pair the ink must go *dark* in dark
+    /// Zen's bug, as a test. On a light pair the ink must go dark in dark
     /// mode — the one case a fixed `Text.primary` gets wrong, and the one Zen
     /// ships: "the workspace title becomes very hard to read".
     func testLightPairsGetDarkInkInDarkMode() throws {
@@ -200,7 +199,7 @@ final class SpaceGradientTests: XCTestCase {
         }
     }
 
-    /// …and the mirror: a deep pair takes light ink in *light* mode.
+    /// …and the mirror: a deep pair takes light ink in light mode.
     func testDeepPairsGetLightInkInLightMode() throws {
         let light = try XCTUnwrap(NSAppearance(named: .aqua))
         // "Indigo", "Mulberry", "Moss", "Rust" — the deep band.

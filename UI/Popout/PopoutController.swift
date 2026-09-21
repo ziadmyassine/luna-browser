@@ -31,8 +31,13 @@ class PopoutController: NSObject {
     /// Called once the panel is in the tree, before it animates in.
     func panelDidAppear(_ panel: PopoutPanelView) {}
 
-    /// Called after the panel has been taken down, for whatever the subclass
-    /// was holding on its behalf.
+    /// Called when the pop-out is dismissed, for whatever the subclass was
+    /// holding on its behalf.
+    ///
+    /// At the start of the closing animation rather than the end of it: from
+    /// the moment the user asked for it to go, it is not a surface anybody is
+    /// updating — a list that re-sorted itself while it was folding away would
+    /// be answering a question that has been withdrawn.
     func panelDidDisappear() {}
 
     // MARK: - Presentation
@@ -61,12 +66,25 @@ class PopoutController: NSObject {
         installEscapeMonitor()
     }
 
+    /// Closes the pop-out: gone at once as far as the rest of the app is
+    /// concerned, and on screen for as long as it takes to fold back into its
+    /// button (`PopoutPanelView.animateOut`).
+    ///
+    /// The two are separate on purpose. `isPresented` answers "is there a
+    /// pop-out open", which stops being true the moment the user closes it —
+    /// `toggle` must open a new one rather than find this one still there, and
+    /// §5.0's list must be free to put itself up again for a download that
+    /// lands during the animation. The view that is still fading is nobody's
+    /// business but this method's, which is why it takes no callers with it.
     func dismiss() {
-        presented?.removeFromSuperview()
+        guard let panel = presented else { return }
         presented = nil
         if let escapeMonitor { NSEvent.removeMonitor(escapeMonitor) }
         escapeMonitor = nil
+        // It is closing, so it no longer answers the click that closes it.
+        panel.onBackgroundClick = nil
         panelDidDisappear()
+        panel.animateOut()
     }
 
     /// `esc` closes the pop-out from anywhere in it, not only from a field —

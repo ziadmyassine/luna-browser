@@ -5,10 +5,10 @@
 //  §3.6's store and the menu it drives: overrides, conflicts, and the invariant
 //  that Luna does not ship two commands on one keystroke.
 //
-//  **Every test that writes a binding puts the whole stored domain back.** The
-//  test host is the real app (`AppDelegate`'s `databaseURL` comment has the
-//  full story), so an override left behind here is an override on the
-//  developer's own copy of Luna.
+//  Every test that writes a binding puts the whole stored domain back. The test
+//  host is the real app (`AppDelegate`'s `databaseURL` comment has the story),
+//  so an override left behind here is an override on the developer's own copy
+//  of Luna.
 //
 
 import AppKit
@@ -34,7 +34,7 @@ final class ShortcutBindingsTests: XCTestCase {
     // MARK: - What Luna ships
 
     /// The invariant a table makes checkable and a pile of literals did not:
-    /// **no keystroke appears twice**. Two menu items on one key equivalent is
+    /// no keystroke appears twice. Two menu items on one key equivalent is
     /// not an error AppKit reports — it picks the earlier one in menu-bar order
     /// and the other command silently stops working.
     ///
@@ -97,7 +97,7 @@ final class ShortcutBindingsTests: XCTestCase {
         XCTAssertEqual(KeyBindings.primary(for: .newTab)?.display, "⌘T")
     }
 
-    /// An override replaces the **whole** list. Show Next Tab ships answering
+    /// An override replaces the whole list. Show Next Tab ships answering
     /// to two keystrokes; a user who moves it is not left with our second one
     /// still live and nothing in the UI saying so.
     func testAnOverrideReplacesTheAlternatesToo() {
@@ -133,7 +133,7 @@ final class ShortcutBindingsTests: XCTestCase {
     }
 
     /// The one a per-command check would miss: ⇧⌘] is printed nowhere, because
-    /// it is Show Next Tab's *second* binding.
+    /// it is Show Next Tab's second binding.
     func testAnAlternateBindingIsAConflictToo() {
         let alternate = KeyBinding("]", [.command, .shift])
         XCTAssertNotNil(KeyBindings.conflict(for: alternate, ignoring: .newTab))
@@ -284,7 +284,7 @@ final class MainMenuBindingTests: XCTestCase {
         XCTAssertTrue(rows.filter { $0.key == "⌘1" || $0.key == "⌃1" }.allSatisfy { $0.editableID == nil })
     }
 
-    /// **Only the numbered families carry a caption.** Every other fixed row
+    /// Only the numbered families carry a caption. Every other fixed row
     /// says so by being printed flat; the same sentence repeated down the app,
     /// Edit and Window menus was noise nobody reads past the third time.
     func testNoOtherFixedRowCarriesACaption() throws {

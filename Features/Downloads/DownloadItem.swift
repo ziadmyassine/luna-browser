@@ -7,11 +7,10 @@
 //  what the file is called, where it goes when that name is taken, and whether
 //  it is the kind of file we stop and ask about.
 //
-//  The model is a reference type on purpose: `DownloadManager` hands the same
-//  object to the popover and to the list panel, and both re-read it as the
-//  download progresses. `WKDownload` is `@MainActor` in the macOS 26.5 SDK
-//  (`WK_SWIFT_UI_ACTOR` on the class), so everything here is too and no
-//  isolation gymnastics are needed.
+//  A reference type on purpose: `DownloadManager` hands the same object to
+//  every surface showing it, and each re-reads it as the download progresses.
+//  `WKDownload` is `@MainActor` in the macOS 26.5 SDK (`WK_SWIFT_UI_ACTOR` on
+//  the class), so everything here is too.
 //
 
 import AppKit
@@ -45,7 +44,7 @@ final class DownloadItem {
     private(set) var state: State = .inProgress
     /// `WKDownload` conforms to `NSProgressReporting`; this is its `progress`.
     /// The modern `WKDownloadDelegate` has no byte-count callback at all, so
-    /// this object is the *only* source of progress (§15.1a).
+    /// this object is the only source of progress (§15.1a).
     private(set) var progress: Progress?
     private(set) var resumeData: Data?
 
@@ -71,8 +70,8 @@ final class DownloadItem {
         openIfSafeAndAsked()
     }
 
-    /// §3.5's "Open *safe* files after downloading", and the reason it is a
-    /// setting rather than a policy: it defaults **off**, which is the opposite
+    /// §3.5's "Open safe files after downloading", and the reason it is a
+    /// setting rather than a policy: it defaults off, which is the opposite
     /// of what Safari ships, because it is the single behaviour named most
     /// often in macOS malware write-ups.
     ///
@@ -133,7 +132,7 @@ final class DownloadItem {
     }
 
     /// The file-type icon for §5's 34 pt slot. Uses the real file once it
-    /// exists so a PDF looks like *that* PDF, and falls back to the type.
+    /// exists so a PDF looks like that PDF, and falls back to the type.
     var icon: NSImage {
         if let destination, isOnDisk {
             return NSWorkspace.shared.icon(forFile: destination.path)
@@ -188,7 +187,7 @@ enum DownloadDestination {
     /// asking.
     ///
     /// `FileManager.isWritableFile(atPath:)` reads the POSIX mode bits and
-    /// nothing else, so it answers *true* for `~/Desktop` and `~/Documents`
+    /// nothing else, so it answers true for `~/Desktop` and `~/Documents`
     /// while TCC is still refusing the write. Luna is unsandboxed (D8), so
     /// there is no security-scoped bookmark to restore and no entitlement to
     /// check — creating and deleting a dot-file is the only check that agrees
@@ -221,7 +220,7 @@ enum DownloadDestination {
         name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         if name.isEmpty { name = fallbackName }
 
-        // 255 *bytes*, not characters: the limit is the filesystem's.
+        // 255 bytes, not characters: the limit is the filesystem's.
         let maxBytes = 255
         if name.utf8.count > maxBytes {
             let ext = (name as NSString).pathExtension

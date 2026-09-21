@@ -13,7 +13,7 @@ import Foundation
 /// What an import is allowed to touch. Deliberately two cases: the reference
 /// screen (§30.18) promises "bookmarks, history, and extensions" and we cannot
 /// import extensions — §16.2 has no store and §16.5 has no parity guarantee.
-/// **Every string this engine exposes says "bookmarks and history".**
+/// Every string this engine exposes says "bookmarks and history".
 struct ImportSurfaces: OptionSet, Sendable, Hashable {
     let rawValue: Int
     init(rawValue: Int) { self.rawValue = rawValue }
@@ -85,7 +85,7 @@ struct ImportedVisit: Sendable, Hashable {
 
 /// One keyset page of visits, as a reader hands them over.
 ///
-/// `lastRowID` advances past every row *scanned*, including the ones that were
+/// `lastRowID` advances past every row scanned, including the ones that were
 /// dropped as unreadable — paging on the last usable row would loop forever on
 /// a bad row.
 struct VisitPage: Sendable {

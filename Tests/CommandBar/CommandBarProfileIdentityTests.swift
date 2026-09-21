@@ -8,13 +8,13 @@
 //  The report this exists for is zen#14371 — two identical "Google Gemini —
 //  Switch to tab" rows, two Profiles, two accounts, no way to tell them apart,
 //  and picking wrong teleports you into the other Space. Luna's bar had the
-//  same shape of bug from the other direction: the two rows *deduped into one*,
+//  same shape of bug from the other direction: the two rows deduped into one,
 //  and the surviving row silently adopted whichever tab the loop reached last.
 //
-//  **This file is deliberately not `@MainActor`.** `CommandBarRanking` is
-//  non-isolated so an order can be computed without a window, and §9.7's budget
-//  depends on `merge` staying a pure function on the keystroke path. A test that
-//  needed a main actor to run would be the first sign that stopped being true.
+//  Deliberately not `@MainActor`. `CommandBarRanking` is non-isolated so an
+//  order can be computed without a window, and §9.7's budget depends on `merge`
+//  staying a pure function on the keystroke path. A test needing a main actor
+//  would be the first sign that stopped being true.
 //
 
 import BrowserKit
@@ -59,7 +59,7 @@ final class CommandBarProfileIdentityTests: XCTestCase {
 
     // MARK: - Goal 16's proof
 
-    /// **The proof.** Two same-URL tabs in different Profiles produce two rows,
+    /// The proof. Two same-URL tabs in different Profiles produce two rows,
     /// and the rows are distinguishable: different identities, different labels,
     /// and — the part that actually matters — different actions, so choosing one
     /// cannot land you in the other Space.
@@ -91,7 +91,7 @@ final class CommandBarProfileIdentityTests: XCTestCase {
         XCTAssertEqual(labels, ["Studio · Work", "Home · Personal", "Research · Work"])
     }
 
-    /// Two Spaces, **one** Profile: one cookie jar, so one row. The dedupe still
+    /// Two Spaces, one Profile: one cookie jar, so one row. The dedupe still
     /// does its job — this is not "never merge anything".
     func testSameURLInTwoSpacesOnOneProfileStaysOneRow() {
         let first = space("Work", profile: work)
@@ -122,7 +122,7 @@ final class CommandBarProfileIdentityTests: XCTestCase {
         XCTAssertEqual(row?.badge?.name, "Work")
     }
 
-    /// Without the Profile table the rows must still stay *apart* — separation is
+    /// Without the Profile table the rows must still stay apart — separation is
     /// derived from `Space.profileID` and needs no name. Only the label degrades.
     func testRowsStaySeparateEvenWhenProfileNamesAreUnknown() {
         let results = CommandBarRanking.merge(
@@ -154,7 +154,7 @@ final class CommandBarProfileIdentityTests: XCTestCase {
         }
     }
 
-    /// …and when the page is open in *two* Profiles, the history row hands its
+    /// …and when the page is open in two Profiles, the history row hands its
     /// place to the first and the second gets a row of its own, so both tabs stay
     /// reachable. Three ways to the same page would be two too many.
     func testAHistoryHitDoesNotHideTheSecondProfilesTab() {
@@ -174,9 +174,14 @@ final class CommandBarProfileIdentityTests: XCTestCase {
 
     /// The Profile-aware dedupe must not cost the keystroke path anything. 400
     /// tabs spread across two Profiles, which is the shape that exercises every
-    /// new branch, against §9.7's 100 ms budget and the 9.3 ms median it has
-    /// today. Loose on purpose — this catches an accidental O(n²), not a
-    /// microsecond.
+    /// new branch, against §9.7's 100 ms budget.
+    ///
+    /// The bound is one frame rather than the time the merge actually takes.
+    /// Set to 5 ms it failed on a CI runner at 5.03: a bound a hair above the
+    /// measurement tests the machine the suite is running on, and `BudgetTests`
+    /// is where wall-clock assertions of that kind belong. What is worth
+    /// catching here is an accidental O(n²), which misses a frame by orders of
+    /// magnitude rather than by half a percent.
     func testProfileAwareDedupeStaysInsideTheKeystrokeBudget() {
         let workSpace = space("Work", profile: work)
         let personalSpace = space("Personal", profile: personal)
@@ -198,6 +203,6 @@ final class CommandBarProfileIdentityTests: XCTestCase {
         }
         let perKeystroke = (ContinuousClock.now - started) / 20
 
-        XCTAssertLessThan(perKeystroke, .milliseconds(5), "§9.7: local merge fits in one 16 ms frame")
+        XCTAssertLessThan(perKeystroke, .milliseconds(16), "§9.7: local merge fits in one 16 ms frame")
     }
 }

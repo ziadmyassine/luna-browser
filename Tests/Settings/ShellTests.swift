@@ -5,7 +5,7 @@
 //  The Settings shell: the §6 key table, §2's search rule and section list,
 //  §4's disabled-row contract, §1's window floor, and §2's menu commands.
 //
-//  The point of every test here is that it fails on a *regression* rather than
+//  The point of every test here is that it fails on a regression rather than
 //  restating a number: `testEverySectionSymbolResolves` asks the SDK whether the
 //  nine SF Symbols exist, and `testRestoreAllReachesEveryKeyInTheTable` proves
 //  the §3.9 button is a loop over `keys` rather than a list someone will forget.
@@ -75,7 +75,7 @@ final class SettingsDefaultsTests: XCTestCase {
         }
     }
 
-    /// A registered default *satisfies* a reader's `?? fallback`, so a table row
+    /// A registered default satisfies a reader's `?? fallback`, so a table row
     /// that disagrees with its reader silently overrides it. These four are the
     /// ones where the reader's fallback is not the obvious value.
     func testRegisteredDefaultsMatchTheirReaders() {
@@ -238,7 +238,7 @@ final class SettingsRowTests: XCTestCase {
         XCTAssertEqual(control.selectedIndex, 2)
     }
 
-    /// The row's *control*, not the first `NSControl` in it: a title is an
+    /// The row's control, not the first `NSControl` in it: a title is an
     /// `NSTextField`, which is also an `NSControl`, and it is laid out first.
     private static func control<T: NSControl>(in view: NSView, of kind: T.Type = T.self) -> T? {
         find(in: view, of: kind)
@@ -304,21 +304,17 @@ final class SettingsWindowTests: XCTestCase {
         XCTAssertEqual(
             Set(floors.map(\.constant)),
             [SettingsMetrics.minWidth, SettingsMetrics.minHeight],
-            "§1's 640 × 420 floor is missing from the root view"
+            "§1's 640 × 480 floor is missing from the root view"
         )
-        // **Not an equality against `contentSize`.** `windowFrameAutosaveName`
-        // is set on this window on purpose (§1: it comes back the size you left
-        // it), so the frame it opens at is whatever the user last dragged it to
-        // — and the test host shares the user's real `dk.novapps.luna` defaults
-        // domain, so it reads *his* saved frame. This failed at 887 × 552 for
-        // exactly that reason: `"NSWindow Frame LunaSettingsWindow" =
-        // "656 310 887 552"` is in his preferences, not a regression in any
-        // section's layout. Only the first window in a process gets the restore
-        // — a second one with the same autosave name is refused — which is what
-        // made this order-dependent as well.
+        // Not an equality against `contentSize`. `windowFrameAutosaveName` is
+        // set on this window on purpose (§1: it comes back the size you left
+        // it), and the test host shares the real `dk.novapps.luna` defaults
+        // domain — so it opens at whatever frame is saved there. This failed at
+        // 887 × 552 for that reason, not for a regression in any section's
+        // layout. Only the first window in a process gets the restore, which
+        // made it order-dependent as well.
         //
-        // What is actually spec'd is the *declared* size and the floor, so that
-        // is what is asserted.
+        // What is spec'd is the declared size and the floor.
         XCTAssertEqual(SettingsMetrics.contentSize, CGSize(width: 720, height: 520))
         let size = try XCTUnwrap(window.contentView?.frame.size)
         XCTAssertGreaterThanOrEqual(size.width, SettingsMetrics.minWidth)
@@ -365,20 +361,18 @@ final class SettingsMenuTests: XCTestCase {
         let search = try XCTUnwrap(items.first { $0.title == "Search Settings" })
         XCTAssertEqual(search.keyEquivalent, "f")
 
-        // One item per section, tagged with its index — and **no key equivalent
-        // of its own**, because AppKit was already taking it away.
+        // One item per section, tagged with its index — and no key equivalent
+        // of its own, because AppKit was already taking it away.
         //
-        // These used to declare ⌘1…⌘9. Measured on macOS 26.5 inside the running
-        // app: a ⌘-number that duplicates one already in the menu bar is
-        // *erased* from the later item — `keyEquivalent` comes back "", the
-        // modifier mask survives, and nothing is reported at build time or run
-        // time. View ▸ Sidebar Items is earlier in the bar and owns ⌘1…⌘9 now
-        // (SPACES-SPEC §13.2), so re-declaring them here only prints a shortcut
-        // the menu does not have. **Do not "restore" them.**
+        // These used to declare ⌘1…⌘9, and AppKit erases a duplicate ⌘-number
+        // from the later item — `MainMenu.setSettingsSections` has the
+        // measurement. View ▸ Sidebar Items is earlier in the bar and owns
+        // them now (SPACES-SPEC §13.2), so re-declaring them here only prints a
+        // shortcut the menu does not have. Do not "restore" them.
         //
-        // §2's ⌘1…⌘9 still reaches this window: `AppDelegate.goToSidebarItem(_:)`
-        // forwards to it while it is key, and a hidden Sidebar Item still fires
-        // its key equivalent, so all nine arrive whatever the tab count.
+        // §2's ⌘1…⌘9 still reaches this window:
+        // `AppDelegate.goToSidebarItem(_:)` forwards to it while it is key, and
+        // a hidden Sidebar Item still fires its key equivalent.
         let sections = SettingsSectionRegistry.all.enumerated().map { index, type -> NSMenuItem in
             let match = items.first { $0.title == type.title && $0.tag == index }
             return match ?? NSMenuItem()

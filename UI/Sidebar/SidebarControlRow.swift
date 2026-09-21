@@ -4,42 +4,41 @@
 //
 //  §3.1, 52 pt: `[traffic lights] · [toggle] ··· [back · forward] [reload]`.
 //
-//  **Back is no longer one button.** It grows a forward half when there is
+//  Back is no longer one button. It grows a forward half when there is
 //  somewhere forward to go, and the two share one capsule divided by a
 //  hairline — see `NavCluster`. Reload stays its own circle beside it: §3.2b's
 //  bar puts reload inside the capsule because it has a 420 pt one to put it
 //  in, and this column's pill is 200 pt with a domain already in it.
 //
-//  **The traffic lights are not laid out here.** `TrafficLightLayoutManager`
-//  owns their frames for all six window states (§7.7); this row only has to
-//  leave their space clear. It does that by measuring what AppKit owns and
-//  never moves — the buttons' size, and the spacing between them — and deriving
-//  the rest from `trafficLightInset`, the one number the manager places them
-//  with. Reading their live origins instead is a race this row loses on every
+//  The traffic lights are not laid out here. `TrafficLightLayoutManager` owns
+//  their frames for all six window states (§7.7); this row only leaves their
+//  space clear, by measuring what AppKit owns and never moves — the buttons'
+//  size and their spacing — and deriving the rest from `trafficLightInset`.
+//  Reading their live origins instead is a race this row loses on every
 //  resize; see `trafficLights`.
 //
 //  Two deliberate departures from §3.1's written order, both measured off
 //  `inspiration/main-tab-bar-and-ui.png`:
 //
 //  · the reference puts the toggle beside the traffic lights and pins
-//    back/reload to the **trailing** edge, not 16 pt after the toggle. §3.1's
+//    back/reload to the trailing edge, not 16 pt after the toggle. §3.1's
 //    gap figure describes a cluster the reference does not have.
-//  · **the toggle is the same circle as its two neighbours**, not the squircle
+//  · the toggle is the same circle as its two neighbours, not the squircle
 //    §3.1 quotes, and its glyph sits on the same centre line as the traffic
 //    lights — which is why this row asks the window for that line rather than
 //    centring in its own 52 pt.
 //
-//  The circle is `Metric.sidebarCircle` — the URL pill's own height — so the
-//  sidebar's head is one stack of equal-height controls instead of three small
+//  The circle is `Metric.sidebarCircle`, the URL pill's own height, so the
+//  sidebar's head is one stack of equal-height controls rather than three small
 //  buttons above a bigger one. All three carry their glass at rest: the toggle
-//  is how you get the sidebar back, and a control you cannot see until you
-//  happen to sweep the pointer over it is not one.
+//  is how you get the sidebar back, and a control you cannot see until the
+//  pointer sweeps over it is not one.
 //
 
 import AppKit
 
 @MainActor
-final class SidebarControlRow: NSView {
+final class SidebarControlRow: NSView, TrafficLightNeighbour {
 
     var onToggleSidebar: (() -> Void)?
     var onBack: (() -> Void)?
@@ -48,7 +47,7 @@ final class SidebarControlRow: NSView {
     /// Reload, or stop while the page is loading.
     var onReloadOrStop: ((_ isLoading: Bool) -> Void)?
 
-    /// **Always glass.** It briefly carried its material on hover only; that
+    /// Always glass. It briefly carried its material on hover only; that
     /// made the one control that brings a hidden sidebar back invisible until
     /// the pointer found it, which is the wrong trade for the one button on
     /// this row that is not reachable any other way.
@@ -67,7 +66,7 @@ final class SidebarControlRow: NSView {
     )
     private var isLoading = false
 
-    /// **False when §3.2b has moved these three onto the page.** The row itself
+    /// False when §3.2b has moved these three onto the page. The row itself
     /// stays — it is what keeps the traffic lights' corner clear, and the lights
     /// do not move when the pill does (`TrafficLightLayout` places them the same
     /// way in every layout). Only its buttons go.
@@ -129,9 +128,9 @@ final class SidebarControlRow: NSView {
     /// read is derived rather than taken from the buttons' live origins, and
     /// for the second caller it is shared with.
     ///
-    /// **And nil when they are not on this row at all.** macOS keeps the lights
+    /// And nil when they are not on this row at all. macOS keeps the lights
     /// at the window's top-left and offers no way to move them, so a sidebar
-    /// standing on the *trailing* edge does not contain them — they float over
+    /// standing on the trailing edge does not contain them — they float over
     /// the page instead, which is what every browser that offers a right-hand
     /// sidebar does. Reserving their space anyway would push the toggle off the
     /// column entirely; that is what a rect starting left of this row is saying.
@@ -149,7 +148,7 @@ final class SidebarControlRow: NSView {
         let inset = Tokens.Metric.rowInset
         let circle = Tokens.Metric.sidebarCircle
         let lights = trafficLights
-        // **A nil that was not nil a moment ago is worth asking about twice.**
+        // A nil that was not nil a moment ago is worth asking about twice.
         // The buttons are legitimately gone while the sidebar is hidden, and
         // then this row closes up around the space they left. But AppKit also
         // rebuilds the titlebar from time to time — entering fullscreen is one

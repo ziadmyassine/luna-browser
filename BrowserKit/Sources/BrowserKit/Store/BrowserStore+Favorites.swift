@@ -3,7 +3,7 @@ import GRDB
 
 // Favorites, scoped per Profile (§2, decision D-S2, schema `v2`).
 //
-// The tier the user calls Favorites is `.essential`, and it is the one tier that is **not**
+// The tier the user calls Favorites is `.essential`, and it is the one tier that is not
 // owned by a Space. A Favorite is a logged-in app tile: it belongs to the cookie jar that
 // holds the login, so every Space sharing a Profile shares its Favorites, and a Space on a
 // different Profile sees none of them. Arc keys its Favorites container the same way —
@@ -14,11 +14,11 @@ public extension BrowserStore {
     /// Arc's cap, and Luna's: twelve Favorites per Profile, and zero is allowed.
     ///
     /// The cap is not arithmetic for its own sake. Arc had to retrofit lazy loading —
-    /// *"We used to keep your Favorites loaded at all times"* — because a permanently
+    /// "We used to keep your Favorites loaded at all times" — because a permanently
     /// resident global tier is a memory problem.
     static let favoritesCap = 12
 
-    /// Every *live* Favorite on a Profile, across all of its Spaces, in display order.
+    /// Every live Favorite on a Profile, across all of its Spaces, in display order.
     ///
     /// Archived ones are excluded, matching both the session — which keeps archived tabs in
     /// its archive rather than in `TabList` — and `v2`'s cap trim. A Favorite can be archived:
@@ -66,7 +66,7 @@ extension BrowserStore {
         try await pool.read { db in try Tab.fetchAll(db, sql: "SELECT * FROM tabs") }
     }
 
-    /// Reads through the `archive` **view**, not the table, so a schema change that the view
+    /// Reads through the `archive` view, not the table, so a schema change that the view
     /// fails to pick up shows up as a test failure rather than as a decode crash in the app.
     func archivedTabsForTesting() async throws -> [Tab] {
         try await pool.read { db in try Tab.fetchAll(db, sql: "SELECT * FROM archive") }

@@ -3,31 +3,28 @@
 //  Luna
 //
 //  §3.5: `[profile 34] ··· [dots 56 × 22] ··· [downloads | history]`, pinned to
-//  the bottom at 52 pt.
+//  the bottom at 52 pt, with §3.5's profile line standing above it.
 //
-//  The trailing circle opens the archive page, and is called **History** —
+//  The trailing circle opens the archive page, and is called History —
 //  that is what a user looking for a page they closed goes looking for, and
 //  "archive" is Luna's internal word for the same shelf. It carries a clock
 //  glyph for the same reason: a box means storage, a clock means "earlier".
 //
-//  **Downloads sits beside it, as its pair, in one cylinder.** They are the
+//  Downloads sits beside it, as its pair, in one cylinder. They are the
 //  same kind of thing — the shelf of what you already have, glanced at rather
 //  than worked in, both opening as a pop-out that stands on its own button —
 //  and §4's action capsule pairs the same two at the other end of the window,
 //  in one piece of glass. So does this: see `SidebarActionCapsule` for why two
 //  discs 5 pt apart read as two controls and one cylinder reads as a pair. The
 //  alternative home was the §3.1 control row at the head, which is where
-//  *actions on this page* live; a finished download is not one of those.
+//  actions on this page live; a finished download is not one of those.
 //
 //  The pair is what set §1's sidebar minimum: three clusters and a centred pill
 //  need 190 pt, and `Metric.sidebarWidth` records the arithmetic. Below the
 //  width where the pill still fits between the outer two it is centred in what
 //  is left rather than in the bar — see `placeContents`.
 //
-//  The dots are the Space switcher (§30.9). §8 requires them to be usable with
-//  Differentiate Without Colour on, so each dot carries the Space's **name** as
-//  both tooltip and accessibility label, and the group reports itself as a tab
-//  list with position and count — never "the purple one".
+//  The dots are the Space switcher (§30.9) and live in `SpaceDotsView.swift`.
 //
 
 import AppKit
@@ -43,6 +40,10 @@ final class SidebarUtilityBar: NSView {
     /// §8.2 / §13.6: a gradient was chosen from a dot's menu, including the
     /// neutral one. Wire to `BrowserSession.setGradient(_:forSpace:)`.
     var onSetGradient: ((UUID, GradientPair) -> Void)?
+    /// §6.2 from the foot of the sidebar: open Settings on the Spaces section.
+    var onEditSpaces: (() -> Void)?
+    /// §6.1 from the same menu, and from §30.9's swipe past the last Space.
+    var onNewSpace: (() -> Void)?
 
     private let avatar = GlassButton(
         shape: Tokens.Metric.bottomCircle,
@@ -66,6 +67,8 @@ final class SidebarUtilityBar: NSView {
         avatar.onActivate = { [weak self] in self?.onProfile?() }
         dots.onSwitch = { [weak self] id in self?.onSwitchSpace?(id) }
         dots.onSetGradient = { [weak self] space, gradient in self?.onSetGradient?(space, gradient) }
+        dots.onEditSpaces = { [weak self] in self?.onEditSpaces?() }
+        dots.onNewSpace = { [weak self] in self?.onNewSpace?() }
         for view in [avatar, library, dots] as [NSView] { addSubview(view) }
     }
 
@@ -81,6 +84,12 @@ final class SidebarUtilityBar: NSView {
     /// §15.3's pop-out stands on this, for the same reason.
     var downloadsAnchor: NSView { library.button(at: 0) }
 
+    /// §5.0's flight lands on that button and the cylinder catches it —
+    /// the glyph is `GlassMode.none` and has nothing of its own to bulge, so
+    /// this is the same hand-up the press already does. See
+    /// `SidebarActionCapsule`.
+    var downloadsCatcher: NSView { library }
+
     /// §6.6: the Space a lift held over `point` would move the tab to, with
     /// `point` in `space`'s coordinates.
     func spaceID(at point: NSPoint, from space: NSView) -> UUID? {
@@ -93,6 +102,18 @@ final class SidebarUtilityBar: NSView {
         set { dots.highlightedSpaceID = newValue }
     }
 
+    /// §30.9's swipe, read out on the strip. See `SpaceDotsView.travel`.
+    var spaceTravel: CGFloat {
+        get { dots.travel }
+        set { dots.travel = newValue }
+    }
+
+    /// §30.9's `+` ring. 0 hides it, 1 closes it.
+    var spaceCreation: CGFloat {
+        get { dots.creation }
+        set { dots.creation = newValue }
+    }
+
     func show(spaces: [Space], activeSpaceID: UUID) {
         dots.show(spaces: spaces, activeSpaceID: activeSpaceID)
         needsLayout = true
@@ -100,6 +121,32 @@ final class SidebarUtilityBar: NSView {
 
     override var intrinsicContentSize: NSSize {
         NSSize(width: NSView.noIntrinsicMetric, height: Tokens.Metric.topBarHeight)
+    }
+
+    /// Where the Space strip's bottom edge sits, measured from the bar's
+    /// bottom.
+    ///
+    /// The same as the avatar's and the cylinder's, which is not the same as
+    /// centred. All three used to be centred on the bar's midline, and three
+    /// things centred in a 52 pt bar do not line up unless they are the same
+    /// height: the 34 pt circles sat 9 pt off the bottom and the 22 pt pill sat
+    /// 15, so the footer read as a row with one item floating in it. A row of
+    /// controls of different heights lines up on the edge they share, and the
+    /// one they share here is the bottom — it is the sidebar's own margin.
+    static var spaceStripBottom: CGFloat {
+        (Tokens.Metric.topBarHeight - Tokens.Metric.bottomCircle.height) / 2
+    }
+
+    /// Where the Space strip's top edge sits — which is where §3.5's
+    /// profile line has to stand.
+    ///
+    /// Arithmetic rather than `dots.frame.maxY`, and static rather than an
+    /// instance read, because the column lays the caption out in the same pass
+    /// that lays this bar out: a frame read there is a frame from the pass
+    /// before. The pill's height never depends on how many Spaces there are, so
+    /// neither does this.
+    static var spaceStripTop: CGFloat {
+        spaceStripBottom + Tokens.Metric.spaceDotsPill.height
     }
 
     override func layout() {
@@ -111,29 +158,46 @@ final class SidebarUtilityBar: NSView {
     private func placeContents() {
         let inset = Tokens.Metric.rowInset
         let circle = Tokens.Metric.bottomCircle
-        let midY = (bounds.height - circle.height) / 2
-        avatar.frame = NSRect(x: inset, y: midY, width: circle.width, height: circle.height).pixelAligned
+        // One baseline for the whole footer — see `spaceStripBottom`, which is
+        // this same number, named where the column has to read it.
+        let foot = Self.spaceStripBottom
+        avatar.frame = NSRect(x: inset, y: foot, width: circle.width, height: circle.height).pixelAligned
         let cylinder = library.intrinsicContentSize
         library.frame = NSRect(
             x: bounds.maxX - inset - cylinder.width,
-            y: midY,
+            y: foot,
             width: cylinder.width,
             height: cylinder.height
         ).pixelAligned
         let pill = dots.intrinsicContentSize
         dots.frame = NSRect(
             x: dotsOriginX(pillWidth: pill.width, trailingEdge: library.frame.minX),
-            y: (bounds.height - pill.height) / 2,
+            y: foot,
             width: pill.width,
             height: pill.height
         ).pixelAligned
     }
 
-    /// **Centred in the bar while it fits, and centred in what is left when it
-    /// does not.**
+    /// The whole footer answers the right-click, not only the strip in the
+    /// middle of it.
     ///
-    /// The pill grows with the number of Spaces (`spaceDotsPillGrowth`), so
-    /// "does it fit" is not a question §1's minimum can answer once and for
+    /// The dots cover their pill edge to edge, so `SpaceDotsView`'s own menu
+    /// would only ever be reached in the gap §30.9's `+` opens up — and the
+    /// clear air either side of the pill would have had no menu at all. A user
+    /// aiming at "the Spaces bit" is aiming at this bar; `SpaceDotView` still
+    /// answers for a dot, with §8.2's colours first.
+    override func menu(for event: NSEvent) -> NSMenu? {
+        SidebarMenu.spaces(
+            edit: { [weak self] in self?.onEditSpaces?() },
+            new: { [weak self] in self?.onNewSpace?() }
+        )
+    }
+
+    /// Centred in the bar while it fits, and centred in what is left when it
+    /// does not.
+    ///
+    /// The pill is sized to the dots it holds (`SpaceDotsView.width(forDots:)`),
+    /// so "does it fit" is not a question §1's minimum can answer once and for
     /// all: eight Spaces at 220 pt is wider than the gap between the avatar and
     /// the cylinder. Clamping to one side would have slid the pill under one
     /// cluster while leaving clear air under the other; centring the overflow
@@ -149,43 +213,37 @@ final class SidebarUtilityBar: NSView {
     }
 }
 
-/// §3.5's Space switcher: one 6 pt dot per Space, the active one at full ink.
+/// §3.5's profile line: the one place the window says whose cookies it is
+/// using.
+///
+/// The fan-out is the reason this exists. Space → Profile is many-to-one
+/// (`SPACES-SPEC` §9) and no other browser tells you which side of it you are
+/// on: Arc's most-reported conceptual confusion is "why am I still logged in
+/// over here", and its answer lives in a support article. Settings names the
+/// profile on each Space's card, but a name you have to open a window to read
+/// is not what you check before typing a password into a shared jar.
+///
+/// It is set in `Text.secondary` — an inactive tab's ink, exactly — and
+/// sits directly over the Space strip, because the two answer one question
+/// between them: which Space, and whose logins. Brighter than that and it
+/// would compete with the tab titles above it for a line that is only ever
+/// glanced at.
 @MainActor
-final class SpaceDotsView: NSView {
+final class SidebarProfileLabel: NSView {
 
-    /// §3.5: the pill widens past this many Spaces.
-    private static let restingSpaceCount = 3
+    /// Right-click here or on the strip below — §6.2's rows are in Settings.
+    var onEditSpaces: (() -> Void)?
+    var onNewSpace: (() -> Void)?
 
-    var onSwitch: ((UUID) -> Void)?
-
-    /// §6.6: the Space a lift held over `point` would move the tab to, with
-    /// `point` in `space`'s coordinates. Nil anywhere but on a dot.
-    func spaceID(at point: NSPoint, from space: NSView) -> UUID? {
-        let local = convert(point, from: space)
-        return dots.first { $0.frame.contains(local) }?.space.id
-    }
-
-    /// The dot the lift is over, marked as such. Nil clears the mark.
-    var highlightedSpaceID: UUID? {
-        didSet {
-            guard highlightedSpaceID != oldValue else { return }
-            for dot in dots { dot.isDropTarget = dot.space.id == highlightedSpaceID }
-        }
-    }
-    var onSetGradient: ((UUID, GradientPair) -> Void)?
-
-    private var spaces: [Space] = []
-    private var activeSpaceID: UUID?
-    private var dots: [SpaceDotView] = []
+    private let label = NSTextField(labelWithString: "")
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        wantsLayer = true
-        layer?.cornerCurve = .continuous
-        Glass.apply(.control, to: self, cornerRadius: Tokens.Metric.spaceDotsPill.cornerRadius)
-        setAccessibilityElement(true)
-        setAccessibilityRole(.tabGroup)
-        setAccessibilityLabel("Spaces")
+        label.alignment = .center
+        label.lineBreakMode = .byTruncatingTail
+        label.setAccessibilityRole(.staticText)
+        addSubview(label)
+        applyTokens()
     }
 
     @available(*, unavailable)
@@ -193,172 +251,54 @@ final class SpaceDotsView: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
-    func show(spaces: [Space], activeSpaceID: UUID) {
-        self.activeSpaceID = activeSpaceID
-        guard spaces != self.spaces else {
-            for dot in dots { dot.isActive = dot.space.id == activeSpaceID }
-            return
-        }
-        self.spaces = spaces
-        for dot in dots { dot.removeFromSuperview() }
-        dots = spaces.enumerated().map { index, space in
-            let dot = SpaceDotView(space: space, position: index + 1, of: spaces.count)
-            dot.isActive = space.id == activeSpaceID
-            dot.onActivate = { [weak self] in self?.onSwitch?(space.id) }
-            dot.onSetGradient = { [weak self] gradient in self?.onSetGradient?(space.id, gradient) }
-            addSubview(dot)
-            return dot
-        }
-        setAccessibilityChildren(dots)
-        invalidateIntrinsicContentSize()
+    /// The profile's name, or nothing at all — the line disappears rather than
+    /// standing empty, so the strip below it keeps its air.
+    func show(profileName: String?) {
+        label.stringValue = profileName ?? ""
+        isHidden = (profileName ?? "").isEmpty
+        setAccessibilityLabel(profileName.map { String(localized: "Profile: \($0)") })
+        toolTip = profileName.map { String(localized: "Cookies and logins for the \($0) profile") }
         needsLayout = true
     }
 
-    override var intrinsicContentSize: NSSize {
-        let extra = max(spaces.count - Self.restingSpaceCount, 0)
-        return NSSize(
-            width: Tokens.Metric.spaceDotsPill.width + CGFloat(extra) * Tokens.Metric.spaceDotsPillGrowth,
-            height: Tokens.Metric.spaceDotsPill.height
-        )
-    }
-
-    /// Each dot view owns its whole slot — the full pill height and an equal
-    /// share of its width — and draws the 6 pt dot inside it. A 6 pt view would
-    /// be a 6 pt click and a 6 pt §6.6 drop target, which no one can hit.
-    override func layout() {
-        super.layout()
-        // Bounds-derived frames never animate — see `Motion.immediately`.
-        Tokens.Motion.immediately { placeContents() }
-    }
-
-    private func placeContents() {
-        guard !dots.isEmpty else { return }
-        let slot = bounds.width / CGFloat(dots.count)
-        for (index, dot) in dots.enumerated() {
-            dot.frame = NSRect(x: CGFloat(index) * slot, y: 0, width: slot, height: bounds.height).integral
-        }
-    }
-}
-
-/// One dot. Its own view because it is three things at once: a click target, a
-/// §6.6 landing place, and an accessibility element carrying the Space's name.
-@MainActor
-final class SpaceDotView: NSView {
-
-    let space: Space
-    var onActivate: (() -> Void)?
-    var onSetGradient: ((GradientPair) -> Void)?
-    var isActive = false { didSet { needsDisplay = true } }
-    /// §6.6's lift is over this dot. Set by `SpaceDotsView`, which is the only
-    /// thing that knows where the lift is.
-    var isDropTarget = false { didSet { needsDisplay = true } }
-    // A gradient layer, because §8.2a's dot is the Space's own pair of stops
-    // rather than a shared ink — `updateLayer` sets `colors` on it.
-    private let mark = CAGradientLayer()
-
-    init(space: Space, position: Int, of count: Int) {
-        self.space = space
-        super.init(frame: .zero)
-        wantsLayer = true
-        layer?.addSublayer(mark)
-        // §8/§21.2: the name, not the gradient, is what identifies a Space.
-        toolTip = space.name
-        setAccessibilityElement(true)
-        setAccessibilityRole(.radioButton)
-        setAccessibilityLabel(space.name)
-        setAccessibilityValue("\(position) of \(count)")
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("Luna builds its chrome in code; there is no nib to decode.")
-    }
-
-    override var wantsUpdateLayer: Bool { true }
-
-    override func updateLayer() {
-        let size = Tokens.Metric.spaceDot
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        mark.frame = NSRect(
-            x: (bounds.width - size) / 2,
-            y: (bounds.height - size) / 2,
-            width: size,
-            height: size
-        ).pixelAligned
-        mark.cornerRadius = size / 2
-        // §8.2a's full intensity, and the whole point of the twelve pairs: the
-        // dots were `Text.primary` / `Text.tertiary`, so every Space looked
-        // identical no matter what gradient it carried.
-        let stops = Tokens.Gradient.planes(space.gradient, at: .full, in: effectiveAppearance)
-        mark.startPoint = CGPoint(x: 0, y: 1)
-        mark.endPoint = CGPoint(x: 1, y: 0)
-        mark.colors = [stops.start.cgColor, stops.end.cgColor]
-        // §3.5's "100 % / 35 %" step, kept — but the inactive dot is now a
-        // dimmer version of *its own* colour rather than of a shared ink.
-        mark.opacity = isActive ? 1 : 0.45
-        // §21.2 Differentiate Without Colour: the active dot is also the only
-        // one wearing a ring, so "which Space am I in" never depends on being
-        // able to tell two hues apart. The drop ring outranks it — during a
-        // §6.6 drag the question is where the tab is about to land.
-        mark.borderWidth = isDropTarget || isActive ? Tokens.Metric.hairline : 0
-        mark.borderColor = isDropTarget ? Tokens.Accent.tint.cgColor : Tokens.Text.primary.cgColor
-        CATransaction.commit()
+    private func applyTokens() {
+        label.font = Tokens.TypeScale.settingsCaption
+        // §3.4's inactive row title, to the point — this line is read at the
+        // same glance as the list above it and must not outrank a tab.
+        label.textColor = Tokens.Text.secondary
     }
 
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
-        needsDisplay = true
+        applyTokens()
     }
 
-    /// §30.1: the sidebar's plane moves the window; a control on it does not.
-    override var mouseDownCanMoveWindow: Bool { false }
-
-    override func mouseUp(with event: NSEvent) {
-        guard bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
-        onActivate?()
+    /// §21.2: Increase Contrast is not an appearance, so the sidebar tells this
+    /// by hand along with every other surface that draws text.
+    func accessibilityDisplayOptionsChanged() {
+        applyTokens()
     }
 
-    override func accessibilityPerformPress() -> Bool {
-        onActivate?()
-        return true
+    override func layout() {
+        super.layout()
+        Tokens.Motion.immediately {
+            let inset = Tokens.Metric.rowInset
+            label.frame = NSRect(
+                x: inset,
+                y: 0,
+                width: max(bounds.width - 2 * inset, 0),
+                height: bounds.height
+            ).integral
+        }
     }
 
-    // MARK: - §8.2 / §13.6 the colour menu
-
-    /// Right-click a dot to recolour its Space, and — the part Arc needed a
-    /// help article for — to leave a colour again.
-    ///
-    /// A menu on the dot rather than a Settings pane because the dot is the one
-    /// place a Space is *visible*: Arc's "How Do I Restore the Default Theme"
-    /// exists because getting out of a theme was somewhere else entirely, and
-    /// Zen has an open issue for not being able to unset a gradient at all.
+    /// §30.1: the sidebar's plane moves the window. A label is not a control,
+    /// so this one deliberately keeps that behaviour — a drag here still moves
+    /// the window, and only the right-click is ours.
     override func menu(for event: NSEvent) -> NSMenu? {
-        let menu = NSMenu()
-        menu.addItem(SidebarMenu.header("Colour for \(space.name)"))
-        for (index, gradient) in Tokens.Gradient.spacePalette.enumerated() {
-            let item = SidebarMenu.item(title: Tokens.Gradient.spacePaletteNames[index]) { [weak self] in
-                self?.onSetGradient?(gradient)
-            }
-            item.image = SidebarMenu.swatch(gradient, in: effectiveAppearance)
-            item.state = gradient == space.gradient ? .on : .off
-            menu.addItem(item)
-        }
-        menu.addItem(.separator())
-        // §13.6's one click back to neutral. Always present, never conditional
-        // on the Space already carrying a colour — a way out that only appears
-        // once you are lost is not a way out.
-        let reset = SidebarMenu.item(title: "No Colour") { [weak self] in
-            self?.onSetGradient?(Tokens.Gradient.neutral)
-        }
-        reset.image = SidebarMenu.swatch(Tokens.Gradient.neutral, in: effectiveAppearance)
-        reset.state = Tokens.Gradient.isNeutral(space.gradient) ? .on : .off
-        menu.addItem(reset)
-        menu.addItem(.separator())
-        // Arc's own documentation shouts this, and it is the combination that
-        // works: colour is per Space, Light/Dark is not. Saying so here is
-        // cheaper than the support article that follows from not saying it.
-        menu.addItem(SidebarMenu.header("Light and Dark apply to every Space"))
-        return menu
+        SidebarMenu.spaces(
+            edit: { [weak self] in self?.onEditSpaces?() },
+            new: { [weak self] in self?.onNewSpace?() }
+        )
     }
 }

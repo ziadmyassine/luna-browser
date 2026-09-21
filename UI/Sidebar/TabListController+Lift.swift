@@ -54,7 +54,7 @@ extension TabListController {
 
     /// The same lift, arriving from the §3.3 grid rather than from this list.
     ///
-    /// **There is no row to take out, only one to make room for.** An
+    /// There is no row to take out, only one to make room for. An
     /// Essentials tab is not in `SidebarList` at all, so the list had no
     /// `draggedRow` to measure a gap from and `applyGap` returned without
     /// moving anything: a tile carried down over the tabs floated over a list
@@ -92,7 +92,7 @@ extension TabListController {
         isDragging = false
         draggedRow = nil
         gapRow = nil
-        // **Every row, by frame and by alpha.** `applyGap` is no use here: it
+        // Every row, by frame and by alpha. `applyGap` is no use here: it
         // needs the lift to still be up, and it has just been taken down.
         // The rows are wherever the gap left them, and the one the lift stood
         // in for is still invisible — both are put back from the table's own
@@ -106,7 +106,7 @@ extension TabListController {
     }
 
     /// Slides the rows between the tab's old slot and its new one by exactly one
-    /// row, which is the gap. **The row views are moved, not the model**: a
+    /// row, which is the gap. The row views are moved, not the model: a
     /// reorder committed per row crossed would be a SQLite write and an undo
     /// entry each time, and the whole arrangement is thrown away and rebuilt by
     /// the reload that follows the drop.

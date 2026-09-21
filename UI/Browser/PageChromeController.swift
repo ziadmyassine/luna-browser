@@ -4,13 +4,11 @@
 //
 //  What `PageChromeBar` shows, and when it is open.
 //
-//  The view is the two states; this is everything that decides between them —
+//  The view is the two states; this is everything that decides between them:
 //  which tab it is looking at, where that tab's page has scrolled to, and
-//  whether §3.2b's setting has the bar on screen at all.
-//
-//  The rule that decides between the two states is `PageBarScroll`, which is a
-//  value with no view in it so it can be asserted rather than eyeballed. This
-//  file is what feeds it and what it drives.
+//  whether §3.2b's setting has the bar on screen at all. The rule itself is
+//  `PageBarScroll`, a value with no view in it so it can be asserted rather
+//  than eyeballed.
 //
 
 import AppKit
@@ -36,7 +34,7 @@ final class PageChromeController {
     private var listeningTo: UUID?
     private var shownURL: URL?
     /// Whether the tab was loading last time it was heard from, so that a load
-    /// *starting* can be told from a load going on.
+    /// starting can be told from a load going on.
     private var wasLoading = false
     /// §9.1 is standing on the pill. The bar is held open for the whole of it —
     /// the collapse rule keeps running underneath, it just does not get the bar
@@ -78,7 +76,7 @@ final class PageChromeController {
 
     /// Shows or hides the whole bar. Called with the layout and the placement
     /// already resolved — this does not read `Settings` itself, because the
-    /// same two keys decide what the *sidebar* drops and one reader for both
+    /// same two keys decide what the sidebar drops and one reader for both
     /// is what keeps them from disagreeing.
     /// Whether this bar is the address bar on screen — `⌘L`'s question.
     var isOnScreen: Bool { isActive }
@@ -105,6 +103,9 @@ final class PageChromeController {
             refresh()
         } else {
             stopListening()
+            // §3.2c: the bar is leaving, so the line goes with it rather than
+            // finishing a load the user cannot see the address of.
+            bar.pill.setLoad(nil, for: nil)
         }
         guard animated else {
             Tokens.Motion.immediately { bar.alphaValue = active ? 1 : 0 }
@@ -126,6 +127,9 @@ final class PageChromeController {
         let tab = session.tabs.first { $0.id == session.activeTabID }
         let state = session.activeTabID.flatMap { session.controller(for: $0)?.state }
         show(url: state?.url ?? tab?.url, isLoading: state?.isLoading ?? false)
+        // §3.2c. Nil for a tab with no live web view, which is a tab that has
+        // nothing to be loading.
+        bar.pill.setLoad(state, for: session.activeTabID)
         bar.setPageColour(state?.pageBackground)
         bar.update(
             canGoBack: state?.canGoBack ?? false,
@@ -137,15 +141,16 @@ final class PageChromeController {
     private func apply(_ id: UUID, _ state: TabState) {
         guard isActive, id == session.activeTabID else { return }
         show(url: state.url, isLoading: state.isLoading)
+        bar.pill.setLoad(state, for: id)
         bar.setPageColour(state.pageBackground)
         bar.update(canGoBack: state.canGoBack, canGoForward: state.canGoForward, isLoading: state.isLoading)
     }
 
-    /// **Arriving anywhere opens the bar**, whatever the last page had scrolled
+    /// Arriving anywhere opens the bar, whatever the last page had scrolled
     /// to: that is the moment the address is worth showing, and it is also the
     /// moment the page under it is about to be replaced.
     ///
-    /// A new address is one way in. A load *starting* is the other, and it is
+    /// A new address is one way in. A load starting is the other, and it is
     /// needed as well — a reload, a form post and a same-address navigation all
     /// leave the URL exactly where it was, and every one of them is an arrival.
     private func show(url: URL?, isLoading: Bool) {

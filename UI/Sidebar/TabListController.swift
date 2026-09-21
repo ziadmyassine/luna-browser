@@ -14,9 +14,9 @@
 //    not expand or collapse. The Essentials grid is a header above the scroll
 //    view, not a parent node.
 //
-//  The **selected pill and the hover fill are one view each**, moved between
-//  rows, not a background per row. §6 asks the selected pill to *move* on a
-//  0.20 s spring, which only a single view can do — and it means a scroll
+//  The selected pill and the hover fill are one view each, moved between rows,
+//  rather than a background per row. §6 asks the selected pill to move on a
+//  0.20 s spring, which only a single view can do, and it means a scroll
 //  allocates no glass at all.
 //
 
@@ -26,7 +26,11 @@ import BrowserKit
 @MainActor
 final class TabListController: NSObject {
 
-    let scrollView = NSScrollView()
+    /// `SidebarScrollView`, not `NSScrollView`: §30.9's swipe is caught on the
+    /// sidebar's plane, and a scroll view consumes both axes — so without the
+    /// subclass the gesture would work everywhere except over the rows, which
+    /// is most of the column and all of the part a hand rests on.
+    let scrollView: NSScrollView = SidebarScrollView()
 
     var onActivateTab: ((UUID) -> Void)?
     var onCloseTab: ((UUID) -> Void)?
@@ -47,12 +51,15 @@ final class TabListController: NSObject {
     var mutedTabIDs: Set<UUID> = []
 
     let table = SidebarTableView()
-    private let selectionPill = RowPillView(role: .selected)
-    private let hoverPill = RowPillView(role: .hover)
+    /// Not private, for the same reason `list` and `table` are not: the two
+    /// pills and everything that places them live in
+    /// `TabListController+Pills.swift`, and Swift's `private` is file-scoped.
+    let selectionPill = RowPillView(role: .selected)
+    let hoverPill = RowPillView(role: .hover)
     private(set) var hoveredRow: Int?
     private var activeTabID: UUID?
     var isApplyingSelection = false
-    /// A press landed on a **tab** row. `SidebarTabDragController` runs the rest
+    /// A press landed on a tab row. `SidebarTabDragController` runs the rest
     /// of the gesture from here — see `SidebarTabDrag.swift` for why the list
     /// does not use `NSTableView`'s own drag and drop for this.
     var onTabPress: ((_ row: Int, _ event: NSEvent) -> Void)?
@@ -63,7 +70,7 @@ final class TabListController: NSObject {
     var draggedRow: Int?
     /// Whether a lift is up over this list at all. Not the same question as
     /// `draggedRow != nil`: a tile carried down from the §3.3 grid has no row
-    /// here to be carried *from*, and the gap it opens is still the list's to
+    /// here to be carried from, and the gap it opens is still the list's to
     /// draw. See `beginIncomingDrag()`.
     var isDragging = false
     /// Where the lift would land, in row space — or nil while it is over the
@@ -112,7 +119,7 @@ final class TabListController: NSObject {
         }
     }
 
-    /// **No scroller at all**, which `.overlay` is not: overlay draws *over* the
+    /// No scroller at all, which `.overlay` is not: overlay draws over the
     /// content, and the content is a pill inset 8 pt from the sidebar's edge
     /// with the close affordance a `rowInset` inside that — so it came down on
     /// the one strip of the row the pointer is already on, narrow as it faded
@@ -136,23 +143,40 @@ final class TabListController: NSObject {
 
     // MARK: - Content
 
-    func show(_ tabs: [Tab], activeTabID: UUID?) {
+    /// The rows, and whether what changed is an edit to this list or a
+    /// different list entirely.
+    ///
+    /// A Space switch is the second, and it used to be treated as the
+    /// first. `apply` is §6's insert: it fades the outgoing rows over
+    /// `tabInsert`, which is exactly right when one tab closes and wrong for
+    /// every row at once — `NSTableView` keeps a row being removed on screen
+    /// for the length of its animation, so the Space you had just left stayed
+    /// drawn, fading, over the Space you had just arrived in. That is the flash
+    /// of old tabs. `SidebarViewController` is already cross-fading the whole
+    /// column for this; the rows must not bring a second transition to it.
+    func show(_ tabs: [Tab], activeTabID: UUID?, replacing: Bool = false) {
         let next = SidebarList(tabs: tabs)
         let diff = next.rows.difference(from: list.rows)
         list = next
-        if diff.isEmpty {
+        if replacing {
+            table.reloadData()
+            table.needsLayout = true
+        } else if diff.isEmpty {
             refreshVisibleRows()
         } else {
             apply(diff)
         }
-        setActive(activeTabID)
+        // The selection pill springs from the row it was on to the row it is
+        // on, which across a replacement is a spring between two unrelated
+        // rows — it has to be placed, not flown.
+        setActive(activeTabID, movingPills: !replacing)
     }
 
     /// Rebuilds every row from scratch and re-places the pills.
     ///
     /// `show(_:activeTabID:)` diffs and does nothing when the rows are
     /// unchanged, which is right on every path but one: coming back from a
-    /// layout where this list was hidden, the rows are unchanged *and* the row
+    /// layout where this list was hidden, the rows are unchanged and the row
     /// views are gone. This is the path for that.
     func reload() {
         table.reloadData()
@@ -188,7 +212,7 @@ final class TabListController: NSObject {
         refreshVisibleRows()
     }
 
-    private func refreshVisibleRows() {
+    private func refreshVisibleRows(movingPills animated: Bool = true) {
         let visible = table.rows(in: table.visibleRect)
         for row in visible.lowerBound ..< visible.upperBound {
             guard let view = table.view(atColumn: 0, row: row, makeIfNecessary: false) as? SidebarRowView else {
@@ -198,31 +222,18 @@ final class TabListController: NSObject {
             view.isSelected = row == table.selectedRow
             view.isHovered = row == hoveredRow
         }
-        movePills()
-    }
-
-    /// Parks both row fills, or brings them back. §6.6's lift carries §3.4's
-    /// selected pill itself, so while one is up the list's own would be a
-    /// second highlight lying in the row's old place.
-    func setPillsHidden(_ hidden: Bool) {
-        guard hidden else {
-            movePills()
-            return
-        }
-        for pill in [selectionPill, hoverPill] { fade(pill, to: 0) }
-    }
-
-    /// Keeps the two shared pills behind the row views AppKit keeps adding.
-    func sendPillsToBack() {
-        for pill in [selectionPill, hoverPill] where pill.superview === table {
-            table.addSubview(pill, positioned: .below, relativeTo: nil)
-        }
+        movePills(animated: animated)
     }
 
     func content(for row: Int) -> SidebarRowContent {
         switch list[row] {
         case .addTab:
-            return SidebarRowContent(title: "Add Tab", symbolName: "plus")
+            // "New Tab", and it opens §9.1 rather than an empty page. The
+            // row used to be `+ Add Tab` and used to make a blank tab, which is
+            // the one tab nobody wants: the next thing you do with it is reach
+            // for the address bar. It now asks the question the blank tab was
+            // standing in for.
+            return SidebarRowContent(title: "New Tab", symbolName: "plus")
         case .separator, .none:
             return SidebarRowContent()
         case .tab:
@@ -238,7 +249,7 @@ final class TabListController: NSObject {
         // already overruled.
         let pageTitle = state?.title.isEmpty == false ? (state?.title ?? "") : tab.title
         let title = tab.customTitle ?? pageTitle
-        // **Where the tab is now, not where the snapshot left it.** `tab` is the
+        // Where the tab is now, not where the snapshot left it. `tab` is the
         // copy taken at the last `notifyChange()`, and an in-tab navigation
         // raises none — it writes the tab and publishes a `TabState`. Reading
         // the host off the snapshot is what kept the row wearing the icon of the
@@ -267,7 +278,7 @@ final class TabListController: NSObject {
 
     // MARK: - Selection and hover
 
-    private func setActive(_ id: UUID?) {
+    private func setActive(_ id: UUID?, movingPills animated: Bool = true) {
         activeTabID = id
         isApplyingSelection = true
         if let id, let row = list.row(of: id) {
@@ -276,7 +287,7 @@ final class TabListController: NSObject {
             table.deselectAll(nil)
         }
         isApplyingSelection = false
-        refreshVisibleRows()
+        refreshVisibleRows(movingPills: animated)
     }
 
     private func setHovered(_ row: Int?) {
@@ -291,52 +302,6 @@ final class TabListController: NSObject {
             view.configure(content(for: index))
         }
         movePills()
-    }
-
-    /// The two shared pills follow the rows instead of each row owning a fill.
-    /// `animated: false` where the move is not the pill's own — a spring
-    /// chasing a live resize drag arrives after the row it belongs to.
-    func movePills(animated: Bool = true) {
-        selectionPill.isFocused = table.window?.firstResponder === table
-        let selected = table.selectedRow >= 0 ? table.selectedRow : nil
-        place(selectionPill, at: selected, spec: animated ? Tokens.Motion.selectedRowMove : nil)
-        let hovered = hoveredRow.flatMap { list.isSelectable($0) && $0 != selected ? $0 : nil }
-        place(hoverPill, at: hovered, spec: animated ? Tokens.Motion.rowHover : nil)
-    }
-
-    private func place(_ pill: NSView, at row: Int?, spec: MotionSpec?) {
-        guard let row, row < table.numberOfRows else {
-            fade(pill, to: 0)
-            return
-        }
-        // `rowHeight` is pitch; `rowPillHeight` is paint. Insetting vertically
-        // is what stops two adjacent selected pills fusing into one slab.
-        let target = table.rect(ofRow: row)
-            .insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.rowPillInset)
-        let wasParked = pill.alphaValue == 0 || pill.frame == .zero
-        if !wasParked, let spring = spec?.springAnimation(keyPath: "position") {
-            let from = pill.layer?.position ?? .zero
-            pill.frame = target
-            spring.fromValue = NSValue(point: from)
-            spring.toValue = NSValue(point: pill.layer?.position ?? .zero)
-            pill.layer?.add(spring, forKey: "position")
-        } else {
-            // Layer-backed frames animate themselves; `SidebarRowView.layout`
-            // takes the same precaution for the same reason.
-            Tokens.Motion.immediately {
-                pill.layer?.removeAnimation(forKey: "position")
-                pill.frame = target
-            }
-        }
-        fade(pill, to: 1)
-    }
-
-    private func fade(_ pill: NSView, to alpha: CGFloat) {
-        guard pill.alphaValue != alpha else { return }
-        Tokens.Motion.animate(Tokens.Motion.rowHover) { context in
-            context.allowsImplicitAnimation = true
-            pill.animator().alphaValue = alpha
-        }
     }
 
     // MARK: - Commands

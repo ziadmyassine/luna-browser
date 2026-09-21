@@ -3,16 +3,16 @@ import Foundation
 //  The shell every internal page is poured into, and the only stylesheet they
 //  have.
 //
-//  **There is not one colour or length value in this file.** Every declaration
+//  There is not one colour or length value in this file. Every declaration
 //  reads `var(--luna-…)`, the custom properties are generated from
 //  `Design/Tokens.swift` by `Features/InternalPages/InternalPageTheme`, and the
-//  only fallbacks are CSS **system** colours and CSS **keywords** (`Canvas`,
+//  only fallbacks are CSS system colours and CSS keywords (`Canvas`,
 //  `CanvasText`, `GrayText`, `AccentColor`, `thin`, `medium`) — the OS's own
 //  values, never a second palette that can drift from Luna's.
 //  `InternalPagesTests.stylesheetCarriesNoLiterals` fails if a hex value, an
 //  `rgb(`, or an absolute length ever appears here.
 //
-//  Light and dark (§8.8) and Increase Contrast are **not** branched in Swift:
+//  Light and dark (§8.8) and Increase Contrast are not branched in Swift:
 //  `prefers-color-scheme` and `prefers-contrast` do it inside the page, which is
 //  the only hook that works — on macOS 26.5 Increase Contrast is not an
 //  `NSAppearance` at all (`Design/Tokens.swift` header), so there is nothing for
@@ -27,17 +27,23 @@ extension InternalPages {
     /// token→CSS contract, and it is checked from both sides
     /// (`InternalPagesTests` here, `InternalPageThemeTests` in the app).
     public static let paletteVariables: [String] = [
-        "--luna-surface-base", "--luna-surface-raised", "--luna-surface-hover",
+        "--luna-surface-base", "--luna-surface-raised",
         "--luna-text-primary", "--luna-text-secondary", "--luna-text-tertiary",
         // No `--luna-accent`: nothing on an internal page is accent-coloured.
         // Selection and focus are ink here, the same way they are material in
         // the chrome — there is no system blue anywhere in Luna.
         "--luna-line-hairline", "--luna-line-border", "--luna-danger",
+        // §3.3's recess and §3.4's selected wash, and the shadow §5's popover
+        // stands on. The shadow is the page's whole claim to depth: see
+        // `.pane` below for why a page gets a shadow instead of a material.
+        "--luna-surface-well", "--luna-surface-selected", "--luna-surface-hover",
+        "--luna-shadow", "--luna-shadow-lift", "--luna-shadow-reach",
         "--luna-hairline", "--luna-gap", "--luna-gap-wide",
         "--luna-row-height", "--luna-row-radius", "--luna-row-inset", "--luna-favicon",
         "--luna-tile-w", "--luna-tile-h", "--luna-tile-radius", "--luna-tile-gap", "--luna-tile-icon",
         "--luna-pill-h", "--luna-pill-inset", "--luna-card-radius",
         "--luna-size-row", "--luna-size-pill", "--luna-size-label",
+        "--luna-size-title", "--luna-size-body",
         "--luna-motion-hover"
     ]
 
@@ -80,12 +86,38 @@ extension InternalPages {
       outline:medium solid var(--luna-text-primary,Highlight);
       outline-offset:var(--luna-hairline);
     }
-    .plate{
+    /* **The two surfaces a page gets, and why it does not get glass.**
+       Luna's chrome is Liquid Glass; a page cannot be. The material composites
+       what is behind the *window*, and a `WKWebView`'s layer is out of process
+       — `docs/UI-SPEC.md` records a hand-built plane of scrim, frost and tint
+       being tried on exactly this and the page coming through it perfectly
+       sharp. A `backdrop-filter` here would blur `--luna-surface-base`, which
+       is flat, so it would cost a compositing pass and change nothing.
+
+       What does carry across is everything about the surface that is not the
+       sampling: the plane, the hairline that catches its edge, the continuous
+       corner, and the shadow. That is precisely what the chrome falls back to
+       under Reduce Transparency — and a page is a permanent Reduce
+       Transparency, because there is nothing behind it to see.
+
+       `.pane` is a surface you look at; `.plate` is one you can press, and is
+       the only one of the two that answers the pointer. The error card was a
+       `.plate` and lit up under the cursor like a button. */
+    .pane,.plate{
       background:var(--luna-surface-raised,Canvas);
       border:var(--luna-hairline,thin) solid var(--luna-line-border,ButtonBorder);
-      transition:background-color var(--luna-motion-hover,0s) ease-out;
     }
+    .plate{transition:background-color var(--luna-motion-hover,0s) ease-out}
     .plate:hover{background:var(--luna-surface-hover,Canvas)}
+    /* §5's popover shadow. The one thing on a page that says "above". */
+    .lifted{box-shadow:0 var(--luna-shadow-lift) var(--luna-shadow-reach) var(--luna-shadow,transparent)}
+    /* §3.3's recess: darker than the plane it is cut into, in both themes,
+       with the same hairline catching the edge. A pinned tile and the address
+       field are this, and so is anything on a page that holds something. */
+    .well{
+      background:var(--luna-surface-well,Canvas);
+      border:var(--luna-hairline,thin) solid var(--luna-line-border,ButtonBorder);
+    }
     @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 
     /* New Tab (§30.19) */
@@ -220,30 +252,70 @@ extension InternalPages {
     .row .icon{width:var(--luna-favicon);height:var(--luna-favicon)}
     .tile .icon{width:var(--luna-tile-icon);height:var(--luna-tile-icon)}
 
-    /* Errors (§4.5) */
+    /* Errors (§4.5)
+       One card, six kinds, and the kind is a class on `.error` rather than a
+       second layout. It is the §3.6 content card's own corner, standing on §5's
+       shadow, with §3.3's well holding the mark and §3.2's pill holding the
+       address that failed — the four shapes this window already has. */
     .error{
       min-height:100%;
       display:flex;flex-direction:column;align-items:center;justify-content:center;
       padding:var(--luna-gap-wide);text-align:center;
     }
     .error .card{
-      max-width:calc(var(--luna-tile-w) * 4);
+      max-width:calc(var(--luna-tile-w) * 4.5);
       display:flex;flex-direction:column;align-items:center;gap:var(--luna-gap);
-      padding:var(--luna-gap-wide);
+      padding:calc(var(--luna-gap-wide) * 2) calc(var(--luna-gap-wide) * 1.5);
       border-radius:var(--luna-card-radius);
     }
-    .error h1{font-size:var(--luna-size-pill,large);font-weight:600;margin:0}
-    .error p{margin:0;color:var(--luna-text-secondary,CanvasText)}
+    /* The mark stands in a §3.3 tile rather than floating over the card. A
+       favicon-sized glyph alone on five hundred points of plane reads as a
+       bullet point on a paragraph that has lost its list; the recess is what
+       makes it the subject of the page. The tile keeps its own corner ratio
+       on the way up, so it is §3.3's shape and not a rounder one. */
+    .error .mark{
+      display:flex;align-items:center;justify-content:center;
+      width:calc(var(--luna-tile-h) * 1.3);height:calc(var(--luna-tile-h) * 1.3);
+      border-radius:calc(var(--luna-tile-radius) * 1.3);
+      color:var(--luna-text-secondary,CanvasText);
+      margin-bottom:var(--luna-gap);
+    }
+    .error .mark svg{
+      width:calc(var(--luna-tile-icon) * 1.75);
+      height:calc(var(--luna-tile-icon) * 1.75);
+    }
+    /* Ink for the four that report, §8.1's danger for the two that warn: the
+       blocker stopped this, and the connection is not what it said it was. */
+    .error.tls .mark,.error.blocked .mark,.error.httpsDowngrade .mark{
+      color:var(--luna-danger,LinkText);
+    }
+    /* Balanced, both of them: a card this narrow strands the last word of a
+       two-line sentence on a line of its own, and the eye reads that gap as a
+       paragraph break in a page that has one paragraph. */
+    .error h1{
+      font-size:var(--luna-size-title,xx-large);font-weight:600;margin:0;
+      text-wrap:balance;
+    }
+    .error p{
+      margin:0;color:var(--luna-text-secondary,CanvasText);
+      font-size:var(--luna-size-body,medium);line-height:1.45;
+      text-wrap:balance;
+    }
+    /* The address that failed, in the shape the address bar would have shown
+       it in. It is evidence, not prose, so it is not set as a sentence. */
     .error .target{
+      max-width:100%;
+      margin-top:var(--luna-gap);
+      padding:calc(var(--luna-gap) / 2) var(--luna-pill-inset);
+      border-radius:calc(var(--luna-pill-h) / 2);
       color:var(--luna-text-tertiary,GrayText);font-size:var(--luna-size-label,small);
       overflow-wrap:anywhere;
     }
-    .error .mark{
-      width:var(--luna-tile-icon);height:var(--luna-tile-icon);
-      color:var(--luna-text-tertiary,GrayText);
+    .error .note{
+      color:var(--luna-text-tertiary,GrayText);font-size:var(--luna-size-label,small);
+      overflow-wrap:anywhere;
     }
-    .error.blocked .mark,.error.tls .mark{color:var(--luna-danger,LinkText)}
-    .actions{display:flex;gap:var(--luna-gap);margin-top:var(--luna-gap)}
+    .actions{display:flex;gap:var(--luna-gap);margin-top:var(--luna-gap-wide)}
     .button{
       display:inline-flex;align-items:center;
       height:var(--luna-pill-h);
@@ -251,5 +323,16 @@ extension InternalPages {
       border-radius:calc(var(--luna-pill-h) / 2);
       font-size:var(--luna-size-row,medium);
     }
+    /* **The one the page is recommending, and there is no blue to say so.**
+       §3.4's selected wash is twice the hover, which is exactly the step that
+       separates "the answer" from "the other thing you may do" without
+       inventing an accent Luna does not have. It keeps that fill under the
+       pointer instead of lifting to it — there is nothing above selected, and
+       a key button that dimmed on hover would be reading backwards. */
+    .button.key{
+      background:var(--luna-surface-selected,Canvas);
+      color:var(--luna-text-primary,CanvasText);
+    }
+    .button.key:hover{background:var(--luna-surface-selected,Canvas)}
     """
 }

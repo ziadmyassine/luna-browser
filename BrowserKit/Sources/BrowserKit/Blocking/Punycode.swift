@@ -2,12 +2,12 @@ import Foundation
 
 /// Domain normalisation for `if-domain`/`unless-domain` (§17.1).
 ///
-/// WebKit requires those entries to be **lowercase ASCII, punycoded**, and enforces it:
+/// WebKit requires those entries to be lowercase ASCII, punycoded, and enforces it:
 /// a single `EXAMPLE.com` or `日本.jp` fails the whole list with "Domains must be lower
 /// case ASCII. Use punycode to encode non-ASCII characters." (measured 2026-09-17).
 ///
-/// Foundation will not do this for us, which is the trap. `URL.host()` **percent-encodes**
-/// (`日本.jp` → `%E6%97%A5%E6%9C%AC.jp`) and `URLComponents.host` actively *decodes*
+/// Foundation will not do this for us, which is the trap. `URL.host()` percent-encodes
+/// (`日本.jp` → `%E6%97%A5%E6%9C%AC.jp`) and `URLComponents.host` actively decodes
 /// punycode back to Unicode (`xn--wgv71a.jp` → `日本.jp`), so routing a domain through
 /// either of them produces a rule WebKit rejects. Hence RFC 3492 here, ~50 lines, tested
 /// against the RFC's own vectors.
@@ -20,7 +20,7 @@ enum Punycode {
     /// Lowercases and punycodes a domain so WebKit will accept it.
     ///
     /// Returns nil for anything that cannot become a domain — empty input, a label that
-    /// will not encode. Callers **drop** those rules: a rule WebKit rejects costs the
+    /// will not encode. Callers drop those rules: a rule WebKit rejects costs the
     /// other 149,999 in the list, so silence here is cheaper than optimism.
     static func asciiDomain(_ domain: String) -> String? {
         // A leading `*` is WebKit's own "this domain and its subdomains" marker and a

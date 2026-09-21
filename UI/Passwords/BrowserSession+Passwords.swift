@@ -6,14 +6,13 @@
 //
 //  `TabController` finds the form, matches the site and holds the secrets;
 //  `CredentialPopover` and `SavePasswordChip` are AppKit and cannot live in
-//  `BrowserKit` (§25.5). This file is the four delegate methods that join them,
-//  and it is deliberately thin: every decision worth arguing about — which
-//  credentials match, whether the frame may be filled, whether anything is
-//  written — was already taken in `PasswordCoordinator`, under test, away from
-//  the view layer.
+//  `BrowserKit` (§25.5). This is the four delegate methods that join them, and
+//  it is deliberately thin: which credentials match, whether the frame may be
+//  filled and whether anything is written were all decided in
+//  `PasswordCoordinator`, under test.
 //
-//  The one rule this file *does* own: **password UI belongs to the active tab
-//  only.** A background tab finishing a load and putting a popover over the
+//  The one rule this file does own: password UI belongs to the active tab
+//  only. A background tab finishing a load and putting a popover over the
 //  page the user is reading would be a bug in the obvious direction, and a
 //  save chip from a tab the user has left is a chip they cannot place.
 //
@@ -92,7 +91,7 @@ extension BrowserSession {
     /// The field went away, the document changed, or the tab did. The popover
     /// points at a rect in a page that no longer exists, so it goes.
     ///
-    /// The **chip deliberately survives** a document change: §14.4 fires it on
+    /// The chip deliberately survives a document change: §14.4 fires it on
     /// submit, and a successful sign-in navigates immediately afterwards. A
     /// chip that died with the document would be a chip nobody ever saw.
     func tabControllerDidDismissPasswordUI(_ controller: TabController) {

@@ -4,26 +4,23 @@
 //
 //  §23.1 §3.2, and the §7 glass row it exists for.
 //
-//  **The preview tile is the point of this section.** On the machine §7 was
-//  measured on — 1920 × 1080, "UI Looks like 1920 × 1080", one point to one
-//  physical pixel — the difference between `.clear` and tinted `.regular` is
-//  the difference between chrome that reads as glass and chrome that reads as
-//  a smear. A setting whose effect you can only judge by closing the window
-//  and looking at the sidebar is a setting nobody tunes, so the tile is
-//  rebuilt from `Glass.previewTile(size:optimised:)` on the same runloop turn
-//  as the segment change.
+//  The preview tile is the point of this section. On the machine §7 was
+//  measured on — 1920 × 1080 at one point to one physical pixel — the
+//  difference between `.clear` and tinted `.regular` is the difference between
+//  chrome that reads as glass and chrome that reads as a smear. A setting you
+//  can only judge by closing the window is a setting nobody tunes, so the tile
+//  is rebuilt from `Glass.previewTile(size:optimised:)` on the same runloop
+//  turn as the segment change.
 //
-//  **Favicons are no longer a setting.** §3.2 listed a switch for them; the
-//  sidebar has drawn them since M1, every browser draws them, and nobody turns
-//  them off. A preference whose only honest default is "on" is one more row to
-//  read past, so `SidebarIcons.favicon(for:)` now just draws them.
+//  Favicons are no longer a setting. §3.2 listed a switch; the sidebar has
+//  drawn them since M1 and nobody turns them off. A preference whose only
+//  honest default is "on" is one more row to read past.
 //
-//  **The Tabs row changes shape with the row above it.** §3's sidebar is a
-//  column — two sides, no middle — and §4's strip runs along a bar, which has
-//  all three. So the segments are rebuilt when the layout changes rather than
-//  one of them sitting there permanently dimmed: a disabled answer still has to
-//  be read past, and "Centre" under the sidebar is not an answer that is
-//  temporarily unavailable, it is one the question does not have.
+//  The Tabs row changes shape with the row above it. §3's sidebar is a column,
+//  two sides and no middle; §4's strip runs along a bar, which has all three.
+//  The segments are rebuilt when the layout changes rather than one sitting
+//  permanently dimmed — "Centre" under the sidebar is not temporarily
+//  unavailable, it is an answer the question does not have.
 //
 
 import AppKit
@@ -85,7 +82,7 @@ final class AppearanceSection: NSObject, SettingsSection {
 
     /// §3.2: "a 160 × 72 sample of the real material".
     ///
-    /// **The one length in B's four sections that is not a `Tokens.Metric`.**
+    /// The one length in B's four sections that is not a `Tokens.Metric`.
     /// It is a §23.1 number with no row in §1's table and `Design/` is agent
     /// D's; the report asks for `Tokens.Metric.glassPreviewTile` so this can
     /// become a reference. Nothing else here writes a literal length.
@@ -129,7 +126,7 @@ final class AppearanceSection: NSObject, SettingsSection {
         ])
         rebuildTile()
 
-        // §7: the scale factor belongs to the window's *current screen*, so a
+        // §7: the scale factor belongs to the window's current screen, so a
         // window dragged between displays re-resolves. Both notifications,
         // because a backing change and a screen-arrangement change are
         // different events and only one of them fires per move.
@@ -158,7 +155,7 @@ final class AppearanceSection: NSObject, SettingsSection {
         }
     }
 
-    /// §2a. **Above the §7 row, because it is the bigger of the two.** This one
+    /// §2a. Above the §7 row, because it is the bigger of the two. This one
     /// changes how much of the desktop reaches the eye through every chrome
     /// surface in the app; the row below it changes how one material is
     /// rendered on one class of display. The preview tile under both shows
@@ -240,11 +237,11 @@ final class AppearanceSection: NSObject, SettingsSection {
         }
     }
 
-    /// §3.2b. Where the address pill goes **within** the sidebar layout: at the
+    /// §3.2b. Where the address pill goes within the sidebar layout: at the
     /// head of the column as §3.2 built it, or on a bar across the top of the
     /// page, taking §3.1's back and reload with it.
     ///
-    /// **Gone under the top bar, not dimmed.** §4 has one place for a pill and
+    /// Gone under the top bar, not dimmed. §4 has one place for a pill and
     /// the tab strip is built around it, so under that layout this is not a
     /// question with a greyed-out answer — it is not a question. A dimmed row
     /// is for a control that has an answer Luna cannot honour yet (§30.4);

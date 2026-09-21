@@ -4,16 +4,16 @@
 //
 //  §9.3's adaptive half, in memory and written through to `inputHistory`.
 //
-//  **Why in memory at all.** §9.7 gives the Command Bar one frame — 16 ms — to
+//  Why in memory at all. §9.7 gives the Command Bar one frame — 16 ms — to
 //  put local results on screen, and adaptive matches are the rows that rank
-//  *above* everything else, so they cannot arrive a frame late without the top of
+//  above everything else, so they cannot arrive a frame late without the top of
 //  the list visibly re-shuffling. The table is one row per string the user
-//  actually typed *and* chose from, which is small enough to hold: this loads it
+//  actually typed and chose from, which is small enough to hold: this loads it
 //  once and keeps it warm. Reads are synchronous; only the write is async.
 //
 //  `@MainActor` rather than an actor: the main actor is already the serialisation
 //  domain every window's Command Bar shares, so an actor would buy a hop and no
-//  safety. **One instance per `BrowserStore`** — hand the same one to every
+//  safety. One instance per `BrowserStore` — hand the same one to every
 //  window's `CommandBarController`, or two windows will bump divergent counts.
 //
 

@@ -16,7 +16,7 @@ import BrowserKit
 final class VectorIconRasterizerTests: XCTestCase {
 
     /// Deliberately not square, and deliberately tiny: it pins down both the
-    /// aspect ratio and the fact that a vector is drawn *up* to the cache's size.
+    /// aspect ratio and the fact that a vector is drawn up to the cache's size.
     private static let wideSVG = Data("""
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 32" width="64" height="32">\
     <rect width="64" height="32" fill="#ff6600"/></svg>

@@ -31,9 +31,13 @@ extension TabController: WKNavigationDelegate {
         // whole page.
         if navigationAction.targetFrame?.isMainFrame ?? false {
             ContentBlocker.shared.apply(to: webView.configuration.userContentController, host: url.host())
+            // §17.2. The rule lists above are swapped per navigation; the YouTube
+            // script has to be too, and for the same reason — "disable blocking here"
+            // has to mean here.
+            refreshUserScriptsIfNeeded(host: url.host())
             // §17.6. `preferredHTTPSNavigationPolicy` cannot do this: measured, both of
             // its values end an http-only navigation at `about:blank` with `didFinish`
-            // and **no** delegate error, so there is no hook to put an interstitial on.
+            // and no delegate error, so there is no hook to put an interstitial on.
             // Luna upgrades and cancels itself instead. `bypassedURL` is the user having
             // already said "continue anyway" on the downgrade page.
             if case let .upgrade(upgraded) = ContentBlocker.shared.httpsDecision(for: url),
@@ -103,14 +107,13 @@ extension TabController: WKNavigationDelegate {
         refreshFavicon()
     }
 
-    /// §14.8's redirect flag starts clean here, and **only** here.
+    /// §14.8's redirect flag starts clean here, and only here.
     ///
-    /// The two obvious alternatives are both wrong, which is why this callback
-    /// exists at all:
+    /// The two obvious alternatives are both wrong:
     ///
-    ///  · `didCommit` runs *after* the redirect callback, so clearing there
+    ///  · `didCommit` runs after the redirect callback, so clearing there
     ///    would erase the very thing the flag recorded.
-    ///  · `decidePolicyFor` runs **again for every redirect target** — that is
+    ///  · `decidePolicyFor` runs again for every redirect target — that is
     ///    how a redirect chain is observable at all — so clearing there would
     ///    erase the flag on the hop that set it.
     ///
@@ -146,7 +149,7 @@ extension TabController: WKNavigationDelegate {
         presentErrorPage(for: error, in: webView)
     }
 
-    /// A failure *after* `didCommit` leaves a partly-rendered page on screen.
+    /// A failure after `didCommit` leaves a partly-rendered page on screen.
     /// Replacing it with an error page would throw away content the user can
     /// already read, so this one only reports.
     public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
@@ -160,7 +163,7 @@ extension TabController: WKNavigationDelegate {
     /// §4.4's two rules in one place: only Luna may navigate to a `luna://` URL,
     /// and an action URL is performed rather than loaded.
     ///
-    /// The trust signal is the *source document's* scheme, because that is the
+    /// The trust signal is the source document's scheme, because that is the
     /// one thing web content cannot forge — a link, a form, an iframe and a
     /// `location.href` on `https://evil.example` all report `https` here, while
     /// Luna's own loads either carry the one-shot token or come from another
@@ -180,7 +183,7 @@ extension TabController: WKNavigationDelegate {
     /// Replaces WebKit's default failure page with §4.5's (§4.4 for the route).
     ///
     /// The failing URL comes from the error rather than from `webView.url`:
-    /// nothing committed, so the web view still reports the *previous* page — or
+    /// nothing committed, so the web view still reports the previous page — or
     /// nothing at all for a tab's first load.
     private func presentErrorPage(for error: Error, in webView: WKWebView) {
         let nsError = error as NSError

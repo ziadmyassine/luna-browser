@@ -105,7 +105,7 @@ final class CommandBarPrivacyTests: XCTestCase {
 
         for file in files {
             // Comments are stripped first, exactly as `Tools/check-no-appkit.sh`
-            // does: a file that *documents* this rule is not a violation of it.
+            // does: a file that documents this rule is not a violation of it.
             let code = try String(contentsOf: file, encoding: .utf8)
                 .split(separator: "\n", omittingEmptySubsequences: false)
                 .map { $0.split(separator: "//", maxSplits: 1, omittingEmptySubsequences: false)[0] }

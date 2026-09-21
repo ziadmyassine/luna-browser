@@ -4,8 +4,8 @@
 //
 //  TODO.md §7.7: "write a single `TrafficLightLayoutManager` and unit-test its
 //  output for the window states rather than nudging frames in 4 different view
-//  controllers". This file is that test — it is the reason the geometry is a
-//  pure function instead of a pile of `setFrameOrigin` calls.
+//  controllers". This is that test, and the reason the geometry is a pure
+//  function rather than a pile of `setFrameOrigin` calls.
 //
 //  The fixtures are measured, not invented: a probe run against macOS 26 reports
 //  a 32 pt `NSTitlebarView` holding three 14 × 14 buttons at x = 9 / 32 / 55.
@@ -81,7 +81,7 @@ final class TrafficLightLayoutTests: XCTestCase {
         XCTAssertNil(origins(.fullscreen))
     }
 
-    /// **The container is measured, not named.** Fullscreen takes AppKit's
+    /// The container is measured, not named. Fullscreen takes AppKit's
     /// titlebar out of the window and the lights move into a strip of Luna's
     /// own; what has to survive the move is the distance from the window's top
     /// edge, because that is what "the same position as windowed" means. So the
@@ -126,8 +126,8 @@ final class TrafficLightLayoutTests: XCTestCase {
         )
     }
 
-    /// **Fullscreen has to land the lights on the line the titlebar lands them
-    /// on.** In fullscreen the buttons move into a strip of Luna's own, and
+    /// Fullscreen has to land the lights on the line the titlebar lands them
+    /// on. In fullscreen the buttons move into a strip of Luna's own, and
     /// `origins` clamps the inset into whatever container it is given — so a
     /// strip shorter than the inset plus a button would put the lights higher
     /// than windowed, which is the only way the two states can disagree. The
@@ -262,7 +262,7 @@ final class SpaceCornerFillTests: XCTestCase {
         SpaceCornerFillView.notches(in: bounds, besideColumnOf: column)
     }
 
-    /// **Nothing to the left of the sidebar's trailing edge.** That region is
+    /// Nothing to the left of the sidebar's trailing edge. That region is
     /// already carrying the sidebar's own wash; painting it here as well would
     /// be 16 % laid over 16 %, and the column would come up darker than the
     /// notches it is supposed to match.
@@ -296,7 +296,7 @@ final class SpaceCornerFillTests: XCTestCase {
         )
     }
 
-    /// The disc the card's corner takes out is *not* painted — that area is the
+    /// The disc the card's corner takes out is not painted — that area is the
     /// card itself, and the fill sits below it.
     func testTheArcFollowsTheCardsOwnCorner() {
         let radius = Tokens.Metric.contentCardRadius

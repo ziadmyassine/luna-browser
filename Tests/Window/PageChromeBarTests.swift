@@ -5,7 +5,7 @@
 //  §3.2b's bar, as geometry. Three things can go wrong here without anyone
 //  noticing until a narrow window or a particular chrome state finds them: the
 //  pill overlapping the buttons beside it, the bar eating clicks meant for the
-//  page, and the two controls that live *inside* the capsule drifting off its
+//  page, and the two controls that live inside the capsule drifting off its
 //  ends or out from under the address's margins.
 //
 
@@ -26,14 +26,19 @@ final class PageChromeBarTests: XCTestCase {
 
     /// The bar's own two controls, the pill, and the two glyphs inside it —
     /// which are the pill's on both surfaces, not the bar's.
-    private func controls(
-        of bar: PageChromeBar
-    ) -> (leading: [NSView], inPill: [NSView], buttons: [NSView], pill: URLPillView)? {
+    private struct Controls {
+        let leading: [NSView]
+        let inPill: [NSView]
+        let buttons: [NSView]
+        let pill: URLPillView
+    }
+
+    private func controls(of bar: PageChromeBar) -> Controls? {
         let pill = bar.subviews.compactMap { $0 as? URLPillView }.first
         let leading = bar.subviews.filter { $0 is NavCluster || $0 === bar.toggle }
         guard let pill, leading.count == 2 else { return nil }
         let inPill = [pill.sliders, pill.reload] as [NSView]
-        return (leading, inPill, leading + inPill, pill)
+        return Controls(leading: leading, inPill: inPill, buttons: leading + inPill, pill: pill)
     }
 
     /// The glyphs' frames in the bar's own coordinates, so they can be compared
@@ -67,7 +72,7 @@ final class PageChromeBarTests: XCTestCase {
         XCTAssertLessThanOrEqual(last, parts.pill.frame.minX)
     }
 
-    /// **Site settings leads the capsule and reload trails it**, both inside
+    /// Site settings leads the capsule and reload trails it, both inside
     /// it, both the same distance from the end they are on. A lone control on
     /// one side is what made the address read as pushed rather than placed.
     func testTheCapsuleCarriesAControlAtEachEnd() throws {
@@ -97,7 +102,7 @@ final class PageChromeBarTests: XCTestCase {
         XCTAssertLessThan(pill.field.frame.maxX, pill.reload.frame.midX)
     }
 
-    /// **No favicon up there, in either form.** The pill wore a leading mark
+    /// No favicon up there, in either form. The pill wore a leading mark
     /// for a while — magnifier, globe, or the site's own icon — and an address
     /// bar is not where it belongs: a favicon at the head of the one line
     /// saying what page you are on is a second thing to read. §9.1's field
@@ -166,7 +171,7 @@ final class PageChromeBarTests: XCTestCase {
         XCTAssertLessThan(shut.height, open.height)
     }
 
-    /// **The address does not travel between the two states**, at any width.
+    /// The address does not travel between the two states, at any width.
     /// Collapsing used to work the pill's place and its width out from scratch —
     /// centred in what was left of the bar, sized to the domain — so on a pane
     /// narrow enough to push the open pill off centre the address slid in from
@@ -184,7 +189,7 @@ final class PageChromeBarTests: XCTestCase {
         }
     }
 
-    /// **And the whole domain survives the collapse.** It did not: the capsule
+    /// And the whole domain survives the collapse. It did not: the capsule
     /// was sized to its own text, and a width a point short does not lose a
     /// pixel off the last letter — it drops characters until an ellipsis fits,
     /// which is what turned `apple.com` into `apple.c…`. The collapsed pill is
@@ -229,7 +234,7 @@ final class PageChromeBarTests: XCTestCase {
         XCTAssertEqual(began, 1)
     }
 
-    /// **And it hands the address to §9.1 rather than opening a field.** The
+    /// And it hands the address to §9.1 rather than opening a field. The
     /// anchor it sends is the pill itself, which is what lets the bar grow out
     /// of the capsule that was pressed; the bar gets itself back when §9.1
     /// closes, through the anchor's own callback.
@@ -280,8 +285,8 @@ final class PageChromeBarTests: XCTestCase {
         return window
     }
 
-    /// **Fullscreen takes the traffic lights out of the window and hands them
-    /// back, and neither edge resizes this bar.** `placeControls` measures
+    /// Fullscreen takes the traffic lights out of the window and hands them
+    /// back, and neither edge resizes this bar. `placeControls` measures
     /// against them, so without this the bar keeps a placement made when they
     /// were somewhere else — which is §3.2b's dissolve turning into a move, in
     /// fullscreen only. §3.1's control row is fixed the same way, but that pass
@@ -315,7 +320,7 @@ final class PageChromeBarTests: XCTestCase {
     }
 
     /// The bar is a plane in the page's colour, so what is drawn on it has to
-    /// be inked for *that* colour rather than for the app's. One appearance on
+    /// be inked for that colour rather than for the app's. One appearance on
     /// the subtree is how every token on it — text, glyph ink, glass fallback —
     /// gets that answer at once.
     func testTheBarTakesTheAppearanceThePageCallsFor() {
@@ -344,5 +349,35 @@ final class PageChromeBarTests: XCTestCase {
 
         page.setTopColour(nil)
         XCTAssertEqual(page.appearance?.name, .aqua, "back to the document's own colour")
+    }
+}
+
+/// §30.1, and the report behind it: one window has one handle.
+///
+/// The sidebar's plane is what moves the window in this layout. §3.2b's bar is
+/// over the page, inside the card, and dragging it used to move the window as
+/// well — two handles, one of them on the band the user is aiming at for the
+/// pill and the toggle. The exception is a hidden sidebar, where this bar is
+/// the only chrome left above the page.
+@MainActor
+final class PageChromeBarDragTests: XCTestCase {
+
+    private func bar(in state: ChromeState) throws -> PageChromeBar {
+        let controller = BrowserWindowController()
+        controller.setChromeStateWithoutAnimation(state)
+        let bar = PageChromeBar()
+        controller.setPageOverlay(bar)
+        _ = try XCTUnwrap(controller.window?.contentView)
+        return bar
+    }
+
+    func testTheBarDoesNotMoveTheWindowWhileTheSidebarIsOnScreen() throws {
+        let bar = try bar(in: .sidebar(width: Tokens.Metric.sidebarWidth.default, edge: .leading))
+        XCTAssertFalse(bar.mouseDownCanMoveWindow)
+    }
+
+    func testItDoesWhenTheSidebarHasBeenPutAway() throws {
+        let bar = try bar(in: .sidebarCollapsed(edge: .leading))
+        XCTAssertTrue(bar.mouseDownCanMoveWindow, "with the column gone there is nothing else left to drag by")
     }
 }

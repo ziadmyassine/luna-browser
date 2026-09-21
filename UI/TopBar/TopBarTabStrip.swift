@@ -2,7 +2,7 @@
 //  TopBarTabStrip.swift
 //  Luna
 //
-//  §4: **tabs are visible in the sidebar-off layout.** Inactive tabs are 28 pt
+//  §4: tabs are visible in the sidebar-off layout. Inactive tabs are 28 pt
 //  icon-only tiles; the active tab expands into the URL pill. That is why tiles
 //  appear on both sides of the pill and why the pill is not window-centred —
 //  the strip is one ordered run and the pill is simply the wide element in it.
@@ -13,22 +13,21 @@
 //  already has the elastic bounce, the trackpad handling and the 120 fps path
 //  §19.1 asks for, and a hand-rolled clipper would have none of them.
 //
-//  **Where the run sits in the bar is `Settings.tabsPosition`**, and it is
-//  centred by default. The strip only owns what is left between Back and the
-//  separator, and those two clusters are nothing like the same width — one
-//  capsule item on the left, four and a separator on the right — so a run
-//  centred in the strip's own span sat 25 pt off the window's middle. Centred
-//  means centred **in the bar**: the bar spans the window and so does the page
-//  under it, and that is the line the eye measures a centred thing against.
-//  When the tabs overflow the span the alignment stops meaning anything and
-//  the run scrolls from its leading edge.
+//  Where the run sits in the bar is `Settings.tabsPosition`, centred by
+//  default. The strip only owns what is left between Back and the separator,
+//  and those clusters are nothing like the same width — one capsule item on the
+//  left, four and a separator on the right — so a run centred in the strip's
+//  own span sat 25 pt off the window's middle. Centred means centred in the
+//  bar, which is the line the eye measures against. Once the tabs overflow the
+//  span the alignment stops meaning anything and the run scrolls from its
+//  leading edge.
 //
-//  Right-clicking a tile opens §3.4a's tab menu — the same seven items a §3.4 sidebar row
-//  and a §3.3 tile get, from the same binding on `BrowserSession`. The layout you are in is
-//  not supposed to change what you can do to a tab.
+//  Right-clicking a tile opens §3.4a's tab menu — the same seven items a §3.4
+//  row and a §3.3 tile get, from the same binding on `BrowserSession`. The
+//  layout you are in does not change what you can do to a tab.
 //
 //  Tiles are icon-only, so §8 and §21.1 require an explicit VoiceOver label —
-//  the page title, or the site name when there is no title, **never the URL**.
+//  the page title, or the site name when there is no title, never the URL.
 //  The strip itself is a tab list and each item carries its position and count.
 //
 
@@ -184,6 +183,7 @@ final class TopBarTabStrip: NSView {
             icon: session.favicon(for: id),
             tint: state.themeColor.map { NSColor($0) }
         )
+        pill.setLoad(state, for: id)
     }
 
     /// The live state when the tab is warm, the persisted row when it is not —
@@ -242,7 +242,7 @@ final class TopBarTabStrip: NSView {
     // MARK: - Geometry
 
     /// Bounds-derived frames never animate — see `Motion.immediately` — with
-    /// one exception: the frame a tab's view lands on is bounds-derived *and*
+    /// one exception: the frame a tab's view lands on is bounds-derived and
     /// role-derived, and when the role changed, the move from the old frame to
     /// the new one is exactly the thing that should be seen. §4's strip is one
     /// ordered run and the pill is the wide element in it, so a switch slides
@@ -264,7 +264,7 @@ final class TopBarTabStrip: NSView {
     /// The clear run in front of the first tile, which is what the alignment
     /// actually is.
     ///
-    /// It is padding *inside* the document view rather than an offset applied
+    /// It is padding inside the document view rather than an offset applied
     /// to it: a document narrower than its clip view is anchored at the clip's
     /// leading edge and stays there whatever origin it is given, so the space
     /// has to be part of the content for the scroll view to keep honouring it.
@@ -277,7 +277,7 @@ final class TopBarTabStrip: NSView {
         )
     }
 
-    /// Where the **bar's** centre falls inside the strip. Not `bounds.midX`:
+    /// Where the bar's centre falls inside the strip. Not `bounds.midX`:
     /// the strip is inset by a different amount on either side, and that
     /// difference is exactly what a centred run must not inherit.
     private var barCentre: CGFloat {

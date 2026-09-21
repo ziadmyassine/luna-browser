@@ -2,21 +2,21 @@
 //  HistoryPanel.swift
 //  Luna
 //
-//  §6.4's archive, as a **pop-out from the §3.5 History button** — the same
+//  §6.4's archive, as a pop-out from the §3.5 History button — the same
 //  shape §3.2's site menu takes from the sliders glyph.
 //
 //  It used to be `luna://archive`, an internal page in a new tab. That is the
 //  wrong shape for it twice over: looking something up in your history is a
 //  glance, and a glance should not cost a tab you then have to close — and a
-//  page cannot be Liquid Glass, so the one surface in the app that is *about*
+//  page cannot be Liquid Glass, so the one surface in the app that is about
 //  the tabs looked like a website. The page still exists and the route still
 //  works; this is what §3.5's History button opens.
 //
-//  **And then it was the Command Bar's shell, which was the same mistake one
-//  size smaller.** Scrim, 640 pt body, centred over the page: a glance at a
+//  And then it was the Command Bar's shell, which was the same mistake one
+//  size smaller. Scrim, 640 pt body, centred over the page: a glance at a
 //  shelf took the whole page away and put a window-sized panel where the user
 //  was not looking. The Command Bar earns that — you summon it, and it is the
-//  thing you are doing. History is opened *from a button*, and a surface opened
+//  thing you are doing. History is opened from a button, and a surface opened
 //  from a button belongs on it.
 //
 //  So: no scrim, a pop-out standing on the button, and the page still there
@@ -57,7 +57,6 @@ final class HistoryPanel: PopoutPanelView {
     let field = HistoryFilterField()
 
     private let list = HistoryListView()
-    private let scroll = NSScrollView()
     private let empty = NSTextField(labelWithString: "")
     /// What the filter holds, so the empty state can tell "nothing archived"
     /// apart from "nothing matched".
@@ -75,14 +74,16 @@ final class HistoryPanel: PopoutPanelView {
 
     // MARK: - Content
 
-    /// Replaces the list. Cheap enough to call on every keystroke: the archive
-    /// is capped by §19.5's sweep and the rows are plain views.
+    /// Replaces the list. Cheap enough to call on every keystroke — which is
+    /// what it is called on — because `HistoryListView` recycles its rows, so
+    /// this costs the dozen rows the panel is tall however long the archive is.
+    /// It was not, once: see that file's header for the measurement.
     func setEntries(_ entries: [HistoryEntry]) {
         list.iconProvider = iconProvider
         list.setEntries(entries)
         empty.stringValue = Self.emptyMessage(filteredBy: query)
         empty.isHidden = !entries.isEmpty
-        scroll.isHidden = entries.isEmpty
+        list.isHidden = entries.isEmpty
         needsLayout = true
     }
 
@@ -119,32 +120,10 @@ final class HistoryPanel: PopoutPanelView {
         field.onMoveSelection = { [weak self] offset in self?.list.move(by: offset) }
         field.onCommit = { [weak self] in self?.list.activateSelection() }
 
+        // The list brings its own scroll view — it is a table, and a table
+        // that is not in one does not recycle anything.
         list.translatesAutoresizingMaskIntoConstraints = false
         list.onActivate = { [weak self] entry in self?.onChoose?(entry.id) }
-
-        scroll.drawsBackground = false
-        scroll.contentView.drawsBackground = false
-        scroll.hasVerticalScroller = true
-        scroll.hasHorizontalScroller = false
-        scroll.horizontalScrollElasticity = .none
-        scroll.automaticallyAdjustsContentInsets = false
-        // **Overlay, so the scroller does not take width off the rows.** A
-        // legacy scroller is laid out *beside* the document, which would make
-        // the rows a scroller narrower than the list they are measured
-        // against — the one way they could stop being the same width.
-        scroll.scrollerStyle = .overlay
-        // And a row's height of clear space at each end, so the first and last
-        // rows are whole rather than sliced by the header above them and the
-        // panel's own edge below. Without it the top row sat half under the
-        // title and read as a shorter row.
-        scroll.contentInsets = NSEdgeInsets(
-            top: HistoryPanelMetrics.padding,
-            left: 0,
-            bottom: HistoryPanelMetrics.padding,
-            right: 0
-        )
-        scroll.documentView = list
-        scroll.translatesAutoresizingMaskIntoConstraints = false
 
         empty.stringValue = Self.emptyMessage(filteredBy: query)
         empty.font = Tokens.TypeScale.sidebarRow
@@ -155,7 +134,7 @@ final class HistoryPanel: PopoutPanelView {
         empty.isHidden = true
         empty.translatesAutoresizingMaskIntoConstraints = false
 
-        for view in [title, field, scroll, empty] { body.addSubview(view) }
+        for view in [title, field, list, empty] { body.addSubview(view) }
         constrain(title: title)
     }
 
@@ -174,11 +153,10 @@ final class HistoryPanel: PopoutPanelView {
             field.trailingAnchor.constraint(equalTo: body.trailingAnchor, constant: -inset),
             field.centerYAnchor.constraint(equalTo: title.centerYAnchor),
 
-            scroll.topAnchor.constraint(equalTo: body.topAnchor, constant: HistoryPanelMetrics.headerHeight),
-            scroll.leadingAnchor.constraint(equalTo: body.leadingAnchor, constant: HistoryPanelMetrics.padding),
-            scroll.trailingAnchor.constraint(equalTo: body.trailingAnchor, constant: -HistoryPanelMetrics.padding),
-            scroll.bottomAnchor.constraint(equalTo: body.bottomAnchor, constant: -HistoryPanelMetrics.padding),
-            list.widthAnchor.constraint(equalTo: scroll.widthAnchor),
+            list.topAnchor.constraint(equalTo: body.topAnchor, constant: HistoryPanelMetrics.headerHeight),
+            list.leadingAnchor.constraint(equalTo: body.leadingAnchor, constant: HistoryPanelMetrics.padding),
+            list.trailingAnchor.constraint(equalTo: body.trailingAnchor, constant: -HistoryPanelMetrics.padding),
+            list.bottomAnchor.constraint(equalTo: body.bottomAnchor, constant: -HistoryPanelMetrics.padding),
 
             empty.leadingAnchor.constraint(equalTo: body.leadingAnchor, constant: inset),
             empty.trailingAnchor.constraint(equalTo: body.trailingAnchor, constant: -inset),

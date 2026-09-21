@@ -2,19 +2,18 @@
 //  BrowserSession+Pinning.swift
 //  Luna
 //
-//  §3.3's half of the §6 lifecycle: what it means for a tab to be a **tile**.
+//  §3.3's half of the §6 lifecycle: what it means for a tab to be a tile.
 //
-//  Split out of `BrowserSession+Tabs.swift` for that file's length limit, and
-//  it earns the separation. Everything here turns on one distinction the rest
-//  of the lifecycle does not have to make: a tile's page can go away for two
-//  completely different reasons, and the tile has to come back differently
-//  depending on which one it was.
+//  Split out of `BrowserSession+Tabs.swift` for that file's length limit.
+//  Everything here turns on one distinction the rest of the lifecycle does not
+//  have to make: a tile's page can go away for two different reasons, and the
+//  tile comes back differently depending on which.
 //
-//    · **Filed away** — pinning a tab that is not the one on screen, or the
+//    · Filed away — pinning a tab that is not the one on screen, or the
 //      §19.2 live-tab budget reclaiming a cold one. Nothing was decided about
 //      the page; it simply costs a WebContent process to keep. The blob stays,
 //      and clicking the tile lands where the user left off.
-//    · **Closed** — `⌘W` on a tile. That *is* a decision, and it is "I am
+//    · Closed — `⌘W` on a tile. That is a decision, and it is "I am
 //      finished with this page". The tile stays, because a tile is a place you
 //      keep; the page does not, so the tab goes back to `pinnedURL`, the link
 //      the tile was made from.
@@ -31,20 +30,19 @@ extension BrowserSession {
 
     /// Pins a tab into the §3.3 grid — the tiles under the URL pill.
     ///
-    /// **Pinning closes the page and keeps the tab.** The tile stays until the
+    /// Pinning closes the page and keeps the tab. The tile stays until the
     /// user unpins it, and clicking one wakes the page again from the same
     /// `interactionState` the tab was carrying, so a pinned tab costs a row in
     /// SQLite and no WebContent process (§19.2). That is the whole behaviour:
-    /// there is no "close a pinned tab", because the tile *is* the tab.
+    /// there is no "close a pinned tab", because the tile is the tab.
     ///
-    /// **Except the page you are looking at.** Dropping a web view saves a
-    /// WebContent process, which is right for a tab you are filing away and
-    /// wrong for the one on screen: pinning the active tab blanked the content
-    /// pane under the pointer, mid-gesture, and the site you had just dragged
-    /// up there had to be re-loaded by clicking the tile you had only just
-    /// made. A pinned tab that is the current tab keeps its page, and
-    /// `enforceLiveTabBudget` reclaims it on the way out like any other live
-    /// tab — which is the same answer, arrived at a moment later.
+    /// Except the page you are looking at. Dropping a web view saves a
+    /// WebContent process, which is right for a tab being filed away and wrong
+    /// for the one on screen: pinning the active tab blanked the content pane
+    /// under the pointer, mid-gesture, and the site just dragged up there had
+    /// to be re-loaded from the tile. A pinned tab that is the current tab
+    /// keeps its page, and `enforceLiveTabBudget` reclaims it later like any
+    /// other live tab.
     ///
     /// - Returns: false when nothing happened — the tab is already a Favorite,
     ///   or the Profile is already holding Arc's twelve. Refusing is the whole
@@ -53,7 +51,7 @@ extension BrowserSession {
     /// - Parameter selecting: make the tab current on the way in. §6.6's drag
     ///   across the §3.3 boundary passes true — a tab you carried up there by
     ///   hand is the tab you are pointing at, so it becomes the one on screen.
-    ///   **Ordering matters:** selection is taken *before* the pin, so the
+    ///   Ordering matters: selection is taken before the pin, so the
     ///   "except the page you are looking at" branch below is the one that
     ///   runs and the live page is never torn down and rebuilt.
     @discardableResult
@@ -64,7 +62,7 @@ extension BrowserSession {
             return false
         }
         if selecting { activateTab(id) }
-        // **The tile remembers the link it was made from** (§3.3). Read back
+        // The tile remembers the link it was made from (§3.3). Read back
         // rather than taken from `tab` above, because `activateTab` has written
         // the row since — and recorded before the move, so it is the address
         // the user was looking at when they decided to keep it.
@@ -100,7 +98,7 @@ extension BrowserSession {
     /// WebContent process goes, and the selection moves to something that still
     /// has a page to show — a tab selected with no web view is an empty card.
     ///
-    /// **Filing away, not closing.** `discardController` caches the session blob
+    /// Filing away, not closing. `discardController` caches the session blob
     /// onto the `Tab` on its way out, so the tile comes back to where the user
     /// left the page rather than to the top of it (§6.2). `sendTileHome` is the
     /// other half.
@@ -110,7 +108,7 @@ extension BrowserSession {
     }
 
     /// §3.3: `⌘W` on a tile. The tile stays — a pinned tab cannot be closed —
-    /// but the *page* is closed, and a closed page has nothing left to come back
+    /// but the page is closed, and a closed page has nothing left to come back
     /// to but the link the tile was made from.
     ///
     /// That is the whole distinction, and it is the one the user asked for: a
@@ -125,7 +123,7 @@ extension BrowserSession {
     /// inventing one out of the current address would be a worse answer than
     /// the behaviour that was already there.
     func sendTileHome(_ id: UUID, in spaceID: UUID) {
-        // **Before the write, not after.** `discardController` hibernates the
+        // Before the write, not after. `discardController` hibernates the
         // controller and caches the blob it captured onto the row; clearing
         // `interactionState` first would put the closed page's history straight
         // back onto the tab it had just been taken off.
@@ -144,7 +142,7 @@ extension BrowserSession {
 
     /// The selection cannot stay on a tab that no longer has a page. Shared by
     /// both halves above: what differs between them is what happens to the
-    /// *row*, never what happens to the selection.
+    /// row, never what happens to the selection.
     private func releaseSelection(of id: UUID, in spaceID: UUID) {
         recentTabs.removeAll { $0 == id }
         if activeTabBySpace[spaceID] == id {

@@ -2,14 +2,13 @@
 //  DownloadsTests.swift
 //  LunaTests
 //
-//  The four pieces of the downloads feature that are decisions rather than
+//  The three pieces of the downloads feature that are decisions rather than
 //  drawing: what a server-supplied filename becomes, where it goes when that
-//  name is taken, which types stop and ask (§15.4), and whether §5.1's
-//  timeline actually adds up to 0.40 s.
+//  name is taken, and which types stop and ask (§15.4).
 //
-//  The last one is the reason this file exists. The particle sweep can only be
-//  *seen* to be wrong, and by the time anyone sees it the numbers have been
-//  wrong for a month.
+//  Every one of them is a rule about a hostile input that arrives once in a
+//  thousand downloads and is unreviewable by eye when it does. §5.0's arc is
+//  the same argument about geometry, and lives in `DownloadFlightTests`.
 //
 
 import XCTest
@@ -85,56 +84,6 @@ final class DownloadRiskTests: XCTestCase {
         // is worse than not warning at all.
         for name in ["statement.pdf", "photo.png", "bundle.zip", "notes.txt", "data.csv", "noextension"] {
             XCTAssertFalse(DownloadRisk.isRisky(filename: name), "\(name) should not warn")
-        }
-    }
-}
-
-final class ParticleSweepTimelineTests: XCTestCase {
-
-    private let total = Tokens.Motion.downloadsParticleSweep.duration
-    private let dissolve = Tokens.Motion.particleDissolve.duration
-    private let stagger = Tokens.Motion.particleStagger
-
-    /// §5.1: 0.22 s dissolve + 0.18 s settle = the 0.40 s total §6 exempts from
-    /// the 0.35 s budget. If someone nudges one of the three, this fails.
-    func testPublishedDurationsAddUp() {
-        XCTAssertEqual(dissolve + Tokens.Motion.particleSettle.duration, total, accuracy: 0.0001)
-    }
-
-    func testStartsAtHomeFullyOpaque() {
-        for sweep in [0.0, 0.5, 1.0] as [CGFloat] {
-            let frame = ParticleSweep.phase(sweep: sweep, at: 0)
-            XCTAssertEqual(frame.displacement, 0, accuracy: 0.0001)
-            XCTAssertEqual(frame.alpha, 1, accuracy: 0.0001)
-        }
-    }
-
-    func testDissolvesToNothingAndComesBack() {
-        // Fully gone at the end of its own dissolve slice…
-        XCTAssertEqual(ParticleSweep.phase(sweep: 0, at: dissolve - stagger).alpha, 0, accuracy: 0.0001)
-        // …and fully home again by the end of the whole sweep.
-        let settled = ParticleSweep.phase(sweep: 1, at: total)
-        XCTAssertEqual(settled.alpha, 1, accuracy: 0.0001)
-        XCTAssertEqual(settled.displacement, 0, accuracy: 0.0001)
-    }
-
-    /// The left→right sweep is the whole point of §5.1's step 2: at any instant
-    /// during the dissolve a particle on the left must be further gone than one
-    /// on the right.
-    func testTheDissolveIsDirectional() {
-        let mid = dissolve / 2
-        let left = ParticleSweep.phase(sweep: 0, at: mid)
-        let right = ParticleSweep.phase(sweep: 1, at: mid)
-        XCTAssertLessThan(left.alpha, right.alpha)
-        XCTAssertGreaterThan(left.displacement, right.displacement)
-    }
-
-    /// Nothing may still be moving after 0.40 s — §6's budget is the contract.
-    func testNothingRunsPastTheTotal() {
-        for sweep in stride(from: 0.0, through: 1.0, by: 0.1) {
-            let frame = ParticleSweep.phase(sweep: CGFloat(sweep), at: total)
-            XCTAssertEqual(frame.alpha, 1, accuracy: 0.0001, "sweep \(sweep) still fading at 0.40 s")
-            XCTAssertEqual(frame.displacement, 0, accuracy: 0.0001, "sweep \(sweep) still moving at 0.40 s")
         }
     }
 }

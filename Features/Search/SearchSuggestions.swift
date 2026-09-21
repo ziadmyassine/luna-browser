@@ -5,24 +5,22 @@
 //  §3.4's search suggestions: the completions the chosen engine offers while
 //  you are still typing.
 //
-//  **This file exists so that `UI/CommandBar` still cannot reach the network.**
-//  §9.6 is enforced by `CommandBarPrivacyTests`, which greps every source under
-//  `UI/CommandBar` for a networking symbol and fails if one appears. That test
-//  is not worked around here — it is the reason the fetch lives in `Features/`
-//  instead. The Command Bar asks for `[String]` and is handed `[String]`; it
-//  never learns that a wire was involved.
+//  This file exists so `UI/CommandBar` still cannot reach the network. §9.6 is
+//  enforced by `CommandBarPrivacyTests`, which greps every source under
+//  `UI/CommandBar` for a networking symbol; the fetch lives in `Features/`
+//  because of it, not around it. The Command Bar asks for `[String]` and is
+//  handed `[String]`.
 //
-//  **What leaves the Mac, exactly.** The query, to the engine already chosen in
+//  What leaves the Mac, exactly. The query, to the engine already chosen in
 //  §3.4, over https, with no cookies, no cache and no credentials (see
 //  `session`). Nothing else: no identifier, no referrer, no history. Kagi and a
 //  custom engine have no endpoint here and so send nothing at all — see
 //  `SearchEngine.suggestTemplate`.
 //
-//  **And how little of it.** Keystrokes are not queries. A pass is held for
-//  `debounce` before it is allowed to leave, and the one in flight is cancelled
-//  the moment another keystroke arrives, so a typed word costs about one
-//  request rather than one per letter. Answers are remembered for the life of
-//  the window, which makes backspacing free.
+//  And how little of it. A pass is held for `debounce` before it may leave and
+//  the one in flight is cancelled the moment another keystroke arrives, so a
+//  typed word costs about one request rather than one per letter. Answers are
+//  remembered for the life of the window, which makes backspacing free.
 //
 
 import Foundation
@@ -45,7 +43,7 @@ final class SearchSuggestions {
     nonisolated static let limit = 5
 
     /// Whatever has already been answered, for as long as the app runs.
-    /// Suggestions are not personal data *about* the user, but they are made of
+    /// Suggestions are not personal data about the user, but they are made of
     /// what the user typed, so they stay in memory and are never written down.
     private var cache: [String: [String]] = [:]
     private var inFlight: Task<Void, Never>?
@@ -91,7 +89,7 @@ final class SearchSuggestions {
 
     // MARK: - The wire
 
-    /// **Ephemeral, and that is the point.** A shared session would attach the
+    /// Ephemeral, and that is the point. A shared session would attach the
     /// cookies the browser has for the engine, turning every keystroke into a
     /// request the engine can tie to a signed-in account. This one has no
     /// cookie store, no cache and no credential store to attach.

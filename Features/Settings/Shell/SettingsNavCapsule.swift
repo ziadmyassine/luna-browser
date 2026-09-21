@@ -4,7 +4,7 @@
 //
 //  The back/forward pair at the head of §1's detail pane.
 //
-//  **It replaces the pane's title**, which repeated in semibold the word the
+//  It replaces the pane's title, which repeated in semibold the word the
 //  user had just clicked two inches to the left. This spends that space on the
 //  one thing the list cannot do: retracing the order the sections were actually
 //  visited in.
@@ -32,6 +32,9 @@ final class SettingsNavCapsule: NSView {
         divider.wantsLayer = true
         back.onActivate = { [weak self] in self?.onBack?() }
         forward.onActivate = { [weak self] in self?.onForward?() }
+        for half in [back, forward] {
+            half.onPressChange = { [weak self] pressed in self?.setPressed(pressed) }
+        }
         for view in [back, divider, forward] { addSubview(view) }
         setAccessibilityRole(.group)
         setAccessibilityLabel(String(localized: "History"))
@@ -40,6 +43,12 @@ final class SettingsNavCapsule: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
+    }
+
+    /// §6 `controlPress`, on behalf of whichever chevron is down. The capsule
+    /// is the material, so the capsule is what swells.
+    private func setPressed(_ pressed: Bool) {
+        Tokens.Motion.swell(self, to: pressed ? Tokens.Motion.pressSwell : 1)
     }
 
     /// §4: a direction you cannot go is dimmed, not hidden — a capsule that
@@ -105,11 +114,25 @@ final class SettingsNavChevron: NSView {
         }
     }
 
+    /// Told when the chevron goes down and comes back up. It has no
+    /// material of its own — the capsule around it is the material — so the
+    /// swell belongs to `SettingsNavCapsule`, exactly as the browser's own
+    /// history cluster does it (`NavCluster`). Half a capsule growing inside
+    /// the other half is not a press.
+    var onPressChange: ((Bool) -> Void)?
+
     private let icon = NSImageView()
     private var isHovering = false {
         didSet {
             guard isHovering != oldValue else { return }
             applyTint(animated: true)
+        }
+    }
+    private var isPressed = false {
+        didSet {
+            guard isPressed != oldValue else { return }
+            applyTint(animated: true)
+            onPressChange?(isPressed)
         }
     }
 
@@ -140,7 +163,7 @@ final class SettingsNavChevron: NSView {
     private func applyTint(animated: Bool) {
         let ink: NSColor = if !isEnabled {
             Tokens.Text.disabled
-        } else if isHovering {
+        } else if isHovering || isPressed {
             Tokens.Text.primary
         } else {
             Tokens.Text.secondary
@@ -175,8 +198,16 @@ final class SettingsNavChevron: NSView {
 
     override func mouseExited(with event: NSEvent) { isHovering = false }
 
+    override func mouseDown(with event: NSEvent) { isPressed = isEnabled }
+
+    override func mouseDragged(with event: NSEvent) {
+        isPressed = isEnabled && bounds.contains(convert(event.locationInWindow, from: nil))
+    }
+
     override func mouseUp(with event: NSEvent) {
-        guard isEnabled, bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
+        let inside = bounds.contains(convert(event.locationInWindow, from: nil))
+        isPressed = false
+        guard isEnabled, inside else { return }
         onActivate?()
     }
 

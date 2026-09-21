@@ -74,7 +74,7 @@ struct ProfileLifecycleTests {
 
     // MARK: - The all-zero identifier (§3.1)
 
-    /// `dataStoreForIdentifier:` documents *"Throws exception if identifier is 0"*. That is
+    /// `dataStoreForIdentifier:` documents "Throws exception if identifier is 0". That is
     /// an Objective-C exception, so it is an uncatchable crash rather than an error any call
     /// site can handle — which is why the check has to happen here, at the GRDB boundary,
     /// where the value is still data.

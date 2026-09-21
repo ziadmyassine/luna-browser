@@ -3,21 +3,20 @@
 //  Luna
 //
 //  The four verbs §3.4a's context menu needed and the §6 lifecycle did not already have:
-//  **duplicate**, **rename**, **change icon** and **mute**. Pin, copy link and close were
+//  duplicate, rename, change icon and mute. Pin, copy link and close were
 //  all already here (`pinTab`, `closeTab`) or are nothing to do with the session at all.
 //
-//  Split out of `BrowserSession+Tabs.swift` for that file's length limit, and it earns the
-//  separation for the same reason `BrowserSession+Pinning.swift` does: everything below is
-//  about a tab's *identity* — what it is called, what it looks like, whether it is allowed
-//  to make a sound — rather than about where it sits in the list or whether it has a
-//  process. Two of the four write a column that did not exist before schema `v4`, and one
-//  of them writes nothing at all.
+//  Split out of `BrowserSession+Tabs.swift` for that file's length limit.
+//  Everything below is about a tab's identity — what it is called, what it looks
+//  like, whether it may make a sound — rather than where it sits in the list or
+//  whether it has a process.
 //
-//  **Rename and Change Icon persist; Mute does not**, and the asymmetry is deliberate. A
-//  name and an icon are decisions about the tab, and a tab that came back after a relaunch
-//  under the page's own name would have silently thrown one away. A mute is a decision
-//  about the noise a page is making *now*: a tab that came back silent on the next launch,
-//  with nothing on screen to say why or how long ago you did it, is a bug report.
+//  Rename and Change Icon persist; Mute does not, and the asymmetry is
+//  deliberate. A name and an icon are decisions about the tab, and one that came
+//  back after a relaunch under the page's own name would have thrown one away. A
+//  mute is a decision about the noise a page is making now: a tab that came back
+//  silent on the next launch, with nothing on screen to say why, is a bug
+//  report.
 //
 
 import AppKit
@@ -29,10 +28,10 @@ extension BrowserSession {
 
     /// Opens a second tab on the same page, directly below the first (§3.4a).
     ///
-    /// **With its back/forward history, not just its address.** Chrome and Safari both
+    /// With its back/forward history, not just its address. Chrome and Safari both
     /// duplicate the session rather than the URL, and it is the behaviour that makes the
     /// command worth having: you duplicate a tab to keep the trail you are on and go
-    /// somewhere else from it. The blob is read off the **live** controller where there is
+    /// somewhere else from it. The blob is read off the live controller where there is
     /// one — the row's copy is only as fresh as the last settled load (§6.2).
     ///
     /// A duplicate of a §3.3 tile is an ordinary tab. A tile is a place the user put
@@ -127,11 +126,11 @@ extension BrowserSession {
 
     /// §3.4a's seven verbs, bound to one tab.
     ///
-    /// **One binding for all three surfaces** — §3.4's rows, §3.3's tiles and §4's top-bar
+    /// One binding for all three surfaces — §3.4's rows, §3.3's tiles and §4's top-bar
     /// strip. Each of them knows a different thing about a tab (a row index, a grid slot, a
     /// scroll position) and none of them knows anything about these verbs, so the menu is
     /// handed the same closure set wherever it is summoned from. Three bindings would be
-    /// three chances for one surface's *Duplicate* to quietly mean something else.
+    /// three chances for one surface's Duplicate to quietly mean something else.
     ///
     /// Every closure carries a `UUID` and is weak on the session: the menu is modal and
     /// outlives nothing, but it is the menu holding these and a window can close under it.

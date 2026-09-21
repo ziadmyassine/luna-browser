@@ -5,10 +5,9 @@
 //  The `NSTableView` half of §3.4: data source, delegate, and the table
 //  subclass that carries the keyboard (§7.4, §20.2).
 //
-//  **There is no drag and drop here at all.** §6.6's reorder is a tracked
-//  gesture — `SidebarTabDrag.swift` — and with the Essentials tiles moved onto
-//  it as well, nothing in the sidebar is an `NSDraggingSource` or an
-//  `NSDraggingDestination` any more. One gesture, one code path.
+//  No drag and drop here at all. §6.6's reorder is a tracked gesture
+//  (`SidebarTabDrag.swift`), and with the Essentials tiles on it too, nothing
+//  in the sidebar is an `NSDraggingSource` or `NSDraggingDestination`.
 //
 //  Modified arrows are swallowed rather than passed on — an unhandled `⌘⌥←`
 //  reaching `NSResponder` is the system beep, which is the single most obvious
@@ -73,11 +72,11 @@ extension TabListController: NSTableViewDelegate {
     }
 
     /// §3.4: the trailing slot is the speaker until the row is hovered, at
-    /// which point it is close. **Whatever is drawn is what is hit** — so the
+    /// which point it is close. Whatever is drawn is what is hit — so the
     /// row reports the glyph it was actually showing rather than the list
     /// re-deriving it, which is a second chance to disagree.
     ///
-    /// The row is looked up **now**, from the view. `viewFor` runs once and the
+    /// The row is looked up now, from the view. `viewFor` runs once and the
     /// table then moves that view between rows as tabs come and go, so a row
     /// index captured in the closure goes stale the moment a tab is inserted
     /// above it — which is how pressing close on one tab came to mute the tab
@@ -139,21 +138,21 @@ final class SidebarTableView: NSTableView {
     /// A press landed on row `n`. The list takes the whole gesture from here —
     /// see `TabListController.press(row:event:)`.
     var onRowPress: ((Int, NSEvent) -> Void)?
-    /// The table re-placed its row views. §6.6's gap is drawn *by* offsetting
+    /// The table re-placed its row views. §6.6's gap is drawn by offsetting
     /// those views, so it has to be put back after every pass that overwrites
     /// them — and the §3.3 grid opening a slot mid-drag resizes the scroll view,
     /// which is exactly such a pass.
     var onLayout: (() -> Void)?
     /// The row under the pointer, or nil when the pointer left the list.
     var onHover: ((Int?) -> Void)?
-    /// Right-click on a row. Built on demand, and deliberately **not** through
+    /// Right-click on a row. Built on demand, and deliberately not through
     /// `NSTableView.menu`: a single menu on the table cannot know which row it
     /// was summoned from, and a menu per row view dies with the recycled view.
     var onContextMenu: ((Int) -> NSMenu?)?
 
     override var acceptsFirstResponder: Bool { true }
 
-    /// **The press is handed on whole, not passed to `super`.**
+    /// The press is handed on whole, not passed to `super`.
     ///
     /// `NSTableView.mouseDown` runs its own tracking loop until the mouse comes
     /// up: it decides selection, and it decides whether the gesture was a drag.

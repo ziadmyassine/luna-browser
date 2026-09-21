@@ -2,7 +2,7 @@
 //  SavePasswordChip.swift
 //  Luna
 //
-//  §14.4: after a successful submit, a **non-modal** chip offering Save /
+//  §14.4: after a successful submit, a non-modal chip offering Save /
 //  Update / Never for this site.
 //
 //  Non-modal is the requirement that shapes everything here. The user has just
@@ -34,7 +34,7 @@ final class SavePasswordChip {
     private var request: PasswordSaveRequest?
     private var dismissTimer: Timer?
 
-    /// §5's downloads popover auto-dismisses after 4 s. This one does not use
+    /// §5's downloads list takes itself down after 4 s. This one does not use
     /// that interval: a chip asking a question the user has to read and answer
     /// needs longer than one reporting a finished download, and 4 s is enough
     /// to notice it appearing and not enough to decide.
@@ -100,8 +100,8 @@ final class SavePasswordChip {
         cancelTimer()
         guard let panel else { return }
         self.panel = nil
-        panel.parent?.removeChildWindow(panel)
-        panel.orderOut(nil)
+        // Out the way it came in — see `Motion.fadePanelOut`.
+        Tokens.Motion.fadePanelOut(panel)
         if !answering, let request { onDismiss?(request) }
         request = nil
     }

@@ -5,17 +5,16 @@
 //  §3.3's selection glow, in the two halves that can be wrong without anyone
 //  noticing on screen.
 //
-//  **The colour**, because it fails quietly: a weighting that let the black in
-//  X's mark outvote the red dot would still produce a glow, just the wrong one,
-//  and "the light is a slightly different grey than it should be" is not
-//  something a person reports. The pictures below are the reference's cases
-//  written down — a mark with one saturated patch, a mark with none, and a mark
-//  too dark to emit.
+//  The colour, because it fails quietly: a weighting that let the black in X's
+//  mark outvote the red dot would still produce a glow, just the wrong one, and
+//  nobody reports "the light is a slightly different grey". The cases below are
+//  a mark with one saturated patch, a mark with none, and a mark too dark to
+//  emit.
 //
-//  **The wiring**, because the glow lies *over* the tiles and only one of them
-//  at a time: over is what lets the colour reach the glass, and it is also the
-//  arrangement in which a missing `hitTest` override swallows every click on
-//  the pinned tab you are on.
+//  The wiring, because the glow lies over the tiles and only one at a time:
+//  over is what lets the colour reach the glass, and it is also the arrangement
+//  in which a missing `hitTest` override swallows every click on the pinned tab
+//  you are on.
 //
 
 import BrowserKit
@@ -57,8 +56,8 @@ final class FaviconTintTests: XCTestCase {
         return (hue, saturation, brightness)
     }
 
-    /// **The reference case.** X's mark is black and white with one red
-    /// notification dot on it, and the glow Martin asked for is red. A plain
+    /// The reference case. X's mark is black and white with one red
+    /// notification dot on it, and the glow it has to produce is red. A plain
     /// average of those pixels is a grey; only weighting by chroma gets the
     /// answer the eye gives.
     func testOneSaturatedPatchDecidesTheColour() {
@@ -98,7 +97,7 @@ final class FaviconTintTests: XCTestCase {
         XCTAssertEqual(FaviconTint.glow(of: mark), FaviconTint.neutral)
     }
 
-    /// A navy mark is a colour, and a colour has to be able to *emit*: left at
+    /// A navy mark is a colour, and a colour has to be able to emit: left at
     /// the brightness it is drawn at, it glows as a dark smudge on a dark
     /// sidebar. The hue survives the lift, which is the half that matters.
     func testADarkMarkIsLiftedUntilItCanBeSeenAsLight() {
@@ -112,7 +111,7 @@ final class FaviconTintTests: XCTestCase {
         XCTAssertEqual(glow.hue, components(navy).hue, accuracy: 0.03, "the lift moved the hue")
     }
 
-    /// The tile is wearing the icon *the user* chose, so the site's colours are
+    /// The tile is wearing the icon the user chose, so the site's colours are
     /// nowhere on screen and taking one would be describing a picture that is
     /// not there.
     func testATabWithAChosenIconGlowsInTheInk() {
@@ -175,8 +174,8 @@ final class EssentialGlowTests: XCTestCase {
         XCTAssertEqual(glow(in: grid)?.frame, grid.slotRect(at: 2))
     }
 
-    /// **The light does not slide from the tile you left**, and it is standing
-    /// on the new one *before* it lights.
+    /// The light does not slide from the tile you left, and it is standing
+    /// on the new one before it lights.
     ///
     /// Both halves were the same bug seen from different ends. The glow is one
     /// view moved between tiles, so a frame set inside the grid's animated pass
@@ -215,7 +214,7 @@ final class EssentialGlowTests: XCTestCase {
         XCTAssertEqual(glow(in: grid)?.isLit, false)
     }
 
-    /// **Over every tile, and clickable by none of them.** The glow has to be
+    /// Over every tile, and clickable by none of them. The glow has to be
     /// in front for its colour to reach the glass at all (`EssentialGlowView`'s
     /// header), which is exactly the arrangement where a view that answered a
     /// hit test would eat every click on the pinned tab you are on.

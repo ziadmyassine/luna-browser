@@ -2,7 +2,7 @@
 //  CommandBarPanelPlacementTests.swift
 //  LunaTests
 //
-//  §9.1 anchors the bar over the **page**, 20 % down. Both halves of that are
+//  §9.1 anchors the bar over the page, 20 % down. Both halves of that are
 //  constraint constants the panel derives per layout pass, and a constant that
 //  is derived at the wrong moment does not go wrong quietly — it opens the bar
 //  at the window's top-centre, which is a sidebar's half-width to the left of
@@ -29,7 +29,7 @@ final class CommandBarPanelPlacementTests: XCTestCase {
         return panel
     }
 
-    /// **One pass, not two.** The bar is shown by `animateIn`, which lays the
+    /// One pass, not two. The bar is shown by `animateIn`, which lays the
     /// subtree out once and then fades it up; anything the panel leaves for a
     /// later pass is on screen in the meantime.
     func testTheBarIsOverThePageAfterItsFirstLayoutPass() {
@@ -44,7 +44,7 @@ final class CommandBarPanelPlacementTests: XCTestCase {
         )
     }
 
-    /// And it stays put. A panel that re-derives its constants on the way *out*
+    /// And it stays put. A panel that re-derives its constants on the way out
     /// of `layout()` reports itself clean while holding a frame it has already
     /// disagreed with, so the give-away is a second pass that moves it.
     func testASecondLayoutPassDoesNotMoveTheBar() {
@@ -58,8 +58,8 @@ final class CommandBarPanelPlacementTests: XCTestCase {
     }
 }
 
-/// §3.2 and §3.2b hand the address to §9.1, and §9.1 **stands on the pill that
-/// handed it over** rather than opening in the middle of the page. So the
+/// §3.2 and §3.2b hand the address to §9.1, and §9.1 stands on the pill that
+/// handed it over rather than opening in the middle of the page. So the
 /// panel's four numbers stop being a fraction of the page and become the pill's
 /// own: its leading edge, its width, its top, and its height for the input row.
 @MainActor
@@ -94,7 +94,7 @@ final class CommandBarAnchoredPlacementTests: XCTestCase {
         return (panel, pill)
     }
 
-    /// The bar stands on the pill's line, and is **wider than it**: a bar
+    /// The bar stands on the pill's line, and is wider than it: a bar
     /// exactly as wide as a 244 pt sidebar pill is a column of ellipses, so it
     /// takes a `chromeGapWide` at each end and never less than
     /// `commandBarMinWidth`.
@@ -137,7 +137,7 @@ final class CommandBarAnchoredPlacementTests: XCTestCase {
     }
 
     /// And it is more glass than the pill was, downwards — that is the whole of
-    /// the morph. A bar that grew *upwards* or centred itself on the pill would
+    /// the morph. A bar that grew upwards or centred itself on the pill would
     /// cover the page's top edge and the controls beside it.
     func testTheGlassItAddsGoesDownwards() {
         let (panel, pill) = anchored()

@@ -4,8 +4,8 @@ import WebKit
 /// The page side of §14.3–§14.5: finding login forms, reporting them, filling
 /// them, and noticing a submit.
 ///
-/// **Nothing in this file renders UI.** §14.3 is explicit that the credential
-/// picker is a *native popover anchored to the field* and never an injected DOM
+/// Nothing in this file renders UI. §14.3 is explicit that the credential
+/// picker is a native popover anchored to the field and never an injected DOM
 /// overlay, "a page must not be able to read or spoof it". So the script's
 /// entire job is to describe the form and its geometry; the list of usernames
 /// exists only in Swift, and a compromised page can learn nothing from it but
@@ -34,7 +34,7 @@ public enum PasswordForms {
         /// Our own handle for the form, so a fill names the same element the
         /// detection did even after the page re-renders around it.
         public let id: String
-        /// The focused/primary field's rect in **view coordinates** — CSS
+        /// The focused/primary field's rect in view coordinates — CSS
         /// pixels from the top-left of the web view, already adjusted for
         /// scroll and for any scaling the page applied.
         public let fieldRect: CGRect
@@ -90,8 +90,8 @@ public enum PasswordForms {
 
     /// Fills `form` with `username` / `password`.
     ///
-    /// **`callAsyncJavaScript`, not `evaluateJavaScript`, and that is a
-    /// security requirement rather than a style preference.** Arguments are
+    /// `callAsyncJavaScript`, not `evaluateJavaScript`, and that is a
+    /// security requirement rather than a style preference. Arguments are
     /// marshalled by WebKit and bound as real JS values, so the password never
     /// appears inside a source string. Interpolating it would mean quoting it
     /// correctly for JS — a password is exactly the kind of string that breaks
@@ -103,16 +103,15 @@ public enum PasswordForms {
     /// that before reaching here; passing the frame makes it impossible for the
     /// fill to land anywhere else even so.
     ///
-    /// **`.defaultClient`, not the page world**, and that is also deliberate.
-    /// The detection script runs in the page world because it has to see the
-    /// page's own DOM — but the *fill* does not need to, since the handles it
-    /// follows are `data-luna-*` **attributes**, which are DOM state and are
-    /// shared across worlds. Running it in the client world means the
-    /// prototypes and built-ins it relies on are ones the page cannot have
-    /// patched, so a page cannot hook `Object.getOwnPropertyDescriptor` or
-    /// `Event` to observe the fill. Verified against a page that installs
-    /// React's own swallowing value setter: the fill lands, and the page's
-    /// `input`/`change` listeners still fire, because events cross worlds.
+    /// `.defaultClient`, not the page world. The detection script runs in the
+    /// page world because it has to see the page's DOM; the fill does not,
+    /// since the handles it follows are `data-luna-*` attributes, which are DOM
+    /// state and shared across worlds. In the client world the prototypes and
+    /// built-ins it relies on are ones the page cannot have patched, so a page
+    /// cannot hook `Object.getOwnPropertyDescriptor` or `Event` to observe the
+    /// fill. Verified against a page installing React's own swallowing value
+    /// setter: the fill lands and the page's `input`/`change` listeners still
+    /// fire, because events cross worlds.
     @MainActor
     public static func fill(
         _ form: Form,
@@ -132,13 +131,13 @@ public enum PasswordForms {
     /// The body of the fill, run with `formID`, `username` and `password` bound
     /// as arguments.
     ///
-    /// **The `input` and `change` events are not optional.** React, Vue and
+    /// The `input` and `change` events are not optional. React, Vue and
     /// every other framework that controls an input tracks its value in
     /// component state; setting `.value` directly updates the DOM node and
     /// leaves the framework's copy stale, so the form submits the empty string
     /// it still believes is there. Worse, React installs its own value setter
     /// on the element, so assigning through it is swallowed — hence the walk up
-    /// the prototype chain to the *native* setter, which is the documented way
+    /// the prototype chain to the native setter, which is the documented way
     /// to drive a controlled input from outside.
     private static let fillFunction = """
     var root = document.querySelector('[data-luna-form="' + formID + '"]') || document;
@@ -157,10 +156,18 @@ public enum PasswordForms {
     if (password) { setValue(pass, password); }
     return true;
     """
+}
+
+// MARK: - The page script
+
+/// An extension rather than more of the enum above: the detection script is two
+/// hundred lines of JavaScript, and a type body has a length limit that a string
+/// literal should not be spending.
+extension PasswordForms {
 
     // MARK: - The page script
 
-    /// Injected at `documentEnd` in **every** frame.
+    /// Injected at `documentEnd` in every frame.
     ///
     /// Every frame, because a login form in an iframe is the normal shape of a
     /// federated sign-in. The origin check that §14.8 demands is not made here
@@ -168,7 +175,7 @@ public enum PasswordForms {
     /// origin honestly — it is made in Swift against `WKScriptMessage.frameInfo`,
     /// which WebKit fills in and the page cannot touch.
     ///
-    /// **Why the DOM is re-scanned rather than watched once.** Login forms
+    /// Why the DOM is re-scanned rather than watched once. Login forms
     /// arrive late: behind a "Sign in" button, inside a modal, after a
     /// client-side route change. A one-shot scan at `documentEnd` misses most
     /// real sites, so a `MutationObserver` re-scans — debounced, because a busy

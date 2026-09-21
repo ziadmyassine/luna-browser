@@ -5,13 +5,13 @@
 //  The two things every sidebar menu needs: an item that runs a closure, and a title with
 //  a glyph in it.
 //
-//  **The closure item** exists because `NSMenuItem` dispatches through target/action and a
-//  closure has no target: without it, every menu would need a `@objc` method on some view
-//  that happens to still be alive when the item fires, which for a row view the table is
-//  free to recycle is a use-after-free waiting to happen.
+//  The closure item exists because `NSMenuItem` dispatches through target/action
+//  and a closure has no target: without it every menu would need an `@objc`
+//  method on some view that is still alive when the item fires, which for a row
+//  view the table is free to recycle is a use-after-free waiting to happen.
 //
-//  **The glyph** exists because `NSMenuItem.image` is not drawn on this macOS at all — see
-//  `label(symbol:title:in:)`, which is the way round it.
+//  The glyph exists because `NSMenuItem.image` is not drawn on this macOS —
+//  `label(symbol:title:in:)` is the way round it.
 //
 //  `ClosureMenuItem` is its own target, so the action lives exactly as long as
 //  the item does, and the menu owns both.
@@ -31,7 +31,7 @@ enum SidebarMenu {
 
     /// A caption: a disabled item that titles a group or states a rule.
     ///
-    /// Not `NSMenuItem.sectionHeader(title:)` — that one is a *heading*, and
+    /// Not `NSMenuItem.sectionHeader(title:)` — that one is a heading, and
     /// the second use here is a sentence ("Light and Dark apply to every
     /// Space") rather than a label for what follows it.
     static func header(_ title: String) -> NSMenuItem {
@@ -40,23 +40,39 @@ enum SidebarMenu {
         return item
     }
 
-    /// **A menu item's title with its glyph drawn into it**, which is the only way to put
+    /// §6.2 from the foot of the sidebar — the two verbs every surface down
+    /// there offers on a right-click.
+    ///
+    /// One builder rather than three copies because the region is what
+    /// carries the menu, not any one control in it: the profile line, the Space
+    /// strip and the bar they sit in are one thing to a user aiming at "the
+    /// Spaces bit", and a menu that appeared on two of the three would read as
+    /// a menu that sometimes fails.
+    static func spaces(edit: @escaping () -> Void, new: @escaping () -> Void) -> NSMenu {
+        let menu = NSMenu()
+        menu.addItem(item(title: String(localized: "Edit Spaces…"), action: edit))
+        menu.addItem(item(title: String(localized: "New Space"), action: new))
+        return menu
+    }
+
+    /// A menu item's title with its glyph drawn into it, which is the only way to put
     /// an icon in a menu on this macOS.
     ///
-    /// `NSMenuItem.image` is the documented API and it does nothing. Measured twice, most
-    /// recently with a five-way probe in a bare AppKit app: a plain system symbol, one
-    /// through `withSymbolConfiguration`, one with an explicit size and `isTemplate` on, a
-    /// hand-drawn red square and a named AppKit template — **none of the five appeared**,
-    /// in Luna or in the probe. The property is set correctly and the system declines.
+    /// `NSMenuItem.image` is the documented API and does nothing. Measured
+    /// twice, most recently with a five-way probe in a bare AppKit app: a plain
+    /// system symbol, one through `withSymbolConfiguration`, one with an
+    /// explicit size and `isTemplate` on, a hand-drawn red square and a named
+    /// AppKit template — none appeared, in Luna or in the probe. The property
+    /// is set correctly and the system declines.
     ///
-    /// An `NSTextAttachment` in `attributedTitle` is drawn, because it is text rather than
-    /// a menu image, and it keeps everything a custom `NSMenuItem.view` would cost: the
-    /// native highlight, arrow-key navigation, the key-equivalent column on the right, and
-    /// the plain `title` underneath for VoiceOver.
+    /// An `NSTextAttachment` in `attributedTitle` is drawn, because it is text
+    /// rather than a menu image, and it keeps what a custom `NSMenuItem.view`
+    /// would cost: the native highlight, arrow-key navigation, the
+    /// key-equivalent column, and the plain `title` underneath for VoiceOver.
     ///
-    /// The tab stop is what makes the labels line up in a column rather than each starting
-    /// after its own glyph — derived from the two tokens §3.4's rows use for exactly the
-    /// same relationship, so a retuned icon column moves both.
+    /// The tab stop makes the labels line up in a column rather than each
+    /// starting after its own glyph, derived from the two tokens §3.4's rows
+    /// use for the same relationship.
     ///
     /// - Parameter appearance: resolved here rather than at draw time. A dynamic
     ///   `NSColor` inside an `NSImage` draw block picks up whatever appearance happens to
@@ -97,7 +113,7 @@ enum SidebarMenu {
 
     /// The symbol in §2.3's primary ink, which is what a menu draws its words in.
     ///
-    /// **Tinted by hand, not by `isTemplate`.** A template image is tinted by the control
+    /// Tinted by hand, not by `isTemplate`. A template image is tinted by the control
     /// drawing it, and the thing drawing this one is a text run, which does no such thing —
     /// so an untinted template comes out black on a dark menu. `sourceAtop` paints the ink
     /// through the glyph's own coverage, which keeps its antialiasing.

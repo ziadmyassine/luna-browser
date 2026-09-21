@@ -2,33 +2,25 @@
 //  SiteMenu.swift
 //  Luna
 //
-//  §3.2's site menu: everything you can say about **the page you are on**,
+//  §3.2's site menu: everything you can say about the page you are on,
 //  behind the sliders glyph on the URL pill's trailing edge.
 //
-//  The glyph has been drawn since the sidebar was built and did nothing until
-//  now — `onSiteMenu` was declared, forwarded twice, and never wired to
-//  anything. This is what it opens.
+//  Per-site, not global, which is why this exists rather than three more rows
+//  in Settings. "Block ads" as a preference is a decision you make once and
+//  then fight with on the four sites it breaks; "Block Ads & Trackers" here is
+//  a decision about this site, taken where you noticed the problem. Settings
+//  keeps the genuinely global questions — which filter lists are on at all,
+//  HTTPS-Only, clearing everything (SETTINGS-SPEC §3.3).
 //
-//  **Per-site, not global.** That is the whole reason this surface exists
-//  rather than three more rows in Settings. "Block ads" as a preference is a
-//  decision you make once and then fight with on the four sites it breaks;
-//  "Block Ads & Trackers" here is a decision about *this* site, taken where you
-//  noticed the problem, and it is the only place those answers can be given.
-//  Settings keeps the questions that are genuinely global — which filter lists
-//  are on at all, HTTPS-Only, clearing everything — and has given up the ones
-//  that were secretly per-site (SETTINGS-SPEC §3.3).
+//  A plain `NSMenu`, which on macOS 26 is the liquid-glass menu: AppKit draws
+//  its own material, blur and submenu chevrons, and a hand-rolled panel would
+//  be a worse copy that also had to re-implement keyboard navigation,
+//  VoiceOver and Reduce Transparency.
 //
-//  A plain `NSMenu`, which on macOS 26 *is* the liquid-glass menu: AppKit draws
-//  its own material, its own blur and its own submenu chevrons, and a hand-rolled
-//  panel would be a worse copy of it that also had to re-implement keyboard
-//  navigation, VoiceOver and Reduce Transparency.
-//
-//  **The glyphs ride in the titles, because `NSMenuItem.image` draws nothing here.**
-//  This file carried the `image` assignments for months with nothing to show for them
-//  — the measurement is in `SidebarMenu.label(symbol:title:in:)`, and §3.4a's tab menu
-//  is where the way round it was found. The same helper draws both menus now, so the
-//  two surfaces cannot drift apart on icon size, tint or alignment. Share is dressed by
-//  the same helper as the rest, which is why it is an ordinary item — see `build(from:)`.
+//  The glyphs ride in the titles, because `NSMenuItem.image` draws nothing
+//  here — the measurement is in `SidebarMenu.label(symbol:title:in:)`, which
+//  draws this menu and §3.4a's tab menu, so the two cannot drift apart on icon
+//  size, tint or alignment.
 //
 
 import AppKit
@@ -60,7 +52,7 @@ enum SiteMenu {
             return menu
         }
 
-        // **The system picker, from an ordinary item.** Not
+        // The system picker, from an ordinary item. Not
         // `NSSharingServicePicker.standardShareMenuItem`, and not a submenu
         // either: the reference's chevron is `sharingServices(forItems:)`,
         // deprecated since macOS 13 with Apple's own note pointing at the
@@ -68,18 +60,15 @@ enum SiteMenu {
         // sheet to get. What this item shows is the same sheet with the same
         // destinations; all it gives up is AppKit assembling the row.
         //
-        // Which it assembles wrong here. **`standardShareMenuItem` draws a
-        // share glyph that nothing on the item controls**: `image` is nil
-        // before the menu opens and still nil after `menu.update()` — probed —
-        // and AppKit draws one regardless, a size under this menu's own glyphs
-        // and in the column they stand in. Dressed like every other row that
-        // came out as two share marks side by side, with the word pushed a
-        // glyph's width past every other word; left undressed it is AppKit's
-        // smaller mark and a title 4 pt short of the column. An item Luna makes
-        // itself has one mark, in the column, and it is the one
-        // `SidebarMenu.label` draws for the rest of the menu.
+        // Which it assembles wrong here. `standardShareMenuItem` draws a share
+        // glyph nothing on the item controls: `image` is nil before the menu
+        // opens and still nil after `menu.update()` — probed — and AppKit draws
+        // one regardless, a size under this menu's own glyphs. Dressed like
+        // every other row it came out as two share marks side by side; left
+        // undressed it is AppKit's smaller mark with a title 4 pt short of the
+        // column.
         //
-        // The picker is **held, not let go**: a picker that falls out of scope
+        // The picker is held, not let go: a picker that falls out of scope
         // as the closure returns takes the sheet with it.
         let share = SidebarMenu.item(title: String(localized: "Share…")) { [weak anchor, url = page.url] in
             guard let anchor else { return }
@@ -159,7 +148,7 @@ enum SiteMenu {
     }
 
     /// §17.2's per-site exemption, read the way round a user thinks about it:
-    /// the checkmark means blocking is **on** here, not that an exemption is.
+    /// the checkmark means blocking is on here, not that an exemption is.
     private static func blocking(host: String) -> NSMenuItem {
         let on = !ContentBlocker.shared.isDisabled(forHost: host)
         let item = SidebarMenu.item(title: String(localized: "Block Ads & Trackers")) {
@@ -180,7 +169,7 @@ enum SiteMenu {
         let on = SitePermissions.shared.isAllowed(permission, forHost: host)
         let item = SidebarMenu.item(title: title) {
             SitePermissions.shared.setAllowed(!on, permission, forHost: host)
-            // Only the ones that change what the page may *load*. Picture-in-
+            // Only the ones that change what the page may load. Picture-in-
             // Picture is read at the moment the tab is left, so re-loading the
             // page to apply it would throw away the video it is about.
             if reload { reapplyRules(reload: true) }
@@ -231,7 +220,7 @@ enum SiteMenu {
 
     // MARK: - Doing the work
 
-    /// Re-attaches the rule lists for the site's *new* answers and, where the
+    /// Re-attaches the rule lists for the site's new answers and, where the
     /// answer changes what may load, fetches the page again — a rule list only
     /// binds loads that have not happened yet.
     private static func reapplyRules(reload: Bool) {
@@ -246,7 +235,7 @@ enum SiteMenu {
     }
 
     /// The two groups §3.2's submenu offers. Split the way the user means it:
-    /// **Clear Cache** should not sign you out, and **Clear Cookies** should.
+    /// Clear Cache should not sign you out, and Clear Cookies should.
     private enum SiteData {
         static let caches: Set<String> = [
             WKWebsiteDataTypeDiskCache,
@@ -265,7 +254,7 @@ enum SiteMenu {
     /// registrable domain — `apple.com` for `www.apple.com` — so a host matches
     /// its own record and every record it is a subdomain of, and nothing else.
     ///
-    /// The store is the **tab's**, not `.default()`: a Space with its own
+    /// The store is the tab's, not `.default()`: a Space with its own
     /// Profile has its own `WKWebsiteDataStore` (§5.1), and clearing the wrong
     /// one would report success and change nothing.
     private static func clear(_ types: Set<String>, host: String, thenReload reload: Bool) {
@@ -286,12 +275,13 @@ enum SiteMenu {
 
     /// Puts the reference's glyph beside an item's word.
     ///
-    /// **Not `NSMenuItem.image`, which draws nothing on this macOS.** That was measured
-    /// with five images on five items — template symbol, non-template symbol, explicit
-    /// size, a plain red square and a named AppKit template — in Luna and in a bare test
-    /// app, and not one of them appeared. `SidebarMenu.label(symbol:title:in:)` puts the
-    /// symbol in the *title* instead, which is drawn, and keeps the native highlight, the
-    /// arrow keys and the submenu chevron that a custom `NSMenuItem.view` would have cost.
+    /// Not `NSMenuItem.image`, which draws nothing on this macOS. Measured with
+    /// five images on five items — template symbol, non-template symbol,
+    /// explicit size, a plain red square and a named AppKit template — in Luna
+    /// and in a bare test app, and not one appeared.
+    /// `SidebarMenu.label(symbol:title:in:)` puts the symbol in the title
+    /// instead, keeping the native highlight, arrow keys and submenu chevron a
+    /// custom `NSMenuItem.view` would have cost.
     ///
     /// Read `item.title` before writing it: `attributedTitle` is what `title` returns once
     /// one is set, so this may be applied to any item exactly once. The plain title stays

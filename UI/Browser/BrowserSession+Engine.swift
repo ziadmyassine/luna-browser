@@ -6,9 +6,9 @@
 //  `WKNavigationDelegate` / `WKUIDelegate` callback; this is the short list it
 //  cannot answer itself because answering needs AppKit or the tab list (§4.2).
 //
-//  Split from `BrowserSession.swift` on purpose: the coordinator's own API is
-//  one file and its engine obligations are another, so neither grows into the
-//  4,000-line manager §33 warns about.
+//  Split from `BrowserSession.swift`: the coordinator's own API is one file and
+//  its engine obligations another, so neither grows into the 4,000-line manager
+//  §33 warns about.
 //
 
 import AppKit
@@ -49,7 +49,7 @@ extension BrowserSession {
     /// §19.2's budget, applied the moment a new web view is created.
     ///
     /// Delegated to the lifecycle pass rather than reimplemented here: this used
-    /// to hibernate anything outside MRU-4 *instantly*, with no grace period and
+    /// to hibernate anything outside MRU-4 instantly, with no grace period and
     /// no exemption for unsaved form input — so typing into a fifth tab and
     /// switching away could drop what you typed. One policy, one place.
     func enforceLiveTabBudget() {
@@ -149,7 +149,7 @@ extension BrowserSession: TabControllerDelegate {
             if changed { write(tab) }
         }
 
-        // §6.2: cache the session blob **outside** the web view at every
+        // §6.2: cache the session blob outside the web view at every
         // settled load. `interactionState` reads back nil once the WebContent
         // process is gone, so capturing it only on hibernate loses exactly the
         // case §19.3 has to recover from.

@@ -11,10 +11,22 @@
 //  wants an `AXButton` with a label — `NSButton` ships all four, and a bare
 //  `NSView` would mean re-implementing them badly.
 //
-//  The one structural consequence: `Glass` hands back a *subview*, and a
+//  The one structural consequence: `Glass` hands back a subview, and a
 //  subview draws over the cell, so the cell is left drawing nothing at all.
 //  The stack is glass → hover fill → glyph, bottom to top, and `hitTest`
 //  collapses it back onto the button so the decoration never eats a click.
+//
+//  It answers a press as well as a hover, on §3.4's two washes and §6's
+//  `controlPress` — the same answer `GlassButton` gives in the sidebar, so the
+//  toggle in one bar and the toggle in the other are the same control in the
+//  hand. The bar had only the hover half for several builds, so a click read
+//  as nothing happening until the page moved.
+//
+//  A button inside a capsule hands its press up (`ownsItsMaterial`): §4's
+//  action capsule applies one material for all its items, and half a capsule
+//  swelling inside the other half is not a press. `TopBarActionCapsule` takes
+//  the gesture over; a tab tile, on the bare bar, keeps it. That is
+//  `GlassButton.GlassMode.none`'s rule in the other bar.
 //
 //  Increase Contrast is not an appearance on macOS 26.5 (see the `Tokens`
 //  header), so nothing here invalidates on its own: `TopBarView` owns the one
@@ -34,11 +46,19 @@ final class TopBarButton: NSButton {
         set { glyph.image = newValue }
     }
 
+    /// Told when the button goes down and comes back up. For the one case a
+    /// button cannot answer a press itself — see `ownsItsMaterial`.
+    var onPressChange: ((Bool) -> Void)?
+    /// Whether the swell is this button's to perform. False for an item inside
+    /// §4's action capsule, whose material belongs to the capsule.
+    var ownsItsMaterial = true
+
     private let metric: RoundedMetric
     private let hoverFill = NSView()
     private let glyph = NSImageView()
     private var tracking: NSTrackingArea?
     private var isHovered = false
+    private var isPressed = false
 
     /// - Parameters:
     ///   - metric: the drawn size and corner radius. Also the intrinsic size,
@@ -59,7 +79,6 @@ final class TopBarButton: NSButton {
         hoverFill.wantsLayer = true
         hoverFill.layer?.cornerCurve = .continuous
         hoverFill.layer?.cornerRadius = metric.cornerRadius
-        hoverFill.alphaValue = 0
         addSubview(hoverFill)
 
         glyph.imageScaling = .scaleProportionallyUpOrDown
@@ -119,7 +138,7 @@ final class TopBarButton: NSButton {
     /// §3.4a's right-click, built when it is asked for.
     ///
     /// Not `NSView.menu`, which is one menu assigned once: every item in a tab's menu
-    /// states that tab's *current* answer — whether it is pinned, whether it is muted — and
+    /// states that tab's current answer — whether it is pinned, whether it is muted — and
     /// a menu held over from the last press would be checkmarks for another moment.
     var menuBuilder: (() -> NSMenu?)?
 
@@ -145,8 +164,53 @@ final class TopBarButton: NSButton {
     private func setHovered(_ hovered: Bool) {
         guard isEnabled, hovered != isHovered else { return }
         isHovered = hovered
-        Tokens.Motion.animate(Tokens.Motion.controlHover) { _ in
-            self.hoverFill.animator().alphaValue = hovered ? 1 : 0
+        refreshFill()
+    }
+
+    // MARK: - Press (§3.4's second wash, §6's `controlPress`)
+
+    /// The press is taken around `NSControl`'s tracking, not instead of it.
+    /// `super.mouseDown` does not return until the mouse comes back up — it
+    /// runs the cell's own tracking loop, which is where `sendAction` happens —
+    /// so the state is set on either side of that call. Re-implementing the
+    /// tracking to get a notification in the middle of it would cost the key
+    /// loop, the focus ring and `AXPress`, which are the four reasons this is
+    /// an `NSButton` at all (see the file header).
+    override func mouseDown(with event: NSEvent) {
+        guard isEnabled else { return }
+        setPressed(true)
+        super.mouseDown(with: event)
+        setPressed(false)
+    }
+
+    /// AppKit's own way of saying "this button is down", which a key equivalent
+    /// takes rather than the tracking loop above. `setPressed` is idempotent,
+    /// so the two routes cannot double up.
+    override func highlight(_ flag: Bool) {
+        super.highlight(flag)
+        setPressed(flag && isEnabled)
+    }
+
+    private func setPressed(_ pressed: Bool) {
+        guard pressed != isPressed else { return }
+        isPressed = pressed
+        refreshFill()
+        onPressChange?(pressed)
+        guard ownsItsMaterial else { return }
+        Tokens.Motion.swell(self, to: pressed ? Tokens.Motion.pressSwell : 1)
+    }
+
+    /// §3.4's two washes: the pointer's, and the press's at twice it. A
+    /// disabled button is in neither — it does not answer a pointer at all.
+    private var fillColour: NSColor? {
+        guard isEnabled else { return nil }
+        if isPressed { return Tokens.Surface.selected }
+        return isHovered ? Tokens.Surface.hover : nil
+    }
+
+    private func refreshFill() {
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            Tokens.Motion.wash(self.hoverFill.layer, to: self.fillColour)
         }
     }
 
@@ -167,7 +231,10 @@ final class TopBarButton: NSButton {
     override var isEnabled: Bool {
         didSet {
             guard isEnabled != oldValue else { return }
-            if !isEnabled { setHovered(false) }
+            if !isEnabled {
+                setHovered(false)
+                setPressed(false)
+            }
             applyTokens()
         }
     }
@@ -179,14 +246,13 @@ final class TopBarButton: NSButton {
         // §3.1 dims a disabled control. There is no `disabledAlpha` token, and
         // the cell's own dimming is unavailable here (the glyph is a subview),
         // so the dimmest ink tier stands in — it is a real token and it is the
-        // right *direction*. See the report: `Tokens.Text.disabled` is missing.
+        // right direction. See the report: `Tokens.Text.disabled` is missing.
         glyph.contentTintColor = isEnabled ? Tokens.Text.primary : Tokens.Text.tertiary
-        // §3.4's 6 % lift. This used to borrow `Line.border` because the note
-        // said no hover token existed; `Surface.hover` is that token and it is
-        // the same 6 %, so the stand-in is gone.
-        effectiveAppearance.performAsCurrentDrawingAppearance {
-            self.hoverFill.layer?.backgroundColor = Tokens.Surface.hover.cgColor
-        }
+        // §3.4's 6 % lift, and 12 % under a press. This used to borrow
+        // `Line.border` because the note said no hover token existed;
+        // `Surface.hover` is that token and it is the same 6 %, so the
+        // stand-in is gone.
+        refreshFill()
         needsDisplay = true
     }
 

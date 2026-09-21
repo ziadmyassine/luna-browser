@@ -21,7 +21,7 @@ public protocol TabControllerDelegate: AnyObject {
         configuration: WKWebViewConfiguration
     ) -> WKWebView?
 
-    /// The receiver **must** set `download.delegate` before returning, and must keep
+    /// The receiver must set `download.delegate` before returning, and must keep
     /// that delegate alive itself — `WKDownload.delegate` is weak, WebKit asks for a
     /// destination immediately, and a download with no live delegate stalls silently.
     func tabController(_ controller: TabController, didStartDownload download: WKDownload)
@@ -63,7 +63,7 @@ public protocol TabControllerDelegate: AnyObject {
     // browser without autofill, not a broken one.
 
     /// A login form on this page has saved credentials to offer (§14.3).
-    /// Show a **native popover anchored to `offer.fieldRect`** — never an
+    /// Show a native popover anchored to `offer.fieldRect` — never an
     /// injected overlay, which a page could read or spoof.
     func tabController(_ controller: TabController, wantsToOfferCredentials offer: PasswordOffer)
 
@@ -71,7 +71,7 @@ public protocol TabControllerDelegate: AnyObject {
     func tabController(_ controller: TabController, wantsToSuggestPassword suggestion: PasswordSuggestion)
 
     /// Credentials were just submitted (§14.4). Show the non-modal chip.
-    /// **Nothing has been saved** — `PasswordCoordinator.confirmSave` is the
+    /// Nothing has been saved — `PasswordCoordinator.confirmSave` is the
     /// only thing that writes, and only the user can call it.
     func tabController(_ controller: TabController, wantsToSavePassword request: PasswordSaveRequest)
 

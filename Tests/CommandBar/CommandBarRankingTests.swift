@@ -2,12 +2,11 @@
 //  CommandBarRankingTests.swift
 //  LunaTests
 //
-//  §9.3, asserted against hand-computed numbers — the same way
-//  `FrecencyRankingTests` asserts the store's half. The Command Bar is only as
-//  good as this order, so the expected order is spelled out in the test rather
-//  than derived from the code under test.
+//  §9.3, asserted against hand-computed numbers, the same way
+//  `FrecencyRankingTests` asserts the store's half. The expected order is
+//  spelled out in the test rather than derived from the code under test.
 //
-//  Frecency itself is **not** re-tested here. `BrowserStore` computes it and owns
+//  Frecency itself is not re-tested here. `BrowserStore` computes it and owns
 //  its tests; what this file asserts is the half the store cannot see — the tier
 //  order across §9.2's sources, the dedupe, and §9.3's adaptive input history.
 //
@@ -45,7 +44,7 @@ final class CommandBarRankingTests: XCTestCase {
 
     /// The fixture every ordering test below reads. Query is "git" throughout.
     ///
-    /// Adaptive (§9.3, matched by *remembered input starts with what you typed*):
+    /// Adaptive (§9.3, matched by remembered input starts with what you typed):
     ///   "git"    → github.com/luna   useCount 2.71
     ///   "gitlab" → gitlab.com        useCount 5.20
     ///   "news"   → news.example      does not match "git"
@@ -102,7 +101,7 @@ final class CommandBarRankingTests: XCTestCase {
         )
     }
 
-    /// §9.3's headline rule: "adaptive matches rank *above* all frecency results."
+    /// §9.3's headline rule: "adaptive matches rank above all frecency results."
     /// `GitBig` scores 9999 against an adaptive entry used 2.71 times, and still
     /// loses — the two numbers are different units and are never compared.
     func testAdaptiveOutranksEveryFrecencyResultRegardlessOfScore() {
@@ -125,7 +124,7 @@ final class CommandBarRankingTests: XCTestCase {
     }
 
     /// §9.2's dedupe, and the part of it that matters: the winning row keeps its
-    /// rank but inherits the open tab's *action*, so a page that is both the
+    /// rank but inherits the open tab's action, so a page that is both the
     /// adaptive favourite and already open switches to the live tab instead of
     /// loading a second copy of it (§19.4).
     func testDedupeKeepsTheBestRankButAdoptsTheOpenTabAction() {
@@ -187,7 +186,7 @@ final class CommandBarRankingTests: XCTestCase {
     /// for the wrong reason, which is why the strict inequality is here.
     /// 200 steps, not more, for a floating-point reason worth stating: the gap to
     /// 10 shrinks by 0.9× per step, so somewhere past step ~348 it falls below a
-    /// `Double`'s resolution at 10 and the value becomes *exactly* 10. At 200 the
+    /// `Double`'s resolution at 10 and the value becomes exactly 10. At 200 the
     /// gap is still ≈7 × 10⁻⁹ — far inside the tolerance below, and far outside
     /// the epsilon that would make the strict inequalities spuriously fail.
     func testAdaptiveUpdateConvergesOnTenWithoutEverReachingIt() {
@@ -203,7 +202,7 @@ final class CommandBarRankingTests: XCTestCase {
         XCTAssertEqual(CommandBarRanking.bumped(10), 10, accuracy: 0.000_000_1)
     }
 
-    /// The update has to *change the order*, or it is arithmetic nobody sees.
+    /// The update has to change the order, or it is arithmetic nobody sees.
     /// GitHub starts behind GitLab, 2.71 against 5.20, and climbs
     /// 2.71 → 3.439 → 4.0951 → 4.68559 → 5.217031. Three uses leave it behind;
     /// the fourth puts it in front. Asserted at exactly that boundary, so a change
@@ -254,7 +253,7 @@ final class CommandBarRankingTests: XCTestCase {
     }
 
     /// Nothing to complete is not the same as completing with nothing: a query
-    /// that is not a prefix of the top row, or that already *is* it, autofills
+    /// that is not a prefix of the top row, or that already is it, autofills
     /// nothing rather than replacing what the user typed.
     func testDoesNotAutofillWhenTheTopResultIsNotACompletion() {
         let results = CommandBarRanking.merge(query: "git", sources: fixture().sources, limit: 8)

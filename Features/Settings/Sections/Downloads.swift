@@ -4,22 +4,20 @@
 //
 //  docs/SETTINGS-SPEC.md §3.5.
 //
-//  Two of the four rows here are **disabled with a reason**, and the reason is
+//  Two of the four rows here are disabled with a reason, and the reason is
 //  the same one: `DownloadManager` owns the destination decision and the item
-//  list, and it is not this milestone's file to edit. What *is* wired is what
+//  list, and it is not this milestone's file to edit. What is wired is what
 //  `Features/Downloads/DownloadItem.swift` can answer by itself — the folder
 //  (`DownloadDestination.folder`) and auto-open (`DownloadItem.finish()`).
 //  §30.4: a dimmed row that says why beats a switch that flips and does
 //  nothing.
 //
-//  **The folder is a pop-up, not an `NSPathControl`.** The path control was one
-//  native control doing the work of two, which is why it was chosen — but it
-//  draws the folder's name hard against its *leading* edge and its chevron
-//  against the trailing one, and it is as wide as the row lets it be. So the
-//  word "Downloads" sat inches away from the control it belonged to, with the
-//  row's own label on the far side of the gap. A pop-up puts the name and the
-//  chevron together, and makes this row look like the two below it instead of
-//  like a control borrowed from another window.
+//  The folder is a pop-up, not an `NSPathControl`. The path control draws the
+//  folder's name hard against its leading edge and its chevron against the
+//  trailing one, and it is as wide as the row lets it be — so the word
+//  "Downloads" sat inches from the control it belonged to. A pop-up puts the
+//  name and the chevron together, and makes this row look like the two below
+//  it.
 //
 
 import AppKit
@@ -128,7 +126,7 @@ final class DownloadsSection: SettingsSection {
         return (view: row, terms: [title, "ask", "save panel"])
     }
 
-    /// Default **off**, and that is the point of the row rather than an
+    /// Default off, and that is the point of the row rather than an
     /// oversight: Safari ships this on, and it is the setting named most often
     /// in macOS malware write-ups. "Safe" is `DownloadRisk`'s definition — an
     /// executable, a disk image or an installer package never opens by itself,

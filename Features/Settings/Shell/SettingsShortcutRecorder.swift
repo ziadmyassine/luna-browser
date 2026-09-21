@@ -5,14 +5,13 @@
 //  §3.6's editable key chip: it prints a shortcut, and when you click it, it
 //  listens for the next one.
 //
-//  **This is the one place in Luna that installs an `NSEvent` monitor**, and the
-//  ban it is stepping around is worth restating rather than quietly breaking.
-//  `BrowserCommands` forbids monitors because a *command* driven by one is
-//  invisible — not in a menu, not in the accessibility tree, impossible to
-//  discover (§22.5). None of that applies here: nothing is being commanded. The
-//  monitor exists so the keystroke can be **read instead of obeyed**, which is
-//  exactly what the menu bar would otherwise do with it. Without one, pressing
-//  ⇧⌘T over this control opens a tab.
+//  The one place in Luna that installs an `NSEvent` monitor, and the ban it
+//  steps around is worth restating. `BrowserCommands` forbids monitors because
+//  a command driven by one is invisible: not in a menu, not in the
+//  accessibility tree, impossible to discover (§22.5). Nothing is being
+//  commanded here — the monitor exists so the keystroke can be read instead of
+//  obeyed, which is what the menu bar would otherwise do with it. Without one,
+//  pressing ⇧⌘T over this control opens a tab.
 //
 //  It is local (this process), it matches only `.keyDown`, and it lives only
 //  between the click that starts recording and the keystroke, Escape, or lost
@@ -38,6 +37,7 @@ final class SettingsShortcutRecorder: NSView {
     private var binding: KeyBinding?
     private var monitor: Any?
     private var isRecording = false
+    private var isHovering = false { didSet { if isHovering != oldValue { refresh() } } }
 
     init(binding: KeyBinding?) {
         self.binding = binding
@@ -77,8 +77,31 @@ final class SettingsShortcutRecorder: NSView {
     // MARK: - Recording
 
     override func mouseDown(with event: NSEvent) {
-        isRecording ? stop() : beginRecording()
+        // §6's swell, which here says "taken" rather than "held": the chip
+        // changes mode on the way down, so the spring back on `mouseUp` is the
+        // whole of the press. Without it the only thing a click changed was a
+        // word, and a word is not a control answering a finger.
+        Tokens.Motion.swell(self, to: Tokens.Motion.pressSwell)
+        if isRecording { stop() } else { beginRecording() }
     }
+
+    override func mouseUp(with event: NSEvent) {
+        Tokens.Motion.swell(self, to: 1)
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas where area.owner === self { removeTrackingArea(area) }
+        addTrackingArea(NSTrackingArea(
+            rect: .zero,
+            options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+            owner: self
+        ))
+    }
+
+    override func mouseEntered(with event: NSEvent) { isHovering = true }
+
+    override func mouseExited(with event: NSEvent) { isHovering = false }
 
     /// The keyboard's way in: §20.2 wants every chrome control operable without
     /// the pointer, and a recorder that can only be started by clicking is a
@@ -103,7 +126,7 @@ final class SettingsShortcutRecorder: NSView {
         guard !isRecording else { return }
         isRecording = true
         window?.makeFirstResponder(self)
-        // **Returning nil swallows the event.** That is the point: while this
+        // Returning nil swallows the event. That is the point: while this
         // control is listening, ⌘W must not close the tab behind the Settings
         // window on its way to being recorded.
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
@@ -163,7 +186,16 @@ final class SettingsShortcutRecorder: NSView {
         label.stringValue = isRecording
             ? String(localized: "Press keys…")
             : (binding?.display ?? String(localized: "—"))
-        label.textColor = isRecording ? Tokens.Accent.tint : Tokens.Text.secondary
+        // The ink answers the pointer, not the fill. This chip is drawn as
+        // a well — `Surface.well` is black ink in both themes — and §3.4's
+        // hover wash is white, so lifting the fill here would flip a recess
+        // into a plate on the way past it. §3.1's other half is the one that
+        // applies: the glyph, or here the keystroke, brightens instead.
+        label.textColor = if isRecording {
+            Tokens.Accent.tint
+        } else {
+            isHovering ? Tokens.Text.primary : Tokens.Text.secondary
+        }
         setAccessibilityLabel(
             isRecording
                 ? String(localized: "Recording. Press the new shortcut, or Escape to cancel.")

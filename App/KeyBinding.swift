@@ -5,16 +5,15 @@
 //  One keystroke, as a value — the thing a menu item wears, the thing the user
 //  records in Settings, and the thing that has to survive a relaunch.
 //
-//  **Shift is always in the mask, never in the letter.** AppKit accepts two
-//  spellings of ⇧⌘T: `keyEquivalent "T"` with `.command`, or `keyEquivalent "t"`
-//  with `[.command, .shift]`. `MainMenu` used the first, which is fine for a
-//  table written by hand and wrong for one a user can edit — it makes the shift
-//  bit live in two places, so a recorded keystroke and a declared default of the
-//  same shortcut compare unequal and the conflict check misses. Everything here
-//  normalises to the second spelling: the key is lowercased, and shift is a
-//  modifier like the other three.
+//  Shift is always in the mask, never in the letter. AppKit accepts two
+//  spellings of ⇧⌘T: `keyEquivalent "T"` with `.command`, or `"t"` with
+//  `[.command, .shift]`. The first is fine for a table written by hand and
+//  wrong for one a user can edit — the shift bit lives in two places, so a
+//  recorded keystroke and a declared default of the same shortcut compare
+//  unequal and the conflict check misses. Everything normalises to the second:
+//  the key is lowercased and shift is a modifier like the other three.
 //
-//  A shifted *symbol* keeps whatever the layout produced — ⇧⌘[ records as ⇧⌘{
+//  A shifted symbol keeps whatever the layout produced — ⇧⌘[ records as ⇧⌘{
 //  on a US keyboard, because that is the character AppKit will be matching
 //  against. It fires correctly; it is only the printed glyph that is the shifted
 //  one. Left alone deliberately: unshifting it needs `UCKeyTranslate` and a
@@ -99,8 +98,8 @@ struct KeyBinding: Hashable {
         return parts.joined(separator: "+")
     }
 
-    /// **The modifiers are eaten from the front, and whatever is left is the
-    /// key — separators included.** Cutting at the last `+` instead looks
+    /// The modifiers are eaten from the front, and whatever is left is the
+    /// key — separators included. Cutting at the last `+` instead looks
     /// obviously right and loses ⌘+: `"cmd++"` splits into `"cmd+"` and `""`,
     /// and Zoom In comes back from `UserDefaults` with no key at all. The
     /// modifier names are a closed vocabulary, so reading them left to right is
@@ -134,15 +133,15 @@ struct KeyBinding: Hashable {
     /// The keystroke an event describes, or nil for one that cannot be a
     /// shortcut.
     ///
-    /// **At least one of ⌘ ⌃ ⌥ is required**, and shift alone does not count: a
+    /// At least one of ⌘ ⌃ ⌥ is required, and shift alone does not count: a
     /// menu key equivalent fires wherever the app is focused, so a bare letter —
     /// or ⇧-letter — would be swallowed out of every text field in the browser,
     /// including the address bar. Nothing else is refused here; whether the
-    /// keystroke is *already taken* is `KeyBindings`' question, not this one.
+    /// keystroke is already taken is `KeyBindings`' question, not this one.
     init?(event: NSEvent) {
         guard let characters = event.charactersIgnoringModifiers, !characters.isEmpty else { return nil }
         let modifiers = event.modifierFlags.intersection(Self.allowed)
-        guard !modifiers.intersection([.command, .control, .option]).isEmpty else { return nil }
+        guard !modifiers.isDisjoint(with: [.command, .control, .option]) else { return nil }
         self.init(characters, modifiers)
     }
 }

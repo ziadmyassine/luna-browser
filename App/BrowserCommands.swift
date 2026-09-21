@@ -8,9 +8,9 @@
 //  reaches a browser command.
 //
 //  There is no `NSEvent` monitor and no `performKeyEquivalent` override
-//  anywhere in Luna. A shortcut that is not a menu item is undiscoverable
-//  (§22.5) and, worse, invisible to the accessibility system — so the key map
-//  is declared once, in `MainMenu`, and implemented once, here.
+//  anywhere in Luna: a shortcut that is not a menu item is undiscoverable
+//  (§22.5) and invisible to the accessibility system. The key map is declared
+//  once in `MainMenu` and implemented once here.
 //
 
 import AppKit
@@ -76,8 +76,8 @@ extension AppDelegate {
 
     // MARK: - Downloads (§15.3)
 
-    /// `⌘⌥L`. Toggles §30.15's list; the completion popover is the primary
-    /// surface and shows itself.
+    /// `⌘⌥L`. Toggles §15.3's list — the same surface a download puts up by
+    /// itself when it starts and when it lands (§5.0).
     @objc func showDownloads(_ sender: Any?) {
         showDownloadsList()
     }
@@ -91,10 +91,10 @@ extension AppDelegate {
 
     // MARK: - Layout and Spaces
 
-    /// `⌘S` (§8): hides and shows the sidebar. **Not** the layout switch —
+    /// `⌘S` (§8): hides and shows the sidebar. Not the layout switch —
     /// that is `Settings.chromeLayout`, reached with `⌘,`.
     ///
-    /// **Not called `toggleSidebar(_:)`.** That selector is `NSSplitViewController`'s,
+    /// Not called `toggleSidebar(_:)`. That selector is `NSSplitViewController`'s,
     /// and something in the responder chain answers to it: the menu item
     /// validated as enabled, the click went somewhere, and nothing happened.
     /// Named for what it does, and the name is now ours.
@@ -104,7 +104,7 @@ extension AppDelegate {
 
     /// `⌃1…⌃9` (§5.3, §13.2). The item's tag is its index in `session.spaces`.
     ///
-    /// **It used to be `⌘1…⌘9`**, which is "go to tab N" in Safari, Chrome,
+    /// It used to be `⌘1…⌘9`, which is "go to tab N" in Safari, Chrome,
     /// Firefox, Edge and Arc. That namespace now belongs to
     /// `goToSidebarItem(_:)`; Spaces moved one modifier over, where Arc and Dia
     /// both put them.
@@ -116,7 +116,7 @@ extension AppDelegate {
 
     /// `⌃⌥←` / `⌃⌥→`. Wraps, the same ring `selectAdjacentTab` walks.
     ///
-    /// **Not `⌘⌥←/→`**, which SPACES-SPEC §13.2 asks for: that pair is already
+    /// Not `⌘⌥←/→`, which SPACES-SPEC §13.2 asks for: that pair is already
     /// shipped as Show Previous/Next Tab (§7.4, and `TODO.md` §20.1 lists it
     /// under tabs in the same breath as it gives Spaces ⌃-number). One of the
     /// two has to move and the spec contradicts itself about which; keeping the
@@ -141,7 +141,7 @@ extension AppDelegate {
     /// `⌘1…⌘9` — Window ▸ Sidebar Items. The tag is the row's index in
     /// `session.tabs`, which is already sorted the way the sidebar draws it.
     ///
-    /// **The Settings window's own `⌘1…⌘9` arrives here too.** Probed on macOS
+    /// The Settings window's own `⌘1…⌘9` arrives here too. Probed on macOS
     /// 26.5: the first key-equivalent match in menu-bar order consumes the
     /// event and nothing later ever sees it, disabled or not, so exactly one
     /// item can own `⌘1` and this is it. Forwarding is how Window ▸ Settings ▸
@@ -160,7 +160,7 @@ extension AppDelegate {
 
     // MARK: - Favorites (§2, §13.4)
 
-    /// `⌘D`. Favorites are **per Profile** and capped at twelve, so this is the
+    /// `⌘D`. Favorites are per Profile and capped at twelve, so this is the
     /// one command in Luna that can be refused rather than merely dimmed.
     ///
     /// The thirteenth gets a sentence, not a silent no-op: `pinTab` returns
@@ -269,7 +269,7 @@ extension AppDelegate: NSMenuItemValidation {
             return session.tabs.count > 1
         case #selector(previousSpace(_:)), #selector(nextSpace(_:)):
             return session.spaces.count > 1
-        // Never conditional. It is the **first** `⌘1…⌘9` in menu order, and a
+        // Never conditional. It is the first `⌘1…⌘9` in menu order, and a
         // disabled first match swallows the keystroke instead of passing it on
         // (probed, macOS 26.5) — so dimming this would take `⌘1` away from the
         // Settings window as well as from here. The action guards its own index.

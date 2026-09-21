@@ -54,7 +54,7 @@ struct NavigationPolicyTests {
     }
 
     /// §15.5 — WebKit renders PDFs and we do not take that away. Only the disposition
-    /// *type* counts, so a file merely named "attachment.pdf" still displays.
+    /// type counts, so a file merely named "attachment.pdf" still displays.
     @Test func readsOnlyTheDispositionType() {
         #expect(NavigationPolicy.isAttachment("attachment; filename=\"report.pdf\""))
         #expect(NavigationPolicy.isAttachment("  ATTACHMENT  "))
@@ -179,7 +179,7 @@ struct TabControllerTests {
         #expect(makeController().webView == nil)
     }
 
-    /// §19.2 is the whole memory strategy: hibernating must leave *nothing* behind.
+    /// §19.2 is the whole memory strategy: hibernating must leave nothing behind.
     @Test func hibernationReleasesTheWebView() {
         let controller = makeController()
         controller.activate()

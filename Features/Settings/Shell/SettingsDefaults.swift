@@ -2,14 +2,14 @@
 //  SettingsDefaults.swift
 //  Luna
 //
-//  §6's key table, in **one** place, so §3.9's "Restore all settings" is a loop
+//  §6's key table, in one place, so §3.9's "Restore all settings" is a loop
 //  rather than a list someone forgets to extend. Two rules:
 //
-//  1. **A key with no row here does not exist** — `keys`, `register()` and
+//  1. A key with no row here does not exist — `keys`, `register()` and
 //     `restoreAll()` all read `table`.
-//  2. **The registered value must equal the reader's own fallback.** A
-//     registration domain *satisfies* a `?? default` read, so a disagreement
-//     here does not produce a second opinion — it silently overrides the first.
+//  2. The registered value must equal the reader's own fallback. A
+//     registration domain satisfies a `?? default` read, so a disagreement
+//     silently overrides the reader rather than producing a second opinion.
 //     Each row names the reader it was copied from.
 //
 //  Existing keys keep their spellings (§6), and `luna.activeSpaceID` is
@@ -68,7 +68,7 @@ enum SettingsDefaults {
 
     /// §3.9's "Restore all settings to defaults".
     ///
-    /// **Removes rather than re-writes**, so a default is written in exactly one
+    /// Removes rather than re-writes, so a default is written in exactly one
     /// place. Removing the stored value is only half of it for a setting cached
     /// in memory: `SearchSettings` reads `search.engine` once at first touch
     /// (§9.7's keystroke budget has no room for a defaults lookup), so without

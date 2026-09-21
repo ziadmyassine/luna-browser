@@ -2,17 +2,16 @@
 //  SettingsRow.swift
 //  Luna
 //
-//  §4's shared row widgets. **Every** control in every §3 section comes from
-//  here; no section hand-rolls one, which is what keeps nine sections looking
-//  like one window and makes §2's search, §4's disabled rule and §8's labelling
+//  §4's shared row widgets. Every control in every §3 section comes from here
+//  and no section hand-rolls one, which keeps nine sections looking like one
+//  window and makes §2's search, §4's disabled rule and §8's labelling
 //  decisions taken once.
 //
 //  The popup stays AppKit's: §5 says never re-animate a system control, and a
 //  hand-drawn menu would have to re-earn every keyboard and VoiceOver behaviour
-//  it already ships. The button, the text field and the picker are drawn here
-//  because their AppKit bezels are the only bright plates in an otherwise dark
-//  pane — and the switch is drawn because AppKit's is a fixed 54 × 24 and there
-//  is no room for it (`SettingsSwitch`).
+//  it ships. The button, text field and picker are drawn here because their
+//  AppKit bezels are the only bright plates in an otherwise dark pane, and the
+//  switch because AppKit's is a fixed 54 × 24 (`SettingsSwitch`).
 //
 
 import AppKit
@@ -62,7 +61,7 @@ enum SettingsRow {
     ///
     /// Rows are opaque `NSView`s everywhere else on purpose — a section that can
     /// reach into its own row can drift from what `SettingsRow` guarantees. The
-    /// one exception is a choice whose **answers** change while the window is
+    /// one exception is a choice whose answers change while the window is
     /// open: §3.2's tab position offers a middle segment under the top bar and
     /// two under the sidebar, and the row that decides which sits directly
     /// above it.
@@ -110,7 +109,7 @@ enum SettingsRow {
         return row(title, subtitle, popup, isEnabled, disabledReason, terms: options).retaining(action)
     }
 
-    /// Commits on Return **and** on losing focus — without
+    /// Commits on Return and on losing focus — without
     /// `sendsActionOnEndEditing` a user who types a custom engine and clicks
     /// straight back to the browser loses what they typed.
     static func text(
@@ -190,6 +189,43 @@ enum SettingsRow {
             label.trailingAnchor.constraint(equalTo: host.trailingAnchor, constant: -SettingsMetrics.controlRowGap),
             label.topAnchor.constraint(equalTo: host.topAnchor, constant: SettingsMetrics.controlRowGap),
             label.bottomAnchor.constraint(equalTo: host.bottomAnchor, constant: -SettingsMetrics.controlRowGap)
+        ])
+        return host
+    }
+
+    /// A section heading with one control beside it — §3.7's
+    /// `Spaces … [New Space]`.
+    ///
+    /// A verb that makes a new card belongs above the cards, not in one. As
+    /// a row it needed a card of its own, and that card needed a heading, so
+    /// the pane read `Spaces` ▸ card ▸ `New Space` ▸ `[New Space]` — the same
+    /// two words three times, in a plate that looked like one more Space. The
+    /// heading and the button are one line: the label says what the cards below
+    /// are, and the control adds one.
+    ///
+    /// Both sit on the card's own edges rather than its text inset, so the line
+    /// frames the cards below it: the word starts where a card starts and the
+    /// button ends where a card ends. See `SettingsRowGroupView.header`, which
+    /// is the same label without the control.
+    static func heading(_ title: String, accessory: NSView) -> NSView {
+        let label = NSTextField(labelWithString: title)
+        label.font = Tokens.TypeScale.settingsRow
+        label.textColor = Tokens.Text.secondary
+        label.translatesAutoresizingMaskIntoConstraints = false
+        accessory.translatesAutoresizingMaskIntoConstraints = false
+        let host = NSView()
+        host.addSubview(label)
+        host.addSubview(accessory)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: host.leadingAnchor),
+            label.centerYAnchor.constraint(equalTo: accessory.centerYAnchor),
+            label.trailingAnchor.constraint(
+                lessThanOrEqualTo: accessory.leadingAnchor,
+                constant: -SettingsMetrics.controlRowGap
+            ),
+            accessory.trailingAnchor.constraint(equalTo: host.trailingAnchor),
+            accessory.topAnchor.constraint(equalTo: host.topAnchor),
+            accessory.bottomAnchor.constraint(equalTo: host.bottomAnchor)
         ])
         return host
     }

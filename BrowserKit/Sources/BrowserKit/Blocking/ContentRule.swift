@@ -3,18 +3,18 @@ import Foundation
 /// One rule in WebKit's content-blocker JSON schema (§17.1).
 ///
 /// The key names are WebKit's, not Swift's, so every one of them is spelled out in
-/// `CodingKeys`. A misspelled key is **not** an error: unknown trigger keys compile
+/// `CodingKeys`. A misspelled key is not an error: unknown trigger keys compile
 /// happily and are then ignored, so a typo here is a rule that quietly matches more than
 /// it should (measured 2026-09-17 — `"totally-made-up"` compiled without complaint).
 public struct ContentRule: Codable, Sendable, Hashable {
 
     public struct Trigger: Codable, Sendable, Hashable {
-        /// A regular expression over the *whole* URL, in WebKit's own restricted dialect.
+        /// A regular expression over the whole URL, in WebKit's own restricted dialect.
         /// See ``ContentRuleLimits`` for what that dialect does not have.
         public var urlFilter: String
         public var urlFilterIsCaseSensitive: Bool?
         /// Lowercase, punycoded domains — see ``ContentRuleLimits/domainsMustBeLowercaseASCII``.
-        /// A bare domain matches that host **only**; `*` in front also matches subdomains.
+        /// A bare domain matches that host only; `*` in front also matches subdomains.
         public var ifDomain: [String]?
         public var unlessDomain: [String]?
         public var resourceType: [String]?
@@ -80,9 +80,9 @@ public struct ContentRule: Codable, Sendable, Hashable {
     }
 }
 
-/// What the engine actually accepts. **Every number and every string here was measured
-/// against the shipping SDK on 2026-09-17 (macOS 26, Xcode 26.6)** rather than read
-/// (§0.3), because each of them fails the *whole list* rather than the one bad rule.
+/// What the engine actually accepts. Every number and every string here was measured
+/// against the shipping SDK on 2026-09-17 (macOS 26, Xcode 26.6) rather than read
+/// (§0.3), because each of them fails the whole list rather than the one bad rule.
 public enum ContentRuleLimits {
 
     /// Measured exactly, by bisection: 150,000 rules compile; 150,001 fails with
@@ -99,7 +99,7 @@ public enum ContentRuleLimits {
         "media", "popup", "ping", "fetch", "websocket", "other"
     ]
 
-    /// `url-filter` is *not* ICU regex. Measured rejections:
+    /// `url-filter` is not ICU regex. Measured rejections:
     /// - `(a|b)` → "Disjunctions are not supported yet."
     /// - `a{2,4}` → "Arbitrary atom repetitions are not supported."
     /// - `\d` → "Character class is not supported."
@@ -111,7 +111,7 @@ public enum ContentRuleLimits {
 
     /// `if-domain`/`unless-domain` entries that are not lowercase ASCII fail with
     /// `"Domains must be lower case ASCII. Use punycode to encode non-ASCII characters."`
-    /// — a hard compile error, **not** the silent non-match §17.1 warns about, and it
+    /// — a hard compile error, not the silent non-match §17.1 warns about, and it
     /// takes every other rule in the list down with it.
     public static let domainsMustBeLowercaseASCII = true
 }

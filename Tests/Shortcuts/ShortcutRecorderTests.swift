@@ -2,8 +2,8 @@
 //  ShortcutRecorderTests.swift
 //  LunaTests
 //
-//  §3.6's capture control, and the one measured question underneath it: **does
-//  a local event monitor see a keystroke before the menu bar acts on it?**
+//  §3.6's capture control, and the one measured question underneath it: does
+//  a local event monitor see a keystroke before the menu bar acts on it?
 //
 //  The whole feature rests on that answer. If the menu got there first, the
 //  recorder would be unusable for exactly the shortcuts people want to change —
@@ -55,7 +55,7 @@ final class ShortcutRecorderTests: XCTestCase {
         XCTAssertFalse(recorder.isListening)
     }
 
-    /// Escape is a cancel, and a cancel is **not a change** — the difference
+    /// Escape is a cancel, and a cancel is not a change — the difference
     /// matters because `onRecord(nil)` means "clear this shortcut", which is a
     /// real edit the user would not be able to undo by pressing Escape.
     func testEscapeCancelsWithoutRecordingAnything() {
@@ -83,7 +83,7 @@ final class ShortcutRecorderTests: XCTestCase {
         XCTAssertFalse(recorder.isListening)
     }
 
-    /// A keystroke that cannot be a shortcut leaves the recorder **listening**
+    /// A keystroke that cannot be a shortcut leaves the recorder listening
     /// rather than committing something unusable or silently giving up. The
     /// user pressed a key and nothing happened, so the next key still counts.
     func testAKeystrokeWithNoModifierKeepsTheRecorderListening() {
@@ -102,7 +102,7 @@ final class ShortcutRecorderTests: XCTestCase {
     /// The monitor is process-wide while it is installed, so a recorder that
     /// leaves its window mid-recording has to take it down — nothing else will.
     ///
-    /// A **real** `NSWindow`, because the hook is `viewDidMoveToWindow` and a
+    /// A real `NSWindow`, because the hook is `viewDidMoveToWindow` and a
     /// view in a detached hierarchy never had one to move out of — the first
     /// version of this test asserted against a bare `NSView` and proved nothing.
     func testLeavingTheWindowEndsTheRecording() {

@@ -2,15 +2,15 @@
 //  BrowserSession+PictureInPicture.swift
 //  Luna
 //
-//  §3.2's **Automatic Picture-In-Picture**, at the one seam that knows which tab
+//  §3.2's Automatic Picture-In-Picture, at the one seam that knows which tab
 //  is on screen.
 //
 //  The mechanism is `TabController`'s; what belongs here is the pair of
-//  questions it cannot answer — *which* tab was just left, and whether the site
+//  questions it cannot answer — which tab was just left, and whether the site
 //  it belongs to has the permission. Both are per-site, so a user who wants
 //  YouTube to float and everything else to stay put gets exactly that.
 //
-//  **Not driven from `activateTab`.** Switching Space assigns `activeSpaceID`
+//  Not driven from `activateTab`. Switching Space assigns `activeSpaceID`
 //  before it activates that Space's remembered tab, so by the time the
 //  activation runs the tab being left is no longer derivable from the session's
 //  own state. `presentedTabID` is the honest record of what has been on screen,

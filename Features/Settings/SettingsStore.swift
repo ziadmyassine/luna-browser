@@ -6,15 +6,14 @@
 //  layout the window wears — and the shape for the rest.
 //
 //  It exists because `⌘S` stopped meaning "swap the layout". Hiding the sidebar
-//  and choosing between the two layouts are different decisions taken at
-//  different rates: one is a reflex, several times a minute; the other is a
-//  preference, taken once. A keystroke that did both meant the reflex silently
-//  changed the preference.
+//  and choosing between the layouts are decisions taken at different rates —
+//  one a reflex several times a minute, the other a preference taken once — and
+//  a keystroke that did both meant the reflex silently changed the preference.
 //
-//  `UserDefaults`, like `SidebarResizeHandle.storedWidth` — Luna has no
-//  settings file and no reason to invent one for a single enum. The
-//  notification is what lets a running window follow a change made in the
-//  Settings window without either of them knowing about the other.
+//  `UserDefaults`, like `SidebarResizeHandle.storedWidth`: Luna has no settings
+//  file and no reason to invent one for a single enum. The notification lets a
+//  running window follow a change made in the Settings window without either
+//  knowing about the other.
 //
 
 import Foundation
@@ -54,7 +53,7 @@ enum SearchBarPlacement: String, CaseIterable, Sendable {
     }
 }
 
-/// **Where the tabs are.** One setting, because it is one question the user is
+/// Where the tabs are. One setting, because it is one question the user is
 /// asking — and the two layouts have different answers available to them.
 ///
 /// §3's sidebar is a column, so it has two sides and no middle. §4's strip runs
@@ -125,7 +124,7 @@ enum Settings {
         }
     }
 
-    /// §3/§4's tab position. **Centre by default**, which is where §4's strip
+    /// §3/§4's tab position. Centre by default, which is where §4's strip
     /// belongs and which a sidebar reads as the left it has always been.
     static var tabsPosition: TabsPosition {
         get {
@@ -155,7 +154,7 @@ enum Settings {
     /// Whether §3.2b's bar is the one on screen — the single reader both the
     /// sidebar and the page bar are driven from.
     ///
-    /// **Two keys, one answer.** The placement is only meaningful in sidebar
+    /// Two keys, one answer. The placement is only meaningful in sidebar
     /// layout, and asking each surface to remember that is how the sidebar ends
     /// up having dropped its pill in a layout that has no page bar to put it
     /// in.

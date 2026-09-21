@@ -3,8 +3,8 @@
 //  LunaTests
 //
 //  §3.3's tile, and the one distinction the rest of the §6 lifecycle does not
-//  make: **a pinned tab's page can go away for two different reasons, and the
-//  tile has to come back differently depending on which one it was.**
+//  make: a pinned tab's page can go away for two different reasons, and the
+//  tile has to come back differently depending on which one it was.
 //
 //    · Filed away — pinning a tab that is not on screen, or the §19.2 budget
 //      reclaiming a cold one. The blob stays; clicking the tile lands where the

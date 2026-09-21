@@ -6,11 +6,11 @@
 //  longer dimmed for a missing method, the Space → Profile fan-out label, and
 //  §6.4's deletion dialog.
 //
-//  The dialog strings are asserted as **pure functions** rather than by opening
-//  an `NSAlert`. Wording that can only be checked by clicking it is wording
-//  nobody checks, and these are the sentences that have to beat Firefox's
-//  (tabs, never the data) and Chrome's (the data, never the windows).
-//  The key map lives in `SpacesMenuTests.swift`.
+//  The dialog strings are asserted as pure functions rather than by opening an
+//  `NSAlert`: wording that can only be checked by clicking it is wording nobody
+//  checks. These are the sentences that have to beat Firefox's (tabs, never the
+//  data) and Chrome's (the data, never the windows). The key map lives in
+//  `SpacesMenuTests.swift`.
 //
 
 import AppKit
@@ -23,20 +23,65 @@ final class SpacesSectionTests: XCTestCase {
 
     // MARK: - Goal 12: nothing is dimmed for a missing method
 
-    /// The four rows whose `disabledReason` used to name the call they were
-    /// waiting for — "BrowserSession can create and delete Spaces, but cannot
-    /// yet rename or reorder one". The reason went; the row stayed (§30.4).
-    func testRenameReorderIconAndGradientAreAllLive() {
+    /// The rows whose `disabledReason` used to name the call they were waiting
+    /// for — "BrowserSession can create and delete Spaces, but cannot yet
+    /// rename or reorder one". The reason went; the row stayed (§30.4).
+    func testRenameReorderAndProfileAreAllLive() {
         let rows = Self.rowsForOneSpace()
-        for title in ["Name", "Icon", "Gradient", "Position in the sidebar", "Profile"] {
+        for title in ["Name", "Position in the sidebar", "Profile"] {
             let row = rows.first { $0.accessibilityLabel() == title || Self.title(of: $0) == title }
             XCTAssertNotNil(row, "no row titled “\(title)”")
             // `SettingsRowView.acceptsFirstResponder` is `!isEnabled`: §4 puts a
-            // *disabled* row into the key-view loop because the control AppKit
+            // disabled row into the key-view loop because the control AppKit
             // will not focus cannot carry its own reason.
             XCTAssertFalse(row?.acceptsFirstResponder ?? true, "“\(title)” is still dimmed")
             XCTAssertNil(row?.accessibilityHelp(), "“\(title)” still carries a disabled reason")
         }
+    }
+
+    /// Icon and gradient left the row list; they did not leave the app.
+    /// They are grids on the card's corner button now (`SpaceAppearanceView`),
+    /// and the thing worth asserting is that the move cost nothing: every one
+    /// of §8.2's twelve pairs is still offered, §13.6's way back to neutral is
+    /// still the last of them, and all twelve icons are still there.
+    func testEveryColourAndIconSurvivedTheMoveOffTheRowList() {
+        let choices = SpacesSection.appearanceChoices
+        XCTAssertEqual(choices.gradients.count, Tokens.Gradient.spacePalette.count + 1)
+        XCTAssertEqual(choices.gradients.last, "No Colour", "§13.6's way out is not the last swatch")
+        for name in Tokens.Gradient.spacePaletteNames {
+            XCTAssertTrue(choices.gradients.contains(name), "“\(name)” is not offered any more")
+        }
+        XCTAssertEqual(choices.icons.count, SpacesSection.symbols.count)
+        XCTAssertEqual(Set(choices.icons).count, choices.icons.count, "two icons share a label")
+    }
+
+    /// The grid is built against the Space it was opened for, so the swatch and
+    /// the symbol it is already wearing are the ones marked — a picker that
+    /// opens with nothing selected is a picker that cannot tell you what you
+    /// have.
+    func testTheAppearanceGridOpensOnTheSpacesOwnColourAndIcon() {
+        let space = Space(name: "Work", symbolName: "flask", gradient: Tokens.Gradient.spacePalette[3], profileID: UUID())
+        let view = SpaceAppearanceView(space: space, onGradient: { _ in }, onIcon: { _ in })
+        let swatches = Self.descendants(of: view).compactMap { $0 as? SpaceSwatchChip }
+        let symbols = Self.descendants(of: view).compactMap { $0 as? SpaceSymbolChip }
+        XCTAssertEqual(swatches.filter(\.isChosen).map(\.gradient), [space.gradient])
+        XCTAssertEqual(symbols.filter(\.isChosen).map(\.symbolName), [space.symbolName])
+    }
+
+    /// §9's fan-out moved off the profile row and onto the card's head, where
+    /// it describes the Space rather than captioning a popup. It has to still
+    /// be somewhere — this is the assertion that it is.
+    func testTheFanOutIsOnTheCardsHead() {
+        let space = Self.space("Work")
+        let card = SpaceCardView(
+            space: space,
+            subtitle: SpacesSection.fanOut(space, session: nil),
+            rows: [],
+            onAppearance: { _ in }
+        )
+        let text = Self.descendants(of: card).compactMap { ($0 as? NSTextField)?.stringValue }
+        XCTAssertTrue(text.contains(space.name), "the card does not name its Space")
+        XCTAssertTrue(text.contains { $0.contains("profile ·") }, "\(text)")
     }
 
     /// Whatever the rows say, none of them may still be advertising a method
@@ -67,7 +112,7 @@ final class SpacesSectionTests: XCTestCase {
 
     // MARK: - Goal 13: the fan-out
 
-    /// **Arc has no UI anywhere that shows this**, and neither does Chrome or
+    /// Arc has no UI anywhere that shows this, and neither does Chrome or
     /// Firefox. Space → Profile is many-to-one and nothing ever tells you,
     /// which is the root of the most-reported conceptual confusion in every
     /// review of Arc — predicted by Mozilla in 2016 and still open.
@@ -95,9 +140,10 @@ final class SpacesSectionTests: XCTestCase {
         XCTAssertTrue(label.contains("1 Favorite"), label)
     }
 
-    /// The label reaches the user, not only the unit test: it is the profile
-    /// row's subtitle, and §2's search indexes it.
-    func testTheFanOutLabelIsOnTheProfileRow() {
+    /// The label reaches the user, not only the unit test: §2's search still
+    /// finds a Space by its profile's name, even though the line itself has
+    /// moved up onto the card's head.
+    func testTheFanOutLabelIsIndexedByTheProfileRow() {
         let space = Self.space("Work")
         let terms = SpacesSection().spaceRows(space, at: 0, of: [space], session: nil)
             .first { $0.terms.contains("profile") }?.terms ?? []
@@ -117,7 +163,7 @@ final class SpacesSectionTests: XCTestCase {
         XCTAssertTrue(detail.contains("Undo"), detail)
     }
 
-    /// **The clause with no prior art.** And it says the *true* thing: a shared
+    /// The clause with no prior art. And it says the true thing: a shared
     /// profile's cookie jar is not deleted at all, because `deleteSpace` only
     /// removes a store no surviving Space names. §6.4's example sentence
     /// promises the deletion and the fan-out in one breath, which is false in
@@ -177,6 +223,11 @@ final class SpacesSectionTests: XCTestCase {
         row.accessibilityLabel() ?? Self.firstLabel(in: row)
     }
 
+    /// Every view under `view`, itself excluded.
+    private static func descendants(of view: NSView) -> [NSView] {
+        view.subviews.flatMap { [$0] + descendants(of: $0) }
+    }
+
     private static func firstLabel(in view: NSView) -> String? {
         for child in view.subviews {
             if let field = child as? NSTextField, !field.stringValue.isEmpty { return field.stringValue }
@@ -186,10 +237,10 @@ final class SpacesSectionTests: XCTestCase {
     }
 }
 
-/// **`LunaTests` is hosted by `Luna.app`.** Every `xcodebuild test` therefore
+/// `LunaTests` is hosted by `Luna.app`. Every `xcodebuild test` therefore
 /// launches the real `AppDelegate`, and `applicationDidFinishLaunching` opens a
 /// `BrowserStore` before the first test method runs. Until `databaseURL` grew
-/// its XCTest branch that store was the **user's own database**: the test host
+/// its XCTest branch that store was the user's own database: the test host
 /// held it open for the whole run — locking the owner out of his browser with a
 /// raw "database is locked" dialog — and applied this wave's migration to his
 /// real tabs on the way in.

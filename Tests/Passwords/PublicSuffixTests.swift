@@ -71,7 +71,7 @@ final class PublicSuffixTests: XCTestCase {
     /// feature going silently dead on `http://localhost:8080/` — the first
     /// place anyone building a login form tries it — and on every router and
     /// NAS on a home network. An exact host is a perfectly good key; what
-    /// §14.3 forbids is a *wildcard* spanning two owners, and there is no
+    /// §14.3 forbids is a wildcard spanning two owners, and there is no
     /// wildcard here.
     func testHostsWithNoRegistrableDomainAreTheirOwnSite() {
         XCTAssertEqual(PublicSuffix.siteKey(forHost: "localhost"), "localhost")
@@ -105,7 +105,7 @@ final class PublicSuffixTests: XCTestCase {
     }
 
     /// Nil on either side is never a match — "we could not work out what site
-    /// this is" must not read as "same site". Note that two *identical* unknown
+    /// this is" must not read as "same site". Note that two identical unknown
     /// hosts still do not match: the comparison is between site keys, and two
     /// absent keys are not one key.
     func testUnknownHostsNeverMatch() {
@@ -131,7 +131,7 @@ final class PublicSuffixTests: XCTestCase {
     }
 
     /// PSL step 4: an unlisted suffix falls back to "the rightmost label is the
-    /// public suffix". The point of the test is the *direction* of the error —
+    /// public suffix". The point of the test is the direction of the error —
     /// an unlisted multi-label suffix splits sites apart (a declined fill),
     /// never merges them (a leak).
     func testUnlistedSuffixFallsBackNarrowly() {

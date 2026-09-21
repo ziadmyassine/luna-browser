@@ -4,7 +4,7 @@
 //
 //  §3.2's pill on both surfaces — a row of a column and a capsule on a bar.
 //
-//  Split out of `PageChromeBarTests.swift`, which is about the *bar*: what it
+//  Split out of `PageChromeBarTests.swift`, which is about the bar: what it
 //  holds, where it puts it and which part of it takes a click. What is inside
 //  the pill is the pill's, on whichever surface it is standing.
 //
@@ -89,8 +89,8 @@ final class URLPillLayoutTests: XCTestCase {
         XCTAssertFalse(bare.siteMenuAnchor.isHidden)
     }
 
-    /// **One affordance goes on the trailing edge; a second one takes the
-    /// other end.** That is where §3.2 has always drawn the sliders and where
+    /// One affordance goes on the trailing edge; a second one takes the
+    /// other end. That is where §3.2 has always drawn the sliders and where
     /// §3.4's rows draw theirs — so a pill with no reload keeps it there, and
     /// only a pill that carries both moves site settings to the front.
     func testTheSlidersTakesTheTrailingEdgeUntilReloadWantsIt() {
@@ -125,8 +125,8 @@ final class URLPillLayoutTests: XCTestCase {
         XCTAssertFalse(bare.reload.isHidden)
     }
 
-    /// **13 in a column, 14 on a bar, and 16 nowhere.** `glyphSize` is the size
-    /// of a glyph that is its own button, which is what the controls *beside*
+    /// 13 in a column, 14 on a bar, and 16 nowhere. `glyphSize` is the size
+    /// of a glyph that is its own button, which is what the controls beside
     /// §3.2b's pill are — but a glyph inside a capsule is measured against the
     /// address it shares the capsule with, and at 16 it was the loudest mark on
     /// the bar. The column takes the step further for the same reason.
@@ -134,6 +134,35 @@ final class URLPillLayoutTests: XCTestCase {
         XCTAssertEqual(pill(centred: false).glyphInk, Tokens.Metric.pillGlyphSize)
         XCTAssertEqual(pill(centred: true).glyphInk, Tokens.Metric.barPillGlyphSize)
         XCTAssertLessThan(Tokens.Metric.barPillGlyphSize, Tokens.Metric.glyphSize)
+    }
+
+    /// And it stands as far in as the address does, on both pills.
+    ///
+    /// The column's glyph used to sit two points closer to its own end than the
+    /// text did, on the argument that a glyph is optically smaller than its
+    /// box. On §3.2b's 420 pt capsule that reads as intended; in a 240 pt
+    /// column, with the capsule's corner curving away right behind it, it reads
+    /// as site settings falling off the end of the pill.
+    func testTheGlyphStandsAsFarInAsTheAddressDoes() {
+        let column = pill(centred: false)
+        XCTAssertEqual(
+            column.bounds.maxX - inkEdge(of: column.sliders, in: column, leading: false),
+            Tokens.Metric.pillTextInset,
+            accuracy: 0.5
+        )
+        let capsule = pill(centred: true)
+        XCTAssertEqual(
+            inkEdge(of: capsule.sliders, in: capsule, leading: true) - capsule.bounds.minX,
+            Tokens.Metric.pillTextInset,
+            accuracy: 0.5
+        )
+    }
+
+    /// Where the mark ends, not where its hit box does: the box is the ink
+    /// plus a gap's worth of padding, and it is the ink the eye measures.
+    private func inkEdge(of glyph: NSView, in pill: URLPillView, leading: Bool) -> CGFloat {
+        let overhang = (glyph.frame.width - pill.glyphInk) / 2
+        return leading ? glyph.frame.minX + overhang : glyph.frame.maxX - overhang
     }
 
     /// And both fit inside the pill they are in, at both sizes: a hit target
@@ -151,7 +180,7 @@ final class URLPillLayoutTests: XCTestCase {
         }
     }
 
-    /// **Neither pill is a field.** A click and a `⌘L` both go to §9.1, on both
+    /// Neither pill is a field. A click and a `⌘L` both go to §9.1, on both
     /// surfaces: that is where the field, the history, the ranking, the
     /// autofill and the list already are, and two address bars offering two
     /// different sets of suggestions was the thing this replaced.

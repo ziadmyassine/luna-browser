@@ -9,9 +9,9 @@
 //  "a load under 0.15 s plays nothing" rule lives in `ReloadBloomTimeline`.
 //  What is left here is the view: four layers, and when each one moves.
 //
-//  §7's de-blur stagger is the same trick as the blur itself — five horizontal
-//  strips of the one snapshot fading out 40 ms apart, revealing the finished
-//  live page underneath. No filter is ever animated.
+//  §7's de-blur stagger is the blur's own trick again: five horizontal strips
+//  of the one snapshot fading out 40 ms apart, revealing the finished live page
+//  underneath. No filter is ever animated.
 //
 
 import AppKit
@@ -31,7 +31,7 @@ final class ReloadBloomView: NSView {
     /// web view (§19.2) and the bloom must not be what keeps one alive.
     weak var source: NSView?
 
-    /// Feed every `BrowserSession.onTabStateChange` for the **active** tab.
+    /// Feed every `BrowserSession.onTabStateChange` for the active tab.
     func update(_ state: TabState) {
         progress = state.progress
         switch timeline.loading(state.isLoading) {
@@ -194,7 +194,7 @@ final class ReloadBloomView: NSView {
 
     private func arcPosition(for progress: Double) -> CGPoint {
         let travel = bounds.height * ReloadArc.drift
-        // The view is unflipped, so "downward" is *decreasing* y. At progress 0
+        // The view is unflipped, so "downward" is decreasing y. At progress 0
         // the arc layer's top edge sits on the card's; at 1 it has slid `travel`
         // below it, and the layer is that much taller so the bottom still covers.
         let top = bounds.maxY - travel * CGFloat(progress)

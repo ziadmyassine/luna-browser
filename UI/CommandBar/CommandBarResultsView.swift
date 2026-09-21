@@ -11,12 +11,12 @@
 //  by an index. §9.7: "results must never reorder under the user's cursor while
 //  they are moving through them", and an index cannot survive a merge that
 //  inserts a row above it. The controller enforces the no-reorder rule; this view
-//  makes it observable, by putting the highlight back on the same *result*.
+//  makes it observable, by putting the highlight back on the same result.
 //
-//  UI-SPEC §3.4 supplies the look: a filled translucent pill at `rowCornerRadius`
-//  inset `rowInset` from each edge, with a visible hairline border and no
-//  background at all on the unselected rows. One pill that moves, rather than a
-//  fill per row — it is cheaper, and it is what §6's `selectedRowMove` describes.
+//  UI-SPEC §3.4 supplies the look: a filled translucent pill at
+//  `rowCornerRadius`, inset `rowInset` from each edge, with a hairline border
+//  and no background on the unselected rows. One pill that moves rather than a
+//  fill per row — cheaper, and what §6's `selectedRowMove` describes.
 //
 
 import AppKit
@@ -39,6 +39,9 @@ final class CommandBarResultsView: NSView {
 
     private let rows = NSStackView()
     private let selection = Glass.backing(.control, cornerRadius: Tokens.Metric.rowCornerRadius)
+    /// Whether the next placement is a §6 `selectedRowMove` — set by
+    /// `setResults`, spent by `layout()`.
+    private var slidesToNextRow = false
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -73,22 +76,29 @@ final class CommandBarResultsView: NSView {
 
     /// Replaces the list. `keepingSelection` is the controller's promise from
     /// §9.7 — when the user has moved the highlight, the row under it stays put.
+    ///
+    /// Nothing here places the highlight; `layout()` does. It used to move
+    /// the pill from this method whenever the list's ids had not changed, which
+    /// is most of what happens while somebody types fast: the query re-ranks,
+    /// the history lands, the engine's suggestions land, and each of those
+    /// arrives with the same eight ids. The pill was then animated to a frame
+    /// measured off rows that had not been laid out at their new size yet — so
+    /// it slid to somewhere slightly wrong and the next layout pass snapped it
+    /// back — the highlight that read as "moving around a bit weirdly".
     func setResults(_ new: [CommandBarResult], selecting id: String?) {
         let contentChanged = new.map(\.id) != results.map(\.id)
+        let previous = selectedID
         results = new
         selectedID = id ?? new.first?.id
 
-        if contentChanged {
-            rebuildRows()
-            // The new rows have no frames yet, so the pill is placed from
-            // `layout()` instead — and unanimated, because a rebuilt list has no
-            // continuity for a slide to describe.
-            needsLayout = true
-        } else {
-            // Only the highlight moved: frames are valid and §6's
-            // `selectedRowMove` is exactly what this is.
-            moveSelectionPill(animated: true)
-        }
+        if contentChanged { rebuildRows() }
+        // §6's `selectedRowMove` describes one thing: the highlight travelling
+        // from one row to another in a list that is standing still — ↓ and ↑.
+        // A list that has just been rebuilt has no continuity for a slide to
+        // describe, and a list that has not changed at all has nowhere to slide.
+        slidesToNextRow = !contentChanged && selectedID != previous
+        needsLayout = true
+
         for case let row as CommandBarRowView in rows.arrangedSubviews {
             row.isSelected = row.result.id == selectedID
         }
@@ -96,7 +106,7 @@ final class CommandBarResultsView: NSView {
 
     override func layout() {
         super.layout()
-        // **The rows first, then the pill that measures them.** A view is laid
+        // The rows first, then the pill that measures them. A view is laid
         // out before its children, so on the pass that follows a rebuild the
         // stack's rows still had no frames and the highlight was placed on a
         // zero rect — invisible. It stayed there until something else asked for
@@ -104,7 +114,8 @@ final class CommandBarResultsView: NSView {
         // back from SQLite: the highlight arrived about a second after the list
         // it belongs to, on a row that had been selected the whole time.
         rows.layoutSubtreeIfNeeded()
-        moveSelectionPill(animated: false)
+        moveSelectionPill(animated: slidesToNextRow)
+        slidesToNextRow = false
     }
 
     func select(id: String?) {
@@ -131,8 +142,15 @@ final class CommandBarResultsView: NSView {
         }
         let target = convert(row.frame, from: rows).insetBy(dx: Tokens.Metric.rowInset, dy: 0)
         selection.isHidden = false
+        guard selection.frame != target else { return }
         guard animated else {
-            selection.frame = target
+            // Through `immediately`, because this is a consequence of a
+            // layout and not a change to animate. A layout pass can run
+            // inside somebody else's transaction — the bar's own opening
+            // animation is one — and an implicitly animated frame on a glass
+            // view sweeps the material across the list over the next few
+            // frames.
+            Tokens.Motion.immediately { selection.frame = target }
             return
         }
         Tokens.Motion.animate(Tokens.Motion.selectedRowMove) { context in
@@ -217,7 +235,7 @@ private final class CommandBarRowView: NSView {
         badgeName.stringValue = result.badge?.name ?? ""
         badgeDot.wantsLayer = true
         badgeDot.layer?.cornerRadius = Tokens.Metric.spaceDot / 2
-        // §21.2 "Differentiate Without Colour": the Space's *name* is always next
+        // §21.2 "Differentiate Without Colour": the Space's name is always next
         // to the dot, so the badge never depends on the colour to be readable.
         let showBadge = result.badge != nil
         badgeDot.isHidden = !showBadge

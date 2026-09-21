@@ -5,7 +5,7 @@
 //  The one assembly call that turns `BrowserKit`'s `luna://` handler into a
 //  working New Tab page (§30.19) and archive browser (§6.4).
 //
-//  **§3.5's History button no longer comes through here.** It opens
+//  §3.5's History button no longer comes through here. It opens
 //  `HistoryPanel` — a floating panel over the page — rather than a tab on
 //  `luna://archive`; the route still resolves and still renders, because a URL
 //  someone has bookmarked should not stop working, but nothing in the chrome
@@ -13,7 +13,7 @@
 //
 //  `BrowserKit` cannot reach the tab list, the Command Bar or `Design/`, so the
 //  three things internal pages need from the app are set here, once, and read
-//  live afterwards. Everything captures the session **weakly**: these are
+//  live afterwards. Everything captures the session weakly: these are
 //  process-wide statics and a strong capture would outlive the window.
 //
 

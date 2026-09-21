@@ -2,7 +2,7 @@
 //  ProfileStore.swift
 //  Luna
 //
-//  TODO.md §5.1: one `WKWebsiteDataStore` per Profile, and the *only* place
+//  TODO.md §5.1: one `WKWebsiteDataStore` per Profile, and the only place
 //  Luna turns a `Profile` into one.
 //
 //  Two facts drive everything here:
@@ -11,12 +11,12 @@
 //      and it lives in SQLite (`profiles.dataStoreIdentifier`). Losing that row
 //      orphans a cookie jar in `~/Library/WebKit/WebsiteDataStore/<UUID>/` —
 //      which is what `sweepOrphans(keeping:)` exists to notice.
-//    · `remove(forIdentifier:)` **fails while any live `WKWebView` still uses
-//      the store**, and a web view goes away when ARC says so, not when the
-//      user clicks Delete. So removal is a retry loop with a deferred queue
-//      (spec §3.2), and the loop itself lives in `BrowserKit` —
-//      `WebsiteDataStoreRemover` — where it can be tested without WebKit.
-//      This type is the cache and the adapter; it is not the policy.
+//    · `remove(forIdentifier:)` fails while any live `WKWebView` still uses
+//      the store, and a web view goes away when ARC says so rather than when
+//      the user clicks Delete. Removal is therefore a retry loop with a
+//      deferred queue (§3.2), and the loop lives in `BrowserKit` —
+//      `WebsiteDataStoreRemover` — where it can be tested without WebKit. This
+//      type is the cache and the adapter, not the policy.
 //
 
 import BrowserKit
@@ -55,7 +55,7 @@ final class ProfileStore {
     /// Deletes a profile's cookies, storage and caches from disk (§3.2).
     ///
     /// - Precondition: every `WKWebView` in this profile has been torn down. This
-    ///   call drops the *cache* entry, which is the one reference it owns; it
+    ///   call drops the cache entry, which is the one reference it owns; it
     ///   cannot release the caller's.
     ///
     /// Declared `throws` because it is a frozen API and a future failure mode

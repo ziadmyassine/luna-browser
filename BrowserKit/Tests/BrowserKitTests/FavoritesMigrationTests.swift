@@ -6,7 +6,7 @@ import Testing
 ///
 /// Specified by the session layer, implemented in the store. The rule these tests exist to
 /// hold is the one that makes the migration safe to run on the owner's real database:
-/// **no row is deleted**. Overflow past Arc's cap of 12 is demoted to `pinned`, not removed.
+/// no row is deleted. Overflow past Arc's cap of 12 is demoted to `pinned`, not removed.
 @Suite("Favorites migration, v2 (§2)")
 struct FavoritesMigrationTests {
 
@@ -96,7 +96,7 @@ struct FavoritesMigrationTests {
     }
 
     /// The cap trim. Thirteen pooled favourites, twelve survive as favourites, and the
-    /// thirteenth becomes a pinned tab in the Space it already lives in — **not** a deletion.
+    /// thirteenth becomes a pinned tab in the Space it already lives in — not a deletion.
     @Test func demotesOverflowPastTheCapInsteadOfDeletingIt() async throws {
         let fixture = try await seeded()
         let (store, profile, spaces) = (fixture.store, fixture.profile, fixture.spaces)
@@ -131,7 +131,7 @@ struct FavoritesMigrationTests {
 
     /// An archived Favorite is reachable, not theoretical: `deleteSpace(policy: .archiveTabs)`
     /// archives one whose Profile has no other Space left to home it in. It must survive the
-    /// trim untouched — the filter that stops it being *counted* must not become the thing
+    /// trim untouched — the filter that stops it being counted must not become the thing
     /// that demotes it, which is why `archivedAt IS NULL` appears in the outer `WHERE` too.
     @Test func leavesArchivedFavoritesAloneEntirely() async throws {
         let fixture = try await seeded()

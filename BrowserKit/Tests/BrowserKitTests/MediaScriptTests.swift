@@ -3,10 +3,10 @@ import JavaScriptCore
 import Testing
 @testable import BrowserKit
 
-/// §3.4a's speaker badge, **run** rather than read — the same reason
+/// §3.4a's speaker badge, run rather than read — the same reason
 /// `PageColourScriptTests` evaluates `scrollScript` instead of grepping it.
 ///
-/// What is asserted here is mostly a *count*, because that is what the script
+/// What is asserted here is mostly a count, because that is what the script
 /// was changed to fix and a count has no noise in it. `mediaScript` is injected
 /// into every frame on the page (`forMainFrameOnly: false`, because an embedded
 /// player lives in a subframe), so a page with ten ad iframes used to send
@@ -60,7 +60,7 @@ struct MediaScriptTests {
 
     // MARK: - The count
 
-    /// **The one that matters for every page load.** A frame with no media in it
+    /// The one that matters for every page load. A frame with no media in it
     /// has nothing to report, and `false` is what the tab already is: nothing
     /// reaches `audibleFrames` until something says otherwise, and
     /// `resetPerDocumentState` empties it on every navigation.
@@ -105,7 +105,7 @@ struct MediaScriptTests {
 
     // MARK: - Still true once it is not injected on its own
 
-    /// The three per-frame scripts go into a frame as **one** `WKUserScript`
+    /// The three per-frame scripts go into a frame as one `WKUserScript`
     /// (`UserScriptsTests`), which means this one now runs with the other two
     /// either side of it. So the behaviour above is asserted again against the
     /// source that actually ships — the merged one, with the real blocked-count

@@ -20,8 +20,8 @@ final class SidebarRowModelTests: XCTestCase {
         Tab(spaceID: space, kind: kind, url: URL(string: "https://\(name).example")!, title: name)
     }
 
-    /// `+ Add Tab` → separator → tabs, Essentials excluded. **Archive is not a
-    /// row.** It was a second door to the page the bottom bar's History button
+    /// `+ Add Tab` → separator → tabs, Essentials excluded. Archive is not a
+    /// row. It was a second door to the page the bottom bar's History button
     /// already opens, and it sat where the eye lands first.
     func testRowOrder() {
         let essential = tab(.essential, "e")
@@ -56,7 +56,7 @@ final class SidebarRowModelTests: XCTestCase {
     }
 
     /// §6.6: the row index a drop landed on maps to a section plus an index
-    /// *within* that section, which is what `reorderTab` takes.
+    /// within that section, which is what `reorderTab` takes.
     func testDropTargets() {
         let list = SidebarList(tabs: [tab(.pinned, "p1"), tab(.pinned, "p2"), tab(.today, "t1")])
 
@@ -124,9 +124,9 @@ final class SidebarRowModelTests: XCTestCase {
 
 /// §3.4's title ink, which is the answer to "which tab am I on".
 ///
-/// Martin has asked for this rule twice, from two directions: first that only
-/// the selected row is bright, and then that a pointer resting on a row must
-/// not change any title's colour. `titleInk` takes no `isHovered`, so the
+/// The rule has been asked for twice, from two directions: first that only the
+/// selected row is bright, and then that a pointer resting on a row must not
+/// change any title's colour. `titleInk` takes no `isHovered`, so the
 /// second half is true by construction — these are here so it stays that way.
 @MainActor
 final class SidebarRowInkTests: XCTestCase {
@@ -161,9 +161,9 @@ final class SidebarRowInkTests: XCTestCase {
 /// The slot the close chip sits in is given back when no chip is in it, so a
 /// resting title runs to the pill's inner edge. That is a decision, not an
 /// accident: it means the column moves when the pointer arrives, which is how
-/// a long title's last glyphs dissolve on hover. Martin chose it with both
-/// versions in front of him, and `rowTitleFade` at 12 is what keeps the shift
-/// to about two characters.
+/// a long title's last glyphs dissolve on hover. It was chosen with both
+/// versions side by side, and `rowTitleFade` at 12 keeps the shift to about
+/// two characters.
 @MainActor
 final class SidebarRowColumnTests: XCTestCase {
 
@@ -231,5 +231,28 @@ final class SidebarRowColumnTests: XCTestCase {
             ).width,
             0
         )
+    }
+}
+
+/// The row at the top of §3.4's list.
+///
+/// It read `+ Add Tab` and it made a blank tab, which is the one tab nobody
+/// wants: the next thing anybody does with one is reach for the address bar.
+/// It asks the question instead now — the row opens §9.1 in `.newTab`, so
+/// closing the bar without choosing leaves the list exactly as it was rather
+/// than one empty page longer.
+@MainActor
+final class SidebarAddRowTests: XCTestCase {
+
+    func testTheFirstRowIsCalledNewTab() {
+        XCTAssertEqual(TabListController().content(for: 0).title, "New Tab")
+    }
+
+    /// And it is still a row with a symbol rather than a favicon, which is how
+    /// `SidebarRowView` knows to draw its glyph slot.
+    func testItStillDrawsItsOwnGlyph() {
+        let content = TabListController().content(for: 0)
+        XCTAssertEqual(content.symbolName, "plus")
+        XCTAssertNil(content.favicon)
     }
 }

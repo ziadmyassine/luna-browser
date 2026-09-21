@@ -5,7 +5,7 @@
 //  docs/SETTINGS-SPEC.md §3.9.
 //
 //  The user-agent row is the one with a trap in it. `applicationNameForUserAgent`
-//  **appends** to WebKit's default UA and WebKit's default carries no `Safari/`
+//  appends to WebKit's default UA and WebKit's default carries no `Safari/`
 //  token, so the Default option cannot be built by editing that string — it is
 //  built by leaving it alone. The three impersonating modes replace the whole
 //  UA through `WKWebView.customUserAgent` instead. See `WebViewFactory`.

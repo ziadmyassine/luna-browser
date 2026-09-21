@@ -7,7 +7,7 @@
 //  `Bookmarks` (JSON) and `History` (SQLite). Only the base directory differs,
 //  and that is `ImportSource`'s job.
 //
-//  Reads a **snapshot**, never a live profile: see `SQLiteSnapshot.swift` for
+//  Reads a snapshot, never a live profile: see `SQLiteSnapshot.swift` for
 //  the measurement that makes the copy mandatory.
 //
 
@@ -74,7 +74,7 @@ struct ChromiumReader: Sendable {
     static let maxDepth = 12
 
     /// `JSONSerialization`, not `Decodable`, for two reasons this file proves:
-    /// `date_added` is microseconds-since-1601 written as a **string**
+    /// `date_added` is microseconds-since-1601 written as a string
     /// (`"13429579614840426"` in Dia's file), and Chromium adds and removes
     /// keys between releases — a lenient walk survives that, a strict decode
     /// throws the user's whole bookmark tree away over one unknown field.
@@ -89,7 +89,7 @@ struct ChromiumReader: Sendable {
         var bookmarks: [ImportedBookmark] = []
         for (key, title) in rootTitles {
             guard let node = roots[key] as? [String: Any] else { continue }
-            // The bookmarks bar *is* the top level, not a folder inside one:
+            // The bookmarks bar is the top level, not a folder inside one:
             // its loose URLs are the sites reached in one click, so they become
             // Favorites (§11.4) rather than rows three levels down inside a
             // wrapper the user never made. "Other" and "Mobile" keep theirs —
@@ -181,9 +181,8 @@ struct ChromiumReader: Sendable {
     /// Keyset-paginated on `visits.id` rather than `LIMIT`/`OFFSET`: keyset is
     /// one index seek per page where `OFFSET` re-scans everything before it and
     /// turns a large profile into quadratic work. `watermark` is fixed for the
-    /// whole run, so `visit_time > ?` and `id > ?` together give a stable total
-    /// order — and the watermark is the whole idempotency story for history
-    /// (see `ImportLedger`).
+    /// run, so `visit_time > ?` and `id > ?` give a stable total order, and the
+    /// watermark is the whole idempotency story for history (`ImportLedger`).
     func visitPage(after watermark: Int64, from rowID: Int64, limit: Int) throws -> VisitPage {
         guard let url = file("History") else { return .empty }
         let reader = try SQLiteReader(readOnly: url)

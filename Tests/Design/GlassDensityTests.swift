@@ -5,10 +5,10 @@
 //  §2a's Clear / Opaque setting. Three things are worth a test:
 //
 //    1. The table. `.sidebar` and `.topBar` change plane with the setting, the
-//       popover *gains* one at `.opaque` and has none at `.clear`, and a control
+//       popover gains one at `.opaque` and has none at `.clear`, and a control
 //       never gets one at either — a frosted control reads as a hole rather
 //       than as something raised (§2).
-//    2. The setting re-skins glass that is **already on screen**, because the
+//    2. The setting re-skins glass that is already on screen, because the
 //       alternative is a preference that needs a relaunch. This is the same
 //       requirement §7's setting has, and the pass is a different one.
 //    3. The alphas stay short of opacity. `TokenCheck` owns that rule; this
@@ -64,6 +64,7 @@ final class GlassDensityTests: XCTestCase {
     // MARK: - Re-skinning what is already on screen
 
     func testChangingTheDensityRepaintsALiveSurface() throws {
+        try XCTSkipIf(Tokens.A11y.reduceTransparency, "Reduce Transparency: §21.2 draws a plane, not glass")
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 200, height: 120),
             styleMask: [.borderless], backing: .buffered, defer: false
@@ -79,6 +80,30 @@ final class GlassDensityTests: XCTestCase {
 
         XCTAssertNotEqual(before, after, "the setting did not reach a surface that was already up")
         XCTAssertGreaterThan(after.alphaComponent, before.alphaComponent)
+    }
+
+    /// The other half of the pair, and the half that runs when the one above
+    /// does not: with Reduce Transparency on there is no glass for a density to
+    /// sit behind, so §21.2's plane replaces the material and §2a stops having
+    /// anything to say. Every CI runner has the setting on, so this is the only
+    /// one of the two that has ever run there.
+    func testReduceTransparencyLeavesAPlaneTheDensityCannotMove() throws {
+        try XCTSkipUnless(Tokens.A11y.reduceTransparency, "there is glass on this host — the test above covers it")
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 200, height: 120),
+            styleMask: [.borderless], backing: .buffered, defer: false
+        )
+        let host = NSView(frame: window.contentLayoutRect)
+        window.contentView = host
+        Glass.density = .clear
+        Glass.apply(.sidebar, to: host)
+
+        let clear = try plane(under: host)
+        Glass.density = .opaque
+        let opaque = try plane(under: host)
+
+        XCTAssertEqual(clear.alphaComponent, 1, "§21.2's fallback is a plane, not a wash over something")
+        XCTAssertEqual(clear, opaque, "§2a is a property of the glass, and there is none to thicken")
     }
 
     /// The whole reason the setting is worth having a key: it survives the

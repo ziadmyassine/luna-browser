@@ -4,31 +4,29 @@
 //
 //  The coordinator's tab storage: every Space's ordered tabs, and the rules
 //  that keep them ordered. Split out of `BrowserSession` because it is a data
-//  structure, not policy — it decides nothing about web views, persistence or
-//  selection, which is exactly why it can be reasoned about (and tested) on
-//  its own.
+//  structure rather than policy — it decides nothing about web views,
+//  persistence or selection, which is why it can be tested on its own.
 //
 //  The invariant, which `BrowserSession` and the whole sidebar depend on:
-//  **a Space's tabs are sorted essential → pinned → today, each section by
-//  `order`, and `order` is dense and unique within (space, kind).** That is
+//  a Space's tabs are sorted essential → pinned → today, each section by
+//  `order`, and `order` is dense and unique within (space, kind). That is
 //  what makes `reorderTab(_:to:kind:)`'s index section-relative and what makes
 //  a restored session come back in the order the user left it.
 //
 //  ## Favorites are per Profile, not per Space (spec §2, D-S2)
 //
-//  One exception to the sentence above, and it is the biggest model change in
-//  the Spaces wave: `.essential` is numbered and resolved **across every Space
-//  that shares a Profile**, because a Favorite is a logged-in app tile and a
-//  tile that opens in a Space whose cookie jar never saw that login is a broken
-//  tile. Arc keys its Favorites container by profile — `topAppsContainerIDs` is
-//  a flat profile → container pair, read off its own `StorableSidebar.json` —
-//  and the owner's decision is the same shape: per-profile favourites,
-//  per-space pinned.
+//  One exception to the sentence above: `.essential` is numbered and resolved
+//  across every Space that shares a Profile, because a Favorite is a logged-in
+//  app tile and a tile that opens in a Space whose cookie jar never saw that
+//  login is a broken tile. Arc keys its Favorites container by profile —
+//  `topAppsContainerIDs` is a flat profile → container pair in its own
+//  `StorableSidebar.json` — and Luna's model is the same shape: per-profile
+//  favourites, per-space pinned.
 //
 //  So the storage stays keyed by Space (an `.essential` row keeps the home
 //  Space it was created in, which is what the `tabs.spaceID` foreign key
-//  cascades on) and the *resolution* is keyed by Profile: `self[spaceID]`
-//  returns that Space's pinned and today tabs plus **the Profile's** Favorites.
+//  cascades on) and the resolution is keyed by Profile: `self[spaceID]`
+//  returns that Space's pinned and today tabs plus the Profile's Favorites.
 //  `setProfiles` is how the list is told which Spaces share one; with no map it
 //  degrades to the old per-Space behaviour rather than losing tabs.
 //
@@ -47,7 +45,7 @@ struct TabList: Sendable {
         profileBySpace = profiles
     }
 
-    /// The Space's own pinned and today tabs, plus its **Profile's** Favorites.
+    /// The Space's own pinned and today tabs, plus its Profile's Favorites.
     subscript(spaceID: UUID) -> [Tab] {
         guard let profile = profileBySpace[spaceID] else {
             // No profile map — a bare `TabList` in a test, or a Space that has
@@ -67,7 +65,7 @@ struct TabList: Sendable {
         return nil
     }
 
-    /// The tab's position **within its own section** — which for `.essential`
+    /// The tab's position within its own section — which for `.essential`
     /// is its position among the whole Profile's Favorites, because that is the
     /// list the grid renders.
     func indexInSection(of id: UUID) -> Int? {
@@ -79,10 +77,10 @@ struct TabList: Sendable {
         (self[spaceID].filter { $0.kind == kind }.map(\.order).max() ?? -1) + 1
     }
 
-    /// Where a tab that is being **opened now** belongs in its section — the
+    /// Where a tab that is being opened now belongs in its section — the
     /// `index` to hand `insert(_:at:)`.
     ///
-    /// **Today's tabs stack newest-first.** The list is a record of what you
+    /// Today's tabs stack newest-first. The list is a record of what you
     /// are doing, read from the top, and a new tab appended to the bottom of a
     /// long day's browsing opens off the end of the scroll — the one tab you
     /// definitely want to see is the one you cannot. Pinned tabs and Favorites
@@ -136,7 +134,7 @@ struct TabList: Sendable {
 
     /// Inserts into `tab.kind`'s section at `index`, or at the end of it.
     /// - Returns: the renumbered tabs, which the caller must persist. For a
-    ///   Favorite that can include tabs homed in *other* Spaces on the same
+    ///   Favorite that can include tabs homed in other Spaces on the same
     ///   Profile, because Favorites are numbered across the Profile.
     @discardableResult
     mutating func insert(_ tab: Tab, at index: Int? = nil) -> [Tab] {
@@ -175,7 +173,7 @@ struct TabList: Sendable {
 
     /// What is actually stored for a Space — its own rows, Favorites included,
     /// with no Profile resolution. Every mutation works on this; only reads go
-    /// through `self[spaceID]`. Renumbering the *resolved* list would write
+    /// through `self[spaceID]`. Renumbering the resolved list would write
     /// another Space's Favorites into this one.
     private func own(_ spaceID: UUID) -> [Tab] { bySpace[spaceID] ?? [] }
 
@@ -210,7 +208,7 @@ struct TabList: Sendable {
 
     /// Groups by kind and rewrites `order` to the position each tab now holds.
     ///
-    /// **It must not sort by `order`.** `order` is the value being replaced, so
+    /// It must not sort by `order`. `order` is the value being replaced, so
     /// consulting it here would re-sort the array back into the arrangement the
     /// caller just changed — `insert` would place a tab and this would put it
     /// straight back, renumber to the same values, and the whole reorder would

@@ -15,10 +15,12 @@ today (`CODE_SIGN_IDENTITY: "-"`, no team, no provisioning profile).
 |---|---|
 | Can we write **synchronizable** `kSecClassInternetPassword` items? | **No, not while ad-hoc signed.** `-34018 errSecMissingEntitlement`. |
 | Can we write **local** internet passwords? | **Yes.** Add, read, update and delete all return `errSecSuccess`. |
-| Do our items show up in the **Passwords app** and sync? | **Only if the write above succeeds**, i.e. only once Luna is signed with a real identity. |
+| Do our items show up in the **Passwords app** and sync? | **Only once Luna is signed with a real identity** — and re-test it then: §5a's fix gives our items a security domain, which may change how the Passwords app classifies them. |
 | Is it an ACL prompt (Allow / Always Allow) or a hard denial? | **Neither.** See §3 — the items are not in Luna's search domain at all, so there is nothing to prompt about. |
 | Can we read what **Safari / the Passwords app** already saved? | **No, at any signature.** Structural, not a permission we can ask for. |
 | Can we do **passkeys / WebAuthn**? | **No, until Apple grants an entitlement.** Apply-only. See §4. |
+| Can we show **Safari's own autofill panel**? | **No.** Measured — a plain `WKWebView` on a site with a saved Apple password offers nothing. See §5b. |
+| Can we see credentials **other apps** put in the Keychain? | **No, and must not.** See §5a, which is where that went wrong once. |
 
 **The feature still ships**, because the useful half works: Luna saves and fills
 passwords today, in the user's own Keychain, with no vault of its own. What is
@@ -139,6 +141,27 @@ of this document said to, on the grounds that a default browser needs it. That
 is wrong: it is an **iOS and iPadOS** entitlement, and macOS default-browser
 registration needs no entitlement at all — it needs the `CFBundleURLTypes`
 declaration above.
+
+### What the form asks for, and the one thing Luna has not got
+
+Read off the form itself on 2026-09-20:
+
+| Field | Answer |
+|---|---|
+| Bundle ID | `dk.novapps.luna` — must already be registered under Certificates, Identifiers & Profiles |
+| App Store URL / Apple ID | blank; Luna is not on the App Store |
+| Is your app a web browser on macOS? | Yes |
+| Does it support WebAuthn? | **Yes** — WebKit does, and Luna hides it only until this is granted. Worth one sentence saying so, or a reviewer testing today sees no passkey button |
+| Integrate with passkeys in iCloud Keychain? | Yes — that is the whole request |
+| A link to learn about and download the browser | **This is the blocker.** |
+
+Apple downloads the browser and runs it. There is nothing to download: the
+repository is public but has no releases, and pointing a reviewer at source they
+must build themselves is a reviewer who says no.
+
+**Which reorders the work.** Developer ID signing and notarisation need no grant
+from anybody, so the order is: get the certificate, sign and notarise a build,
+publish it as a release, *then* file. Only passkeys wait on Apple.
 
 Whether to file at all is a real choice and not an obvious yes. The entitlement
 is granted to a **team ID**, not to source code, so passkeys would work in

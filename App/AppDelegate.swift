@@ -54,22 +54,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// `ContentCardView` hosts the view, not the controller behind it. Wired in
     /// `AppDelegate+PageChrome.swift`.
     var pageChrome: PageChromeController?
-    private var commandBar: CommandBarController?
+    /// §9's bar, and §9.3's use counts behind it. Neither is private: both are
+    /// wired and read from `AppDelegate+CommandBar.swift`.
+    var commandBar: CommandBarController?
     /// §6.4's pop-out. Not private: `⌘Y` opens it too (`BrowserCommands+Page`).
     private(set) var historyPanel: HistoryPanelController?
     /// Exactly one per `BrowserStore` (§9.3): two of them would bump divergent
     /// use counts against the same `inputHistory` rows.
-    private var adaptive: AdaptiveHistory?
-    private var downloads: DownloadManager?
+    var adaptive: AdaptiveHistory?
+    /// Wired in `AppDelegate+Downloads.swift`, so not private. `downloadsInFlight`
+    /// below is the only thing anywhere else has any business asking it.
+    var downloads: DownloadManager?
+    /// How many downloads are still running, or nil before there is a manager
+    /// to ask. §3.1's quit sheet is the only caller: a download is the one
+    /// thing in Luna that quitting destroys rather than parks.
+    var downloadsInFlight: Int? {
+        downloads.map { manager in manager.items.filter { $0.state == .inProgress }.count }
+    }
+
+    /// §3.1's quit guard, both halves of it — see `AppDelegate+Quit.swift`.
+    ///
+    /// `isQuitConfirmed` is what makes the second `terminate` go through
+    /// instead of asking again. `isQuitFromLogOut` is what stops it asking at
+    /// all when the quit is not the user's: logging out, restarting or shutting
+    /// down gives every app a few seconds and no keyboard, and a modal nobody
+    /// can answer is a machine that will not shut down.
+    var isQuitConfirmed = false
+    private(set) var isQuitFromLogOut = false
     /// `⌘,`. One instance, re-shown rather than rebuilt.
-    /// SETTINGS-SPEC §1's separate window. **One instance, reused** — `⌘,`
+    /// SETTINGS-SPEC §1's separate window. One instance, reused — `⌘,`
     /// opens it the first time and focuses it every time after, and it survives
     /// being closed because `isReleasedWhenClosed` is off.
     private var settingsWindow: SettingsWindowController?
-    /// §15.3's list. `BrowserCommands` opens it as well as the two buttons, so
-    /// it is not file-private.
-    private(set) var downloadsPanel: DownloadsPanelController?
+    /// §15.3's list. `BrowserCommands` opens it as well as the two buttons, and
+    /// `AppDelegate+Downloads.swift` builds it, so it is neither private nor
+    /// `private(set)`.
+    var downloadsPanel: DownloadsPanelController?
     private var observation: ObservationToken?
+    /// §3.2c's window-edge line. Two tokens — see `wireLoadLine`.
+    var loadLineObservations: [ObservationToken] = []
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         LaunchTrace.mark("appkit")
@@ -77,7 +100,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // frame shows up without a menu bar.
         NSApp.setActivationPolicy(.regular)
         // Before anything reads a setting: the registration domain is what a
-        // key's declared default *is* (SETTINGS-SPEC §6), and it is not
+        // key's declared default is (SETTINGS-SPEC §6), and it is not
         // persisted, so it is re-published on every launch.
         SettingsDefaults.register()
         MainMenu.install(into: NSApp)
@@ -95,11 +118,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         LaunchTrace.mark("didFinish")
         #if DEBUG
         // Fails the launch loudly if a token drifted out of §1 / §6 / §21.4.
-        // **Measured at 3 ms**, so it stays in front of the first frame, where a
+        // Measured at 3 ms, so it stays in front of the first frame, where a
         // launch-time check belongs. `docs/PERF.md` has the tape.
         TokenCheck.run()
         LaunchTrace.mark("tokens")
         #endif
+
+        // Before anything that could be interrupted: the notification arrives
+        // moments before `applicationShouldTerminate` does, and the whole point
+        // of it is to be there first.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(powerOffIsComing),
+            name: NSWorkspace.willPowerOffNotification,
+            object: nil
+        )
 
         // The database is opened before the window, and not on this thread —
         // see ``openStore()``.
@@ -123,7 +156,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task { await startSession(in: controller, opening: opening) }
     }
 
-    /// Opens the store **off the main thread**, as early as launch can ask for
+    /// Opens the store off the main thread, as early as launch can ask for
     /// it.
     ///
     /// `BrowserStore.init` is synchronous — it creates the directory, opens the
@@ -132,8 +165,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// say about. Detached and started first, it runs while AppKit builds that
     /// window instead.
     ///
-    /// **Say what this bought: 10–20 ms of main thread, and no measurable
-    /// change in the launch total.** Luna reaches interactive in ~280 ms and
+    /// Say what this bought: 10–20 ms of main thread, and no measurable
+    /// change in the launch total. Luna reaches interactive in ~280 ms and
     /// over half of that is AppKit and dyld before any of this code runs
     /// (`docs/PERF.md` has the tape), so moving our own work off the critical
     /// path is worth doing and is not worth claiming a number for.
@@ -192,6 +225,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             wireSidebar(sidebar, in: controller)
             wirePageChrome(session, in: controller)
+            wireLoadLine(session, in: controller)
             // Last of the three address bars to claim `⌘L`, and the one that
             // knows which of them is on screen.
             wireEditLocation(session, sidebar: sidebar)
@@ -217,7 +251,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // never briefly unenforced.
             session.installLifecycle()
             // A Space with nothing in it would otherwise show an empty content
-            // card. A restore that *has* tabs deliberately selects none of them
+            // card. A restore that has tabs deliberately selects none of them
             // (§19.4) — that is the memory budget, not a missing page.
             if session.activeTabID == nil, session.tabs.isEmpty {
                 session.newTab(url: InternalPages.Page.newTab.url)
@@ -235,7 +269,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// toggling the layout and resizing the window's chrome column are the
     /// window controller's, and turning typed text into a URL is §9.2's.
     ///
-    /// **Until this existed none of them were connected**, which is why §3.7's
+    /// Until this existed none of them were connected, which is why §3.7's
     /// resize handle drew, hovered, dragged — and did nothing at all.
     private func wireSidebar(_ sidebar: SidebarViewController, in controller: BrowserWindowController) {
         sidebar.onToggleSidebar = { [weak self] in self?.toggleSidebar() }
@@ -248,25 +282,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sidebar.willAppear()
     }
 
-    /// `⌘T` and `⌘L` (§9.1). The bar is one object shared by both entry points
-    /// and by the top bar's pill.
-    private func wireCommandBar(_ session: BrowserSession, in controller: BrowserWindowController) {
-        let adaptive = adaptive ?? AdaptiveHistory(store: session.store)
-        self.adaptive = adaptive
-        let bar = CommandBarController(session: session, adaptive: adaptive)
-        commandBar = bar
-        // §9.1: the bar belongs over the page, not over the window.
-        bar.contentRegion = { [weak controller] in controller?.contentFrame ?? .zero }
-        // The results the bar cannot perform itself (§9.2).
-        bar.onExternalAction = { [weak self] action in self?.perform(action) }
-        // Weak: the bar holds the session, so a strong capture here is a cycle.
-        session.presentCommandBar = { [weak bar, weak controller] mode, anchor in
-            guard let bar, let window = controller?.window else { return }
-            bar.present(mode, in: window, from: anchor)
-        }
-    }
-
-    /// §3.5's History button (§6.4). A **pop-out from the button**, not a tab
+    /// §3.5's History button (§6.4). A pop-out from the button, not a tab
     /// and not a panel over the page: looking something up in your history is a
     /// glance, and a glance should neither leave a tab behind to close nor take
     /// the page away while you take it.
@@ -291,91 +307,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func perform(_ action: CommandBarAction) {
-        switch action {
-        case let .unarchiveTab(id):
-            session?.unarchiveTab(id)
-        case .command(.toggleSidebar):
-            toggleSidebar()
-        case .command(.newSpace):
-            guard let session else { return }
-            // A Space made from the Command Bar gets its **own** Profile, and
-            // the `profileID:` is passed rather than defaulted: many Spaces to
-            // one Profile is now reachable (§6.1), so "new Profile" is a
-            // choice this call site is making, not one it is inheriting.
-            // Settings ▸ Spaces is where the other answer is offered.
-            Task { try? await session.createSpace(name: String(localized: "New Space"), profileID: nil) }
-        case .activateTab, .open:
-            // The bar performs these itself; they never reach here.
-            break
-        }
-    }
-
-    /// `⌘L`: the pill expands in place when a layout owns one (§3.2, §4), and
-    /// falls back to the Command Bar's edit mode when none is installed.
-    func editLocation() {
-        guard let session else { return }
-        if let focus = session.focusURLField {
-            focus()
-        } else if let bar = commandBar, let window = browserWindow?.window {
-            bar.present(.editCurrentURL, in: window)
-        }
-    }
-
-    private func wireDownloads(
-        _ session: BrowserSession,
-        sidebar: SidebarViewController,
-        topBar: TopBarView,
-        in controller: BrowserWindowController
-    ) {
-        let manager = DownloadManager()
-        downloads = manager
-        let panel = DownloadsPanelController(manager: manager)
-        downloadsPanel = panel
-        // §30.15: the completion popover is the primary surface and appears by
-        // itself; these two buttons open the list. Same pop-out, two ends of
-        // the window, so the edge is the caller's to say — exactly as History's
-        // is.
-        topBar.onDownloads = { [weak panel, weak controller] anchor in
-            guard let panel, let window = controller?.window else { return }
-            panel.toggle(in: window, from: anchor, edge: .below)
-        }
-        sidebar.onOpenDownloads = { [weak panel, weak controller, weak sidebar] in
-            guard let panel, let sidebar, let window = controller?.window else { return }
-            panel.toggle(in: window, from: sidebar.downloadsAnchor, edge: .above)
-        }
-        session.onDownload = { [weak manager] download in manager?.begin(download) }
-        // §5's popover points at the top bar's downloads button when the bar is
-        // showing; it falls back to a plain window-anchored panel when it is not.
-        manager.anchorProvider = { [weak topBar] in topBar?.downloadsAnchor }
-        // `WKDownload.webView` is weak and the originating tab may be cold, so
-        // a retry resumes through whichever tab is live now.
-        manager.webViewProvider = { [weak session] in
-            guard let session, let id = session.activeTabID else { return nil }
-            return session.controller(for: id)?.webView
-        }
-    }
-
-    /// `⌘⌥L`, from `BrowserCommands`: §15.3's list, on whichever Downloads
-    /// button the layout on screen is showing.
-    ///
-    /// The menu item cannot hand over an anchor the way a button can, so this
-    /// is the one place that has to know which chrome is up. It reads the
-    /// setting rather than the window's state because a *collapsed* sidebar is
-    /// still the sidebar layout — its button is parked off-screen, and the
-    /// pop-out falls back to the corner it would have been in.
-    func showDownloadsList() {
-        guard let panel = downloadsPanel, let window = browserWindow?.window else { return }
-        switch Settings.chromeLayout {
-        case .topBar:
-            guard let anchor = topBar?.downloadsAnchor else { return }
-            panel.toggle(in: window, from: anchor, edge: .below)
-        case .sidebar:
-            guard let sidebar else { return }
-            panel.toggle(in: window, from: sidebar.downloadsAnchor, edge: .above)
-        }
-    }
-
     /// Re-reads the session. Structural only — a tab's progress and title reach
     /// their row through `addTabStateObserver`, not through here.
     func render() {
@@ -390,7 +321,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MainMenu.setSidebarItems(session.tabs.map(\.title), in: NSApp)
     }
 
-    /// `⌘S` and §3.1's toggle button: **hide or show the sidebar**, so the page
+    /// `⌘S` and §3.1's toggle button: hide or show the sidebar, so the page
     /// takes the whole window.
     ///
     /// It used to swap sidebar layout for top-bar layout, which meant a reflex
@@ -417,14 +348,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Puts the window into whichever chrome `Settings.chromeLayout` names.
     /// The cross-fade and the frame animation run on the same tick (§4.1).
     private func applyChromeLayout(in controller: BrowserWindowController, animated: Bool) {
-        // **Before the early return below, not after it.** §3.2b's placement
+        // Before the early return below, not after it. §3.2b's placement
         // can change while the layout does not, and it is the only setting in
         // this window whose effect is nothing at all if the chrome state
         // happens to match.
         applySearchBarPlacement(animated: animated)
         let edge = Settings.sidebarEdge
         let state: ChromeState = switch Settings.chromeLayout {
-        // **A hidden sidebar stays hidden.** `⌘S` and this setting are
+        // A hidden sidebar stays hidden. `⌘S` and this setting are
         // different decisions, and rebuilding the state from the layout alone
         // put the column back on screen every time any preference changed.
         case .sidebar where controller.isSidebarCollapsed: .sidebarCollapsed(edge: edge)
@@ -455,7 +386,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// `recordVisit` buffers and `interactionState` dies with its WebContent
     /// process, so quitting has real async work to do. `.terminateLater` is the
     /// only way to do it — `applicationWillTerminate` cannot await.
+    @objc private func powerOffIsComing() {
+        isQuitFromLogOut = true
+    }
+
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        // §3.1: ask first, and answer `.cancel` while the question is up.
+        // `AppDelegate+Quit.swift` has why it cannot be `.terminateLater`.
+        if wantsQuitConfirmation(sender) {
+            presentQuitSheet()
+            return .terminateCancel
+        }
         guard session != nil else { return .terminateNow }
         Task {
             await flush()
@@ -483,14 +424,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         browserWindow = nil
     }
 
-    /// **`LunaTests` is a unit-test bundle hosted by this app** (`project.yml`:
+    /// `LunaTests` is a unit-test bundle hosted by this app (`project.yml`:
     /// `dependencies: - target: Luna`), so `xcodebuild test` launches the real
     /// `AppDelegate`, runs `applicationDidFinishLaunching`, and opens whatever
-    /// this property returns — *before* the first test method is entered and
+    /// this property returns — before the first test method is entered and
     /// whether or not that test wanted a session.
     ///
-    /// Which means that until this branch existed, **every test run in this
-    /// repo migrated and wrote the user's live database.** Measured: the
+    /// Which means that until this branch existed, every test run in this
+    /// repo migrated and wrote the user's live database. Measured: the
     /// schema-version row in `~/Library/Application Support/dk.novapps.luna/`
     /// moved during this wave and its mtime tracked the test runs. A test that
     /// carefully builds its own fixture store is not protected by doing so —

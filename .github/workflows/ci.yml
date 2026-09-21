@@ -1,0 +1,156 @@
+name: CI
+
+# **CI only — there is no CD here, and there cannot be yet.** Luna signs ad-hoc
+# (`CODE_SIGN_IDENTITY: "-"` in project.yml); signing, notarisation and the DMG
+# are TODO.md §24.4–§24.6 and all of it waits on a Developer ID certificate that
+# does not exist. A release workflow that cannot sign produces a download macOS
+# refuses to open, which is worse than no download.
+#
+# What this *does* buy: `main` is shared — a second committer and several agents
+# write into the same working tree — and a build that has only ever happened on
+# one Mac is not a build that happened. This runs it on a machine nobody has
+# configured, from the committed tree rather than from whatever is lying around
+# uncommitted.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# "Is this commit good" stops being worth answering the moment a newer commit
+# exists on the same branch. Mac runner minutes are the expensive kind; do not
+# spend them finishing a run nobody will read.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  guard:
+    name: BrowserKit is AppKit-free
+    # Pure `sh`, so it belongs on the free Linux runner rather than the metered
+    # Mac one. §25.5's rule — Foundation + WebKit only, so an iOS companion
+    # stays possible — is the cheapest check in the repo and the one a single
+    # hurried `import AppKit` breaks.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: Tools/check-no-appkit.sh
+
+  test:
+    name: Build and test
+    # macOS 26 is the floor, not a compromise: D9 puts the deployment target at
+    # 26.0 and Liquid Glass is the reason. `macos-26` is the newest generally
+    # available image and its default Xcode is 26.x. Development happens on
+    # macOS 27 / Xcode 27, so a symbol that exists only in the 27 SDK fails
+    # here first — which is most of the point of building somewhere else.
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v7
+
+      # A green run should say *which* toolchain was green.
+      - name: Toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      # Checkouts only, never build products: GRDB is pinned exactly
+      # (BrowserKit/Package.swift), so the resolved file is a complete key and a
+      # hit is always the right dependency. Cached object files, by contrast,
+      # go stale the day the image bumps Xcode and fail in ways that look like
+      # a code bug.
+      - name: Cache resolved packages
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm
+            DerivedData/SourcePackages
+          key: spm-macos26-${{ hashFiles('BrowserKit/Package.resolved') }}
+          restore-keys: spm-macos26-
+
+      # Not on the image, and `make gen` is not optional: Luna.xcodeproj is
+      # generated from project.yml and deliberately not committed.
+      - name: Install XcodeGen
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
+        run: brew install xcodegen
+
+      - name: Generate the project
+        run: make gen
+
+      # The two halves of `make test`, split so a failure arrives with a name
+      # instead of as one red cross laid over both layers.
+      - name: BrowserKit tests
+        run: swift test --package-path BrowserKit
+
+      - name: Luna tests
+        # Runs even when the engine half failed. Two separate answers are worth
+        # more than one, and they usually fail for unrelated reasons.
+        if: ${{ !cancelled() }}
+        # Expect a handful of skips here that do not happen on a developer Mac.
+        # The runner has Reduce Transparency on, so §21.2 builds the opaque
+        # plane and there is no NSGlassEffectView anywhere to read a style or a
+        # tint back off — measured, via Surface.glassFallback arriving where a
+        # frost was expected. The glass tests skip and GlassDensityTests asserts
+        # the fallback instead, which is the only host that path runs on.
+        # `-destination` is spelled out rather than left to default: a runner
+        # has no "My Mac" to mean, and an ambiguous destination is a confusing
+        # failure to read from a log.
+        run: |
+          xcodebuild \
+            -project Luna.xcodeproj \
+            -scheme Luna \
+            -configuration Debug \
+            -derivedDataPath DerivedData \
+            -destination 'platform=macOS' \
+            test
+
+  lint:
+    name: SwiftLint
+    # Gating, and it took a wave to get here. It started at 67 violations: the
+    # config took 41 of those — `x` is the right name for an x coordinate — and
+    # the rest were fixed rather than configured away, by splitting functions
+    # and moving type bodies into extensions.
+    #
+    # The last three outlived that wave only because they sat in files other
+    # sessions were rewriting at the time: `AppDelegate`'s class body, and the
+    # two long checks in `TokenCheck+Numbers`. Both were split along seams the
+    # files already had — `AppDelegate+Downloads` and `AppDelegate+CommandBar`
+    # beside the `+Quit` and `+PageChrome` that were there first.
+    #
+    # There is no `continue-on-error` any more, which is the point: a lint
+    # nobody has to pass drifts straight back to 67.
+    # SwiftLint ships a statically linked Linux binary, so this costs nothing:
+    # free runner, no Swift runtime to install, no Homebrew.
+    runs-on: ubuntu-latest
+    env:
+      # Pinned: a lint that changes its mind when upstream ships a new rule is
+      # a lint that fails on commits which did not touch anything.
+      SWIFTLINT_VERSION: "0.65.1"
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install SwiftLint
+        run: |
+          curl -fsSL -o swiftlint.zip \
+            "https://github.com/realm/SwiftLint/releases/download/${SWIFTLINT_VERSION}/swiftlint_linux_amd64.zip"
+          unzip -q swiftlint.zip -d "$RUNNER_TEMP/swiftlint"
+          # The dynamically linked build wants a Swift runtime the Linux image
+          # does not carry; the static one is the whole reason this is free.
+          mv "$RUNNER_TEMP/swiftlint/swiftlint-static" "$RUNNER_TEMP/swiftlint/swiftlint"
+          chmod +x "$RUNNER_TEMP/swiftlint/swiftlint"
+          echo "$RUNNER_TEMP/swiftlint" >> "$GITHUB_PATH"
+      # `github-actions-logging` writes each violation onto the line it is
+      # about, in the diff, instead of at the bottom of a log nobody opens.
+      - run: swiftlint lint --quiet --strict --reporter github-actions-logging
+
+# Deliberately absent:
+#
+#   * **swiftformat.** It has never been run here, so it fails all but a handful
+#     of the tree and switching it on is a whole-repo rewrite, not a check. That
+#     belongs in one deliberate commit on a quiet tree; with several agents
+#     writing into this tree at once it is the worst diff to land by surprise.
+#     `CLAUDE.md` carries the measurement, so it goes stale in one place.
+#   * **A release job.** See the header: §24.4's certificate first.

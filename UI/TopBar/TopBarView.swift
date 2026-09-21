@@ -11,29 +11,29 @@
 //
 //  Both ends of the bar are the same object: `TopBarActionCapsule`, with one
 //  item in it on the left and four on the right. Back used to be a bare glass
-//  circle of the same 28 pt diameter, which is not the same *size* — the
+//  circle of the same 28 pt diameter, which is not the same size — the
 //  cylinder adds its padding, and one control at 28 beside three at 36 is the
 //  mismatch that reads.
 //
 //  Four things are deliberately absent:
-//    · **No sidebar toggle.** There is no sidebar in this layout to hide, so
+//    · No sidebar toggle. There is no sidebar in this layout to hide, so
 //      the button was a control that either did nothing or silently changed a
 //      preference. `⌘S` still works wherever there is a sidebar; which chrome
 //      the window wears is Settings' decision (`Settings.chromeLayout`).
-//    · **No reload button.** The reference omits it; §4 makes reload `⌘R` and
+//    · No reload button. The reference omits it; §4 makes reload `⌘R` and
 //      the site menu inside the pill.
-//    · **No traffic-light layout.** `TrafficLightLayoutManager` owns those
+//    · No traffic-light layout. `TrafficLightLayoutManager` owns those
 //      frames for every window state (§7.7). The bar asks `TrafficLightSpace`
 //      where they landed and stands beside them on their centre line, as
 //      §3.1's row does — so the corner reads the same in either layout.
-//    · **No page tint on the bar itself.** §2: the chrome samples what is
-//      *behind the window*. The URL pill carries the only page-derived colour.
+//    · No page tint on the bar itself. §2: the chrome samples what is
+//      behind the window. The URL pill carries the only page-derived colour.
 //
 
 import AppKit
 import BrowserKit
 
-/// Anything on the bar holding a token *by value*, and therefore needing to be
+/// Anything on the bar holding a token by value, and therefore needing to be
 /// told when the accessibility display options flip.
 ///
 /// On macOS 26.5 Increase Contrast is not an `NSAppearance` (see the `Tokens`
@@ -66,6 +66,12 @@ final class TopBarView: NSView {
     /// Where agent H's download popover points.
     var downloadsAnchor: NSView? { capsule.view(for: Self.downloadsItem) }
 
+    /// §5.0's flight lands on the button and the capsule catches it — the
+    /// glyph inside owns no material of its own, and half a cylinder bulging
+    /// inside the other half is not a shelf catching anything. Same rule as
+    /// the press (`TopBarActionCapsule`), same reason.
+    var downloadsCatcher: NSView { capsule }
+
     /// Where §6.4's History pop-out stands.
     var historyAnchor: NSView? { capsule.view(for: Self.historyItem) }
 
@@ -78,7 +84,7 @@ final class TopBarView: NSView {
     private static let profileItem = "luna.topBar.profile"
 
     private let session: BrowserSession
-    /// **A capsule of one**, not a bare glass circle.
+    /// A capsule of one, not a bare glass circle.
     ///
     /// Back and the three buttons at the other end of the bar were already the
     /// same 28 pt item — but only one of them wore its glass directly, so back
@@ -138,7 +144,7 @@ final class TopBarView: NSView {
         backCapsule.setAccessibilityLabel(String(localized: "Back"))
     }
 
-    /// `ChromeHostView` keeps **both** layouts alive and cross-fades them, and
+    /// `ChromeHostView` keeps both layouts alive and cross-fades them, and
     /// every hook on `BrowserSession` is a single closure — `AppDelegate`
     /// already owns `onChange`. So the bar chains rather than assigns: nothing
     /// it subscribes to displaces an existing subscriber, whatever order the
@@ -178,8 +184,8 @@ final class TopBarView: NSView {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
         }
-        // Not the bar's own centre: the traffic lights' (see the token). **And
-        // not the strip**, which is pinned top and bottom — a centre line as
+        // Not the bar's own centre: the traffic lights' (see the token). And
+        // not the strip, which is pinned top and bottom — a centre line as
         // well is a third vertical constraint and one of the three gets
         // dropped. It stands its own tabs on the line instead.
         NSLayoutConstraint.activate([backCapsule, separator, capsule].map {
@@ -244,11 +250,11 @@ final class TopBarView: NSView {
             guard let self, let anchor = capsule.view(for: Self.profileItem) else { return }
             onProfile?(anchor)
         }
-        // **History beside Downloads**, and both before Profile. The sidebar's
+        // History beside Downloads, and both before Profile. The sidebar's
         // foot pairs the same two — they are the same kind of thing, the shelf
         // of what you already have — so the layout without a sidebar keeps the
         // pair rather than inventing a second arrangement. Profile stays last
-        // because it is about *who*, not about *what*.
+        // because it is about who, not about what.
         capsule.items = extensionActions + [newTab, history, downloads, profile]
     }
 
@@ -284,7 +290,7 @@ final class TopBarView: NSView {
     /// have to remember to.
     override func viewDidUnhide() {
         super.viewDidUnhide()
-        // **Only when this really is the layout coming on screen.** AppKit
+        // Only when this really is the layout coming on screen. AppKit
         // un-hides views for reasons of its own — a window returning from
         // Stage Manager or from the Dock among them — and replaying a fade-in
         // stagger there is a flash of chrome nobody asked to see.
@@ -333,7 +339,7 @@ final class TopBarView: NSView {
 
     /// Where the bar starts: after the traffic lights, a cluster gap on.
     ///
-    /// **Derived, not read off the live buttons.** AppKit resets their origins
+    /// Derived, not read off the live buttons. AppKit resets their origins
     /// on every resize and `TrafficLightLayoutManager` puts them back a beat
     /// later, so a bar that believed what it saw in between laid Back against
     /// the green light rather than a gap from it. `TrafficLightSpace` is the

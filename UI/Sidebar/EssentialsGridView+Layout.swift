@@ -5,15 +5,13 @@
 //  §3.3's grid arithmetic: how many rows and columns a given number of pinned
 //  tiles makes, where each slot is, and which slot a point falls in.
 //
-//  Split out of `EssentialsGridView.swift` when it crossed SwiftLint's 400-line
-//  file limit, and this is the half that came out because it is the half that
-//  is *only* arithmetic — it reads the grid's state and touches none of it, so
-//  it can be checked against §3.3 without a window (`shape(for:)` is asserted
-//  directly in `EssentialsGridTests`).
+//  Split out of `EssentialsGridView.swift` for that file's length limit. This
+//  is the half that is only arithmetic: it reads the grid's state and touches
+//  none of it, so it can be checked against §3.3 without a window
+//  (`shape(for:)` is asserted in `EssentialsGridTests`).
 //
-//  `maxColumns`, `order` and `settled` are internal rather than private for one
-//  reason: they are read from here. Nothing outside this pair of files has any
-//  business with any of them.
+//  `maxColumns`, `order` and `settled` are internal rather than private only
+//  because they are read from here.
 //
 
 import AppKit
@@ -33,7 +31,7 @@ extension EssentialsGridView {
         return max(settled.count + open, isAwaitingDrop ? 1 : 0)
     }
 
-    /// **As few rows as will hold them, then as evenly as they divide.**
+    /// As few rows as will hold them, then as evenly as they divide.
     ///
     /// Rows first: four across is the ceiling, so five tiles need two rows and
     /// nine need three. Then the columns are whatever spreads that many tiles
@@ -50,28 +48,42 @@ extension EssentialsGridView {
         return (rows, max(Int((Double(count) / Double(rows)).rounded(.up)), 1))
     }
 
-    private var rowCount: Int { Self.shape(for: slotCount).rows }
-
     private var columns: Int { Self.shape(for: slotCount).columns }
 
     override var intrinsicContentSize: NSSize {
-        let margin = Tokens.Metric.essentialsVerticalInset
-        guard rowCount > 0 else { return NSSize(width: NSView.noIntrinsicMetric, height: 0) }
-        let height = CGFloat(rowCount) * Tokens.Metric.essentialsTile.height
-            + CGFloat(rowCount - 1) * Tokens.Metric.essentialsRowGap + 2 * margin
-        return NSSize(width: NSView.noIntrinsicMetric, height: height)
+        NSSize(width: NSView.noIntrinsicMetric, height: Self.height(forTiles: slotCount))
+    }
+
+    /// How tall a grid holding `count` tiles stands.
+    ///
+    /// Static as well as an instance answer because §30.9's page turn has to
+    /// draw the neighbouring Space's grid — `SpacePreviewView` — and a still
+    /// that guessed its own height would hand the swipe a picture the real
+    /// column then corrects.
+    static func height(forTiles count: Int) -> CGFloat {
+        let rows = shape(for: count).rows
+        guard rows > 0 else { return 0 }
+        return CGFloat(rows) * Tokens.Metric.essentialsTile.height
+            + CGFloat(rows - 1) * Tokens.Metric.essentialsRowGap
+            + 2 * Tokens.Metric.essentialsVerticalInset
     }
 
     /// One slot's frame, in reading order. The single piece of grid arithmetic:
-    /// the tiles, the drop outline and the drag lift all place themselves with
-    /// it, so they cannot disagree about where a slot is.
+    /// the tiles, the drop outline, the drag lift and §30.9's still all place
+    /// themselves with it, so they cannot disagree about where a slot is.
     func slotRect(at index: Int) -> NSRect {
+        Self.slotRect(at: index, of: slotCount, in: bounds)
+    }
+
+    /// `slotRect(at:)` for a grid that is not this one — the same arithmetic,
+    /// told how many tiles and what bounds instead of reading its own.
+    static func slotRect(at index: Int, of count: Int, in bounds: NSRect) -> NSRect {
         let inset = Tokens.Metric.essentialsInset
         let margin = Tokens.Metric.essentialsVerticalInset
         let gutter = Tokens.Metric.essentialsTileGap
         let rowGap = Tokens.Metric.essentialsRowGap
         let height = Tokens.Metric.essentialsTile.height
-        let across = columns
+        let across = shape(for: count).columns
         let width = (bounds.width - 2 * inset - CGFloat(across - 1) * gutter) / CGFloat(across)
         let column = index % across
         let row = index / across
@@ -84,8 +96,8 @@ extension EssentialsGridView {
         ).pixelAligned
     }
 
-    /// Which slot the pointer is over, in reading order — and **the index the
-    /// tab would land at**, which is why it counts the settled tiles rather
+    /// Which slot the pointer is over, in reading order — and the index the
+    /// tab would land at, which is why it counts the settled tiles rather
     /// than all of them: the one in the air is already out of the way.
     func insertionIndex(at point: NSPoint) -> Int {
         let inset = Tokens.Metric.essentialsInset

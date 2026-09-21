@@ -2,24 +2,24 @@
 //  NavCluster.swift
 //  Luna
 //
-//  §3.1's history control: **back alone until there is a forward to go to.**
+//  §3.1's history control: back alone until there is a forward to go to.
 //
 //  One class for both places the chrome puts it — the sidebar's control row and
 //  §3.2b's page bar — because they are the same control on two surfaces, and a
 //  second implementation would be a second set of hover, dimming and morph bugs.
 //
-//  Forward is the rarest button in a browser. It is unreachable on the great
-//  majority of pages — nothing has been gone back from — and a permanently
-//  dimmed chevron beside a live one is a control that spends its whole life
-//  saying no. So it is not there until it means something, and when it arrives
-//  the pair becomes one capsule divided by a hairline, which is the reference.
+//  Forward is the rarest button in a browser: unreachable on most pages,
+//  because nothing has been gone back from, and a permanently dimmed chevron
+//  beside a live one spends its whole life saying no. So it is not there until
+//  it means something, and when it arrives the pair becomes one capsule divided
+//  by a hairline, which is the reference.
 //
-//  **One plate, two bare glyphs.** The material is applied once, to the
-//  cluster, at the circle's own radius — so back alone is exactly the circle it
-//  was, and the capsule is that circle grown a second half. Giving each chevron
-//  its own backing is what made §4's action capsule read as separate bright
-//  discs before it was built this way (`TopBarActionCapsule`), and here it
-//  would also put two rounded shapes inside a third.
+//  One plate, two bare glyphs. The material is applied once to the cluster, at
+//  the circle's own radius, so back alone is exactly the circle it was and the
+//  capsule is that circle grown a second half. Giving each chevron its own
+//  backing is what made §4's action capsule read as separate bright discs
+//  (`TopBarActionCapsule`), and here it would put two rounded shapes inside a
+//  third.
 //
 //  The radius never has to change, which is why the glass can be built once: a
 //  glass view's corner radius is fixed when it is constructed, and this one
@@ -73,6 +73,14 @@ final class NavCluster: NSView {
         divider.wantsLayer = true
         back.onActivate = { [weak self] in self?.onBack?() }
         forward.onActivate = { [weak self] in self?.onForward?() }
+        // The capsule is what the press is against. Both halves are
+        // `.none` buttons, so neither has a material to swell — this does, and
+        // it is the shape the pointer is actually on. With back alone that is
+        // the circle from the reference; with forward out it is the whole
+        // capsule, which is right for the same reason the glass is one piece.
+        for half in [back, forward] {
+            half.onPressChange = { [weak self] pressed in self?.setPressed(pressed) }
+        }
         for view in [back, divider, forward] { addSubview(view) }
         setAccessibilityRole(.group)
         setAccessibilityLabel(String(localized: "History"))
@@ -86,7 +94,7 @@ final class NavCluster: NSView {
 
     // MARK: - State
 
-    /// Back dims where it has always dimmed; forward **appears**.
+    /// Back dims where it has always dimmed; forward appears.
     ///
     /// The two are not the same answer to the same question, and that is
     /// deliberate. Back is on every page and is dimmed on the first one, so the
@@ -114,13 +122,13 @@ final class NavCluster: NSView {
             settle()
             return
         }
-        // **The two directions are not the same length, and that is the point.**
+        // The two directions are not the same length, and that is the point.
         //
         // Arriving, the chevron fades in over the 0.20 s the capsule takes to
         // grow past it: the edge is ahead of it the whole way, so the glyph is
         // never outside its own surface.
         //
-        // Leaving, the edge is coming *at* it. A 0.20 s fade puts the chevron
+        // Leaving, the edge is coming at it. A 0.20 s fade puts the chevron
         // at half opacity on the frame the edge sweeps through it and leaves
         // the rest of it hanging outside a capsule that has already passed —
         // which is the one thing in this morph that reads as a smear. At 0.10 s
@@ -133,6 +141,11 @@ final class NavCluster: NSView {
         } completion: { [weak self] in
             MainActor.assumeIsolated { self?.settle() }
         }
+    }
+
+    /// §6 `controlPress`, on behalf of whichever half is down.
+    private func setPressed(_ pressed: Bool) {
+        Tokens.Motion.swell(self, to: pressed ? Tokens.Motion.pressSwell : 1)
     }
 
     /// A view at alpha 0 still hit-tests, so a faded chevron would go on eating
@@ -154,7 +167,7 @@ final class NavCluster: NSView {
         super.layout()
         // Bounds-derived frames never animate — see `Motion.immediately`.
         Tokens.Motion.immediately {
-            // **Nothing inside here is measured against the bounds**, and that
+            // Nothing inside here is measured against the bounds, and that
             // is what keeps the morph clean in both directions. All three are
             // placed off the leading edge at fixed distances, so while the
             // capsule's trailing edge travels — the only thing that does — the
@@ -162,7 +175,7 @@ final class NavCluster: NSView {
             // moves past them.
             //
             // Measured against the bounds instead, a shrink re-reads them at
-            // the *final* width on its first frame: back would be fine, but
+            // the final width on its first frame: back would be fine, but
             // the divider would jump into the middle of it and the forward
             // chevron would slide left across it while fading. That is the
             // morph going one way looking nothing like it going the other.
