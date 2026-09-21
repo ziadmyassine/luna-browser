@@ -362,9 +362,30 @@ public final class TabController: NSObject {
     /// away. The user content controller holds its handlers and scripts strongly, so
     /// leaving them registered pins the web view — and with it a WebContent process —
     /// for as long as the configuration lives, which is the opposite of §19.2.
+    ///
+    /// **Silence is something this does, not something it waits for.** Everything
+    /// below unhooks the view and then lets go of it, on the reasoning that a
+    /// deallocated `WKWebView` closes its page and a closed page makes no sound.
+    /// That is true of the last reference and says nothing about the one before
+    /// it: WebKit's own async completions, a floating Picture-in-Picture window,
+    /// element fullscreen, a snapshot in flight — any of them can outlive this
+    /// call by an unbounded amount, and for as long as one does the page is
+    /// still playing. **Which is the defect Martin reported**: close a pinned
+    /// tab with a video running and the sound carries on in the background, with
+    /// nothing on screen to stop it. Audio is the one thing a user can hear a
+    /// leak in, so it is turned off explicitly and first, and whichever
+    /// reference is last to go is no longer the thing that decides.
+    ///
+    /// Suspended rather than paused: suspending also refuses the page's own
+    /// attempts to start again, and there is no resume to pair it with because
+    /// this view never comes back — `ensureWebView` builds a new one.
     private func detach() {
         guard let view = webView else { return }
         webView = nil
+
+        // The closure holds `view` until WebKit has finished, exactly as the
+        // media-presentation teardown below does.
+        view.setAllMediaPlaybackSuspended(true) { _ = view }
 
         for observation in observations { observation.invalidate() }
         observations.removeAll()

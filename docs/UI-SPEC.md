@@ -877,6 +877,15 @@ ink.
   costs no WebContent process until it is clicked again (§19.2). A pinned tab cannot be closed, only
   unpinned (right-click → *Unpin*, or drag it back down); `⌘W` on one puts the page away and leaves
   the tile.
+  > **Putting a page away silences it, explicitly.** Every teardown — this one, §19.2's budget, a
+  > closed tab, a deleted Space — went through `TabController.detach`, which unhooked the view and let
+  > go of it on the reasoning that a deallocated `WKWebView` closes its page and a closed page makes no
+  > sound. That is true of the *last* reference and says nothing about the one before it: WebKit's own
+  > async completions, a floating Picture-in-Picture window, element fullscreen and a snapshot in
+  > flight each outlive the call by an unbounded amount, and for as long as one does, the page is still
+  > playing. Reported as **closing a pinned tab with a video running and still hearing it in the
+  > background**, with nothing left on screen to stop it. Audio is the one leak a user can *hear*, so
+  > `detach` now suspends all media playback first and whichever reference goes last no longer decides.
   > **A tab dragged across the grid's edge is selected by the drop.** Carrying a tab up into the grid or
   > back down out of it is a decision about *that* tab, taken with it under the hand, and a drop that
   > left the previous page on screen made the tile you had just made look like it belonged to something
