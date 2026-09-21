@@ -67,10 +67,10 @@ final class SidebarSpaceLabelTests: XCTestCase {
 
     /// And one that does not stops at the cap rather than at the column edge.
     func testALongNameStopsAtTheCapAndCarriesTheFade() {
-        let view = caption(long)
+        let view = caption(long, width: 280)
         XCTAssertEqual(
             clip(of: view).frame.width,
-            SidebarSpaceLabel.shownWidth(of: long),
+            SidebarSpaceLabel.shownWidth(inColumnOfWidth: 280),
             accuracy: 1
         )
         XCTAssertNotNil(clip(of: view).layer?.mask)
@@ -87,26 +87,60 @@ final class SidebarSpaceLabelTests: XCTestCase {
             return XCTFail("§3.5's caption is not masked at \(long.count) characters")
         }
         let solid = mask.frame.width * CGFloat(truncating: stop)
-        let cap = SidebarSpaceLabel.visibleCharacters
-        XCTAssertLessThan(solid, width(ofText: String(long.prefix(cap))), "the ramp starts at the cap or past it")
-        // And not so early that the cap stops meaning anything: what is left
-        // solid is still most of the name the line promises.
-        XCTAssertGreaterThan(solid, width(ofText: String(long.prefix(cap - 4))))
+        let cap = SidebarSpaceLabel.allowance(inColumnOfWidth: 280)
+        XCTAssertLessThan(solid, cap, "the ramp starts at the cap or past it")
+        // And not so early that the cap stops meaning anything: most of what
+        // the column allows is still solid ink.
+        XCTAssertGreaterThan(solid, cap / 2)
     }
 
     // MARK: - The cap itself
 
-    /// Characters, not points: the eleventh onwards costs nothing, and ten
-    /// wide letters are allowed more room than ten narrow ones.
-    func testTheCapCountsCharactersRatherThanWidth() {
+    /// The floor the whole rule is set from: in the narrowest column Luna can
+    /// be dragged to, the name it ships with fits and nothing longer does.
+    func testAtTheFloorTheCapIsTheNameLunaShipsWith() {
+        let floor = Tokens.Metric.sidebarFootFloor
         XCTAssertEqual(
-            SidebarSpaceLabel.shownWidth(of: long),
-            SidebarSpaceLabel.shownWidth(of: String(long.prefix(SidebarSpaceLabel.visibleCharacters)))
+            SidebarSpaceLabel.allowance(inColumnOfWidth: floor),
+            ceil(width(ofText: SidebarSpaceLabel.narrowestName)),
+            accuracy: 0.5
         )
-        XCTAssertGreaterThan(
-            SidebarSpaceLabel.shownWidth(of: "WWWWWWWWWW"),
-            SidebarSpaceLabel.shownWidth(of: "iiiiiiiiii")
+        let view = caption(SidebarSpaceLabel.narrowestName, width: floor)
+        XCTAssertNil(clip(of: view).layer?.mask, "the name Luna ships with does not fit its own column")
+    }
+
+    /// And a point of column buys a point of name, all the way out to §1's
+    /// ceiling. A fixed cap showed as much in a 420 pt column as in a 220 pt
+    /// one, with the rest of the line empty either side of it.
+    func testTheCapGrowsPointForPointWithTheColumn() {
+        let floor = Tokens.Metric.sidebarFootFloor
+        let base = SidebarSpaceLabel.allowance(inColumnOfWidth: floor)
+        for wider in [floor + 30, floor + 60, Tokens.Metric.sidebarWidth.max] {
+            XCTAssertEqual(
+                SidebarSpaceLabel.allowance(inColumnOfWidth: wider),
+                base + (wider - floor),
+                accuracy: 0.5,
+                "\(wider)"
+            )
+        }
+    }
+
+    /// A column narrower than the floor cannot buy negative name. §1 does not
+    /// allow one, and arithmetic that goes backwards there would hand the box
+    /// a width smaller than the ramp drawn in it.
+    func testANarrowerColumnThanTheFloorNeverShrinksTheCapBelowIt() {
+        let floor = Tokens.Metric.sidebarFootFloor
+        XCTAssertEqual(
+            SidebarSpaceLabel.allowance(inColumnOfWidth: floor - 40),
+            SidebarSpaceLabel.allowance(inColumnOfWidth: floor)
         )
+    }
+
+    /// The line grows on screen, not only in the arithmetic.
+    func testAWiderColumnDrawsMoreOfTheName() {
+        let narrow = clip(of: caption(long, width: Tokens.Metric.sidebarFootFloor)).frame.width
+        let wide = clip(of: caption(long, width: Tokens.Metric.sidebarFootFloor + 90)).frame.width
+        XCTAssertGreaterThan(wide, narrow)
     }
 
     // MARK: - Where it sits

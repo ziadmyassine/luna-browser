@@ -278,27 +278,21 @@ final class SidebarUtilityBar: NSView {
 @MainActor
 final class SidebarSpaceLabel: NSView {
 
-    /// How far along the name this line reads before the fade takes over.
+    /// The name Luna ships with, which is this line's ruler in the narrowest
+    /// column it can be drawn in — see `allowance`.
     ///
-    /// §6.2 stores 32, which is long enough for a name that says what the
-    /// Space is for, and far longer than a line over a 56 pt strip can carry:
-    /// a 32-character name ran the full width of the column at every width §1
-    /// allows and ended in an ellipsis against the inset. Ten is what the
-    /// glance this line is read at actually uses — enough to tell two Spaces
-    /// apart — and the whole name is a hover away in the tooltip and written
-    /// out on the Space's card in Settings.
-    ///
-    /// It is the line's reach rather than a count of solid glyphs: the ramp is
-    /// `sidebarSpaceNameFade` and starts inside the tenth character, so the
-    /// last two or three of them are already thinning.
-    static let visibleCharacters = 10
+    /// Not localized, because it is never shown: `BrowserStore.seedIfEmpty`
+    /// writes this exact string as the first Space's name and the first
+    /// Profile's, and the rule the ruler states is that the name the app
+    /// starts life with fits whole at every width §1 allows.
+    static let narrowestName = "Personal"
 
     /// Right-click here or on the strip below — §6.2's rows are in Settings.
     var onEditSpaces: (() -> Void)?
     var onNewSpace: (() -> Void)?
 
-    /// Clips the name to `visibleCharacters` and carries the ramp that ends
-    /// it. The pair §3.4's rows use, for the reason they use it: three
+    /// Clips the name to what the column allows and carries the ramp that
+    /// ends it. The pair §3.4's rows use, for the reason they use it: three
     /// characters spent on an `…` say less than three more of the name.
     ///
     /// Internal rather than private so `SidebarSpaceLabelTests` can measure
@@ -343,16 +337,32 @@ final class SidebarSpaceLabel: NSView {
         needsLayout = true
     }
 
-    /// How wide this name is allowed to be drawn: what `visibleCharacters` of
-    /// it measure, plus the overhang the ramp trails off into.
+    /// How much name this line may carry in a column of `column` points.
     ///
-    /// Measured off the name rather than off an average glyph, because the cap
-    /// counts characters — ten wide letters are wider than ten narrow ones and
-    /// both of them are ten letters. The overhang is what keeps the dissolve
-    /// from ending on a hard edge: the ramp is wider than it, so it is already
-    /// faint by the time the box runs out.
-    static func shownWidth(of name: String) -> CGFloat {
-        ceil(textWidth(String(name.prefix(visibleCharacters)))) + Tokens.Metric.rowTitleFade
+    /// `narrowestName` at §1's floor, and a point more for every point the
+    /// column is dragged wider. The line is one of three things a column's
+    /// width is spent on — the tab titles above it and the Space strip below
+    /// are the others — and it was the only one that did not answer to the
+    /// drag: a fixed cap showed exactly as much of a name in a 420 pt column
+    /// as in a 220 pt one, with the rest of the line empty either side of it.
+    ///
+    /// Measured against `sidebarFootFloor` and not against
+    /// `Settings.sidebarWidth`, so the answer is the width on screen and
+    /// nothing else. The live span's floor moves with §3.2b's placement and
+    /// §3.1's edge, and a caption that lengthened because the search bar moved
+    /// onto the page would be answering a question nobody asked it.
+    static func allowance(inColumnOfWidth column: CGFloat) -> CGFloat {
+        ceil(textWidth(narrowestName)) + max(column - Tokens.Metric.sidebarFootFloor, 0)
+    }
+
+    /// The box that allowance is drawn in: the allowance, plus the overhang
+    /// the ramp trails off into.
+    ///
+    /// The overhang is what keeps the dissolve from ending on a hard edge —
+    /// `sidebarSpaceNameFade` is wider than it, so the ink is already faint by
+    /// the time the box runs out.
+    static func shownWidth(inColumnOfWidth column: CGFloat) -> CGFloat {
+        allowance(inColumnOfWidth: column) + Tokens.Metric.rowTitleFade
     }
 
     /// What the glyphs measure, which is not what the field reports.
@@ -404,7 +414,7 @@ final class SidebarSpaceLabel: NSView {
     private func placeContents() {
         let natural = ceil(Self.textWidth(label.stringValue))
         let room = max(bounds.width - 2 * Tokens.Metric.rowInset, 0)
-        let shown = min(natural, min(Self.shownWidth(of: label.stringValue), room))
+        let shown = min(natural, min(Self.shownWidth(inColumnOfWidth: bounds.width), room))
         let box = NSRect(x: (bounds.width - shown) / 2, y: 0, width: shown, height: bounds.height).integral
         clip.frame = box
         let pad = Self.padding(of: label)

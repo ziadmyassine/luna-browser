@@ -330,20 +330,27 @@ because a name typed to fifty characters and silently committed as 32 reads as
 the app having lost the end of it. Capped rather than refused — a shortened name
 is what the user meant where an error dialog is not.
 
-**The sidebar's caption shows ten of those characters and fades the rest.** The
-line over §3.5's strip is the one place a name is drawn in a 220 pt column at
-`TypeScale.settingsCaption`, and 32 characters do not fit there at any width §1
-allows: the reported name ran from inset to inset and ended in an ellipsis. Ten
-is what the glance that line is read at uses — enough to tell two Spaces apart —
-and the cut is §3.4's fade rather than an ellipsis, so the tail dissolves
-instead of being replaced by punctuation. Ten is the line's reach, not a count
-of solid glyphs: `sidebarSpaceNameFade` is twice a row's ramp and starts about
-two characters inside the cap, because a row's 12 pt ends against the pill's
-inner edge and this one ends in clear air, where a short ramp read as a letter
-that had been cut rather than a name that ran out. The box is measured off the
-name's own first ten characters, because the cap counts characters and ten wide
-letters are wider than ten narrow ones. The whole name stays a hover away, in
-the tooltip and in VoiceOver, and is drawn whole on the Space's card here.
+**The sidebar's caption shows as much of a name as the column has room for, and
+fades the rest.** The line over §3.5's strip is the one place a name is drawn in
+a 220 pt column at `TypeScale.settingsCaption`, and 32 characters do not fit
+there at any width §1 allows: the reported name ran from inset to inset and
+ended in an ellipsis. The cut is §3.4's fade rather than an ellipsis, so the
+tail dissolves instead of being replaced by punctuation.
+
+How much is a function of the column, not a constant. At `sidebarFootFloor` —
+the narrowest §1 allows — it is what the name Luna ships with measures, so
+"Personal" fits whole and nothing longer does; past that it is a point of name
+per point of column, out to §1's ceiling where a 32-character name is drawn
+entire. A fixed cap showed exactly as much in a 420 pt column as in a 220 pt
+one, with the rest of the line empty either side of it, and the caption was the
+only thing in the column that did not answer to §3.7's drag.
+
+The cap is where the line runs out, not where the ink stops:
+`sidebarSpaceNameFade` is twice a row's ramp and starts inside it, because a
+row's 12 pt ends against the pill's inner edge and this one ends in clear air,
+where a short ramp read as a letter that had been cut rather than a name that
+ran out. The whole name stays a hover away, in the tooltip and in VoiceOver, and
+is drawn whole on the Space's card here.
 
 ### 6.3 Delete a Space
 Luna's `deleteSpace` is already better than most: last-Space guard, tears down
