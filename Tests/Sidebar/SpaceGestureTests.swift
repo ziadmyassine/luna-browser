@@ -35,6 +35,8 @@ final class SpaceGestureTests: XCTestCase {
 
     private var directory = URL(fileURLWithPath: NSTemporaryDirectory())
     private var window: NSWindow?
+    /// Kept so a test can read what the swipe drew on §30.9's still.
+    private var controller: SidebarViewController?
 
     override func setUp() async throws {
         directory = URL(fileURLWithPath: NSTemporaryDirectory()).appending(path: UUID().uuidString)
@@ -43,6 +45,7 @@ final class SpaceGestureTests: XCTestCase {
 
     override func tearDown() async throws {
         window = nil
+        controller = nil
         try? FileManager.default.removeItem(at: directory)
     }
 
@@ -272,8 +275,50 @@ final class SpaceGestureTests: XCTestCase {
         controller.view.frame = NSRect(x: 0, y: 0, width: 300, height: 800)
         controller.view.layoutSubtreeIfNeeded()
         self.window = window
+        self.controller = controller
         guard let gestures = controller.spaces else { preconditionFailure("the column built no gesture") }
         return (session, gestures)
+    }
+
+    // MARK: - The Space that does not exist yet (§30.9)
+
+    /// The still past the last Space draws nothing — no tiles, no rows.
+    ///
+    /// It has to be built as nothing rather than left alone. The rebuild is
+    /// guarded on the answer changing, and the answer for "the Space past the
+    /// end" was nil, which is also the answer for "nothing has been shown yet"
+    /// — so the guard held and the still kept whichever Space the last stroke
+    /// had drawn on it. That is why this stroke is the second one: with a
+    /// clean still the bug does not show.
+    func testTheSpacePastTheLastOneDrawsNothingAtAll() async throws {
+        let (session, gestures) = try await sidebar(spaces: 2)
+        let still = try XCTUnwrap(controller?.preview)
+        var now = 1.0
+
+        now = hold(gestures, from: now, events: 8)
+        XCTAssertTrue(still.isShowingASpace, "the still drew nothing for a Space that exists")
+        now += 0.2
+        _ = gestures.scrollWheel(with: scroll(dx: 0, dy: 0, phase: .ended, at: now))
+        try await settling()
+
+        session.switchSpace(try XCTUnwrap(session.spaces.last).id)
+        now = hold(gestures, from: now + 1, events: 8)
+        XCTAssertFalse(still.isShowingASpace, "the swipe past the last Space kept the last still")
+        _ = gestures.scrollWheel(with: scroll(dx: 0, dy: 0, phase: .ended, at: now + 0.2))
+        try await settling()
+    }
+
+    /// A stroke out toward the next Space, left held rather than released, so
+    /// the still can be read while it is up. Returns the clock it stopped at.
+    @discardableResult
+    private func hold(_ gestures: SidebarSpaceGestures, from start: TimeInterval, events: Int) -> TimeInterval {
+        var now = start
+        _ = gestures.scrollWheel(with: scroll(dx: 0, dy: 0, phase: .began, at: now))
+        for _ in 0..<events {
+            now += 1.0 / 60
+            _ = gestures.scrollWheel(with: scroll(dx: -30, dy: 0, phase: .changed, at: now))
+        }
+        return now
     }
 
     /// The release animates before it commits, so a negative assertion has to

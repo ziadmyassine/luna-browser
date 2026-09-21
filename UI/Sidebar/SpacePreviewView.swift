@@ -56,6 +56,13 @@ final class SpacePreviewView: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
+    /// Whether the still is drawing a Space at all.
+    ///
+    /// False for the plane the `+` stands on, which is what a swipe past the
+    /// last Space shows — and false is a picture, not an absence: see
+    /// ``showBlank()``.
+    var isShowingASpace: Bool { !tiles.isEmpty || !rows.isEmpty }
+
     /// Never takes a click: the gesture owns the pointer while this is up.
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
@@ -75,8 +82,7 @@ final class SpacePreviewView: NSView {
     /// and group headers come along for free.
     func show(column: SidebarList, gradient: GradientPair, icon: (Tab) -> NSImage?) {
         wash.show(gradient)
-        for tile in tiles { tile.removeFromSuperview() }
-        for row in rows { row.removeFromSuperview() }
+        clear()
         tiles = column.essentials.map { tab in
             let tile = SpacePreviewTile(icon: icon(tab))
             addSubview(tile)
@@ -84,6 +90,26 @@ final class SpacePreviewView: NSView {
         }
         rows = column.rows.indices.map { view(forRow: $0, in: column, icon: icon) }
         for row in rows { addSubview(row) }
+        needsLayout = true
+    }
+
+    /// The Space past the last one: a plane with nothing on it.
+    ///
+    /// Not an empty Space's column. An empty Space is a Space and still draws
+    /// §30.6's `New Tab` row; the one being made has no column yet, and the
+    /// only thing standing on this plane is the `+` the fingers are closing the
+    /// ring on. The neutral gradient paints nothing, so what shows through is
+    /// the window's own chrome.
+    func showBlank() {
+        wash.show(Tokens.Gradient.neutral)
+        clear()
+    }
+
+    private func clear() {
+        for tile in tiles { tile.removeFromSuperview() }
+        for row in rows { row.removeFromSuperview() }
+        tiles = []
+        rows = []
         needsLayout = true
     }
 

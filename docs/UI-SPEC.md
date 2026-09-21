@@ -1195,6 +1195,15 @@ The §30.9 Space-swipe still is built from `SidebarList.rows` for exactly this r
 still with its own idea of the head drew a rule that was both in the wrong place and always
 there, appearing for the length of a swipe and vanishing when the real column arrived.
 
+**The Space past the last one is drawn as nothing, and drawn deliberately.** A swipe off the
+end of the strip is not arriving somewhere; it is making somewhere. So the still carries no
+tiles and no rows — not even §30.6's `New Tab`, which an empty Space does have — and the only
+thing standing on that plane is the `+` and its ring. It has to be *built* as nothing rather
+than left alone: the still is rebuilt only when the answer to "which Space" changes, and while
+that answer was an optional id the blank case shared nil with "nothing has been shown yet", so
+the guard held and the plane kept whichever Space the previous stroke had drawn on it —
+pinned tiles and all.
+
 **The saved tier is the run above the rule, and what makes it saved is what closing does.**
 A saved tab — loose, or inside a saved group — takes **two presses** to let go:
 

@@ -48,9 +48,24 @@ final class SidebarSpaceGestures {
     private let swipe = SpaceSwipeController()
     /// The release, run home a frame at a time — see `SpaceSwipeSettle`.
     private lazy var settling = SpaceSwipeSettle(host: host)
-    /// Which Space the still is currently showing, so it is rebuilt when the
-    /// swipe changes direction and not on every frame.
-    private var previewing: UUID?
+    /// What the still is currently showing, so it is rebuilt when the swipe
+    /// changes direction and not on every frame.
+    ///
+    /// Three answers rather than an optional id, and the third is the point:
+    /// `blank` is the Space past the last one, which has no id and is not the
+    /// same thing as "nothing has been built yet". With one nil standing for
+    /// both, the blank still was never built — the rebuild was guarded on the
+    /// answer changing, and nil to nil is not a change — so the swipe off the
+    /// end of the strip kept drawing whichever Space the still had been left
+    /// holding, tiles and rows included.
+    private enum Showing: Equatable {
+        case nothing
+        /// The Space that does not exist yet.
+        case blank
+        case space(UUID)
+    }
+
+    private var previewing: Showing = .nothing
     var editor: SpaceEditorView?
     /// True from the moment a create commits until the editor it opens is
     /// closed.
@@ -212,28 +227,34 @@ final class SidebarSpaceGestures {
     /// once per direction, not once per frame.
     private func updatePreview(for state: SpaceSwipe) {
         guard state.travel != 0 else {
-            previewing = nil
+            previewing = .nothing
             return
         }
         // Past the last Space there is no Space to show. The still goes blank
         // and the `+` stands on it, which is the honest picture of what is
         // about to be made.
         let target = state.creation > 0 ? nil : neighbour(towards: state.travel)
-        guard target?.id != previewing else { return }
-        previewing = target?.id
+        let wanted: Showing = target.map { .space($0.id) } ?? .blank
+        guard wanted != previewing else { return }
+        previewing = wanted
+        // Nothing at all for the Space that does not exist yet — not an empty
+        // Space's column, which is a different picture. An empty Space still
+        // has a `New Tab` row on it (§30.6), and drawing one here said the
+        // swipe was arriving somewhere rather than making somewhere.
+        guard let target else { return preview.showBlank() }
         // The same split §3 makes, made here too. `SidebarList` is what the
         // real column divides a Space's tabs with, so the still is built from
         // it rather than from a flat `session.list[…]` — which is what used to
         // draw the §3.3 tiles as ordinary rows and let the pinned tabs arrive
         // unpinned and then correct themselves.
         let column = SidebarList(
-            saved: target.map { session.list.drawnSlots(inSpace: $0.id, kind: .pinned) } ?? [],
-            today: target.map { session.list.drawnSlots(inSpace: $0.id, kind: .today) } ?? [],
-            essentials: target.map { session.list[$0.id].filter { $0.kind == .essential } } ?? []
+            saved: session.list.drawnSlots(inSpace: target.id, kind: .pinned),
+            today: session.list.drawnSlots(inSpace: target.id, kind: .today),
+            essentials: session.list[target.id].filter { $0.kind == .essential }
         )
         preview.show(
             column: column,
-            gradient: target?.gradient ?? Tokens.Gradient.neutral,
+            gradient: target.gradient,
             icon: { [weak session] tab in
                 if let image = session?.favicon(for: tab.id) { return image }
                 guard let host = tab.url.host(), let data = FaviconService.shared.favicon(forHost: host)
@@ -344,7 +365,7 @@ final class SidebarSpaceGestures {
             utility.spaceCreation = 0
             creation.progress = 0
             wash.endPreview()
-            previewing = nil
+            previewing = .nothing
         }
         // Both ends of the cross-fade, stated here rather than left to
         // `SidebarViewController.refresh` — it animates the column's alpha on a
