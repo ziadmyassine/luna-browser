@@ -135,6 +135,18 @@ public struct Tab: Identifiable, Sendable, Hashable, Codable {
     public var interactionState: Data?
     public var hasUnread: Bool
     public var order: Int
+    /// The Profile a Favorite belongs to — set for `.essential` rows, `nil` for every other
+    /// kind (§2, schema `v2`).
+    ///
+    /// Favorites are scoped per Profile, not per Space: a Favorite is a logged-in app
+    /// tile, and a tile that opens in a Space whose cookie jar never saw that login is a
+    /// broken tile. Arc keys its Favorites container the same way — `topAppsContainerIDs` is
+    /// a flat profile → container pair, not something a Space owns.
+    ///
+    /// The row keeps its home `spaceID` as well. That is deliberate: the session re-homes a
+    /// shared Favorite onto a surviving Space of the same Profile before a Space row is
+    /// deleted, so `tabs.spaceID`'s `ON DELETE CASCADE` never eats one.
+    public var profileID: UUID?
 
     /// Where a pinned tile goes back to when it is closed (schema `v3`).
     ///
@@ -196,6 +208,7 @@ public struct Tab: Identifiable, Sendable, Hashable, Codable {
         interactionState: Data? = nil,
         hasUnread: Bool = false,
         order: Int = 0,
+        profileID: UUID? = nil,
         pinnedURL: URL? = nil,
         customTitle: String? = nil,
         customSymbolName: String? = nil,
@@ -216,6 +229,7 @@ public struct Tab: Identifiable, Sendable, Hashable, Codable {
         self.interactionState = interactionState
         self.hasUnread = hasUnread
         self.order = order
+        self.profileID = profileID
         self.pinnedURL = pinnedURL
         self.customTitle = customTitle
         self.customSymbolName = customSymbolName
@@ -244,24 +258,7 @@ public struct Space: Identifiable, Sendable, Hashable, Codable {
     /// SF Symbol name — resolved to an image in `Design`, never here.
     public var symbolName: String
     public var gradient: GradientPair
-    /// This Space's cookie jar: it backs `WKWebsiteDataStore(forIdentifier:)`.
-    ///
-    /// One per Space, never shared. WebKit can list the identifiers it holds but cannot
-    /// say which name belongs to which, so the mapping is ours to keep — losing this
-    /// column orphans a jar in `~/Library/WebKit/WebsiteDataStore/`.
-    ///
-    /// It used to live on a row of its own that several Spaces could point at. Nothing
-    /// in the product wanted the sharing and everything in it had to explain the
-    /// sharing, so `v6` gave every Space its own and the row went (§9).
-    public var dataStoreIdentifier: UUID
-    /// The picture the user gave this Space, as PNG, or nil for none.
-    ///
-    /// In the row rather than beside it: a file on disk is a second thing to keep in
-    /// step with what it belongs to, and every operation here already knows how to keep
-    /// one row honest — deleting the Space deletes it, and nothing can leave an orphan
-    /// behind. It stays small because the app that writes it crops and downsamples
-    /// first; the column holds what is drawn, not what was chosen.
-    public var imageData: Data?
+    public var profileID: UUID
     public var order: Int
 
     public init(
@@ -269,17 +266,47 @@ public struct Space: Identifiable, Sendable, Hashable, Codable {
         name: String,
         symbolName: String,
         gradient: GradientPair,
-        dataStoreIdentifier: UUID = UUID(),
-        imageData: Data? = nil,
+        profileID: UUID,
         order: Int = 0
     ) {
         self.id = id
         self.name = name
         self.symbolName = symbolName
         self.gradient = gradient
+        self.profileID = profileID
+        self.order = order
+    }
+}
+
+/// A storage-isolated profile (§5.1).
+///
+/// `dataStoreIdentifier` backs `WKWebsiteDataStore(forIdentifier:)`. WebKit can list
+/// identifiers but cannot tell us which name belongs to which, so the mapping is ours
+/// to keep — losing this row orphans a cookie jar in `~/Library/WebKit/WebsiteDataStore/`.
+public struct Profile: Identifiable, Sendable, Hashable, Codable {
+    public var id: UUID
+    public var name: String
+    public var dataStoreIdentifier: UUID
+    /// The picture the user gave this profile, as PNG, or nil for none.
+    ///
+    /// In the row rather than beside it: a file on disk is a second thing to
+    /// keep in step with the profile it belongs to, and every operation here
+    /// already knows how to keep one row honest — deleting the profile deletes
+    /// it, and nothing can leave an orphan behind. It stays small because the
+    /// app that writes it crops and downsamples first; the column holds what is
+    /// drawn, not what was chosen.
+    public var imageData: Data?
+
+    public init(
+        id: UUID = UUID(),
+        name: String,
+        dataStoreIdentifier: UUID = UUID(),
+        imageData: Data? = nil
+    ) {
+        self.id = id
+        self.name = name
         self.dataStoreIdentifier = dataStoreIdentifier
         self.imageData = imageData
-        self.order = order
     }
 }
 
@@ -300,29 +327,26 @@ public extension UUID {
     var isZero: Bool { self == .zero }
 }
 
-public extension Space {
+public extension Profile {
     /// False when `dataStoreIdentifier` is the all-zero UUID — the one value that must
     /// never reach `WKWebsiteDataStore(forIdentifier:)`.
     ///
-    /// `spaces.dataStoreIdentifier` is `NOT NULL UNIQUE` with no value check, and SQLite
-    /// cannot gain a `CHECK` constraint without rebuilding the table every `tabs.spaceID`
+    /// `profiles.dataStoreIdentifier` is `NOT NULL UNIQUE` with no value check, and SQLite
+    /// cannot gain a `CHECK` constraint without rebuilding the table every `spaces.profileID`
     /// foreign key points at. So the invariant is enforced in Swift, on both sides of the
-    /// column: ``BrowserStore/upsert(_:)-(Space)`` refuses to write a zero identifier, and
-    /// ``BrowserStore/spaces()`` repairs one it finds on read.
+    /// column: ``BrowserStore/upsert(_:)-(Profile)`` refuses to write a zero identifier, and
+    /// ``BrowserStore/profiles()`` repairs one it finds on read.
     var hasUsableDataStoreIdentifier: Bool { !dataStoreIdentifier.isZero }
 
-    /// This Space with a freshly minted `dataStoreIdentifier` if the persisted one is
+    /// This profile with a freshly minted `dataStoreIdentifier` if the persisted one is
     /// unusable, and unchanged otherwise.
     ///
     /// Minting a new one loses nothing recoverable: a zero identifier addresses no store
-    /// on disk, because nothing could ever have created one under it. Everything else
-    /// about the Space — its `id`, which every tab references and which is the only one
-    /// §10 allows to sync, its name, its colour and its picture — survives. The user gets
-    /// an empty cookie jar for that Space instead of a crash.
-    func repairingDataStoreIdentifier() -> Space {
+    /// on disk, because nothing could ever have created one under it. The profile's name
+    /// and its `id` — the identity every `Space` references, and the only one §10 allows to
+    /// sync — survive. The user gets an empty cookie jar for that profile instead of a crash.
+    func repairingDataStoreIdentifier() -> Profile {
         guard !hasUsableDataStoreIdentifier else { return self }
-        var repaired = self
-        repaired.dataStoreIdentifier = UUID()
-        return repaired
+        return Profile(id: id, name: name, dataStoreIdentifier: UUID(), imageData: imageData)
     }
 }

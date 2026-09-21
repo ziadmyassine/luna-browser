@@ -44,7 +44,8 @@ final class BrowserSessionAdoptionTests: XCTestCase {
     func testAWholeSpaceStillArrivesWithItsTabs() async throws {
         let store = try makeStore()
         let session = try await BrowserSession.restored(store: store)
-        let space = Space(name: "Dia — Main", symbolName: "square", gradient: .defaultSpace)
+        let profileID = try XCTUnwrap(session.spaces.first?.profileID)
+        let space = Space(name: "Dia — Main", symbolName: "square", gradient: .defaultSpace, profileID: profileID)
         try await store.upsert(space)
         let arrival = Tab(spaceID: space.id, kind: .pinned, url: url("elsewhere"), title: "Elsewhere")
         try await store.upsert(arrival)

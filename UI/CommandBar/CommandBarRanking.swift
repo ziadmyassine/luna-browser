@@ -38,6 +38,14 @@ struct CommandBarSources: Sendable {
     /// same rows (§11.1: `archive` is a view over `tabs`, not a second table).
     var tabs: [Tab] = []
     var spaces: [UUID: Space] = [:]
+    /// The Profiles those Spaces name (§9 / D-S8). Keyed by `Profile.id`, which
+    /// is what `Space.profileID` holds.
+    ///
+    /// Empty is a supported state and degrades honestly: the rows below still
+    /// stay apart per Profile — that part is derived from `Space.profileID`
+    /// and needs no name — they simply carry the Space's name alone instead of
+    /// "Space · Profile". Nothing here invents a label from a UUID.
+    var profiles: [UUID: Profile] = [:]
     var adaptive: [AdaptiveEntry] = []
     /// Filled by the asynchronous `BrowserStore.searchHistory` pass, empty on the
     /// synchronous one.
@@ -50,18 +58,14 @@ struct CommandBarSources: Sendable {
     var suggestions: [String] = []
 }
 
-/// A row plus the Space whose cookie jar it belongs to, if any. Only an open or
-/// archived tab has one — a history hit, a search or a command is in no jar at
-/// all. It rides alongside the row rather than inside it: `CommandBarResult` is
-/// §9.2's public vocabulary, and the jar is a ranking concern that is spent by
-/// the time the list is built.
-///
-/// It was the Profile's id until §9's `v7` made a Space own its jar. The rule
-/// it serves is unchanged: one row per URL per jar, so the same page open in
-/// two of them is two rows, because activating one of them is not the other.
+/// A row plus the Profile whose cookie jar it belongs to, if any. Only an open
+/// or archived tab has one — a history hit, a search or a command is not in a
+/// Profile. It rides alongside the row rather than inside it: `CommandBarResult`
+/// is §9.2's public vocabulary, and the Profile is a ranking concern that is
+/// spent by the time the list is built.
 private struct RankedRow {
     var result: CommandBarResult
-    var spaceID: UUID?
+    var profileID: UUID?
 }
 
 enum CommandBarRanking {
@@ -176,7 +180,8 @@ enum CommandBarRanking {
     /// Open tabs across every Space (§9.2), badged with the Space's colour, plus
     /// the archive — which is the same rows with an `archivedAt` (§11.1).
     private static func tabRows(tokens: [String], sources: CommandBarSources) -> [RankedRow] {
-        sources.tabs.compactMap { tab -> RankedRow? in
+        let qualify = spansSeveralProfiles(sources)
+        return sources.tabs.compactMap { tab in
             // §3.4a: a renamed tab is found and shown under the name the user gave it.
             // Its own title is deliberately not also in the haystack — a tab you renamed
             // "Invoices" should not keep answering to whatever the page calls itself.
@@ -190,12 +195,12 @@ enum CommandBarRanking {
                 subtitle: CommandBarURL.displayForm(of: tab.url),
                 action: archived ? .unarchiveTab(tab.id) : .activateTab(tab.id),
                 url: tab.url,
-                badge: space.map { badge(for: $0) },
+                badge: space.map { badge(for: $0, sources: sources, qualify: qualify) },
                 // Most recently used first within the tier.
                 score: (archived ? tab.archivedAt ?? tab.lastActiveAt : tab.lastActiveAt).timeIntervalSinceReferenceDate,
                 symbolName: archived ? "archivebox" : "square.on.square"
             )
-            return RankedRow(result: result, spaceID: space?.id)
+            return RankedRow(result: result, profileID: space?.profileID)
         }
     }
 
@@ -315,29 +320,29 @@ enum CommandBarRanking {
                 slot[row.id] = out.count
                 if isTab {
                     live.insert(row.id)
-                    ranked.spaceID.map { reachable.insert(compound(row.id, $0)) }
+                    ranked.profileID.map { reachable.insert(compound(row.id, $0)) }
                 }
                 out.append(row)
                 continue
             }
             guard isTab else { continue }
-            // A tab whose Space is unknown cannot be placed in a jar; treat it
-            // as belonging to whichever one already holds this URL rather than
-            // minting a second row on a guess.
-            guard let jar = ranked.spaceID else {
+            // A tab whose Space is unknown cannot be placed in a Profile; treat
+            // it as belonging to whichever one already holds this URL rather
+            // than minting a second row on a guess.
+            guard let profile = ranked.profileID else {
                 if !live.contains(row.id) { adopt(row, into: &out[index], marking: &live) }
                 continue
             }
-            guard !reachable.contains(compound(row.id, jar)) else { continue }
-            reachable.insert(compound(row.id, jar))
+            guard !reachable.contains(compound(row.id, profile)) else { continue }
+            reachable.insert(compound(row.id, profile))
             if !live.contains(row.id) {
                 adopt(row, into: &out[index], marking: &live)
                 continue
             }
-            // Another Space has the same page open. Its own row, with its own
+            // Another Profile has the same page open. Its own row, with its own
             // identity so §9.7's selection can tell the two apart.
             var extra = row
-            extra.id = compound(row.id, jar)
+            extra.id = compound(row.id, profile)
             out.append(extra)
         }
         return out
@@ -354,12 +359,12 @@ enum CommandBarRanking {
 
     /// A row identity that is unique per (URL, Profile). The separator is a unit
     /// separator so it cannot occur inside a normalised URL.
-    private static func compound(_ id: String, _ jarID: UUID) -> String {
-        "\(id)\u{1F}\(jarID.uuidString)"
+    private static func compound(_ id: String, _ profileID: UUID) -> String {
+        "\(id)\u{1F}\(profileID.uuidString)"
     }
 
     private static func unscoped(_ result: CommandBarResult) -> RankedRow {
-        RankedRow(result: result, spaceID: nil)
+        RankedRow(result: result, profileID: nil)
     }
 
     // MARK: - Matching
@@ -385,21 +390,40 @@ enum CommandBarRanking {
         return CommandBarURL.displayForm(of: url)
     }
 
-    /// §9 / D-S8: the identity behind a row's cookies must appear wherever tabs
-    /// from different jars can meet, and the Space colour is not it — a colour
-    /// says which Space, never whose cookie jar.
+    /// True when the tabs on offer come from Spaces on more than one Profile —
+    /// the only situation in which a row needs to say whose cookies it is.
     ///
-    /// The badge already names the Space, and since `v7` a Space *is* the jar,
-    /// so naming it says both. It used to qualify the name with the Profile's
-    /// — "Work · Work Profile" — whenever the tabs on offer spanned more than
-    /// one, which is the whole of what that qualifier was for.
-    private static func badge(for space: Space) -> SpaceBadge {
+    /// With one Profile the Space badge is already enough, and "Work · Work"
+    /// on every row is noise that teaches the user to stop reading the badge.
+    private static func spansSeveralProfiles(_ sources: CommandBarSources) -> Bool {
+        var seen: Set<UUID> = []
+        for tab in sources.tabs {
+            guard let profile = sources.spaces[tab.spaceID]?.profileID else { continue }
+            seen.insert(profile)
+            if seen.count > 1 { return true }
+        }
+        return false
+    }
+
+    /// §9 / D-S8: the Profile identity must appear wherever tabs from different
+    /// Profiles can meet, and the Space colour is not it — a colour says which
+    /// Space, never whose cookie jar. It rides on the badge's `name` rather than
+    /// on a new field, so it reaches the visible chip and VoiceOver through the
+    /// path that already exists.
+    private static func badge(for space: Space, sources: CommandBarSources, qualify: Bool) -> SpaceBadge {
         // §21.2 / UI-SPEC §8: name and symbol travel with the colour, because a
         // Space must be separable without it.
         SpaceBadge(
-            name: space.name,
+            name: label(for: space, sources: sources, qualify: qualify),
             colour: space.gradient.start,
             symbolName: space.symbolName
         )
+    }
+
+    private static func label(for space: Space, sources: CommandBarSources, qualify: Bool) -> String {
+        guard qualify, let profile = sources.profiles[space.profileID] else { return space.name }
+        // A Profile named after its Space says nothing twice.
+        guard profile.name != space.name else { return space.name }
+        return "\(space.name) · \(profile.name)"
     }
 }

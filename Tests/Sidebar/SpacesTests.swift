@@ -224,7 +224,7 @@ final class SpaceDotsLayoutTests: XCTestCase {
 
     private static func strip(spaces count: Int) -> SpaceDotsView {
         let spaces = (0..<count).map {
-            Space(name: "Space \($0)", symbolName: "square.grid.2x2", gradient: .defaultSpace)
+            Space(name: "Space \($0)", symbolName: "square.grid.2x2", gradient: .defaultSpace, profileID: UUID())
         }
         let strip = SpaceDotsView()
         strip.show(spaces: spaces, activeSpaceID: spaces[0].id)

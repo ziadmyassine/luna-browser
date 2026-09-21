@@ -24,6 +24,7 @@ struct StoreMigrationTests {
 
         let reopened = try BrowserStore(path: path)
         #expect(try await reopened.spaces().count == 1)
+        #expect(try await reopened.profiles().count == 1)
         #expect(try await reopened.tabs(inSpace: spaceID, includeArchived: false).map(\.id) == [tabID])
         #expect(try await reopened.searchHistory("example", limit: 5).count == 1)
     }
@@ -48,10 +49,12 @@ struct StoreMigrationTests {
         try await store.seedIfEmpty()
 
         let spaces = try await store.spaces()
+        let profiles = try await store.profiles()
         #expect(spaces.count == 1)
-        // The seeded Space must carry a usable identifier, or the first window has no
+        #expect(profiles.count == 1)
+        // The seeded Space must point at the seeded Profile, or the first window has no
         // WKWebsiteDataStore to open (§5.1).
-        #expect(spaces[0].hasUsableDataStoreIdentifier)
+        #expect(spaces[0].profileID == profiles[0].id)
         #expect(spaces[0].symbolName.isEmpty == false)
     }
 

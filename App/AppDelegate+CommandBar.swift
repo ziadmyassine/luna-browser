@@ -45,7 +45,12 @@ extension AppDelegate {
             toggleSidebar()
         case .command(.newSpace):
             guard let session else { return }
-            Task { try? await session.createSpace(name: String(localized: "New Space")) }
+            // A Space made from the Command Bar gets its own Profile, and
+            // the `profileID:` is passed rather than defaulted: many Spaces to
+            // one Profile is now reachable (§6.1), so "new Profile" is a
+            // choice this call site is making, not one it is inheriting.
+            // Settings ▸ Spaces is where the other answer is offered.
+            Task { try? await session.createSpace(name: String(localized: "New Space"), profileID: nil) }
         case .activateTab, .open:
             // The bar performs these itself; they never reach here.
             break

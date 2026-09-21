@@ -26,9 +26,9 @@ final class SpacesSectionTests: XCTestCase {
     /// The rows whose `disabledReason` used to name the call they were waiting
     /// for — "BrowserSession can create and delete Spaces, but cannot yet
     /// rename or reorder one". The reason went; the row stayed (§30.4).
-    func testRenameReorderAndPictureAreAllLive() {
+    func testRenameReorderAndProfileAreAllLive() {
         let rows = Self.rowsForOneSpace()
-        for title in ["Name", "Position in the sidebar", "Picture"] {
+        for title in ["Name", "Position in the sidebar", "Profile"] {
             let row = rows.first { $0.accessibilityLabel() == title || Self.title(of: $0) == title }
             XCTAssertNotNil(row, "no row titled “\(title)”")
             // `SettingsRowView.acceptsFirstResponder` is `!isEnabled`: §4 puts a
@@ -60,7 +60,7 @@ final class SpacesSectionTests: XCTestCase {
     /// opens with nothing selected is a picker that cannot tell you what you
     /// have.
     func testTheAppearanceGridOpensOnTheSpacesOwnColourAndIcon() {
-        let space = Space(name: "Work", symbolName: "flask", gradient: Tokens.Gradient.spacePalette[3])
+        let space = Space(name: "Work", symbolName: "flask", gradient: Tokens.Gradient.spacePalette[3], profileID: UUID())
         let view = SpaceAppearanceView(space: space, onGradient: { _ in }, onIcon: { _ in })
         let swatches = Self.descendants(of: view).compactMap { $0 as? SpaceSwatchChip }
         let symbols = Self.descendants(of: view).compactMap { $0 as? SpaceSymbolChip }
@@ -81,7 +81,7 @@ final class SpacesSectionTests: XCTestCase {
         )
         let text = Self.descendants(of: card).compactMap { ($0 as? NSTextField)?.stringValue }
         XCTAssertTrue(text.contains(space.name), "the card does not name its Space")
-        XCTAssertTrue(text.contains { $0.contains("Favorite") }, "\(text)")
+        XCTAssertTrue(text.contains { $0.contains("profile ·") }, "\(text)")
     }
 
     /// Whatever the rows say, none of them may still be advertising a method
@@ -110,66 +110,78 @@ final class SpacesSectionTests: XCTestCase {
         XCTAssertEqual(delete?.accessibilityHelp(), "A window must always have at least one Space.")
     }
 
-    // MARK: - Goal 13: what the card's head says
+    // MARK: - Goal 13: the fan-out
 
-    /// It was §9's fan-out — "Work profile · shared with 3 Spaces · 4
-    /// Favorites" — the line no other browser shows, and the answer to the
-    /// most-reported conceptual confusion in every review of Arc. `v7` answered
-    /// that confusion by ending the sharing instead of explaining it, so what
-    /// is left to say is whose tiles these are.
-    func testTheCardsHeadNamesTheSpaceAndCountsItsFavorites() {
-        let label = SpacesSection.fanOutLabel(spaceName: "Work", favorites: 4)
-        XCTAssertTrue(label.contains("Work"), label)
+    /// Arc has no UI anywhere that shows this, and neither does Chrome or
+    /// Firefox. Space → Profile is many-to-one and nothing ever tells you,
+    /// which is the root of the most-reported conceptual confusion in every
+    /// review of Arc — predicted by Mozilla in 2016 and still open.
+    func testTheFanOutLabelNamesTheProfileAndCountsItsSpaces() {
+        let label = SpacesSection.fanOutLabel(
+            profileName: "Work",
+            spacesOnProfile: [Self.space("Work"), Self.space("Research"), Self.space("Side Project")],
+            favorites: 4
+        )
+        XCTAssertTrue(label.contains("Work profile"), label)
+        XCTAssertTrue(label.contains("3 Spaces"), label)
         XCTAssertTrue(label.contains("4 Favorites"), label)
-        XCTAssertFalse(label.contains("shared"), "there is nothing left to share")
     }
 
-    /// One Favorite must not read "1 Favorites".
-    func testOneFavoriteIsSingular() {
-        let label = SpacesSection.fanOutLabel(spaceName: "Personal", favorites: 1)
+    /// A profile with one Space must not read "shared with 1 Spaces" — the
+    /// label's whole job is to distinguish the two cases.
+    func testAProfileWithOneSpaceDoesNotClaimToBeShared() {
+        let label = SpacesSection.fanOutLabel(
+            profileName: "Personal",
+            spacesOnProfile: [Self.space("Personal")],
+            favorites: 1
+        )
+        XCTAssertTrue(label.contains("this Space only"), label)
+        XCTAssertFalse(label.contains("shared"), label)
         XCTAssertTrue(label.contains("1 Favorite"), label)
-        XCTAssertFalse(label.contains("1 Favorites"), label)
     }
 
-    /// §2's search still finds a Space by the words a user would type for the
-    /// thing that used to be a Profile — the concept went, the vocabulary
-    /// people arrive with did not.
-    func testSearchStillFindsASpaceByTheOldVocabulary() {
+    /// The label reaches the user, not only the unit test: §2's search still
+    /// finds a Space by its profile's name, even though the line itself has
+    /// moved up onto the card's head.
+    func testTheFanOutLabelIsIndexedByTheProfileRow() {
         let space = Self.space("Work")
         let terms = SpacesSection().spaceRows(space, at: 0, of: [space], session: nil)
-            .flatMap(\.terms)
-        for word in ["picture", "profile picture", "cookies"] {
-            XCTAssertTrue(terms.contains(word), "“\(word)” finds nothing: \(terms)")
-        }
+            .first { $0.terms.contains("profile") }?.terms ?? []
+        XCTAssertTrue(terms.contains { $0.contains("profile ·") }, "\(terms)")
     }
 
     // MARK: - §6.4's deletion dialog
 
     /// Firefox warns about the tab count and says nothing about the cookies and
     /// logins it destroys. Chrome itemises the data and never says it
-    /// force-closes your windows. Luna says both.
+    /// force-closes your windows. Luna says both — and a third clause neither
+    /// of them has to.
     func testTheDeletionDialogNamesTabsAndData() {
-        let detail = SpacesSection.deletionDetail(spaceName: "Work", tabs: 12, sites: 34)
+        let detail = SpacesSection.deletionDetail(profileName: "Work", tabs: 12, sites: 34, sharing: [])
         XCTAssertTrue(detail.contains("12 open tabs"), detail)
         XCTAssertTrue(detail.contains("cookies, logins and site data for 34 sites"), detail)
         XCTAssertTrue(detail.contains("Undo"), detail)
     }
 
-    /// The clause that used to have two forms. A shared profile's jar was not
-    /// deleted with the Space that named it, so the sentence had to say whether
-    /// the cookies were going — and §6.4's example sentence promised the
-    /// deletion and the sharing in one breath, which was false in exactly the
-    /// case it existed for. There is one true thing to say now, and the part
-    /// worth holding is that it never overpromises: no other Space is signed
-    /// out, because no other Space could be.
-    func testTheDialogPromisesNothingAboutOtherSpaces() {
-        let detail = SpacesSection.deletionDetail(spaceName: "Work", tabs: 12, sites: nil)
-        XCTAssertTrue(detail.contains("No other Space is signed out"), detail)
-        XCTAssertTrue(detail.contains("Work's cookies"), detail)
+    /// The clause with no prior art. And it says the true thing: a shared
+    /// profile's cookie jar is not deleted at all, because `deleteSpace` only
+    /// removes a store no surviving Space names. §6.4's example sentence
+    /// promises the deletion and the fan-out in one breath, which is false in
+    /// exactly the case the clause exists for.
+    func testASharedProfileIsNamedAndItsCookiesAreNotPromisedAway() {
+        let detail = SpacesSection.deletionDetail(
+            profileName: "Work",
+            tabs: 12,
+            sites: nil,
+            sharing: ["Research", "Side Project"]
+        )
+        XCTAssertTrue(detail.contains("Spaces Research and Side Project"), detail)
+        XCTAssertTrue(detail.contains("Work profile"), detail)
+        XCTAssertFalse(detail.contains("permanently deletes"), detail)
     }
 
     func testTheDeletionDialogIsSingularForOneTab() {
-        let detail = SpacesSection.deletionDetail(spaceName: "Work", tabs: 1, sites: 2)
+        let detail = SpacesSection.deletionDetail(profileName: "Work", tabs: 1, sites: 2, sharing: [])
         XCTAssertTrue(detail.contains("1 open tab is kept"), detail)
         XCTAssertFalse(detail.contains("1 open tabs"), detail)
     }
@@ -188,7 +200,7 @@ final class SpacesSectionTests: XCTestCase {
     // MARK: - Bits
 
     private static func space(_ name: String) -> Space {
-        Space(name: name, symbolName: "square.grid.2x2", gradient: .defaultSpace)
+        Space(name: name, symbolName: "square.grid.2x2", gradient: .defaultSpace, profileID: UUID())
     }
 
     private static func rowsForOneSpace() -> [SettingsRowView] {

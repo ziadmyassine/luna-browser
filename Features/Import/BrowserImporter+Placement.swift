@@ -50,8 +50,9 @@ extension BrowserImporter {
         // The Space is looked up rather than passed in because a dry run is
         // handed an id nothing was created for; that case counts nothing
         // against the cap and writes nothing at all.
-        let exists = try await store.spaces().contains { $0.id == spaceID }
-        var favourites = exists ? try await store.favorites(inSpace: spaceID).count : 0
+        let profileID = try await store.spaces().first { $0.id == spaceID }?.profileID
+        var favourites = 0
+        if let profileID { favourites = try await store.favorites(onProfile: profileID).count }
 
         var added = 0
         var skipped = 0
@@ -79,7 +80,12 @@ extension BrowserImporter {
                 title: bookmark.title,
                 createdAt: when,
                 lastActiveAt: when,
-                order: order
+                order: order,
+                // Set for `.essential` and nil for everything else, which is
+                // the column's rule. Left nil, an imported Favorite is invisible
+                // to `favorites(onProfile:)` — it renders only because the
+                // session derives the Profile from the Space instead.
+                profileID: kind == .essential ? profileID : nil
             ))
             order += 1
         }
@@ -122,18 +128,23 @@ extension BrowserImporter {
             return match.id
         }
 
-        // A dry run creates nothing at all. It reports the id it would have
-        // used so a screen can still say where things would land.
+        // A dry run creates nothing at all — not the Space, and not the
+        // Profile `seedIfEmpty` would stand up underneath it. It reports the id
+        // it would have used so a screen can still say where things would land.
         guard !dryRun else { return UUID() }
 
         // `seedIfEmpty` is a no-op once anything exists; it is here so an
-        // import during onboarding — before the user has opened a window —
-        // lands in a database that has been stood up.
+        // import during onboarding — before the user has opened a window — has
+        // a Profile to hang the Space off.
         try await store.seedIfEmpty()
+        guard let profile = try await store.profiles().first else {
+            throw ImportError.unreadable(String(localized: "Luna's own database"))
+        }
         let space = Space(
             name: name,
             symbolName: "square.and.arrow.down",
             gradient: .defaultSpace,
+            profileID: profile.id,
             order: (spaces.map(\.order).max() ?? -1) + 1
         )
         try await store.upsert(space)

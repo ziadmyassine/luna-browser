@@ -99,13 +99,20 @@ final class SettingsGroupingTests: XCTestCase {
         )
     }
 
-    // MARK: - §6.2's card
+    // MARK: - §9's card
 
-    /// §9's picture is a row on the Space's own card. It was a row on a
-    /// Profile's card until `v7` deleted the Profile and moved the column.
-    func testASpaceCardCarriesThePictureRow() {
-        let space = Space(name: "Personal", symbolName: "moon", gradient: .defaultSpace)
-        let rows = SpacesSection().spaceRows(space, at: 0, of: [space], session: nil)
+    /// The fan-out line is not one of the card's rows: it said on a Profile's
+    /// card what every Space's card above it already says about itself.
+    ///
+    /// Asserted on the terms rather than on the row count, which is what this
+    /// said first and was wrong within the hour — §9's picture is a row, and a
+    /// count cannot tell a row that was added from a row that came back.
+    func testAProfileCardCarriesNoFanOutLine() {
+        let rows = SpacesSection().profileRows(Profile(name: "Personal"), session: nil)
+        XCTAssertFalse(
+            rows.contains { $0.terms.contains { $0.contains("profile ·") } },
+            "the fan-out line is still on the card"
+        )
         XCTAssertTrue(rows.contains { $0.terms.contains("picture") }, "§9's picture row is missing")
     }
 

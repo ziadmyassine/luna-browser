@@ -31,10 +31,8 @@
 //  that shares a Profile, because a Favorite is a logged-in app tile and a tile
 //  that opens in a Space whose cookie jar never saw that login is a broken tile.
 //  Arc keys its Favorites container by profile — `topAppsContainerIDs` is a flat
-//  profile → container pair in its own `StorableSidebar.json` — and Luna's was the
-//  same shape until §9's `v7`. A Space owns its cookie jar now and nothing else
-//  does, so the tier that belonged to the jar belongs to the Space: everything
-//  here is per-Space, and there is no second key to resolve.
+//  profile → container pair in its own `StorableSidebar.json` — and Luna's model
+//  is the same shape: per-profile favourites, per-space everything else.
 //
 //  So the storage stays keyed by Space (an `.essential` row keeps the home Space
 //  it was created in, which is what the `tabs.spaceID` foreign key cascades on)
@@ -72,15 +70,18 @@ struct TabList: Sendable {
     var bySpace: [UUID: [Tab]]
     var groupsBySpace: [UUID: [TabGroup]]
     /// Space → Profile. Only Favorites care, but they care everywhere.
-    init(_ bySpace: [UUID: [Tab]] = [:], groups: [UUID: [TabGroup]] = [:]) {
+    var profileBySpace: [UUID: UUID]
+
+    init(_ bySpace: [UUID: [Tab]] = [:], groups: [UUID: [TabGroup]] = [:], profiles: [UUID: UUID] = [:]) {
         self.bySpace = bySpace.mapValues(Self.sorted)
         groupsBySpace = groups
+        profileBySpace = profiles
     }
 
     /// The Space's own saved and today tabs in the order §3.4 draws them — a
     /// group's members inline under it — plus its Profile's Favorites in front.
     subscript(spaceID: UUID) -> [Tab] {
-        var result = favorites(inSpace: spaceID)
+        var result = favoritesShown(inSpace: spaceID)
         for kind in Self.listedKinds {
             for slot in slots(inSpace: spaceID, kind: kind) {
                 switch slot {
@@ -106,7 +107,7 @@ struct TabList: Sendable {
     func indexInSection(of id: UUID) -> Int? {
         guard let tab = tab(id) else { return nil }
         if tab.kind == .essential {
-            return favorites(inSpace: tab.spaceID).firstIndex { $0.id == id }
+            return favoritesShown(inSpace: tab.spaceID).firstIndex { $0.id == id }
         }
         if let groupID = tab.groupID {
             return members(ofGroup: groupID).firstIndex { $0.id == id }
@@ -117,7 +118,7 @@ struct TabList: Sendable {
     /// The index a tab opening now would take at the end of its run.
     func nextOrder(kind: TabKind, in spaceID: UUID) -> Int {
         kind == .essential
-            ? favorites(inSpace: spaceID).count
+            ? favoritesShown(inSpace: spaceID).count
             : slots(inSpace: spaceID, kind: kind).count
     }
 
@@ -134,31 +135,41 @@ struct TabList: Sendable {
         kind == .today ? 0 : nil
     }
 
-    // MARK: - Favorites (§2)
+    // MARK: - Profiles (§2)
 
-    /// Every Favorite in a Space, ordered — §3.3's tier itself. Capped by
-    /// `BrowserSession.favoritesCap`, which is policy and therefore not
-    /// enforced here.
-    ///
-    /// It was a Profile's tier, pooled across every Space sharing one, until
-    /// §9's `v7` gave each Space its own jar. A Favorite is a logged-in app
-    /// tile and it still belongs to the jar that holds the login; there is
-    /// simply nothing between the Space and its jar any more.
-    func favorites(inSpace spaceID: UUID) -> [Tab] {
-        own(spaceID)
+    /// Every Favorite on a Profile, ordered — the per-Profile tier itself.
+    /// Capped by `BrowserSession.favoritesCap`, which is policy and therefore
+    /// not enforced here.
+    func favorites(onProfile id: UUID) -> [Tab] {
+        spaceIDs(onProfile: id)
+            .flatMap { own($0) }
             .filter { $0.kind == .essential }
             .sorted { ($0.order, $0.createdAt) < ($1.order, $1.createdAt) }
     }
 
+    func profileID(ofSpace spaceID: UUID) -> UUID? { profileBySpace[spaceID] }
+
+    mutating func setProfiles(_ map: [UUID: UUID]) { profileBySpace = map }
+
+    /// Re-points one Space at a Profile. The caller is responsible for what
+    /// happens to Favorites homed in that Space — see
+    /// `BrowserSession.setProfile(_:forSpace:)`, which re-homes them onto a
+    /// surviving Space of the old Profile first.
+    mutating func setProfile(_ profileID: UUID, forSpace spaceID: UUID) {
+        profileBySpace[spaceID] = profileID
+    }
+
     /// Adds an empty Space so `switchSpace` has somewhere to land.
-    mutating func addSpace(_ spaceID: UUID) {
+    mutating func addSpace(_ spaceID: UUID, profileID: UUID? = nil) {
         bySpace[spaceID] = []
         groupsBySpace[spaceID] = []
+        if let profileID { profileBySpace[spaceID] = profileID }
     }
 
     mutating func removeSpace(_ spaceID: UUID) {
         bySpace[spaceID] = nil
         groupsBySpace[spaceID] = nil
+        profileBySpace[spaceID] = nil
     }
 
     /// Replaces a tab in place. Silently does nothing if it is gone — the tab
@@ -188,10 +199,10 @@ struct TabList: Sendable {
     }
 
     private mutating func place(_ tab: Tab, at index: Int?) -> TabListWrites {
-        if tab.kind == .essential {
-            var favorites = favorites(inSpace: tab.spaceID).filter { $0.id != tab.id }
+        if tab.kind == .essential, let profile = profileBySpace[tab.spaceID] {
+            var favorites = favorites(onProfile: profile).filter { $0.id != tab.id }
             favorites.insert(tab, at: Self.clamp(index, to: favorites.count))
-            return TabListWrites(tabs: apply(favorites, inSpace: tab.spaceID))
+            return TabListWrites(tabs: apply(favorites, onProfile: profile))
         }
         if let groupID = tab.groupID, let group = group(groupID) {
             var members = members(ofGroup: groupID).filter { $0.id != tab.id }
@@ -209,11 +220,8 @@ struct TabList: Sendable {
     @discardableResult
     mutating func remove(_ id: UUID) -> TabListWrites {
         guard let existing = tab(id) else { return TabListWrites() }
-        if existing.kind == .essential {
-            return TabListWrites(tabs: apply(
-                favorites(inSpace: existing.spaceID).filter { $0.id != id },
-                inSpace: existing.spaceID
-            ))
+        if existing.kind == .essential, let profile = profileBySpace[existing.spaceID] {
+            return TabListWrites(tabs: apply(favorites(onProfile: profile).filter { $0.id != id }, onProfile: profile))
         }
         if let groupID = existing.groupID, let group = group(groupID) {
             return apply(members(ofGroup: groupID).filter { $0.id != id }, ofGroup: group)
@@ -224,29 +232,51 @@ struct TabList: Sendable {
 
     // MARK: - Storage
 
-    /// What is actually stored for a Space — its own rows, Favorites included.
-    /// Every mutation works on this; only reads go through `self[spaceID]`.
+    /// What is actually stored for a Space — its own rows, Favorites included,
+    /// with no Profile resolution. Every mutation works on this; only reads go
+    /// through `self[spaceID]`. Renumbering the resolved list would write
+    /// another Space's Favorites into this one.
     func own(_ spaceID: UUID) -> [Tab] { bySpace[spaceID] ?? [] }
 
-    /// Writes a Space's Favorites back, renumbered `0..<n`.
+    /// The Favorites §3.3's grid draws for this Space: the Profile's whole
+    /// tier, or — with no Profile registered — the Space's own rows.
+    private func favoritesShown(inSpace spaceID: UUID) -> [Tab] {
+        guard let profile = profileBySpace[spaceID] else {
+            return own(spaceID).filter { $0.kind == .essential }
+        }
+        return favorites(onProfile: profile)
+    }
+
+    func spaceIDs(onProfile id: UUID) -> [UUID] {
+        // Sorted so the flat-mapped Favorites list is the same on every launch
+        // whatever order the dictionary iterates in. `order` decides the
+        // arrangement; this only decides how ties break.
+        profileBySpace.filter { $0.value == id }.keys.sorted { $0.uuidString < $1.uuidString }
+    }
+
+    /// Writes a Profile's Favorites back, renumbered `0..<n` across the Profile
+    /// and each one filed under the Space it belongs to.
     /// - Returns: every Favorite written, for the caller to persist.
-    private mutating func apply(_ favorites: [Tab], inSpace spaceID: UUID) -> [Tab] {
-        bySpace[spaceID]?.removeAll { $0.kind == .essential }
+    private mutating func apply(_ favorites: [Tab], onProfile profile: UUID) -> [Tab] {
+        for spaceID in spaceIDs(onProfile: profile) {
+            bySpace[spaceID]?.removeAll { $0.kind == .essential }
+        }
         var written: [Tab] = []
         written.reserveCapacity(favorites.count)
         for (position, favorite) in favorites.enumerated() {
             var favorite = favorite
             favorite.kind = .essential
             favorite.order = position
-            favorite.spaceID = spaceID
             // A tile is one tab in one slot; there is nothing in §3.3's grid for
             // a group to be, so carrying one up there leaves it behind (§3.4b).
             favorite.groupID = nil
             favorite.isDormant = false
-            bySpace[spaceID, default: []].append(favorite)
+            bySpace[favorite.spaceID, default: []].append(favorite)
             written.append(favorite)
         }
-        bySpace[spaceID] = Self.sorted(own(spaceID))
+        for spaceID in spaceIDs(onProfile: profile) {
+            bySpace[spaceID] = Self.sorted(own(spaceID))
+        }
         return written
     }
 

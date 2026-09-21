@@ -20,7 +20,8 @@ final class CommandBarRankingTests: XCTestCase {
     private let workSpace = Space(
         name: "Work",
         symbolName: "hammer",
-        gradient: .defaultSpace
+        gradient: .defaultSpace,
+        profileID: UUID()
     )
 
     private func url(_ text: String) -> URL { URL(string: text)! }

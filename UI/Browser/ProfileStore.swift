@@ -41,14 +41,14 @@ final class ProfileStore {
     /// (§3.1) — but this is the call that would crash un-catchably if one ever did,
     /// so it checks anyway and answers with a non-persistent store: the safe wrong
     /// answer, because it leaks nothing into a profile the user did not mean.
-    func dataStore(for space: Space) -> WKWebsiteDataStore {
-        if let existing = live[space.id] { return existing }
-        guard space.hasUsableDataStoreIdentifier else {
-            assertionFailure("Space \(space.id) reached WebKit with the all-zero data store identifier.")
+    func dataStore(for profile: Profile) -> WKWebsiteDataStore {
+        if let existing = live[profile.id] { return existing }
+        guard profile.hasUsableDataStoreIdentifier else {
+            assertionFailure("Profile \(profile.id) reached WebKit with the all-zero data store identifier.")
             return .nonPersistent()
         }
-        let store = WKWebsiteDataStore(forIdentifier: space.dataStoreIdentifier)
-        live[space.id] = store
+        let store = WKWebsiteDataStore(forIdentifier: profile.dataStoreIdentifier)
+        live[profile.id] = store
         return store
     }
 
@@ -64,15 +64,15 @@ final class ProfileStore {
     /// queued in `UserDefaults` and finished by the next launch's
     /// ``sweepOrphans(keeping:)``, because failing a Space deletion over a
     /// directory that will be gone in thirty seconds helps nobody.
-    func remove(_ space: Space) async throws {
+    func remove(_ profile: Profile) async throws {
         // Drop our own reference FIRST — a cached store reference is itself one
         // of the things that blocks removal. Ora's `profileCache` has no eviction
         // path, so even calling `remove(forIdentifier:)` would fail there forever.
-        live[space.id] = nil
-        await remover.remove(space.dataStoreIdentifier)
+        live[profile.id] = nil
+        await remover.remove(profile.dataStoreIdentifier)
     }
 
-    /// Deletes every store on disk that no live Space names. Call at launch.
+    /// Deletes every store on disk that no live profile names. Call at launch.
     ///
     /// Cheap, because WebKit is the registry (§3.1): a delete that failed
     /// yesterday is still listed today, so orphan recovery costs one diff.

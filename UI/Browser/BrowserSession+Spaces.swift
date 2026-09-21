@@ -3,22 +3,29 @@
 //  Luna
 //
 //  The Space half of the coordinator (spec §6): create, rename, reorder,
-//  re-icon, re-gradient, re-picture, delete — and the Favorites tier those
-//  operations have to keep whole.
+//  re-icon, re-gradient, re-profile, delete — and the per-Profile Favorites
+//  tier those operations have to keep whole.
 //
-//  Two things here are not obvious, and they are why the file exists:
+//  Three things here are not obvious, and they are why the file exists:
+//
+//  · Changing a Space's Profile rebuilds every web view in it. A `WKWebView`'s
+//    data store is fixed at construction, so setting the field without
+//    rebuilding leaves every loaded tab writing to the old cookie jar until
+//    something unloads it — Nook's `assign(spaceId:toProfile:)` does exactly
+//    that, and zen#15023 is the same bug. The fix is destroy, recreate, restore:
+//    `interactionState` survives, because it is the tab's history and scroll
+//    position rather than the store's. The session does not, so the UI has to
+//    say the user will be logged out before the call, not after.
 //
 //  · Deleting a Space never destroys a tab. `.archiveTabs` archives them and
 //    `.adopt(into:)` re-homes them; either way the rows move to a surviving
 //    Space before the Space row goes, because `tabs.spaceID` cascades and a
 //    cascade is not undoable. Vivaldi closes the tabs with no undo.
 //
-//  · A Space owns its cookie jar (§9, schema `v7`). It named a Profile row that
-//    several Spaces could share until then, and the operation that re-pointed
-//    one had to tear down every web view in it — a `WKWebView`'s data store is
-//    fixed at construction, so setting the field alone left every loaded tab
-//    writing to the old jar, which is Nook's `assign(spaceId:toProfile:)` and
-//    zen#15023. Nothing can re-point a Space now, so nothing has to.
+//  · Favorites belong to the Profile (§2). An `.essential` row still keeps a
+//    home Space for the foreign key, so every operation that removes or
+//    re-points a Space first re-homes the Profile's Favorites onto a Space that
+//    survives it — `keepFavorites(ofSpace:)`.
 //
 //  Not here, deliberately: no window-close-on-last-tab rule. When one comes it
 //  is evaluated over the window, never the visible Space. zen#9272 took the
@@ -45,8 +52,25 @@ extension BrowserSession {
 
     // MARK: - Reading
 
-    /// A Space's Favorites — §3.3's tier itself (§2).
-    func favorites(inSpace id: UUID) -> [Tab] { list.favorites(inSpace: id) }
+    /// Which Spaces share a Profile — the fan-out C's Settings label needs, and
+    /// the set every Favorites operation is scoped to. Arc shows this nowhere,
+    /// and it is the most-reported conceptual confusion in reviews of it.
+    func spaces(onProfile id: UUID) -> [Space] {
+        spaces.filter { $0.profileID == id }
+    }
+
+    /// The Profile a tab's cookies actually belong to.
+    ///
+    /// Derived from the tab's home Space rather than read off the row. A
+    /// `tabs.profileID` column is specified to agent A and is the durable
+    /// model; when it lands, this is the one line that changes.
+    func profileID(ofTab id: UUID) -> UUID? {
+        list.tab(id).flatMap { space($0.spaceID)?.profileID }
+    }
+
+    /// A Profile's Favorites — the per-Profile tier itself (§2). Every Space on
+    /// the Profile shows exactly this list.
+    func favorites(onProfile id: UUID) -> [Tab] { list.favorites(onProfile: id) }
 
     /// Arc's cap, and its two other constraints come with it: zero is allowed,
     /// and the tier loads lazily — which Luna gets for free, because a Favorite
@@ -55,25 +79,37 @@ extension BrowserSession {
 
     // MARK: - Create (§6.1)
 
-    /// A new Space, with a cookie jar of its own.
+    /// A new Space, optionally sharing an existing Profile.
     ///
-    /// Every Space gets its own and always did in practice: the sharing that
-    /// `profileID:` used to select was in the schema, reachable from one popup,
-    /// and gone with §9's `v7`. A new Space starts signed out of everything.
+    /// `profileID: nil` mints a fresh Profile, which is what every Space got
+    /// before this existed — many-Spaces-to-one-Profile was in the schema and
+    /// unreachable from the app. Passing an existing id is how Work and Work
+    /// Admin end up in one cookie jar.
     ///
     /// The Space lands next to the active one, not at the end (§13.10).
     @discardableResult
-    func createSpace(name: String) async throws -> Space {
+    func createSpace(name: String, profileID: UUID? = nil) async throws -> Space {
         let name = try Self.spaceName(from: name)
+        let profile: Profile
+        if let profileID {
+            guard let existing = profiles[profileID] else { throw SessionError.unknownProfile }
+            profile = existing
+        } else {
+            profile = Profile(name: name)
+            try await store.upsert(profile)
+            profiles[profile.id] = profile
+        }
+
         let index = spaces.firstIndex { $0.id == activeSpaceID }.map { $0 + 1 } ?? spaces.count
         let space = Space(
             name: name,
             symbolName: Self.defaultSpaceSymbol,
             gradient: nextGradient(spaces.map(\.gradient)),
+            profileID: profile.id,
             order: index
         )
         spaces.insert(space, at: index)
-        list.addSpace(space.id)
+        list.addSpace(space.id, profileID: profile.id)
         try await store.upsert(space)
         try await renumberSpaces()
         switchSpace(space.id)
@@ -97,9 +133,12 @@ extension BrowserSession {
         let onDisk = try await store.spaces()
         let arrived = onDisk.filter { !known.contains($0.id) }
         if !arrived.isEmpty {
+            for profile in try await store.profiles() where profiles[profile.id] == nil {
+                profiles[profile.id] = profile
+            }
             for space in arrived {
                 spaces.append(space)
-                list.addSpace(space.id)
+                list.addSpace(space.id, profileID: space.profileID)
             }
         }
         var adopted = 0
@@ -120,7 +159,12 @@ extension BrowserSession {
 
     func renameSpace(_ id: UUID, to name: String) async throws {
         let name = try Self.spaceName(from: name)
+        // Read before the write: `followSpaceRename` needs to know whether the
+        // Profile was still wearing this Space's name to decide whether it
+        // should go on wearing it.
+        let was = space(id)?.name
         try await mutateSpace(id) { $0.name = name }
+        if let was { try await followSpaceRename(of: id, from: was, to: name) }
     }
 
     /// The longest name a Space may carry.
@@ -161,15 +205,6 @@ extension BrowserSession {
         try await mutateSpace(id) { $0.gradient = gradient }
     }
 
-    /// The picture §3.5's avatar wears, or nil to take it off again.
-    ///
-    /// The bytes are already cropped and downsampled by the time they arrive —
-    /// see `ProfilePicture`, which is where a chosen file becomes something
-    /// worth persisting. This is the write, not the policy.
-    func setImage(_ data: Data?, forSpace id: UUID) async throws {
-        try await mutateSpace(id) { $0.imageData = data }
-    }
-
     /// Moves a Space to `index` and renumbers the rest.
     ///
     /// Trivial only because `BrowserStore.spaces()` renumbers drifted order to
@@ -184,12 +219,68 @@ extension BrowserSession {
         try await renumberSpaces()
     }
 
+    // MARK: - Changing a Space's Profile (§3.3)
+
+    /// Re-points a Space at another Profile and rebuilds every web view in it.
+    ///
+    /// The rebuild is not cosmetic: a `WKWebView`'s `websiteDataStore` is fixed
+    /// when it is constructed, so a tab loaded before the switch keeps reading
+    /// and writing the old Profile's cookies for as long as its web view lives.
+    /// Setting the field without rebuilding is a silent cross-profile leak.
+    /// Warn with ``crossProfileMoveWarning`` before calling this.
+    func setProfile(_ profileID: UUID, forSpace id: UUID) async throws {
+        guard let space = space(id) else { throw SessionError.unknownSpace }
+        guard profiles[profileID] != nil else { throw SessionError.unknownProfile }
+        guard space.profileID != profileID else { return }
+        let previous = space.profileID
+
+        // Favorites are the old Profile's, not this Space's. They stay with it
+        // if it still has somewhere to live; if this was its last Space they
+        // come along, and the cap is re-checked on the far side.
+        keepFavorites(ofSpace: id, onProfile: previous)
+
+        // Which tabs were awake, so the same ones are awake afterwards. Every
+        // controller goes, live or cold: a cold one still holds the old store
+        // and would hand it to the next `activate()`.
+        let live = list[id].filter { controllers[$0.id] != nil }.map(\.id)
+        let wasActive = activeTabBySpace[id]
+        for tab in list[id] { discardController(tab.id) }
+
+        try await mutateSpace(id) { $0.profileID = profileID }
+        list.setProfile(profileID, forSpace: id)
+
+        // Rebuilt against the new Profile's store: `ensureController` asks
+        // `dataStore(forSpace:)` afresh, and the `Tab` still carries the
+        // `interactionState` blob `discardController` cached on its way out.
+        for tabID in live {
+            guard let tab = list.tab(tabID) else { continue }
+            _ = ensureController(for: tab)
+        }
+        if let wasActive, list.tab(wasActive) != nil { activateTab(wasActive) }
+
+        enforceFavoritesCap(onProfile: profileID)
+        try await discardProfileIfUnused(previous)
+        notifyChange()
+    }
+
     // MARK: - Favorites (§2)
 
-    /// Arc's cap of 12. The overflow is demoted, never deleted: it becomes a
+    /// Moves the Favorites homed in `spaceID` onto another Space of the same
+    /// Profile, so losing or re-pointing this Space does not lose the Profile's
+    /// tiles. A no-op when this is the Profile's only Space — the tiles then
+    /// travel with it, which is the only place left for them to go.
+    func keepFavorites(ofSpace spaceID: UUID, onProfile profileID: UUID) {
+        guard let survivor = spaces.first(where: { $0.id != spaceID && $0.profileID == profileID }) else { return }
+        for favorite in list[spaceID] where favorite.kind == .essential && favorite.spaceID == spaceID {
+            rehome(favorite.id, to: survivor.id, as: .essential, archiving: false)
+        }
+    }
+
+    /// Arc's cap of 12, applied to a Profile whose tiles have just been pooled
+    /// with another's. The overflow is demoted, never deleted: it becomes a
     /// pinned tab in the Space it already lives in, least recently used first.
-    func enforceFavoritesCap(inSpace id: UUID) {
-        let favorites = list.favorites(inSpace: id)
+    func enforceFavoritesCap(onProfile id: UUID) {
+        let favorites = list.favorites(onProfile: id)
         guard favorites.count > Self.favoritesCap else { return }
         for tab in favorites.sorted(by: { $0.lastActiveAt > $1.lastActiveAt }).dropFirst(Self.favoritesCap) {
             rehome(tab.id, to: tab.spaceID, as: .pinned, archiving: false)
@@ -198,7 +289,7 @@ extension BrowserSession {
 
     // MARK: - Launch
 
-    /// Deletes every `WKWebsiteDataStore` on disk that no Space names, and
+    /// Deletes every `WKWebsiteDataStore` on disk that no Profile names, and
     /// drains the deferred-removal queue while it is there (spec §3.1, §3.2).
     ///
     /// Redirects the sweep away from the disk, and the only way to run it
@@ -320,4 +411,11 @@ extension BrowserSession {
         notifyChange()
     }
 
+    /// Removes a Profile's store and its row once no Space names it (§6.3).
+    func discardProfileIfUnused(_ id: UUID) async throws {
+        guard let profile = profiles[id], !spaces.contains(where: { $0.profileID == id }) else { return }
+        try await profileStore.remove(profile)
+        profiles[id] = nil
+        try await store.delete(profileID: id)
+    }
 }

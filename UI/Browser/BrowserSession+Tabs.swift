@@ -188,27 +188,19 @@ extension BrowserSession {
         return tab
     }
 
-    /// True when moving this tab into that Space would cross into another
-    /// cookie jar — the case that costs the user their session, and the one
-    /// that must never happen silently. Ask before `moveTab`, and say
+    /// True when moving this tab into that Space crosses a Profile
+    /// boundary — the case that costs the user their session, and the one that
+    /// must never happen silently. Ask before `moveTab`, and say
     /// ``crossProfileMoveWarning``.
-    ///
-    /// Every move between Spaces crosses one now: a Space owns its jar (§9), so
-    /// the boundary is the Space. It used to be true only of the moves that
-    /// also changed profile, which was most of them and looked like a rule.
     func moveCrossesProfileBoundary(_ id: UUID, toSpace spaceID: UUID) -> Bool {
-        guard let tab = list.tab(id), space(spaceID) != nil else { return false }
-        return tab.spaceID != spaceID
+        guard let from = profileID(ofTab: id), let to = space(spaceID)?.profileID else { return false }
+        return from != to
     }
 
     /// Arc's wording, which is the best of the four researched: Firefox refuses
     /// the operation outright with a 500-word essay, Chrome refuses it in a
     /// comment (`// Profiles must be the same.`), and Zen allows it silently and
     /// it does not work (zen#11268).
-    ///
-    /// "Profile" is the user's word for a Space (§9). The sentence is unchanged
-    /// because the fact it states is unchanged: the tab is moving into another
-    /// cookie jar.
     static let crossProfileMoveWarning = String(localized: """
     This Space uses a different profile. You could be logged out of an account if you're not \
     logged into it in the other profile.
@@ -255,11 +247,13 @@ extension BrowserSession {
         var restored = tab
         restored.archivedAt = nil
         // A Favorite can reach the archive by one route only — its Space was
-        // deleted — and the Space it comes back to may have filled the twelve
-        // since. Coming back as a pinned tab is the honest answer; silently
-        // making a thirteenth tile is not.
+        // deleted and the Profile had no other Space to keep it in — and the
+        // Profile it comes back to may have filled the twelve since. Coming back
+        // as a pinned tab is the honest answer; silently making a thirteenth
+        // tile is not.
         if restored.kind == .essential,
-           favorites(inSpace: restored.spaceID).count >= Self.favoritesCap {
+           let profileID = space(restored.spaceID)?.profileID,
+           favorites(onProfile: profileID).count >= Self.favoritesCap {
             restored.kind = .pinned
         }
         archived.removeAll { $0.id == tab.id }

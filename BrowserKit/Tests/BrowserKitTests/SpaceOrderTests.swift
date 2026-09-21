@@ -11,9 +11,11 @@ struct SpaceOrderTests {
     /// Goal 5, exactly: persist `[0, 3, 7]`, read, get `[0, 1, 2]`.
     @Test func renumbersDriftedOrdersToZeroThroughN() async throws {
         let store = try makeTemporaryStore()
+        let profile = Profile(name: "Personal")
+        try await store.upsert(profile)
         for (index, order) in [0, 3, 7].enumerated() {
             try await store.upsert(
-                Space(name: "Space \(index)", symbolName: "circle", gradient: .defaultSpace, order: order)
+                Space(name: "Space \(index)", symbolName: "circle", gradient: .defaultSpace, profileID: profile.id, order: order)
             )
         }
 
@@ -30,10 +32,12 @@ struct SpaceOrderTests {
     /// have to — this does.
     @Test func closesTheGapADeleteLeaves() async throws {
         let store = try makeTemporaryStore()
+        let profile = Profile(name: "Personal")
+        try await store.upsert(profile)
         let names = ["A", "B", "C"]
         var ids: [UUID] = []
         for (order, name) in names.enumerated() {
-            let space = Space(name: name, symbolName: "circle", gradient: .defaultSpace, order: order)
+            let space = Space(name: name, symbolName: "circle", gradient: .defaultSpace, profileID: profile.id, order: order)
             ids.append(space.id)
             try await store.upsert(space)
         }
@@ -49,9 +53,11 @@ struct SpaceOrderTests {
     /// sidebar swaps them at random. Name is the tiebreak.
     @Test func breaksOrderTiesDeterministically() async throws {
         let store = try makeTemporaryStore()
+        let profile = Profile(name: "Personal")
+        try await store.upsert(profile)
         for name in ["Zebra", "Apple"] {
             try await store.upsert(
-                Space(name: name, symbolName: "circle", gradient: .defaultSpace, order: 4)
+                Space(name: name, symbolName: "circle", gradient: .defaultSpace, profileID: profile.id, order: 4)
             )
         }
 
