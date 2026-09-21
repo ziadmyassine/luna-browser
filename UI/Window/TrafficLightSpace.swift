@@ -6,11 +6,11 @@
 //  one question two pieces of chrome both have to ask, and exactly one place
 //  that answers it.
 //
-//  `TrafficLightLayoutManager` owns their frames; this owns the read. They
-//  are separate because the read is the half that races: AppKit resets the
-//  buttons' origins on every window resize and the manager puts them back a
-//  beat later, so a view that lays out in between and believes what it sees
-//  draws itself against a placement that is about to be replaced.
+//  `TrafficLightLayoutManager` owns their frames; this owns the read. They are
+//  separate because the read is the half that races: AppKit resets the buttons'
+//  origins on every window resize and the manager puts them back a beat later,
+//  so a view laying out in between draws against a placement about to be
+//  replaced.
 //
 //  Sizes are measured; positions are derived. What AppKit owns and never
 //  changes is the buttons' size and the spacing between them; what Luna owns is

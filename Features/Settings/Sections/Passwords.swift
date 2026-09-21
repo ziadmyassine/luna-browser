@@ -5,19 +5,17 @@
 //  docs/SETTINGS-SPEC.md §3.10 / TODO.md §14 — the three switches, the saved
 //  list, and two paragraphs that have to be true.
 //
-//  This section replaces a "deliberately not here" entry, and the reason it
-//  can is that §14.1's spike has now run. The spec's objection was that the
-//  window "must not hint at a password manager that may never ship in this
-//  shape". What ships is not a password manager: it is a bridge into the
-//  user's own Keychain, and the spike measured exactly how far that bridge
-//  reaches. Both halves of the answer are on this page, in the two notes — the
-//  half that works today, and the half that is waiting on a signature.
+//  This section replaces a "deliberately not here" entry, because §14.1's
+//  spike has run. The objection was that the window "must not hint at a
+//  password manager that may never ship in this shape"; what ships is a bridge
+//  into the user's own Keychain, and the spike measured how far it reaches.
+//  Both halves are on this page — the half that works today and the half
+//  waiting on a signature.
 //
-//  §30.4's rule applies with full force here: a password pane that overstates
-//  what it does is worse than one that does not exist, because the user acts
-//  on it. So nothing on this page describes a capability Luna does not have at
-//  the moment the page is drawn — the sync line and the passkey line are both
-//  rendered from the live state, not from a string someone wrote hoping.
+//  §30.4 applies with full force: a password pane that overstates what it does
+//  is worse than one that does not exist, because the user acts on it. Nothing
+//  here describes a capability Luna lacks at the moment the page is drawn — the
+//  sync line and the passkey line are rendered from live state.
 //
 
 import AppKit

@@ -7,13 +7,11 @@
 //  Split from `BrowserSession+Spaces.swift` because deletion is the half with a
 //  policy, a snapshot and an undo, and the other half is field writes.
 //
-//  The rule the whole file is built around: a Space deletion never destroys a
-//  tab. `tabs.spaceID` cascades, so every row is moved to a Space that
-//  survives before the Space row goes — archived under `.archiveTabs`, still
-//  open under `.adopt(into:)`. Vivaldi closes every tab in a workspace with no
-//  undo; Arc shows a confirmation and has no documented undo anywhere in three
-//  years of release notes. This is the cheap place to beat both, because
-//  `closeTab` already archives.
+//  The rule the file is built around: a Space deletion never destroys a tab.
+//  `tabs.spaceID` cascades, so every row moves to a surviving Space before the
+//  Space row goes — archived under `.archiveTabs`, still open under
+//  `.adopt(into:)`. Vivaldi closes every tab in a workspace with no undo. This
+//  is the cheap place to beat that, because `closeTab` already archives.
 //
 //  What undo cannot give back is the website data. If the Space was the last one
 //  on its Profile, its `WKWebsiteDataStore` is gone and WebKit has no un-remove.

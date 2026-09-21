@@ -5,18 +5,15 @@
 //  §3.3's glow: the soft light under the pinned tile that is the tab you are
 //  on, in that site's own colour.
 //
-//  One view for the whole grid, not one per tile. Only one tile can be the
-//  tab you are on, so a backing view per tile is a dozen surfaces to keep a
-//  single light on — which is what `EssentialsGridView`'s header records
-//  costing the sidebar the last time it was tried. One view that is moved is
-//  also what makes the rule below expressible at all: the light goes out where
-//  it was and appears where it now is, and a thing that cannot travel cannot
-//  accidentally be animated across the grid.
+//  One view for the whole grid, not one per tile. Only one tile can be the tab
+//  you are on, so a backing view per tile is a dozen surfaces keeping a single
+//  light on. One view that is moved also makes the rule below expressible: the
+//  light goes out where it was and appears where it now is, and a thing that
+//  cannot travel cannot be animated across the grid by accident.
 //
-//  Split out of `EssentialsGridView.swift` when that file crossed SwiftLint's
-//  400-line limit, and this is the half that came out because it is the half
-//  with one subject. `glow`, `litID`, `activeTabID` and `tabs` are internal
-//  rather than private only because Swift's `private` is file-scoped.
+//  Split out of `EssentialsGridView.swift` for that file's length limit.
+//  `glow`, `litID`, `activeTabID` and `tabs` are internal rather than private
+//  only because Swift's `private` is file-scoped.
 //
 
 import AppKit

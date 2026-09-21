@@ -9,12 +9,11 @@
 //
 //  The order is `+ Add Tab` → separator → tabs.
 //
-//  `Archive` is not a row here any more. It was a second way into the same
-//  page the bottom bar's button already opens, sitting directly under the
-//  pinned tiles where the eye lands first — a history button at the top of a
-//  list of live tabs. History belongs with the other standing destinations at
-//  the foot of the sidebar, and that is the only place it is now. The rule
-//  stays: it closes off the command and opens the tab list.
+//  `Archive` is no longer a row here. It was a second way into the page the
+//  bottom bar's button already opens, sitting under the pinned tiles where the
+//  eye lands first — a history button at the top of a list of live tabs.
+//  History belongs with the other standing destinations at the foot of the
+//  sidebar. The rule stays: it closes off the command and opens the tab list.
 //
 //  Essentials are not in this list; they are the §3.3 grid above the
 //  scroll view.

@@ -12,12 +12,11 @@
 //  including its highlight, and the cheapest way to be sure of that is to build
 //  it out of the same parts rather than to snapshot them.
 //
-//  The morph is why the title and the icon are laid out by hand instead of
-//  by constraints. A §3.3 tile is the same pill at a different size with the
-//  title gone and the icon in the middle, so going from one to the other is two
-//  frames and an alpha inside one animation — no view is created, destroyed or
-//  re-parented on the way, which is what makes it read as the same object
-//  changing shape.
+//  The morph is why the title and icon are laid out by hand rather than by
+//  constraints. A §3.3 tile is the same pill at a different size with the title
+//  gone and the icon in the middle, so going from one to the other is two
+//  frames and an alpha inside one animation — nothing is created, destroyed or
+//  re-parented, which is what makes it read as one object changing shape.
 //
 
 import AppKit

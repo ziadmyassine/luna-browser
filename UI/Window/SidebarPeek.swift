@@ -5,17 +5,16 @@
 //  §7.2's hover-peek, and the answer to "where did my tabs go?" once `⌘S`
 //  takes the sidebar away.
 //
-//  Hiding the sidebar used to leave the user with a full-bleed page and no
-//  way back to it except the keystroke that hid it. The peek is the way back:
-//  push the pointer against the window's leading edge and the sidebar slides
-//  over the page — it does not push it — and slides away again when the
-//  pointer leaves. The page never moves, so nothing reflows for a glance.
+//  Hiding the sidebar used to leave a full-bleed page and no way back except
+//  the keystroke that hid it. The peek is the way back: push the pointer
+//  against the window's leading edge and the sidebar slides over the page
+//  rather than pushing it, and slides away when the pointer leaves. The page
+//  never moves, so nothing reflows for a glance.
 //
-//  Two views, because the pointer is in one of two places and both of them
-//  mean "keep it open": a 4 pt strip on the window's leading edge, and the
-//  sidebar itself once it has arrived. `SidebarPeekController` is the little
-//  state machine that ORs them together and applies §6's `hoverPeekDelay`, so
-//  that sweeping the pointer across the edge on the way somewhere else does
+//  Two views, because the pointer is in one of two places and both mean "keep
+//  it open": a strip on the window's leading edge, and the sidebar itself once
+//  it has arrived. `SidebarPeekController` ORs them together and applies §6's
+//  `hoverPeekDelay`, so sweeping across the edge on the way somewhere else does
 //  not fling a sidebar out.
 //
 
