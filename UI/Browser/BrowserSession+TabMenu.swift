@@ -6,18 +6,17 @@
 //  duplicate, rename, change icon and mute. Pin, copy link and close were
 //  all already here (`pinTab`, `closeTab`) or are nothing to do with the session at all.
 //
-//  Split out of `BrowserSession+Tabs.swift` for that file's length limit, and it earns the
-//  separation for the same reason `BrowserSession+Pinning.swift` does: everything below is
-//  about a tab's identity — what it is called, what it looks like, whether it is allowed
-//  to make a sound — rather than about where it sits in the list or whether it has a
-//  process. Two of the four write a column that did not exist before schema `v4`, and one
-//  of them writes nothing at all.
+//  Split out of `BrowserSession+Tabs.swift` for that file's length limit.
+//  Everything below is about a tab's identity — what it is called, what it looks
+//  like, whether it may make a sound — rather than where it sits in the list or
+//  whether it has a process.
 //
-//  Rename and Change Icon persist; Mute does not, and the asymmetry is deliberate. A
-//  name and an icon are decisions about the tab, and a tab that came back after a relaunch
-//  under the page's own name would have silently thrown one away. A mute is a decision
-//  about the noise a page is making now: a tab that came back silent on the next launch,
-//  with nothing on screen to say why or how long ago you did it, is a bug report.
+//  Rename and Change Icon persist; Mute does not, and the asymmetry is
+//  deliberate. A name and an icon are decisions about the tab, and one that came
+//  back after a relaunch under the page's own name would have thrown one away. A
+//  mute is a decision about the noise a page is making now: a tab that came back
+//  silent on the next launch, with nothing on screen to say why, is a bug
+//  report.
 //
 
 import AppKit

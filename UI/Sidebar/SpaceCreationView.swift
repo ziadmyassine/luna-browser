@@ -5,26 +5,23 @@
 //  The Space that does not exist yet, arriving from the trailing edge of the
 //  sidebar as §30.9's swipe runs past the last one.
 //
-//  The strip alone was not enough of an answer. A 14 pt ring at the foot of
-//  the column is the right read-out for a gesture you already understand, and
-//  no read-out at all for one you are meeting for the first time: the hand is
-//  pushing a column of tabs sideways and the only thing that changes is a mark
-//  the size of a full stop, 600 pt away from where the eye is. So the same mark
-//  is drawn again where the gesture is happening — one disc, the chrome's own
-//  34 pt circle, sliding in from the edge the swipe is heading toward.
+//  The strip alone was not enough of an answer. A 14 pt ring at the foot of the
+//  column reads for a gesture you already understand and not at all for one you
+//  are meeting first: the hand pushes a column of tabs sideways and the only
+//  thing that changes is a mark the size of a full stop, 600 pt from where the
+//  eye is. So the same mark is drawn where the gesture is happening — one disc,
+//  the chrome's own 34 pt circle, sliding in from the edge the swipe heads for.
 //
-//  There is one of these, and there used to be two. A 14 pt copy stood at
-//  the end of the §3.5 strip on the reasoning that one affordance at two sizes
-//  is one thing to learn. In the hand it was the opposite: the strip answers
-//  which Space, and a `+` in it is an answer to a different question sitting
-//  in the middle of that answer. The strip is dots now, and this is the whole
-//  of the read-out.
+//  One of these, where there used to be two. A 14 pt copy stood at the end of
+//  the §3.5 strip on the reasoning that one affordance at two sizes is one thing
+//  to learn; in the hand it was the opposite, because the strip answers which
+//  Space and a `+` in it answers a different question.
 //
-//  The ring is drawn around the disc, not on it. A stroke painted on a
-//  34 pt glass button's own edge takes a bite out of the button and has to be
-//  hairline-thin to avoid looking like a border; drawn `Metric.spaceCreateRing`
-//  across, it is a progress ring with a button inside it, and it can carry the
-//  weight it needs to be read at a glance from the far side of the column.
+//  The ring is drawn around the disc, not on it. A stroke on a 34 pt glass
+//  button's own edge takes a bite out of the button and has to be hairline-thin
+//  to avoid looking like a border; drawn `Metric.spaceCreateRing` across, it is
+//  a progress ring with a button inside it and can carry the weight it needs to
+//  be read from the far side of the column.
 //
 //  It draws nothing at rest and never hit-tests: this is a read-out of
 //  something happening in the hand, not a button. The `+` a pointer can press

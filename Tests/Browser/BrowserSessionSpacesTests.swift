@@ -4,8 +4,7 @@
 //
 //  The Space lifecycle (spec §6) and the per-Profile Favorites tier (§2).
 //
-//  These cover behaviour that is invisible when it breaks and expensive
-//  when it does:
+//  These cover behaviour that is invisible when it breaks:
 //
 //  · Two Spaces on one Profile must resolve to the same `WKWebsiteDataStore`
 //    — the whole point of many-Spaces-to-one-Profile, and unreachable from the
