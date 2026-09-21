@@ -25,8 +25,12 @@ extension SpacesSection {
     func profileCards(_ session: BrowserSession?) {
         let add = newProfileButton(session: session)
         body.heading(SettingsRow.heading(String(localized: "Profiles"), accessory: add.view), terms: add.terms)
+        // Untitled, because the first row of the card is the name and a card
+        // headed by its own first field says it twice. A Space's card is
+        // headed by its gradient and icon, which say something the rows do
+        // not; this one has only the name to put up there.
         for profile in session?.profilesByName ?? [] {
-            body.card(profile.name, profileRows(profile, session: session), inList: true)
+            body.card(nil, profileRows(profile, session: session), inList: true)
         }
     }
 
