@@ -8,20 +8,19 @@
 //  a second implementation would be a second set of hover, focus-ring and
 //  VoiceOver bugs.
 //
-//  Hover lifts the fill, not the border (§3.1) — and now it really is the
-//  fill. For a long time it was the glyph alone (`Text.secondary` →
-//  `Text.primary`), because Luna had no translucent hover colour to lift a
-//  surface with: `Surface.raised`/`glassFallback` are opaque planes and the
-//  `Line.*` tokens are line colours. `Surface.hover` and `Surface.selected`
-//  exist now, and the two of them are the whole of this button's answer to a
+//  Hover lifts the fill, not the border (§3.1). It was the glyph alone
+//  (`Text.secondary` → `Text.primary`) for a long time, because Luna had no
+//  translucent hover colour to lift a surface with — `Surface.raised` and
+//  `glassFallback` are opaque planes and the `Line.*` tokens are line colours.
+//  `Surface.hover` and `Surface.selected` are this button's whole answer to a
 //  pointer: 6 % over the material on hover, 12 % under a press.
 //
-//  And a press swells it. `Motion.controlPress` — the material grows a
-//  twentieth under the finger and springs back when it is let go, which is
-//  what a Liquid Glass control does on macOS 26. A button whose material
-//  belongs to the surface around it (`GlassMode.none`) does not swell on its
-//  own — half a capsule growing inside the other half is not a press — it
-//  hands the gesture to whoever owns that capsule instead (`onPressChange`).
+//  A press swells it (`Motion.controlPress`): the material grows a twentieth
+//  under the finger and springs back, which is what a Liquid Glass control does
+//  on macOS 26. A button whose material belongs to the surface around it
+//  (`GlassMode.none`) does not swell on its own — half a capsule growing inside
+//  the other half is not a press — and hands the gesture to whoever owns that
+//  capsule (`onPressChange`).
 //
 
 import AppKit

@@ -5,15 +5,13 @@
 //  §9.1's behaviour and §9.7's budget. "Everything is one keystroke away" is this
 //  file's job, and the keystroke it has to keep up with is the next one.
 //
-//  §9.7, and the shape of everything below. Local results must be on screen
-//  within one frame — 16 ms — of the keystroke. So `inputDidChange` does exactly
-//  one thing synchronously: run `CommandBarRanking.merge` over arrays that are
-//  already in memory (open tabs, Spaces, the adaptive table, the typed string
-//  itself) and hand them to the list. Nothing on that path awaits, opens a
-//  database connection, or touches the disk. The `BrowserStore` query is issued
-//  as a task and merges in when it lands — and per §9.7 it is not allowed to move
-//  a row the user is standing on: once ↓ or ↑ has been pressed, late results may
-//  only be appended.
+//  §9.7 shapes everything below. Local results must be on screen within one
+//  frame of the keystroke, so `inputDidChange` does one thing synchronously:
+//  run `CommandBarRanking.merge` over arrays already in memory and hand them to
+//  the list. Nothing on that path awaits, opens a database connection or
+//  touches the disk. The `BrowserStore` query is issued as a task and merges in
+//  when it lands, and it may not move a row the user is standing on — once ↓ or
+//  ↑ has been pressed, late results may only be appended.
 //
 //  The field is never rewritten asynchronously. §9.4's autofill runs on the
 //  synchronous pass only. A list row moving a frame after you stopped typing is
@@ -159,19 +157,18 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
 
     /// The bar opens once, with the list it is going to have.
     ///
-    /// Two things happen between the click and a settled list, and neither is
-    /// free: the panel's first composite (65 ms, measured — see
-    /// `prepareToOpen`) and the store's answer to the opening query (about 9 ms
-    /// of SQLite, which cannot start until the main thread lets go of it).
-    /// Opening before both have landed is the reported defect: the morph
-    /// began on a list built from open tabs alone, the history arrived halfway
-    /// through, and the rows re-ranked under it.
+    /// Two things happen between the click and a settled list, neither free:
+    /// the panel's first composite (65 ms measured, see `prepareToOpen`) and
+    /// the store's answer to the opening query (about 9 ms of SQLite, which
+    /// cannot start until the main thread lets go of it). Opening before both
+    /// have landed is the reported defect — the morph began on a list of open
+    /// tabs alone, the history arrived halfway through, and the rows re-ranked
+    /// under it.
     ///
-    /// So the bar stands at the pill's own size and waits for whichever comes
+    /// So the bar stands at the pill's size and waits for whichever comes
     /// first: the opening query landing, the first keystroke, or
-    /// `openDeadline`. The deadline is the honest half — a store that is busy
-    /// must not be able to hold the bar shut — and on a warm store, where the
-    /// query lands about 6 ms after the panel is drawn, it never fires.
+    /// `openDeadline`. The deadline stops a busy store holding the bar shut,
+    /// and on a warm store it never fires.
     private func openWhenReady() {
         isWaitingToOpen = true
         DispatchQueue.main.asyncAfter(deadline: .now() + CommandBarMetrics.openDeadline) { [weak self] in

@@ -177,13 +177,12 @@ final class SidebarRowView: NSView {
 
     /// §3.4's title ink.
     ///
-    /// The selected row is the only bright title in the list, and hover is
-    /// not an input here — which is the point of the signature. The hover used
-    /// to promote the ink too, on the grounds that there was no translucent
-    /// hover fill to lift instead; there is one now, `hoverPill`, so the reason
-    /// has outlived itself. Two bright rows at once is one too many: the list
-    /// answers "which tab am I on" by having exactly one title brighter than
-    /// the rest, and a pointer resting anywhere must not add a second.
+    /// The selected row is the only bright title in the list, and hover is not
+    /// an input here — which is the point of the signature. Hover used to
+    /// promote the ink too, because there was no translucent fill to lift
+    /// instead; `hoverPill` is that fill. The list answers "which tab am I on"
+    /// by having exactly one title brighter than the rest, and a pointer
+    /// resting anywhere must not add a second.
     ///
     /// Colour is only half of it: a title also dims by being re-laid, which
     /// is ``titleColumn``'s half and is deliberately not held still.
@@ -278,17 +277,16 @@ final class SidebarRowView: NSView {
     /// end there; a row drawing the close chip or the speaker stops half an
     /// inset short of the slot and fades before it.
     ///
-    /// That was decided with both versions side by side, and it is worth
-    /// writing down which way the trade runs. The column moving is
-    /// how a title dims under the pointer — the close chip appears, the box
-    /// loses 22 pt, and the last glyphs of a long title dissolve where they
-    /// were solid a frame earlier. Reserving the slot on every row holds the
-    /// title still and costs every row 22 pt of pill it mostly does not need:
-    /// a tab is hovered for a moment and read for hours. The tab list is read
-    /// far more often than it is pointed at, so the resting state wins.
+    /// That was decided with both versions side by side, and the trade is
+    /// worth writing down. The column moving is how a title dims under the
+    /// pointer: the close chip appears, the box loses 22 pt, and the last
+    /// glyphs of a long title dissolve where they were solid a frame earlier.
+    /// Reserving the slot on every row holds the title still and costs every
+    /// row 22 pt of pill it mostly does not need. A tab is hovered for a moment
+    /// and read for hours, so the resting state wins.
     ///
-    /// What makes the trade affordable is `rowTitleFade` at 12 rather than
-    /// 24: the shift is a ramp moving two characters, not four.
+    /// `rowTitleFade` at 12 rather than 24 is what makes it affordable: the
+    /// shift is a ramp moving two characters, not four.
     ///
     /// Pure, like ``titleInk``, so both states can be asserted without a
     /// window to hover in. It takes the slot, not the hover — an audio row

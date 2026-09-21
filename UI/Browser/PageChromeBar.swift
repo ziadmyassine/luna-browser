@@ -10,29 +10,25 @@
 //  its bottom bar — and its top 52 pt, because that is what holds the traffic
 //  lights' corner clear.
 //
-//  The bar is a plane in the page's own colour, and that is the whole idea.
-//  It was tried as floating controls with nothing behind them, and it has to be
-//  said plainly why that does not work: no material in Luna can react to the
-//  page. `NSGlassEffectView` composites what is behind the window, and
-//  `NSVisualEffectView` will not sample a `WKWebView`'s out-of-process layer —
-//  both measured, both written down in `Glass.peekPlane`. So over a white site
-//  the glass showed a light desktop and three white circles vanished into a
-//  white page. A plane taken from `TabState.pageBackground` has the opposite
-//  property: it is the colour the page is painted on, so it reads as the site's
-//  own top edge rather than as something laid over it, and it is a known
+//  The bar is a plane in the page's own colour. Floating controls with nothing
+//  behind them were tried, and the reason they do not work is that no material
+//  in Luna can react to the page: `NSGlassEffectView` composites what is behind
+//  the window, and `NSVisualEffectView` will not sample a `WKWebView`'s
+//  out-of-process layer (both measured, both in `Glass.peekPlane`). Over a
+//  white site the glass showed a light desktop and three white circles vanished
+//  into a white page. A plane from `TabState.pageBackground` is the colour the
+//  page is painted on, so it reads as the site's own top edge and is a known
 //  surface, which is what the controls on it need.
 //
-//  And it follows the page down. `pageBackground` is one answer for a whole
+//  It follows the page down. `pageBackground` is one answer for a whole
 //  document, so a bar wearing it stayed white all the way down a site whose
-//  second section is black: the plane stopped being the page's top edge the
-//  moment the page moved. What is under the bar is a question only the page can
-//  answer, so `TabController+Scroll` asks it as the page scrolls.
+//  second section is black. What is under the bar is a question only the page
+//  can answer, so `TabController+Scroll` asks it as the page scrolls.
 //
-//  And the bar wears the appearance that plane calls for. Everything drawn
-//  here — the domain, the glyph ink, the glass fallbacks — resolves from an
-//  `NSAppearance`, so one assignment re-inks all of it at once. A dark app over
-//  a white site gets dark glyphs on the bar and light ones everywhere else,
-//  which is correct rather than inconsistent: the bar is the only surface in
+//  The bar wears the appearance that plane calls for. Everything drawn here
+//  resolves from an `NSAppearance`, so one assignment re-inks all of it. A dark
+//  app over a white site gets dark glyphs on the bar and light ones everywhere
+//  else, which is correct rather than inconsistent: this is the only surface in
 //  Luna whose background is not Luna's.
 //
 //  Two states, and the page decides which. At the top of a document the bar is
@@ -43,18 +39,14 @@
 //  domain in it that the reference shows. `PageChromeController` owns that
 //  decision; this owns what the two look like.
 //
-//  Reload is not on this bar. It is inside the capsule on its trailing
-//  edge, with site settings on the leading one — and both belong to
-//  `URLPillView`, which carries the same pair in the sidebar. This bar wires
-//  the reload closure and nothing else.
+//  Reload is not on this bar. It is inside the capsule on its trailing edge,
+//  with site settings on the leading one, and both belong to `URLPillView`.
 //
-//  And the address is not typed here either. The pill hands the whole job
-//  to §9.1, which opens on this capsule and grows down out of it
-//  (`CommandBarAnchor`) — the same hand-off the sidebar's pill makes, so the
-//  two address bars now behave identically rather than offering two different
-//  sets of suggestions. What this bar had instead was `PageBarSuggestions`: a
-//  list of search phrases and nothing else, no open tabs, no history, no
-//  commands, no autofill. It is gone, and so is editing in place.
+//  The address is not typed here either: the pill hands the whole job to §9.1,
+//  which opens on this capsule and grows down out of it (`CommandBarAnchor`),
+//  the same hand-off the sidebar's pill makes. What this bar had instead was
+//  `PageBarSuggestions` — search phrases and nothing else, no open tabs, no
+//  history, no commands, no autofill.
 //
 
 import AppKit
@@ -137,11 +129,10 @@ final class PageChromeBar: NSView, TrafficLightNeighbour {
     /// and let it grow out of that; the bar it belongs to is 52 pt with a
     /// 420 pt pill in it, and that is the shape the panel should take.
     ///
-    /// Opened without animation, unlike every other change of this state:
-    /// the panel reads the pill's frame on the frame it is created, and a pill
-    /// two hundred milliseconds into a morph would be read mid-flight. Nothing
-    /// is lost — the panel covers the bar for the whole of the animation that
-    /// is not being run.
+    /// Opened without animation, unlike every other change of this state: the
+    /// panel reads the pill's frame on the frame it is created, and a pill two
+    /// hundred milliseconds into a morph would be read mid-flight. Nothing is
+    /// lost, because the panel covers the bar throughout.
     ///
     /// The bar then stays open for as long as §9.1 is standing on it, whatever
     /// the page does: see `PageChromeController.pageScrolled(to:)`.
