@@ -58,12 +58,12 @@ public actor BrowserStore {
 
     /// Every Space in display order, with `order` renumbered to `0..<n` when it has drifted.
     ///
-    /// The self-heal is the point (§6.2). Every delete leaves a gap, every insert-in-the
-    /// middle leaves a collision, and reordering is the biggest hole in the prior art —
-    /// Nook persists an index and has no reorder function, Ora has no order field at all,
-    /// Refrax sorts by `position` and never writes it. Renumbering on load means a reorder is
-    /// "write the new indices and reload" rather than "and now repair everything downstream",
-    /// and it means a gap can never accumulate into a visible bug.
+    /// The self-heal is the point (§6.2). Every delete leaves a gap and every
+    /// insert-in-the-middle leaves a collision; reordering is the biggest hole in the
+    /// prior art — Nook persists an index and has no reorder function, Ora has no order
+    /// field, Refrax sorts by `position` and never writes it. Renumbering on load makes
+    /// a reorder "write the new indices and reload" rather than "and now repair
+    /// everything downstream".
     ///
     /// Ties break on name so two rows sharing an `order` renumber deterministically rather
     /// than swapping places on alternate launches.

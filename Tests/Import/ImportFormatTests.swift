@@ -4,10 +4,9 @@
 //
 //  The parsers, tested as pure functions — no browser installed, no fixture
 //  database, nothing on disk but a temp directory. Every fact asserted here was
-//  read off a real Dia 1.48.0 profile on this Mac first: `date_added` being a
-//  string, the bookmarks bar's loose URLs being the Favorites, the transition
-//  bitfield's core values, and `Default` being named something other than
-//  "Default".
+//  read off a real Dia 1.48.0 profile first: `date_added` being a string, the
+//  bookmarks bar's loose URLs being the Favorites, the transition bitfield's
+//  core values, and `Default` being named something other than "Default".
 //
 //  The HTML round trip is here too, because §23.4's export is only a backup if
 //  it reads back.

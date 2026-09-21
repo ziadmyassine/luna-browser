@@ -4,13 +4,13 @@
 //
 //  §9.1's single input and §9.4's inline autofill.
 //
-//  §9.4 asks for selected-suffix behaviour, not ghost text: the completion is
-//  really in the field, the part the user did not type is really selected, so `→`
-//  accepts it, a keystroke replaces it and `⌫` removes it — all of which AppKit
-//  already does for a selection. The cost is re-entrancy (setting `stringValue`
-//  fires `controlTextDidChange` again) and the backspace trap (completing again
-//  on the deletion that just rejected the completion). Both are handled here, by
-//  the two flags below, and nowhere else.
+//  §9.4 asks for selected-suffix behaviour rather than ghost text: the
+//  completion is really in the field and the part the user did not type is
+//  really selected, so `→` accepts it, a keystroke replaces it and `⌫` removes
+//  it — all of which AppKit already does for a selection. The cost is
+//  re-entrancy (setting `stringValue` fires `controlTextDidChange` again) and
+//  the backspace trap (completing again on the deletion that just rejected the
+//  completion). Both are handled by the two flags below.
 //
 
 import AppKit

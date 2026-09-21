@@ -5,11 +5,10 @@
 //  §23.1 §3.1, §3.2, §3.4 and §3.6 — the half that can be asserted without a
 //  window.
 //
-//  What is deliberately not tested here is the view tree. `SettingsRow`
-//  returns opaque `NSView`s by design, so "is this row dimmed" is not a
-//  question a test can ask without reaching into another agent's private
-//  layout; the shell's own tests cover the rows. What is tested is every
-//  piece of logic this milestone added: the engine templates, the URL a query
+//  The view tree is deliberately not tested here. `SettingsRow` returns opaque
+//  `NSView`s by design, so "is this row dimmed" is not a question a test can
+//  ask without reaching into a private layout; the shell's own tests cover the
+//  rows. What is tested is the logic: the engine templates, the URL a query
 //  becomes, the custom-engine validator, and the menu-bar reader.
 //
 

@@ -6,11 +6,10 @@
 //  asserted here instead of eyeballed: §3.3's grid shape, and the rule list
 //  behind §3.2's Local Network permission.
 //
-//  The rule list is the one that would otherwise fail silently. WebKit refuses
-//  a pattern its URL-filter engine cannot parse by throwing, and the compile
-//  is a fire-and-forget `Task` — so a typo in a regex would leave
-//  `localNetworkList` nil, nothing blocked, and a checkmark in the menu that
-//  means nothing at all.
+//  The rule list is the one that would otherwise fail silently: WebKit refuses
+//  a pattern its URL-filter engine cannot parse by throwing, and the compile is
+//  a fire-and-forget `Task`, so a typo in a regex leaves `localNetworkList`
+//  nil, nothing blocked, and a checkmark in the menu that means nothing.
 //
 
 import BrowserKit

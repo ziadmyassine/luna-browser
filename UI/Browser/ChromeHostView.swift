@@ -6,11 +6,11 @@
 //  layouts — the sidebar (§3) and the top bar (§4) — and cross-fades between
 //  them while the window controller animates the frame around it.
 //
-//  Why one host instead of swapping the window's chrome view: the window
+//  One host rather than swapping the window's chrome view, because the window
 //  controller re-anchors the traffic lights inside its own layout transaction
-//  (§4.1), and swapping the view would need a second pass over that geometry.
-//  One host means the switch is a fade inside a frame that is already
-//  animating, and the lights never move twice.
+//  (§4.1) and a swap would need a second pass over that geometry. One host
+//  makes the switch a fade inside a frame that is already animating, and the
+//  lights never move twice.
 //
 
 import AppKit
