@@ -1545,12 +1545,25 @@ line of type — "Drag Luna into Applications" — are drawn over it at build ti
 because type that has been through a resampler is the one thing on this page a
 reader looks at closely.
 
-It is **light even though Luna is usually seen dark**: Finder draws the two icon
-labels in the system's appearance, not the background's, so a dark backdrop
-hands a light-mode Mac black text on near-black. A disk image stores one
-background picture, in the volume's `.DS_Store`, so this is a choice and not a
-pair that switches — `Tools/make-dmg.sh … --dark` builds the other plane for a
-release that wants it. The window is 640 × 400 with its toolbar and status bar
+It is **light even though Luna is usually seen dark**, and that is not a
+preference — it is the only plane that is legible on both kinds of Mac. Finder
+draws the two icon labels itself and takes no colour. Measured on macOS 26, each
+plane opened fresh under each appearance:
+
+| | light system | dark system |
+|---|---|---|
+| light plane | black labels | black labels |
+| dark plane | **black labels — on near-black** | white labels |
+
+A dark system picks the label colour from what is behind it; a light system
+draws black whatever is there. So the light plane reads in both and the dark
+plane reads in one. Lighting the ground under the labels does flip a dark
+system to black text, which is readable, and it puts a grey smudge across the
+middle of the artwork while still doing nothing for a light system — tried,
+measured, dropped. A disk image stores **one** background picture, in the
+volume's `.DS_Store`, so there is no pair to switch between;
+`Tools/make-dmg.sh … --dark` builds the other plane for a release willing to
+make that trade. The window is 640 × 400 with its toolbar and status bar
 off; the icons sit on the line the arrow is drawn between.
 
 **First run** (`Features/Onboarding/`, §30.17–30.18) is a window over the

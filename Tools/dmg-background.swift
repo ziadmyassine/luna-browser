@@ -11,12 +11,23 @@
 //  that has been through a resampler is the one thing on this page a reader
 //  looks at closely.
 //
-//  Light by default, although the app is usually seen dark: Finder draws the
-//  two icon labels in the *system's* appearance, not the background's, so a
-//  dark backdrop hands a light-mode Mac black text on near-black. A disk image
-//  stores one background picture, in the volume's `.DS_Store`, so this is a
-//  choice rather than a pair — `--dark` builds the other one for a release
-//  that wants it.
+//  Light by default, although the app is usually seen dark, and it is not a
+//  preference — it is the only plane that is legible on both kinds of Mac.
+//  Measured here on macOS 26, opening each image fresh under each appearance:
+//
+//    · a LIGHT system draws the two icon labels BLACK whatever is behind them,
+//      so a dark plane is black on near-black;
+//    · a DARK system picks by what is behind them — black over a light plane,
+//      white over a dark one.
+//
+//  Light is therefore readable in both and dark in one. A disk image stores a
+//  single background picture, in the volume's `.DS_Store`, so there is no pair
+//  to switch between and no way to hand Finder a colour; `--dark` builds the
+//  other plane for a release that is willing to make that trade.
+//
+//  Lighting the ground under the labels does flip a dark system to black text,
+//  which is readable — and it puts a grey smudge across the middle of the
+//  artwork and still does not help a light system. Tried, measured, dropped.
 //
 //  Two representations in one TIFF, 1x and 2x: Finder picks by display, and a
 //  single-scale PNG is either soft on Retina or twice the size everywhere.
