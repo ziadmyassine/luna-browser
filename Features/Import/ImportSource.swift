@@ -106,6 +106,25 @@ enum ImportSource: String, CaseIterable, Sendable, Identifiable {
 
     var isChromiumFamily: Bool { !chromiumUserDataCandidates.isEmpty }
 
+    /// The browser's own saved tabs, when it keeps them somewhere other than
+    /// the Chromium `Bookmarks` file — relative to `supportDirectoryURL`, so
+    /// beside `User Data` rather than inside a profile.
+    ///
+    /// Two of the family do. Arc writes no `Bookmarks` file at all and keeps
+    /// its sidebar here; Dia writes an empty one and keeps its favourites here.
+    /// Both files are plain JSON, unlike the rest of what each app adds — see
+    /// `SidebarImport.swift` for the shapes and the measurements.
+    ///
+    /// One file per app rather than per profile, which is why `DiaFavorites`
+    /// filters on the profile's directory name.
+    var sidebarFileName: String? {
+        switch self {
+        case .arc: "StorableSidebar.json"
+        case .dia: "StorableProfileContainers.json"
+        default: nil
+        }
+    }
+
     var supportDirectoryURL: URL {
         Self.realHomeDirectory.appending(path: homeRelativeSupportPath, directoryHint: .isDirectory)
     }

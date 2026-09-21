@@ -37,6 +37,44 @@ final class ImportTests: XCTestCase {
         try? FileManager.default.removeItem(at: directory)
     }
 
+    // MARK: - Where it lands
+
+    /// `visitsAdded` counts what was handed to the store, not what a Space can
+    /// find — so on its own it cannot tell an import that worked from one that
+    /// filed every visit under no Space at all.
+    ///
+    /// Since `v8` a visit belongs to a Space, and `spaceID` is nullable because
+    /// SQLite would not take a `NOT NULL` column referencing another table. A
+    /// nil there is legal, silent, and invisible in every number the summary
+    /// reports: the import says "69,978 visits" and the Command Bar finds none
+    /// of them. This is the assertion that fails instead.
+    func testImportedHistoryIsFindableInTheSpaceTheImportNames() async throws {
+        let profile = try makeChromiumProfile(named: "Profile 1", visits: 5, bookmarks: 2)
+        let store = try BrowserStore(path: directory.appending(path: "luna.sqlite"))
+        let summary = try await BrowserImporter(store: store, ledger: makeLedger())
+            .run(reader: try reader(for: profile), ledgerKey: "dia/p1", spaceName: "Dia")
+
+        XCTAssertEqual(summary.visitsAdded, 5)
+        let spaceID = try XCTUnwrap(summary.targetSpaceID)
+        let found = try await store.searchHistory("site", limit: 20, inSpace: spaceID)
+        XCTAssertEqual(found.count, 5, "the import reported visits that are in no Space's history")
+    }
+
+    /// And in no other Space's. An import is one Space's browsing arriving, not
+    /// everybody's (§9.2).
+    func testImportedHistoryStaysOutOfTheOtherSpaces() async throws {
+        let profile = try makeChromiumProfile(named: "Profile 1", visits: 5, bookmarks: 2)
+        let store = try BrowserStore(path: directory.appending(path: "luna.sqlite"))
+        try await store.seedIfEmpty()
+        let existing = try await store.spaces()[0]
+        let summary = try await BrowserImporter(store: store, ledger: makeLedger())
+            .run(reader: try reader(for: profile), ledgerKey: "dia/p1", spaceName: "Dia")
+
+        XCTAssertNotEqual(summary.targetSpaceID, existing.id, "the premise: the import made its own Space")
+        let elsewhere = try await store.searchHistory("site", limit: 20, inSpace: existing.id)
+        XCTAssertTrue(elsewhere.isEmpty, "an import leaked its history into a Space it was not asked about")
+    }
+
     // MARK: - Idempotency
 
     /// The one that matters. Import a profile, import the same profile again:

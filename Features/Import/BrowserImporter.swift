@@ -302,6 +302,24 @@ actor BrowserImporter {
         let directory = request.profile.directoryName.isEmpty
             ? root
             : root.appending(path: request.profile.directoryName, directoryHint: .isDirectory)
-        return try ChromiumReader.snapshot(profileDirectory: directory, into: snapshot)
+        // Arc's and Dia's own saved tabs, which live beside `User Data` rather
+        // than in the profile — the whole of what Arc saves, and the only
+        // non-empty half of what Dia does.
+        let sidebar = Self.sidebar(for: request)
+        return try ChromiumReader.snapshot(
+            profileDirectory: directory,
+            sidebar: sidebar,
+            sidebarFile: sidebar.map { request.source.supportDirectoryURL.appending(path: $0.fileName) },
+            into: snapshot
+        )
+    }
+
+    private static func sidebar(for request: ImportRequest) -> ChromiumReader.SidebarSource? {
+        guard let name = request.source.sidebarFileName else { return nil }
+        switch request.source {
+        case .arc: return .arc(fileName: name)
+        case .dia: return .dia(fileName: name, profileDirectory: request.profile.directoryName)
+        default: return nil
+        }
     }
 }

@@ -70,6 +70,20 @@ struct ImportedBookmark: Sendable, Hashable {
         self.folderPath = folderPath
         self.placement = placement
     }
+
+    /// A saved address, or nil for anything that is not plain web content.
+    ///
+    /// Stricter than `ChromiumImport`'s `scheme != nil`, and deliberately: a
+    /// `Bookmarks` file holds what the user bookmarked, but a browser's own
+    /// sidebar holds its own furniture too — `arc://`, `dia://`, a new-tab
+    /// page. None of those is an address Luna can open, so a row for one would
+    /// be a tab that goes nowhere in the folder the import just made.
+    static func webURL(_ text: String) -> URL? {
+        guard let url = URL(string: text.trimmingCharacters(in: .whitespacesAndNewlines)) else { return nil }
+        let scheme = url.scheme?.lowercased()
+        guard scheme == "http" || scheme == "https", url.host()?.isEmpty == false else { return nil }
+        return url
+    }
 }
 
 /// One visit, one row of `visits` in the source browser.
