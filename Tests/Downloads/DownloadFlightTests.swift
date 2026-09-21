@@ -40,13 +40,13 @@ final class DownloadFlightTests: XCTestCase {
     /// approximately: a flight that stops 20 pt short leaves the icon hanging
     /// beside the button rather than going into it.
     func testTheArcStartsAtTheFileAndEndsOnTheButton() {
-        for (where_, button) in bothLayouts {
+        for (destination, button) in bothLayouts {
             let start = DownloadFlight.point(at: 0, from: file, to: button)
             let end = DownloadFlight.point(at: 1, from: file, to: button)
-            XCTAssertEqual(start.x, file.x, accuracy: 0.001, "left from somewhere else, toward \(where_)")
-            XCTAssertEqual(start.y, file.y, accuracy: 0.001, "left from somewhere else, toward \(where_)")
-            XCTAssertEqual(end.x, button.x, accuracy: 0.001, "missed \(where_)")
-            XCTAssertEqual(end.y, button.y, accuracy: 0.001, "missed \(where_)")
+            XCTAssertEqual(start.x, file.x, accuracy: 0.001, "left from somewhere else, toward \(destination)")
+            XCTAssertEqual(start.y, file.y, accuracy: 0.001, "left from somewhere else, toward \(destination)")
+            XCTAssertEqual(end.x, button.x, accuracy: 0.001, "missed \(destination)")
+            XCTAssertEqual(end.y, button.y, accuracy: 0.001, "missed \(destination)")
         }
     }
 
@@ -61,16 +61,16 @@ final class DownloadFlightTests: XCTestCase {
     /// short of halfway down, in both layouts, which is what a corner control
     /// point buys and what a midpoint one cannot.
     func testTheThrowCoversTheGroundBeforeItTurnsIntoTheButton() {
-        for (where_, button) in bothLayouts {
+        for (destination, button) in bothLayouts {
             let arc = DownloadFlight.point(at: 0.5, from: file, to: button)
             let straight = CGPoint(x: (file.x + button.x) / 2, y: (file.y + button.y) / 2)
             XCTAssertLessThan(
                 abs(arc.x - button.x), abs(straight.x - button.x),
-                "the throw toward \(where_) is no further across than a straight line"
+                "the throw toward \(destination) is no further across than a straight line"
             )
             XCTAssertGreaterThan(
                 abs(arc.y - button.y), abs(straight.y - button.y),
-                "the throw toward \(where_) has already turned in"
+                "the throw toward \(destination) has already turned in"
             )
         }
     }

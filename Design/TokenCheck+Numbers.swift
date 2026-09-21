@@ -29,6 +29,15 @@ extension TokenCheck {
         if width.clamp(width.min - 100) != width.min || width.clamp(width.max + 100) != width.max {
             failures.append("SpanMetric.clamp does not clamp")
         }
+        return failures + checkRoundedMetrics() + checkPositiveMetrics()
+            + checkSpaceSwipe() + checkRowInsets()
+    }
+
+    /// Every rounded metric is a shape that can hold its own corners. The
+    /// registers below are the only exhaustive thing in this file — a token
+    /// missing from one is a token nothing checks.
+    private static func checkRoundedMetrics() -> [String] {
+        var failures: [String] = []
         let rounded: [(String, RoundedMetric)] = [
             ("urlPill", Tokens.Metric.urlPill), ("essentialsTile", Tokens.Metric.essentialsTile),
             ("controlCircle", Tokens.Metric.controlCircle), ("controlSquircle", Tokens.Metric.controlSquircle),
@@ -45,6 +54,12 @@ extension TokenCheck {
                 failures.append("Metric.\(name) radius exceeds half its shorter side")
             }
         }
+        return failures
+    }
+
+    /// A length of zero draws nothing and a negative one draws backwards, and
+    /// both read at a glance as a token that was never set.
+    private static func checkPositiveMetrics() -> [String] {
         let scalars: [(String, CGFloat)] = [
             ("rowHeight", Tokens.Metric.rowHeight), ("rowInset", Tokens.Metric.rowInset),
             ("faviconSize", Tokens.Metric.faviconSize), ("rowCornerRadius", Tokens.Metric.rowCornerRadius),
@@ -82,8 +97,7 @@ extension TokenCheck {
             ("sidebarProfileGap", Tokens.Metric.sidebarProfileGap),
             ("spaceDotPitch", Tokens.Metric.spaceDotPitch)
         ]
-        failures += scalars.filter { $0.1 <= 0 }.map { "Metric.\($0.0) is not positive" }
-        return failures + checkSpaceSwipe() + checkRowInsets()
+        return scalars.filter { $0.1 <= 0 }.map { "Metric.\($0.0) is not positive" }
     }
 
     /// §30.9's gesture, re-derived rather than restated.
@@ -152,16 +166,6 @@ extension TokenCheck {
                 metric.spaceCreateGive, metric.spaceCreateReach
             ))
         }
-        // The `+` has to be standing still while the ring is still filling.
-        // Its entrance is a fraction of the ring's own sweep, so at 1 it is
-        // still sliding in at the instant the gesture commits and the read-out
-        // is two things moving at once instead of one thing filling.
-        if metric.spaceCreateEntrance <= 0 || metric.spaceCreateEntrance > 0.5 {
-            failures.append(String(
-                format: "Metric.spaceCreateEntrance is %.2f of the ring — the + is still arriving as the ring closes",
-                metric.spaceCreateEntrance
-            ))
-        }
         // A flick is told from a drag by speed alone, so the threshold has
         // to sit inside the range the gesture can actually report: `damped`
         // holds it under `spaceSwipeSpeed`, and one that met or exceeded the
@@ -180,6 +184,25 @@ extension TokenCheck {
             failures.append(String(
                 format: "Metric.spaceFlickReach is %.2f pages — a flick is neither a twitch nor half a swipe",
                 metric.spaceFlickReach
+            ))
+        }
+        return failures + checkSpaceSwipeRing()
+    }
+
+    /// What the gesture draws while the hand is covering those distances: the
+    /// ring that fills, and the dot row it commits to. Split from the reaches
+    /// above for `checkSpaceSwipe`'s length; same checks, same order.
+    private static func checkSpaceSwipeRing() -> [String] {
+        var failures: [String] = []
+        let metric = Tokens.Metric.self
+        // The `+` has to be standing still while the ring is still filling.
+        // Its entrance is a fraction of the ring's own sweep, so at 1 it is
+        // still sliding in at the instant the gesture commits and the read-out
+        // is two things moving at once instead of one thing filling.
+        if metric.spaceCreateEntrance <= 0 || metric.spaceCreateEntrance > 0.5 {
+            failures.append(String(
+                format: "Metric.spaceCreateEntrance is %.2f of the ring — the + is still arriving as the ring closes",
+                metric.spaceCreateEntrance
             ))
         }
         // The ring is drawn around the glass disc, so it has to be bigger
