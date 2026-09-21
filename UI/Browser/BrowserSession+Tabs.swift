@@ -66,12 +66,21 @@ extension BrowserSession {
         tab.archivedAt = Date()
         forget(id)
         persistAll(list.remove(id))
-        write(tab)
+        // §6.3's shelf is for pages. One of Luna's own is not a page you can
+        // come back to, so its row goes rather than being kept for thirty days
+        // — see `AutoArchive.isWorthArchiving`. Undo still reopens it: the
+        // closure below carries the whole `Tab`, and `restoreArchived` re-files
+        // it whether or not it was ever on the shelf.
+        if AutoArchive.isWorthArchiving(tab) {
+            write(tab)
+            archived.insert(tab, at: 0)
+        } else {
+            discard(id)
+        }
         if activeTabBySpace[tab.spaceID] == id {
             activeTabBySpace[tab.spaceID] = successor
                 ?? recentTabs.first { list.tab($0)?.spaceID == tab.spaceID }
         }
-        archived.insert(tab, at: 0)
         registerUndo("Close Tab") { $0.restoreArchived(tab, at: index) }
         notifyChange()
     }
@@ -302,6 +311,13 @@ extension BrowserSession {
     func write(_ tab: Tab) {
         list.update(tab)
         enqueue { store in try? await store.upsert(tab) }
+    }
+
+    /// Drops a tab's row for good — `write`'s counterpart for a tab that is not
+    /// being kept. On the same chain as every other write, so a delete cannot
+    /// overtake the renumber of the rows it left behind.
+    func discard(_ id: UUID) {
+        enqueue { store in try? await store.delete(tabID: id) }
     }
 
     func persistAll(_ tabs: [Tab]) {

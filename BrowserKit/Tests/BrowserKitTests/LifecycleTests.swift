@@ -96,11 +96,16 @@ struct AutoArchiveTests {
     private let now = Date()
     private let space = UUID()
 
-    private func tab(_ kind: TabKind, hoursIdle: Double, archivedAt: Date? = nil) -> Tab {
+    private func tab(
+        _ kind: TabKind,
+        hoursIdle: Double,
+        archivedAt: Date? = nil,
+        url: String = "https://example.com"
+    ) -> Tab {
         Tab(
             spaceID: space,
             kind: kind,
-            url: URL(string: "https://example.com")!,
+            url: URL(string: url)!,
             lastActiveAt: now.addingTimeInterval(-hoursIdle * 3600),
             archivedAt: archivedAt
         )
@@ -126,6 +131,19 @@ struct AutoArchiveTests {
         let active = tab(.today, hoursIdle: 99)
         let gone = tab(.today, hoursIdle: 99, archivedAt: now)
         #expect(AutoArchive.idleTabs([active, gone], now: now, hours: 12, excluding: active.id).isEmpty)
+    }
+
+    /// The shelf is itself `luna://archive`, so without this exemption glancing
+    /// at the archive and closing it files a row about the glance — and every
+    /// New Tab opened and closed leaves "New Tab — newtab" behind for 30 days.
+    /// `closeTab` reads the same predicate, which is why it is tested directly.
+    @Test("Luna's own pages are never archived, by the sweep or by closing them")
+    func internalPagesAreExempt() {
+        let newTab = tab(.today, hoursIdle: 99, url: "luna://newtab")
+        let page = tab(.today, hoursIdle: 99)
+        #expect(AutoArchive.idleTabs([newTab, page], now: now, hours: 12) == [page.id])
+        #expect(!AutoArchive.isWorthArchiving(newTab))
+        #expect(AutoArchive.isWorthArchiving(page))
     }
 
     @Test("never (0 hours) archives nothing")

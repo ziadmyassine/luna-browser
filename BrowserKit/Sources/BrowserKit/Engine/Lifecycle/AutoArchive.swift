@@ -16,11 +16,28 @@ public enum AutoArchive {
     public static let choices: [Double] = [6, 12, 24, 0]
     public static let defaultHours: Double = 12
 
+    /// Whether closing this tab leaves anything worth keeping.
+    ///
+    /// **Luna's own pages do not.** `luna://newtab` and `luna://archive` are
+    /// chrome that happens to live in a tab: there is no page to come back to,
+    /// and a New Tab opened and closed turning up on the shelf as "New Tab —
+    /// newtab" is the archive filling with the act of opening one. Worse, the
+    /// shelf itself is `luna://archive`, so glancing at it and closing it files
+    /// a row about the glance.
+    ///
+    /// It is an exemption and it lives with the other exemptions, because it
+    /// rots the same way: the sweep and `closeTab` both archive, and a third
+    /// caller would have to remember this on its own.
+    public static func isWorthArchiving(_ tab: Tab) -> Bool {
+        tab.url.scheme != InternalPages.scheme
+    }
+
     /// Today tabs untouched for longer than `hours`.
     ///
     /// Exempt: **pinned and Essentials** (`.pinned`, `.essential` — §6.3 calls
-    /// the latter Favorites), anything already archived, and the tab the user is
-    /// looking at, however long ago it was last marked active.
+    /// the latter Favorites), anything already archived, Luna's own pages (see
+    /// `isWorthArchiving`), and the tab the user is looking at, however long ago
+    /// it was last marked active.
     public static func idleTabs(
         _ tabs: [Tab],
         now: Date,
@@ -32,6 +49,7 @@ public enum AutoArchive {
         return tabs
             .filter { $0.kind == .today && $0.archivedAt == nil }
             .filter { $0.id != activeID && $0.lastActiveAt <= cutoff }
+            .filter(isWorthArchiving)
             .map(\.id)
     }
 
