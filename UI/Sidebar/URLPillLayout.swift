@@ -4,13 +4,12 @@
 //
 //  Where §3.2's pill puts its two pieces, and how wide and how round it is.
 //
-//  Split out of `URLPillView.swift` for the reason `Metrics+Windows.swift` was
-//  split out of `Metrics.swift`: that file crossed SwiftLint's 400-line limit
-//  once the pill grew §3.2b's second layout. Nothing changed on the way across.
+//  Split out of `URLPillView.swift` for its length limit, once the pill grew
+//  §3.2b's second layout.
 //
 //  `field` and `sliders` are `internal` rather than `private` so this file can
-//  reach them. That is the whole cost of the split, and it is worth naming:
-//  they are still the pill's, and nothing outside these two files touches them.
+//  reach them. That is the whole cost of the split: they are still the pill's,
+//  and nothing outside these two files touches them.
 //
 
 import AppKit
@@ -119,14 +118,13 @@ extension URLPillView {
     /// How wide what the field is showing needs to draw in full — the
     /// address, or the placeholder when there is no address.
     ///
-    /// Asked of the cell, not of `intrinsicContentSize` and not of the
-    /// string. A truncating `NSTextField` answers `noIntrinsicMetric` for its
-    /// width — a -1 that became a zero-width frame and a bar with a magnifier
-    /// and no address in it — and the string's own `size()` is a couple of
-    /// points short of what the cell draws in, which truncated `New Tab` to
-    /// `New T…` in a bar with 600 pt to spare. `cellSize` is the one of the
-    /// three that answers the question actually being asked: how wide this
-    /// cell has to be to show all of itself.
+    /// Asked of the cell, not of `intrinsicContentSize` and not of the string.
+    /// A truncating `NSTextField` answers `noIntrinsicMetric` for its width — a
+    /// -1 that became a zero-width frame and a bar with a magnifier and no
+    /// address in it — and the string's own `size()` is a couple of points
+    /// short of what the cell draws in, which truncated `New Tab` to `New T…`
+    /// in a bar with 600 pt to spare. `cellSize` answers the question actually
+    /// being asked.
     ///
     /// Measured through a copy of the cell, because the placeholder has to be
     /// measured as though it were the value, and the live cell is mid-edit.

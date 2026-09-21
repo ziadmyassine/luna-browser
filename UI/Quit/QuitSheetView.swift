@@ -4,28 +4,23 @@
 //
 //  §3.1's "are you sure?", as a surface rather than as an `NSAlert`.
 //
-//  ⌘Q is next to ⌘W on every keyboard there is, and the two of them do
-//  wildly different things to a window full of tabs. Every browser that has
-//  thought about this guards the one that closes everything; Luna did not, so
-//  a slipped finger took the whole session out with no way back.
+//  ⌘Q is next to ⌘W on every keyboard, and the two do wildly different things
+//  to a window full of tabs. Luna did not guard the one that closes
+//  everything, so a slipped finger took the whole session out with no way back.
 //
-//  And it is Luna's own surface, not AppKit's. An `NSAlert` is four lines
-//  of code and it is a different application answering: a grey titled panel
-//  with a blue default button, in a window whose chrome is glass and whose
-//  accent colour does not exist. The downloads popover has this exact note on
-//  it for the same reason. So this is §5's material, §3.4's fills, and the
-//  three answers laid out the way the reference lays them out — the one you
-//  probably want on the trailing edge under Return, the way out beside it
-//  under Escape, and the one that also changes a setting held apart at the
-//  other end, because "and don't ask again" is a decision about every future
-//  quit rather than about this one.
+//  Luna's own surface, not AppKit's. An `NSAlert` is four lines of code and it
+//  is a different application answering: a grey titled panel with a blue
+//  default button, in a window whose chrome is glass and whose accent colour
+//  does not exist. So this is §5's material and §3.4's fills, with the three
+//  answers laid out as the reference lays them — the likely one on the trailing
+//  edge under Return, the way out beside it under Escape, and the one that also
+//  changes a setting held apart at the other end, because "and don't ask again"
+//  is a decision about every future quit.
 //
-//  No backdrop. §9.1's scrim was built twice and deleted twice — see
-//  `CommandBarPanel`'s header, which has the measurements — and the finding
-//  holds here: a veil over the page separates the panel from the window it
-//  belongs to, and the material has an edge and a shadow of its own to be
-//  separate with. What makes this modal is that it takes the keyboard and eats
-//  the clicks, not that it dims what it is over.
+//  No backdrop; `CommandBarPanel`'s header has the measurements. A veil over
+//  the page separates the panel from the window it belongs to, and the material
+//  has an edge and a shadow of its own. What makes this modal is that it takes
+//  the keyboard and eats the clicks.
 //
 
 import AppKit

@@ -4,21 +4,19 @@
 //
 //  §6.6's reorder, as a gesture rather than as a system drag.
 //
-//  Why this is not `NSTableView`'s drag and drop. AppKit's session hands
-//  the pointer a translucent snapshot that floats free in two dimensions, can
-//  be carried out of the window entirely, and leaves the list behind it static
-//  apart from a 2 pt insertion rule. A sidebar tab has exactly one degree of
-//  freedom — it is somewhere in a column — and the ask is the column's:
-//  *lock it horizontally, move the whole row including its highlight, and show
-//  its landing place the moment it starts moving.* None of those three are
-//  things a dragging session exposes.
+//  Not `NSTableView`'s drag and drop. AppKit's session hands the pointer a
+//  translucent snapshot that floats free in two dimensions, can be carried out
+//  of the window, and leaves the list static apart from a 2 pt insertion rule.
+//  A sidebar tab has one degree of freedom — it is somewhere in a column — and
+//  the ask is the column's: lock it horizontally, move the whole row including
+//  its highlight, and show its landing place the moment it starts moving. A
+//  dragging session exposes none of the three.
 //
 //  So the gesture is tracked here. The row is replaced by a lift — one view
-//  carrying §3.4's selected pill, the favicon and the title — which is pinned to
-//  the sidebar's own x and follows the pointer's y, while the list opens a gap
-//  under it. Carry it up into the §3.3 grid and the lift becomes a tile:
-//  same view, new geometry, animated on §6's `tabInsert`, with the grid opening
-//  a slot to receive it. Carry it back down and it becomes a row again.
+//  carrying §3.4's selected pill, the favicon and the title — pinned to the
+//  sidebar's x and following the pointer's y, while the list opens a gap under
+//  it. Carried up into the §3.3 grid the lift becomes a tile: same view, new
+//  geometry, animated on §6's `tabInsert`. Carried back down it is a row.
 //
 //  Nothing is committed until the mouse comes up. A live `reorderTab` per row
 //  crossed would be a dozen SQLite writes and a dozen undo entries for one

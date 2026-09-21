@@ -10,20 +10,18 @@
 //  Timing is the part that is easy to get wrong:
 //
 //  · Snapshot before hibernate, never after. `takeSnapshot` talks to the
-//    WebContent process; once that process is gone there is nothing to ask, and
-//    the archive row loses its picture for good. So the sweep captures first and
-//    tears down in the completion — except under critical memory pressure,
-//    where holding a renderer alive for a thumbnail is the wrong trade.
+//    WebContent process; once that is gone the archive row loses its picture
+//    for good. So the sweep captures first and tears down in the completion —
+//    except under critical memory pressure, where holding a renderer alive for
+//    a thumbnail is the wrong trade.
 //  · Never break §6.2. Nothing here reads `interactionState` late:
-//    `BrowserSession+Engine` already caches the blob at every settled load, and
+//    `BrowserSession+Engine` caches the blob at every settled load, and
 //    `cacheSession(of:)` after `hibernate()` only moves the copy the controller
-//    already holds. A dead WebContent process reads back nil, and that is fine,
-//    because by then the blob is already on the `Tab`.
-//  · Energy (§19.6). One 60 s timer with 30 s tolerance, so it coalesces
-//    with whatever else the system is doing rather than pinning a wake-up.
-//    Nothing here calls `beginActivity`, so App Nap still applies, and Luna
-//    terminates when its last window closes, so there is no window-less state
-//    for a timer to keep running in.
+//    already holds. A dead WebContent process reads back nil, which is fine.
+//  · Energy (§19.6). One 60 s timer with 30 s tolerance, so it coalesces with
+//    whatever else the system is doing rather than pinning a wake-up. Nothing
+//    calls `beginActivity`, so App Nap still applies, and Luna terminates when
+//    its last window closes.
 //
 //  Install with one line where the session is built:
 //

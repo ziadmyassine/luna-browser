@@ -14,9 +14,9 @@
 //    not expand or collapse. The Essentials grid is a header above the scroll
 //    view, not a parent node.
 //
-//  The selected pill and the hover fill are one view each, moved between
-//  rows, not a background per row. §6 asks the selected pill to move on a
-//  0.20 s spring, which only a single view can do — and it means a scroll
+//  The selected pill and the hover fill are one view each, moved between rows,
+//  rather than a background per row. §6 asks the selected pill to move on a
+//  0.20 s spring, which only a single view can do, and it means a scroll
 //  allocates no glass at all.
 //
 

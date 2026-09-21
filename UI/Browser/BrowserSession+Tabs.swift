@@ -80,11 +80,10 @@ extension BrowserSession {
     /// under it in §3.4's list, or the row above it when it was the last one.
     ///
     /// It used to be the most recently used tab in the Space, which is a
-    /// different question and a worse answer here. Closing a run of tabs from
-    /// the top sent the selection somewhere down the list and the next `⌘W`
-    /// closed that one instead, so the list unravelled from two ends at once;
-    /// and with §3.4 stacking today's tabs newest-first, the recent tab is very
-    /// often the one above, which reads as the list moving backwards.
+    /// different question. Closing a run of tabs from the top sent the selection
+    /// down the list and the next `⌘W` closed that one instead, so the list
+    /// unravelled from two ends at once; and with §3.4 stacking today's tabs
+    /// newest-first, the recent tab is often the one above.
     ///
     /// The list's own order is the one thing the user can see, so the answer is
     /// read straight off it — Favorites excluded, because those are §3.3's grid
@@ -111,11 +110,10 @@ extension BrowserSession {
     ///   Command Bar.
     ///
     ///   The bar is an address bar: its rows are places, and the archive's rows
-    ///   sit in the same list as history's and look exactly like them. Choosing
-    ///   one and landing half way down the page you were on last week is the
-    ///   session resuming behind a gesture that never asked for it — which is
-    ///   what an `iPhone 18 Pro` row did. Same tab, same Space, same
-    ///   name; it simply starts at the top of the page.
+    ///   sit in the same list as history's and look like them. Choosing one and
+    ///   landing half way down the page you were on last week is the session
+    ///   resuming behind a gesture that never asked for it. Same tab, same
+    ///   Space, same name; it simply starts at the top of the page.
     func unarchiveTab(_ id: UUID, resumingSession: Bool = true) {
         guard var tab = archived.first(where: { $0.id == id }) else { return }
         if !resumingSession { tab.interactionState = nil }

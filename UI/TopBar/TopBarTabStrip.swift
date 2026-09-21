@@ -13,19 +13,18 @@
 //  already has the elastic bounce, the trackpad handling and the 120 fps path
 //  §19.1 asks for, and a hand-rolled clipper would have none of them.
 //
-//  Where the run sits in the bar is `Settings.tabsPosition`, and it is
-//  centred by default. The strip only owns what is left between Back and the
-//  separator, and those two clusters are nothing like the same width — one
-//  capsule item on the left, four and a separator on the right — so a run
-//  centred in the strip's own span sat 25 pt off the window's middle. Centred
-//  means centred in the bar: the bar spans the window and so does the page
-//  under it, and that is the line the eye measures a centred thing against.
-//  When the tabs overflow the span the alignment stops meaning anything and
-//  the run scrolls from its leading edge.
+//  Where the run sits in the bar is `Settings.tabsPosition`, centred by
+//  default. The strip only owns what is left between Back and the separator,
+//  and those clusters are nothing like the same width — one capsule item on the
+//  left, four and a separator on the right — so a run centred in the strip's
+//  own span sat 25 pt off the window's middle. Centred means centred in the
+//  bar, which is the line the eye measures against. Once the tabs overflow the
+//  span the alignment stops meaning anything and the run scrolls from its
+//  leading edge.
 //
-//  Right-clicking a tile opens §3.4a's tab menu — the same seven items a §3.4 sidebar row
-//  and a §3.3 tile get, from the same binding on `BrowserSession`. The layout you are in is
-//  not supposed to change what you can do to a tab.
+//  Right-clicking a tile opens §3.4a's tab menu — the same seven items a §3.4
+//  row and a §3.3 tile get, from the same binding on `BrowserSession`. The
+//  layout you are in does not change what you can do to a tab.
 //
 //  Tiles are icon-only, so §8 and §21.1 require an explicit VoiceOver label —
 //  the page title, or the site name when there is no title, never the URL.

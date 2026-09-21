@@ -4,21 +4,15 @@
 //
 //  One §3.5 dot.
 //
-//  It held §30.9's `+` too, standing where the next Space would be as the swipe
-//  ran past the last one. The strip is dots and only dots now — see
-//  `SpaceDotsView`'s header — and the `+` is drawn in the column, where the
-//  gesture is actually happening (`SpaceCreationView`).
+//  The dot is its own view because it is four things at once: a click target,
+//  a §6.6 landing place, an accessibility element carrying the Space's name,
+//  and a read-out of a gesture still in the user's hand.
 //
-//  The dot is its own view because it is four things at once: a click target, a
-//  §6.6 landing place, an accessibility element carrying the Space's name, and
-//  — since §30.9 — a read-out of a gesture that is still in the user's hand.
-//
-//  It is told where to draw its mark; it does not work it out. `bounds`
-//  is the dot's slot, which is as wide as the gap to its neighbour and is not
-//  necessarily symmetric about the dot: the first and last slots run out to the
-//  pill's edges. Centring the mark in the slot is what made the row of dots
-//  crooked in the first place — see `SpaceDotsView`'s header — so the strip
-//  computes every centre in one pass and hands each dot the one that is its.
+//  It is told where to draw its mark; it does not work it out. `bounds` is the
+//  dot's slot, which is as wide as the gap to its neighbour and not necessarily
+//  symmetric about the dot — the first and last slots run out to the pill's
+//  edges. Centring the mark in the slot is what made the row read as crooked;
+//  see `SpaceDotsView`.
 //
 
 import AppKit
@@ -121,16 +115,14 @@ final class SpaceDotView: NSView {
         // — so the two are one shape from here on and the slot's own asymmetry
         // stays where it belongs, in `markCentreX`.
         //
-        // Across, it is not snapped to the pixel grid, and that is what
-        // stopped the strip juddering. A dot drawn at a fractional x is the
-        // usual argument for `pixelAligned`, and at rest there is nothing to
-        // argue about: `SpaceDotsView.centres` lays the run out on a whole-point
-        // pitch and the chip is a whole number wide, so a settled dot lands on
-        // the grid whether it is rounded or not. Rounding therefore only ever
-        // fired mid-swipe — where the dot is supposed to be sliding under the
-        // window — and turned a continuous 14 pt slide into fourteen visible
-        // steps. Down the pill it is snapped, because that is a position that
-        // never moves.
+        // Across, it is not snapped to the pixel grid, which is what stopped
+        // the strip juddering. At rest there is nothing to argue about:
+        // `SpaceDotsView.centres` lays the run out on a whole-point pitch and
+        // the chip is a whole number wide, so a settled dot lands on the grid
+        // either way. Rounding therefore only fired mid-swipe, where the dot is
+        // supposed to be sliding, and turned a continuous 14 pt slide into
+        // fourteen visible steps. Down the pill it is snapped, because that
+        // position never moves.
         chip.frame = NSRect(
             x: markCentreX - side / 2,
             y: ((bounds.height - side) / 2).rounded(),
@@ -149,15 +141,13 @@ final class SpaceDotView: NSView {
         // dots were `Text.primary` / `Text.tertiary`, so every Space looked
         // identical no matter what gradient it carried.
         //
-        // A Space nobody has coloured is drawn in the chrome's own ink, not
-        // in neutral's grey. `Gradient.neutral` is a real pair of greys because
+        // A Space nobody has coloured is drawn in the chrome's own ink, not in
+        // neutral's grey. `Gradient.neutral` is a real pair of greys because
         // §8.2a needs something to interpolate a wash toward, but painting it
-        // is the same mistake `SpaceWashView.washColors` refuses to make: "no
-        // colour" then reads as a thirteenth colour, and the dot for the Space
-        // you are in — the one mark on the strip that has to be unmissable —
-        // came out dimmer than the tab titles above it. Uncoloured, it is
-        // `Text.primary`: full white in the dark, and §3.5's own 45 % step
-        // still separates it from the Spaces either side.
+        // makes "no colour" read as a thirteenth colour — and the dot for the
+        // Space you are in came out dimmer than the tab titles above it.
+        // Uncoloured it is `Text.primary`, and §3.5's 45 % step still separates
+        // it from the Spaces either side.
         let ink = Tokens.Gradient.isNeutral(space.gradient)
             ? (start: Tokens.Text.primary, end: Tokens.Text.primary)
             : Tokens.Gradient.planes(space.gradient, at: .full, in: effectiveAppearance)
