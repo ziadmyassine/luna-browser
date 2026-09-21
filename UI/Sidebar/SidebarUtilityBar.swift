@@ -273,18 +273,41 @@ final class SidebarUtilityBar: NSView {
 @MainActor
 final class SidebarSpaceLabel: NSView {
 
+    /// How much of the name this line shows before the fade takes the rest.
+    ///
+    /// §6.2 stores 32, which is long enough for a name that says what the
+    /// Space is for, and far longer than a line over a 56 pt strip can carry:
+    /// a 32-character name ran the full width of the column at every width §1
+    /// allows and ended in an ellipsis against the inset. Ten is what the
+    /// glance this line is read at actually uses — enough to tell two Spaces
+    /// apart — and the whole name is a hover away in the tooltip and written
+    /// out on the Space's card in Settings.
+    static let visibleCharacters = 10
+
     /// Right-click here or on the strip below — §6.2's rows are in Settings.
     var onEditSpaces: (() -> Void)?
     var onNewSpace: (() -> Void)?
 
+    /// Clips the name to `visibleCharacters` and carries the ramp that ends
+    /// it. The pair §3.4's rows use, for the reason they use it: three
+    /// characters spent on an `…` say less than three more of the name.
+    private let clip = NSView()
     private let label = NSTextField(labelWithString: "")
+    private let fadeMask = CAGradientLayer()
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        label.alignment = .center
-        label.lineBreakMode = .byTruncatingTail
-        label.setAccessibilityRole(.staticText)
-        addSubview(label)
+        // Clipping, not truncating: the fade is what ends an over-long name,
+        // and an ellipsis would be drawn before it got there.
+        label.lineBreakMode = .byClipping
+        label.cell?.usesSingleLineMode = true
+        clip.wantsLayer = true
+        clip.layer?.masksToBounds = true
+        clip.addSubview(label)
+        fadeMask.startPoint = CGPoint(x: 0, y: 0.5)
+        fadeMask.endPoint = CGPoint(x: 1, y: 0.5)
+        setAccessibilityRole(.staticText)
+        addSubview(clip)
         applyTokens()
     }
 
@@ -295,12 +318,32 @@ final class SidebarSpaceLabel: NSView {
 
     /// The active Space's name, or nothing at all — the line disappears rather
     /// than standing empty, so the strip below it keeps its air.
+    ///
+    /// The full name goes to the tooltip and to VoiceOver whatever the line
+    /// shows: what is clipped here is the reading, not the name.
     func show(spaceName: String?) {
         label.stringValue = spaceName ?? ""
         isHidden = (spaceName ?? "").isEmpty
         setAccessibilityLabel(spaceName.map { String(localized: "Space: \($0)") })
         toolTip = spaceName
         needsLayout = true
+    }
+
+    /// How wide this name is allowed to be drawn: what `visibleCharacters` of
+    /// it measure, plus the ramp that dissolves what follows.
+    ///
+    /// Measured off the name rather than off an average glyph, because the cap
+    /// counts characters — ten wide letters are wider than ten narrow ones and
+    /// both of them are ten letters. Adding the ramp is what keeps all ten
+    /// legible: a box cut exactly at the tenth glyph fades the ninth and the
+    /// tenth away with it.
+    static func shownWidth(of name: String) -> CGFloat {
+        let head = String(name.prefix(visibleCharacters))
+        let width = NSAttributedString(
+            string: head,
+            attributes: [.font: Tokens.TypeScale.settingsCaption]
+        ).size().width
+        return ceil(width) + Tokens.Metric.rowTitleFade
     }
 
     private func applyTokens() {
@@ -323,15 +366,44 @@ final class SidebarSpaceLabel: NSView {
 
     override func layout() {
         super.layout()
-        Tokens.Motion.immediately {
-            let inset = Tokens.Metric.rowInset
-            label.frame = NSRect(
-                x: inset,
-                y: 0,
-                width: max(bounds.width - 2 * inset, 0),
-                height: bounds.height
-            ).integral
+        // Bounds-derived frames never animate — see `Motion.immediately`,
+        // which also stops the mask below animating its own frame.
+        Tokens.Motion.immediately { placeContents() }
+    }
+
+    /// Centred whether it is clipped or not. The box holds the head of the
+    /// name, never the middle of it, so the strip's caption starts where the
+    /// name starts and the fade is always eating the tail.
+    private func placeContents() {
+        let natural = ceil(label.intrinsicContentSize.width)
+        let room = max(bounds.width - 2 * Tokens.Metric.rowInset, 0)
+        let shown = min(natural, min(Self.shownWidth(of: label.stringValue), room))
+        let box = NSRect(x: (bounds.width - shown) / 2, y: 0, width: shown, height: bounds.height).integral
+        clip.frame = box
+        let height = label.intrinsicContentSize.height
+        label.frame = NSRect(
+            x: 0,
+            y: ((box.height - height) / 2).rounded(),
+            width: max(natural, box.width),
+            height: height
+        ).integral
+        applyFade(overflowing: natural > box.width, width: box.width)
+    }
+
+    /// §3.4's fade, on one line instead of forty. Nil when the name fits: a
+    /// gradient that is opaque end to end is a masked composite drawing
+    /// nothing.
+    private func applyFade(overflowing: Bool, width: CGFloat) {
+        guard overflowing, width > Tokens.Metric.rowTitleFade else {
+            clip.layer?.mask = nil
+            return
         }
+        // A mask reads alpha and nothing else, so this is not an ink and no
+        // token belongs in it.
+        fadeMask.frame = clip.bounds
+        fadeMask.colors = [NSColor.black.cgColor, NSColor.black.cgColor, NSColor.clear.cgColor]
+        fadeMask.locations = [0, NSNumber(value: Double(1 - Tokens.Metric.rowTitleFade / width)), 1]
+        clip.layer?.mask = fadeMask
     }
 
     /// §30.1: the sidebar's plane moves the window. A label is not a control,
