@@ -155,7 +155,9 @@ struct ChromiumProfile: Sendable, Hashable, Identifiable {
 enum ImportRemedy: Sendable, Hashable, CaseIterable {
     case fullDiskAccess
 
-    var title: String { String(localized: "Grant Luna Full Disk Access") }
+    /// No "Luna" in it: the button is in Luna, on a card about Safari, and
+    /// the words have to fit where a tick would have gone.
+    var title: String { String(localized: "Grant Full Disk Access") }
 
     /// The Full Disk Access list itself, not the top of Privacy & Security.
     /// `Privacy_AllFiles` is the anchor macOS uses for that pane; without it

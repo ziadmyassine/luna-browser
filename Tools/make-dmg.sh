@@ -54,7 +54,13 @@ MOUNT=$(hdiutil attach "$RW" -readwrite -noverify -noautoopen | grep -o '/Volume
 DISK=$(basename "$MOUNT")
 
 # The icons sit on the background's own centre line: `dmg-background.swift`
-# draws its arrow between these two points, in a window 640 x 400.
+# draws its arrow between these two points, in an icon view 640 x 400.
+#
+# The window is 32 pt taller than that, because `bounds` measures the window
+# and Finder's title bar is inside it. Without the allowance the backdrop is
+# squeezed into 368 pt and the whole page sits low. Finder's own chrome — the
+# title bar, and the status bar when the user has one — is Finder's; a disk
+# image cannot draw over either.
 osascript <<EOF
 tell application "Finder"
   tell disk "$DISK"
@@ -62,7 +68,12 @@ tell application "Finder"
     set current view of container window to icon view
     set toolbar visible of container window to false
     set statusbar visible of container window to false
-    set the bounds of container window to {200, 140, 840, 540}
+    -- The path bar draws the same strip the status bar does, and a selected
+    -- alias turns it into a breadcrumb. Both off, and nothing selected.
+    try
+      set pathbar visible of container window to false
+    end try
+    set the bounds of container window to {200, 140, 840, 572}
     set theOptions to the icon view options of container window
     set arrangement of theOptions to not arranged
     set icon size of theOptions to 96
@@ -77,9 +88,17 @@ tell application "Finder"
     -- the one thing on this page that is not the page.
     set toolbar visible of container window to false
     set statusbar visible of container window to false
-    set the bounds of container window to {200, 140, 840, 540}
+    try
+      set pathbar visible of container window to false
+    end try
+    set the bounds of container window to {200, 140, 840, 572}
     update without registering applications
     delay 1
+  end tell
+  -- Nothing highlighted: the last thing positioned stays selected, and a blue
+  -- label under the Applications folder is the first thing the eye lands on.
+  set selection to {}
+  tell disk "$DISK"
   end tell
 end tell
 EOF

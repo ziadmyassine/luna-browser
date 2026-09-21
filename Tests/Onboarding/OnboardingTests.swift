@@ -305,6 +305,14 @@ final class OnboardingImportListTests: XCTestCase {
         }
         XCTAssertEqual(button.accessibilityLabel(), ImportRemedy.fullDiskAccess.title)
         XCTAssertTrue(button.frame.maxX <= row.bounds.width, "the remedy runs off the card")
+        XCTAssertGreaterThanOrEqual(button.frame.width, button.fittingWidth, "the title is truncated")
+        // The remedy stands where a tick would, so the name keeps the line it
+        // is read on: level with the browser's own icon.
+        guard let label = row.subviews.compactMap({ $0 as? NSTextField }).first(where: { !$0.isHidden }) else {
+            return XCTFail("no name")
+        }
+        XCTAssertEqual(label.frame.midY, row.bounds.midY, accuracy: 1, "the name is off the row's centre line")
+        XCTAssertEqual(button.frame.midY, row.bounds.midY, accuracy: 1, "the remedy is off the row's centre line")
         let aim = NSPoint(x: button.frame.midX, y: button.frame.midY)
         XCTAssertTrue(row.hitTest(aim) === button, "the card swallowed its own button")
         XCTAssertTrue(button.accessibilityPerformPress())

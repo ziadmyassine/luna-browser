@@ -69,7 +69,9 @@ final class OnboardingImportRow: NSView {
 
     init(source: DetectedSource) {
         self.source = source
-        remedy = source.remedy.map { OnboardingButton(title: $0.title, isPreferred: false) }
+        remedy = source.remedy.map {
+            OnboardingButton(title: $0.title, isPreferred: false, font: Tokens.TypeScale.settingsCaption)
+        }
         super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerCurve = .continuous
@@ -150,27 +152,34 @@ final class OnboardingImportRow: NSView {
             mark.layer?.cornerRadius = markSide / 2
             check.frame = mark.frame
             spinner.frame = mark.frame.insetBy(dx: 2, dy: 2)
-            layOutText(
-                from: icon.frame.maxX + Tokens.Metric.chromeGapWide,
-                to: mark.frame.minX - Tokens.Metric.chromeGapWide
-            )
+            let left = icon.frame.maxX + Tokens.Metric.chromeGapWide
+            layOutText(from: left, to: layOutRemedy(after: left) ?? mark.frame.minX - Tokens.Metric.chromeGapWide)
         }
+    }
+
+    /// The remedy stands where the tick would have, right-aligned and on the
+    /// row's centre line — so the browser's name stays level with its icon,
+    /// which is the line every other card is read on.
+    ///
+    /// - Returns: where the text column now has to stop, or nil when there is
+    ///   no remedy on this card.
+    private func layOutRemedy(after left: CGFloat) -> CGFloat? {
+        guard let remedy else { return nil }
+        let inset = Tokens.Metric.chromeGapWide
+        let height = Tokens.Metric.controlCircle.height
+        let width = min(ceil(remedy.fittingWidth), max(bounds.maxX - inset - left, 0))
+        remedy.frame = NSRect(
+            x: bounds.maxX - inset - width,
+            y: ((bounds.height - height) / 2).rounded(),
+            width: width,
+            height: height
+        ).integral
+        return remedy.frame.minX - inset
     }
 
     private func layOutText(from left: CGFloat, to right: CGFloat) {
         let width = max(right - left, 0)
         let nameHeight = ceil(name.fittingSize.height)
-        if let remedy {
-            let button = CGSize(
-                width: min(ceil(remedy.fittingWidth), width),
-                height: Tokens.Metric.controlCircle.height
-            )
-            let block = nameHeight + Tokens.Metric.chromeGap + button.height
-            let top = ((bounds.height + block) / 2).rounded()
-            name.frame = NSRect(x: left, y: top - nameHeight, width: width, height: nameHeight)
-            remedy.frame = NSRect(x: left, y: top - block, width: button.width, height: button.height).integral
-            return
-        }
         guard !reason.isHidden else {
             name.frame = NSRect(x: left, y: ((bounds.height - nameHeight) / 2).rounded(), width: width, height: nameHeight)
             return

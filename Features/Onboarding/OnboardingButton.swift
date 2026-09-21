@@ -47,14 +47,18 @@ final class OnboardingButton: NSView {
         }
     }
 
-    init(title: String, isPreferred: Bool) {
+    /// - Parameter font: the page's own size by default. The remedy on an
+    ///   unreadable browser's card takes the caption's instead: it sits in the
+    ///   width a tick would have had, and at the page size its title did not
+    ///   fit in it.
+    init(title: String, isPreferred: Bool, font: NSFont = Tokens.TypeScale.commandBarRow) {
         self.isPreferred = isPreferred
         super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerCurve = .continuous
         label.stringValue = title
         self.title = title
-        label.font = Tokens.TypeScale.commandBarRow
+        label.font = font
         label.alignment = .center
         addSubview(label)
         setAccessibilityElement(true)
