@@ -21,7 +21,7 @@ final class GlyphWeightTests: XCTestCase {
     /// beside it in §3.1 and §3.2b draws 1.62 and the sidebar toggle draws
     /// 1.25. `.light` puts it at 1.50, in among them.
     ///
-    /// **The assertion is `.light` and not `.semibold` on purpose.** It was
+    /// The assertion is `.light` and not `.semibold` on purpose. It was
     /// semibold, from measuring total ink instead of stroke — the chevron has
     /// the least ink in the chrome because it is the smallest mark in it, which
     /// is not the same thing as being the lightest.

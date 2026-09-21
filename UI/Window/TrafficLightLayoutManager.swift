@@ -11,22 +11,22 @@
 //  Measured on macOS 26 with a running probe, not assumed:
 //    · the buttons live in `NSTitlebarView`, 32 pt tall, unflipped;
 //    · they are 14 × 14 at x = 9 / 32 / 55 (23 pt apart), y = 9;
-//    · **AppKit resets those frames on every window resize** — which is exactly
+//    · AppKit resets those frames on every window resize — which is exactly
 //      the bug. Re-application is not optional, so this class owns it.
 //    · neither `NSTitlebarView` nor `NSTitlebarContainerView` clips, but hit
 //      testing still stops at the container's bounds, so a button hung below the
 //      titlebar would draw and not click. `TrafficLightLayout` clamps instead.
-//    · **fullscreen takes the titlebar out of the window entirely** and hangs it
+//    · fullscreen takes the titlebar out of the window entirely and hangs it
 //      off the top of the screen, to slide down on a hover. The lights go with
 //      it, and §3.1's sidebar is left with a hole where they were. So this class
-//      owns where they *live* as well as where they sit: see `TrafficLightStrip`.
+//      owns where they live as well as where they sit: see `TrafficLightStrip`.
 //
 
 import AppKit
 
 /// Which window edge §3's sidebar stands on.
 ///
-/// **The traffic lights do not move with it.** macOS puts them at the window's
+/// The traffic lights do not move with it. macOS puts them at the window's
 /// top-left and there is no API that does otherwise, so a right-hand sidebar
 /// leaves them floating over the page's top-left corner — which is what every
 /// browser that offers this does, and the honest alternative to pretending the
@@ -82,13 +82,13 @@ enum TrafficLightLayout {
     /// top-left, so switching layout or collapsing the sidebar must not move
     /// them. A test pins that down.
     ///
-    /// **`inset` is one number for both axes.** It used to be a leading inset
+    /// `inset` is one number for both axes. It used to be a leading inset
     /// plus a vertical centring in the control row, which put the lights 8 pt
     /// from the window's leading edge and 18 pt from its top — unequal padding
     /// into a corner, and the first thing the eye catches. The reference insets
     /// them equally; so does this.
     ///
-    /// **`system.titlebarHeight` is whichever container holds the buttons**, not
+    /// `system.titlebarHeight` is whichever container holds the buttons, not
     /// necessarily AppKit's titlebar: fullscreen takes that away and the lights
     /// move into `TrafficLightStrip` instead. Both are unflipped and both have
     /// their top edge on the window's, so one piece of arithmetic serves both —
@@ -121,7 +121,7 @@ enum TrafficLightLayout {
 /// front of the chrome so the three buttons sit on the sidebar rather than under
 /// it. It holds AppKit's real buttons, so they keep their real actions.
 ///
-/// **It hit-tests to nothing of its own.** A plain view answers for every point
+/// It hit-tests to nothing of its own. A plain view answers for every point
 /// inside its bounds, and this one lies across the top of §3.1's control row —
 /// so the sidebar's toggle would have stopped taking clicks the moment the
 /// window went fullscreen.
@@ -159,7 +159,7 @@ final class TrafficLightLayoutManager {
         }
     }
 
-    /// **Hidden while the page has the whole window.**
+    /// Hidden while the page has the whole window.
     ///
     /// `⌘S` means "give the page the window", and three lights floating over
     /// the top-left corner of a web page is the one piece of chrome that did
@@ -265,7 +265,7 @@ final class TrafficLightLayoutManager {
     /// not where they currently are.
     ///
     /// Windowed, that is AppKit's titlebar and nothing moves: the titlebar is
-    /// what *groups* the three — hovering one shows all three glyphs — and that
+    /// what groups the three — hovering one shows all three glyphs — and that
     /// is not worth trading away for a corner they already sit in. Fullscreen
     /// there is no titlebar left in the window to group them, so the strip
     /// takes them and §3.1's row keeps its lights.

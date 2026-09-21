@@ -4,7 +4,7 @@
 //
 //  The Touch ID gate in front of §14.3's fill.
 //
-//  These tests are about *ordering*, not about biometrics: the thing worth
+//  These tests are about ordering, not about biometrics: the thing worth
 //  pinning is that a refused prompt stops the flow before the Keychain is
 //  read, so a cancelled fill never brings the secret into the process. A test
 //  that only checked "did it fill" would pass with the prompt after the read.

@@ -1,16 +1,16 @@
 import Foundation
 import WebKit
 
-/// §3.2's **Local Network** permission, as a content rule list.
+/// §3.2's Local Network permission, as a content rule list.
 ///
 /// macOS asks an app once whether it may talk to the local network; a browser has to ask
-/// it per *site*, because the app is only ever the messenger. WebKit exposes no per-origin
+/// it per site, because the app is only ever the messenger. WebKit exposes no per-origin
 /// hook for that — there is no delegate callback and no `WKWebpagePreferences` flag — so
 /// what Luna can honestly offer is the thing a content rule list already does well: refuse
 /// the loads. A page that has not been given the permission cannot fetch `192.168.1.1`,
 /// `printer.local` or `localhost`, and one that has been given it can.
 ///
-/// **A page served *from* the local network is exempt.** `unless-top-url` carries the same
+/// **A page served from the local network is exempt.** `unless-top-url` carries the same
 /// patterns as the trigger, so `localhost:3000` may load its own assets, talk to its own
 /// API and reach the rest of the LAN without ever being asked — which is the difference
 /// between a permission and a firewall, and the difference between this shipping and this
@@ -32,7 +32,7 @@ extension ContentBlocker {
     /// it is plugged into. RFC 1918's three ranges, loopback in both families, link-local,
     /// and Bonjour's `.local`.
     ///
-    /// **No `|` anywhere.** WebKit's URL-filter engine takes a documented subset of
+    /// No `|` anywhere. WebKit's URL-filter engine takes a documented subset of
     /// regular expressions, and it is smaller than it looks: `Error while parsing … :
     /// Disjunctions are not supported yet` is what a first pass got back for
     /// `([:/]|$)` — measured, by handing each pattern to `compileContentRuleList` and

@@ -2,7 +2,7 @@
 //  HistoryListView.swift
 //  Luna
 //
-//  §6.4's rows, highlighted the way §9.1's are: **one glass pill that moves**,
+//  §6.4's rows, highlighted the way §9.1's are: one glass pill that moves,
 //  not a fill per row.
 //
 //  This is `CommandBarResultsView`'s behaviour, deliberately — the two lists are
@@ -64,7 +64,7 @@ final class HistoryListView: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
-    /// **The list reads downwards, so it opens at the top.** An unflipped view
+    /// The list reads downwards, so it opens at the top. An unflipped view
     /// has its origin at the bottom, and that origin is where `NSScrollView`
     /// opens the document it is given — so a long archive came up showing its
     /// oldest end, and the newest entry, which is the first row, was a scroll
@@ -141,7 +141,7 @@ final class HistoryListView: NSView {
             selection.isHidden = true
             return
         }
-        // **Every pill is the same width, and it is the list's, not the row's.**
+        // Every pill is the same width, and it is the list's, not the row's.
         // A pill measured off each row inherits whatever that row's stack
         // negotiated, so a long title and a short one highlighted differently —
         // and a row wider than the list put glass over the panel's own rounded

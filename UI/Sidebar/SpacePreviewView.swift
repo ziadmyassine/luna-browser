@@ -4,14 +4,14 @@
 //
 //  The Space on the other side of the swipe, drawn so it can be seen arriving.
 //
-//  **A page turn has to show the page.** §30.9 used to lean the column 40 pt
+//  A page turn has to show the page. §30.9 used to lean the column 40 pt
 //  and dim it, which says "something is happening" and nothing else: the Space
 //  you were reaching for stayed invisible until the gesture had already
 //  committed, so the choice was made blind. This is the other half of the
 //  motion — the incoming Space, translating in from the edge the fingers are
 //  heading toward while the live one translates out.
 //
-//  **It is a still, and it is not the list.** §3.4's list is an `NSTableView`
+//  It is a still, and it is not the list. §3.4's list is an `NSTableView`
 //  bound to the active Space: there is exactly one, it recycles its rows, and
 //  pointing it at a Space the window is not in would mean tearing down and
 //  rebuilding the thing the user is about to be handed. What a page turn needs
@@ -20,7 +20,7 @@
 //  what replaces it is the real list, cross-faded by §6's
 //  `spaceSwitchCrossfade` so the seam is not a frame anyone can catch.
 //
-//  **The picture is of the whole column, pinned tabs included.** It used to be
+//  The picture is of the whole column, pinned tabs included. It used to be
 //  a flat run of rows built from every tab in the Space — which put the §3.3
 //  tiles in it as ordinary rows, so a Space with pinned tabs arrived looking
 //  like a Space without any and then rearranged itself the moment the real
@@ -130,7 +130,7 @@ final class SpacePreviewView: NSView {
 /// One §3.3 tile of the still: the plate and the favicon, and nothing that
 /// makes a tile a control — no glow, no hover, no menu.
 ///
-/// **The plate, and deliberately not the glass.** A real tile is a `.dormant`
+/// The plate, and deliberately not the glass. A real tile is a `.dormant`
 /// `GlassButton`: at rest it wears `Surface.well` and a hairline, and the
 /// material only comes up under the pointer or on the tab you are on. Drawing
 /// the material here lit every tile in the Space you were swiping toward, so
@@ -248,8 +248,8 @@ final class SpacePreviewRow: NSView {
                 width: side,
                 height: side
             ).pixelAligned
-            // **The same column and the same box a real row gives its title.**
-            // A label draws its one line at the *top* of whatever frame it is
+            // The same column and the same box a real row gives its title.
+            // A label draws its one line at the top of whatever frame it is
             // given, so handing it the full row height put "New Tab" a third of
             // a row above the favicon beside it — visible for the length of a
             // swipe and corrected the moment the real list arrived. The box is

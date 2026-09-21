@@ -176,7 +176,7 @@ final class PasswordsSection: SettingsSection {
         case .local, .unknown:
             String(localized: "This Mac only — syncing to your other devices needs a signed build of Luna")
         case let .unavailable(status):
-            // **Interpolated as a string, not as an `Int`.** `String(localized:)`
+            // Interpolated as a string, not as an `Int`. `String(localized:)`
             // formats an integer interpolation for the locale, which turns
             // `-25300` into `-25,300` — and the only reason the number is here
             // at all is so the user can search for it. A grouping separator

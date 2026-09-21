@@ -3,12 +3,12 @@ import JavaScriptCore
 import Testing
 @testable import BrowserKit
 
-/// §3.2b's colour sample, **run** rather than read.
+/// §3.2b's colour sample, run rather than read.
 ///
 /// The rest of `scrollScript`'s coverage asserts that the source contains a
 /// word. That catches a deleted listener and nothing else: both bugs Martin
 /// reported — a white bar over a black page, and a bar still wearing the page
-/// Back had just left — were in what the script *decides*, and every
+/// Back had just left — were in what the script decides, and every
 /// `contains` test went on passing through both of them.
 ///
 /// So the script is evaluated here in `JSContext` against a stand-in document,
@@ -20,7 +20,7 @@ import Testing
 @MainActor
 struct PageColourScriptTests {
 
-    /// One layer as `getComputedStyle` reports it. The stand-in *is* the style,
+    /// One layer as `getComputedStyle` reports it. The stand-in is the style,
     /// so a layer is just the two properties the walk reads.
     struct Layer {
         let colour: String
@@ -161,7 +161,7 @@ struct PageColourScriptTests {
     }
 
     /// The other bug: Back and Forward are served from WebKit's page cache,
-    /// which restores a document **without re-running user scripts**. Nothing
+    /// which restores a document without re-running user scripts. Nothing
     /// posted, `resetPerDocumentState` had already cleared the colour, and the
     /// bar wore the page that had just been left until the next scroll. The
     /// listeners survive the restore, so `pageshow` is what asks again.

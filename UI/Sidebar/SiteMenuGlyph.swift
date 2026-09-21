@@ -4,14 +4,14 @@
 //
 //  §3.2's sliders glyph — the one drawn mark in Luna's chrome.
 //
-//  **There is no SF Symbol for it.** The reference is two horizontal sliders,
+//  There is no SF Symbol for it. The reference is two horizontal sliders,
 //  and the family ships `slider.horizontal.3` (three, no box) and
 //  `slider.horizontal.2.square` (two, in a box); the bare pair does not exist
 //  under any name — checked against `CoreGlyphs.bundle`'s own availability
 //  list, all 9,524 of them. Three looked crowded at 16 pt beside a domain, and
 //  the box put a second rounded rectangle inside a rounded pill.
 //
-//  So it is drawn, once, as a **template** image: black ink with real holes in
+//  So it is drawn, once, as a template image: black ink with real holes in
 //  it, which is what lets `contentTintColor` carry §21.2's Increase Contrast and
 //  both appearances without this file ever naming a colour (contract rule 3).
 //  The knobs are rings rather than discs for the same reason the reference draws
@@ -67,7 +67,7 @@ enum SiteMenuGlyph {
                 let x = rect.minX + rect.width * fraction
                 NSBezierPath(ovalIn: NSRect(x: x - ring / 2, y: centre - ring / 2, width: ring, height: ring)).fill()
             }
-            // **The holes are punched, not painted.** A background-coloured disc
+            // The holes are punched, not painted. A background-coloured disc
             // would be a colour value in a file that is not `Tokens.swift`, and
             // it would be the wrong colour the moment the glyph sits on glass
             // rather than on the pill's well.

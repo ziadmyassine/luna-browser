@@ -5,7 +5,7 @@ import Foundation
 ///
 /// A value rather than a rendered string so the mapping from `NSError` is a
 /// pure function with a test, and so Agent A's blocked / HTTPS-downgrade
-/// interstitials are the *same* page with a different `kind` rather than a
+/// interstitials are the same page with a different `kind` rather than a
 /// second implementation.
 public struct InternalPageError: Equatable, Sendable {
 
@@ -65,7 +65,7 @@ public struct InternalPageError: Equatable, Sendable {
 
     /// §4.5's four cases, from what WebKit actually reports.
     ///
-    /// `NSURLErrorCannotConnectToHost` is deliberately **not** `offline`: the
+    /// `NSURLErrorCannotConnectToHost` is deliberately not `offline`: the
     /// name resolved and the machine answered, it just refused the port, and
     /// telling the user their internet is down would be a lie.
     public static func kind(for error: Error) -> Kind {

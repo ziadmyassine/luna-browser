@@ -33,7 +33,7 @@ extension AppDelegate {
     /// answer it the same way: by handing the address to §9.1, which opens
     /// standing on the pill that asked (`CommandBarAnchor`).
     ///
-    /// **Chained, not assigned**, which is how `TopBarView` claims it: each
+    /// Chained, not assigned, which is how `TopBarView` claims it: each
     /// layout answers only for itself and passes the command on otherwise. This
     /// one is registered last and asks the two questions the others cannot —
     /// whether the page bar is the one showing, and whether the column's pill
@@ -56,7 +56,7 @@ extension AppDelegate {
     /// The sidebar drops the pill and the page bar picks it up, or the other way
     /// round.
     ///
-    /// **Both ends are told by one reader.** `Settings.searchBarIsOnPage`
+    /// Both ends are told by one reader. `Settings.searchBarIsOnPage`
     /// resolves the placement against the layout, so the sidebar cannot end up
     /// having dropped its pill in a layout with no page bar to put it in.
     func applySearchBarPlacement(animated: Bool) {
@@ -72,9 +72,9 @@ extension AppDelegate {
     /// observe: the three pills are each fed by the controller that owns them,
     /// and the window's top edge is fed from here.
     ///
-    /// **Registered, not assigned**, like every other observer on this session
+    /// Registered, not assigned, like every other observer on this session
     /// — and both halves are needed. The state observer carries the progress;
-    /// the change observer carries the *switch*, which no tab state reports,
+    /// the change observer carries the switch, which no tab state reports,
     /// and without it the line kept counting the tab the user just left.
     func wireLoadLine(_ session: BrowserSession, in controller: BrowserWindowController) {
         let feed: @MainActor (UUID?) -> Void = { [weak session, weak controller] tick in
@@ -82,7 +82,7 @@ extension AppDelegate {
             guard let active = session.activeTabID else {
                 return controller.setLoadProgress(nil, for: nil)
             }
-            // **A background tab's tick is not this line's business.** The line
+            // A background tab's tick is not this line's business. The line
             // describes the page the window is showing; a second tab loading
             // behind it used to wipe it.
             guard tick == nil || tick == active else { return }

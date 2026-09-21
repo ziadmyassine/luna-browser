@@ -13,7 +13,7 @@
 //  feature is inert while looking implemented. Both halves need proving:
 //
 //  1. `installLifecycle()` reaches the sweep at all.
-//  2. The identifier set it hands over is the **live** one. That set is the
+//  2. The identifier set it hands over is the live one. That set is the
 //     whole decision — everything WebKit lists and the set does not name gets
 //     deleted — so an empty or stale set is not a weaker sweep, it is a sweep
 //     that takes the user's live cookie jars.
@@ -78,7 +78,7 @@ final class BrowserSessionLaunchTests: XCTestCase {
         self.session = session
 
         var reached = false
-        // Deliberately *not* assigned to `session.orphanSweepSink` — this
+        // Deliberately not assigned to `session.orphanSweepSink` — this
         // records whether anything called it, and nothing should.
         let unusedSink: (Set<UUID>) async -> Void = { _ in reached = true }
         _ = unusedSink

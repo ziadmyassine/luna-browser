@@ -275,7 +275,7 @@ extension TokenCheck {
         let inks: [(String, InkAlphas)] = [
             ("secondary", Tokens.Ink.secondary), ("tertiary", Tokens.Ink.tertiary), ("border", Tokens.Ink.border),
             ("hover", Tokens.Ink.hover), ("selected", Tokens.Ink.selected), ("chromeFill", Tokens.Ink.chromeFill),
-            // Including `disabled`: a dimmed control still has to be *findable*
+            // Including `disabled`: a dimmed control still has to be findable
             // for the users who turn Increase Contrast on, even though §21.4
             // does not apply to its label (`Text.disabled`).
             ("disabled", Tokens.Ink.disabled), ("popoverShadow", Tokens.Ink.popoverShadow),
@@ -285,7 +285,7 @@ extension TokenCheck {
             ("glassTintDense", Tokens.Ink.glassTintDense),
             ("glassTintControl", Tokens.Ink.glassTintControl),
             // §2a's opaque frost: the setting that gives up transparency must
-            // not give the users who asked for *less* of it a thinner surface.
+            // not give the users who asked for less of it a thinner surface.
             ("frost", Tokens.Ink.frost),
             ("frostOpaque", Tokens.Ink.frostOpaque)
         ]

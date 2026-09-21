@@ -5,12 +5,12 @@
 //  §3.6's editable key chip: it prints a shortcut, and when you click it, it
 //  listens for the next one.
 //
-//  **This is the one place in Luna that installs an `NSEvent` monitor**, and the
+//  This is the one place in Luna that installs an `NSEvent` monitor, and the
 //  ban it is stepping around is worth restating rather than quietly breaking.
-//  `BrowserCommands` forbids monitors because a *command* driven by one is
+//  `BrowserCommands` forbids monitors because a command driven by one is
 //  invisible — not in a menu, not in the accessibility tree, impossible to
 //  discover (§22.5). None of that applies here: nothing is being commanded. The
-//  monitor exists so the keystroke can be **read instead of obeyed**, which is
+//  monitor exists so the keystroke can be read instead of obeyed, which is
 //  exactly what the menu bar would otherwise do with it. Without one, pressing
 //  ⇧⌘T over this control opens a tab.
 //
@@ -127,7 +127,7 @@ final class SettingsShortcutRecorder: NSView {
         guard !isRecording else { return }
         isRecording = true
         window?.makeFirstResponder(self)
-        // **Returning nil swallows the event.** That is the point: while this
+        // Returning nil swallows the event. That is the point: while this
         // control is listening, ⌘W must not close the tab behind the Settings
         // window on its way to being recorded.
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
@@ -187,7 +187,7 @@ final class SettingsShortcutRecorder: NSView {
         label.stringValue = isRecording
             ? String(localized: "Press keys…")
             : (binding?.display ?? String(localized: "—"))
-        // **The ink answers the pointer, not the fill.** This chip is drawn as
+        // The ink answers the pointer, not the fill. This chip is drawn as
         // a well — `Surface.well` is black ink in both themes — and §3.4's
         // hover wash is white, so lifting the fill here would flip a recess
         // into a plate on the way past it. §3.1's other half is the one that

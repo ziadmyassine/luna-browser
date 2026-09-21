@@ -5,11 +5,11 @@
 //  Goal 11: the key map after §13.2's rebinding — Spaces on ⌃1…⌃9, ⌘1…⌘9 given
 //  to sidebar items, and ⌃⌥←/→ for previous/next Space.
 //
-//  **These assertions are not paperwork.** Two AppKit behaviours were measured
+//  These assertions are not paperwork. Two AppKit behaviours were measured
 //  on macOS 26.5 while this was built, and both destroy shortcuts silently:
 //  the key-equivalent search stops at the first match and consumes the event
 //  there even when that item is disabled, and a ⌘-number that duplicates one
-//  already in the menu bar is *erased* from the later item — mask intact, key
+//  already in the menu bar is erased from the later item — mask intact, key
 //  gone, no error at build time or run time. Nothing but a test sees either.
 //
 
@@ -82,7 +82,7 @@ final class SpacesMenuTests: XCTestCase {
         XCTAssertEqual(items.last?.title, "Tab 9")
     }
 
-    /// **The regression that cost this wave an hour.** An item carrying a
+    /// The regression that cost this wave an hour. An item carrying a
     /// ⌘-number loses its key equivalent on the way into a menu bar that is
     /// already live — measured inside the running app: `"1"` on the line before
     /// `NSMenu.addItem`, `""` on the line after, mask intact, no error. So the
@@ -112,7 +112,7 @@ final class SpacesMenuTests: XCTestCase {
 
     // MARK: - The shadowing rule, asserted rather than trusted
 
-    /// **Sidebar Items must come before Settings in menu-bar order.** Probed
+    /// Sidebar Items must come before Settings in menu-bar order. Probed
     /// on macOS 26.5: the earlier match wins ⌘1 outright and the loser never
     /// runs. The Settings section items are nil-targeted, so if they came first
     /// ⌘1 would be dead in the browser window — no crash, no warning, just a
@@ -123,9 +123,9 @@ final class SpacesMenuTests: XCTestCase {
                           try XCTUnwrap(titles.firstIndex(of: "Window")))
     }
 
-    /// **The regression this file exists for.** `install` hands the Window menu
+    /// The regression this file exists for. `install` hands the Window menu
     /// to AppKit as `NSApplication.windowsMenu`; AppKit then owns it, and an
-    /// item added to it *after* that assignment comes back with its
+    /// item added to it after that assignment comes back with its
     /// `keyEquivalent` silently cleared — modifier mask intact, key gone.
     /// Measured here: Sidebar Items lived under Window for one build and all
     /// nine shortcuts were erased at runtime while the code that set them read
@@ -150,7 +150,7 @@ final class SpacesMenuTests: XCTestCase {
     /// **Exactly one family may claim ⌘-number, and AppKit enforces that more
     /// harshly than the first-match rule suggests.** Measured on macOS 26.5 in
     /// the running app: a ⌘-number duplicating one already in the bar is
-    /// *erased* — the earlier item in menu-bar order keeps the key, the later
+    /// erased — the earlier item in menu-bar order keeps the key, the later
     /// one comes back with `keyEquivalent == ""`, mask intact, no error. So a
     /// second claimant does not shadow Sidebar Items, it silently loses its own
     /// shortcut, and the menu then prints a shortcut it does not have.

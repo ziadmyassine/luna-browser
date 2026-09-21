@@ -20,7 +20,7 @@ extension SidebarSpaceGestures {
 
     /// §6.1, from §30.9's swipe and from the footer's menu.
     ///
-    /// **It is created named, not named and then created.** The gesture that
+    /// It is created named, not named and then created. The gesture that
     /// asks for it ends with the fingers coming off the trackpad, and a modal
     /// asking for a name at that moment turns a fluid motion into a form. What
     /// follows is an editor rather than a dialog — see `SpaceEditorView`.

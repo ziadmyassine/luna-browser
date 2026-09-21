@@ -5,7 +5,7 @@
 //  §3.1's guard on ⌘Q: what the sheet says, and the two-pass dance AppKit
 //  makes you do to put one up at all.
 //
-//  **`applicationShouldTerminate` cannot wait for an answer.** It is
+//  `applicationShouldTerminate` cannot wait for an answer. It is
 //  synchronous and it has exactly three replies. `.terminateLater` is the one
 //  that looks right and is not: it parks the app in a nested modal run loop,
 //  where the window keeps drawing but the sheet's own animation and its
@@ -76,10 +76,10 @@ extension AppDelegate {
     /// What is actually at stake, which is the whole reason this is a sentence
     /// and not "Are you sure?".
     ///
-    /// **Tabs are not at stake and the sheet says so.** Luna restores the
+    /// Tabs are not at stake and the sheet says so. Luna restores the
     /// session, so the honest line is the count plus the promise — and a
     /// warning that overstates what it is guarding is one the user learns to
-    /// click through. A download *is* at stake: it is the one thing in the app
+    /// click through. A download is at stake: it is the one thing in the app
     /// that quitting destroys rather than parks, so when one is running it is
     /// the sentence, and the tab count is not.
     private var quitCaption: String {

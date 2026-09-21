@@ -8,7 +8,7 @@
 //  Hiding the sidebar used to leave the user with a full-bleed page and no
 //  way back to it except the keystroke that hid it. The peek is the way back:
 //  push the pointer against the window's leading edge and the sidebar slides
-//  **over** the page — it does not push it — and slides away again when the
+//  over the page — it does not push it — and slides away again when the
 //  pointer leaves. The page never moves, so nothing reflows for a glance.
 //
 //  Two views, because the pointer is in one of two places and both of them
@@ -23,7 +23,7 @@ import AppKit
 
 /// The invisible trigger strip on the window's leading edge.
 ///
-/// **It never takes a click.** `hitTest` returns nil, so the page underneath
+/// It never takes a click. `hitTest` returns nil, so the page underneath
 /// keeps every event; a tracking area does not need to win the hit test to
 /// report enter and exit, which is the whole reason this can be a 4 pt strip
 /// lying across a live web page.

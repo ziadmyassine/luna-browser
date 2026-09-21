@@ -3,24 +3,24 @@
 //  Luna
 //
 //  `docs/UI-SPEC.md` §5 / TODO.md §30.15 — the download-complete popover. It
-//  **renders outside the window bounds**, floating above the top edge with a
+//  renders outside the window bounds, floating above the top edge with a
 //  pointer tail down into the downloads button in the §4 action capsule, so it
 //  is an `NSPanel` and not a view in the window.
 //
 //  Two things §5 says that are easy to read past:
 //
-//  · **Middle truncation is required, not stylistic.** A statement called
+//  · Middle truncation is required, not stylistic. A statement called
 //    `97103328759-2026-01-01-2026-08-31.pdf` has to keep both ends: head
 //    truncation destroys the account number, tail truncation destroys the
 //    extension, and either leaves the user unable to tell which file landed.
 //
-//  · **There is no heavy glass style on macOS 26** (see `Glass.swift`). The
+//  · There is no heavy glass style on macOS 26 (see `Glass.swift`). The
 //    popover is `.regular` like the bar, and its extra weight comes from the
 //    panel shadow. `Tokens.Shadow.popover` does not exist yet, so what ships
 //    here is the system panel shadow — see the report.
 //
 //  Accessibility (§21.1): completion is announced to VoiceOver, the row carries
-//  a real label with the filename *and* its state rather than existing only as
+//  a real label with the filename and its state rather than existing only as
 //  an animation, and Escape dismisses the panel from anywhere in the app
 //  without it having to steal key focus from the page the user is reading.
 //
@@ -278,9 +278,9 @@ private final class PopoverContentView: NSView {
         maskTail()
     }
 
-    /// A square turned on its point — **masked, not rotated.**
+    /// A square turned on its point — masked, not rotated.
     ///
-    /// **Measured at runtime (M1 integration):** with
+    /// Measured at runtime (M1 integration): with
     /// `tail.frameCenterRotation = 45` the app died the instant the panel was
     /// ordered in, `EXC_BREAKPOINT` / "Invalid view geometry: y is NaN" raised
     /// from `NSViewActuallyUpdateFrameFromLayoutEngine`. Auto Layout cannot
@@ -319,7 +319,7 @@ private final class PopoverContentView: NSView {
 
     // MARK: Motion
 
-    /// §6: 0.20 s spring, scale 0.94 → 1.0, **from the tail anchor** — it grows
+    /// §6: 0.20 s spring, scale 0.94 → 1.0, from the tail anchor — it grows
     /// out of the button it points at rather than out of its own centre.
     func animateIn(from anchorFraction: CGFloat) {
         guard let layer else { return }

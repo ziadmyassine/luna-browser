@@ -4,17 +4,17 @@
 //
 //  The token→CSS bridge (§4.4, §8.1). `BrowserKit` serves Luna's internal
 //  pages but cannot see `Design/` — it must not import AppKit — so the palette
-//  is *generated* here, from the same `Tokens` every view reads, and handed
+//  is generated here, from the same `Tokens` every view reads, and handed
 //  over as a block of CSS custom properties. A second hand-written palette in
 //  the page templates would be worse than none: it would look right on the day
 //  it was written and drift silently forever after.
 //
-//  **Why this lives in `Features/` and not `Design/`:** it is a consumer of the
+//  Why this lives in `Features/` and not `Design/`: it is a consumer of the
 //  tokens, not one of them. Nothing here names a colour, and
 //  `InternalPageThemeTests` fails if the emitted variables ever stop matching
 //  `InternalPages.paletteVariables`.
 //
-//  **Four variants, because the page picks, not Swift.** Light and dark (§8.8)
+//  Four variants, because the page picks, not Swift. Light and dark (§8.8)
 //  and Increase Contrast (§21.2) are both `prefers-*` media queries inside the
 //  page. That is not a shortcut, it is the only hook that works: on macOS 26.5
 //  Increase Contrast is not an `NSAppearance` (see `Design/Tokens.swift`), so a
@@ -38,7 +38,7 @@ enum InternalPageTheme {
             (query: "(prefers-color-scheme: dark) and (prefers-contrast: more)", contrast: true, dark: true)
         ]
         // Every block restates every swatch. Emitting only the differences would
-        // be smaller and is a trap: the blocks overlap — dark **and** dark+contrast
+        // be smaller and is a trap: the blocks overlap — dark and dark+contrast
         // both apply in dark+contrast — so "same as the rest value" is not the
         // same question as "same as what is already in force". A kilobyte of
         // repetition on a page that is built in-process is not a cost.
@@ -85,7 +85,7 @@ enum InternalPageTheme {
         // `--luna-shadow` — but it has the same two jobs: a recess a mark sits
         // in, and the one control on the surface that is the answer.
         // Built here rather than taken from `Surface.well`, for the reason the
-        // hairline above is: `recessInkColor` reads the *live* Increase
+        // hairline above is: `recessInkColor` reads the live Increase
         // Contrast setting, so asking it four times would write this machine's
         // current answer into all four blocks. A recess is black in both
         // themes — see `recessInkColor` — which is the one thing that must not
@@ -94,8 +94,8 @@ enum InternalPageTheme {
             NSColor(white: 0, alpha: Tokens.Ink.well.alpha(contrast: contrast, dark: dark))
         },
         Swatch(name: "--luna-surface-selected") { Tokens.Ink.selected.color(contrast: $0, dark: $1) },
-        // **§5's popover shadow, because a page cannot be Liquid Glass.** The
-        // material composites what is behind the *window* and a `WKWebView`'s
+        // §5's popover shadow, because a page cannot be Liquid Glass. The
+        // material composites what is behind the window and a `WKWebView`'s
         // layer is out of process, so nothing a page draws can sample anything
         // (`docs/UI-SPEC.md` §3.8). What is left of the chrome's surface on a
         // page is its plane, its hairline, its corner — and its shadow, which

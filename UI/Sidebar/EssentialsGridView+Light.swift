@@ -5,10 +5,10 @@
 //  §3.3's glow: the soft light under the pinned tile that is the tab you are
 //  on, in that site's own colour.
 //
-//  **One view for the whole grid, not one per tile.** Only one tile can be the
+//  One view for the whole grid, not one per tile. Only one tile can be the
 //  tab you are on, so a backing view per tile is a dozen surfaces to keep a
 //  single light on — which is what `EssentialsGridView`'s header records
-//  costing the sidebar the last time it was tried. One view that is *moved* is
+//  costing the sidebar the last time it was tried. One view that is moved is
 //  also what makes the rule below expressible at all: the light goes out where
 //  it was and appears where it now is, and a thing that cannot travel cannot
 //  accidentally be animated across the grid.
@@ -27,19 +27,19 @@ extension EssentialsGridView {
     /// that was.
     ///
     /// - Parameter blooming: whether this pass could have come from a click.
-    ///   §3.3's glow *appears*, and the appear belongs to the press that caused
+    ///   §3.3's glow appears, and the appear belongs to the press that caused
     ///   it: the pass that builds the sidebar has to arrive with the light
     ///   already on, and a refresh that leaves the same tile lit must not
     ///   replay it — which is why the tile has to have changed as well.
     /// - Parameter replacing: this is a different grid, not an edit to this
-    ///   one — §6's Space switch. The light is *placed*, never faded: see
+    ///   one — §6's Space switch. The light is placed, never faded: see
     ///   `EssentialGlowView.show(_:blooming:animated:)`.
     func relight(blooming: Bool, replacing: Bool = false) {
         let lit = activeTabID.flatMap { settled.contains($0) ? $0 : nil }
         let moved = lit != litID
         litID = lit
-        // **Stood in the right place before it is lit**, or the pop plays at
-        // the tile you came *from* and the light teleports afterwards: the
+        // Stood in the right place before it is lit, or the pop plays at
+        // the tile you came from and the light teleports afterwards: the
         // layout pass that would otherwise place it does not run until later
         // in the loop, and the appear starts here.
         placeGlow()
@@ -58,7 +58,7 @@ extension EssentialsGridView {
         return slotRect(at: slot)
     }
 
-    /// **The light never travels.** It is one view moved between tiles, so an
+    /// The light never travels. It is one view moved between tiles, so an
     /// animated pass — a pin, an unpin, a reorder — would slide it across the
     /// grid from the tile you left to the tile you clicked, and that slide is
     /// the thing this is not: the glow goes out where it was and appears where

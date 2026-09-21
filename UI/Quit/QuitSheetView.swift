@@ -4,12 +4,12 @@
 //
 //  §3.1's "are you sure?", as a surface rather than as an `NSAlert`.
 //
-//  **⌘Q is next to ⌘W on every keyboard there is**, and the two of them do
+//  ⌘Q is next to ⌘W on every keyboard there is, and the two of them do
 //  wildly different things to a window full of tabs. Every browser that has
 //  thought about this guards the one that closes everything; Luna did not, so
 //  a slipped finger took the whole session out with no way back.
 //
-//  **And it is Luna's own surface, not AppKit's.** An `NSAlert` is four lines
+//  And it is Luna's own surface, not AppKit's. An `NSAlert` is four lines
 //  of code and it is a different application answering: a grey titled panel
 //  with a blue default button, in a window whose chrome is glass and whose
 //  accent colour does not exist. The downloads popover has this exact note on
@@ -20,7 +20,7 @@
 //  other end, because "and don't ask again" is a decision about every future
 //  quit rather than about this one.
 //
-//  **No backdrop.** §9.1's scrim was built twice and deleted twice — see
+//  No backdrop. §9.1's scrim was built twice and deleted twice — see
 //  `CommandBarPanel`'s header, which has the measurements — and the finding
 //  holds here: a veil over the page separates the panel from the window it
 //  belongs to, and the material has an edge and a shadow of its own to be
@@ -42,12 +42,12 @@ enum QuitAnswer: Equatable, Sendable {
 /// has no quit-sheet entry, and contract rule 2 forbids inlining one — the
 /// same reason `CommandBarMetrics` and `PopoutMetrics` read the way they do.
 enum QuitSheetMetrics {
-    /// The **floor**, not the width. Three quarters of the narrowest window
+    /// The floor, not the width. Three quarters of the narrowest window
     /// Luna allows: narrow enough that the sheet is plainly a question rather
     /// than a pane, and wide enough that a one-line caption is not set in a
     /// column.
     ///
-    /// **The sheet is as wide as its answers are, and it has to be.** A fixed
+    /// The sheet is as wide as its answers are, and it has to be. A fixed
     /// width was the first build and both numbers tried were short of the
     /// three buttons — "Cancel" came out as "Can", then "Quit" came out as
     /// "Qu", because a row that does not fit does not say so: Auto Layout
@@ -102,7 +102,7 @@ final class QuitSheetView: NSView {
         addSubview(body)
 
         // Luna's own icon, at the size the Dock hands back. It is the one thing
-        // on the sheet that says *which* app is about to go away — which is the
+        // on the sheet that says which app is about to go away — which is the
         // question, and "Quit Luna?" set in type is only half of it.
         icon.image = NSApp.applicationIconImage
         icon.imageScaling = .scaleProportionallyUpOrDown
@@ -117,7 +117,7 @@ final class QuitSheetView: NSView {
         // must not be what makes the panel wide, or a Space with a lot of tabs
         // would stretch the sheet into a banner.
         caption.preferredMaxLayoutWidth = QuitSheetMetrics.minimumWidth - 2 * QuitSheetMetrics.padding
-        // **The answers keep their words.** A row that does not fit is a bug
+        // The answers keep their words. A row that does not fit is a bug
         // in the width above, and it has to look like one: at the default
         // resistance the stack simply shaved the two short buttons until
         // "Cancel" read "Can", which is a sheet that is wrong and does not say
@@ -146,7 +146,7 @@ final class QuitSheetView: NSView {
     // MARK: - Layout
 
     private func layOut() {
-        // **The row is not evenly spaced, and that is the point.** "Quit, and
+        // The row is not evenly spaced, and that is the point. "Quit, and
         // don't ask again" changes a setting; the other two answer this one
         // press. Held at the far end with the gap between them, the two groups
         // read as two different kinds of thing, which is what stops the
@@ -177,7 +177,7 @@ final class QuitSheetView: NSView {
             // high: a surface dropped exactly in the middle of a window reads
             // as heavier than one held slightly above it, and this one is not
             // heavy. Half a bar is also what the top bar takes out of the
-            // content area, so the panel lands on the *page's* middle.
+            // content area, so the panel lands on the page's middle.
             body.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -Tokens.Metric.topBarHeight / 2),
             column.leadingAnchor.constraint(equalTo: body.leadingAnchor, constant: pad),
             column.trailingAnchor.constraint(equalTo: body.trailingAnchor, constant: -pad),
@@ -206,7 +206,7 @@ final class QuitSheetView: NSView {
     /// just under full size, on `commandBarIn`, with the whole overlay fading
     /// with it.
     ///
-    /// The spring is on the **panel**, not on this view. This one covers the
+    /// The spring is on the panel, not on this view. This one covers the
     /// window, so scaling it would scale the panel about the window's centre
     /// rather than about its own, and would take the click-catching area with
     /// it for the length of the animation.
@@ -267,7 +267,7 @@ final class QuitSheetView: NSView {
 
     override var acceptsFirstResponder: Bool { true }
 
-    /// Escape stays. **Not `cancelOperation`** alone: ⌘. reaches that too, and
+    /// Escape stays. Not `cancelOperation` alone: ⌘. reaches that too, and
     /// so does an Escape a text field somewhere else in the window swallowed
     /// first — this view is made first responder while the sheet is up, so the
     /// key comes here and the two are the same answer anyway.

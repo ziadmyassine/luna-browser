@@ -2,7 +2,7 @@
 //  CredentialPopover.swift
 //  Luna
 //
-//  §14.3's credential picker: a **native popover anchored to the field**.
+//  §14.3's credential picker: a native popover anchored to the field.
 //
 //  The word "native" in §14.3 is a security requirement, not a style note.
 //  An injected DOM overlay lives in the page's own document, which means the
@@ -14,7 +14,7 @@
 //
 //  So this is a panel — a child window of the browser window, like §5's
 //  downloads popover — positioned from a rect the page reported. The rect is
-//  the *only* thing that crosses over, and the worst a lying page can do with
+//  the only thing that crosses over, and the worst a lying page can do with
 //  it is put the popover somewhere silly.
 //
 //  Accessibility (§21.1): the panel is a real list of real buttons, so
@@ -35,7 +35,7 @@ final class CredentialPopover {
     /// offers: picking a saved credential fills a username Luna already knows,
     /// and taking a generated password commits the user to one they have never
     /// seen. Collapsing them would have meant dressing the generated password
-    /// up as a `Credential` whose *username* is the password — which reads
+    /// up as a `Credential` whose username is the password — which reads
     /// correctly on screen and disastrously to VoiceOver.
     enum Content {
         case saved(PasswordOffer)
@@ -120,7 +120,7 @@ final class CredentialPopover {
     /// Repositions a picker that is already up, because the field it points at
     /// has moved under it.
     ///
-    /// **Moved, not rebuilt.** The page re-reports its form on every frame of a
+    /// Moved, not rebuilt. The page re-reports its form on every frame of a
     /// scroll; tearing the panel down and building a new one at each report
     /// would flicker, lose the pointer's hover, and re-read the Keychain sixty
     /// times a second. Nothing about the offer has changed — only where it
@@ -166,7 +166,7 @@ final class CredentialPopover {
             if origin.y < visible.minY {
                 origin.y = field.maxY + gap
             }
-            // Clamp horizontally *after* the flip: a field near the right edge
+            // Clamp horizontally after the flip: a field near the right edge
             // would otherwise push the panel off-screen whichever way it went.
             origin.x = min(max(origin.x, visible.minX), visible.maxX - size.width)
             origin.y = min(max(origin.y, visible.minY), visible.maxY - size.height)

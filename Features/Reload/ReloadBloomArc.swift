@@ -3,7 +3,7 @@
 //  Luna
 //
 //  The two pieces of UI-SPEC §7 that are about pixels rather than phases: the
-//  gradient that *is* the arc, and the one Core Image pass behind the blur.
+//  gradient that is the arc, and the one Core Image pass behind the blur.
 //
 //  WHAT THE REFERENCE ACTUALLY SHOWS. `inspiration/refresh-animation-ui.mov`
 //  was re-sampled frame by frame rather than taken from §7's transcription.
@@ -12,9 +12,9 @@
 //      white → amber (hue 56°) → mint (hue 194°) → lavender (hue 277°)
 //
 //  compositing over the clip's paper-white page as #EEECCA, #E1EBEF, #E2D0EE.
-//  **§7's prose has the last two the wrong way round.** The bands are
+//  §7's prose has the last two the wrong way round. The bands are
 //  concentric about a centre well above the top of the screen, which is why
-//  they read as one wide concave-up crescent — and why this is a *radial*
+//  they read as one wide concave-up crescent — and why this is a radial
 //  `CAGradientLayer` with its centre pushed off the top edge rather than
 //  anything hand-drawn.
 //
@@ -23,7 +23,7 @@
 //  — is the same trap one layer further down: the render server re-evaluates a
 //  layer filter whenever its inputs change, so an animated radius is a
 //  full-viewport Core Image pass every frame. Instead the snapshot is blurred
-//  **once** into a `CGImage`, and everything that moves afterwards is
+//  once into a `CGImage`, and everything that moves afterwards is
 //  `opacity` and `position`. Steady state is six extra composited quads (five
 //  snapshot strips sharing one texture, plus the gradient) and zero CPU, which
 //  is what keeps §19.1's 120 fps intact over live web content.

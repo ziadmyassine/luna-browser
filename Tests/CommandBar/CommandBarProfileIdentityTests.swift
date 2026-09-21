@@ -8,10 +8,10 @@
 //  The report this exists for is zen#14371 — two identical "Google Gemini —
 //  Switch to tab" rows, two Profiles, two accounts, no way to tell them apart,
 //  and picking wrong teleports you into the other Space. Luna's bar had the
-//  same shape of bug from the other direction: the two rows *deduped into one*,
+//  same shape of bug from the other direction: the two rows deduped into one,
 //  and the surviving row silently adopted whichever tab the loop reached last.
 //
-//  **This file is deliberately not `@MainActor`.** `CommandBarRanking` is
+//  This file is deliberately not `@MainActor`. `CommandBarRanking` is
 //  non-isolated so an order can be computed without a window, and §9.7's budget
 //  depends on `merge` staying a pure function on the keystroke path. A test that
 //  needed a main actor to run would be the first sign that stopped being true.
@@ -59,7 +59,7 @@ final class CommandBarProfileIdentityTests: XCTestCase {
 
     // MARK: - Goal 16's proof
 
-    /// **The proof.** Two same-URL tabs in different Profiles produce two rows,
+    /// The proof. Two same-URL tabs in different Profiles produce two rows,
     /// and the rows are distinguishable: different identities, different labels,
     /// and — the part that actually matters — different actions, so choosing one
     /// cannot land you in the other Space.
@@ -91,7 +91,7 @@ final class CommandBarProfileIdentityTests: XCTestCase {
         XCTAssertEqual(labels, ["Studio · Work", "Home · Personal", "Research · Work"])
     }
 
-    /// Two Spaces, **one** Profile: one cookie jar, so one row. The dedupe still
+    /// Two Spaces, one Profile: one cookie jar, so one row. The dedupe still
     /// does its job — this is not "never merge anything".
     func testSameURLInTwoSpacesOnOneProfileStaysOneRow() {
         let first = space("Work", profile: work)
@@ -122,7 +122,7 @@ final class CommandBarProfileIdentityTests: XCTestCase {
         XCTAssertEqual(row?.badge?.name, "Work")
     }
 
-    /// Without the Profile table the rows must still stay *apart* — separation is
+    /// Without the Profile table the rows must still stay apart — separation is
     /// derived from `Space.profileID` and needs no name. Only the label degrades.
     func testRowsStaySeparateEvenWhenProfileNamesAreUnknown() {
         let results = CommandBarRanking.merge(
@@ -154,7 +154,7 @@ final class CommandBarProfileIdentityTests: XCTestCase {
         }
     }
 
-    /// …and when the page is open in *two* Profiles, the history row hands its
+    /// …and when the page is open in two Profiles, the history row hands its
     /// place to the first and the second gets a row of its own, so both tabs stay
     /// reachable. Three ways to the same page would be two too many.
     func testAHistoryHitDoesNotHideTheSecondProfilesTab() {

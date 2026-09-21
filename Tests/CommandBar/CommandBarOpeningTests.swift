@@ -5,13 +5,13 @@
 //  How §9.1's bar opens out of §3.2/§3.2b's pill, which is two separate
 //  promises and one of them is about time.
 //
-//  **The shape**: the first frame the window server draws is the pill's own
+//  The shape: the first frame the window server draws is the pill's own
 //  size, not the list's. That is what makes the reveal a morph rather than a
 //  panel appearing and then being animated — and it is what keeps the panel's
 //  expensive first composite off the animation, which is the freeze Martin
 //  reported twice.
 //
-//  **The list**: whatever the bar opens with is what it stays with. Rows that
+//  The list: whatever the bar opens with is what it stays with. Rows that
 //  land while it is opening may take a free place at the bottom and may not
 //  move one that is taken, so the eight rows that faded up are still the eight
 //  rows under the pointer a quarter of a second later.

@@ -20,7 +20,7 @@ extension ContentBlocker {
     /// `showErrorPage(.httpsDowngrade, for:)` and its "Continue Anyway" lands in
     /// ``allowInsecure(host:)``.
     ///
-    /// `WKWebpagePreferences.preferredHTTPSNavigationPolicy` is deliberately **not** used
+    /// `WKWebpagePreferences.preferredHTTPSNavigationPolicy` is deliberately not used
     /// for this. Measured against an http-only origin: both `.errorOnFailure` and
     /// `.userMediatedFallbackToHTTP` end the navigation at `about:blank` with `didFinish`
     /// and no delegate error at all — a blank tab, no hook, nothing to explain it with.

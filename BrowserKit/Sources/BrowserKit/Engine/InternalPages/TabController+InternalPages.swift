@@ -19,7 +19,7 @@ extension TabController {
 
     /// §4.5's styled failure page, in place of WebKit's default.
     ///
-    /// **This is the seam for both of §17's interstitials**, and the only
+    /// This is the seam for both of §17's interstitials, and the only
     /// supported way to put one up:
     ///
     ///     controller.showErrorPage(.blocked, for: url, detail: "EasyPrivacy")

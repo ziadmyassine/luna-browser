@@ -7,10 +7,10 @@
 //  the strip grew a gesture: the bar places three clusters and this is one of
 //  them, and a file that does both was past SwiftLint's length limit.
 //
-//  **The dots are laid out from their centres, not from their slots**, and that
+//  The dots are laid out from their centres, not from their slots, and that
 //  is the whole of the alignment fix. The strip used to hand each dot
 //  `width / count` rounded with `.integral`, which rounds each slot's leading
-//  edge down and its trailing edge up — *independently*. Three dots in a 56 pt
+//  edge down and its trailing edge up — independently. Three dots in a 56 pt
 //  pill came out in slots 19, 20 and 19 points wide, each dot centred inside
 //  its own slot and rounded again, so the gaps measured 18 and 19 pt and the
 //  run sat half a point left of centre. At a 6 pt dot a point of difference
@@ -21,31 +21,31 @@
 //
 //  `centres(count:in:)` instead lays the run out on `Metric.spaceDotPitch` —
 //  one constant, the same at every count — and centres it, so every gap is the
-//  same whole number of points and the two end margins are equal. The **pill**
+//  same whole number of points and the two end margins are equal. The pill
 //  is then sized to the run rather than the run divided into the pill, which is
 //  the other half of the same mistake: a fixed 56 pt pill holding two dots had
 //  to stand them 28 pt apart to fill itself. Both are pure and static, so the
 //  claim is a test rather than a screenshot.
 //
-//  **The strip is dots and only dots.** §30.9's `+` stood at the end of it for
+//  The strip is dots and only dots. §30.9's `+` stood at the end of it for
 //  one build, growing the pill as the swipe ran past the last Space. It read
 //  wrong in the hand for a reason that is obvious once seen: this strip answers
-//  *which Space*, and a `+` is an answer to a different question sitting in the
+//  which Space, and a `+` is an answer to a different question sitting in the
 //  middle of that answer. The gesture is read where the gesture is happening —
 //  `SpaceCreationView`, in the column — and the pill stays one shape.
 //
-//  **Three dots at a time, and the rest of the run slides through them.** A
+//  Three dots at a time, and the rest of the run slides through them. A
 //  pill sized to its dots is a pill with no ceiling, and twelve Spaces filled
 //  the footer with marks too small to count and too narrow to hit. The strip is
 //  a window `Metric.spaceDotWindow` wide with the indicator held in the middle
-//  of it, and the run moves *continuously* under that window rather than
+//  of it, and the run moves continuously under that window rather than
 //  paging: `windowStart` is a fraction while a finger is down, so a swipe
 //  scrolls the strip by exactly as much as it scrolls the column. Dots leaving
 //  fade as they go and the pill clips what is left, so the edge of the window
 //  is a soft one rather than a mark cut in half.
 //
 //  §8 requires the strip to be usable with Differentiate Without Colour on, so
-//  each dot carries the Space's **name** as tooltip and accessibility label and
+//  each dot carries the Space's name as tooltip and accessibility label and
 //  the group reports itself as a tab list with position and count — never "the
 //  purple one". The window is a drawing decision and not an accessibility one:
 //  every dot stays an accessibility child at every count, because "three of
@@ -67,12 +67,12 @@ final class SpaceDotsView: NSView {
     /// The §30.9 swipe asked for a Space that is not there yet.
     var onNewSpace: (() -> Void)?
 
-    /// Where §30.9's swipe has got to, **in Spaces**: 0 is the active one, +1
+    /// Where §30.9's swipe has got to, in Spaces: 0 is the active one, +1
     /// the next, −1 the previous, fractional while a finger is down.
     ///
     /// It drives two things at once, and the second is the useful one: the ink
     /// cross-fades between the two dots as the finger moves, and the ring lands
-    /// on **the dot you will get if you let go now** — so the gesture states
+    /// on the dot you will get if you let go now — so the gesture states
     /// its own commit threshold instead of leaving it to be discovered.
     var travel: CGFloat = 0 {
         didSet {
@@ -83,7 +83,7 @@ final class SpaceDotsView: NSView {
 
     /// 0…1: how far past the last Space the finger has gone.
     ///
-    /// Nothing on the strip is *drawn* for it — the `+` and the ring live in
+    /// Nothing on the strip is drawn for it — the `+` and the ring live in
     /// the column now. It is still read here for one thing: past the last
     /// Space there is no Space to land on, so no dot may wear the ring saying
     /// there is.
@@ -148,7 +148,7 @@ final class SpaceDotsView: NSView {
             dot.onActivate = { [weak self] in self?.onSwitch?(space.id) }
             dot.onSetGradient = { [weak self] gradient in self?.onSetGradient?(space.id, gradient) }
             dot.onEditSpaces = { [weak self] in self?.onEditSpaces?() }
-            // **The pill is what a press is against.** A dot is 6 pt of ink
+            // The pill is what a press is against. A dot is 6 pt of ink
             // with no material of its own; this strip is one piece of glass
             // holding all of them, so it takes §6's swell on their behalf —
             // the rule `NavCluster` follows for its two bare chevrons.
@@ -164,7 +164,7 @@ final class SpaceDotsView: NSView {
 
     // MARK: - Geometry
 
-    /// **One pitch for the whole run, and the window centred in `width`.**
+    /// One pitch for the whole run, and the window centred in `width`.
     ///
     /// Every gap is then `Metric.spaceDotPitch` exactly and the two end margins
     /// are equal, at any count — which is what the old
@@ -177,7 +177,7 @@ final class SpaceDotsView: NSView {
     ///
     /// `start` is the index sitting at the window's leading slot, and it is a
     /// `CGFloat` because a swipe moves it by a fraction of a Space. Centres
-    /// outside the window come back **outside `width`**; the pill clips them
+    /// outside the window come back outside `width`; the pill clips them
     /// and `alpha(forDot:from:)` fades them, which is what makes the run slide
     /// instead of re-dealing itself.
     ///
@@ -201,7 +201,7 @@ final class SpaceDotsView: NSView {
         min(count, Tokens.Metric.spaceDotWindow)
     }
 
-    /// The index standing in the window's **leading** slot, with the indicator
+    /// The index standing in the window's leading slot, with the indicator
     /// held in the middle of the window and the run stopped at both ends.
     ///
     /// Continuous on purpose. A window that jumped a whole slot when the
@@ -219,7 +219,7 @@ final class SpaceDotsView: NSView {
     /// How opaque the dot at `index` is, given where the window is standing.
     ///
     /// Full inside the window, out over the slot either side of it. The pill
-    /// clips as well, so the fade is what stops a dot being *cut in half* on
+    /// clips as well, so the fade is what stops a dot being cut in half on
     /// its way out rather than what hides it.
     static func alpha(forDot index: Int, from start: CGFloat) -> CGFloat {
         let position = CGFloat(index) - start
@@ -230,7 +230,7 @@ final class SpaceDotsView: NSView {
     /// How wide a pill holding `count` dots is: the run it shows, plus a dot,
     /// plus an end cap either side.
     ///
-    /// **The end inset is the pill's own corner radius**, which is not a
+    /// The end inset is the pill's own corner radius, which is not a
     /// coincidence dressed up as a rule: at radius 11 the pill's end is a
     /// half-circle 11 pt deep, so a dot 11 pt from the edge sits exactly on
     /// that cap's centre. Any other number is a dot that looks pushed into the
@@ -253,7 +253,7 @@ final class SpaceDotsView: NSView {
 
     /// Each dot view owns a full-height slot and is told where to draw its 6 pt
     /// mark inside it. A 6 pt view would be a 6 pt click and a 6 pt §6.6 drop
-    /// target, which no one can hit — and the slots **abut** rather than
+    /// target, which no one can hit — and the slots abut rather than
     /// overlapping, so the Space a drop lands in is never a question of which
     /// of two frames `first(where:)` happened to reach.
     override func layout() {

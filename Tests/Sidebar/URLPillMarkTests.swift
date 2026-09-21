@@ -5,7 +5,7 @@
 //  §3.2's leading mark: the glyph that says whether what is in the address bar
 //  is a place or a question.
 //
-//  The whole value of it is that it answers **before Return does**, so the one
+//  The whole value of it is that it answers before Return does, so the one
 //  thing worth asserting is that it and Return cannot disagree: the mark asks
 //  `CommandBarURL.direct` exactly as the commit path does. A pill showing a
 //  globe that then runs a search is worse than no mark at all, because the user
@@ -69,7 +69,7 @@ final class URLPillMarkTests: XCTestCase {
 
     /// The favicon branch: a site Luna has a mark for wears it rather than the
     /// globe. Skipped rather than failed when the cache has nothing — the
-    /// branch is about what happens when there *is* an icon.
+    /// branch is about what happens when there is an icon.
     func testASiteWithAnIconWearsIt() throws {
         let icon = try XCTUnwrap(
             SidebarIcons.favicon(for: URL(string: "https://apple.com")!),
@@ -81,7 +81,7 @@ final class URLPillMarkTests: XCTestCase {
     // MARK: - The agreement
 
     /// The property the mark is for: whichever glyph it picks, committing the
-    /// same string goes the same way. Nothing here asserts a *particular*
+    /// same string goes the same way. Nothing here asserts a particular
     /// reading — `CommandBarURL` owns that — only that the two never part.
     func testTheMarkNeverDisagreesWithWhatReturnWouldDo() {
         let inputs = [

@@ -4,7 +4,7 @@
 //
 //  The pick-one control Settings uses everywhere.
 //
-//  **`NSSegmentedControl` paints its selection as a solid accent-blue block**,
+//  `NSSegmentedControl` paints its selection as a solid accent-blue block,
 //  which is the one thing this app's chrome never does: selection here is a
 //  wash, exactly as it is on a sidebar row. So a segment is a plate with
 //  `Surface.selected` on the one that is chosen, nothing on the others, and no
@@ -53,7 +53,7 @@ final class SettingsChoice: NSView {
         setLabels(labels, selected: 0)
     }
 
-    /// **The answers themselves can change.** Almost every choice in Settings
+    /// The answers themselves can change. Almost every choice in Settings
     /// has a fixed set of segments; one does not — §3.2's tab position offers a
     /// middle segment in the top-bar layout and only two in the sidebar's, and
     /// the row that decides which is directly above it. Rebuilding the segments

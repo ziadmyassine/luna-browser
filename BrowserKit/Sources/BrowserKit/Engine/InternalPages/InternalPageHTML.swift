@@ -3,16 +3,16 @@ import Foundation
 //  The shell every internal page is poured into, and the only stylesheet they
 //  have.
 //
-//  **There is not one colour or length value in this file.** Every declaration
+//  There is not one colour or length value in this file. Every declaration
 //  reads `var(--luna-…)`, the custom properties are generated from
 //  `Design/Tokens.swift` by `Features/InternalPages/InternalPageTheme`, and the
-//  only fallbacks are CSS **system** colours and CSS **keywords** (`Canvas`,
+//  only fallbacks are CSS system colours and CSS keywords (`Canvas`,
 //  `CanvasText`, `GrayText`, `AccentColor`, `thin`, `medium`) — the OS's own
 //  values, never a second palette that can drift from Luna's.
 //  `InternalPagesTests.stylesheetCarriesNoLiterals` fails if a hex value, an
 //  `rgb(`, or an absolute length ever appears here.
 //
-//  Light and dark (§8.8) and Increase Contrast are **not** branched in Swift:
+//  Light and dark (§8.8) and Increase Contrast are not branched in Swift:
 //  `prefers-color-scheme` and `prefers-contrast` do it inside the page, which is
 //  the only hook that works — on macOS 26.5 Increase Contrast is not an
 //  `NSAppearance` at all (`Design/Tokens.swift` header), so there is nothing for

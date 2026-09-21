@@ -3,7 +3,7 @@ import Foundation
 /// eTLD+1 — the "same site" question, answered the way the Public Suffix List
 /// answers it (§14.3).
 ///
-/// **Why this exists at all.** §14.3 says credentials are matched on eTLD+1 and
+/// Why this exists at all. §14.3 says credentials are matched on eTLD+1 and
 /// "never on a bare substring", and that sentence is the whole security model of
 /// the fill flow. A substring match offers `example.com`'s password to
 /// `example.com.evil.net`; a naive "last two labels" match offers `bbc.co.uk`'s
@@ -11,18 +11,18 @@ import Foundation
 /// credential to a site that did not earn it, which is the only truly
 /// unrecoverable bug this feature can have.
 ///
-/// **The algorithm is the PSL's own**, not an approximation of it:
+/// The algorithm is the PSL's own, not an approximation of it:
 ///
 ///   1. Find every rule matching the host, comparing label by label from the
 ///      right. `*` matches exactly one label.
 ///   2. An exception rule (`!`) wins over any wildcard.
 ///   3. Otherwise the longest matching rule wins.
-///   4. **If no rule matches, the prevailing rule is `*`** — the public suffix
+///   4. *If no rule matches, the prevailing rule is ``** — the public suffix
 ///      is the rightmost label. This is the PSL's specified default, not a
 ///      fallback we invented, which is what makes a partial table honest:
 ///      an unlisted TLD lands on the same answer the full list would give it.
 ///
-/// **The table is a curated subset, and that is a real limitation.** The full
+/// The table is a curated subset, and that is a real limitation. The full
 /// list is ~9,000 rules and changes weekly; embedding a stale copy is worse
 /// than embedding a small correct one. What ships here is every multi-label
 /// ICANN suffix in wide use plus the private-section entries that actually host
@@ -31,7 +31,7 @@ import Foundation
 /// `Tools/update-public-suffix-list.sh` regenerates this file from the real
 /// list; run it before v1 ships and on a schedule after.
 ///
-/// Rule 4 makes an absent rule *narrow*, never wide: the worst an unlisted
+/// Rule 4 makes an absent rule narrow, never wide: the worst an unlisted
 /// multi-label suffix can do is treat `a.unlisted.xx` and `b.unlisted.xx` as
 /// different sites, which declines a fill. A declined fill is a nuisance. The
 /// opposite error is a leak, and rule 4 cannot produce it.
@@ -39,10 +39,10 @@ public enum PublicSuffix {
 
     /// The eTLD+1 of `host`, lowercased — `"www.bbc.co.uk"` → `"bbc.co.uk"`.
     ///
-    /// A host that has **no registrable domain** — `localhost`, an intranet
+    /// A host that has no registrable domain — `localhost`, an intranet
     /// name with no dot, an IPv4 or IPv6 literal — is its own site key, matched
     /// whole and never widened. That is not a weakening of §14.3: the rule
-    /// there exists to stop a *wildcard* from spanning two owners, and an exact
+    /// there exists to stop a wildcard from spanning two owners, and an exact
     /// host cannot span anything. `localhost` matches `localhost` and nothing
     /// else.
     ///
@@ -58,7 +58,7 @@ public enum PublicSuffix {
     /// of port, and two different routers that both answer on `192.168.1.1`
     /// look like one site.
     ///
-    /// - Returns: nil only for a host that *is* a public suffix with nothing
+    /// - Returns: nil only for a host that is a public suffix with nothing
     ///   registered under it (`co.uk` alone), and for a malformed name. Both
     ///   mean "there is no site here", and nil is how the fill flow declines.
     public static func siteKey(forHost host: String?) -> String? {

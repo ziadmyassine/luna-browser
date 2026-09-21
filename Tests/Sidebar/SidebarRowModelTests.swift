@@ -56,7 +56,7 @@ final class SidebarRowModelTests: XCTestCase {
     }
 
     /// §6.6: the row index a drop landed on maps to a section plus an index
-    /// *within* that section, which is what `reorderTab` takes.
+    /// within that section, which is what `reorderTab` takes.
     func testDropTargets() {
         let list = SidebarList(tabs: [tab(.pinned, "p1"), tab(.pinned, "p2"), tab(.today, "t1")])
 

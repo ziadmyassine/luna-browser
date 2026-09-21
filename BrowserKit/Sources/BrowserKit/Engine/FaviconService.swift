@@ -7,7 +7,7 @@ import WebKit
 /// WebKit ships no favicon API at all (§26), so Luna finds icons itself: ask the page
 /// for its `<link rel="icon">` set, fall back to `/favicon.ico`, and cache what decodes.
 ///
-/// Everything handed out is **PNG bytes that have already been decoded once**. That is
+/// Everything handed out is PNG bytes that have already been decoded once. That is
 /// the guarantee behind "no icon ever flashes a broken-image glyph" (§4.7): bytes that
 /// nothing here can read never reach the cache, so the sidebar's only two cases are a
 /// real icon or nil (where the UI draws its monogram tile).

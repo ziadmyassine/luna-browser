@@ -6,16 +6,16 @@
 //  which holds the other half: where the dots go.
 //
 //  Three things are asserted here that a trackpad would otherwise be the only
-//  way to find out. **That the page is the ruler**: one page of hand is one
+//  way to find out. That the page is the ruler: one page of hand is one
 //  page of column at every width the §3.7 handle reaches, which is the claim
 //  the "it multiplies my swipe" defect was the absence of. **What a gesture
 //  means**: the half-a-page commit, the flick that commits without it, the cap
 //  that keeps one swipe to one Space, and the page past the last one that makes
-//  a new one. And **how much of the gesture is the hand's** — macOS scales a
+//  a new one. And how much of the gesture is the hand's — macOS scales a
 //  precise scroll by how fast the fingers moved, so the deltas an event carries
 //  are not a distance, and everything above is arithmetic on a number that has
 //  already been multiplied unless something takes the multiplier back off. What
-//  is asserted about that is the *shape* of the curve rather than one number on
+//  is asserted about that is the shape of the curve rather than one number on
 //  it: it answers the hand everywhere, it never outruns the hand, it never
 //  exceeds the ceiling, and it leaves a slow drag alone. A hard clip passes
 //  three of those four and fails the first, which is exactly how it felt.
@@ -27,7 +27,7 @@ import XCTest
 @testable import Luna
 
 /// §30.9's two-finger swipe, as arithmetic. The gesture itself needs a
-/// trackpad; what it *means* does not.
+/// trackpad; what it means does not.
 @MainActor
 final class SpaceSwipeTests: XCTestCase {
 
@@ -96,7 +96,7 @@ final class SpaceSwipeTests: XCTestCase {
         XCTAssertNil(Self.resolve(-page * 0.4, active: 1, of: 3).landing)
     }
 
-    /// **"One single fast swipe should also go to the next Space."** Half a
+    /// "One single fast swipe should also go to the next Space." Half a
     /// page is 140 pt of finger, which is far more than a reflex performed
     /// dozens of times a day can cost — so a release that is still moving turns
     /// the page however far it got. This is what pays for the ruler being a
@@ -109,7 +109,7 @@ final class SpaceSwipeTests: XCTestCase {
         XCTAssertNil(Self.resolve(page * 0.15, speed: slow, active: 0, of: 3).landing)
     }
 
-    /// **A hand that reversed before it lifted changed its mind.** Speed alone
+    /// A hand that reversed before it lifted changed its mind. Speed alone
     /// is not intent; speed in the direction the page is going is.
     func testAFlickBackTheOtherWayCommitsNothing() {
         XCTAssertNil(Self.resolve(page * 0.2, speed: -fast, active: 0, of: 3).landing)
@@ -123,11 +123,11 @@ final class SpaceSwipeTests: XCTestCase {
         XCTAssertNil(Self.resolve(page * twitch, speed: fast * 10, active: 0, of: 3).landing)
     }
 
-    /// **The bug the cap exists for.** A trackpad flick is accelerated by the
+    /// The bug the cap exists for. A trackpad flick is accelerated by the
     /// system and routinely delivers several hundred points in one stroke, so
     /// before the travel was capped a single firm swipe from the first of two
     /// Spaces ran through the second and into the create zone — the gesture you
-    /// use to *change* Space made one instead. Whatever the stroke, a swipe
+    /// use to change Space made one instead. Whatever the stroke, a swipe
     /// forward from a Space that has a Space after it lands on that Space.
     func testAHardSwipeLandsOnTheNextSpaceRatherThanMakingOne() {
         for stroke in [page, page * 4, page * 40] {
@@ -147,7 +147,7 @@ final class SpaceSwipeTests: XCTestCase {
         XCTAssertEqual(swipe.travel, -1)
     }
 
-    /// **The create zone is only reachable from the last Space**, which is the
+    /// The create zone is only reachable from the last Space, which is the
     /// whole of why the cap is safe: there is nowhere else "further" could
     /// possibly mean anything but "the one after this".
     func testOnlyTheLastSpaceCanReachTheCreateZone() {
@@ -157,7 +157,7 @@ final class SpaceSwipeTests: XCTestCase {
         }
     }
 
-    /// **The leading end simply stops.** There is nothing before the first
+    /// The leading end simply stops. There is nothing before the first
     /// Space, so the indicator does not move and nothing is offered — not even
     /// to a flick.
     func testTheFirstSpaceHasNothingBehindIt() {
@@ -190,7 +190,7 @@ final class SpaceSwipeTests: XCTestCase {
 
     // MARK: - Making one
 
-    /// **The reported defect: "I cannot create a new Space anymore."** It used
+    /// The reported defect: "I cannot create a new Space anymore." It used
     /// to take three pages of travel, which against the damping ceiling needs
     /// almost a quarter of a second of unbroken, saturated movement — so the
     /// ring closed, because that only cost a third of it, and the release made
@@ -209,7 +209,7 @@ final class SpaceSwipeTests: XCTestCase {
         XCTAssertFalse(Self.resolve(page * 0.99, speed: slow, active: 0, of: 1).createsSpace)
     }
 
-    /// **A closed ring is a made Space, and nothing else is.** The ring used
+    /// A closed ring is a made Space, and nothing else is. The ring used
     /// to finish drawing a third of the way in and the gesture to commit at the
     /// end of the page, on the reasoning that a progress ring should promise
     /// rather than receipt — which is true of a ring that is promising
@@ -228,7 +228,7 @@ final class SpaceSwipeTests: XCTestCase {
         XCTAssertEqual(Self.resolve(page, active: 0, of: 1).creation, 1, accuracy: 0.001)
     }
 
-    /// **However the hand left.** A flick past the last Space used to make
+    /// However the hand left. A flick past the last Space used to make
     /// nothing however far it went, which is a defensible rule about intent and
     /// an indefensible one about a read-out: it made a closed circle mean
     /// nothing in some releases, which is the same lie as a circle that closes
@@ -247,7 +247,7 @@ final class SpaceSwipeTests: XCTestCase {
         }
     }
 
-    /// **"If the user then pans back then it shouldn't."** The ring empties
+    /// "If the user then pans back then it shouldn't." The ring empties
     /// under the hand on the way out again, so calling a create off is the same
     /// movement that started it, run backwards, and it is watched the whole
     /// way. Nothing latches.
@@ -280,7 +280,7 @@ final class SpaceSwipeTests: XCTestCase {
     /// One frame's worth of honest hand, which is what the curve's knee is.
     private static var knee: CGFloat { Tokens.Metric.spaceSwipeSpeed * CGFloat(frame) }
 
-    /// **The multiplier the trackpad itself adds.** macOS scales the delta by
+    /// The multiplier the trackpad itself adds. macOS scales the delta by
     /// how fast the fingers moved, so a flick arrives as several times the
     /// travel the hand actually covered — and now that the page is pinned to
     /// the hand 1:1, an undamped delta would put the column three pages from
@@ -312,10 +312,10 @@ final class SpaceSwipeTests: XCTestCase {
         }
     }
 
-    /// **The bug the curve exists for, stated as arithmetic.** This was a hard
+    /// The bug the curve exists for, stated as arithmetic. This was a hard
     /// clip for one build, which is a worse gesture than no damping at all: a
     /// ceiling low enough to catch a flick catches every event of an ordinary
-    /// swipe too, so every frame comes back as *exactly* the ceiling and the
+    /// swipe too, so every frame comes back as exactly the ceiling and the
     /// page travels at one fixed speed whatever the hand is doing. A curve that
     /// is still answering the hand keeps rising all the way up, and it never
     /// rises faster than the hand did — which is the pair of claims that rules
@@ -356,7 +356,7 @@ final class SpaceSwipeTests: XCTestCase {
     /// **The create gesture has to be completable in one stroke, at the widest
     /// the column gets.** This is the claim that was false in the shipped
     /// build: three pages against the ceiling needed longer than a trackpad
-    /// stroke lasts, so the one gesture the resistance is *for* could not be
+    /// stroke lasts, so the one gesture the resistance is for could not be
     /// performed at all. One deliberate push now clears a page even against a
     /// sidebar dragged out to its maximum — and this is the worst case twice
     /// over, because the stroke is simulated at the damping ceiling, which a

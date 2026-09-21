@@ -6,12 +6,12 @@
 //
 //  §22.5: every user-facing command is discoverable here, because a command
 //  that is only a keystroke is a command nobody finds. This file owns the
-//  **structure** — which menu a command is in and what it sits beside — and
+//  structure — which menu a command is in and what it sits beside — and
 //  `BrowserCommand` owns the map of titles, selectors and keystrokes.
 //  `AppDelegate` implements the selectors (`BrowserCommands.swift`). Luna
 //  installs no event monitors and overrides no `performKeyEquivalent`.
 //
-//  **Rebinding rebuilds the whole bar rather than editing an item in place**
+//  Rebinding rebuilds the whole bar rather than editing an item in place
 //  (`rebuild`). Not caution: this file already records two measured ways a live
 //  menu bar refuses a key equivalent — a ⌘-number added to one is stripped on
 //  the way in, and a duplicate ⌘-number erases the later item's key. Both were
@@ -68,7 +68,7 @@ enum MainMenu {
 
     /// Rebuilds the Spaces menu from the session (§5.3).
     ///
-    /// **`⌃1…⌃9`, not `⌘1…⌘9` (spec §13.2, D-S12).** Plain ⌘-number means "go
+    /// `⌃1…⌃9`, not `⌘1…⌘9` (spec §13.2, D-S12). Plain ⌘-number means "go
     /// to tab N" in Safari, Chrome, Firefox, Edge and Arc; Arc puts Spaces on
     /// ⌃-number, Dia on Ctrl-number and Vivaldi on ⌘⇧-number — three products,
     /// three modifiers, none of them ⌘-number. Luna spent that namespace on a
@@ -104,7 +104,7 @@ enum MainMenu {
     /// `⌘1…⌘9`, in the sidebar's own order (Favorites → Pinned → Today), so the
     /// number is the row the user is looking at.
     ///
-    /// **A ⌘-number cannot be added to a live menu bar, and that is measured.**
+    /// A ⌘-number cannot be added to a live menu bar, and that is measured.
     /// Instrumented on macOS 26.5 inside the running app: an item built with
     /// `keyEquivalent == "1"` still reports `"1"` on the line before
     /// `NSMenu.addItem`, and `""` on the line after — modifier mask intact, key
@@ -115,19 +115,19 @@ enum MainMenu {
     /// menu to fit the tab count silently produces a menu with no shortcuts at
     /// all, which is exactly what the first build of this did.
     ///
-    /// **View also has to stay ahead of Window in the bar**, which it does:
+    /// View also has to stay ahead of Window in the bar, which it does:
     /// AppKit's key-equivalent search stops at the first match in menu-bar
     /// order and consumes the event there, disabled or not, so whichever of
     /// these two is found first is the only one that can ever run `⌘1`.
     /// `AppDelegate.goToSidebarItem(_:)` forwards to the Settings window while
     /// that window is key, which is how Window ▸ Settings keeps its own `⌘1`.
     static func setSidebarItems(_ titles: [String], in app: NSApplication) {
-        // **Not `mainMenu.items`.** Unlike Spaces this submenu is nested inside
+        // Not `mainMenu.items`. Unlike Spaces this submenu is nested inside
         // View rather than sitting on the bar, so the flat search `setSpaces`
         // uses finds nothing at all — silently, because there is no menu to
         // fill and nothing to report.
         guard let menu = app.mainMenu.flatMap({ tagged(sidebarItemsTag, in: $0) })?.submenu else { return }
-        // **The nine items are never created here.** See the doc comment: an
+        // The nine items are never created here. See the doc comment: an
         // item carrying a ⌘-number loses its key equivalent on the way into a
         // menu bar that is already live, so all nine exist from `install` and
         // this only renames and hides them.
@@ -140,7 +140,7 @@ enum MainMenu {
         }
     }
 
-    /// The nine `⌘1…⌘9` items, built **once** and only renamed afterwards.
+    /// The nine `⌘1…⌘9` items, built once and only renamed afterwards.
     ///
     /// Nine placeholders rather than a menu grown to fit, because a tenth tab
     /// gets no shortcut anyway (the same rule a tenth Space follows) and
@@ -216,7 +216,7 @@ enum MainMenu {
             // setting (`⌘,`), not something a reflex keystroke should change.
             items(.toggleSidebar),
             // §20.1's `⌘D`. Favorites are the sidebar's top tier and are
-            // **per Profile**, so this is a View command, not a File one —
+            // per Profile, so this is a View command, not a File one —
             // Luna has no Bookmarks menu to put it in and is not growing one
             // for a single item.
             items(.toggleFavorite),
@@ -262,9 +262,9 @@ enum MainMenu {
     /// SETTINGS-SPEC §2's `⌘F`, and the nine sections as **clickable items with
     /// no key equivalent of their own**.
     ///
-    /// **They used to declare `⌘1…⌘9` and AppKit was already deleting them.**
+    /// They used to declare `⌘1…⌘9` and AppKit was already deleting them.
     /// Measured on macOS 26.5 inside the running app: a ⌘-number that duplicates
-    /// one already in the menu bar is *erased* — not shadowed, erased — with the
+    /// one already in the menu bar is erased — not shadowed, erased — with the
     /// earlier item in menu-bar order keeping the key and the later one coming
     /// back with `keyEquivalent == ""`, modifier mask intact, no error and no
     /// warning. View ▸ Sidebar Items is earlier than Window ▸ Settings, so
@@ -273,9 +273,9 @@ enum MainMenu {
     ///
     /// That is also the receipt on the old Spaces binding: `setSpaces` wrote
     /// `⌘1…⌘9` into a menu bar that was already live and already carried these
-    /// nine, so **Luna's shipped `⌘1` for Spaces never worked** — the item was
+    /// nine, so Luna's shipped `⌘1` for Spaces never worked — the item was
     /// built with the key and stripped on the way into the menu. §13.2 is a
-    /// better binding *and* a repair.
+    /// better binding and a repair.
     ///
     /// The window still gets `⌘1…⌘9`: `AppDelegate.goToSidebarItem(_:)` forwards
     /// to it while it is key, and a hidden Sidebar Item still fires its key

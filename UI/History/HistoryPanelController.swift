@@ -8,7 +8,7 @@
 //  the same table the tab list reads (§11.1) — so filtering is a `contains` over
 //  an array the session is holding anyway. No query, no debounce, no store.
 //
-//  §6.4's panel is a **pop-out from the button that opens it** — see
+//  §6.4's panel is a pop-out from the button that opens it — see
 //  `HistoryPanel`'s header for why it is no longer centred over the page — so
 //  this takes the anchor view rather than a content region.
 //
@@ -89,7 +89,7 @@ final class HistoryPanelController: PopoutController {
 
     // MARK: - Model
 
-    /// The host and the time are **two strings, not one**: the row sets them as
+    /// The host and the time are two strings, not one: the row sets them as
     /// separate labels so that the one which has to give way is the host. See
     /// `HistoryTimestamp`.
     private static func entry(_ tab: Tab) -> HistoryEntry {

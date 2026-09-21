@@ -4,7 +4,7 @@
 //
 //  §3.2's pill on both surfaces — a row of a column and a capsule on a bar.
 //
-//  Split out of `PageChromeBarTests.swift`, which is about the *bar*: what it
+//  Split out of `PageChromeBarTests.swift`, which is about the bar: what it
 //  holds, where it puts it and which part of it takes a click. What is inside
 //  the pill is the pill's, on whichever surface it is standing.
 //
@@ -125,8 +125,8 @@ final class URLPillLayoutTests: XCTestCase {
         XCTAssertFalse(bare.reload.isHidden)
     }
 
-    /// **13 in a column, 14 on a bar, and 16 nowhere.** `glyphSize` is the size
-    /// of a glyph that is its own button, which is what the controls *beside*
+    /// 13 in a column, 14 on a bar, and 16 nowhere. `glyphSize` is the size
+    /// of a glyph that is its own button, which is what the controls beside
     /// §3.2b's pill are — but a glyph inside a capsule is measured against the
     /// address it shares the capsule with, and at 16 it was the loudest mark on
     /// the bar. The column takes the step further for the same reason.
@@ -136,7 +136,7 @@ final class URLPillLayoutTests: XCTestCase {
         XCTAssertLessThan(Tokens.Metric.barPillGlyphSize, Tokens.Metric.glyphSize)
     }
 
-    /// **And it stands as far in as the address does**, on both pills.
+    /// And it stands as far in as the address does, on both pills.
     ///
     /// The column's glyph used to sit two points closer to its own end than the
     /// text did, on the argument that a glyph is optically smaller than its
@@ -158,7 +158,7 @@ final class URLPillLayoutTests: XCTestCase {
         )
     }
 
-    /// Where the **mark** ends, not where its hit box does: the box is the ink
+    /// Where the mark ends, not where its hit box does: the box is the ink
     /// plus a gap's worth of padding, and it is the ink the eye measures.
     private func inkEdge(of glyph: NSView, in pill: URLPillView, leading: Bool) -> CGFloat {
         let overhang = (glyph.frame.width - pill.glyphInk) / 2
@@ -180,7 +180,7 @@ final class URLPillLayoutTests: XCTestCase {
         }
     }
 
-    /// **Neither pill is a field.** A click and a `⌘L` both go to §9.1, on both
+    /// Neither pill is a field. A click and a `⌘L` both go to §9.1, on both
     /// surfaces: that is where the field, the history, the ranking, the
     /// autofill and the list already are, and two address bars offering two
     /// different sets of suggestions was the thing this replaced.

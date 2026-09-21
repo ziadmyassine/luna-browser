@@ -2,7 +2,7 @@
 //  SettingsDetailPane.swift
 //  Luna
 //
-//  §1's detail pane: **opaque**, not glass — a form is read, not looked
+//  §1's detail pane: opaque, not glass — a form is read, not looked
 //  through. The same reasoning and the same token as the §3.6 content card,
 //  `Tokens.Surface.base`.
 //

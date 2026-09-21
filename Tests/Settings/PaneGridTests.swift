@@ -9,7 +9,7 @@ import XCTest
 @testable import Luna
 
 /// A group's name is the label of the card under it, so it starts where that
-/// card starts. It used to start where the card's *rows* start, a `cardInset`
+/// card starts. It used to start where the card's rows start, a `cardInset`
 /// further in — which is the thing this asserts can never come back.
 @MainActor
 final class SettingsGroupHeaderTests: XCTestCase {
@@ -29,7 +29,7 @@ final class SettingsGroupHeaderTests: XCTestCase {
         return nil
     }
 
-    /// **The alignment rect, not the frame.** A bezel-less `NSTextField` is
+    /// The alignment rect, not the frame. A bezel-less `NSTextField` is
     /// laid out by its alignment rect and its frame hangs 2 pt outside it on
     /// each side, so two labels that line up on screen have frames that do not
     /// — and a test written against frames would be asserting AppKit's text

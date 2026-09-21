@@ -4,7 +4,7 @@
 //
 //  The back/forward pair at the head of §1's detail pane.
 //
-//  **It replaces the pane's title**, which repeated in semibold the word the
+//  It replaces the pane's title, which repeated in semibold the word the
 //  user had just clicked two inches to the left. This spends that space on the
 //  one thing the list cannot do: retracing the order the sections were actually
 //  visited in.

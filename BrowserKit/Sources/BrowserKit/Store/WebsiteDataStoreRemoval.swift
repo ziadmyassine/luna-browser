@@ -5,15 +5,15 @@ import WebKit
 // Deleting a profile's cookie jar (§3.2).
 //
 // This lives beside the `profiles` table rather than in `Engine/` because it is the disk
-// half of the same fact: the `dataStoreIdentifier` column says which stores *should* exist,
-// `WKWebsiteDataStore.allDataStoreIdentifiers` says which ones *do*, and the only correct
+// half of the same fact: the `dataStoreIdentifier` column says which stores should exist,
+// `WKWebsiteDataStore.allDataStoreIdentifiers` says which ones do, and the only correct
 // thing to do with the difference is reconcile it.
 //
-// **Deletion is a retry loop, not a call.** `removeDataStoreForIdentifier:` fails while any
+// Deletion is a retry loop, not a call. `removeDataStoreForIdentifier:` fails while any
 // `WKWebView` still holds the store, and a web view is released when ARC gets round to it,
 // not when the user clicks Delete. Crest (MPL-2.0) and DuckDuckGo arrived at the same shape
 // independently, which is the strongest signal in the research: try, clear the data as a
-// fallback so the *data* goes even if the directory survives, back off, and if it still will
+// fallback so the data goes even if the directory survives, back off, and if it still will
 // not go, write the identifier down somewhere that outlives both the process and the database
 // and finish the job on a later launch.
 //
@@ -44,7 +44,7 @@ public protocol WebsiteDataStoreRegistry: Sendable {
 
 /// Where the not-yet-removed identifiers are written down.
 ///
-/// **`UserDefaults`, not GRDB, and that is deliberate** (§3.2 step 7). The whole point of
+/// `UserDefaults`, not GRDB, and that is deliberate (§3.2 step 7). The whole point of
 /// the queue is to survive things that go wrong, and "the user reset their data" or "the
 /// database was wiped" is exactly the situation that strands a cookie jar with no row left
 /// to name it. A queue stored in the database it is meant to outlive is not a queue.
@@ -90,7 +90,7 @@ public struct SystemWebsiteDataStoreRegistry: WebsiteDataStoreRegistry {
     }
 }
 
-/// `@unchecked` because `UserDefaults` is **not** `Sendable` in the macOS 26.2 SDK even
+/// `@unchecked` because `UserDefaults` is not `Sendable` in the macOS 26.2 SDK even
 /// though it is documented thread-safe ("NSUserDefaults is thread-safe"). Nothing here
 /// mutates the reference, and every access is a single `UserDefaults` call, so the unchecked
 /// claim is about the SDK's missing annotation rather than about this type's behaviour.
@@ -177,7 +177,7 @@ public final class WebsiteDataStoreRemover {
     /// Removes one store, following §3.2 end to end.
     ///
     /// Never throws and never reports failure for "WebKit still holds it": that case is
-    /// queued and is the caller's cue to carry on deleting rows. The caller's *only*
+    /// queued and is the caller's cue to carry on deleting rows. The caller's only
     /// obligation is to have dropped its own cached `WKWebsiteDataStore` first — a cached
     /// reference is itself one of the things that blocks removal, which is why Ora's
     /// eviction-free `profileCache` would fail this call forever.
@@ -239,7 +239,7 @@ public final class WebsiteDataStoreRemover {
     /// Diffs what WebKit has on disk against the profiles that still exist, and deletes the
     /// strays. Call it at launch. This is also the drain for the deferred queue.
     ///
-    /// **Single pass, no backoff, on purpose.** WebKit is the registry, so a stray that
+    /// Single pass, no backoff, on purpose. WebKit is the registry, so a stray that
     /// refuses today is still listed tomorrow and costs nothing to find again — DuckDuckGo
     /// leans on exactly this: *"If this fails, we are going to still clean them next time as
     /// WebKit keeps track of all stores for us."* Backing off here would instead make a
@@ -247,7 +247,7 @@ public final class WebsiteDataStoreRemover {
     ///
     /// No fallback data clear either: clearing a store's data means instantiating it, which
     /// re-creates the directory this call is trying to be rid of. For an orphan — a store no
-    /// profile names, so a store nothing can read — the directory *is* the only problem.
+    /// profile names, so a store nothing can read — the directory is the only problem.
     ///
     /// - Parameter live: every `dataStoreIdentifier` still named by a `Profile` row.
     public func sweepOrphans(keeping live: Set<UUID>) async {

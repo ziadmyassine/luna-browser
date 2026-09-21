@@ -81,7 +81,7 @@ final class TrafficLightLayoutTests: XCTestCase {
         XCTAssertNil(origins(.fullscreen))
     }
 
-    /// **The container is measured, not named.** Fullscreen takes AppKit's
+    /// The container is measured, not named. Fullscreen takes AppKit's
     /// titlebar out of the window and the lights move into a strip of Luna's
     /// own; what has to survive the move is the distance from the window's top
     /// edge, because that is what "the same position as windowed" means. So the
@@ -262,7 +262,7 @@ final class SpaceCornerFillTests: XCTestCase {
         SpaceCornerFillView.notches(in: bounds, besideColumnOf: column)
     }
 
-    /// **Nothing to the left of the sidebar's trailing edge.** That region is
+    /// Nothing to the left of the sidebar's trailing edge. That region is
     /// already carrying the sidebar's own wash; painting it here as well would
     /// be 16 % laid over 16 %, and the column would come up darker than the
     /// notches it is supposed to match.
@@ -296,7 +296,7 @@ final class SpaceCornerFillTests: XCTestCase {
         )
     }
 
-    /// The disc the card's corner takes out is *not* painted — that area is the
+    /// The disc the card's corner takes out is not painted — that area is the
     /// card itself, and the fill sits below it.
     func testTheArcFollowsTheCardsOwnCorner() {
         let radius = Tokens.Metric.contentCardRadius

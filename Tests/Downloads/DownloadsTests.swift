@@ -8,7 +8,7 @@
 //  timeline actually adds up to 0.40 s.
 //
 //  The last one is the reason this file exists. The particle sweep can only be
-//  *seen* to be wrong, and by the time anyone sees it the numbers have been
+//  seen to be wrong, and by the time anyone sees it the numbers have been
 //  wrong for a month.
 //
 

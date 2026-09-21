@@ -2,7 +2,7 @@
 //  DownloadsPanel.swift
 //  Luna
 //
-//  §15.3's downloads list, as a **pop-out from the downloads button** —
+//  §15.3's downloads list, as a pop-out from the downloads button —
 //  §6.4's History surface, one size wider.
 //
 //  It used to be an `NSPanel`: a standard utility window with a table in it,
@@ -19,7 +19,7 @@
 //  opened it, the page stays where it was, and a click anywhere else is done
 //  with it.
 //
-//  `DownloadsPopover` — §5's completion toast, an `NSPanel` floating **outside**
+//  `DownloadsPopover` — §5's completion toast, an `NSPanel` floating outside
 //  the window with a tail pointing down into the button — is untouched and is
 //  still a panel, because that one genuinely has to draw past the window's edge.
 //

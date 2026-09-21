@@ -1,18 +1,18 @@
 import Foundation
 
-/// What the lifecycle pass knows about one **live** tab — the inputs §19.2's
+/// What the lifecycle pass knows about one live tab — the inputs §19.2's
 /// policy is defined against, and nothing else. Keeping it a value type is what
 /// lets the policy be tested without a window, a web view or a clock.
 public struct TabActivity: Sendable, Equatable {
     public var id: UUID
     public var lastActiveAt: Date
 
-    /// Whether any media element in any frame is **audible**: playing, unmuted,
+    /// Whether any media element in any frame is audible: playing, unmuted,
     /// volume above zero. That is what `TabController`'s injected listener
     /// reports, and it is deliberately not what WebKit's own API reports —
     /// `requestMediaPlaybackState()` calls a muted autoplay video "playing",
     /// and `_isPlayingAudio` is SPI (D10). So a tab playing a silent video or a
-    /// muted stream is **not** protected here and will hibernate; a tab playing
+    /// muted stream is not protected here and will hibernate; a tab playing
     /// a video with the sound on is (§18.4).
     public var isAudible: Bool
 
@@ -74,7 +74,7 @@ public struct HibernationPolicy: Sendable, Equatable {
         return keep
     }
 
-    /// Tabs to tear down now: outside the keep-alive set **and** idle past the
+    /// Tabs to tear down now: outside the keep-alive set and idle past the
     /// threshold. Under pressure the threshold does not apply.
     public func tabsToHibernate(
         live: [TabActivity],

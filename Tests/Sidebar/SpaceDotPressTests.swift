@@ -6,7 +6,7 @@
 //  click and said nothing at all until the Space had already changed.
 //
 //  The answer is §3.4's two washes on a chip the size of the dot's slot, and
-//  §6's swell — on the **pill**, because a 6 pt mark has no material of its own
+//  §6's swell — on the pill, because a 6 pt mark has no material of its own
 //  to press. That is `NavCluster`'s rule, and this file is the same three
 //  assertions `ControlStateTests` makes about the chevrons in it.
 //
@@ -75,7 +75,7 @@ final class SpaceDotPressTests: XCTestCase {
         XCTAssertEqual(chip.backgroundColor?.alpha ?? 1, 0, accuracy: 0.001)
     }
 
-    /// The chip is the **slot**, not the mark: a 6 pt hover target is no target,
+    /// The chip is the slot, not the mark: a 6 pt hover target is no target,
     /// and it is centred on the mark rather than in the slot, which is the
     /// alignment rule the whole strip is built on.
     func testTheChipIsTheDotsWholeSlotCentredOnTheMark() {

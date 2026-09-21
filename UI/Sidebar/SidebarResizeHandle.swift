@@ -5,7 +5,7 @@
 //  §3.7: an invisible 8 pt grab strip on the sidebar/content divider, dragging
 //  within 180–420 pt, double-clicking back to 280.
 //
-//  **Nothing is drawn.** §3.7 asked for a `◁|▷` glyph to fade in on hover, and
+//  Nothing is drawn. §3.7 asked for a `◁|▷` glyph to fade in on hover, and
 //  on screen it read as a piece of UI that had come loose: a small floating
 //  mark over the page, unattached to either surface, appearing for no reason
 //  the user had asked for. The resize cursor already says the divider is
@@ -13,7 +13,7 @@
 //  gone and the strip is the whole affordance.
 //
 //  The width is reported out rather than applied here: the sidebar's width is a
-//  constraint on the *window controller's* chrome view (§4.1 animates it in the
+//  constraint on the window controller's chrome view (§4.1 animates it in the
 //  same transaction as the traffic lights), and a view reaching up to mutate
 //  that is how the two ends end up disagreeing.
 //
@@ -29,7 +29,7 @@ final class SidebarResizeHandle: NSView {
     var onWidthCommitted: ((CGFloat) -> Void)?
 
     /// Which side of the window the sidebar is on. It decides what the pointer
-    /// means: for a leading column the width *is* the pointer's x, and for a
+    /// means: for a leading column the width is the pointer's x, and for a
     /// trailing one it is the distance back from the column's own far edge.
     var edge: SidebarEdge = .leading
 
@@ -113,7 +113,7 @@ final class SidebarResizeHandle: NSView {
         guard let sidebar = superview else { return Tokens.Metric.sidebarWidth.default }
         // One of the sidebar's vertical edges is the window's and the other is
         // the divider. The pointer's x in sidebar coordinates is measured from
-        // the leading one, so for a leading column that *is* the width being
+        // the leading one, so for a leading column that is the width being
         // asked for and for a trailing column it is the width less that x.
         let x = sidebar.convert(event.locationInWindow, from: nil).x
         let asked = edge == .trailing ? sidebar.bounds.width - x : x

@@ -5,10 +5,10 @@
 //  §2a's Clear / Opaque setting. Three things are worth a test:
 //
 //    1. The table. `.sidebar` and `.topBar` change plane with the setting, the
-//       popover *gains* one at `.opaque` and has none at `.clear`, and a control
+//       popover gains one at `.opaque` and has none at `.clear`, and a control
 //       never gets one at either — a frosted control reads as a hole rather
 //       than as something raised (§2).
-//    2. The setting re-skins glass that is **already on screen**, because the
+//    2. The setting re-skins glass that is already on screen, because the
 //       alternative is a preference that needs a relaunch. This is the same
 //       requirement §7's setting has, and the pass is a different one.
 //    3. The alphas stay short of opacity. `TokenCheck` owns that rule; this

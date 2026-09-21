@@ -5,13 +5,13 @@
 //  Safari is a different problem from the Chromium family, and the difference
 //  is not the file formats — those are easy. It is TCC.
 //
-//  **Measured on this Mac, 2026-09-17:** `ls ~/Library/Safari` returns
-//  "Operation not permitted" from an *unsandboxed* shell. That denial is TCC,
+//  Measured on this Mac, 2026-09-17: `ls ~/Library/Safari` returns
+//  "Operation not permitted" from an unsandboxed shell. That denial is TCC,
 //  not the App Sandbox, so no entitlement and no signing change fixes it — the
 //  user has to grant Full Disk Access in System Settings, which cannot be
 //  prompted for programmatically.
 //
-//  So §23.2's order is the right one and this file is the *second* path:
+//  So §23.2's order is the right one and this file is the second path:
 //  `NetscapeBookmarks` is how a Safari user actually gets their bookmarks in
 //  (File ▸ Export Bookmarks… in Safari, then pick the file). What is here runs
 //  only once `isReadable()` says the directory is readable, i.e. only after the user
@@ -122,7 +122,7 @@ struct SafariReader: Sendable {
 
     // MARK: - History
 
-    /// Safari stamps visits in **seconds since 2001** (`CFAbsoluteTime`) as a
+    /// Safari stamps visits in seconds since 2001 (`CFAbsoluteTime`) as a
     /// REAL, not Chromium's integer microseconds since 1601. The watermark is
     /// microseconds in both cases so the ledger holds one kind of number; the
     /// cost is a `CAST` that gives up the `visit_time` index, which is

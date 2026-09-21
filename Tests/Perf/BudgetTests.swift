@@ -7,7 +7,7 @@
 //  40-tab memory ceiling — are measured against real processes by
 //  `Tools/perf`, because neither is observable from inside a test host.
 //
-//  **These are skipped unless `LUNA_PERF=1`.** A wall-clock assertion in the
+//  These are skipped unless `LUNA_PERF=1`. A wall-clock assertion in the
 //  everyday suite fails for reasons that have nothing to do with the code —
 //  another agent's build, a Spotlight pass — and a flaky red test teaches
 //  people to ignore red tests. `Tools/perf/run.sh` sets the variable; the
@@ -26,9 +26,9 @@ final class BudgetTests: XCTestCase {
     /// test that takes the suite down with it is worse than no test.
     private var directory: URL?
 
-    /// The opt-in is a **file**, not an environment variable, because
+    /// The opt-in is a file, not an environment variable, because
     /// `xcodebuild test` does not pass its environment to a hosted unit test's
-    /// host app — verified: with `LUNA_PERF=1` in the environment *and* as
+    /// host app — verified: with `LUNA_PERF=1` in the environment and as
     /// `TEST_RUNNER_LUNA_PERF=1` on the command line, the test host still saw
     /// neither and skipped. `run.sh` touches this path and removes it after.
     static let enabledMarker = "/tmp/luna-perf-enabled"
@@ -118,7 +118,7 @@ final class BudgetTests: XCTestCase {
     /// §19.1: the sidebar scrolls at 120 fps on ProMotion — 8.33 ms per frame.
     ///
     /// What is measured is the main-thread cost of a scroll step: layout plus a
-    /// synchronous draw of everything on screen. That is a **ceiling test**, not
+    /// synchronous draw of everything on screen. That is a ceiling test, not
     /// a frame-rate reading — it cannot see the compositor, and a test host has
     /// no ProMotion display. If this is over budget, 120 fps is impossible; if
     /// it is under, 120 fps is merely possible, and §19.5's Animation Hitches

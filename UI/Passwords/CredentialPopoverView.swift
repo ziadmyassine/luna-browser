@@ -5,7 +5,7 @@
 //  The inside of §14.3's picker: a header naming the site, one row per saved
 //  username, and — when §14.8 has something to say — a caution line.
 //
-//  **The caution line is the point of this view, not decoration.** §14.8 asks
+//  The caution line is the point of this view, not decoration. §14.8 asks
 //  that a fill into a page reached through a redirect chain be treated as
 //  suspicious, and that an insecure origin be visible. Luna cannot judge
 //  whether a redirect was legitimate; the user can, because only they know
@@ -113,7 +113,7 @@ final class CredentialPopoverView: NSView {
 
     /// The way out of the picker: Settings, at the Passwords section.
     ///
-    /// Deliberately **not** "Other Passwords for this site", which is what
+    /// Deliberately not "Other Passwords for this site", which is what
     /// Safari says. Safari can offer that because it can read the Passwords
     /// app; Luna cannot, and a row promising a list Luna has no way to fetch
     /// would be a lie in the one piece of chrome that has to be trustworthy
@@ -187,10 +187,10 @@ final class CredentialPopoverView: NSView {
         return CGSize(width: width, height: max(height, Tokens.Metric.passwordPopover.height))
     }
 
-    /// **A fade, and nothing else.**
+    /// A fade, and nothing else.
     ///
     /// This view is created milliseconds before it is shown, so it has nowhere
-    /// to animate *from*: anything that moves it on the way in starts at a
+    /// to animate from: anything that moves it on the way in starts at a
     /// position that was never meaningful. That is the "it spawns at the side
     /// and then goes there" bug this codebase has grown three times already,
     /// and the standing rule is that a fresh view is placed with animation off
@@ -379,7 +379,7 @@ private final class CredentialRowView: NSView {
 
 /// One row showing the generated password itself.
 ///
-/// **It is shown, not hidden behind "Use Strong Password".** The user is about
+/// It is shown, not hidden behind "Use Strong Password". The user is about
 /// to be committed to a secret they have never seen, on a site that may well
 /// reject it for a rule it never declared; being able to read it before taking
 /// it is what makes that recoverable. It is also monospaced and

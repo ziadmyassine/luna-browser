@@ -15,13 +15,13 @@ public struct TabState: Sendable, Equatable {
     public var canGoBack: Bool
     public var canGoForward: Bool
     public var themeColor: RGBA?
-    /// **What is behind the page**, as WebKit computes it — the colour an
+    /// What is behind the page, as WebKit computes it — the colour an
     /// over-scroll shows, and the one the top of the document is painted on.
     ///
     /// Not `themeColor`, and the difference is the point: a `<meta
     /// name="theme-color">` is a decoration the site offers to browser chrome
     /// and most sites do not offer one, while this is measured from the
-    /// document and is always there. Chrome that has to *match* the page — see
+    /// document and is always there. Chrome that has to match the page — see
     /// §3.2b's bar — needs the second question answered, not the first.
     public var pageBackground: RGBA?
     public var hasOnlySecureContent: Bool
@@ -104,7 +104,7 @@ enum NavigationPolicy {
     /// §15.2 — a response becomes a download when WebKit cannot render it, or when the
     /// server explicitly asked for one.
     ///
-    /// Only the *disposition type* is inspected: `Content-Disposition: inline;
+    /// Only the disposition type is inspected: `Content-Disposition: inline;
     /// filename="attachment.pdf"` is an inline PDF, and a `contains("attachment")`
     /// check would hijack it. WebKit renders PDFs itself and §15.5 says not to take
     /// that away.

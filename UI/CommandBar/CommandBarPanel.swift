@@ -10,7 +10,7 @@
 //  own follow-the-parent bookkeeping on every move and resize, to buy something
 //  this does not need — the bar is modal over exactly one window and dies with it.
 //
-//  **AND NO BACKDROP.** §9.1 asked for a "blurred backdrop scrim" and Luna had
+//  AND NO BACKDROP. §9.1 asked for a "blurred backdrop scrim" and Luna had
 //  one, in two shapes, and neither earned its keep. At `alphaValue = 0.55` an
 //  `NSVisualEffectView` does not thin — it cross-fades the blurred result back
 //  over the sharp original, so the bar sat on a grey film over a perfectly
@@ -26,7 +26,7 @@
 //  §9.1's dismissal (`mouseDown` below) — it simply draws nothing while doing
 //  it. `Glass.scrim()` and `GlassScrim.swift` went with the plane; the finding
 //  that sent that surface to `NSVisualEffectView` in the first place — glass
-//  composites what is behind the *window*, so it replaces a page rather than
+//  composites what is behind the window, so it replaces a page rather than
 //  blurring it, and goes near-black in fullscreen — is kept where it is still
 //  load-bearing, in `Glass.peekPlane`.
 //
@@ -55,7 +55,7 @@ enum CommandBarMetrics {
     /// The input row — the same height as the chrome bars it covers.
     static let inputHeight = Tokens.Metric.topBarHeight
     static let padding = Tokens.Metric.panelInset
-    /// UI-SPEC §6: "anchored 20 % from window top". **Missing token** — it is a
+    /// UI-SPEC §6: "anchored 20 % from window top". Missing token — it is a
     /// ratio rather than a length, so `Tokens.Metric` has nowhere to put it today.
     static let topAnchorFraction: CGFloat = 0.20
     /// How long the bar will wait, behind the pill, for the store to answer the
@@ -64,7 +64,7 @@ enum CommandBarMetrics {
     /// A timeout rather than a duration: on a warm store the query lands in
     /// about 9 ms and this never fires. It is the guarantee that a busy store
     /// cannot hold the bar shut, and 0.10 s is the longest a click may go
-    /// unanswered before the delay stops reading as *nothing happened yet*.
+    /// unanswered before the delay stops reading as nothing happened yet.
     static let openDeadline: TimeInterval = 0.10
 }
 
@@ -75,8 +75,8 @@ final class CommandBarPanel: NSView {
     let field = CommandBarInputField()
     let results: CommandBarResultsView
 
-    /// §9.1's leading mark: a **magnifier** while what is typed is a search, and
-    /// the site's **favicon** — or a **globe** — the moment it reads as an
+    /// §9.1's leading mark: a magnifier while what is typed is a search, and
+    /// the site's favicon — or a globe — the moment it reads as an
     /// address. The same glyph §3.2's pill wears, by the same rule, because it
     /// is the same question asked of the same string.
     ///
@@ -101,7 +101,7 @@ final class CommandBarPanel: NSView {
     /// pill's height rather than a chrome bar's.
     var fieldCentreConstraint: NSLayoutConstraint?
     var resultsTopConstraint: NSLayoutConstraint?
-    /// The reveal's own height: **required, and temporary**. It exists only
+    /// The reveal's own height: required, and temporary. It exists only
     /// while an anchored bar is opening — see `revealFromPill` — because that
     /// is the only moment the glass is allowed to disagree with the list about
     /// how tall it should be.
@@ -111,7 +111,7 @@ final class CommandBarPanel: NSView {
     let anchor: CommandBarAnchor?
 
     /// True from the moment `animateIn` is called until the bar has finished
-    /// opening. **Nothing may rebuild the list while it is true** — see
+    /// opening. Nothing may rebuild the list while it is true — see
     /// `CommandBarController.apply`.
     private(set) var isOpening = false
 
@@ -130,7 +130,7 @@ final class CommandBarPanel: NSView {
     func beginOpening() { isOpening = true }
 
     /// How tall the input row is: a chrome bar's 52 pt when the panel floats,
-    /// and the pill's own height **plus a margin above and below** when it grew
+    /// and the pill's own height plus a margin above and below when it grew
     /// from one. Read live, because §3.2b's pill is 22 pt collapsed and 34 open.
     ///
     /// The margin is the difference between a pill and a panel. 34 pt is the
@@ -138,7 +138,7 @@ final class CommandBarPanel: NSView {
     /// chrome around it; the same 34 at the top of a panel puts the query hard
     /// against the glass with the first result under its chin. The field stays
     /// on the pill's own centre line regardless — the panel starts that margin
-    /// *above* where the pill did, which is what keeps the two lined up.
+    /// above where the pill did, which is what keeps the two lined up.
     var inputHeight: CGFloat {
         guard let anchor else { return CommandBarMetrics.inputHeight }
         return anchor.view.bounds.height + 2 * inputPadding
@@ -150,7 +150,7 @@ final class CommandBarPanel: NSView {
         anchor == nil ? 0 : CommandBarMetrics.padding
     }
 
-    /// The region the bar belongs over: the **page**, not the window.
+    /// The region the bar belongs over: the page, not the window.
     ///
     /// The panel covers the whole window so nothing behind it is clickable, but
     /// centring the bar in the window put it visibly off-centre over the page
@@ -175,11 +175,11 @@ final class CommandBarPanel: NSView {
     private func buildBody() {
         body.wantsLayer = true
         body.translatesAutoresizingMaskIntoConstraints = false
-        // §2's popover material: `.regular` glass, **untinted**. The chrome's
+        // §2's popover material: `.regular` glass, untinted. The chrome's
         // tint darkens a dark theme by design (it is what makes the sidebar
         // read as dense), and a bar floating over a page wants the opposite —
         // it should look like a pane of the desktop, not like more chrome.
-        // **A pill's own corner when the bar grew out of one.** The panel's
+        // A pill's own corner when the bar grew out of one. The panel's
         // 25 pt card radius on a capsule 34 pt tall is rounder than the capsule
         // it is replacing, so the first frame of the reveal changes the shape
         // of the thing the user clicked. `urlPill.cornerRadius` is that shape.
@@ -202,7 +202,7 @@ final class CommandBarPanel: NSView {
         body.addSubview(results)
         showMark(for: "")
 
-        // **Flush with the rows, not with their titles.** Indenting the query
+        // Flush with the rows, not with their titles. Indenting the query
         // by a favicon's width lined it up with the text it filters and left
         // the panel with a visible notch out of its top-left corner — the
         // field started a centimetre in from everything below it. The list's
@@ -213,7 +213,7 @@ final class CommandBarPanel: NSView {
         topAnchorConstraint = top
         let centre = body.centerXAnchor.constraint(equalTo: centerXAnchor, constant: 0)
         centreConstraint = centre
-        // A constant rather than a constant *value*: anchored, the bar is as
+        // A constant rather than a constant value: anchored, the bar is as
         // wide as the pill it grew from, and that width follows a sidebar drag.
         let width = body.widthAnchor.constraint(equalToConstant: CommandBarMetrics.width)
         widthConstraint = width
@@ -233,8 +233,8 @@ final class CommandBarPanel: NSView {
             width,
             top,
 
-            // **Centred in the input row, not stretched over it.** An
-            // `NSTextField` draws its single line at the *top* of whatever
+            // Centred in the input row, not stretched over it. An
+            // `NSTextField` draws its single line at the top of whatever
             // frame it is given, so a 52 pt field put the placeholder hard
             // against the panel's top edge, above the rounded corners — the
             // misalignment in Martin's capture. The row is still 52 pt; the
@@ -258,13 +258,13 @@ final class CommandBarPanel: NSView {
             results.trailingAnchor.constraint(equalTo: body.trailingAnchor)
         ])
 
-        // **The list is what makes the glass as tall as it is** — on both
+        // The list is what makes the glass as tall as it is — on both
         // placements, and through Auto Layout rather than through a number this
         // file would have to keep up to date. That matters because the list
         // changes size after the bar is already on screen: the history query
         // lands, then the engine's suggestions, and each one re-ranks the rows.
         //
-        // Anchored it is *almost* required. The reveal needs the glass to be
+        // Anchored it is almost required. The reveal needs the glass to be
         // shorter than the list for 0.18 s, so it puts a required height on the
         // body and takes it off again at the end (`revealFromPill`); this
         // constraint is the one that is violated for exactly that long, and

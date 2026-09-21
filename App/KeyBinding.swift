@@ -5,7 +5,7 @@
 //  One keystroke, as a value — the thing a menu item wears, the thing the user
 //  records in Settings, and the thing that has to survive a relaunch.
 //
-//  **Shift is always in the mask, never in the letter.** AppKit accepts two
+//  Shift is always in the mask, never in the letter. AppKit accepts two
 //  spellings of ⇧⌘T: `keyEquivalent "T"` with `.command`, or `keyEquivalent "t"`
 //  with `[.command, .shift]`. `MainMenu` used the first, which is fine for a
 //  table written by hand and wrong for one a user can edit — it makes the shift
@@ -14,7 +14,7 @@
 //  normalises to the second spelling: the key is lowercased, and shift is a
 //  modifier like the other three.
 //
-//  A shifted *symbol* keeps whatever the layout produced — ⇧⌘[ records as ⇧⌘{
+//  A shifted symbol keeps whatever the layout produced — ⇧⌘[ records as ⇧⌘{
 //  on a US keyboard, because that is the character AppKit will be matching
 //  against. It fires correctly; it is only the printed glyph that is the shifted
 //  one. Left alone deliberately: unshifting it needs `UCKeyTranslate` and a
@@ -134,11 +134,11 @@ struct KeyBinding: Hashable {
     /// The keystroke an event describes, or nil for one that cannot be a
     /// shortcut.
     ///
-    /// **At least one of ⌘ ⌃ ⌥ is required**, and shift alone does not count: a
+    /// At least one of ⌘ ⌃ ⌥ is required, and shift alone does not count: a
     /// menu key equivalent fires wherever the app is focused, so a bare letter —
     /// or ⇧-letter — would be swallowed out of every text field in the browser,
     /// including the address bar. Nothing else is refused here; whether the
-    /// keystroke is *already taken* is `KeyBindings`' question, not this one.
+    /// keystroke is already taken is `KeyBindings`' question, not this one.
     init?(event: NSEvent) {
         guard let characters = event.charactersIgnoringModifiers, !characters.isEmpty else { return nil }
         let modifiers = event.modifierFlags.intersection(Self.allowed)

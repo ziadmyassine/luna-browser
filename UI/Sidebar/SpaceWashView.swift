@@ -7,9 +7,9 @@
 //  Spaces stop looking like the same window — the one visible gap the Spaces
 //  feature still had.
 //
-//  **It draws under everything and it is not a second glass surface.**
+//  It draws under everything and it is not a second glass surface.
 //  `BrowserWindowController` already applies `Glass.sidebar` to the window's
-//  root plane; this is a tint laid *on* that material, which is why it paints
+//  root plane; this is a tint laid on that material, which is why it paints
 //  translucent stops rather than the flattened ones `Tokens.Gradient.planes`
 //  hands back. See `washStops` for the difference — getting it the wrong way
 //  round replaces the glass with a coloured plate.
@@ -17,16 +17,16 @@
 //  §21.2 in full, and all three settings are live signals rather than an
 //  appearance:
 //
-//    · **Reduce Transparency** — the wash goes opaque, because there is no
+//    · Reduce Transparency — the wash goes opaque, because there is no
 //      glass left to see through and a 16 % film over a solid plane is a
 //      smudge. `washStops` makes that decision, so this view has no branch.
-//    · **Reduce Motion** — a Space switch replaces the gradient outright
+//    · Reduce Motion — a Space switch replaces the gradient outright
 //      instead of cross-fading it. `Tokens.Motion.animate` degrades to zero
 //      duration, so the layer lands on the new colours in the same frame.
-//    · **Increase Contrast** — not an `NSAppearance` on macOS 26.5, so the
+//    · Increase Contrast — not an `NSAppearance` on macOS 26.5, so the
 //      only way to hear about it is
 //      `NSWorkspace.accessibilityDisplayOptionsDidChangeNotification`. It
-//      matters here because Reduce Transparency arrives on the *same*
+//      matters here because Reduce Transparency arrives on the same
 //      notification, and without it a user turning that setting on would keep
 //      a translucent wash until the next Space switch.
 //
@@ -82,7 +82,7 @@ final class SpaceWashView: NSView {
         apply(animated: !isFirst)
     }
 
-    /// **While §30.9's swipe is in the hand**: the Space you are in, blended
+    /// While §30.9's swipe is in the hand: the Space you are in, blended
     /// `mix` of the way toward the one you are sliding toward.
     ///
     /// The wash is the largest thing on screen that says which Space this is,
@@ -91,12 +91,12 @@ final class SpaceWashView: NSView {
     /// an abandoned swipe read as abandoned rather than as a switch that did
     /// not take.
     ///
-    /// Never animated: `mix` already *is* the animation, one frame per event.
+    /// Never animated: `mix` already is the animation, one frame per event.
     /// Passing `nil` or `mix: 0` restores the active pair — the swipe's own
     /// reset, and what `SidebarViewController` calls when the gesture ends.
     ///
-    /// **A straight four-channel lerp, not `blended(toward:)`.** That one is
-    /// alpha-correct for laying a translucent fill *over* a colour, which means
+    /// A straight four-channel lerp, not `blended(toward:)`. That one is
+    /// alpha-correct for laying a translucent fill over a colour, which means
     /// a target of zero alpha contributes nothing — so sliding from a coloured
     /// Space toward a neutral one would have shown no change at all, in the one
     /// direction where the whole wash is what is going away. A cross-fade is
@@ -126,11 +126,11 @@ final class SpaceWashView: NSView {
 
     /// `fraction` of the way from `from` to `to`, alpha included.
     ///
-    /// A fully transparent end has **no hue to travel toward**, and `.clear` is
+    /// A fully transparent end has no hue to travel toward, and `.clear` is
     /// stored as transparent black — so mixing its channels in would drag a
     /// Space's colour through grey on its way out. Neutral is exactly that
     /// case, and it is the one pair a user reaches for when they want the tint
-    /// gone. Either end being clear therefore fades the *other* end's hue by
+    /// gone. Either end being clear therefore fades the other end's hue by
     /// alpha alone.
     static func lerp(_ from: NSColor, _ to: NSColor, _ fraction: Double, in appearance: NSAppearance) -> NSColor {
         let lhs = from.srgbComponents(for: appearance)
@@ -160,7 +160,7 @@ final class SpaceWashView: NSView {
         apply(animated: false)
     }
 
-    /// The two stops the wash lands on — and **neutral paints nothing at all.**
+    /// The two stops the wash lands on — and neutral paints nothing at all.
     ///
     /// `washStops` hands back a desaturated grey pair for neutral, which is a
     /// 16 % grey film over the glass: a visibly greyer sidebar, not the sidebar

@@ -12,7 +12,7 @@
 //  written — was already taken in `PasswordCoordinator`, under test, away from
 //  the view layer.
 //
-//  The one rule this file *does* own: **password UI belongs to the active tab
+//  The one rule this file does own: **password UI belongs to the active tab
 //  only.** A background tab finishing a load and putting a popover over the
 //  page the user is reading would be a bug in the obvious direction, and a
 //  save chip from a tab the user has left is a chip they cannot place.
@@ -92,7 +92,7 @@ extension BrowserSession {
     /// The field went away, the document changed, or the tab did. The popover
     /// points at a rect in a page that no longer exists, so it goes.
     ///
-    /// The **chip deliberately survives** a document change: §14.4 fires it on
+    /// The chip deliberately survives a document change: §14.4 fires it on
     /// submit, and a successful sign-in navigates immediately afterwards. A
     /// chip that died with the document would be a chip nobody ever saw.
     func tabControllerDidDismissPasswordUI(_ controller: TabController) {

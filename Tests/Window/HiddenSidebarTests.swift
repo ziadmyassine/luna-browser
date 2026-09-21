@@ -23,7 +23,7 @@ final class SidebarPeekReachTests: XCTestCase {
         return (strip, root)
     }
 
-    /// **The strip starts below the bar.** With the sidebar hidden, §3.2b puts
+    /// The strip starts below the bar. With the sidebar hidden, §3.2b puts
     /// the toggle on the page at the window's leading corner — inside the top
     /// `pageBar` points — so a strip that ran the window's full height pulled
     /// the sidebar out from under the pointer on its way to that button. The
@@ -47,7 +47,7 @@ final class SidebarPeekReachTests: XCTestCase {
 
 /// The traffic lights come and go — `⌘S` takes them with the sidebar, §7.2's
 /// peek lends them back for the length of a peek — and that changes no view's
-/// bounds, so nothing in AppKit marks the chrome that lays itself out *against*
+/// bounds, so nothing in AppKit marks the chrome that lays itself out against
 /// them as dirty. They have to be named; `TrafficLightNeighbour` is the name.
 ///
 /// Missing the second caller is what left the sidebar's toggle drawn on top of

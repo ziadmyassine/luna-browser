@@ -3,7 +3,7 @@
 //  LunaTests
 //
 //  §6.4's row is one label too wide for a 320 pt pop-out, and the label that
-//  used to lose the argument was the one saying *when* — the panel's whole
+//  used to lose the argument was the one saying when — the panel's whole
 //  point. `HistoryTimestamp` is what keeps the stamp short enough to survive;
 //  these assert that it picks the right branch and stays inside the width the
 //  row has for it.

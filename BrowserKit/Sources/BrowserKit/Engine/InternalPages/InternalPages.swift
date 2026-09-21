@@ -3,14 +3,14 @@ import Foundation
 //  Luna's own pages (§4.4): New Tab, the archive browser, and the error pages
 //  that replace WebKit's defaults (§4.5).
 //
-//  **The gotcha §4.4 records, and the reason everything here is a URL:** a
+//  The gotcha §4.4 records, and the reason everything here is a URL: a
 //  `WKURLSchemeHandler` only fires for resources loaded *inside a document that
 //  itself came from that scheme*. An internal page injected with
 //  `loadHTMLString` into `about:blank` therefore cannot load a single
 //  sub-resource — no favicon, no stylesheet — and fails silently while looking
 //  like it worked. Every internal page is navigated to as `luna://…`.
 //
-//  **No colour value lives in `BrowserKit`** (contract rule 3). The palette is
+//  No colour value lives in `BrowserKit` (contract rule 3). The palette is
 //  a block of CSS custom properties the app hands over in `palette`, generated
 //  from `Design/Tokens.swift` by `Features/InternalPages/InternalPageTheme`.
 //  Every rule here reads `var(--luna-…, <CSS system colour>)`, so an unset
@@ -30,7 +30,7 @@ public enum InternalPages {
         case archive
         case error(InternalPageError)
 
-        /// The URL that renders this page. Internal pages are *navigated to*;
+        /// The URL that renders this page. Internal pages are navigated to;
         /// nothing here is ever injected into a document (§4.4).
         public var url: URL {
             switch self {
@@ -81,7 +81,7 @@ public enum InternalPages {
     /// What one `luna://` URL means.
     public enum Route: Equatable, Sendable {
         case page(Page)
-        /// A cached favicon, served as a sub-resource *of* an internal page —
+        /// A cached favicon, served as a sub-resource of an internal page —
         /// exactly the case §4.4's gotcha is about.
         case favicon(host: String)
         case action(Action)
@@ -121,8 +121,8 @@ public enum InternalPages {
 
     /// Percent-encoded `name=value` pairs for a `luna://` URL.
     ///
-    /// **Not `URLComponents.queryItems`.** That setter leaves `&` and `+` alone
-    /// in a *value* — both are legal in a query component — so a URL carrying
+    /// Not `URLComponents.queryItems`. That setter leaves `&` and `+` alone
+    /// in a value — both are legal in a query component — so a URL carrying
     /// another URL (`luna://retry?url=https://a.test/?x=1&y=2`) reads back as two
     /// query items and the Retry button loses half its target. Encoding against
     /// the unreserved set is the only spelling that round-trips.

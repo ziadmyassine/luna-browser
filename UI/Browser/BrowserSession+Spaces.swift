@@ -8,7 +8,7 @@
 //
 //  Three things here are not obvious, and they are the reason the file exists:
 //
-//  · **Changing a Space's Profile rebuilds every web view in it.** Nook's
+//  · Changing a Space's Profile rebuilds every web view in it. Nook's
 //    `assign(spaceId:toProfile:)` sets the field and persists and does nothing
 //    else, so every already-loaded tab keeps writing to the old cookie jar
 //    until something unloads it; zen#15023 is the same bug with a greyed-out
@@ -19,20 +19,20 @@
 //    does not: the user is logged out in that Space, and the UI has to say so
 //    before the call, not after.
 //
-//  · **Deleting a Space never destroys a tab.** `.archiveTabs` archives them
+//  · Deleting a Space never destroys a tab. `.archiveTabs` archives them
 //    (`closeTab` already does, so it is nearly free) and `.adopt(into:)`
-//    re-homes them. Either way the rows move to a surviving Space *before* the
+//    re-homes them. Either way the rows move to a surviving Space before the
 //    Space row goes, because `tabs.spaceID` cascades and a cascade is not
 //    undoable. Vivaldi closes the tabs with no undo; Arc has no documented undo
 //    anywhere in three years of release notes.
 //
-//  · **Favorites belong to the Profile** (§2, and the owner's locked decision).
+//  · Favorites belong to the Profile (§2, and the owner's locked decision).
 //    An `.essential` row still keeps a home Space for the foreign key, so every
 //    operation that removes or re-points a Space re-homes the Profile's
 //    Favorites onto a Space that survives it first — `keepFavorites(ofSpace:)`.
 //
 //  Not here, deliberately: no window-close-on-last-tab rule. When one comes it
-//  is evaluated over the **window**, never the visible Space. zen#9272 took the
+//  is evaluated over the window, never the visible Space. zen#9272 took the
 //  other path, quit the browser while another Space still held five tabs by the
 //  window-close route rather than a session end, and one user lost ~500 tabs.
 //  floorp#2152 is the same bug, still open.
@@ -86,14 +86,14 @@ extension BrowserSession {
 
     // MARK: - Create (§6.1)
 
-    /// A new Space, optionally **sharing an existing Profile**.
+    /// A new Space, optionally sharing an existing Profile.
     ///
     /// `profileID: nil` mints a fresh Profile, which is what every Space got
     /// before this existed — so many-Spaces-to-one-Profile was modelled in the
     /// schema and unreachable from the app. Passing an existing id is how Work
     /// and Work Admin end up in one cookie jar.
     ///
-    /// The Space lands **next to the active one**, not at the end (§13.10).
+    /// The Space lands next to the active one, not at the end (§13.10).
     @discardableResult
     func createSpace(name: String, profileID: UUID? = nil) async throws -> Space {
         let profile: Profile
@@ -161,7 +161,7 @@ extension BrowserSession {
     ///
     /// The rebuild is not cosmetic: a `WKWebView`'s `websiteDataStore` is fixed
     /// when it is constructed, so a tab loaded before the switch keeps reading
-    /// and writing the *old* Profile's cookies for as long as its web view
+    /// and writing the old Profile's cookies for as long as its web view
     /// lives. Setting the field without rebuilding is a silent cross-profile
     /// leak. Warn with ``crossProfileMoveWarning`` before calling this.
     func setProfile(_ profileID: UUID, forSpace id: UUID) async throws {
@@ -213,7 +213,7 @@ extension BrowserSession {
     }
 
     /// Arc's cap of 12, applied to a Profile whose tiles have just been pooled
-    /// with another's. The overflow is **demoted, never deleted**: it becomes a
+    /// with another's. The overflow is demoted, never deleted: it becomes a
     /// pinned tab in the Space it already lives in, least recently used first.
     func enforceFavoritesCap(onProfile id: UUID) {
         let favorites = list.favorites(onProfile: id)
@@ -228,7 +228,7 @@ extension BrowserSession {
     /// Deletes every `WKWebsiteDataStore` on disk that no Profile names, and
     /// drains the deferred-removal queue while it is there (spec §3.1, §3.2).
     ///
-    /// **This is the one call that makes store deletion eventually consistent.**
+    /// This is the one call that makes store deletion eventually consistent.
     /// `remove(forIdentifier:)` fails while any live `WKWebView` still uses the
     /// store, and a web view goes away when ARC says so rather than when the
     /// user clicks Delete — so a removal that loses that race is queued in
@@ -244,19 +244,19 @@ extension BrowserSession {
     /// `BrowserSession` is per window, because a second window sweeping the same
     /// disk would race the first one's removals. Detached from the launch path
     /// so a slow WebKit answer never delays the first paint.
-    /// Redirects the sweep away from the disk, and is the **only** way to make
+    /// Redirects the sweep away from the disk, and is the only way to make
     /// it run inside a test.
     ///
     /// The two safety rules this shape encodes, and why it is a sink rather than
     /// a boolean:
     ///
-    /// · **The default is safe.** Unset — the value the app always has — the
+    /// · The default is safe. Unset — the value the app always has — the
     ///   sweep goes to the real `ProfileStore`, and only when the process is not
     ///   a test run.
-    /// · **"Sweep the real disk from a test" is unspellable.** A flag the test
+    /// · "Sweep the real disk from a test" is unspellable. A flag the test
     ///   flips would leave the disk reachable, and one test that forgot to put
     ///   the flag back would arm it for every test after it. Here, switching the
-    ///   guard off and pointing the sweep somewhere harmless are the *same act*:
+    ///   guard off and pointing the sweep somewhere harmless are the same act:
     ///   there is no argument to this API that lets a test reach
     ///   `WKWebsiteDataStore.remove(forIdentifier:)`.
     ///
@@ -268,11 +268,11 @@ extension BrowserSession {
     }
 
     func sweepOrphanedProfileStores() {
-        // **Never from a test**, unless the test has already routed the sweep
+        // Never from a test, unless the test has already routed the sweep
         // away from the disk. The sweep deletes every store on disk that this
         // session's database does not name, and a test's database is a temporary
         // file holding two rows — so a test that installed the lifecycle would
-        // delete the *user's* real cookie jars and call it orphan recovery. The
+        // delete the user's real cookie jars and call it orphan recovery. The
         // only safe thing to key on is the harness itself: XCTest is loaded in a
         // test run and in nothing else.
         let sink = orphanSweepSink

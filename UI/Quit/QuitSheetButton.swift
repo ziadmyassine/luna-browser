@@ -5,12 +5,12 @@
 //  The three answers on §3.1's quit sheet: a capsule with a word in it and,
 //  on the two that have one, the key that does the same thing.
 //
-//  **Its own control rather than `GlassButton` or `SettingsPushButton`.**
+//  Its own control rather than `GlassButton` or `SettingsPushButton`.
 //  `GlassButton` is a shape with a symbol in it — every one in the chrome is
 //  square or round and none of them carries a title. `SettingsPushButton` is
 //  the Settings shell's, sized by `SettingsMetrics`, and a modal in the browser
 //  window is not a settings row. What both of them lack is the thing this is
-//  for: **the key hint**. The sheet takes the keyboard while it is up, so what
+//  for: the key hint. The sheet takes the keyboard while it is up, so what
 //  Return and Escape do is not a shortcut the user might discover, it is part
 //  of the answer — and a control that says so is why nobody has to read the
 //  sentence twice.
@@ -71,7 +71,7 @@ final class QuitSheetButton: NSView {
             hintWell.translatesAutoresizingMaskIntoConstraints = false
             hintWell.addSubview(hint)
             addSubview(hintWell)
-            // **The key is the button's end, not a chip floating inside it.**
+            // The key is the button's end, not a chip floating inside it.
             // Inset from the trailing edge, the capsule's own fill came back
             // in the sliver between the chip and the edge — a second
             // background in the last four points of the control, which at a
@@ -165,12 +165,12 @@ final class QuitSheetButton: NSView {
     override func updateLayer() {
         guard let layer else { return }
         layer.cornerRadius = Tokens.Metric.urlPill.cornerRadius
-        // **The filled one carries no hairline.** §2's edge is what stops a
+        // The filled one carries no hairline. §2's edge is what stops a
         // translucent surface reading as a smudge; a solid colour has an edge
         // already, and a grey line round it only muddies the one it has.
         layer.borderWidth = isKey ? 0 : Tokens.Metric.hairline
         layer.borderColor = isKey ? nil : Tokens.Line.border.cgColor
-        // The button's own radius, because the well's trailing half *is* the
+        // The button's own radius, because the well's trailing half is the
         // button's trailing cap and the two curves have to be one curve.
         hintWell.layer?.cornerRadius = Tokens.Metric.urlPill.cornerRadius
         // On the accent the well is a hole punched in it rather than a recess

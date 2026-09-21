@@ -2,7 +2,7 @@ import BrowserKit
 import Foundation
 import Testing
 
-/// §11.2's FTS5 index over title **and** URL. The Command Bar types into this.
+/// §11.2's FTS5 index over title and URL. The Command Bar types into this.
 @Suite("History full-text search (§11.2)")
 struct HistorySearchTests {
 

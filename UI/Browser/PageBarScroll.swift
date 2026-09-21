@@ -9,12 +9,12 @@
 //  that are invisible until someone scrolls a particular page a particular way,
 //  and a rule that can be asserted is a rule that stays right.
 //
-//  **The comparison is against an anchor, not against the last frame.** A page
+//  The comparison is against an anchor, not against the last frame. A page
 //  reports its offset on every animation frame of a drag, so a rule comparing
 //  consecutive frames would answer a two-pixel momentum wobble. The anchor is
 //  the offset the bar last answered at: it takes `pageBarScrollSlack` of travel
 //  away from it to change state, and the anchor then trails the page in
-//  whichever direction it is already going, so the *next* reversal is measured
+//  whichever direction it is already going, so the next reversal is measured
 //  from where the user stopped rather than from where they started.
 //
 
@@ -30,7 +30,7 @@ struct PageBarScroll {
 
     /// Nothing has been heard from this page yet.
     ///
-    /// **The first offset a document reports is where it starts, not a scroll.**
+    /// The first offset a document reports is where it starts, not a scroll.
     /// WebKit restores the scroll position on a reload and on back/forward, and
     /// plenty of pages jump to an anchor of their own the moment they load — so
     /// the first thing heard from a page can be `y = 4000`. Measured from an
@@ -63,7 +63,7 @@ struct PageBarScroll {
             return isCollapsed != was
         }
         let travelled = offset - anchor
-        // **The top of the page always shows the bar.** Without this a page left
+        // The top of the page always shows the bar. Without this a page left
         // a slack's worth down — a short flick, a restored scroll position —
         // would sit there collapsed with a clear gap above its content.
         if offset <= Self.slack {

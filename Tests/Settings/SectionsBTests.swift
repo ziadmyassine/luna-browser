@@ -38,7 +38,7 @@ final class UserAgentTests: XCTestCase {
     }
 
     /// The constraint the whole user-agent row is built around:
-    /// `applicationNameForUserAgent` **appends**, so Default is the mode that
+    /// `applicationNameForUserAgent` appends, so Default is the mode that
     /// changes nothing. If this string moves, every site that sniffs for Safari
     /// sees a different browser.
     func testDefaultModeAppendsTheSafariTokensAndNothingElse() {

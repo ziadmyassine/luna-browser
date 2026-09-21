@@ -38,14 +38,14 @@ extension SidebarViewController {
         }
     }
 
-    /// **Every position is computed, and none is read back.**
+    /// Every position is computed, and none is read back.
     ///
     /// This used to walk down the column asking each view where the one above
     /// it had ended up — `pill.frame.minY`, `essentials.frame.minY`. Inside an
     /// animated pass that read is a frame behind: setting a frame under
     /// `allowsImplicitAnimation` routes it through the animator, and the getter
     /// hands back the value the view still has. So on the pass where the grid
-    /// *shrank*, the scroll view under it was sized against the grid's old
+    /// shrank, the scroll view under it was sized against the grid's old
     /// bottom edge and stayed a tile-row short — an unpinned tab left a 47 pt
     /// hole between the tiles and the list that only a window resize cleared.
     /// The column's geometry is arithmetic; it is done here, once, in locals.
@@ -64,7 +64,7 @@ extension SidebarViewController {
         let gridTop = pillTop - gridHeight
 
         controlRow.frame = NSRect(x: 0, y: controlTop, width: bounds.width, height: head)
-        // The row places its buttons against the **traffic lights**, which move
+        // The row places its buttons against the traffic lights, which move
         // and disappear without its own bounds changing — entering fullscreen
         // takes them away and leaves the row exactly 52 pt tall and exactly as
         // wide. Nothing would mark it dirty, so the row kept a hole at its head
@@ -85,11 +85,11 @@ extension SidebarViewController {
         essentials.frame = NSRect(x: 0, y: gridTop, width: bounds.width, height: gridHeight).integral
 
         utility.frame = NSRect(x: 0, y: 0, width: bounds.width, height: bar)
-        // **§3.5's profile line stands on the Space strip, not on the bar.**
+        // §3.5's profile line stands on the Space strip, not on the bar.
         //
         // The bar is 52 pt and its three clusters are centred on its midline,
         // which leaves 15 pt of empty air above the 22 pt Space pill — so a
-        // caption parked above the *bar* sat that 15 pt clear of the dots it
+        // caption parked above the bar sat that 15 pt clear of the dots it
         // belongs to, and read as the last line of the tab list instead of as
         // the label on the strip. It is placed against the strip's own top edge
         // instead and is allowed to overlap the bar's dead air to get there;

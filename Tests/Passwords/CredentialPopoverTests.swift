@@ -10,7 +10,7 @@
 //  limit rather than a gap — so it draws its own, and these are the parts of
 //  that drawing worth keeping.
 //
-//  They are assertions about *structure*, not pixels: a snapshot test over
+//  They are assertions about structure, not pixels: a snapshot test over
 //  glass would fail on every macOS material tweak and teach nobody anything.
 //
 
@@ -76,7 +76,7 @@ final class CredentialPopoverTests: XCTestCase {
 
     // MARK: - The row
 
-    /// The username *and* the site, on two lines. One saved account can be the
+    /// The username and the site, on two lines. One saved account can be the
     /// right one on `github.com` and the wrong one on a page that merely looks
     /// like it, so the row says which site it is filing under.
     func testARowNamesBothTheAccountAndTheSite() {

@@ -2,11 +2,11 @@
 //  CredentialOwnershipTests.swift
 //  LunaTests
 //
-//  **Luna must only ever see items Luna wrote.**
+//  Luna must only ever see items Luna wrote.
 //
 //  This is not a hypothetical. `CredentialStore` first scoped its queries with
 //  `kSecAttrService`, which is an attribute of `kSecClassGenericPassword` and
-//  is silently ignored on an *internet* password — so the filter did nothing
+//  is silently ignored on an internet password — so the filter did nothing
 //  and `baseQuery` matched on the host alone. On the machine this was found,
 //  Luna's picker was offering a `github.com` credential written by
 //  `git-credential-osxkeychain` a year before the feature existed, whose
@@ -80,7 +80,7 @@ final class CredentialOwnershipTests: XCTestCase {
 
     // MARK: - Writing
 
-    /// Saving under the same host must create Luna's *own* row rather than
+    /// Saving under the same host must create Luna's own row rather than
     /// overwriting the one already there.
     func testSavingDoesNotOverwriteAnotherApplicationsCredential() async throws {
         XCTAssertEqual(addForeignItem(), errSecSuccess)

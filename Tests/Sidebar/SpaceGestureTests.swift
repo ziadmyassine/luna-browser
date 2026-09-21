@@ -2,11 +2,11 @@
 //  SpaceGestureTests.swift
 //  LunaTests
 //
-//  §30.9's swipe as a **gesture** rather than as arithmetic: real scroll events
+//  §30.9's swipe as a gesture rather than as arithmetic: real scroll events
 //  with real phases, through the real controller, into a real session — the
 //  half `SpaceSwipeTests` cannot reach.
 //
-//  **This was thought to need a trackpad, and it does not.** The gesture reacts
+//  This was thought to need a trackpad, and it does not. The gesture reacts
 //  only to a scroll carrying an `NSEvent.Phase`, which no ordinary `NSEvent`
 //  initialiser produces — but `CGEvent(scrollWheelEvent2Source:…)` does, its
 //  `timestamp` arrives on the other side as `NSEvent.timestamp` one nanosecond
@@ -16,7 +16,7 @@
 //  difference between a page turn and a new Space, and until now nothing
 //  checked it.
 //
-//  The defect these were written for: **a Space could not be created.** The
+//  The defect these were written for: a Space could not be created. The
 //  create asked for three pages of travel, which against the damping ceiling
 //  needs longer than an ordinary stroke lasts — so the `+` closed, because its
 //  ring only costs a third of that, and the release made nothing. Every time.
@@ -24,7 +24,7 @@
 //  It was then reported a second time, and it was the same defect with one
 //  page in place of three: the ring still closed a third of the way in, so a
 //  hand that did what the read-out said — push until the circle is full, let go
-//  — still got nothing. **The ring is the threshold now**, and the two tests
+//  — still got nothing. The ring is the threshold now, and the two tests
 //  that matter most are a stroke that fills it, which makes a Space however the
 //  fingers left, and a reflex that does not, which never does.
 //
@@ -52,7 +52,7 @@ final class SpaceGestureTests: XCTestCase {
 
     // MARK: - Making one (§6.1 from §30.9)
 
-    /// **The reported defect.** One deliberate push, out to the end of the
+    /// The reported defect. One deliberate push, out to the end of the
     /// column and held there, makes a Space and opens its editor.
     func testAPagePushedOutAndHeldMakesASpace() async throws {
         let (session, gestures) = try await sidebar()
@@ -62,7 +62,7 @@ final class SpaceGestureTests: XCTestCase {
         XCTAssertEqual(session.spaces.count, before + 1)
     }
 
-    /// **The same stroke, lifted while it was still moving, makes one too** —
+    /// The same stroke, lifted while it was still moving, makes one too —
     /// and that is a rule this deliberately reversed. A flick used to make
     /// nothing however far it went, which reads as a statement about intent and
     /// draws as a closed circle that means nothing: the ring had already told
@@ -90,7 +90,7 @@ final class SpaceGestureTests: XCTestCase {
         XCTAssertNil(gestures.editor)
     }
 
-    /// **"If the user then pans back then it shouldn't."** The whole create
+    /// "If the user then pans back then it shouldn't." The whole create
     /// stroke, then most of it again the other way, and the fingers leave from
     /// a ring that has emptied — the column springs home and nothing is made.
     func testPushingOutAndPanningBackMakesNothing() async throws {
@@ -112,7 +112,7 @@ final class SpaceGestureTests: XCTestCase {
 
     // MARK: - Turning a page (§30.9)
 
-    /// **"One single fast swipe should also go to the next Space."** A quarter
+    /// "One single fast swipe should also go to the next Space." A quarter
     /// of a page — nowhere near the half that commits on distance — turns the
     /// page because the fingers were still moving when they left.
     func testOneFastSwipeChangesSpace() async throws {
@@ -122,7 +122,7 @@ final class SpaceGestureTests: XCTestCase {
         try await eventually("the Space changed") { session.activeSpaceID != first }
     }
 
-    /// **"A little swipe is too big a move."** Two fifths of a page, let go of
+    /// "A little swipe is too big a move." Two fifths of a page, let go of
     /// gently, is a look at the next Space and not a move to it — the column
     /// springs back. Under the old ruler this same hand travel was three and a
     /// half Spaces and would have committed several times over.
@@ -142,9 +142,9 @@ final class SpaceGestureTests: XCTestCase {
         XCTAssertFalse(scrolled(gestures, dx: 5, dy: 60, events: 10), "the swipe took a vertical scroll")
     }
 
-    /// …and a sideways swipe is the swipe's, however much *it* wanders.
+    /// …and a sideways swipe is the swipe's, however much it wanders.
     ///
-    /// **The units used to disagree.** `drift` added the raw `scrollingDeltaY`
+    /// The units used to disagree. `drift` added the raw `scrollingDeltaY`
     /// to a comparison against an offset the damping ceiling had already folded
     /// down, so a brisk horizontal swipe lost to its own wobble and the list
     /// kept the scroll. Both sides come through the same curve now.
@@ -159,7 +159,7 @@ final class SpaceGestureTests: XCTestCase {
     /// delta per frame for a quarter of a second, which is a firm, unhurried
     /// hand and about as long as a trackpad stroke lasts.
     ///
-    /// **The length is the test.** Against the damping ceiling this carries a
+    /// The length is the test. Against the damping ceiling this carries a
     /// little over one page, which is comfortably past what a create now costs
     /// and comfortably short of the three pages it used to — so a stroke a real
     /// hand performs separates the two thresholds, and lengthening it here
@@ -213,10 +213,10 @@ final class SpaceGestureTests: XCTestCase {
 
     /// A precise trackpad scroll carrying a phase — the only kind §30.9 reads.
     ///
-    /// **Field 99 is CoreGraphics' phase, not AppKit's**, and the two
+    /// Field 99 is CoreGraphics' phase, not AppKit's, and the two
     /// enumerations do not agree: `kCGScrollPhaseChanged` is 2 where
     /// `NSEvent.Phase.changed` is 4, so writing AppKit's bits into a `CGEvent`
-    /// produces a stroke whose every move arrives as a *release*. The gesture
+    /// produces a stroke whose every move arrives as a release. The gesture
     /// then commits on the first event and sits out the rest, which is a way of
     /// passing tests without touching the code they are about. The round trip
     /// is asserted below rather than trusted.

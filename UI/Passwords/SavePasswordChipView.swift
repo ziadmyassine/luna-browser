@@ -4,7 +4,7 @@
 //
 //  The inside of §14.4's chip: one sentence, three answers.
 //
-//  The sentence names the **site and the username**, not just "this site".
+//  The sentence names the site and the username, not just "this site".
 //  After a submit the user has often just typed one of two accounts they hold
 //  there, and "Save password for example.com?" does not tell them which one
 //  they are about to overwrite. Update in particular is destructive-ish — it

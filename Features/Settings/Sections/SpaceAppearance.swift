@@ -5,7 +5,7 @@
 //  §6.2's icon and gradient, taken out of the row list and put behind the Space
 //  card's corner button.
 //
-//  **Two popups were the wrong shape for both of these settings.** A colour
+//  Two popups were the wrong shape for both of these settings. A colour
 //  chosen from a menu of twelve words is a colour you have to open the menu
 //  twelve times to compare, and `NSMenuItem.image` does not draw on this macOS
 //  at all (see `SidebarMenu.label`) — so the swatches in that popup were words
@@ -91,7 +91,7 @@ final class SpaceAppearanceView: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
-    /// **The popover marks the choice itself rather than waiting to be rebuilt.**
+    /// The popover marks the choice itself rather than waiting to be rebuilt.
     /// Both writes are `async` and both are followed by a section rebuild that
     /// throws this view away; until it lands, a grid that still shows the old
     /// ring reads as a click that did not register.
@@ -125,7 +125,7 @@ final class SpaceAppearanceView: NSView {
 
 /// One gradient, as itself.
 ///
-/// **A chip is a button and answers like one.** It cannot take §3.4's wash —
+/// A chip is a button and answers like one. It cannot take §3.4's wash —
 /// a 6 % white over a swatch is a different colour, which is the one thing a
 /// colour swatch may not show — so the pointer is answered with the ring
 /// instead, at `Text.secondary` under the pointer and `Text.primary` on the
@@ -173,7 +173,7 @@ final class SpaceSwatchChip: NSView {
         setAccessibilityValue(isChosen)
         let ring = Tokens.Metric.spaceSwatchRing
         Tokens.Motion.immediately {
-            // The ring is drawn **outside** the disc rather than on it, so the
+            // The ring is drawn outside the disc rather than on it, so the
             // colour a swatch is showing is the whole of the colour it offers:
             // a border painted over the edge of a 28 pt circle takes a tenth of
             // it away, and that tenth is the darkest part of the ramp.
@@ -242,7 +242,7 @@ final class SpaceSwatchChip: NSView {
 /// One SF Symbol, as itself. §13.10: Arc takes emoji too and Luna does not yet
 /// — that gap is in the report rather than pretended away.
 ///
-/// **A chip is a button and answers like one**, and this one can take §3.4's
+/// A chip is a button and answers like one, and this one can take §3.4's
 /// wash where `SpaceSwatchChip` cannot: a symbol is line art on a plane, so a
 /// 6 % lift under the pointer is a lift rather than a different colour. The
 /// press is the same wash at twice it, plus the 5 % swell every other button

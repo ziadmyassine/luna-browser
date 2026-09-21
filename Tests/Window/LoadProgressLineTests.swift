@@ -4,7 +4,7 @@
 //
 //  §3.2c: the load line, under whichever address bar is on screen.
 //
-//  Two halves, and they fail differently. The geometry half is a *placement* —
+//  Two halves, and they fail differently. The geometry half is a placement —
 //  a line lying on the edge of one pill and floating inside another is two
 //  lines — and it is checked by asking the capsule the reference measures
 //  where it is, rather than by restating the tokens. The behaviour half is
@@ -35,7 +35,7 @@ final class LoadProgressLineTests: XCTestCase {
 
     // MARK: - Where it goes
 
-    /// The reference draws the line **on** the capsule's bottom, not inside it
+    /// The reference draws the line on the capsule's bottom, not inside it
     /// at a distance: 2 pt thick, lying on the inner edge with the pill's own
     /// hairline under it, and spanning the whole pill so that a finished load
     /// reaches the far end rather than stopping a text inset short.

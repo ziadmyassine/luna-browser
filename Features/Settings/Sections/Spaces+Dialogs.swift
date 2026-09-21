@@ -2,7 +2,7 @@
 //  Spaces+Dialogs.swift
 //  Luna
 //
-//  Everything §3.7's Spaces section *asks* rather than shows: creating a Space
+//  Everything §3.7's Spaces section asks rather than shows: creating a Space
 //  onto a chosen profile, §6.4's deletion dialog, moving a Space across a
 //  profile boundary, clearing a profile's cookies — and the four pure
 //  functions that write their sentences.
@@ -24,12 +24,12 @@ extension SpacesSection {
 
     // MARK: New Space (§6.1)
 
-    /// **Creating a Space now asks which cookie jar it lands in**, which is the
+    /// Creating a Space now asks which cookie jar it lands in, which is the
     /// half that was modelled and unreachable: `createSpace` always minted a
     /// fresh `Profile`, so many Spaces to one Profile could be stored and never
     /// made. The popup's first entry is a new profile; the rest are the ones
     /// that exist.
-    /// **A button beside the section's heading, not a row in a card.** As a row
+    /// A button beside the section's heading, not a row in a card. As a row
     /// it needed a card, and the card needed a heading, so the pane read
     /// `Spaces` ▸ card ▸ `New Space` ▸ `[New Space]`. The heading names what
     /// the cards below it are and this adds one; see `SettingsRow.heading`.
@@ -166,7 +166,7 @@ extension SpacesSection {
     // MARK: Profiles
 
     /// Was dimmed for "BrowserStore has no delete(profileID:)". It is not a
-    /// row about deleting the *row* — every profile has at least one Space
+    /// row about deleting the row — every profile has at least one Space
     /// naming it, so a deletable profile cannot be reached from here. What the
     /// user actually wants from this button is the cookie jar emptied, which
     /// WebKit does directly and which is honest about affecting every Space on
@@ -254,7 +254,7 @@ extension SpacesSection {
 
     /// The three clauses, and which of them is true depends on the fan-out.
     ///
-    /// **`sites` is nil exactly when the profile is shared**, because then the
+    /// `sites` is nil exactly when the profile is shared, because then the
     /// cookie jar is not deleted at all — `deleteSpace` only removes a store no
     /// surviving Space names. §6.4's example sentence ("permanently deletes
     /// cookies … Spaces Research and Side Project also use this profile and
@@ -307,7 +307,7 @@ extension SpacesSection {
     /// emoji-first. Luna is symbols-only for now and that is named in the
     /// report rather than pretended away.
     ///
-    /// **The first entry is the one a Space is born with.** It was missing, and
+    /// The first entry is the one a Space is born with. It was missing, and
     /// it made the picker lie: `firstIndex(of:) ?? 0` showed "Grid" selected on
     /// every Space that had never been re-iconed, which was all of them.
     /// `SpaceAppearanceView` marks the icon a Space actually wears, so the same

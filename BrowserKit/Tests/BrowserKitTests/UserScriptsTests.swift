@@ -4,7 +4,7 @@ import Testing
 import WebKit
 @testable import BrowserKit
 
-/// What Luna injects into **every frame** of every page, and what it costs to.
+/// What Luna injects into every frame of every page, and what it costs to.
 ///
 /// `mediaScript`, `ContentBlocker.blockedCountScript` and §14's form detection
 /// are all `forMainFrameOnly: false`, because the things they watch live in
@@ -37,7 +37,7 @@ struct UserScriptsTests {
         #expect(source.contains(PasswordForms.script))
     }
 
-    /// §14 off still means *not injected*, not injected-and-ignored — a user who
+    /// §14 off still means not injected, not injected-and-ignored — a user who
     /// declines autofill does not pay a MutationObserver on every frame for it.
     @Test func formDetectionStaysOutWhenItIsTurnedOff() {
         PasswordSettings.isEnabled = false

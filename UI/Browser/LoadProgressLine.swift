@@ -4,37 +4,37 @@
 //
 //  §3.2c: how far the page has loaded, drawn as a line under the address.
 //
-//  **On the bottom of the search bar, wherever the search bar is.** Luna has
+//  On the bottom of the search bar, wherever the search bar is. Luna has
 //  three of them — §3.2's in the column, §3.2b's on the page, §4's in the top
 //  bar — and the line is the same line on all three: `loadLineHeight` thick,
 //  lying on the inside of the pill's bottom edge, running the pill's whole
-//  width from the leading end, and **cut at both ends by the capsule itself**.
+//  width from the leading end, and cut at both ends by the capsule itself.
 //  The host owns the frame; this owns what is in it, so there is one set of
 //  rules about when a progress bar is allowed to be on screen rather than one
 //  per surface.
 //
-//  It is the *pill* filling up, not a rule drawn inside one. A line held clear
+//  It is the pill filling up, not a rule drawn inside one. A line held clear
 //  of the bottom edge, with its own rounded ends, is a second object floating
 //  in the capsule; a line lying on the edge and ending where the corner takes
 //  it away is the bottom of the capsule turning blue. The reference measures
 //  the second: the blue run ends exactly where the capsule's bottom stroke
 //  begins, and its leading end is the corner's curve rather than a cap.
 //
-//  **When no pill is on screen the window's top edge wears it** — see
+//  When no pill is on screen the window's top edge wears it — see
 //  `LoadProgressHost`. That is the sidebar layout with the sidebar hidden and
 //  the search bar still in the column: the address bar is parked off screen,
 //  and a load with nothing to show for it is the one case worth a fallback.
 //
-//  Three rules keep it honest, and all three are about *not* drawing:
+//  Three rules keep it honest, and all three are about not drawing:
 //
-//  1. **A load under `reloadSkipThreshold` plays nothing.** §7 wrote that rule
+//  1. A load under `reloadSkipThreshold` plays nothing. §7 wrote that rule
 //     down for the bloom and it is the same rule here: a cached reload is done
 //     before a progress bar could say anything true about it, and a 2 pt line
 //     flashing on every back-navigation is worse than no line at all.
-//  2. **It never goes backwards.** `estimatedProgress` can fall when a load
+//  2. It never goes backwards. `estimatedProgress` can fall when a load
 //     commits a new document, and a bar that retreats reads as a fault in the
 //     page rather than a fact about it.
-//  3. **It finishes before it leaves.** The fill runs to full and *then* fades,
+//  3. It finishes before it leaves. The fill runs to full and then fades,
 //     so the last thing seen is a full line, not a bar that vanished at four
 //     fifths.
 //
@@ -83,7 +83,7 @@ extension ChromeState {
 @MainActor
 final class LoadProgressLine: NSView {
 
-    /// The fill, as a fraction. This is the **target**: it is assigned before
+    /// The fill, as a fraction. This is the target: it is assigned before
     /// the animator starts interpolating, so a layout pass that lands mid
     /// animation snaps to where the line was already going rather than to
     /// where it had got to.
@@ -134,7 +134,7 @@ final class LoadProgressLine: NSView {
         }
         guard state.isLoading else { return finish() }
         if !isRunning { begin() }
-        // Rule 2: forward only. WebKit reports a *new* document's progress from
+        // Rule 2: forward only. WebKit reports a new document's progress from
         // the bottom, and a redirect two thirds of the way through a page is
         // not the page getting further away.
         advance(to: max(state.progress, fraction))
@@ -206,7 +206,7 @@ final class LoadProgressLine: NSView {
     }
 
     /// The second half of `finish()`, and the reason it is its own method: each
-    /// step has to re-ask whether a *new* load started while it was running.
+    /// step has to re-ask whether a new load started while it was running.
     /// A reload pressed during the fade owns the line from that moment, and an
     /// out-animation that keeps going is a bar that empties while the page it
     /// belongs to is filling.
@@ -234,7 +234,7 @@ final class LoadProgressLine: NSView {
     /// all three address bars use it and a line that lies on the edge of one
     /// surface and floats inside another is two lines.
     ///
-    /// **Two halves, and the second is what makes it the pill's own bottom.**
+    /// Two halves, and the second is what makes it the pill's own bottom.
     /// The strip spans the whole capsule, so the fill reaches the far end at
     /// full; the mask is the capsule, so both ends are taken by the corner
     /// instead of being held clear of it. Without the mask a full-width strip
@@ -249,7 +249,7 @@ final class LoadProgressLine: NSView {
     /// bottom edge.
     ///
     /// The pill's bottom edge, not its baseline and not below the capsule: the
-    /// line belongs *to* the address bar, and a rule drawn underneath one is a
+    /// line belongs to the address bar, and a rule drawn underneath one is a
     /// divider between it and whatever is next.
     static func frame(inPill bounds: NSRect) -> NSRect {
         NSRect(
@@ -303,7 +303,7 @@ final class LoadProgressLine: NSView {
     // MARK: - Ink
 
     private func refreshInk() {
-        // §1's colour rule allows the accent as **fill** — which is all this
+        // §1's colour rule allows the accent as fill — which is all this
         // is. It is never text and never a border.
         fill.layer?.backgroundColor = Tokens.Accent.tint.cgColor
     }

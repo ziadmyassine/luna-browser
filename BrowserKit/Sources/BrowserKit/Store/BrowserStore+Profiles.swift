@@ -7,14 +7,14 @@ import os
 // Two jobs live here, and they are the same job seen from either end of the
 // `profiles.dataStoreIdentifier` column:
 //
-//   · **Read.** The column is `NOT NULL UNIQUE` with no value check. The one value it must
+//   · Read. The column is `NOT NULL UNIQUE` with no value check. The one value it must
 //     never hold is the all-zero UUID, because `WKWebsiteDataStore(forIdentifier:)` answers
 //     that with an Objective-C exception Swift cannot catch — an uncatchable crash, not an
 //     error any call site can handle. None of the five codebases researched for the spec
 //     guards this. Luna guards it here, at the GRDB boundary, because this is the last place
 //     a bad value is still data.
 //
-//   · **Delete.** `BrowserStore` had no `delete(profileID:)` at all, so a Space delete that
+//   · Delete. `BrowserStore` had no `delete(profileID:)` at all, so a Space delete that
 //     removed the cookie jar still left the profile row behind — an orphan naming a store
 //     that no longer exists, for as long as the database does.
 
@@ -50,7 +50,7 @@ public extension BrowserStore {
     ///   it is gone" is not the same question as "anything still needs it", and only the
     ///   database can answer the second one.
     ///
-    /// This deletes the **row**, not the cookie jar. The store on disk is
+    /// This deletes the row, not the cookie jar. The store on disk is
     /// `ProfileStore.remove(_:)`'s job and is deliberately a separate step: WebKit is the
     /// registry for what exists on disk (§3.1), so a row deleted without its store is
     /// recoverable by the next launch's orphan sweep, while a store deleted without its row
@@ -121,7 +121,7 @@ public extension BrowserStore {
 
 extension BrowserStore {
 
-    /// Writes a profile row **without** the all-zero `dataStoreIdentifier` guard, the way a
+    /// Writes a profile row without the all-zero `dataStoreIdentifier` guard, the way a
     /// bad migration or a hand-edited database would.
     func insertUnvalidated(_ profile: Profile) async throws {
         try await pool.write { db in try profile.upsert(db) }

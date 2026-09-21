@@ -1,7 +1,7 @@
 import Foundation
 import WebKit
 
-/// `WKUserContentController` retains its message handlers **strongly**. Registering the
+/// `WKUserContentController` retains its message handlers strongly. Registering the
 /// controller itself would close a cycle — controller → web view → configuration →
 /// content controller → controller — that never releases, so a tab dropped without
 /// `hibernate()` would keep its whole WebContent process alive and its `deinit` would

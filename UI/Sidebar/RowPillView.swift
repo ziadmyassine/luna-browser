@@ -10,7 +10,7 @@ import AppKit
 
 /// §3.4's two row fills: the selected pill and the hover lift.
 ///
-/// **Clear glass alone was not visible.** The pill was `Glass.control` plus a
+/// Clear glass alone was not visible. The pill was `Glass.control` plus a
 /// hairline and nothing else, and `.clear` glass over the sidebar's own glass
 /// is very nearly the sidebar — a selected row read as unselected. `Tokens`
 /// has carried `Surface.selected` and `Surface.hover` for exactly this since
@@ -52,7 +52,7 @@ final class RowPillView: NSView {
         // §3.4 gives the selected row a visible border and the hover lift none:
         // a border that appeared under the pointer would read as a second
         // selection. The border is the glass's own edge — `Line.border`, never
-        // the accent: **no blue anywhere on a selected tab.**
+        // the accent: no blue anywhere on a selected tab.
         let bordered = role == .selected
         layer.borderWidth = bordered ? Tokens.Metric.hairline : 0
         layer.borderColor = bordered ? Tokens.Line.border.cgColor : nil
@@ -68,9 +68,9 @@ final class RowPillView: NSView {
 
 // MARK: - Moving one pill between rows
 
-/// **One pill travels; it is never re-created per row.** Both lists that wear
+/// One pill travels; it is never re-created per row. Both lists that wear
 /// §3.4's fills — the sidebar's tabs and §2's section list — keep exactly two
-/// of these and move them, which is what makes the selection *slide* from one
+/// of these and move them, which is what makes the selection slide from one
 /// row to the next instead of blinking out of one and into another. It lives
 /// here rather than in either list so the two cannot drift apart: a settings
 /// row and a tab row answer the pointer on the same spring.
@@ -94,7 +94,7 @@ extension RowPillView {
                 frame = target
             }
         }
-        // **No spec means no transition at all, alpha included.** A move the
+        // No spec means no transition at all, alpha included. A move the
         // pill did not make — a live resize, a list that has been replaced
         // under it — lands; it does not arrive.
         fade(to: 1, animated: spec != nil)
@@ -103,11 +103,11 @@ extension RowPillView {
     /// Park the pill, or bring it back. A row with nothing selected and nothing
     /// hovered has no fill at all (§30.7).
     ///
-    /// **`animated: false` is a cancel, not a shorter fade**, which is why it
+    /// `animated: false` is a cancel, not a shorter fade, which is why it
     /// does not take the `alphaValue` short-cut the animated path does: the
     /// value being asked for may be the one an animation that is still running
     /// is already heading to, and the whole point of the call is that the pill
-    /// has to be there *now*. §6's Space switch is the case that needs it —
+    /// has to be there now. §6's Space switch is the case that needs it —
     /// the list under this pill is a different Space's list by then, and a fill
     /// still fading out of the Space you left is a glass pill lying in the
     /// Space you arrived in with no row inside it.

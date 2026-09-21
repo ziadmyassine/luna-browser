@@ -4,7 +4,7 @@
 //
 //  The two corners `SpaceWashView` cannot reach.
 //
-//  **Why this is a second view and not a wider first one.** `ContentCardView`
+//  Why this is a second view and not a wider first one. `ContentCardView`
 //  rounds only its leading corners (§3.6 — the trailing pair is the window's
 //  own), so in `.sidebar` the card leaves a `contentCardRadius` quarter-disc
 //  notch at its top-leading and bottom-leading corners. What shows through the
@@ -17,7 +17,7 @@
 //  looked like.
 //
 //  This view is that patch and nothing else: it sits on the root plane
-//  **below** the card, and its mask is the two notches. Everything else it
+//  below the card, and its mask is the two notches. Everything else it
 //  could paint is either covered by the opaque card or already painted by the
 //  sidebar's own wash, and painting there as well would lay 16 % over 16 %.
 //

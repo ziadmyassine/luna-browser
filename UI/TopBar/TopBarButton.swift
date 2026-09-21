@@ -11,20 +11,20 @@
 //  wants an `AXButton` with a label — `NSButton` ships all four, and a bare
 //  `NSView` would mean re-implementing them badly.
 //
-//  The one structural consequence: `Glass` hands back a *subview*, and a
+//  The one structural consequence: `Glass` hands back a subview, and a
 //  subview draws over the cell, so the cell is left drawing nothing at all.
 //  The stack is glass → hover fill → glyph, bottom to top, and `hitTest`
 //  collapses it back onto the button so the decoration never eats a click.
 //
-//  **It answers a press as well as a hover**, on §3.4's two washes and §6's
+//  It answers a press as well as a hover, on §3.4's two washes and §6's
 //  `controlPress` — the same answer `GlassButton` gives in the sidebar, which
 //  is the point: the toggle in one bar and the toggle in the other are the
 //  same control in the user's hand. The bar had only the hover half of it for
-//  several builds, which is the one state a button can be in that the *pointer*
+//  several builds, which is the one state a button can be in that the pointer
 //  reports rather than the finger, so a click read as nothing happening until
 //  the page moved.
 //
-//  **A button inside a capsule hands its press up** (`ownsItsMaterial`):
+//  A button inside a capsule hands its press up (`ownsItsMaterial`):
 //  §4's action capsule applies one material for all of its items, and half of
 //  a capsule swelling inside the other half is not a press. `TopBarActionCapsule`
 //  takes the gesture over; a tab tile, which is a control on the bare bar, keeps
@@ -140,7 +140,7 @@ final class TopBarButton: NSButton {
     /// §3.4a's right-click, built when it is asked for.
     ///
     /// Not `NSView.menu`, which is one menu assigned once: every item in a tab's menu
-    /// states that tab's *current* answer — whether it is pinned, whether it is muted — and
+    /// states that tab's current answer — whether it is pinned, whether it is muted — and
     /// a menu held over from the last press would be checkmarks for another moment.
     var menuBuilder: (() -> NSMenu?)?
 
@@ -171,7 +171,7 @@ final class TopBarButton: NSButton {
 
     // MARK: - Press (§3.4's second wash, §6's `controlPress`)
 
-    /// **The press is taken around `NSControl`'s tracking, not instead of it.**
+    /// The press is taken around `NSControl`'s tracking, not instead of it.
     /// `super.mouseDown` does not return until the mouse comes back up — it
     /// runs the cell's own tracking loop, which is where `sendAction` happens —
     /// so the state is set on either side of that call. Re-implementing the
@@ -248,7 +248,7 @@ final class TopBarButton: NSButton {
         // §3.1 dims a disabled control. There is no `disabledAlpha` token, and
         // the cell's own dimming is unavailable here (the glyph is a subview),
         // so the dimmest ink tier stands in — it is a real token and it is the
-        // right *direction*. See the report: `Tokens.Text.disabled` is missing.
+        // right direction. See the report: `Tokens.Text.disabled` is missing.
         glyph.contentTintColor = isEnabled ? Tokens.Text.primary : Tokens.Text.tertiary
         // §3.4's 6 % lift, and 12 % under a press. This used to borrow
         // `Line.border` because the note said no hover token existed;

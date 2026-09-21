@@ -6,20 +6,20 @@
 //  `MainMenu`.
 //
 //  It moved because the map became editable (§3.6). A shortcut the user can
-//  change needs three things a literal cannot give it: a **stable identity** to
+//  change needs three things a literal cannot give it: a stable identity to
 //  store an override against — one that survives the item being retitled or
-//  moved to another menu — a **default** to reset back to, and a list every
+//  moved to another menu — a default to reset back to, and a list every
 //  other command can be checked against for conflicts. `MainMenu` still owns the
 //  structure: which menu a command sits in, and what it sits next to.
 //
-//  **`defaults` is a list, and only the first is printed.** Several commands are
+//  `defaults` is a list, and only the first is printed. Several commands are
 //  reachable two ways on purpose: Zoom In answers to ⌘+ and to the ⌘= the user
 //  actually presses, and Show Next Tab answers both to Arc's ⌘⌥→ and to the
 //  ⇧⌘] every other browser uses. The extras are hidden menu items — a hidden
 //  item still fires its key equivalent, which `MainMenu` measured for §13.2's
 //  sidebar rows and which this leans on.
 //
-//  A **user override replaces the whole list**, alternates included. The
+//  A user override replaces the whole list, alternates included. The
 //  alternative — keeping ours alive underneath theirs — means a user who moved
 //  Show Next Tab to ⌃⇥ finds ⇧⌘] still doing it, with nothing in the UI saying
 //  so.

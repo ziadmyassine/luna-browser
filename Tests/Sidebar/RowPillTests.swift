@@ -23,14 +23,14 @@ final class RowPillTests: XCTestCase {
 
     /// **A §6 Space switch used to leave the old Space's selection burning over
     /// the new one.** The rows and the tiles both leave in the frame the switch
-    /// lands in, but the fill *under* them faded out over `rowHover` while the
+    /// lands in, but the fill under them faded out over `rowHover` while the
     /// column faded in over `spaceSwitchCrossfade` — so for about a tenth of a
     /// second the Space you had just arrived in had an empty glass pill lying
     /// in it, on a row that was not there any more. Caught on video; this is
     /// the assertion that keeps it caught.
     ///
     /// The fade already running is the part that matters: parking asks for the
-    /// value the in-flight animation is *already heading to*, so an
+    /// value the in-flight animation is already heading to, so an
     /// `alphaValue` short-cut would return without cancelling anything and the
     /// pill would go on fading.
     func testParkingThePillCancelsAFadeThatIsAlreadyRunning() {
@@ -41,7 +41,7 @@ final class RowPillTests: XCTestCase {
         XCTAssertEqual(pill.layer?.animationKeys() ?? [], [], "the fade is still running")
     }
 
-    /// The other half: a pill *moved* without a spec lands at full strength
+    /// The other half: a pill moved without a spec lands at full strength
     /// rather than fading up into the Space it arrived in. Same frame, both
     /// ends — one transition per switch, and it is the column's.
     func testAPillMovedWithoutASpecArrivesRatherThanFadingIn() {

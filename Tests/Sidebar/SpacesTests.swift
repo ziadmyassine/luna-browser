@@ -12,11 +12,11 @@
 //  which rounds a slot's leading edge down and its trailing edge up,
 //  independently of its neighbours — so three dots in a 56 pt pill drew with
 //  gaps of 18 and 19 pt and the run sat off centre. The slot was also the
-//  pill's width divided by the count, so the *spacing* was a consequence of how
+//  pill's width divided by the count, so the spacing was a consequence of how
 //  wide the pill happened to be: two Spaces stood 28 pt apart and eight stood
 //  12 pt apart, in the same strip. Neither is a bug a test can catch by
 //  asserting a number someone typed; both are caught by asserting the
-//  *properties* the layout is supposed to have, at every count.
+//  properties the layout is supposed to have, at every count.
 //
 
 import AppKit
@@ -27,7 +27,7 @@ import XCTest
 @MainActor
 final class SpaceDotsLayoutTests: XCTestCase {
 
-    /// **The reported defect, at the count it was reported at.** Three Spaces
+    /// The reported defect, at the count it was reported at. Three Spaces
     /// is the most common window there is.
     func testThreeDotsAreEvenlySpaced() {
         let centres = SpaceDotsView.centres(count: 3, in: Self.pillWidth(for: 3))
@@ -35,10 +35,10 @@ final class SpaceDotsLayoutTests: XCTestCase {
         XCTAssertEqual(centres[1] - centres[0], centres[2] - centres[1], "the two gaps differ")
     }
 
-    /// **The second reported defect: the dots stood much too far apart** — and
+    /// The second reported defect: the dots stood much too far apart — and
     /// then, for one build, much too close.
     ///
-    /// The gap is asserted as a *band* rather than as `spaceDotPitch` written
+    /// The gap is asserted as a band rather than as `spaceDotPitch` written
     /// out a second time, because a test that restates the token it is checking
     /// passes whatever the token becomes. What matters is the range in which a
     /// row of dots reads as one group of separate marks: under a dot's width
@@ -61,7 +61,7 @@ final class SpaceDotsLayoutTests: XCTestCase {
 
     /// The pill is sized to its dots rather than the dots divided into the
     /// pill, so two Spaces do not sit in the middle of a pill built for three
-    /// — **and it stops growing at the window**, which is the other half of the
+    /// — and it stops growing at the window, which is the other half of the
     /// same rule: a strip whose width tracked the Space count had no ceiling,
     /// and twelve Spaces filled a footer that also holds two other clusters.
     func testThePillGrowsByAPitchUntilTheWindowIsFullAndThenStops() {
@@ -92,7 +92,7 @@ final class SpaceDotsLayoutTests: XCTestCase {
         }
     }
 
-    /// The window moves **with** the finger, not in steps: half a Space of
+    /// The window moves with the finger, not in steps: half a Space of
     /// swipe moves the run half a slot, so the strip scrolls at exactly the
     /// rate the column does.
     func testTheWindowSlidesContinuouslyRatherThanPaging() {
@@ -165,7 +165,7 @@ final class SpaceDotsLayoutTests: XCTestCase {
 
     // MARK: - The laid-out strip
 
-    /// **§6.6's drop targets abut; they do not overlap.** Each dot owns the
+    /// §6.6's drop targets abut; they do not overlap. Each dot owns the
     /// slot from half way to its neighbour, so "which Space does this tab land
     /// in" is never decided by which of two frames `first(where:)` reached
     /// first — which is what the old, independently rounded slots left to
@@ -194,7 +194,7 @@ final class SpaceDotsLayoutTests: XCTestCase {
         }
     }
 
-    /// **The strip is dots and only dots.** §30.9's `+` stood at the end of
+    /// The strip is dots and only dots. §30.9's `+` stood at the end of
     /// it for one build and grew the pill as the swipe ran past the last
     /// Space — an answer to "make a new one" sitting in the middle of the
     /// answer to "which one am I in". The pill is one shape whatever the

@@ -9,7 +9,7 @@
 //  is pure logic over two inputs. Separated, it can be asserted in three lines
 //  instead of being reasoned about inside a view that owns four CALayers.
 //
-//  Why a threshold *delay* rather than a look-back: nothing can know at commit
+//  Why a threshold delay rather than a look-back: nothing can know at commit
 //  time whether a load will be fast. So the bloom arms on commit, draws
 //  nothing, and only becomes visible once the threshold elapses — the same
 //  shape as "don't show a spinner for the first 150 ms". A cached reload
@@ -22,7 +22,7 @@ struct ReloadBloomTimeline: Equatable {
         /// Nothing drawn, nothing scheduled.
         case idle
         /// A load is running but `Tokens.Motion.reloadSkipThreshold` has not
-        /// elapsed. **Still nothing drawn** — this is the phase that makes a
+        /// elapsed. Still nothing drawn — this is the phase that makes a
         /// cached reload silent.
         case armed
         /// Snapshot, blur and arc are on screen.
@@ -44,7 +44,7 @@ struct ReloadBloomTimeline: Equatable {
 
     private(set) var phase: Phase = .idle
 
-    /// A `TabState.isLoading` value. Only the *edges* matter: the progress
+    /// A `TabState.isLoading` value. Only the edges matter: the progress
     /// ticks that arrive with the same `isLoading` are not transitions, which
     /// is why a second reload mid-load does not restart the bloom.
     mutating func loading(_ isLoading: Bool) -> Action {

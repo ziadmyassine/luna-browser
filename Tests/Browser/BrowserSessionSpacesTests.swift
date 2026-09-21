@@ -7,7 +7,7 @@
 //  These cover behaviour that is invisible when it breaks and expensive
 //  when it does:
 //
-//  · Two Spaces on one Profile must resolve to the **same** `WKWebsiteDataStore`
+//  · Two Spaces on one Profile must resolve to the same `WKWebsiteDataStore`
 //    — the whole point of many-Spaces-to-one-Profile, and unreachable from the
 //    app until `createSpace(name:profileID:)` existed.
 //  · `setProfile` must rebuild every web view. A `WKWebView`'s data store is
@@ -18,7 +18,7 @@
 //
 //  The per-Profile Favorites tier has its own file next door.
 //
-//  Two of them build real `WKWebsiteDataStore`s, because store *identity* is
+//  Two of them build real `WKWebsiteDataStore`s, because store identity is
 //  the assertion. They are the only slow tests in the file.
 //
 
@@ -94,7 +94,7 @@ final class BrowserSessionSpacesTests: XCTestCase {
         XCTAssertEqual(persisted.map(\.order), [0, 1, 2])
     }
 
-    /// §8.2, **as the owner settled it**: a new Space is neutral, and colour is
+    /// §8.2, as the owner settled it: a new Space is neutral, and colour is
     /// something the user asks for.
     ///
     /// This test used to assert the opposite — three Spaces, three pairs off
@@ -139,7 +139,7 @@ final class BrowserSessionSpacesTests: XCTestCase {
     // MARK: - Goal 7 · many Spaces, one Profile
 
     /// The proof that many-to-one is real: not that the field matches, but that
-    /// WebKit hands back the *same object*, so the two Spaces genuinely share a
+    /// WebKit hands back the same object, so the two Spaces genuinely share a
     /// cookie jar.
     func testTwoSpacesOnOneProfileShareOneDataStore() async throws {
         let session = try await makeSession(try makeStore())

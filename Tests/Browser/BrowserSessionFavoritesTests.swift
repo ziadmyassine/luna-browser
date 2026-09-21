@@ -2,7 +2,7 @@
 //  BrowserSessionFavoritesTests.swift
 //  LunaTests
 //
-//  Favorites are per **Profile**, not per Space (spec §2, decision D-S2, and
+//  Favorites are per Profile, not per Space (spec §2, decision D-S2, and
 //  the owner's locked wording: "per-profile favourites, but per-space pinned").
 //
 //  This is the biggest model change in the Spaces wave and the one with the
@@ -150,7 +150,7 @@ final class BrowserSessionFavoritesTests: XCTestCase {
     // MARK: - §6.6 · the drag across the grid's edge
 
     /// Carrying a tab up into §3.3 selects it, and selecting it is what keeps
-    /// its page: `pinTab` puts a *cold* tile's web view away, and the branch
+    /// its page: `pinTab` puts a cold tile's web view away, and the branch
     /// that spares the active tab only fires if the selection has already
     /// moved. Order is the whole test — pin first and the page is torn down
     /// and rebuilt under the pointer.

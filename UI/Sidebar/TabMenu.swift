@@ -5,7 +5,7 @@
 //  §3.4a's tab menu: right-click a row in §3.4's list.
 //
 //  Seven items, in the reference's own order and its own five groups — pin, then duplicate,
-//  then copy link, then the three that change what the row *is*, then close. The reference
+//  then copy link, then the three that change what the row is, then close. The reference
 //  (`inspiration/tab-context-menu.png`) has seventeen; the fourteen that are not here are
 //  not deferred, they are declined: half of them are features Luna does not have yet
 //  (Split, Chat, Bookmarks, Groups), and a menu that lists what an app cannot do is a menu
@@ -15,11 +15,11 @@
 //  ends it.
 //
 //  A plain `NSMenu`, for the reason `SiteMenu.swift` sets out at length: on macOS 26 that
-//  *is* the liquid-glass menu, drawn by AppKit with its own material, its own blur and its
+//  is the liquid-glass menu, drawn by AppKit with its own material, its own blur and its
 //  own keyboard and VoiceOver handling, and a hand-rolled panel would be a worse copy that
 //  also had to reimplement all three.
 //
-//  **The glyphs are in the titles, because `NSMenuItem.image` draws nothing here.** That
+//  The glyphs are in the titles, because `NSMenuItem.image` draws nothing here. That
 //  was measured with a five-way probe in a bare AppKit app — plain symbol, configured
 //  symbol, explicitly sized template, hand-drawn red square, named AppKit template — and
 //  not one of them appeared. An `NSTextAttachment` in `attributedTitle` does, and it keeps
@@ -28,7 +28,7 @@
 //  mechanism; a tab stop is what lines the words up in a column instead of each one
 //  starting after its own glyph.
 //
-//  **The menu is built per press and holds no row index.** `NSTableView` recycles row views
+//  The menu is built per press and holds no row index. `NSTableView` recycles row views
 //  and moves them between rows, so an index captured when the menu was built is stale the
 //  moment a tab is inserted above it — the same bug that once made pressing close on one
 //  tab mute the tab underneath (`TabListController+Table.swift`). Every item below closes
@@ -81,7 +81,7 @@ enum TabMenu {
         menu.addItem(copyLink(tab.url))
         menu.addItem(.separator())
 
-        // **Ellipses, because both of these ask a question first.** macOS reserves the
+        // Ellipses, because both of these ask a question first. macOS reserves the
         // trailing `…` for a command that opens something before it commits, and these two
         // are the only items here that do.
         menu.addItem(item(String(localized: "Rename…"), symbol: "pencil") {
@@ -139,7 +139,7 @@ enum TabMenu {
 
     /// Asks for a name and hands it over — nil for "give it back to the page".
     ///
-    /// **The answer goes to a closure rather than coming back as a return value**, because
+    /// The answer goes to a closure rather than coming back as a return value, because
     /// there are three outcomes and only two of them are a name: a typed name, a cleared
     /// name, and a cancel. Returning `String?` would collapse the last two into each other
     /// and a cancelled dialog would silently rename the tab to nothing.
@@ -188,7 +188,7 @@ enum TabMenu {
         alert.buttons.last?.keyEquivalent = "\u{1b}"
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         // `- 1` for the entry above the list, which is the one that means "no icon of your
-        // own" — so an index that falls outside the curated list *is* that answer.
+        // own" — so an index that falls outside the curated list is that answer.
         let choice = picker.indexOfSelectedItem - 1
         commit(symbols.indices.contains(choice) ? symbols[choice].name : nil)
     }
@@ -197,8 +197,8 @@ enum TabMenu {
     /// a symbol name that does not resolve draws nothing at all, and a text field has no
     /// way to tell the user which of the six thousand names it is.
     ///
-    /// **Its own list, not `SpacesSection.symbols`.** A Space icon names a *mode* — Work,
-    /// Study, Home — and a tab icon names a *page*, so the two vocabularies barely
+    /// Its own list, not `SpacesSection.symbols`. A Space icon names a mode — Work,
+    /// Study, Home — and a tab icon names a page, so the two vocabularies barely
     /// overlap. Sharing one list would mean choosing a Space icon from a set with "Video"
     /// in it and a tab icon from a set without.
     static let symbols: [(label: String, name: String)] = [

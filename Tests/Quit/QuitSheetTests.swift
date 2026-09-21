@@ -59,7 +59,7 @@ final class QuitSheetTests: XCTestCase {
         XCTAssertLessThanOrEqual(widest, panel.frame.width, "an answer hangs off the panel")
     }
 
-    /// **Exactly one recommendation.** Two would be the sheet failing at the
+    /// Exactly one recommendation. Two would be the sheet failing at the
     /// only job it has, which is to make the default answer unmistakable —
     /// and it is the one Return is bound to, so two would also be ambiguous
     /// about what the keyboard does.
@@ -67,9 +67,9 @@ final class QuitSheetTests: XCTestCase {
         XCTAssertEqual(answers(in: laidOutSheet()).filter(\.isKey).count, 1)
     }
 
-    /// **Every accidental gesture means stay.** Escape, and a click that
+    /// Every accidental gesture means stay. Escape, and a click that
     /// missed the panel: the sheet exists because ⌘Q is next to ⌘W, and a
-    /// guard that can be dismissed *into* the thing it guards is not one.
+    /// guard that can be dismissed into the thing it guards is not one.
     func testEscapeAndAMissedClickBothMeanStay() {
         for gesture in ["escape", "click"] {
             let sheet = laidOutSheet()

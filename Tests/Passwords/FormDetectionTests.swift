@@ -2,14 +2,14 @@
 //  FormDetectionTests.swift
 //  LunaTests
 //
-//  §14.3's detection script, run in a **real `WKWebView`** against real form
+//  §14.3's detection script, run in a real `WKWebView` against real form
 //  markup — not asserted against as a string.
 //
 //  The script is the part of §14 with the most heuristics and the least type
 //  checking, and both bugs found during its bring-up were invisible to every
 //  other kind of test:
 //
-//  · a page holding a login form *and* any second password field anywhere
+//  · a page holding a login form and any second password field anywhere
 //    reported the login form as a signup, so Luna offered to generate a new
 //    password instead of filling the saved one;
 //  · a form submitted without having been scanned — the ordinary SPA shape,
@@ -104,7 +104,7 @@ final class FormDetectionTests: XCTestCase {
         XCTAssertEqual(tagged, "username/password")
     }
 
-    /// The username field is found by **position** as well as by keyword: a
+    /// The username field is found by position as well as by keyword: a
     /// great many sites call it something no keyword list would catch.
     func testFindsAnOpaquelyNamedUsernameField() async throws {
         let (webView, sink) = await load("""
@@ -130,8 +130,8 @@ final class FormDetectionTests: XCTestCase {
         withExtendedLifetime(webView) {}
     }
 
-    /// **Regression.** `isSignup` was computed from every password field in the
-    /// *document* rather than in the form, so a page carrying a login form and
+    /// Regression. `isSignup` was computed from every password field in the
+    /// document rather than in the form, so a page carrying a login form and
     /// any second password field — a change-password widget, a hidden modal —
     /// made the login form look like a signup. Luna then offered to generate a
     /// password on a page the user was trying to sign in to.
@@ -194,7 +194,7 @@ final class FormDetectionTests: XCTestCase {
         XCTAssertEqual(password, "hunter2")
     }
 
-    /// **Regression.** Most real logins never fire `submit` — the button is a
+    /// Regression. Most real logins never fire `submit` — the button is a
     /// `<button type="button">` whose handler calls `fetch`. The password had a
     /// fallback lookup for the unscanned case and the username did not, so this
     /// shape reported an empty username and saved an unidentifiable credential.
@@ -264,10 +264,10 @@ final class FormDetectionTests: XCTestCase {
 
     // MARK: - §14.4
 
-    /// One sign-in must report **one** submit.
+    /// One sign-in must report one submit.
     ///
     /// A real `<button type="submit">` inside a `<form>` fires the script's
-    /// click handler *and* the form's own submit event. Both are needed —
+    /// click handler and the form's own submit event. Both are needed —
     /// plenty of forms have only one of them — so the script reports once and
     /// suppresses the identical follow-up. Without this the chip is built
     /// twice over itself and the Keychain is read twice on every sign-in.
@@ -301,13 +301,13 @@ final class FormDetectionTests: XCTestCase {
 
     // MARK: - §14.10
 
-    /// What a *website's* script sees, which is the page world — not the
+    /// What a website's script sees, which is the page world — not the
     /// client world Luna's own `callAsyncJavaScript` runs in.
     ///
     /// The measurement that matters is no longer "is the interface gone" but
     /// "does the interface admit to an authenticator". A page that finds
     /// `PublicKeyCredential` missing hides more than passkeys: GitHub's
-    /// sign-in page loads Google, Apple *and* the passkey button from one
+    /// sign-in page loads Google, Apple and the passkey button from one
     /// fragment it fetches only when that interface exists (§14.10).
     func testThePageSeesWebAuthnWithNoAuthenticatorBehindIt() async throws {
         guard !PasskeySupport.isAvailable else {

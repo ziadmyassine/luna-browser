@@ -29,7 +29,7 @@ public struct GradientPair: Sendable, Hashable, Codable {
         self.end = end
     }
 
-    /// The gradient `seedIfEmpty()` gives the first Space. Seed *data*, not a design token:
+    /// The gradient `seedIfEmpty()` gives the first Space. Seed data, not a design token:
     /// a Space's gradient is the user's from the moment they pick one, and §8.2's curated
     /// palette lives in `Design` where the rest of the colour does.
     public static let defaultSpace = GradientPair(
@@ -63,7 +63,7 @@ public struct Tab: Identifiable, Sendable, Hashable, Codable {
     /// The Profile a Favorite belongs to — set for `.essential` rows, `nil` for every other
     /// kind (§2, schema `v2`).
     ///
-    /// Favorites are scoped **per Profile**, not per Space: a Favorite is a logged-in app
+    /// Favorites are scoped per Profile, not per Space: a Favorite is a logged-in app
     /// tile, and a tile that opens in a Space whose cookie jar never saw that login is a
     /// broken tile. Arc keys its Favorites container the same way — `topAppsContainerIDs` is
     /// a flat profile → container pair, not something a Space owns.
@@ -73,7 +73,7 @@ public struct Tab: Identifiable, Sendable, Hashable, Codable {
     /// deleted, so `tabs.spaceID`'s `ON DELETE CASCADE` never eats one.
     public var profileID: UUID?
 
-    /// Where a pinned tile **goes back to** when it is closed (schema `v3`).
+    /// Where a pinned tile goes back to when it is closed (schema `v3`).
     ///
     /// A tile is a place you keep, not a page you happened to leave open. Set at
     /// the moment the tab is pinned and cleared when it is unpinned, so it is
@@ -143,7 +143,7 @@ public extension Tab {
     /// What a list should call this tab: the name the user gave it, else the page's own (§3.4a).
     ///
     /// Still possibly empty — a page that has not reported a title yet has none to give — so the
-    /// surfaces that draw it keep their own fallback to the domain. This decides *which* title,
+    /// surfaces that draw it keep their own fallback to the domain. This decides which title,
     /// not whether there is one.
     var listTitle: String {
         guard let customTitle, !customTitle.isEmpty else { return title }
@@ -201,7 +201,7 @@ public extension UUID {
     /// `00000000-0000-0000-0000-000000000000`.
     ///
     /// `WKWebsiteDataStore.dataStoreForIdentifier:` documents *"Throws exception if
-    /// identifier is 0"*. That is an **Objective-C exception, which Swift cannot catch**,
+    /// identifier is 0"*. That is an Objective-C exception, which Swift cannot catch,
     /// so a zero identifier is an uncatchable crash rather than an error a call site can
     /// handle. It is therefore checked at the persistence boundary, where it can still be
     /// turned into data, not at the WebKit boundary, where it can only be turned into a
@@ -227,7 +227,7 @@ public extension Profile {
     /// unusable, and unchanged otherwise.
     ///
     /// Minting a new one loses nothing recoverable: a zero identifier addresses no store
-    /// on disk, because nothing could ever have created one under it. The profile's *name*
+    /// on disk, because nothing could ever have created one under it. The profile's name
     /// and its `id` — the identity every `Space` references, and the only one §10 allows to
     /// sync — survive. The user gets an empty cookie jar for that profile instead of a crash.
     func repairingDataStoreIdentifier() -> Profile {

@@ -9,7 +9,7 @@
 //  limit otherwise. Nothing changed on the way across.
 //
 //  The bar has two placements and one of each here. Floating (`⌘T`), it is
-//  `CommandBarMetrics.width` wide and 20 % down the **page**. Anchored, it has
+//  `CommandBarMetrics.width` wide and 20 % down the page. Anchored, it has
 //  grown out of an address pill and takes that pill's line, a little more than
 //  its width, and the room under it — see `CommandBarAnchor`.
 //
@@ -30,7 +30,7 @@ extension CommandBarPanel {
         anchor == nil ? CommandBarMetrics.cornerRadius : Tokens.Metric.urlPill.cornerRadius
     }
 
-    /// **Wider than the pill, on purpose.** A bar exactly as wide as the thing
+    /// Wider than the pill, on purpose. A bar exactly as wide as the thing
     /// it grew from is the most literal morph and the least useful list: a
     /// sidebar's pill is 234–264 pt and a result row spends about 140 of that
     /// on its icon, its insets and §21.2's Profile badge, so every title read
@@ -41,7 +41,7 @@ extension CommandBarPanel {
         max(rect.width + 2 * Tokens.Metric.chromeGapWide, Tokens.Metric.commandBarMinWidth)
     }
 
-    /// **The pill's centre line, kept unless the window's edge is closer.** The
+    /// The pill's centre line, kept unless the window's edge is closer. The
     /// page bar's capsule is centred over the page and its bar should be too;
     /// the sidebar's is 140 pt from the window's leading edge, where a 360 pt
     /// bar centred on it would hang 40 pt off the screen. Clamped, that column
@@ -56,7 +56,7 @@ extension CommandBarPanel {
 
     /// A constant, written only when it is actually different.
     ///
-    /// This runs on **every** layout pass, and while the bar is opening there
+    /// This runs on every layout pass, and while the bar is opening there
     /// is one of those per frame — so five unconditional writes to five
     /// constraints is five invalidations of a layout that was about to be
     /// correct anyway, per frame, for numbers that have not moved.
@@ -72,18 +72,18 @@ extension CommandBarPanel {
         return convert(view.bounds, from: view)
     }
 
-    /// UI-SPEC §6 anchors the panel to a *fraction* of the surface it is over,
+    /// UI-SPEC §6 anchors the panel to a fraction of the surface it is over,
     /// so a constant set once is wrong the moment the window is resized — or
     /// the sidebar dragged — under an open bar. Both constants are re-derived
     /// here, against the page rather than the window.
     ///
-    /// **Derived before `super.layout()`, never after.** The constraint pass
-    /// that actually places `body` runs *inside* `super.layout()`, and AppKit
+    /// Derived before `super.layout()`, never after. The constraint pass
+    /// that actually places `body` runs inside `super.layout()`, and AppKit
     /// marks this view clean the moment `layout()` returns — so a constant set
     /// on the way out is handed to a view the framework has just stopped
     /// asking about. It does not reach the screen on this pass and it does not
     /// schedule another one; the bar stays where the stale constants put it
-    /// until something *else* dirties the panel, which on `⌘T` is whenever the
+    /// until something else dirties the panel, which on `⌘T` is whenever the
     /// history query lands or the first key is pressed.
     ///
     /// Both constants start at zero, and zero is not a harmless place: it is
@@ -93,7 +93,7 @@ extension CommandBarPanel {
     /// to the left and 189 pt too high**, held for as long as nothing asked for
     /// another pass. That is the bar Martin saw flash up and to the left.
     override func layout() {
-        // **Anchored, there is no fraction to derive: the pill says where.**
+        // Anchored, there is no fraction to derive: the pill says where.
         // Its rect is re-read on every pass for the same reason the floating
         // bar re-derives its two constants — the window resizes and the sidebar
         // is dragged while the bar is open, and the pill moves with both.
@@ -120,7 +120,7 @@ extension CommandBarPanel {
     }
 
     /// Everything the bar needs in place before it opens: added, laid out,
-    /// and **drawn at the pill's own size**, so that what the first composite
+    /// and drawn at the pill's own size, so that what the first composite
     /// puts on screen is the capsule the user just clicked, in its place, with
     /// their caret in it.
     ///
@@ -131,7 +131,7 @@ extension CommandBarPanel {
     /// 65 ms, of which 20 is the commit and 15 is `makeFirstResponder`. That is
     /// four dropped frames, and they land wherever this is called.
     ///
-    /// So they land *before* the animation rather than inside it, and they land
+    /// So they land before the animation rather than inside it, and they land
     /// on a bar the size of a pill rather than on one the size of the list:
     /// the glass the window server sets up here is the glass the reveal then
     /// grows, so the reveal's own first frame has nothing left to build. The
@@ -179,7 +179,7 @@ extension CommandBarPanel {
         }
     }
 
-    /// The same 0.18 s, spent on **more glass rather than a new pane**.
+    /// The same 0.18 s, spent on more glass rather than a new pane.
     ///
     /// The floating bar scales up from 0.96 because it is arriving: there was
     /// nothing there a moment ago. This one is not arriving — the pill it is
@@ -188,14 +188,14 @@ extension CommandBarPanel {
     /// opens instead is the glass itself, from the pill's height down to the
     /// bar's, with the rows already in place behind it.
     ///
-    /// **Height only, and nothing else at all.** Not the width: the room the
+    /// Height only, and nothing else at all. Not the width: the room the
     /// list needs is there on the first frame, and animating it too meant a
     /// second property re-laying the panel out every frame for a change nobody
     /// can see. And no longer the alpha either — the bar is already on screen
     /// at the pill's size when this runs (`prepareToOpen`), so a fade would be
     /// the capsule the user is looking at dimming itself and coming back.
     ///
-    /// **And the glass is what has to grow, not a clip over it.** Cutting the
+    /// And the glass is what has to grow, not a clip over it. Cutting the
     /// body's layer down and animating the cut instead — a rounded
     /// `masksToBounds` on the presentation layer, which would have cost no
     /// layout at all — does not work over `NSGlassEffectView`: the material is
@@ -205,14 +205,14 @@ extension CommandBarPanel {
     ///
     /// - Parameter height: the constraint holding the bar at the pill's height,
     ///   installed by `prepareToOpen`. It is let go of at the end, because
-    ///   **the list goes on changing size after the bar has opened** — the
+    ///   the list goes on changing size after the bar has opened — the
     ///   engine's suggestions land, and every keystroke re-ranks the rows — and
     ///   a required height frozen at what the opening pass asked for would clip
     ///   everything that arrived after it. That is what a fullscreen page bar
     ///   showed: an input row with an empty band under it, and the rows cut off
     ///   below the glass.
     private func revealFromPill(_ height: NSLayoutConstraint) {
-        // **Asked of the list, not of the body.** The target has to be read
+        // Asked of the list, not of the body. The target has to be read
         // now rather than when the bar was prepared — the store's answer has
         // landed since, and that is what the bar was waiting for — but taking
         // it off `body.frame` means letting the height constraint go, laying

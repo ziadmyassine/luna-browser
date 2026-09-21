@@ -20,7 +20,7 @@ extension SidebarViewController {
     /// exactly one of these three fires on release.
     func wireDrag() {
         let controller = SidebarTabDragController(host: view, grid: essentials, list: list, utility: utility)
-        // **Picking a tab up is choosing it**, wherever it is put down: a drop
+        // Picking a tab up is choosing it, wherever it is put down: a drop
         // that left the previous page on screen made the thing under the hand
         // look like it belonged to something else. A row does this without
         // being asked — the press selects before the lift is off the ground
@@ -36,9 +36,9 @@ extension SidebarViewController {
         }
         controller.onDropInEssentials = { [weak self] id, index, wasPinned in
             guard let self else { return }
-            // **Two different verbs for one landing place.** A tile moving
+            // Two different verbs for one landing place. A tile moving
             // between slots is a reorder inside the Essentials section; a row
-            // arriving is a *pin*, which also puts its page away (§19.2), and
+            // arriving is a pin, which also puts its page away (§19.2), and
             // `pinTab` refuses a tab that is already pinned.
             if wasPinned {
                 // Selected first, for `pinTab(selecting:)`'s reason: §19.2

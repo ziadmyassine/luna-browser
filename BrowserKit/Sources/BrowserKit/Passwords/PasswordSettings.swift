@@ -38,7 +38,7 @@ public enum PasswordSettings {
 
     /// Touch ID, or the login password, in front of every fill.
     ///
-    /// **On by default**, which is the one place §14 chooses friction. Safari
+    /// On by default, which is the one place §14 chooses friction. Safari
     /// does the same, and a saved password is otherwise readable by anyone who
     /// reaches an unlocked Mac — a bar low enough that leaving it to the user
     /// to discover would be the wrong default. It is a switch, not a law: a

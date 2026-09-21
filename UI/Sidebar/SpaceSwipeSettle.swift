@@ -10,9 +10,9 @@
 //  two separate things joined at the release. `Motion.spaceSettle(across:at:)`
 //  is the timing half of that — the duration is the distance over the speed, so
 //  the page leaves the fingers at the speed the fingers had. This is the other
-//  half: **one clock for the whole read-out.**
+//  half: one clock for the whole read-out.
 //
-//  **Everything §30.9 draws is a function of one number**, and only some of
+//  Everything §30.9 draws is a function of one number, and only some of
 //  those things are layer properties. The column and the still are transforms
 //  and animate themselves; the §3.5 dot strip is a row of *frames recomputed
 //  from the travel*, and the §8.2a wash is a gradient mixed from it. Animating
@@ -59,18 +59,18 @@ final class SpaceSwipeSettle {
     /// Travels from `from` to `to` on `spec`'s curve, handing every frame to
     /// `onFrame`, and calls `onArrival` once it is there.
     ///
-    /// **`onArrival` runs exactly once and always**, including when Reduce
+    /// `onArrival` runs exactly once and always, including when Reduce
     /// Motion takes the journey away entirely and when a second release
     /// replaces this one mid-flight. What waits on it is the Space switch, and
     /// a switch that did not happen because an animation was interrupted is a
     /// gesture the user performed and the app ignored.
     ///
-    /// **Which is why the arrival does not depend on the display link.** A
+    /// Which is why the arrival does not depend on the display link. A
     /// `CADisplayLink` is a request to be called when a screen is about to draw
     /// and nothing more: a view in a window that is off screen, minimised or on
     /// a sleeping display is not drawn, so the link does not fire and the
     /// journey never reaches its end. Hanging the commit off it makes the Space
-    /// switch conditional on the animation being *watched*. So the link paints
+    /// switch conditional on the animation being watched. So the link paints
     /// and a deadline arrives, whichever gets there first — and on the normal
     /// path, where the link is ticking, it is the link.
     func run(
@@ -127,7 +127,7 @@ final class SpaceSwipeSettle {
     private func arrive() {
         guard let arrived = onArrival else { return }
         // The last frame is stated rather than assumed: the link stops on the
-        // frame *after* the duration, and the deadline may not have drawn any.
+        // frame after the duration, and the deadline may not have drawn any.
         onFrame?(to)
         // Taken before the call, so an arrival that starts another gesture
         // finds this one already finished rather than still holding the link.

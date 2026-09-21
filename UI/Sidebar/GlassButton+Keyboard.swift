@@ -17,7 +17,7 @@ extension GlassButton {
 
     // MARK: - Keyboard (§20.2 — every chrome control is reachable)
 
-    /// §30.1: the sidebar's *plane* moves the window; a control on it does
+    /// §30.1: the sidebar's plane moves the window; a control on it does
     /// not. Without this the press that should have picked a pinned tile up
     /// picked the window up instead — `NSView` answers `true` by default for
     /// anything that draws no background of its own, which is every glass
@@ -36,7 +36,7 @@ extension GlassButton {
         }
     }
 
-    /// **The ring is a keyboard affordance, and a click is not the keyboard.**
+    /// The ring is a keyboard affordance, and a click is not the keyboard.
     ///
     /// AppKit makes a clicked view that accepts first responder the window's
     /// first responder, and then draws the accent ring round it — a blue halo

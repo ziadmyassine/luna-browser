@@ -5,7 +5,7 @@
 //  §9.1: which tab a chosen result lands in, and what the field starts with.
 //
 //  These two used to be one thing, and the New Tab page paid for it: its pill
-//  presented the bar as `.newTab`, so committing opened a *second* tab and left
+//  presented the bar as `.newTab`, so committing opened a second tab and left
 //  the empty page behind the one you were reading.
 //
 

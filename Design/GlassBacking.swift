@@ -49,7 +49,7 @@ final class GlassBackingView: NSView {
     private var glass: NSGlassEffectView?
     /// Non-nil pins this backing to one side of §7's table whatever display it
     /// lands on. Exactly one caller sets it: `Glass.previewTile`, which has to
-    /// show the 1× rendering *and* the 2× one side by side on one screen.
+    /// show the 1× rendering and the 2× one side by side on one screen.
     private let pinned: Bool?
     /// Which half of §7's table is on screen now, so a display change that
     /// resolves to the same answer costs nothing.
@@ -70,7 +70,7 @@ final class GlassBackingView: NSView {
         self.rimmed = rimmed
         self.pinned = pinned
         // No window yet, so `isOptimised(for: nil)` is the honest answer and it
-        // is the *unoptimised* one — a Retina user must see today's chrome, and
+        // is the unoptimised one — a Retina user must see today's chrome, and
         // `viewDidMoveToWindow` re-resolves against the real screen first.
         self.optimised = pinned ?? Glass.isOptimised(for: nil)
         super.init(frame: .zero)

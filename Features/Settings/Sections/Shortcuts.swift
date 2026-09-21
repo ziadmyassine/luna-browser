@@ -5,7 +5,7 @@
 //  §23.1 §3.6: every `MainMenu` command and its key equivalent, grouped by
 //  menu, searchable — and, for the ones that are Luna's to move, editable.
 //
-//  **Still read from the live menu bar, not from a second copy of the key map.**
+//  Still read from the live menu bar, not from a second copy of the key map.
 //  The rows, their titles and the menus they are grouped under all come from
 //  walking `NSApplication.mainMenu`, exactly as they did when this table was
 //  read-only. A hand-maintained list would be wrong the first time somebody
@@ -58,10 +58,10 @@ final class ShortcutsSection: SettingsSection {
     /// menu it came from.
     ///
     /// Separators and the menu-bar items themselves are skipped; a submenu's
-    /// contents are flattened under the *top-level* title, because "File ▸
+    /// contents are flattened under the top-level title, because "File ▸
     /// Recent" is still a File shortcut to anyone reading this list.
     ///
-    /// **Hidden items are skipped too**, which they did not used to be. They
+    /// Hidden items are skipped too, which they did not used to be. They
     /// carry real shortcuts — a command's alternate bindings are hidden items,
     /// and so are the sidebar rows a Space has not grown into yet — but every
     /// one of them duplicates a row that is already visible, so listing them
@@ -119,7 +119,7 @@ final class ShortcutsSection: SettingsSection {
 
     /// AppKit's own display order for modifiers: ⌃ ⌥ ⇧ ⌘.
     ///
-    /// An **uppercase** `keyEquivalent` implies Shift without it appearing in
+    /// An uppercase `keyEquivalent` implies Shift without it appearing in
     /// `keyEquivalentModifierMask`. `BrowserCommand` never spells a shortcut
     /// that way — `KeyBinding` normalises shift into the mask — but AppKit's own
     /// items and anything built by hand still can, and reading the mask alone
@@ -147,7 +147,7 @@ final class ShortcutsSection: SettingsSection {
 
     init() {
         body.card(nil, [(resetAllRow(), ["reset shortcuts", "restore defaults", "customise", "customize"])])
-        // **Above the table, not below it.** It is the key to the drawing, and
+        // Above the table, not below it. It is the key to the drawing, and
         // a legend a reader only meets after scrolling past sixty rows they
         // could not interpret has been printed too late to have been a legend.
         body.loose(SettingsRow.note(String(localized: """
@@ -167,7 +167,7 @@ final class ShortcutsSection: SettingsSection {
         }
     }
 
-    /// §2's search matches a row on what it says *and* on what it is, so
+    /// §2's search matches a row on what it says and on what it is, so
     /// "editable" lists everything that can be rebound and nothing else.
     private static func terms(_ command: Command) -> [String] {
         [command.title, command.menu, command.key]
@@ -230,7 +230,7 @@ final class ShortcutsSection: SettingsSection {
 
     /// Commits a recorded keystroke, or refuses it and says who has it.
     ///
-    /// **Refuses rather than steals.** Taking a shortcut off whichever command
+    /// Refuses rather than steals. Taking a shortcut off whichever command
     /// held it would leave that command silently unbound, discoverable only by
     /// pressing it and watching nothing happen — and the user cannot see the
     /// other row from here to know what they just cost themselves.
@@ -296,7 +296,7 @@ final class ShortcutsSection: SettingsSection {
     /// rather than from the table, is read-only — so there is nothing here for
     /// the user to operate, and `isFixed` takes the box away to say so.
     ///
-    /// A command with **no** key equivalent gets a dash rather than an empty
+    /// A command with no key equivalent gets a dash rather than an empty
     /// chip: a plate with nothing on it reads as a shortcut that failed to
     /// load, and most of this table is commands that simply have none.
     private static func keyLabel(_ key: String) -> NSView {

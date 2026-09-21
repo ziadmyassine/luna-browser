@@ -11,7 +11,7 @@
 //  What it deliberately is not: Nook's `BrowserManager` (~4,000 lines). What
 //  keeps it small (§0.3, §19, §33) is that navigation lives in `TabController`,
 //  persistence in `BrowserStore`, ordering in `TabList`, geometry in
-//  `BrowserWindowController` — and anything a *view* can compute from `tabs`
+//  `BrowserWindowController` — and anything a view can compute from `tabs`
 //  does not get a method here. It is four files:
 //
 //      BrowserSession.swift         state, restore, the Space list (§5)
@@ -20,8 +20,8 @@
 //      BrowserSession+Engine.swift  controllers, hibernation, WebKit callbacks
 //
 //  Two invariants everything depends on:
-//    1. **`tabs` is sorted essential → pinned → today, each by `order`** — see
-//       `TabList`. `reorderTab(_:to:kind:)` therefore takes a *section-relative*
+//    1. `tabs` is sorted essential → pinned → today, each by `order` — see
+//       `TabList`. `reorderTab(_:to:kind:)` therefore takes a section-relative
 //       index.
 //    2. **A tab with no `TabController` has no `WKWebView` and no WebContent
 //       process** (§19.2). Restoring a session creates no controllers at all
@@ -75,14 +75,14 @@ final class BrowserSession {
     /// The tab that is actually on screen, as far as §3.2's Picture-in-Picture
     /// hand-off is concerned. Not the same question as `activeTabID`: switching
     /// Space moves `activeSpaceID` first, so by the time `activateTab` runs the
-    /// tab being *left* is no longer derivable. Written only by
+    /// tab being left is no longer derivable. Written only by
     /// `BrowserSession+PictureInPicture.swift`.
     var presentedTabID: UUID?
 
     /// Structural changes — the tab list, the Space list, the selection.
     ///
-    /// **Register, do not assign.** The sidebar, the top bar and the app are
-    /// all observers *at the same time* (both layouts stay alive across a
+    /// Register, do not assign. The sidebar, the top bar and the app are
+    /// all observers at the same time (both layouts stay alive across a
     /// switch), and a single `var` closure is last-writer-wins with no compile
     /// error and no crash to show for it. Hold the token for as long as you
     /// want the callbacks; releasing it unregisters.
@@ -142,7 +142,7 @@ final class BrowserSession {
     /// `⌘L`. The sidebar or top bar sets this to focus and select its URL pill.
     var focusURLField: (() -> Void)?
 
-    /// Downloads (§15). The receiver **must** set `download.delegate`
+    /// Downloads (§15). The receiver must set `download.delegate`
     /// synchronously; with no handler the download is cancelled rather than
     /// left to stall invisibly.
     var onDownload: ((WKDownload) -> Void)?
@@ -163,7 +163,7 @@ final class BrowserSession {
 
     /// The gradient a new Space takes, given the ones already in use.
     ///
-    /// **Neutral, and colour is something the user asks for.** §8.2's twelve
+    /// Neutral, and colour is something the user asks for. §8.2's twelve
     /// curated pairs and the next-unused rule live in `Design`, and handing a
     /// new Space one of them automatically meant the sidebar changed colour on
     /// its own — a window the user had not asked to look different came back
@@ -192,14 +192,14 @@ final class BrowserSession {
     /// Most-recently-used first. Drives §19.2's "keep the active tab + last N".
     var recentTabs: [UUID] = []
     var faviconPNG: [UUID: Data] = [:]
-    /// How a tab's *next* navigation started, for §9.3's frecency weights.
+    /// How a tab's next navigation started, for §9.3's frecency weights.
     /// Absent means the user followed a link.
     var pendingVisitKind: [UUID: VisitKind] = [:]
     var recordedURL: [UUID: URL] = [:]
     /// §3.4a's muted tabs. Held here rather than on the `TabController` because a
     /// controller is discarded every time a tab goes cold (§19.2) and a mute that
     /// evaporated when the tab hibernated would come back making noise. Deliberately
-    /// **not** on the `Tab` row: a mute answers the sound happening now, and a tab that
+    /// not on the `Tab` row: a mute answers the sound happening now, and a tab that
     /// came back silent after a relaunch with nothing on screen to say why would be a
     /// bug report, not a feature. See `setMuted(_:tab:)`.
     var mutedTabIDs: Set<UUID> = []
@@ -222,7 +222,7 @@ final class BrowserSession {
     // MARK: - Restore (§6.2, §19.4)
 
     /// Rebuilds the last session from SQLite. Tabs come back with their order,
-    /// their titles and their `interactionState` blobs — and **no web views**:
+    /// their titles and their `interactionState` blobs — and no web views:
     /// no `TabController` is created here, so a 30-tab relaunch costs one
     /// database read and zero WebContent processes.
     static func restored(store: BrowserStore) async throws -> BrowserSession {
@@ -285,7 +285,7 @@ final class BrowserSession {
 
     // MARK: - Spaces (§5)
     //
-    // A Space names a Profile; a Profile *is* a `WKWebsiteDataStore` created
+    // A Space names a Profile; a Profile is a `WKWebsiteDataStore` created
     // with an identifier Luna generated and persisted itself, because WebKit
     // will not hand the mapping back (§5.1).
 

@@ -30,7 +30,7 @@ final class SpaceSwipeController {
     /// The fingers came up. Carries where the gesture had got to and whether
     /// it was a release rather than a cancel.
     ///
-    /// **What happens next is not this object's call.** There is a page still
+    /// What happens next is not this object's call. There is a page still
     /// half way across the column when the hand leaves, and settling it is the
     /// same act as deciding what the gesture meant — see
     /// `SidebarSpaceGestures.settle`. A controller that switched the Space here
@@ -46,7 +46,7 @@ final class SpaceSwipeController {
     /// When the last event this gesture counted arrived, for
     /// `Metric.spaceSwipeSpeed`'s ceiling. 0 means "nothing yet".
     private var lastEventTime: TimeInterval = 0
-    /// How fast the hand is moving right now, in points of **damped** travel
+    /// How fast the hand is moving right now, in points of damped travel
     /// per second — the same units `offset` is kept in, so `spaceFlickSpeed`
     /// can be one plain number rather than one per trackpad.
     ///
@@ -61,7 +61,7 @@ final class SpaceSwipeController {
 
     /// Handles `event` if it is this gesture, and says so.
     ///
-    /// **Momentum never decides anything, and it is not handed back either.** A
+    /// Momentum never decides anything, and it is not handed back either. A
     /// flick's momentum phase keeps delivering deltas for up to a second after
     /// the fingers have gone: a gesture that kept counting them would commit —
     /// or worse, create — long after the hand had stopped asking, and one that
@@ -70,10 +70,10 @@ final class SpaceSwipeController {
     /// this took is swallowed, and the tail of one it did not is passed on
     /// untouched.
     ///
-    /// **Every phase is seen, including the ones with no travel in them.** The
+    /// Every phase is seen, including the ones with no travel in them. The
     /// `.ended` event of a horizontal swipe carries zero deltas, so a caller
     /// that routed events here by axis would never deliver the one event that
-    /// commits the gesture. `SidebarScrollView` therefore offers *all* of them
+    /// commits the gesture. `SidebarScrollView` therefore offers all of them
     /// and takes this answer for whether it keeps the event — which is also why
     /// `.ended` resets even when nothing was being tracked: an untracked
     /// gesture still left travel in `offset`, and the next one must not inherit
@@ -116,7 +116,7 @@ final class SpaceSwipeController {
 
     /// How much of `speed` a fresh event is worth.
     ///
-    /// **Light, and deliberately lighter than it looks.** At 60 Hz this is a
+    /// Light, and deliberately lighter than it looks. At 60 Hz this is a
     /// half-life of about two frames, so the number answers a hand that is
     /// genuinely accelerating within a couple of events and shrugs off the one
     /// jittery delta that a lift or a re-grip produces. Heavier and a flick is
@@ -125,21 +125,21 @@ final class SpaceSwipeController {
 
     /// How long after the last counted event a release still carries its speed.
     ///
-    /// **Three frames.** A hand that pushed the page out, came to rest and then
+    /// Three frames. A hand that pushed the page out, came to rest and then
     /// lifted has not flicked — but the events stop the moment it rests, so
-    /// without this the gesture would be judged on the speed it had *before*
+    /// without this the gesture would be judged on the speed it had before
     /// it stopped. That is exactly the create gesture, and it would never make
     /// a Space.
     private static let flickWindow: TimeInterval = 3.0 / 60
 
     private func track(_ event: NSEvent) -> Bool {
-        // `scrollingDeltaX` is positive when the fingers move **right**, which
+        // `scrollingDeltaX` is positive when the fingers move right, which
         // on this platform means "back" — Safari's two-finger swipe, and every
-        // horizontal list in AppKit. Toward the *next* Space is therefore the
+        // horizontal list in AppKit. Toward the next Space is therefore the
         // negative one, and this is the single place the sign is flipped.
         let step = -Self.damped(event.scrollingDeltaX, since: lastEventTime, at: event.timestamp)
         let interval = Self.interval(since: lastEventTime, at: event.timestamp)
-        // **Damped against damped.** `drift` used to add the raw
+        // Damped against damped. `drift` used to add the raw
         // `scrollingDeltaY` to a comparison with an `offset` the ceiling had
         // already folded down, so a brisk horizontal swipe with any wobble in
         // it lost to its own wobble and the list kept the scroll. The two sides
@@ -168,16 +168,16 @@ final class SpaceSwipeController {
     /// One event's `scrollingDeltaX`, with the system's acceleration bent back
     /// off the top.
     ///
-    /// **A trackpad does not report distance; it reports scaled distance.**
+    /// A trackpad does not report distance; it reports scaled distance.
     /// macOS multiplies a precise scroll by how fast the fingers were moving,
     /// so the same eighty points of hand arrive as eighty points when dragged
     /// and as three hundred when flicked — and a page bound to that delta races
     /// out from under the fingers pushing it.
     ///
-    /// **The curve bends; it does not stop.** This was a hard clip for one
+    /// The curve bends; it does not stop. This was a hard clip for one
     /// build and a hard clip is a worse gesture than no damping at all: every
     /// event of a real swipe lands above the ceiling, so every event comes back
-    /// as *exactly* the ceiling and the page travels at one fixed speed no
+    /// as exactly the ceiling and the page travels at one fixed speed no
     /// matter what the hand does. The gesture stops being followed. `tanh` is
     /// the same ceiling with the corner taken off — its slope is 1 at the
     /// origin, so movement well under `Metric.spaceSwipeSpeed` passes through
@@ -240,11 +240,11 @@ final class SpaceSwipeController {
 /// The sidebar's own plane, which is where §30.9's swipe is caught.
 ///
 /// A view rather than a gesture recogniser: `NSPanGestureRecognizer` does not
-/// see a trackpad *scroll*, only a click-drag, and the two-finger slide the
+/// see a trackpad scroll, only a click-drag, and the two-finger slide the
 /// feature is named after arrives as `scrollWheel` with a phase. `NSEvent`'s
 /// own `trackSwipeEvent` was the other candidate and cannot express this
 /// gesture: it clamps the amount it reports to the range it was given, so the
-/// travel *past* the last Space — the half that makes one — is exactly what it
+/// travel past the last Space — the half that makes one — is exactly what it
 /// throws away.
 @MainActor
 final class SidebarRootView: NSView {
@@ -264,7 +264,7 @@ final class SidebarRootView: NSView {
 /// this the swipe would work everywhere on the sidebar except over the rows —
 /// which is most of the sidebar, and the part a hand rests on.
 ///
-/// **It offers the swipe every event rather than deciding by axis**, because
+/// It offers the swipe every event rather than deciding by axis, because
 /// the events that matter most have no axis: `.began` carries no travel and
 /// `.ended` carries none either, and a scroll view that kept those two would
 /// leave the gesture unable to start cleanly or to finish at all. The swipe

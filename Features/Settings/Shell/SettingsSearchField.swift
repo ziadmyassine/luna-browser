@@ -6,7 +6,7 @@
 //  and the same corner, so the app's search fields are one object twice rather
 //  than two near-misses.
 //
-//  **Not `NSSearchField`** — the stock control brings a bezel, a focus ring and
+//  Not `NSSearchField` — the stock control brings a bezel, a focus ring and
 //  a system-blue selection that belong to a form, not to chrome.
 //
 

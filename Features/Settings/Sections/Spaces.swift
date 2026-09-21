@@ -9,7 +9,7 @@
 //  `deleteSpace(_:policy:)`, so every row that used to name the call it was
 //  waiting for is wired to it instead — the reason went, the row stayed (§30.4).
 //
-//  **One card per Space, and the card is that Space's colour.** The section was
+//  One card per Space, and the card is that Space's colour. The section was
 //  a column of identical grey cards six rows deep, which is the one list in
 //  Luna where the twelve gradients were not doing the work they exist for:
 //  finding "the blue one" meant reading every heading. `SpaceCardView` heads
@@ -17,12 +17,12 @@
 //  name and §9's fan-out line — so the section is navigable at a glance and the
 //  rows underneath are only the ones you actually type into.
 //
-//  **Two of the six rows went into the header's corner button.** Icon and
-//  gradient were popups listing *nouns* — "Flask", "Mulberry" — for settings
+//  Two of the six rows went into the header's corner button. Icon and
+//  gradient were popups listing nouns — "Flask", "Mulberry" — for settings
 //  whose whole content is a picture; `SpaceAppearanceView` shows both as grids
 //  of themselves. That file has the argument.
 //
-//  **The one thing this section says that no other browser's does** is the
+//  The one thing this section says that no other browser's does is the
 //  fan-out: Space → Profile is many-to-one, and nothing in Arc, Chrome or
 //  Firefox ever tells you so. A line that reads "Work profile · shared with 3
 //  Spaces" is the whole answer to "why am I still logged in over here", which
@@ -125,7 +125,7 @@ final class SpacesSection: SettingsSection {
     /// synthetic Space without a running session — which is the only way to
     /// assert that none of them is dimmed any more.
     ///
-    /// **Four rows, not six.** §6.2's icon and gradient are on the card's
+    /// Four rows, not six. §6.2's icon and gradient are on the card's
     /// corner button; see `appearanceChoices` for the pair, and
     /// `SpaceAppearanceView` for why a grid beat a popup for both.
     func spaceRows(
@@ -142,7 +142,7 @@ final class SpacesSection: SettingsSection {
         ]
     }
 
-    /// §6.2's rename. Commits on Return **and** on losing focus, because
+    /// §6.2's rename. Commits on Return and on losing focus, because
     /// `SettingsRow.text` sets `sendsActionOnEndEditing` — a name typed and then
     /// clicked away from is a name the user meant.
     private func nameRow(_ space: Space, session: BrowserSession?) -> (view: NSView, terms: [String]) {
@@ -187,7 +187,7 @@ final class SpacesSection: SettingsSection {
 
     /// §6.1/§9's fan-out, and §3.3's Profile swap.
     ///
-    /// The row itself is the swap; the *label* — the one Arc has nowhere — is
+    /// The row itself is the swap; the label — the one Arc has nowhere — is
     /// on the card's head, where it describes the Space rather than pretending
     /// to be a caption on a popup.
     private func profileRow(_ space: Space, session: BrowserSession?) -> (view: NSView, terms: [String]) {
@@ -257,7 +257,7 @@ final class SpacesSection: SettingsSection {
     /// Both writes rebuild the section, which throws this popover away with it;
     /// the grid marks the choice itself in the meantime so the click is never
     /// silent. The failures are presented rather than swallowed: unlike a
-    /// colour chosen from the §3.5 dot's menu, a user in Settings is *here* to
+    /// colour chosen from the §3.5 dot's menu, a user in Settings is here to
     /// change this and is owed the reason it did not take.
     private func editAppearance(of space: Space, from anchor: NSView, session: BrowserSession?) {
         let content = SpaceAppearanceView(
@@ -286,8 +286,8 @@ final class SpacesSection: SettingsSection {
         let popover = NSPopover()
         popover.contentViewController = controller
         popover.behavior = .transient
-        // **Below the button, not above it.** `SpaceAppearanceButton` is not a
-        // flipped view, so `.maxY` is its *top* edge — and a card at the head
+        // Below the button, not above it. `SpaceAppearanceButton` is not a
+        // flipped view, so `.maxY` is its top edge — and a card at the head
         // of the pane put the grid off the top of the screen entirely, over
         // whatever was behind the window. There is always pane below a card
         // header; there is not always screen above one.

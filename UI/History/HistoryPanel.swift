@@ -2,13 +2,13 @@
 //  HistoryPanel.swift
 //  Luna
 //
-//  §6.4's archive, as a **pop-out from the §3.5 History button** — the same
+//  §6.4's archive, as a pop-out from the §3.5 History button — the same
 //  shape §3.2's site menu takes from the sliders glyph.
 //
 //  It used to be `luna://archive`, an internal page in a new tab. That is the
 //  wrong shape for it twice over: looking something up in your history is a
 //  glance, and a glance should not cost a tab you then have to close — and a
-//  page cannot be Liquid Glass, so the one surface in the app that is *about*
+//  page cannot be Liquid Glass, so the one surface in the app that is about
 //  the tabs looked like a website. The page still exists and the route still
 //  works; this is what §3.5's History button opens.
 //
@@ -16,7 +16,7 @@
 //  size smaller.** Scrim, 640 pt body, centred over the page: a glance at a
 //  shelf took the whole page away and put a window-sized panel where the user
 //  was not looking. The Command Bar earns that — you summon it, and it is the
-//  thing you are doing. History is opened *from a button*, and a surface opened
+//  thing you are doing. History is opened from a button, and a surface opened
 //  from a button belongs on it.
 //
 //  So: no scrim, a pop-out standing on the button, and the page still there
@@ -111,8 +111,8 @@ final class HistoryPanel: PopoutPanelView {
         scroll.hasHorizontalScroller = false
         scroll.horizontalScrollElasticity = .none
         scroll.automaticallyAdjustsContentInsets = false
-        // **Overlay, so the scroller does not take width off the rows.** A
-        // legacy scroller is laid out *beside* the document, which would make
+        // Overlay, so the scroller does not take width off the rows. A
+        // legacy scroller is laid out beside the document, which would make
         // the rows a scroller narrower than the list they are measured
         // against — the one way they could stop being the same width.
         scroll.scrollerStyle = .overlay

@@ -60,7 +60,7 @@ final class SpaceEditorGridTests: XCTestCase {
         descendants(of: editor, ofType: NSTextField.self).first { $0.stringValue == text }
     }
 
-    /// **The complaint, as an assertion.** The title, the caption, the name,
+    /// The complaint, as an assertion. The title, the caption, the name,
     /// both section headings and the first chip of both grids start on one
     /// edge — the card's text inset — and the plates are the only thing that
     /// reaches past it.
@@ -79,7 +79,7 @@ final class SpaceEditorGridTests: XCTestCase {
         }
     }
 
-    /// **Three decisions, three plates, and each one holds its own.** A card
+    /// Three decisions, three plates, and each one holds its own. A card
     /// that has drifted over its neighbour is the failure this catches; a chip
     /// that has escaped its card is the other.
     func testEachGroupIsOnItsOwnPlateAndTheyDoNotTouch() {
@@ -96,7 +96,7 @@ final class SpaceEditorGridTests: XCTestCase {
         }
     }
 
-    /// **No chip alone on a line of its own.** Thirteen colours packed greedily
+    /// No chip alone on a line of its own. Thirteen colours packed greedily
     /// into six columns leave one on the last row, and that orphan is the first
     /// thing the eye finds in the form.
     func testTheGridSpreadsItsChipsRatherThanLeavingAnOrphan() {
@@ -130,7 +130,7 @@ final class SpaceEditorGridTests: XCTestCase {
     }
 
     /// The rows take the columns' spacing — one grid, not a block combed out
-    /// sideways — **up to the chrome's wide gap and no further.** A sidebar
+    /// sideways — up to the chrome's wide gap and no further. A sidebar
     /// dragged out wide spreads its columns a long way, and rows that followed
     /// them there would leave a card with a hole in it.
     func testTheRowsFollowTheColumnsUpToTheChromesWideGap() {

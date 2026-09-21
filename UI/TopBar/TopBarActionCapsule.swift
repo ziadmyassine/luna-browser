@@ -6,13 +6,13 @@
 //  [profile]` — in its own rounded glass capsule, divided from the tab strip by
 //  a hairline.
 //
-//  **Variable item count is the whole design.** Extension action buttons dock
+//  Variable item count is the whole design. Extension action buttons dock
 //  here in v2 (§16.4), and retrofitting that means re-laying out the entire
 //  right side of the bar, so the capsule takes an array today: assign `items`
 //  and the capsule re-sizes itself. That is the one piece of future-proofing
 //  M1 asks for, and it costs an array instead of three outlets.
 //
-//  **The capsule is one glass surface, not N merged ones.** It used to give
+//  The capsule is one glass surface, not N merged ones. It used to give
 //  every item its own `.control` backing and hand them to
 //  `Glass.merging`, on the theory that Liquid Glass unions neighbours within
 //  `spacing`. On screen it did not union them: three separate bright circles,

@@ -2,12 +2,12 @@
 //  EssentialsGridView.swift
 //  Luna
 //
-//  §3.3, and what the user calls **pinned tabs**: the grid of tiles directly
+//  §3.3, and what the user calls pinned tabs: the grid of tiles directly
 //  under the URL pill. Icon only, no label (§30.5) — which is exactly why each
-//  tile carries an explicit VoiceOver label naming the *site*, never the URL
+//  tile carries an explicit VoiceOver label naming the site, never the URL
 //  (§8, §21.1).
 //
-//  **The grid reshapes around how many tiles are in it.** Two across was a
+//  The grid reshapes around how many tiles are in it. Two across was a
 //  fixed number, and a fixed number is wrong at both ends: one pinned tab sat
 //  in a half-width tile with a hole beside it, and eight made four rows of a
 //  column that is already the narrowest thing on screen. The shape is now
@@ -20,15 +20,15 @@
 //  unpin it (right-click, or drag it back down into the list). Both routes
 //  come through `BrowserSession.unpinTab`.
 //
-//  **Nothing here is an AppKit drop target any more.** A tile is moved by the
+//  Nothing here is an AppKit drop target any more. A tile is moved by the
 //  same tracked gesture a list row is — see `SidebarTabDrag.swift` — so the
 //  grid's job during a drag is only to say where its slots are, to hold one
 //  open, and to hide the tile that is currently in the air.
 //
-//  **The tile you are on is lit, in that site's own colour.** One glow for the
+//  The tile you are on is lit, in that site's own colour. One glow for the
 //  whole grid, because only one tile can be the tab you are on — see
 //  `EssentialGlowView` for what it draws and `FaviconTint` for where the colour
-//  comes from. It lies *over* the tiles rather than under them and answers no
+//  comes from. It lies over the tiles rather than under them and answers no
 //  hit test, so the tile underneath still takes the click.
 //
 //  Tile width flexes. §1's 128 pt tile is the design intent at a 280 pt
@@ -67,9 +67,9 @@ final class EssentialsGridView: NSView {
 
     /// A row is being dragged somewhere in the sidebar.
     ///
-    /// **An empty grid is zero points tall, so it cannot be dropped on** — and
+    /// An empty grid is zero points tall, so it cannot be dropped on — and
     /// dragging a tab up here is one of the two ways to pin one, which made
-    /// pinning the *first* tab impossible. While a drag is live the grid opens
+    /// pinning the first tab impossible. While a drag is live the grid opens
     /// to one tile's height and draws the slot the tab would land in.
     var isAwaitingDrop = false {
         didSet {
@@ -84,7 +84,7 @@ final class EssentialsGridView: NSView {
     var draggedID: UUID? {
         didSet {
             guard draggedID != oldValue else { return }
-            // **Put it where it belongs before showing it.** A hidden tile is
+            // Put it where it belongs before showing it. A hidden tile is
             // not laid out, so it still carries the frame it had when it was
             // picked up — and the pass that reveals it is an animated one, so
             // it appeared back at its old slot and slid to the new one under
@@ -117,7 +117,7 @@ final class EssentialsGridView: NSView {
     /// tint, for the same reason `+Layout.swift` reads `order` — Swift's
     /// `private` is file-scoped and this class is three files.
     var tabs: [Tab] = []
-    /// Keyed by tab, **not** an array, so a tile survives a pin, an unpin or a
+    /// Keyed by tab, not an array, so a tile survives a pin, an unpin or a
     /// reorder and can animate from where it was to where it now belongs. A
     /// rebuilt array of fresh views has nowhere to animate from, which is what
     /// made pinning a tab a jump-cut.
@@ -134,7 +134,7 @@ final class EssentialsGridView: NSView {
     var litID: UUID?
     /// Set when the grid's contents changed; consumed by the next `layout()`.
     private var animatesNextPlacement = false
-    /// Tiles made since the last placement, which have **nowhere to come from**.
+    /// Tiles made since the last placement, which have nowhere to come from.
     /// Consumed by `placeContents`; see the comment there.
     private var arriving: Set<UUID> = []
 
@@ -156,12 +156,12 @@ final class EssentialsGridView: NSView {
 
     // MARK: - Content
 
-    /// The tiles, and whether what changed is an **edit** to this grid or a
+    /// The tiles, and whether what changed is an edit to this grid or a
     /// different grid entirely.
     ///
-    /// **A Space switch is the second.** A tile that leaves fades out where it
+    /// A Space switch is the second. A tile that leaves fades out where it
     /// stood, because an unpin that simply deleted the tile read as the tab
-    /// being thrown away — but across a Space switch *every* tile leaves at
+    /// being thrown away — but across a Space switch every tile leaves at
     /// once, and a fade holds the Space you just left drawn over the Space you
     /// just arrived in for a fifth of a second. `SidebarViewController` is
     /// already cross-fading the whole column for this; the tiles must not bring
@@ -176,7 +176,7 @@ final class EssentialsGridView: NSView {
                 tile.isSelected = tab.id == activeTabID
                 if let icon = SidebarIcons.favicon(for: tab) { tile.setImage(icon) }
             }
-            // The tabs are the same; which one you are *on* may not be, and on
+            // The tabs are the same; which one you are on may not be, and on
             // this path nothing else would notice.
             relight(blooming: true)
             return
@@ -227,7 +227,7 @@ final class EssentialsGridView: NSView {
         reflow()
     }
 
-    /// `quietly` is a tile that is not *arriving* — the grid it belongs to is
+    /// `quietly` is a tile that is not arriving — the grid it belongs to is
     /// being replaced wholesale, so it is already there when the column comes
     /// back rather than fading up inside it.
     private func makeTile(for tab: Tab, quietly: Bool = false) -> GlassButton {
@@ -268,7 +268,7 @@ final class EssentialsGridView: NSView {
     /// The grid changed size or shape: re-measure, re-place, re-draw, and tell
     /// the sidebar that everything below it has moved.
     ///
-    /// **Twice, the second time on the next tick.** The sidebar reads this
+    /// Twice, the second time on the next tick. The sidebar reads this
     /// view's `intrinsicContentSize` to place everything under it, and a pin or
     /// an unpin changes that size from inside work that is already running —
     /// a drop handler, or the completion of the fade that removes a tile. If
@@ -318,7 +318,7 @@ final class EssentialsGridView: NSView {
             // along by one, which is the gap the lift drops into.
             let slot = dropIndex.map { index >= $0 ? index + 1 : index } ?? index
             let frame = slotRect(at: slot)
-            // **A tile that has just been built has nowhere to come from.** It
+            // A tile that has just been built has nowhere to come from. It
             // is a fresh `NSView`, so its frame is the view's origin — the foot
             // of the grid's leading edge — and an animated pass therefore flew
             // it up and across to its slot. That is what a pin looked like: the
@@ -363,7 +363,7 @@ final class EssentialsGridView: NSView {
 
     /// What §6.6's lift should look like while it is carrying `id` — the same
     /// title and favicon a list row would draw for that tab, because down there
-    /// it *is* a list row.
+    /// it is a list row.
     func content(for id: UUID) -> SidebarRowContent? {
         guard let tab = tabs.first(where: { $0.id == id }) else { return nil }
         return SidebarRowContent(

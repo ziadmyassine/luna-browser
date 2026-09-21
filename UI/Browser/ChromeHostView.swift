@@ -21,7 +21,7 @@ final class ChromeHostView: NSView {
 
     /// Fired when the sidebar becomes the visible layout, before the fade.
     ///
-    /// **`NSTableView` does not survive being hidden.** While the top bar is
+    /// `NSTableView` does not survive being hidden. While the top bar is
     /// showing, the sidebar is `isHidden` inside a host that is 52 pt tall, so
     /// the list has no visible rect and AppKit releases every row view it was
     /// recycling. Unhiding restores the frame but not the rows — the list came

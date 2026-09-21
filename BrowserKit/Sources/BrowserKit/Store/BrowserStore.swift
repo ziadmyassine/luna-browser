@@ -28,7 +28,7 @@ public struct HistoryHit: Sendable, Hashable {
 /// whole app behind the slowest query, which is the opposite of the point.
 ///
 /// Visit writes are buffered and flushed as one transaction (§11.5) — `recordVisit` never
-/// touches the disk, so navigation never waits on it. **Call ``flush()`` before quitting.**
+/// touches the disk, so navigation never waits on it. Call ``flush()`` before quitting.
 public actor BrowserStore {
 
     // Internal, not private, for exactly one reason: `BrowserStore+InputHistory`
@@ -58,7 +58,7 @@ public actor BrowserStore {
 
     /// Every Space in display order, with `order` renumbered to `0..<n` when it has drifted.
     ///
-    /// **The self-heal is the point** (§6.2). Every delete leaves a gap, every insert-in-the
+    /// The self-heal is the point (§6.2). Every delete leaves a gap, every insert-in-the
     /// middle leaves a collision, and reordering is the biggest hole in the prior art —
     /// Nook persists an index and has no reorder function, Ora has no order field at all,
     /// Refrax sorts by `position` and never writes it. Renumbering on load means a reorder is
@@ -135,7 +135,7 @@ public actor BrowserStore {
 
     /// One default Profile and one default Space, so a first run is never an empty window.
     ///
-    /// **Asks before it opens a transaction it will not use.** Every launch
+    /// Asks before it opens a transaction it will not use. Every launch
     /// calls this and every launch but the first has nothing to do, and a
     /// `write` block that decides to do nothing has still taken SQLite's write
     /// lock and paid for a transaction, on a launch that was only ever going to
@@ -249,7 +249,7 @@ public actor BrowserStore {
 
 /// §9.3's ranking, in SQL because it has to rank and truncate before crossing the boundary.
 ///
-/// `score = Σ (visitTypeWeight × recencyWeight)` over a place's **10 most recent** visits.
+/// `score = Σ (visitTypeWeight × recencyWeight)` over a place's 10 most recent visits.
 /// The sum is deliberately not averaged: a mean would make one typed visit tie a hundred of
 /// them, which is the frequency half of "frecency" thrown away (§9.3's "normalised by
 /// sampled visit count" is Firefox's mean × visit_count, and the plain sum says the same

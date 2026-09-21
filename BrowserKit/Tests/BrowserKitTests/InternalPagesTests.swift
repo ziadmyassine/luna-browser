@@ -114,7 +114,7 @@ struct InternalPagesTests {
         defer { InternalPages.content = nil }
 
         let html = InternalPages.archiveHTML()
-        // Rendered as text, never as markup — in the row *and* in the
+        // Rendered as text, never as markup — in the row and in the
         // `data-search` attribute the filter script reads.
         #expect(html.contains("&lt;/a&gt;&lt;img src=x onerror=alert(1)&gt;"))
         #expect(!html.contains("<img"))
@@ -132,7 +132,7 @@ struct InternalPagesTests {
 
     // MARK: - The token→CSS bridge
 
-    /// Half of the bridge's contract, checked from the side that *consumes* the
+    /// Half of the bridge's contract, checked from the side that consumes the
     /// variables: nothing in the stylesheet may read a custom property the app's
     /// generator does not promise to define. `InternalPageThemeTests` checks the
     /// other half — that the generator defines all of them.

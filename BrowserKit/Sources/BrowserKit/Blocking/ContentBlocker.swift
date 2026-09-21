@@ -4,23 +4,23 @@ import WebKit
 
 /// Luna's content blocking (§17.1–§17.4, §17.6): fetch → convert → compile → cache.
 ///
-/// **Why this is a `@MainActor` class and not an actor.** `WKContentRuleListStore` is
+/// Why this is a `@MainActor` class and not an actor. `WKContentRuleListStore` is
 /// declared `WK_SWIFT_UI_ACTOR`, so every one of its methods is already main-actor
 /// isolated; an actor wrapper around it would hop to the main actor for each call and
 /// buy nothing. The expensive half — parsing a filter list and encoding 80,000 rules to
 /// JSON — is what actually moves off, in ``refresh()``.
 ///
-/// **Measured on 2026-09-17, macOS 26 / Xcode 26.6, M-series:**
+/// Measured on 2026-09-17, macOS 26 / Xcode 26.6, M-series:
 /// | list | rules | compile |
 /// |---|---|---|
-/// | EasyList | 81,268 | **2.89 s** |
+/// | EasyList | 81,268 | 2.89 s |
 /// | EasyPrivacy | 56,037 | 1.94 s |
 /// | Fanboy Annoyance | 49,087 | 2.01 s |
 ///
 /// A compile does not block the main thread outright — a 10 ms timer kept firing
-/// throughout — but it stalls it for up to **353 ms** at a time, which is half of
+/// throughout — but it stalls it for up to 353 ms at a time, which is half of
 /// §19.1's entire 800 ms launch budget in one hitch. Looking an already-compiled list up
-/// by identifier costs **0.000 s**. That gap is the whole design: launch looks lists up,
+/// by identifier costs 0.000 s. That gap is the whole design: launch looks lists up,
 /// and only an install or a scheduled update ever compiles.
 @MainActor
 public final class ContentBlocker {
@@ -99,7 +99,7 @@ public final class ContentBlocker {
 
     // MARK: - Launch and refresh
 
-    /// Call once at startup. Loads what is already compiled — **it never compiles** — and
+    /// Call once at startup. Loads what is already compiled — it never compiles — and
     /// schedules the update for after the launch budget has been spent.
     public func start(browserStore: BrowserStore?) {
         self.browserStore = browserStore
@@ -127,7 +127,7 @@ public final class ContentBlocker {
         for category in Category.allCases where isEnabled(category) {
             var lists: [WKContentRuleList] = []
             for identifier in identifiers(for: category) {
-                // A missing identifier **throws** `WKError.contentRuleListStoreLookUpFailed`
+                // A missing identifier throws `WKError.contentRuleListStoreLookUpFailed`
                 // (code 7) — it does not hand back nil (measured). Treating the throw as
                 // "not cached yet" is the whole of the offline first run.
                 guard let list = try? await store.contentRuleList(forIdentifier: identifier) else {
@@ -144,7 +144,7 @@ public final class ContentBlocker {
         publishStatus()
     }
 
-    /// How long after launch a refresh that **is** due waits before starting.
+    /// How long after launch a refresh that is due waits before starting.
     ///
     /// It was 5 s, which is not "after launch" — it is during the first page the
     /// user asked for, and the refresh competes with it for the network and for
@@ -153,7 +153,7 @@ public final class ContentBlocker {
     /// is a list that is at most a day stale.
     static let postLaunchDelay: TimeInterval = 30
 
-    /// What a machine with **no** compiled lists waits instead.
+    /// What a machine with no compiled lists waits instead.
     ///
     /// The grace above is affordable because the cached lists are already
     /// attached while it runs — the only thing waiting is a list a day stale. On
@@ -167,7 +167,7 @@ public final class ContentBlocker {
     /// **``refreshInterval`` used to pick the delay and nothing else, so it was
     /// not an interval at all.** A launch inside the 24 hours slept a minute and
     /// then re-fetched all three lists anyway; the only thing the interval
-    /// bought was that an *unchanged* list skipped its compile. The lists
+    /// bought was that an unchanged list skipped its compile. The lists
     /// upstream are rebuilt several times a day, so on a machine that relaunches
     /// Luna often — which is every machine Luna is built on — a changed list
     /// meant the full fetch, convert and compile again, minutes after the last
@@ -228,7 +228,7 @@ public final class ContentBlocker {
                 continue
             }
             do {
-                // **A breath between compiles.** Each one stalls the main thread
+                // A breath between compiles. Each one stalls the main thread
                 // for up to 353 ms at a time (measured, see `docs/PERF.md`), and
                 // three of them back to back is three hitches with nothing
                 // between them. This costs the refresh a second and gives the
@@ -323,14 +323,14 @@ public final class ContentBlocker {
 
     // MARK: - Applying to a web view (§17.2)
 
-    /// **The seam `WebViewFactory` needs.** Attaches the enabled lists, or none of them
+    /// The seam `WebViewFactory` needs. Attaches the enabled lists, or none of them
     /// when the user has turned blocking off for this site.
     ///
     /// Safe to call on every main-frame navigation: adding and removing an already-compiled
     /// list is a pointer hand-off, not a compile.
     public func apply(to controller: WKUserContentController, host: String? = nil) {
         controller.removeAllContentRuleLists()
-        // §3.2's Local Network permission is **not** part of ad blocking and is not
+        // §3.2's Local Network permission is not part of ad blocking and is not
         // covered by turning ad blocking off for a site: they are two answers to two
         // questions, and a user who allows this site's ads has not thereby let it talk
         // to the printer. A nil host is the resting configuration, before the first
@@ -390,10 +390,10 @@ public final class ContentBlocker {
     /// The name `TabController` must register a handler for, if the count is wanted.
     public static let blockedMessageName = "lunaBlocked"
 
-    /// WebKit exposes **no** public callback for a blocked load: `WKContentRuleList` has
+    /// WebKit exposes no public callback for a blocked load: `WKContentRuleList` has
     /// only an `identifier`, and the delegate that would report an action is SPI (D10).
     /// What is observable, and was measured, is that a blocked sub-resource fires `error`
-    /// on its element and leaves **no** Resource Timing entry, while a 404 or a decode
+    /// on its element and leaves no Resource Timing entry, while a 404 or a decode
     /// failure fires the same `error` and does leave one. That difference is the count.
     ///
     /// It is a heuristic, and it is the honest ceiling of the public API.
@@ -455,7 +455,7 @@ public final class ContentBlocker {
 
     static let prefix = "luna-"
 
-    /// The content hash is *in* the identifier, so a changed list is a different list and
+    /// The content hash is in the identifier, so a changed list is a different list and
     /// an unchanged one is found by lookup instead of rebuilt.
     static func identifier(_ category: Category, hash: String, chunk: Int) -> String {
         "\(prefix)\(category.rawValue)-\(hash)-\(chunk)"

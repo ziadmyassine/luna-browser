@@ -5,14 +5,14 @@
 //  The thing under the pointer while a tab is being moved — see
 //  `SidebarTabDrag.swift` for the gesture that drives it.
 //
-//  **It is the row, not a picture of the row.** §3.4 draws a tab as a selected
+//  It is the row, not a picture of the row. §3.4 draws a tab as a selected
 //  glass pill with a favicon and a title on it, and that is what this is: the
 //  same `RowPillView` the list moves between rows, with the same two pieces of
 //  content laid out at the same insets. Martin asked for "the whole tab
 //  rectangle, included the highlighted UI", and the cheapest way to be sure of
 //  that is to build it out of the same parts rather than to snapshot them.
 //
-//  The **morph** is why the title and the icon are laid out by hand instead of
+//  The morph is why the title and the icon are laid out by hand instead of
 //  by constraints. A §3.3 tile is the same pill at a different size with the
 //  title gone and the icon in the middle, so going from one to the other is two
 //  frames and an alpha inside one animation — no view is created, destroyed or
@@ -96,7 +96,7 @@ final class SidebarDragLiftView: NSView {
         }
     }
 
-    /// **Comes to rest in the slot, then hands over.** A tile carried around
+    /// Comes to rest in the slot, then hands over. A tile carried around
     /// the §3.3 grid is not snapped to a slot while it is in the air — it goes
     /// where the hand goes — so letting go has to be the movement that puts it
     /// away. `commit` runs when it lands, not when it is released: the real
@@ -152,7 +152,7 @@ final class SidebarDragLiftView: NSView {
         switch shape {
         case .row:
             // The same insets §3.4 measures, less the pill's own inset from the
-            // sidebar — the lift *is* the pill, so its bounds start where the
+            // sidebar — the lift is the pill, so its bounds start where the
             // row's pill starts.
             let inset = Tokens.Metric.rowFaviconInset - Tokens.Metric.rowInset
             icon.frame = NSRect(x: inset, y: (bounds.height - glyph) / 2, width: glyph, height: glyph).pixelAligned

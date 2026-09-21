@@ -6,7 +6,7 @@
 //  `[file-type icon 34] [filename, middle-truncated, 14 pt] [confirm 30]`,
 //  plus the §5.1 particle sweep laid over the filename.
 //
-//  **Middle truncation is required, not stylistic** (§5). A statement called
+//  Middle truncation is required, not stylistic (§5). A statement called
 //  `97103328759-2026-01-01-2026-08-31.pdf` has to keep both ends: head
 //  truncation destroys the account number, tail truncation destroys the
 //  extension, and either leaves the user unable to tell which file landed.

@@ -4,7 +4,7 @@
 //
 //  §2's section list: ten rows, exactly one selected, always.
 //
-//  **It is the browser's sidebar, with sections where the tabs are.** Same
+//  It is the browser's sidebar, with sections where the tabs are. Same
 //  material, same pitch, same pill, same insets, same springs — `SidebarRowView`
 //  and this class are two lists of one design, and every number below is the
 //  token that list reads. What that costs is nothing; what it buys is that the
@@ -12,14 +12,14 @@
 //
 //  Three things were not the sidebar before this pass and are now:
 //
-//  · **The fills are `RowPillView`** — §3.4's glass, moved between rows, rather
+//  · The fills are `RowPillView` — §3.4's glass, moved between rows, rather
 //    than a flat wash painted on whichever row was selected. Clear glass over
 //    the column's own glass is what a selected tab is made of, and it is why
 //    the selection reads as a raised surface instead of a grey band.
-//  · **No tile behind the symbol.** A rounded square carrying `Surface.selected`
+//  · No tile behind the symbol. A rounded square carrying `Surface.selected`
 //    sat under every glyph, which made ten section icons into ten buttons and
 //    put a second selected-looking shape on every unselected row.
-//  · **The sidebar's pitch**: 38 pt of row around a 35 pt pill, not 34 around
+//  · The sidebar's pitch: 38 pt of row around a 35 pt pill, not 34 around
 //    31. The list is a third of an inch taller for it — see `settingsMinHeight`.
 //
 //  Views laid out with arithmetic rather than constraints, for the reason the
@@ -138,7 +138,7 @@ final class SettingsSectionList: NSView {
         movePills()
     }
 
-    /// §2: a section with no matches is dimmed, **not** removed.
+    /// §2: a section with no matches is dimmed, not removed.
     func setDimmed(_ flags: [Bool]) {
         for (row, dimmed) in zip(rows, flags) { row.isDimmed = dimmed }
     }
@@ -176,7 +176,7 @@ final class SettingsSectionList: NSView {
 }
 
 /// One row of §2's list: `[symbol 16] [title 13 pt]`, on the sidebar's own two
-/// insets. It **draws nothing** — the fills belong to the list, and an
+/// insets. It draws nothing — the fills belong to the list, and an
 /// unselected, unhovered row carries no chrome at all (§30.7).
 @MainActor
 final class SettingsSectionRowView: NSView {

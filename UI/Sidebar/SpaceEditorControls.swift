@@ -15,7 +15,7 @@
 //  §3.3's tiles), so a group reads as one object at a glance rather than as
 //  two labels that happen to be near their grids.
 //
-//  **A labelled button, because a bare tick is a guess.** The circle at the
+//  A labelled button, because a bare tick is a guess. The circle at the
 //  bottom carried `checkmark` and nothing else, which is legible only if you
 //  already know what it will do — and "it closes the form you are looking at"
 //  and "it makes the Space" are both plausible readings of a tick. The word is
@@ -86,7 +86,7 @@ final class SpaceEditorButton: NSView {
         didSet {
             guard isPressed != oldValue else { return }
             refresh()
-            // **The swell is the press's alone.** Hanging it off `refresh`
+            // The swell is the press's alone. Hanging it off `refresh`
             // would re-spring the pill every time the pointer crossed its
             // edge, which is a button that twitches at rest.
             Tokens.Motion.swell(self, to: isPressed ? Tokens.Motion.pressSwell : 1)

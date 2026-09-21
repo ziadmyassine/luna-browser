@@ -20,7 +20,7 @@ final class KeyBindingTests: XCTestCase {
 
     /// ⌘+ is a real shortcut (Zoom In), and its stored form is `"cmd++"`.
     /// Splitting that on every `+` gives an empty key — which is why the parser
-    /// cuts at the **last** separator.
+    /// cuts at the last separator.
     func testAPlusSurvivesBeingStored() throws {
         let zoomIn = KeyBinding("+")
         XCTAssertEqual(zoomIn.stored, "cmd++")
@@ -91,7 +91,7 @@ final class KeyBindingTests: XCTestCase {
         XCTAssertEqual(recorded.display, "⇧⌘N")
     }
 
-    /// `charactersIgnoringModifiers` reports the character the *layout* makes,
+    /// `charactersIgnoringModifiers` reports the character the layout makes,
     /// so ⇧⌘[ arrives as `{` on a US keyboard. Recorded as pressed, because
     /// that is what AppKit will be matching the event against — see
     /// `KeyBinding`'s header.

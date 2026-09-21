@@ -3,9 +3,9 @@ import Foundation
 /// §14.5 — a strong password, generated to the site's own rules when it states
 /// them.
 ///
-/// **Why the rules matter.** The failure this avoids is not aesthetic: a
+/// Why the rules matter. The failure this avoids is not aesthetic: a
 /// generator that ignores a bank's "no more than 16 characters, no symbols"
-/// produces a password the form rejects *after* Luna has offered to save it,
+/// produces a password the form rejects after Luna has offered to save it,
 /// and the user ends up with a saved credential that does not work. Apple
 /// publishes the `passwordrules` attribute for exactly this, Safari honours it,
 /// and every site that bothers to set it is a site with a picky validator.
@@ -91,7 +91,7 @@ public enum PasswordGenerator {
         let length = max(rules.minLength, min(rules.maxLength, max(defaultLength, rules.minLength)))
 
         // Retry rather than repair: a password patched afterwards to satisfy a
-        // requirement has a *known* character in a known position, and that is
+        // requirement has a known character in a known position, and that is
         // exactly the structure an attacker's mask exploits. Drawing again is
         // cheap and keeps every position uniform.
         for _ in 0 ..< 64 {
@@ -198,12 +198,12 @@ public enum PasswordGenerator {
         if rules.minLength <= 0 { rules.minLength = min(defaultLength, rules.maxLength > 0 ? rules.maxLength : defaultLength) }
         if rules.maxLength <= 0 { rules.maxLength = max(rules.minLength, 64) }
         if rules.maxLength < rules.minLength { rules.maxLength = rules.minLength }
-        // **`required` is implicitly allowed.** Apple's grammar says so, and the
+        // `required` is implicitly allowed. Apple's grammar says so, and the
         // common real-world shape depends on it:
         //
         //     required: lower; required: upper; required: digit; allowed: [!@#$%^&*];
         //
-        // Read literally, that permits *only* the eight symbols — and then
+        // Read literally, that permits only the eight symbols — and then
         // demands a lowercase letter the pool cannot supply, so no password
         // satisfies it and the generator falls back to its own default,
         // quietly ignoring the site's length limits. Taking the union is both

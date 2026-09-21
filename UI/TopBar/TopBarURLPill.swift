@@ -7,8 +7,8 @@
 //  which is why the pill is not window-centred — it sits wherever the active
 //  tab falls in the strip.
 //
-//  This is the **only page-derived colour in the app** (§2). The chrome samples
-//  what is behind the *window*; the pill alone blends `TabState.themeColor`
+//  This is the only page-derived colour in the app (§2). The chrome samples
+//  what is behind the window; the pill alone blends `TabState.themeColor`
 //  through `Tokens.wash`, which backs the fraction off in 2 % steps until the
 //  text still clears §21.4's 4.5:1 and drops the wash entirely if it cannot.
 //
@@ -326,7 +326,7 @@ final class TopBarURLPill: NSView, TopBarThemed, NSTextFieldDelegate {
         loadLine.place(inPill: bounds, cornerRadius: Tokens.Metric.urlPill.cornerRadius)
 
         let inset = Tokens.Metric.rowInset
-        // **The inset is the glyph's, and the chip grows past it** — the same
+        // The inset is the glyph's, and the chip grows past it — the same
         // placement `URLPillView` records: `pillGlyphInset` is measured to the
         // mark the eye lands on, so the hover chip is centred on where the
         // glyph would have been rather than being inset itself.

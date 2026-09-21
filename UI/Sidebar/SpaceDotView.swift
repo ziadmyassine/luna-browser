@@ -13,8 +13,8 @@
 //  §6.6 landing place, an accessibility element carrying the Space's name, and
 //  — since §30.9 — a read-out of a gesture that is still in the user's hand.
 //
-//  **It is told where to draw its mark; it does not work it out.** `bounds`
-//  is the dot's *slot*, which is as wide as the gap to its neighbour and is not
+//  It is told where to draw its mark; it does not work it out. `bounds`
+//  is the dot's slot, which is as wide as the gap to its neighbour and is not
 //  necessarily symmetric about the dot: the first and last slots run out to the
 //  pill's edges. Centring the mark in the slot is what made the row of dots
 //  crooked in the first place — see `SpaceDotsView`'s header — so the strip
@@ -35,8 +35,8 @@ final class SpaceDotView: NSView {
 
     /// This is the Space the window is actually in.
     ///
-    /// **It is the accessibility answer, not the drawn one.** `wearsRing` is
-    /// what the eye follows, and mid-swipe that is the Space you are *about* to
+    /// It is the accessibility answer, not the drawn one. `wearsRing` is
+    /// what the eye follows, and mid-swipe that is the Space you are about to
     /// be in — which is the right thing to show a hand and the wrong thing to
     /// tell VoiceOver, because nothing has happened yet.
     var isActive = false {
@@ -127,7 +127,7 @@ final class SpaceDotView: NSView {
         // argue about: `SpaceDotsView.centres` lays the run out on a whole-point
         // pitch and the chip is a whole number wide, so a settled dot lands on
         // the grid whether it is rounded or not. Rounding therefore only ever
-        // fired *mid-swipe* — where the dot is supposed to be sliding under the
+        // fired mid-swipe — where the dot is supposed to be sliding under the
         // window — and turned a continuous 14 pt slide into fourteen visible
         // steps. Down the pill it is snapped, because that is a position that
         // never moves.
@@ -149,9 +149,9 @@ final class SpaceDotView: NSView {
         // dots were `Text.primary` / `Text.tertiary`, so every Space looked
         // identical no matter what gradient it carried.
         //
-        // **A Space nobody has coloured is drawn in the chrome's own ink**, not
+        // A Space nobody has coloured is drawn in the chrome's own ink, not
         // in neutral's grey. `Gradient.neutral` is a real pair of greys because
-        // §8.2a needs *something* to interpolate a wash toward, but painting it
+        // §8.2a needs something to interpolate a wash toward, but painting it
         // is the same mistake `SpaceWashView.washColors` refuses to make: "no
         // colour" then reads as a thirteenth colour, and the dot for the Space
         // you are in — the one mark on the strip that has to be unmissable —
@@ -165,7 +165,7 @@ final class SpaceDotView: NSView {
         mark.endPoint = CGPoint(x: 1, y: 0)
         mark.colors = [ink.start.cgColor, ink.end.cgColor]
         // §3.5's "100 % / 35 %" step, kept — but the inactive dot is now a
-        // dimmer version of *its own* colour rather than of a shared ink, and
+        // dimmer version of its own colour rather than of a shared ink, and
         // the step is crossed continuously so a swipe can sit between two.
         mark.opacity = Float(Self.restingInk + (1 - Self.restingInk) * max(0, min(presence, 1)))
         // §21.2 Differentiate Without Colour: exactly one dot wears a ring, so
@@ -244,7 +244,7 @@ final class SpaceDotView: NSView {
     override func mouseUp(with event: NSEvent) {
         let inside = bounds.contains(convert(event.locationInWindow, from: nil))
         setPressed(false)
-        // **No `mouseExited` arrives while a button is down**, so a release
+        // No `mouseExited` arrives while a button is down, so a release
         // that lands off the dot has to clear the hover itself — otherwise the
         // chip is left lit on a dot the pointer is nowhere near.
         setHovering(inside)
@@ -271,7 +271,7 @@ final class SpaceDotView: NSView {
     /// settings in the window that holds them.
     ///
     /// A menu on the dot rather than only a Settings pane because the dot is
-    /// the one place a Space is *visible*: Arc's "How Do I Restore the Default
+    /// the one place a Space is visible: Arc's "How Do I Restore the Default
     /// Theme" exists because getting out of a theme was somewhere else
     /// entirely, and Zen has an open issue for not being able to unset a
     /// gradient at all. Colour stays here, in the hand; renaming, reordering

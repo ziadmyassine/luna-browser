@@ -168,7 +168,7 @@ extension InternalPages {
         if let url = error.url {
             let host = error.offersBypass ? "proceed" : "retry"
             let label = error.offersBypass ? "Continue Anyway" : "Try Again"
-            // **Continuing is never the recommendation.** The two kinds that
+            // Continuing is never the recommendation. The two kinds that
             // offer it are the two Luna stopped on purpose, so the emphasis
             // goes to the way out rather than to the way through; every other
             // kind is a failure nobody chose and trying again is the answer.
@@ -184,7 +184,7 @@ extension InternalPages {
     /// whether it is ink or §8.1's danger — there is no colour in this file
     /// either.
     ///
-    /// **Six glyphs, not one.** Every kind used to wear the same exclamation
+    /// Six glyphs, not one. Every kind used to wear the same exclamation
     /// in a circle, which is the mark for "something went wrong" and therefore
     /// says nothing at all six times. These are the distinctions the sentence
     /// under them is already making: a network that is not there, a name that
@@ -225,7 +225,7 @@ extension InternalPages {
             <circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.2 15.2L20.5 20.5"/>\
             <path d="M8.4 8.4l4.2 4.2"/><path d="M12.6 8.4l-4.2 4.2"/>
             """
-        // A lock that is **shut**, with something wrong inside it. The site
+        // A lock that is shut, with something wrong inside it. The site
         // offered encryption and the proof behind it did not check out, which
         // is not the open lock below — and it is not a lock with a line
         // through it either: rendered at 28 pt the slash crossed the shackle

@@ -2,7 +2,7 @@
 //  SettingsRow.swift
 //  Luna
 //
-//  §4's shared row widgets. **Every** control in every §3 section comes from
+//  §4's shared row widgets. Every control in every §3 section comes from
 //  here; no section hand-rolls one, which is what keeps nine sections looking
 //  like one window and makes §2's search, §4's disabled rule and §8's labelling
 //  decisions taken once.
@@ -62,7 +62,7 @@ enum SettingsRow {
     ///
     /// Rows are opaque `NSView`s everywhere else on purpose — a section that can
     /// reach into its own row can drift from what `SettingsRow` guarantees. The
-    /// one exception is a choice whose **answers** change while the window is
+    /// one exception is a choice whose answers change while the window is
     /// open: §3.2's tab position offers a middle segment under the top bar and
     /// two under the sidebar, and the row that decides which sits directly
     /// above it.
@@ -110,7 +110,7 @@ enum SettingsRow {
         return row(title, subtitle, popup, isEnabled, disabledReason, terms: options).retaining(action)
     }
 
-    /// Commits on Return **and** on losing focus — without
+    /// Commits on Return and on losing focus — without
     /// `sendsActionOnEndEditing` a user who types a custom engine and clicks
     /// straight back to the browser loses what they typed.
     static func text(
@@ -197,7 +197,7 @@ enum SettingsRow {
     /// A section heading with one control beside it — §3.7's
     /// `Spaces … [New Space]`.
     ///
-    /// **A verb that makes a new card belongs above the cards, not in one.** As
+    /// A verb that makes a new card belongs above the cards, not in one. As
     /// a row it needed a card of its own, and that card needed a heading, so
     /// the pane read `Spaces` ▸ card ▸ `New Space` ▸ `[New Space]` — the same
     /// two words three times, in a plate that looked like one more Space. The

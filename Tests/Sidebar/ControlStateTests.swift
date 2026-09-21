@@ -46,7 +46,7 @@ final class ControlPressTests: XCTestCase {
         return button
     }
 
-    /// The scale has to be on the **model** layer. Animated onto the
+    /// The scale has to be on the model layer. Animated onto the
     /// presentation layer alone it is gone again the moment the spring settles,
     /// which for a button somebody is still holding down is the wrong answer.
     func testAPressedButtonIsSwollenForAsLongAsItIsHeld() {
@@ -125,7 +125,7 @@ final class ControlPressTests: XCTestCase {
         XCTAssertEqual(glyph.layer?.backgroundColor?.alpha ?? 1, 0, accuracy: 0.001)
     }
 
-    /// The press is the hover fill *one step up*, and the step has to be
+    /// The press is the hover fill one step up, and the step has to be
     /// visible or the press is not one. §3.4 puts `selected` at twice `hover`.
     func testThePressFillIsAStepAboveTheHoverFill() {
         XCTAssertGreaterThan(Tokens.Surface.selected.cgColor.alpha, Tokens.Surface.hover.cgColor.alpha)

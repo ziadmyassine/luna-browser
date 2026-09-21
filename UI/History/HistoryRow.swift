@@ -20,7 +20,7 @@ struct HistoryEntry: Identifiable, Sendable {
     let id: UUID
     let title: String
     /// Where the tab was — the host, or the whole URL when there is no host to
-    /// take. **Not the time**: the two used to be one string, and see
+    /// take. Not the time: the two used to be one string, and see
     /// ``HistoryTimestamp`` for what that cost.
     let subtitle: String
     /// When it was closed, already formatted. See ``HistoryTimestamp``.
@@ -35,11 +35,11 @@ struct HistoryEntry: Identifiable, Sendable {
 
 /// When an archived tab was closed, in the width a 320 pt pop-out has for it.
 ///
-/// **A cut date is worse than a coarse one.** The row used to carry
+/// A cut date is worse than a coarse one. The row used to carry
 /// `"github.com · Sep 20, 2026 at 12:24 PM"` as one middle-truncated label,
 /// and at the panel's width that is what the reader actually got:
 /// `"github…:24 PM"` — a host you cannot identify and a time you cannot
-/// place, from the one part of the row that was supposed to say *when*. The
+/// place, from the one part of the row that was supposed to say when. The
 /// full date and time measures 135 pt beside a 156 pt title and a 59 pt host in
 /// a text column 244 pt wide; there was never room for all three, and the
 /// truncation only decided which of them lost.
@@ -62,7 +62,7 @@ enum HistoryTimestamp {
     }
 
     /// `setLocalizedDateFormatFromTemplate`, not a literal format: the template
-    /// says *which* fields, and the locale keeps the order it puts them in.
+    /// says which fields, and the locale keeps the order it puts them in.
     private static func formatter(template: String) -> DateFormatter {
         let formatter = DateFormatter()
         formatter.setLocalizedDateFormatFromTemplate(template)
@@ -91,7 +91,7 @@ final class HistoryRowView: NSView {
 
     let entry: HistoryEntry
 
-    /// **This row is the highlighted one.** It carries no fill of its own — the
+    /// This row is the highlighted one. It carries no fill of its own — the
     /// highlight is `HistoryListView`'s single glass pill, exactly as it is in
     /// the Command Bar. All a row does is brighten its text, which is §3.4's
     /// "brighter text on the selected row".
@@ -186,7 +186,7 @@ final class HistoryRowView: NSView {
         applyTokens()
     }
 
-    /// **Who gives way, in a row that is always one label too wide.**
+    /// Who gives way, in a row that is always one label too wide.
     ///
     /// The time never does. It is the shortest of the three, it is the answer
     /// to the question the panel is for, and half a timestamp is not a shorter
@@ -218,7 +218,7 @@ final class HistoryRowView: NSView {
     private func applyTokens() {
         title.font = Tokens.TypeScale.sidebarRow
         // Not `sectionLabel`: that is semibold tabular, for a heading, and it
-        // came out *heavier* than the title it was supposed to sit under.
+        // came out heavier than the title it was supposed to sit under.
         subtitle.font = Tokens.TypeScale.settingsCaption
         // §1 asks for tabular digits wherever a number is shown, and a column
         // of clock times is the case it was written for.

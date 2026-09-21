@@ -34,7 +34,7 @@ final class InternalPageThemeTests: XCTestCase {
         XCTAssertEqual(defined, Set(InternalPages.paletteVariables))
     }
 
-    /// §8.8: every colour resolves for light **and** dark, and the page picks
+    /// §8.8: every colour resolves for light and dark, and the page picks
     /// with `prefers-color-scheme` — so both blocks have to be there.
     /// §21.2's Increase Contrast is `prefers-contrast`, for the reason
     /// `Design/Tokens.swift` records: on macOS 26.5 it is not an `NSAppearance`,

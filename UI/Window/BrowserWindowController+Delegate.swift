@@ -30,9 +30,9 @@ extension BrowserWindowController {
         relayoutChrome()
     }
 
-    /// **The traffic lights change size without changing anyone's bounds.**
+    /// The traffic lights change size without changing anyone's bounds.
     ///
-    /// §3.1's control row lays its three circles out *against* the lights —
+    /// §3.1's control row lays its three circles out against the lights —
     /// measured, because `TrafficLightLayoutManager` owns their frames — and
     /// macOS takes the lights away in fullscreen and puts them back on the way
     /// out. Neither edge resizes the row, so nothing marks it dirty, and the
@@ -42,7 +42,7 @@ extension BrowserWindowController {
     private func relayoutChrome() {
         guard let chrome else { return }
         for layout in chrome.subviews { layout.needsLayout = true }
-        // AppKit restores the buttons *after* posting the notification on the
+        // AppKit restores the buttons after posting the notification on the
         // way out of fullscreen, so the pass that matters is the next one.
         DispatchQueue.main.async { [weak chrome] in
             guard let chrome else { return }

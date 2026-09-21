@@ -10,7 +10,7 @@ public enum BrowserStoreError: Error, Equatable, LocalizedError {
     ///
     /// Deleting it anyway would leave `spaces.profileID` pointing at nothing, and those
     /// Spaces would resolve to no data store at all — a window of tabs with no cookie jar.
-    /// The `spaceIDs` are carried so the caller can say *which* Spaces, which is the one
+    /// The `spaceIDs` are carried so the caller can say which Spaces, which is the one
     /// clause §6.4's deletion dialog has no prior art to copy.
     case profileInUse(profileID: UUID, spaceIDs: [UUID])
 

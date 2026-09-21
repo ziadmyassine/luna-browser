@@ -2,13 +2,13 @@
 //  Measure.swift
 //  luna-perf
 //
-//  The measuring instruments. Everything here reads the *system's* numbers —
+//  The measuring instruments. Everything here reads the system's numbers —
 //  `ps`, `footprint`, the window server — rather than anything Luna reports
 //  about itself, because a browser's real cost is spread across processes the
 //  app does not own: WebKit's WebContent, Networking and GPU services are
 //  children of launchd (`ppid == 1`), not of us.
 //
-//  That is also why helper processes are found by **diffing** the set of live
+//  That is also why helper processes are found by diffing the set of live
 //  WebKit XPC services before and after the run: there is no public way to ask
 //  "which WebContent process belongs to this app". `responsibility_get_pid_…`
 //  would answer it and is banned (D10), and `launchctl procinfo` needs root.
@@ -103,7 +103,7 @@ enum Measure {
     /// be the browser window, or nil on timeout.
     ///
     /// This is the honest external definition of "launched": the first frame the
-    /// user can see. It is a **lower bound** on §19.1's "to interactive" —
+    /// user can see. It is a lower bound on §19.1's "to interactive" —
     /// Luna shows its window before it touches SQLite on purpose (`AppDelegate`),
     /// so the session restore lands after this point. ``waitForReady(at:since:timeout:)``
     /// is the other end of that gap.
@@ -123,7 +123,7 @@ enum Measure {
     /// Milliseconds from now until Luna writes its launch tape to `path`, or nil
     /// on timeout.
     ///
-    /// **This is "to interactive", and it is the app's own answer.** `App/LaunchTrace`
+    /// This is "to interactive", and it is the app's own answer. `App/LaunchTrace`
     /// writes the file once the window has the restored session in it; the elapsed
     /// times inside it are measured from `exec`, so they include dyld and the Swift
     /// runtime, which a stopwatch started in `main()` cannot see. The file is written
@@ -136,8 +136,8 @@ enum Measure {
     /// moment Luna says it is interactive. Returns as soon as the ready file
     /// lands, whether or not a window was ever reported.
     ///
-    /// **The window half is allowed to come back nil, and often does.** It asks
-    /// the window server for windows that are *on screen*, and a background app
+    /// The window half is allowed to come back nil, and often does. It asks
+    /// the window server for windows that are on screen, and a background app
     /// spawned by a harness may have none: under Stage Manager a window that is
     /// not the frontmost app's is off to the side, and this poll cannot see it.
     /// Measured — Luna wrote its tape at 316 ms in a run where the same window

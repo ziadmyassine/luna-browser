@@ -2,14 +2,14 @@
 //  SidebarActionCapsule.swift
 //  Luna
 //
-//  §3.5's Downloads and History, as **one cylinder rather than two circles**.
+//  §3.5's Downloads and History, as one cylinder rather than two circles.
 //
 //  They were two `GlassButton`s standing side by side, each carrying its own
 //  `.control` backing. Two glass discs 5 pt apart do not read as a pair — they
 //  read as two controls that happen to be near each other, each with its own
 //  specular rim catching the light at a different angle. `TopBarActionCapsule`
 //  found the same thing at the other end of the window and came to the same
-//  answer: apply the glass **once**, at full radius, and let the buttons inside
+//  answer: apply the glass once, at full radius, and let the buttons inside
 //  it be bare glyphs.
 //
 //  That is also why the buttons are `GlassMode.none` rather than `.dormant`.
@@ -18,7 +18,7 @@
 //  `Text.secondary` to `Text.primary`, which is §3.1's rule and what the rest
 //  of the sidebar does.
 //
-//  **And the cylinder is what answers the press**, for the same reason: a
+//  And the cylinder is what answers the press, for the same reason: a
 //  `.none` button has nothing of its own to swell, so it hands the gesture up
 //  (`GlassButton.onPressChange`) and this takes it. Without that the two most
 //  used buttons in the foot of the column were the only ones in the chrome
@@ -87,7 +87,7 @@ final class SidebarActionCapsule: NSView {
         return NSSize(width: circle.width * CGFloat(buttons.count), height: circle.height)
     }
 
-    /// **Butted, not spaced.** The gap is what made two circles read as two;
+    /// Butted, not spaced. The gap is what made two circles read as two;
     /// the glyphs are already a `glyphSize` mark inside a `bottomCircle` slot,
     /// so each one keeps its own air without any between the slots.
     override func layout() {

@@ -51,7 +51,7 @@ struct FrecencyRankingTests {
         #expect(abs(hits[0].score - expected) < 0.001)
     }
 
-    /// "Score each URL from its **10 most recent visits**". Without the cap a page opened in
+    /// "Score each URL from its 10 most recent visits". Without the cap a page opened in
     /// a loop by a script would bury everything the user actually chose.
     @Test func scoresAtMostTenVisits() async throws {
         let store = try makeTemporaryStore()
@@ -70,7 +70,7 @@ struct FrecencyRankingTests {
         #expect(abs(hits[0].score - 1200) < 0.001)
     }
 
-    /// The cap keeps the *most recent* ten, so ten fresh visits must beat ten old ones even
+    /// The cap keeps the most recent ten, so ten fresh visits must beat ten old ones even
     /// when the old page has far more of them.
     @Test func keepsTheMostRecentTenNotTheFirstTen() async throws {
         let store = try makeTemporaryStore()
@@ -87,7 +87,7 @@ struct FrecencyRankingTests {
         let hits = try await store.searchHistory("", limit: 5)
 
         // Newest ten (140…32 days) = 120 × (5 × 0.1 + 5 × 0.3) = 240.
-        // The ten *oldest* (200…92 days) would be 120 × 10 × 0.1 = 120.
+        // The ten oldest (200…92 days) would be 120 × 10 × 0.1 = 120.
         #expect(abs(hits[0].score - 240) < 0.001)
     }
 }

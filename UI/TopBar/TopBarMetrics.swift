@@ -20,7 +20,7 @@ enum TopBarMetrics {
     static var clusterGap: CGFloat { Tokens.Metric.rowInset * 2 }
     /// §4: inactive tabs are 28 pt icon-only tiles.
     static var tile: RoundedMetric { Tokens.Metric.controlSquircle }
-    /// One capsule item, and the diameter **every** button on this bar uses —
+    /// One capsule item, and the diameter every button on this bar uses —
     /// back included. Round because the capsule it sits in is a cylinder with
     /// rounded ends.
     static var capsuleItem: RoundedMetric { .circle(Tokens.Metric.controlSquircle.width) }
@@ -31,7 +31,7 @@ enum TopBarMetrics {
     static var glyph: CGFloat { Tokens.Metric.faviconSize }
 
     /// How far the traffic lights' centre line falls below the bar's own, in
-    /// AppKit's sense where a positive constant moves a view **down**.
+    /// AppKit's sense where a positive constant moves a view down.
     ///
     /// §3.1's control row shares that line and §4's bar has to as well, or the
     /// two layouts put the same three lights next to controls on two different

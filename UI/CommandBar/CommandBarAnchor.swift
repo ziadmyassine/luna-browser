@@ -12,7 +12,7 @@
 
 import AppKit
 
-/// Where the bar grows from, when it grows out of an **address pill** rather
+/// Where the bar grows from, when it grows out of an address pill rather
 /// than floating over the page.
 ///
 /// §3.2's pill and §3.2b's both hand the whole job over — the field, the
@@ -24,7 +24,7 @@ import AppKit
 @MainActor
 struct CommandBarAnchor {
 
-    /// The pill. **Hidden for as long as the bar stands in its place** — the
+    /// The pill. Hidden for as long as the bar stands in its place — the
     /// bar's own input row shows what the pill was showing, and two of them on
     /// the same 34 pt would be the address drawn twice.
     let view: NSView

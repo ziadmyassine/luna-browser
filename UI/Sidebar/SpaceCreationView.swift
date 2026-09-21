@@ -5,7 +5,7 @@
 //  The Space that does not exist yet, arriving from the trailing edge of the
 //  sidebar as §30.9's swipe runs past the last one.
 //
-//  **The strip alone was not enough of an answer.** A 14 pt ring at the foot of
+//  The strip alone was not enough of an answer. A 14 pt ring at the foot of
 //  the column is the right read-out for a gesture you already understand, and
 //  no read-out at all for one you are meeting for the first time: the hand is
 //  pushing a column of tabs sideways and the only thing that changes is a mark
@@ -13,14 +13,14 @@
 //  is drawn again where the gesture is happening — one disc, the chrome's own
 //  34 pt circle, sliding in from the edge the swipe is heading toward.
 //
-//  **There is one of these, and there used to be two.** A 14 pt copy stood at
+//  There is one of these, and there used to be two. A 14 pt copy stood at
 //  the end of the §3.5 strip on the reasoning that one affordance at two sizes
 //  is one thing to learn. In the hand it was the opposite: the strip answers
-//  *which Space*, and a `+` in it is an answer to a different question sitting
+//  which Space, and a `+` in it is an answer to a different question sitting
 //  in the middle of that answer. The strip is dots now, and this is the whole
 //  of the read-out.
 //
-//  **The ring is drawn around the disc, not on it.** A stroke painted on a
+//  The ring is drawn around the disc, not on it. A stroke painted on a
 //  34 pt glass button's own edge takes a bite out of the button and has to be
 //  hairline-thin to avoid looking like a border; drawn `Metric.spaceCreateRing`
 //  across, it is a progress ring with a button inside it, and it can carry the
@@ -93,12 +93,12 @@ final class SpaceCreationView: NSView {
         let side = Tokens.Metric.bottomCircle.width
         let hoop = Tokens.Metric.spaceCreateRing
         let inset = Tokens.Metric.chromeGapWide
-        // **It travels in from off the edge rather than fading in on the spot.**
+        // It travels in from off the edge rather than fading in on the spot.
         // The gesture is a sideways one and the Space is arriving from the side
         // it is heading toward; a mark that simply appeared would be a badge on
         // the column rather than something entering it.
         //
-        // The *ring* is what is inset from the edge, not the disc: it is the
+        // The ring is what is inset from the edge, not the disc: it is the
         // outermost thing drawn, so it is what has to clear the sidebar's
         // margin.
         // **The disc arrives on its own clock, and it is a faster one than the
@@ -110,7 +110,7 @@ final class SpaceCreationView: NSView {
         let arrival = max(0, min(progress / Tokens.Metric.spaceCreateEntrance, 1))
         let resting = bounds.maxX - inset - hoop
         let travel = bounds.maxX - resting
-        // **Not snapped to the pixel grid**, for `SpaceDotView`'s reason and
+        // Not snapped to the pixel grid, for `SpaceDotView`'s reason and
         // more so: this disc exists only while it is moving — it is hidden at
         // rest — so there is no settled position for alignment to make crisp,
         // and rounding its origin turned a 280 pt glide into 280 visible steps

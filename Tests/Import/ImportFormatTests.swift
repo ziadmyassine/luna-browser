@@ -5,7 +5,7 @@
 //  The parsers, tested as pure functions — no browser installed, no fixture
 //  database, nothing on disk but a temp directory. Every fact asserted here was
 //  read off a real Dia 1.48.0 profile on this Mac first: `date_added` being a
-//  *string*, the bookmarks bar's loose URLs being the Favorites, the transition
+//  string, the bookmarks bar's loose URLs being the Favorites, the transition
 //  bitfield's core values, and `Default` being named something other than
 //  "Default".
 //
@@ -64,7 +64,7 @@ final class ImportFormatTests: XCTestCase {
 
     // MARK: - Chromium format details
 
-    /// `date_added` is microseconds since 1601 written as a **string**. This is
+    /// `date_added` is microseconds since 1601 written as a string. This is
     /// the detail a default `Decodable` gets wrong, and it is verified against
     /// a real value out of Dia's own `Bookmarks`.
     func testBookmarkBarLooseURLsAreFavoritesAndDatesDecode() throws {

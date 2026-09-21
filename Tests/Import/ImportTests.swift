@@ -5,14 +5,14 @@
 //  The behaviour of a whole import run, against fixture profiles. Three things
 //  that are invisible when they break and expensive when they do:
 //
-//  · **Idempotency.** Running an import twice must not double every bookmark.
+//  · Idempotency. Running an import twice must not double every bookmark.
 //    Nothing on screen says it went wrong; the user just has two of everything.
-//  · **A locked source database.** Chromium holds `History` open. Verified
+//  · A locked source database. Chromium holds `History` open. Verified
 //    against Dia on this Mac: an in-place read-only open returns
 //    `database is locked (5)`, and the snapshot read returns the rows. That is
 //    the whole reason `ImportSnapshot` exists, so it gets a test that fails if
 //    somebody "simplifies" it back to a direct read.
-//  · **Malformed input.** A truncated `Bookmarks` must cost the bookmarks, not
+//  · Malformed input. A truncated `Bookmarks` must cost the bookmarks, not
 //    the history, and never the process.
 //
 //  Fixtures throughout — never the live browser data, which changes under the

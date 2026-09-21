@@ -2,7 +2,7 @@
 //  SavePasswordChip.swift
 //  Luna
 //
-//  §14.4: after a successful submit, a **non-modal** chip offering Save /
+//  §14.4: after a successful submit, a non-modal chip offering Save /
 //  Update / Never for this site.
 //
 //  Non-modal is the requirement that shapes everything here. The user has just

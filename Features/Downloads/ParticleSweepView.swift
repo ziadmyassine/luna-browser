@@ -13,12 +13,12 @@
 //  means 1200 nodes for the render server to transform and blend every frame,
 //  which is the stutter §5.1 is warning about.
 //
-//  `CAEmitterLayer` cannot do the second half of §5.1. It is a *simulation*:
+//  `CAEmitterLayer` cannot do the second half of §5.1. It is a simulation:
 //  cells describe birth rate, velocity and lifetime, and there is no handle on
 //  an individual particle afterwards. "Settle back into place over 0.18 s with
 //  a 0.04 s stagger" requires addressing each particle by its home position,
 //  which the emitter model does not offer. Its `emitterPosition` is also a
-//  single point, so particles cannot be sampled from the *shape* of the text.
+//  single point, so particles cannot be sampled from the shape of the text.
 //
 //  Metal would do it, at the cost of a device, a pipeline, a shader and a
 //  vertex buffer for 0.4 s of animation on a 330 pt popover.
@@ -32,7 +32,7 @@
 //  profile, bucket the particles by alpha and use `CGContext.fill(_ rects:)` —
 //  eight state changes instead of 1200. Not worth it at this size.
 //
-//  §5.1 / §21.2: **under Reduce Motion this does not run at all.** The caller
+//  §5.1 / §21.2: under Reduce Motion this does not run at all. The caller
 //  checks `Tokens.Motion.reduceMotion` and simply shows the label.
 //
 
@@ -93,7 +93,7 @@ final class ParticleSweepView: NSView {
     /// animates — the filename simply stays where it is (§5.1, §21.2).
     func run(sampling label: NSView) {
         // A layer-backed view clips to its own bounds, and §5.1 throws the
-        // cloud *above* and *outside* the word — so the canvas is the label
+        // cloud above and outside the word — so the canvas is the label
         // grown by one line height on every side, and the particles' home
         // coordinates are offset into it.
         let margin = label.bounds.height
@@ -245,7 +245,7 @@ final class ParticleSweepView: NSView {
 ///
 /// The three published numbers only add up one way. Total is 0.40 s and
 /// dissolve + settle is 0.22 + 0.18 = 0.40, so the 0.04 s stagger has to live
-/// *inside* each phase rather than extend it: a particle's own dissolve runs
+/// inside each phase rather than extend it: a particle's own dissolve runs
 /// for 0.22 − 0.04 and starts at `sweep × 0.04`, and its settle does the same
 /// within the second half. The right-most particle finishes at exactly 0.40 s,
 /// the left-most 0.04 s earlier, and that gap is the directional read.

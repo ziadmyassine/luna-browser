@@ -14,8 +14,8 @@
 //    not expand or collapse. The Essentials grid is a header above the scroll
 //    view, not a parent node.
 //
-//  The **selected pill and the hover fill are one view each**, moved between
-//  rows, not a background per row. §6 asks the selected pill to *move* on a
+//  The selected pill and the hover fill are one view each, moved between
+//  rows, not a background per row. §6 asks the selected pill to move on a
 //  0.20 s spring, which only a single view can do — and it means a scroll
 //  allocates no glass at all.
 //
@@ -59,7 +59,7 @@ final class TabListController: NSObject {
     private(set) var hoveredRow: Int?
     private var activeTabID: UUID?
     var isApplyingSelection = false
-    /// A press landed on a **tab** row. `SidebarTabDragController` runs the rest
+    /// A press landed on a tab row. `SidebarTabDragController` runs the rest
     /// of the gesture from here — see `SidebarTabDrag.swift` for why the list
     /// does not use `NSTableView`'s own drag and drop for this.
     var onTabPress: ((_ row: Int, _ event: NSEvent) -> Void)?
@@ -70,7 +70,7 @@ final class TabListController: NSObject {
     var draggedRow: Int?
     /// Whether a lift is up over this list at all. Not the same question as
     /// `draggedRow != nil`: a tile carried down from the §3.3 grid has no row
-    /// here to be carried *from*, and the gap it opens is still the list's to
+    /// here to be carried from, and the gap it opens is still the list's to
     /// draw. See `beginIncomingDrag()`.
     var isDragging = false
     /// Where the lift would land, in row space — or nil while it is over the
@@ -119,7 +119,7 @@ final class TabListController: NSObject {
         }
     }
 
-    /// **No scroller at all**, which `.overlay` is not: overlay draws *over* the
+    /// No scroller at all, which `.overlay` is not: overlay draws over the
     /// content, and the content is a pill inset 8 pt from the sidebar's edge
     /// with the close affordance a `rowInset` inside that — so it came down on
     /// the one strip of the row the pointer is already on, narrow as it faded
@@ -143,13 +143,13 @@ final class TabListController: NSObject {
 
     // MARK: - Content
 
-    /// The rows, and whether what changed is an **edit** to this list or a
+    /// The rows, and whether what changed is an edit to this list or a
     /// different list entirely.
     ///
     /// **A Space switch is the second, and it used to be treated as the
     /// first.** `apply` is §6's insert: it fades the outgoing rows over
     /// `tabInsert`, which is exactly right when one tab closes and wrong for
-    /// every row at once — `NSTableView` keeps a row being removed *on screen*
+    /// every row at once — `NSTableView` keeps a row being removed on screen
     /// for the length of its animation, so the Space you had just left stayed
     /// drawn, fading, over the Space you had just arrived in. That is the flash
     /// of old tabs. `SidebarViewController` is already cross-fading the whole
@@ -176,7 +176,7 @@ final class TabListController: NSObject {
     ///
     /// `show(_:activeTabID:)` diffs and does nothing when the rows are
     /// unchanged, which is right on every path but one: coming back from a
-    /// layout where this list was hidden, the rows are unchanged *and* the row
+    /// layout where this list was hidden, the rows are unchanged and the row
     /// views are gone. This is the path for that.
     func reload() {
         table.reloadData()
@@ -228,7 +228,7 @@ final class TabListController: NSObject {
     func content(for row: Int) -> SidebarRowContent {
         switch list[row] {
         case .addTab:
-            // **"New Tab", and it opens §9.1 rather than an empty page.** The
+            // "New Tab", and it opens §9.1 rather than an empty page. The
             // row used to be `+ Add Tab` and used to make a blank tab, which is
             // the one tab nobody wants: the next thing you do with it is reach
             // for the address bar. It now asks the question the blank tab was
@@ -249,7 +249,7 @@ final class TabListController: NSObject {
         // already overruled.
         let pageTitle = state?.title.isEmpty == false ? (state?.title ?? "") : tab.title
         let title = tab.customTitle ?? pageTitle
-        // **Where the tab is now, not where the snapshot left it.** `tab` is the
+        // Where the tab is now, not where the snapshot left it. `tab` is the
         // copy taken at the last `notifyChange()`, and an in-tab navigation
         // raises none — it writes the tab and publishes a `TabState`. Reading
         // the host off the snapshot is what kept the row wearing the icon of the

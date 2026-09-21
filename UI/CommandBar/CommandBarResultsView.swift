@@ -11,7 +11,7 @@
 //  by an index. §9.7: "results must never reorder under the user's cursor while
 //  they are moving through them", and an index cannot survive a merge that
 //  inserts a row above it. The controller enforces the no-reorder rule; this view
-//  makes it observable, by putting the highlight back on the same *result*.
+//  makes it observable, by putting the highlight back on the same result.
 //
 //  UI-SPEC §3.4 supplies the look: a filled translucent pill at `rowCornerRadius`
 //  inset `rowInset` from each edge, with a visible hairline border and no
@@ -77,7 +77,7 @@ final class CommandBarResultsView: NSView {
     /// Replaces the list. `keepingSelection` is the controller's promise from
     /// §9.7 — when the user has moved the highlight, the row under it stays put.
     ///
-    /// **Nothing here places the highlight; `layout()` does.** It used to move
+    /// Nothing here places the highlight; `layout()` does. It used to move
     /// the pill from this method whenever the list's ids had not changed, which
     /// is most of what happens while somebody types fast: the query re-ranks,
     /// the history lands, the engine's suggestions land, and each of those
@@ -106,7 +106,7 @@ final class CommandBarResultsView: NSView {
 
     override func layout() {
         super.layout()
-        // **The rows first, then the pill that measures them.** A view is laid
+        // The rows first, then the pill that measures them. A view is laid
         // out before its children, so on the pass that follows a rebuild the
         // stack's rows still had no frames and the highlight was placed on a
         // zero rect — invisible. It stayed there until something else asked for
@@ -235,7 +235,7 @@ private final class CommandBarRowView: NSView {
         badgeName.stringValue = result.badge?.name ?? ""
         badgeDot.wantsLayer = true
         badgeDot.layer?.cornerRadius = Tokens.Metric.spaceDot / 2
-        // §21.2 "Differentiate Without Colour": the Space's *name* is always next
+        // §21.2 "Differentiate Without Colour": the Space's name is always next
         // to the dot, so the badge never depends on the colour to be readable.
         let showBadge = result.badge != nil
         badgeDot.isHidden = !showBadge

@@ -4,14 +4,14 @@
 //
 //  §7's 1× glass adaptation. Three things are worth a test and the rest is not:
 //
-//    1. `isOptimised(for:)` reads the **window's** scale factor and obeys the
+//    1. `isOptimised(for:)` reads the window's scale factor and obeys the
 //       override in both directions. The bug this guards against is the one
 //       §7 names by hand — asking `NSScreen.main` instead, which gets the
 //       right answer on a single-display machine and the wrong one the moment
 //       a window is dragged.
 //    2. Setting `Glass.optimisation` re-skins glass that is **already on
 //       screen**, because the alternative is a setting that needs a relaunch.
-//    3. `previewTile` is *pinned*: the Settings window shows both columns of
+//    3. `previewTile` is pinned: the Settings window shows both columns of
 //       §7's table at once, on one display, so its tiles must not follow the
 //       live setting the way every other glass view does.
 //

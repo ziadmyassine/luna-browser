@@ -43,7 +43,7 @@ enum Schema {
 
     /// `v4` — a tab carries the name and the icon the user gave it (§3.4a).
     ///
-    /// **Two nullable columns and no backfill**, which is the whole design. Nil means "the user
+    /// Two nullable columns and no backfill, which is the whole design. Nil means "the user
     /// has not named this tab" and "the user has not chosen an icon", and the page's own title and
     /// the site's own favicon are the answers — which is true for every tab that existed before
     /// this column did and for every tab opened since. Seeding `customTitle` from `title` would
@@ -64,12 +64,12 @@ enum Schema {
 
     /// `v3` — a pinned tile remembers the address it was pinned at (§3.3).
     ///
-    /// **Nullable, and that is the whole design.** Nil means "this tab has no home to go
+    /// Nullable, and that is the whole design. Nil means "this tab has no home to go
     /// back to", which is the truth for every tab that is not a tile and for every tile
     /// that existed before this column did. Defaulting it to `url` on the way in would
     /// invent a decision the user never took — the tab's current address is wherever the
     /// site last walked, not the page they chose to keep — so the backfill below sets it
-    /// only for rows that *are* tiles, where "the address it is showing now" is the best
+    /// only for rows that are tiles, where "the address it is showing now" is the best
     /// available reading of "the address it was pinned at", and leaves everything else nil.
     ///
     /// Idempotent on the live schema, like `v2`: the migrator promises this runs once, the
@@ -87,7 +87,7 @@ enum Schema {
     /// to have been created in. Arc keys its Favorites container by profile
     /// (`topAppsContainerIDs`) and this is the same key.
     ///
-    /// **Nothing in this migration deletes a row.** The cap trim *demotes* overflow to
+    /// Nothing in this migration deletes a row. The cap trim demotes overflow to
     /// `pinned` instead, because two Spaces on one Profile pool their favourites and a user
     /// who has never seen a cap should not lose tiles to one being introduced.
     ///
@@ -107,7 +107,7 @@ enum Schema {
         try db.execute(sql: "CREATE INDEX IF NOT EXISTS tabs_on_profileID ON tabs(profileID)")
 
         // A favourite belongs to the Profile of the Space it was created in. That Space is
-        // still its home `spaceID` afterwards; only the *scope* has changed.
+        // still its home `spaceID` afterwards; only the scope has changed.
         try db.execute(sql: """
         UPDATE tabs
            SET profileID = (SELECT profileID FROM spaces WHERE spaces.id = tabs.spaceID)
@@ -122,10 +122,10 @@ enum Schema {
         // Space they already live in. Demote, never delete: §13.7's whole argument is that
         // this is the cheap place to beat Vivaldi, which closes tabs with no undo.
         //
-        // **`archivedAt IS NULL` appears twice, and both are load-bearing.**
+        // `archivedAt IS NULL` appears twice, and both are load-bearing.
         //
         // An archived Favorite is a reachable state, not a theoretical one: §2 says Favorites
-        // never *auto*-archive, but `deleteSpace(_:policy: .archiveTabs)` archives one when its
+        // never auto-archive, but `deleteSpace(_:policy: .archiveTabs)` archives one when its
         // Profile has no other Space left to home it in. So:
         //
         //   · in the ranking, so an archived tile cannot displace a live one out of the twelve;

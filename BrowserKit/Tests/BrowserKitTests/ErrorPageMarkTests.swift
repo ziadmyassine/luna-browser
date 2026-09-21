@@ -51,7 +51,7 @@ struct ErrorPageMarkTests {
         }
     }
 
-    /// **Luna never recommends going round itself.** The two kinds that offer a
+    /// Luna never recommends going round itself. The two kinds that offer a
     /// bypass are the two Luna stopped on purpose, so the emphasis belongs on
     /// the way out; every other kind is a failure nobody chose, and trying
     /// again is the answer.
@@ -65,7 +65,7 @@ struct ErrorPageMarkTests {
             let bypass = page.range(of: "luna://proceed")
             let key = page.range(of: "button key")
             if let bypass, let key {
-                // The key class is written on the *other* anchor, so the two
+                // The key class is written on the other anchor, so the two
                 // never land inside the same tag.
                 let between = page[min(bypass.lowerBound, key.lowerBound) ..< max(bypass.upperBound, key.upperBound)]
                 #expect(between.contains("</a>"), "\(kind) recommends continuing anyway")

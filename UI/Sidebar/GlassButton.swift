@@ -8,18 +8,18 @@
 //  a second implementation would be a second set of hover, focus-ring and
 //  VoiceOver bugs.
 //
-//  **Hover lifts the fill, not the border** (§3.1) — and now it really is the
+//  Hover lifts the fill, not the border (§3.1) — and now it really is the
 //  fill. For a long time it was the glyph alone (`Text.secondary` →
 //  `Text.primary`), because Luna had no translucent hover colour to lift a
-//  *surface* with: `Surface.raised`/`glassFallback` are opaque planes and the
+//  surface with: `Surface.raised`/`glassFallback` are opaque planes and the
 //  `Line.*` tokens are line colours. `Surface.hover` and `Surface.selected`
 //  exist now, and the two of them are the whole of this button's answer to a
 //  pointer: 6 % over the material on hover, 12 % under a press.
 //
-//  **And a press swells it.** `Motion.controlPress` — the material grows a
+//  And a press swells it. `Motion.controlPress` — the material grows a
 //  twentieth under the finger and springs back when it is let go, which is
 //  what a Liquid Glass control does on macOS 26. A button whose material
-//  belongs to the surface *around* it (`GlassMode.none`) does not swell on its
+//  belongs to the surface around it (`GlassMode.none`) does not swell on its
 //  own — half a capsule growing inside the other half is not a press — it
 //  hands the gesture to whoever owns that capsule instead (`onPressChange`).
 //
@@ -32,7 +32,7 @@ final class GlassButton: NSView {
     /// Fired on click, Space or Return.
     var onActivate: (() -> Void)?
     /// Makes the button draggable (§6.6 — an Essentials tile moves between
-    /// sections). Handed the **press** that started the gesture, not the drag
+    /// sections). Handed the press that started the gesture, not the drag
     /// that noticed it, so whoever takes over can lift from where the finger
     /// went down; nil for a button that does not travel.
     var onDragOut: ((NSEvent) -> Void)?
@@ -44,12 +44,12 @@ final class GlassButton: NSView {
     /// material is the surface around it. `NavCluster` uses it to swell the
     /// capsule its two chevrons are halves of.
     var onPressChange: ((Bool) -> Void)?
-    /// §3.3: this button is the **selected** one — the active Essential.
+    /// §3.3: this button is the selected one — the active Essential.
     ///
-    /// **Selection is the material, not a ring.** It used to draw a 1 pt accent
+    /// Selection is the material, not a ring. It used to draw a 1 pt accent
     /// border, which is the system-blue highlight Luna does not have anywhere
     /// else. A `.dormant` button carries no glass until it is hovered or
-    /// selected; arriving at it *is* the highlight.
+    /// selected; arriving at it is the highlight.
     var isSelected = false {
         didSet {
             guard isSelected != oldValue else { return }
@@ -69,7 +69,7 @@ final class GlassButton: NSView {
 
     /// When the button carries its glass.
     ///
-    /// **Glass is Luna's highlight.** Nothing in the chrome turns blue to say
+    /// Glass is Luna's highlight. Nothing in the chrome turns blue to say
     /// "this one" — it turns to material. A `.dormant` button is a bare glyph
     /// on the plane it sits on until the pointer arrives or it becomes the
     /// selected one, and the material fades in and out on §6's control-hover
@@ -91,7 +91,7 @@ final class GlassButton: NSView {
     private let pointSize: CGFloat
     private let glassMode: GlassMode
     private let glyph = NSImageView()
-    /// The `.control` backing, **built on demand**.
+    /// The `.control` backing, built on demand.
     ///
     /// A dormant button that has never been hovered has no glass view at all.
     /// That matters: a sidebar with eight pinned tiles used to stand up eight
@@ -99,7 +99,7 @@ final class GlassButton: NSView {
     /// re-composites when the app comes back to the foreground — which is a
     /// large part of what the sidebar's activation flash was made of.
     private var glass: NSView?
-    /// §3.1's hover fill: a wash **above** the material and below the glyph, so
+    /// §3.1's hover fill: a wash above the material and below the glyph, so
     /// it lifts the glass rather than replacing it. Its own view rather than
     /// this button's `backgroundColor`, which is already spoken for — a dormant
     /// tile's well is painted there, and a wash on top of a well is the well.
@@ -152,7 +152,7 @@ final class GlassButton: NSView {
     /// Swaps the glyph — reload → stop while loading (§3.1), speaker → speaker
     /// slash when muted (§3.4).
     ///
-    /// **The weight is set here and not at init**, because it belongs to the
+    /// The weight is set here and not at init, because it belongs to the
     /// mark rather than to the button: the same circle holds `arrow.clockwise`
     /// and then `xmark`, and §3.1's back chevron needs a lighter setting than
     /// either to draw their line. See `TypeScale.glyphWeight(for:)`.
@@ -215,7 +215,7 @@ final class GlassButton: NSView {
 
     /// §3.4's two washes: the pointer's, and the press's at twice it.
     ///
-    /// A **selected** button is not washed. Selection is already the material
+    /// A selected button is not washed. Selection is already the material
     /// (see `isSelected`), and a permanent 6 % on top of it would make the
     /// selected tile the one tile that cannot show a hover.
     private var washColour: NSColor? {
@@ -230,11 +230,11 @@ final class GlassButton: NSView {
         guard let layer else { return }
         layer.cornerRadius = shape.cornerRadius
         layer.cornerCurve = shape.cornerCurve
-        // **No ring.** Selection is `updateGlass`; keyboard focus is AppKit's
+        // No ring. Selection is `updateGlass`; keyboard focus is AppKit's
         // own focus ring, drawn through `drawFocusRingMask` below. A border
         // here used to be the accent-coloured highlight this app does not have.
         //
-        // A `.dormant` button keeps a *plate* instead: the §3.4 wash and the
+        // A `.dormant` button keeps a plate instead: the §3.4 wash and the
         // same hairline every other glass surface carries, so a pinned tile is
         // still a tile when it is not the one you are on. Dormant meant
         // "invisible" for one build and the grid read as icons floating on the
@@ -363,7 +363,7 @@ final class GlassButton: NSView {
         if isEnabled, inside { onActivate?() }
     }
 
-    /// **The gesture is handed on, not started here.** §6.6's lift is one
+    /// The gesture is handed on, not started here. §6.6's lift is one
     /// tracked drag from the press to the mouse-up — see `SidebarTabDrag.swift`
     /// — so this passes the original press along the moment the pointer has
     /// moved far enough to mean it, and takes no further part.

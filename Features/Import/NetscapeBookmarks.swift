@@ -3,7 +3,7 @@
 //  Luna — §23.2 (generic import) and §23.4 (export)
 //
 //  The Netscape bookmarks HTML format: every browser exports it and every
-//  browser reads it. It is the *only* route to Safari's bookmarks without Full
+//  browser reads it. It is the only route to Safari's bookmarks without Full
 //  Disk Access (§23.2 asks for the exported-file path first, and this is it),
 //  and it is half of §23.4's "backup/export of our own data", which is a trust
 //  feature for a new browser rather than a nicety.
@@ -18,10 +18,10 @@
 //          </DL><p>
 //      </DL><p>
 //
-//  `ADD_DATE` here is **seconds** since the Unix epoch — not Chromium's
+//  `ADD_DATE` here is seconds since the Unix epoch — not Chromium's
 //  microseconds since 1601. Different file, different epoch.
 //
-//  The toolbar folder is *transparent*: it is the bar itself, so its direct
+//  The toolbar folder is transparent: it is the bar itself, so its direct
 //  URLs are Favorites and its subfolders are top-level folders. That is the
 //  same rule `ChromiumReader.flatten` applies to `roots.bookmark_bar`, and it
 //  is what makes write-then-read a round trip.

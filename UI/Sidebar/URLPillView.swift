@@ -5,7 +5,7 @@
 //  §3.2's address pill: the domain, and a control at each end of it — site
 //  settings leading, reload trailing.
 //
-//  **It is not an editable field, on either surface.** Both pills hand the
+//  It is not an editable field, on either surface. Both pills hand the
 //  whole job to §9.1, which grows out of the pill it was handed by
 //  (`CommandBarAnchor`): that is where the field, the history, the ranking, the
 //  autofill and the list of completions already are. The sidebar's pill has
@@ -15,14 +15,14 @@
 //  nothing of open tabs, history or commands, and it was the only place in Luna
 //  where typing an address got you a different set of suggestions.
 //
-//  **Both ends are the pill's, on both surfaces.** The page bar grew them first
+//  Both ends are the pill's, on both surfaces. The page bar grew them first
 //  and owned them as siblings laid over the capsule; the sidebar's pill then
 //  wanted the same two, and two implementations of "a glyph inside this pill"
 //  is two sets of the same hover, fade and inset bugs. They live here, and a
 //  pill without a `onReload` simply does not show one — which is how §4's top
 //  bar keeps the pill it has always had.
 //
-//  **It does not take the page's colour.** §2 made this the one page-derived
+//  It does not take the page's colour. §2 made this the one page-derived
 //  tint in the app: the site's `themeColor`, washed over `Surface.chromeFill`
 //  and clamped until the pill's text still cleared §21.4. On screen that meant
 //  the one fixed landmark in the sidebar changed shade with every navigation —
@@ -32,7 +32,7 @@
 //  the same recess a pinned tile rests in, so the head of the sidebar is one
 //  surface rather than two that agree only sometimes.
 //
-//  The pill carries its glass when it is being *reached for* — hovered — and is
+//  The pill carries its glass when it is being reached for — hovered — and is
 //  a bordered well the rest of the time. Constant glass made it the brightest
 //  thing in the sidebar: a second lit surface directly under three lit circles,
 //  with the eye drawn to an address the user already knows.
@@ -57,7 +57,7 @@ final class URLPillView: NSView {
             needsLayout = true
         }
     }
-    /// **Where the address is actually edited.** A click, or `⌘L`, opens §9.1
+    /// Where the address is actually edited. A click, or `⌘L`, opens §9.1
     /// on the current URL — anchored to this pill, so what the user sees is
     /// this capsule growing the field and the list it never had.
     ///
@@ -124,13 +124,13 @@ final class URLPillView: NSView {
     var surface: Surface = .well {
         didSet {
             guard surface != oldValue else { return }
-            // **The site menu goes with the surface.** A collapsed bar is the
+            // The site menu goes with the surface. A collapsed bar is the
             // page's own top edge with an address in it; a control floating in
             // that strip is the one thing on it that is not the site. The menu
             // is a scroll away — the bar opens again the moment the page moves
             // up — and §3.2's pill in the sidebar still carries it.
             //
-            // It *fades* with it: §3.2b's two states are one dissolve, and a
+            // It fades with it: §3.2b's two states are one dissolve, and a
             // glyph that blinks out on the first frame is the one thing in that
             // dissolve which reads as a cut. Shown before the fade in either
             // direction — a hidden view cannot fade — and hidden again by
@@ -188,7 +188,7 @@ final class URLPillView: NSView {
         NSSize(width: NSView.noIntrinsicMetric, height: Tokens.Metric.urlPill.height)
     }
 
-    /// §3.1: reload becomes a **stop** glyph for as long as the page is
+    /// §3.1: reload becomes a stop glyph for as long as the page is
     /// loading. The same swap the sidebar's own circle made before the control
     /// moved inside the pill.
     func setLoading(_ loading: Bool) {
@@ -239,14 +239,14 @@ final class URLPillView: NSView {
         // §3.2: a well cut into the sidebar, not a plate sitting on it. The
         // glass fades in above this when the pill is reached for.
         //
-        // **Neither, off the sidebar.** A `GlassButton` at `.always` carries no
+        // Neither, off the sidebar. A `GlassButton` at `.always` carries no
         // plate and no hairline either: the material is the whole surface, and
         // a well behind it is a shadow the buttons beside it do not have. A
         // `.bare` pill has no surface of its own at all — see `Surface`.
         let plated = surface == .well
         layer.backgroundColor = plated ? Tokens.Surface.well.cgColor : nil
         layer.borderWidth = plated ? Tokens.Metric.hairline : 0
-        // **Never the accent.** An editing pill used to take a system-blue
+        // Never the accent. An editing pill used to take a system-blue
         // ring; the material is what says the pill is live, the same way it
         // does for a selected row and a pinned tile.
         layer.borderColor = plated ? Tokens.Line.border.cgColor : nil
@@ -254,7 +254,7 @@ final class URLPillView: NSView {
 
     // MARK: - Dormant material
 
-    /// The pill carries its glass when it is **being reached for** — hovered —
+    /// The pill carries its glass when it is being reached for — hovered —
     /// and is a bordered plate on the sidebar's own plane the rest of the time.
     ///
     /// Constant glass is what made it the brightest thing in the sidebar: a
@@ -296,7 +296,7 @@ final class URLPillView: NSView {
     /// Rebuilds the backing when the pill has changed height under it — only
     /// §3.2b's ever does; the sidebar's finds nothing to do.
     ///
-    /// **It carries the alpha across rather than jumping to the target.** A
+    /// It carries the alpha across rather than jumping to the target. A
     /// glass view's radius is fixed when it is built, so a pill that collapses
     /// has to be given a new backing — and the height that forces it changes on
     /// the same frame the material starts fading. Rebuilding at the target

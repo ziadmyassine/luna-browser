@@ -7,14 +7,14 @@
 //  `SearchSettings`, which the §3.2 URL pill and the §9.2 Command Bar both
 //  commit through — so they still cannot disagree about what a query means.
 //
-//  **§9.7 is the constraint that shaped the storage, not this file.** The
+//  §9.7 is the constraint that shaped the storage, not this file. The
 //  local-results path runs synchronously inside `controlTextDidChange` at a
 //  measured 9.6 ms median, and it must not acquire a `UserDefaults` read on the
 //  way. `SearchSettings` therefore holds the resolved value in memory behind a
-//  `Mutex` and this section writes *through* it: the in-memory half first, the
+//  `Mutex` and this section writes through it: the in-memory half first, the
 //  persisted half second. Nothing here is on the keystroke path.
 //
-//  **Suggestions are built, and default on.** They fetch from the engine that
+//  Suggestions are built, and default on. They fetch from the engine that
 //  is already chosen here and from nowhere else — see `SearchSuggestions`,
 //  which owns the one network call in the query path and states exactly what
 //  leaves the Mac.

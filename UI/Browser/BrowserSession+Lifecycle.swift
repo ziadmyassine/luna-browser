@@ -9,17 +9,17 @@
 //
 //  Timing is the part that is easy to get wrong:
 //
-//  · **Snapshot before hibernate, never after.** `takeSnapshot` talks to the
+//  · Snapshot before hibernate, never after. `takeSnapshot` talks to the
 //    WebContent process; once that process is gone there is nothing to ask, and
 //    the archive row loses its picture for good. So the sweep captures first and
-//    tears down in the completion — except under *critical* memory pressure,
+//    tears down in the completion — except under critical memory pressure,
 //    where holding a renderer alive for a thumbnail is the wrong trade.
-//  · **Never break §6.2.** Nothing here reads `interactionState` late:
+//  · Never break §6.2. Nothing here reads `interactionState` late:
 //    `BrowserSession+Engine` already caches the blob at every settled load, and
 //    `cacheSession(of:)` after `hibernate()` only moves the copy the controller
 //    already holds. A dead WebContent process reads back nil, and that is fine,
 //    because by then the blob is already on the `Tab`.
-//  · **Energy (§19.6).** One 60 s timer with 30 s tolerance, so it coalesces
+//  · Energy (§19.6). One 60 s timer with 30 s tolerance, so it coalesces
 //    with whatever else the system is doing rather than pinning a wake-up.
 //    Nothing here calls `beginActivity`, so App Nap still applies, and Luna
 //    terminates when its last window closes, so there is no window-less state
@@ -214,7 +214,7 @@ final class TabLifecycle {
         guard !doomed.isEmpty else { return }
         // `closeTab` is §6.3's archive — same soft delete as ⌘W, so the row
         // keeps its title, URL and favicon. The undo stack is the user's record
-        // of what *they* did, so a background sweep stays out of it.
+        // of what they did, so a background sweep stays out of it.
         session.undoManager.disableUndoRegistration()
         for id in doomed { session.closeTab(id) }
         session.undoManager.enableUndoRegistration()
@@ -335,7 +335,7 @@ final class TabLifecycle {
     ///   been submitted. Cleared on `submit`, and by the next document, because
     ///   this script re-runs on every one.
     /// · a `beforeunload` handler assigned to `window.onbeforeunload`. A handler
-    ///   registered with `addEventListener` instead is **invisible** to any page
+    ///   registered with `addEventListener` instead is invisible to any page
     ///   script, so a site that guards its draft that way is not detected. There
     ///   is no API that reports it; this is the honest ceiling of the heuristic.
     ///

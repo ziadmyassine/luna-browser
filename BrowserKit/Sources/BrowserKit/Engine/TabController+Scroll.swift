@@ -5,12 +5,12 @@ import WebKit
 /// one piece of chrome that needs to know: §3.2b's page bar, which collapses as
 /// the page moves away from its top and is painted in the page's own colour.
 ///
-/// **WebKit publishes no scroll position on macOS.** `WKWebView` has no
+/// WebKit publishes no scroll position on macOS. `WKWebView` has no
 /// `scrollView` outside UIKit and no KVO-able offset, so the only supported way
 /// to ask is to have the page tell us — the same shape `mediaScript` and
 /// `ContentBlocker.blockedCountScript` already use, and for the same reason.
 ///
-/// **And it publishes no colour but the document's.** `underPageBackgroundColor`
+/// And it publishes no colour but the document's. `underPageBackgroundColor`
 /// is one answer for the whole page, so a bar taking it stayed white all the way
 /// down a site whose next section is black. What is actually under the bar's
 /// bottom edge is a question only the page can answer, so it is asked in the
@@ -65,38 +65,38 @@ extension TabController {
     /// also sees the app-shell sites that scroll an inner element rather than
     /// the document — `scroll` does not bubble, but it does capture.
     ///
-    /// **Three points, and they have to agree.** The bar is one colour across
+    /// Three points, and they have to agree. The bar is one colour across
     /// the whole pane, so a top edge that is two colours has no right answer and
     /// the sample says so; the bar then falls back to the document's own
     /// background, which is what a centred card on a tinted page wants anyway.
-    /// **Down the z-order at each point, not up the DOM from it.** Each point
+    /// Down the z-order at each point, not up the DOM from it. Each point
     /// takes `elementsFromPoint` — everything painted at that pixel, front to
     /// back — and stops at the first opaque background, because the element on
     /// top is very often a transparent `<div>` in a stack of them.
     ///
     /// It was an ancestor walk first, and that is wrong in the ordinary case: a
-    /// site with a **sticky transparent header** over a dark section answered
-    /// *white*. The header is what is under the point, its ancestors are the
-    /// body, and the dark section is a sibling painted *behind* it — which no
+    /// site with a sticky transparent header over a dark section answered
+    /// white. The header is what is under the point, its ancestors are the
+    /// body, and the dark section is a sibling painted behind it — which no
     /// walk up the tree can reach. Measured on `getroosta.app`, where the
     /// ancestor walk said `255,255,255` and the stack says `12,12,13`.
     ///
-    /// A background *image* means that element cannot answer — it is skipped,
+    /// A background image means that element cannot answer — it is skipped,
     /// and the walk goes on behind it. It used to end the sample instead, and
     /// that is the bug Martin reported as "the bar goes white over a black
     /// page": `getroosta.app` lays a two-stop `linear-gradient` (`div.horizon`)
     /// over `footer.night`, so from roughly 6500 pt down every sample came back
     /// with no answer and the bar fell to the document's own background —
-    /// **white**, over a footer measured at `12,12,13`.
+    /// white, over a footer measured at `12,12,13`.
     ///
     /// Giving up there never bought anything. What "no answer" falls back to is
     /// the document's own background, which is what the last two entries of any
     /// stack are; so stopping at the image only throws away the opaque surfaces
-    /// painted *between* it and the document, and answers the same thing when
+    /// painted between it and the document, and answers the same thing when
     /// there are none. A photo still reads as the page behind it, which is what
     /// it read as before.
     ///
-    /// **And a restored page says so itself.** Back and forward are served from
+    /// And a restored page says so itself. Back and forward are served from
     /// WebKit's page cache, which restores the document without re-running user
     /// scripts — so nothing posted, `resetPerDocumentState` had already cleared
     /// the colour, and the bar wore the page it had just left until the next
@@ -104,7 +104,7 @@ extension TabController {
     /// `pageshow` is the one event that covers both: it fires on every load
     /// after this script is injected, and on every restore out of the cache.
     ///
-    /// **Sampled at most every 4 pt of travel.** `elementFromPoint` is a hit
+    /// Sampled at most every 4 pt of travel. `elementFromPoint` is a hit
     /// test, and running three of them per frame of every drag for a colour that
     /// cannot have changed in four points of scrolling is work the page is
     /// paying for. A resize clears that cache and asks again: the viewport's top

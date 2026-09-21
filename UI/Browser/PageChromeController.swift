@@ -36,7 +36,7 @@ final class PageChromeController {
     private var listeningTo: UUID?
     private var shownURL: URL?
     /// Whether the tab was loading last time it was heard from, so that a load
-    /// *starting* can be told from a load going on.
+    /// starting can be told from a load going on.
     private var wasLoading = false
     /// §9.1 is standing on the pill. The bar is held open for the whole of it —
     /// the collapse rule keeps running underneath, it just does not get the bar
@@ -78,7 +78,7 @@ final class PageChromeController {
 
     /// Shows or hides the whole bar. Called with the layout and the placement
     /// already resolved — this does not read `Settings` itself, because the
-    /// same two keys decide what the *sidebar* drops and one reader for both
+    /// same two keys decide what the sidebar drops and one reader for both
     /// is what keeps them from disagreeing.
     /// Whether this bar is the address bar on screen — `⌘L`'s question.
     var isOnScreen: Bool { isActive }
@@ -148,11 +148,11 @@ final class PageChromeController {
         bar.update(canGoBack: state.canGoBack, canGoForward: state.canGoForward, isLoading: state.isLoading)
     }
 
-    /// **Arriving anywhere opens the bar**, whatever the last page had scrolled
+    /// Arriving anywhere opens the bar, whatever the last page had scrolled
     /// to: that is the moment the address is worth showing, and it is also the
     /// moment the page under it is about to be replaced.
     ///
-    /// A new address is one way in. A load *starting* is the other, and it is
+    /// A new address is one way in. A load starting is the other, and it is
     /// needed as well — a reload, a form post and a same-address navigation all
     /// leave the URL exactly where it was, and every one of them is an arrival.
     private func show(url: URL?, isLoading: Bool) {

@@ -7,7 +7,7 @@
 //  lets §9.3's ranking be asserted against hand-computed numbers in
 //  `CommandBarRankingTests` instead of by driving a window.
 //
-//  **§9.6 privacy, structurally rather than as a promise.** Nothing under
+//  §9.6 privacy, structurally rather than as a promise. Nothing under
 //  `UI/CommandBar` references a networking type, and `CommandBarPrivacyTests`
 //  greps these sources to keep it that way. Suggestions are the one §9.2 source
 //  that needs a network call, so the call lives outside this module entirely —
@@ -59,11 +59,11 @@ enum AppCommand: String, Sendable, Hashable, CaseIterable {
 
 // MARK: - A row
 
-/// Where a result came from. **The order of the cases is the tier order of §9.3**
+/// Where a result came from. The order of the cases is the tier order of §9.3
 /// — `Comparable` is synthesised from declaration order, and `CommandBarRanking`
 /// sorts on it before it looks at any score.
 enum CommandBarSource: Sendable, Hashable, Comparable, CaseIterable {
-    /// §9.3: "adaptive matches rank *above* all frecency results." Literally all
+    /// §9.3: "adaptive matches rank above all frecency results." Literally all
     /// of them, which is why this case is first.
     case adaptive
     /// The user typed something unambiguous. A guess must not outrank an instruction.
@@ -165,7 +165,7 @@ enum CommandBarURL {
 
     //  ponytail: §9.5's per-Space engine and bang keywords are still not built.
     //  One engine for the whole app — but the user's, not a constant.
-    /// Where a string that is **not** a URL goes. The floor under every text
+    /// Where a string that is not a URL goes. The floor under every text
     /// entry point: the Command Bar's search row and §3.2's URL pill both
     /// commit through here, so they cannot disagree about what a query means.
     ///
@@ -209,7 +209,7 @@ enum CommandBarURL {
     ///
     /// Two things masquerade as one. `192.168.1.40:5173` is caught by the leading
     /// character — a scheme starts with a letter, an address does not.
-    /// `localhost:8080` is not, so what *follows* the colon decides it: a real
+    /// `localhost:8080` is not, so what follows the colon decides it: a real
     /// scheme is followed by `//`, or by something that is not a bare port number.
     private static func explicitScheme(of input: String) -> String? {
         guard let colon = input.firstIndex(of: ":") else { return nil }
@@ -275,7 +275,7 @@ enum CommandBarURL {
 
 // MARK: - §3.4's search engine
 
-/// The engines §23.1 §3.4 offers. Every one is a **template** carrying a `%s`
+/// The engines §23.1 §3.4 offers. Every one is a template carrying a `%s`
 /// placeholder, the built-ins included, so `.custom` is not a second code path.
 enum SearchEngine: String, Sendable, Hashable, CaseIterable {
     case duckDuckGo
@@ -312,9 +312,9 @@ enum SearchEngine: String, Sendable, Hashable, CaseIterable {
     /// above. All three speak OpenSearch — `["what you typed", ["a", "b"]]` —
     /// so `SearchSuggestions` has one parser rather than three.
     ///
-    /// **Nil is the honest answer for the other two.** Kagi's autosuggest is
+    /// Nil is the honest answer for the other two. Kagi's autosuggest is
     /// behind its session cookie and answers nothing useful without one, and a
-    /// custom engine has given Luna a *search* template and said nothing about
+    /// custom engine has given Luna a search template and said nothing about
     /// where its suggestions live. Guessing either would send the query
     /// somewhere the user did not name, which is the one thing this must not
     /// do; those engines simply have no suggestions.
@@ -338,7 +338,7 @@ struct SearchEngineSetting: Sendable, Hashable {
     /// Kept while another engine is selected: switching away and back must not
     /// erase what the user typed.
     var customTemplate: String = ""
-    /// §3.4's suggestions. **On**, which is a change of position and worth
+    /// §3.4's suggestions. On, which is a change of position and worth
     /// stating: it means a query you are still typing reaches the engine you
     /// have already chosen to send your searches to, and nowhere else. It is
     /// one switch away from off, and off means nothing leaves the Mac until you
@@ -352,7 +352,7 @@ struct SearchEngineSetting: Sendable, Hashable {
         return Self.url(from: template, searching: query)
     }
 
-    /// Usable only once it carries the placeholder **and** parses as an http
+    /// Usable only once it carries the placeholder and parses as an http
     /// URL with the query substituted: `%s` alone is not a URL, and a URL
     /// without `%s` searches for nothing.
     static func isUsable(_ template: String) -> Bool {
@@ -374,7 +374,7 @@ struct SearchEngineSetting: Sendable, Hashable {
 
     /// RFC 3986's unreserved set and nothing else.
     ///
-    /// **Measured, and it fixes a live bug.** The hard-coded engine built its
+    /// Measured, and it fixes a live bug. The hard-coded engine built its
     /// URL with `URLComponents.queryItems`, which leaves `+`, `/` and `?`
     /// unescaped in a query value — so `a+b` reached the engine as `q=a+b`, two
     /// words. A space is still `%20`, exactly as before.
@@ -394,12 +394,12 @@ struct SearchEngineSetting: Sendable, Hashable {
 
 /// The one live copy of §3.4's engine choice.
 ///
-/// **Not `UserDefaults`:** `search(for:)` runs inside `controlTextDidChange` in
+/// Not `UserDefaults`: `search(for:)` runs inside `controlTextDidChange` in
 /// the same frame as the keystroke (§9.7, 9.6 ms median), and a defaults read
 /// there is a cross-process lookup on a path that has none today. Defaults are
-/// read **once**, lazily, when `storage` is first touched.
+/// read once, lazily, when `storage` is first touched.
 ///
-/// **Not `@MainActor`:** `CommandBarRanking` is deliberately non-isolated so its
+/// Not `@MainActor`: `CommandBarRanking` is deliberately non-isolated so its
 /// tests can hand-compute an order without a window, and it calls `search(for:)`.
 enum SearchSettings {
 

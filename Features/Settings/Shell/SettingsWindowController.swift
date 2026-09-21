@@ -5,17 +5,17 @@
 //  §1/§2's window: a separate `NSWindow`, 720 × 520, resizable, with the
 //  section list on the left and an opaque detail pane on the right.
 //
-//  **A window, not a sheet and not a `luna://` page** (§1's three decisions): a
+//  A window, not a sheet and not a `luna://` page (§1's three decisions): a
 //  sheet blocks the window you are trying to preview a setting against, and an
 //  internal page cannot host `NSGlassEffectView`, so it could not look like the
 //  rest of Luna.
 //
-//  **`NSWindow.minSize` is not used.** It is documented as ignored once the
+//  `NSWindow.minSize` is not used. It is documented as ignored once the
 //  content view uses Auto Layout — verbatim in `NSWindow.h`, and the browser
 //  window learned it in M0 — so §1's 640 × 480 floor is a pair of
 //  `greaterThanOrEqualToConstant`s on the root view instead.
 //
-//  **Every command here arrives through `MainMenu`.** Luna installs no
+//  Every command here arrives through `MainMenu`. Luna installs no
 //  `NSEvent` monitor and overrides no `performKeyEquivalent` (§22.5); the
 //  `@objc` actions at the bottom are ordinary nil-targeted menu actions that
 //  reach this controller because an `NSWindowController` sits in its key
@@ -75,7 +75,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: SettingsMetrics.contentSize),
             // `.fullSizeContentView`, so the glass column runs the window's full
-            // height and the traffic lights sit *on* it.
+            // height and the traffic lights sit on it.
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -94,8 +94,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         window.title = String(localized: "Luna Settings")
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
-        // **Non-opaque, or the glass column dies.** `NSGlassEffectView`
-        // composites what is behind the *window*, so on an opaque one the
+        // Non-opaque, or the glass column dies. `NSGlassEffectView`
+        // composites what is behind the window, so on an opaque one the
         // section list has nothing to sample and reads as a flat plate. The
         // detail pane paints `Surface.base` over its own half, so only the
         // column is see-through.
@@ -114,7 +114,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         // lights sit at the same inset as the sidebar's rather than AppKit's.
         lights = TrafficLightLayoutManager(pinningLightsIn: window)
         // §2's search is where a `⌘,` lands: the alternative is AppKit picking
-        // the first thing that accepts first responder, which is a *disabled*
+        // the first thing that accepts first responder, which is a disabled
         // row (§4 keeps those in the key loop).
         window.initialFirstResponder = search
         show(SettingsSectionRegistry.index(ofID: SettingsDefaults.lastSection), animated: false)
@@ -227,7 +227,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             list.trailingAnchor.constraint(equalTo: column.trailingAnchor)
         ])
         // The list stands at its own height — ten rows at the sidebar's pitch —
-        // and keeps `paneInset` off the bottom of the column **if it can**.
+        // and keeps `paneInset` off the bottom of the column if it can.
         // Not required: `settingsMinHeight` is sized so it always can, and a
         // required constraint here would be one AppKit breaks, with a console
         // full of it, the moment anything else moved.
@@ -281,7 +281,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     // MARK: - §2's search
 
-    /// §2: the search filters **controls**, not sections, and filters every
+    /// §2: the search filters controls, not sections, and filters every
     /// section rather than only the visible one — so switching sections with a
     /// live query lands on an already-filtered pane.
     private func applySearch() {

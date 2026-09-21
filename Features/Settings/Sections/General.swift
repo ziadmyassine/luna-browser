@@ -9,7 +9,7 @@
 //  **Two of §3.1's four rows ship disabled, and that is a finding rather than a
 //  shortcut.** §3.1 lists "On launch" as wired to `general.onLaunch` +
 //  `BrowserSession.restored`, and "Confirm before closing" to
-//  `general.confirmClose`. Neither key has a *reader*: `AppDelegate` restores
+//  `general.confirmClose`. Neither key has a reader: `AppDelegate` restores
 //  unconditionally and `BrowserWindowController` implements no
 //  `windowShouldClose`. Writing them anyway would produce exactly the silently
 //  dead switch §30.4 forbids, so they render dimmed with the reason, the typed
@@ -71,7 +71,7 @@ final class SettingsBody {
 
     /// A heading the cards under it belong to — `SettingsRow.heading`.
     ///
-    /// The stack's own spacing is the gap between one *group* and the next, and
+    /// The stack's own spacing is the gap between one group and the next, and
     /// a heading floated out to that distance is a heading for nothing. The
     /// cards that follow sit a card's distance below it instead.
     func heading(_ child: NSView, terms: [String]) {
@@ -91,8 +91,8 @@ final class SettingsBody {
 
     /// A standalone row — a note, or the live host below.
     ///
-    /// **It sits close to the card above it.** The stack's own spacing is the
-    /// gap between one *group* and the next; a sentence explaining the card it
+    /// It sits close to the card above it. The stack's own spacing is the
+    /// gap between one group and the next; a sentence explaining the card it
     /// follows, floated out to that distance, reads as the opening line of the
     /// next group instead of as a footnote on the last one.
     func loose(_ child: NSView, terms: [String]) {
@@ -135,7 +135,7 @@ final class GeneralSection: NSObject, SettingsSection {
 
     // MARK: Keys and typed accessors
 
-    /// §3.1's launch behaviour. **Nothing reads this yet** — see the file
+    /// §3.1's launch behaviour. Nothing reads this yet — see the file
     /// header. Published so `AppDelegate` can, in one `switch`.
     enum OnLaunch: String, Sendable, CaseIterable {
         case restoreSession
@@ -159,14 +159,14 @@ final class GeneralSection: NSObject, SettingsSection {
         UserDefaults.standard.string(forKey: onLaunchKey).flatMap(OnLaunch.init(rawValue:)) ?? .restoreSession
     }
 
-    /// Defaults **on**: closing a window full of tabs is the one destructive
+    /// Defaults on: closing a window full of tabs is the one destructive
     /// thing a browser does by accident, and §3.1 asks for the guard rather
     /// than for the speed.
     static var confirmClose: Bool {
         UserDefaults.standard.object(forKey: confirmCloseKey) as? Bool ?? true
     }
 
-    /// Defaults **on**, and unlike the row above it this one has a reader:
+    /// Defaults on, and unlike the row above it this one has a reader:
     /// `AppDelegate.applicationShouldTerminate` puts `QuitSheetView` up. ⌘Q is
     /// next to ⌘W and takes every window with it, so the guard is the default
     /// and the sheet's own third answer is how it comes off — a preference you
@@ -224,7 +224,7 @@ final class GeneralSection: NSObject, SettingsSection {
         )
     }
 
-    /// The button *is* the status: "Set as Default" means Luna is not, and a
+    /// The button is the status: "Set as Default" means Luna is not, and a
     /// dimmed "Luna is the default" means it is. A sentence underneath naming
     /// whichever other browser holds the handler said nothing the user could
     /// act on from here, and it was the one line in §3.1 that went stale.

@@ -2,7 +2,7 @@
 //  ButtonFeedbackTests.swift
 //  LunaTests
 //
-//  **Every button in Luna answers a press**, and this is the list of them.
+//  Every button in Luna answers a press, and this is the list of them.
 //
 //  §3.1 has always said a hover lifts the fill and §6 has had `controlPress`
 //  since the chrome got its washes — but a rule that lives only in prose is
@@ -13,14 +13,21 @@
 //  "every button" meaning "every button somebody checked".
 //
 //  So the register is here instead. A new button type that does not swell
-//  fails this file, which is the only way a rule about *all* of something
+//  fails this file, which is the only way a rule about all of something
 //  survives the next person who adds one. See CLAUDE.md, "Buttons answer".
 //
-//  **The swell is what is asserted, not the wash.** Both are part of the
+//  The swell is what is asserted, not the wash. Both are part of the
 //  answer, but the wash is a colour on a layer that several of these controls
 //  paint in different places — a plate, a subview, a gradient's ring — while
 //  `Motion.swell` writes one transform to the control (or to the capsule that
 //  owns its material) in every case. One assertion, no per-control exceptions.
+//
+//  Absent on purpose: §14.3's picker rows — `CredentialRowView` and
+//  `PopoverActionRowView`. They are list rows under CLAUDE.md's rule, not
+//  buttons: a full-width row growing 5 % reads as the list jumping. They answer
+//  with a hover wash and nothing else, and belong here only if that rule
+//  changes. §14.4's chip is built from `SettingsPushButton`, which is already
+//  covered below.
 //
 
 import XCTest
@@ -50,7 +57,7 @@ final class ButtonFeedbackTests: XCTestCase {
         ) ?? NSEvent()
     }
 
-    /// Down and up through the view's own handlers. **Not `performClick`**:
+    /// Down and up through the view's own handlers. Not `performClick`:
     /// that is the action, and what is being tested is the answer to the
     /// gesture, which happens on either side of it.
     private func press(_ view: NSView, then body: (CGFloat) -> Void) {
@@ -96,7 +103,7 @@ final class ButtonFeedbackTests: XCTestCase {
 
     /// A button inside a capsule hands the gesture up rather than growing a
     /// fifth of a point inside a shape that is not moving. What must be true
-    /// is that *something* answers — and that it is the capsule.
+    /// is that something answers — and that it is the capsule.
     func testACapsuleAnswersOnBehalfOfTheButtonInsideIt() {
         let swell = Tokens.Motion.pressSwell
 

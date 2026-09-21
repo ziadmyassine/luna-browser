@@ -5,9 +5,9 @@
 //  §3.4's two row fills — the selected one and the hovered one — and where they
 //  stand.
 //
-//  **There are two of them for the whole list, not one per row.** A fill that
+//  There are two of them for the whole list, not one per row. A fill that
 //  belonged to its row would have to appear and disappear as the selection
-//  moved; two that belong to the list can *travel*, which is what §6's
+//  moved; two that belong to the list can travel, which is what §6's
 //  `selectedRowMove` spring is for and what makes the selection read as one
 //  thing moving rather than two things blinking. It is also what lets §6.6's
 //  lift borrow the selected pill: there is one of it, so it can be somewhere
@@ -56,7 +56,7 @@ extension TabListController {
 
     private func place(_ pill: RowPillView, at row: Int?, spec: MotionSpec?) {
         guard let row, row < table.numberOfRows else {
-            // **Parked on the same terms it is moved on.** A Space switch
+            // Parked on the same terms it is moved on. A Space switch
             // reaches here twice with no spec — once as `reloadData` drops the
             // selection, once as the new one is applied — and a fill left
             // fading through both of them is the Space you came from showing

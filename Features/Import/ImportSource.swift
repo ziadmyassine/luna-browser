@@ -3,7 +3,7 @@
 //  Luna — §23.2, §30.18
 //
 //  Which browsers Luna can import from, where their data actually is, and
-//  which of them are on *this* Mac. Detection is on-disk only, because a
+//  which of them are on this Mac. Detection is on-disk only, because a
 //  directory alone is not evidence — `~/Library/Application Support/Arc`,
 //  `Chromium`, `Microsoft Edge`, `Vivaldi` and `com.operasoftware.Opera` all
 //  exist on the development machine as empty leftovers, and none of those
@@ -66,7 +66,7 @@ enum ImportSource: String, CaseIterable, Sendable, Identifiable {
 
     /// Support directory, relative to the user's real home.
     ///
-    /// **Dia's is verified on this Mac**: `~/Library/Application Support/Dia/`
+    /// Dia's is verified on this Mac: `~/Library/Application Support/Dia/`
     /// holds `User Data/` (a stock Chromium profile root), plus Dia's own
     /// `StorableAutoArchive.json`, `BlockList.json` and `Favicons/`. Only the
     /// Chromium half is readable — everything Dia added is encrypted.
@@ -90,7 +90,7 @@ enum ImportSource: String, CaseIterable, Sendable, Identifiable {
     }
 
     /// Where the Chromium `User Data` root sits inside the support directory,
-    /// in the order to try. `""` means the support directory *is* the root.
+    /// in the order to try. `""` means the support directory is the root.
     /// Empty means this source is not a Chromium profile store.
     ///
     /// Verified: Dia and Arc nest under `User Data/`; Brave's support directory
@@ -128,7 +128,7 @@ enum ImportSource: String, CaseIterable, Sendable, Identifiable {
 
 /// One profile inside a Chromium `User Data` root.
 ///
-/// `Default` is frequently **not** the user's real profile: on this Mac Dia's
+/// `Default` is frequently not the user's real profile: on this Mac Dia's
 /// `Default` is named "Work" and `Profile 1` is the one in daily use
 /// (`profile.last_used`). Always show `displayName`, never the directory name.
 struct ChromiumProfile: Sendable, Hashable, Identifiable {

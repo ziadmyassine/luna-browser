@@ -2,7 +2,7 @@ import Foundation
 import WebKit
 
 /// One tab's engine: owns at most one `WKWebView` and is every delegate WebKit asks for
-/// (§4.2). A hibernated tab owns **nothing** — no view, no WebContent process — which is
+/// (§4.2). A hibernated tab owns nothing — no view, no WebContent process — which is
 /// the whole of §19.2's memory strategy, not a tuning knob.
 @MainActor
 public final class TabController: NSObject {
@@ -16,7 +16,7 @@ public final class TabController: NSObject {
 
     private let dataStore: WKWebsiteDataStore
 
-    /// The last session we managed to capture. Kept **outside** the web view on purpose:
+    /// The last session we managed to capture. Kept outside the web view on purpose:
     /// once the WebContent process is gone `webView.interactionState` reads back nil, so
     /// crash recovery (§19.3) has nothing else to restore from.
     var savedInteractionState: Data?
@@ -31,7 +31,7 @@ public final class TabController: NSObject {
     /// them is — an embedded player lives in a subframe.
     var audibleFrames: Set<String> = []
 
-    /// §3.4a's mute. The *answer*; the page script that enforces it is in
+    /// §3.4a's mute. The answer; the page script that enforces it is in
     /// `TabController+Mute.swift`, which is also the only thing that writes this.
     /// Not `private`, for the same reason `audibleFrames` is not: a Swift extension
     /// cannot carry storage, so the flag lives here and the behaviour lives next door.
@@ -97,7 +97,7 @@ public final class TabController: NSObject {
     }
 
     /// Builds this tab's web view from a configuration handed over by
-    /// `createWebViewWith` (§4.2). WebKit requires the popup to use **that exact**
+    /// `createWebViewWith` (§4.2). WebKit requires the popup to use that exact
     /// configuration, or `window.opener` and the whole `target="_blank"` relationship
     /// break — and the caller must not load anything into it: WebKit performs the
     /// pending navigation itself once the view is returned.
@@ -267,7 +267,7 @@ public final class TabController: NSObject {
     /// **`removeAllUserScripts()` first, because `WKUserContentController` has no way to
     /// remove one.** That is the whole reason this is a function and not four lines in
     /// `attach`: §17.2's YouTube script is the first script whose presence depends on a
-    /// setting *and* on the site, so it is the first one that ever has to come back off.
+    /// setting and on the site, so it is the first one that ever has to come back off.
     private func installUserScripts(into controller: WKUserContentController, host: String?) {
         controller.removeAllUserScripts()
         youTubeScriptInstalled = ContentBlocker.shared.blocksYouTubeAds(forHost: host)
@@ -315,7 +315,7 @@ public final class TabController: NSObject {
         installUserScripts(into: controller, host: host)
     }
 
-    /// The document-end scripts **every frame on the page** gets, as one
+    /// The document-end scripts every frame on the page gets, as one
     /// `WKUserScript` rather than three.
     ///
     /// They are `forMainFrameOnly: false` because the things they watch live in
@@ -332,7 +332,7 @@ public final class TabController: NSObject {
     /// place that decides what every frame gets; do not read a speed claim into
     /// it, and do not merge anything else hoping for one.
     ///
-    /// **The `try`/`catch` is not new error-hiding.** WebKit ran the three
+    /// The `try`/`catch` is not new error-hiding. WebKit ran the three
     /// independently, so one of them throwing left the other two installed;
     /// joining them into one script is exactly what would have taken that away.
     /// ``isolated(_:)`` puts it back and nothing else. They share no scope
@@ -363,14 +363,14 @@ public final class TabController: NSObject {
     /// leaving them registered pins the web view — and with it a WebContent process —
     /// for as long as the configuration lives, which is the opposite of §19.2.
     ///
-    /// **Silence is something this does, not something it waits for.** Everything
+    /// Silence is something this does, not something it waits for. Everything
     /// below unhooks the view and then lets go of it, on the reasoning that a
     /// deallocated `WKWebView` closes its page and a closed page makes no sound.
     /// That is true of the last reference and says nothing about the one before
     /// it: WebKit's own async completions, a floating Picture-in-Picture window,
     /// element fullscreen, a snapshot in flight — any of them can outlive this
     /// call by an unbounded amount, and for as long as one does the page is
-    /// still playing. **Which is the defect Martin reported**: close a pinned
+    /// still playing. Which is the defect Martin reported: close a pinned
     /// tab with a video running and the sound carries on in the background, with
     /// nothing on screen to stop it. Audio is the one thing a user can hear a
     /// leak in, so it is turned off explicitly and first, and whichever
@@ -453,7 +453,7 @@ public final class TabController: NSObject {
         state.pageBackground = nil
         // And un-pinned in the web view, not only in the state: a colour handed
         // to WebKit by `matchBackgroundToTheme` stays until it is taken back, so
-        // a site with a `theme-color` would paint the *next* document's
+        // a site with a `theme-color` would paint the next document's
         // over-scroll in its own. nil gives the question back to WebKit, which
         // answers it off this document's first paint — through the observation,
         // which is why nothing has to read it back here.
@@ -477,7 +477,7 @@ public final class TabController: NSObject {
     /// colour over-scroll and the gap before first paint show — or nil, which
     /// gives the question back to WebKit and its computed answer.
     ///
-    /// **Written where the answer changes, never off a read.** This and
+    /// Written where the answer changes, never off a read. This and
     /// `resetPerDocumentState`'s clear are the only two writes: the site offering
     /// a `theme-color` is one, a new document starting is the other. That is what
     /// lets the property be observed — a write wakes the observation, the
@@ -507,11 +507,11 @@ public final class TabController: NSObject {
             if let themeColor = webView.themeColor {
                 next.themeColor = ColorBridge.rgba(from: themeColor.cgColor)
             }
-            // **Read, never written.** This is the colour the page is actually
+            // Read, never written. This is the colour the page is actually
             // painted on, which is what §3.2b's bar matches; it is written only by
             // `matchBackgroundToTheme` and by `resetPerDocumentState`, and observed
             // like every other property here. This method used to assign it and
-            // read it back in the same statement, and that answer was **behind**:
+            // read it back in the same statement, and that answer was behind:
             // nil hands the question back to WebKit, which recomputes off the next
             // paint, so the read returned the document that had just gone away.
             // Measured on two local pages, A `#0a0a14` and B `#3a0a0a`: `didFinish`
@@ -573,13 +573,13 @@ public final class TabController: NSObject {
         publishState()
     }
 
-    /// Reports whether any media element in the frame is *audible* — playing, unmuted
+    /// Reports whether any media element in the frame is audible — playing, unmuted
     /// and above zero volume. `requestMediaPlaybackState()` would call a muted autoplay
     /// video "playing" and put a speaker badge on half the sidebar.
     ///
     /// Media events do not bubble, so the listeners are registered in the capture phase;
     /// that is the only way one document-level listener sees every `<video>`.
-    /// **It only speaks when the answer changes.** This runs in *every* frame
+    /// It only speaks when the answer changes. This runs in every frame
     /// (`forMainFrameOnly: false`, because an embedded player lives in a
     /// subframe), and it used to post from every one of them at document end to
     /// say what silence already said: a page with ten ad iframes was ten
@@ -587,14 +587,14 @@ public final class TabController: NSObject {
     /// it had finished loading. `false` is what the tab already is — nothing
     /// reaches `audibleFrames` until something says otherwise, and
     /// `resetPerDocumentState` empties it on every navigation — so the opening
-    /// `post()` has nothing to report unless the frame is *already* making
+    /// `post()` has nothing to report unless the frame is already making
     /// noise, which is the autoplay case it is there for.
     ///
     /// The same latch pays again during playback: `volumechange` fires on every
     /// tick of a volume drag, and all but the one that crosses zero say what the
     /// last one did.
     ///
-    /// Internal rather than private so `MediaScriptTests` can **run** it —
+    /// Internal rather than private so `MediaScriptTests` can run it —
     /// the same reason `scrollScript` is, and the same lesson behind it.
     static let mediaScript = """
     (function () {

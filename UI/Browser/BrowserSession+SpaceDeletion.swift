@@ -9,7 +9,7 @@
 //
 //  The rule the whole file is built around: **a Space deletion never destroys a
 //  tab.** `tabs.spaceID` cascades, so every row is moved to a Space that
-//  survives *before* the Space row goes — archived under `.archiveTabs`, still
+//  survives before the Space row goes — archived under `.archiveTabs`, still
 //  open under `.adopt(into:)`. Vivaldi closes every tab in a workspace with no
 //  undo; Arc shows a confirmation and has no documented undo anywhere in three
 //  years of release notes. This is the cheap place to beat both, because
@@ -27,7 +27,7 @@ extension BrowserSession {
 
     // MARK: - Delete (§6.3)
 
-    /// Deletes a Space, **keeping its tabs**.
+    /// Deletes a Space, keeping its tabs.
     ///
     /// The last-Space guard and the teardown order are the ones this already
     /// had and they are right: tear every web view down, drop the rows, then

@@ -7,7 +7,7 @@
 //
 //  Split out of `EssentialsGridView.swift` when it crossed SwiftLint's 400-line
 //  file limit, and this is the half that came out because it is the half that
-//  is *only* arithmetic — it reads the grid's state and touches none of it, so
+//  is only arithmetic — it reads the grid's state and touches none of it, so
 //  it can be checked against §3.3 without a window (`shape(for:)` is asserted
 //  directly in `EssentialsGridTests`).
 //
@@ -33,7 +33,7 @@ extension EssentialsGridView {
         return max(settled.count + open, isAwaitingDrop ? 1 : 0)
     }
 
-    /// **As few rows as will hold them, then as evenly as they divide.**
+    /// As few rows as will hold them, then as evenly as they divide.
     ///
     /// Rows first: four across is the ceiling, so five tiles need two rows and
     /// nine need three. Then the columns are whatever spreads that many tiles
@@ -59,7 +59,7 @@ extension EssentialsGridView {
     /// How tall a grid holding `count` tiles stands.
     ///
     /// Static as well as an instance answer because §30.9's page turn has to
-    /// draw the *neighbouring* Space's grid — `SpacePreviewView` — and a still
+    /// draw the neighbouring Space's grid — `SpacePreviewView` — and a still
     /// that guessed its own height would hand the swipe a picture the real
     /// column then corrects.
     static func height(forTiles count: Int) -> CGFloat {

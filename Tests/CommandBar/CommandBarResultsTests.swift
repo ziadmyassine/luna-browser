@@ -6,7 +6,7 @@
 //
 //  UI-SPEC §3.4 draws it as one translucent pill that travels, rather than a
 //  fill per row, and §6's `selectedRowMove` is the only thing it is allowed to
-//  travel *for*. Everything else — a re-rank, the history landing, the engine's
+//  travel for. Everything else — a re-rank, the history landing, the engine's
 //  suggestions — is the list changing under a highlight that has not moved, and
 //  a slide there is the pill going somewhere it was never asked to go.
 //
@@ -59,7 +59,7 @@ final class CommandBarSelectionPillTests: XCTestCase {
         )
     }
 
-    /// **On the row it says it is on, on the first pass.** Nothing else in the
+    /// On the row it says it is on, on the first pass. Nothing else in the
     /// bar tells the user which result `⏎` will take — the row's brighter text
     /// is the same step the pill is drawn in.
     func testTheHighlightLandsOnTheSelectedRow() throws {
@@ -67,7 +67,7 @@ final class CommandBarSelectionPillTests: XCTestCase {
         XCTAssertEqual(try pill(in: view).frame, row(0, in: view))
     }
 
-    /// **A rebuilt list does not leave the highlight behind.** This is the one
+    /// A rebuilt list does not leave the highlight behind. This is the one
     /// that broke while somebody typed fast: the list is replaced on every
     /// keystroke and again when the history lands, and the pill used to be
     /// moved from `setResults` — against rows that had not been laid out at

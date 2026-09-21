@@ -4,10 +4,10 @@
 //
 //  §3.2b: the address bar on the page instead of in the sidebar.
 //
-//  Two things are asserted here and nowhere else. The **rule** — when the bar
+//  Two things are asserted here and nowhere else. The rule — when the bar
 //  is open — is a value (`PageBarScroll`) precisely so that the awkward cases
 //  can be written down rather than discovered by scrolling a particular site a
-//  particular way. The **setting** resolves two keys into one answer, and the
+//  particular way. The setting resolves two keys into one answer, and the
 //  bug it exists to prevent is the sidebar dropping its pill in a layout that
 //  has no page bar to put it in.
 //
@@ -67,7 +67,7 @@ final class PageBarScrollTests: XCTestCase {
     /// The anchor trails the page while it keeps going the same way, so the
     /// reversal is measured from where the user stopped rather than from where
     /// they started. Without this, a long scroll down leaves the bar needing a
-    /// scroll *back to the start* before it will reopen.
+    /// scroll back to the start before it will reopen.
     func testTheReversalIsMeasuredFromWhereTheScrollStopped() {
         var scroll = loaded()
         for step in 1...50 { scroll.page(movedTo: Double(step) * slack) }
@@ -95,7 +95,7 @@ final class PageBarScrollTests: XCTestCase {
         XCTAssertFalse(scroll.page(movedTo: slack / 2))
     }
 
-    /// **A page that loads already scrolled is still an arrival.** WebKit
+    /// A page that loads already scrolled is still an arrival. WebKit
     /// restores the scroll position on a reload and on back/forward, and plenty
     /// of pages jump to an anchor of their own as they load — so the first
     /// thing heard from a document can be `y = 4000`. Measured from an anchor of
@@ -178,7 +178,7 @@ final class SearchBarPlacementTests: XCTestCase {
     }
 }
 
-/// §3.2b's bar stands **above** the page, so the page starts below it — in both
+/// §3.2b's bar stands above the page, so the page starts below it — in both
 /// states, which makes the band a real height the page has to answer to.
 @MainActor
 final class PageBarInsetTests: XCTestCase {

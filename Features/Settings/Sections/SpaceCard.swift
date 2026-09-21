@@ -4,7 +4,7 @@
 //
 //  §3.7's Space card: one card per Space, headed by that Space's own gradient.
 //
-//  **A list of Spaces should be navigable by looking at it.** The section used
+//  A list of Spaces should be navigable by looking at it. The section used
 //  to be a column of identical grey cards titled with a word, six settings deep
 //  each, and finding "the blue one" meant reading every heading — which is
 //  exactly the thing the twelve gradients exist to make unnecessary everywhere
@@ -12,16 +12,16 @@
 //  colour; so does the wash behind the column; so, now, does its card. Nothing
 //  here is a new idea, it is §8.2a applied in the one place it had not been.
 //
-//  **The header carries §8.2a's `.full` intensity and §13.6's derived ink**,
+//  The header carries §8.2a's `.full` intensity and §13.6's derived ink,
 //  which is what those two APIs are for: `foreground(on:at:in:)` picks the ink
-//  that clears §21.4 against *this* pair's two stops in *this* theme, so a
+//  that clears §21.4 against this pair's two stops in this theme, so a
 //  Space on Mint or Blush is legible in dark mode. That is the bug Zen ships —
 //  "text like the 'new tab' text and the workspace title become very hard to
 //  read" — and it is a one-line call to not ship it.
 //
-//  **The name and the fan-out line are set in the same ink at full strength.**
+//  The name and the fan-out line are set in the same ink at full strength.
 //  A subtitle would normally step down to `Text.secondary`; there is no such
-//  step available here, because the ink was *derived* to clear 4.5:1 and
+//  step available here, because the ink was derived to clear 4.5:1 and
 //  fading it is how you land under the floor. The two lines are told apart by
 //  size and weight instead, which costs nothing and is measured for free.
 //
@@ -31,7 +31,7 @@
 //  indistinguishable from no Space colour — otherwise "no colour" is just a
 //  thirteenth colour. The card said otherwise: it painted neutral's desaturated
 //  grey as a plate, which is a light surface, which made §13.6 correctly derive
-//  **black** ink for it — one card in the section wearing black text in a dark
+//  black ink for it — one card in the section wearing black text in a dark
 //  window. With no plate the header is the card's own surface and the ink is
 //  the chrome's own, white in dark and black in light, like every other word in
 //  the pane.
@@ -170,7 +170,7 @@ final class SpaceCardView: NSView {
 /// The gradient behind a card's header.
 ///
 /// Its own view so the layer is sized by the pass that sizes the view: a
-/// `CAGradientLayer` framed from the *card's* `layout()` is framed against a
+/// `CAGradientLayer` framed from the card's `layout()` is framed against a
 /// header whose constraints have not been solved yet, which is a plate one
 /// layout behind on every resize.
 @MainActor
@@ -194,7 +194,7 @@ final class SpaceHeaderPlate: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
-    /// **Neutral paints nothing**, exactly as `SpaceWashView.washColors` does
+    /// Neutral paints nothing, exactly as `SpaceWashView.washColors` does
     /// and for the same reason — see `SpaceCardView`'s header.
     func show(_ gradient: GradientPair) {
         guard !Tokens.Gradient.isNeutral(gradient) else {
@@ -214,7 +214,7 @@ final class SpaceHeaderPlate: NSView {
 /// §3.7's corner button: §6.2's icon and gradient, in the corner of the card
 /// that is already showing them.
 ///
-/// **No bezel and no glass.** It stands on the Space's own gradient, and every
+/// No bezel and no glass. It stands on the Space's own gradient, and every
 /// plate Luna could put under it would have to be measured against twelve pairs
 /// in two themes to stay legible. The glyph in §13.6's derived ink is already
 /// the ink that was proved against those pairs, so the button is the glyph.

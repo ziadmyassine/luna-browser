@@ -31,7 +31,7 @@ final class NavClusterTests: XCTestCase {
     }
 
     /// Everything the capsule holds except the material itself, which is the
-    /// one thing that *is* supposed to resize with it.
+    /// one thing that is supposed to resize with it.
     private func contents(of nav: NavCluster) -> [NSRect] {
         nav.subviews.filter { !NSStringFromClass(type(of: $0)).contains("GlassBacking") }.map(\.frame)
     }
@@ -55,7 +55,7 @@ final class NavClusterTests: XCTestCase {
         XCTAssertEqual(chevrons(of: open).filter { !$0.isHidden }.count, 2)
     }
 
-    /// **Back does not move when forward arrives.** The capsule grows out of
+    /// Back does not move when forward arrives. The capsule grows out of
     /// its trailing end — the alternative, two halves of the bounds, slides the
     /// button the pointer is already on.
     func testBackKeepsItsPlaceWhenTheCapsuleGrows() {
@@ -82,7 +82,7 @@ final class NavClusterTests: XCTestCase {
         XCTAssertLessThan(divider.frame.maxY, nav.bounds.maxY)
     }
 
-    /// **And nothing inside moves when it shrinks either.** The trailing edge
+    /// And nothing inside moves when it shrinks either. The trailing edge
     /// is the only thing that travels in this morph, in both directions. Laid
     /// out against the bounds, a shrink re-reads them at the final width on its
     /// first frame — the divider jumping into the middle of back, the forward

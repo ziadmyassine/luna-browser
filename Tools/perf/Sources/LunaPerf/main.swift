@@ -12,7 +12,7 @@
 //                                  `live` of them awake, measured across every
 //                                  WebKit process they spawn
 //
-//  `tabs` links `BrowserKit` and drives the **real** `TabController`, so what it
+//  `tabs` links `BrowserKit` and drives the real `TabController`, so what it
 //  measures is Luna's engine and not an approximation of it. What it does not
 //  have is Luna's chrome — the sidebar, the command bar, AppKit's own
 //  allocations. `launch` measures that half separately; §19.1's budget is the
@@ -212,7 +212,7 @@ case "tabs":
     var liveHelpers: Set<Int32> = []
     var hot: (rss: Int, footprint: Int) = (0, 0)
 
-    // **Everything that touches a web view runs inside this pool.**
+    // Everything that touches a web view runs inside this pool.
     //
     // Top-level code in a command-line tool has no autorelease pool that ever
     // drains, so every `controller.webView` read — including the one in the load
@@ -327,7 +327,7 @@ case "page":
     app.setActivationPolicy(.accessory)
     app.finishLaunching()
 
-    // **Local files, not websites.** The question here is what *Luna* costs a
+    // Local files, not websites. The question here is what Luna costs a
     // page load — its four injected scripts, its four message handlers, its
     // KVO observations and the `publishState` behind them — and against a real
     // site that answer is buried under several hundred milliseconds of network
@@ -357,7 +357,7 @@ case "page":
         return file
     }
 
-    /// Milliseconds from `start` until the view has begun **and** finished a
+    /// Milliseconds from `start` until the view has begun and finished a
     /// load. Polled, and every arm is polled by the same function on purpose:
     /// a navigation delegate on one side and `isLoading` on the other would be
     /// two different moments dressed as one comparison.
@@ -441,7 +441,7 @@ case "page":
                      median["luna"] ?? 0, (median["luna"] ?? 0) - (median["bare"] ?? 0)))
     }
 
-    // **Setup, with no page in it at all.** Everything above measures a load;
+    // Setup, with no page in it at all. Everything above measures a load;
     // this measures only the building of the thing that does the loading.
     // `activate()` on a controller with no URL builds the web view, registers
     // the handlers, adds the scripts and installs the observations, and loads
@@ -479,7 +479,7 @@ case "blocking":
     app.setActivationPolicy(.accessory)
     app.finishLaunching()
 
-    // **A heartbeat, because a compile does not block the main thread outright.**
+    // A heartbeat, because a compile does not block the main thread outright.
     // `WKContentRuleListStore.compileContentRuleList` keeps the run loop turning
     // and stalls it in bursts, so the number that matters is not "did it block"
     // but "how long did it go without answering". A 10 ms timer that misses its

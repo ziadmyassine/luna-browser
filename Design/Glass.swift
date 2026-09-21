@@ -105,7 +105,7 @@ enum Glass {
     }
 
     // THERE IS NO `scrim()`, and the gap is deliberate. Liquid Glass cannot
-    // blur in-window content: it composites what is behind the *window*, so
+    // blur in-window content: it composites what is behind the window, so
     // over a live page it replaces the page and in fullscreen it goes
     // near-black. §9.1's "blurred backdrop scrim" was therefore the one surface
     // built from `NSVisualEffectView` at `.withinWindow`. It worked, and it was

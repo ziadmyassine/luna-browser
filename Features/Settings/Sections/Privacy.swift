@@ -5,12 +5,12 @@
 //  docs/SETTINGS-SPEC.md §3.3 — the blocking toggles, the filter-list status
 //  block, HTTPS-Only, and §17.7's paragraph.
 //
-//  **These toggles are what the site menu's switch is an exception to.** The
-//  sliders glyph on the URL pill answers "block on *this* site"; it can only
+//  These toggles are what the site menu's switch is an exception to. The
+//  sliders glyph on the URL pill answers "block on this site"; it can only
 //  turn off what is on globally, and there is nowhere else to say which filter
 //  lists run at all. So the two surfaces are not duplicates and deleting these
 //  would leave the per-site switch with nothing to switch. What did move out is
-//  the per-site exemption *list*, which is now only in the menu.
+//  the per-site exemption list, which is now only in the menu.
 //
 //  The row stack and §2's search come from `SettingsBody` in `General.swift`;
 //  the app wiring and the confirmation dialog come from `SettingsHost`.
@@ -161,7 +161,7 @@ final class PrivacySection: SettingsSection {
 
     /// `refresh(force:)` is `async` and does the fetch and the ~1.4 s of parsing
     /// off the main actor, so this returns at once and the spinner carries the
-    /// wait. What it cannot do is move the **compile**: `WKContentRuleListStore`
+    /// wait. What it cannot do is move the compile: `WKContentRuleListStore`
     /// is main-actor API, and compiling the ~186,000 rules across the three
     /// lists stalls the main thread in slices of up to 353 ms. That is the
     /// ceiling of the public API, which is exactly why only this button and the

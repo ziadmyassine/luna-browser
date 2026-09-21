@@ -3,9 +3,9 @@
 //  Luna
 //
 //  §9.1's behaviour and §9.7's budget. "Everything is one keystroke away" is this
-//  file's job, and the keystroke it has to keep up with is the *next* one.
+//  file's job, and the keystroke it has to keep up with is the next one.
 //
-//  **§9.7, and the shape of everything below.** Local results must be on screen
+//  §9.7, and the shape of everything below. Local results must be on screen
 //  within one frame — 16 ms — of the keystroke. So `inputDidChange` does exactly
 //  one thing synchronously: run `CommandBarRanking.merge` over arrays that are
 //  already in memory (open tabs, Spaces, the adaptive table, the typed string
@@ -15,7 +15,7 @@
 //  a row the user is standing on: once ↓ or ↑ has been pressed, late results may
 //  only be appended.
 //
-//  **The field is never rewritten asynchronously.** §9.4's autofill runs on the
+//  The field is never rewritten asynchronously. §9.4's autofill runs on the
 //  synchronous pass only. A list row moving a frame after you stopped typing is
 //  survivable; the text under your caret changing is not.
 //
@@ -74,7 +74,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
     var isPresented: Bool { panel != nil }
 
     /// One decoded icon per host, for the life of the window. §9.7 is a
-    /// per-*keystroke* budget and the list is rebuilt on every one of them, so
+    /// per-keystroke budget and the list is rebuilt on every one of them, so
     /// without this eight rows cost eight cache lookups and eight
     /// `NSImage(data:)` decodes per character typed — on the main thread,
     /// inside the 16 ms the local results are supposed to land in.
@@ -103,7 +103,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
     /// - Parameter anchor: the address pill the bar should grow out of (§3.2,
     ///   §3.2b), or nil for `⌘T`'s panel over the page.
     ///
-    ///   **The pill goes away for the duration.** The bar stands exactly where
+    ///   The pill goes away for the duration. The bar stands exactly where
     ///   it was, at its width and its corner, showing what it was showing — so
     ///   leaving the pill underneath would be the address drawn twice on the
     ///   same 34 pt, once behind glass.
@@ -135,7 +135,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
 
         runQuery(prefill)
         panel.prepareToOpen()
-        // **In the same turn as `prepareToOpen`, so it is the same commit.**
+        // In the same turn as `prepareToOpen`, so it is the same commit.
         // The pill going and the bar arriving are one swap at one corner: the
         // screen holds the frame it has until the panel is drawn, and what it
         // draws next is the same capsule in the same place with a caret in it.
@@ -157,7 +157,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
     /// it, so there is nothing to see while it lasts.
     private var isWaitingToOpen = false
 
-    /// **The bar opens once, with the list it is going to have.**
+    /// The bar opens once, with the list it is going to have.
     ///
     /// Two things happen between the click and a settled list, and neither is
     /// free: the panel's first composite (65 ms, measured — see
@@ -222,7 +222,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
         // §9 / D-S8: a row from another Space has to say whose cookies it is,
         // and the Space colour does not. Without this the rows still stay apart
         // per Profile — `CommandBarRanking` derives that from `Space.profileID`
-        // — but they lose the Profile's *name* off their badge.
+        // — but they lose the Profile's name off their badge.
         sources.profiles = session.profiles
         sources.adaptive = adaptive.snapshot
         sources.history = []
@@ -233,9 +233,9 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
             await self?.adaptive.loadIfNeeded()
             guard let self, self.isPresented, let field = self.panel?.field else { return }
             self.sources.adaptive = self.adaptive.snapshot
-            // **Only when it could change the answer.** `adaptiveRows` is
+            // Only when it could change the answer. `adaptiveRows` is
             // skipped for an empty query and an empty table matches no prefix,
-            // so on `⌘T` this was a second full merge *and* a second trip to
+            // so on `⌘T` this was a second full merge and a second trip to
             // SQLite — 9 ms of store query, measured, on the first open of
             // every session — for a list that came back byte for byte the
             // same, in the middle of opening the bar.
@@ -258,7 +258,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
         generation += 1
         let token = generation
 
-        // §9.1's mark, before the ranking: what the string *is* does not depend
+        // §9.1's mark, before the ranking: what the string is does not depend
         // on what the search finds, and the glyph should not wait on SQLite.
         panel?.showMark(for: typed)
 
@@ -318,7 +318,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
             selection = new.first?.id
         }
         let visible = Array(rows.prefix(CommandBarMetrics.visibleRows))
-        // **Not while the bar is opening.** Replacing the list rebuilds eight
+        // Not while the bar is opening. Replacing the list rebuilds eight
         // row views and re-draws them under live glass, on the thread running
         // the bar's own 0.18 s animation. The bar now waits for the store
         // before it opens (`openWhenReady`), so what still lands in this window
@@ -387,7 +387,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
     // MARK: - Acting
 
     private func commit(_ result: CommandBarResult) {
-        // §9.3: the lesson is keyed on what the user *typed*, never on the string
+        // §9.3: the lesson is keyed on what the user typed, never on the string
         // autofill completed for them — otherwise the ranker teaches itself.
         if let url = result.url, let typed = panel?.field.typedText {
             adaptive.record(typed: typed, url: url)
@@ -404,7 +404,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
         case let .activateTab(id):
             session.activateTab(id)
         case let .open(url):
-            // §9.1: `⌘L` and a pill both edit *this* tab's address; only `⌘T`
+            // §9.1: `⌘L` and a pill both edit this tab's address; only `⌘T`
             // asks for a new one. A new tab is the only sensible answer when
             // there is no tab to edit.
             if mode.opensNewTab {

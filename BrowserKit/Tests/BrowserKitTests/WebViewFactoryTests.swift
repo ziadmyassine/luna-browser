@@ -17,7 +17,7 @@ struct WebViewFactoryTests {
         #expect(configuration.allowsAirPlayForMediaPlayback)
         #expect(configuration.defaultWebpagePreferences.allowsContentJavaScript)
 
-        // §4.6: applicationNameForUserAgent is *appended* to the system UA, so the
+        // §4.6: applicationNameForUserAgent is appended to the system UA, so the
         // Safari compat tokens must be in it — a bare product token is a different UA.
         let applicationName = configuration.applicationNameForUserAgent ?? ""
         #expect(applicationName.hasPrefix("Version/"))

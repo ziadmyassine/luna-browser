@@ -11,7 +11,7 @@ import WebKit
 ///   data and before `didFinish`. Data before a response, a second response
 ///   after completion, or any callback after `didFinish`/`didFailWithError`
 ///   each raise an Objective-C exception, which is a crash and not a throw.
-/// - **Failing to call `didFinish` raises nothing at all** — that is what makes
+/// - Failing to call `didFinish` raises nothing at all — that is what makes
 ///   it dangerous. The resource simply never completes: a main-frame navigation
 ///   spins forever, `didFinish` never reaches the navigation delegate, and the
 ///   tab is wedged with no error to show. Every path below therefore ends in
@@ -20,13 +20,13 @@ import WebKit
 ///   handler task it must not perform any callbacks for that task", and one
 ///   made anyway raises an exception.
 ///
-/// **Which is why this handler is entirely synchronous.** Everything it serves
+/// Which is why this handler is entirely synchronous. Everything it serves
 /// is either a string it builds in-process or bytes already in
 /// `FaviconService`'s memory cache, so the whole response is delivered inside
 /// `start(_:)`. Both protocol methods are `WK_SWIFT_UI_ACTOR`, so WebKit cannot
 /// interleave a `stop(_:)` with a `start(_:)` that has not returned — there is
 /// no window in which a stopped task could receive a callback, and therefore no
-/// bookkeeping to get wrong. `stop(_:)` is a no-op *because* of that, not by
+/// bookkeeping to get wrong. `stop(_:)` is a no-op because of that, not by
 /// omission. Anything asynchronous added here has to bring the cancellation set
 /// with it.
 @MainActor

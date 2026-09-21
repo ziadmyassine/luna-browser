@@ -16,14 +16,14 @@ import AppKit
 /// noise (§3.4). Its own accessibility element so VoiceOver can reach mute and
 /// archive without a mouse (§21.1).
 ///
-/// **The chip is the pointer's, not the row's.** §3.4 describes no chrome around
+/// The chip is the pointer's, not the row's. §3.4 describes no chrome around
 /// the glyph; a first pass gave it a permanent translucent square, which put a
 /// grey tile on every row the pointer merely passed over. The square is the
-/// affordance for *this* control, so it appears when the pointer is on this
+/// affordance for this control, so it appears when the pointer is on this
 /// control and not a moment before — glyph alone while the row is hovered, chip
 /// plus a "Close Tab" tip once you are actually on it.
 ///
-/// **And every one of these glyphs wears it.** For a while the two inside §3.2's
+/// And every one of these glyphs wears it. For a while the two inside §3.2's
 /// pill lifted their ink instead, on the argument that a rounded rectangle
 /// inside a capsule is two shapes. Martin's reference for a non-glass button —
 /// the three captures of a reload glyph at rest, under the pointer and under a
@@ -34,7 +34,7 @@ import AppKit
 /// The fill is §3.4's pair: `Surface.hover` under the pointer, `Surface.selected`
 /// under a press, cross-fading on §6's `controlHover` — which is what the
 /// reference measures at, near enough (7.6 % and 12.8 % of white over a dark
-/// bar, against Luna's 6 and 12). It is painted by the view's **own layer**,
+/// bar, against Luna's 6 and 12). It is painted by the view's own layer,
 /// under the image rather than over it: an `NSImageView` draws its image into
 /// that layer's contents, so a background is behind the glyph and a sublayer
 /// would be in front of it.

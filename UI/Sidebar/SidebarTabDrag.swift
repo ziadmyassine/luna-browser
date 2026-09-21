@@ -4,7 +4,7 @@
 //
 //  §6.6's reorder, as a gesture rather than as a system drag.
 //
-//  **Why this is not `NSTableView`'s drag and drop.** AppKit's session hands
+//  Why this is not `NSTableView`'s drag and drop. AppKit's session hands
 //  the pointer a translucent snapshot that floats free in two dimensions, can
 //  be carried out of the window entirely, and leaves the list behind it static
 //  apart from a 2 pt insertion rule. A sidebar tab has exactly one degree of
@@ -13,10 +13,10 @@
 //  its landing place the moment it starts moving.* None of those three are
 //  things a dragging session exposes.
 //
-//  So the gesture is tracked here. The row is replaced by a **lift** — one view
+//  So the gesture is tracked here. The row is replaced by a lift — one view
 //  carrying §3.4's selected pill, the favicon and the title — which is pinned to
 //  the sidebar's own x and follows the pointer's y, while the list opens a gap
-//  under it. Carry it up into the §3.3 grid and the lift *becomes* a tile:
+//  under it. Carry it up into the §3.3 grid and the lift becomes a tile:
 //  same view, new geometry, animated on §6's `tabInsert`, with the grid opening
 //  a slot to receive it. Carry it back down and it becomes a row again.
 //
@@ -158,7 +158,7 @@ final class SidebarTabDragController {
     }
 
     /// The lift's centre, in the sidebar's coordinates. `x` is never taken from
-    /// the pointer: the column *is* the gesture, and the only horizontal
+    /// the pointer: the column is the gesture, and the only horizontal
     /// movement the lift ever makes is the morph between a row's width and a
     /// tile's.
     private func move(to point: NSPoint) {
@@ -166,7 +166,7 @@ final class SidebarTabDragController {
         let next = resolveTarget(at: point)
         let morphed = target.map { shape(of: next) != shape(of: $0) } ?? false
         if next != target {
-            // **One tick per step, in the grid and in the list alike.** The
+            // One tick per step, in the grid and in the list alike. The
             // pointer moves continuously and the list does not — it steps, as
             // the lift changes places with one neighbour — and this is the only
             // line that knows a step just happened. The very first target of a
@@ -185,7 +185,7 @@ final class SidebarTabDragController {
     private func resolveTarget(at point: NSPoint) -> SidebarDropTarget {
         if let space = utility.spaceID(at: point, from: host) { return .space(id: space) }
         guard point.y < grid.frame.minY else {
-            // **The one place the lift moves sideways.** Two columns of tiles
+            // The one place the lift moves sideways. Two columns of tiles
             // are two positions, and which of them the lift is over is a
             // question only the pointer's `x` can answer; everywhere else the
             // column is the whole gesture.
@@ -197,7 +197,7 @@ final class SidebarTabDragController {
     /// Where the lift sits for a target: a row's pill, or a tile under the hand.
     /// Both keep the pointer's `y`, so the lift never leaves it.
     ///
-    /// **A tile is not snapped to its slot while it is in the air.** Jumping
+    /// A tile is not snapped to its slot while it is in the air. Jumping
     /// between two positions as the pointer crosses the gutter reads as the
     /// tile being taken off you and put somewhere; the grid's own outline is
     /// already saying where it will land, so the tile itself can simply go
@@ -258,9 +258,9 @@ final class SidebarTabDragController {
         target = nil
         isPinned = false
 
-        // **The move is committed before anything is revealed.**
+        // The move is committed before anything is revealed.
         //
-        // The row and the tile the lift is standing in for are *hidden*, not
+        // The row and the tile the lift is standing in for are hidden, not
         // gone, and they are hidden at the place the tab came from. Putting
         // them back before the model has moved therefore shows the tab in the
         // place it just left — for one frame in the grid, where it read as the
@@ -274,7 +274,7 @@ final class SidebarTabDragController {
             case let .list(row):
                 var destination = list.list.dropTarget(insertingAt: row)
                 // `reorderTab` takes the index the tab ends up at, so a move
-                // *down* within its own section has to account for its own
+                // down within its own section has to account for its own
                 // removal.
                 if kind == destination.kind, let from = list.sectionIndex(of: id), from < destination.index {
                     destination.index -= 1

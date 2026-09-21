@@ -2,7 +2,7 @@ import Foundation
 
 /// §3.2's site menu, as state the rest of the app can ask a synchronous question of.
 ///
-/// **In memory first, SQLite afterwards.** The two callers that matter cannot wait on a
+/// In memory first, SQLite afterwards. The two callers that matter cannot wait on a
 /// database: `ContentBlocker.apply(to:host:)` runs inside `decidePolicyFor`, and the
 /// Picture-in-Picture hand-off runs inside `activateTab`. So the whole table is read once
 /// at launch — it is a handful of rows, one per site the user has ever answered for — and

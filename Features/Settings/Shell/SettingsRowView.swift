@@ -9,10 +9,10 @@
 //  `NSControl`s.** §4 requires a disabled row to be "dimmed, still focusable,
 //  and still read by VoiceOver, with its reason as the accessibility help", and
 //  a disabled `NSControl` is none of those — AppKit drops it out of the key-view
-//  loop and VoiceOver skips it. So the *control* is disabled and the *row* takes
+//  loop and VoiceOver skips it. So the control is disabled and the row takes
 //  over as the focusable, labelled, helped element (§30.4).
 //
-//  **Nothing in here is glass.** The pane is opaque because a form is read, not
+//  Nothing in here is glass. The pane is opaque because a form is read, not
 //  looked through; a card of `.control` glass on an opaque plane is a material
 //  with nothing to refract, and nine of them stacked down a pane was the whole
 //  window asking to be looked at. A card is `Surface.raised` with the hairline
@@ -79,11 +79,11 @@ final class SettingsRowView: NSView {
 
     // MARK: - Layout
 
-    /// **Explicit constraints, not a horizontal stack.** A stack decides which
+    /// Explicit constraints, not a horizontal stack. A stack decides which
     /// of its two views absorbs the spare width, and it decided differently for
     /// a switch (which has an intrinsic size) than for a `SettingsChoice` (which
     /// does not): the switch went to the trailing edge and the segments stayed
-    /// beside the label with the spare width spread *between* them. One rule
+    /// beside the label with the spare width spread between them. One rule
     /// instead — the label starts at the card's text inset, the control ends at
     /// it — written down rather than inferred.
     private func build(text: [NSView], control: NSView?) {
@@ -221,7 +221,7 @@ final class SettingsRowView: NSView {
 
 /// §1's card of rows, with an optional label above it.
 ///
-/// **One card, not a stack of chips.** Its rows butt together and are separated
+/// One card, not a stack of chips. Its rows butt together and are separated
 /// by a hairline that starts at the row's own text inset, which is what makes
 /// six settings read as one group; a gap between them says the opposite.
 @MainActor
@@ -278,12 +278,12 @@ final class SettingsRowGroupView: NSView {
         }
     }
 
-    /// The group's name, above the card and **flush with the card's own edge**,
+    /// The group's name, above the card and flush with the card's own edge,
     /// one step down in ink: at full strength it was the same size, face and
     /// colour as the row beneath it and the eye had to read both to find out
     /// which was the label.
     ///
-    /// **Not the card's text inset, which is where it sat.** Lining the name up
+    /// Not the card's text inset, which is where it sat. Lining the name up
     /// with the row titles below it looked like the tidier of the two and reads
     /// as the worse one: the name then starts a `cardInset` inside the only
     /// vertical rule the pane has — the edge every card is drawn to — so it
@@ -476,7 +476,7 @@ final class SettingsPushButton: NSButton {
     /// the press holds it there while the button swells. **It used to be
     /// inverted** — `selected` at rest and `hover` under the pointer — so the
     /// one button in Settings with a word on it was also the one that got
-    /// *fainter* when you went for it.
+    /// fainter when you went for it.
     override func updateLayer() {
         guard let layer else { return }
         let lifted = isEnabled && (isHovering || isPressed)
@@ -615,7 +615,7 @@ final class SettingsTextField: NSTextField {
 
 /// `NSTextFieldCell` draws from the top of whatever rect it is handed and never
 /// centres, so a field standing at the pane's control height had its text
-/// against the well's top edge. The inset is therefore horizontal *and*
+/// against the well's top edge. The inset is therefore horizontal and
 /// vertical, measured from the line height of the font it was given.
 @MainActor
 final class SettingsTextFieldCell: NSTextFieldCell {
@@ -661,14 +661,14 @@ final class SettingsTextFieldCell: NSTextFieldCell {
 
 /// §4's switch.
 ///
-/// **AppKit's is 54 × 24 and will not be told otherwise.** Measured on macOS 26:
+/// AppKit's is 54 × 24 and will not be told otherwise. Measured on macOS 26:
 /// `NSSwitch` returns the same fitting size at `.large`, `.regular`, `.small`
 /// and `.mini` — the property is accepted and ignored. That is twice the width
 /// every other control in the pane was built to (`settingsControl`, 28), and a
 /// card of them read as a row of levers rather than of settings.
 ///
 /// So this is the one system control Luna replaces, and it is replaced rather
-/// than *scaled*: a layer transform would rasterise the system's crisp rim and
+/// than scaled: a layer transform would rasterise the system's crisp rim and
 /// then blur it, and would leave the click target somewhere the switch is not.
 /// What is re-earned by hand is written out below — the key loop, Space, the
 /// `AXCheckBox` role and its value, the focus ring, and Reduce Motion. The
@@ -720,7 +720,7 @@ final class SettingsSwitch: NSControl {
 
     override func layout() {
         super.layout()
-        // Bounds-derived, so it may never animate — the knob's *travel* is what
+        // Bounds-derived, so it may never animate — the knob's travel is what
         // animates, and that is driven from `refresh(animated:)`.
         Tokens.Motion.immediately {
             track.frame = bounds
@@ -832,7 +832,7 @@ final class SettingsSwitch: NSControl {
 
 /// A key equivalent, on the same well every other read-only value sits in.
 ///
-/// **`isFixed` is the whole of §3.6's "which of these can I change?".** A
+/// `isFixed` is the whole of §3.6's "which of these can I change?". A
 /// shortcut the user can move is drawn by `SettingsShortcutRecorder`, which is
 /// this chip plus a click target: same well, same border, same corner. Drawn
 /// identically, a shortcut that is nobody's to move looked exactly like one

@@ -52,7 +52,7 @@ extension BrowserSession {
     /// Archives the tab — §6.3's soft delete, which keeps title, URL and icon —
     /// and releases its web view. Undoable.
     ///
-    /// **A pinned tab cannot be closed**, only unpinned: closing one leaves the
+    /// A pinned tab cannot be closed, only unpinned: closing one leaves the
     /// tile and sends it home — see `sendTileHome`. So `⌘W` on a pinned tab is
     /// "I am finished with this page", not "throw it out".
     func closeTab(_ id: UUID) {
@@ -84,7 +84,7 @@ extension BrowserSession {
     /// the top sent the selection somewhere down the list and the next `⌘W`
     /// closed that one instead, so the list unravelled from two ends at once;
     /// and with §3.4 stacking today's tabs newest-first, the recent tab is very
-    /// often the one *above*, which reads as the list moving backwards.
+    /// often the one above, which reads as the list moving backwards.
     ///
     /// The list's own order is the one thing the user can see, so the answer is
     /// read straight off it — Favorites excluded, because those are §3.3's grid
@@ -122,7 +122,7 @@ extension BrowserSession {
         restoreArchived(tab, at: TabList.openIndex(for: tab.kind))
     }
 
-    /// Every tab this window knows about, across **all** Spaces — `tabs` is the
+    /// Every tab this window knows about, across all Spaces — `tabs` is the
     /// active Space only. The Command Bar's cross-Space switching and its
     /// archive rows (§9.2) are the reason this exists.
     /// De-duplicated: Favorites are per Profile (§2), so every Space sharing a
@@ -135,7 +135,7 @@ extension BrowserSession {
         return includeArchived ? open + archived : open
     }
 
-    /// - Parameter index: position **within `kind`'s section**, not within
+    /// - Parameter index: position within `kind`'s section, not within
     ///   `tabs`. Sections run essential → pinned → today.
     func reorderTab(_ id: UUID, to index: Int, kind: TabKind) {
         guard var tab = list.tab(id), let oldIndex = list.indexInSection(of: id) else { return }
@@ -151,7 +151,7 @@ extension BrowserSession {
         notifyChange()
     }
 
-    /// True when moving this tab into that Space crosses a **Profile**
+    /// True when moving this tab into that Space crosses a Profile
     /// boundary — the case that costs the user their session, and the one that
     /// must never happen silently. Ask before `moveTab`, and say
     /// ``crossProfileMoveWarning``.
@@ -235,7 +235,7 @@ extension BrowserSession {
     // MARK: - Views
 
     /// The tab's content view, waking it if it is cold. Call it for the
-    /// **selected** tab only — calling it for any other is precisely the §19.4
+    /// selected tab only — calling it for any other is precisely the §19.4
     /// violation the hibernation budget exists to prevent.
     func webView(for id: UUID) -> NSView? {
         guard let tab = list.tab(id) else { return nil }
@@ -326,7 +326,7 @@ extension BrowserSession {
     }
 
     /// One chain for every tab write. Unordered `Task`s would let a renumber
-    /// land *after* the row it renumbered — an order that is right on screen
+    /// land after the row it renumbered — an order that is right on screen
     /// and wrong after a relaunch.
     private func enqueue(_ work: @escaping @Sendable (BrowserStore) async -> Void) {
         let previous = writeChain

@@ -2,7 +2,7 @@
 //  CommandBarMode.swift
 //  Luna
 //
-//  What the bar was opened *for*: `⌘T`, `⌘L`, or a pill handing over what has
+//  What the bar was opened for: `⌘T`, `⌘L`, or a pill handing over what has
 //  already been typed into it.
 //
 //  Its own file rather than the controller's, for the reason
@@ -17,7 +17,7 @@ import Foundation
 /// `⌘T` and `⌘L` (§9.1, §20.1), plus the pills that hand off to the bar.
 ///
 /// The mode carries two separate things, and conflating them is what made the
-/// New Tab page open a *second* empty tab: what the field starts with, and
+/// New Tab page open a second empty tab: what the field starts with, and
 /// which tab a chosen result lands in.
 enum CommandBarMode: Equatable {
     /// `⌘T`: empty. Choosing a result opens a new tab.
@@ -33,7 +33,7 @@ enum CommandBarMode: Equatable {
 
 extension CommandBarMode {
 
-    /// Whether a chosen result opens a **new** tab or navigates the current one.
+    /// Whether a chosen result opens a new tab or navigates the current one.
     /// This is the half of the mode that was wrong: the New Tab page's pill ran
     /// as `.newTab`, so committing left the empty page behind and opened a
     /// second tab next to it.

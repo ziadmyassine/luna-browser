@@ -9,7 +9,7 @@
 //  They are in their own file because the first one is full, not because they
 //  are a different kind of thing.
 //
-//  **Every one of them validates.** A browser command that cannot run should dim
+//  Every one of them validates. A browser command that cannot run should dim
 //  rather than swallow the keystroke, and these are mostly commands with an
 //  obvious empty state: nothing to copy, nothing stale to clean up, no tile to
 //  send home. `validatePageCommand` is reached from `validateMenuItem`'s chain.
@@ -86,7 +86,7 @@ extension AppDelegate {
     }
 
     /// Whichever button the layout on screen is showing, exactly as
-    /// `showDownloadsList` picks its own. A *collapsed* sidebar is still the
+    /// `showDownloadsList` picks its own. A collapsed sidebar is still the
     /// sidebar layout — its button is parked off-screen and the pop-out falls
     /// back to the corner it would have been in.
     func showHistoryList() {
@@ -148,7 +148,7 @@ extension AppDelegate {
         )
     }
 
-    /// **Rebuilds the bar rather than editing the item that changed**, for the
+    /// Rebuilds the bar rather than editing the item that changed, for the
     /// reason `MainMenu`'s header gives: writing a key equivalent into a live
     /// menu bar is measurably unreliable, and building a fresh one is the path
     /// launch already takes.

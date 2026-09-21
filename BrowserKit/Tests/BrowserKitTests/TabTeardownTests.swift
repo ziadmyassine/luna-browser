@@ -3,19 +3,19 @@ import BrowserKit
 import WebKit
 import XCTest
 
-/// What happens to a tab's **sound** when the tab is torn down.
+/// What happens to a tab's sound when the tab is torn down.
 ///
-/// **The defect this was written for: a closed tab kept playing.** Close a
+/// The defect this was written for: a closed tab kept playing. Close a
 /// pinned tab with a video running and the audio carried on in the background,
 /// with nothing left on screen to stop it. `detach()` unhooked the view and let
 /// go of it, on the reasoning that a deallocated `WKWebView` closes its page and
-/// a closed page is silent — which is true of the *last* reference and says
+/// a closed page is silent — which is true of the last reference and says
 /// nothing about the one before it. WebKit's own async completions, a floating
 /// Picture-in-Picture window, element fullscreen and a snapshot in flight can
 /// each outlive the teardown by an unbounded amount, and for as long as one
 /// does, the page is still playing.
 ///
-/// So the test holds the view itself. **That is the point of it**: this must
+/// So the test holds the view itself. That is the point of it: this must
 /// pass while something outlives the close, because that case is the bug, and a
 /// test that let the view deallocate would pass without the fix.
 ///
@@ -50,7 +50,7 @@ final class TabTeardownTests: XCTestCase {
         XCTAssertEqual(paused, true, "a torn-down tab kept playing because something still held its view")
     }
 
-    /// **A web view nobody ever put on screen does not play anything**, so a
+    /// A web view nobody ever put on screen does not play anything, so a
     /// test that skipped this would assert silence it had arranged itself.
     private func show(_ view: WKWebView) {
         let window = NSWindow(

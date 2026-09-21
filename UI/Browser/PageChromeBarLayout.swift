@@ -21,7 +21,7 @@ extension PageChromeBar {
 
     // MARK: - Layout
 
-    /// The bar's frame is the **open** band, whatever state it is in: nothing
+    /// The bar's frame is the open band, whatever state it is in: nothing
     /// here resizes, so the plane and the controls can travel inside a frame
     /// that is standing still. `hitTest` is what keeps the part of it the plane
     /// does not cover from taking the page's clicks.
@@ -85,9 +85,9 @@ extension PageChromeBar {
         }
         let buttonsEnd = x - Tokens.Metric.controlPairGap
 
-        // **The buttons' own diameter, not the pill's own height token.** The
+        // The buttons' own diameter, not the pill's own height token. The
         // two are the same 34 pt today — `sidebarCircle` is defined as a circle
-        // of `urlPill.height` — and on this bar they have to *stay* the same:
+        // of `urlPill.height` — and on this bar they have to stay the same:
         // four controls on one line, one of them a different height, is the
         // thing the eye finds first.
         //
@@ -105,7 +105,7 @@ extension PageChromeBar {
         // fading, which is the address sliding in from the side that the two
         // states were supposed to stop doing.
         //
-        // **It can keep the width because collapsed it has no surface.** A
+        // It can keep the width because collapsed it has no surface. A
         // `.bare` pill draws nothing but its centred domain, so 420 pt of it is
         // 420 pt of nothing with a word in the middle — and the word is already
         // on the centre line the open pill put it on. Nothing moves sideways at
@@ -126,7 +126,7 @@ extension PageChromeBar {
 
     // MARK: - Events
 
-    /// **Only the band takes events.** The bar's frame is the open band's
+    /// Only the band takes events. The bar's frame is the open band's
     /// height whichever state it is in, so while it is collapsed the lower
     /// 22 pt of it is over live page and must behave like page: a link there
     /// has to stay clickable.
@@ -139,7 +139,7 @@ extension PageChromeBar {
 
     /// **The window has one handle at a time, and it is the chrome that is on
     /// screen.** In this layout that is §3's column: the sidebar's plane moves
-    /// the window, and this bar — which is over the *page*, inside the card,
+    /// the window, and this bar — which is over the page, inside the card,
     /// clipped to the page's own corners — does not.
     ///
     /// It used to move it too, on the reasoning that a chrome bar is a chrome

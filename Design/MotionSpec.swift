@@ -26,7 +26,7 @@ struct MotionSpec: Sendable {
     var duration: TimeInterval
     /// SwiftUI-style spring response, in seconds. Nil for a timed spec.
     var response: Double?
-    /// Spring damping *fraction*, 0...1. Nil for a timed spec.
+    /// Spring damping fraction, 0...1. Nil for a timed spec.
     var damping: Double?
     var curve: Curve
 
@@ -88,7 +88,7 @@ struct MotionSpec: Sendable {
     }
 
     /// The unit cubic bezier through (0,0), `first`, `second`, (1,1), solved
-    /// for *y* at the *x* the clock is at.
+    /// for y at the x the clock is at.
     private static func bezier(_ first: CGPoint, _ second: CGPoint, at x: CGFloat) -> CGFloat {
         func axis(_ one: CGFloat, _ two: CGFloat, _ t: CGFloat) -> CGFloat {
             let a = 3 * one, b = 3 * (two - one) - a, c = 1 - a - b

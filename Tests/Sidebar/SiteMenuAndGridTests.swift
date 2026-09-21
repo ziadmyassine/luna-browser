@@ -7,7 +7,7 @@
 //  behind §3.2's Local Network permission.
 //
 //  The rule list is the one that would otherwise fail silently. WebKit refuses
-//  a pattern its URL-filter engine cannot parse by *throwing*, and the compile
+//  a pattern its URL-filter engine cannot parse by throwing, and the compile
 //  is a fire-and-forget `Task` — so a typo in a regex would leave
 //  `localNetworkList` nil, nothing blocked, and a checkmark in the menu that
 //  means nothing at all.
@@ -18,7 +18,7 @@ import WebKit
 import XCTest
 @testable import Luna
 
-/// §3.3's grid as a set of views, which is where the *arrival* of a tile can go
+/// §3.3's grid as a set of views, which is where the arrival of a tile can go
 /// wrong in a way arithmetic cannot see.
 @MainActor
 final class EssentialsGridArrivalTests: XCTestCase {
@@ -46,12 +46,12 @@ final class EssentialsGridArrivalTests: XCTestCase {
         grid.subviews.compactMap { $0 as? GlassButton }
     }
 
-    /// **A Space switch replaces this grid; an unpin edits it**, and the two
+    /// A Space switch replaces this grid; an unpin edits it, and the two
     /// had the same answer for one build.
     ///
     /// A tile that leaves fades out where it stood, because removing it
     /// outright made an unpin look like the tab had been deleted off-screen.
-    /// Across a Space switch *every* tile leaves at once, and `NSView` keeps a
+    /// Across a Space switch every tile leaves at once, and `NSView` keeps a
     /// view being faded on screen for the length of the fade — so the Space
     /// just left stayed drawn over the Space just arrived in for a fifth of a
     /// second. That is the flash of old tabs, and this is the pair of claims
@@ -69,12 +69,12 @@ final class EssentialsGridArrivalTests: XCTestCase {
         XCTAssertEqual(Self.tiles(in: switching).count, 2, "the previous Space's tiles are still on screen")
     }
 
-    /// **A tile that has just been pinned lands in its slot.** It is a fresh
+    /// A tile that has just been pinned lands in its slot. It is a fresh
     /// view, so its frame is the grid's own origin until something places it,
     /// and the pass that places it is the animated one — so the tile flew up
     /// from the foot of the leading edge into the slot the lift had just come
     /// to rest in. The tiles that were already there still travel; only the
-    /// one with nowhere to travel *from* is exempt.
+    /// one with nowhere to travel from is exempt.
     func testANewlyPinnedTileDoesNotFlyInFromTheCorner() {
         let grid = grid()
         let pinned = tabs(3)
@@ -180,7 +180,7 @@ final class LocalNetworkRuleTests: XCTestCase {
     }
 }
 
-/// §3.2a's glyphs, which fail by *disappearing*.
+/// §3.2a's glyphs, which fail by disappearing.
 ///
 /// Both halves of that are here. A misspelt SF Symbol makes no image and no
 /// fallback box — the label is drawn without it and the item is one gap out of

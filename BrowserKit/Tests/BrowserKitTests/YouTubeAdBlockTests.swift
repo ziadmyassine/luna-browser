@@ -6,7 +6,7 @@ import WebKit
 
 /// §17.2's YouTube ads — the one part of blocking that is not a rule list.
 ///
-/// The script is the thing under test, so it is **run**, not string-matched: a
+/// The script is the thing under test, so it is run, not string-matched: a
 /// `JSContext` with the handful of globals WebKit would have provides the hooks, and
 /// the assertions are what a page would see after YouTube's own code reads the value.
 /// A `#expect(source.contains("adPlacements"))` would pass against a script that had
@@ -120,7 +120,7 @@ struct YouTubeAdBlockTests {
     }
 
     /// Another site's JSON goes through the same patched `JSON.parse` on every page
-    /// YouTube is not. It must come back **identical** — a blocker that quietly edits
+    /// YouTube is not. It must come back identical — a blocker that quietly edits
     /// arbitrary responses is a worse bug than the ad.
     @Test func aResponseThatIsNotYouTubesIsNotTouched() throws {
         let context = try Self.context(hostname: "www.youtube.com")
@@ -130,7 +130,7 @@ struct YouTubeAdBlockTests {
         var scrubbed = JSON.parse(payload);
         """)
         #expect(context.evaluateScript("JSON.stringify(untouched)")?.toString() == "{\"a\":1,\"b\":[1,2,3]}")
-        // The gate is a string search, so this one *is* walked — and the array of real
+        // The gate is a string search, so this one is walked — and the array of real
         // videos has to survive it.
         #expect(context.evaluateScript("scrubbed.items.length")?.toInt32() == 1)
         #expect(context.evaluateScript("scrubbed.items[0].videoRenderer.id")?.toInt32() == 1)
@@ -159,7 +159,7 @@ struct YouTubeAdBlockTests {
 
     // MARK: - Where it runs, and where it does not
 
-    /// The script goes into **every** frame of every page, so its own hostname test is
+    /// The script goes into every frame of every page, so its own hostname test is
     /// the thing keeping it off the rest of the web. If that test ever stops holding,
     /// every site on the internet gets a patched `JSON.parse`.
     @Test func nothingIsHookedOnAnyOtherSite() throws {
@@ -208,7 +208,7 @@ struct YouTubeAdBlockTests {
     // MARK: - The player fallback (§17.2 layer 3)
 
     /// A fake player, at the shape measured on the live site: `ad-showing` on
-    /// `#movie_player` for exactly the ad, and **one** `<video>` shared by the ad and
+    /// `#movie_player` for exactly the ad, and one `<video>` shared by the ad and
     /// the video — which is what makes the mute below a hazard rather than a detail.
     private static func player(hostname: String = "www.youtube.com", skipButton: Bool) throws -> JSContext {
         let context = try Self.context(hostname: hostname)
@@ -254,7 +254,7 @@ struct YouTubeAdBlockTests {
         #expect(context.evaluateScript("video.muted")?.toBool() == true)
     }
 
-    /// **The hazard.** The ad and the video are the same `<video>`, so a mute taken for
+    /// The hazard. The ad and the video are the same `<video>`, so a mute taken for
     /// the seek and not given back is a silent video for the rest of the watch. It has
     /// to come back, and only if we were the ones who took it.
     @Test func theMuteIsGivenBackWhenTheAdEnds() throws {
@@ -286,7 +286,7 @@ struct YouTubeAdBlockTests {
 
     // MARK: - The static ads, on the native path
 
-    /// **The one failure here that is completely silent.** `prepareYouTubeList()` is a
+    /// The one failure here that is completely silent. `prepareYouTubeList()` is a
     /// fire-and-forget `Task`, so a selector WebKit refuses leaves `youTubeList` nil,
     /// nothing hidden, and no error anywhere. Same reason `localNetworkRules` is public.
     @Test func webKitCompilesTheCosmeticRules() async throws {

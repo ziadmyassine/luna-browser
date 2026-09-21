@@ -5,7 +5,7 @@
 //  The two things about the coordinator that are worth a test because they are
 //  invisible when they break:
 //
-//  · §19.4 — a restored session holds **no** `TabController`, so it holds no
+//  · §19.4 — a restored session holds no `TabController`, so it holds no
 //    `WKWebView` and no WebContent process. A regression here costs 30 renderer
 //    processes at launch and nothing on screen says so.
 //  · The section/order invariant `reorderTab(_:to:kind:)` is defined against.
@@ -111,7 +111,7 @@ final class BrowserSessionTests: XCTestCase {
         XCTAssertNotNil(all.first?.archivedAt)
     }
 
-    /// §3.3: pinning moves the tab into the Essentials section **and** puts
+    /// §3.3: pinning moves the tab into the Essentials section and puts
     /// its page away. It used only to do the second half, so the row left the
     /// list, no tile appeared, and the command looked like it did nothing.
     func testPinningMovesTheTabIntoEssentials() async throws {

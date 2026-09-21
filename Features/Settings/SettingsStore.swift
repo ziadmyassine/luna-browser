@@ -54,7 +54,7 @@ enum SearchBarPlacement: String, CaseIterable, Sendable {
     }
 }
 
-/// **Where the tabs are.** One setting, because it is one question the user is
+/// Where the tabs are. One setting, because it is one question the user is
 /// asking — and the two layouts have different answers available to them.
 ///
 /// §3's sidebar is a column, so it has two sides and no middle. §4's strip runs
@@ -125,7 +125,7 @@ enum Settings {
         }
     }
 
-    /// §3/§4's tab position. **Centre by default**, which is where §4's strip
+    /// §3/§4's tab position. Centre by default, which is where §4's strip
     /// belongs and which a sidebar reads as the left it has always been.
     static var tabsPosition: TabsPosition {
         get {
@@ -155,7 +155,7 @@ enum Settings {
     /// Whether §3.2b's bar is the one on screen — the single reader both the
     /// sidebar and the page bar are driven from.
     ///
-    /// **Two keys, one answer.** The placement is only meaningful in sidebar
+    /// Two keys, one answer. The placement is only meaningful in sidebar
     /// layout, and asking each surface to remember that is how the sidebar ends
     /// up having dropped its pill in a layout that has no page bar to put it
     /// in.

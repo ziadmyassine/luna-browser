@@ -20,7 +20,7 @@ extension URLPillView {
     /// How big the pill's two glyphs are drawn, which is a fact about the pill
     /// they are in.
     ///
-    /// **14 on the bar, 13 in the column**, and neither is `glyphSize`.
+    /// 14 on the bar, 13 in the column, and neither is `glyphSize`.
     ///
     /// 16 is the size of a glyph that is its own button — the §3.1 circles,
     /// §3.2b's toggle and history cluster — and the bar's pair started there to
@@ -51,11 +51,11 @@ extension URLPillView {
     /// box hanging off the end of the pill it is inside.
     private var glyphBox: CGFloat { glyphInk + Tokens.Metric.chromeGap }
 
-    /// **Which end the sliders glyph is on**, which is a fact about whether
+    /// Which end the sliders glyph is on, which is a fact about whether
     /// this pill also carries a reload.
     ///
     /// One affordance on a pill goes on the trailing edge — that is where §3.2
-    /// has always drawn it, and where §3.4's rows draw theirs. A *second* one
+    /// has always drawn it, and where §3.4's rows draw theirs. A second one
     /// has to take the other end, and site settings is the one that describes
     /// what the address is, so it leads and reload trails.
     private var slidersLead: Bool { onReload != nil }
@@ -93,7 +93,7 @@ extension URLPillView {
     /// pill — the address at one end, a glyph at either — stands
     /// `pillTextInset` in from the edge nearest it. See `glyphInset`.
     ///
-    /// **The inset is the glyph's ink, and its hit box grows past it.** The
+    /// The inset is the glyph's ink, and its hit box grows past it. The
     /// number is measured to the mark the eye sees, so the box — which is
     /// bigger than the glyph inside it — is placed by centring it on where the
     /// glyph would have been rather than by being inset itself. Insetting the
@@ -104,7 +104,7 @@ extension URLPillView {
         Tokens.Motion.immediately {
             placeContents()
             refreshGlassShape()
-            // **And the corner has to be re-cut.** `cornerRadius` is half the
+            // And the corner has to be re-cut. `cornerRadius` is half the
             // pill's height, `updateLayer` is where it is applied, and nothing
             // marks a view for display merely because it was resized — so the
             // radius was whatever the height happened to be the last time
@@ -116,10 +116,10 @@ extension URLPillView {
         }
     }
 
-    /// How wide what the field is *showing* needs to draw in full — the
+    /// How wide what the field is showing needs to draw in full — the
     /// address, or the placeholder when there is no address.
     ///
-    /// Asked of the **cell**, not of `intrinsicContentSize` and not of the
+    /// Asked of the cell, not of `intrinsicContentSize` and not of the
     /// string. A truncating `NSTextField` answers `noIntrinsicMetric` for its
     /// width — a -1 that became a zero-width frame and a bar with a magnifier
     /// and no address in it — and the string's own `size()` is a couple of
@@ -128,7 +128,7 @@ extension URLPillView {
     /// three that answers the question actually being asked: how wide this
     /// cell has to be to show all of itself.
     ///
-    /// Measured through a *copy* of the cell, because the placeholder has to be
+    /// Measured through a copy of the cell, because the placeholder has to be
     /// measured as though it were the value, and the live cell is mid-edit.
     private var textWidth: CGFloat {
         let showing = field.stringValue.isEmpty ? (field.placeholderString ?? "") : field.stringValue
@@ -147,7 +147,7 @@ extension URLPillView {
         let height = field.intrinsicContentSize.height
         let textY = (bounds.height - height) / 2
         let boxY = (bounds.height - box) / 2
-        // Inset to the **ink**, not to the box: the box is a hit target and is
+        // Inset to the ink, not to the box: the box is a hit target and is
         // bigger than the mark inside it, so insetting it would put the mark
         // further in than the number says.
         let overhang = (box - glyphInk) / 2
@@ -168,8 +168,8 @@ extension URLPillView {
         let margin = margins
         let run = max(bounds.width - margin.leading - margin.trailing, 0)
         guard !centresText else {
-            // **One line, centred between them.** Symmetric margins, so it is
-            // centred in the *pill* rather than in the space one glyph leaves:
+            // One line, centred between them. Symmetric margins, so it is
+            // centred in the pill rather than in the space one glyph leaves:
             // an off-centre domain in a centred capsule is worse than no
             // centring at all. What is centred is the address alone — or the
             // placeholder, measured the same way, which is the whole of what a
@@ -184,7 +184,7 @@ extension URLPillView {
             ).integral
             return
         }
-        // **The two reserved slots are gone.** §3.2 held two further
+        // The two reserved slots are gone. §3.2 held two further
         // glyph-sized places open beside the sliders for AI and extension
         // actions that are not built and that §16.4 puts in §4's action capsule
         // anyway. They cost 42 pt, and in a column barely 200 pt wide — with a

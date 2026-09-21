@@ -9,8 +9,8 @@ public enum WebViewFactory {
 
     /// §3.9's user-agent popup. Stored in `advanced.userAgent` as its raw value.
     ///
-    /// **Why only ``UserAgentMode/default`` uses `applicationNameForUserAgent`.**
-    /// That property *appends* to WebKit's default UA; it cannot remove the
+    /// Why only ``UserAgentMode/default`` uses `applicationNameForUserAgent`.
+    /// That property appends to WebKit's default UA; it cannot remove the
     /// `Luna/` token nor change `AppleWebKit/605.1.15`. So the three impersonating
     /// modes replace the whole string through `WKWebView.customUserAgent`, and the
     /// Default mode leaves `customUserAgent` nil so the appended form is untouched.
@@ -18,7 +18,7 @@ public enum WebViewFactory {
         case `default`, safari, chrome, custom
     }
 
-    /// Appended to WebKit's default user agent — it does **not** replace it (§4.6).
+    /// Appended to WebKit's default user agent — it does not replace it (§4.6).
     ///
     /// The default UA is `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)
     /// AppleWebKit/605.1.15 (KHTML, like Gecko)`, which carries no `Version/` and no
@@ -75,7 +75,7 @@ public enum WebViewFactory {
     }
 
     /// Required (macOS 13.3+): without it the Web Inspector silently does nothing (§4.1).
-    /// Defaults to **on**, which is what every Luna web view did before it was a setting.
+    /// Defaults to on, which is what every Luna web view did before it was a setting.
     public static var isWebInspectorEnabled: Bool {
         get { UserDefaults.standard.object(forKey: Key.webInspector) as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: Key.webInspector) }
@@ -102,7 +102,7 @@ public enum WebViewFactory {
 
     /// Re-reads both Advanced settings onto a web view that already exists.
     ///
-    /// `customUserAgent` takes effect on the **next** navigation, not on the page
+    /// `customUserAgent` takes effect on the next navigation, not on the page
     /// already loaded — WebKit sends the UA with the request. The Settings window
     /// says so rather than pretending the change is instant.
     @MainActor
@@ -120,12 +120,12 @@ public enum WebViewFactory {
     }
 
     /// Builds a web view around a configuration WebKit handed us — the `WKUIDelegate`
-    /// `createWebViewWith` path (§4.2). The popup **must** use that exact configuration
+    /// `createWebViewWith` path (§4.2). The popup must use that exact configuration
     /// or `window.opener` and `target="_blank"` break, so only the view-level properties
     /// are applied here.
     @MainActor
     public static func makeWebView(configuration: WKWebViewConfiguration) -> WKWebView {
-        // A popup's configuration arrives carrying the *opener's* user content
+        // A popup's configuration arrives carrying the opener's user content
         // controller. Registering a handler name that is already on it raises
         // `NSInvalidArgumentException`, and tearing the popup down would unregister the
         // opener's handlers and scripts. A fresh controller per web view is the only
@@ -167,7 +167,7 @@ public enum WebViewFactory {
 
         // §4.4. Registered here and nowhere else: `setURLSchemeHandler` raises
         // `NSInvalidArgumentException` for a scheme that already has one, and the
-        // `createWebViewWith` path above deliberately does **not** re-register —
+        // `createWebViewWith` path above deliberately does not re-register —
         // a popup arrives carrying the opener's configuration, which already has it.
         configuration.setURLSchemeHandler(InternalPageHandler.shared, forURLScheme: InternalPages.scheme)
         return configuration

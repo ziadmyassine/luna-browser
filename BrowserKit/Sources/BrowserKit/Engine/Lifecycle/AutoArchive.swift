@@ -18,7 +18,7 @@ public enum AutoArchive {
 
     /// Today tabs untouched for longer than `hours`.
     ///
-    /// Exempt: **pinned and Essentials** (`.pinned`, `.essential` — §6.3 calls
+    /// Exempt: pinned and Essentials (`.pinned`, `.essential` — §6.3 calls
     /// the latter Favorites), anything already archived, and the tab the user is
     /// looking at, however long ago it was last marked active.
     public static func idleTabs(

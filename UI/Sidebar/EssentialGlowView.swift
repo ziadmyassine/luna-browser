@@ -2,25 +2,25 @@
 //  EssentialGlowView.swift
 //  Luna
 //
-//  §3.3: **the light on the pinned tile you are on**, in the colour of that
+//  §3.3: the light on the pinned tile you are on, in the colour of that
 //  site's own favicon — `FaviconTint` picks the colour, this draws it.
 //
 //  Three layers, and each one is doing a different job. The `ring` is a lit
-//  line just outside the tile's hairline; the shadow *on* that ring is the
+//  line just outside the tile's hairline; the shadow on that ring is the
 //  bloom that carries past it, derived from the border rather than from a
 //  `shadowPath` so it follows the ring instead of the box; and `bleed` is the
 //  little of the colour that gets inside the glass, which is the difference
 //  between a ring drawn round a tile and a tile that has been lit.
 //
-//  **Layers with a continuous corner, not a `CGPath`.** There is no public API
+//  Layers with a continuous corner, not a `CGPath`. There is no public API
 //  for a squircle's outline — `CGPath(roundedRect:)` and `NSBezierPath` both
 //  give circular arcs — so a stroked path round a §3.3 tile pinches at the
 //  corners where the tile does not. A `CALayer` will draw the real curve for
 //  nothing: set `cornerCurve`, give it a border, and the shape is the tile's.
 //
-//  **It sits over the tile, not under it.** Under was the first build and the
+//  It sits over the tile, not under it. Under was the first build and the
 //  bleed vanished: a selected tile carries `NSGlassEffectView`, the material
-//  composites what is behind the *window* (`Glass.swift`), and everything in
+//  composites what is behind the window (`Glass.swift`), and everything in
 //  the window behind it is gone. Over the tile the colour lands where the eye
 //  expects it, and the view answers no hit test at all — this is light, and
 //  light is not something you can click on.
@@ -35,19 +35,19 @@ import AppKit
 @MainActor
 final class EssentialGlowView: NSView {
 
-    /// **1.06 → 1: the light flares out and settles, it does not grow in.**
+    /// 1.06 → 1: the light flares out and settles, it does not grow in.
     ///
     /// Every other appear in Luna comes up from under 1 — §5's popover from
     /// 0.94, the Command Bar from 0.96 — and this one cannot, because it is a
     /// ring round a tile rather than a panel. Rendered at 0.88, 0.94, 1.00 and
-    /// 1.06 over a real tile: anything under 1 puts the lit ring *inside* the
+    /// 1.06 over a real tile: anything under 1 puts the lit ring inside the
     /// tile's own hairline, with the grey line still showing outside it, and
     /// what that reads as is a second smaller box drawn on the tile. Starting
     /// wide, the ring is clear of the tile for the whole movement and the pop
     /// is light flaring rather than a shape changing size.
     private static let flare = 1.06
 
-    /// Whether the glow is on. `alphaValue` is the *animated* answer and is
+    /// Whether the glow is on. `alphaValue` is the animated answer and is
     /// somewhere between the two for a quarter of a second either way; this is
     /// what lit means to anything that is not a screen.
     private(set) var isLit = false
@@ -83,7 +83,7 @@ final class EssentialGlowView: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
-    /// **Light is not a control.** The glow lies over the tile it belongs to,
+    /// Light is not a control. The glow lies over the tile it belongs to,
     /// so without this every click on the selected pinned tab would land here
     /// and the tile underneath would never hear it.
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
@@ -154,7 +154,7 @@ final class EssentialGlowView: NSView {
         let rim = Tokens.Metric.essentialsGlowRim
         bleed.frame = bounds
         bleed.cornerRadius = radius
-        // The ring's border is drawn *inside* its own edge, so a frame one rim
+        // The ring's border is drawn inside its own edge, so a frame one rim
         // proud of the tile puts the line in the rim of space immediately
         // outside it — clear of the tile's own hairline, touching it.
         ring.frame = bounds.insetBy(dx: -rim, dy: -rim)
@@ -163,7 +163,7 @@ final class EssentialGlowView: NSView {
 
     /// The three alphas, over whatever colour the tile is lit in.
     ///
-    /// **Resolved against this view's appearance, not the current one.** The
+    /// Resolved against this view's appearance, not the current one. The
     /// neutral tint is chrome ink (`FaviconTint.neutral`), which is a dynamic
     /// colour: asking it for a `cgColor` outside a drawing appearance gets
     /// whichever theme happened to be current, which in a layout pass is not

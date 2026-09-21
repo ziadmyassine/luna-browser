@@ -102,7 +102,7 @@ extension BrowserSession {
         tabs.filter { $0.kind == .today }.map(\.id)
     }
 
-    /// ⇧⌘K. Archives every Today tab in the Space, as **one** undo step.
+    /// ⇧⌘K. Archives every Today tab in the Space, as one undo step.
     ///
     /// `closeTab` registers its own undo per tab, so without the grouping a user
     /// who closed forty tabs would need forty ⌘Z to get them back — each one
@@ -131,7 +131,7 @@ extension BrowserSession {
     /// ⌥⌘K. Runs §6.3's sweep now instead of waiting for the hour it would have
     /// happened on its own.
     ///
-    /// **The same rule as the clock, not a second one.** A "clean up" that used
+    /// The same rule as the clock, not a second one. A "clean up" that used
     /// its own idea of stale would archive tabs the settings say to keep, and
     /// the user would have no way to find out which idea they had just invoked.
     func cleanUpTabs() {

@@ -2,7 +2,7 @@
 //  ProfileStore.swift
 //  Luna
 //
-//  TODO.md §5.1: one `WKWebsiteDataStore` per Profile, and the *only* place
+//  TODO.md §5.1: one `WKWebsiteDataStore` per Profile, and the only place
 //  Luna turns a `Profile` into one.
 //
 //  Two facts drive everything here:
@@ -55,7 +55,7 @@ final class ProfileStore {
     /// Deletes a profile's cookies, storage and caches from disk (§3.2).
     ///
     /// - Precondition: every `WKWebView` in this profile has been torn down. This
-    ///   call drops the *cache* entry, which is the one reference it owns; it
+    ///   call drops the cache entry, which is the one reference it owns; it
     ///   cannot release the caller's.
     ///
     /// Declared `throws` because it is a frozen API and a future failure mode

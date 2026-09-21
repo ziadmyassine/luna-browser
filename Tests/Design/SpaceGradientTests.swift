@@ -30,7 +30,7 @@ final class SpaceGradientTests: XCTestCase {
 
     // MARK: - Neutral is the absence of a colour, not a thirteenth one
 
-    /// A Space nobody has coloured must look **exactly** like the sidebar did
+    /// A Space nobody has coloured must look exactly like the sidebar did
     /// before Spaces had colours.
     ///
     /// `washStops` cannot give that on its own: neutral is a real desaturated
@@ -51,7 +51,7 @@ final class SpaceGradientTests: XCTestCase {
         }
     }
 
-    /// The other half: a colour the user *did* pick still reaches the sidebar,
+    /// The other half: a colour the user did pick still reaches the sidebar,
     /// so the guard above cannot be widened into "the wash never paints".
     @MainActor
     func testAChosenGradientStillWashesTheSidebar() throws {
@@ -76,7 +76,7 @@ final class SpaceGradientTests: XCTestCase {
         XCTAssertEqual(Tokens.Gradient.spacePaletteNames.count, Tokens.Gradient.spacePalette.count)
     }
 
-    /// Neutral is reachable and is **not** something `next(after:)` can hand out
+    /// Neutral is reachable and is not something `next(after:)` can hand out
     /// — §13.6: leaving a theme is a thing the user does, never a thing that
     /// happens to them.
     func testNeutralIsOutsideThePalette() {
@@ -125,7 +125,7 @@ final class SpaceGradientTests: XCTestCase {
 
     // MARK: - Goal 15: gradient text is always legible
 
-    /// **The proof.** All twelve pairs × both themes × both stops, at full
+    /// The proof. All twelve pairs × both themes × both stops, at full
     /// intensity — the Space badge and the §3.5 dots, where the gradient is at
     /// its strongest and text sits directly on it.
     func testEveryPairClearsTheTextFloorAtFullIntensityInBothThemes() {
@@ -183,7 +183,7 @@ final class SpaceGradientTests: XCTestCase {
         XCTAssertLessThanOrEqual(Tokens.Gradient.washAlpha, 0.18)
     }
 
-    /// **Zen's bug, as a test.** On a light pair the ink must go *dark* in dark
+    /// Zen's bug, as a test. On a light pair the ink must go dark in dark
     /// mode — the one case a fixed `Text.primary` gets wrong, and the one Zen
     /// ships: "the workspace title becomes very hard to read".
     func testLightPairsGetDarkInkInDarkMode() throws {
@@ -200,7 +200,7 @@ final class SpaceGradientTests: XCTestCase {
         }
     }
 
-    /// …and the mirror: a deep pair takes light ink in *light* mode.
+    /// …and the mirror: a deep pair takes light ink in light mode.
     func testDeepPairsGetLightInkInLightMode() throws {
         let light = try XCTUnwrap(NSAppearance(named: .aqua))
         // "Indigo", "Mulberry", "Moss", "Rust" — the deep band.

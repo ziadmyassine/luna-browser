@@ -7,7 +7,7 @@
 //  favicon — §30.6 says they are first-class rows with identical metrics, so
 //  they are literally the same class.
 //
-//  **No background is drawn here.** Unselected rows have none (§30.7), and the
+//  No background is drawn here. Unselected rows have none (§30.7), and the
 //  selected pill and the hover fill are two single glass views that the list
 //  moves between rows — see `TabListController`. That is what keeps a 40-row
 //  scroll at 120 fps: a reused row view owns four subviews, lays them out with
@@ -18,7 +18,7 @@
 //  · §3.4's "favicon 12 pt from the pill's left edge, title 40 pt in" measures
 //    17.5 / 45.5 — the favicon is square-inset inside the pill and the title
 //    clears it by `rowIconGap`. The numbers live in `Metrics`, derived.
-//  · §3.4's "single line, tail-truncated" is wrong: the reference **fades** an
+//  · §3.4's "single line, tail-truncated" is wrong: the reference fades an
 //    over-long title out against the pill's trailing edge rather than spending
 //    three characters on an `…`. That is what `titleClip` and `fade` are for —
 //    the labels are laid out at their natural width inside a clipping box that
@@ -95,7 +95,7 @@ final class SidebarRowView: NSView {
         for label in [title, shimmer] {
             label.font = Tokens.TypeScale.sidebarRow
             // Clipping, not truncating: the fade below is what ends an
-            // over-long title, and an ellipsis would be drawn *before* it.
+            // over-long title, and an ellipsis would be drawn before it.
             label.lineBreakMode = .byClipping
             label.cell?.usesSingleLineMode = true
             titleClip.addSubview(label)
@@ -103,9 +103,9 @@ final class SidebarRowView: NSView {
         titleClip.wantsLayer = true
         titleClip.layer?.masksToBounds = true
         shimmer.wantsLayer = true
-        // **Hidden from the start, not from the first load.** `updateShimmer`
+        // Hidden from the start, not from the first load. `updateShimmer`
         // is what shows and hides this, and `configure` only calls it when
-        // `isLoading` *changes* — which is right for a recycled view, whose
+        // `isLoading` changes — which is right for a recycled view, whose
         // `content` describes the shimmer it is currently wearing, and wrong
         // for a new one, which starts with `isLoading` false and an
         // `NSTextField` that is visible by default. So a row built for a tab
@@ -177,7 +177,7 @@ final class SidebarRowView: NSView {
 
     /// §3.4's title ink.
     ///
-    /// **The selected row is the only bright title in the list**, and hover is
+    /// The selected row is the only bright title in the list, and hover is
     /// not an input here — which is the point of the signature. The hover used
     /// to promote the ink too, on the grounds that there was no translucent
     /// hover fill to lift instead; there is one now, `hoverPill`, so the reason
@@ -197,12 +197,12 @@ final class SidebarRowView: NSView {
     private func refreshInk() {
         title.textColor = Self.titleInk(isSelected: isSelected, isLoading: content.isLoading)
         shimmer.textColor = Tokens.Text.primary
-        // **Ink, not accent.** Luna's chrome carries no system blue: the unread
+        // Ink, not accent. Luna's chrome carries no system blue: the unread
         // mark is a full-strength dot in the same ink the title is set in, and
         // it reads because it is bright, not because it is a different hue.
         dot.layer?.backgroundColor = Tokens.Text.primary.cgColor
         icon.contentTintColor = content.favicon != nil ? nil : Tokens.Text.secondary
-        // The trailing glyph keeps the hover, because it *is* the hover: the
+        // The trailing glyph keeps the hover, because it is the hover: the
         // close chip is only reachable on the row the pointer is on, and it
         // has to be legible while it is being aimed at.
         trailing.tint = isSelected || isHovered ? Tokens.Text.primary : Tokens.Text.secondary
@@ -231,7 +231,7 @@ final class SidebarRowView: NSView {
             return
         }
         shimmer.isHidden = false
-        // A mask reads alpha only, so the token's *value* is irrelevant here —
+        // A mask reads alpha only, so the token's value is irrelevant here —
         // what matters is that no literal colour is spelled out (contract rule 2).
         let opaque = Tokens.Text.primary
         CATransaction.begin()
@@ -273,7 +273,7 @@ final class SidebarRowView: NSView {
 
     /// §3.4's title column: where the title starts, and how wide it may be.
     ///
-    /// **The trailing slot is given back when nothing is in it.** A row with
+    /// The trailing slot is given back when nothing is in it. A row with
     /// no glyph runs its title to the pill's inner edge and lets §3.4's fade
     /// end there; a row drawing the close chip or the speaker stops half an
     /// inset short of the slot and fades before it.
@@ -291,7 +291,7 @@ final class SidebarRowView: NSView {
     /// 24: the shift is a ramp moving two characters, not four.
     ///
     /// Pure, like ``titleInk``, so both states can be asserted without a
-    /// window to hover in. It takes the *slot*, not the hover — an audio row
+    /// window to hover in. It takes the slot, not the hover — an audio row
     /// has a glyph without a pointer anywhere near it.
     static func titleColumn(
         inRowOfWidth width: CGFloat,
@@ -333,7 +333,7 @@ final class SidebarRowView: NSView {
             height: dotSize
         ).pixelAligned
 
-        // **Inset from the pill, not from the row.** The pill is already
+        // Inset from the pill, not from the row. The pill is already
         // `rowInset` inside the row, so one inset put the chip flush against
         // the pill's edge; the reference keeps a full inset inside it.
         let chip = Tokens.Metric.rowTrailingChip
@@ -361,7 +361,7 @@ final class SidebarRowView: NSView {
         ).integral
         titleClip.frame = box
 
-        // Laid out at their *natural* width so nothing truncates; the clip box
+        // Laid out at their natural width so nothing truncates; the clip box
         // and `fade` are what end the line.
         let natural = ceil(title.intrinsicContentSize.width)
         let inner = NSRect(x: 0, y: 0, width: max(natural, box.width), height: box.height)
