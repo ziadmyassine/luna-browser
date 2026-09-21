@@ -43,6 +43,10 @@ public actor BrowserStore {
         var title: String
         var kind: VisitKind
         var at: Date
+        /// Which Space's history this visit belongs to (§9.2). Nil only for a
+        /// visit whose Space is unknown, which nothing in the app produces and
+        /// an import of somebody else's history could.
+        var spaceID: UUID?
     }
 
     public init(path: URL) throws {
@@ -169,8 +173,12 @@ public actor BrowserStore {
     // MARK: - History
 
     /// Buffers a visit. Returns immediately; the write lands on the next flush (§11.5).
-    public func recordVisit(url: URL, title: String, kind: VisitKind, at: Date) throws {
-        pendingVisits.append(PendingVisit(url: url, title: title, kind: kind, at: at))
+    ///
+    /// - Parameter spaceID: the Space the page was opened in. It decides whose
+    ///   history the page joins, and a visit without one joins nobody's — see
+    ///   `Schema.giveEverySpaceItsOwnHistory`.
+    public func recordVisit(url: URL, title: String, kind: VisitKind, at: Date, inSpace spaceID: UUID?) throws {
+        pendingVisits.append(PendingVisit(url: url, title: title, kind: kind, at: at, spaceID: spaceID))
         guard flushTask == nil else { return }
         flushTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(1))
@@ -187,7 +195,12 @@ public actor BrowserStore {
 
     /// Ranked history for the Command Bar (§9.2, §9.3). An empty query returns the most
     /// recently visited places, ranked the same way, which is `⌘T`'s opening state.
-    public func searchHistory(_ query: String, limit: Int) async throws -> [HistoryHit] {
+    ///
+    /// - Parameter spaceID: the only Space whose visits count. A page visited in
+    ///   another Space is not in this Space's history and does not appear here at
+    ///   any rank — the jar that holds the login and the list that names it stay
+    ///   together (§9.2).
+    public func searchHistory(_ query: String, limit: Int, inSpace spaceID: UUID) async throws -> [HistoryHit] {
         // A URL typed a moment ago has to be rankable now; a failed flush must not also
         // fail the search, which can still answer from what is already on disk.
         try? await flush()
@@ -199,7 +212,10 @@ public actor BrowserStore {
         // thing that earns the recency list.
         if pattern == nil, !trimmed.isEmpty { return [] }
         let sql = Frecency.rankingSQL(candidates: pattern == nil ? Frecency.recentCandidates : Frecency.matchCandidates)
-        let arguments: StatementArguments = pattern.map { [$0.rawPattern, limit] } ?? [limit]
+        // Bound in the order the statement reads: the candidate pool's own arguments
+        // first, because `WITH candidates AS (…)` comes before the ranking that
+        // filters it, then the Space, then the row limit.
+        let arguments: StatementArguments = pattern.map { [$0.rawPattern, spaceID, limit] } ?? [spaceID, spaceID, limit]
 
         return try await pool.read { db in
             try Row.fetchAll(db, sql: sql, arguments: arguments).compactMap { row in
@@ -247,8 +263,8 @@ public actor BrowserStore {
         )
         guard let placeID else { return }
         try db.execute(
-            sql: "INSERT INTO visits (placeId, at, type) VALUES (?, ?, ?)",
-            arguments: [placeID, visit.at, visit.kind.rawValue]
+            sql: "INSERT INTO visits (placeId, at, type, spaceID) VALUES (?, ?, ?, ?)",
+            arguments: [placeID, visit.at, visit.kind.rawValue, visit.spaceID]
         )
     }
 }
@@ -283,9 +299,15 @@ private enum Frecency {
 
     /// The empty-query pool. Capped: ranking every place a user ever visited to show ten
     /// rows is work nobody sees.
+    ///
+    /// Filtered by Space here and not only in the ranking below, because the cap is
+    /// what makes it necessary: 200 rows off the top of a shared `lastVisit` can be
+    /// 200 rows belonging to the other Space, and `⌘T` would open on nothing.
     static let recentCandidates = """
-    SELECT id AS id, url AS url, title AS title, lastVisit AS lastVisit
-    FROM places ORDER BY lastVisit DESC LIMIT 200
+    SELECT p.id AS id, p.url AS url, p.title AS title, p.lastVisit AS lastVisit
+    FROM places p
+    WHERE EXISTS (SELECT 1 FROM visits v WHERE v.placeId = p.id AND v.spaceID = ?)
+    ORDER BY p.lastVisit DESC LIMIT 200
     """
 
     static func rankingSQL(candidates: String) -> String {
@@ -296,11 +318,11 @@ private enum Frecency {
                    ROW_NUMBER() OVER (PARTITION BY v.placeId ORDER BY v.at DESC) AS rn,
                    \(points) AS points
             FROM visits v
-            WHERE v.placeId IN (SELECT id FROM candidates)
+            WHERE v.placeId IN (SELECT id FROM candidates) AND v.spaceID = ?
         )
         SELECT c.url AS url, c.title AS title, COALESCE(SUM(r.points), 0.0) AS score
         FROM candidates c
-        LEFT JOIN ranked r ON r.placeId = c.id AND r.rn <= 10
+        JOIN ranked r ON r.placeId = c.id AND r.rn <= 10
         GROUP BY c.id
         ORDER BY score DESC, c.lastVisit DESC
         LIMIT ?

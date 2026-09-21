@@ -33,14 +33,18 @@ struct AdaptiveEntry: Sendable, Hashable {
 
 /// Everything local, snapshotted. Held by `CommandBarController` and refreshed on
 /// `BrowserSession.onChange`, never rebuilt per keystroke (§9.7).
+///
+/// One Space's, all of it. The bar is opened from inside a Space and answers
+/// with that Space's things — its tabs, its archive, its history, its lessons —
+/// because the Space is the cookie jar (§9) and a row from the other one is a
+/// page signed in as somebody else.
 struct CommandBarSources: Sendable {
-    /// Every tab the window knows about, archived ones included — they are the
+    /// The active Space's tabs, archived ones included — they are the
     /// same rows (§11.1: `archive` is a view over `tabs`, not a second table).
     var tabs: [Tab] = []
-    var spaces: [UUID: Space] = [:]
     var adaptive: [AdaptiveEntry] = []
     /// Filled by the asynchronous `BrowserStore.searchHistory` pass, empty on the
-    /// synchronous one.
+    /// synchronous one. Already scoped to the Space by the query.
     var history: [HistoryHit] = []
     var commands: [AppCommand] = AppCommand.allCases
     /// §3.4's suggestions, already fetched and parsed by
@@ -48,20 +52,6 @@ struct CommandBarSources: Sendable {
     /// template turns them into one here, exactly as it does for a typed query,
     /// so a suggestion cannot carry a destination Luna did not build.
     var suggestions: [String] = []
-}
-
-/// A row plus the Space whose cookie jar it belongs to, if any. Only an open or
-/// archived tab has one — a history hit, a search or a command is in no jar at
-/// all. It rides alongside the row rather than inside it: `CommandBarResult` is
-/// §9.2's public vocabulary, and the jar is a ranking concern that is spent by
-/// the time the list is built.
-///
-/// It was the Profile's id until §9's `v7` made a Space own its jar. The rule
-/// it serves is unchanged: one row per URL per jar, so the same page open in
-/// two of them is two rows, because activating one of them is not the other.
-private struct RankedRow {
-    var result: CommandBarResult
-    var spaceID: UUID?
 }
 
 enum CommandBarRanking {
@@ -97,19 +87,19 @@ enum CommandBarRanking {
         let query = rawQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         let tokens = query.lowercased().split(separator: " ").map(String.init)
 
-        var rows: [RankedRow] = []
-        rows.append(contentsOf: adaptiveRows(query: query, sources: sources).map(unscoped))
+        var rows: [CommandBarResult] = []
+        rows.append(contentsOf: adaptiveRows(query: query, sources: sources))
         if let url = CommandBarURL.direct(from: query) {
-            rows.append(unscoped(directRow(url)))
+            rows.append(directRow(url))
         }
         rows.append(contentsOf: tabRows(tokens: tokens, sources: sources))
-        rows.append(contentsOf: historyRows(sources: sources).map(unscoped))
-        rows.append(contentsOf: commandRows(tokens: tokens, sources: sources).map(unscoped))
-        let hasDirect = rows.contains { $0.result.source == .directURL }
+        rows.append(contentsOf: historyRows(sources: sources))
+        rows.append(contentsOf: commandRows(tokens: tokens, sources: sources))
+        let hasDirect = rows.contains { $0.source == .directURL }
         if let search = searchRow(query: query, hasDirectURL: hasDirect) {
-            rows.append(unscoped(search))
+            rows.append(search)
         }
-        rows.append(contentsOf: suggestionRows(query: query, sources: sources).map(unscoped))
+        rows.append(contentsOf: suggestionRows(query: query, sources: sources))
 
         return Array(dedupe(order(rows)).prefix(limit))
     }
@@ -173,29 +163,26 @@ enum CommandBarRanking {
         )
     }
 
-    /// Open tabs across every Space (§9.2), badged with the Space's colour, plus
-    /// the archive — which is the same rows with an `archivedAt` (§11.1).
-    private static func tabRows(tokens: [String], sources: CommandBarSources) -> [RankedRow] {
-        sources.tabs.compactMap { tab -> RankedRow? in
+    /// The Space's open tabs (§9.2), plus its archive — which is the same rows
+    /// with an `archivedAt` (§11.1).
+    private static func tabRows(tokens: [String], sources: CommandBarSources) -> [CommandBarResult] {
+        sources.tabs.compactMap { tab -> CommandBarResult? in
             // §3.4a: a renamed tab is found and shown under the name the user gave it.
             // Its own title is deliberately not also in the haystack — a tab you renamed
             // "Invoices" should not keep answering to whatever the page calls itself.
             let haystack = "\(tab.listTitle) \(CommandBarURL.displayForm(of: tab.url))"
             guard matches(tokens, haystack) else { return nil }
             let archived = tab.archivedAt != nil
-            let space = sources.spaces[tab.spaceID]
-            let result = CommandBarResult(
+            return CommandBarResult(
                 source: archived ? .archive : .openTab,
                 title: tab.listTitle.isEmpty ? CommandBarURL.displayForm(of: tab.url) : tab.listTitle,
                 subtitle: CommandBarURL.displayForm(of: tab.url),
                 action: archived ? .unarchiveTab(tab.id) : .activateTab(tab.id),
                 url: tab.url,
-                badge: space.map { badge(for: $0) },
                 // Most recently used first within the tier.
                 score: (archived ? tab.archivedAt ?? tab.lastActiveAt : tab.lastActiveAt).timeIntervalSinceReferenceDate,
                 symbolName: archived ? "archivebox" : "square.on.square"
             )
-            return RankedRow(result: result, spaceID: space?.id)
         }
     }
 
@@ -281,9 +268,8 @@ enum CommandBarRanking {
     /// so the tier lives with the cases rather than in a switch that can drift.
     /// Score only ever breaks ties within a tier — an adaptive `useCount` of 3
     /// and a frecency score of 340 are not the same unit and are never compared.
-    private static func order(_ rows: [RankedRow]) -> [RankedRow] {
-        rows.sorted { left, right in
-            let lhs = left.result, rhs = right.result
+    private static func order(_ rows: [CommandBarResult]) -> [CommandBarResult] {
+        rows.sorted { lhs, rhs in
             if lhs.source != rhs.source { return lhs.source < rhs.source }
             if lhs.score != rhs.score { return lhs.score > rhs.score }
             return lhs.id < rhs.id
@@ -291,54 +277,31 @@ enum CommandBarRanking {
     }
 
     /// §9.2 "merged and deduped". The best-ranked row for a URL wins its place —
-    /// but it inherits the open tab's action and Space badge when one exists,
-    /// so a page that is both #1 by adaptive history and already open switches to
-    /// the live tab instead of loading a second copy of it (§19.4).
-    /// The Profile boundary stops the dedupe (zen#14371). The same URL open in
-    /// two Spaces on two Profiles is two pages, two logins and two accounts, so
-    /// it stays two rows. Collapsing them was worse than it looks: the second
-    /// tab silently overwrote the first row's action, so "Switch to tab"
-    /// teleported you into whichever Space the loop reached last.
+    /// but it inherits the open tab's action when one exists, so a page that is
+    /// both #1 by adaptive history and already open switches to the live tab
+    /// instead of loading a second copy of it (§19.4).
     ///
-    /// Within one Profile nothing changes.
-    private static func dedupe(_ rows: [RankedRow]) -> [CommandBarResult] {
+    /// One row per URL, flatly, because every row on offer is in one Space and
+    /// one cookie jar. This used to keep a row per (URL, jar) pair and was the
+    /// answer to zen#14371 — the same page open in two Spaces deduped into one
+    /// row whose "Switch to tab" teleported you into whichever the loop reached
+    /// last. The bar no longer offers the other Space at all, so two jars can no
+    /// longer meet in the list and there is nothing left to tell apart.
+    private static func dedupe(_ rows: [CommandBarResult]) -> [CommandBarResult] {
         var slot: [String: Int] = [:]
-        /// "url + profile" pairs already reachable from some row on screen.
-        var reachable: Set<String> = []
         /// URLs whose kept row already carries a live tab's action.
         var live: Set<String> = []
         var out: [CommandBarResult] = []
-        for ranked in rows {
-            let row = ranked.result
+        for row in rows {
             let isTab = row.source == .openTab || row.source == .archive
             guard let index = slot[row.id] else {
                 slot[row.id] = out.count
-                if isTab {
-                    live.insert(row.id)
-                    ranked.spaceID.map { reachable.insert(compound(row.id, $0)) }
-                }
+                if isTab { live.insert(row.id) }
                 out.append(row)
                 continue
             }
-            guard isTab else { continue }
-            // A tab whose Space is unknown cannot be placed in a jar; treat it
-            // as belonging to whichever one already holds this URL rather than
-            // minting a second row on a guess.
-            guard let jar = ranked.spaceID else {
-                if !live.contains(row.id) { adopt(row, into: &out[index], marking: &live) }
-                continue
-            }
-            guard !reachable.contains(compound(row.id, jar)) else { continue }
-            reachable.insert(compound(row.id, jar))
-            if !live.contains(row.id) {
-                adopt(row, into: &out[index], marking: &live)
-                continue
-            }
-            // Another Space has the same page open. Its own row, with its own
-            // identity so §9.7's selection can tell the two apart.
-            var extra = row
-            extra.id = compound(row.id, jar)
-            out.append(extra)
+            guard isTab, !live.contains(row.id) else { continue }
+            adopt(row, into: &out[index], marking: &live)
         }
         return out
     }
@@ -348,18 +311,7 @@ enum CommandBarRanking {
     private static func adopt(_ tab: CommandBarResult, into row: inout CommandBarResult, marking live: inout Set<String>) {
         live.insert(row.id)
         row.action = tab.action
-        row.badge = tab.badge
         row.symbolName = tab.symbolName
-    }
-
-    /// A row identity that is unique per (URL, Profile). The separator is a unit
-    /// separator so it cannot occur inside a normalised URL.
-    private static func compound(_ id: String, _ jarID: UUID) -> String {
-        "\(id)\u{1F}\(jarID.uuidString)"
-    }
-
-    private static func unscoped(_ result: CommandBarResult) -> RankedRow {
-        RankedRow(result: result, spaceID: nil)
     }
 
     // MARK: - Matching
@@ -383,23 +335,5 @@ enum CommandBarRanking {
             return hit.title
         }
         return CommandBarURL.displayForm(of: url)
-    }
-
-    /// §9 / D-S8: the identity behind a row's cookies must appear wherever tabs
-    /// from different jars can meet, and the Space colour is not it — a colour
-    /// says which Space, never whose cookie jar.
-    ///
-    /// The badge already names the Space, and since `v7` a Space *is* the jar,
-    /// so naming it says both. It used to qualify the name with the Profile's
-    /// — "Work · Work Profile" — whenever the tabs on offer spanned more than
-    /// one, which is the whole of what that qualifier was for.
-    private static func badge(for space: Space) -> SpaceBadge {
-        // §21.2 / UI-SPEC §8: name and symbol travel with the colour, because a
-        // Space must be separable without it.
-        SpaceBadge(
-            name: space.name,
-            colour: space.gradient.start,
-            symbolName: space.symbolName
-        )
     }
 }

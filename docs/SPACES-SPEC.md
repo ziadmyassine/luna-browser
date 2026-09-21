@@ -89,17 +89,19 @@ never saw that login is a broken tile.
 
 ## 3. Storage isolation
 
-Each Profile owns exactly one identified `WKWebsiteDataStore`. Luna already does
-this correctly and it is **stronger than every browser researched**:
+Each Space owns exactly one identified `WKWebsiteDataStore`, and since `v8` its
+own history and its own downloads list as well. Luna already does this correctly
+and it is **stronger than every browser researched**:
 
 - Zen and Floorp both use Firefox contextual identities (`userContextId`) — one
   cookie jar partition, shared history, shared cache policy. Zen's UI calls them
   "Profiles" and the tooltip promises "separate cookies and site data between
   spaces", which is why zen#1239 ("Website data is shared across workspaces", 24
   comments) exists: Arc refugees assume real isolation and do not get it.
-- **Luna gives a Space a real data store, so Luna may say so plainly.** That is a
-  marketing line we have actually earned. It also obliges us not to overstate it
-  where it is not true — see §8 on permissions.
+- **Luna gives a Space a real data store, and keeps its history out of the other
+  Spaces, so Luna may say so plainly.** That is a marketing line we have actually
+  earned: the thing Zen's tooltip promises and does not do. It also obliges us
+  not to overstate it where it is not true — see §8 on permissions.
 
 ### 3.1 What the SDK actually guarantees
 
@@ -457,12 +459,18 @@ zen#14371 is the modern version: two identical "Google Gemini — Switch to tab"
 rows in the omnibox, different Spaces, different accounts, no way to tell them
 apart, and picking wrong teleports you.
 
-**D-S8: the Profile identity must appear on every surface where tabs from
-different Profiles can meet** — Command Bar switch-to-tab, history, archive,
-downloads, the command palette. Not only the Space strip. §9.2 already badges
-open tabs with the Space colour; that badge must carry the Profile when the
-Profiles differ, because the Space colour alone does not tell you whose cookies
-you are about to use.
+**D-S8, as shipped: tabs from different jars are never offered together, so
+there is nothing to label.** The rule was written when Spaces shared a Profile
+and a badge was the only way to tell two accounts apart. `v7` made the Space the
+jar and `v8` gave it its own history, and the answer is now exclusion rather
+than annotation: the Command Bar, §6.4's archive list, the New Tab page's
+archive, `⌘⇧T` and §15.3's downloads all answer for the Space you are in and no
+other. The Space badge on a Command Bar row is gone with the reason for it — on
+a list that only ever holds one Space it was the same chip on every row.
+
+Anything that does put two Spaces in one list in future owes D-S8 its label
+back, because the Space colour alone does not tell you whose cookies you are
+about to use.
 
 **A Profile can carry a picture, and §3.5's avatar wears it.** A name in a
 tooltip is read; a face is recognised, which is the difference that matters for
@@ -489,8 +497,10 @@ the renumber-on-load self-heal, `setIcon`, `setGradient`,
 launch.
 
 **S2 — identity. Gradients done.** All twelve, in three measured bands, plus
-§13.6's neutral. Profile identity (§9) reaches the Command Bar's ranking and not
-yet history, archive or downloads.
+§13.6's neutral. Jar identity (§9) now reaches all four: the Command Bar's
+ranking, history (`visits.spaceID` and the adaptive table, `v8`), the archive
+and downloads (`DownloadItem.spaceID`), each of them by showing one Space's
+rather than by naming which.
 
 **S3 — the Profile boundary. Mostly done.** `createSpace(name:profileID:)`,
 `setProfile` with a full web-view rebuild, the move-across-Profiles warning and
@@ -704,5 +714,7 @@ its routes** — Arc states this explicitly.
   with skin tones, SigmaOS is emoji-first, Vivaldi allows custom icons. SF
   Symbols alone will not survive contact.
 - Arc had to patch a real cross-profile leak: Command Bar suggestions bleeding
-  between Spaces on different Profiles. §9's rule again, from the other side.
+  between Spaces on different Profiles. §9's rule again, from the other side —
+  and the same leak Luna had until `v8`, where the history behind the
+  suggestions was one shared pile with no Space on it.
 

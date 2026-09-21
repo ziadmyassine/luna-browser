@@ -8,6 +8,9 @@
 //  the same table the tab list reads (§11.1) — so filtering is a `contains` over
 //  an array the session is holding anyway. No query, no debounce, no store.
 //
+//  The Space you are in, and no other. What you closed in Personal is not in
+//  Work's list any more than Personal's cookies are in Work's jar (§9.2).
+//
 //  §6.4's panel is a pop-out from the button that opens it — see
 //  `HistoryPanel`'s header for why it is no longer centred over the page — so
 //  this takes the anchor view rather than a content region.
@@ -46,7 +49,7 @@ final class HistoryPanelController: PopoutController {
     }
 
     override func makePanel(in root: NSView) -> PopoutPanelView {
-        entries = session.archived.map(Self.entry)
+        entries = session.archivedInActiveSpace.map(Self.entry)
         let panel = HistoryPanel(frame: root.bounds, edge: edge)
         // The live session first — an archived tab that was open this launch
         // still has its icon in memory — then §4.7's on-disk cache by host,

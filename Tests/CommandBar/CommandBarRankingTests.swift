@@ -53,7 +53,6 @@ final class CommandBarRankingTests: XCTestCase {
     private func fixture() -> (sources: CommandBarSources, githubTab: Tab) {
         let githubTab = tab("https://github.com/luna", title: "Luna", minutesAgo: 1)
         var sources = CommandBarSources()
-        sources.spaces = [workSpace.id: workSpace]
         sources.tabs = [
             githubTab,
             tab("https://git-scm.com/", title: "Git", minutesAgo: 30),
@@ -133,8 +132,7 @@ final class CommandBarRankingTests: XCTestCase {
         XCTAssertEqual(results.filter { $0.title == "Luna" }.count, 1)
         XCTAssertEqual(results[1].source, .adaptive)
         XCTAssertEqual(results[1].action, .activateTab(githubTab.id))
-        // §9.2's Space badge comes with it.
-        XCTAssertEqual(results[1].badge?.name, "Work")
+        XCTAssertEqual(results[1].symbolName, "square.on.square", "and the open tab's glyph with it")
     }
 
     /// The same rule the other way: a history hit for a page that is already open

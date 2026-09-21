@@ -40,8 +40,15 @@ import WebKit
 @MainActor
 final class DownloadManager {
 
-    /// Newest first — the order §15.3's list reads.
+    /// Newest first — every Space's, because the manager is the app's and a
+    /// download does not stop when you switch Space. §15.3's list asks for one
+    /// Space's with `items(inSpace:)`.
     private(set) var items: [DownloadItem] = []
+
+    /// What one Space's Downloads list holds (§9.2).
+    func items(inSpace spaceID: UUID?) -> [DownloadItem] {
+        items.filter { $0.spaceID == spaceID }
+    }
 
     /// Strong references to the per-download delegates. See trap 1.
     private var tasks: [ObjectIdentifier: DownloadTask] = [:]
@@ -87,7 +94,10 @@ final class DownloadManager {
     ///
     /// `pageURL` defaults to the originating frame's own URL, so the host does
     /// not have to look up which tab this came from.
-    func begin(_ download: WKDownload, pageURL: URL? = nil) {
+    ///
+    /// - Parameter spaceID: the Space the page was in, which is the list the
+    ///   file will appear in (§9.2).
+    func begin(_ download: WKDownload, pageURL: URL? = nil, inSpace spaceID: UUID? = nil) {
         // §15.4 — no silent auto-downloads from background frames. Wave 1's
         // `NavigationPolicy.shouldDownload` covers the response path; this
         // covers `<a download>` in a hidden iframe, which never reaches it.
@@ -99,7 +109,8 @@ final class DownloadManager {
         let item = DownloadItem(
             request: download.originalRequest,
             pageURL: pageURL ?? download.originatingFrame.request.url,
-            filename: DownloadDestination.sanitize(suggested)
+            filename: DownloadDestination.sanitize(suggested),
+            spaceID: spaceID
         )
         items.insert(item, at: 0)
         adopt(download, for: item)
@@ -129,9 +140,11 @@ final class DownloadManager {
         onChange?()
     }
 
-    /// Clears finished and failed entries. A live download is not history.
-    func clearCompleted() {
-        items.removeAll { $0.state != .inProgress }
+    /// Clears finished and failed entries in one Space. A live download is not
+    /// history, and neither is another Space's list: the button is under the
+    /// rows it clears.
+    func clearCompleted(inSpace spaceID: UUID?) {
+        items.removeAll { $0.state != .inProgress && $0.spaceID == spaceID }
         onChange?()
     }
 

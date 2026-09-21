@@ -37,11 +37,25 @@ extension AppDelegate {
             guard let panel, let sidebar, let window = controller?.window else { return }
             panel.toggle(in: window, from: sidebar.downloadsAnchor, edge: .above)
         }
-        session.onDownload = { [weak manager] download in manager?.begin(download) }
+        // §15.3's list belongs to the Space the page was in, so the file is
+        // stamped with it as it starts rather than looked up later — by the time
+        // it lands the user may be in the other Space.
+        panel.activeSpace = { [weak session] in session?.activeSpaceID }
+        session.onDownload = { [weak manager, weak session] download in
+            manager?.begin(download, inSpace: session?.activeSpaceID)
+        }
         // §5.0: the file leaves the page and lands on whichever Downloads
-        // button this layout is showing.
-        manager.onBegin = { [weak self] item in self?.announceDownload(item) }
-        manager.onFinish = { [weak self] _ in self?.announceCompletion() }
+        // button this layout is showing — unless it belongs to the Space next
+        // door, because a list that opens without the row it opened for is
+        // worse than no list at all.
+        manager.onBegin = { [weak self, weak session] item in
+            guard item.spaceID == session?.activeSpaceID else { return }
+            self?.announceDownload(item)
+        }
+        manager.onFinish = { [weak self, weak session] item in
+            guard item.spaceID == session?.activeSpaceID else { return }
+            self?.announceCompletion()
+        }
         // `WKDownload.webView` is weak and the originating tab may be cold, so
         // a retry resumes through whichever tab is live now.
         manager.webViewProvider = { [weak session] in
@@ -137,7 +151,8 @@ extension AppDelegate {
     ///
     /// A list already standing open is left alone: `announce` is a no-op on a
     /// panel that is up, and the row it is showing is this one — which is why
-    /// the item itself is not a parameter. The list reads `manager.items`.
+    /// the item itself is not a parameter. The list reads the manager's items
+    /// for the Space it is standing in.
     private func announceCompletion() {
         guard let site = downloadsSite(), let window = browserWindow?.window else { return }
         downloadsPanel?.announce(in: window, from: site.anchor, edge: site.edge)

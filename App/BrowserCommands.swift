@@ -274,7 +274,7 @@ extension AppDelegate: NSMenuItemValidation {
         case #selector(goToSidebarItem(_:)):
             return true
         case #selector(reopenArchivedTab(_:)):
-            return !session.archived.isEmpty
+            return !session.archivedInActiveSpace.isEmpty
         case #selector(showDownloads(_:)):
             return downloadsPanel != nil
         case #selector(undo(_:)):

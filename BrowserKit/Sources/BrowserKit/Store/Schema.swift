@@ -47,6 +47,9 @@ enum Schema {
         migrator.registerMigration("v7") { db in
             try giveEverySpaceItsOwnJar(db)
         }
+        migrator.registerMigration("v8") { db in
+            try giveEverySpaceItsOwnHistory(db)
+        }
         return migrator
     }
 

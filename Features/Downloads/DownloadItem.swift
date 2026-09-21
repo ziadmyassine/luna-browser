@@ -38,6 +38,11 @@ final class DownloadItem {
     /// The page the download came from. Goes into the quarantine record so the
     /// Gatekeeper dialog can say where the file is from (§15.3).
     let pageURL: URL?
+    /// The Space the page was in. §15.3's list shows one Space's downloads, for
+    /// the same reason its Command Bar shows one Space's history: what you fetch
+    /// from an account signed in over here is not the other account's business
+    /// (§9.2). Nil only for a download with no session behind it.
+    let spaceID: UUID?
 
     private(set) var filename: String
     private(set) var destination: URL?
@@ -48,10 +53,11 @@ final class DownloadItem {
     private(set) var progress: Progress?
     private(set) var resumeData: Data?
 
-    init(request: URLRequest?, pageURL: URL?, filename: String) {
+    init(request: URLRequest?, pageURL: URL?, filename: String, spaceID: UUID?) {
         self.request = request
         self.pageURL = pageURL
         self.filename = filename
+        self.spaceID = spaceID
     }
 
     // MARK: Transitions — only `DownloadManager` drives these.

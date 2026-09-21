@@ -27,15 +27,21 @@ public struct InputHistoryEntry: Sendable, Hashable {
 // the Command Bar loads it once and writes through.
 public extension BrowserStore {
 
-    /// The whole table. Called once when the Command Bar first opens.
-    func inputHistory() async throws -> [InputHistoryEntry] {
+    /// One Space's lessons. Called once when the Command Bar first opens.
+    ///
+    /// Scoped since `v8`: an adaptive match ranks above everything else in the
+    /// bar, so a lesson learned in one Space would put the other Space's page at
+    /// the top of the list on the first keystroke (§9.2, §9.3).
+    func inputHistory(inSpace spaceID: UUID) async throws -> [InputHistoryEntry] {
         try await pool.read { db in
             try Row.fetchAll(
                 db,
                 sql: """
                 SELECT i.typed AS typed, p.url AS url, i.useCount AS useCount
                 FROM inputHistory i JOIN places p ON p.id = i.placeId
-                """
+                WHERE i.spaceID = ?
+                """,
+                arguments: [spaceID]
             ).compactMap { row in
                 let text: String = row["url"]
                 guard let url = URL(string: text) else { return nil }
@@ -49,8 +55,8 @@ public extension BrowserStore {
     /// Creates the `places` row when the chosen URL has never been visited: the
     /// choice happens before the navigation it starts, so on the first pick there
     /// is nothing for `inputHistory.placeId` to reference yet. A place with no
-    /// visits scores 0 under §9.3, so this cannot promote anything on its own.
-    func setInputUseCount(typed: String, url: URL, useCount: Double) async throws {
+    /// visits is in no Space's history, so this cannot promote anything on its own.
+    func setInputUseCount(typed: String, url: URL, useCount: Double, inSpace spaceID: UUID) async throws {
         try await pool.write { db in
             let placeID = try Int64.fetchOne(
                 db,
@@ -64,10 +70,10 @@ public extension BrowserStore {
             guard let placeID else { return }
             try db.execute(
                 sql: """
-                INSERT INTO inputHistory (typed, placeId, useCount) VALUES (?, ?, ?)
-                ON CONFLICT(typed, placeId) DO UPDATE SET useCount = excluded.useCount
+                INSERT INTO inputHistory (typed, placeId, spaceID, useCount) VALUES (?, ?, ?, ?)
+                ON CONFLICT(typed, placeId, spaceID) DO UPDATE SET useCount = excluded.useCount
                 """,
-                arguments: [typed, placeID, useCount]
+                arguments: [typed, placeID, spaceID, useCount]
             )
         }
     }

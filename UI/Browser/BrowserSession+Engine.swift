@@ -81,7 +81,8 @@ extension BrowserSession {
         recordedURL[tabID] = url
         let kind = pendingVisitKind.removeValue(forKey: tabID) ?? .link
         let store = store
-        Task { try? await store.recordVisit(url: url, title: title, kind: kind, at: Date()) }
+        let space = activeSpaceID
+        Task { try? await store.recordVisit(url: url, title: title, kind: kind, at: Date(), inSpace: space) }
     }
 
     func noteFavicon(_ png: Data?, tabID: UUID) {

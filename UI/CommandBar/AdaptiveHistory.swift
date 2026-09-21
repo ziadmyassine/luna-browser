@@ -32,7 +32,9 @@ final class AdaptiveHistory {
 
     private let store: BrowserStore
     private var entries: [Key: AdaptiveEntry] = [:]
-    private var didLoad = false
+    /// The Space the table in memory was read for. `inputHistory` is per-Space,
+    /// so a Space switch is a different table and not a warm cache.
+    private var loaded: UUID?
 
     init(store: BrowserStore) {
         self.store = store
@@ -43,13 +45,15 @@ final class AdaptiveHistory {
         Array(entries.values)
     }
 
-    /// Reads the table once. Safe to call on every `⌘T`; only the first does work.
-    func loadIfNeeded() async {
-        guard !didLoad else { return }
-        didLoad = true
+    /// Reads the table once per Space. Safe to call on every `⌘T`; only the
+    /// first call after a Space switch does work.
+    func loadIfNeeded(inSpace spaceID: UUID) async {
+        guard loaded != spaceID else { return }
+        loaded = spaceID
+        entries = [:]
         // A failed read means "no lessons yet", never "no Command Bar". Adaptive
         // history is an accelerator; the bar is fully usable without it.
-        guard let rows = try? await store.inputHistory() else { return }
+        guard let rows = try? await store.inputHistory(inSpace: spaceID) else { return }
         for row in rows {
             entries[Key(typed: row.typed, url: CommandBarURL.dedupeKey(row.url))] =
                 AdaptiveEntry(typed: row.typed, url: row.url, useCount: row.useCount)
@@ -61,7 +65,7 @@ final class AdaptiveHistory {
     ///
     /// Recording nothing for an empty query is the point of the feature: `⌘T` then
     /// return teaches nothing, because there was no string to associate.
-    func record(typed rawTyped: String, url: URL) {
+    func record(typed rawTyped: String, url: URL, inSpace spaceID: UUID) {
         let typed = rawTyped.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !typed.isEmpty else { return }
 
@@ -72,7 +76,7 @@ final class AdaptiveHistory {
         Task { [store] in
             // A lost write costs one lesson, so it must not surface as an error the
             // user sees in the middle of a navigation.
-            try? await store.setInputUseCount(typed: typed, url: url, useCount: count)
+            try? await store.setInputUseCount(typed: typed, url: url, useCount: count, inSpace: spaceID)
         }
     }
 }

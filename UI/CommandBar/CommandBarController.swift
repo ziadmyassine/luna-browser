@@ -229,16 +229,18 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
     // MARK: - §9.7 the query pipeline
 
     private func refreshSources() {
-        // §9.2: every Space plus the archive, not just the active Space.
-        sources.tabs = session.allTabs(includeArchived: true)
-        sources.spaces = Dictionary(uniqueKeysWithValues: session.spaces.map { ($0.id, $0) })
+        // §9.2: the Space you are in, its archive included, and no other. The
+        // Space is the cookie jar since `v7`, so a row from the Space next door
+        // is a page signed in as somebody else.
+        sources.tabs = session.tabsInActiveSpace(includeArchived: true)
         sources.adaptive = adaptive.snapshot
         sources.history = []
 
-        // The adaptive table is read once per launch. The bar is already usable
-        // while this runs; on every open but the first it is a no-op.
+        // The adaptive table is read once per Space. The bar is already usable
+        // while this runs; on every open but the first in a Space it is a no-op.
+        let space = session.activeSpaceID
         Task { [weak self] in
-            await self?.adaptive.loadIfNeeded()
+            await self?.adaptive.loadIfNeeded(inSpace: space)
             guard let self, self.isPresented, let field = self.panel?.field else { return }
             self.sources.adaptive = self.adaptive.snapshot
             // Only when it could change the answer. `adaptiveRows` is
@@ -398,7 +400,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
         // §9.3: the lesson is keyed on what the user typed, never on the string
         // autofill completed for them — otherwise the ranker teaches itself.
         if let url = result.url, let typed = panel?.field.typedText {
-            adaptive.record(typed: typed, url: url)
+            adaptive.record(typed: typed, url: url, inSpace: session.activeSpaceID)
         }
         // Dismiss before acting: the action can move first responder, focus the
         // page or open a window, and none of that should happen underneath a

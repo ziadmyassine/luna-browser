@@ -34,9 +34,9 @@ enum InternalPagesInstaller {
                 // §7.1's Favorites are Essentials in the active Space — one
                 // `Tab` with a `kind`, not a second table (§9.3's M1 correction).
                 favorites: session.tabs.filter { $0.kind == .essential }.map(entry),
-                // Every Space's archive, newest first, the way the Command Bar
-                // already treats it (§9.2).
-                archived: session.archived.map(entry)
+                // This Space's archive, newest first, the way the Command Bar
+                // and §6.4's list already treat it (§9.2).
+                archived: session.archivedInActiveSpace.map(entry)
             )
         }
 

@@ -107,8 +107,11 @@ extension BrowserSession {
 
     /// `⌘⇧T`. The archive is seeded from SQLite at restore, so this still works
     /// on the first keystroke after a relaunch.
+    ///
+    /// The Space you are in, not the app: reopening a tab in Work must not
+    /// bring back the Personal page you closed before you switched (§9.2).
     func reopenLastArchived() {
-        guard let newest = archived.first else { return }
+        guard let newest = archivedInActiveSpace.first else { return }
         restoreArchived(newest, at: TabList.openIndex(for: newest.kind))
     }
 
@@ -131,13 +134,30 @@ extension BrowserSession {
         restoreArchived(tab, at: TabList.openIndex(for: tab.kind))
     }
 
+    /// The Space you are in, its open tabs and its archived ones together —
+    /// what the Command Bar offers (§9.2).
+    ///
+    /// Not `allTabs`. A Space's tabs, its history and its cookie jar are one
+    /// set of things, and a Work window offering a Personal tab is offering a
+    /// page that is signed in as somebody else. The bar used to list every
+    /// Space and tell them apart with a badge; since `v7` made the Space the
+    /// jar, the honest answer is not to offer the other one at all.
+    func tabsInActiveSpace(includeArchived: Bool) -> [Tab] {
+        includeArchived ? tabs + archivedInActiveSpace : tabs
+    }
+
+    /// §6.3's archive for the Space you are in. `archived` is every Space's,
+    /// because the store writes and `⌘⌥1`'s sweeps work on the whole list.
+    var archivedInActiveSpace: [Tab] {
+        archived.filter { $0.spaceID == activeSpaceID }
+    }
+
     /// Every tab this window knows about, across all Spaces — `tabs` is the
-    /// active Space only. The Command Bar's cross-Space switching and its
-    /// archive rows (§9.2) are the reason this exists.
-    /// De-duplicated: Favorites are per Profile (§2), so every Space sharing a
-    /// Profile resolves the same tiles and a plain `flatMap` would list each of
-    /// them once per Space — which the Command Bar would show as duplicate
-    /// switch-to-tab rows for the same tab.
+    /// active Space only. Teardown, the muting sweep and §23's tab count are
+    /// the callers: the ones that mean every tab in the app rather than every
+    /// tab on offer.
+    /// De-duplicated: a Favorite resolves through more than one Space's list,
+    /// so a plain `flatMap` would count each of them once per Space.
     func allTabs(includeArchived: Bool) -> [Tab] {
         var seen: Set<UUID> = []
         let open = spaces.flatMap { list[$0.id] }.filter { seen.insert($0.id).inserted }
@@ -333,7 +353,7 @@ extension BrowserSession {
     }
 
     func search(_ query: String, limit: Int) async -> [HistoryHit] {
-        (try? await store.searchHistory(query, limit: limit)) ?? []
+        (try? await store.searchHistory(query, limit: limit, inSpace: activeSpaceID)) ?? []
     }
 
     var activeController: TabController? { activeTabID.flatMap { controllers[$0] } }
