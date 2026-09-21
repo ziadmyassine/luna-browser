@@ -5,10 +5,9 @@
 //  §7's 1× glass adaptation. Three things are worth a test and the rest is not:
 //
 //    1. `isOptimised(for:)` reads the window's scale factor and obeys the
-//       override in both directions. The bug this guards against is the one
-//       §7 names by hand — asking `NSScreen.main` instead, which gets the
-//       right answer on a single-display machine and the wrong one the moment
-//       a window is dragged.
+//       override in both directions. The bug it guards against is asking
+//       `NSScreen.main` instead, which is right on a single-display machine
+//       and wrong the moment a window is dragged.
 //    2. Setting `Glass.optimisation` re-skins glass that is already on
 //       screen, because the alternative is a setting that needs a relaunch.
 //    3. `previewTile` is pinned: the Settings window shows both columns of

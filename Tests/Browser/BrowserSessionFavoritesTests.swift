@@ -5,13 +5,12 @@
 //  Favorites are per Profile, not per Space (spec §2, decision D-S2, and
 //  the owner's locked wording: "per-profile favourites, but per-space pinned").
 //
-//  This is the biggest model change in the Spaces wave and the one with the
-//  least prior art to lean on. Arc keys its Favorites container by profile — a
-//  flat `topAppsContainerIDs` profile → container pair — and caps the tier at
-//  twelve; Zen strips a tab's workspace id when it is promoted to Essential,
-//  which lands near the same place from the other side. Luna's `TabList` was
-//  keyed by Space with `.essential` inside it, so Favorites were per Space and
-//  `TODO.md` §46 claimed they were global. Both were wrong.
+//  Arc keys its Favorites container by profile — a flat `topAppsContainerIDs`
+//  profile → container pair — and caps the tier at twelve; Zen strips a tab's
+//  workspace id when it is promoted to Essential, landing near the same place
+//  from the other side. Luna's `TabList` was keyed by Space with `.essential`
+//  inside it, so Favorites were per Space while `TODO.md` §46 claimed they were
+//  global. Both were wrong.
 //
 //  The behaviour these assert, in one line each: two Spaces on one Profile see
 //  the same tiles, a Space on another Profile does not, the cap is the

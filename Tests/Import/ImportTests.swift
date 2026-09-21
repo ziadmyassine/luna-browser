@@ -3,7 +3,7 @@
 //  LunaTests
 //
 //  The behaviour of a whole import run, against fixture profiles. Three things
-//  that are invisible when they break and expensive when they do:
+//  that are invisible when they break:
 //
 //  · Idempotency. Running an import twice must not double every bookmark.
 //    Nothing on screen says it went wrong; the user just has two of everything.

@@ -11,10 +11,10 @@
 //  user has to grant Full Disk Access in System Settings, which cannot be
 //  prompted for programmatically.
 //
-//  So §23.2's order is the right one and this file is the second path:
+//  So §23.2's order is the right one and this is the second path:
 //  `NetscapeBookmarks` is how a Safari user actually gets their bookmarks in
-//  (File ▸ Export Bookmarks… in Safari, then pick the file). What is here runs
-//  only once `isReadable()` says the directory is readable, i.e. only after the user
+//  (File ▸ Export Bookmarks…, then pick the file). What is here runs only once
+//  `isReadable()` says the directory is readable — that is, only after the user
 //  has granted access for their own reasons.
 //
 

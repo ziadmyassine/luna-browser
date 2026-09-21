@@ -4,18 +4,16 @@
 //
 //  §3.2b's one rule: when the page bar is open and when it is out of the way.
 //
-//  A value, with no view and no session in it, for the reason
-//  `TrafficLightLayout` is one — the rule is the part that can be wrong in ways
-//  that are invisible until someone scrolls a particular page a particular way,
-//  and a rule that can be asserted is a rule that stays right.
+//  A value with no view and no session in it, for `TrafficLightLayout`'s
+//  reason: the rule is the part that can be wrong in ways nobody sees until
+//  someone scrolls a particular page a particular way.
 //
-//  The comparison is against an anchor, not against the last frame. A page
-//  reports its offset on every animation frame of a drag, so a rule comparing
-//  consecutive frames would answer a two-pixel momentum wobble. The anchor is
-//  the offset the bar last answered at: it takes `pageBarScrollSlack` of travel
-//  away from it to change state, and the anchor then trails the page in
-//  whichever direction it is already going, so the next reversal is measured
-//  from where the user stopped rather than from where they started.
+//  The comparison is against an anchor, not the last frame. A page reports its
+//  offset on every animation frame of a drag, so comparing consecutive frames
+//  would answer a two-pixel momentum wobble. The anchor is the offset the bar
+//  last answered at: it takes `pageBarScrollSlack` of travel to change state,
+//  and the anchor then trails the page in whichever direction it is going, so
+//  the next reversal is measured from where the user stopped.
 //
 
 import Foundation

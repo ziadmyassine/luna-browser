@@ -6,11 +6,10 @@
 //
 //  `TabController` finds the form, matches the site and holds the secrets;
 //  `CredentialPopover` and `SavePasswordChip` are AppKit and cannot live in
-//  `BrowserKit` (§25.5). This file is the four delegate methods that join them,
-//  and it is deliberately thin: every decision worth arguing about — which
-//  credentials match, whether the frame may be filled, whether anything is
-//  written — was already taken in `PasswordCoordinator`, under test, away from
-//  the view layer.
+//  `BrowserKit` (§25.5). This is the four delegate methods that join them, and
+//  it is deliberately thin: which credentials match, whether the frame may be
+//  filled and whether anything is written were all decided in
+//  `PasswordCoordinator`, under test.
 //
 //  The one rule this file does own: password UI belongs to the active tab
 //  only. A background tab finishing a load and putting a popover over the

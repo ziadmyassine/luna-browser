@@ -11,10 +11,10 @@
 //  same shape of bug from the other direction: the two rows deduped into one,
 //  and the surviving row silently adopted whichever tab the loop reached last.
 //
-//  This file is deliberately not `@MainActor`. `CommandBarRanking` is
-//  non-isolated so an order can be computed without a window, and §9.7's budget
-//  depends on `merge` staying a pure function on the keystroke path. A test that
-//  needed a main actor to run would be the first sign that stopped being true.
+//  Deliberately not `@MainActor`. `CommandBarRanking` is non-isolated so an
+//  order can be computed without a window, and §9.7's budget depends on `merge`
+//  staying a pure function on the keystroke path. A test needing a main actor
+//  would be the first sign that stopped being true.
 //
 
 import BrowserKit
