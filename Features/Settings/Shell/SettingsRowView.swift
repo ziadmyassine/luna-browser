@@ -602,7 +602,7 @@ final class SettingsTextField: NSTextField {
         super.draw(dirtyRect)
     }
 
-    override class var cellClass: AnyClass? {
+    override static var cellClass: AnyClass? {
         get { SettingsTextFieldCell.self }
         set { super.cellClass = newValue }
     }

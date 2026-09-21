@@ -256,4 +256,3 @@ final class SidebarAddRowTests: XCTestCase {
         XCTAssertNil(content.favicon)
     }
 }
-

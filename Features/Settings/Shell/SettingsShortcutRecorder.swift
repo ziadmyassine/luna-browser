@@ -83,7 +83,7 @@ final class SettingsShortcutRecorder: NSView {
         // whole of the press. Without it the only thing a click changed was a
         // word, and a word is not a control answering a finger.
         Tokens.Motion.swell(self, to: Tokens.Motion.pressSwell)
-        isRecording ? stop() : beginRecording()
+        if isRecording { stop() } else { beginRecording() }
     }
 
     override func mouseUp(with event: NSEvent) {

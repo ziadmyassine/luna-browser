@@ -375,7 +375,6 @@ private final class CredentialRowView: NSView {
     }
 }
 
-
 // MARK: - §14.5's generated password
 
 /// One row showing the generated password itself.

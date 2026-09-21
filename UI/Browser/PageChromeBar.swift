@@ -81,9 +81,10 @@ final class PageChromeBar: NSView, TrafficLightNeighbour {
     /// §9.1 has closed and the bar is the page's again.
     var onEditingEnded: (() -> Void)?
 
+    // These are `internal` for `PageChromeBarLayout.swift`. See its header.
+
     /// The page's colour, as a plane. Behind everything, and the only thing on
     /// this bar that is painted rather than placed.
-    // These are `internal` for `PageChromeBarLayout.swift`. See its header.
     let plane = NSView()
     let toggle = GlassButton(
         shape: Tokens.Metric.sidebarCircle,

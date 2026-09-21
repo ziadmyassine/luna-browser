@@ -23,5 +23,41 @@ line_length:
   ignores_comments: true
   ignores_urls: true
 
+file_length:
+  # Count code, not documentation. Metrics.swift is 481 lines of which 97 are
+  # code; a limit that counts the rest penalises writing down why a number is
+  # the number it is.
+  ignore_comment_only_lines: true
+
 identifier_name:
   min_length: 2
+  excluded:
+    # Geometry, colour components and loop counters. `x` is the right name for
+    # an x coordinate, and spelling it out makes layout code harder to read.
+    - a
+    - b
+    - c
+    - dx
+    - dy
+    - g
+    - h
+    - id
+    - n
+    - r
+    - t
+    - w
+    - x
+    - y
+
+large_tuple:
+  # Three is the size of a table row: a case, an input and the expected answer.
+  # Most of these are test tables; the rest are layout triples.
+  warning: 3
+  error: 4
+
+type_name:
+  # Test type names are sentences on purpose — the failure message is the
+  # documentation. Production type names never come close to this.
+  max_length:
+    warning: 60
+    error: 70

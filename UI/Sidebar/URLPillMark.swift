@@ -40,7 +40,6 @@ extension URLPillView {
             : String(localized: "Search the web")
     }
 
-
     /// Domain at rest — which is the only state the pill has. It used to check
     /// that it was not overwriting something half-typed; nothing is ever typed
     /// here now (see `URLPillView.onHandOff`).

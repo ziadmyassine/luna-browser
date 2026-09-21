@@ -26,14 +26,19 @@ final class PageChromeBarTests: XCTestCase {
 
     /// The bar's own two controls, the pill, and the two glyphs inside it —
     /// which are the pill's on both surfaces, not the bar's.
-    private func controls(
-        of bar: PageChromeBar
-    ) -> (leading: [NSView], inPill: [NSView], buttons: [NSView], pill: URLPillView)? {
+    private struct Controls {
+        let leading: [NSView]
+        let inPill: [NSView]
+        let buttons: [NSView]
+        let pill: URLPillView
+    }
+
+    private func controls(of bar: PageChromeBar) -> Controls? {
         let pill = bar.subviews.compactMap { $0 as? URLPillView }.first
         let leading = bar.subviews.filter { $0 is NavCluster || $0 === bar.toggle }
         guard let pill, leading.count == 2 else { return nil }
         let inPill = [pill.sliders, pill.reload] as [NSView]
-        return (leading, inPill, leading + inPill, pill)
+        return Controls(leading: leading, inPill: inPill, buttons: leading + inPill, pill: pill)
     }
 
     /// The glyphs' frames in the bar's own coordinates, so they can be compared

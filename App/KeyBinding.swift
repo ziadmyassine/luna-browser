@@ -142,7 +142,7 @@ struct KeyBinding: Hashable {
     init?(event: NSEvent) {
         guard let characters = event.charactersIgnoringModifiers, !characters.isEmpty else { return nil }
         let modifiers = event.modifierFlags.intersection(Self.allowed)
-        guard !modifiers.intersection([.command, .control, .option]).isEmpty else { return nil }
+        guard !modifiers.isDisjoint(with: [.command, .control, .option]) else { return nil }
         self.init(characters, modifiers)
     }
 }

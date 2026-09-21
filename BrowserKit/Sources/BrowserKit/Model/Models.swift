@@ -6,7 +6,6 @@ import Foundation
 
 /// An sRGB colour, 0...1 per component. The only way colour crosses into `BrowserKit`.
 public struct RGBA: Sendable, Hashable, Codable {
-    // swiftlint:disable identifier_name
     public var r: Double
     public var g: Double
     public var b: Double
@@ -18,7 +17,6 @@ public struct RGBA: Sendable, Hashable, Codable {
         self.b = b
         self.a = a
     }
-    // swiftlint:enable identifier_name
 }
 
 /// The two stops of a Space gradient (§8.2).

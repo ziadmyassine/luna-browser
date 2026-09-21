@@ -283,7 +283,6 @@ final class LoadProgressLine: NSView {
         return CGPath(roundedRect: well, cornerWidth: radius, cornerHeight: radius, transform: nil)
     }
 
-
     override func layout() {
         super.layout()
         // Bounds-derived frames never animate — see `Motion.immediately`.

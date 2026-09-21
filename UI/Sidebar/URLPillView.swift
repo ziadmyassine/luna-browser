@@ -188,8 +188,6 @@ final class URLPillView: NSView {
         NSSize(width: NSView.noIntrinsicMetric, height: Tokens.Metric.urlPill.height)
     }
 
-
-
     /// §3.1: reload becomes a **stop** glyph for as long as the page is
     /// loading. The same swap the sidebar's own circle made before the control
     /// moved inside the pill.
@@ -234,7 +232,6 @@ final class URLPillView: NSView {
     }
 
     override var wantsUpdateLayer: Bool { true }
-
 
     override func updateLayer() {
         guard let layer else { return }
