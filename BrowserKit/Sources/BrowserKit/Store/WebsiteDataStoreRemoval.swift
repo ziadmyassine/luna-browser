@@ -10,12 +10,11 @@ import WebKit
 // thing to do with the difference is reconcile it.
 //
 // Deletion is a retry loop, not a call. `removeDataStoreForIdentifier:` fails while any
-// `WKWebView` still holds the store, and a web view is released when ARC gets round to it,
-// not when the user clicks Delete. Crest (MPL-2.0) and DuckDuckGo arrived at the same shape
-// independently, which is the strongest signal in the research: try, clear the data as a
-// fallback so the data goes even if the directory survives, back off, and if it still will
-// not go, write the identifier down somewhere that outlives both the process and the database
-// and finish the job on a later launch.
+// `WKWebView` still holds the store, and a web view is released when ARC gets round to it
+// rather than when the user clicks Delete. Crest (MPL-2.0) and DuckDuckGo arrived at the
+// same shape independently: try, clear the data as a fallback so it goes even if the
+// directory survives, back off, and if it still will not go, write the identifier down
+// somewhere that outlives the process and the database and finish on a later launch.
 //
 // Everything WebKit-shaped is behind ``WebsiteDataStoreRegistry`` so the loop can be driven
 // against a store that refuses forever without needing a real one.

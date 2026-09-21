@@ -122,21 +122,19 @@ enum Schema {
         // Space they already live in. Demote, never delete: §13.7's whole argument is that
         // this is the cheap place to beat Vivaldi, which closes tabs with no undo.
         //
-        // `archivedAt IS NULL` appears twice, and both are load-bearing.
+        // `archivedAt IS NULL` appears twice and both are load-bearing. An archived
+        // Favorite is reachable: §2 says Favorites never auto-archive, but
+        // `deleteSpace(_:policy: .archiveTabs)` archives one when its Profile has no
+        // other Space to home it in. So:
         //
-        // An archived Favorite is a reachable state, not a theoretical one: §2 says Favorites
-        // never auto-archive, but `deleteSpace(_:policy: .archiveTabs)` archives one when its
-        // Profile has no other Space left to home it in. So:
+        //   · in the ranking, so an archived tile cannot displace a live one;
+        //   · in the outer `WHERE`, because without it an archived row falls out of the
+        //     ranked set, is caught by `NOT IN` and silently demoted — the filter that
+        //     protects it from being counted would be what demotes it.
         //
-        //   · in the ranking, so an archived tile cannot displace a live one out of the twelve;
-        //   · in the outer `WHERE`, because without it an archived row falls out of the ranked
-        //     set and is therefore caught by `NOT IN` and silently demoted — the filter that
-        //     protects it from being counted would be the very thing that demotes it.
-        //
-        // This also makes the SQL agree with the runtime, which is the real requirement: the
-        // session holds archived tabs in `session.archived` rather than in `TabList`, so
-        // `favorites(onProfile:)` already never counts them. A migration that disagreed with
-        // the code reading its output is worse than either rule on its own.
+        // It also makes the SQL agree with the runtime: the session holds archived tabs
+        // in `session.archived` rather than in `TabList`, so `favorites(onProfile:)`
+        // already never counts them.
         try db.execute(sql: """
         UPDATE tabs SET kind = 'pinned', profileID = NULL
          WHERE kind = 'essential'

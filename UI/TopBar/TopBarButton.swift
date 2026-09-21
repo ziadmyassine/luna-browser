@@ -17,18 +17,16 @@
 //  collapses it back onto the button so the decoration never eats a click.
 //
 //  It answers a press as well as a hover, on §3.4's two washes and §6's
-//  `controlPress` — the same answer `GlassButton` gives in the sidebar, which
-//  is the point: the toggle in one bar and the toggle in the other are the
-//  same control in the user's hand. The bar had only the hover half of it for
-//  several builds, which is the one state a button can be in that the pointer
-//  reports rather than the finger, so a click read as nothing happening until
-//  the page moved.
+//  `controlPress` — the same answer `GlassButton` gives in the sidebar, so the
+//  toggle in one bar and the toggle in the other are the same control in the
+//  hand. The bar had only the hover half for several builds, so a click read
+//  as nothing happening until the page moved.
 //
-//  A button inside a capsule hands its press up (`ownsItsMaterial`):
-//  §4's action capsule applies one material for all of its items, and half of
-//  a capsule swelling inside the other half is not a press. `TopBarActionCapsule`
-//  takes the gesture over; a tab tile, which is a control on the bare bar, keeps
-//  it. This is `GlassButton.GlassMode.none`'s rule, in the other bar.
+//  A button inside a capsule hands its press up (`ownsItsMaterial`): §4's
+//  action capsule applies one material for all its items, and half a capsule
+//  swelling inside the other half is not a press. `TopBarActionCapsule` takes
+//  the gesture over; a tab tile, on the bare bar, keeps it. That is
+//  `GlassButton.GlassMode.none`'s rule in the other bar.
 //
 //  Increase Contrast is not an appearance on macOS 26.5 (see the `Tokens`
 //  header), so nothing here invalidates on its own: `TopBarView` owns the one

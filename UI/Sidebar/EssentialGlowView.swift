@@ -5,29 +5,26 @@
 //  §3.3: the light on the pinned tile you are on, in the colour of that
 //  site's own favicon — `FaviconTint` picks the colour, this draws it.
 //
-//  Three layers, and each one is doing a different job. The `ring` is a lit
-//  line just outside the tile's hairline; the shadow on that ring is the
-//  bloom that carries past it, derived from the border rather than from a
-//  `shadowPath` so it follows the ring instead of the box; and `bleed` is the
-//  little of the colour that gets inside the glass, which is the difference
-//  between a ring drawn round a tile and a tile that has been lit.
+//  Three layers, each doing a different job. `ring` is a lit line just outside
+//  the tile's hairline; the shadow on that ring is the bloom carrying past it,
+//  derived from the border rather than a `shadowPath` so it follows the ring
+//  instead of the box; and `bleed` is the little of the colour that gets inside
+//  the glass, which is the difference between a ring round a tile and a tile
+//  that has been lit.
 //
-//  Layers with a continuous corner, not a `CGPath`. There is no public API
-//  for a squircle's outline — `CGPath(roundedRect:)` and `NSBezierPath` both
-//  give circular arcs — so a stroked path round a §3.3 tile pinches at the
-//  corners where the tile does not. A `CALayer` will draw the real curve for
-//  nothing: set `cornerCurve`, give it a border, and the shape is the tile's.
+//  Layers with a continuous corner, not a `CGPath`. There is no public API for
+//  a squircle's outline — `CGPath(roundedRect:)` and `NSBezierPath` both give
+//  circular arcs — so a stroked path round a §3.3 tile pinches at the corners
+//  where the tile does not. A `CALayer` draws the real curve for nothing: set
+//  `cornerCurve`, give it a border, and the shape is the tile's.
 //
-//  It sits over the tile, not under it. Under was the first build and the
-//  bleed vanished: a selected tile carries `NSGlassEffectView`, the material
-//  composites what is behind the window (`Glass.swift`), and everything in
-//  the window behind it is gone. Over the tile the colour lands where the eye
-//  expects it, and the view answers no hit test at all — this is light, and
-//  light is not something you can click on.
+//  It sits over the tile, not under it. Under was the first build and the bleed
+//  vanished: a selected tile carries `NSGlassEffectView`, which composites what
+//  is behind the window (`Glass.swift`), so everything in the window behind it
+//  is gone. The view answers no hit test — this is light.
 //
 //  One of these for the whole grid rather than one per tile: only one tile can
-//  be the tab you are on, and `EssentialsGridView`'s own header has the story
-//  of what eight idle backing views cost the sidebar.
+//  be the tab you are on.
 //
 
 import AppKit
@@ -102,17 +99,15 @@ final class EssentialGlowView: NSView {
     ///
     /// A click that moves the glow from one tile to another blooms from
     /// nothing rather than from where it was: the frame has already jumped to
-    /// the new tile by then, and fading the remainder of the old light up to
-    /// full there reads as the glow having always been on.
+    /// the new tile, and fading the remainder of the old light up to full there
+    /// reads as the glow having always been on.
     ///
     /// - Parameter animated: false puts the light where it belongs in this
-    ///   frame. §6's Space switch is the one caller that asks for it: the grid
-    ///   under this light has been replaced wholesale, and `essentialGlow`
-    ///   outlasts `spaceSwitchCrossfade` by a third — so a light fading out of
-    ///   the Space you left is still burning over the Space you arrived in
-    ///   after that Space has finished fading up, on a tile that is no longer
-    ///   there. There is nothing to cross-fade between: it is not the same
-    ///   light moving, it is a different grid.
+    ///   frame. §6's Space switch is the one caller that asks: the grid has
+    ///   been replaced wholesale, and `essentialGlow` outlasts
+    ///   `spaceSwitchCrossfade` by a third, so a light fading out of the Space
+    ///   you left is still burning over the Space you arrived in, on a tile
+    ///   that is no longer there. It is not the same light moving.
     func show(_ tint: NSColor?, blooming: Bool, animated: Bool = true) {
         if let tint { self.tint = tint }
         paint()

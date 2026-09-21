@@ -8,20 +8,19 @@
 //
 //  Three rules this file exists to keep:
 //
-//  1. Idempotent. Running an import twice must not double anything.
-//     Bookmarks are deduplicated against the target Space by URL, read from the
-//     store rather than remembered. History is deduplicated by a per-profile
-//     watermark in `ImportLedger` — a second run asks the source only for
-//     visits newer than the newest one already taken, which is normally none.
-//  2. Never blocking, never hogging the store. Everything here runs on
-//     `BrowserImporter`'s own actor, never the main actor, and visits cross to
-//     `BrowserStore` in batches of 500 with a `flush()` between them (§11.5) —
-//     so the store's actor is entered and left per batch rather than held for
-//     the length of the import.
-//  3. Malformed input is the normal case. A truncated `Bookmarks`, a locked
-//     or corrupt `History`, a bookmarks tree deeper than anything sane: each
-//     fails its own surface, is counted in `ImportSummary.failed` with a line
-//     in `warnings`, and the rest of the import still lands.
+//  1. Idempotent. Bookmarks are deduplicated against the target Space by URL,
+//     read from the store rather than remembered; history by a per-profile
+//     watermark in `ImportLedger`, so a second run asks the source only for
+//     visits newer than the newest one already taken.
+//  2. Never blocking, never hogging the store. Everything runs on
+//     `BrowserImporter`'s own actor, and visits cross to `BrowserStore` in
+//     batches of 500 with a `flush()` between them (§11.5), so the store's
+//     actor is entered and left per batch rather than held for the whole
+//     import.
+//  3. Malformed input is the normal case. A truncated `Bookmarks`, a locked or
+//     corrupt `History`, a bookmarks tree deeper than anything sane: each fails
+//     its own surface, is counted in `ImportSummary.failed` with a line in
+//     `warnings`, and the rest of the import still lands.
 //
 //  Not imported, deliberately: passwords (§23.2 — Keychain-encrypted and
 //  out of scope) and extensions (§30.18's copy warning — there is no store

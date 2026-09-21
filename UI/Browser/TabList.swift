@@ -4,9 +4,8 @@
 //
 //  The coordinator's tab storage: every Space's ordered tabs, and the rules
 //  that keep them ordered. Split out of `BrowserSession` because it is a data
-//  structure, not policy — it decides nothing about web views, persistence or
-//  selection, which is exactly why it can be reasoned about (and tested) on
-//  its own.
+//  structure rather than policy — it decides nothing about web views,
+//  persistence or selection, which is why it can be tested on its own.
 //
 //  The invariant, which `BrowserSession` and the whole sidebar depend on:
 //  a Space's tabs are sorted essential → pinned → today, each section by
@@ -16,14 +15,13 @@
 //
 //  ## Favorites are per Profile, not per Space (spec §2, D-S2)
 //
-//  One exception to the sentence above, and it is the biggest model change in
-//  the Spaces wave: `.essential` is numbered and resolved across every Space
-//  that shares a Profile, because a Favorite is a logged-in app tile and a
-//  tile that opens in a Space whose cookie jar never saw that login is a broken
-//  tile. Arc keys its Favorites container by profile — `topAppsContainerIDs` is
-//  a flat profile → container pair, read off its own `StorableSidebar.json` —
-//  and the owner's decision is the same shape: per-profile favourites,
-//  per-space pinned.
+//  One exception to the sentence above: `.essential` is numbered and resolved
+//  across every Space that shares a Profile, because a Favorite is a logged-in
+//  app tile and a tile that opens in a Space whose cookie jar never saw that
+//  login is a broken tile. Arc keys its Favorites container by profile —
+//  `topAppsContainerIDs` is a flat profile → container pair in its own
+//  `StorableSidebar.json` — and Luna's model is the same shape: per-profile
+//  favourites, per-space pinned.
 //
 //  So the storage stays keyed by Space (an `.essential` row keeps the home
 //  Space it was created in, which is what the `tabs.spaceID` foreign key
