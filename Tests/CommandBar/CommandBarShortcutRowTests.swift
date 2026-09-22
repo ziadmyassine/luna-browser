@@ -67,9 +67,11 @@ final class CommandBarShortcutRowTests: XCTestCase {
         return sources
     }
 
+    /// Both tiers: a command whose own name answered, and one the query only
+    /// reached through a keyword.
     private func rows(_ query: String) -> [CommandBarResult] {
         CommandBarRanking.merge(query: query, sources: sources(), limit: 8)
-            .filter { $0.source == .shortcut }
+            .filter { $0.source == .shortcut || $0.source == .keywordShortcut }
     }
 
     // MARK: - The row
@@ -89,6 +91,14 @@ final class CommandBarShortcutRowTests: XCTestCase {
     func testAKeywordFindsACommandItsTitleDoesNot() {
         XCTAssertEqual(rows("incognito").map(\.action), [.runCommand("newPrivateWindow")])
         XCTAssertEqual(rows("address").map(\.action), [.runCommand("copyURL")])
+    }
+
+    /// A command nothing but a keyword found sits below the search row: the
+    /// word that reached it is not on the row, so it is a weaker claim on the
+    /// top of the list than the word the user typed.
+    func testACommandFoundOnlyByAKeywordSitsBelowTheSearchRow() {
+        let found = CommandBarRanking.merge(query: "incognito", sources: sources(), limit: 8)
+        XCTAssertEqual(found.map(\.source), [.search, .keywordShortcut])
     }
 
     /// "copy link" is half a title match for both Copy URL and Copy URL as
@@ -134,8 +144,10 @@ final class CommandBarShortcutRowTests: XCTestCase {
     func testShortcutRowsRankBelowAppCommandsAndAboveTheSearchRow() throws {
         let order = CommandBarSource.allCases
         let shortcut = try XCTUnwrap(order.firstIndex(of: .shortcut))
+        let search = try XCTUnwrap(order.firstIndex(of: .search))
         XCTAssertLessThan(try XCTUnwrap(order.firstIndex(of: .command)), shortcut)
-        XCTAssertLessThan(shortcut, try XCTUnwrap(order.firstIndex(of: .search)))
+        XCTAssertLessThan(shortcut, search)
+        XCTAssertLessThan(search, try XCTUnwrap(order.firstIndex(of: .keywordShortcut)))
     }
 
     // MARK: - §3.4's switch

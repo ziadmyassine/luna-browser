@@ -55,9 +55,11 @@ final class CommandBarSettingsRowTests: XCTestCase {
         return sources
     }
 
+    /// Both tiers: a section whose own name answered, and one the query only
+    /// reached through a keyword.
     private func rows(_ query: String) -> [CommandBarResult] {
         CommandBarRanking.merge(query: query, sources: sources(), limit: 8)
-            .filter { $0.source == .settings }
+            .filter { $0.source == .settings || $0.source == .keywordSettings }
     }
 
     // MARK: - The row
@@ -112,8 +114,21 @@ final class CommandBarSettingsRowTests: XCTestCase {
     func testSettingsRowsRankBelowCommandsAndAboveTheSearchRow() throws {
         let order = CommandBarSource.allCases
         let settings = try XCTUnwrap(order.firstIndex(of: .settings))
+        let search = try XCTUnwrap(order.firstIndex(of: .search))
         XCTAssertLessThan(try XCTUnwrap(order.firstIndex(of: .command)), settings)
-        XCTAssertLessThan(settings, try XCTUnwrap(order.firstIndex(of: .search)))
+        XCTAssertLessThan(settings, search)
+        XCTAssertLessThan(search, try XCTUnwrap(order.firstIndex(of: .keywordSettings)))
+    }
+
+    /// Reported from the running app: typing `google` put the Search section
+    /// on the top row, because "google" is one of its keywords. A word the row
+    /// does not show cannot outrank the word the user typed — the search is
+    /// first and the section is still there, underneath it.
+    func testAWebsiteNameSearchesTheWebBeforeItOffersTheSection() throws {
+        setSettingsResults(true)
+        let found = CommandBarRanking.merge(query: "google", sources: sources(), limit: 8)
+        XCTAssertEqual(try XCTUnwrap(found.first).source, .search)
+        XCTAssertEqual(found.map(\.source), [.search, .keywordSettings])
     }
 
     /// `⌘T`'s opening list is for getting somewhere, not for browsing an index

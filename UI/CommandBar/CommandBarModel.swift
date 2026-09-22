@@ -93,6 +93,17 @@ enum CommandBarSource: Sendable, Hashable, Comparable, CaseIterable {
     /// The floor: there is always something to do with a query, and what the
     /// user actually typed outranks anything an engine guessed they meant.
     case search
+    /// A menu command, or a Settings section, that the query reached only
+    /// through its keywords — nothing in its own name answered.
+    ///
+    /// Below the search row, and that is the whole reason these two cases
+    /// exist. `google` is a keyword of §3.4's Search section and the name of a
+    /// website, and the section was taking the top row from the search: a word
+    /// the user cannot see on the row is a weaker claim on it than the word
+    /// they typed. A name still outranks the search row, one tier up, so
+    /// `downloads` opens the pane and `cookies` searches the web first.
+    case keywordShortcut
+    case keywordSettings
     /// §3.4's suggestions, when they are switched on. Last on purpose — they
     /// are the only rows in the list that came from somewhere else.
     case suggestion

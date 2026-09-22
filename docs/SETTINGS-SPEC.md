@@ -361,6 +361,15 @@ row opens a pane to go and read, a shortcut row does something to the page in
 front of you, and wanting one of those in an address bar is no reason to want
 the other.
 
+**A keyword is a weaker claim than a name.** Both kinds of row sit above the
+search row when the query matched their own title, and *below* it when only a
+keyword matched — `CommandBarSource.keywordSettings` and `.keywordShortcut`.
+`google` is a keyword of this section and also the name of a website, and it
+was taking the top row from the search: a word the user cannot see on the row
+must not outrank the word they typed. `downloads` still opens the pane, being
+a name; `cookies` searches the web first and offers Privacy & Blocking
+underneath.
+
 ### 3.5 Downloads
 | Control | Type | Wired to |
 |---|---|---|
