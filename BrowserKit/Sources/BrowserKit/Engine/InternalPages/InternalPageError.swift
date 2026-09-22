@@ -22,9 +22,6 @@ public struct InternalPageError: Equatable, Sendable {
         case httpsDowngrade
         /// Everything WebKit failed at that has no page of its own.
         case generic
-        /// A `luna://` address with nothing behind it (§4.4). Not a failure on
-        /// the way somewhere: there is no page here and there never was one.
-        case notFound
     }
 
     public var kind: Kind
@@ -67,10 +64,15 @@ public struct InternalPageError: Equatable, Sendable {
     }
 
     /// Whether a second attempt at the same address could go any differently.
-    /// A `luna://` address with no page behind it will not have one next time,
-    /// so that page offers §9.1 and nothing else.
+    ///
+    /// One of Luna's own addresses is the case where it cannot: `luna://` does
+    /// not go near the network, so a `dns` page over one is not a lookup that
+    /// failed but an address with no page behind it — and there will be no page
+    /// behind it next time either. Try Again would be a button that does the
+    /// same nothing however often it is pressed.
     public var offersRetry: Bool {
-        url != nil && !offersBypass && kind != .notFound
+        guard let url, !offersBypass else { return false }
+        return url.scheme != InternalPages.scheme
     }
 
     /// §4.5's four cases, from what WebKit actually reports.

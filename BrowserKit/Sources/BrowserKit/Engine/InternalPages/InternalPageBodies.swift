@@ -99,10 +99,10 @@ extension InternalPages {
 
     // MARK: - Errors (§4.5)
     //
-    // One card and one mark per kind. The kind is a class on `.error` and a
-    // glyph in the well; everything else about the page is the same page,
-    // because all of them are the same event — Luna could not give you what
-    // you asked for, and here is the one thing you can do about it.
+    // One card and six marks. The kind is a class on `.error` and a glyph in
+    // the well; everything else about the page is the same page, because these
+    // six are the same event — Luna could not give you what you asked for, and
+    // here is the one thing you can do about it.
 
     @MainActor
     static func errorHTML(_ error: InternalPageError) -> String {
@@ -153,14 +153,13 @@ extension InternalPages {
     /// whether it is ink or §8.1's danger — there is no colour in this file
     /// either.
     ///
-    /// A glyph per kind, not one for all of them. Every kind used to wear the
-    /// same exclamation in a circle, which says nothing over and over. These
-    /// are the distinctions the sentence under them already makes: a network
-    /// that is not there, a name that did not resolve, a certificate that did
-    /// not check out, a request Luna stopped, a site with no encryption to
-    /// offer, and an address of Luna's own with nothing written at it. The
-    /// generic kind keeps the circle, because "something went wrong" is all
-    /// that page knows.
+    /// Six glyphs, not one. Every kind used to wear the same exclamation in a
+    /// circle, which says nothing six times over. These are the distinctions
+    /// the sentence under them already makes: a network that is not there, a
+    /// name that did not resolve, a certificate that did not check out, a
+    /// request Luna stopped, and a site with no encryption to offer. The last
+    /// keeps the circle, because "something went wrong" is all that page
+    /// knows.
     ///
     /// Stroked rather than filled, at the weight SF Symbols draw at this size,
     /// so a mark on one of Luna's pages and a mark in Luna's chrome are the
@@ -223,14 +222,6 @@ extension InternalPages {
             """
             <circle cx="12" cy="12" r="9"/><path d="M12 7v6"/><path d="M12 16.5v.01"/>
             """
-        // A sheet with its corner turned and one rule across it. Every other
-        // mark here says something went wrong; this one says there is nothing
-        // written at this address.
-        case .notFound:
-            """
-            <path d="M6.5 3.2h6.8l4.2 4.2v13.4H6.5z"/><path d="M13.3 3.2v4.2h4.2"/>\
-            <path d="M9.6 14.4h4.8"/>
-            """
         }
     }
 
@@ -250,8 +241,6 @@ extension InternalPages {
             ("This site isn't secure", "Luna asked for an encrypted connection and the site only offers HTTP.")
         case .generic:
             ("This page didn't load", "Something went wrong on the way to this page.")
-        case .notFound:
-            ("No such page", "Luna has no page at this address.")
         }
     }
 

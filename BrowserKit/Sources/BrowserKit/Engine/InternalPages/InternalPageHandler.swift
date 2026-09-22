@@ -67,11 +67,13 @@ final class InternalPageHandler: NSObject, WKURLSchemeHandler {
             // reaches here; anything else is a typo or a probe. Both get the
             // styled page rather than WebKit's default, which is the point of §4.5.
             //
-            // `notFound`, not `generic`: nothing went wrong on the way to
-            // `luna://nosuchthing`, so "This page didn't load" is the wrong
-            // sentence and Try Again is the wrong button. The address is
-            // carried through to be shown, not to be retried.
-            let error = InternalPageError(kind: .notFound, url: url)
+            // `dns`, not `generic`. "This page didn't load" says something
+            // went wrong on the way to `luna://nosuchthing`, and nothing did:
+            // there is no page at that address, which is what "Can't find that
+            // site — check the spelling" already says. The address is carried
+            // through so the page can show it; `offersRetry` is what keeps Try
+            // Again off a `luna://` one.
+            let error = InternalPageError(kind: .dns, url: url)
             respond(urlSchemeTask, html: InternalPages.errorHTML(error), status: 404)
         }
     }

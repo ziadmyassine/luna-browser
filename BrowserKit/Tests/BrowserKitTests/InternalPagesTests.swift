@@ -195,14 +195,20 @@ struct InternalPagesTests {
         }
     }
 
-    /// A `luna://` address with no page behind it is not a page that failed to
-    /// load, and Try Again on one only fails again at the same address.
+    /// A `luna://` address with no page behind it gets §4.5's "can't find that"
+    /// page rather than "this page didn't load" — nothing failed on the way to
+    /// it — and Try Again is left off, because `luna://` never went near the
+    /// network and the address will be just as empty next time.
     @Test func anAddressWithNoPageBehindItDoesNotOfferToTryAgain() {
-        let error = InternalPageError(kind: .notFound, url: URL(string: "luna://nosuchthing")!)
+        let error = InternalPageError(kind: .dns, url: URL(string: "luna://nosuchthing")!)
+        #expect(!error.offersRetry)
         let html = InternalPages.errorHTML(error)
-        #expect(html.contains("No such page"))
+        // Escaped on the way into the DOM, so match the half without the apostrophe.
+        #expect(html.contains("find that site"))
         #expect(!html.contains("luna://retry"))
         #expect(html.contains("luna://commandbar"))
+        // A real lookup failure still offers it.
+        #expect(InternalPageError(kind: .dns, url: URL(string: "https://a.test/")!).offersRetry)
     }
 
     /// The other button on an error page. §30.19's New Tab page used to be
