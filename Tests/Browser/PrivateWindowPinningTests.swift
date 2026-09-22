@@ -116,6 +116,21 @@ final class PrivateWindowPinningTests: XCTestCase {
         XCTAssertEqual(list.destination(forRow: row, isBelowMidpoint: true).kind, .today)
     }
 
+    /// Nothing stands above `New Tab` in a §5.6 window, so the gap a lift opens
+    /// may not either: it used to open over the row, pushing the command down
+    /// the column to make a space in a tier that does not exist there.
+    func testTheGapNeverOpensAboveNewTab() throws {
+        let today: [SidebarSlot] = [.tab(Tab(spaceID: UUID(), kind: .today, url: url))]
+        let secret = SidebarList(today: today, pinning: false)
+        let row = try XCTUnwrap(secret.rows.firstIndex(of: .addTab))
+
+        XCTAssertEqual(secret.gapRow(forRow: row, isBelowMidpoint: false), row + 1)
+        XCTAssertEqual(secret.gapRow(forRow: row, isBelowMidpoint: true), row + 1)
+        // An ordinary window's own answer, so the line above reads as the
+        // exception it is: the top half of `New Tab` opens the gap over it.
+        XCTAssertEqual(SidebarList(today: today).gapRow(forRow: row, isBelowMidpoint: false), row)
+    }
+
     // MARK: - Helpers
 
     /// An item's word, without §3.4a's glyph in front of it — see

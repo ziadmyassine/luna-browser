@@ -212,8 +212,10 @@ final class SidebarTabDragController {
         lift = view
         // The grid is zero points tall until something is pinned, so it has to
         // be opened before the lift can be carried into it. A group never goes
-        // there, so it never asks for the room.
-        grid.isAwaitingDrop = cargo.mayLeaveTheList
+        // there, so it never asks for the room — and nor does anything in a
+        // §5.6 window, which has no room to ask for: the grid stays shut, so
+        // the dashed slot it would draw over an empty one never appears.
+        grid.isAwaitingDrop = allowsPinning && cargo.mayLeaveTheList
         // The list is told a lift is up first, before anything re-lays it.
         // That is what parks §3.4's two row fills and keeps them parked: the
         // lift is carrying the selected pill itself, and every layout pass

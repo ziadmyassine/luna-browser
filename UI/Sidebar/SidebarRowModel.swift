@@ -107,9 +107,9 @@ struct SidebarList: Equatable, Sendable {
 
     /// - Parameter pinning: false in a §5.6 private window, which keeps
     ///   nothing — see `BrowserSession.allowsPinning`. The rule never comes
-    ///   out and the destination above `New Tab` is the head of today's tabs
-    ///   rather than the end of the kept tier, so the top half of that row
-    ///   cannot pin what is dropped on it.
+    ///   out, and `New Tab` is then the top of the column with nothing above
+    ///   it: both halves of it mean the head of today's tabs, and both open
+    ///   their gap underneath it.
     init(
         saved: [SidebarSlot] = [],
         today: [SidebarSlot] = [],
@@ -123,7 +123,7 @@ struct SidebarList: Equatable, Sendable {
         var build = Build()
         build.emit(saved, kind: .pinned)
         let todayHead = SidebarDestination(kind: .today, groupID: nil, index: 0)
-        let savedEnd = pinning ? SidebarDestination(kind: .pinned, groupID: nil, index: saved.count) : todayHead
+        let savedEnd = SidebarDestination(kind: .pinned, groupID: nil, index: saved.count)
         if showsRule {
             // The rule and New Tab are one block: both rows mean the saved tier
             // at both halves, and both open their gap at the block's top edge.
@@ -138,8 +138,14 @@ struct SidebarList: Equatable, Sendable {
             let head = build.rows.count
             build.add(.separator, above: savedEnd, below: savedEnd, gap: head)
             build.add(.addTab, above: savedEnd, below: savedEnd, gap: head)
-        } else {
+        } else if pinning {
             build.add(.addTab, above: savedEnd, below: todayHead)
+        } else {
+            // §5.6 has no tier above New Tab, so it has no gap above it
+            // either. Both halves open one row down: a lift carried to the top
+            // of the column cannot push the command row aside to stand where
+            // the kept tier would have been.
+            build.add(.addTab, above: todayHead, below: todayHead, gap: build.rows.count + 1)
         }
         build.emit(today, kind: .today)
 

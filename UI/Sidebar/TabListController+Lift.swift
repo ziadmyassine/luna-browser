@@ -35,10 +35,13 @@ extension TabListController {
         let row = table.row(at: point)
         guard row >= 0 else {
             // Above the first row or below the last: the two ends of the list.
-            let top = point.y < 0
+            // The gap comes from the list rather than from the end itself — in
+            // a §5.6 window the top of the column is New Tab and the gap above
+            // it opens underneath it instead.
+            let end = point.y < 0 ? 0 : table.numberOfRows
             return (
-                top ? 0 : table.numberOfRows,
-                list.destination(forRow: top ? 0 : table.numberOfRows, isBelowMidpoint: false)
+                list.gapRow(forRow: end, isBelowMidpoint: false),
+                list.destination(forRow: end, isBelowMidpoint: false)
             )
         }
         let below = point.y > splitY(ofRow: row)
