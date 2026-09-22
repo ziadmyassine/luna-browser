@@ -56,8 +56,7 @@ extension BrowserSession {
 
         spaces.remove(at: index)
         list.removeSpace(id)
-        activeTabBySpace[id] = nil
-        if activeSpaceID == id, let next = spaces.first { switchSpace(next.id) }
+        releaseSpace(id, to: spaces.first?.id)
         // Drain first: every re-homed row above is a queued write, and the
         // cascade below would take any that had not landed yet.
         await writeChain?.value

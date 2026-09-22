@@ -176,9 +176,9 @@ extension BrowserSession {
     /// second press already lined up.
     func releaseSelection(of id: UUID, in spaceID: UUID) {
         recentTabs.removeAll { $0 == id }
-        if activeTabBySpace[spaceID] == id {
-            activeTabBySpace[spaceID] = recentTabs.first { list.tab($0)?.spaceID == spaceID }
-                ?? openableTabs(inSpace: spaceID, besides: id).first?.id
+        releaseTab(id, inSpace: spaceID) {
+            self.recentTabs.first { self.list.tab($0)?.spaceID == spaceID }
+                ?? self.openableTabs(inSpace: spaceID, besides: id).first?.id
         }
         notifyChange()
     }

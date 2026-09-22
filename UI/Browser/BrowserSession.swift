@@ -61,9 +61,10 @@ final class BrowserSession {
     /// and never assign, exactly as they never assign `list`.
     var spaces: [Space]
 
-    private(set) var activeSpaceID: UUID {
-        didSet { UserDefaults.standard.set(activeSpaceID.uuidString, forKey: Self.activeSpaceKey) }
-    }
+    /// The Space the front window is showing (§5.3, §22.6). Every unqualified
+    /// question here is about that window — see `BrowserSession+Windows.swift`,
+    /// which is also where a named window's own answer comes from.
+    var activeSpaceID: UUID { activeSpaceID(inWindow: keyWindowID) }
 
     /// Every tab in the active Space, ordered. Derived, so one tab is one value
     /// in one place no matter which Space it belongs to.
@@ -71,7 +72,7 @@ final class BrowserSession {
 
     /// nil straight after a restore: nothing is selected until the user picks a
     /// tab, and nothing selected means no web view anywhere (§19.4).
-    var activeTabID: UUID? { activeTabBySpace[activeSpaceID] }
+    var activeTabID: UUID? { activeTabID(inWindow: keyWindowID) }
 
     /// The tab that is actually on screen, as far as §3.2's Picture-in-Picture
     /// hand-off is concerned. Not the same question as `activeTabID`: switching
@@ -189,7 +190,25 @@ final class BrowserSession {
     let store: BrowserStore
     let profileStore = ProfileStore()
     var list: TabList
-    var activeTabBySpace: [UUID: UUID] = [:]
+    /// §22.6. Made on first write rather than on registration, so a session
+    /// with no chrome on it still answers every question about a selection.
+    var windowFocus: [UUID: WindowFocus] = [:]
+    /// The window the app's own commands mean. A name nothing else holds until
+    /// a window claims it.
+    var keyWindowID = UUID()
+    /// The Space a new window opens on, and the one the next launch comes back
+    /// to: the last one anybody chose, in any window.
+    private(set) var lastUsedSpaceID: UUID {
+        didSet { UserDefaults.standard.set(lastUsedSpaceID.uuidString, forKey: Self.activeSpaceKey) }
+    }
+
+    /// Which tab the front window has selected in each Space (§22.6). The
+    /// spelling the session's own verbs are written in; a window other than the
+    /// front one is reached through `BrowserSession+Windows.swift`.
+    var activeTabBySpace: [UUID: UUID] {
+        get { focus(keyWindowID).tabBySpace }
+        set { windowFocus[keyWindowID, default: WindowFocus(spaceID: lastUsedSpaceID)].tabBySpace = newValue }
+    }
     var controllers: [UUID: TabController] = [:]
     /// Most-recently-used first. Drives §19.2's "keep the active tab + last N".
     var recentTabs: [UUID] = []
@@ -272,7 +291,7 @@ final class BrowserSession {
         self.spaces = spaces
         self.list = list
         self.archived = archived
-        self.activeSpaceID = activeSpaceID
+        self.lastUsedSpaceID = activeSpaceID
     }
 
     enum SessionError: LocalizedError {
@@ -302,7 +321,8 @@ final class BrowserSession {
 
     func switchSpace(_ id: UUID) {
         guard id != activeSpaceID, spaces.contains(where: { $0.id == id }) else { return }
-        activeSpaceID = id
+        windowFocus[keyWindowID, default: WindowFocus(spaceID: id)].spaceID = id
+        lastUsedSpaceID = id
         // Choosing a Space is choosing its tab, so unlike a restore this may
         // wake one: the Space's last selection, else its most recent open tab.
         //

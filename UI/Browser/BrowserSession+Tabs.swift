@@ -88,9 +88,8 @@ extension BrowserSession {
         } else {
             discard(id)
         }
-        if activeTabBySpace[tab.spaceID] == id {
-            activeTabBySpace[tab.spaceID] = successor
-                ?? recentTabs.first { list.tab($0)?.spaceID == tab.spaceID }
+        releaseTab(id, inSpace: tab.spaceID) {
+            successor ?? self.recentTabs.first { self.list.tab($0)?.spaceID == tab.spaceID }
         }
         registerUndo("Close Tab") { $0.restoreArchived(tab, at: index) }
         notifyChange()
@@ -292,9 +291,7 @@ extension BrowserSession {
         tab.spaceID = spaceID
         tab.order = list.nextOrder(kind: tab.kind, in: spaceID)
         persistAll(list.insert(tab))
-        if activeTabBySpace[from] == id {
-            activeTabBySpace[from] = recentTabs.first { list.tab($0)?.spaceID == from }
-        }
+        releaseTab(id, inSpace: from) { self.recentTabs.first { self.list.tab($0)?.spaceID == from } }
         registerUndo("Move Tab to Space") { session in
             session.moveTab(id, toSpace: from)
             session.reorderTab(id, to: oldIndex, kind: oldKind, group: oldGroup)
