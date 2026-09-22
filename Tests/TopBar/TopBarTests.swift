@@ -39,11 +39,11 @@ final class TopBarDomainTests: XCTestCase {
     /// carries no title until the page reports it, and the label it wore in the
     /// meantime was `archive`.
     func testNamesLunasOwnPagesRatherThanShowingTheirHost() {
-        XCTAssertEqual(display("luna://archive"), "History")
+        XCTAssertEqual(display("luna://history"), "History")
         // The name it shows before the load and the `<title>` the page sets
         // afterwards are the same string, so the label does not change under
         // the pointer.
-        XCTAssertEqual(display("luna://archive"), InternalPages.Page.archive.name)
+        XCTAssertEqual(display("luna://history"), InternalPages.Page.history.name)
     }
 
     func testResolveAddsTheMissingScheme() {

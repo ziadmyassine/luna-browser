@@ -22,6 +22,9 @@ public struct InternalPageError: Equatable, Sendable {
         case httpsDowngrade
         /// Everything WebKit failed at that has no page of its own.
         case generic
+        /// A `luna://` address with nothing behind it (§4.4). Not a failure on
+        /// the way somewhere: there is no page here and there never was one.
+        case notFound
     }
 
     public var kind: Kind
@@ -61,6 +64,13 @@ public struct InternalPageError: Equatable, Sendable {
     /// authentication-challenge work that does not exist yet.
     public var offersBypass: Bool {
         kind == .blocked || kind == .httpsDowngrade
+    }
+
+    /// Whether a second attempt at the same address could go any differently.
+    /// A `luna://` address with no page behind it will not have one next time,
+    /// so that page offers §9.1 and nothing else.
+    public var offersRetry: Bool {
+        url != nil && !offersBypass && kind != .notFound
     }
 
     /// §4.5's four cases, from what WebKit actually reports.

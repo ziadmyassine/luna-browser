@@ -120,7 +120,7 @@ extension InternalPages {
     }
     @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 
-    /* History (§6.4) — the archive, laid out like the §3.4 tab list. */
+    /* History (§6.4) — the closed-tab shelf, laid out like the §3.4 tab list. */
     .history{
       max-width:calc(var(--luna-tile-w) * 5);
       margin-inline:auto;padding:var(--luna-gap-wide);

@@ -219,7 +219,10 @@ final class GeneralSection: NSObject, SettingsSection {
         ])
         body.card("Startup and tabs", [
             (onLaunchRow(), ["on launch", "startup", "restore last session", "new tab"]),
-            (autoArchiveRow(), ["auto-archive tabs after", "archive", "idle tabs", "6 hours", "12 hours", "24 hours", "never"]),
+            (
+                autoArchiveRow(),
+                ["move idle tabs to history after", "history", "archive", "idle tabs", "6 hours", "12 hours", "24 hours", "never"]
+            ),
             (confirmCloseRow(), ["confirm before closing a window with multiple tabs", "close", "warn"]),
             (confirmQuitRow(), ["ask before quitting luna", "quit", "confirm", "command q", "warn"])
         ])
@@ -288,7 +291,7 @@ final class GeneralSection: NSObject, SettingsSection {
         let choices = AutoArchive.choices
         let current = TabLifecycle.autoArchiveHours
         return SettingsRow.popup(
-            "Auto-archive tabs after",
+            "Move idle tabs to History after",
             options: choices.map(Self.hoursTitle),
             selected: choices.firstIndex(of: current) ?? choices.firstIndex(of: AutoArchive.defaultHours) ?? 0
         ) { index in

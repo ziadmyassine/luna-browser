@@ -1,6 +1,6 @@
 import Foundation
 
-//  Luna's own pages (§4.4): the archive browser, and the error pages that
+//  Luna's own pages (§4.4): the History page, and the error pages that
 //  replace WebKit's defaults (§4.5).
 //
 //  There was a third, `luna://newtab` — a search pill over a grid of Favorites,
@@ -34,26 +34,26 @@ public enum InternalPages {
 
     /// A page the handler can render.
     public enum Page: Equatable, Sendable {
-        case archive
+        case history
         case error(InternalPageError)
 
         /// The URL that renders this page. Internal pages are navigated to;
         /// nothing here is ever injected into a document (§4.4).
         public var url: URL {
             switch self {
-            case .archive: URL(string: "\(scheme)://archive")!
+            case .history: URL(string: "\(scheme)://history")!
             case let .error(error): error.pageURL
             }
         }
 
         /// What the page calls itself — the same string it sets as its own
         /// `<title>`, which is the point: a tab showing one of these has no
-        /// title until the load lands, and a label that fell back to the host
-        /// said `archive` for as long as that took. Two spellings of the same
-        /// page, one of them briefly.
+        /// title until the load lands, and a label falling back to the host is
+        /// all there is to show until then. The host and the title being the
+        /// same word is why the address is `history` and not `archive`.
         public var name: String {
             switch self {
-            case .archive: "History"
+            case .history: "History"
             case let .error(error): copy(for: error.kind).title
             }
         }
@@ -73,7 +73,7 @@ public enum InternalPages {
         /// §9.1's Command Bar, opened to make a new tab. It is the app's, not
         /// the engine's, which is the whole reason this enum exists.
         case commandBar
-        /// The archive's restore affordance (§6.4).
+        /// History's restore affordance (§6.4).
         case restore(UUID)
         /// An error page's "Try Again" — `TabController` performs it.
         case retry(URL)
@@ -97,7 +97,11 @@ public enum InternalPages {
         guard url.scheme?.lowercased() == scheme else { return .notFound }
         let query = query(in: url)
         switch url.host()?.lowercased() {
-        case "archive": return .page(.archive)
+        case "history": return .page(.history)
+        // The address this page used to have. A URL somebody bookmarked or
+        // left in a closed tab should not stop resolving because the page was
+        // renamed, so the old host still lands on the new page.
+        case "archive": return .page(.history)
         case "error": return .page(.error(InternalPageError(query: query)))
         case "favicon":
             let host = String(url.path().trimmingPrefix("/"))
@@ -152,7 +156,7 @@ public enum InternalPages {
     /// Whether a `luna://` navigation from a document with this scheme is
     /// allowed. Internal pages must not be reachable from ordinary web content:
     /// a page that could navigate or frame one gets a clickjacking surface over
-    /// the archive's restore buttons for free.
+    /// History's restore buttons for free.
     ///
     /// Web content always has an `http(s)`/`file`/`data`/`blob` source
     /// document, so refusing everything that is not Luna's own is the whole
@@ -177,7 +181,7 @@ public enum InternalPages {
     /// CSS custom properties generated from `Design/Tokens.swift`.
     @MainActor public static var palette = ""
 
-    /// The archived tabs `luna://archive` renders, read live.
+    /// The archived tabs `luna://history` renders, read live.
     @MainActor public static var content: (@MainActor () -> InternalPageContent)?
 
     /// Performs an `Action` the engine cannot. The `UUID` is the tab that asked.
@@ -185,7 +189,7 @@ public enum InternalPages {
 
 }
 
-/// What the archive page renders (§6.4). Supplied by the app; `BrowserKit`
+/// What the History page renders (§6.4). Supplied by the app; `BrowserKit`
 /// cannot see the tab list.
 public struct InternalPageContent: Sendable {
 

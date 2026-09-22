@@ -282,7 +282,7 @@ private final class CommandBarRowView: NSView {
         case .directURL: "open address"
         case .openTab: "open tab"
         case .history: "history"
-        case .archive: "archived tab"
+        case .archive: "closed tab"
         case .command: "command"
         case .search: "search"
         case .suggestion: "suggestion"

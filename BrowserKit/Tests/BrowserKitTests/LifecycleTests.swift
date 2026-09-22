@@ -133,13 +133,13 @@ struct AutoArchiveTests {
         #expect(AutoArchive.idleTabs([active, gone], now: now, hours: 12, excluding: active.id).isEmpty)
     }
 
-    /// The shelf is itself `luna://archive`, so without this exemption glancing
+    /// The shelf is itself `luna://history`, so without this exemption glancing
     /// at the archive and closing it files a row about the glance. `closeTab`
     /// reads the same predicate, which is why it is tested directly and not
     /// only through the sweep.
     @Test("Luna's own pages are never archived, by the sweep or by closing them")
     func internalPagesAreExempt() {
-        let shelf = tab(.today, hoursIdle: 99, url: InternalPages.Page.archive.url.absoluteString)
+        let shelf = tab(.today, hoursIdle: 99, url: InternalPages.Page.history.url.absoluteString)
         let page = tab(.today, hoursIdle: 99)
         #expect(AutoArchive.idleTabs([shelf, page], now: now, hours: 12) == [page.id])
         #expect(!AutoArchive.isWorthArchiving(shelf))

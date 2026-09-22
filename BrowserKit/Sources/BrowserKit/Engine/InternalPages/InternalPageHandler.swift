@@ -66,7 +66,12 @@ final class InternalPageHandler: NSObject, WKURLSchemeHandler {
             // An action URL is cancelled by the navigation policy and never
             // reaches here; anything else is a typo or a probe. Both get the
             // styled page rather than WebKit's default, which is the point of §4.5.
-            let error = InternalPageError(kind: .generic, url: nil)
+            //
+            // `notFound`, not `generic`: nothing went wrong on the way to
+            // `luna://nosuchthing`, so "This page didn't load" is the wrong
+            // sentence and Try Again is the wrong button. The address is
+            // carried through to be shown, not to be retried.
+            let error = InternalPageError(kind: .notFound, url: url)
             respond(urlSchemeTask, html: InternalPages.errorHTML(error), status: 404)
         }
     }

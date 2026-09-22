@@ -1472,8 +1472,9 @@ Close Folder and lets them go on the second, exactly as pressing close on each o
 > upward because up and across is where the window is. `esc` or a click outside dismisses it. Title and
 > filter share one line, the filter is §3.2's `Surface.well` pill, and the rows are §3.4's — favicon,
 > title, a quieter host · date, a fill that lifts on hover. Choosing one unarchives the tab where it was.
-> `luna://archive` still resolves and still renders, because a URL someone has bookmarked should not stop
-> working; nothing in the chrome navigates to it any more.
+> `luna://history` still resolves and still renders, because a URL someone has bookmarked should not stop
+> working; nothing in the chrome navigates to it any more. `luna://archive` was its address before the
+> page took the name the user reads, and it still routes here for the same reason.
 > **It was the Command Bar's shell, and that was the same mistake one size smaller.** Scrim, a 640 pt
 > body, centred over the pane: a glance at a shelf took the whole page away and put a window-sized panel
 > where the user was not looking. The Command Bar earns that — you summon it, and it is the thing you are

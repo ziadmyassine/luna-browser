@@ -3,13 +3,14 @@
 //  Luna
 //
 //  The one assembly call that turns `BrowserKit`'s `luna://` handler into a
-//  working archive browser (§6.4).
+//  working History page (§6.4).
 //
 //  §3.5's History button no longer comes through here. It opens
 //  `HistoryPanel` — a floating panel over the page — rather than a tab on
-//  `luna://archive`; the route still resolves and still renders, because a URL
+//  `luna://history`; the route still resolves and still renders, because a URL
 //  someone has bookmarked should not stop working, but nothing in the chrome
-//  navigates to it any more.
+//  navigates to it any more. `luna://archive`, the address it had before the
+//  rename, resolves here too.
 //
 //  `BrowserKit` cannot reach the tab list or `Design/`, so the three things
 //  internal pages need from the app are set here, once, and read live
@@ -30,7 +31,7 @@ enum InternalPagesInstaller {
 
         InternalPages.content = { [weak session] in
             guard let session else { return InternalPageContent() }
-            // This Space's archive, newest first, the way the Command Bar and
+            // This Space's closed tabs, newest first, the way the Command Bar and
             // §6.4's list already treat it (§9.2).
             return InternalPageContent(archived: session.archivedInActiveSpace.map(entry))
         }

@@ -132,7 +132,7 @@ luna/
   - `WKDownloadDelegate` (`WKDownload`, macOS 11.3+): see §15.
   - Acceptance: `window.open`, `target=_blank`, JS alerts, camera prompt, and a PDF link all behave.
 - [ ] **4.3 Navigation state observation** — KVO/`publisher` on `url`, `title`, `isLoading`, `estimatedProgress`, `canGoBack/Forward`, `themeColor`, `underPageBackgroundColor`, `serverTrust`, `hasOnlySecureContent`, `fullscreenState`, `cameraCaptureState`, `microphoneCaptureState`.
-- [ ] **4.4 `luna://` internal pages** via `WKURLSchemeHandler` (new tab, settings-embedded docs, error pages, archive view).
+- [ ] **4.4 `luna://` internal pages** via `WKURLSchemeHandler` (settings-embedded docs, error pages, the History page).
   > **Gotcha:** a custom scheme handler only fires for resources loaded *within a document loaded from that same scheme*. Internal pages must be navigated to as `luna://…`, not injected into an `about:blank`.
 - [x] **4.5 Error pages** — replace WebKit's default failure with our styled page (offline, DNS, TLS, blocked-by-us), with a Retry button routed through the scheme handler.
   > **Redesigned 2026-09-21, and the fault was the type scale.** The pages were built entirely out of
@@ -689,7 +689,7 @@ Transcribed from the reference captures in `inspiration/`. These are **observed 
 
 ### From `iphone-mac-sync.png`
 
-- [x] ~~**30.19 New Tab page**~~ — **cut.** It shipped as a centred "Search or type a URL" pill over a Favorites grid, and every route into it already opened §9.1's Command Bar: `⌘T`, §3.4's New Tab row, §4's `+`, and the pill itself, which handed off rather than taking a second line of input. What was left was a page whose only job was to be somewhere to stand while the bar was open. `luna://newtab` no longer routes, a tab with no address is `about:blank`, an empty Space opens no tab, and §3.3a's two wells are what the column says instead. Schema `v9` rewrites the tabs that were standing on it.
+- [x] ~~**30.19 New Tab page**~~ — **cut.** It shipped as a centred "Search or type a URL" pill over a Favorites grid, and every route into it already opened §9.1's Command Bar: `⌘T`, §3.4's New Tab row, §4's `+`, and the pill itself, which handed off rather than taking a second line of input. What was left was a page whose only job was to be somewhere to stand while the bar was open. `luna://newtab` no longer routes, a tab with no address is `about:blank`, an empty Space opens no tab, and §3.3a's two wells are what the column says instead. Schema `v9` rewrites the tabs that were standing on it, and `v10` does it again — an older instance left open across the upgrade wrote its copy of a row back afterwards.
   > The gap that killed it: the "Add Favorite" slot had nowhere to go — it opened the Command Bar, which makes a **Today** tab — so the grid's one affordance of its own was already broken, and §3.3a now says the same thing in the sidebar where the tiles actually are.
 - [ ] **30.20 Voice input** — mic affordance in the Command Bar. Needs `SFSpeechRecognizer` + a mic usage string; prefer on-device recognition and say so in the Privacy Policy (§24.7).
 - [ ] **30.21 Cross-device tabs surface** — an "open on my other devices" button, backed by §31.6. It had a home on §30.19's page; it needs a new one.

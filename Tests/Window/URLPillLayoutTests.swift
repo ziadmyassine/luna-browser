@@ -226,7 +226,7 @@ final class URLPillLayoutTests: XCTestCase {
     /// their names.
     func testLunasOtherPagesKeepTheirNames() {
         let bar = URLPillView()
-        bar.show(url: URL(string: "luna://archive"))
+        bar.show(url: URL(string: "luna://history"))
         XCTAssertEqual(bar.field.stringValue, "History")
     }
 }

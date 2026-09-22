@@ -57,6 +57,20 @@ enum Schema {
         migrator.registerMigration("v9") { db in
             try db.execute(sql: "UPDATE tabs SET url = 'about:blank' WHERE url = 'luna://newtab'")
         }
+        // `v10` — the History page answers to its own name, so the rows still
+        // standing on the address it had before it do too. `luna://archive`
+        // goes on routing (§4.4), but a row is a label as much as a link and
+        // this one would read `archive` under a panel titled History.
+        //
+        // `v9`'s rewrite again, because once was not enough: a migration runs
+        // on the database and an app runs on its own copy of the rows, so an
+        // older instance left open across the upgrade wrote its `luna://newtab`
+        // back afterwards. Nothing can produce one now, which is what makes
+        // repeating it worth doing rather than the first of several.
+        migrator.registerMigration("v10") { db in
+            try db.execute(sql: "UPDATE tabs SET url = 'luna://history' WHERE url = 'luna://archive'")
+            try db.execute(sql: "UPDATE tabs SET url = 'about:blank' WHERE url = 'luna://newtab'")
+        }
         return migrator
     }
 

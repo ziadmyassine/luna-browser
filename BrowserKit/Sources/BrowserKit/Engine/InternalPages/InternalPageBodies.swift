@@ -11,16 +11,20 @@ extension InternalPages {
     @MainActor
     static func html(for page: Page) -> String {
         switch page {
-        case .archive: archiveHTML()
+        case .history: historyHTML()
         case let .error(error): errorHTML(error)
         }
     }
 
     // MARK: - History (§6.4)
     //
-    // Luna's word for the shelf is "the archive" and the user's word is
-    // "history"; the page wears the user's. The route stays `luna://archive`
-    // because a URL is not a label.
+    // History is the name everywhere the user meets it, the address included:
+    // an address bar is something people read, and a page whose title says
+    // History over a URL that says archive is two names for one thing. The
+    // stored state keeps the older word — a tab has an `archivedAt`, and
+    // `AutoArchive` is what puts it there — because that is a thing that
+    // happened to a tab, not a place the user goes. `luna://archive` still
+    // routes here (§4.4).
     //
     // It is laid out like the §3.4 tab list rather than like a web page: a
     // title and its filter on one line, then rounded rows carrying a favicon,
@@ -30,9 +34,9 @@ extension InternalPages {
     // and visibly not part of the same app as the window around it.
 
     @MainActor
-    static func archiveHTML() -> String {
+    static func historyHTML() -> String {
         let archived = content?().archived ?? []
-        let rows = archived.map(archiveRow).joined()
+        let rows = archived.map(historyRow).joined()
         let list = rows.isEmpty
             ? "<p class=\"empty\">Nothing here yet. Closed tabs are kept for a while and show up here.</p>"
             : "<ul class=\"rows\">\(rows)</ul>"
@@ -47,11 +51,11 @@ extension InternalPages {
         <p class="empty" id="none" hidden>No matches.</p>
         </main>
         """
-        return document(title: Page.archive.name, bodyClass: "", body: body, script: archiveScript)
+        return document(title: Page.history.name, bodyClass: "", body: body, script: historyScript)
     }
 
     @MainActor
-    private static func archiveRow(_ entry: InternalPageContent.Entry) -> String {
+    private static func historyRow(_ entry: InternalPageContent.Entry) -> String {
         let host = entry.url.host() ?? entry.url.absoluteString
         let title = entry.title.isEmpty ? host : entry.title
         let when = entry.archivedAt.map(Self.archivedFormatter.string(from:)) ?? ""
@@ -71,7 +75,7 @@ extension InternalPages {
     /// Filters rows that are already in the DOM. No network, no `eval`, no
     /// generated markup — the one thing the page cannot do without script is
     /// narrow a list as you type, and §6.4 asks for exactly that.
-    private static let archiveScript = """
+    private static let historyScript = """
     (function(){
       var q=document.getElementById('q'),rows=document.querySelectorAll('.rows li'),none=document.getElementById('none');
       q.addEventListener('input',function(){
@@ -95,10 +99,10 @@ extension InternalPages {
 
     // MARK: - Errors (§4.5)
     //
-    // One card and six marks. The kind is a class on `.error` and a glyph in
-    // the well; everything else about the page is the same page, because these
-    // six are the same event — Luna could not give you what you asked for, and
-    // here is the one thing you can do about it.
+    // One card and one mark per kind. The kind is a class on `.error` and a
+    // glyph in the well; everything else about the page is the same page,
+    // because all of them are the same event — Luna could not give you what
+    // you asked for, and here is the one thing you can do about it.
 
     @MainActor
     static func errorHTML(_ error: InternalPageError) -> String {
@@ -125,7 +129,7 @@ extension InternalPages {
 
     private static func actions(for error: InternalPageError) -> String {
         var buttons: [String] = []
-        if let url = error.url {
+        if let url = error.url, error.offersBypass || error.offersRetry {
             let host = error.offersBypass ? "proceed" : "retry"
             let label = error.offersBypass ? "Continue Anyway" : "Try Again"
             // Continuing is never the recommendation. The two kinds that
@@ -135,7 +139,10 @@ extension InternalPages {
             let role = error.offersBypass ? "button plate" : "button key plate"
             buttons.append("<a class=\"\(role)\" href=\"\(HTML.action(host, url: url))\">\(label)</a>")
         }
-        let home = error.offersBypass ? "button key plate" : "button plate"
+        // The recommendation, when there is no other button to carry it: an
+        // address with no page behind it has nothing to retry and nothing to
+        // continue past, so saying where you meant to go is the only move.
+        let home = buttons.isEmpty || error.offersBypass ? "button key plate" : "button plate"
         // §9.1, not a page. There is nowhere to send somebody who is stuck on
         // an error except somewhere they can say where they want to go.
         buttons.append("<a class=\"\(home)\" href=\"\(scheme)://commandbar\">New Tab</a>")
@@ -146,13 +153,14 @@ extension InternalPages {
     /// whether it is ink or §8.1's danger — there is no colour in this file
     /// either.
     ///
-    /// Six glyphs, not one. Every kind used to wear the same exclamation in a
-    /// circle, which says nothing six times over. These are the distinctions
-    /// the sentence under them already makes: a network that is not there, a
-    /// name that did not resolve, a certificate that did not check out, a
-    /// request Luna stopped, and a site with no encryption to offer. The last
-    /// keeps the circle, because "something went wrong" is all that page
-    /// knows.
+    /// A glyph per kind, not one for all of them. Every kind used to wear the
+    /// same exclamation in a circle, which says nothing over and over. These
+    /// are the distinctions the sentence under them already makes: a network
+    /// that is not there, a name that did not resolve, a certificate that did
+    /// not check out, a request Luna stopped, a site with no encryption to
+    /// offer, and an address of Luna's own with nothing written at it. The
+    /// generic kind keeps the circle, because "something went wrong" is all
+    /// that page knows.
     ///
     /// Stroked rather than filled, at the weight SF Symbols draw at this size,
     /// so a mark on one of Luna's pages and a mark in Luna's chrome are the
@@ -215,6 +223,14 @@ extension InternalPages {
             """
             <circle cx="12" cy="12" r="9"/><path d="M12 7v6"/><path d="M12 16.5v.01"/>
             """
+        // A sheet with its corner turned and one rule across it. Every other
+        // mark here says something went wrong; this one says there is nothing
+        // written at this address.
+        case .notFound:
+            """
+            <path d="M6.5 3.2h6.8l4.2 4.2v13.4H6.5z"/><path d="M13.3 3.2v4.2h4.2"/>\
+            <path d="M9.6 14.4h4.8"/>
+            """
         }
     }
 
@@ -234,6 +250,8 @@ extension InternalPages {
             ("This site isn't secure", "Luna asked for an encrypted connection and the site only offers HTTP.")
         case .generic:
             ("This page didn't load", "Something went wrong on the way to this page.")
+        case .notFound:
+            ("No such page", "Luna has no page at this address.")
         }
     }
 

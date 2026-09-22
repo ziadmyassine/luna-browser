@@ -10,11 +10,18 @@ struct InternalPagesTests {
     // MARK: - Routing
 
     @Test func routesEveryPage() {
-        #expect(InternalPages.route(URL(string: "luna://archive")!) == .page(.archive))
+        #expect(InternalPages.route(URL(string: "luna://history")!) == .page(.history))
         #expect(InternalPages.route(URL(string: "luna://favicon/apple.com")!) == .favicon(host: "apple.com"))
         // Case in the host must not change the route — WebKit lower-cases it,
         // but a URL Luna builds itself may not have been through WebKit yet.
-        #expect(InternalPages.route(URL(string: "luna://Archive")!) == .page(.archive))
+        #expect(InternalPages.route(URL(string: "luna://History")!) == .page(.history))
+    }
+
+    /// The address the History page had before it took the name the user reads.
+    /// A bookmark or a closed tab still holding it must not stop resolving.
+    @Test func theAddressTheHistoryPageUsedToHaveStillLandsOnIt() {
+        #expect(InternalPages.route(URL(string: "luna://archive")!) == .page(.history))
+        #expect(InternalPages.name(for: URL(string: "luna://archive")!) == "History")
     }
 
     /// §30.19's page is gone and its URL is not quietly still serving it.
@@ -104,7 +111,7 @@ struct InternalPagesTests {
         #expect(html.contains("evil.test"))
     }
 
-    @Test func archiveRowsEscapePageSuppliedTitles() {
+    @Test func historyRowsEscapePageSuppliedTitles() {
         InternalPages.content = {
             InternalPageContent(archived: [
                 .init(
@@ -117,7 +124,7 @@ struct InternalPagesTests {
         }
         defer { InternalPages.content = nil }
 
-        let html = InternalPages.archiveHTML()
+        let html = InternalPages.historyHTML()
         // Rendered as text, never as markup — in the row and in the
         // `data-search` attribute the filter script reads.
         #expect(html.contains("&lt;/a&gt;&lt;img src=x onerror=alert(1)&gt;"))
@@ -176,9 +183,26 @@ struct InternalPagesTests {
         for kind in InternalPageError.Kind.allCases {
             let error = InternalPageError(kind: kind, url: target)
             let html = InternalPages.errorHTML(error)
-            let expected = error.offersBypass ? "luna://proceed" : "luna://retry"
+            let expected: String
+            if error.offersBypass {
+                expected = "luna://proceed"
+            } else if error.offersRetry {
+                expected = "luna://retry"
+            } else {
+                expected = "luna://commandbar"
+            }
             #expect(html.contains(expected), "\(kind) offers no way forward")
         }
+    }
+
+    /// A `luna://` address with no page behind it is not a page that failed to
+    /// load, and Try Again on one only fails again at the same address.
+    @Test func anAddressWithNoPageBehindItDoesNotOfferToTryAgain() {
+        let error = InternalPageError(kind: .notFound, url: URL(string: "luna://nosuchthing")!)
+        let html = InternalPages.errorHTML(error)
+        #expect(html.contains("No such page"))
+        #expect(!html.contains("luna://retry"))
+        #expect(html.contains("luna://commandbar"))
     }
 
     /// The other button on an error page. §30.19's New Tab page used to be

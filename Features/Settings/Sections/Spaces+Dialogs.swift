@@ -100,7 +100,7 @@ extension SpacesSection {
     ) -> SpaceDeletionPolicy? {
         guard !others.isEmpty else { return nil }
         let picker = NSPopUpButton(frame: .zero, pullsDown: false)
-        picker.addItem(withTitle: String(localized: "Archive its tabs — ⌘⇧T still reopens them"))
+        picker.addItem(withTitle: String(localized: "Keep its tabs in History — ⌘⇧T still reopens them"))
         for other in others {
             picker.addItem(withTitle: String(localized: "Move its tabs to \(other.name)"))
         }
@@ -225,8 +225,8 @@ extension SpacesSection {
         var clauses: [String] = []
         switch tabs {
         case 0: clauses.append(String(localized: "It has no open tabs."))
-        case 1: clauses.append(String(localized: "Its 1 open tab is kept — archived, or moved to the Space you pick below."))
-        default: clauses.append(String(localized: "Its \(tabs) open tabs are kept — archived, or moved to the Space you pick below."))
+        case 1: clauses.append(String(localized: "Its 1 open tab is kept — in History, or moved to the Space you pick below."))
+        default: clauses.append(String(localized: "Its \(tabs) open tabs are kept — in History, or moved to the Space you pick below."))
         }
         switch sites {
         case let .some(count) where count > 0:

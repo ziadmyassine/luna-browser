@@ -42,7 +42,7 @@ final class URLPillMarkTests: XCTestCase {
     /// A page Luna serves itself is nowhere on the web, and `luna://` is a
     /// scheme the bar accepts — so without this the archive wore a globe.
     func testLunasOwnPagesAreASearch() {
-        XCTAssertEqual(Mark.reading("luna://archive"), .search)
+        XCTAssertEqual(Mark.reading("luna://history"), .search)
     }
 
     // MARK: - Places
@@ -86,7 +86,7 @@ final class URLPillMarkTests: XCTestCase {
         let inputs = [
             "apple.com", "app store connect", "colour", "https://example.com/a?b=1",
             "localhost:3000", "127.0.0.1:8080", "example.com/path with space",
-            "", "luna://archive", "ftp://example.com", "a.b.c.d.example.co.uk"
+            "", "luna://history", "ftp://example.com", "a.b.c.d.example.co.uk"
         ]
         for input in inputs {
             let isAddress = CommandBarURL.direct(from: input) != nil

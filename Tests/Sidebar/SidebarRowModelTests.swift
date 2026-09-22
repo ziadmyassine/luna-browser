@@ -261,7 +261,7 @@ final class SidebarRowModelTests: XCTestCase {
     /// the page's `<title>` arrived — and the pill above it said the same.
     @MainActor
     func testATabOnLunasOwnPageIsNamedNotHosted() {
-        XCTAssertEqual(URLPillView.domain(of: InternalPages.Page.archive.url), "History")
+        XCTAssertEqual(URLPillView.domain(of: InternalPages.Page.history.url), "History")
         XCTAssertEqual(URLPillView.domain(of: URL(string: "https://www.apple.com")!), "apple.com")
         XCTAssertEqual(URLPillView.domain(of: nil), "")
     }
