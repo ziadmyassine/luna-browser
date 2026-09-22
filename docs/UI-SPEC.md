@@ -973,6 +973,10 @@ stand, with a `folder` glyph beside "Drag a folder here to pin it".
   > the moment the first tab was pinned — the column jumping in answer to a drop that had
   > already landed — and `EssentialsGridView.height(forTiles:hinting:)` now returns the
   > one-tile height for a grid giving advice, so nothing moves at all.
+- **Advice taken is advice finished.** Pinning a tab, or putting a folder in §3.4b's tier, puts
+  the matching flag away for good — a well that came back when the last tile was unpinned would
+  be the app teaching a user what that user has just taught it. The cross is the other way to
+  finish a piece of advice, and there is no third: nothing sets either flag back to true.
 - **Dismissed by the cross, which is revealed on hover** exactly as §3.4's close is — a tip is
   mostly read, not dismissed, and a cross standing in the well at rest took a quarter of the
   line's room. It stands in the row's own trailing slot in both wells, one

@@ -42,6 +42,25 @@ extension SidebarViewController {
     ///   - tiles: whether §3.3's grid is empty.
     ///   - folders: whether §3.4b's tier is.
     func showPinHints(tiles: Bool, folders: Bool) {
+        // Advice taken is advice finished. A tier with something in it has had
+        // the thing done to it, so the flag is put away for good — a well that
+        // came back when the last tile was unpinned would be the app teaching a
+        // user what that user has just taught it. The cross is the other way to
+        // finish a piece of advice, and there is no third: nothing sets either
+        // of these back to true.
+        //
+        // Next tick, not here. Writing a setting posts `didChange`, which comes
+        // straight back through `refresh()` — and this is called from inside
+        // one. Each is worth scheduling once, which is what the two flags being
+        // read first is for.
+        let tabTaken = !tiles && Settings.showsPinnedTabHint
+        let folderTaken = !folders && Settings.showsPinnedFolderHint
+        if tabTaken || folderTaken {
+            DispatchQueue.main.async {
+                if tabTaken { Settings.showsPinnedTabHint = false }
+                if folderTaken { Settings.showsPinnedFolderHint = false }
+            }
+        }
         essentials.showsHint = tiles && Settings.showsPinnedTabHint
         folderHint.isHidden = !folders || !Settings.showsPinnedFolderHint
     }
