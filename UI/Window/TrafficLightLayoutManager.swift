@@ -20,6 +20,11 @@
 //      off the top of the screen, to slide down on a hover. The lights go with
 //      it, and §3.1's sidebar is left with a hole where they were. So this class
 //      owns where they live as well as where they sit: see `TrafficLightStrip`.
+//    · that slide lays the three out again on the way past. Measured on the
+//      reveal and again on the hide: all three back at AppKit's own origins,
+//      still inside the strip, with no resize, no fullscreen transition and the
+//      titlebar's own frame unmoved — in fullscreen it is the container around
+//      it that travels. The buttons say so themselves and nothing else does.
 //
 
 import AppKit
@@ -155,6 +160,10 @@ final class TrafficLightLayoutManager {
     private static let placementStep: TimeInterval = 1.0 / 60
     private var holdUntil: Date?
     private var isHolding = false
+    /// See `layoutButtons`: a pass writes frames, writing a frame is announced,
+    /// and both this class and AppKit answer that announcement.
+    private var isApplying = false
+    private var wantsAnotherPass = false
 
     /// §7.2: the sidebar is peeking over a hidden-sidebar window, so the lights
     /// belong back on screen for as long as it is there.
@@ -280,6 +289,33 @@ final class TrafficLightLayoutManager {
                 object: titlebar
             )
         }
+        // And the buttons, which is the whole of the warning fullscreen gives:
+        // the titlebar sliding back down on a hover moves the container, not
+        // the titlebar, and the three are not in either of them by then.
+        for button in Self.buttons(of: window) {
+            button.postsFrameChangedNotifications = true
+            center.addObserver(
+                self,
+                selector: #selector(buttonDidMove),
+                name: NSView.frameDidChangeNotification,
+                object: button
+            )
+        }
+    }
+
+    /// One of the three moved. Whether this class moved it decides the hold:
+    /// one that its own writes kept renewing would never stop.
+    ///
+    /// AppKit gets the last word inside its own layout pass — a button re-placed
+    /// while it is being laid out is overwritten again a moment later, measured
+    /// across a whole reveal — so the placement that sticks is the one made on
+    /// a later turn, which is what `holdPlacement` is for. The pass below still
+    /// runs first, because everywhere else it is the one that lands in the same
+    /// frame as the change.
+    @objc private func buttonDidMove(_ notification: Notification) {
+        let wasOurs = isApplying
+        layoutButtons()
+        if !wasOurs { holdPlacement() }
     }
 
     /// Posted synchronously on the main thread by AppKit (`queue:` is deliberately
@@ -288,7 +324,24 @@ final class TrafficLightLayoutManager {
         layoutButtons()
     }
 
+    /// A write is announced, and AppKit's own reset arrives inside one — so a
+    /// pass landing during a pass asks for another rather than being turned
+    /// away. A refused pass is a reset left standing, which is the zoom button
+    /// alone in the wrong corner.
     private func layoutButtons() {
+        if isApplying {
+            wantsAnotherPass = true
+            return
+        }
+        isApplying = true
+        defer { isApplying = false }
+        repeat {
+            wantsAnotherPass = false
+            placeButtons()
+        } while wantsAnotherPass
+    }
+
+    private func placeButtons() {
         guard let window else { return }
         let buttons = Self.buttons(of: window)
         guard let first = buttons.first, let container = container(for: window, holding: buttons) else { return }

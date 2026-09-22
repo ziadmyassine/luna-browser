@@ -36,6 +36,21 @@ final class TrafficLightReapplyTests: XCTestCase {
         [.closeButton, .miniaturizeButton, .zoomButton].compactMap { window.standardWindowButton($0) }
     }
 
+    /// Puts all three back where AppKit would, without telling the manager.
+    ///
+    /// The silent reset is what the tests using this are about, and it stopped
+    /// being the only kind: the manager now listens to the buttons themselves,
+    /// so a plain `setFrameOrigin` is answered before a test can look. They
+    /// stay muted afterwards, because turning the flag back on replays the move
+    /// that happened while it was off — which would be the manager hearing it
+    /// after all, one line later.
+    private func displaceSilently(_ lights: [NSButton]) {
+        for (index, button) in lights.enumerated() {
+            button.postsFrameChangedNotifications = false
+            button.setFrameOrigin(CGPoint(x: 9 + CGFloat(index) * 23, y: 9))
+        }
+    }
+
     /// Move all three behind the manager's back, tell it the window appeared,
     /// and every one of them comes home — the zoom button included.
     func testTheWindowAppearingPutsEveryLightBack() throws {
@@ -46,9 +61,7 @@ final class TrafficLightReapplyTests: XCTestCase {
         try XCTSkipIf(lights.count < 3, "this macOS gave the window fewer than three window buttons")
         let placed = lights.map(\.frame.origin)
 
-        for (index, button) in lights.enumerated() {
-            button.setFrameOrigin(CGPoint(x: 9 + CGFloat(index) * 23, y: 9))
-        }
+        displaceSilently(lights)
         XCTAssertNotEqual(lights.map(\.frame.origin), placed, "the fixture did not move them")
 
         NotificationCenter.default.post(
@@ -73,7 +86,7 @@ final class TrafficLightReapplyTests: XCTestCase {
         try XCTSkipIf(lights.count < 3, "this macOS gave the window fewer than three window buttons")
         let placed = lights.map(\.frame.origin)
 
-        for button in lights { button.setFrameOrigin(CGPoint(x: 9, y: 9)) }
+        displaceSilently(lights)
         let held = expectation(description: "the hold has had a few passes")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { held.fulfill() }
         wait(for: [held], timeout: 2)
@@ -91,9 +104,34 @@ final class TrafficLightReapplyTests: XCTestCase {
         try XCTSkipIf(lights.count < 3, "this macOS gave the window fewer than three window buttons")
         let placed = lights.map(\.frame.origin)
 
-        for button in lights { button.setFrameOrigin(CGPoint(x: 9, y: 9)) }
+        displaceSilently(lights)
         NotificationCenter.default.post(name: NSWindow.didResizeNotification, object: window)
 
         XCTAssertEqual(lights.map(\.frame.origin), placed)
+    }
+
+    /// The fullscreen one: a hover at the top of the screen slides AppKit's
+    /// titlebar back down and it lays the three out again on the way past,
+    /// leaving them at its own origins once it has gone.
+    ///
+    /// None of the three observers above hears it. There is no resize, no
+    /// fullscreen transition, and the titlebar the manager watches does not
+    /// move — in fullscreen it is the container around it that travels, and by
+    /// then the lights are in neither. The buttons say so themselves, which is
+    /// the whole of the warning, so this test moves one and posts nothing.
+    func testAButtonThatMovesOnItsOwnComesStraightBack() throws {
+        let window = window()
+        let manager = TrafficLightLayoutManager(window: window)
+        manager.apply(.sidebar(width: 280, edge: .leading))
+        let lights = buttons(of: window)
+        try XCTSkipIf(lights.count < 3, "this macOS gave the window fewer than three window buttons")
+        let placed = lights.map(\.frame.origin)
+
+        // The button AppKit was measured leaving behind, and the origin it
+        // leaves it at.
+        let zoom = try XCTUnwrap(window.standardWindowButton(.zoomButton))
+        zoom.setFrameOrigin(CGPoint(x: 55, y: 9))
+
+        XCTAssertEqual(lights.map(\.frame.origin), placed, "nobody answered the button's own notification")
     }
 }
