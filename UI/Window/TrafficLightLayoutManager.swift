@@ -206,7 +206,21 @@ final class TrafficLightLayoutManager {
         for name: Notification.Name in [
             NSWindow.didResizeNotification,
             NSWindow.didEnterFullScreenNotification,
-            NSWindow.didExitFullScreenNotification
+            NSWindow.didExitFullScreenNotification,
+            // The window arriving on screen. It is the one re-layout AppKit
+            // announces no other way, and the reason §3.1's row and the lights
+            // could disagree on a fresh window.
+            //
+            // Measured at launch, in the layout that shows it: the manager
+            // places the three at `trafficLightInset`, the window goes up, and
+            // the zoom button alone is back at AppKit's own origin — nine
+            // points high and nine points in, with close and miniaturize
+            // correct beside it. No resize, no titlebar frame change, and no
+            // frame-change notification from the button either, so none of the
+            // three observers above hears a thing. Re-placing on any later
+            // event sticks, which is why `⌘S` twice appeared to fix it: a
+            // chrome-state change re-applies.
+            NSWindow.didChangeOcclusionStateNotification
         ] {
             center.addObserver(self, selector: #selector(systemDidRelayout), name: name, object: window)
         }
