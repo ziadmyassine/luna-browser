@@ -47,7 +47,6 @@ extension AppDelegate {
     func openBrowserWindow(isPrivate: Bool) {
         guard let session = front?.session else { return }
         let controller = BrowserWindowController(remembersFrame: windows.isEmpty)
-        cascade(controller, after: front?.controller)
         if isPrivate {
             Task { await openPrivateWindow(in: controller) }
             return
@@ -58,14 +57,26 @@ extension AppDelegate {
         window.render()
     }
 
-    /// A new window lands a title bar's worth down and across from the one it
-    /// came from, rather than exactly on top of it. `NSWindow.cascadeTopLeft`
-    /// keeps its own running point per window, which is why the offset is
-    /// applied here instead: the point Luna wants is relative to the window the
-    /// user was looking at.
+    /// A new window lands down and across from the one it came out of, rather
+    /// than exactly on top of it.
+    ///
+    /// Not `NSWindow.cascadeTopLeft(from:)`, which was measured doing nothing
+    /// here: it places the window's top-left *at* the point it is given and
+    /// only offsets the one after that, so handing it the previous window's
+    /// corner puts the new window exactly over it. The offset is Luna's.
+    ///
+    /// Clamped to the screen the window it came from is on, because a cascade
+    /// that walks off the bottom right is how the fifth window ends up with its
+    /// traffic lights past the edge.
     private func cascade(_ controller: BrowserWindowController, after previous: BrowserWindowController?) {
         guard let window = controller.window, let previous = previous?.window else { return }
-        window.cascadeTopLeft(from: NSPoint(x: previous.frame.minX, y: previous.frame.maxY))
+        let step = Tokens.Metric.windowCascadeStep
+        var corner = NSPoint(x: previous.frame.minX + step, y: previous.frame.maxY - step)
+        if let screen = previous.screen?.visibleFrame {
+            corner.x = min(corner.x, screen.maxX - window.frame.width)
+            corner.y = max(corner.y, screen.minY + window.frame.height)
+        }
+        window.setFrameTopLeftPoint(corner)
     }
 
     /// Takes a new window into the app: on screen, on the list, and in front.
@@ -83,7 +94,13 @@ extension AppDelegate {
         }
         front = window
         window.session.setKeyWindow(window.id)
+        let previous = windows.dropLast().last?.controller
         window.controller.showWindow(self)
+        // After `showWindow`, not before it: AppKit gives a window its frame on
+        // the way on screen — the autosaved one, or its own cascade for a
+        // second window of the same app — and a frame set before that is
+        // overwritten without a word.
+        cascade(window.controller, after: previous)
         NSApp.activate()
     }
 

@@ -73,6 +73,19 @@ final class BrowserWindow {
     /// which is the front one.
     func render() {
         controller.setContent(activeTabID.flatMap { session.webView(for: $0) })
+        nameTheWindow()
+    }
+
+    /// The window's title, which §30.1 hides and macOS still reads: the Window
+    /// menu, Mission Control and the app switcher all show it, and with two
+    /// windows open a menu offering "Luna" and "Luna" is a menu that cannot be
+    /// used. The page it is showing, or the Space it is standing in when it is
+    /// showing none.
+    private func nameTheWindow() {
+        let page = activeTabID.flatMap { session.tab($0)?.title }
+        let space = session.space(session.activeSpaceID(inWindow: id))?.name
+        controller.window?.title = [page, space].compactMap { $0 }
+            .first { !$0.isEmpty } ?? "Luna"
     }
 
     var activeTabID: UUID? { session.activeTabID(inWindow: id) }

@@ -120,4 +120,10 @@ extension Tokens.Metric {
     static let windowMinHeight: CGFloat = 480
     static let windowDefaultWidth: CGFloat = 1200
     static let windowDefaultHeight: CGFloat = 800
+
+    /// §22.6: how far a new window lands down and across from the one it came
+    /// out of. `windowCornerRadius` plus the control gap — which is what it
+    /// takes for the traffic lights of the window underneath to stay clear of
+    /// the new window's rounded corner, and so still be clickable.
+    static let windowCascadeStep = windowCornerRadius + controlPairGap
 }

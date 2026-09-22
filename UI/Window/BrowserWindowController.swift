@@ -28,12 +28,39 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     private var trafficLights: TrafficLightLayoutManager?
     private(set) var chrome: NSView?
 
-    /// §22.6: this window came forward, or went away. The app tracks the front
-    /// window from these rather than reading `NSApp.keyWindow`, which is nil
-    /// whenever a sheet, a pop-out or the Settings window is up — and every
-    /// command Luna has would then be about no window at all.
+    /// §22.6: this window came forward. The app tracks the front window from
+    /// this rather than reading `NSApp.keyWindow`, which is nil whenever a
+    /// sheet, a pop-out or the Settings window is up — and every command Luna
+    /// has would then be about no window at all.
     var onBecameKey: (() -> Void)?
-    var onClosed: (() -> Void)?
+
+    /// §22.6: this window has gone.
+    ///
+    /// A notification and not `windowWillClose(_:)`, which is the same trap
+    /// `toggleSidebar(_:)` was: `NSWindowController` implements that delegate
+    /// method itself, so a copy declared in an extension never overrides it and
+    /// never runs. Measured — a private window closed with its database still
+    /// on disk, and nothing said so.
+    var onClosed: (() -> Void)? {
+        didSet {
+            closeWatch = nil
+            guard onClosed != nil, let window else { return }
+            closeWatch = NotificationCenter.default.addObserver(
+                forName: NSWindow.willCloseNotification,
+                object: window,
+                queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.onClosed?() }
+            }
+        }
+    }
+
+    private var closeWatch: (any NSObjectProtocol)? {
+        didSet {
+            guard let old = oldValue else { return }
+            NotificationCenter.default.removeObserver(old)
+        }
+    }
 
     // The chrome's switchable constraints: a column on one side in the sidebar
     // layout, a top bar spanning the window in the other.

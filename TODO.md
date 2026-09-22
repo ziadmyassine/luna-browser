@@ -199,7 +199,7 @@ luna/
 - [ ] **5.5 Cookie/session sanity tests**: log into the same site in two Spaces with separate profiles; confirm independent sessions survive relaunch.
   > **Correction (2026-09-18):** the default-store warning is stale. **Luna never uses the default store** — `ProfileStore.dataStore(for:)` always calls `WKWebsiteDataStore(forIdentifier:)`, so the real migration is identified → identified. Two things follow. (a) `fetchData(of:)` / `restoreData(_:)` exist in the macOS 26 SDK (verified in the header on this machine) and **might** copy a session between stores — the header does not say cross-store restore is supported, so **spike it before promising it in the UI** (§15.1 precedent). (b) Reassigning a Profile must **rebuild every web view in that Space**, or already-loaded tabs keep writing to the old store — exactly Nook's shipped bug, and zen#15023.
   > **The all-zero UUID throws an Objective-C exception Swift cannot catch** ("Throws exception if identifier is 0", `WKWebsiteDataStore.h`). `dataStoreIdentifier` is a `NOT NULL UNIQUE` blob with no value check and nothing validates it on read. Guard it at the GRDB read boundary; none of the five researched codebases does.
-- [ ] **5.6 Private/incognito window** = `WKWebsiteDataStore.nonPersistent()`, visually distinct tint, excluded from history writes, no crash-restore.
+- [x] **5.6 Private/incognito window** — `⌘⇧N`. Its own `BrowserSession` over a throwaway `BrowserStore`, one `WKWebsiteDataStore.nonPersistent()` for all its Spaces, §8.2a's wash as the distinct tint, no history in the real store and nothing to restore from. See UI-SPEC §8.1.
 
 ---
 
@@ -496,6 +496,8 @@ luna/
   > **Gotcha (proved with a running probe in M0):** **`@main` on a nib-less `NSApplicationDelegate` does not work.** The inherited `main()` is just `exit(NSApplicationMain(...))`, and `NSApplicationMain` only installs a delegate when it loads a **main nib**. With no nib, `NSApp.delegate` stays nil, neither launch callback fires, and the app sits in a dead run loop with no window and no crash. Luna's `AppDelegate` therefore declares its own `static func main()`: `NSApplication.shared` → assign the delegate → `withExtendedLifetime(delegate) { app.run() }`. The `withExtendedLifetime` is load-bearing — `NSApplication.delegate` is a **weak** reference, so a local delegate deallocates immediately without it.
   > **Cosmetic, for when the real Edit menu is built:** AppKit auto-injects Writing Tools, AutoFill, Dictation and Emoji & Symbols into any menu titled "Edit" — and currently injects Dictation twice and Emoji & Symbols three times. Harmless, but don't add them by hand as well.
 - [ ] **22.6 Multi-window & multi-display**, fullscreen, Stage Manager, Spaces (the macOS kind) sanity checks. Restore window frames per screen config.
+  - [x] Multi-window itself: `⌘N`, one session behind every ordinary window, per-window Space and selection (`WindowScoped`, `BrowserWindow`). UI-SPEC §8.1.
+  - [ ] Frames per screen config. One window carries the autosave name and the rest cascade off it, so a two-window layout is not remembered across launches.
 - [ ] **22.7 Continuity** — Handoff of the active tab to/from iPhone/iPad Safari where possible.
 
 ---

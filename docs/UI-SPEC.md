@@ -2182,6 +2182,37 @@ Total in the clip: **~2.3 s**, which is a gesture-driven mobile interaction.
 - **Differentiate Without Colour:** Spaces must be distinguishable by icon and label, never by gradient
   alone (§21.2). The dots therefore carry a tooltip and an accessible label with the Space name.
 
+### 8.1 Windows (§22.6, §5.6)
+
+- **`⌘N` opens a second window onto the same browser.** The same Spaces, the same tab list, the same
+  pages — and its own idea of which tab it is on, and which Space it is showing. There is one
+  `BrowserSession` behind every ordinary window, because the tab list is a database and a second
+  in-memory copy of it would be two answers to one question racing each other onto disk. What a window
+  owns is only where it is standing.
+  > A background window's column therefore does **not** follow the selection in the window you moved to.
+  > Chrome asks the session by window name (`WindowScoped`); only the app's own commands ask flatly, and
+  > a command is always about the window the user is in.
+- **A new window opens where the front one is standing:** the same Space, nothing selected. That is the
+  state a cold launch leaves too (§19.4) — Luna has no New Tab page to put in a window nobody has asked
+  a question of yet, and §3.4's New Tab row and §3.3a's wells already say what to do with an empty one.
+  It lands `windowCascadeStep` down and across from the window it came out of, clamped to that screen.
+- **A tab that goes away is released in every window.** Closing, unpinning or carrying a tab into another
+  Space moves the selection off it wherever it was selected — a window behind this one would otherwise
+  keep pointing at a row that is no longer there, and put its page back on screen the moment it came
+  forward.
+- **The window's title follows the page it is showing**, falling back to the Space name. §30.1 hides it,
+  but the Window menu, Mission Control and the app switcher all read it — and two windows both called
+  "Luna" is a menu that cannot be used.
+- **`⌘⇧N` opens a private window (§5.6).** It is private by being *separate*, not by being filtered: its
+  own session over its own database in a throwaway directory, and one non-persistent
+  `WKWebsiteDataStore` shared by every Space in it. So no code path has to remember to skip a write —
+  history, tabs, Spaces and §9.3's use counts all land in a file that does not outlive the window, and
+  `ProfileStore` is never asked for a jar. The directory is deleted when the window closes; anything a
+  crash leaves behind is swept at the next launch.
+  > **It is told apart by §8.2a's wash**, like any other Space: its one Space is named *Private* and wears
+  > a fixed gradient from §8.2's palette. Nothing is added to the chrome to say so — the column already
+  > has a surface whose job is "which Space am I in", and a private window is a Space you cannot keep.
+
 ---
 
 ## 9. Out of scope here

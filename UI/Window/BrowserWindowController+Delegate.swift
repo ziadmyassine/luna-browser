@@ -21,13 +21,6 @@ extension BrowserWindowController {
         onBecameKey?()
     }
 
-    /// `willClose`, not `didClose` — there is no such message. The window is
-    /// still alive here, which is what lets the app take its chrome apart in
-    /// order rather than finding it half gone.
-    func windowWillClose(_ notification: Notification) {
-        onClosed?()
-    }
-
     /// macOS fullscreen keeps the chrome — a browser without its tab list in
     /// fullscreen is unusable. Only the window's own corners change: the system
     /// frame is square there, and a rounded mask would show as black notches.
