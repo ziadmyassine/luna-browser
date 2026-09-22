@@ -38,7 +38,7 @@ extension SidebarViewController {
             session.reorderTab(id, to: landing.index, kind: landing.kind, group: landing.groupID)
             // Unpinning does not wake a page on its own (§19.2), so this is
             // also what loads it.
-            if wasPinned { session.activateTab(id) }
+            if wasPinned { activateTab(id) }
         }
         // §3.4b: a group carried across the rule takes its tabs with it, which
         // is `moveGroup`'s whole job — nothing here has to say so twice.
@@ -54,7 +54,7 @@ extension SidebarViewController {
             if wasPinned {
                 // Selected first, for `pinTab(selecting:)`'s reason: §19.2
                 // keeps a pinned tab's page put away, and this is what loads it.
-                session.activateTab(id)
+                activateTab(id)
                 session.reorderTab(id, to: index, kind: .essential)
             } else {
                 session.pinTab(id, at: index, selecting: true)

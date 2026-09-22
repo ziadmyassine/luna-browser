@@ -28,14 +28,15 @@ import AppKit
 import BrowserKit
 
 @MainActor
-final class CommandBarController: NSObject, CommandBarInputDelegate {
+final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScoped {
 
     /// The actions `BrowserSession` has no method for yet: §9.2's app commands,
     /// which live in the app and the sidebar, and `.unarchiveTab`. Wire it where
     /// the session is built.
     var onExternalAction: ((CommandBarAction) -> Void)?
 
-    private let session: BrowserSession
+    let session: BrowserSession
+    let windowID: UUID
     private let adaptive: AdaptiveHistory
 
     private let resultsView = CommandBarResultsView(frame: .zero)
@@ -58,8 +59,9 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
     private var selectionIsUserDriven = false
 
     /// One `AdaptiveHistory` per `BrowserStore` — see its header.
-    init(session: BrowserSession, adaptive: AdaptiveHistory) {
+    init(session: BrowserSession, windowID: UUID, adaptive: AdaptiveHistory) {
         self.session = session
+        self.windowID = windowID
         self.adaptive = adaptive
         super.init()
         resultsView.onActivate = { [weak self] result in self?.commit(result) }
@@ -67,6 +69,10 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
         // fetched this launch and never wrote out — and everything else comes
         // from the on-disk cache by host.
         resultsView.iconProvider = { [weak self] result in self?.favicon(for: result) }
+        // The one source that never changes: §2's register is compiled in, so
+        // unlike the tabs and the adaptive table it is not worth re-reading on
+        // every open.
+        sources.settings = SettingsSectionRegistry.commandBarEntries
     }
 
     var isPresented: Bool { panel != nil }
@@ -217,7 +223,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
         deferredRows = nil
         SearchSuggestions.shared.cancel()
         // Hand the keyboard back to the page, or the user is typing into nothing.
-        if let id = session.activeTabID, let content = session.webView(for: id) {
+        if let id = activeTabID, let content = session.webView(for: id) {
             window?.makeFirstResponder(content)
         }
     }
@@ -238,7 +244,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
 
         // The adaptive table is read once per Space. The bar is already usable
         // while this runs; on every open but the first in a Space it is a no-op.
-        let space = session.activeSpaceID
+        let space = activeSpaceID
         Task { [weak self] in
             await self?.adaptive.loadIfNeeded(inSpace: space)
             guard let self, self.isPresented, let field = self.panel?.field else { return }
@@ -400,7 +406,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
         // §9.3: the lesson is keyed on what the user typed, never on the string
         // autofill completed for them — otherwise the ranker teaches itself.
         if let url = result.url, let typed = panel?.field.typedText {
-            adaptive.record(typed: typed, url: url, inSpace: session.activeSpaceID)
+            adaptive.record(typed: typed, url: url, inSpace: activeSpaceID)
         }
         // Dismiss before acting: the action can move first responder, focus the
         // page or open a window, and none of that should happen underneath a
@@ -412,25 +418,25 @@ final class CommandBarController: NSObject, CommandBarInputDelegate {
     private func perform(_ action: CommandBarAction) {
         switch action {
         case let .activateTab(id):
-            session.activateTab(id)
+            activateTab(id)
         case let .open(url):
             // §9.1: `⌘L` and a pill both edit this tab's address; only `⌘T`
             // asks for a new one. A new tab is the only sensible answer when
             // there is no tab to edit.
             if mode.opensNewTab {
                 _ = session.newTab(url: url, kind: .today)
-            } else if let id = session.activeTabID, let controller = session.controller(for: id) {
+            } else if let id = activeTabID, let controller = session.controller(for: id) {
                 controller.load(url)
             } else {
                 _ = session.newTab(url: url, kind: .today)
             }
-        case .unarchiveTab, .command:
+        case .unarchiveTab, .command, .openSettings:
             onExternalAction?(action)
         }
     }
 
     private var currentURLText: String {
-        guard let id = session.activeTabID, let url = session.controller(for: id)?.state.url else { return "" }
+        guard let id = activeTabID, let url = session.controller(for: id)?.state.url else { return "" }
         return url.absoluteString
     }
 }

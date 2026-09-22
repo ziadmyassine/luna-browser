@@ -266,7 +266,7 @@ final class SpaceGestureTests: XCTestCase {
         }
         // …and back to the first, so there is somewhere forward to go.
         session.switchSpace(first)
-        let controller = SidebarViewController(session: session)
+        let controller = SidebarViewController(session: session, windowID: session.keyWindowID)
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 300, height: 800),
             styleMask: [.borderless], backing: .buffered, defer: false

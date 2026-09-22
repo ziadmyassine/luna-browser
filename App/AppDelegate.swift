@@ -35,30 +35,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         withExtendedLifetime(delegate) { app.run() }
     }
 
-    /// AppKit's `NSWindow.windowController` is weak, so somebody has to own the
-    /// controller. One window in M1; §22.6's window manager arrives when there
-    /// is more than one to manage.
-    /// `fileprivate` would do, except `BrowserCommands` is a separate file:
-    /// the commands extension needs it to validate the View menu.
-    private(set) var browserWindow: BrowserWindowController?
-    private let chrome = ChromeHostView()
+    /// Every open browser window, oldest first, and the one the user is in
+    /// (§22.6). AppKit's `NSWindow.windowController` is weak, so somebody has
+    /// to own these; `BrowserWindow` owns everything built per window.
+    var windows: [BrowserWindow] = []
+    var front: BrowserWindow?
 
     private(set) var store: BrowserStore?
-    private(set) var session: BrowserSession?
-
-    // Owned because nothing else retains them: `NSView` does not hold its view
-    // controller, and `WKDownload.delegate` is weak (see `DownloadManager`).
-    var sidebar: SidebarViewController?
-    private(set) var topBar: TopBarView?
-    /// §3.2b's page bar. Owned here for the same reason the other two are:
-    /// `ContentCardView` hosts the view, not the controller behind it. Wired in
-    /// `AppDelegate+PageChrome.swift`.
-    var pageChrome: PageChromeController?
-    /// §9's bar, and §9.3's use counts behind it. Neither is private: both are
-    /// wired and read from `AppDelegate+CommandBar.swift`.
-    var commandBar: CommandBarController?
-    /// §6.4's pop-out. Not private: `⌘Y` opens it too (`BrowserCommands+Page`).
-    private(set) var historyPanel: HistoryPanelController?
+    /// The session behind the front window. Read all over `BrowserCommands`,
+    /// and correctly: a command is about the window the user is in.
+    var session: BrowserSession? { front?.session }
+    /// `fileprivate` would do, except `BrowserCommands` is a separate file:
+    /// the commands extension needs it to validate the View menu.
+    var browserWindow: BrowserWindowController? { front?.controller }
+    var sidebar: SidebarViewController? { front?.sidebar }
+    var topBar: TopBarView? { front?.topBar }
+    /// §3.2b's page bar. Wired in `AppDelegate+PageChrome.swift`.
+    var pageChrome: PageChromeController? { front?.pageChrome }
+    /// §9's bar. Wired and read from `AppDelegate+CommandBar.swift`.
+    var commandBar: CommandBarController? { front?.commandBar }
+    /// §6.4's pop-out. `⌘Y` opens it too (`BrowserCommands+Page`).
+    var historyPanel: HistoryPanelController? { front?.historyPanel }
     /// Exactly one per `BrowserStore` (§9.3): two of them would bump divergent
     /// use counts against the same `inputHistory` rows.
     var adaptive: AdaptiveHistory?
@@ -93,9 +90,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// `AppDelegate+Downloads.swift` builds it, so it is neither private nor
     /// `private(set)`.
     var downloadsPanel: DownloadsPanelController?
-    private var observation: ObservationToken?
-    /// §3.2c's window-edge line. Two tokens — see `wireLoadLine`.
-    var loadLineObservations: [ObservationToken] = []
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         LaunchTrace.mark("appkit")
@@ -106,6 +100,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // key's declared default is (SETTINGS-SPEC §6), and it is not
         // persisted, so it is re-published on every launch.
         SettingsDefaults.register()
+        // §5.6: anything a crash or a hard quit left behind. At launch, where
+        // the answer to "is this one in use" is always no.
+        Self.sweepPrivateDatabases()
         MainMenu.install(into: NSApp)
         // §3.6: a rebound shortcut rebuilds the bar. Before the first window.
         observeShortcutChanges()
@@ -148,8 +145,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // the system one.
         AppearanceSection.applyStoredTheme()
 
+        // The controller before the session, and on screen before it too: what
+        // fills it is `adopt`, once there is something to put in it.
         let controller = BrowserWindowController()
-        browserWindow = controller
         controller.showWindow(self)
         NSApp.activate()
         LaunchTrace.mark("window")
@@ -229,102 +227,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let session = try await BrowserSession.restored(store: store)
             LaunchTrace.mark("session")
             self.store = store
-            self.session = session
-            session.hostWindow = controller.window
-            observation = session.addChangeObserver { [weak self] in self?.render() }
-
-            let sidebar = SidebarViewController(session: session)
-            let topBar = TopBarView(session: session)
-            self.sidebar = sidebar
-            self.topBar = topBar
-            chrome.install(sidebar: sidebar.view, topBar: topBar)
-            // The list's row views do not survive the layout it is hidden in;
-            // see `ChromeHostView.onShowSidebar`.
-            chrome.onShowSidebar = { [weak sidebar] in sidebar?.willAppear() }
-            // §7.2: the pointer resting on a peeked sidebar keeps it out. The
-            // edge strip that summoned it is underneath by then.
-            chrome.onPointerInside = { [weak controller] inside in
-                controller?.setPointerInsideChrome(inside)
-            }
-            controller.setChrome(chrome)
-            sidebar.onSpaceGradientChange = { [weak controller] gradient in
-                controller?.setSpaceGradient(gradient)
-            }
-            wireSidebar(sidebar, in: controller)
-            wirePageChrome(session, in: controller)
-            wireLoadLine(session, in: controller)
-            // Last of the three address bars to claim `⌘L`, and the one that
-            // knows which of them is on screen.
-            wireEditLocation(session, sidebar: sidebar)
-            // §7.1: the layout the user chose in Settings, applied before the
-            // first frame the window shows with content in it.
-            applyChromeLayout(in: controller, animated: false)
+            adopt(BrowserWindow(session: session, controller: controller))
             NotificationCenter.default.addObserver(
                 self,
                 selector: #selector(settingsDidChange),
                 name: Settings.didChange,
                 object: nil
             )
-
             LaunchTrace.mark("chrome")
-            wireCommandBar(session, in: controller)
-            wireHistory(session, sidebar: sidebar, topBar: topBar, in: controller)
-            wireDownloads(session, sidebar: sidebar, topBar: topBar, in: controller)
             openForBusiness(session: session, store: store)
         } catch {
             NSApp.presentError(error)
         }
     }
 
-    /// The sidebar's outbound closures. It deliberately owns none of these:
-    /// toggling the layout and resizing the window's chrome column are the
-    /// window controller's, and turning typed text into a URL is §9.2's.
-    ///
-    /// Until this existed none of them were connected, which is why §3.7's
-    /// resize handle drew, hovered, dragged — and did nothing at all.
-    private func wireSidebar(_ sidebar: SidebarViewController, in controller: BrowserWindowController) {
-        sidebar.onToggleSidebar = { [weak self] in self?.toggleSidebar() }
-        // Live during the drag and again on mouse-up: `setSidebarWidth` is
-        // idempotent and the committed value is the one that gets persisted.
-        sidebar.onWidthChange = { [weak controller] width in controller?.setSidebarWidth(width) }
-        // §7.1: come back at the width the user left, not at the default — and
-        // without animating a width the user never saw change.
-        controller.setSidebarWidth(sidebar.preferredWidth)
-        sidebar.willAppear()
-    }
-
-    /// §3.5's History button (§6.4). A pop-out from the button, not a tab
-    /// and not a panel over the page: looking something up in your history is a
-    /// glance, and a glance should neither leave a tab behind to close nor take
-    /// the page away while you take it.
-    private func wireHistory(
-        _ session: BrowserSession,
-        sidebar: SidebarViewController,
-        topBar: TopBarView,
-        in controller: BrowserWindowController
-    ) {
-        let panel = HistoryPanelController(session: session)
-        historyPanel = panel
-        sidebar.onOpenHistory = { [weak panel, weak controller, weak sidebar] in
-            guard let panel, let sidebar, let window = controller?.window else { return }
-            // The sidebar's button is at the foot of the window, so the pop-out
-            // grows up out of it; the top bar's is at the head, so it grows
-            // down. One panel, one controller, two directions.
-            panel.toggle(in: window, from: sidebar.historyAnchor, edge: .above)
-        }
-        topBar.onHistory = { [weak panel, weak controller] anchor in
-            guard let panel, let window = controller?.window else { return }
-            panel.toggle(in: window, from: anchor, edge: .below)
-        }
-    }
-
     /// Re-reads the session. Structural only — a tab's progress and title reach
     /// their row through `addTabStateObserver`, not through here.
+    ///
+    /// Every window, because one session change moves more than one of them: a
+    /// tab closed in front of you leaves a window behind it pointing at a row
+    /// that has gone (§22.6). The menus are the front window's alone — they
+    /// describe what `⌘1` would do, and `⌘1` goes to the window the user is in.
     func render() {
+        for window in windows { window.render() }
         guard let session else { return }
-        // `webView(for:)` wakes a cold tab, which is exactly right for the one
-        // tab the user has selected and wrong for any other (§19.4).
-        browserWindow?.setContent(session.activeTabID.flatMap { session.webView(for: $0) })
         MainMenu.setSpaces(session.spaces.map(\.name), in: NSApp)
         // §13.2's `⌘1…⌘9`. `session.tabs` is already in the sidebar's order —
         // Favorites, then Pinned, then Today — so the number in the menu is the
@@ -340,8 +266,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// they set once. The layout is now `Settings.chromeLayout` and lives in
     /// the Settings window; this is only a reveal.
     func toggleSidebar() {
-        guard let controller = browserWindow, controller.canCollapseSidebar else { return }
-        controller.setSidebarCollapsed(!controller.isSidebarCollapsed)
+        front?.toggleSidebar()
     }
 
     /// `⌘,`, and §3.2's site menu, which lands on the section it names.
@@ -352,40 +277,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func settingsDidChange() {
-        guard let controller = browserWindow else { return }
-        applyChromeLayout(in: controller, animated: true)
-    }
-
-    /// Puts the window into whichever chrome `Settings.chromeLayout` names.
-    /// The cross-fade and the frame animation run on the same tick (§4.1).
-    private func applyChromeLayout(in controller: BrowserWindowController, animated: Bool) {
-        // Before the early return below, not after it. §3.2b's placement
-        // can change while the layout does not, and it is the only setting in
-        // this window whose effect is nothing at all if the chrome state
-        // happens to match.
-        applySearchBarPlacement(animated: animated)
-        let edge = Settings.sidebarEdge
-        let state: ChromeState = switch Settings.chromeLayout {
-        // A hidden sidebar stays hidden. `⌘S` and this setting are
-        // different decisions, and rebuilding the state from the layout alone
-        // put the column back on screen every time any preference changed.
-        case .sidebar where controller.isSidebarCollapsed: .sidebarCollapsed(edge: edge)
-        case .sidebar: .sidebar(
-            width: sidebar?.preferredWidth ?? Tokens.Metric.sidebarWidth.default,
-            edge: edge
-        )
-        case .topBar: .topBar
-        }
-        // The handle drags the divider, and which way is "wider" depends on
-        // which side the column is on.
-        sidebar?.sidebarEdge = edge
-        guard state != controller.chromeState else { return }
-        chrome.setLayout(state)
-        if animated {
-            controller.setChromeState(state)
-        } else {
-            controller.setChromeStateWithoutAnimation(state)
-        }
+        for window in windows { window.applyChromeLayout(animated: true) }
     }
 
     // MARK: - Termination
@@ -423,16 +315,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func flush() async {
-        await session?.persist()
+        // A §5.6 window's session writes to a database that is deleted when it
+        // closes, so there is nothing to push out of it.
+        for window in windows where !window.isPrivate { await window.session.persist() }
         try? await store?.flush()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         // Release the web views while AppKit is still running rather than
-        // leaving WebContent processes to process teardown.
-        session?.tearDown()
-        session = nil
-        browserWindow = nil
+        // leaving WebContent processes to process teardown. Every session: a
+        // §5.6 window has one of its own.
+        var torn: Set<ObjectIdentifier> = []
+        for window in windows where torn.insert(ObjectIdentifier(window.session)).inserted {
+            window.session.tearDown()
+        }
+        windows = []
+        front = nil
     }
 
     /// `LunaTests` is a unit-test bundle hosted by this app (`project.yml`:

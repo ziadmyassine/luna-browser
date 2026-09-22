@@ -28,11 +28,12 @@ import AppKit
 import BrowserKit
 
 @MainActor
-final class SidebarSpaceGestures {
+final class SidebarSpaceGestures: WindowScoped {
 
     /// Not private: `+Editor.swift` is the other half of this class, and
     /// Swift's `private` is file-scoped.
     let session: BrowserSession
+    let windowID: UUID
     let utility: SidebarUtilityBar
     private let wash: SpaceWashView
     /// The part of the column that rides along with the swipe — §3.3's tiles
@@ -87,6 +88,7 @@ final class SidebarSpaceGestures {
 
     init(
         session: BrowserSession,
+        windowID: UUID,
         utility: SidebarUtilityBar,
         wash: SpaceWashView,
         content: [NSView],
@@ -95,6 +97,7 @@ final class SidebarSpaceGestures {
         host: NSView
     ) {
         self.session = session
+        self.windowID = windowID
         self.utility = utility
         self.wash = wash
         self.content = content
@@ -103,7 +106,7 @@ final class SidebarSpaceGestures {
         self.host = host
         swipe.spaces = { [weak self] in
             guard let self else { return ([], nil) }
-            return (self.session.spaces.map(\.id), self.session.activeSpaceID)
+            return (self.session.spaces.map(\.id), self.activeSpaceID)
         }
         swipe.span = { [weak self] in self?.contentRect.width ?? 0 }
         swipe.onUpdate = { [weak self] state in self?.show(state) }
@@ -265,7 +268,7 @@ final class SidebarSpaceGestures {
     }
 
     private func neighbour(towards travel: CGFloat) -> Space? {
-        guard let active = session.spaces.firstIndex(where: { $0.id == session.activeSpaceID }) else { return nil }
+        guard let active = session.spaces.firstIndex(where: { $0.id == activeSpaceID }) else { return nil }
         let index = active + (travel > 0 ? 1 : -1)
         return session.spaces.indices.contains(index) ? session.spaces[index] : nil
     }
@@ -275,7 +278,7 @@ final class SidebarSpaceGestures {
     /// still carries its own wash, so this is the one the outgoing page is
     /// leaving behind.
     private func previewWash(travel: CGFloat) {
-        guard travel != 0, let active = session.spaces.firstIndex(where: { $0.id == session.activeSpaceID })
+        guard travel != 0, let active = session.spaces.firstIndex(where: { $0.id == activeSpaceID })
         else { return wash.endPreview() }
         let index = CGFloat(active) + travel
         let lower = Int(index.rounded(.down))
@@ -312,7 +315,7 @@ final class SidebarSpaceGestures {
         }
         let id = session.spaces[landing].id
         settle(state, to: state.travel > 0 ? 1 : -1, creation: 0, at: speed) { [weak self] in
-            self?.session.switchSpace(id)
+            self?.switchSpace(id)
         }
     }
 

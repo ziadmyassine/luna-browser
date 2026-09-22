@@ -16,16 +16,18 @@ import BrowserKit
 
 extension AppDelegate {
 
-    func wireDownloads(
-        _ session: BrowserSession,
-        sidebar: SidebarViewController,
-        topBar: TopBarView,
-        in controller: BrowserWindowController
-    ) {
-        let manager = DownloadManager()
+    /// One manager and one list for the app, wired to each window's two
+    /// buttons. §15.3's list is a pop-out and a pop-out is told which window to
+    /// stand in, so one of it serves all of them — and a file that lands while
+    /// you are in another window still has one list to appear in.
+    func wireDownloads(in window: BrowserWindow) {
+        let session = window.session
+        let controller = window.controller
+        let manager = downloads ?? DownloadManager()
         downloads = manager
-        let panel = DownloadsPanelController(manager: manager)
+        let panel = downloadsPanel ?? DownloadsPanelController(manager: manager)
         downloadsPanel = panel
+        guard let sidebar = window.sidebar, let topBar = window.topBar else { return }
         // §15.3's list is the whole of the downloads UI, and these two
         // buttons are the two places it stands. Same pop-out, two ends of the
         // window, so the edge is the caller's to say — exactly as History's is.

@@ -19,20 +19,31 @@ extension AppDelegate {
 
     /// `⌘T` and `⌘L` (§9.1). The bar is one object shared by both entry points
     /// and by the top bar's pill.
-    func wireCommandBar(_ session: BrowserSession, in controller: BrowserWindowController) {
-        let adaptive = adaptive ?? AdaptiveHistory(store: session.store)
-        self.adaptive = adaptive
-        let bar = CommandBarController(session: session, adaptive: adaptive)
-        commandBar = bar
+    func wireCommandBar(in window: BrowserWindow) {
+        let session = window.session
+        // One per `BrowserStore`, so a §5.6 window — which has a store of its
+        // own — gets one of its own too, and types nothing into the real one.
+        let adaptive = window.isPrivate ? AdaptiveHistory(store: session.store) : sharedAdaptiveHistory(session)
+        let bar = CommandBarController(session: session, windowID: window.id, adaptive: adaptive)
+        window.commandBar = bar
+        let controller = window.controller
         // §9.1: the bar belongs over the page, not over the window.
         bar.contentRegion = { [weak controller] in controller?.contentFrame ?? .zero }
         // The results the bar cannot perform itself (§9.2).
         bar.onExternalAction = { [weak self] action in self?.perform(action) }
         // Weak: the bar holds the session, so a strong capture here is a cycle.
-        session.presentCommandBar = { [weak bar, weak controller] mode, anchor in
-            guard let bar, let window = controller?.window else { return }
-            bar.present(mode, in: window, from: anchor)
-        }
+        session.setCommandBar({ [weak bar, weak controller] mode, anchor in
+            guard let bar, let host = controller?.window else { return }
+            bar.present(mode, in: host, from: anchor)
+        }, inWindow: window.id)
+    }
+
+    /// §9.3's use counts. Exactly one per `BrowserStore`: two of them would bump
+    /// divergent counts against the same `inputHistory` rows.
+    private func sharedAdaptiveHistory(_ session: BrowserSession) -> AdaptiveHistory {
+        let history = adaptive ?? AdaptiveHistory(store: session.store)
+        adaptive = history
+        return history
     }
 
     private func perform(_ action: CommandBarAction) {
@@ -46,6 +57,8 @@ extension AppDelegate {
         case .command(.newSpace):
             guard let session else { return }
             Task { try? await session.createSpace(name: String(localized: "New Space")) }
+        case let .openSettings(section):
+            showSettings(section: section)
         case .activateTab, .open:
             // The bar performs these itself; they never reach here.
             break

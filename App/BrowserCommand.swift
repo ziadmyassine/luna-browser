@@ -67,6 +67,15 @@ struct BrowserCommand: Identifiable {
     // MARK: - File
 
     static let newTab = BrowserCommand("newTab", "New Tab", #selector(AppDelegate.newTab(_:)), [KeyBinding("t")])
+    static let newWindow = BrowserCommand(
+        "newWindow", "New Window", #selector(AppDelegate.newWindow(_:)), [KeyBinding("n")]
+    )
+    /// §5.6. `⌘⇧N` everywhere except Safari, which spends it on a second
+    /// profile window — and Luna's Spaces are what that shortcut would be for.
+    static let newPrivateWindow = BrowserCommand(
+        "newPrivateWindow", "New Private Window", #selector(AppDelegate.newPrivateWindow(_:)),
+        [KeyBinding("n", [.command, .shift])]
+    )
     static let openLocation = BrowserCommand(
         "openLocation", "Open Location…", #selector(AppDelegate.editLocation(_:)), [KeyBinding("l")]
     )
@@ -192,7 +201,7 @@ struct BrowserCommand: Identifiable {
     /// families are absent on purpose — see `KeyBindings.reserved`.
     static let all: [BrowserCommand] = [
         settings,
-        newTab, openLocation, duplicateTab, resetPinnedTab, closeTab, closeAllTabs, cleanUpTabs,
+        newTab, newWindow, newPrivateWindow, openLocation, duplicateTab, resetPinnedTab, closeTab, closeAllTabs, cleanUpTabs,
         reopenArchivedTab, closeWindow,
         undo, redo, cut, copy, paste, selectAll, copyURL, copyMarkdown,
         toggleSidebar, toggleFavorite, reloadPage, forceReloadPage, stopLoading,

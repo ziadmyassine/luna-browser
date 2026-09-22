@@ -97,7 +97,7 @@ final class BudgetTests: XCTestCase {
         for index in 0..<40 {
             session.newTab(url: URL(string: "https://example.com/\(index)")!)
         }
-        let bar = CommandBarController(session: session, adaptive: AdaptiveHistory(store: store))
+        let bar = CommandBarController(session: session, windowID: session.keyWindowID, adaptive: AdaptiveHistory(store: store))
         let window = window()
 
         var times: [Double] = []

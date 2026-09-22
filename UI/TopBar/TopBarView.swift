@@ -46,7 +46,7 @@ protocol TopBarThemed: NSView {
 }
 
 @MainActor
-final class TopBarView: NSView {
+final class TopBarView: NSView, WindowScoped {
 
     // MARK: - Seams
 
@@ -83,7 +83,8 @@ final class TopBarView: NSView {
     private static let downloadsItem = "luna.topBar.downloads"
     private static let profileItem = "luna.topBar.profile"
 
-    private let session: BrowserSession
+    let session: BrowserSession
+    let windowID: UUID
     /// A capsule of one, not a bare glass circle.
     ///
     /// Back and the three buttons at the other end of the bar were already the
@@ -97,9 +98,10 @@ final class TopBarView: NSView {
     private let capsule = TopBarActionCapsule()
     private var leadingInset: NSLayoutConstraint?
 
-    init(session: BrowserSession) {
+    init(session: BrowserSession, windowID: UUID) {
         self.session = session
-        strip = TopBarTabStrip(session: session)
+        self.windowID = windowID
+        strip = TopBarTabStrip(session: session, windowID: windowID)
         super.init(frame: .zero)
 
         wantsLayer = true
@@ -163,14 +165,14 @@ final class TopBarView: NSView {
         }
         // `⌘L` belongs to whichever layout is on screen (§3.2, §4); when the
         // sidebar is showing, the bar hands the command straight back.
-        let previousFocus = session.focusURLField
-        session.focusURLField = { [weak self] in
+        let previousFocus = focusURLField
+        session.setURLField({ [weak self] in
             guard let self, isOnScreenLayout else {
                 previousFocus?()
                 return
             }
             beginURLEditing()
-        }
+        }, inWindow: windowID)
     }
 
     /// True only for the layout the user can actually see: `ChromeHostView`
@@ -226,7 +228,7 @@ final class TopBarView: NSView {
             // §9.1, not a blank tab — the same answer §3.4's New Tab row and
             // `⌘T` give. There is no New Tab page to land on any more, so a `+`
             // that made a tab would be making an empty one.
-            self?.session.presentCommandBar?(.newTab, nil)
+            self?.presentCommandBar?(.newTab, nil)
         }
         let history = TopBarActionItem(
             id: Self.historyItem,
@@ -271,7 +273,7 @@ final class TopBarView: NSView {
 
     /// One tab's live state (§4.3): title, progress, `themeColor`.
     func apply(_ state: TabState, for id: UUID) {
-        if id == session.activeTabID { backCapsule.setEnabled(state.canGoBack, for: Self.backItem) }
+        if id == activeTabID { backCapsule.setEnabled(state.canGoBack, for: Self.backItem) }
         strip.apply(state, for: id)
     }
 
@@ -281,7 +283,7 @@ final class TopBarView: NSView {
     }
 
     private var activeState: TabState? {
-        session.activeTabID.flatMap { session.controller(for: $0)?.state }
+        activeTabID.flatMap { session.controller(for: $0)?.state }
     }
 
     // MARK: - §4.1 layout switch

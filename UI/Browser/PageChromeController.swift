@@ -15,7 +15,7 @@ import AppKit
 import BrowserKit
 
 @MainActor
-final class PageChromeController {
+final class PageChromeController: WindowScoped {
 
     /// The bar's sidebar toggle — the one control that brings a hidden sidebar
     /// back when the pill is not in it.
@@ -26,7 +26,8 @@ final class PageChromeController {
 
     var view: NSView { bar }
 
-    private let session: BrowserSession
+    let session: BrowserSession
+    let windowID: UUID
     private let bar = PageChromeBar()
     private var isActive = false
     /// The tab whose `onScroll` this controller currently holds, so it can be
@@ -43,14 +44,15 @@ final class PageChromeController {
     private var scroll = PageBarScroll()
     private var observations: [ObservationToken] = []
 
-    init(session: BrowserSession) {
+    init(session: BrowserSession, windowID: UUID) {
         self.session = session
+        self.windowID = windowID
         bar.isHidden = true
         bar.onToggleSidebar = { [weak self] in self?.onToggleSidebar?() }
         // §3.2b's pill hands the address over to §9.1, which opens standing on
         // the pill rather than in the middle of the page (`CommandBarAnchor`).
         bar.onHandOff = { [weak self] anchor in
-            self?.session.presentCommandBar?(.editCurrentURL, anchor)
+            self?.presentCommandBar?(.editCurrentURL, anchor)
         }
         bar.onBandHeight = { [weak self] height, animated in
             guard let self, isActive else { return }
@@ -123,13 +125,13 @@ final class PageChromeController {
 
     private func refresh() {
         guard isActive else { return }
-        listen(to: session.activeTabID)
-        let tab = session.tabs.first { $0.id == session.activeTabID }
-        let state = session.activeTabID.flatMap { session.controller(for: $0)?.state }
+        listen(to: activeTabID)
+        let tab = windowTabs.first { $0.id == activeTabID }
+        let state = activeTabID.flatMap { session.controller(for: $0)?.state }
         show(url: state?.url ?? tab?.url, isLoading: state?.isLoading ?? false)
         // §3.2c. Nil for a tab with no live web view, which is a tab that has
         // nothing to be loading.
-        bar.pill.setLoad(state, for: session.activeTabID)
+        bar.pill.setLoad(state, for: activeTabID)
         bar.setPageColour(state?.pageBackground)
         bar.update(
             canGoBack: state?.canGoBack ?? false,
@@ -139,7 +141,7 @@ final class PageChromeController {
     }
 
     private func apply(_ id: UUID, _ state: TabState) {
-        guard isActive, id == session.activeTabID else { return }
+        guard isActive, id == activeTabID else { return }
         show(url: state.url, isLoading: state.isLoading)
         bar.pill.setLoad(state, for: id)
         bar.setPageColour(state.pageBackground)

@@ -31,6 +31,9 @@ import Foundation
 
 extension BrowserSession {
 
+    /// §9.1's bar, as the window that owns one hands it over.
+    typealias CommandBarPresenter = (CommandBarMode, CommandBarAnchor?) -> Void
+
     /// One window's place in the session.
     struct WindowFocus {
         /// The Space this window is showing (§5.3).
@@ -83,6 +86,20 @@ extension BrowserSession {
         keyWindowID = previous
     }
 
+    // MARK: - The chrome a window has put up
+
+    func commandBar(inWindow window: UUID) -> CommandBarPresenter? { commandBarByWindow[window] }
+
+    func setCommandBar(_ present: CommandBarPresenter?, inWindow window: UUID) {
+        commandBarByWindow[window] = present
+    }
+
+    func urlField(inWindow window: UUID) -> (() -> Void)? { urlFieldByWindow[window] }
+
+    func setURLField(_ focus: (() -> Void)?, inWindow window: UUID) {
+        urlFieldByWindow[window] = focus
+    }
+
     // MARK: - Windows coming and going
 
     /// Registers a window and returns it standing where the front one is.
@@ -99,6 +116,8 @@ extension BrowserSession {
     /// they belong to the session, and another window may be showing one.
     func closeWindow(_ window: UUID) {
         windowFocus[window] = nil
+        commandBarByWindow[window] = nil
+        urlFieldByWindow[window] = nil
         guard window == keyWindowID, let next = windowFocus.keys.first else { return }
         keyWindowID = next
     }

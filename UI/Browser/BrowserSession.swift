@@ -144,10 +144,14 @@ final class BrowserSession {
     /// §9.1's panel over the page. The Command Bar's host sets this; without it
     /// `⌘T` opens a blank tab, which is an honest degradation rather than a
     /// dead key.
-    var presentCommandBar: ((CommandBarMode, CommandBarAnchor?) -> Void)?
+    /// Read-only, and the front window's: a command means the window the user
+    /// is in. A view sets and reads its own through `WindowScoped` — see
+    /// `BrowserSession+Windows.swift`, which holds the pair of them per window
+    /// because §9.1's bar and §3.2's pill are chrome and chrome is per window.
+    var presentCommandBar: CommandBarPresenter? { commandBarByWindow[keyWindowID] }
 
     /// `⌘L`. The sidebar or top bar sets this to focus and select its URL pill.
-    var focusURLField: (() -> Void)?
+    var focusURLField: (() -> Void)? { urlFieldByWindow[keyWindowID] }
 
     /// Downloads (§15). The receiver must set `download.delegate`
     /// synchronously; with no handler the download is cancelled rather than
@@ -187,19 +191,33 @@ final class BrowserSession {
     // and the coordinator is three files. Nothing outside `BrowserSession*.swift`
     // touches any of it.
 
+    /// §5.6. Set once at restore: it decides whether a Space gets a cookie jar
+    /// on disk or one that dies with the window, and whether anything at all is
+    /// written outside this session's own store.
+    let isPrivate: Bool
     let store: BrowserStore
     let profileStore = ProfileStore()
+    /// §5.6's one jar, shared by every Space in a private session. One rather
+    /// than one each: the Spaces in such a window are a throwaway list in a
+    /// throwaway database, and two in-memory jars would be two of a thing that
+    /// exists to be forgotten.
+    private lazy var privateDataStore = WKWebsiteDataStore.nonPersistent()
     var list: TabList
     /// §22.6. Made on first write rather than on registration, so a session
     /// with no chrome on it still answers every question about a selection.
     var windowFocus: [UUID: WindowFocus] = [:]
+    var commandBarByWindow: [UUID: CommandBarPresenter] = [:]
+    var urlFieldByWindow: [UUID: () -> Void] = [:]
     /// The window the app's own commands mean. A name nothing else holds until
     /// a window claims it.
     var keyWindowID = UUID()
     /// The Space a new window opens on, and the one the next launch comes back
     /// to: the last one anybody chose, in any window.
     private(set) var lastUsedSpaceID: UUID {
-        didSet { UserDefaults.standard.set(lastUsedSpaceID.uuidString, forKey: Self.activeSpaceKey) }
+        didSet {
+            guard !isPrivate else { return }
+            UserDefaults.standard.set(lastUsedSpaceID.uuidString, forKey: Self.activeSpaceKey)
+        }
     }
 
     /// Which tab the front window has selected in each Space (§22.6). The
@@ -249,7 +267,11 @@ final class BrowserSession {
     /// their titles and their `interactionState` blobs — and no web views:
     /// no `TabController` is created here, so a 30-tab relaunch costs one
     /// database read and zero WebContent processes.
-    static func restored(store: BrowserStore) async throws -> BrowserSession {
+    /// - Parameter isPrivate: §5.6. A private session keeps nothing outside its
+    ///   own store: no cookie jar on disk, and no note in `UserDefaults` of
+    ///   which Space it was in — a window that leaves a trace of where it was
+    ///   is not private, however little the trace says.
+    static func restored(store: BrowserStore, isPrivate: Bool = false) async throws -> BrowserSession {
         try await store.seedIfEmpty()
         let spaces = try await store.spaces()
         guard !spaces.isEmpty else { throw SessionError.noSpaces }
@@ -270,7 +292,8 @@ final class BrowserSession {
             spaces: spaces,
             list: TabList(tabs, groups: groups),
             archived: archived.sorted { ($0.archivedAt ?? .distantPast) > ($1.archivedAt ?? .distantPast) },
-            activeSpaceID: (spaces.first { $0.id == remembered } ?? spaces[0]).id
+            activeSpaceID: (spaces.first { $0.id == remembered } ?? spaces[0]).id,
+            isPrivate: isPrivate
         )
         // §3.4b's tier holds folders and nothing else, and a database written
         // before that rule has loose rows standing in it. Here rather than in a
@@ -285,8 +308,10 @@ final class BrowserSession {
         spaces: [Space],
         list: TabList,
         archived: [Tab],
-        activeSpaceID: UUID
+        activeSpaceID: UUID,
+        isPrivate: Bool
     ) {
+        self.isPrivate = isPrivate
         self.store = store
         self.spaces = spaces
         self.list = list
@@ -343,6 +368,9 @@ final class BrowserSession {
 
     /// The data store every tab in this Space is built against.
     func dataStore(forSpace spaceID: UUID) -> WKWebsiteDataStore {
+        // §5.6: nothing this window loads reaches disk, and `ProfileStore` —
+        // which is the thing that makes a jar on disk — is never asked.
+        guard !isPrivate else { return privateDataStore }
         guard let space = space(spaceID) else {
             // Unreachable while the Space exists at all. A non-persistent store
             // is the safe wrong answer: it leaks nothing into a jar the user did

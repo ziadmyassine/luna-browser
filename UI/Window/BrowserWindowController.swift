@@ -28,6 +28,13 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     private var trafficLights: TrafficLightLayoutManager?
     private(set) var chrome: NSView?
 
+    /// §22.6: this window came forward, or went away. The app tracks the front
+    /// window from these rather than reading `NSApp.keyWindow`, which is nil
+    /// whenever a sheet, a pop-out or the Settings window is up — and every
+    /// command Luna has would then be about no window at all.
+    var onBecameKey: (() -> Void)?
+    var onClosed: (() -> Void)?
+
     // The chrome's switchable constraints: a column on one side in the sidebar
     // layout, a top bar spanning the window in the other.
     private var chromeWidth: NSLayoutConstraint?
@@ -83,7 +90,20 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     /// card is filled by `setContent` once `BrowserSession` has a selected tab,
     /// because a window that loads a page of its own would be a web view for a
     /// tab nobody chose (§19.4). Wave 2 replaced M0's placeholder web view here.
+    /// Spelled out rather than left to `remembersFrame`'s default, and it has
+    /// to be: `NSWindowController` declares `init()` itself, and with only a
+    /// defaulted parameter below that inherited one wins the call — handing
+    /// back a controller with no window at all, silently.
     convenience init() {
+        self.init(remembersFrame: true)
+    }
+
+    /// - Parameter remembersFrame: whether this window is the one that restores
+    ///   and saves the remembered frame. Exactly one is (§22.6): an autosave
+    ///   name is per name, not per window, so several windows sharing one open
+    ///   on top of each other and the last to close overwrites the rest. The
+    ///   others cascade off the front window instead.
+    convenience init(remembersFrame: Bool) {
         let window = NSWindow(
             contentRect: NSRect(
                 x: 0,
@@ -101,7 +121,7 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         self.init(window: window)
 
         // Set after `center()` so a remembered frame wins over the default placement.
-        windowFrameAutosaveName = "LunaBrowserWindow"
+        if remembersFrame { windowFrameAutosaveName = "LunaBrowserWindow" }
         window.delegate = self
         buildContent(in: window)
         trafficLights = TrafficLightLayoutManager(window: window)

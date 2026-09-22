@@ -35,9 +35,10 @@ import AppKit
 import BrowserKit
 
 @MainActor
-final class TopBarTabStrip: NSView {
+final class TopBarTabStrip: NSView, WindowScoped {
 
-    private let session: BrowserSession
+    let session: BrowserSession
+    let windowID: UUID
     private let scrollView = NSScrollView()
     private let content = StripContentView()
     private let pill = TopBarURLPill()
@@ -52,8 +53,9 @@ final class TopBarTabStrip: NSView {
     /// §4's alignment, cached rather than read per layout pass.
     private var tabsPosition = Settings.tabsPosition(in: .topBar)
 
-    init(session: BrowserSession) {
+    init(session: BrowserSession, windowID: UUID) {
         self.session = session
+        self.windowID = windowID
         super.init(frame: .zero)
 
         scrollView.drawsBackground = false
@@ -83,7 +85,7 @@ final class TopBarTabStrip: NSView {
             guard let self else { return }
             // Out of the pill it was typed in, not out of the middle of the
             // window: §4's bar hands off the same way §3.2's does.
-            session.presentCommandBar?(.search(text), CommandBarAnchor(view: pill))
+            presentCommandBar?(.search(text), CommandBarAnchor(view: pill))
         }
         content.addSubview(pill)
 
@@ -112,10 +114,10 @@ final class TopBarTabStrip: NSView {
     /// Re-reads the tab list. Tiles are reused across reloads so a title or
     /// favicon update does not rebuild the strip.
     func reload() {
-        let tabs = session.tabs
+        let tabs = windowTabs
         let previousActive = activeID
         order = tabs.map(\.id)
-        activeID = session.activeTabID
+        activeID = activeTabID
         // A switch between two tabs is the one reload worth animating: the
         // outgoing tab collapses from pill to tile and the incoming one
         // expands. A first load, or a tab arriving or leaving, is not — there
@@ -232,7 +234,7 @@ final class TopBarTabStrip: NSView {
 
     @objc private func tilePressed(_ sender: NSButton) {
         guard let raw = sender.identifier?.rawValue, let id = UUID(uuidString: raw) else { return }
-        session.activateTab(id)
+        activateTab(id)
     }
 
     private static func position(_ index: Int, of count: Int) -> String {

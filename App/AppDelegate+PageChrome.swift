@@ -18,14 +18,14 @@ extension AppDelegate {
     /// Built whether or not the setting has it on screen — it costs one hidden
     /// view, and building it lazily would mean the first flip of the setting
     /// had no bar to animate in.
-    func wirePageChrome(_ session: BrowserSession, in controller: BrowserWindowController) {
-        let page = PageChromeController(session: session)
-        pageChrome = page
-        page.onToggleSidebar = { [weak self] in self?.toggleSidebar() }
-        page.onBandHeight = { [weak controller] height, animated in
-            controller?.setPageBarInset(height, animated: animated)
+    func wirePageChrome(in window: BrowserWindow) {
+        let page = PageChromeController(session: window.session, windowID: window.id)
+        window.pageChrome = page
+        page.onToggleSidebar = { [weak window] in window?.toggleSidebar() }
+        page.onBandHeight = { [weak window] height, animated in
+            window?.controller.setPageBarInset(height, animated: animated)
         }
-        controller.setPageOverlay(page.view)
+        window.controller.setPageOverlay(page.view)
     }
 
     /// §20.1's `⌘L` belongs to whichever address bar is on screen — §3.2's in
@@ -42,29 +42,14 @@ extension AppDelegate {
     /// was the whole chain, it answered "not my layout", and the fallback in
     /// `editLocation()` was never reached because the closure it tests for was
     /// not nil.
-    func wireEditLocation(_ session: BrowserSession, sidebar: SidebarViewController?) {
-        let previous = session.focusURLField
-        session.focusURLField = { [weak self, weak sidebar] in
-            guard let self else { return previous?() ?? () }
-            if let page = pageChrome, page.isOnScreen { return page.beginEditing() }
-            if let sidebar, sidebar.showsURLPill { return sidebar.beginEditingURL() }
+    func wireEditLocation(in window: BrowserWindow) {
+        let previous = window.session.urlField(inWindow: window.id)
+        window.session.setURLField({ [weak window] in
+            guard let window else { return previous?() ?? () }
+            if let page = window.pageChrome, page.isOnScreen { return page.beginEditing() }
+            if let sidebar = window.sidebar, sidebar.showsURLPill { return sidebar.beginEditingURL() }
             previous?()
-        }
-    }
-
-    /// The sidebar drops the pill and the page bar picks it up, or the other way
-    /// round.
-    ///
-    /// Both ends are told by one reader. `Settings.searchBarIsOnPage`
-    /// resolves the placement against the layout, so the sidebar cannot end up
-    /// having dropped its pill in a layout with no page bar to put it in.
-    func applySearchBarPlacement(animated: Bool) {
-        let onPage = Settings.searchBarIsOnPage
-        sidebar?.setSearchBarOnPage(onPage)
-        pageChrome?.setActive(onPage, animated: animated)
-        // §3.2c's third listener: the window only wears the load line when
-        // neither of the two above is showing an address.
-        browserWindow?.setSearchBarOnPage(onPage)
+        }, inWindow: window.id)
     }
 
     /// §3.2c's fallback line, which is the one host with nothing of its own to
@@ -75,10 +60,12 @@ extension AppDelegate {
     /// — and both halves are needed. The state observer carries the progress;
     /// the change observer carries the switch, which no tab state reports,
     /// and without it the line kept counting the tab the user just left.
-    func wireLoadLine(_ session: BrowserSession, in controller: BrowserWindowController) {
-        let feed: @MainActor (UUID?) -> Void = { [weak session, weak controller] tick in
-            guard let session, let controller else { return }
-            guard let active = session.activeTabID else {
+    func wireLoadLine(in window: BrowserWindow) {
+        let session = window.session
+        let feed: @MainActor (UUID?) -> Void = { [weak window] tick in
+            guard let window else { return }
+            let controller = window.controller
+            guard let active = window.activeTabID else {
                 return controller.setLoadProgress(nil, for: nil)
             }
             // A background tab's tick is not this line's business. The line
@@ -87,9 +74,9 @@ extension AppDelegate {
             guard tick == nil || tick == active else { return }
             // A cold tab has no state to read, and that is the honest answer:
             // nothing is loading in a tab that has no web view.
-            controller.setLoadProgress(session.controller(for: active)?.state, for: active)
+            controller.setLoadProgress(window.session.controller(for: active)?.state, for: active)
         }
-        loadLineObservations = [
+        window.loadLineObservations = [
             session.addTabStateObserver { id, _ in feed(id) },
             session.addChangeObserver { feed(nil) }
         ]
