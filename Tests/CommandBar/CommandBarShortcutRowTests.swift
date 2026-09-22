@@ -19,6 +19,33 @@ import XCTest
 @MainActor
 final class CommandBarShortcutRowTests: XCTestCase {
 
+    /// These write the very keys the running app reads, so every one of them
+    /// is put back exactly as it was found — the absent ones included.
+    private var saved: [String: Any?] = [:]
+
+    override func setUp() {
+        super.setUp()
+        let keys = [SearchSettings.shortcutResultsKey, SearchSettings.settingsResultsKey]
+        saved = Dictionary(uniqueKeysWithValues: keys.map { ($0, UserDefaults.standard.object(forKey: $0)) })
+        setShortcutResults(true)
+    }
+
+    override func tearDown() {
+        for (key, value) in saved {
+            if let value { UserDefaults.standard.set(value, forKey: key) } else {
+                UserDefaults.standard.removeObject(forKey: key)
+            }
+        }
+        SearchSettings.reload()
+        super.tearDown()
+    }
+
+    private func setShortcutResults(_ on: Bool) {
+        var setting = SearchSettings.current
+        setting.shortcutResults = on
+        SearchSettings.apply(setting)
+    }
+
     private func entry(
         _ id: String,
         _ title: String,
@@ -109,6 +136,30 @@ final class CommandBarShortcutRowTests: XCTestCase {
         let shortcut = try XCTUnwrap(order.firstIndex(of: .shortcut))
         XCTAssertLessThan(try XCTUnwrap(order.firstIndex(of: .command)), shortcut)
         XCTAssertLessThan(shortcut, try XCTUnwrap(order.firstIndex(of: .search)))
+    }
+
+    // MARK: - §3.4's switch
+
+    func testTheSwitchIsOnByDefault() {
+        XCTAssertTrue(SearchEngineSetting().shortcutResults)
+    }
+
+    /// Its own switch, not the settings one: turning the commands off leaves
+    /// the Settings sections where they were.
+    func testTurningItOffRemovesTheRowsAndLeavesTheSettingsRowsAlone() {
+        setShortcutResults(false)
+        XCTAssertTrue(rows("new window").isEmpty)
+
+        var both = sources()
+        both.settings = SettingsSectionRegistry.commandBarEntries
+        let found = CommandBarRanking.merge(query: "downloads", sources: both, limit: 8)
+        XCTAssertTrue(found.contains { $0.source == .settings })
+        XCTAssertFalse(found.contains { $0.source == .shortcut })
+    }
+
+    /// §6: a key with no row in `SettingsDefaults` does not exist.
+    func testTheSwitchHasADeclaredDefault() {
+        XCTAssertTrue(SettingsDefaults.keys.contains(SearchSettings.shortcutResultsKey))
     }
 
     // MARK: - The table

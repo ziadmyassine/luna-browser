@@ -38,7 +38,7 @@ enum ShortcutResults {
     /// Empty for an empty query — `⌘T`'s opening list is for getting
     /// somewhere, not for reading the menu bar.
     static func rows(tokens: [String], entries: [ShortcutEntry]) -> [CommandBarResult] {
-        guard !tokens.isEmpty else { return [] }
+        guard !tokens.isEmpty, SearchSettings.current.shortcutResults else { return [] }
         return entries.compactMap { entry in
             guard let score = score(tokens, for: entry) else { return nil }
             return CommandBarResult(

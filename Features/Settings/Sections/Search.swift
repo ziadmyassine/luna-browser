@@ -49,7 +49,8 @@ final class SearchSection: SettingsSection {
             (engineRow(), ["search engine", "duckduckgo", "google", "bing", "kagi", "custom"]),
             (customRow(), ["custom engine url", "search engine", "%s", "placeholder"]),
             (suggestionsRow(), ["search suggestions", "autocomplete", "complete"]),
-            (settingsResultsRow(), ["settings in search results", "command bar", "sections", "open in settings"])
+            (settingsResultsRow(), ["settings in search results", "command bar", "sections", "open in settings"]),
+            (shortcutResultsRow(), ["shortcuts in search results", "command bar", "menu commands", "keyboard"])
         ])
         refreshValidity()
     }
@@ -107,6 +108,18 @@ final class SearchSection: SettingsSection {
         SettingsRow.toggle("Settings in search results", value: SearchSettings.current.settingsResults) { on in
             var setting = SearchSettings.current
             setting.settingsResults = on
+            SearchSettings.apply(setting)
+        }
+    }
+
+    /// §9.2's shortcut rows. On, and separate from the switch above it: one
+    /// offers a pane to go and read, the other does something to the page in
+    /// front of you, and wanting one in an address bar is no reason to want
+    /// the other.
+    private func shortcutResultsRow() -> NSView {
+        SettingsRow.toggle("Shortcuts in search results", value: SearchSettings.current.shortcutResults) { on in
+            var setting = SearchSettings.current
+            setting.shortcutResults = on
             SearchSettings.apply(setting)
         }
     }

@@ -358,6 +358,14 @@ struct SearchEngineSetting: Sendable, Hashable {
     /// the one cache built for that — see `SettingsDefaults.restoreAll`, which
     /// has to know every cache by name.
     var settingsResults: Bool = true
+    /// Whether a query that names a menu command offers it as a row (§9.2).
+    ///
+    /// On, and local for the same reason as `settingsResults`: the index is
+    /// §20.1's table, compiled in. Its own switch rather than sharing one,
+    /// because the two answer different questions — a settings row goes to a
+    /// pane and a shortcut row does something to the page in front of you, and
+    /// wanting one of those in an address bar is no reason to want the other.
+    var shortcutResults: Bool = true
 
     /// Where to ask for suggestions, or nil when they are off, the engine has
     /// no endpoint, or the query is empty.
@@ -421,6 +429,7 @@ enum SearchSettings {
     static let customEngineKey = "search.customEngineURL"
     static let suggestionsKey = "search.suggestions"
     static let settingsResultsKey = "search.settingsResults"
+    static let shortcutResultsKey = "search.shortcutResults"
 
     private static let storage = Mutex(stored())
 
@@ -439,6 +448,7 @@ enum SearchSettings {
         defaults.set(setting.customTemplate, forKey: customEngineKey)
         defaults.set(setting.suggestions, forKey: suggestionsKey)
         defaults.set(setting.settingsResults, forKey: settingsResultsKey)
+        defaults.set(setting.shortcutResults, forKey: shortcutResultsKey)
     }
 
     private static func stored() -> SearchEngineSetting {
@@ -447,7 +457,8 @@ enum SearchSettings {
             engine: defaults.string(forKey: engineKey).flatMap(SearchEngine.init(rawValue:)) ?? .fallback,
             customTemplate: defaults.string(forKey: customEngineKey) ?? "",
             suggestions: defaults.object(forKey: suggestionsKey) as? Bool ?? true,
-            settingsResults: defaults.object(forKey: settingsResultsKey) as? Bool ?? true
+            settingsResults: defaults.object(forKey: settingsResultsKey) as? Bool ?? true,
+            shortcutResults: defaults.object(forKey: shortcutResultsKey) as? Bool ?? true
         )
     }
 }

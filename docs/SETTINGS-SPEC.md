@@ -337,6 +337,7 @@ second place for it to be wrong.
 | Custom engine URL | Text field with `%s`, validated | same |
 | Search suggestions | Toggle, **default off** | *disabled* until §9.6's suggest endpoint exists |
 | Settings in search results | Toggle, **default on** | `search.settingsResults` |
+| Shortcuts in search results | Toggle, **default on** | `search.shortcutResults` |
 
 Default off matters: suggestions send every keystroke to a third party, and
 D16 says we collect nothing. Shipping it on by default would contradict the
@@ -352,6 +353,13 @@ cannot be read without building all ten panes). It is compiled in, so nothing
 leaves the Mac for it and the privacy argument above simply does not apply.
 The switch is there for anyone who wants the bar to answer with pages and
 nothing else.
+
+**Shortcuts in search results is the same argument and a separate switch**, for
+§3.6's menu commands — see `ShortcutResults` and the note under §3.6. Two
+switches rather than one because the two rows do different things: a settings
+row opens a pane to go and read, a shortcut row does something to the page in
+front of you, and wanting one of those in an address bar is no reason to want
+the other.
 
 ### 3.5 Downloads
 | Control | Type | Wired to |
@@ -483,6 +491,7 @@ appearance.theme            appearance.glassOptimisation
 appearance.glassDensity
 search.engine               search.customEngineURL
 search.suggestions          search.settingsResults
+search.shortcutResults
 downloads.directory         downloads.askEachTime
 downloads.autoOpen          downloads.clearPolicy
 advanced.userAgent          advanced.showDevelopMenu
