@@ -42,6 +42,15 @@ extension SidebarViewController {
     ///   - tiles: whether §3.3's grid is empty.
     ///   - folders: whether §3.4b's tier is.
     func showPinHints(tiles: Bool, folders: Bool) {
+        // §5.6 keeps nothing, so neither well has any advice to give — and a
+        // dashed outline saying "drop a tab here" over a place that refuses
+        // the drop is the worst of the three states this could have. The flags
+        // are left alone: this window is not where the user takes the advice.
+        guard session.allowsPinning else {
+            essentials.showsHint = false
+            folderHint.isHidden = true
+            return
+        }
         // Advice taken is advice finished. A tier with something in it has had
         // the thing done to it, so the flag is put away for good — a well that
         // came back when the last tile was unpinned would be the app teaching a

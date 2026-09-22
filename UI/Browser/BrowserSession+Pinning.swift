@@ -28,6 +28,19 @@ import BrowserKit
 
 extension BrowserSession {
 
+    /// Whether anything in this session can be kept (§3.3's tiles, §3.4b's
+    /// folder tier).
+    ///
+    /// False in a §5.6 private window, and that is the whole rule: keeping is
+    /// the opposite of what such a window is for. Its database is a temporary
+    /// directory that goes when the window does, so a tile pinned there would
+    /// be a place the user was told to put things and then lost — and one they
+    /// would reasonably expect back in their real Spaces, where it never was.
+    ///
+    /// Read by the two verbs below and beside, by the two menus, by §6.6's
+    /// drag and by §3.3a's wells: nothing offers what this refuses.
+    var allowsPinning: Bool { !isPrivate }
+
     /// Pins a tab into the §3.3 grid — the tiles under the URL pill.
     ///
     /// Pinning closes the page and keeps the tab. The tile stays until the
@@ -56,6 +69,7 @@ extension BrowserSession {
     ///   runs and the live page is never torn down and rebuilt.
     @discardableResult
     func pinTab(_ id: UUID, at index: Int = .max, selecting: Bool = false) -> Bool {
+        guard allowsPinning else { return false }
         guard let tab = list.tab(id), tab.kind != .essential else { return false }
         // Favorites are per Space (§2), so the cap is per Space too.
         if favorites(inSpace: tab.spaceID).count >= Self.favoritesCap { return false }

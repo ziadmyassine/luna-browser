@@ -228,7 +228,11 @@ extension AppDelegate: NSMenuItemValidation {
         item.title = active?.kind == .essential
             ? String(localized: "Remove from Favorites")
             : String(localized: "Add to Favorites")
-        return active != nil
+        // §5.6 keeps nothing. Dimmed rather than left live: `pinTab` refuses
+        // there, and the refusal it shares with a full Profile is the alert
+        // that says Favorites is full — which would be a lie about a window
+        // with no Favorites at all.
+        return session.allowsPinning && active != nil
     }
 
     /// Keeps the View menu honest: the item says what the next press will do,

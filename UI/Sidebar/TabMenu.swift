@@ -44,8 +44,12 @@ enum TabMenu {
     /// What the menu can do. The list owns the verbs — it is the one thing that knows both
     /// the tab and the session — and this file owns only the wording and the order.
     struct Actions {
-        var pin: () -> Void
-        var unpin: () -> Void
+        /// Nil in a §5.6 private window, where there is nothing to keep — see
+        /// `BrowserSession.allowsPinning`. The item is left out rather than
+        /// greyed: a menu listing what the window cannot do teaches the user to
+        /// stop reading it.
+        var pin: (() -> Void)?
+        var unpin: (() -> Void)?
         /// §3.4b: into that folder, or — with nil — out of whatever folder it is in.
         var setGroup: (UUID?) -> Void
         /// §3.4b: a new folder around this tab. It takes no name, because the
@@ -82,11 +86,13 @@ enum TabMenu {
 
         // §3.3: a tile leaves the grid the same way it entered it. The spec has promised
         // this item since the grid was built and the menu never had it.
-        menu.addItem(item(
-            pinned ? String(localized: "Unpin") : String(localized: "Pin"),
-            symbol: pinned ? "pin.slash" : "pin",
-            action: pinned ? actions.unpin : actions.pin
-        ))
+        if let pinning = pinned ? actions.unpin : actions.pin {
+            menu.addItem(item(
+                pinned ? String(localized: "Unpin") : String(localized: "Pin"),
+                symbol: pinned ? "pin.slash" : "pin",
+                action: pinning
+            ))
+        }
         // §3.4b, and not on a tile: a tile is §3.3's grid, which is one tile per
         // page and has no folders in it at all.
         //

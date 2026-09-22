@@ -105,13 +105,25 @@ struct SidebarList: Equatable, Sendable {
     private let gapAbove: [Int]
     private let gapBelow: [Int]
 
-    init(saved: [SidebarSlot] = [], today: [SidebarSlot] = [], essentials: [Tab] = [], revealingSaved: Bool = false) {
+    /// - Parameter pinning: false in a §5.6 private window, which keeps
+    ///   nothing — see `BrowserSession.allowsPinning`. The rule never comes
+    ///   out and the destination above `New Tab` is the head of today's tabs
+    ///   rather than the end of the kept tier, so the top half of that row
+    ///   cannot pin what is dropped on it.
+    init(
+        saved: [SidebarSlot] = [],
+        today: [SidebarSlot] = [],
+        essentials: [Tab] = [],
+        revealingSaved: Bool = false,
+        pinning: Bool = true
+    ) {
         self.essentials = essentials
-        showsRule = !saved.isEmpty || revealingSaved
+        showsRule = pinning && (!saved.isEmpty || revealingSaved)
 
         var build = Build()
         build.emit(saved, kind: .pinned)
-        let savedEnd = SidebarDestination(kind: .pinned, groupID: nil, index: saved.count)
+        let todayHead = SidebarDestination(kind: .today, groupID: nil, index: 0)
+        let savedEnd = pinning ? SidebarDestination(kind: .pinned, groupID: nil, index: saved.count) : todayHead
         if showsRule {
             // The rule and New Tab are one block: both rows mean the saved tier
             // at both halves, and both open their gap at the block's top edge.
@@ -127,7 +139,7 @@ struct SidebarList: Equatable, Sendable {
             build.add(.separator, above: savedEnd, below: savedEnd, gap: head)
             build.add(.addTab, above: savedEnd, below: savedEnd, gap: head)
         } else {
-            build.add(.addTab, above: savedEnd, below: SidebarDestination(kind: .today, groupID: nil, index: 0))
+            build.add(.addTab, above: savedEnd, below: todayHead)
         }
         build.emit(today, kind: .today)
 

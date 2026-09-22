@@ -20,6 +20,9 @@ extension SidebarViewController {
     /// exactly one of these three fires on release.
     func wireDrag() {
         let controller = SidebarTabDragController(host: view, grid: essentials, list: list, utility: utility)
+        // §5.6 keeps nothing, so §3.3's grid is not one of the three landings
+        // this gesture has — see `BrowserSession.allowsPinning`.
+        controller.allowsPinning = session.allowsPinning
         // Picking a tab up is choosing it, wherever it is put down: a drop
         // that left the previous page on screen made the thing under the hand
         // look like it belonged to something else. A row does this without

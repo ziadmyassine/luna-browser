@@ -73,6 +73,9 @@ extension SidebarViewController {
     }
 
     func wireList() {
+        // §5.6: no kept tier, so §3.4b's rule never comes out and the top half
+        // of `New Tab` is not a place a drop can pin something.
+        list.allowsPinning = session.allowsPinning
         list.onActivateTab = { [weak self] id in self?.activateTab(id) }
         list.onCloseTab = { [weak self] id in self?.session.closeTab(id) }
         // §9.1, not a blank tab. The Command Bar opens in `.newTab` — so what

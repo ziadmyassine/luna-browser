@@ -39,7 +39,9 @@ enum GroupMenu {
     /// That closure comes from the list, not the session — see `build`.
     struct Actions {
         var setIcon: (String) -> Void
-        var setSaved: (Bool) -> Void
+        /// Nil in a §5.6 private window, where §3.4b's kept tier is not
+        /// offered at all — see `BrowserSession.allowsPinning`.
+        var setSaved: ((Bool) -> Void)?
         var ungroup: () -> Void
         var close: () -> Void
     }
@@ -65,12 +67,17 @@ enum GroupMenu {
         // which holds folders and nothing else; below it is one more thing in
         // among the day's tabs. A folder is never a tile, because §3.3's grid
         // is one tile per page.
-        menu.addItem(SidebarMenu.glyphItem(
-            group.isSaved ? String(localized: "Unpin Folder") : String(localized: "Pin Folder"),
-            symbol: group.isSaved ? "pin.slash" : "pin",
-            action: { actions.setSaved(!group.isSaved) }
-        ))
-        menu.addItem(.separator())
+        //
+        // The separator goes with the item: two rules with nothing between them
+        // is what a private window's menu would otherwise draw.
+        if let setSaved = actions.setSaved {
+            menu.addItem(SidebarMenu.glyphItem(
+                group.isSaved ? String(localized: "Unpin Folder") : String(localized: "Pin Folder"),
+                symbol: group.isSaved ? "pin.slash" : "pin",
+                action: { setSaved(!group.isSaved) }
+            ))
+            menu.addItem(.separator())
+        }
 
         // The first keeps every page and drops the name; the second ends the
         // pages. Both say which, because "Delete" over a folder of open tabs is

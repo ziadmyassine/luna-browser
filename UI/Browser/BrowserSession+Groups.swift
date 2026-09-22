@@ -123,6 +123,9 @@ extension BrowserSession {
     /// Carries a group across §3.4b's rule, its tabs with it — into the folder
     /// tier under §3.3's tiles, or back down among the day's tabs.
     func setGroupSaved(_ saved: Bool, group id: UUID) {
+        // Nothing is kept in a §5.6 window — see `allowsPinning`. Unpinning is
+        // refused with it, because a private session has nothing pinned to undo.
+        guard allowsPinning else { return }
         guard let group = list.group(id), group.isSaved != saved else { return }
         let kind: TabKind = saved ? .pinned : .today
         moveGroup(id, to: list.slots(inSpace: group.spaceID, kind: kind).count, kind: kind)

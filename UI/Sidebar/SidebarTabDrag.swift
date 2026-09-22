@@ -88,6 +88,11 @@ final class SidebarTabDragController {
     var onDropInEssentials: ((_ id: UUID, _ index: Int, _ wasPinned: Bool) -> Void)?
     /// Dropped on a §3.5 Space dot.
     var onDropOnSpace: ((UUID, UUID) -> Void)?
+    /// False in a §5.6 private window — see `BrowserSession.allowsPinning`.
+    /// §3.3's grid is then not a landing place at all, which is the honest
+    /// answer: a zone that lights up and refuses the drop is worse than one
+    /// that never lights up.
+    var allowsPinning = true
 
     private unowned let host: NSView
     private unowned let grid: EssentialsGridView
@@ -265,7 +270,7 @@ final class SidebarTabDragController {
     private func resolveTarget(at point: NSPoint, carrying cargo: SidebarCargo) -> SidebarDropTarget {
         if cargo.mayLeaveTheList {
             if let space = utility.spaceID(at: point, from: host) { return .space(id: space) }
-            guard point.y < grid.frame.minY else {
+            if allowsPinning, point.y >= grid.frame.minY {
                 // The one place the lift moves sideways. Two columns of tiles
                 // are two positions, and which of them the lift is over is a
                 // question only the pointer's `x` can answer; everywhere else the

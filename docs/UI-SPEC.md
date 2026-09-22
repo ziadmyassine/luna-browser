@@ -2212,6 +2212,13 @@ Total in the clip: **~2.3 s**, which is a gesture-driven mobile interaction.
   > **It is told apart by §8.2a's wash**, like any other Space: its one Space is named *Private* and wears
   > a fixed gradient from §8.2's palette. Nothing is added to the chrome to say so — the column already
   > has a surface whose job is "which Space am I in", and a private window is a Space you cannot keep.
+  >
+  > **Nothing in it can be kept.** Neither §3.3's tiles nor §3.4b's folder tier is offered: no *Pin* item
+  > in either menu, no *Add to Favorites* on `⌘D`, §3.3's grid is not one of §6.6's landing places, the
+  > tier's rule never comes out under a lift, and §3.3a's two wells stay away. The database this window
+  > writes to is deleted when it closes, so a tile pinned here would be a place the user was told to put
+  > things and then lost — and one they would reasonably expect back in their real Spaces, where it never
+  > was. `BrowserSession.allowsPinning` is the single answer everything above reads.
 
 ---
 

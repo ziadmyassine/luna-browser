@@ -141,8 +141,10 @@ extension BrowserSession {
     /// outlives nothing, but it is the menu holding these and a window can close under it.
     func tabMenuActions(for id: UUID) -> TabMenu.Actions {
         TabMenu.Actions(
-            pin: { [weak self] in self?.pinTab(id) },
-            unpin: { [weak self] in self?.unpinTab(id) },
+            // Nil rather than a closure that refuses: §5.6's window has no
+            // tier to keep anything in, so the item is left out of the menu.
+            pin: allowsPinning ? { [weak self] in self?.pinTab(id) } : nil,
+            unpin: allowsPinning ? { [weak self] in self?.unpinTab(id) } : nil,
             setGroup: { [weak self] group in self?.moveTab(id, toGroup: group) },
             newGroup: { [weak self] in
                 self?.createGroup(name: BrowserSession.untitledGroupName, containing: [id])
@@ -164,7 +166,7 @@ extension BrowserSession {
     func groupMenuActions(for id: UUID) -> GroupMenu.Actions {
         GroupMenu.Actions(
             setIcon: { [weak self] symbol in self?.setIcon(symbol, forGroup: id) },
-            setSaved: { [weak self] saved in self?.setGroupSaved(saved, group: id) },
+            setSaved: allowsPinning ? { [weak self] saved in self?.setGroupSaved(saved, group: id) } : nil,
             ungroup: { [weak self] in self?.ungroup(id) },
             close: { [weak self] in self?.closeGroup(id) }
         )
