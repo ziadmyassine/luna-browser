@@ -62,10 +62,11 @@ extension TabListController {
         for pill in [selectionPill, hoverPill] { pill.fade(to: 0) }
     }
 
-    /// Keeps the two shared pills behind the row views AppKit keeps adding.
+    /// Keeps the shared fills behind the row views AppKit keeps adding — the
+    /// two pills, and §6.6's box round a folder taking a drop.
     func sendPillsToBack() {
-        for pill in [selectionPill, hoverPill] where pill.superview === table {
-            table.addSubview(pill, positioned: .below, relativeTo: nil)
+        for fill in [selectionPill, hoverPill, groupDrop] where fill.superview === table {
+            table.addSubview(fill, positioned: .below, relativeTo: nil)
         }
     }
 

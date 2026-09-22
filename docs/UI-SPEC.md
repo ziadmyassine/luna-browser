@@ -1104,12 +1104,34 @@ Order: §3.4b's pinned folders → **separator** → `New Tab` row → tabs.
   > movement: the tab vanished in mid-air and the folder was one row longer the next time you
   > looked at it. A drop on a §3.5 Space dot still fades where it stands, because the tab is
   > leaving this column rather than landing in it.
-  > **A shut folder takes the drop on itself and the list stays still.** There is no row inside a
-  > folded group for a gap to open between, so the header fills with `Surface.hover` and takes the
-  > outline — the same pair §3.3a's well answers a lift with — and the lift sinks onto the name it
-  > is being filed under. No gap opens beside it: a list making room under a shut folder is saying
-  > the tab lands next to it while the outline says it lands inside it, which is two answers to one
-  > question.
+  > **A folder taking a drop is boxed, whole.** A dashed box in `Line.border` filled with
+  > `Surface.selected` closes round the folder's entire extent — its name, the tabs already in it,
+  > and the row the list has just opened for the one arriving — so the tab is seen to be going
+  > *inside* something rather than merely stepping in by `groupIndent`. It is one view for the
+  > list, like §3.4's two pills and for the same reason, and it lies under the rows and answers
+  > no hit test (`SidebarGroupDropView`). The dash is §3.3's: the grid's empty slot, §3.3a's two
+  > wells and this are one mark. The wash is the heavier of §3.4's two, and that is the
+  > distinction those two carry — `hover` says the pointer is over this, and a folder taking a
+  > drop is the chosen destination for the thing in the air.
+  > **A shut folder's extent is its header, so the box is the header and the list stays still.**
+  > There is no row inside a folded group for a gap to open between, and the lift sinks onto the
+  > name it is being filed under. No gap opens beside it: a list making room under a shut folder
+  > is saying the tab lands next to it while the box says it lands inside it, which is two
+  > answers to one question.
+  > **A folder's header is not split down the middle.** Every other row divides at its midpoint,
+  > because its two halves mean the same kind of thing — before this row, after this row. A
+  > folder's header does not: the lower part is the one gesture that puts a tab *inside* the
+  > folder and the upper part only puts it above, which the row overhead has already offered.
+  > So `groupDropEdge` gives the folder everything below the top 10 pt of its 38, and the
+  > boundary above it keeps twice `dragThreshold`.
+  > **A shut folder opens on the drop.** The drop is the one moment the user is asking where
+  > that tab has gone, and a folder that swallows it and stays shut answers by making the row
+  > disappear. `setGroupCollapsed(false, …)` runs before the reorder, so the list arrives at its
+  > new shape once instead of opening a step after the row lands.
+  > **An expanded folder used to say nothing at all.** The indent the lift already carried was
+  > the whole of the feedback, and a 16 pt step is not an answer to "where is this going". The
+  > outline a folded header wore was the only mark either state had, and a hairline round one row
+  > is not much of a target for a tab about to disappear into it.
   > **Every step is a haptic tick.** The pointer moves continuously and the list does not — it *steps*,
   > as the lift changes places with one neighbour — and that step is `Tokens.Haptics.step()`, fired the
   > once per crossing, in §3.3's grid and §3.4's list alike. The pattern is `.alignment`, which is what

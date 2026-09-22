@@ -331,22 +331,23 @@ final class SidebarTabDragController {
         switch target {
         case let .list(row, destination):
             // A folded group has no rows on screen for a gap to open between,
-            // so the header is lit instead — see `TabListController`. And only
-            // the header: a gap opening under a shut folder is the list saying
-            // the tab lands beside it when it is about to land inside it, which
-            // is two answers to one question.
+            // so it takes the drop on its header and the list stays still: a
+            // gap opening under a shut folder is the list saying the tab lands
+            // beside it when it is about to land inside it, which is two
+            // answers to one question. The box round the folder is the same
+            // either way — see `SidebarGroupDropView`.
             let folded = list.groupHeaderRow(for: destination)
             list.setGap(row: folded == nil ? row : nil)
-            list.setGroupDropRow(folded)
+            list.setGroupDrop(inside: destination.groupID)
         case let .essentials(index):
             grid.dropIndex = index
             // Out of the list entirely: its gap closes up behind it.
             list.setGap(row: nil)
-            list.setGroupDropRow(nil)
+            list.setGroupDrop(inside: nil)
         case let .space(id):
             utility.highlightedSpaceID = id
             list.setGap(row: nil)
-            list.setGroupDropRow(nil)
+            list.setGroupDrop(inside: nil)
         }
     }
 

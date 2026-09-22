@@ -2,9 +2,12 @@
 //  SidebarRowView+Group.swift
 //  Luna
 //
-//  What §3.4b added to a sidebar row: the chevron that folds a group, the
-//  hairline down the leading edge of its tabs, and the outline a lift aimed
-//  into a folded one draws.
+//  What §3.4b added to a sidebar row: the chevron that folds a group, and the
+//  hairline down the leading edge of its tabs.
+//
+//  §6.6's answer to a lift aimed into a folder is not here. It is one box round
+//  the whole folder rather than a mark on its header — see
+//  `SidebarGroupDropView` — so no row draws it.
 //
 //  A row is still one class — a group header and a tab are the same 38 pt of
 //  pitch with the same pill behind them, and §30.6's argument for `New Tab`
@@ -62,18 +65,4 @@ extension SidebarRowView {
         ).pixelAligned
     }
 
-    /// §6.6's answer on a folded group: the header fills and takes an outline,
-    /// which is the same pair §3.3a's well answers a lift with. A line on its
-    /// own was the only feedback a shut folder gave, and a hairline is not much
-    /// of a target for a tab that is about to disappear into it.
-    ///
-    /// The fill fades in and leaves at once: the row is hidden the moment the
-    /// lift moves on, so there is nothing left on screen for a fade out to
-    /// happen in.
-    func applyDropTarget() {
-        outline.isHidden = !isDropTarget
-        outline.layer?.borderColor = Tokens.Line.border.cgColor
-        Tokens.Motion.wash(outline.layer, to: isDropTarget ? Tokens.Surface.hover : nil, animated: isDropTarget)
-        needsLayout = true
-    }
 }

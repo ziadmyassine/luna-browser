@@ -215,6 +215,18 @@ extension Tokens {
         /// belongs to it: half way across the indent, which puts it directly
         /// under the chevron it descends from.
         static let groupSpineInset = groupIndent / 2
+        /// How much of a §3.4b folder's header still means "beside this folder"
+        /// rather than "in it", for §6.6's lift.
+        ///
+        /// 10 of the row's 38. Every other row in the list is split at its
+        /// middle, because its two halves mean the same kind of thing — before
+        /// this row, after this row. A folder's header does not: the lower part
+        /// is the one gesture that puts a tab inside the folder and the upper
+        /// part only puts it above, which the row overhead has already offered.
+        /// So the target that means something gets three quarters of the row,
+        /// and 10 pt is still twice `dragThreshold` for the boundary above it.
+        static let groupDropEdge: CGFloat = 10
+
         /// What a §3.4b row that has been closed once draws its icon at. The
         /// title drops to `Text.tertiary` beside it; a favicon has no ink tier,
         /// so it fades instead.

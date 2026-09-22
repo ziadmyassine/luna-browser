@@ -24,9 +24,10 @@ extension TabListController {
     /// and the run and index a drop there means (§3.4b).
     ///
     /// The two are answered together because they come from one reading of the
-    /// pointer — which row, and which half of it. Rows are split at their
-    /// midpoint; above the first row is the head of the saved tier, which since
-    /// §3.4b is a place a tab can go. The gap row is the list's answer rather
+    /// pointer — which row, and which part of it. Rows are split at their
+    /// midpoint, bar a §3.4b folder's header — see `splitY(ofRow:)`. Above the
+    /// first row is the head of the saved tier, which since §3.4b is a place a
+    /// tab can go. The gap row is the list's answer rather
     /// than this file's arithmetic, because the rule and New Tab are one block
     /// and only the list knows where its rows begin and end.
     func landing(atY centreY: CGFloat, in space: NSView) -> (row: Int, destination: SidebarDestination) {
@@ -40,11 +41,22 @@ extension TabListController {
                 list.destination(forRow: top ? 0 : table.numberOfRows, isBelowMidpoint: false)
             )
         }
-        let below = point.y > table.rect(ofRow: row).midY
+        let below = point.y > splitY(ofRow: row)
         return (
             list.gapRow(forRow: row, isBelowMidpoint: below),
             list.destination(forRow: row, isBelowMidpoint: below)
         )
+    }
+
+    /// Where a row divides "before it" from "after it" — its middle, except on
+    /// a §3.4b folder's header. See `Metric.groupDropEdge` for why that one is
+    /// not split evenly.
+    private func splitY(ofRow row: Int) -> CGFloat {
+        let box = table.rect(ofRow: row)
+        guard case .group = list[row] else { return box.midY }
+        // Flipped: the top of the row is `minY`, so a smaller number is higher
+        // up the column and a lower split is a bigger target for the folder.
+        return box.minY + Tokens.Metric.groupDropEdge
     }
 
     /// Where the gap stands on screen: the pill the lift becomes the moment it
@@ -77,24 +89,61 @@ extension TabListController {
         return space.convert(box, from: table)
     }
 
-    /// The header row of the group a landing is inside, for §6.6's outline —
-    /// nil when the drop is a loose one, and nil when the group's own tabs are
-    /// on screen to open a gap between instead.
+    /// The header row of the group a landing is inside, for the lift to settle
+    /// onto — nil when the drop is a loose one, and nil when the group's own
+    /// tabs are on screen and there is a gap between them to settle into.
     func groupHeaderRow(for destination: SidebarDestination) -> Int? {
         guard let id = destination.groupID, list.group(id)?.isCollapsed == true else { return nil }
         return list.row(ofGroup: id)
     }
 
-    /// Outlines the group a folded drop would land in, or takes the outline
-    /// away. One row at a time: a lift is in one place.
-    func setGroupDropRow(_ row: Int?) {
-        guard row != groupDropRow else { return }
-        let previous = groupDropRow
-        groupDropRow = row
-        for index in [previous, row].compactMap({ $0 }) {
-            (table.view(atColumn: 0, row: index, makeIfNecessary: false) as? SidebarRowView)?
-                .isDropTarget = index == row
+    /// Closes §6.6's box round the folder a drop would land in, or takes it
+    /// away. One folder at a time: a lift is in one place.
+    func setGroupDrop(inside group: UUID?) {
+        guard group != groupDropID else { return }
+        groupDropID = group
+        placeGroupDrop()
+    }
+
+    /// Re-measures the box without changing which folder it is round — the
+    /// folder's extent moves when the gap opens inside it, and again on every
+    /// pass the table re-lays its rows in.
+    func placeGroupDrop() {
+        groupDrop.show(groupDropBox())
+    }
+
+    /// The folder's whole extent, in the table's own coordinates: its header,
+    /// the tabs already in it, and the gap now open for the one arriving. A
+    /// folded folder's extent is its header alone — there is nothing else of it
+    /// on screen — and a drop that is not going into a folder has none.
+    ///
+    /// The room for the arriving tab is added only when it is not already in
+    /// this folder. A tab moved inside the folder it is in leaves a hole where
+    /// it was and fills one where it is going, so the folder is the same height
+    /// throughout.
+    private func groupDropBox() -> NSRect? {
+        guard let id = groupDropID, let header = list.row(ofGroup: id) else { return nil }
+        var rows = 1
+        if list.group(id)?.isCollapsed != true {
+            let carried = draggedRow.flatMap { list.tab(at: $0) }
+            let isOneOfItsOwn = carried.flatMap { list.group(ofTab: $0.id)?.id } == id
+            rows += memberRows(ofGroup: id).count + (isOneOfItsOwn ? 0 : 1)
         }
+        return NSRect(
+            x: table.bounds.minX,
+            y: displayedRect(ofRow: header).minY,
+            width: table.bounds.width,
+            height: CGFloat(rows) * Tokens.Metric.rowHeight
+        ).insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.rowPillInset)
+    }
+
+    /// The rows a folder's own tabs occupy, which is every tab row under its
+    /// header until the list stops being inside it.
+    private func memberRows(ofGroup id: UUID) -> Range<Int> {
+        guard let header = list.row(ofGroup: id) else { return 0 ..< 0 }
+        var end = header + 1
+        while let tab = list.tab(at: end), list.group(ofTab: tab.id)?.id == id { end += 1 }
+        return (header + 1) ..< end
     }
 
     func beginDrag(atRow row: Int) {
@@ -129,6 +178,9 @@ extension TabListController {
         guard row != gapRow else { return }
         gapRow = row
         applyGap(animated: true)
+        // The folder a tab is being filed into stands wherever the gap has just
+        // put it, so the box round it is re-measured in the same breath.
+        placeGroupDrop()
     }
 
     /// Puts the gap back after the table has re-placed its own row views —
@@ -137,13 +189,14 @@ extension TabListController {
     func restoreGap() {
         guard isDragging else { return }
         applyGap(animated: false)
+        placeGroupDrop()
         guard let dragged = draggedRow else { return }
         table.rowView(atRow: dragged, makeIfNecessary: false)?.alphaValue = 0
     }
 
     func endDrag() {
         guard isDragging else { return }
-        setGroupDropRow(nil)
+        setGroupDrop(inside: nil)
         isDragging = false
         draggedRow = nil
         gapRow = nil
@@ -160,6 +213,28 @@ extension TabListController {
         movePills()
     }
 
+    /// Where a row is standing while the gap is open: the table's own answer,
+    /// plus however far the gap has moved it.
+    func displayedRect(ofRow row: Int) -> NSRect {
+        table.rect(ofRow: row).offsetBy(dx: 0, dy: gapShift(ofRow: row))
+    }
+
+    /// How far the gap has moved a row from where the table put it.
+    ///
+    /// The table is flipped, so "up one row" is a negative offset. With no
+    /// dragged row there is nothing to close up behind, so the gap is one-sided:
+    /// the landing row and everything under it step down, and a nil `gapRow`
+    /// puts them all back.
+    private func gapShift(ofRow row: Int) -> CGFloat {
+        guard isDragging, row != draggedRow else { return 0 }
+        let target = gapRow ?? table.numberOfRows
+        let height = Tokens.Metric.rowHeight
+        guard let dragged = draggedRow else { return row >= target ? height : 0 }
+        if row > dragged, row < target { return -height }
+        if row >= target, row < dragged { return height }
+        return 0
+    }
+
     /// Slides the rows between the tab's old slot and its new one by exactly one
     /// row, which is the gap. The row views are moved, not the model: a
     /// reorder committed per row crossed would be a SQLite write and an undo
@@ -167,29 +242,10 @@ extension TabListController {
     /// the reload that follows the drop.
     private func applyGap(animated: Bool) {
         guard isDragging else { return }
-        let dragged = draggedRow
-        let target = gapRow ?? table.numberOfRows
-        let height = Tokens.Metric.rowHeight
         let body = { [self] in
-            for row in 0 ..< table.numberOfRows where row != dragged {
+            for row in 0 ..< table.numberOfRows where row != draggedRow {
                 guard let view = table.rowView(atRow: row, makeIfNecessary: false) else { continue }
-                // The table is flipped, so "up one row" is a negative offset.
-                // With no `dragged` row there is nothing to close up behind,
-                // so the gap is one-sided: the landing row and everything
-                // under it step down, and a nil `gapRow` puts them all back.
-                let shift: CGFloat = if let dragged {
-                    if row > dragged, row < target {
-                        -height
-                    } else if row >= target, row < dragged {
-                        height
-                    } else {
-                        0
-                    }
-                } else {
-                    row >= target ? height : 0
-                }
-                var frame = table.rect(ofRow: row)
-                frame.origin.y += shift
+                let frame = displayedRect(ofRow: row)
                 if animated { view.animator().frame = frame } else { view.frame = frame }
             }
         }

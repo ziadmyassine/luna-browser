@@ -63,10 +63,13 @@ final class TabListController: NSObject {
     /// A §6.6 lift is up, so the saved tier's rule is out whether or not
     /// anything is saved — see `SidebarList`'s header.
     private var isRevealingSaved = false
-    /// The group header a lift is currently aimed inside, which is the only
-    /// feedback a folded group can give: there are no rows in it to open a gap
-    /// between.
-    var groupDropRow: Int?
+    /// The §3.4b folder a lift is currently aimed inside, or nil for a drop
+    /// that is landing loose. What it draws is `groupDrop`.
+    var groupDropID: UUID?
+    /// §6.6's box round the folder a tab is being filed into — see
+    /// `SidebarGroupDropView`. One for the list, like the two pills, and for
+    /// the same reason: a lift is in one place.
+    let groupDrop = SidebarGroupDropView()
     /// Live per-tab state, pushed in by `BrowserSession.onTabStateChange`.
     var liveStates: [UUID: TabState] = [:]
     /// Muted tabs (§3.4a), mirrored from `BrowserSession.mutedTabIDs` so a row can draw
@@ -146,6 +149,7 @@ final class TabListController: NSObject {
             pill.alphaValue = 0
             table.addSubview(pill, positioned: .below, relativeTo: nil)
         }
+        table.addSubview(groupDrop, positioned: .below, relativeTo: nil)
     }
 
     /// No scroller at all, which `.overlay` is not: overlay draws over the

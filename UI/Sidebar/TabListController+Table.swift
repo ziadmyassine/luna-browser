@@ -44,7 +44,6 @@ extension TabListController: NSTableViewDelegate {
         view.configure(content(for: row))
         view.isSelected = row == table.selectedRow
         view.isHovered = row == hoveredRow
-        view.isDropTarget = row == groupDropRow
         view.onTrailing = { [weak self, weak view] trailing in
             guard let view else { return }
             self?.trailingTapped(trailing, on: view)

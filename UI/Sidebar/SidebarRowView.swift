@@ -86,11 +86,6 @@ final class SidebarRowView: NSView {
 
     var isSelected = false { didSet { refreshInk() } }
     var isHovered = false { didSet { refreshInk() } }
-    /// §6.6: a lift is aimed inside this §3.4b group. The one feedback a folded
-    /// group can give — there are no rows in it to open a gap between — so the
-    /// header itself is outlined at the pill's own shape.
-    var isDropTarget = false { didSet { applyDropTarget() } }
-
     private let icon = NSImageView()
     // §3.4b's three. Internal rather than private only because Swift's
     // `private` is file-scoped and `SidebarRowView+Group.swift` is the other
@@ -103,9 +98,6 @@ final class SidebarRowView: NSView {
     let chevron = NSImageView()
     /// The hairline down the leading edge of a group's tabs.
     let spine = NSView()
-    /// The outline `isDropTarget` draws. Its own view for `spine`'s reason: this
-    /// class allocates no glass and overrides no `draw`, so a border is a layer.
-    let outline = NSView()
     private let dot = NSView()
     /// Clips and fades both title layers. See the header.
     let titleClip = NSView()
@@ -173,14 +165,9 @@ final class SidebarRowView: NSView {
         chevron.setAccessibilityElement(false)
         spine.wantsLayer = true
         spine.isHidden = true
-        outline.wantsLayer = true
-        outline.isHidden = true
-        outline.layer?.borderWidth = Tokens.Metric.hairline
-        outline.layer?.cornerRadius = Tokens.Metric.rowCornerRadius
-        outline.layer?.cornerCurve = .continuous
 
         prepareEditor()
-        for view in [outline, spine, icon, dot, titleClip, chevron, trailing, editor] { addSubview(view) }
+        for view in [spine, icon, dot, titleClip, chevron, trailing, editor] { addSubview(view) }
         setAccessibilityElement(true)
         setAccessibilityRole(.cell)
     }
@@ -263,7 +250,6 @@ final class SidebarRowView: NSView {
         icon.alphaValue = content.isDormant ? Tokens.Metric.dormantIconOpacity : 1
         chevron.contentTintColor = isSelected || isHovered ? Tokens.Text.primary : Tokens.Text.secondary
         spine.layer?.backgroundColor = Tokens.Line.hairline.cgColor
-        outline.layer?.borderColor = Tokens.Line.border.cgColor
         // Ink, not accent. Luna's chrome carries no system blue: the unread
         // mark is a full-strength dot in the same ink the title is set in, and
         // it reads because it is bright, not because it is a different hue.
@@ -343,9 +329,6 @@ final class SidebarRowView: NSView {
     }
 
     func placeGroupFurniture() {
-        outline.frame = bounds
-            .insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.rowPillInset)
-            .pixelAligned
         spine.frame = NSRect(
             x: Tokens.Metric.rowInset + Tokens.Metric.groupSpineInset,
             y: 0,

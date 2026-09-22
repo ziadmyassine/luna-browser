@@ -29,6 +29,12 @@ extension SidebarViewController {
         // Escape and a §3.5 Space dot are the two that are not a landing.
         controller.onDropInList = { [weak self] id, landing, wasPinned in
             guard let self else { return }
+            // A tab filed into a shut folder opens it. The drop is the one
+            // moment the user is asking where that tab has gone, and a folder
+            // that swallows it and stays shut answers by making the row
+            // disappear. Before the reorder, so the list arrives at its new
+            // shape once rather than opening a step after the row lands.
+            if let folder = landing.groupID { session.setGroupCollapsed(false, forGroup: folder) }
             session.reorderTab(id, to: landing.index, kind: landing.kind, group: landing.groupID)
             // Unpinning does not wake a page on its own (§19.2), so this is
             // also what loads it.
