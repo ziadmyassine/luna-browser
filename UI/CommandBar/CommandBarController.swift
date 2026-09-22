@@ -241,6 +241,10 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
         sources.tabs = session.tabsInActiveSpace(includeArchived: true)
         sources.adaptive = adaptive.snapshot
         sources.history = []
+        // Not in `init` with the settings register: a shortcut can be rebound
+        // and a command can stop applying — Back with nothing behind it — so
+        // this one is asked again each time the bar opens.
+        sources.shortcuts = BrowserCommand.commandBarEntries
 
         // The adaptive table is read once per Space. The bar is already usable
         // while this runs; on every open but the first in a Space it is a no-op.
@@ -430,7 +434,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
             } else {
                 _ = session.newTab(url: url, kind: .today)
             }
-        case .unarchiveTab, .command, .openSettings:
+        case .unarchiveTab, .command, .runCommand, .openSettings:
             onExternalAction?(action)
         }
     }

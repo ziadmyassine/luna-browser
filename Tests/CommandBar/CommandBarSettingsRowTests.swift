@@ -17,17 +17,29 @@ import XCTest
 @MainActor
 final class CommandBarSettingsRowTests: XCTestCase {
 
-    /// The live setting is a process-wide cache backing a `UserDefaults` key,
-    /// so it is put back exactly as it was found.
-    private var saved = SearchEngineSetting()
+    /// These write the very keys the running app reads, so every one of them
+    /// is put back exactly as it was found — the absent ones included.
+    /// `SearchSettings.apply` would write all four, which leaves a key behind
+    /// on a machine that never had one.
+    private var saved: [String: Any?] = [:]
+
+    private static let keys = [
+        SearchSettings.engineKey, SearchSettings.customEngineKey,
+        SearchSettings.suggestionsKey, SearchSettings.settingsResultsKey
+    ]
 
     override func setUp() {
         super.setUp()
-        saved = SearchSettings.current
+        saved = Dictionary(uniqueKeysWithValues: Self.keys.map { ($0, UserDefaults.standard.object(forKey: $0)) })
     }
 
     override func tearDown() {
-        SearchSettings.apply(saved)
+        for (key, value) in saved {
+            if let value { UserDefaults.standard.set(value, forKey: key) } else {
+                UserDefaults.standard.removeObject(forKey: key)
+            }
+        }
+        SearchSettings.reload()
         super.tearDown()
     }
 
@@ -87,6 +99,11 @@ final class CommandBarSettingsRowTests: XCTestCase {
         let found = rows("se")
         XCTAssertEqual(try XCTUnwrap(found.first).action, .openSettings(SearchSection.id))
         XCTAssertGreaterThan(found.count, 1, "the keyword matches should still be offered, below it")
+        // And the whole name still beats the front of it.
+        XCTAssertGreaterThan(
+            try XCTUnwrap(rows("search").first).score,
+            try XCTUnwrap(found.first).score
+        )
     }
 
     /// Settings rows sit below every destination and above the search row —

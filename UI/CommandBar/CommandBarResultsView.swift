@@ -284,6 +284,7 @@ private final class CommandBarRowView: NSView {
         case .history: "history"
         case .archive: "closed tab"
         case .command: "command"
+        case .shortcut: "menu command"
         case .settings: "settings section"
         case .search: "search"
         case .suggestion: "suggestion"

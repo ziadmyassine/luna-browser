@@ -57,17 +57,28 @@ enum SettingsResults {
 
     /// Nil when the section does not answer at all, and otherwise how squarely.
     ///
-    /// The title outranks the keywords, and a title the query starts outranks
-    /// one it merely appears inside — so "se" offers Search before Spaces,
-    /// which "session" happens to be a keyword of. Token-AND over both, the
-    /// same rule `CommandBarRanking.matches` uses on a tab.
+    /// Token-AND over the title and the keywords, the same rule
+    /// `CommandBarRanking.matches` uses on a tab. What the number says, in
+    /// order: a title the query starts beats one it does not — so "se" offers
+    /// Search before General, which "restore session" is a keyword of; between
+    /// two of those, the one the query covers more of; below them, the more of
+    /// the query the title itself answered; and last, the shorter title.
     private static func score(_ tokens: [String], for entry: SettingsEntry) -> Double? {
         let title = entry.title.lowercased()
         let found = tokens.allSatisfy { token in
             title.contains(token) || entry.keywords.contains { $0.contains(token) }
         }
         guard found else { return nil }
-        if title.hasPrefix(tokens.joined(separator: " ")) { return 2 }
-        return tokens.allSatisfy(title.contains) ? 1 : 0
+        // A title the query starts, ranked by how much of it the query covers:
+        // "new" is the whole front of New Window and a third of New Private
+        // Window, and the shorter one is what was meant.
+        let query = tokens.joined(separator: " ")
+        if title.hasPrefix(query) { return 2 + Double(query.count) / Double(title.count) }
+        // Otherwise, how much of the query the title itself answered — the rest
+        // came from the keywords — and, between two that answered as much, the
+        // shorter title. "copy link" is half a title match for both Copy URL
+        // and Copy URL as Markdown, and Copy URL is the one being asked for.
+        let inTitle = Double(tokens.count { title.contains($0) }) / Double(tokens.count)
+        return inTitle + 1 / Double(title.count + 1)
     }
 }

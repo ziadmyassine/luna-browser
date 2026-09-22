@@ -373,6 +373,16 @@ about; the key map is still declared once, in `BrowserCommand`, and rebinding
 rebuilds the whole bar (`MainMenu.rebuild`) because a live menu item silently
 refuses a new ⌘-number.
 
+**Every command in the table is also reachable from the Command Bar.** Type its
+name — or something near it: "copy link" finds Copy URL — and the row carries
+the command's symbol and the keystroke it wears right now, so the bar is where
+a shortcut is learned as well as where a command is run. The symbol on
+`BrowserCommand` is what marks a command as belonging there; the ones without
+one are macOS's (Undo, Cut, Minimize) or are already answered elsewhere in the
+list. Each row is checked against the responder chain when the bar opens, the
+same question a menu asks before it opens, so Back with nothing behind it is
+not offered. See `ShortcutResults`.
+
 **Which rows are editable is carried by the drawing, not by a sentence.** An
 editable shortcut sits in a box — `SettingsShortcutRecorder`, a well with a
 hairline and a pointing-hand cursor — and clicking it records the next

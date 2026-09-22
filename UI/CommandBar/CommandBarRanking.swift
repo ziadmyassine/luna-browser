@@ -47,6 +47,10 @@ struct CommandBarSources: Sendable {
     /// synchronous one. Already scoped to the Space by the query.
     var history: [HistoryHit] = []
     var commands: [AppCommand] = AppCommand.allCases
+    /// §20.1's menu commands, as rows the bar can offer — see
+    /// `ShortcutResults`. Snapshotted by the controller when the bar opens,
+    /// because a binding can be rebound and a command can stop applying.
+    var shortcuts: [ShortcutEntry] = []
     /// §2's Settings sections, as rows the bar can offer — see
     /// `SettingsResults`. Handed in by the controller from
     /// `SettingsSectionRegistry`, which is `@MainActor` and AppKit's; this
@@ -100,6 +104,7 @@ enum CommandBarRanking {
         rows.append(contentsOf: tabRows(tokens: tokens, sources: sources))
         rows.append(contentsOf: historyRows(sources: sources))
         rows.append(contentsOf: commandRows(tokens: tokens, sources: sources))
+        rows.append(contentsOf: ShortcutResults.rows(tokens: tokens, entries: sources.shortcuts))
         rows.append(contentsOf: SettingsResults.rows(tokens: tokens, entries: sources.settings))
         let hasDirect = rows.contains { $0.source == .directURL }
         if let search = searchRow(query: query, hasDirectURL: hasDirect) {

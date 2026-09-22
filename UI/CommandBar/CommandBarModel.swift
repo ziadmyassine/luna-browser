@@ -32,6 +32,10 @@ enum CommandBarAction: Sendable, Hashable {
     /// Navigate the current or a new tab. The only case that carries a URL.
     case open(URL)
     case command(AppCommand)
+    /// Fire one of §20.1's menu commands, named by `BrowserCommand.id`. The
+    /// id and not the `Selector`: a selector is not `Sendable`, and the
+    /// lookup belongs where the commands are declared.
+    case runCommand(String)
     /// Open the Settings window on one of §2's sections, named by
     /// `SettingsSection.id`. A string rather than a section type: this enum is
     /// `Sendable` and free of AppKit, and the id is what
@@ -77,6 +81,10 @@ enum CommandBarSource: Sendable, Hashable, Comparable, CaseIterable {
     case history
     case archive
     case command
+    /// A menu command the query names (§20.1's table) — `ShortcutResults`.
+    /// Below `command` because those two are the ones with no menu item of
+    /// their own; everything here is also two clicks away in the menu bar.
+    case shortcut
     /// A Settings section whose name the query matches (§2). Below `command`
     /// on the same reasoning that puts `command` below the pages: somebody
     /// typing into an address bar is usually going somewhere, and the two

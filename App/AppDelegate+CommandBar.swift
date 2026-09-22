@@ -57,6 +57,12 @@ extension AppDelegate {
         case .command(.newSpace):
             guard let session else { return }
             Task { try? await session.createSpace(name: String(localized: "New Space")) }
+        case let .runCommand(id):
+            // Nil-targeted, exactly as the menu item would send it: the bar has
+            // already dismissed and handed the keyboard back, so the chain this
+            // walks is the one the command was written for.
+            guard let command = BrowserCommand.command(id: id) else { return }
+            NSApp.sendAction(command.action, to: nil, from: nil)
         case let .openSettings(section):
             showSettings(section: section)
         case .activateTab, .open:
