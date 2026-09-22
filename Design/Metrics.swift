@@ -43,7 +43,7 @@ struct SpanMetric: Sendable {
 
 /// A sized, rounded chrome element. A `cornerRadius` of exactly `height / 2`
 /// is §1's "radius (full)" — a pill.
-struct RoundedMetric: Sendable {
+struct RoundedMetric: Sendable, Equatable {
     var width: CGFloat
     var height: CGFloat
     var cornerRadius: CGFloat

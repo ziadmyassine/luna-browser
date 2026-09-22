@@ -146,20 +146,35 @@ final class TopBarActionCapsuleTests: XCTestCase {
 }
 
 @MainActor
-final class TopBarURLPillLayoutTests: XCTestCase {
+final class TopBarChipLayoutTests: XCTestCase {
 
     /// The one piece of §4 layout worth a test: `NSTextField.intrinsicContentSize`
     /// reports the glyph run without the cell's 2 pt title inset on each side,
-    /// so a label framed to it tail-truncates a domain that fits the pill with
-    /// 90 pt to spare. The pill measures with `fittingSize` for that reason.
-    func testTheDomainLabelIsWideEnoughToDrawItsString() throws {
-        let pill = TopBarURLPill(frame: NSRect(origin: .zero, size: Tokens.Metric.urlPill.size))
-        pill.apply(url: URL(string: "https://example.com"), icon: nil, tint: nil)
-        pill.layoutSubtreeIfNeeded()
+    /// so a chip sized to it tail-truncates a title that fits it. The chip
+    /// measures with `fittingSize` for that reason.
+    func testAChipIsWideEnoughToDrawItsTitle() throws {
+        let chip = TopBarButton(metric: TopBarMetrics.chip, glass: false)
+        chip.titleText = "example.com"
+        chip.setFrameSize(chip.intrinsicContentSize)
+        chip.layoutSubtreeIfNeeded()
 
-        let label = try XCTUnwrap(pill.subviews.compactMap { $0 as? NSTextField }.first)
+        let label = try XCTUnwrap(chip.subviews.compactMap { $0 as? NSTextField }.first)
         let cell = try XCTUnwrap(label.cell)
         XCTAssertEqual(label.stringValue, "example.com")
         XCTAssertGreaterThanOrEqual(label.frame.width, cell.cellSize.width)
+    }
+
+    /// A tile is its metric and nothing more: §4 draws a kept tab as a bare
+    /// icon, and a title left on one would widen the run it is standing in.
+    func testATileWithNoTitleIsItsMetric() {
+        let tile = TopBarButton(metric: TopBarMetrics.tile, glass: false)
+        XCTAssertEqual(tile.intrinsicContentSize, TopBarMetrics.tile.size)
+    }
+
+    /// One long page title must not spend the room every other tab needs.
+    func testALongTitleStopsAtTheCeiling() {
+        let chip = TopBarButton(metric: TopBarMetrics.chip, glass: false)
+        chip.titleText = String(repeating: "long title ", count: 20)
+        XCTAssertEqual(chip.intrinsicContentSize.width, TopBarMetrics.chipCeiling)
     }
 }

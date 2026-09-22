@@ -2,9 +2,17 @@
 //  TopBarButton.swift
 //  Luna
 //
-//  Every icon control on the top bar: the sidebar toggle, back, a tab tile, a
-//  capsule item (UI-SPEC §4). One class, because the four differ only in their
-//  `RoundedMetric` and whether they carry glass.
+//  Every control on the top bar: the sidebar toggle, back, a tab tile, a
+//  capsule item, a tab chip, a folder's header (UI-SPEC §4). One class, because
+//  they differ only in their `RoundedMetric`, whether they carry glass, and
+//  whether they carry a word.
+//
+//  `titleText` is what makes a chip out of a tile, and it is one property
+//  rather than a second class because everything else about the two is the same
+//  control: the same two washes, the same swell, the same right-click, the same
+//  focus ring, the same `AXButton`. §4's strip draws a kept tab as an icon and
+//  an open one as an icon with its title beside it, and that is the whole of
+//  the difference.
 //
 //  It is an `NSButton` on purpose. §20.2 wants a visible focus ring, the key
 //  view loop and space/return activation on every chrome control, and §21.1
@@ -46,6 +54,29 @@ final class TopBarButton: NSButton {
         set { glyph.image = newValue }
     }
 
+    /// The word beside the icon, or nil for an icon on its own. Setting it
+    /// changes the button's width, which is why it invalidates the intrinsic
+    /// size rather than only asking for a layout pass.
+    var titleText: String? {
+        didSet {
+            guard titleText != oldValue else { return }
+            label.stringValue = titleText ?? ""
+            label.isHidden = titleText == nil
+            invalidateIntrinsicContentSize()
+            needsLayout = true
+        }
+    }
+
+    /// §3.4's selected fill, standing still: this is the tab the window is
+    /// showing. The same 12 % plate and the same ring the column's pill wears,
+    /// because it is the same statement in the other layout.
+    var isSelected = false {
+        didSet {
+            guard isSelected != oldValue else { return }
+            refreshFill()
+        }
+    }
+
     /// Told when the button goes down and comes back up. For the one case a
     /// button cannot answer a press itself — see `ownsItsMaterial`.
     var onPressChange: ((Bool) -> Void)?
@@ -53,9 +84,12 @@ final class TopBarButton: NSButton {
     /// §4's action capsule, whose material belongs to the capsule.
     var ownsItsMaterial = true
 
-    private let metric: RoundedMetric
+    /// The shape this button was built as. Read by §4's strip, which rebuilds
+    /// a chip when its tier changes its shape — see `TopBarTabStrip.chip(for:)`.
+    let metric: RoundedMetric
     private let hoverFill = NSView()
     private let glyph = NSImageView()
+    private let label = NSTextField(labelWithString: "")
     private var tracking: NSTrackingArea?
     private var isHovered = false
     private var isPressed = false
@@ -77,12 +111,17 @@ final class TopBarButton: NSButton {
         if glass { Glass.apply(.control, to: self, cornerRadius: metric.cornerRadius) }
 
         hoverFill.wantsLayer = true
-        hoverFill.layer?.cornerCurve = .continuous
+        hoverFill.layer?.cornerCurve = metric.cornerCurve
         hoverFill.layer?.cornerRadius = metric.cornerRadius
         addSubview(hoverFill)
 
         glyph.imageScaling = .scaleProportionallyUpOrDown
         addSubview(glyph)
+
+        label.isHidden = true
+        label.lineBreakMode = .byTruncatingTail
+        label.cell?.usesSingleLineMode = true
+        addSubview(label)
 
         applyTokens()
     }
@@ -107,7 +146,22 @@ final class TopBarButton: NSButton {
 
     // MARK: - Geometry
 
-    override var intrinsicContentSize: NSSize { metric.size }
+    /// A tile is its metric. A chip is as wide as its word needs, between the
+    /// two ends `TopBarMetrics` names: narrower than the floor and the title is
+    /// an ellipsis with nothing in front of it, wider than the ceiling and one
+    /// long page title is the whole bar.
+    override var intrinsicContentSize: NSSize {
+        guard titleText != nil else { return metric.size }
+        // `fittingSize`, not `intrinsicContentSize`: the latter reports the
+        // glyph run without the cell's 2 pt title inset on each side, and a
+        // chip framed to it tail-truncates a title that fits.
+        let text = label.fittingSize.width.rounded(.up)
+        let width = TopBarMetrics.chipInset * 2 + TopBarMetrics.glyph + TopBarMetrics.gap + text
+        return NSSize(
+            width: min(max(width, TopBarMetrics.chipFloor), TopBarMetrics.chipCeiling),
+            height: metric.height
+        )
+    }
 
     override func layout() {
         super.layout()
@@ -118,11 +172,19 @@ final class TopBarButton: NSButton {
     private func placeContents() {
         hoverFill.frame = bounds
         let size = TopBarMetrics.glyph
-        glyph.frame = NSRect(
-            x: ((bounds.width - size) / 2).rounded(),
-            y: ((bounds.height - size) / 2).rounded(),
-            width: size,
-            height: size
+        let y = ((bounds.height - size) / 2).rounded()
+        guard titleText != nil else {
+            glyph.frame = NSRect(x: ((bounds.width - size) / 2).rounded(), y: y, width: size, height: size)
+            return
+        }
+        glyph.frame = NSRect(x: TopBarMetrics.chipInset, y: y, width: size, height: size)
+        let textX = glyph.frame.maxX + TopBarMetrics.gap
+        let line = label.font?.boundingRectForFont.height.rounded(.up) ?? size
+        label.frame = NSRect(
+            x: textX,
+            y: ((bounds.height - line) / 2).rounded(),
+            width: max(bounds.width - TopBarMetrics.chipInset - textX, 0),
+            height: line
         )
     }
 
@@ -202,15 +264,24 @@ final class TopBarButton: NSButton {
 
     /// §3.4's two washes: the pointer's, and the press's at twice it. A
     /// disabled button is in neither — it does not answer a pointer at all.
+    ///
+    /// A selected button is already wearing the press's wash and stays there
+    /// under the pointer, exactly as §3.4's row pill does: the plate says which
+    /// tab this is, and brightening it for a hover would say it twice.
     private var fillColour: NSColor? {
         guard isEnabled else { return nil }
-        if isPressed { return Tokens.Surface.selected }
+        if isPressed || isSelected { return Tokens.Surface.selected }
         return isHovered ? Tokens.Surface.hover : nil
     }
 
     private func refreshFill() {
         effectiveAppearance.performAsCurrentDrawingAppearance {
             Tokens.Motion.wash(self.hoverFill.layer, to: self.fillColour)
+            // §3.4's selected pill is a fill and a ring. Written straight
+            // rather than washed: a border animating its colour to nil leaves
+            // a hairline of the old one on the frame it lands on.
+            self.hoverFill.layer?.borderWidth = self.isSelected ? Tokens.Metric.hairline : 0
+            self.hoverFill.layer?.borderColor = self.isSelected ? Tokens.Line.border.cgColor : nil
         }
     }
 
@@ -248,6 +319,8 @@ final class TopBarButton: NSButton {
         // so the dimmest ink tier stands in — it is a real token and it is the
         // right direction. See the report: `Tokens.Text.disabled` is missing.
         glyph.contentTintColor = isEnabled ? Tokens.Text.primary : Tokens.Text.tertiary
+        label.font = Tokens.TypeScale.sidebarRow
+        label.textColor = isEnabled ? Tokens.Text.primary : Tokens.Text.tertiary
         // §3.4's 6 % lift, and 12 % under a press. This used to borrow
         // `Line.border` because the note said no hover token existed;
         // `Surface.hover` is that token and it is the same 6 %, so the

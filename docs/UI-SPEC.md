@@ -1696,23 +1696,57 @@ back: it could not be hit at all.
 
 One 52 pt glass bar spanning the window. **Content is flush full-bleed below it — no inset card, no gap.**
 
-`[traffic lights] [back] [tab tiles …] [ACTIVE TAB pill] [tab tiles …] [hairline] [action capsule]`
+`[lights] [Space] [back] [kept tabs …] [kept folders] [hairline] [open tabs …] [open folders] [|] [capsule]`
 > **There is no sidebar toggle on this bar.** There is no sidebar in this layout to hide, so the button
 > either did nothing or silently changed a preference.
 > **Back is a capsule of one**, and both ends of the bar are the same object. It was a bare glass circle
 > of `TopBarMetrics.capsuleItem` — the same 28 pt *item* as the buttons at the other end, which is not
 > the same *size*: the cylinder adds its padding, and one control at 28 beside three at 36 is the
 > mismatch the eye catches. Same class, same radius, one item in it.
-> **Switching the active tab animates.** The outgoing tab's pill collapses into a tile and the incoming
-> tile expands into the pill, each seeded at the other's frame, with every tile after them sliding along
-> on §6's `tabInsert` spring. The strip is one ordered run, and it used to jump.
 
-- **Tabs are visible in this mode as a horizontal strip.** Inactive tabs render as 28 pt icon-only tiles;
-  the **active tab expands into the URL pill** showing its domain, favicon and sliders glyph. This is why
-  tiles appear on both sides of the pill and why the pill is not exactly window-centred.
+- **The strip draws everything §3.4's list draws**, in one line: §3.3's tiles, §3.4b's kept tier and its
+  folders, then a hairline, then the day's tabs and folders.
   > This supersedes §30.12's claim that tabs are invisible in this mode.
+- **Every chip on this bar is a capsule**, which is Safari's language and now Luna's here. A kept tab has
+  nothing to say, so its capsule is a circle; an open tab is the same 28 pt tall shape stretched around
+  its title, floored at three tiles' width and capped at 180 pt. One family of shapes, not circles beside
+  squircles.
+- **Two shapes, and the tier decides which.** A kept tab — §3.3's or §3.4b's — is a bare icon. An open
+  tab carries its title. The tabs you keep are recognised by their site; the tabs you have open are being
+  told apart, and a run of identical icons cannot do it.
+- **The kept run stands in one glass cylinder** (`.control`, full radius), so "the tabs you keep" is said
+  once around all of them rather than implied by a gap. §3.4b's kept folders are inside it too: the
+  cylinder is the tier, not the tiles.
+- **A kept tab that is the tab you are on carries §3.3's own light** — `FaviconTint`'s colour for that
+  site, through the same `EssentialGlowView` the column's grid uses, at a circular radius. One light for
+  the whole strip, because only one tab can be the one you are on. A kept tab is the same thing in both
+  layouts and it says so the same way.
+- **An open tab that is the tab you are on wears §3.4's selected plate** instead — the same 12 % fill and
+  `Line.border` ring the column's row pill wears, staying at that fill under the pointer rather than
+  brightening. Never both: a glow around a chip already carrying the plate is the same sentence twice, in
+  two different colours.
+- **There is no address bar in this layout.** The active tab used to swell into a 266 pt URL pill in the
+  middle of the run; with tabs that carry their own titles that was a fourth shape among three, and the
+  whole run jumped a pill's width every time the selection moved. `⌘L` opens §9.1's Command Bar over the
+  page with the current address in it, which is the same field with the same history behind it.
+- **A folder stands on a recessed plate** (`Surface.well`) and opens along the bar: folded it is its icon
+  and name, open it is that header followed by its tabs on the same plate. The plate is the horizontal
+  answer to the column's indentation — the tabs in a folder are the ones standing on it. Pressing the
+  header folds and unfolds it and does nothing else; it is not a tab, so it cannot take the window
+  anywhere. `isCollapsed` is the column's own flag, so a folder is open in both layouts or shut in both.
+- **Loose tabs come before the folders of their own tier.** The column can put a folder between two tabs
+  because it has as many rows as it likes; the bar has one line, and a named pill in the middle of a run
+  of icons breaks the run in two for no reason the user asked for. This is the only arrangement the bar
+  states for itself.
+- **The hairline only comes out when there is something on both sides of it.** It divides what is kept
+  from what is not, with a cluster gap of air either side rather than the 8 pt the run is spaced on — a
+  divider spaced like the things it divides reads as one more of them.
 - **No reload button** in this layout — the reference omits it. Reload is `⌘R` and the site menu.
 - The strip scrolls horizontally when it overflows; the active tab is always scrolled into view.
+- **Right-clicking a chip opens the same menu the column's row opens** — §3.4a on a tab, §3.4b on a
+  folder. The one difference is where a name is typed: the column types it on the row, and a chip is not
+  a line of text there is room to type on, so the bar's *Rename…* asks in a dialog. Same items, same
+  order, same verbs on `BrowserSession`.
 - **Where the run sits is `Settings.tabsPosition`** (§3.9), and it is **centred** by default. "Centred"
   means centred in the span between Back and the hairline, not in the window: the two clusters it sits
   between are different widths, and a run centred on the window reads as off-centre between them —
@@ -1720,6 +1754,22 @@ One 52 pt glass bar spanning the window. **Content is flush full-bleed below it 
   meaning anything and the run scrolls from its leading edge. The clear run is padding *inside* the
   scroll view's document, because a document narrower than its clip view is anchored at the clip's
   leading edge whatever origin it is given.
+- **The Space switcher stands beside the traffic lights**: one glass cylinder, `[‹] Personal [›]`.
+  > **The name is the control, not a caption on one.** §3.5's dot strip answers "which of these" and is
+  > right at the foot of a column, where there is a strip of room and no words. A bar has words and no
+  > room, and six identical dots on it say less than the one name they stand for. The arrows keep the
+  > dots' one advantage — a Space is one click away — without spending a point per Space to offer it,
+  > and they stop at the ends of the run rather than wrapping.
+  > **The name pops when it changes**, flaring from 1.08 and settling on §6's `tabInsert`, because it is
+  > the only thing on the bar that says the whole window has moved. Every other read-out of a Space
+  > switch is the tabs redrawing, which looks like tabs redrawing.
+  > **§30.9's swipe is offered here too**, with this control as its ruler — the column measures the
+  > gesture against the page it slides, and nothing slides here. While the fingers are down the name is
+  > pushed the way they are going and fades, so the gesture says what it will do before it does it. Past
+  > the last Space it still makes one.
+  > **Right-click is §8.2's colour menu**, the same one §3.5's dot carries — `SidebarMenu.colours`, shared
+  > from the day there were two places a Space is visible, because a colour that could only be set from
+  > one layout would be a property of the layout.
 - **Action capsule**: its own rounded glass capsule, separated by a vertical hairline, holding
   `[+ new tab] [history] [downloads] [profile]`. Extension action buttons dock here when extensions ship
   (v2) — build the capsule to host a variable number of items now.

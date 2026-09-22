@@ -2,11 +2,19 @@
 //  TopBarTabStrip.swift
 //  Luna
 //
-//  §4: tabs are visible in the sidebar-off layout. Inactive tabs are 28 pt
-//  icon-only tiles; the active tab expands into the URL pill. That is why tiles
-//  appear on both sides of the pill and why the pill is not window-centred —
-//  the strip is one ordered run and the pill is simply the wide element in it.
-//  (This supersedes §30.12, which claimed tabs are invisible here.)
+//  §4: the tab list, along a bar instead of down a column. It draws everything
+//  §3.4's list draws — §3.3's tiles, §3.4b's kept tier, its folders, and the
+//  day's tabs — in one run, with a hairline where the column has its rule.
+//
+//  Two shapes and one rule between them: a kept tab is a bare icon, an open one
+//  carries its title. `TopBarStripRun` holds the arrangement and the reasons
+//  for it; this file is the views, their frames, and the scrolling.
+//
+//  A folder stands on a plate (`TopBarGroupPlate`) and grows along the bar when
+//  it is opened, which is the horizontal answer to the column's indentation:
+//  the tabs in a folder are the ones standing on its plate. Folded and open are
+//  the same `isCollapsed` the column writes, so a folder is open in both
+//  layouts or shut in both.
 //
 //  The strip scrolls horizontally when it overflows and the active tab is
 //  always scrolled back into view. An `NSScrollView` does the scrolling: it
@@ -22,13 +30,19 @@
 //  span the alignment stops meaning anything and the run scrolls from its
 //  leading edge.
 //
-//  Right-clicking a tile opens §3.4a's tab menu — the same seven items a §3.4
-//  row and a §3.3 tile get, from the same binding on `BrowserSession`. The
-//  layout you are in does not change what you can do to a tab.
+//  Right-clicking a tab opens §3.4a's menu and right-clicking a folder opens
+//  §3.4b's, from the same bindings on `BrowserSession` the column uses. The
+//  layout you are in does not change what you can do to a tab. The one
+//  difference is where a name is typed: the column types it on the row, and
+//  this asks in a dialog, because a chip is not a line of text there is room to
+//  type on.
 //
-//  Tiles are icon-only, so §8 and §21.1 require an explicit VoiceOver label —
-//  the page title, or the site name when there is no title, never the URL.
-//  The strip itself is a tab list and each item carries its position and count.
+//  There is no address bar in this run any more. It used to be here — the
+//  active tab swelled into a URL pill and every other tab was an icon — and
+//  that could not survive tabs that carry their own titles: the pill was a
+//  fourth shape among three, and the run jumped a pill's width every time the
+//  selection moved. `⌘L` opens §9.1's bar over the page instead, which is the
+//  same field with the same history behind it.
 //
 
 import AppKit
@@ -39,19 +53,28 @@ final class TopBarTabStrip: NSView, WindowScoped {
 
     let session: BrowserSession
     let windowID: UUID
-    private let scrollView = NSScrollView()
-    private let content = StripContentView()
-    private let pill = TopBarURLPill()
+    let scrollView = NSScrollView()
+    let content = StripContentView()
+    let rule = TopBarSeparator()
+    let cylinder = TopBarKeptCylinder()
+    /// §3.3's light, one for the whole strip: only one tab can be the one you
+    /// are on, so only one kept chip can be lit.
+    let glow = EssentialGlowView()
 
-    private var tiles: [UUID: TopBarButton] = [:]
-    private var order: [UUID] = []
-    private var activeID: UUID?
-    private var scrolledTo: UUID?
+    var run = TopBarStripRun()
+    /// Every chip on the bar, by the id of the tab or folder it draws. Reused
+    /// across reloads so a title or favicon update does not rebuild the strip.
+    var chips: [UUID: TopBarButton] = [:]
+    var plates: [UUID: TopBarGroupPlate] = [:]
+    var activeID: UUID?
+    /// Which kept chip the light is standing on, or nil for none.
+    var litID: UUID?
+    var scrolledTo: UUID?
     /// Set by `reload()` when the active tab changed, consumed by the next
     /// `layout()`. See `placeContents`.
-    private var animatesNextPlacement = false
+    var animatesNextPlacement = false
     /// §4's alignment, cached rather than read per layout pass.
-    private var tabsPosition = Settings.tabsPosition(in: .topBar)
+    var tabsPosition = Settings.tabsPosition(in: .topBar)
 
     init(session: BrowserSession, windowID: UUID) {
         self.session = session
@@ -77,17 +100,10 @@ final class TopBarTabStrip: NSView, WindowScoped {
 
         content.setAccessibilityRole(.tabGroup)
         content.setAccessibilityLabel(String(localized: "Tabs"))
-
-        pill.onNavigate = { [weak self] url in self?.session.load(url) }
-        // Search is the Command Bar's surface (§9.1), not the pill's, and
-        // `presentCommandBar` is already the way in.
-        pill.onSearch = { [weak self] text in
-            guard let self else { return }
-            // Out of the pill it was typed in, not out of the middle of the
-            // window: §4's bar hands off the same way §3.2's does.
-            presentCommandBar?(.search(text), CommandBarAnchor(view: pill))
-        }
-        content.addSubview(pill)
+        content.addSubview(cylinder)
+        content.addSubview(rule)
+        glow.cornerRadius = TopBarMetrics.tile.cornerRadius
+        content.addSubview(glow)
 
         NotificationCenter.default.addObserver(
             self,
@@ -111,108 +127,100 @@ final class TopBarTabStrip: NSView, WindowScoped {
 
     // MARK: - Session
 
-    /// Re-reads the tab list. Tiles are reused across reloads so a title or
-    /// favicon update does not rebuild the strip.
+    /// Re-reads the tab list.
     func reload() {
-        let tabs = windowTabs
         let previousActive = activeID
-        order = tabs.map(\.id)
+        run = TopBarStripRun(
+            essentials: windowEssentials,
+            saved: windowSlots(inTier: .pinned),
+            today: windowSlots(inTier: .today)
+        )
         activeID = activeTabID
         // A switch between two tabs is the one reload worth animating: the
-        // outgoing tab collapses from pill to tile and the incoming one
-        // expands. A first load, or a tab arriving or leaving, is not — there
-        // is no "from" to slide out of.
-        let isSwitch = previousActive != nil && activeID != nil && previousActive != activeID
-        animatesNextPlacement = isSwitch
+        // plate a folder stands on grows or shrinks, and the tabs after it
+        // slide along. A first load, or a tab arriving or leaving, is not —
+        // there is no "from" to slide out of.
+        animatesNextPlacement = previousActive != nil && activeID != nil && previousActive != activeID
         // Every reload re-honours §4's "the active tab is always scrolled into
         // view"; live title changes arrive through `apply(_:for:)` instead and
         // do not fight the user's own scrolling.
         scrolledTo = nil
 
-        for (id, tile) in tiles where !order.contains(id) {
-            tile.removeFromSuperview()
-            tiles.removeValue(forKey: id)
-        }
-        // Where the two views that swap roles should start from, so the swap
-        // reads as one shape growing and another shrinking rather than as two
-        // views teleporting past each other.
-        var pillSeed: NSRect?
-        let pillWas = pill.frame
-        for (index, tab) in tabs.enumerated() {
-            let help = Self.position(index, of: tabs.count)
-            if tab.id == activeID {
-                if let stale = tiles.removeValue(forKey: tab.id) {
-                    pillSeed = stale.frame
-                    stale.removeFromSuperview()
+        var live: Set<UUID> = []
+        for block in run.blocks {
+            switch block {
+            case let .tab(tab, style):
+                live.insert(tab.id)
+                configure(tab, style: style)
+            case let .group(group, members, style):
+                live.insert(group.id)
+                configure(group, memberCount: members.count)
+                for member in members {
+                    live.insert(member.id)
+                    configure(member, style: style)
                 }
-                pill.setAccessibilityHelp(help)
-                applyActive(state(for: tab), id: tab.id)
-            } else {
-                let fresh = tiles[tab.id] == nil
-                configureTile(for: tab, help: help)
-                // The tab that just stopped being active: its tile is brand new
-                // and belongs where the pill is standing right now.
-                if isSwitch, fresh, tab.id == previousActive, let tile = tiles[tab.id] {
-                    Tokens.Motion.immediately { tile.frame = pillWas }
-                }
+            case .rule:
+                break
             }
         }
-        pill.isHidden = activeID == nil
-        if isSwitch, let pillSeed {
-            Tokens.Motion.immediately { pill.frame = pillSeed }
-        }
+        retire(keeping: live)
+        rule.isHidden = !run.blocks.contains(.rule)
+        cylinder.isHidden = run.kept == 0
+        relight(blooming: previousActive != nil && previousActive != activeID)
         needsLayout = true
+    }
+
+    /// §3.3's light, on the kept chip that is the tab this window is showing.
+    ///
+    /// Only a kept one. An open tab already says it is the current one with
+    /// §3.4's plate, and a site's glow around a chip carrying that plate as
+    /// well would be the same sentence twice in two different colours.
+    private func relight(blooming: Bool) {
+        let lit = activeID.flatMap { id in run.keptTab(id) }
+        let moved = lit?.id != litID
+        litID = lit?.id
+        placeGlow()
+        glow.show(lit.map(FaviconTint.glow(for:)), blooming: blooming && moved && lit != nil)
     }
 
     /// One tab's live state (title, `themeColor`) without a full reload.
     func apply(_ state: TabState, for id: UUID) {
-        guard id != activeID else { return applyActive(state, id: id) }
-        guard let tile = tiles[id] else { return }
-        let title = state.title.isEmpty ? TopBarDomain.display(for: state.url) : state.title
-        tile.setAccessibilityLabel(title)
-        tile.toolTip = title
-        tile.icon = session.favicon(for: id) ?? TopBarButton.symbol("globe")
+        guard let chip = chips[id], let tab = session.tab(id) else { return }
+        let title = tab.listTitle.isEmpty ? TopBarDomain.display(for: state.url) : tab.listTitle
+        chip.setAccessibilityLabel(title)
+        chip.toolTip = title
+        if chip.titleText != nil { chip.titleText = title }
+        chip.icon = tab.customSymbolName.flatMap(TopBarButton.symbol)
+            ?? session.favicon(for: id)
+            ?? TopBarButton.symbol("globe")
+        needsLayout = true
     }
 
-    /// `⌘L` (§20.1).
-    func beginURLEditing() {
-        pill.beginEditing()
-    }
+    // MARK: - Chips
 
-    private func applyActive(_ state: TabState, id: UUID) {
-        pill.apply(
-            url: state.url,
-            icon: session.favicon(for: id),
-            tint: state.themeColor.map { NSColor($0) }
-        )
-        pill.setLoad(state, for: id)
-    }
-
-    /// The live state when the tab is warm, the persisted row when it is not —
-    /// §19.2's whole point is that a hibernated tab still renders without
-    /// costing a web view.
-    private func state(for tab: Tab) -> TabState {
-        session.controller(for: tab.id)?.state
-            ?? TabState(url: tab.url, title: tab.title, themeColor: tab.themeColor)
-    }
-
-    // MARK: - Tiles
-
-    private func configureTile(for tab: Tab, help: String) {
-        let tile = tiles[tab.id] ?? makeTile(tab.id)
-        tiles[tab.id] = tile
+    private func configure(_ tab: Tab, style: TopBarTabStyle) {
+        let chip = chip(for: tab.id, metric: style == .icon ? TopBarMetrics.tile : TopBarMetrics.chip)
         // §3.4a: the icon and the name the user chose outrank the site's.
-        tile.icon = tab.customSymbolName.flatMap(TopBarButton.symbol)
+        chip.icon = tab.customSymbolName.flatMap(TopBarButton.symbol)
             ?? session.favicon(for: tab.id)
             ?? TopBarButton.symbol("globe")
         let label = tab.listTitle.isEmpty ? TopBarDomain.display(for: tab.url) : tab.listTitle
-        tile.setAccessibilityLabel(label)
-        tile.setAccessibilityHelp(help)
-        tile.toolTip = label
-        // §3.4a. The tab is re-read inside the closure rather than captured: a tile is
-        // reused across reloads, so the `tab` this pass was configured from is a snapshot
-        // and the menu has to state what is true when it opens.
-        tile.menuBuilder = { [weak self] in
+        // Icon-only, so §8 and §21.1 require the label spelled out — the page
+        // title, or the site name when there is no title, never the URL.
+        chip.setAccessibilityLabel(label)
+        chip.setAccessibilityRole(.radioButton)
+        chip.setAccessibilityHelp(position(of: tab.id))
+        chip.toolTip = label
+        chip.titleText = style == .chip ? label : nil
+        // A kept chip says it is the current tab with §3.3's light instead —
+        // see `relight`.
+        chip.isSelected = style == .chip && tab.id == activeID
+        chip.target = self
+        chip.action = #selector(tabPressed)
+        // The tab is re-read inside the closure rather than captured: a chip is
+        // reused across reloads, so the `tab` this pass was configured from is a
+        // snapshot and the menu has to state what is true when it opens.
+        chip.menuBuilder = { [weak self] in
             guard let self, let current = session.tab(tab.id) else { return nil }
             return TabMenu.build(
                 for: current,
@@ -222,33 +230,84 @@ final class TopBarTabStrip: NSView, WindowScoped {
         }
     }
 
-    private func makeTile(_ id: UUID) -> TopBarButton {
-        let tile = TopBarButton(metric: TopBarMetrics.tile, glass: false)
-        tile.identifier = NSUserInterfaceItemIdentifier(id.uuidString)
-        tile.setAccessibilityRole(.radioButton)
-        tile.target = self
-        tile.action = #selector(tilePressed)
-        content.addSubview(tile)
-        return tile
+    private func configure(_ group: TabGroup, memberCount: Int) {
+        let chip = chip(for: group.id, metric: TopBarMetrics.chip)
+        chip.icon = RowEmoji.image(group.symbolName, pointSize: TopBarMetrics.glyph)
+            ?? TopBarButton.symbol(group.symbolName)
+            ?? TopBarButton.symbol(TabGroup.defaultSymbolName)
+        chip.titleText = group.name
+        chip.setAccessibilityRole(.disclosureTriangle)
+        chip.setAccessibilityLabel(group.name)
+        chip.setAccessibilityValue(group.isCollapsed ? 0 : 1)
+        chip.setAccessibilityHelp(String(localized: "Folder, \(memberCount) tabs"))
+        chip.toolTip = group.name
+        chip.isSelected = false
+        chip.target = self
+        chip.action = #selector(groupPressed)
+        chip.menuBuilder = { [weak self] in
+            guard let self, let current = session.group(group.id) else { return nil }
+            return GroupMenu.build(for: current, actions: session.groupMenuActions(for: group.id))
+        }
+        let plate = plates[group.id] ?? {
+            let fresh = TopBarGroupPlate()
+            plates[group.id] = fresh
+            content.addSubview(fresh, positioned: .below, relativeTo: nil)
+            return fresh
+        }()
+        plate.isHidden = false
     }
 
-    @objc private func tilePressed(_ sender: NSButton) {
-        guard let raw = sender.identifier?.rawValue, let id = UUID(uuidString: raw) else { return }
+    /// A chip's shape is fixed at birth — `TopBarButton` takes its radius and
+    /// its focus ring from the metric it was built with — so a tab that crosses
+    /// the rule is rebuilt rather than reshaped. That is the only thing a
+    /// change of tier costs, and it happens once per drag.
+    private func chip(for id: UUID, metric: RoundedMetric) -> TopBarButton {
+        if let existing = chips[id], existing.metric == metric { return existing }
+        chips[id]?.removeFromSuperview()
+        let fresh = TopBarButton(metric: metric, glass: false)
+        fresh.identifier = NSUserInterfaceItemIdentifier(id.uuidString)
+        // Under the light, which has to stay over every chip there will be.
+        content.addSubview(fresh, positioned: .below, relativeTo: glow)
+        chips[id] = fresh
+        return fresh
+    }
+
+    private func retire(keeping live: Set<UUID>) {
+        for (id, chip) in chips where !live.contains(id) {
+            chip.removeFromSuperview()
+            chips.removeValue(forKey: id)
+        }
+        for (id, plate) in plates where !live.contains(id) {
+            plate.removeFromSuperview()
+            plates.removeValue(forKey: id)
+        }
+    }
+
+    private func position(of id: UUID) -> String {
+        let index = run.tabs.firstIndex { $0.id == id } ?? 0
+        return String(localized: "Tab \(index + 1) of \(run.tabs.count)")
+    }
+
+    @objc private func tabPressed(_ sender: NSButton) {
+        guard let id = Self.identity(of: sender) else { return }
         activateTab(id)
     }
 
-    private static func position(_ index: Int, of count: Int) -> String {
-        String(localized: "Tab \(index + 1) of \(count)")
+    /// A folder's header opens and shuts it, and does nothing else. It is not a
+    /// tab, so pressing it cannot take the window anywhere — and a header that
+    /// also switched tab would mean folding a folder always moved you.
+    @objc private func groupPressed(_ sender: NSButton) {
+        guard let id = Self.identity(of: sender), let group = session.group(id) else { return }
+        session.setGroupCollapsed(!group.isCollapsed, forGroup: id)
     }
 
-    // MARK: - Geometry
+    private static func identity(of sender: NSButton) -> UUID? {
+        sender.identifier.flatMap { UUID(uuidString: $0.rawValue) }
+    }
 
     /// Bounds-derived frames never animate — see `Motion.immediately` — with
-    /// one exception: the frame a tab's view lands on is bounds-derived and
-    /// role-derived, and when the role changed, the move from the old frame to
-    /// the new one is exactly the thing that should be seen. §4's strip is one
-    /// ordered run and the pill is the wide element in it, so a switch slides
-    /// every tile after it along; without this it all jumped.
+    /// one exception: a folder opening or closing moves every tab after it
+    /// along the bar, and that move is exactly the thing that should be seen.
     override func layout() {
         super.layout()
         let animated = animatesNextPlacement && !Tokens.Motion.reduceMotion
@@ -263,109 +322,4 @@ final class TopBarTabStrip: NSView, WindowScoped {
         }
     }
 
-    /// The clear run in front of the first tile, which is what the alignment
-    /// actually is.
-    ///
-    /// It is padding inside the document view rather than an offset applied
-    /// to it: a document narrower than its clip view is anchored at the clip's
-    /// leading edge and stays there whatever origin it is given, so the space
-    /// has to be part of the content for the scroll view to keep honouring it.
-    private var leadingPad: CGFloat {
-        TopBarTabRun.leadingPad(
-            position: tabsPosition,
-            run: contentWidth,
-            span: bounds.width,
-            barCentre: barCentre
-        )
-    }
-
-    /// Where the bar's centre falls inside the strip. Not `bounds.midX`:
-    /// the strip is inset by a different amount on either side, and that
-    /// difference is exactly what a centred run must not inherit.
-    private var barCentre: CGFloat {
-        guard let bar = superview else { return bounds.midX }
-        return convert(NSPoint(x: bar.bounds.midX, y: 0), from: bar).x
-    }
-
-    /// The run's own width — every tile plus the pill, with a gap between.
-    private var contentWidth: CGFloat {
-        let gap = TopBarMetrics.gap
-        let total = order.reduce(CGFloat.zero) { running, id in
-            running + (id == activeID ? Tokens.Metric.urlPill.width : TopBarMetrics.tile.width) + gap
-        }
-        return max(total - gap, 0)
-    }
-
-    private func placeContents() {
-        let height = bounds.height
-        // The traffic lights' line, not the bar's middle: the strip is pinned
-        // top and bottom, so it takes the offset itself rather than through a
-        // centre-line constraint the way the capsules beside it do.
-        let centre = height / 2 - TopBarMetrics.lightsCentreOffset
-        var originX = leadingPad
-        var activeFrame: NSRect?
-
-        for id in order {
-            let isActive = id == activeID
-            let candidate: NSView? = isActive ? pill : tiles[id]
-            guard let view = candidate else { continue }
-            let size = isActive ? Tokens.Metric.urlPill.size : TopBarMetrics.tile.size
-            let frame = NSRect(
-                x: originX,
-                y: (centre - size.height / 2).rounded(),
-                width: size.width,
-                height: size.height
-            )
-            view.frame = frame
-            if isActive { activeFrame = frame }
-            originX += size.width + TopBarMetrics.gap
-        }
-
-        content.frame = NSRect(
-            x: 0,
-            y: 0,
-            width: max(originX - TopBarMetrics.gap, 0),
-            height: height
-        )
-
-        guard let activeFrame, activeID != scrolledTo else { return }
-        scrolledTo = activeID
-        // A gap of slack on each side, so the active tab never lands flush
-        // against a clipped neighbour.
-        content.scrollToVisible(activeFrame.insetBy(dx: -TopBarMetrics.gap, dy: 0))
-    }
-}
-
-/// §4's alignment as arithmetic: where the run of tabs starts inside the strip.
-/// Pure, so "centred means centred in the bar" is a test rather than a
-/// screenshot — the thing it got wrong was a quarter of an inch of window, and
-/// nothing about the old code looked wrong.
-enum TopBarTabRun {
-
-    /// - Parameters:
-    ///   - run: the tabs' total width.
-    ///   - span: the strip's own width.
-    ///   - barCentre: the bar's centre, in the strip's coordinates.
-    /// - Returns: the clear space in front of the first tab.
-    static func leadingPad(
-        position: TabsPosition,
-        run: CGFloat,
-        span: CGFloat,
-        barCentre: CGFloat
-    ) -> CGFloat {
-        guard run < span else { return 0 }
-        return switch position {
-        case .left: 0
-        // Clamped into the strip, so a run too wide to reach the middle starts
-        // as close to it as it can rather than under the neighbouring cluster.
-        case .centre: min(max(barCentre - run / 2, 0), span - run).rounded()
-        case .right: span - run
-        }
-    }
-}
-
-/// The scroll view's document view. Dragging the empty part of the strip drags
-/// the window (§4) — the tiles and the pill opt out for themselves.
-private final class StripContentView: NSView {
-    override var mouseDownCanMoveWindow: Bool { true }
 }

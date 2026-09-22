@@ -47,6 +47,14 @@ extension WindowScoped {
     /// The tabs in that Space, in the order §3.4 draws them.
     var windowTabs: [Tab] { session.tabs(inWindow: windowID) }
 
+    /// §3.3's tiles in that Space.
+    var windowEssentials: [Tab] { session.favorites(inWindow: windowID) }
+
+    /// One of §3.4's tiers in that Space, as slots.
+    func windowSlots(inTier kind: TabKind) -> [SidebarSlot] {
+        session.slots(inTier: kind, inWindow: windowID)
+    }
+
     /// §9.1's bar, as this window put it up. Nil until one is wired, which is
     /// an honest degradation rather than a dead key — see `AppDelegate.newTab`.
     var presentCommandBar: BrowserSession.CommandBarPresenter? { session.commandBar(inWindow: windowID) }

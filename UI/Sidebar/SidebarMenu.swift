@@ -72,6 +72,44 @@ enum SidebarMenu {
         return menu
     }
 
+    /// §8.2 / §13.6's colours for one Space, with the way back out of them.
+    ///
+    /// Shared because there are two places a Space is visible now — §3.5's dot
+    /// and §4's Space cylinder — and a menu that offered the palette in one of
+    /// them and not the other would make the colour a property of the layout.
+    ///
+    /// The way out is always present, never conditional on the Space already
+    /// carrying a colour: Arc needed a help article for getting out of a theme,
+    /// and a way out that only appears once you are lost is not a way out.
+    static func colours(
+        for space: Space,
+        in appearance: NSAppearance,
+        setGradient: @escaping (GradientPair) -> Void,
+        edit: @escaping () -> Void
+    ) -> NSMenu {
+        let menu = NSMenu()
+        menu.addItem(header("Colour for \(space.name)"))
+        for (index, gradient) in Tokens.Gradient.spacePalette.enumerated() {
+            let entry = item(title: Tokens.Gradient.spacePaletteNames[index]) { setGradient(gradient) }
+            entry.image = swatch(gradient, in: appearance)
+            entry.state = gradient == space.gradient ? .on : .off
+            menu.addItem(entry)
+        }
+        menu.addItem(.separator())
+        let reset = item(title: "No Colour") { setGradient(Tokens.Gradient.neutral) }
+        reset.image = swatch(Tokens.Gradient.neutral, in: appearance)
+        reset.state = Tokens.Gradient.isNeutral(space.gradient) ? .on : .off
+        menu.addItem(reset)
+        menu.addItem(.separator())
+        menu.addItem(item(title: String(localized: "Edit “\(space.name)”…"), action: edit))
+        menu.addItem(.separator())
+        // Arc's own documentation shouts this, and it is the combination that
+        // works: colour is per Space, Light/Dark is not. Saying so here is
+        // cheaper than the support article that follows from not saying it.
+        menu.addItem(header("Light and Dark apply to every Space"))
+        return menu
+    }
+
     /// Whose cookies these are, on §3.5's Profile button, with the one verb
     /// that was missing from the sidebar entirely: a Profile could be switched
     /// between and never named, made or renamed from anywhere.

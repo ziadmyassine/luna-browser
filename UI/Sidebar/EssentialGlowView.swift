@@ -49,6 +49,18 @@ final class EssentialGlowView: NSView {
     /// what lit means to anything that is not a screen.
     private(set) var isLit = false
 
+    /// The shape the light is drawn around. §3.3's tile in the column; a
+    /// circle on §4's bar, where a kept tab is a capsule with nothing in it.
+    /// The light is a ring just outside whatever it is lighting, so it has to
+    /// be told what that is — a squircle's ring round a circle shows as four
+    /// flat spots.
+    var cornerRadius = Tokens.Metric.essentialsTile.cornerRadius {
+        didSet {
+            guard cornerRadius != oldValue else { return }
+            needsLayout = true
+        }
+    }
+
     /// The colour last lit. Kept after the glow goes out so the fade happens in
     /// the colour the user was looking at rather than in the next tile's.
     private var tint: NSColor?
@@ -145,8 +157,13 @@ final class EssentialGlowView: NSView {
     }
 
     private func place() {
-        let radius = Tokens.Metric.essentialsTile.cornerRadius
+        let radius = cornerRadius
         let rim = Tokens.Metric.essentialsGlowRim
+        // A continuous curve at half the side is a squircle, not a circle —
+        // `RoundedMetric.cornerCurve`'s rule, and the same one applies here.
+        let curve: CALayerCornerCurve = radius * 2 >= min(bounds.width, bounds.height) ? .circular : .continuous
+        bleed.cornerCurve = curve
+        ring.cornerCurve = curve
         bleed.frame = bounds
         bleed.cornerRadius = radius
         // The ring's border is drawn inside its own edge, so a frame one rim

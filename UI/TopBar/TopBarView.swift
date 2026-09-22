@@ -7,7 +7,7 @@
 //  second layout, not a collapsed sidebar — `ContentCardView` already knows
 //  that (`cardInsets` for `.topBar` has no gap and no corners).
 //
-//      [traffic lights] [back] [tiles … PILL … tiles] [|] [capsule]
+//      [lights] [Space] [back] [kept … | … open tabs] [|] [capsule]
 //
 //  Both ends of the bar are the same object: `TopBarActionCapsule`, with one
 //  item in it on the left and four on the right. Back used to be a bare glass
@@ -21,13 +21,16 @@
 //      preference. `⌘S` still works wherever there is a sidebar; which chrome
 //      the window wears is Settings' decision (`Settings.chromeLayout`).
 //    · No reload button. The reference omits it; §4 makes reload `⌘R` and
-//      the site menu inside the pill.
+//      the site menu on the page.
+//    · No address bar. The active tab used to swell into a URL pill in the
+//      middle of the strip; a strip whose tabs carry their own titles has no
+//      room for a fourth shape, and `⌘L` opens §9.1 over the page instead.
 //    · No traffic-light layout. `TrafficLightLayoutManager` owns those
 //      frames for every window state (§7.7). The bar asks `TrafficLightSpace`
 //      where they landed and stands beside them on their centre line, as
 //      §3.1's row does — so the corner reads the same in either layout.
 //    · No page tint on the bar itself. §2: the chrome samples what is
-//      behind the window. The URL pill carries the only page-derived colour.
+//      behind the window.
 //
 
 import AppKit
@@ -57,6 +60,12 @@ final class TopBarView: NSView, WindowScoped {
     /// the layout that has no sidebar to put it in.
     var onHistory: ((NSView) -> Void)?
     var onProfile: ((NSView) -> Void)?
+    /// §3.5's Space strip, in the layout that has no sidebar foot to put it in.
+    /// The same four seams the sidebar's own copy exposes.
+    var onSwitchSpace: ((UUID) -> Void)?
+    var onSetGradient: ((UUID, GradientPair) -> Void)?
+    var onEditSpaces: (() -> Void)?
+    var onNewSpace: (() -> Void)?
 
     /// v2's extension action buttons (§16.4, §30.14). The capsule is built to
     /// host a variable number of items, so shipping them is an assignment here
@@ -93,6 +102,7 @@ final class TopBarView: NSView, WindowScoped {
     /// and profile. Same class, same padding, same radius: one item in it
     /// instead of four, and the two ends of the bar are made of the same thing.
     private let backCapsule = TopBarActionCapsule()
+    private let spacePill = TopBarSpacePill()
     private let strip: TopBarTabStrip
     private let separator = TopBarSeparator()
     private let capsule = TopBarActionCapsule()
@@ -144,6 +154,11 @@ final class TopBarView: NSView, WindowScoped {
             NSApp.sendAction(#selector(AppDelegate.goBack(_:)), to: nil, from: nil)
         }]
         backCapsule.setAccessibilityLabel(String(localized: "Back"))
+
+        spacePill.onSwitch = { [weak self] id in self?.onSwitchSpace?(id) }
+        spacePill.onSetGradient = { [weak self] id, gradient in self?.onSetGradient?(id, gradient) }
+        spacePill.onEditSpaces = { [weak self] in self?.onEditSpaces?() }
+        spacePill.onNewSpace = { [weak self] in self?.onNewSpace?() }
     }
 
     /// `ChromeHostView` keeps both layouts alive and cross-fades them, and
@@ -163,26 +178,15 @@ final class TopBarView: NSView, WindowScoped {
             previousTabState?(id, state)
             self?.apply(state, for: id)
         }
-        // `⌘L` belongs to whichever layout is on screen (§3.2, §4); when the
-        // sidebar is showing, the bar hands the command straight back.
-        let previousFocus = focusURLField
-        session.setURLField({ [weak self] in
-            guard let self, isOnScreenLayout else {
-                previousFocus?()
-                return
-            }
-            beginURLEditing()
-        }, inWindow: windowID)
-    }
-
-    /// True only for the layout the user can actually see: `ChromeHostView`
-    /// hides the faded-out one and holds the other at full alpha.
-    private var isOnScreenLayout: Bool {
-        window != nil && !isHiddenOrHasHiddenAncestor && alphaValue > 0
+        // `⌘L` is not claimed here. This layout has no address bar of its own
+        // any more, so the command falls through to whatever does — §3.2b's
+        // band when it is showing, and §9.1's Command Bar otherwise
+        // (`AppDelegate.editLocation`). A layout that claimed the key and then
+        // had nowhere to put the caret would be a dead shortcut.
     }
 
     private func buildLayout() {
-        for view in [backCapsule, strip, separator, capsule] as [NSView] {
+        for view in [spacePill, backCapsule, strip, separator, capsule] as [NSView] {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
         }
@@ -190,7 +194,7 @@ final class TopBarView: NSView, WindowScoped {
         // not the strip, which is pinned top and bottom — a centre line as
         // well is a third vertical constraint and one of the three gets
         // dropped. It stands its own tabs on the line instead.
-        NSLayoutConstraint.activate([backCapsule, separator, capsule].map {
+        NSLayoutConstraint.activate([spacePill, backCapsule, separator, capsule].map {
             $0.centerYAnchor.constraint(
                 equalTo: centerYAnchor,
                 constant: TopBarMetrics.lightsCentreOffset
@@ -198,7 +202,7 @@ final class TopBarView: NSView, WindowScoped {
         })
         // Set from the lights in `alignToTrafficLights`; this is the floor
         // until there is a window to ask.
-        let leading = backCapsule.leadingAnchor.constraint(
+        let leading = spacePill.leadingAnchor.constraint(
             equalTo: leadingAnchor,
             constant: Tokens.Metric.rowInset
         )
@@ -206,6 +210,7 @@ final class TopBarView: NSView, WindowScoped {
 
         NSLayoutConstraint.activate([
             leading,
+            backCapsule.leadingAnchor.constraint(equalTo: spacePill.trailingAnchor, constant: TopBarMetrics.clusterGap),
             strip.leadingAnchor.constraint(equalTo: backCapsule.trailingAnchor, constant: TopBarMetrics.clusterGap),
             strip.topAnchor.constraint(equalTo: topAnchor),
             strip.bottomAnchor.constraint(equalTo: bottomAnchor),
@@ -268,6 +273,7 @@ final class TopBarView: NSView, WindowScoped {
     /// as well as from `onChange`.
     func refresh() {
         backCapsule.setEnabled(activeState?.canGoBack ?? false, for: Self.backItem)
+        spacePill.show(spaces: session.spaces, activeSpaceID: activeSpaceID)
         strip.reload()
     }
 
@@ -275,11 +281,6 @@ final class TopBarView: NSView, WindowScoped {
     func apply(_ state: TabState, for id: UUID) {
         if id == activeTabID { backCapsule.setEnabled(state.canGoBack, for: Self.backItem) }
         strip.apply(state, for: id)
-    }
-
-    /// `⌘L` (§20.1): the pill expands to the full URL, selected. `Esc` reverts.
-    func beginURLEditing() {
-        strip.beginURLEditing()
     }
 
     private var activeState: TabState? {
@@ -310,7 +311,7 @@ final class TopBarView: NSView, WindowScoped {
     /// can drive it explicitly from inside its own transaction instead.
     /// Reduce Motion (§21.2) makes it instant.
     func playEntranceStagger() {
-        let views: [NSView] = [backCapsule, strip, separator, capsule]
+        let views: [NSView] = [spacePill, backCapsule, strip, separator, capsule]
         for view in views {
             view.wantsLayer = true
             view.alphaValue = 1

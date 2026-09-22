@@ -161,10 +161,11 @@ extension BrowserSession {
     /// modal and outlives nothing, but it is the menu holding these and a window can
     /// close under it.
     ///
-    /// Renaming is not here. It is not a verb the menu calls — it opens the field on the
-    /// folder's own row, and only the column knows where that row is.
+    /// Renaming is here for §4's bar, which has no row to type on and asks in a dialog.
+    /// The column never reaches it: it passes its own field to `GroupMenu.build`.
     func groupMenuActions(for id: UUID) -> GroupMenu.Actions {
         GroupMenu.Actions(
+            rename: { [weak self] name in self?.renameGroup(id, to: name) },
             setIcon: { [weak self] symbol in self?.setIcon(symbol, forGroup: id) },
             setSaved: allowsPinning ? { [weak self] saved in self?.setGroupSaved(saved, group: id) } : nil,
             ungroup: { [weak self] in self?.ungroup(id) },

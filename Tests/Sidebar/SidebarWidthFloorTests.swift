@@ -22,14 +22,23 @@ import XCTest
 final class SidebarWidthFloorTests: XCTestCase {
 
     private var storedPlacement: SearchBarPlacement!
+    private var storedLayout: ChromeLayoutPreference!
 
+    /// Both keys, not just the placement one. `searchBarIsOnPage` is two keys
+    /// and one answer — the placement is only meaningful in sidebar layout —
+    /// so a machine left in top-bar layout made `testTheLiveSpanFollowsThe`
+    /// `PlacementSetting` fail while nothing in this file had changed. CI never
+    /// saw it because a runner has no stored layout at all.
     override func setUp() {
         super.setUp()
         storedPlacement = Settings.searchBarPlacement
+        storedLayout = Settings.chromeLayout
+        Settings.chromeLayout = .sidebar
     }
 
     override func tearDown() {
         Settings.searchBarPlacement = storedPlacement
+        Settings.chromeLayout = storedLayout
         super.tearDown()
     }
 

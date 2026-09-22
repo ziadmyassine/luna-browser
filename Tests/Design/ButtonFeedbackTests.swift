@@ -164,6 +164,31 @@ final class ButtonFeedbackTests: XCTestCase {
         tile.highlight(false)
         XCTAssertEqual(scale(of: tile), 1, accuracy: 0.001, "a tab tile stays swollen")
 
+        // §4's open tabs and its folder headers are the same class wearing a
+        // word. Registered separately because the width path is theirs alone:
+        // a chip is sized from its title, and a chip sized wrong is a chip
+        // whose swell is measured against the wrong box.
+        let chip = TopBarButton(metric: TopBarMetrics.chip, glass: false)
+        chip.titleText = "example.com"
+        chip.frame = NSRect(origin: .zero, size: chip.intrinsicContentSize)
+        chip.layoutSubtreeIfNeeded()
+        chip.highlight(true)
+        XCTAssertEqual(scale(of: chip), swell, accuracy: 0.001, "a tab chip does not swell")
+        chip.highlight(false)
+        XCTAssertEqual(scale(of: chip), 1, accuracy: 0.001, "a tab chip stays swollen")
+
+        // The same control again, selected. §3.4's selected fill is a resting
+        // state and must not eat the press the way a latched button would.
+        let current = TopBarButton(metric: TopBarMetrics.chip, glass: false)
+        current.titleText = "Folder"
+        current.isSelected = true
+        current.frame = NSRect(origin: .zero, size: current.intrinsicContentSize)
+        current.layoutSubtreeIfNeeded()
+        current.highlight(true)
+        XCTAssertEqual(scale(of: current), swell, accuracy: 0.001, "a selected chip does not swell")
+        current.highlight(false)
+        XCTAssertEqual(scale(of: current), 1, accuracy: 0.001, "a selected chip stays swollen")
+
         let push = SettingsPushButton(title: "Reset", isDestructive: false)
         _ = sized(push, 60)
         push.highlight(true)
@@ -195,6 +220,29 @@ final class ButtonFeedbackTests: XCTestCase {
         XCTAssertEqual(scale(of: capsule), Tokens.Motion.pressSwell, accuracy: 0.001, "the cylinder did not answer")
         item.highlight(false)
         XCTAssertEqual(scale(of: capsule), 1, accuracy: 0.001, "the cylinder stayed swollen")
+    }
+
+    /// §4's Space cylinder is one piece of glass holding two arrows and a
+    /// name, so its arrows hand the press up exactly as the action capsule's
+    /// items do.
+    func testASpaceArrowHandsItsPressToItsCylinder() throws {
+        let pill = TopBarSpacePill()
+        let spaces = (0 ..< 2).map {
+            Space(name: "Space \($0)", symbolName: "square.grid.2x2", gradient: .defaultSpace)
+        }
+        // Standing in the first of two, so the arrow that is reached below is
+        // one the user could actually press — a disabled control answers
+        // nothing, which is its own rule and not this one.
+        pill.show(spaces: spaces, activeSpaceID: spaces[0].id)
+        _ = sized(pill, 140)
+        guard let arrow = descendants(of: pill, ofType: TopBarButton.self).first(where: \.isEnabled) else {
+            return XCTFail("the cylinder has no arrow to press")
+        }
+        arrow.highlight(true)
+        XCTAssertEqual(scale(of: arrow), 1, accuracy: 0.001, "an arrow swelled inside its own cylinder")
+        XCTAssertEqual(scale(of: pill), Tokens.Motion.pressSwell, accuracy: 0.001, "the cylinder did not answer")
+        arrow.highlight(false)
+        XCTAssertEqual(scale(of: pill), 1, accuracy: 0.001, "the cylinder stayed swollen")
     }
 
     private func descendants<T: NSView>(of root: NSView, ofType type: T.Type) -> [T] {

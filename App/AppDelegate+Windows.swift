@@ -143,6 +143,7 @@ extension AppDelegate {
             controller?.setSpaceGradient(gradient)
         }
         wireSidebar(sidebar, in: window)
+        wireSpaceStrip(topBar, in: window)
         wirePageChrome(in: window)
         wireLoadLine(in: window)
         // Last of the three address bars to claim `⌘L`, and the one that knows
@@ -154,6 +155,29 @@ extension AppDelegate {
         wireCommandBar(in: window)
         wireHistory(in: window)
         wireDownloads(in: window)
+    }
+
+    /// §3.5's Space strip, at the head of §4's bar. The same four verbs the
+    /// sidebar's foot is wired to, and the one difference is New Space: the
+    /// column has a place to show a Space being made in (`SpaceCreationView`)
+    /// and a bar does not, so it simply makes one and switches to it.
+    private func wireSpaceStrip(_ topBar: TopBarView, in window: BrowserWindow) {
+        let session = window.session
+        topBar.onSwitchSpace = { [weak window] id in
+            guard let window else { return }
+            session.switchSpace(id, inWindow: window.id)
+        }
+        // §8.2 / §13.6. Silent on failure, as the sidebar's copy is: a colour
+        // that did not persist is a disappointment on the next launch, not
+        // something to interrupt the user mid-browse with.
+        topBar.onSetGradient = { [weak session] space, gradient in
+            Task { try? await session?.setGradient(gradient, forSpace: space) }
+        }
+        topBar.onEditSpaces = { [weak self] in self?.showSettings(section: SpacesSection.id) }
+        topBar.onNewSpace = { [weak session] in
+            guard let session else { return }
+            Task { try? await session.createSpace(name: String(localized: "New Space")) }
+        }
     }
 
     /// The sidebar's outbound closures. It deliberately owns none of these:

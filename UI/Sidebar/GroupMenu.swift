@@ -34,10 +34,12 @@ enum GroupMenu {
 
     /// What the menu can do. The list owns the verbs, as §3.4a's does.
     ///
-    /// Renaming is not among them, and deliberately: the name is typed on the
-    /// row, so the menu's *Rename* opens a field rather than calling a verb.
-    /// That closure comes from the list, not the session — see `build`.
+    /// Renaming is here for the one host that cannot type on the folder: §4's
+    /// bar draws a folder as a chip, and a chip is not a line of text there is
+    /// room to type on. The column passes `rename` to `build` instead and the
+    /// verb is never reached — the same split `TabMenu` already makes.
     struct Actions {
+        var rename: (String) -> Void
         var setIcon: (String) -> Void
         /// Nil in a §5.6 private window, where §3.4b's kept tier is not
         /// offered at all — see `BrowserSession.allowsPinning`.
@@ -46,20 +48,33 @@ enum GroupMenu {
         var close: () -> Void
     }
 
-    /// - Parameter rename: opens the name field on the folder's own row.
+    /// - Parameter rename: opens the name field on the folder's own row. Only
+    ///   §3.4's column has one; nil asks in a dialog instead, and the item ends
+    ///   in the ellipsis that says so.
     /// - Parameter emoji: opens the same field over the folder's icon, with
-    ///   macOS's emoji palette over it.
+    ///   macOS's emoji palette over it. Nil for the same reason, and then the
+    ///   palette is opened over the dialog's own field.
     static func build(
         for group: TabGroup,
         actions: Actions,
-        rename: @escaping () -> Void,
-        emoji: @escaping () -> Void
+        rename: (() -> Void)? = nil,
+        emoji: (() -> Void)? = nil
     ) -> NSMenu {
         let menu = NSMenu()
         menu.autoenablesItems = false
 
-        menu.addItem(SidebarMenu.glyphItem(String(localized: "Rename"), symbol: "pencil", action: rename))
-        menu.addItem(iconSubmenu(current: group.symbolName, actions: actions, emoji: emoji))
+        if let rename {
+            menu.addItem(SidebarMenu.glyphItem(String(localized: "Rename"), symbol: "pencil", action: rename))
+        } else {
+            menu.addItem(SidebarMenu.glyphItem(String(localized: "Rename…"), symbol: "pencil") {
+                askName(for: group, then: actions.rename)
+            })
+        }
+        menu.addItem(iconSubmenu(
+            current: group.symbolName,
+            actions: actions,
+            emoji: emoji ?? { askEmoji(then: actions.setIcon) }
+        ))
         menu.addItem(.separator())
 
         // §3.4b: a folder stands on one side of the rule or the other, and its
@@ -110,6 +125,48 @@ enum GroupMenu {
             action: newFolder
         ))
         return menu
+    }
+
+    /// Asks for a name, for the host that cannot type on the folder itself.
+    ///
+    /// A blank answer is a cancel rather than a clearing: a folder is a label,
+    /// and `createGroup` already refuses to make one with no text in it for the
+    /// reason that a nameless row cannot be told from any other.
+    private static func askName(for group: TabGroup, then commit: (String) -> Void) {
+        let field = NSTextField(frame: NSRect(origin: .zero, size: Tokens.Metric.urlPill.size))
+        field.stringValue = group.name
+
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Rename this folder")
+        alert.accessoryView = field
+        alert.addButton(withTitle: String(localized: "Rename"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        alert.buttons.last?.keyEquivalent = "\u{1b}"
+        alert.window.initialFirstResponder = field
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let typed = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !typed.isEmpty else { return }
+        commit(typed)
+    }
+
+    /// The same question for the picture: one character, typed or picked from
+    /// macOS's own palette, which `NSApp.orderFrontCharacterPalette` opens over
+    /// whatever is in front — here, the dialog's own field.
+    private static func askEmoji(then commit: (String) -> Void) {
+        let field = NSTextField(frame: NSRect(origin: .zero, size: Tokens.Metric.urlPill.size))
+
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Choose an emoji for this folder")
+        alert.accessoryView = field
+        alert.addButton(withTitle: String(localized: "Use Emoji"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        alert.buttons.last?.keyEquivalent = "\u{1b}"
+        alert.window.initialFirstResponder = field
+        NSApp.orderFrontCharacterPalette(field)
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let typed = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard RowEmoji.isEmoji(typed) else { return }
+        commit(typed)
     }
 
     /// The sixteen, with the one the folder is wearing ticked.

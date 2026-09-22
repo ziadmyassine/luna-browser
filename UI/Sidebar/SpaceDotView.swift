@@ -267,35 +267,11 @@ final class SpaceDotView: NSView {
     /// gradient at all. Colour stays here, in the hand; renaming, reordering
     /// and the Profile are a window away rather than a menu deeper.
     override func menu(for event: NSEvent) -> NSMenu? {
-        let menu = NSMenu()
-        menu.addItem(SidebarMenu.header("Colour for \(space.name)"))
-        for (index, gradient) in Tokens.Gradient.spacePalette.enumerated() {
-            let item = SidebarMenu.item(title: Tokens.Gradient.spacePaletteNames[index]) { [weak self] in
-                self?.onSetGradient?(gradient)
-            }
-            item.image = SidebarMenu.swatch(gradient, in: effectiveAppearance)
-            item.state = gradient == space.gradient ? .on : .off
-            menu.addItem(item)
-        }
-        menu.addItem(.separator())
-        // §13.6's one click back to neutral. Always present, never conditional
-        // on the Space already carrying a colour — a way out that only appears
-        // once you are lost is not a way out.
-        let reset = SidebarMenu.item(title: "No Colour") { [weak self] in
-            self?.onSetGradient?(Tokens.Gradient.neutral)
-        }
-        reset.image = SidebarMenu.swatch(Tokens.Gradient.neutral, in: effectiveAppearance)
-        reset.state = Tokens.Gradient.isNeutral(space.gradient) ? .on : .off
-        menu.addItem(reset)
-        menu.addItem(.separator())
-        menu.addItem(SidebarMenu.item(title: String(localized: "Edit “\(space.name)”…")) { [weak self] in
-            self?.onEditSpaces?()
-        })
-        menu.addItem(.separator())
-        // Arc's own documentation shouts this, and it is the combination that
-        // works: colour is per Space, Light/Dark is not. Saying so here is
-        // cheaper than the support article that follows from not saying it.
-        menu.addItem(SidebarMenu.header("Light and Dark apply to every Space"))
-        return menu
+        SidebarMenu.colours(
+            for: space,
+            in: effectiveAppearance,
+            setGradient: { [weak self] gradient in self?.onSetGradient?(gradient) },
+            edit: { [weak self] in self?.onEditSpaces?() }
+        )
     }
 }

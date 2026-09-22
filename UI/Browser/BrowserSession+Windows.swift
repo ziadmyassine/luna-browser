@@ -56,6 +56,17 @@ extension BrowserSession {
     /// Every tab in the Space `window` is showing, in the order §3.4 draws.
     func tabs(inWindow window: UUID) -> [Tab] { list[activeSpaceID(inWindow: window)] }
 
+    /// §3.3's tiles for the Space `window` is showing.
+    func favorites(inWindow window: UUID) -> [Tab] {
+        list.favorites(inSpace: activeSpaceID(inWindow: window))
+    }
+
+    /// One of §3.4's two tiers for that Space, as slots — each folder carrying
+    /// its own tabs.
+    func slots(inTier kind: TabKind, inWindow window: UUID) -> [SidebarSlot] {
+        list.drawnSlots(inSpace: activeSpaceID(inWindow: window), kind: kind)
+    }
+
     func focus(_ window: UUID) -> WindowFocus {
         windowFocus[window] ?? WindowFocus(spaceID: lastUsedSpaceID)
     }
