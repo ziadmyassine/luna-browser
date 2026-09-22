@@ -1422,10 +1422,14 @@ per page and has no folders in it. A folder header's own menu is five items —
 `Rename · Change Icon ▸ | Pin Folder | Remove Folder, Keep Tabs · Close Folder and Tabs` —
 rather than a longer §3.4a,
 because half of that menu has no meaning on a group: no address to copy, nothing to duplicate,
-no sound to mute. **Ungroup removes a name and never a page**; *Close Group* is the one that
-ends the tabs, and it ends them one at a time through `closeTab` so each lands in §6.3's
-archive with its own undo — and so a *saved* group dims its tabs on the first Close Group and
-lets them go on the second, exactly as pressing close on each of them would.
+no sound to mute. **Removing a folder removes a name and never a page**; *Close Folder and
+Tabs* is the one that ends the tabs, and it ends them one at a time through `closeTab` so each
+lands in §6.3's archive with its own undo — and so a *saved* folder dims its tabs on the first
+Close Folder and lets them go on the second, exactly as pressing close on each of them would.
+> **The user's word is folder; `group` is the model's.** `TabGroup`, `groupID` and
+> `SidebarDestination.groupID` keep their names, and nothing a user reads says "group" —
+> including the Edit menu, where the undo entries are `New Folder`, `Rename Folder`,
+> `Move Folder` and `Remove Folder`.
 
 ### 3.5 Bottom utility bar — 52 pt, pinned
 `[profile avatar circle 34, left] ··· [space dots pill 56 × 22, centred] ··· [downloads | history, right]`

@@ -77,7 +77,7 @@ extension BrowserSession {
         let group = TabGroup(spaceID: activeSpaceID, name: trimmed, symbolName: symbolName, kind: tier)
         persistAll(list.insertGroup(group, at: slot))
         for member in members { gather(member.id, into: group) }
-        registerUndo("New Group") { $0.ungroup(group.id) }
+        registerUndo("New Folder") { $0.ungroup(group.id) }
         notifyChange()
         // After the column has the row, never before: what this is for is the
         // name field opening on it, and a field cannot open on a row that has
@@ -97,7 +97,7 @@ extension BrowserSession {
         let previous = group.name
         group.name = trimmed
         commit(group)
-        registerUndo("Rename Group") { $0.renameGroup(id, to: previous) }
+        registerUndo("Rename Folder") { $0.renameGroup(id, to: previous) }
     }
 
     /// Gives a group another icon. Not validated here and cannot usefully be —
@@ -141,7 +141,7 @@ extension BrowserSession {
         for member in list.members(ofGroup: id) {
             write(Self.keepingWhatItIsFor(member, wasKept: from.kind != .today))
         }
-        registerUndo("Move Group") { $0.moveGroup(id, to: from.index, kind: from.kind) }
+        registerUndo("Move Folder") { $0.moveGroup(id, to: from.index, kind: from.kind) }
         notifyChange()
     }
 
@@ -154,13 +154,13 @@ extension BrowserSession {
         let slot = group.order
         persistAll(list.removeGroup(id))
         forgetGroup(id)
-        registerUndo("Ungroup") { session in
+        registerUndo("Remove Folder") { session in
             session.persistAll(session.list.insertGroup(group, at: slot))
             for member in members { session.gather(member, into: group) }
             // Its own undo, so `⌘⇧Z` takes the group apart again. `gather` and
             // `insertGroup` register nothing — that is what makes them usable
             // from inside an undo in the first place.
-            session.registerUndo("Ungroup") { $0.ungroup(group.id) }
+            session.registerUndo("Remove Folder") { $0.ungroup(group.id) }
             session.notifyChange()
         }
         notifyChange()
