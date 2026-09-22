@@ -31,6 +31,7 @@ final class SearchSection: SettingsSection {
     static let id = "search"
     static let title = "Search"
     static let symbolName = "magnifyingglass"
+    static let keywords = ["engine", "duckduckgo", "google", "bing", "kagi", "suggestions", "address bar"]
 
     private let body = SettingsBody()
     private let custom: SettingsTextField
@@ -47,7 +48,8 @@ final class SearchSection: SettingsSection {
         body.card(nil, [
             (engineRow(), ["search engine", "duckduckgo", "google", "bing", "kagi", "custom"]),
             (customRow(), ["custom engine url", "search engine", "%s", "placeholder"]),
-            (suggestionsRow(), ["search suggestions", "autocomplete", "complete"])
+            (suggestionsRow(), ["search suggestions", "autocomplete", "complete"]),
+            (settingsResultsRow(), ["settings in search results", "command bar", "sections", "open in settings"])
         ])
         refreshValidity()
     }
@@ -93,6 +95,18 @@ final class SearchSection: SettingsSection {
         SettingsRow.toggle("Search suggestions", value: SearchSettings.current.suggestions) { on in
             var setting = SearchSettings.current
             setting.suggestions = on
+            SearchSettings.apply(setting)
+        }
+    }
+
+    /// §9.2's settings rows. On, and the one switch here that sends nothing
+    /// anywhere: the index it searches is ten section titles and their
+    /// keywords, compiled into the app. Off for anyone who wants the bar to
+    /// answer with pages and nothing else.
+    private func settingsResultsRow() -> NSView {
+        SettingsRow.toggle("Settings in search results", value: SearchSettings.current.settingsResults) { on in
+            var setting = SearchSettings.current
+            setting.settingsResults = on
             SearchSettings.apply(setting)
         }
     }

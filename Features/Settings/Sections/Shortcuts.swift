@@ -26,6 +26,7 @@ final class ShortcutsSection: SettingsSection {
     static let id = "shortcuts"
     static let title = "Shortcuts"
     static let symbolName = "command"
+    static let keywords = ["keyboard", "key equivalents", "hotkeys", "bindings", "commands"]
 
     /// One row of §3.6's table.
     struct Command: Sendable, Hashable {

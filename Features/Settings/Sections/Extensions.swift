@@ -18,6 +18,7 @@ final class ExtensionsSection: SettingsSection {
     static let id = "extensions"
     static let title = String(localized: "Extensions")
     static let symbolName = "puzzlepiece.extension"
+    static let keywords = ["add-ons", "plug-ins", "web extensions"]
 
     private let body = SettingsBody()
 

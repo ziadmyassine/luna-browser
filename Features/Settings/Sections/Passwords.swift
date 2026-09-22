@@ -27,6 +27,7 @@ final class PasswordsSection: SettingsSection {
     static let id = "passwords"
     static let title = String(localized: "Passwords")
     static let symbolName = "key.fill"
+    static let keywords = ["logins", "passkeys", "autofill", "keychain", "credentials"]
 
     private let body = SettingsBody()
     private let storageLabel = NSTextField(labelWithString: "")

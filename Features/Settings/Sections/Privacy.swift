@@ -28,6 +28,7 @@ final class PrivacySection: SettingsSection {
     static let id = "privacy"
     static let title = String(localized: "Privacy & Blocking")
     static let symbolName = "lock.shield"
+    static let keywords = ["cookies", "trackers", "blocking", "https only", "ads", "clear data"]
 
     private let body = SettingsBody()
     private let statusLabel = NSTextField(labelWithString: "")

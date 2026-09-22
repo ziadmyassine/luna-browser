@@ -32,6 +32,11 @@ enum CommandBarAction: Sendable, Hashable {
     /// Navigate the current or a new tab. The only case that carries a URL.
     case open(URL)
     case command(AppCommand)
+    /// Open the Settings window on one of §2's sections, named by
+    /// `SettingsSection.id`. A string rather than a section type: this enum is
+    /// `Sendable` and free of AppKit, and the id is what
+    /// `AppDelegate.showSettings(section:)` already takes.
+    case openSettings(String)
 }
 
 /// §9.2's "app commands". Two, because two are what §9.2 names and the rest of
@@ -72,6 +77,11 @@ enum CommandBarSource: Sendable, Hashable, Comparable, CaseIterable {
     case history
     case archive
     case command
+    /// A Settings section whose name the query matches (§2). Below `command`
+    /// on the same reasoning that puts `command` below the pages: somebody
+    /// typing into an address bar is usually going somewhere, and the two
+    /// rows that are not a destination wait behind the ones that are.
+    case settings
     /// The floor: there is always something to do with a query, and what the
     /// user actually typed outranks anything an engine guessed they meant.
     case search
@@ -332,6 +342,14 @@ struct SearchEngineSetting: Sendable, Hashable {
     /// one switch away from off, and off means nothing leaves the Mac until you
     /// press Return.
     var suggestions: Bool = true
+    /// Whether a query that names a Settings section offers it as a row (§9.2).
+    ///
+    /// On, and nothing leaves the Mac for it: the index is ten titles and
+    /// their keywords, compiled in. It lives on the engine's setting because
+    /// §9.7 reads it inside `controlTextDidChange`, and `SearchSettings` is
+    /// the one cache built for that — see `SettingsDefaults.restoreAll`, which
+    /// has to know every cache by name.
+    var settingsResults: Bool = true
 
     /// Where to ask for suggestions, or nil when they are off, the engine has
     /// no endpoint, or the query is empty.
@@ -394,6 +412,7 @@ enum SearchSettings {
     static let engineKey = "search.engine"
     static let customEngineKey = "search.customEngineURL"
     static let suggestionsKey = "search.suggestions"
+    static let settingsResultsKey = "search.settingsResults"
 
     private static let storage = Mutex(stored())
 
@@ -411,6 +430,7 @@ enum SearchSettings {
         defaults.set(setting.engine.rawValue, forKey: engineKey)
         defaults.set(setting.customTemplate, forKey: customEngineKey)
         defaults.set(setting.suggestions, forKey: suggestionsKey)
+        defaults.set(setting.settingsResults, forKey: settingsResultsKey)
     }
 
     private static func stored() -> SearchEngineSetting {
@@ -418,7 +438,8 @@ enum SearchSettings {
         return SearchEngineSetting(
             engine: defaults.string(forKey: engineKey).flatMap(SearchEngine.init(rawValue:)) ?? .fallback,
             customTemplate: defaults.string(forKey: customEngineKey) ?? "",
-            suggestions: defaults.object(forKey: suggestionsKey) as? Bool ?? true
+            suggestions: defaults.object(forKey: suggestionsKey) as? Bool ?? true,
+            settingsResults: defaults.object(forKey: settingsResultsKey) as? Bool ?? true
         )
     }
 }

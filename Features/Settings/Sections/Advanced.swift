@@ -21,6 +21,7 @@ final class AdvancedSection: SettingsSection {
     static let id = "advanced"
     static let title = String(localized: "Advanced")
     static let symbolName = "bolt"
+    static let keywords = ["user agent", "developer", "web inspector", "restore all settings", "reset"]
 
     private let container = NSView()
     private var body = SettingsBody()

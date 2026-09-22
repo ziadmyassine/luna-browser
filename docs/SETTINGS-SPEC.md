@@ -336,10 +336,22 @@ second place for it to be wrong.
 | Search engine | Popup: DuckDuckGo · Google · Bing · Kagi · Custom | `CommandBarModel` — **currently hard-coded to DuckDuckGo**, must be lifted to a setting |
 | Custom engine URL | Text field with `%s`, validated | same |
 | Search suggestions | Toggle, **default off** | *disabled* until §9.6's suggest endpoint exists |
+| Settings in search results | Toggle, **default on** | `search.settingsResults` |
 
 Default off matters: suggestions send every keystroke to a third party, and
 D16 says we collect nothing. Shipping it on by default would contradict the
 privacy policy we have already written.
+
+**Settings in search results defaults on, and that is the opposite argument.**
+Type a section's name into the Command Bar and the section is offered, with
+its own symbol and `Open in Settings` under it — `SettingsResults`, ranked
+below every page and above the search row. The index is the ten titles in
+`SettingsSectionRegistry` plus a handful of keywords each (`static var
+keywords` on the section, deliberately not its instance `searchIndex`, which
+cannot be read without building all ten panes). It is compiled in, so nothing
+leaves the Mac for it and the privacy argument above simply does not apply.
+The switch is there for anyone who wants the bar to answer with pages and
+nothing else.
 
 ### 3.5 Downloads
 | Control | Type | Wired to |
@@ -460,6 +472,7 @@ general.onLaunch            general.confirmClose
 appearance.theme            appearance.glassOptimisation
 appearance.glassDensity
 search.engine               search.customEngineURL
+search.suggestions          search.settingsResults
 downloads.directory         downloads.askEachTime
 downloads.autoOpen          downloads.clearPolicy
 advanced.userAgent          advanced.showDevelopMenu

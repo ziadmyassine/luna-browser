@@ -42,6 +42,7 @@ final class SpacesSection: SettingsSection {
     static let id = "spaces"
     static let title = String(localized: "Spaces")
     static let symbolName = "square.grid.2x2"
+    static let keywords = ["profiles", "cookie jars", "workspaces", "gradients"]
 
     private let container = NSView()
     /// Internal rather than private only because Swift's `private` is

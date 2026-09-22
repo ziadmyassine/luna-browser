@@ -47,6 +47,11 @@ struct CommandBarSources: Sendable {
     /// synchronous one. Already scoped to the Space by the query.
     var history: [HistoryHit] = []
     var commands: [AppCommand] = AppCommand.allCases
+    /// §2's Settings sections, as rows the bar can offer — see
+    /// `SettingsResults`. Handed in by the controller from
+    /// `SettingsSectionRegistry`, which is `@MainActor` and AppKit's; this
+    /// file is neither.
+    var settings: [SettingsEntry] = []
     /// §3.4's suggestions, already fetched and parsed by
     /// `Features/Search/SearchSuggestions`. Strings, not URLs: the engine
     /// template turns them into one here, exactly as it does for a typed query,
@@ -95,6 +100,7 @@ enum CommandBarRanking {
         rows.append(contentsOf: tabRows(tokens: tokens, sources: sources))
         rows.append(contentsOf: historyRows(sources: sources))
         rows.append(contentsOf: commandRows(tokens: tokens, sources: sources))
+        rows.append(contentsOf: SettingsResults.rows(tokens: tokens, entries: sources.settings))
         let hasDirect = rows.contains { $0.source == .directURL }
         if let search = searchRow(query: query, hasDirectURL: hasDirect) {
             rows.append(search)

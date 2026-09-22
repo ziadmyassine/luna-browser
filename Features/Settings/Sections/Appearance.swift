@@ -31,6 +31,7 @@ final class AppearanceSection: NSObject, SettingsSection {
     static let id = "appearance"
     static let title = "Appearance"
     static let symbolName = "circle.lefthalf.filled"
+    static let keywords = ["theme", "dark mode", "light mode", "glass", "transparency", "density", "chrome layout"]
 
     // MARK: Keys and typed accessors
 

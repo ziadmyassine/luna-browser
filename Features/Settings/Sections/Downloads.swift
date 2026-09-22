@@ -28,6 +28,7 @@ final class DownloadsSection: SettingsSection {
     static let id = "downloads"
     static let title = String(localized: "Downloads")
     static let symbolName = "arrow.down.circle"
+    static let keywords = ["files", "save to", "folder", "destination", "open safe files"]
 
     private let body = SettingsBody()
     private let folder = NSPopUpButton(frame: .zero, pullsDown: true)

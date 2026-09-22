@@ -18,6 +18,15 @@ protocol SettingsSection: AnyObject {
     static var id: String { get }
     static var title: String { get }
     static var symbolName: String { get }
+    /// What should find this section from §9.2's Command Bar besides its
+    /// title, lowercased.
+    ///
+    /// Static, and deliberately not `searchIndex`: that one is an instance
+    /// property filled while a section builds its rows, so reading it means
+    /// building all ten panes — AppKit view trees, on the main thread, for a
+    /// list the bar wants before the first keystroke. These are the words for
+    /// the section as a whole and they are compiled in.
+    static var keywords: [String] { get }
     init()
     var view: NSView { get }
     /// Every searchable label in this section, lowercased (§2's search).
@@ -39,6 +48,10 @@ extension SettingsSection {
     /// Nothing, for the eight sections that read `UserDefaults` at build time
     /// and have no live model behind them.
     func willAppear() {}
+
+    /// The title alone, for a section whose name is the only word anyone would
+    /// reach for.
+    static var keywords: [String] { [] }
 }
 
 /// §1's shape table. Every value is an existing `Tokens.Metric`.
@@ -108,6 +121,15 @@ enum SettingsSectionRegistry {
     ]
 
     static var ids: [String] { all.map { $0.id } }
+
+    /// §9.2's settings rows, built once from the static half of the register.
+    ///
+    /// Nothing here touches an instance, which is the point: the Command Bar
+    /// asks for this every time it opens, and `SettingsWindowController` is
+    /// the only thing that should ever pay for ten built panes.
+    static let commandBarEntries: [SettingsEntry] = all.map {
+        SettingsEntry(id: $0.id, title: $0.title, symbolName: $0.symbolName, keywords: $0.keywords)
+    }
 
     /// The index `settings.lastSection` names, or 0. Never nil: §2 requires
     /// exactly one section to be selected, always.

@@ -144,6 +144,7 @@ final class GeneralSection: NSObject, SettingsSection {
     static let id = "general"
     static let title = "General"
     static let symbolName = "gearshape"
+    static let keywords = ["startup", "launch", "restore session", "confirm before closing", "new tab"]
 
     // MARK: Keys and typed accessors
 

@@ -39,6 +39,7 @@ enum SettingsDefaults {
         ("search.engine", SearchEngine.fallback.rawValue),
         ("search.customEngineURL", ""),
         ("search.suggestions", true),
+        ("search.settingsResults", true),
         // §3.5 Downloads — `DownloadDestination.folder` / `.autoOpenKey`
         ("downloads.directory", ""),
         ("downloads.askEachTime", false),

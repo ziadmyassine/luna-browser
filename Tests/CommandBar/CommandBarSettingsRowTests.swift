@@ -1,0 +1,149 @@
+//
+//  CommandBarSettingsRowTests.swift
+//  LunaTests
+//
+//  §9.2's settings rows — the ten §3 sections offered from the bar by name —
+//  and §3.4's switch that takes them away again.
+//
+//  The register itself is asserted here too. `commandBarEntries` is the one
+//  place a section's title and symbol are copied out of the section, so a
+//  section added to `SettingsSectionRegistry.all` and forgotten here would be
+//  a section the bar cannot find.
+//
+
+import XCTest
+@testable import Luna
+
+@MainActor
+final class CommandBarSettingsRowTests: XCTestCase {
+
+    /// The live setting is a process-wide cache backing a `UserDefaults` key,
+    /// so it is put back exactly as it was found.
+    private var saved = SearchEngineSetting()
+
+    override func setUp() {
+        super.setUp()
+        saved = SearchSettings.current
+    }
+
+    override func tearDown() {
+        SearchSettings.apply(saved)
+        super.tearDown()
+    }
+
+    private func setSettingsResults(_ on: Bool) {
+        var setting = SearchSettings.current
+        setting.settingsResults = on
+        SearchSettings.apply(setting)
+    }
+
+    private func sources() -> CommandBarSources {
+        var sources = CommandBarSources()
+        sources.settings = SettingsSectionRegistry.commandBarEntries
+        return sources
+    }
+
+    private func rows(_ query: String) -> [CommandBarResult] {
+        CommandBarRanking.merge(query: query, sources: sources(), limit: 8)
+            .filter { $0.source == .settings }
+    }
+
+    // MARK: - The row
+
+    /// What the feature is: type a section's name and the section is offered,
+    /// wearing its own symbol and saying what the row will do.
+    func testASectionsNameOffersTheSectionWithItsOwnSymbol() throws {
+        setSettingsResults(true)
+        let row = try XCTUnwrap(rows("shortcuts").first)
+
+        XCTAssertEqual(row.title, ShortcutsSection.title)
+        XCTAssertEqual(row.subtitle, SettingsResults.opens)
+        XCTAssertEqual(row.symbolName, ShortcutsSection.symbolName)
+        XCTAssertEqual(row.action, .openSettings(ShortcutsSection.id))
+    }
+
+    /// A settings row is not a page, so it carries no URL — which keeps it out
+    /// of §9.4's autofill and out of the dedupe's URL bucket.
+    func testASettingsRowCarriesNoURL() throws {
+        setSettingsResults(true)
+        XCTAssertNil(try XCTUnwrap(rows("downloads").first).url)
+    }
+
+    /// Nobody types the section's name when they already know the name of the
+    /// switch they are after.
+    func testAKeywordFindsTheSectionItsTitleDoesNot() {
+        setSettingsResults(true)
+        XCTAssertEqual(rows("cookies").map(\.action), [.openSettings(PrivacySection.id)])
+        XCTAssertEqual(rows("user agent").map(\.action), [.openSettings(AdvancedSection.id)])
+    }
+
+    /// The title outranks the keyword list, and a title the query starts
+    /// outranks one that merely contains it. "se" is the front of Search and
+    /// is buried in two keywords — General's "restore session" and Advanced's
+    /// "restore all settings" — and the section actually called Search is the
+    /// one somebody typing two letters means.
+    func testTheSectionWhoseNameTheQueryStartsComesFirst() throws {
+        setSettingsResults(true)
+        let found = rows("se")
+        XCTAssertEqual(try XCTUnwrap(found.first).action, .openSettings(SearchSection.id))
+        XCTAssertGreaterThan(found.count, 1, "the keyword matches should still be offered, below it")
+    }
+
+    /// Settings rows sit below every destination and above the search row —
+    /// somebody typing into an address bar is usually going somewhere, but
+    /// what they typed still outranks an engine's guess at what they meant.
+    func testSettingsRowsRankBelowCommandsAndAboveTheSearchRow() throws {
+        let order = CommandBarSource.allCases
+        let settings = try XCTUnwrap(order.firstIndex(of: .settings))
+        XCTAssertLessThan(try XCTUnwrap(order.firstIndex(of: .command)), settings)
+        XCTAssertLessThan(settings, try XCTUnwrap(order.firstIndex(of: .search)))
+    }
+
+    /// `⌘T`'s opening list is for getting somewhere, not for browsing an index
+    /// of Settings — the same rule §9.2's app commands are held to.
+    func testAnEmptyQueryOffersNoSettings() {
+        setSettingsResults(true)
+        XCTAssertTrue(rows("").isEmpty)
+        XCTAssertTrue(rows("   ").isEmpty)
+    }
+
+    // MARK: - §3.4's switch
+
+    func testTheSwitchIsOnByDefault() {
+        XCTAssertTrue(SearchEngineSetting().settingsResults)
+    }
+
+    func testTurningItOffRemovesTheRowsAndNothingElse() {
+        setSettingsResults(false)
+        XCTAssertTrue(rows("shortcuts").isEmpty)
+        // The floor is still there: a query always has something to do.
+        let all = CommandBarRanking.merge(query: "shortcuts", sources: sources(), limit: 8)
+        XCTAssertEqual(all.map(\.source), [.search])
+    }
+
+    /// §6: a key with no row in `SettingsDefaults` does not exist.
+    func testTheSwitchHasADeclaredDefault() {
+        XCTAssertTrue(SettingsDefaults.keys.contains(SearchSettings.settingsResultsKey))
+    }
+
+    // MARK: - The register
+
+    func testEverySectionIsReachableAndCarriesItsOwnTitleAndSymbol() {
+        let entries = SettingsSectionRegistry.commandBarEntries
+        XCTAssertEqual(entries.map(\.id), SettingsSectionRegistry.ids)
+        for (entry, section) in zip(entries, SettingsSectionRegistry.all) {
+            XCTAssertEqual(entry.title, section.title)
+            XCTAssertEqual(entry.symbolName, section.symbolName)
+        }
+    }
+
+    /// Matching folds the query and compares against these as they stand, so a
+    /// capital in one is a keyword nothing can reach.
+    func testEveryKeywordIsLowercased() {
+        for entry in SettingsSectionRegistry.commandBarEntries {
+            for keyword in entry.keywords {
+                XCTAssertEqual(keyword, keyword.lowercased(), "\(entry.id): \(keyword)")
+            }
+        }
+    }
+}
