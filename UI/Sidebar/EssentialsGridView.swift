@@ -331,11 +331,10 @@ final class EssentialsGridView: NSView {
 
     private func placeContents() {
         hint.isHidden = !isHinting
-        if isHinting {
-            hint.frame = bounds
-                .insetBy(dx: Tokens.Metric.essentialsInset, dy: Tokens.Metric.essentialsVerticalInset)
-                .integral
-        }
+        // In the slot, not in the grid's margins. §3.3a's block well is the
+        // empty tile, so it stands where the first pinned tab will stand and
+        // nothing moves when one arrives.
+        if isHinting { hint.frame = slotRect(at: 0) }
         for (index, id) in settled.enumerated() {
             guard let tile = tiles[id] else { continue }
             // A live drag holds a slot open: everything from it onwards steps

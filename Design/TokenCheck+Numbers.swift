@@ -118,7 +118,7 @@ extension TokenCheck {
             ("sidebarSpaceNameGap", Tokens.Metric.sidebarSpaceNameGap),
             ("spaceDotPitch", Tokens.Metric.spaceDotPitch),
             ("pinHintBlock", Tokens.Metric.pinHintBlock), ("pinHintRow", Tokens.Metric.pinHintRow),
-            ("pinHintIcon", Tokens.Metric.pinHintIcon), ("pinHintGap", Tokens.Metric.pinHintGap)
+            ("pinHintGap", Tokens.Metric.pinHintGap)
         ]
         return scalars.filter { $0.1 <= 0 }.map { "Metric.\($0.0) is not positive" }
     }
@@ -299,23 +299,21 @@ extension TokenCheck {
     private static func checkPinHints() -> [String] {
         var failures: [String] = []
         let metric = Tokens.Metric.self
-        // The block well is the grid with nothing in it, and it has to be
-        // visibly taller than the grid with one tile in it — otherwise it
-        // reads as an empty tile rather than as a message.
-        if metric.pinHintBlock <= metric.essentialsTile.height + 2 * metric.essentialsVerticalInset {
-            failures.append("Metric.pinHintBlock is no taller than a one-tile grid — the well would read as a tile")
+        // Each well draws its glyph at the size the thing it stands in for
+        // draws its own, so each has to fit in its own well.
+        if metric.essentialsIcon > metric.pinHintBlock - 2 * metric.rowPillInset {
+            failures.append("Metric.essentialsIcon is too big for §3.3a's block well to hold")
         }
-        // Glyph, gap and one line of `TypeScale.sidebarHint`, which is what the
-        // block is measured to hold.
-        let stack = metric.pinHintIcon + metric.pinHintGap + Tokens.TypeScale.sidebarHint.pointSize
-        if metric.pinHintBlock < stack {
-            failures.append("Metric.pinHintBlock cannot hold its own glyph, gap and line")
+        if metric.groupIconSize > metric.pinHintRow - 2 * metric.rowPillInset {
+            failures.append("Metric.groupIconSize is too big for §3.3a's row well to hold")
         }
-        // The row well draws §3.4's own columns, so its glyph has to fit the
-        // slot a favicon is centred in — otherwise the well and the first real
-        // folder row under it put the same picture in two places.
-        if metric.pinHintIcon > metric.rowPillHeight - 2 * metric.rowPillInset {
-            failures.append("Metric.pinHintIcon is too big for the row well to hold")
+        // The row well draws §3.4's own columns, so its line starts where every
+        // title starts and its glyph is centred on the favicon column —
+        // otherwise the well and the first real folder row under it put the
+        // same picture in two places.
+        let glyphEnds = metric.rowFaviconInset + (metric.groupIconSize + metric.faviconSize) / 2
+        if glyphEnds > metric.rowTitleInset {
+            failures.append("Metric.groupIconSize runs the row well's glyph under its own line")
         }
         return failures
     }

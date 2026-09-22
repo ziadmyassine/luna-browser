@@ -17,17 +17,13 @@ extension Tokens.Metric {
 
     /// §3.3a's block: the well that stands in for an empty Essentials grid.
     ///
-    /// 70. `pinHintInset` above and below an 18 pt glyph, a `pinHintGap` and
-    /// one line of `TypeScale.sidebarHint` — but stated rather than summed, because
-    /// the content is centred in it and how much air a piece of advice is worth
-    /// is a judgement rather than an addition.
-    ///
-    /// What it is measured against is the 54 pt the grid stands at with one
-    /// tile in it (`essentialsTile.height` plus both `essentialsVerticalInset`
-    /// margins). The well has to be visibly taller than that or it reads as an
-    /// empty tile rather than as a message, which is the whole distinction this
-    /// number carries.
-    static let pinHintBlock: CGFloat = 70
+    /// A tile's height, because the well is a tile — the empty one, drawn in
+    /// the slot the first pinned tab lands in. It was 70, a figure chosen to
+    /// be taller than a tile so the well could not be mistaken for one; being
+    /// mistaken for one is the whole point. At 70 the column also dropped 16
+    /// points the moment the first tab was pinned, which is the grid jumping
+    /// in answer to a drop that has already landed.
+    static let pinHintBlock = essentialsTile.height
 
     /// §3.3a's row: the well that stands in for an empty §3.4b tier.
     ///
@@ -35,17 +31,15 @@ extension Tokens.Metric {
     /// row will stand and is saying so.
     static let pinHintRow = rowPillHeight
 
-    /// The glyph in either well.
-    ///
-    /// A folder's, because the row well stands where a folder will and draws
-    /// its glyph in the same column at the same size — so the well and the
-    /// first real row put the same picture in the same place. The block's pin
-    /// takes it too: two wells, one glyph size.
-    static let pinHintIcon = groupIconSize
+    // The glyph in each well is the size the thing it stands in for draws its
+    // own at — `essentialsIcon` in the block, `groupIconSize` in the row — so
+    // there is no token here. A pin at a folder's 20 pt beside a 13 pt line was
+    // the biggest thing in the grid and the line's own room went into it.
 
-    /// Between the glyph and the line it labels, in the block — which is the
-    /// one well that stacks them. The row puts its line in §3.4's title column
-    /// and takes the gap from there.
+    /// Between the glyph and the line it labels. Both wells set the two side by
+    /// side; where they differ is what they are lined up against — §3.4's own
+    /// columns in the row, and the middle of the tile in the block, because a
+    /// tile centres what is in it.
     static let pinHintGap: CGFloat = 8
 
     /// Both wells, and §3.3's own drop outline: one dash, so the three marks

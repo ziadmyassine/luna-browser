@@ -948,12 +948,23 @@ stand, with a `folder` glyph beside "Drag a folder here to pin it".
 - **Each well is drawn as the thing that is missing, not as a notice about it.** The row well
   stands in §3.4's own two columns — its `folder` glyph centred on the favicon column at
   `groupIconSize`, its line starting at `rowTitleInset`, both in `TypeScale.sidebarHint`, which
-  *is* the column's 13 pt row face. The block is the grid, so its content is centred the way a
-  tile's is. One fill, one dash, one corner, one face between them.
+  *is* the column's 13 pt row face. The block well **is one empty tile**: `essentialsTile`'s
+  height and corner, standing in `slotRect(at: 0)`, its `pin` at a tile's own `essentialsIcon`,
+  and its glyph and line centred as a pair the way a tile centres its icon. Each line stops
+  half a `rowInset` short of the cross's slot, which is the clearance §3.4's own title column
+  keeps. One dash, one face, one cross between them.
+  > **Each well's glyph is the size the thing it stands in for draws its own.** Both were a
+  > folder's 20 pt, which in the grid was the biggest thing on screen with a 13 pt line beside
+  > it, and the line's room went into it.
   > It was two dashed boxes of 12 pt semibold grey, centred, which would have been the only bold
   > type in §3 — a poster about an empty column rather than the column's own voice. Centring the
   > row well also cost it the room: at the default width its line came out as
   > "Drag a folder here to pi…".
+  > **The block was 70 pt and stacked, chosen to be taller than a tile so it could not be
+  > mistaken for one.** Being mistaken for one is the point. At 70 the grid also dropped 16 pt
+  > the moment the first tab was pinned — the column jumping in answer to a drop that had
+  > already landed — and `EssentialsGridView.height(forTiles:hinting:)` now returns the
+  > one-tile height for a grid giving advice, so nothing moves at all.
 - **Dismissed by the cross, which is revealed on hover** exactly as §3.4's close is — a tip is
   mostly read, not dismissed, and a cross standing in the well at rest took a quarter of the
   line's room. It stands top-right in the block and in the row's own trailing slot, one
@@ -964,12 +975,18 @@ stand, with a `folder` glyph beside "Drag a folder here to pin it".
   pair store the *dismissal*, so a key nobody has written reads as "show it". Advice already
   taken does not need repeating in the Space next door — where, by definition, the user is now
   doing the thing it describes.
-- **The block is the grid's height while it is up, and stays that height under a lift.** §3.3's
-  grid is zero points tall until something is pinned and opens to a tile's height for the
-  length of a drag; the well has already made that movement, so `isAwaitingDrop` adds nothing
-  and nothing jumps when a §6.6 lift comes into the air. The well's own dashed line is the
-  drop outline, and it fills with `Surface.hover` when the lift is over it — a second outline
-  inside it would be two marks for one slot.
+- **Neither well carries a fill at rest.** Nothing else in §3 does — an unselected row has no
+  background at all (§30.7) — and empty is drawn here the way §3.3 draws its own empty slot: a
+  dashed `Line.border` and nothing behind it. `Surface.hover` is what a lift arriving over one
+  looks like, which is the same lift every other target in the column takes.
+  > **They were `Surface.well`**, a dark recess cut into the plane, sitting a few points from
+  > the grid's own dashed drop outline, which has never had a fill. A well answering the pointer
+  > then meant swapping one material for another rather than lifting the one it has.
+- **The block stands where the first tile stands, and stays there under a lift.** §3.3's grid is
+  zero points tall until something is pinned and opens to a tile's height for the length of a
+  drag; the well has already made that movement, so `isAwaitingDrop` adds nothing and nothing
+  jumps when a §6.6 lift comes into the air — or when it lands. The well's own dashed line is
+  the drop outline, so the grid draws no second one inside it.
 - **Neither well is a drop target of its own.** §6.6 already resolves both zones: the grid's
   region is the block's, and a point above the list's first row is §3.4b's tier, which is what
   the row well stands on. So a tab dropped on the row well gets a folder made round it, which
