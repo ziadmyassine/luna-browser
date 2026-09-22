@@ -148,6 +148,13 @@ final class TrafficLightLayoutManager {
     private weak var naturalSuperview: NSView?
     private let naturalTitlebarHeight: CGFloat
     private var strip: TrafficLightStrip?
+    /// See `holdPlacement`. A second covers a launch with room to spare — the
+    /// window is up in about a sixth of one — and a screen refresh is the
+    /// rate at which a wrong placement would be visible anyway.
+    private static let placementHold: TimeInterval = 1
+    private static let placementStep: TimeInterval = 1.0 / 60
+    private var holdUntil: Date?
+    private var isHolding = false
 
     /// §7.2: the sidebar is peeking over a hidden-sidebar window, so the lights
     /// belong back on screen for as long as it is there.
@@ -195,6 +202,45 @@ final class TrafficLightLayoutManager {
     func apply(_ state: ChromeState) {
         self.state = state
         layoutButtons()
+        holdPlacement()
+    }
+
+    /// Keeps re-asserting the placement for a moment after a chrome change.
+    ///
+    /// The observers below catch every re-layout AppKit announces, and that is
+    /// not all of them. Measured: five normal launches out of five ended with
+    /// all three buttons back at AppKit's own origins — no resize, no titlebar
+    /// frame change, no frame-change notification from the buttons, and no
+    /// window notification of any kind between the placement and the reset.
+    /// The same build launched from a shell, where the app never activates,
+    /// was right every time, so the reset rides on the window becoming key and
+    /// arrives without a word.
+    ///
+    /// So the placement is held rather than caught. A pass is three comparisons
+    /// and writes nothing when nothing moved, which is the cost of all but one
+    /// of these; it stops on its own, and `⌘S` was doing exactly this by hand.
+    private func holdPlacement() {
+        holdUntil = Date().addingTimeInterval(Self.placementHold)
+        guard !isHolding else { return }
+        isHolding = true
+        checkPlacementAgain()
+    }
+
+    /// A chain rather than a repeating `Timer`: the run loop keeps a timer
+    /// alive whether or not anyone is left to answer it, and this is a manager
+    /// that goes when its window does.
+    private func checkPlacementAgain() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.placementStep) { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                guard let until = self.holdUntil, Date() < until else {
+                    self.isHolding = false
+                    return
+                }
+                self.layoutButtons()
+                self.checkPlacementAgain()
+            }
+        }
     }
 
     // MARK: - Re-application

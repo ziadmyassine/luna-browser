@@ -59,6 +59,28 @@ final class TrafficLightReapplyTests: XCTestCase {
         XCTAssertEqual(lights.map(\.frame.origin), placed, "a light was left where AppKit put it")
     }
 
+    /// The one that actually shipped: nothing is posted at all, and the
+    /// placement has to come back on its own.
+    ///
+    /// Moving them behind the manager's back and then waiting is the whole
+    /// test — no notification, no chrome change, nothing to react to. Without
+    /// `holdPlacement` they stay where they were put.
+    func testThePlacementComesBackWithNoNotificationAtAll() throws {
+        let window = window()
+        let manager = TrafficLightLayoutManager(window: window)
+        manager.apply(.sidebar(width: 280, edge: .leading))
+        let lights = buttons(of: window)
+        try XCTSkipIf(lights.count < 3, "this macOS gave the window fewer than three window buttons")
+        let placed = lights.map(\.frame.origin)
+
+        for button in lights { button.setFrameOrigin(CGPoint(x: 9, y: 9)) }
+        let held = expectation(description: "the hold has had a few passes")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { held.fulfill() }
+        wait(for: [held], timeout: 2)
+
+        XCTAssertEqual(lights.map(\.frame.origin), placed, "nothing put them back")
+    }
+
     /// The same for a resize, which is the path that already worked — here so
     /// that the observer list cannot be trimmed back to nothing by accident.
     func testAResizePutsEveryLightBack() throws {
