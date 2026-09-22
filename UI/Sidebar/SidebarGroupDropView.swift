@@ -64,7 +64,9 @@ final class SidebarGroupDropView: NSView {
         let wanted = box != nil
         guard !Tokens.Motion.reduceMotion else {
             isHidden = !wanted
-            alphaValue = 1
+            // The same end state the fade lands on: a box left at full
+            // opacity while hidden flashes the moment anything unhides it.
+            alphaValue = wanted ? 1 : 0
             layer?.backgroundColor = wanted ? Tokens.Surface.selected.cgColor : nil
             return
         }
