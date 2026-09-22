@@ -31,7 +31,9 @@ import BrowserKit
 import Foundation
 
 actor BrowserImporter {
-    private let store: BrowserStore
+    /// Not private: `BrowserImporter+Placement` is the other half of this
+    /// actor and does the writing.
+    let store: BrowserStore
     private let ledger: ImportLedger
 
     init(store: BrowserStore, ledger: ImportLedger = .standard) {
@@ -62,6 +64,10 @@ actor BrowserImporter {
             reader: reader,
             ledgerKey: ImportLedger.key(request),
             spaceName: request.spaceName,
+            // The browser, not the profile inside it: a folder called "Chrome"
+            // is what the user came looking for, and two of that browser's
+            // profiles belong in the same one.
+            folderName: request.source.displayName,
             surfaces: request.surfaces,
             targetSpaceID: request.targetSpaceID,
             dryRun: dryRun,
@@ -77,6 +83,7 @@ actor BrowserImporter {
         reader: any ProfileReader,
         ledgerKey: String,
         spaceName: String,
+        folderName: String? = nil,
         surfaces: ImportSurfaces = .all,
         targetSpaceID: UUID? = nil,
         dryRun: Bool = false,
@@ -85,35 +92,47 @@ actor BrowserImporter {
         var summary = ImportSummary(isDryRun: dryRun)
         var entry = ledger.entry(ledgerKey)
 
+        // One Space for the whole import. Since `v8` an imported visit joins a
+        // Space's history the way an imported bookmark joins its tabs, and two
+        // answers to "which Space" is how the two halves of one import come
+        // apart.
+        //
+        // Still resolved by whichever surface needs it first rather than up
+        // front, because a browser with nothing to give must not leave an empty
+        // Space behind.
+        var target: UUID?
+
         // Bookmarks first: bounded, and what the user actually looks for. A
         // history import cancelled halfway has still delivered them.
         if surfaces.contains(.bookmarks) {
             progress?(ImportProgress(phase: .bookmarks, completed: 0, total: nil))
-            do {
-                let bookmarks = try reader.bookmarks()
-                // No bookmarks, no Space. History in Luna is global (§11.1's
-                // `places`/`visits` have no space column), so a history-only
-                // import needs no Space at all and must not leave an empty one.
-                if !bookmarks.isEmpty {
-                    let spaceID = try await resolveTargetSpace(
-                        explicit: targetSpaceID,
-                        name: spaceName,
-                        entry: &entry,
-                        dryRun: dryRun
-                    )
-                    summary.targetSpaceID = spaceID
-                    let result = try await write(bookmarks, into: spaceID, dryRun: dryRun)
-                    summary.bookmarksAdded = result.added
-                    summary.bookmarksSkipped = result.skipped
-                }
-            } catch {
-                summary.failed += 1
-                summary.warnings.append(error.localizedDescription)
-            }
+            target = await importBookmarks(
+                reader: reader,
+                names: Names(space: spaceName, folder: folderName ?? spaceName, explicit: targetSpaceID),
+                entry: &entry,
+                into: &summary,
+                dryRun: dryRun
+            )
         }
 
         if surfaces.contains(.history) {
-            await importHistory(reader: reader, entry: &entry, dryRun: dryRun, into: &summary, progress: progress)
+            // The first Space the import made, which for a sidebar is the one
+            // the source lists first. A browser's `History` is one file per
+            // profile and says nothing about which of its Spaces a visit
+            // happened in, so it cannot be split between them — and putting
+            // the same 70,000 visits in each would be worse than choosing one.
+            if target == nil {
+                target = try await resolveTargetSpace(explicit: targetSpaceID, name: spaceName, entry: &entry, dryRun: dryRun)
+                summary.targetSpaceID = target
+                summary.spacesTouched = max(summary.spacesTouched, 1)
+            }
+            await importHistory(
+                reader: reader,
+                entry: &entry,
+                target: ImportTarget(space: target, dryRun: dryRun),
+                into: &summary,
+                progress: progress
+            )
         }
 
         progress?(ImportProgress(phase: .finishing, completed: summary.visitsAdded, total: nil))
@@ -121,10 +140,20 @@ actor BrowserImporter {
         return summary
     }
 
+    /// Where an import is putting things: the Space everything lands in, and
+    /// whether this run is only rehearsing.
+    ///
+    /// `space` is nil only if the caller never resolved one, and a visit that
+    /// arrives without a Space is in no Space's history at all.
+    private struct ImportTarget {
+        var space: UUID?
+        var dryRun: Bool
+    }
+
     private func importHistory(
         reader: any ProfileReader,
         entry: inout ImportLedger.Entry,
-        dryRun: Bool,
+        target: ImportTarget,
         into summary: inout ImportSummary,
         progress: (@Sendable (ImportProgress) -> Void)?
     ) async {
@@ -146,7 +175,7 @@ actor BrowserImporter {
                 cursor = page.lastRowID
                 highest = max(highest, page.visits.map(\.sourceStamp).max() ?? highest)
 
-                if !dryRun {
+                if !target.dryRun {
                     // One store transaction per page, not per visit (§11.5):
                     // `recordVisit` buffers and `flush` commits the batch, so
                     // the store's actor is entered and left per page rather
@@ -156,7 +185,8 @@ actor BrowserImporter {
                             url: visit.url,
                             title: visit.title,
                             kind: visit.kind,
-                            at: visit.at
+                            at: visit.at,
+                            inSpace: target.space
                         )
                     }
                     try await store.flush()
@@ -207,7 +237,15 @@ actor BrowserImporter {
             entry: &entry,
             dryRun: dryRun
         )
-        let result = try await write(bookmarks, into: spaceID, dryRun: dryRun)
+        let result = try await write(
+            bookmarks,
+            into: spaceID,
+            // The file's own name. There is no browser to ask — an HTML export
+            // says nothing about who wrote it — and the name the user saved it
+            // under is the nearest true thing.
+            folder: name.isEmpty ? String(localized: "Imported") : name,
+            dryRun: dryRun
+        )
         return ImportSummary(
             isDryRun: dryRun,
             bookmarksAdded: result.added,
@@ -241,124 +279,6 @@ actor BrowserImporter {
         return NetscapeBookmarks.write(bookmarks, title: "Luna Bookmarks")
     }
 
-    // MARK: - Writing
-
-    /// Deduplicates, then writes. This is the whole idempotency story for
-    /// bookmarks, and it reads from the store rather than the ledger on
-    /// purpose: a user who deleted the ledger, or who imports the same sites
-    /// from two browsers, still gets no duplicates.
-    ///
-    /// Two keys, because §23.2's "same URL in a folder" and Luna's model are
-    /// not the same shape:
-    ///
-    /// - Within the incoming list, folder path + URL, so a site bookmarked
-    ///   in two different folders survives as two bookmarks.
-    /// - Against the target Space, the URL alone, because Luna has no
-    ///   folder column yet (§11.1 lists a `bookmarks` table that is not
-    ///   created) and two tabs with one URL in one Space are duplicates by any
-    ///   reading.
-    private func write(
-        _ bookmarks: [ImportedBookmark],
-        into spaceID: UUID,
-        dryRun: Bool
-    ) async throws -> (added: Int, skipped: Int) {
-        let existing = try await store.tabs(inSpace: spaceID, includeArchived: true)
-        var seen = Set(existing.map { Self.dedupKey($0.url) })
-        var order = (existing.map(\.order).max() ?? -1) + 1
-
-        var added = 0
-        var skipped = 0
-        var seenInBatch = Set<String>()
-
-        for bookmark in bookmarks {
-            let key = Self.dedupKey(bookmark.url)
-            let pathKey = bookmark.folderPath.joined(separator: "/") + "\u{1}" + key
-            guard seenInBatch.insert(pathKey).inserted, seen.insert(key).inserted else {
-                skipped += 1
-                continue
-            }
-            added += 1
-            guard !dryRun else { continue }
-
-            let when = bookmark.dateAdded ?? Date()
-            // ponytail: one `upsert` per bookmark, i.e. one transaction each.
-            // Fine at the scale this sees — a whole Dia profile is 44 bookmarks.
-            // If a 5,000-bookmark import ever turns up, `BrowserStore` wants a
-            // bulk `upsert(_ tabs: [Tab])` and this loop becomes one call.
-            try await store.upsert(Tab(
-                spaceID: spaceID,
-                kind: bookmark.placement.tabKind,
-                url: bookmark.url,
-                title: bookmark.title,
-                createdAt: when,
-                lastActiveAt: when,
-                order: order
-            ))
-            order += 1
-        }
-        return (added, skipped)
-    }
-
-    /// Two URLs are the same bookmark when they differ only by a trailing slash
-    /// or by the case of the scheme or host. Anything more aggressive —
-    /// dropping `www.`, sorting query items — starts merging pages that are
-    /// genuinely different, which is worse than one duplicate row.
-    static func dedupKey(_ url: URL) -> String {
-        var string = url.absoluteString
-        if string.hasSuffix("/") { string.removeLast() }
-        guard var components = URLComponents(string: string) else { return string.lowercased() }
-        components.scheme = components.scheme?.lowercased()
-        components.host = components.host?.lowercased()
-        return components.string ?? string
-    }
-
-    // MARK: - Target Space
-
-    private func resolveTargetSpace(
-        explicit: UUID?,
-        name: String,
-        entry: inout ImportLedger.Entry,
-        dryRun: Bool
-    ) async throws -> UUID {
-        if let explicit { return explicit }
-
-        let spaces = try await store.spaces()
-        // A Space the user has deleted since the last import drops its stale
-        // record rather than being resurrected.
-        if let remembered = entry.spaceID, spaces.contains(where: { $0.id == remembered }) {
-            return remembered
-        }
-        // Reusing a Space of the same name keeps repeated imports from
-        // accumulating "Dia", "Dia 2", "Dia 3".
-        if let match = spaces.first(where: { $0.name == name }) {
-            entry.spaceID = match.id
-            return match.id
-        }
-
-        // A dry run creates nothing at all — not the Space, and not the
-        // Profile `seedIfEmpty` would stand up underneath it. It reports the id
-        // it would have used so a screen can still say where things would land.
-        guard !dryRun else { return UUID() }
-
-        // `seedIfEmpty` is a no-op once anything exists; it is here so an
-        // import during onboarding — before the user has opened a window — has
-        // a Profile to hang the Space off.
-        try await store.seedIfEmpty()
-        guard let profile = try await store.profiles().first else {
-            throw ImportError.unreadable(String(localized: "Luna's own database"))
-        }
-        let space = Space(
-            name: name,
-            symbolName: "square.and.arrow.down",
-            gradient: .defaultSpace,
-            profileID: profile.id,
-            order: (spaces.map(\.order).max() ?? -1) + 1
-        )
-        try await store.upsert(space)
-        entry.spaceID = space.id
-        return space.id
-    }
-
     // MARK: - Readers
 
     private func makeReader(_ request: ImportRequest, snapshot: ImportSnapshot) throws -> any ProfileReader {
@@ -376,6 +296,24 @@ actor BrowserImporter {
         let directory = request.profile.directoryName.isEmpty
             ? root
             : root.appending(path: request.profile.directoryName, directoryHint: .isDirectory)
-        return try ChromiumReader.snapshot(profileDirectory: directory, into: snapshot)
+        // Arc's and Dia's own saved tabs, which live beside `User Data` rather
+        // than in the profile — the whole of what Arc saves, and the only
+        // non-empty half of what Dia does.
+        let sidebar = Self.sidebar(for: request)
+        return try ChromiumReader.snapshot(
+            profileDirectory: directory,
+            sidebar: sidebar,
+            sidebarFile: sidebar.map { request.source.supportDirectoryURL.appending(path: $0.fileName) },
+            into: snapshot
+        )
+    }
+
+    private static func sidebar(for request: ImportRequest) -> ChromiumReader.SidebarSource? {
+        guard let name = request.source.sidebarFileName else { return nil }
+        switch request.source {
+        case .arc: return .arc(fileName: name)
+        case .dia: return .dia(fileName: name, profileDirectory: request.profile.directoryName)
+        default: return nil
+        }
     }
 }

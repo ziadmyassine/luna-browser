@@ -29,6 +29,18 @@ extension TabListController {
     /// chasing a live resize drag, or a §6 Space switch that has replaced every
     /// row under them, arrives after the row it belongs to.
     func movePills(animated: Bool = true) {
+        // §6.6: while a lift is up the list's two fills stay parked, because
+        // the lift is carrying §3.4's selected pill itself, and a second one
+        // lying in the row the tab came from is a ghost that follows the drag
+        // down the column and back up again.
+        //
+        // Guarded here rather than at the call sites, and that is the whole
+        // fix. `setPillsHidden(true)` parks the fills once; every later request
+        // to move one brings them back, because `move(to:spec:)` ends by fading
+        // to 1. A drag is when the list is re-laid most — the §3.3 grid opens
+        // to a tile's height, §3.4b's rule comes out, the gap steps — and each
+        // of those passes reaches `table.onLayout`, which lands here.
+        guard !isDragging else { return }
         selectionPill.isFocused = table.window?.firstResponder === table
         let selected = table.selectedRow >= 0 ? table.selectedRow : nil
         place(selectionPill, at: selected, spec: animated ? Tokens.Motion.selectedRowMove : nil)
@@ -39,6 +51,9 @@ extension TabListController {
     /// Parks both row fills, or brings them back. §6.6's lift carries §3.4's
     /// selected pill itself, so while one is up the list's own would be a
     /// second highlight lying in the row's old place.
+    ///
+    /// Parking is only half of it: `movePills` is what keeps them parked, and
+    /// it has to, because a dozen things ask for a pill move during a drag.
     func setPillsHidden(_ hidden: Bool) {
         guard hidden else {
             movePills()
@@ -47,10 +62,11 @@ extension TabListController {
         for pill in [selectionPill, hoverPill] { pill.fade(to: 0) }
     }
 
-    /// Keeps the two shared pills behind the row views AppKit keeps adding.
+    /// Keeps the shared fills behind the row views AppKit keeps adding — the
+    /// two pills, and §6.6's box round a folder taking a drop.
     func sendPillsToBack() {
-        for pill in [selectionPill, hoverPill] where pill.superview === table {
-            table.addSubview(pill, positioned: .below, relativeTo: nil)
+        for fill in [selectionPill, hoverPill, groupDrop] where fill.superview === table {
+            table.addSubview(fill, positioned: .below, relativeTo: nil)
         }
     }
 
@@ -65,11 +81,27 @@ extension TabListController {
             pill.fade(to: 0, animated: spec != nil)
             return
         }
-        // `rowHeight` is pitch; `rowPillHeight` is paint. Insetting vertically
-        // is what stops two adjacent selected pills fusing into one slab.
-        pill.move(
-            to: table.rect(ofRow: row).insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.rowPillInset),
-            spec: spec
-        )
+        pill.move(to: pillBox(ofRow: row), spec: spec)
+    }
+
+    /// The fill's box for one row.
+    ///
+    /// `rowHeight` is pitch and `rowPillHeight` is paint, so the vertical inset
+    /// is what stops two adjacent selected pills fusing into one slab.
+    ///
+    /// The leading edge follows §3.4b's indent. A tab inside a folder steps in
+    /// by `groupIndent` and everything it draws steps in with it — a pill that
+    /// stayed at the column's edge reached out past the folder's own header and
+    /// made the row look like it belonged to the list rather than to the folder.
+    func pillBox(ofRow row: Int) -> NSRect {
+        var box = table.rect(ofRow: row)
+            .insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.rowPillInset)
+        // Read the same way `tabContent` reads it, not from `content(for:)` —
+        // this runs on every pill move and that builds a whole row's worth of
+        // state to answer one question.
+        guard let tab = list.tab(at: row), list.group(ofTab: tab.id) != nil else { return box }
+        box.origin.x += Tokens.Metric.groupIndent
+        box.size.width -= Tokens.Metric.groupIndent
+        return box
     }
 }

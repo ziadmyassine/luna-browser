@@ -42,7 +42,7 @@ an enforced one, so it is on review to catch.
 | Pane inset | `chromeGapWide` (16) |
 | Card row height | `settingsCardRow` (44) |
 | Card row inset (text grid) | `chromeGapWide` (16) |
-| Gap between cards | `settingsGroupGap` (26); a note under a card, `chromeGap` (8) |
+| Gap between cards | `settingsGroupGap` (24); one of a run of like cards, `settingsListGap` (12); a note under a card, `chromeGap` (8) |
 | Search field | `urlPill`, exactly as `HistoryFilterField` draws it |
 | Nav capsule | `settingsNavCapsule` (64 × 30, radius 10) |
 | Group header | the row's face, `Text.secondary`, **flush with the card's edge** |

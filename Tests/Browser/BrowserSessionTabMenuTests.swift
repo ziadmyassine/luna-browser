@@ -172,15 +172,52 @@ final class BrowserSessionTabMenuTests: XCTestCase {
     /// The reference's order and the reference's five groups, which is what "the same UI"
     /// meant. Asserted as a list because it is the one thing about this surface a reader
     /// can check against the screenshot without running the app.
-    func testMenuIsTheSevenItemsInTheReferenceOrder() async throws {
+    func testMenuIsTheReferenceOrder() async throws {
         let session = try await makeSession()
         let id = try tab(in: session, at: url("one"))
         let menu = TabMenu.build(for: try XCTUnwrap(session.tab(id)), isMuted: false, actions: noActions)
 
         XCTAssertEqual(menu.items.map(Self.word), [
-            "Pin", "", "Duplicate", "", "Copy Link", "", "Rename…", "Change Icon…", "Mute Site", "", "Close"
+            "Pin", "Add to Folder", "", "Duplicate", "",
+            "Copy Link", "", "Rename…", "Change Icon…", "Mute Site", "", "Close"
         ])
         XCTAssertEqual(menu.items.filter(\.isSeparatorItem).count, 4)
+    }
+
+    /// §3.4b's folder submenu is not on a §3.3 tile: the grid is one tile per page and
+    /// has no folders in it, so the offer would be an offer to leave the grid.
+    func testATileIsNotOfferedAFolder() async throws {
+        let session = try await makeSession()
+        let id = try tab(in: session, at: url("one"))
+        XCTAssertTrue(session.pinTab(id))
+        let menu = TabMenu.build(for: try XCTUnwrap(session.tab(id)), isMuted: false, actions: noActions)
+
+        XCTAssertFalse(menu.items.contains { Self.word($0) == "Add to Folder" })
+    }
+
+    /// A tab already in a folder is offered a move rather than an add — the item says
+    /// which act it is.
+    func testTheWordingFollowsWhereTheTabAlreadyIs() async throws {
+        let session = try await makeSession()
+        let id = try tab(in: session, at: url("one"))
+        let tab = try XCTUnwrap(session.tab(id))
+        XCTAssertTrue(TabMenu.build(for: tab, isMuted: false, actions: noActions).items
+            .contains { Self.word($0) == "Add to Folder" })
+
+        let group = TabGroup(spaceID: tab.spaceID, name: "Work")
+        let moving = TabMenu.build(for: tab, isMuted: false, group: group, actions: noActions)
+        XCTAssertTrue(moving.items.contains { Self.word($0) == "Move to Folder" })
+    }
+
+    /// And there is no *Save* item at all any more. §3.4b's tier holds folders and
+    /// nothing else, so "put this up there" and "put this in a folder" are one act.
+    func testThereIsNoSaveItem() async throws {
+        let session = try await makeSession()
+        let id = try tab(in: session, at: url("one"))
+        let menu = TabMenu.build(for: try XCTUnwrap(session.tab(id)), isMuted: false, actions: noActions)
+
+        XCTAssertFalse(menu.items.contains { Self.word($0).hasPrefix("Save") })
+        XCTAssertFalse(menu.items.contains { Self.word($0).contains("Saved") })
     }
 
     func testMenuSaysUnpinOnATileAndUnmuteOnAMutedTab() async throws {
@@ -207,8 +244,8 @@ final class BrowserSessionTabMenuTests: XCTestCase {
 
     private var noActions: TabMenu.Actions {
         TabMenu.Actions(
-            pin: {}, unpin: {}, duplicate: {}, rename: { _ in }, setIcon: { _ in },
-            setMuted: { _ in }, close: {}
+            pin: {}, unpin: {}, setGroup: { _ in }, newGroup: {},
+            duplicate: {}, rename: { _ in }, setIcon: { _ in }, setMuted: { _ in }, close: {}
         )
     }
 

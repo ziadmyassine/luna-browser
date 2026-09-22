@@ -10,18 +10,22 @@ struct InternalPagesTests {
     // MARK: - Routing
 
     @Test func routesEveryPage() {
-        #expect(InternalPages.route(URL(string: "luna://newtab")!) == .page(.newTab))
         #expect(InternalPages.route(URL(string: "luna://archive")!) == .page(.archive))
         #expect(InternalPages.route(URL(string: "luna://favicon/apple.com")!) == .favicon(host: "apple.com"))
         // Case in the host must not change the route — WebKit lower-cases it,
         // but a URL Luna builds itself may not have been through WebKit yet.
-        #expect(InternalPages.route(URL(string: "luna://NewTab")!) == .page(.newTab))
+        #expect(InternalPages.route(URL(string: "luna://Archive")!) == .page(.archive))
+    }
+
+    /// §30.19's page is gone and its URL is not quietly still serving it.
+    @Test func theNewTabPageIsNotAPageAnyMore() {
+        #expect(InternalPages.route(URL(string: "luna://newtab")!) == .notFound)
+        #expect(InternalPages.name(for: URL(string: "luna://newtab")!) == nil)
     }
 
     @Test func routesActions() {
         let id = UUID()
         #expect(InternalPages.route(URL(string: "luna://commandbar")!) == .action(.commandBar))
-        #expect(InternalPages.route(URL(string: "luna://addfavorite")!) == .action(.addFavorite))
         #expect(InternalPages.route(URL(string: "luna://restore?tab=\(id.uuidString)")!) == .action(.restore(id)))
         // A URL carrying another URL, ampersand and all — the case
         // `URLComponents.queryItems` quietly splits in two.
@@ -167,19 +171,6 @@ struct InternalPagesTests {
 
     // MARK: - Pages
 
-    @Test func newTabHandsOffToTheCommandBar() {
-        InternalPages.content = { InternalPageContent() }
-        defer { InternalPages.content = nil }
-
-        let html = InternalPages.newTabHTML()
-        #expect(html.contains("luna://commandbar"))
-        #expect(html.contains("luna://addfavorite"))
-        #expect(html.contains("Search or type a URL"))
-        // §30.20 / §30.21 are not built: one needs a speech entitlement, the
-        // other needs sync. Neither exists, so neither ships as a dead control.
-        #expect(!html.lowercased().contains("microphone"))
-    }
-
     @Test func everyErrorKindRendersAnAction() {
         let target = URL(string: "https://example.com")!
         for kind in InternalPageError.Kind.allCases {
@@ -188,6 +179,15 @@ struct InternalPagesTests {
             let expected = error.offersBypass ? "luna://proceed" : "luna://retry"
             #expect(html.contains(expected), "\(kind) offers no way forward")
         }
+    }
+
+    /// The other button on an error page. §30.19's New Tab page used to be
+    /// where it went; with that gone it asks for the Command Bar, because a
+    /// page that cannot load is not somewhere to leave somebody standing.
+    @Test func anErrorPageOffersTheCommandBarAndNotAPageThatIsGone() {
+        let html = InternalPages.errorHTML(InternalPageError(kind: .generic, url: nil))
+        #expect(html.contains("luna://commandbar"))
+        #expect(!html.contains("luna://newtab"))
     }
 
     @Test func mapsWebKitFailuresToTheFourPages() {

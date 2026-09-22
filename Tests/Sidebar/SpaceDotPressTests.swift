@@ -33,7 +33,7 @@ final class SpaceDotPressTests: XCTestCase {
     }
 
     private func space(_ name: String) -> Space {
-        Space(name: name, symbolName: "square.grid.2x2", gradient: .defaultSpace, profileID: UUID())
+        Space(name: name, symbolName: "square.grid.2x2", gradient: .defaultSpace)
     }
 
     private func dot() -> SpaceDotView {

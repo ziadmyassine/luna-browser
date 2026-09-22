@@ -47,6 +47,9 @@ final class GlassBackingView: NSView {
     /// is floating over. See `Glass.peekPlane`.
     private let rimmed: Bool
     private var glass: NSGlassEffectView?
+    /// §2's chrome tint, painted by Luna for the length of a window that is not
+    /// the active one. See `isSurfaceActive`.
+    private let tintPlate = NSView()
     /// Non-nil pins this backing to one side of §7's table whatever display it
     /// lands on. Exactly one caller sets it: `Glass.previewTile`, which has to
     /// show the 1× rendering and the 2× one side by side on one screen.
@@ -84,6 +87,9 @@ final class GlassBackingView: NSView {
         // "longer than wide". Clipping the backing to a real arc is the only
         // lever, and it costs nothing on a 34 pt button.
         layer?.masksToBounds = cornerCurve == .circular || maskedCorners != Glass.allCorners
+        tintPlate.wantsLayer = true
+        tintPlate.layer?.cornerCurve = cornerCurve
+        tintPlate.layer?.cornerRadius = maskedCorners == Glass.allCorners ? cornerRadius : 0
         rebuild()
         // NotificationCenter holds observers weakly and zeroes them on dealloc,
         // so there is nothing to remove — which keeps `deinit` free of the
@@ -168,12 +174,38 @@ final class GlassBackingView: NSView {
     /// in the page, so it keeps its material in every window state.
     private var wantsFlatPlane: Bool { isWindowFullScreen && style.hasBackdrop && !rimmed }
 
+    /// Whether this surface is in the window the user is working in.
+    ///
+    /// Both halves matter. An app that is not frontmost has no active window at
+    /// all, and an app that is frontmost has exactly one — Settings in front of
+    /// a browser window leaves the browser's chrome inactive behind it.
+    private var isSurfaceActive: Bool {
+        NSApp.isActive && (window?.isMainWindow ?? false)
+    }
+
     /// No tint over the fullscreen backdrop. §2's chrome tint is black in dark
     /// mode because the glass is sampling a bright wallpaper; in fullscreen it
     /// is sampling the opaque plane below, and darkening that by half took the
     /// sidebar under the content pane's own colour.
+    ///
+    /// The same tint is painted by hand while the window is not the active one,
+    /// and that is the whole of `tintPlate`. `NSGlassEffectView` drops
+    /// `tintColor` the moment its window stops being active — measured, by
+    /// sampling the sidebar in both states: the difference was §2's tint
+    /// exactly, black at `Ink.glassTint`, and the column came up a third
+    /// brighter every time the user clicked into another app. AppKit offers no
+    /// equivalent of `NSVisualEffectView.state` here, so the tint the material
+    /// stops applying is applied over it instead. It is the same colour in both
+    /// states; only which layer carries it changes.
     private func applyTint() {
-        glass?.tintColor = wantsOpaquePlane ? nil : style.tint(optimised: optimised)
+        let tint = wantsOpaquePlane ? nil : style.tint(optimised: optimised)
+        glass?.tintColor = tint
+        // Resolved against this view's own appearance. A notification arrives
+        // with whatever appearance was current where it was posted, and a
+        // dynamic colour asked for `cgColor` there answers for the wrong theme.
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            Tokens.Motion.wash(tintPlate.layer, to: isSurfaceActive ? nil : tint)
+        }
     }
 
     /// The plane goes up on `will` and comes down on `did`.
@@ -216,6 +248,20 @@ final class GlassBackingView: NSView {
             name: NSWindow.didDeminiaturizeNotification,
             object: window
         )
+        for name in [
+            NSApplication.didBecomeActiveNotification,
+            NSApplication.didResignActiveNotification
+        ] {
+            center.addObserver(self, selector: #selector(activationChanged), name: name, object: nil)
+        }
+        for name in [NSWindow.didBecomeMainNotification, NSWindow.didResignMainNotification] {
+            center.addObserver(self, selector: #selector(activationChanged), name: name, object: window)
+        }
+        applyTint()
+    }
+
+    @objc private func activationChanged() {
+        applyTint()
     }
 
     /// Settles the material the instant the app comes back.
@@ -299,14 +345,15 @@ final class GlassBackingView: NSView {
             // than as a pane of wallpaper. Controls are not — `.clear` glass
             // over an already-tinted bar is what makes them read as raised.
             view.tintColor = nil
-            // The header only guarantees placement for `contentView`, so give
-            // it an empty one rather than relying on a bare glass view.
-            view.contentView = NSView(frame: bounds)
+            // The header only guarantees placement for `contentView`, and the
+            // tint plate has to be in front of the material rather than behind
+            // it, so the plate is the content.
+            view.contentView = tintPlate
             view.isHidden = wantsFlatPlane
             addSubview(view)
             glass = view
-            applyTint()
         }
+        applyTint()
 
         needsDisplay = true
     }

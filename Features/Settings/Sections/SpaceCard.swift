@@ -40,6 +40,7 @@ import BrowserKit
 final class SpaceCardView: NSView {
 
     private let space: Space
+    private let picture: NSImage?
     private let header = SpaceHeaderPlate()
     private let symbol = NSImageView()
     private let name = NSTextField(labelWithString: "")
@@ -51,10 +52,20 @@ final class SpaceCardView: NSView {
     ///   - subtitle: §9's fan-out — `SpacesSection.fanOutLabel`. The one line
     ///     no other browser shows, and the card's header is the first place a
     ///     user looks for it.
+    ///   - picture: §9's photo, drawn round in the header's leading corner in
+    ///     place of the Space's glyph. Nil keeps the glyph, which is every
+    ///     Space until somebody gives it a face.
     ///   - onAppearance: the corner button. Handed the button so a popover can
     ///     stand on it.
-    init(space: Space, subtitle: String, rows: [NSView], onAppearance: @escaping (NSView) -> Void) {
+    init(
+        space: Space,
+        subtitle: String,
+        picture: NSImage? = nil,
+        rows: [NSView],
+        onAppearance: @escaping (NSView) -> Void
+    ) {
         self.space = space
+        self.picture = picture
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         // The header's top corners are the card's, so the card has to clip. It
@@ -94,8 +105,14 @@ final class SpaceCardView: NSView {
     var appearanceAnchor: NSView { palette }
 
     private func buildHeader(subtitle: String, onAppearance: @escaping (NSView) -> Void) {
-        symbol.image = NSImage(systemSymbolName: space.symbolName, accessibilityDescription: nil)?
+        // The picture stands where the glyph does, at the same size and round —
+        // it is the same job, done with a face instead of a symbol.
+        symbol.image = picture ?? NSImage(systemSymbolName: space.symbolName, accessibilityDescription: nil)?
             .withSymbolConfiguration(.init(pointSize: Tokens.Metric.glyphSize, weight: .regular))
+        symbol.imageScaling = .scaleProportionallyUpOrDown
+        symbol.wantsLayer = true
+        symbol.layer?.cornerRadius = picture == nil ? 0 : Tokens.Metric.glyphSize / 2
+        symbol.layer?.masksToBounds = picture != nil
         symbol.translatesAutoresizingMaskIntoConstraints = false
         name.stringValue = space.name
         name.font = Tokens.TypeScale.settingsHeading
@@ -144,7 +161,8 @@ final class SpaceCardView: NSView {
             : Tokens.Gradient.foreground(on: space.gradient, at: .full, in: theme)
         name.textColor = ink
         fanOut.textColor = ink
-        symbol.contentTintColor = ink
+        // A photo is its own colours; only a glyph takes the derived ink.
+        symbol.contentTintColor = picture == nil ? ink : nil
         palette.tint = ink
     }
 

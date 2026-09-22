@@ -52,6 +52,20 @@ struct SidebarRowContent: Equatable {
     var hasUnread: Bool = false
     var isLoading: Bool = false
     var trailing: Trailing = .none
+    /// How far this row's contents step in — `Metric.groupIndent` for a tab
+    /// inside a §3.4b group, zero for everything else. The spine is drawn in the
+    /// space it opens.
+    var indent: CGFloat = 0
+    /// A §3.4b group header's chevron, and which way it points. Nil on every row
+    /// that is not a group.
+    var disclosure: Disclosure?
+    /// §3.4b: a saved row whose page has been closed once. It is still a place
+    /// the user kept, so it is dimmed rather than greyed out — the next press
+    /// lets it go.
+    var isDormant: Bool = false
+
+    /// Whether a group is folded shut, on the row that folds it.
+    enum Disclosure: Equatable { case expanded, collapsed }
 }
 
 @MainActor
@@ -65,19 +79,42 @@ final class SidebarRowView: NSView {
     /// user actually pressed, so it is the one thing it reports.
     var onTrailing: ((SidebarRowContent.Trailing) -> Void)?
 
+    /// A §3.4b folder's name was typed and confirmed. Not called for Escape,
+    /// and not called for a name that is only whitespace: both mean the folder
+    /// keeps the name it had.
+    var onRename: ((String) -> Void)?
+
     var isSelected = false { didSet { refreshInk() } }
     var isHovered = false { didSet { refreshInk() } }
-
     private let icon = NSImageView()
+    // §3.4b's three. Internal rather than private only because Swift's
+    // `private` is file-scoped and `SidebarRowView+Group.swift` is the other
+    // half of this class; nothing outside that pair touches them.
+    /// §3.4b's fold mark. Not a button: the whole header folds, and a 16 pt
+    /// glyph sitting inside the thing it is about, lighting its own chip and
+    /// swelling under its own press, read as a second target on a row that has
+    /// only one. It is a plain `NSImageView` so that it cannot take a press,
+    /// cannot take a hover, and is not in the hit test at all.
+    let chevron = NSImageView()
+    /// The hairline down the leading edge of a group's tabs.
+    let spine = NSView()
     private let dot = NSView()
     /// Clips and fades both title layers. See the header.
-    private let titleClip = NSView()
+    let titleClip = NSView()
     private let title = NSTextField(labelWithString: "")
     /// The bright copy the §3.4 shimmer sweeps across. Hidden unless loading.
     private let shimmer = NSTextField(labelWithString: "")
     private let shimmerMask = CAGradientLayer()
-    private let fadeMask = CAGradientLayer()
+    let fadeMask = CAGradientLayer()
     private let trailing = RowGlyphView()
+    /// §3.4b's rename, typed on the row itself. Hidden until it is asked for —
+    /// see `SidebarRowView+Rename.swift`, which is the rest of it.
+    let editor = NSTextField()
+    var onPickEmoji: ((String) -> Void)?
+    /// Which question the field is asking: the row's name, or §3.4b's icon.
+    /// The same field does both, standing over the title for one and over the
+    /// icon for the other — see `SidebarRowView+Rename.swift`.
+    var isPickingEmoji = false
     private var content = SidebarRowContent()
 
     override init(frame frameRect: NSRect) {
@@ -122,8 +159,15 @@ final class SidebarRowView: NSView {
             guard let self else { return }
             onTrailing?(content.trailing)
         }
+        chevron.isHidden = true
+        // The header is the control and carries the label; a second element
+        // announcing the same fold is one more stop for no more reach.
+        chevron.setAccessibilityElement(false)
+        spine.wantsLayer = true
+        spine.isHidden = true
 
-        for view in [icon, dot, titleClip, trailing] { addSubview(view) }
+        prepareEditor()
+        for view in [spine, icon, dot, titleClip, chevron, trailing, editor] { addSubview(view) }
         setAccessibilityElement(true)
         setAccessibilityRole(.cell)
     }
@@ -141,11 +185,19 @@ final class SidebarRowView: NSView {
         content = next
         title.stringValue = next.title
         shimmer.stringValue = next.title
+        // §3.4b: a folder's glyph is either an SF Symbol's name or an emoji,
+        // and an emoji is never a template — see `RowEmoji`.
+        let slot = Self.iconSlot(for: next)
+        icon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: slot, weight: .regular)
+        let emoji = RowEmoji.image(next.symbolName, pointSize: slot)
         icon.image = next.favicon
+            ?? emoji
             ?? NSImage(systemSymbolName: next.symbolName, accessibilityDescription: nil)
-        icon.image?.isTemplate = next.favicon == nil
+        icon.image?.isTemplate = next.favicon == nil && emoji == nil
         dot.isHidden = !next.hasUnread
         setAccessibilityLabel(next.title)
+        applyDisclosure(next.disclosure)
+        spine.isHidden = next.indent == 0
         applyTrailing(next.trailing)
         refreshInk()
         if next.isLoading != wasLoading { updateShimmer() }
@@ -188,14 +240,16 @@ final class SidebarRowView: NSView {
     /// is ``titleColumn``'s half and is deliberately not held still.
     ///
     /// Pure, so the rule can be asserted without a window to hover in.
-    static func titleInk(isSelected: Bool, isLoading: Bool) -> NSColor {
-        if isLoading { return Tokens.Text.tertiary }
-        return isSelected ? Tokens.Text.primary : Tokens.Text.secondary
-    }
-
     private func refreshInk() {
-        title.textColor = Self.titleInk(isSelected: isSelected, isLoading: content.isLoading)
+        title.textColor = Self.titleInk(
+            isSelected: isSelected,
+            isLoading: content.isLoading,
+            isDormant: content.isDormant
+        )
         shimmer.textColor = Tokens.Text.primary
+        icon.alphaValue = content.isDormant ? Tokens.Metric.dormantIconOpacity : 1
+        chevron.contentTintColor = isSelected || isHovered ? Tokens.Text.primary : Tokens.Text.secondary
+        spine.layer?.backgroundColor = Tokens.Line.hairline.cgColor
         // Ink, not accent. Luna's chrome carries no system blue: the unread
         // mark is a full-strength dot in the same ink the title is set in, and
         // it reads because it is bright, not because it is a different hue.
@@ -257,7 +311,13 @@ final class SidebarRowView: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? {
         let local = convert(point, from: superview)
         guard bounds.contains(local) else { return nil }
-        return (!trailing.isHidden && trailing.frame.contains(local)) ? trailing : self
+        // The field first, and the whole row while it is up: a press anywhere
+        // on a row being renamed belongs to the text, not to the list. Clicking
+        // past the end of a short name to put the caret there is the gesture
+        // every rename in every list has.
+        if !editor.isHidden { return editor }
+        if !trailing.isHidden, trailing.frame.contains(local) { return trailing }
+        return self
     }
 
     // MARK: - Layout
@@ -268,54 +328,25 @@ final class SidebarRowView: NSView {
         Tokens.Motion.immediately { placeContents() }
     }
 
-    /// §3.4's title column: where the title starts, and how wide it may be.
-    ///
-    /// The trailing slot is given back when nothing is in it. A row with
-    /// no glyph runs its title to the pill's inner edge and lets §3.4's fade
-    /// end there; a row drawing the close chip or the speaker stops half an
-    /// inset short of the slot and fades before it.
-    ///
-    /// That was decided with both versions side by side, and the trade is
-    /// worth writing down. The column moving is how a title dims under the
-    /// pointer: the close chip appears, the box loses 22 pt, and the last
-    /// glyphs of a long title dissolve where they were solid a frame earlier.
-    /// Reserving the slot on every row holds the title still and costs every
-    /// row 22 pt of pill it mostly does not need. A tab is hovered for a moment
-    /// and read for hours, so the resting state wins.
-    ///
-    /// `rowTitleFade` at 12 rather than 24 is what makes it affordable: the
-    /// shift is a ramp moving two characters, not four.
-    ///
-    /// Pure, like ``titleInk``, so both states can be asserted without a
-    /// window to hover in. It takes the slot, not the hover — an audio row
-    /// has a glyph without a pointer anywhere near it.
-    static func titleColumn(
-        inRowOfWidth width: CGFloat,
-        hasUnread: Bool,
-        slotOccupied: Bool
-    ) -> (x: CGFloat, width: CGFloat) {
-        let x = Tokens.Metric.rowTitleInset
-            + (hasUnread ? Tokens.Metric.spaceDot + Tokens.Metric.rowInset : 0)
-        // Half an inset before the slot, not the full `chromeGap` two controls
-        // would take between them. The title's last glyphs are already
-        // dissolving by the time they reach here — `rowTitleFade` is the gap,
-        // and 8 pt of clearance on top of it is 8 pt of pill left empty.
-        let right = slotOccupied
-            ? trailingSlotX(inRowOfWidth: width) - Tokens.Metric.rowInset / 2
-            : width - 2 * Tokens.Metric.rowInset
-        return (x, max(right - x, 0))
-    }
-
-    /// Where the trailing glyph's slot begins, occupied or not. See
-    /// ``titleColumn``.
-    static func trailingSlotX(inRowOfWidth width: CGFloat) -> CGFloat {
-        width - 2 * Tokens.Metric.rowInset - Tokens.Metric.rowTrailingChip.width
+    func placeGroupFurniture() {
+        spine.frame = NSRect(
+            x: Tokens.Metric.rowInset + Tokens.Metric.groupSpineInset,
+            y: 0,
+            width: Tokens.Metric.hairline,
+            height: bounds.height
+        ).pixelAligned
     }
 
     private func placeContents() {
-        let glyph = Tokens.Metric.faviconSize
+        placeGroupFurniture()
+        // §3.4b: a folder's header stands at the column's own left edge and its
+        // tabs step in by `groupIndent`, so the indent alone says what is inside
+        // it. The chevron follows the name instead of leading the row — see
+        // `placeChevron`.
+        let indent = content.indent
+        let glyph = Self.iconSlot(for: content)
         icon.frame = NSRect(
-            x: Tokens.Metric.rowFaviconInset,
+            x: Tokens.Metric.rowFaviconInset + indent - (glyph - Tokens.Metric.faviconSize) / 2,
             y: (bounds.height - glyph) / 2,
             width: glyph,
             height: glyph
@@ -323,7 +354,7 @@ final class SidebarRowView: NSView {
 
         let dotSize = Tokens.Metric.spaceDot
         dot.frame = NSRect(
-            x: Tokens.Metric.rowTitleInset,
+            x: Tokens.Metric.rowTitleInset + indent,
             y: (bounds.height - dotSize) / 2,
             width: dotSize,
             height: dotSize
@@ -346,20 +377,23 @@ final class SidebarRowView: NSView {
         let column = Self.titleColumn(
             inRowOfWidth: bounds.width,
             hasUnread: content.hasUnread,
-            slotOccupied: !trailing.isHidden
+            slotOccupied: !trailing.isHidden,
+            indent: indent
         )
         let height = title.intrinsicContentSize.height
         let box = NSRect(
             x: column.x,
             y: (bounds.height - height) / 2,
-            width: column.width,
+            width: column.width - chevronReserve,
             height: height
         ).integral
         titleClip.frame = box
+        placeEditor(title: box, icon: icon.frame, reserving: chevronReserve)
 
         // Laid out at their natural width so nothing truncates; the clip box
         // and `fade` are what end the line.
         let natural = ceil(title.intrinsicContentSize.width)
+        placeChevron(afterTitleEnding: box.minX + min(natural, box.width))
         let inner = NSRect(x: 0, y: 0, width: max(natural, box.width), height: box.height)
         title.frame = inner
         shimmer.frame = inner
@@ -372,17 +406,16 @@ final class SidebarRowView: NSView {
         CATransaction.commit()
     }
 
-    /// §3.4's fade. Nil mask when the title fits: a gradient that is opaque
-    /// end to end still costs a masked composite on every row of every scroll.
-    private func applyFade(overflowing: Bool, width: CGFloat) {
-        guard overflowing, width > Tokens.Metric.rowTitleFade else {
-            titleClip.layer?.mask = nil
-            return
-        }
-        let ink = Tokens.Text.primary
-        fadeMask.frame = titleClip.bounds
-        fadeMask.colors = [ink.cgColor, ink.cgColor, ink.withAlphaComponent(0).cgColor]
-        fadeMask.locations = [0, NSNumber(value: Double(1 - Tokens.Metric.rowTitleFade / width)), 1]
-        titleClip.layer?.mask = fadeMask
+    /// The square this row's icon is drawn in — a folder's is the larger one.
+    /// See `Metric.groupIconSize`.
+    static func iconSlot(for content: SidebarRowContent) -> CGFloat {
+        content.disclosure == nil ? Tokens.Metric.faviconSize : Tokens.Metric.groupIconSize
     }
+
+    /// What the title gives back to the chevron standing after it. Nothing on a
+    /// row without one, and the slot plus its gap on a folder's header.
+    private var chevronReserve: CGFloat {
+        content.disclosure == nil ? 0 : Tokens.Metric.groupChevronSlot.width + Tokens.Metric.groupChevronGap
+    }
+
 }

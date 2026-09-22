@@ -22,3 +22,6 @@ xcuserdata/
 AuthKey_*.p8
 .env
 .env.*
+
+# The disk image and its staging, built by `make dmg`.
+build/

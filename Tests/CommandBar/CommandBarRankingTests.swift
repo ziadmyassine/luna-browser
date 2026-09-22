@@ -20,8 +20,7 @@ final class CommandBarRankingTests: XCTestCase {
     private let workSpace = Space(
         name: "Work",
         symbolName: "hammer",
-        gradient: .defaultSpace,
-        profileID: UUID()
+        gradient: .defaultSpace
     )
 
     private func url(_ text: String) -> URL { URL(string: text)! }
@@ -54,7 +53,6 @@ final class CommandBarRankingTests: XCTestCase {
     private func fixture() -> (sources: CommandBarSources, githubTab: Tab) {
         let githubTab = tab("https://github.com/luna", title: "Luna", minutesAgo: 1)
         var sources = CommandBarSources()
-        sources.spaces = [workSpace.id: workSpace]
         sources.tabs = [
             githubTab,
             tab("https://git-scm.com/", title: "Git", minutesAgo: 30),
@@ -72,6 +70,22 @@ final class CommandBarRankingTests: XCTestCase {
             HistoryHit(url: url("https://gitbook.example/"), title: "GitBook", score: 120)
         ]
         return (sources, githubTab)
+    }
+
+    // MARK: - §6.3's archive
+
+    /// A row closed twice is archived, and reopening it is a question the bar
+    /// answers — which is the one thing in §9.2's tab list that is not a
+    /// switch. The rest of that line is in `CommandBarTabRowTests`.
+    func testAnArchivedRowIsStillOffered() {
+        var sources = CommandBarSources()
+        var gone = tab("https://gitea.example/", title: "Gitea", minutesAgo: 90, archived: true)
+        gone.isDormant = true
+        sources.tabs = [gone]
+
+        let results = CommandBarRanking.merge(query: "git", sources: sources, limit: 8)
+
+        XCTAssertTrue(results.contains { $0.source == .archive })
     }
 
     // MARK: - §9.3 the merge
@@ -134,8 +148,7 @@ final class CommandBarRankingTests: XCTestCase {
         XCTAssertEqual(results.filter { $0.title == "Luna" }.count, 1)
         XCTAssertEqual(results[1].source, .adaptive)
         XCTAssertEqual(results[1].action, .activateTab(githubTab.id))
-        // §9.2's Space badge comes with it.
-        XCTAssertEqual(results[1].badge?.name, "Work")
+        XCTAssertEqual(results[1].symbolName, "square.on.square", "and the open tab's glyph with it")
     }
 
     /// The same rule the other way: a history hit for a page that is already open

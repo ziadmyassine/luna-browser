@@ -59,6 +59,11 @@ targets:
       - path: assets/icon/final/luna.icon
         type: file
         buildPhase: resources
+      # The same mark at both appearances, for the surfaces inside the app
+      # that draw it. The document above compiles to one flattened image:
+      # `NSImage(named:)` hands back the light rendition whatever the window
+      # is wearing, so first run showed a white tile on a dark page.
+      - path: assets/icon/mark/Mark.xcassets
     dependencies:
       - package: BrowserKit
 

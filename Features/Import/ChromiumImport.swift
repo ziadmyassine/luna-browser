@@ -7,6 +7,10 @@
 //  `Bookmarks` (JSON) and `History` (SQLite). Only the base directory differs,
 //  and that is `ImportSource`'s job.
 //
+//  Two of them keep their saved tabs somewhere else as well, and `bookmarks()`
+//  reads both: Arc writes no `Bookmarks` file at all, and Dia writes an empty
+//  one. See `SidebarImport.swift`.
+//
 //  Reads a snapshot, never a live profile: see `SQLiteSnapshot.swift` for
 //  the measurement that makes the copy mandatory.
 //
@@ -20,8 +24,12 @@ import Foundation
 /// function from files to values, which is why the tests point it at a
 /// database they build themselves rather than at anyone's real profile.
 struct ChromiumReader: Sendable {
-    /// A directory holding copies of `Bookmarks` and `History`.
+    /// A directory holding copies of `Bookmarks`, `History`, and the browser's
+    /// own sidebar file if it has one.
     let snapshotDirectory: URL
+    /// How to read that sidebar file. Nil for the eight browsers that keep
+    /// everything they save in `Bookmarks`.
+    var sidebar: SidebarSource?
     /// Retained so the snapshot outlives the reader pointing into it — the
     /// snapshot deletes its directory in `deinit`, and a reader is nothing but
     /// a path into it.
@@ -32,14 +40,46 @@ struct ChromiumReader: Sendable {
     /// more than this many `ImportedVisit` values alive.
     static let batchSize = 500
 
-    /// Copies the two files this reader needs out of a live profile.
+    /// Which browser's sidebar file is in the snapshot, and whose favourites to
+    /// take out of it.
+    enum SidebarSource: Sendable, Hashable {
+        case arc(fileName: String)
+        /// Dia's file is one per app and holds every profile, so it is read
+        /// with the directory name of the profile being imported.
+        case dia(fileName: String, profileDirectory: String)
+
+        var fileName: String {
+            switch self {
+            case let .arc(name), let .dia(name, _): name
+            }
+        }
+
+        func parse(_ data: Data) -> [ImportedBookmark] {
+            switch self {
+            case .arc: ArcSidebar.parse(data)
+            case let .dia(_, profile): DiaFavorites.parse(data, profileDirectory: profile)
+            }
+        }
+    }
+
+    /// Copies the files this reader needs out of a live profile.
     ///
     /// Missing files are skipped rather than failing — Dia's `Default` profile
-    /// on this Mac has a `History` and no `Bookmarks` at all.
-    static func snapshot(profileDirectory: URL, into snapshot: ImportSnapshot) throws -> ChromiumReader {
+    /// on this Mac has a `History` and no `Bookmarks` at all, and Arc has
+    /// neither a `Bookmarks` file nor any intention of writing one.
+    ///
+    /// `sidebarFile` sits beside `User Data` rather than inside the profile,
+    /// which is why it is passed in rather than derived from `profileDirectory`.
+    static func snapshot(
+        profileDirectory: URL,
+        sidebar: SidebarSource? = nil,
+        sidebarFile: URL? = nil,
+        into snapshot: ImportSnapshot
+    ) throws -> ChromiumReader {
         try snapshot.copyIn(profileDirectory.appending(path: "History"))
         try snapshot.copyIn(profileDirectory.appending(path: "Bookmarks"))
-        return ChromiumReader(snapshotDirectory: snapshot.directory, snapshot: snapshot)
+        if let sidebarFile { try snapshot.copyIn(sidebarFile) }
+        return ChromiumReader(snapshotDirectory: snapshot.directory, sidebar: sidebar, snapshot: snapshot)
     }
 
     private func file(_ name: String) -> URL? {
@@ -55,9 +95,24 @@ struct ChromiumReader: Sendable {
     /// `ImportError.malformed` only when the file exists and is not a bookmarks
     /// tree — a truncated or corrupt file must fail this surface, not the run.
     func bookmarks() throws -> [ImportedBookmark] {
-        guard let url = file("Bookmarks") else { return [] }
+        // The sidebar first, and read before `Bookmarks` can throw: Arc's is
+        // the only thing it saves, so a corrupt `Bookmarks` file next to it
+        // must not take the sidebar down with it. `ImportError.malformed` is
+        // still raised afterwards, so the surface still reports the fault.
+        let saved = sidebarBookmarks()
+        guard let url = file("Bookmarks") else { return saved }
         guard let data = try? Data(contentsOf: url) else { throw ImportError.unreadable("Bookmarks") }
-        return try Self.flatten(bookmarksJSON: data)
+        return saved + (try Self.flatten(bookmarksJSON: data))
+    }
+
+    /// Never throws. A sidebar Luna cannot make sense of is no saved tabs —
+    /// the shape is the browser's private business and changes between its
+    /// releases, so it must cost this half and nothing else.
+    private func sidebarBookmarks() -> [ImportedBookmark] {
+        guard let sidebar, let url = file(sidebar.fileName), let data = try? Data(contentsOf: url) else {
+            return []
+        }
+        return sidebar.parse(data)
     }
 
     /// Chromium's three fixed roots, in import order.
@@ -254,10 +309,24 @@ struct ChromiumReader: Sendable {
 /// an actor and a callback would have to cross its isolation boundary.
 protocol ProfileReader: Sendable {
     func bookmarks() throws -> [ImportedBookmark]
+    /// Whether the bookmarks this reader returns carry a shape worth keeping —
+    /// their own Spaces, their own folders, their own one-click row.
+    ///
+    /// True for Arc and Dia, whose sidebars are §3.4b's shape already. False
+    /// for a Chromium `Bookmarks` tree and for a Netscape export, where §3.4b's
+    /// one-import-one-folder rule governs and the tree is flattened into it.
+    var keepsItsOwnStructure: Bool { get }
     /// `nil` when this source has no readable history at all, which is
     /// different from having none newer than `watermark`.
     func visitCount(after watermark: Int64) throws -> Int?
     func visitPage(after watermark: Int64, from rowID: Int64, limit: Int) throws -> VisitPage
 }
 
-extension ChromiumReader: ProfileReader {}
+extension ProfileReader {
+    var keepsItsOwnStructure: Bool { false }
+}
+
+extension ChromiumReader: ProfileReader {
+    /// Only the two that have a sidebar to keep.
+    var keepsItsOwnStructure: Bool { sidebar != nil }
+}

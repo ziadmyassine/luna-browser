@@ -1,6 +1,6 @@
 XCODEBUILD := xcodebuild -project Luna.xcodeproj -scheme Luna -derivedDataPath DerivedData
 
-.PHONY: gen build run test lint fmt check
+.PHONY: gen build run test lint fmt check dmg
 
 gen:
 	xcodegen generate
@@ -32,3 +32,9 @@ fmt:
 
 check: lint
 	Tools/check-no-appkit.sh
+
+# §30.17's installer. Takes the Release build unless given a path. One image,
+# and the dark one: a disk image's backdrop cannot follow the appearance
+# (UI-SPEC §5.3), so the plane that ships is the plane the app looks like.
+dmg:
+	Tools/make-dmg.sh $(APP) $(DMG)

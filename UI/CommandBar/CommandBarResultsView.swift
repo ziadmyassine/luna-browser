@@ -163,7 +163,7 @@ final class CommandBarResultsView: NSView {
 
 // MARK: - One row
 
-/// `[favicon 18] [title 15 pt] [subtitle] [Space badge]` in a 40 pt row (§3.4).
+/// `[favicon 18] [title 15 pt] [subtitle]` in a 40 pt row (§3.4).
 @MainActor
 private final class CommandBarRowView: NSView {
 
@@ -184,8 +184,6 @@ private final class CommandBarRowView: NSView {
     private let favicon: NSImage?
     private let title = NSTextField(labelWithString: "")
     private let subtitle = NSTextField(labelWithString: "")
-    private let badgeDot = NSView()
-    private let badgeName = NSTextField(labelWithString: "")
 
     init(result: CommandBarResult, favicon: NSImage?) {
         self.result = result
@@ -232,16 +230,11 @@ private final class CommandBarRowView: NSView {
         title.lineBreakMode = .byTruncatingTail
         subtitle.stringValue = result.subtitle
         subtitle.lineBreakMode = .byTruncatingMiddle
-        badgeName.stringValue = result.badge?.name ?? ""
-        badgeDot.wantsLayer = true
-        badgeDot.layer?.cornerRadius = Tokens.Metric.spaceDot / 2
-        // §21.2 "Differentiate Without Colour": the Space's name is always next
-        // to the dot, so the badge never depends on the colour to be readable.
-        let showBadge = result.badge != nil
-        badgeDot.isHidden = !showBadge
-        badgeName.isHidden = !showBadge
-
-        let stack = NSStackView(views: [icon, title, subtitle, badgeDot, badgeName])
+        // No Space badge. Every row in the list is a row of the Space the bar
+        // was opened in, so a chip naming it would be the same chip on every
+        // row — and §21.2's reason for having one, telling two cookie jars
+        // apart, cannot arise in a list that only ever holds one.
+        let stack = NSStackView(views: [icon, title, subtitle])
         stack.orientation = .horizontal
         stack.alignment = .centerY
         stack.spacing = Tokens.Metric.panelInset
@@ -260,32 +253,25 @@ private final class CommandBarRowView: NSView {
             stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
             stack.centerYAnchor.constraint(equalTo: centerYAnchor),
             icon.widthAnchor.constraint(equalToConstant: Tokens.Metric.faviconSize),
-            icon.heightAnchor.constraint(equalToConstant: Tokens.Metric.faviconSize),
-            badgeDot.widthAnchor.constraint(equalToConstant: Tokens.Metric.spaceDot),
-            badgeDot.heightAnchor.constraint(equalToConstant: Tokens.Metric.spaceDot)
+            icon.heightAnchor.constraint(equalToConstant: Tokens.Metric.faviconSize)
         ])
     }
 
     private func applyTokens() {
         title.font = Tokens.TypeScale.commandBarRow
         subtitle.font = Tokens.TypeScale.commandBarRow
-        badgeName.font = Tokens.TypeScale.sectionLabel
         // §3.4: the selected row has "brighter text"; §1 forbids separating tiers
         // by alpha alone, so the step is primary vs secondary, not a fade.
         title.textColor = isSelected ? Tokens.Text.primary : Tokens.Text.secondary
         subtitle.textColor = Tokens.Text.tertiary
-        badgeName.textColor = Tokens.Text.tertiary
         if favicon == nil {
             icon.contentTintColor = isSelected ? Tokens.Text.primary : Tokens.Text.secondary
         }
-        // A Space colour is a fill, which is the one thing §1 permits it to be.
-        badgeDot.layer?.backgroundColor = result.badge.map { NSColor($0.colour).cgColor }
     }
 
     private var accessibilityText: String {
         // VoiceOver gets the site name and the source, never a bare URL (UI-SPEC §8).
-        [result.title, result.badge?.name, sourceDescription]
-            .compactMap { $0 }
+        [result.title, sourceDescription]
             .filter { !$0.isEmpty }
             .joined(separator: ", ")
     }

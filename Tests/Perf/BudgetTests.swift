@@ -138,7 +138,12 @@ final class BudgetTests: XCTestCase {
         let window = window()
         list.scrollView.frame = NSRect(x: 0, y: 0, width: 260, height: 800)
         window.contentView?.addSubview(list.scrollView)
-        list.show(tabs, activeTabID: tabs.first?.id)
+        list.show(
+            saved: tabs.filter { $0.kind == .pinned }.map(SidebarSlot.tab),
+            today: tabs.filter { $0.kind == .today }.map(SidebarSlot.tab),
+            essentials: tabs.filter { $0.kind == .essential },
+            activeTabID: tabs.first?.id
+        )
         window.contentView?.layoutSubtreeIfNeeded()
         window.contentView?.display()
 

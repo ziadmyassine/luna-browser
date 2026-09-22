@@ -2,27 +2,28 @@ import Foundation
 
 /// The failures `BrowserStore` raises on its own behalf, as opposed to the ones GRDB raises.
 ///
-/// Both cases are refusals, not accidents: each one names something the caller asked for
-/// that would leave the database describing a world that cannot exist.
+/// Both are refusals, not accidents: each names something the caller asked for that would
+/// leave the database describing a world that cannot exist.
 public enum BrowserStoreError: Error, Equatable, LocalizedError {
 
-    /// `delete(profileID:)` while at least one Space still names that profile.
-    ///
-    /// Deleting it anyway would leave `spaces.profileID` pointing at nothing, and those
-    /// Spaces would resolve to no data store at all — a window of tabs with no cookie jar.
-    /// The `spaceIDs` are carried so the caller can say which Spaces, which is the one
-    /// clause §6.4's deletion dialog has no prior art to copy.
-    case profileInUse(profileID: UUID, spaceIDs: [UUID])
+    /// A Space was written with the all-zero `dataStoreIdentifier` (§3.1).
+    case invalidDataStoreIdentifier(spaceID: UUID)
 
-    /// A profile was written with the all-zero `dataStoreIdentifier` (§3.1).
-    case invalidDataStoreIdentifier(profileID: UUID)
+    /// A Space was written with a `dataStoreIdentifier` another Space already holds (§9).
+    ///
+    /// One jar per Space is the whole of `v7`, and the column is `UNIQUE` — but GRDB's
+    /// upsert carries no conflict target, so SQLite resolves a uniqueness conflict on
+    /// *any* index by updating the row it collided with. A duplicate jar would therefore
+    /// not fail: it would quietly overwrite the other Space with this one, and a Space
+    /// would disappear. The refusal is explicit so that cannot happen.
+    case dataStoreIdentifierTaken(spaceID: UUID, by: UUID)
 
     public var errorDescription: String? {
         switch self {
-        case let .profileInUse(profileID, spaceIDs):
-            "Profile \(profileID) is still used by \(spaceIDs.count) Space(s) and cannot be deleted."
-        case let .invalidDataStoreIdentifier(profileID):
-            "Profile \(profileID) has an unusable website data store identifier."
+        case let .invalidDataStoreIdentifier(spaceID):
+            "Space \(spaceID) has an unusable website data store identifier."
+        case let .dataStoreIdentifierTaken(spaceID, owner):
+            "Space \(spaceID) was given the website data store Space \(owner) already uses."
         }
     }
 }

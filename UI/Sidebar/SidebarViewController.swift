@@ -85,10 +85,15 @@ final class SidebarViewController: NSViewController {
     let controlRow = SidebarControlRow()
     let pill = URLPillView()
     let essentials = EssentialsGridView()
+    /// §3.3a's second well, under the grid: §3.4b's tier with no folder in it
+    /// yet. Its own view rather than a row in the list, because the tier it
+    /// describes has no rows — that is the state it exists for.
+    let folderHint = SidebarPinHintView.folderTier()
     let list = TabListController()
     let utility = SidebarUtilityBar()
-    /// §3.5's profile line, directly above the Space strip. See the view.
-    let profile = SidebarProfileLabel()
+    /// §3.5's caption, directly above the Space strip: the active Space's
+    /// name. See the view.
+    let spaceLabel = SidebarSpaceLabel()
     let handle = SidebarResizeHandle()
     /// §30.9's page turn: the Space arriving, and the `+` standing in for the
     /// one that does not exist. Both draw nothing until the gesture asks.
@@ -105,7 +110,7 @@ final class SidebarViewController: NSViewController {
     /// The Essentials grid's height on the last layout pass. When it changes —
     /// a tab was pinned or unpinned — everything below it moves, and that move
     /// is animated instead of snapping.
-    var lastGridHeight: CGFloat?
+    var lastHeadHeight: CGFloat?
 
     init(session: BrowserSession) {
         self.session = session
@@ -131,7 +136,8 @@ final class SidebarViewController: NSViewController {
         // Space the window is in) and the `+` over both, because it is the one
         // mark that has to stay visible while the two pass each other.
         for subview in [
-            wash, preview, controlRow, pill, essentials, list.scrollView, creation, profile, utility, handle
+            wash, preview, controlRow, pill, essentials, folderHint, list.scrollView,
+            creation, spaceLabel, utility, handle
         ] {
             root.addSubview(subview)
         }
@@ -144,13 +150,14 @@ final class SidebarViewController: NSViewController {
             session: session,
             utility: utility,
             wash: wash,
-            content: [essentials, list.scrollView],
+            content: [essentials, folderHint, list.scrollView],
             preview: preview,
             creation: creation,
             host: view
         )
         wireControls()
         wireList()
+        wirePinHints()
         NSWorkspace.shared.notificationCenter.addObserver(
             self,
             selector: #selector(accessibilityDisplayOptionsChanged),
@@ -201,13 +208,13 @@ final class SidebarViewController: NSViewController {
             // tabs are not that — nothing travelled — and left animating, the
             // new tiles slid in from the old grid's shape for 0.22 s after the
             // cross-fade was over. Forgetting the height snaps the next pass.
-            lastGridHeight = nil
+            lastHeadHeight = nil
         }
         if let space = session.space(session.activeSpaceID) {
             wash.show(space.gradient)
             onSpaceGradientChange?(space.gradient)
         }
-        // `replacing:` is the same claim `lastGridHeight = nil` makes, made to
+        // `replacing:` is the same claim `lastHeadHeight = nil` makes, made to
         // the two halves of the column. Both of them animate a tab leaving —
         // the row fades over §6's `tabInsert`, the tile fades where it stood —
         // and `NSTableView` and the grid alike keep what is leaving on screen
@@ -215,22 +222,41 @@ final class SidebarViewController: NSViewController {
         // and every tile at once, so the Space just left stayed drawn, fading,
         // over the Space just arrived in: the flash of the previous Space's
         // tabs. One transition per switch, and it is the column's cross-fade.
+        let tiles = session.tabs.filter { $0.kind == .essential }
+        let folders = session.slots(inTier: .pinned)
+        // §3.3a: advice for a Space that has pinned nothing, in the two places
+        // the pinned things would be. Set before `show`, so the grid is the
+        // right height on the pass that places it rather than one pass later.
+        showPinHints(tiles: tiles.isEmpty, folders: folders.isEmpty)
         essentials.show(
-            session.tabs.filter { $0.kind == .essential },
+            tiles,
             activeTabID: session.activeTabID,
             replacing: switchingSpace
         )
         // §3.4a: before `show`, so the rows are configured against the current answer
         // rather than the one from before a mute landed.
         list.mutedTabIDs = session.mutedTabIDs
-        list.show(session.tabs, activeTabID: session.activeTabID, replacing: switchingSpace)
+        // §3.4b: the two tiers arrive already arranged — `TabList` owns the
+        // order, including where a group stands among the loose tabs, so the
+        // column has no arrangement of its own to disagree with it.
+        list.show(
+            saved: folders,
+            today: session.slots(inTier: .today),
+            essentials: tiles,
+            activeTabID: session.activeTabID,
+            replacing: switchingSpace
+        )
         utility.show(spaces: session.spaces, activeSpaceID: session.activeSpaceID)
-        // §3.5's line, and §9's fan-out made visible: the Profile is derived
-        // from the Space, so it changes on a Space switch and on a
-        // re-profile without one.
-        profile.show(profileName: session.space(session.activeSpaceID).flatMap {
-            session.profile(for: $0)?.name
-        })
+        // §3.5's caption names the Space; §3.5's avatar wears its picture. One
+        // thing said twice on purpose — the strip below identifies a Space by
+        // colour alone, and a name and a face are what a glance actually reads.
+        let active = session.space(session.activeSpaceID)
+        spaceLabel.show(spaceName: active?.name)
+        utility.show(
+            spaceName: active?.name,
+            fanOut: active.map { SpacesSection.fanOut($0, session: session) },
+            picture: active?.imageData
+        )
         refreshActiveTab()
         if makingSpace {
             // Whatever the column was doing, it is not doing it in front of the
@@ -334,8 +360,9 @@ final class SidebarViewController: NSViewController {
         // the same route §3.2's site menu takes to the Privacy section.
         utility.onEditSpaces = { [weak self] in self?.spaces?.editSpaces() }
         utility.onNewSpace = { [weak self] in self?.spaces?.createSpace() }
-        profile.onEditSpaces = { [weak self] in self?.spaces?.editSpaces() }
-        profile.onNewSpace = { [weak self] in self?.spaces?.createSpace() }
+        spaceLabel.onEditSpaces = { [weak self] in self?.spaces?.editSpaces() }
+        spaceLabel.onNewSpace = { [weak self] in self?.spaces?.createSpace() }
+        utility.onManageProfiles = { [weak self] in self?.spaces?.editSpaces() }
         utility.onHistory = { [weak self] in self?.onOpenHistory?() }
         utility.onDownloads = { [weak self] in self?.onOpenDownloads?() }
         utility.onSwitchSpace = { [weak self] id in self?.session.switchSpace(id) }
@@ -363,6 +390,23 @@ final class SidebarViewController: NSViewController {
         // the list exactly as it was rather than one empty page longer.
         list.onAddTab = { [weak self] in self?.session.presentCommandBar?(.newTab, nil) }
         list.menuActions = { [weak self] id in self?.session.tabMenuActions(for: id) }
+        list.groupMenuActions = { [weak self] id in self?.session.groupMenuActions(for: id) }
+        // §3.4b: a folder is made empty and named on its own row. The session
+        // says when the row exists; the column is what opens the field on it.
+        list.onNewGroup = { [weak self] in
+            self?.session.createGroup(name: BrowserSession.untitledGroupName)
+        }
+        list.onRenameGroup = { [weak self] id, name in self?.session.renameGroup(id, to: name) }
+        list.onRenameTab = { [weak self] id, name in self?.session.renameTab(id, to: name) }
+        list.onSetGroupIcon = { [weak self] id, symbol in self?.session.setIcon(symbol, forGroup: id) }
+        session.onGroupCreated = { [weak self] id in self?.list.beginRenaming(group: id) }
+        // §3.4b: folding is a fact about the group, so it goes through the
+        // session and comes back as a change like any other. The rows are
+        // diffed, which is what makes the tabs fade out rather than vanish.
+        list.onToggleGroup = { [weak self] id in
+            guard let self, let group = session.group(id) else { return }
+            session.setGroupCollapsed(!group.isCollapsed, forGroup: id)
+        }
         wireDrag()
         list.onToggleMute = { [weak self] id in
             guard let self else { return }
@@ -383,7 +427,7 @@ final class SidebarViewController: NSViewController {
     @objc private func accessibilityDisplayOptionsChanged() {
         pill.accessibilityDisplayOptionsChanged()
         list.accessibilityDisplayOptionsChanged()
-        profile.accessibilityDisplayOptionsChanged()
+        spaceLabel.accessibilityDisplayOptionsChanged()
         Self.redraw(view)
     }
 

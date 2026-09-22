@@ -29,6 +29,23 @@ enum SidebarMenu {
         ClosureMenuItem(title: title, action: action)
     }
 
+    /// One item with the reference's glyph beside its word (§3.4a).
+    ///
+    /// The glyph rides in `attributedTitle` rather than in `image`, which is not
+    /// drawn at all on this macOS — ``label(symbol:title:in:)`` has the
+    /// measurement. The plain `title` is set as well and stays underneath: it is
+    /// what VoiceOver reads and what `typeSelect` matches, and neither should
+    /// have to step over an attachment.
+    ///
+    /// Here rather than in `TabMenu`, where it started, because §3.4b's group
+    /// menu wants the same item and two copies of it would be two chances for
+    /// one menu's glyphs to end up a different size from the other's.
+    static func glyphItem(_ title: String, symbol name: String, action: @escaping () -> Void) -> NSMenuItem {
+        let item = item(title: title, action: action)
+        item.attributedTitle = label(symbol: name, title: title)
+        return item
+    }
+
     /// A caption: a disabled item that titles a group or states a rule.
     ///
     /// Not `NSMenuItem.sectionHeader(title:)` — that one is a heading, and
@@ -52,6 +69,21 @@ enum SidebarMenu {
         let menu = NSMenu()
         menu.addItem(item(title: String(localized: "Edit Spaces…"), action: edit))
         menu.addItem(item(title: String(localized: "New Space"), action: new))
+        return menu
+    }
+
+    /// Whose cookies these are, on §3.5's Profile button, with the one verb
+    /// that was missing from the sidebar entirely: a Profile could be switched
+    /// between and never named, made or renamed from anywhere.
+    ///
+    /// §9's fan-out is not here. It stood under the name as a second header
+    /// and made a three-line menu out of one command — and the button's
+    /// tooltip already states it, which is where a sentence that long belongs.
+    static func profile(name: String?, manage: @escaping () -> Void) -> NSMenu {
+        let menu = NSMenu()
+        menu.addItem(header(name ?? String(localized: "Space")))
+        menu.addItem(.separator())
+        menu.addItem(item(title: String(localized: "Manage Spaces…"), action: manage))
         return menu
     }
 

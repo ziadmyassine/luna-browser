@@ -24,6 +24,21 @@ protocol SettingsSection: AnyObject {
     var searchIndex: [String] { get }
     /// Show only rows matching `query`; empty string restores all.
     func filter(_ query: String)
+    /// About to be shown. A section whose contents are the running app's rather
+    /// than the defaults' rebuilds here.
+    ///
+    /// The window is built once and kept — `⌘,` brings the same controller
+    /// forward — so a section that only builds in `init` shows whatever was
+    /// true the first time Settings was opened. §6's Spaces were the case that
+    /// found it: a Space created from §30.9's swipe never appeared in the list
+    /// at all, because nothing between the two had a reason to rebuild it.
+    func willAppear()
+}
+
+extension SettingsSection {
+    /// Nothing, for the eight sections that read `UserDefaults` at build time
+    /// and have no live model behind them.
+    func willAppear() {}
 }
 
 /// §1's shape table. Every value is an existing `Tokens.Metric`.

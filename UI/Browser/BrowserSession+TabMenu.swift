@@ -75,10 +75,15 @@ extension BrowserSession {
     /// Blank is normalised to nil rather than stored, because `""` and nil would look the
     /// same in the sidebar and behave differently forever after: a stored empty string
     /// would keep overriding the page's title with nothing.
+    ///
+    /// So is the page's own title, and for the field on §3.4's row rather than for the
+    /// dialog: that field opens on the name the row is showing, so a user who opens it and
+    /// changes nothing would otherwise freeze today's title onto the tab for good.
     func renameTab(_ id: UUID, to name: String?) {
         guard var tab = list.tab(id) else { return }
         let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let next = (trimmed?.isEmpty ?? true) ? nil : trimmed
+        let own = (trimmed?.isEmpty ?? true) || trimmed == tab.title
+        let next = own ? nil : trimmed
         guard next != tab.customTitle else { return }
         let previous = tab.customTitle
         tab.customTitle = next
@@ -124,7 +129,7 @@ extension BrowserSession {
 
     // MARK: - The menu
 
-    /// §3.4a's seven verbs, bound to one tab.
+    /// §3.4a's verbs, bound to one tab.
     ///
     /// One binding for all three surfaces — §3.4's rows, §3.3's tiles and §4's top-bar
     /// strip. Each of them knows a different thing about a tab (a row index, a grid slot, a
@@ -138,6 +143,10 @@ extension BrowserSession {
         TabMenu.Actions(
             pin: { [weak self] in self?.pinTab(id) },
             unpin: { [weak self] in self?.unpinTab(id) },
+            setGroup: { [weak self] group in self?.moveTab(id, toGroup: group) },
+            newGroup: { [weak self] in
+                self?.createGroup(name: BrowserSession.untitledGroupName, containing: [id])
+            },
             duplicate: { [weak self] in self?.duplicateTab(id) },
             rename: { [weak self] name in self?.renameTab(id, to: name) },
             setIcon: { [weak self] symbol in self?.setIcon(symbol, forTab: id) },
@@ -145,4 +154,32 @@ extension BrowserSession {
             close: { [weak self] in self?.closeTab(id) }
         )
     }
+
+    /// §3.4b's four, bound to one folder. Same shape and the same reasons: the menu is
+    /// modal and outlives nothing, but it is the menu holding these and a window can
+    /// close under it.
+    ///
+    /// Renaming is not here. It is not a verb the menu calls — it opens the field on the
+    /// folder's own row, and only the column knows where that row is.
+    func groupMenuActions(for id: UUID) -> GroupMenu.Actions {
+        GroupMenu.Actions(
+            setIcon: { [weak self] symbol in self?.setIcon(symbol, forGroup: id) },
+            setSaved: { [weak self] saved in self?.setGroupSaved(saved, group: id) },
+            ungroup: { [weak self] in self?.ungroup(id) },
+            close: { [weak self] in self?.closeGroup(id) }
+        )
+    }
+
+    /// What a folder is called before anybody has called it anything.
+    ///
+    /// It is never left on screen in the ordinary case — the row opens its name field
+    /// the moment it appears, so the first keystroke replaces this. It is what the
+    /// folder keeps if the field is dismissed with Escape, and a folder with a name
+    /// nobody chose still beats one with no name at all: an empty row cannot be told
+    /// from any other.
+    static let untitledGroupName = String(localized: "New Folder")
+
+    /// What §3.4b's tier used to be called, and what the folder holding the
+    /// rows it used to hold loose is named — see `enfoldLooseSavedTabs`.
+    static let legacySavedGroupName = String(localized: "Saved")
 }

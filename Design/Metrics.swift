@@ -126,7 +126,30 @@ extension Tokens {
         /// 250, not the 260 that keeps a full `chromeGap` between them: the ask
         /// was the smallest that does not overlap, the measured touching point
         /// is 243, and at 250 they are 7 pt apart — plainly two controls.
+        /// And 250 only where §3.1's head is in the column at full width,
+        /// which is one of the four cases the two chrome settings make.
+        /// `Settings.sidebarWidth` resolves it; `sidebarFootFloor` is the
+        /// other answer.
         static let sidebarWidth = SpanMetric(default: 280, min: 250, max: 420)
+        /// What §3.5's foot occupies, which is the width no column gets
+        /// under: the head can empty out — §3.2b takes its buttons onto the
+        /// page — and this cannot. 190, and derived rather than written down
+        /// because every part of it is already a token; the first line above
+        /// is the same sum in prose. At exactly this the avatar, the Space
+        /// strip and the Downloads/History cylinder touch their gaps, and the
+        /// strip stops being centred in the bar (`dotsOriginX`).
+        static let sidebarFootWidth = 2 * rowInset + bottomCircle.width
+            + 2 * chromeGap + spaceDotsPill.width + 2 * bottomCircle.width
+
+        /// The minimum where §3.1's head is not in the column.
+        ///
+        /// 220, not the 190 the foot touches at, for the reason 250 is not
+        /// 243: a column dragged to the width where three clusters meet is a
+        /// bar with no air in it. The 30 pt is also the Essentials grid, which
+        /// is the one thing here that keeps shrinking rather than stopping —
+        /// it divides the width across up to four columns, so a tile is 47 pt
+        /// wide at 220 against 40 at 190.
+        static let sidebarFootFloor: CGFloat = 220
         /// 38 pt of row pitch — tabs, `Archive` and `+ Add Tab` alike (§3.4,
         /// §30.6). The drawn pill is `rowPillHeight`, this less `rowGap`; the
         /// reference measures 109 px of pitch around a 100 px pill at its
@@ -160,6 +183,54 @@ extension Tokens {
         /// the hairline, which separates the two command rows without opening a
         /// gap the size of a tab.
         static let separatorRowHeight: CGFloat = 12
+        /// The slot the chevron that folds a §3.4b group stands in, one
+        /// `rowTitleGap` after the group's own name.
+        ///
+        /// 16 square, which is a slot the width of a favicon standing in a place
+        /// no favicon ever does. The glyph inside is 9 — it introduces the
+        /// group's icon rather than competing with it, and `rowTrailingChip`'s
+        /// 18 would be two chips of the same weight on one row.
+        static let groupChevronSlot = RoundedMetric(width: 16, height: 16, cornerRadius: 5)
+        /// A §3.4b folder's own icon, against a favicon's 16.
+        ///
+        /// A favicon is a picture and fills its square; an SF Symbol drawn at
+        /// the same point size puts about two thirds of that on the row, so a
+        /// folder measured the same as the tabs under it and did not look it.
+        /// The box is centred on the favicon's own column rather than starting
+        /// at its edge, so every icon in the list still shares one centre line
+        /// and the title inset does not move.
+        static let groupIconSize: CGFloat = 20
+        static let groupChevron: CGFloat = 9
+        /// What stands between a folder's name and the chevron after it —
+        /// tighter than `rowTitleGap`, which is the gap between two different
+        /// things. The chevron belongs to the name, so it sits closer to it
+        /// than the name sits to the icon.
+        static let groupChevronGap: CGFloat = 6
+        /// How far a group's tabs step in from its header — 16, the favicon's
+        /// own width, so a member's icon clears its folder's by exactly one
+        /// icon and the two read as a heading with a column under it. Derived
+        /// from the chevron's slot, which is that same width.
+        static let groupIndent = groupChevronSlot.width
+        /// The hairline down the leading edge of a group's tabs, marking what
+        /// belongs to it: half way across the indent, which puts it directly
+        /// under the chevron it descends from.
+        static let groupSpineInset = groupIndent / 2
+        /// How much of a §3.4b folder's header still means "beside this folder"
+        /// rather than "in it", for §6.6's lift.
+        ///
+        /// 10 of the row's 38. Every other row in the list is split at its
+        /// middle, because its two halves mean the same kind of thing — before
+        /// this row, after this row. A folder's header does not: the lower part
+        /// is the one gesture that puts a tab inside the folder and the upper
+        /// part only puts it above, which the row overhead has already offered.
+        /// So the target that means something gets three quarters of the row,
+        /// and 10 pt is still twice `dragThreshold` for the boundary above it.
+        static let groupDropEdge: CGFloat = 10
+
+        /// What a §3.4b row that has been closed once draws its icon at. The
+        /// title drops to `Text.tertiary` beside it; a favicon has no ink tier,
+        /// so it fades instead.
+        static let dormantIconOpacity: CGFloat = 0.45
 
         /// 17.5 pt to the favicon's leading edge (§3.4).
         ///

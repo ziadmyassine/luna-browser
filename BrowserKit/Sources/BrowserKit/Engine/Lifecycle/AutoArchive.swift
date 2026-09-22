@@ -18,12 +18,11 @@ public enum AutoArchive {
 
     /// Whether closing this tab leaves anything worth keeping.
     ///
-    /// **Luna's own pages do not.** `luna://newtab` and `luna://archive` are
-    /// chrome that happens to live in a tab: there is no page to come back to,
-    /// and a New Tab opened and closed turning up on the shelf as "New Tab —
-    /// newtab" is the archive filling with the act of opening one. Worse, the
-    /// shelf itself is `luna://archive`, so glancing at it and closing it files
-    /// a row about the glance.
+    /// Luna's own pages do not. `luna://archive` and the error pages are chrome
+    /// that happens to live in a tab: there is nothing to come back to. The
+    /// shelf itself is `luna://archive`, so without this, glancing at the
+    /// archive and closing it files a row about the glance — the panel that
+    /// answers "what did I close" filling with the act of asking.
     ///
     /// It is an exemption and it lives with the other exemptions, because it
     /// rots the same way: the sweep and `closeTab` both archive, and a third

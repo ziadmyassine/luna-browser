@@ -215,15 +215,26 @@ final class ContentCardView: NSView {
 
     // MARK: - Layout transitions
 
-    /// Tells the page how wide it is about to be, before the card starts
-    /// moving, and holds it there until `endGeometryTransition`.
+    /// Holds the page at one width for the length of a chrome transition, so it
+    /// re-flows once instead of once a frame.
     ///
-    /// Hiding the sidebar used to be the most obviously expensive thing in the
-    /// app: the page re-flowed 280 pt wider over 0.20 s, one relayout per frame,
-    /// which on a heavy site is a visible stutter and a column of text that
-    /// jumps four times on the way. It re-flows once now, to its final width,
-    /// and the card slides its own edge across to reveal it. The page is
-    /// anchored to the trailing edge, which does not move.
+    /// Hiding the sidebar is the most expensive thing the chrome does: the page
+    /// changes width by 280 pt, and a web view told its new width twelve times
+    /// over 0.20 s re-flows twelve times. Measured with a page counting its own
+    /// `resize` events: 13 hiding, 10 showing. What the user sees is a column of
+    /// text jumping several times on the way and the slide stuttering while the
+    /// web process keeps up.
+    ///
+    /// So the page is held at the wider of the two widths for the whole slide
+    /// and the card's edge does all the moving. Hiding, that is the final width
+    /// — the page re-flows once, up front, and the card opens to reveal what was
+    /// clipped. Showing, it is the width the page already has — nothing re-flows
+    /// while anything is moving, the card's edge closes over the page, and
+    /// `endGeometryTransition` narrows it once everything is still.
+    ///
+    /// Either way the page is anchored to the trailing edge, which does not
+    /// move, so its size is constant for the length of the animation and the
+    /// web process is not asked for anything.
     ///
     /// - Parameter duration: how long the caller's animation runs. A watchdog
     ///   hands the width back after it, so a dropped completion handler cannot
@@ -232,8 +243,13 @@ final class ContentCardView: NSView {
         // Deactivate before activating: the two contradict each other, and an
         // over-constrained instant is a console full of broken-constraint logs.
         contentLeading?.isActive = false
-        contentWidth?.constant = max(width, 0)
+        contentWidth?.constant = max(width, bounds.width, 0)
         contentWidth?.isActive = true
+        // Here, and not with the caller's animation: a constraint activated and
+        // left for the transaction that follows is laid out inside it, which
+        // animates the page's width and is the per-frame re-flow this exists to
+        // prevent. The one re-flow has to happen with the animations off.
+        Tokens.Motion.immediately { layoutSubtreeIfNeeded() }
         transitionWatchdog?.cancel()
         transitionWatchdog = Task { [weak self] in
             try? await Task.sleep(for: .seconds(duration + Tokens.Motion.hoverPeekDelay))
@@ -243,12 +259,19 @@ final class ContentCardView: NSView {
     }
 
     /// Hands the width back to Auto Layout.
+    ///
+    /// This is where a shown sidebar's page re-flows — see
+    /// `beginGeometryTransition`. Unanimated on purpose: the transition is over,
+    /// and the last thing a settled layout should do is animate.
     func endGeometryTransition() {
         transitionWatchdog?.cancel()
         transitionWatchdog = nil
         guard contentLeading?.isActive == false else { return }
-        contentWidth?.isActive = false
-        contentLeading?.isActive = true
+        Tokens.Motion.immediately {
+            contentWidth?.isActive = false
+            contentLeading?.isActive = true
+            layoutSubtreeIfNeeded()
+        }
     }
 
     // MARK: - Geometry

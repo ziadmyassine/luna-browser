@@ -309,7 +309,7 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     /// while collapsed would expand it.
     func setSidebarWidth(_ width: CGFloat) {
         guard case let .sidebar(_, edge) = chromeState else { return }
-        apply(.sidebar(width: Tokens.Metric.sidebarWidth.clamp(width), edge: edge), animated: false)
+        apply(.sidebar(width: Settings.sidebarWidth.clamp(width), edge: edge), animated: false)
     }
 
     /// `⌘S` and §3.1's toggle: the sidebar slides out to zero width and the page

@@ -25,7 +25,7 @@ import Synchronization
 /// Every effect the Command Bar can have. A closed enum is the §9.6 guarantee in
 /// the type system: there is no case that sends a query anywhere.
 enum CommandBarAction: Sendable, Hashable {
-    /// Switch to a tab that is already open, possibly in another Space (§9.2).
+    /// Switch to a tab that is already open in this Space (§9.2).
     case activateTab(UUID)
     /// Pull a tab back out of the archive (§6.3).
     case unarchiveTab(UUID)
@@ -80,14 +80,6 @@ enum CommandBarSource: Sendable, Hashable, Comparable, CaseIterable {
     case suggestion
 }
 
-/// The Space badge §9.2 asks for on a cross-Space tab. `RGBA`, not `NSColor`,
-/// so the ranking stays AppKit-free and testable.
-struct SpaceBadge: Sendable, Hashable {
-    var name: String
-    var colour: RGBA
-    var symbolName: String
-}
-
 /// One row of the list.
 struct CommandBarResult: Identifiable, Sendable, Hashable {
     /// The dedupe key (§9.2 "merged and deduped"): a normalised URL where there
@@ -100,7 +92,6 @@ struct CommandBarResult: Identifiable, Sendable, Hashable {
     /// Present whenever the row can be reached by URL — drives dedupe and §9.4's
     /// inline autofill. A command has none.
     var url: URL?
-    var badge: SpaceBadge?
     /// Within a tier: frecency (§9.3) for history, adaptive `useCount` for
     /// adaptive, and a tab's recency for an open tab. Never compared across tiers.
     var score: Double
@@ -112,7 +103,6 @@ struct CommandBarResult: Identifiable, Sendable, Hashable {
         subtitle: String,
         action: CommandBarAction,
         url: URL? = nil,
-        badge: SpaceBadge? = nil,
         score: Double = 0,
         symbolName: String
     ) {
@@ -122,7 +112,6 @@ struct CommandBarResult: Identifiable, Sendable, Hashable {
         self.subtitle = subtitle
         self.action = action
         self.url = url
-        self.badge = badge
         self.score = score
         self.symbolName = symbolName
     }

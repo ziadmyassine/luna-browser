@@ -1,7 +1,15 @@
 import Foundation
 
-//  Luna's own pages (§4.4): New Tab, the archive browser, and the error pages
-//  that replace WebKit's defaults (§4.5).
+//  Luna's own pages (§4.4): the archive browser, and the error pages that
+//  replace WebKit's defaults (§4.5).
+//
+//  There was a third, `luna://newtab` — a search pill over a grid of Favorites,
+//  and what a tab with no address of its own opened. It is gone. Every route
+//  into it already opened §9.1's Command Bar instead: `⌘T`, the sidebar's own
+//  New Tab row, the top bar's `+`, and the page's own pill, which handed off
+//  rather than taking a second line of input. What was left was a page whose
+//  only job was to be somewhere to stand while the bar was open. A tab with no
+//  address is `about:blank` now, which is what it always was.
 //
 //  The gotcha §4.4 records, and the reason everything here is a URL: a
 //  `WKURLSchemeHandler` only fires for resources loaded *inside a document that
@@ -26,7 +34,6 @@ public enum InternalPages {
 
     /// A page the handler can render.
     public enum Page: Equatable, Sendable {
-        case newTab
         case archive
         case error(InternalPageError)
 
@@ -34,7 +41,6 @@ public enum InternalPages {
         /// nothing here is ever injected into a document (§4.4).
         public var url: URL {
             switch self {
-            case .newTab: URL(string: "\(scheme)://newtab")!
             case .archive: URL(string: "\(scheme)://archive")!
             case let .error(error): error.pageURL
             }
@@ -43,11 +49,10 @@ public enum InternalPages {
         /// What the page calls itself — the same string it sets as its own
         /// `<title>`, which is the point: a tab showing one of these has no
         /// title until the load lands, and a label that fell back to the host
-        /// said `newtab` for as long as that took. Two spellings of the same
+        /// said `archive` for as long as that took. Two spellings of the same
         /// page, one of them briefly.
         public var name: String {
             switch self {
-            case .newTab: "New Tab"
             case .archive: "History"
             case let .error(error): copy(for: error.kind).title
             }
@@ -64,11 +69,10 @@ public enum InternalPages {
     /// A link on an internal page that the engine cannot perform itself.
     /// `TabController` cancels the navigation and reports it (§4.4).
     public enum Action: Equatable, Sendable {
-        /// The New Tab pill. Hands off to the Command Bar rather than being a
-        /// second input surface.
+        /// The way off an error page that is not "try the thing that failed":
+        /// §9.1's Command Bar, opened to make a new tab. It is the app's, not
+        /// the engine's, which is the whole reason this enum exists.
         case commandBar
-        /// The New Tab grid's trailing "Add Favorite" slot.
-        case addFavorite
         /// The archive's restore affordance (§6.4).
         case restore(UUID)
         /// An error page's "Try Again" — `TabController` performs it.
@@ -93,7 +97,6 @@ public enum InternalPages {
         guard url.scheme?.lowercased() == scheme else { return .notFound }
         let query = query(in: url)
         switch url.host()?.lowercased() {
-        case "newtab": return .page(.newTab)
         case "archive": return .page(.archive)
         case "error": return .page(.error(InternalPageError(query: query)))
         case "favicon":
@@ -106,7 +109,6 @@ public enum InternalPages {
     private static func action(_ host: String?, _ query: (String) -> String?) -> Action? {
         switch host {
         case "commandbar": return .commandBar
-        case "addfavorite": return .addFavorite
         case "restore": return query("tab").flatMap(UUID.init(uuidString:)).map(Action.restore)
         case "retry": return webURL(query("url")).map(Action.retry)
         case "proceed": return webURL(query("url")).map(Action.proceed)
@@ -175,7 +177,7 @@ public enum InternalPages {
     /// CSS custom properties generated from `Design/Tokens.swift`.
     @MainActor public static var palette = ""
 
-    /// Favorites and archived tabs, read live when a page renders.
+    /// The archived tabs `luna://archive` renders, read live.
     @MainActor public static var content: (@MainActor () -> InternalPageContent)?
 
     /// Performs an `Action` the engine cannot. The `UUID` is the tab that asked.
@@ -183,8 +185,8 @@ public enum InternalPages {
 
 }
 
-/// What the New Tab and archive pages render — Favorites (§7.1) and the
-/// archive (§6.4). Supplied by the app; `BrowserKit` cannot see the tab list.
+/// What the archive page renders (§6.4). Supplied by the app; `BrowserKit`
+/// cannot see the tab list.
 public struct InternalPageContent: Sendable {
 
     public struct Entry: Sendable, Equatable {
@@ -201,11 +203,9 @@ public struct InternalPageContent: Sendable {
         }
     }
 
-    public var favorites: [Entry]
     public var archived: [Entry]
 
-    public init(favorites: [Entry] = [], archived: [Entry] = []) {
-        self.favorites = favorites
+    public init(archived: [Entry] = []) {
         self.archived = archived
     }
 }

@@ -35,6 +35,11 @@ extension Tokens {
         /// Plain, not `monospacedDigit`: a page title is not a number, and
         /// monospaced digits visibly widen a title like "iPhone 18 Pro".
         static var sidebarRow: NSFont { .systemFont(ofSize: 13, weight: .regular) }
+        // §3.3a's two wells read this one too. There was a `sidebarHint` that
+        // forwarded to it — 12 pt semibold before that, a section label's
+        // weight on a sentence, the only bold type in §3 — and a token whose
+        // whole body is another token's name is a way for the two to drift.
+
         /// 13 pt — the sidebar URL pill, at the same x-height as the rows.
         /// §1's 17 pt came from the same bad scale as the 15 pt above.
         static var urlPill: NSFont { .systemFont(ofSize: 13, weight: .regular) }

@@ -136,7 +136,6 @@ enum InternalPageTheme {
             px("--luna-tile-w", metric.essentialsTile.width),
             px("--luna-tile-h", metric.essentialsTile.height),
             px("--luna-tile-radius", metric.essentialsTile.cornerRadius),
-            px("--luna-tile-gap", metric.essentialsTileGap),
             px("--luna-tile-icon", metric.essentialsIcon),
             px("--luna-pill-h", metric.urlPill.height),
             px("--luna-pill-inset", metric.pillTextInset),

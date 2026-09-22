@@ -272,6 +272,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         detail.nav.update(canGoBack: cursor > 0, canGoForward: cursor + 1 < visited.count)
         list.select(index)
         let section = sections[index]
+        section.willAppear()
         detail.show(section.view, title: type(of: section).title, animated: animated)
         detail.highlight(SettingsSearch.normalise(search.stringValue))
         detail.setEmpty(emptyMessage(for: section))

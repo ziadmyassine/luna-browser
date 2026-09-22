@@ -223,8 +223,10 @@ final class TopBarView: NSView {
             symbolName: "plus",
             label: String(localized: "New Tab")
         ) { [weak self] in
-            guard let self else { return }
-            _ = session.newTab(url: nil, kind: .today)
+            // §9.1, not a blank tab — the same answer §3.4's New Tab row and
+            // `⌘T` give. There is no New Tab page to land on any more, so a `+`
+            // that made a tab would be making an empty one.
+            self?.session.presentCommandBar?(.newTab, nil)
         }
         let history = TopBarActionItem(
             id: Self.historyItem,
@@ -245,16 +247,16 @@ final class TopBarView: NSView {
         let profile = TopBarActionItem(
             id: Self.profileItem,
             symbolName: "person.crop.circle",
-            label: String(localized: "Profile")
+            label: String(localized: "Space")
         ) { [weak self] in
             guard let self, let anchor = capsule.view(for: Self.profileItem) else { return }
             onProfile?(anchor)
         }
-        // History beside Downloads, and both before Profile. The sidebar's
-        // foot pairs the same two — they are the same kind of thing, the shelf
-        // of what you already have — so the layout without a sidebar keeps the
-        // pair rather than inventing a second arrangement. Profile stays last
-        // because it is about who, not about what.
+        // History beside Downloads, and both before the Space button. The
+        // sidebar's foot pairs the same two — they are the same kind of thing,
+        // the shelf of what you already have — so the layout without a sidebar
+        // keeps the pair rather than inventing a second arrangement. The Space
+        // button stays last because it is about where, not about what.
         capsule.items = extensionActions + [newTab, history, downloads, profile]
     }
 

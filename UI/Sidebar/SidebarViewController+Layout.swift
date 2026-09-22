@@ -15,19 +15,26 @@ import BrowserKit
 
 extension SidebarViewController {
 
+    /// Everything between the URL pill and the list. When this changes the
+    /// whole column below it travels — see `viewDidLayout`.
+    var headHeight: CGFloat {
+        essentials.intrinsicContentSize.height + folderHintHeight
+    }
+
     override func viewDidLayout() {
         super.viewDidLayout()
         // Every frame below is computed from `bounds`, so none of them may
         // animate — see `Motion.immediately`. Without this the §4.1 layout
         // switch's own transaction swallowed the whole pass.
         //
-        // The one exception is the pass where the Essentials grid changed
-        // height: the list and the scroll view below it have to travel, and
-        // snapping them is what made pinning a tab look like a redraw rather
-        // than a movement.
-        let gridHeight = essentials.intrinsicContentSize.height
-        let moved = lastGridHeight.map { $0 != gridHeight } ?? false
-        lastGridHeight = gridHeight
+        // The one exception is the pass where everything above the list
+        // changed height: the list and the scroll view below it have to travel,
+        // and snapping them is what made pinning a tab look like a redraw
+        // rather than a movement. §3.3a's two wells are in that measurement —
+        // dismissing one is the same movement a pin is.
+        let head = headHeight
+        let moved = lastHeadHeight.map { $0 != head } ?? false
+        lastHeadHeight = head
         guard moved, !Tokens.Motion.reduceMotion else {
             Tokens.Motion.immediately { layoutSubviews() }
             return
@@ -57,13 +64,16 @@ extension SidebarViewController {
         // §3.2b: the pill is on the page, so the column closes up over its row
         // — and the control row above it shrinks to what the lights need.
         let pillHeight = pill.isHidden ? 0 : Tokens.Metric.urlPill.height
-        let head = pill.isHidden ? Tokens.Metric.sidebarHeadlessRow : bar
+        let controlHeight = pill.isHidden ? Tokens.Metric.sidebarHeadlessRow : bar
         let gridHeight = essentials.intrinsicContentSize.height
-        let controlTop = bounds.maxY - head
+        let controlTop = bounds.maxY - controlHeight
         let pillTop = controlTop - pillHeight
         let gridTop = pillTop - gridHeight
+        // §3.3a's row well hangs under the grid, on the grid's own bottom
+        // margin, and §3.4b's first folder will appear exactly where it stood.
+        let hintTop = gridTop - folderHintHeight
 
-        controlRow.frame = NSRect(x: 0, y: controlTop, width: bounds.width, height: head)
+        controlRow.frame = NSRect(x: 0, y: controlTop, width: bounds.width, height: controlHeight)
         // The row places its buttons against the traffic lights, which move
         // and disappear without its own bounds changing — entering fullscreen
         // takes them away and leaves the row exactly 52 pt tall and exactly as
@@ -84,8 +94,10 @@ extension SidebarViewController {
 
         essentials.frame = NSRect(x: 0, y: gridTop, width: bounds.width, height: gridHeight).integral
 
+        placeFolderHint(topAt: hintTop, in: bounds)
+
         utility.frame = NSRect(x: 0, y: 0, width: bounds.width, height: bar)
-        // §3.5's profile line stands on the Space strip, not on the bar.
+        // §3.5's caption stands on the Space strip, not on the bar.
         //
         // The bar is 52 pt and its three clusters are centred on its midline,
         // which leaves 15 pt of empty air above the 22 pt Space pill — so a
@@ -95,19 +107,19 @@ extension SidebarViewController {
         // instead and is allowed to overlap the bar's dead air to get there;
         // the pill does not move, so the dots stay in line with the avatar and
         // the cylinder either side of them.
-        let profileRow = profile.isHidden ? 0 : Tokens.Metric.sidebarProfileRow
-        profile.frame = NSRect(
+        let captionRow = spaceLabel.isHidden ? 0 : Tokens.Metric.sidebarSpaceNameRow
+        spaceLabel.frame = NSRect(
             x: 0,
-            y: SidebarUtilityBar.spaceStripTop + Tokens.Metric.sidebarProfileGap,
+            y: SidebarUtilityBar.spaceStripTop + Tokens.Metric.sidebarSpaceNameGap,
             width: bounds.width,
-            height: profileRow
+            height: captionRow
         ).integral
-        let foot = profile.isHidden ? bar : profile.frame.maxY
+        let foot = spaceLabel.isHidden ? bar : spaceLabel.frame.maxY
         list.scrollView.frame = NSRect(
             x: 0,
             y: foot,
             width: bounds.width,
-            height: max(gridTop - foot, 0)
+            height: max(hintTop - foot, 0)
         ).integral
 
         // §30.9's three borrowed views — the still, the `+` and the editor —

@@ -14,7 +14,7 @@
 //  is the cheap place to beat that, because `closeTab` already archives.
 //
 //  What undo cannot give back is the website data. If the Space was the last one
-//  on its Profile, its `WKWebsiteDataStore` is gone and WebKit has no un-remove.
+//  its `WKWebsiteDataStore` is gone and WebKit has no un-remove.
 //  The Space comes back logged out, and the deletion dialog has to have said so.
 //
 
@@ -46,16 +46,12 @@ extension BrowserSession {
         // rather than what the deletion left behind.
         let snapshot = DeletedSpace(
             space: space,
-            profile: spaces(onProfile: space.profileID).count == 1 ? profiles[space.profileID] : nil,
             tabs: list[id].filter { $0.spaceID == id },
             archivedTabs: archived.filter { $0.spaceID == id },
             activeTabID: activeTabBySpace[id],
             policy: policy
         )
 
-        // Favorites first: they belong to the Profile, and another Space on it
-        // may still be showing them.
-        keepFavorites(ofSpace: id, onProfile: space.profileID)
         evacuateTabs(of: id, policy: policy)
 
         spaces.remove(at: index)
@@ -71,14 +67,21 @@ extension BrowserSession {
             Task { try? await session.restoreSpace(snapshot) }
         }
         notifyChange()
-        try await discardProfileIfUnused(space.profileID)
+        try await discardJar(of: space)
+    }
+
+    /// Removes the `WKWebsiteDataStore` a deleted Space owned (§6.3).
+    ///
+    /// Unconditional now. It used to ask whether any other Space still named
+    /// the Profile, because several could; one Space, one jar, so the Space
+    /// going is the jar going.
+    private func discardJar(of space: Space) async throws {
+        try await profileStore.remove(space)
     }
 
     /// Everything `deleteSpace` has to put back. Held by the undo closure only.
     struct DeletedSpace: Sendable {
         var space: Space
-        /// The Profile, when this was its last Space and the row went with it.
-        var profile: Profile?
         var tabs: [Tab]
         var archivedTabs: [Tab]
         var activeTabID: UUID?
@@ -88,20 +91,16 @@ extension BrowserSession {
     /// `⌘Z` after a Space deletion.
     ///
     /// The Space, its tabs and their history come back. The website data does
-    /// not: if that Profile lost its last Space, `deleteSpace` removed its
-    /// `WKWebsiteDataStore`, and nothing in WebKit can un-remove one. The Space
-    /// returns logged out — the honest half of an undo that is still worth
-    /// having, since Vivaldi and Arc offer neither half.
+    /// not: `deleteSpace` removed the Space's `WKWebsiteDataStore`, and nothing
+    /// in WebKit can un-remove one. The Space returns logged out — the honest
+    /// half of an undo that is still worth having, since Vivaldi and Arc offer
+    /// neither half.
     func restoreSpace(_ snapshot: DeletedSpace) async throws {
         guard space(snapshot.space.id) == nil else { return }
-        if let profile = snapshot.profile, profiles[profile.id] == nil {
-            try await store.upsert(profile)
-            profiles[profile.id] = profile
-        }
         var restored = snapshot.space
         restored.order = min(max(restored.order, 0), spaces.count)
         spaces.insert(restored, at: restored.order)
-        list.addSpace(restored.id, profileID: restored.profileID)
+        list.addSpace(restored.id)
         try await store.upsert(restored)
         try await renumberSpaces()
 
@@ -142,12 +141,11 @@ extension BrowserSession {
             refuge = spaces.first { $0.id != id && $0.id == activeSpaceID }?.id
                 ?? spaces.first { $0.id != id }?.id ?? id
         }
-        let crossesProfile = space(refuge)?.profileID != space(id)?.profileID
-        // A Favorite adopted into another Profile would silently join that
-        // Profile's tiles and could blow the cap. It is a login tile; on the far
-        // side of a Profile boundary it is a pinned tab.
+        // A Favorite adopted into another Space lands in a jar that never saw
+        // its login, and could blow that Space's cap besides. It is a login
+        // tile; on the far side of a Space boundary it is a pinned tab.
         func section(_ tab: Tab) -> TabKind {
-            tab.kind == .essential && crossesProfile ? .pinned : tab.kind
+            tab.kind == .essential ? .pinned : tab.kind
         }
         for tab in list[id] where tab.spaceID == id {
             rehome(tab.id, to: refuge, as: section(tab), archiving: policy == .archiveTabs)

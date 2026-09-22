@@ -176,13 +176,11 @@ extension AppDelegate {
             return
         }
         guard !session.pinTab(id) else { return }
-        let profile = session.space(session.activeSpaceID).flatMap { session.profile(for: $0) }
-        let name = profile?.name ?? String(localized: "this profile")
+        let name = session.space(session.activeSpaceID)?.name ?? String(localized: "this one")
         let alert = NSAlert()
         alert.messageText = String(localized: "Favorites is full.")
         alert.informativeText = String(localized: """
-        \(name) keeps \(BrowserSession.favoritesCap) Favorites, and every Space on that profile shares them. \
-        Remove one to make room for this tab.
+        \(name) keeps \(BrowserSession.favoritesCap) Favorites. Remove one to make room for this tab.
         """)
         alert.addButton(withTitle: String(localized: "OK"))
         alert.runModal()
@@ -276,7 +274,7 @@ extension AppDelegate: NSMenuItemValidation {
         case #selector(goToSidebarItem(_:)):
             return true
         case #selector(reopenArchivedTab(_:)):
-            return !session.archived.isEmpty
+            return !session.archivedInActiveSpace.isEmpty
         case #selector(showDownloads(_:)):
             return downloadsPanel != nil
         case #selector(undo(_:)):

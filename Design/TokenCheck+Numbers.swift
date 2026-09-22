@@ -29,6 +29,27 @@ extension TokenCheck {
         if width.clamp(width.min - 100) != width.min || width.clamp(width.max + 100) != width.max {
             failures.append("SpanMetric.clamp does not clamp")
         }
+        // `Settings.sidebarWidth` swaps one minimum for the other, so the
+        // narrow one has to be a floor under the wide one and still leave a
+        // range the default sits inside — otherwise §3.7's double-click resets
+        // to a width its own span would clamp back out. And it has to stay
+        // above what §3.5's foot occupies, which is the one part of the column
+        // that cannot be taken away: the floor is a choice, that is not.
+        let floor = Tokens.Metric.sidebarFootFloor
+        if !(floor <= width.min) {
+            failures.append("Metric.sidebarFootFloor is not a floor under Metric.sidebarWidth.min")
+        }
+        if !(floor >= Tokens.Metric.sidebarFootWidth) {
+            failures.append("Metric.sidebarFootFloor is narrower than §3.5's foot")
+        }
+        // §1's three distances in the pane, in the order they mean: a note
+        // belongs to the card above it, a card belongs to the run it is in,
+        // and a run is its own group. Collapse any two of them and the pane
+        // stops saying which.
+        let list = Tokens.Metric.settingsListGap
+        if !(Tokens.Metric.chromeGap < list && list < Tokens.Metric.settingsGroupGap) {
+            failures.append("Metric.settingsListGap is not between Metric.chromeGap and Metric.settingsGroupGap")
+        }
         return failures + checkRoundedMetrics() + checkPositiveMetrics()
             + checkSpaceSwipe() + checkRowInsets()
     }
@@ -93,9 +114,10 @@ extension TokenCheck {
             ("spaceCreateRingLine", Tokens.Metric.spaceCreateRingLine),
             ("spaceSwatchRing", Tokens.Metric.spaceSwatchRing),
             ("spaceSwipeSpeed", Tokens.Metric.spaceSwipeSpeed),
-            ("sidebarProfileRow", Tokens.Metric.sidebarProfileRow),
-            ("sidebarProfileGap", Tokens.Metric.sidebarProfileGap),
-            ("spaceDotPitch", Tokens.Metric.spaceDotPitch)
+            ("sidebarSpaceNameRow", Tokens.Metric.sidebarSpaceNameRow),
+            ("sidebarSpaceNameGap", Tokens.Metric.sidebarSpaceNameGap),
+            ("spaceDotPitch", Tokens.Metric.spaceDotPitch),
+            ("pinHintBlock", Tokens.Metric.pinHintBlock), ("pinHintRow", Tokens.Metric.pinHintRow)
         ]
         return scalars.filter { $0.1 <= 0 }.map { "Metric.\($0.0) is not positive" }
     }
@@ -269,7 +291,20 @@ extension TokenCheck {
         if metric.rowGap >= metric.rowHeight {
             failures.append("Metric.rowGap eats the whole row")
         }
-        return failures + checkChromeShapes()
+        return failures + checkPinHints() + checkChromeShapes()
+    }
+
+    /// §3.3a's two wells, against the two shapes they stand in for.
+    private static func checkPinHints() -> [String] {
+        var failures: [String] = []
+        let metric = Tokens.Metric.self
+        // Both wells draw §3.4's own columns, so the rest of their geometry is
+        // §3.4's and is checked with it. What is theirs is the two heights, and
+        // the shorter of them has to hold the column's icon.
+        if metric.faviconSize > min(metric.pinHintBlock, metric.pinHintRow) - 2 * metric.rowPillInset {
+            failures.append("§3.3a's wells are too short to hold the column's own icon")
+        }
+        return failures
     }
 
     /// The shapes the rows sit in — split out of `checkRowInsets` only because

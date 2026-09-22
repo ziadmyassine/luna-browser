@@ -210,7 +210,7 @@ final class URLPillLayoutTests: XCTestCase {
     /// of a page you are on.
     func testANewTabShowsThePlaceholderRatherThanAName() {
         let bar = URLPillView()
-        bar.show(url: URL(string: "luna://newtab"))
+        bar.show(url: BrowserSession.blankPage)
         XCTAssertEqual(bar.field.stringValue, "")
         bar.centresText = true
         XCTAssertEqual(bar.field.placeholderString, "Search or enter website name")

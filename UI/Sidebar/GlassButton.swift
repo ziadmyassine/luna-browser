@@ -103,6 +103,8 @@ final class GlassButton: NSView {
     /// this button's `backgroundColor`, which is already spoken for — a dormant
     /// tile's well is painted there, and a wash on top of a well is the well.
     private let wash = NSView()
+    /// Whether the glyph is a picture filling the button — see `setPortrait`.
+    private var isPortrait = false
     private var isHovering = false
     private var isPressed = false
     /// The mouse-down that is still in progress, kept so a drag can be lifted
@@ -174,6 +176,28 @@ final class GlassButton: NSView {
         refresh()
     }
 
+    /// A picture that is the button rather than a mark inside it — §9's profile
+    /// photo on §3.5's avatar.
+    ///
+    /// The difference from `setImage` is the frame: a favicon is a glyph-sized
+    /// mark centred in a circle of glass, and a portrait fills the circle and
+    /// takes its shape. Passing nil puts the button back to its symbol, so a
+    /// picture can be taken off again without rebuilding the bar.
+    ///
+    /// The image is expected square (`ProfilePicture` crops it), because
+    /// `scaleProportionallyUpOrDown` fits rather than fills: a portrait handed
+    /// here uncropped would sit in the circle with a band of nothing above and
+    /// below it.
+    func setPortrait(_ image: NSImage?, fallbackSymbol: String) {
+        isPortrait = image != nil
+        glyph.wantsLayer = true
+        glyph.layer?.cornerCurve = shape.cornerCurve
+        glyph.layer?.masksToBounds = isPortrait
+        guard let image else { return setSymbol(fallbackSymbol) }
+        setImage(image)
+        needsLayout = true
+    }
+
     override var intrinsicContentSize: NSSize {
         NSSize(width: shape.width, height: shape.height)
     }
@@ -187,13 +211,18 @@ final class GlassButton: NSView {
     private func placeContents() {
         wash.frame = bounds
         wash.layer?.cornerRadius = min(shape.cornerRadius, min(bounds.width, bounds.height) / 2)
-        let side = min(pointSize, min(bounds.width, bounds.height))
+        let side = isPortrait
+            ? min(bounds.width, bounds.height)
+            : min(pointSize, min(bounds.width, bounds.height))
         glyph.frame = NSRect(
             x: (bounds.width - side) / 2,
             y: (bounds.height - side) / 2,
             width: side,
             height: side
         ).pixelAligned
+        if isPortrait {
+            glyph.layer?.cornerRadius = min(shape.cornerRadius, side / 2)
+        }
     }
 
     // MARK: - State

@@ -89,17 +89,19 @@ never saw that login is a broken tile.
 
 ## 3. Storage isolation
 
-Each Profile owns exactly one identified `WKWebsiteDataStore`. Luna already does
-this correctly and it is **stronger than every browser researched**:
+Each Space owns exactly one identified `WKWebsiteDataStore`, and since `v8` its
+own history and its own downloads list as well. Luna already does this correctly
+and it is **stronger than every browser researched**:
 
 - Zen and Floorp both use Firefox contextual identities (`userContextId`) — one
   cookie jar partition, shared history, shared cache policy. Zen's UI calls them
   "Profiles" and the tooltip promises "separate cookies and site data between
   spaces", which is why zen#1239 ("Website data is shared across workspaces", 24
   comments) exists: Arc refugees assume real isolation and do not get it.
-- **Luna gives a Space a real data store, so Luna may say so plainly.** That is a
-  marketing line we have actually earned. It also obliges us not to overstate it
-  where it is not true — see §8 on permissions.
+- **Luna gives a Space a real data store, and keeps its history out of the other
+  Spaces, so Luna may say so plainly.** That is a marketing line we have actually
+  earned: the thing Zen's tooltip promises and does not do. It also obliges us
+  not to overstate it where it is not true — see §8 on permissions.
 
 ### 3.1 What the SDK actually guarantees
 
@@ -314,6 +316,44 @@ against `0..<n` on load and renumbers if it differs. That self-heal is what make
 `reorderSpace` trivial, and it immunises `delete(spaceID:)` against the gaps
 every delete leaves.
 
+**A name is capped at 32 characters.** Trimmed first, so the cap is spent on the
+name rather than on whitespace around it, and counted in characters so a cut
+never lands inside a flag or a combining accent. 32 is measured against the
+widest place the app shows a name whole — the Settings card's header, whose
+label is 278 pt at the pane's 640 pt minimum and holds 34 characters of ordinary
+text at `TypeScale.settingsHeading`. Past that, every other surface is worse
+rather than truncated: `MainMenu`'s Spaces submenu and §30.9's dot menu put the
+name in an `NSMenu` item, and a menu does not truncate, it grows.
+
+Enforced twice on purpose. `BrowserSession.spaceName(from:)` caps everything
+that reaches the store, because a name arrives from an import or a paste as well
+as from a field; `SpaceNameFormatter` stops the three fields at the same number,
+because a name typed to fifty characters and silently committed as 32 reads as
+the app having lost the end of it. Capped rather than refused — a shortened name
+is what the user meant where an error dialog is not.
+
+**The sidebar's caption shows as much of a name as the column has room for, and
+fades the rest.** The line over §3.5's strip is the one place a name is drawn in
+a 220 pt column at `TypeScale.settingsCaption`, and 32 characters do not fit
+there at any width §1 allows: the reported name ran from inset to inset and
+ended in an ellipsis. The cut is §3.4's fade rather than an ellipsis, so the
+tail dissolves instead of being replaced by punctuation.
+
+How much is a function of the column, not a constant. At `sidebarFootFloor` —
+the narrowest §1 allows — it is what the name Luna ships with measures, so
+"Personal" fits whole and nothing longer does; past that it is a point of name
+per point of column, out to §1's ceiling where a 32-character name is drawn
+entire. A fixed cap showed exactly as much in a 420 pt column as in a 220 pt
+one, with the rest of the line empty either side of it, and the caption was the
+only thing in the column that did not answer to §3.7's drag.
+
+The cap is where the line runs out, not where the ink stops:
+`sidebarSpaceNameFade` is twice a row's ramp and starts inside it, because a
+row's 12 pt ends against the pill's inner edge and this one ends in clear air,
+where a short ramp read as a letter that had been cut rather than a name that
+ran out. The whole name stays a hover away, in the tooltip and in VoiceOver, and
+is drawn whole on the Space's card here.
+
 ### 6.3 Delete a Space
 Luna's `deleteSpace` is already better than most: last-Space guard, tears down
 every web view, cascades tab rows, removes the store only when no other Space
@@ -419,12 +459,33 @@ zen#14371 is the modern version: two identical "Google Gemini — Switch to tab"
 rows in the omnibox, different Spaces, different accounts, no way to tell them
 apart, and picking wrong teleports you.
 
-**D-S8: the Profile identity must appear on every surface where tabs from
-different Profiles can meet** — Command Bar switch-to-tab, history, archive,
-downloads, the command palette. Not only the Space strip. §9.2 already badges
-open tabs with the Space colour; that badge must carry the Profile when the
-Profiles differ, because the Space colour alone does not tell you whose cookies
-you are about to use.
+**D-S8, as shipped: tabs from different jars are never offered together, so
+there is nothing to label.** The rule was written when Spaces shared a Profile
+and a badge was the only way to tell two accounts apart. `v7` made the Space the
+jar and `v8` gave it its own history, and the answer is now exclusion rather
+than annotation: the Command Bar, §6.4's archive list, the New Tab page's
+archive, `⌘⇧T` and §15.3's downloads all answer for the Space you are in and no
+other. The Space badge on a Command Bar row is gone with the reason for it — on
+a list that only ever holds one Space it was the same chip on every row.
+
+Anything that does put two Spaces in one list in future owes D-S8 its label
+back, because the Space colour alone does not tell you whose cookies you are
+about to use.
+
+**A Profile can carry a picture, and §3.5's avatar wears it.** A name in a
+tooltip is read; a face is recognised, which is the difference that matters for
+a control the user is glancing at rather than reading. It is set from the
+Profile's card in §6.2 and taken off from the same row.
+
+What is stored is not what was chosen. A picture arrives from a photo library
+at thousands of points and megabytes, and is drawn in a 34 pt circle — so the
+app crops the middle square and downsamples to `ProfilePicture.side` (three
+times the circle) before anything is persisted, and the column holds the PNG
+that is drawn. Cropped rather than fitted, because a portrait letterboxed into
+a circle shows two bands of background where a face should be. It lives in the
+profile row (`v5`, nullable, no backfill) rather than in a file beside it: a
+file is a second thing to keep in step, and this way the picture cannot outlive
+the Profile or be left behind by a delete.
 
 ---
 
@@ -436,8 +497,10 @@ the renumber-on-load self-heal, `setIcon`, `setGradient`,
 launch.
 
 **S2 — identity. Gradients done.** All twelve, in three measured bands, plus
-§13.6's neutral. Profile identity (§9) reaches the Command Bar's ranking and not
-yet history, archive or downloads.
+§13.6's neutral. Jar identity (§9) now reaches all four: the Command Bar's
+ranking, history (`visits.spaceID` and the adaptive table, `v8`), the archive
+and downloads (`DownloadItem.spaceID`), each of them by showing one Space's
+rather than by naming which.
 
 **S3 — the Profile boundary. Mostly done.** `createSpace(name:profileID:)`,
 `setProfile` with a full web-view rebuild, the move-across-Profiles warning and
@@ -651,5 +714,7 @@ its routes** — Arc states this explicitly.
   with skin tones, SigmaOS is emoji-first, Vivaldi allows custom icons. SF
   Symbols alone will not survive contact.
 - Arc had to patch a real cross-profile leak: Command Bar suggestions bleeding
-  between Spaces on different Profiles. §9's rule again, from the other side.
+  between Spaces on different Profiles. §9's rule again, from the other side —
+  and the same leak Luna had until `v8`, where the history behind the
+  suggestions was one shared pile with no Space on it.
 

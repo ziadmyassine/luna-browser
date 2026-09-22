@@ -112,16 +112,23 @@ enum SettingsRow {
     /// Commits on Return and on losing focus — without
     /// `sendsActionOnEndEditing` a user who types a custom engine and clicks
     /// straight back to the browser loses what they typed.
+    ///
+    /// - Parameter limit: a formatter that caps what the field will accept,
+    ///   for a row whose value has a maximum. Passed in rather than assumed:
+    ///   a search template has no length a user could exceed by typing, and a
+    ///   Space name does (`SpaceNameFormatter`).
     static func text(
         _ title: String,
         value: String,
         placeholder: String = "",
         isEnabled: Bool = true,
         disabledReason: String? = nil,
+        limit: Formatter? = nil,
         onChange: @escaping (String) -> Void
     ) -> NSView {
         let field = SettingsTextField(string: value)
         field.placeholderString = placeholder
+        field.formatter = limit
         field.cell?.sendsActionOnEndEditing = true
         field.widthAnchor.constraint(equalToConstant: Tokens.Metric.urlPill.width).isActive = true
         let action = SettingsAction { sender in

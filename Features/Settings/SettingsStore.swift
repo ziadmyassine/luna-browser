@@ -94,6 +94,8 @@ enum Settings {
     private static let layoutKey = "luna.chromeLayout"
     private static let tabsKey = "luna.tabsPosition"
     private static let searchBarKey = "luna.searchBarPlacement"
+    private static let tabHintKey = "luna.pinHint.tabDismissed"
+    private static let folderHintKey = "luna.pinHint.folderDismissed"
 
     /// Defaults to the sidebar: it is the layout the reference shows and the
     /// one §3 is written against.
@@ -149,6 +151,68 @@ enum Settings {
     /// stored `.centre` — which only the top bar can honour — reads as the left.
     static var sidebarEdge: SidebarEdge {
         tabsPosition(in: .sidebar) == .right ? .trailing : .leading
+    }
+
+    /// §1's width span as the layout on screen can honour it: the same
+    /// `default` and `max`, and the minimum the column standing there actually
+    /// needs.
+    ///
+    /// `Metric.sidebarWidth.min` is §3.1's arithmetic, and §3.1 is only in the
+    /// column at full width in one of the four combinations these two settings
+    /// make. §3.2b takes the pill and the three circles with it onto the page
+    /// (`SidebarControlRow.showsButtons`), leaving a row that holds nothing but
+    /// the traffic lights' corner. A trailing column has no lights to clear at
+    /// all — macOS keeps them at the window's top-left, so a column on the
+    /// other edge does not contain them — and its toggle starts at `rowInset`
+    /// rather than 78 pt in, which is 86 pt off the head's 243. Either one puts
+    /// the head under §3.5's foot, and then the foot is the answer.
+    ///
+    /// Read, never written back: a width dragged to 190 with the pill on the
+    /// page is remembered as 190, reads as 250 while the pill is in the column,
+    /// and is 190 again when it leaves. Rewriting it on the way past would make
+    /// moving a setting twice a way of losing a width the user chose, which is
+    /// the rule `SidebarResizeHandle.storedWidth` already keeps for `⌘S`.
+    static var sidebarWidth: SpanMetric {
+        sidebarWidth(searchBarOnPage: searchBarIsOnPage, edge: sidebarEdge)
+    }
+
+    /// The same answer, told rather than read. Both floors are arithmetic, so
+    /// they can be checked without a `UserDefaults` to write into — and writing
+    /// into one to ask a question posts `didChange` to every window listening.
+    static func sidebarWidth(searchBarOnPage: Bool, edge: SidebarEdge) -> SpanMetric {
+        var span = Tokens.Metric.sidebarWidth
+        if searchBarOnPage || edge == .trailing {
+            span.min = Tokens.Metric.sidebarFootFloor
+        }
+        return span
+    }
+
+    /// Whether §3.3a's two wells are still worth drawing — the advice a Space
+    /// with nothing pinned shows where its tiles and its folders would be.
+    ///
+    /// Stored as the dismissal rather than as the showing, so the default is
+    /// the advice: a key that has never been written reads as `false` here and
+    /// as "show it" there, which is what a user who has never heard of either
+    /// setting should get.
+    ///
+    /// One answer for the whole app, not one per Space. It is a piece of advice
+    /// and advice already taken does not need repeating in the Space next door
+    /// — where, by definition, the user is now doing the thing it describes.
+    static var showsPinnedTabHint: Bool {
+        get { !UserDefaults.standard.bool(forKey: tabHintKey) }
+        set { setHint(tabHintKey, shows: newValue, was: showsPinnedTabHint) }
+    }
+
+    /// §3.3a's other well: the §3.4b tier, which holds folders.
+    static var showsPinnedFolderHint: Bool {
+        get { !UserDefaults.standard.bool(forKey: folderHintKey) }
+        set { setHint(folderHintKey, shows: newValue, was: showsPinnedFolderHint) }
+    }
+
+    private static func setHint(_ key: String, shows: Bool, was: Bool) {
+        guard shows != was else { return }
+        UserDefaults.standard.set(!shows, forKey: key)
+        NotificationCenter.default.post(name: didChange, object: nil)
     }
 
     /// Whether §3.2b's bar is the one on screen — the single reader both the

@@ -33,7 +33,13 @@ import BrowserKit
 @MainActor
 final class SidebarUtilityBar: NSView {
 
+    /// The avatar was wired to a closure nothing ever set, so §3.5's Profile
+    /// button did nothing at all when pressed. It opens the menu below now.
     var onProfile: (() -> Void)?
+    /// §6.2's rows, for the Profile menu's way into Settings.
+    var onManageProfiles: (() -> Void)?
+    private var space: String?
+    private var spaceFanOut: String?
     var onHistory: (() -> Void)?
     var onDownloads: (() -> Void)?
     var onSwitchSpace: ((UUID) -> Void)?
@@ -45,12 +51,22 @@ final class SidebarUtilityBar: NSView {
     /// §6.1 from the same menu, and from §30.9's swipe past the last Space.
     var onNewSpace: (() -> Void)?
 
+    /// §3.5's Profile control, and §9's fan-out made pressable.
+    ///
+    /// The one place the window says whose cookies it is using, which used to
+    /// be the caption over the strip. A button is the better host: the caption
+    /// could only state the Profile, and this can be asked about it. It is also
+    /// where a picture of the Profile goes when there is one to show — the
+    /// glyph is the placeholder, not the design.
     private let avatar = GlassButton(
         shape: Tokens.Metric.bottomCircle,
-        symbolName: "person.crop.circle",
+        symbolName: SidebarUtilityBar.avatarSymbol,
         pointSize: Tokens.Metric.glyphSize,
         label: "Profile"
     )
+    /// What the avatar wears with no picture on the Profile, and what it goes
+    /// back to when one is taken off.
+    static let avatarSymbol = "person.crop.circle"
     /// The same two glyphs §4's capsule uses, in the same order, so the pair is
     /// recognisably the same pair in both layouts.
     private var library: SidebarActionCapsule!
@@ -64,7 +80,16 @@ final class SidebarUtilityBar: NSView {
             (symbolName: "clock.arrow.circlepath", label: String(localized: "History"),
              action: { [weak self] in self?.onHistory?() })
         ])
-        avatar.onActivate = { [weak self] in self?.onProfile?() }
+        avatar.onActivate = { [weak self] in
+            guard let self else { return }
+            onProfile?()
+            // A press opens it where a right-click would, which is what every
+            // other pop-out in this bar does (`SidebarActionCapsule`).
+            SidebarMenu.profile(
+                name: space,
+                manage: { [weak self] in self?.onManageProfiles?() }
+            ).popUp(positioning: nil, at: NSPoint(x: 0, y: avatar.bounds.maxY), in: avatar)
+        }
         dots.onSwitch = { [weak self] id in self?.onSwitchSpace?(id) }
         dots.onSetGradient = { [weak self] space, gradient in self?.onSetGradient?(space, gradient) }
         dots.onEditSpaces = { [weak self] in self?.onEditSpaces?() }
@@ -117,6 +142,25 @@ final class SidebarUtilityBar: NSView {
     func show(spaces: [Space], activeSpaceID: UUID) {
         dots.show(spaces: spaces, activeSpaceID: activeSpaceID)
         needsLayout = true
+    }
+
+    /// The active Space, on §3.5's button: its picture, its name, and what its
+    /// own jar holds.
+    ///
+    /// `fanOut` is the line Settings puts on the Space's card, so the two
+    /// places that answer this question answer it in the same words.
+    func show(spaceName: String?, fanOut: String?, picture: Data? = nil) {
+        // §9's picture, or the glyph that stands in for one. `setPortrait`
+        // takes the symbol back itself when there is nothing to show.
+        avatar.setPortrait(ProfilePicture.image(from: picture), fallbackSymbol: Self.avatarSymbol)
+        avatar.setAccessibilityLabel(
+            spaceName.map { String(localized: "Space: \($0)") } ?? String(localized: "Space")
+        )
+        avatar.toolTip = [spaceName.map { String(localized: "Cookies and logins for \($0)") }, fanOut]
+            .compactMap { $0 }
+            .joined(separator: "\n")
+        space = spaceName
+        spaceFanOut = fanOut
     }
 
     override var intrinsicContentSize: NSSize {
@@ -213,36 +257,65 @@ final class SidebarUtilityBar: NSView {
     }
 }
 
-/// §3.5's profile line: the one place the window says whose cookies it is
-/// using.
+/// §3.5's caption: which Space you are in, over the strip that switches them.
 ///
-/// The fan-out is the reason this exists. Space → Profile is many-to-one
-/// (`SPACES-SPEC` §9) and no other browser tells you which side of it you are
-/// on: Arc's most-reported conceptual confusion is "why am I still logged in
-/// over here", and its answer lives in a support article. Settings names the
-/// profile on each Space's card, but a name you have to open a window to read
-/// is not what you check before typing a password into a shared jar.
+/// It named the Profile until it named the Space. The dots below it say which
+/// Space only by colour and position, and the name the user gave the Space
+/// appeared nowhere in the column at all — not in the strip, not on the list,
+/// not on the tabs. A user who names a Space is owed the name somewhere they
+/// can see it, and this is the line directly over the thing being named.
 ///
-/// It is set in `Text.secondary` — an inactive tab's ink, exactly — and
-/// sits directly over the Space strip, because the two answer one question
-/// between them: which Space, and whose logins. Brighter than that and it
-/// would compete with the tab titles above it for a line that is only ever
-/// glanced at.
+/// Whose cookies moved rather than went: it is on the avatar beside the strip,
+/// which is the Profile's own control and where a picture of one will go. The
+/// fan-out is still the thing that must not be hidden — Space → Profile is
+/// many-to-one (`SPACES-SPEC` §9) and Arc's most-reported conceptual confusion
+/// is "why am I still logged in over here" — and a button carries it better
+/// than a caption did, because it can also be pressed.
+///
+/// It is set in `Text.secondary` — an inactive tab's ink, exactly. Brighter
+/// than that and it would compete with the tab titles above it for a line that
+/// is only ever glanced at.
 @MainActor
-final class SidebarProfileLabel: NSView {
+final class SidebarSpaceLabel: NSView {
+
+    /// The name Luna ships with, which is this line's ruler in the narrowest
+    /// column it can be drawn in — see `allowance`.
+    ///
+    /// Not localized, because it is never shown: `BrowserStore.seedIfEmpty`
+    /// writes this exact string as the first Space's name and the first
+    /// Profile's, and the rule the ruler states is that the name the app
+    /// starts life with fits whole at every width §1 allows.
+    static let narrowestName = "Personal"
 
     /// Right-click here or on the strip below — §6.2's rows are in Settings.
     var onEditSpaces: (() -> Void)?
     var onNewSpace: (() -> Void)?
 
-    private let label = NSTextField(labelWithString: "")
+    /// Clips the name to what the column allows and carries the ramp that
+    /// ends it. The pair §3.4's rows use, for the reason they use it: three
+    /// characters spent on an `…` say less than three more of the name.
+    ///
+    /// Internal rather than private so `SidebarSpaceLabelTests` can measure
+    /// what the cell padded against what the box kept: a glyph drawn outside
+    /// the clip is still inside every frame a test can read, so the two have
+    /// to be compared to catch it.
+    let clip = NSView()
+    let label = NSTextField(labelWithString: "")
+    private let fadeMask = CAGradientLayer()
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        label.alignment = .center
-        label.lineBreakMode = .byTruncatingTail
-        label.setAccessibilityRole(.staticText)
-        addSubview(label)
+        // Clipping, not truncating: the fade is what ends an over-long name,
+        // and an ellipsis would be drawn before it got there.
+        label.lineBreakMode = .byClipping
+        label.cell?.usesSingleLineMode = true
+        clip.wantsLayer = true
+        clip.layer?.masksToBounds = true
+        clip.addSubview(label)
+        fadeMask.startPoint = CGPoint(x: 0, y: 0.5)
+        fadeMask.endPoint = CGPoint(x: 1, y: 0.5)
+        setAccessibilityRole(.staticText)
+        addSubview(clip)
         applyTokens()
     }
 
@@ -251,14 +324,59 @@ final class SidebarProfileLabel: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
-    /// The profile's name, or nothing at all — the line disappears rather than
-    /// standing empty, so the strip below it keeps its air.
-    func show(profileName: String?) {
-        label.stringValue = profileName ?? ""
-        isHidden = (profileName ?? "").isEmpty
-        setAccessibilityLabel(profileName.map { String(localized: "Profile: \($0)") })
-        toolTip = profileName.map { String(localized: "Cookies and logins for the \($0) profile") }
+    /// The active Space's name, or nothing at all — the line disappears rather
+    /// than standing empty, so the strip below it keeps its air.
+    ///
+    /// The full name goes to the tooltip and to VoiceOver whatever the line
+    /// shows: what is clipped here is the reading, not the name.
+    func show(spaceName: String?) {
+        label.stringValue = spaceName ?? ""
+        isHidden = (spaceName ?? "").isEmpty
+        setAccessibilityLabel(spaceName.map { String(localized: "Space: \($0)") })
+        toolTip = spaceName
         needsLayout = true
+    }
+
+    /// How much name this line may carry in a column of `column` points.
+    ///
+    /// `narrowestName` at §1's floor, and a point more for every point the
+    /// column is dragged wider. The line is one of three things a column's
+    /// width is spent on — the tab titles above it and the Space strip below
+    /// are the others — and it was the only one that did not answer to the
+    /// drag: a fixed cap showed exactly as much of a name in a 420 pt column
+    /// as in a 220 pt one, with the rest of the line empty either side of it.
+    ///
+    /// Measured against `sidebarFootFloor` and not against
+    /// `Settings.sidebarWidth`, so the answer is the width on screen and
+    /// nothing else. The live span's floor moves with §3.2b's placement and
+    /// §3.1's edge, and a caption that lengthened because the search bar moved
+    /// onto the page would be answering a question nobody asked it.
+    static func allowance(inColumnOfWidth column: CGFloat) -> CGFloat {
+        ceil(textWidth(narrowestName)) + max(column - Tokens.Metric.sidebarFootFloor, 0)
+    }
+
+    /// The box that allowance is drawn in: the allowance, plus the overhang
+    /// the ramp trails off into.
+    ///
+    /// The overhang is what keeps the dissolve from ending on a hard edge —
+    /// `sidebarSpaceNameFade` is wider than it, so the ink is already faint by
+    /// the time the box runs out.
+    static func shownWidth(inColumnOfWidth column: CGFloat) -> CGFloat {
+        allowance(inColumnOfWidth: column) + Tokens.Metric.rowTitleFade
+    }
+
+    /// What the glyphs measure, which is not what the field reports.
+    ///
+    /// `NSTextFieldCell` keeps 2 pt of its own either side of the text and
+    /// `intrinsicContentSize` counts none of it, so a box cut to that width
+    /// draws the string 2 pt in and loses the end of it: "Personal" came out
+    /// "Persona". Everything here measures the string, and `placeContents`
+    /// offsets the field by the padding instead of trying to account for it.
+    private static func textWidth(_ text: String) -> CGFloat {
+        NSAttributedString(
+            string: text,
+            attributes: [.font: Tokens.TypeScale.settingsCaption]
+        ).size().width
     }
 
     private func applyTokens() {
@@ -281,15 +399,59 @@ final class SidebarProfileLabel: NSView {
 
     override func layout() {
         super.layout()
-        Tokens.Motion.immediately {
-            let inset = Tokens.Metric.rowInset
-            label.frame = NSRect(
-                x: inset,
-                y: 0,
-                width: max(bounds.width - 2 * inset, 0),
-                height: bounds.height
-            ).integral
+        // Bounds-derived frames never animate — see `Motion.immediately`,
+        // which also stops the mask below animating its own frame.
+        Tokens.Motion.immediately { placeContents() }
+    }
+
+    /// Centred whether it is clipped or not. The box holds the head of the
+    /// name, never the middle of it, so the strip's caption starts where the
+    /// name starts and the fade is always eating the tail.
+    ///
+    /// The field hangs its padding off the leading edge (see `textWidth`), so
+    /// the first glyph stands on the box's edge and the box is exactly as wide
+    /// as the text it is keeping.
+    private func placeContents() {
+        let natural = ceil(Self.textWidth(label.stringValue))
+        let room = max(bounds.width - 2 * Tokens.Metric.rowInset, 0)
+        let shown = min(natural, min(Self.shownWidth(inColumnOfWidth: bounds.width), room))
+        let box = NSRect(x: (bounds.width - shown) / 2, y: 0, width: shown, height: bounds.height).integral
+        clip.frame = box
+        let pad = Self.padding(of: label)
+        let height = label.intrinsicContentSize.height
+        label.frame = NSRect(
+            x: -pad,
+            y: ((box.height - height) / 2).rounded(),
+            width: max(natural, box.width) + 2 * pad,
+            height: height
+        )
+        applyFade(overflowing: natural > box.width, width: box.width)
+    }
+
+    /// The leading half of what the cell keeps for itself, asked of the cell
+    /// rather than written down: it is 2 pt today on both sides, and the point
+    /// of measuring is that nothing here breaks if it stops being.
+    static func padding(of field: NSTextField) -> CGFloat {
+        let cell = field.cell?.cellSize.width ?? 0
+        return max((cell - textWidth(field.stringValue)) / 2, 0)
+    }
+
+    /// The ramp, which is §3.4's idea at `sidebarSpaceNameFade` rather than a
+    /// row's width. Nil when the name fits: a
+    /// gradient that is opaque end to end is a masked composite drawing
+    /// nothing.
+    private func applyFade(overflowing: Bool, width: CGFloat) {
+        let ramp = Tokens.Metric.sidebarSpaceNameFade
+        guard overflowing, width > ramp else {
+            clip.layer?.mask = nil
+            return
         }
+        // A mask reads alpha and nothing else, so this is not an ink and no
+        // token belongs in it.
+        fadeMask.frame = clip.bounds
+        fadeMask.colors = [NSColor.black.cgColor, NSColor.black.cgColor, NSColor.clear.cgColor]
+        fadeMask.locations = [0, NSNumber(value: Double(1 - ramp / width)), 1]
+        clip.layer?.mask = fadeMask
     }
 
     /// §30.1: the sidebar's plane moves the window. A label is not a control,

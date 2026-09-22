@@ -64,7 +64,9 @@ final class SpaceEditorCard: NSView {
     }
 }
 
-/// The editor's one action, spelled out: a full-width pill with a word on it.
+/// One of the editor's two answers, spelled out: a full-width pill with a
+/// word on it. `isPreferred` fills it with the accent — §2's one exception,
+/// the same one §5.2's recommended answer takes.
 ///
 /// Not a `GlassButton`, which takes a symbol and a shape and has no room for a
 /// title, and not `SettingsPushButton`, which pins its own height with a
@@ -90,7 +92,10 @@ final class SpaceEditorButton: NSView {
         }
     }
 
-    init(title: String) {
+    private let isPreferred: Bool
+
+    init(title: String, isPreferred: Bool = false) {
+        self.isPreferred = isPreferred
         super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerCurve = .continuous
@@ -131,13 +136,24 @@ final class SpaceEditorButton: NSView {
     /// uses: 6 % on hover and 12 % under the finger. The resting fill is the
     /// lighter of the two, because this is the thing the form is for and a
     /// button that is invisible until you find it is not one.
+    ///
+    /// The preferred answer takes AppKit's own hover and press variants of the
+    /// accent instead, so it moves with whichever colour the user picked.
     private func applyTokens() {
         guard let layer else { return }
         layer.cornerRadius = bounds.height / 2
-        layer.backgroundColor = (isPressed || isHovering ? Tokens.Surface.selected : Tokens.Surface.hover).cgColor
-        layer.borderWidth = Tokens.Metric.hairline
+        layer.backgroundColor = fill.cgColor
+        layer.borderWidth = isPreferred ? 0 : Tokens.Metric.hairline
         layer.borderColor = Tokens.Line.border.cgColor
-        titleLabel.textColor = Tokens.Text.primary
+        titleLabel.textColor = isPreferred ? Tokens.Accent.onTint : Tokens.Text.primary
+    }
+
+    private var fill: NSColor {
+        guard isPreferred else {
+            return isPressed || isHovering ? Tokens.Surface.selected : Tokens.Surface.hover
+        }
+        if isPressed { return Tokens.Accent.tint.withSystemEffect(.pressed) }
+        return isHovering ? Tokens.Accent.tint.withSystemEffect(.rollover) : Tokens.Accent.tint
     }
 
     /// The wash cross-fades on §6's `controlHover`; the press also swells
@@ -174,7 +190,20 @@ final class SpaceEditorButton: NSView {
 
     override func mouseExited(with event: NSEvent) { isHovering = false }
 
-    override func mouseDown(with event: NSEvent) { isPressed = true }
+    /// Takes the focus as well as the press, which is what `NSButton` does and
+    /// what this had to grow because it is not one.
+    ///
+    /// The form's name field commits on Return and on losing the focus
+    /// (`sendsActionOnEndEditing`). With nothing here to lose it to, a name
+    /// typed and then confirmed with `Create Space` was never committed at
+    /// all: the field kept the focus through the click, the form closed, and
+    /// the Space kept the `Space N` the swipe gave it. It also makes the
+    /// keyboard path below reachable by pointer — until now the only way to
+    /// focus one of these was to Tab onto it.
+    override func mouseDown(with event: NSEvent) {
+        isPressed = true
+        window?.makeFirstResponder(self)
+    }
 
     override func mouseDragged(with event: NSEvent) {
         // A finger that has slid off the button is a press being called off,

@@ -93,6 +93,24 @@ final class BrowserSessionCloseSelectionTests: XCTestCase {
         XCTAssertEqual(session.tabs.map(\.id), [rows[3]])
     }
 
+    /// A dimmed §3.4b row is not somewhere the selection may land on its own.
+    /// It is a row whose page the user ended, so selecting it loads the page
+    /// again — and the row under the tab being closed was the one path that
+    /// still did.
+    func testClosingTheLastTabSkipsARowThatWasAlreadyClosedOnce() async throws {
+        let session = try await makeSession()
+        let rows = try seed(session, count: 1)
+        let space = try XCTUnwrap(session.spaces.first)
+        var kept = Tab(spaceID: space.id, kind: .pinned, url: url("kept"), order: 0)
+        kept.isDormant = true
+        session.persistAll(session.list.insert(kept))
+        session.activateTab(rows[0])
+
+        session.closeTab(rows[0])
+
+        XCTAssertNil(session.activeTabID, "closing the last tab woke a row the user had closed")
+    }
+
     // MARK: - Helpers
 
     /// `count` today tabs, in list order top to bottom. They are inserted at

@@ -37,10 +37,10 @@ extension Tokens.Metric {
     /// through it — see `SpaceDotsView.windowStart`.
     static let spaceDotWindow = 3
 
-    /// Between §3.5's profile line and the Space strip it labels. A label
-    /// belongs to the thing under it at about half a line of leading, which at
-    /// 11 pt type is this. `rowGap`'s 3 pt was close enough to touch.
-    static let sidebarProfileGap: CGFloat = 6
+    /// Between §3.5's caption and the Space strip it labels. A label belongs
+    /// to the thing under it at about half a line of leading, which at 11 pt
+    /// type is this. `rowGap`'s 3 pt was close enough to touch.
+    static let sidebarSpaceNameGap: CGFloat = 6
 
     // MARK: - SPACES-SPEC D-S12's swipe, read out on §30.9's strip
 
@@ -185,10 +185,25 @@ extension Tokens.Metric {
     /// of the ramp.
     static let spaceSwatchRing: CGFloat = 1.5
 
-    /// §3.5's profile line, which names the profile the window's cookies belong
-    /// to. One line of 11 pt type and nothing else: 14 is what the type needs,
-    /// and the distance to the strip is `rowGap`, set where it is laid out.
-    static let sidebarProfileRow: CGFloat = 14
+    /// §3.5's caption, which names the Space the strip below it is showing.
+    /// One line of 11 pt type and nothing else: 14 is what the type needs, and
+    /// the distance to the strip is `sidebarSpaceNameGap`.
+    ///
+    /// It named the Profile until the Space's own name had nowhere in the
+    /// column to be; whose cookies these are is on the avatar beside the strip
+    /// now (`SidebarSpaceLabel`).
+    static let sidebarSpaceNameRow: CGFloat = 14
+
+    /// How far that caption takes to dissolve, which is twice what a §3.4 row
+    /// takes.
+    ///
+    /// The row's 12 pt is a ramp on a title that ends against the pill's inner
+    /// edge, where the eye already expects the line to stop. This one ends in
+    /// clear air over the Space strip, and at 12 pt the last glyph read as a
+    /// letter that had been cut rather than a name that ran out. 24 starts the
+    /// dissolve about two characters inside the cap and carries it two past,
+    /// so the tail thins rather than stopping.
+    static let sidebarSpaceNameFade = 2 * rowTitleFade
 
     /// A gradient swatch in a menu (§8.2's picker).
     ///

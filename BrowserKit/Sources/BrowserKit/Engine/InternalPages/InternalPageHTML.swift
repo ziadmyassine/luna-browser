@@ -40,7 +40,7 @@ extension InternalPages {
         "--luna-shadow", "--luna-shadow-lift", "--luna-shadow-reach",
         "--luna-hairline", "--luna-gap", "--luna-gap-wide",
         "--luna-row-height", "--luna-row-radius", "--luna-row-inset", "--luna-favicon",
-        "--luna-tile-w", "--luna-tile-h", "--luna-tile-radius", "--luna-tile-gap", "--luna-tile-icon",
+        "--luna-tile-w", "--luna-tile-h", "--luna-tile-radius", "--luna-tile-icon",
         "--luna-pill-h", "--luna-pill-inset", "--luna-card-radius",
         "--luna-size-row", "--luna-size-pill", "--luna-size-label",
         "--luna-size-title", "--luna-size-body",
@@ -119,46 +119,6 @@ extension InternalPages {
       border:var(--luna-hairline,thin) solid var(--luna-line-border,ButtonBorder);
     }
     @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
-
-    /* New Tab (§30.19) */
-    .newtab{
-      min-height:100%;
-      display:flex;flex-direction:column;align-items:center;justify-content:center;
-      gap:var(--luna-gap-wide);
-      padding:var(--luna-gap-wide);
-    }
-    .pill{
-      display:flex;align-items:center;gap:var(--luna-pill-inset);
-      width:min(100%,calc(var(--luna-tile-w) * 4 + var(--luna-tile-gap) * 3));
-      height:calc(var(--luna-pill-h) + var(--luna-gap) * 2);
-      padding-inline:var(--luna-pill-inset);
-      border-radius:calc((var(--luna-pill-h) + var(--luna-gap) * 2) / 2);
-      font-size:var(--luna-size-pill,large);
-      color:var(--luna-text-secondary,CanvasText);
-    }
-    .pill .lead{
-      flex:0 0 auto;width:var(--luna-favicon);
-      text-align:center;color:var(--luna-text-tertiary,GrayText);
-    }
-    .grid{
-      display:grid;
-      grid-template-columns:repeat(auto-fit,var(--luna-tile-w));
-      gap:var(--luna-tile-gap);
-      justify-content:center;
-      width:min(100%,calc(var(--luna-tile-w) * 4 + var(--luna-tile-gap) * 3));
-      margin:0;padding:0;list-style:none;
-    }
-    .tile{
-      display:flex;align-items:center;gap:var(--luna-row-inset);
-      width:var(--luna-tile-w);height:var(--luna-tile-h);
-      padding-inline:var(--luna-row-inset);
-      border-radius:var(--luna-tile-radius);
-    }
-    .tile .label{
-      min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
-      font-size:var(--luna-size-label,small);
-    }
-    .tile.add{color:var(--luna-text-tertiary,GrayText);justify-content:center}
 
     /* History (§6.4) — the archive, laid out like the §3.4 tab list. */
     .history{
@@ -250,7 +210,6 @@ extension InternalPages {
     }
     .icon.has-fav{color:transparent;background-color:transparent}
     .row .icon{width:var(--luna-favicon);height:var(--luna-favicon)}
-    .tile .icon{width:var(--luna-tile-icon);height:var(--luna-tile-icon)}
 
     /* Errors (§4.5)
        One card, six kinds, and the kind is a class on `.error` rather than a

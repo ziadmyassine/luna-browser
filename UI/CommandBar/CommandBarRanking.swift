@@ -33,22 +33,18 @@ struct AdaptiveEntry: Sendable, Hashable {
 
 /// Everything local, snapshotted. Held by `CommandBarController` and refreshed on
 /// `BrowserSession.onChange`, never rebuilt per keystroke (§9.7).
+///
+/// One Space's, all of it. The bar is opened from inside a Space and answers
+/// with that Space's things — its tabs, its archive, its history, its lessons —
+/// because the Space is the cookie jar (§9) and a row from the other one is a
+/// page signed in as somebody else.
 struct CommandBarSources: Sendable {
-    /// Every tab the window knows about, archived ones included — they are the
+    /// The active Space's tabs, archived ones included — they are the
     /// same rows (§11.1: `archive` is a view over `tabs`, not a second table).
     var tabs: [Tab] = []
-    var spaces: [UUID: Space] = [:]
-    /// The Profiles those Spaces name (§9 / D-S8). Keyed by `Profile.id`, which
-    /// is what `Space.profileID` holds.
-    ///
-    /// Empty is a supported state and degrades honestly: the rows below still
-    /// stay apart per Profile — that part is derived from `Space.profileID`
-    /// and needs no name — they simply carry the Space's name alone instead of
-    /// "Space · Profile". Nothing here invents a label from a UUID.
-    var profiles: [UUID: Profile] = [:]
     var adaptive: [AdaptiveEntry] = []
     /// Filled by the asynchronous `BrowserStore.searchHistory` pass, empty on the
-    /// synchronous one.
+    /// synchronous one. Already scoped to the Space by the query.
     var history: [HistoryHit] = []
     var commands: [AppCommand] = AppCommand.allCases
     /// §3.4's suggestions, already fetched and parsed by
@@ -56,16 +52,6 @@ struct CommandBarSources: Sendable {
     /// template turns them into one here, exactly as it does for a typed query,
     /// so a suggestion cannot carry a destination Luna did not build.
     var suggestions: [String] = []
-}
-
-/// A row plus the Profile whose cookie jar it belongs to, if any. Only an open
-/// or archived tab has one — a history hit, a search or a command is not in a
-/// Profile. It rides alongside the row rather than inside it: `CommandBarResult`
-/// is §9.2's public vocabulary, and the Profile is a ranking concern that is
-/// spent by the time the list is built.
-private struct RankedRow {
-    var result: CommandBarResult
-    var profileID: UUID?
 }
 
 enum CommandBarRanking {
@@ -101,21 +87,21 @@ enum CommandBarRanking {
         let query = rawQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         let tokens = query.lowercased().split(separator: " ").map(String.init)
 
-        var rows: [RankedRow] = []
-        rows.append(contentsOf: adaptiveRows(query: query, sources: sources).map(unscoped))
+        var rows: [CommandBarResult] = []
+        rows.append(contentsOf: adaptiveRows(query: query, sources: sources))
         if let url = CommandBarURL.direct(from: query) {
-            rows.append(unscoped(directRow(url)))
+            rows.append(directRow(url))
         }
         rows.append(contentsOf: tabRows(tokens: tokens, sources: sources))
-        rows.append(contentsOf: historyRows(sources: sources).map(unscoped))
-        rows.append(contentsOf: commandRows(tokens: tokens, sources: sources).map(unscoped))
-        let hasDirect = rows.contains { $0.result.source == .directURL }
+        rows.append(contentsOf: historyRows(sources: sources))
+        rows.append(contentsOf: commandRows(tokens: tokens, sources: sources))
+        let hasDirect = rows.contains { $0.source == .directURL }
         if let search = searchRow(query: query, hasDirectURL: hasDirect) {
-            rows.append(unscoped(search))
+            rows.append(search)
         }
-        rows.append(contentsOf: suggestionRows(query: query, sources: sources).map(unscoped))
+        rows.append(contentsOf: suggestionRows(query: query, sources: sources))
 
-        return Array(dedupe(order(rows)).prefix(limit))
+        return Array(dedupe(order(rows), adoptingOpenTabs: !hasDirect).prefix(limit))
     }
 
     /// §9.4's completion: the top URL-bearing row, if what the user typed is a
@@ -177,32 +163,65 @@ enum CommandBarRanking {
         )
     }
 
-    /// Open tabs across every Space (§9.2), badged with the Space's colour, plus
-    /// the archive — which is the same rows with an `archivedAt` (§11.1).
-    private static func tabRows(tokens: [String], sources: CommandBarSources) -> [RankedRow] {
-        let qualify = spansSeveralProfiles(sources)
-        return sources.tabs.compactMap { tab in
+    /// The Space's open tabs (§9.2), plus its archive — which is the same rows
+    /// with an `archivedAt` (§11.1).
+    private static func tabRows(tokens: [String], sources: CommandBarSources) -> [CommandBarResult] {
+        sources.tabs.compactMap { tab -> CommandBarResult? in
+            // Every tab the Space has, whether or not it has a page loaded.
+            //
+            // §3.4b's dormant rows were filtered out here, on the reasoning
+            // that a row whose page has been closed once is not an open tab —
+            // and it cost the bar the one search a user is most likely to run.
+            // A kept tab in a folder is dormant almost all of the time: that is
+            // what §3.4b's first press is for. So a pinned `Google` sitting in
+            // a folder called Google answered to nothing, and typing its name
+            // returned every archived search that mentioned it and no way to
+            // reach the tab itself.
+            //
+            // §19.2 drops the page of everything but the last few tabs anyway,
+            // so "is there a web view" was never the line between a tab you can
+            // switch to and one you cannot. Clicking a dimmed row in the column
+            // opens it where it stands (§3.4b), and so does this.
+            //
+            // Archived is the real line, and it is below: that row comes back
+            // as a reopen, which is a different question with a different
+            // answer.
+            let archived = tab.archivedAt != nil
             // §3.4a: a renamed tab is found and shown under the name the user gave it.
             // Its own title is deliberately not also in the haystack — a tab you renamed
             // "Invoices" should not keep answering to whatever the page calls itself.
             let haystack = "\(tab.listTitle) \(CommandBarURL.displayForm(of: tab.url))"
             guard matches(tokens, haystack) else { return nil }
-            let archived = tab.archivedAt != nil
-            let space = sources.spaces[tab.spaceID]
-            let result = CommandBarResult(
+            return CommandBarResult(
                 source: archived ? .archive : .openTab,
                 title: tab.listTitle.isEmpty ? CommandBarURL.displayForm(of: tab.url) : tab.listTitle,
-                subtitle: CommandBarURL.displayForm(of: tab.url),
+                subtitle: archived ? Self.reopens : Self.switches,
                 action: archived ? .unarchiveTab(tab.id) : .activateTab(tab.id),
                 url: tab.url,
-                badge: space.map { badge(for: $0, sources: sources, qualify: qualify) },
                 // Most recently used first within the tier.
                 score: (archived ? tab.archivedAt ?? tab.lastActiveAt : tab.lastActiveAt).timeIntervalSinceReferenceDate,
                 symbolName: archived ? "archivebox" : "square.on.square"
             )
-            return RankedRow(result: result, profileID: space?.profileID)
         }
     }
+
+    /// What a tab row will do, in the subtitle's own slot — the same slot the
+    /// search row uses to say `Search Google` rather than repeating the URL.
+    ///
+    /// It used to be the address, which is the one thing a row like this does
+    /// not need to say: the title has already named the tab, and every other
+    /// row in the list is also a line of title over a line of address, so the
+    /// row that was going to do something entirely different looked exactly
+    /// like the ones that were going to load a page. Reported as the bar not
+    /// showing `Switch to tab` when you type a tab's name — it was showing the
+    /// row and saying nothing about it.
+    ///
+    /// Any open tab, whether or not its page is loaded: §19.2 drops cold pages
+    /// and keeps the tabs, so "switch" means the row, not the process.
+    static let switches = String(localized: "Switch to tab")
+    /// §6.3's archive, which is the other half of the same list and the one
+    /// answer here that is not a switch — there is no tab to go to yet.
+    static let reopens = String(localized: "Reopen tab")
 
     /// `BrowserStore.searchHistory` has already matched and ranked these; matching
     /// them again here would only disagree with FTS5 about what a word is.
@@ -286,9 +305,8 @@ enum CommandBarRanking {
     /// so the tier lives with the cases rather than in a switch that can drift.
     /// Score only ever breaks ties within a tier — an adaptive `useCount` of 3
     /// and a frecency score of 340 are not the same unit and are never compared.
-    private static func order(_ rows: [RankedRow]) -> [RankedRow] {
-        rows.sorted { left, right in
-            let lhs = left.result, rhs = right.result
+    private static func order(_ rows: [CommandBarResult]) -> [CommandBarResult] {
+        rows.sorted { lhs, rhs in
             if lhs.source != rhs.source { return lhs.source < rhs.source }
             if lhs.score != rhs.score { return lhs.score > rhs.score }
             return lhs.id < rhs.id
@@ -296,75 +314,60 @@ enum CommandBarRanking {
     }
 
     /// §9.2 "merged and deduped". The best-ranked row for a URL wins its place —
-    /// but it inherits the open tab's action and Space badge when one exists,
-    /// so a page that is both #1 by adaptive history and already open switches to
-    /// the live tab instead of loading a second copy of it (§19.4).
-    /// The Profile boundary stops the dedupe (zen#14371). The same URL open in
-    /// two Spaces on two Profiles is two pages, two logins and two accounts, so
-    /// it stays two rows. Collapsing them was worse than it looks: the second
-    /// tab silently overwrote the first row's action, so "Switch to tab"
-    /// teleported you into whichever Space the loop reached last.
+    /// and, unless the query is itself an address, it inherits the open tab's
+    /// action when one exists, so a page that is both #1 by adaptive history and
+    /// already open switches to the live tab instead of loading a second copy of
+    /// it (§19.4).
     ///
-    /// Within one Profile nothing changes.
-    private static func dedupe(_ rows: [RankedRow]) -> [CommandBarResult] {
+    /// **An address you typed is never answered with a tab you already have.**
+    /// `directURL`'s own tier says a guess must not outrank an instruction, and
+    /// adoption was doing exactly that from underneath: typing `google.com` with
+    /// google.com open put `Switch to tab` on the top row, so the one string
+    /// that unambiguously means "go here" was the one that would not. Type the
+    /// address and you get the page; type the tab's *name* — `google` — and the
+    /// open tab answers, because a name is a search of what you have.
+    ///
+    /// One row per URL, flatly, because every row on offer is in one Space and
+    /// one cookie jar. This used to keep a row per (URL, jar) pair and was the
+    /// answer to zen#14371 — the same page open in two Spaces deduped into one
+    /// row whose "Switch to tab" teleported you into whichever the loop reached
+    /// last. The bar no longer offers the other Space at all, so two jars can no
+    /// longer meet in the list and there is nothing left to tell apart.
+    private static func dedupe(_ rows: [CommandBarResult], adoptingOpenTabs: Bool) -> [CommandBarResult] {
         var slot: [String: Int] = [:]
-        /// "url + profile" pairs already reachable from some row on screen.
-        var reachable: Set<String> = []
         /// URLs whose kept row already carries a live tab's action.
         var live: Set<String> = []
         var out: [CommandBarResult] = []
-        for ranked in rows {
-            let row = ranked.result
-            let isTab = row.source == .openTab || row.source == .archive
+        for row in rows {
+            // Only an open tab is worth inheriting. An archived one used to be
+            // adopted too, which quietly turned every history hit for a page
+            // the user had ever closed into `Reopen tab` — in a Space with a
+            // long archive that was the whole list, and none of those rows
+            // wanted to be a tab coming back out of the shelf.
+            let isTab = row.source == .openTab
             guard let index = slot[row.id] else {
                 slot[row.id] = out.count
-                if isTab {
-                    live.insert(row.id)
-                    ranked.profileID.map { reachable.insert(compound(row.id, $0)) }
-                }
+                if isTab { live.insert(row.id) }
                 out.append(row)
                 continue
             }
-            guard isTab else { continue }
-            // A tab whose Space is unknown cannot be placed in a Profile; treat
-            // it as belonging to whichever one already holds this URL rather
-            // than minting a second row on a guess.
-            guard let profile = ranked.profileID else {
-                if !live.contains(row.id) { adopt(row, into: &out[index], marking: &live) }
-                continue
-            }
-            guard !reachable.contains(compound(row.id, profile)) else { continue }
-            reachable.insert(compound(row.id, profile))
-            if !live.contains(row.id) {
-                adopt(row, into: &out[index], marking: &live)
-                continue
-            }
-            // Another Profile has the same page open. Its own row, with its own
-            // identity so §9.7's selection can tell the two apart.
-            var extra = row
-            extra.id = compound(row.id, profile)
-            out.append(extra)
+            guard isTab, adoptingOpenTabs, !live.contains(row.id) else { continue }
+            adopt(row, into: &out[index], marking: &live)
         }
         return out
     }
 
     /// A history or adaptive row that is also an open tab switches to the live
     /// tab instead of loading a second copy of it (§19.4), keeping its own rank.
+    ///
+    /// The subtitle comes with the action. A row that says an address and then
+    /// switches tabs is the same mismatch `switches` exists to close, one tier
+    /// further up.
     private static func adopt(_ tab: CommandBarResult, into row: inout CommandBarResult, marking live: inout Set<String>) {
         live.insert(row.id)
         row.action = tab.action
-        row.badge = tab.badge
         row.symbolName = tab.symbolName
-    }
-
-    /// A row identity that is unique per (URL, Profile). The separator is a unit
-    /// separator so it cannot occur inside a normalised URL.
-    private static func compound(_ id: String, _ profileID: UUID) -> String {
-        "\(id)\u{1F}\(profileID.uuidString)"
-    }
-
-    private static func unscoped(_ result: CommandBarResult) -> RankedRow {
-        RankedRow(result: result, profileID: nil)
+        row.subtitle = tab.subtitle
     }
 
     // MARK: - Matching
@@ -388,42 +391,5 @@ enum CommandBarRanking {
             return hit.title
         }
         return CommandBarURL.displayForm(of: url)
-    }
-
-    /// True when the tabs on offer come from Spaces on more than one Profile —
-    /// the only situation in which a row needs to say whose cookies it is.
-    ///
-    /// With one Profile the Space badge is already enough, and "Work · Work"
-    /// on every row is noise that teaches the user to stop reading the badge.
-    private static func spansSeveralProfiles(_ sources: CommandBarSources) -> Bool {
-        var seen: Set<UUID> = []
-        for tab in sources.tabs {
-            guard let profile = sources.spaces[tab.spaceID]?.profileID else { continue }
-            seen.insert(profile)
-            if seen.count > 1 { return true }
-        }
-        return false
-    }
-
-    /// §9 / D-S8: the Profile identity must appear wherever tabs from different
-    /// Profiles can meet, and the Space colour is not it — a colour says which
-    /// Space, never whose cookie jar. It rides on the badge's `name` rather than
-    /// on a new field, so it reaches the visible chip and VoiceOver through the
-    /// path that already exists.
-    private static func badge(for space: Space, sources: CommandBarSources, qualify: Bool) -> SpaceBadge {
-        // §21.2 / UI-SPEC §8: name and symbol travel with the colour, because a
-        // Space must be separable without it.
-        SpaceBadge(
-            name: label(for: space, sources: sources, qualify: qualify),
-            colour: space.gradient.start,
-            symbolName: space.symbolName
-        )
-    }
-
-    private static func label(for space: Space, sources: CommandBarSources, qualify: Bool) -> String {
-        guard qualify, let profile = sources.profiles[space.profileID] else { return space.name }
-        // A Profile named after its Space says nothing twice.
-        guard profile.name != space.name else { return space.name }
-        return "\(space.name) · \(profile.name)"
     }
 }

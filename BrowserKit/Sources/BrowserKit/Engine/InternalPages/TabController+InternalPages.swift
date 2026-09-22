@@ -61,7 +61,7 @@ extension TabController {
                 ContentBlocker.shared.allowInsecure(host: host)
             }
             load(url)
-        case .commandBar, .addFavorite, .restore:
+        case .commandBar, .restore:
             // Needs the Command Bar or the tab list, neither of which exists
             // here. Silently nothing if the app never installed a handler,
             // which is the honest failure for a link rather than a crash.

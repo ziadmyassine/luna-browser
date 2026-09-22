@@ -16,12 +16,14 @@
 //      BrowserSession.swift         state, restore, the Space list (§5)
 //      BrowserSession+Spaces.swift  the Space lifecycle and Favorites (§6, §2)
 //      BrowserSession+Tabs.swift    the tab API, navigation, persistence, undo
+//      BrowserSession+Groups.swift  §3.4b's groups and the saved tier
 //      BrowserSession+Engine.swift  controllers, hibernation, WebKit callbacks
 //
 //  Two invariants everything depends on:
-//    1. `tabs` is sorted essential → pinned → today, each by `order` — see
-//       `TabList`. `reorderTab(_:to:kind:)` therefore takes a section-relative
-//       index.
+//    1. `tabs` is sorted essential → pinned → today, and inside the last two it
+//       is the order §3.4 draws — a §3.4b group's tabs inline under it. See
+//       `TabList`, which is also where `reorderTab`'s index is defined: it
+//       counts the run the tab is joining, not the whole list.
 //    2. A tab with no `TabController` has no `WKWebView` and no WebContent
 //       process (§19.2). Restoring a session creates no controllers at all
 //       (§19.4); the first `activateTab` creates the first one.
@@ -110,6 +112,11 @@ final class BrowserSession {
     /// above exists. New code registers.
     var onChange: (() -> Void)?
     var onTabStateChange: ((UUID, TabState) -> Void)?
+    /// A §3.4b folder has just been made and its row is on screen. One slot, not
+    /// an observer list: there is exactly one thing to do with a folder that has
+    /// no name yet, which is open its name field, and exactly one column drawing
+    /// the row to open it on.
+    var onGroupCreated: ((UUID) -> Void)?
 
     private var changeObservers: [UUID: () -> Void] = [:]
     private var tabStateObservers: [UUID: (UUID, TabState) -> Void] = [:]
@@ -181,7 +188,6 @@ final class BrowserSession {
 
     let store: BrowserStore
     let profileStore = ProfileStore()
-    var profiles: [UUID: Profile]
     var list: TabList
     var activeTabBySpace: [UUID: UUID] = [:]
     var controllers: [UUID: TabController] = [:]
@@ -210,10 +216,13 @@ final class BrowserSession {
     /// exempt as well, checked live.
     static let liveTabBudget = 4
     private static let activeSpaceKey = "luna.activeSpaceID"
-    /// What a tab with no URL of its own opens — ⌘T and popups. The New Tab
-    /// page rather than `about:blank`, so §30.19's surface is reachable from
-    /// more than an empty Space.
-    static let blankPage = InternalPages.Page.newTab.url
+    /// What a tab with no URL of its own opens, which since §30.19's page was
+    /// removed is only a popup — `window.open()` with nothing to open.
+    ///
+    /// `about:blank` is what the web platform already calls that, and there is
+    /// nothing left for Luna to put there instead: every way a person makes a
+    /// tab now asks where it is going first (§9.1).
+    static let blankPage = URL(string: "about:blank")!
 
     // MARK: - Restore (§6.2, §19.4)
 
@@ -227,35 +236,40 @@ final class BrowserSession {
         guard !spaces.isEmpty else { throw SessionError.noSpaces }
 
         var tabs: [UUID: [Tab]] = [:]
+        var groups: [UUID: [TabGroup]] = [:]
         var archived: [Tab] = []
         for space in spaces {
             // One query per Space, not two: the archive is the same table.
             let all = try await store.tabs(inSpace: space.id, includeArchived: true)
             tabs[space.id] = all.filter { $0.archivedAt == nil }
             archived += all.filter { $0.archivedAt != nil }
+            groups[space.id] = try await store.groups(inSpace: space.id)
         }
         let remembered = UserDefaults.standard.string(forKey: activeSpaceKey).flatMap(UUID.init(uuidString:))
-        return BrowserSession(
+        let session = BrowserSession(
             store: store,
             spaces: spaces,
-            profiles: try await store.profiles(),
-            list: TabList(tabs, profiles: Dictionary(uniqueKeysWithValues: spaces.map { ($0.id, $0.profileID) })),
+            list: TabList(tabs, groups: groups),
             archived: archived.sorted { ($0.archivedAt ?? .distantPast) > ($1.archivedAt ?? .distantPast) },
             activeSpaceID: (spaces.first { $0.id == remembered } ?? spaces[0]).id
         )
+        // §3.4b's tier holds folders and nothing else, and a database written
+        // before that rule has loose rows standing in it. Here rather than in a
+        // schema migration: the fix is a folder and a run of `groupID`s, which
+        // is this layer's arithmetic and not SQLite's.
+        session.enfoldLooseSavedTabs()
+        return session
     }
 
     private init(
         store: BrowserStore,
         spaces: [Space],
-        profiles: [Profile],
         list: TabList,
         archived: [Tab],
         activeSpaceID: UUID
     ) {
         self.store = store
         self.spaces = spaces
-        self.profiles = Dictionary(uniqueKeysWithValues: profiles.map { ($0.id, $0) })
         self.list = list
         self.archived = archived
         self.activeSpaceID = activeSpaceID
@@ -265,7 +279,6 @@ final class BrowserSession {
         case noSpaces
         case lastSpace
         case unknownSpace
-        case unknownProfile
         case emptyName
 
         var errorDescription: String? {
@@ -273,7 +286,6 @@ final class BrowserSession {
             case .noSpaces: "Luna's database has no Spaces in it."
             case .lastSpace: "The last Space cannot be deleted."
             case .unknownSpace: "That Space no longer exists."
-            case .unknownProfile: "That profile no longer exists."
             case .emptyName: "A Space needs a name."
             }
         }
@@ -281,22 +293,27 @@ final class BrowserSession {
 
     // MARK: - Spaces (§5)
     //
-    // A Space names a Profile; a Profile is a `WKWebsiteDataStore` created
-    // with an identifier Luna generated and persisted itself, because WebKit
-    // will not hand the mapping back (§5.1).
+    // A Space is a `WKWebsiteDataStore` created with an identifier Luna
+    // generated and persisted itself, because WebKit will not hand the mapping
+    // back (§5.1). It named a Profile row that held that identifier until §9's
+    // `v7`; one Space, one jar, and nothing in between them now.
 
     func space(_ id: UUID) -> Space? { spaces.first { $0.id == id } }
-
-    func profile(for space: Space) -> Profile? { profiles[space.profileID] }
 
     func switchSpace(_ id: UUID) {
         guard id != activeSpaceID, spaces.contains(where: { $0.id == id }) else { return }
         activeSpaceID = id
         // Choosing a Space is choosing its tab, so unlike a restore this may
-        // wake one: the Space's last selection, else its most recent tab.
+        // wake one: the Space's last selection, else its most recent open tab.
+        //
+        // Open, and nothing else. A Space the user had emptied came back with a
+        // page on screen, because the fallback took the newest row of any kind
+        // — so a §3.3 tile, or a §3.4b row that had been closed once, was
+        // loaded by the act of walking past the Space. Both are places rather
+        // than pages, and opening one is a gesture the user makes.
         if let remembered = activeTabBySpace[id] {
             activateTab(remembered)
-        } else if let newest = tabs.max(by: { $0.lastActiveAt < $1.lastActiveAt }) {
+        } else if let newest = openableTabs(inSpace: id).max(by: { $0.lastActiveAt < $1.lastActiveAt }) {
             activateTab(newest.id)
         } else {
             notifyChange()
@@ -306,13 +323,13 @@ final class BrowserSession {
 
     /// The data store every tab in this Space is built against.
     func dataStore(forSpace spaceID: UUID) -> WKWebsiteDataStore {
-        guard let space = space(spaceID), let profile = profiles[space.profileID] else {
-            // Unreachable while the schema's foreign key holds. A non-persistent
-            // store is the safe wrong answer: it leaks nothing into a profile
-            // the user did not mean.
+        guard let space = space(spaceID) else {
+            // Unreachable while the Space exists at all. A non-persistent store
+            // is the safe wrong answer: it leaks nothing into a jar the user did
+            // not mean.
             return .nonPersistent()
         }
-        return profileStore.dataStore(for: profile)
+        return profileStore.dataStore(for: space)
     }
 
     /// The SF Symbol a new Space starts with, matching the seeded first Space.

@@ -37,14 +37,13 @@ final class TopBarDomainTests: XCTestCase {
 
     /// Luna's own pages have a host and it is not a name. A tab on one of them
     /// carries no title until the page reports it, and the label it wore in the
-    /// meantime was `newtab`.
+    /// meantime was `archive`.
     func testNamesLunasOwnPagesRatherThanShowingTheirHost() {
-        XCTAssertEqual(display("luna://newtab"), "New Tab")
         XCTAssertEqual(display("luna://archive"), "History")
         // The name it shows before the load and the `<title>` the page sets
         // afterwards are the same string, so the label does not change under
         // the pointer.
-        XCTAssertEqual(display("luna://newtab"), InternalPages.Page.newTab.name)
+        XCTAssertEqual(display("luna://archive"), InternalPages.Page.archive.name)
     }
 
     func testResolveAddsTheMissingScheme() {

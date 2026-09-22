@@ -31,47 +31,39 @@ final class BrowserSessionFavoritesTests: XCTestCase {
         try? FileManager.default.removeItem(at: directory)
     }
 
-    // MARK: - Goal 10 · Favorites are per Profile
+    // MARK: - Goal 10 · Favorites are per Space
 
-    func testFavoritesAreSharedAcrossSpacesOnOneProfile() async throws {
+    /// They were a Profile's, pooled across every Space sharing one, until §9's
+    /// `v7`. A Favorite is a logged-in app tile and it still belongs to the jar
+    /// that holds the login — there is simply nothing between a Space and its
+    /// jar now, so the tile belongs to the Space.
+    func testFavoritesBelongToTheSpaceTheyWereMadeIn() async throws {
         let session = try await makeSession(try makeStore())
         let home = try XCTUnwrap(session.spaces.first)
-        let sibling = try await session.createSpace(name: "Sibling", profileID: home.profileID)
-        let stranger = try await session.createSpace(name: "Stranger")
+        let sibling = try await session.createSpace(name: "Sibling")
         session.switchSpace(home.id)
 
         let tab = Tab(spaceID: home.id, kind: .today, url: url("favourite"), order: 0)
         session.persistAll(session.list.insert(tab))
         XCTAssertTrue(session.pinTab(tab.id))
 
-        XCTAssertEqual(session.favorites(onProfile: home.profileID).map(\.id), [tab.id])
-        XCTAssertTrue(session.favorites(onProfile: stranger.profileID).isEmpty)
+        XCTAssertEqual(session.favorites(inSpace: home.id).map(\.id), [tab.id])
+        XCTAssertTrue(session.favorites(inSpace: sibling.id).isEmpty, "a tile is not shared any more")
 
+        // And the grid the sibling draws is its own, not the one next door.
         session.switchSpace(sibling.id)
-        XCTAssertEqual(
-            session.tabs.filter { $0.kind == .essential }.map(\.id),
-            [tab.id],
-            "a Space sharing the Profile shows the same tile"
-        )
-        session.switchSpace(stranger.id)
-        XCTAssertTrue(
-            session.tabs.filter { $0.kind == .essential }.isEmpty,
-            "a Space on another Profile does not — the tile's login is not in that cookie jar"
-        )
+        XCTAssertTrue(session.tabs.filter { $0.kind == .essential }.isEmpty)
     }
 
     /// Arc's cap, allowing zero. Refusing is the behaviour: evicting the oldest
     /// tile to make room would throw away a login the user put there.
-    func testFavoritesAreCappedAtTwelvePerProfile() async throws {
+    func testFavoritesAreCappedAtTwelvePerSpace() async throws {
         let session = try await makeSession(try makeStore())
         let home = try XCTUnwrap(session.spaces.first)
-        let sibling = try await session.createSpace(name: "Sibling", profileID: home.profileID)
         session.switchSpace(home.id)
 
-        // Split across both Spaces on the Profile: the cap is the Profile's.
         for index in 0..<BrowserSession.favoritesCap {
-            let spaceID = index.isMultiple(of: 2) ? home.id : sibling.id
-            let tab = Tab(spaceID: spaceID, kind: .today, url: url("fav-\(index)"), order: index)
+            let tab = Tab(spaceID: home.id, kind: .today, url: url("fav-\(index)"), order: index)
             session.persistAll(session.list.insert(tab))
             XCTAssertTrue(session.pinTab(tab.id), "tile \(index) is within the cap")
         }
@@ -79,20 +71,39 @@ final class BrowserSessionFavoritesTests: XCTestCase {
         session.persistAll(session.list.insert(extra))
 
         XCTAssertFalse(session.pinTab(extra.id), "the thirteenth is refused")
-        XCTAssertEqual(session.favorites(onProfile: home.profileID).count, BrowserSession.favoritesCap)
+        XCTAssertEqual(session.favorites(inSpace: home.id).count, BrowserSession.favoritesCap)
         XCTAssertEqual(session.tab(extra.id)?.kind, .today, "and it is left exactly where it was")
         XCTAssertEqual(
-            session.favorites(onProfile: home.profileID).map(\.order),
-            Array(0..<BrowserSession.favoritesCap),
-            "Favorites are numbered across the Profile, not restarted per Space"
+            session.favorites(inSpace: home.id).map(\.order),
+            Array(0..<BrowserSession.favoritesCap)
         )
     }
 
-    /// Favorites survive the Space they happened to be created in.
-    func testDeletingASpaceKeepsTheProfilesFavorites() async throws {
+    /// The cap is the Space's, so a second Space starts with twelve of its own
+    /// rather than inheriting a full tier.
+    func testTheCapIsCountedPerSpaceAndNotAcrossThem() async throws {
         let session = try await makeSession(try makeStore())
         let home = try XCTUnwrap(session.spaces.first)
-        let doomed = try await session.createSpace(name: "Doomed", profileID: home.profileID)
+        let sibling = try await session.createSpace(name: "Sibling")
+        for index in 0..<BrowserSession.favoritesCap {
+            let tab = Tab(spaceID: home.id, kind: .today, url: url("fav-\(index)"), order: index)
+            session.persistAll(session.list.insert(tab))
+            XCTAssertTrue(session.pinTab(tab.id))
+        }
+
+        session.switchSpace(sibling.id)
+        let fresh = Tab(spaceID: sibling.id, kind: .today, url: url("next-door"), order: 0)
+        session.persistAll(session.list.insert(fresh))
+        XCTAssertTrue(session.pinTab(fresh.id), "a full Space next door is not this Space's problem")
+    }
+
+    /// A tile does not survive the Space it was made in, because the login it
+    /// opens does not either — the jar goes with the Space. It is kept as a
+    /// tab rather than destroyed, which is §6.3's whole rule.
+    func testDeletingASpaceKeepsItsFavoritesAsTabs() async throws {
+        let session = try await makeSession(try makeStore())
+        let home = try XCTUnwrap(session.spaces.first)
+        let doomed = try await session.createSpace(name: "Doomed")
         let tab = Tab(spaceID: doomed.id, kind: .today, url: url("tile"), order: 0)
         session.persistAll(session.list.insert(tab))
         XCTAssertTrue(session.pinTab(tab.id))
@@ -100,18 +111,14 @@ final class BrowserSessionFavoritesTests: XCTestCase {
 
         try await session.deleteSpace(doomed.id, policy: .archiveTabs)
 
-        XCTAssertEqual(
-            session.favorites(onProfile: home.profileID).map(\.id),
-            [tab.id],
-            "a tile is the Profile's; deleting the Space it was made in must not archive it"
-        )
-        XCTAssertEqual(session.tab(tab.id)?.spaceID, home.id)
-        XCTAssertTrue(session.archived.isEmpty)
+        XCTAssertTrue(session.favorites(inSpace: home.id).isEmpty, "a tile does not cross into another jar")
+        XCTAssertNotNil(session.archived.first { $0.id == tab.id } ?? session.tab(tab.id), "and it is not destroyed")
     }
 
-    /// Crossing a Profile boundary demotes a tile rather than smuggling it into
-    /// another cookie jar's tier — and the caller is told, in Arc's words.
-    func testMovingAFavoriteAcrossProfilesDemotesItAndIsWarnedAbout() async throws {
+    /// Crossing into another Space's jar demotes a tile rather than smuggling
+    /// it into a tier whose cookies never saw the login — and the caller is
+    /// told, in Arc's words.
+    func testMovingAFavoriteToAnotherSpaceDemotesItAndIsWarnedAbout() async throws {
         let session = try await makeSession(try makeStore())
         let home = try XCTUnwrap(session.spaces.first)
         let stranger = try await session.createSpace(name: "Stranger")
@@ -125,8 +132,8 @@ final class BrowserSessionFavoritesTests: XCTestCase {
         session.moveTab(tab.id, toSpace: stranger.id)
 
         XCTAssertEqual(session.tab(tab.id)?.kind, .pinned)
-        XCTAssertTrue(session.favorites(onProfile: home.profileID).isEmpty)
-        XCTAssertTrue(session.favorites(onProfile: stranger.profileID).isEmpty)
+        XCTAssertTrue(session.favorites(inSpace: home.id).isEmpty)
+        XCTAssertTrue(session.favorites(inSpace: stranger.id).isEmpty)
         XCTAssertNil(session.controller(for: tab.id), "the web view dies at the boundary, so cookies cannot cross")
     }
 
@@ -143,7 +150,7 @@ final class BrowserSessionFavoritesTests: XCTestCase {
 
         let second = try BrowserStore(path: path)
         let reopened = try await BrowserSession.restored(store: second)
-        XCTAssertEqual(reopened.favorites(onProfile: home.profileID).map(\.id), [tab.id])
+        XCTAssertEqual(reopened.favorites(inSpace: home.id).map(\.id), [tab.id])
     }
 
     // MARK: - §6.6 · the drag across the grid's edge

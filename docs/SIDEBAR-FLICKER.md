@@ -9,6 +9,17 @@ patch was small — it was finding out what the band is *not*.
 
 Investigated 2026-09-20 against `4a3d4a0`.
 
+**Since then: `7836dea` rebuilt the transition this file measures.**
+`beginGeometryTransition` was not actually achieving the single reflow it was
+written for — AppKit was animating the page's width, so the web process
+reflowed every frame (13 hiding, 10 showing, at 1400 pt). It now lays out with
+animations off and holds the page at the wider of the two widths for the whole
+slide: one reflow each way. That commit's own closing line names what is left
+as exactly the subject of this file — "the one re-flow is asynchronous, so the
+repaint lands a frame or three in rather than before the slide starts." The
+reasoning below still applies; **the frame counts do not.** Re-run the harness
+before comparing anything to them.
+
 ---
 
 ## The symptom
@@ -43,7 +54,10 @@ The cost of that trade is that on hide the page becomes ~270 pt wider
 whole investigation is about what that something is.
 
 **Reverting the single-reflow optimisation would remove the band and cost the
-stutter back. Do not do that.**
+stutter back. Do not do that.** `7836dea` has since made that optimisation
+actually work, and held the page at the wider width so the slide never opens a
+wedge of `Surface.base` — which removes one way the band could have been
+produced, without removing the band.
 
 ---
 

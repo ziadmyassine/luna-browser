@@ -8,6 +8,7 @@
 //
 
 import AppKit
+import BrowserKit
 import XCTest
 @testable import Luna
 
@@ -59,5 +60,22 @@ final class RowPillTests: XCTestCase {
         pill.move(to: NSRect(x: 0, y: 40, width: 200, height: Tokens.Metric.rowPillHeight),
                   spec: Tokens.Motion.selectedRowMove)
         XCTAssertEqual(pill.layer?.animation(forKey: "position") != nil, !Tokens.Motion.reduceMotion)
+    }
+
+    /// §3.4b's `⌘W` again. Closing the page of a kept row leaves the Space with
+    /// nothing selected, and the list has to hear that — the selection it was
+    /// handed used to be a plain optional, so "nothing" and "do not change it"
+    /// were the same value and the fill stayed lying on the row that had just
+    /// been closed. A second `⌘W` then let that row go.
+    func testHandingOverNoSelectionClearsTheOneOnScreen() throws {
+        let space = UUID()
+        let kept = Tab(spaceID: space, kind: .pinned, url: URL(string: "https://example.com/kept")!)
+        let controller = TabListController()
+        controller.show(saved: [.tab(kept)], today: [], essentials: [], activeTabID: kept.id)
+        XCTAssertEqual(controller.activeTabID, kept.id)
+
+        controller.show(saved: [.tab(kept)], today: [], essentials: [], activeTabID: nil)
+
+        XCTAssertNil(controller.activeTabID, "the list kept a selection the Space no longer has")
     }
 }

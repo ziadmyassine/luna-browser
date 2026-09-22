@@ -32,6 +32,8 @@ sidebar's own content reflows. The ratios exist to fix proportions once, not to 
 | Token | Value | Was |
 |---|---|---|
 | `sidebarWidth` default / min / max | 280 / **250** / 420 pt | min was 180, then 160, then 220 |
+| `sidebarFootFloor` — the min where §3.1's head is not in the column | **220** pt | — |
+| `sidebarFootWidth` — what §3.5's foot occupies, derived | 190 pt | — |
 | `rowHeight` (pitch) | 38 pt | 40 |
 | `rowGap` / `rowPillHeight` (the drawn pill) | 3 / 35 pt | 4 / — |
 | `rowInset` (pill inset from sidebar edge) | 8 pt | — |
@@ -117,6 +119,17 @@ state. Raising the tint instead was tried and is wrong: the tint is *black* in d
 (`surfaceTintColor`), so more of it is a dimmer sidebar rather than a thicker one, which is "darker", not
 "more opaque". Frost separates the two — the material still samples and refracts the desktop, but through
 a surface rather than through a hole.
+
+**The tint survives the window going inactive, and Luna is what makes it.**
+`NSGlassEffectView` drops `tintColor` the moment its window stops being the active one, and
+there is no `NSVisualEffectView.state` to ask it not to. Measured on the sidebar, dark mode:
+the plane went from 0.166/0.110/0.293 to 0.259/0.180/0.420 — half again as bright — every
+time the user clicked into another app, and the difference was §2's tint exactly, black at
+`Ink.glassTint`. So `GlassBackingView` paints the same tint over the material for the length
+of an inactive window: the colour is the same in both states and only the layer carrying it
+changes. Inactive now measures 0.172/0.118/0.278 against the active 0.166/0.110/0.293. It is
+off in fullscreen and under Reduce Transparency for the reason the tint itself is — there is
+no material there to have lost one.
 
 ### 2a. Clear or Opaque — the user's own answer
 
@@ -359,6 +372,18 @@ Vertical order, top to bottom:
   is 250 — the measured touching point is 243, and Martin asked for the smallest that does not overlap
   rather than the smallest that keeps a full `chromeGap`. `SidebarHeadRoomTests` runs that sum against
   the real row.
+- **And 250 is only the price where that head is in the column**, which is one of the four cases
+  §3.2b's placement and the sidebar's edge make between them. §3.2b takes the pill and these three
+  circles onto the page, leaving a row holding nothing but the traffic lights' corner; and a trailing
+  column does not contain the lights at all — macOS keeps them at the window's top-left — so its
+  toggle starts at `rowInset` instead of 78 pt in, which is 86 pt off the 243. Either one puts the
+  head under §3.5's foot, and then `sidebarFootFloor` answers: **220**. The foot itself occupies
+  `sidebarFootWidth` — 190, derived from the tokens it is made of, the width at which the avatar, the
+  Space strip and the Downloads/History cylinder close to exactly one `chromeGap` apart — and 220
+  stands off it for the reason 250 stands off 243, plus the Essentials grid, which is the one thing in
+  the column that keeps shrinking rather than stopping: a tile is 47 pt wide at 220 against 40 at 190.
+  `Settings.sidebarWidth` is the single reader that resolves the two, and `SidebarWidthFloorTests`
+  runs both sums against the real bar.
 - **The morph stands still.** Nothing inside the capsule is laid out against its bounds — all three are
   placed off the leading edge at fixed distances — so the trailing edge is the only thing that travels
   and back never moves under the pointer. Measured against the bounds, a *shrink* re-reads them at the
@@ -910,8 +935,89 @@ ink.
   > **This was half-implemented and looked broken.** `pinTab` put the page away and never changed the
   > tab's kind, so the row left the list, no tile appeared, and the command did nothing visible.
 
+#### 3.3a Empty wells — what a Space with nothing pinned shows instead
+
+A Space that has pinned no tabs and made no folders draws two dashed wells where the pinned
+things would be: a **block** in §3.3's grid, under the URL pill, with a `pin` glyph over
+"Drag a tab here to pin it"; and a **row pill** under it, where §3.4b's first folder will
+stand, with a `folder` glyph beside "Drag a folder here to pin it".
+
+- **Each well appears only for the tier it describes.** Pin one tab and the block goes; make
+  one folder and the row goes. They are independent — a Space with four tiles and no folders
+  draws the row well alone.
+- **Each well is drawn as the thing that is missing, not as a notice about it.** The block well
+  **is one empty tile** — `essentialsTile`'s height and corner, standing in `slotRect(at: 0)` —
+  and the row well is a §3.4 pill. **Inside, both are a §3.4 row**: a `faviconSize` glyph at
+  `rowFaviconInset`, the line at `rowTitleInset` in `TypeScale.sidebarRow`, the cross in the
+  trailing slot every tab row keeps. So the two wells and every row under them put their glyphs
+  on one column and start their words on another.
+  > **The glyphs were a folder's `groupIconSize` and the block centred its pair.** That put the
+  > two wells' glyphs and the rows' in three different places, and made the biggest thing in an
+  > empty grid a 20 pt pin next to a 13 pt line. Centring also defeated itself in a narrow
+  > column: the pair was clamped against the cross's slot, which left the line exactly its own
+  > width and one rounding short of fitting — "Drag a tab here to pi…" in a box with room.
+  > **There is no `TypeScale.sidebarHint`.** It forwarded to `sidebarRow`, and a token whose
+  > whole body is another token's name is a way for the two to drift. Before that it was 12 pt
+  > semibold — a section label's weight on a sentence, the only bold type in §3.
+- **A line longer than its column dissolves; it is never cut with an ellipsis.** Laid out at its
+  natural width inside a clipping box carrying `rowTitleFade`, exactly as §3.4 ends an over-long
+  title. And it keeps the cross's slot until the cross is in it — §3.4's other rule for a row
+  with no trailing glyph — which is 22 pt, and in a narrow column the difference between a
+  sentence and most of one.
+  > It was two dashed boxes of 12 pt semibold grey, centred, which would have been the only bold
+  > type in §3 — a poster about an empty column rather than the column's own voice. Centring the
+  > row well also cost it the room: at the default width its line came out as
+  > "Drag a folder here to pi…".
+  > **The block was 70 pt and stacked, chosen to be taller than a tile so it could not be
+  > mistaken for one.** Being mistaken for one is the point. At 70 the grid also dropped 16 pt
+  > the moment the first tab was pinned — the column jumping in answer to a drop that had
+  > already landed — and `EssentialsGridView.height(forTiles:hinting:)` now returns the
+  > one-tile height for a grid giving advice, so nothing moves at all.
+- **Advice taken is advice finished.** Pinning a tab, or putting a folder in §3.4b's tier, puts
+  the matching flag away for good — a well that came back when the last tile was unpinned would
+  be the app teaching a user what that user has just taught it. The cross is the other way to
+  finish a piece of advice, and there is no third: nothing sets either flag back to true.
+- **Dismissed by the cross, which is revealed on hover** exactly as §3.4's close is — a tip is
+  mostly read, not dismissed, and a cross standing in the well at rest took a quarter of the
+  line's room. It stands in the row's own trailing slot in both wells, one
+  `rowInset` inside the well in both. The cross is `rowTrailingChip`, so it answers a hover and
+  a press like every other glyph in the column (§6).
+- **One answer for the whole app, not one per Space.** `Settings.showsPinnedTabHint` and its
+  pair store the *dismissal*, so a key nobody has written reads as "show it". Advice already
+  taken does not need repeating in the Space next door — where, by definition, the user is now
+  doing the thing it describes.
+- **Neither well carries a fill at rest.** Nothing else in §3 does — an unselected row has no
+  background at all (§30.7) — and empty is drawn here the way §3.3 draws its own empty slot: a
+  dashed `Line.border` and nothing behind it. `Surface.hover` is what a lift arriving over one
+  looks like, which is the same lift every other target in the column takes.
+  > **They were `Surface.well`**, a dark recess cut into the plane, sitting a few points from
+  > the grid's own dashed drop outline, which has never had a fill. A well answering the pointer
+  > then meant swapping one material for another rather than lifting the one it has.
+- **The block stands where the first tile stands, and stays there under a lift.** §3.3's grid is
+  zero points tall until something is pinned and opens to a tile's height for the length of a
+  drag; the well has already made that movement, so `isAwaitingDrop` adds nothing and nothing
+  jumps when a §6.6 lift comes into the air — or when it lands. The well's own dashed line is
+  the drop outline, so the grid draws no second one inside it.
+- **Neither well is a drop target of its own.** §6.6 already resolves both zones: the grid's
+  region is the block's, and a point above the list's first row is §3.4b's tier, which is what
+  the row well stands on. So a tab dropped on the row well gets a folder made round it, which
+  is §3.4b's rule and not a second one.
+- **§30.9's still draws both**, for the reason it is built from `SidebarList.rows` — a picture
+  that leaves them out is a column whose rows stand a hundred points too high, and that
+  correction lands inside the cross-fade that exists to hide one.
+
+The reference for both is a browser that draws a star-marked box for its favourites and a
+pin-marked capsule under it. Luna's copy differs — both lines name what you *drag* rather than
+what the tier is called — and Luna draws no section label over either well, because §3 has no
+section labels anywhere else.
+
 ### 3.4 List rows — 38 pt of pitch around a 35 pt pill
-Order: `+ New Tab` row → **separator** → tabs.
+Order: §3.4b's pinned folders → **separator** → `New Tab` row → tabs.
+> **The rule moved and the command moved with it.** It used to close off a leading command
+> group: `New Tab`, rule, tabs. §3.4b gave the space above it a job — the pinned folders — so the
+> rule now marks the bottom of that tier and `New Tab` sits under it, at the head of the tabs
+> it opens into. With nothing saved there is no tier and no rule, and the list starts at
+> `New Tab` exactly as it always did.
 > **It was `+ Add Tab` and it made a blank tab.** That is the one tab nobody wants: the next thing
 > anybody does with one is reach for the address bar. The row asks the question instead — it opens §9.1
 > in `.newTab`, so what it lands on is still a new tab, and closing the bar without choosing leaves the
@@ -1001,6 +1107,43 @@ Order: `+ New Tab` row → **separator** → tabs.
   > **There is no drag and drop left in the sidebar.** With the §3.3 tiles on this gesture too, nothing
   > in the column is an `NSDraggingSource` or an `NSDraggingDestination`, and `SidebarDrag`'s pasteboard
   > type is gone. A §3.5 Space dot is the lift's third landing place, beside the list and the grid.
+  > **The lift travels to where it lands, then hands over.** Every landing the lift can reach is
+  > somewhere on screen — a slot in §3.3's grid, the gap it has opened in §3.4's list, or a folded
+  > §3.4b folder's own header — so it goes there on `tabInsert` and the move is committed when it
+  > arrives, not when the hand lets go. Only the grid did this; every other drop faded the lift out
+  > wherever the pointer happened to be, which for a drop into a folder was the whole of the
+  > movement: the tab vanished in mid-air and the folder was one row longer the next time you
+  > looked at it. A drop on a §3.5 Space dot still fades where it stands, because the tab is
+  > leaving this column rather than landing in it.
+  > **A folder taking a drop is boxed, whole.** A dashed box in `Line.border` filled with
+  > `Surface.selected` closes round the folder's entire extent — its name, the tabs already in it,
+  > and the row the list has just opened for the one arriving — so the tab is seen to be going
+  > *inside* something rather than merely stepping in by `groupIndent`. It is one view for the
+  > list, like §3.4's two pills and for the same reason, and it lies under the rows and answers
+  > no hit test (`SidebarGroupDropView`). The dash is §3.3's: the grid's empty slot, §3.3a's two
+  > wells and this are one mark. The wash is the heavier of §3.4's two, and that is the
+  > distinction those two carry — `hover` says the pointer is over this, and a folder taking a
+  > drop is the chosen destination for the thing in the air.
+  > **A shut folder makes the same movement an open one does.** A row opens under its header,
+  > the box holds that row, and the lift settles into it — so a folded folder's box is two rows
+  > tall, which is what the folder itself will be a moment later. The gap used to be suppressed
+  > here, because a list making room under a shut folder read as "the tab lands next to it"
+  > while the box said "inside it". It no longer reads that way: the drop opens the folder, so
+  > that row *is* where the tab is about to be.
+  > **A folder's header is not split down the middle.** Every other row divides at its midpoint,
+  > because its two halves mean the same kind of thing — before this row, after this row. A
+  > folder's header does not: the lower part is the one gesture that puts a tab *inside* the
+  > folder and the upper part only puts it above, which the row overhead has already offered.
+  > So `groupDropEdge` gives the folder everything below the top 10 pt of its 38, and the
+  > boundary above it keeps twice `dragThreshold`.
+  > **A shut folder opens on the drop.** The drop is the one moment the user is asking where
+  > that tab has gone, and a folder that swallows it and stays shut answers by making the row
+  > disappear. `setGroupCollapsed(false, …)` runs before the reorder, so the list arrives at its
+  > new shape once instead of opening a step after the row lands.
+  > **An expanded folder used to say nothing at all.** The indent the lift already carried was
+  > the whole of the feedback, and a 16 pt step is not an answer to "where is this going". The
+  > outline a folded header wore was the only mark either state had, and a hairline round one row
+  > is not much of a target for a tab about to disappear into it.
   > **Every step is a haptic tick.** The pointer moves continuously and the list does not — it *steps*,
   > as the lift changes places with one neighbour — and that step is `Tokens.Haptics.step()`, fired the
   > once per crossing, in §3.3's grid and §3.4's list alike. The pattern is `.alignment`, which is what
@@ -1088,6 +1231,217 @@ to reimplement keyboard navigation, VoiceOver and Reduce Transparency.
 - **`Close` shows `⌘W` and does not install it.** A context menu's key equivalents are live only
   while it is open; the rest of the time §20.1's responder chain has the command. On a tile, Close is
   still §3.3's "send the tile home".
+
+#### 3.4b Folders, and the tier that holds them
+
+The list has two tiers, divided by §3.4's rule:
+
+```
+§3.3 grid          ░ pinned tiles ░
+pinned folders      ▸ Research  (3)      ← a folder, folded
+                    ▸ Invoices  (1)      ← and another
+────────────────────────────────────     ← the rule
+                    + New Tab
+today               ▾ Trip
+                        flights.example
+                        hotel.example
+                      news.example
+```
+
+**The tier under the tiles holds folders and nothing else.** There is no such thing as a
+loose kept tab any more, and that is the whole shape of this section: §3.3's grid is the
+pages you reach in one click, the tier under it is the *work* you keep, and work has a name.
+A run of loose rows up there was a second today's-tabs with no name on any of it, and the
+first thing every user did with it was wish for folders.
+
+So a tab dropped in that tier gets a folder made around it, at the slot it was dropped in,
+with its name field already open — one gesture, and the thing that arrives is the thing the
+tier is made of. `BrowserSession.reorderTab` is where that happens, and it is deliberately
+one rule in one place: there are four ways a tab can land there — the drop, the menu, an
+import, an undo — and a rule enforced at four gestures is a rule with three holes in it.
+
+**And "Saved" is gone from the vocabulary.** The tab menu has no *Save Tab*: putting a tab up
+there and putting it in a folder are now one act with one name, and *Add to Folder ▸* is it.
+The folder menu says *Pin Folder* / *Unpin Folder*, which is the tier the user can see —
+pinned tiles above, pinned folders under them. A database written before this rule has loose
+rows in that tier; they are gathered into one folder per Space called *Saved*, which is what
+the tier used to be called, rather than demoted to today's tabs. The user put them up there
+deliberately.
+
+**Nothing changes for a tab inside a folder.** It closes in two presses, dims rather than
+leaving, goes back to the address it was kept at, and wakes when it is clicked — exactly as
+a kept row always did. What changed is where the row is allowed to stand, not what it does.
+
+**Luna never opens a page the user closed.** A dimmed row and a §3.3 tile are places rather
+than pages, and only a click on one loads it. Three paths used to load one without being
+asked, and all three are the same bug: the selection moving to the row under a tab being
+closed, the selection Luna picks when it walks into a Space with nothing open in it, and
+§9.2's bar offering a dimmed row as *Switch to tab* — that last one put the site straight
+back in the folder the moment the user searched for it again, where what they wanted was a
+new tab, and history's own row is what gives them one. Closing the page of the last open row
+therefore leaves the Space with nothing selected, and §3.4's pill leaves with it: a fill
+still lying on the row is the next `⌘W` aimed at the row itself.
+
+**And the bar hands back a page, not the filing it was in.** A fourth path did the same thing
+from the other end: a tab closed out of a folder is archived *with its `groupID`*, and §9.2's
+*Reopen* put it back into the folder — dimmed, two levels in, one press from being let go,
+which is the state the user had just finished putting it in. `⌘⇧T` and §11's list still mean
+undo and still put a tab back exactly where it was taken from; the bar's rows are places, so
+one chosen there comes back the way any other address from the bar does — a tab of the day, on
+its own, at the top of its page.
+
+**A group is one row with its tabs under it.** It has a name and an icon the user picked, a
+chevron that says which way it is folded, and a §3.4-shaped row exactly like a tab's — same
+pitch, same pill, same hover and selection fills. Its tabs step in by `groupIndent` (16 pt, a favicon's own
+width) and a hairline runs down the space that opens.
+
+**The chevron is a mark, not a button.** The whole header folds, so the glyph takes no press,
+no hover and no place in the row's hit test — it is a plain image view (§6's register of
+buttons excludes it on purpose). It was a `RowGlyphView` and lit its own chip and swelled
+under its own press, which put a second target inside a row that has one: aiming at a 16 pt
+glyph to do the thing the whole 38 pt row already does is a smaller target for no more reach,
+and a chip appearing inside the heading read as a control the heading did not have.
+
+**The chevron follows the name.** It stands one `groupChevronGap` after the folder's own title,
+not in front of its icon. Leading the row it took the column every other row draws a favicon
+in and pushed the folder's icon out of it, so a list of folders and tabs had two icon columns
+instead of one; behind the name it costs nothing, because the name is the only thing on the
+row that is ever short. The folder's header therefore starts at the column's own left edge
+like every other top-level row, and the indent under it is the whole of what says a tab is
+inside.
+
+- **Called a folder everywhere the user can read it.** "Group" is what the code calls the
+  type; the menus say *New Folder*, *Add to Folder*, *Pin Folder*. A folder is what the thing
+  already looks like — a named row with an icon and items under it — and it is the word the
+  feature was asked for in.
+- **Made empty, and named on its own row.** Right-click the column's empty plane for
+  *New Folder*, or `Add to Folder ▸ New Folder` on a tab to make one around it. Either way
+  the folder appears immediately and its name field opens on the row with the placeholder
+  name selected, so the first keystroke is the name. No dialog: a sheet for this puts a
+  window in front of the list the folder has just appeared in and asks about a row the user
+  can no longer see. Escape leaves it called *New Folder* — a name nobody chose still beats
+  a row that cannot be told from any other.
+- **Renamed the same way, and re-iconned from a submenu.** The folder menu's *Rename* opens
+  that same field; *Change Icon ▸* lists the sixteen with the current one ticked. Neither
+  carries an ellipsis, because neither opens anything before it commits.
+- **The icon can be an emoji.** Sixteen symbols is a vocabulary; a folder for a trip wants the
+  flag of the country it is to. *Change Icon ▸ Emoji…* opens macOS's own palette over the
+  row's icon slot — its search, its recents and its skin tones, none of which is worth
+  rebuilding badly — and the first character it inserts is the icon. It is the one item in
+  either folder menu that carries an ellipsis, because it is the one that opens something
+  before it commits. `TabGroup.symbolName` holds either a symbol's name or the emoji itself,
+  and `RowEmoji` is the one place that asks which.
+- **A folder's icon is drawn at `groupIconSize`, and an emoji is fitted to it.** A favicon is
+  a picture and fills its 16 pt square; a symbol drawn at the same point size puts about two
+  thirds of that on the row, so a folder measured the same as the tabs under it and did not
+  look it. The larger box is centred on the favicon's own column, so the list still reads as
+  one column of icons and the title inset does not move. An emoji goes the other way — Apple
+  Color Emoji at 16 pt draws 20 pt of picture, so one set at the slot's own size was cropped
+  on all four edges. `RowEmoji` measures the ink and picks the font size that fills the slot
+  exactly, then centres the picture on that ink rather than on the line's box.
+- **A folder's header can be dragged as well as folded.** The two are told apart by whether
+  the hand moved: still, it folds; moved, it lifts. A folder is a slot in this tier like any
+  other and an arrangement you cannot rearrange is not an arrangement.
+- **A tab in the column is renamed on its row too.** §3.4a's *Rename* opens the same field,
+  on the name the row is showing. Emptying it — or typing the page's own title back — is how
+  a tab goes back to being named by its page. §3.3's tiles and §4's strip keep the dialog and
+  keep the ellipsis with it: neither draws the name as a line of text there is room to type
+  on.
+- **The fold is persisted.** A group the user put away and found open again the next morning
+  has lost the only thing folding it was for. Folding is a row diff like any other, so the
+  tabs fade over §6's `tabInsert` rather than blinking out.
+- **A group may never be pinned.** §3.3's grid is one tile per tab and a group is a list of
+  them, so there is no tile for one to be. The grid is simply not offered while a group is in
+  the air, and neither is a §3.5 Space dot — a group belongs to the Space it was made in, and
+  a tab carried out of that Space leaves the group behind rather than dragging the name away
+  from the rest of its tabs. Both boundaries that could write a pinned group repair it
+  instead of refusing, the way `Profile` guards its data-store identifier.
+- **Groups and loose tabs share one run of indices**, so a group can stand between two tabs.
+  That is what makes moving either of them renumber both — a `[Tab]` return from the ordering
+  layer would have left a group's index behind on disk and the arrangement after a relaunch
+  would not have been the one on screen.
+
+**The rule and `New Tab` are one block.** Nothing can be dropped between them: both rows
+mean the pinned tier at both halves and both open their gap above the rule, so the command
+row never drifts off the line it belongs to while a lift goes past. It also makes the saved
+tier's drop target the whole block rather than a hairline — the difference between aiming at
+a row and aiming at a line — and the head of today's tabs is reached from the top half of
+the first of them instead.
+
+**The rule appears with the tier, not with the list.** With nothing saved there is no bottom
+to mark, so there is no rule and the column starts at `New Tab`. A drag is the exception: it
+comes out for the length of one, because a zone you cannot see is a zone you cannot aim at.
+The §30.9 Space-swipe still is built from `SidebarList.rows` for exactly this reason — a
+still with its own idea of the head drew a rule that was both in the wrong place and always
+there, appearing for the length of a swipe and vanishing when the real column arrived.
+
+**The Space past the last one is drawn as nothing, and drawn deliberately.** A swipe off the
+end of the strip is not arriving somewhere; it is making somewhere. So the still carries no
+tiles and no rows — not even §30.6's `New Tab`, which an empty Space does have — and the only
+thing standing on that plane is the `+` and its ring. It has to be *built* as nothing rather
+than left alone: the still is rebuilt only when the answer to "which Space" changes, and while
+that answer was an optional id the blank case shared nil with "nothing has been shown yet", so
+the guard held and the plane kept whichever Space the previous stroke had drawn on it —
+pinned tiles and all.
+
+**The pinned tier is the run above the rule, and what makes a tab in it kept is what closing
+does.** A tab in a pinned folder takes **two presses** to let go:
+
+| press | what happens |
+|---|---|
+| first | the page closes, the row stays, **dimmed**, back at the address it was saved at |
+| second | there is no page left to close, so it means the row: archived, and undoable |
+
+Clicking a dimmed row opens it again and takes the second press back off it. So does dragging
+it below the rule: a tab on the ordinary side is an ordinary tab, never one press from
+disappearing.
+
+- **Dimmed is `Text.tertiary` plus a favicon at `dormantIconOpacity`**, which is what a
+  loading row wears — both are rows with no page behind them right now, and both come back at
+  full strength the moment there is one. Deliberately *not* `Text.disabled`, which is the tier
+  for a control that cannot be operated; this row is one click from being open again.
+- **It is a stored column (`Tab.isDormant`, schema `v6`), not something inferred.** "Has no
+  web view" is true of every tab after a relaunch and of every cold one §19.2 has reclaimed,
+  and neither of those is a page anybody closed. A tab that came back from lunch one press
+  from deletion would be a data-loss bug wearing a feature's clothes.
+- **`.pinned` is the tier**, and it needed no new column: it already meant "the run above
+  today's tabs" and §3.4b only gives it the behaviour its name always claimed.
+- **A folder's tier is its tabs' tier.** Carry a folder across the rule and its tabs go with
+  it; drop a tab into a pinned folder and it is kept, whichever side it came from. So "is this
+  tab kept" has one answer wherever it is asked, and `closeTab` never has to look at a folder
+  to decide what a press means.
+
+**The rule is only drawn when there is a tier to close off — or when a drag is up.** With
+nothing saved there is no bottom to mark. But the space above it is somewhere a tab can be
+put, and a zone that is invisible until you have already used it is one nobody finds, so the
+rule comes out for the length of every §6.6 lift and goes away again on the drop.
+
+**Where a drop lands is read from the two halves of a row, not from the gap between two.**
+That is the whole reason a group can be dropped into at its end: the gap under a group's last
+tab and the gap over the next slot are the *same* boundary and mean two different things —
+the end of the group, and after it. A pointer knows which half of which row it is on, so the
+destination table is keyed the same way. A folded group has no tabs on screen to drop between,
+so the lower half of its header means "into it, at the end", and its header is outlined while
+a lift is aimed there — the only feedback a folded group can give.
+
+**§3.4a's menu gained one item, and folders have a menu of their own.** A tab gets an
+`Add to Folder ▸` submenu (`New Folder`, then every existing folder, then `Remove from
+Folder`) — a submenu because the number of entries is the user's rather than the design's, and
+a menu that grows by one every time somebody makes a folder stops being scannable at about the
+fourth. It is the only route a menu offers into the pinned tier, and that is the point: there
+is nothing up there but folders. It does not appear on a §3.3 tile, where the grid is one tile
+per page and has no folders in it. A folder header's own menu is five items —
+`Rename · Change Icon ▸ | Pin Folder | Remove Folder, Keep Tabs · Close Folder and Tabs` —
+rather than a longer §3.4a,
+because half of that menu has no meaning on a group: no address to copy, nothing to duplicate,
+no sound to mute. **Removing a folder removes a name and never a page**; *Close Folder and
+Tabs* is the one that ends the tabs, and it ends them one at a time through `closeTab` so each
+lands in §6.3's archive with its own undo — and so a *saved* folder dims its tabs on the first
+Close Folder and lets them go on the second, exactly as pressing close on each of them would.
+> **The user's word is folder; `group` is the model's.** `TabGroup`, `groupID` and
+> `SidebarDestination.groupID` keep their names, and nothing a user reads says "group" —
+> including the Edit menu, where the undo entries are `New Folder`, `Rename Folder`,
+> `Move Folder` and `Remove Folder`.
 
 ### 3.5 Bottom utility bar — 52 pt, pinned
 `[profile avatar circle 34, left] ··· [space dots pill 56 × 22, centred] ··· [downloads | history, right]`
@@ -1517,6 +1871,132 @@ is the thing the user has no other way to find out about.
 
 ---
 
+### 5.3 First run — the installer, and the screen after it
+
+Two surfaces a user sees before Luna has done anything for them, and the only
+two that have to work on a Mac with no Luna data on it at all.
+
+**The disk image** (`Tools/make-dmg.sh`, `Tools/dmg-background.swift`). Luna.app,
+an Applications alias, and an arrow between them, on the moon used as a light
+source: an enormous crescent bleeding off the top-right corner, soft enough to
+read as where the light is coming from rather than as a logo printed twice.
+The plane is artwork (`assets/dmg/dmg-background-*.jpg`); the arrow and the one
+line of type — "Drag Luna into Applications" — are drawn over it at build time,
+because type that has been through a resampler is the one thing on this page a
+reader looks at closely.
+
+It is **dark, with a light chip under each icon label**. Finder draws those two
+labels itself and takes no colour, so the ground under them is the only lever
+there is. Measured on macOS 26, each plane opened fresh under each appearance:
+
+| | light system | dark system |
+|---|---|---|
+| light plane | black labels | black labels |
+| bare dark plane | **black labels — on near-black** | white labels |
+| dark plane, chipped | black labels | black labels |
+
+A dark system picks the label colour from what is behind it; a light system
+draws black whatever is there — so a light ground under the name is black text
+on both, which is what lets the dark plane ship. The chip is a capsule sized to
+the name and centred on the icon's column: a diffuse pool of light does the
+same job and reads as a smudge. A disk image stores **one** background picture,
+in the volume's `.DS_Store`, and nothing re-reads it when the appearance
+changes, so one plane has to serve both kinds of Mac;
+`Tools/make-dmg.sh … --light` builds the other. The window is 640 × 400 with
+its toolbar and status bar off; the icons sit on the line the arrow is drawn
+between.
+
+**The backdrop cannot follow the appearance, and three probes say why.** A
+picture with an alpha channel is composited — but onto a fixed white, measured
+identical under both appearances, so a translucent plane is a white page on a
+dark Mac. A volume with no background picture at all gets Finder's own icon
+view background, which *does* react (near-black with white labels in dark, white
+with black labels in light) — and has no artwork, no arrow and no instruction
+on it. And `backgroundImageAlias` is a single alias: one picture, resolved once.
+So the choice is art or reaction, and art wins: one image ships, the dark one,
+because the chips keep it legible on a light Mac and it is what the app looks
+like. `--light` builds the other for anyone who wants it.
+
+**The app icon on that page is not ours to switch.** macOS 26 has an icon
+appearance of its own — System Settings ▸ Appearance ▸ *Icon & widget style* —
+and pinning it to Dark renders every app's icon dark in light mode, Luna's with
+the rest. Luna ships both renditions (`Assets.car` carries the icon under
+`NSAppearanceNameAqua` and `NSAppearanceNameDarkAqua`), and with the style left
+on Default the light tile appears in light mode. A dark tile on a light Mac is
+that setting, not a missing variant.
+
+**First run** (`Features/Onboarding/`, §30.17–30.18) is a window over the
+browser, not a sheet in front of it: the session is restoring behind it, and a
+gate before the thing the gate is about is a form with no context. Closing it
+is an answer, and it never asks twice (`OnboardingState.hasRun`).
+
+| | |
+|---|---|
+| Size | `commandBarMinWidth` of prose beside a pane as wide as Settings' detail side, at Settings' height |
+| Left | Opaque `Surface.base`: the page's title at `pageTitle`, one sentence at `pageBody`, two answers at the foot |
+| Right | The sidebar's own material — `Glass.sidebar` under a `SpaceWashView` set to neutral, so it paints nothing and the material is the colour |
+| Answers | `Back` over the preferred one, both the column's width, in the same place on every page |
+| Lights | `TrafficLightLayoutManager(pinningLightsIn:)`, all three, two of them dim — §7.7's one owner, so they land where every other Luna window's do |
+
+- **Three pages**: welcome, transfer, done. The words live in `OnboardingPage`
+  and nowhere else, because §30.18's copy warning — the reference promises
+  "bookmarks, history, and **extensions**" and Luna can import none of the
+  third — is a promise that gets broken in a string literal nobody is looking
+  at. `OnboardingCopyTests` asserts every string the screen can show.
+- **The transfer page lists the browsers that are on this Mac**, and only
+  those. §30.18 asked for the rest greyed out with a reason; on a real Mac that
+  is eight rows of "isn't installed" around the two that are, which is a wall
+  with the answer hidden in it. An installed browser Luna cannot read yet keeps
+  its place and says why — Safari, which needs Full Disk Access — because that
+  one is a thing the user can fix.
+- **Where the reason has an answer, the row carries the answer.** A
+  `DetectedSource` with an `ImportRemedy` shows a button in place of the
+  sentence — `Grant Luna Full Disk Access`, which opens that pane rather than
+  the top of Privacy & Security. Two lines describing where a switch is, when
+  the switch can be one press away, is the paragraph earning its keep by
+  being long.
+- **A card, not a row.** Two chrome capsules tall, the app's own icon at
+  `capsuleHeight + rowInset`, the name at `pageBody`, and a tick that fills
+  with the accent. It answers the pointer and the finger like every other
+  control (§6), because it is one. It stands `margin * 3` in from both sides
+  of its pane — a plate the full width of its half is a table row, and flush
+  to the scroll view it came back from a press with its corner sliced off by
+  the clip.
+- **The chosen card is `Glass.control`; every other card is a plate.** The
+  pointer's own wash is already `Surface.selected`, so a chosen card drawn
+  with the same wash was indistinguishable from the one under the pointer.
+  Picked is the brighter material, not the same material with a mark on it.
+- **The whole card is the target.** Its name and its reason are
+  `NSTextField`s, and a label answers `hitTest` for its own rectangle — so a
+  pointer aimed at the browser's name, which is the middle of the card, landed
+  on a control that is not one. `OnboardingButton` had the same hole.
+  Everything inside either is decoration.
+- **The browser the Mac opens links with starts ticked**, or the first Luna
+  can read. The screen's answer is "yes, bring it", and a column of empty
+  circles asks the user to work that out from the button — and the one they
+  would pick is the one they are switching from. It unticks like any other.
+  The machine's answer is supplied by the window controller rather than read
+  by the view, so the rule is provable without the test depending on the Mac
+  it runs on.
+- **The mark is the app's own icon at the appearance it is drawn on**, from
+  `assets/icon/mark/Mark.xcassets`. Neither `NSApp.applicationIconImage` nor
+  `NSImage(named: CFBundleIconName)` will do it: the `.icon` document carries
+  an Aqua rendition and a DarkAqua one, and both of those hand back a single
+  flattened rendering — measured as identical pixels under either appearance
+  — so the white tile sat on a dark page. An imageset with a dark variant is
+  the thing AppKit resolves, and `OnboardingScreenTests` measures the two.
+- **The rows arrive staggered** on §6's `tabInsert`, 20 ms apart — the same
+  stagger a layout switch gives its contents. Each one carries its own progress
+  while the import runs; a bar under a list of five browsers says less than the
+  five of them ticking off one at a time.
+- **The import is §23.2's engine, unchanged**, one source at a time, and a
+  failure marks its own row and lets the rest run. What it writes goes straight
+  to the store, so the live session is told to pick it up
+  (`BrowserSession.adoptSpacesWrittenElsewhere`) — additive only, so no open
+  tab is replaced by a refresh it had nothing to do with.
+
+---
+
 ### 5.2 Quit sheet — ⌘Q asks first
 
 A glass panel in the browser window, not an `NSAlert`: the app icon at `topBarHeight`, the question
@@ -1706,4 +2186,10 @@ Total in the clip: **~2.3 s**, which is a gesture-driven mobile interaction.
 ## 9. Out of scope here
 
 Peek (§13), split view (§10), Boosts (§18.7), reader mode (§18.3), extensions (§16, v2), AI surfaces
-(§25.6), the New Tab page (§30.19) and the import screen (§30.17). Each gets its own pass.
+(§25.6) and the import screen (§30.17). Each gets its own pass.
+
+§30.19's New Tab page is not on that list any more: it is gone. Every way into it already
+opened §9.1's Command Bar — `⌘T`, §3.4's New Tab row, §4's `+`, and the page's own pill, which
+handed off rather than taking a second line of input — so what was left was a page whose only
+job was to be somewhere to stand while the bar was open. A tab with no address is `about:blank`,
+an empty Space opens no tab at all, and the two wells in §3.3a are what the column says instead.

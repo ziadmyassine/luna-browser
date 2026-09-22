@@ -3,7 +3,7 @@
 //  Luna
 //
 //  The one assembly call that turns `BrowserKit`'s `luna://` handler into a
-//  working New Tab page (§30.19) and archive browser (§6.4).
+//  working archive browser (§6.4).
 //
 //  §3.5's History button no longer comes through here. It opens
 //  `HistoryPanel` — a floating panel over the page — rather than a tab on
@@ -11,10 +11,10 @@
 //  someone has bookmarked should not stop working, but nothing in the chrome
 //  navigates to it any more.
 //
-//  `BrowserKit` cannot reach the tab list, the Command Bar or `Design/`, so the
-//  three things internal pages need from the app are set here, once, and read
-//  live afterwards. Everything captures the session weakly: these are
-//  process-wide statics and a strong capture would outlive the window.
+//  `BrowserKit` cannot reach the tab list or `Design/`, so the three things
+//  internal pages need from the app are set here, once, and read live
+//  afterwards. Everything captures the session weakly: these are process-wide
+//  statics and a strong capture would outlive the window.
 //
 
 import AppKit
@@ -30,23 +30,19 @@ enum InternalPagesInstaller {
 
         InternalPages.content = { [weak session] in
             guard let session else { return InternalPageContent() }
-            return InternalPageContent(
-                // §7.1's Favorites are Essentials in the active Space — one
-                // `Tab` with a `kind`, not a second table (§9.3's M1 correction).
-                favorites: session.tabs.filter { $0.kind == .essential }.map(entry),
-                // Every Space's archive, newest first, the way the Command Bar
-                // already treats it (§9.2).
-                archived: session.archived.map(entry)
-            )
+            // This Space's archive, newest first, the way the Command Bar and
+            // §6.4's list already treat it (§9.2).
+            return InternalPageContent(archived: session.archivedInActiveSpace.map(entry))
         }
 
         InternalPages.onAction = { [weak session] action, _ in
             guard let session else { return }
             switch action {
-            case .commandBar, .addFavorite:
-                // §30.19: the New Tab pill hands off to the Command Bar rather
-                // than being a second input surface with its own ranking.
-                session.presentCommandBar?(.search(""), nil)
+            case .commandBar:
+                // §4.5's error page, asking for the one surface that can take
+                // an address — and asking for a tab, because the one it is
+                // standing in is the one that failed.
+                session.presentCommandBar?(.newTab, nil)
             case let .restore(id):
                 session.unarchiveTab(id)
             case .retry, .proceed:

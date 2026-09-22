@@ -4,13 +4,18 @@
 //
 //  §3.4a's tab menu: right-click a row in §3.4's list.
 //
-//  Seven items, in the reference's own order and its five groups: pin, duplicate,
-//  copy link, the three that change what the row is, then close. The reference
-//  (`inspiration/tab-context-menu.png`) has seventeen; the fourteen missing are
-//  declined rather than deferred — half are features Luna does not have yet
-//  (Split, Chat, Bookmarks, Groups), and a menu listing what an app cannot do
+//  In the reference's own order and its groups: pin, §3.4b's save and group,
+//  duplicate, copy link, the three that change what the row is, then close. The
+//  reference (`inspiration/tab-context-menu.png`) has seventeen items; the ones
+//  still missing are declined rather than deferred — Split, Chat, Move to
+//  Profile, Move to Window and both Bookmarks rows are features Luna either does
+//  not have or reaches another way, and a menu listing what an app cannot do
 //  teaches the user to stop reading it. The groups stay even where they hold one
 //  item, because the grouping is what makes the list scannable.
+//
+//  The two §3.4b items are not on a §3.3 tile. A tile is already kept, by a tier
+//  that keeps it harder than the saved one does, and a group may not be pinned at
+//  all — so on a tile both would be offers to demote it.
 //
 //  A plain `NSMenu`, for the reason `SiteMenu.swift` gives: on macOS 26 that is
 //  the liquid-glass menu, drawn by AppKit with its own material, blur, keyboard
@@ -41,6 +46,11 @@ enum TabMenu {
     struct Actions {
         var pin: () -> Void
         var unpin: () -> Void
+        /// §3.4b: into that folder, or — with nil — out of whatever folder it is in.
+        var setGroup: (UUID?) -> Void
+        /// §3.4b: a new folder around this tab. It takes no name, because the
+        /// name is typed on the folder's own row the moment it appears.
+        var newGroup: () -> Void
         var duplicate: () -> Void
         /// Nil means "give the name back to the page".
         var rename: (String?) -> Void
@@ -50,7 +60,20 @@ enum TabMenu {
         var close: () -> Void
     }
 
-    static func build(for tab: Tab, isMuted: Bool, actions: Actions) -> NSMenu {
+    /// - Parameter group: the §3.4b folder this tab is already in, if any.
+    /// - Parameter others: every other folder in the list, for the submenu that moves it.
+    /// - Parameter rename: opens the name field on the tab's own row. Only §3.4's column
+    ///   has one — a tile in §3.3's grid and a tab in §4's strip are the same tab drawn
+    ///   somewhere with no line of text to type on — so those two pass nothing and get the
+    ///   dialog instead.
+    static func build(
+        for tab: Tab,
+        isMuted: Bool,
+        group: TabGroup? = nil,
+        others: [TabGroup] = [],
+        actions: Actions,
+        rename: (() -> Void)? = nil
+    ) -> NSMenu {
         let menu = NSMenu()
         // Closure items are their own target, so AppKit would enable them anyway. Off for
         // the same reason `SiteMenu` turns it off: nothing here may be enabled by accident.
@@ -64,6 +87,17 @@ enum TabMenu {
             symbol: pinned ? "pin.slash" : "pin",
             action: pinned ? actions.unpin : actions.pin
         ))
+        // §3.4b, and not on a tile: a tile is §3.3's grid, which is one tile per
+        // page and has no folders in it at all.
+        //
+        // There is no *Save* item any more, and its absence is the design. The
+        // tier under the tiles holds folders and nothing else, so "put this tab
+        // up there" and "put this tab in a folder" are now one act with one
+        // name — and *Remove from Folder*, at the foot of the same submenu, is
+        // the way back down.
+        if !pinned {
+            menu.addItem(groupSubmenu(current: group, others: others, actions: actions))
+        }
         menu.addItem(.separator())
 
         menu.addItem(item(
@@ -76,12 +110,16 @@ enum TabMenu {
         menu.addItem(copyLink(tab.url))
         menu.addItem(.separator())
 
-        // Ellipses, because both of these ask a question first. macOS reserves the
-        // trailing `…` for a command that opens something before it commits, and these two
-        // are the only items here that do.
-        menu.addItem(item(String(localized: "Rename…"), symbol: "pencil") {
-            askName(for: tab, then: actions.rename)
-        })
+        // The ellipsis follows the dialog. macOS reserves the trailing `…` for a command
+        // that opens something before it commits, so the row that types its new name in
+        // place does not carry one and the two surfaces that still ask do.
+        if let rename {
+            menu.addItem(item(String(localized: "Rename"), symbol: "pencil", action: rename))
+        } else {
+            menu.addItem(item(String(localized: "Rename…"), symbol: "pencil") {
+                askName(for: tab, then: actions.rename)
+            })
+        }
         menu.addItem(item(String(localized: "Change Icon…"), symbol: "photo") {
             askIcon(for: tab, then: actions.setIcon)
         })
@@ -104,6 +142,49 @@ enum TabMenu {
 
     // MARK: - Items
 
+    /// §3.4b's folder submenu: the one that makes a new folder, then the ones that
+    /// already exist, then the way out of the one this tab is in.
+    ///
+    /// A submenu rather than a run of items in the main menu, because the number of
+    /// entries is the user's rather than the design's — a menu that grows by one every
+    /// time somebody makes a folder stops being scannable at about the fourth.
+    ///
+    /// It reads Add for a loose tab and Move for one that is already in a folder,
+    /// because those are different acts and the item says which.
+    ///
+    /// New Folder carries no ellipsis and asks nothing. The folder appears with the
+    /// tab already in it and its name field open on its own row, which is one fewer
+    /// window than a dialog and puts the answer where the thing being named is.
+    private static func groupSubmenu(current: TabGroup?, others: [TabGroup], actions: Actions) -> NSMenuItem {
+        let parent = NSMenuItem(
+            title: current == nil ? String(localized: "Add to Folder") : String(localized: "Move to Folder"),
+            action: nil,
+            keyEquivalent: ""
+        )
+        parent.attributedTitle = SidebarMenu.label(symbol: "folder", title: parent.title)
+        let submenu = NSMenu()
+        submenu.autoenablesItems = false
+        submenu.addItem(item(
+            String(localized: "New Folder"),
+            symbol: "folder.badge.plus",
+            action: actions.newGroup
+        ))
+        if !others.isEmpty {
+            submenu.addItem(.separator())
+            for group in others {
+                submenu.addItem(item(group.name, symbol: group.symbolName) { actions.setGroup(group.id) })
+            }
+        }
+        if current != nil {
+            submenu.addItem(.separator())
+            submenu.addItem(item(String(localized: "Remove from Folder"), symbol: "folder.badge.minus") {
+                actions.setGroup(nil)
+            })
+        }
+        parent.submenu = submenu
+        return parent
+    }
+
     /// One item, with the reference's glyph beside its word.
     ///
     /// The glyph rides in `attributedTitle` rather than in `image`, which is not drawn at
@@ -111,9 +192,7 @@ enum TabMenu {
     /// plain `title` is set as well and stays underneath: it is what VoiceOver reads and
     /// what `typeSelect` matches, and neither should have to step over an attachment.
     private static func item(_ title: String, symbol name: String, action: @escaping () -> Void) -> NSMenuItem {
-        let item = SidebarMenu.item(title: title, action: action)
-        item.attributedTitle = SidebarMenu.label(symbol: name, title: title)
-        return item
+        SidebarMenu.glyphItem(title, symbol: name, action: action)
     }
 
     /// The reference's "Copy Link as Markdown" without the Markdown: this is the plain

@@ -85,11 +85,27 @@ final class ButtonFeedbackTests: XCTestCase {
                 pointSize: Tokens.Metric.glyphSize,
                 label: "Star"
             )),
-            ("SpaceEditorButton", SpaceEditorButton(title: "Create Space")),
+            ("SpaceEditorButton", SpaceEditorButton(title: "Cancel")),
+            ("SpaceEditorButton preferred", SpaceEditorButton(title: "Create Space", isPreferred: true)),
             ("SpaceSwatchChip", SpaceSwatchChip(gradient: .defaultSpace, label: "Blue")),
             ("SpaceSymbolChip", SpaceSymbolChip(symbolName: "moon.stars", label: "Moon")),
+            // §3.4's close/mute chip. §3.4b's fold mark is not here and must
+            // not be: it is a plain image view, because the header it sits on
+            // is the control that folds the folder.
+            ("RowGlyphView", {
+                let glyph = RowGlyphView()
+                glyph.configure(symbolName: "xmark", label: "Close Tab")
+                return glyph
+            }()),
             ("SettingsChoiceButton", SettingsChoiceButton(title: "Light")),
-            ("SpaceAppearanceButton", SpaceAppearanceButton())
+            ("SpaceAppearanceButton", SpaceAppearanceButton()),
+            ("OnboardingButton", OnboardingButton(title: "Back", isPreferred: false)),
+            ("OnboardingButton preferred", OnboardingButton(title: "Continue", isPreferred: true)),
+            ("OnboardingImportRow", OnboardingImportRow(source: DetectedSource(
+                source: .arc,
+                profiles: [ChromiumProfile(directoryName: "Default")],
+                isAvailable: true
+            )))
         ]
         for (name, button) in buttons {
             press(sized(button)) { held in
