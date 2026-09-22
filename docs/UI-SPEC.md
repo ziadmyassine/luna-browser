@@ -945,17 +945,25 @@ stand, with a `folder` glyph beside "Drag a folder here to pin it".
 - **Each well appears only for the tier it describes.** Pin one tab and the block goes; make
   one folder and the row goes. They are independent — a Space with four tiles and no folders
   draws the row well alone.
-- **Each well is drawn as the thing that is missing, not as a notice about it.** The row well
-  stands in §3.4's own two columns — its `folder` glyph centred on the favicon column at
-  `groupIconSize`, its line starting at `rowTitleInset`, both in `TypeScale.sidebarHint`, which
-  *is* the column's 13 pt row face. The block well **is one empty tile**: `essentialsTile`'s
-  height and corner, standing in `slotRect(at: 0)`, its `pin` at a tile's own `essentialsIcon`,
-  and its glyph and line centred as a pair the way a tile centres its icon. Each line stops
-  half a `rowInset` short of the cross's slot, which is the clearance §3.4's own title column
-  keeps. One dash, one face, one cross between them.
-  > **Each well's glyph is the size the thing it stands in for draws its own.** Both were a
-  > folder's 20 pt, which in the grid was the biggest thing on screen with a 13 pt line beside
-  > it, and the line's room went into it.
+- **Each well is drawn as the thing that is missing, not as a notice about it.** The block well
+  **is one empty tile** — `essentialsTile`'s height and corner, standing in `slotRect(at: 0)` —
+  and the row well is a §3.4 pill. **Inside, both are a §3.4 row**: a `faviconSize` glyph at
+  `rowFaviconInset`, the line at `rowTitleInset` in `TypeScale.sidebarRow`, the cross in the
+  trailing slot every tab row keeps. So the two wells and every row under them put their glyphs
+  on one column and start their words on another.
+  > **The glyphs were a folder's `groupIconSize` and the block centred its pair.** That put the
+  > two wells' glyphs and the rows' in three different places, and made the biggest thing in an
+  > empty grid a 20 pt pin next to a 13 pt line. Centring also defeated itself in a narrow
+  > column: the pair was clamped against the cross's slot, which left the line exactly its own
+  > width and one rounding short of fitting — "Drag a tab here to pi…" in a box with room.
+  > **There is no `TypeScale.sidebarHint`.** It forwarded to `sidebarRow`, and a token whose
+  > whole body is another token's name is a way for the two to drift. Before that it was 12 pt
+  > semibold — a section label's weight on a sentence, the only bold type in §3.
+- **A line longer than its column dissolves; it is never cut with an ellipsis.** Laid out at its
+  natural width inside a clipping box carrying `rowTitleFade`, exactly as §3.4 ends an over-long
+  title. And it keeps the cross's slot until the cross is in it — §3.4's other rule for a row
+  with no trailing glyph — which is 22 pt, and in a narrow column the difference between a
+  sentence and most of one.
   > It was two dashed boxes of 12 pt semibold grey, centred, which would have been the only bold
   > type in §3 — a poster about an empty column rather than the column's own voice. Centring the
   > row well also cost it the room: at the default width its line came out as
@@ -967,10 +975,9 @@ stand, with a `folder` glyph beside "Drag a folder here to pin it".
   > one-tile height for a grid giving advice, so nothing moves at all.
 - **Dismissed by the cross, which is revealed on hover** exactly as §3.4's close is — a tip is
   mostly read, not dismissed, and a cross standing in the well at rest took a quarter of the
-  line's room. It stands top-right in the block and in the row's own trailing slot, one
-  `rowInset` inside the well in both. The line keeps that slot clear whether or not the cross is
-  in it, so nothing steps sideways when the pointer arrives. The cross is `rowTrailingChip`, so
-  it answers a hover and a press like every other glyph in the column (§6).
+  line's room. It stands in the row's own trailing slot in both wells, one
+  `rowInset` inside the well in both. The cross is `rowTrailingChip`, so it answers a hover and
+  a press like every other glyph in the column (§6).
 - **One answer for the whole app, not one per Space.** `Settings.showsPinnedTabHint` and its
   pair store the *dismissal*, so a key nobody has written reads as "show it". Advice already
   taken does not need repeating in the Space next door — where, by definition, the user is now

@@ -31,16 +31,12 @@ extension Tokens.Metric {
     /// row will stand and is saying so.
     static let pinHintRow = rowPillHeight
 
-    // The glyph in each well is the size the thing it stands in for draws its
-    // own at — `essentialsIcon` in the block, `groupIconSize` in the row — so
-    // there is no token here. A pin at a folder's 20 pt beside a 13 pt line was
-    // the biggest thing in the grid and the line's own room went into it.
-
-    /// Between the glyph and the line it labels. Both wells set the two side by
-    /// side; where they differ is what they are lined up against — §3.4's own
-    /// columns in the row, and the middle of the tile in the block, because a
-    /// tile centres what is in it.
-    static let pinHintGap: CGFloat = 8
+    // There is no glyph size or gap here. Both wells draw §3.4's own two
+    // columns — a `faviconSize` glyph at `rowFaviconInset`, the line at
+    // `rowTitleInset` — so the well, the row under it and every favicon in the
+    // list stand on the same two numbers. The glyphs were a folder's 20 pt,
+    // which is the biggest thing in an empty grid and took the line's room
+    // with it.
 
     /// Both wells, and §3.3's own drop outline: one dash, so the three marks
     /// that mean "something goes here" are the same mark.

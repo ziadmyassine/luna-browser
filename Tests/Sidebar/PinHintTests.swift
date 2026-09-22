@@ -122,109 +122,101 @@ final class PinHintTests: XCTestCase {
 
     // MARK: - The well itself
 
-    /// Both wells have to survive the §3.7 handle's narrowest column with
-    /// their cross still on screen and their line clear of it — which in the
-    /// block is a row above the line and in the row is the column beside it.
-    func testTheCrossAndTheLineShareTheNarrowestColumn() {
-        for width in [Tokens.Metric.sidebarWidth.min, Tokens.Metric.sidebarWidth.default] {
-            for shape in [SidebarPinHintView.Shape.block, .row] {
-                let well = shape == .block ? SidebarPinHintView.tabGrid() : SidebarPinHintView.folderTier()
-                well.frame = NSRect(x: 0, y: 0, width: width - 2 * Tokens.Metric.rowInset, height: shape.height)
-                well.layoutSubtreeIfNeeded()
-                let cross = well.subviews.compactMap { $0 as? RowGlyphView }.first?.frame ?? .zero
-                let line = well.subviews.compactMap { $0 as? NSTextField }.first?.frame ?? .zero
-                let place = "\(shape) at \(width)"
-                XCTAssertTrue(well.bounds.contains(cross), "\(place) lost its cross off the edge")
-                XCTAssertTrue(well.bounds.contains(line), "\(place) lost its line off the edge")
-                XCTAssertFalse(line.intersects(cross), "\(place) ran its line under the cross")
-            }
-        }
-    }
-
-    /// Neither well is read half a sentence, at the default column or at the
-    /// narrowest §3.7 allows.
-    ///
-    /// The box may be wider than the words — both wells keep the trailing slot
-    /// whether or not the cross is in it — so what is asserted is that nothing
-    /// is cut, not that the two are equal.
-    func testNeitherLineIsCutAtAnyColumnTheUserCanReach() {
-        for width in [Tokens.Metric.sidebarWidth.min, Tokens.Metric.sidebarWidth.default] {
-            for shape in [SidebarPinHintView.Shape.block, .row] {
-                let well = shape == .block ? SidebarPinHintView.tabGrid() : SidebarPinHintView.folderTier()
-                well.frame = NSRect(
-                    x: 0,
-                    y: 0,
-                    width: width - 2 * Tokens.Metric.rowInset,
-                    height: shape.height
-                )
-                well.layoutSubtreeIfNeeded()
-                let label = well.subviews.compactMap { $0 as? NSTextField }.first
-                // Greater than, not equal to: a field given exactly the width
-                // it asks for still ends in an ellipsis.
-                XCTAssertGreaterThan(
-                    label?.frame.width ?? 0,
-                    label?.intrinsicContentSize.width ?? 0,
-                    "\(shape) at \(width) was read half a sentence"
-                )
-            }
-        }
-    }
-
-    /// Each well draws its glyph at the size the thing it stands in for draws
-    /// its own. A pin at a folder's 20 pt was the biggest thing in the grid,
-    /// and the line's own room went into it.
-    func testEachWellsGlyphIsTheSizeItsOwnShapeDraws() {
-        let block = SidebarPinHintView.tabGrid()
-        block.frame = NSRect(x: 0, y: 0, width: 240, height: SidebarPinHintView.Shape.block.height)
-        block.layoutSubtreeIfNeeded()
-        XCTAssertEqual(glyph(in: block).width, Tokens.Metric.essentialsIcon)
-        XCTAssertEqual(glyph(in: row(atWidth: Tokens.Metric.sidebarWidth.default)).width, Tokens.Metric.groupIconSize)
+    private func well(_ shape: SidebarPinHintView.Shape, atWidth width: CGFloat) -> SidebarPinHintView {
+        let well = shape == .block ? SidebarPinHintView.tabGrid() : SidebarPinHintView.folderTier()
+        well.frame = NSRect(x: 0, y: 0, width: width - 2 * Tokens.Metric.rowInset, height: shape.height)
+        well.layoutSubtreeIfNeeded()
+        return well
     }
 
     private func glyph(in well: SidebarPinHintView) -> NSRect {
         well.subviews.compactMap { $0 as? NSImageView }.first { !($0 is RowGlyphView) }?.frame ?? .zero
     }
 
-    private func row(atWidth width: CGFloat) -> SidebarPinHintView {
-        let well = SidebarPinHintView.folderTier()
-        well.frame = NSRect(
-            x: 0,
-            y: 0,
-            width: width - 2 * Tokens.Metric.rowInset,
-            height: SidebarPinHintView.Shape.row.height
-        )
-        well.layoutSubtreeIfNeeded()
-        return well
+    /// The line's own box, which is the clipping box §3.4's fade ends it in —
+    /// and not the label inside it, which is always laid out at its full width.
+    private func line(in well: SidebarPinHintView) -> NSRect {
+        well.subviews.first { $0.subviews.contains(where: { $0 is NSTextField }) }?.frame ?? .zero
     }
 
-    /// The row well stands in §3.4's own two columns: its glyph centred on the
-    /// favicon column at a folder's size, its line starting where every title
-    /// starts. Centred instead, it read as a banner lying where a row will be
-    /// rather than as the row that is missing.
-    func testTheRowWellStandsInTheColumnsARowStandsIn() {
-        let well = row(atWidth: Tokens.Metric.sidebarWidth.default)
-        let glyph = glyph(in: well)
-        let line = well.subviews.compactMap { $0 as? NSTextField }.first?.frame ?? .zero
-        XCTAssertEqual(glyph.width, Tokens.Metric.groupIconSize, "the glyph is not drawn at a folder's size")
-        XCTAssertEqual(
-            glyph.midX,
-            Tokens.Metric.rowFaviconInset - Tokens.Metric.rowInset + Tokens.Metric.faviconSize / 2,
-            accuracy: 0.51,
-            "the well's glyph is off the favicon column"
-        )
-        XCTAssertEqual(
-            line.minX,
-            Tokens.Metric.rowTitleInset - Tokens.Metric.rowInset,
-            accuracy: 0.51,
-            "the well's line does not start where a row's title starts"
-        )
+    private func label(in well: SidebarPinHintView) -> NSTextField? {
+        well.subviews.compactMap { view in view.subviews.compactMap { $0 as? NSTextField }.first }.first
+    }
+
+    /// Both wells have to survive the §3.7 handle's narrowest column with
+    /// their cross still on screen and their line clear of it — while the cross
+    /// is on screen, which is the only time the slot is the cross's.
+    func testTheCrossAndTheLineShareTheNarrowestColumn() {
+        for width in [Tokens.Metric.sidebarFootFloor, Tokens.Metric.sidebarWidth.default] {
+            for shape in [SidebarPinHintView.Shape.block, .row] {
+                let well = well(shape, atWidth: width)
+                well.setHovered(true)
+                let cross = well.subviews.compactMap { $0 as? RowGlyphView }.first?.frame ?? .zero
+                let place = "\(shape) at \(width)"
+                XCTAssertTrue(well.bounds.contains(cross), "\(place) lost its cross off the edge")
+                XCTAssertTrue(well.bounds.contains(line(in: well)), "\(place) lost its line off the edge")
+                XCTAssertFalse(line(in: well).intersects(cross), "\(place) ran its line under the cross")
+            }
+        }
+    }
+
+    /// Both wells stand in §3.4's own two columns: the glyph where a favicon
+    /// goes, at a favicon's size, and the line where every title starts. The
+    /// block centred its pair and drew it at a folder's 20 pt, so the two wells
+    /// and the rows under them put their glyphs in three different places.
+    func testBothWellsStandInTheColumnsARowStandsIn() {
+        for shape in [SidebarPinHintView.Shape.block, .row] {
+            let well = well(shape, atWidth: Tokens.Metric.sidebarWidth.default)
+            XCTAssertEqual(glyph(in: well).width, Tokens.Metric.faviconSize, "\(shape) is not a favicon's size")
+            XCTAssertEqual(
+                glyph(in: well).minX,
+                Tokens.Metric.rowFaviconInset - Tokens.Metric.rowInset,
+                accuracy: 0.51,
+                "\(shape) is off the favicon column"
+            )
+            XCTAssertEqual(
+                line(in: well).minX,
+                Tokens.Metric.rowTitleInset - Tokens.Metric.rowInset,
+                accuracy: 0.51,
+                "\(shape) does not start where a row's title starts"
+            )
+        }
+    }
+
+    /// A line longer than its column is never cut with an ellipsis. It is laid
+    /// out at its full width inside a clipping box and dissolves against the
+    /// trailing edge, which is what §3.4 does with an over-long title — and
+    /// what stops a narrow column reading "Drag a tab here to pi…".
+    func testALineTooLongForItsColumnDissolvesRatherThanTruncating() {
+        for shape in [SidebarPinHintView.Shape.block, .row] {
+            let well = well(shape, atWidth: Tokens.Metric.sidebarFootFloor)
+            let label = label(in: well)
+            XCTAssertEqual(label?.lineBreakMode, .byClipping, "\(shape) would draw an ellipsis")
+            XCTAssertGreaterThanOrEqual(
+                label?.frame.width ?? 0,
+                label?.intrinsicContentSize.width ?? 0,
+                "\(shape) squeezed its own words"
+            )
+        }
+    }
+
+    /// At the column as it comes, neither line needs the fade at all.
+    func testNeitherLineNeedsTheFadeAtTheDefaultColumn() {
+        for shape in [SidebarPinHintView.Shape.block, .row] {
+            let well = well(shape, atWidth: Tokens.Metric.sidebarWidth.default)
+            XCTAssertGreaterThanOrEqual(
+                line(in: well).width,
+                label(in: well)?.intrinsicContentSize.width ?? 0,
+                "\(shape) was read half a sentence at the width nobody has changed"
+            )
+        }
     }
 
     /// The cross is revealed on hover, exactly as §3.4's close is — and until
     /// it is showing it takes no press, however close the pointer gets to the
     /// corner it will stand in.
     func testTheCrossIsNotThereUntilThePointerIs() {
-        let well = row(atWidth: Tokens.Metric.sidebarWidth.default)
+        let well = well(.row, atWidth: Tokens.Metric.sidebarWidth.default)
         let cross = well.subviews.compactMap { $0 as? RowGlyphView }.first
         XCTAssertEqual(cross?.isHidden, true, "the cross is standing in the well at rest")
         let centre = NSPoint(x: cross?.frame.midX ?? 0, y: cross?.frame.midY ?? 0)
@@ -245,44 +237,27 @@ final class PinHintTests: XCTestCase {
         }
     }
 
-    /// A tile centres what is in it, so the block well sets its glyph beside
-    /// its line and centres the pair. Stacked and 70 pt tall it was a poster
-    /// about an empty grid standing where one tile goes.
-    func testTheBlockWellCentresItsGlyphAndLineAsAPair() {
-        let well = SidebarPinHintView.tabGrid()
-        well.frame = NSRect(
-            x: 0,
-            y: 0,
-            width: Tokens.Metric.sidebarWidth.default - 2 * Tokens.Metric.essentialsInset,
-            height: SidebarPinHintView.Shape.block.height
-        )
-        well.layoutSubtreeIfNeeded()
-        let glyph = glyph(in: well)
-        let label = well.subviews.compactMap { $0 as? NSTextField }.first
-        let line = label?.frame ?? .zero
-        XCTAssertEqual(glyph.midY, line.midY, accuracy: 1, "the glyph is over the line, not beside it")
-        XCTAssertEqual(line.minX - glyph.maxX, Tokens.Metric.pinHintGap, accuracy: 0.51)
-        // Measured to the end of the words, not to the end of the box the
-        // words are in: the line is given every point the well has left, and
-        // what is centred is what can be seen.
-        let wordsEnd = line.minX + (label?.intrinsicContentSize.width ?? 0)
-        XCTAssertEqual(
-            (glyph.minX + wordsEnd) / 2,
-            well.bounds.midX,
-            accuracy: 1,
-            "the pair is not centred in the tile"
-        )
-        XCTAssertGreaterThanOrEqual(
-            line.width,
-            label?.intrinsicContentSize.width ?? 0,
-            "the line was truncated at the width nobody has resized"
-        )
+    /// Both wells speak in the column's own face — the row's own token, not a
+    /// second one that forwards to it. They were set in a section label's
+    /// weight, which would have been the only bold type in §3.
+    func testAWellSpeaksInTheColumnsOwnFace() {
+        for shape in [SidebarPinHintView.Shape.block, .row] {
+            let well = well(shape, atWidth: Tokens.Metric.sidebarWidth.default)
+            XCTAssertEqual(label(in: well)?.font, Tokens.TypeScale.sidebarRow, "\(shape) is not in the row's face")
+        }
     }
 
-    /// Both wells speak in the column's own face. They were set in a section
-    /// label's weight, which would have been the only bold type in §3.
-    func testAWellSpeaksInTheColumnsOwnFace() {
-        XCTAssertEqual(Tokens.TypeScale.sidebarHint, Tokens.TypeScale.sidebarRow)
+    /// The line keeps the cross's slot only while the cross is in it, which is
+    /// §3.4's own rule — and 22 pt, which in a narrow column is the difference
+    /// between a sentence and most of one.
+    func testTheLineTakesTheCrossesSlotWhileNobodyIsPointingAtIt() {
+        let well = well(.row, atWidth: Tokens.Metric.sidebarWidth.default)
+        let atRest = line(in: well).maxX
+        XCTAssertEqual(atRest, well.bounds.maxX - Tokens.Metric.rowInset, accuracy: 0.51)
+        let cross = well.subviews.compactMap { $0 as? RowGlyphView }.first?.frame ?? .zero
+        XCTAssertGreaterThan(atRest, cross.minX, "the line never reaches the slot it is meant to borrow")
+        well.setHovered(true)
+        XCTAssertLessThan(line(in: well).maxX, cross.minX, "the line kept the slot the cross is now in")
     }
 
     // MARK: - §30.9's still

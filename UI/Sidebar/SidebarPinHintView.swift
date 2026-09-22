@@ -10,11 +10,17 @@
 //  will be, and says the same about a folder.
 //
 //  Each well is the thing that is missing rather than a notice about it. The
-//  row is a §3.4 row: its glyph in the favicon column at a folder's own size,
-//  its line starting at `rowTitleInset` in the column's own face, its cross in
-//  the trailing slot every tab row keeps. The block is a §3.3 tile: a tile's
-//  height, a tile's corner, standing in the slot the first pinned tab will
-//  stand in, with its glyph and line centred the way a tile centres its icon.
+//  block takes a §3.3 tile's height and corner and stands in the slot the first
+//  pinned tab will stand in; the row takes a §3.4 pill's. Inside, both are a
+//  §3.4 row: the glyph in the favicon column at `faviconSize`, the line at
+//  `rowTitleInset` in the column's own face, the cross in the trailing slot
+//  every tab row keeps. So the two wells and every row under them put their
+//  glyph on one column and start their words on another.
+//
+//  And the line ends the way a row's title does — laid out at its natural width
+//  in a clipping box, dissolving against the trailing edge — rather than in an
+//  ellipsis. §3.4 does not spend three characters saying a name is longer than
+//  its row, and neither does a well in a narrow column.
 //
 //  Neither carries a fill at rest. Nothing else in §3 does — an unselected row
 //  has no background at all — and a well that was a dark recess at rest and a
@@ -57,14 +63,6 @@ final class SidebarPinHintView: NSView {
             }
         }
 
-        /// The glyph, at the size the thing it stands in for draws its own —
-        /// a tile's favicon, a folder's icon.
-        var iconSize: CGFloat {
-            switch self {
-            case .block: Tokens.Metric.essentialsIcon
-            case .row: Tokens.Metric.groupIconSize
-            }
-        }
     }
 
     var onDismiss: (() -> Void)?
@@ -81,13 +79,25 @@ final class SidebarPinHintView: NSView {
 
     private let shape: Shape
     private let icon = NSImageView()
+    /// Clips and fades the line, exactly as §3.4's `titleClip` does — see
+    /// `SidebarRowView+Title.swift`, which is the same idea on a row.
+    private let lineClip = NSView()
+    private let fadeMask = CAGradientLayer()
     private let label = NSTextField(labelWithString: "")
     private let close = RowGlyphView()
     /// The cross is revealed on hover, exactly as §3.4's close is. A tip is
     /// mostly read, not dismissed, and a cross standing in the well at rest
     /// took a quarter of the line's room and put a second mark in a box whose
     /// whole job is to hold one sentence.
-    private var isHovered = false { didSet { revealTheCross() } }
+    private var isHovered = false {
+        didSet {
+            revealTheCross()
+            // The line gives the cross's slot back when the cross is not in it
+            // — §3.4's own rule for a row with no trailing glyph — so the
+            // column it runs in changes with the pointer.
+            needsLayout = true
+        }
+    }
     private var hoverArea: NSTrackingArea?
 
     init(shape: Shape, symbolName: String, text: String, dismissLabel: String) {
@@ -99,23 +109,31 @@ final class SidebarPinHintView: NSView {
 
         icon.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)
         icon.symbolConfiguration = NSImage.SymbolConfiguration(
-            pointSize: shape.iconSize,
+            pointSize: Tokens.Metric.faviconSize,
             weight: .regular
         )
         icon.contentTintColor = Tokens.Text.secondary
         icon.imageScaling = .scaleNone
 
-        label.font = Tokens.TypeScale.sidebarHint
+        label.font = Tokens.TypeScale.sidebarRow
         label.textColor = Tokens.Text.secondary
         label.stringValue = text
-        label.lineBreakMode = .byTruncatingTail
+        // Clipping, not truncating: the fade below is what ends an over-long
+        // line, and an ellipsis would be drawn before it.
+        label.lineBreakMode = .byClipping
+        label.cell?.usesSingleLineMode = true
+        lineClip.wantsLayer = true
+        lineClip.layer?.masksToBounds = true
+        lineClip.addSubview(label)
+        fadeMask.startPoint = CGPoint(x: 0, y: 0.5)
+        fadeMask.endPoint = CGPoint(x: 1, y: 0.5)
 
         close.configure(symbolName: "xmark", label: dismissLabel, pointSize: Tokens.Metric.rowTrailingGlyph)
         close.onActivate = { [weak self] in self?.onDismiss?() }
         close.isHidden = true
         close.alphaValue = 0
 
-        for view in [icon, label, close] { addSubview(view) }
+        for view in [icon, lineClip, close] { addSubview(view) }
         setAccessibilityRole(.group)
     }
 
@@ -167,8 +185,17 @@ final class SidebarPinHintView: NSView {
         hoverArea = area
     }
 
-    override func mouseEntered(with event: NSEvent) { isHovered = true }
-    override func mouseExited(with event: NSEvent) { isHovered = false }
+    override func mouseEntered(with event: NSEvent) { setHovered(true) }
+    override func mouseExited(with event: NSEvent) { setHovered(false) }
+
+    /// The pointer arrived, or left. Its own method so that both states can be
+    /// asserted without a window to hover in — the line gives the cross's slot
+    /// back at rest and takes it away again here, and which of the two is on
+    /// screen is the whole question in a narrow column.
+    func setHovered(_ hovered: Bool) {
+        isHovered = hovered
+        layoutSubtreeIfNeeded()
+    }
 
     private func revealTheCross() {
         guard !Tokens.Motion.reduceMotion else {
@@ -237,57 +264,59 @@ final class SidebarPinHintView: NSView {
 
     private func placeContents() {
         close.frame = chipBox
-        let side = shape.iconSize
-        let line = label.intrinsicContentSize
-        // The trailing slot is kept whether or not the cross is in it, so
-        // nothing steps sideways when the pointer arrives — and the line stops
-        // half an inset short of it, which is what §3.4's own title column
-        // leaves between itself and the chip.
+        let side = Tokens.Metric.faviconSize
         let inset = Tokens.Metric.rowInset
-        let limit = chipBox.minX - inset / 2
-        guard shape == .block else {
-            // §3.4's own two columns: the glyph where a favicon goes — centred
-            // on that column, since a folder's icon is drawn larger than one —
-            // and the line where a title starts. The well is then the row it
-            // stands in for, rather than a banner lying where one will be.
-            let column = Tokens.Metric.rowFaviconInset - inset
-            icon.frame = NSRect(
-                x: column - (side - Tokens.Metric.faviconSize) / 2,
-                y: bounds.midY - side / 2,
-                width: side,
-                height: side
-            ).pixelAligned
-            let left = Tokens.Metric.rowTitleInset - inset
-            label.frame = NSRect(
-                x: left,
-                y: bounds.midY - line.height / 2,
-                width: max(limit - left, 0),
-                height: line.height
-            ).integral
-            return
-        }
-        // A tile centres what is in it, so the glyph and its line are centred
-        // as a pair — and pushed off centre only by the narrowest column, where
-        // the alternative is running the line under the cross.
-        let room = max(limit - inset - side - Tokens.Metric.pinHintGap, 0)
-        // Centred on what the words measure, and then given every point that is
-        // left of the well. A box cut to the field's own answer about its width
-        // still ended in an ellipsis — the field wants a little more than it
-        // says — and the spare room is invisible behind a line that starts at
-        // its leading edge.
-        let pair = side + Tokens.Metric.pinHintGap + min(ceil(line.width), room)
-        // Rounded once, here, so the glyph and its line are placed off the same
-        // whole number: rounding each frame on its own spends the gap between
-        // them on the two halves of one fractional point.
-        let left = min(max(bounds.midX - pair / 2, inset), max(limit - pair, inset)).rounded()
-        icon.frame = NSRect(x: left, y: bounds.midY - side / 2, width: side, height: side).pixelAligned
-        let start = left + side + Tokens.Metric.pinHintGap
-        label.frame = NSRect(
-            x: start,
+        // §3.4's own two columns, in both wells. A well is placed exactly where
+        // a row's pill is placed, so taking one `rowInset` off the column's
+        // insets puts the glyph and the line on the same two absolute x's as
+        // every row under them.
+        icon.frame = NSRect(
+            x: Tokens.Metric.rowFaviconInset - inset,
+            y: bounds.midY - side / 2,
+            width: side,
+            height: side
+        ).pixelAligned
+        // The trailing slot is the line's until the cross is in it, which is
+        // §3.4's own rule: a row with no trailing glyph runs its title to the
+        // pill's inner edge, and one drawing a chip stops half an inset short
+        // of the slot. A well is hovered for a moment and read for however long
+        // the Space stays empty, so the resting state wins here too — and it is
+        // 22 pt, which is the difference between a sentence and most of one in
+        // a narrow column.
+        let left = Tokens.Metric.rowTitleInset - inset
+        let right = isHovered ? chipBox.minX - inset / 2 : bounds.maxX - inset
+        let line = label.intrinsicContentSize
+        let box = NSRect(
+            x: left,
             y: bounds.midY - line.height / 2,
-            width: max(limit - start, 0),
+            width: max(right - left, 0),
             height: line.height
         ).integral
+        lineClip.frame = box
+        // Laid out at its natural width so nothing truncates; the clip box and
+        // the fade are what end the line.
+        let natural = ceil(line.width)
+        label.frame = NSRect(x: 0, y: 0, width: max(natural, box.width), height: box.height)
+        // A standalone `CALayer` animates its own frame changes implicitly, and
+        // the column is re-laid on every resize drag.
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        applyFade(overflowing: natural > box.width, width: box.width)
+        CATransaction.commit()
+    }
+
+    /// §3.4's fade, on a well. Nil mask when the line fits: a gradient that is
+    /// opaque end to end is still a masked composite.
+    private func applyFade(overflowing: Bool, width: CGFloat) {
+        guard overflowing, width > Tokens.Metric.rowTitleFade else {
+            lineClip.layer?.mask = nil
+            return
+        }
+        let ink = Tokens.Text.primary
+        fadeMask.frame = lineClip.bounds
+        fadeMask.colors = [ink.cgColor, ink.cgColor, ink.withAlphaComponent(0).cgColor]
+        fadeMask.locations = [0, NSNumber(value: Double(1 - Tokens.Metric.rowTitleFade / width)), 1]
+        lineClip.layer?.mask = fadeMask
     }
 
     /// A frame set inside an animated pass leaves `layout()` reading the bounds
@@ -307,6 +336,9 @@ final class SidebarPinHintView: NSView {
         layer?.backgroundColor = isAimedAt ? Tokens.Surface.hover.cgColor : nil
         icon.contentTintColor = Tokens.Text.secondary
         label.textColor = Tokens.Text.secondary
+        // The fade's own colours were resolved too, and `layout` is what sets
+        // them.
+        needsLayout = true
         needsDisplay = true
     }
 }

@@ -117,8 +117,7 @@ extension TokenCheck {
             ("sidebarSpaceNameRow", Tokens.Metric.sidebarSpaceNameRow),
             ("sidebarSpaceNameGap", Tokens.Metric.sidebarSpaceNameGap),
             ("spaceDotPitch", Tokens.Metric.spaceDotPitch),
-            ("pinHintBlock", Tokens.Metric.pinHintBlock), ("pinHintRow", Tokens.Metric.pinHintRow),
-            ("pinHintGap", Tokens.Metric.pinHintGap)
+            ("pinHintBlock", Tokens.Metric.pinHintBlock), ("pinHintRow", Tokens.Metric.pinHintRow)
         ]
         return scalars.filter { $0.1 <= 0 }.map { "Metric.\($0.0) is not positive" }
     }
@@ -299,21 +298,11 @@ extension TokenCheck {
     private static func checkPinHints() -> [String] {
         var failures: [String] = []
         let metric = Tokens.Metric.self
-        // Each well draws its glyph at the size the thing it stands in for
-        // draws its own, so each has to fit in its own well.
-        if metric.essentialsIcon > metric.pinHintBlock - 2 * metric.rowPillInset {
-            failures.append("Metric.essentialsIcon is too big for §3.3a's block well to hold")
-        }
-        if metric.groupIconSize > metric.pinHintRow - 2 * metric.rowPillInset {
-            failures.append("Metric.groupIconSize is too big for §3.3a's row well to hold")
-        }
-        // The row well draws §3.4's own columns, so its line starts where every
-        // title starts and its glyph is centred on the favicon column —
-        // otherwise the well and the first real folder row under it put the
-        // same picture in two places.
-        let glyphEnds = metric.rowFaviconInset + (metric.groupIconSize + metric.faviconSize) / 2
-        if glyphEnds > metric.rowTitleInset {
-            failures.append("Metric.groupIconSize runs the row well's glyph under its own line")
+        // Both wells draw §3.4's own columns, so the rest of their geometry is
+        // §3.4's and is checked with it. What is theirs is the two heights, and
+        // the shorter of them has to hold the column's icon.
+        if metric.faviconSize > min(metric.pinHintBlock, metric.pinHintRow) - 2 * metric.rowPillInset {
+            failures.append("§3.3a's wells are too short to hold the column's own icon")
         }
         return failures
     }
