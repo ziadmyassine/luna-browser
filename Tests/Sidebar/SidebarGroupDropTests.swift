@@ -74,16 +74,20 @@ final class SidebarGroupDropTests: XCTestCase {
         )
     }
 
-    /// A folded folder has nothing on screen but its name, so that is the whole
-    /// of its extent — and no gap opens beside it.
-    func testAFoldedFolderTakesTheBoxOnItsHeaderAlone() throws {
+    /// A folded folder makes the same movement an open one does: a row opens
+    /// under its header and the box holds it. None of its own tabs are on
+    /// screen, so that is a box two rows tall — which is what the folder will
+    /// be a moment later, since the drop opens it.
+    func testAFoldedFolderOpensTheSameRoomAnOpenOneDoes() throws {
         group.isCollapsed = true
         let controller = try list()
+        let header = try XCTUnwrap(controller.list.row(ofGroup: group.id))
         controller.beginDrag(atRow: try XCTUnwrap(controller.list.row(of: looseTab.id)))
         controller.setGroupDrop(inside: group.id)
+        controller.setGap(row: header + 1)
         XCTAssertEqual(
             controller.groupDrop.frame.height,
-            Tokens.Metric.rowHeight - 2 * Tokens.Metric.rowPillInset,
+            2 * Tokens.Metric.rowHeight - 2 * Tokens.Metric.rowPillInset,
             accuracy: 0.51
         )
     }

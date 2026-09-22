@@ -330,14 +330,12 @@ final class SidebarTabDragController {
         utility.highlightedSpaceID = nil
         switch target {
         case let .list(row, destination):
-            // A folded group has no rows on screen for a gap to open between,
-            // so it takes the drop on its header and the list stays still: a
-            // gap opening under a shut folder is the list saying the tab lands
-            // beside it when it is about to land inside it, which is two
-            // answers to one question. The box round the folder is the same
-            // either way — see `SidebarGroupDropView`.
-            let folded = list.groupHeaderRow(for: destination)
-            list.setGap(row: folded == nil ? row : nil)
+            // One answer for a folder whether it is open or shut. A gap under a
+            // shut folder's header used to read as "beside it" and was left
+            // closed for that reason; the folder now opens on the drop, so that
+            // row is exactly where the tab is about to be, and the two states
+            // make the same movement.
+            list.setGap(row: row)
             list.setGroupDrop(inside: destination.groupID)
         case let .essentials(index):
             grid.dropIndex = index
@@ -405,19 +403,15 @@ final class SidebarTabDragController {
     /// cancelled drag and for a Space dot, which is the one landing that is not
     /// a place in this sidebar.
     ///
-    /// A shut folder's is its own header, at the header's own pill: there is no
-    /// row inside it to stand in, and a tab sinking onto the name it is being
-    /// filed under is what "it went in there" looks like. The outline stays up
-    /// underneath for the whole of it, because `landed` is what clears it and
-    /// `landed` now runs at the end.
+    /// The gap the list has opened, in every landing the list takes, shut
+    /// folder and open one alike. The box round the folder stays up underneath
+    /// for the whole of it, because `landed` is what clears it and `landed` now
+    /// runs at the end.
     private func restingPlace(for landing: SidebarDropTarget?) -> NSRect? {
         switch landing {
         case let .essentials(index):
             return host.convert(grid.slotRect(at: index), from: grid)
         case let .list(row, destination):
-            if let header = list.groupHeaderRow(for: destination) {
-                return list.pillRect(ofRow: header, in: host)
-            }
             return list.gapPillRect(forGapRow: row, inside: destination.groupID, in: host)
         case .space, nil:
             return nil

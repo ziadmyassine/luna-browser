@@ -1113,11 +1113,12 @@ Order: §3.4b's pinned folders → **separator** → `New Tab` row → tabs.
   > wells and this are one mark. The wash is the heavier of §3.4's two, and that is the
   > distinction those two carry — `hover` says the pointer is over this, and a folder taking a
   > drop is the chosen destination for the thing in the air.
-  > **A shut folder's extent is its header, so the box is the header and the list stays still.**
-  > There is no row inside a folded group for a gap to open between, and the lift sinks onto the
-  > name it is being filed under. No gap opens beside it: a list making room under a shut folder
-  > is saying the tab lands next to it while the box says it lands inside it, which is two
-  > answers to one question.
+  > **A shut folder makes the same movement an open one does.** A row opens under its header,
+  > the box holds that row, and the lift settles into it — so a folded folder's box is two rows
+  > tall, which is what the folder itself will be a moment later. The gap used to be suppressed
+  > here, because a list making room under a shut folder read as "the tab lands next to it"
+  > while the box said "inside it". It no longer reads that way: the drop opens the folder, so
+  > that row *is* where the tab is about to be.
   > **A folder's header is not split down the middle.** Every other row divides at its midpoint,
   > because its two halves mean the same kind of thing — before this row, after this row. A
   > folder's header does not: the lower part is the one gesture that puts a tab *inside* the

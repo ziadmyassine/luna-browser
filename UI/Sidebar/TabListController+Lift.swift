@@ -89,14 +89,6 @@ extension TabListController {
         return space.convert(box, from: table)
     }
 
-    /// The header row of the group a landing is inside, for the lift to settle
-    /// onto — nil when the drop is a loose one, and nil when the group's own
-    /// tabs are on screen and there is a gap between them to settle into.
-    func groupHeaderRow(for destination: SidebarDestination) -> Int? {
-        guard let id = destination.groupID, list.group(id)?.isCollapsed == true else { return nil }
-        return list.row(ofGroup: id)
-    }
-
     /// Closes §6.6's box round the folder a drop would land in, or takes it
     /// away. One folder at a time: a lift is in one place.
     func setGroupDrop(inside group: UUID?) {
@@ -113,9 +105,11 @@ extension TabListController {
     }
 
     /// The folder's whole extent, in the table's own coordinates: its header,
-    /// the tabs already in it, and the gap now open for the one arriving. A
-    /// folded folder's extent is its header alone — there is nothing else of it
-    /// on screen — and a drop that is not going into a folder has none.
+    /// whichever of its tabs are on screen, and the gap now open for the one
+    /// arriving. A folded folder has none of the first, so its box is a header
+    /// and one open row — which is what the folder will be a moment later,
+    /// since the drop opens it. A drop that is not going into a folder has no
+    /// box at all.
     ///
     /// The room for the arriving tab is added only when it is not already in
     /// this folder. A tab moved inside the folder it is in leaves a hole where
@@ -123,12 +117,9 @@ extension TabListController {
     /// throughout.
     private func groupDropBox() -> NSRect? {
         guard let id = groupDropID, let header = list.row(ofGroup: id) else { return nil }
-        var rows = 1
-        if list.group(id)?.isCollapsed != true {
-            let carried = draggedRow.flatMap { list.tab(at: $0) }
-            let isOneOfItsOwn = carried.flatMap { list.group(ofTab: $0.id)?.id } == id
-            rows += memberRows(ofGroup: id).count + (isOneOfItsOwn ? 0 : 1)
-        }
+        let carried = draggedRow.flatMap { list.tab(at: $0) }
+        let isOneOfItsOwn = carried.flatMap { list.group(ofTab: $0.id)?.id } == id
+        let rows = 1 + memberRows(ofGroup: id).count + (isOneOfItsOwn ? 0 : 1)
         return NSRect(
             x: table.bounds.minX,
             y: displayedRect(ofRow: header).minY,
