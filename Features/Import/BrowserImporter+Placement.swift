@@ -97,6 +97,9 @@ extension BrowserImporter {
 
     /// The folder an import lands in, made once and found again after that.
     ///
+    /// Not private: `+Sidebar.swift` is the other writer and asks for several
+    /// of these per Space.
+    ///
     /// Found by name, because that is what a second import of the same browser
     /// has to land in — a new folder each time would be the "Dia, Dia 2, Dia 3"
     /// that `resolveTargetSpace` already refuses for Spaces. A user who renamed
@@ -106,7 +109,7 @@ extension BrowserImporter {
     /// It stands in §3.4b's saved tier, at the end of it. The slot is numbered
     /// against the loose saved tabs *and* the saved folders together, because
     /// §3.4b shares one run of indices between them.
-    private func folder(named name: String, inSpace spaceID: UUID) async throws -> TabGroup {
+    func folder(named name: String, inSpace spaceID: UUID) async throws -> TabGroup {
         let groups = try await store.groups(inSpace: spaceID)
         if let existing = groups.first(where: { $0.name == name && $0.kind == .pinned }) { return existing }
         let tabs = try await store.tabs(inSpace: spaceID, includeArchived: false)

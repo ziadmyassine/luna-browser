@@ -106,31 +106,25 @@ actor BrowserImporter {
         // history import cancelled halfway has still delivered them.
         if surfaces.contains(.bookmarks) {
             progress?(ImportProgress(phase: .bookmarks, completed: 0, total: nil))
-            do {
-                let bookmarks = try reader.bookmarks()
-                if !bookmarks.isEmpty {
-                    let spaceID = try await resolveTargetSpace(explicit: targetSpaceID, name: spaceName, entry: &entry, dryRun: dryRun)
-                    target = spaceID
-                    summary.targetSpaceID = spaceID
-                    let result = try await write(
-                        bookmarks,
-                        into: spaceID,
-                        folder: folderName ?? spaceName,
-                        dryRun: dryRun
-                    )
-                    summary.bookmarksAdded = result.added
-                    summary.bookmarksSkipped = result.skipped
-                }
-            } catch {
-                summary.failed += 1
-                summary.warnings.append(error.localizedDescription)
-            }
+            target = await importBookmarks(
+                reader: reader,
+                names: Names(space: spaceName, folder: folderName ?? spaceName, explicit: targetSpaceID),
+                entry: &entry,
+                into: &summary,
+                dryRun: dryRun
+            )
         }
 
         if surfaces.contains(.history) {
+            // The first Space the import made, which for a sidebar is the one
+            // the source lists first. A browser's `History` is one file per
+            // profile and says nothing about which of its Spaces a visit
+            // happened in, so it cannot be split between them — and putting
+            // the same 70,000 visits in each would be worse than choosing one.
             if target == nil {
                 target = try await resolveTargetSpace(explicit: targetSpaceID, name: spaceName, entry: &entry, dryRun: dryRun)
                 summary.targetSpaceID = target
+                summary.spacesTouched = max(summary.spacesTouched, 1)
             }
             await importHistory(
                 reader: reader,

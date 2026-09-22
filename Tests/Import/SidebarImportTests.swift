@@ -37,41 +37,80 @@ final class SidebarImportTests: XCTestCase {
 
     // MARK: - Arc
 
-    /// Arc's array holds item ids and item objects side by side, and only the
-    /// objects carrying `data.tab.savedURL` are saved tabs. The rest are
-    /// folders, easels and split views — none of them an address.
-    func testArcReadsItsSavedTabsAndSkipsEverythingElse() throws {
+    /// Arc's Spaces survive the crossing, with each Space's own items in it.
+    func testArcKeepsItsSpaces() {
         let bookmarks = ArcSidebar.parse(Data(Self.arcSidebar.utf8))
-
-        XCTAssertEqual(bookmarks.map(\.url.absoluteString), [
-            "https://example.com/kept",
-            "https://example.com/second"
-        ])
-        XCTAssertEqual(bookmarks.first?.title, "Renamed By Hand", "the item's own title outranks the page's")
-        XCTAssertEqual(bookmarks.last?.title, "Saved Title", "and the page's is the fallback")
+        XCTAssertEqual(Set(bookmarks.compactMap(\.spaceName)), ["School", "Personal"])
+        let school = bookmarks.filter { $0.spaceName == "School" }
+        XCTAssertTrue(school.contains { $0.url.absoluteString == "https://ibphysics.example/topic2" })
+        XCTAssertFalse(school.contains { $0.url.absoluteString == "https://copilot.example/" })
     }
 
-    /// `arc://` is Arc's own furniture, not somewhere Luna can go, and a row
-    /// for one would be a tab that opens nothing in the folder just made.
-    func testArcLeavesItsOwnInternalPagesBehind() throws {
+    /// A folder inside a folder becomes one folder named by its path. A Luna
+    /// folder holds tabs and not other folders (§3.4b), and the path is the
+    /// only spelling that keeps both names and cannot collide with another
+    /// `Physics` under a different parent.
+    func testArcFlattensANestedFolderOntoItsPath() throws {
         let bookmarks = ArcSidebar.parse(Data(Self.arcSidebar.utf8))
-        XCTAssertFalse(bookmarks.contains { $0.url.scheme != "https" })
+        let nested = try XCTUnwrap(bookmarks.first { $0.url.host() == "physics.example" && $0.spaceName == "School" })
+        XCTAssertEqual(nested.folderPath, ["IA", "Physics"])
     }
 
-    /// The same page pinned in two Arc Spaces is one bookmark. §3.4b puts one
-    /// import in one folder, so two rows for it would be two identical tabs.
-    func testArcCollapsesAPagePinnedTwice() throws {
+    /// A pin that was loose in Arc's pinned tier carries no folder, and the
+    /// writer is what gives it one.
+    func testArcMarksALoosePinAsHavingNoFolder() throws {
         let bookmarks = ArcSidebar.parse(Data(Self.arcSidebar.utf8))
-        XCTAssertEqual(Set(bookmarks.map(\.url)).count, bookmarks.count)
+        let loose = try XCTUnwrap(bookmarks.first { $0.url.absoluteString == "https://copilot.example/" })
+        XCTAssertTrue(loose.folderPath.isEmpty)
+        XCTAssertEqual(loose.title, "Copilot", "the item's own title outranks the page's")
+    }
+
+    /// Arc's favourites belong to its profile, and every Space on that profile
+    /// shows the same row — so every Space imported from it gets them, which is
+    /// what the user is looking at in Arc. Another profile's row stays out.
+    func testArcGivesEverySpaceItsProfilesFavourites() {
+        let bookmarks = ArcSidebar.parse(Data(Self.arcSidebar.utf8))
+        let tiles = bookmarks.filter { $0.placement == .favorite }
+        XCTAssertEqual(tiles.count, 2, "one per Space, from the default profile's row")
+        XCTAssertEqual(Set(tiles.map(\.url.absoluteString)), ["https://outlook.example/mail"])
+        XCTAssertFalse(bookmarks.contains { $0.url.host() == "other-profile.example" })
+    }
+
+    /// The unpinned tier is what Arc has open. Working state, not something
+    /// kept — the rule the HTML export keeps when it leaves today's tabs out.
+    func testArcLeavesItsOpenTabsBehind() {
+        let bookmarks = ArcSidebar.parse(Data(Self.arcSidebar.utf8))
+        XCTAssertFalse(bookmarks.contains { $0.url.host() == "open-right-now.example" })
+    }
+
+    /// `arc://` is Arc's own furniture, and an easel has no address in it at
+    /// all. A row for either would be a tab that opens nothing.
+    func testArcSkipsWhatIsNotAnAddress() {
+        let bookmarks = ArcSidebar.parse(Data(Self.arcSidebar.utf8))
+        XCTAssertTrue(bookmarks.allSatisfy { $0.url.scheme == "https" })
+        XCTAssertFalse(bookmarks.contains { $0.title == "An Easel" })
+    }
+
+    /// The same page pinned in two Arc Spaces is two bookmarks, one per Space.
+    /// Dedupe is per Space because a Space is what holds tabs, and collapsing
+    /// them would take the page out of one of the two sidebars it was in.
+    func testArcKeepsAPagePinnedInTwoSpacesInBoth() {
+        let bookmarks = ArcSidebar.parse(Data(Self.arcSidebar.utf8))
+        let shared = bookmarks.filter { $0.url.absoluteString == "https://physics.example/uncertainties" }
+        XCTAssertEqual(Set(shared.compactMap(\.spaceName)), ["School", "Personal"])
     }
 
     /// Arc dates in seconds since 2001 — it is a Swift app writing `Date`
     /// through `Codable`, not Chromium writing microseconds since 1601. Read as
-    /// Chromium's, every bookmark would arrive dated some time in the year
-    /// 25000.
+    /// Chromium's, every bookmark would arrive dated in the year 25000.
     func testArcDatesDecodeAsTheReferenceDate() throws {
-        let when = try XCTUnwrap(ArcSidebar.parse(Data(Self.arcSidebar.utf8)).first?.dateAdded)
-        XCTAssertEqual(when.timeIntervalSinceReferenceDate, 747_565_943.657964, accuracy: 0.001)
+        let bookmarks = ArcSidebar.parse(Data(Self.arcSidebar.utf8))
+        let one = try XCTUnwrap(bookmarks.first { $0.folderPath == ["IA", "Physics"] })
+        XCTAssertEqual(
+            try XCTUnwrap(one.dateAdded).timeIntervalSinceReferenceDate,
+            747_565_943.657964,
+            accuracy: 0.001
+        )
     }
 
     /// A shape Luna does not recognise costs the sidebar and nothing else: the
@@ -79,41 +118,124 @@ final class SidebarImportTests: XCTestCase {
     func testAnUnreadableArcSidebarIsNoSavedTabsRatherThanAFailure() {
         XCTAssertTrue(ArcSidebar.parse(Data("not json".utf8)).isEmpty)
         XCTAssertTrue(ArcSidebar.parse(Data(#"{"sidebar":{}}"#.utf8)).isEmpty)
+        XCTAssertTrue(ArcSidebar.parse(Data(#"{"sidebar":{"containers":[{"spaces":[]}]}}"#.utf8)).isEmpty)
     }
 
     // MARK: - Dia
 
     /// Dia's file is one per app and holds every profile, so importing `Work`
     /// must not hand over `Personal`'s favourites.
-    func testDiaTakesOnlyThePickedProfilesFavourites() throws {
+    func testDiaTakesOnlyThePickedProfilesFavourites() {
         let data = Data(Self.diaContainers.utf8)
-
-        let personal = DiaFavorites.parse(data, profileDirectory: "Default")
-        XCTAssertEqual(personal.map(\.url.absoluteString), ["https://example.com/personal"])
-
-        let work = DiaFavorites.parse(data, profileDirectory: "Profile 2")
-        XCTAssertEqual(work.map(\.url.absoluteString), ["https://example.com/work"])
+        XCTAssertEqual(
+            DiaFavorites.parse(data, profileDirectory: "Default").map(\.url.absoluteString),
+            ["https://example.com/personal"]
+        )
+        XCTAssertEqual(
+            DiaFavorites.parse(data, profileDirectory: "Profile 2").map(\.url.absoluteString),
+            ["https://example.com/work"]
+        )
     }
 
-    /// The same file carries the open window. Those are working state rather
-    /// than things kept — the rule `exportBookmarksHTML` already keeps when it
-    /// leaves today's tabs out of an export.
-    func testDiaLeavesTheOpenWindowAlone() throws {
+    /// Dia's favourites are its one-click row, and a Dia profile is exactly one
+    /// Luna Space — so they are §3.3's tiles, in the Space the profile makes.
+    func testDiaFavouritesAreTilesInTheProfilesOwnSpace() {
+        let bookmarks = DiaFavorites.parse(Data(Self.diaContainers.utf8), profileDirectory: "Default")
+        XCTAssertTrue(bookmarks.allSatisfy { $0.placement == .favorite })
+        XCTAssertTrue(bookmarks.allSatisfy { $0.spaceName == nil })
+    }
+
+    /// The same file carries the open window. Working state again.
+    func testDiaLeavesTheOpenWindowAlone() {
         let bookmarks = DiaFavorites.parse(Data(Self.diaContainers.utf8), profileDirectory: "Default")
         XCTAssertFalse(bookmarks.contains { $0.url.path().contains("open-right-now") })
     }
 
     /// A favourite that is a new-tab page has no address to import.
-    func testDiaSkipsATabWithNoPageInIt() throws {
-        let bookmarks = DiaFavorites.parse(Data(Self.diaContainers.utf8), profileDirectory: "Default")
-        XCTAssertEqual(bookmarks.count, 1)
+    func testDiaSkipsATabWithNoPageInIt() {
+        XCTAssertEqual(DiaFavorites.parse(Data(Self.diaContainers.utf8), profileDirectory: "Default").count, 1)
     }
 
     // MARK: - The whole run
 
-    /// Arc end to end: a profile with a `History` and no `Bookmarks` file at
-    /// all — which is every Arc profile — still delivers its sidebar.
-    func testAnArcProfileWithNoBookmarksFileStillImportsItsSidebar() async throws {
+    /// Arc end to end. A profile with a `History` and no `Bookmarks` file at
+    /// all — which is every Arc profile — arrives as two Spaces, each with its
+    /// own folders, its own tiles, and one folder named after the browser for
+    /// whatever was loose in Arc's pinned tier.
+    func testAnArcImportArrivesAsSpacesFoldersAndTiles() async throws {
+        let (store, summary) = try await importArc()
+
+        XCTAssertEqual(summary.spacesTouched, 2)
+        XCTAssertEqual(summary.failed, 0)
+        let spaces = try await store.spaces()
+        let names = spaces.map(\.name)
+        XCTAssertTrue(names.contains("Arc — School"), "got \(names)")
+        XCTAssertTrue(names.contains("Arc — Personal"), "got \(names)")
+
+        let school = try XCTUnwrap(spaces.first { $0.name == "Arc — School" })
+        let folders = try await store.groups(inSpace: school.id)
+        XCTAssertEqual(Set(folders.map(\.name)), ["IA / Physics", "Arc"])
+        XCTAssertTrue(folders.allSatisfy { $0.kind == .pinned }, "§3.4b: the upper tier holds folders")
+        let tiles = try await store.favorites(inSpace: school.id)
+        XCTAssertEqual(tiles.map(\.url.absoluteString), ["https://outlook.example/mail"])
+        let tabs = try await store.tabs(inSpace: school.id, includeArchived: true)
+        XCTAssertTrue(
+            tabs.filter { $0.kind == .pinned }.allSatisfy { $0.groupID != nil },
+            "§3.4b: nothing is loose in the pinned tier"
+        )
+    }
+
+    /// The Space names are prefixed with the browser. `resolveTargetSpace`
+    /// reuses a Space of the same name, and Arc's `Personal` would otherwise
+    /// land in the middle of Luna's own seeded `Personal`.
+    func testAnArcSpaceDoesNotLandInsideAnExistingSpaceOfTheSameName() async throws {
+        let store = try BrowserStore(path: directory.appending(path: "luna.sqlite"))
+        try await store.seedIfEmpty()
+        let seeded = try await store.spaces()[0]
+
+        _ = try await importArc(into: store)
+        let inSeeded = try await store.tabs(inSpace: seeded.id, includeArchived: true)
+        XCTAssertTrue(inSeeded.isEmpty, "Arc's Personal landed inside Luna's own Personal")
+    }
+
+    /// A second Arc import adds nothing. The sidebar has no watermark of its
+    /// own — it deduplicates against each Space by URL, like every other
+    /// bookmark — so this is the claim that path is actually on.
+    func testASecondArcImportAddsNothing() async throws {
+        let store = try BrowserStore(path: directory.appending(path: "luna.sqlite"))
+        let first = try await importArc(into: store).1
+        let second = try await importArc(into: store).1
+
+        XCTAssertEqual(second.bookmarksAdded, 0)
+        XCTAssertEqual(second.bookmarksSkipped, first.bookmarksAdded)
+        let spaces = try await store.spaces()
+        let school = try XCTUnwrap(spaces.first { $0.name == "Arc — School" })
+        let folders = try await store.groups(inSpace: school.id)
+        XCTAssertEqual(folders.count, 2, "no second set of folders")
+    }
+
+    /// A caller that named a Space has already said where everything goes, so
+    /// the sidebar's own Spaces are not made — it flattens like any other
+    /// source. That is what §30.17's "import into this Space" means.
+    func testNamingASpaceFlattensTheSidebarIntoIt() async throws {
+        let store = try BrowserStore(path: directory.appending(path: "luna.sqlite"))
+        try await store.seedIfEmpty()
+        let into = try await store.spaces()[0]
+
+        _ = try await importArc(into: store, targetSpaceID: into.id)
+        let spaces = try await store.spaces()
+        let folders = try await store.groups(inSpace: into.id)
+        XCTAssertEqual(spaces.count, 1, "no Space was made")
+        XCTAssertEqual(folders.map(\.name), ["Arc"], "one import, one folder")
+    }
+
+    // MARK: - Fixture plumbing
+
+    @discardableResult
+    private func importArc(
+        into existing: BrowserStore? = nil,
+        targetSpaceID: UUID? = nil
+    ) async throws -> (BrowserStore, ImportSummary) {
         let profile = directory.appending(path: "Default", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: profile, withIntermediateDirectories: true)
         let sidebarFile = directory.appending(path: "StorableSidebar.json")
@@ -130,52 +252,16 @@ final class SidebarImportTests: XCTestCase {
             sidebarFile: sidebarFile,
             into: snapshot
         )
-        let store = try BrowserStore(path: directory.appending(path: "luna.sqlite"))
-        let summary = try await BrowserImporter(store: store, ledger: makeLedger())
-            .run(reader: reader, ledgerKey: "arc/Default", spaceName: "Arc", folderName: "Arc")
-
-        XCTAssertEqual(summary.bookmarksAdded, 2)
-        XCTAssertEqual(summary.failed, 0)
-        let spaceID = try XCTUnwrap(summary.targetSpaceID)
-        let groups = try await store.groups(inSpace: spaceID)
-        XCTAssertEqual(groups.map(\.name), ["Arc"], "§3.4b: one import, one folder")
-        let tabs = try await store.tabs(inSpace: spaceID, includeArchived: true)
-        XCTAssertEqual(tabs.count, 2)
-        XCTAssertTrue(tabs.allSatisfy { $0.groupID == groups.first?.id })
-    }
-
-    /// A second Arc import adds nothing. The sidebar has no watermark of its
-    /// own — it is deduplicated against the Space by URL, like every other
-    /// bookmark — so this is the claim that path is actually on.
-    func testASecondArcImportAddsNothing() async throws {
-        let profile = directory.appending(path: "Default", directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: profile, withIntermediateDirectories: true)
-        let sidebarFile = directory.appending(path: "StorableSidebar.json")
-        try Data(Self.arcSidebar.utf8).write(to: sidebarFile)
-        let store = try BrowserStore(path: directory.appending(path: "luna.sqlite"))
-        let importer = BrowserImporter(store: store, ledger: makeLedger())
-
-        func run() async throws -> ImportSummary {
-            let snapshot = try ImportSnapshot()
-            let reader = try ChromiumReader.snapshot(
-                profileDirectory: profile,
-                sidebar: .arc(fileName: "StorableSidebar.json"),
-                sidebarFile: sidebarFile,
-                into: snapshot
-            )
-            return try await importer.run(reader: reader, ledgerKey: "arc/Default", spaceName: "Arc", folderName: "Arc")
-        }
-
-        let first = try await run()
-        XCTAssertEqual(first.bookmarksAdded, 2)
-        let second = try await run()
-        XCTAssertEqual(second.bookmarksAdded, 0)
-        XCTAssertEqual(second.bookmarksSkipped, 2)
-        let spaceID = try XCTUnwrap(second.targetSpaceID)
-        let tabs = try await store.tabs(inSpace: spaceID, includeArchived: true)
-        let groups = try await store.groups(inSpace: spaceID)
-        XCTAssertEqual(tabs.count, 2)
-        XCTAssertEqual(groups.count, 1)
+        let store = try existing ?? BrowserStore(path: directory.appending(path: "luna.sqlite"))
+        let summary = try await BrowserImporter(store: store, ledger: makeLedger()).run(
+            reader: reader,
+            ledgerKey: "arc/Default",
+            spaceName: "Arc",
+            folderName: "Arc",
+            surfaces: .bookmarks,
+            targetSpaceID: targetSpaceID
+        )
+        return (store, summary)
     }
 
     private func makeLedger() -> ImportLedger {
@@ -184,26 +270,50 @@ final class SidebarImportTests: XCTestCase {
 
     // MARK: - Fixtures
 
-    /// Trimmed from the real file. Two saved tabs, one of them pinned twice,
-    /// plus the three kinds of item that are not addresses.
+    /// Trimmed from the real file, keeping every shape that is easy to get
+    /// wrong: two Spaces, marker/id pairs in `containerIDs` and
+    /// `topAppsContainerIDs`, a folder inside a folder, loose pins beside the
+    /// folders, an unpinned container, and the three item kinds that are not
+    /// addresses.
     private static let arcSidebar = """
     {"sidebar":{"containers":[
       {"global":{}},
-      {"items":[
-        "A08933E5-FDB0-4ECB-BC1E-CDAE90576CFD",
-        {"id":"1","title":"Renamed By Hand","createdAt":747565943.657964,
-         "data":{"tab":{"savedURL":"https://example.com/kept","savedTitle":"Page Title"}}},
-        "B08933E5-FDB0-4ECB-BC1E-CDAE90576CFD",
-        {"id":"2","createdAt":747565999.0,
-         "data":{"tab":{"savedURL":"https://example.com/second","savedTitle":"Saved Title"}}},
-        {"id":"3","title":"A Folder","childrenIds":["1","2"],"data":{"list":{}}},
-        {"id":"4","title":"An Easel","data":{"easel":{"easelID":"E1"}}},
-        {"id":"5","title":"Arc Max","data":{"tab":{"savedURL":"arc://settings"}}}
-      ],"spaces":[]},
-      {"items":[
-        {"id":"6","title":"Renamed By Hand","createdAt":747566000.0,
-         "data":{"tab":{"savedURL":"https://example.com/kept","savedTitle":"Page Title"}}}
-      ],"spaces":[]}
+      {
+       "topAppsContainerIDs":[{"default":true},"TOPDEFAULT",{"custom":{"_0":{"directoryBasename":"Profile 3"}}},"TOPOTHER"],
+       "spaces":[
+         "B1F80AB0",
+         {"id":"B1F80AB0","title":"School","profile":{"default":true},
+          "containerIDs":["pinned","PINSCHOOL","unpinned","UNPINSCHOOL"]},
+         {"id":"1666A263","title":"Personal","profile":{"default":true},
+          "containerIDs":["pinned","PINPERSONAL","unpinned","UNPINPERSONAL"]}
+       ],
+       "items":[
+         "A08933E5-FDB0-4ECB-BC1E-CDAE90576CFD",
+         {"id":"fav1","parentID":"TOPDEFAULT","createdAt":747565900.0,
+          "data":{"tab":{"savedURL":"https://outlook.example/mail","savedTitle":"Mail"}}},
+         {"id":"fav2","parentID":"TOPOTHER","createdAt":747565900.0,
+          "data":{"tab":{"savedURL":"https://other-profile.example/","savedTitle":"Not Ours"}}},
+
+         {"id":"ia","parentID":"PINSCHOOL","title":"IA","childrenIds":["physics"],"data":{"list":{}}},
+         {"id":"physics","parentID":"ia","title":"Physics","childrenIds":["p1"],"data":{"list":{}}},
+         {"id":"p1","parentID":"physics","title":"Percentage Uncertainties","createdAt":747565943.657964,
+          "data":{"tab":{"savedURL":"https://physics.example/uncertainties","savedTitle":"Page Title"}}},
+         {"id":"loose1","parentID":"PINSCHOOL","createdAt":747565999.0,
+          "data":{"tab":{"savedURL":"https://ibphysics.example/topic2","savedTitle":"Mechanics"}}},
+         {"id":"easel","parentID":"PINSCHOOL","title":"An Easel","data":{"easel":{"easelID":"E1"}}},
+         {"id":"internal","parentID":"PINSCHOOL","title":"Arc Max","data":{"tab":{"savedURL":"arc://settings"}}},
+         {"id":"open1","parentID":"UNPINSCHOOL","createdAt":747566100.0,
+          "data":{"tab":{"savedURL":"https://open-right-now.example/","savedTitle":"Open"}}},
+
+         {"id":"bored","parentID":"PINPERSONAL","title":"Bored","childrenIds":["b1"],"data":{"list":{}}},
+         {"id":"b1","parentID":"bored","createdAt":747566200.0,
+          "data":{"tab":{"savedURL":"https://games.example/","savedTitle":"Online Games"}}},
+         {"id":"loose2","parentID":"PINPERSONAL","title":"Copilot","createdAt":747566300.0,
+          "data":{"tab":{"savedURL":"https://copilot.example/","savedTitle":"Microsoft Copilot"}}},
+         {"id":"shared","parentID":"PINPERSONAL","createdAt":747566400.0,
+          "data":{"tab":{"savedURL":"https://physics.example/uncertainties","savedTitle":"Page Title"}}}
+       ]
+      }
     ]},"version":1}
     """
 

@@ -56,19 +56,30 @@ struct ImportedBookmark: Sendable, Hashable {
     var dateAdded: Date?
     var folderPath: [String]
     var placement: BookmarkPlacement
+    /// The name of the source's own Space this belongs to, for the two
+    /// browsers that have Spaces — nil everywhere else, meaning "the one Space
+    /// this import is making".
+    ///
+    /// Read only by a reader that `keepsItsOwnStructure`. A Chromium
+    /// `Bookmarks` file has no Spaces in it, and §3.4b puts one import in one
+    /// folder, so for every other source this stays nil and the tree is
+    /// flattened on write.
+    var spaceName: String?
 
     init(
         url: URL,
         title: String,
         dateAdded: Date? = nil,
         folderPath: [String] = [],
-        placement: BookmarkPlacement = .folder
+        placement: BookmarkPlacement = .folder,
+        spaceName: String? = nil
     ) {
         self.url = url
         self.title = title
         self.dateAdded = dateAdded
         self.folderPath = folderPath
         self.placement = placement
+        self.spaceName = spaceName
     }
 
     /// A saved address, or nil for anything that is not plain web content.
@@ -142,8 +153,12 @@ struct ImportSummary: Sendable, Hashable {
     var visitsSkipped: Int = 0
     var failed: Int = 0
     var warnings: [String] = []
-    /// The Space everything landed in, so a screen can offer "show me".
+    /// The Space everything landed in, so a screen can offer "show me". The
+    /// first of them when the source brought its own Spaces (§23.2 — Arc).
     var targetSpaceID: UUID?
+    /// How many Spaces the import made or wrote into. One for every source but
+    /// Arc, whose sidebar has Spaces of its own.
+    var spacesTouched: Int = 0
 }
 
 enum ImportError: LocalizedError, Equatable {

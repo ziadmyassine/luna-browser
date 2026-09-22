@@ -309,10 +309,24 @@ struct ChromiumReader: Sendable {
 /// an actor and a callback would have to cross its isolation boundary.
 protocol ProfileReader: Sendable {
     func bookmarks() throws -> [ImportedBookmark]
+    /// Whether the bookmarks this reader returns carry a shape worth keeping —
+    /// their own Spaces, their own folders, their own one-click row.
+    ///
+    /// True for Arc and Dia, whose sidebars are §3.4b's shape already. False
+    /// for a Chromium `Bookmarks` tree and for a Netscape export, where §3.4b's
+    /// one-import-one-folder rule governs and the tree is flattened into it.
+    var keepsItsOwnStructure: Bool { get }
     /// `nil` when this source has no readable history at all, which is
     /// different from having none newer than `watermark`.
     func visitCount(after watermark: Int64) throws -> Int?
     func visitPage(after watermark: Int64, from rowID: Int64, limit: Int) throws -> VisitPage
 }
 
-extension ChromiumReader: ProfileReader {}
+extension ProfileReader {
+    var keepsItsOwnStructure: Bool { false }
+}
+
+extension ChromiumReader: ProfileReader {
+    /// Only the two that have a sidebar to keep.
+    var keepsItsOwnStructure: Bool { sidebar != nil }
+}

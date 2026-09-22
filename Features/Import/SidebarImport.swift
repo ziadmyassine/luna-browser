@@ -30,22 +30,43 @@
 //  things kept — the same rule `exportBookmarksHTML` keeps when it leaves
 //  today's tabs out of an export.
 //
-//  Arc's Spaces are not recreated. §3.4b puts one import in one folder named
-//  after the browser, so the four of them flatten into `Arc` like everything
-//  else; the alternative is a second answer to "where does an import land".
+//  These two keep their shape; every other source does not. Arc's sidebar has
+//  Spaces holding folders, which is §3.4b's own shape, and Dia's favourites are
+//  scoped to a profile exactly the way Luna's tiles are scoped to a Space — so
+//  both arrive as what they are. A Chromium `Bookmarks` tree has neither, and
+//  §3.4b's one-import-one-folder rule still governs it. `ProfileReader`'s
+//  `keepsItsOwnStructure` is the switch, and `BrowserImporter+Placement` has
+//  the two writers.
 //
 
 import Foundation
 
 /// Arc's `StorableSidebar.json`.
+///
+/// The one source that arrives with a shape rather than a list. Arc has Spaces,
+/// each Space has a pinned tier, and that tier holds folders — which is §3.4b's
+/// own shape, so it is kept rather than flattened. Measured on this Mac: two
+/// Spaces, `School` and `Personal`, holding 118 saved tabs in seven folders,
+/// two of them nested.
+///
+/// What is deliberately left behind:
+///
+/// · **The unpinned tier.** Those are the tabs Arc has open, which is working
+///   state rather than something kept — the rule the HTML export keeps when it
+///   leaves today's tabs out.
+/// · **Nesting past one level.** A Luna folder holds tabs, not other folders
+///   (§3.4b), so `IA ▸ Physics` becomes one folder called `IA / Physics`. The
+///   alternative is dropping either the outer name or the inner one, and the
+///   path is the only spelling that keeps both and cannot collide.
 enum ArcSidebar {
 
-    /// Every saved tab in the sidebar, in the order Arc lists them.
+    /// Every saved tab in the sidebar, tagged with the Arc Space and the folder
+    /// it was in.
     ///
-    /// The file interleaves item ids and item objects in one array, so the
-    /// objects are what is walked and the ids are skipped. An item is a saved
-    /// tab when it carries `data.tab.savedURL`; the others are folders, easels
-    /// and split views, none of which is an address.
+    /// The file interleaves ids and objects in one array, so the objects are
+    /// what is walked and the bare ids are skipped. An item is a saved tab when
+    /// it carries `data.tab.savedURL`; a folder carries `data.list`, and easels
+    /// and split views carry neither an address nor anything to open.
     static func parse(_ data: Data) -> [ImportedBookmark] {
         guard
             let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -54,28 +75,129 @@ enum ArcSidebar {
         else {
             return []
         }
+        return containers.flatMap(bookmarks(inContainer:))
+    }
+
+    private static func bookmarks(inContainer container: [String: Any]) -> [ImportedBookmark] {
+        let items = (container["items"] as? [Any] ?? []).compactMap { $0 as? [String: Any] }
+        var children: [String: [[String: Any]]] = [:]
+        for item in items {
+            guard let parent = item["parentID"] as? String else { continue }
+            children[parent, default: []].append(item)
+        }
+        let favourites = favouriteContainers(container["topAppsContainerIDs"] as? [Any] ?? [])
+
         var bookmarks: [ImportedBookmark] = []
-        var seen: Set<String> = []
-        for container in containers {
-            for item in (container["items"] as? [Any] ?? []).compactMap({ $0 as? [String: Any] }) {
-                guard
-                    let tab = (item["data"] as? [String: Any])?["tab"] as? [String: Any],
-                    let address = tab["savedURL"] as? String,
-                    let url = ImportedBookmark.webURL(address),
-                    seen.insert(url.absoluteString).inserted
-                else {
-                    continue
-                }
-                let title = (item["title"] as? String) ?? (tab["savedTitle"] as? String) ?? ""
-                bookmarks.append(ImportedBookmark(
-                    url: url,
-                    title: title.trimmingCharacters(in: .whitespacesAndNewlines),
-                    dateAdded: referenceDate(item["createdAt"]),
-                    placement: .folder
-                ))
+        for space in (container["spaces"] as? [Any] ?? []).compactMap({ $0 as? [String: Any] }) {
+            guard let name = (space["title"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !name.isEmpty
+            else {
+                continue
+            }
+            var inSpace: [ImportedBookmark] = []
+            // Arc's favourites belong to the profile rather than to one Space,
+            // and every Space on that profile shows the same row — so every
+            // Space imported from it gets them, which is what the user is
+            // looking at in Arc.
+            if let top = favourites[profileKey(space["profile"])] {
+                append(childrenOf: top, in: children, path: [], placement: .favorite, into: &inSpace)
+            }
+            if let pinned = pinnedContainerID(space["containerIDs"] as? [Any] ?? []) {
+                append(childrenOf: pinned, in: children, path: [], placement: .folder, into: &inSpace)
+            }
+            bookmarks += inSpace.map { bookmark in
+                var tagged = bookmark
+                tagged.spaceName = name
+                return tagged
             }
         }
         return bookmarks
+    }
+
+    /// `containerIDs` is marker/id pairs — `"pinned"`, its id, `"unpinned"`,
+    /// its id — so the pinned container is the entry after the marker rather
+    /// than a fixed index.
+    private static func pinnedContainerID(_ ids: [Any]) -> String? {
+        guard let marker = ids.firstIndex(where: { $0 as? String == "pinned" }) else { return nil }
+        return ids.indices.contains(marker + 1) ? ids[marker + 1] as? String : nil
+    }
+
+    /// `topAppsContainerIDs` is marker/id pairs too, and the markers are
+    /// profiles: `{"default": true}` or `{"custom": {…}}`. Keyed by the same
+    /// spelling a Space's own `profile` field uses, so the two can be matched.
+    private static func favouriteContainers(_ ids: [Any]) -> [String: String] {
+        var byProfile: [String: String] = [:]
+        var pending: String?
+        for entry in ids {
+            if let id = entry as? String {
+                if let pending { byProfile[pending] = id }
+                pending = nil
+            } else {
+                pending = profileKey(entry)
+            }
+        }
+        return byProfile
+    }
+
+    /// A profile, as a string that is the same on both sides of the file.
+    /// `{"custom": {"_0": {"directoryBasename": "Profile 3"}}}` is that
+    /// directory; anything else is the default one.
+    private static func profileKey(_ value: Any?) -> String {
+        guard let profile = value as? [String: Any] else { return "default" }
+        guard let custom = profile["custom"] as? [String: Any],
+              let fields = custom["_0"] as? [String: Any],
+              let basename = fields["directoryBasename"] as? String
+        else {
+            return "default"
+        }
+        return basename
+    }
+
+    /// Depth cap for `ChromiumReader.maxDepth`'s reason: JSON cannot express a
+    /// cycle, but a corrupt file can be arbitrarily deep and an uncapped walk
+    /// allocates a path per level without bound.
+    private static let maxDepth = 12
+
+    private static func append(
+        childrenOf parent: String,
+        in children: [String: [[String: Any]]],
+        path: [String],
+        placement: BookmarkPlacement,
+        into bookmarks: inout [ImportedBookmark]
+    ) {
+        guard path.count <= maxDepth else { return }
+        for item in children[parent] ?? [] {
+            let title = (item["title"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            guard let tab = (item["data"] as? [String: Any])?["tab"] as? [String: Any] else {
+                // Not a tab. A folder is the only other kind worth walking into
+                // — an easel and a split view have no address in them.
+                guard let id = item["id"] as? String, (item["data"] as? [String: Any])?["list"] != nil else {
+                    continue
+                }
+                append(
+                    childrenOf: id,
+                    in: children,
+                    path: path + [title.isEmpty ? String(localized: "Folder") : title],
+                    placement: placement,
+                    into: &bookmarks
+                )
+                continue
+            }
+            guard
+                let address = tab["savedURL"] as? String,
+                let url = ImportedBookmark.webURL(address)
+            else {
+                continue
+            }
+            let saved = (tab["savedTitle"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            bookmarks.append(ImportedBookmark(
+                url: url,
+                title: title.isEmpty ? saved : title,
+                dateAdded: referenceDate(item["createdAt"]),
+                folderPath: path,
+                placement: placement
+            ))
+        }
     }
 }
 
@@ -127,7 +249,12 @@ enum DiaFavorites {
                         url: url,
                         title: title.trimmingCharacters(in: .whitespacesAndNewlines),
                         dateAdded: when,
-                        placement: .folder
+                        // §3.3's grid. Dia's favourites are its one-click row
+                        // and a Dia profile is exactly one Luna Space, so the
+                        // two are scoped the same way and the row is a row of
+                        // tiles. `spaceName` stays nil: the profile's Space is
+                        // the one this import is already making.
+                        placement: .favorite
                     ))
                 }
             }
