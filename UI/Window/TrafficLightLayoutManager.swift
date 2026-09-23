@@ -357,11 +357,14 @@ final class TrafficLightLayoutManager {
             buttonHeight: first.frame.height,
             titlebarHeight: container.bounds.height
         )
-        guard let origins = TrafficLightLayout.origins(
+        // In the strip the lights stand at AppKit's own origins and the strip
+        // is what is placed (`container`), so AppKit's resets change nothing.
+        let managed = container === strip ? natural : TrafficLightLayout.origins(
             for: state,
             system: system,
             inset: Tokens.Metric.trafficLightInset
-        ), origins.count == buttons.count else { return }
+        )
+        guard let origins = managed, origins.count == buttons.count else { return }
 
         // Set directly, not through `animator()`: the placement is identical in
         // every managed state, so there is nothing to interpolate, and this runs
@@ -398,39 +401,49 @@ final class TrafficLightLayoutManager {
             self.strip = new
             return new
         }()
-        let height = Self.stripHeight(
-            titlebar: naturalTitlebarHeight,
-            buttonHeight: buttons.first?.frame.height ?? 0,
-            inset: Tokens.Metric.trafficLightInset
-        )
+        // AppKit's titlebar is empty in here — its lights are in the strip —
+        // and it is what slides down under the menu bar as a band of plain
+        // window colour over the top bar. Hidden until the lights go home.
+        naturalSuperview?.superview?.alphaValue = 0
         // Above everything, every pass: the chrome is rebuilt on a layout
         // switch and a strip left behind it is three lights under a sidebar.
         if strip.superview !== root || root.subviews.last !== strip {
             root.addSubview(strip, positioned: .above, relativeTo: nil)
         }
-        strip.frame = NSRect(
-            x: root.bounds.minX,
-            y: root.bounds.maxY - height,
-            width: root.bounds.width,
-            height: height
+        strip.frame = Self.stripFrame(
+            in: root.bounds,
+            natural: natural.first ?? .zero,
+            buttonHeight: buttons.first?.frame.height ?? 0,
+            inset: Tokens.Metric.trafficLightInset
         )
         for button in buttons where button.superview !== strip { strip.addSubview(button) }
         return strip
     }
 
-    /// The strip has to be tall enough to hold the inset, or the lights land
-    /// higher in fullscreen than the titlebar lands them windowed.
+    /// Where the strip stands so that the lights, at AppKit's own origins
+    /// inside it, land `inset` from the window's top and leading edges — the
+    /// windowed placement.
     ///
-    /// `TrafficLightLayout` measures the inset down from whatever container it
-    /// is given and refuses to hang a button below it, so a container shorter
-    /// than `inset + buttonHeight` clamps — and that clamp is the one way the
-    /// two window states can disagree about where the lights go. The strip's
-    /// height is read in `init`, before the window has been on screen, so it is
-    /// not a number to stake the placement on. Taking the larger of the two
-    /// costs nothing when the measurement is right and keeps the two states on
-    /// the same line when it is not.
-    nonisolated static func stripHeight(titlebar: CGFloat, buttonHeight: CGFloat, inset: CGFloat) -> CGFloat {
-        max(titlebar, inset + buttonHeight)
+    /// The strip moves rather than the lights because AppKit keeps resetting
+    /// them in fullscreen, each button on its own, to its origin in the
+    /// titlebar — on every reveal of the menu bar among other times. Placed
+    /// anywhere else, the one it had just reset stood nine points off its
+    /// neighbours until this put it back: a staircase, for a frame or two, each
+    /// time the pointer went to the top of the screen. At its own origin a
+    /// reset moves it nowhere.
+    nonisolated static func stripFrame(
+        in root: NSRect,
+        natural first: CGPoint,
+        buttonHeight: CGFloat,
+        inset: CGFloat
+    ) -> NSRect {
+        let height = first.y + buttonHeight + inset
+        return NSRect(
+            x: root.minX + inset - first.x,
+            y: root.maxY - height,
+            width: root.width,
+            height: height
+        )
     }
 
     /// Hands the buttons back to AppKit's titlebar and takes the strip down.
@@ -439,6 +452,7 @@ final class TrafficLightLayoutManager {
     /// lights that came home one frame late is a set that visibly jumped.
     private func sendHome(_ buttons: [NSButton]) {
         guard let titlebar = naturalSuperview else { return }
+        titlebar.superview?.alphaValue = 1
         for button in buttons where button.superview !== titlebar { titlebar.addSubview(button) }
         strip?.removeFromSuperview()
         strip = nil
