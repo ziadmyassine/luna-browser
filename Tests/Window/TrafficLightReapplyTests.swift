@@ -134,4 +134,18 @@ final class TrafficLightReapplyTests: XCTestCase {
 
         XCTAssertEqual(lights.map(\.frame.origin), placed, "nobody answered the button's own notification")
     }
+
+    /// The lights' width comes from their spacing, so a green button AppKit
+    /// has put back in its own corner alone does not make them shorter — which
+    /// slid §4's plate toward the lights on a click.
+    func testTheLightsSpanIgnoresAZoomButtonResetOnItsOwn() {
+        func button(at x: CGFloat) -> NSButton {
+            let button = NSButton(frame: NSRect(x: x, y: 0, width: 14, height: 14))
+            return button
+        }
+        let close = button(at: 18), minimize = button(at: 41), zoom = button(at: 64)
+        XCTAssertEqual(TrafficLightSpace.span(close: close, minimize: minimize, zoom: zoom), 60)
+        zoom.setFrameOrigin(NSPoint(x: 55, y: 0))
+        XCTAssertEqual(TrafficLightSpace.span(close: close, minimize: minimize, zoom: zoom), 60)
+    }
 }

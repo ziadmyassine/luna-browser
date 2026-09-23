@@ -43,7 +43,7 @@ enum TrafficLightSpace {
         let inset = Tokens.Metric.trafficLightInset
         // Close's leading edge to zoom's trailing edge: AppKit's own spacing,
         // whatever it is, and the same distance wherever the caller sits.
-        let span = zoom.frame.maxX - close.frame.minX
+        let span = span(close: close, minimize: window.standardWindowButton(.miniaturizeButton), zoom: zoom)
         let corner = view.convert(NSPoint(x: root.bounds.minX, y: root.bounds.maxY), from: root)
         return NSRect(
             x: corner.x + inset,
@@ -61,6 +61,23 @@ enum TrafficLightSpace {
 /// marks these dirty on its own: they have to be named. Three conform — §3.1's
 /// sidebar control row, §3.2b's page bar and §4's top bar — and each puts
 /// something in the corner the lights would otherwise be in.
+extension TrafficLightSpace {
+
+    /// Red's leading edge to green's trailing one, from the buttons' spacing
+    /// rather than from where green stands. AppKit resets a button's origin on
+    /// its own — the zoom button alone, at times, before the manager puts it
+    /// back — and green read at its reset origin made the lights 9 pt shorter:
+    /// §4's plate slid toward them on a click and stayed there. A reset moves
+    /// a button back toward AppKit's own corner, so the wider of the two gaps
+    /// is the one nothing has touched.
+    @MainActor
+    static func span(close: NSButton, minimize: NSButton?, zoom: NSButton) -> CGFloat {
+        guard let minimize else { return zoom.frame.maxX - close.frame.minX }
+        let pitch = max(minimize.frame.minX - close.frame.minX, zoom.frame.minX - minimize.frame.minX)
+        return pitch * 2 + zoom.frame.width
+    }
+}
+
 @MainActor
 protocol TrafficLightNeighbour: NSView {}
 
