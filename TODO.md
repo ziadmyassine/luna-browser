@@ -1,11 +1,34 @@
 # Project "Luna" — an Arc-style browser on WebKit (macOS)
 
-> **Status:** planning only. Nothing is built yet. This file is the single source of truth for scope, architecture decisions, and task breakdown.
+> **Status:** in active development. Checkboxes were brought up to date against the code on 2026-09-24 (`[x]` = built; a `PARTIAL` note says what is missing). This file is the single source of truth for scope, architecture decisions, and task breakdown.
 > **Owner:** Martin
 > **Written:** 2026-09-17
 > **Target:** macOS 26+ native app, Swift 6, AppKit shell + SwiftUI surfaces, WKWebView (system WebKit).
 > **Bundle ID:** `dk.novapps.luna` · **Internal scheme:** `luna://` · **Licence:** **GPL-3.0-or-later** at publication (D12).
 > **All 16 open questions were answered on 2026-09-17 — read §32 first. Where §32 contradicts an older section, §32 wins.**
+> **Priorities changed 2026-09-24 — read ★ below first. It overrides §0.2 and §32 where they disagree.**
+
+---
+
+## ★ Top priority now (set by Martin, 2026-09-24)
+
+These four come before everything else, in this order. Two of them reverse earlier decisions (§32a).
+
+- [ ] **P1 — iCloud sync (§31).** Spaces, pinned tabs, folders, Favorites, bookmarks and settings follow the user between Macs through their own iCloud, with no Luna account or server.
+  - Start with §31.1: the spike needs a **Developer ID certificate and a provisioning profile with iCloud**, which do not exist yet. Getting them (a paid Apple Developer account) is the first real step; nothing else in §31 can be tested without it.
+  - Then §31.2–§31.12 in order. Local-first: Luna must work fully with iCloud off.
+- [ ] **P2 — Luna's own password manager.** *Reverses §0.2 and §14's goal line.* Today Luna writes into the Keychain and has no place of its own to see or manage passwords. What this adds:
+  - **P2.1 Decide where the vault lives and how it syncs** — Keychain items Luna owns (they sync through iCloud Keychain once M4 signing lands, §14.2) or a Luna store synced through §31. Write the answer into `docs/PASSWORDS.md` before any UI.
+  - **P2.2 A Passwords window** — list, search, view (behind Touch ID), edit, delete, and copy for every saved login, with the site's favicon.
+  - **P2.3 Import and export** — CSV from Safari, Chrome, Arc, Dia, 1Password and Bitwarden; export to CSV behind Touch ID with a plain warning.
+  - **P2.4 Verification codes** — store TOTP secrets and fill `one-time-code` fields. This unblocks §14.6, which was blocked only because Luna could not read Apple's codes.
+  - **P2.5 Security** — the §14.8 rules still apply; locked behind Touch ID after idle and on sleep; nothing leaves the device unencrypted.
+  - Passkeys stay gated on §14.10's entitlement.
+- [ ] **P3 — Tab switcher.** `⌃⇥` shows a switcher over the page with the most recently used tabs (favicon, title, thumbnail); holding `⌃` and pressing `⇥` again moves on, `⌃⇧⇥` moves back, releasing `⌃` switches, `Esc` cancels.
+  - Most-recently-used order per window, across tiers and folders; a setting for "in tab order" instead.
+  - Works the same in the sidebar and top-bar layouts, with VoiceOver and under Reduce Motion.
+  - Not the same thing as §5.3's Space cycling, and it must not steal `⌃⇥` from it — decide which shortcut each gets before building.
+- [ ] **P4 — Extensions (§16), promoted from v2.** *Reverses §0.2 and §32's "extensions v2".* §16.1 host plumbing first, then install from folder or `.zip` (§16.2), permissions (§16.3), the toolbar surface (§16.4 — the top bar's action capsule was built to take extension buttons), the compatibility check (§16.5) and per-Space enable (§16.6). §14.7's native-messaging bridge for 1Password and Bitwarden comes with §16.1.
 
 ---
 
@@ -24,12 +47,12 @@ The three sentences that define the product:
 - Bundling or patching a custom WebKit build. We ship against the system framework.
 - Chromium/Blink fallback rendering for broken sites. **Also: no second engine at all** — not as a separate build, not per-tab. Researched 2026-09-21 and closed; `docs/ENGINES.md` has the evidence and the conditions that would justify reopening it. Short version: Gecko has had no desktop embedding API since 2011, and a bundled Chromium costs +322 MB, permanent App Store exclusion, no Widevine (so no Netflix/Spotify), our own codec licensing, and a two-week CVE treadmill — while CEF **cannot run Chrome extensions** in the only mode we could embed, which was the main reason to want it.
 - A custom account system, our own sync servers, or telemetry-by-default. Sync is **iCloud only** (§31) — no logins, no backend of ours.
-- A password manager of our own. We write into **Apple's** Passwords / iCloud Keychain instead — see §14, and read §14.1 before promising anything.
+- ~~A password manager of our own.~~ **Reversed 2026-09-24 — now priority P2 (★).** The original line: we write into **Apple's** Passwords / iCloud Keychain instead — see §14, and read §14.1 before promising anything.
 - Mac App Store distribution for v1 (sandbox blocks default-browser registration; see §22).
 - Monetisation of any kind — no licence keys, no payments, no accounts (D15).
 - Telemetry or analytics, even opt-in (D16).
 - AI features in v1. §30.4 reserves the layout slot and nothing else.
-- General extension support in v1 — only the §14.7 password bridge. See §16.
+- ~~General extension support in v1 — only the §14.7 password bridge. See §16.~~ **Reversed 2026-09-24 — now priority P4 (★).**
 
 ### 0.3 Ground rules for agents
 - **Never invent an API.** Every WebKit API named in this document has been verified to exist. If you need something not listed here, check `WKWebView.h` / `WKWebsiteDataStore.h` in the WebKit source (`github.com/WebKit/WebKit/tree/main/Source/WebKit/UIProcess/API/Cocoa`) *before* designing around it. Private/underscored SPI (`_WK*`) is **banned** unless a task explicitly authorises it, because it breaks on OS updates and blocks notarisation-free distribution debugging.
@@ -111,29 +134,39 @@ luna/
 ## 3. Milestones
 
 - [x] **M0 — Skeleton** (§4): app launches, one window, one hardcoded webview, loads a URL, quits cleanly. **DONE 2026-09-17.** Builds warning-free, 2 unit tests pass, `check-no-appkit` guard green, window opens at 1200×800 and renders `example.com`, quits with no crash report. The §31.1 sync spike is **not** done — it needs a Developer ID certificate that does not exist yet, so it moves to the front of M1.
-- [ ] **M1 — Usable browser** (§4, §6, §7, §9, §11): tabs, sidebar, command bar, back/forward, session restore. *Dogfoodable.*
+- [x] **M1 — Usable browser** (§4, §6, §7, §9, §11): tabs, sidebar, command bar, back/forward, session restore. *Dogfoodable.*
+  > **Checked 2026-09-24: built.** Tabs, sidebar, Command Bar, back/forward and session restore are all in.
 - [ ] **M2 — Arc-ness** (§5, §8, §10, §12, §13, §30): Spaces, split view, theming/motion, archive, pinned/favorites, mini window, reference-UI parity.
+  > **Checked 2026-09-24: partly built.** Spaces, theming, archive, pinned tabs and Favorites, both layouts. Missing: split view and the mini window.
 - [ ] **M3 — Real-world browser** (§14–§18): downloads, find, zoom, media/PiP, permissions, content blocking, history search, import.
+  > **Checked 2026-09-24: partly built.** Downloads, zoom, PiP, site permissions, content blocking, history search, import. Missing: find in page.
 - [ ] **M4 — Platform citizen** (§20–§23, §31): default browser, accessibility, settings, crash reporting, Sparkle updates, notarised build, iCloud sync.
+  > **Checked 2026-09-24: partly built.** Default browser, Settings, URL types. Missing: crash reporting, Sparkle, notarising, iCloud sync.
 - [ ] **M5 — Extensions & polish** (§16, §19): WKWebExtension host, hibernation tuning, perf pass.
+  > **Checked 2026-09-24: partly built.** Hibernation and the perf harness. Missing: the extension host.
 - [ ] **M6 — Ship 1.0** (§24): beta, docs, legal, website, DMG.
+  > **Checked 2026-09-24: partly built.** `Tools/make-dmg.sh`, LICENSE, README. Missing: beta, Privacy Policy and legal, website, signed and notarised DMG.
 
 ---
 
 ## 4. Core engine layer
 
-- [ ] **4.1 `WebViewFactory` + shared configuration**
+- [x] **4.1 `WebViewFactory` + shared configuration**
   - Build `WKWebViewConfiguration` centrally: `websiteDataStore`, `defaultWebpagePreferences`, `userContentController`, `applicationNameForUserAgent`, `preferences.isElementFullscreenEnabled = true`, `allowsAirPlayForMediaPlayback`.
   - Set `webView.allowsBackForwardNavigationGestures = true`, `webView.allowsMagnification = true`, `webView.isInspectable = true` (macOS 13.3+ — **required** or Web Inspector silently does nothing).
   - Acceptance: a webview created by the factory passes html5test-class smoke pages and shows a Web Inspector when right-clicked.
+  > **Checked 2026-09-24: built.** `BrowserKit/Engine/WebViewFactory.swift`
 - [ ] **4.2 Delegate hub** — one `TabController` implementing:
   - `WKNavigationDelegate`: `decidePolicyFor navigationAction/navigationResponse` (download vs display, external scheme handoff, HTTPS upgrade, blocklist check), `didFailProvisionalNavigation` → our error page, `didReceiveServerRedirect`, `didCommit`.
   - `WKUIDelegate`: `createWebViewWith configuration:` → **must** create a real new tab and return its webview, or `target="_blank"` and `window.open` silently do nothing; `runJavaScriptAlert/Confirm/TextInput` → native sheets; `requestMediaCapturePermissionFor` → our permission chip; `contextMenuConfiguration` for link menus.
   - `WKDownloadDelegate` (`WKDownload`, macOS 11.3+): see §15.
   - Acceptance: `window.open`, `target=_blank`, JS alerts, camera prompt, and a PDF link all behave.
+  > **Checked 2026-09-24: partly built.** All delegates in `TabController+Delegates.swift`. Missing: our own link context menu.
 - [ ] **4.3 Navigation state observation** — KVO/`publisher` on `url`, `title`, `isLoading`, `estimatedProgress`, `canGoBack/Forward`, `themeColor`, `underPageBackgroundColor`, `serverTrust`, `hasOnlySecureContent`, `fullscreenState`, `cameraCaptureState`, `microphoneCaptureState`.
+  > **Checked 2026-09-24: partly built.** `TabController.swift` observes URL, title, loading, progress, back/forward, secure content, theme colour. Missing: server trust, fullscreen state, camera/microphone state.
 - [ ] **4.4 `luna://` internal pages** via `WKURLSchemeHandler` (settings-embedded docs, error pages, the History page).
   > **Gotcha:** a custom scheme handler only fires for resources loaded *within a document loaded from that same scheme*. Internal pages must be navigated to as `luna://…`, not injected into an `about:blank`.
+  > **Checked 2026-09-24: partly built.** `luna://` pages for history, errors, favicons, retry/proceed. Missing: the docs pages embedded in Settings.
 - [x] **4.5 Error pages** — replace WebKit's default failure with our styled page (offline, DNS, TLS, blocked-by-us), with a Retry button routed through the scheme handler.
   > **Redesigned 2026-09-21, and the fault was the type scale.** The pages were built entirely out of
   > the tokens the CSS bridge happened to export — `urlPill` at 13 pt and `sectionLabel` at 12 — so
@@ -153,12 +186,14 @@ luna/
   > **Gotcha (verified in M0):** `applicationNameForUserAgent` **appends to** WebKit's default UA, it does not replace it — and WebKit's default contains **no `Version/` and no `Safari/` token at all**. So a bare `Luna/1.0` ships a UA that compat-sniffing sites reject. Put the Safari tokens first and the product token last, the way Edge and Chrome-on-iOS do: `Version/<os> Safari/605.1.15 Luna/<CFBundleShortVersionString>`. Read the version from `Bundle` so it cannot rot. Confirmed in the wild: Ora sets a *complete* UA string here and consequently ships a doubled `Mozilla/5.0 … AppleWebKit …` prefix; Nook gets it right.
   > **Gotcha:** we inherit **Safari's exact web-compat profile**, including every site that was only ever tested against Chromium. Budget real time for a per-site quirks list. This is the single biggest ongoing cost of choosing WebKit (it's the top complaint about Orion).
   > **This section is the answer to "some sites need Chrome" (2026-09-21).** Most such walls are string-matching the UA, not a real engine gap, so the override table fixes them. For the genuine gaps — WebUSB/WebHID/WebSerial device tools, Widevine-only streams — the honest fallback is a one-key **"Open in Chrome"** handoff (`NSWorkspace.open(urls:withApplicationAt:)`, a few hours' work, not currently a task). Those sites are mostly login-free, so losing the session costs nothing. See `docs/ENGINES.md` §5 for why embedding an engine is the wrong answer to both.
+  > **Checked 2026-09-24: partly built.** Safari-style user agent and a global Default/Safari/Chrome/Custom choice in Advanced. Missing: per-site override and the site-menu toggle.
 - [ ] **4.7 Favicons** — WebKit exposes **no public favicon API**. Implement `FaviconService`: parse `<link rel="icon|apple-touch-icon">` via a small injected script at `documentEnd`, fall back to `/favicon.ico`, fall back to a generated monogram tile from the domain + Space gradient. Cache to disk keyed by eTLD+1, with a memory LRU.
   - Acceptance: 50 mixed sites show correct icons; no icon ever flashes a broken-image glyph.
   > **Corrections from the M1 build:**
   > - **The cache key is host-minus-`www.`, not eTLD+1.** Foundation ships no public-suffix list, and naive last-two-labels hands `a.github.io` whatever `b.github.io` cached. Revisit only if we ever bundle a PSL.
   > - **SVG favicons do not decode in ImageIO**, so they fall through to `/favicon.ico`.
   > - The monogram fallback tier needs the Space gradient, so it belongs to the UI layer, not to `FaviconService`.
+  > **Checked 2026-09-24: partly built.** `Engine/FaviconService.swift` (link rel, /favicon.ico, caches, SVG). Missing: the monogram tile on the Space's gradient; a globe symbol is drawn instead.
 
 ---
 
@@ -178,75 +213,105 @@ luna/
 > user data is the expensive version of that work.
 
 
-- [ ] **5.1 `ProfileStore`** wrapping `WKWebsiteDataStore(forIdentifier: UUID)`.
+- [x] **5.1 `ProfileStore`** wrapping `WKWebsiteDataStore(forIdentifier: UUID)`.
   - Persist the UUID ↔ profile-name mapping ourselves (in SQLite). Identifiers are **not** recoverable from WebKit alone beyond `WKWebsiteDataStore.allDataStoreIdentifiers`.
   - Deletion: `WKWebsiteDataStore.remove(forIdentifier:)` — **fails while any live `WKWebView` still uses the store.** Tear down and deallocate every tab in that profile, then remove, then verify against `allDataStoreIdentifiers`.
   - Data lands in `~/Library/WebKit/WebsiteDataStore/<UUID>/`.
+  > **Checked 2026-09-24: built.** `ProfileStore.swift`, `BrowserStore+Jars.swift`, `WebsiteDataStoreRemoval.swift` (one data store per Space since c6efeb7)
 - [ ] **5.2 Space model**: name, icon (SF Symbol), gradient pair, profile id, ordered pinned tabs, ordered today tabs, "auto-archive after" override.
-- [ ] **5.10 Move Space switching to `⌃1…⌃9`; reserve `⌘1…⌘9` for sidebar items.** Shipped code binds Spaces to `⌘1…⌘9` (`MainMenu.setSpaces`) and Luna has **no "go to tab N" at all**, so the most valuable shortcut namespace in the app is spent on Spaces. Arc puts Spaces on `⌃1…⌃9` and ⌘-number on sidebar items; Dia uses `Ctrl+1–9`; Vivaldi uses `⌘⇧<n>`. Three products, three modifiers, none of them plain ⌘-number — which means "go to tab N" in Safari, Chrome, Firefox, Edge and Arc. Add `⌘⌥←/→` for prev/next Space and a two-finger sidebar swipe. Breaking change to a shipped binding; cheaper now than ever again.
+  > **Checked 2026-09-24: partly built.** `Space` model has name, icon, gradient, data store, order. Missing: a per-Space "auto-archive after" setting.
+- [x] **5.10 Move Space switching to `⌃1…⌃9`; reserve `⌘1…⌘9` for sidebar items.** Shipped code binds Spaces to `⌘1…⌘9` (`MainMenu.setSpaces`) and Luna has **no "go to tab N" at all**, so the most valuable shortcut namespace in the app is spent on Spaces. Arc puts Spaces on `⌃1…⌃9` and ⌘-number on sidebar items; Dia uses `Ctrl+1–9`; Vivaldi uses `⌘⇧<n>`. Three products, three modifiers, none of them plain ⌘-number — which means "go to tab N" in Safari, Chrome, Firefox, Edge and Arc. Add `⌘⌥←/→` for prev/next Space and a two-finger sidebar swipe. Breaking change to a shipped binding; cheaper now than ever again.
+  > **Checked 2026-09-24: built.** ⌃1–9 for Spaces, ⌘1–9 for sidebar items, swipe; previous/next Space is ⌃⌥←/→
 - [ ] **5.11 Design for the 94%.** The Browser Company published the number when Arc went into maintenance: **"Only 5.52% of DAUs use more than one Space regularly."** Their own diagnosis was that Arc "was simply too different, with too many new things to learn, for too little reward" — and Spaces came back anyway, because the 5.52% would not let go. Low reach, extreme attachment. **Out of the box Luna shows one unnamed Space, no switcher, no chrome tint and no onboarding step; the Space UI appears when a second Space is created.** Spaces is something Luna grows into, never something it opens with.
+  > **Checked 2026-09-24: partly built.** New Spaces start neutral. Missing: the first Space is still named "Personal" with a tint, and the one-dot switcher always shows.
 - [ ] **5.12 Auto-archive must be disableable (§12.3).** Arc's default is **12 h** idle for unpinned tabs, reset on view, per-Profile timing, synced, with pinned and media-playing tabs exempt — and **"Auto Archive can't be disabled."** That last decision cost them a one-time explainer banner for new members and a defensive help article. Ship 12 h as the default with Off / 6 h / 12 h / 24 h / 7 d / 30 d, never archiving a tab playing media or holding unsaved input (§19.2 already has both exemptions).
-- [ ] **5.13 Favorites: cap 12, allow zero, load lazily.** Arc's caps, including the lazy load it had to retrofit — *"We used to keep your Favorites loaded at all times, but now we only load them if they've been used recently."* A permanently-resident global tier is a memory problem.
+  > **Checked 2026-09-24: partly built.** `AutoArchive.swift`: 12 h default, 6/12/24/Never. Missing: 7 d and 30 d choices, and keeping tabs that play media or have unsaved input.
+- [x] **5.13 Favorites: cap 12, allow zero, load lazily.** Arc's caps, including the lazy load it had to retrofit — *"We used to keep your Favorites loaded at all times, but now we only load them if they've been used recently."* A permanently-resident global tier is a memory problem.
+  > **Checked 2026-09-24: built.** Favorites cap of 12 in `BrowserSession+Spaces.swift`
 - [ ] **5.14 Gradient legibility and a route back to neutral (§8.2).** Derive sidebar and label foregrounds from the chosen gradient's **luminance**, not a fixed token; one click back to neutral; keep Light/Dark **global** and label it as global; honour Reduce Motion on the cross-fade and Reduce Transparency on the gradient. Zen shipped the contrast bug (light gradient → unreadable titles) and has an open issue for being unable to unset a gradient; Arc needed a help article for "How Do I Restore the Default Theme" and shipped a dark-mode contrast fix; Dia's refresh went to neutral tab groups by default.
-- [ ] **5.6 Space lifecycle — the gaps `docs/SPACES-SPEC.md` §10 scopes.** `renameSpace` / `reorderSpace` / `setIcon` / `setGradient` do not exist (four Settings rows are dimmed for it); `createSpace` always mints a fresh Profile, so **many-Spaces-to-one-Profile is modelled and unreachable**; `BrowserStore` has no `delete(profileID:)`, so profile rows orphan; deleting a Space destroys its tabs un-undoably instead of offering to adopt or archive them.
+  > **Checked 2026-09-24: partly built.** Ink on the Space colour, "No Colour", Reduce Motion / Transparency. Missing: sidebar ink derived from the Space colour (only the Settings card does it).
+- [x] **5.6 Space lifecycle — the gaps `docs/SPACES-SPEC.md` §10 scopes.** `renameSpace` / `reorderSpace` / `setIcon` / `setGradient` do not exist (four Settings rows are dimmed for it); `createSpace` always mints a fresh Profile, so **many-Spaces-to-one-Profile is modelled and unreachable**; `BrowserStore` has no `delete(profileID:)`, so profile rows orphan; deleting a Space destroys its tabs un-undoably instead of offering to adopt or archive them.
   > **Reordering is the biggest hole in the entire prior art — nobody implements it.** Nook persists an index with no reorder function, Ora has no order field at all, Refrax sorts by `position` but never reorders. Copy Nook's one good idea: on load, compare the persisted order against `0..<n` and renumber if it differs. That self-heal makes `reorderSpace` trivial and immunises `delete(spaceID:)` against the gaps every delete leaves.
   > **Store deletion is a retry loop, not a call.** Crest and DuckDuckGo arrived at the same shape independently: release the web views → check `allDataStoreIdentifiers` → `remove(forIdentifier:)` → on failure fall back to `removeData(ofTypes:modifiedSince:)` so the *data* goes even if the directory survives → back off `[125ms, 250ms, 500ms, 1s, 2s, 4s]` → persist the id to a pending-removal set in `UserDefaults` (**not** GRDB — it must survive a database wipe). Plus an orphan sweep at launch, because WebKit is the registry.
-- [ ] **5.7 "Last tab" must be evaluated over the window, never over the visible Space.** zen#9272: Zen evaluated it per-Space, so closing the one tab in Space B quit the browser while Space A had five open — and it took the window-close path, so nothing restored. One user lost ~500 tabs. Floorp's equivalent (floorp#2152) is **still open**, the maintainer conceding the design is hard. Luna is safe today only because `closeTab` archives and never closes a window; decide this in the close handler before adding any window-close rule.
-- [ ] **5.8 Make the Profile boundary visible (spec §9).** The most-cited confusion in both ecosystems, predicted by Mozilla in 2016 and still live: two identical "Switch to tab" rows for the same site in two Profiles, no way to tell which account. §9.2's Space-colour badge is not enough — the Space colour does not say whose cookies you are about to use. Profile identity belongs on the Command Bar, history, archive and downloads.
+  > **Checked 2026-09-24: built.** `BrowserSession+Spaces.swift`, `BrowserSession+SpaceDeletion.swift` (archive or adopt, with undo)
+- [x] **5.7 "Last tab" must be evaluated over the window, never over the visible Space.** zen#9272: Zen evaluated it per-Space, so closing the one tab in Space B quit the browser while Space A had five open — and it took the window-close path, so nothing restored. One user lost ~500 tabs. Floorp's equivalent (floorp#2152) is **still open**, the maintainer conceding the design is hard. Luna is safe today only because `closeTab` archives and never closes a window; decide this in the close handler before adding any window-close rule.
+- [x] **5.8 Make the Profile boundary visible (spec §9).** The most-cited confusion in both ecosystems, predicted by Mozilla in 2016 and still live: two identical "Switch to tab" rows for the same site in two Profiles, no way to tell which account. §9.2's Space-colour badge is not enough — the Space colour does not say whose cookies you are about to use. Profile identity belongs on the Command Bar, history, archive and downloads.
+  > **Checked 2026-09-24: built.** Each Space's Command Bar, history, archive and downloads show only its own items (f82ddaf)
 - [ ] **5.9 Key `siteSettings` on `(profileID, host)`, not host alone.** Firefox shipped per-container permission isolation and left it **off by default**, so camera access granted in Work leaks to Personal; Chrome's is genuinely per-profile. Luna claims real isolation, so it has to be real here too.
-- [ ] **5.3 Space switcher UI**: horizontally swipeable strip at the bottom of the sidebar + `⌘1…⌘9` + `⌃⇥`-style cycling. Switching cross-fades the sidebar content and re-tints the whole window (§8).
+- [x] **5.3 Space switcher UI**: horizontally swipeable strip at the bottom of the sidebar + `⌘1…⌘9` + `⌃⇥`-style cycling. Switching cross-fades the sidebar content and re-tints the whole window (§8).
+  > **Checked 2026-09-24: built.** `SpaceDotsView`, `SpaceSwipe`, `SpaceWashView`; ⌃1–9 and ⌃⌥←/→
 - [ ] **5.4 Per-Space default search engine + per-Space "open links here" rule** (the foundation for §25's link routing).
 - [ ] **5.5 Cookie/session sanity tests**: log into the same site in two Spaces with separate profiles; confirm independent sessions survive relaunch.
   > **Correction (2026-09-18):** the default-store warning is stale. **Luna never uses the default store** — `ProfileStore.dataStore(for:)` always calls `WKWebsiteDataStore(forIdentifier:)`, so the real migration is identified → identified. Two things follow. (a) `fetchData(of:)` / `restoreData(_:)` exist in the macOS 26 SDK (verified in the header on this machine) and **might** copy a session between stores — the header does not say cross-store restore is supported, so **spike it before promising it in the UI** (§15.1 precedent). (b) Reassigning a Profile must **rebuild every web view in that Space**, or already-loaded tabs keep writing to the old store — exactly Nook's shipped bug, and zen#15023.
   > **The all-zero UUID throws an Objective-C exception Swift cannot catch** ("Throws exception if identifier is 0", `WKWebsiteDataStore.h`). `dataStoreIdentifier` is a `NOT NULL UNIQUE` blob with no value check and nothing validates it on read. Guard it at the GRDB read boundary; none of the five researched codebases does.
+  > **Checked 2026-09-24: partly built.** `BrowserSessionSpacesTests` checks each Space has its own store. Missing: a real two-Space login test across a relaunch.
 - [x] **5.6 Private/incognito window** — `⌘⇧N`. Its own `BrowserSession` over a throwaway `BrowserStore`, one `WKWebsiteDataStore.nonPersistent()` for all its Spaces, §8.2a's wash as the distinct tint, no history in the real store and nothing to restore from. See UI-SPEC §8.1.
 
 ---
 
 ## 6. Tab model, lifecycle & session persistence
 
-- [ ] **6.1 `Tab` model**: id, spaceId, kind (`pinned|today|favorite`), url, title, faviconKey, themeColor, createdAt, lastActiveAt, archivedAt, parentTabId (for tree/child grouping), `interactionState: Data?`, snapshot path.
-- [ ] **6.2 Session persistence via `interactionState`** — **the blob must be cached outside the web view, at every `didFinish`.** `interactionState` reads back **nil once the WebContent process is dead**, which is precisely the case §19.3 has to recover from. Read it late and there is nothing to restore.
-- [ ] **6.2a (original wording)** — capture `webView.interactionState` on background/blur/quit; restore into a fresh webview to bring back full back/forward history and scroll position. Store as `Data` blob in SQLite.
+- [x] **6.1 `Tab` model**: id, spaceId, kind (`pinned|today|favorite`), url, title, faviconKey, themeColor, createdAt, lastActiveAt, archivedAt, parentTabId (for tree/child grouping), `interactionState: Data?`, snapshot path.
+  > **Checked 2026-09-24: built.** `BrowserKit/Model/Models.swift`
+- [x] **6.2 Session persistence via `interactionState`** — **the blob must be cached outside the web view, at every `didFinish`.** `interactionState` reads back **nil once the WebContent process is dead**, which is precisely the case §19.3 has to recover from. Read it late and there is nothing to restore.
+  > **Checked 2026-09-24: built.** interaction state cached on every page load
+- [x] **6.2a (original wording)** — capture `webView.interactionState` on background/blur/quit; restore into a fresh webview to bring back full back/forward history and scroll position. Store as `Data` blob in SQLite.
   - Acceptance: quit with 30 tabs across 3 Spaces → relaunch restores order, scroll positions, and back-history for each.
-- [ ] **6.3 Auto-archive** — background task archives Today tabs idle > N hours (default 12; user-settable 6h/12h/24h/never). Pinned/Favorites exempt. Archive keeps title/url/favicon/snapshot for 30 days.
+  > **Checked 2026-09-24: built.** saved on quit and resign-active, restored per tab
+- [x] **6.3 Auto-archive** — background task archives Today tabs idle > N hours (default 12; user-settable 6h/12h/24h/never). Pinned/Favorites exempt. Archive keeps title/url/favicon/snapshot for 30 days.
+  > **Checked 2026-09-24: built.** `Engine/Lifecycle/AutoArchive.swift`
 - [ ] **6.4 Archive browser** (`⌘⇧A`) with search + restore.
+  > **Checked 2026-09-24: partly built.** History panel and `luna://history` with search and restore. Missing: the ⌘⇧A shortcut (History is on ⌘Y).
 - [ ] **6.5 Tab tree** — links opened from a tab become indented children under it, collapsible. (Arc does this implicitly; make it explicit and better.)
+  > **Checked 2026-09-24: partly built.** The opener is recorded. Missing: indented, collapsible child tabs in the sidebar.
 - [ ] **6.6 Drag & drop** — reorder within list, move between sections, move between Spaces (drag onto the Space strip), drag out to a new window, drag a URL in from Finder/other apps, drag a tab's URL *out* to other apps.
-- [ ] **6.7 Undo stack** for close/archive/move (`⌘Z` inside the sidebar context).
+  > **Checked 2026-09-24: partly built.** Reorder, move between sections, the grid and Space dots (`SidebarTabDrag.swift`, and on the top bar). Missing: drag out to a new window, drag links in from other apps, drag a tab's link out.
+- [x] **6.7 Undo stack** for close/archive/move (`⌘Z` inside the sidebar context).
+  > **Checked 2026-09-24: built.** Undo for close, move, move-to-Space, folders, Space deletion
 - [ ] **6.8 Snapshots** — `webView.takeSnapshot(with:)` on blur, downsampled, for the sidebar hover preview and the archive. Cap disk usage (e.g. 200 MB LRU).
+  > **Checked 2026-09-24: partly built.** Snapshots taken and cached (200 MB). Missing: nothing shows them yet (no hover preview, not in the archive).
 
 ---
 
 ## 7. Sidebar (the signature surface)
 
-- [ ] **7.1 Layout**: Favorites grid (icon tiles) → Pinned list → divider → Today list → Space strip. Width draggable 180–420 px, persisted.
-- [ ] **7.2 Collapse + hover-peek**: `⌘S` collapses to a ~48 px rail (or fully hidden); hovering the left window edge slides the sidebar over the content as a floating panel with a shadow, after a ~0.1 s intent delay, with a ~0.15–0.2 s ease-out reveal. It must **not** trigger while the pointer is merely travelling to the traffic lights.
+- [x] **7.1 Layout**: Favorites grid (icon tiles) → Pinned list → divider → Today list → Space strip. Width draggable 180–420 px, persisted.
+  > **Checked 2026-09-24: built.** Width range is 250–420, not 180–420
+- [x] **7.2 Collapse + hover-peek**: `⌘S` collapses to a ~48 px rail (or fully hidden); hovering the left window edge slides the sidebar over the content as a floating panel with a shadow, after a ~0.1 s intent delay, with a ~0.15–0.2 s ease-out reveal. It must **not** trigger while the pointer is merely travelling to the traffic lights.
+  > **Checked 2026-09-24: built.** `UI/Window/SidebarPeek.swift`
 - [ ] **7.3 Row design**: favicon, title (single line, truncating), close/archive affordance on hover, audio-playing indicator + click-to-mute, loading shimmer, unread/updated dot.
-- [ ] **7.4 Selection & keyboard**: full arrow-key navigation, type-ahead, `⌘⌥←/→` to move between tabs, `⌘W` closes (archives) the current tab, `⌘⇧K` archives all Today tabs.
+  > **Checked 2026-09-24: partly built.** Favicon, title, close on hover, sound, loading shimmer. Missing: nothing sets "unread", so the unread dot never shows.
+- [x] **7.4 Selection & keyboard**: full arrow-key navigation, type-ahead, `⌘⌥←/→` to move between tabs, `⌘W` closes (archives) the current tab, `⌘⇧K` archives all Today tabs.
 - [ ] **7.5 Folders** inside a Space (drag one tab onto another to create).
-- [ ] **7.6 Sidebar-on-right option** (differentiator; Arc doesn't do it well).
+  > **Checked 2026-09-24: partly built.** Folders: create, rename, drop into (`BrowserSession+Groups.swift`). Missing: dropping one tab on another does not make a folder.
+- [x] **7.6 Sidebar-on-right option** (differentiator; Arc doesn't do it well).
 - [ ] **7.7 Traffic-light handling**: custom titlebar, `titlebarAppearsTransparent`, `NSWindow.toolbar` removed; traffic lights must be inset into the sidebar and must re-position correctly when the sidebar collapses, on fullscreen enter/exit, and in the Mini Window.
   > **Gotcha:** manual traffic-light repositioning is the #1 source of visual bugs in Arc-style browsers. Write a single `TrafficLightLayoutManager` and unit-test its output for the 6 window states rather than nudging frames in 4 different view controllers.
   > **Gotcha (verified in `NSWindow.h`, M0):** `minSize`/`contentMinSize` and `maxSize`/`contentMaxSize` are **ignored when the content view uses Auto Layout** — the header says so verbatim. Setting `window.minSize` looks right, compiles, and does nothing. Enforce size floors with `greaterThanOrEqualToConstant` constraints on the content view instead. This bites again at §10.1's split-pane min-width clamps and §7.1's 180–420 px sidebar range.
+  > **Checked 2026-09-24: partly built.** `TrafficLightLayoutManager`, transparent titlebar, both layouts, fullscreen. Missing: the Mini Window state (no Mini Window yet).
 
 ---
 
 ## 8. Design system, theming & motion
 
-- [ ] **8.1 Token file** (`Design/Tokens.swift`) — semantic only: `surface/0..3`, `textPrimary/Secondary/Tertiary`, `separator`, `accent`, `dangerous`, `overlayScrim`, `focusRing`. Every token resolves for light **and** dark. **No literal hex outside `Design/`'s token files, and every hex entry point is `private`.**
+- [x] **8.1 Token file** (`Design/Tokens.swift`) — semantic only: `surface/0..3`, `textPrimary/Secondary/Tertiary`, `separator`, `accent`, `dangerous`, `overlayScrim`, `focusRing`. Every token resolves for light **and** dark. **No literal hex outside `Design/`'s token files, and every hex entry point is `private`.**
   > **Amended 2026-09-18.** "This file" was literally false once the twelve Space gradients shipped. They are `GradientPair`/`RGBA` values that cross the SQLite boundary and become *user data* the moment someone picks one, so they are not `NSColor` and cannot be chrome tokens — and `Tokens.swift` was 380 lines against SwiftLint's 400 limit, so they did not fit either. They live in `Design/SpacePalette.swift`, whose header says so.
   > The rule is kept by the mechanism it always relied on rather than by the filename: each file's hex initialiser is `private`, and `SpacePalette`'s can only produce a `GradientPair`, so nothing there can spell a chrome colour even by accident.
   > **Gotcha (measured in M0, not assumed):** **`.secondaryLabelColor` and `.tertiaryLabelColor` do not meet §21.4 in light mode.** `.secondaryLabelColor` is black at 50 %, which measures **3.95:1** on a white window — under the 4.5:1 floor. Reaching for the system colour for secondary or tertiary text is therefore an accessibility regression, not a shortcut. Luna's `Text.secondary` uses 60 % (5.74:1 light / 6.77:1 dark).
   > Also measured: on macOS 26 `controlBackgroundColor` and `textBackgroundColor` resolve to **exactly** `windowBackgroundColor`, so a system-backed `Surface.raised` would be invisible. It has to be a custom value.
   > `.separatorColor` **is** correct for §8.4's hairline — it resolves to ~9.8 % black / white, which is the spec value. **Correction (M1): the earlier claim that it tracks Increase Contrast was wrong** — see the gotcha below. Its resting value is right; the contrast promotion has to be done by hand.
   > **Gotcha (measured on macOS 26.5, and it changes how all UI code is written):** **Increase Contrast is not an `NSAppearance`.** `NSAppearance(named: .accessibilityHighContrastAqua)` returns the *identical object* (`===`) as `.aqua`, so no dynamic-colour provider can observe it and `NSColor` never gets invalidated. Every token must therefore branch on `NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast` at resolve time, **and every view that draws text or hairlines must redraw on `NSWorkspace.accessibilityDisplayOptionsDidChangeNotification`.** A view that only listens for appearance changes will silently ignore Increase Contrast forever.
-- [ ] **8.2 Space gradients** — **still unbuilt as of M1: every new Space gets the same default pair.** The twelve curated gradients have no home in `Design/` yet, which is the one visible gap in Spaces.
+  > **Checked 2026-09-24: built.** `Design/Tokens.swift`, `Tokens+Ink.swift`, `Tokens+Accent.swift` (light, dark, Increase Contrast)
+- [x] **8.2 Space gradients** — **still unbuilt as of M1: every new Space gets the same default pair.** The twelve curated gradients have no home in `Design/` yet, which is the one visible gap in Spaces.
+  > **Checked 2026-09-24: built.** Twelve pairs in `Design/SpacePalette.swift`
 - [ ] **8.2a (original wording)** — each Space carries a 2-stop gradient. Ship ~12 curated pairs plus a custom picker. The gradient is used at 3 intensities: full (Space badge, 28 px circle), 12–18 % wash (sidebar background), and a 3–4 px bar/edge glow at the top of the content area.
+  > **Checked 2026-09-24: partly built.** Twelve pairs, dots, cards and the sidebar wash. Missing: a custom gradient picker and the thin coloured bar at the top of the page.
 - [ ] **8.3 Live window tinting from the page** — blend `webView.themeColor` (fallback `underPageBackgroundColor`) into the sidebar/titlebar wash, clamped for contrast (never let a site produce unreadable chrome), animated over ~0.25 s when it changes. This is the single most "Arc-feeling" effect in the whole app; get it right.
+  > **Checked 2026-09-24: partly built.** The page bar takes the page's colour (`PageChromeBar.swift`). The sidebar wash from the page was withdrawn on purpose (UI-SPEC §2).
 - [ ] **8.4 Materials** — on **macOS 26 (D9)** the native Liquid Glass surfaces are the first choice for the §30.1/§30.2/§30.11 chrome. `NSVisualEffectView` with `.sidebar` / `.headerView` materials and `.followsWindowActiveState` is the fallback *and* the Reduce Transparency path, so it gets built either way. 1 px hairlines at ~10 % white / ~8 % black; selection = translucent fill + inner hairline, never a hard blue rect.
   > **Verify before you build (§0.3):** confirm the Liquid Glass API names and availability in the current SDK. One wrong assumption here propagates through every chrome surface in the app.
-- [ ] **8.5 Motion spec** — codify and reuse:
+  > **Checked 2026-09-24: partly built.** Liquid Glass chrome (`Design/Glass.swift`), hairlines, translucent selection. The `NSVisualEffectView` fallback was not built on purpose; Reduce Transparency uses an opaque plane.
+- [x] **8.5 Motion spec** — codify and reuse:
   | Interaction | Animation |
   |---|---|
   | Space switch | spring, response 0.30, damping 0.70, content cross-fade 0.18 s |
@@ -260,18 +325,24 @@ luna/
   - **Rule:** nothing animates longer than 0.35 s. Respect `NSWorkspace.shared.accessibilityDisplayShouldReduceMotion` — all of the above degrade to instant.
   > **Added (M1): press.** The table had hover and nothing for the other half of a click. Every chrome button now answers both — `Surface.hover` under the pointer, `Surface.selected` under a press, plus a 5 % swell that springs back on release, which is the macOS 26 Liquid Glass press Martin captured for the reference. A button with no material of its own hands the swell to the surface that has one. Under Reduce Motion the swell lands without the spring and the fill still cross-fades; the press is never invisible.
   > **Extended (M1): §3.5's Space dots.** They were the one control left with no answer at all — a dot took a click and said nothing until the Space had already changed. The wash needs something to sit on, so each dot carries a chip the size of its own slot (`spaceDotChip` = `spaceDotPitch`, 14 pt: a 6 pt hover target is no target), and the press goes to the **pill**, which is the glass the dots stand on. Measured on screen: hover changes exactly 14 × 14 pt and nothing else, a press changes the whole pill.
-- [ ] **8.6 Typography** — system font throughout; UI 13 pt, sidebar rows 13 pt, Command Bar input 18 pt, monospaced digits for shortcut hints. No custom webfont in chrome.
-- [ ] **8.7 Icon set** — SF Symbols only for v1; no hand-drawn set until visual identity is locked.
+  > **Checked 2026-09-24: built.** `Design/Motion.swift`, `MotionSpec.swift`; 0.35 s cap checked in `TokenCheck+Numbers.swift`
+- [x] **8.6 Typography** — system font throughout; UI 13 pt, sidebar rows 13 pt, Command Bar input 18 pt, monospaced digits for shortcut hints. No custom webfont in chrome.
+  > **Checked 2026-09-24: built.** `Design/TypeScale.swift` (Command Bar input is 15 pt by design)
+- [x] **8.7 Icon set** — SF Symbols only for v1; no hand-drawn set until visual identity is locked.
 - [ ] **8.8 Light/dark/auto** + a "dim inactive window" state.
+  > **Checked 2026-09-24: partly built.** Auto / Light / Dark in Appearance. Missing: a dimmed look for the inactive window (the chrome stays the same on purpose, c4c998d).
 - [ ] **8.9 App icon + wordmark** — must be visually distinct from Arc. Placeholder acceptable until M6.
+  > **Checked 2026-09-24: partly built.** App icon shipped (`assets/icon/final/luna.icon`). Missing: a wordmark.
 
 ---
 
 ## 9. Command Bar (`⌘T` / `⌘L`)
 
-- [ ] **9.1 Input surface** — floating rounded panel, blurred backdrop scrim, opens over the current tab; `⌘T` = new-tab mode (empty), `⌘L` = edit-current-URL mode (prefilled+selected).
+- [x] **9.1 Input surface** — floating rounded panel, blurred backdrop scrim, opens over the current tab; `⌘T` = new-tab mode (empty), `⌘L` = edit-current-URL mode (prefilled+selected).
+  > **Checked 2026-09-24: built.** `UI/CommandBar/CommandBarPanel.swift`, `CommandBarMode.swift`
 - [ ] **9.2 Result sources**, merged and deduped: open tabs (all Spaces, badged with Space colour) · pinned/favorites · history · bookmarks · archive · search suggestions (engine's suggest endpoint) · app commands ("New Space", "Clear cookies for this site", "Toggle sidebar") · direct URL/IP/`localhost` detection · math/unit quick answers.
   > **Correction (M1): an archive row is a place, not a session.** The bar's archive rows sit in the same list as history's, wearing the same favicon and the same title, so choosing one and landing half way down the page you were on last week is a session resuming behind a gesture that never asked for it. `unarchiveTab(_:resumingSession:)` — the bar passes `false` and the tab comes back at the top of its page, same tab, same Space, same name. `⌘⇧T` and §11.3's list both mean "reopen the tab I closed" and still pass `true`, which is what `interactionState` is for.
+  > **Checked 2026-09-24: partly built.** Tabs, archive, history, suggestions, direct URLs, commands, Settings. Missing: tabs from all Spaces with a badge, a "Clear cookies" command, maths and unit answers.
 - [ ] **9.3 Ranking = frecency + adaptive input history.** Implement explicitly:
   - Score each URL from its **10 most recent visits**: `score = Σ (visitTypeWeight × recencyWeight)`.
   > **Correction (M1):** the original wording said "normalised by sampled visit count". Do **not** normalise. A mean makes one typed visit tie a hundred of them. Firefox divides by the sample and then multiplies back by `visit_count`, which for a ≤10-visit window is the plain Σ with extra arithmetic. The sum is the correct and simpler form.
@@ -281,14 +352,19 @@ luna/
   > **Clarification (M1):** 10 is the **fixed point** of `x = 0.9x + 1`, not a clamp — the formula is self-limiting and converges to 10 from below without reaching it. Do not add a `min(_, 10)`; it looks correct and hides the fact that no clamp is needed.
   > **Correction (M1):** §9.2 lists "open tabs", "pinned/favorites" and "bookmarks" as three sources. In Luna's model an Essential or pinned tab **is** a `Tab` with a `kind`, and §11.1 no longer creates a `bookmarks` table. It is one source, not three.
   - Acceptance: after a week of dogfooding, the intended result is #1 for ≥90 % of 2-character queries in a manual 30-query test set.
-- [ ] **9.4 Inline autofill** of the top URL completion with selected-suffix behaviour; `→` accepts, `Esc` cancels.
+  > **Checked 2026-09-24: partly built.** Frecency ranking and adaptive history with tests. Missing: the recorded 30-query check.
+- [x] **9.4 Inline autofill** of the top URL completion with selected-suffix behaviour; `→` accepts, `Esc` cancels.
+  > **Checked 2026-09-24: built.** `CommandBarInputField.swift`
 - [ ] **9.5 Search engines** — Google/DuckDuckGo/Kagi/Brave/Bing + custom; **bang-style keywords** (`yt cats` → YouTube). Per-Space default.
+  > **Checked 2026-09-24: partly built.** Google, DuckDuckGo, Bing, Kagi and a custom engine. Missing: Brave, bang keywords, a default per Space.
 - [ ] **9.6 Privacy** — suggestions network call must be disableable and must never fire for strings that look like URLs, credentials, or local paths.
+  > **Checked 2026-09-24: partly built.** Suggestions toggle, ephemeral session, URL guard. Missing: guards for credentials in a URL and for local paths.
 - [ ] **9.7 Perf** — results must render within **one frame (16 ms)** of keystroke for local sources; network suggestions merge in asynchronously without reordering under the user's cursor.
   > **Correction (M1):** this reads as though only network suggestions are asynchronous. **The local store query is asynchronous too, and it is the harder case because it always runs.** It needs the same no-reorder rule: once the user has pressed ↓/↑, late results may only be *appended*. The in-memory sources (tabs, Spaces, adaptive table) are what must resolve synchronously inside the frame; the adaptive table is therefore loaded into memory up front, precisely because adaptive rows rank #1 and cannot arrive a frame late.
   > **Also (M1): the list does not change while the bar is opening.** Replacing it rebuilds eight row views and re-draws them under live glass, on the thread running the bar's own 0.18 s animation — so the history query landing mid-morph was a visible freeze. It only ever showed up when the bar opened on an *address*: `⌘T` on a new tab asks SQLite a question whose answer it already shows, so nothing is rebuilt. Asynchronous results that land inside that window are held and applied the moment it closes. §9.7's 16 ms budget is about a *keystroke*, and nothing is typed in those 0.18 s.
   > **And (M1, second pass): the bar waits for the store before it opens at all.** Deferring the rows moved the re-rank from the middle of the morph to the end of it — the same eight rows, reordered the instant the bar settled. Measured, from the click: 65 ms to the panel's first composite (20 of it the commit, 15 `makeFirstResponder`), then the store's answer about 9 ms later, because the query cannot even *start* until the main thread lets go. So the bar is drawn at the pill's own size first, held there until the query lands or 100 ms pass, and only then opens — and what lands during the 0.18 s after that is applied **append-only**, so a row the bar opened with never moves. The redundant second query the adaptive table used to trigger on every first open is gone with it: an empty query has no adaptive rows to add.
   > **Also:** §9.4's "`Esc` cancels" and §9.1's "`Esc` dismisses" collide. Precedence is two-stage — the first `Esc` cancels an inline completion, the second dismisses the panel.
+  > **Checked 2026-09-24: partly built.** Fast sources first, history appended. Missing: a measurement of the 16 ms per keystroke budget.
 
 ---
 
@@ -305,7 +381,7 @@ luna/
 
 ## 11. History, bookmarks & the data layer
 
-- [ ] **11.1 GRDB schema + migrations**: `places(id, url, host, title, lastVisit, visitCount)`, `visits(id, placeId, at, type, fromVisitId)`, `bookmarks(tree)`, `tabs`, `spaces`, `profiles`, `downloads`, `inputHistory(typed, placeId, useCount)`, `siteSettings`, `boosts`.
+- [x] **11.1 GRDB schema + migrations**: `places(id, url, host, title, lastVisit, visitCount)`, `visits(id, placeId, at, type, fromVisitId)`, `bookmarks(tree)`, `tabs`, `spaces`, `profiles`, `downloads`, `inputHistory(typed, placeId, useCount)`, `siteSettings`, `boosts`.
   > **Corrections from the M1 build — these are better than the original design:**
   > - **`archive` is a VIEW** over `tabs WHERE archivedAt IS NOT NULL`, not a table. An archived tab is still a tab; a copy would be a second source of truth and a second thing to sync (§31).
   > - **`places.frecency` is deliberately absent.** §9.3 scores from the 10 most recent visits, so the score is computed per query. A cached frecency is a stale frecency.
@@ -313,10 +389,14 @@ luna/
   > - GRDB pinned at **exactly 7.11.1** (the Swift 6 line: Sendable-audited and ships `SQLITE_ENABLE_FTS5`, so no custom SQLite build). A storage engine should not float.
   > - Every `BrowserStore` method is **`async throws`**, so the actor suspends on GRDB's pool instead of serialising the whole app behind its slowest query.
   > - `recordVisit` **buffers**; the buffer commits after ~1 s, on the next search, or on `flush()`. **The app delegate must `await store.flush()` on quit and on resign-active** or the last second of history is lost.
+  > **Checked 2026-09-24: built.** GRDB migrations in `BrowserKit/Store/Schema.swift`
 - [ ] **11.2 FTS5 full-text index** over title + URL + (optional, opt-in) page text captured at `didFinish`. Full-text history search is a genuine differentiator — Arc users ask for it constantly.
+  > **Checked 2026-09-24: partly built.** Full-text search over titles and URLs. Missing: opt-in page-text capture.
 - [ ] **11.3 History UI** (`⌘Y`): grouped by day, searchable, multi-select delete, "clear last hour / day / everything", per-site "forget this site" that also purges the matching `WKWebsiteDataStore` records via `removeData(ofTypes:for:completionHandler:)`.
+  > **Checked 2026-09-24: partly built.** ⌘Y opens a searchable panel, but it lists archived tabs only. Missing: visits by day, multi-delete, clear hour/day/all, forget this site.
 - [ ] **11.4 Bookmarks** — folder tree, but surfaced as *Favorites/Pinned* in the UI; keep an importable/exportable HTML representation.
-- [ ] **11.5 Write path must be off the main thread** and batched; never block navigation on a DB write.
+  > **Checked 2026-09-24: partly built.** Favorites, pinned tabs and folders are the bookmarks; Netscape HTML read and write exist. Missing: a UI to import or export the HTML file.
+- [x] **11.5 Write path must be off the main thread** and batched; never block navigation on a DB write.
 - [ ] **11.6 Retention settings** (keep history 30/90/365 days/forever) and an explicit "history is local-only, never uploaded" line in the UI.
 
 ---
@@ -368,26 +448,34 @@ luna/
 - [x] **14.8 Security rules (non-negotiable)** — never persist anything from a `type=password` field without an explicit user action; never fill cross-origin or into an iframe whose origin doesn't match the page; require a recent user gesture before filling; never expose credentials to page JavaScript; and treat a fill into a page reached via a redirect chain as suspicious. Autofill of addresses and payment cards stays **out of scope** — say so in settings rather than half-building it.
   > **All enforced**, with the rule-to-code table in `docs/PASSWORDS.md` §6. One asymmetry is deliberate and worth knowing: credential *matching* is eTLD+1, frame *trust* is a strict scheme/host/port origin — a same-site frame check would let `evil.example.com` inside `bank.example.com` take the password.
   > **One rule added beyond the list:** Touch ID in front of every fill (`PasswordAuthorization`, on by default). It runs **before** the Keychain read, so a cancelled prompt means the secret was never fetched; the origin and form are re-checked on the far side of the prompt, which can sit open for as long as the user likes.
+  > **Checked 2026-09-24: partly built.** Rules enforced in `PasswordCoordinator` and `PasswordAuthorization`. Missing: Settings never says address and card autofill are out of scope.
 - [x] **14.10 Passkeys need an Apple-gated entitlement — budget it into M4.** WebAuthn in a third-party WKWebView requires `com.apple.developer.web-browser.public-key-credential`, which is request-only. Until it is granted, `PublicKeyCredential` is present in the DOM but dead, so sites offer a passkey flow that silently fails — worse than not offering it. Nook's workaround is to inject a script suppressing `PublicKeyCredential` while waiting; do the same, and **request the entitlement early** because the turnaround is Apple's, not ours. Verify the exact entitlement name against current documentation before filing.
   > **Suppression built; the request itself is still to file.** Entitlement name verified against Apple's current documentation as `com.apple.developer.web-browser.public-key-credential`, and it is apply-only — it is how Chrome and Firefox reach Apple Passwords' passkeys. `PasskeySupport` reads it off the **running process** (`SecTaskCopyValueForEntitlement`), not a build flag, and injects the suppression script until it is present, so sites fall back to passwords rather than offering a button that hangs.
   > **What the request needs, read off Apple's form (2026-09-20):** the **Account Holder of an organisation** account — an individual membership does not qualify; the bundle ID registered in Certificates, Identifiers & Profiles; and **a link Apple can download the browser from**. That last one is the blocker: the repo is public but has no releases, so there is nothing to evaluate. Developer ID signing and notarisation need no grant, so the order is *sign → notarise → publish a release → then file*. Answer **Yes** to "supports WebAuthn" — WebKit does, and Luna hides it only until this is granted.
   > **Do not file `com.apple.developer.web-browser` alongside it.** An earlier draft of `docs/PASSWORDS.md` said to; that entitlement is **iOS and iPadOS only**. macOS default-browser registration needs no entitlement, only §22.2's `CFBundleURLTypes`.
+  > **Checked 2026-09-24: partly built.** Suppression built in `PasskeySupport.swift`. Missing: the entitlement request to Apple is not filed.
 - [ ] **14.9 File a Feedback / DTS request** asking for third-party browsers to be able to participate in Password AutoFill or the iCloud Passwords helper allowlist. Low odds, near-zero cost, and it dates our attempt if the policy ever changes.
   > Still to do, and cheap. Separate form from §14.10's — that one is `developer.apple.com/contact/request/macos-browsers-passkeys/` and covers passkeys only. §14.9 is Feedback, and the ask is Password AutoFill for third-party browsers, which `docs/PASSWORDS.md` §5b now has measurements to cite.
 
 ## 15. Downloads
 
-- [ ] **15.1 `WKDownloadDelegate`** — one real trap: **`WKDownload.delegate` is `weak`**, so it must be retained somewhere or downloads die silently with no error.
+- [x] **15.1 `WKDownloadDelegate`** — one real trap: **`WKDownload.delegate` is `weak`**, so it must be retained somewhere or downloads die silently with no error.
   > **Retracted (verified against `MacOSX26.5.sdk` by probe):** an earlier note here claimed `decideDestinationUsing` must answer `(url, true)`, the second value granting a sandbox extension. **That is stale and does not compile on macOS 26.5.** The SDK's `WKDownloadDelegate` has exactly one required method and it completes with a single `NSURL * _Nullable`. Use the `async -> URL?` form. Left in place as a warning: a plausible-sounding API detail repeated from memory survives review easily.
-- [ ] **15.1a (original wording)** — `decideDestinationUsing:suggestedFilename:` (uniquify into `~/Downloads` or user path), progress via `download.progress`, `didFailWithError:resumeData:` with **resume support**, `didFinish`.
-- [ ] **15.2 Route "should this be a download?"** through `decidePolicyFor navigationResponse` → `.download` when `!canShowMIMEType` or `Content-Disposition: attachment`; also handle `navigationAction` → `.download` for `download` attributes.
+  > **Checked 2026-09-24: built.** `Features/Downloads/DownloadManager.swift` keeps each delegate alive
+- [x] **15.1a (original wording)** — `decideDestinationUsing:suggestedFilename:` (uniquify into `~/Downloads` or user path), progress via `download.progress`, `didFailWithError:resumeData:` with **resume support**, `didFinish`.
+  > **Checked 2026-09-24: built.** `DownloadManager` (destination, progress, resume data, finish), `DownloadItem.swift`
+- [x] **15.2 Route "should this be a download?"** through `decidePolicyFor navigationResponse` → `.download` when `!canShowMIMEType` or `Content-Disposition: attachment`; also handle `navigationAction` → `.download` for `download` attributes.
+  > **Checked 2026-09-24: built.** `TabController+Delegates.swift`, `TabState.swift`
 - [ ] **15.3 Downloads UI**: sidebar popover + a persistent panel; reveal in Finder, retry, open, clear; quarantine flag set correctly (`com.apple.quarantine`) so Gatekeeper still protects the user.
-- [ ] **15.4** Warn on executable/dmg/pkg types; block silent auto-downloads from background frames.
+  > **Checked 2026-09-24: partly built.** `DownloadsPanel.swift` (open, reveal, retry, clear) and the quarantine flag. Missing: the persistent panel, replaced on purpose by the pop-out only.
+- [x] **15.4** Warn on executable/dmg/pkg types; block silent auto-downloads from background frames.
+  > **Checked 2026-09-24: built.** `DownloadRisk` in `DownloadItem.swift`, background-frame downloads cancelled in `DownloadManager.begin`
 - [ ] **15.5** PDF handling: WebKit displays PDFs inline — add a download/print affordance, don't hijack it.
+  > **Checked 2026-09-24: partly built.** Inline PDFs are left alone. Missing: a download or print button for PDFs; there is no print command at all.
 
 ---
 
-## 16. Extensions (`WKWebExtension`) — **v2, except §14.7**
+## 16. Extensions (`WKWebExtension`) — **top priority P4 since 2026-09-24 (★)**
 
 > **Decided 2026-09-17 (§32):** general extension support is **out of v1**. The only extension-adjacent thing we build now is the **native-messaging bridge in §14.7**, so 1Password and Bitwarden work. Everything below waits for M5/v2 — do not start §16.2–§16.6 without explicit go-ahead.
 > **Confirmed 2026-09-21:** this section is the *only* route to Chrome extensions, and it is a good one. Embedding Chromium is not an alternative — CEF supports extensions only in Chrome-style windows showing Chrome's own toolbar, so a browser hosted in our own `NSView` (Alloy style) has `chrome://extensions` blocked and `LoadExtension` deleted at M128. `WKWebExtension` loads Chrome-format MV2/MV3 from a directory or ZIP, and a `.crx` is a ZIP with a 16-byte header — no Apple gatekeeping, it is our own controller. Benchmark for §16.5: Kagi's Orion spent six years on its own WebKit shim and publishes *"about 70%"* API coverage; Apple's implementation starts there and improves each OS release. See `docs/ENGINES.md` §5.
@@ -404,22 +492,29 @@ luna/
 
 ## 17. Content blocking & privacy
 
-- [ ] **17.1 Rule pipeline**: fetch EasyList/EasyPrivacy → convert to the WebKit content-blocker JSON schema → `WKContentRuleListStore.compileContentRuleList(forIdentifier:encodedContentRuleList:)` → cache the compiled list keyed by a content hash. **Lists download on first run and refresh on a schedule — they are never bundled in the app (D14).** Handle the offline first run without looking broken: blocking simply reports itself as not-yet-ready rather than silently doing nothing.
+- [x] **17.1 Rule pipeline**: fetch EasyList/EasyPrivacy → convert to the WebKit content-blocker JSON schema → `WKContentRuleListStore.compileContentRuleList(forIdentifier:encodedContentRuleList:)` → cache the compiled list keyed by a content hash. **Lists download on first run and refresh on a schedule — they are never bundled in the app (D14).** Handle the offline first run without looking broken: blocking simply reports itself as not-yet-ready rather than silently doing nothing.
   > **Measured 2026-09-17** (macOS 26, Xcode 26.6, the real lists). EasyList 81,873 lines → **81,268 rules, 2.89 s** to compile; EasyPrivacy 1.94 s; Fanboy-Annoyance 2.01 s. First run end to end, all three (download + convert + compile): **14.8 s → 186,404 rules**. An unchanged refresh is **0.27 s with no recompile**, and looking all three compiled lists up at relaunch is **0.021 s**. So the shape above is right: compile off the hot path, look up at launch for free. A compile does not block the main thread outright but stalls it up to **353 ms at a time**, which is precisely why it must never run at launch.
   > **The cap is exactly 150,000 rules**, bisected — 150,001 fails with "Too many rules in JSON array." Each category fits one identifier today; the chunker splits and repeats every exception per chunk, because exceptions cannot reach across lists.
   > **Corrections to what this section used to claim.** A bad domain does **not** silently never match — WebKit hard-fails the entire list ("Domains must be lower case ASCII. Use punycode…"), and Foundation has no IDNA, so Luna carries its own RFC 3492 punycode. The genuine silent failures are different and worse: a bare `if-domain` matches that host **only**, while EasyList's `domain=` means host *and* subdomains — every entry needs a `*` prefix; and an unknown trigger key compiles and is then ignored. Further, for §26: `url-filter` is **not** regex — no alternation, no `{n,m}`, no `\d`, so the standard AdGuard `^` → `([^…]|$)` mapping fails; a trigger may not carry both `if-domain` and `unless-domain`; `resource-type` rejects ABP's `xmlhttprequest`/`object`/`subdocument` (use `fetch`, `other`, and `document` + `load-context: ["child-frame"]`); the useful compile diagnostic is `error.userInfo["NSHelpAnchor"]`, not `localizedDescription`; and `lookUpContentRuleList` **throws** code 7 for a missing identifier rather than returning nil.
-- [ ] **17.2 Default lists**: ads + trackers + annoyances (cookie banners), each toggleable; per-site "disable blocking here" that persists in `siteSettings`.
+  > **Checked 2026-09-24: built.** `BrowserKit/Blocking/ContentBlocker.swift`, `FilterListConverter.swift`
+- [x] **17.2 Default lists**: ads + trackers + annoyances (cookie banners), each toggleable; per-site "disable blocking here" that persists in `siteSettings`.
   > **Built 2026-09-20 — YouTube's in-player ads, and the one documented exception to D6.** The "Block ads" toggle was on and the pre-roll still played, which is §17.1's own failure mode: a switch that means nothing. Measured against the live site before anything was written: every media segment on a watch page arrives from a session-specific `rr2---sn-q4fzene7.googlevideo.com` host and is appended into **one** `MediaSource` behind a single `blob:` URL on a single `<video>` — the ad's bytes and the video's bytes are the same host and the same element, so no `url-filter` can separate them. And the ad *schedule* is not a request at all: `adPlacements`, `adSlots` and `playerAds` sit inside the same JSON object as `streamingData`. There is nothing to `block`. So `ContentBlockerYouTube.swift` takes the only seam left — a `documentStart` `WKUserScript` that deletes the schedule before the player reads it, plus a 23-rule `css-display-none` list for the static ads, which stays on the native path.
   > **`documentStart` is load-bearing, not a preference.** `JSON.parse` and `Response.prototype.text` replaced *after* YouTube's bundle has run are **never called** — measured at `parses: 0` and `rewrites: 0` against a response that demonstrably carried `adPlacements`. The bundle caches its own references on the way up. A late hook does not degrade; it does nothing.
   > **The SPA endpoint has moved.** It is `/youtubei/v1/get_watch` today, not `/youtubei/v1/player`, and the body is read through `Response.prototype.text` and parsed by YouTube itself — so every transport is hooked rather than the one that happens to be current.
   > **Result, A/B against three monetised videos in a real `WKWebView` built from `WebViewFactory.makeConfiguration()`:** `ad-showing` in **30/50, 31/50 and 7/50** samples without the script, **0/50 in all three** with it, and the content video playing from t=0 instead of t=9. `#player-ads` goes `block` → `none`; `#secondary` is untouched. 17 tests, and the script is *run* in a `JSContext` rather than string-matched.
-- [ ] **17.3 Cosmetic filtering** — element-hiding rules via `css-display-none` action type, injected as a rule list (not runtime JS) to avoid flicker.
+  > **Checked 2026-09-24: built.** Toggles in `Privacy.swift`, per-site exemption in the site menu
+- [x] **17.3 Cosmetic filtering** — element-hiding rules via `css-display-none` action type, injected as a rule list (not runtime JS) to avoid flicker.
+  > **Checked 2026-09-24: built.** `FilterListConverter.swift` (`##` rules → css-display-none)
 - [ ] **17.4 Blocked-count badge** per tab + a per-site privacy sheet listing blocked domains.
   > **Measured caveat:** WebKit exposes **no public blocked-load callback** — `WKContentRuleList` carries only `identifier`, and the real notification is SPI (D10). Luna counts by a heuristic instead: a blocked sub-resource fires `error` and leaves **no** Resource Timing entry, while a 404 leaves one, and that difference is the count. Marked `ponytail:` in the code; a §26 row of its own.
+  > **Checked 2026-09-24: partly built.** `ContentBlocker.blockedCount` exists. Missing: the per-tab badge and a sheet listing blocked domains.
 - [ ] **17.5 ITP is already on** via WebKit — surface it, don't rebuild it. Add a "Clear all site data for this site" one-click action.
-- [ ] **17.6 HTTPS-only mode** with an interstitial for downgrades.
+  > **Checked 2026-09-24: partly built.** Per-site Clear Cache / Clear Cookies in the site menu, global "Clear all site data" in Settings. Missing: ITP status and one per-site "clear all site data".
+- [x] **17.6 HTTPS-only mode** with an interstitial for downgrades.
   > **Measured caveat:** `preferredHTTPSNavigationPolicy` cannot drive an interstitial. Both `.errorOnFailure` and `.userMediatedFallbackToHTTP` end an http-only navigation at `about:blank` via `didFinish`, with **no delegate error at all** — nothing to catch, nothing to show. Luna does its own upgrade-and-cancel in `decidePolicyFor` instead.
+  > **Checked 2026-09-24: built.** `Blocking/ContentBlockerHTTPS.swift`, the HTTPS downgrade page, toggle in Privacy
 - [x] **17.7 Safe Browsing — DECIDED 2026-09-17: option (a), ship without it and say so plainly.** Safe Browsing v4/v5 is non-commercial-only and deprecated for new commercial use; Web Risk is paid per-lookup *and* puts a third party in the URL path, which contradicts D16. Remaining work is copy, not code: an honest paragraph in Settings → Privacy and in the Privacy Policy saying Luna does not check URLs against a malware or phishing list, and noting that macOS still applies XProtect and Gatekeeper to anything downloaded. Revisit only if a free, privacy-preserving list appears.
+  > **Checked 2026-09-24: partly built.** The Settings paragraph is in `Privacy.swift`. Missing: the Privacy Policy text (no policy exists yet).
 - [ ] **17.8 Permission prompts** (camera/mic/location/notifications) rendered as our own non-modal chip anchored to the sidebar, with per-site persistence in `siteSettings`.
 
 ---
@@ -428,13 +523,17 @@ luna/
 
 - [ ] **18.1 Find in page** — `webView.find(_:configuration:completionHandler:)` with a custom UI, match count, prev/next, highlight-all. (Do **not** hand-roll JS find; the native API exists.)
 - [ ] **18.2 Zoom** — `pageZoom`, `⌘+/-/0`, persisted **per eTLD+1**.
+  > **Checked 2026-09-24: partly built.** ⌘+ / ⌘− / ⌘0 zoom in `BrowserSession+Commands.swift`. Missing: remembering zoom per site.
 - [ ] **18.3 Reader mode** — inject a Readability-class extractor, render into our own `luna://reader` template with our typography tokens, font-size/width/theme controls.
-- [ ] **18.4 PiP & media** — **there is no public per-tab audio API, and no public per-tab mute either.** `WKWebView` exposes only `setAllMediaPlaybackSuspended`, so §7.3's click-to-mute cannot be per-tab without either suspending all playback or injecting script. Decide which before promising it in the UI. `requestMediaPlaybackState()` reports a muted autoplay video as "playing", and `_isPlayingAudio` is SPI, banned by D10. Real audibility comes from a small capture-phase JS listener. Budget for that rather than expecting a property.
+- [x] **18.4 PiP & media** — **there is no public per-tab audio API, and no public per-tab mute either.** `WKWebView` exposes only `setAllMediaPlaybackSuspended`, so §7.3's click-to-mute cannot be per-tab without either suspending all playback or injecting script. Decide which before promising it in the UI. `requestMediaPlaybackState()` reports a muted autoplay video as "playing", and `_isPlayingAudio` is SPI, banned by D10. Real audibility comes from a small capture-phase JS listener. Budget for that rather than expecting a property.
+  > **Checked 2026-09-24: built.** `TabController+Mute.swift`, audibility from injected script
 - [ ] **18.4a (original wording)** — auto-PiP a playing video when its tab goes background (make it an opt-in setting), global mute-all, per-tab mute, Now Playing / media-key integration via `MPNowPlayingInfoCenter` + `MPRemoteCommandCenter`.
+  > **Checked 2026-09-24: partly built.** Auto-PiP and per-tab mute exist. Missing: auto-PiP is on by default rather than opt-in; no mute-all; no Now Playing / media keys.
 - [ ] **18.8 Web-compat defaults that differ from Safari (found in M0, verify each before relying on it)**
   - `mediaTypesRequiringUserActionForPlayback` must be `[]` to match Safari. Setting `[.audio]` breaks YouTube, because SPA navigations call `play()` outside a user gesture.
   - **Clipboard access and `allowsPictureInPictureMediaPlayback` are on by default in Safari but off for third-party `WKWebView`.** The only known route is KVC onto private preferences (`javaScriptCanAccessClipboard`, `DOMPasteAllowed`). **This collides head-on with D10 (no private SPI in shipping code)** — so it is a decision, not a task: accept a visible web-compat gap, or carve a narrow, documented exception to D10 for preference keys that cannot crash. Escalate to Martin before either.
   - **Do NOT set the private `mediaDevicesEnabled` preference.** It makes the WebContent process eagerly register with `com.apple.audio.AudioComponentRegistrar`, which is denied to third-party WKWebView apps, and the process crashes. `getUserMedia` works through the `WKUIDelegate` permission path (§4.2) without it. A clean example of why D10 exists.
+  > **Checked 2026-09-24: partly built.** Autoplay allowed in `WebViewFactory.swift`. Missing: the decision on clipboard / PiP private preferences under D10 is not written down.
 - [ ] **18.5 Print & Save** — `NSPrintOperation` via `webView.printOperation(with:)`, Save as PDF, Save as Web Archive (`createWebArchiveData`), Save Page.
 - [ ] **18.6 Screenshot/capture tool** — full-page and region capture via `takeSnapshot` + `WKSnapshotConfiguration`, copy or save.
 - [ ] **18.7 Boosts v1** — per-site user CSS and user JS, stored in `boosts`, applied via `WKUserScript` at `documentStart`/`documentEnd` and a per-site style rule; include a "Zap" element picker that generates a hiding rule by clicking an element.
@@ -448,19 +547,24 @@ luna/
   > **Correction — the unit was wrong.** This section said **RSS**. RSS swung ±40 % between identical runs while `phys_footprint` held ±4 %, and RSS falls while the memory is still charged to us. **State the budget in `phys_footprint`.**
   > **These budgets are now too easy to be interesting.** 40 tabs / 6 live passes with ~4× headroom and always will. The budgets worth writing next are **6 *heavy* live tabs** (Figma, YouTube) and **200 tabs** — both unmeasured.
   > **A false failure nearly shipped.** Three runs reported "5 of 5 web views alive, no process exits, footprint never drops". Cause: **top-level code in a CLI has no autorelease pool that drains**, so the poll's own `controller.webView` read parked every view. A second, always-pooled instrument disagreed and caught it. Lesson and both instruments are in `docs/PERF.md`.
-- [ ] **19.2 Hibernation** — a cold tab has **no `WKWebView`** at all: capture `interactionState` + snapshot + title/favicon, tear the view down, release the process. Waking restores via `interactionState`.
+- [x] **19.2 Hibernation** — a cold tab has **no `WKWebView`** at all: capture `interactionState` + snapshot + title/favicon, tear the view down, release the process. Waking restores via `interactionState`.
   - Policy: keep the active tab + last N used (default 3) + anything playing audio/video + anything with unsaved form input (detect via `beforeunload`-style heuristic) alive; hibernate the rest after 5 min idle or immediately under memory pressure (`DispatchSource.makeMemoryPressureSource`).
   - Reference point: a hibernated tab in mainstream browsers still costs ~39 MB if you keep the renderer warm — our target is ~0 by dropping the webview entirely and paying a wake cost instead.
   > **"~0" now has a number (measured 2026-09-17).** Hibernating 5 of 6 live tabs ends **5 WebContent processes within 10 s** and returns **86 % of footprint** (808 → 111 MB); weak references confirm **0 of 5 web views survive**. §19.4 verified on the real app too: 40 restored tabs spawn **0 WebKit processes**, idle at 81 MB RSS / 31 MB footprint.
   > **The audio exemption is narrower than it reads.** "Playing audio" means any frame with `!paused && !muted && volume > 0`, from our own injected script — WebKit's `requestMediaPlaybackState()` calls a muted autoplay video "playing" and `_isPlayingAudio` is SPI (D10). So **a muted or silent video is not protected and will hibernate** (§18.4).
+  > **Checked 2026-09-24: built.** `HibernationPolicy.swift`, `BrowserSession+Lifecycle.swift`, `SnapshotStore.swift`
 - [ ] **19.3 Process pool strategy** — share one `WKProcessPool` per profile; WebKit gives each webview its own WebContent process until an internal cap, then shares. Do **not** create a pool per tab (memory explodes) and do not assume you can control the cap.
   > **Correction (measured):** the assumption that each profile gets its own auxiliary processes is **wrong**. Three data stores share **one** Networking process and **one** GPU process — only WebContent is per-view. Profile isolation is a storage boundary, not a process-count multiplier.
   > **Recovery policy (M1, measured):** cap rebuilds at **3 per 60 s with a growing delay**. Respawning instantly into a post-wake XPC state is a crash loop, not a recovery. Also call `closeAllMediaPresentations()` when hibernating, or a hibernated tab leaves an orphaned Picture-in-Picture window on screen.
   > **Gotcha (verified bug class):** on macOS, a backgrounded app's WebContent processes get suspended after ~16 minutes, and under memory pressure they can fail to resume, leaving a dead white window. Detect `webViewWebContentProcessDidTerminate(_:)` **and** a heartbeat check on window activation; auto-reload from `interactionState` and show a subtle "restored" toast rather than a blank page.
-- [ ] **19.4 Lazy everything** — never create a webview for a tab the user hasn't selected (restored sessions start fully hibernated).
+  > **Checked 2026-09-24: partly built.** Rebuild after a dead web process is capped (3 per 60 s). Missing: health check on window activation, a "restored" note, resetting the crash budget on wake.
+- [x] **19.4 Lazy everything** — never create a webview for a tab the user hasn't selected (restored sessions start fully hibernated).
+  > **Checked 2026-09-24: built.** `BrowserSession.restored()` creates no web views at restore; numbers in `docs/PERF.md`
 - [ ] **19.5 Instruments pass** per milestone: Allocations, Leaks, Time Profiler, Animation Hitches. Record numbers in `docs/PERF.md` so regressions are visible.
+  > **Checked 2026-09-24: partly built.** Numbers from `Tools/perf` and `BudgetTests` in `docs/PERF.md`. Missing: a recorded Instruments run.
 - [ ] **19.7 A second instance kills the app.** Seen live 2026-09-18: launching Luna while another instance (or the XCTest host) holds `luna.sqlite` puts up a raw `SQLite error 5: database is locked — while executing ⁠`SELECT * FROM sqlite_master LIMIT 1`⁠` dialog and then a dead window with no chrome. Two things wrong: Luna is not single-instance, and a failed `BrowserStore` open is surfaced as a developer-facing SQL string via `NSApp.presentError`. Needs `LSMultipleInstancesProhibited` (or an explicit hand-off) plus a human error page.
-- [ ] **19.6 Energy** — verify we don't prevent App Nap or keep timers running when all windows are closed.
+- [x] **19.6 Energy** — verify we don't prevent App Nap or keep timers running when all windows are closed.
+  > **Checked 2026-09-24: built.** `docs/PERF.md` energy section
 
 ---
 
@@ -469,35 +573,47 @@ luna/
 - [ ] **20.1 Ship this default map** (all remappable in settings):
   `⌘T` command bar/new tab · `⌘L` edit URL · `⌘S` toggle sidebar · `⌘W` archive tab · `⌘⇧T` reopen last archived · `⌘D` pin/unpin · `⌘⇧K` archive all Today tabs · `⌃1…⌃9` Spaces (**not** `⌘1…9` — see §5.10) · `⌥`+click → split · `⇧`+click → Peek · `⌘⇧A` archive view · `⌘Y` history · `⌘F` find · `⌘R`/`⌘⇧R` reload/hard reload · `⌘[`/`⌘]` back/forward · `⌘⌥←/→` prev/next tab · `⌘⇧←/→` resize split · `⌘⌥I` Web Inspector · `⌘,` settings · `⌘N`/`⌘⇧N` window/private window · `⌘⌥N` mini window.
   - **Do not collide with system or common web-app shortcuts** — audit against Gmail/Figma/Notion before finalising.
+  > **Checked 2026-09-24: partly built.** Built in `App/BrowserCommand.swift` and `App/MainMenu.swift`. Missing: ⌘⇧A archive view, ⌘F find in page, ⌘⌥I Inspector, ⌘⌥N mini window, ⌥-click split, ⇧-click Peek, ⌘⇧←/→. ⌘D is Favorites, not pin. No check against web apps' own shortcuts.
 - [ ] **20.2 Full keyboard-only operation** — every action reachable without a mouse; visible focus ring on all chrome controls.
-- [ ] **20.3 Customisable shortcuts UI** with conflict detection.
-- [ ] **20.4 Trackpad gestures** — two-finger back/forward (`allowsBackForwardNavigationGestures`), pinch zoom, three-finger swipe between Spaces.
+  > **Checked 2026-09-24: partly built.** Focus rings in `UI/Sidebar/GlassButton+Keyboard.swift` and elsewhere. Actions with no command (find, split, archive view) cannot be reached from the keyboard.
+- [x] **20.3 Customisable shortcuts UI** with conflict detection.
+  > **Checked 2026-09-24: built.** `Features/Settings/Sections/Shortcuts.swift`, `SettingsShortcutRecorder`, `App/KeyBindings.swift`
+- [x] **20.4 Trackpad gestures** — two-finger back/forward (`allowsBackForwardNavigationGestures`), pinch zoom, three-finger swipe between Spaces.
+  > **Checked 2026-09-24: built.** `WebViewFactory` (back/forward swipe, magnification), `SpaceSwipeController` (two fingers on the sidebar, D-S12)
 
 ---
 
 ## 21. Accessibility
 
 - [ ] **21.1** Full VoiceOver labels/roles on sidebar, command bar, split panes, mini window; correct rotor navigation order.
-- [ ] **21.2** Respect Reduce Motion, Increase Contrast, Reduce Transparency (fall back from `NSVisualEffectView` to solid `surface` tokens), Differentiate Without Colour (Spaces must be distinguishable by icon/label, not only gradient).
+  > **Checked 2026-09-24: partly built.** Labels across the sidebar and Command Bar. Split panes and mini window do not exist yet; rotor order not verified.
+- [x] **21.2** Respect Reduce Motion, Increase Contrast, Reduce Transparency (fall back from `NSVisualEffectView` to solid `surface` tokens), Differentiate Without Colour (Spaces must be distinguishable by icon/label, not only gradient).
+  > **Checked 2026-09-24: built.** `Design/Accessibility.swift`, `GlassBacking` (Reduce Transparency), Reduce Motion throughout, Increase Contrast in tokens
 - [ ] **21.3** Dynamic UI font scaling; verify at largest accessibility sizes that nothing clips.
-- [ ] **21.4** Contrast audit: every token pair ≥ 4.5:1 for text, both themes, including over the gradient washes and the live theme-colour tint (clamp the tint if it fails).
+- [x] **21.4** Contrast audit: every token pair ≥ 4.5:1 for text, both themes, including over the gradient washes and the live theme-colour tint (clamp the tint if it fails).
+  > **Checked 2026-09-24: built.** `Design/TokenCheck.swift`, `SpacePalette` + `SpaceGradientTests`
 
 ---
 
 ## 22. System integration
 
-- [ ] **22.1 Default browser flow** — `LSSetDefaultHandlerForURLScheme("http"/"https", bundleID)`. macOS shows its own confirmation sheet; we cannot suppress or reliably read the outcome, so poll `LSCopyDefaultHandlerForURLScheme` afterwards.
+- [x] **22.1 Default browser flow** — `LSSetDefaultHandlerForURLScheme("http"/"https", bundleID)`. macOS shows its own confirmation sheet; we cannot suppress or reliably read the outcome, so poll `LSCopyDefaultHandlerForURLScheme` afterwards.
   > **Gotcha:** this API is deprecated-with-no-replacement **and is blocked by the App Sandbox**. This is precisely why D8 rules out the Mac App Store. Do not sandbox the main app without re-deciding this.
+  > **Checked 2026-09-24: built.** `Features/Settings/Sections/General.swift` (`NSWorkspace.setDefaultApplication`)
 - [ ] **22.2 `Info.plist`**: ~~`CFBundleURLTypes` for http/https~~, `CFBundleDocumentTypes` for `.html/.webloc/.pdf`, `NSUserActivityTypes` for Handoff, `LSApplicationCategoryType`.
   > **`CFBundleURLTypes` done 2026-09-20; the rest still open.** Its absence was not cosmetic: LaunchServices never listed Luna as a browser, so `NSWorkspace.urlsForApplications(toOpen:)` for an `https` URL returned Safari, Dia and Chrome and not Luna — §3.1's "Set as Default" button could not have worked, and discarded the resulting error in silence. Verified before and after. One missing key also blocked §12.2's links-from-other-apps and the first criterion of §14.10's entitlement request.
+  > **Checked 2026-09-24: partly built.** `App/Info.plist` has `CFBundleURLTypes` only. Missing: `CFBundleDocumentTypes`, `NSUserActivityTypes`, `LSApplicationCategoryType`.
 - [ ] **22.3 Handle `application(_:open:)`** → route to Mini Window or the Space chosen by the routing rules (§25.3).
 - [ ] **22.4 Services, Share menu, Shortcuts (App Intents)** — "Open URL in Space X", "Save tab to…", "Archive all tabs".
+  > **Checked 2026-09-24: partly built.** Share menu in `UI/Sidebar/SiteMenu.swift`. Missing: Services and App Intents / Shortcuts.
 - [ ] **22.5 Menu bar** — a complete, correct macOS menu (File/Edit/View/History/Bookmarks/Window/Help) even though the UI is chromeless. Every command discoverable here.
   > **Gotcha (proved with a running probe in M0):** **`@main` on a nib-less `NSApplicationDelegate` does not work.** The inherited `main()` is just `exit(NSApplicationMain(...))`, and `NSApplicationMain` only installs a delegate when it loads a **main nib**. With no nib, `NSApp.delegate` stays nil, neither launch callback fires, and the app sits in a dead run loop with no window and no crash. Luna's `AppDelegate` therefore declares its own `static func main()`: `NSApplication.shared` → assign the delegate → `withExtendedLifetime(delegate) { app.run() }`. The `withExtendedLifetime` is load-bearing — `NSApplication.delegate` is a **weak** reference, so a local delegate deallocates immediately without it.
   > **Cosmetic, for when the real Edit menu is built:** AppKit auto-injects Writing Tools, AutoFill, Dictation and Emoji & Symbols into any menu titled "Edit" — and currently injects Dictation twice and Emoji & Symbols three times. Harmless, but don't add them by hand as well.
+  > **Checked 2026-09-24: partly built.** `App/MainMenu.swift` has App/File/Edit/View/History/Spaces/Window/Help. Missing: Bookmarks menu, Find and Inspector items, a help book.
 - [ ] **22.6 Multi-window & multi-display**, fullscreen, Stage Manager, Spaces (the macOS kind) sanity checks. Restore window frames per screen config.
   - [x] Multi-window itself: `⌘N`, one session behind every ordinary window, per-window Space and selection (`WindowScoped`, `BrowserWindow`). UI-SPEC §8.1.
   - [ ] Frames per screen config. One window carries the autosave name and the rest cascade off it, so a two-window layout is not remembered across launches.
+  > **Checked 2026-09-24: partly built.** Multi-window and fullscreen done. Missing: window frames restored per screen setup (22.6b).
 - [ ] **22.7 Continuity** — Handoff of the active tab to/from iPhone/iPad Safari where possible.
 
 ---
@@ -525,7 +641,9 @@ luna/
   > **Idempotency, two mechanisms.** Bookmarks deduplicate against the **target Space by URL, read live from `BrowserStore`** rather than from the ledger, so a second run is a no-op even if the ledger is lost or the same site arrives from two browsers. **One key, the URL** — this used to say folder-path + URL as well, "so a site bookmarked in two folders stays two", and that key was ANDed with the URL one and could never fire. It is also the wrong answer here: with no folder column the two copies are two identical rows in one Space. History uses a **per-`<source>/<profile>` watermark** (max source timestamp) in `import-ledger.json`, which doubles as resume-after-cancel. **Dry run is the same code path with the writes skipped** — it creates no Space and no Profile.
   > **Open gap:** §11.1's `bookmarks` table does not exist, so bookmarks land as `Tab` rows (bar URLs → `.essential`, the rest → `.pinned`) and **the folder tree is dropped on write**; it survives only in the HTML export. The readers already carry `folderPath`, so a `bookmarks(tree)` migration closes this without touching them.
   > **Placement, fixed 2026-09-21.** Three things the tier decision got wrong, all of them silent: Favorites are capped at twelve per **Profile** and a bookmarks bar is routinely longer — over the cap the rows looked right until `v2`'s migration next ran and demoted whichever twelve it liked, so the cap is applied on the way in and the rest are pinned rather than dropped; `profileID` was never set, which makes an imported Favorite invisible to `favorites(onProfile:)` and leaves it for that same migration to backfill; and an import that **reused** a Space — the second run from one browser, or a first run whose name already matched — wrote into a Space the live session was already showing, where `adoptSpacesWrittenElsewhere` was only looking for new ones. History still lands in `places`/`visits` alone and shows up only as Command Bar suggestions.
+  > **Checked 2026-09-24: partly built.** `Features/Import/*` (Safari, Chromium family, Arc/Dia, Netscape HTML). Missing: a UI to pick an HTML file to import or export; the bookmarks tree.
 - [ ] **23.3 Onboarding** — 4 screens max: pick theme, import, create first Spaces, set as default browser. Must be skippable and re-runnable.
+  > **Checked 2026-09-24: partly built.** `Features/Onboarding/OnboardingPage.swift` has welcome, import, finish. Missing: theme pick, create Spaces, set default browser, a way to run it again.
 - [ ] **23.4 Backup/export of our own data** (bookmarks, spaces, boosts, settings) to a single JSON — non-negotiable trust feature for a new browser.
 
 ---
@@ -533,14 +651,18 @@ luna/
 ## 24. Quality, release & operations
 
 - [ ] **24.1 Testing**: unit tests on frecency, hibernation policy, URL parsing/canonicalisation, blocklist conversion, traffic-light layout. UI tests for launch → command bar → navigate → split → quit → restore. A manual **Top-100-sites compat matrix** re-run each milestone (this is how we catch WebKit-vs-Chrome breakage).
+  > **Checked 2026-09-24: partly built.** Unit tests for frecency, hibernation, URLs, blocking, traffic lights (930 tests). Missing: UI test target, top-100 sites check.
 - [ ] **24.2 Crash reporting** — Sentry or a self-hosted alternative; **opt-in**, with scrubbed URLs (never send full URLs or page content).
 - [x] **24.3 Telemetry — DECIDED 2026-09-17: there is none.** No analytics, opt-in or otherwise (D16). §24.2 crash reporting stays, opt-in and URL-scrubbed. Settings should say "Luna collects no usage data" and mean it literally. This is a marketing asset and a maintenance saving at the same time.
+  > **Checked 2026-09-24: partly built.** No analytics code, as decided. Missing: the Settings copy saying Luna collects no usage data.
 - [ ] **24.4 Signing & notarisation** — Developer ID Application cert, Hardened Runtime on, `notarytool submit --wait`, staple the ticket, ship a signed DMG. Entitlements: `com.apple.security.network.client`, camera/mic/location usage strings. Keep the entitlement set minimal.
 - [ ] **24.5 Sparkle 2 auto-update** — EdDSA-signed appcast over HTTPS, delta updates, "beta channel" toggle.
   > **Gotcha:** Xcode re-signs `Sparkle.framework` but historically not its embedded XPC services/helpers — if notarisation rejects you for "Hardened Runtime disabled in Autoupdate.app", that's the cause. Verify with `codesign -dv --entitlements -` on every nested binary in CI.
 - [ ] **24.6 CI** — build + test + sign + notarise on tag; archive dSYMs.
+  > **Checked 2026-09-24: partly built.** `.github/workflows/ci.yml` runs build, tests and lint. Missing: signing, notarising, tag trigger, dSYM archive.
 - [ ] **24.7 Legal & docs** — Privacy Policy must state: history and bookmarks are local-only · sync goes to the user's own iCloud and never to us (§31.11) · what search suggestions send and to whom · what crash reports contain · that **no usage data is collected at all** (D16) · and that Luna does **not** check URLs against a malware/phishing list (§17.7). Plus Terms, third-party attributions, and a `SECURITY.md` with a disclosure address.
   - **Licence: GPL-3.0-or-later (D12).** Add `LICENSE` at publication, keep `THIRD_PARTY_NOTICES.md` current from the first borrowed line, and make the corresponding source of every released build available — including Sparkle-delivered updates, which are distribution. Sparkle (MIT) and GRDB (MIT) are GPL-compatible; check any new dependency before adding it. Blocklists are still never bundled (D14), so EasyList never enters the picture.
+  > **Checked 2026-09-24: partly built.** `LICENSE` (GPL-3.0) is in. Missing: Privacy Policy, Terms, THIRD_PARTY_NOTICES.md, SECURITY.md.
 - [ ] **24.8 Website + changelog + a real support channel.**
 
 ---
@@ -656,32 +778,47 @@ Transcribed from the reference captures in `inspiration/`. These are **observed 
 
 > **Resolved:** sync is in, over **iCloud** — see §31. The iOS companion stays v2 (§25.5), but the sync layer is designed now so the phone can join later without a migration.
 
-- [ ] **30.1 Floating window treatment** — the whole window is detached and rounded (~18–22 px radius) with the desktop wallpaper visible around it, and the chrome is translucent and tinted by the wallpaper/theme rather than opaque grey. Implies: no standard titlebar, full-window custom shape, heavy `NSVisualEffectView` use, and a shadow that reads on both light and dark desktops.
-- [ ] **30.2 Circular glass control buttons** — sidebar-toggle, back, and reload are separate round translucent buttons in a row beside the traffic lights, not a toolbar. Sizes ~34–38 px, hairline border at ~10 % white, hover lifts the fill.
-- [ ] **30.3 Domain-only URL pill** — the address field shows just `apple.com`, not the full URL, as a wide rounded pill. Full URL appears on focus/edit (`⌘L`). Right side of the pill holds small inline action icons.
+- [x] **30.1 Floating window treatment** — the whole window is detached and rounded (~18–22 px radius) with the desktop wallpaper visible around it, and the chrome is translucent and tinted by the wallpaper/theme rather than opaque grey. Implies: no standard titlebar, full-window custom shape, heavy `NSVisualEffectView` use, and a shadow that reads on both light and dark desktops.
+  > **Checked 2026-09-24: built.** `BrowserWindowController.swift`, `WindowRootView.swift`
+- [x] **30.2 Circular glass control buttons** — sidebar-toggle, back, and reload are separate round translucent buttons in a row beside the traffic lights, not a toolbar. Sizes ~34–38 px, hairline border at ~10 % white, hover lifts the fill.
+  > **Checked 2026-09-24: built.** `SidebarControlRow.swift`, `GlassButton.swift`, `NavCluster.swift`
+- [x] **30.3 Domain-only URL pill** — the address field shows just `apple.com`, not the full URL, as a wide rounded pill. Full URL appears on focus/edit (`⌘L`). Right side of the pill holds small inline action icons.
+  > **Checked 2026-09-24: built.** `URLPillView.swift`
 - [ ] **30.4 Inline action slots in the URL pill** — the reference docks two AI icons plus a sliders/settings glyph inside the address pill. **Decided 2026-09-17: no AI in v1 (§32).** Build the pill with those slots reserved and sized, filled only with the settings/site-menu glyph, so adding something later is a fill rather than a relayout. Do not ship an AI affordance that does nothing.
-- [ ] **30.5 "Essentials" tile grid** — pinned sites render as large rounded glass **tiles with icon only** (2-up in the screenshot, wrapping to a grid), visually distinct from the text tab rows below. This is our §7.1 Favorites row — build it as tiles, not a compact icon strip.
+  > **Checked 2026-09-24: partly built.** The site-menu glyph ships. The reserved empty slots were removed on purpose (`URLPillLayout.swift`).
+- [x] **30.5 "Essentials" tile grid** — pinned sites render as large rounded glass **tiles with icon only** (2-up in the screenshot, wrapping to a grid), visually distinct from the text tab rows below. This is our §7.1 Favorites row — build it as tiles, not a compact icon strip.
+  > **Checked 2026-09-24: built.** `EssentialsGridView`
 - [ ] **30.6 Folder rows + explicit "Add Tab" row** — an `Archive` folder row and a `+ Add Tab` row sit between the Essentials grid and the tab list, as first-class list rows with the same metrics as tabs.
-- [ ] **30.7 Active-tab treatment** — selected row is a filled translucent pill with a visible hairline border and slightly brighter text; it spans the sidebar width with ~8 px inset. Inactive rows have no background at all.
+  > **Checked 2026-09-24: partly built.** "New Tab" row and folders are built. The Archive row was removed on purpose; History lives in the sidebar foot.
+- [x] **30.7 Active-tab treatment** — selected row is a filled translucent pill with a visible hairline border and slightly brighter text; it spans the sidebar width with ~8 px inset. Inactive rows have no background at all.
+  > **Checked 2026-09-24: built.** `RowPillView.swift`, `TabListController+Pills.swift`
 - [ ] **30.8 Status dots inline in the row** — a small leading dot marks an updated/unread tab (seen on the Discord row). Audio state gets its own trailing indicator (§7.3).
-- [ ] **30.9 Bottom utility bar** — profile avatar (circular, bottom-left), workspace/Space **page dots** in a small pill (centre), and a circular archive/trash button (right). The dots double as the Space switcher — adopt this instead of, or alongside, the §5.3 strip.
+  > **Checked 2026-09-24: partly built.** Dot and sound indicator are drawn. Missing: nothing sets "unread", so the unread dot never appears.
+- [x] **30.9 Bottom utility bar** — profile avatar (circular, bottom-left), workspace/Space **page dots** in a small pill (centre), and a circular archive/trash button (right). The dots double as the Space switcher — adopt this instead of, or alongside, the §5.3 strip.
+  > **Checked 2026-09-24: built.** `SidebarUtilityBar.swift`, `SpaceDotsView.swift`
 - [ ] **30.10 Split divider as a grabbable handle** — the reference shows a discrete `◁|▷` handle floating on the divider between panes rather than an invisible hit area. Make the handle appear on hover and support double-click to equalise panes.
 - [ ] **30.11 Content pane as a separate card** — the web content sits in its own rounded card inset from the window edge, with a gap between sidebar and content showing the window's tint through it. This is what makes the whole thing read as "floating"; it also means page fullscreen has to animate the card to fill the window.
+  > **Checked 2026-09-24: partly built.** `ContentCardView.swift`: opaque pane, shared corners. The inset gap was removed on purpose; the pane is flush.
 
 ### From `non-side-bar-tab-ui.png` — the sidebar-off layout
 
 - [x] **30.12 Top-bar mode is a real second layout, not just a collapsed sidebar — CONFIRMED FOR v1 (D13)** — with the sidebar off, a single translucent bar spans the window: traffic lights → Space cylinder → back → the kept run in one glass cylinder → hairline → the day's tabs and folders → a right-hand action cluster. Built as its own layout controller over the shared session, with the transition animated. `UI-SPEC.md` §4.
   > **The whole tab list is on the bar, not just Essentials, and there is no URL pill.** The line above asked for centred Essentials and no tabs at all; what shipped draws everything §3.4's list draws — §3.3's tiles, §3.4b's kept tier, its folders, and today's tabs and folders — as one run of capsules, kept ones as circles and open ones carrying their titles. The address bar went with the pill: a strip whose tabs carry their own names has no room for a fourth shape, and `⌘L` opens §9.1 over the page instead.
+  > **Checked 2026-09-24.** Built as §4 of `docs/UI-SPEC.md`. Since 2026-09-23: the Space name and pinned tabs on one glass plate, Space dots on hover and a two-finger swipe on the name, the page bar under the top bar (so no back button on the bar), open folders on plates of their own with full tabs inside, pinned folders beside the Space's plate, a divider before the open tabs, new tabs at the right-hand end, the reading band on the selected tab, only empty bar space moves the window, right-click there for a new folder, and the lights held steady in full screen (d68e152 … 81dbb3d).
 - [x] **30.12a Drag a tab on the top bar** — §6.6's reorder, the two tiers and the folders are all readable on the bar and none of them is draggable there yet. The arrangement is `TopBarStripRun` and the frames are `TopBarTabStrip+Layout`, so the drop targets are arithmetic on a run that already exists; `SidebarTabDrag` is the shape to copy. Shipped: `TopBarTabDrag`, `UI-SPEC.md` §4.0a.
 - [ ] **30.13 Chrome tint follows the page in both layouts** — the reference shows the whole top bar washed pink/lavender on GitHub. Same mechanism as §8.3; make sure the tint pipeline isn't wired only to the sidebar.
-- [ ] **30.14 Right action cluster** — extension action icons, `+` (new tab), downloads, and profile/account sit in their own translucent capsule, divided from the pinned tiles by a hairline. This is the natural home for the §16.4 extension buttons — build the capsule once and let both layouts host it.
+  > **Checked 2026-09-24: partly built.** The page bar takes the page's colour in both layouts. The top bar and sidebar glass stay untinted on purpose (UI-SPEC §2).
+- [x] **30.14 Right action cluster** — extension action icons, `+` (new tab), downloads, and profile/account sit in their own translucent capsule, divided from the pinned tiles by a hairline. This is the natural home for the §16.4 extension buttons — build the capsule once and let both layouts host it.
+  > **Checked 2026-09-24: built.** `TopBarActionCapsule.swift`; extension buttons wait for §16.
 
 ### From `downloads-ui.png`
 
-- [ ] **30.15 Download-complete popover** — ~~anchored to the downloads button with a visible pointer tail, floating *over* the window edge rather than inside the content area. Row = file-type icon (PDF glyph), middle-truncated filename, confirm/dismiss button. Feeds §15.3; the popover is the primary surface and the full panel is secondary.~~
+- [x] **30.15 Download-complete popover** — ~~anchored to the downloads button with a visible pointer tail, floating *over* the window edge rather than inside the content area. Row = file-type icon (PDF glyph), middle-truncated filename, confirm/dismiss button. Feeds §15.3; the popover is the primary surface and the full panel is secondary.~~
   > **Built, then withdrawn 2026-09-21.** A body above the window's top edge with its tail pointing down only aims at §4's capsule; in the sidebar layout it appeared in the opposite corner of the screen from the button it described, and in the top bar it repeated the list underneath it. Downloads announce themselves on the button the file was thrown at, in both layouts — `UI-SPEC.md` §5 and §5.0.
-- [ ] **30.16 Completion animation** — ~~a particle/sparkle sweep across the filename when a download lands. Time it with the §8.5 budget (≤0.35 s) and kill it entirely under Reduce Motion.~~
+  > **Checked 2026-09-24: cut.** Built, then withdrawn 2026-09-21 and replaced by `DownloadFlight.swift` (c4211f6).
+- [x] **30.16 Completion animation** — ~~a particle/sparkle sweep across the filename when a download lands. Time it with the §8.5 budget (≤0.35 s) and kill it entirely under Reduce Motion.~~
   > **Built, then withdrawn 2026-09-21** with the popover whose filename it swept. The motion §5 has now is at the *other* end of the download: §5.0 throws the file's own icon at the Downloads button as it starts, which is the event that had nothing.
+  > **Checked 2026-09-24: cut.** Withdrawn 2026-09-21 with the popover (UI-SPEC §5.1).
 
 ### From `transfer-from-other-browsers.png`
 
@@ -705,7 +842,19 @@ Transcribed from the reference captures in `inspiration/`. These are **observed 
   exists, is tested, and is intentionally **not wired into the app**. The prismatic arc
   (white → amber → mint → lavender, sampled from the clip) is recorded in `docs/UI-SPEC.md` §7. Do not
   reconnect it without asking. Original note follows.
-- [ ] **30.23a (original wording)** — watch the clip and transcribe the reload/refresh animation into the §8.5 motion table before building the reload control. Not yet transcribed; it's a video and this document only covers the stills.
+  > **Checked 2026-09-24: partly built.** `Features/Reload/` is built and not wired in. Its "is tested" claim is wrong: no test covers `ReloadBloom`.
+- [x] **30.23a (original wording)** — watch the clip and transcribe the reload/refresh animation into the §8.5 motion table before building the reload control. Not yet transcribed; it's a video and this document only covers the stills.
+  > **Checked 2026-09-24: built.** Written into `docs/UI-SPEC.md` §7; `ReloadBloomTimeline.swift`
+
+
+### Built beyond the original list (checked 2026-09-24)
+
+- [x] **30.24 Quit sheet** — `⌘Q` asks first. `UI/Quit/QuitSheetView.swift`, `App/AppDelegate+Quit.swift` (UI-SPEC §5.2).
+- [x] **30.25 Reading band** — the selected tab shows how far the page has been read, in the sidebar and on the top bar. `RowPillView.swift`, `TabController+Scroll.swift` (UI-SPEC §3.4).
+- [x] **30.26 Load line** — page-load progress under the chrome. `UI/Browser/LoadProgressLine.swift` (UI-SPEC §3.2c).
+- [x] **30.27 Page bar** — the address, back and reload over the page, in either layout. `UI/Browser/PageChromeBar.swift` (UI-SPEC §3.2b).
+- [x] **30.28 Tabs position** — Left / Centre / Right for the top bar's tabs. Settings ▸ Appearance (UI-SPEC §3.9).
+- [x] **30.29 Chrome density** — Clear / Opaque glass. `Design/GlassDensity.swift` (UI-SPEC §2a).
 
 ---
 
@@ -726,6 +875,7 @@ Everything the user *structures* follows them between Macs — and later, iPhone
   - **Syncs:** Spaces (name, colour, order), pinned tabs, Today-tab list, Favorites, bookmarks, boosts, per-site settings, zoom levels, keyboard remaps, general settings.
   - **Never syncs:** cookies, logins, and website storage. A `WKWebsiteDataStore` is local, opaque and not portable — we cannot and should not ship it anywhere. Say this plainly in the UI so nobody expects to stay logged in across Macs.
   - **DECIDED 2026-09-17: option (b).** Only **typed and bookmarked visits** sync — enough for the Command Bar to rank sensibly on a second Mac without shipping every page the user has ever opened to iCloud, even encrypted (§31.8). Link, redirect and embed visits stay local forever.
+  > **Checked 2026-09-24: partly built.** Decided here and in §32 only. Missing: `docs/SYNC.md` and the in-app line saying cookies and logins don't sync.
 - [ ] **31.6 Open tabs across devices** — publish a lightweight per-device record (device name, Space, open tab list, updated-at) and render it behind the §30.21 button. Fixed cap per device, refreshed on foreground and on tab-set change, throttled — this is a presence feed, not a live mirror.
 - [ ] **31.7 Account & availability states** — handle no iCloud account, signed out mid-session, iCloud Drive disabled, storage full, network offline, and account switch (wipe local sync state and re-seed on identity change). Every one of these degrades to a working local-only browser with a quiet status line in settings, never a modal.
 - [ ] **31.8 Sensitive fields** — put URLs and titles in `encryptedValues` on the `CKRecord` so they're end-to-end encrypted rather than merely server-side encrypted. Note in docs that Advanced Data Protection strengthens this further but that we don't require it.
@@ -764,6 +914,14 @@ Sixteen questions, answered in one sitting. **Where this log contradicts an olde
 | **§31.1 fallback: Martin decides on evidence** | Run the spike, write `docs/SYNC.md`, stop. No pre-committed plan B. |
 | **Dia importer first** (§23.2) | Martin's daily browser, so it is both the priority importer and where dogfooding data comes from. |
 | **Cadence: one milestone at a time, autonomous within it** | Return at milestone boundaries and at any blocker, with something runnable and the spike results written down. |
+
+### 32a. Changes — 2026-09-24
+
+| Decision | Consequence |
+|---|---|
+| **Top priorities: iCloud sync, Luna's own password manager, a tab switcher, extensions** — in that order (★) | They come before the rest of M2–M4. |
+| **Luna gets its own password manager** | Reverses §0.2 and §14's goal line. The Keychain bridge stays and becomes its storage or its fallback — P2.1 decides. |
+| **Extensions are in scope now** | Reverses §32's "extensions v2". §16 is no longer gated on a separate go-ahead. |
 
 ---
 
