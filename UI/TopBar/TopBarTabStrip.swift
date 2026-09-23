@@ -406,6 +406,11 @@ final class TopBarTabStrip: NSView, WindowScoped {
             return
         }
         for view in gone {
+            // Behind everything still on the bar, so what slides in over the
+            // place it leaves covers it as it fades — a folder closing is the
+            // run closing over its tabs, the reverse of the run opening to show
+            // them. On top, a folder's tabs lay over the tabs sliding in.
+            content.addSubview(view, positioned: .below, relativeTo: selectionPill)
             Tokens.Motion.animate(Tokens.Motion.tabInsert) { context in
                 context.allowsImplicitAnimation = true
                 view.animator().alphaValue = 0
