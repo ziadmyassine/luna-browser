@@ -72,12 +72,12 @@ final class TopBarTabRow: NSControl {
     ///
     /// A tab also keeps room for the close glyph, which comes out on the tab
     /// the pointer is on, and never goes under `tabFloor`. A folder's header
-    /// has no close glyph and stays as short as its name.
-    static func pillWidth(for content: SidebarRowContent) -> CGFloat {
+    /// has no close glyph and no chevron on the bar — its plate says it is
+    /// open — so it stays as short as its name.
+    static func pillWidth(for content: SidebarRowContent, isFolder: Bool = false) -> CGFloat {
         measure.stringValue = content.title
-        let isFolder = content.disclosure != nil
         let trailing = isFolder
-            ? Tokens.Metric.groupChevronSlot.width + Tokens.Metric.groupChevronGap
+            ? Tokens.Metric.rowInset
             : Tokens.Metric.rowTrailingChip.width + Tokens.Metric.rowInset
         let unread = content.hasUnread ? Tokens.Metric.spaceDot + Tokens.Metric.rowInset : 0
         let width = Tokens.Metric.rowTitleInset + ceil(measure.intrinsicContentSize.width) + trailing + unread

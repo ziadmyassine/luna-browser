@@ -1746,8 +1746,10 @@ the address pill with site settings and reload. The page starts below both.
     bar keeps the column's **two `RowPillView`s**, one selected and one hover, and moves them between
     rows on §6's `selectedRowMove` and `rowHover` — so the selection slides rather than blinks. Rows do
     not swell; they are rows, not buttons (CLAUDE.md).
-  - **A folder's tabs follow its header, with §3.4b's spine laid along under them** — the column's
-    hairline down a folder's leading edge, on its side.
+  - **An open folder is one object on the bar**: its name, a hairline divider with the bar's gap either
+    side, then its tabs edge to edge at one width (`folderTab`, 100 pt), all on a plate of its own — the
+    Space's plate's glass and height. No chevron: the plate is what says the folder is open. A kept folder
+    stands on the Space's plate instead, with the same divider after its name.
   - **Arriving and leaving are the column's too**: a new tab fades up into its place on `tabInsert`, a
     closed one fades out where it stood, and everything already on the bar slides. A view is placed with
     animation off the first time it is placed — Luna's recurring "spawns at the left and flies there" bug
@@ -1756,8 +1758,8 @@ the address pill with site settings and reload. The page starts below both.
   the middle of the run; with tabs that carry their own titles that was a fourth shape among three, and
   the whole run jumped a pill's width every time the selection moved. The page bar under it holds the
   address, and `⌘L` hands it to §9.1 there.
-- **A folder opens along the bar**: folded it is its header row, open it is that header followed by its
-  tabs with the spine under them. Pressing the header folds and unfolds it and does nothing else — it is
+- **A folder opens along the bar**: folded it is its header on its plate, open it is that header, the
+  divider and its tabs. Pressing the header folds and unfolds it and does nothing else — it is
   not a tab, so it cannot take the window anywhere — and a press that moves carries the folder instead,
   the column's rule. `isCollapsed` is the column's own flag, so a folder is open in both layouts or shut
   in both.
@@ -1828,8 +1830,10 @@ under it.
   place along.
 - **Along the run** is a reorder inside its own tier.
 - **Past a folder's header is inside it**, at the front when it is open and at the end when it is shut —
-  the column's rule. The column's own dashed box (`SidebarGroupDropView`) closes round the folder while it
-  is the target, and a shut folder opens on the drop so the tab is not swallowed out of sight.
+  the column's rule. While it is the target the folder's plate grows round the room the lift is opening
+  in it and lifts with §3.4's hover wash, so the drop reads as going in; a kept folder, on the Space's
+  plate, gets the column's dashed box (`SidebarGroupDropView`) instead. A shut folder opens on the drop so
+  the tab is not swallowed out of sight.
 - **Onto the plate or off it** changes what the tab is: among §3.3's tiles it is pinned (and refused past
   the Favorites cap, as the grid refuses), inside a kept folder it joins that. §3.3's dashed slot marks
   where a tile is about to land.

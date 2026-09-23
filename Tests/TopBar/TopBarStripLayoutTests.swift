@@ -36,9 +36,10 @@ final class TopBarStripLayoutTests: XCTestCase {
         try? FileManager.default.removeItem(at: directory)
     }
 
-    /// A folder standing open: its tabs follow its header, and §3.4b's spine
-    /// runs under them and under nothing else.
-    func testAnOpenFoldersTabsFollowItWithTheSpineUnderThem() async throws {
+    /// A folder standing open is one object on the bar: its name, a divider,
+    /// then its tabs edge to edge at one width, all on a plate of its own that
+    /// holds nothing else.
+    func testAnOpenFolderStandsOnItsOwnPlateWithADividerAfterItsName() async throws {
         let session = try await session()
         let window = window(on: session)
         let space = try XCTUnwrap(session.spaces.first).id
@@ -51,20 +52,25 @@ final class TopBarStripLayoutTests: XCTestCase {
         let first = try XCTUnwrap(view(members[0], in: strip))
         let second = try XCTUnwrap(view(members[1], in: strip))
         let outside = try XCTUnwrap(view(loose, in: strip))
-        XCTAssertLessThan(header.frame.maxX, first.frame.minX)
-        XCTAssertLessThan(first.frame.maxX, second.frame.minX)
+        XCTAssertEqual(first.frame.maxX, second.frame.minX, "a folder's tabs stand edge to edge")
+        XCTAssertEqual(first.frame.width, TopBarMetrics.folderTab)
+        XCTAssertEqual(second.frame.width, TopBarMetrics.folderTab)
 
-        let spine = try XCTUnwrap(descendant(of: strip, ofType: TopBarFolderSpine.self))
-        XCTAssertFalse(spine.isHidden)
-        XCTAssertGreaterThan(spine.frame.minX, header.frame.maxX, "the spine is under the header")
-        XCTAssertLessThan(spine.frame.minX, first.frame.maxX)
-        XCTAssertLessThanOrEqual(spine.frame.maxX, second.frame.maxX)
-        XCTAssertLessThan(spine.frame.maxY, first.frame.minY, "the spine is over the pills, not under them")
-        XCTAssertFalse(spine.frame.intersects(outside.frame))
+        let divider = try XCTUnwrap(strip.dividers[folder])
+        XCTAssertFalse(divider.isHidden)
+        XCTAssertGreaterThan(divider.frame.minX, header.frame.maxX)
+        XCTAssertLessThan(divider.frame.maxX, first.frame.minX, "the divider stands between the name and the tabs")
+
+        let plate = try XCTUnwrap(strip.folderPlates[folder]).frame
+        XCTAssertEqual(plate.minX, header.frame.minX)
+        XCTAssertEqual(plate.maxX, second.frame.maxX)
+        XCTAssertEqual(plate.height, TopBarMetrics.lineHeight)
+        XCTAssertFalse(plate.intersects(outside.frame), "the plate holds the folder and nothing else")
+        XCTAssertEqual(outside.frame.minX - plate.maxX, TopBarMetrics.gap)
     }
 
     /// Folded, the same folder is its header and nothing else — its tabs are
-    /// not drawn at all, so nothing is left behind to click, and no spine.
+    /// not drawn at all, so nothing is left behind to click, and no divider.
     func testAFoldedFolderDrawsNoneOfItsTabs() async throws {
         let session = try await session()
         let window = window(on: session)
@@ -78,7 +84,7 @@ final class TopBarStripLayoutTests: XCTestCase {
         for member in members {
             XCTAssertNil(view(member, in: strip), "a folded folder is still drawing its tabs")
         }
-        XCTAssertTrue(descendants(of: strip, ofType: TopBarFolderSpine.self).allSatisfy(\.isHidden))
+        XCTAssertEqual(strip.dividers[folder]?.isHidden, true)
     }
 
     /// Kept tabs are §3.3's own tiles, on the plate after the Space's name;

@@ -3,7 +3,7 @@
 //  Luna
 //
 //  Where §4's run lands on the bar: what each block is worth in points, and the
-//  one pass that places every tile, row, spine and mark from it.
+//  one pass that places every tile, row, plate and mark from it.
 //
 //  Split out of `TopBarTabStrip` when that file crossed SwiftLint's type body
 //  limit, along the seam the file already had — everything there is the session
@@ -28,6 +28,14 @@ private enum Side {
     case rule
     /// Today's tabs, after the plate.
     case open
+}
+
+/// Where a piece stands: its side, the folder it is in (its own, for a
+/// header), and whether it is that folder's header.
+private struct Place {
+    var side: Side
+    var folder: UUID?
+    var isHeader = false
 }
 
 /// One pass of `lay`: where each block, the gap, the name and the plate land.
@@ -76,18 +84,19 @@ extension TopBarTabStrip {
     var centreLine: CGFloat { bounds.height / 2 - TopBarMetrics.lightsCentreOffset }
 
     /// What one block takes along the bar.
-    private func width(of block: TopBarStripBlock) -> CGFloat {
-        switch block {
+    private func width(ofBlock index: Int) -> CGFloat {
+        switch run.blocks[index] {
         case .tab(_, .tile), .landing(.essential):
             TopBarMetrics.keptTile.width
+        case .tab(_, .row) where run.owner(of: index) != index:
+            TopBarMetrics.folderTab
         case let .tab(tab, .row):
             TopBarTabRow.pillWidth(for: rows[tab.id]?.content ?? rowContent(for: tab))
         case let .group(group, _):
-            TopBarTabRow.pillWidth(for: rows[group.id]?.content ?? SidebarRowContent(
-                title: group.name,
-                symbolName: group.symbolName,
-                disclosure: .collapsed
-            ))
+            TopBarTabRow.pillWidth(
+                for: rows[group.id]?.content ?? SidebarRowContent(title: group.name, symbolName: group.symbolName),
+                isFolder: true
+            )
         case .landing:
             TopBarMetrics.rowFloor
         case .rule:
@@ -101,19 +110,27 @@ extension TopBarTabStrip {
         run.isKept(index) ? TopBarMetrics.keptTile.height : TopBarMetrics.lineHeight
     }
 
-    private func side(of block: Int) -> Side {
-        if run.blocks[block] == .rule { return .rule }
-        return run.isKept(block) ? .kept : .open
+    private func place(of block: Int) -> Place {
+        if run.blocks[block] == .rule { return Place(side: .rule) }
+        let side: Side = run.isKept(block) ? .kept : .open
+        let header = run.owner(of: block)
+        guard case let .group(group, _) = run.blocks[header] else { return Place(side: side) }
+        return Place(side: side, folder: group.id, isHeader: header == block)
     }
 
-    /// The room in front of a piece. On the plate the tabs stand edge to edge
-    /// — each is a box as wide as the plate is tall, so its icon already has
-    /// the room round it — and the plate ends at the last one. Off it, the
-    /// bar's one gap.
-    private func spacing(from previous: Side, to next: Side) -> CGFloat {
-        switch (previous, next) {
-        case (.name, .kept), (.kept, .kept), (_, .rule): 0
-        case (.rule, _), (.name, _), (.kept, _), (.open, _): TopBarMetrics.gap
+    /// The room in front of a piece. On a plate the tabs stand edge to edge —
+    /// each has its own room round its icon — and a plate ends at its last
+    /// one. After a folder's name, the divider with a gap either side. Off a
+    /// plate, the bar's one gap.
+    private func spacing(from previous: Place, to next: Place) -> CGFloat {
+        if next.side == .rule { return 0 }
+        if previous.side == .rule { return TopBarMetrics.gap }
+        if let folder = next.folder, previous.folder == folder, !next.isHeader {
+            return previous.isHeader ? TopBarMetrics.dividerGap * 2 + Tokens.Metric.hairline : 0
+        }
+        switch (previous.side, next.side) {
+        case (.name, .kept), (.kept, .kept): return 0
+        default: return TopBarMetrics.gap
         }
     }
 
@@ -163,24 +180,24 @@ extension TopBarTabStrip {
         )
         var originX = laid.name.maxX
         var plateEnd = originX
-        var previous = Side.name
+        var previous = Place(side: .name)
         for piece in pieces {
-            let next: Side
+            let next: Place
             let width: CGFloat
             switch piece {
             case let .block(index):
-                next = side(of: index)
-                width = self.width(of: run.blocks[index])
+                next = place(of: index)
+                width = self.width(ofBlock: index)
                 originX += spacing(from: previous, to: next)
                 laid.frames[index] = NSRect(x: originX, y: 0, width: width, height: bounds.height)
             case let .gap(gapWidth, kept):
-                next = kept ? .kept : .open
+                next = Place(side: kept ? .kept : .open, folder: dropGap?.destination.groupID)
                 width = gapWidth
                 originX += spacing(from: previous, to: next)
                 laid.gap = NSRect(x: originX, y: 0, width: width, height: bounds.height)
             }
             originX += width
-            if next == .kept { plateEnd = originX }
+            if next.side == .kept { plateEnd = originX }
             previous = next
         }
         laid.plate = NSRect(x: start, y: 0, width: plateEnd - start, height: bounds.height)
@@ -269,32 +286,27 @@ extension TopBarTabStrip {
         NSRect(x: slot.minX, y: (centreLine - height / 2).rounded(), width: slot.width, height: height)
     }
 
-    /// The spines under open folders, the box round a folder taking a drop,
-    /// and the two dashed landings.
+    /// Each folder's divider and plate, the box round a kept folder taking a
+    /// drop, and the two dashed landings.
     private func placeMarks(_ placed: TopBarLaidRun) {
         var dropBox: NSRect?
         for (header, block) in run.blocks.enumerated() {
             guard case let .group(group, _) = block, let head = placed.frames[header] else { continue }
             let pill = height(ofBlock: header)
             let last = run.lastBlock(ofFolderAt: header)
+            let gap = dropGap?.destination.groupID == group.id ? placed.gap : nil
             var extent = head
             if let tail = placed.frames[last] { extent = extent.union(tail) }
-            if let gap = placed.gap, dropGap?.destination.groupID == group.id { extent = extent.union(gap) }
-            // The spine runs under the folder's tabs, from the first to the
-            // last, a hairline below the pills — §3.4b's mark, on its side.
-            if let spine = spines[group.id] {
-                let first = placed.frames[header + 1]
-                spine.isHidden = last == header || first == nil
-                if let first, let tail = placed.frames[last] {
-                    spine.frame = NSRect(
-                        x: first.minX + Tokens.Metric.rowInset,
-                        y: (centreLine - pill / 2 - Tokens.Metric.rowGap).rounded() - Tokens.Metric.hairline,
-                        width: max(tail.maxX - first.minX - Tokens.Metric.rowInset * 2, 0),
-                        height: Tokens.Metric.hairline
-                    )
-                }
+            if let gap { extent = extent.union(gap) }
+            placeDivider(dividers[group.id], after: head, showing: last != header || gap != nil)
+            if let folderPlate = folderPlates[group.id] {
+                // The folder's own plate grows round the room a lift is
+                // opening in it and lights, so the drop reads as going in.
+                put(folderPlate, at: box(extent, height: TopBarMetrics.plate.height))
+                folderPlate.isAimedAt = dropFolder == group.id
+            } else if dropFolder == group.id {
+                dropBox = box(extent, height: pill)
             }
-            if dropFolder == group.id { dropBox = box(extent, height: pill) }
         }
         folderDrop.show(dropBox)
 
@@ -307,6 +319,24 @@ extension TopBarTabStrip {
         mark(slot, at: tileLanding.flatMap { placed.frames[$0] } ?? tileGap, landing: tileLanding)
         mark(folderSlot, at: run.blocks.firstIndex(of: .landing(.pinned)).flatMap { placed.frames[$0] },
              landing: run.blocks.firstIndex(of: .landing(.pinned)))
+    }
+
+    /// The hairline after a folder's name, centred in the room `spacing`
+    /// leaves for it — only when something follows the name.
+    private func placeDivider(_ divider: TopBarSeparator?, after head: NSRect, showing: Bool) {
+        guard let divider else { return }
+        guard showing else {
+            divider.isHidden = true
+            return
+        }
+        let size = divider.intrinsicContentSize
+        let frame = NSRect(
+            x: head.maxX + TopBarMetrics.dividerGap,
+            y: (centreLine - size.height / 2).rounded(),
+            width: size.width,
+            height: size.height
+        )
+        reveal(divider) { divider.frame = frame }
     }
 
     /// Whether a tab put down at `destination` is drawn as one of §3.3's

@@ -66,6 +66,8 @@ final class TopBarTabDragController {
     private unowned let spaces: TopBarSpaceName
     private var lift: SidebarDragLiftView?
     private var content = SidebarRowContent()
+    /// The lift is a folder's header, which is never a tile.
+    private var carriesFolder = false
     private var target: Target?
     /// Which gesture this is, for `SidebarTabDragController.gesture`'s reason:
     /// the lift settles for a third of a second after the mouse comes up, and a
@@ -111,6 +113,7 @@ final class TopBarTabDragController {
     private func begin(_ lifted: TopBarLifted, at origin: NSRect, from source: NSView) {
         gesture += 1
         content = liftContent(for: lifted)
+        if case .group = lifted { carriesFolder = true } else { carriesFolder = false }
         let view = SidebarDragLiftView(content: content)
         view.shape = source is GlassButton ? .tile : .row
         view.frame = origin
@@ -135,7 +138,7 @@ final class TopBarTabDragController {
             return content
         case let .group(id):
             guard let group = strip.session.group(id) else { return SidebarRowContent() }
-            return SidebarRowContent(title: group.name, symbolName: group.symbolName, disclosure: .collapsed)
+            return SidebarRowContent(title: group.name, symbolName: group.symbolName)
         }
     }
 
@@ -181,7 +184,7 @@ final class TopBarTabDragController {
     /// §3.4's row — including over the new-folder landing, where what lands is
     /// a folder's header. A folder is always its header.
     private func shape(of target: Target?) -> SidebarDragLiftView.Shape {
-        guard case let .run(gap)? = target, strip.landsAsTile(gap.destination), content.disclosure == nil else {
+        guard case let .run(gap)? = target, strip.landsAsTile(gap.destination), !carriesFolder else {
             return target == nil ? (lift?.shape ?? .row) : .row
         }
         return .tile
@@ -190,7 +193,10 @@ final class TopBarTabDragController {
     private func size(of shape: SidebarDragLiftView.Shape) -> NSSize {
         switch shape {
         case .tile: TopBarMetrics.keptTile.size
-        case .row: NSSize(width: TopBarTabRow.pillWidth(for: content), height: TopBarMetrics.lineHeight)
+        case .row: NSSize(
+            width: TopBarTabRow.pillWidth(for: content, isFolder: carriesFolder),
+            height: TopBarMetrics.lineHeight
+        )
         }
     }
 

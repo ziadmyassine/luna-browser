@@ -39,6 +39,9 @@ final class TopBarSeparator: NSView, TopBarThemed {
 
     func applyTokens() { needsDisplay = true }
 
+    /// A mark: a press on it is the bar's, or the plate's it stands on.
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
         needsDisplay = true

@@ -40,13 +40,13 @@ extension TopBarTabStrip {
         row.menuBuilder = { [weak self] in self?.tabMenu(tab.id) }
     }
 
-    func configureRow(for group: TabGroup, arriving: Bool) {
+    /// A folder's header. Open-tier folders stand on a plate of their own —
+    /// the header, a divider, then the folder's tabs — the way the kept run
+    /// stands on the Space's. A kept folder is already on that plate.
+    func configureRow(for group: TabGroup, style: TopBarTabStyle, arriving: Bool) {
         let row = row(for: group.id, arriving: arriving)
-        row.configure(SidebarRowContent(
-            title: group.name,
-            symbolName: group.symbolName,
-            disclosure: group.isCollapsed ? .collapsed : .expanded
-        ))
+        // No chevron: on the bar the plate is what says a folder is open.
+        row.configure(SidebarRowContent(title: group.name, symbolName: group.symbolName))
         row.setAccessibilityRole(.disclosureTriangle)
         row.setAccessibilityValue(group.isCollapsed ? 0 : 1)
         row.row.isSelected = false
@@ -68,11 +68,22 @@ extension TopBarTabStrip {
             guard let self, let current = session.group(group.id) else { return nil }
             return GroupMenu.build(for: current, actions: session.groupMenuActions(for: group.id))
         }
-        if spines[group.id] == nil {
-            let spine = TopBarFolderSpine()
-            spines[group.id] = spine
-            content.addSubview(spine, positioned: .below, relativeTo: glow)
+        if dividers[group.id] == nil {
+            let divider = TopBarSeparator()
+            dividers[group.id] = divider
+            content.addSubview(divider, positioned: .below, relativeTo: glow)
         }
+        guard style == .row else {
+            folderPlates.removeValue(forKey: group.id)?.removeFromSuperview()
+            return
+        }
+        guard folderPlates[group.id] == nil else { return }
+        let folderPlate = TopBarPlate()
+        folderPlate.menuBuilder = row.menuBuilder
+        folderPlates[group.id] = folderPlate
+        // Over the Space's plate, under every fill and tab.
+        content.addSubview(folderPlate, positioned: .above, relativeTo: plate)
+        if arriving { fadeIn(folderPlate) }
     }
 
     private func row(for id: UUID, arriving: Bool) -> TopBarTabRow {

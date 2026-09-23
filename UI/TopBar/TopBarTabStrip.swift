@@ -19,9 +19,10 @@
 //  where a drop lands; the frames are `+Layout`, the pills and the pointer
 //  `+Pills`.
 //
-//  A folder's tabs follow its header along the run, with §3.4b's spine laid
-//  under them — the column's hairline down a folder's leading edge, on its
-//  side. Folded and open are the column's own `isCollapsed`.
+//  A folder's tabs follow its header along the run, past a hairline divider,
+//  and an open-tier folder stands on a plate of its own, as the kept run
+//  stands on the Space's: the folder is one object on the bar. Folded and
+//  open are the column's own `isCollapsed`.
 //
 //  The strip scrolls horizontally when it overflows and the active tab is
 //  always scrolled back into view. An `NSScrollView` does the scrolling: it
@@ -91,7 +92,10 @@ final class TopBarTabStrip: NSView, WindowScoped {
     var run = TopBarStripRun()
     var tiles: [UUID: GlassButton] = [:]
     var rows: [UUID: TopBarTabRow] = [:]
-    var spines: [UUID: TopBarFolderSpine] = [:]
+    /// Per folder, the hairline after its name, and for an open-tier folder
+    /// the plate it stands on.
+    var dividers: [UUID: TopBarSeparator] = [:]
+    var folderPlates: [UUID: TopBarPlate] = [:]
     var activeID: UUID?
     var hoveredID: UUID?
     /// The Space the run was last read for — see `reload`.
@@ -279,9 +283,9 @@ final class TopBarTabStrip: NSView, WindowScoped {
             case let .tab(tab, .row):
                 live.insert(tab.id)
                 configureRow(for: tab, arriving: onScreen)
-            case let .group(group, _):
+            case let .group(group, style):
                 live.insert(group.id)
-                configureRow(for: group, arriving: onScreen)
+                configureRow(for: group, style: style, arriving: onScreen)
             case .rule, .landing:
                 break
             }
@@ -382,9 +386,13 @@ final class TopBarTabStrip: NSView, WindowScoped {
             rows.removeValue(forKey: id)
             gone.append(row)
         }
-        for (id, spine) in spines where !live.contains(id) {
-            spines.removeValue(forKey: id)
-            spine.removeFromSuperview()
+        for (id, divider) in dividers where !live.contains(id) {
+            dividers.removeValue(forKey: id)
+            divider.removeFromSuperview()
+        }
+        for (id, folderPlate) in folderPlates where !live.contains(id) {
+            folderPlates.removeValue(forKey: id)
+            gone.append(folderPlate)
         }
         if let hoveredID, !live.contains(hoveredID) { self.hoveredID = nil }
         // A tab in the air is out of the run but not gone, and the lift is

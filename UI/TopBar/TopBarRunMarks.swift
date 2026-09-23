@@ -3,17 +3,15 @@
 //  Luna
 //
 //  What §4's run draws that is not a tab: the plate the Space's name and its
-//  kept tabs stand on, the dashed slot a lift is about to land in, and the
-//  spine that says which tabs are in a folder.
+//  kept tabs stand on — and each open folder, on one of its own — and the
+//  dashed slot a lift is about to land in.
 //
-//  Both are the column's, turned on their side. The dash is §3.3's — what Luna
-//  draws where a thing goes, in the grid's empty slot and round a folder taking
-//  a drop. The spine is §3.4b's hairline down the leading edge of a folder's
-//  tabs; a bar has no leading edge to run down, so it runs along under them.
+//  The dash is §3.3's — what Luna draws where a thing goes, in the grid's
+//  empty slot and round a folder taking a drop.
 //
-//  The slot and the spine take no click: they are marks. The plate does — it
-//  is a shelf of controls rather than bar, so a press on it does not move the
-//  window (§4), and a right-click on it is the bar's.
+//  The slot takes no click: it is a mark. The plate does — it is a shelf of
+//  controls rather than bar, so a press on it does not move the window (§4),
+//  and a right-click on it is the bar's menu, or its folder's.
 //
 
 import AppKit
@@ -27,11 +25,34 @@ final class TopBarPlate: NSControl {
 
     var menuBuilder: (() -> NSMenu?)?
 
+    /// §6.6's lift is going into the folder this plate holds. It lifts the
+    /// way a row does under the pointer — §3.4's hover wash over the glass —
+    /// the plate's answer to the column's dashed box round a folder.
+    var isAimedAt = false {
+        didSet {
+            guard isAimedAt != oldValue else { return }
+            effectiveAppearance.performAsCurrentDrawingAppearance {
+                Tokens.Motion.wash(self.wash.layer, to: self.isAimedAt ? Tokens.Surface.hover : nil)
+            }
+        }
+    }
+
+    private let wash = NSView()
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.cornerCurve = .continuous
         Glass.apply(.control, to: self, cornerRadius: TopBarMetrics.plate.cornerRadius)
+        wash.wantsLayer = true
+        wash.layer?.cornerCurve = .continuous
+        wash.layer?.cornerRadius = TopBarMetrics.plate.cornerRadius
+        addSubview(wash)
+    }
+
+    override func layout() {
+        super.layout()
+        Tokens.Motion.immediately { wash.frame = bounds }
     }
 
     @available(*, unavailable)
@@ -133,33 +154,4 @@ final class TopBarSlotOutline: NSView {
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
-}
-
-/// §3.4b's spine, along the foot of a folder's open tabs.
-@MainActor
-final class TopBarFolderSpine: NSView {
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        wantsLayer = true
-        applyTokens()
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("Luna builds its chrome in code")
-    }
-
-    override func hitTest(_ point: NSPoint) -> NSView? { nil }
-
-    private func applyTokens() {
-        effectiveAppearance.performAsCurrentDrawingAppearance {
-            self.layer?.backgroundColor = Tokens.Line.hairline.cgColor
-        }
-    }
-
-    override func viewDidChangeEffectiveAppearance() {
-        super.viewDidChangeEffectiveAppearance()
-        applyTokens()
-    }
 }

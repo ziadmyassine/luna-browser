@@ -139,16 +139,16 @@ final class TopBarTabRowTests: XCTestCase {
         XCTAssertEqual(TopBarTabRow.pillWidth(for: content), TopBarMetrics.rowCeiling)
     }
 
-    /// After the title a folder's header keeps room for its chevron, and a
-    /// tab for its close glyph.
-    func testATrailingSlotIsKeptForTheChevronOrTheCloseGlyph() {
+    /// After the title a tab keeps room for its close glyph; a folder's
+    /// header, which has neither a close glyph nor a chevron on the bar, only
+    /// its inset.
+    func testATabKeepsRoomForItsCloseGlyphAndAFolderDoesNot() {
         // Long enough to be clear of both floors, which would otherwise absorb
         // the difference.
         let name = "Work in progress"
         let tab = TopBarTabRow.pillWidth(for: SidebarRowContent(title: name))
-        let folder = TopBarTabRow.pillWidth(for: SidebarRowContent(title: name, disclosure: .expanded))
-        let chevron = Tokens.Metric.groupChevronSlot.width + Tokens.Metric.groupChevronGap
+        let folder = TopBarTabRow.pillWidth(for: SidebarRowContent(title: name), isFolder: true)
         let close = Tokens.Metric.rowTrailingChip.width + Tokens.Metric.rowInset
-        XCTAssertEqual(tab - folder, close - chevron, accuracy: 0.5)
+        XCTAssertEqual(tab - folder, close - Tokens.Metric.rowInset, accuracy: 0.5)
     }
 }
