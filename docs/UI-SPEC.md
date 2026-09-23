@@ -1721,10 +1721,18 @@ One 52 pt glass bar spanning the window. **Content is flush full-bleed below it 
   site, through the same `EssentialGlowView` the column's grid uses, at a circular radius. One light for
   the whole strip, because only one tab can be the one you are on. A kept tab is the same thing in both
   layouts and it says so the same way.
-- **An open tab that is the tab you are on wears §3.4's selected plate** instead — the same 12 % fill and
-  `Line.border` ring the column's row pill wears, staying at that fill under the pointer rather than
-  brightening. Never both: a glow around a chip already carrying the plate is the same sentence twice, in
-  two different colours.
+- **An open tab that is the tab you are on turns to glass** — the same clear `.control` cylinder the kept
+  run stands in, faded in and out on §6's `controlHover`, at the same 28 pt height it has at rest. The
+  kept run and the tab you are on are made of the one material the bar has. Never both glass and glow: a
+  kept tab says it is the current one with §3.3's light instead.
+- **An open tab has §3.4's close**, the same `RowGlyphView` the column's rows carry, shown only while the
+  pointer is on that chip — a run of twenty tabs is not a run of twenty crosses. The title gives way to
+  it rather than the chip growing for it: a chip that widened under the pointer would push every tab
+  after it along the bar, and the thing being reached for would move. A kept tab has none, as §3.3's
+  tile has none; closing one files its page away, which is `⌘W`'s job and the menu's.
+- **Every change to a run already on screen slides into place** on §6's `tabInsert`: a switch, a tab
+  arriving or closing, a folder opening, a drop. A Space switch does not — that is a different run, not
+  this one moving.
 - **There is no address bar in this layout.** The active tab used to swell into a 266 pt URL pill in the
   middle of the run; with tabs that carry their own titles that was a fourth shape among three, and the
   whole run jumped a pill's width every time the selection moved. `⌘L` opens §9.1's Command Bar over the
@@ -1734,10 +1742,10 @@ One 52 pt glass bar spanning the window. **Content is flush full-bleed below it 
   answer to the column's indentation — the tabs in a folder are the ones standing on it. Pressing the
   header folds and unfolds it and does nothing else; it is not a tab, so it cannot take the window
   anywhere. `isCollapsed` is the column's own flag, so a folder is open in both layouts or shut in both.
-- **Loose tabs come before the folders of their own tier.** The column can put a folder between two tabs
-  because it has as many rows as it likes; the bar has one line, and a named pill in the middle of a run
-  of icons breaks the run in two for no reason the user asked for. This is the only arrangement the bar
-  states for itself.
+- **Each tier keeps the column's slot order.** The bar drew loose tabs before folders for one build; that
+  was fine while the run was read-only and wrong the moment it could be dragged, because an order the bar
+  imposes is an order a drop cannot express — a tab carried past a folder went back in front of it.
+  Folders still land after the tabs in practice, because that is the order they were made in.
 - **The hairline only comes out when there is something on both sides of it.** It divides what is kept
   from what is not, with a cluster gap of air either side rather than the 8 pt the run is spaced on — a
   divider spaced like the things it divides reads as one more of them.
@@ -1781,6 +1789,31 @@ One 52 pt glass bar spanning the window. **Content is flush full-bleed below it 
   > unions neighbours within `spacing`. On screen it did not: three separate bright circles, each with
   > its own specular rim, and the white `+` and `↓` washed out against those rims. The glass is applied
   > once, to the capsule, at full radius; the items inside it are bare glyphs.
+
+### 4.0a Dragging on the bar (§6.6)
+The column's gesture turned on its side: press a chip and move, and it lifts off the bar and follows the
+pointer's `x` along the bar's line, with the run opening a gap under it. Tracked by hand, not by AppKit's
+drag session, for §6.6's reason — a session's snapshot floats free in two dimensions and the run stays
+still under it.
+- **Along the run** is a reorder inside its own tier.
+- **Past a folder's header is inside it**, at the front when it is open and at the end when it is shut —
+  the column's rule. The folder's plate draws a hairline while it is the target, and a shut folder opens
+  on the drop so the tab is not swallowed out of sight.
+- **Across the hairline** changes what the tab is. The kept run is one cylinder and two tiers underneath,
+  and the rule is the one a hand can see: **a tab becomes the same kind of thing as what it lands
+  beside** — among §3.3's circles it is pinned (and refused past the Favorites cap, as the grid refuses),
+  beside §3.4b's kept tabs it joins those, and the hairline's two halves are the end of one tier and the
+  head of the other. The lift morphs between a titled capsule and a circle as it crosses.
+- **The kept cylinder comes out for every drag**, empty if nothing is kept yet, so there is somewhere to
+  carry a tab to pin it — §3.4b's rule does the same in the column. Not in a §5.6 window, which keeps
+  nothing.
+- **Over one of the Space cylinder's arrows**, a tab goes to the Space next door. The arrow lights and the
+  cylinder shows that Space's name while the lift is over it. An arrow at the end of the run is not a
+  target.
+- **A folder can be carried too**, as its header, and lands beside other folders rather than in them.
+- Nothing is committed until the mouse comes up — one `reorderTab`, one undo entry. Escape cancels. The
+  lift settles into the gap before it hands over, and the chip it stood in for is out of the run until the
+  model has moved it, so it is never seen back where it came from.
 
 ### 4.1 Switching layouts
 **The switch is a setting, not a button.** `Settings.chromeLayout` (`⌘,`) chooses the layout; the sidebar

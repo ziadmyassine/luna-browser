@@ -35,8 +35,10 @@ final class TopBarSpacePill: NSView, TopBarThemed {
     var onNewSpace: (() -> Void)?
 
     private let name = NSTextField(labelWithString: "")
-    private let previous = TopBarButton(metric: TopBarMetrics.tile, glass: false)
-    private let next = TopBarButton(metric: TopBarMetrics.tile, glass: false)
+    // Dormant glass, so an arrow that is the drop target lights the way the
+    // tab you are on does — see `dropTarget`.
+    private let previous = TopBarButton(metric: TopBarMetrics.tile, glass: .dormant)
+    private let next = TopBarButton(metric: TopBarMetrics.tile, glass: .dormant)
     private let swipe = SpaceSwipeController()
     private var spaces: [Space] = []
     private var activeSpaceID: UUID?
@@ -124,6 +126,39 @@ final class TopBarSpacePill: NSView, TopBarThemed {
         scale.fromValue = 1.08
         scale.toValue = 1.0
         name.layer?.add(scale, forKey: "luna.space.pop")
+    }
+
+    // MARK: - §6.6: a tab carried to the Space next door
+
+    /// The Space an arrow at `point` leads to, with `point` in `space`'s
+    /// coordinates. Nil anywhere but on an enabled arrow — an arrow at the end
+    /// of the run leads nowhere, and a target that lights up and then refuses
+    /// the drop is worse than one that never lights up.
+    func neighbourSpace(at point: NSPoint, from space: NSView) -> UUID? {
+        let local = convert(point, from: space)
+        guard let index = spaces.firstIndex(where: { $0.id == activeSpaceID }) else { return nil }
+        for (arrow, step) in [(previous, -1), (next, 1)] where arrow.isEnabled && arrow.frame.contains(local) {
+            return spaces[index + step].id
+        }
+        return nil
+    }
+
+    /// The Space a lift is held over, marked on the arrow that leads there.
+    var dropTarget: UUID? {
+        didSet {
+            guard dropTarget != oldValue else { return }
+            let index = spaces.firstIndex { $0.id == activeSpaceID }
+            let lit = index.flatMap { index in spaces.firstIndex { $0.id == dropTarget }.map { $0 - index } }
+            previous.isSelected = lit == -1
+            next.isSelected = lit == 1
+            // Named while it is the target, so the hand knows where it is about
+            // to send the tab before it lets go.
+            if let dropTarget, let space = spaces.first(where: { $0.id == dropTarget }) {
+                name.stringValue = space.name
+            } else {
+                name.stringValue = spaces.first { $0.id == activeSpaceID }?.name ?? ""
+            }
+        }
     }
 
     // MARK: - The two arrows

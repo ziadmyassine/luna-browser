@@ -67,15 +67,37 @@ final class TopBarButton: NSButton {
         }
     }
 
-    /// §3.4's selected fill, standing still: this is the tab the window is
-    /// showing. The same 12 % plate and the same ring the column's pill wears,
-    /// because it is the same statement in the other layout.
+    /// This is the tab the window is showing. A `.dormant` chip turns to glass
+    /// for it — the same clear cylinder the kept run stands in, so "the tab you
+    /// are on" and "the tabs you keep" are made of the one material the bar
+    /// has. The glass fades in on §6's `controlHover` and out the same way.
     var isSelected = false {
         didSet {
             guard isSelected != oldValue else { return }
+            updateGlass(animated: true)
             refreshFill()
+            updateClose()
         }
     }
+
+    /// §3.4's close, on an open tab. Set, the chip grows a trailing
+    /// `RowGlyphView` — the same control the column's rows carry — shown while
+    /// the pointer is on the chip. Nil for anything that cannot be closed.
+    var onClose: (() -> Void)? {
+        didSet { updateClose() }
+    }
+
+    /// When the chip carries glass: always, only while it is the tab you are
+    /// on, or never.
+    enum GlassMode { case always, dormant, none }
+
+    /// Makes the chip draggable (§6.6). Handed the press that started the
+    /// gesture, not the drag that noticed it, so whoever takes over can lift
+    /// from where the finger went down; nil for a control that does not travel.
+    ///
+    /// Setting it takes the press off `NSControl`'s tracking loop — see
+    /// `mouseDown`.
+    var onDragOut: ((NSEvent) -> Void)?
 
     /// Told when the button goes down and comes back up. For the one case a
     /// button cannot answer a press itself — see `ownsItsMaterial`.
@@ -87,9 +109,15 @@ final class TopBarButton: NSButton {
     /// The shape this button was built as. Read by §4's strip, which rebuilds
     /// a chip when its tier changes its shape — see `TopBarTabStrip.chip(for:)`.
     let metric: RoundedMetric
+    private let glassMode: GlassMode
+    /// Built the first time a `.dormant` chip is selected and kept, faded on
+    /// its alpha after that. A dormant chip that is never the tab you are on
+    /// never pays for a glass view.
+    private var glassBacking: NSView?
     private let hoverFill = NSView()
     private let glyph = NSImageView()
     private let label = NSTextField(labelWithString: "")
+    private let closeChip = RowGlyphView()
     private var tracking: NSTrackingArea?
     private var isHovered = false
     private var isPressed = false
@@ -97,18 +125,19 @@ final class TopBarButton: NSButton {
     /// - Parameters:
     ///   - metric: the drawn size and corner radius. Also the intrinsic size,
     ///     so an Auto Layout caller needs no size constraints.
-    ///   - glass: §2's "Liquid Glass, clear" for controls and capsule items.
-    ///     Tab tiles pass `false`: the reference draws them as a bare icon on
-    ///     the bar, with no fill of their own until hover.
-    init(metric: RoundedMetric, glass: Bool) {
+    ///   - glass: §2's "Liquid Glass, clear". Tiles and capsule items pass
+    ///     `.none` — the reference draws them bare on the bar, with no fill
+    ///     until hover — and an open tab passes `.dormant`.
+    init(metric: RoundedMetric, glass: GlassMode) {
         self.metric = metric
+        glassMode = glass
         super.init(frame: NSRect(origin: .zero, size: metric.size))
 
         isBordered = false
         title = ""
         wantsLayer = true
 
-        if glass { Glass.apply(.control, to: self, cornerRadius: metric.cornerRadius) }
+        if glass == .always { glassBacking = makeGlass() }
 
         hoverFill.wantsLayer = true
         hoverFill.layer?.cornerCurve = metric.cornerCurve
@@ -123,25 +152,21 @@ final class TopBarButton: NSButton {
         label.cell?.usesSingleLineMode = true
         addSubview(label)
 
+        closeChip.isHidden = true
+        closeChip.configure(
+            symbolName: "xmark",
+            label: String(localized: "Close Tab"),
+            pointSize: Tokens.Metric.rowTrailingGlyph
+        )
+        closeChip.onActivate = { [weak self] in self?.onClose?() }
+        addSubview(closeChip)
+
         applyTokens()
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("Luna builds its chrome in code")
-    }
-
-    /// An SF Symbol sized to the bar's glyph size, and weighted so it draws the
-    /// same line as the rest of them — see `TypeScale.glyphWeight(for:)`, for
-    /// why one nominal weight is not one apparent weight. Nil only for a name
-    /// the installed SF Symbols set does not have.
-    static func symbol(_ name: String) -> NSImage? {
-        let configuration = NSImage.SymbolConfiguration(
-            pointSize: TopBarMetrics.glyph,
-            weight: Tokens.TypeScale.glyphWeight(for: name)
-        )
-        return NSImage(systemSymbolName: name, accessibilityDescription: nil)?
-            .withSymbolConfiguration(configuration)
     }
 
     // MARK: - Geometry
@@ -178,21 +203,76 @@ final class TopBarButton: NSButton {
             return
         }
         glyph.frame = NSRect(x: TopBarMetrics.chipInset, y: y, width: size, height: size)
+        let chip = Tokens.Metric.rowTrailingChip.size
+        closeChip.frame = NSRect(
+            x: bounds.width - TopBarMetrics.chipInset / 2 - chip.width,
+            y: ((bounds.height - chip.height) / 2).rounded(),
+            width: chip.width,
+            height: chip.height
+        )
+        // The title gives way to the close chip rather than the chip growing
+        // for it: a chip that widened under the pointer would push every tab
+        // after it along the bar, and the thing being reached for would move.
         let textX = glyph.frame.maxX + TopBarMetrics.gap
+        let textEnd = closeChip.isHidden ? bounds.width - TopBarMetrics.chipInset : closeChip.frame.minX
         let line = label.font?.boundingRectForFont.height.rounded(.up) ?? size
         label.frame = NSRect(
             x: textX,
             y: ((bounds.height - line) / 2).rounded(),
-            width: max(bounds.width - TopBarMetrics.chipInset - textX, 0),
+            width: max(textEnd - textX, 0),
             height: line
         )
+    }
+
+    // MARK: - The chip's own two parts
+
+    private func makeGlass() -> NSView {
+        let view = Glass.apply(
+            .control,
+            to: self,
+            cornerRadius: metric.cornerRadius,
+            cornerCurve: metric.cornerCurve
+        )
+        view.alphaValue = glassMode == .always ? 1 : 0
+        return view
+    }
+
+    private func updateGlass(animated: Bool) {
+        guard glassMode == .dormant else { return }
+        let target: CGFloat = isSelected ? 1 : 0
+        // Nothing to fade out of: a chip that has never been selected has no
+        // backing, and building one to set it to zero is the cost this avoids.
+        guard let view = glassBacking ?? (target > 0 ? makeGlass() : nil) else { return }
+        glassBacking = view
+        guard animated, !Tokens.Motion.reduceMotion else {
+            view.alphaValue = target
+            return
+        }
+        Tokens.Motion.animate(Tokens.Motion.controlHover) { context in
+            context.allowsImplicitAnimation = true
+            view.animator().alphaValue = target
+        }
+    }
+
+    /// §3.4's rule: the close chip is the pointer's. It comes out on the chip
+    /// the pointer is on and nowhere else, so a run of twenty tabs is not a
+    /// run of twenty crosses.
+    private func updateClose() {
+        let shows = onClose != nil && isHovered && isEnabled
+        guard closeChip.isHidden == shows else { return }
+        closeChip.isHidden = !shows
+        needsLayout = true
     }
 
     /// The glass backing and the glyph are decoration. Without this they would
     /// win the hit test and swallow the click before the button saw it.
     override func hitTest(_ point: NSPoint) -> NSView? {
         guard isEnabled, let superview else { return nil }
-        return bounds.contains(convert(point, from: superview)) ? self : nil
+        let local = convert(point, from: superview)
+        // The close chip is the one piece of decoration that is a control of
+        // its own, and it has to win the click on itself.
+        if !closeChip.isHidden, closeChip.frame.contains(local) { return closeChip }
+        return bounds.contains(local) ? self : nil
     }
 
     // MARK: - Hover (§3.1: hover lifts the fill, not the border)
@@ -227,6 +307,7 @@ final class TopBarButton: NSButton {
         guard isEnabled, hovered != isHovered else { return }
         isHovered = hovered
         refreshFill()
+        updateClose()
     }
 
     // MARK: - Press (§3.4's second wash, §6's `controlPress`)
@@ -241,6 +322,17 @@ final class TopBarButton: NSButton {
     override func mouseDown(with event: NSEvent) {
         guard isEnabled else { return }
         setPressed(true)
+        // A draggable chip cannot use the loop above at all: `sendAction`
+        // happens inside it and it does not return until the mouse is back up,
+        // so there is no moment in it at which a drag could be noticed. It runs
+        // its own instead, which is what `GlassButton` does in the sidebar for
+        // the same reason, and sends the action itself on a press that turned
+        // out to be a click.
+        if onDragOut != nil {
+            trackPress(from: event)
+            setPressed(false)
+            return
+        }
         super.mouseDown(with: event)
         setPressed(false)
     }
@@ -253,7 +345,7 @@ final class TopBarButton: NSButton {
         setPressed(flag && isEnabled)
     }
 
-    private func setPressed(_ pressed: Bool) {
+    func setPressed(_ pressed: Bool) {
         guard pressed != isPressed else { return }
         isPressed = pressed
         refreshFill()
@@ -265,23 +357,18 @@ final class TopBarButton: NSButton {
     /// §3.4's two washes: the pointer's, and the press's at twice it. A
     /// disabled button is in neither — it does not answer a pointer at all.
     ///
-    /// A selected button is already wearing the press's wash and stays there
-    /// under the pointer, exactly as §3.4's row pill does: the plate says which
-    /// tab this is, and brightening it for a hover would say it twice.
+    /// A selected chip is glass, and the washes go over the glass exactly as
+    /// they go over the bar: §3.1's "hover lifts the fill", whatever the fill
+    /// is made of.
     private var fillColour: NSColor? {
         guard isEnabled else { return nil }
-        if isPressed || isSelected { return Tokens.Surface.selected }
+        if isPressed { return Tokens.Surface.selected }
         return isHovered ? Tokens.Surface.hover : nil
     }
 
-    private func refreshFill() {
+    func refreshFill() {
         effectiveAppearance.performAsCurrentDrawingAppearance {
             Tokens.Motion.wash(self.hoverFill.layer, to: self.fillColour)
-            // §3.4's selected pill is a fill and a ring. Written straight
-            // rather than washed: a border animating its colour to nil leaves
-            // a hairline of the old one on the frame it lands on.
-            self.hoverFill.layer?.borderWidth = self.isSelected ? Tokens.Metric.hairline : 0
-            self.hoverFill.layer?.borderColor = self.isSelected ? Tokens.Line.border.cgColor : nil
         }
     }
 

@@ -157,7 +157,7 @@ final class ButtonFeedbackTests: XCTestCase {
     func testTheAppKitButtonsSwellWhenAppKitSaysTheyAreDown() {
         let swell = Tokens.Motion.pressSwell
 
-        let tile = TopBarButton(metric: TopBarMetrics.tile, glass: false)
+        let tile = TopBarButton(metric: TopBarMetrics.tile, glass: .none)
         _ = sized(tile)
         tile.highlight(true)
         XCTAssertEqual(scale(of: tile), swell, accuracy: 0.001, "a tab tile does not swell")
@@ -168,7 +168,7 @@ final class ButtonFeedbackTests: XCTestCase {
         // word. Registered separately because the width path is theirs alone:
         // a chip is sized from its title, and a chip sized wrong is a chip
         // whose swell is measured against the wrong box.
-        let chip = TopBarButton(metric: TopBarMetrics.chip, glass: false)
+        let chip = TopBarButton(metric: TopBarMetrics.chip, glass: .none)
         chip.titleText = "example.com"
         chip.frame = NSRect(origin: .zero, size: chip.intrinsicContentSize)
         chip.layoutSubtreeIfNeeded()
@@ -177,9 +177,10 @@ final class ButtonFeedbackTests: XCTestCase {
         chip.highlight(false)
         XCTAssertEqual(scale(of: chip), 1, accuracy: 0.001, "a tab chip stays swollen")
 
-        // The same control again, selected. §3.4's selected fill is a resting
-        // state and must not eat the press the way a latched button would.
-        let current = TopBarButton(metric: TopBarMetrics.chip, glass: false)
+        // The same control again, selected — which on §4's bar means glass.
+        // A resting state, and it must not eat the press the way a latched
+        // button would.
+        let current = TopBarButton(metric: TopBarMetrics.chip, glass: .dormant)
         current.titleText = "Folder"
         current.isSelected = true
         current.frame = NSRect(origin: .zero, size: current.intrinsicContentSize)

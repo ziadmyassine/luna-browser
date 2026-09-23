@@ -153,7 +153,7 @@ final class TopBarChipLayoutTests: XCTestCase {
     /// so a chip sized to it tail-truncates a title that fits it. The chip
     /// measures with `fittingSize` for that reason.
     func testAChipIsWideEnoughToDrawItsTitle() throws {
-        let chip = TopBarButton(metric: TopBarMetrics.chip, glass: false)
+        let chip = TopBarButton(metric: TopBarMetrics.chip, glass: .none)
         chip.titleText = "example.com"
         chip.setFrameSize(chip.intrinsicContentSize)
         chip.layoutSubtreeIfNeeded()
@@ -167,13 +167,13 @@ final class TopBarChipLayoutTests: XCTestCase {
     /// A tile is its metric and nothing more: §4 draws a kept tab as a bare
     /// icon, and a title left on one would widen the run it is standing in.
     func testATileWithNoTitleIsItsMetric() {
-        let tile = TopBarButton(metric: TopBarMetrics.tile, glass: false)
+        let tile = TopBarButton(metric: TopBarMetrics.tile, glass: .none)
         XCTAssertEqual(tile.intrinsicContentSize, TopBarMetrics.tile.size)
     }
 
     /// One long page title must not spend the room every other tab needs.
     func testALongTitleStopsAtTheCeiling() {
-        let chip = TopBarButton(metric: TopBarMetrics.chip, glass: false)
+        let chip = TopBarButton(metric: TopBarMetrics.chip, glass: .none)
         chip.titleText = String(repeating: "long title ", count: 20)
         XCTAssertEqual(chip.intrinsicContentSize.width, TopBarMetrics.chipCeiling)
     }

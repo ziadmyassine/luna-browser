@@ -94,7 +94,7 @@ final class TopBarActionCapsule: NSView {
         buttons = items.enumerated().map { index, item in
             // `glass: false`: the cylinder around them is the glass. A second
             // material per item is what made the three read as three.
-            let button = TopBarButton(metric: TopBarMetrics.capsuleItem, glass: false)
+            let button = TopBarButton(metric: TopBarMetrics.capsuleItem, glass: .none)
             // The cylinder is the material, so the cylinder is what swells —
             // see `TopBarButton.ownsItsMaterial`.
             button.ownsItsMaterial = false

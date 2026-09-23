@@ -46,6 +46,16 @@ final class TopBarKeptCylinder: NSView {
 @MainActor
 final class TopBarGroupPlate: NSView, TopBarThemed {
 
+    /// §6.6: a lift is over this folder and would land in it. The plate is the
+    /// folder, so the plate is what lights up — a ring round the header alone
+    /// would be saying "this name", and what is being offered is the inside.
+    var isDropTarget = false {
+        didSet {
+            guard isDropTarget != oldValue else { return }
+            applyTokens()
+        }
+    }
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
@@ -70,6 +80,12 @@ final class TopBarGroupPlate: NSView, TopBarThemed {
             // place things are inside, and the bar's own glass is what it is
             // inside of.
             self.layer?.backgroundColor = Tokens.Surface.well.cgColor
+            // Lit, the same hairline §3.4's group drop draws round the rows it
+            // is offering. It is a border rather than a brighter fill because
+            // the fill is a recess and a recess that lightens stops reading as
+            // one.
+            self.layer?.borderWidth = self.isDropTarget ? Tokens.Metric.hairline : 0
+            self.layer?.borderColor = self.isDropTarget ? Tokens.Line.border.cgColor : nil
         }
     }
 

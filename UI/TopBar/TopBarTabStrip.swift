@@ -48,6 +48,26 @@
 import AppKit
 import BrowserKit
 
+/// What §6.6's lift is carrying off the bar.
+enum TopBarLifted: Equatable, Sendable {
+    case tab(UUID)
+    case group(UUID)
+
+    var id: UUID {
+        switch self {
+        case let .tab(id), let .group(id): id
+        }
+    }
+}
+
+/// Where the run opens room for a lift: in front of which block, how wide, and
+/// what landing there means.
+struct DropGap: Equatable {
+    var block: Int
+    var width: CGFloat
+    var destination: SidebarDestination
+}
+
 @MainActor
 final class TopBarTabStrip: NSView, WindowScoped {
 
@@ -67,9 +87,67 @@ final class TopBarTabStrip: NSView, WindowScoped {
     var chips: [UUID: TopBarButton] = [:]
     var plates: [UUID: TopBarGroupPlate] = [:]
     var activeID: UUID?
+    /// The Space the run was last read for — see `reload`.
+    var shownSpace: UUID?
     /// Which kept chip the light is standing on, or nil for none.
     var litID: UUID?
     var scrolledTo: UUID?
+
+    // MARK: - §6.6's drag
+
+    /// The tab or folder in the air. The run is rebuilt without it for the
+    /// length of the gesture, so what is drawn is what a drop would leave —
+    /// and so the drop index is the one `reorderTab` counts.
+    var liftedID: UUID? {
+        didSet {
+            guard liftedID != oldValue else { return }
+            reload()
+        }
+    }
+
+    /// Where the gap opens and how wide it is — the lift's own width, so the
+    /// run makes exactly the room the thing in the air will take.
+    var dropGap: DropGap? {
+        didSet {
+            guard dropGap != oldValue else { return }
+            animatesNextPlacement = true
+            needsLayout = true
+        }
+    }
+
+    /// The kept run's cylinder stays out for the length of a drag even with
+    /// nothing kept yet, so there is somewhere to carry a tab to pin it — the
+    /// column's rule does the same (§3.4b). False in a §5.6 window, which
+    /// keeps nothing.
+    var revealsKept = false {
+        didSet {
+            guard revealsKept != oldValue else { return }
+            animatesNextPlacement = true
+            needsLayout = true
+        }
+    }
+
+    /// Where the gap was laid, in `content`'s coordinates — what the lift
+    /// comes to rest on.
+    var gapFrame: NSRect?
+
+    /// The folder a drop would land inside, lit for as long as it is the
+    /// target.
+    var dropFolder: UUID? {
+        didSet {
+            guard dropFolder != oldValue else { return }
+            for (id, plate) in plates { plate.isDropTarget = id == dropFolder }
+        }
+    }
+
+    /// Every block's frame from the last layout pass, in `content`'s
+    /// coordinates — what a pointer is resolved against.
+    var blockFrames: [NSRect] = []
+
+    /// What a press on a chip becomes once it moves: §6.6's lift, which
+    /// `TopBarTabDrag` runs. Handed the chip the gesture started on and the
+    /// press itself, so the lift can rise from exactly where the chip stood.
+    var onDrag: ((TopBarLifted, TopBarButton, NSEvent) -> Void)?
     /// Set by `reload()` when the active tab changed, consumed by the next
     /// `layout()`. See `placeContents`.
     var animatesNextPlacement = false
@@ -133,14 +211,21 @@ final class TopBarTabStrip: NSView, WindowScoped {
         run = TopBarStripRun(
             essentials: windowEssentials,
             saved: windowSlots(inTier: .pinned),
-            today: windowSlots(inTier: .today)
+            today: windowSlots(inTier: .today),
+            excluding: liftedID
         )
         activeID = activeTabID
         // A switch between two tabs is the one reload worth animating: the
         // plate a folder stands on grows or shrinks, and the tabs after it
         // slide along. A first load, or a tab arriving or leaving, is not —
         // there is no "from" to slide out of.
-        animatesNextPlacement = previousActive != nil && activeID != nil && previousActive != activeID
+        // Every change to a run that was already on screen slides into place:
+        // a switch, a tab arriving or closing, a folder opening, a drop. A
+        // Space switch does not — that is a different run, not this one moving
+        // — and nor does the first pass, which has no "from" to slide out of.
+        let space = activeSpaceID
+        animatesNextPlacement = shownSpace == space && previousActive != nil
+        shownSpace = space
         // Every reload re-honours §4's "the active tab is always scrolled into
         // view"; live title changes arrive through `apply(_:for:)` instead and
         // do not fight the user's own scrolling.
@@ -152,13 +237,9 @@ final class TopBarTabStrip: NSView, WindowScoped {
             case let .tab(tab, style):
                 live.insert(tab.id)
                 configure(tab, style: style)
-            case let .group(group, members, style):
+            case let .group(group, _):
                 live.insert(group.id)
-                configure(group, memberCount: members.count)
-                for member in members {
-                    live.insert(member.id)
-                    configure(member, style: style)
-                }
+                configure(group, memberCount: session.members(ofGroup: group.id).count)
             case .rule:
                 break
             }
@@ -199,7 +280,9 @@ final class TopBarTabStrip: NSView, WindowScoped {
     // MARK: - Chips
 
     private func configure(_ tab: Tab, style: TopBarTabStyle) {
-        let chip = chip(for: tab.id, metric: style == .icon ? TopBarMetrics.tile : TopBarMetrics.chip)
+        let chip = style == .icon
+            ? chip(for: tab.id, metric: TopBarMetrics.tile, glass: .none)
+            : chip(for: tab.id, metric: TopBarMetrics.chip, glass: .dormant)
         // §3.4a: the icon and the name the user chose outrank the site's.
         chip.icon = tab.customSymbolName.flatMap(TopBarButton.symbol)
             ?? session.favicon(for: tab.id)
@@ -217,6 +300,14 @@ final class TopBarTabStrip: NSView, WindowScoped {
         chip.isSelected = style == .chip && tab.id == activeID
         chip.target = self
         chip.action = #selector(tabPressed)
+        // §3.4's close is for the day's tabs. A kept tab cannot be closed from
+        // its chip any more than §3.3's tile can: closing one files its page
+        // away, which is `⌘W`'s job and the menu's.
+        chip.onClose = style == .chip ? { [weak self] in self?.session.closeTab(tab.id) } : nil
+        chip.onDragOut = { [weak self, weak chip] press in
+            guard let self, let chip else { return }
+            onDrag?(.tab(tab.id), chip, press)
+        }
         // The tab is re-read inside the closure rather than captured: a chip is
         // reused across reloads, so the `tab` this pass was configured from is a
         // snapshot and the menu has to state what is true when it opens.
@@ -231,7 +322,7 @@ final class TopBarTabStrip: NSView, WindowScoped {
     }
 
     private func configure(_ group: TabGroup, memberCount: Int) {
-        let chip = chip(for: group.id, metric: TopBarMetrics.chip)
+        let chip = chip(for: group.id, metric: TopBarMetrics.chip, glass: .none)
         chip.icon = RowEmoji.image(group.symbolName, pointSize: TopBarMetrics.glyph)
             ?? TopBarButton.symbol(group.symbolName)
             ?? TopBarButton.symbol(TabGroup.defaultSymbolName)
@@ -244,6 +335,10 @@ final class TopBarTabStrip: NSView, WindowScoped {
         chip.isSelected = false
         chip.target = self
         chip.action = #selector(groupPressed)
+        chip.onDragOut = { [weak self, weak chip] press in
+            guard let self, let chip else { return }
+            onDrag?(.group(group.id), chip, press)
+        }
         chip.menuBuilder = { [weak self] in
             guard let self, let current = session.group(group.id) else { return nil }
             return GroupMenu.build(for: current, actions: session.groupMenuActions(for: group.id))
@@ -261,10 +356,10 @@ final class TopBarTabStrip: NSView, WindowScoped {
     /// its focus ring from the metric it was built with — so a tab that crosses
     /// the rule is rebuilt rather than reshaped. That is the only thing a
     /// change of tier costs, and it happens once per drag.
-    private func chip(for id: UUID, metric: RoundedMetric) -> TopBarButton {
+    private func chip(for id: UUID, metric: RoundedMetric, glass: TopBarButton.GlassMode) -> TopBarButton {
         if let existing = chips[id], existing.metric == metric { return existing }
         chips[id]?.removeFromSuperview()
-        let fresh = TopBarButton(metric: metric, glass: false)
+        let fresh = TopBarButton(metric: metric, glass: glass)
         fresh.identifier = NSUserInterfaceItemIdentifier(id.uuidString)
         // Under the light, which has to stay over every chip there will be.
         content.addSubview(fresh, positioned: .below, relativeTo: glow)

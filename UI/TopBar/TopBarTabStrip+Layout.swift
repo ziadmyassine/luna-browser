@@ -26,16 +26,15 @@ extension TopBarTabStrip {
         return convert(NSPoint(x: bar.bounds.midX, y: 0), from: bar).x
     }
 
-    /// What one block takes along the bar. A folder's is its plate: the header,
-    /// its open tabs, and the inset the plate stands proud of them by.
+    /// What one block takes along the bar. A folder's plate and the kept
+    /// run's cylinder are not in it: they are drawn around blocks, and their
+    /// padding is added where they open and close — see `pieces`.
     private func width(of block: TopBarStripBlock) -> CGFloat {
         switch block {
         case let .tab(tab, _):
             chips[tab.id]?.intrinsicContentSize.width ?? TopBarMetrics.tile.width
-        case let .group(group, members, _):
-            members.reduce(chips[group.id]?.intrinsicContentSize.width ?? TopBarMetrics.chipFloor) {
-                $0 + TopBarMetrics.gap + (chips[$1.id]?.intrinsicContentSize.width ?? TopBarMetrics.tile.width)
-            } + TopBarMetrics.groupPlateInset * 2
+        case let .group(group, _):
+            chips[group.id]?.intrinsicContentSize.width ?? TopBarMetrics.chipFloor
         case .rule:
             // The hairline, with a cluster's worth of air either side of it
             // rather than the gap the rest of the run is spaced on: it divides
@@ -45,40 +44,169 @@ extension TopBarTabStrip {
         }
     }
 
+    /// One thing the layout pass lays down, in order.
+    private enum Piece {
+        case block(Int)
+        /// §6.6's gap: the room the lift will take when it lands.
+        case gap(CGFloat)
+        /// The empty kept run a drag reveals, so there is somewhere to pin to
+        /// before anything is pinned — §3.4b's rule coming out, on a bar.
+        case vacancy
+        case openCylinder, closeCylinder
+        case openPlate(UUID), closePlate(UUID)
+    }
+
+    /// The run, with its surfaces opened and closed around it and the gap put
+    /// in. The gap is placed by what it means rather than by its index alone:
+    /// the end of a folder and the start of whatever follows it are the same
+    /// index, and only the destination says which side of the plate's edge the
+    /// room belongs on. The same is true of the kept run's cylinder.
+    private func pieces(gap drop: DropGap?) -> [Piece] {
+        var out: [Piece] = []
+        var placed = drop == nil
+        func put(_ condition: Bool) {
+            guard !placed, condition, let drop else { return }
+            out.append(.gap(drop.width))
+            placed = true
+        }
+        let revealed = run.kept == 0 && revealsKept
+        if run.kept > 0 || revealed { out.append(.openCylinder) }
+        if revealed {
+            put(drop?.destination.kind != .today)
+            if !placed || drop?.destination.kind == .today { out.append(.vacancy) }
+            out.append(.closeCylinder)
+        }
+        for index in run.blocks.indices {
+            put(drop?.block == index)
+            if case let .group(group, _) = run.blocks[index] { out.append(.openPlate(group.id)) }
+            out.append(.block(index))
+            let header = run.owner(of: index)
+            if case let .group(group, _) = run.blocks[header], run.lastBlock(ofFolderAt: header) == index {
+                put(drop?.destination.groupID == group.id && drop?.block == index + 1)
+                out.append(.closePlate(group.id))
+            }
+            if index == run.kept - 1 {
+                put(drop?.destination.kind != .today && drop?.block == run.kept)
+                out.append(.closeCylinder)
+            }
+        }
+        put(true)
+        return out
+    }
+
+    /// Where the layout pass has got to: the pen, and the edges of whatever
+    /// surfaces are open under it.
+    private struct Cursor {
+        var originX: CGFloat
+        /// Whether the next item needs the run's gap in front of it — false
+        /// straight after a surface opens, whose padding stands in for it.
+        var spaced = false
+        var cylinderStart: CGFloat = 0
+        var plateStart: [UUID: CGFloat] = [:]
+    }
+
+    /// Lays the pieces down from `start` and says how far they reached. With
+    /// `placing` false nothing moves: that is the measuring pass, and the pass
+    /// that works out where the run would be with no gap in it.
+    @discardableResult
+    private func lay(
+        _ pieces: [Piece],
+        from start: CGFloat,
+        centre: CGFloat,
+        placing: Bool,
+        frames: inout [NSRect]
+    ) -> CGFloat {
+        var cursor = Cursor(originX: start, cylinderStart: start)
+        // `surface` lays a cylinder or a plate down and says so; whatever it
+        // did not take is something that takes room in the run.
+        for piece in pieces where !surface(piece, cursor: &cursor, centre: centre, placing: placing) {
+            item(piece, cursor: &cursor, centre: centre, placing: placing, frames: &frames)
+        }
+        return cursor.originX - start
+    }
+
+    /// A cylinder or a plate opening or closing. False for anything else.
+    private func surface(_ piece: Piece, cursor: inout Cursor, centre: CGFloat, placing: Bool) -> Bool {
+        let inset = TopBarMetrics.groupPlateInset
+        switch piece {
+        case .openCylinder:
+            cursor.cylinderStart = cursor.originX
+            cursor.originX += inset
+            cursor.spaced = false
+        case .closeCylinder:
+            cursor.originX += inset
+            if placing { cylinder.frame = plate(from: cursor.cylinderStart, to: cursor.originX, centre: centre) }
+            cursor.spaced = true
+        case let .openPlate(id):
+            if cursor.spaced { cursor.originX += TopBarMetrics.gap }
+            cursor.plateStart[id] = cursor.originX
+            cursor.originX += inset
+            cursor.spaced = false
+        case let .closePlate(id):
+            cursor.originX += inset
+            let from = cursor.plateStart[id] ?? cursor.originX
+            if placing { plates[id]?.frame = plate(from: from, to: cursor.originX, centre: centre) }
+            cursor.spaced = true
+        case .block, .gap, .vacancy:
+            return false
+        }
+        return true
+    }
+
+    /// Something that takes room in the run: a block, the gap, or the empty
+    /// kept run's one slot.
+    private func item(
+        _ piece: Piece,
+        cursor: inout Cursor,
+        centre: CGFloat,
+        placing: Bool,
+        frames: inout [NSRect]
+    ) {
+        if cursor.spaced { cursor.originX += TopBarMetrics.gap }
+        let originX = cursor.originX
+        switch piece {
+        case let .block(index):
+            let width = width(of: run.blocks[index])
+            if frames.indices.contains(index) {
+                frames[index] = NSRect(x: originX, y: 0, width: width, height: bounds.height)
+            }
+            if placing { place(run.blocks[index], at: originX, width: width, centre: centre) }
+            cursor.originX += width
+        case let .gap(width):
+            if placing { gapFrame = NSRect(x: originX, y: 0, width: width, height: bounds.height) }
+            cursor.originX += width
+        default:
+            cursor.originX += TopBarMetrics.tile.width
+        }
+        cursor.spaced = true
+    }
+
     func placeContents() {
-        let widths = run.blocks.map(width(of:))
-        let pad = run.kept > 0 ? TopBarMetrics.groupPlateInset * 2 : 0
-        let total = max(widths.reduce(pad) { $0 + $1 + TopBarMetrics.gap } - TopBarMetrics.gap, 0)
         // The traffic lights' line, not the bar's middle: the strip is pinned
         // top and bottom, so it takes the offset itself rather than through a
         // centre-line constraint the way the capsules beside it do.
         let centre = bounds.height / 2 - TopBarMetrics.lightsCentreOffset
+        let laid = pieces(gap: dropGap)
+        var frames = Array(repeating: NSRect.zero, count: run.blocks.count)
+        let total = lay(laid, from: 0, centre: centre, placing: false, frames: &frames)
         let start = TopBarTabRun.leadingPad(
             position: tabsPosition,
             run: total,
             span: bounds.width,
             barCentre: barCentre
         )
-        var originX = start + (run.kept > 0 ? TopBarMetrics.groupPlateInset : 0)
+        gapFrame = nil
+        cylinder.isHidden = run.kept == 0 && !revealsKept
+        lay(laid, from: start, centre: centre, placing: true, frames: &frames)
+        // Where each block would be with no gap open, which is what a pointer
+        // is resolved against. Resolving against the frames the gap has already
+        // pushed would move the target the moment it was found, and the gap
+        // would chase the pointer back and forth across one boundary.
+        var resting = frames
+        lay(pieces(gap: nil), from: start, centre: centre, placing: false, frames: &resting)
+        blockFrames = resting
 
-        for (index, (block, width)) in zip(run.blocks, widths).enumerated() {
-            place(block, at: originX, width: width, centre: centre)
-            originX += width
-            // The cylinder closes after the last kept block, before the gap
-            // that leads to the hairline.
-            if index == run.kept - 1 {
-                cylinder.frame = plate(from: start, to: originX + TopBarMetrics.groupPlateInset, centre: centre)
-                originX += TopBarMetrics.groupPlateInset
-            }
-            originX += TopBarMetrics.gap
-        }
-
-        content.frame = NSRect(
-            x: 0,
-            y: 0,
-            width: max(originX - TopBarMetrics.gap, 0),
-            height: bounds.height
-        )
+        content.frame = NSRect(x: 0, y: 0, width: start + total, height: bounds.height)
         placeGlow()
         scrollActiveTabIntoView()
     }
@@ -108,13 +236,8 @@ extension TopBarTabStrip {
         switch block {
         case let .tab(tab, _):
             place(chips[tab.id], at: originX, centre: centre)
-        case let .group(group, members, _):
-            plates[group.id]?.frame = plate(from: originX, to: originX + width, centre: centre)
-            var x = originX + TopBarMetrics.groupPlateInset
-            for id in [group.id] + members.map(\.id) {
-                place(chips[id], at: x, centre: centre)
-                x += (chips[id]?.intrinsicContentSize.width ?? 0) + TopBarMetrics.gap
-            }
+        case let .group(group, _):
+            place(chips[group.id], at: originX, centre: centre)
         case .rule:
             let size = rule.intrinsicContentSize
             rule.frame = NSRect(

@@ -102,11 +102,12 @@ final class TopBarView: NSView, WindowScoped {
     /// and profile. Same class, same padding, same radius: one item in it
     /// instead of four, and the two ends of the bar are made of the same thing.
     private let backCapsule = TopBarActionCapsule()
-    private let spacePill = TopBarSpacePill()
-    private let strip: TopBarTabStrip
+    let spacePill = TopBarSpacePill()
+    let strip: TopBarTabStrip
     private let separator = TopBarSeparator()
     private let capsule = TopBarActionCapsule()
     private var leadingInset: NSLayoutConstraint?
+    var drag: TopBarTabDragController?
 
     init(session: BrowserSession, windowID: UUID) {
         self.session = session
@@ -123,6 +124,7 @@ final class TopBarView: NSView, WindowScoped {
         buildControls()
         buildLayout()
         rebuildCapsule()
+        wireDrag()
         subscribe(to: session)
         refresh()
 

@@ -90,8 +90,8 @@ final class TopBarStripLayoutTests: XCTestCase {
         XCTAssertGreaterThan(try XCTUnwrap(chip(open, in: strip)).frame.minX, hairline.frame.maxX)
     }
 
-    /// The tab the window is showing wears §3.4's selected plate, and it is the
-    /// only one that does.
+    /// The tab the window is showing wears the glass, and it is the only one
+    /// that does.
     func testOnlyTheWindowsOwnTabIsSelected() async throws {
         let session = try await session()
         let window = window(on: session)
