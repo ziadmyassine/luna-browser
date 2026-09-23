@@ -37,8 +37,8 @@ final class TopBarSpacePill: NSView, TopBarThemed {
     private let name = NSTextField(labelWithString: "")
     // Dormant glass, so an arrow that is the drop target lights the way the
     // tab you are on does — see `dropTarget`.
-    private let previous = TopBarButton(metric: TopBarMetrics.tile, glass: .dormant)
-    private let next = TopBarButton(metric: TopBarMetrics.tile, glass: .dormant)
+    private let previous = TopBarButton(metric: TopBarMetrics.arrow, glass: .dormant)
+    private let next = TopBarButton(metric: TopBarMetrics.arrow, glass: .dormant)
     private let swipe = SpaceSwipeController()
     private var spaces: [Space] = []
     private var activeSpaceID: UUID?
@@ -63,7 +63,7 @@ final class TopBarSpacePill: NSView, TopBarThemed {
         build(next, symbol: "chevron.right", label: String(localized: "Next Space"), step: 1)
 
         swipe.spaces = { [weak self] in (self?.spaces.map(\.id) ?? [], self?.activeSpaceID) }
-        swipe.span = { [weak self] in max(self?.bounds.width ?? 0, TopBarMetrics.chipCeiling) }
+        swipe.span = { [weak self] in max(self?.bounds.width ?? 0, TopBarMetrics.nameCeiling) }
         swipe.onUpdate = { [weak self] state in self?.read(state) }
         swipe.onFinish = { [weak self] state, _, committing in self?.settle(state, committing: committing) }
 
@@ -230,8 +230,8 @@ final class TopBarSpacePill: NSView, TopBarThemed {
     /// same ceiling on the word a tab's title has, for the same reason: one
     /// long name must not spend the room the tabs need.
     override var intrinsicContentSize: NSSize {
-        let title = min(name.fittingSize.width.rounded(.up), TopBarMetrics.chipCeiling)
-        let arrows = TopBarMetrics.tile.width * 2 + TopBarMetrics.gap * 2
+        let title = min(name.fittingSize.width.rounded(.up), TopBarMetrics.nameCeiling)
+        let arrows = TopBarMetrics.arrow.width * 2 + TopBarMetrics.gap * 2
         return NSSize(
             width: TopBarMetrics.groupPlateInset * 2 + arrows + title,
             height: TopBarMetrics.plate.height
@@ -245,7 +245,7 @@ final class TopBarSpacePill: NSView, TopBarThemed {
 
     private func placeContents() {
         let inset = TopBarMetrics.groupPlateInset
-        let side = TopBarMetrics.tile.size
+        let side = TopBarMetrics.arrow.size
         let y = ((bounds.height - side.height) / 2).rounded()
         previous.frame = NSRect(origin: NSPoint(x: inset, y: y), size: side)
         next.frame = NSRect(

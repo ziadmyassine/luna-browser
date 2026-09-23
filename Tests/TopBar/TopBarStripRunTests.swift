@@ -57,7 +57,7 @@ final class TopBarStripRunTests: XCTestCase {
             saved: [.tab(tab("docs", kind: .pinned))],
             today: [.tab(tab("news"))]
         )
-        XCTAssertEqual(styles(run), [.icon, .icon, .chip])
+        XCTAssertEqual(styles(run), [.tile, .tile, .row])
     }
 
     func testAFoldersTabsTakeItsOwnTiersShape() {
@@ -67,7 +67,7 @@ final class TopBarStripRunTests: XCTestCase {
             today: [.group(group("Fun"), tabs: [tab("news")])]
         )
         // Header, its tab; header, its tab.
-        XCTAssertEqual(styles(run), [.icon, .icon, .chip, .chip])
+        XCTAssertEqual(styles(run), [.tile, .tile, .row, .row])
     }
 
     // MARK: - The order

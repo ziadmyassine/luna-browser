@@ -22,13 +22,20 @@ import XCTest
 final class TopBarTabDragTests: XCTestCase {
 
     private var directory: URL!
+    /// The live setting, put back afterwards. These tests measure where
+    /// things land, and where a run starts is `Settings.tabsPosition` — a
+    /// machine set to Left would otherwise move every assertion.
+    private var storedPosition: TabsPosition!
     private var window: NSWindow!
 
     override func setUpWithError() throws {
+        storedPosition = Settings.tabsPosition
+        Settings.tabsPosition = .centre
         directory = URL.temporaryDirectory.appending(path: "luna-tests-\(UUID().uuidString)")
     }
 
     override func tearDownWithError() throws {
+        Settings.tabsPosition = storedPosition
         window?.orderOut(nil)
         window = nil
         try? FileManager.default.removeItem(at: directory)
@@ -46,6 +53,10 @@ final class TopBarTabDragTests: XCTestCase {
 
     func testATabCarriedOntoAFoldersHeaderGoesInsideIt() async throws {
         let (session, bar, space) = try await fixture()
+        // Something kept, so the drag opens no empty slot in front of the run
+        // and the folder stays exactly where the hand is aiming — the empty
+        // slot has its own test.
+        XCTAssertTrue(session.pinTab(insert("Kept", order: 9, in: space, on: session)))
         let member = insert("Member", order: 0, in: space, on: session)
         let folder = try XCTUnwrap(session.createGroup(name: "Work", containing: [member]))
         let loose = insert("Loose", order: 5, in: space, on: session)
@@ -57,7 +68,7 @@ final class TopBarTabDragTests: XCTestCase {
         XCTAssertEqual(session.members(ofGroup: folder).first?.id, loose, "past the header is the front of the folder")
     }
 
-    /// Across the hairline among §3.3's circles is pinning it.
+    /// Across the hairline among §3.3's tiles is pinning it.
     func testATabCarriedAmongTheCirclesIsPinned() async throws {
         let (session, bar, space) = try await fixture()
         let kept = insert("Kept", order: 0, in: space, on: session)
@@ -69,6 +80,21 @@ final class TopBarTabDragTests: XCTestCase {
         try drag(open, in: bar, toTrailingHalfOf: kept)
         try await settle { session.tab(open)?.kind == .essential }
         XCTAssertEqual(session.favorites(inSpace: space).map(\.id), [kept, open])
+    }
+
+    /// With nothing kept yet, a drag opens §3.3's empty slot in the clear bar
+    /// before the run — the grid's own empty slot — and a tab carried there is
+    /// pinned.
+    func testATabCarriedIntoTheEmptyKeptSlotIsPinned() async throws {
+        let (session, bar, space) = try await fixture()
+        let tabs = ["One", "Two"].enumerated().map { insert($1, order: $0, in: space, on: session) }
+        bar.refresh()
+        bar.layoutSubtreeIfNeeded()
+
+        let first = try XCTUnwrap(chip(tabs[0], in: bar))
+        let before = first.convert(NSPoint(x: -40, y: first.bounds.midY), to: nil)
+        try drag(tabs[1], in: bar, to: before)
+        try await settle { session.tab(tabs[1])?.kind == .essential }
     }
 
     /// Escape puts it back where it was: nothing is committed.
@@ -93,10 +119,14 @@ final class TopBarTabDragTests: XCTestCase {
         toTrailingHalfOf target: UUID,
         cancelling: Bool = false
     ) throws {
-        let from = try XCTUnwrap(chip(id, in: bar))
         let to = try XCTUnwrap(chip(target, in: bar))
+        try drag(id, in: bar, to: to.convert(NSPoint(x: to.bounds.maxX - 2, y: to.bounds.midY), to: nil), cancelling: cancelling)
+    }
+
+    /// `goal` in window coordinates.
+    private func drag(_ id: UUID, in bar: TopBarView, to goal: NSPoint, cancelling: Bool = false) throws {
+        let from = try XCTUnwrap(chip(id, in: bar))
         let start = from.convert(NSPoint(x: from.bounds.midX, y: from.bounds.midY), to: nil)
-        let goal = to.convert(NSPoint(x: to.bounds.maxX - 2, y: to.bounds.midY), to: nil)
 
         let steps = 12
         for step in 1 ... steps {
@@ -184,9 +214,10 @@ final class TopBarTabDragTests: XCTestCase {
         return tab.id
     }
 
-    private func chip(_ id: UUID, in root: NSView) -> TopBarButton? {
-        if let button = root as? TopBarButton, button.identifier?.rawValue == id.uuidString { return button }
+    /// The tile or row drawing `id`.
+    private func chip(_ id: UUID, in root: NSView) -> NSView? {
         for sub in root.subviews {
+            if sub.identifier?.rawValue == id.uuidString { return sub }
             if let found = chip(id, in: sub) { return found }
         }
         return nil

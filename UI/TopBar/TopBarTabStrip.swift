@@ -2,19 +2,25 @@
 //  TopBarTabStrip.swift
 //  Luna
 //
-//  §4: the tab list, along a bar instead of down a column. It draws everything
-//  §3.4's list draws — §3.3's tiles, §3.4b's kept tier, its folders, and the
-//  day's tabs — in one run, with a hairline where the column has its rule.
+//  §4: the tab list, along a bar instead of down a column — drawn with the
+//  column's own parts.
 //
-//  Two shapes and one rule between them: a kept tab is a bare icon, an open one
-//  carries its title. `TopBarStripRun` holds the arrangement and the reasons
-//  for it; this file is the views, their frames, and the scrolling.
+//  Kept tabs are §3.3's tiles: `GlassButton` in the grid's shape, dormant until
+//  the pointer or the selection reaches it, with the grid's well, hairline and
+//  swell, and the tile you are on lit by the same `EssentialGlowView` in its
+//  site's own colour. Open tabs and folders' headers are §3.4's rows:
+//  `SidebarRowView` itself, with the column's two `RowPillView`s — the
+//  selected one and the hover one — sliding between them on the column's own
+//  springs. Nothing on the bar is a copy of something in the sidebar; it is the
+//  sidebar's thing, standing somewhere else.
 //
-//  A folder stands on a plate (`TopBarGroupPlate`) and grows along the bar when
-//  it is opened, which is the horizontal answer to the column's indentation:
-//  the tabs in a folder are the ones standing on its plate. Folded and open are
-//  the same `isCollapsed` the column writes, so a folder is open in both
-//  layouts or shut in both.
+//  Two runs and a hairline between them: kept on the left, open on the right.
+//  `TopBarStripRun` holds the arrangement and where a drop lands; the frames
+//  are `+Layout`, the pills and the pointer `+Pills`.
+//
+//  A folder's tabs follow its header along the run, with §3.4b's spine laid
+//  under them — the column's hairline down a folder's leading edge, on its
+//  side. Folded and open are the column's own `isCollapsed`.
 //
 //  The strip scrolls horizontally when it overflows and the active tab is
 //  always scrolled back into view. An `NSScrollView` does the scrolling: it
@@ -22,27 +28,13 @@
 //  §19.1 asks for, and a hand-rolled clipper would have none of them.
 //
 //  Where the run sits in the bar is `Settings.tabsPosition`, centred by
-//  default. The strip only owns what is left between Back and the separator,
-//  and those clusters are nothing like the same width — one capsule item on the
-//  left, four and a separator on the right — so a run centred in the strip's
-//  own span sat 25 pt off the window's middle. Centred means centred in the
-//  bar, which is the line the eye measures against. Once the tabs overflow the
-//  span the alignment stops meaning anything and the run scrolls from its
-//  leading edge.
+//  default, centred on the bar rather than on the strip's own span — see
+//  `TopBarTabRun`.
 //
-//  Right-clicking a tab opens §3.4a's menu and right-clicking a folder opens
-//  §3.4b's, from the same bindings on `BrowserSession` the column uses. The
-//  layout you are in does not change what you can do to a tab. The one
-//  difference is where a name is typed: the column types it on the row, and
-//  this asks in a dialog, because a chip is not a line of text there is room to
-//  type on.
-//
-//  There is no address bar in this run any more. It used to be here — the
-//  active tab swelled into a URL pill and every other tab was an icon — and
-//  that could not survive tabs that carry their own titles: the pill was a
-//  fourth shape among three, and the run jumped a pill's width every time the
-//  selection moved. `⌘L` opens §9.1's bar over the page instead, which is the
-//  same field with the same history behind it.
+//  Right-clicking opens the column's own menus — §3.4a on a tab, §3.4b on a
+//  folder — from the same bindings on `BrowserSession`. A name is asked for in
+//  a dialog rather than typed on the row: a bar row is as wide as its title,
+//  and there is no room past the end of it to type a longer one.
 //
 
 import AppKit
@@ -76,22 +68,33 @@ final class TopBarTabStrip: NSView, WindowScoped {
     let scrollView = NSScrollView()
     let content = StripContentView()
     let rule = TopBarSeparator()
-    let cylinder = TopBarKeptCylinder()
-    /// §3.3's light, one for the whole strip: only one tab can be the one you
-    /// are on, so only one kept chip can be lit.
+    /// §3.4's two fills, one of each for the whole bar.
+    let selectionPill = RowPillView(role: .selected)
+    let hoverPill = RowPillView(role: .hover)
+    /// §3.3's light, one for the whole bar: only one tab can be the one you
+    /// are on.
     let glow = EssentialGlowView()
+    /// §6.6's box round a folder taking a drop — the column's own.
+    let folderDrop = SidebarGroupDropView()
+    /// §3.3's dashed slot, where a kept tab is about to land.
+    let slot = TopBarSlotOutline()
 
     var run = TopBarStripRun()
-    /// Every chip on the bar, by the id of the tab or folder it draws. Reused
-    /// across reloads so a title or favicon update does not rebuild the strip.
-    var chips: [UUID: TopBarButton] = [:]
-    var plates: [UUID: TopBarGroupPlate] = [:]
+    var tiles: [UUID: GlassButton] = [:]
+    var rows: [UUID: TopBarTabRow] = [:]
+    var spines: [UUID: TopBarFolderSpine] = [:]
     var activeID: UUID?
+    var hoveredID: UUID?
     /// The Space the run was last read for — see `reload`.
     var shownSpace: UUID?
-    /// Which kept chip the light is standing on, or nil for none.
+    /// Which kept tile the light is standing on, or nil for none.
     var litID: UUID?
     var scrolledTo: UUID?
+    /// Set by `reload()` when a run already on screen changed, consumed by the
+    /// next `layout()`. See `placeContents`.
+    var animatesNextPlacement = false
+    /// §4's alignment, cached rather than read per layout pass.
+    var tabsPosition = Settings.tabsPosition(in: .topBar)
 
     // MARK: - §6.6's drag
 
@@ -101,9 +104,21 @@ final class TopBarTabStrip: NSView, WindowScoped {
     var liftedID: UUID? {
         didSet {
             guard liftedID != oldValue else { return }
+            // The run holds still under the hand. A centred run would otherwise
+            // re-centre the moment its lifted tab left it, sliding every tab
+            // half that tab's width under the pointer — so the drop landed one
+            // place off from where it was aimed. The column never has this: its
+            // list hangs from the top.
+            frozenStart = liftedID == nil ? nil : lastStart
             reload()
+            movePills()
         }
     }
+
+    /// Where the run started on the last pass, and the start held for the
+    /// length of a drag — see `liftedID`.
+    var lastStart: CGFloat = 0
+    var frozenStart: CGFloat?
 
     /// Where the gap opens and how wide it is — the lift's own width, so the
     /// run makes exactly the room the thing in the air will take.
@@ -115,10 +130,9 @@ final class TopBarTabStrip: NSView, WindowScoped {
         }
     }
 
-    /// The kept run's cylinder stays out for the length of a drag even with
-    /// nothing kept yet, so there is somewhere to carry a tab to pin it — the
-    /// column's rule does the same (§3.4b). False in a §5.6 window, which
-    /// keeps nothing.
+    /// An empty kept run still takes a drop for the length of a drag, drawn as
+    /// §3.3's empty slot — the grid does the same when nothing is pinned yet.
+    /// False in a §5.6 window, which keeps nothing.
     var revealsKept = false {
         didSet {
             guard revealsKept != oldValue else { return }
@@ -127,32 +141,32 @@ final class TopBarTabStrip: NSView, WindowScoped {
         }
     }
 
-    /// Where the gap was laid, in `content`'s coordinates — what the lift
-    /// comes to rest on.
-    var gapFrame: NSRect?
-
-    /// The folder a drop would land inside, lit for as long as it is the
-    /// target.
+    /// The folder a drop would land inside.
     var dropFolder: UUID? {
         didSet {
             guard dropFolder != oldValue else { return }
-            for (id, plate) in plates { plate.isDropTarget = id == dropFolder }
+            needsLayout = true
         }
     }
 
-    /// Every block's frame from the last layout pass, in `content`'s
-    /// coordinates — what a pointer is resolved against.
+    /// Where the gap was laid, in `content`'s coordinates — what the lift
+    /// comes to rest on.
+    var gapFrame: NSRect?
+    /// Every block's frame with no gap open, in `content`'s coordinates —
+    /// what a pointer is resolved against.
     var blockFrames: [NSRect] = []
+    /// Where the last pass put each tile and row. Read instead of their
+    /// `frame`, which during an animated pass is still on its way there: a
+    /// pill sent to a row's `frame` then would chase where the row was.
+    var targets: [UUID: NSRect] = [:]
+    /// Where the empty kept slot stands while a drag has one open, in
+    /// `content`'s coordinates — its target, for `targets`' reason.
+    var vacancyFrame: NSRect?
 
-    /// What a press on a chip becomes once it moves: §6.6's lift, which
-    /// `TopBarTabDrag` runs. Handed the chip the gesture started on and the
-    /// press itself, so the lift can rise from exactly where the chip stood.
-    var onDrag: ((TopBarLifted, TopBarButton, NSEvent) -> Void)?
-    /// Set by `reload()` when the active tab changed, consumed by the next
-    /// `layout()`. See `placeContents`.
-    var animatesNextPlacement = false
-    /// §4's alignment, cached rather than read per layout pass.
-    var tabsPosition = Settings.tabsPosition(in: .topBar)
+    /// What a press becomes once it moves: §6.6's lift, which
+    /// `TopBarTabDragController` runs. Handed the view the gesture started on
+    /// and the press itself, so the lift rises from exactly where it stood.
+    var onDrag: ((TopBarLifted, NSView, NSEvent) -> Void)?
 
     init(session: BrowserSession, windowID: UUID) {
         self.session = session
@@ -178,10 +192,12 @@ final class TopBarTabStrip: NSView, WindowScoped {
 
         content.setAccessibilityRole(.tabGroup)
         content.setAccessibilityLabel(String(localized: "Tabs"))
-        content.addSubview(cylinder)
-        content.addSubview(rule)
-        glow.cornerRadius = TopBarMetrics.tile.cornerRadius
-        content.addSubview(glow)
+        // Bottom to top: the fills under everything, then the marks, then the
+        // tabs as they arrive, and the light over all of them.
+        for view in [folderDrop, selectionPill, hoverPill, slot, rule, glow] as [NSView] {
+            content.addSubview(view)
+        }
+        for pill in [selectionPill, hoverPill] { pill.alphaValue = 0 }
 
         NotificationCenter.default.addObserver(
             self,
@@ -215,16 +231,13 @@ final class TopBarTabStrip: NSView, WindowScoped {
             excluding: liftedID
         )
         activeID = activeTabID
-        // A switch between two tabs is the one reload worth animating: the
-        // plate a folder stands on grows or shrinks, and the tabs after it
-        // slide along. A first load, or a tab arriving or leaving, is not —
-        // there is no "from" to slide out of.
-        // Every change to a run that was already on screen slides into place:
-        // a switch, a tab arriving or closing, a folder opening, a drop. A
-        // Space switch does not — that is a different run, not this one moving
-        // — and nor does the first pass, which has no "from" to slide out of.
+        // Every change to a run already on screen slides into place: a switch,
+        // a tab arriving or closing, a folder opening, a drop. A Space switch
+        // does not — that is a different run, not this one moving — and nor
+        // does the first pass, which has no "from" to slide out of.
         let space = activeSpaceID
-        animatesNextPlacement = shownSpace == space && previousActive != nil
+        let onScreen = shownSpace == space && !(tiles.isEmpty && rows.isEmpty)
+        animatesNextPlacement = onScreen
         shownSpace = space
         // Every reload re-honours §4's "the active tab is always scrolled into
         // view"; live title changes arrive through `apply(_:for:)` instead and
@@ -234,28 +247,40 @@ final class TopBarTabStrip: NSView, WindowScoped {
         var live: Set<UUID> = []
         for block in run.blocks {
             switch block {
-            case let .tab(tab, style):
+            case let .tab(tab, .tile):
                 live.insert(tab.id)
-                configure(tab, style: style)
+                configureTile(tab, arriving: onScreen)
+            case let .tab(tab, .row):
+                live.insert(tab.id)
+                configureRow(for: tab, arriving: onScreen)
             case let .group(group, _):
                 live.insert(group.id)
-                configure(group, memberCount: session.members(ofGroup: group.id).count)
+                configureRow(for: group, arriving: onScreen)
             case .rule:
                 break
             }
         }
-        retire(keeping: live)
+        retire(keeping: live, animated: onScreen)
         rule.isHidden = !run.blocks.contains(.rule)
-        cylinder.isHidden = run.kept == 0
         relight(blooming: previousActive != nil && previousActive != activeID)
         needsLayout = true
     }
 
-    /// §3.3's light, on the kept chip that is the tab this window is showing.
-    ///
-    /// Only a kept one. An open tab already says it is the current one with
-    /// §3.4's plate, and a site's glow around a chip carrying that plate as
-    /// well would be the same sentence twice in two different colours.
+    /// One tab's live state (title, favicon, loading, sound) without a full
+    /// reload.
+    func apply(_ state: TabState, for id: UUID) {
+        if let tab = session.tab(id), rows[id] != nil {
+            rows[id]?.configure(rowContent(for: tab))
+            needsLayout = true
+        } else if let tile = tiles[id], let icon = session.favicon(for: id) {
+            tile.setImage(icon)
+        }
+    }
+
+    /// §3.3's light, on the kept tile that is the tab this window is showing —
+    /// and only a kept one: an open tab says it is the current one with §3.4's
+    /// pill, and a site's glow round a row wearing that pill would be the same
+    /// sentence twice in two colours.
     private func relight(blooming: Bool) {
         let lit = activeID.flatMap { id in run.keptTab(id) }
         let moved = lit?.id != litID
@@ -264,157 +289,109 @@ final class TopBarTabStrip: NSView, WindowScoped {
         glow.show(lit.map(FaviconTint.glow(for:)), blooming: blooming && moved && lit != nil)
     }
 
-    /// One tab's live state (title, `themeColor`) without a full reload.
-    func apply(_ state: TabState, for id: UUID) {
-        guard let chip = chips[id], let tab = session.tab(id) else { return }
-        let title = tab.listTitle.isEmpty ? TopBarDomain.display(for: state.url) : tab.listTitle
-        chip.setAccessibilityLabel(title)
-        chip.toolTip = title
-        if chip.titleText != nil { chip.titleText = title }
-        chip.icon = tab.customSymbolName.flatMap(TopBarButton.symbol)
-            ?? session.favicon(for: id)
-            ?? TopBarButton.symbol("globe")
-        needsLayout = true
+    // MARK: - Kept tiles
+
+    private func configureTile(_ tab: Tab, arriving: Bool) {
+        let tile = tiles[tab.id] ?? makeTile(for: tab.id, arriving: arriving)
+        tiles[tab.id] = tile
+        // §3.4a: the icon the user chose outranks the site's — the grid's rule.
+        if let symbol = tab.customSymbolName {
+            tile.setSymbol(symbol)
+        } else if let icon = SidebarIcons.favicon(for: tab) ?? session.favicon(for: tab.id) {
+            tile.setImage(icon)
+        }
+        let name = tab.listTitle.isEmpty ? URLPillView.domain(of: tab.url) : tab.listTitle
+        tile.setAccessibilityLabel(name)
+        tile.setAccessibilityHelp(position(of: tab.id))
+        tile.toolTip = name
+        tile.isSelected = tab.id == activeID
+        tile.onActivate = { [weak self] in self?.activateTab(tab.id) }
+        tile.onDragOut = { [weak self, weak tile] press in
+            guard let self, let tile else { return }
+            // Picking a tile up is choosing it, as a row's press is.
+            activateTab(tab.id)
+            onDrag?(.tab(tab.id), tile, press)
+        }
+        tile.menuBuilder = { [weak self] in self?.tabMenu(tab.id) }
     }
 
-    // MARK: - Chips
-
-    private func configure(_ tab: Tab, style: TopBarTabStyle) {
-        let chip = style == .icon
-            ? chip(for: tab.id, metric: TopBarMetrics.tile, glass: .none)
-            : chip(for: tab.id, metric: TopBarMetrics.chip, glass: .dormant)
-        // §3.4a: the icon and the name the user chose outrank the site's.
-        chip.icon = tab.customSymbolName.flatMap(TopBarButton.symbol)
-            ?? session.favicon(for: tab.id)
-            ?? TopBarButton.symbol("globe")
-        let label = tab.listTitle.isEmpty ? TopBarDomain.display(for: tab.url) : tab.listTitle
-        // Icon-only, so §8 and §21.1 require the label spelled out — the page
-        // title, or the site name when there is no title, never the URL.
-        chip.setAccessibilityLabel(label)
-        chip.setAccessibilityRole(.radioButton)
-        chip.setAccessibilityHelp(position(of: tab.id))
-        chip.toolTip = label
-        chip.titleText = style == .chip ? label : nil
-        // A kept chip says it is the current tab with §3.3's light instead —
-        // see `relight`.
-        chip.isSelected = style == .chip && tab.id == activeID
-        chip.target = self
-        chip.action = #selector(tabPressed)
-        // §3.4's close is for the day's tabs. A kept tab cannot be closed from
-        // its chip any more than §3.3's tile can: closing one files its page
-        // away, which is `⌘W`'s job and the menu's.
-        chip.onClose = style == .chip ? { [weak self] in self?.session.closeTab(tab.id) } : nil
-        chip.onDragOut = { [weak self, weak chip] press in
-            guard let self, let chip else { return }
-            onDrag?(.tab(tab.id), chip, press)
-        }
-        // The tab is re-read inside the closure rather than captured: a chip is
-        // reused across reloads, so the `tab` this pass was configured from is a
-        // snapshot and the menu has to state what is true when it opens.
-        chip.menuBuilder = { [weak self] in
-            guard let self, let current = session.tab(tab.id) else { return nil }
-            return TabMenu.build(
-                for: current,
-                isMuted: session.isMuted(tab.id),
-                actions: session.tabMenuActions(for: tab.id)
-            )
-        }
+    private func makeTile(for id: UUID, arriving: Bool) -> GlassButton {
+        let tile = GlassButton(
+            shape: TopBarMetrics.keptTile,
+            symbolName: SidebarRowContent.siteFallbackSymbol,
+            pointSize: Tokens.Metric.essentialsIcon,
+            label: "",
+            // §3.3: dormant until it is the tab you are on or the pointer is
+            // over it. Glass says "this one".
+            glassMode: .dormant
+        )
+        tile.identifier = NSUserInterfaceItemIdentifier(id.uuidString)
+        content.addSubview(tile, positioned: .below, relativeTo: glow)
+        if arriving { fadeIn(tile) }
+        return tile
     }
 
-    private func configure(_ group: TabGroup, memberCount: Int) {
-        let chip = chip(for: group.id, metric: TopBarMetrics.chip, glass: .none)
-        chip.icon = RowEmoji.image(group.symbolName, pointSize: TopBarMetrics.glyph)
-            ?? TopBarButton.symbol(group.symbolName)
-            ?? TopBarButton.symbol(TabGroup.defaultSymbolName)
-        chip.titleText = group.name
-        chip.setAccessibilityRole(.disclosureTriangle)
-        chip.setAccessibilityLabel(group.name)
-        chip.setAccessibilityValue(group.isCollapsed ? 0 : 1)
-        chip.setAccessibilityHelp(String(localized: "Folder, \(memberCount) tabs"))
-        chip.toolTip = group.name
-        chip.isSelected = false
-        chip.target = self
-        chip.action = #selector(groupPressed)
-        chip.onDragOut = { [weak self, weak chip] press in
-            guard let self, let chip else { return }
-            onDrag?(.group(group.id), chip, press)
-        }
-        chip.menuBuilder = { [weak self] in
-            guard let self, let current = session.group(group.id) else { return nil }
-            return GroupMenu.build(for: current, actions: session.groupMenuActions(for: group.id))
-        }
-        let plate = plates[group.id] ?? {
-            let fresh = TopBarGroupPlate()
-            plates[group.id] = fresh
-            content.addSubview(fresh, positioned: .below, relativeTo: nil)
-            return fresh
-        }()
-        plate.isHidden = false
-    }
+    // MARK: - Arriving and leaving
 
-    /// A chip's shape is fixed at birth — `TopBarButton` takes its radius and
-    /// its focus ring from the metric it was built with — so a tab that crosses
-    /// the rule is rebuilt rather than reshaped. That is the only thing a
-    /// change of tier costs, and it happens once per drag.
-    private func chip(for id: UUID, metric: RoundedMetric, glass: TopBarButton.GlassMode) -> TopBarButton {
-        if let existing = chips[id], existing.metric == metric { return existing }
-        chips[id]?.removeFromSuperview()
-        let fresh = TopBarButton(metric: metric, glass: glass)
-        fresh.identifier = NSUserInterfaceItemIdentifier(id.uuidString)
-        // Under the light, which has to stay over every chip there will be.
-        content.addSubview(fresh, positioned: .below, relativeTo: glow)
-        chips[id] = fresh
-        return fresh
-    }
-
-    private func retire(keeping live: Set<UUID>) {
-        for (id, chip) in chips where !live.contains(id) {
-            chip.removeFromSuperview()
-            chips.removeValue(forKey: id)
-        }
-        for (id, plate) in plates where !live.contains(id) {
-            plate.removeFromSuperview()
-            plates.removeValue(forKey: id)
+    /// A tab arriving fades up into its place on §6's `tabInsert`, the column's
+    /// spec for a row arriving, so opening one reads as one movement.
+    func fadeIn(_ view: NSView) {
+        guard !Tokens.Motion.reduceMotion else { return }
+        view.alphaValue = 0
+        Tokens.Motion.animate(Tokens.Motion.tabInsert) { context in
+            context.allowsImplicitAnimation = true
+            view.animator().alphaValue = 1
         }
     }
 
-    private func position(of id: UUID) -> String {
+    /// Gone: faded out where it stood, then dropped — the grid's rule, because
+    /// removing it outright read as the tab having been deleted off-screen.
+    private func retire(keeping live: Set<UUID>, animated: Bool) {
+        var gone: [NSView] = []
+        for (id, tile) in tiles where !live.contains(id) {
+            tiles.removeValue(forKey: id)
+            gone.append(tile)
+        }
+        for (id, row) in rows where !live.contains(id) {
+            rows.removeValue(forKey: id)
+            gone.append(row)
+        }
+        for (id, spine) in spines where !live.contains(id) {
+            spines.removeValue(forKey: id)
+            spine.removeFromSuperview()
+        }
+        if let hoveredID, !live.contains(hoveredID) { self.hoveredID = nil }
+        // A tab in the air is out of the run but not gone, and the lift is
+        // standing in for it: it goes at once, or it would fade out behind the
+        // lift that has just picked it up.
+        guard animated, liftedID == nil, !Tokens.Motion.reduceMotion else {
+            for view in gone { view.removeFromSuperview() }
+            return
+        }
+        for view in gone {
+            Tokens.Motion.animate(Tokens.Motion.tabInsert) { context in
+                context.allowsImplicitAnimation = true
+                view.animator().alphaValue = 0
+            } completion: {
+                MainActor.assumeIsolated { view.removeFromSuperview() }
+            }
+        }
+    }
+
+    override func layout() {
+        super.layout()
+        layOutRun()
+    }
+
+    // MARK: - Shared
+
+    func tabMenu(_ id: UUID) -> NSMenu? {
+        guard let current = session.tab(id) else { return nil }
+        return TabMenu.build(for: current, isMuted: session.isMuted(id), actions: session.tabMenuActions(for: id))
+    }
+
+    func position(of id: UUID) -> String {
         let index = run.tabs.firstIndex { $0.id == id } ?? 0
         return String(localized: "Tab \(index + 1) of \(run.tabs.count)")
     }
-
-    @objc private func tabPressed(_ sender: NSButton) {
-        guard let id = Self.identity(of: sender) else { return }
-        activateTab(id)
-    }
-
-    /// A folder's header opens and shuts it, and does nothing else. It is not a
-    /// tab, so pressing it cannot take the window anywhere — and a header that
-    /// also switched tab would mean folding a folder always moved you.
-    @objc private func groupPressed(_ sender: NSButton) {
-        guard let id = Self.identity(of: sender), let group = session.group(id) else { return }
-        session.setGroupCollapsed(!group.isCollapsed, forGroup: id)
-    }
-
-    private static func identity(of sender: NSButton) -> UUID? {
-        sender.identifier.flatMap { UUID(uuidString: $0.rawValue) }
-    }
-
-    /// Bounds-derived frames never animate — see `Motion.immediately` — with
-    /// one exception: a folder opening or closing moves every tab after it
-    /// along the bar, and that move is exactly the thing that should be seen.
-    override func layout() {
-        super.layout()
-        let animated = animatesNextPlacement && !Tokens.Motion.reduceMotion
-        animatesNextPlacement = false
-        guard animated else {
-            Tokens.Motion.immediately { placeContents() }
-            return
-        }
-        Tokens.Motion.animate(Tokens.Motion.tabInsert) { context in
-            context.allowsImplicitAnimation = true
-            placeContents()
-        }
-    }
-
 }

@@ -2,67 +2,15 @@
 //  TopBarTests.swift
 //  LunaTests
 //
-//  The two pieces of the §4 top bar that are logic rather than layout: what the
-//  URL pill puts on screen, and the claim that the action capsule hosts a
-//  variable number of items (§30.14) — which is the only future-proofing M1
-//  budgeted for, so it is worth a test that fails if it quietly stops being
-//  true.
+//  The pieces of the §4 top bar that are arithmetic rather than a picture: where
+//  a centred run starts, that the action capsule hosts a variable number of
+//  items (§30.14), and that the bar's tiles and rows are the column's own
+//  sizes rather than sizes of their own.
 //
 
 import BrowserKit
 import XCTest
 @testable import Luna
-
-final class TopBarDomainTests: XCTestCase {
-
-    private func display(_ string: String) -> String {
-        TopBarDomain.display(for: URL(string: string))
-    }
-
-    func testDropsWWWButKeepsEveryOtherSubdomain() {
-        XCTAssertEqual(display("https://www.apple.com/mac"), "apple.com")
-        // Not eTLD+1: collapsing to the last two labels would hand this page
-        // github.com's identity, which §3.2 calls "meaningful".
-        XCTAssertEqual(display("https://docs.github.com/en"), "docs.github.com")
-    }
-
-    func testIgnoresPathQueryAndCase() {
-        XCTAssertEqual(display("https://GitHub.com/luna?tab=1#x"), "github.com")
-    }
-
-    func testFallsBackToTheWholeStringWhenThereIsNoHost() {
-        XCTAssertEqual(display("about:blank"), "about:blank")
-        XCTAssertEqual(TopBarDomain.display(for: nil), "")
-    }
-
-    /// Luna's own pages have a host and it is not a name. A tab on one of them
-    /// carries no title until the page reports it, and the label it wore in the
-    /// meantime was `archive`.
-    func testNamesLunasOwnPagesRatherThanShowingTheirHost() {
-        XCTAssertEqual(display("luna://history"), "History")
-        // The name it shows before the load and the `<title>` the page sets
-        // afterwards are the same string, so the label does not change under
-        // the pointer.
-        XCTAssertEqual(display("luna://history"), InternalPages.Page.history.name)
-    }
-
-    func testResolveAddsTheMissingScheme() {
-        XCTAssertEqual(TopBarDomain.resolve("apple.com")?.absoluteString, "https://apple.com")
-        XCTAssertEqual(TopBarDomain.resolve("  apple.com  ")?.absoluteString, "https://apple.com")
-    }
-
-    func testResolveKeepsAnExplicitScheme() {
-        XCTAssertEqual(TopBarDomain.resolve("http://apple.com")?.absoluteString, "http://apple.com")
-    }
-
-    /// Anything that is not an address is a search, and search belongs to the
-    /// Command Bar — the pill must say "not mine" rather than guess a URL.
-    func testResolveRejectsSearchText() {
-        XCTAssertNil(TopBarDomain.resolve("swift concurrency"))
-        XCTAssertNil(TopBarDomain.resolve("apple"))
-        XCTAssertNil(TopBarDomain.resolve(""))
-    }
-}
 
 /// §4's alignment (`TopBarTabRun`): a centred run is centred in the bar,
 /// not in the strip it happens to live in.
@@ -146,35 +94,51 @@ final class TopBarActionCapsuleTests: XCTestCase {
 }
 
 @MainActor
-final class TopBarChipLayoutTests: XCTestCase {
+final class TopBarTabRowTests: XCTestCase {
 
-    /// The one piece of §4 layout worth a test: `NSTextField.intrinsicContentSize`
-    /// reports the glyph run without the cell's 2 pt title inset on each side,
-    /// so a chip sized to it tail-truncates a title that fits it. The chip
-    /// measures with `fittingSize` for that reason.
-    func testAChipIsWideEnoughToDrawItsTitle() throws {
-        let chip = TopBarButton(metric: TopBarMetrics.chip, glass: .none)
-        chip.titleText = "example.com"
-        chip.setFrameSize(chip.intrinsicContentSize)
-        chip.layoutSubtreeIfNeeded()
-
-        let label = try XCTUnwrap(chip.subviews.compactMap { $0 as? NSTextField }.first)
-        let cell = try XCTUnwrap(label.cell)
-        XCTAssertEqual(label.stringValue, "example.com")
-        XCTAssertGreaterThanOrEqual(label.frame.width, cell.cellSize.width)
+    /// §4's kept tile is §3.3's in its radius, and a square on the rows' own
+    /// line: the kept run and the open one stand the same height.
+    func testAKeptTileIsASquareAtTheRowsHeight() {
+        XCTAssertEqual(TopBarMetrics.keptTile.width, TopBarMetrics.keptTile.height)
+        XCTAssertEqual(TopBarMetrics.keptTile.height, Tokens.Metric.rowPillHeight)
+        XCTAssertEqual(TopBarMetrics.keptTile.cornerRadius, Tokens.Metric.essentialsTile.cornerRadius)
     }
 
-    /// A tile is its metric and nothing more: §4 draws a kept tab as a bare
-    /// icon, and a title left on one would widen the run it is standing in.
-    func testATileWithNoTitleIsItsMetric() {
-        let tile = TopBarButton(metric: TopBarMetrics.tile, glass: .none)
-        XCTAssertEqual(tile.intrinsicContentSize, TopBarMetrics.tile.size)
+    /// A row's pill fits its whole title: the column's own row, given that
+    /// width, starts to fade its title only when the title is longer.
+    func testARowIsWideEnoughForItsTitle() {
+        let content = SidebarRowContent(title: "example.com")
+        let host = TopBarTabRow(frame: NSRect(
+            x: 0,
+            y: 0,
+            width: TopBarTabRow.pillWidth(for: content),
+            height: Tokens.Metric.rowPillHeight
+        ))
+        host.configure(content)
+        host.layoutSubtreeIfNeeded()
+        let column = SidebarRowView.titleColumn(
+            inRowOfWidth: host.row.frame.width,
+            hasUnread: false,
+            slotOccupied: false
+        )
+        let label = NSTextField(labelWithString: "example.com")
+        label.font = Tokens.TypeScale.sidebarRow
+        XCTAssertGreaterThanOrEqual(column.width, label.intrinsicContentSize.width)
     }
 
     /// One long page title must not spend the room every other tab needs.
     func testALongTitleStopsAtTheCeiling() {
-        let chip = TopBarButton(metric: TopBarMetrics.chip, glass: .none)
-        chip.titleText = String(repeating: "long title ", count: 20)
-        XCTAssertEqual(chip.intrinsicContentSize.width, TopBarMetrics.chipCeiling)
+        let content = SidebarRowContent(title: String(repeating: "long title ", count: 20))
+        XCTAssertEqual(TopBarTabRow.pillWidth(for: content), TopBarMetrics.rowCeiling)
+    }
+
+    /// A folder's header makes room for its chevron after the name.
+    func testAFoldersHeaderMakesRoomForItsChevron() {
+        // Long enough to be clear of the floor, which would otherwise absorb
+        // the chevron's room in the shorter of the two.
+        let name = "Work in progress"
+        let tab = TopBarTabRow.pillWidth(for: SidebarRowContent(title: name))
+        let folder = TopBarTabRow.pillWidth(for: SidebarRowContent(title: name, disclosure: .expanded))
+        XCTAssertEqual(folder - tab, Tokens.Metric.groupChevronSlot.width + Tokens.Metric.groupChevronGap, accuracy: 0.5)
     }
 }

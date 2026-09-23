@@ -6,9 +6,8 @@
 //  folder's plate covers.
 //
 //  `TopBarStripRunTests` asserts the arrangement; this asserts the frames it
-//  turns into, which is the half that cannot be reasoned about — a folder's
-//  plate is sized from its header and its open tabs, and a plate that is a few
-//  points short reads as a folder whose last tab has fallen out of it.
+//  turns into, and that they are the column's own parts in the column's own
+//  sizes — a tile the grid's shape, a row a pill's height, one selected pill.
 //
 //  Nothing here wakes a tab, so nothing here builds a web view.
 //
@@ -21,18 +20,25 @@ import XCTest
 final class TopBarStripLayoutTests: XCTestCase {
 
     private var directory: URL!
+    /// The live setting, put back afterwards. These tests measure where
+    /// things land, and where a run starts is `Settings.tabsPosition` — a
+    /// machine set to Left would otherwise move every assertion.
+    private var storedPosition: TabsPosition!
 
     override func setUpWithError() throws {
+        storedPosition = Settings.tabsPosition
+        Settings.tabsPosition = .centre
         directory = URL.temporaryDirectory.appending(path: "luna-tests-\(UUID().uuidString)")
     }
 
     override func tearDownWithError() throws {
+        Settings.tabsPosition = storedPosition
         try? FileManager.default.removeItem(at: directory)
     }
 
-    /// A folder standing open: its plate has to hold the header and both tabs,
-    /// and nothing outside it may be standing on it.
-    func testAnOpenFoldersPlateHoldsItsHeaderAndItsTabs() async throws {
+    /// A folder standing open: its tabs follow its header, and §3.4b's spine
+    /// runs under them and under nothing else.
+    func testAnOpenFoldersTabsFollowItWithTheSpineUnderThem() async throws {
         let session = try await session()
         let window = window(on: session)
         let space = try XCTUnwrap(session.spaces.first).id
@@ -41,20 +47,24 @@ final class TopBarStripLayoutTests: XCTestCase {
         let loose = insert(tab: "Loose", order: 9, in: space, on: session)
 
         let strip = laidOut(session: session, window: window)
-        let plate = try XCTUnwrap(descendant(of: strip, ofType: TopBarGroupPlate.self))
-        let header = try XCTUnwrap(chip(folder, in: strip))
+        let header = try XCTUnwrap(view(folder, in: strip))
+        let first = try XCTUnwrap(view(members[0], in: strip))
+        let second = try XCTUnwrap(view(members[1], in: strip))
+        let outside = try XCTUnwrap(view(loose, in: strip))
+        XCTAssertLessThan(header.frame.maxX, first.frame.minX)
+        XCTAssertLessThan(first.frame.maxX, second.frame.minX)
 
-        XCTAssertTrue(plate.frame.contains(header.frame), "the folder's header is off its own plate")
-        for member in members {
-            let row = try XCTUnwrap(chip(member, in: strip))
-            XCTAssertTrue(plate.frame.contains(row.frame), "a tab in the folder is off its plate")
-        }
-        let outside = try XCTUnwrap(chip(loose, in: strip))
-        XCTAssertFalse(plate.frame.intersects(outside.frame), "a loose tab is standing on the folder's plate")
+        let spine = try XCTUnwrap(descendant(of: strip, ofType: TopBarFolderSpine.self))
+        XCTAssertFalse(spine.isHidden)
+        XCTAssertGreaterThan(spine.frame.minX, header.frame.maxX, "the spine is under the header")
+        XCTAssertLessThan(spine.frame.minX, first.frame.maxX)
+        XCTAssertLessThanOrEqual(spine.frame.maxX, second.frame.maxX)
+        XCTAssertLessThan(spine.frame.maxY, first.frame.minY, "the spine is over the pills, not under them")
+        XCTAssertFalse(spine.frame.intersects(outside.frame))
     }
 
-    /// Folded, the same folder is its header and nothing else — the tabs are
-    /// not drawn at all, so nothing is left behind the plate to click.
+    /// Folded, the same folder is its header and nothing else — its tabs are
+    /// not drawn at all, so nothing is left behind to click, and no spine.
     func testAFoldedFolderDrawsNoneOfItsTabs() async throws {
         let session = try await session()
         let window = window(on: session)
@@ -64,18 +74,16 @@ final class TopBarStripLayoutTests: XCTestCase {
         session.setGroupCollapsed(true, forGroup: folder)
 
         let strip = laidOut(session: session, window: window)
-        let plate = try XCTUnwrap(descendant(of: strip, ofType: TopBarGroupPlate.self))
-        let header = try XCTUnwrap(chip(folder, in: strip))
-
-        XCTAssertTrue(plate.frame.contains(header.frame))
+        XCTAssertNotNil(view(folder, in: strip))
         for member in members {
-            XCTAssertNil(chip(member, in: strip), "a folded folder is still drawing its tabs")
+            XCTAssertNil(view(member, in: strip), "a folded folder is still drawing its tabs")
         }
+        XCTAssertTrue(descendants(of: strip, ofType: TopBarFolderSpine.self).allSatisfy(\.isHidden))
     }
 
-    /// §4's hairline stands between what is kept and what is not, and every
-    /// kept tab is in front of it.
-    func testTheHairlineStandsBetweenTheTwoRuns() async throws {
+    /// Kept tabs are §3.3's own tiles, in the grid's shape, in front of the
+    /// hairline; open ones are §3.4's rows after it.
+    func testKeptTabsAreTheGridsTilesAndOpenOnesAreRows() async throws {
         let session = try await session()
         let window = window(on: session)
         let space = try XCTUnwrap(session.spaces.first).id
@@ -84,25 +92,32 @@ final class TopBarStripLayoutTests: XCTestCase {
         XCTAssertTrue(session.pinTab(kept))
 
         let strip = laidOut(session: session, window: window)
+        let tile = try XCTUnwrap(view(kept, in: strip) as? GlassButton)
+        let row = try XCTUnwrap(view(open, in: strip) as? TopBarTabRow)
+        XCTAssertEqual(tile.frame.size, TopBarMetrics.keptTile.size)
+        XCTAssertEqual(row.frame.height, Tokens.Metric.rowPillHeight)
+
         let hairline = try XCTUnwrap(descendant(of: strip, ofType: TopBarSeparator.self))
         XCTAssertFalse(hairline.isHidden)
-        XCTAssertLessThan(try XCTUnwrap(chip(kept, in: strip)).frame.maxX, hairline.frame.minX)
-        XCTAssertGreaterThan(try XCTUnwrap(chip(open, in: strip)).frame.minX, hairline.frame.maxX)
+        XCTAssertLessThan(tile.frame.maxX, hairline.frame.minX)
+        XCTAssertGreaterThan(row.frame.minX, hairline.frame.maxX)
     }
 
-    /// The tab the window is showing wears the glass, and it is the only one
-    /// that does.
-    func testOnlyTheWindowsOwnTabIsSelected() async throws {
+    /// The tab the window is showing carries §3.4's selected pill, standing
+    /// exactly on its row — the one pill for the whole bar, not one per row.
+    func testTheSelectedPillStandsOnTheWindowsOwnTab() async throws {
         let session = try await session()
         let window = window(on: session)
         let space = try XCTUnwrap(session.spaces.first).id
-        let first = insert(tab: "First", order: 0, in: space, on: session)
+        _ = insert(tab: "First", order: 0, in: space, on: session)
         let second = insert(tab: "Second", order: 1, in: space, on: session)
         session.activateTab(second, inWindow: window)
 
         let strip = laidOut(session: session, window: window)
-        XCTAssertTrue(try XCTUnwrap(chip(second, in: strip)).isSelected)
-        XCTAssertFalse(try XCTUnwrap(chip(first, in: strip)).isSelected)
+        let row = try XCTUnwrap(view(second, in: strip) as? TopBarTabRow)
+        XCTAssertTrue(row.row.isSelected)
+        XCTAssertEqual(strip.selectionPill.frame, row.frame)
+        XCTAssertEqual(descendants(of: strip, ofType: RowPillView.self).count, 2, "one selected pill, one hover pill")
     }
 
     // MARK: - Fixtures
@@ -140,9 +155,13 @@ final class TopBarStripLayoutTests: XCTestCase {
         return strip
     }
 
-    private func chip(_ id: UUID, in strip: NSView) -> TopBarButton? {
-        descendants(of: strip, ofType: TopBarButton.self)
-            .first { $0.identifier?.rawValue == id.uuidString }
+    /// The tile or row drawing `id`, or nil when the bar is not drawing it.
+    private func view(_ id: UUID, in root: NSView) -> NSView? {
+        for sub in root.subviews {
+            if sub.identifier?.rawValue == id.uuidString, sub.superview != nil { return sub }
+            if let found = view(id, in: sub) { return found }
+        }
+        return nil
     }
 
     private func descendant<T: NSView>(of root: NSView, ofType type: T.Type) -> T? {
@@ -151,7 +170,7 @@ final class TopBarStripLayoutTests: XCTestCase {
 
     private func descendants<T: NSView>(of root: NSView, ofType type: T.Type) -> [T] {
         root.subviews.flatMap { view in
-            (view as? T).map { [$0] } ?? [] + descendants(of: view, ofType: type)
+            ((view as? T).map { [$0] } ?? []) + descendants(of: view, ofType: type)
         }
     }
 }

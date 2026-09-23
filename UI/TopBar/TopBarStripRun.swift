@@ -13,11 +13,10 @@
 //  a screenshot, and the last one is a sentence §6.6's drag stakes a `reorderTab`
 //  on.
 //
-//  Two shapes rather than one per tier. §3.3's grid and §3.4b's kept tier both
-//  draw as bare icons: they are the tabs you keep, they are recognised by their
-//  site rather than read, and a run of icons is what "kept" looks like on a bar
-//  where width is the scarce thing. Today's tabs carry a title because they are
-//  the ones being told apart right now.
+//  Two shapes rather than one per tier, and both are the column's. §3.3's grid
+//  and §3.4b's kept tier both draw as §3.3's tile: they are the tabs you keep,
+//  recognised by their site rather than read. Today's tabs are §3.4's rows,
+//  with their titles, because they are the ones being told apart right now.
 //
 //  Slot order inside each tier, which is the column's order. The bar drew loose
 //  tabs before folders for one build, on the grounds that a named pill in the
@@ -39,10 +38,10 @@ import Foundation
 
 /// How a tab is drawn on §4's bar.
 enum TopBarTabStyle: Sendable, Equatable {
-    /// 28 pt, icon only — §3.3's tiles and §3.4b's kept tier.
-    case icon
-    /// Favicon and title — today's tabs.
-    case chip
+    /// §3.3's tile — the grid's own, icon only. Kept tabs.
+    case tile
+    /// §3.4's row — favicon and title. Today's tabs.
+    case row
 }
 
 /// One drawn thing on §4's bar. A folder is its header; the tabs it is
@@ -61,8 +60,7 @@ enum TopBarStripBlock: Equatable, Sendable {
 struct TopBarStripRun: Equatable, Sendable {
 
     let blocks: [TopBarStripBlock]
-    /// How many of them are the kept run — everything in front of the hairline,
-    /// and what the glass cylinder is drawn around.
+    /// How many of them are the kept run — everything in front of the hairline.
     let kept: Int
     /// Every tab the run draws, in the order it draws them — what §21.1's
     /// "tab 3 of 9" counts, and what a scroll-into-view looks itself up in.
@@ -127,7 +125,7 @@ struct TopBarStripRun: Equatable, Sendable {
     /// folder it stands in.
     func owner(of block: Int) -> Int { owner[block] }
 
-    /// The last block a folder's plate covers — its header when it is shut.
+    /// The last block a folder takes up — its header when it is shut.
     func lastBlock(ofFolderAt header: Int) -> Int {
         var last = header
         while last + 1 < blocks.count, owner[last + 1] == header { last += 1 }
@@ -136,7 +134,7 @@ struct TopBarStripRun: Equatable, Sendable {
 
     /// Where a drop on `block` belongs, as `BrowserSession.reorderTab` wants
     /// it. A block past the end is the end of the run, which is what a pointer
-    /// beyond the last chip means.
+    /// beyond the last tab means.
     func destination(forBlock block: Int, isPastMidpoint: Bool) -> SidebarDestination {
         guard blocks.indices.contains(block) else { return end }
         return isPastMidpoint ? trailing[block] : leading[block]
@@ -219,7 +217,7 @@ private struct Build {
             counts[kind] = slot + 1
             tabs.append(tab)
             add(
-                .tab(tab, style: .icon),
+                .tab(tab, style: .tile),
                 leading: SidebarDestination(kind: kind, groupID: nil, index: slot),
                 trailing: SidebarDestination(kind: kind, groupID: nil, index: slot + 1)
             )
@@ -227,7 +225,7 @@ private struct Build {
     }
 
     mutating func emit(_ slots: [SidebarSlot], kind: TabKind, excluding lifted: UUID?) {
-        let style: TopBarTabStyle = kind == .today ? .chip : .icon
+        let style: TopBarTabStyle = kind == .today ? .row : .tile
         for slot in slots {
             switch slot {
             case let .tab(tab):
@@ -268,7 +266,7 @@ private struct Build {
         for (member, index) in zip(members, members.indices) {
             tabs.append(member)
             add(
-                .tab(member, style: kind == .today ? .chip : .icon),
+                .tab(member, style: kind == .today ? .row : .tile),
                 leading: SidebarDestination(kind: kind, groupID: id, index: index),
                 trailing: SidebarDestination(kind: kind, groupID: id, index: index + 1),
                 inside: header

@@ -18,38 +18,40 @@ enum TopBarMetrics {
     static var gap: CGFloat { Tokens.Metric.rowInset }
     /// §3.1's "gap 16", and the bar's own leading / trailing inset.
     static var clusterGap: CGFloat { Tokens.Metric.rowInset * 2 }
-    /// §4: a kept tab is a 28 pt icon-only tile — and, since the bar took
-    /// Safari's language, a circle. A capsule with no word in it is a circle;
-    /// there is no separate shape here, only a chip with nothing to say.
-    static var tile: RoundedMetric { .circle(Tokens.Metric.controlSquircle.width) }
-    /// §4: an open tab, and a folder's header — the tile stretched to hold a
-    /// word, at the same full radius, so the run reads as one family of
-    /// capsules rather than as circles beside squircles. Its width is its
-    /// title's; see `TopBarButton.intrinsicContentSize`.
-    static var chip: RoundedMetric {
-        RoundedMetric(width: tile.width, height: tile.height, cornerRadius: tile.height / 2)
+    /// §4's kept tab: §3.3's tile — the same well, hairline, radius and glow —
+    /// made square at the height of §3.4's row pill.
+    ///
+    /// Not the grid's own 42 pt. It was, for one build, and on a 52 pt bar a
+    /// run of 62 × 42 tiles stood a head taller than the rows beside them and
+    /// all but touched the bar's edges. At the pill's height the kept tiles and
+    /// the open rows share one line, which is what a bar is.
+    static var keptTile: RoundedMetric {
+        RoundedMetric(
+            width: Tokens.Metric.rowPillHeight,
+            height: Tokens.Metric.rowPillHeight,
+            cornerRadius: Tokens.Metric.essentialsTile.cornerRadius
+        )
     }
-    /// The glass cylinder the kept run stands in, and the recessed plate a
-    /// folder stands on: the chip's height plus its padding, at full radius.
-    static var plate: RoundedMetric {
-        let height = chip.height + groupPlateInset * 2
-        return RoundedMetric(width: height, height: height, cornerRadius: height / 2)
-    }
-    /// The chip's padding either side of its contents. Half a `rowInset`, so a
-    /// chip's favicon stands the same distance from its own edge as a tile's
-    /// does from its — a tile is 28 wide around a 16 pt glyph, which is 6.
-    static var chipInset: CGFloat { (tile.width - glyph) / 2 }
-    /// The narrowest a chip goes: the tile it grew out of, plus room for a few
-    /// letters. Below this the title is an ellipsis with nothing in front of it,
-    /// which says less than the favicon beside it already said.
-    static var chipFloor: CGFloat { tile.width * 3 }
+    /// Between two kept tiles: the grid's own gutter.
+    static var keptGap: CGFloat { Tokens.Metric.essentialsTileGap }
+    /// Between two rows: §3.4's gap between two pills, turned on its side.
+    static var rowGap: CGFloat { Tokens.Metric.rowGap }
+    /// The narrowest an open tab's pill goes — room for its favicon and a few
+    /// letters. Below it the title is an ellipsis with nothing in front of it.
+    static var rowFloor: CGFloat { Tokens.Metric.rowTitleInset + Tokens.Metric.rowPillHeight }
     /// The widest. One long page title would otherwise take the whole bar and
     /// push every other tab out of reach.
-    static var chipCeiling: CGFloat { 180 }
-    /// The plate an opened folder's tabs stand on, inset from the run's own
-    /// line so the folder reads as one thing rather than as a header that
-    /// happens to be next to some tabs.
+    static var rowCeiling: CGFloat { 200 }
+    /// The Space cylinder's padding, and its height.
     static var groupPlateInset: CGFloat { gap / 2 }
+    static var plate: RoundedMetric {
+        let height = Tokens.Metric.controlSquircle.height + groupPlateInset * 2
+        return RoundedMetric(width: height, height: height, cornerRadius: height / 2)
+    }
+    /// The Space cylinder's two arrows.
+    static var arrow: RoundedMetric { .circle(Tokens.Metric.controlSquircle.width) }
+    /// The Space name's ceiling on this bar.
+    static var nameCeiling: CGFloat { 180 }
     /// One capsule item, and the diameter every button on this bar uses —
     /// back included. Round because the capsule it sits in is a cylinder with
     /// rounded ends.

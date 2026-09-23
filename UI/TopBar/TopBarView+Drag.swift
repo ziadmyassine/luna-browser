@@ -26,7 +26,7 @@ extension TopBarView {
             // swallows it and stays shut answers by making it disappear.
             if let folder = landing.groupID { session.setGroupCollapsed(false, forGroup: folder) }
             if landing.kind == .essential, tab.kind != .essential {
-                // Arriving among §3.3's circles is a pin, which also puts the
+                // Arriving among §3.3's tiles is a pin, which also puts the
                 // page away (§19.2) and refuses past the Favorites cap.
                 // Selecting on the way in keeps the page on screen.
                 session.pinTab(id, at: landing.index, selecting: true)
@@ -46,8 +46,8 @@ extension TopBarView {
         controller.onDropOnSpace = { [weak self] id, space in
             self?.session.moveTab(id, toSpace: space)
         }
-        strip.onDrag = { [weak controller] lifted, chip, press in
-            controller?.track(lifted, from: chip, event: press)
+        strip.onDrag = { [weak controller] lifted, source, press in
+            controller?.track(lifted, from: source, event: press)
         }
         drag = controller
     }

@@ -12,15 +12,20 @@
 //  line and follows the pointer's `x`, and the run opens a gap under it the
 //  moment it starts moving.
 //
+//  The lift is the column's own — `SidebarDragLiftView`, carrying §3.4's
+//  selected pill, the favicon and the title — and it morphs between a row and
+//  §3.3's tile as it crosses the hairline, exactly as it does crossing the
+//  column's grid boundary. Same view, same shadow, same settle.
+//
 //  Three things can be done to a tab by carrying it, and they are the three the
 //  column offers:
 //
 //    · Along the run — a reorder inside its own tier.
 //    · Into a folder, or out of one — past a folder's header is inside it, the
-//      column's rule, and the folder's plate lights up to say so.
+//      column's rule, and the column's box closes round the folder to say so.
 //    · Across the hairline — into the kept run is keeping it, out of it is not.
-//      Among §3.3's circles it becomes one of them; beside §3.4b's kept tabs it
-//      joins those. The kept run is one cylinder on the bar and two tiers
+//      Among §3.3's tiles it becomes one of them; beside §3.4b's kept tabs it
+//      joins those. The kept run is one run on the bar and two tiers
 //      underneath, and the rule that tells them apart is the one a hand can
 //      see: a tab becomes the same kind of thing as what it lands beside.
 //
@@ -28,7 +33,7 @@
 //  Space cylinder's arrows, a tab goes to the Space next door.
 //
 //  Nothing is committed until the mouse comes up — one `reorderTab` for the
-//  gesture, one undo entry, not one per chip crossed.
+//  gesture, one undo entry, not one per tab crossed.
 //
 
 import AppKit
@@ -56,7 +61,8 @@ final class TopBarTabDragController {
     private unowned let host: NSView
     private unowned let strip: TopBarTabStrip
     private unowned let spaces: TopBarSpacePill
-    private var lift: TopBarDragLift?
+    private var lift: SidebarDragLiftView?
+    private var content = SidebarRowContent()
     private var target: Target?
     /// Which gesture this is, for `SidebarTabDragController.gesture`'s reason:
     /// the lift settles for a third of a second after the mouse comes up, and a
@@ -69,15 +75,15 @@ final class TopBarTabDragController {
         self.spaces = spaces
     }
 
-    /// Runs the whole gesture, from the press the chip handed over to the
-    /// mouse-up that ends it. Escape cancels, which is the one thing every
+    /// Runs the whole gesture, from the press the tile or row handed over to
+    /// the mouse-up that ends it. Escape cancels, which is the one thing every
     /// drag on macOS can do.
-    func track(_ lifted: TopBarLifted, from chip: TopBarButton, event press: NSEvent) {
+    func track(_ lifted: TopBarLifted, from source: NSView, event press: NSEvent) {
         guard let window = host.window else { return }
-        let origin = host.convert(chip.bounds, from: chip)
+        let origin = host.convert(source.bounds, from: source)
         let start = host.convert(press.locationInWindow, from: nil)
         let grab = start.x - origin.minX
-        begin(lifted, from: chip, at: origin)
+        begin(lifted, at: origin)
         move(lifted, to: start.x - grab, pointer: start)
 
         var cancelled = false
@@ -99,13 +105,11 @@ final class TopBarTabDragController {
 
     // MARK: - The gesture
 
-    private func begin(_ lifted: TopBarLifted, from chip: TopBarButton, at origin: NSRect) {
+    private func begin(_ lifted: TopBarLifted, at origin: NSRect) {
         gesture += 1
-        let view = TopBarDragLift(
-            icon: chip.icon,
-            title: chip.titleText ?? chip.accessibilityLabel() ?? ""
-        )
-        view.style = chip.titleText == nil ? .icon : .chip
+        content = liftContent(for: lifted)
+        let view = SidebarDragLiftView(content: content)
+        view.shape = origin.height > Tokens.Metric.rowPillHeight ? .tile : .row
         view.frame = origin
         host.addSubview(view, positioned: .above, relativeTo: nil)
         lift = view
@@ -117,56 +121,83 @@ final class TopBarTabDragController {
         view.lift()
     }
 
+    /// What the lift draws: the row the column would draw for it, with
+    /// nothing trailing — a close glyph in the air is a control nobody can
+    /// reach.
+    private func liftContent(for lifted: TopBarLifted) -> SidebarRowContent {
+        switch lifted {
+        case let .tab(id):
+            guard let tab = strip.session.tab(id) else { return SidebarRowContent() }
+            var content = strip.rowContent(for: tab)
+            content.trailing = .none
+            return content
+        case let .group(id):
+            guard let group = strip.session.group(id) else { return SidebarRowContent() }
+            return SidebarRowContent(title: group.name, symbolName: group.symbolName, disclosure: .collapsed)
+        }
+    }
+
     /// The lift's leading edge follows the hand; its `y` never does. The bar is
-    /// one line, and the only vertical movement the lift ever makes is the one
-    /// it made leaving the surface.
+    /// one line, and the only vertical movement the lift ever makes is the
+    /// morph between a row's height and a tile's.
     private func move(_ lifted: TopBarLifted, to minX: CGFloat, pointer: NSPoint) {
         guard let lift else { return }
         let next = resolve(lifted, at: pointer)
-        let style = style(of: next, carrying: lifted)
-        let width = lift.width(as: style)
+        let shape = shape(of: next)
+        let size = size(of: shape)
         let resolved = next.map { target in
             guard case var .run(gap) = target else { return target }
-            gap.width = width
+            gap.width = size.width
             return .run(gap)
         }
+        var morphed = false
         if resolved != target {
             // One tick per step, as the column does — and not for the first
             // target, which is the lift leaving the ground rather than passing
             // anything.
             if target != nil { Tokens.Haptics.step() }
-            let morphed = target.map { self.style(of: $0, carrying: lifted) != style } ?? false
+            morphed = target.map { self.shape(of: $0) != shape } ?? false
             target = resolved
             apply(resolved)
-            lift.apply(frame: frame(minX: minX, width: width), style: style, animated: morphed)
-        } else {
-            lift.apply(frame: frame(minX: minX, width: width), style: style, animated: false)
         }
+        lift.apply(frame: frame(minX: minX, size: size), shape: shape, animated: morphed)
     }
 
-    private func frame(minX: CGFloat, width: CGFloat) -> NSRect {
-        let height = TopBarMetrics.chip.height
-        let line = strip.convert(NSPoint(x: 0, y: strip.bounds.height / 2 - TopBarMetrics.lightsCentreOffset), to: host)
-        return NSRect(x: minX, y: (line.y - height / 2).rounded(), width: width, height: height)
+    private func frame(minX: CGFloat, size: NSSize) -> NSRect {
+        let line = strip.convert(NSPoint(x: 0, y: strip.centreLine), to: host)
+        return NSRect(x: minX, y: (line.y - size.height / 2).rounded(), width: size.width, height: size.height)
     }
 
-    /// The shape the lift wears over a target: whatever the tier it would
-    /// land in draws. A folder is always its header.
-    private func style(of target: Target?, carrying lifted: TopBarLifted) -> TopBarTabStyle {
-        guard case .tab = lifted, case let .run(gap)? = target else { return lift?.style ?? .chip }
-        return gap.destination.kind == .today ? .chip : .icon
+    /// A tab over the kept run is §3.3's tile, anywhere else §3.4's row. A
+    /// folder is always its header.
+    private func shape(of target: Target?) -> SidebarDragLiftView.Shape {
+        guard case let .run(gap)? = target, gap.destination.kind != .today, content.disclosure == nil else {
+            return target == nil ? (lift?.shape ?? .row) : .row
+        }
+        return .tile
+    }
+
+    private func size(of shape: SidebarDragLiftView.Shape) -> NSSize {
+        switch shape {
+        case .tile: TopBarMetrics.keptTile.size
+        case .row: NSSize(width: TopBarTabRow.pillWidth(for: content), height: Tokens.Metric.rowPillHeight)
+        }
     }
 
     private func resolve(_ lifted: TopBarLifted, at point: NSPoint) -> Target? {
         if case .tab = lifted, let space = spaces.neighbourSpace(at: point, from: host) {
             return .space(space)
         }
+        // The frames have to be of the run as it is now: the lift has just
+        // taken a tab out of it, and a pointer resolved against the frames from
+        // before would be counting a tab that is no longer there.
+        strip.layoutSubtreeIfNeeded()
         let local = strip.content.convert(point, from: host)
         let run = strip.run
-        // The empty cylinder a drag reveals, before anything is kept.
-        let vacancy = strip.cylinder.frame.insetBy(dx: -TopBarMetrics.gap, dy: -host.bounds.height)
-        if run.kept == 0, strip.revealsKept, vacancy.contains(local) {
-            // A tab carried there becomes one of §3.3's circles; a folder, which
+        // The empty kept run a drag reveals, before anything is kept: the
+        // dashed slot, and a cluster's worth of bar after it.
+        if let vacancy = strip.vacancyFrame, local.x < vacancy.maxX + TopBarMetrics.clusterGap {
+            // A tab carried there becomes one of §3.3's tiles; a folder, which
             // cannot be a tile, starts §3.4b's kept tier instead.
             var kind = TabKind.pinned
             if case .tab = lifted { kind = .essential }
@@ -183,7 +214,7 @@ final class TopBarTabDragController {
         case .group:
             var destination = run.folderDestination(forBlock: block, isPastMidpoint: past)
             // §3.3's grid is one tile per tab: a folder carried among the
-            // circles lands at the head of the kept tier instead.
+            // tiles lands at the head of the kept tier instead.
             if destination.kind == .essential { destination = SidebarDestination(kind: .pinned, groupID: nil, index: 0) }
             if !allowsPinning, destination.kind != .today {
                 destination = SidebarDestination(kind: .today, groupID: nil, index: 0)
@@ -202,7 +233,7 @@ final class TopBarTabDragController {
     /// The block under `x`, and which half of it. Past the last block is the
     /// end of the run; before the first is the first block's leading half.
     private func block(at x: CGFloat) -> (Int, Bool) {
-        for (index, frame) in strip.blockFrames.enumerated() where x < frame.maxX + TopBarMetrics.gap / 2 {
+        for (index, frame) in strip.blockFrames.enumerated() where x < frame.maxX + TopBarMetrics.rowGap {
             return (index, x > frame.midX)
         }
         return (strip.run.blocks.count, false)
@@ -233,7 +264,7 @@ final class TopBarTabDragController {
         spaces.dropTarget = nil
 
         // Commit, then reveal — the column's order, for the column's reason:
-        // the chip the lift stands in for is out of the run until the model has
+        // the tab the lift stands in for is out of the run until the model has
         // moved it, so it is never seen back where it came from.
         let mine = gesture
         let landed: @MainActor @Sendable () -> Void = { [weak self] in
@@ -250,12 +281,8 @@ final class TopBarTabDragController {
             lift?.drop()
             return
         }
-        let line = frame(minX: 0, width: 0)
         let settled = host.convert(rest, from: strip.content)
-        lift.settle(
-            into: NSRect(x: settled.minX, y: line.minY, width: settled.width, height: TopBarMetrics.chip.height),
-            then: landed
-        )
+        lift.settle(into: frame(minX: settled.minX, size: lift.frame.size), then: landed)
     }
 
     private func commit(_ lifted: TopBarLifted, landing: Target?) {

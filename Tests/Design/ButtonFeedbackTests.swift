@@ -157,38 +157,23 @@ final class ButtonFeedbackTests: XCTestCase {
     func testTheAppKitButtonsSwellWhenAppKitSaysTheyAreDown() {
         let swell = Tokens.Motion.pressSwell
 
-        let tile = TopBarButton(metric: TopBarMetrics.tile, glass: .none)
-        _ = sized(tile)
-        tile.highlight(true)
-        XCTAssertEqual(scale(of: tile), swell, accuracy: 0.001, "a tab tile does not swell")
-        tile.highlight(false)
-        XCTAssertEqual(scale(of: tile), 1, accuracy: 0.001, "a tab tile stays swollen")
+        // A bare button on §4's bar — the Space cylinder's arrows are these.
+        let arrow = TopBarButton(metric: TopBarMetrics.arrow, glass: .none)
+        _ = sized(arrow)
+        arrow.highlight(true)
+        XCTAssertEqual(scale(of: arrow), swell, accuracy: 0.001, "a bar button does not swell")
+        arrow.highlight(false)
+        XCTAssertEqual(scale(of: arrow), 1, accuracy: 0.001, "a bar button stays swollen")
 
-        // §4's open tabs and its folder headers are the same class wearing a
-        // word. Registered separately because the width path is theirs alone:
-        // a chip is sized from its title, and a chip sized wrong is a chip
-        // whose swell is measured against the wrong box.
-        let chip = TopBarButton(metric: TopBarMetrics.chip, glass: .none)
-        chip.titleText = "example.com"
-        chip.frame = NSRect(origin: .zero, size: chip.intrinsicContentSize)
-        chip.layoutSubtreeIfNeeded()
-        chip.highlight(true)
-        XCTAssertEqual(scale(of: chip), swell, accuracy: 0.001, "a tab chip does not swell")
-        chip.highlight(false)
-        XCTAssertEqual(scale(of: chip), 1, accuracy: 0.001, "a tab chip stays swollen")
-
-        // The same control again, selected — which on §4's bar means glass.
-        // A resting state, and it must not eat the press the way a latched
-        // button would.
-        let current = TopBarButton(metric: TopBarMetrics.chip, glass: .dormant)
-        current.titleText = "Folder"
-        current.isSelected = true
-        current.frame = NSRect(origin: .zero, size: current.intrinsicContentSize)
-        current.layoutSubtreeIfNeeded()
-        current.highlight(true)
-        XCTAssertEqual(scale(of: current), swell, accuracy: 0.001, "a selected chip does not swell")
-        current.highlight(false)
-        XCTAssertEqual(scale(of: current), 1, accuracy: 0.001, "a selected chip stays swollen")
+        // The same button selected, which on §4's bar means glass. A resting
+        // state, and it must not eat the press the way a latched button would.
+        let lit = TopBarButton(metric: TopBarMetrics.arrow, glass: .dormant)
+        lit.isSelected = true
+        _ = sized(lit)
+        lit.highlight(true)
+        XCTAssertEqual(scale(of: lit), swell, accuracy: 0.001, "a selected bar button does not swell")
+        lit.highlight(false)
+        XCTAssertEqual(scale(of: lit), 1, accuracy: 0.001, "a selected bar button stays swollen")
 
         let push = SettingsPushButton(title: "Reset", isDestructive: false)
         _ = sized(push, 60)
