@@ -5,10 +5,15 @@ window; where it disagrees with §23.1's one-line sketch, this wins.
 
 Three decisions were taken before any code:
 
-1. **A separate native window**, not a `luna://` page and not a sheet. It is the
+1. **A native window**, not a `luna://` page and not a sheet. It is the
    only surface that can host `NSGlassEffectView`, so it is the only one that
    can look like the rest of Luna. A sheet was rejected because it blocks the
    window you are trying to preview a setting against.
+   *Amended 2026-09-23:* not a free-standing one either. It is a child of the
+   browser window it was opened from — centred over it, moving with it, and
+   going into its fullscreen Space instead of opening on the desktop. Asked for
+   from another window, it moves there; that window closing closes it. It has no
+   minimise light of its own, because it goes to the Dock with its window.
 2. **Sidebar list + detail pane**, with a search field above the list. Nine
    sections do not fit in a toolbar row, and the sidebar is already Luna's
    navigation language.

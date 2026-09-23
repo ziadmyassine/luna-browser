@@ -2,13 +2,15 @@
 //  SettingsWindowController.swift
 //  Luna
 //
-//  §1/§2's window: a separate `NSWindow`, 720 × 520, resizable, with the
-//  section list on the left and an opaque detail pane on the right.
+//  §1/§2's window: an `NSWindow`, 720 × 520, resizable, with the section list
+//  on the left and an opaque detail pane on the right.
 //
 //  A window, not a sheet and not a `luna://` page (§1's three decisions): a
 //  sheet blocks the window you are trying to preview a setting against, and an
 //  internal page cannot host `NSGlassEffectView`, so it could not look like the
-//  rest of Luna.
+//  rest of Luna. But not a free-standing one either: it is a child of the
+//  browser window it was opened from, so it opens over that window, travels
+//  with it, and goes into its fullscreen Space rather than onto the desktop.
 //
 //  `NSWindow.minSize` is not used. It is documented as ignored once the
 //  content view uses Auto Layout — verbatim in `NSWindow.h`, and the browser
@@ -65,6 +67,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     /// Held for its lifetime: it re-applies the placement AppKit undoes on
     /// every resize, which is the whole reason the class exists.
     private var lights: TrafficLightLayoutManager?
+    /// Observes the browser window this one is attached to, so that closing it
+    /// takes Settings with it rather than leaving it standing over nothing.
+    private var hostClosing: NSObjectProtocol?
 
     convenience init() {
         // All nine up front: §2's search has to know what is inside a section
@@ -75,7 +80,10 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             contentRect: NSRect(origin: .zero, size: SettingsMetrics.contentSize),
             // `.fullSizeContentView`, so the glass column runs the window's full
             // height and the traffic lights sit on it.
-            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+            // Not `.miniaturizable`: it goes to the Dock with the browser
+            // window it belongs to, and a yellow light that sent it there on
+            // its own would be the one way to pull the two apart.
+            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
@@ -129,21 +137,93 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     /// `⌘,`: opens the window, or brings the one that is already open forward.
     /// There is exactly one, for the life of the app.
     ///
-    /// - Parameter section: a `SettingsSection.id` to land on, for the callers
-    ///   that are asking a specific question — §3.2's site menu sends "Advanced
-    ///   Settings" here. nil keeps whichever section the user was last on.
-    func present(section: String? = nil) {
+    /// - Parameters:
+    ///   - section: a `SettingsSection.id` to land on, for the callers that are
+    ///     asking a specific question — §3.2's site menu sends "Advanced
+    ///     Settings" here. nil keeps whichever section the user was last on.
+    ///   - host: the browser window it was asked for from. nil when there is
+    ///     none, and then it stands on its own in the middle of the screen.
+    func present(section: String? = nil, over host: NSWindow? = nil) {
         let wasVisible = window?.isVisible ?? false
         if let section, let index = sections.firstIndex(where: { type(of: $0).id == section }) {
             show(index, animated: wasVisible)
         }
+        let placed = attach(to: host, wasVisible: wasVisible)
         showWindow(self)
         window?.makeKeyAndOrderFront(self)
+        // Again, because the first time did not stick: a window coming on
+        // screen through its controller is put where AppKit's cascade wants it,
+        // measured at the middle of the screen, over the frame set a line ago.
+        if let placed { window?.setFrame(placed, display: false) }
         NSApp.activate()
         // Opening animates; focusing a window that is already up does not —
         // re-playing an entrance on a `⌘,` that only meant "come forward" is a
         // flinch, not a transition.
         if !wasVisible { animateIn() }
+    }
+
+    /// Makes Settings a child of `host`, centred over it.
+    ///
+    /// A child window moves when its parent is dragged, stays in front of it
+    /// when the parent is clicked, and follows it into and out of its
+    /// fullscreen Space — which a free-standing window does not: from a
+    /// fullscreen browser it opened on the desktop, a swipe away from the page
+    /// it was changing.
+    ///
+    /// Re-centred only when it arrives: a `⌘,` over the window it is already on
+    /// means "come forward", and leaves it wherever it was dragged to.
+    ///
+    /// - Returns: the frame it was given, for `present` to give it again once it
+    ///   is on screen. nil when it stays where it is, or has no window to sit on.
+    private func attach(to host: NSWindow?, wasVisible: Bool) -> NSRect? {
+        guard let window else { return nil }
+        let arriving = !wasVisible || window.parent !== host
+        if window.parent !== host { detach() }
+        guard let host else {
+            if arriving { window.center() }
+            return nil
+        }
+        // Before it is ordered in as well as after: the link to the host has to
+        // exist by then, or a fullscreen host's Space is left for the desktop.
+        let placed = arriving ? Self.frame(for: window.frame.size, over: host.frame) : nil
+        if let placed { window.setFrame(placed, display: false) }
+        if window.parent !== host {
+            host.addChildWindow(window, ordered: .above)
+            hostClosing = NotificationCenter.default.addObserver(
+                forName: NSWindow.willCloseNotification,
+                object: host,
+                queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.close() }
+            }
+        }
+        return placed
+    }
+
+    private func detach() {
+        if let hostClosing { NotificationCenter.default.removeObserver(hostClosing) }
+        hostClosing = nil
+        guard let window, let parent = window.parent else { return }
+        parent.removeChildWindow(window)
+    }
+
+    /// Centred over `host`, and no bigger than it — down to §1's floor, which
+    /// wins over a browser window smaller than that.
+    nonisolated static func frame(for size: CGSize, over host: NSRect) -> NSRect {
+        let width = max(min(size.width, host.width), SettingsMetrics.minWidth)
+        let height = max(min(size.height, host.height), SettingsMetrics.minHeight)
+        return NSRect(
+            x: (host.midX - width / 2).rounded(),
+            y: (host.midY - height / 2).rounded(),
+            width: width,
+            height: height
+        )
+    }
+
+    /// Closed on its own, it lets go of the window it was on, so the next `⌘,`
+    /// from anywhere arrives fresh.
+    func windowWillClose(_ notification: Notification) {
+        detach()
     }
 
     /// §5's `commandBarIn`: scale 0.96 → 1.0 plus a fade, the same entrance the

@@ -339,6 +339,97 @@ final class SettingsWindowTests: XCTestCase {
         XCTAssertNotEqual(SettingsMetrics.listWidth, Tokens.Metric.sidebarWidth.default)
         controller.window?.close()
     }
+
+    private func browserWindow(at frame: NSRect) -> NSWindow {
+        let window = NSWindow(
+            contentRect: frame,
+            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.setFrame(frame, display: false)
+        // On screen and settled before Settings arrives, as a real browser
+        // window is. A window ordered in for the first time is fair game for
+        // the window manager — Stage Manager was measured centring and
+        // narrowing this one after Settings had been placed over it.
+        window.orderFront(nil)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        return window
+    }
+
+    /// §1: Settings belongs to the browser window it was opened from — a child
+    /// of it, so it moves with it and follows it into fullscreen — and opens
+    /// centred over it rather than wherever it was last left on the screen.
+    func testItOpensOverTheWindowItWasCalledFrom() throws {
+        let host = browserWindow(at: NSRect(x: 100, y: 100, width: 1200, height: 800))
+        let controller = SettingsWindowController()
+        let window = try XCTUnwrap(controller.window)
+
+        controller.present(over: host)
+
+        XCTAssertTrue(window.parent === host, "Settings is not attached to the window it was opened from")
+        XCTAssertEqual(window.frame.midX, host.frame.midX, accuracy: 1)
+        XCTAssertEqual(window.frame.midY, host.frame.midY, accuracy: 1)
+        window.close()
+        host.close()
+    }
+
+    /// Asked for from a second window, it moves there rather than staying on
+    /// the first — and lets go of the first, or dragging that one would still
+    /// carry it along.
+    func testAskingFromAnotherWindowMovesItThere() throws {
+        let first = browserWindow(at: NSRect(x: 0, y: 0, width: 1000, height: 700))
+        let second = browserWindow(at: NSRect(x: 400, y: 200, width: 1100, height: 750))
+        let controller = SettingsWindowController()
+        let window = try XCTUnwrap(controller.window)
+
+        controller.present(over: first)
+        controller.present(over: second)
+
+        XCTAssertTrue(window.parent === second)
+        XCTAssertFalse(first.childWindows?.contains(window) ?? false, "the first window still carries it")
+        XCTAssertEqual(window.frame.midX, second.frame.midX, accuracy: 1)
+        window.close()
+        first.close()
+        second.close()
+    }
+
+    /// Closing the browser window takes Settings with it; left standing, it
+    /// would be the free-floating window this replaced.
+    func testClosingTheWindowClosesSettings() throws {
+        let host = browserWindow(at: NSRect(x: 100, y: 100, width: 1200, height: 800))
+        let controller = SettingsWindowController()
+        let window = try XCTUnwrap(controller.window)
+        controller.present(over: host)
+        XCTAssertTrue(window.isVisible)
+
+        host.close()
+
+        XCTAssertFalse(window.isVisible, "Settings outlived the window it belongs to")
+        XCTAssertNil(window.parent)
+    }
+
+    /// No bigger than the window it sits over, and never below §1's floor.
+    func testItFitsTheWindowItOpensOver() {
+        let large = SettingsWindowController.frame(
+            for: SettingsMetrics.contentSize,
+            over: NSRect(x: 0, y: 0, width: 1400, height: 900)
+        )
+        XCTAssertEqual(large.size, SettingsMetrics.contentSize)
+
+        let small = SettingsWindowController.frame(
+            for: CGSize(width: 900, height: 700),
+            over: NSRect(x: 0, y: 0, width: 800, height: 600)
+        )
+        XCTAssertEqual(small.size, CGSize(width: 800, height: 600))
+
+        let tiny = SettingsWindowController.frame(
+            for: SettingsMetrics.contentSize,
+            over: NSRect(x: 0, y: 0, width: 500, height: 400)
+        )
+        XCTAssertEqual(tiny.size, CGSize(width: SettingsMetrics.minWidth, height: SettingsMetrics.minHeight))
+    }
 }
 
 @MainActor

@@ -270,10 +270,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// `⌘,`, and §3.2's site menu, which lands on the section it names.
+    ///
+    /// Over `front`: the browser window the user was last in, which Settings
+    /// becoming key does not change.
     func showSettings(section: String? = nil) {
         let window = settingsWindow ?? SettingsWindowController()
         settingsWindow = window
-        window.present(section: section)
+        window.present(section: section, over: front?.controller.window)
     }
 
     @objc private func settingsDidChange() {
