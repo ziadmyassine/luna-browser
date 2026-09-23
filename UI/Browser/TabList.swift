@@ -130,8 +130,13 @@ struct TabList: Sendable {
     /// definitely want to see is the one you cannot. Saved rows and Favorites
     /// are the opposite: those are slots the user placed deliberately, so a new
     /// one joins the end rather than pushing the arrangement down.
-    static func openIndex(for kind: TabKind) -> Int? {
-        kind == .today ? 0 : nil
+    ///
+    /// - Parameter newestFirst: false under §4's top bar, where the list is
+    ///   read left to right and a new tab opens at the right-hand end, beside
+    ///   the tabs already open — the place every tab bar opens one. First on
+    ///   the bar was the far left, away from everything just opened.
+    static func openIndex(for kind: TabKind, newestFirst: Bool = true) -> Int? {
+        kind == .today && newestFirst ? 0 : nil
     }
 
     // MARK: - Favorites (§2)

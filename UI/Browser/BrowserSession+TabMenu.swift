@@ -61,7 +61,7 @@ extension BrowserSession {
         // list to be under, so the copy opens where any new tab does.
         let index = kind == original.kind
             ? list.indexInSection(of: id).map { $0 + 1 }
-            : TabList.openIndex(for: kind)
+            : openIndex(for: kind)
         persistAll(list.insert(copy, at: index))
         registerUndo("Duplicate Tab") { $0.closeTab(copy.id) }
         activateTab(copy.id)

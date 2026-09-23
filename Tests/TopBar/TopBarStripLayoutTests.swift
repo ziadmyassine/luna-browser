@@ -37,8 +37,8 @@ final class TopBarStripLayoutTests: XCTestCase {
     }
 
     /// A folder standing open is one object on the bar: its name, a divider,
-    /// then its tabs edge to edge at one width, all on a plate of its own that
-    /// holds nothing else.
+    /// then its tabs edge to edge, all on a plate of its own that holds
+    /// nothing else.
     func testAnOpenFolderStandsOnItsOwnPlateWithADividerAfterItsName() async throws {
         let session = try await session()
         let window = window(on: session)
@@ -53,8 +53,9 @@ final class TopBarStripLayoutTests: XCTestCase {
         let second = try XCTUnwrap(view(members[1], in: strip))
         let outside = try XCTUnwrap(view(loose, in: strip))
         XCTAssertEqual(first.frame.maxX, second.frame.minX, "a folder's tabs stand edge to edge")
-        XCTAssertEqual(first.frame.width, TopBarMetrics.folderTab)
-        XCTAssertEqual(second.frame.width, TopBarMetrics.folderTab)
+        // As wide as a loose tab with the same title: a fixed, narrower width
+        // cut every title in a folder short with the bar half empty.
+        XCTAssertEqual(first.frame.width, outside.frame.width)
 
         let divider = try XCTUnwrap(strip.dividers[folder])
         XCTAssertFalse(divider.isHidden)

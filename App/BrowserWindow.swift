@@ -136,6 +136,8 @@ final class BrowserWindow {
     /// having dropped its pill in a layout with no page bar to put it in.
     func applySearchBarPlacement(animated: Bool) {
         let onPage = Settings.searchBarIsOnPage
+        // §4's bar reads left to right, so a tab opening now goes at the end.
+        session.opensTabsAtEnd = Settings.chromeLayout == .topBar
         sidebar?.setSearchBarOnPage(onPage)
         pageChrome?.setActive(onPage, animated: animated)
         // §3.2c's third listener: the window only wears the load line when

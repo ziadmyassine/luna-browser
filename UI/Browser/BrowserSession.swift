@@ -266,6 +266,16 @@ final class BrowserSession {
     /// came back silent after a relaunch with nothing on screen to say why would be a
     /// bug report, not a feature. See `setMuted(_:tab:)`.
     var mutedTabIDs: Set<UUID> = []
+    /// Whether a tab opening now goes to the end of today's tabs rather than
+    /// the head — true while §4's top bar is the chrome. Told by the window
+    /// rather than read from `Settings`, so the rule is the session's and a
+    /// test's session is not answering from the machine's preferences.
+    var opensTabsAtEnd = false
+
+    /// `TabList.openIndex(for:)`, for the chrome on screen.
+    func openIndex(for kind: TabKind) -> Int? {
+        TabList.openIndex(for: kind, newestFirst: !opensTabsAtEnd)
+    }
     /// §6.3's archive, newest first. Held in memory because `allTabs` and
     /// `⌘⇧T` are synchronous and an archived tab is the same row as an open one
     /// (§11.1: `archive` is a view over `tabs`, not a second table).

@@ -107,7 +107,7 @@ extension BrowserSession {
         )
         // Newest-first, like any other new tab — a popup that opened off the
         // bottom of the scroll would be the one tab the user cannot see.
-        persistAll(list.insert(child, at: TabList.openIndex(for: .today)))
+        persistAll(list.insert(child, at: openIndex(for: .today)))
         let controller = TabController(id: child.id, dataStore: dataStore(forSpace: spaceID))
         controller.delegate = self
         relayScrollProgress(of: controller)

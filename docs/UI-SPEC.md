@@ -1747,7 +1747,7 @@ the address pill with site settings and reload. The page starts below both.
     rows on §6's `selectedRowMove` and `rowHover` — so the selection slides rather than blinks. Rows do
     not swell; they are rows, not buttons (CLAUDE.md).
   - **An open folder is one object on the bar**: its name, a hairline divider with the bar's gap either
-    side, then its tabs edge to edge at one width (`folderTab`, 100 pt), all on a plate of its own — the
+    side, then its tabs edge to edge, sized as any tab is, all on a plate of its own — the
     Space's plate's glass and height. No chevron: the plate is what says the folder is open. A kept folder
     stands on the Space's plate instead, with the same divider after its name.
   - **Arriving and leaving are the column's too**: a new tab fades up into its place on `tabInsert`, a

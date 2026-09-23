@@ -67,13 +67,29 @@ final class TabListOrderTests: XCTestCase {
         XCTAssertNil(TabList.openIndex(for: .essential))
     }
 
-    private func open(_ list: inout TabList, _ path: String, kind: TabKind = .today) {
+    /// §4's top bar is read left to right, so there a new tab opens at the
+    /// right-hand end, beside the tabs already open.
+    func testUnderTheTopBarATabOpensAtTheEnd() {
+        var list = TabList()
+        list.addSpace(space)
+        for index in 0 ..< 3 { open(&list, "old-\(index)", newestFirst: false) }
+
+        open(&list, "newest", newestFirst: false)
+
+        XCTAssertEqual(
+            list[space].filter { $0.kind == .today }.map(\.url.lastPathComponent),
+            ["old-0", "old-1", "old-2", "newest"]
+        )
+        XCTAssertNil(TabList.openIndex(for: .today, newestFirst: false))
+    }
+
+    private func open(_ list: inout TabList, _ path: String, kind: TabKind = .today, newestFirst: Bool = true) {
         let tab = Tab(
             spaceID: space,
             kind: kind,
             url: URL(string: "https://example.com/\(path)")!,
             order: list.nextOrder(kind: kind, in: space)
         )
-        list.insert(tab, at: TabList.openIndex(for: kind))
+        list.insert(tab, at: TabList.openIndex(for: kind, newestFirst: newestFirst))
     }
 }

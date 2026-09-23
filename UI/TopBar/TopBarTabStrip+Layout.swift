@@ -88,8 +88,6 @@ extension TopBarTabStrip {
         switch run.blocks[index] {
         case .tab(_, .tile), .landing(.essential):
             TopBarMetrics.keptTile.width
-        case .tab(_, .row) where run.owner(of: index) != index:
-            TopBarMetrics.folderTab
         case let .tab(tab, .row):
             TopBarTabRow.pillWidth(for: rows[tab.id]?.content ?? rowContent(for: tab))
         case let .group(group, _):

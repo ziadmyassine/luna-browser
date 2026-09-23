@@ -50,10 +50,6 @@ enum TopBarMetrics {
     /// sized to the title alone, "Google" came out at 95 pt and looked like
     /// one; at 140 it was a tab too long.
     static var tabFloor: CGFloat { 120 }
-    /// A tab inside a folder's plate. One width for all of them, shorter than
-    /// a loose tab's: the plate reads as one object, a folder of tabs, and
-    /// tabs of one width inside it are what make it read that way.
-    static var folderTab: CGFloat { 100 }
     /// The room either side of the divider after a folder's name.
     static var dividerGap: CGFloat { gap }
     /// The narrowest a folder's header goes — room for its glyph and a few

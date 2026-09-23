@@ -44,7 +44,7 @@ extension BrowserSession {
             url: url ?? Self.blankPage,
             order: list.nextOrder(kind: kind, in: activeSpaceID)
         )
-        persistAll(list.insert(tab, at: TabList.openIndex(for: kind)))
+        persistAll(list.insert(tab, at: openIndex(for: kind)))
         // A URL Luna opens on the user's behalf is a typed visit; a link click
         // reaches us through the engine instead (§9.3).
         if url != nil { pendingVisitKind[tab.id] = .typed }
@@ -121,7 +121,7 @@ extension BrowserSession {
     /// bring back the Personal page you closed before you switched (§9.2).
     func reopenLastArchived() {
         guard let newest = archivedInActiveSpace.first else { return }
-        restoreArchived(newest, at: TabList.openIndex(for: newest.kind))
+        restoreArchived(newest, at: openIndex(for: newest.kind))
     }
 
     /// §6.4 / §9.2: pull one specific tab back out of the archive.
@@ -151,10 +151,10 @@ extension BrowserSession {
             let wasKept = tab.kind.keepsTabWhenPageCloses
             tab.kind = .today
             tab.groupID = nil
-            restoreArchived(Self.keepingWhatItIsFor(tab, wasKept: wasKept), at: TabList.openIndex(for: .today))
+            restoreArchived(Self.keepingWhatItIsFor(tab, wasKept: wasKept), at: openIndex(for: .today))
             return
         }
-        restoreArchived(tab, at: TabList.openIndex(for: tab.kind))
+        restoreArchived(tab, at: openIndex(for: tab.kind))
     }
 
     /// The Space you are in, its open tabs and its archived ones together —
