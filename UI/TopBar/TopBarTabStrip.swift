@@ -81,8 +81,8 @@ final class TopBarTabStrip: NSView, WindowScoped {
     /// §3.3's light, one for the whole bar: only one tab can be the one you
     /// are on.
     let glow = EssentialGlowView()
-    /// §6.6's box round a folder taking a drop — the column's own.
-    let folderDrop = SidebarGroupDropView()
+    /// The hairline between the pinned section and today's tabs.
+    let rule = TopBarSeparator()
     /// §3.3's dashed slot, where a kept tab is about to land.
     let slot = TopBarSlotOutline()
     /// The dashed row at the end of §3.4b's tier, where a tab dropped starts a
@@ -164,6 +164,9 @@ final class TopBarTabStrip: NSView, WindowScoped {
     /// Where the plate stands, in `content`'s coordinates — its target, for
     /// `targets`' reason.
     var plateFrame: NSRect = .zero
+    /// Where the pinned section ends — the Space's plate and the kept
+    /// folders beside it — in `content`'s coordinates.
+    var keptEnd: CGFloat = 0
     /// Where the gap was laid, in `content`'s coordinates — what the lift
     /// comes to rest on.
     var gapFrame: NSRect?
@@ -215,7 +218,7 @@ final class TopBarTabStrip: NSView, WindowScoped {
         // window is built from frames and `mouseDownCanMoveWindow`, not from
         // `hitTest` — so a parked pill lying over the name made a press on
         // the name drag the window. The tabs were never under them.
-        for view in [plate, folderDrop, selectionPill, hoverPill, slot, folderSlot, spaceName, glow] as [NSView] {
+        for view in [plate, rule, selectionPill, hoverPill, slot, folderSlot, spaceName, glow] as [NSView] {
             content.addSubview(view)
         }
         for pill in [selectionPill, hoverPill] { pill.alphaValue = 0 }
@@ -283,9 +286,9 @@ final class TopBarTabStrip: NSView, WindowScoped {
             case let .tab(tab, .row):
                 live.insert(tab.id)
                 configureRow(for: tab, arriving: onScreen)
-            case let .group(group, style):
+            case let .group(group, _):
                 live.insert(group.id)
-                configureRow(for: group, style: style, arriving: onScreen)
+                configureRow(for: group, arriving: onScreen)
             case .rule, .landing:
                 break
             }

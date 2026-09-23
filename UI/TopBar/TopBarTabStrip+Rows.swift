@@ -40,10 +40,11 @@ extension TopBarTabStrip {
         row.menuBuilder = { [weak self] in self?.tabMenu(tab.id) }
     }
 
-    /// A folder's header. Open-tier folders stand on a plate of their own —
-    /// the header, a divider, then the folder's tabs — the way the kept run
-    /// stands on the Space's. A kept folder is already on that plate.
-    func configureRow(for group: TabGroup, style: TopBarTabStyle, arriving: Bool) {
+    /// A folder's header. Every folder stands on a plate of its own — the
+    /// header, a divider, then the folder's tabs — the way §3.3's tiles stand
+    /// on the Space's; a kept folder's plate stands beside that one, not on
+    /// it.
+    func configureRow(for group: TabGroup, arriving: Bool) {
         let row = row(for: group.id, arriving: arriving)
         // No chevron: on the bar the plate is what says a folder is open.
         row.configure(SidebarRowContent(title: group.name, symbolName: group.symbolName))
@@ -72,10 +73,6 @@ extension TopBarTabStrip {
             let divider = TopBarSeparator()
             dividers[group.id] = divider
             content.addSubview(divider, positioned: .below, relativeTo: glow)
-        }
-        guard style == .row else {
-            folderPlates.removeValue(forKey: group.id)?.removeFromSuperview()
-            return
         }
         guard folderPlates[group.id] == nil else { return }
         let folderPlate = TopBarPlate()

@@ -113,10 +113,37 @@ final class TopBarStripLayoutTests: XCTestCase {
         XCTAssertEqual(tile.frame.height, plate.height, "the box fills the plate top to bottom")
         XCTAssertEqual(tile.frame.minY, plate.minY)
         XCTAssertEqual(plate.maxX, tile.frame.maxX, "the plate ends where its last box does")
-        XCTAssertEqual(row.frame.minX - plate.maxX, TopBarMetrics.gap, "one gap between the plate and a tab")
+        // The hairline between the pinned section and today's tabs, a gap
+        // either side of it.
+        XCTAssertFalse(strip.rule.isHidden)
+        XCTAssertEqual(strip.rule.frame.minX - plate.maxX, TopBarMetrics.gap)
+        XCTAssertEqual(row.frame.minX - strip.rule.frame.maxX, TopBarMetrics.gap)
         // The first tile stands after the name, never at the strip's own
         // edge — its glow was clipped when it stood at x 0.
         XCTAssertGreaterThan(tile.frame.minX, plate.minX)
+    }
+
+    /// A kept folder stands beside the Space's plate on a plate of its own,
+    /// not on it, and the hairline comes after the whole pinned section.
+    func testAKeptFolderStandsBesideTheSpacesPlate() async throws {
+        let session = try await session()
+        let window = window(on: session)
+        let space = try XCTUnwrap(session.spaces.first).id
+        let tile = insert(tab: "Tile", order: 0, in: space, on: session)
+        let member = insert(tab: "Member", order: 1, in: space, on: session)
+        let open = insert(tab: "Open", order: 2, in: space, on: session)
+        XCTAssertTrue(session.pinTab(tile))
+        let folder = try XCTUnwrap(session.createGroup(name: "Work", kind: .pinned, containing: [member]))
+
+        let strip = laidOut(session: session, window: window)
+        let spacePlate = strip.plate.frame
+        let folderPlate = try XCTUnwrap(strip.folderPlates[folder]).frame
+        XCTAssertEqual(spacePlate.maxX, try XCTUnwrap(view(tile, in: strip)).frame.maxX, "the Space's plate ends at its tiles")
+        XCTAssertEqual(folderPlate.minX - spacePlate.maxX, TopBarMetrics.gap, "the kept folder stands beside it")
+        // Within half a point: the hairline is snapped to whole points so it
+        // stays one crisp line.
+        XCTAssertEqual(strip.rule.frame.minX - folderPlate.maxX, TopBarMetrics.gap, accuracy: 0.5)
+        XCTAssertGreaterThan(try XCTUnwrap(view(open, in: strip)).frame.minX, strip.rule.frame.maxX)
     }
 
     /// Two open tabs are one gap apart, the same gap as everywhere else on

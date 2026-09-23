@@ -1749,7 +1749,8 @@ the address pill with site settings and reload. The page starts below both.
   - **An open folder is one object on the bar**: its name, a hairline divider with the bar's gap either
     side, then its tabs edge to edge, sized as any tab is, all on a plate of its own — the
     Space's plate's glass and height. No chevron: the plate is what says the folder is open. A kept folder
-    stands on the Space's plate instead, with the same divider after its name.
+    is the same, on a plate of its own beside the Space's — the Space's plate holds §3.3's tiles and
+    nothing else.
   - **Arriving and leaving are the column's too**: a new tab fades up into its place on `tabInsert`, a
     closed one fades out where it stood, and everything already on the bar slides. A view is placed with
     animation off the first time it is placed — Luna's recurring "spawns at the left and flies there" bug
@@ -1767,9 +1768,9 @@ the address pill with site settings and reload. The page starts below both.
   was fine while the run was read-only and wrong the moment it could be dragged, because an order the bar
   imposes is an order a drop cannot express — a tab carried past a folder went back in front of it.
   Folders still land after the tabs in practice, because that is the order they were made in.
-- **The plate is what divides kept from open.** The run still has its hairline block between the two
-  tiers, for the two drops either side of it, but it draws nothing: the plate's end already says where
-  the kept run stops.
+- **A hairline divides the pinned section from today's tabs** — the Space's plate and any kept folders
+  on one side, the open tabs on the other — the bar's own separator, a gap either side. It only comes
+  out when there is something on both sides of it.
 - **No reload button** in this layout — the reference omits it. Reload is `⌘R` and the site menu.
 - The strip scrolls horizontally when it overflows; the active tab is always scrolled into view.
 - **Right-clicking a tile or a row opens the same menu the column opens** — §3.4a on a tab, §3.4b on a
@@ -1831,16 +1832,15 @@ under it.
 - **Along the run** is a reorder inside its own tier.
 - **Past a folder's header is inside it**, at the front when it is open and at the end when it is shut —
   the column's rule. While it is the target the folder's plate grows round the room the lift is opening
-  in it and lifts with §3.4's hover wash, so the drop reads as going in; a kept folder, on the Space's
-  plate, gets the column's dashed box (`SidebarGroupDropView`) instead. A shut folder opens on the drop so
-  the tab is not swallowed out of sight.
+  in it and lifts with §3.4's hover wash, so the drop reads as going in. A shut folder opens on the drop
+  so the tab is not swallowed out of sight.
 - **Onto the plate or off it** changes what the tab is: among §3.3's tiles it is pinned (and refused past
   the Favorites cap, as the grid refuses), inside a kept folder it joins that. §3.3's dashed slot marks
   where a tile is about to land.
 - **Brought to the plate, a lift opens the column's two wells (§3.3a) on it**: §3.3's empty tile when
   nothing is pinned yet, and a dashed row with a folder glyph at the end of §3.4b's tier. A tab dropped
   in the row starts a new kept folder with the tab inside (`reorderTab` makes it). They open only when
-  the lift comes within a tile's reach of the plate: opened the moment a tab left the ground, they pushed
+  the lift comes within a tile's reach of the pinned section: opened the moment a tab left the ground, they pushed
   every tab after the plate a hundred points along, out from under the hand. Not in a §5.6 window, which
   keeps nothing.
 - **Over the Space's name**, the dots come out and a tab held on one goes to that Space. The rest of the

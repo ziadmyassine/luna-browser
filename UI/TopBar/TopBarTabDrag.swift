@@ -262,7 +262,7 @@ final class TopBarTabDragController {
     /// not flicker them at the edge. A folder cannot be a tile, so it is
     /// offered only the folder tier.
     private func landings(for lifted: TopBarLifted, at x: CGFloat) -> Set<TabKind> {
-        guard allowsPinning, x < strip.plateFrame.maxX + TopBarMetrics.keptTile.width else { return [] }
+        guard allowsPinning, x < strip.keptEnd + TopBarMetrics.keptTile.width else { return [] }
         if case .tab = lifted { return [.essential, .pinned] }
         return [.pinned]
     }
