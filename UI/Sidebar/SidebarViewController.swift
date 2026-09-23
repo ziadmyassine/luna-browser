@@ -108,6 +108,10 @@ final class SidebarViewController: NSViewController, WindowScoped {
     var drag: SidebarTabDragController?
     private var shownSpaceID: UUID?
     private var isAttached = false
+    /// The tab whose `onScrollProgress` this column holds. The controller
+    /// rather than its id: a tab that hibernates and wakes has a new one, and
+    /// the id alone would go on listening to the one that was thrown away.
+    private weak var progressSource: TabController?
     /// The Essentials grid's height on the last layout pass. When it changes —
     /// a tab was pinned or unpinned — everything below it moves, and that move
     /// is animated instead of snapping.
@@ -297,6 +301,19 @@ final class SidebarViewController: NSViewController, WindowScoped {
             canGoForward: state?.canGoForward ?? false,
             isLoading: state?.isLoading ?? false
         )
+        followScrollProgress()
+    }
+
+    /// The selected row fills as its page is read. Taken on arrival as well as
+    /// listened to, so a tab selected again shows where it was left.
+    private func followScrollProgress() {
+        let controller = activeTabID.flatMap { session.controller(for: $0) }
+        if controller !== progressSource {
+            progressSource?.onScrollProgress = nil
+            progressSource = controller
+            controller?.onScrollProgress = { [weak self] progress in self?.list.setScrollProgress(progress) }
+        }
+        list.setScrollProgress(controller?.scrollProgress)
     }
 
     /// Called by `ChromeHostView` when this layout comes back on screen.

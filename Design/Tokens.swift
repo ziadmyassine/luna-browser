@@ -133,6 +133,10 @@ enum Tokens {
         /// row background.
         static var selected: NSColor { inkColor("luna.surface.selected", Ink.selected) }
 
+        /// How far a selected tab's page has been read, as a step lighter
+        /// across the leading part of its pill — see `RowPillView.progress`.
+        static var readBand: NSColor { inkColor("luna.surface.readBand", Ink.readBand) }
+
         /// §2's URL-pill fill — the pill is `.control` glass plus a page-derived
         /// wash, and the only page-tinted surface in the app.
         ///

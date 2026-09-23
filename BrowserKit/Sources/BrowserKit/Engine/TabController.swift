@@ -70,6 +70,13 @@ public final class TabController: NSObject {
     /// on every frame of a drag; nearly all of them say what the last one did.
     public var onTopColour: ((RGBA?) -> Void)?
 
+    /// How far through the page the reader is, 0...1, or nil for a page with
+    /// nothing below the fold — see `TabController+Scroll.swift`.
+    public internal(set) var scrollProgress: Double?
+
+    /// `scrollProgress` whenever it changes.
+    public var onScrollProgress: ((Double?) -> Void)?
+
     private let messageRelay = ScriptMessageRelay()
 
     /// §14's password state for this tab: the form the page is showing, the
@@ -467,6 +474,7 @@ extension TabController {
         // Published, not just cleared: the chrome is painted in this and the
         // new document has not reported its own yet.
         setTopColour(nil)
+        setScrollProgress(nil)
         audibleFrames.removeAll()
         // The interstitial bypass is good for the one navigation it was granted
         // for. Leaving it set would quietly allowlist the site for as long as the

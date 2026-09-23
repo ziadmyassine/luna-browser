@@ -48,6 +48,12 @@ extension TabListController {
         place(hoverPill, at: hovered, spec: animated ? Tokens.Motion.rowHover : nil)
     }
 
+    /// How far the selected tab's page has been read. Only the selected pill
+    /// carries it; the hover pill is under a row the reader is not on.
+    func setScrollProgress(_ progress: Double?) {
+        selectionPill.progress = progress.map { CGFloat($0) }
+    }
+
     /// Parks both row fills, or brings them back. §6.6's lift carries §3.4's
     /// selected pill itself, so while one is up the list's own would be a
     /// second highlight lying in the row's old place.

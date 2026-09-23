@@ -28,7 +28,20 @@ final class RowPillView: NSView {
     /// material plus §3.4's wash — in every focus state.
     var isFocused = false
 
+    /// How far through its page the selected tab has been read, 0...1, or nil
+    /// for a page that does not scroll. Drawn as `Surface.readBand` over the
+    /// selected wash from the leading edge, so the part read is one step
+    /// lighter and nothing new is added to the row: no line, no colour.
+    var progress: CGFloat? {
+        didSet { if progress != oldValue { needsLayout = true } }
+    }
+
     private let role: Role
+    /// Rounds the band's leading end into the pill's own corners. Its trailing
+    /// end stays square — that edge is the reading position, not a shape.
+    private let bandClip = NSView()
+    /// Internal so a test can read where the band ends.
+    let band = CALayer()
 
     init(role: Role) {
         self.role = role
@@ -36,6 +49,13 @@ final class RowPillView: NSView {
         wantsLayer = true
         layer?.cornerCurve = .continuous
         Glass.apply(.control, to: self, cornerRadius: Tokens.Metric.rowCornerRadius)
+        bandClip.wantsLayer = true
+        bandClip.layer?.cornerRadius = Tokens.Metric.rowCornerRadius
+        bandClip.layer?.cornerCurve = .continuous
+        bandClip.layer?.masksToBounds = true
+        bandClip.layer?.addSublayer(band)
+        bandClip.autoresizingMask = [.width, .height]
+        addSubview(bandClip)
     }
 
     @available(*, unavailable)
@@ -56,6 +76,19 @@ final class RowPillView: NSView {
         let bordered = role == .selected
         layer.borderWidth = bordered ? Tokens.Metric.hairline : 0
         layer.borderColor = bordered ? Tokens.Line.border.cgColor : nil
+        band.backgroundColor = Tokens.Surface.readBand.cgColor
+    }
+
+    override func layout() {
+        super.layout()
+        // Moved on every frame of a scroll, so it never animates: a band
+        // easing behind the page reads as lag.
+        Tokens.Motion.immediately {
+            bandClip.frame = bounds
+            let width = (bounds.width * (progress ?? 0)).rounded()
+            let x = userInterfaceLayoutDirection == .rightToLeft ? bounds.width - width : 0
+            band.frame = NSRect(x: x, y: 0, width: width, height: bounds.height)
+        }
     }
 
     override func viewDidChangeEffectiveAppearance() {

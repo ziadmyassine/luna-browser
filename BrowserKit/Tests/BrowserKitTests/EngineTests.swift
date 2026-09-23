@@ -283,6 +283,20 @@ struct PageColourSampleTests {
         #expect(TabController.scrollScript.contains("'resize'"))
     }
 
+    /// The sidebar's selected row fills with this, so it has to be a fraction,
+    /// and "cannot scroll" has to stay apart from "has not scrolled yet".
+    @Test func progressIsAFractionOrNothing() {
+        #expect(TabController.progress(from: NSNumber(value: 0.25)) == 0.25)
+        #expect(TabController.progress(from: NSNumber(value: 0)) == 0)
+        #expect(TabController.progress(from: NSNumber(value: 1.4)) == 1)
+        #expect(TabController.progress(from: NSNumber(value: -0.2)) == 0)
+        #expect(TabController.progress(from: nil) == nil)
+        #expect(TabController.progress(from: NSNull()) == nil)
+        #expect(TabController.progress(from: NSNumber(value: Double.nan)) == nil)
+        #expect(TabController.progress(from: "0.5") == nil)
+        #expect(TabController.scrollScript.contains("p: through(y)"))
+    }
+
     @Test func threeComponentsAreAColour() {
         let sample = [1.0, 0.5, 0.0].map(NSNumber.init(value:))
         #expect(TabController.sampledColour(from: sample) == RGBA(r: 1, g: 0.5, b: 0, a: 1))

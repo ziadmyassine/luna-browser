@@ -1,9 +1,10 @@
 import Foundation
 import WebKit
 
-/// How far down the page is, and what colour it is up at the top of it, for the
-/// one piece of chrome that needs to know: §3.2b's page bar, which collapses as
-/// the page moves away from its top and is painted in the page's own colour.
+/// How far down the page is, and what colour it is up at the top of it, for
+/// §3.2b's page bar, which collapses as the page moves away from its top and is
+/// painted in the page's own colour. And how far through the page that is, for
+/// the sidebar's selected row, which fills from its leading edge as you read.
 ///
 /// WebKit publishes no scroll position on macOS. `WKWebView` has no
 /// `scrollView` outside UIKit and no KVO-able offset, so the only supported way
@@ -16,10 +17,10 @@ import WebKit
 /// bottom edge is a question only the page can answer, so it is asked in the
 /// same script, on the same frame boundary, and travels with the offset.
 ///
-/// Both are delivered through closures rather than `TabState`: a `TabState`
-/// change re-renders a sidebar row, and a scroll is not news to one. This fires
-/// on a frame boundary for as long as a drag lasts, so nothing that reads tab
-/// state may be woken by it.
+/// All three are delivered through closures rather than `TabState`: a
+/// `TabState` change re-renders a sidebar row, and a scroll is not news to
+/// one. This fires on a frame boundary for as long as a drag lasts, so nothing
+/// that reads tab state may be woken by it.
 extension TabController {
 
     static let scrollMessageName = "lunaScroll"
@@ -31,6 +32,26 @@ extension TabController {
         else { return }
         onScroll?(offset)
         setTopColour(Self.sampledColour(from: body["top"]))
+        setScrollProgress(Self.progress(from: body["p"]))
+    }
+
+    /// How far through the page the reader is, or nil for a page that does not
+    /// scroll. Held for `topColour`'s reason: a tab selected again should show
+    /// where it was left without waiting for a scroll.
+    func setScrollProgress(_ progress: Double?) {
+        guard progress != scrollProgress else { return }
+        scrollProgress = progress
+        onScrollProgress?(progress)
+    }
+
+    /// The fraction as posted, clamped. Anything but a finite number is the
+    /// script's null — a page with nothing below the fold — and is not zero:
+    /// zero is a page that can scroll and has not.
+    static func progress(from value: Any?) -> Double? {
+        guard let number = value as? NSNumber else { return nil }
+        let fraction = number.doubleValue
+        guard fraction.isFinite else { return nil }
+        return min(max(fraction, 0), 1)
     }
 
     /// The colour the page reported for the strip under the bar, or nil for "no
@@ -101,6 +122,11 @@ extension TabController {
     /// `pageshow` is the one event that covers both: it fires on every load
     /// after this script is injected, and on every restore out of the cache.
     ///
+    /// And how far through the page the reader is, for the sidebar's selected
+    /// row. The document's own scroll when it has one; otherwise the last
+    /// element that scrolled, as long as it is at least half the viewport tall —
+    /// an app-shell site's content pane, not a dropdown's list.
+    ///
     /// Sampled at most every 4 pt of travel. `elementFromPoint` is a hit test,
     /// and three of them per frame of every drag for a colour that cannot have
     /// changed in four points is work the page pays for. A resize clears the
@@ -149,19 +175,31 @@ extension TabController {
         lastTop = sample();
         return lastTop;
       };
+      var inner = null;
+      var through = function (y) {
+        var target = document.scrollingElement;
+        var room = (target ? target.scrollHeight : 0) - (window.innerHeight || 0);
+        if (room > 1) { return y / room; }
+        if (!inner || !inner.isConnected || inner.clientHeight < (window.innerHeight || 0) / 2) { return null; }
+        room = inner.scrollHeight - inner.clientHeight;
+        return room > 1 ? inner.scrollTop / room : null;
+      };
       var pending = false;
       var post = function () {
         pending = false;
         var target = document.scrollingElement;
         var y = window.scrollY || (target ? target.scrollTop : 0) || 0;
-        h.postMessage({ y: y, top: top(y) });
+        h.postMessage({ y: y, top: top(y), p: through(y) });
       };
       var schedule = function () {
         if (pending) { return; }
         pending = true;
         window.requestAnimationFrame(post);
       };
-      window.addEventListener('scroll', schedule, { passive: true, capture: true });
+      window.addEventListener('scroll', function (event) {
+        if (event.target && event.target.nodeType === 1) { inner = event.target; }
+        schedule();
+      }, { passive: true, capture: true });
       window.addEventListener('resize', function () {
         lastY = null;
         schedule();

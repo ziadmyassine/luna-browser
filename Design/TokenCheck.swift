@@ -73,6 +73,7 @@ enum TokenCheck {
     private static var washes: [(String, NSColor)] {
         [("hover", Tokens.Surface.hover),
          ("selected", Tokens.Surface.selected),
+         ("readBand", Tokens.Surface.readBand),
          ("chromeFill", Tokens.Surface.chromeFill)]
     }
 
@@ -203,6 +204,7 @@ extension TokenCheck {
                         }
                     }
                 }
+                failures += checkReadBand(contrast: contrast, in: (name, appearance))
                 // §3.4 needs a selected row to still read as selected under the
                 // pointer, so the two washes may never converge.
                 let hover = Tokens.Ink.hover.alpha(contrast: contrast, dark: isDark)
@@ -210,6 +212,30 @@ extension TokenCheck {
                 if selected <= hover {
                     failures.append("Ink.selected (\(selected)) is not above Ink.hover (\(hover)) — hovering a selected row would erase it")
                 }
+            }
+        }
+        return failures
+    }
+
+    /// The part of a selected row its page has been read through wears
+    /// `readBand` on top of `selected`. A selected row draws its title and its
+    /// trailing control in `primary`, which needs 4.5:1 there; `secondary` is
+    /// only a fallback glyph's tint on that row, so it needs the 3:1 a
+    /// non-text mark does.
+    private static func checkReadBand(contrast: Bool, in variant: (String, NSAppearance)) -> [String] {
+        let (name, appearance) = variant
+        let isDark = appearance.isDark
+        let band = Tokens.Ink.readBand.color(contrast: contrast, dark: isDark)
+        let under = Tokens.Ink.selected.color(contrast: contrast, dark: isDark)
+        let marks: [(String, NSColor, Double)] = [
+            ("primary", Tokens.Text.primary, textFloor),
+            ("secondary", Tokens.Ink.secondary.color(contrast: contrast, dark: isDark), borderFloor)
+        ]
+        var failures: [String] = []
+        for (plane, surface) in surfaces {
+            let seen = band.flattened(over: under.flattened(over: surface, in: appearance), in: appearance)
+            for (text, ink, floor) in marks where ink.contrastRatio(over: seen, in: appearance) < floor {
+                failures.append("Text.\(text) on a selected row's read band over \(plane) (\(name)) is under \(floor):1")
             }
         }
         return failures

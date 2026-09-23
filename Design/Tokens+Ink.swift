@@ -42,6 +42,11 @@ extension Tokens {
         /// by §21.4 — `TokenCheck.checkFills` re-derives what the row's text
         /// measures once this wash is under it.
         static let selected = InkAlphas(light: 0.12, dark: 0.12, contrastLight: 0.22, contrastDark: 0.22)
+        /// The read part of a selected row: `hover`'s 6 % laid on `selected`.
+        /// Not doubled under Increase Contrast, because `selected` under it
+        /// already is — 22 % plus 12 % put the title at 4.22:1 over `raised`
+        /// in dark. At 6 % its worst case is 4.83:1.
+        static let readBand = InkAlphas(light: 0.06, dark: 0.06, contrastLight: 0.06, contrastDark: 0.06)
         /// §2's URL-pill fill. Low enough that the glass behind it still reads
         /// as glass, high enough to give the page wash something to blend into.
         static let chromeFill = InkAlphas(light: 0.08, dark: 0.10, contrastLight: 0.14, contrastDark: 0.16)

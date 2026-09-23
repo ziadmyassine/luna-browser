@@ -78,4 +78,39 @@ final class RowPillTests: XCTestCase {
 
         XCTAssertNil(controller.activeTabID, "the list kept a selection the Space no longer has")
     }
+
+    /// The read part of the page is a band from the leading edge, as wide as
+    /// the fraction read — and square at its trailing end, which is the
+    /// reading position rather than a shape.
+    func testTheBandIsAsWideAsThePageHasBeenRead() {
+        let pill = litPill()
+        pill.progress = 0.25
+        pill.layoutSubtreeIfNeeded()
+        XCTAssertEqual(pill.band.frame, NSRect(x: 0, y: 0, width: 50, height: pill.bounds.height))
+        pill.progress = 1
+        pill.layoutSubtreeIfNeeded()
+        XCTAssertEqual(pill.band.frame.width, 200)
+    }
+
+    /// A page with nothing below the fold has nothing to show, and that is not
+    /// the same as a page at its top — but both draw no band.
+    func testAPageThatCannotScrollDrawsNoBand() {
+        let pill = litPill()
+        pill.progress = 0.5
+        pill.layoutSubtreeIfNeeded()
+        pill.progress = nil
+        pill.layoutSubtreeIfNeeded()
+        XCTAssertEqual(pill.band.frame.width, 0)
+    }
+
+    /// Only the selected row is being read. The hover pill sits under a row
+    /// the reader is not on, so it never carries the band.
+    func testOnlyTheSelectedPillCarriesTheBand() {
+        let controller = TabListController()
+        controller.setScrollProgress(0.4)
+        XCTAssertEqual(controller.selectionPill.progress, 0.4)
+        XCTAssertNil(controller.hoverPill.progress)
+        controller.setScrollProgress(nil)
+        XCTAssertNil(controller.selectionPill.progress)
+    }
 }
