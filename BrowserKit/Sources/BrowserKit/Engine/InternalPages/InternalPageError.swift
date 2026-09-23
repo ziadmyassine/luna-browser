@@ -97,9 +97,14 @@ public struct InternalPageError: Equatable, Sendable {
              NSURLErrorServerCertificateHasUnknownRoot,
              NSURLErrorServerCertificateNotYetValid,
              NSURLErrorClientCertificateRejected,
-             NSURLErrorClientCertificateRequired,
-             NSURLErrorAppTransportSecurityRequiresSecureConnection:
+             NSURLErrorClientCertificateRequired:
             return .tls
+        // Not a certificate: App Transport Security refusing plain `http`
+        // before it left the machine. Web content is exempt in `Info.plist`;
+        // under `.tls`, a missing exemption told the user that every `http`
+        // site had a certificate that could not be verified.
+        case NSURLErrorAppTransportSecurityRequiresSecureConnection:
+            return .generic
         default:
             return .generic
         }

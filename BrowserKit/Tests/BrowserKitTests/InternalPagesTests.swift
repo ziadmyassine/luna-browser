@@ -227,7 +227,9 @@ struct InternalPagesTests {
             (NSURLErrorServerCertificateUntrusted, .tls),
             // Resolved and answered, just refused — telling the user their
             // internet is down would be a lie.
-            (NSURLErrorCannotConnectToHost, .generic)
+            (NSURLErrorCannotConnectToHost, .generic),
+            // App Transport Security never looked at a certificate.
+            (NSURLErrorAppTransportSecurityRequiresSecureConnection, .generic)
         ]
         for (code, expected) in cases {
             let error = NSError(domain: NSURLErrorDomain, code: code)
