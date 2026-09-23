@@ -146,6 +146,7 @@ final class SearchBarPlacementTests: XCTestCase {
     /// A setting that moves a landmark must not move it for a user who has
     /// never heard of the setting.
     func testThePillIsInTheSidebarUntilSomebodyMovesIt() {
+        Settings.chromeLayout = .sidebar
         XCTAssertEqual(SearchBarPlacement.sidebar.rawValue, "sidebar")
         UserDefaults.standard.removeObject(forKey: "luna.searchBarPlacement")
         XCTAssertEqual(Settings.searchBarPlacement, .sidebar)
@@ -158,14 +159,14 @@ final class SearchBarPlacementTests: XCTestCase {
         XCTAssertTrue(Settings.searchBarIsOnPage)
     }
 
-    /// The bug this property exists to prevent: §4 has one place for an address
-    /// and the tab strip is built around it, so a placement left at "on the
-    /// page" must not make the top bar's pill disappear into a bar that layout
-    /// never shows.
-    func testTheTopBarIgnoresThePlacementEntirely() {
-        Settings.searchBarPlacement = .page
+    /// §4's bar holds tabs and no address, so the page bar stands under it
+    /// whatever the placement says — the placement is a sidebar question.
+    func testTheTopBarAlwaysHasThePageBar() {
         Settings.chromeLayout = .topBar
-        XCTAssertFalse(Settings.searchBarIsOnPage)
+        for placement in SearchBarPlacement.allCases {
+            Settings.searchBarPlacement = placement
+            XCTAssertTrue(Settings.searchBarIsOnPage)
+        }
     }
 
     func testBothPlacementsSurviveARoundTripThroughDefaults() {

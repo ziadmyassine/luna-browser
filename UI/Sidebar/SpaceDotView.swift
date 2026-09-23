@@ -40,6 +40,15 @@ final class SpaceDotView: NSView {
         }
     }
 
+    /// The dot and its chip at a fraction of the column's size — see
+    /// `SpaceDotsView.dotScale`.
+    var scale: CGFloat = 1 {
+        didSet {
+            guard scale != oldValue else { return }
+            needsDisplay = true
+        }
+    }
+
     /// §6.6's lift is over this dot. Set by `SpaceDotsView`, which is the only
     /// thing that knows where the lift is.
     var isDropTarget = false { didSet { needsDisplay = true } }
@@ -107,8 +116,8 @@ final class SpaceDotView: NSView {
     override var wantsUpdateLayer: Bool { true }
 
     override func updateLayer() {
-        let size = Tokens.Metric.spaceDot
-        let side = Tokens.Metric.spaceDotChip
+        let size = Tokens.Metric.spaceDot * scale
+        let side = Tokens.Metric.spaceDotChip * scale
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         // The chip is centred on the mark, and the mark is centred in the chip

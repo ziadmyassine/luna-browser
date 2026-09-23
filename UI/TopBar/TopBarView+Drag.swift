@@ -17,7 +17,7 @@ import BrowserKit
 extension TopBarView {
 
     func wireDrag() {
-        let controller = TopBarTabDragController(host: self, strip: strip, spaces: spacePill)
+        let controller = TopBarTabDragController(host: self, strip: strip, spaces: spaceName)
         controller.allowsPinning = session.allowsPinning
         controller.onDropTab = { [weak self] id, landing in
             guard let self, let tab = session.tab(id) else { return }

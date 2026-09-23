@@ -218,11 +218,12 @@ enum Settings {
     /// Whether §3.2b's bar is the one on screen — the single reader both the
     /// sidebar and the page bar are driven from.
     ///
-    /// Two keys, one answer. The placement is only meaningful in sidebar
-    /// layout, and asking each surface to remember that is how the sidebar ends
-    /// up having dropped its pill in a layout that has no page bar to put it
-    /// in.
+    /// Two keys, one answer. The placement is only a question in sidebar
+    /// layout; §4's top bar has no address of its own and always stands the
+    /// page bar under itself. Asking each surface to remember that is how the
+    /// sidebar ends up having dropped its pill in a layout that has no page bar
+    /// to put it in.
     static var searchBarIsOnPage: Bool {
-        chromeLayout == .sidebar && searchBarPlacement == .page
+        chromeLayout == .topBar || searchBarPlacement == .page
     }
 }

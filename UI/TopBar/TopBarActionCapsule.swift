@@ -94,7 +94,7 @@ final class TopBarActionCapsule: NSView {
         buttons = items.enumerated().map { index, item in
             // `glass: false`: the cylinder around them is the glass. A second
             // material per item is what made the three read as three.
-            let button = TopBarButton(metric: TopBarMetrics.capsuleItem, glass: .none)
+            let button = TopBarButton(metric: TopBarMetrics.capsuleItem)
             // The cylinder is the material, so the cylinder is what swells —
             // see `TopBarButton.ownsItsMaterial`.
             button.ownsItsMaterial = false
@@ -150,4 +150,18 @@ final class TopBarActionCapsule: NSView {
             originX += item.width + TopBarMetrics.gap
         }
     }
+
+    /// The padding between its items is the capsule's, not the bar's, so a
+    /// press there does not move the window — §4's "only the empty bar".
+    override var mouseDownCanMoveWindow: Bool { false }
+
+    /// For the same reason: its glass is a subview, and a press between two
+    /// items would otherwise land on it.
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard let hit = super.hitTest(point) else { return nil }
+        return hit is TopBarButton ? hit : self
+    }
+
+    /// Kept, not passed on up to the window — `TopBarSpaceName.mouseDown`.
+    override func mouseDown(with event: NSEvent) {}
 }

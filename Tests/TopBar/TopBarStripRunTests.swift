@@ -34,7 +34,7 @@ final class TopBarStripRunTests: XCTestCase {
             switch block {
             case let .tab(_, style): style
             case let .group(_, style): style
-            case .rule: nil
+            case .rule, .landing: nil
             }
         }
     }
@@ -45,6 +45,7 @@ final class TopBarStripRunTests: XCTestCase {
             case let .tab(tab, _): tab.title
             case let .group(group, _): group.name
             case .rule: "|"
+            case .landing: "_"
             }
         }
     }
@@ -203,5 +204,40 @@ final class TopBarStripRunTests: XCTestCase {
             today: [.tab(tab("news")), .group(group("Fun"), tabs: [tab("video"), tab("music")])]
         )
         XCTAssertEqual(run.tabs.map(\.title), ["mail", "news", "video", "music"])
+    }
+
+    // MARK: - The landings a lift opens
+
+    /// The empty tile is offered only while nothing is pinned — among tiles a
+    /// drop already has somewhere to go — and the folder landing always stands
+    /// at the end of the kept tier, before the hairline.
+    func testTheLandingsStandOnThePlate() {
+        let open = tab("news")
+        let empty = TopBarStripRun(today: [.tab(open)], landings: [.essential, .pinned])
+        XCTAssertEqual(names(empty), ["_", "_", "|", "news"])
+        XCTAssertEqual(empty.kept, 2)
+
+        let pinned = TopBarStripRun(
+            essentials: [tab("mail", kind: .essential)],
+            today: [.tab(open)],
+            landings: [.essential, .pinned]
+        )
+        XCTAssertEqual(names(pinned), ["mail", "_", "|", "news"])
+    }
+
+    /// A drop on a landing fills it, and means the place it stands for: the
+    /// first tile, or a new folder at the end of the kept tier.
+    func testALandingMeansTheNextPlaceInItsTier() {
+        let saved = group("Work", kind: .pinned)
+        let run = TopBarStripRun(
+            saved: [.group(saved, tabs: [])],
+            today: [.tab(tab("news"))],
+            landings: [.essential, .pinned]
+        )
+        // Empty tile, the folder, the folder landing, the hairline, news.
+        XCTAssertEqual(run.destination(forBlock: 0, isPastMidpoint: true), SidebarDestination(kind: .essential, groupID: nil, index: 0))
+        XCTAssertEqual(run.destination(forBlock: 2, isPastMidpoint: false), SidebarDestination(kind: .pinned, groupID: nil, index: 1))
+        XCTAssertEqual(run.gap(forBlock: 2, isPastMidpoint: true), 2, "a landing is filled, not stepped past")
+        XCTAssertEqual(run.folderDestination(forBlock: 2, isPastMidpoint: true), SidebarDestination(kind: .pinned, groupID: nil, index: 1))
     }
 }

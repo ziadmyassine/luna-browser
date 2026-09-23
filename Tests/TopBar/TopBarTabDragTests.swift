@@ -68,8 +68,8 @@ final class TopBarTabDragTests: XCTestCase {
         XCTAssertEqual(session.members(ofGroup: folder).first?.id, loose, "past the header is the front of the folder")
     }
 
-    /// Across the hairline among §3.3's tiles is pinning it.
-    func testATabCarriedAmongTheCirclesIsPinned() async throws {
+    /// Onto the plate among §3.3's tiles is pinning it.
+    func testATabCarriedAmongTheTilesIsPinned() async throws {
         let (session, bar, space) = try await fixture()
         let kept = insert("Kept", order: 0, in: space, on: session)
         let open = insert("Open", order: 1, in: space, on: session)
@@ -82,19 +82,53 @@ final class TopBarTabDragTests: XCTestCase {
         XCTAssertEqual(session.favorites(inSpace: space).map(\.id), [kept, open])
     }
 
-    /// With nothing kept yet, a drag opens §3.3's empty slot in the clear bar
-    /// before the run — the grid's own empty slot — and a tab carried there is
-    /// pinned.
-    func testATabCarriedIntoTheEmptyKeptSlotIsPinned() async throws {
+    /// With nothing kept yet, a lift brought to the plate opens §3.3's empty
+    /// tile after the Space's name — the grid's own empty slot — and a tab
+    /// carried into it is pinned.
+    func testATabCarriedIntoTheEmptyTileIsPinned() async throws {
         let (session, bar, space) = try await fixture()
         let tabs = ["One", "Two"].enumerated().map { insert($1, order: $0, in: space, on: session) }
         bar.refresh()
         bar.layoutSubtreeIfNeeded()
 
-        let first = try XCTUnwrap(chip(tabs[0], in: bar))
-        let before = first.convert(NSPoint(x: -40, y: first.bounds.midY), to: nil)
-        try drag(tabs[1], in: bar, to: before)
+        // The empty tile opens after the name, so it starts at the plate's
+        // closing edge as it stood before the lift.
+        try drag(tabs[1], in: bar, edgeTo: plateEdge(in: bar) + TopBarMetrics.keptTile.width / 2)
         try await settle { session.tab(tabs[1])?.kind == .essential }
+    }
+
+    /// The dashed row after the tiles is §3.4b's tier: a tab carried into it
+    /// starts a new kept folder with the tab inside.
+    func testATabCarriedIntoTheFolderLandingStartsAKeptFolder() async throws {
+        let (session, bar, space) = try await fixture()
+        let tabs = ["One", "Two"].enumerated().map { insert($1, order: $0, in: space, on: session) }
+        bar.refresh()
+        bar.layoutSubtreeIfNeeded()
+
+        // Onto the plate first, which is what opens its landings, then along
+        // to the dashed row after the empty tile.
+        let edge = plateEdge(in: bar)
+        let landing = edge + TopBarMetrics.keptTile.width + TopBarMetrics.rowFloor / 2
+        try drag(tabs[1], in: bar, edgeTo: landing, through: [edge - 2])
+        try await settle {
+            session.tab(tabs[1])?.groupID.flatMap { session.group($0) }?.kind == .pinned
+        }
+    }
+
+    /// Picked up by its right half and put straight back down, a tab stays
+    /// where it was. Read at the hand, the neighbour that closed up under it
+    /// answered, and the tab landed one place along.
+    func testATabPutStraightBackDownStaysWhereItWas() async throws {
+        let (session, bar, space) = try await fixture()
+        let tabs = ["One", "Two", "Three"].enumerated().map { insert($1, order: $0, in: space, on: session) }
+        bar.refresh()
+        bar.layoutSubtreeIfNeeded()
+
+        let two = try XCTUnwrap(chip(tabs[1], in: bar))
+        let home = two.convert(NSPoint.zero, to: nil).x
+        try drag(tabs[1], in: bar, edgeTo: home + 1, grip: 0.9)
+        try await Task.sleep(for: .milliseconds(500))
+        XCTAssertEqual(session.slots(inTier: .today).compactMap(\.tabID), tabs)
     }
 
     /// Escape puts it back where it was: nothing is committed.
@@ -111,8 +145,9 @@ final class TopBarTabDragTests: XCTestCase {
 
     // MARK: - The hand
 
-    /// Posts a press-and-carry into the window's queue, then hands the press
-    /// to the controller, whose loop is what reads the rest.
+    /// Carries `id` until the lift's leading edge is two points inside
+    /// `target`'s trailing edge — past its middle, which is what the run
+    /// reads (`TopBarTabDragController.move`).
     private func drag(
         _ id: UUID,
         in bar: TopBarView,
@@ -120,24 +155,41 @@ final class TopBarTabDragTests: XCTestCase {
         cancelling: Bool = false
     ) throws {
         let to = try XCTUnwrap(chip(target, in: bar))
-        try drag(id, in: bar, to: to.convert(NSPoint(x: to.bounds.maxX - 2, y: to.bounds.midY), to: nil), cancelling: cancelling)
+        let edge = to.convert(NSPoint(x: to.bounds.maxX - 2, y: 0), to: nil).x
+        try drag(id, in: bar, edgeTo: edge, cancelling: cancelling)
     }
 
-    /// `goal` in window coordinates.
-    private func drag(_ id: UUID, in bar: TopBarView, to goal: NSPoint, cancelling: Bool = false) throws {
+    /// Posts a press-and-carry into the window's queue, then hands the press
+    /// to the controller, whose loop is what reads the rest. The goal and the
+    /// stops on the way are where the lift's leading edge is to be, in window
+    /// coordinates; the hand is `grip` of the tab's width behind it.
+    private func drag(
+        _ id: UUID,
+        in bar: TopBarView,
+        edgeTo goal: CGFloat,
+        through: [CGFloat] = [],
+        grip: CGFloat = 0.5,
+        cancelling: Bool = false
+    ) throws {
         let from = try XCTUnwrap(chip(id, in: bar))
-        let start = from.convert(NSPoint(x: from.bounds.midX, y: from.bounds.midY), to: nil)
+        let grab = from.bounds.width * grip
+        let start = from.convert(NSPoint(x: grab, y: from.bounds.midY), to: nil)
+        let origin = start.x - grab
 
         let steps = 12
-        for step in 1 ... steps {
-            let fraction = CGFloat(step) / CGFloat(steps)
-            let point = NSPoint(x: start.x + (goal.x - start.x) * fraction, y: start.y)
-            window.postEvent(mouse(.leftMouseDragged, at: point), atStart: false)
+        var leg = origin
+        for stop in through + [goal] {
+            for step in 1 ... steps {
+                let fraction = CGFloat(step) / CGFloat(steps)
+                let point = NSPoint(x: leg + (stop - leg) * fraction + grab, y: start.y)
+                window.postEvent(mouse(.leftMouseDragged, at: point), atStart: false)
+            }
+            leg = stop
         }
         if cancelling {
             window.postEvent(escape(), atStart: false)
         } else {
-            window.postEvent(mouse(.leftMouseUp, at: goal), atStart: false)
+            window.postEvent(mouse(.leftMouseUp, at: NSPoint(x: goal + grab, y: start.y)), atStart: false)
         }
         let lifted: TopBarLifted = bar.session.group(id) == nil ? .tab(id) : .group(id)
         bar.drag?.track(lifted, from: from, event: mouse(.leftMouseDown, at: start))
@@ -215,6 +267,12 @@ final class TopBarTabDragTests: XCTestCase {
     }
 
     /// The tile or row drawing `id`.
+    /// The plate's closing edge, in window coordinates.
+    private func plateEdge(in bar: TopBarView) -> CGFloat {
+        let plate = bar.strip.plate
+        return plate.convert(NSPoint(x: plate.bounds.maxX, y: 0), to: nil).x
+    }
+
     private func chip(_ id: UUID, in root: NSView) -> NSView? {
         for sub in root.subviews {
             if sub.identifier?.rawValue == id.uuidString { return sub }

@@ -14,9 +14,10 @@
 //  springs. Nothing on the bar is a copy of something in the sidebar; it is the
 //  sidebar's thing, standing somewhere else.
 //
-//  Two runs and a hairline between them: kept on the left, open on the right.
-//  `TopBarStripRun` holds the arrangement and where a drop lands; the frames
-//  are `+Layout`, the pills and the pointer `+Pills`.
+//  Two runs: kept on the left, on one plate of glass headed by the Space's
+//  name, and open on the right. `TopBarStripRun` holds the arrangement and
+//  where a drop lands; the frames are `+Layout`, the pills and the pointer
+//  `+Pills`.
 //
 //  A folder's tabs follow its header along the run, with §3.4b's spine laid
 //  under them — the column's hairline down a folder's leading edge, on its
@@ -58,6 +59,9 @@ struct DropGap: Equatable {
     var block: Int
     var width: CGFloat
     var destination: SidebarDestination
+    /// The lift is over one of the run's landings (`block`), which it fills
+    /// rather than opening room beside.
+    var fills = false
 }
 
 @MainActor
@@ -67,7 +71,9 @@ final class TopBarTabStrip: NSView, WindowScoped {
     let windowID: UUID
     let scrollView = NSScrollView()
     let content = StripContentView()
-    let rule = TopBarSeparator()
+    /// §4's plate, and the Space's name at the head of it.
+    let plate = TopBarPlate()
+    let spaceName = TopBarSpaceName()
     /// §3.4's two fills, one of each for the whole bar.
     let selectionPill = RowPillView(role: .selected)
     let hoverPill = RowPillView(role: .hover)
@@ -78,6 +84,9 @@ final class TopBarTabStrip: NSView, WindowScoped {
     let folderDrop = SidebarGroupDropView()
     /// §3.3's dashed slot, where a kept tab is about to land.
     let slot = TopBarSlotOutline()
+    /// The dashed row at the end of §3.4b's tier, where a tab dropped starts a
+    /// kept folder.
+    let folderSlot = TopBarSlotOutline()
 
     var run = TopBarStripRun()
     var tiles: [UUID: GlassButton] = [:]
@@ -130,14 +139,13 @@ final class TopBarTabStrip: NSView, WindowScoped {
         }
     }
 
-    /// An empty kept run still takes a drop for the length of a drag, drawn as
-    /// §3.3's empty slot — the grid does the same when nothing is pinned yet.
-    /// False in a §5.6 window, which keeps nothing.
-    var revealsKept = false {
+    /// The empty places the run offers while a lift is near the plate — see
+    /// `TopBarStripRun.init`'s `landings`. Empty in a §5.6 window, which keeps
+    /// nothing.
+    var landings: Set<TabKind> = [] {
         didSet {
-            guard revealsKept != oldValue else { return }
-            animatesNextPlacement = true
-            needsLayout = true
+            guard landings != oldValue else { return }
+            reload()
         }
     }
 
@@ -149,6 +157,9 @@ final class TopBarTabStrip: NSView, WindowScoped {
         }
     }
 
+    /// Where the plate stands, in `content`'s coordinates — its target, for
+    /// `targets`' reason.
+    var plateFrame: NSRect = .zero
     /// Where the gap was laid, in `content`'s coordinates — what the lift
     /// comes to rest on.
     var gapFrame: NSRect?
@@ -159,9 +170,6 @@ final class TopBarTabStrip: NSView, WindowScoped {
     /// `frame`, which during an animated pass is still on its way there: a
     /// pill sent to a row's `frame` then would chase where the row was.
     var targets: [UUID: NSRect] = [:]
-    /// Where the empty kept slot stands while a drag has one open, in
-    /// `content`'s coordinates — its target, for `targets`' reason.
-    var vacancyFrame: NSRect?
 
     /// What a press becomes once it moves: §6.6's lift, which
     /// `TopBarTabDragController` runs. Handed the view the gesture started on
@@ -177,7 +185,10 @@ final class TopBarTabStrip: NSView, WindowScoped {
         scrollView.contentView.drawsBackground = false
         scrollView.hasHorizontalScroller = false
         scrollView.hasVerticalScroller = false
-        scrollView.horizontalScrollElasticity = .allowed
+        // Only when there is something to scroll. A run that fits bounced
+        // under a two-finger swipe and could be left a few points along,
+        // which stood the plate that much closer to the traffic lights.
+        scrollView.horizontalScrollElasticity = .automatic
         scrollView.verticalScrollElasticity = .none
         scrollView.automaticallyAdjustsContentInsets = false
         scrollView.documentView = content
@@ -192,12 +203,23 @@ final class TopBarTabStrip: NSView, WindowScoped {
 
         content.setAccessibilityRole(.tabGroup)
         content.setAccessibilityLabel(String(localized: "Tabs"))
-        // Bottom to top: the fills under everything, then the marks, then the
-        // tabs as they arrive, and the light over all of them.
-        for view in [folderDrop, selectionPill, hoverPill, slot, rule, glow] as [NSView] {
+        // Bottom to top: the plate, the fills, then the marks, then the name
+        // and the tabs as they arrive, and the light over all of them.
+        //
+        // The name above the fills and marks, not under them. They take no
+        // click, but the window server's map of where a press moves the
+        // window is built from frames and `mouseDownCanMoveWindow`, not from
+        // `hitTest` — so a parked pill lying over the name made a press on
+        // the name drag the window. The tabs were never under them.
+        for view in [plate, folderDrop, selectionPill, hoverPill, slot, folderSlot, spaceName, glow] as [NSView] {
             content.addSubview(view)
         }
         for pill in [selectionPill, hoverPill] { pill.alphaValue = 0 }
+        folderSlot.symbolName = "folder.badge.plus"
+        // Concentric with the plate, whose edge the ring stands on.
+        glow.cornerRadius = TopBarMetrics.keptTile.cornerRadius + glowOutset
+        content.menuBuilder = { [weak self] in self?.emptyMenu() }
+        plate.menuBuilder = { [weak self] in self?.emptyMenu() }
 
         NotificationCenter.default.addObserver(
             self,
@@ -228,7 +250,8 @@ final class TopBarTabStrip: NSView, WindowScoped {
             essentials: windowEssentials,
             saved: windowSlots(inTier: .pinned),
             today: windowSlots(inTier: .today),
-            excluding: liftedID
+            excluding: liftedID,
+            landings: landings
         )
         activeID = activeTabID
         // Every change to a run already on screen slides into place: a switch,
@@ -256,12 +279,11 @@ final class TopBarTabStrip: NSView, WindowScoped {
             case let .group(group, _):
                 live.insert(group.id)
                 configureRow(for: group, arriving: onScreen)
-            case .rule:
+            case .rule, .landing:
                 break
             }
         }
         retire(keeping: live, animated: onScreen)
-        rule.isHidden = !run.blocks.contains(.rule)
         relight(blooming: previousActive != nil && previousActive != activeID)
         needsLayout = true
     }
@@ -326,6 +348,7 @@ final class TopBarTabStrip: NSView, WindowScoped {
             glassMode: .dormant
         )
         tile.identifier = NSUserInterfaceItemIdentifier(id.uuidString)
+        tile.showsWell = false
         content.addSubview(tile, positioned: .below, relativeTo: glow)
         if arriving { fadeIn(tile) }
         return tile
@@ -384,6 +407,15 @@ final class TopBarTabStrip: NSView, WindowScoped {
     }
 
     // MARK: - Shared
+
+    /// §3.4b's one item for the bar's empty part: a folder, which is the one
+    /// thing that needs no tab to exist. The column's own menu for its empty
+    /// part.
+    func emptyMenu() -> NSMenu {
+        GroupMenu.plane { [weak self] in
+            self?.session.createGroup(name: BrowserSession.untitledGroupName)
+        }
+    }
 
     func tabMenu(_ id: UUID) -> NSMenu? {
         guard let current = session.tab(id) else { return nil }

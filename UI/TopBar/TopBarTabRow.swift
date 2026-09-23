@@ -22,8 +22,17 @@
 
 import AppKit
 
+/// An `NSControl` rather than a plain view, because the bar stands in the
+/// window's titlebar, and there the window server — not the app — decides
+/// whether a press moves the window, before any view sees it. It asks
+/// AppKit's private `_opaqueRectForWindowMoveWhenInTitlebar`, which is empty
+/// for every plain `NSView` whatever its `mouseDownCanMoveWindow` says, and
+/// the view's bounds for a control. So a tab dragged the window as well as
+/// itself, and only a control keeps the press. Measured on macOS 26 with a
+/// probe window: `NSView`, with every override tried, answered zero;
+/// `NSControl` with none answered its bounds.
 @MainActor
-final class TopBarTabRow: NSView {
+final class TopBarTabRow: NSControl {
 
     let row = SidebarRowView()
     /// The press, handed to the strip whole: it decides whether a press on a
@@ -60,14 +69,20 @@ final class TopBarTabRow: NSView {
     /// the chevron after a folder's name — the column's own insets, measured
     /// rather than guessed, so the title's fade only starts when a title is
     /// longer than the bar will give it.
+    ///
+    /// A tab also keeps room for the close glyph, which comes out on the tab
+    /// the pointer is on, and never goes under `tabFloor`. A folder's header
+    /// has no close glyph and stays as short as its name.
     static func pillWidth(for content: SidebarRowContent) -> CGFloat {
         measure.stringValue = content.title
-        let chevron = content.disclosure == nil
-            ? 0
-            : Tokens.Metric.groupChevronSlot.width + Tokens.Metric.groupChevronGap
+        let isFolder = content.disclosure != nil
+        let trailing = isFolder
+            ? Tokens.Metric.groupChevronSlot.width + Tokens.Metric.groupChevronGap
+            : Tokens.Metric.rowTrailingChip.width + Tokens.Metric.rowInset
         let unread = content.hasUnread ? Tokens.Metric.spaceDot + Tokens.Metric.rowInset : 0
-        let width = Tokens.Metric.rowTitleInset + ceil(measure.intrinsicContentSize.width) + chevron + unread
-        return min(max(width, TopBarMetrics.rowFloor), TopBarMetrics.rowCeiling)
+        let width = Tokens.Metric.rowTitleInset + ceil(measure.intrinsicContentSize.width) + trailing + unread
+        let floor = isFolder ? TopBarMetrics.rowFloor : TopBarMetrics.tabFloor
+        return min(max(width, floor), TopBarMetrics.rowCeiling)
     }
 
     /// The same face the row draws its title in, so the measurement is of the

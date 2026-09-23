@@ -8,7 +8,8 @@
 //  circles and the §3.2 pill leave the sidebar and sit on a bar across the top
 //  of the content pane instead. The sidebar keeps its tabs, its Essentials and
 //  its bottom bar — and its top 52 pt, because that is what holds the traffic
-//  lights' corner clear.
+//  lights' corner clear. §4's top bar always stands this bar under itself: it
+//  holds tabs and no address.
 //
 //  The bar is a plane in the page's own colour. Floating controls with nothing
 //  behind them were tried, and the reason they do not work is that no material

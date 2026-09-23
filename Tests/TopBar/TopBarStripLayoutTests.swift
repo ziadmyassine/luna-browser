@@ -81,9 +81,10 @@ final class TopBarStripLayoutTests: XCTestCase {
         XCTAssertTrue(descendants(of: strip, ofType: TopBarFolderSpine.self).allSatisfy(\.isHidden))
     }
 
-    /// Kept tabs are §3.3's own tiles, in the grid's shape, in front of the
-    /// hairline; open ones are §3.4's rows after it.
-    func testKeptTabsAreTheGridsTilesAndOpenOnesAreRows() async throws {
+    /// Kept tabs are §3.3's own tiles, on the plate after the Space's name;
+    /// open ones are §3.4's rows after the plate, one gap on. The plate and
+    /// the rows stand at the capsule's height, the tiles at a capsule item's.
+    func testKeptTabsAreTilesOnThePlateAndOpenOnesAreRowsAfterIt() async throws {
         let session = try await session()
         let window = window(on: session)
         let space = try XCTUnwrap(session.spaces.first).id
@@ -95,12 +96,35 @@ final class TopBarStripLayoutTests: XCTestCase {
         let tile = try XCTUnwrap(view(kept, in: strip) as? GlassButton)
         let row = try XCTUnwrap(view(open, in: strip) as? TopBarTabRow)
         XCTAssertEqual(tile.frame.size, TopBarMetrics.keptTile.size)
-        XCTAssertEqual(row.frame.height, Tokens.Metric.rowPillHeight)
+        XCTAssertEqual(row.frame.height, TopBarMetrics.lineHeight)
+        XCTAssertGreaterThanOrEqual(row.frame.width, TopBarMetrics.tabFloor)
 
-        let hairline = try XCTUnwrap(descendant(of: strip, ofType: TopBarSeparator.self))
-        XCTAssertFalse(hairline.isHidden)
-        XCTAssertLessThan(tile.frame.maxX, hairline.frame.minX)
-        XCTAssertGreaterThan(row.frame.minX, hairline.frame.maxX)
+        let plate = strip.plate.frame
+        XCTAssertEqual(plate.height, TopBarMetrics.lineHeight)
+        XCTAssertLessThan(strip.spaceName.frame.minX, tile.frame.minX, "the name heads the plate")
+        XCTAssertEqual(tile.frame.minX, strip.spaceName.frame.maxX)
+        XCTAssertEqual(tile.frame.height, plate.height, "the box fills the plate top to bottom")
+        XCTAssertEqual(tile.frame.minY, plate.minY)
+        XCTAssertEqual(plate.maxX, tile.frame.maxX, "the plate ends where its last box does")
+        XCTAssertEqual(row.frame.minX - plate.maxX, TopBarMetrics.gap, "one gap between the plate and a tab")
+        // The first tile stands after the name, never at the strip's own
+        // edge — its glow was clipped when it stood at x 0.
+        XCTAssertGreaterThan(tile.frame.minX, plate.minX)
+    }
+
+    /// Two open tabs are one gap apart, the same gap as everywhere else on
+    /// the bar.
+    func testOpenTabsStandOneGapApart() async throws {
+        let session = try await session()
+        let window = window(on: session)
+        let space = try XCTUnwrap(session.spaces.first).id
+        let first = insert(tab: "One", order: 0, in: space, on: session)
+        let second = insert(tab: "Two", order: 1, in: space, on: session)
+
+        let strip = laidOut(session: session, window: window)
+        let one = try XCTUnwrap(view(first, in: strip))
+        let two = try XCTUnwrap(view(second, in: strip))
+        XCTAssertEqual(two.frame.minX - one.frame.maxX, TopBarMetrics.gap)
     }
 
     /// The tab the window is showing carries §3.4's selected pill, standing

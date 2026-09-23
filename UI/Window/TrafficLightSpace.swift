@@ -58,9 +58,9 @@ enum TrafficLightSpace {
 /// has to be asked to lay out again when they appear or disappear.
 ///
 /// The lights coming and going changes no view's bounds, so nothing in AppKit
-/// marks these dirty on its own: they have to be named. Two conform — §3.1's
-/// sidebar control row and §3.2b's page bar — and both put a button in the
-/// corner the lights would otherwise be in.
+/// marks these dirty on its own: they have to be named. Three conform — §3.1's
+/// sidebar control row, §3.2b's page bar and §4's top bar — and each puts
+/// something in the corner the lights would otherwise be in.
 @MainActor
 protocol TrafficLightNeighbour: NSView {}
 

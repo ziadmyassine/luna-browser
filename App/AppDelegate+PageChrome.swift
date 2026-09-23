@@ -21,7 +21,16 @@ extension AppDelegate {
     func wirePageChrome(in window: BrowserWindow) {
         let page = PageChromeController(session: window.session, windowID: window.id)
         window.pageChrome = page
-        page.onToggleSidebar = { [weak window] in window?.toggleSidebar() }
+        page.onToggleSidebar = { [weak window] in
+            // Under §4's top bar there is no column to show or hide, so the
+            // sidebar button brings the sidebar layout back — the one thing a
+            // "Show Sidebar" button there can honestly mean.
+            guard Settings.chromeLayout == .sidebar else {
+                Settings.chromeLayout = .sidebar
+                return
+            }
+            window?.toggleSidebar()
+        }
         page.onBandHeight = { [weak window] height, animated in
             window?.controller.setPageBarInset(height, animated: animated)
         }

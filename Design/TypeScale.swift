@@ -45,6 +45,10 @@ extension Tokens {
         static var urlPill: NSFont { .systemFont(ofSize: 13, weight: .regular) }
         /// 13 pt — the same pill in top-bar layout, where it shares the bar.
         static var topBarURL: NSFont { .systemFont(ofSize: 13, weight: .regular) }
+        /// 12 pt — the Space's name at the head of §4's plate. A step under
+        /// the tabs' 13: at the rows' size it read as the first tab on the bar
+        /// rather than as the label on the shelf.
+        static var topBarSpaceName: NSFont { .systemFont(ofSize: 12, weight: .regular) }
         /// 15 pt — §9.1's Command Bar query.
         ///
         /// One step above the chrome, because the bar is not chrome. The

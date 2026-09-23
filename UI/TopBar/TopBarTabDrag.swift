@@ -14,7 +14,7 @@
 //
 //  The lift is the column's own — `SidebarDragLiftView`, carrying §3.4's
 //  selected pill, the favicon and the title — and it morphs between a row and
-//  §3.3's tile as it crosses the hairline, exactly as it does crossing the
+//  §3.3's tile as it moves onto the plate, exactly as it does crossing the
 //  column's grid boundary. Same view, same shadow, same settle.
 //
 //  Three things can be done to a tab by carrying it, and they are the three the
@@ -23,14 +23,17 @@
 //    · Along the run — a reorder inside its own tier.
 //    · Into a folder, or out of one — past a folder's header is inside it, the
 //      column's rule, and the column's box closes round the folder to say so.
-//    · Across the hairline — into the kept run is keeping it, out of it is not.
-//      Among §3.3's tiles it becomes one of them; beside §3.4b's kept tabs it
-//      joins those. The kept run is one run on the bar and two tiers
-//      underneath, and the rule that tells them apart is the one a hand can
-//      see: a tab becomes the same kind of thing as what it lands beside.
+//    · Onto the plate or off it — onto it is keeping it, off it is not. Among
+//      §3.3's tiles it becomes one of them; inside a kept folder it joins
+//      that. A lift brought to the plate opens two landings on it, the
+//      column's two wells (§3.3a): an empty tile when nothing is pinned, and a
+//      dashed row at the end of §3.4b's tier where a tab dropped starts a new
+//      kept folder. Only brought to it: opened the moment a tab left the
+//      ground, they pushed every tab after the plate a hundred points along,
+//      out from under the hand that had just picked one of them up.
 //
-//  And a fourth the bar has instead of the column's dots: held over one of the
-//  Space cylinder's arrows, a tab goes to the Space next door.
+//  And a fourth, the column's dots: held over the Space's name, the dots come
+//  out, and a tab held on one goes to that Space.
 //
 //  Nothing is committed until the mouse comes up — one `reorderTab` for the
 //  gesture, one undo entry, not one per tab crossed.
@@ -47,7 +50,7 @@ final class TopBarTabDragController {
     var onDropTab: ((_ id: UUID, _ landing: SidebarDestination) -> Void)?
     /// A §3.4b folder dropped in the run: a slot in one of the two tiers.
     var onDropGroup: ((_ id: UUID, _ kind: TabKind, _ index: Int) -> Void)?
-    /// A tab dropped on one of the Space cylinder's arrows.
+    /// A tab dropped on one of the Space's dots.
     var onDropOnSpace: ((_ id: UUID, _ space: UUID) -> Void)?
     /// False in a §5.6 private window, where nothing can be kept, so the kept
     /// run is not a landing place at all — see `BrowserSession.allowsPinning`.
@@ -60,7 +63,7 @@ final class TopBarTabDragController {
 
     private unowned let host: NSView
     private unowned let strip: TopBarTabStrip
-    private unowned let spaces: TopBarSpacePill
+    private unowned let spaces: TopBarSpaceName
     private var lift: SidebarDragLiftView?
     private var content = SidebarRowContent()
     private var target: Target?
@@ -69,7 +72,7 @@ final class TopBarTabDragController {
     /// quick second drag must not have its run torn down by the first's.
     private var gesture = 0
 
-    init(host: NSView, strip: TopBarTabStrip, spaces: TopBarSpacePill) {
+    init(host: NSView, strip: TopBarTabStrip, spaces: TopBarSpaceName) {
         self.host = host
         self.strip = strip
         self.spaces = spaces
@@ -83,7 +86,7 @@ final class TopBarTabDragController {
         let origin = host.convert(source.bounds, from: source)
         let start = host.convert(press.locationInWindow, from: nil)
         let grab = start.x - origin.minX
-        begin(lifted, at: origin)
+        begin(lifted, at: origin, from: source)
         move(lifted, to: start.x - grab, pointer: start)
 
         var cancelled = false
@@ -105,18 +108,17 @@ final class TopBarTabDragController {
 
     // MARK: - The gesture
 
-    private func begin(_ lifted: TopBarLifted, at origin: NSRect) {
+    private func begin(_ lifted: TopBarLifted, at origin: NSRect, from source: NSView) {
         gesture += 1
         content = liftContent(for: lifted)
         let view = SidebarDragLiftView(content: content)
-        view.shape = origin.height > Tokens.Metric.rowPillHeight ? .tile : .row
+        view.shape = source is GlassButton ? .tile : .row
         view.frame = origin
         host.addSubview(view, positioned: .above, relativeTo: nil)
         lift = view
         // Out of the run for the length of the gesture: its place closes up
         // behind it, so the index under the pointer is the index it lands at.
         strip.liftedID = lifted.id
-        strip.revealsKept = allowsPinning
         target = nil
         view.lift()
     }
@@ -142,7 +144,14 @@ final class TopBarTabDragController {
     /// morph between a row's height and a tile's.
     private func move(_ lifted: TopBarLifted, to minX: CGFloat, pointer: NSPoint) {
         guard let lift else { return }
-        let next = resolve(lifted, at: pointer)
+        // The run is read at the lift's leading edge, not at the hand: a tab
+        // passes its neighbour once its edge is past the neighbour's middle,
+        // which is the same distance in either direction. Read at the hand,
+        // a tab held by its right half and put straight back down found the
+        // neighbour that had closed up under it and landed one place along;
+        // read at the lift's middle, a neighbour of the same width tied.
+        let edge = NSPoint(x: minX, y: pointer.y)
+        let next = resolve(lifted, at: pointer, edge: edge)
         let shape = shape(of: next)
         let size = size(of: shape)
         let resolved = next.map { target in
@@ -168,10 +177,11 @@ final class TopBarTabDragController {
         return NSRect(x: minX, y: (line.y - size.height / 2).rounded(), width: size.width, height: size.height)
     }
 
-    /// A tab over the kept run is §3.3's tile, anywhere else §3.4's row. A
-    /// folder is always its header.
+    /// A tab about to become one of §3.3's tiles is a tile, anywhere else
+    /// §3.4's row — including over the new-folder landing, where what lands is
+    /// a folder's header. A folder is always its header.
     private func shape(of target: Target?) -> SidebarDragLiftView.Shape {
-        guard case let .run(gap)? = target, gap.destination.kind != .today, content.disclosure == nil else {
+        guard case let .run(gap)? = target, strip.landsAsTile(gap.destination), content.disclosure == nil else {
             return target == nil ? (lift?.shape ?? .row) : .row
         }
         return .tile
@@ -180,30 +190,40 @@ final class TopBarTabDragController {
     private func size(of shape: SidebarDragLiftView.Shape) -> NSSize {
         switch shape {
         case .tile: TopBarMetrics.keptTile.size
-        case .row: NSSize(width: TopBarTabRow.pillWidth(for: content), height: Tokens.Metric.rowPillHeight)
+        case .row: NSSize(width: TopBarTabRow.pillWidth(for: content), height: TopBarMetrics.lineHeight)
         }
     }
 
-    private func resolve(_ lifted: TopBarLifted, at point: NSPoint) -> Target? {
-        if case .tab = lifted, let space = spaces.neighbourSpace(at: point, from: host) {
-            return .space(space)
+    /// - Parameters:
+    ///   - point: the hand, which is what the Space's dots answer to.
+    ///   - edge: the lift's leading edge, which is what the run answers to.
+    private func resolve(_ lifted: TopBarLifted, at point: NSPoint, edge: NSPoint) -> Target? {
+        // Over the Space's name the dots come out, and a tab held on one goes
+        // there. The rest of the name is no landing: it is the label on the
+        // plate, not a place on it.
+        if case .tab = lifted {
+            spaces.isAimedAt = spaces.contains(point, from: host)
+            if spaces.isAimedAt {
+                return spaces.space(at: point, from: host).map(Target.space)
+            }
         }
         // The frames have to be of the run as it is now: the lift has just
         // taken a tab out of it, and a pointer resolved against the frames from
         // before would be counting a tab that is no longer there.
         strip.layoutSubtreeIfNeeded()
-        let local = strip.content.convert(point, from: host)
-        let run = strip.run
-        // The empty kept run a drag reveals, before anything is kept: the
-        // dashed slot, and a cluster's worth of bar after it.
-        if let vacancy = strip.vacancyFrame, local.x < vacancy.maxX + TopBarMetrics.clusterGap {
-            // A tab carried there becomes one of §3.3's tiles; a folder, which
-            // cannot be a tile, starts §3.4b's kept tier instead.
-            var kind = TabKind.pinned
-            if case .tab = lifted { kind = .essential }
-            return .run(DropGap(block: 0, width: 0, destination: SidebarDestination(kind: kind, groupID: nil, index: 0)))
+        var local = strip.content.convert(edge, from: host)
+        let landings = landings(for: lifted, at: local.x)
+        if landings != strip.landings {
+            strip.landings = landings
+            strip.layoutSubtreeIfNeeded()
+            local = strip.content.convert(edge, from: host)
         }
+        let run = strip.run
         let (block, past) = block(at: local.x)
+        if run.blocks.indices.contains(block), case .landing = run.blocks[block] {
+            let destination = run.destination(forBlock: block, isPastMidpoint: past)
+            return .run(DropGap(block: block, width: 0, destination: destination, fills: true))
+        }
         switch lifted {
         case .tab:
             var destination = run.destination(forBlock: block, isPastMidpoint: past)
@@ -230,10 +250,21 @@ final class TopBarTabDragController {
         }
     }
 
+    /// The plate's landings, out while the lift is on the plate or within a
+    /// tile's reach of it. Measured against the plate as it stands, so once
+    /// they are out the plate is wider and holds them out — the pointer does
+    /// not flicker them at the edge. A folder cannot be a tile, so it is
+    /// offered only the folder tier.
+    private func landings(for lifted: TopBarLifted, at x: CGFloat) -> Set<TabKind> {
+        guard allowsPinning, x < strip.plateFrame.maxX + TopBarMetrics.keptTile.width else { return [] }
+        if case .tab = lifted { return [.essential, .pinned] }
+        return [.pinned]
+    }
+
     /// The block under `x`, and which half of it. Past the last block is the
     /// end of the run; before the first is the first block's leading half.
     private func block(at x: CGFloat) -> (Int, Bool) {
-        for (index, frame) in strip.blockFrames.enumerated() where x < frame.maxX + TopBarMetrics.rowGap {
+        for (index, frame) in strip.blockFrames.enumerated() where x < frame.maxX {
             return (index, x > frame.midX)
         }
         return (strip.run.blocks.count, false)
@@ -262,6 +293,7 @@ final class TopBarTabDragController {
         self.lift = nil
         target = nil
         spaces.dropTarget = nil
+        spaces.isAimedAt = false
 
         // Commit, then reveal — the column's order, for the column's reason:
         // the tab the lift stands in for is out of the run until the model has
@@ -273,7 +305,7 @@ final class TopBarTabDragController {
             guard mine == gesture else { return }
             strip.dropGap = nil
             strip.dropFolder = nil
-            strip.revealsKept = false
+            strip.landings = []
             strip.liftedID = nil
         }
         guard let lift, case .run? = landing, let rest = strip.gapFrame else {

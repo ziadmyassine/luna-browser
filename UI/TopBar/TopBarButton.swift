@@ -2,20 +2,19 @@
 //  TopBarButton.swift
 //  Luna
 //
-//  Every icon control on the top bar: back, a capsule item, the Space
-//  cylinder's arrows (UI-SPEC §4). One class, because they differ only in their
-//  `RoundedMetric` and whether they carry glass. The bar's tabs are not this:
-//  they are the sidebar's own tile and row (`TopBarTabStrip`).
+//  Every icon control on the top bar: an item in §4's action capsule. The
+//  bar's tabs are not this: they are the sidebar's own tile and row
+//  (`TopBarTabStrip`).
 //
 //  It is an `NSButton` on purpose. §20.2 wants a visible focus ring, the key
 //  view loop and space/return activation on every chrome control, and §21.1
 //  wants an `AXButton` with a label — `NSButton` ships all four, and a bare
 //  `NSView` would mean re-implementing them badly.
 //
-//  The one structural consequence: `Glass` hands back a subview, and a
+//  The one structural consequence: the fill and the glyph are subviews, and a
 //  subview draws over the cell, so the cell is left drawing nothing at all.
-//  The stack is glass → hover fill → glyph, bottom to top, and `hitTest`
-//  collapses it back onto the button so the decoration never eats a click.
+//  The stack is hover fill → glyph, bottom to top, and `hitTest` collapses it
+//  back onto the button so the decoration never eats a click.
 //
 //  It answers a press as well as a hover, on §3.4's two washes and §6's
 //  `controlPress` — the same answer `GlassButton` gives in the sidebar, so the
@@ -26,8 +25,8 @@
 //  A button inside a capsule hands its press up (`ownsItsMaterial`): §4's
 //  action capsule applies one material for all its items, and half a capsule
 //  swelling inside the other half is not a press. `TopBarActionCapsule` takes
-//  the gesture over; a button on the bare bar keeps it. That is
-//  `GlassButton.GlassMode.none`'s rule in the other bar.
+//  the gesture over. That is `GlassButton.GlassMode.none`'s rule in the other
+//  bar.
 //
 //  Increase Contrast is not an appearance on macOS 26.5 (see the `Tokens`
 //  header), so nothing here invalidates on its own: `TopBarView` owns the one
@@ -51,50 +50,27 @@ final class TopBarButton: NSButton {
     /// button cannot answer a press itself — see `ownsItsMaterial`.
     var onPressChange: ((Bool) -> Void)?
 
-    /// When the button carries glass: always, only while it is selected, or
-    /// never — `GlassButton.GlassMode`'s three, for the same reason. Glass is
-    /// Luna's highlight; nothing in the chrome turns blue to say "this one".
-    enum GlassMode { case always, dormant, none }
-
-    /// A `.dormant` button turns to glass. The Space cylinder's arrows are the
-    /// one caller: an arrow is selected while §6.6's lift is held over it,
-    /// saying where the tab is about to go.
-    var isSelected = false {
-        didSet {
-            guard isSelected != oldValue else { return }
-            updateGlass()
-        }
-    }
     /// Whether the swell is this button's to perform. False for an item inside
     /// §4's action capsule, whose material belongs to the capsule.
     var ownsItsMaterial = true
 
     private let metric: RoundedMetric
-    private let glassMode: GlassMode
-    /// Built the first time a `.dormant` button is selected, and faded on its
-    /// alpha after that.
-    private var glassBacking: NSView?
     private let hoverFill = NSView()
     private let glyph = NSImageView()
     private var tracking: NSTrackingArea?
     private var isHovered = false
     private var isPressed = false
 
-    /// - Parameters:
-    ///   - metric: the drawn size and corner radius. Also the intrinsic size,
-    ///     so an Auto Layout caller needs no size constraints.
-    ///   - glass: §2's "Liquid Glass, clear". Capsule items pass `.none` —
-    ///     the capsule is the material.
-    init(metric: RoundedMetric, glass: GlassMode) {
+    /// - Parameter metric: the drawn size and corner radius. Also the intrinsic
+    ///   size, so an Auto Layout caller needs no size constraints. No glass of
+    ///   its own: the capsule it stands in is the material.
+    init(metric: RoundedMetric) {
         self.metric = metric
-        glassMode = glass
         super.init(frame: NSRect(origin: .zero, size: metric.size))
 
         isBordered = false
         title = ""
         wantsLayer = true
-
-        if glass == .always { glassBacking = makeGlass() }
 
         hoverFill.wantsLayer = true
         hoverFill.layer?.cornerCurve = .continuous
@@ -146,7 +122,7 @@ final class TopBarButton: NSButton {
         )
     }
 
-    /// The glass backing and the glyph are decoration. Without this they would
+    /// The fill and the glyph are decoration. Without this they would
     /// win the hit test and swallow the click before the button saw it.
     override func hitTest(_ point: NSPoint) -> NSView? {
         guard isEnabled, let superview else { return nil }
@@ -228,33 +204,14 @@ final class TopBarButton: NSButton {
         return isHovered ? Tokens.Surface.hover : nil
     }
 
-    private func makeGlass() -> NSView {
-        let view = Glass.apply(.control, to: self, cornerRadius: metric.cornerRadius, cornerCurve: metric.cornerCurve)
-        view.alphaValue = glassMode == .always ? 1 : 0
-        return view
-    }
-
-    /// The glass fades in and out on §6's `controlHover`, `GlassButton`'s own.
-    private func updateGlass() {
-        guard glassMode == .dormant else { return }
-        let target: CGFloat = isSelected ? 1 : 0
-        guard let view = glassBacking ?? (target > 0 ? makeGlass() : nil) else { return }
-        glassBacking = view
-        guard !Tokens.Motion.reduceMotion else {
-            view.alphaValue = target
-            return
-        }
-        Tokens.Motion.animate(Tokens.Motion.controlHover) { context in
-            context.allowsImplicitAnimation = true
-            view.animator().alphaValue = target
-        }
-    }
-
     private func refreshFill() {
         effectiveAppearance.performAsCurrentDrawingAppearance {
             Tokens.Motion.wash(self.hoverFill.layer, to: self.fillColour)
         }
     }
+
+    /// §4: a control is not bar, so a press on it never moves the window.
+    override var mouseDownCanMoveWindow: Bool { false }
 
     // MARK: - Focus ring (§20.2)
 

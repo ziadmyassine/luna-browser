@@ -46,11 +46,11 @@ sidebar's own content reflows. The ratios exist to fix proportions once, not to 
 | `essentialsTile` | 128 × 42 pt, radius 12 | — |
 | `essentialsTileGap` / `essentialsRowGap` / `essentialsInset` / `essentialsVerticalInset` | 5 / 6 / 8 / 6 pt | 8 / 8 / 8, and 12 / 10 before that |
 | `essentialsIcon` | 16 pt (`= faviconSize`) | 22 |
-| `controlCircle` (top bar: back, capsule items) | 28 pt | 35, and before that a squircle for the toggle |
+| `controlCircle` (top bar: capsule items) | 28 pt | 35, and before that a squircle for the toggle |
 | `sidebarCircle` (**toggle**, back, reload) | 34 pt (`= urlPill.height`) | 28 |
 | `controlPairGap` (back ↔ reload) | 5 pt | 8 |
 | `trafficLightInset` (leading **and** top) | 18 pt | 8 leading, 18 top |
-| `controlSquircle` (top-bar tab tile only) | 28 pt, radius 9 | — |
+| `controlSquircle` (its radius plus the capsule's 4 pt padding is §4's plate and kept tile: 36 pt, radius 13) | 28 pt, radius 9 | — |
 | `bottomCircle` (avatar, history) | 34 pt (`= sidebarCircle`) | — |
 | `spaceDotsPill` / `spaceDotChip` | 56 × 22 pt, radius 11 / 14 pt (= `spaceDotPitch`) | — |
 | `spaceDot` | 6 pt | — |
@@ -1705,45 +1705,53 @@ back: it could not be hit at all.
 
 ## 4. Top-bar layout
 
-One 52 pt glass bar spanning the window. **Content is flush full-bleed below it — no inset card, no gap.**
+One 52 pt glass bar spanning the window, and **§3.2b's page bar under it** — the same bar the sidebar
+layout puts on the page when the search bar is "On the page": the sidebar button, back and forward, and
+the address pill with site settings and reload. The page starts below both.
 
-`[lights] [Space] [back] [kept tabs …] [kept folders] [hairline] [open tabs …] [open folders] [|] [capsule]`
-> **There is no sidebar toggle on this bar.** There is no sidebar in this layout to hide, so the button
-> either did nothing or silently changed a preference.
-> **Back is a capsule of one**, and both ends of the bar are the same object. It was a bare glass circle
-> of `TopBarMetrics.capsuleItem` — the same 28 pt *item* as the buttons at the other end, which is not
-> the same *size*: the cylinder adds its padding, and one control at 28 beside three at 36 is the
-> mismatch the eye catches. Same class, same radius, one item in it.
+`[lights] [Space · kept tabs · kept folders] [open tabs …] [open folders] [|] [capsule]`
+> **The bar has no address and no back of its own.** The page bar under it carries both, and two back
+> buttons one above the other is one too many. Its sidebar button brings the sidebar layout back — there
+> is no column in this layout to show or hide, and "Show Sidebar" can honestly mean only that.
+> **Both ends of the bar are the same object at the same height**: the plate holding the Space and its
+> kept tabs on the left, the action capsule on the right, one piece of `.control` glass each, 36 pt tall
+> (`TopBarMetrics.lineHeight`). The open tabs stand at that height too.
+> **One gap between any two things on the bar** — 8 pt (`TopBarMetrics.gap`) between the plate and the
+> first tab, between two tabs, before the hairline and the capsule; 12 pt (`lightsGap`) after the green
+> light, which has no edge of its own and at 8 read as touching the plate. It used to be three numbers
+> and read as uneven even where each had its reason.
 
 - **The strip draws everything §3.4's list draws**, in one line: §3.3's tiles, §3.4b's kept tier and its
   folders, then a hairline, then the day's tabs and folders.
   > This supersedes §30.12's claim that tabs are invisible in this mode.
 - **The bar is built from the sidebar's own parts, not look-alikes.** One tab, one class, in both layouts.
-  - **Kept tabs are §3.3's tiles** — `GlassButton`, dormant, with the grid's well, hairline, 12 pt radius,
-    hover wash and press swell — each its own square on the left. They are square at §3.4's row-pill
-    height rather than the grid's 42 pt: at 42 they stood a head taller than the rows beside them and all
-    but touched the bar's edges.
+  - **Kept tabs are §3.3's tiles, on the plate** — `GlassButton`, dormant, with the hover wash and press
+    swell — edge to edge after the Space's name. Each is a box as tall as the plate with the plate's own
+    corner, and at rest it is only its icon on the plate (`showsWell` off): the plate is the shelf. The
+    pointer or the selection brings the glass out, so the lit one fills the plate top to bottom and its
+    ends meet the plate's exactly. It was the grid's 42 pt, then the row pill's 35, then a padded 28 —
+    which read as a box floating in a box.
   - **The kept tile you are on carries §3.3's light** — the same `EssentialGlowView`, in `FaviconTint`'s
-    colour for that site, blooming on a click and never sliding between tiles.
+    colour for that site, blooming on a click and never sliding between tiles. Its ring stands on the
+    plate's edge.
   - **Open tabs and folders' headers are §3.4's rows** — `SidebarRowView` itself, configured from the
     same `SidebarRowContent`: the favicon at the column's inset, the title faded rather than cut, the
     unread dot, the loading shimmer, the speaker, the close glyph on the row the pointer is on, a
-    folder's chevron. A row is as wide as its title, between a floor and 200 pt. Rows draw no fill: the
+    folder's chevron. A tab is as wide as its title plus room for the close glyph, between 120 and
+    180 pt — at 95 "Google" read as a label, at 220 one long title was a tab too long. Rows draw no fill: the
     bar keeps the column's **two `RowPillView`s**, one selected and one hover, and moves them between
     rows on §6's `selectedRowMove` and `rowHover` — so the selection slides rather than blinks. Rows do
     not swell; they are rows, not buttons (CLAUDE.md).
-  - **Spacing is the column's per kind**: the grid's 5 pt gutter between tiles, §3.4's 3 pt between row
-    pills.
   - **A folder's tabs follow its header, with §3.4b's spine laid along under them** — the column's
     hairline down a folder's leading edge, on its side.
   - **Arriving and leaving are the column's too**: a new tab fades up into its place on `tabInsert`, a
     closed one fades out where it stood, and everything already on the bar slides. A view is placed with
     animation off the first time it is placed — Luna's recurring "spawns at the left and flies there" bug
     — and only its fade arrives.
-- **There is no address bar in this layout.** The active tab used to swell into a 266 pt URL pill in the
-  middle of the run; with tabs that carry their own titles that was a fourth shape among three, and the
-  whole run jumped a pill's width every time the selection moved. `⌘L` opens §9.1's Command Bar over the
-  page with the current address in it, which is the same field with the same history behind it.
+- **There is no address bar on the bar itself.** The active tab used to swell into a 266 pt URL pill in
+  the middle of the run; with tabs that carry their own titles that was a fourth shape among three, and
+  the whole run jumped a pill's width every time the selection moved. The page bar under it holds the
+  address, and `⌘L` hands it to §9.1 there.
 - **A folder opens along the bar**: folded it is its header row, open it is that header followed by its
   tabs with the spine under them. Pressing the header folds and unfolds it and does nothing else — it is
   not a tab, so it cannot take the window anywhere — and a press that moves carries the folder instead,
@@ -1753,38 +1761,41 @@ One 52 pt glass bar spanning the window. **Content is flush full-bleed below it 
   was fine while the run was read-only and wrong the moment it could be dragged, because an order the bar
   imposes is an order a drop cannot express — a tab carried past a folder went back in front of it.
   Folders still land after the tabs in practice, because that is the order they were made in.
-- **The hairline only comes out when there is something on both sides of it.** It divides what is kept
-  from what is not, with a cluster gap of air either side rather than the 8 pt the run is spaced on — a
-  divider spaced like the things it divides reads as one more of them.
+- **The plate is what divides kept from open.** The run still has its hairline block between the two
+  tiers, for the two drops either side of it, but it draws nothing: the plate's end already says where
+  the kept run stops.
 - **No reload button** in this layout — the reference omits it. Reload is `⌘R` and the site menu.
 - The strip scrolls horizontally when it overflows; the active tab is always scrolled into view.
 - **Right-clicking a tile or a row opens the same menu the column opens** — §3.4a on a tab, §3.4b on a
   folder. The one difference is where a name is typed: the column types it on the row, and a bar row is
   as wide as its title with no room past it to type a longer one, so the bar's *Rename…* asks in a
   dialog. Same items, same order, same verbs on `BrowserSession`.
-- **Where the run sits is `Settings.tabsPosition`** (§3.9), and it is **centred** by default. "Centred"
-  means centred in the span between Back and the hairline, not in the window: the two clusters it sits
+- **Where the run sits is `Settings.tabsPosition`** (§3.9), and it is **centred** by default — the plate
+  moves with it. "Centred" means centred on the bar, not on the strip: the two clusters it sits
   between are different widths, and a run centred on the window reads as off-centre between them —
   which is the thing the eye actually measures. When the tabs overflow the span the alignment stops
   meaning anything and the run scrolls from its leading edge. The clear run is padding *inside* the
   scroll view's document, because a document narrower than its clip view is anchored at the clip's
   leading edge whatever origin it is given.
-- **The Space switcher stands beside the traffic lights**: one glass cylinder, `[‹] Personal [›]`.
-  > **The name is the control, not a caption on one.** §3.5's dot strip answers "which of these" and is
-  > right at the foot of a column, where there is a strip of room and no words. A bar has words and no
-  > room, and six identical dots on it say less than the one name they stand for. The arrows keep the
-  > dots' one advantage — a Space is one click away — without spending a point per Space to offer it,
-  > and they stop at the ends of the run rather than wrapping.
+- **The Space is the head of the plate**: its name, then its kept tabs, on one piece of glass beside the
+  traffic lights — the name is the label on the shelf they stand on.
+  > **Under the pointer the name steps up and §3.5's dots come out beneath it**, one per Space — the
+  > column's own `SpaceDotsView`, without its pill and a size down (a 5 pt dot, a 12 pt name). A click on
+  > a dot goes there. At rest they are hidden: a bar has words and no room, and six dots say less than
+  > the one name they stand for until the hand is asking which of the others it can reach. There are no
+  > arrows; the name and the dots are the whole control.
   > **The name pops when it changes**, flaring from 1.08 and settling on §6's `tabInsert`, because it is
-  > the only thing on the bar that says the whole window has moved. Every other read-out of a Space
-  > switch is the tabs redrawing, which looks like tabs redrawing.
-  > **§30.9's swipe is offered here too**, with this control as its ruler — the column measures the
-  > gesture against the page it slides, and nothing slides here. While the fingers are down the name is
-  > pushed the way they are going and fades, so the gesture says what it will do before it does it. Past
+  > the only thing on the bar that says the whole window has moved.
+  > **§30.9's two-finger swipe over the name** changes Space, with the name as its ruler. While the
+  > fingers are down the dots read the gesture out and the name is pushed the way they are going. Past
   > the last Space it still makes one.
-  > **Right-click is §8.2's colour menu**, the same one §3.5's dot carries — `SidebarMenu.colours`, shared
-  > from the day there were two places a Space is visible, because a colour that could only be set from
-  > one layout would be a property of the layout.
+  > **Right-click is §8.2's colour menu**, the same one §3.5's dot carries — `SidebarMenu.colours`.
+- **Only the empty bar moves the window.** The plate, the name, every tab and the capsule keep their
+  press. In the titlebar the window server decides whether a press moves the window before the app sees
+  it, from AppKit's private `_opaqueRectForWindowMoveWhenInTitlebar` — empty for every plain `NSView`
+  whatever its `mouseDownCanMoveWindow` says, the bounds for an `NSControl` — so a tab row dragged the
+  window as well as itself. The row, the name and the plate are `NSControl`s for that reason.
+- **Right-clicking the empty bar offers New Folder**, the column's menu for its own empty part.
 - **Action capsule**: its own rounded glass capsule, separated by a vertical hairline, holding
   `[+ new tab] [history] [downloads] [profile]`. Extension action buttons dock here when extensions ship
   (v2) — build the capsule to host a variable number of items now.
@@ -1800,30 +1811,32 @@ One 52 pt glass bar spanning the window. **Content is flush full-bleed below it 
 ### 4.0a Dragging on the bar (§6.6)
 The column's gesture turned on its side: press a tile or a row and move, and it lifts off the bar and
 follows the pointer's `x` along the bar's line, with the run opening a gap under it. The lift is the
-column's own `SidebarDragLiftView`, and it morphs between §3.4's row and §3.3's tile as it crosses the
-hairline exactly as it does crossing the column's grid boundary. Tracked by hand, not by AppKit's drag
+column's own `SidebarDragLiftView`, and it morphs between §3.4's row and §3.3's tile as it moves onto the
+plate exactly as it does crossing the column's grid boundary. Tracked by hand, not by AppKit's drag
 session, for §6.6's reason — a session's snapshot floats free in two dimensions and the run stays still
 under it.
 - **The run holds still under the hand.** A centred run would otherwise re-centre the moment its lifted
   tab left it, sliding every tab half that tab's width under the pointer, so the drop landed one place
   off from where it was aimed. The start is frozen for the length of the drag.
+- **The run is read at the lift's leading edge**, not at the hand: a tab passes its neighbour once its
+  edge is past the neighbour's middle, the same distance either way. Read at the hand, a tab held by its
+  right half and put straight back down found the neighbour that had closed up under it and moved one
+  place along.
 - **Along the run** is a reorder inside its own tier.
 - **Past a folder's header is inside it**, at the front when it is open and at the end when it is shut —
   the column's rule. The column's own dashed box (`SidebarGroupDropView`) closes round the folder while it
   is the target, and a shut folder opens on the drop so the tab is not swallowed out of sight.
-- **Across the hairline** changes what the tab is. The kept run is one run and two tiers underneath, and
-  the rule is the one a hand can see: **a tab becomes the same kind of thing as what it lands beside** —
-  among §3.3's tiles it is pinned (and refused past the Favorites cap, as the grid refuses), beside
-  §3.4b's kept tabs it joins those, and the hairline's two halves are the end of one tier and the head of
-  the other. §3.3's dashed slot marks where a kept tab is about to land.
-- **With nothing kept yet, a drag opens §3.3's empty slot** and the hairline after it, so there is
-  somewhere to carry a tab to pin it — the grid does the same. It opens in the clear bar before the run
-  and pushes the run along only when there is no clear bar, as with a left-aligned run; then the tabs
-  move once, as the column's list does when the grid opens above it. Not in a §5.6 window, which keeps
-  nothing.
-- **Over one of the Space cylinder's arrows**, a tab goes to the Space next door. The arrow lights and the
-  cylinder shows that Space's name while the lift is over it. An arrow at the end of the run is not a
-  target.
+- **Onto the plate or off it** changes what the tab is: among §3.3's tiles it is pinned (and refused past
+  the Favorites cap, as the grid refuses), inside a kept folder it joins that. §3.3's dashed slot marks
+  where a tile is about to land.
+- **Brought to the plate, a lift opens the column's two wells (§3.3a) on it**: §3.3's empty tile when
+  nothing is pinned yet, and a dashed row with a folder glyph at the end of §3.4b's tier. A tab dropped
+  in the row starts a new kept folder with the tab inside (`reorderTab` makes it). They open only when
+  the lift comes within a tile's reach of the plate: opened the moment a tab left the ground, they pushed
+  every tab after the plate a hundred points along, out from under the hand. Not in a §5.6 window, which
+  keeps nothing.
+- **Over the Space's name**, the dots come out and a tab held on one goes to that Space. The rest of the
+  name is not a landing.
 - **A folder can be carried too**, as its header, and lands beside other folders rather than in them.
 - Nothing is committed until the mouse comes up — one `reorderTab`, one undo entry. Escape cancels. The
   lift settles into the gap before it hands over, and the tab it stood in for is out of the run until the

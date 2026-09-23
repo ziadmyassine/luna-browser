@@ -157,23 +157,14 @@ final class ButtonFeedbackTests: XCTestCase {
     func testTheAppKitButtonsSwellWhenAppKitSaysTheyAreDown() {
         let swell = Tokens.Motion.pressSwell
 
-        // A bare button on §4's bar — the Space cylinder's arrows are these.
-        let arrow = TopBarButton(metric: TopBarMetrics.arrow, glass: .none)
-        _ = sized(arrow)
-        arrow.highlight(true)
-        XCTAssertEqual(scale(of: arrow), swell, accuracy: 0.001, "a bar button does not swell")
-        arrow.highlight(false)
-        XCTAssertEqual(scale(of: arrow), 1, accuracy: 0.001, "a bar button stays swollen")
-
-        // The same button selected, which on §4's bar means glass. A resting
-        // state, and it must not eat the press the way a latched button would.
-        let lit = TopBarButton(metric: TopBarMetrics.arrow, glass: .dormant)
-        lit.isSelected = true
-        _ = sized(lit)
-        lit.highlight(true)
-        XCTAssertEqual(scale(of: lit), swell, accuracy: 0.001, "a selected bar button does not swell")
-        lit.highlight(false)
-        XCTAssertEqual(scale(of: lit), 1, accuracy: 0.001, "a selected bar button stays swollen")
+        // A button on §4's bar, taken out of its capsule — the capsule is
+        // what swells in the app, and this is the button's own half of it.
+        let item = TopBarButton(metric: TopBarMetrics.capsuleItem)
+        _ = sized(item)
+        item.highlight(true)
+        XCTAssertEqual(scale(of: item), swell, accuracy: 0.001, "a bar button does not swell")
+        item.highlight(false)
+        XCTAssertEqual(scale(of: item), 1, accuracy: 0.001, "a bar button stays swollen")
 
         let push = SettingsPushButton(title: "Reset", isDestructive: false)
         _ = sized(push, 60)
@@ -208,27 +199,19 @@ final class ButtonFeedbackTests: XCTestCase {
         XCTAssertEqual(scale(of: capsule), 1, accuracy: 0.001, "the cylinder stayed swollen")
     }
 
-    /// §4's Space cylinder is one piece of glass holding two arrows and a
-    /// name, so its arrows hand the press up exactly as the action capsule's
-    /// items do.
-    func testASpaceArrowHandsItsPressToItsCylinder() throws {
-        let pill = TopBarSpacePill()
+    /// §4's Space dots stand under the name on the plate, without the
+    /// column's pill — and still answer a press, on the strip that holds them.
+    func testASpaceDotOnTheBarAnswersAPress() throws {
+        let name = TopBarSpaceName()
         let spaces = (0 ..< 2).map {
             Space(name: "Space \($0)", symbolName: "square.grid.2x2", gradient: .defaultSpace)
         }
-        // Standing in the first of two, so the arrow that is reached below is
-        // one the user could actually press — a disabled control answers
-        // nothing, which is its own rule and not this one.
-        pill.show(spaces: spaces, activeSpaceID: spaces[0].id)
-        _ = sized(pill, 140)
-        guard let arrow = descendants(of: pill, ofType: TopBarButton.self).first(where: \.isEnabled) else {
-            return XCTFail("the cylinder has no arrow to press")
-        }
-        arrow.highlight(true)
-        XCTAssertEqual(scale(of: arrow), 1, accuracy: 0.001, "an arrow swelled inside its own cylinder")
-        XCTAssertEqual(scale(of: pill), Tokens.Motion.pressSwell, accuracy: 0.001, "the cylinder did not answer")
-        arrow.highlight(false)
-        XCTAssertEqual(scale(of: pill), 1, accuracy: 0.001, "the cylinder stayed swollen")
+        name.show(spaces: spaces, activeSpaceID: spaces[0].id)
+        _ = sized(name, 120)
+        let dot = try XCTUnwrap(descendants(of: name, ofType: SpaceDotView.self).first, "the name has no dots")
+        dot.mouseDown(with: mouse(.leftMouseDown, in: dot))
+        XCTAssertEqual(scale(of: name.dots), Tokens.Motion.pressSwell, accuracy: 0.001, "the dots did not answer")
+        XCTAssertEqual(scale(of: dot), 1, accuracy: 0.001, "a dot swelled on its own")
     }
 
     private func descendants<T: NSView>(of root: NSView, ofType type: T.Type) -> [T] {

@@ -96,12 +96,19 @@ final class TopBarActionCapsuleTests: XCTestCase {
 @MainActor
 final class TopBarTabRowTests: XCTestCase {
 
-    /// §4's kept tile is §3.3's in its radius, and a square on the rows' own
-    /// line: the kept run and the open one stand the same height.
-    func testAKeptTileIsASquareAtTheRowsHeight() {
+    /// §4's kept tab is a box the plate's own size and corner, so the lit
+    /// one fills the plate top to bottom — and the plate, the open tabs and
+    /// the capsule are one height.
+    func testAKeptTabIsABoxThePlatesOwnSize() {
         XCTAssertEqual(TopBarMetrics.keptTile.width, TopBarMetrics.keptTile.height)
-        XCTAssertEqual(TopBarMetrics.keptTile.height, Tokens.Metric.rowPillHeight)
-        XCTAssertEqual(TopBarMetrics.keptTile.cornerRadius, Tokens.Metric.essentialsTile.cornerRadius)
+        XCTAssertEqual(TopBarMetrics.keptTile, TopBarMetrics.plate)
+        XCTAssertEqual(TopBarMetrics.plate.height, TopBarMetrics.lineHeight)
+        XCTAssertEqual(TopBarMetrics.lineHeight, TopBarMetrics.capsuleItem.height + TopBarMetrics.capsuleInset * 2)
+    }
+
+    /// A short title still makes a tab, not a label with a favicon.
+    func testAShortTitleStillMakesAWholeTab() {
+        XCTAssertEqual(TopBarTabRow.pillWidth(for: SidebarRowContent(title: "Google")), TopBarMetrics.tabFloor)
     }
 
     /// A row's pill fits its whole title: the column's own row, given that
@@ -112,7 +119,7 @@ final class TopBarTabRowTests: XCTestCase {
             x: 0,
             y: 0,
             width: TopBarTabRow.pillWidth(for: content),
-            height: Tokens.Metric.rowPillHeight
+            height: TopBarMetrics.lineHeight
         ))
         host.configure(content)
         host.layoutSubtreeIfNeeded()
@@ -132,13 +139,16 @@ final class TopBarTabRowTests: XCTestCase {
         XCTAssertEqual(TopBarTabRow.pillWidth(for: content), TopBarMetrics.rowCeiling)
     }
 
-    /// A folder's header makes room for its chevron after the name.
-    func testAFoldersHeaderMakesRoomForItsChevron() {
-        // Long enough to be clear of the floor, which would otherwise absorb
-        // the chevron's room in the shorter of the two.
+    /// After the title a folder's header keeps room for its chevron, and a
+    /// tab for its close glyph.
+    func testATrailingSlotIsKeptForTheChevronOrTheCloseGlyph() {
+        // Long enough to be clear of both floors, which would otherwise absorb
+        // the difference.
         let name = "Work in progress"
         let tab = TopBarTabRow.pillWidth(for: SidebarRowContent(title: name))
         let folder = TopBarTabRow.pillWidth(for: SidebarRowContent(title: name, disclosure: .expanded))
-        XCTAssertEqual(folder - tab, Tokens.Metric.groupChevronSlot.width + Tokens.Metric.groupChevronGap, accuracy: 0.5)
+        let chevron = Tokens.Metric.groupChevronSlot.width + Tokens.Metric.groupChevronGap
+        let close = Tokens.Metric.rowTrailingChip.width + Tokens.Metric.rowInset
+        XCTAssertEqual(tab - folder, close - chevron, accuracy: 0.5)
     }
 }

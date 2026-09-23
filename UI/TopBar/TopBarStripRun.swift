@@ -52,8 +52,14 @@ enum TopBarStripBlock: Equatable, Sendable {
     case tab(Tab, style: TopBarTabStyle)
     /// §3.4b's folder's header.
     case group(TabGroup, style: TopBarTabStyle)
-    /// The hairline between what is kept and what is not.
+    /// The hairline between what is kept and what is not. Drawn as nothing on
+    /// the bar, where the Space's plate already ends the kept run; kept as a
+    /// block for the two drops either side of it.
     case rule
+    /// An empty place a lift can land in, drawn only while one is up: §3.3's
+    /// empty tile when nothing is pinned yet, or a new folder at the end of
+    /// §3.4b's tier. The column has both as its two wells (§3.3a).
+    case landing(TabKind)
 }
 
 /// §4's strip, left to right along its one line.
@@ -84,15 +90,22 @@ struct TopBarStripRun: Equatable, Sendable {
     ///   - today: the ordinary tier, as slots.
     ///   - excluding: the tab or folder in the air, which the run leaves out
     ///     entirely — a folder takes its tabs with it.
+    ///   - landings: the empty places to offer a lift. `.essential` is offered
+    ///     only while nothing is pinned, because among tiles a drop already has
+    ///     somewhere to go; `.pinned` always stands at the end of its tier.
     init(
         essentials: [Tab] = [],
         saved: [SidebarSlot] = [],
         today: [SidebarSlot] = [],
-        excluding lifted: UUID? = nil
+        excluding lifted: UUID? = nil,
+        landings: Set<TabKind> = []
     ) {
         var build = Build()
-        build.emit(essentials.filter { $0.id != lifted }, kind: .essential)
+        let tiles = essentials.filter { $0.id != lifted }
+        build.emit(tiles, kind: .essential)
+        if tiles.isEmpty, landings.contains(.essential) { build.emitLanding(.essential) }
         build.emit(saved, kind: .pinned, excluding: lifted)
+        if landings.contains(.pinned) { build.emitLanding(.pinned) }
         let keptCount = build.blocks.count
         let openStart = build.blocks.count
         build.emit(today, kind: .today, excluding: lifted)
@@ -112,6 +125,9 @@ struct TopBarStripRun: Equatable, Sendable {
         tabs = build.tabs
         end = SidebarDestination(kind: .today, groupID: nil, index: build.slots(.today))
     }
+
+    /// Whether `block` is in front of the hairline — on the Space's plate.
+    func isKept(_ block: Int) -> Bool { block < kept }
 
     /// `id` if it is one of the kept run's tabs — the ones §3.3's light may
     /// stand on. Nil for an open tab, and nil for a tab in a folded folder,
@@ -148,6 +164,7 @@ struct TopBarStripRun: Equatable, Sendable {
     /// next block along, and in front of nothing at all when it is shut.
     func gap(forBlock block: Int, isPastMidpoint: Bool) -> Int {
         guard blocks.indices.contains(block) else { return blocks.count }
+        if case .landing = blocks[block] { return block }
         return isPastMidpoint ? block + 1 : block
     }
 
@@ -160,7 +177,11 @@ struct TopBarStripRun: Equatable, Sendable {
     func folderDestination(forBlock block: Int, isPastMidpoint: Bool) -> SidebarDestination {
         guard blocks.indices.contains(block) else { return end }
         let top = owner[block]
-        guard blocks[top] != .rule else { return destination(forBlock: top, isPastMidpoint: isPastMidpoint) }
+        switch blocks[top] {
+        case .rule: return destination(forBlock: top, isPastMidpoint: isPastMidpoint)
+        case .landing: return leading[top]
+        default: break
+        }
         var landing = leading[top]
         if isPastMidpoint { landing.index += 1 }
         return landing
@@ -184,6 +205,14 @@ private struct Build {
     private var counts: [TabKind: Int] = [:]
 
     func slots(_ kind: TabKind) -> Int { counts[kind] ?? 0 }
+
+    /// An empty place at the end of `kind`'s run so far. Both halves are the
+    /// same landing: there is nothing on either side of it to be before or
+    /// after. Not a slot — it is where the next one would be.
+    mutating func emitLanding(_ kind: TabKind) {
+        let place = SidebarDestination(kind: kind, groupID: nil, index: slots(kind))
+        add(.landing(kind), leading: place, trailing: place)
+    }
 
     /// - Parameter inside: the top-level block this one stands in, for a
     ///   folder's own tabs. Nil means the block is top-level and owns itself.

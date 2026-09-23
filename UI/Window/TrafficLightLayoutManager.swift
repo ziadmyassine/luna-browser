@@ -366,9 +366,16 @@ final class TrafficLightLayoutManager {
         // Set directly, not through `animator()`: the placement is identical in
         // every managed state, so there is nothing to interpolate, and this runs
         // inside the caller's transaction anyway.
+        var moved = false
         for (button, origin) in zip(buttons, origins) where button.frame.origin != origin {
             button.setFrameOrigin(origin)
+            moved = true
         }
+        // Whatever stands beside the lights measured them where they were. The
+        // top bar laid its plate out against AppKit's default spacing at
+        // launch, before this spread them, and kept the plate 9 pt too close
+        // until something else happened to lay it out again.
+        if moved, let root = window.contentView { TrafficLightSpace.neighboursNeedLayout(in: root) }
     }
 
     // MARK: - Where they live

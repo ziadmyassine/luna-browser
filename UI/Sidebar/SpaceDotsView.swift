@@ -101,19 +101,34 @@ final class SpaceDotsView: NSView {
         }
     }
 
+    /// The dots, their chips and their pitch as a fraction of §3.5's. One
+    /// in the column; §4's plate draws them a size down, under a smaller name.
+    var dotScale: CGFloat = 1 {
+        didSet {
+            guard dotScale != oldValue else { return }
+            for dot in dots { dot.scale = dotScale }
+            needsLayout = true
+        }
+    }
+
     private var spaces: [Space] = []
     private var activeSpaceID: UUID?
     private var dots: [SpaceDotView] = []
 
-    override init(frame frameRect: NSRect) {
+    /// - Parameter framed: whether the strip is its own pill of glass. §4's
+    ///   plate passes false: its dots stand on the plate's glass, under the
+    ///   Space's name, and a pill inside a plate is a second material.
+    init(frame frameRect: NSRect = .zero, framed: Bool = true) {
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.cornerCurve = .continuous
-        Glass.apply(.control, to: self, cornerRadius: Tokens.Metric.spaceDotsPill.cornerRadius)
-        // The window's edge: dots outside it are laid out where they belong and
-        // cut off by the pill, which is what lets the run slide rather than
-        // re-deal itself every time the indicator moves.
-        layer?.masksToBounds = true
+        if framed {
+            Glass.apply(.control, to: self, cornerRadius: Tokens.Metric.spaceDotsPill.cornerRadius)
+            // The window's edge: dots outside it are laid out where they belong
+            // and cut off by the pill, which is what lets the run slide rather
+            // than re-deal itself every time the indicator moves.
+            layer?.masksToBounds = true
+        }
         setAccessibilityElement(true)
         setAccessibilityRole(.tabGroup)
         setAccessibilityLabel("Spaces")
@@ -142,6 +157,7 @@ final class SpaceDotsView: NSView {
             // all of them, so it takes §6's swell on their behalf, as
             // `NavCluster` does for its two bare chevrons.
             dot.onPressChange = { [weak self] pressed in self?.setPressed(pressed) }
+            dot.scale = dotScale
             addSubview(dot)
             return dot
         }
@@ -173,9 +189,13 @@ final class SpaceDotsView: NSView {
     /// fires. It stays because this is handed a width, and a width it was not
     /// given the arithmetic for is better half a point off centre than off the
     /// pixel grid — a 6 pt dot across two pixels is a blurred dot.
-    static func centres(count: Int, in width: CGFloat, from start: CGFloat = 0) -> [CGFloat] {
+    static func centres(
+        count: Int,
+        in width: CGFloat,
+        from start: CGFloat = 0,
+        pitch: CGFloat = Tokens.Metric.spaceDotPitch
+    ) -> [CGFloat] {
         guard count > 0 else { return [] }
-        let pitch = Tokens.Metric.spaceDotPitch
         let run = pitch * CGFloat(shown(of: count) - 1)
         let first = ((width - run) / 2).rounded()
         return (0..<count).map { first + (CGFloat($0) - start) * pitch }
@@ -255,8 +275,8 @@ final class SpaceDotsView: NSView {
         guard !dots.isEmpty else { return }
         let strip = bounds.width
         let start = Self.windowStart(indicator: indicator, count: dots.count)
-        let centres = Self.centres(count: dots.count, in: strip, from: start)
-        let pitch = Tokens.Metric.spaceDotPitch
+        let pitch = Tokens.Metric.spaceDotPitch * dotScale
+        let centres = Self.centres(count: dots.count, in: strip, from: start, pitch: pitch)
         for (index, dot) in dots.enumerated() {
             // The window's two outermost slots run out to the pill's edges when
             // the whole run fits; when it does not, every slot is its own half

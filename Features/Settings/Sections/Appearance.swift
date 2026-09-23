@@ -242,11 +242,11 @@ final class AppearanceSection: NSObject, SettingsSection {
     /// head of the column as §3.2 built it, or on a bar across the top of the
     /// page, taking §3.1's back and reload with it.
     ///
-    /// Gone under the top bar, not dimmed. §4 has one place for a pill and
-    /// the tab strip is built around it, so under that layout this is not a
-    /// question with a greyed-out answer — it is not a question. A dimmed row
-    /// is for a control that has an answer Luna cannot honour yet (§30.4);
-    /// this one has none to have.
+    /// Gone under the top bar, not dimmed. §4 always stands the page bar
+    /// under itself, so under that layout this is not a question with a
+    /// greyed-out answer — it is not a question. A dimmed row is for a control
+    /// that has an answer Luna cannot honour yet (§30.4); this one has none to
+    /// have.
     private func searchBarRow() -> NSView {
         let places = SearchBarPlacement.allCases
         let row = SettingsRow.segmented(

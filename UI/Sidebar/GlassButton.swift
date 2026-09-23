@@ -56,6 +56,13 @@ final class GlassButton: NSView {
             refresh()
         }
     }
+    /// Whether a `.dormant` button keeps §3.3's well and hairline at rest.
+    /// False on §4's plate, where the plate is the shelf and a resting tab is
+    /// its icon on it; the box comes out, glass and all, under the pointer
+    /// or the selection.
+    var showsWell = true {
+        didSet { needsDisplay = true }
+    }
     /// §3.1: back dims when `canGoBack` is false.
     var isEnabled = true {
         didSet {
@@ -268,7 +275,7 @@ final class GlassButton: NSView {
         // "invisible" for one build and the grid read as icons floating on the
         // sidebar with nothing under them — which is not what the reference
         // shows either.
-        let plated = glassMode == .dormant
+        let plated = glassMode == .dormant && showsWell
         layer.borderWidth = plated ? Tokens.Metric.hairline : 0
         layer.borderColor = plated ? Tokens.Line.border.cgColor : nil
         // The well stays under the glass rather than swapping out from under

@@ -14,44 +14,54 @@ import AppKit
 /// token rather than written down again — there is no `chromeGap` token yet,
 /// and rule 2 forbids inventing one here.
 enum TopBarMetrics {
-    /// §3.1's "gap 8".
+    /// §3.1's "gap 8", and the one gap between any two things on the bar: the
+    /// lights and the plate, the plate and the first tab, two tabs, the tabs
+    /// and the capsule. It used to be three numbers — 8, 16, and 16 plus
+    /// whatever the run's own lead added — and the bar read as unevenly spaced
+    /// even where each number had its reason.
     static var gap: CGFloat { Tokens.Metric.rowInset }
-    /// §3.1's "gap 16", and the bar's own leading / trailing inset.
+    /// The bar's trailing inset, from the capsule to the window's edge.
     static var clusterGap: CGFloat { Tokens.Metric.rowInset * 2 }
-    /// §4's kept tab: §3.3's tile — the same well, hairline, radius and glow —
-    /// made square at the height of §3.4's row pill.
-    ///
-    /// Not the grid's own 42 pt. It was, for one build, and on a 52 pt bar a
-    /// run of 62 × 42 tiles stood a head taller than the rows beside them and
-    /// all but touched the bar's edges. At the pill's height the kept tiles and
-    /// the open rows share one line, which is what a bar is.
-    static var keptTile: RoundedMetric {
-        RoundedMetric(
-            width: Tokens.Metric.rowPillHeight,
-            height: Tokens.Metric.rowPillHeight,
-            cornerRadius: Tokens.Metric.essentialsTile.cornerRadius
-        )
+    /// From the green light to the plate. More than the bar's gap: the lights
+    /// are three bare discs with no edge of their own, and at 8 pt the plate
+    /// read as touching them.
+    static var lightsGap: CGFloat { Tokens.Metric.rowInset * 1.5 }
+    /// The height of everything standing on the bar's line: the capsule's, so
+    /// the plate, the open tabs and the capsule are one height.
+    static var lineHeight: CGFloat { capsuleItem.height + capsuleInset * 2 }
+    /// §4's plate: the Space's name and every kept tab, on one piece of glass
+    /// at the capsule's height. Its corner is a capsule item's squircle plus
+    /// the capsule's padding — the corner a padded tile inside it would run
+    /// parallel to.
+    static var plate: RoundedMetric {
+        let radius = Tokens.Metric.controlSquircle.cornerRadius + capsuleInset
+        return RoundedMetric(width: lineHeight, height: lineHeight, cornerRadius: radius)
     }
-    /// Between two kept tiles: the grid's own gutter.
-    static var keptGap: CGFloat { Tokens.Metric.essentialsTileGap }
-    /// Between two rows: §3.4's gap between two pills, turned on its side.
-    static var rowGap: CGFloat { Tokens.Metric.rowGap }
-    /// The narrowest an open tab's pill goes — room for its favicon and a few
-    /// letters. Below it the title is an ellipsis with nothing in front of it.
+    /// §4's kept tab: a box as tall as the plate, with the plate's own corner,
+    /// so the lit one fills the plate top to bottom and its ends meet the
+    /// plate's ends exactly. At rest it is its icon on the plate; the glass
+    /// and §3.3's light are what the pointer and the selection bring out.
+    ///
+    /// It was the grid's own 42 pt for one build, then the row pill's 35, then
+    /// a padded 28 inside the plate — which read as a box floating in a box.
+    static var keptTile: RoundedMetric { plate }
+    /// The narrowest an open tab goes. Wide enough that a short title still
+    /// reads as a tab rather than as a label with a favicon in front of it —
+    /// sized to the title alone, "Google" came out at 95 pt and looked like
+    /// one; at 140 it was a tab too long.
+    static var tabFloor: CGFloat { 120 }
+    /// The narrowest a folder's header goes — room for its glyph and a few
+    /// letters. Below it the name is an ellipsis with nothing in front of it.
     static var rowFloor: CGFloat { Tokens.Metric.rowTitleInset + Tokens.Metric.rowPillHeight }
     /// The widest. One long page title would otherwise take the whole bar and
-    /// push every other tab out of reach.
-    static var rowCeiling: CGFloat { 200 }
-    /// The Space cylinder's padding, and its height.
-    static var groupPlateInset: CGFloat { gap / 2 }
-    static var plate: RoundedMetric {
-        let height = Tokens.Metric.controlSquircle.height + groupPlateInset * 2
-        return RoundedMetric(width: height, height: height, cornerRadius: height / 2)
-    }
-    /// The Space cylinder's two arrows.
-    static var arrow: RoundedMetric { .circle(Tokens.Metric.controlSquircle.width) }
+    /// push every other tab out of reach; at 220 one long title still read
+    /// as a tab too long beside the others.
+    static var rowCeiling: CGFloat { 180 }
     /// The Space name's ceiling on this bar.
     static var nameCeiling: CGFloat { 180 }
+    /// §3.5's dots under the name, a size down from the column's: a 5 pt dot
+    /// for the column's 6, beside a name a point smaller than the tabs'.
+    static var dotScale: CGFloat { 5 / 6 }
     /// One capsule item, and the diameter every button on this bar uses —
     /// back included. Round because the capsule it sits in is a cylinder with
     /// rounded ends.

@@ -48,8 +48,13 @@ extension PageChromeBar {
 
     func placeControls() {
         let circle = Tokens.Metric.sidebarCircle
-        let lights = TrafficLightSpace.rect(in: self)
         let strip = band
+        // Only lights standing beside the band. Under §4's top bar they are on
+        // the bar above it, and a bar that lined its controls up with them
+        // put its buttons half out of its own band.
+        let lights = TrafficLightSpace.rect(in: self).flatMap { lights in
+            (strip.minY...strip.maxY).contains(lights.midY) ? lights : nil
+        }
         plane.frame = strip
 
         // The traffic lights are the centre line whenever they are on

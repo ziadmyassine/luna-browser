@@ -7,13 +7,17 @@
 //  second layout, not a collapsed sidebar — `ContentCardView` already knows
 //  that (`cardInsets` for `.topBar` has no gap and no corners).
 //
-//      [lights] [Space] [back] [kept … | … open tabs] [|] [capsule]
+//      [lights] [Space · kept tabs] [open tabs …] [|] [capsule]
 //
-//  Both ends of the bar are the same object: `TopBarActionCapsule`, with one
-//  item in it on the left and four on the right. Back used to be a bare glass
-//  circle of the same 28 pt diameter, which is not the same size — the
-//  cylinder adds its padding, and one control at 28 beside three at 36 is the
-//  mismatch that reads.
+//  Both ends of the bar are the same object at the same height: the plate
+//  holding the Space's name and its kept tabs on the left, the action capsule
+//  on the right, one piece of glass each. Between any two things on the bar
+//  there is one gap (`TopBarMetrics.gap`).
+//
+//  Under the bar, §3.2b's page bar — the same one the sidebar layout puts on
+//  the page — carries the address, back and forward, and reload. The bar had
+//  a back button of its own until then; two back buttons one above the other
+//  is one too many.
 //
 //  Four things are deliberately absent:
 //    · No sidebar toggle. There is no sidebar in this layout to hide, so
@@ -22,9 +26,9 @@
 //      the window wears is Settings' decision (`Settings.chromeLayout`).
 //    · No reload button. The reference omits it; §4 makes reload `⌘R` and
 //      the site menu on the page.
-//    · No address bar. The active tab used to swell into a URL pill in the
-//      middle of the strip; a strip whose tabs carry their own titles has no
-//      room for a fourth shape, and `⌘L` opens §9.1 over the page instead.
+//    · No address bar on it. The active tab used to swell into a URL pill in
+//      the middle of the strip; a strip whose tabs carry their own titles has
+//      no room for a fourth shape. The page bar under it holds the address.
 //    · No traffic-light layout. `TrafficLightLayoutManager` owns those
 //      frames for every window state (§7.7). The bar asks `TrafficLightSpace`
 //      where they landed and stands beside them on their centre line, as
@@ -49,7 +53,7 @@ protocol TopBarThemed: NSView {
 }
 
 @MainActor
-final class TopBarView: NSView, WindowScoped {
+final class TopBarView: NSView, WindowScoped, TrafficLightNeighbour {
 
     // MARK: - Seams
 
@@ -60,8 +64,8 @@ final class TopBarView: NSView, WindowScoped {
     /// the layout that has no sidebar to put it in.
     var onHistory: ((NSView) -> Void)?
     var onProfile: ((NSView) -> Void)?
-    /// §3.5's Space strip, in the layout that has no sidebar foot to put it in.
-    /// The same four seams the sidebar's own copy exposes.
+    /// §3.5's Space switcher, in the layout that has no sidebar foot to put it
+    /// in. The same four seams the sidebar's own copy exposes.
     var onSwitchSpace: ((UUID) -> Void)?
     var onSetGradient: ((UUID, GradientPair) -> Void)?
     var onEditSpaces: (() -> Void)?
@@ -86,7 +90,6 @@ final class TopBarView: NSView, WindowScoped {
 
     // MARK: - Views
 
-    private static let backItem = "luna.topBar.back"
     private static let newTabItem = "luna.topBar.newTab"
     private static let historyItem = "luna.topBar.history"
     private static let downloadsItem = "luna.topBar.downloads"
@@ -94,16 +97,9 @@ final class TopBarView: NSView, WindowScoped {
 
     let session: BrowserSession
     let windowID: UUID
-    /// A capsule of one, not a bare glass circle.
-    ///
-    /// Back and the three buttons at the other end of the bar were already the
-    /// same 28 pt item — but only one of them wore its glass directly, so back
-    /// read as a smaller control than the cylinder holding new-tab, downloads
-    /// and profile. Same class, same padding, same radius: one item in it
-    /// instead of four, and the two ends of the bar are made of the same thing.
-    private let backCapsule = TopBarActionCapsule()
-    let spacePill = TopBarSpacePill()
     let strip: TopBarTabStrip
+    /// The Space's name, at the head of the strip's plate.
+    var spaceName: TopBarSpaceName { strip.spaceName }
     private let separator = TopBarSeparator()
     private let capsule = TopBarActionCapsule()
     private var leadingInset: NSLayoutConstraint?
@@ -143,24 +139,11 @@ final class TopBarView: NSView, WindowScoped {
 
     // MARK: - Build
 
-    /// The leading capsule: Back, and nothing else for now.
     private func buildControls() {
-        backCapsule.items = [TopBarActionItem(
-            id: Self.backItem,
-            symbolName: "chevron.backward",
-            label: String(localized: "Back")
-        ) {
-            // Sent to nil so it travels the responder chain to the same
-            // `AppDelegate` method the menu item calls — §22.5's "declared
-            // once, implemented once".
-            NSApp.sendAction(#selector(AppDelegate.goBack(_:)), to: nil, from: nil)
-        }]
-        backCapsule.setAccessibilityLabel(String(localized: "Back"))
-
-        spacePill.onSwitch = { [weak self] id in self?.onSwitchSpace?(id) }
-        spacePill.onSetGradient = { [weak self] id, gradient in self?.onSetGradient?(id, gradient) }
-        spacePill.onEditSpaces = { [weak self] in self?.onEditSpaces?() }
-        spacePill.onNewSpace = { [weak self] in self?.onNewSpace?() }
+        spaceName.onSwitch = { [weak self] id in self?.onSwitchSpace?(id) }
+        spaceName.onSetGradient = { [weak self] id, gradient in self?.onSetGradient?(id, gradient) }
+        spaceName.onEditSpaces = { [weak self] in self?.onEditSpaces?() }
+        spaceName.onNewSpace = { [weak self] in self?.onNewSpace?() }
     }
 
     /// `ChromeHostView` keeps both layouts alive and cross-fades them, and
@@ -188,7 +171,7 @@ final class TopBarView: NSView, WindowScoped {
     }
 
     private func buildLayout() {
-        for view in [spacePill, backCapsule, strip, separator, capsule] as [NSView] {
+        for view in [strip, separator, capsule] as [NSView] {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
         }
@@ -196,7 +179,7 @@ final class TopBarView: NSView, WindowScoped {
         // not the strip, which is pinned top and bottom — a centre line as
         // well is a third vertical constraint and one of the three gets
         // dropped. It stands its own tabs on the line instead.
-        NSLayoutConstraint.activate([spacePill, backCapsule, separator, capsule].map {
+        NSLayoutConstraint.activate([separator, capsule].map {
             $0.centerYAnchor.constraint(
                 equalTo: centerYAnchor,
                 constant: TopBarMetrics.lightsCentreOffset
@@ -204,7 +187,7 @@ final class TopBarView: NSView, WindowScoped {
         })
         // Set from the lights in `alignToTrafficLights`; this is the floor
         // until there is a window to ask.
-        let leading = spacePill.leadingAnchor.constraint(
+        let leading = strip.leadingAnchor.constraint(
             equalTo: leadingAnchor,
             constant: Tokens.Metric.rowInset
         )
@@ -212,12 +195,10 @@ final class TopBarView: NSView, WindowScoped {
 
         NSLayoutConstraint.activate([
             leading,
-            backCapsule.leadingAnchor.constraint(equalTo: spacePill.trailingAnchor, constant: TopBarMetrics.clusterGap),
-            strip.leadingAnchor.constraint(equalTo: backCapsule.trailingAnchor, constant: TopBarMetrics.clusterGap),
             strip.topAnchor.constraint(equalTo: topAnchor),
             strip.bottomAnchor.constraint(equalTo: bottomAnchor),
-            separator.leadingAnchor.constraint(equalTo: strip.trailingAnchor, constant: TopBarMetrics.clusterGap),
-            capsule.leadingAnchor.constraint(equalTo: separator.trailingAnchor, constant: TopBarMetrics.clusterGap),
+            separator.leadingAnchor.constraint(equalTo: strip.trailingAnchor, constant: TopBarMetrics.gap),
+            capsule.leadingAnchor.constraint(equalTo: separator.trailingAnchor, constant: TopBarMetrics.gap),
             trailingAnchor.constraint(equalTo: capsule.trailingAnchor, constant: TopBarMetrics.clusterGap)
         ])
         // The strip is the only elastic element: everything else keeps its
@@ -274,19 +255,13 @@ final class TopBarView: NSView, WindowScoped {
     /// Re-reads everything from the session. Safe to call from the coordinator
     /// as well as from `onChange`.
     func refresh() {
-        backCapsule.setEnabled(activeState?.canGoBack ?? false, for: Self.backItem)
-        spacePill.show(spaces: session.spaces, activeSpaceID: activeSpaceID)
+        spaceName.show(spaces: session.spaces, activeSpaceID: activeSpaceID)
         strip.reload()
     }
 
     /// One tab's live state (§4.3): title, progress, `themeColor`.
     func apply(_ state: TabState, for id: UUID) {
-        if id == activeTabID { backCapsule.setEnabled(state.canGoBack, for: Self.backItem) }
         strip.apply(state, for: id)
-    }
-
-    private var activeState: TabState? {
-        activeTabID.flatMap { session.controller(for: $0)?.state }
     }
 
     // MARK: - §4.1 layout switch
@@ -313,7 +288,7 @@ final class TopBarView: NSView, WindowScoped {
     /// can drive it explicitly from inside its own transaction instead.
     /// Reduce Motion (§21.2) makes it instant.
     func playEntranceStagger() {
-        let views: [NSView] = [spacePill, backCapsule, strip, separator, capsule]
+        let views: [NSView] = [strip, separator, capsule]
         for view in views {
             view.wantsLayer = true
             view.alphaValue = 1
@@ -344,19 +319,20 @@ final class TopBarView: NSView, WindowScoped {
 
     // MARK: - Geometry
 
-    /// Where the bar starts: after the traffic lights, a cluster gap on.
+    /// Where the bar starts: after the traffic lights, `lightsGap` on.
     ///
     /// Derived, not read off the live buttons. AppKit resets their origins
     /// on every resize and `TrafficLightLayoutManager` puts them back a beat
-    /// later, so a bar that believed what it saw in between laid Back against
+    /// later, so a bar that believed what it saw in between laid its first control against
     /// the green light rather than a gap from it. `TrafficLightSpace` is the
     /// shared answer, and §3.1's control row asks it the very same question.
     ///
     /// The other half of standing beside them — their centre line — is a
     /// constant and is set once; see `TopBarMetrics.lightsCentreOffset`.
     private func updateTrafficLightReserve() {
-        guard let lights = TrafficLightSpace.rect(in: self) else { return }
-        let reserve = lights.maxX + TopBarMetrics.clusterGap
+        // No lights is no reserve: the bar starts its own inset from the edge,
+        // as it ends its inset from the other.
+        let reserve = TrafficLightSpace.rect(in: self).map { $0.maxX + TopBarMetrics.lightsGap } ?? TopBarMetrics.clusterGap
         guard let leadingInset, abs(leadingInset.constant - reserve) > .ulpOfOne else { return }
         leadingInset.constant = reserve
     }
@@ -373,8 +349,14 @@ final class TopBarView: NSView, WindowScoped {
     }
 
     /// §4 / §8: dragging the bar's background moves the window. The controls,
-    /// the strip's tiles and the pill all opt out for themselves.
+    /// the plate, the tiles and the tabs all opt out for themselves, so it is
+    /// only ever the empty bar that moves it.
     override var mouseDownCanMoveWindow: Bool { true }
+
+    /// The empty bar's right-click is the strip's — §3.4b's New Folder.
+    override func menu(for event: NSEvent) -> NSMenu? {
+        strip.emptyMenu()
+    }
 
     // MARK: - Accessibility display options
 
