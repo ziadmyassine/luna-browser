@@ -106,6 +106,9 @@ final class TopBarTabStrip: NSView, WindowScoped {
     /// Set by `reload()` when a run already on screen changed, consumed by the
     /// next `layout()`. See `placeContents`.
     var animatesNextPlacement = false
+    /// Folders whose tabs are still fading out on their plate — see
+    /// `retire`. Their plate and divider stay put until the fade is over.
+    var shuttingFolders: Set<UUID> = []
     /// §4's alignment, cached rather than read per layout pass.
     var tabsPosition = Settings.tabsPosition(in: .topBar)
 
@@ -377,49 +380,6 @@ final class TopBarTabStrip: NSView, WindowScoped {
         }
     }
 
-    /// Gone: faded out where it stood, then dropped — the grid's rule, because
-    /// removing it outright read as the tab having been deleted off-screen.
-    private func retire(keeping live: Set<UUID>, animated: Bool) {
-        var gone: [NSView] = []
-        for (id, tile) in tiles where !live.contains(id) {
-            tiles.removeValue(forKey: id)
-            gone.append(tile)
-        }
-        for (id, row) in rows where !live.contains(id) {
-            rows.removeValue(forKey: id)
-            gone.append(row)
-        }
-        for (id, divider) in dividers where !live.contains(id) {
-            dividers.removeValue(forKey: id)
-            divider.removeFromSuperview()
-        }
-        for (id, folderPlate) in folderPlates where !live.contains(id) {
-            folderPlates.removeValue(forKey: id)
-            gone.append(folderPlate)
-        }
-        if let hoveredID, !live.contains(hoveredID) { self.hoveredID = nil }
-        // A tab in the air is out of the run but not gone, and the lift is
-        // standing in for it: it goes at once, or it would fade out behind the
-        // lift that has just picked it up.
-        guard animated, liftedID == nil, !Tokens.Motion.reduceMotion else {
-            for view in gone { view.removeFromSuperview() }
-            return
-        }
-        for view in gone {
-            // Behind everything still on the bar, so what slides in over the
-            // place it leaves covers it as it fades — a folder closing is the
-            // run closing over its tabs, the reverse of the run opening to show
-            // them. On top, a folder's tabs lay over the tabs sliding in.
-            content.addSubview(view, positioned: .below, relativeTo: selectionPill)
-            Tokens.Motion.animate(Tokens.Motion.tabInsert) { context in
-                context.allowsImplicitAnimation = true
-                view.animator().alphaValue = 0
-            } completion: {
-                MainActor.assumeIsolated { view.removeFromSuperview() }
-            }
-        }
-    }
-
     override func layout() {
         super.layout()
         layOutRun()
@@ -444,5 +404,81 @@ final class TopBarTabStrip: NSView, WindowScoped {
     func position(of id: UUID) -> String {
         let index = run.tabs.firstIndex { $0.id == id } ?? 0
         return String(localized: "Tab \(index + 1) of \(run.tabs.count)")
+    }
+}
+
+// MARK: - Leaving
+
+extension TopBarTabStrip {
+
+    /// Gone: faded out where it stood, then dropped — the grid's rule, because
+    /// removing it outright read as the tab having been deleted off-screen.
+    func retire(keeping live: Set<UUID>, animated: Bool) {
+        let (gone, goneRows) = takeLeaving(keeping: live)
+        if let hoveredID, !live.contains(hoveredID) { self.hoveredID = nil }
+        // A tab in the air is out of the run but not gone, and the lift is
+        // standing in for it: it goes at once, or it would fade out behind the
+        // lift that has just picked it up.
+        guard animated, liftedID == nil, !Tokens.Motion.reduceMotion else {
+            for view in gone { view.removeFromSuperview() }
+            return
+        }
+        // Behind everything still on the bar, so what slides in over the
+        // place it leaves covers it as it fades. On top, a folder's tabs lay
+        // over the tabs sliding in.
+        for view in gone { content.addSubview(view, positioned: .below, relativeTo: selectionPill) }
+        // A folder shutting is its opening played backwards. Opening, the
+        // plate is at its full width at once — glass does not animate its
+        // shape — and the tabs fade in on it while the run slides. So
+        // shutting, the plate keeps its width while the tabs fade out and the
+        // run slides, and takes the name's size as they finish. Shrunk first,
+        // it left the tabs flashing out on the bare bar.
+        let shutting = foldersShutting(leaving: goneRows, live: live)
+        shuttingFolders.formUnion(shutting)
+        Tokens.Motion.animate(Tokens.Motion.tabInsert) { context in
+            context.allowsImplicitAnimation = true
+            for view in gone + shutting.compactMap({ self.dividers[$0] }) { view.animator().alphaValue = 0 }
+        } completion: { [weak self] in
+            MainActor.assumeIsolated {
+                for view in gone { view.removeFromSuperview() }
+                guard let self, !shutting.isEmpty else { return }
+                self.shuttingFolders.subtract(shutting)
+                for id in shutting { self.dividers[id]?.alphaValue = 1 }
+                self.needsLayout = true
+            }
+        }
+    }
+
+    /// Everything not in `live`, out of the strip's tables: the views to fade
+    /// and which of them were rows.
+    private func takeLeaving(keeping live: Set<UUID>) -> ([NSView], [UUID]) {
+        var gone: [NSView] = []
+        for (id, tile) in tiles where !live.contains(id) {
+            tiles.removeValue(forKey: id)
+            gone.append(tile)
+        }
+        let goneRows = rows.keys.filter { !live.contains($0) }
+        for id in goneRows { rows.removeValue(forKey: id).map { gone.append($0) } }
+        for (id, divider) in dividers where !live.contains(id) {
+            dividers.removeValue(forKey: id)
+            divider.removeFromSuperview()
+        }
+        for (id, folderPlate) in folderPlates where !live.contains(id) {
+            folderPlates.removeValue(forKey: id)
+            gone.append(folderPlate)
+        }
+        return (gone, goneRows)
+    }
+
+    /// The folders whose tabs are all that is leaving — shut, not deleted.
+    private func foldersShutting(leaving ids: [UUID], live: Set<UUID>) -> Set<UUID> {
+        var folders: Set<UUID> = []
+        for id in ids {
+            guard let groupID = session.tab(id)?.groupID, live.contains(groupID),
+                  session.group(groupID)?.isCollapsed == true
+            else { return [] }
+            folders.insert(groupID)
+        }
+        return folders
     }
 }

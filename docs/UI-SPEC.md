@@ -1755,7 +1755,11 @@ the address pill with site settings and reload. The page starts below both.
   - **Arriving and leaving are the column's too**: a new tab fades up into its place on `tabInsert`, a
     closed one fades out where it stood, and everything already on the bar slides. A view is placed with
     animation off the first time it is placed — Luna's recurring "spawns at the left and flies there" bug
-    — and only its fade arrives.
+    — and only its fade arrives. A folder shutting is its opening played backwards. Glass does not
+    animate its shape, so opening, the plate is at its full width at once and the tabs fade in on it while
+    the run slides; shutting, the tabs fade out on the plate while the run slides, and the plate takes the
+    name's size as they finish. Shrunk first, the tabs flashed out on the bare bar; faded first and slid
+    after, it read as two movements.
 - **There is no address bar on the bar itself.** The active tab used to swell into a 266 pt URL pill in
   the middle of the run; with tabs that carry their own titles that was a fourth shape among three, and
   the whole run jumped a pill's width every time the selection moved. The page bar under it holds the

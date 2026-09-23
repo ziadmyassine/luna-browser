@@ -324,6 +324,9 @@ extension TopBarTabStrip {
             var extent = head
             if let tail = placed.frames[last] { extent = extent.union(tail) }
             if let gap { extent = extent.union(gap) }
+            // A folder shutting keeps its plate and divider until its tabs
+            // have faded — `retire`.
+            guard !shuttingFolders.contains(group.id) else { continue }
             placeDivider(dividers[group.id], after: head, showing: last != header || gap != nil)
             // The folder's own plate grows round the room a lift is opening
             // in it and lights, so the drop reads as going in.
