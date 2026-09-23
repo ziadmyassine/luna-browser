@@ -6,17 +6,18 @@
 //  two shapes each tab takes, and where a drop between any two of them lands.
 //
 //  Pure, the way `SidebarRowModel` is pure, and for the same reason. The
-//  arrangement is the part with rules in it — kept tabs are bare icons, today's
-//  tabs carry their titles, the hairline only comes out when there is something
+//  arrangement is the part with rules in it — §3.3's tabs are bare icons, every
+//  other tab carries its title, the hairline only comes out when there is something
 //  on both sides of it, and the gap under a folder's header means *inside it*.
 //  Each of those is a sentence that can be asserted rather than squinted at in
 //  a screenshot, and the last one is a sentence §6.6's drag stakes a `reorderTab`
 //  on.
 //
 //  Two shapes rather than one per tier, and both are the column's. §3.3's grid
-//  and §3.4b's kept tier both draw as §3.3's tile: they are the tabs you keep,
-//  recognised by their site rather than read. Today's tabs are §3.4's rows,
-//  with their titles, because they are the ones being told apart right now.
+//  draws as §3.3's tile: the tabs you keep there are recognised by their site
+//  rather than read. Every folder's tabs, kept or not, and today's tabs are
+//  §3.4's rows, with their titles, because they are the ones told apart by
+//  name.
 //
 //  Slot order inside each tier, which is the column's order. The bar drew loose
 //  tabs before folders for one build, on the grounds that a named pill in the
@@ -38,9 +39,9 @@ import Foundation
 
 /// How a tab is drawn on §4's bar.
 enum TopBarTabStyle: Sendable, Equatable {
-    /// §3.3's tile — the grid's own, icon only. Kept tabs.
+    /// §3.3's tile — the grid's own, icon only. The grid's tabs.
     case tile
-    /// §3.4's row — favicon and title. Today's tabs.
+    /// §3.4's row — favicon and title. Every other tab.
     case row
 }
 
@@ -129,11 +130,12 @@ struct TopBarStripRun: Equatable, Sendable {
     /// Whether `block` is in front of the hairline — on the Space's plate.
     func isKept(_ block: Int) -> Bool { block < kept }
 
-    /// `id` if it is one of the kept run's tabs — the ones §3.3's light may
-    /// stand on. Nil for an open tab, and nil for a tab in a folded folder,
+    /// `id` if it is one of the kept run's tiles — the ones §3.3's light may
+    /// stand on. Nil for a row, kept folder's or not, which says it is the
+    /// current one with §3.4's pill, and nil for a tab in a folded folder,
     /// which is not drawn at all.
     func keptTab(_ id: UUID) -> Tab? {
-        for case let .tab(tab, _) in blocks.prefix(kept) where tab.id == id { return tab }
+        for case let .tab(tab, .tile) in blocks.prefix(kept) where tab.id == id { return tab }
         return nil
     }
 
@@ -273,7 +275,7 @@ private struct Build {
                 let index = self.slots(kind)
                 counts[kind] = index + 1
                 add(
-                    .group(group, style: style),
+                    .group(group, style: .row),
                     leading: SidebarDestination(kind: kind, groupID: nil, index: index),
                     // Past the header is inside the folder, either way. A shut
                     // folder has no tabs on screen to drop between, so the one
@@ -295,7 +297,9 @@ private struct Build {
         for (member, index) in zip(members, members.indices) {
             tabs.append(member)
             add(
-                .tab(member, style: kind == .today ? .row : .tile),
+                // A folder's tabs are told apart by their titles in either
+                // tier: a kept folder of bare icons read as a second grid.
+                .tab(member, style: .row),
                 leading: SidebarDestination(kind: kind, groupID: id, index: index),
                 trailing: SidebarDestination(kind: kind, groupID: id, index: index + 1),
                 inside: header

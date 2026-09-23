@@ -1750,7 +1750,8 @@ the address pill with site settings and reload. The page starts below both.
     side, then its tabs edge to edge, sized as any tab is, all on a plate of its own — the
     Space's plate's glass and height. No chevron: the plate is what says the folder is open. A kept folder
     is the same, on a plate of its own beside the Space's — the Space's plate holds §3.3's tiles and
-    nothing else.
+    nothing else. A folder's tabs are rows with their titles in either tier; a kept folder drew them as
+    bare tiles for one build, and read as a second grid.
   - **Arriving and leaving are the column's too**: a new tab fades up into its place on `tabInsert`, a
     closed one fades out where it stood, and everything already on the bar slides. A view is placed with
     animation off the first time it is placed — Luna's recurring "spawns at the left and flies there" bug

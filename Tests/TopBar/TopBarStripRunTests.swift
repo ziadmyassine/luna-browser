@@ -61,14 +61,18 @@ final class TopBarStripRunTests: XCTestCase {
         XCTAssertEqual(styles(run), [.tile, .tile, .row])
     }
 
-    func testAFoldersTabsTakeItsOwnTiersShape() {
+    /// A folder's tabs keep their titles in either tier: a kept folder of
+    /// bare icons read as a second grid.
+    func testAFoldersTabsAreRowsKeptOrNot() {
         let saved = group("Work", kind: .pinned)
+        let docs = tab("docs", kind: .pinned)
         let run = TopBarStripRun(
-            saved: [.group(saved, tabs: [tab("docs", kind: .pinned)])],
+            saved: [.group(saved, tabs: [docs])],
             today: [.group(group("Fun"), tabs: [tab("news")])]
         )
         // Header, its tab; header, its tab.
-        XCTAssertEqual(styles(run), [.tile, .tile, .row, .row])
+        XCTAssertEqual(styles(run), [.row, .row, .row, .row])
+        XCTAssertNil(run.keptTab(docs.id), "a row carries the pill, not the light")
     }
 
     // MARK: - The order

@@ -363,9 +363,9 @@ extension TopBarTabStrip {
     }
 
     /// Whether a tab put down at `destination` is drawn as one of §3.3's
-    /// tiles: among the grid's, or inside a kept folder.
+    /// tiles: only among the grid's. Inside any folder it is a row.
     func landsAsTile(_ destination: SidebarDestination) -> Bool {
-        destination.kind == .essential || (destination.kind == .pinned && destination.groupID != nil)
+        destination.kind == .essential
     }
 
     private func mark(_ outline: TopBarSlotOutline, at frame: NSRect?, landing: Int?) {
