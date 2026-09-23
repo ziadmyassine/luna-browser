@@ -1049,7 +1049,11 @@ Order: §3.4b's pinned folders → **separator** → `New Tab` row → tabs.
   over the selected wash from the pill's leading edge, as wide as the fraction scrolled; its trailing
   end is square, because that edge is the reading position. None at the top of a page, the whole pill
   at the end, and none at all for a page with nothing below the fold. It follows the page on every
-  frame, with no animation. Only the selected pill carries it; the hover pill never does.
+  frame, with no animation. Only the selected pill carries it; the hover pill never does. §4's top bar
+  draws it the same way on its selected tab — the same `RowPillView` — and a kept tile, which has no pill,
+  carries none. The session holds each page's progress callback and hands it to both layouts
+  (`addScrollProgressObserver`), because both stay alive across a switch and one callback was theirs in
+  turn.
   > **Not the hover wash, although it is the same 6 %.** Hover doubles under Increase Contrast, and
   > 22 % selected plus 12 % put the title at 4.22:1 over `raised` in dark. `readBand` stays at 6 %
   > there, which leaves 4.83:1. `TokenCheck.checkReadBand` keeps it honest.

@@ -34,6 +34,13 @@ extension TopBarTabStrip {
         place(hoverPill, at: hovered, spec: animated ? Tokens.Motion.rowHover : nil)
     }
 
+    /// How far the selected tab's page has been read — §3.4's band, on the
+    /// selected pill, exactly as the column draws it. The hover pill never
+    /// carries it: it is under a tab the reader is not on.
+    func setScrollProgress(_ progress: Double?) {
+        selectionPill.progress = progress.map { CGFloat($0) }
+    }
+
     private func place(_ pill: RowPillView, at frame: NSRect?, spec: MotionSpec?) {
         guard let frame else {
             pill.fade(to: 0, animated: spec != nil)

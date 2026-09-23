@@ -108,6 +108,20 @@ final class BrowserSession {
         }
     }
 
+    /// How far a tab's page has been read, 0...1 or nil, as it changes. Not
+    /// part of `TabState`, for the engine's reason: a scroll must not
+    /// re-render a row. The session is the one holder of each controller's
+    /// `onScrollProgress` and hands it on here, because the sidebar and the
+    /// top bar are both alive at once and a single closure was theirs in turn.
+    @discardableResult
+    func addScrollProgressObserver(_ body: @escaping (UUID, Double?) -> Void) -> ObservationToken {
+        let key = UUID()
+        scrollProgressObservers[key] = body
+        return ObservationToken { [weak self] in
+            Task { @MainActor in self?.scrollProgressObservers[key] = nil }
+        }
+    }
+
     /// The pre-observer spelling, kept working so nothing breaks mid-wave. One
     /// slot: whoever assigns last wins, which is exactly why the observer API
     /// above exists. New code registers.
@@ -121,6 +135,7 @@ final class BrowserSession {
 
     private var changeObservers: [UUID: () -> Void] = [:]
     private var tabStateObservers: [UUID: (UUID, TabState) -> Void] = [:]
+    private var scrollProgressObservers: [UUID: (UUID, Double?) -> Void] = [:]
 
     func notifyChange() {
         // §3.2's Automatic Picture-In-Picture, before the observers run: the
@@ -134,6 +149,15 @@ final class BrowserSession {
     func notifyTabState(_ id: UUID, _ state: TabState) {
         onTabStateChange?(id, state)
         for observer in Array(tabStateObservers.values) { observer(id, state) }
+    }
+
+    /// Takes `controller`'s scroll progress for the observers above.
+    func relayScrollProgress(of controller: TabController) {
+        let id = controller.id
+        controller.onScrollProgress = { [weak self] progress in
+            guard let self else { return }
+            for observer in Array(scrollProgressObservers.values) { observer(id, progress) }
+        }
     }
 
     // MARK: - Collaborators the app plugs in

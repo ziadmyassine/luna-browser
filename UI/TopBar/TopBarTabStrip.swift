@@ -254,6 +254,9 @@ final class TopBarTabStrip: NSView, WindowScoped {
             landings: landings
         )
         activeID = activeTabID
+        // Taken on arrival as well as listened to (`TopBarView`), so a tab
+        // selected again shows where it was left.
+        setScrollProgress(activeID.flatMap { session.controller(for: $0)?.scrollProgress })
         // Every change to a run already on screen slides into place: a switch,
         // a tab arriving or closing, a folder opening, a drop. A Space switch
         // does not — that is a different run, not this one moving — and nor

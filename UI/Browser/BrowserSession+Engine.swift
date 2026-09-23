@@ -26,6 +26,7 @@ extension BrowserSession {
         if let existing = controllers[tab.id] { return existing }
         let controller = TabController(id: tab.id, dataStore: dataStore(forSpace: tab.spaceID))
         controller.delegate = self
+        relayScrollProgress(of: controller)
         controller.restore(interactionState: tab.interactionState, fallbackURL: tab.url)
         // §3.4a: a muted tab that went cold comes back muted. The controller is new, so
         // it starts at the default and has to be told.
@@ -109,6 +110,7 @@ extension BrowserSession {
         persistAll(list.insert(child, at: TabList.openIndex(for: .today)))
         let controller = TabController(id: child.id, dataStore: dataStore(forSpace: spaceID))
         controller.delegate = self
+        relayScrollProgress(of: controller)
         controllers[child.id] = controller
         let webView = controller.activate(with: configuration)
         activeTabBySpace[spaceID] = child.id

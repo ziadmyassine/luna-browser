@@ -12,7 +12,7 @@
 //  Nothing here wakes a tab, so nothing here builds a web view.
 //
 
-import BrowserKit
+@testable import BrowserKit
 import XCTest
 @testable import Luna
 
@@ -142,6 +142,33 @@ final class TopBarStripLayoutTests: XCTestCase {
         XCTAssertTrue(row.row.isSelected)
         XCTAssertEqual(strip.selectionPill.frame, row.frame)
         XCTAssertEqual(descendants(of: strip, ofType: RowPillView.self).count, 2, "one selected pill, one hover pill")
+    }
+
+    /// §3.4's read band: the selected tab's pill fills as its page is read,
+    /// and a tab selected again shows where it was left. Through the session's
+    /// observers, because the sidebar is alive beside the bar and a single
+    /// callback on the page was theirs in turn.
+    func testTheSelectedPillCarriesHowFarThePageHasBeenRead() async throws {
+        let session = try await session()
+        let window = window(on: session)
+        let space = try XCTUnwrap(session.spaces.first).id
+        let first = insert(tab: "First", order: 0, in: space, on: session)
+        let second = insert(tab: "Second", order: 1, in: space, on: session)
+        session.activateTab(second, inWindow: window)
+        let bar = TopBarView(session: session, windowID: window)
+        bar.frame = NSRect(x: 0, y: 0, width: 1400, height: Tokens.Metric.topBarHeight)
+        bar.layoutSubtreeIfNeeded()
+
+        let reading = try XCTUnwrap(session.controller(for: second))
+        reading.setScrollProgress(0.4)
+        XCTAssertEqual(bar.strip.selectionPill.progress ?? -1, 0.4, accuracy: 0.001)
+
+        // A tab the window is not showing does not move the band.
+        session.ensureController(for: try XCTUnwrap(session.tab(first))).setScrollProgress(0.9)
+        XCTAssertEqual(bar.strip.selectionPill.progress ?? -1, 0.4, accuracy: 0.001)
+
+        session.activateTab(first, inWindow: window)
+        XCTAssertEqual(bar.strip.selectionPill.progress ?? -1, 0.9, accuracy: 0.001, "taken on arrival")
     }
 
     // MARK: - Fixtures

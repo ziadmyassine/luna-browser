@@ -104,6 +104,7 @@ final class TopBarView: NSView, WindowScoped, TrafficLightNeighbour {
     private let capsule = TopBarActionCapsule()
     private var leadingInset: NSLayoutConstraint?
     var drag: TopBarTabDragController?
+    private var progressObservation: ObservationToken?
 
     init(session: BrowserSession, windowID: UUID) {
         self.session = session
@@ -157,6 +158,11 @@ final class TopBarView: NSView, WindowScoped, TrafficLightNeighbour {
         session.onChange = { [weak self] in
             previousChange?()
             self?.refresh()
+        }
+        // §3.4's read band on the selected tab, as its page scrolls.
+        progressObservation = session.addScrollProgressObserver { [weak self] id, progress in
+            guard let self, id == activeTabID else { return }
+            strip.setScrollProgress(progress)
         }
         let previousTabState = session.onTabStateChange
         session.onTabStateChange = { [weak self] id, state in
