@@ -135,14 +135,17 @@ extension ControlCall {
             return .closeTab
         case "wait": return .wait(seconds: min(max(args.values["seconds"]?.double ?? 1, 0), 30))
         case "request_user": return .requestUser(String(try args.required("reason").prefix(500)))
-        case "dialog":
-            switch args.string("action") {
-            case "accept": return .dialog(accept: true, text: args.string("text"))
-            case "dismiss": return .dialog(accept: false, text: nil)
-            default: throw ControlError("action must be accept or dismiss.")
-            }
+        case "dialog": return try dialog(args)
         case "file_upload": return .upload(ref: try args.required("ref"), files: try uploads(args.values["files"]))
         default: throw ControlError("Luna has no tool called \(tool).")
+        }
+    }
+
+    private static func dialog(_ args: Arguments) throws -> ControlCommand {
+        switch args.string("action") {
+        case "accept": return .dialog(accept: true, text: args.string("text"))
+        case "dismiss": return .dialog(accept: false, text: nil)
+        default: throw ControlError("action must be accept or dismiss.")
         }
     }
 
