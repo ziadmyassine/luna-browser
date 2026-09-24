@@ -33,6 +33,17 @@ final class ControlServiceTests: XCTestCase {
 
     private let client = ControlClient(rawName: "example-agent")
 
+    /// Allow-all, so these tests are about tabs and folders rather than
+    /// approvals (`ControlSafetyTests` has those), and in a suite of their own
+    /// rather than the user's defaults.
+    private func makeService(_ session: BrowserSession) -> ControlService {
+        let defaults = UserDefaults(suiteName: "luna-control-tests-\(UUID().uuidString)")
+        defaults?.set(ControlMode.allowAll.rawValue, forKey: ControlService.modeKey)
+        return ControlService(
+            session: session, defaults: defaults ?? .standard, auditURL: directory.appending(path: "activity.jsonl")
+        )
+    }
+
     private func text(_ result: ControlResult) -> String {
         result.content.compactMap { if case let .text(text) = $0 { text } else { nil } }.joined()
     }
@@ -40,7 +51,7 @@ final class ControlServiceTests: XCTestCase {
     func testOpenedTabsShareOneFolderNamedAfterTheClientAndLeaveTheSelectionAlone() async throws {
         let session = try await session()
         let users = session.newTab(url: URL(string: "about:blank")!)
-        let service = ControlService(session: session)
+        let service = makeService(session)
 
         _ = await service.perform(ControlCall(.openTab(URL(string: "about:blank"))), client)
         _ = await service.perform(ControlCall(.openTab(nil)), client)
@@ -53,7 +64,7 @@ final class ControlServiceTests: XCTestCase {
 
     func testAPageToolActsOnTheTabItLastOpened() async throws {
         let session = try await session()
-        let service = ControlService(session: session)
+        let service = makeService(session)
         let url = try XCTUnwrap(URL(string: "data:text/html,%3Cbutton%3EGo%3C/button%3E"))
         _ = await service.perform(ControlCall(.openTab(url)), client)
 
@@ -65,7 +76,7 @@ final class ControlServiceTests: XCTestCase {
     func testAClientCannotCloseTheUsersTabs() async throws {
         let session = try await session()
         let users = session.newTab(url: URL(string: "about:blank")!)
-        let service = ControlService(session: session)
+        let service = makeService(session)
         let number = service.number(users)
 
         let result = await service.perform(ControlCall(tab: number, .closeTab), client)

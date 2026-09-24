@@ -67,9 +67,10 @@ public enum ControlDecision: Sendable, Equatable {
 /// `ControlPolicyTests` rather than a property of a running app.
 public enum ControlPolicy {
 
-    public static let actingReason = "acts on the page"
+    /// Why a call asks, worded to follow "because".
+    public static let actingReason = "it acts on the page"
     public static let injectionReason = "the page contained text addressed to an AI agent"
-    public static let fileReason = "opens a file on this Mac"
+    public static let fileReason = "it opens a file on this Mac"
     public static let internalReason = "That tab shows one of Luna's own pages, which Luna Control cannot read or act on."
 
     /// - Parameter site: the registrable domain the call acts on — the tab's,

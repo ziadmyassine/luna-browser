@@ -88,7 +88,7 @@ public enum ControlAudit {
         case let .navigate(.url(url)): "navigate to \(ControlRedactor.scrub(url.absoluteString))"
         case .navigate(.back): "navigate back"
         case .navigate(.forward): "navigate forward"
-        case .navigate(.reload): "reload"
+        case .navigate(.reload): "navigate reload"
         case .readPage: "read_page"
         case .pageText: "page_text"
         case let .find(query): "find \(clip(query))"
@@ -103,6 +103,11 @@ public enum ControlAudit {
         case .closeTab: "tab_close"
         case let .wait(seconds): "wait \(seconds) s"
         }
+    }
+
+    /// The tool's name as `tools/list` spells it.
+    public static func tool(of command: ControlCommand) -> String {
+        String(summary(of: command).prefix { $0 != " " })
     }
 
     private static func describe(_ target: ControlCommand.Target) -> String {

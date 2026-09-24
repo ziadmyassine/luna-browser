@@ -8,6 +8,10 @@
 //  folder each client's tabs go into. What happens inside a page is
 //  `ControlService+Page.swift`.
 //
+//  Every call passes the gate in `ControlService+Safety.swift` first: the
+//  stop and pause switches, the policy, the user's approval, and on the way
+//  out the redactor, the untrusted fence and the activity log.
+//
 //  Off by default, and it has to be: whoever connects can read and act in
 //  every signed-in site in the non-private session. The socket is user-only
 //  and there is no network listener, so "whoever" is a program the user runs.
@@ -49,6 +53,28 @@ final class ControlService {
     private(set) weak var session: BrowserSession?
     private var listener: ControlListener?
 
+    let approvals = ControlApprovals()
+    /// Where the mode and the site grants are kept. Injected so a test can
+    /// set a mode without touching the user's.
+    let defaults: UserDefaults
+    let auditURL: URL
+
+    enum Hold { case paused, stopped }
+    /// Per client display name. In memory: a relaunch is a fresh start.
+    var holds: [String: Hold] = [:]
+    /// The main menu's Stop All Agents, until Resume.
+    var stoppedAll = false
+    /// The tasks running each client's calls, so Stop can cancel them.
+    var inFlight: [String: [UUID: Task<ControlResult, Never>]] = [:]
+
+    /// A site a page on it addressed the agent from, for the rest of that
+    /// connection: acting there asks whatever the mode.
+    struct Escalation: Hashable {
+        var connection: UUID
+        var site: String
+    }
+    var escalated: Set<Escalation> = []
+
     /// Tabs are numbered for clients, in the order a client first sees them:
     /// a model copes with `3` far better than with a UUID. For the life of
     /// the app, so a number never comes to mean a different tab.
@@ -56,16 +82,29 @@ final class ControlService {
     private var tabsByNumber: [Int: UUID] = [:]
     /// The tab each connection last opened or acted on — what a call with no
     /// `tabId` means.
-    private var currentTab: [UUID: UUID] = [:]
+    var currentTab: [UUID: UUID] = [:]
     /// Each client's folder, by display name, so a renamed folder stays theirs.
-    private var folders: [String: UUID] = [:]
+    var folders: [String: UUID] = [:]
     /// Calls running per folder. The folder shows as controlled while this is
     /// above zero and for `markLinger` after.
     private var running: [UUID: Int] = [:]
 
-    init(session: BrowserSession) {
+    init(
+        session: BrowserSession,
+        defaults: UserDefaults = .standard,
+        auditURL: URL = ControlAudit.url(
+            inControlFolderOf: ControlSocket.path(bundleIdentifier: Bundle.main.bundleIdentifier ?? "dk.novapps.luna")
+        )
+    ) {
         self.session = session
+        self.defaults = defaults
+        self.auditURL = auditURL
+        approvals.onChange = { [weak self] in self?.refreshBadges() }
     }
+
+    /// The `luna-control` service of the running app, for the sidebar and the
+    /// menus. Nil until launch has finished.
+    static var current: ControlService? { (NSApp.delegate as? AppDelegate)?.control }
 
     /// Makes the socket match the setting. Called at launch and on every
     /// settings change.
@@ -100,32 +139,38 @@ final class ControlService {
 
     // MARK: - Calls
 
+    /// Runs one call in a task of its own, which is what Stop cancels.
     func perform(_ call: ControlCall, _ client: ControlClient) async -> ControlResult {
-        guard let session else { return .error("Luna has no window open.") }
+        let key = UUID()
+        let work = Task { await self.gated(call, client) }
+        inFlight[client.displayName, default: [:]][key] = work
+        defer { inFlight[client.displayName]?[key] = nil }
+        return await withTaskCancellationHandler { await work.value } onCancel: { work.cancel() }
+    }
+
+    /// Carries out a call the gate has let through. `id` is the tab it
+    /// resolved, nil for the calls that name none.
+    func execute(_ call: ControlCall, for client: ControlClient, in session: BrowserSession, tab id: UUID?) async throws
+        -> ControlResult {
         let folder = folders[client.displayName]
         if let folder { mark(folder, running: true) }
         defer { if let folder { mark(folder, running: false) } }
-        do {
-            switch call.command {
-            case .listTabs:
-                return .text(listTabs(in: session, for: client))
-            case let .openTab(url):
-                return try await openTab(url, in: session, for: client)
-            case let .wait(seconds):
-                try await Task.sleep(for: .seconds(seconds))
-                return .text("Waited \(seconds) s.")
-            case .closeTab:
-                return try closeTab(call, in: session, for: client)
-            default:
-                let id = try resolve(call, in: session, for: client)
-                guard let controller = session.wakeForControl(id), let webView = controller.webView else {
-                    return .error("That tab could not be woken.")
-                }
-                currentTab[client.connection] = id
-                return try await run(call.command, in: webView, controller: controller)
+        switch call.command {
+        case .listTabs:
+            return .text(listTabs(in: session, for: client))
+        case let .openTab(url):
+            return try await openTab(url, in: session, for: client)
+        case let .wait(seconds):
+            try await Task.sleep(for: .seconds(seconds))
+            return .text("Waited \(seconds) s.")
+        case .closeTab:
+            return try closeTab(call, in: session, for: client)
+        default:
+            guard let id, let controller = session.wakeForControl(id), let webView = controller.webView else {
+                return .error("That tab could not be woken.")
             }
-        } catch {
-            return .error(Self.describe(error))
+            currentTab[client.connection] = id
+            return try await run(call.command, in: webView, controller: controller)
         }
     }
 
@@ -177,7 +222,7 @@ final class ControlService {
     }
 
     /// The tab a call means — see `ControlCall.tab`.
-    private func resolve(_ call: ControlCall, in session: BrowserSession, for client: ControlClient) throws -> UUID {
+    func resolve(_ call: ControlCall, in session: BrowserSession, for client: ControlClient) throws -> UUID {
         if let number = call.tab {
             guard let id = tabsByNumber[number], session.tab(id) != nil else {
                 throw ControlError("There is no tab \(number) any more. Call tabs_list for the open ones.")

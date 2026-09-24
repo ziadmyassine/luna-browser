@@ -27,7 +27,8 @@
 //  buttons: a full-width row growing 5 % reads as the list jumping. They answer
 //  with a hover wash and nothing else, and belong here only if that rule
 //  changes. §14.4's chip is built from `SettingsPushButton`, which is already
-//  covered below.
+//  covered below, and so are Luna Control's approval card and its Revoke
+//  buttons. Its Pause, Resume and Stop are menu items, not buttons.
 //
 
 import XCTest

@@ -71,4 +71,12 @@ extension BrowserSession {
         let changed = controlled ? controlledGroupIDs.insert(id).inserted : controlledGroupIDs.remove(id) != nil
         if changed { notifyChange() }
     }
+
+    /// The icon a Luna Control folder wears instead of its own while it is
+    /// waiting for the user, paused or stopped.
+    func setControlBadges(_ badges: [UUID: String]) {
+        guard badges != controlBadges else { return }
+        controlBadges = badges
+        notifyChange()
+    }
 }

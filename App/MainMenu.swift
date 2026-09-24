@@ -171,6 +171,11 @@ enum MainMenu {
             // launch (see `AppDelegate.validateMenuItem`).
             item(.settings),
             .separator(),
+            // Luna Control's kill switch, beside Quit's neighbours because it is
+            // the other "make everything stop" in the menu. Titled by
+            // `validateStopAllAgents`.
+            plain("Stop All Agents", #selector(AppDelegate.toggleStopAllAgents(_:))),
+            .separator(),
             plain("Hide \(name)", #selector(NSApplication.hide(_:)), "h"),
             plain("Hide Others", #selector(NSApplication.hideOtherApplications(_:)), "h",
                   modifiers: [.command, .option]),

@@ -212,6 +212,7 @@ extension AppDelegate: NSMenuItemValidation {
         // several of its sections exist to say what is not wired up yet — and a
         // dimmed `⌘,` on a slow first run would be a bug, not a safeguard.
         if menuItem.action == #selector(showSettings(_:)) { return true }
+        if let agents = validateStopAllAgents(menuItem) { return agents }
         guard let session else { return false }
         return validateFavoriteToggle(menuItem, in: session)
             ?? validateNavigation(menuItem, in: session)

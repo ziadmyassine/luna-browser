@@ -145,10 +145,22 @@ extension ControlService {
 
     /// The viewport at one pixel per CSS pixel, so a point in the picture is
     /// the point `click` takes, whatever the display's scale.
+    ///
+    /// Card, one-time-code and other secret fields are drawn as dots for the
+    /// picture and put back after, so their values are not in it.
     private func screenshot(_ webView: WKWebView) async throws -> ControlResult {
         let configuration = WKSnapshotConfiguration()
         configuration.afterScreenUpdates = true
-        let image = try await webView.takeSnapshot(configuration: configuration)
+        // A page this cannot run in — a PDF, an image — has no fields to hide.
+        _ = try? await library("mask", in: webView, [:])
+        let image: NSImage
+        do {
+            image = try await webView.takeSnapshot(configuration: configuration)
+            _ = try? await library("unmask", in: webView, [:])
+        } catch {
+            _ = try? await library("unmask", in: webView, [:])
+            throw error
+        }
         let width = Int(webView.bounds.width.rounded())
         let height = Int(webView.bounds.height.rounded())
         guard width > 0, height > 0, let bitmap = NSBitmapImageRep(
