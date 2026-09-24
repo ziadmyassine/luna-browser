@@ -98,7 +98,7 @@ final class CommandBarRankingTests: XCTestCase {
     ///  4 GitBig       history, 9999
     ///  5 GitBook      history, 120
     ///  6 Gitea        archive
-    ///  7 git          search — the floor, always last
+    ///  7 git          search — last, because `gitlab.com` completes "git"
     ///
     /// "example.com" is absent because it does not match, and neither app command
     /// contains "git".
@@ -254,6 +254,50 @@ final class CommandBarRankingTests: XCTestCase {
         let merged = CommandBarRanking.appendingWithoutReordering(onScreen: onScreen, incoming: incoming)
 
         XCTAssertEqual(merged.map(\.title), ["gitlab.com", "Luna", "GitBig"])
+    }
+
+    // MARK: - The search row on top
+
+    /// Words are a search, and the search is the top row even over a learned
+    /// choice. Here the learned choice is an old results page for the same
+    /// words, picked because it was the top row — left there, every Return
+    /// on it taught the bar to keep it there.
+    func testASearchQueryPutsTheSearchRowFirst() {
+        var sources = CommandBarSources()
+        let oldSearch = url("https://www.google.com/search?q=apple+ads&sourceid=chrome")
+        sources.adaptive = [AdaptiveEntry(typed: "apple ads", url: oldSearch, useCount: 3.44)]
+        sources.history = [
+            HistoryHit(url: oldSearch, title: "Google Search", score: 900),
+            HistoryHit(url: url("https://ui.ads.apple.com/"), title: "Apple Ads", score: 600)
+        ]
+
+        let results = CommandBarRanking.merge(query: "apple ads", sources: sources, limit: 8)
+
+        XCTAssertEqual(results.map(\.source), [.search, .adaptive, .history])
+        XCTAssertEqual(results.first?.title, "apple ads")
+        XCTAssertNil(CommandBarRanking.autofill(query: "apple ads", results: results))
+    }
+
+    /// One word that no page completes is a search too.
+    func testAWordNoPageCompletesIsSearchedFirst() {
+        var sources = CommandBarSources()
+        sources.history = [HistoryHit(url: url("https://ui.ads.apple.com/"), title: "Apple Ads", score: 600)]
+
+        let results = CommandBarRanking.merge(query: "ads", sources: sources, limit: 8)
+
+        XCTAssertEqual(results.map(\.source), [.search, .history])
+    }
+
+    /// The start of an address keeps the page it completes to on top, with the
+    /// search below it, so §9.4 still has a row to complete from.
+    func testTheStartOfAnAddressKeepsItsPageOnTop() {
+        var sources = CommandBarSources()
+        sources.history = [HistoryHit(url: url("https://github.com/"), title: "GitHub", score: 600)]
+
+        let results = CommandBarRanking.merge(query: "gith", sources: sources, limit: 8)
+
+        XCTAssertEqual(results.map(\.source), [.history, .search])
+        XCTAssertEqual(CommandBarRanking.autofill(query: "gith", results: results), "github.com")
     }
 
     // MARK: - §9.4 inline autofill

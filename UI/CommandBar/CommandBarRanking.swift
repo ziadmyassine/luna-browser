@@ -112,7 +112,24 @@ enum CommandBarRanking {
         }
         rows.append(contentsOf: suggestionRows(query: query, sources: sources))
 
-        return Array(dedupe(order(rows), adoptingOpenTabs: !hasDirect).prefix(limit))
+        return Array(searchFirst(dedupe(order(rows), adoptingOpenTabs: !hasDirect), query: rawQuery).prefix(limit))
+    }
+
+    /// The search row on top whenever the query reads as a search, and the
+    /// tiers below it in their own order.
+    ///
+    /// Left at its tier it was never seen on a query that history answers well:
+    /// `apple ads` filled all eight rows with old visits — one of them a
+    /// Google results page for the same words — and Return opened that page
+    /// instead of searching. A query reads as an address only while §9.4 can
+    /// complete it from the best page, as `gith` completes `github.com`; that
+    /// page keeps the top row, or autofill would have nothing to complete from.
+    private static func searchFirst(_ rows: [CommandBarResult], query: String) -> [CommandBarResult] {
+        guard let index = rows.firstIndex(where: { $0.source == .search }), index > 0 else { return rows }
+        var rest = rows
+        let search = rest.remove(at: index)
+        guard autofill(query: query, results: rest) == nil else { return rows }
+        return [search] + rest
     }
 
     /// §9.4's completion: the top URL-bearing row, if what the user typed is a

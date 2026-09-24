@@ -118,16 +118,15 @@ final class CommandBarTabRowTests: XCTestCase {
     }
 
     /// And the row that borrows a tab's action borrows the line that says so.
-    /// An adaptive match outranks everything, so it is the row on screen.
+    /// The adaptive row is the one the tab dedupes onto, so it is that row's.
     func testAnAdaptiveRowThatSwitchesTabsSaysSo() {
         var sources = CommandBarSources()
         sources.tabs = [tab("https://github.com/luna", title: "Luna", minutesAgo: 1)]
         sources.adaptive = [AdaptiveEntry(typed: "lun", url: url("https://github.com/luna"), useCount: 9)]
 
         let results = CommandBarRanking.merge(query: "lun", sources: sources, limit: 8)
-        let top = try? XCTUnwrap(results.first)
-        XCTAssertEqual(top?.source, .adaptive)
-        XCTAssertEqual(top?.subtitle, CommandBarRanking.switches)
+        let row = try? XCTUnwrap(results.first { $0.source == .adaptive })
+        XCTAssertEqual(row?.subtitle, CommandBarRanking.switches)
     }
 
     /// The adaptive tier is not a way round it. A remembered `(typed → URL)`

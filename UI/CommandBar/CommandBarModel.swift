@@ -90,8 +90,10 @@ enum CommandBarSource: Sendable, Hashable, Comparable, CaseIterable {
     /// typing into an address bar is usually going somewhere, and the two
     /// rows that are not a destination wait behind the ones that are.
     case settings
-    /// The floor: there is always something to do with a query, and what the
-    /// user actually typed outranks anything an engine guessed they meant.
+    /// There is always something to do with a query, and what the user
+    /// actually typed outranks anything an engine guessed they meant. This
+    /// tier holds only while the query reads as an address; otherwise
+    /// `CommandBarRanking.searchFirst` lifts the row to the top.
     case search
     /// A menu command, or a Settings section, that the query reached only
     /// through its keywords — nothing in its own name answered.
