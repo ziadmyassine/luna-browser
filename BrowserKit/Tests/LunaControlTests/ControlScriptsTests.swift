@@ -173,6 +173,62 @@ struct ControlScriptsTests {
         #expect(try await webView.evaluateJavaScript(security) as? String == "none")
     }
 
+    private static let sensitive = """
+    <html><head><title>Checkout</title></head><body>
+    <form id="pay" onsubmit="event.preventDefault()">
+      <input autocomplete="cc-number" aria-label="Card number">
+      <input name="note" aria-label="Note">
+      <button type="submit">Place order</button>
+      <button type="button">Add a note</button>
+    </form>
+    <form id="login" onsubmit="event.preventDefault()">
+      <input name="user" aria-label="Username"><input type="password" aria-label="Password">
+      <button>Continue</button>
+    </form>
+    <a href="https://accounts.example.com/o/oauth2/auth?client_id=a&response_type=code">Sign in with Example</a>
+    <a href="/report.csv" download>Export</a>
+    <a href="/help">Help</a>
+    <div class="g-recaptcha"><iframe title="reCAPTCHA" src="about:blank#recaptcha" width="300" height="80"></iframe></div>
+    </body></html>
+    """
+
+    /// What `inspect` says about acting on the element `label` names.
+    private func inspect(_ webView: WKWebView, _ op: String, _ label: String, _ extra: [String: Any] = [:]) async throws
+        -> [String: Any] {
+        let found = try await run(webView, "find", ["query": label])
+        let ref = try #require(Self.ref(in: found, for: "\"\(label)\""), "\(label) in \(found)")
+        let json = try await run(webView, "inspect", extra.merging(["op": op, "ref": ref]) { $1 })
+        return try #require(try JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+    }
+
+    private func risks(_ facts: [String: Any]) -> Set<String> { Set(facts["risks"] as? [String] ?? []) }
+
+    @Test func testInspectFlagsCardFormAndOAuthLink() async throws {
+        let webView = try await loaded(Self.sensitive)
+        // Submitting the card form is a payment twice over: its field and its button's word.
+        #expect(risks(try await inspect(webView, "click", "Place order")) == ["payment"])
+        #expect(risks(try await inspect(webView, "click", "Add a note")).isEmpty)
+        #expect(risks(try await inspect(webView, "type", "Note")).isEmpty)
+        // Card and password fields are the user's to type into; submitting a sign-in is asked.
+        #expect(risks(try await inspect(webView, "type", "Card number")) == ["secretField"])
+        #expect(risks(try await inspect(webView, "fill", "Password")) == ["secretField"])
+        #expect(risks(try await inspect(webView, "click", "Continue")) == ["credentials"])
+        #expect(risks(try await inspect(webView, "key", "Username", ["keys": "Enter"])) == ["credentials"])
+        // The consent link hands its address back for the app to judge.
+        let oauth = try await inspect(webView, "click", "Sign in with Example")
+        #expect((oauth["href"] as? String)?.contains("client_id=a") == true)
+        #expect(risks(try await inspect(webView, "click", "Export")) == ["download"])
+        #expect(risks(try await inspect(webView, "click", "Help")).isEmpty)
+        // A CAPTCHA's frame, reached by a point as a model would reach it.
+        let box = try await webView.evaluateJavaScript(
+            "(() => { const b = document.querySelector('iframe').getBoundingClientRect(); "
+                + "return [b.left + 10, b.top + 10].join(','); })()"
+        ) as? String
+        let point = try #require(box?.split(separator: ",").compactMap { Double($0) })
+        let json = try await run(webView, "inspect", ["op": "click", "x": point[0], "y": point[1]])
+        #expect(json.contains("captcha"), "\(json)")
+    }
+
     /// The ref on the first line containing `prefix`.
     private static func ref(in text: String, for prefix: String) -> String? {
         guard let line = text.split(separator: "\n").first(where: { $0.contains(prefix) }),

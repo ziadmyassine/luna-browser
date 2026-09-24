@@ -60,6 +60,28 @@ extension ControlService {
         }
     }
 
+    /// What acting would set off, from the element the call names (see
+    /// `ControlRisk`), and the address of the link it lands on. Nothing for a
+    /// call with no element — a navigation, a script — or a page the library
+    /// cannot run in.
+    func inspect(_ command: ControlCommand, tab id: UUID, in session: BrowserSession) async
+        -> (Set<ControlRisk>, URL?) {
+        let args: [String: Any]
+        switch command {
+        case let .click(target, _): args = Self.arguments(for: target).merging(["op": "click"]) { $1 }
+        case let .type(_, ref): args = ["op": "type", "ref": ref as Any]
+        case let .key(keys): args = ["op": "key", "keys": keys]
+        case let .fill(ref, _): args = ["op": "fill", "ref": ref]
+        default: return ([], nil)
+        }
+        guard let webView = session.wakeForControl(id)?.webView else { return ([], nil) }
+        size(webView, in: session)
+        guard let json = try? await library("inspect", in: webView, args),
+              let facts = try? JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any] else { return ([], nil) }
+        let risks = Set((facts["risks"] as? [String] ?? []).compactMap(ControlRisk.init(rawValue:)))
+        return (risks, (facts["href"] as? String).flatMap(URL.init(string:)))
+    }
+
     private func navigate(
         _ navigation: ControlCommand.Navigation,
         controller: TabController,

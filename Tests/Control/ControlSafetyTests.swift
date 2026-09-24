@@ -131,4 +131,73 @@ final class ControlSafetyTests: XCTestCase {
         let raw = try String(contentsOf: audit, encoding: .utf8)
         XCTAssertFalse(raw.contains("hunter2"), "the log kept what was typed")
     }
+
+    func testAlertInAgentTabDoesNotSheetUserWindow() async throws {
+        let (service, session) = try await makeService(.allowAll)
+        let users = session.newTab(url: URL(string: "about:blank")!)
+        _ = await service.perform(ControlCall(.openTab(page)), client)
+
+        // The script is stuck inside `confirm` until the dialog is answered;
+        // the call comes back as soon as the dialog opens rather than then.
+        let opened = await service.perform(ControlCall(.javascript("window.answer = confirm('Delete everything?')")), client)
+        XCTAssertTrue(text(opened).contains("Delete everything?"), text(opened))
+        XCTAssertNil(NSApp.modalWindow, "the page's dialog ran modally")
+        XCTAssertTrue(NSApp.windows.allSatisfy { $0.attachedSheet == nil }, "the page's dialog sheeted a window")
+        XCTAssertEqual(session.activeTabID, users)
+
+        let blocked = await service.perform(ControlCall(.pageText), client)
+        XCTAssertTrue(blocked.isError)
+        XCTAssertTrue(text(blocked).contains("dialog"), text(blocked))
+
+        let answered = await service.perform(ControlCall(.dialog(accept: true, text: nil)), client)
+        XCTAssertFalse(answered.isError, text(answered))
+        let value = await service.perform(ControlCall(.javascript("String(window.answer)")), client)
+        XCTAssertTrue(text(value).contains("true"), text(value))
+        let none = await service.perform(ControlCall(.dialog(accept: false, text: nil)), client)
+        XCTAssertTrue(none.isError, "answered a dialog that is not there")
+    }
+
+    func testAgentDownloadWaitsForApproval() async throws {
+        // Even when every acting call is allowed: a download is a file on this Mac.
+        let (service, session) = try await makeService(.allowAll)
+        let users = session.newTab(url: URL(string: "about:blank")!)
+        _ = await service.perform(ControlCall(.openTab(page)), client)
+        let agentTab = try XCTUnwrap(service.currentTab[client.connection])
+        let agentView = try XCTUnwrap(session.controller(for: agentTab)?.webView)
+
+        let declined = Task { await service.approveDownload(named: "report.csv", risky: false, from: agentView) }
+        let request = try await pending(service)
+        XCTAssertTrue(request.summary.contains("report.csv"), request.summary)
+        XCTAssertFalse(request.grantable)
+        XCTAssertNil(NSApp.modalWindow)
+        service.approvals.answer(request.id, .deny)
+        let no = await declined.value
+        XCTAssertEqual(no, false)
+
+        let approved = Task { await service.approveDownload(named: "setup.pkg", risky: true, from: agentView) }
+        let risky = try await pending(service)
+        XCTAssertTrue(risky.reason.contains("run"), "a file that runs should say so: \(risky.reason)")
+        service.approvals.answer(risky.id, .once)
+        let yes = await approved.value
+        XCTAssertEqual(yes, true)
+
+        // The user's own tab is none of Luna Control's business.
+        let usersView = try XCTUnwrap(session.wakeForControl(users)?.webView)
+        let theirs = await service.approveDownload(named: "x.csv", risky: false, from: usersView)
+        XCTAssertNil(theirs)
+        XCTAssertTrue(service.approvals.pending.isEmpty)
+        XCTAssertEqual(ControlAudit.read(from: audit).first?.tool, "download")
+    }
+
+    func testRequestUserWaitsForDone() async throws {
+        let (service, session) = try await makeService(.ask)
+        let asked = Task { await service.perform(ControlCall(.requestUser("Sign in to the bank")), self.client) }
+        let request = try await pending(service)
+        XCTAssertTrue(request.isHandoff)
+        XCTAssertEqual(request.summary, "Sign in to the bank")
+        XCTAssertNotNil(session.controlBadges[try XCTUnwrap(request.folder)])
+        service.approvals.answer(request.id, .once)
+        let done = await asked.value
+        XCTAssertFalse(done.isError, text(done))
+    }
 }

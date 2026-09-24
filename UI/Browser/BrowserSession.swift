@@ -271,6 +271,9 @@ final class BrowserSession {
     var controlledGroupIDs: Set<UUID> = []
     /// `ControlService.refreshBadges`'s symbols, by folder.
     var controlBadges: [UUID: String] = [:]
+    /// The Luna Control service driving this session, which holds the page
+    /// dialogs of its agents' tabs.
+    weak var control: ControlService?
     /// Whether a tab opening now goes to the end of today's tabs rather than
     /// the head — true while §4's top bar is the chrome. Told by the window
     /// rather than read from `Settings`, so the rule is the session's and a

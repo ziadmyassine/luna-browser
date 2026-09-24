@@ -262,6 +262,7 @@ extension ControlScripts {
         return document.scrollingElement || document.documentElement;
       };
 
+    \(inspection)
       const masked = [];
 
       return {
@@ -283,6 +284,7 @@ extension ControlScripts {
           }
           return '';
         },
+        inspect,
         readPage(args) {
           const root = args.ref ? element(args.ref) : document.body;
           if (!root) return header() + '(the page has no body yet)';

@@ -43,6 +43,9 @@ extension AppDelegate {
         // stamped with it as it starts rather than looked up later — by the time
         // it lands the user may be in the other Space.
         panel.activeSpace = { [weak session] in session?.activeSpaceID }
+        manager.agentApproval = { [weak self] webView, name, risky in
+            await self?.control?.approveDownload(named: name, risky: risky, from: webView)
+        }
         session.onDownload = { [weak manager, weak session] download in
             manager?.begin(download, inSpace: session?.activeSpaceID)
         }
