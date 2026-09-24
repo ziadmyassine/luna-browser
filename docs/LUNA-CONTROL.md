@@ -135,9 +135,11 @@ They can only close tabs in their own folder.
 | `read_page` | Accessibility-style tree with refs (`e12`) on controls. `filter: interactive`, `ref`, `max_depth` |
 | `page_text` | The page's readable text |
 | `find` | Elements whose text, label or role match `query` |
-| `click` | By `ref` or `coordinate` `[x, y]` (CSS pixels, same as the screenshot). `click_count` |
-| `type` | Insert text into the focused element or `ref` |
-| `key` | `Enter`, `Tab`, `Escape`, `Backspace`, arrows, `cmd+a`, separated by spaces |
+| `click` | By `ref` or `coordinate` `[x, y]` (CSS pixels, same as the screenshot). `click_count` 1–3, `button` left/right/middle, `modifiers` (`cmd+shift`). Selects and date/colour pickers are refused (use `form_input`), file inputs too (use `file_upload`) |
+| `type` | Type into the focused element or `ref`; a newline is Enter |
+| `key` | `Enter`, `Tab`, `Escape`, `Backspace`, arrows, `F1`–`F12`, `cmd+a`, separated by spaces; `repeat` up to 50. An unknown key name is refused |
+| `hover` | Hover over `ref` or `coordinate` (page events only) |
+| `drag` | From `ref` or `start_coordinate` to `to_ref` or `coordinate`: a pointer drag, or HTML5 drag and drop for a draggable source |
 | `scroll` | `direction` and `amount`, or bring `ref` into view |
 | `form_input` | Set a field, checkbox or select by `ref` |
 | `screenshot` | PNG of the viewport at 1 px per CSS pixel |
@@ -153,11 +155,51 @@ agent last opened or acted on, or the tab in front if there is none yet. A
 tab that has gone to sleep is woken first. It stays out of sight and does not
 push the user's recent tabs out of the live-tab budget.
 
-Actions go through the DOM, in a content world of their own that the page
+### Trusted input
+
+`click`, `type`, `key` and pointer `drag`s are real input: the page's events
+have `isTrusted` set, so editors that ignore script (Google Docs and the like)
+take them. `Features/Control/ControlStage.swift` lends the tab to a borderless
+window at (-20000, -20000) for the length of one call. The window can never
+become key or main, ignores the mouse, is excluded from the Window menu and
+Exposé, and is ordered in without activating Luna. Events are built with
+`NSEvent` and handed straight to the web view; `CGEvent.post` is never used,
+so the user's pointer does not move. The tab goes back to having no window
+when the call ends.
+
+- Only a tab in no window is staged. A tab the user has on screen is never
+  taken, since that would take their first responder. An agent's own tab that
+  the user has selected, or shows in a split, is refused as taken over. The
+  user's own tab on screen gets page events instead.
+- If the user shows the tab while a call is running, the next event is
+  refused.
+- WebKit passes keys the page did not handle to `NSApp.sendEvent`, where the
+  main menu would treat an agent's Cmd+W as the user's. `LunaApplication`
+  drops every key event from a stage window. Select All is done on the
+  stage's web view. Copy, cut and paste are dropped, so the clipboard is never
+  read or written.
+- While the stage drives a page, the library prevents in the capture phase
+  the default action of `contextmenu`, `mousedown` on a `<select>`, clicks on
+  file, colour and date inputs, and `dragstart`. The page's own listeners
+  still see the trusted events, but no native menu, picker or drag session
+  opens on the user's screen. As a backstop, a menu that starts tracking while
+  a stage is up gets an Escape posted to Luna's event queue. A menu the user
+  opens in that moment closes too.
+- A page on the stage is `hidden`: `requestAnimationFrame` does not run and
+  timers are throttled. Results say `trusted: true` or `trusted: false`. Pass
+  `trusted: false` to use page events for a page that only reacts on an
+  animation frame.
+- Page events are used for hover and middle clicks, because WebKit does not
+  turn a moved event into a hover on the stage and `NSEvent` cannot build a
+  middle-button press. They are also used for drag and drop from a draggable
+  element: a trusted press there would start a real drag session that
+  follows the user's pointer, so `dragstart` → `drop` → `dragend` is
+  synthesised with one `DataTransfer`.
+
+Page events and reads run in a content world of their own that the page
 cannot see: events dispatched on the element, `execCommand('insertText')` for
-typing, the form's own `requestSubmit()` for Enter. Nothing needs the window
-to be focused or on screen. Some sites only accept real (trusted) input
-events, and the synthesised ones will not work there.
+typing, the form's own `requestSubmit()` for Enter. They need no window at
+all.
 
 ## Security
 
@@ -188,9 +230,9 @@ Settings → Luna Control → *Before an app acts on a page*:
 | **Allow All** | Allowed, except as below |
 
 - *Acting* means `navigate`, `tab_open` with a URL, `click`, `type`, `key`,
-  `form_input` and `javascript`. Reading (`tabs_list`, `read_page`,
-  `page_text`, `find`, `screenshot`, `console_read`), `scroll`, `wait`, a blank
-  `tab_open` and `tab_close` (own folder only) never ask.
+  `drag`, `form_input` and `javascript`. Reading (`tabs_list`, `read_page`,
+  `page_text`, `find`, `screenshot`, `console_read`), `scroll`, `hover`,
+  `wait`, a blank `tab_open` and `tab_close` (own folder only) never ask.
 - A grant is the app's display name plus the registrable domain
   (`shop.example.com` → `example.com`, via the public-suffix list). Settings
   lists every grant with a Revoke button.
