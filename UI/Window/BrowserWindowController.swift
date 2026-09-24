@@ -78,6 +78,7 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     /// §7.2's hover-peek: the strip that notices the pointer and the little
     /// state machine that debounces it.
     private let peekEdge = SidebarPeekEdgeView()
+    private let peekMenuBar = SidebarPeekMenuBarWatch()
     private let peek = SidebarPeekController()
 
     /// §7.2: the chrome plane a peeked sidebar floats on.
@@ -98,6 +99,9 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     /// edge the hidden sidebar parks behind.
     private var peekEdgeLeading: NSLayoutConstraint?
     private var peekEdgeTrailing: NSLayoutConstraint?
+    /// The strip's width, which is narrower in fullscreen — see
+    /// `sidebarPeekEdgeFullScreen`.
+    private var peekEdgeWidth: NSLayoutConstraint?
     /// The corner fill's, for the same reason.
     private var cornerFillLeading: NSLayoutConstraint?
     private var cornerFillTrailing: NSLayoutConstraint?
@@ -154,6 +158,8 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         trafficLights = TrafficLightLayoutManager(window: window)
         peek.onChange = { [weak self] peeking in self?.applyPeek(peeking) }
         peekEdge.onPointerInside = { [weak self] inside in self?.peek.setPointerInEdge(inside) }
+        peekMenuBar.window = window
+        peekMenuBar.onPointerInside = { [weak self] inside in self?.peek.setPointerInMenuBar(inside) }
         apply(chromeState, animated: false)
     }
 
@@ -233,9 +239,11 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
             // button came back — unclickable. Nothing above this line triggers a
             // peek; the whole leading edge below it still does.
             peekEdge.topAnchor.constraint(equalTo: root.topAnchor, constant: Tokens.Metric.pageBar),
-            peekEdge.bottomAnchor.constraint(equalTo: root.bottomAnchor),
-            peekEdge.widthAnchor.constraint(equalToConstant: Tokens.Metric.sidebarPeekEdge)
+            peekEdge.bottomAnchor.constraint(equalTo: root.bottomAnchor)
         ])
+        let width = peekEdge.widthAnchor.constraint(equalToConstant: Tokens.Metric.sidebarPeekEdge)
+        width.isActive = true
+        peekEdgeWidth = width
         peekEdgeLeading = peekEdge.leadingAnchor.constraint(equalTo: root.leadingAnchor)
         peekEdgeTrailing = peekEdge.trailingAnchor.constraint(equalTo: root.trailingAnchor)
         peekEdgeLeading?.isActive = true
@@ -327,7 +335,7 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         card.setOverlay(view)
     }
 
-    /// §3.2b: the bar stands above the page, so the page starts below it.
+    /// §3.2b: how much of the page the bar covers.
     func setPageBarInset(_ inset: CGFloat, animated: Bool) {
         card.setContentTopInset(inset, animated: animated)
     }
@@ -407,6 +415,15 @@ extension BrowserWindowController {
     /// The page does not move: only the chrome's leading constraint and its
     /// opacity change. The card's insets are the collapsed ones throughout, so
     /// nothing reflows for a glance at the tab list.
+    /// The strip is the screen's edge in fullscreen and a band along the
+    /// window's edge otherwise, and the menu bar's strip is fullscreen's only.
+    /// Asked on entering and leaving fullscreen and on every chrome state.
+    func updatePeekEdgeWidth() {
+        let isFullScreen = window?.styleMask.contains(.fullScreen) ?? false
+        peekEdgeWidth?.constant = isFullScreen ? Tokens.Metric.sidebarPeekEdgeFullScreen : Tokens.Metric.sidebarPeekEdge
+        peekMenuBar.isEnabled = isFullScreen && chromeState.isSidebarCollapsed
+    }
+
     private func applyPeek(_ peeking: Bool) {
         guard case let .sidebarCollapsed(edge) = chromeState, let chrome else { return }
         let width = parkedSidebarWidth
@@ -474,6 +491,7 @@ extension BrowserWindowController {
         peekBackdrop.alphaValue = 0
         peek.isEnabled = state.isSidebarCollapsed
         peekEdge.isEnabled = state.isSidebarCollapsed
+        updatePeekEdgeWidth()
         let insets = state.cardInsets
         let spec = Self.motion(from: previous, to: state)
         // The page is told its final width before the chrome starts moving. See

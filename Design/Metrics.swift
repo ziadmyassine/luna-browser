@@ -492,17 +492,20 @@ extension Tokens {
         /// it. The handle itself is no longer painted.
         static let resizeHandle = RoundedMetric(width: 20, height: 32, cornerRadius: 10)
         /// §7.2: how close to the window's leading edge the pointer has to get
-        /// before a hidden sidebar peeks out.
+        /// before a hidden sidebar peeks out. Dia's, measured 2026-09-24 by
+        /// hovering its window with the sidebar hidden: out at 3.5 pt, not at 4.
         ///
-        /// It was 4 pt, then 24, and both meant aiming. A screen edge can be
-        /// 1 pt wide because the pointer piles up against it; a window edge has
-        /// nothing to stop the pointer, so a narrow strip has to be hit
-        /// deliberately — and the gesture is "shove the mouse over to the left",
-        /// which lands somewhere in the first inch. 44 is about a thumb's width
-        /// of travel. Nothing is lost to it: the strip never takes a click
-        /// (`SidebarPeekEdgeView.hitTest` returns nil), and `hoverPeekDelay`
-        /// stops a pointer merely crossing it from flinging a sidebar out.
-        static let sidebarPeekEdge: CGFloat = 44
+        /// It was 4, then 24, then 44, because a strip inside a window edge
+        /// has to be aimed at — nothing stops the pointer there. 44 slid the
+        /// sidebar out over controls near the edge of the page. What makes 4
+        /// work is the other half of Dia's rule: the pointer leaving the window
+        /// across that edge counts too (`SidebarPeekEdgeView`), so shoving the
+        /// mouse left cannot overshoot it.
+        static let sidebarPeekEdge: CGFloat = 4
+        /// §7.2's strip in fullscreen, where the window's leading edge is the
+        /// screen's. The pointer piles up against a screen edge, so 1 pt is
+        /// reached by shoving the mouse left and by nothing else.
+        static let sidebarPeekEdgeFullScreen: CGFloat = 1
         /// §6.6: how far a press has to travel before it stops being a click
         /// and becomes a drag. AppKit's own threshold for a table drag is 3–4
         /// pt; 4 is far enough that selecting a tab with an unsteady hand does

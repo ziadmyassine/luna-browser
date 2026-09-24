@@ -43,6 +43,44 @@ final class SidebarPeekReachTests: XCTestCase {
         XCTAssertEqual(strip.frame.minY, root.bounds.minY, accuracy: 0.5)
         XCTAssertEqual(strip.frame.width, Tokens.Metric.sidebarPeekEdge, accuracy: 0.5)
     }
+
+    /// Dia's rule: past the window's edge beside the strip still counts, so a
+    /// 4 pt strip cannot be overshot. Level with the strip only — not above
+    /// it, where the page bar's own controls are — and only past its own edge.
+    func testLeavingTheWindowAcrossTheStripStillCounts() {
+        let root = NSRect(x: 0, y: 0, width: 1000, height: 700)
+        let leading = NSRect(x: 0, y: 0, width: 4, height: 648)
+        XCTAssertTrue(SidebarPeekEdgeView.isBeyond(NSPoint(x: -150, y: 300), strip: leading, in: root))
+        XCTAssertFalse(SidebarPeekEdgeView.isBeyond(NSPoint(x: -150, y: 690), strip: leading, in: root),
+                       "above the strip is the page bar's corner")
+        XCTAssertFalse(SidebarPeekEdgeView.isBeyond(NSPoint(x: 2, y: 300), strip: leading, in: root),
+                       "inside the window is the strip's own business")
+        XCTAssertFalse(SidebarPeekEdgeView.isBeyond(NSPoint(x: 1200, y: 300), strip: leading, in: root),
+                       "the far edge is not this strip's")
+    }
+
+    /// Fullscreen: up in the menu bar counts, and anywhere below it does not.
+    /// The screen's top is its `maxY`, which is what a pointer pushed against
+    /// it reads — measured on a 1512 × 982 display.
+    func testTheMenuBarCountsWhileThePointerIsInIt() {
+        let screen = NSRect(x: 0, y: 0, width: 1512, height: 982)
+        func check(_ x: CGFloat, _ y: CGFloat, was: Bool) -> Bool {
+            SidebarPeekMenuBarWatch.isInMenuBar(NSPoint(x: x, y: y), wasInside: was, screen: screen, menuBarHeight: 37)
+        }
+        XCTAssertTrue(check(700, 982, was: false), "the top edge reveals the menu bar")
+        XCTAssertFalse(check(700, 960, was: false), "near the top is the page bar, not the menu bar")
+        XCTAssertTrue(check(20, 950, was: true), "along the revealed menu bar")
+        XCTAssertFalse(check(700, 940, was: true), "below it")
+        XCTAssertFalse(check(1600, 982, was: false), "another display's menu bar")
+    }
+
+    /// A sidebar parked on the trailing side peeks from that edge instead.
+    func testTrailingStripAlsoCountsBeyondItsOwnEdge() {
+        let root = NSRect(x: 0, y: 0, width: 1000, height: 700)
+        let trailing = NSRect(x: 996, y: 0, width: 4, height: 648)
+        XCTAssertTrue(SidebarPeekEdgeView.isBeyond(NSPoint(x: 1100, y: 300), strip: trailing, in: root))
+        XCTAssertFalse(SidebarPeekEdgeView.isBeyond(NSPoint(x: -100, y: 300), strip: trailing, in: root))
+    }
 }
 
 /// The traffic lights come and go — `⌘S` takes them with the sidebar, §7.2's

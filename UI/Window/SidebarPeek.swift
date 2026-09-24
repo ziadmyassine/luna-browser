@@ -11,11 +11,11 @@
 //  rather than pushing it, and slides away when the pointer leaves. The page
 //  never moves, so nothing reflows for a glance.
 //
-//  Two views, because the pointer is in one of two places and both mean "keep
-//  it open": a strip on the window's leading edge, and the sidebar itself once
-//  it has arrived. `SidebarPeekController` ORs them together and applies §6's
-//  `hoverPeekDelay`, so sweeping across the edge on the way somewhere else does
-//  not fling a sidebar out.
+//  Three places the pointer can be that mean "keep it open": a strip on the
+//  window's leading edge, the menu bar in fullscreen, and the sidebar itself
+//  once it has arrived. `SidebarPeekController` ORs them together and applies
+//  §6's `hoverPeekDelay`, so sweeping across the edge on the way somewhere else
+//  does not fling a sidebar out.
 //
 
 import AppKit
@@ -26,6 +26,12 @@ import AppKit
 /// keeps every event; a tracking area does not need to win the hit test to
 /// report enter and exit, which is the whole reason this can be a 4 pt strip
 /// lying across a live web page.
+///
+/// A pointer that leaves the window across the strip's edge is still in it,
+/// for as long as it stays out beside the strip — Dia's rule, measured: its
+/// sidebar comes out anywhere to the left of its window. The strip can then be
+/// narrow enough never to cover a control, and shoving the mouse left cannot
+/// overshoot it.
 @MainActor
 final class SidebarPeekEdgeView: NSView {
 
@@ -34,10 +40,24 @@ final class SidebarPeekEdgeView: NSView {
     var isEnabled = false {
         didSet {
             guard isEnabled != oldValue else { return }
-            if !isEnabled { onPointerInside?(false) }
+            if !isEnabled {
+                stopWatchingBeyond()
+                onPointerInside?(false)
+            }
             updateTrackingAreas()
         }
     }
+
+    /// Polls the pointer while it is outside the window beside the strip. No
+    /// tracking area reaches past the window, and this runs only in that state.
+    private var beyondWatch: Timer?
+
+    /// The pointer leaving the window at all, heard on the root view. A quick
+    /// shove left moves the pointer in steps wider than the strip — 30 pt in
+    /// on one event, 20 pt out on the next — so the strip never saw it arrive
+    /// or leave and the sidebar stayed shut. The window's own edge cannot be
+    /// stepped over.
+    private var windowArea: NSTrackingArea?
 
     var onPointerInside: ((Bool) -> Void)?
 
@@ -56,19 +76,135 @@ final class SidebarPeekEdgeView: NSView {
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         for area in trackingAreas where area.owner === self { removeTrackingArea(area) }
+        if let windowArea { superview?.removeTrackingArea(windowArea) }
+        windowArea = nil
         guard isEnabled else { return }
-        addTrackingArea(NSTrackingArea(
-            rect: .zero,
-            options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
-            owner: self
-        ))
+        let options: NSTrackingArea.Options = [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect]
+        addTrackingArea(NSTrackingArea(rect: .zero, options: options, owner: self))
+        let area = NSTrackingArea(rect: .zero, options: options, owner: self)
+        superview?.addTrackingArea(area)
+        windowArea = area
     }
 
-    override func mouseEntered(with event: NSEvent) { onPointerInside?(true) }
-    override func mouseExited(with event: NSEvent) { onPointerInside?(false) }
+    override func viewWillMove(toSuperview newSuperview: NSView?) {
+        if let windowArea { superview?.removeTrackingArea(windowArea) }
+        windowArea = nil
+        super.viewWillMove(toSuperview: newSuperview)
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        // Coming back into the window is not coming into the strip.
+        guard event.trackingArea !== windowArea else { return }
+        stopWatchingBeyond()
+        onPointerInside?(true)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        let beyond = superview.map { root in
+            Self.isBeyond(root.convert(event.locationInWindow, from: nil), strip: frame, in: root.bounds)
+        } ?? false
+        if isEnabled, beyond, let window {
+            onPointerInside?(true)
+            return watchBeyond(in: window)
+        }
+        // Leaving the window any other way says nothing about the strip.
+        guard event.trackingArea !== windowArea, beyondWatch == nil else { return }
+        onPointerInside?(false)
+    }
+
+    /// Whether `point` is outside `bounds`, past the edge `strip` lies on and
+    /// level with it. Every rect in the root view's coordinates.
+    static func isBeyond(_ point: NSPoint, strip: NSRect, in bounds: NSRect) -> Bool {
+        guard point.y >= strip.minY, point.y <= strip.maxY else { return false }
+        let onLeading = strip.minX <= bounds.minX + 0.5
+        return onLeading ? point.x < bounds.minX : point.x > bounds.maxX
+    }
+
+    private func watchBeyond(in window: NSWindow) {
+        stopWatchingBeyond()
+        let watch = Timer(timeInterval: Tokens.Motion.hoverPeekDelay, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, let root = self.superview else { return }
+                let point = root.convert(window.convertPoint(fromScreen: NSEvent.mouseLocation), from: nil)
+                guard !Self.isBeyond(point, strip: self.frame, in: root.bounds) else { return }
+                self.stopWatchingBeyond()
+                // Back over the strip is its own enter; anywhere else is out.
+                if !self.frame.contains(point) { self.onPointerInside?(false) }
+            }
+        }
+        RunLoop.main.add(watch, forMode: .common)
+        beyondWatch = watch
+    }
+
+    private func stopWatchingBeyond() {
+        beyondWatch?.invalidate()
+        beyondWatch = nil
+    }
 }
 
-/// ORs the two hover sources and debounces them into one `isPeeking` flag.
+/// §7.2 in fullscreen: going up to the menu bar brings the sidebar out with it.
+///
+/// It watches the pointer rather than a tracking area. At the top edge macOS
+/// slides its own menu bar and the fullscreen titlebar over the window, and a
+/// strip of Luna's under them never heard the pointer arrive. So while it is
+/// on — fullscreen, sidebar hidden — it reads the pointer every
+/// `hoverPeekDelay`: reaching the screen's top edge, where macOS reveals the
+/// menu bar, opens the peek, and it holds for as long as the pointer is in the
+/// menu bar's height.
+@MainActor
+final class SidebarPeekMenuBarWatch {
+
+    weak var window: NSWindow?
+    var onPointerInside: ((Bool) -> Void)?
+
+    /// On only in fullscreen with the sidebar hidden.
+    var isEnabled = false {
+        didSet {
+            guard isEnabled != oldValue else { return }
+            if isEnabled { start() } else { stop() }
+        }
+    }
+
+    private var timer: Timer?
+    private var isInside = false
+
+    /// Whether the pointer counts as up in the menu bar. Reaching the top edge
+    /// is what gets it in, because that is what reveals the menu bar; the
+    /// menu bar's height is what keeps it in, because that is where its menus
+    /// are. A point on another display is never in it.
+    static func isInMenuBar(_ point: NSPoint, wasInside: Bool, screen: NSRect, menuBarHeight: CGFloat) -> Bool {
+        guard point.x >= screen.minX, point.x <= screen.maxX, point.y <= screen.maxY else { return false }
+        return point.y >= screen.maxY - (wasInside ? menuBarHeight : Tokens.Metric.sidebarPeekEdgeFullScreen)
+    }
+
+    private func start() {
+        let timer = Timer(timeInterval: Tokens.Motion.hoverPeekDelay, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.check() }
+        }
+        timer.tolerance = Tokens.Motion.hoverPeekDelay / 2
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
+    }
+
+    private func stop() {
+        timer?.invalidate()
+        timer = nil
+        guard isInside else { return }
+        isInside = false
+        onPointerInside?(false)
+    }
+
+    private func check() {
+        guard let window, window.isKeyWindow, let screen = window.screen?.frame else { return }
+        let height = NSApp.mainMenu?.menuBarHeight ?? NSStatusBar.system.thickness
+        let inside = Self.isInMenuBar(NSEvent.mouseLocation, wasInside: isInside, screen: screen, menuBarHeight: height)
+        guard inside != isInside else { return }
+        isInside = inside
+        onPointerInside?(inside)
+    }
+}
+
+/// ORs the hover sources and debounces them into one `isPeeking` flag.
 ///
 /// The delay is asymmetric on purpose. Opening waits `hoverPeekDelay` so a
 /// pointer crossing the edge on its way to the page does not trigger it;
@@ -85,6 +221,7 @@ final class SidebarPeekController {
     private(set) var isPeeking = false
     private var inEdge = false
     private var inSidebar = false
+    private var inMenuBar = false
     private var pending: Task<Void, Never>?
 
     /// Turns the whole machine off — and closes an open peek — when the window
@@ -94,6 +231,7 @@ final class SidebarPeekController {
             guard isEnabled != oldValue, !isEnabled else { return }
             inEdge = false
             inSidebar = false
+            inMenuBar = false
             settle(to: false, immediately: true)
         }
     }
@@ -108,8 +246,13 @@ final class SidebarPeekController {
         schedule()
     }
 
+    func setPointerInMenuBar(_ inside: Bool) {
+        inMenuBar = inside
+        schedule()
+    }
+
     private func schedule() {
-        let wanted = isEnabled && (inEdge || inSidebar)
+        let wanted = isEnabled && (inEdge || inSidebar || inMenuBar)
         guard wanted != isPeeking else {
             pending?.cancel()
             pending = nil

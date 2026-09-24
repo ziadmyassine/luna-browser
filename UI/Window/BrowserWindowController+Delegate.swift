@@ -26,11 +26,13 @@ extension BrowserWindowController {
     /// frame is square there, and a rounded mask would show as black notches.
     func windowDidEnterFullScreen(_ notification: Notification) {
         (window?.contentView as? WindowRootView)?.isWindowFullScreen = true
+        updatePeekEdgeWidth()
         relayoutChrome()
     }
 
     func windowDidExitFullScreen(_ notification: Notification) {
         (window?.contentView as? WindowRootView)?.isWindowFullScreen = false
+        updatePeekEdgeWidth()
         relayoutChrome()
     }
 
