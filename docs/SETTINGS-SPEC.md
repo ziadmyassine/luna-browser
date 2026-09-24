@@ -34,7 +34,7 @@ an enforced one, so it is on review to catch.
 
 | Thing | Value |
 |---|---|
-| Window content | 720 × 520, resizable, min 640 × 480 |
+| Window content | 720 × 560, resizable, min 640 × 520 (the floor holds §2's eleven rows) |
 | Window corner | `windowCornerRadius` (25) |
 | Section list width | `settingsListWidth` (230), fixed (not `sidebarWidth`, which is user-dragged) |
 | Type | `TypeScale.settingsRow` — **13 pt, the sidebar's own face** |
@@ -169,6 +169,7 @@ things in it are structural rather than decorative. All three are now Luna's:
 │ │ ⌘  Shortcuts │ │  └────────────────────┘  │ │
 │ │ ▦  Spaces    │ │                          │ │
 │ │ 🧩 Extensions│ │                          │ │
+│ │ ⋰ Luna Ctrl  │ │                          │ │
 │ │ ⚡ Advanced  │ │                          │ │
 │ └──────────────┘ └──────────────────────────┘ │
 └───────────────────────────────────────────────┘
@@ -435,9 +436,22 @@ the repo's compatibility notes. No fake list, no fake install button.
 | User-agent | Popup: Default · Safari · Chrome · Custom | `WebViewFactory` UA string |
 | Show Develop menu | Toggle | `MainMenu` |
 | Enable Web Inspector | Toggle | `WKWebView.isInspectable` |
-| Allow apps to control Luna | Toggle, off by default | `ControlService` — the Luna Control socket ([LUNA-CONTROL.md](LUNA-CONTROL.md)) |
 | Restore all settings to defaults | Button, confirms, requires the word to be typed | every key below |
 | Reveal the database in Finder | Button | `NSWorkspace.activateFileViewerSelecting` |
+
+### 3.10 Luna Control
+Listed between Extensions and Advanced in §2: both it and Extensions are about what else
+gets into the browser. [LUNA-CONTROL.md](LUNA-CONTROL.md) has the protocol.
+
+| Control | Type | Wired to |
+|---|---|---|
+| Allow apps to control Luna | Toggle, off by default, plus a one-line note that connected apps act in the user's signed-in sites | `ControlService` — the socket exists only while it is on |
+| Connect an app: Claude Code, Codex, Cursor, Claude Desktop, VS Code | One row each: *Not installed* / *Not connected* / *Connected*, with *in use now* while that app is on the socket. Button: Connect / Disconnect, or for Claude Code Copy Command | `ControlApp` (`LunaControl`) edits the app's MCP config, keeping every other entry and writing `<file>.luna-backup` first. Only on a press |
+| Other apps | Button: Copy JSON | The generic `mcpServers` entry |
+
+Claude Code gets a command rather than an edit because it rewrites
+`~/.claude.json` itself while running, and two writers to one file lose
+changes. The row reads that file to show whether the command was run.
 
 ---
 

@@ -89,7 +89,7 @@ public struct ControlApp: Sendable, Identifiable, Equatable {
         case .command:
             return (try? Self.object(data))?["mcpServers"].flatMap { $0 as? [String: Any] }?[Self.serverName] != nil
         case .toml:
-            return TOMLTables.contains(String(decoding: data, as: UTF8.self), table: Self.tomlTable)
+            return TOMLTables.contains(String(bytes: data, encoding: .utf8) ?? "", table: Self.tomlTable)
         }
     }
 
@@ -153,7 +153,14 @@ public struct ControlApp: Sendable, Identifiable, Equatable {
         let path = url.path(percentEncoded: false)
         let manager = FileManager.default
         let existing = try? Data(contentsOf: url)
-        let updated = try change(existing.map { String(decoding: $0, as: UTF8.self) })
+        var text: String?
+        if let existing {
+            guard let decoded = String(bytes: existing, encoding: .utf8) else {
+                throw EditError(description: "It isn’t UTF-8 text, so Luna left it alone.")
+            }
+            text = decoded
+        }
+        let updated = try change(text)
         if let existing {
             try existing.write(to: url.appendingPathExtension("luna-backup"), options: .atomic)
         } else {
@@ -196,7 +203,7 @@ public struct ControlApp: Sendable, Identifiable, Equatable {
             withJSONObject: root,
             options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         )
-        return String(decoding: data, as: UTF8.self) + "\n"
+        return (String(bytes: data, encoding: .utf8) ?? "") + "\n"
     }
 
     static func shellQuoted(_ path: String) -> String {

@@ -3,7 +3,7 @@
 //  Luna
 //
 //  The contract every §3 section is built against, the §1 shape table, and the
-//  register of the nine sections the window shows.
+//  register of the sections the window shows.
 //
 
 import AppKit
@@ -23,7 +23,7 @@ protocol SettingsSection: AnyObject {
     ///
     /// Static, and deliberately not `searchIndex`: that one is an instance
     /// property filled while a section builds its rows, so reading it means
-    /// building all ten panes — AppKit view trees, on the main thread, for a
+    /// building all eleven panes — AppKit view trees, on the main thread, for a
     /// list the bar wants before the first keystroke. These are the words for
     /// the section as a whole and they are compiled in.
     static var keywords: [String] { get }
@@ -99,7 +99,7 @@ enum SettingsMetrics {
     static let searchStaggerCap = 6
 }
 
-/// §3's ten sections, in §2's order — which is also the `⌘1…⌘9` order for
+/// §3's eleven sections, in §2's order — which is also the `⌘1…⌘9` order for
 /// the first nine.
 @MainActor
 enum SettingsSectionRegistry {
@@ -117,6 +117,7 @@ enum SettingsSectionRegistry {
         ShortcutsSection.self,
         SpacesSection.self,
         ExtensionsSection.self,
+        LunaControlSection.self,
         AdvancedSection.self
     ]
 
@@ -126,7 +127,7 @@ enum SettingsSectionRegistry {
     ///
     /// Nothing here touches an instance, which is the point: the Command Bar
     /// asks for this every time it opens, and `SettingsWindowController` is
-    /// the only thing that should ever pay for ten built panes.
+    /// the only thing that should ever pay for eleven built panes.
     static let commandBarEntries: [SettingsEntry] = all.map {
         SettingsEntry(id: $0.id, title: $0.title, symbolName: $0.symbolName, keywords: $0.keywords)
     }

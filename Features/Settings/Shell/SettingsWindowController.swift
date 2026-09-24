@@ -305,7 +305,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             list.leadingAnchor.constraint(equalTo: column.leadingAnchor),
             list.trailingAnchor.constraint(equalTo: column.trailingAnchor)
         ])
-        // The list stands at its own height — ten rows at the sidebar's pitch —
+        // The list stands at its own height — eleven rows at the sidebar's pitch —
         // and keeps `paneInset` off the bottom of the column if it can.
         // Not required: `settingsMinHeight` is sized so it always can, and a
         // required constraint here would be one AppKit breaks, with a console

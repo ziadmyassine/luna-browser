@@ -21,8 +21,22 @@ import LunaControl
 @MainActor
 final class ControlService {
 
-    /// SETTINGS-SPEC §3.9's "Allow apps to control Luna".
+    /// SETTINGS-SPEC §3.10's "Allow apps to control Luna". The key predates
+    /// the section and §6 does not rename keys.
     static let enabledKey = "advanced.allowControl"
+
+    /// Posted on the main actor when a client connects, names itself or goes.
+    static let clientsDidChange = Notification.Name("ControlService.clientsDidChange")
+
+    /// The stdio server an MCP client is given: `Contents/MacOS/luna-control`,
+    /// beside the app's own binary.
+    static var helperURL: URL {
+        (Bundle.main.executableURL?.deletingLastPathComponent() ?? Bundle.main.bundleURL)
+            .appending(path: "luna-control")
+    }
+
+    /// `clientInfo.name` of each client connected now.
+    var clientNames: [String] { listener?.clientNames ?? [] }
 
     static var isEnabled: Bool {
         get { UserDefaults.standard.bool(forKey: enabledKey) }
@@ -58,18 +72,21 @@ final class ControlService {
     func update() {
         guard Self.isEnabled != (listener != nil) else { return }
         guard Self.isEnabled else {
-            listener?.stop()
-            listener = nil
+            stop()
             return
         }
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
         do {
             listener = try ControlListener(
                 path: ControlSocket.path(bundleIdentifier: Bundle.main.bundleIdentifier ?? "dk.novapps.luna"),
-                version: version
-            ) { [weak self] call, client in
-                await self?.perform(call, client) ?? .error("Luna is closing.")
-            }
+                version: version,
+                onClientsChange: {
+                    Task { @MainActor in NotificationCenter.default.post(name: Self.clientsDidChange, object: nil) }
+                },
+                perform: { [weak self] call, client in
+                    await self?.perform(call, client) ?? .error("Luna is closing.")
+                }
+            )
         } catch {
             NSLog("Luna Control: could not open its socket: %@", String(describing: error))
         }
@@ -78,6 +95,7 @@ final class ControlService {
     func stop() {
         listener?.stop()
         listener = nil
+        NotificationCenter.default.post(name: Self.clientsDidChange, object: nil)
     }
 
     // MARK: - Calls

@@ -19,14 +19,15 @@ extension Tokens.Metric {
     /// not as an `NSSize` — `NSWindow.minSize` is ignored once the content is
     /// under Auto Layout.
     static let settingsDefaultWidth: CGFloat = 720
-    static let settingsDefaultHeight: CGFloat = 520
+    /// Kept 40 above the floor, as it was before the floor moved.
+    static let settingsDefaultHeight: CGFloat = 560
     static let settingsMinWidth: CGFloat = 640
-    /// 480, not §1's original 420. The floor has to hold §2's ten rows, and on
-    /// the sidebar's 38 pt pitch they are 377 pt tall: 84 pt of search and its
-    /// gaps above plus `chromeGapWide` below comes to 477. At 420 the list ran
-    /// past the bottom of the window it was constrained inside, which is a
-    /// broken constraint rather than a scroll.
-    static let settingsMinHeight: CGFloat = 480
+    /// The floor has to hold §2's eleven rows, and on the sidebar's 38 pt
+    /// pitch they are 415 pt tall: 84 pt of search and its gaps above plus
+    /// `chromeGapWide` below comes to 515. Below that the list runs past the
+    /// bottom of the window it is constrained inside, which is a broken
+    /// constraint rather than a scroll — what §1's original 420 did to ten.
+    static let settingsMinHeight: CGFloat = 520
 
     /// The section list. Fixed, and deliberately not `sidebarWidth` — that one
     /// is a `SpanMetric` because the user drags it (§3.7); a nine-row list has

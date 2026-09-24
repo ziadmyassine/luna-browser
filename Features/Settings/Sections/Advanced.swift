@@ -21,7 +21,7 @@ final class AdvancedSection: SettingsSection {
     static let id = "advanced"
     static let title = String(localized: "Advanced")
     static let symbolName = "bolt"
-    static let keywords = ["user agent", "developer", "web inspector", "restore all settings", "reset", "mcp", "agent"]
+    static let keywords = ["user agent", "developer", "web inspector", "restore all settings", "reset"]
 
     private let container = NSView()
     private var body = SettingsBody()
@@ -40,7 +40,7 @@ final class AdvancedSection: SettingsSection {
     private func build() {
         body = SettingsBody()
         body.card(String(localized: "Web content"), [userAgentRow(), customUserAgentRow(), webInspectorRow()])
-        body.card(String(localized: "Development"), [developMenuRow(), controlRow()])
+        body.card(String(localized: "Development"), [developMenuRow()])
         body.card(nil, [revealDatabaseRow(), restoreDefaultsRow()])
         for subview in container.subviews { subview.removeFromSuperview() }
         let stack = body.view
@@ -118,17 +118,6 @@ final class AdvancedSection: SettingsSection {
             onChange: { _ in }
         )
         return (view: row, terms: [title, "develop menu", "developer"])
-    }
-
-    /// docs/LUNA-CONTROL.md. The subtitle names what is at stake, because the
-    /// switch hands a program the user's signed-in sessions.
-    private func controlRow() -> (view: NSView, terms: [String]) {
-        let title = String(localized: "Allow apps to control Luna")
-        let subtitle = String(localized: "Lets AI agents and other apps on this Mac open tabs and act in your signed-in sites")
-        let row = SettingsRow.toggle(title, subtitle: subtitle, value: ControlService.isEnabled) { on in
-            ControlService.isEnabled = on
-        }
-        return (view: row, terms: [title, subtitle, "mcp", "agent", "automation", "control"])
     }
 
     /// `customUserAgent` and `isInspectable` are per-web-view, so a setting
