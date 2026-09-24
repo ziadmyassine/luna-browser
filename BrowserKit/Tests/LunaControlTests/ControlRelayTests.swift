@@ -72,6 +72,8 @@ struct ControlRelayTests {
         let harness = Harness(socket: path)
         defer { harness.finish() }
         #expect(harness.ask(Self.initialize)?["result"]?["serverInfo"]?["name"] == "luna")
+        // Named before the reply is written, so Settings can already show it.
+        #expect(listener.clientNames == ["test-agent"])
         let reply = harness.ask(Self.call(2, "screenshot"))
         #expect(reply?["id"] == 2)
         #expect(reply?["result"]?["content"]?.debugText == "Test Agent asked for screenshot")

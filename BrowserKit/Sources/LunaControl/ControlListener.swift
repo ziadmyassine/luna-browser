@@ -11,9 +11,24 @@ public final class ControlListener: Sendable {
 
     private let path: URL
     private let source: any DispatchSourceRead
-    private let connections = Mutex<Set<Int32>>([])
+    /// Each open connection and the client it named in `initialize`, empty
+    /// until it has.
+    private let connections = Mutex<[Int32: String]>([:])
+    private let onClientsChange: @Sendable () -> Void
 
-    public init(path: URL, version: String = "1.0", perform: @escaping ControlPerformer) throws(ControlSocket.Failure) {
+    /// The `clientInfo.name` of every client connected now — what Settings
+    /// shows as an app being in use.
+    public var clientNames: [String] {
+        connections.withLock { Array($0.values.filter { !$0.isEmpty }) }
+    }
+
+    public init(
+        path: URL,
+        version: String = "1.0",
+        onClientsChange: @escaping @Sendable () -> Void = {},
+        perform: @escaping ControlPerformer
+    ) throws(ControlSocket.Failure) {
+        self.onClientsChange = onClientsChange
         self.path = path
         let fd = try ControlSocket.listen(at: path)
         _ = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK)
@@ -26,11 +41,15 @@ public final class ControlListener: Sendable {
             _ = fcntl(client, F_SETFL, fcntl(client, F_GETFL) & ~O_NONBLOCK)
             var on: Int32 = 1
             setsockopt(client, SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size))
-            self.connections.withLock { _ = $0.insert(client) }
-            let session = ControlSession(version: version, perform: perform)
+            self.connections.withLock { $0[client] = "" }
+            let session = ControlSession(version: version, perform: perform) { [weak self] named in
+                self?.connections.withLock { $0[client] = named.rawName }
+                self?.onClientsChange()
+            }
             Thread.detachNewThread { [weak self] in
                 Self.serve(client, session)
-                self?.connections.withLock { _ = $0.remove(client) }
+                self?.connections.withLock { _ = $0.removeValue(forKey: client) }
+                self?.onClientsChange()
                 close(client)
             }
         }
@@ -45,7 +64,7 @@ public final class ControlListener: Sendable {
         source.cancel()
         unlink(path.path(percentEncoded: false))
         connections.withLock { open in
-            for fd in open { shutdown(fd, SHUT_RDWR) }
+            for fd in open.keys { shutdown(fd, SHUT_RDWR) }
         }
     }
 

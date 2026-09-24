@@ -17,7 +17,7 @@ public final class ControlRelay: Sendable {
     static let replayID: JSONValue = "luna-control-replay"
 
     public static let unreachable = """
-    Luna isn't reachable. Open Luna and turn on Settings → Advanced → “Allow apps to control Luna”, then try again.
+    Luna isn't reachable. Open Luna and turn on Settings → Luna Control → “Allow apps to control Luna”, then try again.
     """
 
     private let socketPath: URL

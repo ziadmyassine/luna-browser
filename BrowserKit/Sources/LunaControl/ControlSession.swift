@@ -54,10 +54,16 @@ public actor ControlSession {
     public private(set) var client = ControlClient(rawName: "")
     private let perform: ControlPerformer
     private let version: String
+    private let onInitialize: (@Sendable (ControlClient) -> Void)?
 
-    public init(version: String = "1.0", perform: @escaping ControlPerformer) {
+    public init(
+        version: String = "1.0",
+        perform: @escaping ControlPerformer,
+        onInitialize: (@Sendable (ControlClient) -> Void)? = nil
+    ) {
         self.version = version
         self.perform = perform
+        self.onInitialize = onInitialize
     }
 
     /// Answers one line. Nil for a notification, which gets no reply, and
@@ -73,6 +79,7 @@ public actor ControlSession {
         switch method {
         case "initialize":
             client = ControlClient(rawName: params["clientInfo"]?["name"]?.string ?? "")
+            onInitialize?(client)
             return id.map { Self.reply(id: $0, result: initializeResult(params)) }
         case "ping":
             return id.map { Self.reply(id: $0, result: [:]) }
