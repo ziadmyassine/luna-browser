@@ -31,6 +31,7 @@ final class TopBarTabRenameTests: XCTestCase {
 
     private struct Fixture {
         let bar: CommandBarController
+        let id: UUID
         let row: TopBarTabRow
         let window: NSWindow
     }
@@ -47,8 +48,11 @@ final class TopBarTabRenameTests: XCTestCase {
         session.persistAll(session.list.insert(tab))
         session.activateTab(tab.id, inWindow: windowID)
 
+        // Inside the screen: CI's is smaller than this Mac's, and a window
+        // taller than the screen is cut down under the bar.
+        let screen = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1400, height: 800)
         let window = NSWindow(
-            contentRect: NSRect(x: 100, y: 100, width: 1400, height: 800),
+            contentRect: NSRect(x: screen.minX, y: screen.minY, width: min(1200, screen.width), height: min(600, screen.height - 60)),
             styleMask: [.titled],
             backing: .buffered,
             defer: false
@@ -60,8 +64,14 @@ final class TopBarTabRenameTests: XCTestCase {
         let bar = CommandBarController(session: session, windowID: windowID, adaptive: AdaptiveHistory(store: store))
         session.setCommandBar({ mode, anchor in bar.present(mode, in: window, from: anchor) }, inWindow: windowID)
         let top = TopBarView(session: session, windowID: windowID)
-        top.frame = NSRect(x: 0, y: 700, width: 1400, height: TopBarMetrics.barHeight)
-        window.contentView?.addSubview(top)
+        let content = try XCTUnwrap(window.contentView)
+        top.frame = NSRect(
+            x: 0,
+            y: content.bounds.height - TopBarMetrics.barHeight,
+            width: content.bounds.width,
+            height: TopBarMetrics.barHeight
+        )
+        content.addSubview(top)
         window.makeKeyAndOrderFront(nil)
         top.layoutSubtreeIfNeeded()
         let row = try XCTUnwrap(find(tab.id, in: top) as? TopBarTabRow)
@@ -74,7 +84,7 @@ final class TopBarTabRenameTests: XCTestCase {
             inMode: .default,
             dequeue: true
         ) != nil {}
-        return Fixture(bar: bar, row: row, window: window)
+        return Fixture(bar: bar, id: tab.id, row: row, window: window)
     }
 
     private func press(_ type: NSEvent.EventType, count: Int, on row: TopBarTabRow, in window: NSWindow) -> NSEvent? {
@@ -93,10 +103,11 @@ final class TopBarTabRenameTests: XCTestCase {
 
     func testADoubleClickRenamesOnTheSecondClick() async throws {
         let tab = try await selectedTab()
+        let before = state(of: tab)
         // The press tracks until the button comes up, so the up is queued first.
         tab.window.postEvent(try XCTUnwrap(press(.leftMouseUp, count: 1, on: tab.row, in: tab.window)), atStart: false)
         tab.row.mouseDown(with: try XCTUnwrap(press(.leftMouseDown, count: 1, on: tab.row, in: tab.window)))
-        XCTAssertTrue(tab.bar.isPresented, "the first click is the address")
+        XCTAssertTrue(tab.bar.isPresented, "the first click is the address. Before: \(before). After: \(state(of: tab))")
         try await Task.sleep(for: .seconds(0.1))
 
         tab.window.postEvent(try XCTUnwrap(press(.leftMouseUp, count: 2, on: tab.row, in: tab.window)), atStart: false)
@@ -125,6 +136,21 @@ final class TopBarTabRenameTests: XCTestCase {
     }
 
     // MARK: - Helpers
+
+    /// What the first click depends on, for a failure only CI has shown.
+    private func state(of tab: Fixture) -> String {
+        var strip: NSView? = tab.row.superview
+        while let view = strip, !(view is TopBarTabStrip) { strip = view.superview }
+        let active = (strip as? TopBarTabStrip)?.activeID
+        let queued = NSApp.nextEvent(matching: .leftMouseUp, until: .distantPast, inMode: .default, dequeue: false)
+        return [
+            "screen \(NSScreen.main?.frame ?? .zero) at \(tab.window.backingScaleFactor)x",
+            "window \(tab.window.frame) key \(tab.window.isKeyWindow) app active \(NSApp.isActive)",
+            "row \(tab.row.convert(tab.row.bounds, to: nil)) in a window \(tab.row.window != nil)",
+            "strip \(strip != nil) active \(active == tab.id) (\(String(describing: active)))",
+            "queued up \(queued.map { "\($0.locationInWindow)" } ?? "none")"
+        ].joined(separator: "; ")
+    }
 
     /// Where a view's ink is centred top to bottom, in points.
     private func inkMidY(of view: NSView) -> CGFloat? {
