@@ -74,11 +74,13 @@ final class TopBarTabRenameTests: XCTestCase {
         window.makeKeyAndOrderFront(nil)
         top.layoutSubtreeIfNeeded()
         let row = try XCTUnwrap(find(tab.id, in: top) as? TopBarTabRow)
-        // Events earlier tests posted and never read are still in the app's
-        // queue, and this click is read from that queue. On CI the first
-        // click opened no bar, with the tab selected and the window key,
-        // until every kind was drained; draining mouse events alone was not
-        // enough. A stray mouse-up is one way in: it ends the click off the tab.
+        // The click is read from the app's event queue, and it has to start on
+        // a settled app. On CI's runner, a click sent straight after the window
+        // came up opened no bar, with the tab selected and the window key; a
+        // run-loop turn before it was what turned the test green. Then empty
+        // the queue: an event an earlier test posted and never read, such as
+        // a stray mouse-up, ends the click off the tab.
+        try await Task.sleep(for: .seconds(0.2))
         while NSApp.nextEvent(matching: .any, until: .distantPast, inMode: .default, dequeue: true) != nil {}
         return Fixture(bar: bar, row: row, window: window)
     }
