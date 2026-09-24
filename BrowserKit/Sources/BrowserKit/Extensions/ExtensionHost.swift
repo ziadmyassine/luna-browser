@@ -75,6 +75,17 @@ public final class ExtensionHost: NSObject {
         errorObserver = nil
     }
 
+    /// Deletes what extensions stored under this controller (`storage.local`
+    /// and the rest): one extension's, or with nil everyone's.
+    func removeStoredData(of id: String?) async {
+        let types = WKWebExtensionController.allExtensionDataTypes
+        let records = await controller.dataRecords(ofTypes: types).filter { id == nil || $0.uniqueIdentifier == id }
+        guard !records.isEmpty else { return }
+        await withCheckedContinuation { continuation in
+            controller.removeData(ofTypes: types, from: records) { continuation.resume() }
+        }
+    }
+
     /// Where a Space's background pages keep their data: a store of their own,
     /// derived from the Space's so it needs no column. `ProfileStore` keeps and
     /// removes it alongside the Space's, or the orphan sweep would delete it.

@@ -89,12 +89,7 @@ public final class ExtensionManager {
     public func removeSpace(_ spaceID: UUID) async {
         guard let host = hosts.removeValue(forKey: spaceID) else { return }
         host.tearDown()
-        let records = await host.controller.dataRecords(ofTypes: WKWebExtensionController.allExtensionDataTypes)
-        await withCheckedContinuation { continuation in
-            host.controller.removeData(ofTypes: WKWebExtensionController.allExtensionDataTypes, from: records) {
-                continuation.resume()
-            }
-        }
+        await host.removeStoredData(of: nil)
         for id in installed.keys { installed[id]?.spaces[spaceID] = nil }
     }
 
@@ -198,9 +193,13 @@ public final class ExtensionManager {
         }
     }
 
+    /// Removes it everywhere, with what it stored under each Space's controller.
     public func uninstall(_ id: String) async throws {
         guard installed.removeValue(forKey: id) != nil else { throw ExtensionError.unknownExtension }
-        for host in hosts.values { host.unload(id) }
+        for host in hosts.values {
+            await host.removeStoredData(of: id)
+            host.unload(id)
+        }
         try await store.deleteExtension(id: id)
         try await library.remove(id)
     }

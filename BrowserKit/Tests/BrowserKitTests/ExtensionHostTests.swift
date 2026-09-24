@@ -63,6 +63,18 @@ struct ExtensionHostTests {
         manager.browser = browser
         await manager.start(spaces: [(spaceID, dataStore)])
         try await waitUntil { browser.opened.contains { $0.query == "luna-fixture=3" } }
+
+        // Uninstalling takes what it stored with it. WebKit keeps listing an
+        // emptied record, so it is the size that says so.
+        let controller = manager.controller(forSpace: spaceID, dataStore: dataStore)
+        let id = try #require(manager.extensions.first?.id)
+        func stored() async -> Int {
+            await controller.dataRecords(ofTypes: WKWebExtensionController.allExtensionDataTypes)
+                .filter { $0.uniqueIdentifier == id }.map(\.totalSizeInBytes).reduce(0, +)
+        }
+        #expect(await stored() > 0)
+        try await manager.uninstall(id)
+        #expect(await stored() == 0)
         manager.tearDown()
     }
 
