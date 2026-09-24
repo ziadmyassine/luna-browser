@@ -143,7 +143,9 @@ They can only close tabs in their own folder.
 | `scroll` | `direction` and `amount`, or bring `ref` into view |
 | `form_input` | Set a field, checkbox or select by `ref` |
 | `file_upload` | Give `files` to a file input by `ref` (input and change fire), or drop them on anything else. Each file is `{name, mimeType, data}` (base64) or `{path}` on this Mac. 10 MB a file, 25 MB a call |
-| `screenshot` | PNG of the viewport at 1 px per CSS pixel |
+| `screenshot` | PNG of the viewport at 1 px per CSS pixel. `scale` 0.1–1 shrinks it; after a scaled one, `click`, `hover`, `drag` and `scroll` points are read in that picture's pixels and mapped back until the next screenshot. `region` `[x0, y0, x1, y1]` (CSS pixels) zooms into part of the viewport and leaves the mapping alone |
+| `gif` | `action` `start` records the tab: a frame after each call that can change the page, with a red ring where a click, hover or drag pointed. `stop` pauses, `export` writes an animated GIF to `Control/Recordings/` in Luna's Application Support folder and returns its path. The newest 60 frames are kept, at most 800 px wide |
+| `viewport` | Lay one of the agent's own tabs out at `width` × `height` CSS pixels (320–3840 each), or back at the window's page size with neither. See *Viewport* |
 | `javascript` | Run code in the page and return the last value as JSON |
 | `console_read` | Console output since Luna Control first touched the page (`pattern`, `only_errors`, `clear`) |
 | `network_read` | Requests since Luna Control first touched the tab, with headers and, with `include_bodies`, bodies. `pattern`, `clear`. See *Network log* |
@@ -201,6 +203,19 @@ when the call ends.
   follows the user's pointer, so `dragstart` → `drop` → `dragend` is
   synthesised with one `DataTransfer`.
 
+### Viewport
+
+`viewport` sets the frame of the agent tab's web view while that view is in
+no window, so an agent can test a phone layout while the user carries on in
+their own tabs. No window changes size and no other tab is touched. The stage
+takes the view at that size for trusted input and gives it back at it.
+
+- Only a tab in the client's own folder, and only while it is in no window.
+  A tab the user has selected or shows in a split is refused: its size is
+  their window's.
+- When the user shows the tab, the content card pins it to its edges, which
+  ends the override; `viewport` with neither size puts it back explicitly.
+
 Page events and reads run in a content world of their own that the page
 cannot see: events dispatched on the element, `execCommand('insertText')` for
 typing, the form's own `requestSubmit()` for Enter. They need no window at
@@ -236,9 +251,11 @@ Settings → Luna Control → *Before an app acts on a page*:
 
 - *Acting* means `navigate`, `tab_open` with a URL, `click`, `type`, `key`,
   `drag`, `form_input`, `file_upload` and `javascript`. Reading (`tabs_list`,
-  `read_page`, `page_text`, `find`, `screenshot`, `console_read`,
-  `network_read`), `scroll`, `hover`, `wait`, a blank `tab_open` and
-  `tab_close` (own folder only) never ask.
+  `read_page`, `page_text`, `find`, `screenshot`, `gif`, `console_read`,
+  `network_read`), `scroll`, `hover`, `viewport`, `wait`, a blank `tab_open`
+  and `tab_close` (own folder only) never ask. `gif` and `viewport` change
+  nothing on the site: one keeps pictures in Luna's own folder, the other lays
+  out the agent's own tab at another size.
 - A grant is the app's display name plus the registrable domain
   (`shop.example.com` → `example.com`, via the public-suffix list). Settings
   lists every grant with a Revoke button.
@@ -276,9 +293,11 @@ call as an error telling it not to work around it.
 
 ### Sensitive actions and handing off
 
-Before every `click`, `type`, `key` and `form_input`, the page library's
-`inspect` looks at the element the call names (`ControlScripts+Inspect.swift`)
-and reports `ControlRisk`s. In every mode, with or without a grant:
+Before every `click`, `type`, `key`, `drag` and `form_input`, the page
+library's `inspect` looks at the element the call names
+(`ControlScripts+Inspect.swift`) and reports `ControlRisk`s. A `drag` is
+inspected at both ends, so a slider CAPTCHA hands off and a drop on a pay or
+delete control asks. In every mode, with or without a grant:
 
 | Found | Decision |
 |---|---|
@@ -372,9 +391,12 @@ in a windowless page in `ControlScriptsTests.testUploadSetsFilesAndFiresChange`.
   label says card number, CVV/CVC, OTP, PIN, SSN or IBAN. They show
   `value=[hidden]` and keep the label, so the agent can still find the field
   and hand it to the user.
-- Screenshots draw those fields as dots (`-webkit-text-security`) for the
-  picture and put them back after. Fields inside iframes and shadow roots are
-  not reached.
+- Screenshots, at any `scale` or `region`, and every `gif` frame draw those
+  fields as dots (`-webkit-text-security`) for the picture and put them back
+  after (`Features/Control/ControlCapture.swift`, tested in
+  `ControlCaptureTests`). Fields inside iframes and shadow roots are not
+  reached. A recording is written only when the agent exports it, to Luna's
+  user-only Control folder; it holds whatever else the page showed.
 - Every text result then goes through `ControlRedactor`: Luhn-valid runs of
   13–19 digits, JWTs, `Bearer` tokens, the values of `Authorization`,
   `Cookie`, `Set-Cookie`, API-key and CSRF headers, and query, cookie or JSON
