@@ -9,13 +9,14 @@ import Foundation
 /// how long a ref means anything. Refs are `e` and a number, held weakly, so
 /// the same element keeps the same ref across reads and a removed one says so.
 ///
-/// Everything happens through the DOM rather than synthesised input: it does
-/// not need the window to be on screen or key, which is what lets a tab work
-/// while Luna is in the background.
+/// Reading and the fallback actions happen through the DOM, which needs no
+/// window at all. Trusted input goes through the app's stage instead
+/// (`ControlStage`), and uses `locate`, `focusEnd` and `stage` from here.
 public enum ControlScripts {
 
     /// The body for one operation: `readPage`, `pageText`, `find`, `click`,
-    /// `type`, `key`, `scroll` or `fill`.
+    /// `type`, `key`, `scroll`, `fill`, `hover`, `drag`, and the stage's
+    /// `locate`, `focusEnd`, `focused` and `stage`.
     public static func call(_ operation: String) -> String {
         "const lc = globalThis.__lunaControl || (globalThis.__lunaControl = (\(library))());\n"
             + "return await lc.\(operation)(args);"

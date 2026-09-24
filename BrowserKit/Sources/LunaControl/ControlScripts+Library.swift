@@ -263,6 +263,7 @@ extension ControlScripts {
       };
 
       const masked = [];
+      let staged = false, stageListening = false;
 
       return {
         mask() {
@@ -318,18 +319,26 @@ extension ControlScripts {
           const el = target(args);
           const at = point(el, args);
           const hit = args.ref ? el : document.elementFromPoint(at.x, at.y) || el;
-          const base = { bubbles: true, cancelable: true, composed: true, clientX: at.x, clientY: at.y, button: 0, view: window };
+          const button = args.button || 0;
+          const mods = new Set(args.modifiers || []);
+          const base = { bubbles: true, cancelable: true, composed: true, clientX: at.x, clientY: at.y, button, view: window,
+            metaKey: mods.has('meta'), ctrlKey: mods.has('ctrl'), altKey: mods.has('alt'), shiftKey: mods.has('shift') };
+          const held = [1, 4, 2][button];
           for (let n = 1; n <= args.clickCount; n++) {
-            hit.dispatchEvent(new PointerEvent('pointerdown', { ...base, pointerType: 'mouse', isPrimary: true, buttons: 1 }));
-            hit.dispatchEvent(new MouseEvent('mousedown', { ...base, detail: n, buttons: 1 }));
+            hit.dispatchEvent(new PointerEvent('pointerdown', { ...base, pointerType: 'mouse', isPrimary: true, buttons: held }));
+            hit.dispatchEvent(new MouseEvent('mousedown', { ...base, detail: n, buttons: held }));
             if (n === 1 && hit.focus) hit.focus({ preventScroll: true });
             hit.dispatchEvent(new PointerEvent('pointerup', { ...base, pointerType: 'mouse', isPrimary: true }));
             hit.dispatchEvent(new MouseEvent('mouseup', { ...base, detail: n }));
-            hit.click();
+            if (button === 2) hit.dispatchEvent(new MouseEvent('contextmenu', { ...base, detail: n }));
+            else if (button === 1) hit.dispatchEvent(new PointerEvent('auxclick', { ...base, detail: n }));
+            else if (mods.size) hit.dispatchEvent(new PointerEvent('click', { ...base, detail: n }));
+            else hit.click();
           }
-          if (args.clickCount === 2) hit.dispatchEvent(new MouseEvent('dblclick', { ...base, detail: 2 }));
+          if (args.clickCount === 2 && button === 0) hit.dispatchEvent(new MouseEvent('dblclick', { ...base, detail: 2 }));
           return 'Clicked ' + describe(hit);
         },
+    \(inputOperations)
         type(args) {
           const el = args.ref ? element(args.ref) : document.activeElement;
           if (!editable(el)) throw new Error('Nothing that takes text has focus. Pass the ref of a text field.');

@@ -32,9 +32,13 @@ extension ControlService {
         // new document on. Refused on pages with no script, which is fine.
         _ = try? await webView.callAsyncJavaScript(ControlScripts.consoleInstall, arguments: [:], in: nil, contentWorld: .page)
         if let (operation, args, acts) = Self.libraryCall(for: command) {
-            return acts
+            var result = acts
                 ? try await acting(operation, in: webView, args)
                 : .text(try await library(operation, in: webView, args))
+            if command.isInput, case let .text(said)? = result.content.first {
+                result.content[0] = .text(said + " (trusted: false)")
+            }
+            return result
         }
         switch command {
         case let .navigate(navigation):
@@ -78,6 +82,7 @@ extension ControlService {
     /// The library operation behind a command, its arguments, and whether
     /// it acts on the page — and so may start a navigation worth waiting for.
     private static func libraryCall(for command: ControlCommand) -> (String, [String: Any], acts: Bool)? {
+        // swiftlint:disable:previous cyclomatic_complexity
         switch command {
         case let .readPage(interactiveOnly, ref, maxDepth):
             ("readPage", ["interactiveOnly": interactiveOnly, "maxDepth": maxDepth, "ref": ref as Any], false)
@@ -88,12 +93,20 @@ extension ControlService {
         case let .scroll(direction, amount, target):
             ("scroll", (target.map(arguments(for:)) ?? [:]).merging(["direction": direction.rawValue, "amount": amount]) { $1 },
              false)
-        case let .click(target, clickCount):
-            ("click", arguments(for: target).merging(["clickCount": clickCount]) { $1 }, true)
-        case let .type(text, ref):
+        case let .click(target, clickCount, button, modifiers, _):
+            ("click", arguments(for: target).merging([
+                "clickCount": clickCount, "button": [.left: 0, .middle: 1, .right: 2][button] ?? 0,
+                "modifiers": [(ControlInput.Modifiers.command, "meta"), (.control, "ctrl"), (.option, "alt"), (.shift, "shift")]
+                    .filter { modifiers.contains($0.0) }.map(\.1)
+            ]) { $1 }, true)
+        case let .type(text, ref, _):
             ("type", ["text": text, "ref": ref as Any], true)
-        case let .key(keys):
-            ("key", ["keys": keys], true)
+        case let .key(keys, times, _):
+            ("key", ["keys": Array(repeating: keys, count: times).joined(separator: " ")], true)
+        case let .hover(target):
+            ("hover", arguments(for: target), false)
+        case let .drag(from, to, _):
+            ("drag", ["from": arguments(for: from), "to": arguments(for: to)], true)
         case let .fill(ref, value):
             ("fill", ["ref": ref, "value": value.foundation], true)
         default:
@@ -102,7 +115,7 @@ extension ControlService {
     }
 
     /// Runs one of the library's operations and hands back what it said.
-    private func library(_ operation: String, in webView: WKWebView, _ args: [String: Any]) async throws -> String {
+    func library(_ operation: String, in webView: WKWebView, _ args: [String: Any]) async throws -> String {
         // `callAsyncJavaScript` turns `NSNull` into `null` and leaves a
         // missing key `undefined`; the library tests for `undefined`.
         let present = args.filter { !($0.value is NSNull) && !Self.isNil($0.value) }
@@ -178,7 +191,7 @@ extension ControlService {
         return ControlResult([.png(png), .text("\(width)×\(height), \(webView.url?.absoluteString ?? "")")])
     }
 
-    private static func arguments(for target: ControlCommand.Target) -> [String: Any] {
+    static func arguments(for target: ControlCommand.Target) -> [String: Any] {
         switch target {
         case let .ref(ref): ["ref": ref]
         case let .point(x, y): ["x": x, "y": y]
@@ -188,6 +201,16 @@ extension ControlService {
     private static func isNil(_ value: Any) -> Bool {
         if case Optional<Any>.none = value { return true }
         return false
+    }
+}
+
+private extension ControlCommand {
+    /// The calls that report whether their input was trusted.
+    var isInput: Bool {
+        switch self {
+        case .click, .type, .key, .hover, .drag: true
+        default: false
+        }
     }
 }
 
