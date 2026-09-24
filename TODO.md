@@ -290,6 +290,7 @@ luna/
   > **Gotcha:** manual traffic-light repositioning is the #1 source of visual bugs in Arc-style browsers. Write a single `TrafficLightLayoutManager` and unit-test its output for the 6 window states rather than nudging frames in 4 different view controllers.
   > **Gotcha (verified in `NSWindow.h`, M0):** `minSize`/`contentMinSize` and `maxSize`/`contentMaxSize` are **ignored when the content view uses Auto Layout** — the header says so verbatim. Setting `window.minSize` looks right, compiles, and does nothing. Enforce size floors with `greaterThanOrEqualToConstant` constraints on the content view instead. This bites again at §10.1's split-pane min-width clamps and §7.1's 250–420 px sidebar range.
   > **Checked 2026-09-24: partly built.** `TrafficLightLayoutManager`, transparent titlebar, both layouts, fullscreen. Missing: the Mini Window state (no Mini Window yet).
+  > **Fixed 2026-09-24: the lights vanished in fullscreen after a tab switch.** A new window title makes AppKit rebuild its titlebar and take the three buttons back into it — and in fullscreen that titlebar is kept invisible. They land at the same origins they had in Luna's strip, so no frame changes and none of the manager's observers heard it. The manager now watches `window.title` too (`TrafficLightReapplyTests.testANewTitlePutsEveryLightBack`). Both layouts had it; windowed was never affected.
 
 ---
 
@@ -654,7 +655,7 @@ luna/
 ## 24. Quality, release & operations
 
 - [ ] **24.1 Testing**: unit tests on frecency, hibernation policy, URL parsing/canonicalisation, blocklist conversion, traffic-light layout. UI tests for launch → command bar → navigate → split → quit → restore. A manual **Top-100-sites compat matrix** re-run each milestone (this is how we catch WebKit-vs-Chrome breakage).
-  > **Checked 2026-09-24: partly built.** Unit tests for frecency, hibernation, URLs, blocking, traffic lights (930 tests). Missing: UI test target, top-100 sites check.
+  > **Checked 2026-09-24: partly built.** Unit tests for frecency, hibernation, URLs, blocking, traffic lights (931 tests). Missing: UI test target, top-100 sites check.
 - [ ] **24.2 Crash reporting** — Sentry or a self-hosted alternative; **opt-in**, with scrubbed URLs (never send full URLs or page content).
 - [x] **24.3 Telemetry — DECIDED 2026-09-17: there is none.** No analytics, opt-in or otherwise (D16). §24.2 crash reporting stays, opt-in and URL-scrubbed. Settings should say "Luna collects no usage data" and mean it literally. This is a marketing asset and a maintenance saving at the same time.
   > **Checked 2026-09-24: partly built.** No analytics code, as decided. Missing: the Settings copy saying Luna collects no usage data.
@@ -672,6 +673,9 @@ luna/
   > **Checked 2026-09-24: partly built.** `LICENSE` (GPL-3.0) is in. Missing: Privacy Policy, Terms, THIRD_PARTY_NOTICES.md, SECURITY.md.
 - [ ] **24.8 Website + changelog + a real support channel.**
 - [ ] **24.9 `Tools/perf` no longer compiles** *(found 2026-09-22)*. `Tools/perf/Sources/LunaPerf/main.swift:74` constructs `Profile(name:)`; the `Profile` type was deleted from BrowserKit in schema v7. The harness is a separate SPM package and is **not** in `.github/workflows/ci.yml`, which is why nothing caught it. Either port it to per-Space jars or drop it — but §19.1/§19.5 cite it as the way to re-run the budgets, so a dead harness silently retires the performance ledger.
+- [x] **24.10 App size** *(done 2026-09-24)*. The shipped app is a plain Release build, not an archive, so it kept every symbol and every unused function of GRDB and BrowserKit. `DEAD_CODE_STRIPPING` and `DEPLOYMENT_POSTPROCESSING` are now on for Release in `project.yml`: **24.4 MB → 14.5 MB**, the binary 21.3 → 11.6 MB. The dSYM beside it keeps the symbols for crash reports (§24.2).
+  > **Not taken, on purpose.** `-Osize` saves another 1.8 MB (→ 12.7 MB) at a few percent of Swift speed. Dropping Intel (`ARCHS = arm64`) would roughly halve the binary again, but macOS 26 still runs on Intel Macs and those users would lose Luna. The rest is 2.6 MB of `Assets.car`, mostly the icon renditions actool generates.
+  > **What a user's disk holds is bigger than the app.** Measured on Martin's Mac: 741 MB of website data (normal for any browser) and **176 MB of compiled content-blocking rules** in `~/Library/WebKit/dk.novapps.luna/ContentRuleLists` — Luna's own and the one place worth shrinking (§17).
 
 ---
 
@@ -930,6 +934,7 @@ Sixteen questions, answered in one sitting. **Where this log contradicts an olde
 | **Top priorities: iCloud sync, Luna's own password manager, a tab switcher, extensions** — in that order (★) | They come before the rest of M2–M4. |
 | **Luna gets its own password manager** | Reverses §0.2 and §14's goal line. The Keychain bridge stays and becomes its storage or its fallback — P2.1 decides. |
 | **Extensions are in scope now** | Reverses §32's "extensions v2". §16 is no longer gated on a separate go-ahead. |
+| **The Release build is stripped** (§24.10) | The app is 14.5 MB instead of 24.4. Debug builds are unchanged; crash reports need the dSYM. |
 
 ---
 
