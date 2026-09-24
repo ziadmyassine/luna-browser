@@ -357,6 +357,8 @@ luna/
   > **Correction (M1):** §9.2 lists "open tabs", "pinned/favorites" and "bookmarks" as three sources. In Luna's model an Essential or pinned tab **is** a `Tab` with a `kind`, and §11.1 no longer creates a `bookmarks` table. It is one source, not three.
   - Acceptance: after a week of dogfooding, the intended result is #1 for ≥90 % of 2-character queries in a manual 30-query test set.
   > **Checked 2026-09-24: partly built.** Frecency ranking and adaptive history with tests. Missing: the recorded 30-query check.
+  > **Fixed 2026-09-24: the history search ran for minutes and pinned the CPU.** The ranking joined every candidate to a window over all visits, which SQLite cannot index; on an imported history (28,000 places, 71,000 visits) a one-letter query took 384 s, and each keystroke started another. Each candidate now sums its ten newest visits through `visits_on_spaceID_placeId_at` — 45 ms, same rows in the same order — and the bar cancels the previous keystroke's search.
+  > **Changed 2026-09-24: the search row leads when the query reads as a search** (§32a). It sat below every history row, so `apple ads` filled the list with old visits and Return opened one of them — an old Google results page, which adaptive history then learned to keep on top. It now leads unless the query is the start of an address the best page completes (`gith` → github.com), so §9.4 keeps its row. Adaptive rows still outrank all frecency rows, one place below the search.
 - [x] **9.4 Inline autofill** of the top URL completion with selected-suffix behaviour; `→` accepts, `Esc` cancels.
   > **Checked 2026-09-24: built.** `CommandBarInputField.swift`
 - [ ] **9.5 Search engines** — Google/DuckDuckGo/Kagi/Brave/Bing + custom; **bang-style keywords** (`yt cats` → YouTube). Per-Space default.
@@ -473,6 +475,8 @@ luna/
   > **Checked 2026-09-24: built.** `TabController+Delegates.swift`, `TabState.swift`
 - [ ] **15.3 Downloads UI**: sidebar popover + a persistent panel; reveal in Finder, retry, open, clear; quarantine flag set correctly (`com.apple.quarantine`) so Gatekeeper still protects the user.
   > **Checked 2026-09-24: partly built.** `DownloadsPanel.swift` (open, reveal, retry, clear) and the quarantine flag. Missing: the persistent panel, replaced on purpose by the pop-out only.
+  > **Fixed 2026-09-24: downloads were slow to start and could not be started one after another.** The list a download opens laid a click-catching sheet over the page, so the next file's click only closed it; it now lets clicks through and still closes on a click beside it. The first download's flight sat still for about 2 s (its display link did not fire while nothing else moved) and now runs as Core Animation keyframes. Progress reports are gathered into one refresh per `loadLineAdvance` and row icons are cached, instead of hundreds of full redraws a second.
+  > **Gotcha: the first download of an unsigned build waits for a Downloads-folder permission prompt.** WebKit asks macOS for access on the main thread when the destination is chosen, and Luna is frozen until "Luna would like to access files in your Downloads folder" is answered. An ad-hoc signed build is a new app to macOS after every rebuild, so it asks again each time. Goes away with real signing (§14.10, §31.1).
 - [x] **15.4** Warn on executable/dmg/pkg types; block silent auto-downloads from background frames.
   > **Checked 2026-09-24: built.** `DownloadRisk` in `DownloadItem.swift`, background-frame downloads cancelled in `DownloadManager.begin`
 - [ ] **15.5** PDF handling: WebKit displays PDFs inline — add a download/print affordance, don't hijack it.
@@ -609,6 +613,7 @@ luna/
   > **`CFBundleURLTypes` done 2026-09-20; the rest still open.** Its absence was not cosmetic: LaunchServices never listed Luna as a browser, so `NSWorkspace.urlsForApplications(toOpen:)` for an `https` URL returned Safari, Dia and Chrome and not Luna — §3.1's "Set as Default" button could not have worked, and discarded the resulting error in silence. Verified before and after. One missing key also blocked §12.2's links-from-other-apps and the first criterion of §14.10's entitlement request.
   > **Checked 2026-09-24: partly built.** `App/Info.plist` has `CFBundleURLTypes` only. Missing: `CFBundleDocumentTypes`, `NSUserActivityTypes`, `LSApplicationCategoryType`.
 - [ ] **22.3 Handle `application(_:open:)`** → route to Mini Window or the Space chosen by the routing rules (§25.3).
+  > **Partly built 2026-09-24.** `App/AppDelegate+OpenURLs.swift`: an http/https link from another app opens as a tab in the front window's Space and brings the window forward; a link that launched Luna waits for the restored session. Before this, macOS handed such links to the default browser, even ones sent to Luna by name. Missing: the Mini Window (§12) and §25.3's routing rules.
 - [ ] **22.4 Services, Share menu, Shortcuts (App Intents)** — "Open URL in Space X", "Save tab to…", "Archive all tabs".
   > **Checked 2026-09-24: partly built.** Share menu in `UI/Sidebar/SiteMenu.swift`. Missing: Services and App Intents / Shortcuts.
 - [ ] **22.5 Menu bar** — a complete, correct macOS menu (File/Edit/View/History/Bookmarks/Window/Help) even though the UI is chromeless. Every command discoverable here.
@@ -657,7 +662,7 @@ luna/
 ## 24. Quality, release & operations
 
 - [ ] **24.1 Testing**: unit tests on frecency, hibernation policy, URL parsing/canonicalisation, blocklist conversion, traffic-light layout. UI tests for launch → command bar → navigate → split → quit → restore. A manual **Top-100-sites compat matrix** re-run each milestone (this is how we catch WebKit-vs-Chrome breakage).
-  > **Checked 2026-09-24: partly built.** Unit tests for frecency, hibernation, URLs, blocking, traffic lights, tab switcher (948 tests). Missing: UI test target, top-100 sites check.
+  > **Checked 2026-09-24: partly built.** Unit tests for frecency, hibernation, URLs, blocking, traffic lights, tab switcher, history ranking, links from other apps (958 tests). Missing: UI test target, top-100 sites check.
 - [ ] **24.2 Crash reporting** — Sentry or a self-hosted alternative; **opt-in**, with scrubbed URLs (never send full URLs or page content).
 - [x] **24.3 Telemetry — DECIDED 2026-09-17: there is none.** No analytics, opt-in or otherwise (D16). §24.2 crash reporting stays, opt-in and URL-scrubbed. Settings should say "Luna collects no usage data" and mean it literally. This is a marketing asset and a maintenance saving at the same time.
   > **Checked 2026-09-24: partly built.** No analytics code, as decided. Missing: the Settings copy saying Luna collects no usage data.
@@ -938,6 +943,8 @@ Sixteen questions, answered in one sitting. **Where this log contradicts an olde
 | **Extensions are in scope now** | Reverses §32's "extensions v2". §16 is no longer gated on a separate go-ahead. |
 | **The Release build is stripped** (§24.10) | The app is 14.5 MB instead of 24.4. Debug builds are unchanged; crash reports need the dSYM. |
 | **P3's tab switcher shows at most 10 tabs, only ones in use** | Two rows of five, centred on the window. Tabs past the tenth, unopened pinned tabs and Favorites are reached from the sidebar. |
+| **The Command Bar's search row leads when the query reads as a search** (§9.3) | Changes §9.3's "adaptive matches rank above all": a learned page now sits one row below the search unless the query is the start of its address. |
+| **The Downloads list a download opens does not block the page** (§15.3) | A click beside it closes it and still reaches the page, so files can be downloaded one after another. A list opened with the button still catches the click. |
 
 ---
 
