@@ -66,6 +66,12 @@ final class TabLifecycle {
         installed[ObjectIdentifier(session)]?.sweep(underMemoryPressure: false)
     }
 
+    /// The tab's last §6.8 snapshot, for the `⌃⇥` switcher. Nil before the
+    /// pass is installed, and for a tab never captured.
+    static func snapshot(of id: UUID, in session: BrowserSession) async -> NSImage? {
+        await installed[ObjectIdentifier(session)]?.snapshot(for: id)
+    }
+
     static func install(in session: BrowserSession) {
         let key = ObjectIdentifier(session)
         guard installed[key] == nil else { return }

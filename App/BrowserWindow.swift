@@ -44,6 +44,7 @@ final class BrowserWindow {
     var topBar: TopBarView?
     var pageChrome: PageChromeController?
     var commandBar: CommandBarController?
+    var tabSwitcher: TabSwitcherController?
     var historyPanel: HistoryPanelController?
     /// The session registration that redraws this window. Held here so a closed
     /// window stops being called without anyone having to remember to say so.
@@ -157,6 +158,8 @@ final class BrowserWindow {
         loadLineObservations = []
         historyPanel = nil
         commandBar = nil
+        tabSwitcher?.cancel()
+        tabSwitcher = nil
         session.closeWindow(id)
     }
 }

@@ -90,6 +90,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// `AppDelegate+Downloads.swift` builds it, so it is neither private nor
     /// `private(set)`.
     var downloadsPanel: DownloadsPanelController?
+    /// `⌃⇥`'s event monitor — see `AppDelegate+TabSwitcher.swift`.
+    var tabSwitcherMonitor: Any?
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         LaunchTrace.mark("appkit")
@@ -106,6 +108,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MainMenu.install(into: NSApp)
         // §3.6: a rebound shortcut rebuilds the bar. Before the first window.
         observeShortcutChanges()
+        installTabSwitcherKeys()
         LaunchTrace.mark("menu")
     }
 

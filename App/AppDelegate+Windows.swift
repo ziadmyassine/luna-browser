@@ -153,6 +153,7 @@ extension AppDelegate {
         // frame the window shows with content in it.
         window.applyChromeLayout(animated: false)
         wireCommandBar(in: window)
+        wireTabSwitcher(in: window)
         wireHistory(in: window)
         wireDownloads(in: window)
     }

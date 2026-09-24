@@ -123,14 +123,21 @@ enum KeyBindings {
         return owner.map(Conflict.command)
     }
 
-    /// The two families of numbered shortcuts, which are built from live data —
-    /// nine Spaces, nine sidebar rows — and so have no row in the table to
-    /// collide with. They are still taken, and taking one back would break a
-    /// menu that is rebuilt from the session rather than from here.
+    /// The shortcuts that are taken but have no row in the table to collide
+    /// with: the two numbered families, which are built from live data — nine
+    /// Spaces, nine sidebar rows — and the tab switcher's `⌃⇥` and `⌃⇧⇥`.
+    /// Taking a number back would break a menu that is rebuilt from the
+    /// session rather than from here.
     ///
     /// ⌘0 is deliberately not in the range: it is Zoom to Actual Size, and the
     /// sidebar rows start at one.
     private static func reserved(_ binding: KeyBinding) -> String? {
+        // Not a menu command: it has to hear `⌃` come back up, which a key
+        // equivalent never does, and its event monitor would take either
+        // keystroke before a menu item bound to it ever saw it.
+        if binding.key == "\t", binding.modifiers == .control || binding.modifiers == [.control, .shift] {
+            return String(localized: "The tab switcher")
+        }
         guard binding.key.count == 1, let digit = Int(binding.key), (1...9).contains(digit) else { return nil }
         if binding.modifiers == .command { return String(localized: "Going to a sidebar item") }
         if binding.modifiers == .control { return String(localized: "Switching Space") }

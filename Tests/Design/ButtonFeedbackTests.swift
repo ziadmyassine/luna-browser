@@ -99,6 +99,7 @@ final class ButtonFeedbackTests: XCTestCase {
             }()),
             ("SettingsChoiceButton", SettingsChoiceButton(title: "Light")),
             ("SpaceAppearanceButton", SpaceAppearanceButton()),
+            ("TabSwitcherCard", TabSwitcherCard(item: TabSwitcherItem(id: UUID(), title: "Example", favicon: nil))),
             ("OnboardingButton", OnboardingButton(title: "Back", isPreferred: false)),
             ("OnboardingButton preferred", OnboardingButton(title: "Continue", isPreferred: true)),
             ("OnboardingImportRow", OnboardingImportRow(source: DetectedSource(
