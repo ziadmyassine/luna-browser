@@ -65,6 +65,15 @@ final class TopBarTabRenameTests: XCTestCase {
         window.makeKeyAndOrderFront(nil)
         top.layoutSubtreeIfNeeded()
         let row = try XCTUnwrap(find(tab.id, in: top) as? TopBarTabRow)
+        // A mouse-up an earlier test posted and never read ends this click's
+        // tracking loop instead of its own, somewhere off the tab, so the
+        // click is no click. It went red on CI and not locally.
+        while NSApp.nextEvent(
+            matching: [.leftMouseDown, .leftMouseUp, .leftMouseDragged],
+            until: .distantPast,
+            inMode: .default,
+            dequeue: true
+        ) != nil {}
         return Fixture(bar: bar, row: row, window: window)
     }
 
@@ -104,14 +113,15 @@ final class TopBarTabRenameTests: XCTestCase {
     /// The sliders and the close glyph stand on one line by their ink, not by
     /// their boxes. To a device pixel: an edge's anti-aliasing puts a
     /// bounding box a pixel either way, which is what stood between the two
-    /// before was 1.5.
+    /// before was 1.5. A pixel is half a point on Retina and a whole one on
+    /// CI's 1x display.
     func testTheTwoGlyphsShareALine() async throws {
         let tab = try await selectedTab()
         tab.row.row.layoutSubtreeIfNeeded()
         let site = try XCTUnwrap(inkMidY(of: tab.row.row.siteButton))
         let close = try XCTUnwrap(inkMidY(of: tab.row.row.trailing))
         XCTAssertFalse(tab.row.row.siteButton.isHidden)
-        XCTAssertEqual(site, close, accuracy: 0.5)
+        XCTAssertEqual(site, close, accuracy: 1 / tab.window.backingScaleFactor)
     }
 
     // MARK: - Helpers
