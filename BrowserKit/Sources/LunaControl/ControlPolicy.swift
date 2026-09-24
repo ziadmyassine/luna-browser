@@ -111,7 +111,7 @@ extension ControlCommand {
     /// agent's own folder, so neither asks either.
     public var acts: Bool {
         switch self {
-        case .listTabs, .readPage, .pageText, .find, .scroll, .screenshot, .console, .wait, .closeTab: false
+        case .listTabs, .readPage, .pageText, .find, .scroll, .screenshot, .console, .network, .wait, .closeTab: false
         case let .openTab(url): url != nil
         case .navigate, .click, .type, .key, .fill, .javascript: true
         }
