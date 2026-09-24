@@ -76,7 +76,7 @@ extension TabListController {
             // §3.4a: a chosen symbol replaces the favicon, so the row draws its symbol
             // slot instead — which is the path `+ Add Tab` has always taken.
             symbolName: tab.customSymbolName ?? SidebarRowContent.siteFallbackSymbol,
-            favicon: tab.customSymbolName == nil ? SidebarIcons.favicon(for: url) : nil,
+            favicon: tab.customSymbolName == nil ? icons.favicon(for: url) : nil,
             hasUnread: tab.hasUnread,
             isLoading: state?.isLoading ?? false,
             trailing: trailing,

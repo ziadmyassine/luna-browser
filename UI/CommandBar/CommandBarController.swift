@@ -96,7 +96,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
         }
         guard let host = result.url?.host() else { return nil }
         if let cached = icons[host] { return cached }
-        guard let data = FaviconService.shared.favicon(forHost: host), let image = NSImage(data: data) else {
+        guard let data = session.favicons.favicon(forHost: host), let image = NSImage(data: data) else {
             return nil
         }
         icons[host] = image

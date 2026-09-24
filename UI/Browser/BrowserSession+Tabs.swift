@@ -350,9 +350,9 @@ extension BrowserSession {
 
     func tab(_ id: UUID) -> Tab? { list.tab(id) }
 
-    /// A tab's icon — from this session, else the on-disk cache (§4.7).
+    /// A tab's icon — from this session, else its favicon cache (§4.7).
     func favicon(for id: UUID) -> NSImage? {
-        let png = faviconPNG[id] ?? list.tab(id)?.url.host().flatMap { FaviconService.shared.favicon(forHost: $0) }
+        let png = faviconPNG[id] ?? list.tab(id)?.url.host().flatMap { favicons.favicon(forHost: $0) }
         return png.flatMap(NSImage.init(data:))
     }
 

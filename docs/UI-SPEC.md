@@ -1899,6 +1899,11 @@ capsule, up from §3.5's cylinder, and `⌘⌥L` opens the same thing. It also p
 download starts (§5.0) and when one lands, and counts itself down after **4 s** unless the pointer is
 on it.
 
+> **A §5.6 window's downloads are its own.** The one list asks the window it stands in which Space to
+> show, so an ordinary window never lists a private one's rows. A retry goes through the session the file
+> came from. Closing the private window drops its rows and stops what is still coming in — files already
+> in `~/Downloads` stay — and its quarantine record keeps the flag but not the page or file URL.
+
 - Row: `[file-type icon 34] [filename, middle-truncated, 14 pt] [size or state]`, with §3.2c's line
   under it while the bytes are moving — see §5.0, item 4.
 - Middle truncation is required — `97103328759-202…01-2026-08-31.pdf` keeps both the prefix and the

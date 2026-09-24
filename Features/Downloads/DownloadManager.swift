@@ -80,12 +80,6 @@ final class DownloadManager {
     /// flight the user never sees.
     var onBegin: ((DownloadItem) -> Void)?
 
-    /// A live web view to re-issue a retry through. `WKDownload.webView` is
-    /// weak and the originating tab may have been hibernated since, so the host
-    /// hands us the active tab's web view instead — resume data is
-    /// self-contained and any web view can resume it.
-    var webViewProvider: (() -> WKWebView?)?
-
     // MARK: - Entry point
 
     /// Call from `BrowserSession.onDownload`, i.e. from
@@ -95,9 +89,16 @@ final class DownloadManager {
     /// `pageURL` defaults to the originating frame's own URL, so the host does
     /// not have to look up which tab this came from.
     ///
-    /// - Parameter spaceID: the Space the page was in, which is the list the
-    ///   file will appear in (§9.2).
-    func begin(_ download: WKDownload, pageURL: URL? = nil, inSpace spaceID: UUID? = nil) {
+    /// - Parameters:
+    ///   - spaceID: the Space the page was in, which is the list the file will
+    ///     appear in (§9.2).
+    ///   - session: the session the page was in. See `DownloadItem.session`.
+    func begin(
+        _ download: WKDownload,
+        pageURL: URL? = nil,
+        inSpace spaceID: UUID? = nil,
+        session: BrowserSession? = nil
+    ) {
         // §15.4 — no silent auto-downloads from background frames. Wave 1's
         // `NavigationPolicy.shouldDownload` covers the response path; this
         // covers `<a download>` in a hidden iframe, which never reaches it.
@@ -110,10 +111,16 @@ final class DownloadManager {
             request: download.originalRequest,
             pageURL: pageURL ?? download.originatingFrame.request.url,
             filename: DownloadDestination.sanitize(suggested),
-            spaceID: spaceID
+            spaceID: spaceID,
+            session: session
         )
-        items.insert(item, at: 0)
         adopt(download, for: item)
+        add(item)
+    }
+
+    /// Puts a row at the head of the list.
+    func add(_ item: DownloadItem) {
+        items.insert(item, at: 0)
         onChange?()
     }
 
@@ -140,6 +147,17 @@ final class DownloadManager {
         onChange?()
     }
 
+    /// §5.6: a private window's rows go when it does, and a file still coming
+    /// in is stopped rather than left landing for a window that is not there.
+    /// What already reached `~/Downloads` stays; it is the user's file.
+    func forget(_ session: BrowserSession) {
+        for task in tasks.values where task.item.session === session {
+            task.download.cancel()
+        }
+        items.removeAll { $0.session === session }
+        onChange?()
+    }
+
     /// Clears finished and failed entries in one Space. A live download is not
     /// history, and neither is another Space's list: the button is under the
     /// rows it clears.
@@ -150,8 +168,17 @@ final class DownloadManager {
 
     /// Resume where the bytes stopped when the server allows it, otherwise
     /// re-issue the original request (§15.1a).
+    ///
+    /// Through the session the download came from, so it goes out with that
+    /// session's cookies: `WKDownload.webView` is weak and the tab may be cold
+    /// since, but resume data is self-contained and any of the session's live
+    /// web views can resume it. A session that has gone offers none.
     func retry(_ item: DownloadItem) {
-        guard item.canRetry, let webView = webViewProvider?() else { return }
+        guard item.canRetry,
+              let session = item.session,
+              let tab = session.activeTabID,
+              let webView = session.controller(for: tab)?.webView
+        else { return }
         item.restart()
         onChange?()
         Task { @MainActor in
@@ -227,20 +254,28 @@ final class DownloadManager {
     /// hand-formatted `setxattr`: the xattr's payload is
     /// `flags;hex-time;agent;uuid` and getting a field wrong produces a record
     /// LaunchServices ignores — silently, which is the worst possible failure
-    /// for a security control. `kLSQuarantineOriginURLKey` is what puts the
-    /// originating page into the Gatekeeper dialog.
+    /// for a security control.
     private static func quarantine(_ item: DownloadItem) {
         guard var url = item.destination else { return }
         var values = URLResourceValues()
+        values.quarantineProperties = quarantineProperties(for: item)
+        try? url.setResourceValues(values)
+    }
+
+    /// `kLSQuarantineOriginURLKey` is what puts the originating page into the
+    /// Gatekeeper dialog. A §5.6 download keeps the flag, which is Gatekeeper's
+    /// check, and leaves both URLs out: the xattr outlives the window, and a
+    /// private window must not leave a record of where it went.
+    static func quarantineProperties(for item: DownloadItem) -> [String: Any] {
         var properties: [String: Any] = [
             kLSQuarantineTypeKey as String: kLSQuarantineTypeWebDownload as String,
             kLSQuarantineAgentNameKey as String: Bundle.main.bundleIdentifier ?? "Luna",
             kLSQuarantineTimeStampKey as String: Date() as NSDate
         ]
+        guard !item.isPrivate else { return properties }
         if let page = item.pageURL { properties[kLSQuarantineOriginURLKey as String] = page as NSURL }
         if let source = item.request?.url { properties[kLSQuarantineDataURLKey as String] = source as NSURL }
-        values.quarantineProperties = properties
-        try? url.setResourceValues(values)
+        return properties
     }
 }
 
@@ -251,8 +286,8 @@ final class DownloadManager {
 private final class DownloadTask: NSObject, WKDownloadDelegate {
 
     private unowned let manager: DownloadManager
-    private let item: DownloadItem
-    private let download: WKDownload
+    let item: DownloadItem
+    let download: WKDownload
     private var progressObservation: NSKeyValueObservation?
 
     init(manager: DownloadManager, item: DownloadItem, download: WKDownload) {

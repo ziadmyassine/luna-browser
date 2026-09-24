@@ -23,10 +23,7 @@ extension AppDelegate {
     func wireDownloads(in window: BrowserWindow) {
         let session = window.session
         let controller = window.controller
-        let manager = downloads ?? DownloadManager()
-        downloads = manager
-        let panel = downloadsPanel ?? DownloadsPanelController(manager: manager)
-        downloadsPanel = panel
+        let (manager, panel) = downloadsManagerAndPanel()
         guard let sidebar = window.sidebar, let topBar = window.topBar else { return }
         // §15.3's list is the whole of the downloads UI, and these two
         // buttons are the two places it stands. Same pop-out, two ends of the
@@ -42,28 +39,36 @@ extension AppDelegate {
         // §15.3's list belongs to the Space the page was in, so the file is
         // stamped with it as it starts rather than looked up later — by the time
         // it lands the user may be in the other Space.
-        panel.activeSpace = { [weak session] in session?.activeSpaceID }
         session.onDownload = { [weak manager, weak session] download in
-            manager?.begin(download, inSpace: session?.activeSpaceID)
+            manager?.begin(download, inSpace: session?.activeSpaceID, session: session)
+        }
+    }
+
+    /// The app's one manager and list, and the hooks that are the app's rather
+    /// than any one window's. Wired once: a hook set per window answers for
+    /// whichever window was wired last, which after `⌘⇧N` was the private one.
+    private func downloadsManagerAndPanel() -> (DownloadManager, DownloadsPanelController) {
+        if let downloads, let downloadsPanel { return (downloads, downloadsPanel) }
+        let manager = DownloadManager()
+        let panel = DownloadsPanelController(manager: manager)
+        downloads = manager
+        downloadsPanel = panel
+        panel.activeSpace = { [weak self] host in
+            self?.windows.first { $0.controller.window === host }?.activeSpaceID
         }
         // §5.0: the file leaves the page and lands on whichever Downloads
-        // button this layout is showing — unless it belongs to the Space next
-        // door, because a list that opens without the row it opened for is
-        // worse than no list at all.
-        manager.onBegin = { [weak self, weak session] item in
-            guard item.spaceID == session?.activeSpaceID else { return }
-            self?.announceDownload(item)
+        // button this layout is showing — unless the front window is showing
+        // another Space, because a list that opens without the row it opened
+        // for is worse than no list at all.
+        manager.onBegin = { [weak self] item in
+            guard let self, item.spaceID == front?.activeSpaceID else { return }
+            announceDownload(item)
         }
-        manager.onFinish = { [weak self, weak session] item in
-            guard item.spaceID == session?.activeSpaceID else { return }
-            self?.announceCompletion()
+        manager.onFinish = { [weak self] item in
+            guard let self, item.spaceID == front?.activeSpaceID else { return }
+            announceCompletion()
         }
-        // `WKDownload.webView` is weak and the originating tab may be cold, so
-        // a retry resumes through whichever tab is live now.
-        manager.webViewProvider = { [weak session] in
-            guard let session, let id = session.activeTabID else { return nil }
-            return session.controller(for: id)?.webView
-        }
+        return (manager, panel)
     }
 
     /// Where a download ends up, in the layout that is on screen: the button

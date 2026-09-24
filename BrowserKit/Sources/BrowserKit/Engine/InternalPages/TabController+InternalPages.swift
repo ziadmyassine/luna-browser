@@ -58,7 +58,7 @@ extension TabController {
             // who accepted http for this host once should not be asked on every link.
             // The blocked-page bypass stays one-shot — that is what `bypassedURL` is.
             if url.scheme?.lowercased() == "http", let host = url.host() {
-                ContentBlocker.shared.allowInsecure(host: host)
+                ContentBlocker.shared.allowInsecure(host: host, in: sitePermissions)
             }
             load(url)
         case .commandBar, .restore:

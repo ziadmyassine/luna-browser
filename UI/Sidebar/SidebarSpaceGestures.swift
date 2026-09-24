@@ -260,7 +260,7 @@ final class SidebarSpaceGestures: WindowScoped {
             gradient: target.gradient,
             icon: { [weak session] tab in
                 if let image = session?.favicon(for: tab.id) { return image }
-                guard let host = tab.url.host(), let data = FaviconService.shared.favicon(forHost: host)
+                guard let host = tab.url.host(), let data = session?.favicons.favicon(forHost: host)
                 else { return nil }
                 return NSImage(data: data)
             }

@@ -39,6 +39,7 @@ final class BrowserWindow {
     /// `isPrivate` means, so it is read from here rather than stored twice.
     let privateHome: URL?
     var isPrivate: Bool { privateHome != nil }
+    var activeSpaceID: UUID { session.activeSpaceID(inWindow: id) }
 
     var sidebar: SidebarViewController?
     var topBar: TopBarView?

@@ -24,11 +24,12 @@ extension ContentBlocker {
     /// for this. Measured against an http-only origin: both `.errorOnFailure` and
     /// `.userMediatedFallbackToHTTP` end the navigation at `about:blank` with `didFinish`
     /// and no delegate error at all — a blank tab, no hook, nothing to explain it with.
-    public func httpsDecision(for url: URL) -> HTTPSDecision {
+    public func httpsDecision(for url: URL, in scope: SitePermissions = .shared) -> HTTPSDecision {
         guard isHTTPSOnlyEnabled, url.scheme?.lowercased() == "http" else { return .proceed }
         guard let host = Self.normalise(url.host()) else { return .proceed }
         // A private address has no path to a certificate, so upgrading it only breaks it.
-        guard !insecureHosts.contains(host), !Self.isPrivateHost(host) else { return .proceed }
+        guard !insecureHosts.contains(host), !scope.insecureAllowed.contains(host), !Self.isPrivateHost(host)
+        else { return .proceed }
         var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
         components?.scheme = "https"
         guard let upgraded = components?.url else { return .proceed }
@@ -43,8 +44,13 @@ extension ContentBlocker {
 
     /// "Continue to the insecure site" — persisted in `siteSettings` beside the blocking
     /// exemption, because a user who said it once should not be asked on every link.
-    public func allowInsecure(host: String) {
+    /// A private window's answer stays in its own scope (§5.6).
+    public func allowInsecure(host: String, in scope: SitePermissions = .shared) {
         guard let host = Self.normalise(host) else { return }
+        guard !scope.isPrivate else {
+            scope.insecureAllowed.insert(host)
+            return
+        }
         insecureHosts.insert(host)
         let store = browserStore
         Task { try? await store?.setInsecureAllowed(true, host: host) }

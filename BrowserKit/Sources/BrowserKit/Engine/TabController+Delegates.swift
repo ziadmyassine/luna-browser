@@ -30,7 +30,9 @@ extension TabController: WKNavigationDelegate {
         // on, and re-scoping the rule lists for one would disable blocking for the
         // whole page.
         if navigationAction.targetFrame?.isMainFrame ?? false {
-            ContentBlocker.shared.apply(to: webView.configuration.userContentController, host: url.host())
+            ContentBlocker.shared.apply(
+                to: webView.configuration.userContentController, host: url.host(), scope: sitePermissions
+            )
             // §17.2. The rule lists above are swapped per navigation; the YouTube
             // script has to be too, and for the same reason — "disable blocking here"
             // has to mean here.
@@ -40,7 +42,7 @@ extension TabController: WKNavigationDelegate {
             // and no delegate error, so there is no hook to put an interstitial on.
             // Luna upgrades and cancels itself instead. `bypassedURL` is the user having
             // already said "continue anyway" on the downgrade page.
-            if case let .upgrade(upgraded) = ContentBlocker.shared.httpsDecision(for: url),
+            if case let .upgrade(upgraded) = ContentBlocker.shared.httpsDecision(for: url, in: sitePermissions),
                url != bypassedURL {
                 decisionHandler(.cancel)
                 load(upgraded)

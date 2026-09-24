@@ -27,7 +27,14 @@ public final class FaviconService {
     private var memory: [String: Data] = [:]
     private var recency: [String] = []
     private let memoryLimit: Int
-    private let directory: URL
+    /// Nil for a §5.6 private window's service: its icons live in memory and go
+    /// when the window does.
+    private let directory: URL?
+    /// Ephemeral with no cookie jar, so an icon fetch neither sends nor keeps
+    /// cookies and leaves nothing in `URLCache.shared`. `URLSession.shared` did
+    /// both, which in a private window wrote its sites to disk around the
+    /// non-persistent data store.
+    private let urlSession: URLSession
 
     /// Test seam: how many hosts the memory tier is holding.
     var memoryCount: Int { memory.count }
@@ -53,12 +60,17 @@ public final class FaviconService {
     /// vector is not an icon and the next candidate gets its turn.
     @MainActor public static var rasterize: (@MainActor (Data, Int) -> Data?)?
 
-    init(directory: URL = FaviconService.defaultDirectory, memoryLimit: Int = 128) {
+    /// - Parameter directory: where icons are kept between launches, or nil to
+    ///   keep them in memory only (§5.6).
+    public init(directory: URL? = FaviconService.defaultDirectory, memoryLimit: Int = 128) {
         self.directory = directory
         self.memoryLimit = memoryLimit
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.httpCookieStorage = nil
+        urlSession = URLSession(configuration: configuration)
     }
 
-    static var defaultDirectory: URL {
+    public static var defaultDirectory: URL {
         let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
             ?? URL.temporaryDirectory
         return caches
@@ -73,7 +85,7 @@ public final class FaviconService {
             touch(key)
             return cached.isEmpty ? nil : cached
         }
-        let onDisk = try? Data(contentsOf: fileURL(for: key))
+        let onDisk = fileURL(for: key).flatMap { try? Data(contentsOf: $0) }
         store(onDisk ?? Data(), for: key)
         return onDisk
     }
@@ -89,19 +101,23 @@ public final class FaviconService {
         if let fallback = URL(string: "https://\(key)/favicon.ico") { candidates.append(fallback) }
 
         for candidate in candidates {
-            guard let bytes = await Self.download(from: candidate) else { continue }
+            guard let bytes = await Self.download(from: candidate, using: urlSession) else { continue }
             // ImageIO first, the app's vector renderer second. The decode happens
             // here rather than inside the download because the seam is main-actor
             // bound and the download deliberately is not.
             guard let png = Self.png(from: bytes) ?? Self.rasterize?(bytes, Self.maxPixelSize)
             else { continue }
-            store(png, for: key)
-            let file = fileURL(for: key)
-            await Self.write(png, to: file)
+            await remember(png, for: key)
             return png
         }
         store(Data(), for: key)
         return nil
+    }
+
+    /// Internal so tests can check what reaches the disk.
+    func remember(_ png: Data, for key: String) async {
+        store(png, for: key)
+        if let file = fileURL(for: key) { await Self.write(png, to: file) }
     }
 
     // MARK: - Cache
@@ -120,9 +136,9 @@ public final class FaviconService {
     }
 
     /// Internal so tests can seed the disk tier.
-    func fileURL(for key: String) -> URL {
+    func fileURL(for key: String) -> URL? {
         let name = key.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? key
-        return directory.appending(path: name + ".png")
+        return directory?.appending(path: name + ".png")
     }
 
     // MARK: - Page + network (off the main actor)
@@ -155,8 +171,8 @@ public final class FaviconService {
 
     /// The candidate's bytes, whatever they turn out to be. Decoding is the caller's
     /// (see `fetchFavicon`); this only refuses what is not worth decoding.
-    private nonisolated static func download(from url: URL) async -> Data? {
-        guard let (data, response) = try? await URLSession.shared.data(from: url) else { return nil }
+    private nonisolated static func download(from url: URL, using session: URLSession) async -> Data? {
+        guard let (data, response) = try? await session.data(from: url) else { return nil }
         if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) { return nil }
         // An icon is kilobytes. Anything past this is a mislabelled page or a trap.
         guard !data.isEmpty, data.count <= 2_000_000 else { return nil }

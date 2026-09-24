@@ -19,7 +19,7 @@ class PopoutController: NSObject {
     private(set) var presented: PopoutPanelView?
     private var escapeMonitor: Any?
     private var clickMonitor: Any?
-    private weak var host: NSWindow?
+    private(set) weak var host: NSWindow?
 
     var isPresented: Bool { presented != nil }
 

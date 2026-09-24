@@ -63,6 +63,8 @@ final class TabListController: NSObject {
     /// A §6.6 lift is up, so the saved tier's rule is out whether or not
     /// anything is saved — see `SidebarList`'s header.
     private var isRevealingSaved = false
+    /// A private window's own (§5.6) — see `BrowserSession.icons`.
+    var icons = SidebarIcons.shared
     /// False in a §5.6 private window — see `BrowserSession.allowsPinning`.
     /// §3.4b's kept tier is then not a place a drop can land, so the rule stays
     /// away even under a lift.

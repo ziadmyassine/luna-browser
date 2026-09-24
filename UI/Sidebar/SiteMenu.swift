@@ -150,9 +150,10 @@ enum SiteMenu {
     /// §17.2's per-site exemption, read the way round a user thinks about it:
     /// the checkmark means blocking is on here, not that an exemption is.
     private static func blocking(host: String) -> NSMenuItem {
-        let on = !ContentBlocker.shared.isDisabled(forHost: host)
+        let scope = session?.sitePermissions ?? .shared
+        let on = !ContentBlocker.shared.isDisabled(forHost: host, in: scope)
         let item = SidebarMenu.item(title: String(localized: "Block Ads & Trackers")) {
-            ContentBlocker.shared.setDisabled(on, forHost: host)
+            ContentBlocker.shared.setDisabled(on, forHost: host, in: scope)
             reapplyRules(reload: true)
         }
         item.state = on ? .on : .off
@@ -166,9 +167,10 @@ enum SiteMenu {
         host: String,
         thenReload reload: Bool
     ) -> NSMenuItem {
-        let on = SitePermissions.shared.isAllowed(permission, forHost: host)
+        let scope = session?.sitePermissions ?? .shared
+        let on = scope.isAllowed(permission, forHost: host)
         let item = SidebarMenu.item(title: title) {
-            SitePermissions.shared.setAllowed(!on, permission, forHost: host)
+            scope.setAllowed(!on, permission, forHost: host)
             // Only the ones that change what the page may load. Picture-in-
             // Picture is read at the moment the tab is left, so re-loading the
             // page to apply it would throw away the video it is about.
@@ -229,7 +231,8 @@ enum SiteMenu {
         else { return }
         ContentBlocker.shared.apply(
             to: webView.configuration.userContentController,
-            host: webView.url?.host(percentEncoded: false)
+            host: webView.url?.host(percentEncoded: false),
+            scope: session.sitePermissions
         )
         if reload { webView.reload() }
     }

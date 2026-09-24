@@ -81,7 +81,7 @@ extension URLPillView {
         static func reading(_ text: String) -> LeadingMark {
             guard let url = CommandBarURL.direct(from: text) else { return .search }
             guard InternalPages.name(for: url) == nil else { return .search }
-            return SidebarIcons.favicon(for: url).map(LeadingMark.site) ?? .link
+            return SidebarIcons.shared.favicon(for: url).map(LeadingMark.site) ?? .link
         }
     }
 

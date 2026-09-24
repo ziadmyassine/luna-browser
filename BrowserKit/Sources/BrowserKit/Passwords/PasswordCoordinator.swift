@@ -188,7 +188,7 @@ public final class PasswordCoordinator {
         guard let tab, let url = webView.url, let site = PublicSuffix.siteKey(forHost: url.host()) else { return }
         // "Never for this site" (§14.4), in the same `siteSettings` row every
         // other per-site answer lives in.
-        guard SitePermissions.shared.isAllowed(.savePasswords, forHost: url.host()) else { return }
+        guard tab.sitePermissions.isAllowed(.savePasswords, forHost: url.host()) else { return }
 
         Task { [weak self] in
             let existing = await CredentialStore.shared.credentials(forSite: site)
@@ -224,7 +224,9 @@ public final class PasswordCoordinator {
     /// comes back for this host (§14.4, §11.1).
     public func declineForever(_ request: PasswordSaveRequest) {
         pendingSave = nil
-        SitePermissions.shared.setAllowed(false, .savePasswords, forHost: request.site)
+        // No tab, no way to tell a private window's answer from a normal one's —
+        // and dropping it is the direction that leaks nothing.
+        tab?.sitePermissions.setAllowed(false, .savePasswords, forHost: request.site)
     }
 
     public func dismissSave() { pendingSave = nil }
