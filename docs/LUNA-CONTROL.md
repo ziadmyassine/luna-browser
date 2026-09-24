@@ -5,8 +5,7 @@ the [Model Context Protocol](https://modelcontextprotocol.io): open tabs, read
 pages, click, type, fill forms, take screenshots and run JavaScript. It works
 with any MCP client. No client is special-cased.
 
-It is **off by default**. Turn it on in Settings → Advanced → *Allow apps to
-control Luna*.
+It is **off by default**. Turn it on in Settings → Luna Control.
 
 ## How it fits together
 
@@ -29,21 +28,63 @@ MCP client ──stdio──▶ Luna.app/Contents/MacOS/luna-control ──Unix 
 
 ## Setup
 
-Claude Code:
+1. **Turn it on.** Settings → Luna Control → *Allow apps to control Luna*.
+2. **Click Connect** beside your app under *Connect an app*. Luna adds itself
+   to that app's MCP config, keeps every other server in it, and saves the
+   file as it was next to it as `<file>.luna-backup`. Nothing is written
+   until you press the button, and Disconnect removes only Luna's entry.
+   For Claude Code the button copies a command instead: paste it into
+   Terminal.
+3. **Restart the app** if its row says so. Claude Desktop, Codex and Claude
+   Code read their config when they start (in Claude Code, a new session is
+   enough). In Cursor or VS Code, reload the window if Luna's tools do not
+   show up.
+4. **Try it.** Ask the app something like *"Use Luna to open news.ycombinator.com
+   and tell me the top three stories."* The tabs it opens appear in a sidebar
+   folder named after it, and its row in Settings shows *in use now*.
+
+The app's row shows *Not installed* when none of its usual folders exist.
+That is a guess from the files on disk: if yours lives somewhere else, use
+the manual setup below.
+
+### Manual setup
+
+Each app's own documented format. The helper path is
+`/Applications/Luna.app/Contents/MacOS/luna-control`; a development build's is
+`DerivedData/Build/Products/Debug/Luna.app/Contents/MacOS/luna-control`.
+
+**Claude Code** ([docs](https://code.claude.com/docs/en/mcp)), stored in
+`~/.claude.json`:
 
 ```sh
-claude mcp add luna -- /Applications/Luna.app/Contents/MacOS/luna-control
+claude mcp add --scope user luna -- /Applications/Luna.app/Contents/MacOS/luna-control
+claude mcp remove luna --scope user
 ```
 
-Codex:
+**Codex** ([docs](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)),
+`~/.codex/config.toml`:
 
-```sh
-codex mcp add luna -- /Applications/Luna.app/Contents/MacOS/luna-control
+```toml
+[mcp_servers.luna]
+command = "/Applications/Luna.app/Contents/MacOS/luna-control"
 ```
 
-Cursor (`~/.cursor/mcp.json`) and Claude Desktop
-(`~/Library/Application Support/Claude/claude_desktop_config.json`) take the
-same entry:
+or `codex mcp add luna -- /Applications/Luna.app/Contents/MacOS/luna-control`.
+
+**Cursor** ([docs](https://cursor.com/docs/context/mcp)), `~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "luna": { "type": "stdio", "command": "/Applications/Luna.app/Contents/MacOS/luna-control" }
+  }
+}
+```
+
+**Claude Desktop**
+([docs](https://modelcontextprotocol.io/docs/develop/connect-local-servers)),
+`~/Library/Application Support/Claude/claude_desktop_config.json`, then quit
+and reopen Claude:
 
 ```json
 {
@@ -53,8 +94,25 @@ same entry:
 }
 ```
 
-A development build's helper is at
-`DerivedData/Build/Products/Debug/Luna.app/Contents/MacOS/luna-control`.
+**VS Code**
+([docs](https://code.visualstudio.com/docs/copilot/customization/mcp-servers)),
+`~/Library/Application Support/Code/User/mcp.json` (*MCP: Open User
+Configuration*). Note the key is `servers`:
+
+```json
+{
+  "servers": {
+    "luna": { "type": "stdio", "command": "/Applications/Luna.app/Contents/MacOS/luna-control" }
+  }
+}
+```
+
+Luna's Connect edits the default profile's file. A VS Code profile of your
+own keeps its own `mcp.json`, and a file with comments in it is left alone
+rather than rewritten; add the entry by hand in either case.
+
+**Any other MCP client**: most take the Claude Desktop entry above. *Other
+apps* in Settings copies it.
 
 ## What the agent sees
 
