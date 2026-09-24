@@ -42,6 +42,6 @@
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSPrincipalClass</key>
-	<string>NSApplication</string>
+	<string>Luna.LunaApplication</string>
 </dict>
 </plist>

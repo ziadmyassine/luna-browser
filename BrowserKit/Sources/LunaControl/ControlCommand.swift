@@ -22,9 +22,17 @@ public enum ControlCommand: Sendable, Equatable {
     case readPage(interactiveOnly: Bool, ref: String?, maxDepth: Int)
     case pageText
     case find(String)
-    case click(Target, clickCount: Int)
-    case type(String, ref: String?)
-    case key(String)
+    /// `trusted` false forces the DOM events a page can tell from a person's;
+    /// true goes through the stage when the tab can be staged (`ControlStage`).
+    case click(
+        Target, clickCount: Int, button: MouseButton = .left, modifiers: ControlInput.Modifiers = [], trusted: Bool = true
+    )
+    case type(String, ref: String?, trusted: Bool = true)
+    /// Space-separated presses, the whole run `repeat` times.
+    case key(String, repeat: Int = 1, trusted: Bool = true)
+    /// Page events only: WebKit turns no moved event into a hover on the stage.
+    case hover(Target)
+    case drag(from: Target, to: Target, trusted: Bool = true)
     case scroll(ScrollDirection, amount: Int, target: Target?)
     case fill(ref: String, value: JSONValue)
     case screenshot
@@ -62,6 +70,10 @@ public enum ControlCommand: Sendable, Equatable {
     public enum UploadSource: Sendable, Equatable {
         case data(ControlUpload.File)
         case path(String)
+    }
+
+    public enum MouseButton: String, Sendable {
+        case left, right, middle
     }
 }
 
@@ -102,11 +114,16 @@ extension ControlCall {
             )
         case "page_text": return .pageText
         case "find": return .find(try args.required("query"))
-        case "click":
-            guard let target = args.target() else { throw ControlError("Give a ref from read_page or find, or x and y.") }
-            return .click(target, clickCount: min(max(args.int("click_count") ?? 1, 1), 3))
-        case "type": return .type(try args.required("text"), ref: args.string("ref"))
-        case "key": return .key(try args.required("key"))
+        case "click": return try click(args)
+        case "type": return .type(try args.required("text"), ref: args.string("ref"), trusted: args.trusted)
+        case "key":
+            let keys = try args.required("key")
+            for combo in keys.split(separator: " ") { _ = try ControlInput.key(String(combo)) }
+            return .key(keys, repeat: min(max(args.int("repeat") ?? 1, 1), 50), trusted: args.trusted)
+        case "hover":
+            guard let target = args.target() else { throw ControlError("Give a ref from read_page or find, or a coordinate.") }
+            return .hover(target)
+        case "drag": return try drag(args)
         case "scroll":
             let raw = args.string("direction") ?? "down"
             guard let direction = ControlCommand.ScrollDirection(rawValue: raw) else {
@@ -164,6 +181,24 @@ extension ControlCall {
         }
     }
 
+    private static func click(_ args: Arguments) throws -> ControlCommand {
+        guard let target = args.target() else { throw ControlError("Give a ref from read_page or find, or x and y.") }
+        guard let button = ControlCommand.MouseButton(rawValue: args.string("button") ?? "left") else {
+            throw ControlError("button must be left, right or middle.")
+        }
+        return .click(
+            target, clickCount: min(max(args.int("click_count") ?? 1, 1), 3), button: button,
+            modifiers: try ControlInput.modifiers(args.string("modifiers") ?? ""), trusted: args.trusted
+        )
+    }
+
+    private static func drag(_ args: Arguments) throws -> ControlCommand {
+        guard let from = args.target(ref: "ref", point: "start_coordinate", xy: false),
+              let to = args.target(ref: "to_ref", point: "coordinate", xy: false)
+        else { throw ControlError("Give where to start (ref or start_coordinate) and where to drop (to_ref or coordinate).") }
+        return .drag(from: from, to: to, trusted: args.trusted)
+    }
+
     private static func navigation(_ raw: String) throws -> ControlCommand.Navigation {
         switch raw.lowercased() {
         case "back": .back
@@ -205,12 +240,15 @@ private struct Arguments {
         return value
     }
 
+    var trusted: Bool { values["trusted"]?.bool ?? true }
+
     /// `ref`, or `x` and `y`, or `coordinate` as `[x, y]` — the shape agents
-    /// written against other browsers send.
-    func target() -> ControlCommand.Target? {
-        if let ref = string("ref"), !ref.isEmpty { return .ref(ref) }
-        if let x = values["x"]?.double, let y = values["y"]?.double { return .point(x: x, y: y) }
-        if case let .array(pair)? = values["coordinate"], pair.count == 2,
+    /// written against other browsers send. `drag` reads its two ends under
+    /// other keys, and not `x`/`y`, which could only name one of them.
+    func target(ref refKey: String = "ref", point pointKey: String = "coordinate", xy: Bool = true) -> ControlCommand.Target? {
+        if let ref = string(refKey), !ref.isEmpty { return .ref(ref) }
+        if xy, let x = values["x"]?.double, let y = values["y"]?.double { return .point(x: x, y: y) }
+        if case let .array(pair)? = values[pointKey], pair.count == 2,
            let x = pair[0].double, let y = pair[1].double {
             return .point(x: x, y: y)
         }

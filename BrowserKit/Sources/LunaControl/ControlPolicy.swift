@@ -176,19 +176,20 @@ public enum ControlPolicy {
 extension ControlCommand {
 
     /// Whether the call can change something beyond the agent's own view of
-    /// the page: a navigation, input, script. Reading, scrolling, a
-    /// screenshot and waiting cannot, and never ask.
+    /// the page: a navigation, input, script. Reading, scrolling, hovering,
+    /// a screenshot and waiting cannot, and never ask.
     ///
     /// A blank tab loads nothing, and `tab_close` is already limited to the
     /// agent's own folder, so neither asks either.
     public var acts: Bool {
         switch self {
-        case .listTabs, .readPage, .pageText, .find, .scroll, .screenshot, .console, .network, .wait, .closeTab, .requestUser: false
+        case .listTabs, .readPage, .pageText, .find, .scroll, .hover, .screenshot, .console, .network, .wait, .closeTab,
+             .requestUser: false
         case let .openTab(url): url != nil
         // Dismissing is what the dialog's timeout does anyway; accepting may
         // be the "Are you sure?" of whatever the page is about to do.
         case let .dialog(accept, _): accept
-        case .navigate, .click, .type, .key, .fill, .javascript, .upload: true
+        case .navigate, .click, .type, .key, .drag, .fill, .javascript, .upload: true
         }
     }
 

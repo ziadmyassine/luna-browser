@@ -272,11 +272,13 @@ extension ControlService {
         }
     }
 
-    /// An agent's own tab that the user has selected is theirs until they
-    /// leave it: typing into a page someone is looking at is a collision.
+    /// An agent's own tab that the user has selected, or has on screen in
+    /// a split, is theirs until they leave it: typing into a page someone is
+    /// looking at is a collision.
     private func isTakenOver(_ id: UUID, by client: ControlClient, in session: BrowserSession) -> Bool {
-        guard session.activeTabID == id, let folder = folders[client.displayName] else { return false }
-        return session.tab(id)?.groupID == folder
+        guard let folder = folders[client.displayName], session.tab(id)?.groupID == folder else { return false }
+        let window = session.controller(for: id)?.webView?.window
+        return session.activeTabID == id || (window != nil && !(window is ControlStageWindow))
     }
 
     /// The client's folder, made now if a request needs somewhere to wait.

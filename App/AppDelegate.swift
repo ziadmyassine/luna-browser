@@ -28,7 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Everything before this line is dyld, the Swift runtime and the ObjC
         // class registry — see `LaunchTrace.sinceExec`.
         LaunchTrace.mark("main")
-        let app = NSApplication.shared
+        let app = LunaApplication.shared
         let delegate = AppDelegate()
         // `NSApplication.delegate` is weak and nothing else owns us.
         app.delegate = delegate
