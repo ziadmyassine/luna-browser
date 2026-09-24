@@ -17,6 +17,8 @@ final class TopBarTabRenameTests: XCTestCase {
 
     private var directory: URL!
     private var window: NSWindow?
+    private var presents = 0
+    private var drained: [String] = []
 
     override func setUp() async throws {
         directory = URL.temporaryDirectory.appending(path: "luna-rename-\(UUID().uuidString)")
@@ -62,7 +64,10 @@ final class TopBarTabRenameTests: XCTestCase {
         window.contentView = NSView(frame: window.contentLayoutRect)
         self.window = window
         let bar = CommandBarController(session: session, windowID: windowID, adaptive: AdaptiveHistory(store: store))
-        session.setCommandBar({ mode, anchor in bar.present(mode, in: window, from: anchor) }, inWindow: windowID)
+        session.setCommandBar({ [weak self] mode, anchor in
+            self?.presents += 1
+            bar.present(mode, in: window, from: anchor)
+        }, inWindow: windowID)
         let top = TopBarView(session: session, windowID: windowID)
         let content = try XCTUnwrap(window.contentView)
         top.frame = NSRect(
@@ -78,12 +83,9 @@ final class TopBarTabRenameTests: XCTestCase {
         // A mouse-up an earlier test posted and never read ends this click's
         // tracking loop instead of its own, somewhere off the tab, so the
         // click is no click. It went red on CI and not locally.
-        while NSApp.nextEvent(
-            matching: [.leftMouseDown, .leftMouseUp, .leftMouseDragged],
-            until: .distantPast,
-            inMode: .default,
-            dequeue: true
-        ) != nil {}
+        while let event = NSApp.nextEvent(matching: .any, until: .distantPast, inMode: .default, dequeue: true) {
+            drained.append("\(event.type.rawValue) in \(event.windowNumber) vs \(window.windowNumber)")
+        }
         return Fixture(bar: bar, id: tab.id, row: row, window: window)
     }
 
@@ -148,6 +150,8 @@ final class TopBarTabRenameTests: XCTestCase {
             "window \(tab.window.frame) key \(tab.window.isKeyWindow) app active \(NSApp.isActive)",
             "row \(tab.row.convert(tab.row.bounds, to: nil)) in a window \(tab.row.window != nil)",
             "strip \(strip != nil) active \(active == tab.id) (\(String(describing: active)))",
+            "presents \(presents) drained \(drained)",
+            "first responder \(String(describing: tab.window.firstResponder))",
             "queued up \(queued.map { "\($0.locationInWindow)" } ?? "none")"
         ].joined(separator: "; ")
     }
