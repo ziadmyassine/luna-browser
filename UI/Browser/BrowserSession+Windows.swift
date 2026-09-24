@@ -121,6 +121,7 @@ extension BrowserSession {
     /// what to do with an empty one.
     func openWindow(_ window: UUID) {
         windowFocus[window] = WindowFocus(spaceID: activeSpaceID)
+        extensions?.sync()
     }
 
     /// Forgets a window that has closed. Its pages are not torn down here —
@@ -129,6 +130,7 @@ extension BrowserSession {
         windowFocus[window] = nil
         commandBarByWindow[window] = nil
         urlFieldByWindow[window] = nil
+        defer { extensions?.sync() }
         guard window == keyWindowID, let next = windowFocus.keys.first else { return }
         keyWindowID = next
     }

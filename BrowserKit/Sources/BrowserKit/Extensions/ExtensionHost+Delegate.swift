@@ -9,11 +9,13 @@ extension ExtensionHost: WKWebExtensionControllerDelegate {
     // MARK: - Windows and tabs
 
     /// Without this and the next, `tabs.query({})` answers with nothing (§2, Ora).
+    /// WebKit wants the focused window first.
     public func webExtensionController(
         _ controller: WKWebExtensionController,
         openWindowsFor extensionContext: WKWebExtensionContext
     ) -> [any WKWebExtensionWindow] {
-        snapshot.windows.map(windowAdapter)
+        let focused = snapshot.focused.map { [$0] } ?? []
+        return (focused + snapshot.windows.filter { $0 != snapshot.focused }).map(windowAdapter)
     }
 
     public func webExtensionController(

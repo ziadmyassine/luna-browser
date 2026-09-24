@@ -70,13 +70,17 @@ final class ProfileStore {
         // path, so even calling `remove(forIdentifier:)` would fail there forever.
         live[space.id] = nil
         await remover.remove(space.dataStoreIdentifier)
+        await remover.remove(ExtensionHost.backgroundStoreIdentifier(forSpaceStore: space.dataStoreIdentifier))
     }
 
     /// Deletes every store on disk that no live Space names. Call at launch.
     ///
     /// Cheap, because WebKit is the registry (§3.1): a delete that failed
     /// yesterday is still listed today, so orphan recovery costs one diff.
+    ///
+    /// A live Space's extension background store (§16.1) is kept with it.
     func sweepOrphans(keeping live: Set<UUID>) async {
-        await remover.sweepOrphans(keeping: live)
+        let backgrounds = live.map(ExtensionHost.backgroundStoreIdentifier(forSpaceStore:))
+        await remover.sweepOrphans(keeping: live.union(backgrounds))
     }
 }

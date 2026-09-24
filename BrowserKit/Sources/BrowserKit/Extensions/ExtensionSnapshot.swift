@@ -7,7 +7,9 @@ import Foundation
 /// still in `tabs` (docs/EXTENSIONS.md §3.6), so going cold is not a close.
 struct ExtensionSnapshot: Equatable {
 
-    /// Browser windows standing in this Space, the focused one first.
+    /// Browser windows standing in this Space, in the browser's stable order.
+    /// Not focus order: the first holds the tabs, and focus moving between
+    /// two windows in one Space must not move every tab with it.
     var windows: [UUID] = []
     /// The window with keyboard focus, if it stands in this Space.
     var focused: UUID?

@@ -24,7 +24,11 @@ extension BrowserSession {
     /// does, and only `activateTab` / `webView(for:)` call it.
     func ensureController(for tab: Tab) -> TabController {
         if let existing = controllers[tab.id] { return existing }
-        let controller = TabController(id: tab.id, dataStore: dataStore(forSpace: tab.spaceID))
+        let controller = TabController(
+            id: tab.id,
+            dataStore: dataStore(forSpace: tab.spaceID),
+            webExtensionController: extensionController(forSpace: tab.spaceID)
+        )
         controller.delegate = self
         relayScrollProgress(of: controller)
         controller.restore(interactionState: tab.interactionState, fallbackURL: tab.url)
@@ -108,7 +112,13 @@ extension BrowserSession {
         // Newest-first, like any other new tab — a popup that opened off the
         // bottom of the scroll would be the one tab the user cannot see.
         persistAll(list.insert(child, at: openIndex(for: .today)))
-        let controller = TabController(id: child.id, dataStore: dataStore(forSpace: spaceID))
+        // The popup's configuration already carries the controller; this one
+        // is for the view the tab builds after it has been hibernated.
+        let controller = TabController(
+            id: child.id,
+            dataStore: dataStore(forSpace: spaceID),
+            webExtensionController: extensionController(forSpace: spaceID)
+        )
         controller.delegate = self
         relayScrollProgress(of: controller)
         controllers[child.id] = controller

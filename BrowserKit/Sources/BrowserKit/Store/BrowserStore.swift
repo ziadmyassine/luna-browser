@@ -49,7 +49,12 @@ public actor BrowserStore {
         var spaceID: UUID?
     }
 
+    /// The folder the database is in. What else Luna keeps on disk beside it
+    /// (§16's extensions) goes here, so a test's throwaway store takes it along.
+    public nonisolated let directory: URL
+
     public init(path: URL) throws {
+        directory = path.deletingLastPathComponent()
         try FileManager.default.createDirectory(
             at: path.deletingLastPathComponent(),
             withIntermediateDirectories: true

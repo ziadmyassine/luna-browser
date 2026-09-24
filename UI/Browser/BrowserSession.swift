@@ -142,12 +142,14 @@ final class BrowserSession {
         // selection has already moved by the time anything is told about it.
         handOffPictureInPicture(to: activeTabID)
         onChange?()
+        extensions?.sync()
         // Snapshot: an observer may unregister itself from inside its callback.
         for observer in Array(changeObservers.values) { observer() }
     }
 
     func notifyTabState(_ id: UUID, _ state: TabState) {
         onTabStateChange?(id, state)
+        extensions?.tabDidChange(id, state: state)
         for observer in Array(tabStateObservers.values) { observer(id, state) }
     }
 
@@ -221,6 +223,9 @@ final class BrowserSession {
     let isPrivate: Bool
     let store: BrowserStore
     let profileStore = ProfileStore()
+    /// §16's extensions: one controller per Space. Nil in a private session,
+    /// where no extension runs, as in Chrome's incognito by default.
+    private(set) var extensions: ExtensionManager?
     /// §5.6's one jar, shared by every Space in a private session. One rather
     /// than one each: the Spaces in such a window are a throwaway list in a
     /// throwaway database, and two in-memory jars would be two of a thing that
@@ -334,6 +339,14 @@ final class BrowserSession {
         // schema migration: the fix is a folder and a run of `groupID`s, which
         // is this layer's arithmetic and not SQLite's.
         session.enfoldLooseSavedTabs()
+        if !isPrivate {
+            let extensions = ExtensionManager(
+                store: store,
+                library: ExtensionLibrary(root: store.directory.appending(path: "Extensions", directoryHint: .isDirectory))
+            )
+            extensions.browser = session
+            session.extensions = extensions
+        }
         return session
     }
 

@@ -5,8 +5,8 @@ import WebKit
 /// is the implementation; the host lives here so it can be tested without one.
 @MainActor
 public protocol ExtensionBrowser: AnyObject {
-    /// The browser windows standing in `space`, the focused one first, and
-    /// which of them has keyboard focus, if any does.
+    /// The browser windows standing in `space`, in an order that does not
+    /// change while they stay, and which of them has keyboard focus, if any does.
     func extensionWindows(inSpace space: UUID) -> (ids: [UUID], focused: UUID?)
     /// The tabs extensions may see in `space`, in list order. Hibernated tabs
     /// are included; a saved row whose page has been closed is not.

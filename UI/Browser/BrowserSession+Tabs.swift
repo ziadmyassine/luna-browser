@@ -408,6 +408,7 @@ extension BrowserSession {
     /// WebContent processes die while AppKit is still up.
     func tearDown() {
         for id in controllers.keys { discardController(id) }
+        extensions?.tearDown()
     }
 
     /// Records a tab's mutation in memory and on disk. Every write goes through
