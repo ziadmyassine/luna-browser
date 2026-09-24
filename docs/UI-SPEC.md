@@ -60,7 +60,7 @@ sidebar's own content reflows. The ratios exist to fix proportions once, not to 
 | `contentCardGap` | **gone** — the page is flush (§3.6) | 8 pt |
 | `panelInset` (Command Bar, downloads list) | 8 pt | was `contentCardGap` |
 | `topBarHeight` | 52 pt | — |
-| `sidebarPeekEdge` (§3.8 hover-peek trigger strip) | 44 pt | 24, and 4 before that |
+| `sidebarPeekEdge` (§3.8 hover-peek trigger strip) | 4 pt, and 1 pt in fullscreen (`sidebarPeekEdgeFullScreen`) | 44, 24, and 4 before that |
 | `dragThreshold` (§6.6, press → lift) | 4 pt | — |
 | `historyPanel` (§3.5's History **pop-out**) | 320 × 420 (a ceiling) | 640 × 520 |
 | `downloadsPanel` (§15.3's list, the same pop-out) | 360 × 340 (a ceiling) | was an `NSPanel` |
@@ -668,12 +668,16 @@ column closes up over the pill's own 34 pt.
   what turned `apple.com` into `apple.c…`. It keeps the open pill's width instead, which puts the
   question out of reach: the open pill has a glyph to clear that the collapsed one does not, so the
   collapsed one has strictly more room than the address it is showing needs.
-- **The bar stands above the page, not over it.** It takes the site's own colour, so laid on top it
-  merged with the document's top edge and hid whatever the document had put there. The page starts
-  below the band instead, in both states — which makes the 22 pt between them a real change of height,
-  and the page reflows for it. That is affordable because it is rare: the bar changes state at most
-  once per reversal of scroll direction, never once per frame, and the page's animation runs on the
-  same `sidebarCollapse` spec so the two arrive together.
+- **The page runs under the bar, and WebKit is told how much of it is covered.** The web view fills
+  the pane and `obscuredContentInsets` (macOS 26) shrinks its viewport to start below the band, so
+  the document's top edge is never hidden and nothing is laid on top of it. The page used to start
+  below the band as a frame instead, and the 22 pt between the two states was animated on the web
+  view's top edge: resized a frame at a time, the page redrew late and bobbed, and on the way open the
+  pane's grey showed between the bar and a page that had not caught up (2026-09-24). A change of inset
+  still moves the content by the difference, so the page is scrolled by the same amount in the same
+  turn and stays still — except when the bar opens at the top of a document, where the bar pushing
+  the page down is the page making room. Anything that places itself from page coordinates adds the
+  covered height back: the password picker does.
 - **The page decides which state.** At the top of a document the bar is open; once the page has
   scrolled `pageBarScrollSlack` past where the bar last answered, it collapses to the thin strip of
   site colour with the domain in it. Scrolling back up by the same slack, reaching the top, or arriving
@@ -1663,9 +1667,10 @@ left — so nobody's chrome moves who has not asked for it to.
 
 ### 3.8 Hover-peek — the hidden sidebar
 
-With the sidebar hidden, pushing the pointer into the window's leading **44 pt** brings it back **over**
-the page after §6's 0.10 s intent delay, and lets it go again 0.10 s after the pointer leaves both the
-strip and the sidebar itself.
+With the sidebar hidden, pushing the pointer into the window's leading **4 pt**, or anywhere past that
+edge outside the window, brings it back **over** the page after §6's 0.10 s intent delay, and lets it
+go again 0.10 s after the pointer leaves the strip, the space past it, and the sidebar itself. In
+fullscreen the strip is the screen's edge (1 pt), and going up to the menu bar brings it out too.
 
 **The strip starts below §3.2b's band.** The top `pageBar` points of that edge do not peek, because with
 the sidebar hidden that corner is where §3.2b puts the sidebar toggle — and a strip that ran the full
@@ -1673,11 +1678,13 @@ height pulled the sidebar out from under the pointer on its way to that button. 
 column's width to the right, the pointer followed it off the strip, the peek closed, and the button went
 back: it could not be hit at all.
 
-> **It was 4 pt, then 24, and both meant aiming.** A *screen* edge can be one point wide because the
-> pointer piles up against it; a window edge has nothing to stop the pointer. The gesture is "shove the
-> mouse over to the left", which lands somewhere in the first inch, and 44 pt is about the width of that
-> shove. Nothing is spent on it: the strip never takes a click (its `hitTest` returns nil, so the page
-> keeps every event), and the intent delay is what keeps a wide strip from firing on the way past.
+> **Dia's reach, measured 2026-09-24.** It was 4 pt, then 24, then 44, because a strip inside a
+> window edge has to be aimed at. 44 slid the sidebar out over controls near the page's edge. Hovering
+> Dia with its sidebar hidden showed it opens within 3.5 pt of its window's edge and anywhere past it,
+> outside the window — so shoving the mouse left cannot overshoot, and the strip can be narrow. The
+> window's edge is watched as well as the strip, because a quick move steps over 4 pt without landing
+> in it. The menu bar in fullscreen is read from the pointer every 0.10 s, only while fullscreen with
+> the sidebar hidden: macOS's own menu bar slides over any strip of Luna's at the top.
 
 - **The page does not move.** Only the chrome's leading constraint and its opacity animate; the card's
   insets stay collapsed, so nothing reflows for a glance at the tab list.
@@ -1711,7 +1718,8 @@ back: it could not be hit at all.
 
 One 52 pt glass bar spanning the window, and **§3.2b's page bar under it** — the same bar the sidebar
 layout puts on the page when the search bar is "On the page": the sidebar button, back and forward, and
-the address pill with site settings and reload. The page starts below both.
+the address pill with site settings and reload. The page starts below the top bar and runs under the
+page bar (§3.2b).
 
 `[lights] [Space · kept tabs · kept folders] [open tabs …] [open folders] [|] [capsule]`
 > **The bar has no address and no back of its own.** The page bar under it carries both, and two back

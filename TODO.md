@@ -282,6 +282,7 @@ luna/
   > **Checked 2026-09-24: built.** Width range is 250–420, not 180–420
 - [x] **7.2 Collapse + hover-peek**: `⌘S` collapses to a ~48 px rail (or fully hidden); hovering the left window edge slides the sidebar over the content as a floating panel with a shadow, after a ~0.1 s intent delay, with a ~0.15–0.2 s ease-out reveal. It must **not** trigger while the pointer is merely travelling to the traffic lights.
   > **Checked 2026-09-24: built.** `UI/Window/SidebarPeek.swift`
+  > **Changed 2026-09-24: Dia's reach, measured** (§32a). The 44 pt strip slid the sidebar out over controls near the page's edge. Hovering Dia with its sidebar hidden showed it opens within 3.5 pt of the window's edge (not at 4) and anywhere past the edge, outside the window. Luna now does the same: a 4 pt strip, plus the pointer leaving the window across that edge — watched on the whole window, because a quick move steps over a 4 pt strip. In fullscreen only the screen's edge (1 pt), and going up to the menu bar brings the sidebar out too; that is read from the pointer 10 times a second while fullscreen with the sidebar hidden (0.17 µs a check, measured), because macOS's own menu bar covers any strip of Luna's at the top.
 - [ ] **7.3 Row design**: favicon, title (single line, truncating), close/archive affordance on hover, audio-playing indicator + click-to-mute, loading shimmer, unread/updated dot.
   > **Checked 2026-09-24: partly built.** Favicon, title, close on hover, sound, loading shimmer. Missing: nothing sets "unread", so the unread dot never shows.
 - [x] **7.4 Selection & keyboard**: full arrow-key navigation, type-ahead, `⌘⌥←/→` to move between tabs, `⌘W` closes (archives) the current tab, `⌘⇧K` archives all Today tabs.
@@ -662,7 +663,7 @@ luna/
 ## 24. Quality, release & operations
 
 - [ ] **24.1 Testing**: unit tests on frecency, hibernation policy, URL parsing/canonicalisation, blocklist conversion, traffic-light layout. UI tests for launch → command bar → navigate → split → quit → restore. A manual **Top-100-sites compat matrix** re-run each milestone (this is how we catch WebKit-vs-Chrome breakage).
-  > **Checked 2026-09-24: partly built.** Unit tests for frecency, hibernation, URLs, blocking, traffic lights, tab switcher, history ranking, links from other apps (958 tests). Missing: UI test target, top-100 sites check.
+  > **Checked 2026-09-24: partly built.** Unit tests for frecency, hibernation, URLs, blocking, traffic lights, tab switcher, history ranking, links from other apps, page bar, sidebar peek (965 tests). Missing: UI test target, top-100 sites check.
 - [ ] **24.2 Crash reporting** — Sentry or a self-hosted alternative; **opt-in**, with scrubbed URLs (never send full URLs or page content).
 - [x] **24.3 Telemetry — DECIDED 2026-09-17: there is none.** No analytics, opt-in or otherwise (D16). §24.2 crash reporting stays, opt-in and URL-scrubbed. Settings should say "Luna collects no usage data" and mean it literally. This is a marketing asset and a maintenance saving at the same time.
   > **Checked 2026-09-24: partly built.** No analytics code, as decided. Missing: the Settings copy saying Luna collects no usage data.
@@ -722,6 +723,7 @@ Keep this table current. Every entry is a thing a Chromium-based project would g
 | `NSGlassEffectView.tintColor` **ignores hue on `.regular`** | Red, blue, yellow and white at the same alpha render byte-identically; only alpha is read | `Surface.glassTint`'s light/dark flip buys nothing on any chrome plane — decide whether it is worth keeping (`SETTINGS-SPEC.md` §7.2) |
 | `NSGlassEffectView` **cannot be captured offscreen** | `cacheDisplay` returns fully transparent, so no automated visual regression test of glass | Measure from real screen captures |
 | **Key-equivalent search stops at the first match** and swallows the event *even when that item is disabled* | You cannot win a shortcut by disabling the earlier claimant | Claim it on the key window's responder chain instead (§23.1's `⌘1…⌘9`) |
+| **WebKit renders page updates near 60 fps on a 120 Hz display** | Page animations run at half the rate of Luna's own chrome — measured 2026-09-24 on a ProMotion MacBook: 60.8 fps in a visible tab, 120.5 for Luna's animation clock | Safari's default too ("Prefer Page Rendering Updates near 60fps"). Lifting it needs WebKit SPI and costs battery; not done, Martin decides |
 | **No notification when the default browser changes** | A "Luna is your default browser" line goes stale silently | Refresh on the completion handler *and* on `didBecomeActiveNotification` |
 | `FileManager.isWritableFile(atPath:)` **is not a writability check** | Reads POSIX mode bits only; answers true for TCC-protected `~/Desktop` and `~/Documents`, then the write fails | Create and delete a dot-file — the only check that agrees with what the download does |
 | **iCloud Passwords helper is allowlisted** to known browsers by signing/team ID (macOS 15.4+) | Apple's own extension can never work in Luna | Write synchronizable items straight into iCloud Keychain instead (§14.2); bridge third-party managers (§14.7) |
@@ -872,6 +874,7 @@ Transcribed from the reference captures in `inspiration/`. These are **observed 
 - [x] **30.25 Reading band** — the selected tab shows how far the page has been read, in the sidebar and on the top bar. `RowPillView.swift`, `TabController+Scroll.swift` (UI-SPEC §3.4).
 - [x] **30.26 Load line** — page-load progress under the chrome. `UI/Browser/LoadProgressLine.swift` (UI-SPEC §3.2c).
 - [x] **30.27 Page bar** — the address, back and reload over the page, in either layout. `UI/Browser/PageChromeBar.swift` (UI-SPEC §3.2b).
+  > **Fixed 2026-09-24: the page bobbed and a grey strip showed when the bar opened or closed.** The web view's top edge was animated with the bar, so the page was resized a frame at a time and redrew late, and the pane's grey showed through while it caught up. The page now runs under the bar and WebKit is told how much is covered (`obscuredContentInsets`, macOS 26), with a scroll by the same amount so the content stays still — except when the bar opens at the top of a document. The password picker adds the covered height back when it points at a field.
 - [x] **30.28 Tabs position** — Left / Centre / Right for the top bar's tabs. Settings ▸ Appearance (UI-SPEC §3.9).
 - [x] **30.29 Chrome density** — Clear / Opaque glass. `Design/GlassDensity.swift` (UI-SPEC §2a).
 
@@ -944,6 +947,8 @@ Sixteen questions, answered in one sitting. **Where this log contradicts an olde
 | **The Release build is stripped** (§24.10) | The app is 14.5 MB instead of 24.4. Debug builds are unchanged; crash reports need the dSYM. |
 | **P3's tab switcher shows at most 10 tabs, only ones in use** | Two rows of five, centred on the window. Tabs past the tenth, unopened pinned tabs and Favorites are reached from the sidebar. |
 | **The Command Bar's search row leads when the query reads as a search** (§9.3) | Changes §9.3's "adaptive matches rank above all": a learned page now sits one row below the search unless the query is the start of its address. |
+| **The hidden sidebar peeks the way Dia's does** (§7.2) | 4 pt from the window's edge or anywhere past it, instead of 44 pt in; the screen's edge and the menu bar in fullscreen. |
+| **The page runs under §3.2b's bar** (§30.27) | Reverses "above the page, not over it": the web view fills the pane and WebKit is told the bar's height, so opening and closing the bar no longer resizes the page. |
 | **The Downloads list a download opens does not block the page** (§15.3) | A click beside it closes it and still reaches the page, so files can be downloaded one after another. A list opened with the button still catches the click. |
 
 ---
