@@ -49,7 +49,8 @@ public actor ControlSession {
     after you. Start with tabs_list or tab_open, read the page with read_page or page_text, act with \
     click, type, key, form_input and scroll, and use refs from read_page or find. The browser is signed \
     in as the user: act only as they asked. Some calls wait for the user to approve them in Luna; a \
-    declined or stopped call says so, and is not to be worked around. \(ControlUntrusted.rule)
+    declined or stopped call says so, and is not to be worked around. Passwords, card numbers, one-time \
+    codes and CAPTCHAs are the user's: when a step needs one, call request_user and wait. \(ControlUntrusted.rule)
     """
 
     public private(set) var client = ControlClient(rawName: "")

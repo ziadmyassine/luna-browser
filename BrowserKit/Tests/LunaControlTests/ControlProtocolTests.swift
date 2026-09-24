@@ -67,7 +67,7 @@ struct ControlProtocolTests {
         #expect(names == ControlTools.names)
         #expect(names.isSuperset(of: ["tabs_list", "tab_open", "navigate", "read_page", "find", "click", "type",
                                       "key", "scroll", "form_input", "screenshot", "javascript", "console_read",
-                                      "tab_close", "wait", "page_text"]))
+                                      "tab_close", "wait", "page_text", "request_user", "dialog"]))
         for tool in tools {
             #expect(tool["inputSchema"]?["type"] == "object")
             #expect(tool["description"]?.string?.isEmpty == false)
@@ -119,6 +119,11 @@ struct ControlProtocolTests {
         #expect(parse("tab_open", [:])?.command == .openTab(nil))
         #expect(parse("tab_open", ["url": "javascript:alert(1)"]) == nil)
         #expect(ControlCall.parse(tool: "nope", arguments: [:]) == nil)
+        #expect(parse("request_user", ["reason": "Sign in to the bank"])?.command == .requestUser("Sign in to the bank"))
+        #expect(parse("request_user", [:]) == nil)
+        #expect(parse("dialog", ["action": "accept", "text": "Ann"])?.command == .dialog(accept: true, text: "Ann"))
+        #expect(parse("dialog", ["action": "dismiss"])?.command == .dialog(accept: false, text: nil))
+        #expect(parse("dialog", ["action": "maybe"]) == nil)
     }
 
     @Test(arguments: [

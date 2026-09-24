@@ -102,6 +102,8 @@ public enum ControlAudit {
         case .console: "console_read"
         case .closeTab: "tab_close"
         case let .wait(seconds): "wait \(seconds) s"
+        case let .requestUser(reason): "request_user \(clip(ControlRedactor.scrub(reason)))"
+        case let .dialog(accept, text): "dialog \(accept ? "accept" : "dismiss")\(text.map { " with \($0.count) characters" } ?? "")"
         }
     }
 

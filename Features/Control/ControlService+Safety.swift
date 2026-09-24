@@ -330,15 +330,6 @@ extension ControlService {
 
 private extension ControlCommand {
 
-    /// Where a navigation is going, which is the site it acts on.
-    var destination: URL? {
-        switch self {
-        case let .openTab(url): url
-        case let .navigate(.url(url)): url
-        default: nil
-        }
-    }
-
     /// Whether the result is about one tab, whose address goes on the fence.
     var fencesTab: Bool {
         switch self {

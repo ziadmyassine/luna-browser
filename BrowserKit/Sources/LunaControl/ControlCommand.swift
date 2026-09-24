@@ -32,6 +32,11 @@ public enum ControlCommand: Sendable, Equatable {
     case console(pattern: String?, onlyErrors: Bool, clear: Bool)
     case closeTab
     case wait(seconds: Double)
+    /// Asks the user to do a step only they can, and waits until they say
+    /// it is done.
+    case requestUser(String)
+    /// Answers the `alert`, `confirm` or `prompt` open in the tab.
+    case dialog(accept: Bool, text: String?)
 
     public enum Navigation: Sendable, Equatable {
         case url(URL)
@@ -113,6 +118,13 @@ extension ControlCall {
             guard args.int("tabId") != nil else { throw ControlError("tabId is required.") }
             return .closeTab
         case "wait": return .wait(seconds: min(max(args.values["seconds"]?.double ?? 1, 0), 30))
+        case "request_user": return .requestUser(String(try args.required("reason").prefix(500)))
+        case "dialog":
+            switch args.string("action") {
+            case "accept": return .dialog(accept: true, text: args.string("text"))
+            case "dismiss": return .dialog(accept: false, text: nil)
+            default: throw ControlError("action must be accept or dismiss.")
+            }
         default: throw ControlError("Luna has no tool called \(tool).")
         }
     }

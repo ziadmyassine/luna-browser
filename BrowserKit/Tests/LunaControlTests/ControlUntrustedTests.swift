@@ -33,7 +33,7 @@ struct ControlUntrustedTests {
         #expect(ControlSession.instructions.contains("untrusted_page_data"))
         for tool in ControlTools.all {
             let name = tool["name"]?.string ?? ""
-            guard name != "wait" else { continue }
+            guard !["wait", "request_user"].contains(name) else { continue }
             #expect(tool["description"]?.string?.contains("untrusted_page_data") == true, "\(name)")
         }
     }
