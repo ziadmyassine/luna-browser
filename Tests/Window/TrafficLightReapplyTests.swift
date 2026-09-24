@@ -135,6 +135,25 @@ final class TrafficLightReapplyTests: XCTestCase {
         XCTAssertEqual(lights.map(\.frame.origin), placed, "nobody answered the button's own notification")
     }
 
+    /// A new title rebuilds AppKit's titlebar and takes the three back into
+    /// it. In fullscreen that moves them out of the strip at the same origins,
+    /// so no frame changes and the buttons' own notification is silent — the
+    /// lights vanished on every tab switch. The title itself has to be heard,
+    /// and at once: the assertion runs before the hold's first pass could.
+    func testANewTitlePutsEveryLightBack() throws {
+        let window = window()
+        let manager = TrafficLightLayoutManager(window: window)
+        manager.apply(.sidebar(width: 280, edge: .leading))
+        let lights = buttons(of: window)
+        try XCTSkipIf(lights.count < 3, "this macOS gave the window fewer than three window buttons")
+        let placed = lights.map(\.frame.origin)
+
+        displaceSilently(lights)
+        window.title = "Another page"
+
+        XCTAssertEqual(lights.map(\.frame.origin), placed, "the title changed and nobody looked")
+    }
+
     /// The lights' width comes from their spacing, so a green button AppKit
     /// has put back in its own corner alone does not make them shorter — which
     /// slid §4's plate toward the lights on a click.

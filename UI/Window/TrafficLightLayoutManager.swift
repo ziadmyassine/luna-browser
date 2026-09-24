@@ -164,6 +164,8 @@ final class TrafficLightLayoutManager {
     /// and both this class and AppKit answer that announcement.
     private var isApplying = false
     private var wantsAnotherPass = false
+    /// See `observe`: a new title takes the lights back into AppKit's titlebar.
+    private var titleObservation: NSKeyValueObservation?
 
     /// §7.2: the sidebar is peeking over a hidden-sidebar window, so the lights
     /// belong back on screen for as long as it is there.
@@ -300,6 +302,18 @@ final class TrafficLightLayoutManager {
                 name: NSView.frameDidChangeNotification,
                 object: button
             )
+        }
+        // A new title rebuilds AppKit's titlebar, and the rebuild takes the
+        // three back into it. Windowed, that resets their origins and the
+        // observer above hears it. In fullscreen they stand at the same
+        // origins in the strip as in the titlebar, so the move changes no
+        // frame and nothing is announced: the lights went into a titlebar
+        // kept invisible, on every tab switch, since the title is the page's.
+        titleObservation = window.observe(\.title) { [weak self] _, _ in
+            MainActor.assumeIsolated {
+                self?.layoutButtons()
+                self?.holdPlacement()
+            }
         }
     }
 
