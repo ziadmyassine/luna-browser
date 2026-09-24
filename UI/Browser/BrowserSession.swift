@@ -266,6 +266,9 @@ final class BrowserSession {
     /// came back silent after a relaunch with nothing on screen to say why would be a
     /// bug report, not a feature. See `setMuted(_:tab:)`.
     var mutedTabIDs: Set<UUID> = []
+    /// §3.4b folders whose Luna Control client is working in them right now,
+    /// which the sidebar marks. Written only by `BrowserSession+Control.swift`.
+    var controlledGroupIDs: Set<UUID> = []
     /// Whether a tab opening now goes to the end of today's tabs rather than
     /// the head — true while §4's top bar is the chrome. Told by the window
     /// rather than read from `Settings`, so the rule is the session's and a

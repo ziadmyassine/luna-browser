@@ -435,6 +435,7 @@ the repo's compatibility notes. No fake list, no fake install button.
 | User-agent | Popup: Default · Safari · Chrome · Custom | `WebViewFactory` UA string |
 | Show Develop menu | Toggle | `MainMenu` |
 | Enable Web Inspector | Toggle | `WKWebView.isInspectable` |
+| Allow apps to control Luna | Toggle, off by default | `ControlService` — the Luna Control socket ([LUNA-CONTROL.md](LUNA-CONTROL.md)) |
 | Restore all settings to defaults | Button, confirms, requires the word to be typed | every key below |
 | Reveal the database in Finder | Button | `NSWorkspace.activateFileViewerSelecting` |
 
@@ -509,7 +510,8 @@ search.shortcutResults
 downloads.directory         downloads.askEachTime
 downloads.autoOpen          downloads.clearPolicy
 advanced.userAgent          advanced.showDevelopMenu
-advanced.webInspector       settings.lastSection
+advanced.webInspector       advanced.allowControl
+settings.lastSection
 ```
 
 **Existing keys are not renamed**: `blocking.httpsOnly`, `blocking.*`,

@@ -51,6 +51,8 @@ enum SettingsDefaults {
         ("advanced.userAgentCustom", ""),
         ("advanced.showDevelopMenu", false),
         ("advanced.webInspector", true),
+        // `ControlService.isEnabled`
+        ("advanced.allowControl", false),
         // §2's persisted selection
         ("settings.lastSection", SettingsSectionRegistry.ids.first ?? ""),
         // §6's "existing keys are not renamed"

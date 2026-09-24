@@ -6,9 +6,13 @@ public struct ControlClient: Sendable, Hashable {
     /// `clientInfo.name` as sent, or empty when there was none.
     public var rawName: String
     public var displayName: String
+    /// One per `initialize`, so two windows of the same client each keep
+    /// their own idea of which tab they are working in.
+    public var connection: UUID
 
-    public init(rawName: String) {
+    public init(rawName: String, connection: UUID = UUID()) {
         self.rawName = rawName
+        self.connection = connection
         displayName = Self.displayName(for: rawName)
     }
 
