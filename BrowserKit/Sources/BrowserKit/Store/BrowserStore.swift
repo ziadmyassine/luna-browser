@@ -310,21 +310,33 @@ private enum Frecency {
     ORDER BY p.lastVisit DESC LIMIT 200
     """
 
+    /// One index seek per candidate for its ten newest visits in the Space
+    /// (`visits_on_spaceID_placeId_at`), not a window over every visit joined
+    /// back to the candidates. SQLite cannot index that join, so it rescanned
+    /// the whole ranked set for each candidate: a one-letter query matches
+    /// most of an imported history, and at 11,000 matches over 71,000 visits
+    /// the old form took 384 s for one keystroke where this one takes 45 ms.
+    ///
+    /// A place with no visit in the Space scores NULL and is dropped, as the
+    /// inner join dropped it; one with only zero-point visits keeps its 0.
     static func rankingSQL(candidates: String) -> String {
         """
         WITH candidates AS (\(candidates)),
-        ranked AS (
-            SELECT v.placeId AS placeId,
-                   ROW_NUMBER() OVER (PARTITION BY v.placeId ORDER BY v.at DESC) AS rn,
-                   \(points) AS points
-            FROM visits v
-            WHERE v.placeId IN (SELECT id FROM candidates) AND v.spaceID = ?
+        scored AS (
+            SELECT c.url AS url, c.title AS title, c.lastVisit AS lastVisit,
+                   (SELECT SUM(points) FROM (
+                        SELECT \(points) AS points
+                        FROM visits v
+                        WHERE v.spaceID = ? AND v.placeId = c.id
+                        ORDER BY v.at DESC
+                        LIMIT 10
+                   )) AS score
+            FROM candidates c
         )
-        SELECT c.url AS url, c.title AS title, COALESCE(SUM(r.points), 0.0) AS score
-        FROM candidates c
-        JOIN ranked r ON r.placeId = c.id AND r.rn <= 10
-        GROUP BY c.id
-        ORDER BY score DESC, c.lastVisit DESC
+        SELECT url, title, score
+        FROM scored
+        WHERE score IS NOT NULL
+        ORDER BY score DESC, lastVisit DESC
         LIMIT ?
         """
     }

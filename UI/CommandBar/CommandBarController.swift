@@ -54,6 +54,12 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
     /// merged (§9.7).
     private var generation = 0
 
+    /// The history search for the newest query. Cancelled when a newer one
+    /// starts, which interrupts SQLite: dropping a stale answer on arrival is
+    /// not enough when every keystroke's search still runs to the end, and a
+    /// word typed quickly had them queued up on every reader the pool has.
+    private var historyTask: Task<Void, Never>?
+
     /// True once the user has moved the highlight with ↓/↑. From that moment
     /// asynchronous results may only be appended (§9.7).
     private var selectionIsUserDriven = false
@@ -220,6 +226,8 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
         }
         panel.animateOut()
         generation += 1 // Orphan any query still in flight.
+        historyTask?.cancel()
+        historyTask = nil
         deferredRows = nil
         SearchSuggestions.shared.cancel()
         // Hand the keyboard back to the page, or the user is typing into nothing.
@@ -289,7 +297,8 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
         // §9.4, synchronous pass only — see the file header.
         panel?.field.applyAutofill(CommandBarRanking.autofill(query: typed, results: local))
 
-        Task { [weak self] in
+        historyTask?.cancel()
+        historyTask = Task { [weak self] in
             guard let session = self?.session else { return }
             let hits = await session.search(typed, limit: CommandBarMetrics.historyLimit)
             // Checked on the far side of the await as well as the near one: the
