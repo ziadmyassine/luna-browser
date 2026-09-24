@@ -111,6 +111,9 @@ public actor ControlSession {
         let name = params["name"]?.string ?? ""
         var arguments: [String: JSONValue] = [:]
         if case let .object(object)? = params["arguments"] { arguments = object }
+        if name == "batch" {
+            return Self.reply(id: id, result: await ControlBatch.run(arguments, client: client, perform: perform).json)
+        }
         guard let parsed = ControlCall.parse(tool: name, arguments: arguments) else {
             return Self.reply(id: id, error: (-32602, "Unknown tool: \(name)"))
         }

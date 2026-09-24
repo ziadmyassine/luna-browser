@@ -149,6 +149,7 @@ They can only close tabs in their own folder.
 | `wait` | Sleep up to 30 s |
 | `request_user` | Ask the user to do a step only they can (`reason`), and wait up to five minutes for **Done** |
 | `dialog` | Answer the `alert`/`confirm`/`prompt` open in the tab: `action` `accept` or `dismiss`, `text` for a prompt |
+| `batch` | Up to 20 of the above in order (`actions: [{tool, args}]`). Stops at the first failure; a step's `ref` may be `"$N"`, the first ref in step N's result. No nesting |
 
 Acting tools may wait for the user's approval first; see *Security*.
 
@@ -208,6 +209,11 @@ Settings → Luna Control → *Before an app acts on a page*:
   allowed site — a grant covers acting on the page, not which of the user's
   files leaves the Mac — and the card lists every path in full. Only Allow All
   skips it. Bytes the agent sends itself are an ordinary acting call.
+- `batch` carries no permission of its own. `ControlSession` decodes each
+  step and hands it to the gate alone, so every step is stopped, asked about,
+  redacted and logged as if it had been sent by itself; a declined step ends
+  the batch. `"$N"` is read from step N's result, which is page text, so a
+  page can steer it to another element on that page — never past the gate.
 - No tool can read or change the mode or the grants. Only Settings and the
   user's own answer to a prompt write them.
 - The rules are one pure function, `ControlPolicy.decide`, tested in

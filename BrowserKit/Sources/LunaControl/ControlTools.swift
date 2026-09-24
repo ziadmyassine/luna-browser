@@ -12,7 +12,7 @@ public enum ControlTools {
 
     public static let names: Set<String> = Set(all.compactMap { $0["name"]?.string })
 
-    public static let all: [JSONValue] = tabs + page + input + script + handoff + network
+    public static let all: [JSONValue] = tabs + page + input + script + handoff + network + batch
 
     static let tabID: JSONValue = [
         "type": "integer",
