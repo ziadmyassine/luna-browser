@@ -21,6 +21,13 @@ public enum ControlScripts {
             + "return await lc.\(operation)(args);"
     }
 
+    /// Hides the value of every secret field (`secret` in the library) with
+    /// `-webkit-text-security` for the length of a screenshot, and puts each
+    /// field's own style back after. Fields inside frames and shadow roots
+    /// are not reached.
+    public static let maskSecrets = call("mask")
+    public static let unmaskSecrets = call("unmask")
+
     /// Installs the console recorder in the page's own world, where the
     /// page's `console` is. From the first call on, so what a page logged
     /// before Luna Control touched it is not there.

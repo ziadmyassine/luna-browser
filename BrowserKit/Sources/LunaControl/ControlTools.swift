@@ -32,6 +32,9 @@ public enum ControlTools {
         if tabbed, !listsTabs { properties["tabId"] = tabID }
         var schema: [String: JSONValue] = ["type": "object", "properties": .object(properties)]
         if !required.isEmpty { schema["required"] = .array(required.map(JSONValue.string)) }
-        return ["name": .string(name), "description": .string(description), "inputSchema": .object(schema)]
+        // Said on every tool whose answer carries page text, not only once in
+        // the instructions: a client may never show the model those.
+        let said = tabbed ? description + " " + ControlUntrusted.rule : description
+        return ["name": .string(name), "description": .string(said), "inputSchema": .object(schema)]
     }
 }

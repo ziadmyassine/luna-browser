@@ -27,11 +27,11 @@ struct ControlScriptsTests {
 
     private let world = WKContentWorld.world(name: "luna-control-tests")
 
-    private func loaded() async throws -> WKWebView {
+    private func loaded(_ page: String = page) async throws -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()
         let webView = WKWebView(frame: .init(x: 0, y: 0, width: 800, height: 600), configuration: configuration)
-        webView.loadHTMLString(Self.page, baseURL: URL(string: "https://example.com/"))
+        webView.loadHTMLString(page, baseURL: URL(string: "https://example.com/"))
         for _ in 0 ..< 100 where webView.isLoading {
             try await Task.sleep(for: .milliseconds(50))
         }
@@ -124,6 +124,53 @@ struct ControlScriptsTests {
             in: nil, contentWorld: .page
         ) as? String
         #expect(errors == "[error] boom")
+    }
+
+    private static let checkout = """
+    <html><head><title>Pay</title></head><body><form>
+    <input autocomplete="cc-number" value="4111111111111111" aria-label="Card number">
+    <input autocomplete="billing cc-csc" value="321" aria-label="Security code">
+    <input autocomplete="one-time-code" value="424242" aria-label="Verification">
+    <input name="otp_code" value="551177" aria-label="Code from your app">
+    <input name="cvv" value="987" aria-label="CVV">
+    <input name="iban" value="DK5000400440116243" aria-label="Account">
+    <input id="ssn" value="078-05-1120" aria-label="Social security">
+    <select autocomplete="cc-exp-month" aria-label="Month"><option>01</option><option selected>07</option></select>
+    <input name="nickname" value="Ann" aria-label="Name on the account">
+    </form></body></html>
+    """
+
+    @Test func testCardAndOTPValuesHiddenInReadPageFindAndFill() async throws {
+        let webView = try await loaded(Self.checkout)
+        let secrets = ["4111111111111111", "321", "424242", "551177", "987", "DK5000400440116243", "078-05-1120"]
+        let tree = try await run(webView, "readPage", ["interactiveOnly": false, "maxDepth": 30])
+        let found = try await run(webView, "find", ["query": "textbox"])
+        for text in [tree, found] {
+            for secret in secrets { #expect(!text.contains(secret), "\(secret) in \(text)") }
+            // The field is still there to be found by its label; only its value is withheld.
+            #expect(text.contains("textbox \"Card number\" [e"))
+            #expect(text.contains("value=[hidden]"))
+            #expect(text.contains("value=\"Ann\""))
+        }
+        #expect(!tree.contains("value=\"07\""))
+
+        let card = try #require(Self.ref(in: found, for: "\"Card number\""))
+        let filled = try await run(webView, "fill", ["ref": card, "value": "5555555555554444"])
+        let typed = try await run(webView, "type", ["ref": card, "text": "9999"])
+        for text in [filled, typed] { #expect(!text.contains("5555") && !text.contains("9999"), "\(text)") }
+    }
+
+    @Test func screenshotMaskHidesSecretFieldsAndComesOff() async throws {
+        let webView = try await loaded(Self.checkout)
+        let security = "getComputedStyle(document.querySelector('[name=cvv]')).webkitTextSecurity"
+        let none: [String: Any] = ["args": [String: Any]()]
+        _ = try await webView.callAsyncJavaScript(ControlScripts.maskSecrets, arguments: none, in: nil, contentWorld: world)
+        #expect(try await webView.evaluateJavaScript(security) as? String == "disc")
+        #expect(try await webView.evaluateJavaScript(
+            "getComputedStyle(document.querySelector('[name=nickname]')).webkitTextSecurity"
+        ) as? String == "none")
+        _ = try await webView.callAsyncJavaScript(ControlScripts.unmaskSecrets, arguments: none, in: nil, contentWorld: world)
+        #expect(try await webView.evaluateJavaScript(security) as? String == "none")
     }
 
     /// The ref on the first line containing `prefix`.

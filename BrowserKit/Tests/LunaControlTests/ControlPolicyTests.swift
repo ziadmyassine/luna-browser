@@ -1,0 +1,110 @@
+import Foundation
+import LunaControl
+import Testing
+
+/// Who may do what without asking: the three modes, per-site grants, and the
+/// escalation a page earns by addressing the agent.
+@Suite("Luna Control policy")
+struct ControlPolicyTests {
+
+    private let client = "Claude Code"
+    private let site = "example.com"
+    private let url = URL(string: "https://example.com/pay")!
+
+    private var acting: [ControlCommand] {
+        [
+            .openTab(url), .navigate(.url(url)), .navigate(.back), .navigate(.reload),
+            .click(.ref("e1"), clickCount: 1), .click(.point(x: 1, y: 2), clickCount: 2),
+            .type("hello", ref: nil), .key("Enter"), .fill(ref: "e2", value: "x"), .javascript("1")
+        ]
+    }
+
+    private var reading: [ControlCommand] {
+        [
+            .listTabs, .openTab(nil), .readPage(interactiveOnly: false, ref: nil, maxDepth: 30), .pageText,
+            .find("pay"), .scroll(.down, amount: 3, target: nil), .screenshot,
+            .console(pattern: nil, onlyErrors: false, clear: true), .wait(seconds: 1), .closeTab
+        ]
+    }
+
+    private func decide(
+        _ command: ControlCommand,
+        site: String? = "example.com",
+        client: String = "Claude Code",
+        facts: ControlFacts = ControlFacts(),
+        mode: ControlMode,
+        grants: Set<ControlGrant> = []
+    ) -> ControlDecision {
+        ControlPolicy.decide(
+            command, site: site, client: client, facts: facts,
+            permissions: ControlPermissions(mode: mode, grants: grants)
+        )
+    }
+
+    @Test func testAskModeAsksForEveryActingCall() {
+        let granted: Set = [ControlGrant(client: client, site: site)]
+        for command in acting {
+            #expect(decide(command, mode: .ask).asks, "\(command)")
+            // A grant made under another mode does not quiet this one.
+            #expect(decide(command, mode: .ask, grants: granted).asks, "\(command)")
+        }
+    }
+
+    @Test func testSiteGrantAllowsOnlyThatDomain() {
+        let granted: Set = [ControlGrant(client: client, site: site)]
+        let click = ControlCommand.click(.ref("e1"), clickCount: 1)
+        #expect(decide(click, mode: .allowPerSite, grants: granted) == .allow)
+        #expect(decide(click, site: "example.org", mode: .allowPerSite, grants: granted).asks)
+        #expect(decide(click, client: "Codex", mode: .allowPerSite, grants: granted).asks)
+        #expect(decide(click, site: nil, mode: .allowPerSite, grants: granted).asks)
+        // What is asked in this mode can be answered with a grant; with no site it cannot.
+        #expect(decide(click, site: "example.org", mode: .allowPerSite, grants: granted)
+            == .ask(reason: ControlPolicy.actingReason, grantable: true))
+        #expect(decide(click, site: nil, mode: .allowPerSite)
+            == .ask(reason: ControlPolicy.actingReason, grantable: false))
+    }
+
+    @Test func testRevokedGrantAsksAgain() {
+        var grants: Set = [ControlGrant(client: client, site: site), ControlGrant(client: client, site: "b.com")]
+        let type = ControlCommand.type("x", ref: "e3")
+        #expect(decide(type, mode: .allowPerSite, grants: grants) == .allow)
+        grants.remove(ControlGrant(client: client, site: site))
+        #expect(decide(type, mode: .allowPerSite, grants: grants).asks)
+    }
+
+    @Test func testReadToolsNeverAsk() {
+        for mode in ControlMode.allCases {
+            for command in reading {
+                #expect(decide(command, mode: mode) == .allow, "\(command) in \(mode)")
+            }
+        }
+        #expect(decide(.pageText, facts: ControlFacts(escalated: true), mode: .ask) == .allow)
+    }
+
+    @Test func testInjectionFlagEscalatesAllowAll() {
+        let escalated = ControlFacts(escalated: true)
+        let granted: Set = [ControlGrant(client: client, site: site)]
+        for command in acting {
+            #expect(decide(command, mode: .allowAll) == .allow, "\(command)")
+            #expect(decide(command, facts: escalated, mode: .allowAll)
+                == .ask(reason: ControlPolicy.injectionReason, grantable: false), "\(command)")
+            #expect(decide(command, facts: escalated, mode: .allowPerSite, grants: granted).asks, "\(command)")
+        }
+    }
+
+    @Test func localFilesAlwaysAskAndLunasOwnPagesAreRefused() {
+        let file = URL(fileURLWithPath: "/Users/someone/.ssh/id_ed25519")
+        #expect(decide(.navigate(.url(file)), mode: .allowAll)
+            == .ask(reason: ControlPolicy.fileReason, grantable: false))
+        #expect(decide(.openTab(file), site: nil, mode: .allowAll)
+            == .ask(reason: ControlPolicy.fileReason, grantable: false))
+        let lunaPage = ControlFacts(isInternalPage: true)
+        #expect(decide(.pageText, facts: lunaPage, mode: .allowAll).denies)
+        #expect(decide(.click(.ref("e1"), clickCount: 1), facts: lunaPage, mode: .allowAll).denies)
+    }
+}
+
+private extension ControlDecision {
+    var asks: Bool { if case .ask = self { true } else { false } }
+    var denies: Bool { if case .deny = self { true } else { false } }
+}

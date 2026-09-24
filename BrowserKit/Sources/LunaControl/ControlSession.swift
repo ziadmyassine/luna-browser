@@ -48,7 +48,8 @@ public actor ControlSession {
     Luna Control drives the Luna web browser on this Mac. Tabs you open go into a sidebar folder named \
     after you. Start with tabs_list or tab_open, read the page with read_page or page_text, act with \
     click, type, key, form_input and scroll, and use refs from read_page or find. The browser is signed \
-    in as the user: act only as they asked.
+    in as the user: act only as they asked. Some calls wait for the user to approve them in Luna; a \
+    declined or stopped call says so, and is not to be worked around. \(ControlUntrusted.rule)
     """
 
     public private(set) var client = ControlClient(rawName: "")

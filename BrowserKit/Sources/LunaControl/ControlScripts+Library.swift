@@ -46,10 +46,20 @@ extension ControlScripts {
         if (el.isContentEditable && !el.parentElement?.isContentEditable) return 'textbox';
         return tags[tag] || 'generic';
       };
+      // A field whose value never leaves the page: passwords, every cc-*
+      // autofill field, one-time codes, and fields whose name, id or label
+      // says card number, CVV, OTP, PIN, SSN or IBAN. Its label still does,
+      // so the agent can find the field and hand it to the user.
+      const secretHint = new RegExp('(^|[^a-z])(' + ['otp', 'cvv', 'cvc', 'csc', 'ssn', 'iban', 'pin', 'passcode',
+        'password', 'passwd', 'one.?time', 'card.?num(ber)?', 'cc.?num(ber)?', 'security.?code', 'social.?security',
+        'verification.?code'].join('|') + ')([^a-z]|$)', 'i');
       const secret = el => {
+        if (!['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName) && !el.isContentEditable) return false;
         const type = (el.getAttribute('type') || '').toLowerCase();
         const auto = (el.getAttribute('autocomplete') || '').toLowerCase();
-        return type === 'password' || /password|one-time-code|cc-number|cc-csc/.test(auto);
+        if (type === 'password' || /password|one-time-code|(^|\\s)cc-/.test(auto)) return true;
+        const label = el.getAttribute('aria-label') || (el.labels && el.labels[0] ? el.labels[0].textContent : '');
+        return secretHint.test((el.getAttribute('name') || '') + ' ' + (el.id || '') + ' ' + label);
       };
       const ownText = el => {
         let text = '';
@@ -104,7 +114,8 @@ extension ControlScripts {
         const r = role(el);
         let line = r;
         const tag = el.tagName.toLowerCase();
-        const n = secret(el) ? '' : clip(name(el), 120);
+        // A secret editable's name would be its own text; a field's is its label.
+        const n = secret(el) && el.isContentEditable ? '' : clip(name(el), 120);
         if (n) line += ' "' + n.replace(/"/g, '\\\\"') + '"';
         if (interactive(el)) line += ' [' + refOf(el) + ']';
         if (tag === 'a' && el.getAttribute('href')) line += ' href="' + clip(el.getAttribute('href'), 200) + '"';
@@ -113,7 +124,9 @@ extension ControlScripts {
           if (el.value && !secret(el)) line += ' value="' + clip(el.value, 200).replace(/"/g, '\\\\"') + '"';
           if (secret(el) && el.value) line += ' value=[hidden]';
         }
-        if (tag === 'select' && el.selectedOptions.length) line += ' value="' + clip(el.selectedOptions[0].text, 120) + '"';
+        if (tag === 'select' && el.selectedOptions.length) {
+          line += secret(el) ? ' value=[hidden]' : ' value="' + clip(el.selectedOptions[0].text, 120) + '"';
+        }
         if (el.checked) line += ' (checked)';
         if (el.disabled) line += ' (disabled)';
         if (el.getAttribute('aria-expanded')) line += ' expanded=' + el.getAttribute('aria-expanded');
@@ -142,7 +155,7 @@ extension ControlScripts {
           if (tag === 'select') {
             for (const option of el.options) {
               lines.push('  '.repeat(depth + 1) + 'option "' + clip(option.text.trim(), 120) + '"'
-                + (option.selected ? ' (selected)' : ''));
+                + (option.selected && !secret(el) ? ' (selected)' : ''));
             }
             return;
           }
@@ -249,7 +262,27 @@ extension ControlScripts {
         return document.scrollingElement || document.documentElement;
       };
 
+      const masked = [];
+
       return {
+        mask() {
+          for (const el of document.querySelectorAll('input, textarea')) {
+            if (!secret(el) || el.type === 'password') continue;
+            const property = '-webkit-text-security';
+            masked.push([new WeakRef(el), el.style.getPropertyValue(property), el.style.getPropertyPriority(property)]);
+            el.style.setProperty(property, 'disc', 'important');
+          }
+          return String(masked.length);
+        },
+        unmask() {
+          for (const [ref, value, priority] of masked.splice(0)) {
+            const el = ref.deref();
+            if (!el) continue;
+            if (value) el.style.setProperty('-webkit-text-security', value, priority);
+            else el.style.removeProperty('-webkit-text-security');
+          }
+          return '';
+        },
         readPage(args) {
           const root = args.ref ? element(args.ref) : document.body;
           if (!root) return header() + '(the page has no body yet)';
@@ -269,7 +302,8 @@ extension ControlScripts {
           const found = [];
           for (const el of document.body ? document.body.querySelectorAll('*') : []) {
             if (skipped.has(el.tagName.toLowerCase()) || !worth(el, false) || !visible(el)) continue;
-            const haystack = (role(el) + ' ' + (secret(el) ? '' : name(el)) + ' ' + (el.getAttribute('placeholder') || '')
+            const haystack = (role(el) + ' ' + (secret(el) && el.isContentEditable ? '' : name(el)) + ' '
+              + (el.getAttribute('placeholder') || '')
               + ' ' + (el.getAttribute('name') || '') + ' ' + (el.id || '')).toLowerCase();
             if (words.every(word => haystack.includes(word))) {
               if (!interactive(el)) refOf(el);
