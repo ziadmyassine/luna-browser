@@ -145,6 +145,8 @@ They can only close tabs in their own folder.
 | `console_read` | Console output since Luna Control first touched the page (`pattern`, `only_errors`, `clear`) |
 | `tab_close` | Close a tab in the agent's folder |
 | `wait` | Sleep up to 30 s |
+| `request_user` | Ask the user to do a step only they can (`reason`), and wait up to five minutes for **Done** |
+| `dialog` | Answer the `alert`/`confirm`/`prompt` open in the tab: `action` `accept` or `dismiss`, `text` for a prompt |
 
 Acting tools may wait for the user's approval first; see *Security*.
 
@@ -195,7 +197,8 @@ Settings → Luna Control → *Before an app acts on a page*:
   (`shop.example.com` → `example.com`, via the public-suffix list). Settings
   lists every grant with a Revoke button.
 - In every mode, opening a `file:` URL asks, and so does acting on a site
-  whose page addressed the agent (below).
+  whose page addressed the agent (below), and every sensitive action (below).
+- Accepting a page dialog acts; dismissing it does not.
 - No tool can read or change the mode or the grants. Only Settings and the
   user's own answer to a prompt write them.
 - The rules are one pure function, `ControlPolicy.decide`, tested in
@@ -212,6 +215,51 @@ will do and where, with **Deny**, **Allow Once** and, in Per Site mode,
 answers is declined after five minutes. If the page moved to another site
 while the user was deciding, the call is not made. The agent reads a declined
 call as an error telling it not to work around it.
+
+### Sensitive actions and handing off
+
+Before every `click`, `type`, `key` and `form_input`, the page library's
+`inspect` looks at the element the call names (`ControlScripts+Inspect.swift`)
+and reports `ControlRisk`s. In every mode, with or without a grant:
+
+| Found | Decision |
+|---|---|
+| A CAPTCHA (reCAPTCHA, hCaptcha, Turnstile, Arkose), or typing into a password, card, one-time-code or other secret field | Refused and handed to the user |
+| Submitting a form with a password field | Asks |
+| Submitting a form with card fields, or pressing something labelled pay, buy, order, purchase, checkout, subscribe or donate | Asks |
+| Submitting a form with an address, phone, birth date or ID number field | Asks |
+| Pressing something labelled authorize, allow, grant or approve, or a link to (or `navigate`/`tab_open` of) an OAuth authorization URL (`client_id` with `redirect_uri` or `response_type`) | Asks |
+| Pressing something labelled delete, erase or destroy | Asks |
+| A link with a `download` attribute | Asks |
+
+Asking here is never grantable, since it is about the action and not the
+site. A handed-off call does nothing and tells the agent to call
+`request_user`, which marks the folder like an approval. The card reads
+"*agent* needs you to …" with **Not Now** and **Done**.
+
+`javascript` is not inspected: it can do anything, which is why it asks in
+Ask mode and why Allow All is a trust decision. The inspection reads the
+page just before the call. A page that swaps the element between the two can
+get past it; the redactor and the dialog and download rules still apply.
+
+### Page dialogs
+
+`alert`, `confirm` and `prompt` from a tab in an agent's folder are held for
+the agent rather than sheeted on the user's window, unless the user has that
+tab in front of them. A call whose script opens one comes back at once with
+the dialog's text. Every other call on the tab fails with the same text until
+the agent answers with `dialog`. After 30 seconds the dialog is dismissed,
+but not while an approval for that agent is waiting. A "Leave site?"
+(`beforeunload`) prompt never appears: a `WKWebView` app has no public API
+for it, and leaving a page always goes ahead.
+
+### Downloads
+
+A download started in a tab in an agent's folder waits for the user in
+every mode, since it puts a file on this Mac. The card names the file and
+says when it can run programs. That answer replaces the sheet Luna otherwise
+shows for such files, so nothing lands on the user's window. Downloads are
+in the activity log as `download`.
 
 ### Stop and pause
 
