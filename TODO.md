@@ -497,6 +497,7 @@ luna/
 - [ ] **16.4 Toolbar/action surface** — extension action buttons need a home; put them in a compact row at the sidebar bottom or in the site menu, not a fake Chrome toolbar.
 - [ ] **16.5 Compatibility reality check**: WebKit's implementation tracks the W3C WebExtensions standard and does **not** cover 100 % of Chrome's MV3 surface. Test against a fixed set: uBlock Origin Lite, Bitwarden, 1Password, Dark Reader, Vimium-class, a translate extension. Document what fails.
 - [ ] **16.6** Per-Space extension enable/disable (big differentiator vs Safari).
+  > **2026-09-24: backend built, no UI.** Per-Space controllers, tab/window adapters, folder/ZIP/CRX3 install, grants and per-Space enablement in schema `v11`. What it decided and what is untested: `docs/EXTENSIONS.md` §8.
   > **Resolved:** D9 is now macOS 26, so `WKWebExtension` availability stopped being a constraint. This section is still v2 — see the section header.
 
 ---

@@ -261,6 +261,31 @@ About four weeks to a version that runs the §16.5 list, before any shims.
 
 ---
 
+## 8. The backend as built (2026-09-24)
+
+§16.1, the file half of §16.2 and the model of §16.3/§16.6, with no UI.
+Code in `BrowserKit/Sources/BrowserKit/Extensions/`; `ExtensionManager` is the
+API a UI calls, `ExtensionUI` the three things it must answer (prompts, popups,
+action updates). Where it settles something §3 left open:
+
+- **Base URL** is `webkit-extension://<id>/`, WebKit's own scheme, as the spike
+  ran. `chrome-extension://` (Search's) needs `registerCustomURLScheme` and was
+  not measured.
+- **Files** live beside the database, `<support>/Extensions/<id>/`, so a test's
+  throwaway store takes its extensions with it.
+- **Windows.** Two windows in one Space draw the same column, and a tab can be
+  in one extension window only, so the Space's tabs belong to the first of its
+  windows in a stable order; the others report none.
+- **`windows.create`** opens its pages as tabs in the Space: Luna's windows are
+  the app's to make.
+- **Enabling in another Space** carries over the answers given at install.
+- **Runtime prompts** deny until `ExtensionUI` exists; answers it gives are
+  stored, URL grants excepted.
+- Not yet exercised by a test: background recovery, and the options page
+  opened as a tab.
+
+---
+
 ## Sources
 
 - Search: github.com/driceroland/Search — `Sources/Search/Extensions.swift`, `ExtensionPopup.swift`, `ExtensionShims.swift`, `ExtensionNative.swift`, `ExtensionSocket.swift`, `Crx.swift`, `ROADMAP.md`.
