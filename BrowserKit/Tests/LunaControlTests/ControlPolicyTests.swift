@@ -136,6 +136,26 @@ struct ControlPolicyTests {
         #expect(decide(.pageText, facts: ControlFacts(isInternalPage: true, risks: [.captcha]), mode: .ask).denies)
     }
 
+    @Test func testJavaScriptAsksEvenWithSiteGrant() {
+        let granted: Set = [ControlGrant(client: client, site: site)]
+        let script = ControlCommand.javascript("document.cookie")
+        for mode in [ControlMode.ask, .allowPerSite] {
+            #expect(decide(script, mode: mode, grants: granted)
+                == .ask(reason: ControlPolicy.scriptReason, grantable: false), "\(mode)")
+        }
+        // The card shows the script itself, cut short.
+        let long = String(repeating: "a", count: 1000)
+        let summary = ControlAudit.summary(of: .javascript(long))
+        #expect(summary.hasPrefix("javascript aaa") && summary.count < 250)
+    }
+
+    @Test func testJavaScriptAllowedOnlyInAllowAll() {
+        let script = ControlCommand.javascript("1")
+        #expect(decide(script, mode: .allowAll) == .allow)
+        #expect(decide(script, facts: ControlFacts(escalated: true), mode: .allowAll)
+            == .ask(reason: ControlPolicy.injectionReason, grantable: false))
+    }
+
     @Test func localFilesAlwaysAskAndLunasOwnPagesAreRefused() {
         let file = URL(fileURLWithPath: "/Users/someone/.ssh/id_ed25519")
         #expect(decide(.navigate(.url(file)), mode: .allowAll)

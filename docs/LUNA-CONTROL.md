@@ -199,6 +199,9 @@ Settings → Luna Control → *Before an app acts on a page*:
 - In every mode, opening a `file:` URL asks, and so does acting on a site
   whose page addressed the agent (below), and every sensitive action (below).
 - Accepting a page dialog acts; dismissing it does not.
+- `javascript` asks in Ask and Per Site modes even on a granted site, and
+  the card never offers "allow on this site" for it; only Allow All runs it
+  unasked. The card shows the script, cut to 200 characters.
 - No tool can read or change the mode or the grants. Only Settings and the
   user's own answer to a prompt write them.
 - The rules are one pure function, `ControlPolicy.decide`, tested in
@@ -238,7 +241,7 @@ site. A handed-off call does nothing and tells the agent to call
 "*agent* needs you to …" with **Not Now** and **Done**.
 
 `javascript` is not inspected: it can do anything, which is why it asks in
-Ask mode and why Allow All is a trust decision. The inspection reads the
+every mode but Allow All and why Allow All is a trust decision. The inspection reads the
 page just before the call. A page that swaps the element between the two can
 get past it; the redactor and the dialog and download rules still apply.
 

@@ -115,6 +115,7 @@ public enum ControlPolicy {
     /// Why a call asks, worded to follow "because".
     public static let actingReason = "it acts on the page"
     public static let injectionReason = "the page contained text addressed to an AI agent"
+    public static let scriptReason = "it runs a script on the page, which can do anything the user can there"
     public static let fileReason = "it opens a file on this Mac"
     public static let internalReason = "That tab shows one of Luna's own pages, which Luna Control cannot read or act on."
 
@@ -140,6 +141,11 @@ public enum ControlPolicy {
         if command.opensFile { return .ask(reason: fileReason, grantable: false) }
         if let risk = risks.min() { return .ask(reason: risk.reason, grantable: false) }
         if facts.escalated { return .ask(reason: injectionReason, grantable: false) }
+        // A script can do anything on the site, so no grant stands for it;
+        // only Allow All lets it run unasked.
+        if case .javascript = command, permissions.mode != .allowAll {
+            return .ask(reason: scriptReason, grantable: false)
+        }
         return byMode(site: site, client: client, permissions: permissions)
     }
 
