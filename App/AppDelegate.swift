@@ -92,6 +92,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var downloadsPanel: DownloadsPanelController?
     /// `⌃⇥`'s event monitor — see `AppDelegate+TabSwitcher.swift`.
     var tabSwitcherMonitor: Any?
+    /// Web links handed over before the first window could take them, and nil
+    /// from then on — see `AppDelegate+OpenURLs.swift`.
+    var linksBeforeLaunch: [URL]? = []
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         LaunchTrace.mark("appkit")
@@ -176,6 +179,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // column already says what to do — §3.3a's wells and §30.6's New Tab
         // row, which opens §9.1 rather than a blank page.
         render()
+        // A link that launched Luna, over the session it restored.
+        openLinksFromLaunch()
         // §19.1's "to interactive": the window has the restored session in it.
         // `Tools/perf` is polling for the file this writes.
         LaunchTrace.ready()
