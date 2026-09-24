@@ -385,7 +385,8 @@ extension ControlScripts {
             throw new Error(describe(el) + ' is not a form control.');
           }
           return 'Set ' + describe(el);
-        }
+        },
+        upload: \(upload)
       };
     }
     """

@@ -37,6 +37,8 @@ public enum ControlCommand: Sendable, Equatable {
     case requestUser(String)
     /// Answers the `alert`, `confirm` or `prompt` open in the tab.
     case dialog(accept: Bool, text: String?)
+    /// Hands files to a file input, or drops them on anything else.
+    case upload(ref: String, files: [UploadSource])
 
     public enum Navigation: Sendable, Equatable {
         case url(URL)
@@ -52,6 +54,13 @@ public enum ControlCommand: Sendable, Equatable {
 
     public enum ScrollDirection: String, Sendable, CaseIterable {
         case up, down, left, right
+    }
+
+    /// A file the agent sends the bytes of, or one on this Mac it names —
+    /// read only after the user has seen the path, through `ControlUpload`.
+    public enum UploadSource: Sendable, Equatable {
+        case data(ControlUpload.File)
+        case path(String)
     }
 }
 
@@ -125,7 +134,23 @@ extension ControlCall {
             case "dismiss": return .dialog(accept: false, text: nil)
             default: throw ControlError("action must be accept or dismiss.")
             }
+        case "file_upload": return .upload(ref: try args.required("ref"), files: try uploads(args.values["files"]))
         default: throw ControlError("Luna has no tool called \(tool).")
+        }
+    }
+
+    private static func uploads(_ value: JSONValue?) throws -> [ControlCommand.UploadSource] {
+        guard case let .array(items)? = value, !items.isEmpty else { throw ControlError("files needs at least one file.") }
+        return try items.map { item in
+            if let path = item["path"]?.string { return .path(path) }
+            guard let name = item["name"]?.string, !name.isEmpty, let encoded = item["data"]?.string else {
+                throw ControlError("Each file needs a path, or a name and its data in base64.")
+            }
+            // Strict apart from line breaks, which some encoders add every 76 characters.
+            guard let data = Data(base64Encoded: encoded.filter { !$0.isWhitespace }) else {
+                throw ControlError("The data for “\(name)” is not base64.")
+            }
+            return .data(ControlUpload.File(name: name, mimeType: item["mimeType"]?.string ?? "application/octet-stream", data: data))
         }
     }
 

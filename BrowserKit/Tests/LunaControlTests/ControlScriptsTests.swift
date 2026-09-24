@@ -229,6 +229,48 @@ struct ControlScriptsTests {
         #expect(json.contains("captcha"), "\(json)")
     }
 
+    private static let uploads = """
+    <html><body>
+    <input type="file" id="up" multiple aria-label="Attach">
+    <input type="file" id="one" aria-label="Avatar">
+    <div id="zone" role="button" aria-label="Drop files here">Drop</div>
+    <script>
+      window.seen = [];
+      for (const type of ['input', 'change']) up.addEventListener(type, () => seen.push(type + ':' + up.files.length));
+      zone.addEventListener('dragover', e => e.preventDefault());
+      zone.addEventListener('drop', e => {
+        e.preventDefault();
+        seen.push('drop:' + [...e.dataTransfer.files].map(f => f.name + '/' + f.type).join(','));
+      });
+    </script>
+    </body></html>
+    """
+
+    @Test func testUploadSetsFilesAndFiresChange() async throws {
+        let webView = try await loaded(Self.uploads)
+        let attach = try #require(Self.ref(in: try await run(webView, "find", ["query": "attach"]), for: "Attach"))
+        let files: [[String: Any]] = [
+            ["name": "notes.txt", "mimeType": "text/plain", "data": Data("hello".utf8).base64EncodedString()],
+            ["name": "b.bin", "mimeType": "application/octet-stream", "data": Data([0, 255, 7]).base64EncodedString()]
+        ]
+        let said = try await run(webView, "upload", ["ref": attach, "files": files])
+        #expect(said.contains("2 files"))
+        let state = try await webView.callAsyncJavaScript("""
+        return [seen.join(' '), up.files[0].name, up.files[0].type, await up.files[0].text(),
+                [...new Uint8Array(await up.files[1].arrayBuffer())].join('.')].join('|')
+        """, arguments: [:], in: nil, contentWorld: .page)
+        #expect(state as? String == "input:2 change:2|notes.txt|text/plain|hello|0.255.7")
+
+        // A single-file input takes one.
+        let avatar = try #require(Self.ref(in: try await run(webView, "find", ["query": "avatar"]), for: "Avatar"))
+        await #expect(throws: (any Error).self) { try await run(webView, "upload", ["ref": avatar, "files": files]) }
+
+        // Anything else is a drop zone and gets the files dropped on it.
+        let zone = try #require(Self.ref(in: try await run(webView, "find", ["query": "drop"]), for: "Drop"))
+        _ = try await run(webView, "upload", ["ref": zone, "files": Array(files.prefix(1))])
+        #expect(try await webView.evaluateJavaScript("seen[seen.length - 1]") as? String == "drop:notes.txt/text/plain")
+    }
+
     /// The ref on the first line containing `prefix`.
     private static func ref(in text: String, for prefix: String) -> String? {
         guard let line = text.split(separator: "\n").first(where: { $0.contains(prefix) }),

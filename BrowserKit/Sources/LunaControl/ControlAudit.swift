@@ -104,6 +104,9 @@ public enum ControlAudit {
         case let .wait(seconds): "wait \(seconds) s"
         case let .requestUser(reason): "request_user \(clip(ControlRedactor.scrub(reason)))"
         case let .dialog(accept, text): "dialog \(accept ? "accept" : "dismiss")\(text.map { " with \($0.count) characters" } ?? "")"
+        // In full: this is the line the approval card shows, and the user is
+        // deciding about exactly these files.
+        case let .upload(ref, files): "file_upload \(files.map(\.label).joined(separator: ", ")) to \(ref)"
         }
     }
 
@@ -121,5 +124,14 @@ public enum ControlAudit {
 
     private static func clip(_ text: String) -> String {
         text.count > 200 ? text.prefix(200) + "…" : text
+    }
+}
+
+private extension ControlCommand.UploadSource {
+    var label: String {
+        switch self {
+        case let .data(file): "“\(file.name)” (\(file.data.count) bytes from the agent)"
+        case let .path(path): path
+        }
     }
 }

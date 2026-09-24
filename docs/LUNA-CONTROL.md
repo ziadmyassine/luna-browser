@@ -140,6 +140,7 @@ They can only close tabs in their own folder.
 | `key` | `Enter`, `Tab`, `Escape`, `Backspace`, arrows, `cmd+a`, separated by spaces |
 | `scroll` | `direction` and `amount`, or bring `ref` into view |
 | `form_input` | Set a field, checkbox or select by `ref` |
+| `file_upload` | Give `files` to a file input by `ref` (input and change fire), or drop them on anything else. Each file is `{name, mimeType, data}` (base64) or `{path}` on this Mac. 10 MB a file, 25 MB a call |
 | `screenshot` | PNG of the viewport at 1 px per CSS pixel |
 | `javascript` | Run code in the page and return the last value as JSON |
 | `console_read` | Console output since Luna Control first touched the page (`pattern`, `only_errors`, `clear`) |
@@ -190,7 +191,7 @@ Settings → Luna Control → *Before an app acts on a page*:
 | **Allow All** | Allowed, except as below |
 
 - *Acting* means `navigate`, `tab_open` with a URL, `click`, `type`, `key`,
-  `form_input` and `javascript`. Reading (`tabs_list`, `read_page`,
+  `form_input`, `file_upload` and `javascript`. Reading (`tabs_list`, `read_page`,
   `page_text`, `find`, `screenshot`, `console_read`), `scroll`, `wait`, a blank
   `tab_open` and `tab_close` (own folder only) never ask.
 - A grant is the app's display name plus the registrable domain
@@ -202,6 +203,10 @@ Settings → Luna Control → *Before an app acts on a page*:
 - `javascript` asks in Ask and Per Site modes even on a granted site, and
   the card never offers "allow on this site" for it; only Allow All runs it
   unasked. The card shows the script, cut to 200 characters.
+- A `file_upload` with a `path` asks in Ask and Per Site mode even on an
+  allowed site — a grant covers acting on the page, not which of the user's
+  files leaves the Mac — and the card lists every path in full. Only Allow All
+  skips it. Bytes the agent sends itself are an ordinary acting call.
 - No tool can read or change the mode or the grants. Only Settings and the
   user's own answer to a prompt write them.
 - The rules are one pure function, `ControlPolicy.decide`, tested in
@@ -275,6 +280,40 @@ in the activity log as `download`.
 - Selecting one of the agent's own tabs takes it over: acting calls on the
   tab in front are refused until the user leaves it.
 - Holds last until resumed or until Luna quits.
+
+### Uploads from disk
+
+`ControlUpload` reads a `path` only after the gate, so it checks the file as
+it is then, not as it was when the user approved it. It opens the path once
+with `O_NOFOLLOW` and checks the open descriptor, so a path swapped for a link
+in between reads nothing. Refused:
+
+- a relative path, a symbolic link, anything but a regular file (a FIFO
+  fails this rather than hanging the call);
+- a file with more than one hard link — the other name could be anywhere;
+- a file not owned by the user Luna runs as;
+- anything in a credential store — `~/.ssh`, `~/.gnupg`, `~/.aws`,
+  `~/.azure`, `~/.config/gcloud`, `~/.kube`, `~/.docker`, `~/.config/gh`,
+  `~/.password-store`, `~/.1password`, `~/.netrc`, `~/.git-credentials`,
+  `~/.npmrc`, `~/.pypirc`, both Keychains folders;
+- other browsers' data (Chrome, Firefox, Brave, Arc, `~/Library/Safari`,
+  `~/Library/Cookies`) and any app's `Application Support/*/Cookies*`;
+- Luna's own data (its Application Support, Caches, WebKit, HTTPStorages,
+  Cookies, Containers and Logs folders, preferences and saved state);
+- files named like keys or env files anywhere: `id_rsa`, `id_dsa`,
+  `id_ecdsa`, `id_ed25519`, `*.pem`, `*.key`, `*.p12`, `*.pfx`, `.env`,
+  `.env.*`.
+
+Each is judged both by the path as given (after `..`, case-insensitively) and
+by where the open file really is (`F_GETPATH`), so a linked folder on the way
+does not get round it. The lists are tables at the top of `ControlUpload`.
+Also refused:
+
+- more than 10 MB a file or 25 MB a call, inline files included.
+
+The files cross the socket as base64 in one line; `LineReader` has no line
+limit, so 25 MB is the cap. Tested headless in `ControlUploadGuardTests`, and
+in a windowless page in `ControlScriptsTests.testUploadSetsFilesAndFiresChange`.
 
 ### Redaction
 

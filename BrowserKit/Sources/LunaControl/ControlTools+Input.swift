@@ -1,6 +1,6 @@
 import Foundation
 
-/// Acting on a page: clicking, typing, keys, scrolling, setting a field.
+/// Acting on a page: clicking, typing, keys, scrolling, setting a field, uploading.
 extension ControlTools {
 
     static let input: [JSONValue] = [
@@ -24,6 +24,19 @@ extension ControlTools {
         ]),
         tool("form_input", "Set a form control's value: text for fields, true/false for checkboxes, an option for selects.", [
             "ref": ref, "value": ["description": "The new value."]
-        ], required: ["ref", "value"])
+        ], required: ["ref", "value"]),
+        tool("file_upload", """
+        Give files to a file input by ref, or drop them on a drop zone. Send each file's bytes as base64 with a \
+        name, or the absolute path of a file on this Mac. A path always waits for the user's approval unless they \
+        allow everything, and is refused if it is a symbolic link, has other hard links, is not the user's, or is \
+        in ~/.ssh, the keychains or Luna's own data. At most 10 MB a file and 25 MB a call.
+        """, [
+            "ref": ref,
+            "files": ["type": "array", "items": ["type": "object", "properties": [
+                "name": ["type": "string"], "mimeType": ["type": "string"],
+                "data": ["type": "string", "description": "The file's bytes in base64."],
+                "path": ["type": "string", "description": "An absolute path on this Mac, instead of name and data."]
+            ]]]
+        ], required: ["ref", "files"])
     ]
 }

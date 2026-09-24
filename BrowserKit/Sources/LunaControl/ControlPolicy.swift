@@ -117,6 +117,7 @@ public enum ControlPolicy {
     public static let injectionReason = "the page contained text addressed to an AI agent"
     public static let scriptReason = "it runs a script on the page, which can do anything the user can there"
     public static let fileReason = "it opens a file on this Mac"
+    public static let uploadReason = "it uploads a file from this Mac to the page"
     public static let internalReason = "That tab shows one of Luna's own pages, which Luna Control cannot read or act on."
 
     /// - Parameter site: the registrable domain the call acts on — the tab's,
@@ -141,6 +142,9 @@ public enum ControlPolicy {
         if command.opensFile { return .ask(reason: fileReason, grantable: false) }
         if let risk = risks.min() { return .ask(reason: risk.reason, grantable: false) }
         if facts.escalated { return .ask(reason: injectionReason, grantable: false) }
+        // A site grant is about acting on the page; which of the user's files
+        // leaves the Mac is asked every time, short of allow-all.
+        if command.readsLocalFile, permissions.mode != .allowAll { return .ask(reason: uploadReason, grantable: false) }
         // A script can do anything on the site, so no grant stands for it;
         // only Allow All lets it run unasked.
         if case .javascript = command, permissions.mode != .allowAll {
@@ -184,7 +188,7 @@ extension ControlCommand {
         // Dismissing is what the dialog's timeout does anyway; accepting may
         // be the "Are you sure?" of whatever the page is about to do.
         case let .dialog(accept, _): accept
-        case .navigate, .click, .type, .key, .fill, .javascript: true
+        case .navigate, .click, .type, .key, .fill, .javascript, .upload: true
         }
     }
 
@@ -195,6 +199,11 @@ extension ControlCommand {
         case let .navigate(.url(url)): url
         default: nil
         }
+    }
+
+    var readsLocalFile: Bool {
+        guard case let .upload(_, files) = self else { return false }
+        return files.contains { if case .path = $0 { true } else { false } }
     }
 
     var opensFile: Bool {
