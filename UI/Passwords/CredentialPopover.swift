@@ -22,6 +22,7 @@
 //
 
 import AppKit
+import WebKit
 import BrowserKit
 
 @MainActor
@@ -86,19 +87,12 @@ final class CredentialPopover {
         let size = content.fittingPopoverSize()
         let panel = makePanel(size: size)
 
-        // The rect arrives in CSS pixels from the top-left of the web view;
+        // The rect arrives in CSS pixels from the top-left of the viewport;
         // AppKit wants the bottom-left of the screen. Converting through the
         // web view rather than assuming a flipped coordinate space is what
         // keeps this correct when the page is magnified or the window is on a
         // second display with a different scale.
-        let field = offered.fieldRect
-        let inViewSpace = CGRect(
-            x: field.minX,
-            y: webView.bounds.height - field.maxY,
-            width: field.width,
-            height: field.height
-        )
-        let onScreen = host.convertToScreen(webView.convert(inViewSpace, to: nil))
+        let onScreen = host.convertToScreen(webView.convert(Self.viewRect(for: offered.fieldRect, in: webView), to: nil))
 
         panel.setFrame(Self.frame(under: onScreen, size: size, on: host.screen), display: false)
         content.frame = CGRect(origin: .zero, size: size)
@@ -125,18 +119,27 @@ final class CredentialPopover {
     /// points.
     func move(to fieldRect: CGRect, over webView: NSView) {
         guard let panel, let host = webView.window else { return }
-        let inViewSpace = CGRect(
-            x: fieldRect.minX,
-            y: webView.bounds.height - fieldRect.maxY,
-            width: fieldRect.width,
-            height: fieldRect.height
-        )
-        let onScreen = host.convertToScreen(webView.convert(inViewSpace, to: nil))
+        let onScreen = host.convertToScreen(webView.convert(Self.viewRect(for: fieldRect, in: webView), to: nil))
         // Placed with animation off: this is tracking a scroll, and an animated
         // frame change would lag a finger by its own duration.
         Tokens.Motion.immediately {
             panel.setFrame(Self.frame(under: onScreen, size: panel.frame.size, on: host.screen), display: true)
         }
+    }
+
+    /// A field's rect, which the page measures from the top-left of its own
+    /// viewport, in the web view's coordinates. The viewport starts below
+    /// whatever covers the web view's top — §3.2b's bar runs over the page
+    /// and says so in `obscuredContentInsets` — so the rect is moved down by
+    /// that much, or the picker points one bar's height above the field.
+    static func viewRect(for field: CGRect, in webView: NSView) -> CGRect {
+        let covered = (webView as? WKWebView)?.obscuredContentInsets ?? NSEdgeInsetsZero
+        return CGRect(
+            x: field.minX + covered.left,
+            y: webView.bounds.height - covered.top - field.maxY,
+            width: field.width,
+            height: field.height
+        )
     }
 
     func dismiss() {

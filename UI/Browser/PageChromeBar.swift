@@ -65,8 +65,9 @@ final class PageChromeBar: NSView, TrafficLightNeighbour {
     /// The pill wants §9.1, standing in its place. Wired to
     /// `BrowserSession.presentCommandBar` by `PageChromeController`.
     var onHandOff: ((CommandBarAnchor) -> Void)?
-    /// How much room the bar is taking, whenever that changes. The page starts
-    /// below it — see `ContentCardView.setContentTopInset`.
+    /// How much room the bar is taking, whenever that changes. The page runs
+    /// under it and is told this much is covered — see
+    /// `ContentCardView.setContentTopInset`.
     var onBandHeight: ((_ height: CGFloat, _ animated: Bool) -> Void)?
     /// The pill has been reached for, and the bar is open by the time this
     /// fires. It stays open for as long as §9.1 is standing on it.

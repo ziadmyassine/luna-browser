@@ -20,6 +20,7 @@
 //
 
 import AppKit
+import WebKit
 
 extension ChromeState {
 
@@ -99,8 +100,8 @@ final class ContentCardView: NSView {
     /// layout transition and inactive the rest of the time — see
     /// `beginGeometryTransition(toWidth:)`.
     private var contentWidth: NSLayoutConstraint?
-    /// The content's top edge. §3.2b's bar stands above the page rather
-    /// than over it, so the page starts under the bar's band — see
+    /// The content's top edge: the pane's own for a web view, which runs
+    /// under §3.2b's bar, and below the bar for anything else — see
     /// `setContentTopInset`.
     private var contentTop: NSLayoutConstraint?
     private var pageBarInset: CGFloat = 0
@@ -151,7 +152,7 @@ final class ContentCardView: NSView {
         let width = view.widthAnchor.constraint(equalToConstant: bounds.width)
         width.isActive = false
         contentWidth = width
-        let top = view.topAnchor.constraint(equalTo: topAnchor, constant: pageBarInset)
+        let top = view.topAnchor.constraint(equalTo: topAnchor)
         contentTop = top
         NSLayoutConstraint.activate([
             top,
@@ -159,6 +160,8 @@ final class ContentCardView: NSView {
             view.bottomAnchor.constraint(equalTo: bottomAnchor),
             leading
         ])
+        // A tab arriving under a bar that is already there.
+        applyTopInset()
     }
 
     /// §3.2b's bar.
@@ -185,32 +188,56 @@ final class ContentCardView: NSView {
         ])
     }
 
-    /// How far §3.2b's bar pushes the page down.
+    /// How much of the page §3.2b's bar covers.
     ///
-    /// Above the page, not over it. The bar takes the site's own colour, so
-    /// laid over the page it merged with the top of the document and hid
-    /// whatever was there. The page starts below it in both of the bar's
-    /// states, so the 22 pt between them is a real change of height and the
-    /// page reflows for it.
+    /// The page runs under the bar, and WebKit is told how much of it the bar
+    /// covers (`obscuredContentInsets`), which shrinks the page's viewport
+    /// without moving the web view. The web view used to move: its top edge
+    /// was a constraint animated with the bar, so it was resized a frame at a
+    /// time, the page redrew behind the edge and visibly bobbed, and on the
+    /// way open the pane's grey showed between the bar and a page that had not
+    /// caught up.
     ///
-    /// Affordable because it is rare: the bar changes state at most once per
-    /// reversal of scroll direction (`PageBarScroll` holds it through
-    /// `pageBarScrollSlack` of travel), not once per frame.
+    /// A new inset still moves the content by the difference, so the page is
+    /// scrolled by the same amount in the same turn and stays where it is on
+    /// screen. Not at the top of a document when the bar opens: there the bar
+    /// pushing the page down is the page making room, which is what it is.
     func setContentTopInset(_ inset: CGFloat, animated: Bool) {
         guard inset != pageBarInset else { return }
+        let change = inset - pageBarInset
         pageBarInset = inset
-        guard let contentTop else { return }
-        let assign: () -> Void = {
-            contentTop.constant = inset
-            self.layoutSubtreeIfNeeded()
+        applyTopInset(holdingPage: animated ? change : 0)
+    }
+
+    /// The inset, on whatever the pane is holding. A view that is not a web
+    /// view — a plain one in the tests — cannot be told what is covered, so it
+    /// starts below the bar instead.
+    private func applyTopInset(holdingPage change: CGFloat = 0) {
+        guard let content else { return }
+        guard let web = content as? WKWebView else {
+            contentTop?.constant = pageBarInset
+            return Tokens.Motion.immediately { layoutSubtreeIfNeeded() }
         }
-        guard animated else { return Tokens.Motion.immediately(assign) }
-        // The same spec the bar collapses on, so the page and the bar arrive
-        // together rather than one chasing the other.
-        Tokens.Motion.animate(Tokens.Motion.sidebarCollapse) { context in
-            context.allowsImplicitAnimation = true
-            assign()
-        }
+        contentTop?.constant = 0
+        var insets = web.obscuredContentInsets
+        insets.top = pageBarInset
+        web.obscuredContentInsets = insets
+        guard change != 0 else { return }
+        web.evaluateJavaScript(Self.holdingScript(change), in: nil, in: .defaultClient, completionHandler: nil)
+    }
+
+    /// Scrolls the page by `change`, which cancels the move the new inset
+    /// makes. `instant`, or a site with `scroll-behavior: smooth` would glide
+    /// back into place after the jump this exists to prevent.
+    static func holdingScript(_ change: CGFloat) -> String {
+        let slack = Tokens.Metric.pageBarScrollSlack
+        return """
+        (() => {
+            const change = \(Double(change));
+            if (change > 0 && window.scrollY <= \(Double(slack))) return;
+            window.scrollBy({ top: change, behavior: "instant" });
+        })()
+        """
     }
 
     // MARK: - Layout transitions

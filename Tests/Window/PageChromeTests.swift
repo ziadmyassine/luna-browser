@@ -11,6 +11,7 @@
 //  sidebar dropping its pill in a layout that has no page bar to put it in.
 //
 
+import WebKit
 import XCTest
 @testable import Luna
 
@@ -225,5 +226,41 @@ final class PageBarInsetTests: XCTestCase {
         card.setContentTopInset(Tokens.Metric.pageBar, animated: false)
         card.layoutSubtreeIfNeeded()
         XCTAssertEqual(page.frame.maxY, top)
+    }
+
+    /// A web page runs under the bar and is told how much of it is covered.
+    /// Moving its frame instead resized it a frame at a time, and the pane's
+    /// grey showed between the bar and a page that had not caught up.
+    func testAWebPageRunsUnderTheBarInsteadOfMoving() {
+        let card = ContentCardView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
+        let page = WKWebView(frame: .zero)
+        card.setContent(page)
+        card.setContentTopInset(Tokens.Metric.pageBar, animated: false)
+        card.layoutSubtreeIfNeeded()
+        XCTAssertEqual(page.frame.maxY, card.bounds.maxY, "the page's top moved")
+        XCTAssertEqual(page.obscuredContentInsets.top, Tokens.Metric.pageBar)
+        card.setContentTopInset(Tokens.Metric.pageBarCollapsed, animated: true)
+        card.layoutSubtreeIfNeeded()
+        XCTAssertEqual(page.frame.maxY, card.bounds.maxY, "the page's top moved")
+        XCTAssertEqual(page.obscuredContentInsets.top, Tokens.Metric.pageBarCollapsed)
+    }
+
+    /// A tab switched to under a bar that is already there is covered too.
+    func testATabArrivingUnderTheBarIsToldAtOnce() {
+        let card = ContentCardView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
+        card.setContentTopInset(Tokens.Metric.pageBar, animated: false)
+        let page = WKWebView(frame: .zero)
+        card.setContent(page)
+        XCTAssertEqual(page.obscuredContentInsets.top, Tokens.Metric.pageBar)
+    }
+
+    /// The page is scrolled by the change, so it stays still on screen —
+    /// except the bar opening at the top of a document, which is the page
+    /// making room.
+    func testTheHoldingScrollCancelsTheMoveButNotAtTheTop() {
+        let collapse = ContentCardView.holdingScript(-22)
+        XCTAssertTrue(collapse.contains("const change = -22.0"))
+        XCTAssertTrue(collapse.contains("behavior: \"instant\""))
+        XCTAssertTrue(ContentCardView.holdingScript(22).contains("change > 0 && window.scrollY <= 24.0"))
     }
 }

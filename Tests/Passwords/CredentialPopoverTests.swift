@@ -15,6 +15,7 @@
 //
 
 import AppKit
+import WebKit
 import XCTest
 @testable import BrowserKit
 @testable import Luna
@@ -138,5 +139,16 @@ final class CredentialPopoverTests: XCTestCase {
         let view = laidOut(.saved(offer(redirect: true)))
         XCTAssertTrue(labels(in: view).contains { $0.contains("redirected") },
                       "§14.8's redirect warning went missing")
+    }
+
+    /// The page measures a field from its own viewport, which starts under
+    /// §3.2b's bar when the bar covers the top of the web view. The picker has
+    /// to add that back or it points above the field.
+    func testThePickerPointsBelowWhateverCoversThePage() {
+        let web = WKWebView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
+        let field = CGRect(x: 100, y: 40, width: 200, height: 30)
+        XCTAssertEqual(CredentialPopover.viewRect(for: field, in: web), CGRect(x: 100, y: 530, width: 200, height: 30))
+        web.obscuredContentInsets = NSEdgeInsets(top: 52, left: 0, bottom: 0, right: 0)
+        XCTAssertEqual(CredentialPopover.viewRect(for: field, in: web), CGRect(x: 100, y: 478, width: 200, height: 30))
     }
 }
