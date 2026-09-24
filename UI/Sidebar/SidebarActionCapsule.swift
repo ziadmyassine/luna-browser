@@ -23,7 +23,7 @@
 //  under the finger. `NavCluster` is the same three lines.
 //
 //  The cylinder is exactly `bottomCircle` tall — it is two of those circles
-//  fused, not a new size — so it still sits on the avatar's centre line and
+//  fused, not a new size — so it sits on the Space pill's centre line and
 //  the foot of the sidebar stays one row of equal-height controls.
 //
 

@@ -94,6 +94,7 @@ enum Settings {
     private static let layoutKey = "luna.chromeLayout"
     private static let tabsKey = "luna.tabsPosition"
     private static let searchBarKey = "luna.searchBarPlacement"
+    private static let macCornersKey = "luna.macWindowCorners"
     private static let tabHintKey = "luna.pinHint.tabDismissed"
     private static let folderHintKey = "luna.pinHint.folderDismissed"
 
@@ -136,6 +137,17 @@ enum Settings {
         set {
             guard newValue != tabsPosition else { return }
             UserDefaults.standard.set(newValue.rawValue, forKey: tabsKey)
+            NotificationCenter.default.post(name: didChange, object: nil)
+        }
+    }
+
+    /// The corner macOS gives its own windows instead of Luna's rounder one.
+    /// Off by default: Luna's corner is the reference's.
+    static var macWindowCorners: Bool {
+        get { UserDefaults.standard.bool(forKey: macCornersKey) }
+        set {
+            guard newValue != macWindowCorners else { return }
+            UserDefaults.standard.set(newValue, forKey: macCornersKey)
             NotificationCenter.default.post(name: didChange, object: nil)
         }
     }
@@ -219,11 +231,9 @@ enum Settings {
     /// sidebar and the page bar are driven from.
     ///
     /// Two keys, one answer. The placement is only a question in sidebar
-    /// layout; §4's top bar has no address of its own and always stands the
-    /// page bar under itself. Asking each surface to remember that is how the
-    /// sidebar ends up having dropped its pill in a layout that has no page bar
-    /// to put it in.
+    /// layout; §4's top bar has no page bar at all — its address is edited from
+    /// the tab on screen (`TopBarTabStrip`) or `⌘L`, in the Command Bar.
     static var searchBarIsOnPage: Bool {
-        chromeLayout == .topBar || searchBarPlacement == .page
+        chromeLayout == .sidebar && searchBarPlacement == .page
     }
 }

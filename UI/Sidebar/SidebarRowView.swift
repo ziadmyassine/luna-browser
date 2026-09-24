@@ -63,6 +63,10 @@ struct SidebarRowContent: Equatable {
     /// the user kept, so it is dimmed rather than greyed out — the next press
     /// lets it go.
     var isDormant: Bool = false
+    /// §4's selected tab: §3.2's site settings glyph, in the slot before the
+    /// trailing one. The column's rows never draw it — its URL pill has the
+    /// same glyph a row's height above.
+    var siteSettings: Bool = false
 
     /// Whether a group is folded shut, on the row that folds it.
     enum Disclosure: Equatable { case expanded, collapsed }
@@ -83,6 +87,10 @@ final class SidebarRowView: NSView {
     /// and not called for a name that is only whitespace: both mean the folder
     /// keeps the name it had.
     var onRename: ((String) -> Void)?
+
+    /// The site settings glyph was pressed, handing up the glyph for the
+    /// pop-out to stand on.
+    var onSiteSettings: ((NSView) -> Void)?
 
     var isSelected = false { didSet { refreshInk() } }
     var isHovered = false { didSet { refreshInk() } }
@@ -106,7 +114,9 @@ final class SidebarRowView: NSView {
     private let shimmer = NSTextField(labelWithString: "")
     private let shimmerMask = CAGradientLayer()
     let fadeMask = CAGradientLayer()
-    private let trailing = RowGlyphView()
+    // Internal, not private, for `SidebarRowGeometry.swift`, which places them.
+    let trailing = RowGlyphView()
+    let siteButton = RowGlyphView()
     /// §3.4b's rename, typed on the row itself. Hidden until it is asked for —
     /// see `SidebarRowView+Rename.swift`, which is the rest of it.
     let editor = NSTextField()
@@ -159,6 +169,16 @@ final class SidebarRowView: NSView {
             guard let self else { return }
             onTrailing?(content.trailing)
         }
+        siteButton.configure(
+            symbolName: SiteMenu.Glyph.advanced,
+            label: String(localized: "Site Settings"),
+            pointSize: Tokens.Metric.rowTrailingGlyph
+        )
+        siteButton.isHidden = true
+        siteButton.onActivate = { [weak self] in
+            guard let self else { return }
+            onSiteSettings?(siteButton)
+        }
         chevron.isHidden = true
         // The header is the control and carries the label; a second element
         // announcing the same fold is one more stop for no more reach.
@@ -167,7 +187,7 @@ final class SidebarRowView: NSView {
         spine.isHidden = true
 
         prepareEditor()
-        for view in [spine, icon, dot, titleClip, chevron, trailing, editor] { addSubview(view) }
+        for view in [spine, icon, dot, titleClip, chevron, siteButton, trailing, editor] { addSubview(view) }
         setAccessibilityElement(true)
         setAccessibilityRole(.cell)
     }
@@ -199,6 +219,7 @@ final class SidebarRowView: NSView {
         applyDisclosure(next.disclosure)
         spine.isHidden = next.indent == 0
         applyTrailing(next.trailing)
+        siteButton.isHidden = !next.siteSettings
         refreshInk()
         if next.isLoading != wasLoading { updateShimmer() }
         needsLayout = true
@@ -259,6 +280,7 @@ final class SidebarRowView: NSView {
         // close chip is only reachable on the row the pointer is on, and it
         // has to be legible while it is being aimed at.
         trailing.tint = isSelected || isHovered ? Tokens.Text.primary : Tokens.Text.secondary
+        siteButton.tint = trailing.tint
     }
 
     override func viewDidChangeEffectiveAppearance() {
@@ -317,6 +339,7 @@ final class SidebarRowView: NSView {
         // every rename in every list has.
         if !editor.isHidden { return editor }
         if !trailing.isHidden, trailing.frame.contains(local) { return trailing }
+        if !siteButton.isHidden, siteButton.frame.contains(local) { return siteButton }
         return self
     }
 
@@ -360,16 +383,7 @@ final class SidebarRowView: NSView {
             height: dotSize
         ).pixelAligned
 
-        // Inset from the pill, not from the row. The pill is already
-        // `rowInset` inside the row, so one inset put the chip flush against
-        // the pill's edge; the reference keeps a full inset inside it.
-        let chip = Tokens.Metric.rowTrailingChip
-        trailing.frame = NSRect(
-            x: Self.trailingSlotX(inRowOfWidth: bounds.width),
-            y: (bounds.height - chip.height) / 2,
-            width: chip.width,
-            height: chip.height
-        ).pixelAligned
+        placeChips()
 
         // The pill is `rowInset` inside the row, and the title keeps that same
         // inset inside the pill — so it ends two insets short of the row,
@@ -378,6 +392,7 @@ final class SidebarRowView: NSView {
             inRowOfWidth: bounds.width,
             hasUnread: content.hasUnread,
             slotOccupied: !trailing.isHidden,
+            siteSlot: content.siteSettings,
             indent: indent
         )
         let height = title.intrinsicContentSize.height

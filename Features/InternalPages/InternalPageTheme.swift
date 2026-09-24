@@ -139,7 +139,7 @@ enum InternalPageTheme {
             px("--luna-tile-icon", metric.essentialsIcon),
             px("--luna-pill-h", metric.urlPill.height),
             px("--luna-pill-inset", metric.pillTextInset),
-            px("--luna-card-radius", metric.contentCardRadius),
+            px("--luna-card-radius", metric.panelCornerRadius),
             px("--luna-size-row", Tokens.TypeScale.sidebarRow.pointSize),
             px("--luna-size-pill", Tokens.TypeScale.urlPill.pointSize),
             px("--luna-size-label", Tokens.TypeScale.sectionLabel.pointSize),

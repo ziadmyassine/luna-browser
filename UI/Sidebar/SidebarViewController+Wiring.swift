@@ -34,9 +34,9 @@ extension SidebarViewController {
             guard let self else { return }
             if isLoading { session.stop() } else { session.reload() }
         }
-        // §3.2's menu is about the page, and every answer in it is one the
-        // session already holds — so it opens itself rather than being routed
-        // out to the coordinator and straight back in.
+        // §3.2's site settings are about the page, and every answer in them is
+        // one the session already holds — so they open themselves rather than
+        // being routed out to the coordinator and straight back in.
         pill.onSiteMenu = { [weak self] in
             guard let self else { return }
             SiteMenu.present(from: pill.siteMenuAnchor)
@@ -47,11 +47,9 @@ extension SidebarViewController {
         utility.onProfile = { [weak self] in self?.onProfileMenu?() }
         // §6.2 lives in Settings and there is one window of it, so the foot of
         // the sidebar asks the app for it rather than growing its own copy —
-        // the same route §3.2's site menu takes to the Privacy section.
+        // the same route §3.2's site settings take to the Advanced section.
         utility.onEditSpaces = { [weak self] in self?.spaces?.editSpaces() }
         utility.onNewSpace = { [weak self] in self?.spaces?.createSpace() }
-        spaceLabel.onEditSpaces = { [weak self] in self?.spaces?.editSpaces() }
-        spaceLabel.onNewSpace = { [weak self] in self?.spaces?.createSpace() }
         utility.onManageProfiles = { [weak self] in self?.spaces?.editSpaces() }
         utility.onHistory = { [weak self] in self?.onOpenHistory?() }
         utility.onDownloads = { [weak self] in self?.onOpenDownloads?() }

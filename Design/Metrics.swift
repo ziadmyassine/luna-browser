@@ -135,7 +135,8 @@ extension Tokens {
         /// under: the head can empty out — §3.2b takes its buttons onto the
         /// page — and this cannot. 190, and derived rather than written down
         /// because every part of it is already a token; the first line above
-        /// is the same sum in prose. At exactly this the avatar, the Space
+        /// is the same sum in prose, with the Space pill at its one-circle
+        /// minimum. At exactly this the Space pill, the Space
         /// strip and the Downloads/History cylinder touch their gaps, and the
         /// strip stops being centred in the bar (`dotsOriginX`).
         static let sidebarFootWidth = 2 * rowInset + bottomCircle.width
@@ -439,14 +440,18 @@ extension Tokens {
 
         // MARK: Window and content card (§1, §3.6, §4)
 
-        /// 25 pt. Measured off the reference's own window corner (72 px), which
-        /// is a macOS 26 window rather than a shape Luna invented.
+        /// 25 pt, the default. Measured off the reference's own window corner
+        /// (72 px), a macOS 26 window rather than a shape Luna invented.
         static let windowCornerRadius: CGFloat = 25
-        /// The content pane's corners match the window's, because the pane is
-        /// flush against three of the window's edges: a smaller radius would
-        /// leave a crescent of glass showing inside each window corner. Only
-        /// the two leading corners are actually drawn — see `ContentCardView`.
-        static let contentCardRadius = windowCornerRadius
+        /// 16 pt, the corner macOS gives Luna's window, for the Appearance
+        /// setting that matches it (`Settings.macWindowCorners`). Measured on
+        /// macOS 27: `NSWindow._cornerRadius` on a titled, full-size-content
+        /// window, with and without a toolbar.
+        static let windowCornerRadiusSystem: CGFloat = 16
+        /// The Command Bar, the pop-outs, the tab switcher and the quit sheet.
+        /// They float over the page rather than nesting in the window's corners,
+        /// so they keep the reference's radius whichever corner the window wears.
+        static let panelCornerRadius = windowCornerRadius
         /// A generic 8 pt inset for the panels that are not the content pane —
         /// the Command Bar and the downloads list. There is no content-card gap
         /// any more: the reference runs the page flush to the window's top,

@@ -92,9 +92,6 @@ final class SidebarViewController: NSViewController, WindowScoped {
     let folderHint = SidebarPinHintView.folderTier()
     let list = TabListController()
     let utility = SidebarUtilityBar()
-    /// §3.5's caption, directly above the Space strip: the active Space's
-    /// name. See the view.
-    let spaceLabel = SidebarSpaceLabel()
     let handle = SidebarResizeHandle()
     /// §30.9's page turn: the Space arriving, and the `+` standing in for the
     /// one that does not exist. Both draw nothing until the gesture asks.
@@ -142,7 +139,7 @@ final class SidebarViewController: NSViewController, WindowScoped {
         // mark that has to stay visible while the two pass each other.
         for subview in [
             wash, preview, controlRow, pill, essentials, folderHint, list.scrollView,
-            creation, spaceLabel, utility, handle
+            creation, utility, handle
         ] {
             root.addSubview(subview)
         }
@@ -253,11 +250,10 @@ final class SidebarViewController: NSViewController, WindowScoped {
             replacing: switchingSpace
         )
         utility.show(spaces: session.spaces, activeSpaceID: activeSpaceID)
-        // §3.5's caption names the Space; §3.5's avatar wears its picture. One
-        // thing said twice on purpose — the strip below identifies a Space by
-        // colour alone, and a name and a face are what a glance actually reads.
+        // §3.5's pill names the Space and wears its picture — the strip beside
+        // it identifies a Space by colour alone, and a name and a face are
+        // what a glance actually reads.
         let active = session.space(activeSpaceID)
-        spaceLabel.show(spaceName: active?.name)
         utility.show(
             spaceName: active?.name,
             fanOut: active.map { SpacesSection.fanOut($0, session: session) },
@@ -351,7 +347,7 @@ final class SidebarViewController: NSViewController, WindowScoped {
     @objc private func accessibilityDisplayOptionsChanged() {
         pill.accessibilityDisplayOptionsChanged()
         list.accessibilityDisplayOptionsChanged()
-        spaceLabel.accessibilityDisplayOptionsChanged()
+        utility.spacePill.accessibilityDisplayOptionsChanged()
         Self.redraw(view)
     }
 

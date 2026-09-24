@@ -332,27 +332,22 @@ because a name typed to fifty characters and silently committed as 32 reads as
 the app having lost the end of it. Capped rather than refused — a shortened name
 is what the user meant where an error dialog is not.
 
-**The sidebar's caption shows as much of a name as the column has room for, and
-fades the rest.** The line over §3.5's strip is the one place a name is drawn in
-a 220 pt column at `TypeScale.settingsCaption`, and 32 characters do not fit
-there at any width §1 allows: the reported name ran from inset to inset and
-ended in an ellipsis. The cut is §3.4's fade rather than an ellipsis, so the
-tail dissolves instead of being replaced by punctuation.
+**The sidebar's Space pill shows the whole name when the foot has room, and
+fades the rest.** The pill at the leading end of §3.5's foot is sized to its name
+as §4's is, up to the same 180 pt ceiling, and moves the dots along rather than
+cutting the name to keep them centred. Only a name that would leave the dots no
+room at all is cut. The cut is §3.4's fade rather than an ellipsis, so the tail
+dissolves instead of being replaced by punctuation, and a wider column shows
+more of the name. "Personal", the name Luna ships with, fits whole at every
+width §1 allows with one Space.
 
-How much is a function of the column, not a constant. At `sidebarFootFloor` —
-the narrowest §1 allows — it is what the name Luna ships with measures, so
-"Personal" fits whole and nothing longer does; past that it is a point of name
-per point of column, out to §1's ceiling where a 32-character name is drawn
-entire. A fixed cap showed exactly as much in a 420 pt column as in a 220 pt
-one, with the rest of the line empty either side of it, and the caption was the
-only thing in the column that did not answer to §3.7's drag.
+The fade is `sidebarSpaceNameFade`, twice a row's ramp, because at a row's 12 pt
+the last glyph read as a letter that had been cut rather than a name that ran
+out. The whole name stays a hover away, in the tooltip and in VoiceOver, and is
+drawn whole on the Space's card here.
 
-The cap is where the line runs out, not where the ink stops:
-`sidebarSpaceNameFade` is twice a row's ramp and starts inside it, because a
-row's 12 pt ends against the pill's inner edge and this one ends in clear air,
-where a short ramp read as a letter that had been cut rather than a name that
-ran out. The whole name stays a hover away, in the tooltip and in VoiceOver, and
-is drawn whole on the Space's card here.
+This was a caption over the dots until 2026-09-24, when the Space took the
+Profile avatar's place in the foot as a pill of its own.
 
 ### 6.3 Delete a Space
 Luna's `deleteSpace` is already better than most: last-Space guard, tears down
@@ -472,13 +467,14 @@ Anything that does put two Spaces in one list in future owes D-S8 its label
 back, because the Space colour alone does not tell you whose cookies you are
 about to use.
 
-**A Profile can carry a picture, and §3.5's avatar wears it.** A name in a
+**A Profile can carry a picture, and §3.5's Space pill wears it.** A name in a
 tooltip is read; a face is recognised, which is the difference that matters for
 a control the user is glancing at rather than reading. It is set from the
 Profile's card in §6.2 and taken off from the same row.
 
 What is stored is not what was chosen. A picture arrives from a photo library
-at thousands of points and megabytes, and is drawn in a 34 pt circle — so the
+at thousands of points and megabytes, and is drawn in a 26 pt circle at the end
+of the Space pill — so the
 app crops the middle square and downsamples to `ProfilePicture.side` (three
 times the circle) before anything is persisted, and the column holds the PNG
 that is drawn. Cropped rather than fitted, because a portrait letterboxed into

@@ -6,7 +6,7 @@
 //
 //  Why this is a second view rather than a wider first one. `ContentCardView`
 //  rounds only its leading corners (§3.6), so in `.sidebar` the card leaves a
-//  `contentCardRadius` quarter-disc notch at its top-leading and bottom-leading
+//  `WindowCorner.radius` quarter-disc notch at its top-leading and bottom-leading
 //  corners. What shows through is `WindowRootView`'s plain `Glass.sidebar`: the
 //  sidebar's own wash never gets there, because the wash is a subview of the
 //  sidebar and `ChromeHostView` sets `masksToBounds = true` on the way in,
@@ -18,9 +18,9 @@
 //  either covered by the opaque card or already painted by the sidebar's own
 //  wash, and painting there too would lay 16 % over 16 %.
 //
-//  It exists only in `.sidebar`. The other three states have no rounded card
-//  corner to fill — `cardIsInset` is false for all of them — which is also why
-//  fullscreen keeps the flat `Surface.fullScreenChrome` plane it was given
+//  It exists only in `.sidebar`. Collapsed and fullscreen have no rounded card
+//  corner, and §4's bar has no Space wash, so the glass in its two notches is
+//  already the bar's own — which is also why fullscreen keeps the flat `Surface.fullScreenChrome` plane it was given
 //  rather than picking up a Space's colour.
 //
 
@@ -122,7 +122,7 @@ final class SpaceCornerFillView: NSView {
     }
 
     private static func leadingNotches(in bounds: NSRect, besideColumnOf columnWidth: CGFloat) -> CGPath {
-        let radius = Tokens.Metric.contentCardRadius
+        let radius = WindowCorner.radius
         let path = CGMutablePath()
         let x = columnWidth
         guard radius > 0, bounds.height > 2 * radius else { return path }

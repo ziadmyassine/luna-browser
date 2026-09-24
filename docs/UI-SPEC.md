@@ -51,12 +51,13 @@ sidebar's own content reflows. The ratios exist to fix proportions once, not to 
 | `controlPairGap` (back ↔ reload) | 5 pt | 8 |
 | `trafficLightInset` (leading **and** top) | 18 pt | 8 leading, 18 top |
 | `controlSquircle` (its radius plus the capsule's 4 pt padding is §4's plate and kept tile: 36 pt, radius 13) | 28 pt, radius 9 | — |
-| `bottomCircle` (avatar, history) | 34 pt (`= sidebarCircle`) | — |
+| `bottomCircle` (Space pill height, history) | 34 pt (`= sidebarCircle`) | — |
 | `spaceDotsPill` / `spaceDotChip` | 56 × 22 pt, radius 11 / 14 pt (= `spaceDotPitch`) | — |
 | `spaceDot` | 6 pt | — |
 | `glyphSize` (chrome SF Symbols) | 16 pt | 17, and 18 before that |
-| `windowCornerRadius` | 25 pt | 18 |
-| `contentCardRadius` | 25 pt (`= windowCornerRadius`) | 16 |
+| `windowCornerRadius` (the default) | 25 pt | 18 |
+| `windowCornerRadiusSystem` (macOS's own corner for this window, measured on macOS 27; Settings ▸ Appearance ▸ Match macOS corners, §3.6) | 16 pt | — |
+| `panelCornerRadius` (Command Bar, pop-outs, tab switcher, quit sheet) | 25 pt (`= windowCornerRadius`) | `contentCardRadius`, 16 before that |
 | `contentCardGap` | **gone** — the page is flush (§3.6) | 8 pt |
 | `panelInset` (Command Bar, downloads list) | 8 pt | was `contentCardGap` |
 | `topBarHeight` | 52 pt | — |
@@ -131,48 +132,25 @@ changes. Inactive now measures 0.172/0.118/0.278 against the active 0.166/0.110/
 off in fullscreen and under Reduce Transparency for the reason the tint itself is — there is
 no material there to have lost one.
 
-### 2a. Clear or Opaque — the user's own answer
+> **Tried and reverted 2026-09-24: the plate in every state.** Measured at 120 fps on macOS 27, the
+> sidebar still came up lighter when Luna lost focus (29.4 → 42.2 dark), and Stage Manager showed it
+> as a flash leaving and entering the stage. Painting the plate at all times (0.46 light / 0.54 dark,
+> tuned to the focused look) removed the lightening, but the flicker in Stage Manager looked the same,
+> so it was reverted. One flat frame about 0.4 s after the window returns from Stage Manager is
+> macOS's own: a bare `NSGlassEffectView` in a clear window shows it too, and an opaque one does not.
 
-**How much of the desktop comes through is a setting**, `Glass.density`, stored in
-`appearance.glassDensity` and offered as *Material: Clear / Opaque* in Settings ▸ Appearance ▸ Glass.
-`Clear` is the default and is everything above. `Opaque` swaps `Surface.frost` for
-`Surface.frostOpaque` — the same plane at **0.62 light / 0.66 dark** instead of 0.46/0.50 — and gives
-the popover surfaces a plane of their own (`Surface.popoverFrostOpaque`, over `Surface.raised`, because
-a popover reads as raised *above* the chrome rather than as more of it). Controls are untouched at
-either density: a frosted control reads as a hole rather than as something raised.
+### 2a. Clear only
 
-**The two alphas are measured off Martin's reference, and the first measurement was wrong** in a way
-worth recording, because it is the easy mistake. Comparing *means* said the panel keeps ~45 % of the
-backdrop's red — "the colour comes through and the shape does not" — and gave 0.86, which on screen was
-a different kind of surface rather than a denser one. Look at the image instead of at its average and
-the wallpaper's shape is plainly still there. A mean cannot see that; contrast can. A flat plane over a
-blurred backdrop compresses contrast by exactly the amount of plane there is, linearly in the alpha and
-independently of what the blur did to the mean:
+**The chrome is Clear, and there is no setting.** A *Material: Clear / Opaque* row in Settings ▸
+Appearance ▸ Glass was removed on 2026-09-24; everything above is the one material. Opaque swapped
+`Surface.frost` for the same plane at 0.62 light / 0.66 dark and gave the popovers a plane of their own.
 
-```
-composite     = a · plate + (1 − a) · blurred backdrop
-sd(composite) =             (1 − a) · sd(blurred backdrop)
-```
-
-| Red channel, off the reference | mean | sd | range |
-|---|---|---|---|
-| panel interior | 52.0 | 10.3 | 38–82 |
-| wallpaper, box-blurred r = 40 | 85–109 | 28.6–35.3 | — |
-| wallpaper, box-blurred r = 60 | 85–107 | 24.7–31.2 | — |
-
-`1 − a = 10.3 / 28 ≈ 0.37`, so **a ≈ 0.63**. The mean agrees independently: `0.66 × 35 + 0.34 × X = 52`
-solves to `X = 85`, exactly where the blurred wallpaper beside the panel sits. Two estimates from
-different statistics landing on the same number is the reason to trust it — and it makes `Opaque` a step
-above `Clear`'s 0.50 rather than a plate, which is what the reference actually shows.
-
-**And it stops short of 1.0, by rule.** At full strength the frost *is* the Reduce Transparency fallback
-plane: there is no glass left above it, and "more opaque" would quietly have become "off".
-`TokenCheck.checkGlassDensity` asserts both halves — opaque is denser than clear in every variant, and
-neither passes 0.95.
-
-Assigning the setting re-skins every live surface in one pass and needs no relaunch, exactly as §7's
-does. It is cheaper than §7's: the density changes a *plane*, not the material, so nothing is rebuilt and
-there is no swap to flash.
+> **If it comes back, the alpha is measured by contrast, not by mean.** Comparing means off the
+> reference gave 0.86, a different kind of surface rather than a denser one. A flat plane over a blurred
+> backdrop compresses contrast by exactly the amount of plane there is — `sd(composite) = (1 − a) ·
+> sd(blurred backdrop)` — and the reference's panel (sd 10.3 against the blurred wallpaper's ~28) gives
+> a ≈ 0.63, which the mean confirms independently. It must stay short of 1.0: at full strength the frost
+> is the Reduce Transparency plane and "more opaque" becomes "off".
 
 The tint is dropped wherever the opaque backdrop is up (fullscreen, §3.8's peek): there the glass is
 sampling a plate rather than a bright desktop, and darkening that plane by a third takes the sidebar
@@ -199,16 +177,16 @@ backdrop was the one surface in Luna deliberately not made of glass.
 > back over the sharp original — so every step below 1.0 bought a flat grey film over a page that was
 > still perfectly legible. Two files disagreed and the code was the one that was wrong. The second went
 > to full strength and painted `Surface.frost` over it, borrowing §3.8's peeked-sidebar recipe on the
-> argument that a blur wants a *surface* to be rather than a hole — and that plane followed §2a's
-> density, so at `.opaque` it was `Ink.frostOpaque`: **0.66 in dark mode**. Measured off a capture over
+> argument that a blur wants a *surface* to be rather than a hole — and that plane followed the Clear /
+> Opaque setting §2a has since dropped, so at Opaque it was `Ink.frostOpaque`: **0.66 in dark mode**. Measured off a capture over
 > apple.com: the page's shapes do survive the blur, and are then flattened under a sheet two thirds of
 > the way to solid. What read was the sheet.
 >
 > **Why the peek's recipe never transferred.** That plane stands over the *desktop*, which glass
 > refracts at full brightness, and the frost is what stops the wallpaper reading as the chrome. This one
 > stood over a page the blur had already softened, at a setting whose whole subject is how much desktop
-> comes through — a question this surface does not ask. So §2a moves the chrome and had no business
-> here.
+> comes through — a question this surface does not ask. So that setting moved the chrome and had no
+> business here.
 
 Shown the blur on its own, with the plane gone, Martin's answer was that the backdrop is not wanted at
 all: *"just remove the blur around it completely, it is not needed."* So there is no scrim, no
@@ -227,7 +205,7 @@ what it blurs, and the material's own tint is not tunable — a `CIColorControls
 layer collapses the backdrop group into an opaque plate. What `alphaValue` looked like a dial for, it was
 not: see the note above. The bar itself keeps §2's **untinted** `.popover` glass for the same reason the
 chrome's tint exists — a bar floating over a page should look like a pane of the desktop, not like more
-chrome (and §2a gives it a plane when the user asks for one).
+chrome.
 
 **Its type is a step above the chrome's.** The query is 13 → **15 pt** (`TypeScale.commandBarQuery`) and
 a result row's title and subtitle 13 → **14** (`commandBarRow`). §1's 13 pt is measured off the reference
@@ -378,8 +356,8 @@ Vertical order, top to bottom:
   column does not contain the lights at all — macOS keeps them at the window's top-left — so its
   toggle starts at `rowInset` instead of 78 pt in, which is 86 pt off the 243. Either one puts the
   head under §3.5's foot, and then `sidebarFootFloor` answers: **220**. The foot itself occupies
-  `sidebarFootWidth` — 190, derived from the tokens it is made of, the width at which the avatar, the
-  Space strip and the Downloads/History cylinder close to exactly one `chromeGap` apart — and 220
+  `sidebarFootWidth` — 190, derived from the tokens it is made of, the width at which the Space pill (at
+  its one-circle minimum), the Space strip and the Downloads/History cylinder close to exactly one `chromeGap` apart — and 220
   stands off it for the reason 250 stands off 243, plus the Essentials grid, which is the one thing in
   the column that keeps shrinking rather than stopping: a tile is 47 pt wide at 220 against 40 at 190.
   `Settings.sidebarWidth` is the single reader that resolves the two, and `SidebarWidthFloorTests`
@@ -403,7 +381,7 @@ Vertical order, top to bottom:
   saying what the bar is for should be. Luna's other pages keep their names — `History` is somewhere
   you actually are. "Website name" rather than "URL" because that is what people type: `apple.com`,
   not a scheme.
-- Left-aligned text at 12 pt inset; trailing **sliders glyph** (site menu) at the same 12 pt from the
+- Left-aligned text at 12 pt inset; trailing **sliders glyph** (site settings) at the same 12 pt from the
   right edge. It was 10 — a glyph is optically smaller than its box and can afford to sit closer in —
   and on §3.2b's 420 pt capsule that reads as intended, but in a 240 pt column, with the capsule's
   corner curving away right behind it, it read as site settings falling off the end of the pill.
@@ -535,29 +513,52 @@ Vertical order, top to bottom:
 - **It does not take the page's colour.** See §2: the wash is withdrawn, and the pill is the same
   `Surface.well` on every site.
 
-#### 3.2a Site menu
-The sliders glyph opens a plain `NSMenu` — on macOS 26 that *is* the liquid-glass menu, with the
-system's own material, blur, submenu chevrons, keyboard navigation and Reduce Transparency handling. It
-is one menu, shown from the sidebar pill and from §4's; the top-bar copy adds Reload at the top, because
-§4 gives that layout no reload button.
+#### 3.2a Site settings
+The sliders glyph opens a **pop-out** (`SiteSettingsPanel`), the shape History and Downloads already
+have: glass standing `historyPopoutGap` off the thing that was pressed, a hairline between bands, §3.4's
+row pitch and one pill that follows the pointer. It is the same pop-out from every place the glyph is —
+the sidebar's pill, the page bar's, and §4's selected tab — so there is one design for it in the app.
 
-| Item | Scope | Wired to |
+It was an `NSMenu`. A menu cannot hold a switch, so every per-site answer was a checkmark you could not
+see until you opened it, and it was the one glyph in the chrome that dropped a system menu where the
+others stand a pop-out on their button.
+
+Three bands, top to bottom:
+
+| Row | Scope | Wired to |
 |---|---|---|
+| **Header:** Connection is Secure / Not Secure | page | scheme plus `WKWebView.hasOnlySecureContent`; a page that is not http(s) shows its host |
+| Block Ads & Trackers — switch | **per site** | `ContentBlocker.isDisabled(forHost:)` / `setDisabled(_:forHost:)` |
+| Automatic Picture-in-Picture — switch | **per site**, default on | `SitePermissions` → `TabController.enterAutomaticPictureInPicture` |
+| Local Network — switch | **per site**, default off | `SitePermissions` → a `WKContentRuleList` that refuses private-network loads |
 | Share… | page | `NSSharingServicePicker.show(relativeTo:of:preferredEdge:)`, from the sliders glyph |
 | Copy Link | page | `NSPasteboard` — URL **and** string, so a plain text field gets the address |
-| Block Ads & Trackers | **per site** | `ContentBlocker.isDisabled(forHost:)` / `setDisabled(_:forHost:)` |
-| Automatic Picture-In-Picture | **per site**, default on | `SitePermissions` → `TabController.enterAutomaticPictureInPicture` |
-| Local Network | **per site**, default off | `SitePermissions` → a `WKContentRuleList` that refuses private-network loads |
-| Site Settings ▸ Clear Cache / Clear Cookies | **per site** | `WKWebsiteDataStore.dataRecords`, filtered to this site's registrable domain |
-| Site Settings ▸ Advanced Settings | app | opens SETTINGS-SPEC §3.9 |
-| Connection is secure | page, disabled caption | scheme plus `WKWebView.hasOnlySecureContent` |
+| Clear Cache / Clear Cookies | **per site** | `WKWebsiteDataStore.dataRecords`, filtered to this site's registrable domain |
+| More Settings… | app | opens SETTINGS-SPEC §3.9 |
+
+- **It stands centred across its glyph**, not hung from the glyph's leading edge, and is kept inside
+  the window like every pop-out (`PopoutPanelView.centresOnAnchor`). Hung from the edge, a panel from a
+  glyph at a tab's trailing end read as belonging to whatever was to the right of it.
+- **A switch keeps the pop-out up; an action closes it.** The next question after one per-site answer
+  is usually the one beside it. An action is done with the pop-out the way a menu item is, and it runs
+  after the pop-out has started to fold, so a share sheet or the Settings window does not open under it.
+- **A click anywhere on a switch row moves the switch**, not only a click on the switch. Return and
+  Space do the same for the row the pill is on; ↑ and ↓ move the pill.
+- **The switches are the Mac's own** (`SystemSwitch`, an `NSSwitch`), which on macOS 26 is the Liquid
+  Glass switch — the same one Settings uses. It is 54 × 24 whatever it is asked, and the row is built
+  around that: inset from the pill's trailing end by what centres it top to bottom.
+- **Green means secure.** `Accent.secure` for the padlock in both themes; the words take the same green
+  only in dark, where it measures 7.3:1 — 1.9:1 in light is not text, so there the words stay
+  `Text.primary` (`Accent.secureText`).
+- **Measured off the reference:** the rows' glyphs stand 1/16 of the panel's width in and their titles
+  3/16, which at `rowFaviconInset`'s 17.5 makes the panel 280 wide. Its height is its rows.
 
 - **Per-site is the whole point.** "Block ads" as a global preference is a decision made once and then
   fought with on the four sites it breaks. These answers are taken about *this* site, where the problem
   was noticed, and they are the only place those answers can be given — SETTINGS-SPEC §3.3 has given up
   its copy of the exemption list rather than keep a second one a window away.
-- **A checkmark means the thing is on for this site**, not that an exemption is: Block Ads & Trackers is
-  ticked when blocking is running here.
+- **A switch that is on means the thing is on for this site**, not that an exemption is: Block Ads &
+  Trackers is on when blocking is running here.
 - **Automatic Picture-In-Picture is JavaScript because WebKit gives no other door.** `WKWebView` can
   *close* every media presentation and there is no matching call to open one; `webkitSetPresentationMode`
   is what Safari's own automatic PiP drives. The video must be playing, unmuted and at least 320 px wide
@@ -574,12 +575,8 @@ is one menu, shown from the sidebar pill and from §4's; the top-bar copy adds R
   > `([:/]|$)` came back with. Alternation is spelled out as separate patterns, `172.16–172.31` is three
   > character classes, and `\d` is not available either. A test hands the JSON to WebKit, because the
   > compile is a fire-and-forget `Task` and a refused pattern fails completely silently.
-- **The glyphs are in the titles, because `NSMenuItem.image` is not drawn on this macOS.** Measured with
-  five images on five items — template symbol, non-template symbol, explicit 16 pt, a plain red square
-  and a named AppKit template — in Luna and in a bare test app: none appeared. `SidebarMenu.label`
-  (§3.4a) puts the symbol in `attributedTitle` instead, and this menu and the tab menu share it, so the
-  two cannot drift apart on size, tint or alignment. `SiteMenu.Glyph` names every symbol in one place
-  and a test walks it: a misspelt name costs the icon silently, leaving one item out of the column.
+- **`SiteMenu.Glyph` names every symbol the pop-out draws in one place, and a test walks it**: a misspelt
+  SF Symbol is not an error, it is a row drawn without its glyph.
 - **Share is Luna's own item, not `standardShareMenuItem`.** The system's item draws a share glyph that
   nothing on the item controls: `image` is nil before the menu opens and still nil after `menu.update()`
   — probed — and AppKit draws one anyway, a size under this menu's glyphs and in the column they stand
@@ -1201,7 +1198,7 @@ to reimplement keyboard navigation, VoiceOver and Reduce Transparency.
 > than deferred.** Split, Chat With This Tab, the three Group commands, Move to Profile, Move to
 > Window and both Bookmarks rows are features Luna either does not have or reaches another way, and a
 > menu that lists what an app cannot do teaches the user to stop reading it. *Copy Link as Markdown*
-> becomes plain **Copy Link**, which is the same pasteboard §3.2a's site menu writes — copying a link
+> becomes plain **Copy Link**, which is the same pasteboard §3.2a's site settings write — copying a link
 > from the row and copying it from the pill must not produce two different answers.
 > **The groups stay even though most now hold one item.** The grouping is what makes seven items
 > scannable at a glance: the one that files the tab away, the one that copies it, the three that
@@ -1463,7 +1460,24 @@ Close Folder and lets them go on the second, exactly as pressing close on each o
 > `Move Folder` and `Remove Folder`.
 
 ### 3.5 Bottom utility bar — 52 pt, pinned
-`[profile avatar circle 34, left] ··· [space dots pill 56 × 22, centred] ··· [downloads | history, right]`
+`[Space pill 34 tall, left] ··· [space dots 56 × 22, centred, no glass] ··· [downloads | history, right]`,
+all three on one bottom edge.
+
+> **The Space pill replaced the Profile avatar (2026-09-24).** It is the active Space's name in a capsule
+> of `.control` glass, `bottomCircle` tall — the same cylinder the Space has at the end of §4's bar — set
+> in `TypeScale.topBarSpaceName` with `sidebarSpacePillPad` either side. §9's picture, when the Space has
+> one, sits round in the capsule's leading end and the name follows it. The pill is sized to its whole
+> name as §4's is, with the same `nameCeiling`, and is never narrower than one `bottomCircle`. The dots
+> stay centred while that leaves them room and move along when it does not; only a name that would leave
+> the dots no room at all fades, on `sidebarSpaceNameFade`. **Capping the pill at the centred dots was
+> tried first and read as squashed:** at the 220 pt floor it cut "Personal", the one name a new user has. It is a
+> `GlassButton`, so hover and press are that button's, and a press opens the menu the avatar opened
+> (the name, then Manage Spaces…). The caption that used to name the Space over the dots is gone — the
+> pill names it now.
+> **The dots are bare, on the buttons' bottom edge.** Their pill of glass came off the same day the Space
+> pill arrived: three pieces of glass in the foot read as three buttons. Centring them on the buttons'
+> line was tried and reverted the same day. The strip still clips to its own bounds, which the pill's
+> edge used to do, so the dots outside §30.9's window of three stay hidden.
 
 > **Downloads and History are one cylinder, not two circles.** They are the same kind of thing — the
 > shelf of what you already have, glanced at rather than worked in, both opening as a pop-out that stands
@@ -1527,8 +1541,8 @@ Close Folder and lets them go on the second, exactly as pressing close on each o
   Click a dot to switch; the pill widens by 8 pt per Space beyond three.
   > **A dot answers the pointer like every other button** (§3.4, §6). It wears §3.4's washes on a chip
   > the size of its own slot — `spaceDotChip`, which is `spaceDotPitch`, because a 6 pt hover target is
-  > no target — and hands its **press to the pill**, which is the glass under it and the thing that
-  > swells. That is `NavCluster`'s rule: a control with no material of its own does not swell, the one
+  > no target — and hands its **press to the strip**, which swells as a whole (it was the strip's pill of
+  > glass until 2026-09-24; the strip is bare now, as it is on §4's bar). That is `NavCluster`'s rule: a control with no material of its own does not swell, the one
   > holding it does. Before this the dots were the only controls in the chrome that said nothing at all
   > until the Space had already changed. Measured on screen: hover changes exactly 14 × 14 pt, a press
   > changes the whole 42 × 22 pt pill.
@@ -1575,13 +1589,21 @@ Close Folder and lets them go on the second, exactly as pressing close on each o
   > animating those and setting the rest outright made the dots snap to the Space they were heading for
   > while the column was still a third of the way there. `SpaceSwipeSettle` tweens the number instead,
   > and every frame of the gesture — finger down or not — is drawn the one way.
-- Avatar is the active profile; click opens the profile menu.
+- The Space pill names the active Space; click opens its menu (the name, then Manage Spaces…).
 
 ### 3.6 Content pane
 Opaque, **flush** to the window's top and bottom, flush to the window edge the sidebar is *not* on, and
-flush against the sidebar. Only the two corners on the edge it **shares with the sidebar** are rounded,
-at `windowCornerRadius`, so they nest with the window's own corners instead of leaving a crescent of
-glass inside each one. With the sidebar on the right (§3.9) the whole thing mirrors, corner fill and all.
+flush against the sidebar. Only the two corners on the edge it **shares with the sidebar** are rounded —
+under §4's bar, the two top corners, against the bar (`CardEdge.top`, 2026-09-24) —
+at the window's own corner (`WindowCorner.radius`), so they nest with the window's own corners instead
+of leaving a crescent of glass inside each one. With the sidebar on the right (§3.9) the whole thing
+mirrors, corner fill and all.
+
+> **The window's corner is the reference's 25 pt by default.** Settings ▸ Appearance ▸ *Match macOS
+> corners* gives the 16 pt macOS draws for its own windows instead — measured on macOS 27 for a
+> titled, full-size-content window with or without a toolbar — and the pane's corners follow either
+> way. The floating panels keep 25 pt (`panelCornerRadius`) whichever corner the window wears. The
+> flicker on focus is not the corner (§2).
 > **Corrected.** This said "inset 8 pt from the sidebar and from the window's top, right and bottom
 > edges", and called the gap "what makes the whole thing read as floating". The reference has no gap on
 > any edge — the page runs to the glass. The floating read comes from the window's glass and its shadow
@@ -1720,18 +1742,60 @@ back: it could not be hit at all.
 
 ## 4. Top-bar layout
 
-One 52 pt glass bar spanning the window, and **§3.2b's page bar under it** — the same bar the sidebar
-layout puts on the page when the search bar is "On the page": the sidebar button, back and forward, and
-the address pill with site settings and reload. The page starts below the top bar and runs under the
-page bar (§3.2b).
+One 50 pt bar spanning the window, and **nothing under it**: the page starts below the bar, with its two
+top corners rounded at `WindowCorner.radius` the way §3.6 rounds the corners against the sidebar.
+> **50 pt, not the sidebar's 52 (2026-09-24).** `TopBarMetrics.barHeight` is twice the traffic lights'
+> centre line, so the bar's middle is the lights' line and a 36 pt tab has 7 pt above and 7 pt below it.
+> At `topBarHeight` the tabs stood 7 pt from the window's top and 9 pt from the page.
+> **History and Downloads open `historyPopoutGap` (5 pt) off the capsule's glass**, as §3.5's do off
+> theirs. The gap was measured from the button, which sits `capsuleInset` inside the capsule, so the list
+> stood 9 pt off it (`PopoutShelf`).
+> **A Space switch morphs the bar (2026-09-24).** The Space capsule grows or shrinks to the new name frame
+> by frame (`TopBarSpaceName.widthMorph`), and the Downloads capsule, the separator and the tabs' edge
+> move with it; the kept tabs' plate does the same between the two Spaces' widths
+> (`TopBarPlate.frameMorph`). Glass only changes shape on screen when its frame really changes, so both
+> are laid out on every frame rather than animated as layers. After a swipe they take the swipe's spec;
+> otherwise `Motion.spaceSettleSlowest`. A click switch also fades the old Space's tabs out where they
+> stood and the new ones in; a swipe has already carried the run out, so its old tabs go at once.
+> **A Space swipe moves the tabs (2026-09-24).** §30.9's two-finger swipe over the Space capsule moves
+> the whole run of tabs with the fingers — one point per point of the Space's swipe span, fading as it
+> goes — and a release carries it the rest of the way at the hand's speed (`Motion.spaceSettle`, one
+> clock through `SpaceSwipeSettle`), switches, and slides the next Space's run in from the other side on
+> the same spec. It used to move only the name, then snap back and swap every tab in one frame. The
+> Space's name goes with the tabs, out of its capsule and in from the other side after them (a click on a
+> dot still pops it). No haptic: one was tried at the half-page crossing and taken out.
+> **An opened Command Bar stays inside the window.** Its glass rises above the tab only as far as the
+> window's top edge allows (`CommandBarMetrics.edgeClearance`); the field stays on the tab's line. The
+> same holds for §3.1's and §3.2b's pills, which also sit closer to the top than the bar's margin.
+> **A new tab is kept wholly in view.** It is scrolled in when it opens, and the strip follows the tab on
+> screen through any change of size until the user scrolls the strip themselves. It was cut off because
+> tabs were sized to their titles and widened when the page's title arrived; they are one width now.
+> **The bar has no glass of its own (2026-09-24).** It stands on the window's plane, as the sidebar does.
+> It carried a `.topBar` sheet over that plane, and the sheet's bottom edge read as a separator line
+> between the bar and the page; with the page's top corners rounded, the notches also showed the plane
+> rather than the bar.
 
-`[lights] [Space · kept tabs · kept folders] [open tabs …] [open folders] [|] [capsule]`
-> **The bar has no address and no back of its own.** The page bar under it carries both, and two back
-> buttons one above the other is one too many. Its sidebar button brings the sidebar layout back — there
-> is no column in this layout to show or hide, and "Show Sidebar" can honestly mean only that.
-> **Both ends of the bar are the same object at the same height**: the plate holding the Space and its
-> kept tabs on the left, the action capsule on the right, one piece of `.control` glass each, 36 pt tall
-> (`TopBarMetrics.lineHeight`). The open tabs stand at that height too.
+`[lights] [back · forward] [kept tabs · kept folders] [open tabs …] [open folders] [|] [capsule] [Space]`
+> **The bar has no address, and no page bar under it (changed 2026-09-24).** A click on the tab on
+> screen opens §9.1's Command Bar on its address, as `⌘L` does; a click on another tab only switches to
+> it. **The bar grows out of the tab** the way it grows out of §3.2's pill (`CommandBarAnchor`): it takes
+> the tab's place, opens down out of it and folds back into it, and the tab and its selected pill are
+> hidden while it is up. Its `span` is the tab strip, so a bar wider than the tab widens along the strip
+> and never over the traffic lights or back and forward. It opens at once and morphs out of the tab's own
+> frame and corner — width, place, height and corner together on `commandBarMorph` — and folds back the
+> same way. A **double-click renames the tab in place**: the second click lands on the bar standing where
+> the tab was, which closes **at once** and hands over to the rename on that same click
+> (`CommandBarAnchor.onDoubleClick`). It used to fold back first, and the rename waited out the fold; the
+> page was also handed the keyboard on the way, which could take it straight back off the name field.
+> Waiting out the double-click interval before opening made every single click half a second late. The
+> rename uses the column's own name field on the tab's row.
+> Back and forward are §3.1's `NavCluster`
+> before the tabs — back alone until there is a forward — reload is `⌘R`, and the sidebar layout comes
+> back from Settings ▸ Appearance ▸ Layout. §3.2c's load line runs along the window's top edge, as it
+> does whenever no address is on screen.
+> **Both ends of the bar are the same object at the same height**: the plate holding the Space's kept
+> tabs on the left, the action capsule and the Space's own cylinder on the right, one piece of `.control`
+> glass each, 36 pt tall (`TopBarMetrics.lineHeight`). The open tabs stand at that height too.
 > **One gap between any two things on the bar** — 8 pt (`TopBarMetrics.gap`) between the plate and the
 > first tab, between two tabs, before the hairline and the capsule; 12 pt (`lightsGap`) after the green
 > light, which has no edge of its own and at 8 read as touching the plate. It used to be three numbers
@@ -1742,7 +1806,7 @@ page bar (§3.2b).
   > This supersedes §30.12's claim that tabs are invisible in this mode.
 - **The bar is built from the sidebar's own parts, not look-alikes.** One tab, one class, in both layouts.
   - **Kept tabs are §3.3's tiles, on the plate** — `GlassButton`, dormant, with the hover wash and press
-    swell — edge to edge after the Space's name. Each is a box as tall as the plate with the plate's own
+    swell — edge to edge from the plate's head. Each is a box as tall as the plate with the plate's own
     corner, and at rest it is only its icon on the plate (`showsWell` off): the plate is the shelf. The
     pointer or the selection brings the glass out, so the lit one fills the plate top to bottom and its
     ends meet the plate's exactly. It was the grid's 42 pt, then the row pill's 35, then a padded 28 —
@@ -1753,8 +1817,11 @@ page bar (§3.2b).
   - **Open tabs and folders' headers are §3.4's rows** — `SidebarRowView` itself, configured from the
     same `SidebarRowContent`: the favicon at the column's inset, the title faded rather than cut, the
     unread dot, the loading shimmer, the speaker, the close glyph on the row the pointer is on, a
-    folder's chevron. A tab is as wide as its title plus room for the close glyph, between 120 and
-    180 pt — at 95 "Google" read as a label, at 220 one long title was a tab too long. Rows draw no fill: the
+    folder's chevron. **Every tab is `tabWidth`, 172 pt, whatever its title** — Dia's width, measured off
+    its tab strip on 2026-09-24 ("New Tab" and "Roosta Deck Board" both 172 pt, 176 pt apart); a longer
+    title fades. Tabs sized to their titles, between 120 and 180 pt, made a row of different lengths that
+    shifted whenever a page's title arrived. A folder's header is still as long as its name. Two open
+    tabs stand `tabGap`, 4 pt, apart — Dia's 176 pt pitch less its 172 pt tab — not the bar's 8 pt gap. Rows draw no fill: the
     bar keeps the column's **two `RowPillView`s**, one selected and one hover, and moves them between
     rows on §6's `selectedRowMove` and `rowHover` — so the selection slides rather than blinks. Rows do
     not swell; they are rows, not buttons (CLAUDE.md).
@@ -1767,11 +1834,13 @@ page bar (§3.2b).
   - **Arriving and leaving are the column's too**: a new tab fades up into its place on `tabInsert`, a
     closed one fades out where it stood, and everything already on the bar slides. A view is placed with
     animation off the first time it is placed — Luna's recurring "spawns at the left and flies there" bug
-    — and only its fade arrives. A folder shutting is its opening played backwards. Glass does not
-    animate its shape, so opening, the plate is at its full width at once and the tabs fade in on it while
-    the run slides; shutting, the tabs fade out on the plate while the run slides, and the plate takes the
-    name's size as they finish. Shrunk first, the tabs flashed out on the bare bar; faded first and slid
-    after, it read as two movements.
+    — and only its fade arrives. Glass does not follow an implicit frame animation, so opening, the plate
+    is at its full width at once and the tabs fade in on it while the run slides. Shutting is one movement:
+    the run slides and the plate morphs down to the name on `tabInsert` (`TopBarPlate.morph`, the Space
+    plate's reshape), and the tabs fade on the quicker `folderShutFade` — on the full 0.22 s the titles
+    were still readable as the plate slid out from under them. Held at full width until the fade was over and then
+    snapped to the name, it read as the bar lagging a beat behind the click; snapped first, the tabs
+    flashed out on the bare bar.
 - **There is no address bar on the bar itself.** The active tab used to swell into a 266 pt URL pill in
   the middle of the run; with tabs that carry their own titles that was a fourth shape among three, and
   the whole run jumped a pill's width every time the selection moved. The page bar under it holds the
@@ -1788,7 +1857,20 @@ page bar (§3.2b).
 - **A hairline divides the pinned section from today's tabs** — the Space's plate and any kept folders
   on one side, the open tabs on the other — the bar's own separator, a gap either side. It only comes
   out when there is something on both sides of it.
-- **No reload button** in this layout — the reference omits it. Reload is `⌘R` and the site menu.
+- **No reload button** in this layout — the reference omits it. Reload is `⌘R`.
+- **The selected tab carries §3.2a's sliders glyph**, one chip before its close glyph, because the bar
+  has no address pill to put it on. Only the selected tab: the site settings are about the page on
+  screen, and a glyph on every tab would take title room from all of them for a page you are not on.
+  The selected tab keeps its close glyph when the pointer is elsewhere, so the sliders always have the
+  same neighbour and nothing moves under a hand on its way to them. The pop-out stands off the tab's
+  edge, not the glyph's (`PopoutShelf`). The column's rows never draw it — the sidebar's URL pill has
+  it a row above.
+- **A kept tile's right-click has *Site Settings…***, because a tile is an icon with no room for the
+  glyph. Chosen on a tab that is not on screen, it selects that tab first — the settings are the page
+  on screen's — and the pop-out stands on the tile. Rows have the item too.
+- **The two glyphs at a tab's end stand on one line by their ink.** SF Symbols centre their boxes, and
+  the boxes carry different margins: the sliders stood 0.75 pt below the close glyph. `RowGlyphView`
+  redraws each symbol with its ink centred, measured once per symbol and size.
 - The strip scrolls horizontally when it overflows; the active tab is always scrolled into view.
 - **Right-clicking a tile or a row opens the same menu the column opens** — §3.4a on a tab, §3.4b on a
   folder. The one difference is where a name is typed: the column types it on the row, and a bar row is
@@ -1801,8 +1883,9 @@ page bar (§3.2b).
   meaning anything and the run scrolls from its leading edge. The clear run is padding *inside* the
   scroll view's document, because a document narrower than its clip view is anchored at the clip's
   leading edge whatever origin it is given.
-- **The Space is the head of the plate**: its name, then its kept tabs, on one piece of glass beside the
-  traffic lights — the name is the label on the shelf they stand on.
+- **The Space is a cylinder of its own at the trailing end**, after the action capsule
+  (`TopBarSpaceCapsule`). It headed the plate of kept tabs until 2026-09-24; the switcher is about where
+  the window is rather than what is in it, so it stands with the controls, where the profile button was.
   > **Under the pointer the name steps up and §3.5's dots come out beneath it**, one per Space — the
   > column's own `SpaceDotsView`, without its pill and a size down (a 5 pt dot, a 12 pt name). A click on
   > a dot goes there. At rest they are hidden: a bar has words and no room, and six dots say less than
@@ -1821,11 +1904,11 @@ page bar (§3.2b).
   window as well as itself. The row, the name and the plate are `NSControl`s for that reason.
 - **Right-clicking the empty bar offers New Folder**, the column's menu for its own empty part.
 - **Action capsule**: its own rounded glass capsule, separated by a vertical hairline, holding
-  `[+ new tab] [history] [downloads] [profile]`. Extension action buttons dock here when extensions ship
+  `[+ new tab] [history] [downloads]`. Extension action buttons dock here when extensions ship
   (v2) — build the capsule to host a variable number of items now.
   > **History is here because there is no sidebar to put it in**, and it sits beside Downloads because
-  > §3.5 pairs the same two at the other end of the window. Profile stays last: it is about *who*, not
-  > about *what*.
+  > §3.5 pairs the same two at the other end of the window. The profile button left on 2026-09-24 — it
+  > was wired to nothing — and the Space's cylinder took its place after the capsule.
   > **Corrected: the capsule is one glass surface, not three merged ones.** It gave each item its own
   > `.control` backing and handed them to `NSGlassEffectContainerView`, on the theory that Liquid Glass
   > unions neighbours within `spacing`. On screen it did not: three separate bright circles, each with
@@ -2140,7 +2223,7 @@ at `TypeScale.pageTitle`, one sentence of what is actually at stake, and three a
 
 | | |
 |---|---|
-| Surface | `Glass.popover` + `Shadow.popover`, `contentCardRadius`, half a chrome bar above centre |
+| Surface | `Glass.popover` + `Shadow.popover`, `panelCornerRadius`, half a chrome bar above centre |
 | Width | the **answers'** width, floored at three quarters of `windowMinWidth` |
 | Answers | `Quit, and don't ask again` — gap — `Cancel` `esc` — `Quit` `↩` |
 | Backdrop | **none** — §9.1's finding, and it holds here |
@@ -2190,6 +2273,7 @@ Motion.
 | Pop-out in / out (§6.4) | the same spring, 0.96 ↔ 1.0 + fade, pivoting on the button's corner both ways |
 | Panel fade in / out (§14.3, §14.4) | `popoverIn`, and the same fade backwards on the way out |
 | Tab insert / remove | 0.22 s spring height + fade, no list jump |
+| Top-bar folder shutting (§4) | tabs fade in 0.10 s ease-out while the plate morphs down on the 0.22 s tab spring |
 | Row hover fill | 0.12 s ease-out |
 | Control button hover lift | 0.10 s ease-out |
 | Control button press | fill one step up, + 5 % swell on a 0.16 s spring, damping 0.62 |
@@ -2298,6 +2382,8 @@ Total in the clip: **~2.3 s**, which is a gesture-driven mobile interaction.
 ## 8. Behaviour
 
 - **Keyboard:** the §20.1 default map applies. `⌘S` **hides and shows the sidebar**; `⌘,` opens Settings.
+  `⌘W` closes the tab on screen, and **closes the window when no tab is open** — a window showing
+  nothing has nothing else for `⌘W` to close, and a dimmed Close Tab swallowed the keystroke.
   > **Corrected.** `⌘S` used to swap sidebar layout for top-bar layout, so a reflex the user performs
   > several times a minute silently changed a preference they set once. Which layout the window wears is
   > now `Settings.chromeLayout`, and `⌘S` is only a reveal. In top-bar layout it is dimmed.

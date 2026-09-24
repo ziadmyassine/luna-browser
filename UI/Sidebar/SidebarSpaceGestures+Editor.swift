@@ -43,7 +43,7 @@ extension SidebarSpaceGestures {
     }
 
     /// §6.2's rows, in the one window that holds them — the same route §3.2's
-    /// site menu takes to the Privacy section.
+    /// site settings take to the Advanced section.
     func editSpaces() {
         (NSApp.delegate as? AppDelegate)?.showSettings(section: SpacesSection.id)
     }

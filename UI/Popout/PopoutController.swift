@@ -13,6 +13,15 @@
 
 import AppKit
 
+/// A surface that pads the buttons inside it: §4's action capsule, a URL pill,
+/// a tab. A pop-out from one of them stands its gap off the surface's edge
+/// rather than off the button: §3.5's buttons fill their cylinder top to
+/// bottom, so there the two are the same edge, and §4's sit `capsuleInset`
+/// inside theirs, which stood the list 9 pt off the glass where the sidebar's
+/// stands 5. The site settings glyph on a tab sits further in still.
+@MainActor
+protocol PopoutShelf: NSView {}
+
 @MainActor
 class PopoutController: NSObject {
 
@@ -60,6 +69,19 @@ class PopoutController: NSObject {
         if isPresented { dismiss() } else { present(in: window, from: anchor) }
     }
 
+    /// The button's own span across, and the edges of the nearest shelf it is
+    /// in up and down.
+    static func standingRect(of anchor: NSView, in view: NSView) -> NSRect {
+        var rect = view.convert(anchor.bounds, from: anchor)
+        var ancestor = anchor.superview
+        while let next = ancestor, !(next is any PopoutShelf) { ancestor = next.superview }
+        guard let shelf = ancestor else { return rect }
+        let edges = view.convert(shelf.bounds, from: shelf)
+        rect.origin.y = edges.minY
+        rect.size.height = edges.height
+        return rect
+    }
+
     func present(in window: NSWindow, from anchor: NSView) {
         guard let root = window.contentView else { return }
         if presented != nil { dismiss() }
@@ -69,7 +91,7 @@ class PopoutController: NSObject {
         // that is holding this closure.
         panel.anchorRect = { [weak panel, weak anchor] in
             guard let panel, let anchor, anchor.window != nil else { return .zero }
-            return panel.convert(anchor.bounds, from: anchor)
+            return Self.standingRect(of: anchor, in: panel)
         }
         panel.onBackgroundClick = { [weak self] in self?.dismiss() }
         root.addSubview(panel, positioned: .above, relativeTo: nil)

@@ -85,8 +85,8 @@ extension TokenCheck {
             ("rowHeight", Tokens.Metric.rowHeight), ("rowInset", Tokens.Metric.rowInset),
             ("faviconSize", Tokens.Metric.faviconSize), ("rowCornerRadius", Tokens.Metric.rowCornerRadius),
             ("essentialsTileGap", Tokens.Metric.essentialsTileGap), ("essentialsIcon", Tokens.Metric.essentialsIcon),
-            ("spaceDot", Tokens.Metric.spaceDot), ("windowCornerRadius", Tokens.Metric.windowCornerRadius),
-            ("contentCardRadius", Tokens.Metric.contentCardRadius), ("panelInset", Tokens.Metric.panelInset),
+            ("spaceDot", Tokens.Metric.spaceDot), ("windowCornerRadiusSystem", Tokens.Metric.windowCornerRadiusSystem),
+            ("windowCornerRadius", Tokens.Metric.windowCornerRadius), ("panelInset", Tokens.Metric.panelInset),
             ("topBarHeight", Tokens.Metric.topBarHeight), ("hairline", Tokens.Metric.hairline),
             ("rowGap", Tokens.Metric.rowGap), ("rowFaviconInset", Tokens.Metric.rowFaviconInset),
             ("rowTitleInset", Tokens.Metric.rowTitleInset), ("rowIconGap", Tokens.Metric.rowIconGap),
@@ -114,8 +114,7 @@ extension TokenCheck {
             ("spaceCreateRingLine", Tokens.Metric.spaceCreateRingLine),
             ("spaceSwatchRing", Tokens.Metric.spaceSwatchRing),
             ("spaceSwipeSpeed", Tokens.Metric.spaceSwipeSpeed),
-            ("sidebarSpaceNameRow", Tokens.Metric.sidebarSpaceNameRow),
-            ("sidebarSpaceNameGap", Tokens.Metric.sidebarSpaceNameGap),
+            ("sidebarSpacePillPad", Tokens.Metric.sidebarSpacePillPad),
             ("spaceDotPitch", Tokens.Metric.spaceDotPitch),
             ("pinHintBlock", Tokens.Metric.pinHintBlock), ("pinHintRow", Tokens.Metric.pinHintRow)
         ]
@@ -332,10 +331,9 @@ extension TokenCheck {
         if metric.glyphSize >= metric.controlCircle.width * 0.65 {
             failures.append("Metric.glyphSize crowds controlCircle — the button reads as all glyph")
         }
-        // The content pane is flush to three window edges, so anything smaller
-        // than the window's own radius shows glass inside the window corners.
-        if metric.contentCardRadius < metric.windowCornerRadius {
-            failures.append("Metric.contentCardRadius is inside windowCornerRadius — the corners would not nest")
+        // Appearance's macOS corner is the one choice beside Luna's own.
+        if metric.windowCornerRadius <= metric.windowCornerRadiusSystem {
+            failures.append("Metric.windowCornerRadius is no rounder than macOS's — the setting would change nothing")
         }
         // §5.0: the file shrinks to the mark on the button it lands on, so
         // the button's glyph has to be the smaller of the two. Equal, and the
@@ -377,10 +375,12 @@ extension TokenCheck {
             ("rowHover", Tokens.Motion.rowHover), ("controlHover", Tokens.Motion.controlHover),
             ("controlPress", Tokens.Motion.controlPress), ("essentialGlow", Tokens.Motion.essentialGlow),
             ("selectedRowMove", Tokens.Motion.selectedRowMove), ("tabInsert", Tokens.Motion.tabInsert),
+            ("folderShutFade", Tokens.Motion.folderShutFade),
             ("spaceSwitch", Tokens.Motion.spaceSwitch), ("spaceSwitchCrossfade", Tokens.Motion.spaceSwitchCrossfade),
             ("sidebarCollapse", Tokens.Motion.sidebarCollapse), ("sidebarCollapseOpacity", Tokens.Motion.sidebarCollapseOpacity),
             ("layoutSwitch", Tokens.Motion.layoutSwitch), ("splitDividerSnap", Tokens.Motion.splitDividerSnap),
             ("cardFullscreen", Tokens.Motion.cardFullscreen), ("commandBarIn", Tokens.Motion.commandBarIn),
+            ("commandBarMorph", Tokens.Motion.commandBarMorph),
             ("popoverIn", Tokens.Motion.popoverIn), ("hoverPeek", Tokens.Motion.hoverPeek),
             ("themeWash", Tokens.Motion.themeWash), ("reloadArcIn", Tokens.Motion.reloadArcIn),
             ("reloadArcOut", Tokens.Motion.reloadArcOut),

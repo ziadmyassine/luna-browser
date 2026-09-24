@@ -31,7 +31,7 @@ final class AppearanceSection: NSObject, SettingsSection {
     static let id = "appearance"
     static let title = "Appearance"
     static let symbolName = "circle.lefthalf.filled"
-    static let keywords = ["theme", "dark mode", "light mode", "glass", "transparency", "density", "chrome layout"]
+    static let keywords = ["theme", "dark mode", "light mode", "glass", "transparency", "chrome layout", "corners"]
 
     // MARK: Keys and typed accessors
 
@@ -117,10 +117,10 @@ final class AppearanceSection: NSObject, SettingsSection {
             (themeRow(), ["theme", "appearance", "auto", "light", "dark"]),
             (chromeLayoutRow(), ["layout", "chrome", "sidebar", "top bar", "tabs"]),
             (searchBarRow(), ["search bar", "address bar", "url bar", "on the page", "top of the page"]),
-            (tabsRow(), ["tabs", "tab position", "sidebar position", "left", "right", "centre", "center"])
+            (tabsRow(), ["tabs", "tab position", "sidebar position", "left", "right", "centre", "center"]),
+            (cornersRow(), ["corners", "rounded corners", "round", "radius", "window shape"])
         ])
         body.card("Glass", [
-            (densityRow(), ["material", "clear", "opaque", "transparency", "frosted", "see through"]),
             (glassRow(), ["optimise glass for this display", "optimize glass", "liquid glass", "retina", "1x", "blur"]),
             (SettingsRow.accessory("Preview", subtitle: nil, accessory: tileHost),
              ["preview", "optimise glass for this display"])
@@ -153,25 +153,6 @@ final class AppearanceSection: NSObject, SettingsSection {
             UserDefaults.standard.set(theme.rawValue, forKey: Self.themeKey)
             // Nil is meaningful: it hands the choice back to System Settings.
             NSApp.appearance = theme.appearance
-        }
-    }
-
-    /// §2a. Above the §7 row, because it is the bigger of the two. This one
-    /// changes how much of the desktop reaches the eye through every chrome
-    /// surface in the app; the row below it changes how one material is
-    /// rendered on one class of display. The preview tile under both shows
-    /// either change, because it is built from the real thing.
-    private func densityRow() -> NSView {
-        let options = GlassDensity.allCases
-        return SettingsRow.segmented(
-            "Material",
-            options: options.map(\.title),
-            selected: options.firstIndex(of: Glass.density) ?? 0
-        ) { [weak self] index in
-            // Assigning re-skins every live glass view in the app and persists
-            // the key, exactly as the §7 setter does.
-            Glass.density = options[index]
-            self?.rebuildTile()
         }
     }
 
@@ -212,39 +193,47 @@ final class AppearanceSection: NSObject, SettingsSection {
         Tokens.Motion.animate(Tokens.Motion.layoutSwitch) { _ in swap() }
     }
 
+    /// The window's corner: Luna's own, or the one macOS gives its windows.
+    private func cornersRow() -> NSView {
+        SettingsRow.toggle(
+            "Match macOS corners",
+            subtitle: "Use the smaller corner macOS gives its own windows.",
+            value: Settings.macWindowCorners
+        ) { matches in
+            // The setter posts `Settings.didChange`, and every window's root
+            // view and content pane follow it.
+            Settings.macWindowCorners = matches
+        }
+    }
+
     /// Which chrome the window wears — and the reason `⌘S` could stop meaning
     /// "swap the layout". Revealing the sidebar is a reflex performed several
     /// times a minute; choosing between the two layouts is a preference taken
     /// once. The reflex kept `⌘S`; the preference moved here.
     ///
-    /// The segment names are the whole explanation: "Sidebar" and "Top bar" say
-    /// where the tabs go, and the sentence that used to spell that out was
-    /// telling the user what they were already looking at.
+    /// A picture of each layout rather than two words: the picture shows
+    /// where the tabs go before the user has to try it (`SettingsLayoutPicker`).
     private func chromeLayoutRow() -> NSView {
-        let layouts = ChromeLayoutPreference.allCases
-        return SettingsRow.segmented(
-            "Layout",
-            options: layouts.map(\.title),
-            selected: layouts.firstIndex(of: Settings.chromeLayout) ?? 0
-        ) { [weak self] index in
-            guard layouts.indices.contains(index) else { return }
+        let picker = SettingsLayoutPicker(selected: Settings.chromeLayout)
+        picker.onChoose = { [weak self] layout in
             // The setter posts `Settings.didChange`; `AppDelegate` is listening
             // and re-anchors the running window. Nothing here reaches for it.
-            Settings.chromeLayout = layouts[index]
+            Settings.chromeLayout = layout
             // The two rows below answer to the layout: one offers a different
             // set of answers now, the other has no answer at all.
             self?.refreshTabsRow()
             self?.refreshSearchBarRow()
         }
+        return SettingsRow.accessory("Layout", subtitle: nil, accessory: picker)
     }
 
     /// §3.2b. Where the address pill goes within the sidebar layout: at the
     /// head of the column as §3.2 built it, or on a bar across the top of the
     /// page, taking §3.1's back and reload with it.
     ///
-    /// Gone under the top bar, not dimmed. §4 always stands the page bar
-    /// under itself, so under that layout this is not a question with a
-    /// greyed-out answer — it is not a question. A dimmed row is for a control
+    /// Gone under the top bar, not dimmed. §4 has no search bar anywhere — its
+    /// tabs open the address — so under that layout this is not a question
+    /// with a greyed-out answer — it is not a question. A dimmed row is for a control
     /// that has an answer Luna cannot honour yet (§30.4); this one has none to
     /// have.
     private func searchBarRow() -> NSView {

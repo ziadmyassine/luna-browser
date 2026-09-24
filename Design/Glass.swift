@@ -136,7 +136,7 @@ enum Glass {
         // page there is no page edge to draw it.
         backing(
             .sidebar,
-            cornerRadius: Tokens.Metric.contentCardRadius,
+            cornerRadius: Tokens.Metric.windowCornerRadius,
             maskedCorners: peekCorners(on: edge),
             rimmed: true
         )
@@ -150,6 +150,13 @@ enum Glass {
     @MainActor
     static func setPeekEdge(_ edge: SidebarEdge, on plane: NSView) {
         (plane as? GlassBackingView)?.maskedCorners = peekCorners(on: edge)
+    }
+
+    /// The plane's corner is the content pane's, which follows the window's
+    /// corner setting while the window is open.
+    @MainActor
+    static func setPeekRadius(_ radius: CGFloat, on plane: NSView) {
+        (plane as? GlassBackingView)?.cornerRadius = radius
     }
 
     private static func peekCorners(on edge: SidebarEdge) -> CACornerMask {

@@ -52,19 +52,15 @@ extension Glass.Style {
     ///
     /// Not the same question as `hasBackdrop`. That one is about fullscreen,
     /// where the material stands down and the plane replaces it; this is the
-    /// plane the glass sits on and samples through, which is how the popover
-    /// gains one at `.opaque` without becoming a flat plate when the window is
-    /// zoomed.
+    /// plane the glass sits on and samples through.
     ///
-    /// A control never gets one at either density: it is a small shape over an
-    /// already-frosted bar, and frosting it would leave it reading as a hole
-    /// rather than as something raised (§2).
-    func frost(_ density: GlassDensity) -> NSColor? {
-        switch (self, density) {
-        case (.sidebar, .clear), (.topBar, .clear): Tokens.Surface.frost
-        case (.sidebar, .opaque), (.topBar, .opaque): Tokens.Surface.frostOpaque
-        case (.popover, .opaque): Tokens.Surface.popoverFrostOpaque
-        case (.popover, .clear), (.control, _): nil
+    /// A popover takes the material neat, as §2 has it. A control never gets
+    /// one: it is a small shape over an already-frosted bar, and frosting it
+    /// would leave it reading as a hole rather than as something raised (§2).
+    var frost: NSColor? {
+        switch self {
+        case .sidebar, .topBar: Tokens.Surface.frost
+        case .popover, .control: nil
         }
     }
 

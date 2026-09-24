@@ -97,29 +97,11 @@ extension SidebarViewController {
         placeFolderHint(topAt: hintTop, in: bounds)
 
         utility.frame = NSRect(x: 0, y: 0, width: bounds.width, height: bar)
-        // §3.5's caption stands on the Space strip, not on the bar.
-        //
-        // The bar is 52 pt and its three clusters are centred on its midline,
-        // which leaves 15 pt of empty air above the 22 pt Space pill — so a
-        // caption parked above the bar sat that 15 pt clear of the dots it
-        // belongs to, and read as the last line of the tab list instead of as
-        // the label on the strip. It is placed against the strip's own top edge
-        // instead and is allowed to overlap the bar's dead air to get there;
-        // the pill does not move, so the dots stay in line with the avatar and
-        // the cylinder either side of them.
-        let captionRow = spaceLabel.isHidden ? 0 : Tokens.Metric.sidebarSpaceNameRow
-        spaceLabel.frame = NSRect(
-            x: 0,
-            y: SidebarUtilityBar.spaceStripTop + Tokens.Metric.sidebarSpaceNameGap,
-            width: bounds.width,
-            height: captionRow
-        ).integral
-        let foot = spaceLabel.isHidden ? bar : spaceLabel.frame.maxY
         list.scrollView.frame = NSRect(
             x: 0,
-            y: foot,
+            y: bar,
             width: bounds.width,
-            height: max(hintTop - foot, 0)
+            height: max(hintTop - bar, 0)
         ).integral
 
         // §30.9's three borrowed views — the still, the `+` and the editor —

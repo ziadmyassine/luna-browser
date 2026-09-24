@@ -14,9 +14,9 @@ import AppKit
 /// token rather than written down again — there is no `chromeGap` token yet,
 /// and rule 2 forbids inventing one here.
 enum TopBarMetrics {
-    /// §3.1's "gap 8", and the one gap between any two things on the bar: the
-    /// lights and the plate, the plate and the first tab, two tabs, the tabs
-    /// and the capsule. It used to be three numbers — 8, 16, and 16 plus
+    /// §3.1's "gap 8", and the one gap between any two things on the bar but
+    /// two open tabs (`tabGap`): the lights and the plate, the plate and the
+    /// first tab, the tabs and the capsule. It used to be three numbers — 8, 16, and 16 plus
     /// whatever the run's own lead added — and the bar read as unevenly spaced
     /// even where each number had its reason.
     static var gap: CGFloat { Tokens.Metric.rowInset }
@@ -45,19 +45,24 @@ enum TopBarMetrics {
     /// It was the grid's own 42 pt for one build, then the row pill's 35, then
     /// a padded 28 inside the plate — which read as a box floating in a box.
     static var keptTile: RoundedMetric { plate }
-    /// The narrowest an open tab goes. Wide enough that a short title still
-    /// reads as a tab rather than as a label with a favicon in front of it —
-    /// sized to the title alone, "Google" came out at 95 pt and looked like
-    /// one; at 140 it was a tab too long.
-    static var tabFloor: CGFloat { 120 }
+    /// Every open tab's width, whatever its title — Dia's, measured off its
+    /// tab strip on 2026-09-24: "New Tab" and "Roosta Deck Board" both 172 pt,
+    /// 176 pt from one tab's start to the next. Sized to the title between 120
+    /// and 180 pt, the bar was a row of different lengths that shifted every
+    /// time a page's title arrived; a longer title now fades, as it does in
+    /// the column.
+    static var tabWidth: CGFloat { 172 }
+    /// Between two open tabs: Dia's, off the same measurement — 176 pt from
+    /// one tab's start to the next, less the 172 pt tab. The bar's `gap`
+    /// between tabs read as a row of separate buttons rather than one strip.
+    static var tabGap: CGFloat { 4 }
     /// The room either side of the divider after a folder's name.
     static var dividerGap: CGFloat { gap }
     /// The narrowest a folder's header goes — room for its glyph and a few
     /// letters. Below it the name is an ellipsis with nothing in front of it.
     static var rowFloor: CGFloat { Tokens.Metric.rowTitleInset + Tokens.Metric.rowPillHeight }
-    /// The widest. One long page title would otherwise take the whole bar and
-    /// push every other tab out of reach; at 220 one long title still read
-    /// as a tab too long beside the others.
+    /// The widest a folder's header goes. One long name would otherwise take
+    /// the whole bar and push every tab out of reach.
     static var rowCeiling: CGFloat { 180 }
     /// The Space name's ceiling on this bar.
     static var nameCeiling: CGFloat { 180 }
@@ -74,19 +79,30 @@ enum TopBarMetrics {
     /// Glyph and favicon size for every control on the bar.
     static var glyph: CGFloat { Tokens.Metric.faviconSize }
 
+    /// The bar's height: twice the traffic lights' centre line, so the bar's
+    /// own middle is the lights' line and a tab standing on it has the same
+    /// room above as below — 7 pt each side of the 36 pt line. The bar was the
+    /// sidebar's 52 pt row (`topBarHeight`) until 2026-09-24, which left the
+    /// tabs 7 pt from the window's top edge and 9 pt from the page.
+    static var barHeight: CGFloat {
+        (Tokens.Metric.trafficLightInset + Tokens.Metric.trafficLightHeight / 2) * 2
+    }
+
     /// How far the traffic lights' centre line falls below the bar's own, in
-    /// AppKit's sense where a positive constant moves a view down.
+    /// AppKit's sense where a positive constant moves a view down. Zero while
+    /// `barHeight` is derived from that line; kept so the relation stays
+    /// written down in the one place both constraints read it.
     ///
     /// §3.1's control row shares that line and §4's bar has to as well, or the
     /// two layouts put the same three lights next to controls on two different
     /// lines. It is arithmetic rather than a measurement: the lights hang
     /// `trafficLightInset` from the window's top edge and the bar is
-    /// `topBarHeight` tall against that same edge. Measuring it instead — from
+    /// `barHeight` tall against that same edge. Measuring it instead — from
     /// the lights' own rect, inside `layout()` — reads frames that the
     /// constants it is about to set have not been applied to yet, and the bar
     /// spends a pass wearing the offset for the size it used to be.
     static var lightsCentreOffset: CGFloat {
         Tokens.Metric.trafficLightInset + Tokens.Metric.trafficLightHeight / 2
-            - Tokens.Metric.topBarHeight / 2
+            - barHeight / 2
     }
 }

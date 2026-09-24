@@ -136,6 +136,45 @@ final class CommandBarAnchoredPlacementTests: XCTestCase {
         XCTAssertEqual(panel.body.frame.minX, pill.frame.minX, accuracy: 0.5)
     }
 
+    /// An anchor near the window's top edge — every one Luna has — keeps the
+    /// bar inside the window: the glass rises only as far as the edge allows,
+    /// and the field stays on the anchor's centre line.
+    func testAnAnchorNearTheTopKeepsTheBarInsideTheWindow() {
+        let (panel, pill) = anchored(pill: NSRect(x: 380, y: 800 - 8 - 34, width: 300, height: 34))
+        XCTAssertLessThanOrEqual(panel.body.frame.maxY, panel.bounds.maxY - CommandBarMetrics.edgeClearance + 0.5)
+        XCTAssertGreaterThanOrEqual(panel.body.frame.maxY, pill.frame.maxY)
+        let field = panel.body.convert(panel.field.frame, to: panel)
+        XCTAssertEqual(field.midY, pill.frame.midY, accuracy: 1)
+    }
+
+    /// §4's tab hands over a span as well: the bar grows out of the tab but
+    /// never over what is left of the strip — the traffic lights, back and
+    /// forward. Clamped only to the window, a tab near the bar's start opened
+    /// its bar over the lights.
+    func testASpanKeepsTheBarOffWhatIsBesideIt() {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1200, height: 800),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: true
+        )
+        self.window = window
+        let root = window.contentView ?? NSView()
+        let strip = NSView(frame: NSRect(x: 150, y: 752, width: 900, height: 40))
+        let tab = NSView(frame: NSRect(x: 160, y: 756, width: 130, height: 30))
+        root.addSubview(strip)
+        root.addSubview(tab)
+        let panel = CommandBarPanel(
+            frame: root.bounds,
+            resultsView: CommandBarResultsView(frame: .zero),
+            anchor: CommandBarAnchor(view: tab, span: strip)
+        )
+        root.addSubview(panel)
+        panel.layoutSubtreeIfNeeded()
+        XCTAssertEqual(panel.body.frame.minX, strip.frame.minX, accuracy: 0.5)
+        XCTAssertEqual(panel.body.frame.maxY, tab.frame.maxY + CommandBarMetrics.padding, accuracy: 0.5)
+    }
+
     /// And it is more glass than the pill was, downwards — that is the whole of
     /// the morph. A bar that grew upwards or centred itself on the pill would
     /// cover the page's top edge and the controls beside it.

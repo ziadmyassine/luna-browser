@@ -36,9 +36,9 @@ import AppKit
 import BrowserKit
 
 @MainActor
-final class URLPillView: NSView {
+final class URLPillView: NSView, PopoutShelf {
 
-    /// The leading sliders glyph (§3.2's site menu).
+    /// The leading sliders glyph (§3.2's site settings).
     var onSiteMenu: (() -> Void)?
     /// Reload, or stop while the page is loading — the trailing glyph. Nil
     /// means there is no such glyph: §4's top bar has its own reload button
@@ -57,8 +57,9 @@ final class URLPillView: NSView {
     ///
     /// A pill with nothing wired here is inert: a label with no bar to open.
     var onHandOff: (() -> Void)?
-    /// What §3.2's menu hangs off: the glyph itself, not the pill, so it opens
-    /// from the control that was pressed.
+    /// What §3.2's site settings stand on: the glyph across, so the pop-out
+    /// opens from the control that was pressed, and the pill's glass up and
+    /// down (`PopoutShelf`).
     var siteMenuAnchor: NSView { sliders }
 
     // Not `private`: `URLPillLayout.swift` places both. See its header.

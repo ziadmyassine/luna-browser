@@ -32,7 +32,7 @@ import AppKit
 /// probe window: `NSView`, with every override tried, answered zero;
 /// `NSControl` with none answered its bounds.
 @MainActor
-final class TopBarTabRow: NSControl {
+final class TopBarTabRow: NSControl, PopoutShelf {
 
     let row = SidebarRowView()
     /// The press, handed to the strip whole: it decides whether a press on a
@@ -65,24 +65,17 @@ final class TopBarTabRow: NSControl {
 
     // MARK: - Size
 
-    /// The pill a row needs for `content`: its favicon, its whole title, and
-    /// the chevron after a folder's name — the column's own insets, measured
-    /// rather than guessed, so the title's fade only starts when a title is
-    /// longer than the bar will give it.
+    /// The pill a row takes: `tabWidth` for every tab, whatever its title, and
+    /// a folder's header as long as its name.
     ///
-    /// A tab also keeps room for the close glyph, which comes out on the tab
-    /// the pointer is on, and never goes under `tabFloor`. A folder's header
-    /// has no close glyph and no chevron on the bar — its plate says it is
-    /// open — so it stays as short as its name.
+    /// The header is measured with the column's own insets rather than
+    /// guessed, and has no close glyph and no chevron on the bar — its plate
+    /// says it is open — so it stays as short as its name.
     static func pillWidth(for content: SidebarRowContent, isFolder: Bool = false) -> CGFloat {
+        guard isFolder else { return TopBarMetrics.tabWidth }
         measure.stringValue = content.title
-        let trailing = isFolder
-            ? Tokens.Metric.rowInset
-            : Tokens.Metric.rowTrailingChip.width + Tokens.Metric.rowInset
-        let unread = content.hasUnread ? Tokens.Metric.spaceDot + Tokens.Metric.rowInset : 0
-        let width = Tokens.Metric.rowTitleInset + ceil(measure.intrinsicContentSize.width) + trailing + unread
-        let floor = isFolder ? TopBarMetrics.rowFloor : TopBarMetrics.tabFloor
-        return min(max(width, floor), TopBarMetrics.rowCeiling)
+        let width = Tokens.Metric.rowTitleInset + ceil(measure.intrinsicContentSize.width) + Tokens.Metric.rowInset
+        return min(max(width, TopBarMetrics.rowFloor), TopBarMetrics.rowCeiling)
     }
 
     /// The same face the row draws its title in, so the measurement is of the

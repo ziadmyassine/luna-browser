@@ -14,9 +14,8 @@
 //  in two shapes, neither of which earned its keep. At `alphaValue = 0.55` an
 //  `NSVisualEffectView` does not thin — it cross-fades the blurred result back
 //  over the sharp original, so the bar sat on a grey film over a perfectly
-//  legible page. At full strength with §2's frost over it the frost followed
-//  §2a's density, and `.opaque` is `Ink.frostOpaque`: 0.66 in dark mode, a
-//  sheet two thirds of the way to solid with the blur buried under it. The
+//  legible page. At full strength with §2's frost over it, the frost could be
+//  a sheet two thirds of the way to solid with the blur buried under it. The
 //  third version, the blur alone, was cut as well.
 //
 //  So the panel floats over the page as it is. This view still covers the
@@ -47,10 +46,15 @@ enum CommandBarMetrics {
     /// As wide as the narrowest window Luna allows, so the bar is the same size in
     /// every window instead of a fraction that moves while you resize.
     static let width = Tokens.Metric.windowMinWidth
-    static let cornerRadius = Tokens.Metric.contentCardRadius
+    static let cornerRadius = Tokens.Metric.panelCornerRadius
     /// The input row — the same height as the chrome bars it covers.
     static let inputHeight = Tokens.Metric.topBarHeight
     static let padding = Tokens.Metric.panelInset
+    /// The least an anchored bar keeps between its top edge and the window's.
+    /// Every anchor Luna has — §3.1's pill, §3.2b's, §4's tabs — sits closer
+    /// to the top than `padding`, so a bar rising the full margin above one
+    /// was cut off by the window's edge.
+    static let edgeClearance = Tokens.Metric.chromeGap / 2
     /// UI-SPEC §6: "anchored 20 % from window top". Missing token — it is a
     /// ratio rather than a length, so `Tokens.Metric` has nowhere to put it today.
     static let topAnchorFraction: CGFloat = 0.20
@@ -103,6 +107,21 @@ final class CommandBarPanel: NSView {
     /// The pill this bar grew out of, or nil for §9.1's floating panel.
     let anchor: CommandBarAnchor?
 
+    /// How far an anchored bar has grown out of its anchor: 0 is the anchor's
+    /// own frame and corner, 1 is the bar's. Every layout pass reads it
+    /// (`CommandBarPanelLayout`), so animating it animates width, place and
+    /// corner as one — see `defaultAnimation(forKey:)`.
+    @objc dynamic var morph: CGFloat = 1 {
+        didSet { needsLayout = true }
+    }
+
+    /// The body's glass, whose corner follows `morph`.
+    private(set) var bodyGlass: GlassBackingView?
+
+    override static func defaultAnimation(forKey key: NSAnimatablePropertyKey) -> Any? {
+        key == "morph" ? CABasicAnimation() : super.defaultAnimation(forKey: key)
+    }
+
     /// True from the moment `animateIn` is called until the bar has finished
     /// opening. Nothing may rebuild the list while it is true — see
     /// `CommandBarController.apply`.
@@ -141,7 +160,8 @@ final class CommandBarPanel: NSView {
     /// and the pill's own height plus a margin above and below when it grew
     /// from one. Read live, because §3.2b's pill is 22 pt collapsed and 34 open.
     ///
-    /// The margin is the difference between a pill and a panel. 34 pt suits a
+    /// The margin is the difference between a pill and a panel. Above the pill
+    /// it is only as much as the window's top edge leaves (`inputRise`). 34 pt suits a
     /// capsule whose own edges hold the address off the chrome around it; the
     /// same 34 at the top of a panel puts the query against the glass with the
     /// first result under its chin. The field stays on the pill's centre line
@@ -149,7 +169,7 @@ final class CommandBarPanel: NSView {
     /// lined up.
     var inputHeight: CGFloat {
         guard let anchor else { return CommandBarMetrics.inputHeight }
-        return anchor.view.bounds.height + 2 * inputPadding
+        return anchor.view.bounds.height + inputRise + inputPadding
     }
 
     /// Zero when the bar is floating: `CommandBarMetrics.inputHeight` is 52 pt
@@ -191,7 +211,7 @@ final class CommandBarPanel: NSView {
         // 25 pt card radius on a capsule 34 pt tall is rounder than the capsule
         // it is replacing, so the first frame of the reveal changes the shape
         // of the thing the user clicked. `urlPill.cornerRadius` is that shape.
-        Glass.apply(.popover, to: body, cornerRadius: bodyRadius)
+        bodyGlass = Glass.apply(.popover, to: body, cornerRadius: bodyRadius) as? GlassBackingView
         addSubview(body)
 
         field.translatesAutoresizingMaskIntoConstraints = false

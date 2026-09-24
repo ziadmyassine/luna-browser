@@ -25,6 +25,7 @@
 //
 
 import AppKit
+import QuartzCore
 import BrowserKit
 
 @MainActor
@@ -45,6 +46,10 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
     /// The pill the open bar is standing in, if it grew out of one. Held so
     /// dismissal can give it back — see `present(_:in:from:)`.
     private var anchor: CommandBarAnchor?
+    /// Watching for `CommandBarAnchor.onDoubleClick`'s second click.
+    private var secondClickMonitor: Any?
+    /// The second click came: the bar is folding so the anchor can be renamed.
+    private var foldsForDoubleClick = false
 
     /// Everything local, snapshotted when the bar opens — never rebuilt per
     /// keystroke (§9.7).
@@ -153,6 +158,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
         // of the chrome is empty for as long as the panel takes to build.
         anchor?.view.isHidden = true
         openWhenReady()
+        watchForSecondClick(on: anchor)
 
         NotificationCenter.default.addObserver(
             self,
@@ -213,6 +219,9 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
         // hears about it: §3.2b's bar was held open for the typing. Both at
         // the end of the fold, so the glass closes back down onto the pill
         // instead of the two being on the same line together.
+        stopWatchingForSecondClick()
+        let renaming = foldsForDoubleClick
+        foldsForDoubleClick = false
         if let anchor {
             self.anchor = nil
             panel.onClosed = { [weak self] in
@@ -222,16 +231,22 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
                 guard self?.anchor?.view !== anchor.view else { return }
                 anchor.view.isHidden = false
                 anchor.onDismiss?()
+                if renaming { anchor.onDoubleClick?() }
             }
         }
-        panel.animateOut()
+        // A double-click's bar goes at once. It has been open for a fraction
+        // of a second, nobody was reading it, and the fold stood between the
+        // second click and the rename field for the fold's whole length.
+        if renaming { panel.closeAtOnce() } else { panel.animateOut() }
         generation += 1 // Orphan any query still in flight.
         historyTask?.cancel()
         historyTask = nil
         deferredRows = nil
         SearchSuggestions.shared.cancel()
         // Hand the keyboard back to the page, or the user is typing into nothing.
-        if let id = activeTabID, let content = session.webView(for: id) {
+        // Not to a rename: the tab's name field has it, and a page given focus
+        // on the way there took it straight back and ended the rename.
+        if !renaming, let id = activeTabID, let content = session.webView(for: id) {
             window?.makeFirstResponder(content)
         }
     }
@@ -451,5 +466,48 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
     private var currentURLText: String {
         guard let id = activeTabID, let url = session.controller(for: id)?.state.url else { return "" }
         return url.absoluteString
+    }
+}
+
+// MARK: - §4's double-click, on a bar that opened on the first click
+
+extension CommandBarController {
+
+    /// The second half of a double-click on the anchor. It lands on the bar,
+    /// which is standing where the anchor was, so it is caught here before the
+    /// bar's field can take it as a word selection.
+    fileprivate func watchForSecondClick(on anchor: CommandBarAnchor?) {
+        guard let anchor, anchor.onDoubleClick != nil else { return }
+        // Timed on the clock here rather than on the event's own timestamp,
+        // which is not promised to be on the same base as any clock the app
+        // can read — compared with one, it ended the watch before it began.
+        let deadline = CACurrentMediaTime() + NSEvent.doubleClickInterval
+        let view = anchor.view
+        secondClickMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self, weak view] event in
+            let caught = MainActor.assumeIsolated { () -> Bool in
+                guard let self, let view else { return false }
+                return self.foldForSecondClick(event, on: view, before: deadline)
+            }
+            return caught ? nil : event
+        }
+    }
+
+    /// Whether `event` is that second click, and if so, the fold it starts.
+    private func foldForSecondClick(_ event: NSEvent, on view: NSView, before deadline: TimeInterval) -> Bool {
+        guard CACurrentMediaTime() <= deadline else {
+            stopWatchingForSecondClick()
+            return false
+        }
+        guard event.clickCount >= 2, event.window === view.window,
+              view.bounds.contains(view.convert(event.locationInWindow, from: nil))
+        else { return false }
+        foldsForDoubleClick = true
+        dismiss()
+        return true
+    }
+
+    fileprivate func stopWatchingForSecondClick() {
+        if let secondClickMonitor { NSEvent.removeMonitor(secondClickMonitor) }
+        secondClickMonitor = nil
     }
 }

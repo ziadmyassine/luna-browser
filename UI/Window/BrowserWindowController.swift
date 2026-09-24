@@ -3,7 +3,7 @@
 //  Luna
 //
 //  The floating browser window (UI-SPEC §3.6/§4, TODO.md §30.1): no titlebar,
-//  no toolbar, rounded at `windowCornerRadius`, detached, with the wallpaper
+//  no toolbar, rounded at `WindowCorner.radius`, detached, with the wallpaper
 //  visible around it.
 //  It hosts exactly two things — a chrome view (the sidebar or the top bar,
 //  built in wave 2) and the content card — and switches between `ChromeState`s.
@@ -158,6 +158,13 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         trafficLights = TrafficLightLayoutManager(window: window)
         peek.onChange = { [weak self] peeking in self?.applyPeek(peeking) }
         peek.holdWhilePopoutIsUp(in: window)
+        Glass.setPeekRadius(WindowCorner.radius, on: peekBackdrop)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(followWindowCorner),
+            name: Settings.didChange,
+            object: nil
+        )
         peekEdge.onPointerInside = { [weak self] inside in self?.peek.setPointerInEdge(inside) }
         peekMenuBar.window = window
         peekMenuBar.onPointerInside = { [weak self] inside in self?.peek.setPointerInMenuBar(inside) }
@@ -315,7 +322,7 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
             peekBackdrop.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
         chromeWidth = view.widthAnchor.constraint(equalToConstant: Tokens.Metric.sidebarWidth.default)
-        chromeHeight = view.heightAnchor.constraint(equalToConstant: Tokens.Metric.topBarHeight)
+        chromeHeight = view.heightAnchor.constraint(equalToConstant: TopBarMetrics.barHeight)
         chromeFillsHeight = view.bottomAnchor.constraint(equalTo: root.bottomAnchor)
         chromeLeading = view.leadingAnchor.constraint(equalTo: root.leadingAnchor)
         chromeTrailing = view.trailingAnchor.constraint(equalTo: root.trailingAnchor)
@@ -403,6 +410,15 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
 extension BrowserWindowController {
 
     // MARK: - §7.2's hover-peek
+
+    /// The two shapes here that are cut to the content pane's corner, which
+    /// is the window's and follows the Appearance setting. The pane and the
+    /// root view follow it themselves.
+    @objc private func followWindowCorner() {
+        Glass.setPeekRadius(WindowCorner.radius, on: peekBackdrop)
+        guard case let .sidebar(width, edge) = chromeState else { return }
+        showCornerFill(besideColumnOf: width, on: edge)
+    }
 
     /// `ChromeHostView` reports the pointer arriving on and leaving the sidebar
     /// itself; the edge strip reports the other half. Either one keeps the peek
@@ -536,12 +552,13 @@ extension BrowserWindowController {
         cornerFill.show(gradient)
     }
 
-    /// `.sidebar` is the only state whose card has a rounded leading corner —
-    /// `ChromeState.cardIsInset` says so, and this follows it exactly.
+    /// `.sidebar` is the only state whose card has a rounded corner beside a
+    /// Space's wash. §4's rounds its top corners too, against a bar with no
+    /// wash, so its notches are already the colour of what is around them.
     private func showCornerFill(besideColumnOf width: CGFloat, on edge: SidebarEdge) {
         cornerFill.columnWidth = width
         cornerFill.edge = edge
-        cornerFillWidth?.constant = width + Tokens.Metric.contentCardRadius
+        cornerFillWidth?.constant = width + WindowCorner.radius
         cornerFillLeading?.isActive = edge == .leading
         cornerFillTrailing?.isActive = edge == .trailing
         cornerFill.isHidden = false

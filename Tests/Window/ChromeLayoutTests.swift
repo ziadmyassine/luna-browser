@@ -205,14 +205,25 @@ final class ContentCardGeometryTests: XCTestCase {
         }
     }
 
-    /// §4: "Content is flush full-bleed below it — no inset card, no gap."
-    func testTopBarLayoutIsFlushFullBleed() {
+    /// §4: flush below the bar, no gap — and the bar plays the sidebar's part,
+    /// so the two corners against it are rounded.
+    func testTopBarLayoutIsFlushBelowTheBarWithItsTopCornersRounded() {
         let insets = ChromeState.topBar.cardInsets
-        XCTAssertEqual(insets.top, row)
+        XCTAssertEqual(insets.top, TopBarMetrics.barHeight)
         XCTAssertEqual(insets.left, 0)
         XCTAssertEqual(insets.right, 0)
         XCTAssertEqual(insets.bottom, 0)
-        XCTAssertFalse(ChromeState.topBar.cardIsInset)
+        XCTAssertTrue(ChromeState.topBar.cardIsInset)
+        XCTAssertEqual(ChromeState.topBar.cardInsetEdge, .top)
+    }
+
+    /// And the pane draws it: the two top corners, at the window's radius.
+    @MainActor
+    func testThePaneRoundsItsTopCornersUnderTheBar() {
+        let card = ContentCardView()
+        card.insetEdge = .top
+        XCTAssertEqual(card.layer?.maskedCorners, [.layerMinXMaxYCorner, .layerMaxXMaxYCorner])
+        XCTAssertEqual(card.layer?.cornerRadius, WindowCorner.radius)
     }
 
     /// Hiding the sidebar gives the page the whole window — no reserved row for
@@ -270,7 +281,7 @@ final class SpaceCornerFillTests: XCTestCase {
     func testTheFillStopsAtTheCornerRadius() {
         XCTAssertLessThanOrEqual(
             path.boundingBox.maxX,
-            column + Tokens.Metric.contentCardRadius + 0.001,
+            column + WindowCorner.radius + 0.001,
             "the fill ran past the card's corner and onto the page"
         )
     }
@@ -278,7 +289,7 @@ final class SpaceCornerFillTests: XCTestCase {
     /// One notch at the top and one at the bottom, each exactly as tall as the
     /// radius — the middle of the card's leading edge is square and needs none.
     func testThereIsANotchAtEachEndAndNothingBetween() {
-        let radius = Tokens.Metric.contentCardRadius
+        let radius = WindowCorner.radius
         XCTAssertTrue(path.contains(CGPoint(x: column + 1, y: bounds.maxY - 1)), "no notch at the top")
         XCTAssertTrue(path.contains(CGPoint(x: column + 1, y: bounds.minY + 1)), "no notch at the bottom")
         XCTAssertFalse(
@@ -294,7 +305,7 @@ final class SpaceCornerFillTests: XCTestCase {
     /// The disc the card's corner takes out is not painted — that area is the
     /// card itself, and the fill sits below it.
     func testTheArcFollowsTheCardsOwnCorner() {
-        let radius = Tokens.Metric.contentCardRadius
+        let radius = WindowCorner.radius
         // Well inside the quarter disc, near its centre.
         let insideTheCard = CGPoint(x: column + radius - 2, y: bounds.maxY - radius + 2)
         XCTAssertFalse(path.contains(insideTheCard), "the fill is painting under the card's corner, not around it")
@@ -312,7 +323,7 @@ final class SpaceCornerFillTests: XCTestCase {
         )
         XCTAssertGreaterThanOrEqual(
             mirrored.boundingBox.minX,
-            bounds.maxX - column - Tokens.Metric.contentCardRadius - 0.001,
+            bounds.maxX - column - WindowCorner.radius - 0.001,
             "the fill ran past the card's corner and onto the page"
         )
         XCTAssertEqual(mirrored.boundingBox.width, path.boundingBox.width, accuracy: 0.001)
@@ -322,7 +333,51 @@ final class SpaceCornerFillTests: XCTestCase {
     /// corners; the guard returns an empty path rather than two overlapping
     /// notches.
     func testAWindowTooShortForTwoCornersPaintsNothing() {
-        let squat = NSRect(x: 0, y: 0, width: 305, height: Tokens.Metric.contentCardRadius)
+        let squat = NSRect(x: 0, y: 0, width: 305, height: WindowCorner.radius)
         XCTAssertTrue(SpaceCornerFillView.notches(in: squat, besideColumnOf: column).isEmpty)
+    }
+}
+
+/// Appearance's corner setting: Luna's own corner by default, macOS's when it
+/// is on, and a window that is already open follows the change — its own shape
+/// and the content pane's corners together, so they still nest.
+@MainActor
+final class WindowCornerTests: XCTestCase {
+
+    private var saved = false
+
+    override func setUp() {
+        super.setUp()
+        saved = Settings.macWindowCorners
+    }
+
+    override func tearDown() {
+        Settings.macWindowCorners = saved
+        super.tearDown()
+    }
+
+    func testLunasOwnCornerIsTheDefault() {
+        UserDefaults.standard.removeObject(forKey: "luna.macWindowCorners")
+        XCTAssertFalse(Settings.macWindowCorners)
+        XCTAssertEqual(WindowCorner.radius, Tokens.Metric.windowCornerRadius)
+    }
+
+    func testAnOpenWindowAndItsPaneFollowTheSetting() {
+        Settings.macWindowCorners = false
+        let root = WindowRootView()
+        let card = ContentCardView()
+        XCTAssertEqual(root.layer?.cornerRadius, Tokens.Metric.windowCornerRadius)
+        XCTAssertEqual(card.layer?.cornerRadius, Tokens.Metric.windowCornerRadius)
+
+        Settings.macWindowCorners = true
+        XCTAssertEqual(root.layer?.cornerRadius, Tokens.Metric.windowCornerRadiusSystem)
+        XCTAssertEqual(card.layer?.cornerRadius, Tokens.Metric.windowCornerRadiusSystem)
+    }
+
+    /// Fullscreen has no corners, whichever the setting says.
+    func testFullScreenStaysSquare() {
+        let root = WindowRootView()
+        root.isWindowFullScreen = true
+        XCTAssertEqual(root.layer?.cornerRadius, 0)
     }
 }

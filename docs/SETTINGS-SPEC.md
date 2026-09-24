@@ -35,7 +35,7 @@ an enforced one, so it is on review to catch.
 | Thing | Value |
 |---|---|
 | Window content | 720 × 520, resizable, min 640 × 480 |
-| Window corner | `windowCornerRadius` (25) |
+| Window corner | `WindowCorner.radius`: 25, or macOS's 16 with Match macOS corners |
 | Section list width | `settingsListWidth` (230), fixed (not `sidebarWidth`, which is user-dragged) |
 | Type | `TypeScale.settingsRow` — **13 pt, the sidebar's own face** |
 | Caption under a row | `TypeScale.settingsCaption` (11) |
@@ -76,6 +76,10 @@ with the screenshot, and none of them changes what a control *does*:
   stack: a stack sent a switch to the card's trailing edge and left a
   `SettingsChoice` beside the label with the spare width spread between its
   segments.
+- **The switch is AppKit's** (`SystemSwitch`), the Liquid Glass one. Luna drew
+  its own at 36 × 20 for a while, because `NSSwitch` is 54 × 24 at every
+  `controlSize`; the drawn one had none of the system's glass and was the one
+  control in the window that was not the Mac's. The rows take the 54.
 - **A group header names something the rows do not.** Three of them repeated
   the title of the only row underneath and are gone; the rest are
   `Text.secondary`.
@@ -242,11 +246,19 @@ underneath — never a silently dead switch (§30.4).
 | Control | Type | Wired to |
 |---|---|---|
 | Theme | Segmented: Auto · Light · Dark | `NSApp.appearance` |
-| Layout | Segmented: Sidebar · Top bar | `Settings.chromeLayout` — UI-SPEC §3 vs §4 |
+| Layout | A picture of each layout, chosen by clicking it | `Settings.chromeLayout` — UI-SPEC §3 vs §4 |
 | Search bar | Segmented: In the sidebar · On the page | `Settings.searchBarPlacement` — UI-SPEC §3.2b |
-| Material | Segmented: Clear · Opaque | `Glass.density` — UI-SPEC §2a |
 | Optimise glass for this display | Segmented: Auto · On · Off | **§7 below** |
 | Sidebar position | Segmented: Left · Right | *disabled* — right-hand sidebar is not built |
+| Match macOS corners | Toggle, off | `Settings.macWindowCorners` — UI-SPEC §3.6 |
+
+**Layout is two pictures, not two words** (`SettingsLayoutPicker`): a small
+window drawn in the pane's own inks, with the tabs down a column in one and
+along a bar in the other, the selected tab the one bright pill. 116 × 72, the
+glass preview tile's height at a window's 16:10. The chosen one is ringed in
+`Text.primary`; the pointer rings the other in `Text.secondary`, and a press
+swells the picture. A wash over a picture of a window would be a picture of a
+different window, so the ring is how it answers — the Space swatch's rule.
 
 **Favicons are no longer a row.** A switch for them was listed here; the sidebar
 has drawn them since M1, every browser draws them, and a preference whose only
@@ -262,16 +274,13 @@ the page scrolls. The two keys resolve to one answer in
 `Settings.searchBarIsOnPage`, so the sidebar cannot drop its pill in a layout
 with no page bar to put it in.
 
-The glass rows carry a **live preview tile** below them: a 160 × 72 sample of
-the real material, redrawn the instant either segment changes. On a 1× display
+The glass row carries a **live preview tile** below it: a 160 × 72 sample of
+the real material, redrawn the instant the segment changes. On a 1× display
 the difference is the whole point of the setting, so it must be visible without
 closing the window.
 
-**Material is above "Optimise glass" because it is the bigger of the two.** It
-changes how much of the desktop reaches the eye through every chrome surface in
-the app; the row below it changes how one material is rendered on one class of
-display. Both re-skin every live surface in one pass and neither needs a
-relaunch. UI-SPEC §2a has the alphas and the measurement they come from.
+**There is no Material row.** Clear / Opaque was removed on 2026-09-24; the
+chrome is Clear. UI-SPEC §2a keeps the measurement in case it comes back.
 
 ### 3.3 Privacy & Blocking
 | Control | Type | Wired to |
@@ -286,9 +295,10 @@ relaunch. UI-SPEC §2a has the alphas and the measurement they come from.
 **The per-site exemption list is not here.** "Sites with blocking disabled" was
 a list you could only ever *remove* from — there was no way to turn blocking off
 for a site from it — sitting a window away from the page the answer is about.
-Per-site answers now live in exactly one place, UI-SPEC §3.2a's site menu behind
-the sliders glyph on the address pill, which is where the problem is noticed and
-where the same menu also clears that site's cache and cookies. What stays in this
+Per-site answers now live in exactly one place, UI-SPEC §3.2a's site settings
+behind the sliders glyph on the address pill and §4's selected tab, which is
+where the problem is noticed and where the same pop-out also clears that site's
+cache and cookies. What stays in this
 section is what is genuinely global: which filter lists run at all, HTTPS-Only,
 and clearing everything. A one-sentence note under the filter-list card says
 where the switch went; a sentence is not a second copy of the control.
@@ -438,6 +448,45 @@ the repo's compatibility notes. No fake list, no fake install button.
 | Restore all settings to defaults | Button, confirms, requires the word to be typed | every key below |
 | Reveal the database in Finder | Button | `NSWorkspace.activateFileViewerSelecting` |
 
+### 3.10 About
+The app's icon (64 pt, as macOS's own About panel draws it), its name and its version, starting where the card below starts, as a group's name does (§1), then one card:
+
+| Row | Type | Wired to |
+|---|---|---|
+| Updates — what the updater is doing, or when it last looked | Button: Check Now | `Updater.check()` |
+| Install updates on their own | Toggle, on | `updates.installOnItsOwn` |
+| Luna *x.y.z* — only when a newer one is known | Button: Install · Restart · Download | `Updater` |
+
+The app menu's *About Luna* opens this section, and *Check for Updates…* looks and opens it.
+
+**Where updates come from.** The repo's latest GitHub release
+(`api.github.com/repos/ziadmyassine/luna-browser/releases/latest`), read at launch if a day has
+passed and every hour after that, and whenever Check Now is pressed. A release counts when its tag is a
+version (`v0.2.0`), it carries `Luna.zip`, and there is a SHA-256 for it — GitHub's own asset digest, or
+the `sha256:` line `.github/workflows/release.yml` writes into its notes. The zip must be on this repo's
+own `releases/download/` path, over https. Drafts and pre-releases are not in "latest" at all.
+
+**Installing** (`UpdateSwap`): download, check the SHA-256, unpack with `ditto`, check the bundle is
+Luna and newer by its own Info.plist, then two renames — this bundle to `Luna.app.old`, the new one into
+its place. The running app goes on running from `.old`, which is removed at quit or at the next launch.
+Nothing relaunches on its own; **Restart** does. Only the bundle changes hands — the database, the
+defaults and the Keychain are left alone.
+
+**Only a release build installs.** The workflow stamps `LunaReleaseBuild` into the Info.plist. A build
+made on a developer's Mac has no stamp: it says a newer one is out and offers **Download**, which opens
+the release page. Without that, a development build would replace itself with the last release the
+first time it launched.
+
+**Not checked yet: who signed it.** Luna signs ad hoc until a Developer ID certificate exists (TODO.md
+§24.4), so there is no team to hold a new build to. Once there is, `UpdateSwap.verify` adds a
+code-signing requirement naming the team. Until then, a release downloaded in a browser asks before it
+opens the first time; the updater's own downloads are not quarantined.
+
+**Making a release:** push a tag — `git tag v0.2.0 && git push origin v0.2.0`. The workflow writes the
+version into the app, builds it, zips it and publishes the release. The first paragraph of the
+release's notes, written on GitHub afterwards above the `sha256:` line, is what this card shows under
+the new version.
+
 ---
 
 ## 4. Shared row widgets
@@ -502,7 +551,6 @@ update.
 ```
 general.onLaunch            general.confirmClose
 appearance.theme            appearance.glassOptimisation
-appearance.glassDensity
 search.engine               search.customEngineURL
 search.suggestions          search.settingsResults
 search.shortcutResults
@@ -510,7 +558,10 @@ downloads.directory         downloads.askEachTime
 downloads.autoOpen          downloads.clearPolicy
 advanced.userAgent          advanced.showDevelopMenu
 advanced.webInspector       settings.lastSection
+updates.installOnItsOwn
 ```
+
+`updates.lastChecked` is state, not a setting: it is not in the table, and *Restore all* leaves it.
 
 **Existing keys are not renamed**: `blocking.httpsOnly`, `blocking.*`,
 `luna.autoArchiveHours`, `luna.activeSpaceID` stay where they are. The naming

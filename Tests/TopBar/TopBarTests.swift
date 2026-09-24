@@ -106,14 +106,17 @@ final class TopBarTabRowTests: XCTestCase {
         XCTAssertEqual(TopBarMetrics.lineHeight, TopBarMetrics.capsuleItem.height + TopBarMetrics.capsuleInset * 2)
     }
 
-    /// A short title still makes a tab, not a label with a favicon.
-    func testAShortTitleStillMakesAWholeTab() {
-        XCTAssertEqual(TopBarTabRow.pillWidth(for: SidebarRowContent(title: "Google")), TopBarMetrics.tabFloor)
+    /// Every tab is Dia's width, whatever its title — short, ordinary, or
+    /// longer than the bar would ever give it.
+    func testEveryTabIsTheSameWidthWhateverItsTitle() {
+        for title in ["G", "Google", "example.com", String(repeating: "long title ", count: 20)] {
+            XCTAssertEqual(TopBarTabRow.pillWidth(for: SidebarRowContent(title: title)), TopBarMetrics.tabWidth, title)
+        }
     }
 
-    /// A row's pill fits its whole title: the column's own row, given that
-    /// width, starts to fade its title only when the title is longer.
-    func testARowIsWideEnoughForItsTitle() {
+    /// An ordinary site's name is drawn whole in that width: the column's own
+    /// row, given it, starts to fade a title only when it is longer.
+    func testAnOrdinaryTitleFitsTheTab() {
         let content = SidebarRowContent(title: "example.com")
         let host = TopBarTabRow(frame: NSRect(
             x: 0,
@@ -133,22 +136,17 @@ final class TopBarTabRowTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(column.width, label.intrinsicContentSize.width)
     }
 
-    /// One long page title must not spend the room every other tab needs.
-    func testALongTitleStopsAtTheCeiling() {
-        let content = SidebarRowContent(title: String(repeating: "long title ", count: 20))
-        XCTAssertEqual(TopBarTabRow.pillWidth(for: content), TopBarMetrics.rowCeiling)
-    }
-
-    /// After the title a tab keeps room for its close glyph; a folder's
-    /// header, which has neither a close glyph nor a chevron on the bar, only
-    /// its inset.
-    func testATabKeepsRoomForItsCloseGlyphAndAFolderDoesNot() {
-        // Long enough to be clear of both floors, which would otherwise absorb
-        // the difference.
-        let name = "Work in progress"
-        let tab = TopBarTabRow.pillWidth(for: SidebarRowContent(title: name))
-        let folder = TopBarTabRow.pillWidth(for: SidebarRowContent(title: name), isFolder: true)
-        let close = Tokens.Metric.rowTrailingChip.width + Tokens.Metric.rowInset
-        XCTAssertEqual(tab - folder, close - Tokens.Metric.rowInset, accuracy: 0.5)
+    /// A folder's header is as long as its name, between its floor and the
+    /// ceiling — it is a label on a plate, not a tab.
+    func testAFoldersHeaderIsAsLongAsItsName() {
+        let short = TopBarTabRow.pillWidth(for: SidebarRowContent(title: "A"), isFolder: true)
+        let longer = TopBarTabRow.pillWidth(for: SidebarRowContent(title: "Work in progress"), isFolder: true)
+        let longest = TopBarTabRow.pillWidth(
+            for: SidebarRowContent(title: String(repeating: "long name ", count: 20)),
+            isFolder: true
+        )
+        XCTAssertEqual(short, TopBarMetrics.rowFloor)
+        XCTAssertGreaterThan(longer, short)
+        XCTAssertEqual(longest, TopBarMetrics.rowCeiling)
     }
 }

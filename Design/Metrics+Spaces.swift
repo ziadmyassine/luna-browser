@@ -30,17 +30,12 @@ extension Tokens.Metric {
     /// The most Spaces §3.5's strip shows at once.
     ///
     /// The pill is sized to its dots, so twelve Spaces made a 160 pt strip in a
-    /// footer that also holds an avatar and the library cylinder — at which
+    /// footer that also holds the Space pill and the library cylinder — at which
     /// point the dots are neither countable nor individually hittable. Three is
     /// the window: the Space you are in, the one behind and the one ahead, which
     /// is the set §30.9's swipe can reach from here. The rest of the run slides
     /// through it — see `SpaceDotsView.windowStart`.
     static let spaceDotWindow = 3
-
-    /// Between §3.5's caption and the Space strip it labels. A label belongs
-    /// to the thing under it at about half a line of leading, which at 11 pt
-    /// type is this. `rowGap`'s 3 pt was close enough to touch.
-    static let sidebarSpaceNameGap: CGFloat = 6
 
     // MARK: - SPACES-SPEC D-S12's swipe, read out on §30.9's strip
 
@@ -185,24 +180,20 @@ extension Tokens.Metric {
     /// of the ramp.
     static let spaceSwatchRing: CGFloat = 1.5
 
-    /// §3.5's caption, which names the Space the strip below it is showing.
-    /// One line of 11 pt type and nothing else: 14 is what the type needs, and
-    /// the distance to the strip is `sidebarSpaceNameGap`.
+    /// Either side of the name in §3.5's Space pill (`SidebarSpacePill`).
     ///
-    /// It named the Profile until the Space's own name had nowhere in the
-    /// column to be; whose cookies these are is on the avatar beside the strip
-    /// now (`SidebarSpaceLabel`).
-    static let sidebarSpaceNameRow: CGFloat = 14
+    /// The room §4's name has in its cylinder (`TopBarMetrics.gap`), so the
+    /// Space is the same pill in both layouts.
+    static let sidebarSpacePillPad = rowInset
 
-    /// How far that caption takes to dissolve, which is twice what a §3.4 row
-    /// takes.
+    /// How far a name too long for §3.5's Space pill takes to dissolve, which
+    /// is twice what a §3.4 row takes.
     ///
-    /// The row's 12 pt is a ramp on a title that ends against the pill's inner
-    /// edge, where the eye already expects the line to stop. This one ends in
-    /// clear air over the Space strip, and at 12 pt the last glyph read as a
-    /// letter that had been cut rather than a name that ran out. 24 starts the
-    /// dissolve about two characters inside the cap and carries it two past,
-    /// so the tail thins rather than stopping.
+    /// The row's 12 pt ramp ends against the pill's inner edge, where the eye
+    /// already expects the line to stop, and at 12 pt the last glyph here read
+    /// as a letter that had been cut rather than a name that ran out. 24 starts
+    /// the dissolve about two characters early, so the tail thins rather than
+    /// stopping.
     static let sidebarSpaceNameFade = 2 * rowTitleFade
 
     /// A gradient swatch in a menu (§8.2's picker).

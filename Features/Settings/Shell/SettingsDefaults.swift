@@ -30,11 +30,9 @@ enum SettingsDefaults {
         // §3.1 General — `GeneralSettings.onLaunch` / `.confirmClose`
         ("general.onLaunch", "restoreSession"),
         ("general.confirmClose", true),
-        // §3.2 Appearance — `AppearanceSection.theme`, `Glass.optimisation`,
-        // `Glass.density`
+        // §3.2 Appearance — `AppearanceSection.theme`, `Glass.optimisation`
         ("appearance.theme", "auto"),
         ("appearance.glassOptimisation", GlassOptimisation.auto.rawValue),
-        ("appearance.glassDensity", GlassDensity.clear.rawValue),
         // §3.4 Search — `SearchSettings.stored()`
         ("search.engine", SearchEngine.fallback.rawValue),
         ("search.customEngineURL", ""),
@@ -51,6 +49,8 @@ enum SettingsDefaults {
         ("advanced.userAgentCustom", ""),
         ("advanced.showDevelopMenu", false),
         ("advanced.webInspector", true),
+        // §3.10 About — `Updater.installsOnItsOwn`
+        ("updates.installOnItsOwn", true),
         // §2's persisted selection
         ("settings.lastSection", SettingsSectionRegistry.ids.first ?? ""),
         // §6's "existing keys are not renamed"
@@ -78,10 +78,9 @@ enum SettingsDefaults {
     /// next launch. Three explicit ones rather than a notification — add one
     /// when there is a fourth cache, not before.
     static func restoreAll() {
-        // Before the sweep: both setters persist their key as well as re-skinning
-        // every live glass view, and the loop below clears what they wrote.
+        // Before the sweep: the setter persists its key as well as re-skinning
+        // every live glass view, and the loop below clears what it wrote.
         Glass.optimisation = .auto
-        Glass.density = .clear
         let defaults = UserDefaults.standard
         for key in keys { defaults.removeObject(forKey: key) }
         SearchSettings.reload()

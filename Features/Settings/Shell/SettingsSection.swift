@@ -99,7 +99,7 @@ enum SettingsMetrics {
     static let searchStaggerCap = 6
 }
 
-/// §3's ten sections, in §2's order — which is also the `⌘1…⌘9` order for
+/// §3's eleven sections, in §2's order — which is also the `⌘1…⌘9` order for
 /// the first nine.
 @MainActor
 enum SettingsSectionRegistry {
@@ -117,7 +117,8 @@ enum SettingsSectionRegistry {
         ShortcutsSection.self,
         SpacesSection.self,
         ExtensionsSection.self,
-        AdvancedSection.self
+        AdvancedSection.self,
+        AboutSection.self
     ]
 
     static var ids: [String] { all.map { $0.id } }

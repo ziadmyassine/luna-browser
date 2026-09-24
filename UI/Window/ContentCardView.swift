@@ -12,7 +12,8 @@
 //  window edges and against the sidebar, with only its two leading corners
 //  rounded, at the window's own radius so they nest rather than leaving a
 //  crescent of glass inside each one. The floating read comes from the
-//  sidebar's glass, not from a moat.
+//  sidebar's glass, not from a moat. Under §4's bar the bar plays the
+//  sidebar's part, and the two corners against it are the rounded ones.
 //
 //  The card is never translucent. A live web page behind glass is unreadable
 //  (UI-SPEC §2), which is why this is the one chrome surface that does not ask
@@ -22,17 +23,27 @@
 import AppKit
 import WebKit
 
+/// The one edge of the page's pane that meets the chrome rather than the
+/// window, and so the pair of corners that is rounded.
+enum CardEdge: Equatable {
+    case leading, trailing, top
+
+    init(_ edge: SidebarEdge) {
+        self = edge == .leading ? .leading : .trailing
+    }
+}
+
 extension ChromeState {
 
-    /// Which of the pane's vertical edges is not a window edge, and
-    /// therefore which pair of corners is rounded. Only the sidebar layout has
-    /// such an edge, and which one it is depends on the side the sidebar is on:
-    /// under the top bar, collapsed, or in fullscreen the pane meets the window
-    /// on every side and the window's own mask is the only corner there is.
-    var cardInsetEdge: SidebarEdge? {
+    /// Which of the pane's edges is not a window edge, and therefore which pair
+    /// of corners is rounded: the side the sidebar is on, or the top under §4's
+    /// bar. Collapsed or in fullscreen the pane meets the window on every side
+    /// and the window's own mask is the only corner there is.
+    var cardInsetEdge: CardEdge? {
         switch self {
-        case let .sidebar(_, edge): edge
-        case .sidebarCollapsed, .topBar, .fullscreen: nil
+        case let .sidebar(_, edge): CardEdge(edge)
+        case .topBar: .top
+        case .sidebarCollapsed, .fullscreen: nil
         }
     }
 
@@ -43,7 +54,6 @@ extension ChromeState {
     /// Pure, and unit-tested alongside the traffic lights: this and
     /// `TrafficLightLayout` are the only two places window geometry is decided.
     var cardInsets: NSEdgeInsets {
-        let row = Tokens.Metric.topBarHeight
         switch self {
         case let .sidebar(width, edge):
             // Flush to the window's top and bottom and to the edge the sidebar
@@ -62,7 +72,7 @@ extension ChromeState {
             return NSEdgeInsets()
         case .topBar:
             // §4: flush full-bleed below the bar.
-            return NSEdgeInsets(top: row, left: 0, bottom: 0, right: 0)
+            return NSEdgeInsets(top: TopBarMetrics.barHeight, left: 0, bottom: 0, right: 0)
         case .fullscreen:
             return NSEdgeInsets()
         }
@@ -73,10 +83,10 @@ extension ChromeState {
 @MainActor
 final class ContentCardView: NSView {
 
-    /// The pane's non-window edge — the one it shares with the sidebar — whose
-    /// two corners are rounded. Nil everywhere the pane meets the window on all
-    /// four sides.
-    var insetEdge: SidebarEdge? = .leading {
+    /// The pane's non-window edge — the one it shares with the sidebar or the
+    /// top bar — whose two corners are rounded. Nil everywhere the pane meets
+    /// the window on all four sides.
+    var insetEdge: CardEdge? = .leading {
         didSet {
             guard insetEdge != oldValue else { return }
             updateCornerRadius()
@@ -92,7 +102,7 @@ final class ContentCardView: NSView {
     /// one thing that is allowed inside the card and is not the web content.
     private var overlay: NSView?
     private var insetsBeforeFullscreen: NSEdgeInsets?
-    private var insetEdgeBeforeFullscreen: SidebarEdge? = .leading
+    private var insetEdgeBeforeFullscreen: CardEdge? = .leading
     /// The content's leading edge, pinned to the card's. Active at rest, so
     /// the page is exactly as wide as the pane with no bookkeeping at all.
     private var contentLeading: NSLayoutConstraint?
@@ -114,6 +124,17 @@ final class ContentCardView: NSView {
         layer?.cornerCurve = .continuous
         // Clips the page to the pane's corners.
         layer?.masksToBounds = true
+        updateCornerRadius()
+        // The corner is the window's, which the Appearance setting changes.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(settingsDidChange),
+            name: Settings.didChange,
+            object: nil
+        )
+    }
+
+    @objc private func settingsDidChange() {
         updateCornerRadius()
     }
 
@@ -349,7 +370,7 @@ final class ContentCardView: NSView {
             insetEdgeBeforeFullscreen = insetEdge
         }
         let target = on ? NSEdgeInsets() : (insetsBeforeFullscreen ?? insets)
-        let targetEdge: SidebarEdge? = on ? nil : insetEdgeBeforeFullscreen
+        let targetEdge: CardEdge? = on ? nil : insetEdgeBeforeFullscreen
         if !on { insetsBeforeFullscreen = nil }
 
         // `Tokens.Motion.animate` owns the Reduce Motion check (§21.2);
@@ -366,15 +387,16 @@ final class ContentCardView: NSView {
     // MARK: - Appearance
 
     private func updateCornerRadius() {
-        // One pair of corners, on the side the sidebar is. The other edge
-        // is the window's, and the window's own mask already rounds it —
-        // rounding it here as well would round the pane inside a corner that is
-        // already round and show glass through the crescent between the two.
+        // One pair of corners, on the side the chrome is. The other edges
+        // are the window's, and the window's own mask already rounds them —
+        // rounding them here as well would round the pane inside a corner that
+        // is already round and show glass through the crescent between the two.
         layer?.maskedCorners = switch insetEdge {
         case .trailing: [.layerMaxXMinYCorner, .layerMaxXMaxYCorner]
+        case .top: [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
         case .leading, nil: [.layerMinXMinYCorner, .layerMinXMaxYCorner]
         }
-        layer?.cornerRadius = isInset ? Tokens.Metric.contentCardRadius : 0
+        layer?.cornerRadius = isInset ? WindowCorner.radius : 0
         // The edge is drawn by `updateLayer` and turns off with the corners.
         needsDisplay = true
     }
@@ -388,8 +410,8 @@ final class ContentCardView: NSView {
         // material stops dead at its leading edge and the two planes met with
         // nothing between them. `Line.border` is that edge — the same hairline
         // every other glass surface in the app carries, drawn on the side where
-        // the page meets the sidebar. It follows `maskedCorners`, so it runs
-        // down the rounded leading edge and nowhere else.
+        // the page meets the chrome. It follows `maskedCorners`, so it runs
+        // round the rounded edge and nowhere else.
         layer.borderWidth = isInset ? Tokens.Metric.hairline : 0
         layer.borderColor = isInset ? Tokens.Line.border.cgColor : nil
     }

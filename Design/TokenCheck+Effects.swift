@@ -166,46 +166,6 @@ extension TokenCheck {
         return failures
     }
 
-    /// §2a's pair, and the two things that make the setting mean anything.
-    ///
-    ///   · Opaque is denser than clear, in every variant. The two alphas are
-    ///     hand-set from separate measurements rather than derived from each
-    ///     other, so nothing but this stops one drifting past the other.
-    ///   · Neither reaches 1.0. At full strength the frost is
-    ///     `Surface.glassFallback`, the Reduce Transparency plane, with no glass
-    ///     left above it — "more opaque" would have become "off".
-    ///     `checkResolution` asserts the same rule from the colour side; this
-    ///     one catches it in the alpha table, where it is set.
-    ///
-    /// The ceiling is higher than §7's 0.70 on purpose: that one protects §2's
-    /// "the chrome samples the desktop", which is the claim this setting exists
-    /// to let the user give up.
-    static func checkGlassDensity() -> [String] {
-        var failures: [String] = []
-        /// Short of the plane by a visible margin, not by a rounding error.
-        let ceiling = 0.95
-        for contrast in [false, true] {
-            for isDark in [false, true] {
-                let variant = "\(isDark ? "dark" : "light")\(contrast ? "+contrast" : "")"
-                let clear = Tokens.Ink.frost.alpha(contrast: contrast, dark: isDark)
-                let opaque = Tokens.Ink.frostOpaque.alpha(contrast: contrast, dark: isDark)
-                if opaque <= clear {
-                    failures.append(String(
-                        format: "Ink.frostOpaque (%.3f) is not above frost (%.3f) in %@ — §2a's two densities are one",
-                        opaque, clear, variant
-                    ))
-                }
-                if opaque > ceiling {
-                    failures.append(String(
-                        format: "Ink.frostOpaque is %.3f in %@ — past %.2f there is no glass left above the plane",
-                        opaque, variant, ceiling
-                    ))
-                }
-            }
-        }
-        return failures
-    }
-
     /// §7's ordering, split out of `checkGlassOptimisation` for the complexity
     /// limit. The control must stay lighter than the bar it sits on, and the
     /// optimised bar must be denser than the plain one.

@@ -47,8 +47,9 @@ extension CommandBarPanel {
     /// out of the first thing in a column belongs anyway.
     private func anchoredCentre(for rect: NSRect, width: CGFloat) -> CGFloat {
         let margin = Tokens.Metric.chromeGap
-        let leading = bounds.minX + margin
-        let trailing = max(bounds.maxX - margin - width, leading)
+        let span = anchorSpan ?? bounds.insetBy(dx: margin, dy: 0)
+        let leading = max(bounds.minX + margin, span.minX)
+        let trailing = max(min(bounds.maxX - margin, span.maxX) - width, leading)
         return min(max(rect.midX - width / 2, leading), trailing) + width / 2
     }
 
@@ -67,6 +68,22 @@ extension CommandBarPanel {
     /// floating, and when the pill has left the window under it.
     private var anchorRect: NSRect? {
         guard let view = anchor?.view, view.window === window, window != nil else { return nil }
+        return convert(view.bounds, from: view)
+    }
+
+    /// How far an anchored bar's glass rises above its anchor: the margin
+    /// below it, unless the window's top edge is nearer than that. The field
+    /// stays on the anchor's centre line either way; what gives is the air
+    /// above it.
+    var inputRise: CGFloat {
+        guard let rect = anchorRect else { return inputPadding }
+        let room = bounds.maxY - rect.maxY - CommandBarMetrics.edgeClearance
+        return min(inputPadding, max(room, 0))
+    }
+
+    /// `CommandBarAnchor.span`, in this view's coordinates.
+    private var anchorSpan: NSRect? {
+        guard let view = anchor?.span, view.window === window, window != nil else { return nil }
         return convert(view.bounds, from: view)
     }
 
@@ -92,13 +109,21 @@ extension CommandBarPanel {
         // Its rect is re-read on every pass for the same reason the floating
         // bar re-derives its two constants — the window resizes and the sidebar
         // is dragged while the bar is open, and the pill moves with both.
+        //
+        // `morph` runs each of them from the anchor's own value to the bar's,
+        // with the field held on the anchor's centre line throughout: the top
+        // rises by `inputRise` as the field's offset from it grows by the same.
         if let rect = anchorRect {
             let width = anchoredWidth(for: rect)
-            set(topAnchorConstraint, to: bounds.maxY - rect.maxY - inputPadding)
-            set(centreConstraint, to: anchoredCentre(for: rect, width: width) - bounds.midX)
-            set(widthConstraint, to: width)
-            set(fieldCentreConstraint, to: inputHeight / 2)
+            let open = morph
+            func toward(_ closed: CGFloat, _ opened: CGFloat) -> CGFloat { closed + (opened - closed) * open }
+            let rise = inputRise
+            set(topAnchorConstraint, to: toward(bounds.maxY - rect.maxY, bounds.maxY - rect.maxY - rise))
+            set(centreConstraint, to: toward(rect.midX, anchoredCentre(for: rect, width: width)) - bounds.midX)
+            set(widthConstraint, to: toward(rect.width, width))
+            set(fieldCentreConstraint, to: toward(rect.height / 2, rise + rect.height / 2))
             set(resultsTopConstraint, to: inputHeight)
+            bodyGlass?.cornerRadius = toward(anchor?.cornerRadius ?? bodyRadius, bodyRadius)
             super.layout()
             return
         }
@@ -143,11 +168,17 @@ extension CommandBarPanel {
             return
         }
         body.alphaValue = 1
+        morph = 0
         layoutSubtreeIfNeeded()
-        let height = body.heightAnchor.constraint(equalToConstant: inputHeight)
+        let height = body.heightAnchor.constraint(equalToConstant: anchorHeight)
         revealConstraint = height
         height.isActive = true
         layoutSubtreeIfNeeded()
+    }
+
+    /// The anchor's own height, which is where the bar starts and ends.
+    var anchorHeight: CGFloat {
+        anchor?.view.bounds.height ?? inputHeight
     }
 
     /// §6 `commandBarIn`: 0.18 s spring, scale 0.96 → 1.0 + fade.
@@ -174,20 +205,21 @@ extension CommandBarPanel {
         }
     }
 
-    /// The same 0.18 s, spent on more glass rather than a new pane.
+    /// `commandBarMorph`, spent on more glass rather than a new pane.
     ///
     /// The floating bar scales up from 0.96 because it is arriving: there was
     /// nothing there a moment ago. This one is not arriving — the pill it is
     /// standing in was already on screen, at that corner and on that line — so
     /// a scale would shrink and re-grow the thing the user just clicked. What
-    /// opens instead is the glass itself, from the pill's height down to the
-    /// bar's, with the rows already in place behind it.
+    /// opens instead is the glass itself, from the pill's frame and corner out
+    /// to the bar's, with the rows already in place behind it.
     ///
-    /// Height only. Not the width — the room the list needs is there on the
-    /// first frame, and animating it meant a second property re-laying the
-    /// panel out every frame for a change nobody can see. Not the alpha either:
-    /// the bar is already on screen at the pill's size when this runs
-    /// (`prepareToOpen`), so a fade would be the capsule the user is looking at
+    /// Width, place and corner with the height (`morph`). It was the height
+    /// alone, with the bar at its full width on the first frame; that was
+    /// invisible on a sidebar pill 32 pt narrower than its bar and a jump on
+    /// §4's tab, which is a third of the bar's width. Not the alpha: the bar
+    /// is already on screen in the anchor's place when this runs
+    /// (`prepareToOpen`), so a fade would be the thing the user is looking at
     /// dimming and coming back.
     ///
     /// The glass has to grow, not a clip over it. Cutting the body's layer down
@@ -217,9 +249,10 @@ extension CommandBarPanel {
         // below `results` do: the input row, the rows, and the panel's own
         // bottom margin.
         let target = inputHeight + results.fittingSize.height + CommandBarMetrics.padding
-        Tokens.Motion.animate(Tokens.Motion.commandBarIn) { context in
+        Tokens.Motion.animate(Tokens.Motion.commandBarMorph) { context in
             context.allowsImplicitAnimation = true
             height.animator().constant = target
+            animator().morph = 1
         } completion: { [weak self] in
             MainActor.assumeIsolated {
                 self?.revealConstraint?.isActive = false
@@ -269,12 +302,11 @@ extension CommandBarPanel {
         }
     }
 
-    /// `revealFromPill` in reverse: the same height constraint, the same
-    /// 0.18 s, ending where the reveal started.
+    /// `revealFromPill` in reverse: the same height constraint and `morph`, on
+    /// the same spec, ending in the anchor's own frame and corner.
     ///
-    /// Height only, and for the same reasons — the width and the place are the
-    /// pill's own and were never animated, and a fade would be the capsule the
-    /// user is looking at dimming on its way to being itself again. The list
+    /// No fade, for the reveal's reason: it would be the capsule the user is
+    /// looking at dimming on its way to being itself again. The list
     /// is clipped rather than scaled, which is what `masksToBounds` on an
     /// anchored body is for (`activateBodyConstraints`): the rows go under the
     /// closing edge instead of shrinking with it.
@@ -283,21 +315,31 @@ extension CommandBarPanel {
         // was heading for: `esc` pressed halfway through the reveal has to
         // close from where the glass got to, not jump to full size first.
         let current = revealConstraint?.constant ?? body.frame.height
-        // A bar that never opened has nothing to close. It stands at the
-        // pill's own height until `openWhenReady` lets it go, and folding that
-        // is 0.18 s of nothing between the press and the pill coming back.
-        guard current > inputHeight else { return finishClosing() }
+        // A bar that never opened has nothing to close. It stands in the
+        // anchor's own frame until `openWhenReady` lets it go, and folding that
+        // is a fold of nothing between the press and the pill coming back.
+        guard current > anchorHeight else { return finishClosing() }
         let height = revealConstraint ?? body.heightAnchor.constraint(equalToConstant: current)
         revealConstraint = height
         height.constant = current
         height.isActive = true
         layoutSubtreeIfNeeded()
-        Tokens.Motion.animate(Tokens.Motion.commandBarIn) { context in
+        Tokens.Motion.animate(Tokens.Motion.commandBarMorph) { context in
             context.allowsImplicitAnimation = true
-            height.animator().constant = inputHeight
+            height.animator().constant = anchorHeight
+            animator().morph = 0
         } completion: { [weak self] in
             MainActor.assumeIsolated { self?.finishClosing() }
         }
+    }
+
+    /// Out of the tree on this line, with `onClosed` — for a close nobody
+    /// should have to watch (`CommandBarController.dismiss`).
+    func closeAtOnce() {
+        beginClosing()
+        onOpened = nil
+        body.layer?.removeAllAnimations()
+        finishClosing()
     }
 
     /// Off screen, out of the tree, and the pill is its own again.

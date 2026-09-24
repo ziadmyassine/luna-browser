@@ -1,10 +1,10 @@
 name: CI
 
-# **CI only — there is no CD here, and there cannot be yet.** Luna signs ad-hoc
-# (`CODE_SIGN_IDENTITY: "-"` in project.yml); signing, notarisation and the DMG
-# are TODO.md §24.4–§24.6 and all of it waits on a Developer ID certificate that
-# does not exist. A release workflow that cannot sign produces a download macOS
-# refuses to open, which is worse than no download.
+# **CI only.** Releases are `release.yml`, run by a version tag. Luna still
+# signs ad-hoc (`CODE_SIGN_IDENTITY: "-"` in project.yml); signing, notarisation
+# and the DMG are TODO.md §24.4–§24.6 and wait on a Developer ID certificate, so
+# a release downloaded in a browser asks before it opens the first time. The
+# in-app updater's own downloads are not quarantined (SETTINGS-SPEC §3.10).
 #
 # What this *does* buy: `main` is shared — a second committer and several agents
 # write into the same working tree — and a build that has only ever happened on

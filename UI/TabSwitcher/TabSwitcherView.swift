@@ -39,7 +39,7 @@ enum TabSwitcherMetrics {
     static var cardGap: CGFloat { Tokens.Metric.panelInset }
     /// Between the glass and the cards.
     static var padding: CGFloat { Tokens.Metric.panelInset }
-    static var panelRadius: CGFloat { Tokens.Metric.contentCardRadius }
+    static var panelRadius: CGFloat { Tokens.Metric.panelCornerRadius }
     /// Concentric with the panel, and the picture with the card: each corner
     /// is the one outside it minus the inset between them, so the three curves
     /// run parallel instead of pinching at the corners.

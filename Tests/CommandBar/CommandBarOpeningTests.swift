@@ -64,14 +64,17 @@ final class CommandBarOpeningTests: XCTestCase {
         }
     }
 
-    /// The first thing on screen is the capsule that was clicked, at its size,
-    /// with the list already behind it and clipped away.
-    func testThePreparedBarIsThePillsOwnHeightAndIsVisible() {
-        let (panel, _) = anchored()
+    /// The first thing on screen is the capsule that was clicked, in its own
+    /// frame, with the list already behind it and clipped away.
+    func testThePreparedBarIsThePillsOwnFrameAndIsVisible() {
+        let (panel, pill) = anchored()
         panel.prepareToOpen()
         panel.layoutSubtreeIfNeeded()
 
-        XCTAssertEqual(panel.body.frame.height, panel.inputHeight, accuracy: 0.5)
+        XCTAssertEqual(panel.body.frame.height, pill.frame.height, accuracy: 0.5)
+        XCTAssertEqual(panel.body.frame.width, pill.frame.width, accuracy: 0.5)
+        XCTAssertEqual(panel.body.frame.midX, pill.frame.midX, accuracy: 0.5)
+        XCTAssertEqual(panel.body.frame.maxY, pill.frame.maxY, accuracy: 0.5)
         XCTAssertEqual(panel.body.alphaValue, 1, accuracy: 0.001, "the pill has gone; something has to be in its place")
         XCTAssertFalse(panel.isOpening, "preparing is not opening — the list may still be replaced")
     }

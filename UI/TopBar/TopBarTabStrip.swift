@@ -72,9 +72,9 @@ final class TopBarTabStrip: NSView, WindowScoped {
     let windowID: UUID
     let scrollView = NSScrollView()
     let content = StripContentView()
-    /// §4's plate, and the Space's name at the head of it.
+    /// §4's plate: the Space's kept tabs. The Space's name has its own
+    /// capsule at the bar's other end (`TopBarSpaceCapsule`).
     let plate = TopBarPlate()
-    let spaceName = TopBarSpaceName()
     /// §3.4's two fills, one of each for the whole bar.
     let selectionPill = RowPillView(role: .selected)
     let hoverPill = RowPillView(role: .hover)
@@ -103,12 +103,23 @@ final class TopBarTabStrip: NSView, WindowScoped {
     /// Which kept tile the light is standing on, or nil for none.
     var litID: UUID?
     var scrolledTo: UUID?
+    /// Where the strip was left after bringing `scrolledTo` into view. While it
+    /// is still there, the user has not scrolled since, and the tab is followed
+    /// as it widens — see `scrollActiveTabIntoView`.
+    var scrolledOrigin: NSPoint?
     /// Set by `reload()` when a run already on screen changed, consumed by the
     /// next `layout()`. See `placeContents`.
     var animatesNextPlacement = false
+    /// Set by `reload()` for a Space switch that is not a swipe, consumed by
+    /// the next `placeContents`: the plate grows or shrinks to the new
+    /// Space's kept tabs instead of taking their width in one frame.
+    var morphsNextPlate = false
     /// Folders whose tabs are still fading out on their plate — see
-    /// `retire`. Their plate and divider stay put until the fade is over.
+    /// `retire`. Their divider stays put until the fade is over.
     var shuttingFolders: Set<UUID> = []
+    /// Folders just shut, whose plate the next `placeContents` morphs down
+    /// to the name as the run slides — `placeMarks`.
+    var shrinkingPlates: Set<UUID> = []
     /// §4's alignment, cached rather than read per layout pass.
     var tabsPosition = Settings.tabsPosition(in: .topBar)
 
@@ -221,7 +232,7 @@ final class TopBarTabStrip: NSView, WindowScoped {
         // window is built from frames and `mouseDownCanMoveWindow`, not from
         // `hitTest` — so a parked pill lying over the name made a press on
         // the name drag the window. The tabs were never under them.
-        for view in [plate, rule, selectionPill, hoverPill, slot, folderSlot, spaceName, glow] as [NSView] {
+        for view in [plate, rule, selectionPill, hoverPill, slot, folderSlot, glow] as [NSView] {
             content.addSubview(view)
         }
         for pill in [selectionPill, hoverPill] { pill.alphaValue = 0 }
@@ -254,7 +265,12 @@ final class TopBarTabStrip: NSView, WindowScoped {
     // MARK: - Session
 
     /// Re-reads the tab list.
-    func reload() {
+    ///
+    /// - Parameter slidingSpace: a swipe is switching Spaces, and carries the
+    ///   whole run out and the next one in (`TopBarView.slideTabs`). Any
+    ///   other switch cross-fades the tabs where they stand and morphs the
+    ///   plate between the two Spaces' widths.
+    func reload(slidingSpace: Bool = false) {
         let previousActive = activeID
         run = TopBarStripRun(
             essentials: windowEssentials,
@@ -269,11 +285,15 @@ final class TopBarTabStrip: NSView, WindowScoped {
         setScrollProgress(activeID.flatMap { session.controller(for: $0)?.scrollProgress })
         // Every change to a run already on screen slides into place: a switch,
         // a tab arriving or closing, a folder opening, a drop. A Space switch
-        // does not — that is a different run, not this one moving — and nor
-        // does the first pass, which has no "from" to slide out of.
+        // is a different run rather than this one moving, so its tabs fade
+        // out and in where they stand while the plate changes size — unless
+        // a swipe is carrying the whole run, which leaves nothing to fade.
+        // The first pass has no "from" at all.
         let space = activeSpaceID
-        let onScreen = shownSpace == space && !(tiles.isEmpty && rows.isEmpty)
+        let switched = shownSpace != nil && shownSpace != space && window != nil && !slidingSpace
+        let onScreen = (shownSpace == space && !(tiles.isEmpty && rows.isEmpty)) || switched
         animatesNextPlacement = onScreen
+        morphsNextPlate = switched
         shownSpace = space
         // Every reload re-honours §4's "the active tab is always scrolled into
         // view"; live title changes arrive through `apply(_:for:)` instead and
@@ -398,7 +418,25 @@ final class TopBarTabStrip: NSView, WindowScoped {
 
     func tabMenu(_ id: UUID) -> NSMenu? {
         guard let current = session.tab(id) else { return nil }
-        return TabMenu.build(for: current, isMuted: session.isMuted(id), actions: session.tabMenuActions(for: id))
+        let isSite = current.url.host(percentEncoded: false)?.isEmpty == false
+        return TabMenu.build(
+            for: current,
+            isMuted: session.isMuted(id),
+            actions: session.tabMenuActions(for: id),
+            siteSettings: isSite ? { [weak self] in self?.openSiteSettings(for: id) } : nil
+        )
+    }
+
+    /// §3.2a's pop-out, from a right-click. The settings are the page on
+    /// screen's, so a tab that is not on screen is chosen first — the way a
+    /// press on it would — and the pop-out stands on its tile, or on the
+    /// sliders glyph its row now carries.
+    func openSiteSettings(for id: UUID) {
+        if id != activeID { activateTab(id) }
+        layoutSubtreeIfNeeded()
+        let anchor: NSView? = tiles[id] ?? rows[id].map { $0.row.siteButton }
+        guard let anchor, anchor.window != nil else { return }
+        SiteMenu.present(from: anchor)
     }
 
     func position(of id: UUID) -> String {
@@ -427,15 +465,17 @@ extension TopBarTabStrip {
         // place it leaves covers it as it fades. On top, a folder's tabs lay
         // over the tabs sliding in.
         for view in gone { content.addSubview(view, positioned: .below, relativeTo: selectionPill) }
-        // A folder shutting is its opening played backwards. Opening, the
-        // plate is at its full width at once — glass does not animate its
-        // shape — and the tabs fade in on it while the run slides. So
-        // shutting, the plate keeps its width while the tabs fade out and the
-        // run slides, and takes the name's size as they finish. Shrunk first,
-        // it left the tabs flashing out on the bare bar.
+        // A folder shutting is one movement: its tabs fade, the run slides,
+        // and the plate morphs down to the name as the run does. Held at full
+        // width until the fade was over and then snapped to the name, it read
+        // as the bar lagging a beat behind the click; snapped first, it left
+        // the tabs flashing out on the bare bar. The tabs fade faster than
+        // the plate shrinks — `Motion.folderShutFade`.
         let shutting = foldersShutting(leaving: goneRows, live: live)
         shuttingFolders.formUnion(shutting)
-        Tokens.Motion.animate(Tokens.Motion.tabInsert) { context in
+        shrinkingPlates.formUnion(shutting)
+        let fade = shutting.isEmpty ? Tokens.Motion.tabInsert : Tokens.Motion.folderShutFade
+        Tokens.Motion.animate(fade) { context in
             context.allowsImplicitAnimation = true
             for view in gone + shutting.compactMap({ self.dividers[$0] }) { view.animator().alphaValue = 0 }
         } completion: { [weak self] in
@@ -443,7 +483,13 @@ extension TopBarTabStrip {
                 for view in gone { view.removeFromSuperview() }
                 guard let self, !shutting.isEmpty else { return }
                 self.shuttingFolders.subtract(shutting)
-                for id in shutting { self.dividers[id]?.alphaValue = 1 }
+                self.shrinkingPlates.subtract(shutting)
+                // Hidden before it is made opaque again: the pass that hides
+                // a shut folder's divider comes a run-loop turn later.
+                for id in shutting {
+                    self.dividers[id]?.isHidden = true
+                    self.dividers[id]?.alphaValue = 1
+                }
                 self.needsLayout = true
             }
         }

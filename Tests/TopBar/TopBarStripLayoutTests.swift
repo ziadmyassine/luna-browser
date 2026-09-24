@@ -88,6 +88,31 @@ final class TopBarStripLayoutTests: XCTestCase {
         XCTAssertEqual(strip.dividers[folder]?.isHidden, true)
     }
 
+    /// Shutting a folder on screen is one movement: its plate morphs down to
+    /// the name as the run slides, rather than holding its width until the
+    /// tabs have faded and then snapping — which read as the bar lagging.
+    func testShuttingAFolderMorphsItsPlateDownAtOnce() async throws {
+        let session = try await session()
+        let window = window(on: session)
+        let space = try XCTUnwrap(session.spaces.first).id
+        let members = (0 ..< 2).map { insert(tab: "In \($0)", order: $0, in: space, on: session) }
+        let folder = try XCTUnwrap(session.createGroup(name: "Work", containing: members))
+        let strip = laidOut(session: session, window: window)
+        let plate = try XCTUnwrap(strip.folderPlates[folder])
+
+        session.setGroupCollapsed(true, forGroup: folder)
+        strip.reload()
+        strip.layoutSubtreeIfNeeded()
+
+        XCTAssertTrue(strip.shrinkingPlates.isEmpty, "the pass that shut the folder started the morph")
+        if Tokens.Motion.reduceMotion {
+            let header = try XCTUnwrap(view(folder, in: strip))
+            XCTAssertEqual(plate.frame.maxX, header.frame.maxX, "with Reduce Motion the plate lands at once")
+        } else {
+            XCTAssertTrue(plate.isMorphing, "the plate held its width instead of shrinking with the run")
+        }
+    }
+
     /// Kept tabs are §3.3's own tiles, on the plate after the Space's name;
     /// open ones are §3.4's rows after the plate, one gap on. The plate and
     /// the rows stand at the capsule's height, the tiles at a capsule item's.
@@ -104,12 +129,13 @@ final class TopBarStripLayoutTests: XCTestCase {
         let row = try XCTUnwrap(view(open, in: strip) as? TopBarTabRow)
         XCTAssertEqual(tile.frame.size, TopBarMetrics.keptTile.size)
         XCTAssertEqual(row.frame.height, TopBarMetrics.lineHeight)
-        XCTAssertGreaterThanOrEqual(row.frame.width, TopBarMetrics.tabFloor)
+        XCTAssertEqual(row.frame.width, TopBarMetrics.tabWidth)
 
         let plate = strip.plate.frame
         XCTAssertEqual(plate.height, TopBarMetrics.lineHeight)
-        XCTAssertLessThan(strip.spaceName.frame.minX, tile.frame.minX, "the name heads the plate")
-        XCTAssertEqual(tile.frame.minX, strip.spaceName.frame.maxX)
+        // The Space's name has its own capsule now, so the plate starts
+        // where its first box does.
+        XCTAssertEqual(tile.frame.minX, plate.minX, "the plate starts where its first box does")
         XCTAssertEqual(tile.frame.height, plate.height, "the box fills the plate top to bottom")
         XCTAssertEqual(tile.frame.minY, plate.minY)
         XCTAssertEqual(plate.maxX, tile.frame.maxX, "the plate ends where its last box does")
@@ -118,9 +144,9 @@ final class TopBarStripLayoutTests: XCTestCase {
         XCTAssertFalse(strip.rule.isHidden)
         XCTAssertEqual(strip.rule.frame.minX - plate.maxX, TopBarMetrics.gap)
         XCTAssertEqual(row.frame.minX - strip.rule.frame.maxX, TopBarMetrics.gap)
-        // The first tile stands after the name, never at the strip's own
-        // edge — its glow was clipped when it stood at x 0.
-        XCTAssertGreaterThan(tile.frame.minX, plate.minX)
+        // The glow is drawn inside the tile, so a tile at the strip's own
+        // edge keeps all of it.
+        XCTAssertGreaterThanOrEqual(tile.frame.minX, 0)
     }
 
     /// A kept folder stands beside the Space's plate on a plate of its own,
@@ -146,9 +172,9 @@ final class TopBarStripLayoutTests: XCTestCase {
         XCTAssertGreaterThan(try XCTUnwrap(view(open, in: strip)).frame.minX, strip.rule.frame.maxX)
     }
 
-    /// Two open tabs are one gap apart, the same gap as everywhere else on
-    /// the bar.
-    func testOpenTabsStandOneGapApart() async throws {
+    /// Two open tabs stand Dia's 4 pt apart, closer than the bar's gap
+    /// between anything else, so the tabs read as one strip.
+    func testOpenTabsStandATabGapApart() async throws {
         let session = try await session()
         let window = window(on: session)
         let space = try XCTUnwrap(session.spaces.first).id
@@ -158,7 +184,8 @@ final class TopBarStripLayoutTests: XCTestCase {
         let strip = laidOut(session: session, window: window)
         let one = try XCTUnwrap(view(first, in: strip))
         let two = try XCTUnwrap(view(second, in: strip))
-        XCTAssertEqual(two.frame.minX - one.frame.maxX, TopBarMetrics.gap)
+        XCTAssertEqual(two.frame.minX - one.frame.maxX, TopBarMetrics.tabGap)
+        XCTAssertLessThan(TopBarMetrics.tabGap, TopBarMetrics.gap)
     }
 
     /// The tab the window is showing carries §3.4's selected pill, standing
@@ -203,6 +230,58 @@ final class TopBarStripLayoutTests: XCTestCase {
 
         session.activateTab(first, inWindow: window)
         XCTAssertEqual(bar.strip.selectionPill.progress ?? -1, 0.9, accuracy: 0.001, "taken on arrival")
+    }
+
+    /// A new tab at the end of a full bar is brought wholly into view, and
+    /// stays whole when the page's title arrives. Tabs were sized to their
+    /// titles then, so it widened past the strip's edge and had to be
+    /// scrolled to; every tab is `tabWidth` now, and the strip still follows
+    /// the tab on screen through a change of size until the user scrolls.
+    func testANewTabAtTheEndOfAFullBarIsWhollyInView() async throws {
+        let session = try await session()
+        let window = window(on: session)
+        let space = try XCTUnwrap(session.spaces.first).id
+        let ids = (0..<8).map { insert(tab: "Tab \($0)", order: $0, in: space, on: session) }
+        let last = try XCTUnwrap(ids.last)
+        session.activateTab(last, inWindow: window)
+        let strip = TopBarTabStrip(session: session, windowID: window)
+        strip.frame = NSRect(x: 0, y: 0, width: 600, height: Tokens.Metric.topBarHeight)
+        strip.reload()
+        strip.layoutSubtreeIfNeeded()
+
+        // The live title, as `apply(_:for:)` hears it — no reload.
+        var tab = try XCTUnwrap(session.tab(last))
+        tab.title = "what is up - Google Search, and then some more"
+        session.list.update(tab)
+        strip.apply(TabState(title: tab.title), for: last)
+        strip.layoutSubtreeIfNeeded()
+
+        let row = try XCTUnwrap(view(last, in: strip))
+        let shown = strip.scrollView.contentView.bounds
+        XCTAssertEqual(row.frame.width, TopBarMetrics.tabWidth, "the title changed the tab's width")
+        XCTAssertLessThanOrEqual(row.frame.maxX, shown.maxX + 0.5, "the new tab runs past the strip")
+        XCTAssertGreaterThanOrEqual(row.frame.minX, shown.minX - 0.5)
+    }
+
+    /// §30.9 on the bar: the tabs travel with the fingers, one point per point
+    /// of a Space's swipe, and fade as they go — and are back, whole, at rest.
+    func testTheTabsTravelWithASpaceSwipe() async throws {
+        let session = try await session()
+        let window = window(on: session)
+        let space = try XCTUnwrap(session.spaces.first).id
+        _ = insert(tab: "One", order: 0, in: space, on: session)
+        let bar = TopBarView(session: session, windowID: window)
+        bar.frame = NSRect(x: 0, y: 0, width: 1400, height: Tokens.Metric.topBarHeight)
+        bar.layoutSubtreeIfNeeded()
+        let layer = try XCTUnwrap(bar.strip.content.layer)
+
+        bar.slideTabs(0.5)
+        XCTAssertEqual(layer.affineTransform().tx, -0.5 * bar.spaceName.swipeSpan, accuracy: 0.5)
+        XCTAssertEqual(layer.opacity, 0.5, accuracy: 0.01)
+
+        bar.slideTabs(0)
+        XCTAssertEqual(layer.affineTransform().tx, 0)
+        XCTAssertEqual(layer.opacity, 1)
     }
 
     // MARK: - Fixtures

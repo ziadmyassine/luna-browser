@@ -104,7 +104,7 @@ final class SidebarWidthFloorTests: XCTestCase {
         return bar
     }
 
-    /// Leading to trailing: the avatar, the Space strip, the cylinder.
+    /// Leading to trailing: the Space pill, the Space strip, the cylinder.
     private func clusters(of bar: SidebarUtilityBar) -> [NSRect] {
         bar.subviews.filter { !$0.isHidden }.map(\.frame).sorted { $0.minX < $1.minX }
     }

@@ -25,7 +25,7 @@ import AppKit
 final class GlassBackingView: NSView {
 
     private let style: Glass.Style
-    private let radius: CGFloat
+    private var radius: CGFloat
     private let curve: CALayerCornerCurve
     private var corners: CACornerMask
 
@@ -40,6 +40,19 @@ final class GlassBackingView: NSView {
             guard newValue != corners else { return }
             corners = newValue
             layer?.masksToBounds = curve == .circular || newValue != Glass.allCorners
+            needsDisplay = true
+        }
+    }
+    /// Settable for the peek plane, whose corner is the content pane's and
+    /// follows the window's corner setting, and for §9.1's bar, whose corner
+    /// morphs from the anchor's to its own (`CommandBarPanel.morph`).
+    var cornerRadius: CGFloat {
+        get { radius }
+        set {
+            guard newValue != radius else { return }
+            radius = newValue
+            glass?.cornerRadius = corners == Glass.allCorners ? newValue : 0
+            tintPlate.layer?.cornerRadius = corners == Glass.allCorners ? newValue : 0
             needsDisplay = true
         }
     }
@@ -315,13 +328,6 @@ final class GlassBackingView: NSView {
         refreshForDisplay()
     }
 
-    /// Re-reads §2a's density. Nothing is rebuilt — the density chooses which
-    /// plane `updateLayer` paints behind the glass, and the glass itself is
-    /// unchanged — so this is a redraw and not a swap. See `Glass.density`.
-    func refreshMaterial() {
-        needsDisplay = true
-    }
-
     /// Re-resolves §7's column for the display this view is actually on.
     func refreshForDisplay() {
         guard pinned == nil else { return }
@@ -374,16 +380,12 @@ final class GlassBackingView: NSView {
         // glass at all times, the same grey at half strength. The desktop still
         // refracts through, but through a surface rather than a hole, and it
         // costs no darkening the way a heavier tint did.
-        //
-        // How much of it, and whether a popover gets one at all, is §2a's
-        // setting (`Glass.density`). Read here rather than cached, so the
-        // reapply pass is a redraw.
         layer.backgroundColor = if wantsFlatPlane {
             Tokens.Surface.fullScreenChrome.cgColor
         } else if wantsOpaquePlane {
             style.solidFallback.cgColor
         } else {
-            style.frost(Glass.density)?.cgColor
+            style.frost?.cgColor
         }
 
         // §2 / §21.2: Increase Contrast ⇒ a visible border on every control.

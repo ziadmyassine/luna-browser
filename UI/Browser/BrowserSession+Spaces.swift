@@ -161,7 +161,7 @@ extension BrowserSession {
         try await mutateSpace(id) { $0.gradient = gradient }
     }
 
-    /// The picture §3.5's avatar wears, or nil to take it off again.
+    /// The picture §3.5's Space pill wears, or nil to take it off again.
     ///
     /// The bytes are already cropped and downsampled by the time they arrive —
     /// see `ProfilePicture`, which is where a chosen file becomes something

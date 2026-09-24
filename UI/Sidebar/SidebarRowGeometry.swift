@@ -2,14 +2,15 @@
 //  SidebarRowGeometry.swift
 //  Luna
 //
-//  §3.4's two pure answers about a row: what colour its title is, and how much
-//  of the row the title gets.
+//  §3.4's pure answers about a row: what colour its title is, how much of the
+//  row the title gets, and where the chips at its trailing end stand — plus
+//  the one method that puts the chips there.
 //
 //  Out of `SidebarRowView.swift` because that class passed SwiftLint's length
-//  limit, and this is the half worth taking out: nothing in here touches a view.
-//  Both are `static` so the rules can be asserted without a window to hover in —
-//  `Tests/Sidebar/SidebarRowModelTests.swift` is where they are — and both are
-//  decisions that have been argued once and must not be re-argued at a call site.
+//  limit. The answers are `static` so the rules can be asserted without a
+//  window to hover in — `Tests/Sidebar/SidebarRowModelTests.swift` is where
+//  they are — and they are decisions that have been argued once and must not
+//  be re-argued at a call site.
 //
 
 import AppKit
@@ -48,10 +49,15 @@ extension SidebarRowView {
     /// Pure, like ``titleInk``, so both states can be asserted without a
     /// window to hover in. It takes the slot, not the hover — an audio row
     /// has a glyph without a pointer anywhere near it.
+    ///
+    /// - Parameter siteSlot: §4's selected tab, whose site settings glyph
+    ///   stands before the trailing slot. The title stops short of it whether
+    ///   the trailing slot is filled or not.
     static func titleColumn(
         inRowOfWidth width: CGFloat,
         hasUnread: Bool,
         slotOccupied: Bool,
+        siteSlot: Bool = false,
         indent: CGFloat = 0
     ) -> (x: CGFloat, width: CGFloat) {
         let x = Tokens.Metric.rowTitleInset + indent
@@ -60,9 +66,13 @@ extension SidebarRowView {
         // would take between them. The title's last glyphs are already
         // dissolving by the time they reach here — `rowTitleFade` is the gap,
         // and 8 pt of clearance on top of it is 8 pt of pill left empty.
-        let right = slotOccupied
-            ? trailingSlotX(inRowOfWidth: width) - Tokens.Metric.rowInset / 2
-            : width - 2 * Tokens.Metric.rowInset
+        let right = if siteSlot {
+            siteSlotX(inRowOfWidth: width) - Tokens.Metric.rowInset / 2
+        } else if slotOccupied {
+            trailingSlotX(inRowOfWidth: width) - Tokens.Metric.rowInset / 2
+        } else {
+            width - 2 * Tokens.Metric.rowInset
+        }
         return (x, max(right - x, 0))
     }
 
@@ -70,6 +80,33 @@ extension SidebarRowView {
     /// ``titleColumn``.
     static func trailingSlotX(inRowOfWidth width: CGFloat) -> CGFloat {
         width - 2 * Tokens.Metric.rowInset - Tokens.Metric.rowTrailingChip.width
+    }
+
+    /// Inset from the pill, not from the row. The pill is already `rowInset`
+    /// inside the row, so one inset put the chip flush against the pill's
+    /// edge; the reference keeps a full inset inside it.
+    func placeChips() {
+        let chip = Tokens.Metric.rowTrailingChip
+        let y = (bounds.height - chip.height) / 2
+        trailing.frame = NSRect(
+            x: Self.trailingSlotX(inRowOfWidth: bounds.width),
+            y: y,
+            width: chip.width,
+            height: chip.height
+        ).pixelAligned
+        siteButton.frame = NSRect(
+            x: Self.siteSlotX(inRowOfWidth: bounds.width),
+            y: y,
+            width: chip.width,
+            height: chip.height
+        ).pixelAligned
+    }
+
+    /// Where the site settings glyph's slot begins: one chip before the
+    /// trailing slot, the two chips `rowInset / 2` apart — the clearance the
+    /// title keeps before a chip, so the three stand evenly.
+    static func siteSlotX(inRowOfWidth width: CGFloat) -> CGFloat {
+        trailingSlotX(inRowOfWidth: width) - Tokens.Metric.rowInset / 2 - Tokens.Metric.rowTrailingChip.width
     }
 
     /// §3.4b's three: the chevron that folds a group, the hairline down the

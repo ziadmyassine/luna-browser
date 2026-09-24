@@ -93,12 +93,10 @@ enum TokenCheck {
          ("glassTintControl", Tokens.Surface.glassTintControl)]
     }
 
-    /// §2's frost and §2a's two opaque planes — every plane painted behind
-    /// glass rather than instead of it. None of them may be opaque.
+    /// §2's frost — the plane painted behind glass rather than instead of
+    /// it. It may not be opaque.
     static var frosts: [(String, NSColor)] {
-        [("frost", Tokens.Surface.frost),
-         ("frostOpaque", Tokens.Surface.frostOpaque),
-         ("popoverFrostOpaque", Tokens.Surface.popoverFrostOpaque)]
+        [("frost", Tokens.Surface.frost)]
     }
 
     /// §7's bloom bands, inner edge to outer.
@@ -115,7 +113,6 @@ enum TokenCheck {
         let colours = checkResolution() + checkTextContrast() + checkSurfaceSeparation()
             + checkLines() + checkIncreaseContrast() + checkFills()
         let effects = checkWash() + checkBloom() + checkShadow() + checkGlassOptimisation()
-            + checkGlassDensity()
         return colours + effects + checkMetrics() + checkMotion()
     }
 
@@ -310,10 +307,7 @@ extension TokenCheck {
             ("glassTint", Tokens.Ink.glassTint),
             ("glassTintDense", Tokens.Ink.glassTintDense),
             ("glassTintControl", Tokens.Ink.glassTintControl),
-            // §2a's opaque frost: the setting that gives up transparency must
-            // not give the users who asked for less of it a thinner surface.
-            ("frost", Tokens.Ink.frost),
-            ("frostOpaque", Tokens.Ink.frostOpaque)
+            ("frost", Tokens.Ink.frost)
         ]
         for (token, alphas) in inks {
             if alphas.contrastLight < alphas.light || alphas.contrastDark < alphas.dark {

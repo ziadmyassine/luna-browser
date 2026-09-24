@@ -39,6 +39,61 @@ final class TopBarPlate: NSControl {
 
     private let wash = NSView()
 
+    /// How far a Space switch has carried the plate from `morphFrom` to
+    /// `morphTo`: its glass reshaped for real on every frame, the one way
+    /// glass changes shape on screen — `TopBarSpaceName.widthMorph`. An
+    /// implicit frame animation moves the view and leaves the material at
+    /// its new size from the first frame.
+    @objc dynamic var frameMorph: CGFloat = 1 {
+        didSet { landMorph() }
+    }
+
+    private var morphFrom: NSRect = .zero
+    private var morphTo: NSRect = .zero
+
+    /// Mid-morph, a layout pass moves where the morph is going rather than
+    /// landing the plate there — `settle(at:)`.
+    var isMorphing: Bool { frameMorph < 1 }
+
+    override static func defaultAnimation(forKey key: NSAnimatablePropertyKey) -> Any? {
+        key == "frameMorph" ? CABasicAnimation() : super.defaultAnimation(forKey: key)
+    }
+
+    /// From where it stands to `target`, on `spec`.
+    func morph(to target: NSRect, on spec: MotionSpec) {
+        guard frame != target, frame != .zero, !Tokens.Motion.reduceMotion else {
+            return settle(at: target)
+        }
+        morphFrom = frame
+        morphTo = target
+        frameMorph = 0
+        Tokens.Motion.animate(spec) { context in
+            context.allowsImplicitAnimation = true
+            animator().frameMorph = 1
+        }
+    }
+
+    /// Where the layout says the plate belongs, from a pass that is not a
+    /// morph: landed at once, or made the end of the morph under way.
+    func settle(at target: NSRect) {
+        morphTo = target
+        guard !isMorphing else { return }
+        morphFrom = target
+        landMorph()
+    }
+
+    private func landMorph() {
+        let travel = frameMorph
+        func toward(_ from: CGFloat, _ to: CGFloat) -> CGFloat { from + (to - from) * travel }
+        let target = NSRect(
+            x: toward(morphFrom.minX, morphTo.minX),
+            y: toward(morphFrom.minY, morphTo.minY),
+            width: toward(morphFrom.width, morphTo.width),
+            height: toward(morphFrom.height, morphTo.height)
+        )
+        Tokens.Motion.immediately { frame = target }
+    }
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true

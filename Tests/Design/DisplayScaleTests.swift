@@ -52,7 +52,7 @@ final class DisplayScaleTests: XCTestCase {
     /// §21.2 builds the opaque plane instead of the material, so every test
     /// below is asking about a view `GlassBackingView` deliberately did not
     /// make. Every CI runner has the setting on, which is where this was found
-    /// — `GlassDensityTests` asserts what stands in for the glass there.
+    /// — `GlassFrostTests` asserts what stands in for the glass there.
     private func skipWithoutGlass() throws {
         try XCTSkipIf(Tokens.A11y.reduceTransparency, "Reduce Transparency: §21.2 draws a plane, not glass")
     }

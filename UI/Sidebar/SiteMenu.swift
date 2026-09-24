@@ -2,8 +2,10 @@
 //  SiteMenu.swift
 //  Luna
 //
-//  §3.2's site menu: everything you can say about the page you are on,
-//  behind the sliders glyph on the URL pill's trailing edge.
+//  §3.2's site settings: everything you can say about the page you are on,
+//  behind the sliders glyph on the URL pill and on §4's selected tab. What
+//  it shows is `SiteSettingsPanel`; this is what goes in it and what each
+//  row does.
 //
 //  Per-site, not global, which is why this exists rather than three more rows
 //  in Settings. "Block ads" as a preference is a decision you make once and
@@ -11,16 +13,6 @@
 //  a decision about this site, taken where you noticed the problem. Settings
 //  keeps the genuinely global questions — which filter lists are on at all,
 //  HTTPS-Only, clearing everything (SETTINGS-SPEC §3.3).
-//
-//  A plain `NSMenu`, which on macOS 26 is the liquid-glass menu: AppKit draws
-//  its own material, blur and submenu chevrons, and a hand-rolled panel would
-//  be a worse copy that also had to re-implement keyboard navigation,
-//  VoiceOver and Reduce Transparency.
-//
-//  The glyphs ride in the titles, because `NSMenuItem.image` draws nothing
-//  here — the measurement is in `SidebarMenu.label(symbol:title:in:)`, which
-//  draws this menu and §3.4a's tab menu, so the two cannot drift apart on icon
-//  size, tint or alignment.
 //
 
 import AppKit
@@ -30,89 +22,76 @@ import WebKit
 @MainActor
 enum SiteMenu {
 
-    /// Opens the menu under `anchor` — §3.2's sliders glyph, or §4's.
+    /// Opens the pop-out on `anchor`, or closes it if it is already up.
+    ///
+    /// One controller for every window: a pop-out is the thing under the
+    /// pointer, and there is only one pointer.
     static func present(from anchor: NSView) {
-        build(from: anchor).popUp(positioning: nil, at: NSPoint(x: 0, y: anchor.bounds.maxY), in: anchor)
+        guard let window = anchor.window else { return }
+        let edge: PopoutEdge = anchor.convert(anchor.bounds, to: nil).midY > window.contentLayoutRect.midY
+            ? .below
+            : .above
+        controller.toggle(in: window, from: anchor, edge: edge, content: content(from: anchor))
     }
 
-    /// The menu for whatever page is on screen right now. Built fresh every
-    /// time: every item in it is a statement about the current tab, and a menu
-    /// held over from the last one would be checkmarks for another site.
+    static let controller = SiteSettingsController()
+
+    /// What the pop-out shows for whatever page is on screen right now. Built
+    /// fresh every time: every row in it is a statement about the current tab,
+    /// and one held over from the last would be switches for another site.
     ///
-    /// - Parameter anchor: the glyph the menu hangs off, which the share sheet
-    ///   hangs off too — the menu is gone by the time Share fires, and a
-    ///   picker needs a view on screen to point at.
-    static func build(from anchor: NSView) -> NSMenu {
-        let menu = NSMenu()
-        // Closure items are their own target so AppKit would enable them anyway;
-        // turning this off is for the two that must stay *dis*abled.
-        menu.autoenablesItems = false
+    /// - Parameter anchor: the glyph the pop-out stands on, which the share
+    ///   sheet points at too — the pop-out is gone by the time Share fires.
+    static func content(from anchor: NSView) -> SiteSettingsContent {
         guard let page = current else {
-            menu.addItem(SidebarMenu.header(String(localized: "No page")))
-            return menu
+            return SiteSettingsContent(heading: String(localized: "No site settings for this page"))
         }
-
-        // The system picker, from an ordinary item. Not
-        // `NSSharingServicePicker.standardShareMenuItem`, and not a submenu
-        // either: the reference's chevron is `sharingServices(forItems:)`,
-        // deprecated since macOS 13 with Apple's own note pointing at the
-        // picker, and a submenu is not worth building a stale copy of the share
-        // sheet to get. What this item shows is the same sheet with the same
-        // destinations; all it gives up is AppKit assembling the row.
-        //
-        // Which it assembles wrong here. `standardShareMenuItem` draws a share
-        // glyph nothing on the item controls: `image` is nil before the menu
-        // opens and still nil after `menu.update()` — probed — and AppKit draws
-        // one regardless, a size under this menu's own glyphs. Dressed like
-        // every other row it came out as two share marks side by side; left
-        // undressed it is AppKit's smaller mark with a title 4 pt short of the
-        // column.
-        //
-        // The picker is held, not let go: a picker that falls out of scope
-        // as the closure returns takes the sheet with it.
-        let share = SidebarMenu.item(title: String(localized: "Share…")) { [weak anchor, url = page.url] in
-            guard let anchor else { return }
-            let picker = NSSharingServicePicker(items: [url])
-            sharePicker = picker
-            picker.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .minY)
+        var content = SiteSettingsContent(heading: page.host)
+        if let secure = isSecure(page) {
+            content.connection = secure ? .secure : .insecure
+            content.heading = secure
+                ? String(localized: "Connection is Secure")
+                : String(localized: "Connection is Not Secure")
         }
-        menu.addItem(glyph(Glyph.share, on: share))
-        menu.addItem(copyLink(page.url))
-        menu.addItem(.separator())
-
-        menu.addItem(blocking(host: page.host))
-        menu.addItem(permission(
-            .automaticPictureInPicture,
-            title: String(localized: "Automatic Picture-In-Picture"),
-            symbol: Glyph.pictureInPicture,
-            host: page.host,
-            thenReload: false
-        ))
-        menu.addItem(permission(
-            .localNetwork,
-            title: String(localized: "Local Network"),
-            symbol: Glyph.localNetwork,
-            host: page.host,
-            thenReload: true
-        ))
-        menu.addItem(.separator())
-
-        let settings = NSMenuItem(title: String(localized: "Site Settings"), action: nil, keyEquivalent: "")
-        settings.submenu = siteSettings(host: page.host)
-        menu.addItem(glyph(Glyph.siteSettings, on: settings))
-
-        if let security = security(page) {
-            menu.addItem(.separator())
-            menu.addItem(security)
-        }
-        return menu
+        content.toggles = [
+            blocking(host: page.host),
+            permission(
+                .automaticPictureInPicture,
+                title: String(localized: "Automatic Picture-in-Picture"),
+                symbol: Glyph.pictureInPicture,
+                host: page.host,
+                thenReload: false
+            ),
+            permission(
+                .localNetwork,
+                title: String(localized: "Local Network"),
+                symbol: Glyph.localNetwork,
+                host: page.host,
+                thenReload: true
+            )
+        ]
+        content.actions = [
+            [share(page.url, from: anchor), copyLink(page.url)],
+            [
+                .init(title: String(localized: "Clear Cache"), symbol: Glyph.cache) {
+                    clear(SiteData.caches, host: page.host, thenReload: true)
+                },
+                .init(title: String(localized: "Clear Cookies"), symbol: Glyph.cookies) {
+                    clear(SiteData.cookies, host: page.host, thenReload: true)
+                },
+                .init(title: String(localized: "More Settings…"), symbol: Glyph.advanced) {
+                    (NSApp.delegate as? AppDelegate)?.showSettings(section: AdvancedSection.id)
+                }
+            ]
+        ]
+        return content
     }
 
     // MARK: - The page
 
-    /// Everything the menu needs to know about the tab on screen. A page with
-    /// no host — `luna:new-tab`, `about:blank` — is not a site and has no
-    /// per-site answers to give, so the menu says so rather than offering
+    /// Everything the pop-out needs to know about the tab on screen. A page
+    /// with no host — `luna:new-tab`, `about:blank` — is not a site and has no
+    /// per-site answers to give, so the pop-out says so rather than offering
     /// switches that would be filed under an empty string.
     private struct Page {
         var url: URL
@@ -122,7 +101,7 @@ enum SiteMenu {
 
     private static var session: BrowserSession? { (NSApp.delegate as? AppDelegate)?.session }
 
-    /// See `build(from:)`. One at a time: the sheet is modal, so the previous
+    /// See `share(_:from:)`. One at a time: the sheet is modal, so the previous
     /// one is always finished with by the time the next is asked for.
     private static var sharePicker: NSSharingServicePicker?
 
@@ -134,29 +113,41 @@ enum SiteMenu {
         return Page(url: tab.url, host: host, webView: session.controller(for: id)?.webView)
     }
 
-    // MARK: - Items
+    // MARK: - Rows
 
-    private static func copyLink(_ url: URL) -> NSMenuItem {
-        let item = SidebarMenu.item(title: String(localized: "Copy Link")) {
+    /// The system picker, pointed at the glyph the pop-out stood on. Held, not
+    /// let go: a picker that falls out of scope as the closure returns takes
+    /// the sheet with it.
+    private static func share(_ url: URL, from anchor: NSView) -> SiteSettingsContent.Action {
+        .init(title: String(localized: "Share…"), symbol: Glyph.share) { [weak anchor] in
+            guard let anchor, anchor.window != nil else { return }
+            let picker = NSSharingServicePicker(items: [url])
+            sharePicker = picker
+            picker.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .minY)
+        }
+    }
+
+    private static func copyLink(_ url: URL) -> SiteSettingsContent.Action {
+        .init(title: String(localized: "Copy Link"), symbol: Glyph.link) {
             NSPasteboard.general.clearContents()
             // As a string as well as a URL: a plain text field pasted into gets
             // the address rather than nothing at all.
             NSPasteboard.general.writeObjects([url as NSURL])
             NSPasteboard.general.setString(url.absoluteString, forType: .string)
         }
-        return glyph(Glyph.link, on: item)
     }
 
     /// §17.2's per-site exemption, read the way round a user thinks about it:
-    /// the checkmark means blocking is on here, not that an exemption is.
-    private static func blocking(host: String) -> NSMenuItem {
-        let on = !ContentBlocker.shared.isDisabled(forHost: host)
-        let item = SidebarMenu.item(title: String(localized: "Block Ads & Trackers")) {
-            ContentBlocker.shared.setDisabled(on, forHost: host)
+    /// the switch on means blocking is on here, not that an exemption is.
+    private static func blocking(host: String) -> SiteSettingsContent.Toggle {
+        .init(
+            title: String(localized: "Block Ads & Trackers"),
+            symbol: Glyph.blocking,
+            isOn: !ContentBlocker.shared.isDisabled(forHost: host)
+        ) { on in
+            ContentBlocker.shared.setDisabled(!on, forHost: host)
             reapplyRules(reload: true)
         }
-        item.state = on ? .on : .off
-        return glyph(Glyph.blocking, on: item)
     }
 
     private static func permission(
@@ -165,57 +156,24 @@ enum SiteMenu {
         symbol name: String,
         host: String,
         thenReload reload: Bool
-    ) -> NSMenuItem {
-        let on = SitePermissions.shared.isAllowed(permission, forHost: host)
-        let item = SidebarMenu.item(title: title) {
-            SitePermissions.shared.setAllowed(!on, permission, forHost: host)
+    ) -> SiteSettingsContent.Toggle {
+        .init(title: title, symbol: name, isOn: SitePermissions.shared.isAllowed(permission, forHost: host)) { on in
+            SitePermissions.shared.setAllowed(on, permission, forHost: host)
             // Only the ones that change what the page may load. Picture-in-
             // Picture is read at the moment the tab is left, so re-loading the
             // page to apply it would throw away the video it is about.
             if reload { reapplyRules(reload: true) }
         }
-        item.state = on ? .on : .off
-        return glyph(name, on: item)
     }
 
-    private static func siteSettings(host: String) -> NSMenu {
-        let menu = NSMenu()
-        menu.autoenablesItems = false
-        menu.addItem(glyph(Glyph.cache, on: SidebarMenu.item(title: String(localized: "Clear Cache")) {
-            clear(SiteData.caches, host: host, thenReload: true)
-        }))
-        menu.addItem(glyph(Glyph.cookies, on: SidebarMenu.item(title: String(localized: "Clear Cookies")) {
-            clear(SiteData.cookies, host: host, thenReload: true)
-        }))
-        menu.addItem(.separator())
-        menu.addItem(glyph(Glyph.advanced, on: SidebarMenu.item(title: String(localized: "Advanced Settings")) {
-            (NSApp.delegate as? AppDelegate)?.showSettings(section: AdvancedSection.id)
-        }))
-        return menu
-    }
-
-    /// A caption, not a control: it states what the connection is and there is
-    /// nothing to do about it from here.
+    /// Nil for a page that is not on the web at all.
     ///
     /// `hasOnlySecureContent` is the whole question — an https page that pulled
     /// an image over http is not a secure page, and saying otherwise beside a
     /// padlock is the one lie a browser must never tell.
-    private static func security(_ page: Page) -> NSMenuItem? {
+    private static func isSecure(_ page: Page) -> Bool? {
         guard let scheme = page.url.scheme?.lowercased(), scheme == "http" || scheme == "https" else { return nil }
-        let secure = scheme == "https" && (page.webView?.hasOnlySecureContent ?? true)
-        let item = NSMenuItem(
-            title: secure
-                ? String(localized: "Connection is secure")
-                : String(localized: "Connection is not secure"),
-            action: nil,
-            keyEquivalent: ""
-        )
-        item.isEnabled = false
-        // Drawn like any other item and then dimmed by AppKit, attachment and all —
-        // measured, because an attributed title could as easily have come out at full
-        // strength beside a greyed word. No hand-applied secondary ink: on top of the
-        // system's own dimming it reads as faded rather than quiet.
-        return glyph(secure ? Glyph.secure : Glyph.insecure, on: item)
+        return scheme == "https" && (page.webView?.hasOnlySecureContent ?? true)
     }
 
     // MARK: - Doing the work
@@ -234,7 +192,7 @@ enum SiteMenu {
         if reload { webView.reload() }
     }
 
-    /// The two groups §3.2's submenu offers. Split the way the user means it:
+    /// The two clears the pop-out offers. Split the way the user means it:
     /// Clear Cache should not sign you out, and Clear Cookies should.
     private enum SiteData {
         static let caches: Set<String> = [
@@ -273,53 +231,32 @@ enum SiteMenu {
 
     // MARK: - The glyphs
 
-    /// Puts the reference's glyph beside an item's word.
-    ///
-    /// Not `NSMenuItem.image`, which draws nothing on this macOS. Measured with
-    /// five images on five items — template symbol, non-template symbol,
-    /// explicit size, a plain red square and a named AppKit template — in Luna
-    /// and in a bare test app, and not one appeared.
-    /// `SidebarMenu.label(symbol:title:in:)` puts the symbol in the title
-    /// instead, keeping the native highlight, arrow keys and submenu chevron a
-    /// custom `NSMenuItem.view` would have cost.
-    ///
-    /// Read `item.title` before writing it: `attributedTitle` is what `title` returns once
-    /// one is set, so this may be applied to any item exactly once. The plain title stays
-    /// underneath for VoiceOver and type-select.
-    @discardableResult
-    static func glyph(_ name: String, on item: NSMenuItem) -> NSMenuItem {
-        item.attributedTitle = SidebarMenu.label(symbol: name, title: item.title)
-        return item
-    }
-
-    /// Every symbol this menu draws, named in one place.
+    /// Every symbol the pop-out draws, named in one place.
     ///
     /// A misspelt SF Symbol is not an error and not a fallback box — `NSImage` returns nil
-    /// and the label is simply drawn without its glyph, one item silently out of line with
+    /// and the row is simply drawn without its glyph, one row silently out of line with
     /// the rest. `SiteMenuGlyphTests` walks this list so that a name the system does not
     /// have is a test failure instead.
     enum Glyph {
         static let share = "square.and.arrow.up"
         static let link = "link"
-        /// §4's layout has no reload button, so its copy of this menu grows a Reload row
-        /// (`TopBarURLPill`). The glyph is named here with the rest so the row that only
-        /// one layout ever sees is covered by the same test as the rows everyone sees.
-        static let reload = "arrow.clockwise"
         static let blocking = "hand.raised"
         static let pictureInPicture = "pip"
         static let localNetwork = "network"
-        static let siteSettings = "gearshape"
         static let cache = "internaldrive"
         static let cookies = "trash"
-        /// The sliders that open this menu in the first place (§3.2), which is as close as
-        /// the family comes to "the rest of the settings are through here".
+        /// The sliders that open the pop-out in the first place (§3.2), which is as close
+        /// as the family comes to "the rest of the settings are through here".
         static let advanced = "slider.horizontal.3"
         static let secure = "lock"
         static let insecure = "lock.open"
+        /// The header of a page that is not on the web, where there is no connection to
+        /// speak of — `SidebarRowContent.siteFallbackSymbol`, the mark such a tab wears.
+        static let site = SidebarRowContent.siteFallbackSymbol
 
         static let all = [
-            share, link, reload, blocking, pictureInPicture, localNetwork,
-            siteSettings, cache, cookies, advanced, secure, insecure
+            share, link, blocking, pictureInPicture, localNetwork,
+            cache, cookies, advanced, secure, insecure, site
         ]
     }
 }

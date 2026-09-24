@@ -42,6 +42,13 @@ extension TopBarTabStrip {
     }
 
     private func place(_ pill: RowPillView, at frame: NSRect?, spec: MotionSpec?) {
+        // A pass that changed nothing for this pill leaves it on whatever it
+        // was doing. The bar lays out on every frame of the Space capsule's
+        // morph, and an unanimated move to where the pill is already going
+        // cancels the spring or the fade that was taking it there.
+        if spec == nil, pill.alphaValue == (frame == nil ? 0 : 1), frame.map({ $0 == pill.frame }) ?? true {
+            return
+        }
         guard let frame else {
             pill.fade(to: 0, animated: spec != nil)
             return

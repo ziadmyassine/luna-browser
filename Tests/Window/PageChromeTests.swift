@@ -160,13 +160,14 @@ final class SearchBarPlacementTests: XCTestCase {
         XCTAssertTrue(Settings.searchBarIsOnPage)
     }
 
-    /// §4's bar holds tabs and no address, so the page bar stands under it
-    /// whatever the placement says — the placement is a sidebar question.
-    func testTheTopBarAlwaysHasThePageBar() {
+    /// §4's bar has no page bar under it whatever the placement says — the
+    /// placement is a sidebar question, and the bar's address is edited from
+    /// the tab on screen.
+    func testTheTopBarNeverHasThePageBar() {
         Settings.chromeLayout = .topBar
         for placement in SearchBarPlacement.allCases {
             Settings.searchBarPlacement = placement
-            XCTAssertTrue(Settings.searchBarIsOnPage)
+            XCTAssertFalse(Settings.searchBarIsOnPage)
         }
     }
 

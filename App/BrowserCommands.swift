@@ -37,8 +37,13 @@ extension AppDelegate {
     }
 
     /// `⌘W`. Archives rather than deletes (§6.3) — and is undoable (§6.7).
+    /// `⌘W`. With no page left open it closes the window instead, as every
+    /// Mac browser does: a window showing nothing has nothing else to close.
     @objc func closeTab(_ sender: Any?) {
-        guard let session, let active = session.activeTabID else { return }
+        guard let session, let active = session.activeTabID else {
+            NSApp.keyWindow?.performClose(sender)
+            return
+        }
         session.closeTab(active)
     }
 
@@ -87,6 +92,17 @@ extension AppDelegate {
     /// `⌘,`. Opens the Settings window, or focuses the one already open.
     @objc func showSettings(_ sender: Any?) {
         showSettings()
+    }
+
+    /// The app menu's About, which is Settings › About (SETTINGS-SPEC §3.10).
+    @objc func showAbout(_ sender: Any?) {
+        showSettings(section: AboutSection.id)
+    }
+
+    /// Looks now, and shows where the answer will appear.
+    @objc func checkForUpdates(_ sender: Any?) {
+        Updater.shared.check()
+        showSettings(section: AboutSection.id)
     }
 
     // MARK: - Layout and Spaces
@@ -212,6 +228,10 @@ extension AppDelegate: NSMenuItemValidation {
         // several of its sections exist to say what is not wired up yet — and a
         // dimmed `⌘,` on a slow first run would be a bug, not a safeguard.
         if menuItem.action == #selector(showSettings(_:)) { return true }
+        // About and its update check are Settings too, for the same reason.
+        if menuItem.action == #selector(showAbout(_:)) || menuItem.action == #selector(checkForUpdates(_:)) {
+            return true
+        }
         guard let session else { return false }
         return validateFavoriteToggle(menuItem, in: session)
             ?? validateNavigation(menuItem, in: session)
@@ -265,8 +285,11 @@ extension AppDelegate: NSMenuItemValidation {
 
     private func validateSessionCommand(_ item: NSMenuItem, in session: BrowserSession) -> Bool {
         switch item.action {
-        case #selector(reloadPage(_:)), #selector(closeTab(_:)):
+        case #selector(reloadPage(_:)):
             return session.activeTabID != nil
+        // Live on an empty window too, where it closes the window.
+        case #selector(closeTab(_:)):
+            return session.activeTabID != nil || NSApp.keyWindow != nil
         case #selector(previousTab(_:)), #selector(nextTab(_:)):
             return session.tabs.count > 1
         case #selector(previousSpace(_:)), #selector(nextSpace(_:)):

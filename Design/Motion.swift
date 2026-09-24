@@ -57,6 +57,11 @@ extension Tokens {
 
         /// Tab insert / remove: height + fade, and the list must not jump.
         static let tabInsert = MotionSpec(response: 0.22, damping: 0.85, settling: 0.22)
+        /// A top-bar folder's tabs fading as it shuts, while its plate morphs
+        /// down on `tabInsert`. Under half of it, as `sidebarCollapseOpacity`
+        /// is of `sidebarCollapse`: on the full 0.22 s the titles were still
+        /// readable as the plate slid out from under them.
+        static let folderShutFade = MotionSpec(0.10)
         /// §3.3's selection glow appearing on the tile you just pressed: opacity
         /// and a 1.06 → 1 scale together, from the tile's centre.
         ///
@@ -145,6 +150,12 @@ extension Tokens {
 
         /// Command Bar in: scale 0.96 → 1.0 + fade, anchored 20 % from the top.
         static let commandBarIn = MotionSpec(response: 0.18, damping: 0.80, settling: 0.18)
+        /// The Command Bar growing out of the pill or tab it replaces, and
+        /// folding back into it: width, place, height and corner together. It
+        /// ran on `commandBarIn` when only the height moved; with the width
+        /// moving too, 0.18 s on an ease-out read as a jump, so it takes longer
+        /// on a curve that starts as gently as it lands.
+        static let commandBarMorph = MotionSpec(0.26, .easeInOut)
         /// Downloads popover in: scale 0.94 → 1.0, from the tail anchor (§5).
         static let popoverIn = MotionSpec(response: 0.20, damping: 0.80, settling: 0.20)
         /// Hover-peek reveal — the slide. `hoverPeekDelay` is the intent delay

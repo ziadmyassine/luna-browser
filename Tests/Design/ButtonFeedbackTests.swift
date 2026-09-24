@@ -215,6 +215,18 @@ final class ButtonFeedbackTests: XCTestCase {
         XCTAssertEqual(scale(of: dot), 1, accuracy: 0.001, "a dot swelled on its own")
     }
 
+    /// Settings' Layout pictures: the picture swells, not the label under
+    /// it — the picture is the thing being chosen.
+    func testALayoutPictureSwellsUnderAPress() {
+        let option = SettingsLayoutOption(layout: .topBar)
+        option.frame = NSRect(x: 0, y: 0, width: 120, height: 100)
+        option.layoutSubtreeIfNeeded()
+        option.mouseDown(with: mouse(.leftMouseDown, in: option))
+        XCTAssertEqual(scale(of: option.picture), Tokens.Motion.pressSwell, accuracy: 0.001)
+        option.mouseUp(with: mouse(.leftMouseUp, in: option))
+        XCTAssertEqual(scale(of: option.picture), 1, accuracy: 0.001)
+    }
+
     private func descendants<T: NSView>(of root: NSView, ofType type: T.Type) -> [T] {
         var found: [T] = []
         for child in root.subviews {

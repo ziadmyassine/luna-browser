@@ -7,11 +7,11 @@
 //  window and makes §2's search, §4's disabled rule and §8's labelling
 //  decisions taken once.
 //
-//  The popup stays AppKit's: §5 says never re-animate a system control, and a
-//  hand-drawn menu would have to re-earn every keyboard and VoiceOver behaviour
-//  it ships. The button, text field and picker are drawn here because their
-//  AppKit bezels are the only bright plates in an otherwise dark pane, and the
-//  switch because AppKit's is a fixed 54 × 24 (`SettingsSwitch`).
+//  The popup and the switch stay AppKit's: §5 says never re-animate a system
+//  control, and a hand-drawn one would have to re-earn every keyboard and
+//  VoiceOver behaviour it ships. The button, text field and picker are drawn
+//  here because their AppKit bezels are the only bright plates in an otherwise
+//  dark pane.
 //
 
 import AppKit
@@ -29,10 +29,7 @@ enum SettingsRow {
         disabledReason: String? = nil,
         onChange: @escaping (Bool) -> Void
     ) -> NSView {
-        // `SettingsSwitch`, not `NSSwitch`: AppKit's is 54 × 24 at every
-        // `controlSize` — measured — which is twice what this pane's controls
-        // are built to. See the view.
-        let toggle = SettingsSwitch(isOn: value)
+        let toggle = SystemSwitch(isOn: value)
         toggle.onChange = onChange
         return row(title, subtitle, toggle, isEnabled, disabledReason)
     }

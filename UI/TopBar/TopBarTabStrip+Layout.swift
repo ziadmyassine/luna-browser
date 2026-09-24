@@ -20,9 +20,9 @@ import BrowserKit
 
 /// Which part of the run a piece stands in, for the gap in front of it.
 private enum Side {
-    /// The Space's name, at the head of the plate.
+    /// The head of the plate, where the run starts.
     case name
-    /// On the plate, after the name.
+    /// On the plate.
     case kept
     /// The plate's closing edge.
     case rule
@@ -129,14 +129,20 @@ extension TopBarTabStrip {
 
     /// The room in front of a piece. On a plate the tabs stand edge to edge —
     /// each has its own room round its icon — and a plate ends at its last
-    /// one. After a folder's name, the divider with a gap either side. Off a
-    /// plate, and either side of the hairline, the bar's one gap.
+    /// one. After a folder's name, the divider with a gap either side. Between
+    /// two open tabs, `tabGap`. Anywhere else off a plate, and either side of
+    /// the hairline, the bar's one gap.
     private func spacing(from previous: Place, to next: Place) -> CGFloat {
         if next.side == .rule || previous.side == .rule { return TopBarMetrics.gap }
         if let folder = next.folder, previous.folder == folder, !next.isHeader {
             return previous.isHeader ? TopBarMetrics.dividerGap * 2 + Tokens.Metric.hairline : 0
         }
         if next.onSpacePlate, previous.side == .name || previous.onSpacePlate { return 0 }
+        // Two open tabs outside any folder. A folder keeps the bar's gap
+        // round its plate, which is an edge of its own.
+        if previous.side == .open, next.side == .open, previous.folder == nil, next.folder == nil {
+            return TopBarMetrics.tabGap
+        }
         return TopBarMetrics.gap
     }
 
@@ -178,12 +184,9 @@ extension TopBarTabStrip {
     /// once to measure, once to place, once for the frames with no gap open.
     private func lay(_ pieces: [Piece], from start: CGFloat) -> TopBarLaidRun {
         var laid = TopBarLaidRun()
-        laid.name = NSRect(
-            x: start,
-            y: 0,
-            width: spaceName.intrinsicContentSize.width,
-            height: bounds.height
-        )
+        // The plate's head. It held the Space's name until the name moved to
+        // its own capsule; it is the zero-width start the kept tabs follow.
+        laid.name = NSRect(x: start, y: 0, width: 0, height: bounds.height)
         var originX = laid.name.maxX
         var plateEnd = originX
         var previous = Place(side: .name)
@@ -234,8 +237,7 @@ extension TopBarTabStrip {
         }
         plateFrame = box(placed.plate, height: TopBarMetrics.plate.height)
         keptEnd = placed.keptEnd
-        put(plate, at: plateFrame)
-        put(spaceName, at: box(placed.name, height: TopBarMetrics.lineHeight))
+        placePlate()
         if let dropGap, dropGap.fills {
             gapFrame = placed.frames[dropGap.block]
         } else {
@@ -264,6 +266,21 @@ extension TopBarTabStrip {
         }
         placeGlow()
         scrollActiveTabIntoView()
+    }
+
+    /// The Space's plate: morphed on a Space switch, and kept on its morph
+    /// through the passes that land during one — the Space capsule beside
+    /// the strip resizes it on every frame of its own.
+    private func placePlate() {
+        let morphs = morphsNextPlate
+        morphsNextPlate = false
+        if morphs {
+            plate.morph(to: plateFrame, on: Tokens.Motion.spaceSettleSlowest)
+        } else if plate.isMorphing {
+            plate.settle(at: plateFrame)
+        } else {
+            put(plate, at: plateFrame)
+        }
     }
 
     /// A kept tile or a row, standing on the bar's line at its own height.
@@ -324,14 +341,15 @@ extension TopBarTabStrip {
             var extent = head
             if let tail = placed.frames[last] { extent = extent.union(tail) }
             if let gap { extent = extent.union(gap) }
-            // A folder shutting keeps its plate and divider until its tabs
-            // have faded — `retire`.
-            guard !shuttingFolders.contains(group.id) else { continue }
-            placeDivider(dividers[group.id], after: head, showing: last != header || gap != nil)
+            // A folder shutting keeps its divider until its tabs have faded
+            // — `retire`.
+            if !shuttingFolders.contains(group.id) {
+                placeDivider(dividers[group.id], after: head, showing: last != header || gap != nil)
+            }
             // The folder's own plate grows round the room a lift is opening
             // in it and lights, so the drop reads as going in.
             if let folderPlate = folderPlates[group.id] {
-                put(folderPlate, at: box(extent, height: TopBarMetrics.plate.height))
+                placeFolderPlate(folderPlate, of: group.id, at: box(extent, height: TopBarMetrics.plate.height))
                 folderPlate.isAimedAt = dropFolder == group.id
             }
         }
@@ -345,6 +363,19 @@ extension TopBarTabStrip {
         mark(slot, at: tileLanding.flatMap { placed.frames[$0] } ?? tileGap, landing: tileLanding)
         mark(folderSlot, at: run.blocks.firstIndex(of: .landing(.pinned)).flatMap { placed.frames[$0] },
              landing: run.blocks.firstIndex(of: .landing(.pinned)))
+    }
+
+    /// Morphed rather than moved as the folder shuts: an implicit frame
+    /// animation leaves glass at its new size from the first frame —
+    /// `TopBarPlate.frameMorph`.
+    private func placeFolderPlate(_ folderPlate: TopBarPlate, of folder: UUID, at frame: NSRect) {
+        if shrinkingPlates.remove(folder) != nil {
+            folderPlate.morph(to: frame, on: Tokens.Motion.tabInsert)
+        } else if folderPlate.isMorphing {
+            folderPlate.settle(at: frame)
+        } else {
+            put(folderPlate, at: frame)
+        }
     }
 
     /// The hairline after a folder's name, centred in the room `spacing`
@@ -410,12 +441,20 @@ extension TopBarTabStrip {
     /// rather than a rim beyond it.
     var glowOutset: CGFloat { -Tokens.Metric.essentialsGlowRim }
 
+    /// Once per tab, and again whenever that tab changes size while the strip
+    /// is still where this left it. A new tab is brought in at its first,
+    /// short title and then widens when the page's title arrives; brought in
+    /// only once, it ran on past the strip's edge. A strip the user has
+    /// scrolled since is theirs, and is left alone.
     private func scrollActiveTabIntoView() {
-        guard let activeID, activeID != scrolledTo, let frame = targets[activeID] else { return }
+        guard let activeID, let frame = targets[activeID] else { return }
+        let clip = scrollView.contentView
+        guard activeID != scrolledTo || clip.bounds.origin == scrolledOrigin else { return }
         scrolledTo = activeID
         // A gap of slack on each side, so the active tab never lands flush
         // against a clipped neighbour.
         content.scrollToVisible(frame.insetBy(dx: -TopBarMetrics.gap, dy: 0))
+        scrolledOrigin = clip.bounds.origin
     }
 }
 
@@ -452,6 +491,18 @@ enum TopBarTabRun {
 /// — and a right-click on it is the bar's own menu.
 final class StripContentView: NSView {
     var menuBuilder: (() -> NSMenu?)?
+
+    /// A layer of its own, because §30.9's swipe moves and fades the whole run
+    /// through it (`TopBarView.slideTabs`).
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("Luna builds its chrome in code")
+    }
 
     override var mouseDownCanMoveWindow: Bool { true }
 

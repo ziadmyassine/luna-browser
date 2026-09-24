@@ -73,8 +73,63 @@ final class RowGlyphView: NSImageView {
     }
 
     func configure(symbolName: String, label: String, pointSize: CGFloat = Tokens.Metric.faviconSize) {
-        configure(image: NSImage(systemSymbolName: symbolName, accessibilityDescription: nil), label: label, pointSize: pointSize)
+        configure(image: Self.inkCentred(symbolName, pointSize: pointSize), label: label, pointSize: pointSize)
     }
+
+    /// The symbol, redrawn as a plain template image with its ink centred in
+    /// its own box.
+    ///
+    /// SF Symbols are centred on their box, not on what is drawn in it, and
+    /// the boxes carry different margins: measured on a §4 tab at 11 pt, the
+    /// sliders' ink stood 0.75 pt below the close glyph's beside it. Measured
+    /// once per symbol and size, from the symbol's own pixels.
+    static func inkCentred(_ name: String, pointSize: CGFloat) -> NSImage? {
+        let key = "\(name)@\(pointSize)"
+        if let cached = inkCache[key] { return cached }
+        let configuration = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .regular)
+        guard let symbol = NSImage(systemSymbolName: name, accessibilityDescription: nil)?
+            .withSymbolConfiguration(configuration)
+        else { return nil }
+        let size = symbol.size
+        let scale: CGFloat = 4
+        guard let rep = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: Int(size.width * scale),
+            pixelsHigh: Int(size.height * scale),
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        ) else { return symbol }
+        rep.size = size
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+        symbol.draw(in: NSRect(origin: .zero, size: size))
+        NSGraphicsContext.restoreGraphicsState()
+        // Rows are top-down in the bitmap.
+        let inked = (0..<rep.pixelsHigh).filter { y in
+            (0..<rep.pixelsWide).contains { x in (rep.colorAt(x: x, y: y)?.alphaComponent ?? 0) > 0.3 }
+        }
+        guard let top = inked.first, let bottom = inked.last else { return symbol }
+        let inkMid = CGFloat(top + bottom + 1) / 2 / scale
+        // Positive when the ink sits low, which is a nudge up in AppKit's y.
+        // Redrawn even when the nudge is nothing: `NSImageView` places a
+        // symbol image by its own metrics and a plain one by its box, so a
+        // glyph left as a symbol stood half a point off one that was redrawn.
+        let lift = inkMid - size.height / 2
+        let centred = NSImage(size: size, flipped: false) { rect in
+            symbol.draw(in: rect.offsetBy(dx: 0, dy: lift))
+            return true
+        }
+        centred.isTemplate = true
+        inkCache[key] = centred
+        return centred
+    }
+
+    private static var inkCache: [String: NSImage] = [:]
 
     /// The same, for the one glyph SF Symbols does not have — `SiteMenuGlyph`.
     func configure(image glyph: NSImage?, label: String, pointSize: CGFloat = Tokens.Metric.faviconSize) {

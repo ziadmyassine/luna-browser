@@ -84,11 +84,11 @@ final class CommandBarClosingTests: XCTestCase {
         return (panel, pill)
     }
 
-    /// The glass ends where the reveal started: the pill's own height, on the
-    /// pill's own line. A close that ended anywhere else would be the bar
-    /// folding into a place the pill is not.
+    /// The glass ends where the reveal started: the pill's own frame. A close
+    /// that ended anywhere else would be the bar folding into a place the pill
+    /// is not.
     func testTheAnchoredBarClosesBackDownOntoItsPill() {
-        let (panel, _) = opened()
+        let (panel, pill) = opened()
         XCTAssertGreaterThan(panel.body.frame.height, panel.inputHeight + 1, "nothing opened, so nothing can close")
 
         let closed = expectation(description: "the fold finishes")
@@ -97,7 +97,10 @@ final class CommandBarClosingTests: XCTestCase {
         XCTAssertNotNil(panel.superview, "it vanished instead of closing")
         wait(for: [closed], timeout: 2)
 
-        XCTAssertEqual(panel.body.frame.height, panel.inputHeight, accuracy: 1)
+        XCTAssertEqual(panel.body.frame.height, pill.frame.height, accuracy: 1)
+        // The width is `morph`'s, and read off the pill only while the panel is
+        // in the window it has now left.
+        XCTAssertEqual(panel.morph, 0, accuracy: 0.001)
     }
 
     /// And the pill comes back at the end of that, not the start. The caller

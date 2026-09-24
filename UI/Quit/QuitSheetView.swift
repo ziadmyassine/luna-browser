@@ -51,7 +51,7 @@ enum QuitSheetMetrics {
     /// language anyway. The row is measured and the panel takes that width,
     /// with this as the minimum.
     static var minimumWidth: CGFloat { (Tokens.Metric.windowMinWidth * 3 / 4).rounded() }
-    static var cornerRadius: CGFloat { Tokens.Metric.contentCardRadius }
+    static var cornerRadius: CGFloat { Tokens.Metric.panelCornerRadius }
     static var padding: CGFloat { Tokens.Metric.chromeGapWide * 2 }
     /// §4's bar height. It is the tallest single thing the chrome measures,
     /// which is the right size for a mark you are meant to recognise rather

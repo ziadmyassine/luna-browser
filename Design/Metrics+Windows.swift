@@ -61,16 +61,18 @@ extension Tokens.Metric {
     static let settingsControlInset: CGFloat = 12
     static let settingsSegmentGap: CGFloat = 2
 
-    /// The pick-one switch, and why Luna draws its own.
-    ///
-    /// Measured on macOS 26: `NSSwitch` is 54 × 24 at every `controlSize` —
-    /// `.small` and `.mini` are accepted and ignored. Fifty-four points is twice
-    /// `settingsControl`'s width budget and nearly half again the height, so a
-    /// card of them read as a row of levers beside 13 pt type. This is the size
-    /// the pane has room for; `SettingsSwitch` draws it.
-    static let settingsSwitch = RoundedMetric(width: 36, height: 20, cornerRadius: 10)
-    /// Inset either side of the knob inside the track.
-    static let settingsSwitchKnobInset: CGFloat = 2
+    /// Appearance's Layout row: a picture of each layout. 72 tall, the glass
+    /// preview tile's height (`AppearanceSection.previewTileSize`), so the
+    /// section's two pictures stand the same size; 116 wide is that at a Mac
+    /// window's 16:10.
+    static let settingsLayoutPreview = CGSize(width: 116, height: 72)
+    /// The ring on the chosen layout — the Space swatch's, the other chooser
+    /// in Settings that answers with a ring.
+    static let settingsLayoutRing = spaceSwatchRing
+
+    /// Settings › About's app icon: 64, the size macOS's own About panel
+    /// draws an app's icon at.
+    static let aboutIcon: CGFloat = 64
 
     /// The back/forward capsule at the head of the detail pane.
     static let settingsNavCapsule = RoundedMetric(width: 64, height: 30, cornerRadius: 10)
@@ -109,6 +111,12 @@ extension Tokens.Metric {
     /// a handful of rows, not a month of tabs.
     static let downloadsPanel = CGSize(width: 360, height: 340)
 
+    /// §3.2's site settings pop-out. Measured off the reference: its rows'
+    /// glyphs stand 1/16 of the panel's width in and their titles 3/16, which
+    /// at `rowFaviconInset`'s 17.5 puts the panel at 280. The height is its
+    /// rows (`SiteSettingsContent.height`).
+    static let siteSettingsPanel: CGFloat = 280
+
     /// The gap between the History button and the pop-out standing on it —
     /// §3.1's control gap, so the pop-out sits off its button by the same
     /// distance the back and reload circles sit off each other.
@@ -122,8 +130,9 @@ extension Tokens.Metric {
     static let windowDefaultHeight: CGFloat = 800
 
     /// §22.6: how far a new window lands down and across from the one it came
-    /// out of. `windowCornerRadius` plus the control gap — which is what it
-    /// takes for the traffic lights of the window underneath to stay clear of
-    /// the new window's rounded corner, and so still be clickable.
+    /// out of. `windowCornerRadius`, the rounder of the two corners, plus the
+    /// control gap — which is what it takes for the traffic lights of the
+    /// window underneath to stay clear of the new window's rounded corner, and
+    /// so still be clickable, whichever corner the windows wear.
     static let windowCascadeStep = windowCornerRadius + controlPairGap
 }

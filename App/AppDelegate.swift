@@ -122,6 +122,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // milestone of its own because without one it looks like ours — it was
         // read as the cost of the line below for most of an afternoon.
         LaunchTrace.mark("didFinish")
+        // Before anything is opened: a second copy launched to open a page has
+        // no business touching the database the running one is using.
+        if handOffToRunningLuna() { return }
         #if DEBUG
         // Fails the launch loudly if a token drifted out of §1 / §6 / §21.4.
         // Measured at 3 ms, so it stays in front of the first frame, where a
@@ -150,6 +153,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // first frame is drawn in the theme the user chose rather than flashing
         // the system one.
         AppearanceSection.applyStoredTheme()
+
+        // SETTINGS-SPEC §3.10. Once a day, off the main thread; never from a
+        // test run, which would read the network and could install over the
+        // host app.
+        if !Self.isRunningTests { Updater.shared.start() }
 
         // The controller before the session, and on screen before it too: what
         // fills it is `adopt`, once there is something to put in it.

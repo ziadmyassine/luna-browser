@@ -1,0 +1,85 @@
+name: Release
+
+# Builds Luna for a version tag and publishes it as the repo's latest release,
+# which is what Settings › About's updater reads (SETTINGS-SPEC §3.10).
+#
+#   git tag v0.2.0 && git push origin v0.2.0
+#
+# The tag is the version: it is written into the app's Info.plist, so the
+# build states the same version the release does, and the updater compares
+# the two. The build is also stamped `LunaReleaseBuild`, which is what lets a
+# copy install updates on its own — a build made on a developer's Mac has no
+# stamp, and only says a newer one is out.
+#
+# Still ad-hoc signed (project.yml): there is no Developer ID certificate yet
+# (TODO.md §24.4). A copy downloaded in a browser is quarantined and macOS
+# asks before opening it the first time; an update the app fetches itself
+# carries no quarantine, and is checked against the zip's SHA-256 instead.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install XcodeGen
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
+        run: brew install xcodegen
+
+      # `v0.2.0` → 0.2.0 for people; the run number for the build, so every
+      # release's build number is higher than the last one's.
+      - name: Stamp the version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" App/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $GITHUB_RUN_NUMBER" App/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :LunaReleaseBuild bool true" App/Info.plist
+
+      - name: Generate the project
+        run: make gen
+
+      - name: Build
+        run: |
+          xcodebuild \
+            -project Luna.xcodeproj \
+            -scheme Luna \
+            -configuration Release \
+            -derivedDataPath DerivedData \
+            -destination 'platform=macOS' \
+            build
+
+      # `ditto`, as Finder zips: the bundle's signature and permissions survive
+      # the trip, and the updater unpacks it with `ditto` too.
+      - name: Package
+        run: |
+          ditto -c -k --keepParent DerivedData/Build/Products/Release/Luna.app Luna.zip
+          echo "SHA=$(shasum -a 256 Luna.zip | cut -d' ' -f1)" >> "$GITHUB_ENV"
+
+      # The checksum goes in the notes as well as in GitHub's own asset digest,
+      # so the updater has it whichever the API returns. Anything written above
+      # it on GitHub afterwards — its first paragraph — is what Settings shows
+      # under the new version.
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          printf 'sha256:%s\n' "$SHA" > notes.md
+          gh release create "$GITHUB_REF_NAME" Luna.zip \
+            --title "Luna $VERSION" \
+            --notes-file notes.md \
+            --latest

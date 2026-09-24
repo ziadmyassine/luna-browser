@@ -57,7 +57,11 @@ extension AppDelegate {
             guard let window else { return previous?() ?? () }
             if let page = window.pageChrome, page.isOnScreen { return page.beginEditing() }
             if let sidebar = window.sidebar, sidebar.showsURLPill { return sidebar.beginEditingURL() }
-            previous?()
+            // §4's bar has no address of its own; the Command Bar edits it.
+            guard let previous else {
+                return window.session.commandBar(inWindow: window.id)?(.editCurrentURL, nil) ?? ()
+            }
+            previous()
         }, inWindow: window.id)
     }
 

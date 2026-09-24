@@ -34,7 +34,7 @@ enum PopoutEdge: Sendable {
 }
 
 enum PopoutMetrics {
-    static var cornerRadius: CGFloat { Tokens.Metric.contentCardRadius }
+    static var cornerRadius: CGFloat { Tokens.Metric.panelCornerRadius }
     /// A header row, at the same height as the chrome rows the panel covers.
     static var headerHeight: CGFloat { Tokens.Metric.topBarHeight }
     static var padding: CGFloat { Tokens.Metric.panelInset }
@@ -72,6 +72,16 @@ class PopoutPanelView: NSView {
 
     private let preferredSize: CGSize
     private let edge: PopoutEdge
+
+    /// Whether the pop-out stands centred across its button rather than
+    /// growing rightward from its leading edge. §3.2a's does: its glyph sits
+    /// at a tab's trailing end or in a pill, and a panel hung from the glyph's
+    /// left edge read as belonging to whatever was to the right of it.
+    var centresOnAnchor = false
+
+    /// The button as the last layout pass found it, for the corner the
+    /// spring pivots on.
+    private var lastAnchor = NSRect.zero
 
     /// The floor the height clamp will not go below — a pop-out with no room
     /// for a single row still has to be a pop-out. A header by default.
@@ -123,10 +133,12 @@ class PopoutPanelView: NSView {
         case .above: button.maxY + gap
         case .below: button.minY - gap - height
         }
+        let leading = centresOnAnchor ? button.midX - preferredSize.width / 2 : button.minX
         let originX = min(
-            max(button.minX, inset),
+            max(leading, inset),
             max(bounds.maxX - preferredSize.width - inset, inset)
         )
+        lastAnchor = button
         body.frame = NSRect(x: originX, y: originY, width: preferredSize.width, height: height).integral
         body.layoutSubtreeIfNeeded()
     }
@@ -237,7 +249,11 @@ class PopoutPanelView: NSView {
     /// the way in reversed.
     private func anchorToButtonCorner(_ layer: CALayer) {
         let frame = layer.frame
-        let corner = CGPoint(x: 0, y: edge == .above ? 0 : 1)
+        // Centred, the pivot is the point on the panel's edge over the button.
+        let x = centresOnAnchor && frame.width > 0
+            ? min(max((lastAnchor.midX - frame.minX) / frame.width, 0), 1)
+            : 0
+        let corner = CGPoint(x: x, y: edge == .above ? 0 : 1)
         layer.anchorPoint = corner
         layer.position = CGPoint(
             x: frame.minX + frame.width * corner.x,

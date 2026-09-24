@@ -4,8 +4,8 @@
 //
 //  The one place a file the user picked becomes bytes worth keeping (§9).
 //
-//  A profile's picture is drawn in one place at one size — §3.5's avatar, a
-//  `bottomCircle` — so the file chosen for it is almost always enormous next to
+//  A profile's picture is drawn small — at the end of §3.5's Space pill, and
+//  on the Space's card in Settings — so the file chosen for it is almost always enormous next to
 //  what is shown: a photo off a phone is three thousand points wide and eight
 //  megabytes, of which the circle uses about a thousandth. Persisting the
 //  original would put that in every backup and every read of the row for the
@@ -13,7 +13,7 @@
 //
 //  So the crop and the downsample happen on the way in, once, and the column
 //  holds what is drawn. `side` is generous rather than exact — three times the
-//  circle, which covers today's avatar at any scale factor and leaves room for
+//  circle, which covers the pill's at any scale factor and leaves room for
 //  the picture to appear somewhere larger without asking the user for the file
 //  again.
 //
@@ -26,13 +26,13 @@ enum ProfilePicture {
     ///
     /// Not `bottomCircle.width * 3` spelled out at the call site, because the
     /// number is a decision about storage rather than about layout — the
-    /// avatar asks for whatever size it is and gets this scaled down.
+    /// Space pill asks for whatever size it is and gets this scaled down.
     static let side: CGFloat = 3 * Tokens.Metric.bottomCircle.width
 
     /// A chosen file as PNG bytes, cropped square from the middle and
     /// downsampled, or nil if the file is not an image this Mac can read.
     ///
-    /// Cropped rather than fitted: the avatar is a circle, and a portrait
+    /// Cropped rather than fitted: the Space pill draws it in a circle, and a portrait
     /// letterboxed into one shows two bands of background where a face should
     /// be. Cropping from the middle is what every other app does with a
     /// profile picture, and it is what makes the stored square drawable by

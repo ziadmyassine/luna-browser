@@ -127,14 +127,15 @@ final class TopBarTabDragController {
     }
 
     /// What the lift draws: the row the column would draw for it, with
-    /// nothing trailing — a close glyph in the air is a control nobody can
-    /// reach.
+    /// nothing trailing — a close glyph or a site settings glyph in the air is
+    /// a control nobody can reach.
     private func liftContent(for lifted: TopBarLifted) -> SidebarRowContent {
         switch lifted {
         case let .tab(id):
             guard let tab = strip.session.tab(id) else { return SidebarRowContent() }
             var content = strip.rowContent(for: tab)
             content.trailing = .none
+            content.siteSettings = false
             return content
         case let .group(id):
             guard let group = strip.session.group(id) else { return SidebarRowContent() }

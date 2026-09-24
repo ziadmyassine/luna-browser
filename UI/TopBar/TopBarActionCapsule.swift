@@ -42,7 +42,7 @@ struct TopBarActionItem {
 }
 
 @MainActor
-final class TopBarActionCapsule: NSView {
+final class TopBarActionCapsule: NSView, PopoutShelf {
 
     var items: [TopBarActionItem] = [] {
         didSet { rebuild() }

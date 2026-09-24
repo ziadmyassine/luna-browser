@@ -3,7 +3,7 @@
 //  Luna
 //
 //  §6.4's archive, as a pop-out from the §3.5 History button — the same
-//  shape §3.2's site menu takes from the sliders glyph.
+//  shape §3.2's site settings take from the sliders glyph.
 //
 //  It used to be `luna://archive`, an internal page in a new tab. That is the
 //  wrong shape for it twice over: looking something up in your history is a

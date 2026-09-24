@@ -3,7 +3,7 @@
 //  LunaTests
 //
 //  §9's profile picture: what is kept of the file the user chose, and what the
-//  two places that draw it do with it.
+//  two places that draw it do with it — §3.5's Space pill and §6.2's card.
 //
 //  The size assertions are the point of the type. A profile picture is drawn in
 //  a 34 pt circle and chosen from a photo library, so "what was picked" and
@@ -75,28 +75,23 @@ final class ProfilePictureTests: XCTestCase {
         XCTAssertNil(ProfilePicture.image(from: Data([0x00, 0x01, 0x02, 0x03])))
     }
 
-    // MARK: - §3.5's avatar
+    // MARK: - §3.5's Space pill
 
-    private func avatar(picture: Data?) -> GlassButton? {
+    private func pill(picture: Data?) -> SidebarSpacePill {
         let bar = SidebarUtilityBar()
         bar.frame = NSRect(x: 0, y: 0, width: 280, height: Tokens.Metric.topBarHeight)
         bar.show(spaceName: "Personal", fanOut: nil, picture: picture)
         bar.layoutSubtreeIfNeeded()
-        return bar.subviews.compactMap { $0 as? GlassButton }.first
+        return bar.spacePill
     }
 
-    private func mark(of button: GlassButton) -> NSImageView? {
-        button.subviews.compactMap { $0 as? NSImageView }.first
-    }
-
-    /// The button is §3.5's, and it stayed when the Profile went. What it says
-    /// had to change with it: it named a Profile that no longer exists, in an
-    /// accessibility label, a tooltip and the header of its own menu.
-    func testTheButtonSaysSpaceRatherThanProfile() throws {
+    /// The control that took the Profile avatar's place says Space, in its
+    /// accessibility label, its tooltip and the header of its own menu.
+    func testThePillSaysSpaceRatherThanProfile() throws {
         let bar = SidebarUtilityBar()
         bar.frame = NSRect(x: 0, y: 0, width: 280, height: Tokens.Metric.topBarHeight)
         bar.show(spaceName: "Personal", fanOut: "3 Favorites", picture: nil)
-        let button = try XCTUnwrap(bar.subviews.compactMap { $0 as? GlassButton }.first)
+        let button = bar.spacePill.button
         let label = try XCTUnwrap(button.accessibilityLabel())
         let tip = try XCTUnwrap(button.toolTip)
         for text in [label, tip] {
@@ -108,24 +103,25 @@ final class ProfilePictureTests: XCTestCase {
         XCTAssertTrue(titles.contains { $0.contains("Manage Spaces") }, "\(titles)")
     }
 
-    /// A picture is the button, not a mark inside it: it fills the circle and
-    /// takes its corner, where the glyph sits at `glyphSize` in the middle.
-    func testAPictureFillsTheAvatarRatherThanSittingInIt() throws {
+    /// A picture fills the circle at the pill's leading end, round, and the
+    /// name starts after it.
+    func testAPictureSitsRoundAtThePillsEnd() throws {
         let data = try XCTUnwrap(ProfilePicture.bytes(of: wide()))
-        let button = try XCTUnwrap(avatar(picture: data))
-        let mark = try XCTUnwrap(mark(of: button))
-        XCTAssertEqual(mark.frame.size, button.bounds.size)
-        XCTAssertEqual(mark.layer?.cornerRadius, Tokens.Metric.bottomCircle.cornerRadius)
-        XCTAssertEqual(mark.layer?.masksToBounds, true)
+        let pill = pill(picture: data)
+        let portrait = pill.portrait
+        XCTAssertFalse(portrait.isHidden)
+        XCTAssertEqual(portrait.frame.width, portrait.frame.height)
+        XCTAssertEqual(portrait.frame.midY, pill.bounds.midY, accuracy: 0.5)
+        XCTAssertEqual(portrait.layer?.cornerRadius, portrait.frame.width / 2)
+        XCTAssertEqual(portrait.layer?.masksToBounds, true)
+        XCTAssertGreaterThan(pill.clip.frame.minX, portrait.frame.maxX)
     }
 
-    /// And with no picture the glyph is back, at the size a glyph is — taking
-    /// one off must not leave a circle-sized symbol behind.
-    func testTakingThePictureOffPutsTheGlyphBack() throws {
-        let button = try XCTUnwrap(avatar(picture: nil))
-        let mark = try XCTUnwrap(mark(of: button))
-        XCTAssertEqual(mark.frame.width, Tokens.Metric.glyphSize)
-        XCTAssertNotEqual(mark.layer?.masksToBounds, true)
+    /// And with no picture there is nothing ahead of the name.
+    func testTakingThePictureOffLeavesJustTheName() {
+        let pill = pill(picture: nil)
+        XCTAssertTrue(pill.portrait.isHidden)
+        XCTAssertEqual(pill.clip.frame.minX, Tokens.Metric.sidebarSpacePillPad, accuracy: 0.5)
     }
 
     // MARK: - §6.2's row

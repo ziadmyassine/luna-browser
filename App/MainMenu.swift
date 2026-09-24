@@ -163,7 +163,10 @@ enum MainMenu {
     private static func appMenu() -> NSMenu {
         let name = appName
         return menu(name, [
-            plain("About \(name)", #selector(NSApplication.orderFrontStandardAboutPanel(_:))),
+            // Settings › About rather than AppKit's panel: the version is there,
+            // and so is the one thing a person asking about it wants next.
+            plain("About \(name)", #selector(AppDelegate.showAbout(_:))),
+            plain("Check for Updates…", #selector(AppDelegate.checkForUpdates(_:))),
             .separator(),
             // SETTINGS-SPEC §2's `⌘,`. Opens the window or brings the one that
             // is already open forward; there is exactly one for the life of the

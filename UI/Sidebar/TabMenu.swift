@@ -17,9 +17,9 @@
 //  that keeps it harder than the saved one does, and a group may not be pinned at
 //  all — so on a tile both would be offers to demote it.
 //
-//  A plain `NSMenu`, for the reason `SiteMenu.swift` gives: on macOS 26 that is
-//  the liquid-glass menu, drawn by AppKit with its own material, blur, keyboard
-//  and VoiceOver handling.
+//  A plain `NSMenu`: on macOS 26 that is the liquid-glass menu, drawn by AppKit
+//  with its own material, blur, keyboard and VoiceOver handling, and a
+//  hand-rolled panel would be a worse copy of all four.
 //
 //  The glyphs are in the titles, because `NSMenuItem.image` draws nothing here —
 //  measured with a five-way probe in a bare AppKit app, and not one appeared. An
@@ -70,17 +70,21 @@ enum TabMenu {
     ///   has one — a tile in §3.3's grid and a tab in §4's strip are the same tab drawn
     ///   somewhere with no line of text to type on — so those two pass nothing and get the
     ///   dialog instead.
+    /// - Parameter siteSettings: opens §3.2a's pop-out on this tab. Only §4's bar
+    ///   passes it: a kept tile there has no room for the sliders glyph a row
+    ///   carries, and the column has the glyph on its URL pill.
     static func build(
         for tab: Tab,
         isMuted: Bool,
         group: TabGroup? = nil,
         others: [TabGroup] = [],
         actions: Actions,
-        rename: (() -> Void)? = nil
+        rename: (() -> Void)? = nil,
+        siteSettings: (() -> Void)? = nil
     ) -> NSMenu {
         let menu = NSMenu()
-        // Closure items are their own target, so AppKit would enable them anyway. Off for
-        // the same reason `SiteMenu` turns it off: nothing here may be enabled by accident.
+        // Closure items are their own target, so AppKit would enable them anyway. Off so
+        // that nothing here may be enabled by accident.
         menu.autoenablesItems = false
         let pinned = tab.kind == .essential
 
@@ -114,6 +118,9 @@ enum TabMenu {
         menu.addItem(.separator())
 
         menu.addItem(copyLink(tab.url))
+        if let siteSettings {
+            menu.addItem(item(String(localized: "Site Settings…"), symbol: SiteMenu.Glyph.advanced, action: siteSettings))
+        }
         menu.addItem(.separator())
 
         // The ellipsis follows the dialog. macOS reserves the trailing `…` for a command
@@ -202,7 +209,7 @@ enum TabMenu {
     }
 
     /// The reference's "Copy Link as Markdown" without the Markdown: this is the plain
-    /// address, which is what the user asked for and what §3.2's site menu already puts on
+    /// address, which is what the user asked for and what §3.2's site settings already put on
     /// the pasteboard. The two are deliberately the same call — copying a link from the row
     /// and copying it from the pill must not produce different pasteboards.
     private static func copyLink(_ url: URL) -> NSMenuItem {

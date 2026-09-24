@@ -18,9 +18,11 @@
 //  say less than the one name they stand for, until the moment the hand is
 //  asking which of the others it can reach.
 //
-//  The name pops when it changes, because it is the only thing on the bar that
-//  says the whole window has moved. Every other read-out of a Space switch is
-//  the tabs redrawing, which looks like tabs redrawing.
+//  The name pops when a click changes it, because it is the only thing on the
+//  bar that says the whole window has moved. A swipe slides it instead: out of
+//  the capsule with the tabs, and in from the other side after them. Either
+//  way the capsule grows or shrinks to the new name rather than jumping to it
+//  (`widthMorph`), and the bar beside it follows.
 //
 
 import AppKit
@@ -34,6 +36,13 @@ final class TopBarSpaceName: NSControl, TopBarThemed {
     var onSetGradient: ((UUID, GradientPair) -> Void)?
     var onEditSpaces: (() -> Void)?
     var onNewSpace: (() -> Void)?
+    /// Every frame of a swipe, held or settling: how far toward the next Space,
+    /// in Spaces. §4's bar moves its tabs by it (`TopBarView`).
+    var onTravel: ((CGFloat) -> Void)?
+    /// A swipe has switched Spaces: which way the old run left (`+1` toward the
+    /// next Space), and the spec it left on, so the new one can come in from
+    /// the other side at the same pace.
+    var onArrive: ((_ direction: CGFloat, _ spec: MotionSpec) -> Void)?
 
     private let name = NSTextField(labelWithString: "")
     let dots = SpaceDotsView(framed: false)
@@ -43,10 +52,32 @@ final class TopBarSpaceName: NSControl, TopBarThemed {
     private var tracking: NSTrackingArea?
     private var isHovering = false
     private var isSwiping = false
-    /// How far the name is pushed at a full Space of travel. A name that moved
-    /// the whole width of the plate would be gone before the gesture had
-    /// decided anything; this is far enough to read as "being pushed aside".
-    private static let nameTravel: CGFloat = 12
+    private lazy var settling = SpaceSwipeSettle(host: self)
+    /// The spec a swipe is switching Spaces on, while it switches: the new
+    /// name slides in after the tabs (`slideNameIn`) rather than popping, and
+    /// the capsule takes its new width on the same clock.
+    private var swipeArrival: MotionSpec?
+    /// A swipe is switching Spaces, so §4's run slides rather than
+    /// cross-fading (`TopBarTabStrip.reload`).
+    var arrivesBySwipe: Bool { swipeArrival != nil }
+
+    /// How far the capsule has come from `widthFrom` to the width its name
+    /// asks for: 0 is the old width, 1 the new. Read by
+    /// `intrinsicContentSize` on every pass, so animating it resizes the
+    /// capsule's glass for real, frame by frame, and moves everything Auto
+    /// Layout stands beside it. The glass cannot be scaled or clipped into
+    /// shape instead — `CommandBarPanel.morph` has the finding.
+    @objc dynamic var widthMorph: CGFloat = 1 {
+        didSet { invalidateIntrinsicContentSize() }
+    }
+
+    private var widthFrom: CGFloat = 0
+    /// What the capsule is at or heading to — `morphWidth`.
+    private var widthTo: CGFloat = 0
+
+    override static func defaultAnimation(forKey key: NSAnimatablePropertyKey) -> Any? {
+        key == "widthMorph" ? CABasicAnimation() : super.defaultAnimation(forKey: key)
+    }
 
     /// §6.6's lift is over the name, so the dots are out and each is a place
     /// the tab can go.
@@ -64,6 +95,10 @@ final class TopBarSpaceName: NSControl, TopBarThemed {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
+        // The name slides out of the capsule on a swipe and in from its other
+        // side; outside it, it would be drawn over the bar.
+        layer?.masksToBounds = true
+        name.wantsLayer = true
         setAccessibilityElement(true)
         setAccessibilityRole(.group)
 
@@ -81,9 +116,11 @@ final class TopBarSpaceName: NSControl, TopBarThemed {
         addSubview(dots)
 
         swipe.spaces = { [weak self] in (self?.spaces.map(\.id) ?? [], self?.activeSpaceID) }
-        swipe.span = { [weak self] in max(self?.bounds.width ?? 0, TopBarMetrics.nameCeiling) }
+        swipe.span = { [weak self] in self?.swipeSpan ?? 0 }
         swipe.onUpdate = { [weak self] state in self?.read(state) }
-        swipe.onFinish = { [weak self] state, _, committing in self?.settle(state, committing: committing) }
+        swipe.onFinish = { [weak self] state, speed, committing in
+            self?.settle(state, speed: speed, committing: committing)
+        }
 
         applyTokens()
     }
@@ -95,6 +132,8 @@ final class TopBarSpaceName: NSControl, TopBarThemed {
 
     func show(spaces: [Space], activeSpaceID: UUID) {
         let moved = self.activeSpaceID != nil && self.activeSpaceID != activeSpaceID
+        let before = intrinsicContentSize.width
+        defer { morphWidth(from: before) }
         self.spaces = spaces
         self.activeSpaceID = activeSpaceID
         dots.show(spaces: spaces, activeSpaceID: activeSpaceID)
@@ -106,8 +145,33 @@ final class TopBarSpaceName: NSControl, TopBarThemed {
         setAccessibilityLabel(String(localized: "Space: \(title)"))
         invalidateIntrinsicContentSize()
         needsLayout = true
-        guard moved else { return }
+        guard moved, !arrivesBySwipe else { return }
         pop()
+    }
+
+    /// The capsule from `before` to the width it now asks for — a new name, a
+    /// renamed one, or a dot more or fewer — on the swipe's spec when a swipe
+    /// switched, and otherwise on the time §6 gives a Space switch that
+    /// nothing is carrying.
+    private func morphWidth(from before: CGFloat) {
+        let after = naturalWidth
+        // Already there, or on its way: a switch refreshes the bar more than
+        // once, and each restart would begin the curve again from partway.
+        guard abs(after - widthTo) > 0.5 else { return }
+        // The first name the capsule shows is not a change of size.
+        let changes = widthTo > 0
+        widthTo = after
+        guard changes, window != nil, !Tokens.Motion.reduceMotion else {
+            widthFrom = after
+            widthMorph = 1
+            return
+        }
+        widthFrom = before
+        widthMorph = 0
+        Tokens.Motion.animate(swipeArrival ?? Tokens.Motion.spaceSettleSlowest) { context in
+            context.allowsImplicitAnimation = true
+            animator().widthMorph = 1
+        }
     }
 
     /// The new name arriving: it flares out and settles, the way §3.3's light
@@ -187,50 +251,6 @@ final class TopBarSpaceName: NSControl, TopBarThemed {
         }
     }
 
-    // MARK: - §30.9's swipe
-
-    override func scrollWheel(with event: NSEvent) {
-        guard !swipe.scrollWheel(with: event) else { return }
-        super.scrollWheel(with: event)
-    }
-
-    /// The live read-out: the dots follow the fingers, and the name is pushed
-    /// the way they are going and fades as it goes, so the gesture says what
-    /// it is doing before it does it.
-    private func read(_ state: SpaceSwipe) {
-        if !isSwiping {
-            isSwiping = true
-            reveal()
-        }
-        dots.travel = state.travel
-        dots.creation = state.creation
-        let reach = min(abs(state.travel), 1)
-        Tokens.Motion.immediately {
-            name.frame = nameFrame(pushedBy: -state.travel * Self.nameTravel)
-            name.alphaValue = 1 - reach * 0.7
-        }
-    }
-
-    private func settle(_ state: SpaceSwipe, committing: Bool) {
-        defer {
-            isSwiping = false
-            dots.travel = 0
-            dots.creation = 0
-            Tokens.Motion.immediately {
-                name.frame = nameFrame()
-                name.alphaValue = 1
-            }
-            reveal()
-        }
-        guard committing else { return }
-        guard !state.createsSpace else {
-            onNewSpace?()
-            return
-        }
-        guard let landing = state.landing, spaces.indices.contains(landing) else { return }
-        onSwitch?(spaces[landing].id)
-    }
-
     // MARK: - §6.2 and §8.2, from the one place a Space is visible on this bar
 
     override func menu(for event: NSEvent) -> NSMenu? {
@@ -254,12 +274,22 @@ final class TopBarSpaceName: NSControl, TopBarThemed {
     /// side — and the same ceiling on the name a tab's title has, for the same
     /// reason: one long name must not spend the room the tabs need.
     override var intrinsicContentSize: NSSize {
-        let title = min(name.fittingSize.width.rounded(.up), TopBarMetrics.nameCeiling)
+        let width = naturalWidth
         return NSSize(
-            width: max(title, dotsWidth) + TopBarMetrics.gap * 2,
+            width: (widthFrom + (width - widthFrom) * widthMorph).rounded(),
             height: TopBarMetrics.lineHeight
         )
     }
+
+    /// The width the name and dots ask for, with no morph in it.
+    var naturalWidth: CGFloat {
+        let title = min(name.fittingSize.width.rounded(.up), TopBarMetrics.nameCeiling)
+        return max(title, dotsWidth) + TopBarMetrics.gap * 2
+    }
+
+    /// A Space of swipe, in points of hand: the name, or `nameCeiling` for a
+    /// short one. The tabs travel the same distance, one point per point.
+    var swipeSpan: CGFloat { max(bounds.width, TopBarMetrics.nameCeiling) }
 
     /// The dots' run, end to end: `SpaceDotsView.width(forDots:)` at this
     /// bar's scale and without the pill's caps the column's strip adds.
@@ -343,5 +373,94 @@ final class TopBarSpaceName: NSControl, TopBarThemed {
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
         applyTokens()
+    }
+}
+
+// MARK: - §30.9's swipe
+
+extension TopBarSpaceName {
+
+    override func scrollWheel(with event: NSEvent) {
+        guard !swipe.scrollWheel(with: event) else { return }
+        super.scrollWheel(with: event)
+    }
+
+    /// The live read-out: the dots follow the fingers, and the name is pushed
+    /// the way they are going and fades as it goes, so the gesture says what
+    /// it is doing before it does it.
+    private func read(_ state: SpaceSwipe) {
+        if !isSwiping {
+            isSwiping = true
+            reveal()
+        }
+        show(state)
+    }
+
+    /// One frame of the swipe, held or settling — the same frame either way,
+    /// for `SpaceSwipeSettle`'s reason.
+    private func show(_ state: SpaceSwipe) {
+        dots.travel = state.travel
+        dots.creation = state.creation
+        // The name goes the way the tabs go, the whole width of the capsule
+        // for a Space of travel, so it leaves with them rather than nudging
+        // aside and waiting for the switch to replace it.
+        let reach = min(abs(state.travel), 1)
+        Tokens.Motion.immediately {
+            name.frame = nameFrame(pushedBy: -state.travel * bounds.width)
+            name.alphaValue = 1 - reach
+        }
+        onTravel?(state.travel)
+    }
+
+    /// The release: the rest of the way on the speed the hand let go at, then
+    /// the switch. It used to snap back to rest and switch in the same frame,
+    /// which is two jumps where the column makes one movement.
+    private func settle(_ state: SpaceSwipe, speed: CGFloat, committing: Bool) {
+        var target = SpaceSwipe.rest
+        var commit: (() -> Void)?
+        if committing, state.createsSpace {
+            commit = { [weak self] in self?.onNewSpace?() }
+        } else if committing, let landing = state.landing, spaces.indices.contains(landing) {
+            target.travel = state.travel > 0 ? 1 : -1
+            let id = spaces[landing].id
+            commit = { [weak self] in self?.onSwitch?(id) }
+        }
+        let spec = Tokens.Motion.spaceSettle(
+            across: abs(target.travel - state.travel) * swipeSpan,
+            at: abs(speed)
+        )
+        let direction = target.travel
+        settling.run(from: state, to: target, on: spec) { [weak self] frame in
+            self?.show(frame)
+        } onArrival: { [weak self] in
+            guard let self else { return }
+            swipeArrival = direction != 0 ? spec : nil
+            commit?()
+            swipeArrival = nil
+            isSwiping = false
+            show(.rest)
+            if direction != 0 {
+                slideNameIn(from: direction, on: spec)
+                onArrive?(direction, spec)
+            }
+            reveal()
+        }
+    }
+
+    /// The new Space's name coming in from the side the old one did not leave
+    /// by, with the tabs and on their spec.
+    private func slideNameIn(from direction: CGFloat, on spec: MotionSpec) {
+        guard let layer = name.layer, !Tokens.Motion.reduceMotion, spec.duration > 0 else { return }
+        let slide = CABasicAnimation(keyPath: "transform.translation.x")
+        slide.fromValue = direction * bounds.width
+        slide.toValue = 0
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = 0
+        fade.toValue = 1
+        let group = CAAnimationGroup()
+        group.animations = [slide, fade]
+        group.duration = spec.duration
+        group.timingFunction = spec.timingFunction
+        layer.add(group, forKey: "luna.space.slideIn")
     }
 }
