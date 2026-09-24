@@ -83,6 +83,77 @@ final class SidebarPeekReachTests: XCTestCase {
     }
 }
 
+/// A pop-out opened from the peeked sidebar reaches past it, so the pointer
+/// has to leave the sidebar to use the list. The sidebar has to stay out
+/// under it until the list is closed.
+@MainActor
+final class SidebarPeekHoldTests: XCTestCase {
+
+    private struct Fixture {
+        let peek: SidebarPeekController
+        let list: DownloadsPanelController
+        let window: NSWindow
+        let anchor: NSView
+    }
+
+    private func fixture() -> Fixture {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1070, height: 801),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: true
+        )
+        let anchor = NSView(frame: NSRect(x: 20, y: 20, width: 28, height: 28))
+        window.contentView?.addSubview(anchor)
+        let peek = SidebarPeekController()
+        peek.holdWhilePopoutIsUp(in: window)
+        return Fixture(peek: peek, list: DownloadsPanelController(manager: DownloadManager()), window: window, anchor: anchor)
+    }
+
+    /// Long enough for the peek's debounce to have run out.
+    private func settle() async {
+        try? await Task.sleep(for: .seconds(Tokens.Motion.hoverPeekDelay * 3))
+    }
+
+    func testAnOpenListKeepsThePeekUntilItIsClosed() async {
+        let here = fixture()
+        here.peek.setPointerInSidebar(true)
+        await settle()
+        XCTAssertTrue(here.peek.isPeeking)
+
+        here.list.toggle(in: here.window, from: here.anchor, edge: .above)
+        here.peek.setPointerInSidebar(false)
+        await settle()
+        XCTAssertTrue(here.peek.isPeeking, "the sidebar slid away from under its own list")
+
+        here.list.dismiss()
+        await settle()
+        XCTAssertFalse(here.peek.isPeeking)
+    }
+
+    /// A list announced while the sidebar is hidden does not bring it out.
+    func testAListNeverOpensAPeekByItself() async {
+        let here = fixture()
+        here.list.announce(in: here.window, from: here.anchor, edge: .above)
+        await settle()
+        XCTAssertFalse(here.peek.isPeeking)
+        here.list.dismiss()
+    }
+
+    /// A list in another window holds nothing here.
+    func testAListInAnotherWindowDoesNotHoldThisOne() async {
+        let here = fixture()
+        let there = fixture()
+        here.peek.setPointerInSidebar(true)
+        await settle()
+        there.list.toggle(in: there.window, from: there.anchor, edge: .above)
+        here.peek.setPointerInSidebar(false)
+        await settle()
+        XCTAssertFalse(here.peek.isPeeking)
+        there.list.dismiss()
+    }
+}
+
 /// The traffic lights come and go — `⌘S` takes them with the sidebar, §7.2's
 /// peek lends them back for the length of a peek — and that changes no view's
 /// bounds, so nothing in AppKit marks the chrome that lays itself out against

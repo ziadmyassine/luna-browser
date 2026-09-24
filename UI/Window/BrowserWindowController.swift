@@ -157,6 +157,7 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         buildContent(in: window)
         trafficLights = TrafficLightLayoutManager(window: window)
         peek.onChange = { [weak self] peeking in self?.applyPeek(peeking) }
+        peek.holdWhilePopoutIsUp(in: window)
         peekEdge.onPointerInside = { [weak self] inside in self?.peek.setPointerInEdge(inside) }
         peekMenuBar.window = window
         peekMenuBar.onPointerInside = { [weak self] inside in self?.peek.setPointerInMenuBar(inside) }

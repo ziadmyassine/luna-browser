@@ -19,8 +19,21 @@ class PopoutController: NSObject {
     private(set) var presented: PopoutPanelView?
     private var escapeMonitor: Any?
     private var clickMonitor: Any?
+    private weak var host: NSWindow?
 
     var isPresented: Bool { presented != nil }
+
+    /// Posted with the window as its object when a pop-out goes up in it or
+    /// is closed. §7.2's peek holds the sidebar out while one is up.
+    static let presenceDidChange = Notification.Name("LunaPopoutPresenceDidChange")
+
+    /// Downloads' controller serves every window, so a window cannot ask its
+    /// own controllers; it asks this.
+    private static let showing = NSHashTable<PopoutController>.weakObjects()
+
+    static func isShowing(in window: NSWindow) -> Bool {
+        showing.allObjects.contains { $0.host === window }
+    }
 
     /// Builds the pop-out for this presentation. Subclasses fill the panel's
     /// `body` and wire its callbacks; the anchor, the escape key and the
@@ -61,10 +74,13 @@ class PopoutController: NSObject {
         panel.onBackgroundClick = { [weak self] in self?.dismiss() }
         root.addSubview(panel, positioned: .above, relativeTo: nil)
         presented = panel
+        host = window
+        Self.showing.add(self)
 
         panelDidAppear(panel)
         panel.animateIn()
         installEscapeMonitor()
+        NotificationCenter.default.post(name: Self.presenceDidChange, object: window)
     }
 
     /// Closes the pop-out: gone at once as far as the rest of the app is
@@ -88,6 +104,10 @@ class PopoutController: NSObject {
         panel.onBackgroundClick = nil
         panelDidDisappear()
         panel.animateOut()
+        let window = host
+        host = nil
+        Self.showing.remove(self)
+        NotificationCenter.default.post(name: Self.presenceDidChange, object: window)
     }
 
     /// For a pop-out whose sheet lets clicks through

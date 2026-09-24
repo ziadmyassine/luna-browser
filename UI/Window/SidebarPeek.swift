@@ -224,6 +224,32 @@ final class SidebarPeekController {
     private var inMenuBar = false
     private var pending: Task<Void, Never>?
 
+    /// A pop-out standing on one of the peeked sidebar's buttons. It reaches
+    /// past the sidebar, so the pointer leaving the sidebar to use the list
+    /// closed the peek under it. It keeps an open peek open until the pop-out
+    /// is closed, and never opens one: a list announced over a hidden sidebar
+    /// stands in the corner the button is parked off.
+    private var isHeld = false {
+        didSet { if isHeld != oldValue { schedule() } }
+    }
+
+    private var popoutWatch: (any NSObjectProtocol)? {
+        didSet { if let oldValue { NotificationCenter.default.removeObserver(oldValue) } }
+    }
+
+    func holdWhilePopoutIsUp(in window: NSWindow) {
+        popoutWatch = NotificationCenter.default.addObserver(
+            forName: PopoutController.presenceDidChange,
+            object: window,
+            queue: .main
+        ) { [weak self, weak window] _ in
+            MainActor.assumeIsolated {
+                guard let self, let window else { return }
+                self.isHeld = PopoutController.isShowing(in: window)
+            }
+        }
+    }
+
     /// Turns the whole machine off — and closes an open peek — when the window
     /// is not in a state that has anything to peek at.
     var isEnabled = true {
@@ -252,7 +278,7 @@ final class SidebarPeekController {
     }
 
     private func schedule() {
-        let wanted = isEnabled && (inEdge || inSidebar || inMenuBar)
+        let wanted = isEnabled && (inEdge || inSidebar || inMenuBar || (isHeld && isPeeking))
         guard wanted != isPeeking else {
             pending?.cancel()
             pending = nil

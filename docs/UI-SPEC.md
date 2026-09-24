@@ -1686,6 +1686,10 @@ back: it could not be hit at all.
 > in it. The menu bar in fullscreen is read from the pointer every 0.10 s, only while fullscreen with
 > the sidebar hidden: macOS's own menu bar slides over any strip of Luna's at the top.
 
+- **A pop-out keeps it out.** The Downloads and History lists stand on buttons at the sidebar's foot
+  and reach past it, so the pointer has to leave the sidebar to use them — and the peek closed under
+  the list. While either list is open, a peeked sidebar stays until the list is closed. A list never
+  brings a hidden sidebar out by itself: one that a download opens stays in the corner.
 - **The page does not move.** Only the chrome's leading constraint and its opacity animate; the card's
   insets stay collapsed, so nothing reflows for a glance at the tab list.
 - The hidden sidebar parks at `-width` rather than collapsing to zero width: it keeps its layout, and it
