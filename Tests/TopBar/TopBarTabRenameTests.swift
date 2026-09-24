@@ -17,8 +17,6 @@ final class TopBarTabRenameTests: XCTestCase {
 
     private var directory: URL!
     private var window: NSWindow?
-    private var presents = 0
-    private var drained: [String] = []
 
     override func setUp() async throws {
         directory = URL.temporaryDirectory.appending(path: "luna-rename-\(UUID().uuidString)")
@@ -33,7 +31,6 @@ final class TopBarTabRenameTests: XCTestCase {
 
     private struct Fixture {
         let bar: CommandBarController
-        let id: UUID
         let row: TopBarTabRow
         let window: NSWindow
     }
@@ -64,10 +61,7 @@ final class TopBarTabRenameTests: XCTestCase {
         window.contentView = NSView(frame: window.contentLayoutRect)
         self.window = window
         let bar = CommandBarController(session: session, windowID: windowID, adaptive: AdaptiveHistory(store: store))
-        session.setCommandBar({ [weak self] mode, anchor in
-            self?.presents += 1
-            bar.present(mode, in: window, from: anchor)
-        }, inWindow: windowID)
+        session.setCommandBar({ mode, anchor in bar.present(mode, in: window, from: anchor) }, inWindow: windowID)
         let top = TopBarView(session: session, windowID: windowID)
         let content = try XCTUnwrap(window.contentView)
         top.frame = NSRect(
@@ -80,13 +74,13 @@ final class TopBarTabRenameTests: XCTestCase {
         window.makeKeyAndOrderFront(nil)
         top.layoutSubtreeIfNeeded()
         let row = try XCTUnwrap(find(tab.id, in: top) as? TopBarTabRow)
-        // A mouse-up an earlier test posted and never read ends this click's
-        // tracking loop instead of its own, somewhere off the tab, so the
-        // click is no click. It went red on CI and not locally.
-        while let event = NSApp.nextEvent(matching: .any, until: .distantPast, inMode: .default, dequeue: true) {
-            drained.append("\(event.type.rawValue) in \(event.windowNumber) vs \(window.windowNumber)")
-        }
-        return Fixture(bar: bar, id: tab.id, row: row, window: window)
+        // Events earlier tests posted and never read are still in the app's
+        // queue, and this click is read from that queue. On CI the first
+        // click opened no bar, with the tab selected and the window key,
+        // until every kind was drained; draining mouse events alone was not
+        // enough. A stray mouse-up is one way in: it ends the click off the tab.
+        while NSApp.nextEvent(matching: .any, until: .distantPast, inMode: .default, dequeue: true) != nil {}
+        return Fixture(bar: bar, row: row, window: window)
     }
 
     private func press(_ type: NSEvent.EventType, count: Int, on row: TopBarTabRow, in window: NSWindow) -> NSEvent? {
@@ -105,11 +99,10 @@ final class TopBarTabRenameTests: XCTestCase {
 
     func testADoubleClickRenamesOnTheSecondClick() async throws {
         let tab = try await selectedTab()
-        let before = state(of: tab)
         // The press tracks until the button comes up, so the up is queued first.
         tab.window.postEvent(try XCTUnwrap(press(.leftMouseUp, count: 1, on: tab.row, in: tab.window)), atStart: false)
         tab.row.mouseDown(with: try XCTUnwrap(press(.leftMouseDown, count: 1, on: tab.row, in: tab.window)))
-        XCTAssertTrue(tab.bar.isPresented, "the first click is the address. Before: \(before). After: \(state(of: tab))")
+        XCTAssertTrue(tab.bar.isPresented, "the first click is the address")
         try await Task.sleep(for: .seconds(0.1))
 
         tab.window.postEvent(try XCTUnwrap(press(.leftMouseUp, count: 2, on: tab.row, in: tab.window)), atStart: false)
@@ -138,23 +131,6 @@ final class TopBarTabRenameTests: XCTestCase {
     }
 
     // MARK: - Helpers
-
-    /// What the first click depends on, for a failure only CI has shown.
-    private func state(of tab: Fixture) -> String {
-        var strip: NSView? = tab.row.superview
-        while let view = strip, !(view is TopBarTabStrip) { strip = view.superview }
-        let active = (strip as? TopBarTabStrip)?.activeID
-        let queued = NSApp.nextEvent(matching: .leftMouseUp, until: .distantPast, inMode: .default, dequeue: false)
-        return [
-            "screen \(NSScreen.main?.frame ?? .zero) at \(tab.window.backingScaleFactor)x",
-            "window \(tab.window.frame) key \(tab.window.isKeyWindow) app active \(NSApp.isActive)",
-            "row \(tab.row.convert(tab.row.bounds, to: nil)) in a window \(tab.row.window != nil)",
-            "strip \(strip != nil) active \(active == tab.id) (\(String(describing: active)))",
-            "presents \(presents) drained \(drained)",
-            "first responder \(String(describing: tab.window.firstResponder))",
-            "queued up \(queued.map { "\($0.locationInWindow)" } ?? "none")"
-        ].joined(separator: "; ")
-    }
 
     /// Where a view's ink is centred top to bottom, in points.
     private func inkMidY(of view: NSView) -> CGFloat? {
