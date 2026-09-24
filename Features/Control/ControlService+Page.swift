@@ -58,7 +58,7 @@ extension ControlService {
         case let .upload(ref, sources):
             // Read here, after the gate: the user approved these paths, and
             // the guard checks the files as they are now, not as they were.
-            let denied = ControlUpload.deniedFolders(bundleIdentifier: Bundle.main.bundleIdentifier ?? "dk.novapps.luna")
+            let denied = ControlUpload.deniedPaths(bundleIdentifier: Bundle.main.bundleIdentifier ?? "dk.novapps.luna")
             let files = try ControlUpload.resolve(sources, denied: denied).map {
                 ["name": $0.name, "mimeType": $0.mimeType, "data": $0.data.base64EncodedString()]
             }

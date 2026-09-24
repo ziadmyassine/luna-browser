@@ -241,12 +241,23 @@ in between reads nothing. Refused:
   fails this rather than hanging the call);
 - a file with more than one hard link — the other name could be anywhere;
 - a file not owned by the user Luna runs as;
-- anything in `~/.ssh`, `~/Library/Keychains`, `/Library/Keychains` or Luna's
-  own data (its Application Support, Caches, WebKit, HTTPStorages, Cookies,
-  Containers and Logs folders, preferences and saved state), judged both by
-  the path as given (after `..`, case-insensitively) and by where the open
-  file really is (`F_GETPATH`), so a linked folder on the way does not get
-  round it;
+- anything in a credential store — `~/.ssh`, `~/.gnupg`, `~/.aws`,
+  `~/.azure`, `~/.config/gcloud`, `~/.kube`, `~/.docker`, `~/.config/gh`,
+  `~/.password-store`, `~/.1password`, `~/.netrc`, `~/.git-credentials`,
+  `~/.npmrc`, `~/.pypirc`, both Keychains folders;
+- other browsers' data (Chrome, Firefox, Brave, Arc, `~/Library/Safari`,
+  `~/Library/Cookies`) and any app's `Application Support/*/Cookies*`;
+- Luna's own data (its Application Support, Caches, WebKit, HTTPStorages,
+  Cookies, Containers and Logs folders, preferences and saved state);
+- files named like keys or env files anywhere: `id_rsa`, `id_dsa`,
+  `id_ecdsa`, `id_ed25519`, `*.pem`, `*.key`, `*.p12`, `*.pfx`, `.env`,
+  `.env.*`.
+
+Each is judged both by the path as given (after `..`, case-insensitively) and
+by where the open file really is (`F_GETPATH`), so a linked folder on the way
+does not get round it. The lists are tables at the top of `ControlUpload`.
+Also refused:
+
 - more than 10 MB a file or 25 MB a call, inline files included.
 
 The files cross the socket as base64 in one line; `LineReader` has no line

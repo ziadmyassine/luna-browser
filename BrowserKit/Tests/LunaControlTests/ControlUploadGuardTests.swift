@@ -15,7 +15,7 @@ struct ControlUploadGuardTests {
     init() throws {
         home = URL.temporaryDirectory.appending(path: "lc-upload-\(UUID().uuidString)", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: home.appending(path: ".ssh"), withIntermediateDirectories: true)
-        denied = ControlUpload.deniedFolders(home: home, bundleIdentifier: "dk.novapps.luna")
+        denied = ControlUpload.deniedPaths(home: home, bundleIdentifier: "dk.novapps.luna")
     }
 
     private func file(_ name: String, _ contents: String = "hello") throws -> String {
@@ -66,6 +66,10 @@ struct ControlUploadGuardTests {
         let keys = home.appending(path: "keys").path(percentEncoded: false)
         #expect(symlink(home.appending(path: ".ssh").path(percentEncoded: false), keys) == 0)
         refused(keys + "/id_ed25519", "not allowed")
+        _ = try file("Library/Application Support/SomeApp/Cookies.sqlite")
+        let apps = home.appending(path: "apps").path(percentEncoded: false)
+        #expect(symlink(home.appending(path: "Library/Application Support").path(percentEncoded: false), apps) == 0)
+        refused(apps + "/SomeApp/Cookies.sqlite", "not allowed")
     }
 
     @Test func testOversizeRefused() throws {
@@ -109,6 +113,30 @@ struct ControlUploadGuardTests {
         refused(home.appending(path: "Documents/../.ssh/id_ed25519").path(percentEncoded: false), "not allowed")
         // A sibling whose name only starts the same is not Luna's.
         #expect(try read(try file("Library/Application Support/dk.novapps.lunar/notes.txt")).name == "notes.txt")
+    }
+
+    @Test(arguments: [
+        ".gnupg/private-keys-v1.d/a.key", ".aws/credentials", ".azure/accessTokens.json", ".config/gcloud/adc.json",
+        ".kube/config", ".docker/config.json", ".config/gh/hosts.yml", ".netrc", ".git-credentials", ".npmrc",
+        ".pypirc", ".password-store/bank.gpg", ".1password/agent.sock.txt", "Library/Keychains/x.db",
+        "Library/Application Support/Google/Chrome/Default/Login Data",
+        "Library/Application Support/Firefox/Profiles/a/key4.db",
+        "Library/Application Support/BraveSoftware/Brave-Browser/Default/Cookies",
+        "Library/Application Support/Arc/User Data/Default/History", "Library/Safari/History.db",
+        "Library/Cookies/Cookies.binarycookies", "Library/Application Support/SomeApp/Cookies.sqlite",
+        "Library/Application Support/SomeApp/Cookies/a.txt",
+        "Downloads/id_rsa", "Downloads/id_ed25519", "work/server.pem", "work/tls.key", "work/cert.p12",
+        "work/.env", "work/.env.local", "work/.ENV"
+    ])
+    func credentialsAndBrowserDataAreRefused(_ relative: String) throws {
+        refused(try file(relative), "not allowed")
+    }
+
+    @Test func lookalikesAreNotRefused() throws {
+        for relative in ["work/.envrc", "work/keynote.txt", "work/notes.pem.txt", "Documents/id_rsa_notes.md",
+                         "Library/Application Support/SomeApp/settings.json"] {
+            #expect(try read(try file(relative)).name == URL(filePath: relative).lastPathComponent, "\(relative)")
+        }
     }
 
     @Test func notAFileIsRefused() throws {

@@ -28,19 +28,41 @@ public enum ControlUpload {
         }
     }
 
-    /// Where no upload may come from: SSH keys, the keychains, and Luna's
-    /// own data — its profile, cookies and the activity log among it.
-    public static func deniedFolders(
+    /// Credential stores and dotfiles under the home folder: each one and
+    /// everything under it.
+    static let homeSecrets = [
+        ".ssh", ".gnupg", ".aws", ".azure", ".config/gcloud", ".kube", ".docker", ".config/gh", ".netrc",
+        ".git-credentials", ".npmrc", ".pypirc", ".password-store", ".1password", "Library/Keychains"
+    ]
+    /// Other browsers' profiles and the system's cookie jars, under `~/Library`.
+    static let browserData = [
+        "Application Support/Google/Chrome", "Application Support/Firefox", "Application Support/BraveSoftware",
+        "Application Support/Arc", "Safari", "Cookies"
+    ]
+    /// Where Luna keeps its own profile, cookies and activity log, each under
+    /// `~/Library/<folder>/<bundle id>`.
+    static let lunaData = ["Application Support", "Caches", "WebKit", "HTTPStorages", "Cookies", "Containers", "Logs"]
+    /// Globs matched against the whole path, case-insensitively, with `*`
+    /// crossing folders: keys and env files wherever they are.
+    static let secretNames = ["*/id_rsa", "*/id_dsa", "*/id_ecdsa", "*/id_ed25519", "*.pem", "*.key", "*.p12", "*.pfx",
+                              "*/.env", "*/.env.*"]
+
+    /// Everything no upload may come from: a path is refused if it is one of
+    /// these or under one, or matches one that holds a `*`.
+    public static func deniedPaths(
         home: URL = FileManager.default.homeDirectoryForCurrentUser,
         bundleIdentifier: String
     ) -> [String] {
         let library = home.appending(path: "Library")
-        let luna = ["Application Support", "Caches", "WebKit", "HTTPStorages", "Cookies", "Containers", "Logs"]
-            .map { library.appending(path: $0).appending(path: bundleIdentifier) }
-        return ([home.appending(path: ".ssh"), library.appending(path: "Keychains"), URL(filePath: "/Library/Keychains"),
-                 library.appending(path: "Preferences/\(bundleIdentifier).plist"),
-                 library.appending(path: "Saved Application State/\(bundleIdentifier).savedState")] + luna)
-            .map { $0.path(percentEncoded: false) }
+        let roots = homeSecrets.map { home.appending(path: $0) }
+            + browserData.map { library.appending(path: $0) }
+            + lunaData.map { library.appending(path: $0).appending(path: bundleIdentifier) }
+            + [URL(filePath: "/Library/Keychains"),
+               library.appending(path: "Preferences/\(bundleIdentifier).plist"),
+               library.appending(path: "Saved Application State/\(bundleIdentifier).savedState"),
+               // Any app's cookie store, which is where a session token lives.
+               library.appending(path: "Application Support/*/Cookies*")]
+        return roots.map { $0.path(percentEncoded: false) } + secretNames
     }
 
     /// Reads every source in order, holding each file and the whole call to
@@ -127,12 +149,18 @@ public enum ControlUpload {
     /// Compared without case: APFS is case-insensitive by default, so
     /// `~/.SSH` is `~/.ssh`.
     private static func isDenied(_ path: String, by denied: [String]) -> Bool {
-        let path = path.lowercased()
-        return denied.contains { root in
-            [root, canonical(root)].contains { spelled in
-                let root = spelled.lowercased()
-                return path == root || path.hasPrefix(root.hasSuffix("/") ? root : root + "/")
+        denied.contains { entry in
+            guard let star = entry.firstIndex(of: "*") else {
+                return [entry, canonical(entry)].contains { root in
+                    let path = path.lowercased(), root = root.lowercased()
+                    return path == root || path.hasPrefix(root.hasSuffix("/") ? root : root + "/")
+                }
             }
+            // The glob's folder part is canonicalised like a root; a trailing
+            // `*` also covers what is under a match.
+            let folder = String(entry[..<star])
+            let globs = folder.isEmpty ? [entry] : [entry, canonical(folder) + (folder.hasSuffix("/") ? "/" : "") + entry[star...]]
+            return globs.contains { fnmatch($0, path, FNM_CASEFOLD) == 0 }
         }
     }
 
