@@ -31,6 +31,7 @@ extension ControlService {
         // Every call, so the recorder is there from the first touch of each
         // new document on. Refused on pages with no script, which is fine.
         _ = try? await webView.callAsyncJavaScript(ControlScripts.consoleInstall, arguments: [:], in: nil, contentWorld: .page)
+        if let result = try await trustedInput(command, in: webView) { return result }
         if let (operation, args, acts) = Self.libraryCall(for: command) {
             var result = acts
                 ? try await acting(operation, in: webView, args)
