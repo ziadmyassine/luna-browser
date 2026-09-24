@@ -280,8 +280,8 @@ final class DownloadsPanelRowView: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
-    /// Re-reads the item. Called on every progress tick, so it assigns and does
-    /// nothing else.
+    /// Re-reads the item. Called on every progress refresh, so it assigns and
+    /// does nothing else — the icon is the item's cached one.
     func refresh() {
         icon.image = item.icon
         name.stringValue = item.filename

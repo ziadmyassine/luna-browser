@@ -18,6 +18,7 @@ class PopoutController: NSObject {
 
     private(set) var presented: PopoutPanelView?
     private var escapeMonitor: Any?
+    private var clickMonitor: Any?
 
     var isPresented: Bool { presented != nil }
 
@@ -81,10 +82,42 @@ class PopoutController: NSObject {
         presented = nil
         if let escapeMonitor { NSEvent.removeMonitor(escapeMonitor) }
         escapeMonitor = nil
+        if let clickMonitor { NSEvent.removeMonitor(clickMonitor) }
+        clickMonitor = nil
         // It is closing, so it no longer answers the click that closes it.
         panel.onBackgroundClick = nil
         panelDidDisappear()
         panel.animateOut()
+    }
+
+    /// For a pop-out whose sheet lets clicks through
+    /// (`PopoutPanelView.catchesOutsideClicks`): a click anywhere beside the
+    /// panel still closes it, and then carries on to whatever it was aimed at.
+    ///
+    /// Except on `anchor`. The button toggles the pop-out itself, and a click
+    /// that closed it here would reach the button with nothing open and put it
+    /// straight back up.
+    func dismissOnClickOutside(sparing anchor: NSView) {
+        clickMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]
+        ) { [weak self, weak anchor] event in
+            MainActor.assumeIsolated {
+                guard let self, let panel = self.presented,
+                      Self.lands(event, outside: [panel.body, anchor])
+                else { return }
+                self.dismiss()
+            }
+            return event
+        }
+    }
+
+    /// Whether a click is on none of `views`. A click in another window is on
+    /// none of them.
+    static func lands(_ event: NSEvent, outside views: [NSView?]) -> Bool {
+        !views.contains { view in
+            guard let view, let window = view.window, event.windowNumber == window.windowNumber else { return false }
+            return view.bounds.contains(view.convert(event.locationInWindow, from: nil))
+        }
     }
 
     /// `esc` closes the pop-out from anywhere in it, not only from a field —

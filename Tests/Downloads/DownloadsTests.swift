@@ -10,6 +10,10 @@
 //  thousand downloads and is unreviewable by eye when it does. §5.0's arc is
 //  the same argument about geometry, and lives in `DownloadFlightTests`.
 //
+//  At the end, the one piece of §5.0's list that is behaviour: a list a
+//  download opened does not stand between the page and the next click, and
+//  that click still closes it.
+//
 
 import XCTest
 @testable import Luna
@@ -85,5 +89,85 @@ final class DownloadRiskTests: XCTestCase {
         for name in ["statement.pdf", "photo.png", "bundle.zip", "notes.txt", "data.csv", "noextension"] {
             XCTAssertFalse(DownloadRisk.isRisky(filename: name), "\(name) should not warn")
         }
+    }
+}
+
+/// §5.0's list, opened by a download rather than by a press. The page stays
+/// the user's while it is up: a click on the next file's link has to reach
+/// that link instead of closing the list.
+@MainActor
+final class DownloadsAnnounceTests: XCTestCase {
+
+    private func window() -> (NSWindow, NSView) {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1070, height: 801),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: true
+        )
+        let anchor = NSView(frame: NSRect(x: 20, y: 20, width: 28, height: 28))
+        window.contentView?.addSubview(anchor)
+        return (window, anchor)
+    }
+
+    /// The middle of the window, well clear of the list standing on a button
+    /// in the corner.
+    private let onThePage = NSPoint(x: 700, y: 500)
+
+    func testAListADownloadOpenedLetsThePageTakeTheClick() {
+        let (window, anchor) = window()
+        let controller = DownloadsPanelController(manager: DownloadManager())
+        controller.announce(in: window, from: anchor, edge: .above)
+        let sheet = try? XCTUnwrap(controller.presented)
+        sheet?.layoutSubtreeIfNeeded()
+        XCTAssertNil(sheet?.hitTest(onThePage), "the sheet is still eating the click on the page")
+        XCTAssertNotNil(sheet?.hitTest(NSPoint(x: sheet?.body.frame.midX ?? 0, y: sheet?.body.frame.midY ?? 0)))
+        controller.dismiss()
+    }
+
+    /// It still closes on a click beside it — anywhere but the list and the
+    /// button, which toggles it by itself.
+    func testAClickBesideTheListClosesItAndTheButtonIsSpared() throws {
+        let (window, anchor) = window()
+        let controller = DownloadsPanelController(manager: DownloadManager())
+        controller.announce(in: window, from: anchor, edge: .above)
+        let sheet = try XCTUnwrap(controller.presented)
+        sheet.layoutSubtreeIfNeeded()
+        func click(_ point: NSPoint, in view: NSView) throws -> NSEvent {
+            try XCTUnwrap(NSEvent.mouseEvent(
+                with: .leftMouseDown,
+                location: view.convert(point, to: nil),
+                modifierFlags: [],
+                timestamp: 0,
+                windowNumber: window.windowNumber,
+                context: nil,
+                eventNumber: 0,
+                clickCount: 1,
+                pressure: 1
+            ))
+        }
+        let spared: [NSView?] = [sheet.body, anchor]
+        let body = sheet.body.bounds
+        XCTAssertTrue(PopoutController.lands(try click(onThePage, in: sheet), outside: spared))
+        XCTAssertFalse(PopoutController.lands(try click(NSPoint(x: body.midX, y: body.midY), in: sheet.body), outside: spared))
+        XCTAssertFalse(PopoutController.lands(try click(NSPoint(x: 14, y: 14), in: anchor), outside: spared))
+        controller.dismiss()
+    }
+
+    /// A list the user opened keeps the ordinary rule: a click beside it
+    /// closes it and goes no further.
+    func testAListOpenedWithTheButtonStillCatchesTheClick() {
+        let (window, anchor) = window()
+        let controller = DownloadsPanelController(manager: DownloadManager())
+        controller.toggle(in: window, from: anchor, edge: .above)
+        controller.presented?.layoutSubtreeIfNeeded()
+        XCTAssertTrue(controller.presented?.hitTest(onThePage) === controller.presented)
+        controller.dismiss()
+    }
+
+    /// The icon is looked up once, not on every progress refresh.
+    func testTheIconIsReadOnce() {
+        let item = DownloadItem(request: nil, pageURL: nil, filename: "report.pdf", spaceID: nil)
+        XCTAssertTrue(item.icon === item.icon)
     }
 }

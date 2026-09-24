@@ -60,6 +60,8 @@ final class DownloadsPanelController: PopoutController {
         guard !isPresented else { return }
         self.edge = edge
         present(in: window, from: anchor)
+        presented?.catchesOutsideClicks = false
+        dismissOnClickOutside(sparing: anchor)
         presented?.onHoverChanged = { [weak self] hovering in
             hovering ? self?.stopCountdown() : self?.startCountdown()
         }

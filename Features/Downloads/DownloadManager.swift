@@ -169,9 +169,24 @@ final class DownloadManager {
 
     // MARK: - Called back by `DownloadTask`
 
+    /// WebKit reports progress per chunk received, which on a fast
+    /// connection is hundreds of times a second. Passed straight on, every
+    /// report re-read every row and restarted the bar's travel before it
+    /// arrived, and with two files going the main thread spent its frames on
+    /// the list: the flight of the next file stuttered and its click waited.
+    /// So reports are gathered into one refresh per `loadLineAdvance`, the
+    /// time the bar takes to reach a value, which lets each travel finish.
     fileprivate func progressChanged() {
-        onChange?()
+        guard onChange != nil, !isRefreshPending else { return }
+        isRefreshPending = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + Tokens.Motion.loadLineAdvance.duration) { [weak self] in
+            guard let self else { return }
+            isRefreshPending = false
+            onChange?()
+        }
     }
+
+    private var isRefreshPending = false
 
     /// The destination is decided and the first byte is on its way. See
     /// `onBegin` for why this is not `begin`.

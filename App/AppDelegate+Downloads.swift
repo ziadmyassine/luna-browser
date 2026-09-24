@@ -156,6 +156,10 @@ extension AppDelegate {
     /// the item itself is not a parameter. The list reads the manager's items
     /// for the Space it is standing in.
     private func announceCompletion() {
+        // A small file can finish before its icon lands, and the list opening
+        // under a file still in the air cuts the throw short. The landing
+        // opens it, on the row that has already finished.
+        guard DownloadFlightView.inAir == 0 else { return }
         guard let site = downloadsSite(), let window = browserWindow?.window else { return }
         downloadsPanel?.announce(in: window, from: site.anchor, edge: site.edge)
     }

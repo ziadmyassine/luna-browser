@@ -16,14 +16,12 @@
 //  here knows which chrome is up — the caller hands over a landing point and
 //  the glass that owns it, and the arc is drawn between two points.
 //
-//  Driven a frame at a time rather than by a path animation: a
-//  `CAKeyframeAnimation` along a `CGPath` wants that path in the superlayer's
-//  geometry, and a layer-backed AppKit view may or may not have its geometry
-//  flipped depending on what it was added to. A display link and a frame per
-//  tick is a few lines, is exact in view coordinates, and is what
-//  `SpaceSwipeSettle` already does for the same reason. It also means the
-//  scale and the fade come off the same clock as the position, instead of
-//  three animations agreeing by construction.
+//  Keyframes sampled from the arc rather than a `CGPath`: a path wants the
+//  superlayer's geometry, and a layer-backed AppKit view may or may not have
+//  its geometry flipped depending on what it was added to. Each sample is
+//  placed as a view frame and read back off the layer (`keyframes(for:)`),
+//  so the arc is computed in view coordinates and the values are in the
+//  layer's. Position, size and fade are one group on one clock.
 //
 //  The arithmetic is separate from the view (`DownloadFlight`), because the
 //  arc is the part that can be wrong in a way nobody sees: turning the wrong
@@ -131,8 +129,18 @@ final class DownloadFlightView: NSView {
     private let origin: CGPoint
     private let landing: CGPoint
     private let onLanding: () -> Void
-    private var startedAt: CFTimeInterval = 0
-    private var link: CADisplayLink?
+    /// Set once the file has landed or the overlay has left its window,
+    /// whichever comes first. The other one then does nothing.
+    private var isDone = false
+
+    /// Files still on their way to the button. The one that lands opens the
+    /// list, so a download that finishes mid-flight leaves the list to it.
+    private(set) static var inAir = 0
+
+    /// Points sampled along the arc for Core Animation to run between. The
+    /// flight lasts about 36 frames at 120 Hz, so a straight run between 32
+    /// samples of a quadratic is under a point from the curve at every frame.
+    static let keyframeCount = 32
 
     /// Throws `icon` from `origin` to `landing`, both in `root`'s coordinates,
     /// and calls `onLanding` when it arrives — or immediately under Reduce
@@ -154,6 +162,7 @@ final class DownloadFlightView: NSView {
         flight.frame = root.bounds
         flight.autoresizingMask = [.width, .height]
         root.addSubview(flight, positioned: .above, relativeTo: nil)
+        inAir += 1
         flight.start()
     }
 
@@ -197,27 +206,80 @@ final class DownloadFlightView: NSView {
         // edge is all that separates it from whatever is under it, which is
         // the same argument the popover's shadow is there for.
         ghost.layer.map { Tokens.Shadow.popover.apply(to: $0, in: effectiveAppearance) }
-        place(at: 0)
-        startedAt = CACurrentMediaTime()
-        let link = displayLink(target: self, selector: #selector(tick))
-        link.add(to: .main, forMode: .common)
-        self.link = link
+        guard let layer = ghost.layer else { return land() }
+        let flight = keyframes(for: layer)
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { [weak self] in
+            MainActor.assumeIsolated { self?.land() }
+        }
+        layer.add(flight, forKey: "downloadFlight")
+        CATransaction.commit()
     }
 
-    @objc private func tick(_ sender: CADisplayLink) {
-        let elapsed = CACurrentMediaTime() - startedAt
+    /// The whole arc, handed to Core Animation in one piece.
+    ///
+    /// It was driven a frame at a time from a display link, and on the first
+    /// download of a session the link did not fire: nothing else on screen was
+    /// changing, so no frame was coming, and the icon sat at the pointer for
+    /// two seconds and then arrived at once — measured, one tick 2.1 s after
+    /// the throw. An animation the render server runs needs nothing from the
+    /// main thread once it is added, busy or idle.
+    ///
+    /// Each sample is placed the way a frame is and read back off the layer,
+    /// so the values are in whatever geometry AppKit gave the layer and the
+    /// arc is still computed in this view's own coordinates. The model is
+    /// left at the landing, which is where the file is when the animation
+    /// comes off.
+    private func keyframes(for layer: CALayer) -> CAAnimationGroup {
+        let steps = Self.keyframeCount
+        var positions: [NSValue] = []
+        var sizes: [NSValue] = []
+        var opacities: [Float] = []
+        for step in 0...steps {
+            place(at: CGFloat(step) / CGFloat(steps))
+            positions.append(NSValue(point: layer.position))
+            sizes.append(NSValue(size: layer.bounds.size))
+            opacities.append(layer.opacity)
+        }
+        func track(_ keyPath: String, _ values: [Any]) -> CAKeyframeAnimation {
+            let track = CAKeyframeAnimation(keyPath: keyPath)
+            track.values = values
+            track.calculationMode = .linear
+            return track
+        }
+        let group = CAAnimationGroup()
+        group.animations = [
+            track("position", positions),
+            track("bounds.size", sizes),
+            track("opacity", opacities)
+        ]
+        // Linear on purpose: the path is the projectile, see `control`.
         let spec = Tokens.Motion.downloadFlight
-        place(at: spec.progress(at: elapsed))
-        guard elapsed >= spec.duration else { return }
-        link?.invalidate()
-        link = nil
+        group.duration = spec.duration
+        group.timingFunction = spec.timingFunction
+        return group
+    }
+
+    private func land() {
+        guard !isDone else { return }
+        isDone = true
         removeFromSuperview()
+        Self.inAir -= 1
         onLanding()
     }
 
+    /// Taken out mid-flight with its window. A file counted in the air for
+    /// ever would keep every later list shut.
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        super.viewWillMove(toWindow: newWindow)
+        guard newWindow == nil, !isDone else { return }
+        isDone = true
+        Self.inAir -= 1
+    }
+
     private func place(at progress: CGFloat) {
-        // A frame computed from a clock, not from `bounds` — but it must still
-        // land rather than animate, because this is the animation.
+        // A frame computed from the arc, not from `bounds` — but it must still
+        // land rather than animate, because the keyframes are the animation.
         Tokens.Motion.immediately {
             let side = Tokens.Metric.downloadsFileIcon * DownloadFlight.scale(at: progress)
             let centre = DownloadFlight.point(

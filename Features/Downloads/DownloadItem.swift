@@ -139,13 +139,25 @@ final class DownloadItem {
 
     /// The file-type icon for §5's 34 pt slot. Uses the real file once it
     /// exists so a PDF looks like that PDF, and falls back to the type.
+    ///
+    /// Cached per file or type, because the list re-reads it for every row on
+    /// every progress refresh and `NSWorkspace` builds a new image each time.
     var icon: NSImage {
-        if let destination, isOnDisk {
-            return NSWorkspace.shared.icon(forFile: destination.path)
+        let onDisk = destination.flatMap { isOnDisk ? $0.path : nil }
+        let key = onDisk.map { "file:" + $0 } ?? "type:" + (filename as NSString).pathExtension
+        if let cachedIcon, cachedIcon.key == key { return cachedIcon.image }
+        let image: NSImage
+        if let onDisk {
+            image = NSWorkspace.shared.icon(forFile: onDisk)
+        } else {
+            let type = UTType(filenameExtension: (filename as NSString).pathExtension)
+            image = NSWorkspace.shared.icon(for: type ?? .data)
         }
-        let type = UTType(filenameExtension: (filename as NSString).pathExtension)
-        return NSWorkspace.shared.icon(for: type ?? .data)
+        cachedIcon = (key, image)
+        return image
     }
+
+    private var cachedIcon: (key: String, image: NSImage)?
 }
 
 // MARK: - Where the bytes land

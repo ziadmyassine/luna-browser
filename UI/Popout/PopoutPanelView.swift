@@ -154,8 +154,18 @@ class PopoutPanelView: NSView {
     /// it, and a click on a link would do nothing at all.
     private var isClosing = false
 
+    /// Whether a click beside the panel is caught by the sheet. Off for a
+    /// pop-out that nobody opened: §5.0's list, put up by a download starting.
+    /// The pointer is still on the page it was downloading from, and the sheet
+    /// ate the click on the next file's link — the second download never
+    /// started. The click still closes it, through
+    /// `PopoutController.dismissOnClickOutside`, and then reaches the page.
+    var catchesOutsideClicks = true
+
     override func hitTest(_ point: NSPoint) -> NSView? {
-        isClosing ? nil : super.hitTest(point)
+        guard !isClosing else { return nil }
+        let hit = super.hitTest(point)
+        return hit === self && !catchesOutsideClicks ? nil : hit
     }
 
     // MARK: - Motion
