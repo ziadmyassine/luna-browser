@@ -8,6 +8,20 @@ import Foundation
 /// which comes from the characters; the code only feeds `event.code`.
 public enum ControlInput {
 
+    /// Why a trusted click at a spot the library's `locate` routed elsewhere
+    /// is refused: a native select, date or colour picker, or a file dialog,
+    /// runs on the user's screen however it is opened.
+    public static func refusal(routing route: String?) -> String? {
+        switch route {
+        case "form_input":
+            "That opens a native picker on the user's screen, so Luna does not click it. Set it with form_input."
+        case "file_upload":
+            "That opens a file dialog on the user's screen, so Luna does not click it. Use file_upload with its ref."
+        default:
+            nil
+        }
+    }
+
     public struct Modifiers: OptionSet, Sendable, Hashable {
         public let rawValue: Int
         public init(rawValue: Int) { self.rawValue = rawValue }

@@ -99,4 +99,21 @@ struct ControlInputTests {
         #expect(ControlAudit.summary(of: .click(.ref("e1"), clickCount: 1, button: .right, modifiers: [], trusted: true))
             == "click e1 right")
     }
+
+    // The gate inspects a drag at both ends: a slider CAPTCHA is pressed at
+    // the start, and a drop on "Delete" or "Pay" lands at the end.
+    @Test func aDragIsInspectedAtBothEnds() {
+        let drag = ControlCommand.drag(from: .ref("e1"), to: .point(x: 10, y: 20))
+        #expect(drag.inspections == [["op": "click", "ref": "e1"], ["op": "click", "x": 10.0, "y": 20.0]])
+        #expect(ControlCommand.click(.ref("e2"), clickCount: 2, button: .right).inspections == [["op": "click", "ref": "e2"]])
+        #expect(ControlCommand.key("Enter", repeat: 3).inspections == [["op": "key", "keys": "Enter"]])
+        #expect(ControlCommand.type("hi", ref: nil).inspections == [["op": "type"]])
+        #expect(ControlCommand.hover(.ref("e1")).inspections.isEmpty)
+    }
+
+    @Test func aFilePickerPointsAtFileUpload() {
+        #expect(ControlInput.refusal(routing: "file_upload")?.contains("Use file_upload with its ref") == true)
+        #expect(ControlInput.refusal(routing: "form_input")?.contains("form_input") == true)
+        #expect(ControlInput.refusal(routing: nil) == nil)
+    }
 }

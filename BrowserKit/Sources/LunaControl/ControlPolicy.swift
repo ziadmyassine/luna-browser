@@ -202,6 +202,27 @@ extension ControlCommand {
         }
     }
 
+    /// The library `inspect` calls the gate makes before an acting call
+    /// runs, one per element it touches. A drag is read at both ends: a
+    /// slider CAPTCHA is pressed where it starts, and a drop on "Delete" or
+    /// "Pay" lands where it ends. Nothing for a call with no element.
+    public var inspections: [[String: JSONValue]] {
+        func at(_ target: Target) -> [String: JSONValue] {
+            switch target {
+            case let .ref(ref): ["op": "click", "ref": .string(ref)]
+            case let .point(x, y): ["op": "click", "x": .double(x), "y": .double(y)]
+            }
+        }
+        switch self {
+        case let .click(target, _, _, _, _): return [at(target)]
+        case let .drag(from, to, _): return [at(from), at(to)]
+        case let .type(_, ref, _): return [ref.map { ["op": "type", "ref": .string($0)] } ?? ["op": "type"]]
+        case let .key(keys, _, _): return [["op": "key", "keys": .string(keys)]]
+        case let .fill(ref, _): return [["op": "fill", "ref": .string(ref)]]
+        default: return []
+        }
+    }
+
     var readsLocalFile: Bool {
         guard case let .upload(_, files) = self else { return false }
         return files.contains { if case .path = $0 { true } else { false } }

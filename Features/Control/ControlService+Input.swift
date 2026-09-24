@@ -26,7 +26,7 @@ extension ControlService {
         switch command {
         case let .click(target, count, button, modifiers, true) where button != .middle:
             let spot = try await locate(target, in: webView)
-            if let refusal = Self.refusal(routing: spot.route) { return .error(refusal) }
+            if let refusal = ControlInput.refusal(routing: spot.route) { return .error(refusal) }
             return try await onStage(webView) { stage in
                 try stage.click(at: spot.point, right: button == .right, count: count, modifiers: modifiers)
                 return "Clicked \(spot.name)"
@@ -102,20 +102,5 @@ extension ControlService {
             point: CGPoint(x: x, y: y), route: object["route"] as? String,
             draggable: object["draggable"] as? Bool ?? false, name: object["name"] as? String ?? ""
         )
-    }
-
-    /// A native select, date or colour picker, or a file dialog, runs on the
-    /// user's screen however it is opened; these are set without one.
-    private static func refusal(routing route: String?) -> String? {
-        switch route {
-        case "form_input":
-            "That opens a native picker on the user's screen, so Luna does not click it. Set it with form_input."
-        case "file_upload" where ControlTools.names.contains("file_upload"):
-            "That opens a file dialog on the user's screen, so Luna does not click it. Use file_upload with its ref."
-        case "file_upload":
-            "That opens a file dialog on the user's screen, so Luna does not click it, and cannot choose files yet."
-        default:
-            nil
-        }
     }
 }
