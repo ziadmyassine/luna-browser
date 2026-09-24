@@ -143,6 +143,7 @@ They can only close tabs in their own folder.
 | `screenshot` | PNG of the viewport at 1 px per CSS pixel |
 | `javascript` | Run code in the page and return the last value as JSON |
 | `console_read` | Console output since Luna Control first touched the page (`pattern`, `only_errors`, `clear`) |
+| `network_read` | Requests since Luna Control first touched the tab, with headers and, with `include_bodies`, bodies. `pattern`, `clear`. See *Network log* |
 | `tab_close` | Close a tab in the agent's folder |
 | `wait` | Sleep up to 30 s |
 
@@ -189,7 +190,7 @@ Settings → Luna Control → *Before an app acts on a page*:
 
 - *Acting* means `navigate`, `tab_open` with a URL, `click`, `type`, `key`,
   `form_input` and `javascript`. Reading (`tabs_list`, `read_page`,
-  `page_text`, `find`, `screenshot`, `console_read`), `scroll`, `wait`, a blank
+  `page_text`, `find`, `screenshot`, `console_read`, `network_read`), `scroll`, `wait`, a blank
   `tab_open` and `tab_close` (own folder only) never ask.
 - A grant is the app's display name plus the registrable domain
   (`shop.example.com` → `example.com`, via the public-suffix list). Settings
@@ -244,6 +245,28 @@ call as an error telling it not to work around it.
 - `javascript` can still read anything the page can, and returns it through
   the same redactor. A secret in a shape the redactor does not know gets
   through, so only connect agents you trust.
+
+### Network log
+
+`network_read` is an approximation, and its description tells the agent so.
+
+- The first call on a tab adds a page-world script, from then on at document
+  start and main frame only, that wraps `fetch`, `XMLHttpRequest`,
+  `sendBeacon` and `WebSocket.send`. Tabs no agent has touched never get it.
+  Other resources come from resource timing: URL, type, status, no headers.
+- Each document the tab loads, main frame and iframes, is taken from the
+  navigation response: status and response headers, minus `Set-Cookie`.
+- Bodies are read only if textual, from a clone, and cut at 10 KB; the page
+  log keeps the newest 500 entries and starts again on each navigation.
+- It cannot see headers the browser adds (`Cookie`, `User-Agent`),
+  `Set-Cookie`, cross-origin response headers the server does not expose,
+  no-cors bodies, workers and service workers, requests from inside iframes,
+  or the headers and bodies of images, scripts and stylesheets.
+- Everything passes the redactor above, so `Authorization` values, tokens in
+  URLs and secret JSON fields come back `[hidden]`.
+- The page can read and rewrite the log, so it is fenced as untrusted like any
+  other page text. The wrapped `fetch` is also visible to the page's own
+  fingerprinting; that is not hidden.
 
 ### Untrusted page data
 
