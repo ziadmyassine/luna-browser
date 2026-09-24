@@ -146,6 +146,8 @@ They can only close tabs in their own folder.
 | `tab_close` | Close a tab in the agent's folder |
 | `wait` | Sleep up to 30 s |
 
+Acting tools may wait for the user's approval first; see *Security*.
+
 Every page tool takes an optional `tabId`. Without one it uses the tab the
 agent last opened or acted on, or the tab in front if there is none yet. A
 tab that has gone to sleep is woken first. It stays out of sight and does not
@@ -160,7 +162,11 @@ events, and the synthesised ones will not work there.
 ## Security
 
 Whoever connects controls a browser that is signed in as the user, with every
-cookie in every non-private Space. That is why it is opt-in and why:
+cookie in every non-private Space. That is why it is opt-in, and why every
+call passes one gate in Luna (`Features/Control/ControlService+Safety.swift`)
+before it runs. `tabs_list` and `wait` go through it too.
+
+### Who can connect
 
 - The only way in is the Unix socket. There is no TCP port and no network
   listener, so nothing off this Mac can reach it.
@@ -168,6 +174,101 @@ cookie in every non-private Space. That is why it is opt-in and why:
   running as the same macOS user can connect.
 - The socket exists only while the setting is on.
 - Private windows are not reachable. Luna Control only sees the main session.
-- Password field values are never included in `read_page` or `find`. They are
-  shown as `[hidden]`. `javascript` can still read anything the page can, so
-  only connect agents you trust.
+- Luna's own pages (anything not `http`, `https`, `about`, `data`, `file` or
+  `blob`) are refused for reading and acting alike.
+
+### Modes and grants
+
+Settings → Luna Control → *Before an app acts on a page*:
+
+| Mode | Acting calls |
+|---|---|
+| **Ask** (default) | Every one waits for the user |
+| **Per Site** | Allowed on a site the user allowed for this app; anywhere else waits, and the prompt can allow the site |
+| **Allow All** | Allowed, except as below |
+
+- *Acting* means `navigate`, `tab_open` with a URL, `click`, `type`, `key`,
+  `form_input` and `javascript`. Reading (`tabs_list`, `read_page`,
+  `page_text`, `find`, `screenshot`, `console_read`), `scroll`, `wait`, a blank
+  `tab_open` and `tab_close` (own folder only) never ask.
+- A grant is the app's display name plus the registrable domain
+  (`shop.example.com` → `example.com`, via the public-suffix list). Settings
+  lists every grant with a Revoke button.
+- In every mode, opening a `file:` URL asks, and so does acting on a site
+  whose page addressed the agent (below).
+- No tool can read or change the mode or the grants. Only Settings and the
+  user's own answer to a prompt write them.
+- The rules are one pure function, `ControlPolicy.decide`, tested in
+  `ControlPolicyTests`.
+
+### Asking
+
+A call that needs approval waits without taking the user's window: the
+folder's icon becomes a raised hand and the Dock icon bounces once
+(`requestUserAttention(.informationalRequest)`). Luna is never activated and
+no window becomes key. Clicking the folder opens a card saying what the call
+will do and where, with **Deny**, **Allow Once** and, in Per Site mode,
+**Allow on *site***. None of them is the default button. A request nobody
+answers is declined after five minutes. If the page moved to another site
+while the user was deciding, the call is not made. The agent reads a declined
+call as an error telling it not to work around it.
+
+### Stop and pause
+
+- Right-click an agent's folder for **Pause Agent** (new calls are refused,
+  running ones finish), **Stop Agent** (running calls, including ones waiting
+  for approval, are cancelled and new ones refused) and **Resume Agent**. The
+  folder wears a pause or stop icon meanwhile.
+- **Luna → Stop All Agents** does the same for every client until **Resume
+  Agents**. It works even with the setting off.
+- Selecting one of the agent's own tabs takes it over: acting calls on the
+  tab in front are refused until the user leaves it.
+- Holds last until resumed or until Luna quits.
+
+### Redaction
+
+- The page scripts never return the value of a password field, any
+  `autocomplete="cc-*"` field, a one-time code, or a field whose name, id or
+  label says card number, CVV/CVC, OTP, PIN, SSN or IBAN. They show
+  `value=[hidden]` and keep the label, so the agent can still find the field
+  and hand it to the user.
+- Screenshots draw those fields as dots (`-webkit-text-security`) for the
+  picture and put them back after. Fields inside iframes and shadow roots are
+  not reached.
+- Every text result then goes through `ControlRedactor`: Luhn-valid runs of
+  13–19 digits, JWTs, `Bearer` tokens, the values of `Authorization`,
+  `Cookie`, `Set-Cookie`, API-key and CSRF headers, and query, cookie or JSON
+  values whose name ends in token, secret, session, code, key, password and
+  the like become `[hidden]`. It errs toward hiding; an order number that is
+  not a valid card number stays.
+- `javascript` can still read anything the page can, and returns it through
+  the same redactor. A secret in a shape the redactor does not know gets
+  through, so only connect agents you trust.
+
+### Untrusted page data
+
+Page-derived text comes back fenced:
+
+```
+<untrusted_page_data nonce=3f9c… url="https://example.com/">
+…
+</untrusted_page_data nonce=3f9c…>
+```
+
+The nonce is new for each result and any `untrusted_page_data` tag inside the
+text is escaped, so a page can neither close the fence nor open one of its
+own. MCP's `instructions` and every page tool's description say that what is
+inside is data, never instructions. If the text looks like it is talking to
+an AI agent ("ignore previous instructions", "note to AI agents", a fake
+`</system>`), Luna says so in the result and every acting call on that site
+asks for the rest of the connection, whatever the mode.
+
+### Activity log
+
+Every call is written as one JSON line to
+`~/Library/Application Support/dk.novapps.luna/Control/activity.jsonl` (mode
+`0600`): time, app, tool, tab, site, a summary, the decision (`allowed`,
+`approved`, `declined`, `refused`, `stopped`) and whether it failed. Typed
+text is counted, not kept, and script is scrubbed and cut to 200 characters.
+Past 4 MB the file rolls to `activity.1.jsonl`. Settings shows the last
+twenty calls.
