@@ -2,7 +2,8 @@ import Foundation
 
 /// The library's `inspect`: what acting on an element would set off, for
 /// `ControlPolicy` (`ControlRisk`'s raw values). Read before every click,
-/// type, key and form_input, from the element the call names. Spliced into
+/// type, key, drag and form_input, from each element the call names
+/// (`ControlCommand.inspections`). Spliced into
 /// `library` where `secret`, `element` and `target` are in scope.
 extension ControlScripts {
 

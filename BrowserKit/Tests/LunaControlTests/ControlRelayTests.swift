@@ -57,7 +57,7 @@ struct ControlRelayTests {
     @Test func roundTripsThroughTheSocket() throws {
         let path = socketPath()
         let listener = try ControlListener(path: path) { call, client in
-            .text("\(client.displayName) asked for \(call.command)")
+            .text("\(client.displayName) asked for \(ControlAudit.tool(of: call.command))")
         }
         defer { listener.stop() }
 

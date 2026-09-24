@@ -24,7 +24,7 @@ struct ControlPolicyTests {
     private var reading: [ControlCommand] {
         [
             .listTabs, .openTab(nil), .readPage(interactiveOnly: false, ref: nil, maxDepth: 30), .pageText,
-            .find("pay"), .scroll(.down, amount: 3, target: nil), .screenshot,
+            .find("pay"), .scroll(.down, amount: 3, target: nil), .screenshot(),
             .console(pattern: nil, onlyErrors: false, clear: true), .wait(seconds: 1), .closeTab,
             .requestUser("Sign in"), .dialog(accept: false, text: nil)
         ]

@@ -100,7 +100,10 @@ public enum ControlAudit {
         case let .drag(from, to, _): "drag \(describe(from)) to \(describe(to))"
         case let .scroll(direction, _, target): "scroll \(target.map(describe) ?? direction.rawValue)"
         case let .fill(ref, _): "form_input \(ref)"
-        case .screenshot: "screenshot"
+        case let .screenshot(scale, region): "screenshot\(scale < 1 ? " ×\(scale)" : "")\(region.map(corners) ?? "")"
+        case let .gif(action): "gif \(action.rawValue)"
+        case let .viewport(size?): "viewport \(size.width)×\(size.height)"
+        case .viewport(nil): "viewport restore"
         case let .javascript(code): "javascript \(clip(ControlRedactor.scrub(code)))"
         case .console: "console_read"
         case .network: "network_read"
@@ -124,6 +127,10 @@ public enum ControlAudit {
         case let .ref(ref): ref
         case let .point(x, y): "at \(Int(x)),\(Int(y))"
         }
+    }
+
+    private static func corners(_ region: ControlCommand.Region) -> String {
+        " of \(Int(region.x)),\(Int(region.y))–\(Int(region.x + region.width)),\(Int(region.y + region.height))"
     }
 
     private static func clip(_ text: String) -> String {

@@ -99,4 +99,38 @@ final class ControlStageTests: XCTestCase {
         }
         XCTAssertFalse(NSApp.windows.contains { $0 is ControlStageWindow && $0.isVisible }, "a stage was left up")
     }
+
+    /// A phone-sized agent tab while the user watches something else: only
+    /// that tab's web view changes, and a tab the user has on screen is refused.
+    func testViewportResizeLeavesUserWindowFrame() async throws {
+        let (service, session) = try await makeService()
+        var frames: [Int: NSRect] = [:]
+        for window in NSApp.windows where window.isVisible { frames[window.windowNumber] = window.frame }
+        let userTab = session.activeTabID
+        let userView = userTab.flatMap { session.controller(for: $0)?.webView }
+        let userFrame = userView?.frame
+
+        _ = await service.perform(ControlCall(.openTab(page)), client)
+        let id = try XCTUnwrap(session.allTabs(includeArchived: false).first { $0.url.scheme == "data" }?.id)
+        let webView = try XCTUnwrap(session.controller(for: id)?.webView)
+        let phone = await service.perform(ControlCall(.viewport(.init(width: 390, height: 844))), client)
+        XCTAssertFalse(phone.isError, text(phone))
+        XCTAssertEqual(webView.frame.size, NSSize(width: 390, height: 844))
+        XCTAssertNil(webView.window)
+        for window in NSApp.windows where frames[window.windowNumber] != nil {
+            XCTAssertEqual(window.frame, frames[window.windowNumber], "a window of the user's changed size")
+        }
+        XCTAssertEqual(userView?.frame, userFrame, "the user's tab changed size")
+
+        if let userTab {
+            let refused = await service.perform(
+                ControlCall(tab: service.number(userTab), .viewport(.init(width: 390, height: 844))), client
+            )
+            XCTAssertTrue(refused.isError, text(refused))
+            XCTAssertEqual(userView?.frame, userFrame)
+        }
+        session.activateTab(id)
+        let shown = await service.perform(ControlCall(tab: service.number(id), .viewport(nil)), client)
+        XCTAssertTrue(shown.isError, "a tab on the user's screen keeps their window's size")
+    }
 }

@@ -157,6 +157,8 @@ extension ControlService {
             return .error(Self.describe(error))
         }
         if let id { record.tab = number(id) }
+        var call = call
+        if let id, let scale = shotScales[id] { call.command = call.command.fromScreenshot(scale: scale) }
         if let refused = await admit(call.command, tab: id, client: client, in: session, record: &record) {
             return refused
         }

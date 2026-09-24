@@ -3,7 +3,7 @@
 //  Luna
 //
 //  Luna Control's page tools: each one a call into `ControlScripts` through
-//  `callAsyncJavaScript`, except the screenshot, which is WebKit's own.
+//  `callAsyncJavaScript`, except the pictures, which are `ControlCapture`'s.
 //
 //  None of it needs the window on screen, key, or in front. The web view may
 //  be in no window at all — a tab the user is not looking at has been taken
@@ -19,10 +19,6 @@ import WebKit
 
 extension ControlService {
 
-    /// Luna Control's own content world: the page cannot see the library's
-    /// globals or the ref table, and cannot replace the functions it calls.
-    private static let world = WKContentWorld.world(name: "luna-control")
-
     /// How long a navigation is waited for before the call returns anyway.
     private static let loadTimeout: Duration = .seconds(20)
 
@@ -37,8 +33,8 @@ extension ControlService {
         switch command {
         case let .navigate(navigation):
             return await navigate(navigation, controller: controller, webView: webView)
-        case .screenshot:
-            return try await screenshot(webView)
+        case .screenshot, .gif:
+            return try await capture(command, in: webView, tab: controller.id)
         case let .javascript(code):
             let value = try await webView.callAsyncJavaScript(
                 ControlScripts.javascript, arguments: ["args": ["code": code]], in: nil, contentWorld: .page
@@ -161,7 +157,7 @@ extension ControlService {
         // missing key `undefined`; the library tests for `undefined`.
         let present = args.filter { !($0.value is NSNull) && !Self.isNil($0.value) }
         let value = try await webView.callAsyncJavaScript(
-            ControlScripts.call(operation), arguments: ["args": present], in: nil, contentWorld: Self.world
+            ControlScripts.call(operation), arguments: ["args": present], in: nil, contentWorld: ControlCapture.world
         )
         return value as? String ?? ""
     }
@@ -193,43 +189,11 @@ extension ControlService {
     /// lays the page out for a viewport nobody has.
     func size(_ webView: WKWebView, in session: BrowserSession) {
         guard webView.window == nil, webView.frame.width < 2 || webView.frame.height < 2 else { return }
-        let fallback = NSSize(width: 1280, height: 800)
-        webView.frame = NSRect(origin: .zero, size: session.hostWindow?.contentLayoutRect.size ?? fallback)
+        webView.frame = NSRect(origin: .zero, size: pageSize(in: session))
     }
 
-    /// The viewport at one pixel per CSS pixel, so a point in the picture is
-    /// the point `click` takes, whatever the display's scale.
-    ///
-    /// Card, one-time-code and other secret fields are drawn as dots for the
-    /// picture and put back after, so their values are not in it.
-    private func screenshot(_ webView: WKWebView) async throws -> ControlResult {
-        let configuration = WKSnapshotConfiguration()
-        configuration.afterScreenUpdates = true
-        // A page this cannot run in — a PDF, an image — has no fields to hide.
-        _ = try? await library("mask", in: webView, [:])
-        let image: NSImage
-        do {
-            image = try await webView.takeSnapshot(configuration: configuration)
-            _ = try? await library("unmask", in: webView, [:])
-        } catch {
-            _ = try? await library("unmask", in: webView, [:])
-            throw error
-        }
-        let width = Int(webView.bounds.width.rounded())
-        let height = Int(webView.bounds.height.rounded())
-        guard width > 0, height > 0, let bitmap = NSBitmapImageRep(
-            bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height, bitsPerSample: 8, samplesPerPixel: 4,
-            hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
-        ) else { return .error("The tab has no size to take a picture of.") }
-        bitmap.size = NSSize(width: width, height: height)
-        NSGraphicsContext.saveGraphicsState()
-        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
-        image.draw(in: NSRect(x: 0, y: 0, width: width, height: height))
-        NSGraphicsContext.restoreGraphicsState()
-        guard let png = bitmap.representation(using: .png, properties: [:]) else {
-            return .error("The screenshot could not be encoded.")
-        }
-        return ControlResult([.png(png), .text("\(width)×\(height), \(webView.url?.absoluteString ?? "")")])
+    func pageSize(in session: BrowserSession) -> NSSize {
+        session.hostWindow?.contentLayoutRect.size ?? NSSize(width: 1280, height: 800)
     }
 
     static func arguments(for target: ControlCommand.Target) -> [String: Any] {

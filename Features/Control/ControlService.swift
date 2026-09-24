@@ -88,6 +88,11 @@ final class ControlService {
     /// Per tab, the documents it has loaded since an agent first touched it,
     /// in the shape `ControlScripts.networkRead` takes.
     var networkDocuments: [UUID: [[String: Any]]] = [:]
+    /// Per tab, the scale of the last whole-viewport screenshot below 1:
+    /// the agent's coordinates are that picture's pixels until the next.
+    var shotScales: [UUID: Double] = [:]
+    /// Per tab, its `gif` recording.
+    var recordings: [UUID: ControlRecording] = [:]
     /// Each client's folder, by display name, so a renamed folder stays theirs.
     var folders: [String: UUID] = [:]
     /// Calls running per folder. The folder shows as controlled while this is
@@ -173,6 +178,8 @@ final class ControlService {
             return try closeTab(call, in: session, for: client)
         case let .requestUser(reason):
             return await requestUser(reason, for: client, in: session)
+        case let .viewport(size):
+            return await viewport(size, tab: id, for: client, in: session)
         default:
             guard let id, let controller = session.wakeForControl(id), let webView = controller.webView else {
                 return .error("That tab could not be woken.")
@@ -207,6 +214,8 @@ final class ControlService {
             return .error("Tab \(call.tab ?? 0) is not in your folder. Only tabs you opened can be closed.")
         }
         session.closeControlledTab(id)
+        recordings[id] = nil
+        shotScales[id] = nil
         currentTab[client.connection] = nil
         return .text("Closed tab \(call.tab ?? 0).")
     }

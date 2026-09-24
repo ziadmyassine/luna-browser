@@ -101,7 +101,11 @@ extension ControlService {
             return .text("\(accept ? "Accepted" : "Dismissed") the \(dialog.kind.rawValue) “\(dialog.message)”.")
         }
         if let held = dialogs[id] { return .error(Self.describe(held.dialog)) }
-        return try await racingDialogs(on: id) { try await self.run(command, in: webView, controller: controller) }
+        let recorded = command.recordsFrame
+        let marks = recorded ? await marks(for: command, in: webView, tab: id) : []
+        let result = try await racingDialogs(on: id) { try await self.run(command, in: webView, controller: controller) }
+        if recorded { await recordFrame(of: webView, tab: id, marks: marks) }
+        return result
     }
 
     /// Runs `body`, coming back early if the page opens a dialog meanwhile:

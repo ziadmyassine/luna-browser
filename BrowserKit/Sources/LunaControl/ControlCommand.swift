@@ -35,7 +35,13 @@ public enum ControlCommand: Sendable, Equatable {
     case drag(from: Target, to: Target, trusted: Bool = true)
     case scroll(ScrollDirection, amount: Int, target: Target?)
     case fill(ref: String, value: JSONValue)
-    case screenshot
+    /// `scale` image pixels per CSS pixel, of `region` (CSS pixels of the
+    /// viewport) or of the whole viewport.
+    case screenshot(scale: Double = 1, region: Region? = nil)
+    case gif(Recording)
+    /// The agent tab's page area in CSS pixels; nil gives back the size it
+    /// had.
+    case viewport(Size?)
     case javascript(String)
     case console(pattern: String?, onlyErrors: Bool, clear: Bool)
     case network(pattern: String?, includeBodies: Bool, clear: Bool)
@@ -70,6 +76,23 @@ public enum ControlCommand: Sendable, Equatable {
     public enum UploadSource: Sendable, Equatable {
         case data(ControlUpload.File)
         case path(String)
+    }
+
+    /// Part of the viewport, in CSS pixels from its top left.
+    public struct Region: Sendable, Equatable {
+        public var x, y, width, height: Double
+        public init(x: Double, y: Double, width: Double, height: Double) {
+            (self.x, self.y, self.width, self.height) = (x, y, width, height)
+        }
+    }
+
+    public struct Size: Sendable, Equatable {
+        public var width, height: Int
+        public init(width: Int, height: Int) { (self.width, self.height) = (width, height) }
+    }
+
+    public enum Recording: String, Sendable {
+        case start, stop, export
     }
 
     public enum MouseButton: String, Sendable {
@@ -128,7 +151,8 @@ extension ControlCall {
         case "form_input":
             guard let value = args.values["value"] else { throw ControlError("value is required.") }
             return .fill(ref: try args.required("ref"), value: value)
-        case "screenshot": return .screenshot
+        case "screenshot": return try screenshot(args)
+        case "gif", "viewport": return try capture(tool, args)
         case "javascript": return .javascript(try args.required("code"))
         case "console_read":
             return .console(
@@ -203,6 +227,33 @@ extension ControlCall {
               let to = args.target(ref: "to_ref", point: "coordinate", xy: false)
         else { throw ControlError("Give where to start (ref or start_coordinate) and where to drop (to_ref or coordinate).") }
         return .drag(from: from, to: to, trusted: args.trusted)
+    }
+
+    private static func screenshot(_ args: Arguments) throws -> ControlCommand {
+        let scale = min(max(args.values["scale"]?.double ?? 1, 0.1), 1)
+        guard let value = args.values["region"] else { return .screenshot(scale: scale) }
+        guard case let .array(corners) = value, corners.count == 4, case let numbers = corners.compactMap(\.double),
+              numbers.count == 4, numbers[0] >= 0, numbers[1] >= 0, numbers[2] > numbers[0], numbers[3] > numbers[1]
+        else { throw ControlError("region is [x0, y0, x1, y1]: the top left and bottom right corners, in CSS pixels.") }
+        return .screenshot(
+            scale: scale, region: .init(x: numbers[0], y: numbers[1], width: numbers[2] - numbers[0], height: numbers[3] - numbers[1])
+        )
+    }
+
+    private static func capture(_ tool: String, _ args: Arguments) throws -> ControlCommand {
+        if tool == "gif" {
+            guard let action = args.string("action").flatMap(ControlCommand.Recording.init(rawValue:)) else {
+                throw ControlError("action must be start, stop or export.")
+            }
+            return .gif(action)
+        }
+        let range = ControlCommand.viewportRange
+        switch (args.int("width"), args.int("height")) {
+        case (nil, nil): return .viewport(nil)
+        case let (width?, height?) where range.contains(width) && range.contains(height):
+            return .viewport(.init(width: width, height: height))
+        default: throw ControlError("Give width and height, each \(range.lowerBound) to \(range.upperBound), or neither to restore.")
+        }
     }
 
     private static func navigation(_ raw: String) throws -> ControlCommand.Navigation {
