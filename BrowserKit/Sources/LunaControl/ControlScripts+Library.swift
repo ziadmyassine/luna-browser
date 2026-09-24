@@ -383,6 +383,26 @@ extension ControlScripts {
             throw new Error(describe(el) + ' is not a form control.');
           }
           return 'Set ' + describe(el);
+        },
+        // A file input gets the files as if picked, then input and change;
+        // anything else gets them dropped on it, for drop zones that have
+        // no input at all.
+        upload(args) {
+          const el = element(args.ref);
+          const transfer = new DataTransfer();
+          for (const f of args.files) transfer.items.add(new File([Uint8Array.fromBase64(f.data)], f.name, { type: f.mimeType }));
+          const count = args.files.length + (args.files.length === 1 ? ' file' : ' files');
+          if (el.tagName === 'INPUT' && el.type === 'file') {
+            if (!el.multiple && args.files.length > 1) throw new Error(describe(el) + ' takes one file.');
+            el.files = transfer.files;
+            el.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+            return 'Gave ' + count + ' to ' + describe(el);
+          }
+          el.scrollIntoView({ block: 'center', behavior: 'instant' });
+          const init = { bubbles: true, cancelable: true, composed: true, dataTransfer: transfer };
+          for (const type of ['dragenter', 'dragover', 'drop']) el.dispatchEvent(new DragEvent(type, init));
+          return 'Dropped ' + count + ' on ' + describe(el);
         }
       };
     }

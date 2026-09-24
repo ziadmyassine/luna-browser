@@ -71,6 +71,7 @@ public enum ControlPolicy {
     public static let actingReason = "it acts on the page"
     public static let injectionReason = "the page contained text addressed to an AI agent"
     public static let fileReason = "it opens a file on this Mac"
+    public static let uploadReason = "it uploads a file from this Mac to the page"
     public static let internalReason = "That tab shows one of Luna's own pages, which Luna Control cannot read or act on."
 
     /// - Parameter site: the registrable domain the call acts on — the tab's,
@@ -89,6 +90,9 @@ public enum ControlPolicy {
         // have meant, and reading it back is one `page_text` away.
         if command.opensFile { return .ask(reason: fileReason, grantable: false) }
         if facts.escalated { return .ask(reason: injectionReason, grantable: false) }
+        // A site grant is about acting on the page; which of the user's files
+        // leaves the Mac is asked every time, short of allow-all.
+        if command.readsLocalFile, permissions.mode != .allowAll { return .ask(reason: uploadReason, grantable: false) }
         switch permissions.mode {
         case .allowAll:
             return .allow
@@ -113,8 +117,13 @@ extension ControlCommand {
         switch self {
         case .listTabs, .readPage, .pageText, .find, .scroll, .screenshot, .console, .wait, .closeTab: false
         case let .openTab(url): url != nil
-        case .navigate, .click, .type, .key, .fill, .javascript: true
+        case .navigate, .click, .type, .key, .fill, .javascript, .upload: true
         }
+    }
+
+    var readsLocalFile: Bool {
+        guard case let .upload(_, files) = self else { return false }
+        return files.contains { if case .path = $0 { true } else { false } }
     }
 
     var opensFile: Bool {

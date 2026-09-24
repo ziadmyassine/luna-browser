@@ -15,7 +15,8 @@ struct ControlPolicyTests {
         [
             .openTab(url), .navigate(.url(url)), .navigate(.back), .navigate(.reload),
             .click(.ref("e1"), clickCount: 1), .click(.point(x: 1, y: 2), clickCount: 2),
-            .type("hello", ref: nil), .key("Enter"), .fill(ref: "e2", value: "x"), .javascript("1")
+            .type("hello", ref: nil), .key("Enter"), .fill(ref: "e2", value: "x"), .javascript("1"),
+            .upload(ref: "e4", files: [.data(.init(name: "a.txt", mimeType: "text/plain", data: Data("a".utf8)))])
         ]
     }
 
@@ -101,6 +102,20 @@ struct ControlPolicyTests {
         let lunaPage = ControlFacts(isInternalPage: true)
         #expect(decide(.pageText, facts: lunaPage, mode: .allowAll).denies)
         #expect(decide(.click(.ref("e1"), clickCount: 1), facts: lunaPage, mode: .allowAll).denies)
+    }
+
+    @Test func testPathUploadAsksUnlessAllowAll() {
+        let fromDisk = ControlCommand.upload(ref: "e4", files: [.path("/tmp/cv.pdf")])
+        let granted: Set = [ControlGrant(client: client, site: site)]
+        #expect(decide(fromDisk, mode: .ask) == .ask(reason: ControlPolicy.uploadReason, grantable: false))
+        // A site grant covers acting on the page, not handing it a file off the disk.
+        #expect(decide(fromDisk, mode: .allowPerSite, grants: granted)
+            == .ask(reason: ControlPolicy.uploadReason, grantable: false))
+        #expect(decide(fromDisk, mode: .allowAll) == .allow)
+        #expect(decide(fromDisk, facts: ControlFacts(escalated: true), mode: .allowAll).asks)
+        // Bytes the agent already holds are an ordinary acting call.
+        let inline = ControlCommand.upload(ref: "e4", files: [.data(.init(name: "a", mimeType: "text/plain", data: Data()))])
+        #expect(decide(inline, mode: .allowPerSite, grants: granted) == .allow)
     }
 }
 

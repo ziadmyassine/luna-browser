@@ -119,6 +119,17 @@ struct ControlProtocolTests {
         #expect(parse("tab_open", [:])?.command == .openTab(nil))
         #expect(parse("tab_open", ["url": "javascript:alert(1)"]) == nil)
         #expect(ControlCall.parse(tool: "nope", arguments: [:]) == nil)
+        #expect(parse("file_upload", ["ref": "e3", "files": [
+            ["name": "a.txt", "mimeType": "text/plain", "data": "aGk="], ["path": "/Users/me/cv.pdf"]
+        ]])?.command == .upload(ref: "e3", files: [
+            .data(.init(name: "a.txt", mimeType: "text/plain", data: Data("hi".utf8))), .path("/Users/me/cv.pdf")
+        ]))
+        #expect(parse("file_upload", ["ref": "e3", "files": [["name": "a", "data": "aGk="]]])?.command
+            == .upload(ref: "e3", files: [.data(.init(name: "a", mimeType: "application/octet-stream", data: Data("hi".utf8)))]))
+        #expect(parse("file_upload", ["ref": "e3", "files": [["name": "a", "data": "not base64!"]]]) == nil)
+        #expect(parse("file_upload", ["ref": "e3", "files": []]) == nil)
+        #expect(parse("file_upload", ["ref": "e3", "files": [["name": "a"]]]) == nil)
+        #expect(parse("file_upload", ["files": [["path": "/a"]]]) == nil)
     }
 
     @Test(arguments: [
