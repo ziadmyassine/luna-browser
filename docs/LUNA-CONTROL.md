@@ -145,6 +145,7 @@ They can only close tabs in their own folder.
 | `console_read` | Console output since Luna Control first touched the page (`pattern`, `only_errors`, `clear`) |
 | `tab_close` | Close a tab in the agent's folder |
 | `wait` | Sleep up to 30 s |
+| `batch` | Up to 20 of the above in order (`actions: [{tool, args}]`). Stops at the first failure; a step's `ref` may be `"$N"`, the first ref in step N's result. No nesting |
 
 Acting tools may wait for the user's approval first; see *Security*.
 
@@ -196,6 +197,11 @@ Settings → Luna Control → *Before an app acts on a page*:
   lists every grant with a Revoke button.
 - In every mode, opening a `file:` URL asks, and so does acting on a site
   whose page addressed the agent (below).
+- `batch` carries no permission of its own. `ControlSession` decodes each
+  step and hands it to the gate alone, so every step is stopped, asked about,
+  redacted and logged as if it had been sent by itself; a declined step ends
+  the batch. `"$N"` is read from step N's result, which is page text, so a
+  page can steer it to another element on that page — never past the gate.
 - No tool can read or change the mode or the grants. Only Settings and the
   user's own answer to a prompt write them.
 - The rules are one pure function, `ControlPolicy.decide`, tested in
