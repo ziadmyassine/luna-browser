@@ -80,13 +80,7 @@ public enum ControlUpload {
         // exist fails to open before the real location can be asked.
         if isDenied(standard, by: denied) { throw refusal }
 
-        // Non-blocking so a FIFO fails the regular-file test rather than
-        // hanging the call waiting for a writer.
-        let fd = open(standard, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC)
-        guard fd >= 0 else {
-            if errno == ELOOP { throw ControlError("“\(path)” is a symbolic link. Give the path of the file itself.") }
-            throw ControlError("“\(path)” could not be opened: \(String(cString: strerror(errno))).")
-        }
+        let fd = try openFile(standard, spelled: path)
         defer { close(fd) }
         var info = stat()
         guard fstat(fd, &info) == 0, info.st_mode & S_IFMT == S_IFREG else {
@@ -94,28 +88,40 @@ public enum ControlUpload {
         }
         // Where the file really is, after every link in the folders on the way.
         var real = [UInt8](repeating: 0, count: Int(MAXPATHLEN))
-        guard fcntl(fd, F_GETPATH, &real) == 0 else { throw refusal }
-        if isDenied(String(decoding: real.prefix { $0 != 0 }, as: UTF8.self), by: denied) { throw refusal }
+        guard fcntl(fd, F_GETPATH, &real) == 0, let location = String(bytes: real.prefix { $0 != 0 }, encoding: .utf8),
+              !isDenied(location, by: denied) else { throw refusal }
         // A second name for the file can sit anywhere, a denied folder included.
         guard info.st_nlink == 1 else { throw ControlError("“\(path)” has other hard links, so Luna will not upload it.") }
         guard info.st_uid == owner else { throw ControlError("“\(path)” is not owned by you, so Luna will not upload it.") }
         let name = URL(filePath: standard).lastPathComponent
         guard info.st_size <= limit else { throw tooBig(name, limit) }
+        guard let data = contents(of: fd, count: Int(info.st_size)) else { throw ControlError("“\(path)” could not be read.") }
+        let type = UTType(filenameExtension: URL(filePath: standard).pathExtension)?.preferredMIMEType
+        return File(name: name, mimeType: type ?? "application/octet-stream", data: data)
+    }
 
-        var data = Data(count: Int(info.st_size))
+    /// Opens without following a final link. Non-blocking so a FIFO fails
+    /// the regular-file test rather than hanging the call on a writer.
+    private static func openFile(_ standard: String, spelled path: String) throws(ControlError) -> Int32 {
+        let fd = open(standard, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC)
+        guard fd < 0 else { return fd }
+        if errno == ELOOP { throw ControlError("“\(path)” is a symbolic link. Give the path of the file itself.") }
+        throw ControlError("“\(path)” could not be opened: \(String(cString: strerror(errno))).")
+    }
+
+    private static func contents(of fd: Int32, count: Int) -> Data? {
+        var data = Data(count: count)
         let complete = data.withUnsafeMutableBytes { buffer in
             var offset = 0
             while offset < buffer.count {
-                let count = Darwin.read(fd, buffer.baseAddress! + offset, buffer.count - offset)
-                if count < 0, errno == EINTR { continue }
-                guard count > 0 else { return false }
-                offset += count
+                let read = Darwin.read(fd, buffer.baseAddress! + offset, buffer.count - offset)
+                if read < 0, errno == EINTR { continue }
+                guard read > 0 else { return false }
+                offset += read
             }
             return true
         }
-        guard complete else { throw ControlError("“\(path)” could not be read.") }
-        let type = UTType(filenameExtension: URL(filePath: standard).pathExtension)?.preferredMIMEType
-        return File(name: name, mimeType: type ?? "application/octet-stream", data: data)
+        return complete ? data : nil
     }
 
     /// Compared without case: APFS is case-insensitive by default, so
