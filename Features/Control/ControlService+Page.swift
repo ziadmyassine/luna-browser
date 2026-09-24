@@ -33,15 +33,7 @@ extension ControlService {
         _ = try? await webView.callAsyncJavaScript(ControlScripts.consoleInstall, arguments: [:], in: nil, contentWorld: .page)
         await watchNetwork(of: controller, in: webView)
         if let result = try await trustedInput(command, in: webView) { return result }
-        if let (operation, args, acts) = Self.libraryCall(for: command) {
-            var result = acts
-                ? try await acting(operation, in: webView, args)
-                : .text(try await library(operation, in: webView, args))
-            if command.isInput, case let .text(said)? = result.content.first {
-                result.content[0] = .text(said + " (trusted: false)")
-            }
-            return result
-        }
+        if let result = try await viaLibrary(command, in: webView) { return result }
         switch command {
         case let .navigate(navigation):
             return await navigate(navigation, controller: controller, webView: webView)
@@ -53,14 +45,7 @@ extension ControlService {
             )
             return .text(value as? String ?? "undefined")
         case let .console(pattern, onlyErrors, clear):
-            let value = try await webView.callAsyncJavaScript(
-                ControlScripts.consoleRead,
-                arguments: ["args": ["pattern": pattern as Any, "onlyErrors": onlyErrors, "clear": clear]],
-                in: nil,
-                contentWorld: .page
-            )
-            let text = value as? String ?? ""
-            return .text(text.isEmpty ? "Nothing has been logged since Luna Control first touched this page." : text)
+            return try await readConsole(in: webView, pattern: pattern, onlyErrors: onlyErrors, clear: clear)
         case let .upload(ref, sources):
             // Read here, after the gate: the user approved these paths, and
             // the guard checks the files as they are now, not as they were.
@@ -74,6 +59,30 @@ extension ControlService {
         default:
             return .error("Not a page tool.")
         }
+    }
+
+    /// A command the library carries out, or nil for one it does not.
+    private func viaLibrary(_ command: ControlCommand, in webView: WKWebView) async throws -> ControlResult? {
+        guard let (operation, args, acts) = Self.libraryCall(for: command) else { return nil }
+        var result = acts
+            ? try await acting(operation, in: webView, args)
+            : .text(try await library(operation, in: webView, args))
+        if command.isInput, case let .text(said)? = result.content.first {
+            result.content[0] = .text(said + " (trusted: false)")
+        }
+        return result
+    }
+
+    private func readConsole(in webView: WKWebView, pattern: String?, onlyErrors: Bool, clear: Bool) async throws
+        -> ControlResult {
+        let value = try await webView.callAsyncJavaScript(
+            ControlScripts.consoleRead,
+            arguments: ["args": ["pattern": pattern as Any, "onlyErrors": onlyErrors, "clear": clear]],
+            in: nil,
+            contentWorld: .page
+        )
+        let text = value as? String ?? ""
+        return .text(text.isEmpty ? "Nothing has been logged since Luna Control first touched this page." : text)
     }
 
     /// What acting would set off, from the element the call names (see

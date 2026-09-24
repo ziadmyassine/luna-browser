@@ -116,13 +116,8 @@ extension ControlCall {
         case "find": return .find(try args.required("query"))
         case "click": return try click(args)
         case "type": return .type(try args.required("text"), ref: args.string("ref"), trusted: args.trusted)
-        case "key":
-            let keys = try args.required("key")
-            for combo in keys.split(separator: " ") { _ = try ControlInput.key(String(combo)) }
-            return .key(keys, repeat: min(max(args.int("repeat") ?? 1, 1), 50), trusted: args.trusted)
-        case "hover":
-            guard let target = args.target() else { throw ControlError("Give a ref from read_page or find, or a coordinate.") }
-            return .hover(target)
+        case "key": return try key(args)
+        case "hover": return try hover(args)
         case "drag": return try drag(args)
         case "scroll":
             let raw = args.string("direction") ?? "down"
@@ -190,6 +185,17 @@ extension ControlCall {
             target, clickCount: min(max(args.int("click_count") ?? 1, 1), 3), button: button,
             modifiers: try ControlInput.modifiers(args.string("modifiers") ?? ""), trusted: args.trusted
         )
+    }
+
+    private static func key(_ args: Arguments) throws -> ControlCommand {
+        let keys = try args.required("key")
+        for combo in keys.split(separator: " ") { _ = try ControlInput.key(String(combo)) }
+        return .key(keys, repeat: min(max(args.int("repeat") ?? 1, 1), 50), trusted: args.trusted)
+    }
+
+    private static func hover(_ args: Arguments) throws -> ControlCommand {
+        guard let target = args.target() else { throw ControlError("Give a ref from read_page or find, or a coordinate.") }
+        return .hover(target)
     }
 
     private static func drag(_ args: Arguments) throws -> ControlCommand {
