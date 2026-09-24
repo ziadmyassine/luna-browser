@@ -50,6 +50,21 @@ public enum WebViewFactory {
     public static let chromeUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
         + "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
 
+    /// `141` out of ``chromeUserAgent``, so everything that claims a Chrome
+    /// version claims the same one.
+    public static var chromeMajorVersion: String {
+        let tail = chromeUserAgent.components(separatedBy: "Chrome/").last ?? ""
+        return String(tail.prefix { $0.isNumber })
+    }
+
+    /// What extension pages append to WebKit's UA: Chrome's tokens and nothing
+    /// of Luna's (docs/EXTENSIONS.md §4, §6 Q7). Luna's own `Safari/` token sends
+    /// Bitwarden down its Safari path, which waits for ever on a native app that
+    /// is not there. Web tabs keep ``applicationNameForUserAgent``.
+    public static var extensionApplicationNameForUserAgent: String {
+        "Chrome/\(chromeMajorVersion).0.0.0 Safari/537.36"
+    }
+
     private static var shortVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
     }
@@ -114,9 +129,16 @@ public enum WebViewFactory {
     // MARK: - Construction
 
     /// Creates a configured web view. Every Luna web view comes from here.
+    /// - Parameter webExtensionController: the Space's (§16.1). It has to be on the
+    ///   configuration before the view exists; WebKit offers no way to add it later.
     @MainActor
-    public static func makeWebView(dataStore: WKWebsiteDataStore = .default()) -> WKWebView {
-        makeWebView(configuration: makeConfiguration(dataStore: dataStore))
+    public static func makeWebView(
+        dataStore: WKWebsiteDataStore = .default(),
+        webExtensionController: WKWebExtensionController? = nil
+    ) -> WKWebView {
+        let configuration = makeConfiguration(dataStore: dataStore)
+        configuration.webExtensionController = webExtensionController
+        return makeWebView(configuration: configuration)
     }
 
     /// Builds a web view around a configuration WebKit handed us — the `WKUIDelegate`

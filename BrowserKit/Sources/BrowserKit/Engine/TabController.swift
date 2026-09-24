@@ -16,6 +16,10 @@ public final class TabController: NSObject {
 
     private let dataStore: WKWebsiteDataStore
 
+    /// The Space's extension controller, put on every web view this tab builds
+    /// (§16.1). Nil in a private window, where extensions do not run.
+    private let webExtensionController: WKWebExtensionController?
+
     /// The last session we managed to capture. Kept outside the web view on purpose:
     /// once the WebContent process is gone `webView.interactionState` reads back nil, so
     /// crash recovery (§19.3) has nothing else to restore from.
@@ -86,9 +90,10 @@ public final class TabController: NSObject {
     /// carry storage. The behaviour is next door in `Passwords/`.
     public let passwords = PasswordCoordinator()
 
-    public init(id: UUID, dataStore: WKWebsiteDataStore) {
+    public init(id: UUID, dataStore: WKWebsiteDataStore, webExtensionController: WKWebExtensionController? = nil) {
         self.id = id
         self.dataStore = dataStore
+        self.webExtensionController = webExtensionController
         state = TabState()
         super.init()
         messageRelay.owner = self
@@ -211,7 +216,7 @@ public final class TabController: NSObject {
     @discardableResult
     private func ensureWebView(restoringSession: Bool) -> WKWebView {
         if let webView { return webView }
-        let webView = WebViewFactory.makeWebView(dataStore: dataStore)
+        let webView = WebViewFactory.makeWebView(dataStore: dataStore, webExtensionController: webExtensionController)
         attach(webView)
         if restoringSession, let savedInteractionState {
             webView.interactionState = savedInteractionState

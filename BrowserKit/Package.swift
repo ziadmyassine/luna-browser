@@ -27,6 +27,8 @@ let package = Package(
         .testTarget(
             name: "BrowserKitTests",
             dependencies: ["BrowserKit"],
+            // §16's fixtures: a real Web Store CRX3 and a two-file extension.
+            resources: [.copy("Fixtures")],
             swiftSettings: swiftSettings
         )
     ]
