@@ -5,8 +5,9 @@
 //  The card a Luna Control folder opens when the user clicks it while its
 //  client is waiting for an answer: what the call will do, where, why Luna
 //  asked, and Deny, Allow Once and — in the allow-per-site mode — Allow on
-//  the site. It shows the oldest request; answering one brings up the next,
-//  and the card closes when none are left.
+//  the site. A `request_user` step reads as what the agent needs the user to
+//  do, with Not Now and Done. It shows the oldest request; answering one
+//  brings up the next, and the card closes when none are left.
 //
 //  Opened only by that click. A request arriving marks the folder and
 //  nothing more, so a prompt never takes the user's window.
@@ -69,13 +70,15 @@ final class ControlApprovalCard: NSViewController {
             return
         }
         for view in stack.arrangedSubviews { view.removeFromSuperview() }
-        stack.addArrangedSubview(label(
-            String(localized: "\(request.client) wants to"), font: Tokens.TypeScale.settingsHeading, color: Tokens.Text.primary
-        ))
+        let heading = request.isHandoff
+            ? String(localized: "\(request.client) needs you to") : String(localized: "\(request.client) wants to")
+        stack.addArrangedSubview(label(heading, font: Tokens.TypeScale.settingsHeading, color: Tokens.Text.primary))
         let action = request.site.map { "\(request.summary) on \($0)" } ?? request.summary
         stack.addArrangedSubview(label(action, font: Tokens.TypeScale.settingsRow, color: Tokens.Text.primary))
         stack.addArrangedSubview(label(
-            String(localized: "Luna asks because \(request.reason)."),
+            request.isHandoff
+                ? String(localized: "It waits until you press Done.")
+                : String(localized: "Luna asks because \(request.reason)."),
             font: Tokens.TypeScale.settingsCaption, color: Tokens.Text.secondary
         ))
         if waiting.count > 1 {
@@ -84,11 +87,14 @@ final class ControlApprovalCard: NSViewController {
                 font: Tokens.TypeScale.settingsCaption, color: Tokens.Text.secondary
             ))
         }
-        var buttons = [
+        var buttons = request.isHandoff ? [
+            button(String(localized: "Not Now"), .deny, request),
+            button(String(localized: "Done"), .once, request)
+        ] : [
             button(String(localized: "Deny"), .deny, request, destructive: true),
             button(String(localized: "Allow Once"), .once, request)
         ]
-        if request.grantable, let site = request.site {
+        if !request.isHandoff, request.grantable, let site = request.site {
             buttons.append(button(String(localized: "Allow on \(site)"), .always, request))
         }
         let row = NSStackView(views: buttons)

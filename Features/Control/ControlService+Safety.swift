@@ -187,10 +187,19 @@ extension ControlService {
             leave it, or ask them.
             """)
         }
-        let facts = ControlFacts(
+        let isInternalPage = pageURL.map(Self.isInternal) ?? false
+        var facts = ControlFacts(
             escalated: site.map { escalated.contains(Escalation(connection: client.connection, site: $0)) } ?? false,
-            isInternalPage: pageURL.map(Self.isInternal) ?? false
+            isInternalPage: isInternalPage,
+            risks: []
         )
+        // Not on Luna's own pages, which are refused unread, nor under a
+        // dialog, which would stop the inspection inside it.
+        if command.acts, !isInternalPage, let id, dialogs[id] == nil {
+            let (risks, href) = await inspect(command, tab: id, in: session)
+            facts.risks = risks
+            if let href, ControlPolicy.isAuthorization(href) { facts.risks.insert(.authorization) }
+        }
         switch ControlPolicy.decide(command, site: site, client: client.displayName, facts: facts, permissions: permissions) {
         case .allow:
             return nil
@@ -199,7 +208,10 @@ extension ControlService {
             return .error(message)
         case let .handoff(message):
             record.decision = "handed off"
-            return .error("Only the user can do this step: \(message). Ask them to do it, then carry on.")
+            return .error("""
+            Only the user can do this step: \(message). Nothing was done. Call request_user to ask them to do \
+            it, then carry on.
+            """)
         case let .ask(reason, grantable):
             if let refused = await approve(reason: reason, grantable: grantable, client: client, in: session, record: &record) {
                 return refused
@@ -255,7 +267,7 @@ extension ControlService {
 
     private func target(of call: ControlCall, in session: BrowserSession, for client: ControlClient) throws -> UUID? {
         switch call.command {
-        case .listTabs, .openTab, .wait: nil
+        case .listTabs, .openTab, .wait, .requestUser: nil
         default: try resolve(call, in: session, for: client)
         }
     }
@@ -268,7 +280,7 @@ extension ControlService {
     }
 
     /// The client's folder, made now if a request needs somewhere to wait.
-    private func folder(for client: ControlClient, in session: BrowserSession) -> UUID {
+    func folder(for client: ControlClient, in session: BrowserSession) -> UUID {
         if let id = folders[client.displayName], session.group(id) != nil { return id }
         let group = session.controlFolder(named: client.displayName, previously: folders[client.displayName])
         folders[client.displayName] = group.id
@@ -283,7 +295,7 @@ extension ControlService {
         _ result: ControlResult, command: ControlCommand, client: ControlClient, tab id: UUID?, in session: BrowserSession
     ) -> ControlResult {
         let fenced: Bool = switch command {
-        case .wait, .closeTab: false
+        case .wait, .closeTab, .requestUser: false
         default: true
         }
         let url = command.fencesTab ? id.flatMap { session.controller(for: $0)?.webView?.url ?? session.tab($0)?.url } : nil
@@ -304,7 +316,7 @@ extension ControlService {
         return ControlResult(content, isError: result.isError)
     }
 
-    private func log(_ record: ControlAudit.Record) {
+    func log(_ record: ControlAudit.Record) {
         do {
             try ControlAudit.append(record, to: auditURL)
         } catch {
@@ -333,7 +345,7 @@ private extension ControlCommand {
     /// Whether the result is about one tab, whose address goes on the fence.
     var fencesTab: Bool {
         switch self {
-        case .listTabs, .wait, .closeTab: false
+        case .listTabs, .wait, .closeTab, .requestUser: false
         default: true
         }
     }

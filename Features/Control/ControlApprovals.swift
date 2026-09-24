@@ -28,6 +28,9 @@ final class ControlApprovals {
         var reason: String
         /// Whether "allow on this site" is offered beside "allow once".
         var grantable: Bool
+        /// `request_user`: the agent asks the user to do `summary` themselves,
+        /// and `.once` is their Done.
+        var isHandoff = false
     }
 
     enum Answer: Equatable {

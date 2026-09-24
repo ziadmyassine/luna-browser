@@ -206,16 +206,31 @@ extension BrowserSession: TabControllerDelegate {
 
     // MARK: - JavaScript dialogs
     //
-    // `prompt()` is deliberately left at the protocol's default (cancel): its
-    // accessory text field needs a width, and there is no metric token for one.
-    // Asking for the token beats inventing the number (contract rule 2).
+    // A dialog from a tab in a Luna Control folder is held for the agent
+    // (`ControlService.hold`) rather than sheeted on the user's window.
+    //
+    // The user's own `prompt()` is deliberately left at the protocol's default
+    // (cancel): its accessory text field needs a width, and there is no metric
+    // token for one. Asking for the token beats inventing the number
+    // (contract rule 2).
 
     func tabController(_ controller: TabController, runJavaScriptAlert message: String) async {
+        if await control?.hold(.init(kind: .alert, message: message), tab: controller.id) != nil { return }
         _ = await present(message, confirmable: false)
     }
 
     func tabController(_ controller: TabController, runJavaScriptConfirm message: String) async -> Bool {
-        await present(message, confirmable: true)
+        if let answer = await control?.hold(.init(kind: .confirm, message: message), tab: controller.id) {
+            return answer != .dismiss
+        }
+        return await present(message, confirmable: true)
+    }
+
+    func tabController(_ controller: TabController, runJavaScriptPrompt prompt: String, defaultText: String?) async
+        -> String? {
+        let dialog = ControlDialog(kind: .prompt, message: prompt, defaultText: defaultText)
+        guard case let .accept(text)? = await control?.hold(dialog, tab: controller.id) else { return nil }
+        return text ?? defaultText ?? ""
     }
 
     private func present(_ message: String, confirmable: Bool) async -> Bool {

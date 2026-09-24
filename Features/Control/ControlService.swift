@@ -74,6 +74,8 @@ final class ControlService {
         var site: String
     }
     var escalated: Set<Escalation> = []
+    /// Dialogs held for agents, by tab — `ControlService+Handoff.swift`.
+    var dialogs: [UUID: HeldDialog] = [:]
 
     /// Tabs are numbered for clients, in the order a client first sees them:
     /// a model copes with `3` far better than with a UUID. For the life of
@@ -100,6 +102,7 @@ final class ControlService {
         self.defaults = defaults
         self.auditURL = auditURL
         approvals.onChange = { [weak self] in self?.refreshBadges() }
+        session.control = self
     }
 
     /// The `luna-control` service of the running app, for the sidebar and the
@@ -165,12 +168,14 @@ final class ControlService {
             return .text("Waited \(seconds) s.")
         case .closeTab:
             return try closeTab(call, in: session, for: client)
+        case let .requestUser(reason):
+            return await requestUser(reason, for: client, in: session)
         default:
             guard let id, let controller = session.wakeForControl(id), let webView = controller.webView else {
                 return .error("That tab could not be woken.")
             }
             currentTab[client.connection] = id
-            return try await run(call.command, in: webView, controller: controller)
+            return try await onTab(call.command, tab: id, webView: webView, controller: controller)
         }
     }
 
