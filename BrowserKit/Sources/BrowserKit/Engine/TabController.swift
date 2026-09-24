@@ -77,6 +77,21 @@ public final class TabController: NSObject {
     /// `scrollProgress` whenever it changes.
     public var onScrollProgress: ((Double?) -> Void)?
 
+    /// Every response a document in this tab arrives with, main frame and
+    /// subframes, before WebKit decides whether to show or download it. Luna
+    /// Control's network log is the one reader.
+    public var onNavigationResponse: ((WKNavigationResponse) -> Void)?
+
+    /// User scripts added from outside for the life of the tab, kept so
+    /// `installUserScripts`, which starts from nothing, puts them back.
+    private var addedUserScripts: [WKUserScript] = []
+
+    /// Adds a user script for every document from the next one on.
+    public func addUserScript(_ script: WKUserScript) {
+        addedUserScripts.append(script)
+        webView?.configuration.userContentController.addUserScript(script)
+    }
+
     private let messageRelay = ScriptMessageRelay()
 
     /// §14's password state for this tab: the form the page is showing, the
@@ -307,6 +322,7 @@ public final class TabController: NSObject {
                 )
             )
         }
+        addedUserScripts.forEach(controller.addUserScript)
     }
 
     /// Re-installs the scripts when — and only when — §17.2's answer for the site the

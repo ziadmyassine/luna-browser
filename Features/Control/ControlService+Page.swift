@@ -31,6 +31,7 @@ extension ControlService {
         // Every call, so the recorder is there from the first touch of each
         // new document on. Refused on pages with no script, which is fine.
         _ = try? await webView.callAsyncJavaScript(ControlScripts.consoleInstall, arguments: [:], in: nil, contentWorld: .page)
+        await watchNetwork(of: controller, in: webView)
         if let (operation, args, acts) = Self.libraryCall(for: command) {
             return acts
                 ? try await acting(operation, in: webView, args)
@@ -63,6 +64,8 @@ extension ControlService {
                 ["name": $0.name, "mimeType": $0.mimeType, "data": $0.data.base64EncodedString()]
             }
             return try await acting("upload", in: webView, ["ref": ref, "files": files])
+        case let .network(pattern, includeBodies, clear):
+            return try await readNetwork(of: controller, in: webView, pattern: pattern, includeBodies: includeBodies, clear: clear)
         default:
             return .error("Not a page tool.")
         }

@@ -183,7 +183,7 @@ extension ControlCommand {
     /// agent's own folder, so neither asks either.
     public var acts: Bool {
         switch self {
-        case .listTabs, .readPage, .pageText, .find, .scroll, .screenshot, .console, .wait, .closeTab, .requestUser: false
+        case .listTabs, .readPage, .pageText, .find, .scroll, .screenshot, .console, .network, .wait, .closeTab, .requestUser: false
         case let .openTab(url): url != nil
         // Dismissing is what the dialog's timeout does anyway; accepting may
         // be the "Are you sure?" of whatever the page is about to do.

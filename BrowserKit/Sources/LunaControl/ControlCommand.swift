@@ -30,6 +30,7 @@ public enum ControlCommand: Sendable, Equatable {
     case screenshot
     case javascript(String)
     case console(pattern: String?, onlyErrors: Bool, clear: Bool)
+    case network(pattern: String?, includeBodies: Bool, clear: Bool)
     case closeTab
     case wait(seconds: Double)
     /// Asks the user to do a step only they can, and waits until they say
@@ -121,6 +122,12 @@ extension ControlCall {
             return .console(
                 pattern: args.string("pattern"),
                 onlyErrors: args.values["only_errors"]?.bool ?? false,
+                clear: args.values["clear"]?.bool ?? false
+            )
+        case "network_read":
+            return .network(
+                pattern: args.string("pattern"),
+                includeBodies: args.values["include_bodies"]?.bool ?? false,
                 clear: args.values["clear"]?.bool ?? false
             )
         case "tab_close":

@@ -100,6 +100,7 @@ public enum ControlAudit {
         case .screenshot: "screenshot"
         case let .javascript(code): "javascript \(clip(ControlRedactor.scrub(code)))"
         case .console: "console_read"
+        case .network: "network_read"
         case .closeTab: "tab_close"
         case let .wait(seconds): "wait \(seconds) s"
         case let .requestUser(reason): "request_user \(clip(ControlRedactor.scrub(reason)))"

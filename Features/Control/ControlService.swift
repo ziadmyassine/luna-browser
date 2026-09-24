@@ -85,6 +85,9 @@ final class ControlService {
     /// The tab each connection last opened or acted on — what a call with no
     /// `tabId` means.
     var currentTab: [UUID: UUID] = [:]
+    /// Per tab, the documents it has loaded since an agent first touched it,
+    /// in the shape `ControlScripts.networkRead` takes.
+    var networkDocuments: [UUID: [[String: Any]]] = [:]
     /// Each client's folder, by display name, so a renamed folder stays theirs.
     var folders: [String: UUID] = [:]
     /// Calls running per folder. The folder shows as controlled while this is
