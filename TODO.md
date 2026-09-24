@@ -24,10 +24,12 @@ These four come before everything else, in this order. Two of them reverse earli
   - **P2.4 Verification codes** — store TOTP secrets and fill `one-time-code` fields. This unblocks §14.6, which was blocked only because Luna could not read Apple's codes.
   - **P2.5 Security** — the §14.8 rules still apply; locked behind Touch ID after idle and on sleep; nothing leaves the device unencrypted.
   - Passkeys stay gated on §14.10's entitlement.
-- [ ] **P3 — Tab switcher.** `⌃⇥` shows a switcher over the page with the most recently used tabs (favicon, title, thumbnail); holding `⌃` and pressing `⇥` again moves on, `⌃⇧⇥` moves back, releasing `⌃` switches, `Esc` cancels.
-  - Most-recently-used order per window, across tiers and folders; a setting for "in tab order" instead.
-  - Works the same in the sidebar and top-bar layouts, with VoiceOver and under Reduce Motion.
-  - Not the same thing as §5.3's Space cycling, and it must not steal `⌃⇥` from it — decide which shortcut each gets before building.
+- [x] **P3 — Tab switcher.** `⌃⇥` shows a switcher with the most recently used tabs (favicon, title, thumbnail); holding `⌃` and pressing `⇥` again moves on, `⌃⇧⇥` moves back, releasing `⌃` switches, `Esc` cancels.
+  > **Built 2026-09-24** (`UI/TabSwitcher/`, `App/AppDelegate+TabSwitcher.swift`). A Liquid Glass child panel centred on the whole window — not the page — that may stand past the window's edges and is kept on screen. Up to 10 cards, two rows of five, never scrolls and never shrinks. Arrows move, Return switches, a click picks a card, a click elsewhere cancels. A quick tap switches with no panel (it waits 0.10 s). Thumbnails are taken live for loaded tabs and read from §6.8's snapshot store for the rest; a tab with neither shows its icon.
+  - Offers only tabs in use: opened since launch or still loaded, in this window's Space, most recent first. Never a pinned tab or Favorite nobody opened, a closed (dormant) pinned tab, or the archive.
+  - Same in both layouts; VoiceOver hears each card as it moves; Reduce Motion makes the fade instant.
+  - No clash with §5.3: Space cycling is `⌃⌥←`/`⌃⌥→`. `⌃⇥` and `⌃⇧⇥` are reserved in Settings ▸ Shortcuts.
+  - Not built: the "in tab order" setting.
 - [ ] **P4 — Extensions (§16), promoted from v2.** *Reverses §0.2 and §32's "extensions v2".* §16.1 host plumbing first, then install from folder or `.zip` (§16.2), permissions (§16.3), the toolbar surface (§16.4 — the top bar's action capsule was built to take extension buttons), the compatibility check (§16.5) and per-Space enable (§16.6). §14.7's native-messaging bridge for 1Password and Bitwarden comes with §16.1.
 
 ---
@@ -655,7 +657,7 @@ luna/
 ## 24. Quality, release & operations
 
 - [ ] **24.1 Testing**: unit tests on frecency, hibernation policy, URL parsing/canonicalisation, blocklist conversion, traffic-light layout. UI tests for launch → command bar → navigate → split → quit → restore. A manual **Top-100-sites compat matrix** re-run each milestone (this is how we catch WebKit-vs-Chrome breakage).
-  > **Checked 2026-09-24: partly built.** Unit tests for frecency, hibernation, URLs, blocking, traffic lights (931 tests). Missing: UI test target, top-100 sites check.
+  > **Checked 2026-09-24: partly built.** Unit tests for frecency, hibernation, URLs, blocking, traffic lights, tab switcher (948 tests). Missing: UI test target, top-100 sites check.
 - [ ] **24.2 Crash reporting** — Sentry or a self-hosted alternative; **opt-in**, with scrubbed URLs (never send full URLs or page content).
 - [x] **24.3 Telemetry — DECIDED 2026-09-17: there is none.** No analytics, opt-in or otherwise (D16). §24.2 crash reporting stays, opt-in and URL-scrubbed. Settings should say "Luna collects no usage data" and mean it literally. This is a marketing asset and a maintenance saving at the same time.
   > **Checked 2026-09-24: partly built.** No analytics code, as decided. Missing: the Settings copy saying Luna collects no usage data.
@@ -935,6 +937,7 @@ Sixteen questions, answered in one sitting. **Where this log contradicts an olde
 | **Luna gets its own password manager** | Reverses §0.2 and §14's goal line. The Keychain bridge stays and becomes its storage or its fallback — P2.1 decides. |
 | **Extensions are in scope now** | Reverses §32's "extensions v2". §16 is no longer gated on a separate go-ahead. |
 | **The Release build is stripped** (§24.10) | The app is 14.5 MB instead of 24.4. Debug builds are unchanged; crash reports need the dSYM. |
+| **P3's tab switcher shows at most 10 tabs, only ones in use** | Two rows of five, centred on the window. Tabs past the tenth, unopened pinned tabs and Favorites are reached from the sidebar. |
 
 ---
 
