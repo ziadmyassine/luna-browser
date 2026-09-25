@@ -119,16 +119,29 @@ extension TabListController {
     /// it was and fills one where it is going, so the folder is the same height
     /// throughout.
     private func groupDropBox() -> NSRect? {
-        guard let id = groupDropID, let header = list.row(ofGroup: id) else { return nil }
+        guard let id = groupDropID else { return nil }
         let carried = draggedRow.flatMap { list.tab(at: $0) }
         let isOneOfItsOwn = carried.flatMap { list.group(ofTab: $0.id)?.id } == id
-        let rows = 1 + memberRows(ofGroup: id).count + (isOneOfItsOwn ? 0 : 1)
-        return NSRect(
+        return groupExtent(ofGroup: id, extraRows: isOneOfItsOwn ? 0 : 1)
+    }
+
+    /// A folder's header and the tabs on screen under it, plus `extraRows`
+    /// more, as the pills in those rows would span them — and, where the list
+    /// leaves room under the folder, `groupPlateFoot` into it. Shared by the
+    /// drop box and §3.4b's hover plate, so the two cannot disagree about where
+    /// a folder ends.
+    func groupExtent(ofGroup id: UUID, extraRows: Int = 0) -> NSRect? {
+        guard let header = list.row(ofGroup: id) else { return nil }
+        let rows = 1 + memberRows(ofGroup: id).count + extraRows
+        let foot = list.rows.contains(.groupEnd(id)) ? Tokens.Metric.groupPlateFoot : 0
+        var box = NSRect(
             x: table.bounds.minX,
             y: displayedRect(ofRow: header).minY,
             width: table.bounds.width,
             height: CGFloat(rows) * Tokens.Metric.rowHeight
         ).insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.rowPillInset)
+        box.size.height += foot
+        return box
     }
 
     /// The rows a folder's own tabs occupy, which is every tab row under its

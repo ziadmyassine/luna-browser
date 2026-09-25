@@ -1037,7 +1037,8 @@ Order: §3.4b's pinned folders → **separator** → `New Tab` row → tabs.
 - **A title that does not fit fades out over the last 24 pt.** No `…`: the reference lets the last glyph
   dissolve rather than spending three characters saying the obvious.
 - **Selected row:** filled translucent pill spanning sidebar width minus 8 pt each side, radius 10,
-  **visible hairline border**, brighter text. **Unselected rows have no background at all** (§30.7).
+  **visible hairline border**, brighter text. **Unselected rows have no background at all** (§30.7),
+  bar the plate round a hovered folder (§3.4b).
   > **And no focus ring on a click.** AppKit makes a clicked control that accepts first responder the
   > window's first responder and draws the accent ring round it — a blue halo on a pinned tile, which is
   > the one colour Luna's chrome never uses. A press already says which control you are on, because the
@@ -1308,8 +1309,46 @@ its own, at the top of its page.
 
 **A group is one row with its tabs under it.** It has a name and an icon the user picked, a
 chevron that says which way it is folded, and a §3.4-shaped row exactly like a tab's — same
-pitch, same pill, same hover and selection fills. Its tabs step in by `groupIndent` (16 pt, a favicon's own
-width) and a hairline runs down the space that opens.
+pitch, same pill, same selection fill. Its tabs step in by `groupIndent` (16 pt, a favicon's own
+width); the indent alone says what is inside, with no line drawn down it.
+
+**The pointer on a folder lights the folder, not the header.** Over its header or any
+tab in it, one plate closes round the whole folder — header through its last visible tab —
+standing `groupPlateOutset` (4 pt) outside the row pills on every side, with its corners at
+`groupPlateCornerRadius` (16, the pill's 12 plus the outset) so the curves stay concentric.
+It is the pinned tiles' own resting surface: `Surface.well` with a `Line.border` hairline. A
+hovered tab still takes §3.4's hover pill on top, and the three step in order in both themes
+— plate, hover, selected-with-hairline. **This is the one named exception to §30.7**: rows
+that are not hovered or selected carry a fill while the pointer is inside their folder.
+
+- **No folder header takes a hover pill**, open or folded. The plate is a header's answer,
+  and a lit header on top of it was two. A folded folder's plate is its header's pill box
+  outset by `groupPlateOutset`, with no foot: the same sides, top, corners and style as the
+  open one, only shorter. The chevron's ink does not lift under the pointer, as a title's does
+  not. Selection on a header is unchanged.
+- **Folding moves only the bottom edge.** Folded or unfolded with the pointer on it, the plate
+  stretches in step with the rows sliding — `Motion.tabInsert`, the clock `NSTableView` slides
+  them on (0.22 s ease-out, measured off the row views' own animations) — and its sides, top
+  and corners hold. Any height change within the same folder (a fold, a tab closing) stretches
+  rather than travelling on `rowHover`; a width change such as a live resize lands. Instant
+  under Reduce Motion, like the rows.
+- **One plate for the list**, a third `RowPillView`, placed on every pass the pills are
+  (`movePills`): moving straight from one folder to another it travels on `Motion.rowHover`
+  like the hover pill, arriving from nothing it lands and fades in, and it fades out on the
+  same spec. Reduce Motion makes all of it instant.
+- **Parked for the whole of a §6.6 lift**, with the pills, so it never lies under the dashed
+  drop box. Both measure the folder with one function (`groupExtent`), so they cannot
+  disagree about where it ends.
+- **Equal room top and bottom.** An open header draws no pill, so the plate's top edge stands
+  `groupPlateOutset` plus the header icon's margin in its pill (7.5 pt, `groupPlateFoot`) clear
+  of the icon — 11.5 pt. The plate reaches the same 11.5 pt below the last tab's pill. To give
+  it that room, an open folder with tabs in it is followed by a `groupEndGap` row (10 pt:
+  7.5 + 4 − the 1.5 pt `rowPillInset` the last row already has), so the plate ends exactly where
+  the next row begins and that row's pill clears it by its own inset. A folded or empty folder
+  has no such row. The row is furniture — not selectable, no hover pill; the pointer over it
+  keeps the folder's plate up; a drop on its upper half lands at the end of the folder, on its
+  lower half just after it. §6.6's dashed box takes the same foot, since both share `groupExtent`.
+- It is not a button — no press, and not in §6's register.
 
 **The chevron is a mark, not a button.** The whole header folds, so the glyph takes no press,
 no hover and no place in the row's hit test — it is a plain image view (§6's register of

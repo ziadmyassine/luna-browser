@@ -92,7 +92,8 @@ extension TokenCheck {
             ("rowTitleInset", Tokens.Metric.rowTitleInset), ("rowIconGap", Tokens.Metric.rowIconGap),
             ("rowTitleGap", Tokens.Metric.rowTitleGap),
             ("rowTitleFade", Tokens.Metric.rowTitleFade), ("separatorRowHeight", Tokens.Metric.separatorRowHeight),
-            ("rowTrailingGlyph", Tokens.Metric.rowTrailingGlyph),
+            ("rowTrailingGlyph", Tokens.Metric.rowTrailingGlyph), ("groupPlateOutset", Tokens.Metric.groupPlateOutset),
+            ("groupEndGap", Tokens.Metric.groupEndGap),
             ("essentialsInset", Tokens.Metric.essentialsInset), ("controlPairGap", Tokens.Metric.controlPairGap),
             ("trafficLightInset", Tokens.Metric.trafficLightInset), ("pillTextInset", Tokens.Metric.pillTextInset),
             ("pillGlyphInset", Tokens.Metric.pillGlyphInset), ("glyphSize", Tokens.Metric.glyphSize),
@@ -290,7 +291,27 @@ extension TokenCheck {
         if metric.rowGap >= metric.rowHeight {
             failures.append("Metric.rowGap eats the whole row")
         }
-        return failures + checkPinHints() + checkChromeShapes()
+        return failures + checkGroupPlate() + checkPinHints() + checkChromeShapes()
+    }
+
+    /// §3.4b's folder plate: concentric with the pills it holds, clear of the
+    /// column's edge once it has stepped out past them, and ending where the
+    /// row after an open folder begins.
+    private static func checkGroupPlate() -> [String] {
+        var failures: [String] = []
+        let metric = Tokens.Metric.self
+        if metric.groupPlateCornerRadius != metric.rowCornerRadius + metric.groupPlateOutset {
+            failures.append("Metric.groupPlateCornerRadius is not rowCornerRadius + groupPlateOutset — the corners would not nest")
+        }
+        if metric.groupPlateOutset >= metric.rowInset {
+            failures.append("Metric.groupPlateOutset reaches the sidebar's edge")
+        }
+        // The gap under an open folder is the plate's reach past its last row,
+        // so the plate stops where the next row starts and never under its pill.
+        if metric.groupEndGap != metric.groupPlateFoot + metric.groupPlateOutset - metric.rowPillInset {
+            failures.append("Metric.groupEndGap is not the plate's reach below a folder's last row")
+        }
+        return failures
     }
 
     /// §3.3a's two wells, against the two shapes they stand in for.

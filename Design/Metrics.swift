@@ -212,10 +212,6 @@ extension Tokens {
         /// icon and the two read as a heading with a column under it. Derived
         /// from the chevron's slot, which is that same width.
         static let groupIndent = groupChevronSlot.width
-        /// The hairline down the leading edge of a group's tabs, marking what
-        /// belongs to it: half way across the indent, which puts it directly
-        /// under the chevron it descends from.
-        static let groupSpineInset = groupIndent / 2
         /// How much of a §3.4b folder's header still means "beside this folder"
         /// rather than "in it", for §6.6's lift.
         ///
@@ -227,6 +223,24 @@ extension Tokens {
         /// So the target that means something gets three quarters of the row,
         /// and 10 pt is still twice `dragThreshold` for the boundary above it.
         static let groupDropEdge: CGFloat = 10
+        /// How far the plate round a hovered §3.4b folder stands outside the
+        /// row pills it holds, on every side — where Dia's folder plate sits
+        /// round its own row highlights, so a hovered member's pill lies inside
+        /// the plate rather than flush with its edge.
+        static let groupPlateOutset: CGFloat = 4
+        /// Concentric with the pills inside it: a radius grown by the outset.
+        static let groupPlateCornerRadius = rowCornerRadius + groupPlateOutset
+        /// How much further the plate reaches below the last tab's pill than
+        /// the outset alone. An open header draws no pill, so above the folder
+        /// the plate's edge stands the outset plus the header icon's own margin
+        /// in its pill, 7.5 pt; the foot takes the same, so the folder sits in
+        /// its plate with equal room top and bottom.
+        static let groupPlateFoot = (rowPillHeight - groupIconSize) / 2
+        /// The room an open, non-empty §3.4b folder leaves under its last tab:
+        /// the plate's whole reach below that tab's row, 7.5 + 4 − 1.5 = 10 pt.
+        /// The plate then ends exactly where the next row begins, and that
+        /// row's pill clears it by its own `rowPillInset`.
+        static let groupEndGap = groupPlateFoot + groupPlateOutset - rowPillInset
 
         /// What a §3.4b row that has been closed once draws its icon at. The
         /// title drops to `Text.tertiary` beside it; a favicon has no ink tier,

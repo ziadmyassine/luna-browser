@@ -8,7 +8,9 @@
 
 import AppKit
 
-/// §3.4's two row fills: the selected pill and the hover lift.
+/// §3.4's two row fills, the selected pill and the hover lift, and §3.4b's
+/// plate round a hovered folder, which travels between folders on the same
+/// terms the hover lift travels between rows.
 ///
 /// Clear glass alone was not visible. The pill was `Glass.control` plus a
 /// hairline and nothing else, and `.clear` glass over the sidebar's own glass
@@ -19,7 +21,7 @@ import AppKit
 @MainActor
 final class RowPillView: NSView {
 
-    enum Role { case selected, hover }
+    enum Role { case selected, hover, folder }
 
     /// Kept for the callers that track the table's focus. It no longer
     /// changes what is drawn: a selected row used to take an accent-coloured
@@ -48,7 +50,11 @@ final class RowPillView: NSView {
         super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerCurve = .continuous
-        Glass.apply(.control, to: self, cornerRadius: Tokens.Metric.rowCornerRadius)
+        // The folder plate is a pinned tile's resting surface, which carries no
+        // glass either — see `updateLayer`.
+        if role != .folder {
+            Glass.apply(.control, to: self, cornerRadius: Tokens.Metric.rowCornerRadius)
+        }
         bandClip.wantsLayer = true
         bandClip.layer?.cornerRadius = Tokens.Metric.rowCornerRadius
         bandClip.layer?.cornerCurve = .continuous
@@ -67,16 +73,29 @@ final class RowPillView: NSView {
 
     override func updateLayer() {
         guard let layer else { return }
-        layer.cornerRadius = Tokens.Metric.rowCornerRadius
-        layer.backgroundColor = (role == .selected ? Tokens.Surface.selected : Tokens.Surface.hover).cgColor
+        layer.cornerRadius = role == .folder ? Tokens.Metric.groupPlateCornerRadius : Tokens.Metric.rowCornerRadius
+        layer.backgroundColor = fill.cgColor
         // §3.4 gives the selected row a visible border and the hover lift none:
         // a border that appeared under the pointer would read as a second
         // selection. The border is the glass's own edge — `Line.border`, never
-        // the accent: no blue anywhere on a selected tab.
-        let bordered = role == .selected
+        // the accent: no blue anywhere on a selected tab. The folder plate takes
+        // the same hairline a pinned tile's well does.
+        let bordered = role != .hover
         layer.borderWidth = bordered ? Tokens.Metric.hairline : 0
         layer.borderColor = bordered ? Tokens.Line.border.cgColor : nil
         band.backgroundColor = Tokens.Surface.readBand.cgColor
+    }
+
+    /// The folder plate is a pinned tile's well, not a wash. A hover or a
+    /// selected pill lying on it adds its own ink on top, so the three still
+    /// step in order in both themes — plate, then hover, then selected with
+    /// its hairline.
+    private var fill: NSColor {
+        switch role {
+        case .selected: Tokens.Surface.selected
+        case .hover: Tokens.Surface.hover
+        case .folder: Tokens.Surface.well
+        }
     }
 
     override func layout() {
@@ -123,7 +142,9 @@ extension RowPillView {
             // Layer-backed frames animate themselves; `SidebarRowView.layout`
             // takes the same precaution for the same reason.
             Tokens.Motion.immediately {
-                layer?.removeAnimation(forKey: "position")
+                // "bounds" too: a stretch still running would otherwise carry
+                // the old height into the new place.
+                for key in ["position", "bounds"] { layer?.removeAnimation(forKey: key) }
                 frame = target
             }
         }
@@ -131,6 +152,29 @@ extension RowPillView {
         // pill did not make — a live resize, a list that has been replaced
         // under it — lands; it does not arrive.
         fade(to: 1, animated: spec != nil)
+    }
+
+    /// Resize in place on `spec`'s duration and curve, from wherever the pill
+    /// is standing on screen. §3.4b's plate does this as its folder folds, so
+    /// its bottom edge keeps pace with the rows `NSTableView` is sliding on
+    /// the same clock; a spring from `move` would overshoot past them.
+    func stretch(to target: NSRect, spec: MotionSpec) {
+        guard let layer, !Tokens.Motion.reduceMotion else { return move(to: target, spec: nil) }
+        let from = layer.presentation() ?? layer
+        let (bounds, position) = (from.bounds, from.position)
+        Tokens.Motion.immediately { frame = target }
+        let changes = [
+            ("bounds", NSValue(rect: bounds), NSValue(rect: layer.bounds)),
+            ("position", NSValue(point: position), NSValue(point: layer.position))
+        ]
+        for (key, old, new) in changes where old != new {
+            let animation = CABasicAnimation(keyPath: key)
+            animation.fromValue = old
+            animation.toValue = new
+            animation.duration = spec.duration
+            animation.timingFunction = spec.timingFunction
+            layer.add(animation, forKey: key)
+        }
     }
 
     /// Park the pill, or bring it back. A row with nothing selected and nothing
@@ -144,9 +188,10 @@ extension RowPillView {
     /// then, and a fill still fading out of the Space you left is a glass pill
     /// lying in the Space you arrived in with no row inside it.
     ///
-    /// Clearing the animations is safe here because the only two this view ever
-    /// carries are this fade and `move`'s spring, and `move` asks for an
-    /// unanimated fade only on the branch that has just cancelled that spring.
+    /// Clearing every animation is safe here because each one this view carries
+    /// — this fade, `move`'s spring, `stretch` — is one a cancel should end,
+    /// and `move` asks for an unanimated fade only on the branch that has just
+    /// cancelled the other two.
     func fade(to alpha: CGFloat, animated: Bool = true) {
         guard animated else {
             return Tokens.Motion.immediately {

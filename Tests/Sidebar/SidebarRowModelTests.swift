@@ -59,7 +59,8 @@ final class SidebarRowModelTests: XCTestCase {
         XCTAssertEqual(list.destination(forRow: 0, isBelowMidpoint: false).kind, .pinned)
     }
 
-    /// A group is one row with its tabs under it.
+    /// A group is one row with its tabs under it, and the room its plate
+    /// reaches into after them.
     func testAGroupDrawsItsTabsUnderIt() {
         let folder = group("Research")
         let first = tab(.today, "a")
@@ -69,7 +70,7 @@ final class SidebarRowModelTests: XCTestCase {
 
         XCTAssertEqual(
             list.rows,
-            [.addTab, .group(folder.id), .tab(first.id), .tab(second.id), .tab(loose.id)]
+            [.addTab, .group(folder.id), .tab(first.id), .tab(second.id), .groupEnd(folder.id), .tab(loose.id)]
         )
         XCTAssertEqual(list.group(ofTab: first.id), folder)
         XCTAssertNil(list.group(ofTab: loose.id))
@@ -100,7 +101,7 @@ final class SidebarRowModelTests: XCTestCase {
             saved: [.tab(saved)],
             today: [.group(folder, tabs: [first, second]), .tab(loose)]
         )
-        // rows: 0 saved · 1 rule · 2 New Tab · 3 header · 4 a · 5 b · 6 loose
+        // rows: 0 saved · 1 rule · 2 New Tab · 3 header · 4 a · 5 b · 6 room · 7 loose
 
         XCTAssertEqual(list.destination(forRow: 0, isBelowMidpoint: false), .init(kind: .pinned, index: 0))
         XCTAssertEqual(list.destination(forRow: 0, isBelowMidpoint: true), .init(kind: .pinned, index: 1))
@@ -124,8 +125,16 @@ final class SidebarRowModelTests: XCTestCase {
             list.destination(forRow: 5, isBelowMidpoint: true),
             .init(kind: .today, groupID: folder.id, index: 2)
         )
-        XCTAssertEqual(list.destination(forRow: 6, isBelowMidpoint: false), .init(kind: .today, index: 1))
-        XCTAssertEqual(list.destination(forRow: 6, isBelowMidpoint: true), .init(kind: .today, index: 2))
+        // The room under the folder splits the same way: its end, then after it.
+        XCTAssertEqual(
+            list.destination(forRow: 6, isBelowMidpoint: false),
+            .init(kind: .today, groupID: folder.id, index: 2)
+        )
+        XCTAssertEqual(list.destination(forRow: 6, isBelowMidpoint: true), .init(kind: .today, index: 1))
+        XCTAssertEqual(list.gapRow(forRow: 6, isBelowMidpoint: false), 6)
+        XCTAssertEqual(list.gapRow(forRow: 6, isBelowMidpoint: true), 7)
+        XCTAssertEqual(list.destination(forRow: 7, isBelowMidpoint: false), .init(kind: .today, index: 1))
+        XCTAssertEqual(list.destination(forRow: 7, isBelowMidpoint: true), .init(kind: .today, index: 2))
         // Past the last row is the foot of the list.
         XCTAssertEqual(list.destination(forRow: 99, isBelowMidpoint: false), .init(kind: .today, index: 2))
     }
@@ -199,6 +208,25 @@ final class SidebarRowModelTests: XCTestCase {
         XCTAssertTrue(list.isSelectable(2))
         XCTAssertTrue(list.isSelectable(3))
         XCTAssertFalse(list.isSelectable(4))
+    }
+
+    /// The room under a folder is furniture too, and only an open folder with
+    /// tabs in it has any: a folded or empty one ends at its header.
+    func testTheRoomUnderAFolderIsNotSelectableAndOnlyOpenFoldersHaveIt() throws {
+        let open = group("Open")
+        let folded = group("Folded", collapsed: true)
+        let empty = group("Empty")
+        let list = SidebarList(today: [
+            .group(open, tabs: [tab(.today, "a")]),
+            .group(folded, tabs: [tab(.today, "b")]),
+            .group(empty, tabs: [])
+        ])
+
+        XCTAssertEqual(list.rows.filter { if case .groupEnd = $0 { true } else { false } }, [.groupEnd(open.id)])
+        let room = try XCTUnwrap(list.rows.firstIndex(of: .groupEnd(open.id)))
+        XCTAssertFalse(list.isSelectable(room))
+        XCTAssertNil(list.tab(at: room))
+        XCTAssertNil(list.group(at: room))
     }
 
     /// The submenu that moves a tab offers every group but the one it is in.

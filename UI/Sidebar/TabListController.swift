@@ -97,6 +97,9 @@ final class TabListController: NSObject {
     /// `TabListController+Pills.swift`, and Swift's `private` is file-scoped.
     let selectionPill = RowPillView(role: .selected)
     let hoverPill = RowPillView(role: .hover)
+    /// §3.4b's plate round the folder under the pointer. One for the
+    /// list, like the pills: the pointer is in one folder at a time.
+    let groupPlate = RowPillView(role: .folder)
     /// The row under the pointer. Internal for `+Content.swift`'s sake, which
     /// is what decides whether a row draws its close chip or its speaker.
     private(set) var hoveredRow: Int?
@@ -158,7 +161,7 @@ final class TabListController: NSObject {
         table.onHover = { [weak self] row in self?.setHovered(row) }
         table.onContextMenu = { [weak self] row in self?.contextMenu(forRow: row) }
 
-        for pill in [selectionPill, hoverPill] {
+        for pill in [selectionPill, hoverPill, groupPlate] {
             pill.alphaValue = 0
             table.addSubview(pill, positioned: .below, relativeTo: nil)
         }
@@ -293,6 +296,13 @@ final class TabListController: NSObject {
             }
             table.endUpdates()
         }
+        // The rows moved under a pointer that did not: a fold from the
+        // keyboard left `hoveredRow` naming whatever slid into its old index,
+        // and §3.4b's plate went round that row's folder.
+        if hoveredRow != nil, let window = table.window {
+            let row = table.row(at: table.convert(window.mouseLocationOutsideOfEventStream, from: nil))
+            setHovered(row >= 0 ? row : nil)
+        }
         refreshVisibleRows()
     }
 
@@ -323,7 +333,7 @@ final class TabListController: NSObject {
         refreshVisibleRows(movingPills: animated)
     }
 
-    private func setHovered(_ row: Int?) {
+    func setHovered(_ row: Int?) {
         guard row != hoveredRow else { return }
         let previous = hoveredRow
         hoveredRow = row
@@ -366,7 +376,7 @@ final class TabListController: NSObject {
         case .addTab:
             guard Self.isClick(event, on: row, in: table) else { return }
             onAddTab?()
-        case .separator, .none:
+        case .separator, .groupEnd, .none:
             // Furniture. Dragging it moves the window, like the rest of the
             // sidebar's plane (§30.1).
             table.window?.performDrag(with: event)

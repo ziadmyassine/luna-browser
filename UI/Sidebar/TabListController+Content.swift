@@ -27,7 +27,7 @@ extension TabListController {
             // for the address bar. It now asks the question the blank tab was
             // standing in for.
             return SidebarRowContent(title: "New Tab", symbolName: "plus")
-        case .separator, .none:
+        case .separator, .groupEnd, .none:
             return SidebarRowContent()
         case .group:
             guard let group = list.group(at: row) else { return SidebarRowContent() }
@@ -86,8 +86,7 @@ extension TabListController {
             hasUnread: tab.hasUnread,
             isLoading: state?.isLoading ?? false,
             trailing: trailing,
-            // §3.4b: a tab inside a group steps in, and the spine is drawn in
-            // the space that opens. A dimmed row is one that has been closed
+            // §3.4b: a tab inside a group steps in. A dimmed row is one that has been closed
             // once and kept — see `Tab.isDormant`.
             indent: list.group(ofTab: tab.id) == nil ? 0 : Tokens.Metric.groupIndent,
             isDormant: tab.isDormant

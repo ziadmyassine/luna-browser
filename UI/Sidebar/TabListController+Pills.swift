@@ -44,8 +44,27 @@ extension TabListController {
         selectionPill.isFocused = table.window?.firstResponder === table
         let selected = table.selectedRow >= 0 ? table.selectedRow : nil
         place(selectionPill, at: selected, spec: animated ? Tokens.Motion.selectedRowMove : nil)
-        let hovered = hoveredRow.flatMap { list.isSelectable($0) && $0 != selected ? $0 : nil }
+        // No folder header takes the hover pill, open or folded: §3.4b's plate
+        // is its whole answer to the pointer, and a header lit on top of it
+        // was two.
+        let hovered = hoveredRow.flatMap {
+            list.isSelectable($0) && $0 != selected && list.group(at: $0) == nil ? $0 : nil
+        }
         place(hoverPill, at: hovered, spec: animated ? Tokens.Motion.rowHover : nil)
+        placeGroupPlate(animated: animated)
+    }
+
+    /// §3.4b's plate round the folder the pointer is in — over its header, any
+    /// of its tabs or the room under them — pushed out past the pills it holds.
+    /// A folded folder's plate is its header's, with the same sides, top and
+    /// corners, so folding moves only the bottom edge.
+    func groupPlateBox() -> NSRect? {
+        guard let row = hoveredRow, row < table.numberOfRows else { return nil }
+        var folder = list.group(at: row) ?? list.tab(at: row).flatMap { list.group(ofTab: $0.id) }
+        if case let .groupEnd(id)? = list[row] { folder = list.group(id) }
+        guard let folder else { return nil }
+        let outset = Tokens.Metric.groupPlateOutset
+        return groupExtent(ofGroup: folder.id)?.insetBy(dx: -outset, dy: -outset)
     }
 
     /// How far the selected tab's page has been read. Only the selected pill
@@ -65,19 +84,42 @@ extension TabListController {
             movePills()
             return
         }
-        for pill in [selectionPill, hoverPill] { pill.fade(to: 0) }
+        for pill in [selectionPill, hoverPill, groupPlate] { pill.fade(to: 0) }
     }
 
     /// Keeps the shared fills behind the row views AppKit keeps adding — the
-    /// two pills, and §6.6's box round a folder taking a drop.
+    /// two pills, §3.4b's folder plate under them, and §6.6's box round a
+    /// folder taking a drop.
     func sendPillsToBack() {
-        for fill in [selectionPill, hoverPill, groupDrop] where fill.superview === table {
+        for fill in [selectionPill, hoverPill, groupPlate, groupDrop] where fill.superview === table {
             table.addSubview(fill, positioned: .below, relativeTo: nil)
         }
     }
 
+    /// The same folder growing or shrinking under the pointer — a fold, a tab
+    /// closing — stretches its bottom edge in step with the rows sliding, on
+    /// the clock `apply` gives them. Anything else, including a width change,
+    /// is an ordinary move.
+    ///
+    /// The rows' layout pass lands here unanimated while they are still
+    /// sliding; the plate is already standing where it is going by then, and
+    /// placing it again would snap the stretch to its end.
+    private func placeGroupPlate(animated: Bool) {
+        let box = groupPlateBox(), shown = groupPlate.frame
+        guard let box, groupPlate.alphaValue == 1,
+              box.minX == shown.minX, box.minY == shown.minY, box.width == shown.width else {
+            return place(groupPlate, in: box, spec: animated ? Tokens.Motion.rowHover : nil)
+        }
+        guard box.height != shown.height else { return }
+        groupPlate.stretch(to: box, spec: Tokens.Motion.tabInsert)
+    }
+
     private func place(_ pill: RowPillView, at row: Int?, spec: MotionSpec?) {
-        guard let row, row < table.numberOfRows else {
+        place(pill, in: row.flatMap { $0 < table.numberOfRows ? pillBox(ofRow: $0) : nil }, spec: spec)
+    }
+
+    private func place(_ pill: RowPillView, in box: NSRect?, spec: MotionSpec?) {
+        guard let box else {
             // Parked on the same terms it is moved on. A Space switch
             // reaches here twice with no spec — once as `reloadData` drops the
             // selection, once as the new one is applied — and a fill left
@@ -87,7 +129,7 @@ extension TabListController {
             pill.fade(to: 0, animated: spec != nil)
             return
         }
-        pill.move(to: pillBox(ofRow: row), spec: spec)
+        pill.move(to: box, spec: spec)
     }
 
     /// The fill's box for one row.

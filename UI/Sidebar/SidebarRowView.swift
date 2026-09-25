@@ -53,8 +53,7 @@ struct SidebarRowContent: Equatable {
     var isLoading: Bool = false
     var trailing: Trailing = .none
     /// How far this row's contents step in — `Metric.groupIndent` for a tab
-    /// inside a §3.4b group, zero for everything else. The spine is drawn in the
-    /// space it opens.
+    /// inside a §3.4b group, zero for everything else.
     var indent: CGFloat = 0
     /// A §3.4b group header's chevron, and which way it points. Nil on every row
     /// that is not a group.
@@ -104,8 +103,6 @@ final class SidebarRowView: NSView {
     /// only one. It is a plain `NSImageView` so that it cannot take a press,
     /// cannot take a hover, and is not in the hit test at all.
     let chevron = NSImageView()
-    /// The hairline down the leading edge of a group's tabs.
-    let spine = NSView()
     private let dot = NSView()
     /// Clips and fades both title layers. See the header.
     let titleClip = NSView()
@@ -183,11 +180,9 @@ final class SidebarRowView: NSView {
         // The header is the control and carries the label; a second element
         // announcing the same fold is one more stop for no more reach.
         chevron.setAccessibilityElement(false)
-        spine.wantsLayer = true
-        spine.isHidden = true
 
         prepareEditor()
-        for view in [spine, icon, dot, titleClip, chevron, siteButton, trailing, editor] { addSubview(view) }
+        for view in [icon, dot, titleClip, chevron, siteButton, trailing, editor] { addSubview(view) }
         setAccessibilityElement(true)
         setAccessibilityRole(.cell)
     }
@@ -217,7 +212,6 @@ final class SidebarRowView: NSView {
         dot.isHidden = !next.hasUnread
         setAccessibilityLabel(next.title)
         applyDisclosure(next.disclosure)
-        spine.isHidden = next.indent == 0
         applyTrailing(next.trailing)
         siteButton.isHidden = !next.siteSettings
         refreshInk()
@@ -269,8 +263,9 @@ final class SidebarRowView: NSView {
         )
         shimmer.textColor = Tokens.Text.primary
         icon.alphaValue = content.isDormant ? Tokens.Metric.dormantIconOpacity : 1
-        chevron.contentTintColor = isSelected || isHovered ? Tokens.Text.primary : Tokens.Text.secondary
-        spine.layer?.backgroundColor = Tokens.Line.hairline.cgColor
+        // Not the hover, as a title is not: the chevron is only on a §3.4b
+        // header, and the pill or the folder's plate answers the pointer for it.
+        chevron.contentTintColor = isSelected ? Tokens.Text.primary : Tokens.Text.secondary
         // Ink, not accent. Luna's chrome carries no system blue: the unread
         // mark is a full-strength dot in the same ink the title is set in, and
         // it reads because it is bright, not because it is a different hue.
@@ -351,17 +346,7 @@ final class SidebarRowView: NSView {
         Tokens.Motion.immediately { placeContents() }
     }
 
-    func placeGroupFurniture() {
-        spine.frame = NSRect(
-            x: Tokens.Metric.rowInset + Tokens.Metric.groupSpineInset,
-            y: 0,
-            width: Tokens.Metric.hairline,
-            height: bounds.height
-        ).pixelAligned
-    }
-
     private func placeContents() {
-        placeGroupFurniture()
         // §3.4b: a folder's header stands at the column's own left edge and its
         // tabs step in by `groupIndent`, so the indent alone says what is inside
         // it. The chevron follows the name instead of leading the row — see

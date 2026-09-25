@@ -158,6 +158,8 @@ final class SpacePreviewView: NSView {
                 isDimmed: false,
                 indent: column.group(ofTab: tab.id) == nil ? 0 : Tokens.Metric.groupIndent
             )
+        case .groupEnd:
+            return SpacePreviewGap()
         }
     }
 
@@ -197,7 +199,11 @@ final class SpacePreviewView: NSView {
             top -= height + 2 * margin
         }
         for row in rows {
-            let height = row is SpacePreviewRule ? Tokens.Metric.separatorRowHeight : Tokens.Metric.rowHeight
+            let height = switch row {
+            case is SpacePreviewRule: Tokens.Metric.separatorRowHeight
+            case is SpacePreviewGap: Tokens.Metric.groupEndGap
+            default: Tokens.Metric.rowHeight
+            }
             top -= height
             row.frame = NSRect(x: 0, y: top, width: bounds.width, height: height).integral
             // Off the bottom is off the picture. See the file header.
@@ -263,6 +269,10 @@ final class SpacePreviewTile: NSView {
         }
     }
 }
+
+/// The room under an open folder, which the still draws as nothing — the
+/// plate that fills it is a hover, and nothing is hovered in a still.
+final class SpacePreviewGap: NSView {}
 
 /// §3.4's rule between the command row and the tabs, as the still draws it.
 @MainActor

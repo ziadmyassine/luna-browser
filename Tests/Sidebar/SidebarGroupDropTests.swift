@@ -25,7 +25,8 @@ final class SidebarGroupDropTests: XCTestCase {
     private let space = UUID()
     private var group = TabGroup(spaceID: UUID(), name: "Trip", order: 0)
 
-    /// Three tabs in the folder, plus the one arriving from outside it.
+    /// Three tabs in the folder, plus the one arriving from outside it, plus
+    /// the foot an open folder's plate takes into the room under it.
     func testTheBoxHoldsTheWholeFolderAndTheRoomForTheTabArriving() throws {
         let controller = try list()
         let header = try XCTUnwrap(controller.list.row(ofGroup: group.id))
@@ -34,7 +35,7 @@ final class SidebarGroupDropTests: XCTestCase {
         controller.setGap(row: header + 2)
         XCTAssertEqual(
             controller.groupDrop.frame.height,
-            5 * Tokens.Metric.rowHeight - 2 * Tokens.Metric.rowPillInset,
+            5 * Tokens.Metric.rowHeight - 2 * Tokens.Metric.rowPillInset + Tokens.Metric.groupPlateFoot,
             accuracy: 0.51,
             "the box does not reach round the folder and the tab going into it"
         )
@@ -52,7 +53,7 @@ final class SidebarGroupDropTests: XCTestCase {
         controller.setGap(row: header + 3)
         XCTAssertEqual(
             controller.groupDrop.frame.height,
-            4 * Tokens.Metric.rowHeight - 2 * Tokens.Metric.rowPillInset,
+            4 * Tokens.Metric.rowHeight - 2 * Tokens.Metric.rowPillInset + Tokens.Metric.groupPlateFoot,
             accuracy: 0.51
         )
     }

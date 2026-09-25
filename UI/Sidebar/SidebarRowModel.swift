@@ -44,6 +44,9 @@ enum SidebarRow: Hashable, Sendable {
     /// A group's header — its icon, its name, and the chevron that folds it.
     case group(UUID)
     case tab(UUID)
+    /// The room under an open folder's last tab, which its §3.4b plate
+    /// reaches down into. Not selectable.
+    case groupEnd(UUID)
 }
 
 /// One top-level place in a section, as the list is handed it.
@@ -86,7 +89,7 @@ struct SidebarList: Equatable, Sendable {
     private let todaySlots: [SidebarSlot]
     private let groupsByID: [UUID: TabGroup]
     /// Which tabs are inside a group, and the group each one is in. Row-level
-    /// questions — indentation, the spine — are answered from here rather than
+    /// questions such as indentation are answered from here rather than
     /// re-derived from `Tab.groupID`, so a row can be drawn without a lookup.
     private let memberDepth: [UUID: UUID]
     /// Per row, where a drop above and below its midpoint lands.
@@ -202,9 +205,13 @@ struct SidebarList: Equatable, Sendable {
 
     func row(ofGroup id: UUID) -> Int? { rows.firstIndex(of: .group(id)) }
 
-    /// Rows the keyboard and the mouse may land on. The rule is furniture.
+    /// Rows the keyboard and the mouse may land on. The rule and the room
+    /// under a folder are furniture.
     func isSelectable(_ row: Int) -> Bool {
-        self[row] != nil && self[row] != .separator
+        switch self[row] {
+        case .addTab, .group, .tab: true
+        case .separator, .groupEnd, .none: false
+        }
     }
 
     /// Where a drop belongs, as `BrowserSession.reorderTab` wants it.
@@ -321,8 +328,15 @@ private struct Build {
                         index: group.isCollapsed ? tabs.count : 0
                     )
                 )
-                guard !group.isCollapsed else { continue }
+                guard !group.isCollapsed, !tabs.isEmpty else { continue }
                 emit(tabs, ofGroup: group.id, kind: kind)
+                // Split like any row: the upper half is still the end of the
+                // folder, the lower half is already after it.
+                add(
+                    .groupEnd(group.id),
+                    above: SidebarDestination(kind: kind, groupID: group.id, index: tabs.count),
+                    below: after
+                )
             }
         }
     }

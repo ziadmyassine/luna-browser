@@ -31,7 +31,11 @@ extension TabListController: NSTableViewDataSource {
 extension TabListController: NSTableViewDelegate {
 
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
-        list[row] == .separator ? Tokens.Metric.separatorRowHeight : Tokens.Metric.rowHeight
+        switch list[row] {
+        case .separator: Tokens.Metric.separatorRowHeight
+        case .groupEnd: Tokens.Metric.groupEndGap
+        default: Tokens.Metric.rowHeight
+        }
     }
 
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
@@ -39,6 +43,8 @@ extension TabListController: NSTableViewDelegate {
             return tableView.makeView(withIdentifier: SeparatorRowView.reuseIdentifier, owner: self)
                 ?? SeparatorRowView()
         }
+        // Empty: what fills it is the folder's plate, behind every row.
+        if case .groupEnd = list[row] { return NSView() }
         let view = tableView.makeView(withIdentifier: SidebarRowView.reuseIdentifier, owner: self)
             as? SidebarRowView ?? SidebarRowView()
         view.configure(content(for: row))

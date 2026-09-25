@@ -2,8 +2,7 @@
 //  SidebarRowView+Group.swift
 //  Luna
 //
-//  What §3.4b added to a sidebar row: the chevron that folds a group, and the
-//  hairline down the leading edge of its tabs.
+//  What §3.4b added to a sidebar row: the chevron that folds a group.
 //
 //  §6.6's answer to a lift aimed into a folder is not here. It is one box round
 //  the whole folder rather than a mark on its header — see
