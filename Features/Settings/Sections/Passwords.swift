@@ -33,17 +33,9 @@ final class PasswordsSection: SettingsGroup {
 
     /// One card: where passwords go first, then the four switches, then
     /// passkeys, whose row says why it is off rather than a note under it.
-    func add(to body: SettingsBody) -> [(view: NSView, terms: [String])] {
+    func add(to body: SettingsBody) {
         body.card(Self.title, [storageRow()] + switchRows() + [passkeysRow(), manageRow()])
-        body.loose(
-            SettingsRow.note(String(localized: """
-            Luna has no password vault or account of its own. It can’t read what Safari has saved; \
-            only Apple’s apps can.
-            """)),
-            terms: ["keychain", "safari", "passwords app", "icloud", "vault", "import"]
-        )
         refreshStorageLine()
-        return []
     }
 
     // MARK: Rows

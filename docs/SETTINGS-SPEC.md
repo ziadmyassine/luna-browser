@@ -234,9 +234,12 @@ Twelve sections became eight, because several were a single card:
 - **Spaces, Extensions, Shortcuts, Luna Control and About** stay pages of their
   own. Order: General, Appearance, Privacy & Passwords, Spaces, Extensions,
   Shortcuts, Luna Control, About.
-- **Rows that do nothing yet** are gathered at the foot of their page under
-  **Coming later**, dimmed with their reason, rather than sitting among the
-  rows that work. *Confirm before closing a window with multiple tabs* is gone.
+- **Only rows that work are shown.** The ones that did nothing yet — *On
+  launch*, *Ask where to save each file*, *Clear download list*, *Show Develop
+  menu* and *Confirm before closing a window with multiple tabs* — are gone,
+  with their keys. So are the paragraphs that sat under groups (Privacy's
+  malware note, Passwords', Spaces', Shortcuts' legend, Luna Control's two):
+  a row's own subtitle says what it needs to.
 - **Every section has a tile again** (`SettingsSymbolTile`), but not the
   `Surface.selected` square §2.1 removed: grey glass with a white glyph, as
   macOS's own settings draw theirs, 22 pt in the list and 44 pt at the head of

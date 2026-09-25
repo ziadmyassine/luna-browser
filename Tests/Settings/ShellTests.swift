@@ -27,11 +27,10 @@ final class SettingsDefaultsTests: XCTestCase {
     func testKeysCarryEverySettingSpecSixDeclares() {
         let keys = Set(SettingsDefaults.keys)
         for declared in [
-            "general.onLaunch",
             "appearance.theme", "appearance.glassOptimisation",
             "search.engine", "search.customEngineURL",
-            "downloads.directory", "downloads.askEachTime", "downloads.autoOpen", "downloads.clearPolicy",
-            "advanced.userAgent", "advanced.showDevelopMenu", "advanced.webInspector", "advanced.allowControl",
+            "downloads.directory", "downloads.autoOpen",
+            "advanced.userAgent", "advanced.webInspector", "advanced.allowControl",
             "settings.lastSection"
         ] {
             XCTAssertTrue(keys.contains(declared), "§6 declares \(declared) and the table does not")

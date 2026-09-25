@@ -55,10 +55,8 @@ protocol SettingsGroup: AnyObject {
     static var id: String { get }
     static var title: String { get }
     static var keywords: [String] { get }
-    /// Adds the group's cards to `body`, and hands back the rows it has that
-    /// do nothing yet, which the page gathers at its foot under "Coming later"
-    /// rather than leaving them dimmed among the rows that work.
-    func add(to body: SettingsBody) -> [(view: NSView, terms: [String])]
+    /// Adds the group's cards to `body`.
+    func add(to body: SettingsBody)
 }
 
 extension SettingsSection {

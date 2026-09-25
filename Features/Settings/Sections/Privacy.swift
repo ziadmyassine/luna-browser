@@ -42,8 +42,7 @@ final class PrivacySection: SettingsSection {
 
     init() {
         buildBlocking()
-        buildSafeBrowsingNote()
-        _ = passwords.add(to: body)
+        passwords.add(to: body)
         buildClearing()
         observeStatus()
     }
@@ -118,17 +117,6 @@ final class PrivacySection: SettingsSection {
         // prose: someone hunting for the exemption list types "allowlist" or
         // "per-site", and §2's search brings them to the row the menu switches.
         return (row, [title, "rules", "refresh", "easylist", "update", "exceptions", "allowlist", "per-site"])
-    }
-
-    /// §17.7, and required copy rather than a nicety: Luna has no Safe Browsing
-    /// service, and a privacy section that stays quiet about that lets the user
-    /// believe they are protected against something they are not.
-    private func buildSafeBrowsingNote() {
-        let text = String(localized: """
-        Luna doesn’t check the sites you visit against a malware list, and your browsing never \
-        leaves this Mac. macOS still checks anything you download and run.
-        """)
-        body.loose(SettingsRow.note(text), terms: ["malware", "phishing", "safe browsing", "xprotect", "gatekeeper"])
     }
 
     /// Last on the page, and on its own: the one row here that signs you out

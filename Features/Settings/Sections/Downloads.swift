@@ -32,10 +32,8 @@ final class DownloadsSection: SettingsGroup {
 
     private let folder = NSPopUpButton(frame: .zero, pullsDown: true)
 
-    /// The two rows that do nothing yet go to the page's "Coming later".
-    func add(to body: SettingsBody) -> [(view: NSView, terms: [String])] {
+    func add(to body: SettingsBody) {
         body.card(Self.title, [saveLocationRow(), autoOpenRow()])
-        return [askEachTimeRow(), clearPolicyRow()]
     }
 
     // MARK: Where files go
@@ -109,20 +107,7 @@ final class DownloadsSection: SettingsGroup {
         refreshFolder()
     }
 
-    // MARK: The three policy rows
-
-    private func askEachTimeRow() -> (view: NSView, terms: [String]) {
-        let title = String(localized: "Ask where to save each file")
-        let row = SettingsRow.toggle(
-            title,
-            subtitle: nil,
-            value: UserDefaults.standard.bool(forKey: "downloads.askEachTime"),
-            isEnabled: false,
-            disabledReason: String(localized: "DownloadManager picks the destination itself and does not read this yet."),
-            onChange: { _ in }
-        )
-        return (view: row, terms: [title, "ask", "save panel"])
-    }
+    // MARK: Opening
 
     /// Default off, and that is the point of the row rather than an
     /// oversight: Safari ships this on, and it is the setting named most often
@@ -140,26 +125,5 @@ final class DownloadsSection: SettingsGroup {
             UserDefaults.standard.set(open, forKey: DownloadDestination.autoOpenKey)
         }
         return (view: row, terms: [title, subtitle, "open", "auto-open", "safe"])
-    }
-
-    /// Measured while building this: `DownloadManager.items` is in memory only
-    /// — nothing writes it to disk and nothing reads it back — so the list is
-    /// already, and always, cleared on quit. Two of the three options in §3.5's
-    /// popup cannot be honoured, so the popup shows the truth and is dimmed.
-    private func clearPolicyRow() -> (view: NSView, terms: [String]) {
-        let title = String(localized: "Clear download list")
-        let options = [
-            String(localized: "Manually"), String(localized: "On quit"), String(localized: "After a day")
-        ]
-        let row = SettingsRow.popup(
-            title,
-            subtitle: nil,
-            options: options,
-            selected: 1,
-            isEnabled: false,
-            disabledReason: String(localized: "The download list is not saved between launches, so it always clears on quit."),
-            onChange: { _ in }
-        )
-        return (view: row, terms: [title, "history", "clear list"])
     }
 }

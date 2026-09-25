@@ -142,15 +142,6 @@ final class ShortcutsSection: SettingsSection {
 
     init() {
         body.card(nil, [(resetAllRow(), ["reset shortcuts", "restore defaults", "customise", "customize"])])
-        // Above the table, not below it. It is the key to the drawing, and
-        // a legend a reader only meets after scrolling past sixty rows they
-        // could not interpret has been printed too late to have been a legend.
-        body.loose(SettingsRow.note(String(localized: """
-        Shortcuts in a box are yours to change: click one and press the new keys. \
-        Escape cancels, Delete clears it, and a shortcut needs ⌘, ⌃ or ⌥ — without one it would be \
-        typed into the page instead. The rest are printed flat: they belong to macOS, or are numbered \
-        from your Spaces and sidebar, and cannot be moved.
-        """)), terms: ["help", "how to change a shortcut", "editable", "cannot be changed", "locked"])
         // `NSApplication.mainMenu` is nil in a unit-test host that never
         // installed one; an empty table is the right outcome, not a crash.
         let commands = NSApplication.shared.mainMenu.map(Self.commands(in:)) ?? []

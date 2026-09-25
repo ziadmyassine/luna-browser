@@ -27,12 +27,10 @@ final class AdvancedSection: SettingsGroup {
     /// whose values just changed underneath them.
     var onRestore: (() -> Void)?
 
-    /// The Develop menu row goes to the page's "Coming later".
-    func add(to body: SettingsBody) -> [(view: NSView, terms: [String])] {
+    func add(to body: SettingsBody) {
         body.card(Self.title, [
             userAgentRow(), customUserAgentRow(), webInspectorRow(), revealDatabaseRow(), restoreDefaultsRow()
         ])
-        return [developMenuRow()]
     }
 
     // MARK: User agent
@@ -84,22 +82,6 @@ final class AdvancedSection: SettingsGroup {
             self?.applyToLiveWebViews()
         }
         return (view: row, terms: [title, subtitle, "inspector", "developer", "devtools"])
-    }
-
-    /// Dimmed because there is nothing to show: `MainMenu` builds no Develop
-    /// menu, so the switch would set a key no menu reads. The Web Inspector
-    /// above is the part of this that exists, and it is wired.
-    private func developMenuRow() -> (view: NSView, terms: [String]) {
-        let title = String(localized: "Show Develop menu")
-        let row = SettingsRow.toggle(
-            title,
-            subtitle: nil,
-            value: false,
-            isEnabled: false,
-            disabledReason: String(localized: "Luna has no Develop menu yet."),
-            onChange: { _ in }
-        )
-        return (view: row, terms: [title, "develop menu", "developer"])
     }
 
     /// `customUserAgent` and `isInspectable` are per-web-view, so a setting

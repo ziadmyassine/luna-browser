@@ -27,8 +27,6 @@ enum SettingsDefaults {
     /// An array rather than a dictionary so `keys` has §6's order, which is
     /// what makes a failing test name the key that drifted.
     private static let table: [(key: String, value: Any)] = [
-        // §3.1 General — `GeneralSection.onLaunch`
-        ("general.onLaunch", "restoreSession"),
         // §3.2 Appearance — `AppearanceSection.theme`, `Glass.optimisation`
         ("appearance.theme", "auto"),
         ("appearance.glassOptimisation", GlassOptimisation.auto.rawValue),
@@ -40,13 +38,10 @@ enum SettingsDefaults {
         ("search.shortcutResults", true),
         // §3.5 Downloads — `DownloadDestination.folder` / `.autoOpenKey`
         ("downloads.directory", ""),
-        ("downloads.askEachTime", false),
         ("downloads.autoOpen", false),
-        ("downloads.clearPolicy", "onQuit"),
         // §3.9 Advanced — `WebViewFactory.Key`
         ("advanced.userAgent", WebViewFactory.UserAgentMode.default.rawValue),
         ("advanced.userAgentCustom", ""),
-        ("advanced.showDevelopMenu", false),
         ("advanced.webInspector", true),
         // §3.11 About — `Updater.installsOnItsOwn`
         ("updates.installOnItsOwn", true),

@@ -110,9 +110,6 @@ final class LunaControlSection: NSObject, SettingsSection {
             "Allow apps to control Luna", "Lets AI apps on this Mac open tabs, read pages and click for you",
             "luna control", "mcp", "agent", "automation"
         ])])
-        let note = String(localized: "Connected apps use Luna as you, signed in to your sites. Only connect apps you trust.")
-        body.loose(SettingsRow.note(note), terms: [note])
-
         body.card(String(localized: "Connect an app"), ControlApp.all.enumerated().map { appRow($1, index: $0, live: live) })
         body.card(nil, [otherAppsRow(live: live)])
         let fresh = SettingsHost.control.map { permissionsAndActivity($0) } ?? []
@@ -298,10 +295,6 @@ extension LunaControlSection {
         // visible, so a revoke is still to hand, but steps back.
         grants.alphaValue = mode == .allowPerSite ? 1 : 0.5
         body.card(grants, rows: sites)
-        if mode != .allowPerSite {
-            let unused = String(localized: "Used only in Per Site mode.")
-            body.loose(SettingsRow.note(unused), terms: [unused])
-        }
 
         let (rows, fresh) = activityRows(control)
         let log = timeline(String(localized: "Recent activity"), rows.map(\.view))

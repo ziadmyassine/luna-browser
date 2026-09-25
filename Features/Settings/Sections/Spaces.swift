@@ -103,13 +103,6 @@ final class SpacesSection: SettingsSection {
 
         body.card(nil, [clearProfileDataRow(spaces, session: session)])
 
-        body.loose(SettingsRow.note(String(localized: """
-        A Space owns its tabs and the cookies and logins those tabs use, so an account you sign into \
-        in one Space is not signed in in another. Favorites belong to a Space for the same reason: a \
-        tile is a logged-in app. Deleting a Space deletes its cookies with it, and nothing else is \
-        signed out. Light and Dark stay a whole-app setting; a Space's gradient does not change it.
-        """)), terms: ["profile", "cookies", "storage", "data store", "favorites", "shared"])
-
         install()
     }
 

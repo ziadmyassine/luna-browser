@@ -38,7 +38,7 @@ final class SearchSection: SettingsGroup {
     /// Restore), and its width is set once.
     private var customSized = false
 
-    func add(to body: SettingsBody) -> [(view: NSView, terms: [String])] {
+    func add(to body: SettingsBody) {
         // Re-sync in case `SettingsDefaults.restoreAll()` removed the keys
         // while nothing was watching. Once per build — never per keystroke.
         SearchSettings.reload()
@@ -51,7 +51,6 @@ final class SearchSection: SettingsGroup {
             (shortcutResultsRow(), ["shortcuts in search results", "command bar", "menu commands", "keyboard"])
         ])
         refreshValidity()
-        return []
     }
 
     // MARK: Rows

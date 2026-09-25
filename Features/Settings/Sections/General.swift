@@ -7,10 +7,8 @@
 //  a `Shared/` directory for that is a directory to maintain.
 //
 //  The page also carries Search, Downloads and Advanced as groups
-//  (`SettingsGroup`): each was a page of one card. Rows that do nothing yet —
-//  "On launch" among them, which has no reader because `AppDelegate` restores
-//  unconditionally — are gathered at the foot under "Coming later" rather
-//  than left dimmed among the rows that work.
+//  (`SettingsGroup`): each was a page of one card. Only rows that work are on
+//  it; a setting nothing reads is not shown.
 //
 
 import AppKit
@@ -143,33 +141,12 @@ final class GeneralSection: NSObject, SettingsSection {
     static let symbolName = "gearshape"
     /// Its own words and its three groups': their names and their keywords,
     /// so typing "downloads" in the Command Bar still finds where Downloads is.
-    static let keywords = ["startup", "launch", "restore session", "new tab", "search", "downloads", "advanced"]
+    static let keywords = ["startup", "search", "downloads", "advanced"]
         + SearchSection.keywords + DownloadsSection.keywords + AdvancedSection.keywords
 
     // MARK: Keys and typed accessors
 
-    /// §3.1's launch behaviour. Nothing reads this yet — see the file
-    /// header. Published so `AppDelegate` can, in one `switch`.
-    enum OnLaunch: String, Sendable, CaseIterable {
-        case restoreSession
-        case newTab
-        case specificSpace
-
-        var title: String {
-            switch self {
-            case .restoreSession: "Restore last session"
-            case .newTab: "New tab"
-            case .specificSpace: "Specific Space"
-            }
-        }
-    }
-
-    static let onLaunchKey = "general.onLaunch"
     static let confirmQuitKey = "general.confirmQuit"
-
-    static var onLaunch: OnLaunch {
-        UserDefaults.standard.string(forKey: onLaunchKey).flatMap(OnLaunch.init(rawValue:)) ?? .restoreSession
-    }
 
     /// Defaults on, and read:
     /// `AppDelegate.applicationShouldTerminate` puts `QuitSheetView` up. ⌘Q is
@@ -239,13 +216,9 @@ final class GeneralSection: NSObject, SettingsSection {
             ),
             (confirmQuitRow(), ["ask before quitting luna", "quit", "confirm", "command q", "warn"])
         ])
-        var later: [(view: NSView, terms: [String])] = [
-            (view: onLaunchRow(), terms: ["when luna opens", "on launch", "startup", "restore last session", "new tab"])
-        ]
         for group in [search, downloads, advanced] as [any SettingsGroup] {
-            later += group.add(to: body)
+            group.add(to: body)
         }
-        body.card(String(localized: "Coming later"), later)
         refreshStatus()
 
         for subview in container.subviews { subview.removeFromSuperview() }
@@ -287,19 +260,6 @@ final class GeneralSection: NSObject, SettingsSection {
                     Task { @MainActor in self.refreshStatus() }
                 }
             }
-        }
-    }
-
-    private func onLaunchRow() -> NSView {
-        let options = OnLaunch.allCases
-        return SettingsRow.popup(
-            String(localized: "When Luna opens"),
-            options: options.map(\.title),
-            selected: options.firstIndex(of: Self.onLaunch) ?? 0,
-            isEnabled: false,
-            disabledReason: String(localized: "Luna always restores your last session for now.")
-        ) { index in
-            UserDefaults.standard.set(options[index].rawValue, forKey: Self.onLaunchKey)
         }
     }
 
