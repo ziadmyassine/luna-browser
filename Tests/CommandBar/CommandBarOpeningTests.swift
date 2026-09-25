@@ -98,6 +98,39 @@ final class CommandBarOpeningTests: XCTestCase {
         XCTAssertFalse(panel.isOpening)
     }
 
+    /// §3.2b's collapsed capsule opens its bar as it is pressed, so the pill is
+    /// already standing in the open bar by the time the panel reads it. The
+    /// panel starts from the capsule that was pressed, and opens to the pill's
+    /// new place.
+    func testAPillOnItsWayOpensFromWhereItWasPressed() {
+        let (_, pill) = anchored()
+        let root = pill.superview!
+        let pressed = NSRect(x: 540, y: 776, width: 120, height: 22)
+        let results = CommandBarResultsView(frame: .zero)
+        results.setResults(rows(8), selecting: nil)
+        let panel = CommandBarPanel(
+            frame: root.bounds,
+            resultsView: results,
+            anchor: CommandBarAnchor(view: pill, startFrame: pressed)
+        )
+        root.addSubview(panel)
+        panel.prepareToOpen()
+        panel.layoutSubtreeIfNeeded()
+        XCTAssertEqual(panel.body.frame.height, pressed.height, accuracy: 0.5)
+        XCTAssertEqual(panel.body.frame.width, pressed.width, accuracy: 0.5)
+        XCTAssertEqual(panel.body.frame.midX, pressed.midX, accuracy: 0.5)
+        XCTAssertEqual(panel.body.frame.maxY, pressed.maxY, accuracy: 0.5)
+
+        let opened = expectation(description: "the reveal finishes")
+        panel.onOpened = { opened.fulfill() }
+        panel.animateIn()
+        wait(for: [opened], timeout: 2)
+        panel.layoutSubtreeIfNeeded()
+        XCTAssertNil(panel.openingFrom, "a bar that has opened folds back into the pill where it now is")
+        XCTAssertEqual(panel.body.frame.midX, pill.frame.midX, accuracy: 0.5)
+        XCTAssertGreaterThan(panel.body.frame.width, pill.frame.width)
+    }
+
     /// The floating bar has no pill under it, so there is nothing for a first
     /// frame to match: it keeps §6's fade, and stays invisible until it opens.
     func testTheFloatingBarIsStillInvisibleUntilItOpens() {

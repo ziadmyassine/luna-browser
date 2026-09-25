@@ -223,24 +223,29 @@ extension Tokens {
         /// So the target that means something gets three quarters of the row,
         /// and 10 pt is still twice `dragThreshold` for the boundary above it.
         static let groupDropEdge: CGFloat = 10
-        /// How far the plate round a hovered §3.4b folder stands outside the
-        /// row pills it holds, on every side — where Dia's folder plate sits
-        /// round its own row highlights, so a hovered member's pill lies inside
-        /// the plate rather than flush with its edge.
-        static let groupPlateOutset: CGFloat = 4
-        /// Concentric with the pills inside it: a radius grown by the outset.
-        static let groupPlateCornerRadius = rowCornerRadius + groupPlateOutset
-        /// How much further the plate reaches below the last tab's pill than
-        /// the outset alone. An open header draws no pill, so above the folder
-        /// the plate's edge stands the outset plus the header icon's own margin
-        /// in its pill, 7.5 pt; the foot takes the same, so the folder sits in
-        /// its plate with equal room top and bottom.
+        /// How much sooner a tab inside a §3.4b folder ends its pill, and so
+        /// its trailing glyphs, than a loose tab. The folder's plate has a
+        /// loose tab's sides, so without this a hovered member's pill lay on
+        /// the plate's hairline and the two edges read as one; 4 pt is the gap
+        /// Dia's folder plate keeps round its own row highlights. The leading
+        /// side already stands `groupIndent` in.
+        ///
+        /// The plate itself stands no further out than the pills it holds: a
+        /// folded folder's plate is exactly a tab's hover pill. Grown past
+        /// them by this much on every side, it read as a heavier, taller
+        /// block than the row it was lighting.
+        static let groupMemberTrailingInset: CGFloat = 4
+        /// How far the plate reaches below the last tab's pill. An open
+        /// header draws no pill, so above the folder the plate's edge stands
+        /// the header icon's own margin in its pill, 7.5 pt; the foot takes
+        /// the same, so the folder sits in its plate with equal room top and
+        /// bottom.
         static let groupPlateFoot = (rowPillHeight - groupIconSize) / 2
         /// The room an open, non-empty §3.4b folder leaves under its last tab:
-        /// the plate's whole reach below that tab's row, 7.5 + 4 − 1.5 = 10 pt.
+        /// the plate's whole reach below that tab's row, 7.5 − 1.5 = 6 pt.
         /// The plate then ends exactly where the next row begins, and that
         /// row's pill clears it by its own `rowPillInset`.
-        static let groupEndGap = groupPlateFoot + groupPlateOutset - rowPillInset
+        static let groupEndGap = groupPlateFoot - rowPillInset
 
         /// What a §3.4b row that has been closed once draws its icon at. The
         /// title drops to `Text.tertiary` beside it; a favicon has no ink tier,

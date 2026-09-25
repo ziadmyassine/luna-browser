@@ -25,7 +25,7 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     /// See `SpaceCornerFillView` for why it is a second view.
     private let cornerFill = SpaceCornerFillView()
     private var cornerFillWidth: NSLayoutConstraint?
-    private var trafficLights: TrafficLightLayoutManager?
+    private(set) var trafficLights: TrafficLightLayoutManager?
     private(set) var chrome: NSView?
 
     /// §22.6: this window came forward. The app tracks the front window from
@@ -444,20 +444,26 @@ extension BrowserWindowController {
     private func applyPeek(_ peeking: Bool) {
         guard case let .sidebarCollapsed(edge) = chromeState, let chrome else { return }
         let width = parkedSidebarWidth
-        // The lights are hidden while the page has the whole window; a peeked
-        // sidebar is a sidebar, and it has a control row with a hole in it if
-        // they are not there.
-        trafficLights?.isPeeking = peeking
-        markChromeForTrafficLights()
+        // The park is a push off the edge the sidebar belongs to, so the
+        // sign is the edge's: leading pushes negative, trailing positive.
+        let parked = edge == .trailing ? width : -width
+        trafficLights?.parkedOffset = edge == .leading ? parked : 0
+        let leaving = peeking ? nil : trafficLights?.beginLeaving()
         Tokens.Motion.animate(Tokens.Motion.sidebarCollapse) { context in
             context.allowsImplicitAnimation = true
-            // The park is a push off the edge the sidebar belongs to, so the
-            // sign is the edge's: leading pushes negative, trailing positive.
-            let parked = edge == .trailing ? width : -width
+            // The lights are hidden while the page has the whole window; a
+            // peeked sidebar is a sidebar, and it has a control row with a hole
+            // in it if they are not there. In here, so they come and go with it.
+            trafficLights?.isPeeking = peeking
+            markChromeForTrafficLights()
             (edge == .trailing ? chromeTrailing : chromeLeading)?.constant = peeking ? 0 : parked
             chrome.alphaValue = peeking ? 1 : 0
             peekBackdrop.alphaValue = peeking ? 1 : 0
             window?.contentView?.layoutSubtreeIfNeeded()
+        } completion: { [weak self] in
+            MainActor.assumeIsolated {
+                if let leaving { self?.trafficLights?.peekDidLeave(leaving) }
+            }
         }
     }
 

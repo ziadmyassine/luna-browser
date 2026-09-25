@@ -64,21 +64,22 @@ final class SidebarGroupPlateTests: XCTestCase {
         XCTAssertNil(controller.groupPlateBox())
     }
 
-    /// A folded folder's hover is the plate too: the header's pill box pushed
-    /// out by the outset, with no foot because there is no room under it.
+    /// A folded folder's hover is the plate too, and it is exactly the hover
+    /// pill a loose tab gets — same box, same corners — with no foot because
+    /// there is no room under it.
     func testAFoldedHeaderTakesThePlateAndNoHoverPill() throws {
         trip.isCollapsed = true
         let controller = try list()
         let header = try XCTUnwrap(controller.list.row(ofGroup: trip.id))
+        // The loose tab is the selected one, so it is measured rather than hovered.
+        let tabHover = controller.pillBox(ofRow: try XCTUnwrap(controller.list.row(of: looseTab.id)))
         controller.setHovered(header)
         controller.groupPlate.updateLayer()
-        let outset = Tokens.Metric.groupPlateOutset
         XCTAssertEqual(controller.hoverPill.alphaValue, 0, accuracy: 0.01)
         XCTAssertEqual(controller.groupPlate.alphaValue, 1, accuracy: 0.01)
-        XCTAssertEqual(controller.groupPlate.frame, controller.pillBox(ofRow: header).insetBy(dx: -outset, dy: -outset))
-        XCTAssertEqual(
-            controller.groupPlate.layer?.cornerRadius ?? 0, Tokens.Metric.rowCornerRadius + outset, accuracy: 0.01
-        )
+        XCTAssertEqual(controller.groupPlate.frame, controller.pillBox(ofRow: header))
+        XCTAssertEqual(controller.groupPlate.frame.size, tabHover.size, "the folder's plate is not a tab hover's size")
+        XCTAssertEqual(controller.groupPlate.layer?.cornerRadius ?? 0, Tokens.Metric.rowCornerRadius, accuracy: 0.01)
     }
 
     /// Unfolding moves only the bottom edge, so the two plates differ by the
@@ -189,7 +190,7 @@ final class SidebarGroupPlateTests: XCTestCase {
     }
 
     /// The header draws no pill, so above the folder the plate stands the
-    /// outset plus the header icon's margin in its pill clear of the icon. The
+    /// header icon's margin in its pill clear of the icon. The
     /// last tab gets the same room below its pill, and the plate stops where
     /// the next row starts.
     func testThePlateHasEqualRoomAboveTheHeaderAndBelowTheLastTab() throws {
@@ -200,7 +201,7 @@ final class SidebarGroupPlateTests: XCTestCase {
         let iconTop = controller.pillBox(ofRow: header).minY + (Tokens.Metric.rowPillHeight - Tokens.Metric.groupIconSize) / 2
         let lastPill = controller.pillBox(ofRow: header + 3)
         XCTAssertEqual(iconTop - plate.minY, plate.maxY - lastPill.maxY, accuracy: 0.01)
-        XCTAssertEqual(plate.maxY - lastPill.maxY, Tokens.Metric.groupPlateOutset + 7.5, accuracy: 0.01)
+        XCTAssertEqual(plate.maxY - lastPill.maxY, 7.5, accuracy: 0.01)
         let next = try XCTUnwrap(controller.list.row(ofGroup: work.id))
         XCTAssertEqual(plate.maxY, controller.table.rect(ofRow: next).minY, accuracy: 0.01)
         XCTAssertLessThan(plate.maxY, controller.pillBox(ofRow: next).minY, "the plate lies under the next pill")
@@ -248,25 +249,22 @@ final class SidebarGroupPlateTests: XCTestCase {
         controller.show(saved: [], today: slots, essentials: [], activeTabID: looseTab.id)
     }
 
-    /// The folder's extent pushed out by the outset on every side — both
-    /// computed here from the rows rather than read back from the controller.
+    /// The folder's extent as its pills span it, plus the foot — computed here
+    /// from the rows rather than read back from the controller.
     private func assertPlate(_ controller: TabListController, isRound group: TabGroup) throws {
         let header = try XCTUnwrap(controller.list.row(ofGroup: group.id))
         controller.groupPlate.updateLayer()
         let last = header + 3
-        let outset = Tokens.Metric.groupPlateOutset
         let rows = controller.table.rect(ofRow: header).union(controller.table.rect(ofRow: last))
-        var expected = rows
-            .insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.rowPillInset)
-            .insetBy(dx: -outset, dy: -outset)
+        var expected = rows.insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.rowPillInset)
         expected.size.height += Tokens.Metric.groupPlateFoot
         XCTAssertEqual(controller.groupPlate.frame, expected, "the plate is not round the whole folder")
         XCTAssertEqual(controller.groupPlate.alphaValue, 1, accuracy: 0.01)
         XCTAssertEqual(
             controller.groupPlate.layer?.cornerRadius ?? 0,
-            Tokens.Metric.rowCornerRadius + outset,
+            Tokens.Metric.rowCornerRadius,
             accuracy: 0.01,
-            "the plate's corners are not concentric with the pills inside it"
+            "the plate's corners are not a row pill's"
         )
     }
 
@@ -305,5 +303,34 @@ final class SidebarGroupPlateTests: XCTestCase {
         )
         controller.table.layoutSubtreeIfNeeded()
         return controller
+    }
+}
+
+/// Where the plate stands across the column and against the list's top edge.
+extension SidebarGroupPlateTests {
+
+    /// The plate's sides are a loose tab's, and a folder's tabs keep their
+    /// pills clear of its trailing edge.
+    func testThePlateStandsOnALooseTabsSidesAndHoldsItsTabsInside() throws {
+        let controller = try list()
+        let header = try XCTUnwrap(controller.list.row(ofGroup: trip.id))
+        controller.setHovered(header + 1)
+        let plate = controller.groupPlate.frame
+        let loose = controller.pillBox(ofRow: try XCTUnwrap(controller.list.row(of: looseTab.id)))
+        XCTAssertEqual(plate.minX, loose.minX)
+        XCTAssertEqual(plate.maxX, loose.maxX)
+        XCTAssertEqual(plate.maxX - controller.hoverPill.frame.maxX, Tokens.Metric.groupMemberTrailingInset, accuracy: 0.01)
+    }
+
+    /// A folder first in the list has its plate's top edge on screen: the
+    /// plate reaches no higher than its header's own pill.
+    func testAFolderAtTheTopOfTheListHasItsWholePlateInView() throws {
+        let controller = TabListController()
+        controller.scrollView.frame = NSRect(x: 0, y: 0, width: 260, height: 500)
+        controller.show(saved: [], today: Array(slots.dropFirst()), essentials: [], activeTabID: folderTabs[0].id)
+        controller.table.layoutSubtreeIfNeeded()
+        controller.setHovered(try XCTUnwrap(controller.list.row(ofGroup: trip.id)))
+        let visible = controller.scrollView.contentView.bounds
+        XCTAssertLessThanOrEqual(visible.minY, controller.groupPlate.frame.minY, "the plate's top edge is clipped")
     }
 }

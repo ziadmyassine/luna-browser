@@ -118,6 +118,21 @@ final class TopBarTabRenameTests: XCTestCase {
         XCTAssertNotNil(tab.row.row.editor.currentEditor())
     }
 
+    /// The name field runs out to the pill's inner edge, where the two glyphs
+    /// stand; they go for the length of the rename and come back after it.
+    func testTheGlyphsStandAsideWhileTheNameIsTyped() async throws {
+        let tab = try await selectedTab()
+        let row = tab.row.row
+        XCTAssertFalse(row.siteButton.isHidden, "the fixture's tab shows no site settings glyph")
+        let trailingWasHidden = row.trailing.isHidden
+        row.beginEditing("Example")
+        XCTAssertTrue(row.siteButton.isHidden, "site settings stands on the name being typed")
+        XCTAssertTrue(row.trailing.isHidden, "the close glyph stands on the name being typed")
+        row.endEditing(commit: false)
+        XCTAssertFalse(row.siteButton.isHidden)
+        XCTAssertEqual(row.trailing.isHidden, trailingWasHidden)
+    }
+
     /// The sliders and the close glyph stand on one line by their ink, not by
     /// their boxes. To a device pixel: an edge's anti-aliasing puts a
     /// bounding box a pixel either way, which is what stood between the two

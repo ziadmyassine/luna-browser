@@ -89,6 +89,7 @@ extension TabListController {
             // §3.4b: a tab inside a group steps in. A dimmed row is one that has been closed
             // once and kept — see `Tab.isDormant`.
             indent: list.group(ofTab: tab.id) == nil ? 0 : Tokens.Metric.groupIndent,
+            trailingInset: list.group(ofTab: tab.id) == nil ? 0 : Tokens.Metric.groupMemberTrailingInset,
             isDormant: tab.isDormant
         )
     }

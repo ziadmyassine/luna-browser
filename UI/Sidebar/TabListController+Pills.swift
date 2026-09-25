@@ -55,16 +55,15 @@ extension TabListController {
     }
 
     /// §3.4b's plate round the folder the pointer is in — over its header, any
-    /// of its tabs or the room under them — pushed out past the pills it holds.
-    /// A folded folder's plate is its header's, with the same sides, top and
-    /// corners, so folding moves only the bottom edge.
+    /// of its tabs or the room under them. It stands where the pills it holds
+    /// stand, so a folded folder's plate is exactly a tab's hover pill, and
+    /// folding moves only the bottom edge.
     func groupPlateBox() -> NSRect? {
         guard let row = hoveredRow, row < table.numberOfRows else { return nil }
         var folder = list.group(at: row) ?? list.tab(at: row).flatMap { list.group(ofTab: $0.id) }
         if case let .groupEnd(id)? = list[row] { folder = list.group(id) }
         guard let folder else { return nil }
-        let outset = Tokens.Metric.groupPlateOutset
-        return groupExtent(ofGroup: folder.id)?.insetBy(dx: -outset, dy: -outset)
+        return groupExtent(ofGroup: folder.id)
     }
 
     /// How far the selected tab's page has been read. Only the selected pill
@@ -149,7 +148,7 @@ extension TabListController {
         // state to answer one question.
         guard let tab = list.tab(at: row), list.group(ofTab: tab.id) != nil else { return box }
         box.origin.x += Tokens.Metric.groupIndent
-        box.size.width -= Tokens.Metric.groupIndent
+        box.size.width -= Tokens.Metric.groupIndent + Tokens.Metric.groupMemberTrailingInset
         return box
     }
 }

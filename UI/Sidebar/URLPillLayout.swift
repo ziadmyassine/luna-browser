@@ -148,20 +148,26 @@ extension URLPillView {
         // Inset to the ink, not to the box: the box is a hit target and is
         // bigger than the mark inside it, so insetting it would put the mark
         // further in than the number says.
-        let overhang = (box - glyphInk) / 2
+        //
+        // Across, the box is a capsule concentric with the pill's own end: it
+        // stands as far in from that end as from the top and bottom. A circle
+        // there was a second curve inside the pill's, and the chip that
+        // matches it comes out a few points wider than it is tall.
+        let chip = max(box, 2 * (glyphInset + glyphInk / 2 - boxY))
+        let overhang = (chip - glyphInk) / 2
         field.alignment = .natural
 
         let leadingX = glyphInset - overhang
-        let trailingX = bounds.maxX - glyphInset + overhang - box
+        let trailingX = bounds.maxX - glyphInset + overhang - chip
         // Reload always trails. The sliders takes the other end when there is
         // one to take, and the trailing edge itself when there is not.
         sliders.frame = NSRect(
             x: slidersLead ? leadingX : trailingX,
             y: boxY,
-            width: box,
+            width: chip,
             height: box
         ).integral
-        reload.frame = NSRect(x: trailingX, y: boxY, width: box, height: box).integral
+        reload.frame = NSRect(x: trailingX, y: boxY, width: chip, height: box).integral
 
         let margin = margins
         let run = max(bounds.width - margin.leading - margin.trailing, 0)

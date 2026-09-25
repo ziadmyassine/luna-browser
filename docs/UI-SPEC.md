@@ -480,7 +480,12 @@ Vertical order, top to bottom:
   §3.1 circles, the §3.5 bar — and this one is not: it sits inside a control that is already a landmark,
   beside text set at 13. At 16 it was the loudest mark in a pill whose whole job is to be quiet.
 - **It takes §3.4's close-button chip on hover**, out of the same two tokens: an 18 pt `rowTrailingChip`
-  hit target with the glyph centred in it, drawn only while the pointer is on the glyph itself. The
+  hit target with the glyph centred in it, drawn only while the pointer is on the glyph itself. In the
+  pill the chip is **a capsule, not the row's rounded square**, for hover and press alike
+  (`RowGlyphView.isRound`): the pill is a capsule, and a square chip in its round end was a second shape
+  against its edge. The chip stands as far in from the pill's end as from its top and bottom, so its
+  round end is concentric with the pill's, which makes it a few points wider than tall (24 × 21 in the
+  column, 26 × 22 on the page bar); a circle there was a second curve inside the pill's. The
   pill's own glass says the *pill* is live; the chip says the glyph is a button rather than a badge
   printed on one. `pillGlyphInset` is measured to the mark the eye sees, so the chip is placed by
   centring it on where the glyph would have been rather than being inset itself — insetting the chip
@@ -681,6 +686,14 @@ column closes up over the pill's own 34 pt.
   anywhere new opens it again. The rule is `PageBarScroll`, a value with no view in it, because the
   cases that matter are the awkward ones: a momentum wobble must not flip it, and a long scroll down
   must not mean scrolling all the way back before the address returns.
+- **Behind a peek, the bar ignores the lights.** With the sidebar hidden off the leading edge, the
+  lights only show on §7.2's peek, and then they stand on the sidebar that has slid out over the bar,
+  not beside the bar's buttons. The bar used to clear them anyway, so the toggle and history cluster
+  stepped 78 pt right under the sidebar every time it came out and back when it went
+  (`PageChromeBarPeekTests`). A trailing sidebar peeks on the far side and leaves the lights over the
+  page, so there they are still cleared. The manager marks every `TrafficLightNeighbour` for layout
+  when the lights are shown or hidden as well as when they move: in fullscreen the strip moves and
+  the lights do not, so a peek's lights leaving at the end of its fade used to tell nobody.
 - **The bar hears about the traffic lights itself.** Its controls are laid out *against* the lights, and
   macOS takes them out of the window on the way into fullscreen and hands them back on the way out —
   without resizing anything, so nothing marks the bar dirty and it keeps a placement measured against
@@ -713,10 +726,12 @@ column closes up over the pill's own 34 pt.
 - **Pressing the address opens the bar, then hands it to §9.1.** A press on the collapsed capsule
   would otherwise give the Command Bar a 22 pt anchor sized to `apple.com` to grow out of; the bar it
   belongs to is 52 pt with a 420 pt pill in it, and that is the shape the panel should take. So the bar
-  opens first — **unanimated**, unlike every other change of this state, because the panel reads the
-  pill's frame on the frame it is created and a pill two hundred milliseconds into a morph would be
-  read mid-flight. Nothing is lost: the panel covers the bar for the whole of the animation that is not
-  being run. The bar is then held open for as long as §9.1 stands on it, whatever the page does
+  opens first, **on its own `sidebarCollapse` clock** like every other change of this state. It opened
+  unanimated for a while, so that the panel would not read a pill mid-flight; the page then jumped down
+  under a bar that had doubled between two frames, and the panel covered only the pill, not the bar.
+  Animated, the pill is already standing in the open bar when the panel reads it, so the capsule that
+  was pressed is handed over too (`CommandBarAnchor.startFrame`): the panel starts on the 22 pt capsule
+  and grows to the open bar's shape while the bar opens under it — one movement. The bar is then held open for as long as §9.1 stands on it, whatever the page does
   underneath: the scroll rule keeps running and is handed the bar back when the Command Bar closes. A
   committed address is not a special case — §9.1 navigates the tab itself and arriving opens the bar
   again on the same turn.
@@ -1314,17 +1329,21 @@ width); the indent alone says what is inside, with no line drawn down it.
 
 **The pointer on a folder lights the folder, not the header.** Over its header or any
 tab in it, one plate closes round the whole folder — header through its last visible tab —
-standing `groupPlateOutset` (4 pt) outside the row pills on every side, with its corners at
-`groupPlateCornerRadius` (16, the pill's 12 plus the outset) so the curves stay concentric.
+standing exactly where the row pills it holds stand, with a row pill's 12 pt corners. Its
+sides are a loose tab's pill's, `rowInset` in from the column like every row and tile, and a
+folded folder's plate is exactly a tab's hover pill. It used to stand 4 pt out past the pills
+on every side, with 16 pt corners; that read as a heavier, taller block than the row it was
+lighting, and wider than the list. The folder's own tabs end their pills, glyphs and titles
+`groupMemberTrailingInset` (4 pt) sooner, so a hovered tab's pill does not lie on the plate's
+hairline.
 It is the pinned tiles' own resting surface: `Surface.well` with a `Line.border` hairline. A
 hovered tab still takes §3.4's hover pill on top, and the three step in order in both themes
 — plate, hover, selected-with-hairline. **This is the one named exception to §30.7**: rows
 that are not hovered or selected carry a fill while the pointer is inside their folder.
 
 - **No folder header takes a hover pill**, open or folded. The plate is a header's answer,
-  and a lit header on top of it was two. A folded folder's plate is its header's pill box
-  outset by `groupPlateOutset`, with no foot: the same sides, top, corners and style as the
-  open one, only shorter. The chevron's ink does not lift under the pointer, as a title's does
+  and a lit header on top of it was two. A folded folder's plate is its header's pill box,
+  with no foot: the same sides, top, corners and style as the open one, only shorter. The chevron's ink does not lift under the pointer, as a title's does
   not. Selection on a header is unchanged.
 - **Folding moves only the bottom edge.** Folded or unfolded with the pointer on it, the plate
   stretches in step with the rows sliding — `Motion.tabInsert`, the clock `NSTableView` slides
@@ -1340,14 +1359,16 @@ that are not hovered or selected carry a fill while the pointer is inside their 
   drop box. Both measure the folder with one function (`groupExtent`), so they cannot
   disagree about where it ends.
 - **Equal room top and bottom.** An open header draws no pill, so the plate's top edge stands
-  `groupPlateOutset` plus the header icon's margin in its pill (7.5 pt, `groupPlateFoot`) clear
-  of the icon — 11.5 pt. The plate reaches the same 11.5 pt below the last tab's pill. To give
-  it that room, an open folder with tabs in it is followed by a `groupEndGap` row (10 pt:
-  7.5 + 4 − the 1.5 pt `rowPillInset` the last row already has), so the plate ends exactly where
+  the header icon's margin in its pill (7.5 pt, `groupPlateFoot`) clear of the icon. The plate
+  reaches the same 7.5 pt below the last tab's pill. To give it that room, an open folder with
+  tabs in it is followed by a `groupEndGap` row (6 pt: 7.5 − the 1.5 pt `rowPillInset` the
+  last row already has), so the plate ends exactly where
   the next row begins and that row's pill clears it by its own inset. A folded or empty folder
   has no such row. The row is furniture — not selectable, no hover pill; the pointer over it
   keeps the folder's plate up; a drop on its upper half lands at the end of the folder, on its
   lower half just after it. §6.6's dashed box takes the same foot, since both share `groupExtent`.
+- **Never cut off at the top of the list.** The plate reaches no higher than its header's own
+  pill, so a folder first in the list has its top edge in view.
 - It is not a button — no press, and not in §6's register.
 
 **The chevron is a mark, not a button.** The whole header folds, so the glyph takes no press,
@@ -1402,6 +1423,9 @@ inside.
   a tab goes back to being named by its page. §3.3's tiles and §4's strip keep the dialog and
   keep the ellipsis with it: neither draws the name as a line of text there is room to type
   on.
+- **The trailing glyphs stand aside while a name is typed**, on the column's rows and §4's tabs alike.
+  The field runs out to the pill's inner edge, which is where the close and site settings glyphs stand,
+  so left up they sat on the name being typed. They come back when the field closes.
 - **The fold is persisted.** A group the user put away and found open again the next morning
   has lost the only thing folding it was for. Folding is a row diff like any other, so the
   tabs fade over §6's `tabInsert` rather than blinking out.
@@ -1755,7 +1779,17 @@ back: it could not be hit at all.
   insets stay collapsed, so nothing reflows for a glance at the tab list.
 - The hidden sidebar parks at `-width` rather than collapsing to zero width: it keeps its layout, and it
   is one constraint away from coming back.
-- The traffic lights come back with it, and go again with it.
+- The traffic lights come back with it, and go again with it — **on its clock, not ahead of it.** Shown
+  and hidden outright they arrived before the sidebar had and were gone before it had left. They now
+  change inside the sidebar's own `sidebarCollapse` transaction: parked, they stand where the sidebar is
+  parked (off by its width on a leading sidebar; in place on a trailing one), transparent and hidden;
+  a peek slides and fades them in with it, and a closing peek slides and fades them out and hides them
+  only once the fade has run, since a light at alpha 0 still takes clicks. Windowed and fullscreen alike.
+- **In fullscreen the lights still show their symbols under the pointer.** A window button draws its
+  ×, − and + only when its superview says the pointer is in its group (`_mouseInGroup:`, measured on
+  macOS 26: the button asks its own superview). AppKit's titlebar answers that; fullscreen moves the
+  three into `TrafficLightStrip`, which answered nothing, so they were blank circles. The strip now
+  tracks the pointer over the three and answers for them, as the titlebar does.
 - **The peeked sidebar stands on a plane of its own** (`Glass.peekPlane()`). The window's glass is
   behind the content pane, not in front of it, so a sidebar floating over the page had no background at
   all and the page read straight through the gaps between its rows. The plane is the same `.sidebar`
@@ -1839,6 +1873,11 @@ top corners rounded at `WindowCorner.radius` the way §3.6 rounds the corners ag
 > first tab, between two tabs, before the hairline and the capsule; 12 pt (`lightsGap`) after the green
 > light, which has no edge of its own and at 8 read as touching the plate. It used to be three numbers
 > and read as uneven even where each had its reason.
+>
+> The room after the lights is worked out against the window, before the bar's constraints are solved.
+> Worked out after, it waited for a layout pass nothing asked for: switched to from a hidden sidebar,
+> whose lights were hidden, the back button and pinned tabs stayed under the lights
+> (`TopBarLightsTests`).
 
 - **The strip draws everything §3.4's list draws**, in one line: §3.3's tiles, §3.4b's kept tier and its
   folders, then a hairline, then the day's tabs and folders.
@@ -1866,7 +1905,11 @@ top corners rounded at `WindowCorner.radius` the way §3.6 rounds the corners ag
     not swell; they are rows, not buttons (CLAUDE.md).
   - **An open folder is one object on the bar**: its name, a hairline divider with the bar's gap either
     side, then its tabs edge to edge, sized as any tab is, all on a plate of its own — the
-    Space's plate's glass and height. No chevron: the plate is what says the folder is open. A kept folder
+    Space's plate's glass and height. No chevron: the plate is what says the folder is open. The pointer
+    anywhere on a folder — its name, its tabs, the room between them — lights its plate the way the
+    column's plate closes round a folder: §3.4's hover wash with the column plate's `Line.border` hairline,
+    on `controlHover`, and the folder's name takes no hover pill of its own. The Space's plate does not
+    light; it is the bar's shelf, not a thing the pointer is in. A kept folder
     is the same, on a plate of its own beside the Space's — the Space's plate holds §3.3's tiles and
     nothing else. A folder's tabs are rows with their titles in either tier; a kept folder drew them as
     bare tiles for one build, and read as a second grid.

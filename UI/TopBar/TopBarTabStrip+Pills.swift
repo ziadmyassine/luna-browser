@@ -30,7 +30,12 @@ extension TopBarTabStrip {
         }
         let selected = activeID.flatMap { rows[$0] == nil ? nil : targets[$0] }
         place(selectionPill, at: selected, spec: animated ? Tokens.Motion.selectedRowMove : nil)
-        let hovered = hoveredID.flatMap { $0 == activeID || rows[$0] == nil ? nil : targets[$0] }
+        // No folder's name takes the hover pill: its plate lights round the
+        // whole folder instead (`TopBarPlate.lightsUnderPointer`), as the
+        // column's does.
+        let hovered = hoveredID.flatMap {
+            $0 == activeID || rows[$0] == nil || folderPlates[$0] != nil ? nil : targets[$0]
+        }
         place(hoverPill, at: hovered, spec: animated ? Tokens.Motion.rowHover : nil)
     }
 

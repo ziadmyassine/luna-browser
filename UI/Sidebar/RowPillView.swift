@@ -73,7 +73,7 @@ final class RowPillView: NSView {
 
     override func updateLayer() {
         guard let layer else { return }
-        layer.cornerRadius = role == .folder ? Tokens.Metric.groupPlateCornerRadius : Tokens.Metric.rowCornerRadius
+        layer.cornerRadius = Tokens.Metric.rowCornerRadius
         layer.backgroundColor = fill.cgColor
         // §3.4 gives the selected row a visible border and the hover lift none:
         // a border that appeared under the pointer would read as a second

@@ -55,6 +55,10 @@ struct SidebarRowContent: Equatable {
     /// How far this row's contents step in — `Metric.groupIndent` for a tab
     /// inside a §3.4b group, zero for everything else.
     var indent: CGFloat = 0
+    /// How much sooner this row's pill ends on the trailing side —
+    /// `Metric.groupMemberTrailingInset` for a tab inside a §3.4b group, zero
+    /// for everything else. Its glyphs and title end that much sooner with it.
+    var trailingInset: CGFloat = 0
     /// A §3.4b group header's chevron, and which way it points. Nil on every row
     /// that is not a group.
     var disclosure: Disclosure?
@@ -123,6 +127,10 @@ final class SidebarRowView: NSView {
     /// icon for the other — see `SidebarRowView+Rename.swift`.
     var isPickingEmoji = false
     private var content = SidebarRowContent()
+
+    /// The width the row's geometry is measured across: the row, less what
+    /// its pill gives up at the trailing end (`SidebarRowContent.trailingInset`).
+    var contentWidth: CGFloat { bounds.width - content.trailingInset }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -212,12 +220,26 @@ final class SidebarRowView: NSView {
         dot.isHidden = !next.hasUnread
         setAccessibilityLabel(next.title)
         applyDisclosure(next.disclosure)
-        applyTrailing(next.trailing)
-        siteButton.isHidden = !next.siteSettings
+        applyGlyphs()
         refreshInk()
         if next.isLoading != wasLoading { updateShimmer() }
         needsLayout = true
     }
+
+    /// The two trailing glyphs, as the content asks for them — and neither
+    /// while the name is being typed. The field runs out to the pill's inner
+    /// edge, which is where they stand, so left up they sat on the name.
+    func applyGlyphs() {
+        applyTrailing(content.trailing)
+        siteButton.isHidden = !content.siteSettings
+        guard isRenaming else { return }
+        trailing.isHidden = true
+        siteButton.isHidden = true
+    }
+
+    /// The name field is up, over the title. The emoji field stands in the
+    /// icon's slot instead and takes nothing from the glyphs.
+    var isRenaming: Bool { !editor.isHidden && !isPickingEmoji }
 
     private func applyTrailing(_ state: SidebarRowContent.Trailing) {
         switch state {
@@ -374,7 +396,7 @@ final class SidebarRowView: NSView {
         // inset inside the pill — so it ends two insets short of the row,
         // less the trailing slot on the rows that are drawing one.
         let column = Self.titleColumn(
-            inRowOfWidth: bounds.width,
+            inRowOfWidth: contentWidth,
             hasUnread: content.hasUnread,
             slotOccupied: !trailing.isHidden,
             siteSlot: content.siteSettings,

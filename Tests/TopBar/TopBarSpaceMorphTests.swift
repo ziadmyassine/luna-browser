@@ -67,6 +67,25 @@ final class TopBarSpaceMorphTests: XCTestCase {
 
     // MARK: - The plate
 
+    /// A folder's plate lights round the whole folder under the pointer, with
+    /// the column's plate's hairline; the Space's plate stays as it is.
+    func testAFoldersPlateLightsUnderThePointerAndTheSpacesDoesNot() {
+        let folder = TopBarPlate()
+        folder.lightsUnderPointer = true
+        let space = TopBarPlate()
+        for plate in [folder, space] {
+            host(plate)
+            plate.mouseEntered(with: NSEvent())
+        }
+        XCTAssertEqual(folder.wash.layer?.borderColor, Tokens.Line.border.cgColor)
+        XCTAssertNotNil(folder.wash.layer?.backgroundColor)
+        XCTAssertNotEqual(folder.wash.layer?.backgroundColor?.alpha ?? 0, 0)
+        XCTAssertNotEqual(space.wash.layer?.borderColor?.alpha ?? 0, 1)
+
+        folder.mouseExited(with: NSEvent())
+        XCTAssertEqual(folder.wash.layer?.borderColor?.alpha ?? 0, 0, accuracy: 0.001)
+    }
+
     /// The plate reshapes from where it stood, and a layout pass during the
     /// morph moves where it is going instead of landing it.
     func testThePlateMorphsAndALayoutPassRetargetsIt() {

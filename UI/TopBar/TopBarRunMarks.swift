@@ -29,15 +29,62 @@ final class TopBarPlate: NSControl {
     /// way a row does under the pointer — §3.4's hover wash over the glass —
     /// the plate's answer to the column's dashed box round a folder.
     var isAimedAt = false {
-        didSet {
-            guard isAimedAt != oldValue else { return }
-            effectiveAppearance.performAsCurrentDrawingAppearance {
-                Tokens.Motion.wash(self.wash.layer, to: self.isAimedAt ? Tokens.Surface.hover : nil)
-            }
+        didSet { if isAimedAt != oldValue { applyLight() } }
+    }
+
+    /// A folder's plate answers the pointer anywhere on the folder — its
+    /// name, its tabs, the room between them — the way §3.4b's plate closes
+    /// round a folder in the column: the same wash, with the hairline that
+    /// plate is drawn with. The Space's plate does not; it is the bar's shelf,
+    /// not a thing the pointer is in.
+    var lightsUnderPointer = false {
+        didSet { if lightsUnderPointer != oldValue { updateTrackingAreas() } }
+    }
+
+    private var isPointerInside = false {
+        didSet { if isPointerInside != oldValue { applyLight() } }
+    }
+
+    /// The hover wash and the folder's hairline, over the glass. Read by tests.
+    let wash = NSView()
+
+    private func applyLight() {
+        let lit = isAimedAt || isPointerInside
+        let outlined = isPointerInside
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            Tokens.Motion.wash(self.wash.layer, to: lit ? Tokens.Surface.hover : nil)
+            // The hairline on the wash's clock, as `wash` sets the fill.
+            let instant = Tokens.Motion.reduceMotion
+            CATransaction.begin()
+            CATransaction.setDisableActions(instant)
+            CATransaction.setAnimationDuration(instant ? 0 : Tokens.Motion.controlHover.duration)
+            CATransaction.setAnimationTimingFunction(Tokens.Motion.controlHover.timingFunction)
+            self.wash.layer?.borderColor = (outlined ? Tokens.Line.border : NSColor.clear).cgColor
+            CATransaction.commit()
         }
     }
 
-    private let wash = NSView()
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas where area.owner === self { removeTrackingArea(area) }
+        guard lightsUnderPointer else {
+            isPointerInside = false
+            return
+        }
+        addTrackingArea(NSTrackingArea(
+            rect: .zero,
+            options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+            owner: self
+        ))
+    }
+
+    override func mouseEntered(with event: NSEvent) { isPointerInside = true }
+    override func mouseExited(with event: NSEvent) { isPointerInside = false }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        applyLight()
+    }
 
     /// How far a Space switch has carried the plate from `morphFrom` to
     /// `morphTo`: its glass reshaped for real on every frame, the one way
@@ -102,6 +149,8 @@ final class TopBarPlate: NSControl {
         wash.wantsLayer = true
         wash.layer?.cornerCurve = .continuous
         wash.layer?.cornerRadius = TopBarMetrics.plate.cornerRadius
+        wash.layer?.borderWidth = Tokens.Metric.hairline
+        wash.layer?.borderColor = NSColor.clear.cgColor
         addSubview(wash)
     }
 

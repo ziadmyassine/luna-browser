@@ -63,7 +63,7 @@ extension SidebarRowView: NSTextFieldDelegate {
     func placeEditor(title box: NSRect, icon: NSRect, reserving reserve: CGFloat) {
         let height = editor.intrinsicContentSize.height
         let x = isPickingEmoji ? icon.minX : box.minX
-        let right = isPickingEmoji ? icon.maxX : bounds.width - 2 * Tokens.Metric.rowInset - reserve
+        let right = isPickingEmoji ? icon.maxX : contentWidth - 2 * Tokens.Metric.rowInset - reserve
         editor.frame = NSRect(
             x: x,
             y: (bounds.height - height) / 2,
@@ -79,6 +79,7 @@ extension SidebarRowView: NSTextFieldDelegate {
         editor.stringValue = name
         editor.isHidden = false
         setTitleHidden(true)
+        applyGlyphs()
         needsLayout = true
         // Laid out before the field takes focus: the field editor copies the
         // frame it finds, so a field still at its old size shows the caret in
@@ -137,6 +138,8 @@ extension SidebarRowView: NSTextFieldDelegate {
         isPickingEmoji = false
         editor.isHidden = true
         setTitleHidden(false)
+        applyGlyphs()
+        needsLayout = true
         // The list gets the focus back, or the whole window has none: the field
         // is about to stop existing as far as the responder chain is concerned,
         // and a window with no first responder swallows the next arrow key.

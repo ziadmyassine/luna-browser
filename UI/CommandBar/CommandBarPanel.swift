@@ -146,10 +146,16 @@ final class CommandBarPanel: NSView {
     /// Starts the closing window. Only `animateOut` calls this.
     func beginClosing() { isClosing = true }
 
+    /// `CommandBarAnchor.startFrame` in this view's coordinates, until the bar
+    /// has opened. After that the bar folds back into the anchor where it now
+    /// stands, which is where the pill comes back.
+    var openingFrom: NSRect?
+
     /// Ends the opening window, at most once.
     func finishOpening() {
         guard isOpening else { return }
         isOpening = false
+        openingFrom = nil
         onOpened?()
     }
 
@@ -191,6 +197,9 @@ final class CommandBarPanel: NSView {
         self.results = resultsView
         self.anchor = anchor
         super.init(frame: frameRect)
+        // The panel covers the window's content view, so its coordinates are
+        // the window's.
+        openingFrom = anchor?.startFrame
         autoresizingMask = [.width, .height]
         buildBody()
     }

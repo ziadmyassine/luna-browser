@@ -131,19 +131,25 @@ final class PageChromeBar: NSView, TrafficLightNeighbour {
     /// and let it grow out of that; the bar it belongs to is 52 pt with a
     /// 420 pt pill in it, and that is the shape the panel should take.
     ///
-    /// Opened without animation, unlike every other change of this state: the
-    /// panel reads the pill's frame on the frame it is created, and a pill two
-    /// hundred milliseconds into a morph would be read mid-flight. Nothing is
-    /// lost, because the panel covers the bar throughout.
+    /// Opened on its own clock, as every other change of this state is. The
+    /// panel reads the pill's frame on every pass, and the pill is already
+    /// standing where the open bar puts it; so the panel is handed the capsule
+    /// that was pressed as well (`CommandBarAnchor.startFrame`), and grows
+    /// from there to the open bar's shape while the bar opens under it.
     ///
     /// The bar then stays open for as long as §9.1 is standing on it, whatever
     /// the page does: see `PageChromeController.pageScrolled(to:)`.
     private func wirePill() {
         pill.onHandOff = { [weak self] in
             guard let self else { return }
-            setCollapsed(false, animated: false)
+            let pressed = isCollapsed ? pill.convert(pill.bounds, to: nil) : nil
+            setCollapsed(false, animated: true)
             onEditingBegan?()
-            onHandOff?(CommandBarAnchor(view: pill, onDismiss: { [weak self] in self?.onEditingEnded?() }))
+            onHandOff?(CommandBarAnchor(
+                view: pill,
+                startFrame: pressed,
+                onDismiss: { [weak self] in self?.onEditingEnded?() }
+            ))
         }
     }
 

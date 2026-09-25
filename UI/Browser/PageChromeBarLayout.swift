@@ -52,7 +52,7 @@ extension PageChromeBar {
         // Only lights standing beside the band. Under §4's top bar they are on
         // the bar above it, and a bar that lined its controls up with them
         // put its buttons half out of its own band.
-        let lights = TrafficLightSpace.rect(in: self).flatMap { lights in
+        let lights = lightsBesideTheBar.flatMap { lights in
             (strip.minY...strip.maxY).contains(lights.midY) ? lights : nil
         }
         plane.frame = strip
@@ -151,6 +151,20 @@ extension PageChromeBar {
     /// window whose only handle has been put away is one the user cannot move
     /// at all. Computed rather than stored: AppKit asks at mouse-down, so the
     /// answer is never a copy of a state that has since changed.
+    /// The lights this bar's buttons stand clear of, or nil.
+    ///
+    /// Behind a sidebar hidden off the leading edge there are none. The lights
+    /// only show there on §7.2's peek, and then they are on the sidebar that
+    /// has slid out over this bar, not beside its buttons: cleared anyway, the
+    /// toggle and the history cluster stepped right under the sidebar every
+    /// time it came out, and back when it went. A trailing sidebar's peek
+    /// leaves the lights over the page, so those are still cleared.
+    private var lightsBesideTheBar: NSRect? {
+        let state = (window?.windowController as? BrowserWindowController)?.chromeState
+        guard state != .sidebarCollapsed(edge: .leading) else { return nil }
+        return TrafficLightSpace.rect(in: self)
+    }
+
     override var mouseDownCanMoveWindow: Bool {
         (window?.windowController as? BrowserWindowController)?.chromeState.isSidebarCollapsed ?? false
     }

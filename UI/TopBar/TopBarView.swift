@@ -342,10 +342,19 @@ final class TopBarView: NSView, WindowScoped, TrafficLightNeighbour {
     ///
     /// The other half of standing beside them — their centre line — is a
     /// constant and is set once; see `TopBarMetrics.lightsCentreOffset`.
+    ///
+    /// Measured in the window's coordinates, not the bar's own. The bar spans
+    /// the window from its leading edge whenever it is showing, but it is laid
+    /// out while it is still hidden in the sidebar's column too. A column
+    /// parked off the leading edge puts the window's corner a column's width
+    /// into the bar, and a reserve read there stands the back button and the
+    /// pinned tabs that far in. Needing nothing of the bar's own frame is
+    /// also what lets `layout` read it before the constraints are solved.
     private func updateTrafficLightReserve() {
         // No lights is no reserve: the bar starts its own inset from the edge,
         // as it ends its inset from the other.
-        let reserve = TrafficLightSpace.rect(in: self).map { $0.maxX + TopBarMetrics.lightsGap } ?? TopBarMetrics.clusterGap
+        let lights = window?.contentView.flatMap { TrafficLightSpace.rect(in: $0) }
+        let reserve = lights.map { $0.maxX + TopBarMetrics.lightsGap } ?? TopBarMetrics.clusterGap
         guard let leadingInset, abs(leadingInset.constant - reserve) > .ulpOfOne else { return }
         leadingInset.constant = reserve
     }
@@ -356,9 +365,12 @@ final class TopBarView: NSView, WindowScoped, TrafficLightNeighbour {
     }
 
     override func layout() {
-        super.layout()
-        // Converges: the guard above stops the second pass from changing it.
+        // Before the constraints are solved, not after. Changed once the
+        // subviews were placed, the new reserve waited for a pass nothing
+        // asked for: switched to from a hidden sidebar, whose lights were
+        // hidden, the back button and pinned tabs stayed under the lights.
         updateTrafficLightReserve()
+        super.layout()
     }
 
     /// §4 / §8: dragging the bar's background moves the window. The controls,

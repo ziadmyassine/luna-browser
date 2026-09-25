@@ -118,12 +118,15 @@ extension CommandBarPanel {
             let open = morph
             func toward(_ closed: CGFloat, _ opened: CGFloat) -> CGFloat { closed + (opened - closed) * open }
             let rise = inputRise
-            set(topAnchorConstraint, to: toward(bounds.maxY - rect.maxY, bounds.maxY - rect.maxY - rise))
-            set(centreConstraint, to: toward(rect.midX, anchoredCentre(for: rect, width: width)) - bounds.midX)
-            set(widthConstraint, to: toward(rect.width, width))
-            set(fieldCentreConstraint, to: toward(rect.height / 2, rise + rect.height / 2))
+            // Closed is where the anchor was pressed, while it is still moving
+            // to where it opens from — see `CommandBarAnchor.startFrame`.
+            let from = openingFrom ?? rect
+            set(topAnchorConstraint, to: toward(bounds.maxY - from.maxY, bounds.maxY - rect.maxY - rise))
+            set(centreConstraint, to: toward(from.midX, anchoredCentre(for: rect, width: width)) - bounds.midX)
+            set(widthConstraint, to: toward(from.width, width))
+            set(fieldCentreConstraint, to: toward(from.height / 2, rise + rect.height / 2))
             set(resultsTopConstraint, to: inputHeight)
-            bodyGlass?.cornerRadius = toward(anchor?.cornerRadius ?? bodyRadius, bodyRadius)
+            bodyGlass?.cornerRadius = toward(min(anchor?.cornerRadius ?? bodyRadius, from.height / 2), bodyRadius)
             super.layout()
             return
         }
@@ -176,9 +179,10 @@ extension CommandBarPanel {
         layoutSubtreeIfNeeded()
     }
 
-    /// The anchor's own height, which is where the bar starts and ends.
+    /// The anchor's own height, which is where the bar starts and ends — or
+    /// the height it was pressed at, while it is on its way to this one.
     var anchorHeight: CGFloat {
-        anchor?.view.bounds.height ?? inputHeight
+        openingFrom?.height ?? anchor?.view.bounds.height ?? inputHeight
     }
 
     /// §6 `commandBarIn`: 0.18 s spring, scale 0.96 → 1.0 + fade.

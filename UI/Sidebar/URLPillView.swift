@@ -154,7 +154,10 @@ final class URLPillView: NSView, PopoutShelf {
         // printed on a pill in a column; it is a control on a row of controls
         // now, so it is an SF Symbol at `glyphSize` behaving exactly as the
         // reload beside it does (`RowGlyphView`).
-        for glyph in [sliders, reload] { addSubview(glyph) }
+        for glyph in [sliders, reload] {
+            glyph.isRound = true
+            addSubview(glyph)
+        }
         applyGlyphs()
         sliders.onActivate = { [weak self] in self?.onSiteMenu?() }
         reload.onActivate = { [weak self] in

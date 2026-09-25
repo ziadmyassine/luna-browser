@@ -124,6 +124,7 @@ extension TopBarTabStrip {
         }
         guard folderPlates[group.id] == nil else { return }
         let folderPlate = TopBarPlate()
+        folderPlate.lightsUnderPointer = true
         folderPlate.menuBuilder = row.menuBuilder
         folderPlates[group.id] = folderPlate
         // Over the Space's plate, under every fill and tab.

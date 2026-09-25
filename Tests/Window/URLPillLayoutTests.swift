@@ -59,6 +59,25 @@ final class URLPillLayoutTests: XCTestCase {
         XCTAssertEqual(backing(of: bare)?.alphaValue ?? 0, 0, "a bare pill shows no material")
     }
 
+    /// The pill's two glyphs answer the pointer with a capsule, not the row's
+    /// rounded square, and it is concentric with the pill's own end: as far
+    /// in from that end as from the top, which makes it a little wider than
+    /// it is tall.
+    func testThePillsGlyphChipsAreCapsulesInsideThePillsEnds() {
+        for centred in [true, false] {
+            let pill = pill(centred: centred)
+            let glyphs = centred ? [pill.sliders, pill.reload] : [pill.sliders]
+            for glyph in glyphs {
+                glyph.layoutSubtreeIfNeeded()
+                let chip = glyph.frame, bounds = pill.bounds
+                XCTAssertGreaterThan(chip.width, chip.height, "centred: \(centred)")
+                XCTAssertEqual(glyph.layer?.cornerRadius ?? 0, chip.height / 2, accuracy: 0.01)
+                let fromEnd = min(chip.minX - bounds.minX, bounds.maxX - chip.maxX)
+                XCTAssertEqual(fromEnd, chip.minY - bounds.minY, accuracy: 1, "centred: \(centred)")
+            }
+        }
+    }
+
     /// A 17 pt radius on a 22 pt capsule is a rectangle with dents in it, and
     /// §3.2b's pill is 22 pt for as long as the page is scrolled.
     func testACollapsedPillIsStillACapsule() {

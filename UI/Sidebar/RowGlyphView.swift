@@ -42,6 +42,10 @@ final class RowGlyphView: NSImageView {
 
     var onActivate: (() -> Void)?
     var tint: NSColor = Tokens.Text.secondary { didSet { applyTint() } }
+    /// Fully rounded rather than the row's rounded square. §3.2's pill is a
+    /// capsule, and a square chip inside its round end was a second shape
+    /// against its edge; a capsule takes the pill's own rounding.
+    var isRound = false { didSet { needsLayout = true } }
 
     private var isHovering = false { didSet { applyState() } }
     private var isPressed = false { didSet { applyState() } }
@@ -147,10 +151,9 @@ final class RowGlyphView: NSImageView {
         super.layout()
         // The chip is the hit box, which is what the glyph's own frame is —
         // see `URLPillLayout.placeContents`. Never taller than it is round.
-        layer?.cornerRadius = min(
-            Tokens.Metric.rowTrailingChip.cornerRadius,
-            min(bounds.width, bounds.height) / 2
-        )
+        let round = min(bounds.width, bounds.height) / 2
+        layer?.cornerRadius = isRound ? round : min(Tokens.Metric.rowTrailingChip.cornerRadius, round)
+        layer?.cornerCurve = isRound ? .circular : Tokens.Metric.rowTrailingChip.cornerCurve
     }
 
     // MARK: - Hover

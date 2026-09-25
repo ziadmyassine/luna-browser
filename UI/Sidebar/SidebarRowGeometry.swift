@@ -89,13 +89,13 @@ extension SidebarRowView {
         let chip = Tokens.Metric.rowTrailingChip
         let y = (bounds.height - chip.height) / 2
         trailing.frame = NSRect(
-            x: Self.trailingSlotX(inRowOfWidth: bounds.width),
+            x: Self.trailingSlotX(inRowOfWidth: contentWidth),
             y: y,
             width: chip.width,
             height: chip.height
         ).pixelAligned
         siteButton.frame = NSRect(
-            x: Self.siteSlotX(inRowOfWidth: bounds.width),
+            x: Self.siteSlotX(inRowOfWidth: contentWidth),
             y: y,
             width: chip.width,
             height: chip.height

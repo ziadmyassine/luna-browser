@@ -381,3 +381,37 @@ final class PageChromeBarDragTests: XCTestCase {
         XCTAssertTrue(bar.mouseDownCanMoveWindow, "with the column gone there is nothing else left to drag by")
     }
 }
+
+/// §7.2's peek brings the lights back over a hidden sidebar. They stand on the
+/// sidebar that has slid out over this bar, so the bar's buttons stay where
+/// they were rather than stepping aside under it.
+@MainActor
+final class PageChromeBarPeekTests: XCTestCase {
+
+    private func firstButtonX(in state: ChromeState) throws -> CGFloat {
+        let controller = BrowserWindowController()
+        controller.setChromeStateWithoutAnimation(state)
+        let window = try XCTUnwrap(controller.window)
+        let bar = PageChromeBar()
+        controller.setPageOverlay(bar)
+        window.contentView?.layoutSubtreeIfNeeded()
+        let lights = [.closeButton, .miniaturizeButton, .zoomButton].compactMap { window.standardWindowButton($0) }
+        try XCTSkipIf(lights.count < 3, "this macOS gave the window fewer than three window buttons")
+        controller.trafficLights?.isPeeking = true
+        XCTAssertFalse(try XCTUnwrap(lights.last).isHidden, "the peek did not bring the lights back")
+        bar.placeControls()
+        return try XCTUnwrap(bar.buttons.first).frame.minX
+    }
+
+    func testALeadingPeeksLightsLeaveTheBarsButtonsWhereTheyAre() throws {
+        let x = try firstButtonX(in: .sidebarCollapsed(edge: .leading))
+        XCTAssertEqual(x, Tokens.Metric.pageBarInset, accuracy: 0.5, "the buttons stepped aside under the sidebar")
+    }
+
+    /// A trailing sidebar peeks on the far side, and the lights are over the
+    /// page beside the buttons, so those are still cleared.
+    func testATrailingPeeksLightsAreStillCleared() throws {
+        let x = try firstButtonX(in: .sidebarCollapsed(edge: .trailing))
+        XCTAssertGreaterThan(x, Tokens.Metric.pageBarInset + 1, "the buttons stand under the lights")
+    }
+}

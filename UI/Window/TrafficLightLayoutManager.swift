@@ -129,11 +129,47 @@ enum TrafficLightLayout {
 /// inside its bounds, and this one lies across the top of §3.1's control row —
 /// so the sidebar's toggle would have stopped taking clicks the moment the
 /// window went fullscreen.
+///
+/// It also groups the three for the pointer, which the titlebar did for them.
+/// A window button draws its glyph only when its superview answers
+/// `_mouseInGroup:` yes; out of AppKit's titlebar nothing did, so in fullscreen
+/// the three stayed blank circles under the pointer. Measured on macOS 26: the
+/// button asks its own superview, and the answer is all that changes the
+/// drawing.
 private final class TrafficLightStrip: NSView {
+
+    private var isPointerInGroup = false {
+        didSet {
+            guard isPointerInGroup != oldValue else { return }
+            for button in subviews { button.needsDisplay = true }
+        }
+    }
+
     override func hitTest(_ point: NSPoint) -> NSView? {
         let hit = super.hitTest(point)
         return hit === self ? nil : hit
     }
+
+    @objc(_mouseInGroup:)
+    func mouseInGroup(_ button: NSButton) -> Bool { isPointerInGroup }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas where area.owner === self { removeTrackingArea(area) }
+        let group = subviews.reduce(NSRect.null) { $0.union($1.frame) }
+        guard !group.isNull else { return }
+        // Always, like the titlebar's: the glyphs show over a window that is
+        // not key as well.
+        addTrackingArea(NSTrackingArea(rect: group, options: [.mouseEnteredAndExited, .activeAlways], owner: self))
+    }
+
+    override func didAddSubview(_ subview: NSView) {
+        super.didAddSubview(subview)
+        updateTrackingAreas()
+    }
+
+    override func mouseEntered(with event: NSEvent) { isPointerInGroup = true }
+    override func mouseExited(with event: NSEvent) { isPointerInGroup = false }
 }
 
 /// Applies `TrafficLightLayout` to a real window, and re-applies it every time
@@ -169,11 +205,43 @@ final class TrafficLightLayoutManager {
 
     /// §7.2: the sidebar is peeking over a hidden-sidebar window, so the lights
     /// belong back on screen for as long as it is there.
+    ///
+    /// Set inside the transaction that slides the sidebar, the lights ride in
+    /// and out with it: they fade and move on its clock, from and to where it
+    /// is parked. Shown and hidden outright they arrived before the sidebar
+    /// did and left before it had gone.
     var isPeeking = false {
         didSet {
             guard isPeeking != oldValue else { return }
             layoutButtons()
         }
+    }
+
+    /// How far the lights stand off their place while the sidebar is parked:
+    /// the sidebar's own push off the leading edge. A trailing sidebar parks
+    /// away from them, so it is zero there and they only fade.
+    var parkedOffset: CGFloat = 0
+
+    /// Still on screen after the peek has closed, fading out with the sidebar.
+    /// See `peekDidLeave`.
+    private var isLeaving = false
+    private var leaveCount = 0
+
+    /// A peek about to close. The lights stay unhidden for the fade, and are
+    /// hidden once `peekDidLeave` hears the transaction end with the token this
+    /// returns. Called before the transaction, which then clears `isPeeking`.
+    func beginLeaving() -> Int {
+        leaveCount += 1
+        isLeaving = true
+        return leaveCount
+    }
+
+    /// The closing peek's transaction ended. An older one's end is ignored: the
+    /// peek may have opened and closed again inside it.
+    func peekDidLeave(_ token: Int) {
+        guard token == leaveCount, isLeaving else { return }
+        isLeaving = false
+        layoutButtons()
     }
 
     /// Hidden while the page has the whole window.
@@ -184,6 +252,12 @@ final class TrafficLightLayoutManager {
     /// They come back the moment there is a sidebar to put them in, which
     /// includes a peek.
     private var hidesButtons: Bool {
+        isAway && !isLeaving
+    }
+
+    /// Where the sidebar is parked, so the lights are transparent and off at
+    /// `parkedOffset` — hidden too, once no fade is running.
+    private var isAway: Bool {
         state.isSidebarCollapsed && !isPeeking
     }
 
@@ -212,6 +286,7 @@ final class TrafficLightLayoutManager {
     /// layout change it belongs to — a second step is a visible jump (§4.1).
     func apply(_ state: ChromeState) {
         self.state = state
+        isLeaving = false
         layoutButtons()
         holdPlacement()
     }
@@ -359,12 +434,18 @@ final class TrafficLightLayoutManager {
         guard let window else { return }
         let buttons = Self.buttons(of: window)
         guard let first = buttons.first, let container = container(for: window, holding: buttons) else { return }
+        let offset = isAway ? parkedOffset : 0
 
         // Before the placement, and unconditionally: a hidden button still has
         // a frame, and AppKit resets `isHidden` on some titlebar rebuilds the
         // same way it resets the origins.
         let hidden = hidesButtons
+        let shownOrHidden = buttons.contains { $0.isHidden != hidden }
         for button in buttons where button.isHidden != hidden { button.isHidden = hidden }
+        // Only a change is written, so the passes that land while a peek's
+        // fade is running leave its target alone rather than snapping to it.
+        let alpha: CGFloat = isAway ? 0 : 1
+        for button in buttons where button.alphaValue != alpha { button.alphaValue = alpha }
 
         let system = TrafficLightMetrics(
             natural: natural,
@@ -377,7 +458,7 @@ final class TrafficLightLayoutManager {
             for: state,
             system: system,
             inset: Tokens.Metric.trafficLightInset
-        )
+        )?.map { CGPoint(x: $0.x + offset, y: $0.y) }
         guard let origins = managed, origins.count == buttons.count else { return }
 
         // Set directly, not through `animator()`: the placement is identical in
@@ -391,8 +472,13 @@ final class TrafficLightLayoutManager {
         // Whatever stands beside the lights measured them where they were. The
         // top bar laid its plate out against AppKit's default spacing at
         // launch, before this spread them, and kept the plate 9 pt too close
-        // until something else happened to lay it out again.
-        if moved, let root = window.contentView { TrafficLightSpace.neighboursNeedLayout(in: root) }
+        // until something else happened to lay it out again. Coming or going
+        // counts as well: in fullscreen the strip moves rather than the lights,
+        // so a peek's lights leaving at the end of its fade moved nothing, and
+        // whatever had made room for them kept it.
+        if moved || shownOrHidden, let root = window.contentView {
+            TrafficLightSpace.neighboursNeedLayout(in: root)
+        }
     }
 
     // MARK: - Where they live
@@ -424,12 +510,13 @@ final class TrafficLightLayoutManager {
         if strip.superview !== root || root.subviews.last !== strip {
             root.addSubview(strip, positioned: .above, relativeTo: nil)
         }
-        strip.frame = Self.stripFrame(
+        let frame = Self.stripFrame(
             in: root.bounds,
             natural: natural.first ?? .zero,
             buttonHeight: buttons.first?.frame.height ?? 0,
             inset: Tokens.Metric.trafficLightInset
-        )
+        ).offsetBy(dx: isAway ? parkedOffset : 0, dy: 0)
+        if strip.frame != frame { strip.frame = frame }
         for button in buttons where button.superview !== strip { strip.addSubview(button) }
         return strip
     }

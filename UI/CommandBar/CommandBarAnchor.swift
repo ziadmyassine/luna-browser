@@ -54,16 +54,29 @@ struct CommandBarAnchor {
     /// the other way round.
     var onDoubleClick: (() -> Void)?
 
+    /// Where the anchor stood when it was pressed, in window coordinates, when
+    /// it is on its way somewhere else as the bar opens. The bar grows out of
+    /// this rather than the anchor's new place, so the two moves are one.
+    ///
+    /// §3.2b's collapsed capsule opens its bar as it is pressed. Opened at
+    /// once, the page jumped down under a bar that had doubled between two
+    /// frames; opened on its own clock, the anchor is already standing in the
+    /// open bar, and a bar growing from there started from a pill nobody had
+    /// seen yet.
+    var startFrame: NSRect?
+
     init(
         view: NSView,
         span: NSView? = nil,
         cornerRadius: CGFloat? = nil,
+        startFrame: NSRect? = nil,
         onDoubleClick: (() -> Void)? = nil,
         onDismiss: (() -> Void)? = nil
     ) {
         self.view = view
         self.span = span
         self.cornerRadius = cornerRadius
+        self.startFrame = startFrame
         self.onDoubleClick = onDoubleClick
         self.onDismiss = onDismiss
     }
