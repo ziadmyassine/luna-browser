@@ -53,34 +53,18 @@ enum SearchBarPlacement: String, CaseIterable, Sendable {
     }
 }
 
-/// Where the tabs are. One setting, because it is one question the user is
-/// asking — and the two layouts have different answers available to them.
+/// Which side of the window the sidebar stands on. Only the sidebar has a
+/// choice: the top bar's tabs always start at its leading edge.
 ///
-/// §3's sidebar is a column, so it has two sides and no middle. §4's strip runs
-/// along a bar, so it has all three. The stored value is therefore the superset,
-/// and a sidebar reads `.centre` as `.left`: a preference the current layout
-/// cannot honour is remembered rather than rewritten, so switching back to the
-/// top bar gets the centre the user asked for instead of whatever the sidebar
-/// had to fall back to.
+/// A stored `centre` from before the top bar lost its choice does not decode,
+/// and reads as the left the sidebar always gave it.
 enum TabsPosition: String, CaseIterable, Sendable {
     case left
-    case centre
     case right
-
-    /// What the layout can actually offer. The Settings row is built from this,
-    /// which is why the middle segment appears and disappears with the layout
-    /// rather than sitting there dimmed.
-    static func cases(for layout: ChromeLayoutPreference) -> [TabsPosition] {
-        switch layout {
-        case .sidebar: [.left, .right]
-        case .topBar: [.left, .centre, .right]
-        }
-    }
 
     var title: String {
         switch self {
         case .left: String(localized: "Left")
-        case .centre: String(localized: "Centre")
         case .right: String(localized: "Right")
         }
     }
@@ -127,12 +111,11 @@ enum Settings {
         }
     }
 
-    /// §3/§4's tab position. Centre by default, which is where §4's strip
-    /// belongs and which a sidebar reads as the left it has always been.
+    /// §3's sidebar side. Left by default, where it has always been.
     static var tabsPosition: TabsPosition {
         get {
             UserDefaults.standard.string(forKey: tabsKey)
-                .flatMap(TabsPosition.init(rawValue:)) ?? .centre
+                .flatMap(TabsPosition.init(rawValue:)) ?? .left
         }
         set {
             guard newValue != tabsPosition else { return }
@@ -152,17 +135,9 @@ enum Settings {
         }
     }
 
-    /// The tab position as the layout on screen can honour it: a sidebar has
-    /// two sides, so `.centre` reads as `.left` there.
-    static func tabsPosition(in layout: ChromeLayoutPreference) -> TabsPosition {
-        let stored = tabsPosition
-        return TabsPosition.cases(for: layout).contains(stored) ? stored : .left
-    }
-
-    /// Which window edge §3's sidebar stands on. A column has two sides, so a
-    /// stored `.centre` — which only the top bar can honour — reads as the left.
+    /// Which window edge §3's sidebar stands on.
     static var sidebarEdge: SidebarEdge {
-        tabsPosition(in: .sidebar) == .right ? .trailing : .leading
+        tabsPosition == .right ? .trailing : .leading
     }
 
     /// §1's width span as the layout on screen can honour it: the same

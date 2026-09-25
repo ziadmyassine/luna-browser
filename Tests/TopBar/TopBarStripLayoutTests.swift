@@ -20,19 +20,12 @@ import XCTest
 final class TopBarStripLayoutTests: XCTestCase {
 
     private var directory: URL!
-    /// The live setting, put back afterwards. These tests measure where
-    /// things land, and where a run starts is `Settings.tabsPosition` — a
-    /// machine set to Left would otherwise move every assertion.
-    private var storedPosition: TabsPosition!
 
     override func setUpWithError() throws {
-        storedPosition = Settings.tabsPosition
-        Settings.tabsPosition = .centre
         directory = URL.temporaryDirectory.appending(path: "luna-tests-\(UUID().uuidString)")
     }
 
     override func tearDownWithError() throws {
-        Settings.tabsPosition = storedPosition
         try? FileManager.default.removeItem(at: directory)
     }
 

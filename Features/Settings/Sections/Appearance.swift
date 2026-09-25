@@ -16,11 +16,9 @@
 //  drawn them since M1 and nobody turns them off. A preference whose only
 //  honest default is "on" is one more row to read past.
 //
-//  The Tabs row changes shape with the row above it. §3's sidebar is a column,
-//  two sides and no middle; §4's strip runs along a bar, which has all three.
-//  The segments are rebuilt when the layout changes rather than one sitting
-//  permanently dimmed — "Centre" under the sidebar is not temporarily
-//  unavailable, it is an answer the question does not have.
+//  Two rows answer only to the sidebar layout — where its search bar sits and
+//  which side it stands on — and are removed, not dimmed, under the top bar,
+//  whose tabs always start at its leading edge.
 //
 
 import AppKit
@@ -98,8 +96,8 @@ final class AppearanceSection: NSObject, SettingsSection {
     /// Holds whichever tile is current. Rebuilt, not mutated: the material is
     /// chosen when the glass view is constructed.
     private let tileHost = NSView()
-    /// §3.2's tab position control, kept so the layout row can re-label it.
-    private var tabsChoice: SettingsChoice?
+    /// The sidebar-side row, held for the same reason as `searchBarHost`.
+    private var sideHost: NSView?
 
     var view: NSView { body.view }
     var searchIndex: [String] { body.searchIndex }
@@ -117,7 +115,7 @@ final class AppearanceSection: NSObject, SettingsSection {
             (themeRow(), ["theme", "appearance", "auto", "light", "dark"]),
             (chromeLayoutRow(), ["layout", "chrome", "sidebar", "top bar", "tabs"]),
             (searchBarRow(), ["search bar", "address bar", "url bar", "on the page", "top of the page"]),
-            (tabsRow(), ["tabs", "tab position", "sidebar position", "left", "right", "centre", "center"]),
+            (sideRow(), ["sidebar side", "tabs", "tab position", "sidebar position", "left", "right"]),
             (cornersRow(), ["corners", "rounded corners", "round", "radius", "window shape"])
         ])
         body.card("Glass", [
@@ -219,9 +217,7 @@ final class AppearanceSection: NSObject, SettingsSection {
             // The setter posts `Settings.didChange`; `AppDelegate` is listening
             // and re-anchors the running window. Nothing here reaches for it.
             Settings.chromeLayout = layout
-            // The two rows below answer to the layout: one offers a different
-            // set of answers now, the other has no answer at all.
-            self?.refreshTabsRow()
+            // The two rows below exist only for the sidebar.
             self?.refreshSearchBarRow()
         }
         return SettingsRow.accessory("Layout", subtitle: nil, accessory: picker)
@@ -253,38 +249,22 @@ final class AppearanceSection: NSObject, SettingsSection {
 
     private func refreshSearchBarRow() {
         searchBarHost?.isHidden = Settings.chromeLayout != .sidebar
+        sideHost?.isHidden = Settings.chromeLayout != .sidebar
     }
 
-    /// §3/§4's tab position — the sidebar's side, or the strip's alignment.
-    ///
-    /// One row, because it is one question. The answers it offers come from
-    /// the layout, and `refreshTabsRow` is what keeps them current when the row
-    /// above changes: the segments are rebuilt in place, so the user sees the
-    /// middle one appear the moment they choose the top bar.
-    private func tabsRow() -> NSView {
-        let layout = Settings.chromeLayout
-        let options = TabsPosition.cases(for: layout)
-        let (row, choice) = SettingsRow.segmentedPair(
-            "Tabs",
-            options: options.map(\.title),
-            selected: options.firstIndex(of: Settings.tabsPosition(in: layout)) ?? 0
+    /// §3's sidebar side.
+    private func sideRow() -> NSView {
+        let sides = TabsPosition.allCases
+        let row = SettingsRow.segmented(
+            String(localized: "Sidebar side"),
+            options: sides.map(\.title),
+            selected: sides.firstIndex(of: Settings.tabsPosition) ?? 0
         ) { index in
-            // Re-read rather than captured: the answers change under this
-            // closure every time the layout does.
-            let current = TabsPosition.cases(for: Settings.chromeLayout)
-            guard current.indices.contains(index) else { return }
-            Settings.tabsPosition = current[index]
+            guard sides.indices.contains(index) else { return }
+            Settings.tabsPosition = sides[index]
         }
-        tabsChoice = choice
+        sideHost = row
+        row.isHidden = Settings.chromeLayout != .sidebar
         return row
-    }
-
-    private func refreshTabsRow() {
-        let layout = Settings.chromeLayout
-        let options = TabsPosition.cases(for: layout)
-        tabsChoice?.setLabels(
-            options.map(\.title),
-            selected: options.firstIndex(of: Settings.tabsPosition(in: layout)) ?? 0
-        )
     }
 }

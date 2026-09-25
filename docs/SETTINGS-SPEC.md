@@ -167,15 +167,15 @@ things in it are structural rather than decorative. All three are now Luna's:
 │ │ [🔍 Search ] │ │  Privacy & Blocking      │ │
 │ │ ⚙  General   │ │  ──────────────────────  │ │
 │ │ ◐  Appearance│ │  ┌────────────────────┐  │ │
-│ │ 🔒 Privacy   │ │  │ Block ads     [o=] │  │ │
-│ │ 🔍 Search    │ │  │ Block trackers[o=] │  │ │
-│ │ ⬇  Downloads │ │  │ Annoyances    [=o] │  │ │
-│ │ ⌘  Shortcuts │ │  └────────────────────┘  │ │
-│ │ ▦  Spaces    │ │                          │ │
-│ │ 🧩 Extensions│ │                          │ │
-│ │ ⋰ Luna Ctrl  │ │                          │ │
-│ │ ⚡ Advanced  │ │                          │ │
-│ │ ⓘ  About     │ │                          │ │
+│ │ 🔒 Privacy & │ │  │ Block ads     [o=] │  │ │
+│ │    Passwords │ │  │ Block trackers[o=] │  │ │
+│ │ ▦  Spaces    │ │  │ Annoyances    [=o] │  │ │
+│ │ 🧩 Extensions│ │  └────────────────────┘  │ │
+│ │ ⌘  Shortcuts │ │                          │ │
+│ │ ☾  Luna Ctrl │ │                          │ │
+│ │ ◉  About     │ │                          │ │
+│ │              │ │                          │ │
+│ │              │ │                          │ │
 │ └──────────────┘ └──────────────────────────┘ │
 └───────────────────────────────────────────────┘
 ```
@@ -221,6 +221,31 @@ look like the app:
   420 to 480 — at 420 the list ran past the bottom of the column it is
   constrained inside.
 
+### 2.2 Eight pages (2026-09-25)
+
+Twelve sections became eight, because several were a single card:
+
+- **General** carries **Search**, **Downloads** and **Advanced** as groups
+  under their own headings (`SettingsGroup`). **Privacy & Passwords** carries
+  Passwords the same way. Each group keeps its type and its `id`, and
+  `SettingsSectionRegistry.index(ofID:)` sends that id to the page the group is
+  on, so a caller asking for Passwords, or a `settings.lastSection` saved
+  before the change, lands on the right page.
+- **Spaces, Extensions, Shortcuts, Luna Control and About** stay pages of their
+  own. Order: General, Appearance, Privacy & Passwords, Spaces, Extensions,
+  Shortcuts, Luna Control, About.
+- **Rows that do nothing yet** are gathered at the foot of their page under
+  **Coming later**, dimmed with their reason, rather than sitting among the
+  rows that work. *Confirm before closing a window with multiple tabs* is gone.
+- **Every section has a tile again** (`SettingsSymbolTile`), but not the
+  `Surface.selected` square §2.1 removed: grey glass with a white glyph, as
+  macOS's own settings draw theirs, 22 pt in the list and 44 pt at the head of
+  the page. Luna Control's is the night sky with the moon; About's is the app
+  icon.
+- **Each page opens on its tile, its name and one line** saying what it is for
+  (`SettingsPageHeader`), a group's distance above the first card. Luna Control
+  and About open on their own sky and icon instead.
+
 ---
 
 ## 3. Sections
@@ -235,7 +260,6 @@ underneath — never a silently dead switch (§30.4).
 | Default browser | Button "Set as Default" + status line | `NSWorkspace.setDefaultApplication(at:toOpenURLsWithScheme:)` |
 | On launch | Popup: Restore last session · New tab · Specific Space | `general.onLaunch` + `BrowserSession.restored` |
 | Auto-archive tabs after | Popup: 6h · 12h · 24h · Never | **existing** `luna.autoArchiveHours` |
-| Confirm before closing a window with multiple tabs | Toggle | `general.confirmClose` |
 | Ask before quitting Luna | Toggle | `general.confirmQuit` — read by `AppDelegate.applicationShouldTerminate` |
 
 > **Added: the quit guard, and it is the only row in this card with a reader.**
@@ -251,7 +275,7 @@ underneath — never a silently dead switch (§30.4).
 | Layout | A picture of each layout, chosen by clicking it | `Settings.chromeLayout` — UI-SPEC §3 vs §4 |
 | Search bar | Segmented: In the sidebar · On the page | `Settings.searchBarPlacement` — UI-SPEC §3.2b |
 | Optimise glass for this display | Segmented: Auto · On · Off | **§7 below** |
-| Sidebar position | Segmented: Left · Right | *disabled* — right-hand sidebar is not built |
+| Sidebar side | Segmented: Left · Right, only under the sidebar layout | `Settings.tabsPosition` — UI-SPEC §3.9 |
 | Match macOS corners | Toggle, off | `Settings.macWindowCorners` — UI-SPEC §3.6 |
 
 **Layout is two pictures, not two words** (`SettingsLayoutPicker`): a small

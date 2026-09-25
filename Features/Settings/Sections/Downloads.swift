@@ -22,23 +22,20 @@
 
 import AppKit
 
+/// A group on the General page (`SettingsGroup`).
 @MainActor
-final class DownloadsSection: SettingsSection {
+final class DownloadsSection: SettingsGroup {
 
     static let id = "downloads"
     static let title = String(localized: "Downloads")
-    static let symbolName = "arrow.down.circle"
     static let keywords = ["files", "save to", "folder", "destination", "open safe files"]
 
-    private let body = SettingsBody()
     private let folder = NSPopUpButton(frame: .zero, pullsDown: true)
 
-    var view: NSView { body.view }
-    var searchIndex: [String] { body.searchIndex }
-    func filter(_ query: String) { body.filter(query) }
-
-    init() {
-        body.card(nil, [saveLocationRow(), askEachTimeRow(), autoOpenRow(), clearPolicyRow()])
+    /// The two rows that do nothing yet go to the page's "Coming later".
+    func add(to body: SettingsBody) -> [(view: NSView, terms: [String])] {
+        body.card(Self.title, [saveLocationRow(), autoOpenRow()])
+        return [askEachTimeRow(), clearPolicyRow()]
     }
 
     // MARK: Where files go
@@ -133,8 +130,8 @@ final class DownloadsSection: SettingsSection {
     /// executable, a disk image or an installer package never opens by itself,
     /// whatever this is set to.
     private func autoOpenRow() -> (view: NSView, terms: [String]) {
-        let title = String(localized: "Open “safe” files after downloading")
-        let subtitle = String(localized: "Never opens apps, disk images or installer packages")
+        let title = String(localized: "Open safe files after downloading")
+        let subtitle = String(localized: "Photos, PDFs, text and sound. Never apps, disk images or installers.")
         let row = SettingsRow.toggle(
             title,
             subtitle: subtitle,

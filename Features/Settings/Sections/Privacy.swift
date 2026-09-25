@@ -26,11 +26,13 @@ import WebKit
 final class PrivacySection: SettingsSection {
 
     static let id = "privacy"
-    static let title = String(localized: "Privacy & Blocking")
+    static let title = String(localized: "Privacy & Passwords")
     static let symbolName = "lock.shield"
-    static let keywords = ["cookies", "trackers", "blocking", "https only", "ads", "clear data"]
+    static let keywords = ["cookies", "trackers", "blocking", "https only", "ads", "clear data", "passwords"]
+        + PasswordsSection.keywords
 
     private let body = SettingsBody()
+    private let passwords = PasswordsSection()
     private let statusLabel = NSTextField(labelWithString: "")
     private let spinner = NSProgressIndicator()
 
@@ -40,16 +42,20 @@ final class PrivacySection: SettingsSection {
 
     init() {
         buildBlocking()
-        buildFilterLists()
         buildSafeBrowsingNote()
+        _ = passwords.add(to: body)
+        buildClearing()
         observeStatus()
     }
 
     // MARK: Rows
 
+    /// The switches and the lists they read from, in one card: the status
+    /// line is what tells you the switches above it are doing anything.
     private func buildBlocking() {
         var rows = ContentBlocker.Category.allCases.map(blockingRow)
         rows.append(httpsOnlyRow())
+        rows.append(filterListsRow())
         body.card(String(localized: "Blocking"), rows)
     }
 
@@ -89,7 +95,7 @@ final class PrivacySection: SettingsSection {
         return (row, [title, subtitle, "https", "encryption"])
     }
 
-    private func buildFilterLists() {
+    private func filterListsRow() -> (view: NSView, terms: [String]) {
         spinner.style = .spinning
         spinner.controlSize = .small
         spinner.isDisplayedWhenStopped = false
@@ -107,12 +113,11 @@ final class PrivacySection: SettingsSection {
 
         let title = String(localized: "Filter lists")
         let row = SettingsRow.accessory(title, subtitle: nil, accessory: accessory)
+        render(ContentBlocker.shared.status)
         // The search terms carry what a three-sentence signpost used to say in
         // prose: someone hunting for the exemption list types "allowlist" or
         // "per-site", and §2's search brings them to the row the menu switches.
-        body.card(nil, [(row, [title, "rules", "refresh", "easylist", "update",
-                               "exceptions", "allowlist", "per-site"])])
-        render(ContentBlocker.shared.status)
+        return (row, [title, "rules", "refresh", "easylist", "update", "exceptions", "allowlist", "per-site"])
     }
 
     /// §17.7, and required copy rather than a nicety: Luna has no Safe Browsing
@@ -120,12 +125,15 @@ final class PrivacySection: SettingsSection {
     /// believe they are protected against something they are not.
     private func buildSafeBrowsingNote() {
         let text = String(localized: """
-        Luna does not check the addresses you visit against a malware or phishing list, and \
-        nothing about your browsing leaves this Mac. macOS still applies XProtect and \
-        Gatekeeper to anything you download and run.
+        Luna doesn’t check the sites you visit against a malware list, and your browsing never \
+        leaves this Mac. macOS still checks anything you download and run.
         """)
         body.loose(SettingsRow.note(text), terms: ["malware", "phishing", "safe browsing", "xprotect", "gatekeeper"])
+    }
 
+    /// Last on the page, and on its own: the one row here that signs you out
+    /// of everything.
+    private func buildClearing() {
         let clear = String(localized: "Clear all site data")
         let row = SettingsRow.button(clear, action: String(localized: "Clear…"), isDestructive: true) { [weak self] in
             self?.clearSiteData()

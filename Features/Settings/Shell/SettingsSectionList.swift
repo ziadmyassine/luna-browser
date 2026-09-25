@@ -2,7 +2,7 @@
 //  SettingsSectionList.swift
 //  Luna
 //
-//  §2's section list: ten rows, exactly one selected, always.
+//  §2's section list: eight rows, exactly one selected, always.
 //
 //  It is the browser's sidebar with sections where the tabs are: same
 //  material, pitch, pill, insets and springs. `SidebarRowView` and this class
@@ -15,8 +15,10 @@
 //    than a flat wash painted on whichever row was selected. Clear glass over
 //    the column's own glass is what makes the selection read as a raised
 //    surface instead of a grey band.
-//  · No tile behind the symbol. A rounded square carrying `Surface.selected`
-//    sat under every glyph, which made ten section icons into ten buttons.
+//  · Each symbol stands on its tile (`SettingsSymbolTile`): grey glass with
+//    a white glyph, as macOS's own settings draw them — not the
+//    `Surface.selected` square that sat under every glyph once and made the
+//    section icons look like buttons.
 //  · The sidebar's pitch: 38 pt of row around a 35 pt pill, not 34 around 31.
 //    The list is a third of an inch taller for it (`settingsMinHeight`).
 //
@@ -41,10 +43,12 @@ final class SettingsSectionList: NSView {
     private(set) var selected = 0
     private var hovered: Int?
 
-    init(titles: [String], symbols: [String]) {
+    /// `styles` runs beside `symbols`; a section with none is grey glass.
+    init(titles: [String], symbols: [String], styles: [SettingsSymbolTile.Style] = []) {
         super.init(frame: .zero)
-        rows = zip(titles, symbols).enumerated().map { index, pair in
-            let row = SettingsSectionRowView(title: pair.0, symbolName: pair.1)
+        rows = titles.indices.map { index in
+            let style = styles.indices.contains(index) ? styles[index] : .glass
+            let row = SettingsSectionRowView(title: titles[index], symbolName: symbols[index], style: style)
             row.onClick = { [weak self] in self?.pick(index) }
             row.onHover = { [weak self] hovering in self?.setHovered(hovering ? index : nil, from: index) }
             return row
@@ -200,21 +204,16 @@ final class SettingsSectionRowView: NSView {
     }
 
     private let label: NSTextField
-    private let icon = NSImageView()
+    private let icon: SettingsSymbolTile
 
-    init(title: String, symbolName: String) {
+    init(title: String, symbolName: String, style: SettingsSymbolTile.Style) {
         label = NSTextField(labelWithString: title)
+        icon = SettingsSymbolTile(symbolName: symbolName, style: style, side: Tokens.Metric.settingsListTile)
         super.init(frame: .zero)
 
         label.font = Tokens.TypeScale.settingsRow
         label.lineBreakMode = .byTruncatingTail
         label.cell?.usesSingleLineMode = true
-        icon.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)
-        icon.imageScaling = .scaleProportionallyUpOrDown
-        icon.symbolConfiguration = NSImage.SymbolConfiguration(
-            pointSize: SettingsMetrics.symbolSize,
-            weight: .regular
-        )
         for view in [icon, label] { addSubview(view) }
 
         setAccessibilityElement(true)
@@ -231,19 +230,20 @@ final class SettingsSectionRowView: NSView {
 
     // MARK: - Layout
 
-    /// The sidebar's two insets, unchanged: a 16 pt glyph centred inside the
-    /// pill's own leading square (`rowFaviconInset`), and the title a
-    /// `rowTitleGap` clear of it (`rowTitleInset`). A section row and a tab row
-    /// line up on the same two columns.
+    /// The sidebar's two insets: the tile centred where a tab's 16 pt favicon
+    /// is centred (`rowFaviconInset`), and the title a `rowTitleGap` clear of
+    /// that column (`rowTitleInset`). A section row and a tab row line up on
+    /// the same two columns.
     override func layout() {
         super.layout()
         Tokens.Motion.immediately {
-            let glyph = Tokens.Metric.faviconSize
+            let tile = Tokens.Metric.settingsListTile
+            let centre = Tokens.Metric.rowFaviconInset + Tokens.Metric.faviconSize / 2
             icon.frame = NSRect(
-                x: Tokens.Metric.rowFaviconInset,
-                y: (bounds.height - glyph) / 2,
-                width: glyph,
-                height: glyph
+                x: centre - tile / 2,
+                y: (bounds.height - tile) / 2,
+                width: tile,
+                height: tile
             ).pixelAligned
             let x = Tokens.Metric.rowTitleInset
             // The title keeps the pill's own inset at the trailing end, the way
@@ -273,7 +273,9 @@ final class SettingsSectionRowView: NSView {
             Tokens.Text.secondary
         }
         label.textColor = ink
-        icon.contentTintColor = ink
+        // The tile keeps its own colours; a section the search has passed
+        // over fades it the way it fades the title.
+        icon.alphaValue = isDimmed ? 0.45 : 1
     }
 
     override func viewDidChangeEffectiveAppearance() {

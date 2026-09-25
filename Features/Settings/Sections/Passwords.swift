@@ -2,8 +2,8 @@
 //  Passwords.swift
 //  Luna
 //
-//  docs/SETTINGS-SPEC.md §3.10 / TODO.md §14 — the three switches, the saved
-//  list, and two paragraphs that have to be true.
+//  docs/SETTINGS-SPEC.md §3.10 / TODO.md §14, a group on the Privacy &
+//  Passwords page: where passwords go, the switches, and passkeys.
 //
 //  This section replaces a "deliberately not here" entry, because §14.1's
 //  spike has run. The objection was that the window "must not hint at a
@@ -21,125 +21,86 @@
 import AppKit
 import BrowserKit
 
+/// A group on the Privacy & Passwords page (`SettingsGroup`).
 @MainActor
-final class PasswordsSection: SettingsSection {
+final class PasswordsSection: SettingsGroup {
 
     static let id = "passwords"
     static let title = String(localized: "Passwords")
-    static let symbolName = "key.fill"
     static let keywords = ["logins", "passkeys", "autofill", "keychain", "credentials"]
 
-    private let body = SettingsBody()
     private let storageLabel = NSTextField(labelWithString: "")
 
-    var view: NSView { body.view }
-    var searchIndex: [String] { body.searchIndex }
-    func filter(_ query: String) { body.filter(query) }
-
-    init() {
-        buildSwitches()
-        buildStorageNote()
-        buildPasskeyNote()
-        buildManageRow()
+    /// One card: where passwords go first, then the four switches, then
+    /// passkeys, whose row says why it is off rather than a note under it.
+    func add(to body: SettingsBody) -> [(view: NSView, terms: [String])] {
+        body.card(Self.title, [storageRow()] + switchRows() + [passkeysRow(), manageRow()])
+        body.loose(
+            SettingsRow.note(String(localized: """
+            Luna has no password vault or account of its own. It can’t read what Safari has saved; \
+            only Apple’s apps can.
+            """)),
+            terms: ["keychain", "safari", "passwords app", "icloud", "vault", "import"]
+        )
         refreshStorageLine()
+        return []
     }
 
     // MARK: Rows
 
-    private func buildSwitches() {
+    private func switchRows() -> [(view: NSView, terms: [String])] {
         let fill = String(localized: "Offer to fill passwords")
-        let fillDetail = String(localized: "Show your saved logins on a site's sign-in form")
         let save = String(localized: "Offer to save passwords")
-        let saveDetail = String(localized: "Ask after you sign in with a password Luna has not seen")
         let generate = String(localized: "Suggest strong passwords")
-        let generateDetail = String(localized: "On sign-up forms, offer a generated password")
         let auth = String(localized: "Require Touch ID to fill")
         // Names the fallback, because a Mac without Touch ID would otherwise
         // read this row as one that does nothing for them.
-        let authDetail = String(localized: "Ask for Touch ID, or your login password, before filling")
-
-        body.card(String(localized: "Autofill"), [
-            (SettingsRow.toggle(fill, subtitle: fillDetail, value: PasswordSettings.isEnabled) { on in
+        let authDetail = String(localized: "Or your login password")
+        return [
+            (SettingsRow.toggle(fill, value: PasswordSettings.isEnabled) { on in
                 PasswordSettings.isEnabled = on
-            }, [fill, fillDetail, "autofill", "login", "sign in"]),
-            (SettingsRow.toggle(save, subtitle: saveDetail, value: PasswordSettings.offersToSave) { on in
+            }, [fill, "autofill", "login", "sign in"]),
+            (SettingsRow.toggle(save, value: PasswordSettings.offersToSave) { on in
                 PasswordSettings.offersToSave = on
-            }, [save, saveDetail, "save", "remember"]),
-            (SettingsRow.toggle(generate, subtitle: generateDetail, value: PasswordSettings.offersGeneratedPasswords) { on in
+            }, [save, "save", "remember"]),
+            (SettingsRow.toggle(generate, value: PasswordSettings.offersGeneratedPasswords) { on in
                 PasswordSettings.offersGeneratedPasswords = on
-            }, [generate, generateDetail, "generate", "strong", "random"]),
+            }, [generate, "generate", "strong", "random"]),
             (SettingsRow.toggle(auth, subtitle: authDetail, value: PasswordSettings.requiresAuthentication) { on in
                 PasswordSettings.requiresAuthentication = on
             }, [auth, authDetail, "touch id", "biometric", "fingerprint", "authenticate", "unlock"])
-        ])
+        ]
     }
 
-    /// Where the passwords actually go — the §14.1 answer, rendered live.
-    ///
-    /// The distinction this row draws is the one the whole feature turns on,
-    /// and it is invisible from the outside: a password saved in local-only
-    /// mode looks identical in Luna to one that synced, and the user only
-    /// finds out which they had when they pick up their iPhone. Saying it here
-    /// is the difference between a limitation and a nasty surprise.
-    private func buildStorageNote() {
-        storageLabel.font = Tokens.TypeScale.sidebarRow
+    private func storageRow() -> (view: NSView, terms: [String]) {
+        storageLabel.font = Tokens.TypeScale.settingsRow
         storageLabel.textColor = Tokens.Text.secondary
         storageLabel.lineBreakMode = .byWordWrapping
         storageLabel.usesSingleLineMode = false
         storageLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-
         let title = String(localized: "Saved to")
         let row = SettingsRow.accessory(title, subtitle: nil, accessory: storageLabel)
-        body.card(String(localized: "Storage"), [
-            (row, [title, "keychain", "icloud", "sync", "passwords app"])
-        ])
-
-        body.loose(
-            SettingsRow.note(String(localized: """
-            Luna has no password vault of its own. Everything it saves goes into your Mac's \
-            Keychain, which is Apple's, not Luna's — there is no Luna account and nothing on \
-            a Luna server.
-
-            Luna cannot read the passwords Safari and the Passwords app have already saved. \
-            Those live in a part of the Keychain only Apple's own apps can open, and no \
-            setting here changes that.
-            """)),
-            terms: ["keychain", "safari", "passwords app", "icloud", "vault", "import"]
-        )
+        return (row, [title, "keychain", "icloud", "sync", "passwords app"])
     }
 
-    /// §14.10, stated plainly rather than hidden.
-    ///
-    /// A user on a site that offers "Sign in with a passkey" in Safari and not
-    /// in Luna will conclude Luna is broken. It is not — it is deliberately
-    /// hiding a button that would not work — and this is the only place that
-    /// can say so.
-    private func buildPasskeyNote() {
+    private func passkeysRow() -> (view: NSView, terms: [String]) {
         let title = String(localized: "Passkeys")
+        // One line, not `PasskeySupport.statusDescription`'s paragraph: the row
+        // only has to say why the switch will not move.
+        let reason = PasskeySupport.isAvailable
+            ? String(localized: "Sites can offer passkey sign-in")
+            : String(localized: "Needs permission from Apple, which Luna doesn’t have yet")
         let row = SettingsRow.toggle(
             title,
-            subtitle: PasskeySupport.isAvailable
-                ? String(localized: "Sites can offer passkey sign-in")
-                : String(localized: "Waiting on an entitlement from Apple"),
             value: PasskeySupport.isAvailable,
             isEnabled: false,
-            disabledReason: PasskeySupport.statusDescription
+            disabledReason: reason
         ) { _ in }
-        body.card(String(localized: "Passkeys"), [
-            (row, [title, "passkey", "webauthn", "security key", "fido"])
-        ])
-        body.loose(
-            SettingsRow.note(PasskeySupport.statusDescription),
-            terms: ["passkey", "entitlement", "webauthn"]
-        )
+        return (row, [title, "passkey", "webauthn", "security key", "fido", "entitlement"])
     }
 
-    /// The Passwords app is where saved logins are managed, because it is
-    /// where they live. Luna deliberately does not grow an editor of its own:
-    /// a second place to change a password is a second place for it to be
-    /// wrong.
-    private func buildManageRow() {
-        let title = String(localized: "Manage saved passwords")
+    private func manageRow() -> (view: NSView, terms: [String]) {
+        let title = String(localized: "See and edit saved passwords")
         let row = SettingsRow.button(title, action: String(localized: "Open Passwords…")) {
             // The Passwords app, by bundle identifier rather than by path: it
             // moved out of System Settings in macOS 15 and a hard-coded path
@@ -151,7 +112,7 @@ final class PasswordsSection: SettingsSection {
                 NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Passwords-Settings.extension")!)
             }
         }
-        body.card(nil, [(row, [title, "manage", "edit", "delete", "passwords app"])])
+        return (row, [title, "manage", "edit", "delete", "passwords app"])
     }
 
     // MARK: Live state

@@ -256,7 +256,7 @@ final class SectionsATests: XCTestCase {
     /// and none of it would catch a section that cannot be constructed.
     func testEverySectionBuildsIndexesAndFilters() {
         let sections: [any SettingsSection] = [
-            GeneralSection(), AppearanceSection(), SearchSection(), ShortcutsSection()
+            GeneralSection(), AppearanceSection(), PrivacySection(), ShortcutsSection()
         ]
         for section in sections {
             let name = type(of: section).id

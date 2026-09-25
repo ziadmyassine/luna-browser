@@ -76,14 +76,6 @@ extension TopBarTabStrip {
         movePills()
     }
 
-    /// Where the bar's centre falls inside the strip. Not `bounds.midX`:
-    /// the strip is inset by a different amount on either side, and that
-    /// difference is exactly what a centred run must not inherit.
-    private var barCentre: CGFloat {
-        guard let bar = superview else { return bounds.midX }
-        return convert(NSPoint(x: bar.bounds.midX, y: 0), from: bar).x
-    }
-
     /// The traffic lights' line, not the bar's middle: the strip is pinned
     /// top and bottom, so it takes the offset itself rather than through a
     /// centre-line constraint the way the capsule beside it does.
@@ -223,12 +215,7 @@ extension TopBarTabStrip {
     func placeContents() {
         let laid = pieces(gap: dropGap)
         let total = lay(laid, from: 0).end
-        let start = frozenStart ?? TopBarTabRun.leadingPad(
-            position: tabsPosition,
-            run: total,
-            span: bounds.width,
-            barCentre: barCentre
-        )
+        let start = frozenStart ?? 0
         lastStart = start
         targets = [:]
         let placed = lay(laid, from: start)
@@ -455,34 +442,6 @@ extension TopBarTabStrip {
         // against a clipped neighbour.
         content.scrollToVisible(frame.insetBy(dx: -TopBarMetrics.gap, dy: 0))
         scrolledOrigin = clip.bounds.origin
-    }
-}
-
-/// §4's alignment as arithmetic: where the run of tabs starts inside the strip.
-/// Pure, so "centred means centred in the bar" is a test rather than a
-/// screenshot — the thing it got wrong was a quarter of an inch of window, and
-/// nothing about the old code looked wrong.
-enum TopBarTabRun {
-
-    /// - Parameters:
-    ///   - run: the tabs' total width.
-    ///   - span: the strip's own width.
-    ///   - barCentre: the bar's centre, in the strip's coordinates.
-    /// - Returns: the clear space in front of the first tab.
-    static func leadingPad(
-        position: TabsPosition,
-        run: CGFloat,
-        span: CGFloat,
-        barCentre: CGFloat
-    ) -> CGFloat {
-        guard run < span else { return 0 }
-        return switch position {
-        case .left: 0
-        // Clamped into the strip, so a run too wide to reach the middle starts
-        // as close to it as it can rather than under the neighbouring cluster.
-        case .centre: min(max(barCentre - run / 2, 0), span - run).rounded()
-        case .right: span - run
-        }
     }
 }
 

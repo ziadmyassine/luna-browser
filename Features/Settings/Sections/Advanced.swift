@@ -15,42 +15,24 @@ import AppKit
 import BrowserKit
 import WebKit
 
+/// A group on the General page (`SettingsGroup`).
 @MainActor
-final class AdvancedSection: SettingsSection {
+final class AdvancedSection: SettingsGroup {
 
     static let id = "advanced"
     static let title = String(localized: "Advanced")
-    static let symbolName = "bolt"
     static let keywords = ["user agent", "developer", "web inspector", "restore all settings", "reset"]
 
-    private let container = NSView()
-    private var body = SettingsBody()
+    /// The page rebuilds itself after Restore: every group on it has rows
+    /// whose values just changed underneath them.
+    var onRestore: (() -> Void)?
 
-    var view: NSView { container }
-    var searchIndex: [String] { body.searchIndex }
-    func filter(_ query: String) { body.filter(query) }
-
-    init() {
-        container.translatesAutoresizingMaskIntoConstraints = false
-        build()
-    }
-
-    /// Rebuilt rather than mutated, because "Restore all settings" changes the
-    /// value every row in this section is showing.
-    private func build() {
-        body = SettingsBody()
-        body.card(String(localized: "Web content"), [userAgentRow(), customUserAgentRow(), webInspectorRow()])
-        body.card(String(localized: "Development"), [developMenuRow()])
-        body.card(nil, [revealDatabaseRow(), restoreDefaultsRow()])
-        for subview in container.subviews { subview.removeFromSuperview() }
-        let stack = body.view
-        container.addSubview(stack)
-        NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            stack.topAnchor.constraint(equalTo: container.topAnchor),
-            stack.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+    /// The Develop menu row goes to the page's "Coming later".
+    func add(to body: SettingsBody) -> [(view: NSView, terms: [String])] {
+        body.card(Self.title, [
+            userAgentRow(), customUserAgentRow(), webInspectorRow(), revealDatabaseRow(), restoreDefaultsRow()
         ])
+        return [developMenuRow()]
     }
 
     // MARK: User agent
@@ -95,7 +77,7 @@ final class AdvancedSection: SettingsSection {
     // MARK: Developer
 
     private func webInspectorRow() -> (view: NSView, terms: [String]) {
-        let title = String(localized: "Enable Web Inspector")
+        let title = String(localized: "Web Inspector")
         let subtitle = String(localized: "Adds “Inspect Element” to the page menu")
         let row = SettingsRow.toggle(title, subtitle: subtitle, value: WebViewFactory.isWebInspectorEnabled) { [weak self] on in
             WebViewFactory.isWebInspectorEnabled = on
@@ -114,7 +96,7 @@ final class AdvancedSection: SettingsSection {
             subtitle: nil,
             value: false,
             isEnabled: false,
-            disabledReason: String(localized: "Luna has no Develop menu yet (§22.5)."),
+            disabledReason: String(localized: "Luna has no Develop menu yet."),
             onChange: { _ in }
         )
         return (view: row, terms: [title, "develop menu", "developer"])
@@ -146,12 +128,12 @@ final class AdvancedSection: SettingsSection {
     }
 
     private func revealDatabaseRow() -> (view: NSView, terms: [String]) {
-        let title = String(localized: "Reveal the database in Finder")
+        let title = String(localized: "Luna’s database")
         let url = Self.databaseURL
         let exists = FileManager.default.fileExists(atPath: url.path(percentEncoded: false))
         let row = SettingsRow.button(
             title,
-            action: String(localized: "Reveal"),
+            action: String(localized: "Show in Finder"),
             isEnabled: exists,
             disabledReason: exists ? nil : String(localized: "The database has not been created yet.")
         ) {
@@ -161,7 +143,7 @@ final class AdvancedSection: SettingsSection {
     }
 
     private func restoreDefaultsRow() -> (view: NSView, terms: [String]) {
-        let title = String(localized: "Restore all settings to defaults")
+        let title = String(localized: "Restore all settings")
         let row = SettingsRow.button(
             title,
             action: String(localized: "Restore…"),
@@ -186,6 +168,6 @@ final class AdvancedSection: SettingsSection {
         ) else { return }
         SettingsDefaults.restoreAll()
         applyToLiveWebViews()
-        build()
+        onRestore?()
     }
 }

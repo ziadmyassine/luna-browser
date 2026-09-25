@@ -27,9 +27,8 @@ enum SettingsDefaults {
     /// An array rather than a dictionary so `keys` has §6's order, which is
     /// what makes a failing test name the key that drifted.
     private static let table: [(key: String, value: Any)] = [
-        // §3.1 General — `GeneralSettings.onLaunch` / `.confirmClose`
+        // §3.1 General — `GeneralSection.onLaunch`
         ("general.onLaunch", "restoreSession"),
-        ("general.confirmClose", true),
         // §3.2 Appearance — `AppearanceSection.theme`, `Glass.optimisation`
         ("appearance.theme", "auto"),
         ("appearance.glassOptimisation", GlassOptimisation.auto.rawValue),

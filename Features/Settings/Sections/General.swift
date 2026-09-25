@@ -6,14 +6,11 @@
 //  share. It lives here rather than in a fifth file because it is fifty lines;
 //  a `Shared/` directory for that is a directory to maintain.
 //
-//  Two of §3.1's four rows ship disabled, and that is a finding rather than a
-//  shortcut. §3.1 wires "On launch" to `general.onLaunch` +
-//  `BrowserSession.restored` and "Confirm before closing" to
-//  `general.confirmClose`; neither key has a reader, because `AppDelegate`
-//  restores unconditionally and `BrowserWindowController` implements no
-//  `windowShouldClose`. Writing them anyway would be the silently dead switch
-//  §30.4 forbids, so they render dimmed with the reason and the typed accessors
-//  below are published for whoever wires them.
+//  The page also carries Search, Downloads and Advanced as groups
+//  (`SettingsGroup`): each was a page of one card. Rows that do nothing yet —
+//  "On launch" among them, which has no reader because `AppDelegate` restores
+//  unconditionally — are gathered at the foot under "Coming later" rather
+//  than left dimmed among the rows that work.
 //
 
 import AppKit
@@ -142,9 +139,12 @@ final class SettingsBody {
 final class GeneralSection: NSObject, SettingsSection {
 
     static let id = "general"
-    static let title = "General"
+    static let title = String(localized: "General")
     static let symbolName = "gearshape"
-    static let keywords = ["startup", "launch", "restore session", "confirm before closing", "new tab"]
+    /// Its own words and its three groups': their names and their keywords,
+    /// so typing "downloads" in the Command Bar still finds where Downloads is.
+    static let keywords = ["startup", "launch", "restore session", "new tab", "search", "downloads", "advanced"]
+        + SearchSection.keywords + DownloadsSection.keywords + AdvancedSection.keywords
 
     // MARK: Keys and typed accessors
 
@@ -165,21 +165,13 @@ final class GeneralSection: NSObject, SettingsSection {
     }
 
     static let onLaunchKey = "general.onLaunch"
-    static let confirmCloseKey = "general.confirmClose"
     static let confirmQuitKey = "general.confirmQuit"
 
     static var onLaunch: OnLaunch {
         UserDefaults.standard.string(forKey: onLaunchKey).flatMap(OnLaunch.init(rawValue:)) ?? .restoreSession
     }
 
-    /// Defaults on: closing a window full of tabs is the one destructive
-    /// thing a browser does by accident, and §3.1 asks for the guard rather
-    /// than for the speed.
-    static var confirmClose: Bool {
-        UserDefaults.standard.object(forKey: confirmCloseKey) as? Bool ?? true
-    }
-
-    /// Defaults on, and unlike the row above it this one has a reader:
+    /// Defaults on, and read:
     /// `AppDelegate.applicationShouldTerminate` puts `QuitSheetView` up. ⌘Q is
     /// next to ⌘W and takes every window with it, so the guard is the default
     /// and the sheet's own third answer is how it comes off — a preference you
@@ -204,30 +196,24 @@ final class GeneralSection: NSObject, SettingsSection {
 
     // MARK: Section
 
-    private let body = SettingsBody()
+    private let container = NSView()
+    private var body = SettingsBody()
     /// Owned rather than built by `SettingsRow.button`, because it is the one
     /// control in the pane whose title changes while the window is open.
     private let setDefault = SettingsPushButton(title: "", isDestructive: false)
+    private let search = SearchSection()
+    private let downloads = DownloadsSection()
+    private let advanced = AdvancedSection()
 
-    var view: NSView { body.view }
+    var view: NSView { container }
     var searchIndex: [String] { body.searchIndex }
     func filter(_ query: String) { body.filter(query) }
 
     override init() {
         super.init()
-        body.card(nil, [
-            (defaultBrowserRow(), ["default browser", "set as default", "links"])
-        ])
-        body.card("Startup and tabs", [
-            (onLaunchRow(), ["on launch", "startup", "restore last session", "new tab"]),
-            (
-                autoArchiveRow(),
-                ["move idle tabs to history after", "history", "archive", "idle tabs", "6 hours", "12 hours", "24 hours", "never"]
-            ),
-            (confirmCloseRow(), ["confirm before closing a window with multiple tabs", "close", "warn"]),
-            (confirmQuitRow(), ["ask before quitting luna", "quit", "confirm", "command q", "warn"])
-        ])
-        refreshStatus()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        advanced.onRestore = { [weak self] in self?.build() }
+        build()
         // The user can change the handler in System Settings while this window
         // is open, and macOS posts nothing when they do — so it is re-read
         // whenever Luna comes back to the front, which is the moment after they
@@ -240,13 +226,46 @@ final class GeneralSection: NSObject, SettingsSection {
         )
     }
 
+    /// Rebuilt whole after Restore, since every group's values just changed.
+    private func build() {
+        body = SettingsBody()
+        body.card(nil, [
+            (defaultBrowserRow(), ["default browser", "set as default", "links"])
+        ])
+        body.card(String(localized: "Startup"), [
+            (
+                autoArchiveRow(),
+                ["move idle tabs to history after", "history", "archive", "idle tabs", "6 hours", "12 hours", "24 hours", "never"]
+            ),
+            (confirmQuitRow(), ["ask before quitting luna", "quit", "confirm", "command q", "warn"])
+        ])
+        var later: [(view: NSView, terms: [String])] = [
+            (view: onLaunchRow(), terms: ["when luna opens", "on launch", "startup", "restore last session", "new tab"])
+        ]
+        for group in [search, downloads, advanced] as [any SettingsGroup] {
+            later += group.add(to: body)
+        }
+        body.card(String(localized: "Coming later"), later)
+        refreshStatus()
+
+        for subview in container.subviews { subview.removeFromSuperview() }
+        let stack = body.view
+        container.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            stack.topAnchor.constraint(equalTo: container.topAnchor),
+            stack.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        ])
+    }
+
     /// The button is the status: "Set as Default" means Luna is not, and a
     /// dimmed "Luna is the default" means it is. A sentence underneath naming
     /// whichever other browser holds the handler said nothing the user could
     /// act on from here, and it was the one line in §3.1 that went stale.
     @objc private func refreshStatus() {
         let isDefault = Self.isDefaultBrowser
-        setDefault.title = isDefault ? "Luna is the default" : "Set as Default"
+        setDefault.title = isDefault ? String(localized: "Luna is the default") : String(localized: "Make Luna Default")
         setDefault.isEnabled = !isDefault
     }
 
@@ -274,11 +293,11 @@ final class GeneralSection: NSObject, SettingsSection {
     private func onLaunchRow() -> NSView {
         let options = OnLaunch.allCases
         return SettingsRow.popup(
-            "On launch",
+            String(localized: "When Luna opens"),
             options: options.map(\.title),
             selected: options.firstIndex(of: Self.onLaunch) ?? 0,
             isEnabled: false,
-            disabledReason: "Luna always restores the last session; the launch choice is not read yet."
+            disabledReason: String(localized: "Luna always restores your last session for now.")
         ) { index in
             UserDefaults.standard.set(options[index].rawValue, forKey: Self.onLaunchKey)
         }
@@ -305,24 +324,13 @@ final class GeneralSection: NSObject, SettingsSection {
         hours > 0 ? "\(Int(hours)) hours" : "Never"
     }
 
-    /// Live, where `confirmCloseRow` is not: this one is read on every ⌘Q.
+    /// Read on every ⌘Q.
     private func confirmQuitRow() -> NSView {
         SettingsRow.toggle(
             "Ask before quitting Luna",
             value: Self.confirmQuit
         ) { value in
             UserDefaults.standard.set(value, forKey: Self.confirmQuitKey)
-        }
-    }
-
-    private func confirmCloseRow() -> NSView {
-        SettingsRow.toggle(
-            "Confirm before closing a window with multiple tabs",
-            value: Self.confirmClose,
-            isEnabled: false,
-            disabledReason: "Luna's window controller does not ask before closing yet."
-        ) { value in
-            UserDefaults.standard.set(value, forKey: Self.confirmCloseKey)
         }
     }
 }

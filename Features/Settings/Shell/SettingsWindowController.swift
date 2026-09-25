@@ -53,6 +53,9 @@ enum SettingsSearch {
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     private let sections: [any SettingsSection]
+    /// Each section's view under its page header (`SettingsPageHeader`), or
+    /// the view alone for the two sections that open on their own.
+    private let pages: [NSView]
     private let list: SettingsSectionList
     private let detail = SettingsDetailPane()
     private let search = SettingsSearchField()
@@ -92,9 +95,11 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     private init(sections: [any SettingsSection], window: NSWindow) {
         self.sections = sections
+        pages = sections.map(Self.page(for:))
         list = SettingsSectionList(
             titles: SettingsSectionRegistry.all.map { $0.title },
-            symbols: SettingsSectionRegistry.all.map { $0.symbolName }
+            symbols: SettingsSectionRegistry.all.map { $0.symbolName },
+            styles: SettingsSectionRegistry.all.map { SettingsSectionRegistry.tileStyle(for: $0.id) }
         )
         super.init(window: window)
 
@@ -353,10 +358,31 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         list.select(index)
         let section = sections[index]
         section.willAppear()
-        detail.show(section.view, title: type(of: section).title, animated: animated)
+        detail.show(pages[index], title: type(of: section).title, animated: animated)
         detail.highlight(SettingsSearch.normalise(search.stringValue))
         detail.setEmpty(emptyMessage(for: section))
         SettingsDefaults.lastSection = type(of: section).id
+    }
+
+    /// A section's page: its header, a group's distance above its first card.
+    private static func page(for section: any SettingsSection) -> NSView {
+        let kind = type(of: section)
+        guard !SettingsSectionRegistry.hasOwnHeader(kind.id) else { return section.view }
+        let header = SettingsPageHeader(
+            title: kind.title,
+            summary: SettingsSectionRegistry.summaries[kind.id] ?? "",
+            symbolName: kind.symbolName,
+            style: SettingsSectionRegistry.tileStyle(for: kind.id)
+        )
+        let page = NSStackView(views: [header, section.view])
+        page.orientation = .vertical
+        page.alignment = .leading
+        page.spacing = SettingsMetrics.groupGap
+        page.translatesAutoresizingMaskIntoConstraints = false
+        for view in page.arrangedSubviews {
+            view.widthAnchor.constraint(equalTo: page.widthAnchor).isActive = true
+        }
+        return page
     }
 
     // MARK: - §2's search

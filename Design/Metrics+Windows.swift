@@ -75,6 +75,13 @@ extension Tokens.Metric {
     /// draws an app's icon at.
     static let aboutIcon: CGFloat = 64
 
+    /// A section's tile (`SettingsSymbolTile`): in the list, 22 — the
+    /// 16 pt glyph column with three points of tile round it, so a tile
+    /// sits where a symbol used to without moving the title; at the head of
+    /// the page, twice that, the size macOS gives a settings pane's own tile.
+    static let settingsListTile: CGFloat = 22
+    static let settingsPageTile: CGFloat = 44
+
     /// The back/forward capsule at the head of the detail pane.
     static let settingsNavCapsule = RoundedMetric(width: 64, height: 30, cornerRadius: 10)
 

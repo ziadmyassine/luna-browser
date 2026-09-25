@@ -1735,15 +1735,10 @@ column's far edge.
 ---
 
 ### 3.9 Which side, and where the tabs go
-**One setting, because it is one question.** `Settings.tabsPosition` is Left / Centre / Right, and the
-layout decides which of those it can offer: §3's sidebar is a column, so it has two sides and no middle;
-§4's strip runs along a bar, so it has all three. Settings ▸ Appearance ▸ **Tabs** rebuilds its segments
-when the Layout row above it changes rather than dimming one — a disabled answer still has to be read
-past, and "Centre" under the sidebar is not temporarily unavailable, it is an answer the question does
-not have. A stored `.centre` is remembered rather than rewritten, and a sidebar reads it as the left.
-
-**The default is Centre**, which is where §4's strip belongs and which the sidebar has always read as
-left — so nobody's chrome moves who has not asked for it to.
+**Only the sidebar has a side.** `Settings.tabsPosition` is Left or Right — Settings ▸ Appearance ▸
+**Sidebar side**, a row that exists only under the sidebar layout. §4's tabs always start at the strip's
+leading edge: the top bar offered Left / Centre / Right until 2026-09-25, and the choice was removed. A
+stored `centre` from then no longer decodes and reads as the left. **The default is Left.**
 
 > **The traffic lights do not follow the sidebar.** macOS puts them at the window's top-left and offers
 > no API that says otherwise, so a right-hand sidebar leaves them floating over the page's top-left
@@ -1958,13 +1953,8 @@ top corners rounded at `WindowCorner.radius` the way §3.6 rounds the corners ag
   folder. The one difference is where a name is typed: the column types it on the row, and a bar row is
   as wide as its title with no room past it to type a longer one, so the bar's *Rename…* asks in a
   dialog. Same items, same order, same verbs on `BrowserSession`.
-- **Where the run sits is `Settings.tabsPosition`** (§3.9), and it is **centred** by default — the plate
-  moves with it. "Centred" means centred on the bar, not on the strip: the two clusters it sits
-  between are different widths, and a run centred on the window reads as off-centre between them —
-  which is the thing the eye actually measures. When the tabs overflow the span the alignment stops
-  meaning anything and the run scrolls from its leading edge. The clear run is padding *inside* the
-  scroll view's document, because a document narrower than its clip view is anchored at the clip's
-  leading edge whatever origin it is given.
+- **The run starts at the strip's leading edge**, and the plate starts with it. Where it sits is not a
+  setting (§3.9).
 - **The Space is a cylinder of its own at the trailing end**, after the action capsule
   (`TopBarSpaceCapsule`). It headed the plate of kept tabs until 2026-09-24; the switcher is about where
   the window is rather than what is in it, so it stands with the controls, where the profile button was.

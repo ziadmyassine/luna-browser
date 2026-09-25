@@ -23,7 +23,7 @@ protocol SettingsSection: AnyObject {
     ///
     /// Static, and deliberately not `searchIndex`: that one is an instance
     /// property filled while a section builds its rows, so reading it means
-    /// building all eleven panes — AppKit view trees, on the main thread, for a
+    /// building all eight panes — AppKit view trees, on the main thread, for a
     /// list the bar wants before the first keystroke. These are the words for
     /// the section as a whole and they are compiled in.
     static var keywords: [String] { get }
@@ -44,8 +44,25 @@ protocol SettingsSection: AnyObject {
     func willAppear()
 }
 
+/// A group of rows that lives on another section's page. Settings had twelve
+/// pages, several of them a single card; Search, Downloads and Advanced are
+/// groups on General now, and Passwords is one on Privacy & Passwords. Each
+/// keeps its own type, its rows and its `id` — the id is still what a caller
+/// asks for, and `SettingsSectionRegistry.index(ofID:)` sends it to the page
+/// the group is on.
+@MainActor
+protocol SettingsGroup: AnyObject {
+    static var id: String { get }
+    static var title: String { get }
+    static var keywords: [String] { get }
+    /// Adds the group's cards to `body`, and hands back the rows it has that
+    /// do nothing yet, which the page gathers at its foot under "Coming later"
+    /// rather than leaving them dimmed among the rows that work.
+    func add(to body: SettingsBody) -> [(view: NSView, terms: [String])]
+}
+
 extension SettingsSection {
-    /// Nothing, for the eight sections that read `UserDefaults` at build time
+    /// Nothing, for the sections that read `UserDefaults` at build time
     /// and have no live model behind them.
     func willAppear() {}
 
@@ -99,8 +116,7 @@ enum SettingsMetrics {
     static let searchStaggerCap = 6
 }
 
-/// §3's eleven sections, in §2's order — which is also the `⌘1…⌘9` order for
-/// the first nine.
+/// §3's eight sections, in §2's order — which is also the `⌘1…⌘8` order.
 @MainActor
 enum SettingsSectionRegistry {
 
@@ -111,24 +127,58 @@ enum SettingsSectionRegistry {
         GeneralSection.self,
         AppearanceSection.self,
         PrivacySection.self,
-        PasswordsSection.self,
-        SearchSection.self,
-        DownloadsSection.self,
-        ShortcutsSection.self,
         SpacesSection.self,
         ExtensionsSection.self,
+        ShortcutsSection.self,
         LunaControlSection.self,
-        AdvancedSection.self,
         AboutSection.self
     ]
 
     static var ids: [String] { all.map { $0.id } }
 
+    /// The sections that became groups on another page, and the page each is
+    /// on. A caller that asks for Passwords lands on the page Passwords is part
+    /// of, and so does a `settings.lastSection` saved before the pages merged.
+    static let groups: [String: String] = [
+        SearchSection.id: GeneralSection.id,
+        DownloadsSection.id: GeneralSection.id,
+        AdvancedSection.id: GeneralSection.id,
+        PasswordsSection.id: PrivacySection.id
+    ]
+
+    /// The line under each page's name (`SettingsPageHeader`). Keyed by id
+    /// here rather than asked of each section, so the header is one decision
+    /// made in one place.
+    static let summaries: [String: String] = [
+        GeneralSection.id: String(localized: "How Luna starts, searches and saves files."),
+        AppearanceSection.id: String(localized: "How Luna looks."),
+        PrivacySection.id: String(localized: "What Luna blocks, and how it fills in your passwords."),
+        SpacesSection.id: String(localized: "Each Space keeps its own tabs, Favorites and logins."),
+        ExtensionsSection.id: String(localized: "Add Chrome extensions, and choose which Spaces they run in."),
+        ShortcutsSection.id: String(localized: "Click a shortcut in a box and press new keys.")
+    ]
+
+    /// How a section's tile is drawn, in the list and at the head of its page.
+    static func tileStyle(for id: String) -> SettingsSymbolTile.Style {
+        switch id {
+        case LunaControlSection.id: .night
+        case AboutSection.id: .appIcon
+        default: .glass
+        }
+    }
+
+    /// Luna Control opens on its sky and About on the app's icon, name and
+    /// version: each already is a header, and a second one above it would say
+    /// the name twice.
+    static func hasOwnHeader(_ id: String) -> Bool {
+        id == LunaControlSection.id || id == AboutSection.id
+    }
+
     /// §9.2's settings rows, built once from the static half of the register.
     ///
     /// Nothing here touches an instance, which is the point: the Command Bar
     /// asks for this every time it opens, and `SettingsWindowController` is
-    /// the only thing that should ever pay for eleven built panes.
+    /// the only thing that should ever pay for eight built panes.
     static let commandBarEntries: [SettingsEntry] = all.map {
         SettingsEntry(id: $0.id, title: $0.title, symbolName: $0.symbolName, keywords: $0.keywords)
     }
@@ -136,7 +186,7 @@ enum SettingsSectionRegistry {
     /// The index `settings.lastSection` names, or 0. Never nil: §2 requires
     /// exactly one section to be selected, always.
     static func index(ofID id: String?) -> Int {
-        guard let id, let found = ids.firstIndex(of: id) else { return 0 }
+        guard let id, let found = ids.firstIndex(of: groups[id] ?? id) else { return 0 }
         return found
     }
 }

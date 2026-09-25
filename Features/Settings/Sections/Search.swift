@@ -2,7 +2,7 @@
 //  Search.swift
 //  Luna
 //
-//  §23.1 §3.4. The section that actually removes a hard-coded value: the engine
+//  §23.1 §3.4, a group on the General page. The group that actually removes a hard-coded value: the engine
 //  was a constant inside `CommandBarURL.search(for:)` and is now
 //  `SearchSettings`, which the §3.2 URL pill and the §9.2 Command Bar both
 //  commit through — so they still cannot disagree about what a query means.
@@ -25,27 +25,25 @@
 
 import AppKit
 
+/// A group on the General page (`SettingsGroup`).
 @MainActor
-final class SearchSection: SettingsSection {
+final class SearchSection: SettingsGroup {
 
     static let id = "search"
-    static let title = "Search"
-    static let symbolName = "magnifyingglass"
+    static let title = String(localized: "Search")
     static let keywords = ["engine", "duckduckgo", "google", "bing", "kagi", "suggestions", "address bar"]
 
-    private let body = SettingsBody()
-    private let custom: SettingsTextField
+    private let custom = SettingsTextField(string: "")
+    /// The field outlives the rows it is placed in (the page rebuilds after
+    /// Restore), and its width is set once.
+    private var customSized = false
 
-    var view: NSView { body.view }
-    var searchIndex: [String] { body.searchIndex }
-    func filter(_ query: String) { body.filter(query) }
-
-    init() {
+    func add(to body: SettingsBody) -> [(view: NSView, terms: [String])] {
         // Re-sync in case `SettingsDefaults.restoreAll()` removed the keys
-        // while nothing was watching. Once, on open — never per keystroke.
+        // while nothing was watching. Once per build — never per keystroke.
         SearchSettings.reload()
-        custom = SettingsTextField(string: SearchSettings.current.customTemplate)
-        body.card(nil, [
+        custom.stringValue = SearchSettings.current.customTemplate
+        body.card(Self.title, [
             (engineRow(), ["search engine", "duckduckgo", "google", "bing", "kagi", "custom"]),
             (customRow(), ["custom engine url", "search engine", "%s", "placeholder"]),
             (suggestionsRow(), ["search suggestions", "autocomplete", "complete"]),
@@ -53,6 +51,7 @@ final class SearchSection: SettingsSection {
             (shortcutResultsRow(), ["shortcuts in search results", "command bar", "menu commands", "keyboard"])
         ])
         refreshValidity()
+        return []
     }
 
     // MARK: Rows
@@ -78,7 +77,10 @@ final class SearchSection: SettingsSection {
     private func customRow() -> NSView {
         custom.placeholderString = "https://example.com/search?q=\(SearchEngineSetting.placeholder)"
         custom.cell?.sendsActionOnEndEditing = true
-        custom.widthAnchor.constraint(equalToConstant: Tokens.Metric.urlPill.width).isActive = true
+        if !customSized {
+            custom.widthAnchor.constraint(equalToConstant: Tokens.Metric.urlPill.width).isActive = true
+            customSized = true
+        }
         let action = SettingsAction { [weak self] sender in
             var setting = SearchSettings.current
             setting.customTemplate = (sender as? NSTextField)?.stringValue ?? ""

@@ -29,9 +29,8 @@
 //  already has the elastic bounce, the trackpad handling and the 120 fps path
 //  §19.1 asks for, and a hand-rolled clipper would have none of them.
 //
-//  Where the run sits in the bar is `Settings.tabsPosition`, centred by
-//  default, centred on the bar rather than on the strip's own span — see
-//  `TopBarTabRun`.
+//  The run starts at the strip's leading edge, beside the lights and the
+//  back and forward pair; where it sits is not a setting.
 //
 //  Right-clicking opens the column's own menus — §3.4a on a tab, §3.4b on a
 //  folder — from the same bindings on `BrowserSession`. A name is asked for in
@@ -120,8 +119,6 @@ final class TopBarTabStrip: NSView, WindowScoped {
     /// Folders just shut, whose plate the next `placeContents` morphs down
     /// to the name as the run slides — `placeMarks`.
     var shrinkingPlates: Set<UUID> = []
-    /// §4's alignment, cached rather than read per layout pass.
-    var tabsPosition = Settings.tabsPosition(in: .topBar)
 
     // MARK: - §6.6's drag
 
@@ -241,20 +238,6 @@ final class TopBarTabStrip: NSView, WindowScoped {
         glow.cornerRadius = TopBarMetrics.keptTile.cornerRadius + glowOutset
         content.menuBuilder = { [weak self] in self?.emptyMenu() }
         plate.menuBuilder = { [weak self] in self?.emptyMenu() }
-
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(settingsDidChange),
-            name: Settings.didChange,
-            object: nil
-        )
-    }
-
-    @objc private func settingsDidChange() {
-        let position = Settings.tabsPosition(in: .topBar)
-        guard position != tabsPosition else { return }
-        tabsPosition = position
-        needsLayout = true
     }
 
     @available(*, unavailable)

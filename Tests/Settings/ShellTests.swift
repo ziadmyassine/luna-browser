@@ -27,7 +27,7 @@ final class SettingsDefaultsTests: XCTestCase {
     func testKeysCarryEverySettingSpecSixDeclares() {
         let keys = Set(SettingsDefaults.keys)
         for declared in [
-            "general.onLaunch", "general.confirmClose",
+            "general.onLaunch",
             "appearance.theme", "appearance.glassOptimisation",
             "search.engine", "search.customEngineURL",
             "downloads.directory", "downloads.askEachTime", "downloads.autoOpen", "downloads.clearPolicy",
@@ -85,7 +85,6 @@ final class SettingsDefaultsTests: XCTestCase {
 
         SettingsDefaults.restoreAll()
         SettingsDefaults.register()
-        XCTAssertTrue(defaults.bool(forKey: "general.confirmClose"), "GeneralSettings.confirmClose defaults on")
         XCTAssertTrue(defaults.bool(forKey: "advanced.webInspector"), "WebViewFactory.isWebInspectorEnabled defaults on")
         XCTAssertFalse(defaults.bool(forKey: "downloads.autoOpen"), "§3.5: auto-open defaults off on purpose")
         XCTAssertFalse(defaults.bool(forKey: "blocking.httpsOnly"))
@@ -116,8 +115,7 @@ final class SettingsSectionRegistryTests: XCTestCase {
 
     func testEverySectionIsRegisteredInSpecOrder() {
         XCTAssertEqual(SettingsSectionRegistry.ids, [
-            "general", "appearance", "privacy", "passwords", "search", "downloads",
-            "shortcuts", "spaces", "extensions", "control", "advanced", "about"
+            "general", "appearance", "privacy", "spaces", "extensions", "shortcuts", "control", "about"
         ])
     }
 
@@ -140,6 +138,20 @@ final class SettingsSectionRegistryTests: XCTestCase {
         XCTAssertEqual(SettingsSectionRegistry.index(ofID: "no-such-section"), 0)
         XCTAssertEqual(SettingsSectionRegistry.index(ofID: nil), 0)
         XCTAssertEqual(SettingsSectionRegistry.index(ofID: "privacy"), 2)
+    }
+
+    /// The four sections that became groups: a caller that still asks for one
+    /// by name, and a `settings.lastSection` saved before the merge, land on
+    /// the page the group is on.
+    func testAGroupsOldIDOpensThePageItIsOn() {
+        let general = SettingsSectionRegistry.index(ofID: GeneralSection.id)
+        XCTAssertEqual(SettingsSectionRegistry.index(ofID: SearchSection.id), general)
+        XCTAssertEqual(SettingsSectionRegistry.index(ofID: DownloadsSection.id), general)
+        XCTAssertEqual(SettingsSectionRegistry.index(ofID: AdvancedSection.id), general)
+        XCTAssertEqual(
+            SettingsSectionRegistry.index(ofID: PasswordsSection.id),
+            SettingsSectionRegistry.index(ofID: PrivacySection.id)
+        )
     }
 }
 

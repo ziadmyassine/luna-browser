@@ -88,22 +88,24 @@ final class CommandBarSettingsRowTests: XCTestCase {
     func testAKeywordFindsTheSectionItsTitleDoesNot() {
         setSettingsResults(true)
         XCTAssertEqual(rows("cookies").map(\.action), [.openSettings(PrivacySection.id)])
-        XCTAssertEqual(rows("user agent").map(\.action), [.openSettings(AdvancedSection.id)])
+        XCTAssertEqual(rows("user agent").map(\.action), [.openSettings(GeneralSection.id)])
+        // A group's own name finds the page the group is on.
+        XCTAssertEqual(rows("downloads").map(\.action), [.openSettings(GeneralSection.id)])
     }
 
     /// The title outranks the keyword list, and a title the query starts
-    /// outranks one that merely contains it. "se" is the front of Search and
-    /// is buried in two keywords — General's "restore session" and Advanced's
-    /// "restore all settings" — and the section actually called Search is the
-    /// one somebody typing two letters means.
+    /// outranks one that merely contains it. "ap" is the front of Appearance
+    /// and is buried in Luna Control's "allow apps to control luna", and the
+    /// section actually called Appearance is the one somebody typing two
+    /// letters means.
     func testTheSectionWhoseNameTheQueryStartsComesFirst() throws {
         setSettingsResults(true)
-        let found = rows("se")
-        XCTAssertEqual(try XCTUnwrap(found.first).action, .openSettings(SearchSection.id))
+        let found = rows("ap")
+        XCTAssertEqual(try XCTUnwrap(found.first).action, .openSettings(AppearanceSection.id))
         XCTAssertGreaterThan(found.count, 1, "the keyword matches should still be offered, below it")
         // And the whole name still beats the front of it.
         XCTAssertGreaterThan(
-            try XCTUnwrap(rows("search").first).score,
+            try XCTUnwrap(rows("appearance").first).score,
             try XCTUnwrap(found.first).score
         )
     }

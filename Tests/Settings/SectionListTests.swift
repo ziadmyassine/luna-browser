@@ -97,17 +97,18 @@ final class SettingsSectionListMatchesTheSidebarTests: XCTestCase {
     }
 
     /// And the two columns inside the row are the tab row's two columns, so a
-    /// section's glyph and a tab's favicon stand on the same line.
-    func testTheGlyphAndTheTitleUseTheSidebarsColumns() {
+    /// section's tile is centred where a tab's favicon is and the titles start
+    /// on the same line.
+    func testTheTileAndTheTitleUseTheSidebarsColumns() {
         let list = laidOutList()
         let row = rowViews(list)[0]
         row.layoutSubtreeIfNeeded()
-        guard let icon = row.subviews.compactMap({ $0 as? NSImageView }).first,
+        guard let icon = row.subviews.compactMap({ $0 as? SettingsSymbolTile }).first,
               let title = row.subviews.compactMap({ $0 as? NSTextField }).first else {
-            return XCTFail("a section row is a glyph and a title")
+            return XCTFail("a section row is a tile and a title")
         }
-        XCTAssertEqual(icon.frame.minX, Tokens.Metric.rowFaviconInset, accuracy: 0.5)
-        XCTAssertEqual(icon.frame.width, Tokens.Metric.faviconSize, accuracy: 0.001)
+        XCTAssertEqual(icon.frame.midX, Tokens.Metric.rowFaviconInset + Tokens.Metric.faviconSize / 2, accuracy: 0.5)
+        XCTAssertEqual(icon.frame.width, Tokens.Metric.settingsListTile, accuracy: 0.001)
         XCTAssertEqual(title.frame.minX, Tokens.Metric.rowTitleInset, accuracy: 0.5)
         XCTAssertEqual(title.font, Tokens.TypeScale.sidebarRow, "§1: the sidebar's own face")
     }

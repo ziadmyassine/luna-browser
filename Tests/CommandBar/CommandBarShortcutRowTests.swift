@@ -164,7 +164,7 @@ final class CommandBarShortcutRowTests: XCTestCase {
 
         var both = sources()
         both.settings = SettingsSectionRegistry.commandBarEntries
-        let found = CommandBarRanking.merge(query: "downloads", sources: both, limit: 8)
+        let found = CommandBarRanking.merge(query: "extensions", sources: both, limit: 8)
         XCTAssertTrue(found.contains { $0.source == .settings })
         XCTAssertFalse(found.contains { $0.source == .shortcut })
     }
