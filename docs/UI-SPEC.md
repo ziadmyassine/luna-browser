@@ -2445,6 +2445,15 @@ Total in the clip: **~2.3 s**, which is a gesture-driven mobile interaction.
   > writes to is deleted when it closes, so a tile pinned here would be a place the user was told to put
   > things and then lost — and one they would reasonably expect back in their real Spaces, where it never
   > was. `BrowserSession.allowsPinning` is the single answer everything above reads.
+  >
+  > **Links lose their tracking parameters**, as in Safari's Private Browsing. A main-frame GET whose
+  > query carries a known click ID or campaign tag (`utm_*`, `fbclid`, `gclid`, `msclkid` and the rest
+  > of `NavigationPolicy.trackingParameters`) is cancelled and loaded again without them; the other
+  > parameters keep their order and the fragment stays. `decidePolicyFor` is the one place it happens,
+  > so typed URLs, clicked links and new-tab opens are all covered, and it keys on the data store not
+  > being persistent. Sub-frames, POSTs, back/forward, reloads and fragment jumps are left alone, and a
+  > server that redirects straight back to the tracked URL is let through rather than bounced forever.
+  > The list is deliberately short: stripping a parameter a page needs breaks the page.
 
 ---
 

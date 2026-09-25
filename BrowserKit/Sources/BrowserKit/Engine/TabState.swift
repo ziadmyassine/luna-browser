@@ -131,6 +131,63 @@ enum NavigationPolicy {
         return type.trimmingCharacters(in: .whitespaces).lowercased() == "attachment"
     }
 
+    /// Safari's Link Tracking Protection list, trimmed to click IDs and campaign
+    /// tags that carry nothing a page needs to render. Compared lowercased.
+    static let trackingParameters: Set<String> = [
+        "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "utm_id",
+        "fbclid", "gclid", "dclid", "gbraid", "wbraid", "msclkid", "twclid", "ttclid",
+        "li_fat_id", "mc_eid", "igshid", "yclid", "_hsenc", "_hsmi", "mkt_tok",
+        "oly_anon_id", "oly_enc_id", "vero_id", "rb_clickid", "s_cid"
+    ]
+
+    /// §8.1 — `url` without its tracking parameters, or nil when it has none.
+    ///
+    /// Works on the percent-encoded query so every parameter left behind goes back
+    /// byte for byte; `queryItems` would re-encode them.
+    static func strippingTracking(from url: URL) -> URL? {
+        guard ["http", "https"].contains(url.scheme?.lowercased() ?? ""),
+              var components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let query = components.percentEncodedQuery
+        else { return nil }
+        let parts = query.split(separator: "&", omittingEmptySubsequences: false)
+        let kept = parts.filter { part in
+            let name = String(part.prefix { $0 != "=" })
+            return !trackingParameters.contains((name.removingPercentEncoding ?? name).lowercased())
+        }
+        guard kept.count < parts.count else { return nil }
+        components.percentEncodedQuery = kept.isEmpty ? nil : kept.joined(separator: "&")
+        return components.url
+    }
+
+    /// §8.1 — the URL a navigation should be reloaded at instead, or nil to let it
+    /// through.
+    ///
+    /// A POST would lose its body on the reload, and a back, forward or reload is a
+    /// page already in the history. `currentURL` catches a fragment jump on a page
+    /// that kept its parameters, which must not reload it.
+    static func trackingFreeTarget(
+        for request: URLRequest,
+        isPersistentStore: Bool,
+        isMainFrame: Bool,
+        navigationType: WKNavigationType,
+        currentURL: URL?
+    ) -> URL? {
+        guard !isPersistentStore, isMainFrame,
+              (request.httpMethod ?? "GET").uppercased() == "GET",
+              navigationType != .backForward, navigationType != .reload,
+              let url = request.url,
+              let cleaned = strippingTracking(from: url)
+        else { return nil }
+        if let currentURL, withoutFragment(currentURL) == withoutFragment(url) { return nil }
+        return cleaned
+    }
+
+    private static func withoutFragment(_ url: URL) -> URL? {
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        components?.fragment = nil
+        return components?.url
+    }
+
     // ponytail: host minus `www.`, not eTLD+1 — costs one cache entry per subdomain,
     // never a wrong icon. Swap in a public-suffix list if the entry count ever matters.
     /// Cache and favicon key. No public-suffix list ships with Foundation, so a real

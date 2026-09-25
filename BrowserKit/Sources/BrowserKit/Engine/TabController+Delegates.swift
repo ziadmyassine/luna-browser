@@ -49,6 +49,22 @@ extension TabController: WKNavigationDelegate {
                 return
             }
         }
+        // §8.1. Typed URLs, links and new-tab opens all arrive here, so this one
+        // check covers every route into a private window. Meeting the URL it last
+        // reloaded to tracked again means the server redirected straight back, and
+        // bouncing that would never end.
+        if let cleaned = NavigationPolicy.trackingFreeTarget(
+            for: navigationAction.request,
+            isPersistentStore: webView.configuration.websiteDataStore.isPersistent,
+            isMainFrame: navigationAction.targetFrame?.isMainFrame ?? false,
+            navigationType: navigationAction.navigationType,
+            currentURL: webView.url
+        ), cleaned != lastTrackingStrip {
+            decisionHandler(.cancel)
+            lastTrackingStrip = cleaned
+            load(cleaned)
+            return
+        }
         switch NavigationPolicy.disposition(for: url) {
         case .display:
             decisionHandler(.allow)

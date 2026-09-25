@@ -528,6 +528,8 @@ luna/
 - [x] **17.7 Safe Browsing — DECIDED 2026-09-17: option (a), ship without it and say so plainly.** Safe Browsing v4/v5 is non-commercial-only and deprecated for new commercial use; Web Risk is paid per-lookup *and* puts a third party in the URL path, which contradicts D16. Remaining work is copy, not code: an honest paragraph in Settings → Privacy and in the Privacy Policy saying Luna does not check URLs against a malware or phishing list, and noting that macOS still applies XProtect and Gatekeeper to anything downloaded. Revisit only if a free, privacy-preserving list appears.
   > **Checked 2026-09-24: partly built.** The Settings paragraph is in `Privacy.swift`. Missing: the Privacy Policy text (no policy exists yet).
 - [ ] **17.8 Permission prompts** (camera/mic/location/notifications) rendered as our own non-modal chip anchored to the sidebar, with per-site persistence in `siteSettings`.
+- [ ] **17.9 Blocked count in the site menu** — show how many trackers were blocked when the site-settings dropdown opens (`UI/Sidebar/SiteMenu.swift`), as a non-control header row like `security(_:)`. The per-tab count already exists (`ContentBlocker.blockedCount(tab:)`, reset each navigation, the §17.4 heuristic) but nothing displays it.
+  > **Open:** per page or per site (per site needs new storage); private windows (nothing persisted off-window or to disk); what to show at 0 or with blocking off for the site.
 
 ---
 

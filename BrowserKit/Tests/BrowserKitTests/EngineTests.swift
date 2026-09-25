@@ -338,3 +338,73 @@ struct PageColourSampleTests {
         }
     }
 }
+
+@Suite("Link tracking in private windows (§8.1)")
+struct LinkTrackingTests {
+
+    private func stripped(_ string: String) -> String? {
+        NavigationPolicy.strippingTracking(from: URL(string: string)!)?.absoluteString
+    }
+
+    @Test func stripsListedParametersAndKeepsTheRestInOrder() {
+        #expect(stripped("https://a.com/p?b=2&utm_source=x&a=1&fbclid=y&c=%20z")
+            == "https://a.com/p?b=2&a=1&c=%20z")
+    }
+
+    @Test func dropsTheQuestionMarkWhenNothingIsLeft() {
+        #expect(stripped("https://a.com/p?gclid=1&utm_medium=e") == "https://a.com/p")
+    }
+
+    @Test func keepsTheFragment() {
+        #expect(stripped("https://a.com/p?q=1&msclkid=2#top") == "https://a.com/p?q=1#top")
+    }
+
+    @Test func matchesNamesInAnyCase() {
+        #expect(stripped("https://a.com/?UTM_Source=x&k=v") == "https://a.com/?k=v")
+    }
+
+    @Test func stripsEmptyAndValuelessParameters() {
+        #expect(stripped("https://a.com/?utm_source=&utm_campaign&k=v") == "https://a.com/?k=v")
+    }
+
+    @Test(arguments: [
+        "https://a.com/p", "https://a.com/p?q=utm_source", "https://a.com/p?utm_sourcex=1#f",
+        "ftp://a.com/?utm_source=x", "mailto:a@b.com?utm_source=x"
+    ])
+    func leavesAURLWithNothingToStripAlone(_ string: String) {
+        #expect(stripped(string) == nil)
+    }
+
+    private func target(
+        _ string: String = "https://a.com/?fbclid=1",
+        persistent: Bool = false,
+        mainFrame: Bool = true,
+        method: String? = "GET",
+        type: WKNavigationType = .linkActivated,
+        current: String? = nil
+    ) -> URL? {
+        var request = URLRequest(url: URL(string: string)!)
+        request.httpMethod = method
+        return NavigationPolicy.trackingFreeTarget(
+            for: request,
+            isPersistentStore: persistent,
+            isMainFrame: mainFrame,
+            navigationType: type,
+            currentURL: current.flatMap(URL.init(string:))
+        )
+    }
+
+    @Test func reloadsOnlyAPrivateMainFrameGET() {
+        #expect(target() == URL(string: "https://a.com/"))
+        #expect(target(method: nil) == URL(string: "https://a.com/"))
+        #expect(target(persistent: true) == nil)
+        #expect(target(mainFrame: false) == nil)
+        #expect(target(method: "POST") == nil)
+        #expect(target(type: .backForward) == nil)
+        #expect(target(type: .reload) == nil)
+    }
+
+    @Test func leavesAFragmentJumpOnTheSamePageAlone() {
+        #expect(target("https://a.com/?fbclid=1#b", current: "https://a.com/?fbclid=1#a") == nil)
+    }
+}

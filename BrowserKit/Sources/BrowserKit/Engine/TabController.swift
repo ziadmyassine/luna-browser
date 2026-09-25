@@ -215,6 +215,10 @@ public final class TabController: NSObject {
     /// outside `BrowserKit` can write it.
     public internal(set) var bypassedURL: URL?
 
+    /// Where §8.1's tracking strip last sent this tab, until that page commits;
+    /// `decidePolicyFor` reads it to break a redirect loop.
+    var lastTrackingStrip: URL?
+
     public func reload() { webView?.reload() }
     public func stop() { webView?.stopLoading() }
     public func goBack() { webView?.goBack() }
@@ -513,6 +517,7 @@ extension TabController {
         // for. Leaving it set would quietly allowlist the site for as long as the
         // tab lives (§4.5).
         bypassedURL = nil
+        lastTrackingStrip = nil
         // §17.4's count is per document, and the page's own counter restarts too.
         ContentBlocker.shared.resetBlockedCount(tab: id)
         // §14: the form belonged to the document that just went away, and so
