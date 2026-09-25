@@ -41,7 +41,7 @@ extension BrowserSession {
     }
 
     private func allowsAutomaticPictureInPicture(_ id: UUID) -> Bool {
-        SitePermissions.shared.isAllowed(
+        sitePermissions.isAllowed(
             .automaticPictureInPicture,
             forHost: tab(id)?.url.host(percentEncoded: false)
         )

@@ -61,6 +61,7 @@ extension AppDelegate {
     /// alive by the views built against it, and deleting the directory under a
     /// live one would leave the jar in memory with nowhere to land.
     func endPrivateSession(_ session: BrowserSession, home: URL) {
+        downloads?.forget(session)
         session.tearDown()
         // Detached rather than awaited: the window has gone and nothing is
         // waiting on the bytes. A directory that survives a crash here is swept

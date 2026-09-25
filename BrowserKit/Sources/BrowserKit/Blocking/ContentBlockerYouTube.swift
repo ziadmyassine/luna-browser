@@ -72,8 +72,8 @@ extension ContentBlocker {
     /// covered and every other site pays one regular expression.
     /// ``apply(to:host:)`` does add the `isYouTube` test, because a rule list
     /// is per-page and has no second chance to check.
-    public func blocksYouTubeAds(forHost host: String?) -> Bool {
-        isEnabled(.ads) && !isDisabled(forHost: host)
+    public func blocksYouTubeAds(forHost host: String?, in scope: SitePermissions = .shared) -> Bool {
+        isEnabled(.ads) && !isDisabled(forHost: host, in: scope)
     }
 
     // MARK: - The static ads, on the native path (§17.3)

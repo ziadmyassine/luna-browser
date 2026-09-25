@@ -57,7 +57,7 @@ final class HistoryPanelController: PopoutController {
         panel.iconProvider = { [weak session] entry in
             if let image = session?.favicon(for: entry.id) { return image }
             guard !entry.host.isEmpty,
-                  let data = FaviconService.shared.favicon(forHost: entry.host)
+                  let data = session?.favicons.favicon(forHost: entry.host)
             else { return nil }
             return NSImage(data: data)
         }

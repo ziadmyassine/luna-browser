@@ -164,10 +164,10 @@ final class CredentialRowView: NSView {
     /// credential saved on `accounts.google.com` has that host's mark cached,
     /// and `google.com` may never have been visited at all.
     private static func favicon(for credential: Credential) -> NSImage? {
-        if let origin = credential.originURL, let image = SidebarIcons.favicon(for: origin) {
+        if let origin = credential.originURL, let image = SidebarIcons.shared.favicon(for: origin) {
             return image
         }
-        return SidebarIcons.favicon(for: URL(string: "https://\(credential.site)"))
+        return SidebarIcons.shared.favicon(for: URL(string: "https://\(credential.site)"))
     }
 
     override func updateTrackingAreas() {

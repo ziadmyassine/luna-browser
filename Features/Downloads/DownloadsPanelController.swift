@@ -16,11 +16,18 @@ import AppKit
 final class DownloadsPanelController: PopoutController {
 
     private let manager: DownloadManager
-    /// The Space whose downloads the list is showing, asked fresh every time it
+    /// The Space the given window is showing, asked fresh every time the list
     /// is built or reloaded — §15.3's list is one Space's (§9.2), and the Space
-    /// can change while the panel is shut. Nil until the host wires it, which
-    /// shows the downloads that have no Space either.
-    var activeSpace: (() -> UUID?)?
+    /// can change while the panel is shut. Asked of the window the list stands
+    /// in because one controller serves every window, a §5.6 one included.
+    /// Nil until the host wires it, which shows the downloads that have no
+    /// Space either.
+    var activeSpace: ((NSWindow) -> UUID?)?
+
+    /// The rows for the window the list is standing in.
+    var items: [DownloadItem] { manager.items(inSpace: spaceID) }
+
+    private var spaceID: UUID? { host.flatMap { activeSpace?($0) } }
     /// Set by `toggle(in:from:edge:)` before the panel is built.
     private var edge: PopoutEdge = .below
     /// §5.0's countdown, live only while the list is one this put up.
@@ -89,13 +96,13 @@ final class DownloadsPanelController: PopoutController {
         panel.onOpen = { [weak self] item in self?.manager.open(item) }
         panel.onReveal = { [weak self] item in self?.manager.reveal(item) }
         panel.onRetry = { [weak self] item in self?.manager.retry(item) }
-        panel.onClear = { [weak self] in self?.manager.clearCompleted(inSpace: self?.activeSpace?()) }
+        panel.onClear = { [weak self] in self?.manager.clearCompleted(inSpace: self?.spaceID) }
         return panel
     }
 
     override func panelDidAppear(_ panel: PopoutPanelView) {
         guard let panel = panel as? DownloadsPanel else { return }
-        panel.setItems(manager.items(inSpace: activeSpace?()))
+        panel.setItems(items)
         manager.onChange = { [weak self] in self?.reload() }
         panel.window?.makeFirstResponder(panel)
     }
@@ -106,6 +113,6 @@ final class DownloadsPanelController: PopoutController {
     }
 
     private func reload() {
-        (presented as? DownloadsPanel)?.setItems(manager.items(inSpace: activeSpace?()))
+        (presented as? DownloadsPanel)?.setItems(items)
     }
 }

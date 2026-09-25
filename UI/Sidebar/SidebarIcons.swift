@@ -16,25 +16,36 @@
 //  publishes a `TabState`. Asking the snapshot for the host meant the row kept
 //  drawing the icon of the site it used to be on.
 //
+//  One per `FaviconService`: a §5.6 private window has its own, owned by its
+//  session, so its hosts are never in `shared` and go when the window does.
+//  The static lookup is `shared`'s, for chrome no private window draws.
+//
 
 import AppKit
 import BrowserKit
 
 @MainActor
-enum SidebarIcons {
+final class SidebarIcons {
 
-    private static var cache: [String: NSImage] = [:]
+    static let shared = SidebarIcons(service: .shared)
+
+    let service: FaviconService
+    private var cache: [String: NSImage] = [:]
+
+    init(service: FaviconService) {
+        self.service = service
+    }
 
     /// The site's icon, or nil — in which case the row draws its symbol.
-    static func favicon(for tab: Tab) -> NSImage? { favicon(for: tab.url) }
+    static func favicon(for tab: Tab) -> NSImage? { shared.favicon(for: tab.url) }
 
     /// The icon for whatever page is loaded now. Nil until the fetch lands
     /// (§4.7), which is the row's cue to fall back to its symbol rather than to
     /// the previous site's mark.
-    static func favicon(for url: URL?) -> NSImage? {
+    func favicon(for url: URL?) -> NSImage? {
         guard let host = url?.host(percentEncoded: false), !host.isEmpty else { return nil }
         if let cached = cache[host] { return cached }
-        guard let png = FaviconService.shared.favicon(forHost: host),
+        guard let png = service.favicon(forHost: host),
               let image = NSImage(data: png)
         else { return nil }
         image.isTemplate = false

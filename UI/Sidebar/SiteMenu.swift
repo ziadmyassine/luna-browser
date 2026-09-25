@@ -140,12 +140,13 @@ enum SiteMenu {
     /// §17.2's per-site exemption, read the way round a user thinks about it:
     /// the switch on means blocking is on here, not that an exemption is.
     private static func blocking(host: String) -> SiteSettingsContent.Toggle {
-        .init(
+        let scope = session?.sitePermissions ?? .shared
+        return .init(
             title: String(localized: "Block Ads & Trackers"),
             symbol: Glyph.blocking,
-            isOn: !ContentBlocker.shared.isDisabled(forHost: host)
+            isOn: !ContentBlocker.shared.isDisabled(forHost: host, in: scope)
         ) { on in
-            ContentBlocker.shared.setDisabled(!on, forHost: host)
+            ContentBlocker.shared.setDisabled(!on, forHost: host, in: scope)
             reapplyRules(reload: true)
         }
     }
@@ -157,8 +158,9 @@ enum SiteMenu {
         host: String,
         thenReload reload: Bool
     ) -> SiteSettingsContent.Toggle {
-        .init(title: title, symbol: name, isOn: SitePermissions.shared.isAllowed(permission, forHost: host)) { on in
-            SitePermissions.shared.setAllowed(on, permission, forHost: host)
+        let scope = session?.sitePermissions ?? .shared
+        return .init(title: title, symbol: name, isOn: scope.isAllowed(permission, forHost: host)) { on in
+            scope.setAllowed(on, permission, forHost: host)
             // Only the ones that change what the page may load. Picture-in-
             // Picture is read at the moment the tab is left, so re-loading the
             // page to apply it would throw away the video it is about.
@@ -187,7 +189,8 @@ enum SiteMenu {
         else { return }
         ContentBlocker.shared.apply(
             to: webView.configuration.userContentController,
-            host: webView.url?.host(percentEncoded: false)
+            host: webView.url?.host(percentEncoded: false),
+            scope: session.sitePermissions
         )
         if reload { webView.reload() }
     }

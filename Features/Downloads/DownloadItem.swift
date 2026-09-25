@@ -43,6 +43,11 @@ final class DownloadItem {
     /// from an account signed in over here is not the other account's business
     /// (§9.2). Nil only for a download with no session behind it.
     let spaceID: UUID?
+    /// The session the page was in: a retry goes back through its cookies and
+    /// nobody else's, and a §5.6 window takes its rows with it when it closes.
+    private(set) weak var session: BrowserSession?
+    /// §5.6. Kept rather than read off `session`, which is weak.
+    let isPrivate: Bool
 
     private(set) var filename: String
     private(set) var destination: URL?
@@ -53,11 +58,19 @@ final class DownloadItem {
     private(set) var progress: Progress?
     private(set) var resumeData: Data?
 
-    init(request: URLRequest?, pageURL: URL?, filename: String, spaceID: UUID?) {
+    init(
+        request: URLRequest?,
+        pageURL: URL?,
+        filename: String,
+        spaceID: UUID?,
+        session: BrowserSession? = nil
+    ) {
         self.request = request
         self.pageURL = pageURL
         self.filename = filename
         self.spaceID = spaceID
+        self.session = session
+        isPrivate = session?.isPrivate ?? false
     }
 
     // MARK: Transitions — only `DownloadManager` drives these.

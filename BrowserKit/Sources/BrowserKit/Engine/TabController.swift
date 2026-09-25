@@ -15,6 +15,8 @@ public final class TabController: NSObject {
     public private(set) var webView: WKWebView?
 
     private let dataStore: WKWebsiteDataStore
+    /// A private window's own (§5.6), so its icons never reach the shared cache.
+    public let favicons: FaviconService
 
     /// The last session we managed to capture. Kept outside the web view on purpose:
     /// once the WebContent process is gone `webView.interactionState` reads back nil, so
@@ -86,9 +88,13 @@ public final class TabController: NSObject {
     /// carry storage. The behaviour is next door in `Passwords/`.
     public let passwords = PasswordCoordinator()
 
-    public init(id: UUID, dataStore: WKWebsiteDataStore) {
+    /// Whose per-site answers this tab reads and writes — a private window's own (§5.6).
+    public var sitePermissions: SitePermissions { .scope(for: dataStore) }
+
+    public init(id: UUID, dataStore: WKWebsiteDataStore, favicons: FaviconService = .shared) {
         self.id = id
         self.dataStore = dataStore
+        self.favicons = favicons
         state = TabState()
         super.init()
         messageRelay.owner = self
@@ -277,7 +283,7 @@ public final class TabController: NSObject {
     /// depends on a setting and on the site, so the first that has to come off.
     private func installUserScripts(into controller: WKUserContentController, host: String?) {
         controller.removeAllUserScripts()
-        youTubeScriptInstalled = ContentBlocker.shared.blocksYouTubeAds(forHost: host)
+        youTubeScriptInstalled = ContentBlocker.shared.blocksYouTubeAds(forHost: host, in: sitePermissions)
 
         controller.addUserScript(Self.documentEndScript())
         // §14.10: hides `PublicKeyCredential` until Apple grants the
@@ -318,7 +324,8 @@ public final class TabController: NSObject {
     /// throws away WebKit's compiled copy of four sources.
     func refreshUserScriptsIfNeeded(host: String?) {
         guard let controller = webView?.configuration.userContentController else { return }
-        guard ContentBlocker.shared.blocksYouTubeAds(forHost: host) != youTubeScriptInstalled else { return }
+        let blocks = ContentBlocker.shared.blocksYouTubeAds(forHost: host, in: sitePermissions)
+        guard blocks != youTubeScriptInstalled else { return }
         installUserScripts(into: controller, host: host)
     }
 
@@ -548,8 +555,9 @@ extension TabController {
 
     func refreshFavicon() {
         guard let webView, let host = webView.url?.host() else { return }
+        let favicons = favicons
         Task { [weak self] in
-            let png = await FaviconService.shared.fetchFavicon(for: webView, host: host)
+            let png = await favicons.fetchFavicon(for: webView, host: host)
             guard let self else { return }
             self.delegate?.tabController(self, didUpdateFavicon: png)
         }

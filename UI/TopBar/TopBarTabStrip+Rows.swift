@@ -169,7 +169,7 @@ extension TopBarTabStrip {
         return SidebarRowContent(
             title: title.isEmpty ? URLPillView.domain(of: url) : title,
             symbolName: tab.customSymbolName ?? SidebarRowContent.siteFallbackSymbol,
-            favicon: tab.customSymbolName == nil ? SidebarIcons.favicon(for: url) : nil,
+            favicon: tab.customSymbolName == nil ? session.icons.favicon(for: url) : nil,
             hasUnread: tab.hasUnread,
             isLoading: state?.isLoading ?? false,
             trailing: trailing,

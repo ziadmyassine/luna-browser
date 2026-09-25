@@ -255,6 +255,10 @@ final class BrowserSession {
     /// Most-recently-used first. Drives §19.2's "keep the active tab + last N".
     var recentTabs: [UUID] = []
     var faviconPNG: [UUID: Data] = [:]
+    /// §5.6: a private session's icons are fetched, kept and drawn from its own
+    /// memory-only service, never the one normal windows share.
+    lazy var icons: SidebarIcons = isPrivate ? SidebarIcons(service: FaviconService(directory: nil)) : .shared
+    var favicons: FaviconService { icons.service }
     /// How a tab's next navigation started, for §9.3's frecency weights.
     /// Absent means the user followed a link.
     var pendingVisitKind: [UUID: VisitKind] = [:]
@@ -413,6 +417,9 @@ final class BrowserSession {
         }
         return profileStore.dataStore(for: space)
     }
+
+    /// Whose per-site answers this window reads and writes: §5.6's own, or the app's.
+    var sitePermissions: SitePermissions { isPrivate ? .scope(for: privateDataStore) : .shared }
 
     /// The SF Symbol a new Space starts with, matching the seeded first Space.
     /// §8.2's twelve curated gradient pairs have no home in `Design/` yet, so a

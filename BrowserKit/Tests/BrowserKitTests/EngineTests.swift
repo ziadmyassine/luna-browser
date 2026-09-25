@@ -110,7 +110,7 @@ struct FaviconServiceTests {
     @Test func evictsTheLeastRecentlyUsedHost() throws {
         let (service, _) = try makeService(limit: 2)
         for host in ["a.com", "b.com", "c.com"] {
-            try Self.onePixelPNG.write(to: service.fileURL(for: host))
+            try Self.onePixelPNG.write(to: #require(service.fileURL(for: host)))
         }
 
         #expect(service.favicon(forHost: "a.com") != nil)
@@ -129,6 +129,24 @@ struct FaviconServiceTests {
         #expect(service.favicon(forHost: "nothing.example") == nil)
         #expect(service.memoryCount == 1)
         #expect(service.favicon(forHost: "nothing.example") == nil)
+    }
+
+    /// §5.6: a private window's icons never reach the disk. The disk-backed half
+    /// is the control — without it, a `remember` that wrote nowhere would pass.
+    @Test func memoryOnlyServiceWritesNothing() async throws {
+        let (disk, directory) = try makeService(limit: 8)
+        await disk.remember(Self.onePixelPNG, for: "kept.example")
+        #expect(try FileManager.default.contentsOfDirectory(atPath: directory.path()).count == 1)
+
+        // Letters and digits only, so the file name it would have had is the host.
+        let host = "private" + UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
+        let memoryOnly = FaviconService(directory: nil)
+        await memoryOnly.remember(Self.onePixelPNG, for: host)
+        #expect(memoryOnly.favicon(forHost: host) == Self.onePixelPNG)
+        #expect(memoryOnly.fileURL(for: host) == nil)
+        let wouldBe = FaviconService.defaultDirectory.appending(path: host + ".png")
+        #expect(!FileManager.default.fileExists(atPath: wouldBe.path()))
+        #expect(FaviconService.shared.favicon(forHost: host) == nil, "leaked into the shared cache")
     }
 
     /// The whole "no broken-image glyph" guarantee: bytes that do not decode never

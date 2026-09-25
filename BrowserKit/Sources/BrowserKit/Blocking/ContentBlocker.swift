@@ -325,17 +325,22 @@ public final class ContentBlocker {
     ///
     /// Safe to call on every main-frame navigation: adding and removing an already-compiled
     /// list is a pointer hand-off, not a compile.
-    public func apply(to controller: WKUserContentController, host: String? = nil) {
+    /// - Parameter scope: whose per-site answers count — a private window's, or ``SitePermissions/shared``.
+    public func apply(
+        to controller: WKUserContentController,
+        host: String? = nil,
+        scope: SitePermissions = .shared
+    ) {
         controller.removeAllContentRuleLists()
         // §3.2's Local Network permission is not part of ad blocking and is not
         // covered by turning ad blocking off for a site: they are two answers to two
         // questions, and a user who allows this site's ads has not thereby let it talk
         // to the printer. A nil host is the resting configuration, before the first
         // navigation says where it is going — refused, which is the safe direction.
-        if let localNetworkList, !SitePermissions.shared.isAllowed(.localNetwork, forHost: host) {
+        if let localNetworkList, !scope.isAllowed(.localNetwork, forHost: host) {
             controller.add(localNetworkList)
         }
-        guard !isDisabled(forHost: host) else { return }
+        guard !isDisabled(forHost: host, in: scope) else { return }
         for category in Category.allCases where isEnabled(category) {
             for list in compiled[category] ?? [] { controller.add(list) }
         }
@@ -343,7 +348,7 @@ public final class ContentBlocker {
         // navigation is headed for. It is a separate list rather than lines in EasyList
         // because EasyList is fetched and this is ours — and because it must be
         // attachable on a first run, before any list has been fetched at all.
-        if let youTubeList, Self.isYouTube(host: host), blocksYouTubeAds(forHost: host) {
+        if let youTubeList, Self.isYouTube(host: host), blocksYouTubeAds(forHost: host, in: scope) {
             controller.add(youTubeList)
         }
     }
@@ -428,15 +433,20 @@ extension ContentBlocker {
 
     // MARK: - Per-site (§17.2)
 
-    public func isDisabled(forHost host: String?) -> Bool {
+    public func isDisabled(forHost host: String?, in scope: SitePermissions = .shared) -> Bool {
         guard let host = Self.normalise(host) else { return false }
-        return disabledHosts.contains(host)
+        return scope.blockingDisabled[host] ?? disabledHosts.contains(host)
     }
 
     /// Persists in `siteSettings` (§17.2). In-memory first so the navigation path can
-    /// answer synchronously — `decidePolicyFor` cannot wait on SQLite.
-    public func setDisabled(_ disabled: Bool, forHost host: String) {
+    /// answer synchronously — `decidePolicyFor` cannot wait on SQLite. A private
+    /// window's answer stays in its own scope (§5.6).
+    public func setDisabled(_ disabled: Bool, forHost host: String, in scope: SitePermissions = .shared) {
         guard let host = Self.normalise(host) else { return }
+        guard !scope.isPrivate else {
+            scope.blockingDisabled[host] = disabled
+            return
+        }
         if disabled { disabledHosts.insert(host) } else { disabledHosts.remove(host) }
         let store = browserStore
         Task { try? await store?.setBlockingDisabled(disabled, host: host) }
