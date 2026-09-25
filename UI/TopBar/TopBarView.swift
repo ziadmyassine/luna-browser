@@ -70,9 +70,8 @@ final class TopBarView: NSView, WindowScoped, TrafficLightNeighbour {
     var onEditSpaces: (() -> Void)?
     var onNewSpace: (() -> Void)?
 
-    /// v2's extension action buttons (§16.4, §30.14). The capsule is built to
-    /// host a variable number of items, so shipping them is an assignment here
-    /// rather than a re-layout of the bar's whole right side.
+    /// §16.4's pinned extensions, at the head of the capsule — set by
+    /// `refreshExtensions`, as many as `fitExtensions` finds room for.
     var extensionActions: [TopBarActionItem] = [] { didSet { rebuildCapsule() } }
 
     /// Where agent H's download popover points.
@@ -102,7 +101,7 @@ final class TopBarView: NSView, WindowScoped, TrafficLightNeighbour {
     let spaceName = TopBarSpaceName()
     private lazy var spaceCapsule = TopBarSpaceCapsule(spaceName: spaceName)
     private let separator = TopBarSeparator()
-    private let capsule = TopBarActionCapsule()
+    let capsule = TopBarActionCapsule()
     private var leadingInset: NSLayoutConstraint?
     var drag: TopBarTabDragController?
     private var progressObservation: ObservationToken?
@@ -128,6 +127,7 @@ final class TopBarView: NSView, WindowScoped, TrafficLightNeighbour {
         rebuildCapsule()
         wireDrag()
         subscribe(to: session)
+        watchExtensions()
         refresh()
 
         NSWorkspace.shared.notificationCenter.addObserver(
@@ -224,7 +224,7 @@ final class TopBarView: NSView, WindowScoped, TrafficLightNeighbour {
         strip.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
     }
 
-    private func rebuildCapsule() {
+    func rebuildCapsule() {
         let newTab = TopBarActionItem(
             id: Self.newTabItem,
             symbolName: "plus",
@@ -256,7 +256,10 @@ final class TopBarView: NSView, WindowScoped, TrafficLightNeighbour {
         // so the layout without a sidebar keeps the pair rather than inventing
         // a second arrangement. The Space stands after the capsule, on its own,
         // because it is about where, not about what.
-        capsule.items = extensionActions + [newTab, history, downloads]
+        // Extensions last, after Downloads, with the pins at the other end
+        // of the cylinder: the button that lists them all is one more shelf,
+        // and a pinned one is a shortcut the eye meets first.
+        capsule.items = extensionActions + [newTab, history, downloads] + extensionsButton
     }
 
     // MARK: - State
@@ -268,6 +271,7 @@ final class TopBarView: NSView, WindowScoped, TrafficLightNeighbour {
         strip.reload(slidingSpace: spaceName.arrivesBySwipe)
         let state = activeTabID.flatMap { session.controller(for: $0)?.state }
         nav.update(canGoBack: state?.canGoBack ?? false, canGoForward: state?.canGoForward ?? false)
+        refreshExtensions()
     }
 
     /// One tab's live state (§4.3): title, progress, `themeColor`.
@@ -371,6 +375,7 @@ final class TopBarView: NSView, WindowScoped, TrafficLightNeighbour {
         // hidden, the back button and pinned tabs stayed under the lights.
         updateTrafficLightReserve()
         super.layout()
+        fitExtensions()
     }
 
     /// §4 / §8: dragging the bar's background moves the window. The controls,

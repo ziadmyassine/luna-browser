@@ -94,6 +94,51 @@ final class TrafficLightPeekTests: XCTestCase {
         for light in lights { XCTAssertTrue(light.isHidden) }
     }
 
+    /// The first peek after `⌘S`: the park is set after the collapse, as
+    /// `applyPeek` sets it, and the lights have to be there before it starts
+    /// or they fade in at home while the sidebar slides in from the edge.
+    func testSettingTheParkMovesLightsThatAreAlreadyAway() throws {
+        let window = window()
+        let manager = TrafficLightLayoutManager(window: window)
+        manager.apply(.sidebar(width: 280, edge: .leading))
+        let lights = try lights(of: window)
+        let placed = lights.map(\.frame.origin)
+        manager.apply(.sidebarCollapsed(edge: .leading))
+        manager.parkedOffset = -280
+        for (light, origin) in zip(lights, placed) {
+            XCTAssertEqual(light.frame.minX, origin.x - 280, accuracy: 0.01, "the first peek would start from home")
+        }
+    }
+
+    /// `⌘S` hiding the sidebar: the lights stay up for the slide, and go once
+    /// its transaction has ended.
+    func testHidingTheSidebarKeepsTheLightsForItsSlide() throws {
+        let window = window()
+        let manager = TrafficLightLayoutManager(window: window)
+        manager.apply(.sidebar(width: 280, edge: .leading))
+        let lights = try lights(of: window)
+        let placed = lights.map(\.frame.origin)
+        manager.parkedOffset = -280
+        let token = manager.beginLeaving()
+        manager.apply(.sidebarCollapsed(edge: .leading))
+        for (light, origin) in zip(lights, placed) {
+            XCTAssertFalse(light.isHidden, "gone on the first frame of the slide")
+            XCTAssertEqual(light.alphaValue, 0, accuracy: 0.001)
+            XCTAssertEqual(light.frame.minX, origin.x - 280, accuracy: 0.01)
+        }
+        // Covered while they fade, so a press cannot reach a close button on
+        // its way out.
+        let group = lights.reduce(NSRect.null) { $0.union($1.frame) }
+        XCTAssertTrue(manager.shield.superview === lights[0].superview)
+        XCTAssertEqual(manager.shield.frame, group)
+        XCTAssertTrue(lights[0].superview?.subviews.last === manager.shield, "the lights stand over their shield")
+        XCTAssertTrue(manager.shield.hitTest(NSPoint(x: group.midX, y: group.midY)) === manager.shield,
+                      "a close button nobody can see still takes the press")
+        manager.peekDidLeave(token)
+        for light in lights { XCTAssertTrue(light.isHidden) }
+        XCTAssertNil(manager.shield.superview)
+    }
+
     /// `⌘S` in the middle of the fade: the sidebar is back, and so are the
     /// lights, whatever the fade's end says when it lands.
     func testShowingTheSidebarMidFadeKeepsTheLights() throws {

@@ -42,6 +42,28 @@ final class WindowRootView: NSView {
         }
     }
 
+    /// A view kept in front of anything added after it: fullscreen's traffic
+    /// lights, which stand over every panel the way the titlebar's do in a
+    /// window.
+    weak var frontmost: NSView?
+
+    // After the add rather than in `didAddSubview`: a reorder made from
+    // inside that callback is undone by the add it is answering.
+    override func addSubview(_ view: NSView) {
+        super.addSubview(view)
+        keepFrontmost(over: view)
+    }
+
+    override func addSubview(_ view: NSView, positioned place: NSWindow.OrderingMode, relativeTo other: NSView?) {
+        super.addSubview(view, positioned: place, relativeTo: other)
+        keepFrontmost(over: view)
+    }
+
+    private func keepFrontmost(over view: NSView) {
+        guard let frontmost, view !== frontmost, frontmost.superview === self, subviews.last !== frontmost else { return }
+        super.addSubview(frontmost, positioned: .above, relativeTo: nil)
+    }
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true

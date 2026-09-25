@@ -66,6 +66,10 @@ extension Tokens {
         static var sectionLabel: NSFont { .monospacedDigitSystemFont(ofSize: 12, weight: .semibold) }
         /// 14 pt — the §5 downloads filename.
         static var downloadFilename: NSFont { .monospacedDigitSystemFont(ofSize: 14, weight: .regular) }
+        /// 7 pt bold, tabular — §16.4's badge on a pinned extension's icon.
+        /// At 8 a two-digit count covered two thirds of the 16 pt icon and the
+        /// icon stopped reading as the extension; 7 still reads at 2×.
+        static var extensionBadge: NSFont { .monospacedDigitSystemFont(ofSize: 7, weight: .bold) }
         /// 15 pt semibold — a Settings group's title. One step above the body,
         /// and the only place in Luna a heading appears over chrome.
         static var settingsHeading: NSFont { .systemFont(ofSize: 15, weight: .semibold) }

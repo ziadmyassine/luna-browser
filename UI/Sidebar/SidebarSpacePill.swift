@@ -51,6 +51,7 @@ final class SidebarSpacePill: NSView {
         button.addSubview(portrait)
         button.addSubview(clip)
         addSubview(button)
+        button.onInkChange = { [weak self] ink in self?.label.textColor = ink }
         applyTokens()
     }
 
@@ -164,9 +165,11 @@ final class SidebarSpacePill: NSView {
 
     private func applyTokens() {
         // §4's name, in the same type and ink, so the Space reads as the same
-        // control in both layouts.
+        // control in both layouts. The ink is the glyphs' beside it: resting
+        // at `secondary` and lifting under the pointer, which the button
+        // reports through `onInkChange`.
         label.font = Tokens.TypeScale.topBarSpaceName
-        label.textColor = Tokens.Text.primary
+        label.textColor = button.ink
     }
 
     override func viewDidChangeEffectiveAppearance() {

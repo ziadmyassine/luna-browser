@@ -28,6 +28,12 @@ enum SettingsHost {
     static var store: BrowserStore? { (NSApp.delegate as? AppDelegate)?.store }
     static var control: ControlService? { (NSApp.delegate as? AppDelegate)?.control }
 
+    /// A page in a tab of the front browser window, as a link from another
+    /// app would open.
+    static func open(_ url: URL) {
+        (NSApp.delegate as? AppDelegate)?.application(NSApp, open: [url])
+    }
+
     /// Every destructive button in Settings goes through here first.
     static func confirm(_ message: String, _ informative: String, action: String) -> Bool {
         let alert = NSAlert()

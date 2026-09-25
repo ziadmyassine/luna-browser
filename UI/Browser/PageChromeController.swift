@@ -43,6 +43,7 @@ final class PageChromeController: WindowScoped {
     private var isEditing = false
     private var scroll = PageBarScroll()
     private var observations: [ObservationToken] = []
+    private var extensionObserver: (any NSObjectProtocol)?
 
     init(session: BrowserSession, windowID: UUID) {
         self.session = session
@@ -72,6 +73,36 @@ final class PageChromeController: WindowScoped {
             session.addChangeObserver { [weak self] in self?.refresh() },
             session.addTabStateObserver { [weak self] id, state in self?.apply(id, state) }
         ]
+        wireExtensions()
+    }
+
+    // MARK: - §16.4
+
+    private func wireExtensions() {
+        bar.onExtension = { [weak self] id, anchor in
+            guard let self else { return }
+            ExtensionsCenter.shared.perform(id, in: session, window: windowID, from: anchor)
+        }
+        bar.onExtensions = { [weak self] anchor in
+            guard let self else { return }
+            ExtensionsPopout.present(from: anchor, session: session, windowID: windowID)
+        }
+        extensionObserver = NotificationCenter.default.addObserver(
+            forName: ExtensionsCenter.didChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refreshExtensions() }
+        }
+    }
+
+    /// The pins for the tab on screen, in the Space on screen.
+    private func refreshExtensions() {
+        let center = ExtensionsCenter.shared
+        bar.showsExtensions = center.serves(session)
+        bar.extensionPins = center.pinnedItems(in: session, window: windowID)
+        bar.layoutSubtreeIfNeeded()
+        center.addShelfAnchor(bar.extensionsAnchor, forWindow: windowID)
     }
 
     // MARK: - §3.2b's setting
@@ -138,6 +169,7 @@ final class PageChromeController: WindowScoped {
             canGoForward: state?.canGoForward ?? false,
             isLoading: state?.isLoading ?? false
         )
+        refreshExtensions()
     }
 
     private func apply(_ id: UUID, _ state: TabState) {

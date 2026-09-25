@@ -331,6 +331,19 @@ Vertical order, top to bottom:
   18 pt from its top — one number, both axes**. They were 8 pt in and 18 pt down, which is unequal
   padding into a corner and the first thing the eye catches. A single `TrafficLightLayoutManager` owns
   their frame for all six window states (§7.7 — this is the #1 bug source in Arc-style browsers).
+  - **They move with the sidebar.** `⌘S` and a peek both park them where the sidebar is pushed to and
+    slide them in and out on its `sidebarCollapse`; hiding keeps them up until the slide has run.
+  - **Fullscreen, they live in a strip** along the window's top. Anything AppKit rebuilds the titlebar
+    for — a new title, a theme change — takes them back out of it, and the strip puts them back.
+    AppKit's own titlebar band is hidden, not just transparent: transparent, it slid down with the
+    menu bar over the lights and took their hover and clicks.
+  - **Fullscreen, the yellow light stays yellow** and does nothing (`LunaWindow` declines the
+    minimise). AppKit greys it because a fullscreen window cannot be minimised, and a grey light
+    between two coloured ones read as broken. The fullscreen strip also stays in front of anything
+    opened after it — a pop-out, the command bar — as the titlebar does in a window.
+  - **Fading out, they take no press.** A shield covers the three until the fade has run, so a close
+    button on its way out cannot close the window. Their actions are left alone: AppKit greys a
+    window button whose action it did not set.
 - Back and reload are circular glass with a hairline border; **hover lifts the fill** (not the border).
 - **All three carry their glass at rest.** The toggle spent one build as a bare glyph that only took
   its material on hover; that made the single control which brings a hidden sidebar back invisible until
@@ -1334,13 +1347,21 @@ sides are a loose tab's pill's, `rowInset` in from the column like every row and
 folded folder's plate is exactly a tab's hover pill. It used to stand 4 pt out past the pills
 on every side, with 16 pt corners; that read as a heavier, taller block than the row it was
 lighting, and wider than the list. The folder's own tabs end their pills, glyphs and titles
-`groupMemberTrailingInset` (4 pt) sooner, so a hovered tab's pill does not lie on the plate's
-hairline.
+`groupMemberTrailingInset` (8 pt, `rowInset`) sooner: a folder's tab stands off the folder's plate
+exactly as a loose tab stands off the sidebar's edge. At 4 pt the lit tab looked pressed against the
+plate.
 It is the pinned tiles' own resting surface: `Surface.well` with a `Line.border` hairline. A
 hovered tab still takes §3.4's hover pill on top, and the three step in order in both themes
 — plate, hover, selected-with-hairline. **This is the one named exception to §30.7**: rows
 that are not hovered or selected carry a fill while the pointer is inside their folder.
 
+- **Folded, a folder still shows the tab you are on** (Dia's and Arc's rule). Folding a folder
+  while on one of its tabs leaves that tab showing under the header, the chevron pointing right.
+  Going to a tab inside a folded folder — from §9.1, a link, anywhere — shows it there too and does
+  not open the folder. A tab shown this way stays when you move on; `⌘W` takes it away, and so does
+  opening the folder and folding it again, which starts over with only the tab you are on then.
+  `BrowserSession.folderPeeks` holds them for the session, not on the row; §4's bar shows the same
+  tabs on the folded folder's plate.
 - **No folder header takes a hover pill**, open or folded. The plate is a header's answer,
   and a lit header on top of it was two. A folded folder's plate is its header's pill box,
   with no foot: the same sides, top, corners and style as the open one, only shorter. The chevron's ink does not lift under the pointer, as a title's does
@@ -1358,11 +1379,12 @@ that are not hovered or selected carry a fill while the pointer is inside their 
 - **Parked for the whole of a §6.6 lift**, with the pills, so it never lies under the dashed
   drop box. Both measure the folder with one function (`groupExtent`), so they cannot
   disagree about where it ends.
-- **Equal room top and bottom.** An open header draws no pill, so the plate's top edge stands
-  the header icon's margin in its pill (7.5 pt, `groupPlateFoot`) clear of the icon. The plate
-  reaches the same 7.5 pt below the last tab's pill. To give it that room, an open folder with
-  tabs in it is followed by a `groupEndGap` row (6 pt: 7.5 − the 1.5 pt `rowPillInset` the
-  last row already has), so the plate ends exactly where
+- **The same room under the last tab as beside it.** The plate reaches `groupPlateFoot` below the
+  last tab's pill — `groupMemberTrailingInset`, 8 pt, the room it keeps at the tab's side. It was
+  7.5 pt, the header icon's margin, which matched the room above the folder rather than the room
+  round the tab. To give it that room, an open folder with tabs in it is followed by a
+  `groupEndGap` row (6.5 pt: 8 − the 1.5 pt `rowPillInset` the last row already has), so the plate
+  ends exactly where
   the next row begins and that row's pill clears it by its own inset. A folded or empty folder
   has no such row. The row is furniture — not selectable, no hover pill; the pointer over it
   keeps the folder's plate up; a drop on its upper half lands at the end of the folder, on its
@@ -1869,6 +1891,12 @@ top corners rounded at `WindowCorner.radius` the way §3.6 rounds the corners ag
 > light, which has no edge of its own and at 8 read as touching the plate. It used to be three numbers
 > and read as uneven even where each had its reason.
 >
+> A folder is a tab: its header is `tabWidth`, and folded with nothing showing it is exactly a tab's
+> shape. Open, its plate keeps `folderPadding` past its first and last tab — the column's
+> `groupMemberTrailingInset`, 8 pt, so a folder holds its tabs alike in both layouts — and
+> its tabs stand `folderLift` (1.5 pt, the column's gap between rows) in from its top and bottom. Flush,
+> a lit tab lay on the plate's ends; at the column's 4 pt it still looked pressed against the rounded end.
+>
 > The room after the lights is worked out against the window, before the bar's constraints are solved.
 > Worked out after, it waited for a layout pass nothing asked for: switched to from a hidden sidebar,
 > whose lights were hidden, the back button and pinned tabs stayed under the lights
@@ -2329,8 +2357,105 @@ at `TypeScale.pageTitle`, one sentence of what is actually at stake, and three a
   existence. With no window to ask in the quit goes straight through: the tabs the question protects
   were put away when the window closed. `QuitConfirmation.isNeeded` is the rule, apart from the app
   it is about, because a wrong answer there is unquittable rather than merely quiet.
+- **With Settings in front, it asks over Settings.** Settings is a child of the browser window, centred
+  on it, so a sheet on the browser window came up behind Settings and could not be reached. It goes on
+  Settings when Settings is key or stands over the browser window that would have held it
+  (`QuitConfirmation.asksOverSettings`); whether to ask at all is still the browser window's question.
 
 ---
+
+## 5a. The Space pop-out — a press on the Space's name, in both layouts
+
+§3.5's Space pill in the sidebar's foot and §4's Space name on the bar open one pop-out
+(`SpacePanel`, `SpacePopout.present`) — a left click and, on the bar, a right click too. They were
+two native menus: a name and *Manage Spaces…* in the column, and thirteen colour names on the bar's
+right-click, the one place in Luna a Space's colour was chosen by reading. It is built like §3.2's
+site settings pop-out: the same width, header, hairline bands and one pill sliding between rows.
+
+- **Header:** *Spaces*, with Settings' Spaces symbol. Not the Space's name, which the list under it
+  already names and ticks.
+- **The Spaces:** one row each, its own symbol and name, a tick on the one the window is in.
+  Choosing one closes the pop-out and switches.
+- **Colours** for the Space the window is in: the palette and No Colour, as §3.7's
+  `SpaceSwatchChip`s, seven to a line, the chosen one ringed. The way back out of a colour is always
+  there, not only once one has been chosen.
+- **Verbs:** *Edit "Name"…* (Settings ▸ Spaces) and *New Space*.
+- **Lined up, in the sidebar.** Opened from the Space pill, its leading edge is the pill's; so are
+  §3.2's site settings and §16.4's extensions opened from the sidebar's search bar — the bar's
+  leading edge, not the glyph's (`PopoutController.alignsLeadingEdgeTo`). The column is narrow and a
+  pop-out fills most of it, so one edge shared with the control reads as coming out of it; centred
+  on a glyph at the bar's end, it hung off to one side. Everywhere else a pop-out keeps its own rule.
+  The pill and the bar stand 8 pt in from the window's side, nearer than a pop-out's 16 pt window
+  clamp, so a lined-up pop-out is only held inside the window: held to 16 pt it stood 8 pt right of
+  the edge it was lined up with.
+
+The right-click on the sidebar's foot keeps its two-line menu, and a dot's right-click keeps its own
+(§8.2's colours for that Space): they are about the strip, not the name.
+
+## 5b. Extensions — the button, the pins and the pop-out (TODO §16.4)
+
+One extensions button per window, in the place each layout keeps its controls, and the extensions
+the user has pinned beside it. The pop-out it opens lists every extension running in the window's
+Space. All three surfaces read one model (`ExtensionsCenter`), so a pin, a badge or an extension
+switched off shows up on every surface at once. A private window runs no extensions and shows none
+of this.
+
+- **Sidebar, search bar in the column (§3.2).** The extensions button takes the pill's trailing slot
+  and site settings move to the leading end, as they do on §3.2b's pill. Pins stand to the button's
+  left, one chip each, touching: only one is ever lit, and a gap would be a dead strip between two
+  controls. They are §3.2's own chips — `RowGlyphView`, the capsule concentric with the pill's end —
+  so the row reads as the pill's controls, not a toolbar parked inside it. **Cap:** the address keeps
+  half the pill (`pinnedExtensionsAddressShare`); a 232 pt pill shows two pins, a 340 pt one four.
+- **Sidebar, search bar on the page (§3.2b).** A glass cylinder in the bar's trailing corner, on the
+  pill's line but not on the pill (`PageBarExtensionShelf`). It is built exactly as `NavCluster` is at
+  the other end: one piece of glass, and `GlassButton`s of `sidebarCircle` with none of their own,
+  touching, filling it edge to edge. Alone, the extensions button is the sidebar toggle's circle to
+  the point — the wash across the whole circle under the pointer, the ink lifting from secondary to
+  primary, the glass swelling on a press. It first used §4's capsule, whose 28 pt buttons sat 3 pt
+  inside the glass and lit a smaller circle than the toggle beside it. Pins grow it leftwards, with a
+  hairline before the button as `NavCluster` has between back and forward. The pill ends
+  `chromeGapWide` before it. **Cap:** the pill keeps half of `pageBarPillWidth`. The cylinder fades
+  and hides with the bar's other controls when the bar collapses.
+- **Top bar (§4).** The extensions button is the capsule's last item, after Downloads; pins are its
+  first, before New Tab. **Cap:** the tab strip keeps two tabs' width (`pinnedExtensionsStripFloor`).
+  The fit is re-checked after every layout, so resizing the window adds or drops pins.
+- **Pins past the cap** are not lost: every running extension is in the pop-out, pinned or not.
+- **Badges** (an extension's count or word) are drawn onto the icon's lower trailing corner at
+  `TypeScale.extensionBadge` (7 pt bold) in a `extensionBadgeHeight` capsule of the accent, with a
+  1 pt ring cut out of the icon so the badge reads as lying on it. At 8 pt a two-digit count covered
+  two thirds of a 16 pt icon. In the pop-out the badge is a capsule beside the name instead.
+- **Pressing a pin** runs the extension's action; its popup is WebKit's own popover, on the button
+  that was pressed. A popup no button asked for opens on the extensions button of the key window.
+
+**The pop-out** (`ExtensionsPanel`) is built like §3.2's site settings pop-out and stands beside it on
+every surface: the same width (`siteSettingsPanel`), header, switches and one pill sliding between
+rows. It lists every installed extension in install order — a row does not move when its switch is
+flipped — and the header says how many are on in this Space. A hairline stands under the header and
+over the footer, with a band's padding inside each, rule for rule as site settings has them.
+A row is the extension's icon, name and badge, a pin, and the switch that turns it on or off in this
+Space, where §3.2's site settings keep theirs. The pin stands before the switch: `pin.fill` at full
+ink while pinned, and when not, it comes out only under the pointer, so a list of switches is not
+also a column of grey pins. Off, a row dims its icon as a closed tab does and has no pin. Choosing a
+row that is on closes the pop-out and runs the extension, so its popup opens on the same button;
+choosing one that is off turns it on. Right-click offers Pin or Unpin and Turn On or Off. A new
+install is not pinned: the bar is the user's to fill. The list scrolls
+past `extensionsPanelRows` (8, §9.1's count). The footer is **Manage Extensions…**, or **Add
+Extensions…** when the Space has none, over a two-line empty state. Both open Settings ▸ Extensions.
+
+**Settings ▸ Extensions** (SETTINGS-SPEC §3.8): a card to add one — a field for a Chrome Web Store
+link that says under itself what happened, and Choose… for a folder, `.zip` or `.crx` — then the
+extensions as small cards two to a row, each headed by its icon at `extensionCardIcon` (32 pt), with
+its description, what it can reach, and on its foot Details, its pin and a ⋯ menu. A new install
+runs in the Space the front window shows, and is not pinned. Each card also carries a switch for the
+Space the front window shows, the pop-out's switch; Details has a switch for every Space, with the
+whole description and everything it may do (SETTINGS-SPEC §3.8). An extension known not to work in
+Luna says so on its card, in red, where the access line would be, and why in Details
+(`ExtensionCompatibility`): Apple's iCloud Passwords needs a helper macOS only lets Safari, Chrome,
+Edge and Firefox start.
+
+**Prompts** are the system's alert with the extension's icon, because consent is not the place to be
+novel. The install prompt lists what the extension can do in Chrome's words, where it will run, and
+what Luna does not support. A runtime request is Allow or Don't Allow for the whole request.
 
 ## 6. Motion
 

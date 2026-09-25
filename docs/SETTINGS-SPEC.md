@@ -240,6 +240,11 @@ Twelve sections became eight, because several were a single card:
   with their keys. So are the paragraphs that sat under groups (Privacy's
   malware note, Passwords', Spaces', Shortcuts' legend, Luna Control's two):
   a row's own subtitle says what it needs to.
+- **Most rows have no subtitle.** A switch whose title says what it does
+  does not get a second line that says it again: *Match macOS corners*,
+  *HTTPS-Only Mode*, the three blocking rows (the filter list's name is still a
+  search term), *Require Touch ID to fill* and *From a folder or file* lost
+  theirs. A subtitle stays where the title alone would mislead.
 - **Every section has a tile again** (`SettingsSymbolTile`), but not the
   `Surface.selected` square §2.1 removed: a black tile with the symbol in the
   section's colour (`Tokens.Tile`), as macOS's own settings draw theirs in dark
@@ -361,9 +366,9 @@ Two notes carry copy that is **required, not decorative** — the same standing 
    Luna sees only its own (`docs/PASSWORDS.md` §5a).
 
 The Touch ID row is the one place §14 chooses friction, and it is on by default
-because a saved password is otherwise readable by anyone at an unlocked Mac. Its
-subtitle names the fallback — "Touch ID, or your login password" — so a Mac with
-no Touch ID does not read the row as one that does nothing for them.
+because a saved password is otherwise readable by anyone at an unlocked Mac. A
+Mac with no Touch ID asks for the login password instead; the row no longer says
+so on a second line, and "login password" is still a search term for it.
 
 The passkey row is the §30.4 case done properly: dimmed, still focusable, still
 read by VoiceOver, with the real reason — an entitlement only Apple can grant —
@@ -465,10 +470,44 @@ Spaces". A legend above the table states the rule, and search matches
 | Profile per Space | Popup | `Profile` / `WKWebsiteDataStore(forIdentifier:)` |
 | Delete a profile's data | Button, confirms | *disabled* — `BrowserStore` has no `delete(profileID:)` |
 
-### 3.8 Extensions — **entirely disabled**
-One centred explanation: Luna supports Safari Web Extensions, the plumbing is
-not built yet (§16), and Chrome extensions will not all work (§26). A link to
-the repo's compatibility notes. No fake list, no fake install button.
+### 3.8 Extensions — **built 2026-09-25**
+The backend (TODO §16.1–16.3, 16.6) is real, so the list and the ways in are
+too. UI-SPEC §5b has the rest of the design.
+
+**Add an extension**, first, as one card:
+- A field to paste a Chrome Web Store page into, with **Add** beside it; Return
+  adds too. What happens is said under the field — "Getting it…", "Added", or
+  why not, in red. It was a button that opened an alert with a field in it: a
+  dialog to type one line into, in front of the pane that was already showing.
+- **From a folder or file** · Choose… — an unpacked folder, `.zip` or `.crx`.
+
+**The extensions**, under a count, as small cards two to a row (`ExtensionCardView`,
+`ExtensionCardGrid`). The first version gave each one a full-width card of switch
+rows, a page tall per extension. A card is:
+- the extension's icon (32 pt), name, version number and source ("3.3.0 · Chrome
+  Web Store" — with the word *Version* in front, the source was cut off), and its
+  description in two lines at most, with a switch at the head for the Space the
+  front window shows; the icon dims when it is off there;
+- what it can reach, one line with a globe: *Every website*, *example.com*, *3 websites* —
+  or, for an extension known not to work in Luna, *Can't work in Luna* in red
+  (`ExtensionCompatibility` — Apple's iCloud Passwords);
+- one line of controls on the card's foot, so two cards side by side line them
+  up: **Details**, the **pin**, held lit while pinned, and **⋯**: Details…, Turn
+  On / Off in Every Space (with more than one Space), Open in Chrome Web Store
+  or Reload from Its Folder, and Remove….
+
+**Details** (`ExtensionDetailsView`) opens a popover under the card with what the
+card leaves out: the whole description, the whole reason it can't work if it
+can't, everything it may do in the install prompt's sentences, what it asks for
+that Luna doesn't support, a **switch for each Space**, and Chrome Web Store /
+Reload and Remove…. The card's foot used to carry a Spaces button reading
+"Off everywhere" whose menu ticked the Spaces: a state read by opening a menu,
+worded as if the extension were broken. A row of switches is the site settings
+pop-out's answer to the same question.
+
+The foot's three are `ExtensionCardButton`: glyph and word on no plate of their
+own, with §3.4's hover and press washes and the swell, in the button register.
+With none installed, one card says so under the add card.
 
 ### 3.9 Advanced
 | Control | Type | Wired to |

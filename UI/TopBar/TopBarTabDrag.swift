@@ -195,7 +195,7 @@ final class TopBarTabDragController {
         switch shape {
         case .tile: TopBarMetrics.keptTile.size
         case .row: NSSize(
-            width: TopBarTabRow.pillWidth(for: content, isFolder: carriesFolder),
+            width: TopBarTabRow.pillWidth,
             height: TopBarMetrics.lineHeight
         )
         }

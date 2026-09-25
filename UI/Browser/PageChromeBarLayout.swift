@@ -33,7 +33,7 @@ extension PageChromeBar {
     func applyState() {
         pill.surface = isCollapsed ? .bare : .glass
         placeControls()
-        for view in buttons { view.alphaValue = isCollapsed ? 0 : 1 }
+        for view in faders { view.alphaValue = isCollapsed ? 0 : 1 }
     }
 
     /// The room the bar is taking right now, for the page below it.
@@ -110,8 +110,8 @@ extension PageChromeBar {
         // open pill put it on. Nothing moves sideways; the height and the
         // material are all of it. It also puts truncation beyond reach: a
         // domain that fits the open pill fits the collapsed one.
-        let right = bounds.maxX - Tokens.Metric.pageBarInset
         let left = buttonsEnd + Tokens.Metric.chromeGapWide
+        let right = placeShelf(centreY: centreY, after: left)
         let width = min(Tokens.Metric.pageBarPillWidth, max(right - left, 0))
         let height = isCollapsed ? Tokens.Metric.pageBarCollapsedPillHeight : circle.height
         pill.frame = NSRect(

@@ -36,6 +36,8 @@ private struct Place {
     var side: Side
     var folder: UUID?
     var isHeader = false
+    /// In a folder whose plate stands out round its tabs — `isInOpenFolder`.
+    var isPadded = false
     /// On the Space's plate: §3.3's tiles and the empty tile a lift opens.
     /// §3.4b's kept folders stand beside it on plates of their own.
     var onSpacePlate = false
@@ -86,13 +88,8 @@ extension TopBarTabStrip {
         switch run.blocks[index] {
         case .tab(_, .tile), .landing(.essential):
             TopBarMetrics.keptTile.width
-        case let .tab(tab, .row):
-            TopBarTabRow.pillWidth(for: rows[tab.id]?.content ?? rowContent(for: tab))
-        case let .group(group, _):
-            TopBarTabRow.pillWidth(
-                for: rows[group.id]?.content ?? SidebarRowContent(title: group.name, symbolName: group.symbolName),
-                isFolder: true
-            )
+        case .tab(_, .row), .group:
+            TopBarTabRow.pillWidth
         case .landing:
             TopBarMetrics.rowFloor
         case .rule:
@@ -101,9 +98,19 @@ extension TopBarTabStrip {
     }
 
     /// How tall a block stands: a capsule item's height on the plate, the
-    /// capsule's own off it.
+    /// capsule's own off it — less the folder's lift, inside an open folder.
     func height(ofBlock index: Int) -> CGFloat {
-        run.isKept(index) ? TopBarMetrics.keptTile.height : TopBarMetrics.lineHeight
+        if run.isKept(index), !isInOpenFolder(index) { return TopBarMetrics.keptTile.height }
+        return TopBarMetrics.lineHeight - (isInOpenFolder(index) ? 2 * TopBarMetrics.folderLift : 0)
+    }
+
+    /// A folder with tabs showing, which is a plate with room round what it
+    /// holds. Folded, or with nothing in it, the header is all there is, and
+    /// the plate is the header: a tab-sized folder.
+    func isInOpenFolder(_ index: Int) -> Bool {
+        let header = run.owner(of: index)
+        guard case .group = run.blocks[header] else { return false }
+        return run.lastBlock(ofFolderAt: header) != header
     }
 
     private func place(of block: Int) -> Place {
@@ -116,7 +123,7 @@ extension TopBarTabStrip {
         let side: Side = run.isKept(block) ? .kept : .open
         let header = run.owner(of: block)
         guard case let .group(group, _) = run.blocks[header] else { return Place(side: side) }
-        return Place(side: side, folder: group.id, isHeader: header == block)
+        return Place(side: side, folder: group.id, isHeader: header == block, isPadded: isInOpenFolder(block))
     }
 
     /// The room in front of a piece. On a plate the tabs stand edge to edge —
@@ -124,7 +131,17 @@ extension TopBarTabStrip {
     /// one. After a folder's name, the divider with a gap either side. Between
     /// two open tabs, `tabGap`. Anywhere else off a plate, and either side of
     /// the hairline, the bar's one gap.
+    ///
+    /// An open folder's plate stands `folderPadding` out past its first and
+    /// last tab, so stepping into or out of one adds that much: the bar's gap
+    /// is still what lies between the plate's edge and its neighbour.
     private func spacing(from previous: Place, to next: Place) -> CGFloat {
+        let entering = next.isHeader && next.isPadded ? TopBarMetrics.folderPadding : 0
+        let leaving = previous.isPadded && previous.folder != next.folder ? TopBarMetrics.folderPadding : 0
+        return entering + leaving + gap(from: previous, to: next)
+    }
+
+    private func gap(from previous: Place, to next: Place) -> CGFloat {
         if next.side == .rule || previous.side == .rule { return TopBarMetrics.gap }
         if let folder = next.folder, previous.folder == folder, !next.isHeader {
             return previous.isHeader ? TopBarMetrics.dividerGap * 2 + Tokens.Metric.hairline : 0
@@ -335,6 +352,7 @@ extension TopBarTabStrip {
             }
             // The folder's own plate grows round the room a lift is opening
             // in it and lights, so the drop reads as going in.
+            if last != header || gap != nil { extent = extent.insetBy(dx: -TopBarMetrics.folderPadding, dy: 0) }
             if let folderPlate = folderPlates[group.id] {
                 placeFolderPlate(folderPlate, of: group.id, at: box(extent, height: TopBarMetrics.plate.height))
                 folderPlate.isAimedAt = dropFolder == group.id

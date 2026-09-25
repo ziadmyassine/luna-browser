@@ -39,8 +39,24 @@ extension SidebarViewController {
         // being routed out to the coordinator and straight back in.
         pill.onSiteMenu = { [weak self] in
             guard let self else { return }
-            SiteMenu.present(from: pill.siteMenuAnchor)
+            SiteMenu.present(from: pill.siteMenuAnchor, alignedTo: pill)
         }
+        // §16.4: the extensions button and the pins beside it. A pin's popup
+        // and the pop-out each open on the chip that was pressed.
+        pill.onExtension = { [weak self] id, anchor in
+            guard let self else { return }
+            ExtensionsCenter.shared.perform(id, in: session, window: windowID, from: anchor)
+        }
+        pill.onExtensions = { [weak self] anchor in
+            guard let self else { return }
+            ExtensionsPopout.present(from: anchor, session: session, windowID: windowID, alignedTo: pill)
+        }
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(extensionsDidChange),
+            name: ExtensionsCenter.didChange,
+            object: nil
+        )
         handle.onWidthChange = { [weak self] width in self?.onWidthChange?(width) }
         handle.onWidthCommitted = { [weak self] width in self?.onWidthChange?(width) }
 
@@ -50,7 +66,6 @@ extension SidebarViewController {
         // the same route §3.2's site settings take to the Advanced section.
         utility.onEditSpaces = { [weak self] in self?.spaces?.editSpaces() }
         utility.onNewSpace = { [weak self] in self?.spaces?.createSpace() }
-        utility.onManageProfiles = { [weak self] in self?.spaces?.editSpaces() }
         utility.onHistory = { [weak self] in self?.onOpenHistory?() }
         utility.onDownloads = { [weak self] in self?.onOpenDownloads?() }
         utility.onSwitchSpace = { [weak self] id in self?.switchSpace(id) }
@@ -115,5 +130,16 @@ extension SidebarViewController {
             if let state = session.controller(for: id)?.state { list.update(id, state: state) }
             onToggleMute?(id)
         }
+    }
+
+    @objc private func extensionsDidChange() { refreshExtensions() }
+
+    /// The pins for the tab on screen, in the Space on screen. None in a
+    /// private window, whose session runs no extensions.
+    func refreshExtensions() {
+        let center = ExtensionsCenter.shared
+        pill.showsExtensions = center.serves(session)
+        pill.extensionPins = center.pinnedItems(in: session, window: windowID)
+        center.addShelfAnchor(pill.extensionsGlyph, forWindow: windowID)
     }
 }

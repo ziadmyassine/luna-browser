@@ -138,6 +138,12 @@ enum TrafficLightLayout {
 /// drawing.
 private final class TrafficLightStrip: NSView {
 
+    /// A button was taken out of the strip. AppKit does that when it rebuilds
+    /// the titlebar — for a new title, a theme change, and whatever else it
+    /// rebuilds on — and the buttons it takes go into a titlebar kept hidden,
+    /// with no frame change to announce it. The manager puts them back.
+    var onLoseButton: (() -> Void)?
+
     private var isPointerInGroup = false {
         didSet {
             guard isPointerInGroup != oldValue else { return }
@@ -161,11 +167,30 @@ private final class TrafficLightStrip: NSView {
         // Always, like the titlebar's: the glyphs show over a window that is
         // not key as well.
         addTrackingArea(NSTrackingArea(rect: group, options: [.mouseEnteredAndExited, .activeAlways], owner: self))
+        // A new area says nothing about a pointer already inside it, and the
+        // old one's removal says nothing about one that was: the glyphs stayed
+        // blank under the pointer, or stuck on after it left, until it crossed
+        // the edge again. So the area's first answer is asked, not waited for.
+        if let window {
+            isPointerInGroup = group.contains(convert(window.mouseLocationOutsideOfEventStream, from: nil))
+        }
     }
 
     override func didAddSubview(_ subview: NSView) {
         super.didAddSubview(subview)
         updateTrackingAreas()
+    }
+
+    override func willRemoveSubview(_ subview: NSView) {
+        super.willRemoveSubview(subview)
+        // On the next turn: AppKit is in the middle of its rebuild here, and a
+        // button taken back now is taken again before it finishes.
+        DispatchQueue.main.async { [weak self] in
+            MainActor.assumeIsolated {
+                self?.updateTrackingAreas()
+                self?.onLoseButton?()
+            }
+        }
     }
 
     override func mouseEntered(with event: NSEvent) { isPointerInGroup = true }
@@ -202,6 +227,9 @@ final class TrafficLightLayoutManager {
     private var wantsAnotherPass = false
     /// See `observe`: a new title takes the lights back into AppKit's titlebar.
     private var titleObservation: NSKeyValueObservation?
+    private var appearanceObservation: NSKeyValueObservation?
+    /// See `applyPressability`.
+    let shield = TrafficLightShield()
 
     /// §7.2: the sidebar is peeking over a hidden-sidebar window, so the lights
     /// belong back on screen for as long as it is there.
@@ -220,7 +248,15 @@ final class TrafficLightLayoutManager {
     /// How far the lights stand off their place while the sidebar is parked:
     /// the sidebar's own push off the leading edge. A trailing sidebar parks
     /// away from them, so it is zero there and they only fade.
-    var parkedOffset: CGFloat = 0
+    ///
+    /// Moving it re-places the lights at once. They are transparent and hidden
+    /// while it is written, and it is written before the transaction that
+    /// brings them back, so they slide in from the park with the sidebar. As a
+    /// plain value the first peek after `⌘S` found them still at home, and
+    /// they faded in there while the sidebar slid in from off the edge.
+    var parkedOffset: CGFloat = 0 {
+        didSet { if parkedOffset != oldValue { layoutButtons() } }
+    }
 
     /// Still on screen after the peek has closed, fading out with the sidebar.
     /// See `peekDidLeave`.
@@ -286,7 +322,9 @@ final class TrafficLightLayoutManager {
     /// layout change it belongs to — a second step is a visible jump (§4.1).
     func apply(_ state: ChromeState) {
         self.state = state
-        isLeaving = false
+        // A fade out that `⌘S` started survives the collapsed state it was
+        // started for; anything with a sidebar in it ends it.
+        if !state.isSidebarCollapsed { isLeaving = false }
         layoutButtons()
         holdPlacement()
     }
@@ -352,7 +390,11 @@ final class TrafficLightLayoutManager {
             // three observers above hears a thing. Re-placing on any later
             // event sticks, which is why `⌘S` twice appeared to fix it: a
             // chrome-state change re-applies.
-            NSWindow.didChangeOcclusionStateNotification
+            NSWindow.didChangeOcclusionStateNotification,
+            // Key state: AppKit re-disables the yellow light on it in
+            // fullscreen, which `applyPressability` undoes.
+            NSWindow.didBecomeKeyNotification,
+            NSWindow.didResignKeyNotification
         ] {
             center.addObserver(self, selector: #selector(systemDidRelayout), name: name, object: window)
         }
@@ -385,6 +427,16 @@ final class TrafficLightLayoutManager {
         // frame and nothing is announced: the lights went into a titlebar
         // kept invisible, on every tab switch, since the title is the page's.
         titleObservation = window.observe(\.title) { [weak self] _, _ in
+            MainActor.assumeIsolated {
+                self?.layoutButtons()
+                self?.holdPlacement()
+            }
+        }
+        // A theme change rebuilds the titlebar the same way. In fullscreen that
+        // was the lights gone until the next tab switch; the strip's own
+        // `onLoseButton` catches it too, and this covers a rebuild that lands
+        // a frame after the change.
+        appearanceObservation = NSApp.observe(\.effectiveAppearance) { [weak self] _, _ in
             MainActor.assumeIsolated {
                 self?.layoutButtons()
                 self?.holdPlacement()
@@ -479,6 +531,7 @@ final class TrafficLightLayoutManager {
         if moved || shownOrHidden, let root = window.contentView {
             TrafficLightSpace.neighboursNeedLayout(in: root)
         }
+        applyPressability(buttons, in: window)
     }
 
     // MARK: - Where they live
@@ -498,18 +551,31 @@ final class TrafficLightLayoutManager {
         }
         let strip = strip ?? {
             let new = TrafficLightStrip()
+            new.onLoseButton = { [weak self] in
+                self?.layoutButtons()
+                self?.holdPlacement()
+            }
             self.strip = new
             return new
         }()
         // AppKit's titlebar is empty in here — its lights are in the strip —
         // and it is what slides down under the menu bar as a band of plain
-        // window colour over the top bar. Hidden until the lights go home.
-        naturalSuperview?.superview?.alphaValue = 0
+        // window colour over the top bar. Hidden until the lights go home, and
+        // hidden rather than transparent: at alpha 0 it still took the pointer,
+        // and it slides down over the lights, so they could not be hovered or
+        // pressed while the menu bar was showing.
+        if let container = naturalSuperview?.superview {
+            container.alphaValue = 0
+            if !container.isHidden { container.isHidden = true }
+        }
         // Above everything, every pass: the chrome is rebuilt on a layout
         // switch and a strip left behind it is three lights under a sidebar.
         if strip.superview !== root || root.subviews.last !== strip {
             root.addSubview(strip, positioned: .above, relativeTo: nil)
         }
+        // And kept there: a pop-out, the command bar or a download's flight
+        // added after this pass stood over the lights until the next one.
+        (root as? WindowRootView)?.frontmost = strip
         let frame = Self.stripFrame(
             in: root.bounds,
             natural: natural.first ?? .zero,
@@ -554,6 +620,7 @@ final class TrafficLightLayoutManager {
     private func sendHome(_ buttons: [NSButton]) {
         guard let titlebar = naturalSuperview else { return }
         titlebar.superview?.alphaValue = 1
+        titlebar.superview?.isHidden = false
         for button in buttons where button.superview !== titlebar { titlebar.addSubview(button) }
         strip?.removeFromSuperview()
         strip = nil
@@ -562,4 +629,51 @@ final class TrafficLightLayoutManager {
     private static func buttons(of window: NSWindow) -> [NSButton] {
         buttonTypes.compactMap { window.standardWindowButton($0) }
     }
+}
+
+// MARK: - Which lights answer a press
+
+extension TrafficLightLayoutManager {
+
+    /// Which lights answer a press, set on every pass.
+    ///
+    /// Fading out, none of them: a light on its way out is still a button, and
+    /// a close button nobody could see any more closed the window. A shield
+    /// over the three takes the press instead, and they keep their colour
+    /// while they fade. Their action is not touched: AppKit greys a window
+    /// button whose action it did not set, and no `isEnabled` brings it back.
+    ///
+    /// Fullscreen, the yellow one stays yellow. AppKit greys it, because a
+    /// fullscreen window cannot be minimised, and a grey light between two
+    /// coloured ones read as broken. Its press reaches `LunaWindow`, which
+    /// declines it. AppKit disables it again when the key state changes, which
+    /// is why this is re-asserted rather than set once.
+    func applyPressability(_ buttons: [NSButton], in window: NSWindow) {
+        if window.styleMask.contains(.fullScreen),
+           let minimise = window.standardWindowButton(.miniaturizeButton),
+           !minimise.isEnabled {
+            minimise.isEnabled = true
+        }
+        let group = buttons.reduce(NSRect.null) { $0.union($1.frame) }
+        guard isAway, isLeaving, let host = buttons.first?.superview, !group.isNull else {
+            shield.removeFromSuperview()
+            return
+        }
+        if shield.superview !== host || host.subviews.last !== shield {
+            host.addSubview(shield, positioned: .above, relativeTo: nil)
+        }
+        if shield.frame != group { shield.frame = group }
+    }
+}
+
+/// Over the lights while they fade out, taking the press they would have.
+final class TrafficLightShield: NSView {
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        frame.contains(point) ? self : nil
+    }
+
+    override func mouseDown(with event: NSEvent) {}
+    override func mouseUp(with event: NSEvent) {}
+    override var mouseDownCanMoveWindow: Bool { false }
 }

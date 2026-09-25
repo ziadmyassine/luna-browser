@@ -65,6 +65,9 @@ final class TabListController: NSObject {
     private var isRevealingSaved = false
     /// A private window's own (§5.6) — see `BrowserSession.icons`.
     var icons = SidebarIcons.shared
+    /// Tabs shown under their folded folder — `BrowserSession.folderPeeks`.
+    /// Set before `show`, which rebuilds with it.
+    var peekingTabIDs: Set<UUID> = []
     /// False in a §5.6 private window — see `BrowserSession.allowsPinning`.
     /// §3.4b's kept tier is then not a place a drop can land, so the rule stays
     /// away even under a lift.
@@ -232,7 +235,8 @@ final class TabListController: NSObject {
             today: shown.today,
             essentials: shown.essentials,
             revealingSaved: isRevealingSaved,
-            pinning: allowsPinning
+            pinning: allowsPinning,
+            peeking: peekingTabIDs
         )
         let diff = next.rows.difference(from: list.rows)
         list = next

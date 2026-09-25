@@ -486,8 +486,9 @@ its upper one saying whether apps can reach Luna and which are in use.
   same icon flies on the app's orbit in the sky.
 - **Before an app acts on a page** is three cards, each with a moon: a
   crescent for Ask, a half moon for Per Site, a full moon for Allow All. The
-  chosen card's moon waxes to its phase (`modePhase`, 0.35 s). Allowed sites
-  steps back to half strength outside Per Site mode, where it is not used.
+  chosen card's moon waxes to its phase (`modePhase`, 0.35 s). No paragraph
+  under them: each card's caption says what it does. Allowed sites is shown
+  only in Per Site mode, where it is used; the grants are kept in the others.
 - **Recent activity** is a rail with one dot per call in the calling app's
   colour. A call that arrives while the pane is open fades in at the top.
 

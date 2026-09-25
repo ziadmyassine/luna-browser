@@ -28,7 +28,7 @@ final class SettingsBody {
 
     private struct Entry {
         let view: NSView
-        let terms: [String]
+        var terms: [String]
         /// Index into `cards`, or nil for a row that stands on its own.
         let card: Int?
     }
@@ -111,6 +111,12 @@ final class SettingsBody {
     }
 
     var searchIndex: [String] { entries.flatMap(\.terms) }
+
+    /// New labels for a row updated in place rather than rebuilt.
+    func setTerms(_ terms: [String], for view: NSView) {
+        guard let index = entries.firstIndex(where: { $0.view === view }) else { return }
+        entries[index].terms = terms.map { $0.lowercased() }
+    }
 
     /// §2: hide the rows that do not match, and the card once none of its rows
     /// do. An empty query restores everything.

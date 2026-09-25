@@ -26,6 +26,10 @@ protocol PopoutShelf: NSView {}
 class PopoutController: NSObject {
 
     private(set) var presented: PopoutPanelView?
+    /// Set before a present to line the pop-out's leading edge up with this
+    /// view's rather than hang it from, or centre it on, the button — see
+    /// `PopoutPanelView.leadingEdge`. Read once, by the present it was set for.
+    weak var alignsLeadingEdgeTo: NSView?
     private var escapeMonitor: Any?
     private var clickMonitor: Any?
     private(set) weak var host: NSWindow?
@@ -93,6 +97,13 @@ class PopoutController: NSObject {
             guard let panel, let anchor, anchor.window != nil else { return .zero }
             return Self.standingRect(of: anchor, in: panel)
         }
+        if let aligned = alignsLeadingEdgeTo {
+            panel.leadingEdge = { [weak panel, weak aligned] in
+                guard let panel, let aligned, aligned.window != nil else { return nil }
+                return panel.convert(aligned.bounds, from: aligned).minX
+            }
+        }
+        alignsLeadingEdgeTo = nil
         panel.onBackgroundClick = { [weak self] in self?.dismiss() }
         root.addSubview(panel, positioned: .above, relativeTo: nil)
         presented = panel

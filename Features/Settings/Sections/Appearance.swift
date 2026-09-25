@@ -195,7 +195,6 @@ final class AppearanceSection: NSObject, SettingsSection {
     private func cornersRow() -> NSView {
         SettingsRow.toggle(
             "Match macOS corners",
-            subtitle: "Use the smaller corner macOS gives its own windows.",
             value: Settings.macWindowCorners
         ) { matches in
             // The setter posts `Settings.didChange`, and every window's root

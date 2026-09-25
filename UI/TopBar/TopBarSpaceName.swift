@@ -244,6 +244,7 @@ final class TopBarSpaceName: NSControl, TopBarThemed {
             Tokens.Motion.immediately { placeContents() }
             return
         }
+        name.textColor = ink
         Tokens.Motion.animate(Tokens.Motion.controlHover) { context in
             context.allowsImplicitAnimation = true
             name.animator().frame = nameFrame()
@@ -253,19 +254,25 @@ final class TopBarSpaceName: NSControl, TopBarThemed {
 
     // MARK: - §6.2 and §8.2, from the one place a Space is visible on this bar
 
+    /// A right-click opens the same pop-out a press does: the colours used
+    /// to be a native menu of thirteen colour names here, the one surface in
+    /// Luna a Space's colour was chosen from by reading.
     override func menu(for event: NSEvent) -> NSMenu? {
-        guard let space = spaces.first(where: { $0.id == activeSpaceID }) else {
-            return SidebarMenu.spaces(
-                edit: { [weak self] in self?.onEditSpaces?() },
-                new: { [weak self] in self?.onNewSpace?() }
-            )
-        }
-        return SidebarMenu.colours(
-            for: space,
-            in: effectiveAppearance,
-            setGradient: { [weak self] gradient in self?.onSetGradient?(space.id, gradient) },
-            edit: { [weak self] in self?.onEditSpaces?() }
-        )
+        presentSpaces()
+        return nil
+    }
+
+    /// §4's Space pop-out, the one §3.5's pill opens in the column.
+    func presentSpaces() {
+        guard !spaces.isEmpty else { return }
+        SpacePopout.present(from: self, content: SpacePanelContent(
+            spaces: spaces,
+            activeID: activeSpaceID ?? spaces[0].id,
+            switchTo: { [weak self] id in self?.onSwitch?(id) },
+            setGradient: { [weak self] id, gradient in self?.onSetGradient?(id, gradient) },
+            edit: { [weak self] in self?.onEditSpaces?() },
+            new: { [weak self] in self?.onNewSpace?() }
+        ))
     }
 
     // MARK: - Geometry
@@ -315,6 +322,7 @@ final class TopBarSpaceName: NSControl, TopBarThemed {
     }
 
     private func placeContents() {
+        name.textColor = ink
         name.frame = nameFrame()
         dots.alphaValue = showsDots ? 1 : 0
         // The column's strip, centred under the name. Its slots are a dot's
@@ -365,10 +373,21 @@ final class TopBarSpaceName: NSControl, TopBarThemed {
     /// takes it as the start of a move.
     override func mouseDown(with event: NSEvent) {}
 
+    /// A press on the name opens the Space pop-out. A press that turned into
+    /// a swipe never reaches here: the swipe is the scroll wheel's.
+    override func mouseUp(with event: NSEvent) {
+        guard bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
+        presentSpaces()
+    }
+
     func applyTokens() {
         name.font = Tokens.TypeScale.topBarSpaceName
-        name.textColor = Tokens.Text.primary
+        name.textColor = ink
     }
+
+    /// The capsule's glyphs' rule, so the name reads as one of the bar's
+    /// controls: `secondary` at rest, `primary` while it is being aimed at.
+    private var ink: NSColor { showsDots ? Tokens.Text.primary : Tokens.Text.secondary }
 
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()

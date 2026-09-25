@@ -42,10 +42,8 @@ final class AdvancedSection: SettingsGroup {
             String(localized: "Chrome"), String(localized: "Custom")
         ]
         let modes = WebViewFactory.UserAgentMode.allCases
-        let subtitle = String(localized: "Takes effect on the next page load, not on the page already open")
         let row = SettingsRow.popup(
             title,
-            subtitle: subtitle,
             options: options,
             selected: modes.firstIndex(of: WebViewFactory.userAgentMode) ?? 0,
             onChange: { [weak self] index in
@@ -53,7 +51,7 @@ final class AdvancedSection: SettingsGroup {
                 self?.applyToLiveWebViews()
             }
         )
-        return (view: row, terms: [title, subtitle, "user agent", "ua", "safari", "chrome"])
+        return (view: row, terms: [title, "user agent", "ua", "safari", "chrome"])
     }
 
     /// Empty is not an error state: `WebViewFactory.customUserAgent(for:)`
@@ -76,12 +74,11 @@ final class AdvancedSection: SettingsGroup {
 
     private func webInspectorRow() -> (view: NSView, terms: [String]) {
         let title = String(localized: "Web Inspector")
-        let subtitle = String(localized: "Adds “Inspect Element” to the page menu")
-        let row = SettingsRow.toggle(title, subtitle: subtitle, value: WebViewFactory.isWebInspectorEnabled) { [weak self] on in
+        let row = SettingsRow.toggle(title, value: WebViewFactory.isWebInspectorEnabled) { [weak self] on in
             WebViewFactory.isWebInspectorEnabled = on
             self?.applyToLiveWebViews()
         }
-        return (view: row, terms: [title, subtitle, "inspector", "developer", "devtools"])
+        return (view: row, terms: [title, "inspector", "inspect element", "developer", "devtools"])
     }
 
     /// `customUserAgent` and `isInspectable` are per-web-view, so a setting

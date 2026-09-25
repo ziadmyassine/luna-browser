@@ -34,11 +34,8 @@ import BrowserKit
 @MainActor
 final class SidebarUtilityBar: NSView {
 
-    /// Told when the Space pill is pressed, before its menu opens.
+    /// Told when the Space pill is pressed, before its pop-out opens.
     var onProfile: (() -> Void)?
-    /// §6.2's rows, for the Space pill's way into Settings.
-    var onManageProfiles: (() -> Void)?
-    private var space: String?
     var onHistory: (() -> Void)?
     var onDownloads: (() -> Void)?
     var onSwitchSpace: ((UUID) -> Void)?
@@ -63,6 +60,8 @@ final class SidebarUtilityBar: NSView {
     /// Bare dots, with no pill of glass of their own: between two glass
     /// controls a third piece of glass made the foot read as three buttons.
     private let dots = SpaceDotsView(framed: false)
+    private var spaces: [Space] = []
+    private var activeSpaceID: UUID?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -76,12 +75,8 @@ final class SidebarUtilityBar: NSView {
         pillButton.onActivate = { [weak self, weak pillButton] in
             guard let self, let pillButton else { return }
             onProfile?()
-            // A press opens it where a right-click would, which is what every
-            // other pop-out in this bar does (`SidebarActionCapsule`).
-            SidebarMenu.profile(
-                name: space,
-                manage: { [weak self] in self?.onManageProfiles?() }
-            ).popUp(positioning: nil, at: NSPoint(x: 0, y: pillButton.bounds.maxY), in: pillButton)
+            // The Space pop-out, the same one §4's bar opens from its name.
+            SpacePopout.present(from: pillButton, content: spaceContent, alignedTo: pillButton)
         }
         // The pill's edge was what cut off the dots outside §30.9's window of
         // three; without the glass the strip still has to.
@@ -136,8 +131,22 @@ final class SidebarUtilityBar: NSView {
     }
 
     func show(spaces: [Space], activeSpaceID: UUID) {
+        self.spaces = spaces
+        self.activeSpaceID = activeSpaceID
         dots.show(spaces: spaces, activeSpaceID: activeSpaceID)
         needsLayout = true
+    }
+
+    /// What the Space pop-out lists, and where its rows go.
+    private var spaceContent: SpacePanelContent {
+        SpacePanelContent(
+            spaces: spaces,
+            activeID: activeSpaceID ?? spaces.first?.id ?? UUID(),
+            switchTo: { [weak self] id in self?.onSwitchSpace?(id) },
+            setGradient: { [weak self] id, gradient in self?.onSetGradient?(id, gradient) },
+            edit: { [weak self] in self?.onEditSpaces?() },
+            new: { [weak self] in self?.onNewSpace?() }
+        )
     }
 
     /// The active Space, on §3.5's pill: its picture, its name, and what its
@@ -153,7 +162,6 @@ final class SidebarUtilityBar: NSView {
         spacePill.button.toolTip = [spaceName, spaceName.map { String(localized: "Cookies and logins for \($0)") }, fanOut]
             .compactMap { $0 }
             .joined(separator: "\n")
-        space = spaceName
         needsLayout = true
     }
 

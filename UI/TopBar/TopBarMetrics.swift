@@ -61,9 +61,16 @@ enum TopBarMetrics {
     /// The narrowest a folder's header goes — room for its glyph and a few
     /// letters. Below it the name is an ellipsis with nothing in front of it.
     static var rowFloor: CGFloat { Tokens.Metric.rowTitleInset + Tokens.Metric.rowPillHeight }
-    /// The widest a folder's header goes. One long name would otherwise take
-    /// the whole bar and push every tab out of reach.
-    static var rowCeiling: CGFloat { 180 }
+    /// The room an open folder's plate keeps past its first and last tab: the
+    /// column's own (`groupMemberTrailingInset`, 8 pt — the room a loose tab
+    /// keeps from the sidebar's edge), so a folder holds its tabs the same way
+    /// in both layouts. Flush, the lit tab lay on the plate's ends; at 4 pt it
+    /// still looked pressed against them.
+    static var folderPadding: CGFloat { Tokens.Metric.groupMemberTrailingInset }
+    /// How far an open folder's tabs stand in from its plate's top and bottom:
+    /// `rowPillInset`, the sidebar's own gap between two row pills. Just
+    /// enough that a lit tab reads as lying on the plate, not as filling it.
+    static var folderLift: CGFloat { Tokens.Metric.rowPillInset }
     /// The Space name's ceiling on this bar.
     static var nameCeiling: CGFloat { 180 }
     /// §3.5's dots under the name, a size down from the column's: a 5 pt dot

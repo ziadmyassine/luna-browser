@@ -74,6 +74,10 @@ final class PageChromeBar: NSView, TrafficLightNeighbour {
     var onEditingBegan: (() -> Void)?
     /// §9.1 has closed and the bar is the page's again.
     var onEditingEnded: (() -> Void)?
+    /// §16.4: a pinned extension, and the button that lists them all, each
+    /// with the view its popup or pop-out opens on.
+    var onExtension: ((String, NSView) -> Void)?
+    var onExtensions: ((NSView) -> Void)?
 
     // These are `internal` for `PageChromeBarLayout.swift`. See its header.
 
@@ -88,6 +92,16 @@ final class PageChromeBar: NSView, TrafficLightNeighbour {
     )
     let nav = NavCluster()
     let pill = URLPillView()
+    /// §16.4's cylinder in the trailing corner, as tall as the circles at the
+    /// other end: the extensions button, and the pins it grows to hold.
+    let shelf = PageBarExtensionShelf()
+    var extensionPins: [ExtensionShelfItem] = [] { didSet { needsLayout = true } }
+    var showsExtensions = false {
+        didSet {
+            shelf.isHidden = !showsExtensions || isCollapsed
+            needsLayout = true
+        }
+    }
     private var isLoading = false
     private(set) var isCollapsed = false
     /// The document's own background, the strip under the bar, and whichever of
@@ -99,6 +113,10 @@ final class PageChromeBar: NSView, TrafficLightNeighbour {
     /// The bar's own controls, in the order they are laid out. The pill's two
     /// glyphs go away with its surface — see `URLPillView.settleGlyph`.
     var buttons: [NSView] { [toggle, nav] }
+
+    /// Everything that fades out with the open band: the buttons, and the
+    /// extensions cylinder when this window has one.
+    var faders: [NSView] { showsExtensions ? buttons + [shelf] : buttons }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -115,7 +133,10 @@ final class PageChromeBar: NSView, TrafficLightNeighbour {
             guard let self else { return }
             SiteMenu.present(from: pill.siteMenuAnchor)
         }
-        for view in buttons + [pill] { addSubview(view) }
+        shelf.isHidden = true
+        shelf.onPin = { [weak self] id, anchor in self?.onExtension?(id, anchor) }
+        shelf.onExtensions = { [weak self] anchor in self?.onExtensions?(anchor) }
+        for view in buttons + [pill, shelf] { addSubview(view) }
         wirePill()
         applyPlane(animated: false)
         watchForTheLights() // The one thing that moves without resizing this view.
@@ -218,10 +239,10 @@ final class PageChromeBar: NSView, TrafficLightNeighbour {
         onBandHeight?(bandHeight, animated)
         // Un-hidden before the fade in either direction: a view cannot fade
         // from `isHidden`, and the fade out hides it again on completion.
-        if !collapsed { for view in buttons { view.isHidden = false } }
+        if !collapsed { for view in faders { view.isHidden = false } }
         guard animated else {
             Tokens.Motion.immediately { applyState() }
-            for view in buttons { view.isHidden = collapsed }
+            for view in faders { view.isHidden = collapsed }
             pill.settleGlyph()
             return
         }
@@ -234,7 +255,7 @@ final class PageChromeBar: NSView, TrafficLightNeighbour {
                 // on eating clicks meant for the page. Re-read rather than
                 // trust the captured value: another change may have landed.
                 guard let self else { return }
-                for view in self.buttons { view.isHidden = view.alphaValue == 0 }
+                for view in self.faders { view.isHidden = view.alphaValue == 0 }
                 // The pill's own glyph faded with them, and for the same reason.
                 self.pill.settleGlyph()
             }

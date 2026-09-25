@@ -116,14 +116,12 @@ final class DownloadsSection: SettingsGroup {
     /// whatever this is set to.
     private func autoOpenRow() -> (view: NSView, terms: [String]) {
         let title = String(localized: "Open safe files after downloading")
-        let subtitle = String(localized: "Photos, PDFs, text and sound. Never apps, disk images or installers.")
         let row = SettingsRow.toggle(
             title,
-            subtitle: subtitle,
             value: UserDefaults.standard.bool(forKey: DownloadDestination.autoOpenKey)
         ) { open in
             UserDefaults.standard.set(open, forKey: DownloadDestination.autoOpenKey)
         }
-        return (view: row, terms: [title, subtitle, "open", "auto-open", "safe"])
+        return (view: row, terms: [title, "open", "auto-open", "safe", "photos", "pdf"])
     }
 }

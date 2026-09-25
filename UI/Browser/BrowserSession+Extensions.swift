@@ -25,7 +25,12 @@ extension BrowserSession {
     func startExtensions() {
         guard let extensions else { return }
         let spaces = spaces.map { (id: $0.id, dataStore: dataStore(forSpace: $0.id)) }
-        Task { await extensions.start(spaces: spaces) }
+        Task {
+            await extensions.start(spaces: spaces)
+            // The icons and badges the chrome drew before this were for no
+            // extensions at all.
+            ExtensionsCenter.shared.announce()
+        }
     }
 }
 

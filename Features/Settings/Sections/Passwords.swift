@@ -45,9 +45,6 @@ final class PasswordsSection: SettingsGroup {
         let save = String(localized: "Offer to save passwords")
         let generate = String(localized: "Suggest strong passwords")
         let auth = String(localized: "Require Touch ID to fill")
-        // Names the fallback, because a Mac without Touch ID would otherwise
-        // read this row as one that does nothing for them.
-        let authDetail = String(localized: "Or your login password")
         return [
             (SettingsRow.toggle(fill, value: PasswordSettings.isEnabled) { on in
                 PasswordSettings.isEnabled = on
@@ -58,9 +55,9 @@ final class PasswordsSection: SettingsGroup {
             (SettingsRow.toggle(generate, value: PasswordSettings.offersGeneratedPasswords) { on in
                 PasswordSettings.offersGeneratedPasswords = on
             }, [generate, "generate", "strong", "random"]),
-            (SettingsRow.toggle(auth, subtitle: authDetail, value: PasswordSettings.requiresAuthentication) { on in
+            (SettingsRow.toggle(auth, value: PasswordSettings.requiresAuthentication) { on in
                 PasswordSettings.requiresAuthentication = on
-            }, [auth, authDetail, "touch id", "biometric", "fingerprint", "authenticate", "unlock"])
+            }, [auth, "login password", "touch id", "biometric", "fingerprint", "authenticate", "unlock"])
         ]
     }
 

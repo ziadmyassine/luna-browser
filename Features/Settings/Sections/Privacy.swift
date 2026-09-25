@@ -58,26 +58,20 @@ final class PrivacySection: SettingsSection {
         body.card(String(localized: "Blocking"), rows)
     }
 
-    /// The list behind each toggle is named in the subtitle rather than in a
-    /// note: "Block trackers" says what it does, "EasyPrivacy" says what it
-    /// does it with, and the second is the one a user searches for.
+    /// The list behind each toggle is not on screen — the title says what it
+    /// does — but it is what a user who knows the list searches for.
     private func blockingRow(_ category: ContentBlocker.Category) -> (view: NSView, terms: [String]) {
         let title: String
         let list: String
         switch category {
-        // §17.2: the ads toggle carries YouTube's in-player ads too, and the
-        // subtitle says so because the alternative is what prompts the bug
-        // report: a switch that reads "Block ads", is on, and leaves the pre-roll
-        // playing. EasyList genuinely cannot do that one: the ad and the video
-        // arrive on the same host, in the same `MediaSource`, scheduled by a
-        // field inside the same JSON as the video itself.
+        // §17.2: the ads toggle carries YouTube's in-player ads too, which
+        // EasyList cannot: the ad and the video arrive on the same host, in the
+        // same `MediaSource`, scheduled by a field inside the video's own JSON.
         case .ads: (title, list) = (String(localized: "Block ads"), "EasyList, plus YouTube's in-player ads")
         case .trackers: (title, list) = (String(localized: "Block trackers"), "EasyPrivacy")
         case .annoyances: (title, list) = (String(localized: "Block annoyances"), "Fanboy Annoyance")
         }
-        let row = SettingsRow.toggle(
-            title, subtitle: list, value: ContentBlocker.shared.isEnabled(category)
-        ) { enabled in
+        let row = SettingsRow.toggle(title, value: ContentBlocker.shared.isEnabled(category)) { enabled in
             ContentBlocker.shared.setEnabled(enabled, for: category)
         }
         var terms = [title, list, "blocking"]
@@ -87,11 +81,10 @@ final class PrivacySection: SettingsSection {
 
     private func httpsOnlyRow() -> (view: NSView, terms: [String]) {
         let title = String(localized: "HTTPS-Only Mode")
-        let subtitle = String(localized: "Upgrade http:// pages, and say so when the upgrade fails")
-        let row = SettingsRow.toggle(title, subtitle: subtitle, value: ContentBlocker.shared.isHTTPSOnlyEnabled) { on in
+        let row = SettingsRow.toggle(title, value: ContentBlocker.shared.isHTTPSOnlyEnabled) { on in
             ContentBlocker.shared.isHTTPSOnlyEnabled = on
         }
-        return (row, [title, subtitle, "https", "encryption"])
+        return (row, [title, "https", "encryption", "upgrade", "http"])
     }
 
     private func filterListsRow() -> (view: NSView, terms: [String]) {

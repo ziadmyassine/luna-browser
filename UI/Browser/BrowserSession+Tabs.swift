@@ -25,6 +25,7 @@ extension BrowserSession {
         // pointing at coordinates that now belong to someone else's form.
         if activeTabID != id { passwordUI.dismissAll() }
         activeTabBySpace[tab.spaceID] = id
+        showUnderFoldedFolder(id)
         promote(id)
         tab.lastActiveAt = Date()
         // §3.4b: choosing a dimmed row is opening it again, so the second press
@@ -60,6 +61,9 @@ extension BrowserSession {
     /// "I am finished with this page", not "throw it out".
     func closeTab(_ id: UUID) {
         guard let index = list.indexInSection(of: id), var tab = list.tab(id) else { return }
+        // `⌘W` is the one thing that takes a tab out from under its folded
+        // folder: its page is gone, whatever happens to its row.
+        folderPeeks.remove(id)
         if tab.kind == .essential {
             sendTileHome(id, in: tab.spaceID)
             return

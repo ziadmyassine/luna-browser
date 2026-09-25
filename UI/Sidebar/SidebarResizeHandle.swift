@@ -79,8 +79,40 @@ final class SidebarResizeHandle: NSView {
         strip.contains(convert(point, from: superview)) ? self : nil
     }
 
+    /// Cursor rects belong to the window, not to whatever is drawn on top, so
+    /// a pop-out standing over the divider still showed the resize cursor
+    /// across its own rows. The strip only offers a drag while a click on it
+    /// would reach it.
     override func resetCursorRects() {
+        guard !isCovered else { return }
         addCursorRect(strip, cursor: .resizeLeftRight)
+    }
+
+    var isCovered: Bool {
+        guard let root = window?.contentView, let frame = root.superview else { return false }
+        let centre = frame.convert(NSPoint(x: strip.midX, y: strip.midY), from: self)
+        return root.hitTest(centre) !== self
+    }
+
+    private var presence: NSObjectProtocol?
+
+    /// A pop-out coming or going changes what covers the strip, and nothing
+    /// else would ask the window to ask again.
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        presence.map(NotificationCenter.default.removeObserver)
+        presence = nil
+        guard let window else { return }
+        presence = NotificationCenter.default.addObserver(
+            forName: PopoutController.presenceDidChange,
+            object: window,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.window?.invalidateCursorRects(for: self)
+            }
+        }
     }
 
     // MARK: - Drag

@@ -65,26 +65,12 @@ final class TopBarTabRow: NSControl, PopoutShelf {
 
     // MARK: - Size
 
-    /// The pill a row takes: `tabWidth` for every tab, whatever its title, and
-    /// a folder's header as long as its name.
-    ///
-    /// The header is measured with the column's own insets rather than
-    /// guessed, and has no close glyph and no chevron on the bar — its plate
-    /// says it is open — so it stays as short as its name.
-    static func pillWidth(for content: SidebarRowContent, isFolder: Bool = false) -> CGFloat {
-        guard isFolder else { return TopBarMetrics.tabWidth }
-        measure.stringValue = content.title
-        let width = Tokens.Metric.rowTitleInset + ceil(measure.intrinsicContentSize.width) + Tokens.Metric.rowInset
-        return min(max(width, TopBarMetrics.rowFloor), TopBarMetrics.rowCeiling)
-    }
-
-    /// The same face the row draws its title in, so the measurement is of the
-    /// thing that will be drawn.
-    private static let measure: NSTextField = {
-        let label = NSTextField(labelWithString: "")
-        label.font = Tokens.TypeScale.sidebarRow
-        return label
-    }()
+    /// The pill a row takes: `tabWidth`, for a tab whatever its title and for
+    /// a folder's header too. A folder is a tab that holds tabs, and a header
+    /// as long as its name — between 55 and 180 pt — stood among 172 pt tabs
+    /// as a different kind of thing. Its icon and name already sit where a
+    /// tab's favicon and title do: it is the same row.
+    static var pillWidth: CGFloat { TopBarMetrics.tabWidth }
 
     // MARK: - Geometry
 

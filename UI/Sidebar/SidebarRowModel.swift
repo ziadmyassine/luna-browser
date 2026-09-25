@@ -118,12 +118,14 @@ struct SidebarList: Equatable, Sendable {
         today: [SidebarSlot] = [],
         essentials: [Tab] = [],
         revealingSaved: Bool = false,
-        pinning: Bool = true
+        pinning: Bool = true,
+        peeking: Set<UUID> = []
     ) {
         self.essentials = essentials
         showsRule = pinning && (!saved.isEmpty || revealingSaved)
 
         var build = Build()
+        build.peeking = peeking
         build.emit(saved, kind: .pinned)
         let todayHead = SidebarDestination(kind: .today, groupID: nil, index: 0)
         let savedEnd = SidebarDestination(kind: .pinned, groupID: nil, index: saved.count)
@@ -279,6 +281,8 @@ struct SidebarList: Equatable, Sendable {
 /// an off-by-one in every drop below that row. `add` is the only way a row gets
 /// in, so the three cannot drift apart.
 private struct Build {
+    /// Tabs a folded folder still shows — `SidebarList.init(peeking:)`.
+    var peeking: Set<UUID> = []
     var rows: [SidebarRow] = []
     var above: [SidebarDestination] = []
     var below: [SidebarDestination] = []
@@ -328,8 +332,12 @@ private struct Build {
                         index: group.isCollapsed ? tabs.count : 0
                     )
                 )
-                guard !group.isCollapsed, !tabs.isEmpty else { continue }
-                emit(tabs, ofGroup: group.id, kind: kind)
+                // Folded, a folder still shows the tabs the session keeps out
+                // for it (`BrowserSession.folderPeeks`) — each at its own place
+                // in the folder, so a drop beside one lands where it looks.
+                let shown = group.isCollapsed ? tabs.enumerated().filter { peeking.contains($0.element.id) } : Array(tabs.enumerated())
+                guard !shown.isEmpty else { continue }
+                emit(shown, ofGroup: group.id, kind: kind)
                 // Split like any row: the upper half is still the end of the
                 // folder, the lower half is already after it.
                 add(
@@ -341,8 +349,8 @@ private struct Build {
         }
     }
 
-    private mutating func emit(_ tabs: [Tab], ofGroup id: UUID, kind: TabKind) {
-        for (member, index) in zip(tabs, tabs.indices) {
+    private mutating func emit(_ tabs: [(offset: Int, element: Tab)], ofGroup id: UUID, kind: TabKind) {
+        for (index, member) in tabs {
             listed.append(member)
             memberDepth[member.id] = id
             add(

@@ -57,11 +57,19 @@ final class SettingsDetailPane: NSView {
         hosted = view
         view.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(view)
+        // The margins are inside the scroll view, not around it: the clip
+        // view cuts at its own edge, and a control on the page's edge — a mode
+        // card, New Space — swelling on a press was cut there. `build` moves
+        // the scroll view out by the same amounts, so the page does not move.
+        let inset = SettingsMetrics.paneInset
+        let fit = view.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -inset)
+        fit.priority = .defaultHigh
         NSLayoutConstraint.activate([
-            view.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-            view.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            view.topAnchor.constraint(equalTo: content.topAnchor),
-            view.bottomAnchor.constraint(lessThanOrEqualTo: content.bottomAnchor)
+            view.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: inset),
+            view.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -inset),
+            view.topAnchor.constraint(equalTo: content.topAnchor, constant: SettingsMetrics.paneSwellRoom),
+            view.bottomAnchor.constraint(lessThanOrEqualTo: content.bottomAnchor, constant: -inset),
+            fit
         ])
         guard animated else {
             content.alphaValue = 1
@@ -138,18 +146,21 @@ final class SettingsDetailPane: NSView {
             nav.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
             nav.topAnchor.constraint(equalTo: topAnchor, constant: Tokens.Metric.trafficLightInset),
 
-            scroll.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
-            scroll.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
-            scroll.topAnchor.constraint(equalTo: nav.bottomAnchor, constant: SettingsMetrics.groupGap),
-            scroll.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -inset),
+            scroll.leadingAnchor.constraint(equalTo: leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: trailingAnchor),
+            scroll.topAnchor.constraint(
+                equalTo: nav.bottomAnchor,
+                constant: SettingsMetrics.groupGap - SettingsMetrics.paneSwellRoom
+            ),
+            scroll.bottomAnchor.constraint(equalTo: bottomAnchor),
 
             content.leadingAnchor.constraint(equalTo: scroll.contentView.leadingAnchor),
             content.topAnchor.constraint(equalTo: scroll.contentView.topAnchor),
             content.widthAnchor.constraint(equalTo: scroll.contentView.widthAnchor),
 
-            empty.leadingAnchor.constraint(equalTo: scroll.leadingAnchor),
-            empty.trailingAnchor.constraint(equalTo: scroll.trailingAnchor),
-            empty.topAnchor.constraint(equalTo: scroll.topAnchor, constant: inset)
+            empty.leadingAnchor.constraint(equalTo: scroll.leadingAnchor, constant: inset),
+            empty.trailingAnchor.constraint(equalTo: scroll.trailingAnchor, constant: -inset),
+            empty.topAnchor.constraint(equalTo: scroll.topAnchor, constant: SettingsMetrics.paneSwellRoom + inset)
         ])
     }
 }

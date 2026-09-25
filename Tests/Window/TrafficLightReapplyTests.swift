@@ -154,6 +154,38 @@ final class TrafficLightReapplyTests: XCTestCase {
         XCTAssertEqual(lights.map(\.frame.origin), placed, "the title changed and nobody looked")
     }
 
+    /// A theme change rebuilds the titlebar as a new title does; in
+    /// fullscreen the lights were gone until the next tab switch.
+    func testAThemeChangePutsEveryLightBack() throws {
+        let window = window()
+        let manager = TrafficLightLayoutManager(window: window)
+        manager.apply(.sidebar(width: 280, edge: .leading))
+        let lights = buttons(of: window)
+        try XCTSkipIf(lights.count < 3, "this macOS gave the window fewer than three window buttons")
+        let placed = lights.map(\.frame.origin)
+        let before = NSApp.appearance
+        defer { NSApp.appearance = before }
+
+        displaceSilently(lights)
+        let dark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        NSApp.appearance = NSAppearance(named: dark ? .aqua : .darkAqua)
+
+        XCTAssertEqual(lights.map(\.frame.origin), placed, "the theme changed and nobody looked")
+    }
+
+    /// Fullscreen's lights stay in front of a panel opened after they were
+    /// placed, as the titlebar's stand over everything in a window.
+    func testTheLightsStayInFrontOfAPanelAddedLater() {
+        let root = WindowRootView(frame: NSRect(x: 0, y: 0, width: 900, height: 600))
+        let lights = NSView()
+        root.addSubview(lights)
+        root.frontmost = lights
+        let panel = NSView()
+        root.addSubview(panel, positioned: .above, relativeTo: nil)
+        XCTAssertTrue(root.subviews.last === lights, "a pop-out opened over the lights")
+        XCTAssertTrue(root.subviews.contains(panel))
+    }
+
     /// The lights' width comes from their spacing, so a green button AppKit
     /// has put back in its own corner alone does not make them shorter — which
     /// slid §4's plate toward the lights on a click.

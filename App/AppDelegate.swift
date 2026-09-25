@@ -82,7 +82,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// SETTINGS-SPEC §1's separate window. One instance, reused — `⌘,`
     /// opens it the first time and focuses it every time after, and it survives
     /// being closed because `isReleasedWhenClosed` is off.
-    private var settingsWindow: SettingsWindowController?
+    private(set) var settingsWindow: SettingsWindowController?
     /// §30.17's first-run window, alive only while it is on screen.
     /// `AppDelegate+Onboarding.swift` puts it up.
     var onboarding: OnboardingWindowController?
@@ -200,6 +200,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         LaunchTrace.ready()
         // §16.1, and after `ready()` for the same reason as onboarding below:
         // extensions load one at a time into a browser that is already up.
+        ExtensionsCenter.shared.attach(session)
         session.startExtensions()
         // §30.17, and after `ready()` on purpose: first run is a window over a
         // browser that is already up, not a gate in front of it.

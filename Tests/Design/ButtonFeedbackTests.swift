@@ -98,7 +98,17 @@ final class ButtonFeedbackTests: XCTestCase {
                 glyph.configure(symbolName: "xmark", label: "Close Tab")
                 return glyph
             }()),
+            // §16.4: a pinned extension in the sidebar's pill, and the pin in
+            // the pop-out's row — the same chip, dressed with an image.
+            ("RowGlyphView (extension)", {
+                let glyph = RowGlyphView()
+                glyph.configure(image: ExtensionsSymbol.image, label: "Extension")
+                glyph.isRound = true
+                return glyph
+            }()),
             ("SettingsChoiceButton", SettingsChoiceButton(title: "Light")),
+            // Settings ▸ Extensions: a card's Spaces menu, its pin and its "more".
+            ("ExtensionCardButton", ExtensionCardButton(symbol: "pin", label: "Pin to the Bar")),
             ("SpaceAppearanceButton", SpaceAppearanceButton()),
             ("TabSwitcherCard", TabSwitcherCard(item: TabSwitcherItem(id: UUID(), title: "Example", favicon: nil))),
             ("OnboardingButton", OnboardingButton(title: "Back", isPreferred: false)),
@@ -199,6 +209,23 @@ final class ButtonFeedbackTests: XCTestCase {
         XCTAssertEqual(scale(of: capsule), Tokens.Motion.pressSwell, accuracy: 0.001, "the cylinder did not answer")
         item.highlight(false)
         XCTAssertEqual(scale(of: capsule), 1, accuracy: 0.001, "the cylinder stayed swollen")
+    }
+
+    /// §3.2b's extensions cylinder: its buttons are the toggle's `GlassButton`
+    /// with no glass of their own, so the press goes to the cylinder, as it
+    /// does for `NavCluster`.
+    func testThePageBarsExtensionsCylinderSwellsForItsButtons() {
+        let shelf = PageBarExtensionShelf()
+        shelf.show(pins: [ExtensionShelfItem(id: "a", name: "A", icon: nil, badge: "", isPinned: true)])
+        shelf.frame = NSRect(origin: .zero, size: NSSize(width: PageBarExtensionShelf.width(pins: 1), height: 34))
+        shelf.layoutSubtreeIfNeeded()
+        for button in [shelf.extensionsButton, shelf.pinButtons[0].button] {
+            button.mouseDown(with: mouse(.leftMouseDown, in: button))
+            XCTAssertEqual(scale(of: button), 1, accuracy: 0.001, "a button swelled inside the cylinder")
+            XCTAssertEqual(scale(of: shelf), Tokens.Motion.pressSwell, accuracy: 0.001, "the cylinder did not answer")
+            button.mouseUp(with: mouse(.leftMouseUp, in: button))
+            XCTAssertEqual(scale(of: shelf), 1, accuracy: 0.001, "the cylinder stayed swollen")
+        }
     }
 
     /// §4's Space dots stand under the name on the plate, without the

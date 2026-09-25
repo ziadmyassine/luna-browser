@@ -135,7 +135,7 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     ///   on top of each other and the last to close overwrites the rest. The
     ///   others cascade off the front window instead.
     convenience init(remembersFrame: Bool) {
-        let window = NSWindow(
+        let window = LunaWindow(
             contentRect: NSRect(
                 x: 0,
                 y: 0,
@@ -395,6 +395,14 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
 
     var isSidebarCollapsed: Bool { chromeState.isSidebarCollapsed }
 
+    /// The edge a collapsed sidebar is parked off, on either side of a
+    /// change into or out of the collapsed state.
+    static func collapsedEdge(_ previous: ChromeState, _ state: ChromeState) -> SidebarEdge? {
+        if case let .sidebarCollapsed(edge) = state { return edge }
+        if case let .sidebarCollapsed(edge) = previous { return edge }
+        return nil
+    }
+
     /// The width the hidden sidebar parks at, and comes back at for a peek.
     private var parkedSidebarWidth: CGFloat {
         widthBeforeCollapse ?? Tokens.Metric.sidebarWidth.default
@@ -510,13 +518,22 @@ extension BrowserWindowController {
         // callback early-returns once the state has already moved on, and a
         // stale `isPeeking` would leave the traffic lights showing over a
         // full-bleed page the next time the sidebar was hidden.
-        trafficLights?.isPeeking = false
         peekBackdrop.alphaValue = 0
         peek.isEnabled = state.isSidebarCollapsed
         peekEdge.isEnabled = state.isSidebarCollapsed
         updatePeekEdgeWidth()
         let insets = state.cardInsets
         let spec = Self.motion(from: previous, to: state)
+        // `⌘S` moves the lights the way a peek does (`applyPeek`): parked
+        // where the sidebar is pushed to before a show, so they slide in with
+        // it, and kept on screen through a hide, so they slide out with it
+        // rather than vanishing on the first frame.
+        if let edge = Self.collapsedEdge(previous, state) {
+            trafficLights?.parkedOffset = edge == .leading ? -parkedSidebarWidth : 0
+        }
+        let leaving = animated && !previous.isSidebarCollapsed && state.isSidebarCollapsed
+            ? trafficLights?.beginLeaving()
+            : nil
         // The page is told its final width before the chrome starts moving. See
         // `ContentCardView.beginGeometryTransition`: a web view re-laid out on
         // every frame of a 0.20 s slide is the "resizing is very obvious" this
@@ -528,6 +545,10 @@ extension BrowserWindowController {
             )
         }
         let body = { [self] in
+            // In here, not before the transaction: out of a peek, a reset ahead
+            // of it parked the lights for one frame before `.sidebar` brought
+            // them back.
+            trafficLights?.isPeeking = false
             applyChromeGeometry(state)
             card.insetEdge = state.cardInsetEdge
             card.setInsets(insets)
@@ -542,8 +563,11 @@ extension BrowserWindowController {
                 // Without this the constraint constants snap instead of sliding.
                 context.allowsImplicitAnimation = true
                 body()
-            } completion: { [card] in
-                MainActor.assumeIsolated { card.endGeometryTransition() }
+            } completion: { [weak self, card] in
+                MainActor.assumeIsolated {
+                    card.endGeometryTransition()
+                    if let leaving { self?.trafficLights?.peekDidLeave(leaving) }
+                }
             }
         } else {
             body()

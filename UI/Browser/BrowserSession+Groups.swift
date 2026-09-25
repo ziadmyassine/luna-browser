@@ -114,10 +114,30 @@ extension BrowserSession {
 
     /// Folds a group shut, or opens it. Not undoable: it changes nothing about
     /// any tab, and the chevron it happened on is sitting right there.
+    ///
+    /// Folding leaves the tab the user is on showing under the folder, as Dia
+    /// and Arc do: the page on screen is still one of the folder's, and a
+    /// column that hid its row left nothing saying where it was. Opening the
+    /// folder forgets every such tab, so opening it and folding it again is
+    /// the way to put away the ones gone to since.
     func setGroupCollapsed(_ collapsed: Bool, forGroup id: UUID) {
         guard var group = list.group(id), group.isCollapsed != collapsed else { return }
+        let members = Set(list.members(ofGroup: id).map(\.id))
+        folderPeeks.subtract(members)
+        if collapsed, let active = activeTabID, members.contains(active) { folderPeeks.insert(active) }
         group.isCollapsed = collapsed
         commit(group)
+    }
+
+    // MARK: - Folded, but showing
+
+    /// Going to a tab inside a folded folder — from §9.1, a link, anywhere —
+    /// shows it under the folder rather than opening the folder. It stays
+    /// there after the user moves on, until it is closed or the folder is
+    /// opened and folded again (`setGroupCollapsed`).
+    func showUnderFoldedFolder(_ id: UUID) {
+        guard let groupID = list.tab(id)?.groupID, list.group(groupID)?.isCollapsed == true else { return }
+        folderPeeks.insert(id)
     }
 
     /// Carries a group across §3.4b's rule, its tabs with it — into the folder

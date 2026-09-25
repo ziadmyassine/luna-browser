@@ -189,19 +189,16 @@ final class SidebarGroupPlateTests: XCTestCase {
         XCTAssertEqual(controller.hoverPill.alphaValue, 0, accuracy: 0.01)
     }
 
-    /// The header draws no pill, so above the folder the plate stands the
-    /// header icon's margin in its pill clear of the icon. The
-    /// last tab gets the same room below its pill, and the plate stops where
-    /// the next row starts.
-    func testThePlateHasEqualRoomAboveTheHeaderAndBelowTheLastTab() throws {
+    /// The last tab has the same room to the plate below it as beside it, and
+    /// the plate stops where the next row starts.
+    func testTheLastTabHasTheSameRoomBelowAsBeside() throws {
         let controller = try list()
         let header = try XCTUnwrap(controller.list.row(ofGroup: trip.id))
         controller.setHovered(header)
         let plate = controller.groupPlate.frame
-        let iconTop = controller.pillBox(ofRow: header).minY + (Tokens.Metric.rowPillHeight - Tokens.Metric.groupIconSize) / 2
         let lastPill = controller.pillBox(ofRow: header + 3)
-        XCTAssertEqual(iconTop - plate.minY, plate.maxY - lastPill.maxY, accuracy: 0.01)
-        XCTAssertEqual(plate.maxY - lastPill.maxY, 7.5, accuracy: 0.01)
+        XCTAssertEqual(plate.maxY - lastPill.maxY, plate.maxX - lastPill.maxX, accuracy: 0.01)
+        XCTAssertEqual(plate.maxY - lastPill.maxY, Tokens.Metric.rowInset, accuracy: 0.01)
         let next = try XCTUnwrap(controller.list.row(ofGroup: work.id))
         XCTAssertEqual(plate.maxY, controller.table.rect(ofRow: next).minY, accuracy: 0.01)
         XCTAssertLessThan(plate.maxY, controller.pillBox(ofRow: next).minY, "the plate lies under the next pill")

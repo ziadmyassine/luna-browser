@@ -87,3 +87,26 @@ final class SettingsGroupHeaderTests: XCTestCase {
         XCTAssertEqual(aligned(button, in: heading).maxX, heading.bounds.maxX, accuracy: 0.001)
     }
 }
+
+/// A press swells a control 5 %, and the pane's scroll view cuts at its own
+/// edges. The page's margins are inside it, so a control on the page's edge —
+/// a mode card, New Space — has room to swell into on every side.
+@MainActor
+final class SettingsPaneSwellRoomTests: XCTestCase {
+
+    func testThePageHasRoomToSwellIntoOnEverySide() throws {
+        let pane = SettingsDetailPane(frame: NSRect(x: 0, y: 0, width: 600, height: 500))
+        let page = NSView()
+        page.heightAnchor.constraint(equalToConstant: 200).isActive = true
+        pane.show(page, title: "Page", animated: false)
+        pane.layoutSubtreeIfNeeded()
+        let clip = try XCTUnwrap(page.enclosingScrollView?.contentView)
+        let inClip = clip.convert(page.bounds, from: page)
+        let room = { (side: CGFloat) in side * (Tokens.Motion.pressSwell - 1) / 2 }
+        XCTAssertGreaterThanOrEqual(inClip.minX - clip.bounds.minX, room(inClip.width), "cut on the leading edge")
+        XCTAssertGreaterThanOrEqual(clip.bounds.maxX - inClip.maxX, room(inClip.width), "cut on the trailing edge")
+        XCTAssertGreaterThanOrEqual(inClip.minY - clip.bounds.minY, room(inClip.height), "cut at the top")
+        // Where the page starts on screen has not moved.
+        XCTAssertEqual(pane.convert(page.bounds, from: page).minX, SettingsMetrics.paneInset, accuracy: 0.5)
+    }
+}

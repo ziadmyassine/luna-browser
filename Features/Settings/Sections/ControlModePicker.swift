@@ -19,6 +19,8 @@ final class ControlModePicker: NSView {
         let title: String
         let caption: String
         let phase: CGFloat
+        /// VoiceOver's help for the card. On screen, the card's own caption
+        /// says it; a paragraph under the three said it again.
         let explanation: String
     }
 
@@ -35,13 +37,10 @@ final class ControlModePicker: NSView {
                explanation: String(localized: "Apps act on any page without asking. Choose this only for apps you trust completely."))
     ]
 
-    static let footnote = String(localized: "Reading a page never asks. Local files and pages that talk to the app always ask.")
-
     var onChange: ((ControlMode) -> Void)?
 
     private(set) var mode: ControlMode = .ask
     private let cards: [ControlModeCard]
-    private let explanation = NSTextField(wrappingLabelWithString: "")
 
     init(title: String) {
         cards = Self.choices.map(ControlModeCard.init(choice:))
@@ -54,18 +53,11 @@ final class ControlModePicker: NSView {
         let row = NSStackView(views: cards)
         row.distribution = .fillEqually
         row.spacing = Tokens.Metric.settingsListGap
-        explanation.font = Tokens.TypeScale.settingsCaption
-        explanation.textColor = Tokens.Text.secondary
-        let footnote = NSTextField(wrappingLabelWithString: Self.footnote)
-        footnote.font = Tokens.TypeScale.settingsCaption
-        footnote.textColor = Tokens.Text.tertiary
 
-        let column = NSStackView(views: [header, row, explanation, footnote])
+        let column = NSStackView(views: [header, row])
         column.orientation = .vertical
         column.alignment = .leading
         column.spacing = Tokens.Metric.chromeGap
-        column.setCustomSpacing(Tokens.Metric.chromeGap + 2, after: row)
-        column.setCustomSpacing(2, after: explanation)
         column.translatesAutoresizingMaskIntoConstraints = false
         addSubview(column)
         NSLayoutConstraint.activate([
@@ -73,9 +65,7 @@ final class ControlModePicker: NSView {
             column.trailingAnchor.constraint(equalTo: trailingAnchor),
             column.topAnchor.constraint(equalTo: topAnchor),
             column.bottomAnchor.constraint(equalTo: bottomAnchor),
-            row.widthAnchor.constraint(equalTo: column.widthAnchor),
-            explanation.widthAnchor.constraint(equalTo: column.widthAnchor),
-            footnote.widthAnchor.constraint(equalTo: column.widthAnchor)
+            row.widthAnchor.constraint(equalTo: column.widthAnchor)
         ])
         for card in cards {
             card.onActivate = { [weak self] in self?.choose(card.choice.mode) }
@@ -103,16 +93,6 @@ final class ControlModePicker: NSView {
         let changed = chosen != mode
         mode = chosen
         for card in cards { card.setSelected(card.choice.mode == chosen, animated: animated && changed) }
-        let words = Self.choices.first { $0.mode == chosen }?.explanation ?? ""
-        guard words != explanation.stringValue else { return }
-        if animated, !Tokens.Motion.reduceMotion {
-            let fade = CATransition()
-            fade.type = .fade
-            fade.duration = Tokens.Motion.spaceSwitchCrossfade.duration
-            explanation.wantsLayer = true
-            explanation.layer?.add(fade, forKey: "explanation")
-        }
-        explanation.stringValue = words
     }
 }
 

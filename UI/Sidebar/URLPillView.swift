@@ -77,6 +77,21 @@ final class URLPillView: NSView, PopoutShelf {
     // two materials, and the reference draws no bubble around either.
     let sliders = RowGlyphView()
     let reload = RowGlyphView()
+    /// §16.4, in the sidebar's pill: the extensions button in the trailing
+    /// slot and the pinned extensions to its left — `URLPillExtensions.swift`.
+    /// Off on §3.2b's pill, whose bar has a cylinder of its own for them.
+    let extensionsGlyph = RowGlyphView()
+    var pinGlyphs: [RowGlyphView] = []
+    var extensionPins: [ExtensionShelfItem] = [] { didSet { dressPins() } }
+    var showsExtensions = false {
+        didSet {
+            guard showsExtensions != oldValue else { return }
+            extensionsGlyph.isHidden = !showsExtensions
+            dressPins()
+        }
+    }
+    var onExtension: ((String, NSView) -> Void)?
+    var onExtensions: ((NSView) -> Void)?
     /// §3.2c's load line. Not private: `URLPillLayout.swift` places it, as it
     /// places everything else on the pill.
     let loadLine = LoadProgressLine()
@@ -154,9 +169,14 @@ final class URLPillView: NSView, PopoutShelf {
         // printed on a pill in a column; it is a control on a row of controls
         // now, so it is an SF Symbol at `glyphSize` behaving exactly as the
         // reload beside it does (`RowGlyphView`).
-        for glyph in [sliders, reload] {
+        for glyph in [sliders, reload, extensionsGlyph] {
             glyph.isRound = true
             addSubview(glyph)
+        }
+        extensionsGlyph.isHidden = true
+        extensionsGlyph.onActivate = { [weak self] in
+            guard let self else { return }
+            onExtensions?(extensionsGlyph)
         }
         applyGlyphs()
         sliders.onActivate = { [weak self] in self?.onSiteMenu?() }
@@ -212,6 +232,7 @@ final class URLPillView: NSView, PopoutShelf {
             label: isLoading ? String(localized: "Stop") : String(localized: "Reload"),
             pointSize: glyphInk
         )
+        extensionsGlyph.configure(symbolName: ExtensionsSymbol.name, label: ExtensionsSymbol.label, pointSize: glyphInk)
         needsLayout = true
     }
 
@@ -219,7 +240,7 @@ final class URLPillView: NSView, PopoutShelf {
 
     private func refresh() {
         field.textColor = Tokens.Text.primary
-        for glyph in [sliders, reload] { glyph.tint = Tokens.Text.secondary }
+        for glyph in [sliders, reload, extensionsGlyph] { glyph.tint = Tokens.Text.secondary }
         needsDisplay = true
     }
 

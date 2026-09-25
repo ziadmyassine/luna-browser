@@ -260,7 +260,8 @@ final class TopBarTabStrip: NSView, WindowScoped {
             saved: windowSlots(inTier: .pinned),
             today: windowSlots(inTier: .today),
             excluding: liftedID,
-            landings: landings
+            landings: landings,
+            peeking: session.folderPeeks
         )
         activeID = activeTabID
         // Taken on arrival as well as listened to (`TopBarView`), so a tab

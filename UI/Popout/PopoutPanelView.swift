@@ -79,9 +79,20 @@ class PopoutPanelView: NSView {
     /// left edge read as belonging to whatever was to the right of it.
     var centresOnAnchor = false
 
+    /// Where the pop-out's leading edge stands, when it is lined up with
+    /// something wider than the button — in the sidebar, the search bar a
+    /// glyph sits in and the Space pill. The column is narrow and the pop-out
+    /// fills most of it, so one edge shared with the control reads as coming
+    /// out of it, where centred on a glyph at the pill's end it hung off to one
+    /// side. Wins over `centresOnAnchor`; the window's clamps still apply.
+    var leadingEdge: (() -> CGFloat?)?
+
     /// The button as the last layout pass found it, for the corner the
     /// spring pivots on.
     private var lastAnchor = NSRect.zero
+    /// Whether the last layout lined the leading edge up — the spring then
+    /// pivots on that corner, as it does for a pop-out hung from its button.
+    private var isAligned = false
 
     /// The floor the height clamp will not go below — a pop-out with no room
     /// for a single row still has to be a pop-out. A header by default.
@@ -133,10 +144,16 @@ class PopoutPanelView: NSView {
         case .above: button.maxY + gap
         case .below: button.minY - gap - height
         }
-        let leading = centresOnAnchor ? button.midX - preferredSize.width / 2 : button.minX
+        let aligned = leadingEdge?()
+        let leading = aligned ?? (centresOnAnchor ? button.midX - preferredSize.width / 2 : button.minX)
+        isAligned = aligned != nil
+        // A lined-up edge may stand nearer the window's side than `inset`: the
+        // sidebar's search bar and Space pill do, and holding the pop-out to
+        // the window clamp pushed it off the edge it was lined up with.
+        let floor = aligned.map { min(max($0, 0), inset) } ?? inset
         let originX = min(
-            max(leading, inset),
-            max(bounds.maxX - preferredSize.width - inset, inset)
+            max(leading, floor),
+            max(bounds.maxX - preferredSize.width - inset, floor)
         )
         lastAnchor = button
         body.frame = NSRect(x: originX, y: originY, width: preferredSize.width, height: height).integral
@@ -250,7 +267,7 @@ class PopoutPanelView: NSView {
     private func anchorToButtonCorner(_ layer: CALayer) {
         let frame = layer.frame
         // Centred, the pivot is the point on the panel's edge over the button.
-        let x = centresOnAnchor && frame.width > 0
+        let x = centresOnAnchor && !isAligned && frame.width > 0
             ? min(max((lastAnchor.midX - frame.minX) / frame.width, 0), 1)
             : 0
         let corner = CGPoint(x: x, y: edge == .above ? 0 : 1)

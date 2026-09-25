@@ -348,12 +348,12 @@ extension LunaControlSection {
             "Before an app acts on a page", "permission", "approve", "ask", "per site", "allow all"
         ])])
 
-        let sites = grantRows(control)
-        let grants = SettingsRow.group(String(localized: "Allowed sites"), sites.map(\.view))
-        // The list only counts in Per Site mode; in the other two it stays
-        // visible, so a revoke is still to hand, but steps back.
-        grants.alphaValue = mode == .allowPerSite ? 1 : 0.5
-        body.card(grants, rows: sites)
+        // The list only means something in Per Site mode, so it is only there
+        // then. The grants are kept, and come back with the mode.
+        if mode == .allowPerSite {
+            let sites = grantRows(control)
+            body.card(SettingsRow.group(String(localized: "Allowed sites"), sites.map(\.view)), rows: sites)
+        }
 
         let (rows, fresh) = activityRows(control)
         let log = timeline(String(localized: "Recent activity"), rows.map(\.view))
@@ -364,7 +364,7 @@ extension LunaControlSection {
     private func grantRows(_ control: ControlService) -> [(view: NSView, terms: [String])] {
         let grants = control.permissions.grants.sorted { ($0.site, $0.client) < ($1.site, $1.client) }
         guard !grants.isEmpty else {
-            let empty = String(localized: "No sites yet. In Per Site mode, Allow on a request adds one here.")
+            let empty = String(localized: "No sites yet. Allow on a request adds one here.")
             return [(view: SettingsRow.status(empty), terms: [empty])]
         }
         return grants.map { grant in

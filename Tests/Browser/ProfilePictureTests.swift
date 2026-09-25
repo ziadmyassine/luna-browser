@@ -98,9 +98,13 @@ final class ProfilePictureTests: XCTestCase {
             XCTAssertTrue(text.contains("Personal"), text)
             XCTAssertFalse(text.lowercased().contains("profile"), text)
         }
-        let titles = SidebarMenu.profile(name: "Personal", manage: {}).items.map(\.title)
+        let space = Space(name: "Personal", symbolName: "person", gradient: .defaultSpace)
+        let panel = SpacePanel(frame: NSRect(x: 0, y: 0, width: 1000, height: 900), edge: .above, content: SpacePanelContent(
+            spaces: [space], activeID: space.id, switchTo: { _ in }, setGradient: { _, _ in }, edit: {}, new: {}
+        ))
+        let titles = panel.rows.compactMap { $0.accessibilityLabel() }
         XCTAssertFalse(titles.contains { $0.lowercased().contains("profile") }, "\(titles)")
-        XCTAssertTrue(titles.contains { $0.contains("Manage Spaces") }, "\(titles)")
+        XCTAssertTrue(titles.contains { $0.contains("Edit “Personal”") }, "\(titles)")
     }
 
     /// A picture fills the circle at the pill's leading end, round, and the

@@ -83,6 +83,11 @@ enum SettingsMetrics {
     static let rowGap = Tokens.Metric.rowGap
     static let rowCornerRadius = Tokens.Metric.rowCornerRadius
     static let paneInset = Tokens.Metric.chromeGapWide
+    /// Room above the page, inside the scroll view, for a control at the top
+    /// to swell into. A press grows a control by `pressSwell`, 2.5 % past each
+    /// edge, so 8 pt clears anything up to 320 pt tall; the pane's tallest
+    /// control, a Space card, is well under that.
+    static let paneSwellRoom = Tokens.Metric.chromeGap
     static let controlRowGap = Tokens.Metric.chromeGap
     static let searchHeight = Tokens.Metric.urlPill.height
     static let symbolSize = Tokens.Metric.faviconSize

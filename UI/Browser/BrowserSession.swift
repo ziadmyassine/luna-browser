@@ -275,6 +275,13 @@ final class BrowserSession {
     /// came back silent after a relaunch with nothing on screen to say why would be a
     /// bug report, not a feature. See `setMuted(_:tab:)`.
     var mutedTabIDs: Set<UUID> = []
+    /// §3.4b: tabs still shown under their folder while it is folded — the
+    /// one the user was on when they folded it, and any they have gone to
+    /// inside it since. See `BrowserSession+Groups`'s "Folded, but showing".
+    /// Not on the row: it is about this session's browsing, and a relaunch
+    /// that came back with a folder half open would be a folder in a state
+    /// nobody left it in.
+    var folderPeeks: Set<UUID> = []
     /// §3.4b folders whose Luna Control client is working in them right now,
     /// which the sidebar marks. Written only by `BrowserSession+Control.swift`.
     var controlledGroupIDs: Set<UUID> = []

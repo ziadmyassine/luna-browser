@@ -244,6 +244,7 @@ final class SidebarViewController: NSViewController, WindowScoped {
         // §3.4b: the two tiers arrive already arranged — `TabList` owns the
         // order, including where a group stands among the loose tabs, so the
         // column has no arrangement of its own to disagree with it.
+        list.peekingTabIDs = session.folderPeeks
         list.show(
             saved: folders,
             today: session.slots(inTier: .today),
@@ -298,6 +299,7 @@ final class SidebarViewController: NSViewController, WindowScoped {
             canGoForward: state?.canGoForward ?? false,
             isLoading: state?.isLoading ?? false
         )
+        refreshExtensions()
         followScrollProgress()
     }
 

@@ -50,6 +50,19 @@ enum QuitConfirmation {
         guard setting, !alreadyConfirmed, hasSession, hasVisibleWindow else { return false }
         return !isLogOut
     }
+
+    /// Whether the sheet goes on §23.1's Settings window rather than on the
+    /// browser window.
+    ///
+    /// Settings is a child of the browser window it was opened over, so it
+    /// always stands in front of that one, centred on it — where the sheet
+    /// would also be centred. Put on the browser window, the question came up
+    /// behind Settings, half hidden, taking the keyboard from a window that
+    /// did not have it. So it goes on Settings whenever Settings is the window
+    /// in use or is covering the one that would have held the sheet.
+    static func asksOverSettings(settingsIsVisible: Bool, settingsIsKey: Bool, settingsCoversBrowser: Bool) -> Bool {
+        settingsIsVisible && (settingsIsKey || settingsCoversBrowser)
+    }
 }
 
 extension AppDelegate {
@@ -78,12 +91,22 @@ extension AppDelegate {
     /// as not visible for the same reason, and a quit with no window to ask in
     /// goes straight through — the tabs it would be protecting were put away
     /// when the window closed.
+    ///
+    /// Whether to ask is still the browser window's question; where to ask is
+    /// `QuitConfirmation.asksOverSettings`.
     var quitSheetHost: NSWindow? {
         guard let window = browserWindow?.window, window.isVisible else { return nil }
+        if let settings = settingsWindow?.window, QuitConfirmation.asksOverSettings(
+            settingsIsVisible: settings.isVisible && !settings.isMiniaturized,
+            settingsIsKey: settings.isKeyWindow,
+            settingsCoversBrowser: settings.parent === window
+        ) {
+            return settings
+        }
         return window
     }
 
-    /// Puts the sheet up over the browser window and wires its answer back to
+    /// Puts the sheet up over `quitSheetHost` and wires its answer back to
     /// `NSApp`.
     func presentQuitSheet() {
         guard let window = quitSheetHost, let host = window.contentView else { return }

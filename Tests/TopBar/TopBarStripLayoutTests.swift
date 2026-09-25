@@ -55,10 +55,13 @@ final class TopBarStripLayoutTests: XCTestCase {
         XCTAssertGreaterThan(divider.frame.minX, header.frame.maxX)
         XCTAssertLessThan(divider.frame.maxX, first.frame.minX, "the divider stands between the name and the tabs")
 
+        // The plate keeps `folderPadding` past its first and last tab, and the
+        // tabs stand `folderLift` in from its top and bottom.
         let plate = try XCTUnwrap(strip.folderPlates[folder]).frame
-        XCTAssertEqual(plate.minX, header.frame.minX)
-        XCTAssertEqual(plate.maxX, second.frame.maxX)
+        XCTAssertEqual(header.frame.minX - plate.minX, TopBarMetrics.folderPadding)
+        XCTAssertEqual(plate.maxX - second.frame.maxX, TopBarMetrics.folderPadding)
         XCTAssertEqual(plate.height, TopBarMetrics.lineHeight)
+        XCTAssertEqual(first.frame.height, plate.height - 2 * TopBarMetrics.folderLift, accuracy: 0.5)
         XCTAssertFalse(plate.intersects(outside.frame), "the plate holds the folder and nothing else")
         XCTAssertEqual(outside.frame.minX - plate.maxX, TopBarMetrics.gap)
     }

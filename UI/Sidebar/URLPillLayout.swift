@@ -51,13 +51,13 @@ extension URLPillView {
     private var glyphBox: CGFloat { glyphInk + Tokens.Metric.chromeGap }
 
     /// Which end the sliders glyph is on, which is a fact about whether
-    /// this pill also carries a reload.
+    /// this pill also carries a reload or §16.4's extensions.
     ///
     /// One affordance on a pill goes on the trailing edge — that is where §3.2
     /// has always drawn it, and where §3.4's rows draw theirs. A second one
     /// has to take the other end, and site settings is the one that describes
     /// what the address is, so it leads and reload trails.
-    private var slidersLead: Bool { onReload != nil }
+    private var slidersLead: Bool { onReload != nil || showsExtensions }
 
     /// The room a glyph takes out of the text's line: the mark, its inset, and
     /// the gap between it and the address.
@@ -77,7 +77,25 @@ extension URLPillView {
         // A pill with both is symmetric, which is what lets §3.2b centre the
         // address in the capsule rather than in the space one glyph leaves.
         guard slidersLead else { return (Tokens.Metric.pillTextInset, glyphRun) }
-        return (glyphRun, glyphRun)
+        guard showsExtensions else { return (glyphRun, glyphRun) }
+        return (glyphRun, glyphRun + CGFloat(fittingPins) * chipWidth)
+    }
+
+    /// The chip's box, height and width, for a pill of this height — see
+    /// `placeContents` for why it is wider than it is tall.
+    private var chipBox: CGFloat { min(glyphBox, bounds.height) }
+    var chipWidth: CGFloat {
+        let box = chipBox
+        return max(box, 2 * (glyphInset + glyphInk / 2 - (bounds.height - box) / 2))
+    }
+
+    /// §16.4: how many pinned extensions stand beside the extensions button.
+    /// The address keeps `pinnedExtensionsAddressShare` of the pill; the
+    /// sliders' run and the button's come out of the rest, and the pins share
+    /// what is left, one chip each.
+    var fittingPins: Int {
+        let room = bounds.width * (1 - Tokens.Metric.pinnedExtensionsAddressShare) - 2 * glyphRun
+        return ExtensionShelfFit.count(extensionPins.count, room: room, pitch: chipWidth)
     }
 
     /// A capsule at any height: §3.2's is always 34 pt, but §3.2b's collapses,
@@ -141,7 +159,7 @@ extension URLPillView {
         // thing on the pill whose place does not depend on what else is on it
         // — only on the capsule it lies in, corner and all.
         loadLine.place(inPill: bounds, cornerRadius: cornerRadius)
-        let box = min(glyphBox, bounds.height)
+        let box = chipBox
         let height = field.intrinsicContentSize.height
         let textY = (bounds.height - height) / 2
         let boxY = (bounds.height - box) / 2
@@ -153,7 +171,7 @@ extension URLPillView {
         // stands as far in from that end as from the top and bottom. A circle
         // there was a second curve inside the pill's, and the chip that
         // matches it comes out a few points wider than it is tall.
-        let chip = max(box, 2 * (glyphInset + glyphInk / 2 - boxY))
+        let chip = chipWidth
         let overhang = (chip - glyphInk) / 2
         field.alignment = .natural
 
@@ -168,6 +186,7 @@ extension URLPillView {
             height: box
         ).integral
         reload.frame = NSRect(x: trailingX, y: boxY, width: chip, height: box).integral
+        placeExtensions(trailingX: trailingX, y: boxY, chip: NSSize(width: chip, height: box))
 
         let margin = margins
         let run = max(bounds.width - margin.leading - margin.trailing, 0)

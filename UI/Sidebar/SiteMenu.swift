@@ -26,8 +26,11 @@ enum SiteMenu {
     ///
     /// One controller for every window: a pop-out is the thing under the
     /// pointer, and there is only one pointer.
-    static func present(from anchor: NSView) {
+    /// - Parameter aligned: a view to line the pop-out's leading edge up
+    ///   with — the sidebar's search bar, which the glyph sits in.
+    static func present(from anchor: NSView, alignedTo aligned: NSView? = nil) {
         guard let window = anchor.window else { return }
+        controller.alignsLeadingEdgeTo = aligned
         let edge: PopoutEdge = anchor.convert(anchor.bounds, to: nil).midY > window.contentLayoutRect.midY
             ? .below
             : .above

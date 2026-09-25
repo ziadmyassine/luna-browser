@@ -43,6 +43,10 @@ final class GlassButton: NSView {
     /// material is the surface around it. `NavCluster` uses it to swell the
     /// capsule its two chevrons are halves of.
     var onPressChange: ((Bool) -> Void)?
+    /// Told the glyph's ink whenever it changes, for a face the button does
+    /// not draw itself — the Space pill's name, which has to rest and lift
+    /// with the glyphs beside it.
+    var onInkChange: ((NSColor) -> Void)?
     /// §3.3: this button is the selected one — the active Essential.
     ///
     /// Selection is the material, not a ring. It used to draw a 1 pt accent
@@ -205,16 +209,18 @@ final class GlassButton: NSView {
 
     // MARK: - State
 
-    private func refresh() {
+    /// The glyph's ink for the state the button is in.
+    var ink: NSColor {
         // §21.4 has no "disabled" ink; `tertiary` is the dimmest tier that still
         // clears the floor, and is used in place of §3.1's unreadable 35 %.
-        let ink: NSColor
-        if !isEnabled {
-            ink = Tokens.Text.tertiary
-        } else {
-            ink = (isHovering || isPressed || isSelected) ? Tokens.Text.primary : Tokens.Text.secondary
-        }
+        guard isEnabled else { return Tokens.Text.tertiary }
+        return (isHovering || isPressed || isSelected) ? Tokens.Text.primary : Tokens.Text.secondary
+    }
+
+    private func refresh() {
+        let ink = ink
         if glyph.image?.isTemplate ?? true { glyph.contentTintColor = ink }
+        onInkChange?(ink)
         needsDisplay = true
         setAccessibilityEnabled(isEnabled)
     }

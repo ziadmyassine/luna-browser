@@ -156,4 +156,27 @@ final class QuitConfirmationTests: XCTestCase {
             setting: true, alreadyConfirmed: false, hasSession: false, hasVisibleWindow: true, isLogOut: false
         ), "there is nothing to protect before the session exists")
     }
+
+    /// ⌘Q from Settings put the sheet on the browser window behind it, under
+    /// Settings, where it could barely be seen and not be reached.
+    func testWithSettingsInFrontItAsksOverSettings() {
+        XCTAssertTrue(QuitConfirmation.asksOverSettings(
+            settingsIsVisible: true, settingsIsKey: true, settingsCoversBrowser: true
+        ))
+        XCTAssertTrue(QuitConfirmation.asksOverSettings(
+            settingsIsVisible: true, settingsIsKey: false, settingsCoversBrowser: true
+        ), "Settings stands over its browser window even when that window is key")
+        XCTAssertTrue(QuitConfirmation.asksOverSettings(
+            settingsIsVisible: true, settingsIsKey: true, settingsCoversBrowser: false
+        ))
+    }
+
+    func testOtherwiseItAsksOverTheBrowserWindow() {
+        XCTAssertFalse(QuitConfirmation.asksOverSettings(
+            settingsIsVisible: false, settingsIsKey: false, settingsCoversBrowser: true
+        ), "a closed Settings window is still the controller's window")
+        XCTAssertFalse(QuitConfirmation.asksOverSettings(
+            settingsIsVisible: true, settingsIsKey: false, settingsCoversBrowser: false
+        ), "Settings over another window does not hide this one")
+    }
 }

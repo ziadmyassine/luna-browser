@@ -224,25 +224,26 @@ extension Tokens {
         /// and 10 pt is still twice `dragThreshold` for the boundary above it.
         static let groupDropEdge: CGFloat = 10
         /// How much sooner a tab inside a §3.4b folder ends its pill, and so
-        /// its trailing glyphs, than a loose tab. The folder's plate has a
-        /// loose tab's sides, so without this a hovered member's pill lay on
-        /// the plate's hairline and the two edges read as one; 4 pt is the gap
-        /// Dia's folder plate keeps round its own row highlights. The leading
-        /// side already stands `groupIndent` in.
+        /// its trailing glyphs, than a loose tab: `rowInset`, the room a loose
+        /// tab keeps from the column's edge, so a folder's tab stands off the
+        /// folder's plate exactly as a loose one stands off the sidebar. It was
+        /// 4 pt, Dia's gap round its row highlights, and next to the column's
+        /// own 8 the lit tab looked pressed against the plate. The leading side
+        /// already stands `groupIndent` in.
         ///
         /// The plate itself stands no further out than the pills it holds: a
         /// folded folder's plate is exactly a tab's hover pill. Grown past
         /// them by this much on every side, it read as a heavier, taller
         /// block than the row it was lighting.
-        static let groupMemberTrailingInset: CGFloat = 4
-        /// How far the plate reaches below the last tab's pill. An open
-        /// header draws no pill, so above the folder the plate's edge stands
-        /// the header icon's own margin in its pill, 7.5 pt; the foot takes
-        /// the same, so the folder sits in its plate with equal room top and
-        /// bottom.
-        static let groupPlateFoot = (rowPillHeight - groupIconSize) / 2
+        static let groupMemberTrailingInset = rowInset
+        /// How far the plate reaches below the last tab's pill: the room it
+        /// keeps at the tab's side (`groupMemberTrailingInset`), so a folder's
+        /// last tab has the same margin to the plate below it as beside it.
+        /// It was the header icon's margin in its pill, 7.5 pt, matching the
+        /// room above the folder rather than the room round the tab.
+        static let groupPlateFoot = groupMemberTrailingInset
         /// The room an open, non-empty §3.4b folder leaves under its last tab:
-        /// the plate's whole reach below that tab's row, 7.5 − 1.5 = 6 pt.
+        /// the plate's whole reach below that tab's row, 8 − 1.5 = 6.5 pt.
         /// The plate then ends exactly where the next row begins, and that
         /// row's pill clears it by its own `rowPillInset`.
         static let groupEndGap = groupPlateFoot - rowPillInset

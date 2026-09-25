@@ -99,9 +99,11 @@ struct TopBarStripRun: Equatable, Sendable {
         saved: [SidebarSlot] = [],
         today: [SidebarSlot] = [],
         excluding lifted: UUID? = nil,
-        landings: Set<TabKind> = []
+        landings: Set<TabKind> = [],
+        peeking: Set<UUID> = []
     ) {
         var build = Build()
+        build.peeking = peeking
         let tiles = essentials.filter { $0.id != lifted }
         build.emit(tiles, kind: .essential)
         if tiles.isEmpty, landings.contains(.essential) { build.emitLanding(.essential) }
@@ -202,6 +204,8 @@ private struct Build {
     var trailing: [SidebarDestination] = []
     var owner: [Int] = []
     var tabs: [Tab] = []
+    /// Tabs a folded folder still shows — `BrowserSession.folderPeeks`.
+    var peeking: Set<UUID> = []
     /// Slots emitted per tier so far — what the next index in that tier is, and
     /// what the end of it is once the tier is done.
     private var counts: [TabKind: Int] = [:]
@@ -287,14 +291,17 @@ private struct Build {
                         index: group.isCollapsed ? open.count : 0
                     )
                 )
-                guard !group.isCollapsed else { continue }
-                emit(open, ofGroup: group.id, kind: kind, inside: blocks.count - 1)
+                // Folded, it still shows what the session keeps out for it,
+                // each tab at its own place in the folder.
+                let shown = group.isCollapsed ? open.enumerated().filter { peeking.contains($0.element.id) } : Array(open.enumerated())
+                guard !shown.isEmpty else { continue }
+                emit(shown, ofGroup: group.id, kind: kind, inside: blocks.count - 1)
             }
         }
     }
 
-    private mutating func emit(_ members: [Tab], ofGroup id: UUID, kind: TabKind, inside header: Int) {
-        for (member, index) in zip(members, members.indices) {
+    private mutating func emit(_ members: [(offset: Int, element: Tab)], ofGroup id: UUID, kind: TabKind, inside header: Int) {
+        for (index, member) in members {
             tabs.append(member)
             add(
                 // A folder's tabs are told apart by their titles in either
