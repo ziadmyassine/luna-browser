@@ -290,7 +290,7 @@ final class SettingsWindowTests: XCTestCase {
         XCTAssertEqual(
             Set(floors.map(\.constant)),
             [SettingsMetrics.minWidth, SettingsMetrics.minHeight],
-            "§1's 640 × 520 floor is missing from the root view"
+            "§1's 640 × 560 floor is missing from the root view"
         )
         // Not an equality against `contentSize`. `windowFrameAutosaveName` is
         // set on this window on purpose (§1: it comes back the size you left
@@ -301,7 +301,7 @@ final class SettingsWindowTests: XCTestCase {
         // made it order-dependent as well.
         //
         // What is spec'd is the declared size and the floor.
-        XCTAssertEqual(SettingsMetrics.contentSize, CGSize(width: 720, height: 560))
+        XCTAssertEqual(SettingsMetrics.contentSize, CGSize(width: 720, height: 600))
         let size = try XCTUnwrap(window.contentView?.frame.size)
         XCTAssertGreaterThanOrEqual(size.width, SettingsMetrics.minWidth)
         XCTAssertGreaterThanOrEqual(size.height, SettingsMetrics.minHeight)
