@@ -464,6 +464,10 @@ Claude Code gets a command rather than an edit because it rewrites
 `~/.claude.json` itself while running, and two writers to one file lose
 changes. The row reads that file to show whether the command was run.
 
+The pane opens on a night sky with the switch in it, the apps are rows with
+coloured planets, and the permission choice is three moon-phase cards —
+[LUNA-CONTROL.md](LUNA-CONTROL.md), "The Settings pane".
+
 ### 3.11 About
 The app's icon (64 pt, as macOS's own About panel draws it), its name and its version, starting where the card below starts, as a group's name does (§1), then one card:
 

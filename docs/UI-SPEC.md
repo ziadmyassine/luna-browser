@@ -2344,9 +2344,11 @@ at `TypeScale.pageTitle`, one sentence of what is actually at stake, and three a
 
 ## 6. Motion
 
-Nothing exceeds **0.35 s** except the two cases marked, which are not discrete transitions: §7's
+Nothing exceeds **0.35 s** except the cases marked, which are not discrete transitions: §7's
 reload bloom is bound to real load progress, and §3.4's row shimmer repeats for as long as the tab is
-loading, so its duration is a rate and not a delay. Every entry degrades to instant under Reduce
+loading, so its duration is a rate and not a delay. Luna Control's settings sky is the third: its
+moonrise, moonset, beam and launch picture a change that has already happened, and nothing waits on
+them ([LUNA-CONTROL.md](LUNA-CONTROL.md), "The Settings pane"). Every entry degrades to instant under Reduce
 Motion.
 
 | Interaction | Animation |

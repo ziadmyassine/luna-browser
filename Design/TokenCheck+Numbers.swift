@@ -382,7 +382,7 @@ extension TokenCheck {
         return failures
     }
 
-    /// §6: nothing over 0.35 s except the two entries tied to real work.
+    /// §6: nothing over 0.35 s except the entries it exempts by name.
     static func checkMotion() -> [String] {
         let timed: [(String, MotionSpec)] = [
             ("rowHover", Tokens.Motion.rowHover), ("controlHover", Tokens.Motion.controlHover),
@@ -398,7 +398,8 @@ extension TokenCheck {
             ("themeWash", Tokens.Motion.themeWash), ("reloadArcIn", Tokens.Motion.reloadArcIn),
             ("reloadArcOut", Tokens.Motion.reloadArcOut),
             ("loadLineAdvance", Tokens.Motion.loadLineAdvance), ("loadLineFade", Tokens.Motion.loadLineFade),
-            ("downloadFlight", Tokens.Motion.downloadFlight), ("downloadCatch", Tokens.Motion.downloadCatch)
+            ("downloadFlight", Tokens.Motion.downloadFlight), ("downloadCatch", Tokens.Motion.downloadCatch),
+            ("modePhase", Tokens.Motion.modePhase), ("satelliteFade", Tokens.Motion.satelliteFade)
         ]
         var failures = timed.filter { $0.1.duration > motionBudget }
             .map { String(format: "Motion.%@ is %.2f s — §6 caps at 0.35 s", $0.0, $0.1.duration) }
@@ -415,6 +416,13 @@ extension TokenCheck {
         // rate rather than a delay (§3.4's shimmer). It does not belong in
         // `timed` above.
         failures += exemption("rowShimmer", Tokens.Motion.rowShimmer, 1.10)
+        // Luna Control's sky: a picture of a change that has already happened
+        // (`Motion.moonrise`). Held to their values like the shimmer.
+        failures += exemption("moonrise", Tokens.Motion.moonrise, 1.10)
+        failures += exemption("moonset", Tokens.Motion.moonset, 0.60)
+        failures += exemption("moonBeam", Tokens.Motion.moonBeam, 0.70)
+        failures += exemption("satelliteLaunch", Tokens.Motion.satelliteLaunch, 0.60)
+        failures += exemption("livePulse", Tokens.Motion.livePulse, 1.60)
         if timed.contains(where: { $0.0 == "rowShimmer" }) {
             failures.append("Motion.rowShimmer is in the budget list — it loops, so 0.35 s would make it a strobe")
         }

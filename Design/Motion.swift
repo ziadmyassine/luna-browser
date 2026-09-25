@@ -239,6 +239,36 @@ extension Tokens {
         /// Reduce Motion: do not run it — the title stays put (§21.2).
         static let rowShimmer = MotionSpec(1.10, .linear)
 
+        /// Luna Control's moon filling as its switch goes on, and going dark
+        /// as it goes off (docs/LUNA-CONTROL.md, "The Settings pane").
+        ///
+        /// Exempt for the same reason as the shimmer: nothing is pending on it.
+        /// The setting has changed and the socket is open before the moon
+        /// starts; the moon is a picture of that, and at 0.35 s it read as a
+        /// flash rather than a moon rising. `TokenCheck` holds all five of
+        /// these to their values.
+        static let moonrise = MotionSpec(1.10, .easeInOut)
+        static let moonset = MotionSpec(0.60, .easeInOut)
+        /// A beam from an app's light to the moon, each time that app acts.
+        static let moonBeam = MotionSpec(0.70, .easeOut)
+        /// A newly connected app's light, flying from its row into orbit. The
+        /// row has already changed; this only shows where the app went.
+        static let satelliteLaunch = MotionSpec(0.60, .easeInOut)
+        /// The ring round a live dot, once per pass for as long as an app is
+        /// in use — a rate, like the shimmer. Not run under Reduce Motion.
+        static let livePulse = MotionSpec(1.60, .easeOut)
+        /// One lap of each of the moon's two orbits. Slow enough to read as
+        /// drift rather than as something to watch.
+        static let innerOrbitLap: TimeInterval = 24
+        static let outerOrbitLap: TimeInterval = 39
+
+        /// A permission card's moon waxing to its phase when the card is
+        /// chosen, and an app's light fading in or out of the sky.
+        static let modePhase = MotionSpec(0.35, .easeInOut)
+        static let satelliteFade = MotionSpec(0.30)
+        /// Between one app's light and the next as the sky fills.
+        static let satelliteStagger: TimeInterval = 0.14
+
         // MARK: Accessibility
 
         /// §21.2. Read live on every access — the user can turn Reduce Motion on

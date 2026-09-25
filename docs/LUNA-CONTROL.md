@@ -456,3 +456,36 @@ Every call is written as one JSON line to
 text is counted, not kept, and script is scrubbed and cut to 200 characters.
 Past 4 MB the file rolls to `activity.1.jsonl`. Settings shows the last
 twenty calls.
+
+## The Settings pane
+
+Settings → Luna Control opens on a night sky (`ControlSkyView`), always dark
+whatever the appearance, with the switch in its lower corner and a chip in
+its upper one saying whether apps can reach Luna and which are in use.
+
+- **The moon is the switch's state.** New while Luna Control is off, full
+  while it is on. Turning it on fills it over `Motion.moonrise` (1.1 s);
+  turning it off empties it over `moonset` (0.6 s). The moon also rises again
+  each time the pane is shown.
+- **Each connected app is a light on one of two orbits**, in its own colour
+  (`Tokens.Moon.satellites`, by its place in `ControlApp.all`), named beside
+  it. The app in use trails a tail and a widening ring, and each call it
+  makes runs a beam to the moon (`moonBeam`), which swells slightly as it
+  lands. Connect flies a light from the app's planet in the list into its
+  orbit (`satelliteLaunch`); Disconnect fades it out.
+- **The rows** give each app a planet in the same colour with its initials,
+  a dashed ring once it is connected, and a status dot: grey, green, or green
+  with a ring while in use.
+- **Before an app acts on a page** is three cards, each with a moon: a
+  crescent for Ask, a half moon for Per Site, a full moon for Allow All. The
+  chosen card's moon waxes to its phase (`modePhase`, 0.35 s). Allowed sites
+  steps back to half strength outside Per Site mode, where it is not used.
+- **Recent activity** is a rail with one dot per call in the calling app's
+  colour. A call that arrives while the pane is open fades in at the top.
+
+The four motions over 0.35 s — `moonrise`, `moonset`, `moonBeam`,
+`satelliteLaunch` — plus the repeating `livePulse` are exempt from UI-SPEC
+§6's budget because nothing waits on them: the setting has already changed
+when they start. `TokenCheck` holds each to its value. Under Reduce Motion the
+sky is still: the moon shows its phase, the lights sit on their orbits, and
+nothing flies, beams, twinkles or pulses.
