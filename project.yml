@@ -73,6 +73,9 @@ targets:
       # `NSImage(named:)` hands back the light rendition whatever the window
       # is wearing, so first run showed a white tile on a dark page.
       - path: assets/icon/mark/Mark.xcassets
+      # The icons of the apps Luna Control connects to, shipped with Luna so
+      # a row has its app's face before that app is installed.
+      - path: assets/control/ControlApps.xcassets
     dependencies:
       - package: BrowserKit
       - package: BrowserKit

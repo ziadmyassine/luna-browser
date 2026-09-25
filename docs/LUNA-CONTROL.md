@@ -473,12 +473,13 @@ its upper one saying whether apps can reach Luna and which are in use.
   makes runs a beam to the moon (`moonBeam`), which swells slightly as it
   lands. Connect flies a light from the app's planet in the list into its
   orbit (`satelliteLaunch`); Disconnect fades it out.
-- **The rows** show each app's own icon, taken from the app installed on this
-  Mac (`ControlAppIcon`: Claude Code and Claude Desktop use Claude's, Codex the
-  ChatGPT app's), with a dashed ring in the app's colour once it is connected
-  and a status dot: grey, green, or green with a ring while in use. An app
-  with nothing installed to take an icon from gets a planet in its colour with
-  its initials. The same icon flies on the app's orbit in the sky.
+- **The rows** show each app's own icon, shipped inside Luna
+  (`assets/control/ControlApps.xcassets`, read by `ControlAppIcon`), so an
+  app shows its face whether it is installed or not. Claude Code and Claude
+  Desktop use Claude's icon. Connected apps get a dashed ring in the app's
+  colour and a status dot: grey, green, or green with a ring while in use. An
+  app Luna has no icon for gets a planet in its colour with its initials. The
+  same icon flies on the app's orbit in the sky.
 - **Before an app acts on a page** is three cards, each with a moon: a
   crescent for Ask, a half moon for Per Site, a full moon for Allow All. The
   chosen card's moon waxes to its phase (`modePhase`, 0.35 s). Allowed sites

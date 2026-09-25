@@ -388,30 +388,24 @@ final class ControlFlightView: NSView {
     }
 }
 
-/// The icon of the app on this Mac that a Luna Control client belongs to.
-/// Claude Code has no app of its own and takes Claude's; Codex takes the
-/// ChatGPT app's, which carries Codex's bundle identifier.
+/// The icon of the app a Luna Control client belongs to, from Luna's own
+/// `ControlApps.xcassets` rather than from the app on disk: a row for an app
+/// that is not installed yet still shows its face, and every row shows the
+/// same rendition whatever version is installed. Claude Code has no app of
+/// its own and takes Claude's.
 @MainActor
 enum ControlAppIcon {
 
-    static let bundles: [String: [String]] = [
-        "claude-code": ["com.anthropic.claudefordesktop"],
-        "claude-desktop": ["com.anthropic.claudefordesktop"],
-        "codex": ["com.openai.codex", "com.openai.chat"],
-        "cursor": ["com.todesktop.230313mzl4w4u92"],
-        "vscode": ["com.microsoft.VSCode", "com.microsoft.VSCodeInsiders"]
+    static let assets: [String: String] = [
+        "claude-code": "ControlClaude",
+        "claude-desktop": "ControlClaude",
+        "codex": "ControlCodex",
+        "cursor": "ControlCursor",
+        "vscode": "ControlVSCode"
     ]
 
-    private static var cache: [String: NSImage?] = [:]
-
-    /// Nil when none of the app's bundles is installed.
+    /// Nil only for an app Luna ships no icon for.
     static func image(for appID: String) -> NSImage? {
-        if let known = cache[appID] { return known }
-        let found = (bundles[appID] ?? []).lazy
-            .compactMap { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) }
-            .first
-            .map { NSWorkspace.shared.icon(forFile: $0.path(percentEncoded: false)) }
-        cache[appID] = found
-        return found
+        assets[appID].flatMap { NSImage(named: $0) }
     }
 }

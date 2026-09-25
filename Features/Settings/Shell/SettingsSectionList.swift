@@ -15,8 +15,8 @@
 //    than a flat wash painted on whichever row was selected. Clear glass over
 //    the column's own glass is what makes the selection read as a raised
 //    surface instead of a grey band.
-//  · Each symbol stands on its tile (`SettingsSymbolTile`): grey glass with
-//    a white glyph, as macOS's own settings draw them — not the
+//  · Each symbol stands on its tile (`SettingsSymbolTile`): black with a
+//    coloured glyph, as macOS's own settings draw them — not the
 //    `Surface.selected` square that sat under every glyph once and made the
 //    section icons look like buttons.
 //  · The sidebar's pitch: 38 pt of row around a 35 pt pill, not 34 around 31.
@@ -43,11 +43,11 @@ final class SettingsSectionList: NSView {
     private(set) var selected = 0
     private var hovered: Int?
 
-    /// `styles` runs beside `symbols`; a section with none is grey glass.
+    /// `styles` runs beside `symbols`; a section with none is neutral.
     init(titles: [String], symbols: [String], styles: [SettingsSymbolTile.Style] = []) {
         super.init(frame: .zero)
         rows = titles.indices.map { index in
-            let style = styles.indices.contains(index) ? styles[index] : .glass
+            let style = styles.indices.contains(index) ? styles[index] : .symbol(Tokens.Tile.neutral)
             let row = SettingsSectionRowView(title: titles[index], symbolName: symbols[index], style: style)
             row.onClick = { [weak self] in self?.pick(index) }
             row.onHover = { [weak self] hovering in self?.setHovered(hovering ? index : nil, from: index) }

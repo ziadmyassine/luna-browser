@@ -3,10 +3,10 @@
 //  Luna
 //
 //  The rounded tile a Settings section's symbol stands on, in the list and
-//  at the head of its page. Grey glass with a white glyph, the same in both
-//  appearances, as macOS draws the tiles in its own settings: a tile is an
-//  object on the pane, not a tint of it. Luna Control's is the night sky
-//  from `Tokens.Moon` instead, and About's is the app's own icon.
+//  at the head of its page. Near-black with a coloured glyph, the same in
+//  both appearances, as macOS draws the tiles in its own settings in dark
+//  mode: a tile is an object on the pane, not a tint of it. Luna Control's
+//  is a small copy of its sky, and About's is the app's own icon.
 //
 
 import AppKit
@@ -14,20 +14,24 @@ import AppKit
 extension Tokens {
 
     enum Tile {
-        /// The grey, lighter at the top-left than the bottom-right.
-        static var top: NSColor { grey(0x9D_9D_A4) }
-        static var bottom: NSColor { grey(0x5E_5E_64) }
-        /// The sheen across the upper half, and the hairline and top edge that
-        /// catch the light.
-        static var sheen: NSColor { NSColor.white.withAlphaComponent(0.30) }
-        static var rim: NSColor { NSColor.white.withAlphaComponent(0.35) }
-        static var glyph: NSColor { .white }
-        /// Luna Control's tile: the sky's two ends, a lighter night at the
-        /// top-left, and the moon's own mid tone for its glyph.
-        static var nightTop: NSColor { grey(0x2A_31_58) }
-        static var nightGlyph: NSColor { Tokens.Moon.surfaceMid }
+        /// The black, a little lighter at the top than the bottom so the tile
+        /// reads as a solid rather than a hole in the pane.
+        static var top: NSColor { rgb(0x2C_2C_30) }
+        static var bottom: NSColor { rgb(0x0A_0A_0C) }
+        /// The hairline round it, which is what separates a black tile from a
+        /// dark pane.
+        static var rim: NSColor { NSColor.white.withAlphaComponent(0.16) }
 
-        private static func grey(_ hex: UInt32) -> NSColor {
+        /// The glyph colours, macOS's dark-mode system colours, which are what
+        /// its own settings tiles use. One per section, so a section is found by
+        /// its colour as much as by its shape; most stay neutral.
+        static var neutral: NSColor { rgb(0xD1_D1_D6) }
+        static var white: NSColor { .white }
+        static var blue: NSColor { rgb(0x0A_84_FF) }
+        static var purple: NSColor { rgb(0xBF_5A_F2) }
+        static var green: NSColor { rgb(0x30_D1_58) }
+
+        private static func rgb(_ hex: UInt32) -> NSColor {
             NSColor(
                 srgbRed: CGFloat((hex >> 16) & 0xFF) / 255,
                 green: CGFloat((hex >> 8) & 0xFF) / 255,
