@@ -15,9 +15,10 @@ final class SettingsSymbolTile: NSView {
     enum Style: Equatable {
         /// A black tile with the symbol in the section's colour.
         case symbol(NSColor)
-        /// The symbol in a gradient from the first colour at the top-left to
-        /// the second at the bottom-right: Luna Control's.
-        case gradient(NSColor, NSColor)
+        /// Luna Control's own glyph, drawn rather than a symbol: three rings
+        /// joined by dotted lines, in a gradient from the first colour at the
+        /// top-left to the second at the bottom-right.
+        case connected(NSColor, NSColor)
     }
 
     private let style: Style
@@ -70,35 +71,86 @@ final class SettingsSymbolTile: NSView {
         context.strokePath()
 
         switch style {
-        case let .symbol(colour): drawGlyph([colour])
-        case let .gradient(from, to): drawGlyph([from, to])
+        case let .symbol(colour): drawGlyph(colour)
+        case let .connected(from, to): drawConnected(in: context, colours: [from, to])
         }
     }
 
-    /// One colour is the glyph's; two are a diagonal gradient, painted over
-    /// the glyph in an image of its own so it fills only the glyph's shape.
-    private func drawGlyph(_ colours: [NSColor]) {
+    private func drawGlyph(_ colour: NSColor) {
         let point = side * Self.glyphPointRatio
         let config = NSImage.SymbolConfiguration(pointSize: point, weight: .medium)
-            .applying(.init(paletteColors: [colours[0]]))
-        guard let symbol = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
+            .applying(.init(paletteColors: [colour]))
+        guard let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
             .withSymbolConfiguration(config) else { return }
-        let size = symbol.size
+        let size = image.size
         let scale = min(side * Self.glyphRatio / max(size.width, size.height), 1)
         let drawn = NSSize(width: size.width * scale, height: size.height * scale)
-        var image = symbol
-        if colours.count > 1, let gradient = NSGradient(colors: colours) {
-            image = NSImage(size: size, flipped: false) { rect in
-                symbol.draw(in: rect)
-                NSGraphicsContext.current?.compositingOperation = .sourceIn
-                gradient.draw(in: rect, angle: -45)
-                return true
-            }
-        }
         image.draw(in: NSRect(
             x: bounds.midX - drawn.width / 2, y: bounds.midY - drawn.height / 2,
             width: drawn.width, height: drawn.height
         ))
+    }
+
+    // MARK: Luna Control's glyph
+
+    /// The glyph's width as a part of the side, and its line. The gear and
+    /// the info circle beside it measure 0.54 of the side with a 0.045 line,
+    /// but three open rings carry less ink than a solid outline, and at that
+    /// size this read as the smallest tile in the list.
+    private static let connectedInk: CGFloat = 0.6
+    private static let connectedLine: CGFloat = 0.05
+    /// A ring's radius to the middle of its line: small enough that two dots
+    /// fit between neighbours, which a larger ring cut to one, and the rings
+    /// stopped reading as connected.
+    private static let connectedRing: CGFloat = 0.075
+    /// From one dot's centre to the next, in lines: close enough for two,
+    /// far enough that they stay two dots on the 22 pt list tile.
+    private static let connectedPitch: CGFloat = 1.8
+
+    /// Two rings above and one below, like the symbol this replaces, with
+    /// the ink's box, not the triangle's centroid, on the tile's centre: that
+    /// is how every symbol beside it is centred.
+    private func drawConnected(in context: CGContext, colours: [NSColor]) {
+        let line = side * Self.connectedLine
+        let ring = side * Self.connectedRing
+        let outer = ring + line / 2
+        let edge = side * Self.connectedInk - 2 * outer
+        let height = edge * sqrt(3) / 2 + 2 * outer
+        let top = bounds.midY - height / 2 + outer
+        let nodes = [
+            CGPoint(x: bounds.midX - edge / 2, y: top),
+            CGPoint(x: bounds.midX + edge / 2, y: top),
+            CGPoint(x: bounds.midX, y: top + edge * sqrt(3) / 2)
+        ]
+
+        let ink = CGMutablePath()
+        for node in nodes {
+            let circle = CGPath(
+                ellipseIn: CGRect(x: node.x - ring, y: node.y - ring, width: 2 * ring, height: 2 * ring), transform: nil
+            )
+            ink.addPath(circle.copy(strokingWithWidth: line, lineCap: .round, lineJoin: .round, miterLimit: 1))
+        }
+        // Dots of the line's width, as many as fit in the gap between two
+        // rings, centred in it.
+        let pitch = line * Self.connectedPitch
+        let gap = edge - 2 * outer
+        let count = max(1, Int((gap + line) / pitch - 0.5))
+        for (from, to) in [(nodes[0], nodes[1]), (nodes[1], nodes[2]), (nodes[2], nodes[0])] {
+            let run = (x: (to.x - from.x) / edge, y: (to.y - from.y) / edge)
+            let span = CGFloat(count - 1) * pitch
+            for index in 0..<count {
+                let along = edge / 2 - span / 2 + CGFloat(index) * pitch
+                let dot = CGPoint(x: from.x + run.x * along, y: from.y + run.y * along)
+                ink.addEllipse(in: CGRect(x: dot.x - line / 2, y: dot.y - line / 2, width: line, height: line))
+            }
+        }
+
+        let box = ink.boundingBoxOfPath
+        context.saveGState()
+        context.addPath(ink)
+        context.clip()
+        fill(context, colours, from: CGPoint(x: box.minX, y: box.minY), to: CGPoint(x: box.maxX, y: box.maxY))
+        context.restoreGState()
     }
 
     private func fill(_ context: CGContext, _ colours: [NSColor], from: CGPoint, to: CGPoint) {

@@ -159,7 +159,7 @@ enum SettingsSectionRegistry {
     /// How a section's tile is drawn, in the list and at the head of its page.
     static func tileStyle(for id: String) -> SettingsSymbolTile.Style {
         switch id {
-        case LunaControlSection.id: .gradient(Tokens.Tile.controlFrom, Tokens.Tile.controlTo)
+        case LunaControlSection.id: .connected(Tokens.Tile.controlFrom, Tokens.Tile.controlTo)
         case AppearanceSection.id: .symbol(Tokens.Tile.white)
         case PrivacySection.id: .symbol(Tokens.Tile.blue)
         case SpacesSection.id: .symbol(Tokens.Tile.purple)

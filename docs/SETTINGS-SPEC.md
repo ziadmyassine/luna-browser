@@ -244,7 +244,9 @@ Twelve sections became eight, because several were a single card:
   `Surface.selected` square §2.1 removed: a black tile with the symbol in the
   section's colour (`Tokens.Tile`), as macOS's own settings draw theirs in dark
   mode, 22 pt in the list and 44 pt at the head of the page. Luna Control's
-  is three connected dots in a violet-to-cyan gradient; About's is an "i".
+  is drawn rather than a symbol, three rings joined by dotted lines in a
+  violet-to-cyan gradient, at the width and line weight of the symbols
+  beside it; About's is an "i".
 - **Each page opens on its tile, its name and one line** saying what it is for
   (`SettingsPageHeader`), a group's distance above the first card. Luna Control
   and About open on their own sky and icon instead.
