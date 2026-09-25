@@ -155,6 +155,10 @@ struct ControlAppsTests {
         #expect(claude.command(connecting: true, helper: URL(filePath: "/Users/a b/Luna.app/luna-control"))
             == "claude mcp add --scope user luna -- '/Users/a b/Luna.app/luna-control'")
         #expect(claude.command(connecting: false, helper: helper) == "claude mcp remove luna --scope user")
+        let spaced = try #require(claude.invocation(connecting: true, helper: URL(filePath: "/Users/a b/luna-control")))
+        #expect(spaced.tool == "claude")
+        #expect(spaced.arguments == ["mcp", "add", "--scope", "user", "luna", "--", "/Users/a b/luna-control"])
+        #expect(try app("cursor").invocation(connecting: true, helper: helper) == nil)
         #expect(throws: ControlApp.EditError.self) { try claude.connect(home: home, helper: helper) }
 
         try write(#"{"projects": {"/x": {"mcpServers": {"luna": {}}}}}"#, to: claude)

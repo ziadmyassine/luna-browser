@@ -33,8 +33,12 @@ MCP client ──stdio──▶ Luna.app/Contents/MacOS/luna-control ──Unix 
    to that app's MCP config, keeps every other server in it, and saves the
    file as it was next to it as `<file>.luna-backup`. Nothing is written
    until you press the button, and Disconnect removes only Luna's entry.
-   For Claude Code the button copies a command instead: paste it into
-   Terminal.
+   Claude Code is connected by its own `claude mcp add` command, which Luna
+   runs for you, because Claude Code rewrites `~/.claude.json` itself while
+   it runs and a second writer would race it. Luna looks for `claude` where
+   its installers put it (`~/.local/bin`, `~/.claude/local`, Homebrew, npm,
+   Bun, Volta; `ControlCLI`). If it is not in any of them, the button copies
+   the command instead: paste it into Terminal.
 3. **Restart the app** if its row says so. Claude Desktop, Codex and Claude
    Code read their config when they start (in Claude Code, a new session is
    enough). In Cursor or VS Code, reload the window if Luna's tools do not

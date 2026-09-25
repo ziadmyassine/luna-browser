@@ -15,9 +15,12 @@ public struct ControlApp: Sendable, Identifiable, Equatable {
         /// Codex's `[mcp_servers.<name>]` table.
         case toml
         /// Claude Code rewrites `~/.claude.json` itself, constantly, so a
-        /// second writer would race it. The user runs its own command instead,
-        /// and the file is only read to show whether that happened.
-        case command(add: String, remove: String)
+        /// second writer would race it. Its own command makes the change
+        /// instead: Luna runs it when it can find the tool (`ControlCLI`),
+        /// and the user pastes it into Terminal when it cannot. The file is
+        /// only read to show whether that happened. `add` holds `%@` where
+        /// the helper's path goes.
+        case command(tool: String, add: [String], remove: [String])
     }
 
     public var id: String
@@ -41,8 +44,9 @@ public struct ControlApp: Sendable, Identifiable, Equatable {
         ControlApp(
             id: "claude-code", name: "Claude Code", configPath: ".claude.json",
             format: .command(
-                add: "claude mcp add --scope user \(serverName) -- %@",
-                remove: "claude mcp remove \(serverName) --scope user"
+                tool: "claude",
+                add: ["mcp", "add", "--scope", "user", serverName, "--", "%@"],
+                remove: ["mcp", "remove", serverName, "--scope", "user"]
             ),
             markers: [".claude", ".claude.json"], clientNames: ["claude-code"], needsRestart: true
         ),
@@ -101,8 +105,17 @@ public struct ControlApp: Sendable, Identifiable, Equatable {
 
     /// The Terminal command for a `.command` app, nil for the rest.
     public func command(connecting: Bool, helper: URL) -> String? {
-        guard case let .command(add, remove) = format else { return nil }
-        return connecting ? String(format: add, Self.shellQuoted(helper.path(percentEncoded: false))) : remove
+        invocation(connecting: connecting, helper: helper).map { tool, arguments in
+            ([tool] + arguments).map(Self.shellQuoted).joined(separator: " ")
+        }
+    }
+
+    /// The same command as a tool name and its arguments, for running it
+    /// without a shell.
+    public func invocation(connecting: Bool, helper: URL) -> (tool: String, arguments: [String])? {
+        guard case let .command(tool, add, remove) = format else { return nil }
+        let path = helper.path(percentEncoded: false)
+        return (tool, connecting ? add.map { $0 == "%@" ? path : $0 } : remove)
     }
 
     // MARK: - Editing

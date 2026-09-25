@@ -192,24 +192,8 @@ final class LunaControlSection: NSObject, SettingsSection {
             status += String(localized: " · restart \(app.name) to load it")
         }
 
-        let button: SettingsPushButton
-        if let command = app.command(connecting: !connected, helper: helper) {
-            if !connected { status += String(localized: " · paste the command in Terminal") }
-            button = SettingsPushButton(
-                title: connected ? String(localized: "Copy Remove Command") : String(localized: "Copy Command"),
-                isDestructive: false
-            )
-            button.onActivate = { [weak self, weak button] in
-                self?.copy(command, from: button)
-                if !connected { self?.awaitingRestart.insert(app.id) }
-            }
-        } else {
-            button = SettingsPushButton(
-                title: connected ? String(localized: "Disconnect") : String(localized: "Connect"),
-                isDestructive: false
-            )
-            button.onActivate = { [weak self] in self?.toggle(app, connected: connected) }
-        }
+        if !connected, copiesCommand(app) { status += String(localized: " · paste the command in Terminal") }
+        let button = connectButton(for: app, connected: connected)
         let row = ControlAppRowView(
             name: app.name, colour: colour, icon: ControlAppIcon.image(for: app.id), status: status,
             dot: inUse ? .live : (connected ? .on : .off), isInstalled: true, isConnected: connected, accessory: button
@@ -222,17 +206,12 @@ final class LunaControlSection: NSObject, SettingsSection {
         do {
             if connected {
                 try app.disconnect(home: home)
-                awaitingRestart.remove(app.id)
             } else {
                 try app.connect(home: home, helper: helper)
-                if app.needsRestart { awaitingRestart.insert(app.id) }
-                pendingLaunch = app.id
             }
+            changed(app, connected: !connected)
         } catch {
-            let alert = NSAlert()
-            alert.messageText = String(localized: "Luna couldn’t change \(app.name)’s settings")
-            alert.informativeText = "\(app.config(in: home).path(percentEncoded: false))\n\n\(error)"
-            alert.runModal()
+            refuse(app, error)
         }
         build()
     }
@@ -276,6 +255,84 @@ final class LunaControlSection: NSObject, SettingsSection {
         return (view: row, terms: [title, subtitle, "json", "mcp"])
     }
 
+}
+
+// MARK: - Connecting
+
+extension LunaControlSection {
+
+    /// Connect and Disconnect, or for an app whose tool Luna cannot find, a
+    /// button that copies the command to run instead.
+    private func connectButton(for app: ControlApp, connected: Bool) -> SettingsPushButton {
+        let button: SettingsPushButton
+        if let run = app.invocation(connecting: !connected, helper: helper),
+           let tool = ControlCLI.locate(run.tool, home: home) {
+            button = SettingsPushButton(
+                title: connected ? String(localized: "Disconnect") : String(localized: "Connect"),
+                isDestructive: false
+            )
+            button.onActivate = { [weak self, weak button] in
+                self?.run(app, tool: tool, arguments: run.arguments, connected: connected, from: button)
+            }
+        } else if let command = app.command(connecting: !connected, helper: helper) {
+            button = SettingsPushButton(
+                title: connected ? String(localized: "Copy Remove Command") : String(localized: "Copy Command"),
+                isDestructive: false
+            )
+            button.onActivate = { [weak self, weak button] in
+                self?.copy(command, from: button)
+                if !connected { self?.awaitingRestart.insert(app.id) }
+            }
+        } else {
+            button = SettingsPushButton(
+                title: connected ? String(localized: "Disconnect") : String(localized: "Connect"),
+                isDestructive: false
+            )
+            button.onActivate = { [weak self] in self?.toggle(app, connected: connected) }
+        }
+        return button
+    }
+
+    /// An app connected by a command Luna cannot run, because its tool is in
+    /// none of `ControlCLI`'s folders.
+    private func copiesCommand(_ app: ControlApp) -> Bool {
+        guard let run = app.invocation(connecting: true, helper: helper) else { return false }
+        return ControlCLI.locate(run.tool, home: home) == nil
+    }
+
+    /// An app whose config only its own tool may write: the tool makes the
+    /// change, off the main thread, while the button says so.
+    private func run(
+        _ app: ControlApp, tool: URL, arguments: [String], connected: Bool, from button: SettingsPushButton?
+    ) {
+        button?.isEnabled = false
+        button?.title = connected ? String(localized: "Disconnecting…") : String(localized: "Connecting…")
+        Task { @MainActor [weak self] in
+            do {
+                _ = try await ControlCLI.run(tool, arguments: arguments)
+                self?.changed(app, connected: !connected)
+            } catch {
+                self?.refuse(app, error)
+            }
+            self?.build()
+        }
+    }
+
+    private func changed(_ app: ControlApp, connected: Bool) {
+        if connected {
+            if app.needsRestart { awaitingRestart.insert(app.id) }
+            pendingLaunch = app.id
+        } else {
+            awaitingRestart.remove(app.id)
+        }
+    }
+
+    private func refuse(_ app: ControlApp, _ error: any Error) {
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Luna couldn’t change \(app.name)’s settings")
+        alert.informativeText = "\(app.config(in: home).path(percentEncoded: false))\n\n\(error)"
+        alert.runModal()
+    }
 }
 
 // MARK: - Permissions and activity
