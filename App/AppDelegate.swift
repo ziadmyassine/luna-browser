@@ -192,6 +192,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // §19.1's "to interactive": the window has the restored session in it.
         // `Tools/perf` is polling for the file this writes.
         LaunchTrace.ready()
+        // §16.1, and after `ready()` for the same reason as onboarding below:
+        // extensions load one at a time into a browser that is already up.
+        session.startExtensions()
         // §30.17, and after `ready()` on purpose: first run is a window over a
         // browser that is already up, not a gate in front of it.
         presentOnboardingIfNeeded(store: store, session: session)

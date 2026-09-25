@@ -71,6 +71,9 @@ enum Schema {
             try db.execute(sql: "UPDATE tabs SET url = 'luna://history' WHERE url = 'luna://archive'")
             try db.execute(sql: "UPDATE tabs SET url = 'about:blank' WHERE url = 'luna://newtab'")
         }
+        migrator.registerMigration("v11") { db in
+            try rememberInstalledExtensions(db)
+        }
         return migrator
     }
 

@@ -83,7 +83,11 @@ enum NavigationPolicy {
     ///
     /// `luna` is ours (§4.4) and stays in-process even before the scheme handler lands,
     /// so a stray internal link never bounces out to the Finder.
-    static let internalSchemes: Set<String> = ["http", "https", "about", "data", "blob", "file", "luna"]
+    /// `webkit-extension` is an extension's own pages: an options page opened
+    /// as a tab, or a welcome page the extension opens itself (§16.1).
+    static let internalSchemes: Set<String> = [
+        "http", "https", "about", "data", "blob", "file", "luna", "webkit-extension"
+    ]
 
     enum Disposition: Equatable {
         case display

@@ -18,6 +18,10 @@ public final class TabController: NSObject {
     /// A private window's own (§5.6), so its icons never reach the shared cache.
     public let favicons: FaviconService
 
+    /// The Space's extension controller, put on every web view this tab builds
+    /// (§16.1). Nil in a private window, where extensions do not run.
+    private let webExtensionController: WKWebExtensionController?
+
     /// The last session we managed to capture. Kept outside the web view on purpose:
     /// once the WebContent process is gone `webView.interactionState` reads back nil, so
     /// crash recovery (§19.3) has nothing else to restore from.
@@ -91,10 +95,16 @@ public final class TabController: NSObject {
     /// Whose per-site answers this tab reads and writes — a private window's own (§5.6).
     public var sitePermissions: SitePermissions { .scope(for: dataStore) }
 
-    public init(id: UUID, dataStore: WKWebsiteDataStore, favicons: FaviconService = .shared) {
+    public init(
+        id: UUID,
+        dataStore: WKWebsiteDataStore,
+        favicons: FaviconService = .shared,
+        webExtensionController: WKWebExtensionController? = nil
+    ) {
         self.id = id
         self.dataStore = dataStore
         self.favicons = favicons
+        self.webExtensionController = webExtensionController
         state = TabState()
         super.init()
         messageRelay.owner = self
@@ -217,7 +227,7 @@ public final class TabController: NSObject {
     @discardableResult
     private func ensureWebView(restoringSession: Bool) -> WKWebView {
         if let webView { return webView }
-        let webView = WebViewFactory.makeWebView(dataStore: dataStore)
+        let webView = WebViewFactory.makeWebView(dataStore: dataStore, webExtensionController: webExtensionController)
         attach(webView)
         if restoringSession, let savedInteractionState {
             webView.interactionState = savedInteractionState

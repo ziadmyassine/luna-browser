@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "name": "Luna Fixture",
+  "version": "1.0",
+  "description": "Proves its background ran by opening a tab that counts the tabs it can see.",
+  "background": { "service_worker": "background.js" },
+  "permissions": ["storage"],
+  "host_permissions": ["https://example.com/*"]
+}
