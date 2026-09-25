@@ -87,19 +87,22 @@ final class ControlStatusDot: NSView {
     }
 }
 
-/// An app as a small planet in its colour, with its initials on it. A
-/// dashed ring round it once it is connected, the orbit it now has.
+/// An app's own icon, or — for one with nothing installed to take an icon
+/// from — a small planet in its colour with its initials on it. A dashed ring
+/// round it once it is connected, the orbit it now has.
 @MainActor
 final class ControlPlanetView: NSView {
 
     private let colour: NSColor
     private let initials: String
+    private let icon: NSImage?
     private let isConnected: Bool
     private let isInstalled: Bool
 
-    init(name: String, colour: NSColor, isConnected: Bool, isInstalled: Bool) {
+    init(name: String, colour: NSColor, icon: NSImage? = nil, isConnected: Bool, isInstalled: Bool) {
         self.colour = colour
         self.initials = Self.initials(of: name)
+        self.icon = icon
         self.isConnected = isConnected
         self.isInstalled = isInstalled
         super.init(frame: .zero)
@@ -128,6 +131,14 @@ final class ControlPlanetView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         guard let context = NSGraphicsContext.current?.cgContext else { return }
         let disc = bounds.insetBy(dx: 3, dy: 3)
+        if let icon {
+            // An app icon carries its own clear margin, so it takes the whole
+            // square where the planet keeps three points clear for the ring.
+            icon.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: isInstalled ? 1 : 0.5,
+                      respectFlipped: true, hints: nil)
+            drawRing(context)
+            return
+        }
         let tone = isInstalled ? colour : colour.blended(withFraction: 1, of: .gray) ?? colour
         let deep = tone.blended(withFraction: 0.45, of: Tokens.Moon.skyBottom) ?? tone
         context.saveGState()
@@ -150,7 +161,10 @@ final class ControlPlanetView: NSView {
         ])
         let size = text.size()
         text.draw(at: CGPoint(x: bounds.midX - size.width / 2, y: bounds.midY - size.height / 2))
+        drawRing(context)
+    }
 
+    private func drawRing(_ context: CGContext) {
         guard isConnected else { return }
         context.setStrokeColor(colour.withAlphaComponent(0.8).cgColor)
         context.setLineWidth(Tokens.Metric.hairline)
@@ -166,9 +180,11 @@ final class ControlAppRowView: NSView {
 
     let planet: ControlPlanetView
 
-    init(name: String, colour: NSColor, status: String, dot: ControlStatusDot.State,
+    init(name: String, colour: NSColor, icon: NSImage?, status: String, dot: ControlStatusDot.State,
          isInstalled: Bool, isConnected: Bool, accessory: NSView?) {
-        planet = ControlPlanetView(name: name, colour: colour, isConnected: isConnected, isInstalled: isInstalled)
+        planet = ControlPlanetView(
+            name: name, colour: colour, icon: icon, isConnected: isConnected, isInstalled: isInstalled
+        )
         super.init(frame: .zero)
         let title = NSTextField(labelWithString: name)
         title.font = Tokens.TypeScale.settingsRow
@@ -369,5 +385,33 @@ final class ControlFlightView: NSView {
         host.addSublayer(light)
         light.add(group, forKey: "satelliteLaunch")
         CATransaction.commit()
+    }
+}
+
+/// The icon of the app on this Mac that a Luna Control client belongs to.
+/// Claude Code has no app of its own and takes Claude's; Codex takes the
+/// ChatGPT app's, which carries Codex's bundle identifier.
+@MainActor
+enum ControlAppIcon {
+
+    static let bundles: [String: [String]] = [
+        "claude-code": ["com.anthropic.claudefordesktop"],
+        "claude-desktop": ["com.anthropic.claudefordesktop"],
+        "codex": ["com.openai.codex", "com.openai.chat"],
+        "cursor": ["com.todesktop.230313mzl4w4u92"],
+        "vscode": ["com.microsoft.VSCode", "com.microsoft.VSCodeInsiders"]
+    ]
+
+    private static var cache: [String: NSImage?] = [:]
+
+    /// Nil when none of the app's bundles is installed.
+    static func image(for appID: String) -> NSImage? {
+        if let known = cache[appID] { return known }
+        let found = (bundles[appID] ?? []).lazy
+            .compactMap { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) }
+            .first
+            .map { NSWorkspace.shared.icon(forFile: $0.path(percentEncoded: false)) }
+        cache[appID] = found
+        return found
     }
 }

@@ -110,12 +110,20 @@ extension ControlSkyView {
         if body.satellite.isLive, !Tokens.Motion.reduceMotion { drawTrail(context, body, alpha: alpha) }
         radial(context, [colour.withAlphaComponent(0.55 * alpha), colour.withAlphaComponent(0)],
                at: at, radius: Tokens.Metric.controlSatelliteGlow)
-        let core = Tokens.Metric.controlSatellite
-        context.setFillColor(colour.withAlphaComponent(alpha).cgColor)
-        context.fillEllipse(in: CGRect(x: at.x - core, y: at.y - core, width: 2 * core, height: 2 * core))
-        let spark = core * 0.36
-        context.setFillColor(NSColor.white.withAlphaComponent(0.9 * alpha).cgColor)
-        context.fillEllipse(in: CGRect(x: at.x - 0.8 - spark, y: at.y - 0.8 - spark, width: 2 * spark, height: 2 * spark))
+        if let icon = body.satellite.icon {
+            let side = Tokens.Metric.controlSatelliteIcon
+            icon.draw(in: NSRect(x: at.x - side / 2, y: at.y - side / 2, width: side, height: side),
+                      from: .zero, operation: .sourceOver, fraction: alpha, respectFlipped: true, hints: nil)
+        } else {
+            let core = Tokens.Metric.controlSatellite
+            context.setFillColor(colour.withAlphaComponent(alpha).cgColor)
+            context.fillEllipse(in: CGRect(x: at.x - core, y: at.y - core, width: 2 * core, height: 2 * core))
+            let spark = core * 0.36
+            context.setFillColor(NSColor.white.withAlphaComponent(0.9 * alpha).cgColor)
+            context.fillEllipse(in: CGRect(
+                x: at.x - 0.8 - spark, y: at.y - 0.8 - spark, width: 2 * spark, height: 2 * spark
+            ))
+        }
 
         // The name fades as the light goes round behind the moon.
         let named = alpha * 0.8 * min(max((spot.depth + 0.25) / 0.6, 0), 1)
@@ -132,7 +140,10 @@ extension ControlSkyView {
         ])
         // Beside the light, on whichever side has room for it: near the
         // trailing edge a name on the right runs out of the sky.
-        let size = label.size(), gap = Tokens.Metric.controlSatelliteGlow * 0.8
+        let size = label.size()
+        let gap = body.satellite.icon == nil
+            ? Tokens.Metric.controlSatelliteGlow * 0.8
+            : Tokens.Metric.controlSatelliteIcon / 2 + Tokens.Metric.chromeGap / 2
         let fits = at.x + gap + size.width <= bounds.maxX - Tokens.Metric.chromeGap
         label.draw(at: CGPoint(x: fits ? at.x + gap : at.x - gap - size.width, y: at.y - size.height / 2))
     }

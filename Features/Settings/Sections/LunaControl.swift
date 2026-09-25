@@ -137,7 +137,8 @@ final class LunaControlSection: NSObject, SettingsSection {
         ControlApp.all.enumerated().compactMap { index, app in
             guard app.isInstalled(home: home), app.isConnected(home: home) else { return nil }
             return ControlSkyView.Satellite(
-                id: app.id, name: app.name, colour: Tokens.Moon.satellite(index), orbit: index % 2,
+                id: app.id, name: app.name, colour: Tokens.Moon.satellite(index),
+                icon: ControlAppIcon.image(for: app.id), orbit: index % 2,
                 startAngle: 0.6 + CGFloat(index) * 2.2,
                 isLive: isOn && live.contains(where: app.matches(clientName:))
             )
@@ -176,7 +177,8 @@ final class LunaControlSection: NSObject, SettingsSection {
         let colour = Tokens.Moon.satellite(index)
         guard app.isInstalled(home: home) else {
             let row = ControlAppRowView(
-                name: app.name, colour: colour, status: String(localized: "Not installed"), dot: .off,
+                name: app.name, colour: colour, icon: ControlAppIcon.image(for: app.id),
+                status: String(localized: "Not installed"), dot: .off,
                 isInstalled: false, isConnected: false, accessory: nil
             )
             return (view: row, terms: terms)
@@ -209,8 +211,8 @@ final class LunaControlSection: NSObject, SettingsSection {
             button.onActivate = { [weak self] in self?.toggle(app, connected: connected) }
         }
         let row = ControlAppRowView(
-            name: app.name, colour: colour, status: status, dot: inUse ? .live : (connected ? .on : .off),
-            isInstalled: true, isConnected: connected, accessory: button
+            name: app.name, colour: colour, icon: ControlAppIcon.image(for: app.id), status: status,
+            dot: inUse ? .live : (connected ? .on : .off), isInstalled: true, isConnected: connected, accessory: button
         )
         if connected { planets[app.id] = row.planet }
         return (view: row, terms: terms)

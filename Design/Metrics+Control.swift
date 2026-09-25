@@ -33,6 +33,9 @@ extension Tokens.Metric {
     static let controlOrbitTilt: CGFloat = -0.22
     /// An app's light: its core, and the glow round it.
     static let controlSatellite: CGFloat = 3.3
+    /// An app's icon when it flies in place of the light: large enough to
+    /// read as the app, small enough to stay a body on an orbit.
+    static let controlSatelliteIcon: CGFloat = 22
     static let controlSatelliteGlow: CGFloat = 11
     /// One star for this much sky, in square points.
     static let controlStarSpacing: CGFloat = 1100

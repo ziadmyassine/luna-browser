@@ -21,6 +21,8 @@ final class ControlSkyView: NSView {
         let id: String
         let name: String
         let colour: NSColor
+        /// The app's own icon, flown in place of a plain light when there is one.
+        var icon: NSImage?
         /// 0 is the inner orbit, 1 the outer.
         let orbit: Int
         let startAngle: CGFloat
