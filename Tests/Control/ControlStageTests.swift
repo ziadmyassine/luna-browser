@@ -22,6 +22,10 @@ final class ControlStageTests: XCTestCase {
 
     private var directory: URL!
     private var defaults: UserDefaults!
+    /// `ControlService` holds its session weakly (a window owns it), so a
+    /// test that drops the session gets "Luna has no window open" from every
+    /// call and passes or fails on that alone.
+    private var session: BrowserSession?
     private let client = ControlClient(rawName: "example-agent")
     /// A button that counts only trusted clicks.
     private let page = URL(string: "data:text/html," + """
@@ -35,6 +39,7 @@ final class ControlStageTests: XCTestCase {
     }
 
     override func tearDownWithError() throws {
+        session = nil
         try? FileManager.default.removeItem(at: directory)
     }
 
@@ -42,6 +47,7 @@ final class ControlStageTests: XCTestCase {
         let store = try BrowserStore(path: directory.appending(path: "luna.sqlite"))
         try await store.seedIfEmpty()
         let session = try await BrowserSession.restored(store: store)
+        self.session = session
         let service = ControlService(session: session, defaults: defaults, auditURL: directory.appending(path: "a.jsonl"))
         return (service, session)
     }
@@ -85,10 +91,13 @@ final class ControlStageTests: XCTestCase {
         var frames: [Int: NSRect] = [:]
         for window in NSApp.windows where window.isVisible { frames[window.windowNumber] = window.frame }
 
-        _ = await service.perform(ControlCall(.openTab(page)), client)
-        _ = await service.perform(ControlCall(.click(.point(x: 100, y: 40), clickCount: 1)), client)
+        let opened = await service.perform(ControlCall(.openTab(page)), client)
+        XCTAssertFalse(opened.isError, text(opened))
+        let clicked = await service.perform(ControlCall(.click(.point(x: 100, y: 40), clickCount: 1)), client)
+        XCTAssertFalse(clicked.isError, text(clicked))
         // Cmd+W reaches the page, never the menu that would close the user's tab.
-        _ = await service.perform(ControlCall(.key("cmd+a cmd+w")), client)
+        let keyed = await service.perform(ControlCall(.key("cmd+a cmd+w")), client)
+        XCTAssertFalse(keyed.isError, text(keyed))
 
         XCTAssertEqual(NSApp.keyWindow, keyWindow)
         XCTAssertTrue(NSApp.keyWindow?.firstResponder === firstResponder)

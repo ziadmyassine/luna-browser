@@ -18,6 +18,10 @@ final class ControlSafetyTests: XCTestCase {
 
     private var directory: URL!
     private var defaults: UserDefaults!
+    /// `ControlService` holds its session weakly (a window owns it), so a
+    /// test that drops the session gets "Luna has no window open" from every
+    /// call and passes or fails on that alone.
+    private var session: BrowserSession?
     private let client = ControlClient(rawName: "example-agent")
     private let page = URL(string: "data:text/html,%3Cbutton%3EGo%3C/button%3E")!
 
@@ -27,6 +31,7 @@ final class ControlSafetyTests: XCTestCase {
     }
 
     override func tearDownWithError() throws {
+        session = nil
         try? FileManager.default.removeItem(at: directory)
     }
 
@@ -36,6 +41,7 @@ final class ControlSafetyTests: XCTestCase {
         let store = try BrowserStore(path: directory.appending(path: "luna.sqlite"))
         try await store.seedIfEmpty()
         let session = try await BrowserSession.restored(store: store)
+        self.session = session
         defaults.set(mode.rawValue, forKey: ControlService.modeKey)
         return (ControlService(session: session, defaults: defaults, auditURL: audit), session)
     }
