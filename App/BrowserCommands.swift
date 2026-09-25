@@ -94,7 +94,7 @@ extension AppDelegate {
         showSettings()
     }
 
-    /// The app menu's About, which is Settings › About (SETTINGS-SPEC §3.10).
+    /// The app menu's About, which is Settings › About (SETTINGS-SPEC §3.11).
     @objc func showAbout(_ sender: Any?) {
         showSettings(section: AboutSection.id)
     }
@@ -232,6 +232,7 @@ extension AppDelegate: NSMenuItemValidation {
         if menuItem.action == #selector(showAbout(_:)) || menuItem.action == #selector(checkForUpdates(_:)) {
             return true
         }
+        if let agents = validateStopAllAgents(menuItem) { return agents }
         guard let session else { return false }
         return validateFavoriteToggle(menuItem, in: session)
             ?? validateNavigation(menuItem, in: session)

@@ -86,6 +86,13 @@ extension TabListController {
         view.beginEditing(name)
     }
 
+    /// A folder header's view, for the Luna Control approval card to point at.
+    func headerView(ofGroup id: UUID) -> NSView? {
+        guard let row = list.row(ofGroup: id) else { return nil }
+        table.scrollRowToVisible(row)
+        return table.view(atColumn: 0, row: row, makeIfNecessary: true)
+    }
+
     /// The row's view, scrolled to and ready to take the keyboard.
     /// `makeIfNecessary` matters — a folder made while the list is scrolled
     /// away has no view yet.

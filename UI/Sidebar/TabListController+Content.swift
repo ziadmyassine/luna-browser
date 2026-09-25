@@ -41,10 +41,16 @@ extension TabListController {
     /// §3.4b's header: the group's icon, its name, and the chevron that folds
     /// it. No trailing slot — a group is closed from its menu, which is where a
     /// command that ends several pages at once belongs.
+    ///
+    /// A folder a Luna Control client is working in wears the loading shimmer:
+    /// something is happening in there that the user did not start, and the
+    /// row says so without a control of its own. While it waits for the user,
+    /// or is paused or stopped, it wears that state's icon in place of its own.
     private func groupContent(_ group: TabGroup) -> SidebarRowContent {
         SidebarRowContent(
             title: group.name,
-            symbolName: group.symbolName,
+            symbolName: controlBadges[group.id] ?? group.symbolName,
+            isLoading: controlledGroupIDs.contains(group.id),
             disclosure: group.isCollapsed ? .collapsed : .expanded
         )
     }

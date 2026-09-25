@@ -28,7 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Everything before this line is dyld, the Swift runtime and the ObjC
         // class registry — see `LaunchTrace.sinceExec`.
         LaunchTrace.mark("main")
-        let app = NSApplication.shared
+        let app = LunaApplication.shared
         let delegate = AppDelegate()
         // `NSApplication.delegate` is weak and nothing else owns us.
         app.delegate = delegate
@@ -90,6 +90,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// `AppDelegate+Downloads.swift` builds it, so it is neither private nor
     /// `private(set)`.
     var downloadsPanel: DownloadsPanelController?
+    /// Luna Control's socket, open only while its setting is on. Holds the
+    /// first session, never a §5.6 window's.
+    var control: ControlService?
     /// `⌃⇥`'s event monitor — see `AppDelegate+TabSwitcher.swift`.
     var tabSwitcherMonitor: Any?
     /// Web links handed over before the first window could take them, and nil
@@ -154,7 +157,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // the system one.
         AppearanceSection.applyStoredTheme()
 
-        // SETTINGS-SPEC §3.10. Once a day, off the main thread; never from a
+        // SETTINGS-SPEC §3.11. Once a day, off the main thread; never from a
         // test run, which would read the network and could install over the
         // host app.
         if !Self.isRunningTests { Updater.shared.start() }
@@ -181,6 +184,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // memory-pressure source. Before the first tab, so the budget is never
         // briefly unenforced.
         session.installLifecycle()
+        let control = ControlService(session: session)
+        control.update()
+        self.control = control
         // An empty Space opens nothing. It used to be handed a tab on the New
         // Tab page so the content card had something in it; with that page gone
         // there is nothing honest to put in a tab nobody asked for, and the
@@ -300,6 +306,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func settingsDidChange() {
         for window in windows { window.applyChromeLayout(animated: true) }
+        control?.update()
     }
 
     // MARK: - Termination
@@ -347,6 +354,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Release the web views while AppKit is still running rather than
         // leaving WebContent processes to process teardown. Every session: a
         // §5.6 window has one of its own.
+        control?.stop()
         var torn: Set<ObjectIdentifier> = []
         for window in windows where torn.insert(ObjectIdentifier(window.session)).inserted {
             window.session.tearDown()

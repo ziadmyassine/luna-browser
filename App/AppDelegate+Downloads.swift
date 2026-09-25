@@ -56,6 +56,9 @@ extension AppDelegate {
         panel.activeSpace = { [weak self] host in
             self?.windows.first { $0.controller.window === host }?.activeSpaceID
         }
+        manager.agentApproval = { [weak self] webView, name, risky in
+            await self?.control?.approveDownload(named: name, risky: risky, from: webView)
+        }
         // §5.0: the file leaves the page and lands on whichever Downloads
         // button this layout is showing — unless the front window is showing
         // another Space, because a list that opens without the row it opened

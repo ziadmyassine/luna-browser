@@ -26,6 +26,7 @@ enum SettingsHost {
 
     static var session: BrowserSession? { (NSApp.delegate as? AppDelegate)?.session }
     static var store: BrowserStore? { (NSApp.delegate as? AppDelegate)?.store }
+    static var control: ControlService? { (NSApp.delegate as? AppDelegate)?.control }
 
     /// Every destructive button in Settings goes through here first.
     static func confirm(_ message: String, _ informative: String, action: String) -> Bool {

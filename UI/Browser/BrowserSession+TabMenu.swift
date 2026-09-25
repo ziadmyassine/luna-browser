@@ -169,7 +169,8 @@ extension BrowserSession {
             setIcon: { [weak self] symbol in self?.setIcon(symbol, forGroup: id) },
             setSaved: allowsPinning ? { [weak self] saved in self?.setGroupSaved(saved, group: id) } : nil,
             ungroup: { [weak self] in self?.ungroup(id) },
-            close: { [weak self] in self?.closeGroup(id) }
+            close: { [weak self] in self?.closeGroup(id) },
+            agent: ControlService.current?.menuActions(forFolder: id)
         )
     }
 

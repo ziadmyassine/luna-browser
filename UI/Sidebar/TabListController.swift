@@ -85,6 +85,11 @@ final class TabListController: NSObject {
     /// mute on a tab waking from hibernation — and `SidebarViewController.refresh()` is
     /// what keeps the two in step.
     var mutedTabIDs: Set<UUID> = []
+    /// Folders a Luna Control client is working in, mirrored from
+    /// `BrowserSession.controlledGroupIDs` the way `mutedTabIDs` is.
+    var controlledGroupIDs: Set<UUID> = []
+    /// `BrowserSession.controlBadges`, the same way.
+    var controlBadges: [UUID: String] = [:]
 
     let table = SidebarTableView()
     /// Not private, for the same reason `list` and `table` are not: the two

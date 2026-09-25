@@ -49,8 +49,10 @@ enum SettingsDefaults {
         ("advanced.userAgentCustom", ""),
         ("advanced.showDevelopMenu", false),
         ("advanced.webInspector", true),
-        // §3.10 About — `Updater.installsOnItsOwn`
+        // §3.11 About — `Updater.installsOnItsOwn`
         ("updates.installOnItsOwn", true),
+        // `ControlService.isEnabled`
+        ("advanced.allowControl", false),
         // §2's persisted selection
         ("settings.lastSection", SettingsSectionRegistry.ids.first ?? ""),
         // §6's "existing keys are not renamed"

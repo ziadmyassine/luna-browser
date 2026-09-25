@@ -10,7 +10,11 @@ let package = Package(
     name: "BrowserKit",
     platforms: [.macOS(.v26)],
     products: [
-        .library(name: "BrowserKit", targets: ["BrowserKit"])
+        .library(name: "BrowserKit", targets: ["BrowserKit"]),
+        // Luna Control's protocol, socket and page scripts. Foundation only and
+        // apart from BrowserKit, so the `luna-control` helper bundled in the app
+        // links none of GRDB or WebKit (docs/LUNA-CONTROL.md).
+        .library(name: "LunaControl", targets: ["LunaControl"])
     ],
     dependencies: [
         // GRDB 7 is the Swift 6 line: Sendable-audited, strict-concurrency clean, and it
@@ -22,6 +26,20 @@ let package = Package(
         .target(
             name: "BrowserKit",
             dependencies: [.product(name: "GRDB", package: "GRDB.swift")],
+            swiftSettings: swiftSettings
+        ),
+        .target(name: "LunaControl", swiftSettings: swiftSettings),
+        .testTarget(
+            name: "LunaControlTests",
+            dependencies: ["LunaControl"],
+            swiftSettings: swiftSettings
+        ),
+        // The app's trusted-input stage, run from a link to
+        // `Features/Control/ControlStage.swift`: AppKit is allowed in tests,
+        // and this is the one place the stage can run without launching Luna.
+        .testTarget(
+            name: "ControlStageTests",
+            dependencies: ["LunaControl"],
             swiftSettings: swiftSettings
         ),
         .testTarget(

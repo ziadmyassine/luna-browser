@@ -80,6 +80,11 @@ final class DownloadManager {
     /// flight the user never sees.
     var onBegin: ((DownloadItem) -> Void)?
 
+    /// Luna Control's say over a download from `webView`: nil when it is not
+    /// from an agent's tab, otherwise whether the user approved it — which
+    /// stands in for the risky-file sheet (`ControlService.approveDownload`).
+    var agentApproval: ((_ webView: WKWebView?, _ filename: String, _ risky: Bool) async -> Bool?)?
+
     // MARK: - Entry point
 
     /// Call from `BrowserSession.onDownload`, i.e. from
@@ -311,7 +316,10 @@ private final class DownloadTask: NSObject, WKDownloadDelegate {
         // §15.4 — ask before writing anything that runs when it is opened.
         // Awaited here on purpose: WebKit holds the download until we answer,
         // so a declined warning cancels it before a byte hits the disk.
-        if DownloadRisk.isRisky(filename: name), await !confirmRisky(name) {
+        let risky = DownloadRisk.isRisky(filename: name)
+        if let approved = await manager.agentApproval?(download.webView, name, risky) {
+            guard approved else { return nil }
+        } else if risky, await !confirmRisky(name) {
             return nil
         }
 

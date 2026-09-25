@@ -75,6 +75,29 @@ targets:
       - path: assets/icon/mark/Mark.xcassets
     dependencies:
       - package: BrowserKit
+      - package: BrowserKit
+        product: LunaControl
+      # Luna Control's stdio server, at Contents/MacOS/luna-control beside the
+      # app's own binary, which is the path an MCP client is given
+      # (docs/LUNA-CONTROL.md).
+      - target: luna-control
+        embed: true
+        codeSign: true
+        copy:
+          destination: executables
+
+  luna-control:
+    type: tool
+    platform: macOS
+    settings:
+      base:
+        PRODUCT_NAME: luna-control
+        SKIP_INSTALL: "YES"
+    sources:
+      - path: Helpers/luna-control
+    dependencies:
+      - package: BrowserKit
+        product: LunaControl
 
   LunaTests:
     type: bundle.unit-test

@@ -97,6 +97,11 @@ extension SidebarViewController {
         // diffed, which is what makes the tabs fade out rather than vanish.
         list.onToggleGroup = { [weak self] id in
             guard let self, let group = session.group(id) else { return }
+            // A folder whose agent is waiting for the user opens its request
+            // instead of folding: the click is how the user answers the mark.
+            if let header = list.headerView(ofGroup: id), ControlApprovalCard.showIfWaiting(forFolder: id, from: header) {
+                return
+            }
             session.setGroupCollapsed(!group.isCollapsed, forGroup: id)
         }
         wireDrag()

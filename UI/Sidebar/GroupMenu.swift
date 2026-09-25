@@ -46,6 +46,15 @@ enum GroupMenu {
         var setSaved: ((Bool) -> Void)?
         var ungroup: () -> Void
         var close: () -> Void
+        /// A Luna Control client's folder: pause, resume or stop the client.
+        var agent: AgentActions?
+    }
+
+    struct AgentActions {
+        var hold: ControlService.Hold?
+        var pause: () -> Void
+        var resume: () -> Void
+        var stop: () -> Void
     }
 
     /// - Parameter rename: opens the name field on the folder's own row. Only
@@ -62,6 +71,20 @@ enum GroupMenu {
     ) -> NSMenu {
         let menu = NSMenu()
         menu.autoenablesItems = false
+
+        // First, because it is the item someone reaching for this menu while
+        // an agent is at work has come for.
+        if let agent = actions.agent {
+            if agent.hold == nil {
+                menu.addItem(SidebarMenu.glyphItem(String(localized: "Pause Agent"), symbol: "pause", action: agent.pause))
+            } else {
+                menu.addItem(SidebarMenu.glyphItem(String(localized: "Resume Agent"), symbol: "play", action: agent.resume))
+            }
+            if agent.hold != .stopped {
+                menu.addItem(SidebarMenu.glyphItem(String(localized: "Stop Agent"), symbol: "stop", action: agent.stop))
+            }
+            menu.addItem(.separator())
+        }
 
         if let rename {
             menu.addItem(SidebarMenu.glyphItem(String(localized: "Rename"), symbol: "pencil", action: rename))

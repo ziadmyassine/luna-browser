@@ -67,6 +67,7 @@ extension TabController: WKNavigationDelegate {
         decidePolicyFor navigationResponse: WKNavigationResponse,
         decisionHandler: @escaping @MainActor @Sendable (WKNavigationResponsePolicy) -> Void
     ) {
+        onNavigationResponse?(navigationResponse)
         // `value(forHTTPHeaderField:)`, not `allHeaderFields[…]` — the latter is a
         // case-sensitive dictionary lookup and servers send `content-disposition`.
         let disposition = (navigationResponse.response as? HTTPURLResponse)?

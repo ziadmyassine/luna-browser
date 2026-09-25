@@ -2,7 +2,7 @@
 //  About.swift
 //  Luna
 //
-//  SETTINGS-SPEC §3.10: what this Luna is, and whether there is a newer one.
+//  SETTINGS-SPEC §3.11: what this Luna is, and whether there is a newer one.
 //
 //  The app's icon, name and version at the head, then one card: when Luna
 //  last looked for an update and a button to look now, the switch that lets
