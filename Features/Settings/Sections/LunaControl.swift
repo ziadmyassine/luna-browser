@@ -21,7 +21,7 @@ final class LunaControlSection: NSObject, SettingsSection {
 
     static let id = "control"
     static let title = String(localized: "Luna Control")
-    static let symbolName = "moon.fill"
+    static let symbolName = "point.3.connected.trianglepath.dotted"
     static let keywords = [
         "mcp", "agent", "ai", "automation", "claude", "codex", "cursor", "vs code", "allow apps to control luna"
     ]

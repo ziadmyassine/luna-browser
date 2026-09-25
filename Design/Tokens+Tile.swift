@@ -6,7 +6,8 @@
 //  at the head of its page. Near-black with a coloured glyph, the same in
 //  both appearances, as macOS draws the tiles in its own settings in dark
 //  mode: a tile is an object on the pane, not a tint of it. Luna Control's
-//  is a small copy of its sky, and About's is the app's own icon.
+//  glyph is a violet-to-cyan gradient, the one tile that is not a single
+//  colour.
 //
 
 import AppKit
@@ -30,6 +31,11 @@ extension Tokens {
         static var blue: NSColor { rgb(0x0A_84_FF) }
         static var purple: NSColor { rgb(0xBF_5A_F2) }
         static var green: NSColor { rgb(0x30_D1_58) }
+        /// Luna Control's gradient: the moon's glow, lavender to ice, at the
+        /// saturation of the colours beside it. The glow's own pastels read
+        /// as grey on a 22 pt glyph.
+        static var controlFrom: NSColor { rgb(0xC7_7D_FF) }
+        static var controlTo: NSColor { rgb(0x4F_D8_F5) }
 
         private static func rgb(_ hex: UInt32) -> NSColor {
             NSColor(
