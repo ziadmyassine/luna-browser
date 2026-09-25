@@ -255,7 +255,7 @@ final class ExtensionsUITests: XCTestCase {
         _ = session.extensionController(forSpace: space)
         ExtensionsCenter.shared.attach(session)
 
-        let request = try await manager.prepareInstall(from: Self.fixture)
+        let request = try await manager.prepareInstall(from: try fixture())
         try await ExtensionsCenter.shared.install(request, granting: request.grantingEverything, inSpace: space)
         ExtensionsCenter.shared.setPinned(true, request.id)
 
@@ -295,13 +295,44 @@ final class ExtensionsUITests: XCTestCase {
 
     // MARK: - Fixtures
 
-    private static var fixture: URL {
-        URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-            .appending(path: "BrowserKit/Tests/BrowserKitTests/Fixtures/FixtureExtension")
+    /// BrowserKit's fixture extension, written out afresh rather than read
+    /// from the checkout: the app's test host needs the Documents folder
+    /// granted to read the repo, macOS asks again after every rebuild, and
+    /// unanswered the suite hung. Same files as
+    /// `BrowserKit/Tests/BrowserKitTests/Fixtures/FixtureExtension`.
+    private func fixture() throws -> URL {
+        let folder = directory.appending(path: "FixtureExtension")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try Data(FixtureExtensionFiles.manifest.utf8).write(to: folder.appending(path: "manifest.json"))
+        try Data(FixtureExtensionFiles.background.utf8).write(to: folder.appending(path: "background.js"))
+        return folder
     }
 
     private func item(_ id: String, pinned: Bool = false) -> ExtensionShelfItem {
         ExtensionShelfItem(id: id, name: id.uppercased(), icon: nil, badge: "", isPinned: pinned)
     }
+}
+
+/// `BrowserKit/Tests/BrowserKitTests/Fixtures/FixtureExtension`, as text.
+private enum FixtureExtensionFiles {
+
+    static let manifest = """
+    {
+      "manifest_version": 3,
+      "name": "Luna Fixture",
+      "version": "1.0",
+      "description": "Proves its background ran by opening a tab that counts the tabs it can see.",
+      "background": { "service_worker": "background.js" },
+      "permissions": ["storage"],
+      "host_permissions": ["https://example.com/*"]
+    }
+    """
+
+    static let background = """
+    chrome.storage.local.set({ ran: true }, () => {
+      chrome.tabs.query({}, (tabs) => {
+        chrome.tabs.create({ url: "https://example.com/?luna-fixture=" + tabs.length });
+      });
+    });
+    """
 }

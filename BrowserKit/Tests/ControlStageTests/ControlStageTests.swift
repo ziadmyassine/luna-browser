@@ -129,6 +129,27 @@ final class ControlStageTests: XCTestCase {
 
     private func settle(_ milliseconds: Int = 150) async throws { try await Task.sleep(for: .milliseconds(milliseconds)) }
 
+    /// `expr` once the page has caught up, or as it stands after `seconds`.
+    ///
+    /// A fixed wait is a guess at how fast WebContent runs. On the CI runner
+    /// the typing tests took three times as long as on a Mac, and a 300 ms
+    /// settle read the editor while the last word was still arriving.
+    private func poll(_ expr: String, for seconds: Double = 5, until accept: (String) -> Bool) async throws -> String {
+        let deadline = Date().addingTimeInterval(seconds)
+        var value = try await js(expr)
+        while !accept(value), Date() < deadline {
+            try await Task.sleep(for: .milliseconds(50))
+            value = try await js(expr)
+        }
+        return value
+    }
+
+    /// Waits for a click to have put the caret in the editor.
+    private func focusEditor(_ stage: ControlStage) async throws {
+        try stage.click(at: try await center("ed"))
+        _ = try await poll("document.activeElement === ed") { $0 == "true" }
+    }
+
     private func center(_ id: String) async throws -> CGPoint {
         let json = try await js("(r => [r.x + r.width / 2, r.y + r.height / 2])(\(id).getBoundingClientRect())")
         let xy = try JSONDecoder().decode([Double].self, from: Data(json.utf8))
@@ -156,13 +177,11 @@ final class ControlStageTests: XCTestCase {
     /// one call and typing in the next is how an agent fills a field.
     func testTypingAcrossCallsLandsInContentEditable() async throws {
         let first = try stage()
-        try first.click(at: try await center("ed"))
-        try await settle()
+        try await focusEditor(first)
         first.release()
         let second = try stage()
         try await second.type(ControlInput.keys(typing: "Hej å 😀 world"))
-        try await settle(300)
-        let text = try await js("ed.textContent")
+        let text = try await poll("ed.textContent") { $0 == "\"Hej å 😀 world\"" }
         XCTAssertEqual(text, "\"Hej å 😀 world\"")
         let untrusted = try await untrusted()
         XCTAssertEqual(untrusted, "[]")
@@ -174,13 +193,12 @@ final class ControlStageTests: XCTestCase {
         let menu = MenuProbe()
         menu.install()
         let stage = try stage()
-        try stage.click(at: try await center("ed"))
-        try await settle()
+        try await focusEditor(stage)
         try await stage.type(ControlInput.keys(typing: "ab\ncd"))
+        _ = try await poll("ed.innerText") { $0.contains("cd") }
         try await stage.type([try ControlInput.key("cmd+a"), try ControlInput.key("cmd+w")])
-        try await settle(300)
+        let selected = try await poll("getSelection().toString()") { $0.contains("ab") && $0.contains("cd") }
         XCTAssertEqual(menu.hits, [])
-        let selected = try await js("getSelection().toString()")
         XCTAssertTrue(selected.contains("ab") && selected.contains("cd"), selected)
         let enter = try await js("log.filter(e => e.t == 'keydown' && e.k == 'Enter').map(e => e.tr)")
         XCTAssertEqual(enter, "[true]")

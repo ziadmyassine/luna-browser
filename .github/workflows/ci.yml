@@ -37,6 +37,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: Tools/check-no-appkit.sh
+      # §9.6's Command Bar sends nothing anywhere. It was an XCTest, which had
+      # to read the sources from inside the app's sandbox-prompted test host.
+      - run: Tools/check-command-bar-offline.sh
 
   test:
     name: Build and test

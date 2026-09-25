@@ -77,45 +77,5 @@ final class CommandBarURLDetectionTests: XCTestCase {
     }
 }
 
-/// §9.6: "never send anything anywhere… make that structurally true rather than a
-/// comment."
-///
-/// This is that structure. Search-engine suggestions are the one §9.2 source that
-/// would need the network, and they are deliberately not built in M1 — so no file
-/// under `UI/CommandBar` has any business naming a networking type, and if one
-/// ever does, this fails before it ships rather than after.
-final class CommandBarPrivacyTests: XCTestCase {
-
-    private static let banned = [
-        "URLSession", "NSURLConnection", "NWConnection", "NWBrowser",
-        "CFNetwork", "dataTask", "downloadTask", "URLRequest", "Network."
-    ]
-
-    func testNoFileInTheCommandBarCanReachTheNetwork() throws {
-        let directory = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()  // Tests/CommandBar
-            .deletingLastPathComponent()  // Tests
-            .deletingLastPathComponent()  // repo root
-            .appending(path: "UI/CommandBar")
-
-        let files = try FileManager.default
-            .contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
-            .filter { $0.pathExtension == "swift" }
-        XCTAssertFalse(files.isEmpty, "found no Command Bar sources at \(directory.path)")
-
-        for file in files {
-            // Comments are stripped first, exactly as `Tools/check-no-appkit.sh`
-            // does: a file that documents this rule is not a violation of it.
-            let code = try String(contentsOf: file, encoding: .utf8)
-                .split(separator: "\n", omittingEmptySubsequences: false)
-                .map { $0.split(separator: "//", maxSplits: 1, omittingEmptySubsequences: false)[0] }
-                .joined(separator: "\n")
-            for symbol in Self.banned {
-                XCTAssertFalse(
-                    code.contains(symbol),
-                    "§9.6: \(file.lastPathComponent) names \(symbol). The Command Bar is local-only in M1."
-                )
-            }
-        }
-    }
-}
+// §9.6's check that no Command Bar source names a networking type is
+// `Tools/check-command-bar-offline.sh`, run by CI and `make check`.

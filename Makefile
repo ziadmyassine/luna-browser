@@ -32,6 +32,7 @@ fmt:
 
 check: lint
 	Tools/check-no-appkit.sh
+	Tools/check-command-bar-offline.sh
 
 # §30.17's installer. Takes the Release build unless given a path. One image,
 # and the dark one: a disk image's backdrop cannot follow the appearance
