@@ -71,14 +71,15 @@ extension BrowserStore {
     /// fields are not stored, so the save that follows meets the server's change tag and
     /// goes through the merge (§3).
     ///
-    /// - Parameter isFirstFetch: the fetch after turning sync on, which decides whether
-    ///   this Mac's untouched seed Space is dropped (§3, The seed Space).
+    /// - Parameter isFirstFetch: the fetch after turning sync on. iCloud wins for every
+    ///   record it has, over the outbox rows turning the zone on queued, and this Mac's
+    ///   untouched seed Space is dropped (§3).
     public func applyRemote(_ changes: SyncChangeSet, isFirstFetch: Bool = false) async throws {
         try await pool.write { db in
             try db.execute(sql: "UPDATE syncControl SET applyingRemote = 1")
             for deletion in changes.deletions { try SyncApply.delete(deletion, db) }
             for record in changes.modifications.sorted(by: SyncApply.parentsFirst) {
-                _ = try SyncApply.apply(record, db)
+                _ = try SyncApply.apply(record, db, iCloudWins: isFirstFetch)
             }
             try SyncApply.unpark(db)
             if isFirstFetch { try SyncApply.dropTheSeedSpace(db, arrived: changes.modifications) }
@@ -98,10 +99,10 @@ private enum SyncApply {
         rank[lhs.recordType, default: 3] < rank[rhs.recordType, default: 3]
     }
 
-    static func apply(_ record: SyncRecord, _ db: Database) throws -> Outcome {
+    static func apply(_ record: SyncRecord, _ db: Database, iCloudWins: Bool = false) throws -> Outcome {
         try db.execute(sql: "DELETE FROM syncParked WHERE recordName = ?", arguments: [record.recordName])
         let key = localKey(of: record)
-        if try pendingHereIsNewer(record, key: key, db) { return .skipped }
+        if !iCloudWins, try pendingHereIsNewer(record, key: key, db) { return .skipped }
         let outcome = try writeRow(record, db)
         guard outcome == .applied else { return outcome }
         if let systemFields = record.systemFields {
