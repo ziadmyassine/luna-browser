@@ -67,3 +67,23 @@ public struct SyncRecord: Sendable, Hashable {
 
     public subscript(key: String) -> SyncValue? { fields[key]?.value }
 }
+
+extension SyncRecord {
+
+    /// The version this Luna writes (the §31.9 rules are in docs/SYNC.md).
+    static let currentSchemaVersion: Int64 = 1
+
+    /// A write of `fields` over `stored`, the last record known for this name. It keeps
+    /// the stored system fields, never lowers `schemaVersion`, and carries only the
+    /// fields given, so a field this version does not know is never touched.
+    init(writing recordType: String, name: String, zone: SyncZone, over stored: SyncRecord?, fields: [String: SyncField]) {
+        self.init(
+            recordType: recordType,
+            recordName: name,
+            zone: zone.rawValue,
+            schemaVersion: max(Self.currentSchemaVersion, stored?.schemaVersion ?? 0),
+            fields: fields,
+            systemFields: stored?.systemFields
+        )
+    }
+}
