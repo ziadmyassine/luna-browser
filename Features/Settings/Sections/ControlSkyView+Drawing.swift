@@ -47,7 +47,13 @@ extension ControlSkyView {
         drawStars(context)
         let placed = bodies.values.map { ($0, point(orbit: $0.satellite.orbit, angle: $0.angle)) }
         drawOrbits(context, nearHalfOnly: false)
-        for (body, spot) in placed where spot.depth <= 0 { drawSatellite(context, body, spot) }
+        // Each light is drawn in both passes near the ends of its orbit, one
+        // fading as the other rises. Switched from one pass to the other in a
+        // frame, it dropped under the moon's glow at once: a pop to a fainter
+        // colour every time it went round the back.
+        for (body, spot) in placed where spot.depth < Self.crossing {
+            drawSatellite(context, body, spot, weight: 1 - Self.frontness(spot.depth))
+        }
         let since = CACurrentMediaTime() - caughtAt
         let catchSpan = Tokens.Motion.controlPress.duration * 2
         let bump = since < catchSpan && !Tokens.Motion.reduceMotion ? sin(.pi * CGFloat(since / catchSpan)) : 0
@@ -56,7 +62,9 @@ extension ControlSkyView {
             light: ControlMoon.Light(phase: phase, glow: phase + 0.35 * bump, earthshine: 0.12), scale: scale
         )
         drawOrbits(context, nearHalfOnly: true)
-        for (body, spot) in placed where spot.depth > 0 { drawSatellite(context, body, spot) }
+        for (body, spot) in placed where spot.depth > -Self.crossing {
+            drawSatellite(context, body, spot, weight: Self.frontness(spot.depth))
+        }
         drawBeams(context)
         drawShade(context)
     }
@@ -103,8 +111,24 @@ extension ControlSkyView {
         context.setLineDash(phase: 0, lengths: [])
     }
 
-    private func drawSatellite(_ context: CGContext, _ body: Body, _ spot: (point: CGPoint, depth: CGFloat)) {
-        let alpha = body.alpha * orbitAlpha
+    /// How far either side of the moon's edge a light is drawn in both
+    /// passes, in `depth`: about a tenth of a lap.
+    static let crossing: CGFloat = 0.3
+
+    /// 0 behind the moon, 1 in front, eased between across `crossing`.
+    static func frontness(_ depth: CGFloat) -> CGFloat {
+        smoothstep(-crossing, crossing, depth)
+    }
+
+    static func smoothstep(_ low: CGFloat, _ high: CGFloat, _ value: CGFloat) -> CGFloat {
+        let t = min(max((value - low) / (high - low), 0), 1)
+        return t * t * (3 - 2 * t)
+    }
+
+    private func drawSatellite(
+        _ context: CGContext, _ body: Body, _ spot: (point: CGPoint, depth: CGFloat), weight: CGFloat
+    ) {
+        let alpha = body.alpha * orbitAlpha * weight
         guard alpha > 0.01 else { return }
         let colour = body.satellite.colour, at = spot.point
         if body.satellite.isLive, !Tokens.Motion.reduceMotion { drawTrail(context, body, alpha: alpha) }
@@ -125,8 +149,9 @@ extension ControlSkyView {
             ))
         }
 
-        // The name fades as the light goes round behind the moon.
-        let named = alpha * 0.8 * min(max((spot.depth + 0.25) / 0.6, 0), 1)
+        // The name fades as the light goes round behind the moon, on the
+        // light's own alpha: the pass it is drawn in is already weighted.
+        let named = body.alpha * orbitAlpha * weight * 0.8 * min(max((spot.depth + 0.25) / 0.6, 0), 1)
         guard named > 0.02 else { return }
         // Shadowed, because on the trailing side the name can land on the moon.
         let shadow = NSShadow()
@@ -139,14 +164,29 @@ extension ControlSkyView {
             .shadow: shadow
         ])
         // Beside the light, on whichever side has room for it: near the
-        // trailing edge a name on the right runs out of the sky.
+        // trailing edge a name on the right runs out of the sky. The two
+        // cross-fade over `nameSwap` of travel; picked by a test, the name
+        // appeared on the left and jumped to the right halfway round.
         let size = label.size()
         let gap = body.satellite.icon == nil
             ? Tokens.Metric.controlSatelliteGlow * 0.8
             : Tokens.Metric.controlSatelliteIcon / 2 + Tokens.Metric.chromeGap / 2
-        let fits = at.x + gap + size.width <= bounds.maxX - Tokens.Metric.chromeGap
-        label.draw(at: CGPoint(x: fits ? at.x + gap : at.x - gap - size.width, y: at.y - size.height / 2))
+        let overflow = at.x + gap + size.width - (bounds.maxX - Tokens.Metric.chromeGap)
+        let left = Self.smoothstep(-Self.nameSwap, 0, overflow)
+        let y = at.y - size.height / 2
+        for (x, share) in [(at.x + gap, 1 - left), (at.x - gap - size.width, left)] where share > 0.01 {
+            let faded = NSMutableAttributedString(attributedString: label)
+            let range = NSRange(location: 0, length: faded.length)
+            faded.addAttribute(.foregroundColor, value: Tokens.Moon.ink.withAlphaComponent(named * share), range: range)
+            shadow.shadowColor = Tokens.Moon.scrim.withAlphaComponent(0.8 * named * share)
+            faded.addAttribute(.shadow, value: shadow, range: range)
+            faded.draw(at: CGPoint(x: x, y: y))
+        }
     }
+
+    /// How far the light travels while its name moves from one side to the
+    /// other: about the width of a short name.
+    static let nameSwap: CGFloat = 40
 
     /// The live app: a fading tail behind it and a ring that widens off it.
     private func drawTrail(_ context: CGContext, _ body: Body, alpha: CGFloat) {

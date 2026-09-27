@@ -122,13 +122,19 @@ extension TabListController {
     /// The folder plate, kept up round every Luna Control folder in its app's
     /// colour, so the folder says whose it is without the pointer over it.
     private func placeControlPlates(animated: Bool) {
-        for (id, plate) in controlPlates where controlFaces[id] == nil {
-            plate.removeFromSuperview()
+        // Gone, not parked: a folder that was closed, or is in another Space,
+        // has nothing for an outline to stand round, and a parked one left
+        // lying in the table was one stray pass away from showing again.
+        for (id, plate) in controlPlates where controlFaces[id] == nil || list.row(ofGroup: id) == nil {
             controlPlates[id] = nil
+            Tokens.Motion.animate(Tokens.Motion.rowHover) { _ in
+                plate.animator().alphaValue = 0
+            } completion: {
+                MainActor.assumeIsolated { plate.removeFromSuperview() }
+            }
         }
         for (id, face) in controlFaces {
-            let box = groupExtent(ofGroup: id)
-            guard box != nil || controlPlates[id] != nil else { continue }
+            guard let box = groupExtent(ofGroup: id) else { continue }
             let plate = controlPlates[id] ?? makeControlPlate(id)
             plate.tint = Tokens.Agent.tint(forApp: face.appID)
             plate.isWorking = controlledGroupIDs.contains(id)

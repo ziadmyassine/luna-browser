@@ -59,6 +59,16 @@ extension ControlService {
         refreshFaces()
     }
 
+    /// Forgets the faces of folders that no longer exist. Only ever removes,
+    /// so it settles in one pass: recomputing every face on each change
+    /// could answer another change with a different set, and two services
+    /// on one session did that to each other until the stack ran out.
+    func dropClosedFaces() {
+        guard let session else { return }
+        let kept = session.controlFaces.filter { session.list.group($0.key) != nil }
+        if kept.count != session.controlFaces.count { session.setControlFaces(kept) }
+    }
+
     /// The folder `openTab` would use for `name`, if there is one yet.
     private func folder(named name: String, in session: BrowserSession) -> TabGroup? {
         if let id = folders[name], let group = session.group(id) { return group }

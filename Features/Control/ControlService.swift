@@ -128,8 +128,13 @@ final class ControlService {
             self?.showApprovals()
         }
         session.control = self
-        // A tab switch, a call starting or ending, a pause: each is a change.
-        surfaceWatch = session.addChangeObserver { [weak self] in self?.refreshSurface() }
+        // A tab switch, a call starting or ending, a pause, a folder closed:
+        // each is a change. A closed folder has to drop its face too, or its
+        // outline is left behind.
+        surfaceWatch = session.addChangeObserver { [weak self] in
+            self?.dropClosedFaces()
+            self?.refreshSurface()
+        }
         // A navigation changes the page's colour without being a change.
         pageWatch = session.addTabStateObserver { [weak self, weak session] id, _ in
             if id == session?.activeTabID { self?.refreshSurface() }

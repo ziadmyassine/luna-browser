@@ -165,6 +165,33 @@ final class ControlStageTests: XCTestCase {
         withExtendedLifetime(first) {}
     }
 
+    /// Closing the agent's folder takes its outline and its face with it.
+    func testClosingTheFolderTakesItsOutline() async throws {
+        let (service, session) = try await makeService()
+        let claude = ControlClient(rawName: "claude-code")
+        _ = await service.perform(ControlCall(.openTab(page)), claude)
+        let folder = try XCTUnwrap(service.folders[claude.displayName])
+        let sidebar = SidebarViewController(session: session, windowID: UUID())
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 300, height: 700), styleMask: [.titled], backing: .buffered, defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.contentView = sidebar.view
+        window.orderFront(nil)
+        defer { window.close() }
+        let token = session.addChangeObserver { sidebar.refresh() }
+        sidebar.refresh()
+        sidebar.view.layoutSubtreeIfNeeded()
+        try await Task.sleep(for: .milliseconds(300))
+        XCTAssertEqual(sidebar.list.controlPlates[folder]?.alphaValue, 1, "the folder has no outline")
+        session.closeGroup(folder)
+        try await Task.sleep(for: .milliseconds(800))
+        sidebar.view.layoutSubtreeIfNeeded()
+        XCTAssertNil(session.controlFaces[folder], "the closed folder kept its face")
+        XCTAssertTrue(sidebar.list.controlPlates.isEmpty, "the closed folder's outline stayed")
+        withExtendedLifetime(token) {}
+    }
+
     func testNoFocusOrWindowMoves() async throws {
         let (service, _) = try await makeService()
         let keyWindow = NSApp.keyWindow

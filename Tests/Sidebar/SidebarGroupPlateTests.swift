@@ -216,21 +216,6 @@ final class SidebarGroupPlateTests: XCTestCase {
         XCTAssertEqual(controller.groupPlate.alphaValue, 0, accuracy: 0.01)
     }
 
-    /// A tab an agent is acting on wears its folder's rim and spark, on the
-    /// tab's own pill box, and loses them when the agent is done.
-    func testATabAnAgentIsUsingIsOutlined() throws {
-        let controller = try list()
-        let row = try XCTUnwrap(controller.list.row(of: looseTab.id))
-        controller.workingTabs = [looseTab.id: ControlFace(appID: "claude-code")]
-        let glow = try XCTUnwrap(controller.tabGlows[looseTab.id], "the tab has no outline")
-        XCTAssertEqual(glow.frame, controller.pillBox(ofRow: row))
-        XCTAssertTrue(glow.isWorking)
-        XCTAssertEqual(glow.tint, Tokens.Agent.tint(forApp: "claude-code"))
-        controller.workingTabs = [:]
-        XCTAssertNil(controller.tabGlows[looseTab.id], "the outline stayed after the agent was done")
-        XCTAssertFalse(glow.isWorking)
-    }
-
     // MARK: - Fixtures
 
     /// The plate's height runs on the rows' clock: `tabInsert`'s duration and
@@ -344,5 +329,39 @@ extension SidebarGroupPlateTests {
         controller.setHovered(try XCTUnwrap(controller.list.row(ofGroup: trip.id)))
         let visible = controller.scrollView.contentView.bounds
         XCTAssertLessThanOrEqual(visible.minY, controller.groupPlate.frame.minY, "the plate's top edge is clipped")
+    }
+}
+
+/// Luna Control's outlines: round a working tab, and gone with a closed folder.
+extension SidebarGroupPlateTests {
+
+    /// A tab an agent is acting on wears its folder's rim and spark, on the
+    /// tab's own pill box, and loses them when the agent is done.
+    func testATabAnAgentIsUsingIsOutlined() throws {
+        let controller = try list()
+        let row = try XCTUnwrap(controller.list.row(of: looseTab.id))
+        controller.workingTabs = [looseTab.id: ControlFace(appID: "claude-code")]
+        let glow = try XCTUnwrap(controller.tabGlows[looseTab.id], "the tab has no outline")
+        XCTAssertEqual(glow.frame, controller.pillBox(ofRow: row))
+        XCTAssertTrue(glow.isWorking)
+        XCTAssertEqual(glow.tint, Tokens.Agent.tint(forApp: "claude-code"))
+        controller.workingTabs = [:]
+        XCTAssertNil(controller.tabGlows[looseTab.id], "the outline stayed after the agent was done")
+        XCTAssertFalse(glow.isWorking)
+    }
+
+    /// A Luna Control folder that is closed takes its outline with it.
+    func testAClosedAgentFolderLeavesNoOutline() throws {
+        let controller = try list()
+        controller.controlFaces = [trip.id: ControlFace(appID: "claude-code")]
+        let plate = try XCTUnwrap(controller.controlPlates[trip.id], "the folder has no outline")
+        XCTAssertEqual(plate.alphaValue, 1, accuracy: 0.01)
+        controller.show(
+            saved: [], today: [.tab(looseTab), .group(work, tabs: Array(folderTabs[3 ..< 6]))], essentials: [],
+            activeTabID: looseTab.id
+        )
+        controller.table.layoutSubtreeIfNeeded()
+        print("PLATE", plate.alphaValue, plate.superview as Any, plate.frame)
+        XCTAssertTrue(plate.superview == nil || plate.alphaValue < 0.01, "the closed folder's outline stayed")
     }
 }
