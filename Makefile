@@ -1,6 +1,6 @@
 XCODEBUILD := xcodebuild -project Luna.xcodeproj -scheme Luna -derivedDataPath DerivedData
 
-.PHONY: gen build run test lint fmt check dmg
+.PHONY: gen build run test lint fmt check dmg signed
 
 gen:
 	xcodegen generate
@@ -19,6 +19,21 @@ run: build
 	touch DerivedData/Build/Products/Debug/Luna.app
 	$(LSREGISTER) -f DerivedData/Build/Products/Debug/Luna.app
 	open DerivedData/Build/Products/Debug/Luna.app
+
+# §31.1: a Developer ID build carrying the iCloud entitlements and the
+# provisioning profile that grants them. Opt in: `build`, `test` and CI stay
+# ad-hoc, because the certificate is on one Mac. The profile is kept out of
+# the repo (*.provisionprofile is ignored) at the path below. No sandbox
+# entitlement, on purpose: docs/SYNC.md.
+SIGNED_APP := DerivedData/Build/Products/Release/Luna.app
+IDENTITY := Developer ID Application: NovApps ApS (FUUYR6KRSH)
+
+signed:
+	$(XCODEBUILD) -configuration Release build
+	cp Signing/Luna_Developer_ID.provisionprofile $(SIGNED_APP)/Contents/embedded.provisionprofile
+	codesign --force --options runtime --timestamp --sign "$(IDENTITY)" $(SIGNED_APP)/Contents/MacOS/luna-control
+	codesign --force --options runtime --timestamp --sign "$(IDENTITY)" \
+		--entitlements Signing/Luna.entitlements $(SIGNED_APP)
 
 test:
 	swift test --package-path BrowserKit

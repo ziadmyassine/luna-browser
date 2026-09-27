@@ -85,6 +85,6 @@ extension AppDelegate {
     private static var privateGradient: GradientPair { Tokens.Gradient.spacePalette[3] }
 
     static func privateDatabaseRoot() -> URL {
-        URL.temporaryDirectory.appending(path: "dk.novapps.luna.private")
+        URL.temporaryDirectory.appending(path: "dev.novapps.luna.private")
     }
 }

@@ -148,7 +148,7 @@ Read off the form itself on 2026-09-20:
 
 | Field | Answer |
 |---|---|
-| Bundle ID | `dk.novapps.luna` — must already be registered under Certificates, Identifiers & Profiles |
+| Bundle ID | `dev.novapps.luna` — must already be registered under Certificates, Identifiers & Profiles |
 | App Store URL / Apple ID | blank; Luna is not on the App Store |
 | Is your app a web browser on macOS? | Yes |
 | Does it support WebAuthn? | **Yes** — WebKit does, and Luna hides it only until this is granted. Worth one sentence saying so, or a reviewer testing today sees no passkey button |

@@ -102,7 +102,7 @@ final class AdvancedSection: SettingsGroup {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL.temporaryDirectory
         return support
-            .appending(path: Bundle.main.bundleIdentifier ?? "dk.novapps.luna")
+            .appending(path: Bundle.main.bundleIdentifier ?? "dev.novapps.luna")
             .appending(path: "luna.sqlite")
     }
 

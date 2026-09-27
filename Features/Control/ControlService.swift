@@ -103,7 +103,7 @@ final class ControlService {
         session: BrowserSession,
         defaults: UserDefaults = .standard,
         auditURL: URL = ControlAudit.url(
-            inControlFolderOf: ControlSocket.path(bundleIdentifier: Bundle.main.bundleIdentifier ?? "dk.novapps.luna")
+            inControlFolderOf: ControlSocket.path(bundleIdentifier: Bundle.main.bundleIdentifier ?? "dev.novapps.luna")
         )
     ) {
         self.session = session
@@ -128,7 +128,7 @@ final class ControlService {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
         do {
             listener = try ControlListener(
-                path: ControlSocket.path(bundleIdentifier: Bundle.main.bundleIdentifier ?? "dk.novapps.luna"),
+                path: ControlSocket.path(bundleIdentifier: Bundle.main.bundleIdentifier ?? "dev.novapps.luna"),
                 version: version,
                 onClientsChange: {
                     Task { @MainActor in NotificationCenter.default.post(name: Self.clientsDidChange, object: nil) }

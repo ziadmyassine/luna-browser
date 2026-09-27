@@ -228,7 +228,7 @@ struct ImportLedger: Sendable {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL.temporaryDirectory
         return ImportLedger(fileURL: support
-            .appending(path: Bundle.main.bundleIdentifier ?? "dk.novapps.luna")
+            .appending(path: Bundle.main.bundleIdentifier ?? "dev.novapps.luna")
             .appending(path: "import-ledger.json"))
     }
 

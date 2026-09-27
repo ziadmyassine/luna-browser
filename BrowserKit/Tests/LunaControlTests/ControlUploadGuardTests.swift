@@ -15,7 +15,7 @@ struct ControlUploadGuardTests {
     init() throws {
         home = URL.temporaryDirectory.appending(path: "lc-upload-\(UUID().uuidString)", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: home.appending(path: ".ssh"), withIntermediateDirectories: true)
-        denied = ControlUpload.deniedPaths(home: home, bundleIdentifier: "dk.novapps.luna")
+        denied = ControlUpload.deniedPaths(home: home, bundleIdentifier: "dev.novapps.luna")
     }
 
     private func file(_ name: String, _ contents: String = "hello") throws -> String {
@@ -105,14 +105,14 @@ struct ControlUploadGuardTests {
     @Test func deniedFoldersAreRefused() throws {
         refused(try file(".ssh/id_ed25519", "PRIVATE KEY"), "not allowed")
         refused(try file("Library/Keychains/login.keychain-db"), "not allowed")
-        refused(try file("Library/Application Support/dk.novapps.luna/Control/activity.jsonl"), "not allowed")
-        refused(try file("Library/WebKit/dk.novapps.luna/cookies"), "not allowed")
-        refused(try file("Library/Preferences/dk.novapps.luna.plist"), "not allowed")
+        refused(try file("Library/Application Support/dev.novapps.luna/Control/activity.jsonl"), "not allowed")
+        refused(try file("Library/WebKit/dev.novapps.luna/cookies"), "not allowed")
+        refused(try file("Library/Preferences/dev.novapps.luna.plist"), "not allowed")
         // Case does not get round it on a case-insensitive disk, nor `..`.
         refused(home.appending(path: ".SSH/id_ed25519").path(percentEncoded: false), "not allowed")
         refused(home.appending(path: "Documents/../.ssh/id_ed25519").path(percentEncoded: false), "not allowed")
         // A sibling whose name only starts the same is not Luna's.
-        #expect(try read(try file("Library/Application Support/dk.novapps.lunar/notes.txt")).name == "notes.txt")
+        #expect(try read(try file("Library/Application Support/dev.novapps.lunar/notes.txt")).name == "notes.txt")
     }
 
     @Test(arguments: [

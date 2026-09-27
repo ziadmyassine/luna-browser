@@ -4,7 +4,7 @@
 > **Owner:** Martin
 > **Written:** 2026-09-17
 > **Target:** macOS 26+ native app, Swift 6, AppKit shell + SwiftUI surfaces, WKWebView (system WebKit).
-> **Bundle ID:** `dk.novapps.luna` · **Internal scheme:** `luna://` · **Licence:** **GPL-3.0-or-later** at publication (D12).
+> **Bundle ID:** `dev.novapps.luna` · **Internal scheme:** `luna://` · **Licence:** **GPL-3.0-or-later** at publication (D12).
 > **All 16 open questions were answered on 2026-09-17 — read §32 first. Where §32 contradicts an older section, §32 wins.**
 > **Priorities changed 2026-09-24 — read ★ below first. It overrides §0.2 and §32 where they disagree.**
 
@@ -15,7 +15,7 @@
 These four come before everything else, in this order. Two of them reverse earlier decisions (§32a).
 
 - [ ] **P1 — iCloud sync (§31).** Spaces, pinned tabs, folders, Favorites, bookmarks and settings follow the user between Macs through their own iCloud, with no Luna account or server.
-  - Start with §31.1: the spike needs a **Developer ID certificate and a provisioning profile with iCloud**, which do not exist yet. Getting them (a paid Apple Developer account) is the first real step; nothing else in §31 can be tested without it.
+  - §31.1 done 2026-09-27: a Developer ID, unsandboxed Luna reaches CloudKit (`docs/SYNC.md`, `make signed`).
   - Then §31.2–§31.12 in order. Local-first: Luna must work fully with iCloud off.
 - [ ] **P2 — Luna's own password manager.** *Reverses §0.2 and §14's goal line.* Today Luna writes into the Keychain and has no place of its own to see or manage passwords. What this adds:
   - **P2.1 Decide where the vault lives and how it syncs** — Keychain items Luna owns (they sync through iCloud Keychain once M4 signing lands, §14.2) or a Luna store synced through §31. Write the answer into `docs/PASSWORDS.md` before any UI.
@@ -701,7 +701,7 @@ luna/
 - [ ] **24.9 `Tools/perf` no longer compiles** *(found 2026-09-22)*. `Tools/perf/Sources/LunaPerf/main.swift:74` constructs `Profile(name:)`; the `Profile` type was deleted from BrowserKit in schema v7. The harness is a separate SPM package and is **not** in `.github/workflows/ci.yml`, which is why nothing caught it. Either port it to per-Space jars or drop it — but §19.1/§19.5 cite it as the way to re-run the budgets, so a dead harness silently retires the performance ledger.
 - [x] **24.10 App size** *(done 2026-09-24)*. The shipped app is a plain Release build, not an archive, so it kept every symbol and every unused function of GRDB and BrowserKit. `DEAD_CODE_STRIPPING` and `DEPLOYMENT_POSTPROCESSING` are now on for Release in `project.yml`: **24.4 MB → 14.5 MB**, the binary 21.3 → 11.6 MB. The dSYM beside it keeps the symbols for crash reports (§24.2).
   > **Not taken, on purpose.** `-Osize` saves another 1.8 MB (→ 12.7 MB) at a few percent of Swift speed. Dropping Intel (`ARCHS = arm64`) would roughly halve the binary again, but macOS 26 still runs on Intel Macs and those users would lose Luna. The rest is 2.6 MB of `Assets.car`, mostly the icon renditions actool generates.
-  > **What a user's disk holds is bigger than the app.** Measured on Martin's Mac: 741 MB of website data (normal for any browser) and **176 MB of compiled content-blocking rules** in `~/Library/WebKit/dk.novapps.luna/ContentRuleLists` — Luna's own and the one place worth shrinking (§17).
+  > **What a user's disk holds is bigger than the app.** Measured on Martin's Mac: 741 MB of website data (normal for any browser) and **176 MB of compiled content-blocking rules** in `~/Library/WebKit/dev.novapps.luna/ContentRuleLists` — Luna's own and the one place worth shrinking (§17).
 
 ---
 
@@ -760,7 +760,7 @@ Every question here was answered on 2026-09-17. The answers and their consequenc
 |---|---|---|
 | 1 | The "other browser" you like — name it | **It is a concept, not a shipping browser.** There is no live app to check behaviour against, so §30's written transcription is authoritative and we own every interaction it doesn't specify. |
 | 2 | Minimum macOS | **macOS 26+** (D9) |
-| 3 | Name, bundle ID, icon direction | **Luna**, `dk.novapps.luna`, new namespace. Icon direction still open (§8.9, M6). |
+| 3 | Name, bundle ID, icon direction | **Luna**, `dev.novapps.luna`, new namespace. Icon direction still open (§8.9, M6). |
 | 4 | Extensions in v1 or v2? | **v2** — except the §14.7 native-messaging password bridge, which is v1. |
 | 5 | Safe Browsing | **Ship without it and say so** (§17.7) |
 | 6 | Telemetry | **Zero.** Opt-in crash reports only (D16, §24.3) |
@@ -915,11 +915,13 @@ Transcribed from the reference captures in `inspiration/`. These are **observed 
 
 Everything the user *structures* follows them between Macs — and later, iPhone — through **their own iCloud account**. No Luna account, no Luna server, no password to forget. Local-first: the app is fully usable with iCloud off or unavailable, and sync is an accelerator, never a dependency.
 
-- [ ] **31.1 SPIKE (BLOCKER — do this in M0, before any sync code)** — prove that one signed app can have **both** iCloud entitlements **and** the ability to become the default browser.
+- [x] **31.1 SPIKE (BLOCKER — do this in M0, before any sync code)** — prove that one signed app can have **both** iCloud entitlements **and** the ability to become the default browser.
   - Build a Developer ID-signed, **non-sandboxed** app with `com.apple.developer.icloud-services` + `com.apple.developer.icloud-container-identifiers` + an embedded provisioning profile; confirm it reaches `cloudd` (no `CKError 6` / "Error connecting to CloudKit daemon") and that `LSSetDefaultHandlerForURLScheme` still works.
   - If those turn out to be mutually exclusive, pick from: (a) sandbox the app and set the default-browser handler from a **non-sandboxed helper/login item**; (b) keep the app unsandboxed and sync via an iCloud Drive ubiquity container instead of CloudKit; (c) drop iCloud sync. Record the outcome in `docs/SYNC.md`.
   - Acceptance: a written answer with a working signed build, before anyone designs a record schema.
   - **Decided 2026-09-17: do not pre-pick a fallback.** Run the spike, write `docs/SYNC.md`, and **stop for Martin's call** before any sync code. All three options above stay on the table until there is evidence.
+  > **Changed 2026-09-27: the stop is conditional.** If the spike passes (non-sandboxed, Developer ID, reaches `cloudd`, default-browser registration still works), write `docs/SYNC.md` and continue straight to §31.2. Stop for Martin's call only if it fails and a fallback is needed.
+  > **Done 2026-09-27: they are not exclusive.** `make signed` builds a Developer ID, Hardened Runtime, unsandboxed Luna with the CloudKit entitlements and embedded profile. `Luna --cloudkit-probe` on it: account available, user record fetched, a custom zone saved, listed and deleted in `iCloud.dev.novapps.luna` (Production), no `CKError`; same build reports `sandboxed false` and is a registered `https` handler. Left to a person: Make Luna Default on the signed build. Evidence in `docs/SYNC.md`.
   > **Why this is first:** §22.1 already establishes that the App Sandbox blocks default-browser registration, and App Sandbox is the configuration Apple documents CloudKit against. The whole sync design rests on which of those constraints bends. Do not build §31.2+ until this is answered.
 - [ ] **31.2 Container + schema** — one CloudKit container, private database, custom record zones per data class (`spaces`, `tabs`, `favorites`, `bookmarks`, `boosts`, `settings`, optionally `history`). Zones are the unit of atomic change and of "reset this data type", so split them along the lines the settings UI exposes.
 - [ ] **31.3 `CKSyncEngine` integration** (macOS 14+) — let the engine own scheduling, retries, change tokens and subscriptions. **Persist `stateSerialization` across launches** or the engine re-syncs from the wrong token; store it alongside the GRDB database (§11.1).
@@ -928,12 +930,13 @@ Everything the user *structures* follows them between Macs — and later, iPhone
   - **Syncs:** Spaces (name, colour, order), pinned tabs, Today-tab list, Favorites, bookmarks, boosts, per-site settings, zoom levels, keyboard remaps, general settings.
   - **Never syncs:** cookies, logins, and website storage. A `WKWebsiteDataStore` is local, opaque and not portable — we cannot and should not ship it anywhere. Say this plainly in the UI so nobody expects to stay logged in across Macs.
   - **DECIDED 2026-09-17: option (b).** Only **typed and bookmarked visits** sync — enough for the Command Bar to rank sensibly on a second Mac without shipping every page the user has ever opened to iCloud, even encrypted (§31.8). Link, redirect and embed visits stay local forever.
+  > **Decided 2026-09-27: the first release of sync carries every type above, not a slice.** Bookmarks and boosts do not exist in Luna yet; they join sync when they are built. General settings live in `UserDefaults` (`SettingsStore`), not GRDB, so they need their own path into the engine.
   > **Checked 2026-09-24: partly built.** Decided here and in §32 only. Missing: `docs/SYNC.md` and the in-app line saying cookies and logins don't sync.
 - [ ] **31.6 Open tabs across devices** — publish a lightweight per-device record (device name, Space, open tab list, updated-at) and render it behind the §30.21 button. Fixed cap per device, refreshed on foreground and on tab-set change, throttled — this is a presence feed, not a live mirror.
 - [ ] **31.7 Account & availability states** — handle no iCloud account, signed out mid-session, iCloud Drive disabled, storage full, network offline, and account switch (wipe local sync state and re-seed on identity change). Every one of these degrades to a working local-only browser with a quiet status line in settings, never a modal.
 - [ ] **31.8 Sensitive fields** — put URLs and titles in `encryptedValues` on the `CKRecord` so they're end-to-end encrypted rather than merely server-side encrypted. Note in docs that Advanced Data Protection strengthens this further but that we don't require it.
 - [ ] **31.9 Schema versioning** — every record carries a schema version; readers ignore unknown fields and never destructively rewrite a record written by a newer client. Write the forward-compatibility rule down before the first release, because the first user with two versions installed will find it.
-- [ ] **31.10 Sync settings UI** — master toggle, per-data-type toggles matching the §31.2 zones, "last synced" timestamp, "sync now", and a destructive "remove all Luna data from iCloud" that deletes the zones.
+- [ ] **31.10 Sync settings UI** — **opt-in (decided 2026-09-27): sync is off until the user turns it on**, even when the Mac is signed into iCloud. Master toggle, per-data-type toggles matching the §31.2 zones, "last synced" timestamp, "sync now", and a destructive "remove all Luna data from iCloud" that deletes the zones.
 - [ ] **31.11 Legal & privacy** — Privacy Policy must state what goes to iCloud, that it lands in the user's own account rather than ours, that we never see it, and what leaves the device unencrypted (nothing, per §31.8). Ties into §24.7.
 - [ ] **31.12 Testing** — two Macs on one account: create/rename/reorder/delete in both, offline edits on both then reconnect, conflicting renames, account switch, storage-full simulation, and a cold restore onto a wiped machine. Automate what's automatable; the rest goes in a written release checklist.
 
@@ -947,7 +950,7 @@ Sixteen questions, answered in one sitting. **Where this log contradicts an olde
 
 | Decision | Consequence |
 |---|---|
-| **Name is Luna**, bundle `dk.novapps.luna`, internal scheme `luna://` | "ARCWK" is dead everywhere — doc, code, scheme, repo. |
+| **Name is Luna**, bundle `dev.novapps.luna`, internal scheme `luna://` | "ARCWK" is dead everywhere — doc, code, scheme, repo. |
 | **Free forever, no monetisation** (D15) | No licensing code, no store integration, no VAT or refund policy, no entitlement checks in Sparkle. |
 | **Zero telemetry**, opt-in scrubbed crash reports only (D16) | §24.3 becomes a paragraph of copy instead of a feature. One less SDK, one less Privacy Policy section, one fewer thing to defend. |
 | **Open source, GPL-3.0-or-later** (D12) *(revised same day — this row supersedes the original "closed source" answer)* | `LICENSE` lands at publication. Unlocks legal reuse of Nook and Ora (§33) and obliges us to publish source for every released build. |
@@ -997,6 +1000,7 @@ Sixteen questions, answered in one sitting. **Where this log contradicts an olde
 | **Double-click rename on the selected top-bar tab is instant** (UI-SPEC §4) | The Command Bar the first click opened now closes at once and the name field is up on the second click. It used to wait for the bar to fold, and the page could take the keyboard back from the field. |
 | **Layout in Settings is a picture of each layout** (SETTINGS-SPEC §3.2) | Two small drawn windows — tabs in a sidebar, tabs in a top bar — chosen by clicking, instead of a Sidebar · Top bar segment. |
 | **Settings › About, with updates from GitHub releases** (SETTINGS-SPEC §3.10) | Icon, name and version, starting where the card starts (no inset); Check Now; install on its own (on by default); Install / Restart / Download for a newer release. Reads the repo's latest release once a day, checks the zip's SHA-256 and that it is a newer Luna, swaps it in, and Restart opens it. Only builds from the new `release.yml` workflow (run by pushing a `v…` tag) install; a Mac-built copy only links to the release. Not yet checked: the signer — that waits on Developer ID (§24.4). |
+| **Bundle ID is `dev.novapps.luna`** (2026-09-27, §31.1) | Was `dk.novapps.luna`. The App ID and iCloud container were registered under `dev.novapps.luna`. Nothing was released, so there is no migration code. |
 | **`⌘W` with no tab open closes the window** (UI-SPEC §8) | Close Tab was dimmed with nothing open, which swallowed the keystroke. |
 | **A top-bar folder shuts in one movement** (UI-SPEC §4) | Its plate morphs down to the name while the run slides, and the tabs fade in 0.10 s so their titles are gone before the plate passes them. It used to hold its full width until the fade was over and then snap, which read as lag. |
 | **The sidebar's foot: the Space pill instead of the avatar** (§30.9, UI-SPEC §3.5) | The Space's name, in its own pill, takes the Profile avatar's place at the bottom left, and the caption over the dots goes. The dots lose their glass pill. |

@@ -28,6 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Everything before this line is dyld, the Swift runtime and the ObjC
         // class registry — see `LaunchTrace.sinceExec`.
         LaunchTrace.mark("main")
+        if CommandLine.arguments.contains(CloudKitProbe.argument) { CloudKitProbe.run() }
         let app = LunaApplication.shared
         let delegate = AppDelegate()
         // `NSApplication.delegate` is weak and nothing else owns us.
@@ -372,7 +373,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     ///
     /// Which means that until this branch existed, every test run in this
     /// repo migrated and wrote the user's live database. Measured: the
-    /// schema-version row in `~/Library/Application Support/dk.novapps.luna/`
+    /// schema-version row in `~/Library/Application Support/dev.novapps.luna/`
     /// moved during this wave and its mtime tracked the test runs. A test that
     /// carefully builds its own fixture store is not protected by doing so —
     /// no test constructs that path, the app does, on their behalf.
@@ -390,7 +391,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL.temporaryDirectory
         return support
-            .appending(path: Bundle.main.bundleIdentifier ?? "dk.novapps.luna")
+            .appending(path: Bundle.main.bundleIdentifier ?? "dev.novapps.luna")
             .appending(path: "luna.sqlite")
     }
 

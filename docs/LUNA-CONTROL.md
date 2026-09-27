@@ -16,7 +16,7 @@ MCP client ──stdio──▶ Luna.app/Contents/MacOS/luna-control ──Unix 
 - `luna-control` is a small helper bundled in the app. It speaks MCP
   (JSON-RPC, one message per line) on stdin/stdout and passes each message
   through to the running Luna.
-- Luna listens on `~/Library/Application Support/dk.novapps.luna/Control/luna.sock`
+- Luna listens on `~/Library/Application Support/dev.novapps.luna/Control/luna.sock`
   only while the setting is on. Turning it off removes the socket and drops
   every connection.
 - If Luna is not running or the setting is off, the helper still completes the
@@ -454,7 +454,7 @@ asks for the rest of the connection, whatever the mode.
 ### Activity log
 
 Every call is written as one JSON line to
-`~/Library/Application Support/dk.novapps.luna/Control/activity.jsonl` (mode
+`~/Library/Application Support/dev.novapps.luna/Control/activity.jsonl` (mode
 `0600`): time, app, tool, tab, site, a summary, the decision (`allowed`,
 `approved`, `declined`, `refused`, `stopped`) and whether it failed. Typed
 text is counted, not kept, and script is scrubbed and cut to 200 characters.

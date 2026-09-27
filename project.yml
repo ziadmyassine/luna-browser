@@ -20,7 +20,8 @@ settings:
     MACOSX_DEPLOYMENT_TARGET: "26.0"
     # M0 signs ad-hoc ("Sign to Run Locally"). No certificate exists yet and none
     # is needed to run locally. Real signing — Developer ID + notarisation — is M4
-    # (TODO.md §24.4, D8), and the §31.1 iCloud spike is what first requires it.
+    # (TODO.md §24.4, D8). `make signed` is the opt-in Developer ID build for the
+    # §31.1 iCloud spike; it re-signs this ad-hoc build (docs/SYNC.md).
     CODE_SIGN_STYLE: Manual
     CODE_SIGN_IDENTITY: "-"
     CODE_SIGN_ENTITLEMENTS: ""
@@ -39,7 +40,7 @@ targets:
     settings:
       base:
         PRODUCT_NAME: Luna
-        PRODUCT_BUNDLE_IDENTIFIER: dk.novapps.luna
+        PRODUCT_BUNDLE_IDENTIFIER: dev.novapps.luna
         INFOPLIST_FILE: App/Info.plist
         # Names the Icon Composer bundle below, minus its .icon extension.
         # actool compiles it into Assets.car and writes CFBundleIconName for us.
