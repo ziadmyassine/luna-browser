@@ -74,6 +74,9 @@ enum Schema {
         migrator.registerMigration("v11") { db in
             try rememberInstalledExtensions(db)
         }
+        migrator.registerMigration("v12") { db in
+            try prepareForSync(db)
+        }
         return migrator
     }
 
