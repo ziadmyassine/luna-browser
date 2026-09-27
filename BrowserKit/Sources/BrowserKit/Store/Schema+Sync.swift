@@ -95,6 +95,12 @@ enum SyncSQL {
                 "zoom", "automaticPictureInPicture", "localNetwork", "savePasswords", "popups",
                 "blockingDisabled", "insecureAllowed"
             ]
+        ),
+        // `DefaultsSync` mirrors the allowlisted defaults here, so a setting
+        // gets the same zone guard, echo guard and turn-on seed as a row.
+        Tracked(
+            table: "syncedDefaults", recordType: "Setting", zone: .settings, key: { "\($0).key" },
+            synced: ["value"]
         )
     ]
 

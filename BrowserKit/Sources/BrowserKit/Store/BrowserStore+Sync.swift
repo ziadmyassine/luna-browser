@@ -65,8 +65,8 @@ extension BrowserStore {
     /// Applies a fetched batch in one transaction with the echo guard up, so none of it
     /// reaches the outbox (docs/SYNC-PLAN.md §1).
     ///
-    /// Spaces, groups, site settings and history are applied here. Settings, Devices and
-    /// the secret have their own owners, and a type this Luna does not know is left alone
+    /// Spaces, groups, site settings, history and the settings mirror are applied here.
+    /// Devices and the secret have their own owners, and a type this Luna does not know is left alone
     /// (§31.9). A record with a newer unsent edit on this Mac is skipped, and its system
     /// fields are not stored, so the save that follows meets the server's change tag and
     /// goes through the merge (§3).
@@ -128,6 +128,7 @@ private enum SyncApply {
         case "Tab": try writeTab(record, db)
         case "SiteSetting": try writeSite(record, db)
         case "HistoryEntry": try writeHistory(record, db)
+        case "Setting": try writeSetting(record, db)
         default: .skipped
         }
     }
@@ -173,6 +174,8 @@ private enum SyncApply {
             try db.execute(sql: "DELETE FROM siteSettings WHERE host = ?", arguments: [key])
         } else if type == "HistoryEntry" {
             try db.execute(sql: "DELETE FROM visits WHERE syncOrigin = ?", arguments: [name])
+        } else if type == "Setting" {
+            try db.execute(sql: "DELETE FROM syncedDefaults WHERE key = ?", arguments: [name])
         } else {
             return
         }
@@ -292,6 +295,16 @@ private enum SyncApply {
             \(names.map { "\($0) = excluded.\($0)" }.joined(separator: ", "))
             """,
             arguments: StatementArguments([site.host, Date()] + values)
+        )
+        return .applied
+    }
+
+    /// Only the mirror: `UserDefaults` is the app's to write (`DefaultsSync`).
+    private static func writeSetting(_ record: SyncRecord, _ db: Database) throws -> Outcome {
+        guard let setting = SyncMapping.setting(from: record) else { return .skipped }
+        try db.execute(
+            sql: "INSERT OR REPLACE INTO syncedDefaults (key, value, modifiedAt) VALUES (?, ?, ?)",
+            arguments: [setting.key, setting.value, Date()]
         )
         return .applied
     }
