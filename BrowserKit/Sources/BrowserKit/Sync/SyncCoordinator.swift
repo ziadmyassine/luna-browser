@@ -21,6 +21,10 @@ public actor SyncCoordinator {
     /// The outbox key of every change handed to the engine. A relaunch rebuilds it from the
     /// outbox and `syncRecords`.
     private var keys: [String: (recordType: String, localKey: String)] = [:]
+    /// The names a fetch from no saved state has brought so far, which is every record
+    /// iCloud holds once it finishes. Nil for a fetch resumed from saved state: that one
+    /// brings only what changed since, so a name missing from it proves nothing.
+    private var fullFetch: Set<String>?
     public private(set) var status = SyncStatus.off
 
     /// - Parameters:
@@ -55,7 +59,9 @@ public actor SyncCoordinator {
         if let bytes = try await store.syncMeta(SyncMetaKey.secret) {
             secret = SyncSecretState(settled: SyncSecret(bytes: bytes))
         }
-        engine = makeEngine(try await store.syncMeta(SyncMetaKey.engineState))
+        let state = try await store.syncMeta(SyncMetaKey.engineState)
+        engine = makeEngine(state)
+        fullFetch = state == nil ? [] : nil
         let last = try await store.syncMeta(SyncMetaKey.lastSyncedAt)
             .flatMap { String(bytes: $0, encoding: .utf8) }.flatMap(Double.init)
         await report(last.map { .synced(Date(timeIntervalSince1970: $0)) } ?? .syncing)
@@ -78,6 +84,7 @@ public actor SyncCoordinator {
         try await store.setSyncMeta(SyncMetaKey.engineState, nil)
         try await store.setSyncMeta(SyncMetaKey.fetchedOnce, nil)
         engine = nil
+        fullFetch = nil
         await report(.off)
     }
 
@@ -153,6 +160,8 @@ public actor SyncCoordinator {
 
     /// `sentRecordZoneChanges`.
     public func sent(saved: [SyncRecord] = [], deleted: [String] = [], failed: [SyncSaveFailure] = []) async throws {
+        // Saved while the full fetch runs, so it may not be in it, and is on the server.
+        fullFetch?.formUnion(saved.map(\.recordName))
         for record in saved {
             if record.recordType == SyncSecret.recordType {
                 secret.saved()
@@ -238,6 +247,7 @@ extension SyncCoordinator {
     /// to `SyncSecretState`; the store's own types go through `applyInbound`, which keeps
     /// their system fields itself.
     public func fetched(modifications: [SyncRecord], deletions: [SyncDeletion]) async throws {
+        fullFetch?.formUnion(modifications.map(\.recordName))
         let device = try await deviceID().uuidString
         // This Mac's own history, fetched again after sync was turned back on. Its visits
         // are here already; applying them would count each twice.
@@ -268,6 +278,10 @@ extension SyncCoordinator {
     /// `didFetchChanges`. With site settings on and no secret on the server, this Mac
     /// proposes one; site records wait until the server has accepted it.
     public func fetchFinished() async throws {
+        if let seen = fullFetch {
+            fullFetch = nil
+            try await deleteWhatTheFullFetchLacked(seen)
+        }
         let now = Date()
         try await store.setSyncMeta(SyncMetaKey.fetchedOnce, Data([1]))
         try await store.setSyncMeta(SyncMetaKey.lastSyncedAt, Data(String(now.timeIntervalSince1970).utf8))
@@ -275,6 +289,17 @@ extension SyncCoordinator {
         guard secret.settled == nil, try await store.enabledSyncZones().contains(.sites) else { return }
         _ = secret.proposal()
         await engine?.add(pending: [.save(SyncSecret.recordName, in: .meta)])
+    }
+
+    /// §3, turning sync on: a row whose system fields prove iCloud once had it, and which
+    /// the full fetch did not bring, was deleted on another Mac while this one was not
+    /// listening. It leaves as any other deletion does, through `fetched`, so the session
+    /// tears it down too. Rows with no system fields are the other half of that rule, and
+    /// the outbox seeded when the zone came on is already sending them.
+    private func deleteWhatTheFullFetchLacked(_ seen: Set<String>) async throws {
+        let gone = try await store.syncedRecords(in: store.enabledSyncZones())
+            .filter { $0.recordType != SyncSecret.recordType && !seen.contains($0.recordName) }
+        if !gone.isEmpty { try await fetched(modifications: [], deletions: gone) }
     }
 
     /// The secret settled, fetched or saved: keep it, and send the site records it names.
@@ -349,6 +374,7 @@ extension SyncCoordinator {
         secret = SyncSecretState()
         keys = [:]
         engine = nil
+        fullFetch = nil
     }
 
     private func report(_ status: SyncStatus) async {

@@ -111,6 +111,15 @@ extension BrowserStore {
         }
     }
 
+    /// Every record the server has seen in these zones, as the deletion that would take it.
+    func syncedRecords(in zones: Set<SyncZone>) async throws -> [SyncDeletion] {
+        try await pool.read { db in
+            try Row.fetchAll(db, sql: "SELECT recordType, recordName, zone FROM syncRecords")
+                .map { SyncDeletion(recordType: $0["recordType"], recordName: $0["recordName"], zone: $0["zone"]) }
+                .filter { SyncZone(rawValue: $0.zone).map(zones.contains) ?? false }
+        }
+    }
+
     /// The type and local key of a record the server has seen.
     func storedKey(of recordName: String) async throws -> (recordType: String, localKey: String)? {
         try await pool.read { db in
