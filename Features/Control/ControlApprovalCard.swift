@@ -2,21 +2,22 @@
 //  ControlApprovalCard.swift
 //  Luna
 //
-//  The card a Luna Control request waiting for the user is asked in: what
+//  The sheet a Luna Control request waiting for the user is asked in: what
 //  the call will do, where, why Luna asked, and Deny, Allow Once and — in the
 //  allow-per-site mode — Allow on the site. A `request_user` step reads as
 //  what the agent needs the user to do, with Not Now and Done. It shows the
-//  oldest request; answering one brings up the next, and the card goes when
-//  none are left.
+//  oldest request; answering one brings up the next, and the sheet goes back
+//  up when none are left.
 //
-//  §14.4's save-password chip's shape and place: glass at the top-right of
-//  the page, in a panel that never becomes key, so a request is seen the
-//  moment it arrives and still does not take the user's window or keyboard.
-//  It used to open only when the folder was clicked, and a raised hand on a
-//  sidebar row went unnoticed while the agent waited.
+//  It drops from the top edge of whatever page is in front
+//  (`ControlSurfaceView`), not only the agent's own, so it is seen the moment
+//  it arrives wherever the user is. It used to open only when the folder was
+//  clicked, and a raised hand on a sidebar row went unnoticed while the agent
+//  waited. Asking still takes nothing: no window becomes key, and the page
+//  keeps the keyboard.
 //
-//  Unlike the chip it does not time out on screen: the request's own
-//  five minutes (`ControlApprovals.timeout`) are what end it unanswered.
+//  It does not time out on screen: the request's own five minutes
+//  (`ControlApprovals.timeout`) are what end it unanswered.
 //
 
 import AppKit
@@ -26,100 +27,35 @@ import LunaControl
 final class ControlApprovalCard {
 
     private weak var approvals: ControlApprovals?
-    private var panel: NSPanel?
-    private weak var anchor: NSView?
-    private var shown: UUID?
-    private var resizeObserver: (any NSObjectProtocol)?
+    private var shown: (id: UUID, waiting: Int)?
 
     init(approvals: ControlApprovals) {
         self.approvals = approvals
     }
 
-    /// Shows the oldest request waiting, over `anchor`'s top-right corner, or
-    /// takes the card down when none is.
-    func update(over anchor: NSView?) {
-        if let anchor { self.anchor = anchor }
-        guard let waiting = approvals?.pending, let request = waiting.first,
-              let anchor = self.anchor, let window = anchor.window else {
-            return dismiss()
+    /// Shows the oldest request waiting on `surface`, or sends the sheet back
+    /// up when none is.
+    func update(on surface: ControlSurfaceView?) {
+        guard let surface else { return }
+        guard let waiting = approvals?.pending, let request = waiting.first else {
+            shown = nil
+            return surface.showSheet(nil)
         }
+        if let shown, shown.id == request.id, shown.waiting == waiting.count, surface.sheet != nil { return }
+        let isNew = shown?.id != request.id
+        shown = (request.id, waiting.count)
         let view = ControlApprovalCardView(request: request, waiting: waiting.count) { [weak self] answer in
             self?.approvals?.answer(request.id, answer)
         }
-        let size = view.fittingCardSize()
-        view.frame = NSRect(origin: .zero, size: size)
-        let panel = self.panel ?? makePanel()
-        panel.contentView = view
-        if panel.parent !== window {
-            panel.parent?.removeChildWindow(panel)
-            window.addChildWindow(panel, ordered: .above)
-            observeResize(of: window)
-        }
-        place(panel, size: size)
-        if self.panel == nil {
-            self.panel = panel
-            panel.orderFront(nil)
-            view.animateIn()
-        }
-        guard request.id != shown else { return }
-        shown = request.id
-        // §21.1, as the chip does: a card that only appears in a corner is
+        view.frame = NSRect(origin: .zero, size: view.fittingCardSize())
+        surface.showSheet(view)
+        guard isNew else { return }
+        // §21.1, as the save-password chip does: a sheet that only appears is
         // one a VoiceOver user is never told about.
         NSAccessibility.post(element: view, notification: .announcementRequested, userInfo: [
             .announcement: view.headline,
             .priority: NSAccessibilityPriorityLevel.high.rawValue
         ])
-    }
-
-    private func dismiss() {
-        shown = nil
-        if let resizeObserver { NotificationCenter.default.removeObserver(resizeObserver) }
-        resizeObserver = nil
-        guard let panel else { return }
-        self.panel = nil
-        panel.parent?.removeChildWindow(panel)
-        Tokens.Motion.fadePanelOut(panel)
-    }
-
-    private func place(_ panel: NSPanel, size: NSSize) {
-        guard let anchor, let window = anchor.window else { return }
-        let area = window.convertToScreen(anchor.convert(anchor.bounds, to: nil))
-        let inset = Tokens.Metric.chromeGapWide
-        panel.setFrame(
-            NSRect(x: area.maxX - size.width - inset, y: area.maxY - size.height - inset, width: size.width, height: size.height),
-            display: true
-        )
-    }
-
-    /// A child window moves with its parent but does not follow its corner
-    /// when the parent is resized, and a request can wait for minutes.
-    private func observeResize(of window: NSWindow) {
-        if let resizeObserver { NotificationCenter.default.removeObserver(resizeObserver) }
-        resizeObserver = NotificationCenter.default.addObserver(
-            forName: NSWindow.didResizeNotification, object: window, queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated {
-                guard let self, let panel = self.panel else { return }
-                self.place(panel, size: panel.frame.size)
-            }
-        }
-    }
-
-    /// The chip's panel, except that it stays up while Luna is in the
-    /// background: the user is usually in the agent's app when it asks, and
-    /// Luna's window beside it is where they should see the question.
-    private func makePanel() -> NSPanel {
-        let panel = NSPanel(
-            contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false
-        )
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = true
-        panel.hidesOnDeactivate = false
-        panel.becomesKeyOnlyIfNeeded = true
-        panel.collectionBehavior = [.transient, .ignoresCycle]
-        panel.animationBehavior = .utilityWindow
-        return panel
     }
 }
 
@@ -144,7 +80,10 @@ final class ControlApprovalCardView: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
-    private static let padding = NSEdgeInsets(top: 12, left: 16, bottom: 12, right: 16)
+    /// How far the sheet runs up under the page's top edge: its own corner,
+    /// so only its lower corners show.
+    static let hiddenTop = Tokens.Metric.passwordChip.cornerRadius
+    private static let padding = NSEdgeInsets(top: 12 + hiddenTop, left: 16, bottom: 12, right: 16)
     private static var textWidth: CGFloat { Tokens.Metric.passwordChip.width - padding.left - padding.right }
 
     private func build(
@@ -245,15 +184,5 @@ final class ControlApprovalCardView: NSView {
             width: max(Tokens.Metric.passwordChip.width, fitting.width + Self.padding.left + Self.padding.right),
             height: fitting.height + Self.padding.top + Self.padding.bottom
         )
-    }
-
-    /// A fade only, as the chip's: it is built and shown in the same breath,
-    /// so it has no earlier place to travel from.
-    func animateIn() {
-        guard !Tokens.A11y.reduceMotion else { return }
-        alphaValue = 0
-        Tokens.Motion.animate(Tokens.Motion.popoverIn) { _ in
-            animator().alphaValue = 1
-        }
     }
 }

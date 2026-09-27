@@ -263,6 +263,11 @@ extension Tokens {
         /// it pulses where the lap joins. Not run under Reduce Motion: the rim
         /// brightens instead.
         static let agentSpark = MotionSpec(2.60, .linear)
+        /// A Luna Control question dropping from the page's top edge, and
+        /// going back up once answered; the working capsule and the agent's
+        /// pointer fading in and out, and the pointer gliding to where the
+        /// agent acts next. Ease-out: it arrives and settles.
+        static let agentSheet = MotionSpec(0.25, .easeOut)
         /// One lap of each of the moon's two orbits. Slow enough to read as
         /// drift rather than as something to watch.
         static let innerOrbitLap: TimeInterval = 24

@@ -173,8 +173,11 @@ extension ControlService {
         return shield(result, command: call.command, client: client, tab: id ?? currentTab[client.connection], in: session)
     }
 
-    /// The user's say over one call: takeover, the policy, and the approval
-    /// it may ask for. Nil lets the call run; otherwise what the model reads.
+    /// The user's say over one call: the policy, and the approval it may ask
+    /// for. Nil lets the call run; otherwise what the model reads.
+    ///
+    /// Looking at a page the agent is working on is not a say: the user
+    /// watches, and takes over with the page's capsule, which pauses the agent.
     private func admit(
         _ command: ControlCommand, tab id: UUID?, client: ControlClient, in session: BrowserSession,
         record: inout ControlAudit.Record
@@ -182,13 +185,6 @@ extension ControlService {
         let pageURL = id.flatMap { session.tab($0)?.url }
         let site = (command.destination ?? pageURL).flatMap(Self.site(of:))
         record.site = site
-        if command.acts, let id, isTakenOver(id, by: client, in: session) {
-            record.decision = "refused"
-            return .error("""
-            The user has this tab in front of them and has taken over. Nothing was done; wait until they \
-            leave it, or ask them.
-            """)
-        }
         let isInternalPage = pageURL.map(Self.isInternal) ?? false
         var facts = ControlFacts(
             escalated: site.map { escalated.contains(Escalation(connection: client.connection, site: $0)) } ?? false,
@@ -272,15 +268,6 @@ extension ControlService {
         case .listTabs, .openTab, .wait, .requestUser: nil
         default: try resolve(call, in: session, for: client)
         }
-    }
-
-    /// An agent's own tab that the user has selected, or has on screen in
-    /// a split, is theirs until they leave it: typing into a page someone is
-    /// looking at is a collision.
-    private func isTakenOver(_ id: UUID, by client: ControlClient, in session: BrowserSession) -> Bool {
-        guard let folder = folders[client.displayName], session.tab(id)?.groupID == folder else { return false }
-        let window = session.controller(for: id)?.webView?.window
-        return session.activeTabID == id || (window != nil && !(window is ControlStageWindow))
     }
 
     /// The client's folder, made now if a request needs somewhere to wait.

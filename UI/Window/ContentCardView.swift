@@ -101,6 +101,9 @@ final class ContentCardView: NSView {
     /// §3.2b's page bar, floating over the page at the pane's top edge — the
     /// one thing that is allowed inside the card and is not the web content.
     private var overlay: NSView?
+    /// Luna Control's layer (`ControlSurfaceView`): over the page, under the
+    /// page bar, whichever tab is showing.
+    private var agentLayer: ControlSurfaceView?
     private var insetsBeforeFullscreen: NSEdgeInsets?
     private var insetEdgeBeforeFullscreen: CardEdge? = .leading
     /// The content's leading edge, pinned to the card's. Active at rest, so
@@ -153,8 +156,8 @@ final class ContentCardView: NSView {
         view.translatesAutoresizingMaskIntoConstraints = false
         // Under the overlay, whichever arrived first: the page bar floats over
         // the page, and a web view added afterwards would otherwise cover it.
-        if let overlay {
-            addSubview(view, positioned: .below, relativeTo: overlay)
+        if let below = agentLayer ?? overlay {
+            addSubview(view, positioned: .below, relativeTo: below)
         } else {
             addSubview(view)
         }
@@ -209,6 +212,24 @@ final class ContentCardView: NSView {
         ])
     }
 
+    /// Luna Control's layer, over the four edges like the bar, and under it.
+    func setAgentLayer(_ view: ControlSurfaceView) {
+        agentLayer = view
+        view.translatesAutoresizingMaskIntoConstraints = false
+        if let overlay {
+            addSubview(view, positioned: .below, relativeTo: overlay)
+        } else {
+            addSubview(view)
+        }
+        view.topInset = pageBarInset
+        NSLayoutConstraint.activate([
+            view.topAnchor.constraint(equalTo: topAnchor),
+            view.leadingAnchor.constraint(equalTo: leadingAnchor),
+            view.trailingAnchor.constraint(equalTo: trailingAnchor),
+            view.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
+    }
+
     /// How much of the page §3.2b's bar covers.
     ///
     /// The page runs under the bar, and WebKit is told how much of it the bar
@@ -227,6 +248,7 @@ final class ContentCardView: NSView {
         guard inset != pageBarInset else { return }
         let change = inset - pageBarInset
         pageBarInset = inset
+        agentLayer?.topInset = inset
         applyTopInset(holdingPage: animated ? change : 0)
     }
 

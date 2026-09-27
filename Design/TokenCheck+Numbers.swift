@@ -398,6 +398,7 @@ extension TokenCheck {
             ("themeWash", Tokens.Motion.themeWash), ("reloadArcIn", Tokens.Motion.reloadArcIn),
             ("reloadArcOut", Tokens.Motion.reloadArcOut),
             ("loadLineAdvance", Tokens.Motion.loadLineAdvance), ("loadLineFade", Tokens.Motion.loadLineFade),
+            ("agentSheet", Tokens.Motion.agentSheet),
             ("downloadFlight", Tokens.Motion.downloadFlight), ("downloadCatch", Tokens.Motion.downloadCatch),
             ("modePhase", Tokens.Motion.modePhase), ("satelliteFade", Tokens.Motion.satelliteFade)
         ]

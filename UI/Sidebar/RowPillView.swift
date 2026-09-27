@@ -45,6 +45,15 @@ final class RowPillView: NSView {
         didSet { if tint != oldValue { needsDisplay = true } }
     }
 
+    /// The folder plate's corner, which Luna Control's working capsule
+    /// (`ControlSurfaceView`) rounds into a capsule.
+    var cornerRadius = Tokens.Metric.rowCornerRadius {
+        didSet {
+            needsDisplay = true
+            needsLayout = true
+        }
+    }
+
     /// Whether the agent a tinted plate belongs to is working in its folder:
     /// a spark of the tint runs round the rim (`Motion.agentSpark`).
     var isWorking = false {
@@ -104,7 +113,7 @@ final class RowPillView: NSView {
 
     override func updateLayer() {
         guard let layer else { return }
-        layer.cornerRadius = Tokens.Metric.rowCornerRadius
+        layer.cornerRadius = cornerRadius
         layer.backgroundColor = fill.cgColor
         // §3.4 gives the selected row a visible border and the hover lift none:
         // a border that appeared under the pointer would read as a second
@@ -179,7 +188,7 @@ final class RowPillView: NSView {
         let width = Tokens.Agent.sparkWidth
         rim.frame = bounds
         rimMask.frame = bounds
-        let radius = max(Tokens.Metric.rowCornerRadius - width / 2, 0)
+        let radius = max(cornerRadius - width / 2, 0)
         rimMask.path = CGPath(
             roundedRect: bounds.insetBy(dx: width / 2, dy: width / 2), cornerWidth: radius, cornerHeight: radius,
             transform: nil

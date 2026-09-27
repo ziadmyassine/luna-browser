@@ -185,9 +185,15 @@ so the user's pointer does not move. The tab goes back to having no window
 when the call ends.
 
 - Only a tab in no window is staged. A tab the user has on screen is never
-  taken, since that would take their first responder. An agent's own tab that
-  the user has selected, or shows in a split, is refused as taken over. The
-  user's own tab on screen gets page events instead.
+  taken, since that would take their first responder; it gets page events
+  instead, the agent's own tabs as well as the user's.
+- Looking at a page an agent is working on does not stop it: the user
+  watches. A capsule at the foot of the page says "*agent* is working", with
+  the folder's tinted rim and spark, and the agent's pointer, an arrow in its
+  app's colour with its name, glides to wherever it clicks, hovers, types or
+  drags. **Take Over** on the capsule pauses the agent (its calls are refused
+  as paused) and **Resume** hands the page back. The capsule shows while the
+  agent that last acted on the page is connected.
 - If the user shows the tab while a call is running, the next event is
   refused.
 - WebKit passes keys the page did not handle to `NSApp.sendEvent`, where the
@@ -293,13 +299,13 @@ Settings → Luna Control → *Before an app acts on a page*:
 
 A call that needs approval waits without taking the user's window: the
 folder's icon becomes a raised hand and the Dock icon bounces once
-(`requestUserAttention(.informationalRequest)`). At once, a card appears at the
-top-right of the page, the same glass card as "Save password?", with the app's
-icon, what the call will do and where, and **Deny**, **Allow Once** and, in
-Per Site mode, **Allow on *site***. It is a panel that never becomes key, so
-Luna is never activated and the keyboard stays where it was; it stays up while
-Luna is in the background, over Luna's own window. One request is shown at a
-time, oldest first, with how many more are waiting. If Luna quits while a
+(`requestUserAttention(.informationalRequest)`). At once, a glass sheet drops
+from the top edge of whatever page is in front, not only the agent's own
+(`ControlSurfaceView`, `Motion.agentSheet`), with the app's icon, what the call
+will do and where, and **Deny**, **Allow Once** and, in Per Site mode,
+**Allow on *site***. Asking makes no window key and does not activate Luna, so
+the keyboard stays where it was. One request is shown at a time, oldest first,
+with how many more are waiting; the sheet goes back up when none are left. If Luna quits while a
 call is waiting, `luna-control` answers it at once as unreachable rather than
 leaving the client to its own timeout. None of them is the default button. A request nobody
 answers is declined after five minutes. If the page moved to another site

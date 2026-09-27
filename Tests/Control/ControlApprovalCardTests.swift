@@ -2,9 +2,9 @@
 //  ControlApprovalCardTests.swift
 //  LunaTests
 //
-//  A Luna Control request waiting for the user shows its card on its own,
-//  over the window, without the window or the card becoming key, and the
-//  card goes when the request is answered.
+//  A Luna Control request waiting for the user drops its sheet from the top
+//  of the page on its own, without the window becoming key, and the sheet
+//  goes back up when the request is answered.
 //
 
 import AppKit
@@ -21,31 +21,38 @@ final class ControlApprovalCardTests: XCTestCase {
         )
     }
 
-    func testCardAppearsOnItsOwnAndGoesWhenAnswered() async throws {
+    func testSheetDropsOnItsOwnAndGoesWhenAnswered() async throws {
         let window = NSWindow(
             contentRect: NSRect(x: 200, y: 200, width: 900, height: 600), styleMask: [.titled], backing: .buffered,
             defer: false
         )
         window.isReleasedWhenClosed = false
+        let surface = ControlSurfaceView(frame: NSRect(x: 0, y: 0, width: 900, height: 600))
+        surface.topInset = 52
+        window.contentView = surface
         window.orderFront(nil)
         defer { window.close() }
+        let wasKey = window.isKeyWindow
         let approvals = ControlApprovals()
         let card = ControlApprovalCard(approvals: approvals)
-        approvals.onChange = { card.update(over: window.contentView) }
+        approvals.onChange = { card.update(on: surface) }
 
         let asking = Task { await approvals.ask(request()) }
-        for _ in 0 ..< 100 where window.childWindows?.isEmpty ?? true { try await Task.sleep(for: .milliseconds(10)) }
+        for _ in 0 ..< 100 where approvals.pending.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+        try await Task.sleep(for: .milliseconds(400))
 
-        let panel = try XCTUnwrap(window.childWindows?.first, "no card was shown")
-        XCTAssertTrue(panel.isVisible)
-        XCTAssertFalse(panel.isKeyWindow)
-        XCTAssertTrue(window.frame.contains(panel.frame), "the card is not over the window: \(panel.frame)")
-        XCTAssertGreaterThan(panel.frame.height, 60)
+        let sheet = try XCTUnwrap(surface.sheet, "no sheet was shown")
+        XCTAssertTrue(sheet.superview === surface)
+        XCTAssertEqual(sheet.frame.midX, surface.bounds.midX, accuracy: 1, "the sheet is not centred")
+        XCTAssertEqual(sheet.frame.minY, 52 - ControlApprovalCardView.hiddenTop, accuracy: 1, "the sheet is not under the bar")
+        XCTAssertEqual(window.isKeyWindow, wasKey, "asking made the window key")
 
         let request = try XCTUnwrap(approvals.pending.first)
         approvals.answer(request.id, .deny)
         let answer = await asking.value
         XCTAssertEqual(answer, .deny)
-        XCTAssertTrue(window.childWindows?.isEmpty ?? true, "the card stayed after the answer")
+        XCTAssertNil(surface.sheet)
+        try await Task.sleep(for: .milliseconds(400))
+        XCTAssertNil(sheet.superview, "the sheet stayed after the answer")
     }
 }

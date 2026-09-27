@@ -103,6 +103,10 @@ final class ControlService {
     var connectedNames: Set<String> = []
     /// Where a request waiting for the user is asked.
     private lazy var approvalCard = ControlApprovalCard(approvals: approvals)
+    /// Which client last acted on each tab, by display name: whose capsule
+    /// a page shows when the user goes to it.
+    var actingOn: [UUID: String] = [:]
+    private var surfaceWatch: ObservationToken?
 
     init(
         session: BrowserSession,
@@ -119,6 +123,8 @@ final class ControlService {
             self?.showApprovals()
         }
         session.control = self
+        // A tab switch, a call starting or ending, a pause: each is a change.
+        surfaceWatch = session.addChangeObserver { [weak self] in self?.refreshSurface() }
         // Folders from an earlier launch wear their app's icon before the
         // app connects again.
         refreshFaces()
@@ -200,6 +206,8 @@ final class ControlService {
                 return .error("That tab could not be woken.")
             }
             currentTab[client.connection] = id
+            actingOn[id] = client.displayName
+            await showPointer(for: call.command, on: webView, by: client.displayName)
             return try await onTab(call.command, tab: id, webView: webView, controller: controller)
         }
     }
@@ -216,6 +224,7 @@ final class ControlService {
         defer { if isNew { mark(group.id, running: false) } }
         let id = session.openControlledTab(url: url, in: group)
         currentTab[client.connection] = id
+        actingOn[id] = client.displayName
         if let webView = session.controller(for: id)?.webView {
             size(webView, in: session)
             await settle(webView)
@@ -279,11 +288,9 @@ final class ControlService {
 
     // MARK: - The folder's mark
 
-    /// The card over the page the user is looking at, or over the whole
-    /// window when no tab is showing.
+    /// The sheet over whatever page the user is looking at.
     private func showApprovals() {
-        let page = session?.activeTabID.flatMap { session?.controller(for: $0)?.webView }
-        approvalCard.update(over: page ?? session?.hostWindow?.contentView)
+        approvalCard.update(on: surface)
     }
 
     /// How long a folder stays marked after its last call. Long enough that a

@@ -70,16 +70,21 @@ final class ControlStageTests: XCTestCase {
         XCTAssertNil(webView.window, "the stage kept the tab")
     }
 
-    func testUserViewingTabRefusesInput() async throws {
+    /// Looking at the agent's tab lets the user watch it work; Take Over,
+    /// which pauses the agent, is what stops it.
+    func testViewingTabLetsTheAgentWorkUntilTakenOver() async throws {
         let (service, session) = try await makeService()
         _ = await service.perform(ControlCall(.openTab(page)), client)
         let id = try XCTUnwrap(session.allTabs(includeArchived: false).first { $0.url.scheme == "data" }?.id)
         session.activateTab(id)
 
-        let result = await service.perform(ControlCall(.click(.point(x: 100, y: 40), clickCount: 1)), client)
-        XCTAssertTrue(result.isError)
-        XCTAssertTrue(text(result).contains("taken over"), text(result))
-        XCTAssertNotEqual(session.controller(for: id)?.webView?.title, "trusted")
+        let watched = await service.perform(ControlCall(.click(.point(x: 100, y: 40), clickCount: 1)), client)
+        XCTAssertFalse(watched.isError, text(watched))
+
+        service.pause(client: client.displayName)
+        let taken = await service.perform(ControlCall(.click(.point(x: 100, y: 40), clickCount: 1)), client)
+        XCTAssertTrue(taken.isError)
+        XCTAssertTrue(text(taken).contains("paused"), text(taken))
     }
 
     func testNoFocusOrWindowMoves() async throws {

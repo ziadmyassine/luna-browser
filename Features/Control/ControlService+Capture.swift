@@ -76,9 +76,16 @@ extension ControlService {
     /// click may take its element away.
     func marks(for command: ControlCommand, in webView: WKWebView, tab id: UUID) async -> [CGPoint] {
         guard recordings[id]?.isOn == true else { return [] }
+        return await points(for: command, in: webView)
+    }
+
+    /// Where a call points, in CSS pixels: a click's, hover's or drag's
+    /// target, or the field a `type` names.
+    func points(for command: ControlCommand, in webView: WKWebView) async -> [CGPoint] {
         let targets: [ControlCommand.Target] = switch command {
         case let .click(target, _, _, _, _), let .hover(target): [target]
         case let .drag(from, to, _): [from, to]
+        case let .type(_, ref?, _): [.ref(ref)]
         default: []
         }
         var points: [CGPoint] = []

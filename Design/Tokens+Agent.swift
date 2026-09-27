@@ -27,6 +27,9 @@ extension Tokens {
         /// lifted toward white so it reads as light rather than paint.
         static let sparkWidth: CGFloat = 1.5
         static let sparkLift: CGFloat = 0.35
+        /// The capsule at the foot of a page an agent is working on: a
+        /// push button's height with room round it.
+        static let capsuleHeight: CGFloat = 36
 
         /// ChatGPT's and Cursor's icons are black and white, so theirs is the
         /// label colour: white on a dark sidebar, black on a light one, where
