@@ -24,8 +24,8 @@ final class FakeSyncEngine: SyncEngineControl {
     var startedWith: [Data?] { calls.withLock { $0.startedWith } }
 
     /// The coordinator's `makeEngine`: every start hands back this same fake.
-    var factory: @Sendable (Data?) -> any SyncEngineControl {
-        { [self] state in
+    var factory: @Sendable (SyncCoordinator, Data?) -> any SyncEngineControl {
+        { [self] _, state in
             calls.withLock { $0.startedWith.append(state) }
             return self
         }

@@ -471,3 +471,47 @@ extension SyncCoordinatorTests {
         #expect(engine.pending.contains(.save(secret.siteRecordName(forHost: "example.com"), in: .sites)))
     }
 }
+
+// MARK: The app's calls (S11)
+
+extension SyncCoordinatorTests {
+
+    @Test func syncNowFetchesThenSends() async throws {
+        let (_, sync, _) = try await started()
+        let before = engine.calls.withLock { ($0.fetches, $0.sends) }
+
+        try await sync.syncNow()
+
+        let after = engine.calls.withLock { ($0.fetches, $0.sends) }
+        #expect(after.0 == before.0 + 1)
+        #expect(after.1 == before.1 + 1)
+    }
+
+    /// An app activation with sync off must not reach CloudKit at all.
+    @Test func fetchAsksTheEngineOnlyWhileSyncIsOn() async throws {
+        let store = try makeTemporaryStore()
+        let sync = coordinator(store)
+        try await sync.start()
+        try await sync.fetch()
+        #expect(engine.startedWith.isEmpty, "sync off built an engine")
+        #expect(engine.calls.withLock(\.fetches) == 0)
+
+        try await sync.enable(zones: [.spaces])
+        let fetches = engine.calls.withLock(\.fetches)
+        try await sync.fetch()
+        #expect(engine.calls.withLock(\.fetches) == fetches + 1)
+    }
+
+    /// Writers other than the session (history, site settings, the importer) fill the
+    /// outbox too, so the coordinator hears the outbox rather than any one caller.
+    @Test func aLocalWriteReachesTheEngineWithoutBeingPushed() async throws {
+        let (store, sync, _) = try await started()
+        let later = newSpace("Later")
+        try await store.upsert(later)
+
+        let change = SyncPendingChange.save(later.id.uuidString, in: .spaces)
+        for _ in 0..<50 where !engine.pending.contains(change) { try await Task.sleep(for: .milliseconds(100)) }
+        #expect(engine.pending.contains(change))
+        withExtendedLifetime(sync) {}
+    }
+}

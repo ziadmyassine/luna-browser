@@ -82,6 +82,53 @@ struct CloudKitBoundaryTests {
         #expect(SyncCloudKit.serverRecord(in: CocoaError(.fileNoSuchFile)) == nil)
     }
 
+    /// The live engine's half of the seam (S11): what its errors become.
+    @Test func ckErrorsBecomeTheCodesTheCoordinatorActsOn() throws {
+        let cases: [(CKError.Code, SyncError)] = [
+            (.unknownItem, .unknownItem),
+            (.zoneNotFound, .zoneNotFound),
+            (.quotaExceeded, .quotaExceeded),
+            (.networkUnavailable, .networkUnavailable),
+            (.networkFailure, .networkUnavailable),
+            (.notAuthenticated, .notAuthenticated),
+            (.accountTemporarilyUnavailable, .temporarilyUnavailable),
+            (.internalError, .other)
+        ]
+        for (code, expected) in cases {
+            #expect(SyncCloudKit.syncError(CKError(code)) == expected, "\(code)")
+        }
+        #expect(SyncCloudKit.syncError(CocoaError(.fileNoSuchFile)) == .other)
+
+        let server = Self.record()
+        server.encryptedValues["name"] = "Theirs" as NSString
+        let conflict = CKError(.serverRecordChanged, userInfo: [CKRecordChangedErrorServerRecordKey: server])
+        guard case .serverRecordChanged(let record) = SyncCloudKit.syncError(conflict) else {
+            Issue.record("a conflict lost its server record"); return
+        }
+        #expect(record["name"] == .string("Theirs"))
+    }
+
+    @Test func pendingChangesCrossTheSeamWithTheirZone() {
+        let changes: [SyncPendingChange] = [.save("a", in: .spaces), .delete("b", in: .devices)]
+        let engine = changes.map(SyncCloudKit.pendingChange)
+
+        guard case .deleteRecord(let id) = engine[1] else { Issue.record("a delete became a save"); return }
+        #expect(id.recordName == "b")
+        #expect(id.zoneID.zoneName == "Devices")
+        #expect(id.zoneID.ownerName == CKCurrentUserDefaultName)
+        #expect(engine.compactMap(SyncCloudKit.pendingChange) == changes)
+    }
+
+    /// The Production schema check covers every type, each in the throwaway zone.
+    @Test func theProbeBuildsOneRecordOfEachTypeInItsZone() {
+        let records = SyncProbe.records(inZone: "probe")
+        #expect(Set(records.map(\.recordType)) == [
+            "Space", "TabGroup", "Tab", "SiteSetting", "Setting", "HistoryEntry", "Device", "SyncSecret"
+        ])
+        #expect(records.count == 8)
+        #expect(records.allSatisfy { $0.recordID.zoneID.zoneName == "probe" })
+    }
+
     @Test func syncRecordToCKRecordKeepsEveryFieldAndItsEncryption() throws {
         let when = Date(timeIntervalSince1970: 1_790_000_000)
         let original = SyncRecord(

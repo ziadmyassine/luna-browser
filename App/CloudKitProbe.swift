@@ -2,25 +2,35 @@
 //  CloudKitProbe.swift
 //  Luna
 //
-//  §31.1's spike: `Luna --cloudkit-probe` asks `cloudd` for the account and
-//  round-trips one custom zone, reports the default-browser state, and exits
-//  without showing a window. Only meaningful in a `make signed` build; the
-//  ad-hoc build has no iCloud entitlements. Results and verdict: docs/SYNC.md.
-//  Delete this file and its one line in `AppDelegate.main()` once §31.2 has
-//  real sync code to prove the same thing.
+//  `Luna --cloudkit-probe` asks `cloudd` for the account, round-trips one
+//  custom zone, reports the default-browser state, and exits without showing
+//  a window. `--cloudkit-probe-records` then saves, fetches and deletes one
+//  record of each of Luna's types in a throwaway zone: the check that the
+//  Production schema takes everything sync sends (docs/SYNC-PLAN.md S11).
+//  Only meaningful in a `make signed` build; the ad-hoc build has no iCloud
+//  entitlements. §31.1's results and verdict: docs/SYNC.md.
 //
 
 import AppKit
+import BrowserKit
 import CloudKit
 
 @MainActor
 enum CloudKitProbe {
     static let argument = "--cloudkit-probe"
+    /// Writes records to the Production database, so only once the schema is
+    /// deployed there.
+    static let recordsArgument = "--cloudkit-probe-records"
+
+    static var isRequested: Bool {
+        CommandLine.arguments.contains(argument) || CommandLine.arguments.contains(recordsArgument)
+    }
 
     static func run() -> Never {
         Task {
-            await probe()
-            exit(0)
+            let database = await probe()
+            let passed = CommandLine.arguments.contains(recordsArgument) ? await probeRecords(in: database) : true
+            exit(passed ? 0 : 1)
         }
         dispatchMain()
     }
@@ -37,7 +47,7 @@ enum CloudKitProbe {
         return "\(type(of: error)): \(error.localizedDescription)"
     }
 
-    private static func probe() async {
+    private static func probe() async -> CKDatabase {
         log("bundle \(Bundle.main.bundleIdentifier ?? "nil")")
         defaultBrowser()
 
@@ -78,6 +88,51 @@ enum CloudKitProbe {
         } catch {
             log("zone round-trip failed: \(describe(error))")
         }
+        return database
+    }
+
+    /// Each type on its own, so a failure names its type. A record fetched
+    /// back without a field it was saved with means the schema lacks it.
+    private static func probeRecords(in database: CKDatabase) async -> Bool {
+        let zoneID = CKRecordZone.ID(zoneName: "probe-\(UUID().uuidString.prefix(8))")
+        do {
+            _ = try await database.modifyRecordZones(saving: [CKRecordZone(zoneID: zoneID)], deleting: [])
+        } catch {
+            log("save zone \(zoneID.zoneName) failed: \(describe(error))")
+            return false
+        }
+        let records = SyncProbe.records(inZone: zoneID.zoneName)
+        var passed = 0
+        for record in records {
+            do {
+                let saved = try await database.modifyRecords(saving: [record], deleting: [])
+                if case .failure(let error)? = saved.saveResults[record.recordID] { throw error }
+                let fetched = try await database.record(for: record.recordID)
+                let missing = Set(keys(of: record)).subtracting(keys(of: fetched))
+                let deleted = try await database.modifyRecords(saving: [], deleting: [record.recordID])
+                if case .failure(let error)? = deleted.deleteResults[record.recordID] { throw error }
+                guard missing.isEmpty else {
+                    log("\(record.recordType) came back without \(missing.sorted())")
+                    continue
+                }
+                log("\(record.recordType) save, fetch, delete ok")
+                passed += 1
+            } catch {
+                log("\(record.recordType) failed: \(describe(error))")
+            }
+        }
+        do {
+            _ = try await database.modifyRecordZones(saving: [], deleting: [zoneID])
+            log("delete zone \(zoneID.zoneName) ok")
+        } catch {
+            log("delete zone \(zoneID.zoneName) failed: \(describe(error))")
+        }
+        log("records \(passed)/\(records.count) ok")
+        return passed == records.count
+    }
+
+    private static func keys(of record: CKRecord) -> [String] {
+        record.allKeys() + record.encryptedValues.allKeys()
     }
 
     /// Reads, never sets: setting the default shows macOS's confirmation sheet.

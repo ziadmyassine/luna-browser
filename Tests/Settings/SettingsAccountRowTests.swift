@@ -125,6 +125,20 @@ final class SettingsAccountRowTests: XCTestCase {
 
     // MARK: - Opening the page
 
+    /// `settings.lastSection` names the page the window closed on, the iCloud
+    /// page included, though the register does not know it.
+    func testTheICloudPageComesBackOnRelaunch() throws {
+        let saved = SettingsDefaults.lastSection
+        defer { SettingsDefaults.lastSection = saved }
+        SettingsDefaults.lastSection = AccountSection.id
+
+        let (controller, root) = try laidOut()
+        defer { controller.window?.close() }
+
+        XCTAssertTrue(texts(in: root).contains(AccountSection.cookieLine), "the window opened on another page")
+        XCTAssertTrue(try XCTUnwrap(descendants(of: root, ofType: SettingsAccountRow.self).first).isOn)
+    }
+
     /// The row holds the selection while its page is showing, and the list's
     /// pill steps aside: one thing in the column is selected, always.
     func testClickingOpensTheICloudPageAndFadesTheListsPill() throws {

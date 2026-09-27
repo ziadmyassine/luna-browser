@@ -49,9 +49,11 @@ extension SyncCoordinator {
         await engine.add(pending: [.save(name, in: .devices)])
     }
 
-    /// The Macs to list: every other one heard from in the last 30 days.
+    /// The Macs to list: every other one heard from in the last 30 days, and none while
+    /// the Devices switch is off.
     public func otherMacs(now: Date = Date()) async throws -> [SyncDevice] {
-        try await store.presence(excluding: deviceID(), since: now.addingTimeInterval(-SyncPresence.staleAfter))
+        guard try await store.enabledSyncZones().contains(.devices) else { return [] }
+        return try await store.presence(excluding: deviceID(), since: now.addingTimeInterval(-SyncPresence.staleAfter))
     }
 
     /// This Mac's Device record, or nil before anything was published this launch.

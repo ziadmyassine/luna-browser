@@ -27,7 +27,7 @@ extension BrowserStore {
 
     // MARK: Zones and wiping
 
-    func enabledSyncZones() async throws -> Set<SyncZone> {
+    public func enabledSyncZones() async throws -> Set<SyncZone> {
         try await pool.read { db in
             Set(try String.fetchAll(db, sql: "SELECT zone FROM syncZones WHERE enabled").compactMap(SyncZone.init(rawValue:)))
         }

@@ -136,7 +136,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         // the first thing that accepts first responder, which is a disabled
         // row (§4 keeps those in the key loop).
         window.initialFirstResponder = search
-        show(SettingsSectionRegistry.index(ofID: SettingsDefaults.lastSection), animated: false)
+        // The iCloud page is last in `sections` and not in the register.
+        let last = SettingsDefaults.lastSection
+        show(last == AccountSection.id ? sections.count - 1 : SettingsSectionRegistry.index(ofID: last), animated: false)
     }
 
     @available(*, unavailable)

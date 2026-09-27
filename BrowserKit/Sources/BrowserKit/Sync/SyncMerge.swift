@@ -128,36 +128,6 @@ public enum SyncMerge {
 
     // MARK: Turning sync on
 
-    /// A local row as the turn-on fetch sees it.
-    public struct LocalRow: Sendable, Hashable {
-        public var recordName: String
-        /// Whether it has stored `systemFields`, which prove the server once had it.
-        public var wasSynced: Bool
-
-        public init(recordName: String, wasSynced: Bool) {
-            self.recordName = recordName
-            self.wasSynced = wasSynced
-        }
-    }
-
-    public struct Reconciliation: Sendable, Equatable {
-        public var apply: [SyncRecord]
-        public var upload: [String]
-        public var deleteLocally: [String]
-    }
-
-    /// After a full fetch on turning sync on: iCloud wins for every record it has, rows it
-    /// never saw go up, and rows it once had but no longer sent were deleted elsewhere.
-    public static func reconcile(fetched: [SyncRecord], local: [LocalRow]) -> Reconciliation {
-        let names = Set(fetched.map(\.recordName))
-        let missing = local.filter { !names.contains($0.recordName) }
-        return Reconciliation(
-            apply: fetched,
-            upload: missing.filter { !$0.wasSynced }.map(\.recordName),
-            deleteLocally: missing.filter(\.wasSynced).map(\.recordName)
-        )
-    }
-
     /// This Mac's seed Space, when iCloud already has Spaces and the seed was never renamed
     /// and holds no tabs; otherwise nil, and both Macs' Spaces are kept.
     public static func seedSpaceToDrop(local: [Space], spacesWithTabs: Set<UUID>, fetched: [SyncRecord]) -> UUID? {

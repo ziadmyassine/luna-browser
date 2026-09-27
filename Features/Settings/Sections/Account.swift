@@ -177,10 +177,14 @@ final class AccountSection: SettingsSection {
     }
 }
 
-private extension SyncZone {
+extension SyncZone {
 
-    /// The five with a switch of their own; `meta` comes with any of them.
+    /// The five with a switch of their own; `meta` comes with any of them. The
+    /// master switch turns all five on.
     static let switched: [SyncZone] = [.spaces, .sites, .settings, .history, .devices]
+}
+
+private extension SyncZone {
 
     var title: String {
         switch self {

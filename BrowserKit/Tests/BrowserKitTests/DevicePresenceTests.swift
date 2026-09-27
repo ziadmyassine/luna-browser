@@ -144,6 +144,18 @@ struct DevicePresenceTests {
         #expect(try await sync.records(for: [.save(saved.recordName, in: .devices)]).first?.systemFields == Data([7]))
     }
 
+    /// §5: turning sync off deletes this Mac's Device record, and so does turning off
+    /// the one switch that publishes it.
+    @Test func turningTheDevicesZoneOffDeletesThisMacsRecord() async throws {
+        let (_, sync, _) = try await started()
+        try await sync.publishPresence(name: "Studio", now: start)
+
+        try await sync.setZone(.devices, enabled: false)
+
+        let own = try await sync.deviceID().uuidString
+        #expect(engine.pending.contains(.delete(own, in: .devices)))
+    }
+
     // MARK: Coming down
 
     @Test func otherMacsArriveAndThisMacIsExcluded() async throws {
@@ -189,6 +201,17 @@ struct DevicePresenceTests {
             modifications: [],
             deletions: [SyncDeletion(recordType: "Device", recordName: laptop.uuidString, zone: "Devices")]
         )
+
+        #expect(try await sync.otherMacs(now: start).isEmpty)
+    }
+
+    /// The menu empties with the switch, though the rows stay for turning it back on.
+    @Test func noOtherMacsWhileTheDevicesZoneIsOff() async throws {
+        let (_, sync, _) = try await started()
+        try await sync.fetched(modifications: [deviceRecord(UUID(), name: "Laptop", modifiedAt: start, tabs: [])], deletions: [])
+        #expect(try await sync.otherMacs(now: start).count == 1)
+
+        try await sync.setZone(.devices, enabled: false)
 
         #expect(try await sync.otherMacs(now: start).isEmpty)
     }

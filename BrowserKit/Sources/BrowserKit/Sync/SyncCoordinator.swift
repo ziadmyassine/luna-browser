@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 
 // All of sync's decisions (docs/SYNC-PLAN.md §1, §3, §4): the outbox becomes the engine's
 // pending changes, a batch is built from the rows as they are now, and each engine event
@@ -10,7 +11,7 @@ public actor SyncCoordinator {
     public typealias Apply = @Sendable (SyncChangeSet) async throws -> Void
 
     let store: BrowserStore
-    private let makeEngine: @Sendable (Data?) -> any SyncEngineControl
+    private let makeEngine: @Sendable (SyncCoordinator, Data?) -> any SyncEngineControl
     private let applyInbound: @Sendable (SyncChangeSet, _ isFirstFetch: Bool) async throws -> Void
     private let applySettings: Apply
     private let applyDevices: Apply
@@ -26,10 +27,13 @@ public actor SyncCoordinator {
     /// iCloud holds once it finishes. Nil for a fetch resumed from saved state: that one
     /// brings only what changed since, so a name missing from it proves nothing.
     private var fullFetch: Set<String>?
+    private var outboxWatch: AnyDatabaseCancellable?
+    private var outboxPush: Task<Void, Never>?
     public private(set) var status = SyncStatus.off
 
     /// - Parameters:
-    ///   - makeEngine: the engine, started from the state it last saved (nil for a fresh one).
+    ///   - makeEngine: the engine for this coordinator, started from the state it last saved
+    ///     (nil for a fresh one).
     ///   - applyInbound: Spaces, groups, tabs, sites and history from other Macs. By default
     ///     straight to the store; the app routes them through the session (S10).
     ///   - applySettings: incoming `Setting` records (S9).
@@ -37,7 +41,7 @@ public actor SyncCoordinator {
     ///     already in the store, for `otherMacs`.
     public init(
         store: BrowserStore,
-        makeEngine: @escaping @Sendable (Data?) -> any SyncEngineControl,
+        makeEngine: @escaping @Sendable (SyncCoordinator, Data?) -> any SyncEngineControl,
         applyInbound: (@Sendable (SyncChangeSet, Bool) async throws -> Void)? = nil,
         applySettings: @escaping Apply = { _ in },
         applyDevices: @escaping Apply = { _ in },
@@ -62,8 +66,9 @@ public actor SyncCoordinator {
             secret = SyncSecretState(settled: SyncSecret(bytes: bytes))
         }
         let state = try await store.syncMeta(SyncMetaKey.engineState)
-        engine = makeEngine(state)
+        engine = makeEngine(self, state)
         fullFetch = state == nil ? [] : nil
+        watchOutbox()
         let last = try await store.syncMeta(SyncMetaKey.lastSyncedAt)
             .flatMap { String(bytes: $0, encoding: .utf8) }.flatMap(Double.init)
         await report(last.map { .synced(Date(timeIntervalSince1970: $0)) } ?? .syncing)
@@ -83,15 +88,13 @@ public actor SyncCoordinator {
     /// rows iCloud once had (§3); the engine state goes, so that turn-on fetches everything.
     public func disable() async throws {
         if try await store.enabledSyncZones().contains(.devices) {
-            await engine?.add(pending: [.delete(try await deviceID().uuidString, in: .devices)])
+            try await withdrawPresence()
             try? await engine?.sendChanges()
         }
-        presence = SyncPresenceState()
         for zone in try await store.enabledSyncZones() { try await store.setSyncZone(zone, enabled: false) }
         try await store.setSyncMeta(SyncMetaKey.engineState, nil)
         try await store.setSyncMeta(SyncMetaKey.fetchedOnce, nil)
-        engine = nil
-        fullFetch = nil
+        stopEngine()
         await report(.off)
     }
 
@@ -99,18 +102,42 @@ public actor SyncCoordinator {
     /// pending is dropped when a batch asks for it.
     public func setZone(_ zone: SyncZone, enabled: Bool) async throws {
         try await store.setSyncZone(zone, enabled: enabled)
-        guard enabled else { return }
+        guard enabled else {
+            if zone == .devices { try await withdrawPresence() }
+            return
+        }
         await engine?.addZoneSaves([zone])
         try await pushOutbox()
     }
 
+    /// §5: this Mac leaves the other Macs' menus. A delete, which a batch never drops for
+    /// its zone being off.
+    private func withdrawPresence() async throws {
+        let name = try await deviceID().uuidString
+        keys[name] = ("Device", name)
+        presence = SyncPresenceState()
+        await engine?.add(pending: [.delete(name, in: .devices)])
+    }
+
     /// Remove Luna Data from iCloud: every zone goes, and with it this Mac's sync state.
     public func removeAll() async throws {
-        let engine = engine ?? makeEngine(nil)
+        let engine = engine ?? makeEngine(self, nil)
         await engine.addZoneDeletes(SyncZone.allCases)
         try await engine.sendChanges()
         try await turnOff()
         await report(.off)
+    }
+
+    /// On app activation: the quiet retry of §4, and how other Macs' changes arrive
+    /// without push. Nothing while sync is off.
+    public func fetch() async throws {
+        try await engine?.fetchChanges()
+    }
+
+    /// The account page's Sync Now.
+    public func syncNow() async throws {
+        try await engine?.fetchChanges()
+        try await engine?.sendChanges()
     }
 
     public func deviceID() async throws -> UUID {
@@ -384,8 +411,33 @@ extension SyncCoordinator {
         secret = SyncSecretState()
         keys = [:]
         presence = SyncPresenceState()
+        stopEngine()
+    }
+
+    private func stopEngine() {
         engine = nil
         fullFetch = nil
+        outboxWatch = nil
+        outboxPush?.cancel()
+    }
+
+    /// Every writer fills the outbox through the triggers (§1), so the outbox is what is
+    /// watched rather than any one caller. A second after the last write, it goes to the
+    /// engine.
+    private func watchOutbox() {
+        outboxWatch = DatabaseRegionObservation(tracking: Table("syncOutbox"))
+            .start(in: store.pool, onError: { _ in }, onChange: { [weak self] _ in
+                Task { await self?.outboxChanged() }
+            })
+    }
+
+    private func outboxChanged() {
+        outboxPush?.cancel()
+        outboxPush = Task {
+            try? await Task.sleep(for: .seconds(1))
+            guard !Task.isCancelled else { return }
+            try? await pushOutbox()
+        }
     }
 
     private func report(_ status: SyncStatus) async {

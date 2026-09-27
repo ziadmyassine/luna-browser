@@ -268,24 +268,6 @@ struct SyncMergeTests {
 
     // MARK: Turning sync on
 
-    @Test func turningSyncOnLetsICloudWinUploadsTheNewAndDropsTheMissing() {
-        let fetched = [
-            SyncRecord(recordType: "Space", recordName: "both", zone: "Spaces", schemaVersion: 1),
-            SyncRecord(recordType: "Space", recordName: "cloudOnly", zone: "Spaces", schemaVersion: 1)
-        ]
-        let local = [
-            SyncMerge.LocalRow(recordName: "both", wasSynced: true),
-            SyncMerge.LocalRow(recordName: "neverSynced", wasSynced: false),
-            SyncMerge.LocalRow(recordName: "deletedElsewhere", wasSynced: true)
-        ]
-
-        let plan = SyncMerge.reconcile(fetched: fetched, local: local)
-
-        #expect(plan.apply.map(\.recordName) == ["both", "cloudOnly"])
-        #expect(plan.upload == ["neverSynced"])
-        #expect(plan.deleteLocally == ["deletedElsewhere"])
-    }
-
     @Test func theUntouchedSeedSpaceIsDroppedWhenICloudHasSpaces() {
         let seed = Space(name: "Personal", symbolName: "moon.stars.fill", gradient: .defaultSpace)
         let cloud = [SyncMapping.record(for: SyncSamples.space, modifiedAt: now, stored: nil)]
