@@ -191,8 +191,9 @@ when the call ends.
   watches. A capsule at the foot of the page says "*agent* is working", with
   the folder's tinted rim and spark, and the agent's pointer, an arrow in its
   app's colour with its name, glides to wherever it clicks, hovers, types or
-  drags. **Take Over** on the capsule pauses the agent (its calls are refused
-  as paused) and **Resume** hands the page back. The capsule shows while the
+  drags. **Take Over** on the capsule, a pill whose corner runs with the
+  capsule's, pauses the agent (its calls are refused as paused) and
+  **Resume** hands the page back. The capsule shows while the
   agent that last acted on the page is connected. The capsule and the
   question's sheet are Liquid Glass that takes its light or dark look from the
   page's own colour, as the page bar does, so their text reads on any site.
@@ -302,7 +303,8 @@ Settings → Luna Control → *Before an app acts on a page*:
 A call that needs approval waits without taking the user's window: the
 folder's icon becomes a raised hand and the Dock icon bounces once
 (`requestUserAttention(.informationalRequest)`). At once, a glass sheet drops
-from the top edge of whatever page is in front, not only the agent's own
+from the top edge of whatever page is in front, not only the agent's own,
+centred on the page and only as wide as its text and answers
 (`ControlSurfaceView`, `Motion.agentSheet`), with the app's icon, what the call
 will do and where, and **Deny**, **Allow Once** and, in Per Site mode,
 **Allow on *site***. Asking makes no window key and does not activate Luna, so

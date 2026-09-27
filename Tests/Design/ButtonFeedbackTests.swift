@@ -28,7 +28,8 @@
 //  with a hover wash and nothing else, and belong here only if that rule
 //  changes. §14.4's chip is built from `SettingsPushButton`, which is already
 //  covered below, and so are Luna Control's approval card and its Revoke
-//  buttons. Its Pause, Resume and Stop are menu items, not buttons.
+//  buttons; its working capsule's Take Over has a test of its own. Its
+//  Pause, Resume and Stop are menu items, not buttons.
 //
 
 import XCTest
@@ -209,6 +210,21 @@ final class ButtonFeedbackTests: XCTestCase {
         XCTAssertEqual(scale(of: capsule), Tokens.Motion.pressSwell, accuracy: 0.001, "the cylinder did not answer")
         item.highlight(false)
         XCTAssertEqual(scale(of: capsule), 1, accuracy: 0.001, "the cylinder stayed swollen")
+    }
+
+    /// Luna Control's working capsule: Take Over is a pill with no glass of
+    /// its own, so the capsule round it swells.
+    func testTheWorkingCapsuleSwellsForTakeOver() throws {
+        let capsule = ControlWorkingCapsule()
+        capsule.configure(.init(client: "Claude Code", appID: nil, isPaused: false, isActing: false)) {}
+        capsule.frame = NSRect(origin: .zero, size: capsule.fittingSize)
+        capsule.layoutSubtreeIfNeeded()
+        let button = try XCTUnwrap(capsule.button, "the capsule has no Take Over")
+        button.highlight(true)
+        XCTAssertEqual(scale(of: button), 1, accuracy: 0.001, "Take Over swelled inside the capsule")
+        XCTAssertEqual(scale(of: capsule), Tokens.Motion.pressSwell, accuracy: 0.001, "the capsule did not answer")
+        button.highlight(false)
+        XCTAssertEqual(scale(of: capsule), 1, accuracy: 0.001, "the capsule stayed swollen")
     }
 
     /// §3.2b's extensions cylinder: its buttons are the toggle's `GlassButton`

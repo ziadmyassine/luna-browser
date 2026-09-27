@@ -30,7 +30,10 @@ final class ControlSurfaceView: NSView {
     /// How much of the card's top §3.2b's bar covers: the sheet drops from
     /// under it.
     var topInset: CGFloat = 0 {
-        didSet { if topInset != oldValue { needsLayout = true } }
+        didSet {
+            guard topInset != oldValue, let sheet, sliding == 0 else { return }
+            sheetTop?.constant = topConstant(for: sheet, shown: true)
+        }
     }
 
     /// The colour of the page in front (`TabState.pageBackground`), which the
@@ -47,6 +50,12 @@ final class ControlSurfaceView: NSView {
     }
 
     private(set) var sheet: NSView?
+    /// The sheet's top edge, which is what slides. Both it and the capsule
+    /// are held centred by constraints rather than placed by frame: a frame
+    /// set once from `bounds` has to be recomputed on every resize, and the
+    /// views inside them are laid out by constraints that a zero-sized
+    /// start put in conflict with the frame.
+    private var sheetTop: NSLayoutConstraint?
     private var sliding = 0
     private(set) var capsule: ControlWorkingCapsule?
     private let pointer = ControlAgentPointer()
@@ -72,14 +81,6 @@ final class ControlSurfaceView: NSView {
         return hit
     }
 
-    override func layout() {
-        super.layout()
-        Tokens.Motion.immediately {
-            if let sheet, sliding == 0 { sheet.frame = sheetFrame(sheet.frame.size, shown: true) }
-            if let capsule { capsule.frame = capsuleFrame(capsule.fittingSize) }
-        }
-    }
-
     // MARK: - The question
 
     /// Shows `view`, sized already, dropping from the top edge; nil sends the
@@ -87,39 +88,52 @@ final class ControlSurfaceView: NSView {
     /// a second drop: it is the next question, not a new arrival.
     func showSheet(_ view: NSView?) {
         let old = sheet
+        let oldTop = sheetTop
         sheet = view
+        sheetTop = nil
         if let old {
-            if view == nil {
-                slide(old, shown: false) { old.removeFromSuperview() }
+            if view == nil, let oldTop {
+                slide(old, along: oldTop, shown: false) { old.removeFromSuperview() }
             } else {
                 old.removeFromSuperview()
             }
         }
         guard let view else { return }
+        view.translatesAutoresizingMaskIntoConstraints = false
         addSubview(view)
-        view.frame = sheetFrame(view.frame.size, shown: old != nil)
-        if old == nil { slide(view, shown: true) }
+        let top = view.topAnchor.constraint(equalTo: topAnchor, constant: topConstant(for: view, shown: old != nil))
+        sheetTop = top
+        NSLayoutConstraint.activate([view.centerXAnchor.constraint(equalTo: centerXAnchor), top])
+        Tokens.Motion.immediately { layoutSubtreeIfNeeded() }
+        if old == nil { slide(view, along: top, shown: true) }
     }
 
-    /// Top-centre, running up under the bar by its own corner so only its
-    /// lower corners show; hidden, it is wholly above the bar's lower edge.
-    private func sheetFrame(_ size: NSSize, shown: Bool) -> NSRect {
-        let y = shown ? topInset - ControlApprovalCardView.hiddenTop : topInset - size.height
-        return NSRect(x: ((bounds.width - size.width) / 2).rounded(), y: y, width: size.width, height: size.height)
+    /// Running up under the bar by its own corner so only its lower corners
+    /// show; hidden, wholly above the bar's lower edge.
+    private func topConstant(for view: NSView, shown: Bool) -> CGFloat {
+        shown ? topInset - ControlApprovalCardView.hiddenTop : topInset - view.fittingSize.height
     }
 
-    private func slide(_ view: NSView, shown: Bool, then done: (@MainActor () -> Void)? = nil) {
+    private func slide(
+        _ view: NSView, along top: NSLayoutConstraint, shown: Bool, then done: (@MainActor () -> Void)? = nil
+    ) {
         sliding += 1
-        let target = sheetFrame(view.frame.size, shown: shown)
+        let target = topConstant(for: view, shown: shown)
         Tokens.Motion.animate(Tokens.Motion.agentSheet) { _ in
-            view.animator().frame = target
+            top.animator().constant = target
         } completion: { [weak self] in
             MainActor.assumeIsolated {
-                self?.sliding -= 1
                 done?()
-                self?.needsLayout = true
+                self?.slideEnded()
             }
         }
+    }
+
+    /// The bar may have moved while the sheet was on its way.
+    private func slideEnded() {
+        sliding -= 1
+        guard sliding == 0, let sheet, let sheetTop else { return }
+        sheetTop.constant = topConstant(for: sheet, shown: true)
     }
 
     // MARK: - Working
@@ -139,21 +153,18 @@ final class ControlSurfaceView: NSView {
             let made = ControlWorkingCapsule()
             made.alphaValue = 0
             addSubview(made, positioned: .below, relativeTo: sheet)
+            // Bottom-centre, a gap above the page's foot.
+            NSLayoutConstraint.activate([
+                made.centerXAnchor.constraint(equalTo: centerXAnchor),
+                made.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Tokens.Metric.chromeGapWide)
+            ])
             self.capsule = made
             return made
         }()
         let arriving = capsule.working == nil
         capsule.configure(working) { [weak self] in self?.onToggleWorking?() }
-        capsule.frame = capsuleFrame(capsule.fittingSize)
+        Tokens.Motion.immediately { layoutSubtreeIfNeeded() }
         if arriving { fade(capsule, in: true) }
-    }
-
-    /// Bottom-centre, a gap above the page's foot.
-    private func capsuleFrame(_ size: NSSize) -> NSRect {
-        NSRect(
-            x: ((bounds.width - size.width) / 2).rounded(), y: bounds.height - size.height - Tokens.Metric.chromeGapWide,
-            width: size.width, height: size.height
-        )
     }
 
     // MARK: - The agent's pointer
@@ -191,13 +202,18 @@ final class ControlWorkingCapsule: NSView {
     private let icon = NSImageView()
     private let label = NSTextField(labelWithString: "")
     private let row = NSStackView()
-    private var button: SettingsPushButton?
+    private(set) var button: ControlCapsuleButton?
+
+    /// The gap round the button, which is also the difference between the
+    /// two corners.
+    private static var inset: CGFloat { (Tokens.Agent.capsuleHeight - SettingsMetrics.controlHeight) / 2 }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
+        translatesAutoresizingMaskIntoConstraints = false
         let height = Tokens.Agent.capsuleHeight
-        Glass.apply(.popover, to: self, cornerRadius: height / 2)
+        Glass.apply(.popover, to: self, cornerRadius: height / 2).pinToEdges()
         rim.cornerRadius = height / 2
         rim.autoresizingMask = [.width, .height]
         addSubview(rim)
@@ -207,8 +223,10 @@ final class ControlWorkingCapsule: NSView {
         row.orientation = .horizontal
         row.spacing = Tokens.Metric.chromeGap
         row.alignment = .centerY
-        row.edgeInsets = NSEdgeInsets(top: 0, left: height / 3, bottom: 0, right: 4)
+        row.edgeInsets = NSEdgeInsets(top: 0, left: height / 3, bottom: 0, right: Self.inset)
         row.translatesAutoresizingMaskIntoConstraints = false
+        // As wide as what is in it, and no wider.
+        row.setHuggingPriority(.defaultHigh, for: .horizontal)
         addSubview(row)
         NSLayoutConstraint.activate([
             icon.widthAnchor.constraint(equalToConstant: Tokens.Metric.faviconSize),
@@ -236,21 +254,17 @@ final class ControlWorkingCapsule: NSView {
         label.stringValue = working.isPaused
             ? String(localized: "\(working.client) is paused")
             : String(localized: "\(working.client) is working")
-        // `SettingsPushButton`, which already answers hover and press
-        // (`ButtonFeedbackTests`).
-        let button = SettingsPushButton(
-            title: working.isPaused ? String(localized: "Resume") : String(localized: "Take Over"), isDestructive: false
-        )
+        let button = self.button ?? ControlCapsuleButton()
+        button.title = working.isPaused ? String(localized: "Resume") : String(localized: "Take Over")
         button.onActivate = onToggle
+        // The capsule is the material, so the capsule is what swells.
+        button.onPressChange = { [weak self] pressed in
+            guard let self else { return }
+            Tokens.Motion.swell(self, to: pressed ? Tokens.Motion.pressSwell : 1)
+        }
         self.button = button
         row.setViews([icon, label, button], in: .leading)
         setAccessibilityLabel(label.stringValue)
-        layoutSubtreeIfNeeded()
-        rim.frame = bounds
-    }
-
-    override var fittingSize: NSSize {
-        NSSize(width: row.fittingSize.width, height: Tokens.Agent.capsuleHeight)
     }
 
     override func viewDidChangeEffectiveAppearance() {
@@ -261,6 +275,131 @@ final class ControlWorkingCapsule: NSView {
     override func layout() {
         super.layout()
         Tokens.Motion.immediately { rim.frame = bounds }
+    }
+}
+
+/// Take Over and Resume: a pill inside the capsule, its corner the capsule's
+/// less the gap round it, so the two curves run together. The settings push
+/// button it replaced, a squarer plate with a hairline, read as a control
+/// dropped in from another window. It has no glass of its own and hands its
+/// press up to the capsule, as the top bar's capsule items do.
+@MainActor
+final class ControlCapsuleButton: NSButton {
+
+    var onActivate: (() -> Void)?
+    var onPressChange: ((Bool) -> Void)?
+
+    private var isHovering = false {
+        didSet { if isHovering != oldValue { refreshFill() } }
+    }
+    private var isPressed = false {
+        didSet {
+            guard isPressed != oldValue else { return }
+            refreshFill()
+            onPressChange?(isPressed)
+        }
+    }
+
+    init() {
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.cornerCurve = .continuous
+        isBordered = false
+        target = self
+        action = #selector(fire)
+        translatesAutoresizingMaskIntoConstraints = false
+        heightAnchor.constraint(equalToConstant: SettingsMetrics.controlHeight).isActive = true
+        refreshFill()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("Luna builds its chrome in code; there is no nib to decode.")
+    }
+
+    @objc private func fire() { onActivate?() }
+
+    override var title: String {
+        didSet { if title != oldValue { applyTitle() } }
+    }
+
+    private func applyTitle() {
+        attributedTitle = NSAttributedString(string: title, attributes: [
+            .font: Tokens.TypeScale.settingsRow,
+            .foregroundColor: Tokens.Text.primary
+        ])
+        invalidateIntrinsicContentSize()
+    }
+
+    override var intrinsicContentSize: NSSize {
+        var size = super.intrinsicContentSize
+        size.width += 2 * SettingsMetrics.controlInset
+        size.height = SettingsMetrics.controlHeight
+        return size
+    }
+
+    override func layout() {
+        super.layout()
+        Tokens.Motion.immediately { layer?.cornerRadius = bounds.height / 2 }
+    }
+
+    /// Resting on §3.4's 6 %, so it reads as a button and not as more of the
+    /// sentence beside it; the pointer and the press take it to 12 %.
+    private func refreshFill() {
+        let colour = isHovering || isPressed ? Tokens.Surface.selected : Tokens.Surface.hover
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            Tokens.Motion.wash(self.layer, to: colour)
+        }
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        applyTitle()
+        refreshFill()
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas where area.owner === self { removeTrackingArea(area) }
+        addTrackingArea(NSTrackingArea(
+            rect: .zero,
+            options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+            owner: self
+        ))
+    }
+
+    override func mouseEntered(with event: NSEvent) { isHovering = true }
+
+    override func mouseExited(with event: NSEvent) { isHovering = false }
+
+    /// Around `NSControl`'s tracking loop — see `TopBarButton.mouseDown`.
+    override func mouseDown(with event: NSEvent) {
+        guard isEnabled else { return }
+        isPressed = true
+        super.mouseDown(with: event)
+        isPressed = false
+    }
+
+    override func highlight(_ flag: Bool) {
+        super.highlight(flag)
+        isPressed = flag && isEnabled
+    }
+}
+
+extension NSView {
+    /// Holds a glass backing to its host's edges by constraints. A host that
+    /// starts at `.zero` and is then sized left the backing's autoresizing at
+    /// twice the host's size, reaching off its right and bottom edges: the
+    /// Luna Control sheet looked twice as wide as its text and off centre.
+    func pinToEdges() {
+        guard let superview else { return }
+        translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            leadingAnchor.constraint(equalTo: superview.leadingAnchor),
+            trailingAnchor.constraint(equalTo: superview.trailingAnchor),
+            topAnchor.constraint(equalTo: superview.topAnchor),
+            bottomAnchor.constraint(equalTo: superview.bottomAnchor)
+        ])
     }
 }
 

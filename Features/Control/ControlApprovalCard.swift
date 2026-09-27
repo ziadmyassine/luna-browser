@@ -47,7 +47,6 @@ final class ControlApprovalCard {
         let view = ControlApprovalCardView(request: request, waiting: waiting.count) { [weak self] answer in
             self?.approvals?.answer(request.id, answer)
         }
-        view.frame = NSRect(origin: .zero, size: view.fittingCardSize())
         surface.showSheet(view)
         guard isNew else { return }
         // §21.1, as the save-password chip does: a sheet that only appears is
@@ -71,7 +70,8 @@ final class ControlApprovalCardView: NSView {
             ? String(localized: "\(request.client) needs you to") : String(localized: "\(request.client) wants to")
         super.init(frame: .zero)
         wantsLayer = true
-        Glass.apply(.popover, to: self, cornerRadius: Tokens.Metric.passwordChip.cornerRadius)
+        translatesAutoresizingMaskIntoConstraints = false
+        Glass.apply(.popover, to: self, cornerRadius: Tokens.Metric.passwordChip.cornerRadius).pinToEdges()
         build(request, waiting: waiting, onAnswer: onAnswer)
     }
 
@@ -89,7 +89,12 @@ final class ControlApprovalCardView: NSView {
     /// so only its lower corners show.
     static let hiddenTop = Tokens.Metric.passwordChip.cornerRadius
     private static let padding = NSEdgeInsets(top: 12 + hiddenTop, left: 16, bottom: 12, right: 16)
-    private static var textWidth: CGFloat { Tokens.Metric.passwordChip.width - padding.left - padding.right }
+    static var sideInsets: CGFloat { padding.left + padding.right }
+    /// The save-password chip's width is where the text wraps, not the
+    /// sheet's width: the sheet ends where its widest line or its row of
+    /// answers does.
+    static var maxWidth: CGFloat { Tokens.Metric.passwordChip.width }
+    private static var textWidth: CGFloat { maxWidth - sideInsets }
 
     private func build(
         _ request: ControlApprovals.Request, waiting: Int, onAnswer: @escaping (ControlApprovals.Answer) -> Void
@@ -131,6 +136,8 @@ final class ControlApprovalCardView: NSView {
         stack.alignment = .leading
         stack.spacing = 6
         stack.translatesAutoresizingMaskIntoConstraints = false
+        // As wide as the widest line or the row of answers, and no wider.
+        stack.setHuggingPriority(.defaultHigh, for: .horizontal)
         stack.setViews(views, in: .top)
         stack.setCustomSpacing(Tokens.Metric.chromeGapWide, after: views[views.count - 2])
         addSubview(stack)
@@ -180,13 +187,16 @@ final class ControlApprovalCardView: NSView {
         return label
     }
 
-    /// The chip's width, or wider when a long site name puts the buttons
-    /// past it: a button cut off is an answer that cannot be given.
+    /// The widest line after wrapping, or the row of answers when that is
+    /// wider: a long site name can put the buttons past `maxWidth`, and a
+    /// button cut off is an answer that cannot be given.
+    var contentWidth: CGFloat { stack.fittingSize.width }
+
     func fittingCardSize() -> NSSize {
         layoutSubtreeIfNeeded()
         let fitting = stack.fittingSize
         return NSSize(
-            width: max(Tokens.Metric.passwordChip.width, fitting.width + Self.padding.left + Self.padding.right),
+            width: fitting.width + Self.sideInsets,
             height: fitting.height + Self.padding.top + Self.padding.bottom
         )
     }
