@@ -107,10 +107,14 @@ enum SyncSQL {
     /// The same format GRDB writes a `Date` in, so `changedAt` decodes as one.
     private static let now = "strftime('%Y-%m-%d %H:%M:%f', 'now')"
 
+    /// An upsert, not `INSERT OR REPLACE`: GRDB writes rows with `INSERT … ON CONFLICT
+    /// DO UPDATE`, and that statement's conflict handling overrides an `OR REPLACE` in
+    /// any trigger it fires, so a second edit of a row still in the outbox failed.
     private static func record(_ type: String, key: String, zone: SyncZone, isDelete: Bool) -> String {
         """
-        INSERT OR REPLACE INTO syncOutbox (recordType, localKey, zone, isDelete, changedAt)
-        VALUES ('\(type)', \(key), '\(zone.rawValue)', \(isDelete ? 1 : 0), \(now));
+        INSERT INTO syncOutbox (recordType, localKey, zone, isDelete, changedAt)
+        VALUES ('\(type)', \(key), '\(zone.rawValue)', \(isDelete ? 1 : 0), \(now))
+        ON CONFLICT (recordType, localKey) DO UPDATE SET isDelete = excluded.isDelete, changedAt = excluded.changedAt;
         """
     }
 
@@ -167,8 +171,8 @@ enum SyncSQL {
     }
 
     static let tables = [
-        // One row per record with a local change not yet sent. `INSERT OR
-        // REPLACE` keeps it one row however often the record changes.
+        // One row per record with a local change not yet sent, however often
+        // the record changes.
         """
         CREATE TABLE IF NOT EXISTS syncOutbox (
             recordType TEXT NOT NULL,
@@ -186,7 +190,10 @@ enum SyncSQL {
             recordName TEXT PRIMARY KEY NOT NULL,
             localKey TEXT NOT NULL,
             zone TEXT NOT NULL,
-            systemFields BLOB NOT NULL
+            systemFields BLOB NOT NULL,
+            -- The stored half of §31.9's "write max(own, stored)", which has to
+            -- hold for every save and not only one that meets a conflict.
+            schemaVersion INTEGER NOT NULL DEFAULT 0
         )
         """,
         """

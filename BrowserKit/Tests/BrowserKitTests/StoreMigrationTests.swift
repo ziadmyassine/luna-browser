@@ -139,7 +139,7 @@ struct StoreMigrationTests {
         let expected: [String: Set<String>] = [
             "syncOutbox": ["recordType", "localKey", "zone", "isDelete", "changedAt"],
             "syncMeta": ["key", "value"],
-            "syncRecords": ["recordType", "recordName", "localKey", "zone", "systemFields"],
+            "syncRecords": ["recordType", "recordName", "localKey", "zone", "systemFields", "schemaVersion"],
             "syncParked": ["recordType", "recordName", "record"],
             "syncZones": ["zone", "enabled"],
             "syncControl": ["id", "applyingRemote"],
