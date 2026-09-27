@@ -1,4 +1,5 @@
 import Foundation
+import UniformTypeIdentifiers
 import WebKit
 
 // MARK: - WKNavigationDelegate (§4.2)
@@ -36,7 +37,7 @@ extension TabController: WKNavigationDelegate {
             // §17.2. The rule lists above are swapped per navigation; the YouTube
             // script has to be too, and for the same reason — "disable blocking here"
             // has to mean here.
-            refreshUserScriptsIfNeeded(host: url.host())
+            refreshUserScriptsIfNeeded(host: url.host(), isFile: url.isFileURL)
             // §17.6. `preferredHTTPSNavigationPolicy` cannot do this: measured, both of
             // its values end an http-only navigation at `about:blank` with `didFinish`
             // and no delegate error, so there is no hook to put an interstitial on.
@@ -84,6 +85,15 @@ extension TabController: WKNavigationDelegate {
         decisionHandler: @escaping @MainActor @Sendable (WKNavigationResponsePolicy) -> Void
     ) {
         onNavigationResponse?(navigationResponse)
+        // A text file on this Mac WebKit has no viewer for — YAML, TOML, an
+        // `.env` — is shown as the text it is. Handed to the downloader it was
+        // copied into Downloads, which is not opening a file already here.
+        if navigationResponse.isForMainFrame, !navigationResponse.canShowMIMEType,
+           let url = navigationResponse.response.url, let text = Self.localText(at: url) {
+            decisionHandler(.cancel)
+            webView.load(text, mimeType: "text/plain", characterEncodingName: "utf-8", baseURL: url)
+            return
+        }
         // `value(forHTTPHeaderField:)`, not `allHeaderFields[…]` — the latter is a
         // case-sensitive dictionary lookup and servers send `content-disposition`.
         let disposition = (navigationResponse.response as? HTTPURLResponse)?
@@ -94,6 +104,18 @@ extension TabController: WKNavigationDelegate {
             isForMainFrame: navigationResponse.isForMainFrame
         )
         decisionHandler(download ? .download : .allow)
+    }
+
+    /// The contents of a local text file, or nil for anything else. Capped at
+    /// 16 MB: past that it is a log nobody reads in a browser, and the load is
+    /// in memory.
+    static func localText(at url: URL) -> Data? {
+        guard url.isFileURL,
+              let type = UTType(filenameExtension: url.pathExtension),
+              type.conforms(to: .text), !type.conforms(to: .rtf), !type.conforms(to: .html),
+              let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size <= 16 << 20
+        else { return nil }
+        return try? Data(contentsOf: url)
     }
 
     public func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {

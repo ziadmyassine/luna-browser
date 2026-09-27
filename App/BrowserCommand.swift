@@ -91,6 +91,11 @@ struct BrowserCommand: Identifiable {
     static let openLocation = BrowserCommand(
         "openLocation", "Open Location…", #selector(AppDelegate.editLocation(_:)), [KeyBinding("l")]
     )
+    /// A file on this Mac, in a tab — any of `LocalFileTypes`.
+    static let openFile = BrowserCommand(
+        "openFile", "Open File…", #selector(AppDelegate.openFile(_:)), [KeyBinding("o")],
+        symbol: "doc", keywords: ["file", "html", "pdf", "local"]
+    )
     static let duplicateTab = BrowserCommand(
         "duplicateTab", "Duplicate Tab", #selector(AppDelegate.duplicateTab(_:)), symbol: "doc.on.doc"
     )
@@ -229,7 +234,7 @@ struct BrowserCommand: Identifiable {
     /// families are absent on purpose — see `KeyBindings.reserved`.
     static let all: [BrowserCommand] = [
         settings,
-        newTab, newWindow, newPrivateWindow, openLocation, duplicateTab, resetPinnedTab, closeTab, closeAllTabs, cleanUpTabs,
+        newTab, newWindow, newPrivateWindow, openLocation, openFile, duplicateTab, resetPinnedTab, closeTab, closeAllTabs, cleanUpTabs,
         reopenArchivedTab, closeWindow,
         undo, redo, cut, copy, paste, selectAll, copyURL, copyMarkdown,
         toggleSidebar, toggleFavorite, reloadPage, forceReloadPage, stopLoading,

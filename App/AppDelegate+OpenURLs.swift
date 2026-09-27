@@ -2,8 +2,8 @@
 //  AppDelegate+OpenURLs.swift
 //  Luna
 //
-//  A web link or an HTML file another app hands to Luna — Finder, Mail,
-//  `open -a Luna` — opens as a tab. `Info.plist` has claimed `http` and `https`
+//  A web link or a file another app hands to Luna — Finder, Mail,
+//  `open -a Luna` — opens as a tab. The files are `LocalFileTypes`. `Info.plist` has claimed `http` and `https`
 //  all along, and with nothing here to take the link, macOS passed it on to the
 //  default browser. It claims HTML documents too now; before it did, a file
 //  opened "with Luna" was dropped here and nothing opened at all.
@@ -34,13 +34,11 @@ extension AppDelegate {
         open(pages, in: window)
     }
 
-    /// Only what `Info.plist` claims: web links, and files that are HTML.
-    /// Anything else that reaches here was meant for another app.
+    /// Only what `Info.plist` claims: web links, and the files in
+    /// `LocalFileTypes`. Anything else that reaches here was meant for another app.
     static func pages(in urls: [URL]) -> [URL] {
         urls.filter { url in
-            if url.isFileURL {
-                return UTType(filenameExtension: url.pathExtension)?.conforms(to: .html) ?? false
-            }
+            if url.isFileURL { return LocalFileTypes.opens(url) }
             return ["http", "https"].contains(url.scheme?.lowercased())
         }
     }

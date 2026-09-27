@@ -50,6 +50,9 @@ public final class TabController: NSObject {
     /// Whether §17.2's YouTube script is in the current script set — see
     /// `refreshUserScriptsIfNeeded(host:)`, which is the only thing that reads it.
     private var youTubeScriptInstalled = false
+    /// Whether `FileStorageSeed`'s script is in the set — only while the tab is
+    /// on a `file:` page.
+    private var fileSeedInstalled = false
     private static let recoveryLimit = 3
     private static let recoveryWindow: TimeInterval = 60
 
@@ -274,7 +277,7 @@ public final class TabController: NSObject {
             controller.removeScriptMessageHandler(forName: name)
             controller.add(messageRelay, name: name)
         }
-        installUserScripts(into: controller, host: state.url?.host())
+        installUserScripts(into: controller, host: state.url?.host(), isFile: (state.url ?? fallbackURL)?.isFileURL ?? false)
 
         // WebKit posts these on the main thread; `assumeIsolated` states that instead of
         // hiding it behind an unchecked conformance.
@@ -310,9 +313,14 @@ public final class TabController: NSObject {
     /// remove a single script. That is why this is a function rather than four
     /// lines in `attach`: §17.2's YouTube script is the first whose presence
     /// depends on a setting and on the site, so the first that has to come off.
-    private func installUserScripts(into controller: WKUserContentController, host: String?) {
+    private func installUserScripts(into controller: WKUserContentController, host: String?, isFile: Bool) {
         controller.removeAllUserScripts()
         youTubeScriptInstalled = ContentBlocker.shared.blocksYouTubeAds(forHost: host, in: sitePermissions)
+        fileSeedInstalled = false
+        if isFile, let seed = FileStorageSeed.userScript() {
+            controller.addUserScript(seed)
+            fileSeedInstalled = true
+        }
 
         controller.addUserScript(Self.documentEndScript())
         // §14.10: hides `PublicKeyCredential` until Apple grants the
@@ -346,17 +354,19 @@ public final class TabController: NSObject {
     }
 
     /// Re-installs the scripts when — and only when — §17.2's answer for the site the
-    /// tab is headed to differs from the answer it was built with.
+    /// tab is headed to differs from the answer it was built with, or it is headed
+    /// to or away from a file (`FileStorageSeed`).
     ///
     /// Called from `decidePolicyFor`, which is early enough: WebKit takes the
     /// script set when it creates the document, and the document does not exist
     /// yet. Guarded rather than unconditional because `removeAllUserScripts()`
     /// throws away WebKit's compiled copy of four sources.
-    func refreshUserScriptsIfNeeded(host: String?) {
+    func refreshUserScriptsIfNeeded(host: String?, isFile: Bool = false) {
         guard let controller = webView?.configuration.userContentController else { return }
         let blocks = ContentBlocker.shared.blocksYouTubeAds(forHost: host, in: sitePermissions)
-        guard blocks != youTubeScriptInstalled else { return }
-        installUserScripts(into: controller, host: host)
+        let seeds = isFile && FileStorageSeed.userScript() != nil
+        guard blocks != youTubeScriptInstalled || seeds != fileSeedInstalled else { return }
+        installUserScripts(into: controller, host: host, isFile: isFile)
     }
 
     /// The document-end scripts every frame on the page gets, as one

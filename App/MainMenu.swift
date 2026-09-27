@@ -190,7 +190,7 @@ enum MainMenu {
 
     private static func fileMenu() -> NSMenu {
         menu("File", flatten([
-            [item(.newTab)], items(.newWindow), items(.newPrivateWindow), items(.openLocation),
+            [item(.newTab)], items(.newWindow), items(.newPrivateWindow), items(.openLocation), items(.openFile),
             [.separator()],
             items(.duplicateTab), items(.resetPinnedTab),
             [.separator()],

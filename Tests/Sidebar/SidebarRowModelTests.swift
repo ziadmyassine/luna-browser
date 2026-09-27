@@ -292,6 +292,11 @@ final class SidebarRowModelTests: XCTestCase {
         XCTAssertEqual(URLPillView.domain(of: InternalPages.Page.history.url), "History")
         XCTAssertEqual(URLPillView.domain(of: URL(string: "https://www.apple.com")!), "apple.com")
         XCTAssertEqual(URLPillView.domain(of: nil), "")
+        XCTAssertEqual(
+            URLPillView.domain(of: URL(fileURLWithPath: "/Users/me/Documents/deck board.html")),
+            "deck board.html",
+            "a file on this Mac is named by its file"
+        )
     }
 
     /// §4.7's icon follows the page, not the snapshot the sidebar was last

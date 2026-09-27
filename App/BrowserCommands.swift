@@ -15,6 +15,7 @@
 
 import AppKit
 import BrowserKit
+import UniformTypeIdentifiers
 
 extension AppDelegate {
 
@@ -34,6 +35,16 @@ extension AppDelegate {
     /// `⌘L`. Focuses the URL pill of whichever layout is showing (§3.2, §4).
     @objc func editLocation(_ sender: Any?) {
         editLocation()
+    }
+
+    /// `⌘O`. The files are opened as Finder would open them with Luna.
+    @objc func openFile(_ sender: Any?) {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = LocalFileTypes.identifiers.compactMap(UTType.init)
+        guard panel.runModal() == .OK else { return }
+        application(NSApp, open: panel.urls)
     }
 
     /// `⌘W`. Archives rather than deletes (§6.3) — and is undoable (§6.7).

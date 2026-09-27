@@ -128,6 +128,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Before anything is opened: a second copy launched to open a page has
         // no business touching the database the running one is using.
         if handOffToRunningLuna() { return }
+        // Read on the first file page, not here: most launches open none.
+        FileStorageSeed.provider = FileStorageCarryOver.entries
         #if DEBUG
         // Fails the launch loudly if a token drifted out of §1 / §6 / §21.4.
         // Measured at 3 ms, so it stays in front of the first frame, where a
