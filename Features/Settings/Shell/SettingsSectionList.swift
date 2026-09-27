@@ -41,6 +41,9 @@ final class SettingsSectionList: NSView {
     private let selectionPill = RowPillView(role: .selected)
     private let hoverPill = RowPillView(role: .hover)
     private(set) var selected = 0
+    /// False while the account row's page is showing: the selection is the
+    /// row's then, and the pill steps aside.
+    private var hasSelection = true
     private var hovered: Int?
 
     /// `styles` runs beside `symbols`; a section with none is neutral.
@@ -111,6 +114,7 @@ final class SettingsSectionList: NSView {
     /// `animated: false` where the move is not the pill's own — a spring
     /// chasing a live window resize arrives after the row it belongs to.
     private func movePills(animated: Bool = true) {
+        let selected = hasSelection ? selected : nil
         place(selectionPill, at: selected, spec: animated ? Tokens.Motion.selectedRowMove : nil)
         // Never both on one row: the hover lift under the selected pill is a
         // second wash on a row that already has one.
@@ -136,7 +140,15 @@ final class SettingsSectionList: NSView {
     func select(_ index: Int) {
         let target = rows.indices.contains(index) ? index : 0
         selected = target
+        hasSelection = true
         for (position, row) in rows.enumerated() { row.isSelected = position == target }
+        movePills()
+    }
+
+    /// The account row's page is showing, which is none of these rows.
+    func clearSelection() {
+        hasSelection = false
+        for row in rows { row.isSelected = false }
         movePills()
     }
 

@@ -102,6 +102,12 @@ enum SettingsMetrics {
     static let sectionRowGap = Tokens.Metric.rowGap
     static let sectionPillHeight = Tokens.Metric.rowPillHeight
 
+    /// The account row above the list: a card row's height, holding the
+    /// sidebar's own avatar circle (`bottomCircle`) with the same margin on
+    /// all four sides.
+    static let accountRowHeight = Tokens.Metric.settingsCardRow
+    static let accountAvatar = Tokens.Metric.bottomCircle.height
+
     /// A card row, and the inset that is the pane's whole text grid: the rules
     /// between rows start there and so does a group's header, so every piece of
     /// type in the pane lines up on one edge.
@@ -158,7 +164,8 @@ enum SettingsSectionRegistry {
         PrivacySection.id: String(localized: "What Luna blocks, and how it fills in your passwords."),
         SpacesSection.id: String(localized: "Each Space keeps its own tabs, Favorites and logins."),
         ExtensionsSection.id: String(localized: "Add Chrome extensions, and choose which Spaces they run in."),
-        ShortcutsSection.id: String(localized: "Click a shortcut in a box and press new keys.")
+        ShortcutsSection.id: String(localized: "Click a shortcut in a box and press new keys."),
+        AccountSection.id: String(localized: "Keep your Spaces, tabs and settings the same on every Mac.")
     ]
 
     /// How a section's tile is drawn, in the list and at the head of its page.
@@ -166,7 +173,7 @@ enum SettingsSectionRegistry {
         switch id {
         case LunaControlSection.id: .connected(Tokens.Tile.controlFrom, Tokens.Tile.controlTo)
         case AppearanceSection.id: .symbol(Tokens.Tile.white)
-        case PrivacySection.id: .symbol(Tokens.Tile.blue)
+        case PrivacySection.id, AccountSection.id: .symbol(Tokens.Tile.blue)
         case SpacesSection.id: .symbol(Tokens.Tile.purple)
         case ExtensionsSection.id: .symbol(Tokens.Tile.green)
         default: .symbol(Tokens.Tile.neutral)

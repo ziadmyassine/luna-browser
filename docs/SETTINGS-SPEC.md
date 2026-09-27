@@ -256,6 +256,33 @@ Twelve sections became eight, because several were a single card:
   (`SettingsPageHeader`), a group's distance above the first card. Luna Control
   and About open on their own sky and icon instead.
 
+### 2.3 The account row (2026-09-27)
+
+Between the search field and General, one `controlRowGap` from each, sits the
+account row (`SettingsAccountRow`), in the style of Raycast's:
+
+- **Its own rounded plate**, as wide as the search field above it,
+  `settingsCardRow` tall, `rowCornerRadius` corners and a `Line.border`
+  hairline.
+- **An avatar circle** (`bottomCircle`, the sidebar's own avatar size) holding
+  the macOS login picture, read from the local OpenDirectory record
+  (`kODAttributeTypeJPEGPhoto`). Without one, the initials of the first and
+  last word of the name on `Accent.tint`. Contacts is never touched, so there
+  is no permission prompt.
+- **The name** (`NSFullUserName()`) in `settingsAccountName`, 13 pt semibold,
+  and under it **one line** in `settingsCaption`: `SyncStatus`'s line — "iCloud
+  sync off", "Synced 2 minutes ago", or a §4 line from docs/SYNC-PLAN.md.
+- **A button, not a list row.** It is outside the section list, so it follows
+  CLAUDE.md's "Buttons answer": `Surface.hover` under the pointer,
+  `Surface.selected` and the press swell under the finger. While its page is
+  showing it holds `Surface.selected` and the list's selection pill fades out,
+  so exactly one thing in the column is still selected.
+- VoiceOver reads it as a button: "iCloud, *name*, *status*".
+
+It opens the **iCloud page** (§3.12). That page is not in
+`SettingsSectionRegistry.all`: it has no ⌘-number and no row in the list, and
+About is still the last of the eight.
+
 ---
 
 ## 3. Sections
@@ -575,6 +602,25 @@ version into the app, builds it, zips it and publishes the release. The first pa
 release's notes, written on GitHub afterwards above the `sha256:` line, is what this card shows under
 the new version.
 
+### 3.12 iCloud
+
+Opened only by the account row (§2.3). Driven through `SyncSettings`, which the
+app points at `SyncCoordinator`; until it does, the status is "iCloud sync needs
+the signed build." and every control is disabled.
+
+| Row | Type | Wired to |
+|---|---|---|
+| Sync with iCloud — the status line as its second line | Toggle, **off** (sync is opt-in) | `SyncSettings.setEnabled` |
+| Spaces, tabs and Favorites · Site settings · Settings and shortcuts · Typed history · Tabs on other Macs | Toggles, one per zone | `SyncSettings.setZone` |
+| "Cookies, logins and website data stay on this Mac." | Note | — |
+| Sync Now | Button | `SyncSettings.syncNow` (fetch, then send) |
+| Remove Luna Data from iCloud… | Button, destructive, confirmed through `SettingsHost.confirm` | `SyncSettings.removeAll` |
+
+- The master switch is disabled, with the status line as its reason, in a
+  build without the iCloud entitlement.
+- The zone switches and Sync Now are disabled while the master is off. Typed
+  history is also disabled while Spaces is off: visits belong to Spaces.
+
 ---
 
 ## 4. Shared row widgets
@@ -772,8 +818,6 @@ blur radius and no third style.
 
 ## 9. Deliberately not here
 
-- **Sync** — no Developer ID certificate exists, so §31 cannot be built or
-  tested. Not even a disabled row; it would imply a roadmap commitment.
 - ~~**Passwords**~~ — **moved into §3.3a on 2026-09-19.** The objection was that
   §14.1 had not run and the window "must not hint at a password manager that may
   never ship in this shape". The spike has now run (`docs/PASSWORDS.md`), and
