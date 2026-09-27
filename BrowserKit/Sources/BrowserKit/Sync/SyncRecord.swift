@@ -5,7 +5,7 @@ import Foundation
 // merging, the coordinator — sees this value instead.
 
 /// One field value, in the five types `CloudKit/Schema.ckdb` uses.
-public enum SyncValue: Sendable, Hashable {
+public enum SyncValue: Sendable, Hashable, Codable {
     case string(String)
     case int(Int64)
     case double(Double)
@@ -15,7 +15,7 @@ public enum SyncValue: Sendable, Hashable {
 
 /// A field as it is written: its value, or nil to remove it from the server's record, and
 /// whether it travels in `encryptedValues`.
-public struct SyncField: Sendable, Hashable {
+public struct SyncField: Sendable, Hashable, Codable {
     public var value: SyncValue?
     public var isEncrypted: Bool
 
@@ -35,7 +35,7 @@ public enum SyncZone: String, Sendable, CaseIterable {
     case meta = "Meta"
 }
 
-public struct SyncRecord: Sendable, Hashable {
+public struct SyncRecord: Sendable, Hashable, Codable {
     /// A string, not an enum: a record type a newer Luna added still has to be carried
     /// and ignored rather than failing to decode.
     public var recordType: String

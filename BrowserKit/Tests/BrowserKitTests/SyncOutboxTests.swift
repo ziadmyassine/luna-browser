@@ -50,6 +50,19 @@ struct SyncOutboxTests {
         #expect(outbox.first?.isDelete == false)
     }
 
+    /// GRDB's upsert is `INSERT … ON CONFLICT DO UPDATE`, whose conflict handling
+    /// overrides an `OR REPLACE` in a trigger it fires, so a second edit of a row
+    /// still waiting in the outbox used to fail.
+    @Test func aSecondEditBeforeSendingKeepsOneRow() async throws {
+        let (store, space) = try await storeWithSpacesOn()
+        var renamed = space
+        for name in ["Work", "Play"] {
+            renamed.name = name
+            try await store.upsert(renamed)
+        }
+        #expect(try await store.syncOutbox().count == 1)
+    }
+
     /// Tabs are written on every activation; only what another Mac would see counts.
     @Test func aChangeToOnlyLocalColumnsGivesNone() async throws {
         let (store, space) = try await storeWithSpacesOn()
