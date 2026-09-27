@@ -13,6 +13,11 @@ import BrowserKit
 
 extension BrowserSession {
 
+    /// A Luna Control folder's own icon, which it shows only for a client
+    /// Luna has no icon for. Also how a folder from an earlier launch is told
+    /// apart from one the user made and named the same.
+    static let controlFolderSymbol = "sparkles"
+
     /// The client's folder in the active Space: the one it had, else one
     /// already called by its name, else a new one at the head of today's tabs.
     ///
@@ -22,7 +27,7 @@ extension BrowserSession {
     func controlFolder(named name: String, previously id: UUID?) -> TabGroup {
         if let id, let group = list.group(id), group.spaceID == activeSpaceID { return group }
         if let group = groups.first(where: { $0.name == name }) { return group }
-        let group = TabGroup(spaceID: activeSpaceID, name: name, symbolName: "sparkles", kind: .today)
+        let group = TabGroup(spaceID: activeSpaceID, name: name, symbolName: Self.controlFolderSymbol, kind: .today)
         persistAll(list.insertGroup(group, at: openIndex(for: .today)))
         notifyChange()
         return group
@@ -79,4 +84,19 @@ extension BrowserSession {
         controlBadges = badges
         notifyChange()
     }
+
+    func setControlFaces(_ faces: [UUID: ControlFace]) {
+        guard faces != controlFaces else { return }
+        controlFaces = faces
+        notifyChange()
+    }
+}
+
+/// What a Luna Control folder shows of the app it belongs to: that app's
+/// icon in place of its own, and an outline in the app's colour
+/// (`Tokens.Agent`) that glows while the app is working in the folder.
+struct ControlFace: Equatable {
+    /// `ControlApp.id`, or nil for a client Luna knows nothing about, which
+    /// keeps the folder's own icon and a neutral outline.
+    var appID: String?
 }

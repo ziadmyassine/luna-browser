@@ -90,9 +90,21 @@ final class TabListController: NSObject {
     var mutedTabIDs: Set<UUID> = []
     /// Folders a Luna Control client is working in, mirrored from
     /// `BrowserSession.controlledGroupIDs` the way `mutedTabIDs` is.
-    var controlledGroupIDs: Set<UUID> = []
+    var controlledGroupIDs: Set<UUID> = [] {
+        didSet {
+            for (id, plate) in controlPlates { plate.isGlowing = controlledGroupIDs.contains(id) }
+        }
+    }
     /// `BrowserSession.controlBadges`, the same way.
     var controlBadges: [UUID: String] = [:]
+    /// `BrowserSession.controlFaces`, the same way.
+    var controlFaces: [UUID: ControlFace] = [:] {
+        didSet { if controlFaces != oldValue { movePills(animated: false) } }
+    }
+    /// The outline round each Luna Control folder, by folder. One per folder
+    /// rather than one for the list, unlike `groupPlate`: every agent's
+    /// folder wears its own at once.
+    var controlPlates: [UUID: RowPillView] = [:]
 
     let table = SidebarTableView()
     /// Not private, for the same reason `list` and `table` are not: the two

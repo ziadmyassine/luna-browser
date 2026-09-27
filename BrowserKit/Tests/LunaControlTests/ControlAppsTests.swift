@@ -183,5 +183,17 @@ struct ControlAppsTests {
         #expect(try app("codex").matches(clientName: "codex-mcp-client"))
         #expect(try app("vscode").matches(clientName: "Visual Studio Code - Insiders"))
         #expect(try !app("claude-desktop").matches(clientName: "claude-code"))
+        #expect(ControlApp.app(forClient: "codex-mcp-client")?.id == "codex")
+        #expect(ControlApp.app(forClient: "some-agent") == nil)
+    }
+
+    /// A folder from an earlier launch is found by the name the app's own
+    /// client gives it, so the two have to agree.
+    @Test func folderNamesAreTheClientsOwn() {
+        let names = Dictionary(uniqueKeysWithValues: ControlApp.all.map { ($0.id, $0.folderName) })
+        #expect(names["claude-code"] == "Claude Code")
+        #expect(names["codex"] == ControlClient.displayName(for: "codex-mcp-client"))
+        #expect(names["cursor"] == ControlClient.displayName(for: "cursor-vscode"))
+        #expect(Set(names.values).count == ControlApp.all.count)
     }
 }

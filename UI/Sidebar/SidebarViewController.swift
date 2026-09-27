@@ -240,7 +240,7 @@ final class SidebarViewController: NSViewController, WindowScoped {
         // rather than the one from before a mute landed.
         list.mutedTabIDs = session.mutedTabIDs
         list.controlledGroupIDs = session.controlledGroupIDs
-        list.controlBadges = session.controlBadges
+        (list.controlBadges, list.controlFaces) = (session.controlBadges, session.controlFaces)
         // §3.4b: the two tiers arrive already arranged — `TabList` owns the
         // order, including where a group stands among the loose tabs, so the
         // column has no arrangement of its own to disagree with it.

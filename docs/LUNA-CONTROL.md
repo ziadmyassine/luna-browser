@@ -124,7 +124,12 @@ The client is named from `clientInfo.name` in MCP's `initialize`, made readable
 (`claude-code` → Claude Code, `codex-mcp-client` → Codex, nothing → Agent).
 Every tab it opens goes into a sidebar folder with that name in the current
 Space. The folder is made on first use and reused after that. In the sidebar it shimmers
-while the agent is working in it. Agent tabs open in the background. The
+while the agent is working in it. The folder wears the app's own icon (Claude,
+ChatGPT's Codex, Cursor, VS Code; other clients keep a sparkles symbol), and
+its outline is always shown in the app's colour, not only on hover: orange for
+Claude, white for Codex and Cursor (black in light mode), blue for VS Code
+(`Tokens.Agent`). While the agent is working in it, the outline glows. When an
+app connects, its folder is unfolded so its tabs are in view. Agent tabs open in the background. The
 user's window keeps showing what it was showing, and Luna is never brought to
 the front.
 
@@ -287,10 +292,15 @@ Settings → Luna Control → *Before an app acts on a page*:
 
 A call that needs approval waits without taking the user's window: the
 folder's icon becomes a raised hand and the Dock icon bounces once
-(`requestUserAttention(.informationalRequest)`). Luna is never activated and
-no window becomes key. Clicking the folder opens a card saying what the call
-will do and where, with **Deny**, **Allow Once** and, in Per Site mode,
-**Allow on *site***. None of them is the default button. A request nobody
+(`requestUserAttention(.informationalRequest)`). At once, a card appears at the
+top-right of the page, the same glass card as "Save password?", with the app's
+icon, what the call will do and where, and **Deny**, **Allow Once** and, in
+Per Site mode, **Allow on *site***. It is a panel that never becomes key, so
+Luna is never activated and the keyboard stays where it was; it stays up while
+Luna is in the background, over Luna's own window. One request is shown at a
+time, oldest first, with how many more are waiting. If Luna quits while a
+call is waiting, `luna-control` answers it at once as unreachable rather than
+leaving the client to its own timeout. None of them is the default button. A request nobody
 answers is declined after five minutes. If the page moved to another site
 while the user was deciding, the call is not made. The agent reads a declined
 call as an error telling it not to work around it.

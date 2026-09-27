@@ -287,6 +287,9 @@ final class BrowserSession {
     var controlledGroupIDs: Set<UUID> = []
     /// `ControlService.refreshBadges`'s symbols, by folder.
     var controlBadges: [UUID: String] = [:]
+    /// Which app each Luna Control folder belongs to, by folder:
+    /// `ControlService.refreshFaces`'s.
+    var controlFaces: [UUID: ControlFace] = [:]
     /// The Luna Control service driving this session, which holds the page
     /// dialogs of its agents' tabs.
     weak var control: ControlService?

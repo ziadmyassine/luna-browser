@@ -51,7 +51,8 @@ extension TabListController {
             list.isSelectable($0) && $0 != selected && list.group(at: $0) == nil ? $0 : nil
         }
         place(hoverPill, at: hovered, spec: animated ? Tokens.Motion.rowHover : nil)
-        placeGroupPlate(animated: animated)
+        placePlate(groupPlate, in: groupPlateBox(), animated: animated)
+        placeControlPlates(animated: animated)
     }
 
     /// §3.4b's plate round the folder the pointer is in — over its header, any
@@ -83,14 +84,16 @@ extension TabListController {
             movePills()
             return
         }
-        for pill in [selectionPill, hoverPill, groupPlate] { pill.fade(to: 0) }
+        for pill in [selectionPill, hoverPill, groupPlate] + controlPlates.values { pill.fade(to: 0) }
     }
 
     /// Keeps the shared fills behind the row views AppKit keeps adding — the
-    /// two pills, §3.4b's folder plate under them, and §6.6's box round a
-    /// folder taking a drop.
+    /// two pills, a connected Luna Control folder's outline, §3.4b's folder
+    /// plate under them, and §6.6's box round a folder taking a drop. The
+    /// outline lies over the hover plate so its colour is not drawn over.
     func sendPillsToBack() {
-        for fill in [selectionPill, hoverPill, groupPlate, groupDrop] where fill.superview === table {
+        let fills = [selectionPill, hoverPill] + Array(controlPlates.values) + [groupPlate, groupDrop]
+        for fill in fills where fill.superview === table {
             table.addSubview(fill, positioned: .below, relativeTo: nil)
         }
     }
@@ -103,14 +106,41 @@ extension TabListController {
     /// The rows' layout pass lands here unanimated while they are still
     /// sliding; the plate is already standing where it is going by then, and
     /// placing it again would snap the stretch to its end.
-    private func placeGroupPlate(animated: Bool) {
-        let box = groupPlateBox(), shown = groupPlate.frame
-        guard let box, groupPlate.alphaValue == 1,
+    private func placePlate(_ plate: RowPillView, in box: NSRect?, animated: Bool) {
+        let shown = plate.frame
+        guard let box, plate.alphaValue == 1,
               box.minX == shown.minX, box.minY == shown.minY, box.width == shown.width else {
-            return place(groupPlate, in: box, spec: animated ? Tokens.Motion.rowHover : nil)
+            return place(plate, in: box, spec: animated ? Tokens.Motion.rowHover : nil)
         }
         guard box.height != shown.height else { return }
-        groupPlate.stretch(to: box, spec: Tokens.Motion.tabInsert)
+        plate.stretch(to: box, spec: Tokens.Motion.tabInsert)
+    }
+
+    /// The folder plate, kept up round every Luna Control folder and outlined
+    /// in its app's colour, so the folder says whose it is without the
+    /// pointer over it, and glowing while the app works in it.
+    private func placeControlPlates(animated: Bool) {
+        for (id, plate) in controlPlates where controlFaces[id] == nil {
+            plate.removeFromSuperview()
+            controlPlates[id] = nil
+        }
+        for (id, face) in controlFaces {
+            let box = groupExtent(ofGroup: id)
+            guard box != nil || controlPlates[id] != nil else { continue }
+            let plate = controlPlates[id] ?? makeControlPlate(id)
+            plate.tint = Tokens.Agent.tint(forApp: face.appID)
+            plate.isGlowing = controlledGroupIDs.contains(id)
+            placePlate(plate, in: box, animated: animated)
+        }
+    }
+
+    private func makeControlPlate(_ id: UUID) -> RowPillView {
+        let plate = RowPillView(role: .folder)
+        plate.alphaValue = 0
+        table.addSubview(plate)
+        controlPlates[id] = plate
+        sendPillsToBack()
+        return plate
     }
 
     private func place(_ pill: RowPillView, at row: Int?, spec: MotionSpec?) {

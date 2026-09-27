@@ -44,12 +44,15 @@ extension TabListController {
     ///
     /// A folder a Luna Control client is working in wears the loading shimmer:
     /// something is happening in there that the user did not start, and the
-    /// row says so without a control of its own. While it waits for the user,
-    /// or is paused or stopped, it wears that state's icon in place of its own.
+    /// row says so without a control of its own. It wears its app's icon, and
+    /// while it waits for the user, or is paused or stopped, that state's
+    /// symbol in place of it.
     private func groupContent(_ group: TabGroup) -> SidebarRowContent {
-        SidebarRowContent(
+        let badge = controlBadges[group.id]
+        return SidebarRowContent(
             title: group.name,
-            symbolName: controlBadges[group.id] ?? group.symbolName,
+            symbolName: badge ?? group.symbolName,
+            favicon: badge == nil ? controlFaces[group.id]?.appID.flatMap(ControlAppIcon.image(for:)) : nil,
             isLoading: controlledGroupIDs.contains(group.id),
             disclosure: group.isCollapsed ? .collapsed : .expanded
         )

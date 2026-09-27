@@ -38,6 +38,31 @@ final class RowPillView: NSView {
         didSet { if progress != oldValue { needsLayout = true } }
     }
 
+    /// A folder plate's hairline in a colour of its own: a Luna Control
+    /// folder's, in its app's colour (`Tokens.Agent`).
+    var tint: NSColor? {
+        didSet { if tint != oldValue { needsDisplay = true } }
+    }
+
+    /// A tinted plate's glow, while the agent it belongs to is working in the
+    /// folder. It fades in and out on the load line's fade: both say work
+    /// started or finished.
+    var isGlowing = false {
+        didSet {
+            guard isGlowing != oldValue else { return }
+            let instant = Tokens.Motion.reduceMotion
+            CATransaction.begin()
+            CATransaction.setDisableActions(instant)
+            CATransaction.setAnimationDuration(Tokens.Motion.loadLineFade.duration)
+            CATransaction.setAnimationTimingFunction(Tokens.Motion.loadLineFade.timingFunction)
+            glow.opacity = isGlowing ? 1 : 0
+            CATransaction.commit()
+        }
+    }
+    /// The hairline again, blurred into a halo by its own shadow: a layer
+    /// with no fill casts its shadow from its border alone.
+    private let glow = CALayer()
+
     private let role: Role
     /// Rounds the band's leading end into the pill's own corners. Its trailing
     /// end stays square — that edge is the reading position, not a shape.
@@ -62,6 +87,13 @@ final class RowPillView: NSView {
         bandClip.layer?.addSublayer(band)
         bandClip.autoresizingMask = [.width, .height]
         addSubview(bandClip)
+        glow.opacity = 0
+        glow.cornerCurve = .continuous
+        glow.borderWidth = Tokens.Metric.hairline
+        glow.shadowOffset = .zero
+        glow.shadowOpacity = 1
+        glow.shadowRadius = Tokens.Agent.glowRadius
+        layer?.addSublayer(glow)
     }
 
     @available(*, unavailable)
@@ -82,8 +114,11 @@ final class RowPillView: NSView {
         // the same hairline a pinned tile's well does.
         let bordered = role != .hover
         layer.borderWidth = bordered ? Tokens.Metric.hairline : 0
-        layer.borderColor = bordered ? Tokens.Line.border.cgColor : nil
+        layer.borderColor = bordered ? (tint ?? Tokens.Line.border).cgColor : nil
         band.backgroundColor = Tokens.Surface.readBand.cgColor
+        glow.cornerRadius = Tokens.Metric.rowCornerRadius
+        glow.borderColor = tint?.cgColor
+        glow.shadowColor = tint?.cgColor
     }
 
     /// The folder plate is a pinned tile's well, not a wash. A hover or a
@@ -103,6 +138,7 @@ final class RowPillView: NSView {
         // Moved on every frame of a scroll, so it never animates: a band
         // easing behind the page reads as lag.
         Tokens.Motion.immediately {
+            glow.frame = bounds
             bandClip.frame = bounds
             let width = (bounds.width * (progress ?? 0)).rounded()
             let x = userInterfaceLayoutDirection == .rightToLeft ? bounds.width - width : 0

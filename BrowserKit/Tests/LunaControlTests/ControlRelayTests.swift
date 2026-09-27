@@ -102,6 +102,30 @@ struct ControlRelayTests {
         #expect(reply?["result"]?["content"]?.debugText == "Test Agent")
     }
 
+    /// Luna quitting while a call waits, as one waiting for the user's
+    /// approval does, answers it at once rather than leaving the client to
+    /// its own timeout.
+    @Test func aCallLunaWentAwayDuringIsAnswered() throws {
+        let path = socketPath()
+        let listener = try ControlListener(path: path) { _, _ in
+            try? await Task.sleep(for: .seconds(60))
+            return .text("too late")
+        }
+        let harness = Harness(socket: path)
+        defer { harness.finish() }
+        #expect(harness.ask(Self.initialize)?["result"] != nil)
+
+        ControlSocket.writeLine(Self.call(2, "tab_open").encoded(), to: harness.input.write)
+        Thread.sleep(forTimeInterval: 0.2)
+        let started = Date()
+        listener.stop()
+        let reply = harness.reader.next().flatMap(JSONValue.parse)
+        #expect(reply?["id"] == 2)
+        #expect(reply?["result"]?["isError"] == true)
+        #expect(reply?["result"]?["content"]?.debugText == ControlRelay.unreachable)
+        #expect(Date().timeIntervalSince(started) < 5)
+    }
+
     @Test func refusesToTakeOverASocketAnotherLunaIsAnswering() throws {
         let path = socketPath()
         let first = try ControlListener(path: path) { _, _ in .text("first") }

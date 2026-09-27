@@ -24,6 +24,11 @@ public final class ControlRelay: Sendable {
     private let output: Int32
     private let local = ControlSession { _, _ in .error(ControlRelay.unreachable) }
     private let state = Mutex<(socket: Int32?, initialize: JSONValue?)>((nil, nil))
+    /// Requests passed to Luna and not answered yet, by id, with the socket
+    /// each went down. Luna quitting mid-call answers none of them, and a
+    /// client left waiting waits for its own timeout: half an hour, for
+    /// Claude Code.
+    private let outstanding = Mutex<[JSONValue: (socket: Int32, line: Data)]>([:])
     private let writing = Mutex(())
 
     public init(socketPath: URL, output: Int32 = STDOUT_FILENO) {
@@ -40,9 +45,11 @@ public final class ControlRelay: Sendable {
             if message?["method"]?.string == "initialize" {
                 state.withLock { $0.initialize = message }
             }
-            if let socket = connected(replaying: message?["method"]?.string != "initialize"),
-               ControlSocket.writeLine(line, to: socket) {
-                continue
+            if let socket = connected(replaying: message?["method"]?.string != "initialize") {
+                let id = message?["id"]
+                if let id { outstanding.withLock { $0[id] = (socket, line) } }
+                if ControlSocket.writeLine(line, to: socket) { continue }
+                if let id { outstanding.withLock { _ = $0.removeValue(forKey: id) } }
             }
             if let reply = waitFor({ [local] in await local.handle(line) }) { emit(reply) }
         }
@@ -70,11 +77,25 @@ public final class ControlRelay: Sendable {
     private func pump(_ socket: Int32) {
         let reader = LineReader(fd: socket)
         while let line = reader.next() {
-            if JSONValue.parse(line)?["id"] == Self.replayID { continue }
+            let reply = JSONValue.parse(line)
+            if reply?["id"] == Self.replayID { continue }
+            if let id = reply?["id"], reply?["method"] == nil {
+                outstanding.withLock { _ = $0.removeValue(forKey: id) }
+            }
             emit(line)
         }
         state.withLock { if $0.socket == socket { $0.socket = nil } }
         close(socket)
+        // Luna went with these still open: answered the way a call is while
+        // Luna is not there, so the agent hears now and can say so.
+        let orphans = outstanding.withLock { waiting in
+            let lost = waiting.filter { $0.value.socket == socket }
+            for id in lost.keys { waiting[id] = nil }
+            return lost.values.map(\.line)
+        }
+        for line in orphans {
+            if let reply = waitFor({ [local] in await local.handle(line) }) { emit(reply) }
+        }
     }
 
     /// One writer at a time: replies come from both the socket's thread and

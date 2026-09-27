@@ -98,6 +98,11 @@ final class ControlService {
     /// Calls running per folder. The folder shows as controlled while this is
     /// above zero and for `markLinger` after.
     private var running: [UUID: Int] = [:]
+    /// Display names of the clients connected at the last change, so a new
+    /// one is told apart from one that was already there.
+    var connectedNames: Set<String> = []
+    /// Where a request waiting for the user is asked.
+    private lazy var approvalCard = ControlApprovalCard(approvals: approvals)
 
     init(
         session: BrowserSession,
@@ -109,8 +114,14 @@ final class ControlService {
         self.session = session
         self.defaults = defaults
         self.auditURL = auditURL
-        approvals.onChange = { [weak self] in self?.refreshBadges() }
+        approvals.onChange = { [weak self] in
+            self?.refreshBadges()
+            self?.showApprovals()
+        }
         session.control = self
+        // Folders from an earlier launch wear their app's icon before the
+        // app connects again.
+        refreshFaces()
     }
 
     /// The `luna-control` service of the running app, for the sidebar and the
@@ -130,8 +141,11 @@ final class ControlService {
             listener = try ControlListener(
                 path: ControlSocket.path(bundleIdentifier: Bundle.main.bundleIdentifier ?? "dk.novapps.luna"),
                 version: version,
-                onClientsChange: {
-                    Task { @MainActor in NotificationCenter.default.post(name: Self.clientsDidChange, object: nil) }
+                onClientsChange: { [weak self] in
+                    Task { @MainActor in
+                        self?.clientsChanged()
+                        NotificationCenter.default.post(name: Self.clientsDidChange, object: nil)
+                    }
                 },
                 perform: { [weak self] call, client in
                     await self?.perform(call, client) ?? .error("Luna is closing.")
@@ -145,6 +159,7 @@ final class ControlService {
     func stop() {
         listener?.stop()
         listener = nil
+        clientsChanged()
         NotificationCenter.default.post(name: Self.clientsDidChange, object: nil)
     }
 
@@ -194,7 +209,10 @@ final class ControlService {
         // The folder `perform` marks is one that existed when the call came in.
         let isNew = folders[client.displayName] != group.id
         folders[client.displayName] = group.id
-        if isNew { mark(group.id, running: true) }
+        if isNew {
+            mark(group.id, running: true)
+            refreshFaces()
+        }
         defer { if isNew { mark(group.id, running: false) } }
         let id = session.openControlledTab(url: url, in: group)
         currentTab[client.connection] = id
@@ -260,6 +278,13 @@ final class ControlService {
     }
 
     // MARK: - The folder's mark
+
+    /// The card over the page the user is looking at, or over the whole
+    /// window when no tab is showing.
+    private func showApprovals() {
+        let page = session?.activeTabID.flatMap { session?.controller(for: $0)?.webView }
+        approvalCard.update(over: page ?? session?.hostWindow?.contentView)
+    }
 
     /// How long a folder stays marked after its last call. Long enough that a
     /// run of calls reads as one stretch of work rather than a flicker.
