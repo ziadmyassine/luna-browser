@@ -178,9 +178,9 @@ struct SyncMergeTests {
         #expect(SyncMerge.resolve(local: local, changedAt: earlier.addingTimeInterval(-1), server: server) == .takeServer)
     }
 
-    /// `blockingDisabled` and `insecureAllowed` are only written when on, so this Mac's off
-    /// is unset and cannot switch another Mac's on back off.
-    @Test func anOffBlockingFlagNeverOverridesAnotherMacsOn() throws {
+    /// `blockingDisabled` and `insecureAllowed` are last writer wins, not set beats unset:
+    /// otherwise once any Mac turned blocking off for a site, no Mac could turn it back on.
+    @Test func theBlockingFlagsFollowTheNewerRecord() throws {
         let secret = SyncSamples.secret
         let server = SyncMapping.record(
             for: SyncSiteSetting(host: "example.com", blockingDisabled: true, insecureAllowed: true),
@@ -191,7 +191,17 @@ struct SyncMergeTests {
             secret: secret, modifiedAt: later, stored: nil
         )
 
-        #expect(SyncMerge.resolve(local: local, changedAt: later, server: server) == .takeServer)
+        guard case .save(let merged) = SyncMerge.resolve(local: local, changedAt: later, server: server) else {
+            Issue.record("expected the newer off to be saved"); return
+        }
+        #expect(SyncMapping.siteSetting(from: merged)?.blockingDisabled == false)
+        #expect(SyncMapping.siteSetting(from: merged)?.insecureAllowed == false)
+
+        let newerServer = SyncMapping.record(
+            for: SyncSiteSetting(host: "example.com", blockingDisabled: true, insecureAllowed: true),
+            secret: secret, modifiedAt: later.addingTimeInterval(1), stored: nil
+        )
+        #expect(SyncMerge.resolve(local: local, changedAt: later, server: newerServer) == .takeServer)
     }
 
     // MARK: Setting: last writer wins per key

@@ -110,15 +110,15 @@ struct SyncMappingTests {
         #expect(try #require(SyncMapping.siteSetting(from: record)) == site)
     }
 
-    /// `blockingDisabled` and `insecureAllowed` are `NOT NULL DEFAULT 0` locally, so off is
-    /// indistinguishable from unanswered. Off is left out, and never outranks another
-    /// Mac's on.
-    @Test func theTwoBlockingFlagsAreWrittenOnlyWhenOn() throws {
+    /// `blockingDisabled` and `insecureAllowed` follow the newer record (§3), so off is
+    /// written as 0 like on is written as 1: an off that is left out could never switch
+    /// another Mac's on back off.
+    @Test func theTwoBlockingFlagsAreAlwaysWritten() throws {
         let off = SyncSiteSetting(host: "example.com", blockingDisabled: false, insecureAllowed: false)
         let offRecord = SyncMapping.record(for: off, secret: SyncSamples.secret, modifiedAt: now, stored: nil)
-        #expect(offRecord.fields["blockingDisabled"] == nil)
-        #expect(offRecord.fields["insecureAllowed"] == nil)
-        #expect(try #require(SyncMapping.siteSetting(from: offRecord)) == SyncSiteSetting(host: "example.com"))
+        #expect(offRecord.fields["blockingDisabled"] == SyncField(.int(0), encrypted: true))
+        #expect(offRecord.fields["insecureAllowed"] == SyncField(.int(0), encrypted: true))
+        #expect(try #require(SyncMapping.siteSetting(from: offRecord)) == off)
 
         let on = SyncSiteSetting(host: "example.com", blockingDisabled: true, insecureAllowed: true)
         let onRecord = SyncMapping.record(for: on, secret: SyncSamples.secret, modifiedAt: now, stored: nil)

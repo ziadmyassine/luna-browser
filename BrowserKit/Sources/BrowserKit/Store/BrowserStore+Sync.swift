@@ -281,7 +281,7 @@ private enum SyncApply {
         let flags = SyncSiteSetting.flags
         let names = flags.map(\.0)
         let values: [(any DatabaseValueConvertible)?] = flags.map { name, path in
-            site[keyPath: path] ?? (SyncSiteSetting.offMeansUnset.contains(name) ? false : nil)
+            site[keyPath: path] ?? (SyncSiteSetting.followTheNewerRecord.contains(name) ? false : nil)
         }
         try db.execute(
             sql: """

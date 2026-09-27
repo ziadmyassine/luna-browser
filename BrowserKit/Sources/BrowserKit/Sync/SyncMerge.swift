@@ -55,13 +55,13 @@ public enum SyncMerge {
         }
     }
 
-    /// Field by field: a flag the local record leaves out is unset and never clears the
-    /// server's. `SyncMapping` leaves out `blockingDisabled` and `insecureAllowed` when off,
-    /// so this Mac's off never switches another Mac's on back off.
+    /// Field by field: a permission the local record leaves out is unset and never clears
+    /// the server's. The two blocking flags are always written and go with the newer record.
     private static func siteSetting(_ local: SyncRecord, over server: SyncRecord, serverIsNewer: Bool) -> Outcome {
         let flags = Set(SyncSiteSetting.flags.map(\.0))
         let taken = local.fields.filter { name, _ in
-            !(flags.contains(name) && serverIsNewer && server.fields[name]?.value != nil)
+            guard flags.contains(name), serverIsNewer else { return true }
+            return server.fields[name]?.value == nil && !SyncSiteSetting.followTheNewerRecord.contains(name)
         }
         let changed = taken.contains { name, field in name != "modifiedAt" && server.fields[name] != field }
         guard changed else { return .takeServer }
