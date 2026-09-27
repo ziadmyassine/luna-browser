@@ -9,18 +9,19 @@ public actor SyncCoordinator {
 
     public typealias Apply = @Sendable (SyncChangeSet) async throws -> Void
 
-    private let store: BrowserStore
+    let store: BrowserStore
     private let makeEngine: @Sendable (Data?) -> any SyncEngineControl
     private let applyInbound: @Sendable (SyncChangeSet, _ isFirstFetch: Bool) async throws -> Void
     private let applySettings: Apply
     private let applyDevices: Apply
     private let onStatus: @MainActor @Sendable (SyncStatus) -> Void
 
-    private var engine: (any SyncEngineControl)?
+    var engine: (any SyncEngineControl)?
     private var secret = SyncSecretState()
     /// The outbox key of every change handed to the engine. A relaunch rebuilds it from the
     /// outbox and `syncRecords`.
-    private var keys: [String: (recordType: String, localKey: String)] = [:]
+    var keys: [String: (recordType: String, localKey: String)] = [:]
+    var presence = SyncPresenceState()
     public private(set) var status = SyncStatus.off
 
     /// - Parameters:
@@ -28,7 +29,8 @@ public actor SyncCoordinator {
     ///   - applyInbound: Spaces, groups, tabs, sites and history from other Macs. By default
     ///     straight to the store; the app routes them through the session (S10).
     ///   - applySettings: incoming `Setting` records (S9).
-    ///   - applyDevices: incoming `Device` records (S12).
+    ///   - applyDevices: told when other Macs' `Device` records have changed; they are
+    ///     already in the store, for `otherMacs`.
     public init(
         store: BrowserStore,
         makeEngine: @escaping @Sendable (Data?) -> any SyncEngineControl,
@@ -74,6 +76,11 @@ public actor SyncCoordinator {
     /// The master switch off. The system fields stay, so turning sync back on can tell
     /// rows iCloud once had (§3); the engine state goes, so that turn-on fetches everything.
     public func disable() async throws {
+        if try await store.enabledSyncZones().contains(.devices) {
+            await engine?.add(pending: [.delete(try await deviceID().uuidString, in: .devices)])
+            try? await engine?.sendChanges()
+        }
+        presence = SyncPresenceState()
         for zone in try await store.enabledSyncZones() { try await store.setSyncZone(zone, enabled: false) }
         try await store.setSyncMeta(SyncMetaKey.engineState, nil)
         try await store.setSyncMeta(SyncMetaKey.fetchedOnce, nil)
@@ -143,6 +150,7 @@ public actor SyncCoordinator {
             return (secret.settled ?? secret.proposal()).record(stored: stored)
         }
         guard let key = try await key(of: name) else { return nil }
+        if key.recordType == "Device" { return try await presenceRecord(named: name) }
         return try await store.outgoingRecord(key.recordType, localKey: key.localKey, deviceID: device, secret: secret.settled)
     }
 
@@ -260,6 +268,7 @@ extension SyncCoordinator {
             try await store.storeSystemFields(of: record, localKey: record.recordName)
         }
         for deletion in settings.deletions + devices.deletions { try await store.forgetSystemFields(of: deletion.recordName) }
+        try await store.applyPresence(devices)
         if !inbound.isEmpty { try await applyInbound(inbound, try await store.syncMeta(SyncMetaKey.fetchedOnce) == nil) }
         if !settings.isEmpty { try await applySettings(settings) }
         if !devices.isEmpty { try await applyDevices(devices) }
@@ -306,6 +315,7 @@ extension SyncCoordinator {
             try await store.wipeSyncState(keeping: [SyncMetaKey.deviceID, SyncMetaKey.userRecordName], turningSyncOff: false)
             secret = SyncSecretState()
             keys = [:]
+            presence = SyncPresenceState()
             await report(.noAccount)
         case .switchAccounts:
             // Nothing goes up to the new account until the user turns sync on again.
@@ -348,6 +358,7 @@ extension SyncCoordinator {
         try await store.wipeSyncState(keeping: [SyncMetaKey.deviceID], turningSyncOff: true)
         secret = SyncSecretState()
         keys = [:]
+        presence = SyncPresenceState()
         engine = nil
     }
 
