@@ -25,6 +25,17 @@ struct SyncOutboxTests {
         return (store, space)
     }
 
+    /// The zones the store keeps are the CloudKit zones, by the same names.
+    @Test func theStoreUsesSyncZoneNames() async throws {
+        let (store, _) = try await makeTemporaryStoreWithSpace()
+        for zone in SyncZone.allCases { try await store.setSyncZone(zone, enabled: true) }
+        let stored = try await store.pool.read { db in try String.fetchAll(db, sql: "SELECT zone FROM syncZones") }
+        #expect(Set(stored) == Set(SyncZone.allCases.map(\.rawValue)))
+        let queued = try await store.syncOutbox()
+        #expect(!queued.isEmpty)
+        #expect(queued.allSatisfy { SyncZone(rawValue: $0.zone) != nil })
+    }
+
     @Test func renamingASpaceGivesOneRow() async throws {
         let (store, space) = try await storeWithSpacesOn()
         var renamed = space

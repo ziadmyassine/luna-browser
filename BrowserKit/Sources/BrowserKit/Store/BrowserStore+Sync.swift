@@ -12,11 +12,6 @@ struct SyncOutboxEntry: Sendable, Hashable, Codable, FetchableRecord {
 
 extension BrowserStore {
 
-    enum SyncZone: String {
-        case spaces = "Spaces", sites = "Sites", settings = "Settings"
-        case history = "History", devices = "Devices", meta = "Meta"
-    }
-
     func syncOutbox() async throws -> [SyncOutboxEntry] {
         try await pool.read { db in
             try SyncOutboxEntry.fetchAll(db, sql: "SELECT * FROM syncOutbox ORDER BY changedAt")
@@ -36,7 +31,7 @@ extension BrowserStore {
             let wasOn = try Bool.fetchOne(db, sql: "SELECT enabled FROM syncZones WHERE zone = ?", arguments: [zone.rawValue])
             guard wasOn != true else { return }
             try db.execute(sql: "INSERT OR REPLACE INTO syncZones (zone, enabled) VALUES (?, 1)", arguments: [zone.rawValue])
-            for statement in SyncSQL.seed(zone.rawValue) { try db.execute(sql: statement) }
+            for statement in SyncSQL.seed(zone) { try db.execute(sql: statement) }
         }
     }
 }

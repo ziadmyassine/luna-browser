@@ -65,7 +65,7 @@ enum SyncSQL {
     private struct Tracked {
         let table: String
         let recordType: String
-        let zone: String
+        let zone: SyncZone
         /// The outbox key, given the row's alias: `hex(id)` for a UUID blob.
         let key: @Sendable (String) -> String
         let synced: [String]
@@ -75,22 +75,22 @@ enum SyncSQL {
 
     private static let tracked = [
         Tracked(
-            table: "spaces", recordType: "Space", zone: "Spaces", key: byID,
+            table: "spaces", recordType: "Space", zone: .spaces, key: byID,
             synced: ["name", "symbolName", "gradient", "imageData", "order"]
         ),
         Tracked(
-            table: "tabGroups", recordType: "TabGroup", zone: "Spaces", key: byID,
+            table: "tabGroups", recordType: "TabGroup", zone: .spaces, key: byID,
             synced: ["spaceID", "name", "symbolName", "kind", "order"]
         ),
         Tracked(
-            table: "tabs", recordType: "Tab", zone: "Spaces", key: byID,
+            table: "tabs", recordType: "Tab", zone: .spaces, key: byID,
             synced: [
                 "spaceID", "groupID", "kind", "order", "archivedAt", "url", "title",
                 "customTitle", "customSymbolName", "pinnedURL"
             ]
         ),
         Tracked(
-            table: "siteSettings", recordType: "SiteSetting", zone: "Sites", key: { "\($0).host" },
+            table: "siteSettings", recordType: "SiteSetting", zone: .sites, key: { "\($0).host" },
             synced: [
                 "zoom", "automaticPictureInPicture", "localNetwork", "savePasswords", "popups",
                 "blockingDisabled", "insecureAllowed"
@@ -100,17 +100,17 @@ enum SyncSQL {
 
     /// Off while an incoming change is being applied, which is what stops the
     /// echo, and off for a zone the user has not turned on.
-    private static func guarded(_ zone: String) -> String {
-        "(SELECT applyingRemote FROM syncControl) = 0 AND EXISTS (SELECT 1 FROM syncZones WHERE zone = '\(zone)' AND enabled)"
+    private static func guarded(_ zone: SyncZone) -> String {
+        "(SELECT applyingRemote FROM syncControl) = 0 AND EXISTS (SELECT 1 FROM syncZones WHERE zone = '\(zone.rawValue)' AND enabled)"
     }
 
     /// The same format GRDB writes a `Date` in, so `changedAt` decodes as one.
     private static let now = "strftime('%Y-%m-%d %H:%M:%f', 'now')"
 
-    private static func record(_ type: String, key: String, zone: String, isDelete: Bool) -> String {
+    private static func record(_ type: String, key: String, zone: SyncZone, isDelete: Bool) -> String {
         """
         INSERT OR REPLACE INTO syncOutbox (recordType, localKey, zone, isDelete, changedAt)
-        VALUES ('\(type)', \(key), '\(zone)', \(isDelete ? 1 : 0), \(now));
+        VALUES ('\(type)', \(key), '\(zone.rawValue)', \(isDelete ? 1 : 0), \(now));
         """
     }
 
@@ -142,25 +142,25 @@ enum SyncSQL {
         // its way to it. A visit with a `syncOrigin` came from another Mac.
         statements.append("""
         CREATE TRIGGER IF NOT EXISTS sync_visits_insert AFTER INSERT ON visits
-        WHEN \(guarded("History")) AND NEW.type IN ('typed', 'bookmarked') AND NEW.syncOrigin IS NULL
-        BEGIN \(record("HistoryEntry", key: "CAST(NEW.placeId AS TEXT)", zone: "History", isDelete: false)) END
+        WHEN \(guarded(.history)) AND NEW.type IN ('typed', 'bookmarked') AND NEW.syncOrigin IS NULL
+        BEGIN \(record("HistoryEntry", key: "CAST(NEW.placeId AS TEXT)", zone: .history, isDelete: false)) END
         """)
         return statements
     }
 
     /// What turning `zone` on queues: every row it covers, except that history
     /// goes back only 90 days (docs/SYNC-PLAN.md §1).
-    static func seed(_ zone: String) -> [String] {
+    static func seed(_ zone: SyncZone) -> [String] {
         let rows = tracked.filter { $0.zone == zone }.map { item in
             """
             INSERT OR IGNORE INTO syncOutbox (recordType, localKey, zone, isDelete, changedAt)
-            SELECT '\(item.recordType)', \(item.key("r")), '\(zone)', 0, \(now) FROM \(item.table) AS r
+            SELECT '\(item.recordType)', \(item.key("r")), '\(zone.rawValue)', 0, \(now) FROM \(item.table) AS r
             """
         }
-        guard zone == "History" else { return rows }
+        guard zone == .history else { return rows }
         return rows + ["""
         INSERT OR IGNORE INTO syncOutbox (recordType, localKey, zone, isDelete, changedAt)
-        SELECT DISTINCT 'HistoryEntry', CAST(placeId AS TEXT), 'History', 0, \(now) FROM visits
+        SELECT DISTINCT 'HistoryEntry', CAST(placeId AS TEXT), '\(SyncZone.history.rawValue)', 0, \(now) FROM visits
         WHERE type IN ('typed', 'bookmarked') AND syncOrigin IS NULL
           AND at >= strftime('%Y-%m-%d %H:%M:%f', 'now', '-90 days')
         """]
