@@ -64,6 +64,8 @@ final class ControlService {
     var holds: [String: Hold] = [:]
     /// The main menu's Stop All Agents, until Resume.
     var stoppedAll = false
+    /// A paused client's calls, waiting for Resume, by client and call.
+    var pausedCalls: [String: [UUID: CheckedContinuation<Void, Never>]] = [:]
     /// The tasks running each client's calls, so Stop can cancel them.
     var inFlight: [String: [UUID: Task<ControlResult, Never>]] = [:]
 
@@ -98,6 +100,8 @@ final class ControlService {
     /// Calls running per folder. The folder shows as controlled while this is
     /// above zero and for `markLinger` after.
     private var running: [UUID: Int] = [:]
+    /// Calls running per tab, on the same terms: the tab's row is outlined.
+    private var runningTabs: [UUID: Int] = [:]
     /// Display names of the clients connected at the last change, so a new
     /// one is told apart from one that was already there.
     var connectedNames: Set<String> = []
@@ -212,6 +216,8 @@ final class ControlService {
             }
             currentTab[client.connection] = id
             actingOn[id] = client.displayName
+            mark(tab: id, of: client.displayName, running: true)
+            defer { mark(tab: id, of: client.displayName, running: false) }
             await showPointer(for: call.command, on: webView, by: client.displayName)
             return try await onTab(call.command, tab: id, webView: webView, controller: controller)
         }
@@ -230,6 +236,8 @@ final class ControlService {
         let id = session.openControlledTab(url: url, in: group)
         currentTab[client.connection] = id
         actingOn[id] = client.displayName
+        mark(tab: id, of: client.displayName, running: true)
+        defer { mark(tab: id, of: client.displayName, running: false) }
         if let webView = session.controller(for: id)?.webView {
             size(webView, in: session)
             await settle(webView)
@@ -303,20 +311,34 @@ final class ControlService {
     private static let markLinger: Duration = .seconds(2)
 
     private func mark(_ folder: UUID, running start: Bool) {
+        count(folder, in: \.running, start: start) { [weak self] on in self?.session?.setControlled(on, group: folder) }
+    }
+
+    private func mark(tab id: UUID, of client: String, running start: Bool) {
+        let face = ControlFace(appID: appID(ofClient: client))
+        count(id, in: \.runningTabs, start: start) { [weak self] on in
+            self?.session?.setControlled(on, tab: id, face: face)
+        }
+    }
+
+    private func count(
+        _ key: UUID, in counts: ReferenceWritableKeyPath<ControlService, [UUID: Int]>, start: Bool,
+        apply: @escaping @MainActor (Bool) -> Void
+    ) {
         guard start else {
             Task { [weak self] in
                 try? await Task.sleep(for: Self.markLinger)
                 guard let self else { return }
-                running[folder, default: 1] -= 1
-                if running[folder] ?? 0 <= 0 {
-                    running[folder] = nil
-                    session?.setControlled(false, group: folder)
+                self[keyPath: counts][key, default: 1] -= 1
+                if self[keyPath: counts][key] ?? 0 <= 0 {
+                    self[keyPath: counts][key] = nil
+                    apply(false)
                 }
             }
             return
         }
-        running[folder, default: 0] += 1
-        session?.setControlled(true, group: folder)
+        self[keyPath: counts][key, default: 0] += 1
+        apply(true)
     }
 
     static func describe(_ error: any Error) -> String {

@@ -68,10 +68,12 @@ final class ControlStageTests: XCTestCase {
         XCTAssertTrue(text(result).contains("trusted: true"), text(result))
         XCTAssertEqual(webView.title, "trusted")
         XCTAssertNil(webView.window, "the stage kept the tab")
+        XCTAssertNotNil(session.controlledTabs[id], "the tab the agent used is not outlined")
     }
 
     /// Looking at the agent's tab lets the user watch it work; Take Over,
-    /// which pauses the agent, is what stops it.
+    /// which pauses the agent, is what stops it, and a Stop ends the call
+    /// that was waiting.
     func testViewingTabLetsTheAgentWorkUntilTakenOver() async throws {
         let (service, session) = try await makeService()
         _ = await service.perform(ControlCall(.openTab(page)), client)
@@ -82,9 +84,60 @@ final class ControlStageTests: XCTestCase {
         XCTAssertFalse(watched.isError, text(watched))
 
         service.pause(client: client.displayName)
-        let taken = await service.perform(ControlCall(.click(.point(x: 100, y: 40), clickCount: 1)), client)
-        XCTAssertTrue(taken.isError)
-        XCTAssertTrue(text(taken).contains("paused"), text(taken))
+        let taken = Task { await service.perform(ControlCall(.click(.point(x: 100, y: 40), clickCount: 1)), client) }
+        try await Task.sleep(for: .milliseconds(300))
+        XCTAssertEqual(service.pausedCalls[client.displayName]?.count, 1, "the paused call did not wait")
+        service.stop(client: client.displayName)
+        let stopped = await taken.value
+        XCTAssertTrue(stopped.isError)
+        XCTAssertTrue(text(stopped).contains("stopped"), text(stopped))
+    }
+
+    /// The capsule's own button, pressed twice: Take Over holds the agent's
+    /// next call, and Resume lets that same call through.
+    func testTakeOverThenResumeFromTheCapsule() async throws {
+        let (service, session) = try await makeService()
+        let controller = BrowserWindowController(remembersFrame: false)
+        session.hostWindow = controller.window
+        controller.window?.orderFront(nil)
+        defer { controller.window?.close() }
+        service.connectedNames.insert(client.displayName)
+        _ = await service.perform(ControlCall(.openTab(page)), client)
+        let id = try XCTUnwrap(session.allTabs(includeArchived: false).first { $0.url.scheme == "data" }?.id)
+        session.activateTab(id)
+        service.refreshSurface()
+
+        let takeOver = try XCTUnwrap(controller.controlSurface.capsule?.button, "no capsule on the agent's page")
+        click(takeOver)
+        let waiting = Task { await service.perform(ControlCall(.click(.point(x: 100, y: 40), clickCount: 1)), client) }
+        try await Task.sleep(for: .milliseconds(300))
+        XCTAssertEqual(service.pausedCalls[client.displayName]?.count, 1, "the agent was not held while taken over")
+
+        let resume = try XCTUnwrap(controller.controlSurface.capsule?.button, "the capsule went with the pause")
+        XCTAssertEqual(resume.title, "Resume")
+        click(resume)
+        let resumed = await waiting.value
+        XCTAssertFalse(resumed.isError, "Resume did not let the waiting call through: \(text(resumed))")
+        XCTAssertEqual(controller.controlSurface.capsule?.button?.title, "Take Over")
+    }
+
+    /// A click as the pointer makes one: down through the button's own
+    /// handler, with the up already queued for its tracking loop to take.
+    private func click(_ button: NSButton) {
+        guard let window = button.window else { return XCTFail("the button is in no window") }
+        window.contentView?.layoutSubtreeIfNeeded()
+        let point = button.convert(NSPoint(x: button.bounds.midX, y: button.bounds.midY), to: nil)
+        func event(_ type: NSEvent.EventType) -> NSEvent? {
+            NSEvent.mouseEvent(
+                with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1
+            )
+        }
+        guard let down = event(.leftMouseDown), let up = event(.leftMouseUp) else { return XCTFail("no events") }
+        let local = window.contentView?.convert(point, from: nil) ?? .zero
+        XCTAssertTrue(window.contentView?.hitTest(local) === button, "the click does not land on the button")
+        NSApp.postEvent(up, atStart: false)
+        button.mouseDown(with: down)
     }
 
     func testNoFocusOrWindowMoves() async throws {

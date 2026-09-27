@@ -216,6 +216,21 @@ final class SidebarGroupPlateTests: XCTestCase {
         XCTAssertEqual(controller.groupPlate.alphaValue, 0, accuracy: 0.01)
     }
 
+    /// A tab an agent is acting on wears its folder's rim and spark, on the
+    /// tab's own pill box, and loses them when the agent is done.
+    func testATabAnAgentIsUsingIsOutlined() throws {
+        let controller = try list()
+        let row = try XCTUnwrap(controller.list.row(of: looseTab.id))
+        controller.workingTabs = [looseTab.id: ControlFace(appID: "claude-code")]
+        let glow = try XCTUnwrap(controller.tabGlows[looseTab.id], "the tab has no outline")
+        XCTAssertEqual(glow.frame, controller.pillBox(ofRow: row))
+        XCTAssertTrue(glow.isWorking)
+        XCTAssertEqual(glow.tint, Tokens.Agent.tint(forApp: "claude-code"))
+        controller.workingTabs = [:]
+        XCTAssertNil(controller.tabGlows[looseTab.id], "the outline stayed after the agent was done")
+        XCTAssertFalse(glow.isWorking)
+    }
+
     // MARK: - Fixtures
 
     /// The plate's height runs on the rows' clock: `tabInsert`'s duration and

@@ -64,6 +64,7 @@ extension ControlService {
     /// now, including any waiting on the user.
     func stop(client name: String) {
         holds[name] = .stopped
+        releasePausedCalls(of: name)
         inFlight[name]?.values.forEach { $0.cancel() }
         approvals.cancel(client: name)
         refreshBadges()
@@ -71,11 +72,13 @@ extension ControlService {
 
     func resume(client name: String) {
         holds[name] = nil
+        releasePausedCalls(of: name)
         refreshBadges()
     }
 
     func stopAll() {
         stoppedAll = true
+        for name in pausedCalls.keys { releasePausedCalls(of: name) }
         inFlight.values.flatMap(\.values).forEach { $0.cancel() }
         approvals.cancel(client: nil)
         refreshBadges()
@@ -107,7 +110,10 @@ extension ControlService {
             return "The user stopped all agents in Luna. Nothing will run until they resume; do not try another way."
         }
         switch holds[client] {
-        case .paused: return "The user paused you in Luna. Wait until they resume you; do not try another way."
+        case .paused: return """
+            The user paused you in Luna and has not resumed you in five minutes. Stop and wait for them; do not try \
+            another way.
+            """
         case .stopped: return "The user stopped you in Luna. Nothing will run until they resume you; do not try another way."
         case nil: return nil
         }
@@ -129,6 +135,36 @@ extension ControlService {
         session?.setControlBadges(badges)
     }
 
+    /// A paused client's call waits here until the user resumes or stops it,
+    /// or for `ControlApprovals.timeout`. Refused at once, as it used to be,
+    /// the agent read "paused" and gave up, so Resume had nothing to resume:
+    /// the capsule said "working" and nothing moved.
+    func waitWhilePaused(_ name: String) async {
+        guard holds[name] == .paused, !stoppedAll else { return }
+        let id = UUID()
+        let timeout = Task { [weak self] in
+            try? await Task.sleep(for: ControlApprovals.timeout)
+            self?.releasePausedCall(id, of: name)
+        }
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                guard !Task.isCancelled else { return continuation.resume() }
+                pausedCalls[name, default: [:]][id] = continuation
+            }
+        } onCancel: {
+            Task { @MainActor [weak self] in self?.releasePausedCall(id, of: name) }
+        }
+        timeout.cancel()
+    }
+
+    private func releasePausedCall(_ id: UUID, of name: String) {
+        pausedCalls[name]?.removeValue(forKey: id)?.resume()
+    }
+
+    private func releasePausedCalls(of name: String) {
+        pausedCalls.removeValue(forKey: name)?.values.forEach { $0.resume() }
+    }
+
     // MARK: - The gate
 
     func gated(_ call: ControlCall, _ client: ControlClient) async -> ControlResult {
@@ -146,6 +182,7 @@ extension ControlService {
         _ call: ControlCall, _ client: ControlClient, _ record: inout ControlAudit.Record
     ) async -> ControlResult {
         guard let session else { return .error("Luna has no window open.") }
+        await waitWhilePaused(client.displayName)
         if let refusal = refusal(for: client.displayName) {
             record.decision = "stopped"
             return .error(refusal)
@@ -254,6 +291,7 @@ extension ControlService {
         case .stopped:
             return stopped(client, &record)
         }
+        await waitWhilePaused(client.displayName)
         if refusal(for: client.displayName) != nil { return stopped(client, &record) }
         return nil
     }

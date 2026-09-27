@@ -95,6 +95,10 @@ final class TabListController: NSObject {
             for (id, plate) in controlPlates { plate.isWorking = controlledGroupIDs.contains(id) }
         }
     }
+    /// `BrowserSession.controlledTabs`, the same way.
+    var workingTabs: [UUID: ControlFace] = [:] { didSet { if workingTabs != oldValue { movePills() } } }
+    /// The outline round each tab an agent is acting on, by tab.
+    var tabGlows: [UUID: RowPillView] = [:]
     /// `BrowserSession.controlBadges`, the same way.
     var controlBadges: [UUID: String] = [:]
     /// `BrowserSession.controlFaces`, the same way.

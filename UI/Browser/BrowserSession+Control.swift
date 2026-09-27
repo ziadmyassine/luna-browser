@@ -77,6 +77,12 @@ extension BrowserSession {
         if changed { notifyChange() }
     }
 
+    func setControlled(_ controlled: Bool, tab id: UUID, face: ControlFace) {
+        let old = controlledTabs[id]
+        controlledTabs[id] = controlled ? face : nil
+        if controlledTabs[id] != old { notifyChange() }
+    }
+
     /// The icon a Luna Control folder wears instead of its own while it is
     /// waiting for the user, paused or stopped.
     func setControlBadges(_ badges: [UUID: String]) {

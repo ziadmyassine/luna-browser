@@ -98,8 +98,7 @@ final class ControlApprovalCardTests: XCTestCase {
 
         let sheet = try XCTUnwrap(surface.sheet as? ControlApprovalCardView)
         XCTAssertEqual(sheet.frame.midX, surface.bounds.midX, accuracy: 1, "the sheet is not centred")
-        XCTAssertLessThanOrEqual(sheet.frame.width, sheet.contentWidth + ControlApprovalCardView.sideInsets + 1)
-        XCTAssertLessThanOrEqual(sheet.frame.width, ControlApprovalCardView.maxWidth + 1, "the sheet is wider than a sheet")
+        XCTAssertEqual(sheet.frame.width, ControlApprovalCardView.width, accuracy: 1, "the sheet is not the chip's width")
         let glass = try XCTUnwrap(sheet.subviews.first { $0 is GlassBackingView }, "the sheet has no glass")
         XCTAssertEqual(glass.frame, sheet.bounds, "the glass reaches past the sheet")
 
@@ -111,18 +110,27 @@ final class ControlApprovalCardTests: XCTestCase {
         _ = await asking.value
     }
 
-    /// A short question makes a short sheet: the glass ends where the widest
-    /// line or the row of answers does.
-    func testShortQuestionMakesANarrowSheet() {
+    /// A short question keeps the chip's width, and a long site name in the
+    /// last button widens the sheet rather than cutting the button off.
+    func testSheetKeepsTheChipsWidthAndMakesRoomForItsAnswers() {
         let view = ControlApprovalCardView(
             request: ControlApprovals.Request(
                 client: "Codex", folder: nil, site: nil, summary: "Read the page", reason: "it is new", grantable: false
             ),
             waiting: 1
         ) { _ in }
-        let size = view.fittingCardSize()
-        XCTAssertLessThan(size.width, ControlApprovalCardView.maxWidth - 60, "a short question kept the long sheet")
-        XCTAssertEqual(size.width, view.contentWidth + ControlApprovalCardView.sideInsets, accuracy: 1)
+        XCTAssertEqual(view.fittingCardSize().width, ControlApprovalCardView.width, accuracy: 1, "a short question made a narrow sheet")
+
+        let long = ControlApprovalCardView(
+            request: ControlApprovals.Request(
+                client: "Codex", folder: nil, site: "accounts.a-very-long-subdomain.example.com", summary: "Click Sign In",
+                reason: "it signs in", grantable: true
+            ),
+            waiting: 1
+        ) { _ in }
+        let size = long.fittingCardSize()
+        XCTAssertGreaterThan(size.width, ControlApprovalCardView.width, "the answers were squeezed into the chip")
+        XCTAssertEqual(size.width, long.contentWidth + ControlApprovalCardView.sideInsets, accuracy: 1)
     }
 
     /// The working capsule's glass is the capsule's size, not the doubled

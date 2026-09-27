@@ -21,7 +21,10 @@ import AppKit
 @MainActor
 final class RowPillView: NSView {
 
-    enum Role { case selected, hover, folder }
+    /// `working` is the outline round a tab an agent is acting on: the
+    /// folder plate's tinted rim and spark with no fill, so the tab's own
+    /// pill shows through it.
+    enum Role { case selected, hover, folder, working }
 
     /// Kept for the callers that track the table's focus. It no longer
     /// changes what is drawn: a selected row used to take an accent-coloured
@@ -80,7 +83,7 @@ final class RowPillView: NSView {
         layer?.cornerCurve = .continuous
         // The folder plate is a pinned tile's resting surface, which carries no
         // glass either — see `updateLayer`.
-        if role != .folder {
+        if role != .folder, role != .working {
             Glass.apply(.control, to: self, cornerRadius: Tokens.Metric.rowCornerRadius)
         }
         bandClip.wantsLayer = true
@@ -166,6 +169,7 @@ final class RowPillView: NSView {
         case .selected: Tokens.Surface.selected
         case .hover: Tokens.Surface.hover
         case .folder: tint?.withAlphaComponent(Tokens.Agent.fillAlpha) ?? Tokens.Surface.well
+        case .working: .clear
         }
     }
 

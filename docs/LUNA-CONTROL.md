@@ -192,8 +192,11 @@ when the call ends.
   the folder's tinted rim and spark, and the agent's pointer, an arrow in its
   app's colour with its name, glides to wherever it clicks, hovers, types or
   drags. **Take Over** on the capsule, a pill whose corner runs with the
-  capsule's, pauses the agent (its calls are refused as paused) and
-  **Resume** hands the page back. The capsule shows while the
+  capsule's, pauses the agent and **Resume** hands the page back. While
+  the agent is paused its next call waits, so Resume lets that same call
+  through and the agent carries on. A tab the agent is acting on is outlined
+  in the sidebar with its folder's rim and spark, as long as the folder's
+  spark runs. The capsule shows while the
   agent that last acted on the page is connected. The capsule and the
   question's sheet are Liquid Glass that takes its light or dark look from the
   page's own colour, as the page bar does, so their text reads on any site.
@@ -365,14 +368,14 @@ in the activity log as `download`.
 
 ### Stop and pause
 
-- Right-click an agent's folder for **Pause Agent** (new calls are refused,
-  running ones finish), **Stop Agent** (running calls, including ones waiting
+- Right-click an agent's folder for **Pause Agent** (new calls wait for
+  Resume, up to five minutes, and are then refused; running ones finish), **Stop Agent** (running calls, including ones waiting
   for approval, are cancelled and new ones refused) and **Resume Agent**. The
   folder wears a pause or stop icon meanwhile.
 - **Luna → Stop All Agents** does the same for every client until **Resume
   Agents**. It works even with the setting off.
-- Selecting one of the agent's own tabs takes it over: acting calls on the
-  tab in front are refused until the user leaves it.
+- Selecting one of the agent's own tabs does not take it over; **Take Over**
+  on the page's capsule does, and it is a pause like the one above.
 - Holds last until resumed or until Luna quits.
 
 ### Uploads from disk

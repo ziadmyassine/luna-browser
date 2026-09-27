@@ -53,6 +53,7 @@ extension TabListController {
         place(hoverPill, at: hovered, spec: animated ? Tokens.Motion.rowHover : nil)
         placePlate(groupPlate, in: groupPlateBox(), animated: animated)
         placeControlPlates(animated: animated)
+        placeTabGlows(animated: animated)
     }
 
     /// §3.4b's plate round the folder the pointer is in — over its header, any
@@ -84,15 +85,17 @@ extension TabListController {
             movePills()
             return
         }
-        for pill in [selectionPill, hoverPill, groupPlate] + controlPlates.values { pill.fade(to: 0) }
+        for pill in [selectionPill, hoverPill, groupPlate] + controlPlates.values + tabGlows.values { pill.fade(to: 0) }
     }
 
     /// Keeps the shared fills behind the row views AppKit keeps adding — the
     /// two pills, a connected Luna Control folder's outline, §3.4b's folder
     /// plate under them, and §6.6's box round a folder taking a drop. The
-    /// outline lies over the hover plate so its colour is not drawn over.
+    /// outline lies over the hover plate so its colour is not drawn over, and
+    /// a working tab's outline over the pills, whose fill would cover its rim.
     func sendPillsToBack() {
-        let fills = [selectionPill, hoverPill] + Array(controlPlates.values) + [groupPlate, groupDrop]
+        let fills = Array(tabGlows.values) + [selectionPill, hoverPill] + Array(controlPlates.values)
+            + [groupPlate, groupDrop]
         for fill in fills where fill.superview === table {
             table.addSubview(fill, positioned: .below, relativeTo: nil)
         }
@@ -130,6 +133,35 @@ extension TabListController {
             plate.tint = Tokens.Agent.tint(forApp: face.appID)
             plate.isWorking = controlledGroupIDs.contains(id)
             placePlate(plate, in: box, animated: animated)
+        }
+    }
+
+    /// The folder's rim and spark round each tab an agent is acting on, so
+    /// the tab it is using is as plain as the folder it is working in. A tab
+    /// in a folded folder has no row, and the folder's own spark stands for it.
+    private func placeTabGlows(animated: Bool) {
+        for (id, glow) in tabGlows where workingTabs[id] == nil || list.row(of: id) == nil {
+            tabGlows[id] = nil
+            glow.isWorking = false
+            Tokens.Motion.animate(Tokens.Motion.rowHover) { _ in
+                glow.animator().alphaValue = 0
+            } completion: {
+                MainActor.assumeIsolated { glow.removeFromSuperview() }
+            }
+        }
+        for (id, face) in workingTabs {
+            guard let row = list.row(of: id), row < table.numberOfRows else { continue }
+            let glow = tabGlows[id] ?? {
+                let made = RowPillView(role: .working)
+                made.alphaValue = 0
+                table.addSubview(made)
+                tabGlows[id] = made
+                sendPillsToBack()
+                return made
+            }()
+            glow.tint = Tokens.Agent.tint(forApp: face.appID)
+            glow.isWorking = true
+            place(glow, in: pillBox(ofRow: row), spec: animated ? Tokens.Motion.rowHover : nil)
         }
     }
 

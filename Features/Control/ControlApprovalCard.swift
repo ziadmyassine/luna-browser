@@ -90,11 +90,11 @@ final class ControlApprovalCardView: NSView {
     static let hiddenTop = Tokens.Metric.passwordChip.cornerRadius
     private static let padding = NSEdgeInsets(top: 12 + hiddenTop, left: 16, bottom: 12, right: 16)
     static var sideInsets: CGFloat { padding.left + padding.right }
-    /// The save-password chip's width is where the text wraps, not the
-    /// sheet's width: the sheet ends where its widest line or its row of
-    /// answers does.
-    static var maxWidth: CGFloat { Tokens.Metric.passwordChip.width }
-    private static var textWidth: CGFloat { maxWidth - sideInsets }
+    /// The save-password chip's width, which is also where the text wraps.
+    /// Sized to its widest line instead, a short question made a sheet too
+    /// narrow to read as one.
+    static var width: CGFloat { Tokens.Metric.passwordChip.width }
+    private static var textWidth: CGFloat { width - sideInsets }
 
     private func build(
         _ request: ControlApprovals.Request, waiting: Int, onAnswer: @escaping (ControlApprovals.Answer) -> Void
@@ -136,8 +136,10 @@ final class ControlApprovalCardView: NSView {
         stack.alignment = .leading
         stack.spacing = 6
         stack.translatesAutoresizingMaskIntoConstraints = false
-        // As wide as the widest line or the row of answers, and no wider.
+        // The chip's width, or the row of answers when that is wider, and
+        // never the width of the space it stands in.
         stack.setHuggingPriority(.defaultHigh, for: .horizontal)
+        stack.widthAnchor.constraint(greaterThanOrEqualToConstant: Self.textWidth).isActive = true
         stack.setViews(views, in: .top)
         stack.setCustomSpacing(Tokens.Metric.chromeGapWide, after: views[views.count - 2])
         addSubview(stack)
@@ -187,9 +189,8 @@ final class ControlApprovalCardView: NSView {
         return label
     }
 
-    /// The widest line after wrapping, or the row of answers when that is
-    /// wider: a long site name can put the buttons past `maxWidth`, and a
-    /// button cut off is an answer that cannot be given.
+    /// Wider than `width` only when a long site name puts the buttons past
+    /// it: a button cut off is an answer that cannot be given.
     var contentWidth: CGFloat { stack.fittingSize.width }
 
     func fittingCardSize() -> NSSize {
