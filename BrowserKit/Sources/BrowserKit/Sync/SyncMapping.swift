@@ -45,6 +45,10 @@ public struct SyncSiteSetting: Sendable, Hashable {
         ("blockingDisabled", \.blockingDisabled),
         ("insecureAllowed", \.insecureAllowed)
     ] }
+
+    /// `NOT NULL DEFAULT 0` locally, so off cannot be told from unanswered: off syncs as
+    /// unset, and never outranks another Mac's on.
+    static let offMeansUnset: Set = ["blockingDisabled", "insecureAllowed"]
 }
 
 /// One allowlisted `UserDefaults` key and its value as a property list.
@@ -211,7 +215,8 @@ public enum SyncMapping {
     ) -> SyncRecord {
         var fields = ["modifiedAt": plain(.date(modifiedAt)), "host": secret(.string(site.host))]
         for (name, path) in SyncSiteSetting.flags {
-            if let flag = site[keyPath: path] { fields[name] = secret(.int(flag ? 1 : 0)) }
+            guard let flag = site[keyPath: path], flag || !SyncSiteSetting.offMeansUnset.contains(name) else { continue }
+            fields[name] = secret(.int(flag ? 1 : 0))
         }
         return SyncRecord(writing: "SiteSetting", name: key.siteRecordName(forHost: site.host), zone: .sites, over: stored, fields: fields)
     }
@@ -220,7 +225,8 @@ public enum SyncMapping {
         guard record.recordType == "SiteSetting", let host = string(record["host"]) else { return nil }
         var site = SyncSiteSetting(host: host)
         for (name, path) in SyncSiteSetting.flags {
-            site[keyPath: path] = int(record[name]).map { $0 != 0 }
+            let flag = int(record[name]).map { $0 != 0 }
+            site[keyPath: path] = flag == false && SyncSiteSetting.offMeansUnset.contains(name) ? nil : flag
         }
         return site
     }

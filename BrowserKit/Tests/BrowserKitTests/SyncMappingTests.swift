@@ -110,6 +110,22 @@ struct SyncMappingTests {
         #expect(try #require(SyncMapping.siteSetting(from: record)) == site)
     }
 
+    /// `blockingDisabled` and `insecureAllowed` are `NOT NULL DEFAULT 0` locally, so off is
+    /// indistinguishable from unanswered. Off is left out, and never outranks another
+    /// Mac's on.
+    @Test func theTwoBlockingFlagsAreWrittenOnlyWhenOn() throws {
+        let off = SyncSiteSetting(host: "example.com", blockingDisabled: false, insecureAllowed: false)
+        let offRecord = SyncMapping.record(for: off, secret: SyncSamples.secret, modifiedAt: now, stored: nil)
+        #expect(offRecord.fields["blockingDisabled"] == nil)
+        #expect(offRecord.fields["insecureAllowed"] == nil)
+        #expect(try #require(SyncMapping.siteSetting(from: offRecord)) == SyncSiteSetting(host: "example.com"))
+
+        let on = SyncSiteSetting(host: "example.com", blockingDisabled: true, insecureAllowed: true)
+        let onRecord = SyncMapping.record(for: on, secret: SyncSamples.secret, modifiedAt: now, stored: nil)
+        #expect(onRecord.fields["blockingDisabled"] == SyncField(.int(1), encrypted: true))
+        #expect(try #require(SyncMapping.siteSetting(from: onRecord)) == on)
+    }
+
     @Test func aSettingRoundTripsUnderItsKey() throws {
         let setting = SyncSamples.setting
         let record = SyncMapping.record(for: setting, modifiedAt: now, stored: nil)
@@ -211,7 +227,7 @@ enum SyncSamples {
 
     static let site = SyncSiteSetting(
         host: "example.com", automaticPictureInPicture: true, localNetwork: false, savePasswords: false,
-        popups: true, blockingDisabled: true, insecureAllowed: false
+        popups: true, blockingDisabled: true, insecureAllowed: true
     )
 
     static let setting = SyncSetting(key: "luna.shortcut.newTab", value: Data("<plist/>".utf8))
