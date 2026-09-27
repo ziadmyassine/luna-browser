@@ -7,7 +7,7 @@ import WebKit
 /// The first four methods are the contract's required set. The rest carry the parts of
 /// §4.2 that have no AppKit-free implementation; they have safe defaults so a host can
 /// adopt them one at a time, but a browser that leaves them all at the default has no
-/// JS dialogs, no camera prompt and no `mailto:`.
+/// JS dialogs, no camera prompt, no file picker and no `mailto:`.
 @MainActor
 public protocol TabControllerDelegate: AnyObject {
     func tabController(_ controller: TabController, didChange state: TabState)
@@ -53,6 +53,13 @@ public protocol TabControllerDelegate: AnyObject {
         requestMediaCapture type: WKMediaCaptureType,
         origin: URL?
     ) async -> WKPermissionDecision
+
+    /// A page's `<input type=file>`: the files the user picked, or nil for Cancel.
+    func tabController(
+        _ controller: TabController,
+        chooseFilesAllowingMultiple multiple: Bool,
+        directories: Bool
+    ) async -> [URL]?
 
     // MARK: - §14's password UI
     //
@@ -108,6 +115,12 @@ public extension TabControllerDelegate {
         requestMediaCapture type: WKMediaCaptureType,
         origin: URL?
     ) async -> WKPermissionDecision { .deny }
+
+    func tabController(
+        _ controller: TabController,
+        chooseFilesAllowingMultiple multiple: Bool,
+        directories: Bool
+    ) async -> [URL]? { nil }
 
     func tabController(_ controller: TabController, wantsToOfferCredentials offer: PasswordOffer) {}
 

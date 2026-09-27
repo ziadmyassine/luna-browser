@@ -318,6 +318,23 @@ extension TabController: WKUIDelegate {
         }
     }
 
+    /// On macOS a web view whose delegate leaves this out treats every
+    /// `<input type=file>` as cancelled, so the page's Browse button does nothing.
+    public func webView(
+        _ webView: WKWebView,
+        runOpenPanelWith parameters: WKOpenPanelParameters,
+        initiatedByFrame frame: WKFrameInfo,
+        completionHandler: @escaping @MainActor @Sendable ([URL]?) -> Void
+    ) {
+        guard let delegate else { completionHandler(nil); return }
+        Task {
+            completionHandler(await delegate.tabController(
+                self, chooseFilesAllowingMultiple: parameters.allowsMultipleSelection,
+                directories: parameters.allowsDirectories
+            ))
+        }
+    }
+
     public func webView(
         _ webView: WKWebView,
         requestMediaCapturePermissionFor origin: WKSecurityOrigin,

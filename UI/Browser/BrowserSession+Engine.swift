@@ -245,6 +245,21 @@ extension BrowserSession: TabControllerDelegate {
         return text ?? defaultText ?? ""
     }
 
+    /// A tab working for an agent behind the user's back gets Cancel: a file
+    /// sheet from it would land on the user's window, and `file_upload` is the
+    /// agent's way to hand a page a file.
+    func tabController(_ controller: TabController, chooseFilesAllowingMultiple multiple: Bool, directories: Bool) async
+        -> [URL]? {
+        if control?.isAgents(tab: controller.id) == true { return nil }
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = multiple
+        panel.canChooseDirectories = directories
+        panel.canChooseFiles = true
+        panel.prompt = NSLocalizedString("Choose", comment: "File picker for a web page's upload button")
+        guard let window = hostWindow else { return panel.runModal() == .OK ? panel.urls : nil }
+        return await panel.beginSheetModal(for: window) == .OK ? panel.urls : nil
+    }
+
     private func present(_ message: String, confirmable: Bool) async -> Bool {
         let alert = NSAlert()
         alert.messageText = message

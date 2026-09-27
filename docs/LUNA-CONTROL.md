@@ -358,7 +358,9 @@ the dialog's text. Every other call on the tab fails with the same text until
 the agent answers with `dialog`. After 30 seconds the dialog is dismissed,
 but not while an approval for that agent is waiting. A "Leave site?"
 (`beforeunload`) prompt never appears: a `WKWebView` app has no public API
-for it, and leaving a page always goes ahead.
+for it, and leaving a page always goes ahead. A file picker the page opens
+in such a tab is cancelled rather than shown; `file_upload` is how an agent
+gives a page a file.
 
 ### Downloads
 
