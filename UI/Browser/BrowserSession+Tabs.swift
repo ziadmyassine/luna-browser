@@ -324,7 +324,7 @@ extension BrowserSession {
     }
 
     /// Everything a tab costs while it is open: its web view and its caches.
-    private func forget(_ id: UUID) {
+    func forget(_ id: UUID) {
         discardController(id)
         recentTabs.removeAll { $0 == id }
         // §3.4a's mute is a fact about a live page, and this tab no longer has one. A

@@ -74,7 +74,7 @@ extension BrowserSession {
     /// Unconditional now. It used to ask whether any other Space still named
     /// the Profile, because several could; one Space, one jar, so the Space
     /// going is the jar going.
-    private func discardJar(of space: Space) async throws {
+    func discardJar(of space: Space) async throws {
         // First: the Space's extension host holds its background store, and a
         // store still held cannot be removed.
         await extensions?.removeSpace(space.id)
