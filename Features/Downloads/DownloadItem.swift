@@ -200,6 +200,29 @@ enum DownloadDestination {
         return systemDownloads
     }
 
+    /// Where a file called `name` goes, worked out off the main thread.
+    ///
+    /// Luna is signed ad hoc, so after a rebuild macOS asks again before Luna
+    /// may write into `~/Downloads`. WebKit's own check comes on the main
+    /// thread once the destination is returned, and it waited there for the
+    /// answer: the window beach-balled for as long as the prompt was up,
+    /// measured at 40 s. Reading the folder here asks the question first, on a
+    /// thread nothing else is waiting on, and WebKit finds it answered.
+    /// Creating a file in it was tried and does not ask.
+    static func resolve(_ name: String) async -> URL {
+        await Task.detached(priority: .userInitiated) {
+            let folder = folder
+            if let listing = opendir(folder.path(percentEncoded: false)) {
+                _ = readdir(listing)
+                closedir(listing)
+            }
+            return unique(
+                folder.appending(path: name, directoryHint: .notDirectory),
+                exists: { FileManager.default.fileExists(atPath: $0.path) }
+            )
+        }.value
+    }
+
     /// `~/Downloads`, created if the user deleted it.
     static var systemDownloads: URL {
         let manager = FileManager.default

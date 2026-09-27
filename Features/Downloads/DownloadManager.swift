@@ -323,10 +323,7 @@ private final class DownloadTask: NSObject, WKDownloadDelegate {
             return nil
         }
 
-        let destination = DownloadDestination.unique(
-            DownloadDestination.folder.appending(path: name, directoryHint: .notDirectory),
-            exists: { FileManager.default.fileExists(atPath: $0.path) }
-        )
+        let destination = await DownloadDestination.resolve(name)
         item.willWrite(to: destination, progress: download.progress)
         observeProgress(download.progress)
         manager.started(item)

@@ -73,6 +73,26 @@ final class DownloadDestinationTests: XCTestCase {
         let result = DownloadDestination.unique(url) { $0.path == "/tmp/archive" }
         XCTAssertEqual(result.lastPathComponent, "archive 2")
     }
+
+    /// `resolve` is the off-main-thread route WebKit's destination now takes;
+    /// it lands in the chosen folder and still steps round a taken name.
+    func testResolveLandsInTheChosenFolderUnderAFreeName() async throws {
+        let folder = FileManager.default.temporaryDirectory.appending(path: "luna-downloads-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let defaults = UserDefaults.standard
+        let chosen = defaults.object(forKey: DownloadDestination.directoryKey)
+        defaults.set(folder.path, forKey: DownloadDestination.directoryKey)
+        defer {
+            defaults.set(chosen, forKey: DownloadDestination.directoryKey)
+            try? FileManager.default.removeItem(at: folder)
+        }
+
+        let first = await DownloadDestination.resolve("moon.zip")
+        XCTAssertEqual(first.standardizedFileURL, folder.appending(path: "moon.zip").standardizedFileURL)
+        try Data().write(to: first)
+        let second = await DownloadDestination.resolve("moon.zip")
+        XCTAssertEqual(second.lastPathComponent, "moon 2.zip")
+    }
 }
 
 final class DownloadRiskTests: XCTestCase {
