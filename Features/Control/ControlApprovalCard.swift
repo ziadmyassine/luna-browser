@@ -80,6 +80,11 @@ final class ControlApprovalCardView: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        layer.map { Tokens.Shadow.popover.apply(to: $0, in: effectiveAppearance) }
+    }
+
     /// How far the sheet runs up under the page's top edge: its own corner,
     /// so only its lower corners show.
     static let hiddenTop = Tokens.Metric.passwordChip.cornerRadius

@@ -193,7 +193,9 @@ when the call ends.
   app's colour with its name, glides to wherever it clicks, hovers, types or
   drags. **Take Over** on the capsule pauses the agent (its calls are refused
   as paused) and **Resume** hands the page back. The capsule shows while the
-  agent that last acted on the page is connected.
+  agent that last acted on the page is connected. The capsule and the
+  question's sheet are Liquid Glass that takes its light or dark look from the
+  page's own colour, as the page bar does, so their text reads on any site.
 - If the user shows the tab while a call is running, the next event is
   refused.
 - WebKit passes keys the page did not handle to `NSApp.sendEvent`, where the

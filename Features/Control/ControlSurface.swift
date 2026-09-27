@@ -33,6 +33,19 @@ final class ControlSurfaceView: NSView {
         didSet { if topInset != oldValue { needsLayout = true } }
     }
 
+    /// The colour of the page in front (`TabState.pageBackground`), which the
+    /// layer takes its appearance from, as §3.2b's bar does: glass composites
+    /// what is behind the window, not the page, so a dark app's white text on
+    /// it vanished into a white site. Over a white page the sheet and the
+    /// capsule are light glass with dark text.
+    func setPageColour(_ colour: NSColor?) {
+        let behind = colour ?? Tokens.Surface.base
+        let dark = behind.wantsLightInk(in: (superview ?? self).effectiveAppearance)
+        let wanted = NSAppearance(named: dark ? .darkAqua : .aqua)
+        guard appearance?.name != wanted?.name else { return }
+        appearance = wanted
+    }
+
     private(set) var sheet: NSView?
     private var sliding = 0
     private(set) var capsule: ControlWorkingCapsule?
@@ -238,6 +251,11 @@ final class ControlWorkingCapsule: NSView {
 
     override var fittingSize: NSSize {
         NSSize(width: row.fittingSize.width, height: Tokens.Agent.capsuleHeight)
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        layer.map { Tokens.Shadow.popover.apply(to: $0, in: effectiveAppearance) }
     }
 
     override func layout() {

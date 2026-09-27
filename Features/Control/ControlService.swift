@@ -107,6 +107,7 @@ final class ControlService {
     /// a page shows when the user goes to it.
     var actingOn: [UUID: String] = [:]
     private var surfaceWatch: ObservationToken?
+    private var pageWatch: ObservationToken?
 
     init(
         session: BrowserSession,
@@ -125,6 +126,10 @@ final class ControlService {
         session.control = self
         // A tab switch, a call starting or ending, a pause: each is a change.
         surfaceWatch = session.addChangeObserver { [weak self] in self?.refreshSurface() }
+        // A navigation changes the page's colour without being a change.
+        pageWatch = session.addTabStateObserver { [weak self, weak session] id, _ in
+            if id == session?.activeTabID { self?.refreshSurface() }
+        }
         // Folders from an earlier launch wear their app's icon before the
         // app connects again.
         refreshFaces()

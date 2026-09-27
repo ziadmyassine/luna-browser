@@ -22,6 +22,8 @@ extension ControlService {
     func refreshSurface() {
         guard let surface, let session else { return }
         surface.onToggleWorking = { [weak self] in self?.toggleTakeover() }
+        let page = session.activeTabID.flatMap { session.controller(for: $0)?.state.pageBackground }
+        surface.setPageColour(page.map(NSColor.init))
         surface.showWorking(working(on: session.activeTabID, in: session))
     }
 
