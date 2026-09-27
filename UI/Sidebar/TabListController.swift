@@ -92,7 +92,7 @@ final class TabListController: NSObject {
     /// `BrowserSession.controlledGroupIDs` the way `mutedTabIDs` is.
     var controlledGroupIDs: Set<UUID> = [] {
         didSet {
-            for (id, plate) in controlPlates { plate.isGlowing = controlledGroupIDs.contains(id) }
+            for (id, plate) in controlPlates { plate.isWorking = controlledGroupIDs.contains(id) }
         }
     }
     /// `BrowserSession.controlBadges`, the same way.

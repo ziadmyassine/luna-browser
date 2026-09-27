@@ -16,10 +16,17 @@ extension Tokens {
         /// VS Code's blue, from its own icon.
         static var vscode: NSColor { NSColor(srgbRed: 0x00, green: 0x7A / 255, blue: 0xCC / 255, alpha: 1) }
 
-        /// How far a working folder's glow spreads past its outline: enough to
-        /// read as light at the sidebar's size, less than the gap between one
-        /// folder and the row below it.
-        static let glowRadius: CGFloat = 6
+        /// A Luna Control folder's plate: its app's colour as a wash under the
+        /// folder and a stronger line round it, as Dia tints a folder. The
+        /// wash is the strength at which the orange reads as a colour on the
+        /// dark sidebar and the tab rows on it still read as rows.
+        static let fillAlpha: CGFloat = 0.16
+        static let rimAlpha: CGFloat = 0.55
+        /// The spark that runs round a working folder's rim: a little wider
+        /// than the rim so the light reads over it, and the app's colour
+        /// lifted toward white so it reads as light rather than paint.
+        static let sparkWidth: CGFloat = 1.5
+        static let sparkLift: CGFloat = 0.35
 
         /// ChatGPT's and Cursor's icons are black and white, so theirs is the
         /// label colour: white on a dark sidebar, black on a light one, where

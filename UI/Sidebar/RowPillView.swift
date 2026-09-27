@@ -38,30 +38,24 @@ final class RowPillView: NSView {
         didSet { if progress != oldValue { needsLayout = true } }
     }
 
-    /// A folder plate's hairline in a colour of its own: a Luna Control
-    /// folder's, in its app's colour (`Tokens.Agent`).
+    /// A folder plate in a colour of its own: a Luna Control folder's, filled
+    /// and outlined in its app's colour (`Tokens.Agent`), where every other
+    /// folder's plate is the neutral well.
     var tint: NSColor? {
         didSet { if tint != oldValue { needsDisplay = true } }
     }
 
-    /// A tinted plate's glow, while the agent it belongs to is working in the
-    /// folder. It fades in and out on the load line's fade: both say work
-    /// started or finished.
-    var isGlowing = false {
-        didSet {
-            guard isGlowing != oldValue else { return }
-            let instant = Tokens.Motion.reduceMotion
-            CATransaction.begin()
-            CATransaction.setDisableActions(instant)
-            CATransaction.setAnimationDuration(Tokens.Motion.loadLineFade.duration)
-            CATransaction.setAnimationTimingFunction(Tokens.Motion.loadLineFade.timingFunction)
-            glow.opacity = isGlowing ? 1 : 0
-            CATransaction.commit()
-        }
+    /// Whether the agent a tinted plate belongs to is working in its folder:
+    /// a spark of the tint runs round the rim (`Motion.agentSpark`).
+    var isWorking = false {
+        didSet { if isWorking != oldValue { applyWorking() } }
     }
-    /// The hairline again, blurred into a halo by its own shadow: a layer
-    /// with no fill casts its shadow from its border alone.
-    private let glow = CALayer()
+    /// The spark: a conic gradient turning inside a mask that is only the
+    /// rim, so the light travels along the edge. Core Animation turns it on
+    /// the render server; the title shimmer it replaces redrew the row.
+    private let rim = CALayer()
+    private let rimMask = CAShapeLayer()
+    private let spark = CAGradientLayer()
 
     private let role: Role
     /// Rounds the band's leading end into the pill's own corners. Its trailing
@@ -87,13 +81,18 @@ final class RowPillView: NSView {
         bandClip.layer?.addSublayer(band)
         bandClip.autoresizingMask = [.width, .height]
         addSubview(bandClip)
-        glow.opacity = 0
-        glow.cornerCurve = .continuous
-        glow.borderWidth = Tokens.Metric.hairline
-        glow.shadowOffset = .zero
-        glow.shadowOpacity = 1
-        glow.shadowRadius = Tokens.Agent.glowRadius
-        layer?.addSublayer(glow)
+        spark.type = .conic
+        spark.startPoint = CGPoint(x: 0.5, y: 0.5)
+        spark.endPoint = CGPoint(x: 0.5, y: 0)
+        // Clear for most of the lap, then the light with a short tail.
+        spark.locations = [0, 0.78, 0.94, 1]
+        rimMask.fillColor = nil
+        rimMask.strokeColor = NSColor.black.cgColor
+        rimMask.lineWidth = Tokens.Agent.sparkWidth
+        rim.mask = rimMask
+        rim.addSublayer(spark)
+        rim.opacity = 0
+        layer?.addSublayer(rim)
     }
 
     @available(*, unavailable)
@@ -114,11 +113,39 @@ final class RowPillView: NSView {
         // the same hairline a pinned tile's well does.
         let bordered = role != .hover
         layer.borderWidth = bordered ? Tokens.Metric.hairline : 0
-        layer.borderColor = bordered ? (tint ?? Tokens.Line.border).cgColor : nil
+        // Under Reduce Motion the spark does not run, and a working folder's
+        // rim comes up to full strength instead.
+        let rimAlpha = isWorking && Tokens.Motion.reduceMotion ? 1 : Tokens.Agent.rimAlpha
+        layer.borderColor = bordered ? (tint?.withAlphaComponent(rimAlpha) ?? Tokens.Line.border).cgColor : nil
         band.backgroundColor = Tokens.Surface.readBand.cgColor
-        glow.cornerRadius = Tokens.Metric.rowCornerRadius
-        glow.borderColor = tint?.cgColor
-        glow.shadowColor = tint?.cgColor
+        let light = (tint?.blended(withFraction: Tokens.Agent.sparkLift, of: .white) ?? .white).cgColor
+        let clear = light.copy(alpha: 0) ?? NSColor.clear.cgColor
+        spark.colors = [clear, clear, light, clear]
+    }
+
+    private func applyWorking() {
+        needsDisplay = true
+        guard !Tokens.Motion.reduceMotion else { return }
+        if isWorking, spark.animation(forKey: "lap") == nil {
+            let lap = CABasicAnimation(keyPath: "transform.rotation.z")
+            lap.fromValue = 0
+            lap.toValue = -2 * CGFloat.pi
+            lap.duration = Tokens.Motion.agentSpark.duration
+            lap.timingFunction = Tokens.Motion.agentSpark.timingFunction
+            lap.repeatCount = .infinity
+            spark.add(lap, forKey: "lap")
+        }
+        // In and out on the load line's fade: both say work started or ended.
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(Tokens.Motion.loadLineFade.duration)
+        CATransaction.setCompletionBlock { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, !self.isWorking else { return }
+                self.spark.removeAnimation(forKey: "lap")
+            }
+        }
+        rim.opacity = isWorking ? 1 : 0
+        CATransaction.commit()
     }
 
     /// The folder plate is a pinned tile's well, not a wash. A hover or a
@@ -129,7 +156,7 @@ final class RowPillView: NSView {
         switch role {
         case .selected: Tokens.Surface.selected
         case .hover: Tokens.Surface.hover
-        case .folder: Tokens.Surface.well
+        case .folder: tint?.withAlphaComponent(Tokens.Agent.fillAlpha) ?? Tokens.Surface.well
         }
     }
 
@@ -138,12 +165,28 @@ final class RowPillView: NSView {
         // Moved on every frame of a scroll, so it never animates: a band
         // easing behind the page reads as lag.
         Tokens.Motion.immediately {
-            glow.frame = bounds
+            placeSpark()
             bandClip.frame = bounds
             let width = (bounds.width * (progress ?? 0)).rounded()
             let x = userInterfaceLayoutDirection == .rightToLeft ? bounds.width - width : 0
             band.frame = NSRect(x: x, y: 0, width: width, height: bounds.height)
         }
+    }
+
+    /// The rim's mask on the plate's edge, and the gradient a square round
+    /// the plate's centre, large enough that turning never shows its corners.
+    private func placeSpark() {
+        let width = Tokens.Agent.sparkWidth
+        rim.frame = bounds
+        rimMask.frame = bounds
+        let radius = max(Tokens.Metric.rowCornerRadius - width / 2, 0)
+        rimMask.path = CGPath(
+            roundedRect: bounds.insetBy(dx: width / 2, dy: width / 2), cornerWidth: radius, cornerHeight: radius,
+            transform: nil
+        )
+        let side = hypot(bounds.width, bounds.height)
+        spark.bounds = CGRect(x: 0, y: 0, width: side, height: side)
+        spark.position = CGPoint(x: bounds.midX, y: bounds.midY)
     }
 
     override func viewDidChangeEffectiveAppearance() {

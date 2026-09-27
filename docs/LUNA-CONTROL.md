@@ -123,13 +123,14 @@ apps* in Settings copies it.
 The client is named from `clientInfo.name` in MCP's `initialize`, made readable
 (`claude-code` → Claude Code, `codex-mcp-client` → Codex, nothing → Agent).
 Every tab it opens goes into a sidebar folder with that name in the current
-Space. The folder is made on first use and reused after that. In the sidebar it shimmers
-while the agent is working in it. The folder wears the app's own icon (Claude,
+Space. The folder is made on first use and reused after that. The folder wears the app's own icon (Claude,
 ChatGPT's Codex, Cursor, VS Code; other clients keep a sparkles symbol), and
-its outline is always shown in the app's colour, not only on hover: orange for
-Claude, white for Codex and Cursor (black in light mode), blue for VS Code
-(`Tokens.Agent`). While the agent is working in it, the outline glows. When an
-app connects, its folder is unfolded so its tabs are in view. Agent tabs open in the background. The
+the whole folder is always tinted in the app's colour, its fill, outline and
+name, not only on hover: orange for Claude, white for Codex and Cursor (black
+in light mode), blue for VS Code (`Tokens.Agent`). While the agent is working
+in it, a spark of light runs round the folder's edge; under Reduce Motion the
+edge brightens instead. When an app connects, its folder is unfolded so its
+tabs are in view. Agent tabs open in the background. The
 user's window keeps showing what it was showing, and Luna is never brought to
 the front.
 

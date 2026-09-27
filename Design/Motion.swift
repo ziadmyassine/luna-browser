@@ -257,6 +257,12 @@ extension Tokens {
         /// The ring round a live dot, once per pass for as long as an app is
         /// in use — a rate, like the shimmer. Not run under Reduce Motion.
         static let livePulse = MotionSpec(1.60, .easeOut)
+        /// One lap of the spark round a Luna Control folder's rim, for as long
+        /// as its agent is working there — a rate, like the shimmer. Slow
+        /// enough to read as light travelling, not as a spinner. Linear, or
+        /// it pulses where the lap joins. Not run under Reduce Motion: the rim
+        /// brightens instead.
+        static let agentSpark = MotionSpec(2.60, .linear)
         /// One lap of each of the moon's two orbits. Slow enough to read as
         /// drift rather than as something to watch.
         static let innerOrbitLap: TimeInterval = 24

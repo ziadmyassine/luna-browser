@@ -116,9 +116,8 @@ extension TabListController {
         plate.stretch(to: box, spec: Tokens.Motion.tabInsert)
     }
 
-    /// The folder plate, kept up round every Luna Control folder and outlined
-    /// in its app's colour, so the folder says whose it is without the
-    /// pointer over it, and glowing while the app works in it.
+    /// The folder plate, kept up round every Luna Control folder in its app's
+    /// colour, so the folder says whose it is without the pointer over it.
     private func placeControlPlates(animated: Bool) {
         for (id, plate) in controlPlates where controlFaces[id] == nil {
             plate.removeFromSuperview()
@@ -129,7 +128,7 @@ extension TabListController {
             guard box != nil || controlPlates[id] != nil else { continue }
             let plate = controlPlates[id] ?? makeControlPlate(id)
             plate.tint = Tokens.Agent.tint(forApp: face.appID)
-            plate.isGlowing = controlledGroupIDs.contains(id)
+            plate.isWorking = controlledGroupIDs.contains(id)
             placePlate(plate, in: box, animated: animated)
         }
     }
