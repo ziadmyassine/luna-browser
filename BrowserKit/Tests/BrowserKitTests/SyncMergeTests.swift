@@ -288,10 +288,10 @@ struct SyncMergeTests {
         #expect(SyncMerge.seedSpaceToDrop(local: [renamed], spacesWithTabs: [], fetched: cloud) == nil)
     }
 
-    /// `seedSpaceName` restates `seedIfEmpty`'s literal; this keeps the two from drifting.
+    /// `seedSpaceToDrop` recognises the Space `seedIfEmpty` actually makes.
     @Test func theSeedNameMatchesWhatTheStoreSeeds() async throws {
         let store = try BrowserStore(path: temporaryDatabasePath())
         try await store.seedIfEmpty()
-        #expect(try await store.spaces().map(\.name) == [SyncMerge.seedSpaceName])
+        #expect(try await store.spaces().map(\.name) == [BrowserStore.seedSpaceName])
     }
 }

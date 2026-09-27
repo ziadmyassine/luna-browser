@@ -158,16 +158,13 @@ public enum SyncMerge {
         )
     }
 
-    /// The name `BrowserStore.seedIfEmpty()` gives the first Space.
-    static let seedSpaceName = "Personal"
-
     /// This Mac's seed Space, when iCloud already has Spaces and the seed was never renamed
     /// and holds no tabs; otherwise nil, and both Macs' Spaces are kept.
     public static func seedSpaceToDrop(local: [Space], spacesWithTabs: Set<UUID>, fetched: [SyncRecord]) -> UUID? {
         let cloudSpaces = Set(fetched.filter { $0.recordType == "Space" }.map(\.recordName))
         guard !cloudSpaces.isEmpty else { return nil }
         return local.first {
-            $0.name == seedSpaceName && !spacesWithTabs.contains($0.id) && !cloudSpaces.contains($0.id.uuidString)
+            $0.name == BrowserStore.seedSpaceName && !spacesWithTabs.contains($0.id) && !cloudSpaces.contains($0.id.uuidString)
         }?.id
     }
 
