@@ -47,8 +47,8 @@ final class ControlApprovalCardTests: XCTestCase {
         XCTAssertEqual(sheet.frame.minY, 52 - ControlApprovalCardView.hiddenTop, accuracy: 1, "the sheet is not under the bar")
         XCTAssertEqual(window.isKeyWindow, wasKey, "asking made the window key")
 
-        let request = try XCTUnwrap(approvals.pending.first)
-        approvals.answer(request.id, .deny)
+        let waiting = try XCTUnwrap(approvals.pending.first)
+        approvals.answer(waiting.id, .deny)
         let answer = await asking.value
         XCTAssertEqual(answer, .deny)
         XCTAssertNil(surface.sheet)
