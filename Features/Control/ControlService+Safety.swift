@@ -182,6 +182,7 @@ extension ControlService {
         _ call: ControlCall, _ client: ControlClient, _ record: inout ControlAudit.Record
     ) async -> ControlResult {
         guard let session else { return .error("Luna has no window open.") }
+        adoptFolder(of: client.displayName, in: session)
         await waitWhilePaused(client.displayName)
         if let refusal = refusal(for: client.displayName) {
             record.decision = "stopped"

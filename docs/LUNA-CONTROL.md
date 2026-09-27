@@ -196,8 +196,10 @@ when the call ends.
   the agent is paused its next call waits, so Resume lets that same call
   through and the agent carries on. A tab the agent is acting on is outlined
   in the sidebar with its folder's rim and spark, as long as the folder's
-  spark runs. The capsule shows while the
-  agent that last acted on the page is connected. The capsule and the
+  spark runs. The capsule shows only while the
+  agent is acting on the page (and for 8 s after its last call, so the model
+  thinking between calls does not make it flicker), or while it is paused
+  there. The capsule and the
   question's sheet are Liquid Glass that takes its light or dark look from the
   page's own colour, as the page bar does, so their text reads on any site.
 - If the user shows the tab while a call is running, the next event is

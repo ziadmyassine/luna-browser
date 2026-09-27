@@ -49,6 +49,16 @@ extension ControlService {
         session.setControlFaces(faces)
     }
 
+    /// Takes back the client's folder from an earlier launch on its first
+    /// call of this one. `folders` starts empty, so until the client opened a
+    /// new tab its work on the tabs already in the folder left the folder's
+    /// spark dark, and those tabs did not count as its own.
+    func adoptFolder(of name: String, in session: BrowserSession) {
+        guard folders[name] == nil, let group = folder(named: name, in: session) else { return }
+        folders[name] = group.id
+        refreshFaces()
+    }
+
     /// The folder `openTab` would use for `name`, if there is one yet.
     private func folder(named name: String, in session: BrowserSession) -> TabGroup? {
         if let id = folders[name], let group = session.group(id) { return group }

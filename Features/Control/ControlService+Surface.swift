@@ -27,15 +27,19 @@ extension ControlService {
         surface.showWorking(working(on: session.activeTabID, in: session))
     }
 
-    /// The client that last acted on `id`, while it is connected and not
-    /// stopped. Between its calls it is still working: the model is thinking,
-    /// and a capsule that came and went with each call would flicker.
+    /// The client acting on `id` now, or paused on it. Only while it acts
+    /// (`BrowserSession.controlledTabs`, which outlives each call by
+    /// `tabLinger`): a capsule that stayed as long as the client was connected
+    /// said "working" over a page it had finished with. Paused, it stays, so
+    /// Resume can be pressed.
     private func working(on id: UUID?, in session: BrowserSession) -> ControlSurfaceView.Working? {
         guard let id, let name = actingOn[id], connectedNames.contains(name), !stoppedAll,
               holds[name] != .stopped else { return nil }
+        let isActing = session.controlledTabs[id] != nil
+        let isPaused = holds[name] == .paused
+        guard isActing || isPaused else { return nil }
         return ControlSurfaceView.Working(
-            client: name, appID: appID(ofClient: name), isPaused: holds[name] == .paused,
-            isActing: folders[name].map(session.controlledGroupIDs.contains) ?? false
+            client: name, appID: appID(ofClient: name), isPaused: isPaused, isActing: isActing
         )
     }
 

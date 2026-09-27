@@ -309,25 +309,32 @@ final class ControlService {
     /// How long a folder stays marked after its last call. Long enough that a
     /// run of calls reads as one stretch of work rather than a flicker.
     private static let markLinger: Duration = .seconds(2)
+    /// How long a tab stays marked, and its capsule up, after the last call
+    /// on it: longer than a folder's, because it also covers the model
+    /// thinking between two calls on the same page, and a capsule that went
+    /// and came back with each call would flicker.
+    static let tabLinger: Duration = .seconds(8)
 
     private func mark(_ folder: UUID, running start: Bool) {
-        count(folder, in: \.running, start: start) { [weak self] on in self?.session?.setControlled(on, group: folder) }
+        count(folder, in: \.running, start: start, linger: Self.markLinger) { [weak self] on in
+            self?.session?.setControlled(on, group: folder)
+        }
     }
 
     private func mark(tab id: UUID, of client: String, running start: Bool) {
         let face = ControlFace(appID: appID(ofClient: client))
-        count(id, in: \.runningTabs, start: start) { [weak self] on in
+        count(id, in: \.runningTabs, start: start, linger: Self.tabLinger) { [weak self] on in
             self?.session?.setControlled(on, tab: id, face: face)
         }
     }
 
     private func count(
         _ key: UUID, in counts: ReferenceWritableKeyPath<ControlService, [UUID: Int]>, start: Bool,
-        apply: @escaping @MainActor (Bool) -> Void
+        linger: Duration, apply: @escaping @MainActor (Bool) -> Void
     ) {
         guard start else {
             Task { [weak self] in
-                try? await Task.sleep(for: Self.markLinger)
+                try? await Task.sleep(for: linger)
                 guard let self else { return }
                 self[keyPath: counts][key, default: 1] -= 1
                 if self[keyPath: counts][key] ?? 0 <= 0 {

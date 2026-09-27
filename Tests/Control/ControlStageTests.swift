@@ -119,6 +119,11 @@ final class ControlStageTests: XCTestCase {
         let resumed = await waiting.value
         XCTAssertFalse(resumed.isError, "Resume did not let the waiting call through: \(text(resumed))")
         XCTAssertEqual(controller.controlSurface.capsule?.button?.title, "Take Over")
+
+        // Done with the tab: the capsule goes, though the client is still connected.
+        session.setControlled(false, tab: id, face: ControlFace(appID: nil))
+        service.refreshSurface()
+        XCTAssertNil(controller.controlSurface.capsule, "the capsule stayed on a page the agent had finished with")
     }
 
     /// A click as the pointer makes one: down through the button's own
@@ -138,6 +143,26 @@ final class ControlStageTests: XCTestCase {
         XCTAssertTrue(window.contentView?.hitTest(local) === button, "the click does not land on the button")
         NSApp.postEvent(up, atStart: false)
         button.mouseDown(with: down)
+    }
+
+    /// After a relaunch the client's folder is still its own: work on a tab
+    /// already in it sparks the folder, not only the tab.
+    func testAFolderFromBeforeARelaunchSparksWhenItsTabIsUsed() async throws {
+        let (first, session) = try await makeService()
+        _ = await first.perform(ControlCall(.openTab(page)), client)
+        let folder = try XCTUnwrap(first.folders[client.displayName])
+        let id = try XCTUnwrap(session.allTabs(includeArchived: false).first { $0.url.scheme == "data" }?.id)
+        try await Task.sleep(for: .seconds(2.5))
+        XCTAssertFalse(session.controlledGroupIDs.contains(folder))
+
+        let relaunched = ControlService(session: session, defaults: defaults, auditURL: directory.appending(path: "b.jsonl"))
+        let scrolled = await relaunched.perform(
+            ControlCall(tab: relaunched.number(id), .scroll(.down, amount: 1, target: nil)), client
+        )
+        XCTAssertFalse(scrolled.isError, text(scrolled))
+        XCTAssertEqual(relaunched.folders[client.displayName], folder, "the folder was not taken back")
+        XCTAssertTrue(session.controlledGroupIDs.contains(folder), "the folder did not spark")
+        withExtendedLifetime(first) {}
     }
 
     func testNoFocusOrWindowMoves() async throws {
