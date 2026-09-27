@@ -70,7 +70,7 @@ public struct SyncRecord: Sendable, Hashable {
 
 extension SyncRecord {
 
-    /// The version this Luna writes (the §31.9 rules are in docs/SYNC.md).
+    /// The version this Luna writes (the §31.9 rules: docs/SYNC-PLAN.md §2, Schema versioning).
     static let currentSchemaVersion: Int64 = 1
 
     /// A write of `fields` over `stored`, the last record known for this name. It keeps

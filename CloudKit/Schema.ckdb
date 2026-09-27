@@ -1,0 +1,92 @@
+DEFINE SCHEMA
+
+  RECORD TYPE Space (
+    "___recordID"   REFERENCE QUERYABLE,
+    schemaVersion   INT64,
+    modifiedAt      TIMESTAMP,
+    position        INT64,
+    name            ENCRYPTED STRING,
+    symbolName      ENCRYPTED STRING,
+    gradient        ENCRYPTED STRING,
+    image           ENCRYPTED BYTES,
+    GRANT WRITE TO "_creator", GRANT CREATE TO "_icloud", GRANT READ TO "_world"
+  );
+
+  RECORD TYPE TabGroup (
+    "___recordID"   REFERENCE QUERYABLE,
+    schemaVersion   INT64,
+    modifiedAt      TIMESTAMP,
+    spaceID         STRING,
+    kind            STRING,
+    position        INT64,
+    name            ENCRYPTED STRING,
+    symbolName      ENCRYPTED STRING,
+    GRANT WRITE TO "_creator", GRANT CREATE TO "_icloud", GRANT READ TO "_world"
+  );
+
+  RECORD TYPE Tab (
+    "___recordID"   REFERENCE QUERYABLE,
+    schemaVersion   INT64,
+    modifiedAt      TIMESTAMP,
+    spaceID         STRING,
+    groupID         STRING,
+    kind            STRING,
+    position        INT64,
+    createdAt       TIMESTAMP,
+    archivedAt      TIMESTAMP,
+    url             ENCRYPTED STRING,
+    title           ENCRYPTED STRING,
+    customTitle     ENCRYPTED STRING,
+    customSymbolName ENCRYPTED STRING,
+    pinnedURL       ENCRYPTED STRING,
+    GRANT WRITE TO "_creator", GRANT CREATE TO "_icloud", GRANT READ TO "_world"
+  );
+
+  RECORD TYPE SiteSetting (
+    "___recordID"   REFERENCE QUERYABLE,
+    schemaVersion   INT64,
+    modifiedAt      TIMESTAMP,
+    host            ENCRYPTED STRING,
+    zoom            ENCRYPTED DOUBLE,
+    automaticPictureInPicture ENCRYPTED INT64,
+    localNetwork    ENCRYPTED INT64,
+    savePasswords   ENCRYPTED INT64,
+    popups          ENCRYPTED INT64,
+    blockingDisabled ENCRYPTED INT64,
+    insecureAllowed ENCRYPTED INT64,
+    GRANT WRITE TO "_creator", GRANT CREATE TO "_icloud", GRANT READ TO "_world"
+  );
+
+  RECORD TYPE Setting (
+    "___recordID"   REFERENCE QUERYABLE,
+    schemaVersion   INT64,
+    modifiedAt      TIMESTAMP,
+    value           ENCRYPTED BYTES,
+    GRANT WRITE TO "_creator", GRANT CREATE TO "_icloud", GRANT READ TO "_world"
+  );
+
+  RECORD TYPE HistoryEntry (
+    "___recordID"   REFERENCE QUERYABLE,
+    schemaVersion   INT64,
+    modifiedAt      TIMESTAMP,
+    url             ENCRYPTED STRING,
+    title           ENCRYPTED STRING,
+    visits          ENCRYPTED BYTES,
+    GRANT WRITE TO "_creator", GRANT CREATE TO "_icloud", GRANT READ TO "_world"
+  );
+
+  RECORD TYPE Device (
+    "___recordID"   REFERENCE QUERYABLE,
+    schemaVersion   INT64,
+    modifiedAt      TIMESTAMP,
+    name            ENCRYPTED STRING,
+    tabs            ENCRYPTED BYTES,
+    GRANT WRITE TO "_creator", GRANT CREATE TO "_icloud", GRANT READ TO "_world"
+  );
+
+  RECORD TYPE SyncSecret (
+    "___recordID"   REFERENCE QUERYABLE,
+    schemaVersion   INT64,
+    secret          ENCRYPTED BYTES,
+    GRANT WRITE TO "_creator", GRANT CREATE TO "_icloud", GRANT READ TO "_world"
+  );
