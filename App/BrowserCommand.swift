@@ -91,6 +91,11 @@ struct BrowserCommand: Identifiable {
     static let openLocation = BrowserCommand(
         "openLocation", "Open Location…", #selector(AppDelegate.editLocation(_:)), [KeyBinding("l")]
     )
+    /// A file on this Mac, in a tab — any of `LocalFileTypes`.
+    static let openFile = BrowserCommand(
+        "openFile", "Open File…", #selector(AppDelegate.openFile(_:)), [KeyBinding("o")],
+        symbol: "doc", keywords: ["file", "html", "pdf", "local"]
+    )
     static let duplicateTab = BrowserCommand(
         "duplicateTab", "Duplicate Tab", #selector(AppDelegate.duplicateTab(_:)), symbol: "doc.on.doc"
     )
@@ -184,6 +189,12 @@ struct BrowserCommand: Identifiable {
     static let openBlockedPopup = BrowserCommand(
         "openBlockedPopup", "Open Blocked Pop-up", #selector(AppDelegate.openBlockedPopup(_:))
     )
+    /// ⇧⌘P, as in Search; nothing in §20.1's map had it.
+    static let pictureInPicture = BrowserCommand(
+        "pictureInPicture", "Picture in Picture", #selector(AppDelegate.togglePictureInPicture(_:)),
+        [KeyBinding("p", [.command, .shift])],
+        symbol: "pip", keywords: ["pip", "float video", "floating video"]
+    )
     static let showDownloads = BrowserCommand(
         "showDownloads", "Downloads", #selector(AppDelegate.showDownloads(_:)), [KeyBinding("l", [.command, .option])],
         symbol: "arrow.down.circle", keywords: ["files"]
@@ -198,6 +209,38 @@ struct BrowserCommand: Identifiable {
     )
     static let showHistory = BrowserCommand(
         "showHistory", "Show History…", #selector(AppDelegate.showHistory(_:)), [KeyBinding("y")], symbol: "clock.arrow.circlepath"
+    )
+
+    // MARK: - Develop
+
+    /// Safari's four Develop shortcuts, so a hand that knows Safari finds them.
+    static let showWebInspector = BrowserCommand(
+        "showWebInspector", "Show Web Inspector", #selector(AppDelegate.toggleWebInspector(_:)),
+        [KeyBinding("i", [.command, .option])],
+        symbol: "hammer", keywords: ["inspect element", "devtools", "developer tools", "elements"]
+    )
+    static let showJavaScriptConsole = BrowserCommand(
+        "showJavaScriptConsole", "Show JavaScript Console", #selector(AppDelegate.showJavaScriptConsole(_:)),
+        [KeyBinding("c", [.command, .option])],
+        symbol: "terminal", keywords: ["console", "devtools", "log"]
+    )
+    static let showPageSource = BrowserCommand(
+        "showPageSource", "Show Page Source", #selector(AppDelegate.showPageSource(_:)),
+        [KeyBinding("u", [.command, .option])],
+        symbol: "chevron.left.forwardslash.chevron.right", keywords: ["view source", "html", "sources"]
+    )
+    static let startElementSelection = BrowserCommand(
+        "startElementSelection", "Start Element Selection", #selector(AppDelegate.startElementSelection(_:)),
+        symbol: "cursorarrow.rays", keywords: ["inspect element", "pick element"]
+    )
+    static let disableJavaScript = BrowserCommand(
+        "disableJavaScript", "Disable JavaScript", #selector(AppDelegate.toggleJavaScript(_:)),
+        symbol: "curlybraces", keywords: ["javascript", "js"]
+    )
+    static let emptyCaches = BrowserCommand(
+        "emptyCaches", "Empty Caches", #selector(AppDelegate.emptyCaches(_:)),
+        [KeyBinding("e", [.command, .option])],
+        symbol: "trash", keywords: ["clear cache", "cache"]
     )
 
     // MARK: - Window
@@ -234,12 +277,13 @@ struct BrowserCommand: Identifiable {
     /// families are absent on purpose — see `KeyBindings.reserved`.
     static let all: [BrowserCommand] = [
         settings,
-        newTab, newWindow, newPrivateWindow, openLocation, duplicateTab, resetPinnedTab, closeTab, closeAllTabs, cleanUpTabs,
+        newTab, newWindow, newPrivateWindow, openLocation, openFile, duplicateTab, resetPinnedTab, closeTab, closeAllTabs, cleanUpTabs,
         reopenArchivedTab, closeWindow,
         undo, redo, cut, copy, paste, selectAll, copyURL, copyMarkdown,
         toggleSidebar, toggleFavorite, reloadPage, forceReloadPage, stopLoading, openBlockedPopup,
-        zoomIn, zoomOut, actualSize, showDownloads,
+        zoomIn, zoomOut, actualSize, pictureInPicture, showDownloads,
         goBack, goForward, showHistory,
+        showWebInspector, showJavaScriptConsole, showPageSource, startElementSelection, disableJavaScript, emptyCaches,
         previousTab, nextTab, previousSpace, nextSpace, minimize, searchSettings
     ]
 

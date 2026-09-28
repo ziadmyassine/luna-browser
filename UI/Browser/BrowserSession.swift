@@ -288,8 +288,14 @@ final class BrowserSession {
     /// §3.4b folders whose Luna Control client is working in them right now,
     /// which the sidebar marks. Written only by `BrowserSession+Control.swift`.
     var controlledGroupIDs: Set<UUID> = []
+    /// Tabs a Luna Control client is acting on right now, with whose app it
+    /// is, which the sidebar outlines. Written only by `BrowserSession+Control.swift`.
+    var controlledTabs: [UUID: ControlFace] = [:]
     /// `ControlService.refreshBadges`'s symbols, by folder.
     var controlBadges: [UUID: String] = [:]
+    /// Which app each Luna Control folder belongs to, by folder:
+    /// `ControlService.refreshFaces`'s.
+    var controlFaces: [UUID: ControlFace] = [:]
     /// The Luna Control service driving this session, which holds the page
     /// dialogs of its agents' tabs.
     weak var control: ControlService?

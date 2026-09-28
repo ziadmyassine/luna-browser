@@ -20,9 +20,12 @@ final class SyncedDefaultsTests: XCTestCase {
     private var directory: URL!
 
     override func setUp() async throws {
-        suite = "SyncedDefaultsTests-\(UUID().uuidString)"
+        // One fixed suite, emptied first: a suite is a plist that emptying
+        // does not delete, so a new name per run leaves a file behind (§24.11).
+        suite = "luna.tests.SyncedDefaultsTests"
         defaults = UserDefaults(suiteName: suite)
-        directory = FileManager.default.temporaryDirectory.appending(path: suite)
+        defaults.removePersistentDomain(forName: suite)
+        directory = FileManager.default.temporaryDirectory.appending(path: "\(suite)-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         store = try BrowserStore(path: directory.appending(path: "luna.sqlite"))
         try await store.setSyncZone(.settings, enabled: true)

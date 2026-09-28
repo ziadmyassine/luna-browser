@@ -76,9 +76,16 @@ extension ControlService {
     /// click may take its element away.
     func marks(for command: ControlCommand, in webView: WKWebView, tab id: UUID) async -> [CGPoint] {
         guard recordings[id]?.isOn == true else { return [] }
+        return await points(for: command, in: webView)
+    }
+
+    /// Where a call points, in CSS pixels: a click's, hover's or drag's
+    /// target, or the field a `type` names.
+    func points(for command: ControlCommand, in webView: WKWebView) async -> [CGPoint] {
         let targets: [ControlCommand.Target] = switch command {
         case let .click(target, _, _, _, _), let .hover(target): [target]
         case let .drag(from, to, _): [from, to]
+        case let .type(_, ref?, _): [.ref(ref)]
         default: []
         }
         var points: [CGPoint] = []
@@ -98,7 +105,7 @@ extension ControlService {
     /// window: on the user's screen its size is their window's.
     func viewport(_ size: ControlCommand.Size?, tab id: UUID?, for client: ControlClient, in session: BrowserSession) async
         -> ControlResult {
-        guard let id, let folder = folders[client.displayName], session.tab(id)?.groupID == folder else {
+        guard let id, let folder = folders[client.session], session.tab(id)?.groupID == folder else {
             return .error("viewport changes only tabs you opened, in your folder. Open one with tab_open.")
         }
         guard let webView = session.wakeForControl(id)?.webView else { return .error("That tab could not be woken.") }

@@ -582,6 +582,10 @@ Three bands, top to bottom:
   is what Safari's own automatic PiP drives. The video must be playing, unmuted and at least 320 px wide
   — a muted background autoplay banner popping out over the screen is the feature at its worst. Coming
   back to the tab always puts the video back in the page, permission or not.
+  > **None of it works unless WebKit's PiP is on**, and in a third-party `WKWebView` it is off: every
+  > video reports it cannot float. `WebViewFactory` turns it on under D10's PiP exception (TODO.md).
+  > View ▸ Picture in Picture (⇧⌘P) floats the page's video by hand through the same door, muted or
+  > paused videos included, with no site permission — that switch is about the automatic path.
 - **Local Network is a content rule list, and a page served *from* the local network is exempt.** macOS
   asks an app once whether it may reach the LAN; a browser has to ask per site, and WebKit exposes no
   per-origin hook. What a rule list does well is refuse the loads: a page that has not been given the
@@ -2463,8 +2467,9 @@ Nothing exceeds **0.35 s** except the cases marked, which are not discrete trans
 reload bloom is bound to real load progress, and §3.4's row shimmer repeats for as long as the tab is
 loading, so its duration is a rate and not a delay. Luna Control's settings sky is the third: its
 moonrise, moonset, beam and launch picture a change that has already happened, and nothing waits on
-them ([LUNA-CONTROL.md](LUNA-CONTROL.md), "The Settings pane"). Every entry degrades to instant under Reduce
-Motion.
+them ([LUNA-CONTROL.md](LUNA-CONTROL.md), "The Settings pane"). The spark round a Luna Control folder's
+rim is the fourth, a rate like the shimmer, for as long as the agent works. Every entry degrades to
+instant under Reduce Motion.
 
 | Interaction | Animation |
 |---|---|
@@ -2487,6 +2492,7 @@ Motion.
 | Download flight (§5.0) | 0.30 s **linear** along the arc — the acceleration is the path's (§5.0) |
 | Download catch (§5.0) | spring, response 0.24, damping 0.55; the capsule bulges 18 % and springs back |
 | Row loading shimmer (§3.4) | **1.10 s** linear, repeating for as long as the load runs |
+| Luna Control folder spark | **2.60 s** a lap, linear, for as long as the agent works; Reduce Motion brightens the rim instead |
 | Page reload bloom | **tied to load duration** (see §7) |
 | Content card → fullscreen | 0.30 s ease-in-out |
 

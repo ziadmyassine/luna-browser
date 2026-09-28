@@ -327,8 +327,7 @@ struct YouTubeAdBlockTests {
     /// §17.2's per-site switch has to mean YouTube too, and the `ads` toggle has to turn
     /// this off — it is that toggle's behaviour, not a fourth setting.
     @Test func itFollowsTheAdsToggleAndThePerSiteSwitch() {
-        let defaults = UserDefaults(suiteName: "luna.youtube.tests.\(UUID().uuidString)")!
-        let blocker = ContentBlocker(defaults: defaults)
+        let blocker = ContentBlocker(defaults: scratchDefaults())
         #expect(blocker.blocksYouTubeAds(forHost: "www.youtube.com"))
 
         blocker.setEnabled(false, for: .ads)

@@ -104,7 +104,7 @@ struct PopupBlockingTests {
     }
 
     @Test func theModeDefaultsToSmartAndReadsItsOwnKey() throws {
-        let defaults = try #require(UserDefaults(suiteName: "luna.popups.\(UUID().uuidString)"))
+        let defaults = scratchDefaults()
         #expect(PopupPolicy.mode(in: defaults) == .smart)
         PopupPolicy.setMode(.blockAll, in: defaults)
         #expect(defaults.string(forKey: "privacy.popupMode") == "blockAll")

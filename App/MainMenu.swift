@@ -38,13 +38,6 @@ enum MainMenu {
     /// `setSidebarItems` on every structural change.
     private static let sidebarItemsTag = 1_002
 
-    /// Identifies History ▸ Tabs on Other Macs, refilled by `setOtherMacs`.
-    private static let otherMacsTag = 1_003
-
-    /// Kept so `rebuild` can refill the submenu; unlike Spaces, nothing else
-    /// re-sends it after a rebind.
-    private static var otherMacs: [SyncDevice] = []
-
     /// Builds the menu bar and installs it on `app`.
     static func install(into app: NSApplication) {
         let window = windowMenu()
@@ -53,9 +46,11 @@ enum MainMenu {
         spaces.tag = spacesTag
 
         let main = NSMenu()
+        // Develop sits where Safari puts it, just before Window.
+        let develop = DevelopMenu.isShown ? [submenu(developMenu())] : []
         for item in [submenu(appMenu()), submenu(fileMenu()), submenu(editMenu()),
-                     submenu(viewMenu()), submenu(historyMenu()), spaces,
-                     submenu(window), submenu(help)] {
+                     submenu(viewMenu()), submenu(historyMenu()), spaces]
+            + develop + [submenu(window), submenu(help)] {
             main.addItem(item)
         }
 
@@ -198,7 +193,7 @@ enum MainMenu {
 
     private static func fileMenu() -> NSMenu {
         menu("File", flatten([
-            [item(.newTab)], items(.newWindow), items(.newPrivateWindow), items(.openLocation),
+            [item(.newTab)], items(.newWindow), items(.newPrivateWindow), items(.openLocation), items(.openFile),
             [.separator()],
             items(.duplicateTab), items(.resetPinnedTab),
             [.separator()],
@@ -241,6 +236,8 @@ enum MainMenu {
             [.separator()],
             items(.zoomIn), items(.zoomOut), items(.actualSize),
             [.separator()],
+            items(.pictureInPicture),
+            [.separator()],
             // §22.5: the downloads panel is only otherwise reachable from the
             // top bar's button, which the sidebar layout does not show at all.
             // ⌘⌥L is free in the §20.1 map and is what Safari uses.
@@ -260,37 +257,30 @@ enum MainMenu {
         ]))
     }
 
-    /// History ▸ Tabs on Other Macs (docs/SYNC-PLAN.md §5): one section per
-    /// Mac, already filtered by `SyncCoordinator.otherMacs`.
-    static func setOtherMacs(_ macs: [SyncDevice], in app: NSApplication) {
-        otherMacs = macs
-        guard let menu = app.mainMenu.flatMap({ tagged(otherMacsTag, in: $0) })?.submenu else { return }
-        fill(menu, with: macs)
+    private static func developMenu() -> NSMenu {
+        menu("Develop", flatten([
+            items(.showWebInspector), items(.showJavaScriptConsole), items(.showPageSource),
+            items(.startElementSelection),
+            [.separator()],
+            [submenu(userAgentMenu())], items(.disableJavaScript),
+            [.separator()],
+            items(.emptyCaches)
+        ]))
     }
 
-    private static func otherMacsMenu() -> NSMenuItem {
-        let list = menu("Tabs on Other Macs", [])
-        fill(list, with: otherMacs)
-        let host = submenu(list)
-        host.tag = otherMacsTag
-        return host
-    }
-
-    private static func fill(_ menu: NSMenu, with macs: [SyncDevice]) {
-        menu.removeAllItems()
-        guard !macs.isEmpty else {
-            menu.addItem(NSMenuItem(title: String(localized: "No Other Macs"), action: nil, keyEquivalent: ""))
-            return
+    /// The same four modes as Settings ▸ Advanced, ticked by
+    /// `validateDevelopCommand`.
+    private static func userAgentMenu() -> NSMenu {
+        let titles = [
+            String(localized: "Default"), String(localized: "Safari"),
+            String(localized: "Chrome"), String(localized: "Custom")
+        ]
+        let entries = titles.enumerated().map { index, title in
+            let entry = plain(title, #selector(AppDelegate.chooseUserAgent(_:)))
+            entry.tag = index
+            return entry
         }
-        for mac in macs {
-            menu.addItem(.sectionHeader(title: mac.name))
-            for tab in mac.tabs {
-                let title = tab.title.isEmpty ? (tab.url.host() ?? tab.url.absoluteString) : tab.title
-                let entry = NSMenuItem(title: title, action: #selector(AppDelegate.openTabFromOtherMac(_:)), keyEquivalent: "")
-                entry.representedObject = tab.url
-                menu.addItem(entry)
-            }
-        }
+        return menu("User Agent", entries)
     }
 
     private static func windowMenu() -> NSMenu {
@@ -406,5 +396,50 @@ enum MainMenu {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
         item.keyEquivalentModifierMask = modifiers
         return item
+    }
+}
+
+// MARK: - Tabs on Other Macs
+
+extension MainMenu {
+
+    /// Identifies History ▸ Tabs on Other Macs, refilled by `setOtherMacs`.
+    private static let otherMacsTag = 1_003
+
+    /// Kept so `rebuild` can refill the submenu; unlike Spaces, nothing else
+    /// re-sends it after a rebind.
+    private static var otherMacs: [SyncDevice] = []
+
+    /// History ▸ Tabs on Other Macs (docs/SYNC-PLAN.md §5): one section per
+    /// Mac, already filtered by `SyncCoordinator.otherMacs`.
+    static func setOtherMacs(_ macs: [SyncDevice], in app: NSApplication) {
+        otherMacs = macs
+        guard let menu = app.mainMenu.flatMap({ tagged(otherMacsTag, in: $0) })?.submenu else { return }
+        fill(menu, with: macs)
+    }
+
+    private static func otherMacsMenu() -> NSMenuItem {
+        let list = menu("Tabs on Other Macs", [])
+        fill(list, with: otherMacs)
+        let host = submenu(list)
+        host.tag = otherMacsTag
+        return host
+    }
+
+    private static func fill(_ menu: NSMenu, with macs: [SyncDevice]) {
+        menu.removeAllItems()
+        guard !macs.isEmpty else {
+            menu.addItem(NSMenuItem(title: String(localized: "No Other Macs"), action: nil, keyEquivalent: ""))
+            return
+        }
+        for mac in macs {
+            menu.addItem(.sectionHeader(title: mac.name))
+            for tab in mac.tabs {
+                let title = tab.title.isEmpty ? (tab.url.host() ?? tab.url.absoluteString) : tab.title
+                let entry = NSMenuItem(title: title, action: #selector(AppDelegate.openTabFromOtherMac(_:)), keyEquivalent: "")
+                entry.representedObject = tab.url
+                menu.addItem(entry)
+            }
+        }
     }
 }

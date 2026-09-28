@@ -15,6 +15,7 @@
 
 import AppKit
 import BrowserKit
+import UniformTypeIdentifiers
 
 extension AppDelegate {
 
@@ -34,6 +35,16 @@ extension AppDelegate {
     /// `⌘L`. Focuses the URL pill of whichever layout is showing (§3.2, §4).
     @objc func editLocation(_ sender: Any?) {
         editLocation()
+    }
+
+    /// `⌘O`. The files are opened as Finder would open them with Luna.
+    @objc func openFile(_ sender: Any?) {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = LocalFileTypes.identifiers.compactMap(UTType.init)
+        guard panel.runModal() == .OK else { return }
+        application(NSApp, open: panel.urls)
     }
 
     /// `⌘W`. Archives rather than deletes (§6.3) — and is undoable (§6.7).
@@ -201,9 +212,13 @@ extension AppDelegate {
         else { return }
         guard tab.kind != .essential else {
             session.unpinTab(id)
+            PageToast.favorite(added: false).show(in: session.hostWindow)
             return
         }
-        guard !session.pinTab(id) else { return }
+        guard !session.pinTab(id) else {
+            PageToast.favorite(added: true).show(in: session.hostWindow)
+            return
+        }
         let name = session.space(session.activeSpaceID)?.name ?? String(localized: "this one")
         let alert = NSAlert()
         alert.messageText = String(localized: "Favorites is full.")
@@ -249,6 +264,7 @@ extension AppDelegate: NSMenuItemValidation {
         return validateFavoriteToggle(menuItem, in: session)
             ?? validateNavigation(menuItem, in: session)
             ?? validatePageCommand(menuItem, in: session)
+            ?? validateDevelopCommand(menuItem, in: session)
             ?? validateSessionCommand(menuItem, in: session)
     }
 

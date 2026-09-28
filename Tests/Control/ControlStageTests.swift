@@ -34,7 +34,9 @@ final class ControlStageTests: XCTestCase {
 
     override func setUpWithError() throws {
         directory = URL.temporaryDirectory.appending(path: "luna-tests-\(UUID().uuidString)")
-        defaults = UserDefaults(suiteName: "luna-control-tests-\(UUID().uuidString)")
+        // Fixed and emptied, for the reason in `ControlSafetyTests.setUpWithError`.
+        defaults = UserDefaults(suiteName: "luna.tests.ControlStageTests")
+        defaults.removePersistentDomain(forName: "luna.tests.ControlStageTests")
         defaults.set(ControlMode.allowAll.rawValue, forKey: ControlService.modeKey)
     }
 
@@ -68,18 +70,128 @@ final class ControlStageTests: XCTestCase {
         XCTAssertTrue(text(result).contains("trusted: true"), text(result))
         XCTAssertEqual(webView.title, "trusted")
         XCTAssertNil(webView.window, "the stage kept the tab")
+        XCTAssertNotNil(session.controlledTabs[id], "the tab the agent used is not outlined")
     }
 
-    func testUserViewingTabRefusesInput() async throws {
+    /// Looking at the agent's tab lets the user watch it work; Take Over,
+    /// which pauses the agent, is what stops it, and a Stop ends the call
+    /// that was waiting.
+    func testViewingTabLetsTheAgentWorkUntilTakenOver() async throws {
         let (service, session) = try await makeService()
         _ = await service.perform(ControlCall(.openTab(page)), client)
         let id = try XCTUnwrap(session.allTabs(includeArchived: false).first { $0.url.scheme == "data" }?.id)
         session.activateTab(id)
 
-        let result = await service.perform(ControlCall(.click(.point(x: 100, y: 40), clickCount: 1)), client)
-        XCTAssertTrue(result.isError)
-        XCTAssertTrue(text(result).contains("taken over"), text(result))
-        XCTAssertNotEqual(session.controller(for: id)?.webView?.title, "trusted")
+        let watched = await service.perform(ControlCall(.click(.point(x: 100, y: 40), clickCount: 1)), client)
+        XCTAssertFalse(watched.isError, text(watched))
+
+        service.pause(client: client.session)
+        let taken = Task { await service.perform(ControlCall(.click(.point(x: 100, y: 40), clickCount: 1)), client) }
+        try await Task.sleep(for: .milliseconds(300))
+        XCTAssertEqual(service.pausedCalls[client.session]?.count, 1, "the paused call did not wait")
+        service.stop(client: client.session)
+        let stopped = await taken.value
+        XCTAssertTrue(stopped.isError)
+        XCTAssertTrue(text(stopped).contains("stopped"), text(stopped))
+    }
+
+    /// The capsule's own button, pressed twice: Take Over holds the agent's
+    /// next call, and Resume lets that same call through.
+    func testTakeOverThenResumeFromTheCapsule() async throws {
+        let (service, session) = try await makeService()
+        let controller = BrowserWindowController(remembersFrame: false)
+        session.hostWindow = controller.window
+        controller.window?.orderFront(nil)
+        defer { controller.window?.close() }
+        service.connectedSessions.insert(client.session)
+        _ = await service.perform(ControlCall(.openTab(page)), client)
+        let id = try XCTUnwrap(session.allTabs(includeArchived: false).first { $0.url.scheme == "data" }?.id)
+        session.activateTab(id)
+        service.refreshSurface()
+
+        let takeOver = try XCTUnwrap(controller.controlSurface.capsule?.button, "no capsule on the agent's page")
+        click(takeOver)
+        let waiting = Task { await service.perform(ControlCall(.click(.point(x: 100, y: 40), clickCount: 1)), client) }
+        try await Task.sleep(for: .milliseconds(300))
+        XCTAssertEqual(service.pausedCalls[client.session]?.count, 1, "the agent was not held while taken over")
+
+        let resume = try XCTUnwrap(controller.controlSurface.capsule?.button, "the capsule went with the pause")
+        XCTAssertEqual(resume.title, "Resume")
+        click(resume)
+        let resumed = await waiting.value
+        XCTAssertFalse(resumed.isError, "Resume did not let the waiting call through: \(text(resumed))")
+        XCTAssertEqual(controller.controlSurface.capsule?.button?.title, "Take Over")
+
+        // Done with the tab: the capsule goes, though the client is still connected.
+        session.setControlled(false, tab: id, face: ControlFace(appID: nil))
+        service.refreshSurface()
+        XCTAssertNil(controller.controlSurface.capsule, "the capsule stayed on a page the agent had finished with")
+    }
+
+    /// A click as the pointer makes one: down through the button's own
+    /// handler, with the up already queued for its tracking loop to take.
+    private func click(_ button: NSButton) {
+        guard let window = button.window else { return XCTFail("the button is in no window") }
+        window.contentView?.layoutSubtreeIfNeeded()
+        let point = button.convert(NSPoint(x: button.bounds.midX, y: button.bounds.midY), to: nil)
+        func event(_ type: NSEvent.EventType) -> NSEvent? {
+            NSEvent.mouseEvent(
+                with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1
+            )
+        }
+        guard let down = event(.leftMouseDown), let up = event(.leftMouseUp) else { return XCTFail("no events") }
+        let local = window.contentView?.convert(point, from: nil) ?? .zero
+        XCTAssertTrue(window.contentView?.hitTest(local) === button, "the click does not land on the button")
+        NSApp.postEvent(up, atStart: false)
+        button.mouseDown(with: down)
+    }
+
+    /// After a relaunch the client's folder is still its own: work on a tab
+    /// already in it sparks the folder, not only the tab.
+    func testAFolderFromBeforeARelaunchSparksWhenItsTabIsUsed() async throws {
+        let (first, session) = try await makeService()
+        _ = await first.perform(ControlCall(.openTab(page)), client)
+        let folder = try XCTUnwrap(first.folders[client.session])
+        let id = try XCTUnwrap(session.allTabs(includeArchived: false).first { $0.url.scheme == "data" }?.id)
+        try await Task.sleep(for: .seconds(2.5))
+        XCTAssertFalse(session.controlledGroupIDs.contains(folder))
+
+        let relaunched = ControlService(session: session, defaults: defaults, auditURL: directory.appending(path: "b.jsonl"))
+        let scrolled = await relaunched.perform(
+            ControlCall(tab: relaunched.number(id), .scroll(.down, amount: 1, target: nil)), client
+        )
+        XCTAssertFalse(scrolled.isError, text(scrolled))
+        XCTAssertEqual(relaunched.folders[client.session], folder, "the folder was not taken back")
+        XCTAssertTrue(session.controlledGroupIDs.contains(folder), "the folder did not spark")
+        withExtendedLifetime(first) {}
+    }
+
+    /// Closing the agent's folder takes its outline and its face with it.
+    func testClosingTheFolderTakesItsOutline() async throws {
+        let (service, session) = try await makeService()
+        let claude = ControlClient(rawName: "claude-code")
+        _ = await service.perform(ControlCall(.openTab(page)), claude)
+        let folder = try XCTUnwrap(service.folders[claude.session])
+        let sidebar = SidebarViewController(session: session, windowID: UUID())
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 300, height: 700), styleMask: [.titled], backing: .buffered, defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.contentView = sidebar.view
+        window.orderFront(nil)
+        defer { window.close() }
+        let token = session.addChangeObserver { sidebar.refresh() }
+        sidebar.refresh()
+        sidebar.view.layoutSubtreeIfNeeded()
+        try await Task.sleep(for: .milliseconds(300))
+        XCTAssertEqual(sidebar.list.controlPlates[folder]?.alphaValue, 1, "the folder has no outline")
+        session.closeGroup(folder)
+        try await Task.sleep(for: .milliseconds(800))
+        sidebar.view.layoutSubtreeIfNeeded()
+        XCTAssertNil(session.controlFaces[folder], "the closed folder kept its face")
+        XCTAssertTrue(sidebar.list.controlPlates.isEmpty, "the closed folder's outline stayed")
+        withExtendedLifetime(token) {}
     }
 
     func testNoFocusOrWindowMoves() async throws {
@@ -141,5 +253,48 @@ final class ControlStageTests: XCTestCase {
         session.activateTab(id)
         let shown = await service.perform(ControlCall(tab: service.number(id), .viewport(nil)), client)
         XCTAssertTrue(shown.isError, "a tab on the user's screen keeps their window's size")
+    }
+}
+
+extension ControlStageTests {
+
+    /// Every call goes into the activity list as it starts and is marked when
+    /// it ends, and the pill stays up for a moment after.
+    func testACallIsListedAsActivity() async throws {
+        let (service, _) = try await makeService()
+        _ = await service.perform(ControlCall(.openTab(page)), client)
+        let entry = try XCTUnwrap(service.activity.first)
+        XCTAssertEqual(entry.title, ControlActivity.title(of: .openTab(page)))
+        XCTAssertEqual(entry.state, .done)
+        XCTAssertEqual(service.shownActivity.map(\.entry.id), [entry.id], "the pill went the moment the call ended")
+    }
+}
+
+extension ControlStageTests {
+
+    /// Close Folder and Tabs from the folder's menu takes the outline away
+    /// by itself: nothing forces a layout pass after it, as nothing does in
+    /// the window, and a click on the column used to be what finally did.
+    func testClosingTheFolderTakesItsOutlineWithNoFurtherPass() async throws {
+        let (service, session) = try await makeService()
+        let claude = ControlClient(rawName: "claude-code")
+        _ = await service.perform(ControlCall(.openTab(page)), claude)
+        let folder = try XCTUnwrap(service.folders[claude.session])
+        let sidebar = SidebarViewController(session: session, windowID: UUID())
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 300, height: 700), styleMask: [.titled], backing: .buffered, defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.contentView = sidebar.view
+        window.orderFront(nil)
+        defer { window.close() }
+        let token = session.addChangeObserver { sidebar.refresh() }
+        sidebar.refresh()
+        try await Task.sleep(for: .milliseconds(500))
+        let plate = try XCTUnwrap(sidebar.list.controlPlates[folder], "the folder has no outline")
+        session.closeGroup(folder)
+        try await Task.sleep(for: .milliseconds(800))
+        XCTAssertTrue(plate.superview == nil || plate.alphaValue < 0.01, "the closed folder's outline stayed until the next pass")
+        withExtendedLifetime(token) {}
     }
 }

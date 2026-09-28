@@ -64,20 +64,23 @@ extension ControlService {
     /// now, including any waiting on the user.
     func stop(client name: String) {
         holds[name] = .stopped
+        releasePausedCalls(of: name)
         inFlight[name]?.values.forEach { $0.cancel() }
-        approvals.cancel(client: name)
+        if let folder = folders[name] { approvals.cancel(inFolder: folder) }
         refreshBadges()
     }
 
     func resume(client name: String) {
         holds[name] = nil
+        releasePausedCalls(of: name)
         refreshBadges()
     }
 
     func stopAll() {
         stoppedAll = true
+        for name in pausedCalls.keys { releasePausedCalls(of: name) }
         inFlight.values.flatMap(\.values).forEach { $0.cancel() }
-        approvals.cancel(client: nil)
+        approvals.cancelAll()
         refreshBadges()
     }
 
@@ -86,7 +89,7 @@ extension ControlService {
         refreshBadges()
     }
 
-    /// The folder menu's Pause, Resume and Stop. Nil for a folder no client owns.
+    /// The folder menu's Pause, Resume and Stop. Nil for a folder no session owns.
     func menuActions(forFolder id: UUID) -> GroupMenu.AgentActions? {
         guard let name = client(ofFolder: id) else { return nil }
         return GroupMenu.AgentActions(
@@ -97,7 +100,7 @@ extension ControlService {
         )
     }
 
-    /// The display name of the client whose folder this is.
+    /// The session whose folder this is.
     func client(ofFolder id: UUID) -> String? {
         folders.first { $0.value == id }?.key
     }
@@ -107,7 +110,10 @@ extension ControlService {
             return "The user stopped all agents in Luna. Nothing will run until they resume; do not try another way."
         }
         switch holds[client] {
-        case .paused: return "The user paused you in Luna. Wait until they resume you; do not try another way."
+        case .paused: return """
+            The user paused you in Luna and has not resumed you in five minutes. Stop and wait for them; do not try \
+            another way.
+            """
         case .stopped: return "The user stopped you in Luna. Nothing will run until they resume you; do not try another way."
         case nil: return nil
         }
@@ -129,6 +135,36 @@ extension ControlService {
         session?.setControlBadges(badges)
     }
 
+    /// A paused client's call waits here until the user resumes or stops it,
+    /// or for `ControlApprovals.timeout`. Refused at once, as it used to be,
+    /// the agent read "paused" and gave up, so Resume had nothing to resume:
+    /// the capsule said "working" and nothing moved.
+    func waitWhilePaused(_ name: String) async {
+        guard holds[name] == .paused, !stoppedAll else { return }
+        let id = UUID()
+        let timeout = Task { [weak self] in
+            try? await Task.sleep(for: ControlApprovals.timeout)
+            self?.releasePausedCall(id, of: name)
+        }
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                guard !Task.isCancelled else { return continuation.resume() }
+                pausedCalls[name, default: [:]][id] = continuation
+            }
+        } onCancel: {
+            Task { @MainActor [weak self] in self?.releasePausedCall(id, of: name) }
+        }
+        timeout.cancel()
+    }
+
+    private func releasePausedCall(_ id: UUID, of name: String) {
+        pausedCalls[name]?.removeValue(forKey: id)?.resume()
+    }
+
+    private func releasePausedCalls(of name: String) {
+        pausedCalls.removeValue(forKey: name)?.values.forEach { $0.resume() }
+    }
+
     // MARK: - The gate
 
     func gated(_ call: ControlCall, _ client: ControlClient) async -> ControlResult {
@@ -136,8 +172,11 @@ extension ControlService {
             client: client.displayName, tool: ControlAudit.tool(of: call.command), tab: call.tab, site: nil,
             summary: ControlAudit.summary(of: call.command), decision: "allowed", outcome: "ok"
         )
+        agents[client.session] = client
+        let entry = beginActivity(call.command, by: client)
         let result = await gatedResult(call, client, &record)
         record.outcome = result.isError ? "error" : "ok"
+        endActivity(entry, as: record)
         log(record)
         return result
     }
@@ -146,7 +185,9 @@ extension ControlService {
         _ call: ControlCall, _ client: ControlClient, _ record: inout ControlAudit.Record
     ) async -> ControlResult {
         guard let session else { return .error("Luna has no window open.") }
-        if let refusal = refusal(for: client.displayName) {
+        adoptFolder(of: client, in: session)
+        await waitWhilePaused(client.session)
+        if let refusal = refusal(for: client.session) {
             record.decision = "stopped"
             return .error(refusal)
         }
@@ -173,8 +214,11 @@ extension ControlService {
         return shield(result, command: call.command, client: client, tab: id ?? currentTab[client.connection], in: session)
     }
 
-    /// The user's say over one call: takeover, the policy, and the approval
-    /// it may ask for. Nil lets the call run; otherwise what the model reads.
+    /// The user's say over one call: the policy, and the approval it may ask
+    /// for. Nil lets the call run; otherwise what the model reads.
+    ///
+    /// Looking at a page the agent is working on is not a say: the user
+    /// watches, and takes over with the page's capsule, which pauses the agent.
     private func admit(
         _ command: ControlCommand, tab id: UUID?, client: ControlClient, in session: BrowserSession,
         record: inout ControlAudit.Record
@@ -182,13 +226,6 @@ extension ControlService {
         let pageURL = id.flatMap { session.tab($0)?.url }
         let site = (command.destination ?? pageURL).flatMap(Self.site(of:))
         record.site = site
-        if command.acts, let id, isTakenOver(id, by: client, in: session) {
-            record.decision = "refused"
-            return .error("""
-            The user has this tab in front of them and has taken over. Nothing was done; wait until they \
-            leave it, or ask them.
-            """)
-        }
         let isInternalPage = pageURL.map(Self.isInternal) ?? false
         var facts = ControlFacts(
             escalated: site.map { escalated.contains(Escalation(connection: client.connection, site: $0)) } ?? false,
@@ -258,13 +295,14 @@ extension ControlService {
         case .stopped:
             return stopped(client, &record)
         }
-        if refusal(for: client.displayName) != nil { return stopped(client, &record) }
+        await waitWhilePaused(client.session)
+        if refusal(for: client.session) != nil { return stopped(client, &record) }
         return nil
     }
 
     private func stopped(_ client: ControlClient, _ record: inout ControlAudit.Record) -> ControlResult {
         record.decision = "stopped"
-        return .error(refusal(for: client.displayName) ?? "The user stopped this call.")
+        return .error(refusal(for: client.session) ?? "The user stopped this call.")
     }
 
     private func target(of call: ControlCall, in session: BrowserSession, for client: ControlClient) throws -> UUID? {
@@ -274,21 +312,10 @@ extension ControlService {
         }
     }
 
-    /// An agent's own tab that the user has selected, or has on screen in
-    /// a split, is theirs until they leave it: typing into a page someone is
-    /// looking at is a collision.
-    private func isTakenOver(_ id: UUID, by client: ControlClient, in session: BrowserSession) -> Bool {
-        guard let folder = folders[client.displayName], session.tab(id)?.groupID == folder else { return false }
-        let window = session.controller(for: id)?.webView?.window
-        return session.activeTabID == id || (window != nil && !(window is ControlStageWindow))
-    }
-
-    /// The client's folder, made now if a request needs somewhere to wait.
+    /// The session's folder, made now if a request needs somewhere to wait.
     func folder(for client: ControlClient, in session: BrowserSession) -> UUID {
-        if let id = folders[client.displayName], session.group(id) != nil { return id }
-        let group = session.controlFolder(named: client.displayName, previously: folders[client.displayName])
-        folders[client.displayName] = group.id
-        return group.id
+        if let id = folders[client.session], session.group(id) != nil { return id }
+        return folderInActiveSpace(for: client, in: session).id
     }
 
     // MARK: - On the way out

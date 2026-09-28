@@ -101,7 +101,14 @@ extension BrowserSession {
     /// A child opened by `target="_blank"` or `window.open` (§6.5). WebKit
     /// performs the pending navigation itself once the view is returned, so
     /// nothing here may load.
-    func adoptPopup(from parent: UUID, url: URL?, configuration: WKWebViewConfiguration) -> WKWebView? {
+    /// - Parameter configuration: WebKit's, for a page's own new window; nil
+    ///   for a link Luna opens itself (⌘-click), which is loaded instead.
+    /// - Parameter inBackground: the tab is made and left behind the one in
+    ///   front, as a ⌘-click and Open Link in New Tab want.
+    @discardableResult
+    func adoptPopup(
+        from parent: UUID, url: URL?, configuration: WKWebViewConfiguration?, inBackground: Bool = false
+    ) -> WKWebView? {
         let spaceID = tab(parent)?.spaceID ?? activeSpaceID
         let child = Tab(
             spaceID: spaceID,
@@ -124,8 +131,14 @@ extension BrowserSession {
         controller.delegate = self
         relayScrollProgress(of: controller)
         controllers[child.id] = controller
-        let webView = controller.activate(with: configuration)
-        activeTabBySpace[spaceID] = child.id
+        let webView: WKWebView?
+        if let configuration {
+            webView = controller.activate(with: configuration)
+        } else {
+            controller.load(url ?? Self.blankPage)
+            webView = nil
+        }
+        if !inBackground { activeTabBySpace[spaceID] = child.id }
         promote(child.id)
         enforceLiveTabBudget()
         notifyChange()
@@ -181,7 +194,13 @@ extension BrowserSession: TabControllerDelegate {
         wantsNewTabFor url: URL?,
         configuration: WKWebViewConfiguration
     ) -> WKWebView? {
-        adoptPopup(from: controller.id, url: url, configuration: configuration)
+        let inBackground = controller.nextNewTabIsBackground
+        controller.nextNewTabIsBackground = false
+        return adoptPopup(from: controller.id, url: url, configuration: configuration, inBackground: inBackground)
+    }
+
+    func tabController(_ controller: TabController, wantsToOpenInNewTab url: URL, inBackground: Bool) {
+        adoptPopup(from: controller.id, url: url, configuration: nil, inBackground: inBackground)
     }
 
     func tabController(_ controller: TabController, didStartDownload download: WKDownload) {
@@ -243,6 +262,21 @@ extension BrowserSession: TabControllerDelegate {
         let dialog = ControlDialog(kind: .prompt, message: prompt, defaultText: defaultText)
         guard case let .accept(text)? = await control?.hold(dialog, tab: controller.id) else { return nil }
         return text ?? defaultText ?? ""
+    }
+
+    /// A tab working for an agent behind the user's back gets Cancel: a file
+    /// sheet from it would land on the user's window, and `file_upload` is the
+    /// agent's way to hand a page a file.
+    func tabController(_ controller: TabController, chooseFilesAllowingMultiple multiple: Bool, directories: Bool) async
+        -> [URL]? {
+        if control?.isAgents(tab: controller.id) == true { return nil }
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = multiple
+        panel.canChooseDirectories = directories
+        panel.canChooseFiles = true
+        panel.prompt = NSLocalizedString("Choose", comment: "File picker for a web page's upload button")
+        guard let window = hostWindow else { return panel.runModal() == .OK ? panel.urls : nil }
+        return await panel.beginSheetModal(for: window) == .OK ? panel.urls : nil
     }
 
     private func present(_ message: String, confirmable: Bool) async -> Bool {

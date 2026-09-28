@@ -197,8 +197,7 @@ struct WebsiteDataStoreRemovalTests {
 
     /// `UserDefaults`, not GRDB (§3.2 step 7): the queue has to survive the database.
     @Test func roundTripsTheQueueThroughUserDefaults() throws {
-        let suite = try #require(UserDefaults(suiteName: "luna.tests.\(UUID().uuidString)"))
-        defer { suite.removePersistentDomain(forName: suite.description) }
+        let suite = scratchDefaults()
         let storage = UserDefaultsPendingRemovals(defaults: suite)
         let identifiers: Set<UUID> = [UUID(), UUID()]
 

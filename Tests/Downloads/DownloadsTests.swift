@@ -73,6 +73,40 @@ final class DownloadDestinationTests: XCTestCase {
         let result = DownloadDestination.unique(url) { $0.path == "/tmp/archive" }
         XCTAssertEqual(result.lastPathComponent, "archive 2")
     }
+
+    /// `resolve` is the off-main-thread route WebKit's destination now takes;
+    /// it lands in the chosen folder and still steps round a taken name.
+    func testResolveLandsInTheChosenFolderUnderAFreeName() async throws {
+        let folder = FileManager.default.temporaryDirectory.appending(path: "luna-downloads-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let defaults = UserDefaults.standard
+        let chosen = defaults.object(forKey: DownloadDestination.directoryKey)
+        defaults.set(folder.path, forKey: DownloadDestination.directoryKey)
+        defer {
+            defaults.set(chosen, forKey: DownloadDestination.directoryKey)
+            try? FileManager.default.removeItem(at: folder)
+        }
+
+        let first = await DownloadDestination.resolve("moon.zip")
+        XCTAssertEqual(first.standardizedFileURL, folder.appending(path: "moon.zip").standardizedFileURL)
+        try Data().write(to: first)
+        let second = await DownloadDestination.resolve("moon.zip")
+        XCTAssertEqual(second.lastPathComponent, "moon 2.zip")
+    }
+
+    /// A download link that redirects to another site: WebKit cancels the
+    /// download before it has a file and fetches the file as a new one. That
+    /// first download leaves no row; a real failure, or one after bytes
+    /// arrived, still does.
+    @MainActor
+    func testADownloadCancelledBeforeItHadAFileLeavesNoRow() {
+        let cancelled = NSError(domain: NSURLErrorDomain, code: NSURLErrorCancelled)
+        let item = DownloadItem(request: nil, pageURL: nil, filename: "DownloadRedirect.ashx", spaceID: nil)
+        XCTAssertTrue(DownloadManager.wasHandedOff(item, error: cancelled))
+        XCTAssertFalse(DownloadManager.wasHandedOff(item, error: NSError(domain: NSURLErrorDomain, code: NSURLErrorTimedOut)))
+        item.willWrite(to: URL(filePath: "/tmp/moon.zip"), progress: nil)
+        XCTAssertFalse(DownloadManager.wasHandedOff(item, error: cancelled))
+    }
 }
 
 final class DownloadRiskTests: XCTestCase {

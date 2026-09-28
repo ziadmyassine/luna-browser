@@ -21,7 +21,7 @@ final class AdvancedSection: SettingsGroup {
 
     static let id = "advanced"
     static let title = String(localized: "Advanced")
-    static let keywords = ["user agent", "developer", "web inspector", "restore all settings", "reset"]
+    static let keywords = ["user agent", "developer", "develop menu", "web inspector", "restore all settings", "reset"]
 
     /// The page rebuilds itself after Restore: every group on it has rows
     /// whose values just changed underneath them.
@@ -29,7 +29,8 @@ final class AdvancedSection: SettingsGroup {
 
     func add(to body: SettingsBody) {
         body.card(Self.title, [
-            userAgentRow(), customUserAgentRow(), webInspectorRow(), revealDatabaseRow(), restoreDefaultsRow()
+            userAgentRow(), customUserAgentRow(), developMenuRow(), webInspectorRow(), revealDatabaseRow(),
+            restoreDefaultsRow()
         ])
     }
 
@@ -71,6 +72,14 @@ final class AdvancedSection: SettingsGroup {
     }
 
     // MARK: Developer
+
+    private func developMenuRow() -> (view: NSView, terms: [String]) {
+        let title = String(localized: "Show Develop menu")
+        let row = SettingsRow.toggle(title, value: DevelopMenu.isShown) { on in
+            DevelopMenu.isShown = on
+        }
+        return (view: row, terms: [title, "develop", "developer", "devtools", "inspector", "console", "source"])
+    }
 
     private func webInspectorRow() -> (view: NSView, terms: [String]) {
         let title = String(localized: "Web Inspector")

@@ -90,9 +90,25 @@ final class TabListController: NSObject {
     var mutedTabIDs: Set<UUID> = []
     /// Folders a Luna Control client is working in, mirrored from
     /// `BrowserSession.controlledGroupIDs` the way `mutedTabIDs` is.
-    var controlledGroupIDs: Set<UUID> = []
+    var controlledGroupIDs: Set<UUID> = [] {
+        didSet {
+            for (id, plate) in controlPlates { plate.isWorking = controlledGroupIDs.contains(id) }
+        }
+    }
+    /// `BrowserSession.controlledTabs`, the same way.
+    var workingTabs: [UUID: ControlFace] = [:] { didSet { if workingTabs != oldValue { movePills() } } }
+    /// The outline round each tab an agent is acting on, by tab.
+    var tabGlows: [UUID: RowPillView] = [:]
     /// `BrowserSession.controlBadges`, the same way.
     var controlBadges: [UUID: String] = [:]
+    /// `BrowserSession.controlFaces`, the same way.
+    var controlFaces: [UUID: ControlFace] = [:] {
+        didSet { if controlFaces != oldValue { movePills(animated: false) } }
+    }
+    /// The outline round each Luna Control folder, by folder. One per folder
+    /// rather than one for the list, unlike `groupPlate`: every agent's
+    /// folder wears its own at once.
+    var controlPlates: [UUID: RowPillView] = [:]
 
     let table = SidebarTableView()
     /// Not private, for the same reason `list` and `table` are not: the two
@@ -285,31 +301,6 @@ final class TabListController: NSObject {
         (view as? SidebarRowView)?.configure(content(for: row))
     }
 
-    private func apply(_ diff: CollectionDifference<SidebarRow>) {
-        // §6: 0.22 s, fade, no list jump. `CollectionDifference` iterates
-        // removals descending then insertions ascending, which is exactly the
-        // order `NSTableView` wants.
-        let effect: NSTableView.AnimationOptions = Tokens.Motion.reduceMotion ? [] : .effectFade
-        Tokens.Motion.animate(Tokens.Motion.tabInsert) { _ in
-            table.beginUpdates()
-            for change in diff {
-                switch change {
-                case let .remove(offset, _, _): table.removeRows(at: [offset], withAnimation: effect)
-                case let .insert(offset, _, _): table.insertRows(at: [offset], withAnimation: effect)
-                }
-            }
-            table.endUpdates()
-        }
-        // The rows moved under a pointer that did not: a fold from the
-        // keyboard left `hoveredRow` naming whatever slid into its old index,
-        // and §3.4b's plate went round that row's folder.
-        if hoveredRow != nil, let window = table.window {
-            let row = table.row(at: table.convert(window.mouseLocationOutsideOfEventStream, from: nil))
-            setHovered(row >= 0 ? row : nil)
-        }
-        refreshVisibleRows()
-    }
-
     private func refreshVisibleRows(movingPills animated: Bool = true) {
         let visible = table.rows(in: table.visibleRect)
         for row in visible.lowerBound ..< visible.upperBound {
@@ -434,5 +425,40 @@ final class TabListController: NSObject {
             (table.view(atColumn: 0, row: row, makeIfNecessary: false) as? SidebarRowView)?
                 .accessibilityDisplayOptionsChanged()
         }
+    }
+}
+
+// MARK: - Applying a diff
+
+extension TabListController {
+
+    fileprivate func apply(_ diff: CollectionDifference<SidebarRow>) {
+        // §6: 0.22 s, fade, no list jump. `CollectionDifference` iterates
+        // removals descending then insertions ascending, which is exactly the
+        // order `NSTableView` wants.
+        let effect: NSTableView.AnimationOptions = Tokens.Motion.reduceMotion ? [] : .effectFade
+        Tokens.Motion.animate(Tokens.Motion.tabInsert) { _ in
+            table.beginUpdates()
+            for change in diff {
+                switch change {
+                case let .remove(offset, _, _): table.removeRows(at: [offset], withAnimation: effect)
+                case let .insert(offset, _, _): table.insertRows(at: [offset], withAnimation: effect)
+                }
+            }
+            table.endUpdates()
+        } completion: { [weak self] in
+            // Once more with the rows settled. A Luna Control folder closed
+            // from its menu left its outline standing, empty, until the next
+            // click in the column placed the pills again.
+            MainActor.assumeIsolated { self?.movePills(animated: false) }
+        }
+        // The rows moved under a pointer that did not: a fold from the
+        // keyboard left `hoveredRow` naming whatever slid into its old index,
+        // and §3.4b's plate went round that row's folder.
+        if hoveredRow != nil, let window = table.window {
+            let row = table.row(at: table.convert(window.mouseLocationOutsideOfEventStream, from: nil))
+            setHovered(row >= 0 ? row : nil)
+        }
+        refreshVisibleRows()
     }
 }

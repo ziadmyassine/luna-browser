@@ -103,6 +103,18 @@ public struct ControlApp: Sendable, Identifiable, Equatable {
         return clientNames.contains { name.hasPrefix($0) }
     }
 
+    /// The app a live connection's `clientInfo.name` belongs to.
+    public static func app(forClient name: String) -> ControlApp? {
+        all.first { $0.matches(clientName: name) }
+    }
+
+    /// The name of the sidebar folder this app's tabs go into, which is how
+    /// a folder from an earlier launch is known as the app's before the app
+    /// has connected again.
+    public var folderName: String {
+        ControlClient.displayName(for: clientNames.first ?? name)
+    }
+
     /// The Terminal command for a `.command` app, nil for the rest.
     public func command(connecting: Bool, helper: URL) -> String? {
         invocation(connecting: connecting, helper: helper).map { tool, arguments in

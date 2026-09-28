@@ -50,6 +50,9 @@ public final class TabController: NSObject {
     /// Whether §17.2's YouTube script is in the current script set — see
     /// `refreshUserScriptsIfNeeded(host:)`, which is the only thing that reads it.
     private var youTubeScriptInstalled = false
+    /// Whether `FileStorageSeed`'s script is in the set — only while the tab is
+    /// on a `file:` page.
+    private var fileSeedInstalled = false
     private static let recoveryLimit = 3
     private static let recoveryWindow: TimeInterval = 60
 
@@ -87,6 +90,10 @@ public final class TabController: NSObject {
     /// subframes, before WebKit decides whether to show or download it. Luna
     /// Control's network log is the one reader.
     public var onNavigationResponse: ((WKNavigationResponse) -> Void)?
+    /// Set by the page's Open Link in New Tab just before it sends WebKit's own
+    /// new-window item: the tab `createWebViewWith` asks for then stays behind
+    /// this one. The host reads and clears it.
+    public var nextNewTabIsBackground = false
 
     /// User scripts added from outside for the life of the tab, kept so
     /// `installUserScripts`, which starts from nothing, puts them back.
@@ -233,7 +240,6 @@ public final class TabController: NSObject {
     /// `decidePolicyFor` reads it to break a redirect loop.
     var lastTrackingStrip: URL?
 
-    public func reload() { webView?.reload() }
     public func stop() { webView?.stopLoading() }
     public func goBack() { webView?.goBack() }
     public func goForward() { webView?.goForward() }
@@ -288,7 +294,7 @@ public final class TabController: NSObject {
             controller.removeScriptMessageHandler(forName: name)
             controller.add(messageRelay, name: name)
         }
-        installUserScripts(into: controller, host: state.url?.host())
+        installUserScripts(into: controller, host: state.url?.host(), isFile: (state.url ?? fallbackURL)?.isFileURL ?? false)
 
         // WebKit posts these on the main thread; `assumeIsolated` states that instead of
         // hiding it behind an unchecked conformance.
@@ -324,9 +330,14 @@ public final class TabController: NSObject {
     /// remove a single script. That is why this is a function rather than four
     /// lines in `attach`: §17.2's YouTube script is the first whose presence
     /// depends on a setting and on the site, so the first that has to come off.
-    private func installUserScripts(into controller: WKUserContentController, host: String?) {
+    private func installUserScripts(into controller: WKUserContentController, host: String?, isFile: Bool) {
         controller.removeAllUserScripts()
         youTubeScriptInstalled = ContentBlocker.shared.blocksYouTubeAds(forHost: host, in: sitePermissions)
+        fileSeedInstalled = false
+        if isFile, let seed = FileStorageSeed.userScript() {
+            controller.addUserScript(seed)
+            fileSeedInstalled = true
+        }
 
         controller.addUserScript(Self.documentEndScript())
         // §14.10: hides `PublicKeyCredential` until Apple grants the
@@ -366,60 +377,19 @@ public final class TabController: NSObject {
     }
 
     /// Re-installs the scripts when — and only when — §17.2's answer for the site the
-    /// tab is headed to differs from the answer it was built with.
+    /// tab is headed to differs from the answer it was built with, or it is headed
+    /// to or away from a file (`FileStorageSeed`).
     ///
     /// Called from `decidePolicyFor`, which is early enough: WebKit takes the
     /// script set when it creates the document, and the document does not exist
     /// yet. Guarded rather than unconditional because `removeAllUserScripts()`
     /// throws away WebKit's compiled copy of four sources.
-    func refreshUserScriptsIfNeeded(host: String?) {
+    func refreshUserScriptsIfNeeded(host: String?, isFile: Bool = false) {
         guard let controller = webView?.configuration.userContentController else { return }
         let blocks = ContentBlocker.shared.blocksYouTubeAds(forHost: host, in: sitePermissions)
-        guard blocks != youTubeScriptInstalled else { return }
-        installUserScripts(into: controller, host: host)
-    }
-
-    /// The document-end scripts every frame on the page gets, as one
-    /// `WKUserScript` rather than three.
-    ///
-    /// They are `forMainFrameOnly: false` because the things they watch live in
-    /// subframes — an embedded player makes sound, an ad frame is where a
-    /// blocked request happens, a sign-in form is very often in an iframe — so
-    /// a news page with thirty ad frames is thirty injections of each.
-    ///
-    /// This is one seam, not a saving. It was measured and it is a dead
-    /// heat: 31-frame page, two harness binaries interleaved, ten rounds
-    /// each, `+14.53 ms` merged against `+14.35 ms` split (`docs/PERF.md`).
-    /// Three `WKUserScript`s are not three compiles per frame — WebKit compiles
-    /// a source once and evaluates it per frame — and what the frame pays for is
-    /// the evaluating, which is the same code either way. What it buys is one
-    /// place that decides what every frame gets; do not read a speed claim into
-    /// it, and do not merge anything else hoping for one.
-    ///
-    /// The `try`/`catch` is not new error-hiding. WebKit ran the three
-    /// independently, so one of them throwing left the other two installed;
-    /// joining them into one script is exactly what would have taken that away.
-    /// ``isolated(_:)`` puts it back and nothing else. They share no scope
-    /// either: each source is its own IIFE, as it was when WebKit held them
-    /// apart.
-    static func documentEndScript() -> WKUserScript {
-        var sources = [mediaScript, ContentBlocker.blockedCountScript]
-        // §14: not injected at all when the feature is off, rather than
-        // injected and ignored. A user who declines autofill should not pay a
-        // MutationObserver on every frame of every page for it.
-        if PasswordSettings.isEnabled { sources.append(PasswordForms.script) }
-        return WKUserScript(
-            source: isolated(sources),
-            injectionTime: .atDocumentEnd,
-            forMainFrameOnly: false
-        )
-    }
-
-    /// `sources` joined so that one of them throwing does not take the rest
-    /// with it. Pure, and separate from the script that uses it, so the
-    /// isolation can be asserted with sources that actually throw.
-    static func isolated(_ sources: [String]) -> String {
-        sources.map { "try {\n\($0)\n} catch (error) {}" }.joined(separator: "\n")
+        let seeds = isFile && FileStorageSeed.userScript() != nil
+        guard blocks != youTubeScriptInstalled || seeds != fileSeedInstalled else { return }
+        installUserScripts(into: controller, host: host, isFile: isFile)
     }
 
     /// Everything that has to happen before the last reference to the web view
@@ -692,4 +662,65 @@ extension TabController {
       post();
     })();
     """
+
+    /// The document-end scripts every frame on the page gets, as one
+    /// `WKUserScript` rather than three.
+    ///
+    /// They are `forMainFrameOnly: false` because the things they watch live in
+    /// subframes — an embedded player makes sound, an ad frame is where a
+    /// blocked request happens, a sign-in form is very often in an iframe — so
+    /// a news page with thirty ad frames is thirty injections of each.
+    ///
+    /// This is one seam, not a saving. It was measured and it is a dead
+    /// heat: 31-frame page, two harness binaries interleaved, ten rounds
+    /// each, `+14.53 ms` merged against `+14.35 ms` split (`docs/PERF.md`).
+    /// Three `WKUserScript`s are not three compiles per frame — WebKit compiles
+    /// a source once and evaluates it per frame — and what the frame pays for is
+    /// the evaluating, which is the same code either way. What it buys is one
+    /// place that decides what every frame gets; do not read a speed claim into
+    /// it, and do not merge anything else hoping for one.
+    ///
+    /// The `try`/`catch` is not new error-hiding. WebKit ran the three
+    /// independently, so one of them throwing left the other two installed;
+    /// joining them into one script is exactly what would have taken that away.
+    /// ``isolated(_:)`` puts it back and nothing else. They share no scope
+    /// either: each source is its own IIFE, as it was when WebKit held them
+    /// apart.
+    static func documentEndScript() -> WKUserScript {
+        var sources = [mediaScript, ContentBlocker.blockedCountScript]
+        // §14: not injected at all when the feature is off, rather than
+        // injected and ignored. A user who declines autofill should not pay a
+        // MutationObserver on every frame of every page for it.
+        if PasswordSettings.isEnabled { sources.append(PasswordForms.script) }
+        return WKUserScript(
+            source: isolated(sources),
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: false
+        )
+    }
+
+    /// `sources` joined so that one of them throwing does not take the rest
+    /// with it. Pure, and separate from the script that uses it, so the
+    /// isolation can be asserted with sources that actually throw.
+    static func isolated(_ sources: [String]) -> String {
+        sources.map { "try {\n\($0)\n} catch (error) {}" }.joined(separator: "\n")
+    }
+}
+
+// MARK: - Reload
+
+extension TabController {
+
+    /// Past the cache for a page on this Mac (`NavigationPolicy.isLocalDevelopment`).
+    /// A text file shown by `localText` is loaded again instead: its page is
+    /// the text as it was read, and reloading that shows the same copy.
+    public func reload() {
+        guard let url = webView?.url, NavigationPolicy.isLocalDevelopment(url) else { webView?.reload(); return }
+        reloadFromOrigin()
+    }
+
+    public func reloadFromOrigin() {
+        guard let webView else { return }
+        if let url = webView.url, Self.isLocalText(url) { Self.load(url, into: webView) } else { webView.reloadFromOrigin() }
+    }
 }

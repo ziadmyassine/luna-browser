@@ -51,7 +51,9 @@ extension TabListController {
             list.isSelectable($0) && $0 != selected && list.group(at: $0) == nil ? $0 : nil
         }
         place(hoverPill, at: hovered, spec: animated ? Tokens.Motion.rowHover : nil)
-        placeGroupPlate(animated: animated)
+        placePlate(groupPlate, in: groupPlateBox(), animated: animated)
+        placeControlPlates(animated: animated)
+        placeTabGlows(animated: animated)
     }
 
     /// §3.4b's plate round the folder the pointer is in — over its header, any
@@ -83,14 +85,18 @@ extension TabListController {
             movePills()
             return
         }
-        for pill in [selectionPill, hoverPill, groupPlate] { pill.fade(to: 0) }
+        for pill in [selectionPill, hoverPill, groupPlate] + controlPlates.values + tabGlows.values { pill.fade(to: 0) }
     }
 
     /// Keeps the shared fills behind the row views AppKit keeps adding — the
-    /// two pills, §3.4b's folder plate under them, and §6.6's box round a
-    /// folder taking a drop.
+    /// two pills, a connected Luna Control folder's outline, §3.4b's folder
+    /// plate under them, and §6.6's box round a folder taking a drop. The
+    /// outline lies over the hover plate so its colour is not drawn over, and
+    /// a working tab's outline over the pills, whose fill would cover its rim.
     func sendPillsToBack() {
-        for fill in [selectionPill, hoverPill, groupPlate, groupDrop] where fill.superview === table {
+        let fills = Array(tabGlows.values) + [selectionPill, hoverPill] + Array(controlPlates.values)
+            + [groupPlate, groupDrop]
+        for fill in fills where fill.superview === table {
             table.addSubview(fill, positioned: .below, relativeTo: nil)
         }
     }
@@ -103,14 +109,89 @@ extension TabListController {
     /// The rows' layout pass lands here unanimated while they are still
     /// sliding; the plate is already standing where it is going by then, and
     /// placing it again would snap the stretch to its end.
-    private func placeGroupPlate(animated: Bool) {
-        let box = groupPlateBox(), shown = groupPlate.frame
-        guard let box, groupPlate.alphaValue == 1,
+    private func placePlate(_ plate: RowPillView, in box: NSRect?, animated: Bool) {
+        let shown = plate.frame
+        guard let box, plate.alphaValue == 1,
               box.minX == shown.minX, box.minY == shown.minY, box.width == shown.width else {
-            return place(groupPlate, in: box, spec: animated ? Tokens.Motion.rowHover : nil)
+            return place(plate, in: box, spec: animated ? Tokens.Motion.rowHover : nil)
         }
         guard box.height != shown.height else { return }
-        groupPlate.stretch(to: box, spec: Tokens.Motion.tabInsert)
+        plate.stretch(to: box, spec: Tokens.Motion.tabInsert)
+    }
+
+    /// The folder plate, kept up round every Luna Control folder in its app's
+    /// colour, so the folder says whose it is without the pointer over it.
+    private func placeControlPlates(animated: Bool) {
+        // Gone, not parked: a folder that was closed, or is in another Space,
+        // has nothing for an outline to stand round, and a parked one left
+        // lying in the table was one stray pass away from showing again.
+        for (id, plate) in controlPlates where controlFaces[id] == nil || list.row(ofGroup: id) == nil {
+            controlPlates[id] = nil
+            retire(plate)
+        }
+        // A tinted plate no folder or tab owns any more goes as well. One was
+        // left in the column after Close Folder and Tabs, which no test here
+        // reproduced; whatever let it go astray, it cannot outlast this pass.
+        let owned = Set((Array(controlPlates.values) + Array(tabGlows.values)).map(ObjectIdentifier.init))
+        for case let stray as RowPillView in table.subviews
+            where stray.tint != nil && stray.alphaValue > 0 && !owned.contains(ObjectIdentifier(stray)) {
+            retire(stray)
+        }
+        for (id, face) in controlFaces {
+            guard let box = groupExtent(ofGroup: id) else { continue }
+            let plate = controlPlates[id] ?? makeControlPlate(id)
+            plate.tint = Tokens.Agent.tint(forApp: face.appID)
+            plate.isWorking = controlledGroupIDs.contains(id)
+            placePlate(plate, in: box, animated: animated)
+        }
+    }
+
+    /// The folder's rim and spark round each tab an agent is acting on, so
+    /// the tab it is using is as plain as the folder it is working in. A tab
+    /// in a folded folder has no row, and the folder's own spark stands for it.
+    private func placeTabGlows(animated: Bool) {
+        for (id, glow) in tabGlows where workingTabs[id] == nil || list.row(of: id) == nil {
+            tabGlows[id] = nil
+            glow.isWorking = false
+            Tokens.Motion.animate(Tokens.Motion.rowHover) { _ in
+                glow.animator().alphaValue = 0
+            } completion: {
+                MainActor.assumeIsolated { glow.removeFromSuperview() }
+            }
+        }
+        for (id, face) in workingTabs {
+            guard let row = list.row(of: id), row < table.numberOfRows else { continue }
+            let glow = tabGlows[id] ?? {
+                let made = RowPillView(role: .working)
+                made.alphaValue = 0
+                table.addSubview(made)
+                tabGlows[id] = made
+                sendPillsToBack()
+                return made
+            }()
+            glow.tint = Tokens.Agent.tint(forApp: face.appID)
+            glow.isWorking = true
+            place(glow, in: pillBox(ofRow: row), spec: animated ? Tokens.Motion.rowHover : nil)
+        }
+    }
+
+    /// Fades a plate out of the column, spark first, and takes it off.
+    private func retire(_ plate: RowPillView) {
+        plate.isWorking = false
+        Tokens.Motion.animate(Tokens.Motion.rowHover) { _ in
+            plate.animator().alphaValue = 0
+        } completion: {
+            MainActor.assumeIsolated { plate.removeFromSuperview() }
+        }
+    }
+
+    private func makeControlPlate(_ id: UUID) -> RowPillView {
+        let plate = RowPillView(role: .folder)
+        plate.alphaValue = 0
+        table.addSubview(plate)
+        controlPlates[id] = plate
+        sendPillsToBack()
+        return plate
     }
 
     private func place(_ pill: RowPillView, at row: Int?, spec: MotionSpec?) {

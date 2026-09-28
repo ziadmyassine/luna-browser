@@ -43,8 +43,10 @@ struct PopupEngineTests {
 
     /// A tab reading its mode from a suite of its own, so no test here writes
     /// the shared defaults another suite is reading.
-    private func tab(_ mode: PopupMode, html: String = "<p>page</p>") async -> (TabController, Recorder) {
-        let defaults = UserDefaults(suiteName: "luna.popups.engine.\(UUID().uuidString)")!
+    private func tab(
+        _ mode: PopupMode, html: String = "<p>page</p>", test: String = #function
+    ) async -> (TabController, Recorder) {
+        let defaults = scratchDefaults(test: test)
         PopupPolicy.setMode(mode, in: defaults)
         let controller = TabController(id: UUID(), dataStore: .nonPersistent())
         controller.settings = defaults

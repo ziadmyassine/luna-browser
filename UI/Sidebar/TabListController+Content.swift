@@ -42,16 +42,19 @@ extension TabListController {
     /// it. No trailing slot — a group is closed from its menu, which is where a
     /// command that ends several pages at once belongs.
     ///
-    /// A folder a Luna Control client is working in wears the loading shimmer:
-    /// something is happening in there that the user did not start, and the
-    /// row says so without a control of its own. While it waits for the user,
-    /// or is paused or stopped, it wears that state's icon in place of its own.
+    /// A Luna Control folder wears its app's icon and its name in the app's
+    /// colour, and while it waits for the user, or is paused or stopped, that
+    /// state's symbol in place of the icon. Its plate says when the agent is
+    /// working; the title's shimmer did, and lagged the whole row.
     private func groupContent(_ group: TabGroup) -> SidebarRowContent {
-        SidebarRowContent(
+        let badge = controlBadges[group.id]
+        let face = controlFaces[group.id]
+        return SidebarRowContent(
             title: group.name,
-            symbolName: controlBadges[group.id] ?? group.symbolName,
-            isLoading: controlledGroupIDs.contains(group.id),
-            disclosure: group.isCollapsed ? .collapsed : .expanded
+            symbolName: badge ?? group.symbolName,
+            favicon: badge == nil ? face?.appID.flatMap(ControlAppIcon.image(for:)) : nil,
+            disclosure: group.isCollapsed ? .collapsed : .expanded,
+            tint: face.map { Tokens.Agent.tint(forApp: $0.appID) }
         )
     }
 

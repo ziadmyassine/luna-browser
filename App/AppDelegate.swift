@@ -112,6 +112,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // key's declared default is (SETTINGS-SPEC §6), and it is not
         // persisted, so it is re-published on every launch.
         SettingsDefaults.register()
+        // Before the first web view: the page's right-click menu is the app's.
+        WebViewFactory.makeView = { LunaWebView(frame: .zero, configuration: $0) }
         // §5.6: anything a crash or a hard quit left behind. At launch, where
         // the answer to "is this one in use" is always no.
         Self.sweepPrivateDatabases()
@@ -132,6 +134,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Before anything is opened: a second copy launched to open a page has
         // no business touching the database the running one is using.
         if handOffToRunningLuna() { return }
+        // Read on the first file page, not here: most launches open none.
+        FileStorageSeed.provider = FileStorageCarryOver.entries
         #if DEBUG
         // Fails the launch loudly if a token drifted out of §1 / §6 / §21.4.
         // Measured at 3 ms, so it stays in front of the first frame, where a

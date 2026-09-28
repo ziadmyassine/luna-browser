@@ -411,7 +411,7 @@ second place for it to be wrong.
 ### 3.4 Search
 | Control | Type | Wired to |
 |---|---|---|
-| Search engine | Popup: DuckDuckGo · Google · Bing · Kagi · Custom | `CommandBarModel` — **currently hard-coded to DuckDuckGo**, must be lifted to a setting |
+| Search engine | Popup: Google · DuckDuckGo · Bing · Kagi · Custom (default Google) | `CommandBarModel` — `SearchEngine.fallback` |
 | Custom engine URL | Text field with `%s`, validated | same |
 | Search suggestions | Toggle, **default off** | *disabled* until §9.6's suggest endpoint exists |
 | Settings in search results | Toggle, **default on** | `search.settingsResults` |
@@ -540,8 +540,8 @@ With none installed, one card says so under the add card.
 | Control | Type | Wired to |
 |---|---|---|
 | User-agent | Popup: Default · Safari · Chrome · Custom | `WebViewFactory` UA string |
-| Show Develop menu | Toggle | `MainMenu` |
-| Enable Web Inspector | Toggle | `WKWebView.isInspectable` |
+| Show Develop menu | Toggle, on by default | `DevelopMenu.isShown`, which rebuilds `MainMenu` |
+| Enable Web Inspector | Toggle | `WKWebView.isInspectable`, and `WebInspector` (Inspect Element, the Develop menu's inspector items; TODO.md D10's exception) |
 | Restore all settings to defaults | Button, confirms, requires the word to be typed | every key below |
 | Reveal the database in Finder | Button | `NSWorkspace.activateFileViewerSelecting` |
 

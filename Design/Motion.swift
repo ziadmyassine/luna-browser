@@ -257,6 +257,23 @@ extension Tokens {
         /// The ring round a live dot, once per pass for as long as an app is
         /// in use — a rate, like the shimmer. Not run under Reduce Motion.
         static let livePulse = MotionSpec(1.60, .easeOut)
+        /// One lap of the spark round a Luna Control folder's rim, for as long
+        /// as its agent is working there — a rate, like the shimmer. Slow
+        /// enough to read as light travelling, not as a spinner. Linear, or
+        /// it pulses where the lap joins. Not run under Reduce Motion: the rim
+        /// brightens instead.
+        static let agentSpark = MotionSpec(2.60, .linear)
+        /// A Luna Control question dropping from the page's top edge, and
+        /// going back up once answered; the working capsule and the agent's
+        /// pointer fading in and out, and the pointer gliding to where the
+        /// agent acts next. Ease-out: it arrives and settles. A page toast
+        /// (`PageToastView`) drops in and goes back up on it too, so the two
+        /// things that come down from the page's top edge move alike.
+        static let agentSheet = MotionSpec(0.25, .easeOut)
+        /// How long a page toast stays once it has arrived. Chosen, not
+        /// measured: long enough to read three words twice, short enough to be
+        /// gone before the next command. A new toast restarts it.
+        static let toastDwell: TimeInterval = 1.6
         /// One lap of each of the moon's two orbits. Slow enough to read as
         /// drift rather than as something to watch.
         static let innerOrbitLap: TimeInterval = 24
@@ -316,16 +333,27 @@ extension Tokens {
         /// an `NSImageView`'s image and in front of a glass backing. That means
         /// the timing comes off a `CATransaction` rather than an
         /// `NSAnimationContext`, and Reduce Motion has to be checked here.
+        ///
+        /// The fade is added explicitly. A view's backing layer takes no
+        /// implicit animation — its view answers every action with none — so
+        /// a transaction's duration alone left every button's own-layer wash
+        /// landing in one frame.
         @MainActor
         static func wash(_ layer: CALayer?, to colour: NSColor?, animated: Bool = true) {
             guard let layer else { return }
-            let instant = !animated || reduceMotion
+            let target = (colour ?? .clear).cgColor
+            let from = (layer.presentation() ?? layer).backgroundColor
             CATransaction.begin()
-            CATransaction.setDisableActions(instant)
-            CATransaction.setAnimationDuration(instant ? 0 : controlHover.duration)
-            CATransaction.setAnimationTimingFunction(controlHover.timingFunction)
-            layer.backgroundColor = (colour ?? .clear).cgColor
+            CATransaction.setDisableActions(true)
+            layer.backgroundColor = target
             CATransaction.commit()
+            guard animated, !reduceMotion, from != target else { return }
+            let fade = CABasicAnimation(keyPath: "backgroundColor")
+            fade.fromValue = from ?? NSColor.clear.cgColor
+            fade.toValue = target
+            fade.duration = controlHover.duration
+            fade.timingFunction = controlHover.timingFunction
+            layer.add(fade, forKey: "backgroundColor")
         }
 
         /// `controlPress`'s swell: scales `view` about its own centre and springs

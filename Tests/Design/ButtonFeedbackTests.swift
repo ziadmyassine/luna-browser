@@ -28,8 +28,9 @@
 //  with a hover wash and nothing else, and belong here only if that rule
 //  changes. §14.4's chip is built from `SettingsPushButton`, which is already
 //  covered below, and so are Luna Control's approval card and its Revoke
-//  buttons. Its Pause, Resume and Stop are menu items, not buttons. §17's
-//  pop-up chip has a test of its own.
+//  buttons; its working capsule's Take Over has a test of its own. Its
+//  Pause, Resume and Stop are menu items, not buttons. §17's pop-up chip has
+//  a test of its own.
 //
 
 import XCTest
@@ -233,6 +234,21 @@ final class ButtonFeedbackTests: XCTestCase {
         XCTAssertEqual(scale(of: capsule), 1, accuracy: 0.001, "the cylinder stayed swollen")
     }
 
+    /// Luna Control's working capsule: Take Over is a pill with no glass of
+    /// its own, so the capsule round it swells.
+    func testTheWorkingCapsuleSwellsForTakeOver() throws {
+        let capsule = ControlWorkingCapsule()
+        capsule.configure(.init(client: "Claude Code", appID: nil, isPaused: false, isActing: false)) {}
+        capsule.frame = NSRect(origin: .zero, size: capsule.fittingSize)
+        capsule.layoutSubtreeIfNeeded()
+        let button = try XCTUnwrap(capsule.button, "the capsule has no Take Over")
+        button.highlight(true)
+        XCTAssertEqual(scale(of: button), 1, accuracy: 0.001, "Take Over swelled inside the capsule")
+        XCTAssertEqual(scale(of: capsule), Tokens.Motion.pressSwell, accuracy: 0.001, "the capsule did not answer")
+        button.highlight(false)
+        XCTAssertEqual(scale(of: capsule), 1, accuracy: 0.001, "the capsule stayed swollen")
+    }
+
     /// §3.2b's extensions cylinder: its buttons are the toggle's `GlassButton`
     /// with no glass of their own, so the press goes to the cylinder, as it
     /// does for `NavCluster`.
@@ -284,5 +300,37 @@ final class ButtonFeedbackTests: XCTestCase {
             found += descendants(of: child, ofType: type)
         }
         return found
+    }
+}
+
+extension ButtonFeedbackTests {
+
+    /// The activity pill is glass of its own, so it swells itself on a press
+    /// and washes on the pointer.
+    func testTheActivityPillAnswersThePointerAndThePress() {
+        let pill = ControlActivityPill()
+        pill.configure(ControlActivity.Shown(
+            entry: ControlActivity.entry(for: .listTabs, agent: "a", client: "Claude Code", appID: nil),
+            name: "Main 2", working: true
+        ))
+        pill.frame = NSRect(origin: .zero, size: pill.fittingSize)
+        pill.layoutSubtreeIfNeeded()
+        let before = pill.layer?.frame ?? .zero
+        pill.highlight(true)
+        XCTAssertEqual(scale(of: pill), Tokens.Motion.pressSwell, accuracy: 0.001, "the pill did not swell")
+        let swollen = pill.layer?.frame ?? .zero
+        XCTAssertEqual(swollen.midX, before.midX, accuracy: 0.5, "the pill swelled off its centre")
+        XCTAssertEqual(swollen.midY, before.midY, accuracy: 0.5, "the pill swelled off its centre")
+        if !Tokens.Motion.reduceMotion {
+            XCTAssertNotNil(pill.layer?.animation(forKey: "controlPress"), "the press did not animate")
+        }
+        pill.highlight(false)
+        XCTAssertEqual(scale(of: pill), 1, accuracy: 0.001, "the pill stayed swollen")
+        pill.mouseEntered(with: mouse(.mouseMoved, in: pill))
+        let wash = pill.subviews.first { type(of: $0) == NSView.self }
+        XCTAssertNotEqual(wash?.layer?.backgroundColor?.alpha ?? 0, 0, "the pill did not answer the pointer")
+        if !Tokens.Motion.reduceMotion {
+            XCTAssertNotNil(wash?.layer?.animation(forKey: "backgroundColor"), "the hover did not cross-fade")
+        }
     }
 }

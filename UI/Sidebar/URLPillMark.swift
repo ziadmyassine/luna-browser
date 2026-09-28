@@ -103,9 +103,13 @@ extension URLPillView {
     /// Luna's own pages answer with their name instead. They have a host like
     /// anything else and it is not a name — a tab on `luna://archive` carries no
     /// title until the page reports one, and until then this was its label.
+    ///
+    /// A file on this Mac answers with its name: `deck-board.html`. It has no
+    /// host, so the bar used to read blank over a page that was plainly open.
     static func domain(of url: URL?) -> String {
         guard let url else { return "" }
         if let name = InternalPages.name(for: url) { return name }
+        if url.isFileURL { return url.lastPathComponent }
         guard let host = url.host(percentEncoded: false), !host.isEmpty else { return "" }
         return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
     }

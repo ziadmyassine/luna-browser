@@ -1,3 +1,4 @@
+import AppKit
 import BrowserKit
 import Testing
 import WebKit
@@ -28,6 +29,37 @@ struct WebViewFactoryTests {
         #expect(webView.allowsMagnification)
         // Drop this and the Web Inspector silently does nothing.
         #expect(webView.isInspectable)
+    }
+
+    /// D10's second exception. Without it a page's video reports it cannot float
+    /// at all, and both ⇧⌘P and the automatic path silently do nothing. Asked of a
+    /// video with media loaded: an empty `<video>` answers no either way.
+    @Test func videosCanFloat() async throws {
+        let folder = try #require(Bundle.module.url(forResource: "Fixtures/PictureInPicture", withExtension: nil))
+        let webView = WebViewFactory.makeWebView(dataStore: .nonPersistent())
+        // WebKit loads no media for a page that is in no window.
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 200, height: 120),
+            styleMask: [.borderless], backing: .buffered, defer: false
+        )
+        webView.frame = window.contentLayoutRect
+        window.contentView?.addSubview(webView)
+        window.orderFrontRegardless()
+        defer { window.orderOut(nil) }
+        webView.loadFileURL(folder.appending(path: "index.html"), allowingReadAccessTo: folder)
+        var answer: String?
+        for _ in 0..<50 {
+            answer = try? await webView.evaluateJavaScript("""
+            (function () {
+              var v = document.querySelector('video');
+              if (!v || v.readyState < 1) { return 'loading'; }
+              return String(v.webkitSupportsPresentationMode('picture-in-picture'));
+            })();
+            """) as? String
+            if let answer, answer != "loading" { break }
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        #expect(answer == "true", "the video answered \(answer ?? "nothing")")
     }
 
     /// A shared user content controller makes script message handler names collide

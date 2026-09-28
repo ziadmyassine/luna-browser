@@ -122,9 +122,38 @@ apps* in Settings copies it.
 
 The client is named from `clientInfo.name` in MCP's `initialize`, made readable
 (`claude-code` → Claude Code, `codex-mcp-client` → Codex, nothing → Agent).
-Every tab it opens goes into a sidebar folder with that name in the current
-Space. The folder is made on first use and reused after that. In the sidebar it shimmers
-while the agent is working in it. Agent tabs open in the background. The
+
+An agent is one **session** of an app, not the app: two Claude Code sessions
+are two agents, each with its own folder, pause and stop, and activity pill.
+`luna-control` is started once per session, so it says which one it serves in
+`params._meta` (`ControlSessionTag`): `dev.novapps.luna/session` on
+`initialize`, the same id again when Luna relaunches under it, and
+`dev.novapps.luna/sessionName` on every call once the session has a name. For
+Claude Code the id is `CLAUDE_CODE_SESSION_ID` and the name is the session's
+title from its transcript (`~/.claude/projects/*/<id>.jsonl`, the last
+`custom-title`, else the last `ai-title`), read from the end of the file and
+then only what was added since, at most every two seconds. Any other client
+gets a fresh id per helper and no name. A client that connects without the
+helper is one agent per connection.
+
+Every tab an agent opens goes into a sidebar folder in the current Space
+named after the session ("Main 2"), or after the app while the session has no
+name, numbered when another session already has that name ("Claude Code 2").
+The folder is made on first use and reused after that. It follows the
+session's name when that changes, until the user renames it. When an agent
+clicks, types, navigates or runs a script in one of the user's loose tabs,
+that tab moves into the agent's folder, so every tab an agent works in is
+under its folder; reading a tab moves nothing, and a saved tab or one in a
+folder stays where it is. Which app each folder belongs to is kept
+(`control.folderApps`), so a folder from an earlier launch wears its app's
+face before the session is back. The folder wears the app's own icon (Claude,
+ChatGPT's Codex, Cursor, VS Code; other clients keep a sparkles symbol), and
+the whole folder is always tinted in the app's colour, its fill, outline and
+name, not only on hover: orange for Claude, white for Codex and Cursor (black
+in light mode), blue for VS Code (`Tokens.Agent`). While the agent is working
+in it, a spark of light runs round the folder's edge; under Reduce Motion the
+edge brightens instead. When an app connects, its folder is unfolded so its
+tabs are in view. Agent tabs open in the background. The
 user's window keeps showing what it was showing, and Luna is never brought to
 the front.
 
@@ -179,9 +208,24 @@ so the user's pointer does not move. The tab goes back to having no window
 when the call ends.
 
 - Only a tab in no window is staged. A tab the user has on screen is never
-  taken, since that would take their first responder. An agent's own tab that
-  the user has selected, or shows in a split, is refused as taken over. The
-  user's own tab on screen gets page events instead.
+  taken, since that would take their first responder; it gets page events
+  instead, the agent's own tabs as well as the user's.
+- Looking at a page an agent is working on does not stop it: the user
+  watches. A capsule at the foot of the page says "*agent* is working", with
+  the folder's tinted rim and spark, and the agent's pointer, an arrow in its
+  app's colour outlined in white, with its name on a pill of that colour,
+  glides to wherever it clicks, hovers, types or drags; a click sends a ring
+  out from its tip. **Take Over** on the capsule, a pill whose corner runs with the
+  capsule's, pauses the agent and **Resume** hands the page back. While
+  the agent is paused its next call waits, so Resume lets that same call
+  through and the agent carries on. A tab the agent is acting on is outlined
+  in the sidebar with its folder's rim and spark, as long as the folder's
+  spark runs. The capsule shows only while the
+  agent is acting on the page (and for 8 s after its last call, so the model
+  thinking between calls does not make it flicker), or while it is paused
+  there. The capsule and the
+  question's sheet are Liquid Glass that takes its light or dark look from the
+  page's own colour, as the page bar does, so their text reads on any site.
 - If the user shows the tab while a call is running, the next event is
   refused.
 - WebKit passes keys the page did not handle to `NSApp.sendEvent`, where the
@@ -287,10 +331,16 @@ Settings → Luna Control → *Before an app acts on a page*:
 
 A call that needs approval waits without taking the user's window: the
 folder's icon becomes a raised hand and the Dock icon bounces once
-(`requestUserAttention(.informationalRequest)`). Luna is never activated and
-no window becomes key. Clicking the folder opens a card saying what the call
-will do and where, with **Deny**, **Allow Once** and, in Per Site mode,
-**Allow on *site***. None of them is the default button. A request nobody
+(`requestUserAttention(.informationalRequest)`). At once, a glass sheet drops
+from the top edge of whatever page is in front, not only the agent's own,
+centred on the page and only as wide as its text and answers
+(`ControlSurfaceView`, `Motion.agentSheet`), with the app's icon, what the call
+will do and where, and **Deny**, **Allow Once** and, in Per Site mode,
+**Allow on *site***. Asking makes no window key and does not activate Luna, so
+the keyboard stays where it was. One request is shown at a time, oldest first,
+with how many more are waiting; the sheet goes back up when none are left. If Luna quits while a
+call is waiting, `luna-control` answers it at once as unreachable rather than
+leaving the client to its own timeout. None of them is the default button. A request nobody
 answers is declined after five minutes. If the page moved to another site
 while the user was deciding, the call is not made. The agent reads a declined
 call as an error telling it not to work around it.
@@ -332,7 +382,9 @@ the dialog's text. Every other call on the tab fails with the same text until
 the agent answers with `dialog`. After 30 seconds the dialog is dismissed,
 but not while an approval for that agent is waiting. A "Leave site?"
 (`beforeunload`) prompt never appears: a `WKWebView` app has no public API
-for it, and leaving a page always goes ahead.
+for it, and leaving a page always goes ahead. A file picker the page opens
+in such a tab is cancelled rather than shown; `file_upload` is how an agent
+gives a page a file.
 
 ### Downloads
 
@@ -344,14 +396,16 @@ in the activity log as `download`.
 
 ### Stop and pause
 
-- Right-click an agent's folder for **Pause Agent** (new calls are refused,
-  running ones finish), **Stop Agent** (running calls, including ones waiting
+- Right-click an agent's folder for **Pause Agent** (new calls wait for
+  Resume, up to five minutes, and are then refused; running ones finish), **Stop Agent** (running calls, including ones waiting
   for approval, are cancelled and new ones refused) and **Resume Agent**. The
   folder wears a pause or stop icon meanwhile.
+- Each is per session: stopping one Claude Code session leaves another
+  working.
 - **Luna → Stop All Agents** does the same for every client until **Resume
   Agents**. It works even with the setting off.
-- Selecting one of the agent's own tabs takes it over: acting calls on the
-  tab in front are refused until the user leaves it.
+- Selecting one of the agent's own tabs does not take it over; **Take Over**
+  on the page's capsule does, and it is a pause like the one above.
 - Holds last until resumed or until Luna quits.
 
 ### Uploads from disk
@@ -460,6 +514,18 @@ Every call is written as one JSON line to
 text is counted, not kept, and script is scrubbed and cut to 200 characters.
 Past 4 MB the file rolls to `activity.1.jsonl`. Settings shows the last
 twenty calls.
+
+While an agent works, and for eight seconds after its last call, the page's
+bottom trailing corner carries a glass pill with the app's icon, the name of
+its folder, and its newest call in words ("Go to developer.apple.com", "Type
+12 characters"; element refs are left out). Two sessions at work are two
+pills, one above the other, the session that started first lowest. A pill is
+a button: it opens that session's calls since launch, newest first, as a
+pop-out standing on it and titled with the folder's name, each row with the
+call, its site, when, and how it ended (running, declined, failed, stopped).
+The list updates while it is open, and the pill stays while the list does
+(`ControlActivity`, `ControlActivityPill`, `ControlActivityList`). It is kept
+in memory only; the file above is the record.
 
 ## The Settings pane
 

@@ -35,9 +35,11 @@ final class ControlServiceTests: XCTestCase {
 
     /// Allow-all, so these tests are about tabs and folders rather than
     /// approvals (`ControlSafetyTests` has those), and in a suite of their own
-    /// rather than the user's defaults.
+    /// rather than the user's defaults — fixed and emptied, for the reason in
+    /// `ControlSafetyTests.setUpWithError`.
     private func makeService(_ session: BrowserSession) -> ControlService {
-        let defaults = UserDefaults(suiteName: "luna-control-tests-\(UUID().uuidString)")
+        let defaults = UserDefaults(suiteName: "luna.tests.ControlServiceTests")
+        defaults?.removePersistentDomain(forName: "luna.tests.ControlServiceTests")
         defaults?.set(ControlMode.allowAll.rawValue, forKey: ControlService.modeKey)
         return ControlService(
             session: session, defaults: defaults ?? .standard, auditURL: directory.appending(path: "activity.jsonl")
@@ -82,5 +84,52 @@ final class ControlServiceTests: XCTestCase {
         let result = await service.perform(ControlCall(tab: number, .closeTab), client)
         XCTAssertTrue(result.isError)
         XCTAssertNotNil(session.tab(users))
+    }
+
+    /// Two sessions of one app are two agents: a folder each, called by the
+    /// session's name, numbered while a session has none, and following the
+    /// name until the user renames the folder themselves.
+    func testEachSessionOfOneAppGetsAFolderOfItsOwn() async throws {
+        let session = try await session()
+        let service = makeService(session)
+        let first = ControlClient(rawName: "claude-code", session: "one")
+        var second = ControlClient(rawName: "claude-code", session: "two")
+        _ = await service.perform(ControlCall(.openTab(nil)), first)
+        _ = await service.perform(ControlCall(.openTab(nil)), second)
+        let one = try XCTUnwrap(service.folders["one"])
+        let two = try XCTUnwrap(service.folders["two"])
+        XCTAssertNotEqual(one, two, "two sessions share a folder")
+        XCTAssertEqual(session.group(one)?.name, "Claude Code")
+        XCTAssertEqual(session.group(two)?.name, "Claude Code 2")
+        XCTAssertEqual(session.members(ofGroup: two).count, 1)
+
+        second.sessionName = "Main 3"
+        _ = await service.perform(ControlCall(.listTabs), second)
+        XCTAssertEqual(session.group(two)?.name, "Main 3", "the folder did not take the session's name")
+
+        session.renameGroup(two, to: "Mine")
+        second.sessionName = "Main 4"
+        _ = await service.perform(ControlCall(.listTabs), second)
+        XCTAssertEqual(session.group(two)?.name, "Mine", "the user's name for the folder was replaced")
+        XCTAssertEqual(service.shownActivity.map(\.agent).sorted(), ["one", "two"], "one pill for both sessions")
+    }
+
+    /// A loose tab of the user's that an agent acts on goes into the agent's
+    /// folder; one it only reads stays where it is.
+    func testATabAnAgentActsOnGoesIntoItsFolder() async throws {
+        let session = try await session()
+        let users = session.newTab(url: try XCTUnwrap(URL(string: "data:text/html,%3Cp%3Ehi%3C/p%3E")))
+        let service = makeService(session)
+        let number = service.number(users)
+
+        let read = await service.perform(ControlCall(tab: number, .pageText), client)
+        XCTAssertFalse(read.isError, text(read))
+        XCTAssertNil(session.tab(users)?.groupID, "reading the tab moved it")
+
+        let ran = await service.perform(ControlCall(tab: number, .javascript("1 + 1")), client)
+        XCTAssertFalse(ran.isError, text(ran))
+        let folder = try XCTUnwrap(service.folders[client.session], "acting made no folder")
+        XCTAssertEqual(session.tab(users)?.groupID, folder, "the tab the agent used is not in its folder")
+        XCTAssertEqual(session.activeTabID, users, "moving the tab changed the user's selection")
     }
 }

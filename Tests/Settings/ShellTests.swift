@@ -30,7 +30,7 @@ final class SettingsDefaultsTests: XCTestCase {
             "appearance.theme", "appearance.glassOptimisation",
             "search.engine", "search.customEngineURL",
             "downloads.directory", "downloads.autoOpen",
-            "advanced.userAgent", "advanced.webInspector", "advanced.allowControl",
+            "advanced.userAgent", "advanced.showDevelopMenu", "advanced.webInspector", "advanced.allowControl",
             "settings.lastSection"
         ] {
             XCTAssertTrue(keys.contains(declared), "§6 declares \(declared) and the table does not")

@@ -13,19 +13,40 @@ import BrowserKit
 
 extension BrowserSession {
 
-    /// The client's folder in the active Space: the one it had, else one
-    /// already called by its name, else a new one at the head of today's tabs.
+    /// A Luna Control folder's own icon, which it shows only for a client
+    /// Luna has no icon for. Also how a folder from an earlier launch is told
+    /// apart from one the user made and named the same.
+    static let controlFolderSymbol = "sparkles"
+
+    /// An agent session's folder in the active Space: the one it had, else a
+    /// Luna Control folder already called by its name that is not in
+    /// `excluding` (another session's), else a new one at the head of today's
+    /// tabs.
     ///
     /// No undo entry and no name field, unlike `createGroup`: nothing the user
     /// did made it, so there is nothing for `⌘Z` to take back and no name to
-    /// ask for.
-    func controlFolder(named name: String, previously id: UUID?) -> TabGroup {
+    /// ask for. The same goes for renaming and filling it, below.
+    func controlFolder(named name: String, previously id: UUID?, excluding: Set<UUID> = []) -> TabGroup {
         if let id, let group = list.group(id), group.spaceID == activeSpaceID { return group }
-        if let group = groups.first(where: { $0.name == name }) { return group }
-        let group = TabGroup(spaceID: activeSpaceID, name: name, symbolName: "sparkles", kind: .today)
+        if let group = groups.first(where: {
+            $0.name == name && $0.symbolName == Self.controlFolderSymbol && !excluding.contains($0.id)
+        }) { return group }
+        let group = TabGroup(spaceID: activeSpaceID, name: name, symbolName: Self.controlFolderSymbol, kind: .today)
         persistAll(list.insertGroup(group, at: openIndex(for: .today)))
         notifyChange()
         return group
+    }
+
+    func renameControlFolder(_ id: UUID, to name: String) {
+        undoManager.disableUndoRegistration()
+        renameGroup(id, to: name)
+        undoManager.enableUndoRegistration()
+    }
+
+    func moveControlledTab(_ id: UUID, into group: UUID) {
+        undoManager.disableUndoRegistration()
+        moveTab(id, toGroup: group)
+        undoManager.enableUndoRegistration()
     }
 
     /// A tab at the end of `group`, loading `url`, with a web view but not
@@ -72,6 +93,12 @@ extension BrowserSession {
         if changed { notifyChange() }
     }
 
+    func setControlled(_ controlled: Bool, tab id: UUID, face: ControlFace) {
+        let old = controlledTabs[id]
+        controlledTabs[id] = controlled ? face : nil
+        if controlledTabs[id] != old { notifyChange() }
+    }
+
     /// The icon a Luna Control folder wears instead of its own while it is
     /// waiting for the user, paused or stopped.
     func setControlBadges(_ badges: [UUID: String]) {
@@ -79,4 +106,19 @@ extension BrowserSession {
         controlBadges = badges
         notifyChange()
     }
+
+    func setControlFaces(_ faces: [UUID: ControlFace]) {
+        guard faces != controlFaces else { return }
+        controlFaces = faces
+        notifyChange()
+    }
+}
+
+/// What a Luna Control folder shows of the app it belongs to: that app's
+/// icon in place of its own, and an outline in the app's colour
+/// (`Tokens.Agent`) that glows while the app is working in the folder.
+struct ControlFace: Equatable {
+    /// `ControlApp.id`, or nil for a client Luna knows nothing about, which
+    /// keeps the folder's own icon and a neutral outline.
+    var appID: String?
 }

@@ -91,6 +91,7 @@ public enum WebViewFactory {
 
     /// Required (macOS 13.3+): without it the Web Inspector silently does nothing (§4.1).
     /// Defaults to on, which is what every Luna web view did before it was a setting.
+    /// Also gates the in-app inspector (`WebInspector`).
     public static var isWebInspectorEnabled: Bool {
         get { UserDefaults.standard.object(forKey: Key.webInspector) as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: Key.webInspector) }
@@ -124,7 +125,13 @@ public enum WebViewFactory {
     public static func applyAdvancedSettings(to webView: WKWebView) {
         webView.customUserAgent = customUserAgent(for: userAgentMode)
         webView.isInspectable = isWebInspectorEnabled
+        WebInspector.setDeveloperExtras(isWebInspectorEnabled, on: webView)
     }
+
+    /// Develop ▸ Disable JavaScript. Not stored: a page that silently stops
+    /// working after a relaunch is the failure a forgotten switch produces.
+    /// Luna's own scripts run in their own worlds and are not affected.
+    @MainActor public static var isPageJavaScriptDisabled = false
 
     // MARK: - Construction
 
@@ -139,6 +146,13 @@ public enum WebViewFactory {
         let configuration = makeConfiguration(dataStore: dataStore)
         configuration.webExtensionController = webExtensionController
         return makeWebView(configuration: configuration)
+    }
+
+    /// The one place a `WKWebView` is allocated. The app swaps in its own
+    /// subclass, which carries what needs AppKit — the page's right-click
+    /// menu — and this layer may not import.
+    @MainActor public static var makeView: (WKWebViewConfiguration) -> WKWebView = {
+        WKWebView(frame: .zero, configuration: $0)
     }
 
     /// Builds a web view around a configuration WebKit handed us — the `WKUIDelegate`
@@ -158,7 +172,7 @@ public enum WebViewFactory {
         // `target="_blank"` window would load unfiltered without this second call.
         ContentBlocker.shared.apply(to: configuration.userContentController)
 
-        let webView = WKWebView(frame: .zero, configuration: configuration)
+        let webView = makeView(configuration)
         webView.allowsBackForwardNavigationGestures = true
         webView.allowsMagnification = true
         applyAdvancedSettings(to: webView)
@@ -181,6 +195,12 @@ public enum WebViewFactory {
         // §18.8: must stay empty to match Safari. `[.audio]` blocks the programmatic
         // `play()` an SPA navigation makes outside a user gesture, which breaks YouTube.
         configuration.mediaTypesRequiringUserActionForPlayback = []
+        // D10's second exception (TODO.md): native Picture in Picture is off in every
+        // WKWebView but Safari's, and the public property is iOS-only — set on the
+        // configuration it raises. Checked first, so a WebKit without it loses PiP, not the app.
+        if configuration.preferences.responds(to: NSSelectorFromString("_setAllowsPictureInPictureMediaPlayback:")) {
+            configuration.preferences.setValue(true, forKey: "allowsPictureInPictureMediaPlayback")
+        }
 
         let pagePreferences = WKWebpagePreferences()
         pagePreferences.allowsContentJavaScript = true

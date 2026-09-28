@@ -70,6 +70,8 @@ struct SidebarRowContent: Equatable {
     /// trailing one. The column's rows never draw it — its URL pill has the
     /// same glyph a row's height above.
     var siteSettings: Bool = false
+    /// A Luna Control folder's title and chevron, in its app's colour.
+    var tint: NSColor?
 
     /// Whether a group is folded shut, on the row that folds it.
     enum Disclosure: Equatable { case expanded, collapsed }
@@ -278,7 +280,7 @@ final class SidebarRowView: NSView {
     ///
     /// Pure, so the rule can be asserted without a window to hover in.
     private func refreshInk() {
-        title.textColor = Self.titleInk(
+        title.textColor = content.tint ?? Self.titleInk(
             isSelected: isSelected,
             isLoading: content.isLoading,
             isDormant: content.isDormant
@@ -287,7 +289,7 @@ final class SidebarRowView: NSView {
         icon.alphaValue = content.isDormant ? Tokens.Metric.dormantIconOpacity : 1
         // Not the hover, as a title is not: the chevron is only on a §3.4b
         // header, and the pill or the folder's plate answers the pointer for it.
-        chevron.contentTintColor = isSelected ? Tokens.Text.primary : Tokens.Text.secondary
+        chevron.contentTintColor = content.tint ?? (isSelected ? Tokens.Text.primary : Tokens.Text.secondary)
         // Ink, not accent. Luna's chrome carries no system blue: the unread
         // mark is a full-strength dot in the same ink the title is set in, and
         // it reads because it is bright, not because it is a different hue.

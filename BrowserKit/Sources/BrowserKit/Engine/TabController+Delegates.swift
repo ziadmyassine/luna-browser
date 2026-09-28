@@ -1,14 +1,70 @@
 import Foundation
+import UniformTypeIdentifiers
 import WebKit
 
 // MARK: - WKNavigationDelegate (§4.2)
 
 extension TabController: WKNavigationDelegate {
 
+    /// The preferences form, for Develop ▸ Disable JavaScript; WebKit calls
+    /// only this one when both are implemented, so the policy itself is below.
     public func webView(
         _ webView: WKWebView,
         decidePolicyFor navigationAction: WKNavigationAction,
-        decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
+        preferences: WKWebpagePreferences,
+        decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy, WKWebpagePreferences) -> Void
+    ) {
+        preferences.allowsContentJavaScript = !WebViewFactory.isPageJavaScriptDisabled
+        decidePolicy(for: navigationAction, in: webView) { decisionHandler($0, preferences) }
+    }
+
+    /// A link ⌘-clicked, or pressed with the middle button, is a new tab
+    /// rather than this page going somewhere — `target="_blank"` included,
+    /// which arrives here before `createWebViewWith`.
+    private func openedInNewTab(_ action: WKNavigationAction, url: URL) -> Bool {
+        guard action.navigationType == .linkActivated,
+              action.modifierFlags.contains(.command) || action.buttonNumber == 2 else { return false }
+        delegate?.tabController(self, wantsToOpenInNewTab: url, inBackground: !action.modifierFlags.contains(.shift))
+        return true
+    }
+
+    /// §17's per-navigation work for a main-frame load: the pop-up guards, the
+    /// rule lists and scripts for the site being entered, and §17.6's upgrade.
+    /// - Returns: true when it has answered `decisionHandler` itself.
+    private func decidedMainFrame(
+        _ action: WKNavigationAction, to url: URL, in webView: WKWebView,
+        decisionHandler: @MainActor (WKNavigationActionPolicy) -> Void
+    ) -> Bool {
+        if refusesOnProbation(action, to: url) || refusesTabUnder(action, to: url) {
+            decisionHandler(.cancel)
+            return true
+        }
+        applyPopupMode(to: webView)
+        ContentBlocker.shared.apply(
+            to: webView.configuration.userContentController, host: url.host(), scope: sitePermissions
+        )
+        // §17.2. The rule lists above are swapped per navigation; the YouTube
+        // script has to be too, and for the same reason — "disable blocking here"
+        // has to mean here.
+        refreshUserScriptsIfNeeded(host: url.host(), isFile: url.isFileURL)
+        // §17.6. `preferredHTTPSNavigationPolicy` cannot do this: measured, both of
+        // its values end an http-only navigation at `about:blank` with `didFinish`
+        // and no delegate error, so there is no hook to put an interstitial on.
+        // Luna upgrades and cancels itself instead. `bypassedURL` is the user having
+        // already said "continue anyway" on the downgrade page.
+        if case let .upgrade(upgraded) = ContentBlocker.shared.httpsDecision(for: url, in: sitePermissions),
+           url != bypassedURL {
+            decisionHandler(.cancel)
+            load(upgraded)
+            return true
+        }
+        return false
+    }
+
+    private func decidePolicy(
+        for navigationAction: WKNavigationAction,
+        in webView: WKWebView,
+        decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void
     ) {
         // §15.2 — an <a download> link, decided before a response ever arrives.
         if navigationAction.shouldPerformDownload {
@@ -17,6 +73,10 @@ extension TabController: WKNavigationDelegate {
         }
         guard let url = navigationAction.request.url else {
             decisionHandler(.allow)
+            return
+        }
+        if openedInNewTab(navigationAction, url: url) {
+            decisionHandler(.cancel)
             return
         }
         // §4.4 comes first, because `NavigationPolicy.disposition` would hand a
@@ -29,30 +89,9 @@ extension TabController: WKNavigationDelegate {
         // §17, main frame only — a sub-frame does not change the site the user is
         // on, and re-scoping the rule lists for one would disable blocking for the
         // whole page.
-        if navigationAction.targetFrame?.isMainFrame ?? false {
-            if refusesOnProbation(navigationAction, to: url) || refusesTabUnder(navigationAction, to: url) {
-                decisionHandler(.cancel)
-                return
-            }
-            applyPopupMode(to: webView)
-            ContentBlocker.shared.apply(
-                to: webView.configuration.userContentController, host: url.host(), scope: sitePermissions
-            )
-            // §17.2. The rule lists above are swapped per navigation; the YouTube
-            // script has to be too, and for the same reason — "disable blocking here"
-            // has to mean here.
-            refreshUserScriptsIfNeeded(host: url.host())
-            // §17.6. `preferredHTTPSNavigationPolicy` cannot do this: measured, both of
-            // its values end an http-only navigation at `about:blank` with `didFinish`
-            // and no delegate error, so there is no hook to put an interstitial on.
-            // Luna upgrades and cancels itself instead. `bypassedURL` is the user having
-            // already said "continue anyway" on the downgrade page.
-            if case let .upgrade(upgraded) = ContentBlocker.shared.httpsDecision(for: url, in: sitePermissions),
-               url != bypassedURL {
-                decisionHandler(.cancel)
-                load(upgraded)
-                return
-            }
+        if navigationAction.targetFrame?.isMainFrame ?? false,
+           decidedMainFrame(navigationAction, to: url, in: webView, decisionHandler: decisionHandler) {
+            return
         }
         // §8.1. Typed URLs, links and new-tab opens all arrive here, so this one
         // check covers every route into a private window. Meeting the URL it last
@@ -89,6 +128,15 @@ extension TabController: WKNavigationDelegate {
         decisionHandler: @escaping @MainActor @Sendable (WKNavigationResponsePolicy) -> Void
     ) {
         onNavigationResponse?(navigationResponse)
+        // A text file on this Mac WebKit has no viewer for — YAML, TOML, an
+        // `.env` — is shown as the text it is. Handed to the downloader it was
+        // copied into Downloads, which is not opening a file already here.
+        if navigationResponse.isForMainFrame, !navigationResponse.canShowMIMEType,
+           let url = navigationResponse.response.url, let text = Self.localText(at: url) {
+            decisionHandler(.cancel)
+            webView.load(text, mimeType: "text/plain", characterEncodingName: "utf-8", baseURL: url)
+            return
+        }
         // `value(forHTTPHeaderField:)`, not `allHeaderFields[…]` — the latter is a
         // case-sensitive dictionary lookup and servers send `content-disposition`.
         let disposition = (navigationResponse.response as? HTTPURLResponse)?
@@ -101,7 +149,33 @@ extension TabController: WKNavigationDelegate {
         decisionHandler(download ? .download : .allow)
     }
 
+    /// The contents of a local text file, or nil for anything else. Capped at
+    /// 16 MB: past that it is a log nobody reads in a browser, and the load is
+    /// in memory.
+    static func localText(at url: URL) -> Data? {
+        guard isLocalText(url),
+              let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size <= 16 << 20
+        else { return nil }
+        return try? Data(contentsOf: url)
+    }
+
+    static func isLocalText(_ url: URL) -> Bool {
+        guard url.isFileURL, let type = UTType(filenameExtension: url.pathExtension) else { return false }
+        return type.conforms(to: .text) && !type.conforms(to: .rtf) && !type.conforms(to: .html)
+    }
+
     public func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {
+        // §15.4 — no silent auto-downloads from background frames: a script
+        // clicking `<a download>` in a hidden iframe. Only this path is held
+        // to a gesture. A download link that redirects to another site loses
+        // its `download` attribute on the way, and WebKit loads the new
+        // address in the frame instead, so the file comes back through the
+        // response path below with no gesture on it; cancelled there, every
+        // such link did nothing.
+        guard download.isUserInitiated || download.originatingFrame.isMainFrame else {
+            download.cancel()
+            return
+        }
         delegate?.tabController(self, didStartDownload: download)
     }
 
@@ -302,6 +376,23 @@ extension TabController: WKUIDelegate {
             completionHandler(
                 await delegate.tabController(self, runJavaScriptPrompt: prompt, defaultText: defaultText)
             )
+        }
+    }
+
+    /// On macOS a web view whose delegate leaves this out treats every
+    /// `<input type=file>` as cancelled, so the page's Browse button does nothing.
+    public func webView(
+        _ webView: WKWebView,
+        runOpenPanelWith parameters: WKOpenPanelParameters,
+        initiatedByFrame frame: WKFrameInfo,
+        completionHandler: @escaping @MainActor @Sendable ([URL]?) -> Void
+    ) {
+        guard let delegate else { completionHandler(nil); return }
+        Task {
+            completionHandler(await delegate.tabController(
+                self, chooseFilesAllowingMultiple: parameters.allowsMultipleSelection,
+                directories: parameters.allowsDirectories
+            ))
         }
     }
 

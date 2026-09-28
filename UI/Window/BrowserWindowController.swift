@@ -21,6 +21,9 @@ import WebKit
 final class BrowserWindowController: NSWindowController, NSWindowDelegate {
 
     private let card = ContentCardView()
+    /// Luna Control's layer over the page: an agent's question, the capsule
+    /// on a page it is working on, and its pointer.
+    let controlSurface = ControlSurfaceView()
     /// §8.2a's wash, in the two places the sidebar's own copy cannot reach.
     /// See `SpaceCornerFillView` for why it is a second view.
     private let cornerFill = SpaceCornerFillView()
@@ -211,6 +214,7 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         // Applied before any subview so the glass stays behind them.
         Glass.apply(.sidebar, to: root)
         card.pin(in: root)
+        card.setAgentLayer(controlSurface)
         // Below the card, so the only place it can show is the notch the card's
         // rounded leading corners leave. Above it, it would be a tinted stripe
         // down the page's edge.

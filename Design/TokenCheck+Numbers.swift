@@ -398,6 +398,7 @@ extension TokenCheck {
             ("themeWash", Tokens.Motion.themeWash), ("reloadArcIn", Tokens.Motion.reloadArcIn),
             ("reloadArcOut", Tokens.Motion.reloadArcOut),
             ("loadLineAdvance", Tokens.Motion.loadLineAdvance), ("loadLineFade", Tokens.Motion.loadLineFade),
+            ("agentSheet", Tokens.Motion.agentSheet),
             ("downloadFlight", Tokens.Motion.downloadFlight), ("downloadCatch", Tokens.Motion.downloadCatch),
             ("modePhase", Tokens.Motion.modePhase), ("satelliteFade", Tokens.Motion.satelliteFade)
         ]
@@ -423,6 +424,7 @@ extension TokenCheck {
         failures += exemption("moonBeam", Tokens.Motion.moonBeam, 0.70)
         failures += exemption("satelliteLaunch", Tokens.Motion.satelliteLaunch, 0.60)
         failures += exemption("livePulse", Tokens.Motion.livePulse, 1.60)
+        failures += exemption("agentSpark", Tokens.Motion.agentSpark, 2.60)
         if timed.contains(where: { $0.0 == "rowShimmer" }) {
             failures.append("Motion.rowShimmer is in the budget list — it loops, so 0.35 s would make it a strobe")
         }

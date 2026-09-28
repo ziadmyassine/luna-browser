@@ -31,7 +31,7 @@ final class SearchSection: SettingsGroup {
 
     static let id = "search"
     static let title = String(localized: "Search")
-    static let keywords = ["engine", "duckduckgo", "google", "bing", "kagi", "suggestions", "address bar"]
+    static let keywords = ["engine", "google", "duckduckgo", "bing", "kagi", "suggestions", "address bar"]
 
     private let custom = SettingsTextField(string: "")
     /// The field outlives the rows it is placed in (the page rebuilds after
@@ -44,7 +44,7 @@ final class SearchSection: SettingsGroup {
         SearchSettings.reload()
         custom.stringValue = SearchSettings.current.customTemplate
         body.card(Self.title, [
-            (engineRow(), ["search engine", "duckduckgo", "google", "bing", "kagi", "custom"]),
+            (engineRow(), ["search engine", "google", "duckduckgo", "bing", "kagi", "custom"]),
             (customRow(), ["custom engine url", "search engine", "%s", "placeholder"]),
             (suggestionsRow(), ["search suggestions", "autocomplete", "complete"]),
             (settingsResultsRow(), ["settings in search results", "command bar", "sections", "open in settings"]),
@@ -133,7 +133,7 @@ final class SearchSection: SettingsGroup {
     /// what the custom URL needed, which is three lines to say what the popup
     /// one row up already says. What it could not be replaced by is nothing:
     /// a custom template without `%s` is silently ignored and searches fall
-    /// back to DuckDuckGo, so the field has to admit when Luna is not using it.
+    /// back to Google, so the field has to admit when Luna is not using it.
     private func refreshValidity() {
         let setting = SearchSettings.current
         let broken = setting.engine == .custom

@@ -126,4 +126,19 @@ final class LunaControlSkyTests: XCTestCase {
     private func descendants<T: NSView>(of root: NSView, ofType type: T.Type) -> [T] {
         root.subviews.flatMap { view in ((view as? T).map { [$0] } ?? []) + descendants(of: view, ofType: type) }
     }
+
+    /// A light going round the back is shared between the two passes rather
+    /// than moved from one to the other, and the shares always add up to it.
+    func testALightCrossesTheMoonsEdgeGradually() {
+        XCTAssertEqual(ControlSkyView.frontness(-ControlSkyView.crossing), 0, accuracy: 0.001)
+        XCTAssertEqual(ControlSkyView.frontness(0), 0.5, accuracy: 0.001)
+        XCTAssertEqual(ControlSkyView.frontness(ControlSkyView.crossing), 1, accuracy: 0.001)
+        var last: CGFloat = 0
+        for step in 0 ... 60 {
+            let depth = -0.3 + CGFloat(step) * 0.01
+            let front = ControlSkyView.frontness(depth)
+            XCTAssertLessThan(front - last, 0.05, "the light jumped at depth \(depth)")
+            last = front
+        }
+    }
 }

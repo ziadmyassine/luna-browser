@@ -152,6 +152,7 @@ enum SiteMenu {
             // the address rather than nothing at all.
             NSPasteboard.general.writeObjects([url as NSURL])
             NSPasteboard.general.setString(url.absoluteString, forType: .string)
+            PageToast.linkCopied.show()
         }
     }
 
