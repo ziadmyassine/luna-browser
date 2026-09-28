@@ -47,7 +47,7 @@ extension AppDelegate {
 
     // MARK: - The page
 
-    /// `⇧⌘R`. Past the cache, unlike `⌘R`.
+    /// `⌥⌘R`. Past the cache, unlike `⌘R`.
     @objc func forceReloadPage(_ sender: Any?) {
         session?.reloadIgnoringCache()
     }
@@ -80,6 +80,18 @@ extension AppDelegate {
 
     @objc func togglePictureInPicture(_ sender: Any?) {
         session?.togglePictureInPicture()
+    }
+
+    // MARK: - Reader and hiding
+
+    /// `⇧⌘R`.
+    @objc func toggleReader(_ sender: Any?) {
+        session?.toggleReader()
+    }
+
+    /// `⇧⌘H`. Point at a part of the page and it is gone on this site for good.
+    @objc func toggleHidingElements(_ sender: Any?) {
+        session?.toggleHidingElements()
     }
 
     // MARK: - History (§6.4)
@@ -134,6 +146,20 @@ extension AppDelegate {
             return session.canZoom && session.pageZoom != 1
         case #selector(showHistory(_:)):
             return historyPanel != nil
+        default:
+            return validatePageTool(item, in: session)
+        }
+    }
+
+    /// Reader and the picker, ticked while on so the menu says how to get back out.
+    private func validatePageTool(_ item: NSMenuItem, in session: BrowserSession) -> Bool? {
+        switch item.action {
+        case #selector(toggleReader(_:)):
+            item.state = session.isReaderOn ? .on : .off
+            return session.canUsePageTools
+        case #selector(toggleHidingElements(_:)):
+            item.state = session.isPickingElements ? .on : .off
+            return session.canUsePageTools
         default:
             return nil
         }

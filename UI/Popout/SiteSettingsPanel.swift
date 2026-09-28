@@ -10,10 +10,10 @@
 //  the one surface a chrome glyph opened that was not a pop-out: History and
 //  Downloads stand on their buttons in glass, and this dropped a system menu.
 //
-//  Three bands, top to bottom: what the connection is, the switches that are
-//  this site's answers, and the things you can do to the site. The switches
-//  keep the pop-out up, because the next question is usually the one beside
-//  it; an action closes it, the way a menu item does.
+//  Top to bottom: what the connection is, the switches that are this site's
+//  answers, what is hidden on it, and the things you can do to the page and the
+//  site. The switches keep the pop-out up, because the next question is
+//  usually the one beside it; an action closes it, the way a menu item does.
 //
 //  The rows are §3.4's, pitch and pill: a glyph at `rowFaviconInset`, the
 //  title a `rowIconGap` after it, and one pill that follows the pointer.
@@ -54,12 +54,15 @@ struct SiteSettingsContent {
     var heading: String
     var connection: Connection?
     var toggles: [Toggle] = []
+    /// What is hidden on this site, one switch each, in a band of its own
+    /// under the site's answers: on is hidden, and off shows it again.
+    var hidden: [Toggle] = []
     /// Each inner list is a band, with a hairline between bands.
     var actions: [[Action]] = []
 
     /// How tall the panel is with all of this in it.
     var height: CGFloat {
-        let bands = (toggles.isEmpty ? [] : [toggles.count]) + actions.map(\.count).filter { $0 > 0 }
+        let bands = [toggles.count, hidden.count].filter { $0 > 0 } + actions.map(\.count).filter { $0 > 0 }
         let rows = bands.reduce(0) { total, count in
             total + CGFloat(count) * SiteSettingsMetrics.rowHeight + 2 * SiteSettingsMetrics.bandPadding
         }
@@ -110,8 +113,8 @@ final class SiteSettingsPanel: PopoutPanelView {
         place(header, at: &y, height: SiteSettingsMetrics.headerHeight)
 
         var bands: [[SiteSettingsRow]] = []
-        if !content.toggles.isEmpty {
-            bands.append(content.toggles.map { SiteSettingsRow(toggle: $0) })
+        for band in [content.toggles, content.hidden] where !band.isEmpty {
+            bands.append(band.map { SiteSettingsRow(toggle: $0) })
         }
         for band in content.actions where !band.isEmpty {
             bands.append(band.map { action in

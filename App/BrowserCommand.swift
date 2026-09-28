@@ -165,7 +165,7 @@ struct BrowserCommand: Identifiable {
     )
     static let forceReloadPage = BrowserCommand(
         "forceReloadPage", "Force Refresh the Page", #selector(AppDelegate.forceReloadPage(_:)),
-        [KeyBinding("r", [.command, .shift])], symbol: "arrow.clockwise.circle", keywords: ["hard refresh", "cache"]
+        [KeyBinding("r", [.command, .option])], symbol: "arrow.clockwise.circle", keywords: ["hard refresh", "cache"]
     )
     static let stopLoading = BrowserCommand(
         "stopLoading", "Stop Loading", #selector(AppDelegate.stopLoading(_:)), [KeyBinding(".")], symbol: "xmark.circle"
@@ -189,6 +189,16 @@ struct BrowserCommand: Identifiable {
         "pictureInPicture", "Picture in Picture", #selector(AppDelegate.togglePictureInPicture(_:)),
         [KeyBinding("p", [.command, .shift])],
         symbol: "pip", keywords: ["pip", "float video", "floating video"]
+    )
+    /// Safari's keys for both: ⇧⌘R is Reader, and forcing a refresh is ⌥⌘R.
+    static let reader = BrowserCommand(
+        "reader", "Reader", #selector(AppDelegate.toggleReader(_:)), [KeyBinding("r", [.command, .shift])],
+        symbol: "doc.plaintext", keywords: ["reader mode", "reading mode", "article", "read"]
+    )
+    static let hideElements = BrowserCommand(
+        "hideElements", "Hide Something…", #selector(AppDelegate.toggleHidingElements(_:)),
+        [KeyBinding("h", [.command, .shift])],
+        symbol: "eye.slash", keywords: ["hide element", "remove", "block element", "banner", "annoyance"]
     )
     static let showDownloads = BrowserCommand(
         "showDownloads", "Downloads", #selector(AppDelegate.showDownloads(_:)), [KeyBinding("l", [.command, .option])],
@@ -276,7 +286,7 @@ struct BrowserCommand: Identifiable {
         reopenArchivedTab, closeWindow,
         undo, redo, cut, copy, paste, selectAll, copyURL, copyMarkdown,
         toggleSidebar, toggleFavorite, reloadPage, forceReloadPage, stopLoading,
-        zoomIn, zoomOut, actualSize, pictureInPicture, showDownloads,
+        zoomIn, zoomOut, actualSize, pictureInPicture, reader, hideElements, showDownloads,
         goBack, goForward, showHistory,
         showWebInspector, showJavaScriptConsole, showPageSource, startElementSelection, disableJavaScript, emptyCaches,
         previousTab, nextTab, previousSpace, nextSpace, minimize, searchSettings

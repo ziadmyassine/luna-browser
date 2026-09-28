@@ -38,7 +38,7 @@ extension BrowserSession {
         return activeURL?.host(percentEncoded: false) ?? ""
     }
 
-    /// ⇧⌘R. `reloadFromOrigin` rather than `reload`: the point of asking twice
+    /// ⌥⌘R. `reloadFromOrigin` rather than `reload`: the point of asking twice
     /// is to get past the cache, and `reload` is allowed to answer out of it.
     func reloadIgnoringCache() {
         activeController?.reloadFromOrigin()

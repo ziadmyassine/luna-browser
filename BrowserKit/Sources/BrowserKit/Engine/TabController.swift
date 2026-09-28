@@ -14,7 +14,7 @@ public final class TabController: NSObject {
     /// nil while hibernated.
     public private(set) var webView: WKWebView?
 
-    private let dataStore: WKWebsiteDataStore
+    let dataStore: WKWebsiteDataStore
     /// A private window's own (§5.6), so its icons never reach the shared cache.
     public let favicons: FaviconService
 
@@ -53,6 +53,13 @@ public final class TabController: NSObject {
     /// Whether `FileStorageSeed`'s script is in the set — only while the tab is
     /// on a `file:` page.
     private var fileSeedInstalled = false
+    /// The hidden-elements stylesheet in the current script set, empty when there is
+    /// none — see `TabController+Hiding.swift`.
+    var hiddenStyleInstalled = ""
+    /// Storage for `TabController+Reader.swift` and `TabController+Hiding.swift`,
+    /// which cannot carry their own.
+    var readerIsOn = false
+    var picking: ElementPicking?
     private static let recoveryLimit = 3
     private static let recoveryWindow: TimeInterval = 60
 
@@ -280,6 +287,7 @@ public final class TabController: NSObject {
             controller.removeScriptMessageHandler(forName: name)
             controller.add(messageRelay, name: name)
         }
+        attachPicker(to: controller, relay: messageRelay)
         installUserScripts(into: controller, host: state.url?.host(), isFile: (state.url ?? fallbackURL)?.isFileURL ?? false)
 
         // WebKit posts these on the main thread; `assumeIsolated` states that instead of
@@ -316,7 +324,7 @@ public final class TabController: NSObject {
     /// remove a single script. That is why this is a function rather than four
     /// lines in `attach`: §17.2's YouTube script is the first whose presence
     /// depends on a setting and on the site, so the first that has to come off.
-    private func installUserScripts(into controller: WKUserContentController, host: String?, isFile: Bool) {
+    func installUserScripts(into controller: WKUserContentController, host: String?, isFile: Bool) {
         controller.removeAllUserScripts()
         youTubeScriptInstalled = ContentBlocker.shared.blocksYouTubeAds(forHost: host, in: sitePermissions)
         fileSeedInstalled = false
@@ -353,12 +361,14 @@ public final class TabController: NSObject {
                 )
             )
         }
+        installHiddenStyle(into: controller, host: host)
         addedUserScripts.forEach(controller.addUserScript)
     }
 
     /// Re-installs the scripts when — and only when — §17.2's answer for the site the
-    /// tab is headed to differs from the answer it was built with, or it is headed
-    /// to or away from a file (`FileStorageSeed`).
+    /// tab is headed to differs from the answer it was built with, it is headed
+    /// to or away from a file (`FileStorageSeed`), or the site has a different
+    /// list of hidden elements.
     ///
     /// Called from `decidePolicyFor`, which is early enough: WebKit takes the
     /// script set when it creates the document, and the document does not exist
@@ -368,7 +378,7 @@ public final class TabController: NSObject {
         guard let controller = webView?.configuration.userContentController else { return }
         let blocks = ContentBlocker.shared.blocksYouTubeAds(forHost: host, in: sitePermissions)
         let seeds = isFile && FileStorageSeed.userScript() != nil
-        guard blocks != youTubeScriptInstalled || seeds != fileSeedInstalled else { return }
+        guard blocks != youTubeScriptInstalled || seeds != fileSeedInstalled || hiddenStyleIsStale(for: host) else { return }
         installUserScripts(into: controller, host: host, isFile: isFile)
     }
 
@@ -456,6 +466,7 @@ public final class TabController: NSObject {
         controller.removeScriptMessageHandler(forName: Self.scrollMessageName)
         controller.removeScriptMessageHandler(forName: PasswordForms.messageName)
         controller.removeScriptMessageHandler(forName: ContentBlocker.youTubeMessageName)
+        detachPicker(from: controller)
 
         // Picture-in-Picture and element fullscreen outlive their web view: without this
         // a hibernated tab leaves a floating video playing with nothing behind it. The
@@ -526,6 +537,7 @@ extension TabController {
         setTopColour(nil)
         setScrollProgress(nil)
         audibleFrames.removeAll()
+        forgetPageTools()
         // The interstitial bypass is good for the one navigation it was granted
         // for. Leaving it set would quietly allowlist the site for as long as the
         // tab lives (§4.5).

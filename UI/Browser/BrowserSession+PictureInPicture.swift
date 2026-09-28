@@ -34,6 +34,9 @@ extension BrowserSession {
         if let leaving, allowsAutomaticPictureInPicture(leaving) {
             controller(for: leaving)?.enterAutomaticPictureInPicture()
         }
+        // A crosshair left live on a tab nobody is looking at would take the
+        // first click on it after coming back.
+        if let leaving { controller(for: leaving)?.stopPickingElements() }
         // Coming back always puts the video into the page, whatever the
         // permission says: a floating window the user cannot get rid of by
         // returning to the tab it came from is a worse bug than no PiP at all.
@@ -42,9 +45,14 @@ extension BrowserSession {
 
     /// ⇧⌘P on the tab in front. No site permission: that switch is about the
     /// automatic path, and this one the user asked for.
+    ///
+    /// Said in a toast, because the floating window can open on another part of
+    /// the screen, and a page with no video would otherwise answer with nothing.
     func togglePictureInPicture() {
         guard let id = activeTabID else { return }
-        controller(for: id)?.togglePictureInPicture()
+        controller(for: id)?.togglePictureInPicture { [weak self] answer in
+            PageToast.pictureInPicture(answer).show(in: self?.hostWindow)
+        }
     }
 
     private func allowsAutomaticPictureInPicture(_ id: UUID) -> Bool {

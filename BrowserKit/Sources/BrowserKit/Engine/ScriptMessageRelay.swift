@@ -26,6 +26,7 @@ final class ScriptMessageRelay: NSObject, WKScriptMessageHandler {
         // §14. The coordinator re-checks the frame's origin before it acts on
         // anything here — the relay only routes.
         case PasswordForms.messageName: owner?.passwords.handle(message)
+        case TabController.pickMessageName: owner?.handlePickMessage(message)
         default: break
         }
     }

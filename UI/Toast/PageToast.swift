@@ -11,6 +11,7 @@
 //
 
 import AppKit
+import BrowserKit
 
 /// What a toast says.
 struct PageToast: Equatable {
@@ -46,6 +47,34 @@ struct PageToast: Equatable {
 
     static func userAgent(_ name: String) -> PageToast {
         PageToast(symbol: "person.text.rectangle", text: String(localized: "User agent: \(name)"))
+    }
+
+    static func pictureInPicture(_ answer: PictureInPictureAnswer) -> PageToast {
+        switch answer {
+        case .floating: PageToast(symbol: "pip.enter", text: String(localized: "Picture in Picture on"))
+        case .backInPage: PageToast(symbol: "pip.exit", text: String(localized: "Picture in Picture off"))
+        case .noVideo: PageToast(symbol: "pip", text: String(localized: "No video to float"))
+        }
+    }
+
+    static func reader(_ answer: ReaderAnswer) -> PageToast {
+        switch answer {
+        case .on: PageToast(symbol: "doc.plaintext", text: String(localized: "Reader on"))
+        case .off: PageToast(symbol: "doc.plaintext", text: String(localized: "Reader off"))
+        case .nothingToRead: PageToast(symbol: "doc.plaintext", text: String(localized: "Nothing to read on this page"))
+        }
+    }
+
+    static let hidingStarted = PageToast(
+        symbol: "eye.slash", text: String(localized: "Click anything to hide it. Esc when done.")
+    )
+
+    static func hidden(_ label: String) -> PageToast {
+        PageToast(symbol: "eye.slash", text: String(localized: "Hidden: \(label). ⌘Z brings it back."))
+    }
+
+    static func shownAgain(_ label: String) -> PageToast {
+        PageToast(symbol: "eye", text: String(localized: "Showing \(label) again"))
     }
 
     /// On the page of `window`, or of the browser window in front: a menu

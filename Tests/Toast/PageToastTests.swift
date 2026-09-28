@@ -7,6 +7,7 @@
 //
 
 import AppKit
+import BrowserKit
 import XCTest
 @testable import Luna
 
@@ -63,5 +64,20 @@ final class PageToastTests: XCTestCase {
         XCTAssertEqual(PageToast.zoom(1.25).text, "Zoom 125 %")
         XCTAssertEqual(PageToast.archived(1).text, "1 tab archived")
         XCTAssertEqual(PageToast.archived(4).text, "4 tabs archived")
+    }
+
+    /// Each answer reads differently, and every symbol is one the system has:
+    /// a misspelt name draws the pill with a gap where its glyph should be.
+    func testReaderPictureInPictureAndHidingEachSayWhatHappened() {
+        let toasts: [PageToast] = [
+            .reader(.on), .reader(.off), .reader(.nothingToRead),
+            .pictureInPicture(.floating), .pictureInPicture(.backInPage), .pictureInPicture(.noVideo),
+            .hidingStarted, .hidden("Cookie bar"), .shownAgain("Cookie bar")
+        ]
+        XCTAssertEqual(Set(toasts.map(\.text)).count, toasts.count)
+        for toast in toasts {
+            XCTAssertNotNil(NSImage(systemSymbolName: toast.symbol, accessibilityDescription: nil), toast.symbol)
+        }
+        XCTAssertEqual(PageToast.hidden("Cookie bar").text, "Hidden: Cookie bar. ⌘Z brings it back.")
     }
 }

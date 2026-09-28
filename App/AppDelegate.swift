@@ -254,6 +254,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // session, so the first web view is built with the lists already applied.
             ContentBlocker.shared.start(browserStore: store)
             SitePermissions.shared.start(browserStore: store)
+            HiddenElements.shared.start(browserStore: store)
             let session = try await BrowserSession.restored(store: store)
             LaunchTrace.mark("session")
             self.store = store

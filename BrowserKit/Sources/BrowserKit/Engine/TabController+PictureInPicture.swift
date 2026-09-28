@@ -1,6 +1,10 @@
 import Foundation
 import WebKit
 
+public enum PictureInPictureAnswer: Sendable {
+    case floating, backInPage, noVideo
+}
+
 /// §3.2's Automatic Picture-In-Picture: a video you leave keeps playing in a floating
 /// window instead of going quiet behind a tab you cannot see.
 ///
@@ -32,8 +36,18 @@ extension TabController {
     /// ⇧⌘P: floats the page's video, or puts back the one already floating.
     /// Unlike the automatic path, a muted or paused video counts — the user
     /// asked for this one. A playing video wins over a larger paused one.
-    public func togglePictureInPicture() {
-        webView?.evaluateJavaScript(Self.togglePictureInPictureScript)
+    ///
+    /// `done` hears which of the three happened, and nothing when the page could
+    /// not be asked at all.
+    public func togglePictureInPicture(_ done: @escaping @MainActor (PictureInPictureAnswer) -> Void = { _ in }) {
+        webView?.evaluateJavaScript(Self.togglePictureInPictureScript) { result, _ in
+            switch result as? String {
+            case "picture-in-picture": done(.floating)
+            case "inline": done(.backInPage)
+            case "none": done(.noVideo)
+            default: break
+            }
+        }
     }
 
     private static let togglePictureInPictureScript = """

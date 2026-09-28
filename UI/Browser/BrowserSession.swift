@@ -455,6 +455,9 @@ final class BrowserSession {
     /// Whose per-site answers this window reads and writes: §5.6's own, or the app's.
     var sitePermissions: SitePermissions { isPrivate ? .scope(for: privateDataStore) : .shared }
 
+    /// Whose hidden page parts this window wears and adds to, for the same reason.
+    var hiddenElements: HiddenElements { isPrivate ? .scope(for: privateDataStore) : .shared }
+
     /// The SF Symbol a new Space starts with, matching the seeded first Space.
     /// §8.2's twelve curated gradient pairs have no home in `Design/` yet, so a
     /// new Space also starts on `GradientPair.defaultSpace`.
