@@ -73,10 +73,10 @@ extension TabListController {
     /// started stands one row higher than its index.
     ///
     /// The hole is a row tall whatever the row at that index is: the shift is
-    /// `rowHeight` for every row it moves, and §3.4's rule is shorter than one.
+    /// `tabRowHeight` for every row it moves, and §3.4's rule is shorter than one.
     func gapPillRect(forGapRow row: Int, inside group: UUID?, in space: NSView) -> NSRect {
         let hole = (draggedRow.map { row > $0 } ?? false) ? row - 1 : row
-        let height = Tokens.Metric.rowHeight
+        let height = Tokens.Metric.tabRowHeight
         var top = CGFloat(0)
         if hole < table.numberOfRows {
             top = table.rect(ofRow: hole).minY
@@ -84,7 +84,7 @@ extension TabListController {
             top = table.rect(ofRow: table.numberOfRows - 1).maxY
         }
         var box = NSRect(x: table.bounds.minX, y: top, width: table.bounds.width, height: height)
-            .insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.rowPillInset)
+            .insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.tabRowPillInset)
         if group != nil {
             box.origin.x += Tokens.Metric.groupIndent
             box.size.width -= Tokens.Metric.groupIndent
@@ -138,8 +138,8 @@ extension TabListController {
             x: table.bounds.minX,
             y: displayedRect(ofRow: header).minY,
             width: table.bounds.width,
-            height: CGFloat(rows) * Tokens.Metric.rowHeight
-        ).insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.rowPillInset)
+            height: CGFloat(rows) * Tokens.Metric.tabRowHeight
+        ).insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.tabRowPillInset)
         box.size.height += foot
         return box
     }
@@ -235,7 +235,7 @@ extension TabListController {
     private func gapShift(ofRow row: Int) -> CGFloat {
         guard isDragging, row != draggedRow else { return 0 }
         let target = gapRow ?? table.numberOfRows
-        let height = Tokens.Metric.rowHeight
+        let height = Tokens.Metric.tabRowHeight
         guard let dragged = draggedRow else { return row >= target ? height : 0 }
         if row > dragged, row < target { return -height }
         if row >= target, row < dragged { return height }

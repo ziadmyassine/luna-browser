@@ -214,7 +214,7 @@ extension TabListController {
 
     /// The fill's box for one row.
     ///
-    /// `rowHeight` is pitch and `rowPillHeight` is paint, so the vertical inset
+    /// `tabRowHeight` is pitch and `rowPillHeight` is paint, so the vertical inset
     /// is what stops two adjacent selected pills fusing into one slab.
     ///
     /// The leading edge follows §3.4b's indent. A tab inside a folder steps in
@@ -223,7 +223,7 @@ extension TabListController {
     /// made the row look like it belonged to the list rather than to the folder.
     func pillBox(ofRow row: Int) -> NSRect {
         var box = table.rect(ofRow: row)
-            .insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.rowPillInset)
+            .insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.tabRowPillInset)
         // Read the same way `tabContent` reads it, not from `content(for:)` —
         // this runs on every pill move and that builds a whole row's worth of
         // state to answer one question.

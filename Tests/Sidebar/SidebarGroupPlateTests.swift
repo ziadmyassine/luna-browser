@@ -94,7 +94,7 @@ final class SidebarGroupPlateTests: XCTestCase {
         XCTAssertEqual(big.minX, small.minX)
         XCTAssertEqual(big.maxX, small.maxX)
         XCTAssertEqual(big.minY, small.minY, "the top edge moved")
-        XCTAssertEqual(big.height - small.height, 3 * Tokens.Metric.rowHeight + Tokens.Metric.groupPlateFoot, accuracy: 0.01)
+        XCTAssertEqual(big.height - small.height, 3 * Tokens.Metric.tabRowHeight + Tokens.Metric.groupPlateFoot, accuracy: 0.01)
         for controller in [open, folded] { controller.groupPlate.updateLayer() }
         XCTAssertEqual(open.groupPlate.layer?.cornerRadius, folded.groupPlate.layer?.cornerRadius)
     }
@@ -190,7 +190,7 @@ final class SidebarGroupPlateTests: XCTestCase {
     }
 
     /// The last tab has the same room to the plate below it as beside it, and
-    /// the plate stops where the next row starts.
+    /// the plate stops short of the next row by as much as a pill does.
     func testTheLastTabHasTheSameRoomBelowAsBeside() throws {
         let controller = try list()
         let header = try XCTUnwrap(controller.list.row(ofGroup: trip.id))
@@ -200,7 +200,7 @@ final class SidebarGroupPlateTests: XCTestCase {
         XCTAssertEqual(plate.maxY - lastPill.maxY, plate.maxX - lastPill.maxX, accuracy: 0.01)
         XCTAssertEqual(plate.maxY - lastPill.maxY, Tokens.Metric.rowInset, accuracy: 0.01)
         let next = try XCTUnwrap(controller.list.row(ofGroup: work.id))
-        XCTAssertEqual(plate.maxY, controller.table.rect(ofRow: next).minY, accuracy: 0.01)
+        XCTAssertEqual(plate.maxY, controller.table.rect(ofRow: next).minY - Tokens.Metric.tabRowPillInset, accuracy: 0.01)
         XCTAssertLessThan(plate.maxY, controller.pillBox(ofRow: next).minY, "the plate lies under the next pill")
     }
 
@@ -253,7 +253,7 @@ final class SidebarGroupPlateTests: XCTestCase {
         controller.groupPlate.updateLayer()
         let last = header + 3
         let rows = controller.table.rect(ofRow: header).union(controller.table.rect(ofRow: last))
-        var expected = rows.insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.rowPillInset)
+        var expected = rows.insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.tabRowPillInset)
         expected.size.height += Tokens.Metric.groupPlateFoot
         XCTAssertEqual(controller.groupPlate.frame, expected, "the plate is not round the whole folder")
         XCTAssertEqual(controller.groupPlate.alphaValue, 1, accuracy: 0.01)
@@ -317,6 +317,21 @@ extension SidebarGroupPlateTests {
         XCTAssertEqual(plate.minX, loose.minX)
         XCTAssertEqual(plate.maxX, loose.maxX)
         XCTAssertEqual(plate.maxX - controller.hoverPill.frame.maxX, Tokens.Metric.groupMemberTrailingInset, accuracy: 0.01)
+    }
+
+    /// An open folder stands as far from the row after it as one tab stands
+    /// from the next. It stood at half that, and two open folders read as one
+    /// block.
+    func testTheRowAfterAnOpenFolderHasATabsGapAboveIt() throws {
+        let controller = try list()
+        let header = try XCTUnwrap(controller.list.row(ofGroup: trip.id))
+        let next = try XCTUnwrap(controller.list.row(ofGroup: work.id))
+        let loose = controller.pillBox(ofRow: try XCTUnwrap(controller.list.row(of: looseTab.id)))
+        let tabGap = controller.pillBox(ofRow: header).minY - loose.maxY
+        XCTAssertEqual(tabGap, 2 * Tokens.Metric.tabRowPillInset, accuracy: 0.01)
+        controller.setHovered(header)
+        let gap = controller.pillBox(ofRow: next).minY - controller.groupPlate.frame.maxY
+        XCTAssertEqual(gap, tabGap, accuracy: 0.01, "the next folder is closer to this one than a tab is to a tab")
     }
 
     /// A folder first in the list has its plate's top edge on screen: the

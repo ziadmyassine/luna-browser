@@ -35,7 +35,7 @@ final class SidebarGroupDropTests: XCTestCase {
         controller.setGap(row: header + 2)
         XCTAssertEqual(
             controller.groupDrop.frame.height,
-            5 * Tokens.Metric.rowHeight - 2 * Tokens.Metric.rowPillInset + Tokens.Metric.groupPlateFoot,
+            5 * Tokens.Metric.tabRowHeight - 2 * Tokens.Metric.tabRowPillInset + Tokens.Metric.groupPlateFoot,
             accuracy: 0.51,
             "the box does not reach round the folder and the tab going into it"
         )
@@ -53,7 +53,7 @@ final class SidebarGroupDropTests: XCTestCase {
         controller.setGap(row: header + 3)
         XCTAssertEqual(
             controller.groupDrop.frame.height,
-            4 * Tokens.Metric.rowHeight - 2 * Tokens.Metric.rowPillInset + Tokens.Metric.groupPlateFoot,
+            4 * Tokens.Metric.tabRowHeight - 2 * Tokens.Metric.tabRowPillInset + Tokens.Metric.groupPlateFoot,
             accuracy: 0.51
         )
     }
@@ -69,7 +69,7 @@ final class SidebarGroupDropTests: XCTestCase {
         controller.setGap(row: header + 1)
         XCTAssertEqual(
             controller.groupDrop.frame.minY,
-            controller.table.rect(ofRow: header).minY - Tokens.Metric.rowHeight + Tokens.Metric.rowPillInset,
+            controller.table.rect(ofRow: header).minY - Tokens.Metric.tabRowHeight + Tokens.Metric.tabRowPillInset,
             accuracy: 0.51,
             "the box is where the header was rather than where it is"
         )
@@ -88,7 +88,7 @@ final class SidebarGroupDropTests: XCTestCase {
         controller.setGap(row: header + 1)
         XCTAssertEqual(
             controller.groupDrop.frame.height,
-            2 * Tokens.Metric.rowHeight - 2 * Tokens.Metric.rowPillInset,
+            2 * Tokens.Metric.tabRowHeight - 2 * Tokens.Metric.tabRowPillInset,
             accuracy: 0.51
         )
     }

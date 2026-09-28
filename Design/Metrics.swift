@@ -172,6 +172,15 @@ extension Tokens {
         /// The drawn height of a row's pill — 35 pt, the 100 px the reference
         /// measures. `rowHeight` is the pitch, this is the paint.
         static let rowPillHeight = rowHeight - rowGap
+        /// The sidebar's tab list: `rowHeight` and 1 pt more, the pill kept at
+        /// `rowPillHeight`, so a tab stands 4 pt clear of the next rather than
+        /// 3. A requested nudge rather than a measurement, and the tab list's
+        /// alone — Settings, History, the Command Bar and the pop-outs keep
+        /// §3.4's measured 38.
+        static let tabRowHeight = rowHeight + 1
+        /// What the tab list insets a pill by, top and bottom: half the room
+        /// `tabRowHeight` leaves round `rowPillHeight`.
+        static let tabRowPillInset = (tabRowHeight - rowPillHeight) / 2
         /// 12 pt between an icon and its label — the site menu, History,
         /// Downloads. A sidebar tab row uses `rowTitleGap`.
         static let rowIconGap: CGFloat = 12
@@ -215,7 +224,7 @@ extension Tokens {
         /// How much of a §3.4b folder's header still means "beside this folder"
         /// rather than "in it", for §6.6's lift.
         ///
-        /// 10 of the row's 38. Every other row in the list is split at its
+        /// 10 of the row's 39. Every other row in the list is split at its
         /// middle, because its two halves mean the same kind of thing — before
         /// this row, after this row. A folder's header does not: the lower part
         /// is the one gesture that puts a tab inside the folder and the upper
@@ -242,11 +251,15 @@ extension Tokens {
         /// It was the header icon's margin in its pill, 7.5 pt, matching the
         /// room above the folder rather than the room round the tab.
         static let groupPlateFoot = groupMemberTrailingInset
-        /// The room an open, non-empty §3.4b folder leaves under its last tab:
-        /// the plate's whole reach below that tab's row, 8 − 1.5 = 6.5 pt.
-        /// The plate then ends exactly where the next row begins, and that
-        /// row's pill clears it by its own `rowPillInset`.
-        static let groupEndGap = groupPlateFoot - rowPillInset
+        /// The room an open, non-empty §3.4b folder leaves under its last tab.
+        ///
+        /// The plate reaches `groupPlateFoot` below that tab's pill, which is
+        /// `groupPlateFoot − tabRowPillInset` below its row; a gap of the whole
+        /// foot leaves the next pill as far below the plate as one tab's pill is
+        /// below another's. It was the plate's reach alone, which ended the
+        /// plate where the next row began and left 1.5 pt under an open folder
+        /// against 3 between two tabs — two open folders read as one block.
+        static let groupEndGap = groupPlateFoot
 
         /// What a §3.4b row that has been closed once draws its icon at. The
         /// title drops to `Text.tertiary` beside it; a favicon has no ink tier,

@@ -83,6 +83,7 @@ extension TokenCheck {
     private static func checkPositiveMetrics() -> [String] {
         let scalars: [(String, CGFloat)] = [
             ("rowHeight", Tokens.Metric.rowHeight), ("rowInset", Tokens.Metric.rowInset),
+            ("tabRowHeight", Tokens.Metric.tabRowHeight),
             ("faviconSize", Tokens.Metric.faviconSize), ("rowCornerRadius", Tokens.Metric.rowCornerRadius),
             ("essentialsTileGap", Tokens.Metric.essentialsTileGap), ("essentialsIcon", Tokens.Metric.essentialsIcon),
             ("spaceDot", Tokens.Metric.spaceDot), ("windowCornerRadiusSystem", Tokens.Metric.windowCornerRadiusSystem),
@@ -298,10 +299,14 @@ extension TokenCheck {
     private static func checkGroupPlate() -> [String] {
         var failures: [String] = []
         let metric = Tokens.Metric.self
-        // The gap under an open folder is the plate's reach past its last row,
-        // so the plate stops where the next row starts and never under its pill.
-        if metric.groupEndGap != metric.groupPlateFoot - metric.rowPillInset {
-            failures.append("Metric.groupEndGap is not the plate's reach below a folder's last row")
+        // The row after an open folder stands as far below the folder's plate
+        // as a tab's pill stands below the one before it.
+        let underPlate = metric.groupEndGap + metric.tabRowPillInset - (metric.groupPlateFoot - metric.tabRowPillInset)
+        if underPlate != 2 * metric.tabRowPillInset {
+            failures.append("Metric.groupEndGap does not leave a tab's gap under an open folder")
+        }
+        if metric.tabRowHeight - metric.rowPillHeight != 2 * metric.tabRowPillInset || metric.tabRowPillInset <= 0 {
+            failures.append("Metric.tabRowPillInset does not centre the pill in the tab list's row")
         }
         return failures
     }

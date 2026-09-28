@@ -36,6 +36,7 @@ sidebar's own content reflows. The ratios exist to fix proportions once, not to 
 | `sidebarFootWidth` — what §3.5's foot occupies, derived | 190 pt | — |
 | `rowHeight` (pitch) | 38 pt | 40 |
 | `rowGap` / `rowPillHeight` (the drawn pill) | 3 / 35 pt | 4 / — |
+| `tabRowHeight` / `tabRowPillInset` — the sidebar's tab list only | **39** / 2 pt, so 4 pt between tabs | 38 / 1.5 |
 | `rowInset` (pill inset from sidebar edge) | 8 pt | — |
 | `faviconSize` | 16 pt | 18 |
 | `rowCornerRadius` | 12 pt | 10 |
@@ -1045,6 +1046,9 @@ what the tier is called — and Luna draws no section label over either well, be
 section labels anywhere else.
 
 ### 3.4 List rows — 38 pt of pitch around a 35 pt pill
+> **The sidebar's tab list is 1 pt looser (2026-09-28).** Its rows are `tabRowHeight`, 39 pt, round
+> the same 35 pt pill, so two tabs stand 4 pt apart rather than 3. Asked for as a very small
+> increase and kept to the tab list: Settings, History, the Command Bar and the pop-outs keep 38.
 Order: §3.4b's pinned folders → **separator** → `New Tab` row → tabs.
 > **The rule moved and the command moved with it.** It used to close off a leading command
 > group: `New Tab`, rule, tabs. §3.4b gave the space above it a job — the pinned folders — so the
@@ -1387,9 +1391,10 @@ that are not hovered or selected carry a fill while the pointer is inside their 
   last tab's pill — `groupMemberTrailingInset`, 8 pt, the room it keeps at the tab's side. It was
   7.5 pt, the header icon's margin, which matched the room above the folder rather than the room
   round the tab. To give it that room, an open folder with tabs in it is followed by a
-  `groupEndGap` row (6.5 pt: 8 − the 1.5 pt `rowPillInset` the last row already has), so the plate
-  ends exactly where
-  the next row begins and that row's pill clears it by its own inset. A folded or empty folder
+  `groupEndGap` row of the whole 8 pt, so the plate ends `tabRowPillInset` short of the next row
+  and that row's pill clears it by the same 4 pt one tab's pill clears the next. It was 6.5 pt,
+  which ended the plate where the next row began and left 1.5 pt under an open folder against 3
+  between two tabs, and two open folders read as one block. A folded or empty folder
   has no such row. The row is furniture — not selectable, no hover pill; the pointer over it
   keeps the folder's plate up; a drop on its upper half lands at the end of the folder, on its
   lower half just after it. §6.6's dashed box takes the same foot, since both share `groupExtent`.

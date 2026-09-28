@@ -202,7 +202,7 @@ final class SpacePreviewView: NSView {
             let height = switch row {
             case is SpacePreviewRule: Tokens.Metric.separatorRowHeight
             case is SpacePreviewGap: Tokens.Metric.groupEndGap
-            default: Tokens.Metric.rowHeight
+            default: Tokens.Metric.tabRowHeight
             }
             top -= height
             row.frame = NSRect(x: 0, y: top, width: bounds.width, height: height).integral

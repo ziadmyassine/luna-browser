@@ -158,7 +158,7 @@ final class TabListController: NSObject {
         table.style = .plain
         table.backgroundColor = .clear
         table.usesAutomaticRowHeights = false
-        table.rowHeight = Tokens.Metric.rowHeight
+        table.rowHeight = Tokens.Metric.tabRowHeight
         table.intercellSpacing = .zero
         table.gridStyleMask = []
         // §30.7: unselected rows have no background at all, and the selected
