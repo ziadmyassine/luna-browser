@@ -46,10 +46,12 @@ final class SectionsATests: XCTestCase {
         XCTAssertNil(SearchEngine.custom.template)
     }
 
-    func testTheShippedDefaultIsStillDuckDuckGo() {
-        XCTAssertEqual(SearchEngine.fallback, .duckDuckGo)
+    /// A fresh install searches Google, and the popup lists it first.
+    func testTheShippedDefaultIsGoogle() {
+        XCTAssertEqual(SearchEngine.fallback, .google)
+        XCTAssertEqual(SearchEngine.allCases.first, .google)
         SearchSettings.apply(SearchEngineSetting())
-        XCTAssertEqual(CommandBarURL.search(for: "luna")?.host, "duckduckgo.com")
+        XCTAssertEqual(CommandBarURL.search(for: "luna")?.host, "www.google.com")
     }
 
     func testTheEngineSettingChangesWhereAQueryGoes() {
@@ -67,7 +69,7 @@ final class SectionsATests: XCTestCase {
         // No placeholder: the search row is the floor under the Command Bar
         // (§9.2), so it falls back rather than disappearing.
         SearchSettings.apply(SearchEngineSetting(engine: .custom, customTemplate: "https://searx.example.com/"))
-        XCTAssertEqual(CommandBarURL.search(for: "luna")?.host, "duckduckgo.com")
+        XCTAssertEqual(CommandBarURL.search(for: "luna")?.host, "www.google.com")
 
         // Not a URL at all, and a scheme Luna will not navigate to.
         for junk in ["%s", "ftp://example.com/?q=%s", "notaurl%s"] {
@@ -87,7 +89,7 @@ final class SectionsATests: XCTestCase {
     /// `/` and `?` unescaped in a query value, so `a+b` reached the engine as
     /// `q=a+b` — two words. A space is still `%20`, exactly as before.
     func testQueriesAreEscapedIncludingThePlusSign() {
-        SearchSettings.apply(SearchEngineSetting())
+        SearchSettings.apply(SearchEngineSetting(engine: .duckDuckGo))
         XCTAssertEqual(CommandBarURL.search(for: "a+b")?.absoluteString, "https://duckduckgo.com/?q=a%2Bb")
         XCTAssertEqual(CommandBarURL.search(for: "hello world")?.absoluteString, "https://duckduckgo.com/?q=hello%20world")
         XCTAssertEqual(CommandBarURL.search(for: "rock & roll")?.absoluteString, "https://duckduckgo.com/?q=rock%20%26%20roll")
@@ -111,7 +113,7 @@ final class SectionsATests: XCTestCase {
 
     /// The sentence under the row is gone; what it was protecting is not. A
     /// custom template without `%s` is silently ignored — searches fall back to
-    /// DuckDuckGo — so the field has to be able to say so, and `isUsable` is
+    /// Google — so the field has to be able to say so, and `isUsable` is
     /// what it asks.
     func testAnUnusableCustomTemplateIsDetectableWithoutRunningTheField() {
         XCTAssertTrue(SearchEngineSetting.isUsable("https://e.example/?q=%s"))
@@ -121,7 +123,7 @@ final class SectionsATests: XCTestCase {
         // And the fallback still happens, so nothing breaks while it is wrong.
         XCTAssertEqual(
             SearchEngineSetting(engine: .custom, customTemplate: "nope").url(searching: "luna")?.host,
-            SearchEngineSetting(engine: .duckDuckGo).url(searching: "luna")?.host
+            SearchEngineSetting(engine: .fallback).url(searching: "luna")?.host
         )
     }
 

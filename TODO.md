@@ -377,6 +377,7 @@ luna/
   > **Checked 2026-09-24: built.** `CommandBarInputField.swift`
 - [ ] **9.5 Search engines** — Google/DuckDuckGo/Kagi/Brave/Bing + custom; **bang-style keywords** (`yt cats` → YouTube). Per-Space default.
   > **Checked 2026-09-24: partly built.** Google, DuckDuckGo, Bing, Kagi and a custom engine. Missing: Brave, bang keywords, a default per Space.
+  > **Changed 2026-09-28: a fresh install searches Google.** `SearchEngine.fallback` is `.google` and Google is first in the popup. A stored choice is kept, so only a Mac that never picked an engine switches.
 - [ ] **9.6 ⚠️ LIVE BUG (found 2026-09-22): the guard does not cover credentials or local paths.** `user:pass@example.com` fails `CommandBarURL.direct` (`explicitScheme` rejects `user:`) and `/Users/me/secret.txt` has an empty host — both fall through to `SearchSuggestions.request` and **leave the Mac**. Fix is one guard by `CommandBarController.swift:298` (`@` before the first `/`, or a leading `/` or `~`). Original item: **9.6 Privacy** — suggestions network call must be disableable and must never fire for strings that look like URLs, credentials, or local paths.
   > **Checked 2026-09-24: partly built.** Suggestions toggle, ephemeral session, URL guard. Missing: guards for credentials in a URL and for local paths.
 - [ ] **9.7 Perf** — results must render within **one frame (16 ms)** of keystroke for local sources; network suggestions merge in asynchronously without reordering under the user's cursor.

@@ -297,14 +297,14 @@ enum CommandBarURL {
 /// The engines §23.1 §3.4 offers. Every one is a template carrying a `%s`
 /// placeholder, the built-ins included, so `.custom` is not a second code path.
 enum SearchEngine: String, Sendable, Hashable, CaseIterable {
-    case duckDuckGo
     case google
+    case duckDuckGo
     case bing
     case kagi
     case custom
 
     /// §9.6/§32's shipped default, and first in `allCases`: the popup's order.
-    static let fallback = SearchEngine.duckDuckGo
+    static let fallback = SearchEngine.google
 
     /// Nil for `.custom`, whose template is the user's `search.customEngineURL`.
     var template: String? {

@@ -384,7 +384,7 @@ second place for it to be wrong.
 ### 3.4 Search
 | Control | Type | Wired to |
 |---|---|---|
-| Search engine | Popup: DuckDuckGo · Google · Bing · Kagi · Custom | `CommandBarModel` — **currently hard-coded to DuckDuckGo**, must be lifted to a setting |
+| Search engine | Popup: Google · DuckDuckGo · Bing · Kagi · Custom (default Google) | `CommandBarModel` — `SearchEngine.fallback` |
 | Custom engine URL | Text field with `%s`, validated | same |
 | Search suggestions | Toggle, **default off** | *disabled* until §9.6's suggest endpoint exists |
 | Settings in search results | Toggle, **default on** | `search.settingsResults` |
