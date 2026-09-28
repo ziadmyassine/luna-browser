@@ -108,6 +108,9 @@ final class ButtonFeedbackTests: XCTestCase {
                 return glyph
             }()),
             ("SettingsChoiceButton", SettingsChoiceButton(title: "Light")),
+            // The account row at the head of Settings' column: a plate of its
+            // own outside the section list, so a button rather than a list row.
+            ("SettingsAccountRow", SettingsAccountRow(name: "Jane Appleseed", picture: nil, status: .off)),
             // Settings ▸ Extensions: a card's Spaces menu, its pin and its "more".
             ("ExtensionCardButton", ExtensionCardButton(symbol: "pin", label: "Pin to the Bar")),
             ("SpaceAppearanceButton", SpaceAppearanceButton()),

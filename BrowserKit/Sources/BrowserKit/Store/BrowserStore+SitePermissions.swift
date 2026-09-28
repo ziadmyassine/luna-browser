@@ -5,11 +5,9 @@ import GRDB
 /// blocking exemption already live in: §3.2's two from the site menu, plus §14.4's
 /// "never offer to save a password here".
 ///
-/// The columns are added the way `BrowserStore+Blocking.swift` adds its two: an idempotent
-/// `ALTER TABLE` rather than a migration, because `Store/Schema.swift` belongs to the
-/// milestone that wrote it and one statement that runs once per process is cheaper than a
-/// schema version everybody has to reason about.
-/// ponytail: fold all five columns into a `v2` migration next time `Schema.swift` is opened.
+/// The columns are created by migrations (`v12`, `Schema.prepareForSync`), because sync's
+/// triggers name them. A new case needs its column in a new migration and in the synced
+/// columns of `SyncSQL`'s `siteSettings` triggers.
 extension BrowserStore {
 
     /// Which permission a row is carrying. The raw value is the column name, so the
@@ -56,7 +54,6 @@ extension BrowserStore {
     /// Picture-in-Picture defaults to yes, so "not in the map" and "mapped to false" have
     /// to stay tellable apart.
     public func sitePermissions() async throws -> [SitePermission: [String: Bool]] {
-        try await ensurePermissionColumns()
         let columns = SitePermission.allCases
         return try await pool.read { db in
             var result: [SitePermission: [String: Bool]] = [:]
@@ -77,7 +74,6 @@ extension BrowserStore {
     }
 
     public func setSitePermission(_ permission: SitePermission, allowed: Bool, host: String) async throws {
-        try await ensurePermissionColumns()
         let column = permission.rawValue
         // `zoom` carries a NOT NULL default, so the upsert can create the row without
         // knowing anything about zoom.
@@ -89,19 +85,6 @@ extension BrowserStore {
                 """,
                 arguments: [host, Date(), allowed]
             )
-        }
-    }
-
-    /// Nullable, unlike the blocking flags. "Nobody has answered" and "answered no"
-    /// are different states here: the default is the permission's, not the column's, and
-    /// a `NOT NULL DEFAULT 0` would silently record a refusal for every site that has a
-    /// zoom level set.
-    private func ensurePermissionColumns() async throws {
-        try await pool.write { db in
-            let existing = Set(try db.columns(in: "siteSettings").map(\.name))
-            for permission in SitePermission.allCases where !existing.contains(permission.rawValue) {
-                try db.execute(sql: "ALTER TABLE siteSettings ADD COLUMN \(permission.rawValue) BOOLEAN")
-            }
         }
     }
 }

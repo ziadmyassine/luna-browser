@@ -42,8 +42,12 @@ does not do it.
   `https` handler and whether Luna is among the registered `https` handlers,
   then `accountStatus`, `userRecordID`, and a custom zone `spike` saved,
   listed and deleted, with the `CKError` code of any failure. A zone needs no
-  schema, so the round-trip proves the daemon connection in Production. Delete
-  the file once §31.2's sync code proves the same thing.
+  schema, so the round-trip proves the daemon connection in Production. The
+  probe stays: `--cloudkit-probe-records` also saves, fetches and deletes one
+  record of each of the eight types in a throwaway zone, which is the check
+  that the deployed Production schema takes every field sync sends. Run it
+  only after the schema is deployed to Production; it exits 1 unless it
+  prints `records 8/8 ok`.
 
 ## Commands and results
 

@@ -50,7 +50,7 @@ Work style: every step starts with a failing test, then the smallest code that p
 |---|---|
 | `Sync/SyncRecord.swift` | A `Sendable` value type `SyncRecord` (recordType, recordName, zone, `schemaVersion`, fields `[String: SyncValue]`, `systemFields: Data?`). The whole sync core works on this type, never on `CKRecord`, which is not `Sendable` under Swift 6. |
 | `Sync/SyncCloudKit.swift` | **The only file that uses `CKSyncEngine`, `CKContainer` or `CKRecord`.** It converts `CKRecord` ↔ `SyncRecord`, holds the thin `CKSyncEngineDelegate` adapter, and is the live `SyncEngineControl`. |
-| `Sync/SyncEngineControl.swift` | The test seam, a protocol with `add(pending: [SyncPendingChange])`, `addZoneSaves(_:)`, `addZoneDeletes(_:)`, `fetchChanges()`, `sendChanges()`. |
+| `Sync/SyncEngineControl.swift` | The test seam, a protocol with `add(pending: [SyncPendingChange])`, `remove(pending:)`, `addZoneSaves(_:)`, `addZoneDeletes(_:)`, `fetchChanges()`, `sendChanges()`. |
 | `Sync/SyncCoordinator.swift` | An actor holding all the logic: outbox → pending changes, building a batch, events, conflicts, account states, status. |
 | `Sync/SyncMapping.swift` | Row ↔ `SyncRecord`, one mapper per record type. Pure. |
 | `Sync/SyncMerge.swift` | The conflict rules. Pure. |
@@ -70,6 +70,8 @@ Work style: every step starts with a failing test, then the smallest code that p
   - `accountChanged(_:)`
   - `zonesDeleted(_:reason:)`
   - `stateUpdated(Data)`
+  - `fetchFinished()` (`didFetchChanges`: ends the turn-on fetch, stamps `lastSyncedAt`)
+  - `failed(_:)`, for an error outside one record's save
 - `nextRecordZoneChangeBatch` asks `coordinator.records(for:)`. If a record can no longer be built, it is removed from the pending changes and the batch returns nil for it.
 - Tests drive the coordinator through `FakeSyncEngine` (in `BrowserKit/Tests/BrowserKitTests/`).
 - **Nothing in `swift test` or `make test` may construct `CKContainer` or `CKSyncEngine`.** Without the entitlement, constructing either crashes.
@@ -303,7 +305,7 @@ A save that fails with `serverRecordChanged` is merged into the server's record 
 | TabGroup | Last writer wins. Delete beats edit, and its tabs fall back to loose (`ON DELETE SET NULL`), as they do locally. |
 | Tab | Last writer wins. Delete beats edit. An incoming `archivedAt` is ignored if this Mac's `lastActiveAt` is later, and the unarchived state is sent back, so one Mac's idle clock never archives a tab in use on another. An incoming `url`/`title` is **not** applied to a tab with a live web view on this Mac; structural fields still are. Clashing `position` values heal through the existing renumber-on-load (ties broken by `createdAt`). `parentTabID` stays local. |
 | Favorites | Union, because each Favorite is its own record. More than 12 arriving in a Space: the extras are demoted to pinned locally, deterministically by (`position`, `createdAt`), and the demotion is not sent back. |
-| SiteSetting | Field by field: a set value beats an unset one. If both are set, the newer `modifiedAt` wins. |
+| SiteSetting | The four permission flags, field by field: a set value beats an unset one. If both are set, the newer `modifiedAt` wins. `blockingDisabled` and `insecureAllowed` are always written as 0 or 1 and follow the newer record (last writer wins): they are `NOT NULL` locally, so with set-beats-unset, once any Mac turned blocking off for a site no Mac could turn it back on. |
 | Setting | Last writer wins per key. |
 | HistoryEntry, Device | One writer per record, so they never conflict. If one ever does, local wins. |
 | SyncSecret | The server always wins. |

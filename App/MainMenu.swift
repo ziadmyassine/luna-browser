@@ -24,6 +24,7 @@
 //
 
 import AppKit
+import BrowserKit
 
 /// Builds and installs Luna's menu bar.
 @MainActor
@@ -36,6 +37,13 @@ enum MainMenu {
     /// Identifies the View ▸ Sidebar Items submenu, refilled by
     /// `setSidebarItems` on every structural change.
     private static let sidebarItemsTag = 1_002
+
+    /// Identifies History ▸ Tabs on Other Macs, refilled by `setOtherMacs`.
+    private static let otherMacsTag = 1_003
+
+    /// Kept so `rebuild` can refill the submenu; unlike Spaces, nothing else
+    /// re-sends it after a rebind.
+    private static var otherMacs: [SyncDevice] = []
 
     /// Builds the menu bar and installs it on `app`.
     static func install(into app: NSApplication) {
@@ -246,8 +254,43 @@ enum MainMenu {
             [.separator()],
             // §6.4's pop-out. It hangs off a button in both layouts and had no
             // keystroke at all, which made it the one §22.5 violation left.
-            items(.showHistory)
+            items(.showHistory),
+            [.separator()],
+            [otherMacsMenu()]
         ]))
+    }
+
+    /// History ▸ Tabs on Other Macs (docs/SYNC-PLAN.md §5): one section per
+    /// Mac, already filtered by `SyncCoordinator.otherMacs`.
+    static func setOtherMacs(_ macs: [SyncDevice], in app: NSApplication) {
+        otherMacs = macs
+        guard let menu = app.mainMenu.flatMap({ tagged(otherMacsTag, in: $0) })?.submenu else { return }
+        fill(menu, with: macs)
+    }
+
+    private static func otherMacsMenu() -> NSMenuItem {
+        let list = menu("Tabs on Other Macs", [])
+        fill(list, with: otherMacs)
+        let host = submenu(list)
+        host.tag = otherMacsTag
+        return host
+    }
+
+    private static func fill(_ menu: NSMenu, with macs: [SyncDevice]) {
+        menu.removeAllItems()
+        guard !macs.isEmpty else {
+            menu.addItem(NSMenuItem(title: String(localized: "No Other Macs"), action: nil, keyEquivalent: ""))
+            return
+        }
+        for mac in macs {
+            menu.addItem(.sectionHeader(title: mac.name))
+            for tab in mac.tabs {
+                let title = tab.title.isEmpty ? (tab.url.host() ?? tab.url.absoluteString) : tab.title
+                let entry = NSMenuItem(title: title, action: #selector(AppDelegate.openTabFromOtherMac(_:)), keyEquivalent: "")
+                entry.representedObject = tab.url
+                menu.addItem(entry)
+            }
+        }
     }
 
     private static func windowMenu() -> NSMenu {

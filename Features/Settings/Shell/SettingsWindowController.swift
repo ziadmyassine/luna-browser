@@ -59,6 +59,11 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private let list: SettingsSectionList
     private let detail = SettingsDetailPane()
     private let search = SettingsSearchField()
+    /// Opens the iCloud page, which is the last of `sections` and has no row
+    /// in `list`.
+    private let account: SettingsAccountRow
+    private let sync: SyncSettings
+    private var syncObserver: NSObjectProtocol?
     private var selected = 0
     /// §1's back and forward: the order the sections were actually visited in,
     /// which the list cannot show. `cursor` is where in it we are standing, so
@@ -74,11 +79,11 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     /// takes Settings with it rather than leaving it standing over nothing.
     private var hostClosing: NSObjectProtocol?
 
-    convenience init() {
+    convenience init(sync: SyncSettings = .shared) {
         // All nine up front: §2's search has to know what is inside a section
         // the user has not opened, and every later query is then a string
         // comparison.
-        let sections = SettingsSectionRegistry.all.map { $0.init() }
+        let sections = SettingsSectionRegistry.all.map { $0.init() } + [AccountSection(sync: sync)]
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: SettingsMetrics.contentSize),
             // `.fullSizeContentView`, so the glass column runs the window's full
@@ -90,11 +95,13 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        self.init(sections: sections, window: window)
+        self.init(sections: sections, sync: sync, window: window)
     }
 
-    private init(sections: [any SettingsSection], window: NSWindow) {
+    private init(sections: [any SettingsSection], sync: SyncSettings, window: NSWindow) {
         self.sections = sections
+        self.sync = sync
+        account = SettingsAccountRow(status: sync.status)
         pages = sections.map(Self.page(for:))
         list = SettingsSectionList(
             titles: SettingsSectionRegistry.all.map { $0.title },
@@ -129,7 +136,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         // the first thing that accepts first responder, which is a disabled
         // row (§4 keeps those in the key loop).
         window.initialFirstResponder = search
-        show(SettingsSectionRegistry.index(ofID: SettingsDefaults.lastSection), animated: false)
+        // The iCloud page is last in `sections` and not in the register.
+        let last = SettingsDefaults.lastSection
+        show(last == AccountSection.id ? sections.count - 1 : SettingsSectionRegistry.index(ofID: last), animated: false)
     }
 
     @available(*, unavailable)
@@ -252,78 +261,6 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
-    // MARK: - Content
-
-    private func buildContent() -> NSView {
-        // The same shape the browser window is cut to. A Luna window has one
-        // radius, and Settings was wearing the system's instead.
-        let root = WindowRootView()
-        let column = buildColumn()
-        column.translatesAutoresizingMaskIntoConstraints = false
-        detail.translatesAutoresizingMaskIntoConstraints = false
-        root.addSubview(column)
-        root.addSubview(detail)
-        NSLayoutConstraint.activate([
-            column.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            column.topAnchor.constraint(equalTo: root.topAnchor),
-            column.bottomAnchor.constraint(equalTo: root.bottomAnchor),
-            column.widthAnchor.constraint(equalToConstant: SettingsMetrics.listWidth),
-
-            detail.leadingAnchor.constraint(equalTo: column.trailingAnchor),
-            detail.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            detail.topAnchor.constraint(equalTo: root.topAnchor),
-            detail.bottomAnchor.constraint(equalTo: root.bottomAnchor),
-
-            root.widthAnchor.constraint(greaterThanOrEqualToConstant: SettingsMetrics.minWidth),
-            root.heightAnchor.constraint(greaterThanOrEqualToConstant: SettingsMetrics.minHeight)
-        ])
-        return root
-    }
-
-    /// The left column: §2's search field over §2's section list, on the same
-    /// `.sidebar` glass as the browser's sidebar.
-    private func buildColumn() -> NSView {
-        let column = NSView()
-        Glass.apply(.sidebar, to: column)
-
-        search.onChange = { [weak self] _ in self?.applySearch() }
-        search.translatesAutoresizingMaskIntoConstraints = false
-        list.onSelect = { [weak self] index in self?.show(index, animated: true) }
-        detail.nav.onBack = { [weak self] in self?.step(-1) }
-        detail.nav.onForward = { [weak self] in self?.step(1) }
-        list.translatesAutoresizingMaskIntoConstraints = false
-
-        column.addSubview(search)
-        column.addSubview(list)
-        let inset = Tokens.Metric.rowInset
-        NSLayoutConstraint.activate([
-            // Clear of the traffic lights, which sit on this column now.
-            search.topAnchor.constraint(
-                equalTo: column.topAnchor,
-                constant: Tokens.Metric.trafficLightInset + SettingsMetrics.groupGap
-            ),
-            search.leadingAnchor.constraint(equalTo: column.leadingAnchor, constant: inset),
-            search.trailingAnchor.constraint(equalTo: column.trailingAnchor, constant: -inset),
-            search.heightAnchor.constraint(equalToConstant: SettingsMetrics.searchHeight),
-
-            list.topAnchor.constraint(equalTo: search.bottomAnchor, constant: SettingsMetrics.controlRowGap),
-            list.leadingAnchor.constraint(equalTo: column.leadingAnchor),
-            list.trailingAnchor.constraint(equalTo: column.trailingAnchor)
-        ])
-        // The list stands at its own height — twelve rows at the sidebar's pitch —
-        // and keeps `paneInset` off the bottom of the column if it can.
-        // Not required: `settingsMinHeight` is sized so it always can, and a
-        // required constraint here would be one AppKit breaks, with a console
-        // full of it, the moment anything else moved.
-        let floor = list.bottomAnchor.constraint(
-            lessThanOrEqualTo: column.bottomAnchor,
-            constant: -SettingsMetrics.paneInset
-        )
-        floor.priority = .defaultHigh
-        floor.isActive = true
-        return column
-    }
-
     // MARK: - Sections
 
     /// §2: exactly one section selected, always, and the choice survives a
@@ -355,7 +292,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         guard sections.indices.contains(index) else { return }
         selected = index
         detail.nav.update(canGoBack: cursor > 0, canGoForward: cursor + 1 < visited.count)
-        list.select(index)
+        if index < SettingsSectionRegistry.all.count { list.select(index) } else { list.clearSelection() }
+        account.isOn = index >= SettingsSectionRegistry.all.count
+        account.status = sync.status
         let section = sections[index]
         section.willAppear()
         detail.show(pages[index], title: type(of: section).title, animated: animated)
@@ -428,5 +367,98 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     @objc func goToSettingsSection(_ sender: Any?) {
         guard let item = sender as? NSMenuItem else { return }
         show(item.tag, animated: true)
+    }
+}
+
+// MARK: - Content
+
+extension SettingsWindowController {
+
+    private func buildContent() -> NSView {
+        // The same shape the browser window is cut to. A Luna window has one
+        // radius, and Settings was wearing the system's instead.
+        let root = WindowRootView()
+        let column = buildColumn()
+        column.translatesAutoresizingMaskIntoConstraints = false
+        detail.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(column)
+        root.addSubview(detail)
+        NSLayoutConstraint.activate([
+            column.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            column.topAnchor.constraint(equalTo: root.topAnchor),
+            column.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            column.widthAnchor.constraint(equalToConstant: SettingsMetrics.listWidth),
+
+            detail.leadingAnchor.constraint(equalTo: column.trailingAnchor),
+            detail.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            detail.topAnchor.constraint(equalTo: root.topAnchor),
+            detail.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+
+            root.widthAnchor.constraint(greaterThanOrEqualToConstant: SettingsMetrics.minWidth),
+            root.heightAnchor.constraint(greaterThanOrEqualToConstant: SettingsMetrics.minHeight)
+        ])
+        return root
+    }
+
+    /// The left column: §2's search field over §2's section list, on the same
+    /// `.sidebar` glass as the browser's sidebar.
+    private func buildColumn() -> NSView {
+        let column = NSView()
+        Glass.apply(.sidebar, to: column)
+
+        search.onChange = { [weak self] _ in self?.applySearch() }
+        search.translatesAutoresizingMaskIntoConstraints = false
+        account.onActivate = { [weak self] in
+            guard let self else { return }
+            show(sections.count - 1, animated: true)
+        }
+        account.translatesAutoresizingMaskIntoConstraints = false
+        syncObserver = NotificationCenter.default.addObserver(
+            forName: SyncSettings.didChange,
+            object: sync,
+            queue: nil
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.account.status = self?.sync.status ?? .off }
+        }
+        list.onSelect = { [weak self] index in self?.show(index, animated: true) }
+        detail.nav.onBack = { [weak self] in self?.step(-1) }
+        detail.nav.onForward = { [weak self] in self?.step(1) }
+        list.translatesAutoresizingMaskIntoConstraints = false
+
+        column.addSubview(search)
+        column.addSubview(account)
+        column.addSubview(list)
+        let inset = Tokens.Metric.rowInset
+        NSLayoutConstraint.activate([
+            // Clear of the traffic lights, which sit on this column now.
+            search.topAnchor.constraint(
+                equalTo: column.topAnchor,
+                constant: Tokens.Metric.trafficLightInset + SettingsMetrics.groupGap
+            ),
+            search.leadingAnchor.constraint(equalTo: column.leadingAnchor, constant: inset),
+            search.trailingAnchor.constraint(equalTo: column.trailingAnchor, constant: -inset),
+            search.heightAnchor.constraint(equalToConstant: SettingsMetrics.searchHeight),
+
+            account.topAnchor.constraint(equalTo: search.bottomAnchor, constant: SettingsMetrics.controlRowGap),
+            account.leadingAnchor.constraint(equalTo: search.leadingAnchor),
+            account.trailingAnchor.constraint(equalTo: search.trailingAnchor),
+            account.heightAnchor.constraint(equalToConstant: SettingsMetrics.accountRowHeight),
+
+            list.topAnchor.constraint(equalTo: account.bottomAnchor, constant: SettingsMetrics.controlRowGap),
+            list.leadingAnchor.constraint(equalTo: column.leadingAnchor),
+            list.trailingAnchor.constraint(equalTo: column.trailingAnchor)
+        ])
+        // The list stands at its own height — twelve rows at the sidebar's pitch —
+        // and keeps `paneInset` off the bottom of the column if it can.
+        // Not required: `settingsMinHeight` is sized so it always can, and a
+        // required constraint here would be one AppKit breaks, with a console
+        // full of it, the moment anything else moved.
+        let floor = list.bottomAnchor.constraint(
+            lessThanOrEqualTo: column.bottomAnchor,
+            constant: -SettingsMetrics.paneInset
+        )
+        floor.priority = .defaultHigh
+        floor.isActive = true
+        return column
     }
 }
