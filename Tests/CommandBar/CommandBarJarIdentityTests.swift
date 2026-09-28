@@ -65,7 +65,7 @@ final class CommandBarJarIdentityTests: XCTestCase {
     }
 
     /// §6.3's archive is a Space's archive too. What you closed in Personal is
-    /// not in Work's list, in the bar or in §6.4's panel.
+    /// not in Work's list, in the bar or on `luna://archive`.
     func testTheArchiveOnOfferIsTheSpacesOwn() async throws {
         let session = try await makeSession()
         let closedInPersonal = session.newTab(url: url("https://mail.example/inbox"))

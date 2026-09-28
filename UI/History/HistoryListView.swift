@@ -14,18 +14,15 @@
 //  slide to describe.
 //
 //  **It is an `NSTableView`, and it used to be an `NSStackView` with a row in
-//  it per archived tab.** The archive is the one list in Luna with no ceiling:
-//  §6.3 keeps a closed tab for thirty days, which is four figures of rows for
-//  an ordinary week. Every one of them was a built view — six subviews, three
+//  it per entry.** Every one of them was a built view — six subviews, three
 //  `NSTextField`s and seven constraints each — inside one stack that tied all
 //  of them into a single Auto Layout engine, and all of it was constructed
 //  before `PopoutController` let the pop-out animate in. Measured at 1163 ms
-//  for the 162-row archive this machine actually had, and 35 s for the thirty
-//  days §6.3 has already promised: not a slow list, a frozen app, and getting
-//  worse than linearly. `NSTableView` recycles row views and lays out only
-//  what is visible, so the cost is the dozen rows the panel is tall and does
-//  not depend on the archive at all — the same reasoning `TabListController`'s
-//  header gives, for the same measurement.
+//  for 162 rows, and 35 s for the four figures this list reaches: not a slow
+//  list, a frozen app, and getting worse than linearly. `NSTableView` recycles
+//  row views and lays out only what is visible, so the cost is the dozen rows
+//  the panel is tall however long the list is — the same reasoning
+//  `TabListController`'s header gives, for the same measurement.
 //
 //  Pointer and keyboard drive the same selection. The panel's filter field owns
 //  the keystrokes — it is what has focus — and hands ↓/↑/↩ down here.

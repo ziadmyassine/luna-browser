@@ -2,13 +2,15 @@
 //  HistoryPanelController.swift
 //  Luna
 //
-//  Presents §6.4's panel, filters it, and puts a chosen tab back.
+//  Presents §6.4's panel, asks the store for the pages to put in it, and opens
+//  the one chosen.
 //
-//  The archive is already in memory — `BrowserSession.archived` is a view over
-//  the same table the tab list reads (§11.1) — so filtering is a `contains` over
-//  an array the session is holding anyway. No query, no debounce, no store.
+//  History is the store's, not the session's: it is every visit the Space has
+//  made, which is far more than anything held in memory. So the list is a query
+//  — the newest pages when the field is empty, and a search of every title and
+//  address as it is typed, through the same index the Command Bar reads.
 //
-//  The Space you are in, and no other. What you closed in Personal is not in
+//  The Space you are in, and no other. What you visited in Personal is not in
 //  Work's list any more than Personal's cookies are in Work's jar (§9.2).
 //
 //  §6.4's panel is a pop-out from the button that opens it — see
@@ -27,10 +29,16 @@ import BrowserKit
 @MainActor
 final class HistoryPanelController: PopoutController {
 
+    /// How many pages the list holds. The newest few hundred is what a glance
+    /// at history is for; anything older is found by searching for it.
+    static let limit = 300
+
     private let session: BrowserSession
-    private var entries: [HistoryEntry] = []
     /// Set by `toggle(in:from:edge:)` before the panel is built.
     private var edge: PopoutEdge = .above
+    /// The query in flight. A newer keystroke cancels it, so a slow answer to an
+    /// old query never lands over the answer to the current one.
+    private var loading: Task<Void, Never>?
 
     init(session: BrowserSession) {
         self.session = session
@@ -49,44 +57,54 @@ final class HistoryPanelController: PopoutController {
     }
 
     override func makePanel(in root: NSView) -> PopoutPanelView {
-        entries = session.archivedInActiveSpace.map(Self.entry)
         let panel = HistoryPanel(frame: root.bounds, edge: edge)
-        // The live session first — an archived tab that was open this launch
-        // still has its icon in memory — then §4.7's on-disk cache by host,
-        // which is where every other archived tab's icon lives.
+        // §4.7's on-disk cache by host: most of these pages have no tab, and
+        // that cache is where their icons are.
         panel.iconProvider = { [weak session] entry in
-            if let image = session?.favicon(for: entry.id) { return image }
             guard !entry.host.isEmpty,
                   let data = session?.favicons.favicon(forHost: entry.host)
             else { return nil }
             return NSImage(data: data)
         }
-        panel.onFilter = { [weak self] text in self?.filter(text) }
-        panel.onChoose = { [weak self] id in self?.restore(id) }
+        panel.onFilter = { [weak self] text in self?.load(text) }
+        panel.onChoose = { [weak self] entry in self?.open(entry.url) }
         return panel
     }
 
     override func panelDidAppear(_ panel: PopoutPanelView) {
         guard let panel = panel as? HistoryPanel else { return }
-        panel.setEntries(entries)
         panel.focusFilter()
+        load("")
     }
 
     override func panelDidDisappear() {
-        entries = []
+        loading?.cancel()
+        loading = nil
     }
 
     // MARK: - Behaviour
 
-    private func filter(_ text: String) {
-        guard let panel = presented as? HistoryPanel else { return }
-        let needle = text.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !needle.isEmpty else { return panel.setEntries(entries) }
-        panel.setEntries(entries.filter { $0.searchText.contains(needle) })
+    private func load(_ text: String) {
+        loading?.cancel()
+        let query = text.trimmingCharacters(in: .whitespaces)
+        loading = Task { [weak self, session] in
+            let pages = await session.browsingHistory(matching: query, limit: Self.limit)
+            guard !Task.isCancelled, let panel = self?.presented as? HistoryPanel else { return }
+            panel.setEntries(pages.map(Self.entry))
+        }
     }
 
-    private func restore(_ id: UUID) {
-        session.unarchiveTab(id)
+    /// The page, in the tab that already has it if there is one — a second
+    /// copy of a page that is open is a tab the user then has to find and
+    /// close — and in a new tab otherwise.
+    private func open(_ url: URL) {
+        let key = CommandBarURL.dedupeKey(url)
+        if let tab = session.tabsInActiveSpace(includeArchived: false)
+            .first(where: { CommandBarURL.dedupeKey($0.url) == key }) {
+            session.activateTab(tab.id)
+        } else {
+            session.newTab(url: url)
+        }
         dismiss()
     }
 
@@ -95,16 +113,15 @@ final class HistoryPanelController: PopoutController {
     /// The host and the time are two strings, not one: the row sets them as
     /// separate labels so that the one which has to give way is the host. See
     /// `HistoryTimestamp`.
-    private static func entry(_ tab: Tab) -> HistoryEntry {
-        let host = tab.url.host() ?? tab.url.absoluteString
-        let title = tab.title.isEmpty ? host : tab.title
+    private static func entry(_ page: HistoryHit) -> HistoryEntry {
+        let host = page.url.host() ?? page.url.absoluteString
         return HistoryEntry(
-            id: tab.id,
-            title: title,
+            id: UUID(),
+            title: page.title.isEmpty ? CommandBarURL.displayForm(of: page.url) : page.title,
             subtitle: host,
-            when: tab.archivedAt.map { HistoryTimestamp.string(for: $0) } ?? "",
-            host: tab.url.host() ?? "",
-            searchText: (title + " " + host).lowercased()
+            when: page.lastVisit.map { HistoryTimestamp.string(for: $0) } ?? "",
+            host: page.url.host() ?? "",
+            url: page.url
         )
     }
 }

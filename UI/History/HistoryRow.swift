@@ -2,7 +2,7 @@
 //  HistoryRow.swift
 //  Luna
 //
-//  One archived tab as a row: the value it is drawn from, how the time on it is
+//  One visited page as a row: the value it is drawn from, how the time on it is
 //  written, and the view itself.
 //
 //  It is §3.4's shape rather than a new one — the sidebar's tab row, with a
@@ -14,26 +14,25 @@
 
 import AppKit
 
-/// One archived tab, flattened for display. A value rather than a `Tab` so the
-/// row cannot reach back into the session for anything it was not handed.
+/// One visited page, flattened for display. A value rather than a
+/// `HistoryHit` so the row is handed exactly what it draws.
 struct HistoryEntry: Identifiable, Sendable {
     let id: UUID
     let title: String
-    /// Where the tab was — the host, or the whole URL when there is no host to
+    /// Where the page is — the host, or the whole URL when there is no host to
     /// take. Not the time: the two used to be one string, and see
     /// ``HistoryTimestamp`` for what that cost.
     let subtitle: String
-    /// When it was closed, already formatted. See ``HistoryTimestamp``.
+    /// When it was last visited, already formatted. See ``HistoryTimestamp``.
     let when: String
-    /// The archived tab's host, for the favicon cache. An archived tab has no
-    /// live controller and therefore no in-session icon; the on-disk cache is
-    /// the only place its icon still exists (§4.7).
+    /// The page's host, for the favicon cache (§4.7), which is where the icon
+    /// of a page with no open tab is kept.
     let host: String
-    /// Lower-cased title and host, which is what the filter matches on.
-    let searchText: String
+    /// What choosing the row opens.
+    let url: URL
 }
 
-/// When an archived tab was closed, in the width a 320 pt pop-out has for it.
+/// When a page was last visited, in the width a 320 pt pop-out has for it.
 ///
 /// A cut date is worse than a coarse one. The row used to carry
 /// `"github.com · Sep 20, 2026 at 12:24 PM"` as one middle-truncated label, and
@@ -108,9 +107,8 @@ final class HistoryRowView: NSView {
     private let when = NSTextField(labelWithString: "")
 
     /// **Built empty and filled afterwards, because `HistoryListView` recycles
-    /// these.** A row that took its entry in `init` was a row per archived tab,
-    /// and the archive has no ceiling on it — §6.3 keeps a closed tab for
-    /// thirty days.
+    /// these.** A row that took its entry in `init` was a row per entry, and
+    /// history has no ceiling on it.
     ///
     /// `translatesAutoresizingMaskIntoConstraints` stays on: an `NSTableView`
     /// positions its cell views by frame, and the constraints below are all

@@ -269,7 +269,7 @@ underneath — never a silently dead switch (§30.4).
 |---|---|---|
 | Default browser | Button "Set as Default" + status line | `NSWorkspace.setDefaultApplication(at:toOpenURLsWithScheme:)` |
 | On launch | Popup: Restore last session · New tab · Specific Space | `general.onLaunch` + `BrowserSession.restored` |
-| Auto-archive tabs after | Popup: 6h · 12h · 24h · Never | **existing** `luna.autoArchiveHours` |
+| Clean up tabs I haven’t used after | Popup: 6h · 12h · 24h · Never (default **Never**, 2026-09-28; was 12h) | **existing** `luna.autoArchiveHours` |
 | Ask before quitting Luna | Toggle | `general.confirmQuit` — read by `AppDelegate.applicationShouldTerminate` |
 
 > **Added: the quit guard, and it is the only row in this card with a reader.**

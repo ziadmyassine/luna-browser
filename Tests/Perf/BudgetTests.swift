@@ -168,62 +168,79 @@ final class BudgetTests: XCTestCase {
         XCTAssertLessThan(worst, 8.33, "a frame over 8.33 ms cannot be delivered at 120 Hz")
     }
 
-    /// §6.4's pop-out, opened from the History button, against a full archive.
+    /// §6.4's pop-out, opened from the History button: built, and then filled.
     ///
-    /// Everything `PopoutController.present` does happens *before*
-    /// `animateIn`, so whatever this costs is a freeze the user sits through
-    /// with nothing on screen to explain it. The archive is the one list in
-    /// the app with no ceiling on it — §6.3 keeps a closed tab for thirty
-    /// days, and thirty days of ordinary use is four figures.
+    /// Built is `present` and its layout, everything before `animateIn` — a
+    /// freeze the user sits through with nothing on screen to explain it.
+    /// Filled is until the list has its pages: a store query that lands after
+    /// the pop-out has started to open, so a slow one is an empty pop-out
+    /// rather than a frozen app. History is the one list in the app with no
+    /// ceiling on it; the store is asked for the newest
+    /// `HistoryPanelController.limit` pages however long it is.
+    ///
+    /// The first fill is recorded and not held to the budget. The query and
+    /// the list take 2–5 ms even then, timed inside the load; the other 125 ms
+    /// of a first fill, found by subtraction, pass before the load gets the
+    /// main thread at all, and are gone from the second open on.
     ///
     /// Budget is the command bar's 100 ms, for the same reason: both are a
     /// surface that has to be there by the time the hand has finished asking.
     func testHistoryPanelPresentation() async throws {
-        // Today's real archive, and thirty days of it. The first is what this
-        // machine's user is feeling now; the second is what §6.3's retention
-        // has already promised them.
-        for count in [162, 1200] {
-            let (first, median) = try await presentHistory(archived: count)
+        for count in [300, 5000] {
+            let times = try await presentHistory(pages: count)
             record(String(
-                format: "PERF history pop-out, %d archived: first %.1f ms, median %.1f ms (budget 100 ms)",
-                count, first, median
+                format: "PERF history pop-out, %d pages: built first %.1f ms, median %.1f ms; "
+                    + "filled first %.1f ms, median %.1f ms (budget 100 ms)",
+                count, times.built.first, times.built.median, times.filled.first, times.filled.median
             ))
-            XCTAssertLessThan(first, 100, "\(count) archived tabs freeze the app before the pop-out appears")
-            XCTAssertLessThan(median, 100)
+            XCTAssertLessThan(times.built.first, 100, "\(count) pages of history freeze the app before the pop-out appears")
+            XCTAssertLessThan(times.built.median, 100)
+            XCTAssertLessThan(times.filled.median, 100, "\(count) pages of history keep the pop-out empty")
         }
     }
 
-    /// Opens §6.4's pop-out five times over an archive of `archived` tabs, and
-    /// gives back the first and median cost in milliseconds.
-    private func presentHistory(archived: Int) async throws -> (first: Double, median: Double) {
+    /// Opens §6.4's pop-out five times over `pages` visited pages, and gives
+    /// back the first and median time to build it and to fill it, in
+    /// milliseconds.
+    private func presentHistory(
+        pages: Int
+    ) async throws -> (built: (first: Double, median: Double), filled: (first: Double, median: Double)) {
         let directory = try XCTUnwrap(directory)
-        let store = try BrowserStore(path: directory.appending(path: "luna-\(archived).sqlite"))
+        let store = try BrowserStore(path: directory.appending(path: "luna-\(pages).sqlite"))
         try await store.seedIfEmpty()
         let spaces = try await store.spaces()
         let space = try XCTUnwrap(spaces.first)
-        for index in 0..<archived {
-            try await store.upsert(Tab(
-                spaceID: space.id,
+        for index in 0..<pages {
+            try await store.recordVisit(
                 url: URL(string: "https://example\(index % 20).com/page/\(index)")!,
-                title: "A closed tab with a title of about the usual length \(index)",
-                archivedAt: Date().addingTimeInterval(-Double(index) * 60),
-                order: index
-            ))
+                title: "A visited page with a title of about the usual length \(index)",
+                kind: .link,
+                at: Date().addingTimeInterval(-Double(index) * 60),
+                inSpace: space.id
+            )
         }
+        try await store.flush()
         let session = try await BrowserSession.restored(store: store)
-        XCTAssertEqual(session.archived.count, archived)
         let history = HistoryPanelController(session: session)
         let window = window()
+        let root = try XCTUnwrap(window.contentView)
 
-        var times: [Double] = []
+        var built: [Double] = []
+        var filled: [Double] = []
         for _ in 0..<5 {
             let start = CFAbsoluteTimeGetCurrent()
-            history.present(in: window, from: try XCTUnwrap(window.contentView))
-            window.contentView?.layoutSubtreeIfNeeded()
-            times.append((CFAbsoluteTimeGetCurrent() - start) * 1000)
+            history.present(in: window, from: root)
+            root.layoutSubtreeIfNeeded()
+            built.append((CFAbsoluteTimeGetCurrent() - start) * 1000)
+            let panel = try XCTUnwrap(history.presented as? HistoryPanel)
+            while panel.shownEntries.isEmpty, CFAbsoluteTimeGetCurrent() - start < 2 {
+                try await Task.sleep(for: .milliseconds(1))
+            }
+            filled.append((CFAbsoluteTimeGetCurrent() - start) * 1000)
+            XCTAssertFalse(panel.shownEntries.isEmpty, "the history never arrived")
             history.dismiss()
         }
         session.tearDown()
-        return (times[0], percentile(times, 0.5))
+        return ((built[0], percentile(built, 0.5)), (filled[0], percentile(filled, 0.5)))
     }
 }

@@ -7,16 +7,21 @@ public enum VisitKind: String, Sendable, Codable {
     case typed, link, bookmarked, redirect, embed
 }
 
-/// One ranked history result for the Command Bar (§9.2).
+/// One page from history: ranked, for the Command Bar (§9.2), or in time
+/// order, for §6.4's History.
 public struct HistoryHit: Sendable, Hashable {
     public var url: URL
     public var title: String
     public var score: Double
+    /// When the page was last visited in the Space asked about. Only
+    /// `browsingHistory` fills it; §6.4's rows show it.
+    public var lastVisit: Date?
 
-    public init(url: URL, title: String, score: Double) {
+    public init(url: URL, title: String, score: Double, lastVisit: Date? = nil) {
         self.url = url
         self.title = title
         self.score = score
+        self.lastVisit = lastVisit
     }
 }
 

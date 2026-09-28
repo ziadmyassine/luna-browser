@@ -27,11 +27,11 @@ final class HistoryListTests: XCTestCase {
         (0..<count).map { index in
             HistoryEntry(
                 id: UUID(),
-                title: "A closed tab \(index)",
+                title: "A visited page \(index)",
                 subtitle: "example.com",
                 when: "12:00",
                 host: "example.com",
-                searchText: "a closed tab \(index) example.com"
+                url: URL(string: "https://example.com/\(index)")!
             )
         }
     }
@@ -92,10 +92,10 @@ final class HistoryListTests: XCTestCase {
         XCTAssertEqual(pill.alphaValue, 1, "the pill is placed but not shown")
     }
 
-    /// The point of the table. A thousand archived tabs is a fortnight of
-    /// ordinary use, and it must not be a thousand built rows — that was 35 s
-    /// of frozen app before the pop-out appeared. See `BudgetTests`.
-    func testALongArchiveBuildsOnlyTheRowsThePanelIsTall() {
+    /// The point of the table. A thousand pages is days of ordinary use, and
+    /// it must not be a thousand built rows — that was 35 s of frozen app
+    /// before the pop-out appeared. See `BudgetTests`.
+    func testALongHistoryBuildsOnlyTheRowsThePanelIsTall() {
         let list = list(showing: entries(1000))
         let rows = descendants(of: list, ofType: HistoryRowView.self).count
         XCTAssertGreaterThan(rows, 0, "the list drew nothing at all")

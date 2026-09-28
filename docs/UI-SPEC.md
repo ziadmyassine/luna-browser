@@ -1588,9 +1588,14 @@ all three on one bottom edge.
 > clamping to one side would slide the pill under one cluster and leave clear air under the other, so the
 > overflow is centred instead and stays symmetrical.
 
-> **It is called History and it carries a clock.** Luna's internal word for the shelf is "the archive";
-> the user's word for what they are looking for is "history". The glyph is `clock.arrow.circlepath`,
-> because a box means storage and a clock means "earlier".
+> **It is called History and it carries a clock, and since 2026-09-28 it is history.** It lists the
+> pages the Space has visited, one row per page, newest first, like any browser's history; typing
+> searches every page's title and address through §11.2's index (`BrowserStore.browsingHistory`). It
+> was §6.3's archive of closed tabs under the name "History", which is a different list: a page that
+> had only ever been open in a tab, never closed, was in history and not in the panel, and searching
+> the panel for it found nothing. Closed tabs are still kept — the Command Bar offers them as
+> "Reopen tab" and `luna://archive` still lists them. The glyph is `clock.arrow.circlepath`, because a
+> box means storage and a clock means "earlier".
 > **It opens a pop-out from the button, not a tab and not a panel over the page.** Looking something up
 > in your history is a glance, and a glance should not leave a tab behind to close afterwards — and a web
 > page cannot be Liquid Glass, so the one surface in the app that is *about* the tabs looked like a
@@ -1598,7 +1603,8 @@ all three on one bottom edge.
 > (a ceiling), leading edge aligned to the button, foot a `historyPopoutGap` above its head, growing
 > upward because up and across is where the window is. `esc` or a click outside dismisses it. Title and
 > filter share one line, the filter is §3.2's `Surface.well` pill, and the rows are §3.4's — favicon,
-> title, a quieter host · date, a fill that lifts on hover. Choosing one unarchives the tab where it was.
+> title, a quieter host · when it was last visited, a fill that lifts on hover. Choosing one opens the
+> page: in the tab that already has it if one does, and in a new tab otherwise.
 > `luna://history` still resolves and still renders, because a URL someone has bookmarked should not stop
 > working; nothing in the chrome navigates to it any more. `luna://archive` was its address before the
 > page took the name the user reads, and it still routes here for the same reason.

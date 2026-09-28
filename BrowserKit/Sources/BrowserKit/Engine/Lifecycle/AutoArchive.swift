@@ -14,7 +14,10 @@ public enum AutoArchive {
 
     /// The user-settable thresholds. `never` is 0 hours.
     public static let choices: [Double] = [6, 12, 24, 0]
-    public static let defaultHours: Double = 12
+    /// Never: a tab stays open until the user closes it. Arc's 12 hours put
+    /// tabs away that were still wanted, and a browser that cleans up on its
+    /// own is something to switch on rather than something to find out about.
+    public static let defaultHours: Double = 0
 
     /// Whether closing this tab leaves anything worth keeping.
     ///

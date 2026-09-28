@@ -391,6 +391,12 @@ extension BrowserSession {
         (try? await store.searchHistory(query, limit: limit, inSpace: activeSpaceID)) ?? []
     }
 
+    /// §6.4: the pages this Space has visited, newest first, narrowed by
+    /// `query` when there is one.
+    func browsingHistory(matching query: String, limit: Int) async -> [HistoryHit] {
+        (try? await store.browsingHistory(matching: query, limit: limit, inSpace: activeSpaceID)) ?? []
+    }
+
     var activeController: TabController? { activeTabID.flatMap { controllers[$0] } }
 
     // MARK: - Persistence

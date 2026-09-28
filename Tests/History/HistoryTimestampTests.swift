@@ -41,10 +41,10 @@ final class HistoryTimestampTests: XCTestCase {
         return formatter
     }
 
-    /// Today is the panel's business — a tab you closed a minute ago and want
-    /// back — so the day is not in question and the stamp spends its width on
-    /// the clock.
-    func testATabClosedTodayIsStampedWithTheTimeAlone() {
+    /// Today is the panel's business — a page you were on a minute ago and
+    /// want back — so the day is not in question and the stamp spends its
+    /// width on the clock.
+    func testAPageVisitedTodayIsStampedWithTheTimeAlone() {
         let when = date(2026, 9, 20)
         let stamp = HistoryTimestamp.string(for: when, now: date(2026, 9, 20, 17, 0), calendar: calendar)
         XCTAssertEqual(stamp, clock.string(from: when))

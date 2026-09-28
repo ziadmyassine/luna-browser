@@ -198,10 +198,11 @@ final class SectionsATests: XCTestCase {
     func testAutoArchiveTitlesCoverEveryChoiceIncludingNever() {
         XCTAssertEqual(AutoArchive.choices.map(GeneralSection.hoursTitle), ["6 hours", "12 hours", "24 hours", "Never"])
         XCTAssertTrue(AutoArchive.choices.contains(AutoArchive.defaultHours))
+        XCTAssertEqual(AutoArchive.defaultHours, 0, "tabs are cleaned up on their own only when the user asks for it")
     }
 
     /// The key keeps its `luna.` prefix (§6): renaming it would silently reset
-    /// every existing install to 12 hours.
+    /// every existing install to the default.
     func testAutoArchiveWritesTheExistingKey() {
         XCTAssertEqual(TabLifecycle.autoArchiveHoursKey, "luna.autoArchiveHours")
         let defaults = UserDefaults.standard
