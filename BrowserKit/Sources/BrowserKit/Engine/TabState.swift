@@ -125,6 +125,17 @@ enum NavigationPolicy {
         return isForMainFrame && !canShowMIMEType
     }
 
+    /// A page on this Mac: a file, or a development server. A reload of one
+    /// goes past the cache, because the person reloading it has just edited
+    /// it. Measured against `python3 -m http.server`: a plain reload fetched
+    /// the new HTML and kept the old CSS and JavaScript from the cache.
+    static func isLocalDevelopment(_ url: URL) -> Bool {
+        if url.isFileURL { return true }
+        guard let host = url.host(percentEncoded: false)?.lowercased() else { return false }
+        return ["localhost", "127.0.0.1", "::1", "0.0.0.0"].contains(host)
+            || host.hasSuffix(".localhost") || host.hasSuffix(".test")
+    }
+
     static func isAttachment(_ contentDisposition: String?) -> Bool {
         guard let contentDisposition else { return false }
         let type = contentDisposition.split(separator: ";", maxSplits: 1).first ?? ""

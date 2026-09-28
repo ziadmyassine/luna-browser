@@ -43,6 +43,7 @@ enum SettingsDefaults {
         ("advanced.userAgent", WebViewFactory.UserAgentMode.default.rawValue),
         ("advanced.userAgentCustom", ""),
         ("advanced.webInspector", true),
+        ("advanced.showDevelopMenu", true),
         // §3.11 About — `Updater.installsOnItsOwn`
         ("updates.installOnItsOwn", true),
         // `ControlService.isEnabled`

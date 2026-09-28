@@ -104,13 +104,6 @@ final class DownloadManager {
         inSpace spaceID: UUID? = nil,
         session: BrowserSession? = nil
     ) {
-        // §15.4 — no silent auto-downloads from background frames. Wave 1's
-        // `NavigationPolicy.shouldDownload` covers the response path; this
-        // covers `<a download>` in a hidden iframe, which never reaches it.
-        guard download.isUserInitiated || download.originatingFrame.isMainFrame else {
-            download.cancel()
-            return
-        }
         let suggested = download.originalRequest?.url?.lastPathComponent ?? DownloadDestination.fallbackName
         let item = DownloadItem(
             request: download.originalRequest,
@@ -241,8 +234,22 @@ final class DownloadManager {
 
     fileprivate func failed(_ item: DownloadItem, download: WKDownload, error: any Error, resumeData: Data?) {
         tasks[ObjectIdentifier(download)] = nil
+        if Self.wasHandedOff(item, error: error) {
+            remove(item)
+            return
+        }
         item.fail(error, resumeData: resumeData)
         onChange?()
+    }
+
+    /// A download cancelled before it had a file, which is not a failure:
+    /// WebKit handing a download link that redirects to another site over to
+    /// the page, whose file then arrives as a download of its own, or a
+    /// destination refused at §15.4's warning or an agent's card. A red row
+    /// beside the file that did arrive read as the download failing.
+    static func wasHandedOff(_ item: DownloadItem, error: any Error) -> Bool {
+        let error = error as NSError
+        return item.destination == nil && error.domain == NSURLErrorDomain && error.code == NSURLErrorCancelled
     }
 
     // MARK: - §15.3 quarantine

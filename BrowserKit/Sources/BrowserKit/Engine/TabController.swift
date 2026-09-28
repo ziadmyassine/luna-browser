@@ -222,7 +222,6 @@ public final class TabController: NSObject {
     /// `decidePolicyFor` reads it to break a redirect loop.
     var lastTrackingStrip: URL?
 
-    public func reload() { webView?.reload() }
     public func stop() { webView?.stopLoading() }
     public func goBack() { webView?.goBack() }
     public func goForward() { webView?.goForward() }
@@ -680,4 +679,22 @@ extension TabController {
       post();
     })();
     """
+}
+
+// MARK: - Reload
+
+extension TabController {
+
+    /// Past the cache for a page on this Mac (`NavigationPolicy.isLocalDevelopment`).
+    /// A text file shown by `localText` is loaded again instead: its page is
+    /// the text as it was read, and reloading that shows the same copy.
+    public func reload() {
+        guard let url = webView?.url, NavigationPolicy.isLocalDevelopment(url) else { webView?.reload(); return }
+        reloadFromOrigin()
+    }
+
+    public func reloadFromOrigin() {
+        guard let webView else { return }
+        if let url = webView.url, Self.isLocalText(url) { Self.load(url, into: webView) } else { webView.reloadFromOrigin() }
+    }
 }

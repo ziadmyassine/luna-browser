@@ -45,9 +45,11 @@ enum MainMenu {
         spaces.tag = spacesTag
 
         let main = NSMenu()
+        // Develop sits where Safari puts it, just before Window.
+        let develop = DevelopMenu.isShown ? [submenu(developMenu())] : []
         for item in [submenu(appMenu()), submenu(fileMenu()), submenu(editMenu()),
-                     submenu(viewMenu()), submenu(historyMenu()), spaces,
-                     submenu(window), submenu(help)] {
+                     submenu(viewMenu()), submenu(historyMenu()), spaces]
+            + develop + [submenu(window), submenu(help)] {
             main.addItem(item)
         }
 
@@ -248,6 +250,32 @@ enum MainMenu {
             // keystroke at all, which made it the one §22.5 violation left.
             items(.showHistory)
         ]))
+    }
+
+    private static func developMenu() -> NSMenu {
+        menu("Develop", flatten([
+            items(.showWebInspector), items(.showJavaScriptConsole), items(.showPageSource),
+            items(.startElementSelection),
+            [.separator()],
+            [submenu(userAgentMenu())], items(.disableJavaScript),
+            [.separator()],
+            items(.emptyCaches)
+        ]))
+    }
+
+    /// The same four modes as Settings ▸ Advanced, ticked by
+    /// `validateDevelopCommand`.
+    private static func userAgentMenu() -> NSMenu {
+        let titles = [
+            String(localized: "Default"), String(localized: "Safari"),
+            String(localized: "Chrome"), String(localized: "Custom")
+        ]
+        let entries = titles.enumerated().map { index, title in
+            let entry = plain(title, #selector(AppDelegate.chooseUserAgent(_:)))
+            entry.tag = index
+            return entry
+        }
+        return menu("User Agent", entries)
     }
 
     private static func windowMenu() -> NSMenu {

@@ -41,7 +41,7 @@ extension BrowserSession {
     /// ⇧⌘R. `reloadFromOrigin` rather than `reload`: the point of asking twice
     /// is to get past the cache, and `reload` is allowed to answer out of it.
     func reloadIgnoringCache() {
-        activeController?.webView?.reloadFromOrigin()
+        activeController?.reloadFromOrigin()
     }
 
     // MARK: - Zoom (§20.1)
@@ -74,10 +74,13 @@ extension BrowserSession {
         let next = min(max(nearest + steps, 0), levels.count - 1)
         guard levels[next] != current else { return }
         webView.pageZoom = levels[next]
+        PageToast.zoom(levels[next]).show(in: hostWindow)
     }
 
     func resetPageZoom() {
-        activeController?.webView?.pageZoom = 1
+        guard let webView = activeController?.webView else { return }
+        webView.pageZoom = 1
+        PageToast.zoom(1).show(in: hostWindow)
     }
 
     var canZoom: Bool { activeController?.webView != nil }
@@ -91,6 +94,7 @@ extension BrowserSession {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
+        (asMarkdown ? PageToast.markdownCopied : .linkCopied).show(in: hostWindow)
     }
 
     // MARK: - Bulk tab commands
@@ -114,6 +118,7 @@ extension BrowserSession {
         for id in doomed { closeTab(id) }
         undoManager.endUndoGrouping()
         undoManager.setActionName(String(localized: "Close All Tabs"))
+        PageToast.archived(doomed.count).show(in: hostWindow)
     }
 
     /// The tabs §6.3's clock would take on its next pass — the same rule, asked
@@ -141,6 +146,7 @@ extension BrowserSession {
         for id in doomed { closeTab(id) }
         undoManager.endUndoGrouping()
         undoManager.setActionName(String(localized: "Clean Up Tabs"))
+        PageToast.archived(doomed.count).show(in: hostWindow)
     }
 
     // MARK: - Tiles

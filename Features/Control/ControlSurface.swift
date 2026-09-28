@@ -5,7 +5,8 @@
 //  Luna Control's layer over the page (docs/LUNA-CONTROL.md): the question an
 //  agent is waiting on, dropping from the top edge of whatever page is in
 //  front; the capsule at the foot of a page an agent is working on, with
-//  Take Over; and the agent's pointer where it last acted. One view in the
+//  Take Over; the agent's pointer where it last acted; and the page toasts
+//  (`PageToast`), which drop from the same edge. One view in the
 //  content card, above the page and under §3.2b's bar, so it is over every
 //  tab without belonging to any of them.
 //
@@ -58,6 +59,11 @@ final class ControlSurfaceView: NSView {
     private var sheetTop: NSLayoutConstraint?
     private var sliding = 0
     private(set) var capsule: ControlWorkingCapsule?
+    /// The page toast on screen, its top edge, and the timer that sends it
+    /// back up (`ControlSurfaceView+Toast`).
+    var toast: PageToastView?
+    var toastTop: NSLayoutConstraint?
+    var toastDismissal: Task<Void, Never>?
     private let pointer = ControlAgentPointer()
 
     override var isFlipped: Bool { true }

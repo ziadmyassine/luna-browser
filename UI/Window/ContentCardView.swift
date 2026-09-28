@@ -117,6 +117,10 @@ final class ContentCardView: NSView {
     /// under §3.2b's bar, and below the bar for anything else — see
     /// `setContentTopInset`.
     private var contentTop: NSLayoutConstraint?
+    /// The content's four resting edges, handed to WebKit while its inspector
+    /// is docked in the card (`followFrames`).
+    private var contentEdges: [NSLayoutConstraint] = []
+    private var contentFollowsFrames = false
     private var pageBarInset: CGFloat = 0
     /// Cancels the watchdog when a transition ends the ordinary way.
     private var transitionWatchdog: Task<Void, Never>?
@@ -178,12 +182,14 @@ final class ContentCardView: NSView {
         contentWidth = width
         let top = view.topAnchor.constraint(equalTo: topAnchor)
         contentTop = top
-        NSLayoutConstraint.activate([
+        contentFollowsFrames = false
+        contentEdges = [
             top,
             view.trailingAnchor.constraint(equalTo: trailingAnchor),
             view.bottomAnchor.constraint(equalTo: bottomAnchor),
             leading
-        ])
+        ]
+        NSLayoutConstraint.activate(contentEdges)
         // A tab arriving under a bar that is already there.
         applyTopInset()
     }
@@ -310,6 +316,7 @@ final class ContentCardView: NSView {
     ///   hands the width back after it, so a dropped completion handler cannot
     ///   strand the page at a width the pane has since grown past.
     func beginGeometryTransition(toWidth width: CGFloat, over duration: TimeInterval) {
+        guard !contentFollowsFrames else { return }
         // Deactivate before activating: the two contradict each other, and an
         // over-constrained instant is a console full of broken-constraint logs.
         contentLeading?.isActive = false
@@ -336,11 +343,48 @@ final class ContentCardView: NSView {
     func endGeometryTransition() {
         transitionWatchdog?.cancel()
         transitionWatchdog = nil
-        guard contentLeading?.isActive == false else { return }
+        guard !contentFollowsFrames, contentLeading?.isActive == false else { return }
         Tokens.Motion.immediately {
             contentWidth?.isActive = false
             contentLeading?.isActive = true
             layoutSubtreeIfNeeded()
+        }
+    }
+
+    // MARK: - A docked Web Inspector
+
+    /// WebKit docks its inspector by adding a view beside the page and setting
+    /// both frames itself. The page's constraints put it back over the
+    /// inspector on the next pass (measured: a 1000 × 700 page on top of a
+    /// 1000 × 500 inspector), so while one is docked the page is sized by frame.
+    /// Watching the card rather than the commands also catches Inspect Element
+    /// and the inspector's own close button.
+    override func didAddSubview(_ subview: NSView) {
+        super.didAddSubview(subview)
+        if Self.isDockedInspector(subview) { followFrames(true) }
+    }
+
+    override func willRemoveSubview(_ subview: NSView) {
+        super.willRemoveSubview(subview)
+        if Self.isDockedInspector(subview) { followFrames(false) }
+    }
+
+    private static func isDockedInspector(_ view: NSView) -> Bool {
+        view is WKWebView && view.className.contains("Inspector")
+    }
+
+    private func followFrames(_ on: Bool) {
+        guard let content, on != contentFollowsFrames else { return }
+        contentFollowsFrames = on
+        if on {
+            endGeometryTransition()
+            NSLayoutConstraint.deactivate(contentEdges + [contentWidth].compactMap { $0 })
+            content.translatesAutoresizingMaskIntoConstraints = true
+            content.autoresizingMask = [.width, .height]
+        } else {
+            content.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate(contentEdges)
+            needsLayout = true
         }
     }
 
