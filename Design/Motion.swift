@@ -266,8 +266,14 @@ extension Tokens {
         /// A Luna Control question dropping from the page's top edge, and
         /// going back up once answered; the working capsule and the agent's
         /// pointer fading in and out, and the pointer gliding to where the
-        /// agent acts next. Ease-out: it arrives and settles.
+        /// agent acts next. Ease-out: it arrives and settles. A page toast
+        /// (`PageToastView`) drops in and goes back up on it too, so the two
+        /// things that come down from the page's top edge move alike.
         static let agentSheet = MotionSpec(0.25, .easeOut)
+        /// How long a page toast stays once it has arrived. Chosen, not
+        /// measured: long enough to read three words twice, short enough to be
+        /// gone before the next command. A new toast restarts it.
+        static let toastDwell: TimeInterval = 1.6
         /// One lap of each of the moon's two orbits. Slow enough to read as
         /// drift rather than as something to watch.
         static let innerOrbitLap: TimeInterval = 24

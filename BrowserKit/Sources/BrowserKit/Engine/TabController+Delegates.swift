@@ -6,10 +6,22 @@ import WebKit
 
 extension TabController: WKNavigationDelegate {
 
+    /// The preferences form, for Develop ▸ Disable JavaScript; WebKit calls
+    /// only this one when both are implemented, so the policy itself is below.
     public func webView(
         _ webView: WKWebView,
         decidePolicyFor navigationAction: WKNavigationAction,
-        decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
+        preferences: WKWebpagePreferences,
+        decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy, WKWebpagePreferences) -> Void
+    ) {
+        preferences.allowsContentJavaScript = !WebViewFactory.isPageJavaScriptDisabled
+        decidePolicy(for: navigationAction, in: webView) { decisionHandler($0, preferences) }
+    }
+
+    private func decidePolicy(
+        for navigationAction: WKNavigationAction,
+        in webView: WKWebView,
+        decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void
     ) {
         // §15.2 — an <a download> link, decided before a response ever arrives.
         if navigationAction.shouldPerformDownload {
@@ -110,12 +122,15 @@ extension TabController: WKNavigationDelegate {
     /// 16 MB: past that it is a log nobody reads in a browser, and the load is
     /// in memory.
     static func localText(at url: URL) -> Data? {
-        guard url.isFileURL,
-              let type = UTType(filenameExtension: url.pathExtension),
-              type.conforms(to: .text), !type.conforms(to: .rtf), !type.conforms(to: .html),
+        guard isLocalText(url),
               let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size <= 16 << 20
         else { return nil }
         return try? Data(contentsOf: url)
+    }
+
+    static func isLocalText(_ url: URL) -> Bool {
+        guard url.isFileURL, let type = UTType(filenameExtension: url.pathExtension) else { return false }
+        return type.conforms(to: .text) && !type.conforms(to: .rtf) && !type.conforms(to: .html)
     }
 
     public func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {

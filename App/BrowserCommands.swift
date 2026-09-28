@@ -200,9 +200,13 @@ extension AppDelegate {
         else { return }
         guard tab.kind != .essential else {
             session.unpinTab(id)
+            PageToast.favorite(added: false).show(in: session.hostWindow)
             return
         }
-        guard !session.pinTab(id) else { return }
+        guard !session.pinTab(id) else {
+            PageToast.favorite(added: true).show(in: session.hostWindow)
+            return
+        }
         let name = session.space(session.activeSpaceID)?.name ?? String(localized: "this one")
         let alert = NSAlert()
         alert.messageText = String(localized: "Favorites is full.")
@@ -248,6 +252,7 @@ extension AppDelegate: NSMenuItemValidation {
         return validateFavoriteToggle(menuItem, in: session)
             ?? validateNavigation(menuItem, in: session)
             ?? validatePageCommand(menuItem, in: session)
+            ?? validateDevelopCommand(menuItem, in: session)
             ?? validateSessionCommand(menuItem, in: session)
     }
 

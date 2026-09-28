@@ -200,6 +200,38 @@ struct BrowserCommand: Identifiable {
         "showHistory", "Show History…", #selector(AppDelegate.showHistory(_:)), [KeyBinding("y")], symbol: "clock.arrow.circlepath"
     )
 
+    // MARK: - Develop
+
+    /// Safari's four Develop shortcuts, so a hand that knows Safari finds them.
+    static let showWebInspector = BrowserCommand(
+        "showWebInspector", "Show Web Inspector", #selector(AppDelegate.toggleWebInspector(_:)),
+        [KeyBinding("i", [.command, .option])],
+        symbol: "hammer", keywords: ["inspect element", "devtools", "developer tools", "elements"]
+    )
+    static let showJavaScriptConsole = BrowserCommand(
+        "showJavaScriptConsole", "Show JavaScript Console", #selector(AppDelegate.showJavaScriptConsole(_:)),
+        [KeyBinding("c", [.command, .option])],
+        symbol: "terminal", keywords: ["console", "devtools", "log"]
+    )
+    static let showPageSource = BrowserCommand(
+        "showPageSource", "Show Page Source", #selector(AppDelegate.showPageSource(_:)),
+        [KeyBinding("u", [.command, .option])],
+        symbol: "chevron.left.forwardslash.chevron.right", keywords: ["view source", "html", "sources"]
+    )
+    static let startElementSelection = BrowserCommand(
+        "startElementSelection", "Start Element Selection", #selector(AppDelegate.startElementSelection(_:)),
+        symbol: "cursorarrow.rays", keywords: ["inspect element", "pick element"]
+    )
+    static let disableJavaScript = BrowserCommand(
+        "disableJavaScript", "Disable JavaScript", #selector(AppDelegate.toggleJavaScript(_:)),
+        symbol: "curlybraces", keywords: ["javascript", "js"]
+    )
+    static let emptyCaches = BrowserCommand(
+        "emptyCaches", "Empty Caches", #selector(AppDelegate.emptyCaches(_:)),
+        [KeyBinding("e", [.command, .option])],
+        symbol: "trash", keywords: ["clear cache", "cache"]
+    )
+
     // MARK: - Window
 
     static let previousTab = BrowserCommand(
@@ -240,6 +272,7 @@ struct BrowserCommand: Identifiable {
         toggleSidebar, toggleFavorite, reloadPage, forceReloadPage, stopLoading,
         zoomIn, zoomOut, actualSize, showDownloads,
         goBack, goForward, showHistory,
+        showWebInspector, showJavaScriptConsole, showPageSource, startElementSelection, disableJavaScript, emptyCaches,
         previousTab, nextTab, previousSpace, nextSpace, minimize, searchSettings
     ]
 

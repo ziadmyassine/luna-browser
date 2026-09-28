@@ -91,6 +91,7 @@ public enum WebViewFactory {
 
     /// Required (macOS 13.3+): without it the Web Inspector silently does nothing (§4.1).
     /// Defaults to on, which is what every Luna web view did before it was a setting.
+    /// Also gates the in-app inspector (`WebInspector`).
     public static var isWebInspectorEnabled: Bool {
         get { UserDefaults.standard.object(forKey: Key.webInspector) as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: Key.webInspector) }
@@ -124,7 +125,13 @@ public enum WebViewFactory {
     public static func applyAdvancedSettings(to webView: WKWebView) {
         webView.customUserAgent = customUserAgent(for: userAgentMode)
         webView.isInspectable = isWebInspectorEnabled
+        WebInspector.setDeveloperExtras(isWebInspectorEnabled, on: webView)
     }
+
+    /// Develop ▸ Disable JavaScript. Not stored: a page that silently stops
+    /// working after a relaunch is the failure a forgotten switch produces.
+    /// Luna's own scripts run in their own worlds and are not affected.
+    @MainActor public static var isPageJavaScriptDisabled = false
 
     // MARK: - Construction
 
