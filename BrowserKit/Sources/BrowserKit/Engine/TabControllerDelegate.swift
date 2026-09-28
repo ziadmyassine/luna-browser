@@ -81,6 +81,14 @@ public protocol TabControllerDelegate: AnyObject {
 
     /// The form or the field went away; take any password UI down with it.
     func tabControllerDidDismissPasswordUI(_ controller: TabController)
+
+    /// §17: a pop-up or a tab-under was refused and is now first in
+    /// `controller.popups.blocked`.
+    func tabController(_ controller: TabController, didBlockPopup url: URL)
+
+    /// §17: this tab is a pop-up whose destination was refused. Close it, and
+    /// leave the user on the tab that opened it.
+    func tabControllerWantsToClose(_ controller: TabController)
 }
 
 public extension TabControllerDelegate {
@@ -118,4 +126,8 @@ public extension TabControllerDelegate {
     func tabController(_ controller: TabController, wantsToMovePasswordUITo fieldRect: CGRect) {}
 
     func tabControllerDidDismissPasswordUI(_ controller: TabController) {}
+
+    func tabController(_ controller: TabController, didBlockPopup url: URL) {}
+
+    func tabControllerWantsToClose(_ controller: TabController) {}
 }

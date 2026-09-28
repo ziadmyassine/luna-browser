@@ -166,12 +166,18 @@ public enum WebViewFactory {
     }
 
     @MainActor
-    public static func makeConfiguration(dataStore: WKWebsiteDataStore = .default()) -> WKWebViewConfiguration {
+    public static func makeConfiguration(
+        dataStore: WKWebsiteDataStore = .default(),
+        popupMode: PopupMode = PopupPolicy.mode()
+    ) -> WKWebViewConfiguration {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = dataStore
         configuration.applicationNameForUserAgent = applicationNameForUserAgent
         configuration.allowsAirPlayForMediaPlayback = true
         configuration.preferences.isElementFullscreenEnabled = true
+        // §17. `TabController` re-asserts it per navigation, so a mode changed in
+        // Settings reaches tabs that are already open.
+        configuration.preferences.javaScriptCanOpenWindowsAutomatically = popupMode == .off
         // §18.8: must stay empty to match Safari. `[.audio]` blocks the programmatic
         // `play()` an SPA navigation makes outside a user gesture, which breaks YouTube.
         configuration.mediaTypesRequiringUserActionForPlayback = []

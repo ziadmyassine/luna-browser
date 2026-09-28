@@ -26,6 +26,9 @@ extension BrowserStore {
         /// here is always an explicit refusal — which is why the default is
         /// yes and absence means "has not said no".
         case savePasswords
+        /// §17: pop-ups open here whatever the blocking mode says. Written by the
+        /// pop-up chip's Always Allow and the site menu's switch.
+        case popups
 
         /// What the permission is when nobody has answered for this site.
         ///
@@ -39,6 +42,8 @@ extension BrowserStore {
             // §14.4: offering is the default; the chip's "Never for this
             // site" is the only thing that ever writes a `false` here.
             case .savePasswords: true
+            // Absent means the mode decides, which is what "not allowed" does.
+            case .popups: false
             }
         }
     }

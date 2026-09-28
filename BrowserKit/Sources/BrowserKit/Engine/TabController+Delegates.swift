@@ -30,6 +30,11 @@ extension TabController: WKNavigationDelegate {
         // on, and re-scoping the rule lists for one would disable blocking for the
         // whole page.
         if navigationAction.targetFrame?.isMainFrame ?? false {
+            if refusesOnProbation(navigationAction, to: url) || refusesTabUnder(navigationAction, to: url) {
+                decisionHandler(.cancel)
+                return
+            }
+            applyPopupMode(to: webView)
             ContentBlocker.shared.apply(
                 to: webView.configuration.userContentController, host: url.host(), scope: sitePermissions
             )
@@ -255,10 +260,14 @@ extension TabController: WKUIDelegate {
         for navigationAction: WKNavigationAction,
         windowFeatures: WKWindowFeatures
     ) -> WKWebView? {
-        // The URL is nil for `window.open()` with no argument — the page writes into the
-        // blank document afterwards. Returning nil there is exactly the case that makes
-        // `window.open` look broken, so the tab is created regardless.
-        delegate?.tabController(self, wantsNewTabFor: navigationAction.request.url, configuration: configuration)
+        // §17 decides first. Past it, the URL may still be nil — `window.open()`
+        // with no argument, which the page writes into afterwards — and the tab is
+        // created regardless: returning nil there is what makes `window.open`
+        // look broken.
+        guard allowsPopup(navigationAction) else { return nil }
+        let child = delegate?.tabController(self, wantsNewTabFor: navigationAction.request.url, configuration: configuration)
+        placeOnProbation(child)
+        return child
     }
 
     public func webView(

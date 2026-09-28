@@ -23,7 +23,11 @@ extension BrowserSession {
         // the chip asks about a sign-in on it. Both are meaningless over a
         // different tab, and the picker would be actively misleading —
         // pointing at coordinates that now belong to someone else's form.
-        if activeTabID != id { passwordUI.dismissAll() }
+        if activeTabID != id {
+            passwordUI.dismissAll()
+            // §17's chip speaks for the tab being left, too.
+            popupChip.dismiss()
+        }
         activeTabBySpace[tab.spaceID] = id
         showUnderFoldedFolder(id)
         promote(id)

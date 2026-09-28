@@ -107,6 +107,18 @@ public final class TabController: NSObject {
     /// carry storage. The behaviour is next door in `Passwords/`.
     public let passwords = PasswordCoordinator()
 
+    /// §17's pop-up state for this tab; the behaviour is in
+    /// `TabController+Popups.swift`.
+    public let popups = PopupGuard()
+
+    /// Where the pop-up mode is read from. A seam for tests, which must not
+    /// write the shared defaults — the same one `ContentBlocker` has.
+    var settings: UserDefaults = .standard
+
+    /// A blank pop-up's probation, between `allowsPopup` and the delegate
+    /// building its tab. Here because an extension cannot carry storage.
+    var pendingProbation: PopupProbation?
+
     /// Whose per-site answers this tab reads and writes — a private window's own (§5.6).
     public var sitePermissions: SitePermissions { .scope(for: dataStore) }
 
@@ -185,6 +197,8 @@ public final class TabController: NSObject {
         // is trusted by construction (§4.4). Web content's route in is
         // `decidePolicyFor`, which has no such token and is refused there.
         if url.scheme?.lowercased() == InternalPages.scheme { expectedInternalLoad = url }
+        // Luna's own loads arrive as `.other`, the type the tab-under guard refuses.
+        popups.disarm()
         let webView = ensureWebView(restoringSession: false)
         Self.load(url, into: webView)
     }
@@ -270,7 +284,7 @@ public final class TabController: NSObject {
         // removing one that is not is a no-op. Always pay the cheap call.
         for name in [Self.mediaMessageName, ContentBlocker.blockedMessageName,
                      Self.scrollMessageName, PasswordForms.messageName,
-                     ContentBlocker.youTubeMessageName] {
+                     ContentBlocker.youTubeMessageName, Self.popupMessageName] {
             controller.removeScriptMessageHandler(forName: name)
             controller.add(messageRelay, name: name)
         }
@@ -322,6 +336,12 @@ public final class TabController: NSObject {
         if let passkeyGuard = PasskeySupport.userScript() {
             controller.addUserScript(passkeyGuard)
         }
+        // §17's pop-up witness. `documentStart`, so `window.open` is wrapped
+        // before the page's own scripts take a reference to it; every frame,
+        // because ad pop-ups are opened from ad frames.
+        controller.addUserScript(
+            WKUserScript(source: Self.popupScript, injectionTime: .atDocumentStart, forMainFrameOnly: false)
+        )
         // Main frame only: an ad iframe scrolling itself is not the page moving,
         // and §3.2b's bar collapses on the page moving.
         controller.addUserScript(
@@ -443,6 +463,7 @@ public final class TabController: NSObject {
         controller.removeScriptMessageHandler(forName: Self.scrollMessageName)
         controller.removeScriptMessageHandler(forName: PasswordForms.messageName)
         controller.removeScriptMessageHandler(forName: ContentBlocker.youTubeMessageName)
+        controller.removeScriptMessageHandler(forName: Self.popupMessageName)
 
         // Picture-in-Picture and element fullscreen outlive their web view: without this
         // a hibernated tab leaves a floating video playing with nothing behind it. The
@@ -518,6 +539,7 @@ extension TabController {
         // tab lives (§4.5).
         bypassedURL = nil
         lastTrackingStrip = nil
+        popups.pressedLink = nil
         // §17.4's count is per document, and the page's own counter restarts too.
         ContentBlocker.shared.resetBlockedCount(tab: id)
         // §14: the form belonged to the document that just went away, and so

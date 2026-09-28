@@ -279,6 +279,8 @@ extension AppDelegate: NSMenuItemValidation {
             return active?.state.canGoForward ?? false
         case #selector(stopLoading(_:)):
             return active?.state.isLoading ?? false
+        case #selector(openBlockedPopup(_:)):
+            return active?.popups.blocked.isEmpty == false
         default:
             return nil
         }

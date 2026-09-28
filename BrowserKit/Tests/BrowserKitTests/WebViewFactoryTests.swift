@@ -39,4 +39,14 @@ struct WebViewFactoryTests {
 
         #expect(first.configuration.userContentController !== second.configuration.userContentController)
     }
+
+    /// §17's pop-up modes. Off is WebKit's own macOS default; the two blocking
+    /// modes hand the gesture-less `window.open` back to WebKit to refuse.
+    @Test func theWindowOpeningPreferenceFollowsThePopupMode() {
+        let store = WKWebsiteDataStore.nonPersistent()
+        for (mode, opens) in [(PopupMode.off, true), (.smart, false), (.blockAll, false)] {
+            let configuration = WebViewFactory.makeConfiguration(dataStore: store, popupMode: mode)
+            #expect(configuration.preferences.javaScriptCanOpenWindowsAutomatically == opens, "\(mode)")
+        }
+    }
 }

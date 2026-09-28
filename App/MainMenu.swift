@@ -229,7 +229,7 @@ enum MainMenu {
             // rather than a taste call — see `setSidebarItems`.
             [sidebarItemsMenu()],
             [.separator()],
-            items(.reloadPage), items(.forceReloadPage), items(.stopLoading),
+            items(.reloadPage), items(.forceReloadPage), items(.stopLoading), items(.openBlockedPopup),
             [.separator()],
             items(.zoomIn), items(.zoomOut), items(.actualSize),
             [.separator()],

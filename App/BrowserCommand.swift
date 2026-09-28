@@ -179,6 +179,11 @@ struct BrowserCommand: Identifiable {
         "actualSize", "Zoom to Actual Size", #selector(AppDelegate.resetZoom(_:)), [KeyBinding("0")],
         symbol: "1.magnifyingglass", keywords: ["reset zoom", "actual size"]
     )
+    /// §17. Ships unbound: no browser has a convention for it to follow, and
+    /// the chip's Open button is the way in until the user records one.
+    static let openBlockedPopup = BrowserCommand(
+        "openBlockedPopup", "Open Blocked Pop-up", #selector(AppDelegate.openBlockedPopup(_:))
+    )
     static let showDownloads = BrowserCommand(
         "showDownloads", "Downloads", #selector(AppDelegate.showDownloads(_:)), [KeyBinding("l", [.command, .option])],
         symbol: "arrow.down.circle", keywords: ["files"]
@@ -232,7 +237,7 @@ struct BrowserCommand: Identifiable {
         newTab, newWindow, newPrivateWindow, openLocation, duplicateTab, resetPinnedTab, closeTab, closeAllTabs, cleanUpTabs,
         reopenArchivedTab, closeWindow,
         undo, redo, cut, copy, paste, selectAll, copyURL, copyMarkdown,
-        toggleSidebar, toggleFavorite, reloadPage, forceReloadPage, stopLoading,
+        toggleSidebar, toggleFavorite, reloadPage, forceReloadPage, stopLoading, openBlockedPopup,
         zoomIn, zoomOut, actualSize, showDownloads,
         goBack, goForward, showHistory,
         previousTab, nextTab, previousSpace, nextSpace, minimize, searchSettings
