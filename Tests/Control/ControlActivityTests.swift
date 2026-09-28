@@ -2,8 +2,9 @@
 //  ControlActivityTests.swift
 //  LunaTests
 //
-//  The activity pill and its list: calls in words, the pill in the page's
-//  bottom trailing corner, and one row per call in the list.
+//  The activity pills and their lists: calls in words, a pill per session
+//  stacked up from the page's bottom trailing corner, and one row per call in
+//  the list.
 //
 
 import AppKit
@@ -27,12 +28,10 @@ final class ControlActivityTests: XCTestCase {
 
     func testThePillStandsInTheBottomTrailingCornerAndOpensTheList() throws {
         let surface = ControlSurfaceView(frame: NSRect(x: 0, y: 0, width: 900, height: 600))
-        var opened = false
-        surface.showActivity(
-            ControlActivity.entry(for: .listTabs, client: "Claude Code", appID: nil), working: true
-        ) { _ in opened = true }
+        var opened: String?
+        surface.showActivity([shown("a")]) { agent, _ in opened = agent }
         surface.layoutSubtreeIfNeeded()
-        let pill = try XCTUnwrap(surface.activityPill)
+        let pill = try XCTUnwrap(surface.activityPills.first)
         let gap = Tokens.Metric.chromeGapWide
         XCTAssertEqual(pill.frame.maxX, surface.bounds.maxX - gap, accuracy: 1, "the pill is not in the trailing corner")
         XCTAssertEqual(pill.frame.maxY, surface.bounds.maxY - gap, accuracy: 1, "the pill is not at the foot")
@@ -44,18 +43,44 @@ final class ControlActivityTests: XCTestCase {
         XCTAssertGreaterThan(pill.frame.width, 150, "the call was squeezed out of the pill")
         XCTAssertTrue(pill.isWorking, "the pill has no spark while the agent works")
         pill.performClick(nil)
-        XCTAssertTrue(opened, "the pill did not open the list")
+        XCTAssertEqual(opened, "a", "the pill did not open its session's list")
 
-        surface.showActivity(nil, working: false) { _ in }
-        XCTAssertNil(surface.activityPill)
+        surface.showActivity([]) { _, _ in }
+        XCTAssertTrue(surface.activityPills.isEmpty)
+    }
+
+    /// Two sessions at work are two pills, the first to start lowest, and
+    /// the upper one comes down when the lower one goes.
+    func testTwoSessionsStandOneAboveTheOther() throws {
+        let surface = ControlSurfaceView(frame: NSRect(x: 0, y: 0, width: 900, height: 600))
+        surface.showActivity([shown("a"), shown("b")]) { _, _ in }
+        surface.layoutSubtreeIfNeeded()
+        XCTAssertEqual(surface.activityPills.compactMap(\.agent), ["a", "b"])
+        let (lower, upper) = (surface.activityPills[0], surface.activityPills[1])
+        XCTAssertEqual(lower.frame.maxY, surface.bounds.maxY - Tokens.Metric.chromeGapWide, accuracy: 1)
+        XCTAssertEqual(lower.frame.minY - upper.frame.maxY, Tokens.Metric.chromeGap, accuracy: 1, "the pills overlap")
+
+        surface.showActivity([shown("b")]) { _, _ in }
+        surface.layoutSubtreeIfNeeded()
+        XCTAssertTrue(surface.activityPills == [upper], "the upper pill was replaced rather than kept")
+        if !Tokens.Motion.reduceMotion { try? RunLoop.main.run(until: Date() + Tokens.Motion.agentSheet.duration + 0.1) }
+        surface.layoutSubtreeIfNeeded()
+        XCTAssertEqual(upper.frame.maxY, surface.bounds.maxY - Tokens.Metric.chromeGapWide, accuracy: 1, "it did not come down")
+    }
+
+    private func shown(_ agent: String) -> ControlActivity.Shown {
+        ControlActivity.Shown(
+            entry: ControlActivity.entry(for: .listTabs, agent: agent, client: "Claude Code", appID: nil),
+            name: "Session \(agent)", working: true
+        )
     }
 
     func testTheListHasARowPerCallNewestFirst() {
         let panel = ControlActivityPanel(frame: NSRect(x: 0, y: 0, width: 900, height: 600))
-        var done = ControlActivity.entry(for: .pageText, client: "Claude Code", appID: nil)
+        var done = ControlActivity.entry(for: .pageText, agent: "a", client: "Claude Code", appID: nil)
         done.state = .done
         done.site = "apple.com"
-        let running = ControlActivity.entry(for: .listTabs, client: "Claude Code", appID: nil)
+        let running = ControlActivity.entry(for: .listTabs, agent: "a", client: "Claude Code", appID: nil)
         panel.setEntries([running, done])
         XCTAssertEqual(panel.shownEntries.map(\.id), [running.id, done.id])
         XCTAssertTrue(ControlActivityRow.detail(of: running).contains("Running"))

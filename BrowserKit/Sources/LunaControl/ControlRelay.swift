@@ -30,18 +30,22 @@ public final class ControlRelay: Sendable {
     /// Claude Code.
     private let outstanding = Mutex<[JSONValue: (socket: Int32, line: Data)]>([:])
     private let writing = Mutex(())
+    private let tag: ControlSessionTag
 
-    public init(socketPath: URL, output: Int32 = STDOUT_FILENO) {
+    public init(socketPath: URL, output: Int32 = STDOUT_FILENO, tag: ControlSessionTag = ControlSessionTag()) {
         self.socketPath = socketPath
         self.output = output
+        self.tag = tag
     }
 
     /// Relays until `input` reaches end of file, which is how an MCP client
     /// says it is finished with a server.
     public func run(input: Int32 = STDIN_FILENO) {
         let reader = LineReader(fd: input)
-        while let line = reader.next() {
-            let message = JSONValue.parse(line)
+        while let read = reader.next() {
+            let parsed = JSONValue.parse(read)
+            let message = tag.stamp(parsed)
+            let line = message != parsed ? message?.encoded() ?? read : read
             if message?["method"]?.string == "initialize" {
                 state.withLock { $0.initialize = message }
             }

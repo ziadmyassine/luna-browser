@@ -287,7 +287,10 @@ extension ButtonFeedbackTests {
     /// and washes on the pointer.
     func testTheActivityPillAnswersThePointerAndThePress() {
         let pill = ControlActivityPill()
-        pill.configure(ControlActivity.entry(for: .listTabs, client: "Claude Code", appID: nil), working: true)
+        pill.configure(ControlActivity.Shown(
+            entry: ControlActivity.entry(for: .listTabs, agent: "a", client: "Claude Code", appID: nil),
+            name: "Main 2", working: true
+        ))
         pill.frame = NSRect(origin: .zero, size: pill.fittingSize)
         pill.layoutSubtreeIfNeeded()
         let before = pill.layer?.frame ?? .zero

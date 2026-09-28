@@ -42,6 +42,9 @@ final class ControlService {
     /// `clientInfo.name` of each client connected now.
     var clientNames: [String] { listener?.clientNames ?? [] }
 
+    /// Every client connected now, one per session.
+    var clients: [ControlClient] { listener?.clients ?? [] }
+
     static var isEnabled: Bool {
         get { UserDefaults.standard.bool(forKey: enabledKey) }
         set {
@@ -60,13 +63,15 @@ final class ControlService {
     let auditURL: URL
 
     enum Hold { case paused, stopped }
-    /// Per client display name. In memory: a relaunch is a fresh start.
+    /// Everything kept per agent is kept per session (`ControlClient.session`),
+    /// not per app: two sessions of one app are two agents, each with its
+    /// own folder, pause and activity. In memory: a relaunch is a fresh start.
     var holds: [String: Hold] = [:]
     /// The main menu's Stop All Agents, until Resume.
     var stoppedAll = false
-    /// A paused client's calls, waiting for Resume, by client and call.
+    /// A paused session's calls, waiting for Resume, by session and call.
     var pausedCalls: [String: [UUID: CheckedContinuation<Void, Never>]] = [:]
-    /// The tasks running each client's calls, so Stop can cancel them.
+    /// The tasks running each session's calls, so Stop can cancel them.
     var inFlight: [String: [UUID: Task<ControlResult, Never>]] = [:]
 
     /// A site a page on it addressed the agent from, for the rest of that
@@ -95,28 +100,33 @@ final class ControlService {
     var shotScales: [UUID: Double] = [:]
     /// Per tab, its `gif` recording.
     var recordings: [UUID: ControlRecording] = [:]
-    /// Each client's folder, by display name, so a renamed folder stays theirs.
+    /// Each session's folder, so a renamed folder stays theirs.
     var folders: [String: UUID] = [:]
+    /// The name Luna last gave each session's folder. A folder still called
+    /// that follows the session's name; one the user renamed keeps theirs.
+    var folderNames: [String: String] = [:]
+    /// The newest word from each session: its app and its name.
+    var agents: [String: ControlClient] = [:]
     /// Calls running per folder. The folder shows as controlled while this is
     /// above zero and for `markLinger` after.
     private var running: [UUID: Int] = [:]
     /// Calls running per tab, on the same terms: the tab's row is outlined.
     private var runningTabs: [UUID: Int] = [:]
-    /// Display names of the clients connected at the last change, so a new
-    /// one is told apart from one that was already there.
-    var connectedNames: Set<String> = []
+    /// Sessions connected at the last change, so a new one is told apart
+    /// from one that was already there.
+    var connectedSessions: Set<String> = []
     /// Where a request waiting for the user is asked.
     private lazy var approvalCard = ControlApprovalCard(approvals: approvals)
-    /// Which client last acted on each tab, by display name: whose capsule
-    /// a page shows when the user goes to it.
+    /// Which session last acted on each tab: whose capsule a page shows when
+    /// the user goes to it.
     var actingOn: [UUID: String] = [:]
     /// The calls since launch, newest first — the activity pill and its list
     /// (`ControlService+Activity.swift`).
     var activity: [ControlActivity.Entry] = []
-    /// True for `tabLinger` after the last call ends, so the pill does not
-    /// blink out between an agent's calls.
-    var activityLingers = false
-    var activityLinger: Task<Void, Never>?
+    /// Sessions whose last call ended less than `tabLinger` ago, so a pill
+    /// does not blink out between an agent's calls.
+    var activityLingers: Set<String> = []
+    var activityLinger: [String: Task<Void, Never>] = [:]
     lazy var activityList = ControlActivityController(service: self)
     private var surfaceWatch: ObservationToken?
     private var pageWatch: ObservationToken?
@@ -197,8 +207,8 @@ final class ControlService {
     func perform(_ call: ControlCall, _ client: ControlClient) async -> ControlResult {
         let key = UUID()
         let work = Task { await self.gated(call, client) }
-        inFlight[client.displayName, default: [:]][key] = work
-        defer { inFlight[client.displayName]?[key] = nil }
+        inFlight[client.session, default: [:]][key] = work
+        defer { inFlight[client.session]?[key] = nil }
         return await withTaskCancellationHandler { await work.value } onCancel: { work.cancel() }
     }
 
@@ -206,7 +216,7 @@ final class ControlService {
     /// resolved, nil for the calls that name none.
     func execute(_ call: ControlCall, for client: ControlClient, in session: BrowserSession, tab id: UUID?) async throws
         -> ControlResult {
-        let folder = folders[client.displayName]
+        let folder = folders[client.session]
         if let folder { mark(folder, running: true) }
         defer { if let folder { mark(folder, running: false) } }
         switch call.command {
@@ -224,33 +234,21 @@ final class ControlService {
         case let .viewport(size):
             return await viewport(size, tab: id, for: client, in: session)
         default:
-            guard let id, let controller = session.wakeForControl(id), let webView = controller.webView else {
-                return .error("That tab could not be woken.")
-            }
-            currentTab[client.connection] = id
-            actingOn[id] = client.displayName
-            mark(tab: id, of: client.displayName, running: true)
-            defer { mark(tab: id, of: client.displayName, running: false) }
-            await showPointer(for: call.command, on: webView, by: client.displayName)
-            return try await onTab(call.command, tab: id, webView: webView, controller: controller)
+            return try await onPage(call.command, for: client, in: session, tab: id)
         }
     }
 
     private func openTab(_ url: URL?, in session: BrowserSession, for client: ControlClient) async throws -> ControlResult {
-        let group = session.controlFolder(named: client.displayName, previously: folders[client.displayName])
-        // The folder `perform` marks is one that existed when the call came in.
-        let isNew = folders[client.displayName] != group.id
-        folders[client.displayName] = group.id
-        if isNew {
-            mark(group.id, running: true)
-            refreshFaces()
-        }
+        // The folder `execute` marks is one that existed when the call came in.
+        let isNew = folders[client.session].flatMap(session.group)?.spaceID != session.activeSpaceID
+        let group = folderInActiveSpace(for: client, in: session)
+        if isNew { mark(group.id, running: true) }
         defer { if isNew { mark(group.id, running: false) } }
         let id = session.openControlledTab(url: url, in: group)
         currentTab[client.connection] = id
-        actingOn[id] = client.displayName
-        mark(tab: id, of: client.displayName, running: true)
-        defer { mark(tab: id, of: client.displayName, running: false) }
+        actingOn[id] = client.session
+        mark(tab: id, of: client.session, running: true)
+        defer { mark(tab: id, of: client.session, running: false) }
         if let webView = session.controller(for: id)?.webView {
             size(webView, in: session)
             await settle(webView)
@@ -263,7 +261,7 @@ final class ControlService {
     /// cannot be taken back from the page, and the user's tabs are theirs.
     private func closeTab(_ call: ControlCall, in session: BrowserSession, for client: ControlClient) throws -> ControlResult {
         let id = try resolve(call, in: session, for: client)
-        guard let folder = folders[client.displayName], session.tab(id)?.groupID == folder else {
+        guard let folder = folders[client.session], session.tab(id)?.groupID == folder else {
             return .error("Tab \(call.tab ?? 0) is not in your folder. Only tabs you opened can be closed.")
         }
         session.closeControlledTab(id)
@@ -275,7 +273,7 @@ final class ControlService {
 
     private func listTabs(in session: BrowserSession, for client: ControlClient) -> String {
         let front = session.activeTabID
-        let yours = folders[client.displayName]
+        let yours = folders[client.session]
         var lines: [String] = []
         for space in session.spaces {
             let tabs = session.list[space.id].filter { $0.archivedAt == nil }
@@ -334,8 +332,8 @@ final class ControlService {
         }
     }
 
-    private func mark(tab id: UUID, of client: String, running start: Bool) {
-        let face = ControlFace(appID: appID(ofClient: client))
+    private func mark(tab id: UUID, of agent: String, running start: Bool) {
+        let face = ControlFace(appID: appID(of: agent))
         count(id, in: \.runningTabs, start: start, linger: Self.tabLinger) { [weak self] on in
             self?.session?.setControlled(on, tab: id, face: face)
         }
@@ -368,5 +366,22 @@ final class ControlService {
         // public constant; `WKError.h` documents only the code.
         if let message = error.userInfo["WKJavaScriptExceptionMessage"] as? String { return message }
         return error.localizedDescription
+    }
+}
+
+extension ControlService {
+
+    private func onPage(_ command: ControlCommand, for client: ControlClient, in session: BrowserSession, tab id: UUID?)
+        async throws -> ControlResult {
+        guard let id, let controller = session.wakeForControl(id), let webView = controller.webView else {
+            return .error("That tab could not be woken.")
+        }
+        currentTab[client.connection] = id
+        actingOn[id] = client.session
+        if command.acts { enfold(id, for: client, in: session) }
+        mark(tab: id, of: client.session, running: true)
+        defer { mark(tab: id, of: client.session, running: false) }
+        await showPointer(for: command, on: webView, by: client)
+        return try await onTab(command, tab: id, webView: webView, controller: controller)
     }
 }

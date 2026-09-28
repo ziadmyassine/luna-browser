@@ -9,10 +9,21 @@ public struct ControlClient: Sendable, Hashable {
     /// One per `initialize`, so two windows of the same client each keep
     /// their own idea of which tab they are working in.
     public var connection: UUID
+    /// One per agent session, which outlives a connection: `luna-control`
+    /// sends it (`ControlSessionTag`) and sends the same one again when Luna
+    /// relaunches under it. Two sessions of one app are two agents, each with
+    /// a folder, a pause and an activity list of its own. A client that came
+    /// in without the helper is one session per connection.
+    public var session: String
+    /// What the user calls the session, when its app writes that down
+    /// somewhere the helper can read. Nil until then.
+    public var sessionName: String?
 
-    public init(rawName: String, connection: UUID = UUID()) {
+    public init(rawName: String, connection: UUID = UUID(), session: String? = nil, sessionName: String? = nil) {
         self.rawName = rawName
         self.connection = connection
+        self.session = session ?? connection.uuidString
+        self.sessionName = sessionName
         displayName = Self.displayName(for: rawName)
     }
 

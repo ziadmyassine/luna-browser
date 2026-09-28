@@ -2,9 +2,10 @@
 //  ControlActivityList.swift
 //  Luna
 //
-//  Every call the agents have made since launch, newest first, as a pop-out
-//  standing on the activity pill: the house shape of History and Downloads,
-//  growing up out of the page's corner. Live while it is open.
+//  Every call one agent session has made since launch, newest first, as a
+//  pop-out standing on that session's activity pill: the house shape of
+//  History and Downloads, growing up out of the page's corner. Live while it
+//  is open.
 //
 
 import AppKit
@@ -13,6 +14,8 @@ import AppKit
 final class ControlActivityController: PopoutController {
 
     private unowned let service: ControlService
+    /// The session whose calls the list shows.
+    var agent: String?
 
     init(service: ControlService) {
         self.service = service
@@ -37,9 +40,11 @@ final class ControlActivityController: PopoutController {
     }
 
     func reload() {
-        (presented as? ControlActivityPanel)?.setEntries(
-            service.activity, tint: Tokens.Agent.tint(forApp: service.activity.first?.appID),
-            working: service.activityIsWorking
+        guard let panel = presented as? ControlActivityPanel, let agent else { return }
+        let entries = service.activity.filter { $0.agent == agent }
+        panel.setEntries(
+            entries, title: service.activityName(of: agent), tint: Tokens.Agent.tint(forApp: service.appID(of: agent)),
+            working: service.activityIsWorking(agent)
         )
     }
 }
@@ -54,6 +59,7 @@ final class ControlActivityPanel: PopoutPanelView {
     private let rows = NSStackView()
     private let scroll = NSScrollView()
     private let empty = NSTextField(labelWithString: String(localized: "Nothing yet."))
+    private let title = NSTextField(labelWithString: String(localized: "Activity"))
 
     init(frame frameRect: NSRect) {
         super.init(frame: frameRect, size: Tokens.Metric.historyPanel, edge: .above)
@@ -67,7 +73,10 @@ final class ControlActivityPanel: PopoutPanelView {
 
     private(set) var shownEntries: [ControlActivity.Entry] = []
 
-    func setEntries(_ entries: [ControlActivity.Entry], tint: NSColor? = nil, working: Bool = false) {
+    func setEntries(
+        _ entries: [ControlActivity.Entry], title: String? = nil, tint: NSColor? = nil, working: Bool = false
+    ) {
+        self.title.stringValue = title ?? String(localized: "Activity")
         rim.tint = tint
         rim.isWorking = working
         guard entries != shownEntries else { return }
@@ -86,9 +95,11 @@ final class ControlActivityPanel: PopoutPanelView {
     private func build() {
         rim.cornerRadius = PopoutMetrics.cornerRadius
         body.addSubview(rim)
-        let title = NSTextField(labelWithString: String(localized: "Activity"))
         title.font = Tokens.TypeScale.settingsHeading
         title.textColor = Tokens.Text.primary
+        // A session's own title can run to a sentence.
+        title.lineBreakMode = .byTruncatingTail
+        title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         rows.orientation = .vertical
         rows.alignment = .leading
         rows.spacing = 0
@@ -111,6 +122,7 @@ final class ControlActivityPanel: PopoutPanelView {
         let padding = PopoutMetrics.padding
         NSLayoutConstraint.activate([
             title.leadingAnchor.constraint(equalTo: body.leadingAnchor, constant: inset),
+            title.trailingAnchor.constraint(lessThanOrEqualTo: body.trailingAnchor, constant: -inset),
             title.centerYAnchor.constraint(equalTo: body.topAnchor, constant: PopoutMetrics.headerHeight / 2),
             scroll.topAnchor.constraint(equalTo: body.topAnchor, constant: PopoutMetrics.headerHeight),
             scroll.leadingAnchor.constraint(equalTo: body.leadingAnchor, constant: padding),

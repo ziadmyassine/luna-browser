@@ -69,7 +69,7 @@ final class ControlSafetyTests: XCTestCase {
         let other = ControlClient(rawName: "other-agent")
         _ = await service.perform(ControlCall(.openTab(page)), client)
 
-        service.stop(client: client.displayName)
+        service.stop(client: client.session)
         for command in [ControlCommand.pageText, .listTabs, .wait(seconds: 0), .click(.ref("e1"), clickCount: 1)] {
             let result = await service.perform(ControlCall(command), client)
             XCTAssertTrue(result.isError, "\(command) ran for a stopped client")
@@ -77,7 +77,7 @@ final class ControlSafetyTests: XCTestCase {
         let untouched = await service.perform(ControlCall(.listTabs), other)
         XCTAssertFalse(untouched.isError, "stopping one client stopped another")
 
-        service.resume(client: client.displayName)
+        service.resume(client: client.session)
         let resumed = await service.perform(ControlCall(.pageText), client)
         XCTAssertFalse(resumed.isError, text(resumed))
 
@@ -90,7 +90,7 @@ final class ControlSafetyTests: XCTestCase {
         defaults.set(ControlMode.ask.rawValue, forKey: ControlService.modeKey)
         let waiting = Task { await service.perform(ControlCall(.click(.ref("e1"), clickCount: 1)), client) }
         _ = try await pending(service)
-        service.stop(client: client.displayName)
+        service.stop(client: client.session)
         let stopped = await waiting.value
         XCTAssertTrue(stopped.isError)
         XCTAssertTrue(service.approvals.pending.isEmpty)
@@ -131,7 +131,7 @@ final class ControlSafetyTests: XCTestCase {
         _ = await service.perform(ControlCall(.openTab(page)), client)
         _ = await service.perform(ControlCall(.type("hunter2", ref: nil)), client)
         _ = await service.perform(ControlCall(tab: 9999, .pageText), client)
-        service.stop(client: client.displayName)
+        service.stop(client: client.session)
         _ = await service.perform(ControlCall(.wait(seconds: 0)), client)
 
         let records = ControlAudit.read(from: audit)

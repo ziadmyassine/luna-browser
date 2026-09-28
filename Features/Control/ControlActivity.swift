@@ -19,6 +19,8 @@ enum ControlActivity {
 
     struct Entry: Identifiable, Equatable {
         let id = UUID()
+        /// The session that made the call (`ControlClient.session`).
+        let agent: String
         let client: String
         let appID: String?
         let title: String
@@ -32,8 +34,17 @@ enum ControlActivity {
     /// list is rebuilt whole on every change.
     static let kept = 200
 
-    static func entry(for command: ControlCommand, client: String, appID: String?) -> Entry {
-        Entry(client: client, appID: appID, title: title(of: command), symbol: symbol(of: command))
+    /// One session's pill: its newest call, the folder it works in, and
+    /// whether it is at work now.
+    struct Shown: Equatable {
+        var entry: Entry
+        var name: String
+        var working: Bool
+        var agent: String { entry.agent }
+    }
+
+    static func entry(for command: ControlCommand, agent: String, client: String, appID: String?) -> Entry {
+        Entry(agent: agent, client: client, appID: appID, title: title(of: command), symbol: symbol(of: command))
     }
 
     /// The call as a person would say it. Element refs are left out: `e12`

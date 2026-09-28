@@ -19,7 +19,7 @@ final class ControlApprovals {
 
     struct Request: Identifiable, Equatable {
         let id = UUID()
-        /// The client's display name, which is also its folder's.
+        /// The app's name, which the card asks in.
         var client: String
         var folder: UUID?
         var site: String?
@@ -87,11 +87,14 @@ final class ControlApprovals {
         continuation.resume(returning: answer)
     }
 
-    /// Ends every request from `client`, or from everyone when nil.
-    func cancel(client: String?) {
-        for request in pending where client == nil || request.client == client {
-            answer(request.id, .stopped)
-        }
+    /// Ends every request waiting in `folder`: the session it belongs to
+    /// was stopped.
+    func cancel(inFolder folder: UUID) {
+        for request in pending(inFolder: folder) { answer(request.id, .stopped) }
+    }
+
+    func cancelAll() {
+        for request in pending { answer(request.id, .stopped) }
     }
 
     private func changed() {

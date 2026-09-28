@@ -105,7 +105,7 @@ extension ControlService {
     /// window: on the user's screen its size is their window's.
     func viewport(_ size: ControlCommand.Size?, tab id: UUID?, for client: ControlClient, in session: BrowserSession) async
         -> ControlResult {
-        guard let id, let folder = folders[client.displayName], session.tab(id)?.groupID == folder else {
+        guard let id, let folder = folders[client.session], session.tab(id)?.groupID == folder else {
             return .error("viewport changes only tabs you opened, in your folder. Open one with tab_open.")
         }
         guard let webView = session.wakeForControl(id)?.webView else { return .error("That tab could not be woken.") }

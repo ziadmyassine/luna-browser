@@ -2,10 +2,11 @@
 //  ControlActivityPill.swift
 //  Luna
 //
-//  The agent's newest call, in the page's bottom trailing corner while it
-//  works: its app's icon, the call in words, and a chevron that opens the
-//  whole list (`ControlActivityController`). The working capsule's glass and
-//  height, so the two read as one family at the page's foot.
+//  One agent session's newest call, in the page's bottom trailing corner
+//  while it works: its app's icon, the session's name, the call in words,
+//  and a chevron that opens the session's list (`ControlActivityController`).
+//  The working capsule's glass and height, so the two read as one family at
+//  the page's foot. Two sessions at work stand one above the other.
 //
 
 import AppKit
@@ -20,10 +21,16 @@ final class ControlActivityPill: NSButton {
     private let rim = RowPillView(role: .folder)
     private let wash = NSView()
     private let icon = NSImageView()
+    /// Which session: two pills of one app are otherwise the same pill.
+    private let name = NSTextField(labelWithString: "")
     private let label = NSTextField(labelWithString: "")
     private let chevron = NSImageView()
-    private(set) var entry: ControlActivity.Entry?
+    private(set) var shown: ControlActivity.Shown?
+    var entry: ControlActivity.Entry? { shown?.entry }
+    var agent: String? { shown?.agent }
     var isWorking: Bool { rim.isWorking }
+    /// Its place in the stack, set by `ControlSurfaceView.stackActivityPills`.
+    var stackBottom: NSLayoutConstraint?
 
     private var isHovering = false {
         didSet { if isHovering != oldValue { refreshWash() } }
@@ -84,11 +91,16 @@ final class ControlActivityPill: NSButton {
         label.lineBreakMode = .byTruncatingTail
         // Gives way only to the width cap below, not to the button's own size.
         label.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
+        name.font = Tokens.TypeScale.settingsRow
+        name.textColor = Tokens.Text.secondary
+        name.lineBreakMode = .byTruncatingTail
+        // The call is what changes; the name gives way first.
+        name.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let size = NSImage.SymbolConfiguration(pointSize: label.font?.pointSize ?? 13, weight: .semibold)
         chevron.image = NSImage(systemSymbolName: "chevron.up", accessibilityDescription: nil)?
             .withSymbolConfiguration(size)
         chevron.contentTintColor = Tokens.Text.secondary
-        let row = NSStackView(views: [icon, label, chevron])
+        let row = NSStackView(views: [icon, name, label, chevron])
         row.orientation = .horizontal
         row.spacing = Tokens.Metric.chromeGap
         row.alignment = .centerY
@@ -107,14 +119,16 @@ final class ControlActivityPill: NSButton {
         ])
     }
 
-    func configure(_ entry: ControlActivity.Entry, working: Bool) {
+    func configure(_ shown: ControlActivity.Shown) {
+        let entry = shown.entry
         rim.tint = Tokens.Agent.tint(forApp: entry.appID)
-        rim.isWorking = working
-        self.entry = entry
+        rim.isWorking = shown.working
+        self.shown = shown
         icon.image = entry.appID.flatMap(ControlAppIcon.image(for:))
             ?? NSImage(systemSymbolName: BrowserSession.controlFolderSymbol, accessibilityDescription: nil)
+        name.stringValue = shown.name
         label.stringValue = entry.title
-        setAccessibilityLabel(String(localized: "\(entry.client): \(entry.title). Show all activity"))
+        setAccessibilityLabel(String(localized: "\(shown.name): \(entry.title). Show all activity"))
     }
 
     @objc private func fire() { onActivate?() }
@@ -149,6 +163,7 @@ final class ControlActivityPill: NSButton {
         super.viewDidChangeEffectiveAppearance()
         layer.map { Tokens.Shadow.popover.apply(to: $0, in: effectiveAppearance) }
         label.textColor = Tokens.Text.primary
+        name.textColor = Tokens.Text.secondary
         refreshWash()
     }
 
@@ -180,37 +195,60 @@ final class ControlActivityPill: NSButton {
 
 extension ControlSurfaceView {
 
-    /// The pill for `entry`, in the bottom trailing corner, fading in and out
-    /// as the working capsule does; nil takes it away.
-    func showActivity(_ entry: ControlActivity.Entry?, working: Bool, onOpen: @escaping (NSView) -> Void) {
-        guard let entry else {
-            guard let pill = activityPill else { return }
-            activityPill = nil
+    /// A pill per entry of `shown`, lowest first, each fading in and out as
+    /// the working capsule does. Empty takes them all away.
+    func showActivity(_ shown: [ControlActivity.Shown], onOpen: @escaping (String, NSView) -> Void) {
+        let wanted = Set(shown.map(\.agent))
+        for pill in activityPills where !wanted.contains(pill.agent ?? "") {
             Tokens.Motion.animate(Tokens.Motion.agentSheet) { _ in
                 pill.animator().alphaValue = 0
             } completion: {
                 MainActor.assumeIsolated { pill.removeFromSuperview() }
             }
-            return
         }
-        let pill = activityPill ?? makeActivityPill()
-        pill.onActivate = { [weak pill] in pill.map(onOpen) }
-        if pill.entry != entry || pill.isWorking != working {
-            pill.configure(entry, working: working)
-            Tokens.Motion.immediately { layoutSubtreeIfNeeded() }
+        let kept = Dictionary(
+            activityPills.compactMap { pill in pill.agent.map { ($0, pill) } }, uniquingKeysWith: { first, _ in first }
+        )
+        activityPills = shown.enumerated().map { index, item in
+            let pill = kept[item.agent] ?? makeActivityPill(at: index)
+            pill.onActivate = { [weak pill] in pill.map { onOpen(item.agent, $0) } }
+            if pill.shown != item {
+                pill.configure(item)
+            }
+            return pill
+        }
+        stackActivityPills()
+    }
+
+    /// Lowest first, a gap between each. A pill whose place changed slides
+    /// there: the one below it went, which is a state, not a resize.
+    private func stackActivityPills() {
+        var moved = false
+        for (index, pill) in activityPills.enumerated() where pill.stackBottom?.constant != Self.pillBottom(at: index) {
+            pill.stackBottom?.constant = Self.pillBottom(at: index)
+            moved = true
+        }
+        guard moved else { return }
+        Tokens.Motion.animate(Tokens.Motion.agentSheet) { context in
+            context.allowsImplicitAnimation = true
+            layoutSubtreeIfNeeded()
         }
     }
 
-    private func makeActivityPill() -> ControlActivityPill {
+    private static func pillBottom(at index: Int) -> CGFloat {
+        -Tokens.Metric.chromeGapWide - CGFloat(index) * (Tokens.Agent.capsuleHeight + Tokens.Metric.chromeGap)
+    }
+
+    private func makeActivityPill(at index: Int) -> ControlActivityPill {
         let pill = ControlActivityPill()
         pill.alphaValue = 0
         addSubview(pill)
         let gap = Tokens.Metric.chromeGapWide
-        NSLayoutConstraint.activate([
-            pill.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -gap),
-            pill.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -gap)
-        ])
-        activityPill = pill
+        // Placed where it will stand before it fades in: it does not fly
+        // from the corner to its place in the stack.
+        let bottom = pill.bottomAnchor.constraint(equalTo: bottomAnchor, constant: Self.pillBottom(at: index))
+        pill.stackBottom = bottom
+        NSLayoutConstraint.activate([pill.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -gap), bottom])
         Tokens.Motion.immediately { layoutSubtreeIfNeeded() }
         Tokens.Motion.animate(Tokens.Motion.agentSheet) { _ in pill.animator().alphaValue = 1 }
         return pill

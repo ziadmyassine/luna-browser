@@ -25,44 +25,39 @@ extension ControlService {
         let page = session.activeTabID.flatMap { session.controller(for: $0)?.state.pageBackground }
         surface.setPageColour(page.map(NSColor.init))
         surface.showWorking(working(on: session.activeTabID, in: session))
-        surface.showActivity(shownActivity, working: activityIsWorking) { [weak self] pill in
-            self?.toggleActivityList(from: pill)
+        surface.showActivity(shownActivity) { [weak self] agent, pill in
+            self?.toggleActivityList(of: agent, from: pill)
         }
     }
 
-    /// The client acting on `id` now, or paused on it. Only while it acts
+    /// The session acting on `id` now, or paused on it. Only while it acts
     /// (`BrowserSession.controlledTabs`, which outlives each call by
     /// `tabLinger`): a capsule that stayed as long as the client was connected
     /// said "working" over a page it had finished with. Paused, it stays, so
     /// Resume can be pressed.
     private func working(on id: UUID?, in session: BrowserSession) -> ControlSurfaceView.Working? {
-        guard let id, let name = actingOn[id], connectedNames.contains(name), !stoppedAll,
-              holds[name] != .stopped else { return nil }
+        guard let id, let agent = actingOn[id], connectedSessions.contains(agent), !stoppedAll,
+              holds[agent] != .stopped else { return nil }
         let isActing = session.controlledTabs[id] != nil
-        let isPaused = holds[name] == .paused
+        let isPaused = holds[agent] == .paused
         guard isActing || isPaused else { return nil }
         return ControlSurfaceView.Working(
-            client: name, appID: appID(ofClient: name), isPaused: isPaused, isActing: isActing
+            client: displayName(of: agent), appID: appID(of: agent), isPaused: isPaused, isActing: isActing
         )
     }
 
     /// Take Over pauses the agent working on the page in front; Resume hands
     /// the page back.
     private func toggleTakeover() {
-        guard let id = session?.activeTabID, let name = actingOn[id] else { return }
-        if holds[name] == .paused { resume(client: name) } else { pause(client: name) }
+        guard let id = session?.activeTabID, let agent = actingOn[id] else { return }
+        if holds[agent] == .paused { resume(client: agent) } else { pause(client: agent) }
         refreshSurface()
-    }
-
-    func appID(ofClient name: String) -> String? {
-        let raw = clientNames.first { ControlClient.displayName(for: $0) == name }
-        return (raw.flatMap(ControlApp.app(forClient:)) ?? ControlApp.all.first { $0.folderName == name })?.id
     }
 
     /// Moves the agent's pointer to where `command` acts, when the page is
     /// one the user can see. A tab in no window, or on the stage, has nobody
     /// to show it to.
-    func showPointer(for command: ControlCommand, on webView: WKWebView, by client: String) async {
+    func showPointer(for command: ControlCommand, on webView: WKWebView, by client: ControlClient) async {
         guard let surface, let window = webView.window, window === surface.window,
               let point = await points(for: command, in: webView).last else { return }
         let zoom = webView.pageZoom
@@ -70,7 +65,8 @@ extension ControlService {
         let local = NSPoint(x: point.x * zoom, y: webView.isFlipped ? top : webView.bounds.height - top)
         let clicks = if case .click = command { true } else { false }
         surface.point(
-            at: surface.convert(local, from: webView), client: client, tint: Tokens.Agent.tint(forApp: appID(ofClient: client)),
+            at: surface.convert(local, from: webView), client: client.displayName,
+            tint: Tokens.Agent.tint(forApp: appID(of: client.session)),
             clicks: clicks
         )
     }

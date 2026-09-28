@@ -18,19 +18,35 @@ extension BrowserSession {
     /// apart from one the user made and named the same.
     static let controlFolderSymbol = "sparkles"
 
-    /// The client's folder in the active Space: the one it had, else one
-    /// already called by its name, else a new one at the head of today's tabs.
+    /// An agent session's folder in the active Space: the one it had, else a
+    /// Luna Control folder already called by its name that is not in
+    /// `excluding` (another session's), else a new one at the head of today's
+    /// tabs.
     ///
     /// No undo entry and no name field, unlike `createGroup`: nothing the user
     /// did made it, so there is nothing for `⌘Z` to take back and no name to
-    /// ask for.
-    func controlFolder(named name: String, previously id: UUID?) -> TabGroup {
+    /// ask for. The same goes for renaming and filling it, below.
+    func controlFolder(named name: String, previously id: UUID?, excluding: Set<UUID> = []) -> TabGroup {
         if let id, let group = list.group(id), group.spaceID == activeSpaceID { return group }
-        if let group = groups.first(where: { $0.name == name }) { return group }
+        if let group = groups.first(where: {
+            $0.name == name && $0.symbolName == Self.controlFolderSymbol && !excluding.contains($0.id)
+        }) { return group }
         let group = TabGroup(spaceID: activeSpaceID, name: name, symbolName: Self.controlFolderSymbol, kind: .today)
         persistAll(list.insertGroup(group, at: openIndex(for: .today)))
         notifyChange()
         return group
+    }
+
+    func renameControlFolder(_ id: UUID, to name: String) {
+        undoManager.disableUndoRegistration()
+        renameGroup(id, to: name)
+        undoManager.enableUndoRegistration()
+    }
+
+    func moveControlledTab(_ id: UUID, into group: UUID) {
+        undoManager.disableUndoRegistration()
+        moveTab(id, toGroup: group)
+        undoManager.enableUndoRegistration()
     }
 
     /// A tab at the end of `group`, loading `url`, with a web view but not

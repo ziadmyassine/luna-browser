@@ -66,7 +66,7 @@ extension ControlService {
         holds[name] = .stopped
         releasePausedCalls(of: name)
         inFlight[name]?.values.forEach { $0.cancel() }
-        approvals.cancel(client: name)
+        if let folder = folders[name] { approvals.cancel(inFolder: folder) }
         refreshBadges()
     }
 
@@ -80,7 +80,7 @@ extension ControlService {
         stoppedAll = true
         for name in pausedCalls.keys { releasePausedCalls(of: name) }
         inFlight.values.flatMap(\.values).forEach { $0.cancel() }
-        approvals.cancel(client: nil)
+        approvals.cancelAll()
         refreshBadges()
     }
 
@@ -89,7 +89,7 @@ extension ControlService {
         refreshBadges()
     }
 
-    /// The folder menu's Pause, Resume and Stop. Nil for a folder no client owns.
+    /// The folder menu's Pause, Resume and Stop. Nil for a folder no session owns.
     func menuActions(forFolder id: UUID) -> GroupMenu.AgentActions? {
         guard let name = client(ofFolder: id) else { return nil }
         return GroupMenu.AgentActions(
@@ -100,7 +100,7 @@ extension ControlService {
         )
     }
 
-    /// The display name of the client whose folder this is.
+    /// The session whose folder this is.
     func client(ofFolder id: UUID) -> String? {
         folders.first { $0.value == id }?.key
     }
@@ -172,7 +172,8 @@ extension ControlService {
             client: client.displayName, tool: ControlAudit.tool(of: call.command), tab: call.tab, site: nil,
             summary: ControlAudit.summary(of: call.command), decision: "allowed", outcome: "ok"
         )
-        let entry = beginActivity(call.command, by: client.displayName)
+        agents[client.session] = client
+        let entry = beginActivity(call.command, by: client)
         let result = await gatedResult(call, client, &record)
         record.outcome = result.isError ? "error" : "ok"
         endActivity(entry, as: record)
@@ -184,9 +185,9 @@ extension ControlService {
         _ call: ControlCall, _ client: ControlClient, _ record: inout ControlAudit.Record
     ) async -> ControlResult {
         guard let session else { return .error("Luna has no window open.") }
-        adoptFolder(of: client.displayName, in: session)
-        await waitWhilePaused(client.displayName)
-        if let refusal = refusal(for: client.displayName) {
+        adoptFolder(of: client, in: session)
+        await waitWhilePaused(client.session)
+        if let refusal = refusal(for: client.session) {
             record.decision = "stopped"
             return .error(refusal)
         }
@@ -294,14 +295,14 @@ extension ControlService {
         case .stopped:
             return stopped(client, &record)
         }
-        await waitWhilePaused(client.displayName)
-        if refusal(for: client.displayName) != nil { return stopped(client, &record) }
+        await waitWhilePaused(client.session)
+        if refusal(for: client.session) != nil { return stopped(client, &record) }
         return nil
     }
 
     private func stopped(_ client: ControlClient, _ record: inout ControlAudit.Record) -> ControlResult {
         record.decision = "stopped"
-        return .error(refusal(for: client.displayName) ?? "The user stopped this call.")
+        return .error(refusal(for: client.session) ?? "The user stopped this call.")
     }
 
     private func target(of call: ControlCall, in session: BrowserSession, for client: ControlClient) throws -> UUID? {
@@ -311,12 +312,10 @@ extension ControlService {
         }
     }
 
-    /// The client's folder, made now if a request needs somewhere to wait.
+    /// The session's folder, made now if a request needs somewhere to wait.
     func folder(for client: ControlClient, in session: BrowserSession) -> UUID {
-        if let id = folders[client.displayName], session.group(id) != nil { return id }
-        let group = session.controlFolder(named: client.displayName, previously: folders[client.displayName])
-        folders[client.displayName] = group.id
-        return group.id
+        if let id = folders[client.session], session.group(id) != nil { return id }
+        return folderInActiveSpace(for: client, in: session).id
     }
 
     // MARK: - On the way out

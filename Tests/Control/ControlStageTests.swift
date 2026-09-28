@@ -85,11 +85,11 @@ final class ControlStageTests: XCTestCase {
         let watched = await service.perform(ControlCall(.click(.point(x: 100, y: 40), clickCount: 1)), client)
         XCTAssertFalse(watched.isError, text(watched))
 
-        service.pause(client: client.displayName)
+        service.pause(client: client.session)
         let taken = Task { await service.perform(ControlCall(.click(.point(x: 100, y: 40), clickCount: 1)), client) }
         try await Task.sleep(for: .milliseconds(300))
-        XCTAssertEqual(service.pausedCalls[client.displayName]?.count, 1, "the paused call did not wait")
-        service.stop(client: client.displayName)
+        XCTAssertEqual(service.pausedCalls[client.session]?.count, 1, "the paused call did not wait")
+        service.stop(client: client.session)
         let stopped = await taken.value
         XCTAssertTrue(stopped.isError)
         XCTAssertTrue(text(stopped).contains("stopped"), text(stopped))
@@ -103,7 +103,7 @@ final class ControlStageTests: XCTestCase {
         session.hostWindow = controller.window
         controller.window?.orderFront(nil)
         defer { controller.window?.close() }
-        service.connectedNames.insert(client.displayName)
+        service.connectedSessions.insert(client.session)
         _ = await service.perform(ControlCall(.openTab(page)), client)
         let id = try XCTUnwrap(session.allTabs(includeArchived: false).first { $0.url.scheme == "data" }?.id)
         session.activateTab(id)
@@ -113,7 +113,7 @@ final class ControlStageTests: XCTestCase {
         click(takeOver)
         let waiting = Task { await service.perform(ControlCall(.click(.point(x: 100, y: 40), clickCount: 1)), client) }
         try await Task.sleep(for: .milliseconds(300))
-        XCTAssertEqual(service.pausedCalls[client.displayName]?.count, 1, "the agent was not held while taken over")
+        XCTAssertEqual(service.pausedCalls[client.session]?.count, 1, "the agent was not held while taken over")
 
         let resume = try XCTUnwrap(controller.controlSurface.capsule?.button, "the capsule went with the pause")
         XCTAssertEqual(resume.title, "Resume")
@@ -152,7 +152,7 @@ final class ControlStageTests: XCTestCase {
     func testAFolderFromBeforeARelaunchSparksWhenItsTabIsUsed() async throws {
         let (first, session) = try await makeService()
         _ = await first.perform(ControlCall(.openTab(page)), client)
-        let folder = try XCTUnwrap(first.folders[client.displayName])
+        let folder = try XCTUnwrap(first.folders[client.session])
         let id = try XCTUnwrap(session.allTabs(includeArchived: false).first { $0.url.scheme == "data" }?.id)
         try await Task.sleep(for: .seconds(2.5))
         XCTAssertFalse(session.controlledGroupIDs.contains(folder))
@@ -162,7 +162,7 @@ final class ControlStageTests: XCTestCase {
             ControlCall(tab: relaunched.number(id), .scroll(.down, amount: 1, target: nil)), client
         )
         XCTAssertFalse(scrolled.isError, text(scrolled))
-        XCTAssertEqual(relaunched.folders[client.displayName], folder, "the folder was not taken back")
+        XCTAssertEqual(relaunched.folders[client.session], folder, "the folder was not taken back")
         XCTAssertTrue(session.controlledGroupIDs.contains(folder), "the folder did not spark")
         withExtendedLifetime(first) {}
     }
@@ -172,7 +172,7 @@ final class ControlStageTests: XCTestCase {
         let (service, session) = try await makeService()
         let claude = ControlClient(rawName: "claude-code")
         _ = await service.perform(ControlCall(.openTab(page)), claude)
-        let folder = try XCTUnwrap(service.folders[claude.displayName])
+        let folder = try XCTUnwrap(service.folders[claude.session])
         let sidebar = SidebarViewController(session: session, windowID: UUID())
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 300, height: 700), styleMask: [.titled], backing: .buffered, defer: false
@@ -266,7 +266,7 @@ extension ControlStageTests {
         let entry = try XCTUnwrap(service.activity.first)
         XCTAssertEqual(entry.title, ControlActivity.title(of: .openTab(page)))
         XCTAssertEqual(entry.state, .done)
-        XCTAssertEqual(service.shownActivity?.id, entry.id, "the pill went the moment the call ended")
+        XCTAssertEqual(service.shownActivity.map(\.entry.id), [entry.id], "the pill went the moment the call ended")
     }
 }
 
@@ -279,7 +279,7 @@ extension ControlStageTests {
         let (service, session) = try await makeService()
         let claude = ControlClient(rawName: "claude-code")
         _ = await service.perform(ControlCall(.openTab(page)), claude)
-        let folder = try XCTUnwrap(service.folders[claude.displayName])
+        let folder = try XCTUnwrap(service.folders[claude.session])
         let sidebar = SidebarViewController(session: session, windowID: UUID())
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 300, height: 700), styleMask: [.titled], backing: .buffered, defer: false

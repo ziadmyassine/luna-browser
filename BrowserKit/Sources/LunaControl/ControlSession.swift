@@ -80,7 +80,11 @@ public actor ControlSession {
         let params = message["params"] ?? [:]
         switch method {
         case "initialize":
-            client = ControlClient(rawName: params["clientInfo"]?["name"]?.string ?? "")
+            client = ControlClient(
+                rawName: params["clientInfo"]?["name"]?.string ?? "",
+                session: params["_meta"]?[ControlSessionTag.sessionKey]?.string,
+                sessionName: params["_meta"]?[ControlSessionTag.nameKey]?.string
+            )
             onInitialize?(client)
             return id.map { Self.reply(id: $0, result: initializeResult(params)) }
         case "ping":
@@ -89,6 +93,7 @@ public actor ControlSession {
             return id.map { Self.reply(id: $0, result: ["tools": .array(ControlTools.all)]) }
         case "tools/call":
             guard let id else { return nil }
+            if let name = params["_meta"]?[ControlSessionTag.nameKey]?.string { client.sessionName = name }
             return await call(id: id, params: params)
         default:
             // A notification — `initialized`, `cancelled` — needs nothing back.

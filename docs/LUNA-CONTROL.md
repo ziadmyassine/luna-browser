@@ -122,8 +122,31 @@ apps* in Settings copies it.
 
 The client is named from `clientInfo.name` in MCP's `initialize`, made readable
 (`claude-code` → Claude Code, `codex-mcp-client` → Codex, nothing → Agent).
-Every tab it opens goes into a sidebar folder with that name in the current
-Space. The folder is made on first use and reused after that. The folder wears the app's own icon (Claude,
+
+An agent is one **session** of an app, not the app: two Claude Code sessions
+are two agents, each with its own folder, pause and stop, and activity pill.
+`luna-control` is started once per session, so it says which one it serves in
+`params._meta` (`ControlSessionTag`): `dk.novapps.luna/session` on
+`initialize`, the same id again when Luna relaunches under it, and
+`dk.novapps.luna/sessionName` on every call once the session has a name. For
+Claude Code the id is `CLAUDE_CODE_SESSION_ID` and the name is the session's
+title from its transcript (`~/.claude/projects/*/<id>.jsonl`, the last
+`custom-title`, else the last `ai-title`), read from the end of the file and
+then only what was added since, at most every two seconds. Any other client
+gets a fresh id per helper and no name. A client that connects without the
+helper is one agent per connection.
+
+Every tab an agent opens goes into a sidebar folder in the current Space
+named after the session ("Main 2"), or after the app while the session has no
+name, numbered when another session already has that name ("Claude Code 2").
+The folder is made on first use and reused after that. It follows the
+session's name when that changes, until the user renames it. When an agent
+clicks, types, navigates or runs a script in one of the user's loose tabs,
+that tab moves into the agent's folder, so every tab an agent works in is
+under its folder; reading a tab moves nothing, and a saved tab or one in a
+folder stays where it is. Which app each folder belongs to is kept
+(`control.folderApps`), so a folder from an earlier launch wears its app's
+face before the session is back. The folder wears the app's own icon (Claude,
 ChatGPT's Codex, Cursor, VS Code; other clients keep a sparkles symbol), and
 the whole folder is always tinted in the app's colour, its fill, outline and
 name, not only on hover: orange for Claude, white for Codex and Cursor (black
@@ -377,6 +400,8 @@ in the activity log as `download`.
   Resume, up to five minutes, and are then refused; running ones finish), **Stop Agent** (running calls, including ones waiting
   for approval, are cancelled and new ones refused) and **Resume Agent**. The
   folder wears a pause or stop icon meanwhile.
+- Each is per session: stopping one Claude Code session leaves another
+  working.
 - **Luna → Stop All Agents** does the same for every client until **Resume
   Agents**. It works even with the setting off.
 - Selecting one of the agent's own tabs does not take it over; **Take Over**
@@ -491,10 +516,12 @@ Past 4 MB the file rolls to `activity.1.jsonl`. Settings shows the last
 twenty calls.
 
 While an agent works, and for eight seconds after its last call, the page's
-bottom trailing corner carries a glass pill with the app's icon and its
-newest call in words ("Go to developer.apple.com", "Type 12 characters";
-element refs are left out). The pill is a button: it opens the whole list
-since launch, newest first, as a pop-out standing on it, each row with the
+bottom trailing corner carries a glass pill with the app's icon, the name of
+its folder, and its newest call in words ("Go to developer.apple.com", "Type
+12 characters"; element refs are left out). Two sessions at work are two
+pills, one above the other, the session that started first lowest. A pill is
+a button: it opens that session's calls since launch, newest first, as a
+pop-out standing on it and titled with the folder's name, each row with the
 call, its site, when, and how it ended (running, declined, failed, stopped).
 The list updates while it is open, and the pill stays while the list does
 (`ControlActivity`, `ControlActivityPill`, `ControlActivityList`). It is kept

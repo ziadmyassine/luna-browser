@@ -31,7 +31,7 @@ extension ControlService {
         case .timedOut:
             return .error("The user did not answer within five minutes.")
         case .stopped:
-            return .error(refusal(for: client.displayName) ?? "The user stopped this call.")
+            return .error(refusal(for: client.session) ?? "The user stopped this call.")
         }
     }
 
@@ -146,19 +146,19 @@ extension ControlService {
         guard let session, let webView,
               let id = session.controllers.first(where: { $0.value.webView === webView })?.key,
               session.activeTabID != id, let folder = session.tab(id)?.groupID,
-              let client = client(ofFolder: folder) else { return nil }
+              let agent = client(ofFolder: folder) else { return nil }
         let site = session.tab(id).flatMap { Self.site(of: $0.url) }
         var record = ControlAudit.Record(
-            client: client, tool: "download", tab: number(id), site: site,
+            client: displayName(of: agent), tool: "download", tab: number(id), site: site,
             summary: "download “\(name)”", decision: "approved", outcome: "ok"
         )
         defer { log(record) }
-        guard refusal(for: client) == nil else {
+        guard refusal(for: agent) == nil else {
             record.decision = "stopped"
             return false
         }
         let answer = await approvals.ask(ControlApprovals.Request(
-            client: client, folder: folder, site: site, summary: record.summary,
+            client: displayName(of: agent), folder: folder, site: site, summary: record.summary,
             reason: risky ? "it downloads a file that can run programs on this Mac" : ControlRisk.download.reason,
             grantable: false
         ))

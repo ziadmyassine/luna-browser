@@ -13,13 +13,18 @@ public final class ControlListener: Sendable {
     private let source: any DispatchSourceRead
     /// Each open connection and the client it named in `initialize`, empty
     /// until it has.
-    private let connections = Mutex<[Int32: String]>([:])
+    private let connections = Mutex<[Int32: ControlClient?]>([:])
     private let onClientsChange: @Sendable () -> Void
+
+    /// Every client connected now that has said who it is.
+    public var clients: [ControlClient] {
+        connections.withLock { $0.values.compactMap { $0 } }
+    }
 
     /// The `clientInfo.name` of every client connected now — what Settings
     /// shows as an app being in use.
     public var clientNames: [String] {
-        connections.withLock { Array($0.values.filter { !$0.isEmpty }) }
+        clients.map(\.rawName).filter { !$0.isEmpty }
     }
 
     public init(
@@ -41,9 +46,9 @@ public final class ControlListener: Sendable {
             _ = fcntl(client, F_SETFL, fcntl(client, F_GETFL) & ~O_NONBLOCK)
             var on: Int32 = 1
             setsockopt(client, SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size))
-            self.connections.withLock { $0[client] = "" }
+            self.connections.withLock { $0[client] = .some(nil) }
             let session = ControlSession(version: version, perform: perform) { [weak self] named in
-                self?.connections.withLock { $0[client] = named.rawName }
+                self?.connections.withLock { $0[client] = named }
                 self?.onClientsChange()
             }
             Thread.detachNewThread { [weak self] in

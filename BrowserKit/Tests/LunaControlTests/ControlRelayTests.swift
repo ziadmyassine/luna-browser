@@ -1,6 +1,7 @@
 import Darwin
 import Foundation
-import LunaControl
+import Synchronization
+@testable import LunaControl
 import Testing
 
 /// The helper's pipe, the socket and Luna's session end to end: what an MCP
@@ -22,7 +23,7 @@ struct ControlRelayTests {
         let output: (read: Int32, write: Int32)
         let reader: LineReader
 
-        init(socket: URL) {
+        init(socket: URL, tag: ControlSessionTag = ControlSessionTag(environment: [:])) {
             var inPipe: [Int32] = [0, 0]
             var outPipe: [Int32] = [0, 0]
             pipe(&inPipe)
@@ -30,7 +31,7 @@ struct ControlRelayTests {
             input = (inPipe[0], inPipe[1])
             output = (outPipe[0], outPipe[1])
             reader = LineReader(fd: outPipe[0])
-            let relay = ControlRelay(socketPath: socket, output: outPipe[1])
+            let relay = ControlRelay(socketPath: socket, output: outPipe[1], tag: tag)
             let stdin = inPipe[0]
             Thread.detachNewThread { relay.run(input: stdin) }
         }
@@ -100,6 +101,50 @@ struct ControlRelayTests {
         let reply = harness.ask(Self.call(4, "tabs_list"))
         #expect(reply?["id"] == 4)
         #expect(reply?["result"]?["content"]?.debugText == "Test Agent")
+    }
+
+    /// Two sessions of one app are two agents to Luna: each helper names its
+    /// session, the same one again after Luna comes back, and the title the
+    /// user knows it by as soon as there is one.
+    @Test func eachHelperTellsLunaWhichSessionItServes() throws {
+        let projects = URL.temporaryDirectory.appending(path: "lc-\(UUID().uuidString.prefix(8))")
+        let transcript = projects.appending(path: "projects/-Users-me-app/abc.jsonl")
+        try FileManager.default.createDirectory(at: transcript.deletingLastPathComponent(), withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: projects) }
+        try Data(#"{"type":"user"}"#.utf8).write(to: transcript)
+        let tag = ControlSessionTag(environment: ["CLAUDE_CODE_SESSION_ID": "abc", "CLAUDE_CONFIG_DIR": projects.path])
+
+        let path = socketPath()
+        let seen = Mutex<[ControlClient]>([])
+        let listener = try ControlListener(path: path) { _, client in
+            seen.withLock { $0.append(client) }
+            return .text("")
+        }
+        defer { listener.stop() }
+        let harness = Harness(socket: path, tag: tag)
+        defer { harness.finish() }
+        _ = harness.ask(Self.initialize)
+        _ = harness.ask(Self.call(2, "tabs_list"))
+        #expect(listener.clients.map(\.session) == ["abc"])
+        #expect(seen.withLock { $0.last?.sessionName } == nil)
+
+        let title = #"{"type":"ai-title","aiTitle":"Fix the sidebar","sessionId":"abc"}"#
+        try Data((#"{"type":"user"}"# + "\n" + title + "\n").utf8).write(to: transcript)
+        Thread.sleep(forTimeInterval: ControlSessionTag.Transcript.interval + 0.1)
+        _ = harness.ask(Self.call(3, "tabs_list"))
+        #expect(seen.withLock { $0.last?.session } == "abc")
+        #expect(seen.withLock { $0.last?.sessionName } == "Fix the sidebar")
+    }
+
+    @Test func theNameTheUserGaveOutranksTheOneTheAppGave() {
+        let lines = [
+            #"{"type":"custom-title","customTitle":"Main 2","sessionId":"abc"}"#,
+            #"{"type":"ai-title","aiTitle":"Fix the sidebar","sessionId":"abc"}"#,
+            #"{"type":"assistant","message":"custom-title"}"#
+        ]
+        #expect(ControlSessionTag.Transcript.title(in: Data(lines.joined(separator: "\n").utf8)) == "Main 2")
+        #expect(ControlSessionTag.Transcript.title(in: Data(lines[1].utf8)) == "Fix the sidebar")
+        #expect(ControlSessionTag.Transcript.title(in: Data(lines[2].utf8)) == nil)
     }
 
     /// Luna quitting while a call waits, as one waiting for the user's
