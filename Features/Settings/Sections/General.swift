@@ -122,13 +122,26 @@ final class SettingsBody {
     /// do. An empty query restores everything.
     func filter(_ query: String) {
         let needle = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        var matched = [Bool](repeating: needle.isEmpty, count: cards.count)
+        filter(isCleared: needle.isEmpty) { terms in needle.isEmpty || terms.contains { $0.contains(needle) } }
+    }
+
+    /// The same, for a section whose rows match by a rule of its own.
+    /// - Parameters:
+    ///   - isCleared: no query at all, which brings back a card with no rows too.
+    ///   - shows: given a row's lowercased terms, whether it stays.
+    /// - Returns: whether any row is still showing.
+    @discardableResult
+    func filter(isCleared: Bool, _ shows: ([String]) -> Bool) -> Bool {
+        var matched = [Bool](repeating: isCleared, count: cards.count)
+        var anyShown = false
         for entry in entries {
-            let shown = needle.isEmpty || entry.terms.contains { $0.contains(needle) }
+            let shown = shows(entry.terms)
             entry.view.isHidden = !shown
+            anyShown = anyShown || shown
             if shown, let card = entry.card { matched[card] = true }
         }
         for (index, card) in cards.enumerated() { card.isHidden = !matched[index] }
+        return anyShown
     }
 
     private func add(_ child: NSView) {

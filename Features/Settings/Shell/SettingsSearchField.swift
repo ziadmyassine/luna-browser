@@ -21,9 +21,13 @@ final class SettingsSearchField: NSView, NSTextFieldDelegate {
 
     private let field = NSTextField()
     private let glyph = NSImageView()
+    private let placeholder: String
 
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
+    /// The window's search by default; a page that searches only itself says so.
+    init(placeholder: String = String(localized: "Search settings…"),
+         label: String = String(localized: "Search settings")) {
+        self.placeholder = placeholder
+        super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerCurve = .continuous
 
@@ -56,7 +60,7 @@ final class SettingsSearchField: NSView, NSTextFieldDelegate {
             field.centerYAnchor.constraint(equalTo: centerYAnchor)
         ])
 
-        setAccessibilityLabel(String(localized: "Search settings"))
+        setAccessibilityLabel(label)
         applyTokens()
         NSWorkspace.shared.notificationCenter.addObserver(
             self,
@@ -80,7 +84,7 @@ final class SettingsSearchField: NSView, NSTextFieldDelegate {
         field.textColor = Tokens.Text.primary
         glyph.contentTintColor = Tokens.Text.tertiary
         field.placeholderAttributedString = NSAttributedString(
-            string: String(localized: "Search settings…"),
+            string: placeholder,
             attributes: [
                 .font: Tokens.TypeScale.settingsRow,
                 .foregroundColor: Tokens.Text.tertiary

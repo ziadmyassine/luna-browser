@@ -462,6 +462,14 @@ taken for macOS's, carry "Numbered from your sidebar" and "Numbered from your
 Spaces". A legend above the table states the rule, and search matches
 "editable" and "cannot be changed".
 
+**The page has a search field of its own**, above the table: every menu command
+is too many to scroll, and the window's search is a column away. It narrows
+whatever the window's search left. Every word typed has to be in the row
+somewhere, in any order. The keys can be named — "shift cmd p", "ctrl alt" —
+because the glyphs are not on the keyboard, and a single letter only matches
+as a key's name, or the "p" would keep every row with a p in its title. A row
+is found by its current keys, after a rebinding too.
+
 ### 3.7 Spaces & Profiles
 | Control | Type | Wired to |
 |---|---|---|

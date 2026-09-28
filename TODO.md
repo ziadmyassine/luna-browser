@@ -611,6 +611,7 @@ luna/
   > **Checked 2026-09-24: partly built.** Focus rings in `UI/Sidebar/GlassButton+Keyboard.swift` and elsewhere. Actions with no command (find, split, archive view) cannot be reached from the keyboard.
 - [x] **20.3 Customisable shortcuts UI** with conflict detection.
   > **Checked 2026-09-24: built.** `Features/Settings/Sections/Shortcuts.swift`, `SettingsShortcutRecorder`, `App/KeyBindings.swift`
+  > **2026-09-28:** the Shortcuts page has its own search field on top. Every word has to be in the row; a single letter only counts as a key, so "shift cmd p" finds Picture in Picture and nothing else. A row is found by its current keys after a rebinding too. Picture in Picture (⇧⌘P) is listed under View, and editable, because the table is read off the menu bar.
 - [x] **20.4 Trackpad gestures** — two-finger back/forward (`allowsBackForwardNavigationGestures`), pinch zoom, three-finger swipe between Spaces.
   > **Checked 2026-09-24: built.** `WebViewFactory` (back/forward swipe, magnification), `SpaceSwipeController` (two fingers on the sidebar, D-S12)
 

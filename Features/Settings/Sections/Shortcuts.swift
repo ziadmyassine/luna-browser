@@ -4,6 +4,8 @@
 //
 //  §23.1 §3.6: every `MainMenu` command and its key equivalent, grouped by
 //  menu, searchable — and, for the ones that are Luna's to move, editable.
+//  The page has a search field of its own on top of the window's: the table
+//  is every menu command, and the window's search is a column away.
 //
 //  Read from the live menu bar, not from a second copy of the key map. The
 //  rows, their titles and the menus they are grouped under come from walking
@@ -135,10 +137,25 @@ final class ShortcutsSection: SettingsSection {
     /// all without rebuilding the pane.
     private var recorders: [String: SettingsShortcutRecorder] = [:]
     private var resetButtons: [String: NSButton] = [:]
+    /// Each editable row, so a rebinding can re-index it under its new keys.
+    private var rows: [String: (view: NSView, command: Command)] = [:]
 
-    var view: NSView { body.view }
+    private let container = NSStackView()
+    private let finder = SettingsSearchField(
+        placeholder: String(localized: "Search shortcuts…"),
+        label: String(localized: "Search shortcuts")
+    )
+    private let nothing = NSTextField(labelWithString: "")
+    /// What the window's search holds. A row shows only when it matches this
+    /// and the page's own field.
+    private var windowQuery = ""
+
+    var view: NSView { container }
     var searchIndex: [String] { body.searchIndex }
-    func filter(_ query: String) { body.filter(query) }
+    func filter(_ query: String) {
+        windowQuery = query
+        applyFilter()
+    }
 
     init() {
         body.card(nil, [(resetAllRow(), ["reset shortcuts", "restore defaults", "customise", "customize"])])
@@ -146,21 +163,85 @@ final class ShortcutsSection: SettingsSection {
         // installed one; an empty table is the right outcome, not a crash.
         let commands = NSApplication.shared.mainMenu.map(Self.commands(in:)) ?? []
         for menu in commands.map(\.menu).uniqued() {
-            let rows = commands.filter { $0.menu == menu }.map { command in
-                (view: row(command), terms: Self.terms(command))
+            let cardRows = commands.filter { $0.menu == menu }.map { command in
+                let view = row(command)
+                if let id = command.editableID { rows[id] = (view, command) }
+                return (view: view, terms: Self.terms(command, key: command.key))
             }
-            body.card(menu, rows)
+            body.card(menu, cardRows)
+        }
+        buildContainer()
+    }
+
+    private func buildContainer() {
+        finder.onChange = { [weak self] _ in self?.applyFilter() }
+        nothing.font = Tokens.TypeScale.sidebarRow
+        nothing.textColor = Tokens.Text.secondary
+        nothing.alignment = .center
+        nothing.isHidden = true
+
+        container.orientation = .vertical
+        container.alignment = .leading
+        container.spacing = Tokens.Metric.settingsGroupGap
+        container.translatesAutoresizingMaskIntoConstraints = false
+        for child in [finder, body.view, nothing] {
+            container.addArrangedSubview(child)
+            child.widthAnchor.constraint(equalTo: container.widthAnchor).isActive = true
+        }
+    }
+
+    private func applyFilter() {
+        let typed = finder.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let isCleared = SettingsSearch.normalise(windowQuery).isEmpty && typed.isEmpty
+        let anyShown = body.filter(isCleared: isCleared) { terms in
+            Self.matches(windowQuery, in: terms) && Self.matches(pageQuery: typed, in: terms)
+        }
+        nothing.stringValue = String(localized: "No shortcut matches “\(typed)”.")
+        nothing.isHidden = anyShown || typed.isEmpty
+    }
+
+    private static func matches(_ query: String, in terms: [String]) -> Bool {
+        let needle = SettingsSearch.normalise(query)
+        return needle.isEmpty || terms.contains { $0.contains(needle) }
+    }
+
+    /// Every word has to be in the row somewhere, in any order, so "shift cmd p"
+    /// and "picture" both find Picture in Picture. A single letter has to be a
+    /// whole word — the key's name — or the "p" in that query would keep every
+    /// row with a p in its title.
+    static func matches(pageQuery: String, in terms: [String]) -> Bool {
+        SettingsSearch.normalise(pageQuery).split(whereSeparator: \.isWhitespace).allSatisfy { word in
+            terms.contains { term in
+                word.count == 1
+                    ? term.split(whereSeparator: \.isWhitespace).contains(word)
+                    : term.contains(word)
+            }
         }
     }
 
     /// §2's search matches a row on what it says and on what it is, so
     /// "editable" lists everything that can be rebound and nothing else.
-    private static func terms(_ command: Command) -> [String] {
-        [command.title, command.menu, command.key]
+    private static func terms(_ command: Command, key: String) -> [String] {
+        [command.title, command.menu, key, spelled(key)]
             + (command.fixedReason.map { [$0] } ?? [])
             + [command.editableID == nil
                 ? String(localized: "cannot be changed")
                 : String(localized: "editable")]
+    }
+
+    /// "⇧⌘P" as "shift command cmd p": the glyphs are not on the keyboard, so
+    /// a search has to be able to name the keys instead. Empty for no shortcut.
+    static func spelled(_ key: String) -> String {
+        let names: [Character: String] = [
+            "⌃": "control ctrl", "⌥": "option alt", "⇧": "shift", "⌘": "command cmd"
+        ]
+        var words: [String] = []
+        var rest = Substring(key)
+        while let first = rest.first, let name = names[first] {
+            words.append(name)
+            rest = rest.dropFirst()
+        }
+        return (words + [rest.lowercased()]).joined(separator: " ").trimmingCharacters(in: .whitespaces)
     }
 
     // MARK: Rows
@@ -243,8 +324,12 @@ final class ShortcutsSection: SettingsSection {
     }
 
     private func refresh(_ command: BrowserCommand) {
-        recorders[command.id]?.show(KeyBindings.primary(for: command))
+        let binding = KeyBindings.primary(for: command)
+        recorders[command.id]?.show(binding)
         resetButtons[command.id]?.isHidden = !KeyBindings.isCustomised(command)
+        if let row = rows[command.id] {
+            body.setTerms(Self.terms(row.command, key: binding?.display ?? ""), for: row.view)
+        }
     }
 
     private func resetAllRow() -> NSView {

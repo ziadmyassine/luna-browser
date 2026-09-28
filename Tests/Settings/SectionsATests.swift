@@ -280,6 +280,50 @@ final class SectionsATests: XCTestCase {
         XCTAssertTrue(index.contains("⌘t"), "\(index)")
     }
 
+    /// View ▸ Picture in Picture arrived after this table was written; it is
+    /// here, under View, and the user's to move, because the table is read off
+    /// the menu bar rather than kept by hand.
+    func testShortcutsListsPictureInPicture() throws {
+        try XCTSkipIf(NSApplication.shared.mainMenu == nil, "no menu bar in this host")
+        let bar = try XCTUnwrap(NSApplication.shared.mainMenu)
+        let row = try XCTUnwrap(ShortcutsSection.commands(in: bar).first { $0.title == "Picture in Picture" })
+        XCTAssertEqual(row.menu, "View")
+        XCTAssertEqual(row.key, "⇧⌘P")
+        XCTAssertEqual(row.editableID, "pictureInPicture")
+    }
+
+    /// The glyphs are not on the keyboard, so the page's search finds a
+    /// shortcut by the names of its keys.
+    func testAShortcutIsSearchableByTheNamesOfItsKeys() {
+        XCTAssertEqual(ShortcutsSection.spelled("⇧⌘P"), "shift command cmd p")
+        XCTAssertEqual(ShortcutsSection.spelled("⌃⌥←"), "control ctrl option alt ←")
+        XCTAssertEqual(ShortcutsSection.spelled(""), "")
+    }
+
+    /// The page's search: every word in the row somewhere, in any order, and a
+    /// single letter only as a key's name.
+    func testThePageSearchMatchesEveryWordAndALetterOnlyAsAKey() {
+        let pip = ["picture in picture", "view", "⇧⌘p", "shift command cmd p"]
+        let privateWindow = ["new private window", "file", "⇧⌘n", "shift command cmd n"]
+        XCTAssertTrue(ShortcutsSection.matches(pageQuery: "shift cmd p", in: pip))
+        XCTAssertFalse(ShortcutsSection.matches(pageQuery: "shift cmd p", in: privateWindow))
+        XCTAssertTrue(ShortcutsSection.matches(pageQuery: "picture view", in: pip))
+        XCTAssertTrue(ShortcutsSection.matches(pageQuery: "priv", in: privateWindow))
+        XCTAssertTrue(ShortcutsSection.matches(pageQuery: "  ", in: privateWindow))
+    }
+
+    /// A row stays by the section's own rule, and a card goes with its last row.
+    func testACustomRuleHidesRowsAndEmptiedCards() {
+        let body = SettingsBody()
+        let pip = NSView()
+        let zoom = NSView()
+        body.card("View", [(pip, ["Picture in Picture"]), (zoom, ["Zoom In"])])
+        XCTAssertTrue(body.filter(isCleared: false) { $0.contains("picture in picture") })
+        XCTAssertFalse(pip.isHidden)
+        XCTAssertTrue(zoom.isHidden)
+        XCTAssertFalse(body.filter(isCleared: false) { _ in false })
+    }
+
     func testTheTableIsReadOffTheLiveMenuBarAndGroupedByMenu() {
         let commands = ShortcutsSection.commands(in: menuBar())
         XCTAssertEqual(commands.map(\.menu), ["File", "File", "File", "Window"])
