@@ -301,31 +301,6 @@ final class TabListController: NSObject {
         (view as? SidebarRowView)?.configure(content(for: row))
     }
 
-    private func apply(_ diff: CollectionDifference<SidebarRow>) {
-        // §6: 0.22 s, fade, no list jump. `CollectionDifference` iterates
-        // removals descending then insertions ascending, which is exactly the
-        // order `NSTableView` wants.
-        let effect: NSTableView.AnimationOptions = Tokens.Motion.reduceMotion ? [] : .effectFade
-        Tokens.Motion.animate(Tokens.Motion.tabInsert) { _ in
-            table.beginUpdates()
-            for change in diff {
-                switch change {
-                case let .remove(offset, _, _): table.removeRows(at: [offset], withAnimation: effect)
-                case let .insert(offset, _, _): table.insertRows(at: [offset], withAnimation: effect)
-                }
-            }
-            table.endUpdates()
-        }
-        // The rows moved under a pointer that did not: a fold from the
-        // keyboard left `hoveredRow` naming whatever slid into its old index,
-        // and §3.4b's plate went round that row's folder.
-        if hoveredRow != nil, let window = table.window {
-            let row = table.row(at: table.convert(window.mouseLocationOutsideOfEventStream, from: nil))
-            setHovered(row >= 0 ? row : nil)
-        }
-        refreshVisibleRows()
-    }
-
     private func refreshVisibleRows(movingPills animated: Bool = true) {
         let visible = table.rows(in: table.visibleRect)
         for row in visible.lowerBound ..< visible.upperBound {
@@ -450,5 +425,40 @@ final class TabListController: NSObject {
             (table.view(atColumn: 0, row: row, makeIfNecessary: false) as? SidebarRowView)?
                 .accessibilityDisplayOptionsChanged()
         }
+    }
+}
+
+// MARK: - Applying a diff
+
+extension TabListController {
+
+    fileprivate func apply(_ diff: CollectionDifference<SidebarRow>) {
+        // §6: 0.22 s, fade, no list jump. `CollectionDifference` iterates
+        // removals descending then insertions ascending, which is exactly the
+        // order `NSTableView` wants.
+        let effect: NSTableView.AnimationOptions = Tokens.Motion.reduceMotion ? [] : .effectFade
+        Tokens.Motion.animate(Tokens.Motion.tabInsert) { _ in
+            table.beginUpdates()
+            for change in diff {
+                switch change {
+                case let .remove(offset, _, _): table.removeRows(at: [offset], withAnimation: effect)
+                case let .insert(offset, _, _): table.insertRows(at: [offset], withAnimation: effect)
+                }
+            }
+            table.endUpdates()
+        } completion: { [weak self] in
+            // Once more with the rows settled. A Luna Control folder closed
+            // from its menu left its outline standing, empty, until the next
+            // click in the column placed the pills again.
+            MainActor.assumeIsolated { self?.movePills(animated: false) }
+        }
+        // The rows moved under a pointer that did not: a fold from the
+        // keyboard left `hoveredRow` naming whatever slid into its old index,
+        // and §3.4b's plate went round that row's folder.
+        if hoveredRow != nil, let window = table.window {
+            let row = table.row(at: table.convert(window.mouseLocationOutsideOfEventStream, from: nil))
+            setHovered(row >= 0 ? row : nil)
+        }
+        refreshVisibleRows()
     }
 }

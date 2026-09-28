@@ -127,11 +127,15 @@ extension TabListController {
         // lying in the table was one stray pass away from showing again.
         for (id, plate) in controlPlates where controlFaces[id] == nil || list.row(ofGroup: id) == nil {
             controlPlates[id] = nil
-            Tokens.Motion.animate(Tokens.Motion.rowHover) { _ in
-                plate.animator().alphaValue = 0
-            } completion: {
-                MainActor.assumeIsolated { plate.removeFromSuperview() }
-            }
+            retire(plate)
+        }
+        // A tinted plate no folder or tab owns any more goes as well. One was
+        // left in the column after Close Folder and Tabs, which no test here
+        // reproduced; whatever let it go astray, it cannot outlast this pass.
+        let owned = Set((Array(controlPlates.values) + Array(tabGlows.values)).map(ObjectIdentifier.init))
+        for case let stray as RowPillView in table.subviews
+            where stray.tint != nil && stray.alphaValue > 0 && !owned.contains(ObjectIdentifier(stray)) {
+            retire(stray)
         }
         for (id, face) in controlFaces {
             guard let box = groupExtent(ofGroup: id) else { continue }
@@ -168,6 +172,16 @@ extension TabListController {
             glow.tint = Tokens.Agent.tint(forApp: face.appID)
             glow.isWorking = true
             place(glow, in: pillBox(ofRow: row), spec: animated ? Tokens.Motion.rowHover : nil)
+        }
+    }
+
+    /// Fades a plate out of the column, spark first, and takes it off.
+    private func retire(_ plate: RowPillView) {
+        plate.isWorking = false
+        Tokens.Motion.animate(Tokens.Motion.rowHover) { _ in
+            plate.animator().alphaValue = 0
+        } completion: {
+            MainActor.assumeIsolated { plate.removeFromSuperview() }
         }
     }
 

@@ -32,7 +32,20 @@ final class ControlActivityPill: NSButton {
         didSet {
             guard isPressed != oldValue else { return }
             refreshWash()
+            pivotOnCentre()
             Tokens.Motion.swell(self, to: isPressed ? Tokens.Motion.pressSwell : 1)
+        }
+    }
+
+    /// A backing layer scales from its corner, which in the page's corner
+    /// pushed the swell off towards the window's edge. Moved to the centre,
+    /// keeping the frame where it is, as `PopoutPanelView` moves its own.
+    private func pivotOnCentre() {
+        guard let layer, layer.anchorPoint != CGPoint(x: 0.5, y: 0.5) else { return }
+        let frame = layer.frame
+        Tokens.Motion.immediately {
+            layer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+            layer.position = CGPoint(x: frame.midX, y: frame.midY)
         }
     }
 

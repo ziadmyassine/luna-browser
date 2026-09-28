@@ -290,12 +290,22 @@ extension ButtonFeedbackTests {
         pill.configure(ControlActivity.entry(for: .listTabs, client: "Claude Code", appID: nil), working: true)
         pill.frame = NSRect(origin: .zero, size: pill.fittingSize)
         pill.layoutSubtreeIfNeeded()
+        let before = pill.layer?.frame ?? .zero
         pill.highlight(true)
         XCTAssertEqual(scale(of: pill), Tokens.Motion.pressSwell, accuracy: 0.001, "the pill did not swell")
+        let swollen = pill.layer?.frame ?? .zero
+        XCTAssertEqual(swollen.midX, before.midX, accuracy: 0.5, "the pill swelled off its centre")
+        XCTAssertEqual(swollen.midY, before.midY, accuracy: 0.5, "the pill swelled off its centre")
+        if !Tokens.Motion.reduceMotion {
+            XCTAssertNotNil(pill.layer?.animation(forKey: "controlPress"), "the press did not animate")
+        }
         pill.highlight(false)
         XCTAssertEqual(scale(of: pill), 1, accuracy: 0.001, "the pill stayed swollen")
         pill.mouseEntered(with: mouse(.mouseMoved, in: pill))
         let wash = pill.subviews.first { type(of: $0) == NSView.self }
         XCTAssertNotEqual(wash?.layer?.backgroundColor?.alpha ?? 0, 0, "the pill did not answer the pointer")
+        if !Tokens.Motion.reduceMotion {
+            XCTAssertNotNil(wash?.layer?.animation(forKey: "backgroundColor"), "the hover did not cross-fade")
+        }
     }
 }

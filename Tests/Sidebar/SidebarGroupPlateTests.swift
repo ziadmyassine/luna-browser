@@ -361,7 +361,18 @@ extension SidebarGroupPlateTests {
             activeTabID: looseTab.id
         )
         controller.table.layoutSubtreeIfNeeded()
-        print("PLATE", plate.alphaValue, plate.superview as Any, plate.frame)
         XCTAssertTrue(plate.superview == nil || plate.alphaValue < 0.01, "the closed folder's outline stayed")
+    }
+
+    /// A tinted plate the column no longer tracks is taken away on the next
+    /// pass rather than left standing with nothing in it.
+    func testAnOwnerlessAgentPlateIsSweptAway() throws {
+        let controller = try list()
+        let stray = RowPillView(role: .folder)
+        stray.tint = Tokens.Agent.tint(forApp: "claude-code")
+        stray.frame = NSRect(x: 8, y: 40, width: 240, height: 35)
+        controller.table.addSubview(stray)
+        controller.movePills(animated: false)
+        XCTAssertEqual(stray.alphaValue, 0, accuracy: 0.01, "the ownerless plate stayed in the column")
     }
 }

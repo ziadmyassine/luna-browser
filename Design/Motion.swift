@@ -333,16 +333,27 @@ extension Tokens {
         /// an `NSImageView`'s image and in front of a glass backing. That means
         /// the timing comes off a `CATransaction` rather than an
         /// `NSAnimationContext`, and Reduce Motion has to be checked here.
+        ///
+        /// The fade is added explicitly. A view's backing layer takes no
+        /// implicit animation — its view answers every action with none — so
+        /// a transaction's duration alone left every button's own-layer wash
+        /// landing in one frame.
         @MainActor
         static func wash(_ layer: CALayer?, to colour: NSColor?, animated: Bool = true) {
             guard let layer else { return }
-            let instant = !animated || reduceMotion
+            let target = (colour ?? .clear).cgColor
+            let from = (layer.presentation() ?? layer).backgroundColor
             CATransaction.begin()
-            CATransaction.setDisableActions(instant)
-            CATransaction.setAnimationDuration(instant ? 0 : controlHover.duration)
-            CATransaction.setAnimationTimingFunction(controlHover.timingFunction)
-            layer.backgroundColor = (colour ?? .clear).cgColor
+            CATransaction.setDisableActions(true)
+            layer.backgroundColor = target
             CATransaction.commit()
+            guard animated, !reduceMotion, from != target else { return }
+            let fade = CABasicAnimation(keyPath: "backgroundColor")
+            fade.fromValue = from ?? NSColor.clear.cgColor
+            fade.toValue = target
+            fade.duration = controlHover.duration
+            fade.timingFunction = controlHover.timingFunction
+            layer.add(fade, forKey: "backgroundColor")
         }
 
         /// `controlPress`'s swell: scales `view` about its own centre and springs

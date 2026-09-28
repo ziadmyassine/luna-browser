@@ -269,3 +269,32 @@ extension ControlStageTests {
         XCTAssertEqual(service.shownActivity?.id, entry.id, "the pill went the moment the call ended")
     }
 }
+
+extension ControlStageTests {
+
+    /// Close Folder and Tabs from the folder's menu takes the outline away
+    /// by itself: nothing forces a layout pass after it, as nothing does in
+    /// the window, and a click on the column used to be what finally did.
+    func testClosingTheFolderTakesItsOutlineWithNoFurtherPass() async throws {
+        let (service, session) = try await makeService()
+        let claude = ControlClient(rawName: "claude-code")
+        _ = await service.perform(ControlCall(.openTab(page)), claude)
+        let folder = try XCTUnwrap(service.folders[claude.displayName])
+        let sidebar = SidebarViewController(session: session, windowID: UUID())
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 300, height: 700), styleMask: [.titled], backing: .buffered, defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.contentView = sidebar.view
+        window.orderFront(nil)
+        defer { window.close() }
+        let token = session.addChangeObserver { sidebar.refresh() }
+        sidebar.refresh()
+        try await Task.sleep(for: .milliseconds(500))
+        let plate = try XCTUnwrap(sidebar.list.controlPlates[folder], "the folder has no outline")
+        session.closeGroup(folder)
+        try await Task.sleep(for: .milliseconds(800))
+        XCTAssertTrue(plate.superview == nil || plate.alphaValue < 0.01, "the closed folder's outline stayed until the next pass")
+        withExtendedLifetime(token) {}
+    }
+}
