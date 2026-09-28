@@ -15,6 +15,9 @@ final class SiteSettingsController: PopoutController {
     /// Set by `toggle(in:from:edge:content:)` before the panel is built.
     private var edge: PopoutEdge = .below
     private var content = SiteSettingsContent(heading: "")
+    /// Where the keyboard was before the pop-out took it for its arrow keys.
+    private weak var focusBefore: NSResponder?
+    private weak var focused: PopoutPanelView?
 
     func toggle(in window: NSWindow, from anchor: NSView, edge: PopoutEdge, content: SiteSettingsContent) {
         self.edge = edge
@@ -32,10 +35,17 @@ final class SiteSettingsController: PopoutController {
     }
 
     override func panelDidAppear(_ panel: PopoutPanelView) {
+        focusBefore = panel.window?.firstResponder
+        focused = panel
         panel.window?.makeFirstResponder(panel)
     }
 
+    /// Given back, because a panel on its way out keeps the keyboard
+    /// otherwise: Escape then never reached the page to end the picker, and
+    /// Space no longer scrolled it.
     override func panelDidDisappear() {
         content = SiteSettingsContent(heading: "")
+        guard let panel = focused, let window = panel.window, window.firstResponder === panel else { return }
+        window.makeFirstResponder(focusBefore)
     }
 }

@@ -21,6 +21,16 @@ extension BrowserWindowController {
         onBecameKey?()
     }
 
+    /// The session's list, not one of the window's own. The window answers
+    /// `undo:` itself, ahead of the app delegate — measured: with the page
+    /// focused, `NSApp.target(forAction:)` for `undo:` is the window — so with
+    /// a list of its own, ⌘Z found nothing to bring back after a tab was
+    /// closed or a part of a page hidden. Text typed in the window's fields and
+    /// pages lands on the same list, which is how Safari's windows keep theirs.
+    func windowWillReturnUndoManager(_ window: NSWindow) -> UndoManager? {
+        windowUndoManager
+    }
+
     /// macOS fullscreen keeps the chrome — a browser without its tab list in
     /// fullscreen is unusable. Only the window's own corners change: the system
     /// frame is square there, and a rounded mask would show as black notches.

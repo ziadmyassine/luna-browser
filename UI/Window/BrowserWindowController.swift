@@ -36,6 +36,9 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     /// sheet, a pop-out or the Settings window is up — and every command Luna
     /// has would then be about no window at all.
     var onBecameKey: (() -> Void)?
+    /// What ⌘Z undoes in this window — its session's list once the chrome is
+    /// built; see `windowWillReturnUndoManager`.
+    var windowUndoManager = UndoManager()
 
     /// §22.6: this window has gone.
     ///

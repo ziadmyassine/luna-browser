@@ -79,6 +79,29 @@ final class SiteSettingsPanelTests: XCTestCase {
         XCTAssertEqual(shown, ["Cookie bar"])
     }
 
+    /// The pop-out borrows the keyboard for its arrow keys and gives it back
+    /// when it closes, so Escape and Space reach the page again.
+    func testClosingThePopOutGivesTheKeyboardBack() throws {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 900, height: 600), styleMask: [.titled], backing: .buffered, defer: false
+        )
+        let page = FocusableView(frame: NSRect(x: 0, y: 0, width: 900, height: 500))
+        let anchor = NSView(frame: NSRect(x: 400, y: 560, width: 18, height: 18))
+        window.contentView?.addSubview(page)
+        window.contentView?.addSubview(anchor)
+        window.makeFirstResponder(page)
+
+        let controller = SiteSettingsController()
+        controller.toggle(in: window, from: anchor, edge: .below, content: sample())
+        XCTAssertTrue(window.firstResponder is SiteSettingsPanel)
+        controller.dismiss()
+        XCTAssertTrue(window.firstResponder === page)
+    }
+
+    private final class FocusableView: NSView {
+        override var acceptsFirstResponder: Bool { true }
+    }
+
     /// A page with no host has a header and nothing else.
     func testAPageThatIsNotASiteIsOnlyAHeader() {
         let content = SiteSettingsContent(heading: "No site settings for this page")
