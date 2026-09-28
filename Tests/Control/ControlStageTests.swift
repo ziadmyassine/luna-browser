@@ -253,3 +253,17 @@ final class ControlStageTests: XCTestCase {
         XCTAssertTrue(shown.isError, "a tab on the user's screen keeps their window's size")
     }
 }
+
+extension ControlStageTests {
+
+    /// Every call goes into the activity list as it starts and is marked when
+    /// it ends, and the pill stays up for a moment after.
+    func testACallIsListedAsActivity() async throws {
+        let (service, _) = try await makeService()
+        _ = await service.perform(ControlCall(.openTab(page)), client)
+        let entry = try XCTUnwrap(service.activity.first)
+        XCTAssertEqual(entry.title, ControlActivity.title(of: .openTab(page)))
+        XCTAssertEqual(entry.state, .done)
+        XCTAssertEqual(service.shownActivity?.id, entry.id, "the pill went the moment the call ended")
+    }
+}

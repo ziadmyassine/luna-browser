@@ -172,8 +172,10 @@ extension ControlService {
             client: client.displayName, tool: ControlAudit.tool(of: call.command), tab: call.tab, site: nil,
             summary: ControlAudit.summary(of: call.command), decision: "allowed", outcome: "ok"
         )
+        let entry = beginActivity(call.command, by: client.displayName)
         let result = await gatedResult(call, client, &record)
         record.outcome = result.isError ? "error" : "ok"
+        endActivity(entry, as: record)
         log(record)
         return result
     }

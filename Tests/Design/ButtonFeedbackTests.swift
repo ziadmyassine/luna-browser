@@ -280,3 +280,22 @@ final class ButtonFeedbackTests: XCTestCase {
         return found
     }
 }
+
+extension ButtonFeedbackTests {
+
+    /// The activity pill is glass of its own, so it swells itself on a press
+    /// and washes on the pointer.
+    func testTheActivityPillAnswersThePointerAndThePress() {
+        let pill = ControlActivityPill()
+        pill.configure(ControlActivity.entry(for: .listTabs, client: "Claude Code", appID: nil))
+        pill.frame = NSRect(origin: .zero, size: pill.fittingSize)
+        pill.layoutSubtreeIfNeeded()
+        pill.highlight(true)
+        XCTAssertEqual(scale(of: pill), Tokens.Motion.pressSwell, accuracy: 0.001, "the pill did not swell")
+        pill.highlight(false)
+        XCTAssertEqual(scale(of: pill), 1, accuracy: 0.001, "the pill stayed swollen")
+        pill.mouseEntered(with: mouse(.mouseMoved, in: pill))
+        let wash = pill.subviews.first { !($0 is GlassBackingView) && !($0 is NSStackView) }
+        XCTAssertNotEqual(wash?.layer?.backgroundColor?.alpha ?? 0, 0, "the pill did not answer the pointer")
+    }
+}

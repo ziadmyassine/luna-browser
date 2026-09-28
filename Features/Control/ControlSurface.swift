@@ -64,6 +64,8 @@ final class ControlSurfaceView: NSView {
     var toast: PageToastView?
     var toastTop: NSLayoutConstraint?
     var toastDismissal: Task<Void, Never>?
+    /// The agent's newest call, in the bottom trailing corner (`ControlActivityPill`).
+    var activityPill: ControlActivityPill?
     private let pointer = ControlAgentPointer()
 
     override var isFlipped: Bool { true }

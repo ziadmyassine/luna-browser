@@ -489,6 +489,16 @@ text is counted, not kept, and script is scrubbed and cut to 200 characters.
 Past 4 MB the file rolls to `activity.1.jsonl`. Settings shows the last
 twenty calls.
 
+While an agent works, and for eight seconds after its last call, the page's
+bottom trailing corner carries a glass pill with the app's icon and its
+newest call in words ("Go to developer.apple.com", "Type 12 characters";
+element refs are left out). The pill is a button: it opens the whole list
+since launch, newest first, as a pop-out standing on it, each row with the
+call, its site, when, and how it ended (running, declined, failed, stopped).
+The list updates while it is open, and the pill stays while the list does
+(`ControlActivity`, `ControlActivityPill`, `ControlActivityList`). It is kept
+in memory only; the file above is the record.
+
 ## The Settings pane
 
 Settings → Luna Control opens on a night sky (`ControlSkyView`), always dark

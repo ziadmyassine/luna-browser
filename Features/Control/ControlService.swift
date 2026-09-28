@@ -110,6 +110,14 @@ final class ControlService {
     /// Which client last acted on each tab, by display name: whose capsule
     /// a page shows when the user goes to it.
     var actingOn: [UUID: String] = [:]
+    /// The calls since launch, newest first — the activity pill and its list
+    /// (`ControlService+Activity.swift`).
+    var activity: [ControlActivity.Entry] = []
+    /// True for `tabLinger` after the last call ends, so the pill does not
+    /// blink out between an agent's calls.
+    var activityLingers = false
+    var activityLinger: Task<Void, Never>?
+    lazy var activityList = ControlActivityController(service: self)
     private var surfaceWatch: ObservationToken?
     private var pageWatch: ObservationToken?
 
