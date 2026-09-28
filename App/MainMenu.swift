@@ -235,6 +235,8 @@ enum MainMenu {
             [.separator()],
             items(.zoomIn), items(.zoomOut), items(.actualSize),
             [.separator()],
+            items(.pictureInPicture),
+            [.separator()],
             // §22.5: the downloads panel is only otherwise reachable from the
             // top bar's button, which the sidebar layout does not show at all.
             // ⌘⌥L is free in the §20.1 map and is what Safari uses.

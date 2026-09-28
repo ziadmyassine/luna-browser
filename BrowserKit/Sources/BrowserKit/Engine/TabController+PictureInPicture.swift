@@ -29,6 +29,37 @@ extension TabController {
         webView?.evaluateJavaScript(Self.leavePictureInPictureScript)
     }
 
+    /// ⇧⌘P: floats the page's video, or puts back the one already floating.
+    /// Unlike the automatic path, a muted or paused video counts — the user
+    /// asked for this one. A playing video wins over a larger paused one.
+    public func togglePictureInPicture() {
+        webView?.evaluateJavaScript(Self.togglePictureInPictureScript)
+    }
+
+    private static let togglePictureInPictureScript = """
+    (function () {
+      var videos = document.querySelectorAll('video');
+      for (var i = 0; i < videos.length; i++) {
+        if (videos[i].webkitPresentationMode === 'picture-in-picture') {
+          videos[i].webkitSetPresentationMode('inline');
+          return 'inline';
+        }
+      }
+      var best = null, most = 0;
+      for (var j = 0; j < videos.length; j++) {
+        var v = videos[j];
+        if (v.readyState < 2 || typeof v.webkitSetPresentationMode !== 'function') { continue; }
+        if (!v.webkitSupportsPresentationMode('picture-in-picture')) { continue; }
+        var box = v.getBoundingClientRect();
+        var weight = box.width * box.height + (v.paused ? 0 : 1e9);
+        if (weight > most) { most = weight; best = v; }
+      }
+      if (!best) { return 'none'; }
+      best.webkitSetPresentationMode('picture-in-picture');
+      return 'picture-in-picture';
+    })();
+    """
+
     private static let enterPictureInPictureScript = """
     (function () {
       var videos = document.querySelectorAll('video');

@@ -184,6 +184,12 @@ struct BrowserCommand: Identifiable {
         "actualSize", "Zoom to Actual Size", #selector(AppDelegate.resetZoom(_:)), [KeyBinding("0")],
         symbol: "1.magnifyingglass", keywords: ["reset zoom", "actual size"]
     )
+    /// ⇧⌘P, as in Search; nothing in §20.1's map had it.
+    static let pictureInPicture = BrowserCommand(
+        "pictureInPicture", "Picture in Picture", #selector(AppDelegate.togglePictureInPicture(_:)),
+        [KeyBinding("p", [.command, .shift])],
+        symbol: "pip", keywords: ["pip", "float video", "floating video"]
+    )
     static let showDownloads = BrowserCommand(
         "showDownloads", "Downloads", #selector(AppDelegate.showDownloads(_:)), [KeyBinding("l", [.command, .option])],
         symbol: "arrow.down.circle", keywords: ["files"]
@@ -270,7 +276,7 @@ struct BrowserCommand: Identifiable {
         reopenArchivedTab, closeWindow,
         undo, redo, cut, copy, paste, selectAll, copyURL, copyMarkdown,
         toggleSidebar, toggleFavorite, reloadPage, forceReloadPage, stopLoading,
-        zoomIn, zoomOut, actualSize, showDownloads,
+        zoomIn, zoomOut, actualSize, pictureInPicture, showDownloads,
         goBack, goForward, showHistory,
         showWebInspector, showJavaScriptConsole, showPageSource, startElementSelection, disableJavaScript, emptyCaches,
         previousTab, nextTab, previousSpace, nextSpace, minimize, searchSettings

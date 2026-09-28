@@ -40,6 +40,13 @@ extension BrowserSession {
         if let id { controller(for: id)?.leaveAutomaticPictureInPicture() }
     }
 
+    /// ⇧⌘P on the tab in front. No site permission: that switch is about the
+    /// automatic path, and this one the user asked for.
+    func togglePictureInPicture() {
+        guard let id = activeTabID else { return }
+        controller(for: id)?.togglePictureInPicture()
+    }
+
     private func allowsAutomaticPictureInPicture(_ id: UUID) -> Bool {
         sitePermissions.isAllowed(
             .automaticPictureInPicture,

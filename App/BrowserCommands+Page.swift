@@ -76,6 +76,12 @@ extension AppDelegate {
         session?.resetPageZoom()
     }
 
+    // MARK: - Picture in Picture
+
+    @objc func togglePictureInPicture(_ sender: Any?) {
+        session?.togglePictureInPicture()
+    }
+
     // MARK: - History (§6.4)
 
     /// `⌘Y`. The same pop-out both chrome layouts hang off a button, opened
@@ -107,7 +113,7 @@ extension AppDelegate {
     /// own, so `validateMenuItem`'s chain carries on past it.
     func validatePageCommand(_ item: NSMenuItem, in session: BrowserSession) -> Bool? {
         switch item.action {
-        case #selector(duplicateTab(_:)), #selector(forceReloadPage(_:)):
+        case #selector(duplicateTab(_:)), #selector(forceReloadPage(_:)), #selector(togglePictureInPicture(_:)):
             return session.activeTabID != nil
         case #selector(resetPinnedTab(_:)):
             return session.resettablePinnedTab != nil

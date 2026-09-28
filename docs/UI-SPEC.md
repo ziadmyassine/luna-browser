@@ -582,6 +582,10 @@ Three bands, top to bottom:
   is what Safari's own automatic PiP drives. The video must be playing, unmuted and at least 320 px wide
   — a muted background autoplay banner popping out over the screen is the feature at its worst. Coming
   back to the tab always puts the video back in the page, permission or not.
+  > **None of it works unless WebKit's PiP is on**, and in a third-party `WKWebView` it is off: every
+  > video reports it cannot float. `WebViewFactory` turns it on under D10's PiP exception (TODO.md).
+  > View ▸ Picture in Picture (⇧⌘P) floats the page's video by hand through the same door, muted or
+  > paused videos included, with no site permission — that switch is about the automatic path.
 - **Local Network is a content rule list, and a page served *from* the local network is exempt.** macOS
   asks an app once whether it may reach the LAN; a browser has to ask per site, and WebKit exposes no
   per-origin hook. What a rule list does well is refuse the loads: a page that has not been given the
