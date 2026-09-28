@@ -62,3 +62,33 @@ final class ControlActivityTests: XCTestCase {
         XCTAssertTrue(ControlActivityRow.detail(of: done).hasPrefix("apple.com"))
     }
 }
+
+/// The agent's pointer: an outlined arrow in its colour, its name on a pill,
+/// and a ring where it clicks.
+@MainActor
+final class ControlAgentPointerTests: XCTestCase {
+
+    func testThePointerWearsTheAgentsColourAndAPillForItsName() throws {
+        let pointer = ControlAgentPointer()
+        let tint = Tokens.Agent.tint(forApp: "claude-code")
+        pointer.configure(label: "Claude Code", tint: tint)
+        let arrow = try XCTUnwrap(pointer.layer?.sublayers?.compactMap { $0 as? CAShapeLayer }.first { $0.fillColor != nil })
+        XCTAssertEqual(arrow.fillColor, tint.cgColor, "the arrow is not the agent's colour")
+        XCTAssertEqual(arrow.strokeColor, NSColor.white.cgColor, "the arrow has no outline to stand out on a page")
+        let badge = try XCTUnwrap(pointer.subviews.first, "the name has no tag")
+        XCTAssertEqual(badge.layer?.cornerRadius ?? 0, badge.frame.height / 2, accuracy: 0.5, "the name tag is not a pill")
+        XCTAssertLessThanOrEqual(badge.frame.maxX, pointer.frame.width, "the name tag runs out of the pointer")
+    }
+
+    func testTheTipStandsOnThePointAndAClickRipples() throws {
+        let surface = ControlSurfaceView(frame: NSRect(x: 0, y: 0, width: 900, height: 600))
+        surface.point(at: NSPoint(x: 300, y: 200), client: "Claude Code", tint: .orange, clicks: true)
+        let pointer = try XCTUnwrap(surface.subviews.first { $0 is ControlAgentPointer })
+        XCTAssertEqual(pointer.frame.minX + ControlAgentPointer.tip.x, 300, accuracy: 0.5)
+        XCTAssertEqual(pointer.frame.minY + ControlAgentPointer.tip.y, 200, accuracy: 0.5)
+        if !Tokens.Motion.reduceMotion {
+            let rippled = pointer.layer?.sublayers?.contains { $0.animation(forKey: "pulse") != nil } ?? false
+            XCTAssertTrue(rippled, "the click did not ripple")
+        }
+    }
+}

@@ -148,6 +148,13 @@ public enum WebViewFactory {
         return makeWebView(configuration: configuration)
     }
 
+    /// The one place a `WKWebView` is allocated. The app swaps in its own
+    /// subclass, which carries what needs AppKit — the page's right-click
+    /// menu — and this layer may not import.
+    @MainActor public static var makeView: (WKWebViewConfiguration) -> WKWebView = {
+        WKWebView(frame: .zero, configuration: $0)
+    }
+
     /// Builds a web view around a configuration WebKit handed us — the `WKUIDelegate`
     /// `createWebViewWith` path (§4.2). The popup must use that exact configuration
     /// or `window.opener` and `target="_blank"` break, so only the view-level properties
@@ -165,7 +172,7 @@ public enum WebViewFactory {
         // `target="_blank"` window would load unfiltered without this second call.
         ContentBlocker.shared.apply(to: configuration.userContentController)
 
-        let webView = WKWebView(frame: .zero, configuration: configuration)
+        let webView = makeView(configuration)
         webView.allowsBackForwardNavigationGestures = true
         webView.allowsMagnification = true
         applyAdvancedSettings(to: webView)

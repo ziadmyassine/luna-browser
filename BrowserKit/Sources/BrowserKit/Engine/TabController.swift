@@ -90,6 +90,10 @@ public final class TabController: NSObject {
     /// subframes, before WebKit decides whether to show or download it. Luna
     /// Control's network log is the one reader.
     public var onNavigationResponse: ((WKNavigationResponse) -> Void)?
+    /// Set by the page's Open Link in New Tab just before it sends WebKit's own
+    /// new-window item: the tab `createWebViewWith` asks for then stays behind
+    /// this one. The host reads and clears it.
+    public var nextNewTabIsBackground = false
 
     /// User scripts added from outside for the life of the tab, kept so
     /// `installUserScripts`, which starts from nothing, puts them back.

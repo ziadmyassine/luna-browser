@@ -108,6 +108,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // key's declared default is (SETTINGS-SPEC §6), and it is not
         // persisted, so it is re-published on every launch.
         SettingsDefaults.register()
+        // Before the first web view: the page's right-click menu is the app's.
+        WebViewFactory.makeView = { LunaWebView(frame: .zero, configuration: $0) }
         // §5.6: anything a crash or a hard quit left behind. At launch, where
         // the answer to "is this one in use" is always no.
         Self.sweepPrivateDatabases()

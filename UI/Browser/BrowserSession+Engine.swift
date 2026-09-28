@@ -101,7 +101,14 @@ extension BrowserSession {
     /// A child opened by `target="_blank"` or `window.open` (§6.5). WebKit
     /// performs the pending navigation itself once the view is returned, so
     /// nothing here may load.
-    func adoptPopup(from parent: UUID, url: URL?, configuration: WKWebViewConfiguration) -> WKWebView? {
+    /// - Parameter configuration: WebKit's, for a page's own new window; nil
+    ///   for a link Luna opens itself (⌘-click), which is loaded instead.
+    /// - Parameter inBackground: the tab is made and left behind the one in
+    ///   front, as a ⌘-click and Open Link in New Tab want.
+    @discardableResult
+    func adoptPopup(
+        from parent: UUID, url: URL?, configuration: WKWebViewConfiguration?, inBackground: Bool = false
+    ) -> WKWebView? {
         let spaceID = tab(parent)?.spaceID ?? activeSpaceID
         let child = Tab(
             spaceID: spaceID,
@@ -124,8 +131,14 @@ extension BrowserSession {
         controller.delegate = self
         relayScrollProgress(of: controller)
         controllers[child.id] = controller
-        let webView = controller.activate(with: configuration)
-        activeTabBySpace[spaceID] = child.id
+        let webView: WKWebView?
+        if let configuration {
+            webView = controller.activate(with: configuration)
+        } else {
+            controller.load(url ?? Self.blankPage)
+            webView = nil
+        }
+        if !inBackground { activeTabBySpace[spaceID] = child.id }
         promote(child.id)
         enforceLiveTabBudget()
         notifyChange()
@@ -181,7 +194,13 @@ extension BrowserSession: TabControllerDelegate {
         wantsNewTabFor url: URL?,
         configuration: WKWebViewConfiguration
     ) -> WKWebView? {
-        adoptPopup(from: controller.id, url: url, configuration: configuration)
+        let inBackground = controller.nextNewTabIsBackground
+        controller.nextNewTabIsBackground = false
+        return adoptPopup(from: controller.id, url: url, configuration: configuration, inBackground: inBackground)
+    }
+
+    func tabController(_ controller: TabController, wantsToOpenInNewTab url: URL, inBackground: Bool) {
+        adoptPopup(from: controller.id, url: url, configuration: nil, inBackground: inBackground)
     }
 
     func tabController(_ controller: TabController, didStartDownload download: WKDownload) {

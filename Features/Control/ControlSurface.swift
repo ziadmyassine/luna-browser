@@ -179,15 +179,22 @@ final class ControlSurfaceView: NSView {
 
     /// Moves the agent's pointer to `point`, in this view's coordinates,
     /// gliding from where it last was.
-    func point(at point: NSPoint, client: String, tint: NSColor) {
+    /// - Parameter clicks: the call presses there, and the ripple shows it
+    ///   landing once the pointer has arrived.
+    func point(at point: NSPoint, client: String, tint: NSColor, clicks: Bool = false) {
         pointer.configure(label: client, tint: tint)
         let origin = NSPoint(x: point.x - ControlAgentPointer.tip.x, y: point.y - ControlAgentPointer.tip.y)
         guard pointer.alphaValue > 0, !Tokens.Motion.reduceMotion else {
             pointer.setFrameOrigin(origin)
             addSubview(pointer, positioned: .below, relativeTo: capsule ?? sheet)
+            if clicks { pointer.pulse() }
             return fade(pointer, in: true)
         }
-        Tokens.Motion.animate(Tokens.Motion.agentSheet) { _ in pointer.animator().setFrameOrigin(origin) }
+        Tokens.Motion.animate(Tokens.Motion.agentSheet) { _ in
+            pointer.animator().setFrameOrigin(origin)
+        } completion: { [weak self] in
+            MainActor.assumeIsolated { if clicks { self?.pointer.pulse() } }
+        }
     }
 
     private func fade(_ view: NSView, in shown: Bool, then done: (@MainActor () -> Void)? = nil) {
@@ -417,25 +424,36 @@ extension NSView {
 @MainActor
 final class ControlAgentPointer: NSView {
 
-    /// Where in the view the arrow's tip is, which is what stands on the point.
-    static let tip = NSPoint(x: 4, y: 3)
+    /// Where in the view the arrow's tip is, which is what stands on the point:
+    /// the drawn tip, clear of the outline round it.
+    static let tip = NSPoint(x: 3, y: 3)
 
-    private let arrow = NSImageView()
+    /// The classic arrow, tip at the origin, in points. Drawn rather than the
+    /// `cursorarrow` symbol it replaces, which had no outline and vanished on
+    /// a page the colour of its tint.
+    private static let outline: [NSPoint] = [
+        NSPoint(x: 0, y: 0), NSPoint(x: 0, y: 16.5), NSPoint(x: 4.2, y: 12.6), NSPoint(x: 7.1, y: 19.2),
+        NSPoint(x: 9.9, y: 18), NSPoint(x: 7, y: 11.5), NSPoint(x: 12.4, y: 11.5)
+    ]
+
+    private let arrow = CAShapeLayer()
+    private let ripple = CAShapeLayer()
+    private let badge = NSView()
     private let nameTag = NSTextField(labelWithString: "")
 
     override var isFlipped: Bool { true }
 
     override init(frame frameRect: NSRect) {
-        super.init(frame: NSRect(x: 0, y: 0, width: 160, height: 40))
-        arrow.image = NSImage(systemSymbolName: "cursorarrow", accessibilityDescription: nil)
-        arrow.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 20, weight: .semibold)
-        arrow.frame = NSRect(x: 0, y: 0, width: 22, height: 24)
-        nameTag.font = Tokens.TypeScale.settingsCaption
-        nameTag.wantsLayer = true
-        nameTag.layer?.cornerRadius = 4
-        nameTag.textColor = .white
-        addSubview(arrow)
-        addSubview(nameTag)
+        super.init(frame: NSRect(x: 0, y: 0, width: 160, height: 44))
+        wantsLayer = true
+        layer?.masksToBounds = false
+        buildArrow()
+        badge.wantsLayer = true
+        badge.layer?.cornerCurve = .continuous
+        badge.layer.map { Tokens.Shadow.popover.apply(to: $0, in: effectiveAppearance) }
+        nameTag.font = .systemFont(ofSize: Tokens.TypeScale.settingsCaption.pointSize, weight: .semibold)
+        badge.addSubview(nameTag)
+        addSubview(badge)
         setAccessibilityElement(false)
     }
 
@@ -444,13 +462,65 @@ final class ControlAgentPointer: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
+    private func buildArrow() {
+        let path = CGMutablePath()
+        path.addLines(between: Self.outline.map { CGPoint(x: $0.x + Self.tip.x, y: $0.y + Self.tip.y) })
+        path.closeSubpath()
+        arrow.path = path
+        arrow.lineWidth = 1.5
+        arrow.lineJoin = .round
+        arrow.strokeColor = NSColor.white.cgColor
+        arrow.shadowColor = NSColor.black.cgColor
+        arrow.shadowOpacity = 0.35
+        arrow.shadowRadius = 2
+        arrow.shadowOffset = CGSize(width: 0, height: 1)
+        // The view is flipped, and a shape layer draws in its own space.
+        arrow.isGeometryFlipped = false
+        ripple.fillColor = nil
+        ripple.lineWidth = 2
+        ripple.opacity = 0
+        let radius: CGFloat = 14
+        ripple.path = CGPath(ellipseIn: CGRect(x: -radius, y: -radius, width: radius * 2, height: radius * 2), transform: nil)
+        ripple.position = CGPoint(x: Self.tip.x, y: Self.tip.y)
+        layer?.addSublayer(ripple)
+        layer?.addSublayer(arrow)
+    }
+
     func configure(label: String, tint: NSColor) {
-        arrow.contentTintColor = tint
-        nameTag.stringValue = " \(label) "
-        nameTag.layer?.backgroundColor = tint.cgColor
-        nameTag.textColor = tint.brightnessComponentIfAvailable > 0.8 ? .black : .white
+        arrow.fillColor = tint.cgColor
+        ripple.strokeColor = tint.cgColor
+        let ink: NSColor = tint.brightnessComponentIfAvailable > 0.8 ? .black : .white
+        nameTag.textColor = ink
+        nameTag.stringValue = label
         nameTag.sizeToFit()
-        nameTag.setFrameOrigin(NSPoint(x: 16, y: 20))
+        // A pill, as the capsule and the activity pill are: the same agent's
+        // colour in the same shape wherever it shows.
+        let height = nameTag.frame.height + 4
+        let width = nameTag.frame.width + height
+        badge.frame = NSRect(x: 15, y: 20, width: width, height: height)
+        badge.layer?.cornerRadius = height / 2
+        badge.layer?.backgroundColor = tint.cgColor
+        badge.layer?.borderColor = NSColor.white.withAlphaComponent(0.9).cgColor
+        badge.layer?.borderWidth = 1
+        nameTag.setFrameOrigin(NSPoint(x: height / 2, y: 2))
+        setFrameSize(NSSize(width: max(badge.frame.maxX, 24), height: badge.frame.maxY))
+    }
+
+    /// A ring spreading from the tip and fading, where the agent clicked, so
+    /// the click is seen landing and not only the pointer arriving.
+    func pulse() {
+        guard !Tokens.Motion.reduceMotion else { return }
+        let grow = CABasicAnimation(keyPath: "transform.scale")
+        grow.fromValue = 0.3
+        grow.toValue = 1.3
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = 0.9
+        fade.toValue = 0
+        let group = CAAnimationGroup()
+        group.animations = [grow, fade]
+        group.duration = Tokens.Motion.agentSheet.duration
+        group.timingFunction = Tokens.Motion.agentSheet.timingFunction
+        ripple.add(group, forKey: "pulse")
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }

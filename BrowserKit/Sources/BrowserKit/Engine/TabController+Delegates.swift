@@ -18,6 +18,16 @@ extension TabController: WKNavigationDelegate {
         decidePolicy(for: navigationAction, in: webView) { decisionHandler($0, preferences) }
     }
 
+    /// A link ⌘-clicked, or pressed with the middle button, is a new tab
+    /// rather than this page going somewhere — `target="_blank"` included,
+    /// which arrives here before `createWebViewWith`.
+    private func openedInNewTab(_ action: WKNavigationAction, url: URL) -> Bool {
+        guard action.navigationType == .linkActivated,
+              action.modifierFlags.contains(.command) || action.buttonNumber == 2 else { return false }
+        delegate?.tabController(self, wantsToOpenInNewTab: url, inBackground: !action.modifierFlags.contains(.shift))
+        return true
+    }
+
     private func decidePolicy(
         for navigationAction: WKNavigationAction,
         in webView: WKWebView,
@@ -30,6 +40,10 @@ extension TabController: WKNavigationDelegate {
         }
         guard let url = navigationAction.request.url else {
             decisionHandler(.allow)
+            return
+        }
+        if openedInNewTab(navigationAction, url: url) {
+            decisionHandler(.cancel)
             return
         }
         // §4.4 comes first, because `NavigationPolicy.disposition` would hand a

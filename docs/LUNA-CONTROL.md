@@ -190,8 +190,9 @@ when the call ends.
 - Looking at a page an agent is working on does not stop it: the user
   watches. A capsule at the foot of the page says "*agent* is working", with
   the folder's tinted rim and spark, and the agent's pointer, an arrow in its
-  app's colour with its name, glides to wherever it clicks, hovers, types or
-  drags. **Take Over** on the capsule, a pill whose corner runs with the
+  app's colour outlined in white, with its name on a pill of that colour,
+  glides to wherever it clicks, hovers, types or drags; a click sends a ring
+  out from its tip. **Take Over** on the capsule, a pill whose corner runs with the
   capsule's, pauses the agent and **Resume** hands the page back. While
   the agent is paused its next call waits, so Resume lets that same call
   through and the agent carries on. A tab the agent is acting on is outlined

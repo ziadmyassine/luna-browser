@@ -26,6 +26,10 @@ public protocol TabControllerDelegate: AnyObject {
     /// destination immediately, and a download with no live delegate stalls silently.
     func tabController(_ controller: TabController, didStartDownload download: WKDownload)
 
+    /// A link ⌘-clicked or middle-clicked: a new tab beside this one, left
+    /// behind it unless `inBackground` is false (⌘⇧, as Safari).
+    func tabController(_ controller: TabController, wantsToOpenInNewTab url: URL, inBackground: Bool)
+
     func tabController(_ controller: TabController, didFailWith error: Error)
 
     /// A non-web scheme (`mailto:`, `tel:`, an app's own). Return true if it was handed
@@ -96,6 +100,8 @@ public extension TabControllerDelegate {
     func tabController(_ controller: TabController, wantsToOpenExternally url: URL) -> Bool { false }
 
     func tabController(_ controller: TabController, didUpdateFavicon png: Data?) {}
+
+    func tabController(_ controller: TabController, wantsToOpenInNewTab url: URL, inBackground: Bool) {}
 
     func tabControllerDidRecoverFromProcessTermination(_ controller: TabController) {}
 
