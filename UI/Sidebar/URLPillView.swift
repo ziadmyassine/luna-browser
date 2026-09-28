@@ -66,12 +66,7 @@ final class URLPillView: NSView, PopoutShelf {
     let field = NSTextField(labelWithString: "")
     /// The `.control` backing, built the first time the pill is reached for —
     /// see `updateGlass`.
-    private var glass: NSView?
-    /// The radius the backing was built at. A glass view's corner radius is
-    /// fixed at construction, so a pill that changes height — §3.2b's,
-    /// collapsing — needs a new backing rather than a resize into a capsule
-    /// with the wrong ends.
-    private var glassRadius: CGFloat?
+    private var glass: GlassBackingView?
     private var isHovering = false
     // Bare glyphs, not `GlassButton`s: a glass control inside a glass pill is
     // two materials, and the reference draws no bubble around either.
@@ -297,29 +292,25 @@ final class URLPillView: NSView, PopoutShelf {
         }
     }
 
-    @discardableResult
     private func makeGlass() -> NSView {
         let view = Glass.apply(.control, to: self, cornerRadius: cornerRadius)
         view.alphaValue = 0
-        glass = view
-        glassRadius = cornerRadius
+        glass = view as? GlassBackingView
         return view
     }
 
-    /// Rebuilds the backing when the pill has changed height under it — only
-    /// §3.2b's ever does; the sidebar's finds nothing to do.
+    /// Re-cuts the backing's ends when the pill has changed height under it —
+    /// only §3.2b's ever does; the sidebar's finds nothing to do.
     ///
-    /// It carries the alpha across rather than jumping to the target. A
-    /// glass view's radius is fixed when it is built, so a pill that collapses
-    /// has to be given a new backing — and the height that forces it changes on
-    /// the same frame the material starts fading. Rebuilding at the target
-    /// finished that fade instantly: the glass cut out at the top of a 0.20 s
-    /// morph instead of dissolving through it.
+    /// The same backing, given a new radius. It used to be thrown away and
+    /// built again at the new height, which cost a new glass view on every
+    /// collapse and every expand — measured at 3–10 ms each on the main thread,
+    /// the dearest the first few times, and the first expand after a page
+    /// loaded visibly caught. The rebuild also cut the material's fade: the new
+    /// backing took the old one's target alpha, so the glass snapped on and off
+    /// instead of dissolving through the 0.20 s morph.
     func refreshGlassShape() {
-        guard let current = glass, glassRadius != cornerRadius else { return }
-        makeGlass().alphaValue = current.alphaValue
-        updateGlass()
-        needsDisplay = true
+        glass?.cornerRadius = cornerRadius
     }
 
     /// Hides the site-menu glyph once it has finished fading out, or leaves it
