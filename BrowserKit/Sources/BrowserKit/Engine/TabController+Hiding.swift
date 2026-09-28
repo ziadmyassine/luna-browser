@@ -138,7 +138,7 @@ extension TabController {
     static let pickerScript = """
     if (!window.__lunaPicker) {
       window.__lunaPicker = (function () {
-        var live = false, host = null, box = null, tag = null, target = null;
+        var live = false, host = null, box = null, tag = null, target = null, cursor = null;
         var presses = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click',
                        'dblclick', 'auxclick', 'contextmenu', 'touchstart'];
         var known = { nav: 'Navigation', header: 'Header', footer: 'Footer', aside: 'Sidebar',
@@ -285,7 +285,11 @@ extension TabController {
           if (live) { return; }
           live = true;
           build(palette);
-          document.documentElement.style.cursor = 'crosshair';
+          // Every element, not the root alone: a link's own pointer and the
+          // text beam would otherwise win wherever the page sets one.
+          cursor = document.createElement('style');
+          cursor.textContent = '*, *::before, *::after { cursor: crosshair !important; }';
+          document.documentElement.appendChild(cursor);
           window.addEventListener('mousemove', onMove, true);
           window.addEventListener('keydown', onKey, true);
           presses.forEach(function (kind) { window.addEventListener(kind, onPress, true); });
@@ -295,7 +299,7 @@ extension TabController {
           if (!live) { return; }
           live = false;
           target = null;
-          document.documentElement.style.cursor = '';
+          if (cursor) { cursor.remove(); cursor = null; }
           window.removeEventListener('mousemove', onMove, true);
           window.removeEventListener('keydown', onKey, true);
           presses.forEach(function (kind) { window.removeEventListener(kind, onPress, true); });

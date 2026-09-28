@@ -60,6 +60,16 @@ final class PageToastTests: XCTestCase {
         XCTAssertNil(toast.superview, "the toast stayed after its dwell")
     }
 
+    /// An instruction for a mode stays down past its dwell until it is put away.
+    func testAToastForAModeStaysUntilPutAway() async throws {
+        let surface = surface()
+        surface.showToast(.hidingStarted, dwells: false)
+        try await Task.sleep(for: .seconds(Tokens.Motion.toastDwell + 0.6))
+        XCTAssertEqual(surface.toast?.text, PageToast.hidingStarted.text)
+        surface.hideToast()
+        XCTAssertNil(surface.toast)
+    }
+
     func testZoomSaysThePercentage() {
         XCTAssertEqual(PageToast.zoom(1.25).text, "Zoom 125 %")
         XCTAssertEqual(PageToast.archived(1).text, "1 tab archived")

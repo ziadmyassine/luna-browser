@@ -73,7 +73,6 @@ enum SiteMenu {
                 thenReload: true
             )
         ]
-        content.hidden = hidden(host: page.host)
         content.actions = [
             pageTools(),
             [share(page.url, from: anchor), copyLink(page.url)],
@@ -152,22 +151,6 @@ enum SiteMenu {
             .init(title: reader, symbol: Glyph.reader) { [weak session] in session?.toggleReader() },
             .init(title: hide, symbol: Glyph.hide) { [weak session] in session?.toggleHidingElements() }
         ]
-    }
-
-    /// A switch for each thing hidden here. Turned off it shows the thing again
-    /// and turned back on hides it again, so the row can be tried both ways
-    /// without the pop-out closing.
-    private static func hidden(host: String) -> [SiteSettingsContent.Toggle] {
-        guard let session else { return [] }
-        return session.hiddenOnActivePage.map { element in
-            .init(title: element.label, symbol: Glyph.hidden, isOn: true) { [weak session] on in
-                if on {
-                    session?.hide(element, onHost: host)
-                } else {
-                    session?.showAgain(element, onHost: host)
-                }
-            }
-        }
     }
 
     /// §17.2's per-site exemption, read the way round a user thinks about it:
@@ -283,8 +266,6 @@ enum SiteMenu {
         static let cookies = "trash"
         static let reader = "doc.plaintext"
         static let hide = "eye.slash"
-        /// One thing hidden on the site, which its switch shows again.
-        static let hidden = "eye.slash"
         /// The sliders that open the pop-out in the first place (§3.2), which is as close
         /// as the family comes to "the rest of the settings are through here".
         static let advanced = "slider.horizontal.3"
@@ -296,7 +277,7 @@ enum SiteMenu {
 
         static let all = [
             share, link, blocking, pictureInPicture, localNetwork,
-            cache, cookies, reader, hide, hidden, advanced, secure, insecure, site
+            cache, cookies, reader, hide, advanced, secure, insecure, site
         ]
     }
 }

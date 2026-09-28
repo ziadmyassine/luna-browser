@@ -57,28 +57,6 @@ final class SiteSettingsPanelTests: XCTestCase {
         XCTAssertEqual(panel.rows.count, 3)
     }
 
-    /// What is hidden on the site is a band of its own under the site's
-    /// switches, one switch per thing, each on.
-    func testHiddenThingsAreABandOfSwitchesUnderTheSitesOwn() throws {
-        var content = sample()
-        var shown: [String] = []
-        content.hidden = ["Cookie bar", "Sidebar"].map { label in
-            .init(title: label, symbol: SiteMenu.Glyph.hidden, isOn: true) { on in if !on { shown.append(label) } }
-        }
-        let expected = sample().height
-            + 2 * SiteSettingsMetrics.rowHeight + 2 * SiteSettingsMetrics.bandPadding + Tokens.Metric.hairline
-        XCTAssertEqual(content.height, expected)
-        let panel = panel(content)
-        XCTAssertEqual(panel.body.frame.height, expected)
-        XCTAssertEqual(panel.rows.count, 5)
-        let cookie = panel.rows[2]
-        XCTAssertEqual(cookie.toggle?.isOn, true)
-        XCTAssertLessThan(cookie.frame.maxY, panel.rows[1].frame.minY, "the hidden band is not under the site's")
-        XCTAssertGreaterThan(cookie.frame.minY, try XCTUnwrap(panel.rows.last).frame.maxY)
-        cookie.choose()
-        XCTAssertEqual(shown, ["Cookie bar"])
-    }
-
     /// The pop-out borrows the keyboard for its arrow keys and gives it back
     /// when it closes, so Escape and Space reach the page again.
     func testClosingThePopOutGivesTheKeyboardBack() throws {

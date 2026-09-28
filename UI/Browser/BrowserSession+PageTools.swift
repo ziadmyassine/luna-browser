@@ -45,13 +45,12 @@ extension BrowserSession {
         let host = activeURL?.host(percentEncoded: false)
         controller.startPickingElements { [weak self] element in
             self?.hide(element, onHost: host)
-        } onEnd: {}
-        PageToast.hidingStarted.show(in: hostWindow)
-    }
-
-    /// What is hidden on the page in front, oldest first.
-    var hiddenOnActivePage: [HiddenElements.Element] {
-        hiddenElements.elements(onHost: activeURL?.host(percentEncoded: false))
+        } onEnd: { [weak self] in
+            PageToast.hidingStarted.putAway(in: self?.hostWindow)
+        }
+        // Down for as long as the picker is on, or until the first thing is
+        // hidden: finding what to click takes longer than a toast's dwell.
+        PageToast.hidingStarted.show(in: hostWindow, untilPutAway: true)
     }
 
     func hide(_ element: HiddenElements.Element, onHost host: String?) {
@@ -66,6 +65,32 @@ extension BrowserSession {
         redress(host)
         registerUndo(String(localized: "Show \(element.label)")) { $0.hide(element, onHost: host) }
         PageToast.shownAgain(element.label).show(in: hostWindow)
+    }
+
+    /// ⌘Z once the undo list is empty — see `SessionUndoManager`. Nothing is
+    /// registered: outside an undo a registration lands on the undo side, and
+    /// the next ⌘Z would hide the thing again rather than bring back the next.
+    func showLastHiddenOnActivePage() -> Bool {
+        let host = activeURL?.host(percentEncoded: false)
+        guard canUsePageTools, let last = hiddenElements.elements(onHost: host).last else { return false }
+        hiddenElements.restore(selector: last.selector, onHost: host)
+        redress(host)
+        PageToast.shownAgain(last.label).show(in: hostWindow)
+        return true
+    }
+
+    var canShowLastHiddenOnActivePage: Bool {
+        canUsePageTools && !hiddenElements.elements(onHost: activeURL?.host(percentEncoded: false)).isEmpty
+    }
+
+    /// Once per session; every window on it shares the list.
+    func bringBackHiddenWhenUndoRunsOut() {
+        undoManager.whenEmpty = { [weak self] in
+            MainActor.assumeIsolated { self?.showLastHiddenOnActivePage() ?? false }
+        }
+        undoManager.canUndoWhenEmpty = { [weak self] in
+            MainActor.assumeIsolated { self?.canShowLastHiddenOnActivePage ?? false }
+        }
     }
 
     /// Every live tab on the site, not only the one in front: a second tab on

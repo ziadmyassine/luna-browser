@@ -66,7 +66,7 @@ struct PageToast: Equatable {
     }
 
     static let hidingStarted = PageToast(
-        symbol: "eye.slash", text: String(localized: "Click anything to hide it. Esc when done.")
+        symbol: "eye.slash", text: String(localized: "Click anything to hide it. ⌘Z brings each one back. Esc to stop.")
     )
 
     static func hidden(_ label: String) -> PageToast {
@@ -79,10 +79,26 @@ struct PageToast: Equatable {
 
     /// On the page of `window`, or of the browser window in front: a menu
     /// item and a keystroke both act on the key window.
+    ///
+    /// `untilPutAway` keeps it down past its dwell, for an instruction that
+    /// holds for as long as a mode does; `putAway(in:)` takes it back up.
     @MainActor
-    func show(in window: NSWindow? = nil) {
+    func show(in window: NSWindow? = nil, untilPutAway: Bool = false) {
+        Self.surface(in: window)?.showToast(self, dwells: !untilPutAway)
+    }
+
+    /// Takes this toast back up, and only this one: a newer toast already
+    /// rewrote it and keeps its own dwell.
+    @MainActor
+    func putAway(in window: NSWindow? = nil) {
+        guard let surface = Self.surface(in: window), surface.toast?.text == text else { return }
+        surface.hideToast()
+    }
+
+    @MainActor
+    private static func surface(in window: NSWindow?) -> ControlSurfaceView? {
         let host = window ?? NSApp.keyWindow ?? NSApp.mainWindow
-        (host?.windowController as? BrowserWindowController)?.controlSurface.showToast(self)
+        return (host?.windowController as? BrowserWindowController)?.controlSurface
     }
 }
 
@@ -140,7 +156,7 @@ extension ControlSurfaceView {
 
     /// Drops `toast` from under the bar, or rewrites the one already down: a
     /// second copy is the same news again, not a new arrival.
-    func showToast(_ toast: PageToast) {
+    func showToast(_ toast: PageToast, dwells: Bool = true) {
         let view: PageToastView
         if let current = self.toast {
             view = current
@@ -167,6 +183,7 @@ extension ControlSurfaceView {
             userInfo: [.announcement: toast.text, .priority: NSAccessibilityPriorityLevel.high.rawValue]
         )
         toastDismissal?.cancel()
+        guard dwells else { return }
         toastDismissal = Task { [weak self] in
             try? await Task.sleep(for: .seconds(Tokens.Motion.toastDwell))
             guard !Task.isCancelled else { return }

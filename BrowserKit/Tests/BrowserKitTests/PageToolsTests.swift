@@ -130,12 +130,18 @@ final class PageToolsTests: XCTestCase {
     /// A press picks the element under it and the page never hears it; Escape
     /// ends the picking.
     func testThePickerNamesWhatWasPressedAndSwallowsThePress() async throws {
-        try await load(Self.banners + "<script>window.pressed = 0; addEventListener('click', () => pressed++)</script>")
+        try await load(
+            Self.banners + "<a id='link' href='/x'>A link</a>"
+                + "<script>window.pressed = 0; addEventListener('click', () => pressed++)</script>"
+        )
         var picked: [HiddenElements.Element] = []
         var ended = false
         controller.startPickingElements { picked.append($0) } onEnd: { ended = true }
         XCTAssertTrue(controller.isPickingElements)
         try await Task.sleep(for: .milliseconds(100))
+        // The crosshair everywhere, a link's own pointer included.
+        let cursor = try await page("getComputedStyle(document.getElementById('link')).cursor") as? String
+        XCTAssertEqual(cursor, "crosshair")
 
         _ = try await page("""
         var bar = document.getElementById('cookie-bar');
@@ -155,6 +161,8 @@ final class PageToolsTests: XCTestCase {
         for _ in 0 ..< 50 where !ended { try await Task.sleep(for: .milliseconds(20)) }
         XCTAssertTrue(ended)
         XCTAssertFalse(controller.isPickingElements)
+        let cursorAfter = try await page("getComputedStyle(document.getElementById('link')).cursor") as? String
+        XCTAssertNotEqual(cursorAfter, "crosshair", "the crosshair outlived the picker")
         let pickerIsGone = try await page("document.querySelector('luna-picker') === null") as? Bool
         XCTAssertEqual(pickerIsGone, true)
     }

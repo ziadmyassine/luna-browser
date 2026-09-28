@@ -140,6 +140,7 @@ extension AppDelegate {
         }
         controller.setChrome(window.chrome)
         controller.windowUndoManager = session.undoManager
+        session.bringBackHiddenWhenUndoRunsOut()
         let openDropped: ([URL]) -> Void = { [weak self, weak window] pages in
             guard let self, let window else { return }
             self.open(pages, in: window)

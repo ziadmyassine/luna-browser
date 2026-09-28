@@ -190,9 +190,9 @@ final class BrowserSession {
     /// `UI/Passwords/BrowserSession+Passwords.swift`.
     let passwordUI = PasswordUI()
 
-    /// Undo for close / archive / move (§6.7), driven by the app's `undo:` /
-    /// `redo:`. AppKit's text fields keep their own.
-    let undoManager = UndoManager()
+    /// Undo for close / archive / move (§6.7) and for hiding part of a page,
+    /// and every browser window's list (`windowWillReturnUndoManager`).
+    let undoManager = SessionUndoManager()
 
     /// The window JavaScript dialogs sheet onto. Weak: the session must not
     /// keep a closed window alive.
