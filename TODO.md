@@ -1032,6 +1032,7 @@ Sixteen questions, answered in one sitting. **Where this log contradicts an olde
 | **Clear is the only glass material** (§30.29) | Removes the Clear / Opaque setting from Appearance. |
 | **The page runs under §3.2b's bar** (§30.27) | Reverses "above the page, not over it": the web view fills the pane and WebKit is told the bar's height, so opening and closing the bar no longer resizes the page. |
 | **The Downloads list a download opens does not block the page** (§15.3) | A click beside it closes it and still reaches the page, so files can be downloaded one after another. A list opened with the button still catches the click. |
+| **`⌘W` on a fullscreen video no longer quits Luna** (2026-09-28, §19.2) | Closing a tab while its page was fullscreen (a YouTube video, say) let go of the page while WebKit was still leaving fullscreen, and WebKit stopped the app. A closed tab's page is now kept until it is out of fullscreen and WebKit has answered, then let go a second later (`FullscreenTabCloseTests`). |
 
 ---
 

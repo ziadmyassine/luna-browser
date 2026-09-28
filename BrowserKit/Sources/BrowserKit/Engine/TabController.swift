@@ -446,10 +446,9 @@ public final class TabController: NSObject {
     private func detach() {
         guard let view = webView else { return }
         webView = nil
+        let retirement = WebViewRetirement(view)
 
-        // The closure holds `view` until WebKit has finished, exactly as the
-        // media-presentation teardown below does.
-        view.setAllMediaPlaybackSuspended(true) { _ = view }
+        view.setAllMediaPlaybackSuspended(true, completionHandler: retirement.completion())
 
         for observation in observations { observation.invalidate() }
         observations.removeAll()
@@ -469,11 +468,16 @@ public final class TabController: NSObject {
         detachPicker(from: controller)
 
         // Picture-in-Picture and element fullscreen outlive their web view: without this
-        // a hibernated tab leaves a floating video playing with nothing behind it. The
-        // closure holds `view` until WebKit is finished with it.
-        view.closeAllMediaPresentations { _ = view }
+        // a hibernated tab leaves a floating video playing with nothing behind it.
+        view.closeAllMediaPresentations(completionHandler: retirement.completion())
         view.removeFromSuperview()
+        retirement.start()
     }
+}
+
+// MARK: - Crash recovery
+
+extension TabController {
 
     func recoverFromDeadProcess() {
         let now = Date()
