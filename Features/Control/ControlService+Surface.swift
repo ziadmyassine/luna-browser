@@ -25,7 +25,9 @@ extension ControlService {
         let page = session.activeTabID.flatMap { session.controller(for: $0)?.state.pageBackground }
         surface.setPageColour(page.map(NSColor.init))
         surface.showWorking(working(on: session.activeTabID, in: session))
-        surface.showActivity(shownActivity) { [weak self] pill in self?.toggleActivityList(from: pill) }
+        surface.showActivity(shownActivity, working: activityIsWorking) { [weak self] pill in
+            self?.toggleActivityList(from: pill)
+        }
     }
 
     /// The client acting on `id` now, or paused on it. Only while it acts

@@ -287,7 +287,7 @@ extension ButtonFeedbackTests {
     /// and washes on the pointer.
     func testTheActivityPillAnswersThePointerAndThePress() {
         let pill = ControlActivityPill()
-        pill.configure(ControlActivity.entry(for: .listTabs, client: "Claude Code", appID: nil))
+        pill.configure(ControlActivity.entry(for: .listTabs, client: "Claude Code", appID: nil), working: true)
         pill.frame = NSRect(origin: .zero, size: pill.fittingSize)
         pill.layoutSubtreeIfNeeded()
         pill.highlight(true)
@@ -295,7 +295,7 @@ extension ButtonFeedbackTests {
         pill.highlight(false)
         XCTAssertEqual(scale(of: pill), 1, accuracy: 0.001, "the pill stayed swollen")
         pill.mouseEntered(with: mouse(.mouseMoved, in: pill))
-        let wash = pill.subviews.first { !($0 is GlassBackingView) && !($0 is NSStackView) }
+        let wash = pill.subviews.first { type(of: $0) == NSView.self }
         XCTAssertNotEqual(wash?.layer?.backgroundColor?.alpha ?? 0, 0, "the pill did not answer the pointer")
     }
 }

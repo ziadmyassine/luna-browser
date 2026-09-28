@@ -37,13 +37,19 @@ final class ControlActivityController: PopoutController {
     }
 
     func reload() {
-        (presented as? ControlActivityPanel)?.setEntries(service.activity)
+        (presented as? ControlActivityPanel)?.setEntries(
+            service.activity, tint: Tokens.Agent.tint(forApp: service.activity.first?.appID),
+            working: service.activityIsWorking
+        )
     }
 }
 
 @MainActor
 final class ControlActivityPanel: PopoutPanelView {
 
+    /// The pill's rim, round the whole list: the same agent, and its spark
+    /// while it works.
+    private let rim = RowPillView(role: .folder)
     private let list = FlippedView()
     private let rows = NSStackView()
     private let scroll = NSScrollView()
@@ -61,7 +67,9 @@ final class ControlActivityPanel: PopoutPanelView {
 
     private(set) var shownEntries: [ControlActivity.Entry] = []
 
-    func setEntries(_ entries: [ControlActivity.Entry]) {
+    func setEntries(_ entries: [ControlActivity.Entry], tint: NSColor? = nil, working: Bool = false) {
+        rim.tint = tint
+        rim.isWorking = working
         guard entries != shownEntries else { return }
         shownEntries = entries
         rows.arrangedSubviews.forEach { $0.removeFromSuperview() }
@@ -70,7 +78,14 @@ final class ControlActivityPanel: PopoutPanelView {
         needsLayout = true
     }
 
+    override func layout() {
+        super.layout()
+        Tokens.Motion.immediately { rim.frame = body.bounds }
+    }
+
     private func build() {
+        rim.cornerRadius = PopoutMetrics.cornerRadius
+        body.addSubview(rim)
         let title = NSTextField(labelWithString: String(localized: "Activity"))
         title.font = Tokens.TypeScale.settingsHeading
         title.textColor = Tokens.Text.primary

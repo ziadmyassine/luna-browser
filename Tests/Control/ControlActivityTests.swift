@@ -28,7 +28,9 @@ final class ControlActivityTests: XCTestCase {
     func testThePillStandsInTheBottomTrailingCornerAndOpensTheList() throws {
         let surface = ControlSurfaceView(frame: NSRect(x: 0, y: 0, width: 900, height: 600))
         var opened = false
-        surface.showActivity(ControlActivity.entry(for: .listTabs, client: "Claude Code", appID: nil)) { _ in opened = true }
+        surface.showActivity(
+            ControlActivity.entry(for: .listTabs, client: "Claude Code", appID: nil), working: true
+        ) { _ in opened = true }
         surface.layoutSubtreeIfNeeded()
         let pill = try XCTUnwrap(surface.activityPill)
         let gap = Tokens.Metric.chromeGapWide
@@ -38,10 +40,13 @@ final class ControlActivityTests: XCTestCase {
         // asked in window coordinates, which count up.
         let centre = NSPoint(x: pill.frame.midX, y: surface.bounds.height - pill.frame.midY)
         XCTAssertTrue(surface.hitTest(centre) === pill, "the pill does not take its own click")
+        XCTAssertEqual(pill.frame.height, Tokens.Agent.capsuleHeight, accuracy: 0.5, "the pill is not the capsule's height")
+        XCTAssertGreaterThan(pill.frame.width, 150, "the call was squeezed out of the pill")
+        XCTAssertTrue(pill.isWorking, "the pill has no spark while the agent works")
         pill.performClick(nil)
         XCTAssertTrue(opened, "the pill did not open the list")
 
-        surface.showActivity(nil) { _ in }
+        surface.showActivity(nil, working: false) { _ in }
         XCTAssertNil(surface.activityPill)
     }
 

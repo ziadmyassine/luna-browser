@@ -15,11 +15,15 @@ final class ControlActivityPill: NSButton {
 
     var onActivate: (() -> Void)?
 
+    /// The working capsule's rim: the app's colour, and its spark while the
+    /// agent works, so the pill reads as the same agent at the same work.
+    private let rim = RowPillView(role: .folder)
     private let wash = NSView()
     private let icon = NSImageView()
     private let label = NSTextField(labelWithString: "")
     private let chevron = NSImageView()
     private(set) var entry: ControlActivity.Entry?
+    var isWorking: Bool { rim.isWorking }
 
     private var isHovering = false {
         didSet { if isHovering != oldValue { refreshWash() } }
@@ -42,6 +46,10 @@ final class ControlActivityPill: NSButton {
         translatesAutoresizingMaskIntoConstraints = false
         let height = Tokens.Agent.capsuleHeight
         Glass.apply(.popover, to: self, cornerRadius: height / 2).pinToEdges()
+        layer.map { Tokens.Shadow.popover.apply(to: $0, in: effectiveAppearance) }
+        rim.cornerRadius = height / 2
+        rim.autoresizingMask = [.width, .height]
+        addSubview(rim)
         wash.wantsLayer = true
         wash.layer?.cornerRadius = height / 2
         wash.layer?.cornerCurve = .continuous
@@ -61,7 +69,8 @@ final class ControlActivityPill: NSButton {
         label.font = Tokens.TypeScale.settingsRow
         label.textColor = Tokens.Text.primary
         label.lineBreakMode = .byTruncatingTail
-        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        // Gives way only to the width cap below, not to the button's own size.
+        label.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
         let size = NSImage.SymbolConfiguration(pointSize: label.font?.pointSize ?? 13, weight: .semibold)
         chevron.image = NSImage(systemSymbolName: "chevron.up", accessibilityDescription: nil)?
             .withSymbolConfiguration(size)
@@ -85,7 +94,9 @@ final class ControlActivityPill: NSButton {
         ])
     }
 
-    func configure(_ entry: ControlActivity.Entry) {
+    func configure(_ entry: ControlActivity.Entry, working: Bool) {
+        rim.tint = Tokens.Agent.tint(forApp: entry.appID)
+        rim.isWorking = working
         self.entry = entry
         icon.image = entry.appID.flatMap(ControlAppIcon.image(for:))
             ?? NSImage(systemSymbolName: BrowserSession.controlFolderSymbol, accessibilityDescription: nil)
@@ -94,6 +105,13 @@ final class ControlActivityPill: NSButton {
     }
 
     @objc private func fire() { onActivate?() }
+
+    /// The row inside sets the size. `NSButton`'s own, from an empty title
+    /// and its bezel, measured 72 × 38 pt against a 36 pt capsule and
+    /// squeezed the call out of the label.
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: NSView.noIntrinsicMetric, height: NSView.noIntrinsicMetric)
+    }
 
     /// The whole pill is the button; the label and icons inside it are not
     /// targets of their own.
@@ -109,8 +127,14 @@ final class ControlActivityPill: NSButton {
         }
     }
 
+    override func layout() {
+        super.layout()
+        Tokens.Motion.immediately { rim.frame = bounds }
+    }
+
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
+        layer.map { Tokens.Shadow.popover.apply(to: $0, in: effectiveAppearance) }
         label.textColor = Tokens.Text.primary
         refreshWash()
     }
@@ -145,7 +169,7 @@ extension ControlSurfaceView {
 
     /// The pill for `entry`, in the bottom trailing corner, fading in and out
     /// as the working capsule does; nil takes it away.
-    func showActivity(_ entry: ControlActivity.Entry?, onOpen: @escaping (NSView) -> Void) {
+    func showActivity(_ entry: ControlActivity.Entry?, working: Bool, onOpen: @escaping (NSView) -> Void) {
         guard let entry else {
             guard let pill = activityPill else { return }
             activityPill = nil
@@ -158,8 +182,8 @@ extension ControlSurfaceView {
         }
         let pill = activityPill ?? makeActivityPill()
         pill.onActivate = { [weak pill] in pill.map(onOpen) }
-        if pill.entry != entry {
-            pill.configure(entry)
+        if pill.entry != entry || pill.isWorking != working {
+            pill.configure(entry, working: working)
             Tokens.Motion.immediately { layoutSubtreeIfNeeded() }
         }
     }

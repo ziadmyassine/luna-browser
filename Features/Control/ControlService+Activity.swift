@@ -38,8 +38,12 @@ extension ControlService {
     /// The newest call, while an agent is at work, has just been, or its
     /// list is open: the list stands on the pill, so the pill stays under it.
     var shownActivity: ControlActivity.Entry? {
-        let working = activityLingers || activity.contains { $0.state == .running } || activityList.isPresented
-        return working ? activity.first : nil
+        activityIsWorking || activityList.isPresented ? activity.first : nil
+    }
+
+    /// A call is running or has just ended: the rim's spark runs.
+    var activityIsWorking: Bool {
+        activityLingers || activity.contains { $0.state == .running }
     }
 
     private func activityDidChange() {
