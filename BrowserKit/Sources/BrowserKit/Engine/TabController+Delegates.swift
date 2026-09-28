@@ -119,6 +119,17 @@ extension TabController: WKNavigationDelegate {
     }
 
     public func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {
+        // §15.4 — no silent auto-downloads from background frames: a script
+        // clicking `<a download>` in a hidden iframe. Only this path is held
+        // to a gesture. A download link that redirects to another site loses
+        // its `download` attribute on the way, and WebKit loads the new
+        // address in the frame instead, so the file comes back through the
+        // response path below with no gesture on it; cancelled there, every
+        // such link did nothing.
+        guard download.isUserInitiated || download.originatingFrame.isMainFrame else {
+            download.cancel()
+            return
+        }
         delegate?.tabController(self, didStartDownload: download)
     }
 

@@ -93,6 +93,20 @@ final class DownloadDestinationTests: XCTestCase {
         let second = await DownloadDestination.resolve("moon.zip")
         XCTAssertEqual(second.lastPathComponent, "moon 2.zip")
     }
+
+    /// A download link that redirects to another site: WebKit cancels the
+    /// download before it has a file and fetches the file as a new one. That
+    /// first download leaves no row; a real failure, or one after bytes
+    /// arrived, still does.
+    @MainActor
+    func testADownloadCancelledBeforeItHadAFileLeavesNoRow() {
+        let cancelled = NSError(domain: NSURLErrorDomain, code: NSURLErrorCancelled)
+        let item = DownloadItem(request: nil, pageURL: nil, filename: "DownloadRedirect.ashx", spaceID: nil)
+        XCTAssertTrue(DownloadManager.wasHandedOff(item, error: cancelled))
+        XCTAssertFalse(DownloadManager.wasHandedOff(item, error: NSError(domain: NSURLErrorDomain, code: NSURLErrorTimedOut)))
+        item.willWrite(to: URL(filePath: "/tmp/moon.zip"), progress: nil)
+        XCTAssertFalse(DownloadManager.wasHandedOff(item, error: cancelled))
+    }
 }
 
 final class DownloadRiskTests: XCTestCase {
