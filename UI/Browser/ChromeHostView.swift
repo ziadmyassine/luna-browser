@@ -35,6 +35,11 @@ final class ChromeHostView: NSView {
     /// it cannot be the one to answer.
     var onPointerInside: ((Bool) -> Void)?
 
+    /// Files and web links dropped on the sidebar or the bar (`WindowDrop`).
+    var onDropPages: (([URL]) -> Void)? {
+        didSet { onDropPages == nil ? unregisterDraggedTypes() : registerForDraggedTypes(WindowDrop.types) }
+    }
+
     private var sidebar: NSView?
     private var topBar: NSView?
 
@@ -118,6 +123,14 @@ final class ChromeHostView: NSView {
 
     override func mouseEntered(with event: NSEvent) { onPointerInside?(true) }
     override func mouseExited(with event: NSEvent) { onPointerInside?(false) }
+
+    override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        WindowDrop.operation(for: sender)
+    }
+
+    override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+        WindowDrop.perform(sender, open: onDropPages)
+    }
 
     /// §30.1: dragging the chrome moves the window. `ContentCardView` returns
     /// false for the same reason — a web page is not a drag handle. Controls

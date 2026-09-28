@@ -95,6 +95,13 @@ final class ContentCardView: NSView {
 
     var isInset: Bool { insetEdge != nil }
 
+    /// Files and web links dropped on the page bar, or on a card with no page
+    /// (`WindowDrop`). A web view registers for drops itself, so over the page
+    /// it is the one asked.
+    var onDropPages: (([URL]) -> Void)? {
+        didSet { onDropPages == nil ? unregisterDraggedTypes() : registerForDraggedTypes(WindowDrop.types) }
+    }
+
     /// top, leading, bottom, trailing — in that order, always.
     private var edges: [NSLayoutConstraint] = []
     private var content: NSView?
@@ -148,6 +155,14 @@ final class ContentCardView: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("Luna builds its views in code")
+    }
+
+    override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        WindowDrop.operation(for: sender)
+    }
+
+    override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+        WindowDrop.perform(sender, open: onDropPages)
     }
 
     // MARK: - Content

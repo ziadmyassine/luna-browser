@@ -139,6 +139,12 @@ extension AppDelegate {
             controller?.setPointerInsideChrome(inside)
         }
         controller.setChrome(window.chrome)
+        let openDropped: ([URL]) -> Void = { [weak self, weak window] pages in
+            guard let self, let window else { return }
+            self.open(pages, in: window)
+        }
+        window.chrome.onDropPages = openDropped
+        controller.onDropPages = openDropped
         sidebar.onSpaceGradientChange = { [weak controller] gradient in
             controller?.setSpaceGradient(gradient)
         }

@@ -340,6 +340,12 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         card.setContent(view)
     }
 
+    /// Files and web links dropped on the card anywhere the page is not.
+    var onDropPages: (([URL]) -> Void)? {
+        get { card.onDropPages }
+        set { card.onDropPages = newValue }
+    }
+
     /// §3.2b's page bar, over the top of the page rather than beside it. Inside
     /// the card and not beside it in the root view, so it travels with the pane
     /// on every layout switch and is clipped to the pane's own corners.

@@ -3,7 +3,7 @@
 //  Luna
 //
 //  A web link or a file another app hands to Luna — Finder, Mail,
-//  `open -a Luna` — opens as a tab. The files are `LocalFileTypes`. `Info.plist` has claimed `http` and `https`
+//  `open -a Luna`, or a drop on the window (`WindowDrop`) — opens as a tab. The files are `LocalFileTypes`. `Info.plist` has claimed `http` and `https`
 //  all along, and with nothing here to take the link, macOS passed it on to the
 //  default browser. It claims HTML documents too now; before it did, a file
 //  opened "with Luna" was dropped here and nothing opened at all.
@@ -68,13 +68,14 @@ extension AppDelegate {
         return true
     }
 
-    /// Each link a tab in the front window, the last one on screen, and the
-    /// window brought forward — the user just asked to see it.
+    /// Each link a tab in the window, the last one on screen, and the window
+    /// brought forward — the user just asked to see it.
     ///
-    /// The front window even when it is private, as Safari does: it is the
-    /// window the user was last in, and a link landing in some other window
-    /// behind it is a link they have to go looking for.
-    private func open(_ pages: [URL], in window: BrowserWindow) {
+    /// From another app, the front window even when it is private, as Safari
+    /// does: it is the window the user was last in, and a link landing in some
+    /// other window behind it is a link they have to go looking for. A drop
+    /// (`WindowDrop`) opens in the window it landed on.
+    func open(_ pages: [URL], in window: BrowserWindow) {
         // The session's verbs act on its key window, and the tabs belong in
         // this one's Space.
         window.session.setKeyWindow(window.id)
