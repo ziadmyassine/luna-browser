@@ -34,7 +34,9 @@ final class ControlStageTests: XCTestCase {
 
     override func setUpWithError() throws {
         directory = URL.temporaryDirectory.appending(path: "luna-tests-\(UUID().uuidString)")
-        defaults = UserDefaults(suiteName: "luna-control-tests-\(UUID().uuidString)")
+        // Fixed and emptied, for the reason in `ControlSafetyTests.setUpWithError`.
+        defaults = UserDefaults(suiteName: "luna.tests.ControlStageTests")
+        defaults.removePersistentDomain(forName: "luna.tests.ControlStageTests")
         defaults.set(ControlMode.allowAll.rawValue, forKey: ControlService.modeKey)
     }
 

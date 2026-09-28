@@ -27,7 +27,12 @@ final class ControlSafetyTests: XCTestCase {
 
     override func setUpWithError() throws {
         directory = URL.temporaryDirectory.appending(path: "luna-tests-\(UUID().uuidString)")
-        defaults = UserDefaults(suiteName: "luna-control-tests-\(UUID().uuidString)")
+        // One fixed suite, emptied first, rather than a fresh one per run: a
+        // suite is a plist in ~/Library/Preferences that emptying does not
+        // delete, and deleting it by hand races cfprefsd, which writes it
+        // back. A name per run left one file per run, over 800 of them.
+        defaults = UserDefaults(suiteName: "luna.tests.ControlSafetyTests")
+        defaults.removePersistentDomain(forName: "luna.tests.ControlSafetyTests")
     }
 
     override func tearDownWithError() throws {

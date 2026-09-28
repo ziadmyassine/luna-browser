@@ -13,6 +13,21 @@ func makeTemporaryStore() throws -> BrowserStore {
     try BrowserStore(path: temporaryDatabasePath())
 }
 
+/// A settings suite of the calling test's own, emptied before it is handed over.
+///
+/// Named after the test, not after a fresh UUID: a suite is a plist in
+/// ~/Library/Preferences that `removePersistentDomain` empties but does not delete,
+/// and deleting it by hand races cfprefsd, which writes it back. A UUID per run left
+/// one file per run, over 500 of them from this target. A name per test rather than
+/// per suite, because Swift Testing runs a suite's tests in parallel.
+func scratchDefaults(file: String = #fileID, test: String = #function) -> UserDefaults {
+    let type = file.split(separator: "/").last?.split(separator: ".").first ?? "tests"
+    let name = "luna.tests.\(type).\(test.prefix { $0 != "(" })"
+    let defaults = UserDefaults(suiteName: name)!
+    defaults.removePersistentDomain(forName: name)
+    return defaults
+}
+
 /// A store with one seeded Space, and that Space's id.
 ///
 /// History belongs to a Space since `v8`, and `visits.spaceID` is a foreign key, so

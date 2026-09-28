@@ -19,10 +19,6 @@ struct BlockingTests {
         return WKContentRuleListStore(url: directory)!
     }
 
-    private static func defaults() -> UserDefaults {
-        UserDefaults(suiteName: "luna.blocking.tests.\(UUID().uuidString)")!
-    }
-
     /// Loads a page carrying one `.ad` element at `baseURL` with `list` attached, and
     /// reports whether the rule hid it. No network: `loadHTMLString` sets the document's
     /// origin from `baseURL`, which is exactly what `if-domain` matches against.
@@ -226,7 +222,7 @@ struct BlockingTests {
     /// Lists are never bundled, so a first run with no network genuinely has nothing to
     /// block with. It has to say so rather than look like it is working.
     @Test func offlineFirstRunReportsNotReady() async throws {
-        let blocker = ContentBlocker(store: Self.temporaryRuleStore(), defaults: Self.defaults())
+        let blocker = ContentBlocker(store: Self.temporaryRuleStore(), defaults: scratchDefaults())
         blocker.start(browserStore: nil)
         // `start` looks lists up; nothing has ever been compiled into this store.
         try await Task.sleep(for: .milliseconds(200))
@@ -242,7 +238,7 @@ struct BlockingTests {
     // MARK: - §17.2 per-site, §17.6 HTTPS-only
 
     @Test func perSiteDisableIsHostNormalised() async throws {
-        let blocker = ContentBlocker(store: Self.temporaryRuleStore(), defaults: Self.defaults())
+        let blocker = ContentBlocker(store: Self.temporaryRuleStore(), defaults: scratchDefaults())
         blocker.setDisabled(true, forHost: "Example.COM.")
         #expect(blocker.isDisabled(forHost: "example.com"))
         #expect(blocker.isDisabled(forHost: "EXAMPLE.com"))
@@ -264,7 +260,7 @@ struct BlockingTests {
     }
 
     @Test func httpsOnlyUpgradesExceptWhereItCannotWork() throws {
-        let blocker = ContentBlocker(store: Self.temporaryRuleStore(), defaults: Self.defaults())
+        let blocker = ContentBlocker(store: Self.temporaryRuleStore(), defaults: scratchDefaults())
         #expect(blocker.httpsDecision(for: URL(string: "http://example.com/a")!) == .proceed)
 
         blocker.isHTTPSOnlyEnabled = true

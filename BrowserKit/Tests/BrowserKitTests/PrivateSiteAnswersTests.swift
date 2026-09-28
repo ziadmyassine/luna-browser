@@ -9,13 +9,13 @@ import WebKit
 @MainActor
 struct PrivateSiteAnswersTests {
 
-    private static func blocker() -> ContentBlocker {
+    private static func blocker(test: String = #function) -> ContentBlocker {
         let directory = FileManager.default.temporaryDirectory
             .appending(path: "luna-rules/\(UUID().uuidString)", directoryHint: .isDirectory)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         return ContentBlocker(
             store: WKContentRuleListStore(url: directory)!,
-            defaults: UserDefaults(suiteName: "luna.private.tests.\(UUID().uuidString)")!
+            defaults: scratchDefaults(test: test)
         )
     }
 

@@ -35,9 +35,11 @@ final class ControlServiceTests: XCTestCase {
 
     /// Allow-all, so these tests are about tabs and folders rather than
     /// approvals (`ControlSafetyTests` has those), and in a suite of their own
-    /// rather than the user's defaults.
+    /// rather than the user's defaults — fixed and emptied, for the reason in
+    /// `ControlSafetyTests.setUpWithError`.
     private func makeService(_ session: BrowserSession) -> ControlService {
-        let defaults = UserDefaults(suiteName: "luna-control-tests-\(UUID().uuidString)")
+        let defaults = UserDefaults(suiteName: "luna.tests.ControlServiceTests")
+        defaults?.removePersistentDomain(forName: "luna.tests.ControlServiceTests")
         defaults?.set(ControlMode.allowAll.rawValue, forKey: ControlService.modeKey)
         return ControlService(
             session: session, defaults: defaults ?? .standard, auditURL: directory.appending(path: "activity.jsonl")
