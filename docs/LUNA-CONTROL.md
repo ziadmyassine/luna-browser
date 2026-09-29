@@ -212,8 +212,9 @@ when the call ends.
   instead, the agent's own tabs as well as the user's.
 - Looking at a page an agent is working on does not stop it: the user
   watches. A capsule at the foot of the page says "*agent* is working", with
-  the folder's tinted rim and spark, and the agent's pointer, an arrow in its
-  app's colour outlined in white, with its name on a pill of that colour,
+  the folder's tinted rim and spark, and the agent's pointer, an arrowhead in
+  its app's colour outlined in white with a pill of that colour under it
+  saying "*agent* is working…" (redrawn 2026-09-29, after shared-cursor apps),
   glides to wherever it clicks, hovers, types or drags; a click sends a ring
   out from its tip. **Take Over** on the capsule, a pill whose corner runs with the
   capsule's, pauses the agent and **Resume** hands the page back. While

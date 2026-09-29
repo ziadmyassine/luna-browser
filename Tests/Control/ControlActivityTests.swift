@@ -88,21 +88,24 @@ final class ControlActivityTests: XCTestCase {
     }
 }
 
-/// The agent's pointer: an outlined arrow in its colour, its name on a pill,
-/// and a ring where it clicks.
+/// The agent's pointer: an outlined arrowhead in its colour, a pill saying it
+/// is working, and a ring where it clicks.
 @MainActor
 final class ControlAgentPointerTests: XCTestCase {
 
     func testThePointerWearsTheAgentsColourAndAPillForItsName() throws {
         let pointer = ControlAgentPointer()
         let tint = Tokens.Agent.tint(forApp: "claude-code")
-        pointer.configure(label: "Claude Code", tint: tint)
+        pointer.configure(agent: "Claude Code", tint: tint)
         let arrow = try XCTUnwrap(pointer.layer?.sublayers?.compactMap { $0 as? CAShapeLayer }.first { $0.fillColor != nil })
         XCTAssertEqual(arrow.fillColor, tint.cgColor, "the arrow is not the agent's colour")
         XCTAssertEqual(arrow.strokeColor, NSColor.white.cgColor, "the arrow has no outline to stand out on a page")
         let badge = try XCTUnwrap(pointer.subviews.first, "the name has no tag")
         XCTAssertEqual(badge.layer?.cornerRadius ?? 0, badge.frame.height / 2, accuracy: 0.5, "the name tag is not a pill")
         XCTAssertLessThanOrEqual(badge.frame.maxX, pointer.frame.width, "the name tag runs out of the pointer")
+        let label = try XCTUnwrap(badge.subviews.first as? NSTextField)
+        XCTAssertEqual(label.stringValue, "Claude Code is working…")
+        XCTAssertGreaterThan(badge.frame.minY, ControlAgentPointer.tip.y, "the pill is not under the arrow")
     }
 
     func testTheTipStandsOnThePointAndAClickRipples() throws {
