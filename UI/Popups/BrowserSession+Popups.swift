@@ -31,7 +31,7 @@ extension BrowserSession {
                 self?.newTab(url: url)
             }
         )
-        toast.show(in: hostWindow)
+        toast.show(in: hostWindow, keepsDeadline: popupNotice.count > 1)
     }
 
     /// A blank pop-up whose destination was refused. Off the undo stack — the

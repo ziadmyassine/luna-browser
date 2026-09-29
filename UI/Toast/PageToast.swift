@@ -120,9 +120,12 @@ struct PageToast: Equatable {
     ///
     /// `untilPutAway` keeps it down past its dwell, for an instruction that
     /// holds for as long as a mode does; `putAway(in:)` takes it back up.
+    /// `keepsDeadline` rewrites the toast that is down without giving it a
+    /// new dwell — a count going up is the same news, and a page that blocks
+    /// a pop-up every few seconds would otherwise keep its toast down for good.
     @MainActor
-    func show(in window: NSWindow? = nil, untilPutAway: Bool = false) {
-        Self.surface(in: window)?.showToast(self, dwells: !untilPutAway)
+    func show(in window: NSWindow? = nil, untilPutAway: Bool = false, keepsDeadline: Bool = false) {
+        Self.surface(in: window)?.showToast(self, dwells: !untilPutAway, keepsDeadline: keepsDeadline)
     }
 
     /// Takes this toast back up, and only this one: a newer toast already
@@ -233,23 +236,38 @@ final class PageToastView: NSView {
         return buttons.contains { hit === $0 || hit.isDescendant(of: $0) } ? hit : nil
     }
 
+    /// The pointer is on the pill because it moved there. A pill that drops
+    /// under a pointer resting at the page's top edge is entered without the
+    /// user reaching for it, and holding the dwell for that kept it down until
+    /// the mouse was next touched.
+    private(set) var isReachedFor = false
+
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         for area in trackingAreas where area.owner === self { removeTrackingArea(area) }
         addTrackingArea(NSTrackingArea(
-            rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self
+            rect: .zero, options: [.mouseEnteredAndExited, .mouseMoved, .activeAlways, .inVisibleRect], owner: self
         ))
     }
 
-    override func mouseEntered(with event: NSEvent) { onHoverChanged?(true) }
-    override func mouseExited(with event: NSEvent) { onHoverChanged?(false) }
+    override func mouseMoved(with event: NSEvent) {
+        guard !isReachedFor else { return }
+        isReachedFor = true
+        onHoverChanged?(true)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        guard isReachedFor else { return }
+        isReachedFor = false
+        onHoverChanged?(false)
+    }
 }
 
 extension ControlSurfaceView {
 
     /// Drops `toast` from under the bar, or rewrites the one already down: a
     /// second copy is the same news again, not a new arrival.
-    func showToast(_ toast: PageToast, dwells: Bool = true) {
+    func showToast(_ toast: PageToast, dwells: Bool = true, keepsDeadline: Bool = false) {
         let view: PageToastView
         if let current = self.toast {
             view = current
@@ -261,6 +279,7 @@ extension ControlSurfaceView {
                 guard let self, let view, self.toast === view else { return }
                 if hovering {
                     self.toastDismissal?.cancel()
+                    self.toastDeadline = nil
                 } else {
                     self.scheduleToastDismissal(after: view.dwell)
                 }
@@ -285,13 +304,23 @@ extension ControlSurfaceView {
             userInfo: [.announcement: toast.text, .priority: NSAccessibilityPriorityLevel.high.rawValue]
         )
         view.dwell = toast.dwell
+        // A deadline already running stands; with none (a new toast, or one
+        // the pointer is holding) the rewrite starts its own.
+        if keepsDeadline, dwells {
+            if view.isReachedFor { return }
+            if let deadline = toastDeadline {
+                return scheduleToastDismissal(after: max(deadline.timeIntervalSinceNow, 0))
+            }
+        }
         toastDismissal?.cancel()
+        toastDeadline = nil
         guard dwells else { return }
         scheduleToastDismissal(after: toast.dwell)
     }
 
     private func scheduleToastDismissal(after dwell: TimeInterval) {
         toastDismissal?.cancel()
+        toastDeadline = Date().addingTimeInterval(dwell)
         toastDismissal = Task { [weak self] in
             try? await Task.sleep(for: .seconds(dwell))
             guard !Task.isCancelled else { return }
@@ -301,6 +330,8 @@ extension ControlSurfaceView {
 
     func hideToast() {
         guard let view = toast, let top = toastTop else { return }
+        toastDismissal?.cancel()
+        toastDeadline = nil
         toast = nil
         toastTop = nil
         let hidden = toastTopConstant(for: view, shown: false)

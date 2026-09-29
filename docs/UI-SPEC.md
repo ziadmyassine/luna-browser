@@ -2487,7 +2487,9 @@ something happened, over the page, is one of these — never a panel, chip or ba
   pill, at the news's own ink and size (at secondary ink they read as disabled). Only the words take
   the pointer; the rest of the pill leaves clicks to the page. Using a word takes the toast up.
 - **Dwell.** `Motion.toastDwell` (1.6 s) for news; `Motion.toastActionDwell` (12 s) when it has
-  words, and it waits while the pointer is on it. An instruction for a mode (`hidingStarted`) stays
+  words, and it waits while the pointer is on it — a pointer that moved there, not one the pill
+  dropped under. A count going up (`keepsDeadline`) keeps the first toast's deadline, or a page
+  that blocks a pop-up every few seconds keeps its toast down for good. An instruction for a mode (`hidingStarted`) stays
   until the mode ends and puts it away.
 - **VoiceOver** hears every toast as a high-priority announcement.
 - **Adding one** is a `static` on `PageToast` and a `.show(in:)` call. Current ones: link and markdown

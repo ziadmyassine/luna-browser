@@ -64,6 +64,8 @@ final class ControlSurfaceView: NSView {
     var toast: PageToastView?
     var toastTop: NSLayoutConstraint?
     var toastDismissal: Task<Void, Never>?
+    /// When the toast that is down goes back up, unless the pointer holds it.
+    var toastDeadline: Date?
     /// Each agent session's newest call, stacked up from the bottom trailing
     /// corner, lowest first (`ControlActivityPill`).
     var activityPills: [ControlActivityPill] = []

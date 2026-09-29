@@ -70,6 +70,43 @@ final class PageToastTests: XCTestCase {
         XCTAssertNil(surface.toast)
     }
 
+    /// A count going up rewrites the toast without a new dwell: a page that
+    /// blocks a pop-up every few seconds must not keep its toast down for good.
+    func testACountUpKeepsTheFirstDeadline() async throws {
+        let surface = surface()
+        let first = PageToast.popupBlocked(count: 1, address: nil, shortcut: nil, open: {}, allow: {})
+        surface.showToast(first)
+        let deadline = try XCTUnwrap(surface.toastDeadline)
+        try await Task.sleep(for: .milliseconds(200))
+        let second = PageToast.popupBlocked(count: 2, address: nil, shortcut: nil, open: {}, allow: {})
+        surface.showToast(second, keepsDeadline: true)
+        XCTAssertEqual(surface.toast?.text, "2 pop-ups blocked")
+        let kept = try XCTUnwrap(surface.toastDeadline)
+        XCTAssertEqual(kept.timeIntervalSince(deadline), 0, accuracy: 0.05, "the count-up gave the toast a new dwell")
+        // Any other toast is news of its own, and starts its own dwell.
+        surface.showToast(.linkCopied)
+        let own = try XCTUnwrap(surface.toastDeadline).timeIntervalSinceNow
+        XCTAssertEqual(own, Tokens.Motion.toastDwell, accuracy: 0.1)
+    }
+
+    /// A pill that drops under a pointer resting there is not held by it;
+    /// only a pointer that moves onto it is.
+    func testOnlyAPointerThatMovesOntoTheToastHoldsIt() throws {
+        let surface = surface()
+        surface.showToast(.popupBlocked(count: 1, address: nil, shortcut: nil, open: {}, allow: {}))
+        let toast = try XCTUnwrap(surface.toast)
+        let event = try XCTUnwrap(NSEvent.mouseEvent(
+            with: .mouseMoved, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0,
+            context: nil, eventNumber: 0, clickCount: 0, pressure: 0
+        ))
+        toast.mouseEntered(with: event)
+        XCTAssertNotNil(surface.toastDeadline, "arriving under the pointer stopped the dwell")
+        toast.mouseMoved(with: event)
+        XCTAssertNil(surface.toastDeadline, "a pointer on the words did not hold the toast")
+        toast.mouseExited(with: event)
+        XCTAssertNotNil(surface.toastDeadline, "the toast stayed after the pointer left")
+    }
+
     func testZoomSaysThePercentage() {
         XCTAssertEqual(PageToast.zoom(1.25).text, "Zoom 125 %")
         XCTAssertEqual(PageToast.archived(1).text, "1 tab archived")
