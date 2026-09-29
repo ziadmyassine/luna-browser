@@ -230,14 +230,18 @@ struct SyncApplyTests {
         var record = remote(newSpace())
         record.schemaVersion = 3
         try await store.applyRemote(SyncChangeSet(modifications: [record]))
+        let name = record.recordName
+        // `Row` is not `Sendable`, so the columns are read before the closure returns.
         let row = try await store.pool.read { db in
-            try Row.fetchOne(db, sql: "SELECT * FROM syncRecords WHERE recordName = ?", arguments: [record.recordName])
+            try Row.fetchOne(db, sql: "SELECT * FROM syncRecords WHERE recordName = ?", arguments: [name]).map { row in
+                (row["schemaVersion"] as Int64?, row["systemFields"] as Data?, row["zone"] as String?, row["recordType"] as String?)
+            }
         }
         let stored = try #require(row)
-        #expect(stored["schemaVersion"] as Int64? == 3)
-        #expect(stored["systemFields"] as Data? == Self.serverFields)
-        #expect(stored["zone"] as String? == "Spaces")
-        #expect(stored["recordType"] as String? == "Space")
+        #expect(stored.0 == 3)
+        #expect(stored.1 == Self.serverFields)
+        #expect(stored.2 == "Spaces")
+        #expect(stored.3 == "Space")
     }
 
     // MARK: The seed Space (docs/SYNC-PLAN.md §9)
