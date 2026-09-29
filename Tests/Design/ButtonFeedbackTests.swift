@@ -130,6 +130,28 @@ final class ButtonFeedbackTests: XCTestCase {
         }
     }
 
+    /// The Reading pop-out: a face shown in itself, a width as a picture,
+    /// the size stepper's two ends and the pill's Aa glyph.
+    func testTheReadingPopOutsButtonsSwellUnderTheFinger() {
+        let glyph = RowGlyphView()
+        glyph.configure(symbolName: ReadingMenu.Glyph.header, label: "Reading")
+        glyph.isRound = true
+        let stepper = ReadingSizeStepper(size: 19)
+        let buttons: [(String, NSView)] = [
+            ("SettingsChoiceButton (font)", SettingsChoiceButton(title: "Mono", font: .monospacedSystemFont(ofSize: 13, weight: .regular))),
+            ("SettingsChoiceButton (symbol)", SettingsChoiceButton(title: "Wide", symbol: ReadingMenu.Glyph.widths[2])),
+            ("ReadingSizeStepper A−", stepper.smaller),
+            ("ReadingSizeStepper A+", stepper.larger),
+            ("RowGlyphView (reading)", glyph)
+        ]
+        for (name, button) in buttons {
+            press(sized(button)) { held in
+                XCTAssertEqual(held, Tokens.Motion.pressSwell, accuracy: 0.001, "\(name) does not swell under a press")
+            }
+            XCTAssertEqual(scale(of: button), 1, accuracy: 0.001, "\(name) stays swollen after the release")
+        }
+    }
+
     /// The iCloud page's zone checks: the plate is a row in a card, so it is
     /// the disc, the thing being set, that swells.
     func testASyncZoneCheckSwellsItsDisc() {

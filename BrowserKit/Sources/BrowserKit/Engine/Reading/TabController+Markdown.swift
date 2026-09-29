@@ -79,6 +79,7 @@ extension TabController {
     func adoptPendingMarkdown() {
         markdownDocument = pendingMarkdown.flatMap { $0.url == webView?.url ? $0 : nil }
         pendingMarkdown = nil
+        readingView = .read
     }
 
     /// Preferences, the outline's current heading and the copy buttons. Run at

@@ -43,8 +43,9 @@ extension URLPillView {
 
     /// The button in the trailing slot, the pins leftwards from it one chip
     /// apart. Chips touch: only one is ever lit, and a gap between them would
-    /// be a dead strip of pill between two controls.
-    func placeExtensions(trailingX: CGFloat, y: CGFloat, chip: NSSize) {
+    /// be a dead strip of pill between two controls. The pins end at
+    /// `pinsEnd`, which leaves the Aa glyph its chip beside the button.
+    func placeExtensions(trailingX: CGFloat, pinsEnd: CGFloat, y: CGFloat, chip: NSSize) {
         guard showsExtensions else {
             for glyph in pinGlyphs { glyph.isHidden = true }
             return
@@ -56,7 +57,7 @@ extension URLPillView {
             guard index < fitting else { continue }
             // Pin order runs left to right, ending beside the button.
             let fromButton = CGFloat(fitting - index)
-            glyph.frame = NSRect(x: trailingX - fromButton * chip.width, y: y, width: chip.width, height: chip.height).integral
+            glyph.frame = NSRect(x: pinsEnd - fromButton * chip.width, y: y, width: chip.width, height: chip.height).integral
         }
     }
 }

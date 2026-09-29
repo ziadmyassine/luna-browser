@@ -294,6 +294,7 @@ final class SidebarViewController: NSViewController, WindowScoped {
         // §3.2c. The id goes with the state so the line can tell a tab switch
         // from progress — a new tab's load is not the old one's, continued.
         pill.setLoad(state, for: activeTabID)
+        pill.showsReading = state?.isReading ?? false
         controlRow.update(
             canGoBack: state?.canGoBack ?? false,
             canGoForward: state?.canGoForward ?? false,

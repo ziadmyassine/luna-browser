@@ -37,7 +37,15 @@ final class SettingsChoice: NSView {
     private var buttons: [SettingsChoiceButton] = []
     private let stack = NSStackView()
 
-    init(labels: [String]) {
+    /// Each segment's own face, for a choice between typefaces shown in them.
+    private let fonts: [NSFont]?
+    /// Each segment drawn as a symbol, its label kept for VoiceOver and the
+    /// tooltip — for a choice whose words do not fit where it stands.
+    private let symbols: [String]?
+
+    init(labels: [String], fonts: [NSFont]? = nil, symbols: [String]? = nil) {
+        self.fonts = fonts
+        self.symbols = symbols
         super.init(frame: .zero)
         setAccessibilityRole(.radioGroup)
         stack.orientation = .horizontal
@@ -61,7 +69,7 @@ final class SettingsChoice: NSView {
     func setLabels(_ labels: [String], selected: Int) {
         for button in buttons { stack.removeArrangedSubview(button); button.removeFromSuperview() }
         buttons = labels.enumerated().map { index, label in
-            let button = SettingsChoiceButton(title: label)
+            let button = SettingsChoiceButton(title: label, font: fonts?[index], symbol: symbols?[index])
             button.onActivate = { [weak self] in
                 self?.selectedIndex = index
                 self?.onSelect?(index)
@@ -100,6 +108,7 @@ final class SettingsChoiceButton: NSView {
     }
 
     private let label = NSTextField(labelWithString: "")
+    private let glyph = NSImageView()
     private var isHovering = false
     /// A segment is its own plate — the segments sit a gap apart with no track
     /// behind them — so the swell is this view's rather than a container's.
@@ -111,21 +120,33 @@ final class SettingsChoiceButton: NSView {
         }
     }
 
-    init(title: String) {
+    /// - Parameters:
+    ///   - font: the label's face, when the face is the answer.
+    ///   - symbol: drawn in place of the title, which becomes the tooltip.
+    init(title: String, font: NSFont? = nil, symbol: String? = nil) {
         super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerCurve = .continuous
-        label.stringValue = title
-        label.font = Tokens.TypeScale.settingsRow
-        label.alignment = .center
-        label.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(label)
+        let content: NSView
+        if let symbol {
+            glyph.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+            glyph.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: Tokens.Metric.faviconSize, weight: .regular)
+            toolTip = title
+            content = glyph
+        } else {
+            label.stringValue = title
+            label.font = font ?? Tokens.TypeScale.settingsRow
+            label.alignment = .center
+            content = label
+        }
+        content.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(content)
         let inset = SettingsMetrics.controlInset
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: SettingsMetrics.controlHeight),
-            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
-            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
-            label.centerYAnchor.constraint(equalTo: centerYAnchor)
+            content.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
+            content.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
+            content.centerYAnchor.constraint(equalTo: centerYAnchor)
         ])
         setAccessibilityElement(true)
         setAccessibilityRole(.radioButton)
@@ -143,12 +164,14 @@ final class SettingsChoiceButton: NSView {
         let ink = isSelected || isHovering || isPressed ? Tokens.Text.primary : Tokens.Text.secondary
         guard animated, !Tokens.Motion.reduceMotion else {
             label.textColor = ink
+            glyph.contentTintColor = ink
             needsDisplay = true
             return
         }
         Tokens.Motion.animate(Tokens.Motion.controlHover) { context in
             context.allowsImplicitAnimation = true
             self.label.textColor = ink
+            self.glyph.contentTintColor = ink
             self.needsDisplay = true
             self.displayIfNeeded()
         }

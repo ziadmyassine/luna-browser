@@ -117,6 +117,43 @@ final class MarkdownPageTests: XCTestCase {
         XCTAssertEqual(host.copied, ["let x = 1\n"])
     }
 
+    // MARK: - Reading pop-out (phase 5)
+
+    func testAMarkdownPageIsPublishedAsReading() async throws {
+        controller.load(try write("# Hello"))
+        try await settle()
+        XCTAssertTrue(controller.state.isReading)
+    }
+
+    func testAStoredSizeRestylesTheOpenPageLive() async throws {
+        let defaults = UserDefaults.standard
+        let before = defaults.object(forKey: ReadingPreferences.Key.size)
+        defer { defaults.set(before, forKey: ReadingPreferences.Key.size) }
+        controller.load(try write("# Hello\n\nBody."))
+        try await settle()
+        var preferences = ReadingPreferences.stored()
+        preferences.size = preferences.size == 24 ? 22 : 24
+        // Stored only: the tab follows the defaults, as it does for a change
+        // synced in from another Mac.
+        preferences.store()
+        try await Task.sleep(for: .milliseconds(200))
+        let size = try await page("getComputedStyle(document.querySelector('.luna-reading')).fontSize") as? String
+        XCTAssertEqual(size, "\(preferences.size)px")
+    }
+
+    func testTheViewSwitchesWithoutAReload() async throws {
+        controller.load(try write("# Hello"))
+        try await settle()
+        _ = try await page("window.lunaMarker = 1")
+        controller.setReadingView(.source)
+        try await Task.sleep(for: .milliseconds(100))
+        let view = try await page("document.body.getAttribute('data-view')") as? String
+        let marker = try await page("window.lunaMarker") as? Int
+        XCTAssertEqual(view, "source")
+        XCTAssertEqual(marker, 1, "the page reloaded")
+        XCTAssertEqual(controller.readingView, .source)
+    }
+
     // MARK: - Support
 
     @discardableResult

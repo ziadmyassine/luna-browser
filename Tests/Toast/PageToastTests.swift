@@ -113,6 +113,18 @@ final class PageToastTests: XCTestCase {
         XCTAssertEqual(PageToast.archived(4).text, "4 tabs archived")
     }
 
+    /// The Reading pop-out's two: the saved file's name rides in `detail`.
+    func testReadingSaysWhatItSavedAndCopied() {
+        let saved = PageToast.savedToDownloads("README.md")
+        XCTAssertEqual(saved.text, "Saved to Downloads")
+        XCTAssertEqual(saved.detail, "README.md")
+        XCTAssertEqual(PageToast.markdownTextCopied.text, "Markdown copied")
+        XCTAssertNotEqual(PageToast.markdownTextCopied, PageToast.markdownCopied)
+        for toast in [saved, PageToast.markdownTextCopied] {
+            XCTAssertNotNil(NSImage(systemSymbolName: toast.symbol, accessibilityDescription: nil), toast.symbol)
+        }
+    }
+
     /// Each answer reads differently, and every symbol is one the system has:
     /// a misspelt name draws the pill with a gap where its glyph should be.
     func testReaderPictureInPictureAndHidingEachSayWhatHappened() {

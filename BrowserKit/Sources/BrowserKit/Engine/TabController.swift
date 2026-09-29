@@ -58,10 +58,14 @@ public final class TabController: NSObject {
     var hiddenStyleInstalled = ""
     /// Storage for `TabController+Reader.swift` and `TabController+Hiding.swift`,
     /// which cannot carry their own.
-    var readerIsOn = false
+    var readerIsOn = false { didSet { publishState() } }
     var picking: ElementPicking?
     /// Storage for `Reading/TabController+Markdown.swift`.
-    public internal(set) var markdownDocument: MarkdownDocument?
+    public internal(set) var markdownDocument: MarkdownDocument? { didSet { publishState() } }
+    /// Storage for `Reading/TabController+Reading.swift`: the view the
+    /// Markdown page is in, and the preferences it was last handed.
+    public internal(set) var readingView = ReadingView.read
+    var appliedReading: ReadingPreferences?
     var pendingMarkdown: MarkdownDocument?
     var markdownFetch: Task<Void, Never>?
     var fetchText: @Sendable (URL) async throws -> Data = TabController.fetchMarkdownText
@@ -155,6 +159,7 @@ public final class TabController: NSObject {
         super.init()
         messageRelay.owner = self
         passwords.tab = self
+        followReadingPreferences()
     }
 
     // MARK: - Lifecycle
@@ -585,6 +590,7 @@ extension TabController {
             next.pageBackground = webView.underPageBackgroundColor
                 .flatMap { ColorBridge.rgba(from: $0.cgColor) }
             next.isPlayingAudio = !audibleFrames.isEmpty
+            next.isReading = markdownDocument != nil || readerIsOn
         } else {
             // A cold tab keeps its identity (url, title, tint) and loses everything that
             // only a live process can answer.
@@ -593,6 +599,7 @@ extension TabController {
             next.canGoBack = false
             next.canGoForward = false
             next.isPlayingAudio = false
+            next.isReading = false
         }
         guard next != state else { return }
         state = next

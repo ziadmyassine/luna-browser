@@ -26,6 +26,8 @@ public struct TabState: Sendable, Equatable {
     public var pageBackground: RGBA?
     public var hasOnlySecureContent: Bool
     public var isPlayingAudio: Bool
+    /// A Markdown document or Reader: a page the Reading pop-out restyles.
+    public var isReading: Bool
 
     public init(
         url: URL? = nil,
@@ -37,7 +39,8 @@ public struct TabState: Sendable, Equatable {
         themeColor: RGBA? = nil,
         pageBackground: RGBA? = nil,
         hasOnlySecureContent: Bool = false,
-        isPlayingAudio: Bool = false
+        isPlayingAudio: Bool = false,
+        isReading: Bool = false
     ) {
         self.url = url
         self.title = title
@@ -49,6 +52,7 @@ public struct TabState: Sendable, Equatable {
         self.pageBackground = pageBackground
         self.hasOnlySecureContent = hasOnlySecureContent
         self.isPlayingAudio = isPlayingAudio
+        self.isReading = isReading
     }
 }
 
