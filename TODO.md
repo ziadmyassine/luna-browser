@@ -575,6 +575,7 @@ luna/
 - [ ] **18.6 Screenshot/capture tool** — full-page and region capture via `takeSnapshot` + `WKSnapshotConfiguration`, copy or save.
 - [ ] **18.7 Boosts v1** — per-site user CSS and user JS, stored in `boosts`, applied via `WKUserScript` at `documentStart`/`documentEnd` and a per-site style rule; include a "Zap" element picker that generates a hiding rule by clicking an element.
   > **Safety:** user JS runs in the page world with the user's session. Sandbox-warn on import of third-party boosts; never fetch and run remote JS silently.
+- [ ] **18.9 Markdown reader** — open `.md` files (local and web) rendered as a clean, readable document instead of raw text: headings, lists, tables, code blocks with syntax highlighting, task lists, links and images, following Luna's typography and light/dark theme, with a toggle back to the raw source. *(Added 2026-09-29.)*
 
 ---
 
