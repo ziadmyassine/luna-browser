@@ -163,8 +163,7 @@ final class ControlStageTests: XCTestCase {
         let stage = try stage()
         XCTAssertTrue(webView.window is ControlStageWindow)
         try stage.click(at: try await center("b"))
-        try await settle()
-        let clicks = try await js("clicks")
+        let clicks = try await poll("clicks") { $0 != "0" }
         XCTAssertEqual(clicks, "1")
         let untrusted = try await untrusted()
         XCTAssertEqual(untrusted, "[]")
@@ -208,8 +207,7 @@ final class ControlStageTests: XCTestCase {
         let stage = try stage()
         let track = try await center("track")
         try await stage.drag(from: CGPoint(x: track.x - 145, y: track.y), to: CGPoint(x: track.x + 75, y: track.y))
-        try await settle()
-        let value = Double(try await js("slider")) ?? .nan
+        let value = Double(try await poll("slider") { abs((Double($0) ?? .nan) - 0.75) <= 0.03 }) ?? .nan
         XCTAssertEqual(value, 0.75, accuracy: 0.03)
         let untrusted = try await untrusted()
         XCTAssertEqual(untrusted, "[]")
