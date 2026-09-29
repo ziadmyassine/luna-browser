@@ -58,9 +58,14 @@ extension ControlService {
     /// none there. A folder in another Space is left where it is: the tabs
     /// an agent opens belong where the user can see them.
     func folderInActiveSpace(for client: ControlClient, in session: BrowserSession) -> TabGroup {
+        folder(inSpace: session.activeSpaceID, for: client, in: session)
+    }
+
+    /// The session's folder in `space`, made if there is none there.
+    func folder(inSpace space: UUID, for client: ControlClient, in session: BrowserSession) -> TabGroup {
         let owned = Set(folders.filter { $0.key != client.session }.map(\.value))
         let group = session.controlFolder(
-            named: folderName(for: client, in: session), previously: folders[client.session], excluding: owned
+            named: folderName(for: client, in: session), previously: folders[client.session], excluding: owned, in: space
         )
         take(group, for: client)
         return group
@@ -83,19 +88,19 @@ extension ControlService {
         folderNames[client.session] = name
     }
 
-    /// Puts a tab the agent is about to act on into its folder, so every tab
-    /// an agent works in is in a folder the user can see is the agent's. Only
-    /// a loose tab of today's: a saved tab, one in the user's own folder or
-    /// one in another agent's stays where the user or that agent put it.
+    /// Puts a tab the agent is about to take over into its folder, so every
+    /// tab an agent works in is in a folder the user can see is the agent's.
+    /// Only a loose tab of today's: a saved tab, one in the user's own folder
+    /// or one in another agent's stays where the user or that agent put it.
+    ///
+    /// In the tab's own Space, which need not be the one in front: a tab in
+    /// another Space was left loose, and the user found it there afterwards
+    /// with no sign an agent had used it.
     func enfold(_ id: UUID, for client: ControlClient, in session: BrowserSession) {
         guard let tab = session.tab(id), tab.kind == .today, tab.groupID == nil else { return }
-        var folder = folders[client.session].flatMap(session.group)
-        if folder?.spaceID != tab.spaceID {
-            guard tab.spaceID == session.activeSpaceID else { return }
-            folder = folderInActiveSpace(for: client, in: session)
-        }
-        guard let folder else { return }
-        session.moveControlledTab(id, into: folder.id)
+        let current = folders[client.session].flatMap(session.group)
+        let folder = current?.spaceID == tab.spaceID ? current : nil
+        session.moveControlledTab(id, into: (folder ?? self.folder(inSpace: tab.spaceID, for: client, in: session)).id)
     }
 
     /// Every Luna Control folder's app.

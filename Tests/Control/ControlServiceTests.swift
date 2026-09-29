@@ -132,4 +132,37 @@ final class ControlServiceTests: XCTestCase {
         XCTAssertEqual(session.tab(users)?.groupID, folder, "the tab the agent used is not in its folder")
         XCTAssertEqual(session.activeTabID, users, "moving the tab changed the user's selection")
     }
+
+    /// Scrolling and hovering ask nothing, but they move the page the user is
+    /// watching under the agent's pointer: the tab is the agent's from then.
+    func testScrollingATabTakesItOver() async throws {
+        let session = try await session()
+        let users = session.newTab(url: try XCTUnwrap(URL(string: "data:text/html,%3Cp%3Ehi%3C/p%3E")))
+        let service = makeService(session)
+        let scrolled = await service.perform(
+            ControlCall(tab: service.number(users), .scroll(.down, amount: 1, target: nil)), client
+        )
+        XCTAssertFalse(scrolled.isError, text(scrolled))
+        let folder = try XCTUnwrap(service.folders[client.session], "scrolling made no folder")
+        XCTAssertEqual(session.tab(users)?.groupID, folder, "the scrolled tab is still loose")
+    }
+
+    /// A tab in a Space the user is not in goes into a folder in its own
+    /// Space: it was left loose there, and it must not change Space either.
+    func testATabInAnotherSpaceGoesIntoAFolderThere() async throws {
+        let session = try await session()
+        let home = session.activeSpaceID
+        let users = session.newTab(url: try XCTUnwrap(URL(string: "data:text/html,%3Cp%3Ehi%3C/p%3E")))
+        let work = try await session.createSpace(name: "Work").id
+        session.switchSpace(work, inWindow: session.keyWindowID)
+        XCTAssertEqual(session.activeSpaceID, work)
+        let service = makeService(session)
+
+        let ran = await service.perform(ControlCall(tab: service.number(users), .javascript("1 + 1")), client)
+        XCTAssertFalse(ran.isError, text(ran))
+        let folder = try XCTUnwrap(session.tab(users)?.groupID, "the tab in the other Space is still loose")
+        XCTAssertEqual(session.group(folder)?.spaceID, home, "the folder is not in the tab's Space")
+        XCTAssertEqual(session.tab(users)?.spaceID, home, "folding the tab moved it to another Space")
+        XCTAssertEqual(session.activeSpaceID, work, "the agent changed the user's Space")
+    }
 }

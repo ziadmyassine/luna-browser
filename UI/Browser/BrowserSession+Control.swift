@@ -18,20 +18,22 @@ extension BrowserSession {
     /// apart from one the user made and named the same.
     static let controlFolderSymbol = "sparkles"
 
-    /// An agent session's folder in the active Space: the one it had, else a
-    /// Luna Control folder already called by its name that is not in
-    /// `excluding` (another session's), else a new one at the head of today's
-    /// tabs.
+    /// An agent session's folder in `space` (the active Space unless said):
+    /// the one it had, else a Luna Control folder there already called by its
+    /// name that is not in `excluding` (another session's), else a new one at
+    /// the head of today's tabs. Never one in another Space — a tab moved into
+    /// it would change Space with it.
     ///
     /// No undo entry and no name field, unlike `createGroup`: nothing the user
     /// did made it, so there is nothing for `⌘Z` to take back and no name to
     /// ask for. The same goes for renaming and filling it, below.
-    func controlFolder(named name: String, previously id: UUID?, excluding: Set<UUID> = []) -> TabGroup {
-        if let id, let group = list.group(id), group.spaceID == activeSpaceID { return group }
-        if let group = groups.first(where: {
+    func controlFolder(named name: String, previously id: UUID?, excluding: Set<UUID> = [], in space: UUID? = nil) -> TabGroup {
+        let space = space ?? activeSpaceID
+        if let id, let group = list.group(id), group.spaceID == space { return group }
+        if let group = (list.groupsBySpace[space] ?? []).first(where: {
             $0.name == name && $0.symbolName == Self.controlFolderSymbol && !excluding.contains($0.id)
         }) { return group }
-        let group = TabGroup(spaceID: activeSpaceID, name: name, symbolName: Self.controlFolderSymbol, kind: .today)
+        let group = TabGroup(spaceID: space, name: name, symbolName: Self.controlFolderSymbol, kind: .today)
         persistAll(list.insertGroup(group, at: openIndex(for: .today)))
         notifyChange()
         return group

@@ -193,6 +193,19 @@ extension ControlCommand {
         }
     }
 
+    /// Whether the call takes the tab over, so the tab goes into the agent's
+    /// folder: everything that acts, and scrolling and hovering, which ask
+    /// nothing but move the page the user is watching under the agent's
+    /// pointer. Reading and screenshots leave the tab where it is, or an agent
+    /// looking through ten tabs to answer a question would empty the user's
+    /// sidebar into its folder.
+    public var takesOver: Bool {
+        switch self {
+        case .scroll, .hover: true
+        default: acts
+        }
+    }
+
     /// Where a navigation is going, which is the site it acts on.
     public var destination: URL? {
         switch self {

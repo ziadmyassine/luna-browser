@@ -141,10 +141,13 @@ named after the session ("Main 2"), or after the app while the session has no
 name, numbered when another session already has that name ("Claude Code 2").
 The folder is made on first use and reused after that. It follows the
 session's name when that changes, until the user renames it. When an agent
-clicks, types, navigates or runs a script in one of the user's loose tabs,
-that tab moves into the agent's folder, so every tab an agent works in is
-under its folder; reading a tab moves nothing, and a saved tab or one in a
-folder stays where it is. Which app each folder belongs to is kept
+clicks, types, navigates, runs a script, scrolls or hovers in one of the
+user's loose tabs, that tab moves into the agent's folder, so every tab an
+agent works in is under its folder. A tab in another Space goes into the
+agent's folder in that Space, made there if need be; it never changes Space
+(2026-09-29: scrolling, hovering and other Spaces used to leave it loose).
+Reading a tab or taking a screenshot moves nothing, and a pinned tab, a
+Favorite, or one in a folder stays where it is. Which app each folder belongs to is kept
 (`control.folderApps`), so a folder from an earlier launch wears its app's
 face before the session is back. The folder wears the app's own icon (Claude,
 ChatGPT's Codex, Cursor, VS Code; other clients keep a sparkles symbol), and

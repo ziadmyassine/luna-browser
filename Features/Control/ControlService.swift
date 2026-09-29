@@ -378,7 +378,7 @@ extension ControlService {
         }
         currentTab[client.connection] = id
         actingOn[id] = client.session
-        if command.acts { enfold(id, for: client, in: session) }
+        if command.takesOver { enfold(id, for: client, in: session) }
         mark(tab: id, of: client.session, running: true)
         defer { mark(tab: id, of: client.session, running: false) }
         await showPointer(for: command, on: webView, by: client)
