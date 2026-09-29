@@ -60,6 +60,11 @@ public final class TabController: NSObject {
     /// which cannot carry their own.
     var readerIsOn = false
     var picking: ElementPicking?
+    /// Storage for `Reading/TabController+Markdown.swift`.
+    public internal(set) var markdownDocument: MarkdownDocument?
+    var pendingMarkdown: MarkdownDocument?
+    var markdownFetch: Task<Void, Never>?
+    var fetchText: @Sendable (URL) async throws -> Data = TabController.fetchMarkdownText
     private static let recoveryLimit = 3
     private static let recoveryWindow: TimeInterval = 60
 
@@ -302,6 +307,7 @@ public final class TabController: NSObject {
             controller.add(messageRelay, name: name)
         }
         attachPicker(to: controller, relay: messageRelay)
+        attachReading(to: controller, relay: messageRelay)
         installUserScripts(into: controller, host: state.url?.host(), isFile: (state.url ?? fallbackURL)?.isFileURL ?? false)
 
         // WebKit posts these on the main thread; `assumeIsolated` states that instead of
@@ -444,6 +450,7 @@ public final class TabController: NSObject {
         controller.removeScriptMessageHandler(forName: ContentBlocker.youTubeMessageName)
         controller.removeScriptMessageHandler(forName: Self.popupMessageName)
         detachPicker(from: controller)
+        controller.removeScriptMessageHandler(forName: Self.readingMessageName, contentWorld: .defaultClient)
 
         // Picture-in-Picture and element fullscreen outlive their web view: without this
         // a hibernated tab leaves a floating video playing with nothing behind it.
@@ -730,13 +737,22 @@ extension TabController {
     /// Past the cache for a page on this Mac (`NavigationPolicy.isLocalDevelopment`).
     /// A text file shown by `localText` is loaded again instead: its page is
     /// the text as it was read, and reloading that shows the same copy.
+    /// A Markdown document from the web is fetched again: WebKit's reload
+    /// would show the page Luna rendered from the first copy.
     public func reload() {
-        guard let url = webView?.url, NavigationPolicy.isLocalDevelopment(url) else { webView?.reload(); return }
+        guard let url = webView?.url, NavigationPolicy.isLocalDevelopment(url) || markdownDocument != nil
+        else { webView?.reload(); return }
         reloadFromOrigin()
     }
 
     public func reloadFromOrigin() {
         guard let webView else { return }
-        if let url = webView.url, Self.isLocalText(url) { Self.load(url, into: webView) } else { webView.reloadFromOrigin() }
+        if let document = markdownDocument, !document.url.isFileURL {
+            fetchMarkdown(at: document.url, into: webView)
+        } else if let url = webView.url, Self.isLocalText(url) {
+            Self.load(url, into: webView)
+        } else {
+            webView.reloadFromOrigin()
+        }
     }
 }

@@ -97,6 +97,15 @@ extension BrowserSession {
         (asMarkdown ? PageToast.markdownCopied : .linkCopied).show(in: hostWindow)
     }
 
+    /// A rendered Markdown page's copy button.
+    func tabController(_ controller: TabController, didCopyCode code: String) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(code, forType: .string)
+        guard controller.id == activeTabID else { return }
+        PageToast.codeCopied.show(in: hostWindow)
+    }
+
     // MARK: - Bulk tab commands
 
     /// The Today tabs of the Space on screen. Favorites and Pinned tabs are not

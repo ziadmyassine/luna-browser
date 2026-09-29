@@ -100,6 +100,10 @@ public protocol TabControllerDelegate: AnyObject {
     /// §17: this tab is a pop-up whose destination was refused. Close it, and
     /// leave the user on the tab that opened it.
     func tabControllerWantsToClose(_ controller: TabController)
+
+    /// A copy button on a rendered Markdown page was pressed. BrowserKit has
+    /// no pasteboard; the host puts `code` on it.
+    func tabController(_ controller: TabController, didCopyCode code: String)
 }
 
 public extension TabControllerDelegate {
@@ -149,4 +153,6 @@ public extension TabControllerDelegate {
     func tabController(_ controller: TabController, didBlockPopup url: URL) {}
 
     func tabControllerWantsToClose(_ controller: TabController) {}
+
+    func tabController(_ controller: TabController, didCopyCode code: String) {}
 }

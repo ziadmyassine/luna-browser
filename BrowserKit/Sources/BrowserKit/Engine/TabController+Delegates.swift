@@ -89,6 +89,8 @@ extension TabController: WKNavigationDelegate {
         // §17, main frame only — a sub-frame does not change the site the user is
         // on, and re-scoping the rule lists for one would disable blocking for the
         // whole page.
+        // A Markdown fetch still in flight would land over whatever was asked for since.
+        if navigationAction.targetFrame?.isMainFrame ?? false { markdownFetch?.cancel() }
         if navigationAction.targetFrame?.isMainFrame ?? false,
            decidedMainFrame(navigationAction, to: url, in: webView, decisionHandler: decisionHandler) {
             return
@@ -128,6 +130,10 @@ extension TabController: WKNavigationDelegate {
         decisionHandler: @escaping @MainActor @Sendable (WKNavigationResponsePolicy) -> Void
     ) {
         onNavigationResponse?(navigationResponse)
+        if navigationResponse.isForMainFrame, interceptMarkdown(navigationResponse.response, in: webView) {
+            decisionHandler(.cancel)
+            return
+        }
         // A text file on this Mac WebKit has no viewer for — YAML, TOML, an
         // `.env` — is shown as the text it is. Handed to the downloader it was
         // copied into Downloads, which is not opening a file already here.
@@ -203,6 +209,7 @@ extension TabController: WKNavigationDelegate {
         savedInteractionState = webView.interactionState as? Data
         fallbackURL = webView.url ?? fallbackURL
         refreshFavicon()
+        startMarkdownPage()
     }
 
     /// §14.8's redirect flag starts clean here, and only here.

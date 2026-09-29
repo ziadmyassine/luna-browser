@@ -28,6 +28,7 @@ final class ScriptMessageRelay: NSObject, WKScriptMessageHandler {
         // anything here — the relay only routes.
         case PasswordForms.messageName: owner?.passwords.handle(message)
         case TabController.pickMessageName: owner?.handlePickMessage(message)
+        case TabController.readingMessageName: owner?.handleReadingMessage(message)
         default: break
         }
     }

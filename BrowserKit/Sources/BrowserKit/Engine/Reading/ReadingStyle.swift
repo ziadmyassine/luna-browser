@@ -30,6 +30,31 @@ public enum ReadingStyle {
             + syntaxTokens.map { "--luna-syntax-\($0)" }
     }
 
+    /// A rendered Markdown document's own parts: the outline, the copy
+    /// buttons, and the Source view that `data-view` switches to.
+    private static let markdownCSS =
+        "body:not([data-view=\"source\"]) .luna-source,body[data-view=\"source\"] .luna-reading{display:none}" +
+        ":root[data-luna-outline=\"false\"] .luna-outline{display:none}" +
+        ".luna-outline{position:fixed;top:64px;left:24px;width:200px;max-height:calc(100vh - 128px);overflow:auto;" +
+        "font:var(--luna-size-row)/1.4 -apple-system,BlinkMacSystemFont,sans-serif}" +
+        ".luna-outline p{margin:0 0 8px 10px;color:var(--luna-text-tertiary);font-size:var(--luna-size-label)}" +
+        ".luna-outline ul{list-style:none;margin:0;padding:0}" +
+        ".luna-outline a{display:block;padding:4px 10px;border-radius:var(--luna-row-radius);" +
+        "color:var(--luna-text-secondary);text-decoration:none;transition:background var(--luna-motion-hover)}" +
+        ".luna-outline .h3 a{padding-left:22px}" +
+        ".luna-outline a:hover,.luna-outline a[aria-current]{background:var(--luna-surface-hover);" +
+        "color:var(--luna-text-primary)}" +
+        // Below this the outline would sit over the text column.
+        "@media (max-width:1200px){.luna-outline{display:none}}" +
+        ".luna-code{position:relative}" +
+        ".luna-copy{position:absolute;top:8px;right:8px;border:0;padding:4px 8px;" +
+        "border-radius:var(--luna-row-radius);background:transparent;color:var(--luna-text-secondary);" +
+        "font:var(--luna-size-label) -apple-system,BlinkMacSystemFont,sans-serif;" +
+        "transition:background var(--luna-motion-hover),transform var(--luna-motion-hover)}" +
+        ".luna-copy::before{content:\"Copy\"}" +
+        ".luna-copy:hover{background:var(--luna-surface-hover)}" +
+        ".luna-copy:active{background:var(--luna-surface-selected)}"
+
     public static func css(palette: String) -> String {
         let defaults = ReadingPreferences()
         let widths = ReadingPreferences.Width.allCases.map {
@@ -84,6 +109,7 @@ public enum ReadingStyle {
             syntax.joined() +
             // Reader strips buttons from the article, so this reaches only the
             // reading surface's own controls.
-            ".luna-reading button:active{transform:scale(var(--luna-press-swell))}"
+            ".luna-reading button:active{transform:scale(var(--luna-press-swell))}" +
+            markdownCSS
     }
 }

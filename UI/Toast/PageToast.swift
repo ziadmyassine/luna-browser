@@ -58,6 +58,7 @@ struct PageToast: Equatable {
 
     static let linkCopied = PageToast(symbol: "link", text: String(localized: "Link copied"))
     static let markdownCopied = PageToast(symbol: "doc.on.clipboard", text: String(localized: "Markdown link copied"))
+    static let codeCopied = PageToast(symbol: "doc.on.doc", text: String(localized: "Code copied"))
     static let cachesEmptied = PageToast(symbol: "trash", text: String(localized: "Caches emptied"))
 
     static func zoom(_ level: CGFloat) -> PageToast {
