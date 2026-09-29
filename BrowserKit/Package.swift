@@ -20,12 +20,18 @@ let package = Package(
         // GRDB 7 is the Swift 6 line: Sendable-audited, strict-concurrency clean, and it
         // ships `SQLITE_ENABLE_FTS5` so §11.2's full-text index needs no custom SQLite.
         // Exact pin (§0.3): a storage engine is not a thing to let float. Bump deliberately.
-        .package(url: "https://github.com/groue/GRDB.swift", exact: "7.11.1")
+        .package(url: "https://github.com/groue/GRDB.swift", exact: "7.11.1"),
+        // The Markdown reader's parser: cmark-gfm, the one GitHub renders READMEs
+        // with, so a document reads here the way its author saw it there.
+        .package(url: "https://github.com/swiftlang/swift-markdown", from: "0.9.0")
     ],
     targets: [
         .target(
             name: "BrowserKit",
-            dependencies: [.product(name: "GRDB", package: "GRDB.swift")],
+            dependencies: [
+                .product(name: "GRDB", package: "GRDB.swift"),
+                .product(name: "Markdown", package: "swift-markdown")
+            ],
             swiftSettings: swiftSettings
         ),
         .target(name: "LunaControl", swiftSettings: swiftSettings),
