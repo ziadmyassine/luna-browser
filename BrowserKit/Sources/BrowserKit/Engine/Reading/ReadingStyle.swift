@@ -53,7 +53,33 @@ public enum ReadingStyle {
         "transition:background var(--luna-motion-hover),transform var(--luna-motion-hover)}" +
         ".luna-copy::before{content:\"Copy\"}" +
         ".luna-copy:hover{background:var(--luna-surface-hover)}" +
-        ".luna-copy:active{background:var(--luna-surface-selected)}"
+        ".luna-copy:active{background:var(--luna-surface-selected)}" +
+        editCSS
+
+    /// Source and Edit. Edit's textarea text is transparent over a backdrop
+    /// drawing the same text highlighted, so both must lay a line out
+    /// identically: one font, one padding, one wrap. The backdrop sets the
+    /// height and the textarea is stretched over it, so the column scrolls as one.
+    private static let editCSS =
+        "body:not([data-view=\"edit\"]) .luna-edit,body[data-view=\"edit\"]>.luna-reading," +
+        "body[data-view=\"edit\"] .luna-outline{display:none}" +
+        ".luna-edit{display:grid;grid-template-columns:1fr 1fr;height:100vh}" +
+        ".luna-editor,.luna-preview{overflow:auto}" +
+        ".luna-editor{border-right:var(--luna-hairline) solid var(--luna-line-hairline)}" +
+        ".luna-stack{position:relative;min-height:100%}" +
+        ".luna-source,.luna-backdrop,.luna-input{box-sizing:border-box;margin:0;" +
+        "font:13px/1.6 ui-monospace,Menlo,monospace;white-space:pre-wrap;overflow-wrap:break-word;tab-size:4;" +
+        "color:var(--luna-text-primary)}" +
+        ".luna-source{padding:64px 24px 160px;max-width:var(--luna-reading-width);margin:0 auto}" +
+        ".luna-backdrop,.luna-input{padding:24px 24px 50vh}" +
+        ".luna-backdrop{position:relative;pointer-events:none}" +
+        ".src-line{min-height:1.6em}" +
+        ".md-mark{color:var(--luna-text-tertiary)}" +
+        syntaxTokens.map { ".luna-source .tok-\($0),.luna-backdrop .tok-\($0){color:var(--luna-syntax-\($0))}" }.joined() +
+        ".luna-band{position:absolute;left:0;right:0;background:var(--luna-surface-hover);pointer-events:none}" +
+        ".luna-input{position:absolute;top:0;left:0;width:100%;height:100%;overflow:hidden;resize:none;" +
+        "border:0;outline:0;background:transparent;color:transparent;caret-color:var(--luna-text-primary)}" +
+        ".luna-preview .luna-reading{padding-top:24px}"
 
     public static func css(palette: String) -> String {
         let defaults = ReadingPreferences()

@@ -76,7 +76,7 @@ enum ReadingMenu {
             content.controls = [style]
             return content
         }
-        content.controls = [[viewRow(view, setView)], style]
+        content.controls = [[viewRow(view, editable: document.isEditable, setView)], style]
         content.toggles = [
             .init(title: String(localized: "Outline"), symbol: Glyph.outline, isOn: preferences.outline) { on in
                 change { $0.outline = on }
@@ -93,10 +93,15 @@ enum ReadingMenu {
 
     typealias Change = (_ edit: (inout ReadingPreferences) -> Void) -> Void
 
-    /// Read and Source. Edit joins in Phase 6, for a local UTF-8 file.
-    private static func viewRow(_ view: ReadingView, _ setView: @escaping (ReadingView) -> Void) -> SiteSettingsContent.Control {
-        let views = ReadingView.allCases
-        let choice = SettingsChoice(labels: [String(localized: "Read"), String(localized: "Source")])
+    /// Read and Source, and Edit for a file on this Mac that is UTF-8.
+    private static func viewRow(
+        _ view: ReadingView,
+        editable: Bool,
+        _ setView: @escaping (ReadingView) -> Void
+    ) -> SiteSettingsContent.Control {
+        let views: [ReadingView] = editable ? [.read, .source, .edit] : [.read, .source]
+        let labels = [String(localized: "Read"), String(localized: "Source"), String(localized: "Edit")]
+        let choice = SettingsChoice(labels: Array(labels.prefix(views.count)))
         choice.selectedIndex = views.firstIndex(of: view) ?? 0
         choice.onSelect = { setView(views[$0]) }
         return .init(title: String(localized: "View"), symbol: Glyph.view, view: choice)

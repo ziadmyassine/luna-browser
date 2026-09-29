@@ -295,6 +295,7 @@ final class SidebarViewController: NSViewController, WindowScoped {
         // from progress — a new tab's load is not the old one's, continued.
         pill.setLoad(state, for: activeTabID)
         pill.showsReading = state?.isReading ?? false
+        pill.isEdited = state?.isEdited ?? false
         controlRow.update(
             canGoBack: state?.canGoBack ?? false,
             canGoForward: state?.canGoForward ?? false,

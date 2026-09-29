@@ -118,6 +118,26 @@ final class ReadingPanelTests: XCTestCase {
         XCTAssertEqual(content(local).controls.first?.map(\.title), ["View"])
     }
 
+    /// Edit is offered only for a file on this Mac whose bytes are UTF-8.
+    func testEditIsOfferedOnlyForALocalUTF8File() throws {
+        func segments(_ document: MarkdownDocument) throws -> Int {
+            let row = try XCTUnwrap(content(document).controls.first?.first)
+            let stack = try XCTUnwrap(row.view.subviews.first as? NSStackView)
+            return stack.arrangedSubviews.count
+        }
+        let latin1 = MarkdownDocument(url: URL(string: "file:///tmp/old.md")!, data: Data([0x23, 0x20, 0xE9]), modificationDate: nil)
+        XCTAssertTrue(latin1.isReadOnly)
+        XCTAssertEqual(try segments(local), 3)
+        XCTAssertEqual(try segments(web), 2)
+        XCTAssertEqual(try segments(latin1), 2)
+
+        var chosen: ReadingView?
+        let edit = ReadingMenu.content(document: local, view: .read, defaults: defaults, apply: { _ in }, setView: { chosen = $0 })
+        let choice = try XCTUnwrap(edit.controls.first?.first?.view as? SettingsChoice)
+        choice.onSelect?(2)
+        XCTAssertEqual(chosen, .edit)
+    }
+
     func testThePageSwatchesAreSpaceSwatches() throws {
         let page = try XCTUnwrap(content(nil).controls.flatMap { $0 }.first { $0.title == "Page" })
         let chips = page.view.subviews.compactMap { $0 as? SpaceSwatchChip }

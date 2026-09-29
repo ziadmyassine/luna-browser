@@ -104,6 +104,10 @@ public protocol TabControllerDelegate: AnyObject {
     /// A copy button on a rendered Markdown page was pressed. BrowserKit has
     /// no pasteboard; the host puts `code` on it.
     func tabController(_ controller: TabController, didCopyCode code: String)
+
+    /// The Markdown file being edited changed on disk since it was read.
+    /// Saving has stopped; `resolveDiskConflict` restarts it either way.
+    func tabController(_ controller: TabController, markdownChangedOnDisk url: URL)
 }
 
 public extension TabControllerDelegate {
@@ -155,4 +159,6 @@ public extension TabControllerDelegate {
     func tabControllerWantsToClose(_ controller: TabController) {}
 
     func tabController(_ controller: TabController, didCopyCode code: String) {}
+
+    func tabController(_ controller: TabController, markdownChangedOnDisk url: URL) {}
 }

@@ -50,6 +50,13 @@ final class URLPillView: NSView, PopoutShelf {
             needsLayout = true
         }
     }
+    /// A Markdown document's editor holds text its file does not have yet.
+    var isEdited = false {
+        didSet {
+            guard isEdited != oldValue else { return }
+            show(url: displayedURL)
+        }
+    }
     /// Reload, or stop while the page is loading — the trailing glyph. Nil
     /// means there is no such glyph: §4's top bar has its own reload button
     /// beside the pill, and a second one inside it would be two.

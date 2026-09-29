@@ -69,6 +69,13 @@ public final class TabController: NSObject {
     var pendingMarkdown: MarkdownDocument?
     var markdownFetch: Task<Void, Never>?
     var fetchText: @Sendable (URL) async throws -> Data = TabController.fetchMarkdownText
+    /// Storage for `Reading/TabController+Editing.swift`: the editor's text
+    /// while it differs from the file, the pending autosave, whether saving
+    /// stopped over a change on disk, and Edit's own undo list.
+    var editedText: String? { didSet { publishState() } }
+    var autosave: Task<Void, Never>?
+    var saveHalted = false
+    let editUndo = UndoManager()
     private static let recoveryLimit = 3
     private static let recoveryWindow: TimeInterval = 60
 
@@ -187,6 +194,8 @@ public final class TabController: NSObject {
     /// After this the tab holds a `TabState` and a `Data` blob and nothing else.
     public func hibernate() {
         guard webView != nil else { return }
+        // Closing the tab or the window and quitting all end here.
+        saveEdits()
         savedInteractionState = captureInteractionState()
         detach()
         publishState()
@@ -591,6 +600,7 @@ extension TabController {
                 .flatMap { ColorBridge.rgba(from: $0.cgColor) }
             next.isPlayingAudio = !audibleFrames.isEmpty
             next.isReading = markdownDocument != nil || readerIsOn
+            next.isEdited = editedText != nil
         } else {
             // A cold tab keeps its identity (url, title, tint) and loses everything that
             // only a live process can answer.
@@ -600,6 +610,7 @@ extension TabController {
             next.canGoForward = false
             next.isPlayingAudio = false
             next.isReading = false
+            next.isEdited = false
         }
         guard next != state else { return }
         state = next

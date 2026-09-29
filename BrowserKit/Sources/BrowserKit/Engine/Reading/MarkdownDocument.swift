@@ -2,7 +2,7 @@ import Foundation
 import UniformTypeIdentifiers
 
 /// A Markdown file as read from disk: its text and what saving it back has to
-/// preserve. Saving itself is Phase 6 of docs/READING-PLAN.md.
+/// preserve.
 public struct MarkdownDocument: Sendable, Equatable {
 
     public enum LineEnding: Sendable { case lf, crlf }
@@ -36,8 +36,45 @@ public struct MarkdownDocument: Sendable, Equatable {
 
     public static func read(from url: URL) throws -> MarkdownDocument {
         let data = try Data(contentsOf: url)
-        let date = try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
-        return MarkdownDocument(url: url, data: data, modificationDate: date)
+        return MarkdownDocument(url: url, data: data, modificationDate: modificationDate(of: url))
+    }
+
+    public enum SaveError: Error { case changedOnDisk, notEditable }
+
+    /// Whether Edit is offered: a file on this Mac whose bytes were UTF-8.
+    public var isEditable: Bool { url.isFileURL && !isReadOnly }
+
+    /// `text` as a `<textarea>` hands it back, which is with `\n` line endings.
+    public var editorText: String { text.replacingOccurrences(of: "\r\n", with: "\n") }
+
+    /// Writes `text` over this document's own file, and nowhere else, with the
+    /// line endings the file had. Throws `changedOnDisk` rather than writing
+    /// when the file's date is no longer the one it was read with, unless
+    /// `overwritingChanges` says the user chose to.
+    public func save(_ text: String, overwritingChanges: Bool = false) throws -> MarkdownDocument {
+        guard isEditable else { throw SaveError.notEditable }
+        let lf = text.replacingOccurrences(of: "\r\n", with: "\n")
+        let data = Data((lineEnding == .crlf ? lf.replacingOccurrences(of: "\n", with: "\r\n") : lf).utf8)
+        var coordination: NSError?
+        var failure: Error?
+        NSFileCoordinator().coordinate(writingItemAt: url, options: .forReplacing, error: &coordination) { target in
+            do {
+                if !overwritingChanges, Self.modificationDate(of: target) != modificationDate {
+                    throw SaveError.changedOnDisk
+                }
+                try data.write(to: target, options: .atomic)
+            } catch {
+                failure = error
+            }
+        }
+        if let error = failure ?? coordination { throw error }
+        return MarkdownDocument(url: url, data: data, modificationDate: Self.modificationDate(of: url))
+    }
+
+    /// From the file system each time: `URL.resourceValues` caches on the URL,
+    /// and a cached date would hide the very change it is compared to find.
+    static func modificationDate(of url: URL) -> Date? {
+        (try? FileManager.default.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date
     }
 
     static let pathExtensions: Set<String> = ["md", "markdown", "mdown", "mkd"]

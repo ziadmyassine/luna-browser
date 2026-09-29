@@ -164,6 +164,7 @@ final class PageChromeController: WindowScoped {
         // nothing to be loading.
         bar.pill.setLoad(state, for: activeTabID)
         bar.pill.showsReading = state?.isReading ?? false
+        bar.pill.isEdited = state?.isEdited ?? false
         bar.setPageColour(state?.pageBackground)
         bar.update(
             canGoBack: state?.canGoBack ?? false,
@@ -178,6 +179,7 @@ final class PageChromeController: WindowScoped {
         show(url: state.url, isLoading: state.isLoading)
         bar.pill.setLoad(state, for: id)
         bar.pill.showsReading = state.isReading
+        bar.pill.isEdited = state.isEdited
         bar.setPageColour(state.pageBackground)
         bar.update(canGoBack: state.canGoBack, canGoForward: state.canGoForward, isLoading: state.isLoading)
     }

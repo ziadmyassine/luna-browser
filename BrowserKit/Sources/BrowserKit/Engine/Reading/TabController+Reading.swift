@@ -1,26 +1,41 @@
 import Foundation
 import WebKit
 
-/// Which of a Markdown page's renderings is showing. Edit joins in Phase 6
-/// of docs/READING-PLAN.md.
+/// Which of a Markdown page's renderings is showing. Edit only for a
+/// document that `isEditable`.
 public enum ReadingView: String, CaseIterable, Sendable {
-    case read, source
+    case read, source, edit
 }
 
 extension TabController {
 
-    /// Switches a Markdown page between its renderings without a reload: both
-    /// are in the document, and `data-view` picks one (`ReadingStyle`).
+    /// Switches a Markdown page between its renderings without a reload: all
+    /// of them are in the document, and `data-view` picks one (`ReadingStyle`).
+    /// Leaving Edit saves, from the editor's text as it is now rather than the
+    /// last one posted, which can be a keystroke behind.
     public func setReadingView(_ view: ReadingView) {
-        guard markdownDocument != nil else { return }
+        guard let document = markdownDocument, view != .edit || document.isEditable else { return }
+        let leavingEdit = readingView == .edit && view != .edit
         readingView = view
         webView?.callAsyncJavaScript(
-            "document.body.setAttribute('data-view', view);",
+            Self.readingViewScript,
             arguments: ["view": view.rawValue],
             in: nil,
             in: .defaultClient
-        )
+        ) { [weak self] result in
+            guard leavingEdit, let self, case let .success(value) = result, let text = value as? String else { return }
+            takeEdit(text)
+            saveEdits()
+        }
     }
+
+    private static let readingViewScript = """
+    document.body.setAttribute('data-view', view);
+    var input = document.querySelector('.luna-input');
+    if (!input) { return null; }
+    if (view === 'edit') { input.focus(); }
+    return input.value;
+    """
 
     /// Restyles this tab's reading page whenever the stored preferences change,
     /// including a change that arrives from another Mac through `SyncedDefaults`.

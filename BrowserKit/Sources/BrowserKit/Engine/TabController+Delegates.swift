@@ -226,6 +226,8 @@ extension TabController: WKNavigationDelegate {
     /// redirect in that navigation, which is exactly the boundary wanted.
     public func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         passwords.sawServerRedirect = false
+        // Before the response: a reload reads the file then, and must read this.
+        saveEdits()
         publishState()
     }
 

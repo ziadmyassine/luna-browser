@@ -106,6 +106,27 @@ extension BrowserSession {
         PageToast.codeCopied.show(in: hostWindow)
     }
 
+    /// Three answers, so a prompt rather than a toast. Saving has stopped
+    /// until one is given; the editor keeps the text meanwhile.
+    func tabController(_ controller: TabController, markdownChangedOnDisk url: URL) {
+        guard let window = hostWindow, window.attachedSheet == nil else { return }
+        let alert = NSAlert()
+        alert.messageText = String(localized: "“\(url.lastPathComponent)” changed on disk")
+        alert.informativeText = String(localized: """
+        Something else changed this file after Luna opened it, so Luna stopped saving. Your text is still in the editor.
+        """)
+        alert.addButton(withTitle: String(localized: "Keep Editing"))
+        alert.addButton(withTitle: String(localized: "Save Mine Over It"))
+        alert.addButton(withTitle: String(localized: "Reload from Disk"))
+        alert.beginSheetModal(for: window) { [weak controller] response in
+            switch response {
+            case .alertSecondButtonReturn: controller?.resolveDiskConflict(keepMine: true)
+            case .alertThirdButtonReturn: controller?.resolveDiskConflict(keepMine: false)
+            default: break
+            }
+        }
+    }
+
     // MARK: - Bulk tab commands
 
     /// The Today tabs of the Space on screen. Favorites and Pinned tabs are not

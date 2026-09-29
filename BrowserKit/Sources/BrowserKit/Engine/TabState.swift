@@ -28,6 +28,8 @@ public struct TabState: Sendable, Equatable {
     public var isPlayingAudio: Bool
     /// A Markdown document or Reader: a page the Reading pop-out restyles.
     public var isReading: Bool
+    /// A Markdown document's editor holds text the file does not have yet.
+    public var isEdited: Bool
 
     public init(
         url: URL? = nil,
@@ -40,7 +42,8 @@ public struct TabState: Sendable, Equatable {
         pageBackground: RGBA? = nil,
         hasOnlySecureContent: Bool = false,
         isPlayingAudio: Bool = false,
-        isReading: Bool = false
+        isReading: Bool = false,
+        isEdited: Bool = false
     ) {
         self.url = url
         self.title = title
@@ -53,6 +56,7 @@ public struct TabState: Sendable, Equatable {
         self.hasOnlySecureContent = hasOnlySecureContent
         self.isPlayingAudio = isPlayingAudio
         self.isReading = isReading
+        self.isEdited = isEdited
     }
 }
 

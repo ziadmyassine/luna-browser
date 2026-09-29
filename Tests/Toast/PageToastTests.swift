@@ -125,6 +125,14 @@ final class PageToastTests: XCTestCase {
         }
     }
 
+    /// ⌘S in a Markdown editor. Distinct from Save to Downloads, which names a copy.
+    func testSavingAnEditSaysSaved() {
+        XCTAssertEqual(PageToast.saved.text, "Saved")
+        XCTAssertNil(PageToast.saved.detail)
+        XCTAssertNotEqual(PageToast.saved, PageToast.savedToDownloads("README.md"))
+        XCTAssertNotNil(NSImage(systemSymbolName: PageToast.saved.symbol, accessibilityDescription: nil))
+    }
+
     /// Each answer reads differently, and every symbol is one the system has:
     /// a misspelt name draws the pill with a gap where its glyph should be.
     func testReaderPictureInPictureAndHidingEachSayWhatHappened() {

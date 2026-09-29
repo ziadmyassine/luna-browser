@@ -77,17 +77,19 @@ extension TabController {
     /// At commit: the document belongs to the page only if this is the load
     /// `show` started.
     func adoptPendingMarkdown() {
+        saveEdits()
+        forgetEdits()
         markdownDocument = pendingMarkdown.flatMap { $0.url == webView?.url ? $0 : nil }
         pendingMarkdown = nil
         readingView = .read
     }
 
-    /// Preferences, the outline's current heading and the copy buttons. Run at
-    /// `didFinish` rather than injected into every page.
+    /// Preferences, the outline's current heading, the copy buttons and the
+    /// editor. Run at `didFinish` rather than injected into every page.
     func startMarkdownPage() {
         guard markdownDocument != nil else { return }
         webView?.callAsyncJavaScript(
-            Self.readingPreferencesScript + Self.markdownScript,
+            Self.readingPreferencesScript + Self.markdownScript + Self.editorScript,
             arguments: ["preferences": ReadingPreferences.stored().script],
             in: nil,
             in: .defaultClient
@@ -96,9 +98,13 @@ extension TabController {
 
     func handleReadingMessage(_ message: WKScriptMessage) {
         guard message.frameInfo.isMainFrame, markdownDocument != nil,
-              let code = (message.body as? [String: Any])?["copy"] as? String
+              let body = message.body as? [String: Any]
         else { return }
-        delegate?.tabController(self, didCopyCode: code)
+        if let text = body["edit"] as? String {
+            takeEdit(text)
+        } else if let code = body["copy"] as? String {
+            delegate?.tabController(self, didCopyCode: code)
+        }
     }
 
     static func markdownPage(_ document: MarkdownDocument) -> String {
@@ -125,6 +131,7 @@ extension TabController {
         <article class="luna-reading"><p class="luna-site">\(HTML.escape(name)) · \(minutes) min read</p>
         \(rendered.html)</article>
         <div class="luna-source">\(MarkdownSource.html(document.text))</div>
+        \(editorHTML(document, preview: rendered.html))
         </body></html>
         """
     }
