@@ -117,6 +117,20 @@ struct ReadingStyleTests {
         ))
     }
 
+    /// A fixed page pins its scheme and repaints from its own variables; Match
+    /// gets no rule, so it keeps following `prefers-color-scheme`.
+    @Test func fixedPagesPinTheirSchemeAndMatchDoesNot() {
+        let css = ReadingStyle.css(palette: "")
+        #expect(css.contains(#":root[data-luna-page="paper"]{color-scheme:light;"#))
+        #expect(css.contains(#":root[data-luna-page="sepia"]{color-scheme:light;"#))
+        #expect(css.contains(#":root[data-luna-page="night"]{color-scheme:dark;"#))
+        #expect(css.contains("--luna-surface-base:var(--luna-reading-sepia-bg)"))
+        #expect(!css.contains(#"data-luna-page="match""#))
+        for token in ["kw", "str", "com", "fn", "num"] {
+            #expect(css.contains(".luna-reading .tok-\(token){color:var(--luna-syntax-\(token))}"))
+        }
+    }
+
     @Test func thePaletteComesFirst() {
         #expect(ReadingStyle.css(palette: ":root{--x:1}").hasPrefix(":root{--x:1}"))
     }

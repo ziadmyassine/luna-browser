@@ -89,6 +89,33 @@ final class InternalPageThemeTests: XCTestCase {
         )
     }
 
+    /// A reading page colour is one colour whatever the system theme, so the
+    /// light and dark blocks carry the same value, and it is `Tokens.Reading`'s.
+    func testReadingPagesComeFromTheReadingTokens() {
+        let css = InternalPageTheme.css()
+        let sepia = Tokens.Reading.Page.sepia.background.srgbComponents(for: NSAppearance(named: .aqua)!)
+        let expected = "rgb(\(Int((sepia.red * 255).rounded())) \(Int((sepia.green * 255).rounded())) " +
+            "\(Int((sepia.blue * 255).rounded())) / 1.0)"
+        XCTAssertEqual(value(of: "--luna-reading-sepia-bg", in: css, after: ":root{"), expected)
+        XCTAssertEqual(
+            value(of: "--luna-reading-night-bg", in: css, after: ":root{"),
+            value(of: "--luna-surface-base", in: css, after: "@media (prefers-color-scheme: dark){"),
+            "Night is the dark content plane"
+        )
+        XCTAssertEqual(
+            value(of: "--luna-reading-night-bg", in: css, after: ":root{"),
+            value(of: "--luna-reading-night-bg", in: css, after: "@media (prefers-color-scheme: dark){")
+        )
+    }
+
+    /// Syntax colours pick by the element's `color-scheme`, which a fixed page
+    /// pins, rather than by the system's.
+    func testSyntaxColoursFollowTheColourScheme() {
+        let css = InternalPageTheme.css()
+        XCTAssertEqual(value(of: "--luna-syntax-kw", in: css, after: ":root{")?.hasPrefix("light-dark(rgb("), true)
+        XCTAssertEqual(value(of: "--luna-press-swell", in: css, after: ":root{"), "\(Tokens.Motion.pressSwell)")
+    }
+
     /// The first value of `name` declared at or after `marker`.
     private func value(of name: String, in css: String, after marker: String) -> String? {
         guard let start = css.range(of: marker),

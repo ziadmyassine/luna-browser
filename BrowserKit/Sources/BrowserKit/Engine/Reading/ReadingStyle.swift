@@ -9,6 +9,27 @@ import Foundation
 /// has not touched yet reads as the defaults.
 public enum ReadingStyle {
 
+    /// The fixed page colours: every one but Match, which follows the system.
+    static var fixedPages: [ReadingPreferences.Page] { ReadingPreferences.Page.allCases.filter { $0 != .match } }
+
+    /// Each fixed page's `--luna-reading-<page>-<part>`, and the surface
+    /// variable it stands in for.
+    private static let pageParts = [
+        ("bg", "--luna-surface-base"), ("text", "--luna-text-primary"),
+        ("text2", "--luna-text-secondary"), ("text3", "--luna-text-tertiary"),
+        ("hairline", "--luna-line-hairline"), ("border", "--luna-line-border"),
+        ("wash", "--luna-surface-hover")
+    ]
+
+    /// Classes a highlighter marks code with, each read as `--luna-syntax-<class>`.
+    static let syntaxTokens = ["kw", "str", "com", "fn", "num"]
+
+    /// What this sheet needs from the palette beyond what the internal pages do.
+    static var paletteVariables: [String] {
+        fixedPages.flatMap { page in pageParts.map { "--luna-reading-\(page.rawValue)-\($0.0)" } }
+            + syntaxTokens.map { "--luna-syntax-\($0)" }
+    }
+
     public static func css(palette: String) -> String {
         let defaults = ReadingPreferences()
         let widths = ReadingPreferences.Width.allCases.map {
@@ -17,12 +38,21 @@ public enum ReadingStyle {
         let typefaces = ReadingPreferences.Typeface.allCases.map {
             ":root[data-luna-typeface=\"\($0.rawValue)\"]{--luna-reading-font:\($0.stack)}"
         }
+        // A fixed page swaps the surface and text variables for its own and
+        // pins `color-scheme`, which is what `--luna-syntax-*`'s `light-dark()`
+        // picks by. Outranks the palette's `:root` blocks by specificity.
+        let pages = fixedPages.map { page in
+            let scheme = page == .night ? "dark" : "light"
+            let swaps = pageParts.map { "\($0.1):var(--luna-reading-\(page.rawValue)-\($0.0))" }
+            return ":root[data-luna-page=\"\(page.rawValue)\"]{color-scheme:\(scheme);\(swaps.joined(separator: ";"))}"
+        }
+        let syntax = syntaxTokens.map { ".luna-reading .tok-\($0){color:var(--luna-syntax-\($0))}" }
         return palette +
             ":root{color-scheme:light dark}" +
             "html,body{margin:0;padding:0;background:var(--luna-surface-base)}" +
             ":root{--luna-reading-width:\(defaults.width.points)px;--luna-reading-size:\(defaults.size)px;" +
             "--luna-reading-font:\(defaults.typeface.stack)}" +
-            widths.joined() + typefaces.joined() +
+            widths.joined() + typefaces.joined() + pages.joined() +
             ".luna-reading{box-sizing:border-box;max-width:var(--luna-reading-width);margin:0 auto;" +
             "padding:64px 24px 160px;font:var(--luna-reading-size)/1.65 var(--luna-reading-font);" +
             "color:var(--luna-text-primary);overflow-wrap:break-word}" +
@@ -50,6 +80,10 @@ public enum ReadingStyle {
             ".luna-reading table{border-collapse:collapse;width:100%;font-size:.9em}" +
             ".luna-reading td,.luna-reading th{border-bottom:var(--luna-hairline) solid var(--luna-line-hairline);" +
             "padding:6px 8px;text-align:left}" +
-            ".luna-reading hr{border:0;border-top:var(--luna-hairline) solid var(--luna-line-hairline);margin:2em 0}"
+            ".luna-reading hr{border:0;border-top:var(--luna-hairline) solid var(--luna-line-hairline);margin:2em 0}" +
+            syntax.joined() +
+            // Reader strips buttons from the article, so this reaches only the
+            // reading surface's own controls.
+            ".luna-reading button:active{transform:scale(var(--luna-press-swell))}"
     }
 }

@@ -44,8 +44,8 @@ extension InternalPages {
         "--luna-pill-h", "--luna-pill-inset", "--luna-card-radius",
         "--luna-size-row", "--luna-size-pill", "--luna-size-label",
         "--luna-size-title", "--luna-size-body",
-        "--luna-motion-hover"
-    ]
+        "--luna-motion-hover", "--luna-press-swell"
+    ] + ReadingStyle.paletteVariables
 
     /// Wraps a body in the shell.
     @MainActor

@@ -43,11 +43,13 @@ enum InternalPageTheme {
         // same question as "same as what is already in force". A kilobyte of
         // repetition on a page that is built in-process is not a cost.
         return blocks.map { block in
-            var declarations = swatches.map { swatch in
-                "\(swatch.name):\(rgba(swatch.colour(block.contrast, block.dark), dark: block.dark))"
+            var declarations = (swatches + readingSwatches).map { swatch in
+                let dark = swatch.pinnedDark ?? block.dark
+                return "\(swatch.name):\(rgba(swatch.colour(block.contrast, dark), dark: dark))"
             }
-            // Lengths and durations are theme-independent, so they are declared once.
-            if block.query == nil { declarations += lengths }
+            // Lengths, durations and the syntax colours are theme-independent,
+            // so they are declared once.
+            if block.query == nil { declarations += lengths + syntax }
             let rule = ":root{\(declarations.joined(separator: ";"))}"
             return block.query.map { "@media \($0){\(rule)}" } ?? rule
         }
@@ -62,6 +64,41 @@ enum InternalPageTheme {
         /// system-backed and opaque tokens ignore the first, because their
         /// contrast variant is AppKit's to decide and is not readable from here.
         let colour: (Bool, Bool) -> NSColor
+        /// A reading page's theme, which the system's does not change.
+        var pinnedDark: Bool?
+
+        init(name: String, pinnedDark: Bool? = nil, colour: @escaping (Bool, Bool) -> NSColor) {
+            self.name = name
+            self.colour = colour
+            self.pinnedDark = pinnedDark
+        }
+    }
+
+    /// `--luna-reading-<page>-*`, which `ReadingStyle` swaps in for the
+    /// surface and text variables when the page colour is not Match. Restated
+    /// per block like the rest, because Increase Contrast promotes the ink ones.
+    private static var readingSwatches: [Swatch] {
+        Tokens.Reading.Page.allCases.flatMap { page in
+            let parts: [(String, (Bool) -> NSColor)] = [
+                ("bg", { _ in page.background }), ("text", { _ in page.text }),
+                ("text2", page.secondary), ("text3", page.tertiary),
+                ("hairline", page.hairline), ("border", page.border), ("wash", page.wash)
+            ]
+            return parts.map { part, colour in
+                Swatch(name: "--luna-reading-\(page.rawValue)-\(part)", pinnedDark: page.isDark) { contrast, _ in
+                    colour(contrast)
+                }
+            }
+        }
+    }
+
+    /// `light-dark()` rather than the media blocks: it picks by the element's
+    /// `color-scheme`, which a fixed reading page pins and Match leaves to the
+    /// system.
+    private static var syntax: [String] {
+        zip(Tokens.Reading.Syntax.light.all, Tokens.Reading.Syntax.dark.all).map { light, dark in
+            "--luna-syntax-\(light.0):light-dark(\(rgba(light.1, dark: false)),\(rgba(dark.1, dark: true)))"
+        }
     }
 
     private static let swatches: [Swatch] = [
@@ -155,7 +192,8 @@ enum InternalPageTheme {
             px("--luna-shadow-reach", Tokens.Shadow.popover.radius),
             // Reduce Motion is `prefers-reduced-motion` in the page, so this
             // stays the resting duration rather than being zeroed here.
-            "--luna-motion-hover:\(Tokens.Motion.rowHover.duration)s"
+            "--luna-motion-hover:\(Tokens.Motion.rowHover.duration)s",
+            "--luna-press-swell:\(Tokens.Motion.pressSwell)"
         ]
     }
 
