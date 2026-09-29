@@ -168,8 +168,14 @@ struct SyncMergeTests {
 
     @Test func whenBothMacsSetAFlagTheNewerOneWins() throws {
         let secret = SyncSamples.secret
-        let server = SyncMapping.record(for: SyncSiteSetting(host: "example.com", popups: false), secret: secret, modifiedAt: earlier, stored: nil)
-        let local = SyncMapping.record(for: SyncSiteSetting(host: "example.com", popups: true), secret: secret, modifiedAt: now, stored: nil)
+        let server = SyncMapping.record(
+            for: SyncSiteSetting(host: "example.com", popups: false),
+            secret: secret, modifiedAt: earlier, stored: nil
+        )
+        let local = SyncMapping.record(
+            for: SyncSiteSetting(host: "example.com", popups: true),
+            secret: secret, modifiedAt: now, stored: nil
+        )
 
         guard case .save(let merged) = SyncMerge.resolve(local: local, changedAt: now, server: server) else {
             Issue.record("expected a save"); return
