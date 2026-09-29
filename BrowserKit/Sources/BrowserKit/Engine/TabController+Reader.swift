@@ -25,8 +25,11 @@ extension TabController {
             return
         }
         webView.callAsyncJavaScript(
-            Self.readerScript,
-            arguments: ["palette": InternalPages.palette],
+            Self.readingPreferencesScript + Self.readerScript,
+            arguments: [
+                "sheet": ReadingStyle.css(palette: InternalPages.palette),
+                "preferences": ReadingPreferences.stored().script
+            ],
             in: nil,
             in: .defaultClient
         ) { [weak self] result in
@@ -143,37 +146,9 @@ extension TabController {
     var first = copy.querySelector('h1');
     if (first && first.textContent.trim() === title) { first.remove(); }
 
-    var sheet = palette +
-      ':root{color-scheme:light dark}' +
-      'html,body{margin:0;padding:0;background:var(--luna-surface-base)}' +
-      '#luna-reader{box-sizing:border-box;max-width:680px;margin:0 auto;padding:64px 24px 160px;' +
-      'font:19px/1.65 ui-serif,"New York",Georgia,serif;color:var(--luna-text-primary);overflow-wrap:break-word}' +
-      '#luna-reader .luna-site{font:500 var(--luna-size-label)/1.4 -apple-system,BlinkMacSystemFont,sans-serif;' +
-      'letter-spacing:.06em;text-transform:uppercase;color:var(--luna-text-tertiary);margin:0 0 12px}' +
-      '#luna-reader .luna-title{font:700 34px/1.2 -apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:-.01em;margin:0 0 40px}' +
-      '#luna-reader h2,#luna-reader h3,#luna-reader h4{font-family:-apple-system,BlinkMacSystemFont,sans-serif;' +
-      'line-height:1.3;margin:1.8em 0 .6em}' +
-      '#luna-reader h2{font-size:1.35em}#luna-reader h3{font-size:1.15em}#luna-reader h4{font-size:1em}' +
-      '#luna-reader p{margin:0 0 1.2em}' +
-      '#luna-reader a{color:inherit;text-decoration-color:var(--luna-text-tertiary);text-underline-offset:3px}' +
-      '#luna-reader img,#luna-reader video{display:block;max-width:100%;height:auto;margin:1.5em auto;' +
-      'border-radius:var(--luna-row-radius)}' +
-      '#luna-reader iframe{display:block;width:100%;height:auto;aspect-ratio:16/9;border:0;margin:1.5em 0;' +
-      'border-radius:var(--luna-row-radius)}' +
-      '#luna-reader figure{margin:1.8em 0}' +
-      '#luna-reader figcaption{font:var(--luna-size-row)/1.45 -apple-system,BlinkMacSystemFont,sans-serif;' +
-      'color:var(--luna-text-secondary);margin-top:.6em}' +
-      '#luna-reader blockquote{margin:1.5em 0;padding-left:1em;border-left:3px solid var(--luna-line-border);' +
-      'color:var(--luna-text-secondary)}' +
-      '#luna-reader pre,#luna-reader code{font-family:ui-monospace,Menlo,monospace;font-size:.85em}' +
-      '#luna-reader pre{background:var(--luna-surface-hover);padding:14px;border-radius:var(--luna-row-radius);overflow:auto}' +
-      '#luna-reader table{border-collapse:collapse;width:100%;font-size:.9em}' +
-      '#luna-reader td,#luna-reader th{border-bottom:var(--luna-hairline) solid var(--luna-line-hairline);' +
-      'padding:6px 8px;text-align:left}' +
-      '#luna-reader hr{border:0;border-top:var(--luna-hairline) solid var(--luna-line-hairline);margin:2em 0}';
-
     var page = document.createElement('article');
     page.id = 'luna-reader';
+    page.className = 'luna-reading';
     var site = document.createElement('p');
     site.className = 'luna-site';
     site.textContent = location.hostname.replace(/^www\\./, '');
@@ -214,6 +189,8 @@ extension TabController {
     guard(root, function (node) { return node === head || node === body; });
     guard(body, function () { return false; });
     guard(head, function (node) { return !/^(STYLE|LINK)$/.test(node.tagName); });
+    // After the root's attributes are cleared above, or they would take these too.
+    applyReadingPreferences(preferences);
 
     window.scrollTo(0, 0);
     // The chrome reads the colour at the top of the page on a resize, and the page it read is gone.

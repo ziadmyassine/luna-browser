@@ -52,7 +52,14 @@ enum SettingsDefaults {
         ("settings.lastSection", SettingsSectionRegistry.ids.first ?? ""),
         // §6's "existing keys are not renamed"
         ("blocking.httpsOnly", false),
-        ("luna.autoArchiveHours", AutoArchive.defaultHours)
+        ("luna.autoArchiveHours", AutoArchive.defaultHours),
+        // `ReadingPreferences.stored()`
+        (ReadingPreferences.Key.typeface, ReadingPreferences().typeface.rawValue),
+        (ReadingPreferences.Key.size, ReadingPreferences().size),
+        (ReadingPreferences.Key.width, ReadingPreferences().width.rawValue),
+        (ReadingPreferences.Key.page, ReadingPreferences().page.rawValue),
+        (ReadingPreferences.Key.outline, ReadingPreferences().outline),
+        (ReadingPreferences.Key.wrap, ReadingPreferences().wrap)
     ]
 
     /// Every key in `table`, in §6's order.

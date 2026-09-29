@@ -87,6 +87,44 @@ final class PageToolsTests: XCTestCase {
         XCTAssertEqual(readerIsGone, true)
     }
 
+    private func article(_ property: String) async throws -> String? {
+        try await page("getComputedStyle(document.getElementById('luna-reader'))['\(property)']") as? String
+    }
+
+    /// Reader starts from the stored preferences and follows a change without
+    /// being turned off and on again.
+    func testReaderFollowsTheReadingPreferences() async throws {
+        try await load(Self.article)
+        _ = await toggleReader()
+        let isShared = try await page("document.getElementById('luna-reader').classList.contains('luna-reading')") as? Bool
+        XCTAssertEqual(isShared, true)
+        let width = try await article("maxWidth")
+        XCTAssertEqual(width, "\(ReadingPreferences.stored().width.points)px")
+
+        var preferences = ReadingPreferences()
+        preferences.width = .narrow
+        preferences.size = 22
+        controller.applyReadingPreferences(preferences)
+        for _ in 0 ..< 50 where try await article("maxWidth") != "580px" {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        let narrow = try await article("maxWidth")
+        XCTAssertEqual(narrow, "580px")
+        let size = try await article("fontSize")
+        XCTAssertEqual(size, "22px")
+    }
+
+    /// Preferences touch only a reading page; an ordinary one is left alone.
+    func testReadingPreferencesLeaveAnOrdinaryPageAlone() async throws {
+        try await load(Self.article)
+        var preferences = ReadingPreferences()
+        preferences.width = .narrow
+        controller.applyReadingPreferences(preferences)
+        try await Task.sleep(for: .milliseconds(100))
+        let marked = try await page("document.documentElement.hasAttribute('data-luna-width')") as? Bool
+        XCTAssertEqual(marked, false)
+    }
+
     // MARK: - Hiding
 
     private static let banners = """

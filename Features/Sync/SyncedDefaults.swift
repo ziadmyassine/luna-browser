@@ -21,7 +21,9 @@ enum SyncedDefaults {
         "luna.autoArchiveHours", GeneralSection.confirmQuitKey, DownloadDestination.autoOpenKey,
         "blocking.httpsOnly", WebViewFactory.Key.userAgent, WebViewFactory.Key.customUserAgent,
         PasswordSettings.Key.enabled, PasswordSettings.Key.offerToSave, PasswordSettings.Key.generate,
-        PopupPolicy.Key.mode, PopupPolicy.Key.showsAddress, PopupNoticeSettings.notifiesKey
+        PopupPolicy.Key.mode, PopupPolicy.Key.showsAddress, PopupNoticeSettings.notifiesKey,
+        ReadingPreferences.Key.typeface, ReadingPreferences.Key.size, ReadingPreferences.Key.width,
+        ReadingPreferences.Key.page, ReadingPreferences.Key.outline, ReadingPreferences.Key.wrap
     ]).union(
         // `ContentBlocker.Key.enabled`, which BrowserKit keeps internal.
         ContentBlocker.Category.allCases.map { "blocking.enabled.\($0.rawValue)" }
