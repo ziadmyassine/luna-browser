@@ -158,6 +158,9 @@ public actor BrowserStore {
         _ = try await pool.write { db in try Space.deleteOne(db, key: spaceID) }
     }
 
+    /// The seed Space's name. Sync's first fetch tells an untouched seed by it (docs/SYNC-PLAN.md §3).
+    static let seedSpaceName = "Personal"
+
     /// One default Space, so a first run is never an empty window.
     ///
     /// Asks before it opens a transaction it will not use. Every launch
@@ -173,7 +176,7 @@ public actor BrowserStore {
         try await pool.write { db in
             guard try Space.fetchCount(db) == 0 else { return }
             try Space(
-                name: "Personal",
+                name: Self.seedSpaceName,
                 symbolName: "moon.stars.fill",
                 gradient: .defaultSpace
             ).insert(db)

@@ -1,5 +1,6 @@
-import BrowserKit
+@testable import BrowserKit
 import Foundation
+import GRDB
 import Testing
 
 /// Open, write, close, reopen. The migrator runs on every launch, so "runs twice over a
@@ -104,5 +105,110 @@ struct StoreMigrationTests {
 
         #expect(try await store.spaces().isEmpty)
         #expect(try await store.tabs(inSpace: space.id, includeArchived: true).isEmpty)
+    }
+
+    // MARK: - v12, sync (docs/SYNC-PLAN.md S2)
+
+    /// A trigger cannot name a column that may not exist yet, so the flags that
+    /// used to be added on first use exist from the migration on.
+    @Test func v12CreatesTheSiteSettingsFlagColumnsUpFront() async throws {
+        let store = try makeTemporaryStore()
+        let columns = try await store.pool.read { db in
+            Dictionary(uniqueKeysWithValues: try db.columns(in: "siteSettings").map { ($0.name, $0) })
+        }
+        // Nullable: absent is "nobody has answered", which is not a refusal.
+        for name in ["automaticPictureInPicture", "localNetwork", "savePasswords", "popups"] {
+            let column = try #require(columns[name], "missing \(name)")
+            #expect(column.type == "BOOLEAN")
+            #expect(!column.isNotNull)
+        }
+        for name in ["blockingDisabled", "insecureAllowed"] {
+            let column = try #require(columns[name], "missing \(name)")
+            #expect(column.type == "BOOLEAN")
+            #expect(column.isNotNull)
+            #expect(column.defaultValueSQL == "0")
+        }
+        // Nothing adds a column on first use any more.
+        for permission in BrowserStore.SitePermission.allCases {
+            #expect(columns[permission.rawValue] != nil, "no column for \(permission)")
+        }
+    }
+
+    @Test func v12CreatesEverySyncTableAndVisitsSyncOrigin() async throws {
+        let store = try makeTemporaryStore()
+        let expected: [String: Set<String>] = [
+            "syncOutbox": ["recordType", "localKey", "zone", "isDelete", "changedAt"],
+            "syncMeta": ["key", "value"],
+            "syncRecords": ["recordType", "recordName", "localKey", "zone", "systemFields", "schemaVersion"],
+            "syncParked": ["recordType", "recordName", "record"],
+            "syncZones": ["zone", "enabled"],
+            "syncControl": ["id", "applyingRemote"],
+            "syncPresence": ["deviceID", "name", "updatedAt", "tabs"],
+            "syncedDefaults": ["key", "value", "modifiedAt"]
+        ]
+        let (found, visitColumns, control, zones) = try await store.pool.read { db in
+            var found: [String: Set<String>] = [:]
+            for table in expected.keys where try db.tableExists(table) {
+                found[table] = Set(try db.columns(in: table).map(\.name))
+            }
+            return (
+                found,
+                try db.columns(in: "visits").map(\.name),
+                try Int.fetchAll(db, sql: "SELECT applyingRemote FROM syncControl"),
+                try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM syncZones")
+            )
+        }
+        #expect(found == expected)
+        #expect(visitColumns.contains("syncOrigin"))
+        #expect(control == [0])
+        // Sync is opt-in: no zone is on until the user turns one on.
+        #expect(zones == 0)
+    }
+
+    /// A database from before sync, including a flag column added the old way
+    /// (`ensureBlockingColumns`) and the answers already written into it.
+    @Test func aV11DatabaseMigrates() async throws {
+        let path = temporaryDatabasePath()
+        try FileManager.default.createDirectory(at: path.deletingLastPathComponent(), withIntermediateDirectories: true)
+        do {
+            let pool = try DatabasePool(path: path.path)
+            try Schema.migrator().migrate(pool, upTo: "v11")
+            try await pool.write { db in
+                try db.execute(sql: "ALTER TABLE siteSettings ADD COLUMN blockingDisabled BOOLEAN NOT NULL DEFAULT 0")
+                try db.execute(sql: "ALTER TABLE siteSettings ADD COLUMN localNetwork BOOLEAN")
+                try db.execute(
+                    sql: "INSERT INTO siteSettings (host, updatedAt, blockingDisabled, localNetwork) VALUES (?, ?, 1, 1)",
+                    arguments: ["old.example", Date()]
+                )
+                try db.execute(sql: "INSERT INTO places (url, host, lastVisit) VALUES ('https://old.example/', 'old.example', ?)", arguments: [Date()])
+                try db.execute(sql: "INSERT INTO visits (placeId, at, type) VALUES (1, ?, 'typed')", arguments: [Date()])
+            }
+            try pool.close()
+        }
+
+        let store = try BrowserStore(path: path)
+        #expect(try await store.blockingExemptions().blockingDisabled == ["old.example"])
+        #expect(try await store.sitePermissions()[.localNetwork] == ["old.example": true])
+        let (origins, columnCount) = try await store.pool.read { db in
+            (
+                try Row.fetchAll(db, sql: "SELECT syncOrigin FROM visits").map { $0["syncOrigin"] as String? },
+                try db.columns(in: "siteSettings").count
+            )
+        }
+        #expect(origins == [nil])
+        #expect(columnCount == 9)
+        // Turning sync on for the first time is what uploads old rows, not the migration.
+        #expect(try await store.syncOutbox().isEmpty)
+    }
+
+    @Test func migratingTwiceIsHarmless() async throws {
+        let path = temporaryDatabasePath()
+        let store = try BrowserStore(path: path)
+        try await store.pool.write { db in try Schema.prepareForSync(db) }
+        _ = try BrowserStore(path: path)
+        let controlRows = try await store.pool.read { db in
+            try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM syncControl")
+        }
+        #expect(controlRows == 1)
     }
 }

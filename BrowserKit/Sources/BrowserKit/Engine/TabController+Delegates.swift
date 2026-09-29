@@ -28,6 +28,39 @@ extension TabController: WKNavigationDelegate {
         return true
     }
 
+    /// §17's per-navigation work for a main-frame load: the pop-up guards, the
+    /// rule lists and scripts for the site being entered, and §17.6's upgrade.
+    /// - Returns: true when it has answered `decisionHandler` itself.
+    private func decidedMainFrame(
+        _ action: WKNavigationAction, to url: URL, in webView: WKWebView,
+        decisionHandler: @MainActor (WKNavigationActionPolicy) -> Void
+    ) -> Bool {
+        if refusesOnProbation(action, to: url) || refusesTabUnder(action, to: url) {
+            decisionHandler(.cancel)
+            return true
+        }
+        applyPopupMode(to: webView)
+        ContentBlocker.shared.apply(
+            to: webView.configuration.userContentController, host: url.host(), scope: sitePermissions
+        )
+        // §17.2. The rule lists above are swapped per navigation; the YouTube
+        // script has to be too, and for the same reason — "disable blocking here"
+        // has to mean here.
+        refreshUserScriptsIfNeeded(host: url.host(), isFile: url.isFileURL)
+        // §17.6. `preferredHTTPSNavigationPolicy` cannot do this: measured, both of
+        // its values end an http-only navigation at `about:blank` with `didFinish`
+        // and no delegate error, so there is no hook to put an interstitial on.
+        // Luna upgrades and cancels itself instead. `bypassedURL` is the user having
+        // already said "continue anyway" on the downgrade page.
+        if case let .upgrade(upgraded) = ContentBlocker.shared.httpsDecision(for: url, in: sitePermissions),
+           url != bypassedURL {
+            decisionHandler(.cancel)
+            load(upgraded)
+            return true
+        }
+        return false
+    }
+
     private func decidePolicy(
         for navigationAction: WKNavigationAction,
         in webView: WKWebView,
@@ -56,25 +89,9 @@ extension TabController: WKNavigationDelegate {
         // §17, main frame only — a sub-frame does not change the site the user is
         // on, and re-scoping the rule lists for one would disable blocking for the
         // whole page.
-        if navigationAction.targetFrame?.isMainFrame ?? false {
-            ContentBlocker.shared.apply(
-                to: webView.configuration.userContentController, host: url.host(), scope: sitePermissions
-            )
-            // §17.2. The rule lists above are swapped per navigation; the YouTube
-            // script has to be too, and for the same reason — "disable blocking here"
-            // has to mean here.
-            refreshUserScriptsIfNeeded(host: url.host(), isFile: url.isFileURL)
-            // §17.6. `preferredHTTPSNavigationPolicy` cannot do this: measured, both of
-            // its values end an http-only navigation at `about:blank` with `didFinish`
-            // and no delegate error, so there is no hook to put an interstitial on.
-            // Luna upgrades and cancels itself instead. `bypassedURL` is the user having
-            // already said "continue anyway" on the downgrade page.
-            if case let .upgrade(upgraded) = ContentBlocker.shared.httpsDecision(for: url, in: sitePermissions),
-               url != bypassedURL {
-                decisionHandler(.cancel)
-                load(upgraded)
-                return
-            }
+        if navigationAction.targetFrame?.isMainFrame ?? false,
+           decidedMainFrame(navigationAction, to: url, in: webView, decisionHandler: decisionHandler) {
+            return
         }
         // §8.1. Typed URLs, links and new-tab opens all arrive here, so this one
         // check covers every route into a private window. Meeting the URL it last
@@ -317,10 +334,14 @@ extension TabController: WKUIDelegate {
         for navigationAction: WKNavigationAction,
         windowFeatures: WKWindowFeatures
     ) -> WKWebView? {
-        // The URL is nil for `window.open()` with no argument — the page writes into the
-        // blank document afterwards. Returning nil there is exactly the case that makes
-        // `window.open` look broken, so the tab is created regardless.
-        delegate?.tabController(self, wantsNewTabFor: navigationAction.request.url, configuration: configuration)
+        // §17 decides first. Past it, the URL may still be nil — `window.open()`
+        // with no argument, which the page writes into afterwards — and the tab is
+        // created regardless: returning nil there is what makes `window.open`
+        // look broken.
+        guard allowsPopup(navigationAction) else { return nil }
+        let child = delegate?.tabController(self, wantsNewTabFor: navigationAction.request.url, configuration: configuration)
+        placeOnProbation(child)
+        return child
     }
 
     public func webView(

@@ -12,8 +12,8 @@ import Synchronization
 public final class ControlSessionTag: Sendable {
 
     /// Keys in `params._meta`, which MCP leaves for this kind of extra.
-    public static let sessionKey = "dk.novapps.luna/session"
-    public static let nameKey = "dk.novapps.luna/sessionName"
+    public static let sessionKey = "dev.novapps.luna/session"
+    public static let nameKey = "dev.novapps.luna/sessionName"
 
     public let session: String
     private let transcript: Mutex<Transcript>

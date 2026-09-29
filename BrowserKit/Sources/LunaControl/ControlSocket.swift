@@ -14,7 +14,7 @@ public enum ControlSocket {
 
     /// `~/Library/Application Support/<bundle id>/Control/luna.sock`. The
     /// helper has no bundle of its own to ask, so it is handed Luna's.
-    public static func path(bundleIdentifier: String = "dk.novapps.luna") -> URL {
+    public static func path(bundleIdentifier: String = "dev.novapps.luna") -> URL {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL.temporaryDirectory
         return support

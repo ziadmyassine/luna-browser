@@ -185,6 +185,18 @@ extension AppDelegate {
         session.activateTab(session.tabs[item.tag].id)
     }
 
+    /// History ▸ Tabs on Other Macs. Opens in this Mac's active Space: the
+    /// other Mac's Space may not exist here.
+    @objc func openTabFromOtherMac(_ sender: Any?) {
+        guard let session, let item = sender as? NSMenuItem else { return }
+        Self.openTab(fromOtherMac: item, in: session)
+    }
+
+    static func openTab(fromOtherMac item: NSMenuItem, in session: BrowserSession) {
+        guard let url = item.representedObject as? URL else { return }
+        session.activateTab(session.newTab(url: url))
+    }
+
     // MARK: - Favorites (§2, §13.4)
 
     /// `⌘D`. Favorites are per Profile and capped at twelve, so this is the
@@ -295,6 +307,8 @@ extension AppDelegate: NSMenuItemValidation {
             return active?.state.canGoForward ?? false
         case #selector(stopLoading(_:)):
             return active?.state.isLoading ?? false
+        case #selector(openBlockedPopup(_:)):
+            return active?.popups.blocked.isEmpty == false
         default:
             return nil
         }

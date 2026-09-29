@@ -190,6 +190,9 @@ final class BrowserSession {
     /// `UI/Passwords/BrowserSession+Passwords.swift`.
     let passwordUI = PasswordUI()
 
+    /// §17's pop-up chip. The behaviour is in `UI/Popups/BrowserSession+Popups.swift`.
+    let popupChip = PopupChip()
+
     /// Undo for close / archive / move (§6.7) and for hiding part of a page,
     /// and every browser window's list (`windowWillReturnUndoManager`).
     let undoManager = SessionUndoManager()

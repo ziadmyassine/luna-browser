@@ -302,8 +302,18 @@ final class ShortcutsSection: SettingsSection {
     /// pressing it and watching nothing happen — and the user cannot see the
     /// other row from here to know what they just cost themselves.
     private func record(_ binding: KeyBinding?, for command: BrowserCommand) {
-        if let binding, let clash = KeyBindings.conflict(for: binding, ignoring: command) {
+        guard Self.commit(binding, for: command) else {
             recorders[command.id]?.show(KeyBindings.primary(for: command))
+            return
+        }
+        refresh(command)
+    }
+
+    /// The commit itself, for every recorder in Settings — §17's pop-up
+    /// shortcut sits in Privacy, and refuses a taken keystroke the same way.
+    /// - Returns: false when the keystroke was taken and nothing was written.
+    static func commit(_ binding: KeyBinding?, for command: BrowserCommand) -> Bool {
+        if let binding, let clash = KeyBindings.conflict(for: binding, ignoring: command) {
             let alert = NSAlert()
             alert.messageText = String(localized: "\(binding.display) is already taken.")
             alert.informativeText = String(localized: """
@@ -311,10 +321,10 @@ final class ShortcutsSection: SettingsSection {
             """)
             alert.addButton(withTitle: String(localized: "OK"))
             alert.runModal()
-            return
+            return false
         }
         KeyBindings.set(binding, for: command)
-        refresh(command)
+        return true
     }
 
     @objc private func resetOne(_ sender: NSButton) {

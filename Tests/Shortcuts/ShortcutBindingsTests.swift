@@ -18,7 +18,7 @@ import XCTest
 @MainActor
 final class ShortcutBindingsTests: XCTestCase {
 
-    private let domain = Bundle.main.bundleIdentifier ?? "dk.novapps.luna"
+    private let domain = Bundle.main.bundleIdentifier ?? "dev.novapps.luna"
     private var snapshot: [String: Any]?
 
     override func setUp() {
@@ -169,7 +169,7 @@ final class ShortcutBindingsTests: XCTestCase {
 @MainActor
 final class MainMenuBindingTests: XCTestCase {
 
-    private let domain = Bundle.main.bundleIdentifier ?? "dk.novapps.luna"
+    private let domain = Bundle.main.bundleIdentifier ?? "dev.novapps.luna"
     private var snapshot: [String: Any]?
 
     override func setUp() {

@@ -47,6 +47,12 @@ extension AppDelegate {
 
     // MARK: - The page
 
+    /// §17's user-recorded shortcut: the active tab's most recent blocked
+    /// pop-up, chip or no chip.
+    @objc func openBlockedPopup(_ sender: Any?) {
+        session?.openLatestBlockedPopup()
+    }
+
     /// `⌥⌘R`. Past the cache, unlike `⌘R`.
     @objc func forceReloadPage(_ sender: Any?) {
         session?.reloadIgnoringCache()

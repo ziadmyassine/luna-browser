@@ -23,7 +23,11 @@ extension BrowserSession {
         // the chip asks about a sign-in on it. Both are meaningless over a
         // different tab, and the picker would be actively misleading —
         // pointing at coordinates that now belong to someone else's form.
-        if activeTabID != id { passwordUI.dismissAll() }
+        if activeTabID != id {
+            passwordUI.dismissAll()
+            // §17's chip speaks for the tab being left, too.
+            popupChip.dismiss()
+        }
         activeTabBySpace[tab.spaceID] = id
         showUnderFoldedFolder(id)
         promote(id)
@@ -324,7 +328,7 @@ extension BrowserSession {
     }
 
     /// Everything a tab costs while it is open: its web view and its caches.
-    private func forget(_ id: UUID) {
+    func forget(_ id: UUID) {
         discardController(id)
         recentTabs.removeAll { $0 == id }
         // §3.4a's mute is a fact about a live page, and this tab no longer has one. A

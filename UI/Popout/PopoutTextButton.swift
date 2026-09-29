@@ -44,7 +44,20 @@ final class PopoutTextButton: NSButton {
         }
     }
 
-    init(title: String, label: String) {
+    /// A header word rests at secondary ink beside its heading. On a chip the
+    /// button is the message's other half, and at secondary ink over a busy
+    /// page it read as disabled, so a chip passes the heading's own ink and font.
+    private let restingInk: NSColor
+    private let titleFont: NSFont
+
+    init(
+        title: String,
+        label: String,
+        restingInk: NSColor = Tokens.Text.secondary,
+        font: NSFont = Tokens.TypeScale.settingsCaption
+    ) {
+        self.restingInk = restingInk
+        self.titleFont = font
         super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerCurve = .continuous
@@ -73,19 +86,18 @@ final class PopoutTextButton: NSButton {
     /// itself. `title` is overridden for the same reason: `attributedTitle`
     /// wins once it is set, so assigning the plain string alone would change
     /// nothing on screen.
+    /// Re-applied even when the words are the same: `NSButton`'s setter has
+    /// already reset the attributes to `controlTextColor` by then.
     override var title: String {
-        didSet {
-            guard title != oldValue else { return }
-            applyTitle()
-        }
+        didSet { applyTitle() }
     }
 
     private func applyTitle() {
         attributedTitle = NSAttributedString(string: title, attributes: [
-            .font: Tokens.TypeScale.settingsCaption,
+            .font: titleFont,
             // Brighter under the pointer, for the same reason the wash arrives:
             // a word is mostly ink, so the ink is most of the answer.
-            .foregroundColor: isHovering || isPressed ? Tokens.Text.primary : Tokens.Text.secondary
+            .foregroundColor: isHovering || isPressed ? Tokens.Text.primary : restingInk
         ])
         invalidateIntrinsicContentSize()
         needsDisplay = true
@@ -138,9 +150,11 @@ final class PopoutTextButton: NSButton {
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         for area in trackingAreas where area.owner === self { removeTrackingArea(area) }
+        // Active in the app, not the key window: §17's chip is a non-activating
+        // panel that never becomes key, and its buttons still answer the pointer.
         addTrackingArea(NSTrackingArea(
             rect: .zero,
-            options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+            options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect],
             owner: self
         ))
     }

@@ -37,7 +37,7 @@ final class SidebarResizeHandle: NSView {
     /// trailing one it is the distance back from the column's own far edge.
     var edge: SidebarEdge = .leading
 
-    private static let defaultsKey = "dk.novapps.luna.sidebar.width"
+    private static let defaultsKey = "dev.novapps.luna.sidebar.width"
 
     private var isDragging = false
 

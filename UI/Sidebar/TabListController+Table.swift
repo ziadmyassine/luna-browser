@@ -117,7 +117,7 @@ extension TabListController: NSTableViewDelegate {
 @MainActor
 final class SeparatorRowView: NSView {
 
-    static let reuseIdentifier = NSUserInterfaceItemIdentifier("dk.novapps.luna.sidebar.separator")
+    static let reuseIdentifier = NSUserInterfaceItemIdentifier("dev.novapps.luna.sidebar.separator")
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)

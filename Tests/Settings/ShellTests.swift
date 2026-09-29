@@ -18,7 +18,7 @@ import XCTest
 @MainActor
 final class SettingsDefaultsTests: XCTestCase {
 
-    private let domain = Bundle.main.bundleIdentifier ?? "dk.novapps.luna"
+    private let domain = Bundle.main.bundleIdentifier ?? "dev.novapps.luna"
 
     /// §6's table is the one place a key is declared, so a key that is not in
     /// `keys` does not get restored — and the spelling of the three existing
@@ -305,7 +305,7 @@ final class SettingsWindowTests: XCTestCase {
         )
         // Not an equality against `contentSize`. `windowFrameAutosaveName` is
         // set on this window on purpose (§1: it comes back the size you left
-        // it), and the test host shares the real `dk.novapps.luna` defaults
+        // it), and the test host shares the real `dev.novapps.luna` defaults
         // domain — so it opens at whatever frame is saved there. This failed at
         // 887 × 552 for that reason, not for a regression in any section's
         // layout. Only the first window in a process gets the restore, which

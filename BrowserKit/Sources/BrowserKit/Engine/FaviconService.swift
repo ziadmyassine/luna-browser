@@ -74,7 +74,7 @@ public final class FaviconService {
         let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
             ?? URL.temporaryDirectory
         return caches
-            .appending(path: Bundle.main.bundleIdentifier ?? "dk.novapps.luna")
+            .appending(path: Bundle.main.bundleIdentifier ?? "dev.novapps.luna")
             .appending(path: "Favicons")
     }
 

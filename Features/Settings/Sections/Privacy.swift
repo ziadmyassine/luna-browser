@@ -29,16 +29,31 @@ final class PrivacySection: SettingsSection {
     static let title = String(localized: "Privacy & Passwords")
     static let symbolName = "lock.shield"
     static let keywords = ["cookies", "trackers", "blocking", "https only", "ads", "clear data", "passwords"]
-        + PasswordsSection.keywords
+        + popupTerms + PasswordsSection.keywords
+
+    /// §17's pop-up rows, as people search for them.
+    private static let popupTerms = ["popup", "pop-up", "pop-ups", "window", "tab-under", "notify", "notification"]
 
     private let body = SettingsBody()
     private let passwords = PasswordsSection()
     private let statusLabel = NSTextField(labelWithString: "")
     private let spinner = NSProgressIndicator()
 
+    /// The rows that mean nothing while pop-ups are not blocked at all.
+    private(set) var popupDependents: [NSView] = []
+    private(set) var notifyRow: NSView?
+    /// Hidden with the chip it places, as well as with the mode.
+    private(set) var positionRow: NSView?
+
     var view: NSView { body.view }
     var searchIndex: [String] { body.searchIndex }
-    func filter(_ query: String) { body.filter(query) }
+
+    func filter(_ query: String) {
+        body.filter(query)
+        // The search shows whatever matches; a row the mode has put away stays
+        // away.
+        if PopupPolicy.mode() == .off || !PopupChipSettings.notifies { refreshPopupRows() }
+    }
 
     init() {
         buildBlocking()
@@ -52,7 +67,8 @@ final class PrivacySection: SettingsSection {
     /// The switches and the lists they read from, in one card: the status
     /// line is what tells you the switches above it are doing anything.
     private func buildBlocking() {
-        var rows = ContentBlocker.Category.allCases.map(blockingRow)
+        var rows = popupRows()
+        rows += ContentBlocker.Category.allCases.map(blockingRow)
         rows.append(httpsOnlyRow())
         rows.append(filterListsRow())
         body.card(String(localized: "Blocking"), rows)
@@ -77,6 +93,71 @@ final class PrivacySection: SettingsSection {
         var terms = [title, list, "blocking"]
         if category == .ads { terms += ["youtube", "video ads", "pre-roll", "mid-roll"] }
         return (row, terms)
+    }
+
+    /// §17: the mode first, and under it the rows that only apply while
+    /// something is being blocked. Hidden rather than dimmed when it is off, as
+    /// `AppearanceSection` does with the sidebar's rows under the top bar: with
+    /// nothing blocked there is no address to show and nothing to open.
+    private func popupRows() -> [(view: NSView, terms: [String])] {
+        let modes = PopupMode.allCases
+        let title = String(localized: "Pop-ups")
+        let mode = SettingsRow.popup(
+            title,
+            options: modes.map(\.title),
+            selected: modes.firstIndex(of: PopupPolicy.mode()) ?? 0
+        ) { [weak self] index in
+            guard modes.indices.contains(index) else { return }
+            self?.setPopupMode(modes[index])
+        }
+
+        let addressTitle = String(localized: "Show pop-up address")
+        let address = SettingsRow.toggle(addressTitle, value: PopupPolicy.showsAddress()) { on in
+            PopupPolicy.setShowsAddress(on)
+        }
+
+        let notifyTitle = String(localized: "Notify when a pop-up is blocked")
+        let notify = SettingsRow.toggle(notifyTitle, value: PopupChipSettings.notifies) { [weak self] on in
+            self?.setNotifies(on)
+        }
+        let places = PopupChipPosition.allCases
+        let positionTitle = String(localized: "Notification position")
+        let position = SettingsRow.popup(
+            positionTitle,
+            options: places.map(\.title),
+            selected: places.firstIndex(of: PopupChipSettings.position) ?? 0
+        ) { index in
+            guard places.indices.contains(index) else { return }
+            PopupChipSettings.position = places[index]
+        }
+
+        notifyRow = notify
+        positionRow = position
+        popupDependents = [notify, position, address]
+        refreshPopupRows()
+        let terms = Self.popupTerms + ["blocking"]
+        return [
+            (mode, [title] + modes.map(\.title) + terms),
+            (notify, [notifyTitle, "chip", "alert"] + terms),
+            (position, [positionTitle, "position", "bottom", "centre", "center"] + places.map(\.title) + terms),
+            (address, [addressTitle, "host", "url"] + terms)
+        ]
+    }
+
+    func setNotifies(_ on: Bool) {
+        PopupChipSettings.notifies = on
+        refreshPopupRows()
+    }
+
+    func setPopupMode(_ mode: PopupMode) {
+        PopupPolicy.setMode(mode)
+        refreshPopupRows()
+    }
+
+    private func refreshPopupRows() {
+        let off = PopupPolicy.mode() == .off
+        for row in popupDependents { row.isHidden = off }
+        if !PopupChipSettings.notifies { positionRow?.isHidden = true }
     }
 
     private func httpsOnlyRow() -> (view: NSView, terms: [String]) {
@@ -187,6 +268,25 @@ final class PrivacySection: SettingsSection {
             for store in stores {
                 await store.removeData(ofTypes: types, modifiedSince: .distantPast)
             }
+        }
+    }
+}
+
+private extension PopupChipPosition {
+    var title: String {
+        switch self {
+        case .underSiteSettings: String(localized: "Under site settings")
+        case .bottomCentre: String(localized: "Bottom centre of page")
+        }
+    }
+}
+
+private extension PopupMode {
+    var title: String {
+        switch self {
+        case .off: String(localized: "Off")
+        case .smart: String(localized: "Smart")
+        case .blockAll: String(localized: "Block all")
         }
     }
 }

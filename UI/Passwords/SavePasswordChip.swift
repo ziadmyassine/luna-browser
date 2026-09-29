@@ -13,7 +13,8 @@
 //  nothing is a real, supported answer that saves nothing.
 //
 //  It shares §5's panel shape rather than inventing a second one: same glass,
-//  same shadow, same child-window relationship to the browser window.
+//  same child-window relationship to the browser window, in the appearance of
+//  the page it stands on (`ChipPanel`).
 //
 
 import AppKit
@@ -30,7 +31,12 @@ final class SavePasswordChip {
     /// ignoring the chip once must not mean never being asked again.
     var onDismiss: ((PasswordSaveRequest) -> Void)?
 
-    private var panel: NSPanel?
+    private(set) var panel: NSPanel?
+    private var appearance: NSKeyValueObservation?
+
+    /// §5's popover material, in the appearance of the page it stands on
+    /// (`ChipPanel`).
+    static let material = Glass.Style.popover
     private var request: PasswordSaveRequest?
     private var dismissTimer: Timer?
 
@@ -63,7 +69,8 @@ final class SavePasswordChip {
         )
 
         let size = view.fittingChipSize()
-        let panel = makePanel(size: size)
+        let panel = ChipPanel.make()
+        appearance = ChipPanel.follow(content, with: panel)
         view.frame = CGRect(origin: .zero, size: size)
         panel.contentView = view
 
@@ -98,6 +105,7 @@ final class SavePasswordChip {
     ///   `onDismiss` fires — which saves nothing.
     func dismiss(answering: Bool) {
         cancelTimer()
+        appearance = nil
         guard let panel else { return }
         self.panel = nil
         // Out the way it came in — see `Motion.fadePanelOut`.
@@ -116,22 +124,5 @@ final class SavePasswordChip {
     private func cancelTimer() {
         dismissTimer?.invalidate()
         dismissTimer = nil
-    }
-
-    private func makePanel(size: CGSize) -> NSPanel {
-        let panel = NSPanel(
-            contentRect: CGRect(origin: .zero, size: size),
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
-        )
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = true
-        panel.level = .floating
-        panel.becomesKeyOnlyIfNeeded = true
-        panel.collectionBehavior = [.transient, .ignoresCycle]
-        panel.animationBehavior = .utilityWindow
-        return panel
     }
 }

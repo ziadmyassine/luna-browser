@@ -80,7 +80,7 @@ struct SidebarRowContent: Equatable {
 @MainActor
 final class SidebarRowView: NSView {
 
-    static let reuseIdentifier = NSUserInterfaceItemIdentifier("dk.novapps.luna.sidebar.row")
+    static let reuseIdentifier = NSUserInterfaceItemIdentifier("dev.novapps.luna.sidebar.row")
 
     /// The trailing affordance was clicked, carrying what it was drawing at
     /// the time. The row cannot know whether that means close or mute — only

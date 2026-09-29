@@ -30,7 +30,7 @@ ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 PERF="$ROOT/Tools/perf"
 APP="$ROOT/DerivedData/Build/Products/Debug/Luna.app/Contents/MacOS/Luna"
 PERFHOME=$(mktemp -d -t luna-perf-home)
-SUPPORT="$PERFHOME/Library/Application Support/dk.novapps.luna"
+SUPPORT="$PERFHOME/Library/Application Support/dev.novapps.luna"
 LOG=$(mktemp -t luna-perf)
 WHAT=${1:-all}
 

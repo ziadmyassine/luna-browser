@@ -29,7 +29,8 @@
 //  changes. §14.4's chip is built from `SettingsPushButton`, which is already
 //  covered below, and so are Luna Control's approval card and its Revoke
 //  buttons; its working capsule's Take Over has a test of its own. Its
-//  Pause, Resume and Stop are menu items, not buttons.
+//  Pause, Resume and Stop are menu items, not buttons. §17's pop-up chip has
+//  a test of its own.
 //
 
 import XCTest
@@ -108,6 +109,9 @@ final class ButtonFeedbackTests: XCTestCase {
                 return glyph
             }()),
             ("SettingsChoiceButton", SettingsChoiceButton(title: "Light")),
+            // The account row at the head of Settings' column: a plate of its
+            // own outside the section list, so a button rather than a list row.
+            ("SettingsAccountRow", SettingsAccountRow(name: "Jane Appleseed", picture: nil, status: .off)),
             // Settings ▸ Extensions: a card's Spaces menu, its pin and its "more".
             ("ExtensionCardButton", ExtensionCardButton(symbol: "pin", label: "Pin to the Bar")),
             ("SpaceAppearanceButton", SpaceAppearanceButton()),
@@ -194,6 +198,24 @@ final class ButtonFeedbackTests: XCTestCase {
         XCTAssertEqual(scale(of: word), swell, accuracy: 0.001, "a pop-out's text button does not swell")
         word.highlight(false)
         XCTAssertEqual(scale(of: word), 1, accuracy: 0.001, "a pop-out's text button stays swollen")
+    }
+
+    /// §17's pop-up chip: Open and Always Allow. Words on glass, so the
+    /// pop-out's text button, and each one answers on its own.
+    func testThePopupChipsButtonsSwell() {
+        let swell = Tokens.Motion.pressSwell
+        let chip = PopupChipView(
+            count: 1, url: URL(string: "https://ads.example.net/")!, showsAddress: true, shortcut: "⌥⌘P"
+        )
+        let buttons = descendants(of: chip, ofType: PopoutTextButton.self)
+        XCTAssertEqual(buttons.count, 2, "the chip has lost a button, or grown one this test does not know")
+        for button in buttons {
+            _ = sized(button, 60)
+            button.highlight(true)
+            XCTAssertEqual(scale(of: button), swell, accuracy: 0.001, "\(button.title) does not swell")
+            button.highlight(false)
+            XCTAssertEqual(scale(of: button), 1, accuracy: 0.001, "\(button.title) stays swollen")
+        }
     }
 
     /// §4's action capsule applies one material for all of its items, so its

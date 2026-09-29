@@ -56,24 +56,10 @@ enum SiteMenu {
                 ? String(localized: "Connection is Secure")
                 : String(localized: "Connection is Not Secure")
         }
-        content.toggles = [
-            blocking(host: page.host),
-            permission(
-                .automaticPictureInPicture,
-                title: String(localized: "Automatic Picture-in-Picture"),
-                symbol: Glyph.pictureInPicture,
-                host: page.host,
-                thenReload: false
-            ),
-            permission(
-                .localNetwork,
-                title: String(localized: "Local Network"),
-                symbol: Glyph.localNetwork,
-                host: page.host,
-                thenReload: true
-            )
-        ]
+        content.toggles = toggles(host: page.host)
+        let blocked = session?.activeTabID.flatMap { session?.controller(for: $0) }?.popups.blocked ?? []
         content.actions = [
+            blockedBand(blocked) { url in session?.newTab(url: url) },
             pageTools(),
             [share(page.url, from: anchor), copyLink(page.url)],
             [
@@ -89,6 +75,35 @@ enum SiteMenu {
             ]
         ]
         return content
+    }
+
+    /// This site's switches, in the order the pop-out shows them.
+    private static func toggles(host: String) -> [SiteSettingsContent.Toggle] {
+        [
+            blocking(host: host),
+            permission(
+                .automaticPictureInPicture,
+                title: String(localized: "Automatic Picture-in-Picture"),
+                symbol: Glyph.pictureInPicture,
+                host: host,
+                thenReload: false
+            ),
+            permission(
+                .localNetwork,
+                title: String(localized: "Local Network"),
+                symbol: Glyph.localNetwork,
+                host: host,
+                thenReload: true
+            ),
+            // §17. Read at the next `window.open`, so nothing reloads.
+            permission(
+                .popups,
+                title: String(localized: "Pop-ups"),
+                symbol: Glyph.popups,
+                host: host,
+                thenReload: false
+            )
+        ]
     }
 
     // MARK: - The page
@@ -184,6 +199,16 @@ enum SiteMenu {
         }
     }
 
+    /// §17's recent blocked pop-ups, newest first, as rows that open them. An
+    /// empty band is no band: `SiteSettingsContent` skips it.
+    static func blockedBand(_ blocked: [BlockedPopup], open: @escaping (URL) -> Void) -> [SiteSettingsContent.Action] {
+        blocked.prefix(3).map { popup in
+            let host = popup.url.host(percentEncoded: false) ?? ""
+            let path = popup.url.path(percentEncoded: false)
+            return .init(title: path == "/" ? host : host + path, symbol: Glyph.blockedPopup) { open(popup.url) }
+        }
+    }
+
     /// Nil for a page that is not on the web at all.
     ///
     /// `hasOnlySecureContent` is the whole question — an https page that pulled
@@ -262,6 +287,8 @@ enum SiteMenu {
         static let blocking = "hand.raised"
         static let pictureInPicture = "pip"
         static let localNetwork = "network"
+        static let popups = "macwindow.on.rectangle"
+        static let blockedPopup = "arrow.up.forward.app"
         static let cache = "internaldrive"
         static let cookies = "trash"
         static let reader = "doc.plaintext"
@@ -276,7 +303,7 @@ enum SiteMenu {
         static let site = SidebarRowContent.siteFallbackSymbol
 
         static let all = [
-            share, link, blocking, pictureInPicture, localNetwork,
+            share, link, blocking, pictureInPicture, localNetwork, popups, blockedPopup,
             cache, cookies, reader, hide, advanced, secure, insecure, site
         ]
     }

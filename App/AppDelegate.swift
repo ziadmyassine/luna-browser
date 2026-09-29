@@ -28,6 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Everything before this line is dyld, the Swift runtime and the ObjC
         // class registry — see `LaunchTrace.sinceExec`.
         LaunchTrace.mark("main")
+        if CloudKitProbe.isRequested { CloudKitProbe.run() }
         let app = LunaApplication.shared
         let delegate = AppDelegate()
         // `NSApplication.delegate` is weak and nothing else owns us.
@@ -93,6 +94,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Luna Control's socket, open only while its setting is on. Holds the
     /// first session, never a §5.6 window's.
     var control: ControlService?
+    /// iCloud sync over the main store; nil in a build without the
+    /// entitlement (`AppDelegate+Sync.swift`).
+    var sync: AppSync?
     /// `⌃⇥`'s event monitor — see `AppDelegate+TabSwitcher.swift`.
     var tabSwitcherMonitor: Any?
     /// Web links handed over before the first window could take them, and nil
@@ -209,6 +213,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // §30.17, and after `ready()` on purpose: first run is a window over a
         // browser that is already up, not a gate in front of it.
         presentOnboardingIfNeeded(store: store, session: session)
+        Task { sync = await AppSync.start(store: store, session: session) }
     }
 
     /// Opens the store off the main thread, as early as launch can ask for
@@ -349,6 +354,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task { await flush() }
     }
 
+    func applicationDidBecomeActive(_ notification: Notification) {
+        Task { await sync?.activated() }
+    }
+
     private func flush() async {
         // A §5.6 window's session writes to a database that is deleted when it
         // closes, so there is nothing to push out of it.
@@ -377,7 +386,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     ///
     /// Which means that until this branch existed, every test run in this
     /// repo migrated and wrote the user's live database. Measured: the
-    /// schema-version row in `~/Library/Application Support/dk.novapps.luna/`
+    /// schema-version row in `~/Library/Application Support/dev.novapps.luna/`
     /// moved during this wave and its mtime tracked the test runs. A test that
     /// carefully builds its own fixture store is not protected by doing so —
     /// no test constructs that path, the app does, on their behalf.
@@ -395,7 +404,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL.temporaryDirectory
         return support
-            .appending(path: Bundle.main.bundleIdentifier ?? "dk.novapps.luna")
+            .appending(path: Bundle.main.bundleIdentifier ?? "dev.novapps.luna")
             .appending(path: "luna.sqlite")
     }
 

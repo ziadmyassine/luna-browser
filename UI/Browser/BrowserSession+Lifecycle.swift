@@ -121,7 +121,7 @@ final class TabLifecycle {
         let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
             ?? URL.temporaryDirectory
         snapshots = SnapshotStore(directory: caches
-            .appending(path: Bundle.main.bundleIdentifier ?? "dk.novapps.luna")
+            .appending(path: Bundle.main.bundleIdentifier ?? "dev.novapps.luna")
             .appending(path: "snapshots"))
 
         observation = session.addChangeObserver { [weak self] in self?.sessionDidChange() }

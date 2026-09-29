@@ -49,7 +49,7 @@ final class SavePasswordChipView: NSView {
 
     private func build() {
         wantsLayer = true
-        Glass.apply(.popover, to: self, cornerRadius: Tokens.Metric.passwordChip.cornerRadius)
+        Glass.apply(SavePasswordChip.material, to: self, cornerRadius: Tokens.Metric.passwordChip.cornerRadius)
 
         let title = NSTextField(wrappingLabelWithString: headline)
         title.font = Tokens.TypeScale.settingsHeading

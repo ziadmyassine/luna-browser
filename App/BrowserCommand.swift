@@ -184,6 +184,11 @@ struct BrowserCommand: Identifiable {
         "actualSize", "Zoom to Actual Size", #selector(AppDelegate.resetZoom(_:)), [KeyBinding("0")],
         symbol: "1.magnifyingglass", keywords: ["reset zoom", "actual size"]
     )
+    /// §17. Ships unbound: no browser has a convention for it to follow, and
+    /// the chip's Open button is the way in until the user records one.
+    static let openBlockedPopup = BrowserCommand(
+        "openBlockedPopup", "Open Blocked Pop-up", #selector(AppDelegate.openBlockedPopup(_:))
+    )
     /// ⇧⌘P, as in Search; nothing in §20.1's map had it.
     static let pictureInPicture = BrowserCommand(
         "pictureInPicture", "Picture in Picture", #selector(AppDelegate.togglePictureInPicture(_:)),
@@ -285,7 +290,7 @@ struct BrowserCommand: Identifiable {
         newTab, newWindow, newPrivateWindow, openLocation, openFile, duplicateTab, resetPinnedTab, closeTab, closeAllTabs, cleanUpTabs,
         reopenArchivedTab, closeWindow,
         undo, redo, cut, copy, paste, selectAll, copyURL, copyMarkdown,
-        toggleSidebar, toggleFavorite, reloadPage, forceReloadPage, stopLoading,
+        toggleSidebar, toggleFavorite, reloadPage, forceReloadPage, stopLoading, openBlockedPopup,
         zoomIn, zoomOut, actualSize, pictureInPicture, reader, hideElements, showDownloads,
         goBack, goForward, showHistory,
         showWebInspector, showJavaScriptConsole, showPageSource, startElementSelection, disableJavaScript, emptyCaches,

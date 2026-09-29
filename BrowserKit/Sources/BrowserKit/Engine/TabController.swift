@@ -121,6 +121,18 @@ public final class TabController: NSObject {
     /// carry storage. The behaviour is next door in `Passwords/`.
     public let passwords = PasswordCoordinator()
 
+    /// §17's pop-up state for this tab; the behaviour is in
+    /// `TabController+Popups.swift`.
+    public let popups = PopupGuard()
+
+    /// Where the pop-up mode is read from. A seam for tests, which must not
+    /// write the shared defaults — the same one `ContentBlocker` has.
+    var settings: UserDefaults = .standard
+
+    /// A blank pop-up's probation, between `allowsPopup` and the delegate
+    /// building its tab. Here because an extension cannot carry storage.
+    var pendingProbation: PopupProbation?
+
     /// Whose per-site answers this tab reads and writes — a private window's own (§5.6).
     public var sitePermissions: SitePermissions { .scope(for: dataStore) }
 
@@ -199,6 +211,8 @@ public final class TabController: NSObject {
         // is trusted by construction (§4.4). Web content's route in is
         // `decidePolicyFor`, which has no such token and is refused there.
         if url.scheme?.lowercased() == InternalPages.scheme { expectedInternalLoad = url }
+        // Luna's own loads arrive as `.other`, the type the tab-under guard refuses.
+        popups.disarm()
         let webView = ensureWebView(restoringSession: false)
         Self.load(url, into: webView)
     }
@@ -283,7 +297,7 @@ public final class TabController: NSObject {
         // removing one that is not is a no-op. Always pay the cheap call.
         for name in [Self.mediaMessageName, ContentBlocker.blockedMessageName,
                      Self.scrollMessageName, PasswordForms.messageName,
-                     ContentBlocker.youTubeMessageName] {
+                     ContentBlocker.youTubeMessageName, Self.popupMessageName] {
             controller.removeScriptMessageHandler(forName: name)
             controller.add(messageRelay, name: name)
         }
@@ -341,6 +355,12 @@ public final class TabController: NSObject {
         if let passkeyGuard = PasskeySupport.userScript() {
             controller.addUserScript(passkeyGuard)
         }
+        // §17's pop-up witness. `documentStart`, so `window.open` is wrapped
+        // before the page's own scripts take a reference to it; every frame,
+        // because ad pop-ups are opened from ad frames.
+        controller.addUserScript(
+            WKUserScript(source: Self.popupScript, injectionTime: .atDocumentStart, forMainFrameOnly: false)
+        )
         // Main frame only: an ad iframe scrolling itself is not the page moving,
         // and §3.2b's bar collapses on the page moving.
         controller.addUserScript(
@@ -380,49 +400,6 @@ public final class TabController: NSObject {
         let seeds = isFile && FileStorageSeed.userScript() != nil
         guard blocks != youTubeScriptInstalled || seeds != fileSeedInstalled || hiddenStyleIsStale(for: host) else { return }
         installUserScripts(into: controller, host: host, isFile: isFile)
-    }
-
-    /// The document-end scripts every frame on the page gets, as one
-    /// `WKUserScript` rather than three.
-    ///
-    /// They are `forMainFrameOnly: false` because the things they watch live in
-    /// subframes — an embedded player makes sound, an ad frame is where a
-    /// blocked request happens, a sign-in form is very often in an iframe — so
-    /// a news page with thirty ad frames is thirty injections of each.
-    ///
-    /// This is one seam, not a saving. It was measured and it is a dead
-    /// heat: 31-frame page, two harness binaries interleaved, ten rounds
-    /// each, `+14.53 ms` merged against `+14.35 ms` split (`docs/PERF.md`).
-    /// Three `WKUserScript`s are not three compiles per frame — WebKit compiles
-    /// a source once and evaluates it per frame — and what the frame pays for is
-    /// the evaluating, which is the same code either way. What it buys is one
-    /// place that decides what every frame gets; do not read a speed claim into
-    /// it, and do not merge anything else hoping for one.
-    ///
-    /// The `try`/`catch` is not new error-hiding. WebKit ran the three
-    /// independently, so one of them throwing left the other two installed;
-    /// joining them into one script is exactly what would have taken that away.
-    /// ``isolated(_:)`` puts it back and nothing else. They share no scope
-    /// either: each source is its own IIFE, as it was when WebKit held them
-    /// apart.
-    static func documentEndScript() -> WKUserScript {
-        var sources = [mediaScript, ContentBlocker.blockedCountScript]
-        // §14: not injected at all when the feature is off, rather than
-        // injected and ignored. A user who declines autofill should not pay a
-        // MutationObserver on every frame of every page for it.
-        if PasswordSettings.isEnabled { sources.append(PasswordForms.script) }
-        return WKUserScript(
-            source: isolated(sources),
-            injectionTime: .atDocumentEnd,
-            forMainFrameOnly: false
-        )
-    }
-
-    /// `sources` joined so that one of them throwing does not take the rest
-    /// with it. Pure, and separate from the script that uses it, so the
-    /// isolation can be asserted with sources that actually throw.
-    static func isolated(_ sources: [String]) -> String {
-        sources.map { "try {\n\($0)\n} catch (error) {}" }.joined(separator: "\n")
     }
 
     /// Everything that has to happen before the last reference to the web view
@@ -465,6 +442,7 @@ public final class TabController: NSObject {
         controller.removeScriptMessageHandler(forName: Self.scrollMessageName)
         controller.removeScriptMessageHandler(forName: PasswordForms.messageName)
         controller.removeScriptMessageHandler(forName: ContentBlocker.youTubeMessageName)
+        controller.removeScriptMessageHandler(forName: Self.popupMessageName)
         detachPicker(from: controller)
 
         // Picture-in-Picture and element fullscreen outlive their web view: without this
@@ -547,6 +525,7 @@ extension TabController {
         // tab lives (§4.5).
         bypassedURL = nil
         lastTrackingStrip = nil
+        popups.pressedLink = nil
         // §17.4's count is per document, and the page's own counter restarts too.
         ContentBlocker.shared.resetBlockedCount(tab: id)
         // §14: the form belonged to the document that just went away, and so
@@ -699,6 +678,49 @@ extension TabController {
       post();
     })();
     """
+
+    /// The document-end scripts every frame on the page gets, as one
+    /// `WKUserScript` rather than three.
+    ///
+    /// They are `forMainFrameOnly: false` because the things they watch live in
+    /// subframes — an embedded player makes sound, an ad frame is where a
+    /// blocked request happens, a sign-in form is very often in an iframe — so
+    /// a news page with thirty ad frames is thirty injections of each.
+    ///
+    /// This is one seam, not a saving. It was measured and it is a dead
+    /// heat: 31-frame page, two harness binaries interleaved, ten rounds
+    /// each, `+14.53 ms` merged against `+14.35 ms` split (`docs/PERF.md`).
+    /// Three `WKUserScript`s are not three compiles per frame — WebKit compiles
+    /// a source once and evaluates it per frame — and what the frame pays for is
+    /// the evaluating, which is the same code either way. What it buys is one
+    /// place that decides what every frame gets; do not read a speed claim into
+    /// it, and do not merge anything else hoping for one.
+    ///
+    /// The `try`/`catch` is not new error-hiding. WebKit ran the three
+    /// independently, so one of them throwing left the other two installed;
+    /// joining them into one script is exactly what would have taken that away.
+    /// ``isolated(_:)`` puts it back and nothing else. They share no scope
+    /// either: each source is its own IIFE, as it was when WebKit held them
+    /// apart.
+    static func documentEndScript() -> WKUserScript {
+        var sources = [mediaScript, ContentBlocker.blockedCountScript]
+        // §14: not injected at all when the feature is off, rather than
+        // injected and ignored. A user who declines autofill should not pay a
+        // MutationObserver on every frame of every page for it.
+        if PasswordSettings.isEnabled { sources.append(PasswordForms.script) }
+        return WKUserScript(
+            source: isolated(sources),
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: false
+        )
+    }
+
+    /// `sources` joined so that one of them throwing does not take the rest
+    /// with it. Pure, and separate from the script that uses it, so the
+    /// isolation can be asserted with sources that actually throw.
+    static func isolated(_ sources: [String]) -> String {
+        sources.map { "try {\n\($0)\n} catch (error) {}" }.joined(separator: "\n")
+    }
 }
 
 // MARK: - Reload

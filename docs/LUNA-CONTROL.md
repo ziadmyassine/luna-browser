@@ -16,7 +16,7 @@ MCP client ──stdio──▶ Luna.app/Contents/MacOS/luna-control ──Unix 
 - `luna-control` is a small helper bundled in the app. It speaks MCP
   (JSON-RPC, one message per line) on stdin/stdout and passes each message
   through to the running Luna.
-- Luna listens on `~/Library/Application Support/dk.novapps.luna/Control/luna.sock`
+- Luna listens on `~/Library/Application Support/dev.novapps.luna/Control/luna.sock`
   only while the setting is on. Turning it off removes the socket and drops
   every connection.
 - If Luna is not running or the setting is off, the helper still completes the
@@ -126,9 +126,9 @@ The client is named from `clientInfo.name` in MCP's `initialize`, made readable
 An agent is one **session** of an app, not the app: two Claude Code sessions
 are two agents, each with its own folder, pause and stop, and activity pill.
 `luna-control` is started once per session, so it says which one it serves in
-`params._meta` (`ControlSessionTag`): `dk.novapps.luna/session` on
+`params._meta` (`ControlSessionTag`): `dev.novapps.luna/session` on
 `initialize`, the same id again when Luna relaunches under it, and
-`dk.novapps.luna/sessionName` on every call once the session has a name. For
+`dev.novapps.luna/sessionName` on every call once the session has a name. For
 Claude Code the id is `CLAUDE_CODE_SESSION_ID` and the name is the session's
 title from its transcript (`~/.claude/projects/*/<id>.jsonl`, the last
 `custom-title`, else the last `ai-title`), read from the end of the file and
@@ -508,7 +508,7 @@ asks for the rest of the connection, whatever the mode.
 ### Activity log
 
 Every call is written as one JSON line to
-`~/Library/Application Support/dk.novapps.luna/Control/activity.jsonl` (mode
+`~/Library/Application Support/dev.novapps.luna/Control/activity.jsonl` (mode
 `0600`): time, app, tool, tab, site, a summary, the decision (`allowed`,
 `approved`, `declined`, `refused`, `stopped`) and whether it failed. Typed
 text is counted, not kept, and script is scrubbed and cut to 200 characters.
