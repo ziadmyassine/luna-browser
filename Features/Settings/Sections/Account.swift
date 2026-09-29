@@ -65,6 +65,12 @@ final class AccountSection: SettingsSection {
     private let sync: SyncSettings
     private let confirm: Confirm
     private var observer: NSObjectProtocol?
+    private var hero: AccountHeroView?
+    private var card: AccountSyncCard?
+    /// Whether the page was built for the signed build. The one change that
+    /// rebuilds it: the iCloud data card's rows fix their enabled state when
+    /// made (`SettingsRowView`). Anything else updates in place.
+    private var builtSigned: Bool?
 
     convenience init() {
         self.init(sync: .shared)
@@ -76,7 +82,7 @@ final class AccountSection: SettingsSection {
         view.translatesAutoresizingMaskIntoConstraints = false
         build()
         observer = NotificationCenter.default.addObserver(forName: SyncSettings.didChange, object: sync, queue: nil) { [weak self] _ in
-            MainActor.assumeIsolated { self?.build() }
+            MainActor.assumeIsolated { self?.syncChanged() }
         }
     }
 
@@ -88,7 +94,18 @@ final class AccountSection: SettingsSection {
     }
 
     /// "Synced 2 minutes ago" goes stale while the window is closed.
-    func willAppear() { build() }
+    func willAppear() { syncChanged() }
+
+    /// Rebuilding the body swapped the switch for a new one while it was still
+    /// sliding — twice per flip, once for the zones and once for the status —
+    /// and the flip stuttered. So a change updates what is on the page.
+    private func syncChanged() {
+        let signed = sync.status != .needsSignedBuild
+        guard signed == builtSigned, let hero, let card else { return build() }
+        hero.isOn = sync.isOn
+        card.update()
+        body.setTerms([String(localized: "Sync Now"), "fetch", "refresh", sync.status.line()], for: card.footer)
+    }
 
     // MARK: Rows
 
@@ -96,8 +113,12 @@ final class AccountSection: SettingsSection {
     /// opens it is the one the sidebar's account row carries.
     private func build() {
         let body = SettingsBody()
-        body.card(AccountHeroView(isOn: sync.isOn), rows: [])
+        let hero = AccountHeroView(isOn: sync.isOn)
+        body.card(hero, rows: [])
         let card = AccountSyncCard(sync: sync)
+        self.hero = hero
+        self.card = card
+        builtSigned = sync.status != .needsSignedBuild
         let zones = zip(SyncZone.switched, card.zoneRows).map { zone, row in (view: row as NSView, terms: [zone.title]) }
         body.card(
             SettingsRow.group(String(localized: "Sync"), [card]),

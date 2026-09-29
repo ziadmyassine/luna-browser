@@ -18,7 +18,10 @@ final class AccountHeroView: NSView {
     /// The ring round the picture: the accent while sync is on, the border's
     /// ink while it is off, so the page says which before a word is read.
     private let ring = NSView()
-    private let isOn: Bool
+    /// Cross-fades the ring when it changes: the page updates in place.
+    var isOn: Bool {
+        didSet { if isOn != oldValue { refresh(animated: true) } }
+    }
 
     init(name: String = NSFullUserName(), picture: NSImage? = SettingsAccountRow.loginPicture(), isOn: Bool) {
         self.isOn = isOn
@@ -106,9 +109,14 @@ final class AccountHeroView: NSView {
         ])
     }
 
-    private func refresh() {
+    private func refresh(animated: Bool = false) {
         effectiveAppearance.performAsCurrentDrawingAppearance {
-            self.ring.layer?.backgroundColor = (self.isOn ? Tokens.Accent.tint : Tokens.Line.border).cgColor
+            let ring = self.isOn ? Tokens.Accent.tint : Tokens.Line.border
+            if animated {
+                Tokens.Motion.wash(self.ring.layer, to: ring)
+            } else {
+                self.ring.layer?.backgroundColor = ring.cgColor
+            }
             self.avatar.layer?.backgroundColor = Tokens.Accent.tint.cgColor
             // A gap of the pane's own colour between picture and ring, so the
             // ring reads as a ring and not as the picture's edge.

@@ -81,6 +81,28 @@ final class AccountSectionTests: XCTestCase {
         XCTAssertEqual(calls, ["master true", "Sites false"])
     }
 
+    /// The switch is updated, never rebuilt, while sync answers: a new switch
+    /// swapped in mid-slide was the stutter. And a status that moves before
+    /// the zones are written does not throw it back.
+    func testFlippingTheSwitchKeepsItAndItsSlide() throws {
+        let sync = signedIn()
+        let section = AccountSection(sync: sync)
+        let flipped = try syncSwitch(section)
+        flipped.isOn = true
+        flipped.onChange?(true)
+        XCTAssertTrue(zones(section).allSatisfy(\.isEnabled), "the checks waited for iCloud")
+
+        sync.status = .syncing
+        XCTAssertTrue(try syncSwitch(section) === flipped, "the switch was rebuilt under the finger")
+        XCTAssertTrue(flipped.isOn, "an early status threw the switch back")
+
+        sync.zones = [.meta, .spaces, .sites, .settings, .history, .devices]
+        sync.status = .synced(Date())
+        XCTAssertTrue(try syncSwitch(section) === flipped)
+        XCTAssertTrue(flipped.isOn)
+        XCTAssertTrue(texts(in: section.view).contains(SyncStatus.synced(Date()).line()))
+    }
+
     /// A zone that is off for a reason the user did not choose cannot be
     /// ticked: pressing it does nothing.
     func testADisabledCheckIgnoresThePress() {

@@ -22,42 +22,44 @@ final class AccountSyncCard: NSView {
     private(set) var zoneRows: [SyncZoneCheckRow] = []
     let footer = NSView()
     let syncNow = SettingsPushButton(title: String(localized: "Sync Now"), isDestructive: false)
+    let statusLine = NSTextField(labelWithString: "")
+    private let dot = NSView()
+    private let zones = NSStackView()
+    private weak var sync: SyncSettings?
+    /// What the user just set the switch to, until sync says the same. The
+    /// status moves ("Syncing…") before the zones are written, and an update
+    /// read in between would throw the switch back mid-animation.
+    private var pending: Bool?
+    private var pendingExpiry: Task<Void, Never>?
 
     init(sync: SyncSettings) {
+        self.sync = sync
         syncSwitch = SystemSwitch(isOn: sync.isOn)
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
 
-        let available = sync.status != .needsSignedBuild
-        syncSwitch.isEnabled = available
-        syncSwitch.toolTip = available ? nil : sync.status.line()
         syncSwitch.setAccessibilityLabel(String(localized: "Sync with iCloud"))
-        syncSwitch.onChange = { [sync] on in sync.setEnabled(on) }
+        syncSwitch.onChange = { [weak self, sync] on in
+            self?.expect(on)
+            sync.setEnabled(on)
+        }
         buildHeader()
 
         zoneRows = SyncZone.switched.map { zone in
-            let needsSpaces = zone == .history && !sync.zones.contains(.spaces)
-            let row = SyncZoneCheckRow(
-                title: zone.title,
-                detail: zone.detail(needsSpaces: sync.isOn && needsSpaces),
-                isOn: sync.zones.contains(zone) && !needsSpaces
-            )
-            row.isEnabled = sync.isOn && !needsSpaces
+            let row = SyncZoneCheckRow(title: zone.title, detail: "", isOn: false)
             row.onChange = { [sync] on in sync.setZone(zone, on) }
             return row
         }
-
-        syncNow.isEnabled = sync.isOn
         syncNow.onActivate = { [sync] in sync.syncNow() }
-        buildFooter(status: sync.status)
+        buildFooter()
 
         let caption = NSTextField(labelWithString: String(localized: "What syncs"))
         caption.font = Tokens.TypeScale.settingsCaption
         caption.textColor = Tokens.Text.secondary
-        let zones = NSStackView(views: zoneRows)
+        zones.setViews(zoneRows, in: .top)
         zones.orientation = .vertical
         zones.spacing = 0
-        zones.alphaValue = sync.isOn ? 1 : Self.restingAlpha
+        update(animated: false)
 
         lay(caption: caption, zones: zones)
     }
@@ -129,15 +131,11 @@ final class AccountSyncCard: NSView {
         ])
     }
 
-    private func buildFooter(status: SyncStatus) {
+    private func buildFooter() {
         let side = Tokens.Metric.settingsStatusDot
-        let dot = NSView()
         dot.wantsLayer = true
         dot.layer?.cornerRadius = side / 2
-        effectiveAppearance.performAsCurrentDrawingAppearance {
-            dot.layer?.backgroundColor = status.dotColour.cgColor
-        }
-        let line = NSTextField(labelWithString: status.line())
+        let line = statusLine
         line.font = Tokens.TypeScale.settingsCaption
         line.textColor = Tokens.Text.secondary
         line.lineBreakMode = .byTruncatingTail
@@ -159,6 +157,61 @@ final class AccountSyncCard: NSView {
             syncNow.bottomAnchor.constraint(equalTo: footer.bottomAnchor)
         ])
     }
+
+    // MARK: - State
+
+    /// Brings the card to what sync says now, in place: the switch is never
+    /// rebuilt under the user's finger, which is what made it stutter.
+    func update(animated: Bool = true) {
+        guard let sync else { return }
+        if let pending, pending == sync.isOn { self.pending = nil }
+        let isOn = pending ?? sync.isOn
+        let available = sync.status != .needsSignedBuild
+        syncSwitch.isEnabled = available
+        syncSwitch.toolTip = available ? nil : sync.status.line()
+        if syncSwitch.isOn != isOn { syncSwitch.isOn = isOn }
+
+        for (zone, row) in zip(SyncZone.switched, zoneRows) {
+            // While the switch is on its way, the checks show what turning it
+            // on does: every zone, as `setEnabled` asks for.
+            let chosen = pending == true ? true : sync.zones.contains(zone)
+            let needsSpaces = zone == .history && !(pending == true || sync.zones.contains(.spaces))
+            row.setOn(chosen && !needsSpaces)
+            row.isEnabled = isOn && !needsSpaces
+            row.detail.stringValue = zone.detail(needsSpaces: isOn && needsSpaces)
+        }
+        let alpha = isOn ? 1 : Self.restingAlpha
+        if animated, !Tokens.Motion.reduceMotion {
+            Tokens.Motion.animate(Tokens.Motion.controlHover) { _ in self.zones.animator().alphaValue = alpha }
+        } else {
+            zones.alphaValue = alpha
+        }
+
+        syncNow.isEnabled = sync.isOn
+        statusLine.stringValue = sync.status.line()
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            self.dot.layer?.backgroundColor = sync.status.dotColour.cgColor
+        }
+    }
+
+    /// The switch was moved to `on`: show it at once, and give sync a few
+    /// seconds to agree before the card goes back to what sync says.
+    private func expect(_ on: Bool) {
+        pending = on
+        update()
+        pendingExpiry?.cancel()
+        pendingExpiry = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(Self.pendingPatience))
+            guard !Task.isCancelled else { return }
+            self?.pending = nil
+            self?.update()
+        }
+    }
+
+    /// How long a flip of the switch is shown before sync has answered it.
+    /// Turning sync on writes the zones and asks iCloud once; a few seconds
+    /// covers that on a slow connection, and a failure then shows as off.
+    static let pendingPatience: TimeInterval = 5
 
     /// The line under the card: what never leaves this Mac, with a lock.
     static func cookieNote(_ text: String) -> NSView {
@@ -202,7 +255,7 @@ final class SyncZoneCheckRow: NSView {
     let disc = NSView()
     private let tick = NSImageView()
     private let title: NSTextField
-    private let detail: NSTextField
+    let detail: NSTextField
     private var isHovering = false { didSet { if isHovering != oldValue { refresh() } } }
     private var isPressed = false {
         didSet {
@@ -322,6 +375,13 @@ final class SyncZoneCheckRow: NSView {
         guard isEnabled else { return false }
         toggle()
         return true
+    }
+
+    /// Set from sync, not by the user: `onChange` is not called.
+    func setOn(_ on: Bool) {
+        guard on != isOn else { return }
+        isOn = on
+        refresh()
     }
 
     private func toggle() {

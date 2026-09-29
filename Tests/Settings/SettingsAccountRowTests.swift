@@ -167,6 +167,11 @@ final class SettingsAccountRowTests: XCTestCase {
     /// The row holds the selection while its page is showing, and the list's
     /// pill steps aside: one thing in the column is selected, always.
     func testClickingOpensTheICloudPageAndFadesTheListsPill() throws {
+        // The test host shares the app's defaults, and the window opens on the
+        // page it was last closed on — the iCloud page, if that was it.
+        let saved = SettingsDefaults.lastSection
+        defer { SettingsDefaults.lastSection = saved }
+        SettingsDefaults.lastSection = GeneralSection.id
         let (controller, root) = try laidOut()
         defer { controller.window?.close() }
         let row = try XCTUnwrap(descendants(of: root, ofType: SettingsAccountRow.self).first)
