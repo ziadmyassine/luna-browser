@@ -44,6 +44,21 @@ rows (`RowPillView`, and the list controller that owns it); a row does not swell
 because a full-width plate growing 5 % is the list jumping rather than a control
 being pressed.
 
+## One toast
+
+**News over the page is a `PageToast`** (`UI/Toast/PageToast.swift`) — the
+glass pill that drops from under the bar ("Link copied", "Zoom 125 %",
+"Pop-up blocked"). Do not build another panel, chip or banner for it.
+
+- A new message is a `static` on `PageToast` and `.show(in:)`.
+- A host or name beside the news goes in `detail`; an answer the user can
+  give (Open, Always Allow) goes in `actions`, and the toast then waits
+  longer and holds while the pointer is on it.
+- A question with more than two answers, or more than one line, is a prompt,
+  not a toast — the save-password chip and Luna Control's approval card.
+
+Full rules: `docs/UI-SPEC.md` §5c.
+
 ## Motion, generally
 
 - Nothing exceeds 0.35 s except the two cases `docs/UI-SPEC.md` §6 marks.

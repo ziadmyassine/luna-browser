@@ -2,8 +2,8 @@
 //  PopupBlockerUITests.swift
 //  LunaTests
 //
-//  §17's pop-up blocker, the chrome half: the chip's one line and what it
-//  names, that a second block updates the chip rather than stacking another,
+//  §17's pop-up blocker, the chrome half: the notice's one line and what it
+//  names, that a second block counts up on it rather than stacking another,
 //  the site menu's band of recent blocks, and the Settings rows that only mean
 //  something while blocking is on.
 //
@@ -15,76 +15,86 @@ import XCTest
 @testable import Luna
 
 @MainActor
-final class PopupChipTests: XCTestCase {
+final class PopupNoticeTests: XCTestCase {
 
     private let url = URL(string: "https://ads.example.net/landing/offer?id=7")!
 
-    func testTheChipNamesTheHostOnlyWhenAskedTo() {
-        let quiet = PopupChipView(count: 1, url: url, showsAddress: false, shortcut: nil)
-        XCTAssertEqual(quiet.headline.stringValue, "Pop-up blocked")
-        XCTAssertTrue(quiet.address.isHidden)
-
-        let named = PopupChipView(count: 1, url: url, showsAddress: true, shortcut: nil)
-        XCTAssertFalse(named.address.isHidden)
-        XCTAssertEqual(named.address.stringValue, "ads.example.net")
-        XCTAssertEqual(named.address.toolTip, url.absoluteString)
-        XCTAssertEqual(named.address.accessibilityValue() as? String, url.absoluteString)
-        XCTAssertEqual(named.address.lineBreakMode, .byTruncatingMiddle)
+    private func notice(count: Int = 1, showsAddress: Bool = false, shortcut: String? = nil) -> PageToast {
+        .popupBlocked(count: count, address: showsAddress ? "ads.example.net" : nil, shortcut: shortcut, open: {}, allow: {})
     }
 
-    /// At a header's secondary ink the chip's two buttons read as disabled
-    /// beside their own message; they rest at the headline's ink and size.
-    func testTheChipsButtonsRestAtTheHeadlinesInk() {
-        let view = PopupChipView(count: 1, url: url, showsAddress: false, shortcut: nil)
-        for button in [view.open, view.allow] {
-            let title = button.attributedTitle
-            XCTAssertEqual(title.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor, view.headline.textColor)
-            XCTAssertEqual(title.attribute(.font, at: 0, effectiveRange: nil) as? NSFont, view.headline.font)
-        }
+    func testTheNoticeNamesTheHostOnlyWhenAskedTo() throws {
+        let notices = PopupNotice()
+        XCTAssertNil(notices.next(url, shortcut: nil, showsAddress: false, open: {}, allow: {}).detail)
+        notices.putAway(in: nil)
+        XCTAssertEqual(notices.next(url, shortcut: nil, showsAddress: true, open: {}, allow: {}).detail, "ads.example.net")
+
+        let view = PageToastView()
+        view.configure(notice(showsAddress: true))
+        XCTAssertFalse(view.detail.isHidden)
+        XCTAssertEqual(view.detail.lineBreakMode, .byTruncatingMiddle)
+        view.configure(.linkCopied)
+        XCTAssertTrue(view.detail.isHidden, "a plain toast kept the last one's host")
     }
 
     func testTheCountAndTheShortcutAreInTheLine() {
-        let view = PopupChipView(count: 3, url: url, showsAddress: false, shortcut: "⌥⌘P")
-        XCTAssertEqual(view.headline.stringValue, "3 pop-ups blocked")
-        XCTAssertEqual(view.open.title, "Open ⌥⌘P")
-        XCTAssertEqual(view.open.toolTip, "Open the pop-up (⌥⌘P)")
-        view.update(count: 1, url: url, showsAddress: false, shortcut: nil)
-        XCTAssertEqual(view.open.title, "Open")
+        let toast = notice(count: 3, shortcut: "⌥⌘P")
+        XCTAssertEqual(toast.text, "3 pop-ups blocked")
+        XCTAssertEqual(toast.actions.map(\.title), ["Open ⌥⌘P", "Always Allow"])
+        XCTAssertEqual(toast.actions.first?.toolTip, "Open the pop-up (⌥⌘P)")
+        XCTAssertEqual(notice().actions.first?.title, "Open")
+        XCTAssertNotNil(NSImage(systemSymbolName: toast.symbol, accessibilityDescription: nil), toast.symbol)
     }
 
-    /// One line: as tall as the pill it hangs from, and no wider than the save
-    /// chip even with a long host in it.
-    func testTheChipIsOneLine() {
-        let long = URL(string: "https://\(String(repeating: "very-long-label.", count: 12))example.net/")!
-        let view = PopupChipView(count: 1, url: long, showsAddress: true, shortcut: "⌥⌘P")
-        let size = view.fittingChipSize()
-        XCTAssertEqual(size.height, Tokens.Metric.urlPill.height)
-        XCTAssertLessThanOrEqual(size.width, Tokens.Metric.passwordChip.width)
+    /// It is the page toast, dressed as every other one: the same pill, at
+    /// the toast's height, with its words at the text's own ink.
+    func testTheNoticeIsAPageToastWithWords() throws {
+        let view = PageToastView()
+        view.configure(notice())
+        XCTAssertEqual(view.buttons.count, 2)
+        for button in view.buttons {
+            let title = button.attributedTitle
+            XCTAssertEqual(title.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor, Tokens.Text.primary)
+        }
+        XCTAssertEqual(notice().dwell, Tokens.Motion.toastActionDwell, "a toast with words went up before they could be reached")
+        XCTAssertEqual(PageToast.linkCopied.dwell, Tokens.Motion.toastDwell)
     }
 
-    /// A second block while the chip is up updates it; it never stacks.
-    func testASecondBlockUpdatesTheChipInPlace() {
-        let host = NSWindow(
-            contentRect: NSRect(x: -20_000, y: -20_000, width: 800, height: 600),
-            styleMask: [.borderless], backing: .buffered, defer: false
-        )
-        host.isReleasedWhenClosed = false
-        defer { host.close() }
-        let content = NSView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
-        host.contentView = content
+    /// The words take the pointer; the rest of the pill leaves it to the page.
+    func testOnlyTheWordsTakeThePointer() async throws {
+        // In a parent, as in a window: `hitTest` takes its point in the
+        // superview's space, and a flipped view with none reads it upside down.
+        let page = NSView(frame: NSRect(x: 0, y: 0, width: 900, height: 600))
+        let surface = ControlSurfaceView(frame: page.bounds)
+        page.addSubview(surface)
+        surface.topInset = 52
+        var opened = 0
+        surface.showToast(.popupBlocked(count: 1, address: nil, shortcut: nil, open: { opened += 1 }, allow: {}))
+        try await Task.sleep(for: .milliseconds(400))
+        page.layoutSubtreeIfNeeded()
+        let toast = try XCTUnwrap(surface.toast)
+        let open = try XCTUnwrap(toast.buttons.first)
+        let onWord = open.convert(NSPoint(x: open.bounds.midX, y: open.bounds.midY), to: page)
+        let hit = page.hitTest(onWord)
+        XCTAssertTrue(hit === open || hit?.isDescendant(of: open) == true, "the word did not take the click")
+        let onText = toast.convert(NSPoint(x: Tokens.Agent.capsuleHeight, y: toast.bounds.midY), to: page)
+        XCTAssertTrue(page.hitTest(onText) === page, "the pill's text took a click from the page")
+        open.onActivate?()
+        XCTAssertEqual(opened, 1)
+        XCTAssertNil(surface.toast, "the toast stayed after its word was used")
+    }
 
-        let chip = PopupChip()
-        chip.present(url, in: host, over: content)
-        chip.present(URL(string: "https://other.example.net/")!, in: host, over: content)
-        XCTAssertEqual(host.childWindows?.count, 1)
-        XCTAssertEqual(chip.view?.headline.stringValue, "2 pop-ups blocked")
-        XCTAssertFalse(host.isKeyWindow)
-
-        chip.dismiss()
-        XCTAssertFalse(chip.isShowing)
-        chip.present(url, in: host, over: content)
-        XCTAssertEqual(chip.view?.headline.stringValue, "Pop-up blocked", "the count outlived the chip")
-        chip.dismiss()
+    /// A second block while the notice is down counts up on it; it never stacks.
+    func testASecondBlockCountsUpOnTheSameNotice() {
+        let notices = PopupNotice()
+        let now = Date()
+        XCTAssertEqual(notices.next(url, shortcut: nil, now: now, open: {}, allow: {}).text, "Pop-up blocked")
+        XCTAssertEqual(notices.next(url, shortcut: nil, now: now + 1, open: {}, allow: {}).text, "2 pop-ups blocked")
+        let later = now + Tokens.Motion.toastActionDwell + 2
+        let fresh = notices.next(url, shortcut: nil, now: later, open: {}, allow: {})
+        XCTAssertEqual(fresh.text, "Pop-up blocked", "the count outlived the notice")
+        notices.putAway(in: nil)
+        XCTAssertEqual(notices.next(url, shortcut: nil, now: later + 1, open: {}, allow: {}).text, "Pop-up blocked")
     }
 }
 
@@ -122,7 +132,7 @@ final class PopupSiteMenuTests: XCTestCase {
 @MainActor
 final class PopupSettingsTests: XCTestCase {
 
-    private let keys = [PopupPolicy.Key.mode, PopupChipSettings.notifiesKey, PopupChipSettings.positionKey]
+    private let keys = [PopupPolicy.Key.mode, PopupNoticeSettings.notifiesKey]
     private var saved: [String: Any?] = [:]
 
     override func setUp() {
@@ -137,9 +147,9 @@ final class PopupSettingsTests: XCTestCase {
 
     func testTheDependentRowsFollowTheMode() {
         PopupPolicy.setMode(.smart)
-        PopupChipSettings.notifies = true
+        PopupNoticeSettings.notifies = true
         let section = PrivacySection()
-        XCTAssertEqual(section.popupDependents.count, 3)
+        XCTAssertEqual(section.popupDependents.count, 2)
         XCTAssertTrue(section.popupDependents.allSatisfy { !$0.isHidden })
 
         section.setPopupMode(.off)
@@ -153,90 +163,11 @@ final class PopupSettingsTests: XCTestCase {
         XCTAssertTrue(section.popupDependents.allSatisfy { !$0.isHidden })
     }
 
-    /// The position only means something while there is a chip to place.
-    func testThePositionRowFollowsTheNotifySwitch() throws {
-        PopupPolicy.setMode(.smart)
-        PopupChipSettings.notifies = true
-        let section = PrivacySection()
-        let position = try XCTUnwrap(section.positionRow)
-        XCTAssertFalse(position.isHidden)
-        section.setNotifies(false)
-        XCTAssertFalse(PopupChipSettings.notifies)
-        XCTAssertTrue(position.isHidden)
-        XCTAssertFalse(try XCTUnwrap(section.notifyRow).isHidden, "the switch that brings it back went with it")
-        section.filter("")
-        XCTAssertTrue(position.isHidden)
-        section.setNotifies(true)
-        XCTAssertFalse(position.isHidden)
-        section.setPopupMode(.off)
-        XCTAssertTrue(position.isHidden)
-    }
-
     func testTheRowsAreFoundByWhatPeopleCallThem() {
         let index = PrivacySection().searchIndex
-        for term in ["popup", "pop-up", "window", "tab-under", "notify", "notification", "position"] {
+        for term in ["popup", "pop-up", "window", "tab-under", "notify", "notification"] {
             XCTAssertTrue(index.contains { $0.contains(term) }, term)
         }
-    }
-}
-
-/// Where the chip stands, measured against the content area it covers.
-@MainActor
-final class PopupChipPlacementTests: XCTestCase {
-
-    private let size = CGSize(width: 240, height: Tokens.Metric.urlPill.height)
-
-    /// The sidebar layout's content area starts past the sidebar; the top
-    /// bar's is the window's width under the bar. Either way the chip is
-    /// centred on the page and a chrome gap above its foot.
-    func testBottomCentreIsCentredOnTheContentAreaInBothLayouts() {
-        let layouts = [
-            CGRect(x: 280, y: 8, width: 912, height: 760),
-            CGRect(x: 8, y: 8, width: 1184, height: 712)
-        ]
-        for area in layouts {
-            let frame = PopupChip.frame(size: size, in: area, below: nil, position: .bottomCentre)
-            XCTAssertEqual(frame.midX, area.midX, accuracy: 0.5)
-            XCTAssertEqual(frame.minY, area.minY + Tokens.Metric.chromeGap, accuracy: 0.5)
-            XCTAssertEqual(frame.size, size)
-        }
-    }
-
-    /// Under the glyph, when there is one; the glyph means nothing at the foot.
-    func testUnderSiteSettingsStandsUnderTheGlyph() {
-        let area = CGRect(x: 280, y: 8, width: 912, height: 760)
-        let glyph = CGRect(x: 300, y: 780, width: 20, height: 20)
-        let under = PopupChip.frame(size: size, in: area, below: glyph, position: .underSiteSettings)
-        XCTAssertEqual(under.maxY, glyph.minY - Tokens.Metric.chromeGap, accuracy: 0.5)
-        XCTAssertGreaterThanOrEqual(under.minX, area.minX)
-        let foot = PopupChip.frame(size: size, in: area, below: glyph, position: .bottomCentre)
-        XCTAssertEqual(foot.midX, area.midX, accuracy: 0.5)
-    }
-
-    /// A sidebar drag or a window resize moves the page; the chip goes with it.
-    func testBottomCentreFollowsTheContentArea() throws {
-        let host = NSWindow(
-            contentRect: NSRect(x: -20_000, y: -20_000, width: 1200, height: 800),
-            styleMask: [.borderless], backing: .buffered, defer: false
-        )
-        host.isReleasedWhenClosed = false
-        defer { host.close() }
-        let root = NSView(frame: NSRect(x: 0, y: 0, width: 1200, height: 800))
-        host.contentView = root
-        let page = NSView(frame: NSRect(x: 280, y: 0, width: 920, height: 800))
-        root.addSubview(page)
-
-        let chip = PopupChip()
-        chip.present(URL(string: "https://ads.example.net/")!, in: host, over: page, position: .bottomCentre)
-        func pageOnScreen() -> CGRect { host.convertToScreen(page.convert(page.bounds, to: nil)) }
-        var panel = try XCTUnwrap(chip.panel).frame
-        XCTAssertEqual(panel.midX, pageOnScreen().midX, accuracy: 0.5)
-
-        page.frame = NSRect(x: 420, y: 0, width: 780, height: 800)
-        panel = try XCTUnwrap(chip.panel).frame
-        XCTAssertEqual(panel.midX, pageOnScreen().midX, accuracy: 0.5, "the chip stayed where the page was")
-        XCTAssertEqual(panel.minY, pageOnScreen().minY + Tokens.Metric.chromeGap, accuracy: 0.5)
-        chip.dismiss()
     }
 }
 
@@ -251,15 +182,15 @@ final class PopupNotifyTests: XCTestCase {
     override func setUp() async throws {
         directory = URL.temporaryDirectory.appending(path: "luna-popup-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        saved = UserDefaults.standard.object(forKey: PopupChipSettings.notifiesKey)
+        saved = UserDefaults.standard.object(forKey: PopupNoticeSettings.notifiesKey)
     }
 
     override func tearDown() async throws {
-        UserDefaults.standard.set(saved, forKey: PopupChipSettings.notifiesKey)
+        UserDefaults.standard.set(saved, forKey: PopupNoticeSettings.notifiesKey)
         try? FileManager.default.removeItem(at: directory)
     }
 
-    func testNotifyOffRecordsTheBlockAndShowsNoChip() async throws {
+    func testNotifyOffRecordsTheBlockAndShowsNoNotice() async throws {
         let store = try BrowserStore(path: directory.appending(path: "luna.sqlite"))
         try await store.seedIfEmpty()
         let session = try await BrowserSession.restored(store: store)
@@ -274,15 +205,15 @@ final class PopupNotifyTests: XCTestCase {
         let controller = try XCTUnwrap(session.controller(for: id))
         let url = URL(string: "https://ads.example.net/")!
 
-        PopupChipSettings.notifies = false
+        PopupNoticeSettings.notifies = false
         controller.noteBlockedPopup(url)
         XCTAssertEqual(controller.popups.blocked.first?.url, url)
-        XCTAssertFalse(session.popupChip.isShowing)
+        XCTAssertNil(session.popupNotice.toast)
         XCTAssertEqual(session.latestBlockedPopup, url, "the shortcut has nothing to open")
 
-        PopupChipSettings.notifies = true
+        PopupNoticeSettings.notifies = true
         controller.noteBlockedPopup(URL(string: "https://other.example.net/")!)
-        XCTAssertTrue(session.popupChip.isShowing)
-        session.popupChip.dismiss()
+        XCTAssertEqual(session.popupNotice.toast?.text, "Pop-up blocked")
+        session.popupNotice.putAway(in: nil)
     }
 }

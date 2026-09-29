@@ -25,8 +25,8 @@ extension BrowserSession {
         // pointing at coordinates that now belong to someone else's form.
         if activeTabID != id {
             passwordUI.dismissAll()
-            // §17's chip speaks for the tab being left, too.
-            popupChip.dismiss()
+            // §17's notice speaks for the tab being left, too.
+            popupNotice.putAway(in: hostWindow)
         }
         activeTabBySpace[tab.spaceID] = id
         showUnderFoldedFolder(id)

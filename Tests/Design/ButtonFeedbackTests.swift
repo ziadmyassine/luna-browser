@@ -23,7 +23,8 @@
 //  owns its material) in every case. One assertion, no per-control exceptions.
 //
 //  Absent on purpose: §14.3's picker rows — `CredentialRowView` and
-//  `PopoverActionRowView`. They are list rows under CLAUDE.md's rule, not
+//  `PopoverActionRowView` — and Settings' account row, `SettingsAccountRow`,
+//  which heads the section list in the list's own dress. They are list rows under CLAUDE.md's rule, not
 //  buttons: a full-width row growing 5 % reads as the list jumping. They answer
 //  with a hover wash and nothing else, and belong here only if that rule
 //  changes. §14.4's chip is built from `SettingsPushButton`, which is already
@@ -109,9 +110,6 @@ final class ButtonFeedbackTests: XCTestCase {
                 return glyph
             }()),
             ("SettingsChoiceButton", SettingsChoiceButton(title: "Light")),
-            // The account row at the head of Settings' column: a plate of its
-            // own outside the section list, so a button rather than a list row.
-            ("SettingsAccountRow", SettingsAccountRow(name: "Jane Appleseed", picture: nil, status: .off)),
             // Settings ▸ Extensions: a card's Spaces menu, its pin and its "more".
             ("ExtensionCardButton", ExtensionCardButton(symbol: "pin", label: "Pin to the Bar")),
             ("SpaceAppearanceButton", SpaceAppearanceButton()),
@@ -130,6 +128,20 @@ final class ButtonFeedbackTests: XCTestCase {
             }
             XCTAssertEqual(scale(of: button), 1, accuracy: 0.001, "\(name) stays swollen after the release")
         }
+    }
+
+    /// The iCloud page's zone checks: the plate is a row in a card, so it is
+    /// the disc, the thing being set, that swells.
+    func testASyncZoneCheckSwellsItsDisc() {
+        let row = SyncZoneCheckRow(title: "Site settings", detail: "", isOn: false)
+        row.frame = NSRect(x: 0, y: 0, width: 240, height: 36)
+        row.layoutSubtreeIfNeeded()
+        press(row) { held in
+            XCTAssertEqual(held, 1, accuracy: 0.001, "the whole row swelled")
+            XCTAssertEqual(scale(of: row.disc), Tokens.Motion.pressSwell, accuracy: 0.001, "the disc does not swell")
+        }
+        XCTAssertEqual(scale(of: row.disc), 1, accuracy: 0.001, "the disc stayed swollen")
+        XCTAssertTrue(row.isOn, "the press did not tick it")
     }
 
     // MARK: - The controls whose material belongs to a capsule
@@ -200,16 +212,14 @@ final class ButtonFeedbackTests: XCTestCase {
         XCTAssertEqual(scale(of: word), 1, accuracy: 0.001, "a pop-out's text button stays swollen")
     }
 
-    /// §17's pop-up chip: Open and Always Allow. Words on glass, so the
-    /// pop-out's text button, and each one answers on its own.
-    func testThePopupChipsButtonsSwell() {
+    /// A page toast's words — §17's Open and Always Allow. Words on glass, so
+    /// the pop-out's text button, and each one answers on its own.
+    func testAToastsWordsSwell() {
         let swell = Tokens.Motion.pressSwell
-        let chip = PopupChipView(
-            count: 1, url: URL(string: "https://ads.example.net/")!, showsAddress: true, shortcut: "⌥⌘P"
-        )
-        let buttons = descendants(of: chip, ofType: PopoutTextButton.self)
-        XCTAssertEqual(buttons.count, 2, "the chip has lost a button, or grown one this test does not know")
-        for button in buttons {
+        let toast = PageToastView()
+        toast.configure(.popupBlocked(count: 1, address: "ads.example.net", shortcut: "⌥⌘P", open: {}, allow: {}))
+        XCTAssertEqual(toast.buttons.count, 2, "the notice has lost a word, or grown one this test does not know")
+        for button in toast.buttons {
             _ = sized(button, 60)
             button.highlight(true)
             XCTAssertEqual(scale(of: button), swell, accuracy: 0.001, "\(button.title) does not swell")

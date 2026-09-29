@@ -42,8 +42,6 @@ final class PrivacySection: SettingsSection {
     /// The rows that mean nothing while pop-ups are not blocked at all.
     private(set) var popupDependents: [NSView] = []
     private(set) var notifyRow: NSView?
-    /// Hidden with the chip it places, as well as with the mode.
-    private(set) var positionRow: NSView?
 
     var view: NSView { body.view }
     var searchIndex: [String] { body.searchIndex }
@@ -52,7 +50,7 @@ final class PrivacySection: SettingsSection {
         body.filter(query)
         // The search shows whatever matches; a row the mode has put away stays
         // away.
-        if PopupPolicy.mode() == .off || !PopupChipSettings.notifies { refreshPopupRows() }
+        if PopupPolicy.mode() == .off || !PopupNoticeSettings.notifies { refreshPopupRows() }
     }
 
     init() {
@@ -117,35 +115,23 @@ final class PrivacySection: SettingsSection {
         }
 
         let notifyTitle = String(localized: "Notify when a pop-up is blocked")
-        let notify = SettingsRow.toggle(notifyTitle, value: PopupChipSettings.notifies) { [weak self] on in
+        let notify = SettingsRow.toggle(notifyTitle, value: PopupNoticeSettings.notifies) { [weak self] on in
             self?.setNotifies(on)
-        }
-        let places = PopupChipPosition.allCases
-        let positionTitle = String(localized: "Notification position")
-        let position = SettingsRow.popup(
-            positionTitle,
-            options: places.map(\.title),
-            selected: places.firstIndex(of: PopupChipSettings.position) ?? 0
-        ) { index in
-            guard places.indices.contains(index) else { return }
-            PopupChipSettings.position = places[index]
         }
 
         notifyRow = notify
-        positionRow = position
-        popupDependents = [notify, position, address]
+        popupDependents = [notify, address]
         refreshPopupRows()
         let terms = Self.popupTerms + ["blocking"]
         return [
             (mode, [title] + modes.map(\.title) + terms),
-            (notify, [notifyTitle, "chip", "alert"] + terms),
-            (position, [positionTitle, "position", "bottom", "centre", "center"] + places.map(\.title) + terms),
+            (notify, [notifyTitle, "notification", "toast", "alert"] + terms),
             (address, [addressTitle, "host", "url"] + terms)
         ]
     }
 
     func setNotifies(_ on: Bool) {
-        PopupChipSettings.notifies = on
+        PopupNoticeSettings.notifies = on
         refreshPopupRows()
     }
 
@@ -157,7 +143,6 @@ final class PrivacySection: SettingsSection {
     private func refreshPopupRows() {
         let off = PopupPolicy.mode() == .off
         for row in popupDependents { row.isHidden = off }
-        if !PopupChipSettings.notifies { positionRow?.isHidden = true }
     }
 
     private func httpsOnlyRow() -> (view: NSView, terms: [String]) {
@@ -268,15 +253,6 @@ final class PrivacySection: SettingsSection {
             for store in stores {
                 await store.removeData(ofTypes: types, modifiedSince: .distantPast)
             }
-        }
-    }
-}
-
-private extension PopupChipPosition {
-    var title: String {
-        switch self {
-        case .underSiteSettings: String(localized: "Under site settings")
-        case .bottomCentre: String(localized: "Bottom centre of page")
         }
     }
 }

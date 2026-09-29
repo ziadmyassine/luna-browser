@@ -274,6 +274,10 @@ extension Tokens {
         /// measured: long enough to read three words twice, short enough to be
         /// gone before the next command. A new toast restarts it.
         static let toastDwell: TimeInterval = 1.6
+        /// A toast that offers a word — Open, Always Allow — stays as long as
+        /// the chips it replaced did: long enough to reach a button, and it
+        /// waits while the pointer is on it.
+        static let toastActionDwell: TimeInterval = 12
         /// One lap of each of the moon's two orbits. Slow enough to read as
         /// drift rather than as something to watch.
         static let innerOrbitLap: TimeInterval = 24

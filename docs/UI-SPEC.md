@@ -36,7 +36,7 @@ sidebar's own content reflows. The ratios exist to fix proportions once, not to 
 | `sidebarFootWidth` — what §3.5's foot occupies, derived | 190 pt | — |
 | `rowHeight` (pitch) | 38 pt | 40 |
 | `rowGap` / `rowPillHeight` (the drawn pill) | 3 / 35 pt | 4 / — |
-| `tabRowHeight` / `tabRowPillInset` — the sidebar's tab list only | **39** / 2 pt, so 4 pt between tabs | 38 / 1.5 |
+| `tabRowHeight` / `tabRowPillInset` — the sidebar's tab list and Settings' section list | **39** / 2 pt, so 4 pt between tabs | 38 / 1.5 |
 | `rowInset` (pill inset from sidebar edge) | 8 pt | — |
 | `faviconSize` | 16 pt | 18 |
 | `rowCornerRadius` | 12 pt | 10 |
@@ -553,7 +553,7 @@ Three bands, top to bottom:
 | Share… | page | `NSSharingServicePicker.show(relativeTo:of:preferredEdge:)`, from the sliders glyph |
 | Copy Link | page | `NSPasteboard` — URL **and** string, so a plain text field gets the address |
 | Clear Cache / Clear Cookies | **per site** | `WKWebsiteDataStore.dataRecords`, filtered to this site's registrable domain |
-| More Settings… | app | opens SETTINGS-SPEC §3.9 |
+| More Settings… | app | opens Settings ▸ Privacy & Passwords, where blocking, its exceptions and site data are (was Advanced, which became a group on General) |
 
 - **It stands centred across its glyph**, not hung from the glyph's leading edge, and is kept inside
   the window like every pop-out (`PopoutPanelView.centresOnAnchor`). Hung from the edge, a panel from a
@@ -1048,7 +1048,8 @@ section labels anywhere else.
 ### 3.4 List rows — 38 pt of pitch around a 35 pt pill
 > **The sidebar's tab list is 1 pt looser (2026-09-28).** Its rows are `tabRowHeight`, 39 pt, round
 > the same 35 pt pill, so two tabs stand 4 pt apart rather than 3. Asked for as a very small
-> increase and kept to the tab list: Settings, History, the Command Bar and the pop-outs keep 38.
+> increase and kept to the tab list and Settings' section list, which is the same list with sections
+> where the tabs are (since 2026-09-29): History, the Command Bar and the pop-outs keep 38.
 Order: §3.4b's pinned folders → **separator** → `New Tab` row → tabs.
 > **The rule moved and the command moved with it.** It used to close off a leading command
 > group: `New Tab`, rule, tabs. §3.4b gave the space above it a job — the pinned folders — so the
@@ -2471,6 +2472,32 @@ Edge and Firefox start.
 **Prompts** are the system's alert with the extension's icon, because consent is not the place to be
 novel. The install prompt lists what the extension can do in Chrome's words, where it will run, and
 what Luna does not support. A runtime request is Allow or Don't Allow for the whole request.
+
+## 5c. Toasts — one pill for news over the page
+
+**Luna has one toast: `PageToast`** (`UI/Toast/PageToast.swift`). Anything that tells the user
+something happened, over the page, is one of these — never a panel, chip or banner of its own.
+
+- **Shape.** A glass pill (`Glass.popover`), `Tokens.Agent.capsuleHeight` tall, fully round, centred
+  on the page. It drops from under the bar on `Motion.agentSheet`, stays, and goes back up the way it
+  came. A second toast rewrites the one that is down; toasts never stack.
+- **Content.** One line: an SF Symbol, the news at `Text.primary`, and optionally a `detail` at
+  `Text.secondary` (a host, a name) that truncates in the middle before the news gives way.
+- **Words.** News that offers an answer carries it as `actions`: `PopoutTextButton`s on the same
+  pill, at the news's own ink and size (at secondary ink they read as disabled). Only the words take
+  the pointer; the rest of the pill leaves clicks to the page. Using a word takes the toast up.
+- **Dwell.** `Motion.toastDwell` (1.6 s) for news; `Motion.toastActionDwell` (12 s) when it has
+  words, and it waits while the pointer is on it. An instruction for a mode (`hidingStarted`) stays
+  until the mode ends and puts it away.
+- **VoiceOver** hears every toast as a high-priority announcement.
+- **Adding one** is a `static` on `PageToast` and a `.show(in:)` call. Current ones: link and markdown
+  copied, zoom, Favorites, archived tabs, JavaScript and user agent (Develop menu), caches emptied,
+  Picture in Picture, Reader, hiding parts of a page, and §17's blocked pop-ups
+  (`PageToast.popupBlocked`, Open and Always Allow; it was a floating chip with a placement setting
+  until 2026-09-29).
+- **Not a toast:** a question that needs reading and more than two answers — §14.4's save-password
+  chip (two lines, Save / Never / Not Now) and Luna Control's approval card. Those are prompts, and
+  keep their own surfaces.
 
 ## 6. Motion
 

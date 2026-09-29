@@ -2,8 +2,8 @@
 //  ChipPanel.swift
 //  Luna
 //
-//  The panel under the two chips that float over the page: §17's pop-up chip
-//  and §14.4's save chip.
+//  The panel under the chip that floats over the page: §14.4's save chip.
+//  §17's pop-up chip stood on it too, until it became a page toast.
 //
 //  A panel resolves its appearance from the app, not from the window it is a
 //  child of. The browser window, and a page bar that dresses itself for the

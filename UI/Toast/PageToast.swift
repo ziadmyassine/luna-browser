@@ -2,21 +2,59 @@
 //  PageToast.swift
 //  Luna
 //
-//  One line of feedback for a command that changes nothing on screen: a
-//  copied link, a zoom step, a switch in the Develop menu. A glass pill that
-//  drops from the page's top edge the way a Luna Control question does,
-//  stays a moment and goes back up. It sits on `ControlSurfaceView`, the
-//  layer over the page that already knows where the bar ends and what colour
-//  the page is.
+//  One line of feedback over the page: a copied link, a zoom step, a switch
+//  in the Develop menu, a blocked pop-up. A glass pill that drops from the
+//  page's top edge the way a Luna Control question does, stays a moment and
+//  goes back up. It sits on `ControlSurfaceView`, the layer over the page that
+//  already knows where the bar ends and what colour the page is.
+//
+//  It is Luna's one toast (CLAUDE.md, "One toast"). News that offers an answer
+//  — Open, Always Allow — carries it as `actions`, words on the same pill,
+//  and stays until the pointer has had time to reach them.
 //
 
 import AppKit
 import BrowserKit
 
-/// What a toast says.
+/// What a toast says, and what it offers.
 struct PageToast: Equatable {
+
+    /// A word on the pill that does something. The toast goes back up once
+    /// it has run.
+    struct Action {
+        let title: String
+        /// What VoiceOver says, when the title alone is not a sentence.
+        var label: String?
+        var toolTip: String?
+        let run: @MainActor () -> Void
+    }
+
     let symbol: String
     let text: String
+    /// A second, quieter part of the line: a host, a name. Truncated in the
+    /// middle before the text gives way.
+    var detail: String?
+    var actions: [Action] = []
+
+    init(symbol: String, text: String, detail: String? = nil, actions: [Action] = []) {
+        self.symbol = symbol
+        self.text = text
+        self.detail = detail
+        self.actions = actions
+    }
+
+    /// Two toasts are the same news when they say the same thing; the
+    /// closures behind their words cannot be compared, and need not be.
+    static func == (lhs: PageToast, rhs: PageToast) -> Bool {
+        lhs.symbol == rhs.symbol && lhs.text == rhs.text && lhs.detail == rhs.detail
+            && lhs.actions.map(\.title) == rhs.actions.map(\.title)
+    }
+
+    /// How long it stays once down: a glance for news, long enough to reach a
+    /// word for news that offers one.
+    var dwell: TimeInterval {
+        actions.isEmpty ? Tokens.Motion.toastDwell : Tokens.Motion.toastActionDwell
+    }
 
     static let linkCopied = PageToast(symbol: "link", text: String(localized: "Link copied"))
     static let markdownCopied = PageToast(symbol: "doc.on.clipboard", text: String(localized: "Markdown link copied"))
@@ -102,13 +140,23 @@ struct PageToast: Equatable {
     }
 }
 
-/// The pill. Takes no clicks: it is there to be read, and the page under it
-/// keeps them.
+/// The pill. Takes no clicks but its words': it is there to be read, and the
+/// page under it keeps the rest.
 @MainActor
 final class PageToastView: NSView {
 
+    /// The pointer came onto the pill or left it, which holds its dwell.
+    var onHoverChanged: ((Bool) -> Void)?
+    /// A word was pressed and its action has run.
+    var onActed: (() -> Void)?
+
     private let icon = NSImageView()
     private let label = NSTextField(labelWithString: "")
+    let detail = NSTextField(labelWithString: "")
+    private let row = NSStackView()
+    private(set) var buttons: [PopoutTextButton] = []
+    /// The dwell of the toast it is showing, for the hover to restart.
+    var dwell = Tokens.Motion.toastDwell
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -118,8 +166,14 @@ final class PageToastView: NSView {
         Glass.apply(.popover, to: self, cornerRadius: height / 2).pinToEdges()
         label.font = Tokens.TypeScale.settingsRow
         label.textColor = Tokens.Text.primary
+        label.setContentCompressionResistancePriority(.required, for: .horizontal)
+        detail.font = Tokens.TypeScale.settingsRow
+        detail.textColor = Tokens.Text.secondary
+        detail.lineBreakMode = .byTruncatingMiddle
+        detail.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        detail.widthAnchor.constraint(lessThanOrEqualToConstant: Tokens.Metric.urlPill.width / 2).isActive = true
         icon.contentTintColor = Tokens.Text.primary
-        let row = NSStackView(views: [icon, label])
+        row.setViews([icon, label, detail], in: .leading)
         row.orientation = .horizontal
         row.spacing = Tokens.Metric.chromeGap
         row.alignment = .centerY
@@ -147,9 +201,48 @@ final class PageToastView: NSView {
         icon.image = NSImage(systemSymbolName: toast.symbol, accessibilityDescription: nil)?
             .withSymbolConfiguration(size)
         label.stringValue = toast.text
+        detail.stringValue = toast.detail ?? ""
+        detail.isHidden = toast.detail == nil
+        for button in buttons { row.removeView(button) }
+        buttons = toast.actions.map { action in
+            // At the text's own ink and size: at a header's secondary ink the
+            // words read as disabled beside the news they answer.
+            let button = PopoutTextButton(
+                title: action.title,
+                label: action.label ?? action.title,
+                restingInk: Tokens.Text.primary,
+                font: Tokens.TypeScale.settingsRow
+            )
+            button.toolTip = action.toolTip
+            button.onActivate = { [weak self] in
+                action.run()
+                self?.onActed?()
+            }
+            row.addView(button, in: .leading)
+            return button
+        }
+        // The words carry their own padding, so the pill's trailing inset is
+        // a chrome gap less beside them.
+        let height = Tokens.Agent.capsuleHeight
+        row.edgeInsets.right = buttons.isEmpty ? height / 2 : height / 2 - Tokens.Metric.chromeGap
     }
 
-    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    /// Only the words take the pointer.
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard !buttons.isEmpty, let hit = super.hitTest(point) else { return nil }
+        return buttons.contains { hit === $0 || hit.isDescendant(of: $0) } ? hit : nil
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas where area.owner === self { removeTrackingArea(area) }
+        addTrackingArea(NSTrackingArea(
+            rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self
+        ))
+    }
+
+    override func mouseEntered(with event: NSEvent) { onHoverChanged?(true) }
+    override func mouseExited(with event: NSEvent) { onHoverChanged?(false) }
 }
 
 extension ControlSurfaceView {
@@ -164,6 +257,15 @@ extension ControlSurfaceView {
             Tokens.Motion.immediately { layoutSubtreeIfNeeded() }
         } else {
             view = PageToastView()
+            view.onHoverChanged = { [weak self, weak view] hovering in
+                guard let self, let view, self.toast === view else { return }
+                if hovering {
+                    self.toastDismissal?.cancel()
+                } else {
+                    self.scheduleToastDismissal(after: view.dwell)
+                }
+            }
+            view.onActed = { [weak self] in self?.hideToast() }
             view.configure(toast)
             view.alphaValue = 0
             addSubview(view)
@@ -182,10 +284,16 @@ extension ControlSurfaceView {
             element: view, notification: .announcementRequested,
             userInfo: [.announcement: toast.text, .priority: NSAccessibilityPriorityLevel.high.rawValue]
         )
+        view.dwell = toast.dwell
         toastDismissal?.cancel()
         guard dwells else { return }
+        scheduleToastDismissal(after: toast.dwell)
+    }
+
+    private func scheduleToastDismissal(after dwell: TimeInterval) {
+        toastDismissal?.cancel()
         toastDismissal = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(Tokens.Motion.toastDwell))
+            try? await Task.sleep(for: .seconds(dwell))
             guard !Task.isCancelled else { return }
             self?.hideToast()
         }
