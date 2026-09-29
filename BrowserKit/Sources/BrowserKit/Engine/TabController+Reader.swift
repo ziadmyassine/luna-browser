@@ -16,6 +16,24 @@ extension TabController {
 
     public var isReaderOn: Bool { readerIsOn }
 
+    /// Whether Reader would find an article here, asked once per load from
+    /// `didFinish` rather than on every mutation. A page that grows its article
+    /// later is missed; Reader from the menu still finds it.
+    func probeForArticle() {
+        guard let webView, let page = webView.url, markdownDocument == nil, !readerIsOn,
+              ["http", "https", "file"].contains(page.scheme ?? "")
+        else { return }
+        webView.callAsyncJavaScript(
+            Self.articleScript + "\nreturn !!article && best >= 20;",
+            arguments: [:],
+            in: nil,
+            in: .defaultClient
+        ) { [weak self] result in
+            guard let self, self.webView?.url == page else { return }
+            isArticle = (try? result.get()) as? Bool ?? false
+        }
+    }
+
     public func toggleReader(_ done: @escaping @MainActor (ReaderAnswer) -> Void) {
         guard let webView else { return }
         guard !readerIsOn else {
@@ -44,14 +62,10 @@ extension TabController {
     /// share of its text is links — menus, related-story rails and comment threads
     /// are made of links, and prose is not.
     ///
-    /// Pictures are resolved before the page is taken down. `currentSrc` is the image
-    /// the page actually chose after `srcset` and `<picture>`; the markup alone is a
-    /// lazy placeholder as often as not.
-    ///
-    /// The page's scripts keep running, so an observer takes away anything they add
-    /// afterwards — a cookie bar that arrives late, a paywall overlay.
-    static let readerScript = """
-    if (document.getElementById('luna-reader')) { return 'on'; }
+    /// A declaration of `article`, `best` and `scores`, shared by Reader and by
+    /// `probeForArticle`, so the glyph never offers Reader on a page Reader
+    /// would then call empty.
+    static let articleScript = """
     var hints = { bad: /comment|meta|footer|footnote|sidebar|share|social|related|promo|newsletter|subscribe|advert|sponsor|popup|cookie/i,
                   good: /article|body|content|entry|main|post|story|text|prose/i };
 
@@ -83,6 +97,19 @@ extension TabController {
       var final = score * (1 - linkShare(el));
       if (final > best) { best = final; article = el; }
     });
+    """
+
+    /// Pictures are resolved before the page is taken down. `currentSrc` is the image
+    /// the page actually chose after `srcset` and `<picture>`; the markup alone is a
+    /// lazy placeholder as often as not.
+    ///
+    /// The page's scripts keep running, so an observer takes away anything they add
+    /// afterwards — a cookie bar that arrives late, a paywall overlay.
+    static let readerScript = """
+    if (document.getElementById('luna-reader')) { return 'on'; }
+
+    """ + articleScript + """
+
     if (!article || best < 20) { return 'none'; }
 
     var late = ['data-src', 'data-original', 'data-lazy-src', 'data-lazy', 'data-full-src', 'data-hi-res-src'];

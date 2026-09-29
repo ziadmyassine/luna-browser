@@ -615,6 +615,38 @@ Three bands, top to bottom:
 - **A disabled caption needs no quieter ink.** AppKit dims the whole item, attached glyph included;
   applying secondary ink on top of that reads as faded rather than quiet. Measured, both ways.
 
+##### 3.2a.i Reading — the Aa pop-out (TODO §18.3, §18.9)
+
+How a reading page is set. Same `SiteSettingsPanel`, row for row, so everything above about the
+panel's material, 280 pt width, 52 pt header, 38 pt rows, 17.5 pt glyph column and 45.5 pt title
+inset holds here; `UI/Popout/ReadingMenu.swift` supplies the content.
+
+- **The glyph.** `textformat.size`, a `RowGlyphView` on the URL pill between the address and reload
+  (sliders < address < Aa < reload, measured by minX). It shows on a Markdown document, on a page with
+  Reader on, and on a page Reader would find an article on — Reader's own scoring, run once per load
+  after `didFinish` in `.defaultClient` (`TabController.probeForArticle`), so the glyph never offers
+  Reader on a page Reader would then call empty.
+- **Rows.** Markdown: View (Read · Source, plus Edit for a local UTF-8 file), then Font, Text Size,
+  Width, Page; Outline and Wrap Long Lines switches; Show in Finder / Open With… for a local file, Save
+  to Downloads / Copy Markdown for a web one. Reader on: the four style rows only. Article page with
+  Reader off: the four style rows and Show Reader, so the choice is made before the page changes.
+- **Font** labels are set in their own face (serif, system, mono). **Text Size** is A− · size · A+,
+  clamped 14…28. **Page** is `SpaceSwatchChip`s — Match (Paper running into Night), Paper, Sepia,
+  Night — answering with their ring, per §6.
+- **Width segments are pictures**, `rectangle.portrait` · `square` · `rectangle`, not words:
+  "Narrow · Medium · Wide" measured about 211 pt against about 180 pt of room beside the row title.
+  The words stay as each segment's accessibility label.
+- **Mutual close.** Opening this pop-out dismisses site settings, and site settings dismiss this; both
+  stand on the same pill and only one is ever up.
+- **Every control writes `ReadingPreferences` at once** and restyles the tab; other reading tabs and
+  other Macs (through `SyncedDefaults`) follow the stored defaults.
+- **Edit.** Switching views never reloads — every rendering is in the document. Typing updates the
+  preview and marks the tab edited; it autosaves 1 s after the last keystroke, on leaving Edit, and on
+  close, quit or navigate. ⌘S saves in Edit, whatever the sidebar toggle is bound to, and keeps its
+  usual meaning outside Edit. ⌘Z / ⇧⌘Z walk the editor's own undo list, which survives an autosave, a
+  ⌘S and a Read↔Edit round trip, and never reach the session's list (a hidden element, a closed tab).
+  CRLF line endings are kept; a change on disk is detected and never overwritten.
+
 #### 3.2b Page bar — the pill and §3.1's three circles, on a bar over the page
 `Settings ▸ Appearance ▸ Search bar` (SETTINGS-SPEC §3.2) moves the pill out of the sidebar and onto a
 bar across the top of the content pane, taking the sidebar toggle and the back/forward cluster with it —

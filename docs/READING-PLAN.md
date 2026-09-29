@@ -127,3 +127,33 @@ Total ~39 h.
 - Very large files: cap live highlighting above ~5,000 lines.
 - Generalising `SiteSettingsPanel` touches tested code — its tests stay green.
 - Non-UTF-8 files open read-only.
+
+## Test status
+
+Phase 1's tests ran green: 1229 tests, 0 failures. Phases 2–7's tests are
+written but not run. Some may fail on the first run.
+
+| Phase | Test files |
+|---|---|
+| 2 | `BrowserKitTests/ReadingSurfaceTests`, `PageToolsTests`, `InternalPagesTests`; `Tests/InternalPages/InternalPageThemeTests` |
+| 3 | `BrowserKitTests/MarkdownHTMLTests`, `MarkdownSourceTests`, `MarkdownDocumentTests`, `SyntaxHighlighterTests` |
+| 4 | `BrowserKitTests/MarkdownPageTests` |
+| 5 | `MarkdownPageTests` (pill state); `Tests/Popout/ReadingPanelTests`, `Tests/Design/ButtonFeedbackTests`, `Tests/Toast/PageToastTests` |
+| 6 | `BrowserKitTests/MarkdownEditTests`; `Tests/Browser/MarkdownEditorTests`, `ReadingPanelTests`, `PageToastTests` |
+| 7 | `BrowserKitTests/ArticleProbeTests` |
+
+Check these risks first when you run them:
+
+- Local sibling images under `load(data, baseURL:)`: the file read access
+  is unverified (`testASiblingImageLoads`). If it fails, fall back to
+  `loadFileURL` with an in-place rewrite.
+- `markdownDocument` after a back/forward-cache restore, which may skip the
+  navigation that sets it.
+- WebKit's own typing may land on the web view's undo manager instead of
+  the editor's list.
+- ⌘S may reach `LunaWebView` before the menu does.
+- Closing a tab within 120 ms of a keystroke can lose that keystroke.
+- Phase 4's `MarkdownPageTests` was not compiled at the time. Later phases
+  compiled the test targets.
+- The performance target (a 5,000-line README in under 100 ms) has not been
+  measured.

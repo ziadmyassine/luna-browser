@@ -49,16 +49,17 @@ public final class TabController: NSObject {
 
     /// Whether §17.2's YouTube script is in the current script set — see
     /// `refreshUserScriptsIfNeeded(host:)`, which is the only thing that reads it.
-    private var youTubeScriptInstalled = false
+    private var youTubeScriptInstalled = false, fileSeedInstalled = false
     /// Whether `FileStorageSeed`'s script is in the set — only while the tab is
     /// on a `file:` page.
-    private var fileSeedInstalled = false
     /// The hidden-elements stylesheet in the current script set, empty when there is
     /// none — see `TabController+Hiding.swift`.
     var hiddenStyleInstalled = ""
     /// Storage for `TabController+Reader.swift` and `TabController+Hiding.swift`,
     /// which cannot carry their own.
     var readerIsOn = false { didSet { publishState() } }
+    /// Storage for `probeForArticle`.
+    var isArticle = false { didSet { publishState() } }
     var picking: ElementPicking?
     /// Storage for `Reading/TabController+Markdown.swift`.
     public internal(set) var markdownDocument: MarkdownDocument? { didSet { publishState() } }
@@ -574,6 +575,7 @@ extension TabController {
 
     func publishState() {
         var next = state
+        next.isArticle = webView != nil && isArticle
         if let webView {
             next.url = webView.url ?? next.url
             // Keep the last non-empty title: a page's title arrives after its first

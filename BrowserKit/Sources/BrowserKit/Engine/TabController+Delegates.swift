@@ -210,6 +210,7 @@ extension TabController: WKNavigationDelegate {
         fallbackURL = webView.url ?? fallbackURL
         refreshFavicon()
         startMarkdownPage()
+        probeForArticle()
     }
 
     /// §14.8's redirect flag starts clean here, and only here.

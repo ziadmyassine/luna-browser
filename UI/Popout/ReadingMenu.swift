@@ -27,8 +27,9 @@ enum ReadingMenu {
     /// Opens the pop-out on `anchor`, or closes it. Site settings stand on the
     /// same pill and answer a different question, so only one is ever up.
     static func present(from anchor: NSView, alignedTo aligned: NSView? = nil) {
-        guard let tab = session?.activeController, tab.state.isReading else { return }
-        let content = content(document: tab.markdownDocument, view: tab.readingView) { [weak tab] preferences in
+        guard let session, let tab = session.activeController, tab.state.isReading || tab.state.isArticle else { return }
+        let showReader: (() -> Void)? = tab.state.isReading ? nil : { [weak session] in session?.toggleReader() }
+        let content = content(document: tab.markdownDocument, view: tab.readingView, showReader: showReader) { [weak tab] preferences in
             tab?.applyReadingPreferences(preferences)
         } setView: { [weak tab] view in
             tab?.setReadingView(view)
@@ -49,10 +50,13 @@ enum ReadingMenu {
     private static var session: BrowserSession? { (NSApp.delegate as? AppDelegate)?.session }
 
     /// What the pop-out shows. `document` is nil on a Reader page, which has
-    /// no source to show and nothing of its own to save.
+    /// no source to show and nothing of its own to save. `showReader` is set on
+    /// an article page with Reader still off; the typography rows are there
+    /// too, so the choice is made before the page changes.
     static func content(
         document: MarkdownDocument?,
         view: ReadingView,
+        showReader: (() -> Void)? = nil,
         defaults: UserDefaults = .standard,
         apply: @escaping (ReadingPreferences) -> Void,
         setView: @escaping (ReadingView) -> Void
@@ -74,6 +78,9 @@ enum ReadingMenu {
         ]
         guard let document else {
             content.controls = [style]
+            if let showReader {
+                content.actions = [[.init(title: String(localized: "Show Reader"), symbol: Glyph.reader, run: showReader)]]
+            }
             return content
         }
         content.controls = [[viewRow(view, editable: document.isEditable, setView)], style]
@@ -257,9 +264,10 @@ enum ReadingMenu {
         static let openWith = "arrow.up.forward.app"
         static let save = "square.and.arrow.down"
         static let copy = "doc.on.doc"
+        static let reader = "doc.plaintext"
         static let widths = ["rectangle.portrait", "square", "rectangle"]
 
-        static let all = [header, view, typeface, size, width, page, outline, wrap, finder, openWith, save, copy] + widths
+        static let all = [header, view, typeface, size, width, page, outline, wrap, finder, openWith, save, copy, reader] + widths
     }
 }
 

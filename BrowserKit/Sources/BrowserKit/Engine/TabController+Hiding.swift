@@ -35,6 +35,7 @@ extension TabController {
 
     /// The reader, the picker and the Markdown document were all things done to a document that has gone.
     func forgetPageTools() {
+        isArticle = false
         readerIsOn = false
         endPicking()
         adoptPendingMarkdown()

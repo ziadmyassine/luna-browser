@@ -30,6 +30,8 @@ public struct TabState: Sendable, Equatable {
     public var isReading: Bool
     /// A Markdown document's editor holds text the file does not have yet.
     public var isEdited: Bool
+    /// Reader would find an article on this page (`probeForArticle`).
+    public var isArticle: Bool
 
     public init(
         url: URL? = nil,
@@ -43,7 +45,8 @@ public struct TabState: Sendable, Equatable {
         hasOnlySecureContent: Bool = false,
         isPlayingAudio: Bool = false,
         isReading: Bool = false,
-        isEdited: Bool = false
+        isEdited: Bool = false,
+        isArticle: Bool = false
     ) {
         self.url = url
         self.title = title
@@ -57,6 +60,7 @@ public struct TabState: Sendable, Equatable {
         self.isPlayingAudio = isPlayingAudio
         self.isReading = isReading
         self.isEdited = isEdited
+        self.isArticle = isArticle
     }
 }
 
