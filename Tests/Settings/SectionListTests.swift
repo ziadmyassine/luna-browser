@@ -37,18 +37,19 @@ final class SettingsSectionListMatchesTheSidebarTests: XCTestCase {
     /// The sidebar's pitch, and the sidebar's paint inside it.
     func testTheListStandsOnTheSidebarsOwnPitch() {
         let list = laidOutList()
-        XCTAssertEqual(SettingsMetrics.sectionRowHeight, Tokens.Metric.rowHeight)
+        XCTAssertEqual(SettingsMetrics.sectionRowHeight, Tokens.Metric.tabRowHeight)
+        XCTAssertEqual(SettingsMetrics.sectionRowGap, 2 * Tokens.Metric.tabRowPillInset)
         XCTAssertEqual(SettingsMetrics.sectionPillHeight, Tokens.Metric.rowPillHeight)
         XCTAssertEqual(
             list.intrinsicContentSize.height,
-            3 * Tokens.Metric.rowHeight - Tokens.Metric.rowGap,
+            3 * SettingsMetrics.sectionRowHeight - SettingsMetrics.sectionRowGap,
             accuracy: 0.001,
             "the list asks for its rows' height — the gap comes out of the last row's pitch"
         )
         let rows = rowViews(list)
         XCTAssertEqual(rows.count, 3)
         XCTAssertEqual(rows[0].frame.height, Tokens.Metric.rowPillHeight, accuracy: 0.001)
-        XCTAssertEqual(rows[1].frame.minY - rows[0].frame.minY, Tokens.Metric.rowHeight, accuracy: 0.001)
+        XCTAssertEqual(rows[1].frame.minY - rows[0].frame.minY, SettingsMetrics.sectionRowHeight, accuracy: 0.001)
     }
 
     /// §3.4's glass, moved — not a wash painted on the row. A row that paints

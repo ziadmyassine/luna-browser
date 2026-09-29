@@ -97,7 +97,10 @@ final class SettingsAccountRowTests: XCTestCase {
         XCTAssertEqual(SettingsAccountRow.initials(of: "  "), "")
     }
 
-    func testTheSubtitleFollowsEveryStatus() {
+    /// The subtitle is a word, not the status: the status lines were cut off
+    /// at the column's width. The status is still the tooltip and what
+    /// VoiceOver reads.
+    func testTheSubtitleSaysICloudAndTheTooltipCarriesTheStatus() {
         let row = SettingsAccountRow(name: "Jane Appleseed", picture: nil, status: .off)
         let statuses: [SyncStatus] = [
             .needsSignedBuild, .off, .syncing, .synced(Date()), .noAccount, .unavailable,
@@ -105,10 +108,12 @@ final class SettingsAccountRowTests: XCTestCase {
         ]
         for status in statuses {
             row.status = status
-            XCTAssertTrue(texts(in: row).contains(status.line()), "the subtitle does not say \(status.line())")
+            XCTAssertTrue(texts(in: row).contains("iCloud"))
+            XCTAssertFalse(texts(in: row).contains(status.line()), "the status is back in the row")
+            XCTAssertEqual(row.toolTip, status.line())
             XCTAssertEqual(row.accessibilityLabel(), "iCloud, Jane Appleseed, \(status.line())")
         }
-        XCTAssertEqual(row.accessibilityRole(), .button)
+        XCTAssertEqual(row.accessibilityRole(), .radioButton)
     }
 
     /// The row in the window reads the same status the page does.
@@ -118,9 +123,29 @@ final class SettingsAccountRowTests: XCTestCase {
         let (controller, root) = try laidOut(sync)
         defer { controller.window?.close() }
         let row = try XCTUnwrap(descendants(of: root, ofType: SettingsAccountRow.self).first)
-        XCTAssertTrue(texts(in: row).contains("iCloud sync off"))
+        XCTAssertEqual(row.toolTip, "iCloud sync off")
         sync.status = .offline
-        XCTAssertTrue(texts(in: row).contains(SyncStatus.offline.line()))
+        XCTAssertEqual(row.toolTip, SyncStatus.offline.line())
+    }
+
+    // MARK: - Style
+
+    /// A row of the list under it, not a card: no plate or border of its own,
+    /// no swell, and the list's glass pill while its page is showing.
+    func testItIsDressedAsAListRow() throws {
+        let row = SettingsAccountRow(name: "Jane Appleseed", picture: nil, status: .off)
+        row.frame = NSRect(x: 0, y: 0, width: 240, height: SettingsMetrics.accountRowHeight)
+        row.layoutSubtreeIfNeeded()
+        XCTAssertEqual(row.layer?.borderWidth ?? 0, 0, "the row has a border")
+        XCTAssertNil(row.layer?.backgroundColor, "the row has a plate")
+        let pills = descendants(of: row, ofType: RowPillView.self)
+        XCTAssertEqual(pills.count, 2, "the row does not carry the list's two fills")
+        XCTAssertTrue(pills.allSatisfy { $0.alphaValue == 0 }, "a fill shows on a row nobody chose")
+
+        row.isOn = true
+        row.layoutSubtreeIfNeeded()
+        XCTAssertTrue(pills.contains { $0.alphaValue > 0 && $0.frame == row.bounds }, "no pill under the chosen row")
+        XCTAssertEqual(row.layer?.affineTransform() ?? .identity, .identity, "the row swelled")
     }
 
     // MARK: - Opening the page

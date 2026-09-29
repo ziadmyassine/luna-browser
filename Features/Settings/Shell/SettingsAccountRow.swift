@@ -3,13 +3,18 @@
 //  Luna
 //
 //  The account row at the head of Settings' column, between the search field
-//  and the section list: the user's picture, their name, and what iCloud sync
-//  is doing (docs/SYNC-PLAN.md §5). It opens the iCloud page.
+//  and the section list: the user's picture, their name and "iCloud", as
+//  macOS's own settings head their column. It opens the iCloud page.
 //
-//  A button, not a list row (CLAUDE.md): it stands on a plate of its own
-//  outside `SettingsSectionList`, so it answers with the wash and the swell
-//  rather than the list's sliding pill. While its page is showing it holds
-//  the press's wash, as a chosen `ExtensionCardButton` does.
+//  A list row, not a button (CLAUDE.md): it answers the pointer the way the
+//  section rows under it do — no plate of its own, `RowPillView`'s glass on
+//  hover and while its page is showing, and no swell. It had a bordered plate
+//  that swelled, and it read as a card dropped on the column rather than the
+//  first entry in it.
+//
+//  The subtitle is "iCloud", not the sync status: every status line but two
+//  was cut off at the column's width. The status is the page's first row,
+//  and the row's tooltip.
 //
 
 import AppKit
@@ -26,28 +31,25 @@ final class SettingsAccountRow: NSView {
 
     var status: SyncStatus { didSet { describe() } }
 
+    /// The section list's two fills, on the same terms: the selected pill
+    /// while the page is showing, the hover lift otherwise.
+    private let selectionPill = RowPillView(role: .selected)
+    private let hoverPill = RowPillView(role: .hover)
     private let name: String
     private let avatar = NSView()
     private let nameLabel: NSTextField
-    private let subtitle = NSTextField(labelWithString: "")
+    private let subtitle = NSTextField(labelWithString: String(localized: "iCloud"))
     private var isHovering = false { didSet { if isHovering != oldValue { refresh() } } }
-    private var isPressed = false {
-        didSet {
-            guard isPressed != oldValue else { return }
-            refresh()
-            Tokens.Motion.swell(self, to: isPressed ? Tokens.Motion.pressSwell : 1)
-        }
-    }
 
     init(name: String = NSFullUserName(), picture: NSImage? = SettingsAccountRow.loginPicture(), status: SyncStatus) {
         self.name = name
         self.status = status
         nameLabel = NSTextField(labelWithString: name)
         super.init(frame: .zero)
-        wantsLayer = true
-        layer?.cornerCurve = .continuous
-        layer?.cornerRadius = SettingsMetrics.rowCornerRadius
-        layer?.borderWidth = Tokens.Metric.hairline
+        for pill in [selectionPill, hoverPill] {
+            pill.alphaValue = 0
+            addSubview(pill)
+        }
 
         avatar.wantsLayer = true
         avatar.layer?.cornerRadius = SettingsMetrics.accountAvatar / 2
@@ -74,7 +76,8 @@ final class SettingsAccountRow: NSView {
         for view in [avatar, nameLabel, subtitle] { addSubview(view) }
 
         setAccessibilityElement(true)
-        setAccessibilityRole(.button)
+        setAccessibilityRole(.radioButton)
+        setAccessibilityValue(false)
         describe()
         refresh()
     }
@@ -107,7 +110,7 @@ final class SettingsAccountRow: NSView {
     }
 
     private func describe() {
-        subtitle.stringValue = status.line()
+        toolTip = status.line()
         setAccessibilityLabel(String(localized: "iCloud, \(name), \(status.line())"))
     }
 
@@ -116,6 +119,7 @@ final class SettingsAccountRow: NSView {
     override func layout() {
         super.layout()
         Tokens.Motion.immediately {
+            for pill in [selectionPill, hoverPill] where pill.alphaValue > 0 { pill.move(to: bounds, spec: nil) }
             let side = SettingsMetrics.accountAvatar
             let margin = ((bounds.height - side) / 2).rounded()
             avatar.frame = NSRect(x: margin, y: margin, width: side, height: side)
@@ -135,15 +139,27 @@ final class SettingsAccountRow: NSView {
 
     // MARK: - Ink
 
+    /// The section rows' hierarchy: full-strength ink for the selected row
+    /// only, and the subtitle a step under whatever the name is set in.
     private func refresh() {
-        nameLabel.textColor = Tokens.Text.primary
-        subtitle.textColor = Tokens.Text.secondary
+        setAccessibilityValue(isOn)
+        nameLabel.textColor = isOn ? Tokens.Text.primary : Tokens.Text.secondary
+        subtitle.textColor = Tokens.Text.tertiary
         (avatar.subviews.first as? NSTextField)?.textColor = Tokens.Accent.onTint
-        let fill: NSColor? = isOn || isPressed ? Tokens.Surface.selected : (isHovering ? Tokens.Surface.hover : nil)
         effectiveAppearance.performAsCurrentDrawingAppearance {
-            self.layer?.borderColor = Tokens.Line.border.cgColor
             self.avatar.layer?.backgroundColor = Tokens.Accent.tint.cgColor
-            Tokens.Motion.wash(self.layer, to: fill)
+        }
+        show(selectionPill, isOn, spec: Tokens.Motion.selectedRowMove)
+        // Never both: a hover lift under the selected pill is a second wash on
+        // a row that already has one.
+        show(hoverPill, isHovering && !isOn, spec: Tokens.Motion.rowHover)
+    }
+
+    private func show(_ pill: RowPillView, _ shown: Bool, spec: MotionSpec) {
+        if shown {
+            pill.move(to: bounds, spec: spec)
+        } else {
+            pill.fade(to: 0)
         }
     }
 
@@ -173,17 +189,8 @@ final class SettingsAccountRow: NSView {
     override func mouseEntered(with event: NSEvent) { isHovering = true }
     override func mouseExited(with event: NSEvent) { isHovering = false }
 
-    override func mouseDown(with event: NSEvent) { isPressed = true }
-
-    override func mouseDragged(with event: NSEvent) {
-        isPressed = bounds.contains(convert(event.locationInWindow, from: nil))
-    }
-
-    override func mouseUp(with event: NSEvent) {
-        let inside = isPressed
-        isPressed = false
-        if inside { onActivate?() }
-    }
+    /// On the way down, as a section row picks its page.
+    override func mouseDown(with event: NSEvent) { onActivate?() }
 
     override func accessibilityPerformPress() -> Bool {
         onActivate?()

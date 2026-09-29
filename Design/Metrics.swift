@@ -174,9 +174,9 @@ extension Tokens {
         static let rowPillHeight = rowHeight - rowGap
         /// The sidebar's tab list: `rowHeight` and 1 pt more, the pill kept at
         /// `rowPillHeight`, so a tab stands 4 pt clear of the next rather than
-        /// 3. A requested nudge rather than a measurement, and the tab list's
-        /// alone — Settings, History, the Command Bar and the pop-outs keep
-        /// §3.4's measured 38.
+        /// 3. A requested nudge rather than a measurement. Settings' section
+        /// list follows it, being the same list; History, the Command Bar and
+        /// the pop-outs keep §3.4's measured 38.
         static let tabRowHeight = rowHeight + 1
         /// What the tab list insets a pill by, top and bottom: half the room
         /// `tabRowHeight` leaves round `rowPillHeight`.

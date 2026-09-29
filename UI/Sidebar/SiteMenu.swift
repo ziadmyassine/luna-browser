@@ -39,6 +39,9 @@ enum SiteMenu {
 
     static let controller = SiteSettingsController()
 
+    /// The page "More Settings…" opens.
+    static let moreSettingsSection = PrivacySection.id
+
     /// What the pop-out shows for whatever page is on screen right now. Built
     /// fresh every time: every row in it is a statement about the current tab,
     /// and one held over from the last would be switches for another site.
@@ -69,8 +72,11 @@ enum SiteMenu {
                 .init(title: String(localized: "Clear Cookies"), symbol: Glyph.cookies) {
                     clear(SiteData.cookies, host: page.host, thenReload: true)
                 },
+                // Privacy is where this pop-out's switches have their global
+                // side: blocking, its exceptions and site data. Advanced is a
+                // group on General now, which says nothing about a site.
                 .init(title: String(localized: "More Settings…"), symbol: Glyph.advanced) {
-                    (NSApp.delegate as? AppDelegate)?.showSettings(section: AdvancedSection.id)
+                    (NSApp.delegate as? AppDelegate)?.showSettings(section: SiteMenu.moreSettingsSection)
                 }
             ]
         ]

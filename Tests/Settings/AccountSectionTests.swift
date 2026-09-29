@@ -24,9 +24,15 @@ final class AccountSectionTests: XCTestCase {
         descendants(of: view, ofType: NSTextField.self).map(\.stringValue)
     }
 
-    /// The master switch first, then the five zones in `SyncZone`'s order.
-    private func switches(_ section: AccountSection) -> [SystemSwitch] {
-        descendants(of: section.view, ofType: SystemSwitch.self)
+    private func syncSwitch(_ section: AccountSection) throws -> SystemSwitch {
+        let all = descendants(of: section.view, ofType: SystemSwitch.self)
+        XCTAssertEqual(all.count, 1, "the zones are checks, not more switches")
+        return try XCTUnwrap(all.first)
+    }
+
+    /// The five zones in `SyncZone.switched`'s order.
+    private func zones(_ section: AccountSection) -> [SyncZoneCheckRow] {
+        descendants(of: section.view, ofType: SyncZoneCheckRow.self)
     }
 
     private func button(_ title: String, in section: AccountSection) throws -> SettingsPushButton {
@@ -40,40 +46,50 @@ final class AccountSectionTests: XCTestCase {
         return sync
     }
 
-    func testSyncIsOffByDefaultAndTheZonesWaitForIt() {
+    func testSyncIsOffByDefaultAndTheZonesWaitForIt() throws {
         let section = AccountSection(sync: signedIn())
-        let all = switches(section)
-        XCTAssertEqual(all.count, 6, "the master switch and five zones")
-        XCTAssertFalse(all[0].isOn, "sync is opt-in")
-        XCTAssertTrue(all[0].isEnabled)
-        for zone in all.dropFirst() {
-            XCTAssertFalse(zone.isEnabled, "a zone switch is live while sync is off")
+        XCTAssertFalse(try syncSwitch(section).isOn, "sync is opt-in")
+        XCTAssertTrue(try syncSwitch(section).isEnabled)
+        XCTAssertEqual(zones(section).count, 5)
+        for zone in zones(section) {
+            XCTAssertFalse(zone.isEnabled, "a zone is live while sync is off")
         }
         XCTAssertTrue(texts(in: section.view).contains("iCloud sync off"))
     }
 
-    func testTheZonesFollowSyncAndHistoryNeedsSpaces() {
+    func testTheZonesFollowSyncAndHistoryNeedsSpaces() throws {
         let sync = signedIn(zones: [.meta, .spaces, .sites, .settings, .history, .devices])
         let section = AccountSection(sync: sync)
-        XCTAssertTrue(switches(section)[0].isOn)
-        XCTAssertEqual(switches(section).dropFirst().map(\.isEnabled), [true, true, true, true, true])
-        XCTAssertEqual(switches(section).dropFirst().map(\.isOn), [true, true, true, true, true])
+        XCTAssertTrue(try syncSwitch(section).isOn)
+        XCTAssertEqual(zones(section).map(\.isEnabled), [true, true, true, true, true])
+        XCTAssertEqual(zones(section).map(\.isOn), [true, true, true, true, true])
 
         sync.zones = [.meta, .sites, .settings, .history, .devices]
-        let zones = switches(section).dropFirst().map(\.isEnabled)
-        XCTAssertEqual(zones, [true, true, true, false, true], "Typed history is live without Spaces")
+        XCTAssertEqual(zones(section).map(\.isEnabled), [true, true, true, false, true], "Typed history is live without Spaces")
+        XCTAssertTrue(texts(in: section.view).contains("Needs Spaces"), "Typed history does not say why it is off")
     }
 
-    func testTheSwitchesDriveSync() {
+    func testTheSwitchAndTheChecksDriveSync() throws {
         var calls: [String] = []
         let sync = signedIn()
         sync.setEnabled = { calls.append("master \($0)") }
         sync.setZone = { calls.append("\($0.rawValue) \($1)") }
         let section = AccountSection(sync: sync)
-        switches(section)[0].onChange?(true)
+        try syncSwitch(section).onChange?(true)
         sync.zones = [.meta, .spaces, .sites, .settings, .history, .devices]
-        switches(section)[2].onChange?(false)
+        XCTAssertTrue(zones(section)[1].accessibilityPerformPress())
         XCTAssertEqual(calls, ["master true", "Sites false"])
+    }
+
+    /// A zone that is off for a reason the user did not choose cannot be
+    /// ticked: pressing it does nothing.
+    func testADisabledCheckIgnoresThePress() {
+        var calls = 0
+        let sync = signedIn()
+        sync.setZone = { _, _ in calls += 1 }
+        let section = AccountSection(sync: sync)
+        XCTAssertFalse(zones(section)[0].accessibilityPerformPress())
+        XCTAssertEqual(calls, 0)
     }
 
     func testTheCookieLineIsOnThePage() {
@@ -114,11 +130,11 @@ final class AccountSectionTests: XCTestCase {
 
     /// The unsigned build has no iCloud entitlement, and the switch says so
     /// rather than doing nothing.
-    func testTheSyncSwitchIsDisabledWithoutTheSignedBuild() {
+    func testTheSyncSwitchIsDisabledWithoutTheSignedBuild() throws {
         let sync = SyncSettings()
         sync.status = .needsSignedBuild
         let section = AccountSection(sync: sync)
-        XCTAssertFalse(switches(section)[0].isEnabled)
+        XCTAssertFalse(try syncSwitch(section).isEnabled)
         XCTAssertTrue(texts(in: section.view).contains(SyncStatus.needsSignedBuild.line()))
     }
 
@@ -134,5 +150,14 @@ final class AccountSectionTests: XCTestCase {
         let section = AccountSection(sync: signedIn())
         XCTAssertTrue(section.searchIndex.contains("typed history"))
         XCTAssertTrue(section.searchIndex.contains("sync now"))
+        XCTAssertTrue(section.searchIndex.contains("manage icloud storage"))
+    }
+
+    /// The page opens on the user, not on a tile and a title.
+    func testThePageOpensOnThePictureAndName() {
+        let section = AccountSection(sync: signedIn())
+        XCTAssertFalse(descendants(of: section.view, ofType: AccountHeroView.self).isEmpty, "no picture at the head of the page")
+        XCTAssertTrue(texts(in: section.view).contains(NSFullUserName()))
+        XCTAssertTrue(SettingsSectionRegistry.hasOwnHeader(AccountSection.id), "a second header sits over the picture")
     }
 }

@@ -92,12 +92,24 @@ final class AccountSection: SettingsSection {
 
     // MARK: Rows
 
+    /// The page draws its own head (`AccountHeroView`), so the picture that
+    /// opens it is the one the sidebar's account row carries.
     private func build() {
         let body = SettingsBody()
-        body.card(nil, [syncSwitch()])
-        body.card(String(localized: "Sync"), SyncZone.switched.map(zoneRow))
-        body.loose(SettingsRow.note(Self.cookieLine), terms: [Self.cookieLine, "cookies", "logins", "passwords"])
-        body.card(nil, [syncNowRow(), removeRow()])
+        body.card(AccountHeroView(isOn: sync.isOn), rows: [])
+        let card = AccountSyncCard(sync: sync)
+        let zones = zip(SyncZone.switched, card.zoneRows).map { zone, row in (view: row as NSView, terms: [zone.title]) }
+        body.card(
+            SettingsRow.group(String(localized: "Sync"), [card]),
+            rows: [(card.header, [String(localized: "Sync with iCloud"), "icloud", "sync", "status"])]
+                + zones
+                + [(card.footer, [String(localized: "Sync Now"), "fetch", "refresh", sync.status.line()])]
+        )
+        body.loose(
+            AccountSyncCard.cookieNote(Self.cookieLine),
+            terms: [Self.cookieLine, "cookies", "logins", "passwords"]
+        )
+        body.card(String(localized: "iCloud data"), [manageRow(), removeRow()])
         body.filter(query)
 
         self.body.view.removeFromSuperview()
@@ -111,45 +123,15 @@ final class AccountSection: SettingsSection {
         ])
     }
 
-    /// The status line is the switch's second line, and when the switch is
-    /// disabled it is the reason instead: said once either way.
-    private func syncSwitch() -> (view: NSView, terms: [String]) {
-        let title = String(localized: "Sync with iCloud")
-        let line = sync.status.line()
-        let available = sync.status != .needsSignedBuild
-        let row = SettingsRow.toggle(
-            title,
-            subtitle: available ? line : nil,
-            value: sync.isOn,
-            isEnabled: available,
-            disabledReason: line
-        ) { [sync] on in sync.setEnabled(on) }
-        return (row, [title, "icloud", "sync", "status"])
-    }
-
-    private func zoneRow(_ zone: SyncZone) -> (view: NSView, terms: [String]) {
-        let title = zone.title
-        let needsSpaces = zone == .history && !sync.zones.contains(.spaces)
-        let row = SettingsRow.toggle(
-            title,
-            value: sync.zones.contains(zone) && !needsSpaces,
-            isEnabled: sync.isOn && !needsSpaces,
-            disabledReason: sync.isOn
-                ? String(localized: "Needs Spaces, tabs and Favorites.")
-                : String(localized: "Turn on Sync with iCloud first.")
-        ) { [sync] on in sync.setZone(zone, on) }
-        return (row, [title])
-    }
-
-    private func syncNowRow() -> (view: NSView, terms: [String]) {
-        let title = String(localized: "Sync Now")
-        let row = SettingsRow.button(
-            String(localized: "Fetch and send changes"),
-            action: title,
-            isEnabled: sync.isOn,
-            disabledReason: String(localized: "Turn on Sync with iCloud first.")
-        ) { [sync] in sync.syncNow() }
-        return (row, [title, "fetch", "refresh"])
+    private func manageRow() -> (view: NSView, terms: [String]) {
+        let title = String(localized: "Manage iCloud storage")
+        let row = SettingsRow.button(title, action: String(localized: "Open…")) {
+            // Apple Account in System Settings, where iCloud's storage is.
+            if let url = URL(string: "x-apple.systempreferences:com.apple.systempreferences.AppleIDSettings") {
+                NSWorkspace.shared.open(url)
+            }
+        }
+        return (row, [title, "storage", "apple account"])
     }
 
     private func removeRow() -> (view: NSView, terms: [String]) {
@@ -179,21 +161,7 @@ final class AccountSection: SettingsSection {
 
 extension SyncZone {
 
-    /// The five with a switch of their own; `meta` comes with any of them. The
-    /// master switch turns all five on.
+    /// The five with a check of their own on the Sync card; `meta` comes with
+    /// any of them. The master switch turns all five on.
     static let switched: [SyncZone] = [.spaces, .sites, .settings, .history, .devices]
-}
-
-private extension SyncZone {
-
-    var title: String {
-        switch self {
-        case .spaces: String(localized: "Spaces, tabs and Favorites")
-        case .sites: String(localized: "Site settings")
-        case .settings: String(localized: "Settings and shortcuts")
-        case .history: String(localized: "Typed history")
-        case .devices: String(localized: "Tabs on other Macs")
-        case .meta: ""
-        }
-    }
 }

@@ -82,6 +82,16 @@ extension Tokens.Metric {
     static let settingsListTile: CGFloat = 22
     static let settingsPageTile: CGFloat = 44
 
+    /// The iCloud page, from the mock-up approved on 2026-09-29: the picture
+    /// that heads it and the ring round it (the ring is the picture's side
+    /// plus three points each way), the tile in the Sync card's header, a
+    /// zone's check disc, and the status dot.
+    static let settingsHeroAvatar: CGFloat = 78
+    static let settingsHeroRing: CGFloat = 3
+    static let settingsCardTile: CGFloat = 32
+    static let settingsCheckDisc: CGFloat = 18
+    static let settingsStatusDot: CGFloat = 8
+
     /// The back/forward capsule at the head of the detail pane.
     static let settingsNavCapsule = RoundedMetric(width: 64, height: 30, cornerRadius: 10)
 

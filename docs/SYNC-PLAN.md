@@ -350,20 +350,21 @@ Push: `CKSyncEngine` needs the push entitlement (H2) to hear other Macs' changes
 
 **The account row**
 - Where: the top of the Settings sidebar, directly under `SettingsSearchField` and above General, in the style of Raycast.
-- What it shows, in its own rounded plate:
+- What it shows, with no plate of its own:
   - an avatar circle
   - the user's name in bold
-  - a one-line subtitle.
+  - the word "iCloud" under it, as macOS's settings put "Apple Account" under the name.
 - It is **not** in `SettingsSectionRegistry.all`, so the ⌘1…⌘8 numbering is unchanged and About stays where it is.
 - Name: `NSFullUserName()`. CloudKit no longer exposes the user's name, because user discoverability is deprecated.
 - Avatar: the macOS login picture, read from OpenDirectory `kODAttributeTypeJPEGPhoto` on the current user's record, or from the CSIdentity image. If neither exists, draw initials on a `Tokens` colour. Never touch Contacts; there must be no permission prompt.
-- Subtitle: `SyncStatus`'s line — "iCloud sync off", "Synced 2 min ago", or a status line from §4.
-- **It is a button, not a list row.** The section rows (`SettingsSectionRowView` in `SettingsSectionList`) answer with a sliding `RowPillView` and do not swell, per CLAUDE.md "List rows are not buttons". The account row sits in its own plate outside that list, so it follows "Buttons answer":
-  - hover: `Tokens.Surface.hover` wash on the plate through `Tokens.Motion.wash`
-  - press: `Tokens.Surface.selected` plus `Tokens.Motion.swell(_, to: Tokens.Motion.pressSwell)`, and back to 1 on release
-  - while the account page is showing, the plate holds `Surface.selected` and the list's selection pill fades out.
-- Add the new type (`SettingsAccountRow`, in `Features/Settings/Shell/SettingsAccountRow.swift`) to `Tests/Design/ButtonFeedbackTests.swift`.
-- Accessibility: role button; label "iCloud, <name>, <subtitle>".
+- Status: `SyncStatus`'s line is the row's tooltip and part of its accessibility label, not its subtitle. **Changed 2026-09-29:** it was the subtitle, and every line but "iCloud sync off" and "Syncing…" was cut off at the column's width. The page's own status row shows it in full.
+- **It is dressed as a list row** (changed 2026-09-29; it was a bordered plate that swelled like a button). It answers the pointer the way the section rows under it do, per CLAUDE.md "List rows are not buttons":
+  - hover: `RowPillView(role: .hover)`
+  - while the account page is showing: `RowPillView(role: .selected)`, and the list's selection pill fades out
+  - it opens its page on mouse-down, as a section row does, and does not swell
+  - the name is in full-strength ink only while its page is showing; the word under it is `Text.tertiary`.
+- It is not in `Tests/Design/ButtonFeedbackTests.swift`; that file's header says why.
+- Accessibility: role radio button, value on while its page is showing; label "iCloud, <name>, <status>".
 
 **The account page** (`Features/Settings/Sections/Account.swift`), opened by the row. Rows in order:
 1. **Sync with iCloud**: a `SystemSwitch`, off by default.
@@ -426,7 +427,7 @@ Each step begins by writing the failing test(s) named, then the code.
 | S10 | The session applies incoming changes | `SessionRemoteChangeTests` (`Tests/Browser/`): a remote rename, reorder or new tab updates `TabList`; the store write runs on `enqueue` after an already-queued stale write; a live tab keeps its URL; a remote Space delete goes through the session's teardown and jar-removal path with no undo; a 13th Favorite is demoted and not sent back; a remote archive loses to later local activity | `UI/Browser/BrowserSession+Sync.swift` | none |
 | S11 | Live engine, wiring, gate and probe self-test | `SyncGateTests` (app tests): the unsigned test host reports "iCloud sync needs the signed build" and never constructs `CKContainer`; sync off means no engine; activation calls `fetchChanges` only when sync is on | adapter half of `Sync/SyncCloudKit.swift`; `App/AppDelegate+Sync.swift`; `App/CloudKitProbe.swift` extended to save, fetch and delete one record of each type in a throwaway zone (keep the probe; it is the Production schema check) | **H1b, H2**, then `make signed` and `Luna --cloudkit-probe` must print ok for all eight types |
 | S12 | Tabs on other Macs | `DevicePresenceTests`: capped at 50; private, `about:blank` and `luna://` tabs skipped; at most one publish a minute; this Mac excluded; Macs older than 30 days hidden; the History menu's "Tabs on Other Macs" lists the others and opens a tab on click | presence code in `Sync/SyncCoordinator.swift`; `App/MainMenu.swift` | none |
-| S13 | Account row and page | `SettingsAccountRowTests`: the row sits under the search field and above General; it is not in `SettingsSectionRegistry.all` (⌘ numbering unchanged); shows `NSFullUserName()`; falls back to initials without a picture; the subtitle follows each `SyncStatus`; clicking opens the account page and fades the list pill. `ButtonFeedbackTests`: `SettingsAccountRow` swells on press. `AccountSectionTests`: master off by default; zone switches disabled while off; History disabled without Spaces; the cookie line is present; Remove goes through `SettingsHost.confirm`; the master switch is disabled when the gate says unavailable | `Features/Settings/Shell/SettingsAccountRow.swift`, `Features/Settings/Sections/Account.swift`, `Features/Settings/Shell/SettingsWindowController.swift` / `SettingsSectionList.swift` (placement), `Tests/Design/ButtonFeedbackTests.swift` | none |
+| S13 | Account row and page | `SettingsAccountRowTests`: the row sits under the search field and above General; it is not in `SettingsSectionRegistry.all` (⌘ numbering unchanged); shows `NSFullUserName()`; falls back to initials without a picture; the subtitle says iCloud and the tooltip follows each `SyncStatus`; it is dressed as a list row (no plate, no border, the list's pills, no swell); clicking opens the account page and fades the list pill. `AccountSectionTests`: master off by default; zone switches disabled while off; History disabled without Spaces; the cookie line is present; Remove goes through `SettingsHost.confirm`; the master switch is disabled when the gate says unavailable | `Features/Settings/Shell/SettingsAccountRow.swift`, `Features/Settings/Sections/Account.swift`, `Features/Settings/Shell/SettingsWindowController.swift` / `SettingsSectionList.swift` (placement), `Tests/Design/ButtonFeedbackTests.swift` | none |
 | S14 | Docs and the two-Mac run | None: this step is documentation | Write the what-syncs table, the §31.9 rule, the schema, the Privacy Policy text for §31.11 and the §31.12 checklist into `docs/SYNC.md`; update `docs/SETTINGS-SPEC.md`; apply the TODO corrections below | **H3.** Ask the user first: a test Apple ID or theirs? |
 
 **By hand**

@@ -98,8 +98,8 @@ enum SettingsMetrics {
     /// The browser sidebar's own three numbers, not a set of its own that
     /// came close. They are aliased rather than spelled out so the equality is
     /// a fact of the code: retune a tab row and §2's list follows it.
-    static let sectionRowHeight = Tokens.Metric.rowHeight
-    static let sectionRowGap = Tokens.Metric.rowGap
+    static let sectionRowHeight = Tokens.Metric.tabRowHeight
+    static let sectionRowGap = Tokens.Metric.tabRowHeight - Tokens.Metric.rowPillHeight
     static let sectionPillHeight = Tokens.Metric.rowPillHeight
 
     /// The account row above the list: a card row's height, holding the
@@ -180,11 +180,11 @@ enum SettingsSectionRegistry {
         }
     }
 
-    /// Luna Control opens on its sky and About on the app's icon, name and
-    /// version: each already is a header, and a second one above it would say
-    /// the name twice.
+    /// Luna Control opens on its sky, About on the app's icon, name and
+    /// version, and iCloud on the user's picture and name: each already is a
+    /// header, and a second one above it would say the name twice.
     static func hasOwnHeader(_ id: String) -> Bool {
-        id == LunaControlSection.id || id == AboutSection.id
+        id == LunaControlSection.id || id == AboutSection.id || id == AccountSection.id
     }
 
     /// §9.2's settings rows, built once from the static half of the register.

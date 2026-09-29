@@ -225,3 +225,15 @@ final class SiteMenuGlyphTests: XCTestCase {
         )
     }
 }
+
+/// "More Settings…" lands on the page where the pop-out's switches have their
+/// global side. It opened Advanced, which had become a group on General — a
+/// page about startup, search and downloads.
+@MainActor
+final class SiteMenuMoreSettingsTests: XCTestCase {
+
+    func testMoreSettingsOpensPrivacyAndPasswords() throws {
+        let privacy = try XCTUnwrap(SettingsSectionRegistry.ids.firstIndex(of: PrivacySection.id))
+        XCTAssertEqual(SettingsSectionRegistry.index(ofID: SiteMenu.moreSettingsSection), privacy)
+    }
+}
