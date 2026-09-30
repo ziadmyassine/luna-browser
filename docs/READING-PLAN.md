@@ -31,7 +31,7 @@ Build plan. Design mockup: https://claude.ai/artifact/YTX4rZLZFc9PPKWMDhwf3V
         │                    │
         ▼                    ▼
   Reader (in place)     Markdown document: swift-markdown → MarkdownHTML,
-                        loaded with load(data, baseURL: original URL)
+                        loaded with loadSimulatedRequest(original URL)
         └────────┬───────────┘
                  ▼
   ReadingScript (.defaultClient world): prefs as data-attrs/CSS vars, outline,
@@ -121,17 +121,18 @@ Total ~39 h.
 ## Risks
 
 - Web `.md` behind a login falls back to plain text (fetch skips the tab's cookies).
-- Local image read access via `load(data, baseURL:)` is unverified — Phase 4
-  test; fallback `loadFileURL` + in-place rewrite.
-- Back/reload/session restore for `load(data:)` documents need their own tests.
+- Local image read access for the loaded page: verified (`testASiblingImageLoads`).
+- Back and reload: covered by `MarkdownPageTests`. Session restore is not tested.
 - Very large files: cap live highlighting above ~5,000 lines.
 - Generalising `SiteSettingsPanel` touches tested code — its tests stay green.
 - Non-UTF-8 files open read-only.
 
 ## Test status
 
-Phase 1's tests ran green: 1229 tests, 0 failures. Phases 2–7's tests are
-written but not run. Some may fail on the first run.
+All phases' tests run green (2026-09-30): `make test` gives BrowserKit
+552 Swift Testing tests in 68 suites plus 61 XCTest cases (8 skipped), 0
+failures; the app suite gives 1257 tests (6 skipped), 0 failures.
+`make lint` is clean.
 
 | Phase | Test files |
 |---|---|
@@ -142,18 +143,22 @@ written but not run. Some may fail on the first run.
 | 6 | `BrowserKitTests/MarkdownEditTests`; `Tests/Browser/MarkdownEditorTests`, `ReadingPanelTests`, `PageToastTests` |
 | 7 | `BrowserKitTests/ArticleProbeTests` |
 
-Check these risks first when you run them:
+What the first run found:
 
-- Local sibling images under `load(data, baseURL:)`: the file read access
-  is unverified (`testASiblingImageLoads`). If it fails, fall back to
-  `loadFileURL` with an in-place rewrite.
-- `markdownDocument` after a back/forward-cache restore, which may skip the
-  navigation that sets it.
-- WebKit's own typing may land on the web view's undo manager instead of
-  the editor's list.
-- ⌘S may reach `LunaWebView` before the menu does.
-- Closing a tab within 120 ms of a keystroke can lose that keystroke.
-- Phase 4's `MarkdownPageTests` was not compiled at the time. Later phases
-  compiled the test targets.
-- The performance target (a 5,000-line README in under 100 ms) has not been
-  measured.
+- Sibling images load. The page is now loaded with `loadSimulatedRequest`
+  instead of `load(data, baseURL:)`, and images still load.
+- A substitute-data load adds no history entry, so Back skipped the Markdown
+  page. `loadSimulatedRequest` adds one. `markdownDocument` was also lost when
+  Back came from the page cache. `markdownHistory` now keeps each entry's
+  document.
+- Typing goes on Edit's own undo list. Undo and redo survive autosave, ⌘S and
+  Read↔Edit, and never reach the window's list.
+- ⌘S saves in Edit. Outside Edit, Luna's override leaves ⌘S alone. A focused
+  WKWebView claims every key equivalent for the page and passes back the ones
+  the page does not use.
+- Closing a tab within 120 ms of a keystroke lost the keystroke.
+  `saveEditsBeforeClosing` now reads the editor before the view goes. A quit
+  can still end the process before the page answers.
+- The 5,000-line README renders in about 70 ms of CPU time in a debug build.
+  The test uses the thread's CPU clock, because the wall clock read 150 ms
+  while other suites ran in parallel.
