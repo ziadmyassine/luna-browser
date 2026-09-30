@@ -9,6 +9,7 @@
 //  and the page starts below the bar, which is a real height it answers to.
 //
 
+@testable import BrowserKit
 import WebKit
 import XCTest
 @testable import Luna
@@ -125,5 +126,41 @@ final class PageBarInsetTests: XCTestCase {
         XCTAssertTrue(collapse.contains("const change = -22.0"))
         XCTAssertTrue(collapse.contains("behavior: \"instant\""))
         XCTAssertTrue(ContentCardView.holdingScript(22).contains("change > 0 && window.scrollY <= 24.0"))
+    }
+}
+
+/// §3.2b: the bar hears the colour under it from whichever tab is showing, even
+/// when that tab's page was made without anything else in the session changing.
+@MainActor
+final class PageBarColourTests: XCTestCase {
+
+    private let directory = URL.temporaryDirectory.appending(path: "luna-tests-\(UUID().uuidString)")
+
+    override func tearDown() {
+        try? FileManager.default.removeItem(at: directory)
+        super.tearDown()
+    }
+
+    /// Launch, as it happens: the bar comes up while the selected tab has no
+    /// controller, and the window then asks for the tab's web view, which builds
+    /// one without a session change. The bar used to wait for a change that
+    /// never came, and wore the document's grey under Netflix's black header
+    /// until the selection moved.
+    func testATabWhosePageIsMadeAfterTheBarStillReportsItsColour() async throws {
+        let session = try await BrowserSession.restored(store: BrowserStore(path: directory.appending(path: "luna.sqlite")))
+        let id = session.newTab(url: URL(string: "about:blank"))
+        session.discardController(id)
+        let page = PageChromeController(session: session, windowID: session.keyWindowID)
+        page.setActive(true, animated: false)
+
+        _ = session.webView(for: id)
+        let controller = try XCTUnwrap(session.controller(for: id))
+        controller.setTopColour(RGBA(r: 0, g: 0, b: 0, a: 1))
+
+        let bar = try XCTUnwrap(page.view as? PageChromeBar)
+        let plane = try XCTUnwrap(bar.plane.layer?.backgroundColor.flatMap(NSColor.init(cgColor:))?.usingColorSpace(.sRGB))
+        XCTAssertEqual(plane.redComponent, 0, accuracy: 0.01, "the bar never heard the page's colour")
+        XCTAssertEqual(plane.greenComponent, 0, accuracy: 0.01)
+        XCTAssertEqual(plane.blueComponent, 0, accuracy: 0.01)
     }
 }

@@ -28,6 +28,9 @@ final class PageChromeController: WindowScoped {
     /// The tab whose `onTopColour` this controller currently holds, so it can be
     /// handed back when the selection moves.
     private var listeningTo: UUID?
+    /// And the controller holding it. A tab gets a new one when its page is
+    /// put away and opened again, and the id alone would not notice.
+    private weak var listenedController: TabController?
     private var observations: [ObservationToken] = []
     private var extensionObserver: (any NSObjectProtocol)?
 
@@ -152,6 +155,12 @@ final class PageChromeController: WindowScoped {
 
     private func apply(_ id: UUID, _ state: TabState) {
         guard isActive, id == activeTabID else { return }
+        // A tab's page can be made without a session change: at launch the
+        // window asks for the selected tab's web view, and that builds its
+        // controller after `refresh` had found none. Its first state is the
+        // first news of it, and without this the bar never heard the page's
+        // colour until the selection moved.
+        listen(to: id)
         bar.show(url: state.url)
         bar.pill.setLoad(state, for: id)
         bar.setPageColour(state.pageBackground)
@@ -161,10 +170,12 @@ final class PageChromeController: WindowScoped {
     // MARK: - The colour under the bar
 
     private func listen(to id: UUID?) {
-        guard id != listeningTo else { return }
+        let controller = id.flatMap { session.controller(for: $0) }
+        guard id != listeningTo || controller !== listenedController else { return }
         stopListening()
-        guard let id, let controller = session.controller(for: id) else { return }
+        guard let id, let controller else { return }
         listeningTo = id
+        listenedController = controller
         controller.onTopColour = { [weak self] colour in self?.bar.setTopColour(colour) }
         // Taken rather than waited for: this tab is already scrolled to wherever
         // it was left, and the bar should wear that on the frame it appears on
@@ -176,9 +187,8 @@ final class PageChromeController: WindowScoped {
     /// `self` weakly — so a controller that went away without this would leave
     /// a live page posting into nothing, once per frame of every scroll.
     private func stopListening() {
-        if let listeningTo, let controller = session.controller(for: listeningTo) {
-            controller.onTopColour = nil
-        }
+        listenedController?.onTopColour = nil
+        listenedController = nil
         listeningTo = nil
         // That colour was the other tab's. The document's own background is what
         // is left, and `refresh` sets that for whichever tab is showing now — in
