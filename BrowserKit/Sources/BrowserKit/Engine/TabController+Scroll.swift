@@ -134,6 +134,13 @@ extension TabController {
     /// `pageshow` is the one event that covers both: it fires on every load
     /// after this script is injected, and on every restore out of the cache.
     ///
+    /// And a page that is still being built says so again. Document end is
+    /// before most sites have painted their header — styles, fonts and a
+    /// framework's first render all land later — so a sample taken only there
+    /// left the bar in the wrong colour until the first scroll. It asks again
+    /// at `load`, 0.25, 1 and 2.5 s after document end and after `load`, and
+    /// whenever the document's size changes, at most every 0.3 s.
+    ///
     /// And how far through the page the reader is, for the sidebar's selected
     /// row. The document's own scroll when it has one; otherwise the last
     /// element that scrolled, as long as it is at least half the viewport tall —
@@ -353,15 +360,29 @@ extension TabController {
         retries = 0;
         schedule();
       }, { passive: true, capture: true });
-      window.addEventListener('resize', function () {
+      var again = function () {
         lastY = null;
         schedule();
-      }, { passive: true });
-      window.addEventListener('pageshow', function () {
-        lastY = null;
-        schedule();
-      }, { passive: true });
+      };
+      window.addEventListener('resize', again, { passive: true });
+      window.addEventListener('pageshow', again, { passive: true });
+      var settling = function () {
+        again();
+        [250, 1000, 2500].forEach(function (ms) { window.setTimeout(again, ms); });
+      };
+      window.addEventListener('load', settling, { passive: true });
+      if (window.ResizeObserver) {
+        var grown = null;
+        new ResizeObserver(function () {
+          if (grown) { return; }
+          grown = window.setTimeout(function () {
+            grown = null;
+            again();
+          }, 300);
+        }).observe(document.documentElement);
+      }
       post();
+      settling();
     })();
     """
 }

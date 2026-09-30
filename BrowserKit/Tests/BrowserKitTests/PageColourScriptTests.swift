@@ -290,6 +290,35 @@ struct PageColourScriptTests {
         #expect(page.answer == nil)
     }
 
+    /// The other bug: Back and Forward are served from WebKit's page cache,
+    /// which restores a document without re-running user scripts. Nothing
+    /// posted, `resetPerDocumentState` had already cleared the colour, and the
+    /// bar wore the page that had just been left until the next scroll. The
+    /// listeners survive the restore, so `pageshow` is what asks again.
+    @Test func aPageComingBackOutOfTheCacheSaysWhatItIsPaintedOn() {
+        let page = Page([Layer(colour: "rgb(255, 255, 255)")])
+        #expect(page.answer == [255, 255, 255])
+        page.paint([Layer(colour: "rgb(10, 10, 20)")])
+        page.fire("pageshow")
+        #expect(page.posts == 2, "a restored page never said anything, so the bar kept the last page's colour")
+        #expect(page.answer == [10, 10, 20])
+    }
+
+    /// The cache is per 4 pt of travel, and a restore does not move the page —
+    /// so `pageshow` has to drop it, or the answer for the document that just
+    /// went away is handed to the one that replaced it.
+    @Test func theRestoreDropsTheSampleCacheRatherThanReusingIt() {
+        let page = Page([Layer(colour: "rgb(255, 255, 255)")])
+        page.paint([Layer(colour: "rgb(10, 10, 20)")])
+        page.fire("pageshow")
+        #expect(page.answer == [10, 10, 20], "the sample was still cached against the same scroll offset")
+    }
+}
+
+/// A page that cannot be read yet: one that has switched hit testing off, and
+/// one that is still being built.
+extension PageColourScriptTests {
+
     /// Netflix turns hit testing off for its page while it scrolls, and for a
     /// moment after. `elementsFromPoint` then finds nothing but `<html>`, and
     /// the walk answered the document's grey under a header the screen shows
@@ -330,27 +359,22 @@ struct PageColourScriptTests {
         #expect(page.answer == [20, 20, 20])
     }
 
-    /// The other bug: Back and Forward are served from WebKit's page cache,
-    /// which restores a document without re-running user scripts. Nothing
-    /// posted, `resetPerDocumentState` had already cleared the colour, and the
-    /// bar wore the page that had just been left until the next scroll. The
-    /// listeners survive the restore, so `pageshow` is what asks again.
-    @Test func aPageComingBackOutOfTheCacheSaysWhatItIsPaintedOn() {
+    /// A page is built after document end: its header is painted once styles,
+    /// fonts and scripts have run. The first sample saw the unstyled page, and
+    /// nothing asked again until the user scrolled.
+    @Test func aPageFinishingItsLoadIsAskedAgain() {
         let page = Page([Layer(colour: "rgb(255, 255, 255)")])
-        #expect(page.answer == [255, 255, 255])
         page.paint([Layer(colour: "rgb(10, 10, 20)")])
-        page.fire("pageshow")
-        #expect(page.posts == 2, "a restored page never said anything, so the bar kept the last page's colour")
-        #expect(page.answer == [10, 10, 20])
+        page.fire("load")
+        #expect(page.answer == [10, 10, 20], "load did not ask again")
     }
 
-    /// The cache is per 4 pt of travel, and a restore does not move the page —
-    /// so `pageshow` has to drop it, or the answer for the document that just
-    /// went away is handed to the one that replaced it.
-    @Test func theRestoreDropsTheSampleCacheRatherThanReusingIt() {
+    /// And a little later without any event, for the header a framework
+    /// paints after `load`.
+    @Test func aPageIsAskedAgainAfterItHasSettled() {
         let page = Page([Layer(colour: "rgb(255, 255, 255)")])
         page.paint([Layer(colour: "rgb(10, 10, 20)")])
-        page.fire("pageshow")
-        #expect(page.answer == [10, 10, 20], "the sample was still cached against the same scroll offset")
+        page.runTimers()
+        #expect(page.answer == [10, 10, 20], "nothing asked again once the page had settled")
     }
 }
