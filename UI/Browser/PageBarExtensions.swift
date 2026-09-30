@@ -108,7 +108,6 @@ final class PageBarExtensionShelf: NSView {
             entry.button.setImage(ExtensionBadge.composite(pin.icon ?? ExtensionsSymbol.image, badge: pin.badge))
             entry.button.setAccessibilityLabel(pin.badge.isEmpty ? pin.name : "\(pin.name), \(pin.badge)")
             entry.button.toolTip = pin.name
-            entry.button.menuBuilder = { ExtensionMenu.make(for: pin) }
         }
     }
 
