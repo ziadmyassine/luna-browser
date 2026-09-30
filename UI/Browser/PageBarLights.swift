@@ -6,8 +6,8 @@
 //  traffic lights are, and when they have moved.
 //
 //  An extension rather than more of `PageChromeBar.swift`, which is at
-//  SwiftLint's 400-line limit — the same reason `PageBarScroll` and
-//  `PageBarSuggestions` are files of their own.
+//  SwiftLint's 400-line limit — the same reason `PageBarSuggestions` is a file
+//  of its own.
 //
 
 import AppKit

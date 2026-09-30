@@ -32,13 +32,10 @@
 //  else, which is correct rather than inconsistent: this is the only surface in
 //  Luna whose background is not Luna's.
 //
-//  Two states, and the page decides which. At the top of a document the bar is
-//  open: the toggle, the history cluster and a wide pill with a control at each
-//  end of it. Once the page has scrolled past `pageBarScrollSlack` all of them
-//  go, the bar shrinks to `pageBarCollapsed` and the pill goes bare — the plane
-//  is the only surface left, which is the thin strip of site colour with the
-//  domain in it that the reference shows. `PageChromeController` owns that
-//  decision; this owns what the two look like.
+//  One state: the toggle, the history cluster and a wide pill with a control
+//  at each end of it, however far the page scrolls. It used to shrink to a
+//  strip of site colour once the page scrolled, and the change lagged on every
+//  turn of direction, so it was taken out.
 //
 //  Reload is not on this bar. It is inside the capsule on its trailing edge,
 //  with site settings on the leading one, and both belong to `URLPillView`.
@@ -69,11 +66,6 @@ final class PageChromeBar: NSView, TrafficLightNeighbour {
     /// under it and is told this much is covered — see
     /// `ContentCardView.setContentTopInset`.
     var onBandHeight: ((_ height: CGFloat, _ animated: Bool) -> Void)?
-    /// The pill has been reached for, and the bar is open by the time this
-    /// fires. It stays open for as long as §9.1 is standing on it.
-    var onEditingBegan: (() -> Void)?
-    /// §9.1 has closed and the bar is the page's again.
-    var onEditingEnded: (() -> Void)?
     /// §16.4: a pinned extension, and the button that lists them all, each
     /// with the view its popup or pop-out opens on.
     var onExtension: ((String, NSView) -> Void)?
@@ -98,25 +90,19 @@ final class PageChromeBar: NSView, TrafficLightNeighbour {
     var extensionPins: [ExtensionShelfItem] = [] { didSet { needsLayout = true } }
     var showsExtensions = false {
         didSet {
-            shelf.isHidden = !showsExtensions || isCollapsed
+            shelf.isHidden = !showsExtensions
             needsLayout = true
         }
     }
     private var isLoading = false
-    private(set) var isCollapsed = false
     /// The document's own background, the strip under the bar, and whichever of
     /// the two is on the plane right now.
     private var documentColour: NSColor?
     private var topColour: NSColor?
     private var pageColour: NSColor?
 
-    /// The bar's own controls, in the order they are laid out. The pill's two
-    /// glyphs go away with its surface — see `URLPillView.settleGlyph`.
+    /// The bar's own controls, in the order they are laid out.
     var buttons: [NSView] { [toggle, nav] }
-
-    /// Everything that fades out with the open band: the buttons, and the
-    /// extensions cylinder when this window has one.
-    var faders: [NSView] { showsExtensions ? buttons + [shelf] : buttons }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -147,30 +133,11 @@ final class PageChromeBar: NSView, TrafficLightNeighbour {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
-    /// The pill being touched at all opens the bar. A press on the collapsed
-    /// capsule would otherwise hand §9.1 a 22 pt anchor sized to `apple.com`
-    /// and let it grow out of that; the bar it belongs to is 52 pt with a
-    /// 420 pt pill in it, and that is the shape the panel should take.
-    ///
-    /// Opened on its own clock, as every other change of this state is. The
-    /// panel reads the pill's frame on every pass, and the pill is already
-    /// standing where the open bar puts it; so the panel is handed the capsule
-    /// that was pressed as well (`CommandBarAnchor.startFrame`), and grows
-    /// from there to the open bar's shape while the bar opens under it.
-    ///
-    /// The bar then stays open for as long as §9.1 is standing on it, whatever
-    /// the page does: see `PageChromeController.pageScrolled(to:)`.
+    /// The pill hands the address to §9.1, which opens standing on it.
     private func wirePill() {
         pill.onHandOff = { [weak self] in
             guard let self else { return }
-            let pressed = isCollapsed ? pill.convert(pill.bounds, to: nil) : nil
-            setCollapsed(false, animated: true)
-            onEditingBegan?()
-            onHandOff?(CommandBarAnchor(
-                view: pill,
-                startFrame: pressed,
-                onDismiss: { [weak self] in self?.onEditingEnded?() }
-            ))
+            onHandOff?(CommandBarAnchor(view: pill, startFrame: nil, onDismiss: nil))
         }
     }
 
@@ -226,40 +193,6 @@ final class PageChromeBar: NSView, TrafficLightNeighbour {
         guard colour != pageColour else { return }
         pageColour = colour
         applyPlane(animated: true)
-    }
-
-    /// §3.2b's two states. Animated on `sidebarCollapse` — the same 0.20 s the
-    /// sidebar itself slides on, because this is the same piece of chrome
-    /// getting out of the page's way.
-    func setCollapsed(_ collapsed: Bool, animated: Bool) {
-        guard collapsed != isCollapsed else { return }
-        isCollapsed = collapsed
-        // Before the bar moves, not after: the page's own animation runs on the
-        // same spec, and telling it afterwards would start it a frame late.
-        onBandHeight?(bandHeight, animated)
-        // Un-hidden before the fade in either direction: a view cannot fade
-        // from `isHidden`, and the fade out hides it again on completion.
-        if !collapsed { for view in faders { view.isHidden = false } }
-        guard animated else {
-            Tokens.Motion.immediately { applyState() }
-            for view in faders { view.isHidden = collapsed }
-            pill.settleGlyph()
-            return
-        }
-        Tokens.Motion.animate(Tokens.Motion.sidebarCollapse) { context in
-            context.allowsImplicitAnimation = true
-            applyState()
-        } completion: { [weak self] in
-            MainActor.assumeIsolated {
-                // A view at alpha 0 still hit-tests, so a faded button would go
-                // on eating clicks meant for the page. Re-read rather than
-                // trust the captured value: another change may have landed.
-                guard let self else { return }
-                for view in self.faders { view.isHidden = view.alphaValue == 0 }
-                // The pill's own glyph faded with them, and for the same reason.
-                self.pill.settleGlyph()
-            }
-        }
     }
 
     // MARK: - The plane

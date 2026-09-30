@@ -18,28 +18,13 @@ extension PageChromeBar {
 
     // MARK: - Layout
 
-    /// The bar's frame is the open band, whatever state it is in: nothing
-    /// here resizes, so the plane and the controls can travel inside a frame
-    /// that is standing still. `hitTest` is what keeps the part of it the plane
-    /// does not cover from taking the page's clicks.
     override func layout() {
         super.layout()
-        Tokens.Motion.immediately { applyState() }
+        Tokens.Motion.immediately { placeControls() }
     }
 
-    /// The surface before the frames: the pill's own contents are laid out
-    /// against the margins its surface keeps, and the collapsed one keeps
-    /// narrower ones.
-    func applyState() {
-        pill.surface = isCollapsed ? .bare : .glass
-        placeControls()
-        for view in faders { view.alphaValue = isCollapsed ? 0 : 1 }
-    }
-
-    /// The room the bar is taking right now, for the page below it.
-    var bandHeight: CGFloat {
-        isCollapsed ? Tokens.Metric.pageBarCollapsed : Tokens.Metric.pageBar
-    }
+    /// The room the bar takes, for the page below it.
+    var bandHeight: CGFloat { Tokens.Metric.pageBar }
 
     /// The band the plane fills, in this view's coordinates.
     var band: NSRect {
@@ -62,7 +47,7 @@ extension PageChromeBar {
         // bar appears in, so the lights' centre is a line this view shares with
         // §3.1's control row — and the two must agree, because with the sidebar
         // showing they are 280 pt apart on the same row of pixels.
-        let centreY = isCollapsed ? strip.midY : (lights?.midY ?? strip.midY)
+        let centreY = lights?.midY ?? strip.midY
 
         // With the sidebar showing, the lights are 280 pt to the left of this
         // view and `maxX` comes back negative — which is exactly right, and why
@@ -97,37 +82,21 @@ extension PageChromeBar {
         // there is not. A 640 pt window with a sidebar open leaves about
         // 230 pt beside the buttons; a pill centred in that overlaps them, and
         // an overlapping pill is worse than an off-centre one.
-        //
-        // The open layout places the pill and the collapsed one keeps that
-        // place exactly — same x, same width. They were worked out separately
-        // before, and even once they shared a centre the capsule still
-        // travelled, because its two edges did: it drew in from 420 pt to the
-        // width of `apple.com` while its material faded.
-        //
-        // It can keep the width because collapsed it has no surface. A `.bare`
-        // pill draws nothing but its centred domain, so 420 pt of it is 420 pt
-        // of nothing with a word in the middle, already on the centre line the
-        // open pill put it on. Nothing moves sideways; the height and the
-        // material are all of it. It also puts truncation beyond reach: a
-        // domain that fits the open pill fits the collapsed one.
         let left = buttonsEnd + Tokens.Metric.chromeGapWide
         let right = placeShelf(centreY: centreY, after: left)
         let width = min(Tokens.Metric.pageBarPillWidth, max(right - left, 0))
-        let height = isCollapsed ? Tokens.Metric.pageBarCollapsedPillHeight : circle.height
         pill.frame = NSRect(
             x: min(max(bounds.midX - width / 2, left), max(right - width, left)),
-            y: centreY - height / 2,
+            y: centreY - circle.height / 2,
             width: width,
-            height: height
+            height: circle.height
         ).pixelAligned
     }
 
     // MARK: - Events
 
-    /// Only the band takes events. The bar's frame is the open band's
-    /// height whichever state it is in, so while it is collapsed the lower
-    /// 22 pt of it is over live page and must behave like page: a link there
-    /// has to stay clickable.
+    /// Only the band takes events: anything the bar's frame covers past it is
+    /// live page, and a link there has to stay clickable.
     override func hitTest(_ point: NSPoint) -> NSView? {
         guard let hit = super.hitTest(point) else { return nil }
         // A control or the pill: theirs.

@@ -1,10 +1,9 @@
 import Foundation
 import WebKit
 
-/// How far down the page is, and what colour it is up at the top of it, for
-/// §3.2b's page bar, which collapses as the page moves away from its top and is
-/// painted in the page's own colour. And how far through the page that is, for
-/// the sidebar's selected row, which fills from its leading edge as you read.
+/// What colour the page is up at the top of it, for §3.2b's page bar, which is
+/// painted in the page's own colour. And how far through the page the reader
+/// is, for the sidebar's selected row, which fills from its leading edge.
 ///
 /// WebKit publishes no scroll position on macOS. `WKWebView` has no
 /// `scrollView` outside UIKit and no KVO-able offset, so the only supported way
@@ -15,9 +14,9 @@ import WebKit
 /// is one answer for the whole page, so a bar taking it stayed white all the way
 /// down a site whose next section is black. What is actually under the bar's
 /// bottom edge is a question only the page can answer, so it is asked in the
-/// same script, on the same frame boundary, and travels with the offset.
+/// same script, on the same frame boundary.
 ///
-/// All three are delivered through closures rather than `TabState`: a
+/// Both are delivered through closures rather than `TabState`: a
 /// `TabState` change re-renders a sidebar row, and a scroll is not news to
 /// one. This fires on a frame boundary for as long as a drag lasts, so nothing
 /// that reads tab state may be woken by it.
@@ -26,11 +25,7 @@ extension TabController {
     static let scrollMessageName = "lunaScroll"
 
     func handleScrollMessage(_ message: WKScriptMessage) {
-        guard message.frameInfo.isMainFrame,
-              let body = message.body as? [String: Any],
-              let offset = body["y"] as? Double
-        else { return }
-        onScroll?(offset)
+        guard message.frameInfo.isMainFrame, let body = message.body as? [String: Any] else { return }
         setTopColour(Self.sampledColour(from: body["top"]))
         setScrollProgress(Self.progress(from: body["p"]))
     }

@@ -119,26 +119,11 @@ final class URLPillView: NSView, PopoutShelf {
         /// stands beside it on that bar is glass at rest too, and a recess
         /// among them reads as a gap in the set.
         case glass
-        /// §3.2b, collapsed: nothing. The bar's own plane is the surface, and a
-        /// capsule on it would be a control inside a control.
-        case bare
     }
 
     var surface: Surface = .well {
         didSet {
             guard surface != oldValue else { return }
-            // The site menu goes with the surface. A collapsed bar is the
-            // page's own top edge with an address in it, and a control floating
-            // there is the one thing on it that is not the site. The menu is a
-            // scroll away, and §3.2's pill still carries it.
-            //
-            // It fades rather than blinking out: §3.2b's two states are one
-            // dissolve, and a glyph that vanishes on the first frame reads as a
-            // cut. Shown before the fade in either direction, because a hidden
-            // view cannot fade, and hidden again by `settleGlyph()` afterwards,
-            // because a view at alpha 0 still takes clicks.
-            if surface != .bare { sliders.isHidden = false; reload.isHidden = onReload == nil }
-            for glyph in [sliders, reload] { glyph.alphaValue = surface == .bare ? 0 : 1 }
             needsDisplay = true
             needsLayout = true
             updateGlass()
@@ -249,8 +234,7 @@ final class URLPillView: NSView, PopoutShelf {
         //
         // Neither, off the sidebar. A `GlassButton` at `.always` carries no
         // plate and no hairline either: the material is the whole surface, and
-        // a well behind it is a shadow the buttons beside it do not have. A
-        // `.bare` pill has no surface of its own at all — see `Surface`.
+        // a well behind it is a shadow the buttons beside it do not have.
         let plated = surface == .well
         layer.backgroundColor = plated ? Tokens.Surface.well.cgColor : nil
         layer.borderWidth = plated ? Tokens.Metric.hairline : 0
@@ -275,10 +259,6 @@ final class URLPillView: NSView, PopoutShelf {
     private var glassTarget: CGFloat {
         switch surface {
         case .glass: 1
-        // Bare on hover too: a material over a plane that is already the page's
-        // colour is a second surface announcing itself on a bar built to
-        // disappear into the site.
-        case .bare: 0
         case .well: isHovering ? 1 : 0
         }
     }
@@ -299,26 +279,11 @@ final class URLPillView: NSView, PopoutShelf {
         return view
     }
 
-    /// Re-cuts the backing's ends when the pill has changed height under it —
-    /// only §3.2b's ever does; the sidebar's finds nothing to do.
-    ///
-    /// The same backing, given a new radius. It used to be thrown away and
-    /// built again at the new height, which cost a new glass view on every
-    /// collapse and every expand — measured at 3–10 ms each on the main thread,
-    /// the dearest the first few times, and the first expand after a page
-    /// loaded visibly caught. The rebuild also cut the material's fade: the new
-    /// backing took the old one's target alpha, so the glass snapped on and off
-    /// instead of dissolving through the 0.20 s morph.
+    /// Re-cuts the backing's ends when the pill has changed height under it.
+    /// The same backing, given a new radius: rebuilding it at the new height
+    /// cost 3–10 ms on the main thread each time and cut the material's fade.
     func refreshGlassShape() {
         glass?.cornerRadius = cornerRadius
-    }
-
-    /// Hides the site-menu glyph once it has finished fading out, or leaves it
-    /// alone if it faded back in. §3.2b's bar calls this when its own animation
-    /// completes; nothing else changes `surface`.
-    func settleGlyph() {
-        sliders.isHidden = sliders.alphaValue == 0
-        reload.isHidden = onReload == nil || reload.alphaValue == 0
     }
 
     override func updateTrackingAreas() {

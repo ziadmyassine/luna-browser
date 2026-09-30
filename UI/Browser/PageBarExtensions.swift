@@ -61,22 +61,18 @@ final class PageBarExtensionShelf: NSView {
         label: ExtensionsSymbol.label
     )
     private(set) var pinButtons: [(id: String, button: GlassButton)] = []
-    /// Between the pins and the button that lists them all, as `NavCluster`
-    /// divides back from forward.
-    private let divider = NSView()
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.cornerCurve = Self.button.cornerCurve
         Glass.apply(.control, to: self, cornerRadius: Self.button.cornerRadius, cornerCurve: Self.button.cornerCurve)
-        divider.wantsLayer = true
         extensionsButton.onActivate = { [weak self] in
             guard let self else { return }
             onExtensions?(extensionsButton)
         }
         extensionsButton.onPressChange = { [weak self] pressed in self?.setPressed(pressed) }
-        for view in [divider, extensionsButton] { addSubview(view) }
+        addSubview(extensionsButton)
         setAccessibilityRole(.group)
         setAccessibilityLabel(ExtensionsSymbol.label)
     }
@@ -106,13 +102,13 @@ final class PageBarExtensionShelf: NSView {
                 addSubview(button)
                 return (id: pin.id, button: button)
             }
-            divider.isHidden = pins.isEmpty
             needsLayout = true
         }
         for (pin, entry) in zip(pins, pinButtons) {
             entry.button.setImage(ExtensionBadge.composite(pin.icon ?? ExtensionsSymbol.image, badge: pin.badge))
             entry.button.setAccessibilityLabel(pin.badge.isEmpty ? pin.name : "\(pin.name), \(pin.badge)")
             entry.button.toolTip = pin.name
+            entry.button.menuBuilder = { ExtensionMenu.make(for: pin) }
         }
     }
 
@@ -134,21 +130,7 @@ final class PageBarExtensionShelf: NSView {
             }
             let buttonX = CGFloat(pinButtons.count) * side
             extensionsButton.frame = NSRect(x: buttonX, y: 0, width: side, height: bounds.height).pixelAligned
-            // Short of the ends, as `NavCluster`'s rule is.
-            let inset = bounds.height / 4
-            divider.frame = NSRect(
-                x: buttonX - Tokens.Metric.hairline / 2,
-                y: inset,
-                width: Tokens.Metric.hairline,
-                height: bounds.height - 2 * inset
-            ).pixelAligned
         }
-    }
-
-    override var wantsUpdateLayer: Bool { true }
-
-    override func updateLayer() {
-        divider.layer?.backgroundColor = Tokens.Line.hairline.cgColor
     }
 
     /// A press between two buttons is the cylinder's, not the page's.

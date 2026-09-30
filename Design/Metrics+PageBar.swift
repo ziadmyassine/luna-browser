@@ -21,14 +21,6 @@ extension Tokens.Metric {
     /// in the column.
     static let pageBar: CGFloat = topBarHeight
 
-    /// The band it shrinks to once the page scrolls. Tall enough for the domain
-    /// at `TypeScale.urlPill` plus the capsule's padding, and no taller: the
-    /// collapsed state exists to give the page back its top edge.
-    static let pageBarCollapsed: CGFloat = 30
-
-    /// The collapsed capsule's height, inside `pageBarCollapsed`.
-    static let pageBarCollapsedPillHeight: CGFloat = 22
-
     /// Leading and trailing inset. §3.1's "gap 16", the same distance the
     /// sidebar's toggle keeps from the traffic lights.
     static let pageBarInset: CGFloat = chromeGapWide

@@ -623,12 +623,18 @@ keeps its tabs, its Essentials and its bottom bar — and its top 52 pt, because
 the traffic lights' corner clear; with its buttons gone it shrinks to `sidebarHeadlessRow` and the
 column closes up over the pill's own 34 pt.
 
-| | Open | Collapsed |
-|---|---|---|
-| band | `pageBar` (52) | `pageBarCollapsed` (30) |
-| controls | toggle · back(·forward), on the traffic lights' centre line | gone |
-| pill | `pageBarPillWidth` (420) wide, `sidebarCircle` tall, `.glass` | **the same frame**, `pageBarCollapsedPillHeight` (22) tall, `.bare` |
-| glyphs | site settings **leading**, reload **trailing**, both inside the capsule; address centred between them | **none** — the strip carries the address and nothing else |
+| | |
+|---|---|
+| band | `pageBar` (52) |
+| controls | toggle · back(·forward), on the traffic lights' centre line |
+| pill | `pageBarPillWidth` (420) wide, `sidebarCircle` tall, `.glass` |
+| glyphs | site settings **leading**, reload **trailing**, both inside the capsule; address centred between them |
+| extensions | the button and its pins in **one** cylinder in the trailing corner, growing leftwards a button per pin |
+
+> **One state since 2026-09-30.** The bar used to collapse to a 30 pt strip of site colour with a bare
+> 22 pt capsule once the page scrolled, and open again on the way back up. The change lagged on every
+> turn of direction, so it was taken out with everything that served it (`PageBarScroll`,
+> `pageBarCollapsed`, the `.bare` pill surface). The bar stays open however far the page scrolls.
 
 - **The bar is a plane in the page's own colour**, from `TabState.pageBackground` — WebKit's
   `underPageBackgroundColor`, which is the colour the document is actually painted on. Not
@@ -683,27 +689,15 @@ column closes up over the pill's own 34 pt.
   glyph ink and the glass fallbacks all follow. A dark app over a white site gets dark glyphs on the
   bar and light ones everywhere else: the bar is the one surface in Luna whose background is not
   Luna's.
-- **The collapsed pill is not sized to its address.** It was, and a capsule a point short of its own
-  text does not lose a pixel off the last letter — it drops characters until an ellipsis fits, which is
-  what turned `apple.com` into `apple.c…`. It keeps the open pill's width instead, which puts the
-  question out of reach: the open pill has a glyph to clear that the collapsed one does not, so the
-  collapsed one has strictly more room than the address it is showing needs.
 - **The page runs under the bar, and WebKit is told how much of it is covered.** The web view fills
   the pane and `obscuredContentInsets` (macOS 26) shrinks its viewport to start below the band, so
   the document's top edge is never hidden and nothing is laid on top of it. The page used to start
-  below the band as a frame instead, and the 22 pt between the two states was animated on the web
-  view's top edge: resized a frame at a time, the page redrew late and bobbed, and on the way open the
-  pane's grey showed between the bar and a page that had not caught up (2026-09-24). A change of inset
-  still moves the content by the difference, so the page is scrolled by the same amount in the same
-  turn and stays still — except when the bar opens at the top of a document, where the bar pushing
-  the page down is the page making room. Anything that places itself from page coordinates adds the
+  below the band as a frame instead, and animating that frame resized the page a frame at a time: it
+  redrew late and bobbed, and the pane's grey showed between the bar and a page that had not caught up
+  (2026-09-24). A change of inset still moves the content by the difference, so the page is scrolled by
+  the same amount in the same turn and stays still — except at the top of a document, where the bar
+  pushing the page down is the page making room. Anything that places itself from page coordinates adds the
   covered height back: the password picker does.
-- **The page decides which state.** At the top of a document the bar is open; once the page has
-  scrolled `pageBarScrollSlack` past where the bar last answered, it collapses to the thin strip of
-  site colour with the domain in it. Scrolling back up by the same slack, reaching the top, or arriving
-  anywhere new opens it again. The rule is `PageBarScroll`, a value with no view in it, because the
-  cases that matter are the awkward ones: a momentum wobble must not flip it, and a long scroll down
-  must not mean scrolling all the way back before the address returns.
 - **Behind a peek, the bar ignores the lights.** With the sidebar hidden off the leading edge, the
   lights only show on §7.2's peek, and then they stand on the sidebar that has slid out over the bar,
   not beside the bar's buttons. The bar used to clear them anyway, so the toggle and history cluster
@@ -716,51 +710,19 @@ column closes up over the pill's own 34 pt.
   macOS takes them out of the window on the way into fullscreen and hands them back on the way out —
   without resizing anything, so nothing marks the bar dirty and it keeps a placement measured against
   lights that have moved. In fullscreen that put the buttons a light's width off wherever the pane is
-  the whole window and the open pill off the centre line the collapsed one shares, which turned the
-  dissolve below into a move. §3.1's control row has the same dependency and is fixed by
+  the whole window and the pill off the centre line. §3.1's control row has the same dependency and is fixed by
   `BrowserWindowController.relayoutChrome` — but that pass walks the **chrome host's** subviews and this
   bar is not one of them: it is an overlay on the content card, so it observes
   `didEnter`/`didExitFullScreen` itself (`PageBarLights.swift`), twice per edge, because AppKit restores
   the buttons after posting. **The general rule is in §21 / item 8: fullscreen keeps the same views, so
   a chrome fix reads as already applying there — and the things it moves out from under them are the
   material and the lights.**
-- **The change between them is a dissolve, not a move.** The pill keeps its frame across the collapse —
-  the same x and the same width — and loses only its height, its glass and its glyph, where it stands.
-  Both were worked out separately before: open, clear of the buttons; collapsed, sized to the domain and
-  centred in what was left of the bar. Those are different sums whenever the buttons are in the way, so
-  the address slid in from the side; and even once they shared a centre, the capsule's two edges still
-  drew inwards from 420 pt to the width of `apple.com` while the material faded, which is the same
-  sideways motion by another route. The glass and the glyph fade rather than cut, which takes some care:
-  a glass backing's radius is fixed when it is built, so the height change forces a new one mid-fade,
-  and it is given the alpha the old one had reached instead of the target it was heading for.
-- **Arriving opens the bar, and arriving is more than a new address.** A load *starting* counts too — a
-  reload, a form post and a same-address navigation all leave the URL exactly where it was, and every
-  one of them is an arrival. And the first offset a new document reports is treated as where it
-  *starts*, not as a scroll: WebKit restores the scroll position on a reload and on back/forward, and
-  plenty of pages jump to an anchor of their own as they load, so the first thing heard from a document
-  can be `y = 4000`. Measured from an anchor of zero that reads as a long scroll down, and the bar
-  collapsed the instant the site appeared — at exactly the sites where the address was most worth
-  showing.
-- **Pressing the address opens the bar, then hands it to §9.1.** A press on the collapsed capsule
-  would otherwise give the Command Bar a 22 pt anchor sized to `apple.com` to grow out of; the bar it
-  belongs to is 52 pt with a 420 pt pill in it, and that is the shape the panel should take. So the bar
-  opens first, **on its own `sidebarCollapse` clock** like every other change of this state. It opened
-  unanimated for a while, so that the panel would not read a pill mid-flight; the page then jumped down
-  under a bar that had doubled between two frames, and the panel covered only the pill, not the bar.
-  Animated, the pill is already standing in the open bar when the panel reads it, so the capsule that
-  was pressed is handed over too (`CommandBarAnchor.startFrame`): the panel starts on the 22 pt capsule
-  and grows to the open bar's shape while the bar opens under it — one movement. The bar is then held open for as long as §9.1 stands on it, whatever the page does
-  underneath: the scroll rule keeps running and is handed the bar back when the Command Bar closes. A
-  committed address is not a special case — §9.1 navigates the tab itself and arriving opens the bar
-  again on the same turn.
-- **The offset comes from the page itself.** `WKWebView` publishes no scroll position on macOS — no
+- **The colour under the bar comes from the page itself.** `WKWebView` publishes no scroll position on macOS — no
   `scrollView`, no KVO-able offset — so a passive, frame-coalesced listener posts `window.scrollY`
   through `TabController.scrollMessageName`. It is main-frame only: an ad iframe scrolling itself is
   not the page moving.
-- **Only the band takes clicks.** The bar's frame is the *open* band's height in both states, so that
-  nothing inside it has to resize while the two states cross-fade — which means that while it is
-  collapsed its lower 22 pt is over live page. `PageChromeBar.hitTest` gives everything outside the
-  band back to the page, so a link there stays clickable.
+- **Only the band takes clicks.** `PageChromeBar.hitTest` gives everything outside the band back to
+  the page, so a link there stays clickable.
 
 ##### 3.2b.i Suggestions under the pill — **removed 2026-09-20**
 Typing in the pill used to drop §3.4's search completions below it on `.popover` material, the same

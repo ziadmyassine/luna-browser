@@ -50,13 +50,6 @@ final class URLPillLayoutTests: XCTestCase {
         XCTAssertNotNil(backing(of: glassy))
         XCTAssertNil(glassy.layer?.backgroundColor)
         XCTAssertEqual(glassy.layer?.borderWidth, 0)
-
-        let bare = pill(centred: true)
-        bare.surface = .bare
-        bare.displayIfNeeded()
-        XCTAssertNil(bare.layer?.backgroundColor)
-        XCTAssertEqual(bare.layer?.borderWidth, 0)
-        XCTAssertEqual(backing(of: bare)?.alphaValue ?? 0, 0, "a bare pill shows no material")
     }
 
     /// The pill's two glyphs answer the pointer with a capsule, not the row's
@@ -78,34 +71,14 @@ final class URLPillLayoutTests: XCTestCase {
         }
     }
 
-    /// A 17 pt radius on a 22 pt capsule is a rectangle with dents in it, and
-    /// §3.2b's pill is 22 pt for as long as the page is scrolled.
-    func testACollapsedPillIsStillACapsule() {
+    /// A 17 pt radius on a 22 pt capsule is a rectangle with dents in it: the
+    /// radius follows the height it is given, not the one it was built at.
+    func testAShortPillIsStillACapsule() {
         let short = pill(centred: true)
-        short.frame = NSRect(x: 0, y: 0, width: 160, height: Tokens.Metric.pageBarCollapsedPillHeight)
+        short.frame = NSRect(x: 0, y: 0, width: 160, height: 22)
         short.layoutSubtreeIfNeeded()
         short.displayIfNeeded()
         XCTAssertEqual(short.layer?.cornerRadius, short.frame.height / 2)
-    }
-
-    /// A collapsed bar is the page's own top edge with an address in it, and a
-    /// control floating in that strip is the one thing on it that is not the
-    /// site. The menu comes back the moment the page scrolls up.
-    ///
-    /// It fades rather than blinking out — §3.2b's two states are one dissolve
-    /// — and is hidden at the end of the fade, because a view at alpha 0 goes
-    /// on taking clicks.
-    func testTheSiteMenuFadesAwayWithTheSurface() {
-        let bare = pill(centred: false)
-        bare.surface = .bare
-        XCTAssertEqual(bare.siteMenuAnchor.alphaValue, 0)
-        bare.settleGlyph()
-        XCTAssertTrue(bare.siteMenuAnchor.isHidden)
-        bare.surface = .glass
-        XCTAssertFalse(bare.siteMenuAnchor.isHidden, "shown before it fades back in")
-        XCTAssertEqual(bare.siteMenuAnchor.alphaValue, 1)
-        bare.settleGlyph()
-        XCTAssertFalse(bare.siteMenuAnchor.isHidden)
     }
 
     /// One affordance goes on the trailing edge; a second one takes the

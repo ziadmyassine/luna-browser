@@ -64,16 +64,7 @@ extension URLPillView {
     private var glyphRun: CGFloat { glyphInset + glyphInk + Tokens.Metric.chromeGap }
 
     /// What the text keeps clear at each end.
-    ///
-    /// Collapsed there is no control to clear and the text keeps §3.2's own
-    /// inset. Read from the surface rather than from a glyph's `isHidden`:
-    /// they fade out across §3.2b's morph and are hidden at the end of it, and
-    /// a margin that waited for that would size the collapsed capsule for
-    /// something it is in the middle of dropping.
     private var margins: (leading: CGFloat, trailing: CGFloat) {
-        guard surface != .bare else {
-            return (Tokens.Metric.pillTextInset, Tokens.Metric.pillTextInset)
-        }
         // A pill with both is symmetric, which is what lets §3.2b centre the
         // address in the capsule rather than in the space one glyph leaves.
         guard slidersLead else { return (Tokens.Metric.pillTextInset, glyphRun) }

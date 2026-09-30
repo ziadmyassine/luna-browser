@@ -65,13 +65,6 @@ public final class TabController: NSObject {
 
     static let mediaMessageName = "lunaMedia"
 
-    /// The main frame's scroll offset, whenever it changes — see
-    /// `TabController+Scroll.swift`. Nil unless something is drawing chrome that
-    /// depends on it. The page script is injected either way: one listener
-    /// posting a number nobody reads costs less than re-injecting scripts when a
-    /// setting changes.
-    public var onScroll: ((Double) -> Void)?
-
     /// The colour under the top edge of the visible page, as the page itself
     /// reports it — see `TabController+Scroll.swift`. Nil means "no single
     /// colour up there", and the document's own background is then the answer.
