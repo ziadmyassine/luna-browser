@@ -189,7 +189,9 @@ extension URLPillView {
             height: box
         ).integral
         reload.frame = NSRect(x: trailingX, y: boxY, width: chip, height: box).integral
-        reading.frame = NSRect(x: trailingX - chip, y: boxY, width: chip, height: box).integral
+        // Off reload's rounded frame, not rounded itself: `integral` grows a
+        // box that starts on a half point, and two grown boxes overlapped.
+        reading.frame = reload.frame.offsetBy(dx: -reload.frame.width, dy: 0)
         placeExtensions(trailingX: trailingX, pinsEnd: trailingX - readingRun, y: boxY, chip: NSSize(width: chip, height: box))
 
         let margin = margins
