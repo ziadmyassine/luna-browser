@@ -89,13 +89,36 @@ final class MarkdownPageTests: XCTestCase {
         let address = try XCTUnwrap(URL(string: "https://example.com/README.md"))
         controller.fetchText = { _ in Data("# Rendered".utf8) }
         try await showWeb(address)
-        controller.webView?.loadHTMLString("<p>next</p>", baseURL: URL(string: "https://example.com/next"))
+        // Simulated rather than `loadHTMLString`: a substitute-data load adds
+        // no history entry, so there would be nothing to go back from.
+        controller.webView?.loadSimulatedRequest(
+            URLRequest(url: try XCTUnwrap(URL(string: "https://example.com/next"))), responseHTML: "<p>next</p>"
+        )
         try await settle()
         controller.webView?.goBack()
         try await settle()
         let shown = try await page("document.querySelector('h1') && document.querySelector('h1').textContent") as? String
         XCTAssertEqual(shown,
                        "Rendered", "Back landed on the raw text")
+    }
+
+    /// Real navigations both ways, so WebKit may answer Back from its page
+    /// cache without the load that sets `markdownDocument`.
+    func testBackKeepsTheDocumentAndTheReadingState() async throws {
+        let file = try write("# Rendered")
+        controller.load(file)
+        try await settle()
+        let other = folder.appending(path: "next.html")
+        try "<p>next</p>".write(to: other, atomically: true, encoding: .utf8)
+        controller.load(other)
+        try await settle()
+        XCTAssertNil(controller.markdownDocument)
+        controller.webView?.goBack()
+        try await settle()
+        let shown = try await page("document.querySelector('h1') && document.querySelector('h1').textContent") as? String
+        XCTAssertEqual(shown, "Rendered")
+        XCTAssertEqual(controller.markdownDocument?.url, file)
+        XCTAssertTrue(controller.state.isReading)
     }
 
     func testTheOutlineListsTheSections() async throws {

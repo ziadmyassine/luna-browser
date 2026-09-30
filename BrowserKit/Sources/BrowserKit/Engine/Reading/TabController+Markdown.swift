@@ -66,12 +66,9 @@ extension TabController {
 
     private func show(_ document: MarkdownDocument, in webView: WKWebView) {
         pendingMarkdown = document
-        webView.load(
-            Data(Self.markdownPage(document).utf8),
-            mimeType: "text/html",
-            characterEncodingName: "utf-8",
-            baseURL: document.url
-        )
+        // Simulated, not `load(_:mimeType:…baseURL:)`: a substitute-data load
+        // adds no history entry, so Back skipped the document entirely.
+        webView.loadSimulatedRequest(URLRequest(url: document.url), responseHTML: Self.markdownPage(document))
     }
 
     /// At commit: the document belongs to the page only if this is the load
@@ -79,7 +76,13 @@ extension TabController {
     func adoptPendingMarkdown() {
         saveEdits()
         forgetEdits()
-        markdownDocument = pendingMarkdown.flatMap { $0.url == webView?.url ? $0 : nil }
+        let item = webView?.backForwardList.currentItem
+        if let document = pendingMarkdown, document.url == webView?.url {
+            if let item { markdownHistory[item] = document }
+            markdownDocument = document
+        } else {
+            markdownDocument = item.flatMap { markdownHistory[$0] }
+        }
         pendingMarkdown = nil
         readingView = .read
     }
