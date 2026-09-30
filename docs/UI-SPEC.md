@@ -2504,6 +2504,12 @@ Luna says so on its card, in red, where the access line would be, and why in Det
 (`ExtensionCompatibility`): Apple's iCloud Passwords needs a helper macOS only lets approved browsers
 start, and the card stops saying so once Luna is signed with Apple's web-browser entitlement.
 
+**On the Chrome Web Store** (2026-09-30), an extension's page brings §5c's toast down: "Add this
+extension to Luna?" with **Add**, once per extension per tab, and not for one already installed
+(`WebStoreOffer`). The store's own button says Add to Chrome and does nothing here; the address is
+what Settings' link field takes, so Add hands it there and the install prompt below asks as it always
+does. Only Luna's toast starts it, so a page still cannot install anything.
+
 **Prompts** are the system's alert with the extension's icon, because consent is not the place to be
 novel. The install prompt lists what the extension can do in Chrome's words, where it will run, and
 what Luna does not support. A runtime request is Allow or Don't Allow for the whole request.

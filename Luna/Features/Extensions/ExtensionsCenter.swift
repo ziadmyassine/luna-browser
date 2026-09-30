@@ -61,6 +61,7 @@ final class ExtensionsCenter: ExtensionUI {
         self.session = session
         manager.ui = self
         manager.services = self
+        WebStoreOffer.shared.watch(session)
         announce()
     }
 
