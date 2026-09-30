@@ -43,6 +43,23 @@ extension TabController {
         return write(text, over: document, overwritingChanges: false)
     }
 
+    /// Saves what the editor holds but has not posted yet: it posts 120 ms
+    /// after the last keystroke, and a tab closed inside that lost it. The
+    /// closure keeps the view and the tab alive until the page answers.
+    /// ponytail: a quit can still end the process first; waiting on the page
+    /// from `applicationShouldTerminate` would close that.
+    func flushEditor() {
+        guard readingView == .edit, let view = webView else { return }
+        view.evaluateJavaScript(
+            "document.querySelector('.luna-input').value", in: nil, in: .defaultClient
+        ) { [self] result in
+            _ = view
+            guard case let .success(value) = result, let text = value as? String else { return }
+            takeEdit(text)
+            saveEdits()
+        }
+    }
+
     /// The answer to `markdownChangedOnDisk`: write the editor's text over the
     /// change, or drop it and read the file again.
     public func resolveDiskConflict(keepMine: Bool) {

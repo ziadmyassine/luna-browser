@@ -125,6 +125,18 @@ final class MarkdownEditTests: XCTestCase {
         XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), "# Hello!")
     }
 
+    func testClosingInsideTheEditorsPauseKeepsTheLastKeystroke() async throws {
+        let file = try write("# Hello")
+        controller.load(file)
+        try await settle()
+        controller.setReadingView(.edit)
+        try await type("!")
+        // Before the editor has posted it.
+        controller.hibernate()
+        try await Task.sleep(for: .milliseconds(300))
+        XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), "# Hello!")
+    }
+
     func testNavigatingAwaySavesAPendingEdit() async throws {
         let file = try write("# Hello")
         controller.load(file)

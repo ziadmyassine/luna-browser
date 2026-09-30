@@ -200,6 +200,7 @@ public final class TabController: NSObject {
         guard webView != nil else { return }
         // Closing the tab or the window and quitting all end here.
         saveEdits()
+        flushEditor()
         savedInteractionState = captureInteractionState()
         detach()
         publishState()
