@@ -475,7 +475,10 @@ extension ContentCardView {
         NotificationCenter.default.addObserver(
             self, selector: #selector(inspectorMoved), name: NSView.frameDidChangeNotification, object: subview
         )
+        // WebKit zeroes the inspector's insets after adding it, so the
+        // cover goes on again once it has finished.
         coverInspector()
+        DispatchQueue.main.async { [weak self] in self?.coverInspector() }
     }
 
     override func willRemoveSubview(_ subview: NSView) {
@@ -491,8 +494,8 @@ extension ContentCardView {
     /// Docked beside the page, the inspector runs the card's full height and
     /// its toolbar sat under §3.2b's bar, so it is told what the bar covers the
     /// way the page is. Docked below the page it reaches nowhere near the bar
-    /// and is told nothing. Recomputed on every move, because WebKit sets the
-    /// frame itself when the inspector changes side.
+    /// and is told nothing. Recomputed on every move: WebKit re-adds the view
+    /// when it changes side, and zeroes the insets whenever it sets the frame.
     private func coverInspector() {
         guard let inspector = dockedInspector else { return }
         let top = isFlipped ? inspector.frame.minY : bounds.height - inspector.frame.maxY

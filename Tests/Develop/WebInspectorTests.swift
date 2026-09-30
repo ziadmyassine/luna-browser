@@ -60,6 +60,29 @@ final class WebInspectorTests: XCTestCase {
         XCTAssertEqual(webView.frame, card.bounds, "the page did not take the inspector's room back")
     }
 
+    /// WebKit zeroes the inspector's insets whenever it docks or sizes it, so
+    /// a cover set once was gone by the time the inspector drew.
+    func testTheBarDoesNotCoverTheTopOfAnInspectorDockedBeside() async throws {
+        let (card, webView) = try await pageInCard()
+        card.setContentTopInset(52, animated: false)
+        WebInspector.show(.elements, for: webView)
+        let docked = try await inspectorView(in: card)
+        let inspector = try XCTUnwrap(docked as? WKWebView)
+        try await Task.sleep(for: .milliseconds(1000))
+        _ = try await inspector.evaluateJavaScript("InspectorFrontendHost.requestSetDockSide('right'); 1")
+        for _ in 0..<30 where inspector.frame.height < card.bounds.height - 1 {
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        try await Task.sleep(for: .milliseconds(300))
+        XCTAssertEqual(inspector.frame.height, card.bounds.height, accuracy: 1, "the inspector did not dock beside")
+        XCTAssertEqual(inspector.obscuredContentInsets.top, 52, "docked beside, the bar covers the inspector's top")
+
+        window?.setContentSize(NSSize(width: 900, height: 600))
+        try await Task.sleep(for: .milliseconds(500))
+        XCTAssertEqual(inspector.obscuredContentInsets.top, 52, "after a resize, the bar covers the inspector's top")
+        WebInspector.close(for: webView)
+    }
+
     func testTheRightClickMenuOffersInspectElementOnlyWhileTheSettingIsOn() {
         let webView = WebViewFactory.makeWebView(dataStore: .nonPersistent())
         let saved = WebViewFactory.isWebInspectorEnabled

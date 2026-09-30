@@ -5,6 +5,10 @@ under Unreleased; a release will take the entries since the last one.
 
 ## Unreleased
 
+### 2026-10-01
+
+- **A docked inspector's top really is below the page bar now** (UI-SPEC §3.2b): WebKit reset the cover every time it docked or sized the inspector, so the fix of 2026-09-30 never held.
+
 ### 2026-09-30
 
 - **The plan moved to GitHub issues**: every task in `TODO.md` is an issue on the [project board](https://github.com/users/ziadmyassine/projects/2), titled with its plan number, and the rest of the file became `docs/ARCHITECTURE.md`, `docs/DECISIONS.md`, `docs/RESEARCH.md` and this changelog. New: `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `docs/PRIVACY.md`, `docs/FAQ.md`, issue forms and Dependabot.
