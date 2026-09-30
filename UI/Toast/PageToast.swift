@@ -63,6 +63,7 @@ struct PageToast: Equatable {
     static let cachesEmptied = PageToast(symbol: "trash", text: String(localized: "Caches emptied"))
     /// ⌘S in a Markdown editor. Autosave says nothing.
     static let saved = PageToast(symbol: "checkmark", text: String(localized: "Saved"))
+    static let escapeAgain = PageToast(symbol: "escape", text: String(localized: "Press Esc again to exit full screen"))
 
     static func savedToDownloads(_ name: String) -> PageToast {
         PageToast(symbol: "square.and.arrow.down", text: String(localized: "Saved to Downloads"), detail: name)

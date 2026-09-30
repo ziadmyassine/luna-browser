@@ -342,6 +342,11 @@ Vertical order, top to bottom:
     minimise). AppKit greys it because a fullscreen window cannot be minimised, and a grey light
     between two coloured ones read as broken. The fullscreen strip also stays in front of anything
     opened after it — a pop-out, the command bar — as the titlebar does in a window.
+  - **Fullscreen, Escape takes two presses to leave** (2026-09-30). `NSWindow.cancelOperation` leaves
+    fullscreen on any Escape nothing else took, so one stray press meant for a page or a pop-out that
+    had already closed threw the window out. The first press shows §5c's toast, "Press Esc again to
+    exit full screen"; a second while it is down (`toastDwell`, 1.6 s) leaves (`LunaWindow`,
+    `DoubleEscape`). A video in fullscreen is WebKit's own window, and one Escape still ends it.
   - **Fading out, they take no press.** A shield covers the three until the fade has run, so a close
     button on its way out cannot close the window. Their actions are left alone: AppKit greys a
     window button whose action it did not set.
