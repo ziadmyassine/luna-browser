@@ -3,27 +3,17 @@
 //  Luna — §23.2
 //
 //  Reading another browser's live database, without breaking it or being
-//  blocked by it.
+//  blocked by it. Opened in place with `mode=ro`, Dia 1.48.0's `History` fails
+//  with `database is locked (5)` while Dia runs; a copy in `TMPDIR` returns
+//  8,247 `urls` and 17,931 `visits` (measured 2026-09-17). The copy is the only
+//  thing that works, and it is opened `SQLITE_OPEN_READONLY`.
 //
-//  Measured on 2026-09-17 against Dia 1.48.0's `Profile 1`: opening
-//  `.../Profile 1/History` in place with `mode=ro` fails with `database is
-//  locked (5)` while Dia is running, and copying the file plus its sidecar into
-//  `TMPDIR` returns 8,247 `urls` and 17,931 `visits`. The copy is not a
-//  precaution, it is the only thing that works.
-//
-//  Two details the copy has to get right:
-//
-//  1. Copy the sidecars. A WAL database's newest writes live entirely in
-//     `-wal`; a rollback-journal database needs `-journal` to roll back
-//     correctly. Dia's live `History` uses a rollback journal today
-//     (`History-journal`, no `-wal`) — Chromium uses both depending on version
-//     and file, so copy whichever exist.
-//  2. `?immutable=1` is not an alternative. It skips the lock by promising
-//     the file cannot change, which makes SQLite ignore the WAL entirely and
-//     report `no such table` for data that has not been checkpointed.
-//
-//  Luna never writes to the source: the copy is what gets opened, and it is
-//  opened `SQLITE_OPEN_READONLY`.
+//  1. Copy the sidecars: a WAL database's newest writes live only in `-wal`,
+//     and a rollback-journal one needs `-journal`. Chromium uses both by
+//     version and file, so copy whichever exist.
+//  2. `?immutable=1` is not an alternative: promising the file cannot change
+//     makes SQLite ignore the WAL and report `no such table` for data that
+//     has not been checkpointed.
 //
 
 import Foundation

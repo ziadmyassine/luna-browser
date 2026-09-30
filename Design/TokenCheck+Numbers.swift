@@ -125,25 +125,21 @@ extension TokenCheck {
 
     /// §30.9's gesture, re-derived rather than restated.
     ///
-    /// The page is the ruler, and these are the two claims that keeps
-    /// honest. Everything the gesture measures is a fraction of the column's
-    /// own width, so the only numbers left to check are the ones that have to
-    /// hold at every width the §3.7 handle reaches — and both of the bugs
-    /// this area has shipped were a number that was fine at one width and
-    /// wrong at another.
+    /// Everything the gesture measures is a fraction of the column's width,
+    /// so what is left to check is what has to hold at every width the §3.7
+    /// handle reaches. Both bugs this area has shipped were a number fine at
+    /// one width and wrong at another.
     private static func checkSpaceSwipe() -> [String] {
         var failures: [String] = []
         let metric = Tokens.Metric.self
         // Making a Space costs at least twice what reaching one does, and
-        // this is no longer a comfortable margin — it is the only guard.
-        // `SpaceSwipe.resolve` commits a switch at half a page (the 0.5 below
-        // is that literal, and there is no token for it because the page is the
-        // ruler), and a flick past the last Space used to be excluded by how it
-        // ended. It is not any more: the ring is the threshold, and a rule that
-        // made a closed circle mean nothing in some releases was the same lie
-        // as a circle that closed early. So distance carries the whole weight
-        // of telling a reflex from a decision, and it has to be a distance no
-        // reflex covers.
+        // this is the only guard. `SpaceSwipe.resolve` commits a switch at half
+        // a page (the 0.5 below is that literal; the page is the ruler, so there
+        // is no token). The ring is the threshold, and how a flick ends does
+        // not exclude it — a closed circle that meant nothing on some releases
+        // would be as false as one that closed early — so distance alone tells
+        // a reflex from a decision, and it has to be a distance no reflex
+        // covers.
         let commit: CGFloat = 0.5
         if metric.spaceCreateReach < commit * 2 {
             failures.append(String(
@@ -151,23 +147,17 @@ extension TokenCheck {
                 metric.spaceCreateReach, commit
             ))
         }
-        // The create gesture has to be completable in one stroke, at the
-        // widest the column gets. This is the check that was being made
-        // against a comfortable width instead of the worst one, and the create
-        // shipped unperformable: a ceiling on how fast a gesture may travel is
-        // also a floor on how long a page takes to cover, and at 360 pt the
-        // ring needed almost a quarter of a second of unbroken, saturated
-        // movement — longer than an ordinary swipe lasts. Resistance that
-        // cannot be overcome in one stroke is not resistance, it is a dead end.
+        // The create gesture has to be completable in one stroke at the
+        // widest the column gets, not a comfortable width: checked against the
+        // latter, the create shipped unperformable. A speed ceiling is also a
+        // floor on how long a page takes, and at 360 pt the ring needed almost
+        // a quarter of a second of saturated movement — longer than a swipe
+        // lasts. Resistance that cannot be overcome in one stroke is a dead end.
         //
-        // The stroke is 0.3 s and it was 0.25, which is not the bound being
-        // relaxed to fit a number. The figure has to be the length of the
-        // stroke this distance is actually covered by, and that stroke changed:
-        // a create used to be a flick continued, so the bound was a flick's,
-        // and it is now a deliberate push that ends at rest — `spaceFlickSpeed`
-        // excludes the flick by design rather than by distance. A deliberate
-        // push also runs under the damping knee, so the ceiling this divides
-        // by barely applies to it; 0.3 s is still the conservative reading.
+        // 0.3 s is the stroke a create is actually made with: a deliberate
+        // push that ends at rest, not a flick continued (`spaceFlickSpeed`
+        // excludes the flick). A push runs under the damping knee, so the
+        // ceiling this divides by barely applies; 0.3 s is still conservative.
         let stroke: CGFloat = 0.3
         let widest = metric.spaceCreateReach * metric.sidebarWidth.max
         if widest > metric.spaceSwipeSpeed * stroke {
@@ -336,8 +326,8 @@ extension TokenCheck {
         }
         // §3.1: the toggle, back and reload are one circle, and it is the same
         // diameter as a top-bar capsule item — the two layouts agreeing on what
-        // a chrome button is. It looked "tidy" as a squircle and it was wrong,
-        // and at 35 it was a control as tall as the rows beneath it.
+        // a chrome button is. Not a squircle, however tidy it looks, and not
+        // 35 pt, which is a control as tall as the rows beneath it.
         if metric.controlCircle.cornerRadius * 2 != metric.controlCircle.width {
             failures.append("Metric.controlCircle is not a circle")
         }

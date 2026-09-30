@@ -2,49 +2,19 @@
 //  PageChromeBar.swift
 //  Luna
 //
-//  §3.2b: the sidebar's head, on the page.
+//  §3.2b: the sidebar's head, on the page. With the search bar set "On the
+//  page", §3.1's circles and §3.2's pill sit on a bar across the top of the
+//  content pane; the sidebar keeps its top 52 pt for the traffic lights.
 //
-//  When Settings ▸ Appearance puts the search bar "On the page", the three §3.1
-//  circles and the §3.2 pill leave the sidebar and sit on a bar across the top
-//  of the content pane instead. The sidebar keeps its tabs, its Essentials and
-//  its bottom bar — and its top 52 pt, because that is what holds the traffic
-//  lights' corner clear. §4's top bar has no page bar: its tabs open the
-//  address in the Command Bar.
+//  A plane in the page's own colour, not floating glass: no material in Luna
+//  can react to the page (measured, see `Glass.peekPlane`), and over a white
+//  site the white circles vanished. It follows the page down as it scrolls
+//  (`TabController+Scroll`) and wears the appearance that plane calls for —
+//  the one surface whose background is not Luna's. One state however far the
+//  page scrolls: a strip that shrank on scroll lagged on every change of direction.
 //
-//  The bar is a plane in the page's own colour. Floating controls with nothing
-//  behind them were tried, and the reason they do not work is that no material
-//  in Luna can react to the page: `NSGlassEffectView` composites what is behind
-//  the window, and `NSVisualEffectView` will not sample a `WKWebView`'s
-//  out-of-process layer (both measured, both in `Glass.peekPlane`). Over a
-//  white site the glass showed a light desktop and three white circles vanished
-//  into a white page. A plane from `TabState.pageBackground` is the colour the
-//  page is painted on, so it reads as the site's own top edge and is a known
-//  surface, which is what the controls on it need.
-//
-//  It follows the page down. `pageBackground` is one answer for a whole
-//  document, so a bar wearing it stayed white all the way down a site whose
-//  second section is black. What is under the bar is a question only the page
-//  can answer, so `TabController+Scroll` asks it as the page scrolls.
-//
-//  The bar wears the appearance that plane calls for. Everything drawn here
-//  resolves from an `NSAppearance`, so one assignment re-inks all of it. A dark
-//  app over a white site gets dark glyphs on the bar and light ones everywhere
-//  else, which is correct rather than inconsistent: this is the only surface in
-//  Luna whose background is not Luna's.
-//
-//  One state: the toggle, the history cluster and a wide pill with a control
-//  at each end of it, however far the page scrolls. It used to shrink to a
-//  strip of site colour once the page scrolled, and the change lagged on every
-//  turn of direction, so it was taken out.
-//
-//  Reload is not on this bar. It is inside the capsule on its trailing edge,
-//  with site settings on the leading one, and both belong to `URLPillView`.
-//
-//  The address is not typed here either: the pill hands the whole job to §9.1,
-//  which opens on this capsule and grows down out of it (`CommandBarAnchor`),
-//  the same hand-off the sidebar's pill makes. What this bar had instead was
-//  `PageBarSuggestions` — search phrases and nothing else, no open tabs, no
-//  history, no commands, no autofill.
+//  Reload and site settings belong to `URLPillView`; the address is typed in
+//  §9.1, which grows out of this capsule (`CommandBarAnchor`). §4 has no page bar.
 //
 
 import AppKit

@@ -2,19 +2,18 @@
 //  SidebarMenu.swift
 //  Luna
 //
-//  The two things every sidebar menu needs: an item that runs a closure, and a title with
-//  a glyph in it.
+//  The two things every sidebar menu needs: an item that runs a closure, and a
+//  title with a glyph in it.
 //
 //  The closure item exists because `NSMenuItem` dispatches through target/action
 //  and a closure has no target: without it every menu would need an `@objc`
 //  method on some view that is still alive when the item fires, which for a row
 //  view the table is free to recycle is a use-after-free waiting to happen.
+//  `ClosureMenuItem` is its own target, so the action lives exactly as long as
+//  the item does.
 //
 //  The glyph exists because `NSMenuItem.image` is not drawn on this macOS —
 //  `label(symbol:title:in:)` is the way round it.
-//
-//  `ClosureMenuItem` is its own target, so the action lives exactly as long as
-//  the item does, and the menu owns both.
 //
 
 import AppKit
@@ -37,9 +36,9 @@ enum SidebarMenu {
     /// what VoiceOver reads and what `typeSelect` matches, and neither should
     /// have to step over an attachment.
     ///
-    /// Here rather than in `TabMenu`, where it started, because §3.4b's group
-    /// menu wants the same item and two copies of it would be two chances for
-    /// one menu's glyphs to end up a different size from the other's.
+    /// Here rather than in `TabMenu` because §3.4b's group menu wants the same
+    /// item, and two copies would be two chances for one menu's glyphs to end
+    /// up a different size from the other's.
     static func glyphItem(_ title: String, symbol name: String, action: @escaping () -> Void) -> NSMenuItem {
         let item = item(title: title, action: action)
         item.attributedTitle = label(symbol: name, title: title)
@@ -110,29 +109,24 @@ enum SidebarMenu {
         return menu
     }
 
-    /// A menu item's title with its glyph drawn into it, which is the only way to put
-    /// an icon in a menu on this macOS.
+    /// A menu item's title with its glyph drawn into it, which is the only way
+    /// to put an icon in a menu on this macOS.
     ///
-    /// `NSMenuItem.image` is the documented API and does nothing. Measured
-    /// twice, most recently with a five-way probe in a bare AppKit app: a plain
-    /// system symbol, one through `withSymbolConfiguration`, one with an
-    /// explicit size and `isTemplate` on, a hand-drawn red square and a named
-    /// AppKit template — none appeared, in Luna or in the probe. The property
-    /// is set correctly and the system declines.
+    /// `NSMenuItem.image` is the documented API and does nothing: a five-way
+    /// probe in a bare AppKit app — a plain symbol, a configured one, a sized
+    /// template, a hand-drawn red square and a named AppKit template — drew
+    /// none of them. An `NSTextAttachment` in `attributedTitle` is drawn,
+    /// because it is text, and it keeps what a custom `NSMenuItem.view` would
+    /// cost: the native highlight, arrow keys, the key-equivalent column, and
+    /// the plain `title` underneath for VoiceOver.
     ///
-    /// An `NSTextAttachment` in `attributedTitle` is drawn, because it is text
-    /// rather than a menu image, and it keeps what a custom `NSMenuItem.view`
-    /// would cost: the native highlight, arrow-key navigation, the
-    /// key-equivalent column, and the plain `title` underneath for VoiceOver.
-    ///
-    /// The tab stop makes the labels line up in a column rather than each
-    /// starting after its own glyph, derived from the two tokens §3.4's rows
-    /// use for the same relationship.
+    /// The tab stop lines the labels up in a column, from the two tokens §3.4's
+    /// rows use for the same relationship.
     ///
     /// - Parameter appearance: resolved here rather than at draw time. A dynamic
-    ///   `NSColor` inside an `NSImage` draw block picks up whatever appearance happens to
-    ///   be current, which in a menu being built from a right-click is not reliably the
-    ///   window's.
+    ///   `NSColor` inside an `NSImage` draw block picks up whatever appearance
+    ///   is current, which in a menu built from a right-click is not reliably
+    ///   the window's.
     static func label(
         symbol name: String,
         title: String,

@@ -104,36 +104,29 @@ extension PageChromeBar {
         return band.contains(convert(point, from: superview)) ? self : nil
     }
 
-    /// The window has one handle at a time, and it is the chrome that is on
-    /// screen. In this layout that is §3's column: the sidebar's plane moves
-    /// the window, and this bar — which is over the page, inside the card,
-    /// clipped to the page's own corners — does not.
-    ///
-    /// It used to move it too, on the reasoning that a chrome bar is a chrome
-    /// bar. Two handles on one window is one too many: with the sidebar out the
-    /// window could be dragged from a band that belongs to the page, which is
-    /// also the band §3.2b asks the pointer to aim at for the pill,
-    /// the toggle and the history cluster.
-    ///
-    /// The exception is the state where there is no column to drag by. With
-    /// the sidebar hidden this bar is the only chrome above the page, and a
-    /// window whose only handle has been put away is one the user cannot move
-    /// at all. Computed rather than stored: AppKit asks at mouse-down, so the
-    /// answer is never a copy of a state that has since changed.
     /// The lights this bar's buttons stand clear of, or nil.
     ///
-    /// Behind a sidebar hidden off the leading edge there are none. The lights
-    /// only show there on §7.2's peek, and then they are on the sidebar that
-    /// has slid out over this bar, not beside its buttons: cleared anyway, the
-    /// toggle and the history cluster stepped right under the sidebar every
-    /// time it came out, and back when it went. A trailing sidebar's peek
-    /// leaves the lights over the page, so those are still cleared.
+    /// None behind a sidebar hidden off the leading edge: the lights only show
+    /// there on §7.2's peek, on the sidebar that has slid out over this bar.
+    /// Cleared anyway, the toggle and the history cluster stepped under the
+    /// sidebar every time it came out, and back when it went. A trailing
+    /// sidebar's peek leaves the lights over the page, so those are cleared.
     private var lightsBesideTheBar: NSRect? {
         let state = (window?.windowController as? BrowserWindowController)?.chromeState
         guard state != .sidebarCollapsed(edge: .leading) else { return nil }
         return TrafficLightSpace.rect(in: self)
     }
 
+    /// The window has one handle at a time: the chrome on screen. In this
+    /// layout that is §3's column, and this bar — over the page, inside the
+    /// card — does not move the window. Not both: with the sidebar out, the
+    /// window could be dragged from a band that belongs to the page, the band
+    /// §3.2b asks the pointer to aim at for the pill, the toggle and the
+    /// history cluster.
+    ///
+    /// Except with the sidebar hidden, when this bar is the only chrome above
+    /// the page and the window's only handle. Computed rather than stored:
+    /// AppKit asks at mouse-down, so the answer is never a stale copy.
     override var mouseDownCanMoveWindow: Bool {
         (window?.windowController as? BrowserWindowController)?.chromeState.isSidebarCollapsed ?? false
     }

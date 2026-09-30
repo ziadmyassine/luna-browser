@@ -2,23 +2,17 @@
 //  PopoutTextButton.swift
 //  Luna
 //
-//  A word in a pop-out's header that can be pressed. §15.3's "Clear" is the
-//  only one, and it was a bare `NSButton` with an attributed title on it —
-//  which meant it was the one control in the app that answered neither the
-//  pointer nor the finger. CLAUDE.md's first rule is that every button Luna
-//  draws does both.
+//  A word in a pop-out's header that can be pressed, such as §15.3's "Clear".
+//  It answers the pointer and the finger like every button Luna draws.
 //
-//  **It is flat at rest, and that is not an exemption from §3.4's washes — it
-//  is where they start from.** `SettingsPushButton` wears the 6 % at rest and
-//  goes to 12 % under the pointer because it stands in a pane of plates, among
-//  other plates; this stands in a glass header next to a heading, and a
-//  permanent plate beside "Downloads" would read as a second title in a box.
-//  So the resting state is the header's own material, the pointer brings the
-//  6 %, and the press takes it to 12 % and swells — the same two washes in the
-//  same order, with the chip appearing rather than brightening.
+//  Flat at rest, which is not an exemption from §3.4's washes but where they
+//  start from. `SettingsPushButton` wears the 6 % at rest because it stands
+//  among other plates; this stands in a glass header beside a heading, where a
+//  permanent plate would read as a second title in a box. So the pointer
+//  brings the 6 %, and the press takes it to 12 % and swells.
 //
-//  Full radius rather than `rowCornerRadius`: at the height a word sets this
-//  is a capsule the size of §3.2's, and a 12 pt corner on a 23 pt chip is a
+//  Full radius rather than `rowCornerRadius`: at the height a word sets this is
+//  a capsule the size of §3.2's, and a 12 pt corner on a 23 pt chip is a
 //  rounded rectangle pretending to be one.
 //
 
@@ -63,8 +57,7 @@ final class PopoutTextButton: NSButton {
         layer?.cornerCurve = .continuous
         // A borderless text button rather than a bezelled one: a push button's
         // system bezel is the one piece of stock AppKit chrome that cannot be
-        // made to sit on glass, which is half of what was wrong with the panel
-        // this replaces.
+        // made to sit on glass.
         isBordered = false
         self.title = title
         target = self

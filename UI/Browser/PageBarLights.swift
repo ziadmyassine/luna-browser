@@ -5,9 +5,8 @@
 //  The one thing §3.2b's bar cannot work out from its own bounds: where the
 //  traffic lights are, and when they have moved.
 //
-//  An extension rather than more of `PageChromeBar.swift`, which is at
-//  SwiftLint's 400-line limit — the same reason `PageBarSuggestions` is a file
-//  of its own.
+//  An extension rather than more of `PageChromeBar.swift` because it is the
+//  bar's one dependency on the window rather than on its own bounds.
 //
 
 import AppKit
@@ -18,24 +17,19 @@ extension PageChromeBar {
     ///
     /// `placeControls` lays the three circles out against the lights
     /// (`TrafficLightSpace`), and macOS takes them out of the window on the way
-    /// into fullscreen and hands them back on the way out. Neither edge changes
-    /// this view's bounds, so nothing marks it dirty and the bar keeps whichever
-    /// placement it happened to have: the buttons a light's width off wherever
-    /// the pane is the whole window, and the open pill off the centre line the
-    /// collapsed one shares — which turns §3.2b's dissolve into a move, in
-    /// fullscreen only.
+    /// into fullscreen and back on the way out without changing this view's
+    /// bounds. Unheard, the bar keeps its old placement: the buttons a light's
+    /// width off, and the open pill off the collapsed one's centre line, which
+    /// turns §3.2b's dissolve into a move in fullscreen only.
     ///
-    /// §3.1's control row has exactly this dependency and is fixed exactly this
-    /// way, in `BrowserWindowController.relayoutChrome`. That pass walks the
-    /// chrome host's subviews, and this bar is not one of them: it is an
-    /// overlay on the content card (`ContentCardView.setOverlay`), so the pass
-    /// never reached it and it has to hear the two notifications itself.
+    /// §3.1's control row is fixed the same way in
+    /// `BrowserWindowController.relayoutChrome`, but that pass walks the chrome
+    /// host's subviews and this bar is an overlay on the content card
+    /// (`ContentCardView.setOverlay`), so it hears the notifications itself.
     ///
-    /// `object: nil` because the bar is built long before it is in a window —
-    /// there is nothing to scope the registration to, so `lightsMoved` scopes
-    /// it instead. The observers are selector-based, like the rest of the
-    /// chrome's: `NotificationCenter` holds them weakly and zeroes them on
-    /// dealloc, so there is nothing to remove.
+    /// `object: nil` because the bar is built long before it is in a window;
+    /// `lightsMoved` does the scoping. Selector-based, so `NotificationCenter`
+    /// holds the observer weakly and there is nothing to remove.
     func watchForTheLights() {
         for name: Notification.Name in [
             NSWindow.didEnterFullScreenNotification,

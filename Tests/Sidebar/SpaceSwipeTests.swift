@@ -5,22 +5,14 @@
 //  §30.9's two-finger swipe, as arithmetic — split out of `SpacesTests.swift`,
 //  which holds the other half: where the dots go.
 //
-//  Three things a trackpad would otherwise be the only way to find out.
-//
-//  That the page is the ruler: one page of hand is one page of column at every
-//  width the §3.7 handle reaches, which is what the "it multiplies my swipe"
-//  defect was the absence of.
-//
-//  What a gesture means: the half-a-page commit, the flick that commits
-//  without it, the cap that keeps one swipe to one Space, and the page past the
-//  last one that makes a new one.
-//
-//  And how much of the gesture is the hand's. macOS scales a precise scroll by
-//  how fast the fingers moved, so an event's deltas are not a distance, and
-//  everything above is arithmetic on a number that has already been multiplied.
-//  What is asserted is the shape of the curve rather than one point on it: it
-//  answers the hand everywhere, never outruns it, never exceeds the ceiling,
-//  and leaves a slow drag alone. A hard clip passes three of those four.
+//  Three things only a trackpad would otherwise show. That the page is the
+//  ruler: one page of hand is one page of column at every width the §3.7
+//  handle reaches. What a gesture means: the half-page commit, the flick, the
+//  cap that keeps one swipe to one Space, and the page past the last one that
+//  makes a new one. And how much of the gesture is the hand's: macOS scales a
+//  precise scroll by finger speed, so the damping is asserted as the shape of
+//  a curve — it answers the hand everywhere, never outruns it, never exceeds
+//  the ceiling, and leaves a slow drag alone. A hard clip passes three of those four.
 //
 
 import AppKit
@@ -42,11 +34,10 @@ final class SpaceSwipeTests: XCTestCase {
 
     // MARK: - The page is the ruler
 
-    /// The reported defect, stated as arithmetic: "a little swipe is too big
-    /// a move". The column used to be measured against a constant — 120 pt —
-    /// while the thing it moved was a 280 pt page, so every point of finger
-    /// bought two and a third points of column. The page now goes exactly as
-    /// far as the hand does, at every width the handle reaches.
+    /// "A little swipe is too big a move", stated as arithmetic. Measured
+    /// against a constant 120 pt while the page is 280 pt, every point of
+    /// finger bought two and a third points of column. The page goes exactly
+    /// as far as the hand does, at every width the handle reaches.
     func testOnePageOfHandIsOnePageOfColumn() {
         for span in [Tokens.Metric.sidebarWidth.min, page, Tokens.Metric.sidebarWidth.max] {
             for fraction in [0.1, 0.25, 0.5, 0.9] as [CGFloat] {
@@ -66,8 +57,8 @@ final class SpaceSwipeTests: XCTestCase {
         XCTAssertEqual(Self.resolve(page / 2, active: 1, of: 3).travel, 0.5, accuracy: 0.001)
     }
 
-    /// Past the last Space it changes gear, and that is the resistance
-    /// asked for. There is nowhere for the column to go out there, so it is
+    /// Past the last Space it changes gear, and that is the resistance.
+    /// There is nowhere for the column to go out there, so it is
     /// held against a stop instead of carried to one: the same half page of
     /// hand that moves a whole half page of column between two Spaces moves
     /// visibly less of one past the last, and every further point of push
@@ -98,11 +89,10 @@ final class SpaceSwipeTests: XCTestCase {
         XCTAssertNil(Self.resolve(-page * 0.4, active: 1, of: 3).landing)
     }
 
-    /// "One single fast swipe should also go to the next Space." Half a
-    /// page is 140 pt of finger, which is far more than a reflex performed
-    /// dozens of times a day can cost — so a release that is still moving turns
-    /// the page however far it got. This is what pays for the ruler being a
-    /// whole page wide.
+    /// One fast swipe goes to the next Space. Half a page is 140 pt of
+    /// finger, far more than a reflex performed dozens of times a day can
+    /// cost, so a release that is still moving turns the page however far it
+    /// got. This is what pays for the ruler being a whole page wide.
     func testAFlickTurnsThePageWithoutTheDistance() {
         let flick = Self.resolve(page * 0.15, speed: fast, active: 0, of: 3)
         XCTAssertEqual(flick.landing, 1)
@@ -127,10 +117,10 @@ final class SpaceSwipeTests: XCTestCase {
 
     /// The bug the cap exists for. A trackpad flick is accelerated by the
     /// system and routinely delivers several hundred points in one stroke, so
-    /// before the travel was capped a single firm swipe from the first of two
-    /// Spaces ran through the second and into the create zone — the gesture you
-    /// use to change Space made one instead. Whatever the stroke, a swipe
-    /// forward from a Space that has a Space after it lands on that Space.
+    /// uncapped, a single firm swipe from the first of two Spaces runs through
+    /// the second and into the create zone — the gesture for changing Space
+    /// makes one instead. Whatever the stroke, a swipe forward from a Space
+    /// that has a Space after it lands on that Space.
     func testAHardSwipeLandsOnTheNextSpaceRatherThanMakingOne() {
         for stroke in [page, page * 4, page * 40] {
             let swipe = Self.resolve(stroke, speed: fast, active: 0, of: 2)
@@ -192,11 +182,10 @@ final class SpaceSwipeTests: XCTestCase {
 
     // MARK: - Making one
 
-    /// The reported defect: "I cannot create a new Space anymore." It used
-    /// to take three pages of travel, which against the damping ceiling needs
-    /// almost a quarter of a second of unbroken, saturated movement — so the
-    /// ring closed, because that only cost a third of it, and the release made
-    /// nothing. Every time. A whole page, pushed out and let go of, makes one.
+    /// Not three pages: against the damping ceiling that needs almost a
+    /// quarter of a second of unbroken, saturated movement, so the ring closed
+    /// (it cost a third of that) and the release made nothing, every time. A
+    /// whole page, pushed out and let go of, makes one.
     func testAPagePushedOutAndReleasedMakesASpace() {
         let swipe = Self.resolve(page, speed: slow, active: 1, of: 2)
         XCTAssertTrue(swipe.createsSpace)
@@ -211,13 +200,11 @@ final class SpaceSwipeTests: XCTestCase {
         XCTAssertFalse(Self.resolve(page * 0.99, speed: slow, active: 0, of: 1).createsSpace)
     }
 
-    /// A closed ring is a made Space, and nothing else is. The ring used
-    /// to finish drawing a third of the way in and the gesture to commit at the
-    /// end of the page, on the reasoning that a progress ring should promise
-    /// rather than receipt — which is true of a ring that is promising
-    /// something. A user who did what it said (push until the circle closes,
-    /// let go) got nothing, exactly as they had before the create distance came
-    /// down at all. There is one distance now and the ring is drawn against it.
+    /// A closed ring is a made Space, and nothing else is. Not a ring that
+    /// promises ahead of the commit: one that closed a third of the way in
+    /// told a user who pushed until the circle closed and let go that they had
+    /// made something, and they had not. There is one distance and the ring is
+    /// drawn against it.
     func testTheRingIsFullExactlyWhenALetGoWouldMakeASpace() {
         for fraction in stride(from: 0.1, through: 3.0, by: 0.1) {
             let swipe = Self.resolve(page * CGFloat(fraction), speed: slow, active: 0, of: 1)
@@ -230,12 +217,11 @@ final class SpaceSwipeTests: XCTestCase {
         XCTAssertEqual(Self.resolve(page, active: 0, of: 1).creation, 1, accuracy: 0.001)
     }
 
-    /// However the hand left. A flick past the last Space used to make
-    /// nothing however far it went, which is a defensible rule about intent and
-    /// an indefensible one about a read-out: it made a closed circle mean
-    /// nothing in some releases, which is the same lie as a circle that closes
-    /// early. The distance is what tells a reflex from a decision now, and a
-    /// reflex does not cover a page.
+    /// However the hand left. "A flick past the last Space makes nothing" is
+    /// a defensible rule about intent and an indefensible one about a
+    /// read-out: a closed circle would mean nothing on some releases, the same
+    /// lie as a circle that closes early. The distance tells a reflex from a
+    /// decision, and a reflex does not cover a page.
     func testTheRingDecidesRatherThanTheSpeedTheFingersLeftAt() {
         for speed in [0, slow, fast, fast * 10, -fast] {
             XCTAssertTrue(
@@ -249,10 +235,9 @@ final class SpaceSwipeTests: XCTestCase {
         }
     }
 
-    /// "If the user then pans back then it shouldn't." The ring empties
-    /// under the hand on the way out again, so calling a create off is the same
-    /// movement that started it, run backwards, and it is watched the whole
-    /// way. Nothing latches.
+    /// Panning back calls the create off. The ring empties under the hand on the
+    /// way out again, so calling a create off is the same movement that started it,
+    /// run backwards, and it is watched the whole way. Nothing latches.
     func testPanningBackEmptiesTheRingAndCallsTheCreateOff() {
         let closed = Self.resolve(page * 1.5, speed: slow, active: 0, of: 1)
         XCTAssertTrue(closed.createsSpace)
@@ -284,8 +269,8 @@ final class SpaceSwipeTests: XCTestCase {
 
     /// The multiplier the trackpad itself adds. macOS scales the delta by
     /// how fast the fingers moved, so a flick arrives as several times the
-    /// travel the hand actually covered — and now that the page is pinned to
-    /// the hand 1:1, an undamped delta would put the column three pages from
+    /// travel the hand actually covered — and with the page pinned to the
+    /// hand 1:1, an undamped delta would put the column three pages from
     /// the fingers pushing it. Four times a hand's worth of movement in one
     /// frame comes back as about a hand's.
     func testAnAcceleratedFlickIsFoldedBackTowardWhatAHandCanCover() {
@@ -314,14 +299,12 @@ final class SpaceSwipeTests: XCTestCase {
         }
     }
 
-    /// The bug the curve exists for, stated as arithmetic. This was a hard
-    /// clip for one build, which is a worse gesture than no damping at all: a
+    /// Not a hard clip, which is a worse gesture than no damping at all: a
     /// ceiling low enough to catch a flick catches every event of an ordinary
     /// swipe too, so every frame comes back as exactly the ceiling and the
-    /// page travels at one fixed speed whatever the hand is doing. A curve that
-    /// is still answering the hand keeps rising all the way up, and it never
-    /// rises faster than the hand did — which is the pair of claims that rules
-    /// out both a clip and a gain.
+    /// page travels at one fixed speed whatever the hand is doing. A curve
+    /// keeps rising all the way up and never rises faster than the hand did,
+    /// the pair of claims that rules out both a clip and a gain.
     func testTheResponseKeepsAnsweringTheHandAndNeverOutrunsIt() {
         var previous: CGFloat = 0
         for step in 1...200 {
@@ -356,18 +339,15 @@ final class SpaceSwipeTests: XCTestCase {
     }
 
     /// The create gesture has to be completable in one stroke, at the widest
-    /// the column gets. This is the claim that was false in the shipped
-    /// build: three pages against the ceiling needed longer than a trackpad
-    /// stroke lasts, so the one gesture the resistance is for could not be
-    /// performed at all. One deliberate push now clears a page even against a
-    /// sidebar dragged out to its maximum — and this is the worst case twice
-    /// over, because the stroke is simulated at the damping ceiling, which a
+    /// the column gets; three pages against the ceiling needed longer than a
+    /// trackpad stroke lasts. This is the worst case twice over: a sidebar at
+    /// its maximum, and a stroke simulated at the damping ceiling, which a
     /// deliberate push never reaches.
     func testAStrokeCoversAWholePageAtTheWidestTheColumnGets() {
         let stroke = 0.3
         var offset: CGFloat = 0
         var last = 1.0
-        // A flick the system has already multiplied, at 120 Hz, for 0.2 s.
+        // A flick the system has already multiplied, at 120 Hz, for `stroke` seconds.
         for step in 1...Int(stroke * 120) {
             let now = 1 + Double(step) / 120
             offset += SpaceSwipeController.damped(60, since: last, at: now)

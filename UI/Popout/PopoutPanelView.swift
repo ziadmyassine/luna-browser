@@ -2,25 +2,18 @@
 //  PopoutPanelView.swift
 //  Luna
 //
-//  The shape §6.4's History panel arrived at, with the second surface that
-//  wants it — Downloads — lifted out of it.
+//  The pop-out History and Downloads share: a glass panel standing on the
+//  control that opened it, over a transparent sheet that catches the click
+//  that dismisses it. That is what an `NSMenu` puts up and for the same reason:
+//  a glance opened from a button belongs on that button, it must not cost the
+//  page behind it, and the click that closes it must not also land on whatever
+//  it was over.
 //
-//  A pop-out is a glass panel standing on the control that opened it, over
-//  a transparent sheet that catches the click that dismisses it. That is what
-//  an `NSMenu` puts up and for the same reason: a glance opened from a button
-//  belongs on that button, it must not cost the page behind it, and the click
-//  that closes it must not also land on whatever it was over.
+//  The callers differ only in which way it grows: up from §3.5's foot of the
+//  sidebar, down from the top bar's capsule.
 //
-//  The one thing that differs between the two callers is which way it
-//  grows. The sidebar's History button is at the foot of §3.5, so its pop-out
-//  goes up; the top bar's capsule is at the window's head, so its pop-outs go
-//  down. Everything else — the material, the shadow, the clamps, the corner the
-//  spring unfolds from — is the same, so it is written once here.
-//
-//  Why a shadow and no scrim: with a backdrop behind it the panel was separated
-//  from the page by the veil; standing on the page directly, its own edge is
-//  all it has, and §2's popover material has no heavier weight to ask for
-//  (`Tokens.Shadow.popover`). Same token the §6.6 drag lift carries.
+//  A shadow and no scrim: standing directly on the page, its own edge is all
+//  that separates it, and `Tokens.Shadow.popover` is §2's heaviest weight.
 //
 
 import AppKit
@@ -222,19 +215,13 @@ class PopoutPanelView: NSView {
     }
 
     /// `animateIn` run backwards: the same spring, the same corner, the same
-    /// 0.96, folding back into the button it came out of.
-    ///
-    /// It is the mirror on purpose. A surface that unfolds from a control and
-    /// then vanishes on the next frame is two different objects — one that
-    /// arrived and one that was switched off — and the second one takes the
-    /// first one's meaning with it: the pop-out stops reading as a thing that
-    /// belongs to the button and starts reading as a window that was closed.
-    /// The way back to the button is the whole reason the way out of it was
-    /// animated.
+    /// 0.96, folding back into the button it came out of. A pop-out that
+    /// vanishes on the next frame stops reading as a thing that belongs to the
+    /// button and reads as a window that was closed.
     ///
     /// It takes itself out of the tree at the end, and under Reduce Motion
-    /// (§21.2) on the next statement — which is exactly what the controller
-    /// used to do always, and why nothing else has to know the difference.
+    /// (§21.2) on the next statement, so the controller need not know the
+    /// difference.
     func animateOut() {
         isClosing = true
         guard let layer = body.layer,

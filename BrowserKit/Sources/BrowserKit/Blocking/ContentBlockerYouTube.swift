@@ -3,36 +3,27 @@ import WebKit
 
 /// YouTube's in-player ads (§17.2), which are the one thing a rule list cannot reach.
 ///
-/// A documented exception to D6. D6 chose `WKContentRuleList` over a JS blocker
-/// and §17.3 chose `css-display-none` over runtime CSS; both still hold
-/// everywhere else, and neither holds here. Measured against the live site on
-/// 2026-09-20:
+/// A documented exception to D6 (`WKContentRuleList` over a JS blocker) and §17.3
+/// (`css-display-none` over runtime CSS), both of which still hold everywhere else.
+/// Measured against the live site on 2026-09-20:
 ///
 /// - The ad and the video come down the same pipe. Every media segment on a watch
-///   page is fetched from a session-specific `rr2---sn-q4fzene7.googlevideo.com`-style
-///   host and appended into one `MediaSource` behind a single `blob:` URL on a
-///   single `<video>` element. The ad's bytes and the video's bytes are the same
-///   origin, the same host, the same element. A `url-filter` that matches the ad
-///   matches the video; there is no rule that blocks one and not the other.
-/// - The ad schedule is metadata, not a request. On a monetised watch page
-///   `ytInitialPlayerResponse` carried `adPlacements` (1 × `adPlacementRenderer`),
-///   `adSlots` (2 × `adSlotRenderer`) and `playerAds` (1 ×
-///   `playerLegacyDesktopWatchAdsRenderer`) — inside the same JSON object as
-///   `streamingData` and `videoDetails`. Nothing is fetched to schedule an ad. There is
-///   no load to block, so `block` has nothing to act on.
+///   page is fetched from one session-specific `googlevideo.com` host and appended
+///   into one `MediaSource` behind one `blob:` URL on one `<video>`. A `url-filter`
+///   that matches the ad matches the video.
+/// - The ad schedule is metadata, not a request. `adPlacements`, `adSlots` and
+///   `playerAds` arrive inside `ytInitialPlayerResponse`, the same JSON object as
+///   `streamingData` and `videoDetails`. There is no load to block.
 ///
 /// So the only seam left is the one the page reads the schedule through, and
 /// that is JavaScript. Narrow: the static ads (mastheads, in-feed slots, the
 /// panel beside the player) stay on the native path in ``youTubeRules``.
 ///
-/// Why ``youTubeScript`` must be injected at `documentStart`, and why that is not a
-/// preference. Measured the same day, by patching a live page from the console:
-/// `JSON.parse` and `Response.prototype.text` replaced after YouTube's bundle has run
-/// are never called — the bundle caches its own references on the way up, so a hook
-/// installed late sees nothing (`parses: 0`, `rewrites: 0` against a response that
-/// demonstrably carried `adPlacements`). At `documentStart` nothing of YouTube's has
-/// run, so the reference it caches is ours. Late injection here does not degrade; it
-/// does nothing at all.
+/// ``youTubeScript`` must be injected at `documentStart`. YouTube's bundle caches its
+/// own references to `JSON.parse` and `Response.prototype.text` on the way up, so a
+/// hook installed after it is never called (measured from the console: `parses: 0`,
+/// `rewrites: 0` against a response that carried `adPlacements`). Late injection
+/// does not degrade; it does nothing at all.
 extension ContentBlocker {
 
     // MARK: - The hosts
@@ -64,12 +55,11 @@ extension ContentBlocker {
     /// user has already answered. So this is the `ads` category's answer, scoped to the
     /// site, and nothing more.
     ///
-    /// It deliberately does not ask whether `host` is YouTube. A
-    /// `youtube-nocookie` embed on someone else's page plays the same pre-roll
-    /// out of the same player, and the top-level host there is the someone
-    /// else. ``youTubeScript`` tests `location.hostname` in its first two lines
-    /// and returns from any frame that is not YouTube's, so the embed is
-    /// covered and every other site pays one regular expression.
+    /// It deliberately does not ask whether `host` is YouTube: a
+    /// `youtube-nocookie` embed on another site plays the same pre-roll out of
+    /// the same player, under that site's top-level host. ``youTubeScript``
+    /// returns from any frame whose `location.hostname` is not YouTube's, so
+    /// the embed is covered and every other site pays one regular expression.
     /// ``apply(to:host:)`` does add the `isYouTube` test, because a rule list
     /// is per-page and has no second chance to check.
     public func blocksYouTubeAds(forHost host: String?, in scope: SitePermissions = .shared) -> Bool {
@@ -158,28 +148,24 @@ extension ContentBlocker {
     /// failed sub-resource loads and this one is not a load at all.
     public static let youTubeMessageName = "lunaYouTube"
 
-    /// What every YouTube frame runs before YouTube does.
-    ///
-    /// Three layers, in the order they get a chance to act:
+    /// What every YouTube frame runs before YouTube does. Three layers, in the order
+    /// they get a chance to act:
     ///
     /// 1. The schedule. `ytInitialPlayerResponse` is assigned by an inline script on
     ///    a cold load and is taken through a property trap; an SPA navigation fetches
-    ///    `/youtubei/v1/get_watch` — measured, and note that it is no longer `/player` —
-    ///    and is taken at every transport the body could be read through. Both end in
-    ///    ``scrub``, which deletes `adPlacements`, `adSlots` and `playerAds` so the
-    ///    player is never told there is an ad to play.
-    /// 2. The feed. The same scrub drops `adSlotRenderer`-shaped items out of the
-    ///    lists they arrive in, so the grid closes up rather than leaving the gap
-    ///    ``youTubeRules`` would hide.
-    /// 3. The fallback. A server-stitched ad that gets past both still lands in the
-    ///    one `<video>` element, and YouTube marks it by putting `ad-showing` on
-    ///    `#movie_player` (measured: the class is present for exactly the ad and absent
-    ///    for the content). Skip it if there is a skip button, seek past it if there is
-    ///    not.
+    ///    `/youtubei/v1/get_watch` (measured; it has also been `/player`) and is taken
+    ///    at every transport the body could be read through. Both end in ``scrub``,
+    ///    which deletes `adPlacements`, `adSlots` and `playerAds`.
+    /// 2. The feed. The same scrub drops `adSlotRenderer`-shaped items out of their
+    ///    lists, so the grid closes up rather than leaving the gap ``youTubeRules``
+    ///    would hide.
+    /// 3. The fallback. A server-stitched ad that gets past both is marked by
+    ///    `ad-showing` on `#movie_player` (measured: present for exactly the ad).
+    ///    Skip it if there is a skip button, seek past it if there is not.
     ///
-    /// The mute is restored. The ad and the video are the same element, so
-    /// muting for the seek and forgetting would hand the user a silent video.
-    /// `mutedByUs` exists only to put it back, and only if we took it.
+    /// The mute is restored: the ad and the video are the same element, so muting
+    /// for the seek and forgetting would hand the user a silent video. `mutedByUs`
+    /// exists only to put it back, and only if we took it.
     public static let youTubeScript = """
     (function () {
       'use strict';
@@ -347,7 +333,7 @@ extension ContentBlocker {
       }
 
       // The "Ad blockers violate YouTube's Terms of Service" modal stops playback
-      // outright, so leaving it would ship a feature that makes the site *less* usable
+      // outright, so leaving it would ship a feature that makes the site less usable
       // than not having it.
       function dismissEnforcement() {
         var message = document.querySelector('ytd-enforcement-message-view-model');

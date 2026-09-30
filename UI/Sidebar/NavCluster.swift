@@ -2,29 +2,19 @@
 //  NavCluster.swift
 //  Luna
 //
-//  §3.1's history control: back alone until there is a forward to go to.
+//  §3.1's history control: back alone until there is a forward to go to. One
+//  class for the sidebar's control row and §3.2b's page bar, because they are
+//  the same control on two surfaces.
 //
-//  One class for both places the chrome puts it — the sidebar's control row and
-//  §3.2b's page bar — because they are the same control on two surfaces, and a
-//  second implementation would be a second set of hover, dimming and morph bugs.
+//  Forward is unreachable on most pages, and a permanently dimmed chevron beside
+//  a live one spends its life saying no, so it is not there until it means
+//  something. When it arrives the pair becomes one capsule split by a hairline.
 //
-//  Forward is the rarest button in a browser: unreachable on most pages,
-//  because nothing has been gone back from, and a permanently dimmed chevron
-//  beside a live one spends its whole life saying no. So it is not there until
-//  it means something, and when it arrives the pair becomes one capsule divided
-//  by a hairline, which is the reference.
-//
-//  One plate, two bare glyphs. The material is applied once to the cluster, at
-//  the circle's own radius, so back alone is exactly the circle it was and the
-//  capsule is that circle grown a second half. Giving each chevron its own
-//  backing is what made §4's action capsule read as separate bright discs
-//  (`TopBarActionCapsule`), and here it would put two rounded shapes inside a
-//  third.
-//
-//  The radius never has to change, which is why the glass can be built once: a
-//  glass view's corner radius is fixed when it is constructed, and this one
-//  grows sideways at a constant height, so half that height is a capsule at
-//  either width.
+//  One plate, two bare glyphs: the material is the cluster's, at the circle's
+//  radius, so back alone is the circle and the capsule is that circle grown a
+//  second half. A backing per chevron reads as separate discs. The glass can be
+//  built once because its radius is fixed at construction and the height never
+//  changes, so half of it is a capsule at either width.
 //
 
 import AppKit

@@ -7,16 +7,6 @@
 //  Disk Access (§23.2 asks for the exported file first), and half of §23.4's
 //  backup and export.
 //
-//  The format, as every browser writes it:
-//
-//      <!DOCTYPE NETSCAPE-Bookmark-file-1>
-//      <DL><p>
-//          <DT><H3 PERSONAL_TOOLBAR_FOLDER="true">Bookmarks Bar</H3>
-//          <DL><p>
-//              <DT><A HREF="https://…" ADD_DATE="1756588800">Title</A>
-//          </DL><p>
-//      </DL><p>
-//
 //  `ADD_DATE` here is seconds since the Unix epoch — not Chromium's
 //  microseconds since 1601. Different file, different epoch.
 //
@@ -32,7 +22,15 @@ enum NetscapeBookmarks {
 
     // MARK: - Parse
 
-    /// Parses a bookmarks HTML file.
+    /// Parses a bookmarks HTML file, which every browser writes as:
+    ///
+    ///     <!DOCTYPE NETSCAPE-Bookmark-file-1>
+    ///     <DL><p>
+    ///         <DT><H3 PERSONAL_TOOLBAR_FOLDER="true">Bookmarks Bar</H3>
+    ///         <DL><p>
+    ///             <DT><A HREF="https://…" ADD_DATE="1756588800">Title</A>
+    ///         </DL><p>
+    ///     </DL><p>
     ///
     /// Tag-scanning rather than HTML parsing on purpose: these files are
     /// hand-rolled by every browser, are frequently not well-formed, and the

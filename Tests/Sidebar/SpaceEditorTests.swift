@@ -5,12 +5,10 @@
 //  §6.1's editor, which is laid out by hand in a column the user can drag —
 //  so the only thing holding its grid together is arithmetic.
 //
-//  The form was reported for its alignment twice, and alignment is exactly
-//  what a hand-laid column loses first: every piece of type in it once started
-//  at its own edge, and none of that is visible in the code, which reads as
-//  three perfectly ordinary calls. It is visible here. There are two edges —
-//  the form's heading on the plates' outer one, everything inside a plate on
-//  the plate's own — and each is an assertion below.
+//  Alignment is what a hand-laid column loses first, and none of it is visible
+//  in the code, which reads as three ordinary calls. There are two edges — the
+//  form's heading on the plates' outer one, everything inside a plate on the
+//  plate's own — and each is an assertion below.
 //
 
 import XCTest
@@ -34,8 +32,8 @@ final class SpaceEditorGridTests: XCTestCase {
         return editor
     }
 
-    /// Every view of a kind, wherever it has ended up. The chips live inside
-    /// their card now rather than loose on the form, which is the point.
+    /// Every view of a kind, wherever it has ended up: the chips live inside
+    /// their card rather than loose on the form.
     private func descendants<T: NSView>(of root: NSView, ofType type: T.Type) -> [T] {
         var found: [T] = []
         for child in root.subviews {
@@ -75,9 +73,8 @@ final class SpaceEditorGridTests: XCTestCase {
     }
 
     /// The form's own heading is not inside any of them, so it stands on the
-    /// plates' outer edge. Indented to the cards' text inset it read as a
-    /// label belonging to the first card rather than as the title of the form,
-    /// which is what was reported the second time.
+    /// plates' outer edge. Indented to the cards' text inset it reads as a
+    /// label belonging to the first card rather than as the title of the form.
     func testTheTitleStandsOnThePlatesOuterEdge() {
         for width in [280, 250, 420] as [CGFloat] {
             let editor = laidOutEditor(width: width)
@@ -193,15 +190,14 @@ final class SpaceEditorGridTests: XCTestCase {
     }
 }
 
-/// What the form does with the name, which until now was nothing unless the
-/// user pressed Return.
+/// What the form does with the name when the user does not press Return.
 ///
 /// §6.1's Space is created before the form opens, carrying the `Space N` the
 /// swipe gave it, so the name in the field is a rename that has to be sent.
 /// The field commits on Return and on losing the focus, and the two buttons
-/// under it are plain `NSView`s: there was nothing for the field to lose the
-/// focus to, so a name typed and confirmed with `Create Space` went nowhere
-/// and the Space kept its placeholder. Reported from a real swipe.
+/// under it are plain `NSView`s that take no focus, so a name confirmed with
+/// `Create Space` must be sent by the button or the Space keeps its
+/// placeholder.
 @MainActor
 final class SpaceEditorNameTests: XCTestCase {
 

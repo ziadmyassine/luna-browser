@@ -2,36 +2,18 @@
 //  ButtonFeedbackTests.swift
 //  LunaTests
 //
-//  Every button in Luna answers a press, and this is the list of them.
+//  Every button in Luna answers a press, and this is the register of them: a
+//  new button type that does not swell fails here. See CLAUDE.md, "Buttons
+//  answer".
 //
-//  §3.1 has always said a hover lifts the fill and §6 has had `controlPress`
-//  since the chrome got its washes — but a rule that lives only in prose is
-//  applied by whoever remembers it, and the press reached the sidebar's own
-//  buttons and then stopped: the top bar, both action capsules, Settings'
-//  chevrons, its push button, the two appearance chips and the palette button
-//  all shipped with a hover and nothing under the finger. Six months of
-//  "every button" meaning "every button somebody checked".
+//  The swell is asserted, not the wash. The wash lands in different places per
+//  control — a plate, a subview, a gradient's ring — while `Motion.swell`
+//  writes one transform to the control, or to the capsule that owns its
+//  material, in every case.
 //
-//  So the register is here instead. A new button type that does not swell
-//  fails this file, which is the only way a rule about all of something
-//  survives the next person who adds one. See CLAUDE.md, "Buttons answer".
-//
-//  The swell is what is asserted, not the wash. Both are part of the
-//  answer, but the wash is a colour on a layer that several of these controls
-//  paint in different places — a plate, a subview, a gradient's ring — while
-//  `Motion.swell` writes one transform to the control (or to the capsule that
-//  owns its material) in every case. One assertion, no per-control exceptions.
-//
-//  Absent on purpose: §14.3's picker rows — `CredentialRowView` and
-//  `PopoverActionRowView` — and Settings' account row, `SettingsAccountRow`,
-//  which heads the section list in the list's own dress. They are list rows under CLAUDE.md's rule, not
-//  buttons: a full-width row growing 5 % reads as the list jumping. They answer
-//  with a hover wash and nothing else, and belong here only if that rule
-//  changes. §14.4's chip is built from `SettingsPushButton`, which is already
-//  covered below, and so are Luna Control's approval card and its Revoke
-//  buttons; its working capsule's Take Over has a test of its own. Its
-//  Pause, Resume and Stop are menu items, not buttons. §17's pop-up chip has
-//  a test of its own.
+//  Absent on purpose: list rows (`CredentialRowView`, `PopoverActionRowView`,
+//  `SettingsAccountRow`), which answer with a hover wash only, and the
+//  approval card and §14.4's chip, which are `SettingsPushButton`s.
 //
 
 import XCTest
@@ -224,8 +206,7 @@ final class ButtonFeedbackTests: XCTestCase {
         push.highlight(false)
         XCTAssertEqual(scale(of: push), 1, accuracy: 0.001, "the push button stays swollen")
 
-        // §15.3's "Clear", which shipped as a bare `NSButton` and answered
-        // nothing at all.
+        // §15.3's "Clear": as a bare `NSButton` it would answer nothing at all.
         let word = PopoutTextButton(title: "Clear", label: "Clear finished downloads")
         _ = sized(word, 48)
         word.highlight(true)

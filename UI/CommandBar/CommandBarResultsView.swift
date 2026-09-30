@@ -13,10 +13,9 @@
 //  inserts a row above it. The controller enforces the no-reorder rule; this view
 //  makes it observable, by putting the highlight back on the same result.
 //
-//  UI-SPEC §3.4 supplies the look: a filled translucent pill at
-//  `rowCornerRadius`, inset `rowInset` from each edge, with a hairline border
-//  and no background on the unselected rows. One pill that moves rather than a
-//  fill per row — cheaper, and what §6's `selectedRowMove` describes.
+//  UI-SPEC §3.4 supplies the look: one translucent pill at `rowCornerRadius`,
+//  inset `rowInset` from each edge, that moves on §6's `selectedRowMove` rather
+//  than a fill per row.
 //
 
 import AppKit
@@ -77,14 +76,11 @@ final class CommandBarResultsView: NSView {
     /// Replaces the list. `keepingSelection` is the controller's promise from
     /// §9.7 — when the user has moved the highlight, the row under it stays put.
     ///
-    /// Nothing here places the highlight; `layout()` does. It used to move
-    /// the pill from this method whenever the list's ids had not changed, which
-    /// is most of what happens while somebody types fast: the query re-ranks,
-    /// the history lands, the engine's suggestions land, and each of those
-    /// arrives with the same eight ids. The pill was then animated to a frame
-    /// measured off rows that had not been laid out at their new size yet — so
-    /// it slid to somewhere slightly wrong and the next layout pass snapped it
-    /// back — the highlight that read as "moving around a bit weirdly".
+    /// Nothing here places the highlight; `layout()` does. Fast typing brings
+    /// re-ranks, history and suggestions that each arrive with the same eight
+    /// ids, and a pill moved from here was animated to rows not yet laid out at
+    /// their new size: it slid somewhere slightly wrong and the next layout
+    /// pass snapped it back.
     func setResults(_ new: [CommandBarResult], selecting id: String?) {
         let contentChanged = new.map(\.id) != results.map(\.id)
         let previous = selectedID
@@ -107,12 +103,9 @@ final class CommandBarResultsView: NSView {
     override func layout() {
         super.layout()
         // The rows first, then the pill that measures them. A view is laid
-        // out before its children, so on the pass that follows a rebuild the
-        // stack's rows still had no frames and the highlight was placed on a
-        // zero rect — invisible. It stayed there until something else asked for
-        // a layout, which on a freshly opened bar was the history query coming
-        // back from SQLite: the highlight arrived about a second after the list
-        // it belongs to, on a row that had been selected the whole time.
+        // out before its children, so after a rebuild the rows have no frames
+        // yet and the pill lands on a zero rect until something else asks for
+        // layout — on a fresh bar, the history query about a second later.
         rows.layoutSubtreeIfNeeded()
         moveSelectionPill(animated: slidesToNextRow)
         slidesToNextRow = false

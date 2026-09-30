@@ -2,8 +2,8 @@
 //  SpaceDotPressTests.swift
 //  LunaTests
 //
-//  §3.5's dots answering a pointer, which until now they did not: a dot took a
-//  click and said nothing at all until the Space had already changed.
+//  §3.5's dots answering a pointer, rather than taking a click and saying
+//  nothing until the Space has already changed.
 //
 //  The answer is §3.4's two washes on a chip the size of the dot's slot, and
 //  §6's swell — on the pill, because a 6 pt mark has no material of its own

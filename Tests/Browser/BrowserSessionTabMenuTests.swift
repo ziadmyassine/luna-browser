@@ -209,8 +209,8 @@ final class BrowserSessionTabMenuTests: XCTestCase {
         XCTAssertTrue(moving.items.contains { Self.word($0) == "Move to Folder" })
     }
 
-    /// And there is no *Save* item at all any more. §3.4b's tier holds folders and
-    /// nothing else, so "put this up there" and "put this in a folder" are one act.
+    /// And there is no Save item. §3.4b's tier holds folders and nothing else,
+    /// so "put this up there" and "put this in a folder" are one act.
     func testThereIsNoSaveItem() async throws {
         let session = try await makeSession()
         let id = try tab(in: session, at: url("one"))

@@ -5,22 +5,15 @@
 //  The second half of §4.7's decoder, living up here because of where AppKit is
 //  allowed to be.
 //
-//  `FaviconService` reads icons with ImageIO, which covers PNG, ICO, JPEG and
-//  the rest — and not SVG, for which it returns a source with zero images. That
-//  used to end the matter: a site whose only mark is a vector had no icon in
-//  Luna, and several serve one straight from `/favicon.ico`, content type and
-//  all. `NSImage` does read an SVG (`_NSSVGImageRep`), so the renderer exists;
-//  it just cannot live in `BrowserKit`, which rule 1 keeps AppKit out of. Hence
-//  the seam: `FaviconService.rasterize`, installed here once at launch.
+//  `FaviconService` reads icons with ImageIO, which returns no images for an
+//  SVG — and several sites serve only a vector, some from `/favicon.ico`.
+//  `NSImage` reads SVG, but `BrowserKit` keeps AppKit out, hence the seam:
+//  `FaviconService.rasterize`, installed here once at launch. Drawing at the
+//  cache's own size is the point, so a 16-point mark comes out sharp at 128 px.
 //
-//  Drawing at the cache's own size rather than the icon's is the point of
-//  taking a vector at all — a 16-point mark comes out sharp at 128 px instead
-//  of being blown up from 16.
-//
-//  It renders, it does not run: an SVG is drawn by the system's static image
-//  rep, with no script and no layout engine. The bytes come from the site the
-//  tab is already on, so they are no more trusted — and no less — than the page
-//  that named them.
+//  It renders, it does not run: the system's static image rep draws it with no
+//  script and no layout engine, and the bytes are no more or less trusted than
+//  the page that named them.
 //
 
 import AppKit

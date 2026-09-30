@@ -3,29 +3,17 @@
 //  Luna
 //
 //  The Space that does not exist yet, arriving from the trailing edge of the
-//  sidebar as §30.9's swipe runs past the last one.
+//  sidebar as §30.9's swipe runs past the last one. A 14 pt ring at the foot of
+//  the column does not read for a gesture met for the first time — a mark the
+//  size of a full stop, 600 pt from the eye — so the mark is drawn where the
+//  gesture happens: the chrome's 34 pt circle, sliding in from the edge the
+//  swipe heads for. The strip carries no second `+`; it answers which Space.
 //
-//  The strip alone was not enough of an answer. A 14 pt ring at the foot of the
-//  column reads for a gesture you already understand and not at all for one you
-//  are meeting first: the hand pushes a column of tabs sideways and the only
-//  thing that changes is a mark the size of a full stop, 600 pt from where the
-//  eye is. So the same mark is drawn where the gesture is happening — one disc,
-//  the chrome's own 34 pt circle, sliding in from the edge the swipe heads for.
+//  The ring is drawn around the disc, not on it: a stroke on a glass button's
+//  own edge bites into it and has to be hairline-thin not to read as a border.
 //
-//  One of these, where there used to be two. A 14 pt copy stood at the end of
-//  the §3.5 strip on the reasoning that one affordance at two sizes is one thing
-//  to learn; in the hand it was the opposite, because the strip answers which
-//  Space and a `+` in it answers a different question.
-//
-//  The ring is drawn around the disc, not on it. A stroke on a 34 pt glass
-//  button's own edge takes a bite out of the button and has to be hairline-thin
-//  to avoid looking like a border; drawn `Metric.spaceCreateRing` across, it is
-//  a progress ring with a button inside it and can carry the weight it needs to
-//  be read from the far side of the column.
-//
-//  It draws nothing at rest and never hit-tests: this is a read-out of
-//  something happening in the hand, not a button. The `+` a pointer can press
-//  is in the footer's menu (`SidebarMenu.spaces`).
+//  It draws nothing at rest and never hit-tests. The `+` a pointer can press is
+//  in the footer's menu (`SidebarMenu.spaces`).
 //
 
 import AppKit
@@ -90,20 +78,14 @@ final class SpaceCreationView: NSView {
         let side = Tokens.Metric.bottomCircle.width
         let hoop = Tokens.Metric.spaceCreateRing
         let inset = Tokens.Metric.chromeGapWide
-        // It travels in from off the edge rather than fading in on the spot.
-        // The gesture is a sideways one and the Space is arriving from the side
-        // it is heading toward; a mark that simply appeared would be a badge on
-        // the column rather than something entering it.
+        // It travels in from off the edge rather than fading in on the spot:
+        // the Space arrives from the side the gesture heads toward. The ring,
+        // not the disc, is inset from the edge — it is the outermost thing drawn.
         //
-        // The ring is what is inset from the edge, not the disc: it is the
-        // outermost thing drawn, so it is what has to clear the sidebar's
-        // margin.
-        // The disc arrives on its own clock, and it is a faster one than the
-        // ring's. The sweep is the whole asking price now — a page of hand —
-        // and a `+` paced by it would still be crossing the column when the
-        // gesture was half paid for. It lands in the first `spaceCreateEntrance`
-        // of the sweep, which is the shape the gesture is described in: a thing
-        // that appears, and then a thing that fills.
+        // The disc arrives on a faster clock than the ring's. The sweep takes a
+        // page of hand, and a `+` paced by it would still be crossing the column
+        // halfway through; it lands in the first `spaceCreateEntrance` of the
+        // sweep — a thing that appears, and then a thing that fills.
         let arrival = max(0, min(progress / Tokens.Metric.spaceCreateEntrance, 1))
         let resting = bounds.maxX - inset - hoop
         let travel = bounds.maxX - resting

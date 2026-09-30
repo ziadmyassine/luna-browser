@@ -3,21 +3,16 @@
 //  Luna
 //
 //  §23.1 §3.6: every `MainMenu` command and its key equivalent, grouped by
-//  menu, searchable — and, for the ones that are Luna's to move, editable.
-//  The page has a search field of its own on top of the window's: the table
-//  is every menu command, and the window's search is a column away.
+//  menu, searchable, and editable where the command is Luna's to move. The
+//  page has its own search field because the window's is a column away.
 //
-//  Read from the live menu bar, not from a second copy of the key map. The
-//  rows, their titles and the menus they are grouped under come from walking
-//  `NSApplication.mainMenu`. A hand-maintained list would be wrong the first
-//  time somebody added a menu item, and a shortcuts list that lies is worse
-//  than none.
-//
-//  Items are joined to their `BrowserCommand` by selector, which is the one
-//  thing a menu item and a command table are guaranteed to agree about. A
-//  customisable match gets a recorder; anything else keeps its label. So the
-//  numbered families — nine Spaces, nine sidebar rows, built per session — are
-//  listed and are not editable, which is the truth about them.
+//  Read from the live menu bar, not from a second copy of the key map: a
+//  hand-maintained list would be wrong the first time a menu item was added,
+//  and a shortcuts list that lies is worse than none. Items are joined to their
+//  `BrowserCommand` by selector, the one thing a menu item and a command table
+//  are guaranteed to agree about. A customisable match gets a recorder; the
+//  numbered families (nine Spaces, nine sidebar rows, built per session) are
+//  listed but not editable.
 //
 
 import AppKit
@@ -58,11 +53,10 @@ final class ShortcutsSection: SettingsSection {
     /// contents are flattened under the top-level title, because "File ▸
     /// Recent" is still a File shortcut to anyone reading this list.
     ///
-    /// Hidden items are skipped too, which they did not used to be. They
-    /// carry real shortcuts — a command's alternate bindings are hidden items,
-    /// and so are the sidebar rows a Space has not grown into yet — but every
-    /// one of them duplicates a row that is already visible, so listing them
-    /// prints the same command twice with two different keystrokes beside it.
+    /// Hidden items are skipped too. They carry real shortcuts — a command's
+    /// alternate bindings, and the sidebar rows a Space has not grown into yet —
+    /// but each duplicates a visible row, so listing them prints the same
+    /// command twice with two different keystrokes beside it.
     static func commands(in menu: NSMenu) -> [Command] {
         menu.items.flatMap { top -> [Command] in
             guard let submenu = top.submenu else { return [] }

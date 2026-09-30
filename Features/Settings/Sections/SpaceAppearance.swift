@@ -2,28 +2,18 @@
 //  SpaceAppearance.swift
 //  Luna
 //
-//  §6.2's icon and gradient, taken out of the row list and put behind the Space
-//  card's corner button.
+//  §6.2's icon and gradient, as grids behind the Space card's corner button.
 //
-//  Two popups were the wrong shape for both settings. A colour chosen from a
-//  menu of twelve words has to be opened twelve times to compare, and
-//  `NSMenuItem.image` does not draw on this macOS (see `SidebarMenu.label`), so
-//  the swatches in that popup were words with nothing beside them. "Flask" is
-//  not a picture of a flask either. Both are grids of the thing itself here.
-//
-//  A popover rather than a sheet or a second pane, because it is two settings:
-//  a pane would need a way back and a sheet a Done button, where a popover is
-//  dismissed by looking away — the right cost for a choice you can undo by
-//  making it again.
+//  Not popups: a colour chosen from a menu of words has to be opened once per
+//  colour to compare, and `NSMenuItem.image` does not draw on this macOS (see
+//  `SidebarMenu.label`). A popover, not a sheet or a pane: two settings you can
+//  undo by choosing again do not need a way back or a Done button.
 //
 //  Neutral is first in the grid and is not a thirteenth colour: §13.6's one
-//  click back. Arc needed a help article for "How Do I Restore the Default
-//  Theme" and Zen has an open issue for being unable to unset a gradient at
-//  all, both of which follow from putting the way out somewhere other than the
-//  way in. It leads the row rather than trailing it because it is the state a
-//  Space starts in — the grid then reads from no colour outward, and the way
-//  back is the first thing the eye lands on instead of the thing it has to
-//  cross twelve colours to reach.
+//  click back, placed beside the way in. Arc needs a help article to restore
+//  the default theme and Zen cannot unset a gradient at all. It leads the row
+//  because it is the state a Space starts in, so the way back is the first
+//  chip the eye lands on.
 //
 
 import AppKit

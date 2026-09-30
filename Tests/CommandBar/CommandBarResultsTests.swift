@@ -67,12 +67,10 @@ final class CommandBarSelectionPillTests: XCTestCase {
         XCTAssertEqual(try pill(in: view).frame, row(0, in: view))
     }
 
-    /// A rebuilt list does not leave the highlight behind. This is the one
-    /// that broke while somebody typed fast: the list is replaced on every
-    /// keystroke and again when the history lands, and the pill used to be
-    /// moved from `setResults` — against rows that had not been laid out at
-    /// their new size yet, so it slid somewhere slightly wrong and the next
-    /// layout pass pulled it back.
+    /// A rebuilt list does not leave the highlight behind. The list is replaced
+    /// on every keystroke and again when the history lands; a pill moved from
+    /// `setResults` is placed against rows not yet laid out at their new size,
+    /// slides somewhere slightly wrong, and is pulled back by the next layout.
     func testAReplacedListPutsTheHighlightOnTheNewRowsOwnPlace() throws {
         let view = list(["apple", "openai", "github"])
         let second = result("github")

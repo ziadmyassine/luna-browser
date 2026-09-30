@@ -3,28 +3,18 @@
 //  Luna
 //
 //  §20.1's key map, as a table rather than as literals scattered through
-//  `MainMenu`.
+//  `MainMenu`, which still owns the structure. A shortcut the user can change
+//  (§3.6) needs a stable identity to store an override against, a default to
+//  reset back to, and a list every other command can be checked against.
 //
-//  It moved because the map became editable (§3.6). A shortcut the user can
-//  change needs three things a literal cannot give it: a stable identity to
-//  store an override against, one that survives the item being retitled or
-//  moved; a default to reset back to; and a list every other command can be
-//  checked against for conflicts. `MainMenu` still owns the structure.
+//  `defaults` is a list and only the first is printed; the extras are hidden
+//  menu items, and a hidden item still fires its key equivalent. A user
+//  override replaces the whole list: keeping ours alive underneath means ⇧⌘]
+//  still shows the next tab after the user moved it to ⌃⇥, with nothing in the
+//  UI saying so.
 //
-//  `defaults` is a list and only the first is printed. Several commands are
-//  reachable two ways on purpose — Zoom In answers ⌘+ and the ⌘= the user
-//  actually presses, Show Next Tab answers Arc's ⌘⌥→ and the ⇧⌘] every other
-//  browser uses. The extras are hidden menu items, and a hidden item still
-//  fires its key equivalent.
-//
-//  A user override replaces the whole list, alternates included: keeping ours
-//  alive underneath theirs means a user who moved Show Next Tab to ⌃⇥ finds
-//  ⇧⌘] still doing it, with nothing in the UI saying so.
-//
-//  `isCustomisable: false` is not a second class of command, it is one whose
-//  shortcut belongs to macOS rather than to Luna. ⌘Q, ⌘X and ⌘M are muscle
-//  memory older than this app. They are still in the table, because the
-//  conflict check has to know they are taken.
+//  `isCustomisable: false` marks a shortcut macOS owns (⌘Q, ⌘X, ⌘M). They stay
+//  in the table because the conflict check has to know they are taken.
 //
 
 import AppKit
@@ -309,19 +299,14 @@ extension BrowserCommand {
     ///
     /// A symbol is what marks a command as belonging in the bar. The ones
     /// without are the ones a row would be wrong for: Undo, Cut and Paste
-    /// belong to whatever has the keyboard, Minimize and Settings are already
-    /// answered somewhere else in the list — §9.2's settings rows open the
-    /// window — and Search Settings means nothing outside it. Hide Sidebar is
-    /// absent for the same reason: `AppCommand.toggleSidebar` is already there,
-    /// and two rows doing one thing is worse than neither.
+    /// belong to whatever has the keyboard; Minimize, Settings and Hide Sidebar
+    /// are already answered elsewhere in the list (§9.2's settings rows,
+    /// `AppCommand.toggleSidebar`); and Search Settings means nothing outside
+    /// the Settings window.
     ///
-    /// Each one is asked of the responder chain, which is the question a menu
-    /// asks itself before it opens: no handler, or a handler that says no, and
-    /// the row is not offered. Back with nothing behind it is not worth a row.
-    ///
-    /// Read when the bar opens, never per keystroke (§9.7) — a binding can be
-    /// rebound and a command can stop applying while the app is running, but
-    /// neither can do it between two characters.
+    /// Each one is asked of the responder chain, as a menu asks itself before
+    /// it opens: no handler, or a handler that says no, and the row is not
+    /// offered. Read when the bar opens, never per keystroke (§9.7).
     static var commandBarEntries: [ShortcutEntry] {
         all.compactMap { command in
             guard let symbol = command.symbolName else { return nil }

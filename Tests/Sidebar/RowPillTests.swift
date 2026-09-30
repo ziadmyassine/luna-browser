@@ -22,13 +22,11 @@ final class RowPillTests: XCTestCase {
         return pill
     }
 
-    /// A §6 Space switch used to leave the old Space's selection burning over
-    /// the new one. The rows and the tiles both leave in the frame the switch
-    /// lands in, but the fill under them faded out over `rowHover` while the
-    /// column faded in over `spaceSwitchCrossfade` — so for about a tenth of a
-    /// second the Space you had just arrived in had an empty glass pill lying
-    /// in it, on a row that was not there any more. Caught on video; this is
-    /// the assertion that keeps it caught.
+    /// A §6 Space switch must not leave the old Space's selection over the new
+    /// one. The rows and tiles leave in the frame the switch lands in, but a
+    /// fill fading out over `rowHover` while the column fades in over
+    /// `spaceSwitchCrossfade` leaves an empty glass pill in the new Space for
+    /// about a tenth of a second, on a row that is not there.
     ///
     /// The fade already running is the part that matters: parking asks for the
     /// value the in-flight animation is already heading to, so an
@@ -63,10 +61,9 @@ final class RowPillTests: XCTestCase {
     }
 
     /// §3.4b's `⌘W` again. Closing the page of a kept row leaves the Space with
-    /// nothing selected, and the list has to hear that — the selection it was
-    /// handed used to be a plain optional, so "nothing" and "do not change it"
-    /// were the same value and the fill stayed lying on the row that had just
-    /// been closed. A second `⌘W` then let that row go.
+    /// nothing selected, and the list has to hear that. As a plain optional,
+    /// "nothing" and "do not change it" are the same value: the fill stays on
+    /// the row just closed, and a second `⌘W` lets that row go.
     func testHandingOverNoSelectionClearsTheOneOnScreen() throws {
         let space = UUID()
         let kept = Tab(spaceID: space, kind: .pinned, url: URL(string: "https://example.com/kept")!)

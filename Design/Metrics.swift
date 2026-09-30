@@ -117,19 +117,17 @@ extension Tokens {
         ///                  history cluster starts at W − (8 + 34 + 5 + 68);
         ///                  measured clear of the toggle from            ≈ 243
         ///
-        /// It was 160, then 220 — which was the arithmetic for a back button
-        /// that was one circle. §3.1's history control is now a capsule that
-        /// grows a second 34 pt half as soon as there is a forward to go to
-        /// (`NavCluster`), and every point it grows travels towards the toggle.
-        /// The two overlapped at the old minimum.
+        /// The head is the tighter because §3.1's history control is a capsule
+        /// that grows a second 34 pt half as soon as there is a forward to go to
+        /// (`NavCluster`), and every point it grows travels towards the toggle;
+        /// arithmetic for a one-circle back button (220) lets the two overlap.
         ///
-        /// 250, not the 260 that keeps a full `chromeGap` between them: the ask
-        /// was the smallest that does not overlap, the measured touching point
-        /// is 243, and at 250 they are 7 pt apart — plainly two controls.
-        /// And 250 only where §3.1's head is in the column at full width,
-        /// which is one of the four cases the two chrome settings make.
-        /// `Settings.sidebarWidth` resolves it; `sidebarFootFloor` is the
-        /// other answer.
+        /// 250, not the 260 that keeps a full `chromeGap` between them: the
+        /// minimum is the smallest that does not overlap, and at 250 they are
+        /// 7 pt apart, plainly two controls. 250 applies only where §3.1's head
+        /// is in the column at full width, one of the four cases the two chrome
+        /// settings make; `Settings.sidebarWidth` resolves it, and
+        /// `sidebarFootFloor` is the other answer.
         static let sidebarWidth = SpanMetric(default: 280, min: 250, max: 420)
         /// What §3.5's foot occupies, which is the width no column gets
         /// under: the head can empty out — §3.2b takes its buttons onto the
@@ -184,14 +182,13 @@ extension Tokens {
         /// 12 pt between an icon and its label — the site menu, History,
         /// Downloads. A sidebar tab row uses `rowTitleGap`.
         static let rowIconGap: CGFloat = 12
-        /// The same gap in a tab row, 3 pt tighter on request. Its own number
+        /// The same gap in a tab row, 3 pt tighter. Its own number
         /// so the other three lists are not dragged along, and the reason
         /// `rowTitleInset` measures 42.5 rather than §3.4's 45.5.
         static let rowTitleGap: CGFloat = 9
-        /// The rule between `Archive` and `+ Add Tab` gets its own short row
-        /// (§3.4). 12 pt: the reference puts 6 pt of clear space either side of
-        /// the hairline, which separates the two command rows without opening a
-        /// gap the size of a tab.
+        /// The rule under §3.4b's saved tier gets its own short row. 12 pt: the
+        /// reference puts 6 pt of clear space either side of the hairline, which
+        /// separates the tiers without opening a gap the size of a tab.
         static let separatorRowHeight: CGFloat = 12
         /// The slot the chevron that folds a §3.4b group stands in, one
         /// `rowTitleGap` after the group's own name.
@@ -205,7 +202,7 @@ extension Tokens {
         ///
         /// A favicon is a picture and fills its square; an SF Symbol drawn at
         /// the same point size puts about two thirds of that on the row, so a
-        /// folder measured the same as the tabs under it and did not look it.
+        /// folder measured the same as the tabs under it does not look it.
         /// The box is centred on the favicon's own column rather than starting
         /// at its edge, so every icon in the list still shares one centre line
         /// and the title inset does not move.
@@ -235,30 +232,30 @@ extension Tokens {
         /// How much sooner a tab inside a §3.4b folder ends its pill, and so
         /// its trailing glyphs, than a loose tab: `rowInset`, the room a loose
         /// tab keeps from the column's edge, so a folder's tab stands off the
-        /// folder's plate exactly as a loose one stands off the sidebar. It was
-        /// 4 pt, Dia's gap round its row highlights, and next to the column's
-        /// own 8 the lit tab looked pressed against the plate. The leading side
+        /// folder's plate exactly as a loose one stands off the sidebar. Not
+        /// 4 pt, Dia's gap round its row highlights: next to the column's own 8
+        /// the lit tab looks pressed against the plate. The leading side
         /// already stands `groupIndent` in.
         ///
         /// The plate itself stands no further out than the pills it holds: a
         /// folded folder's plate is exactly a tab's hover pill. Grown past
-        /// them by this much on every side, it read as a heavier, taller
-        /// block than the row it was lighting.
+        /// them by this much on every side, it reads as a heavier, taller
+        /// block than the row it is lighting.
         static let groupMemberTrailingInset = rowInset
         /// How far the plate reaches below the last tab's pill: the room it
         /// keeps at the tab's side (`groupMemberTrailingInset`), so a folder's
-        /// last tab has the same margin to the plate below it as beside it.
-        /// It was the header icon's margin in its pill, 7.5 pt, matching the
-        /// room above the folder rather than the room round the tab.
+        /// last tab has the same margin to the plate below it as beside it,
+        /// rather than the header icon's 7.5 pt, which matches the room above
+        /// the folder rather than the room round the tab.
         static let groupPlateFoot = groupMemberTrailingInset
         /// The room an open, non-empty §3.4b folder leaves under its last tab.
         ///
         /// The plate reaches `groupPlateFoot` below that tab's pill, which is
         /// `groupPlateFoot − tabRowPillInset` below its row; a gap of the whole
         /// foot leaves the next pill as far below the plate as one tab's pill is
-        /// below another's. It was the plate's reach alone, which ended the
-        /// plate where the next row began and left 1.5 pt under an open folder
-        /// against 3 between two tabs — two open folders read as one block.
+        /// below another's. The plate's reach alone ends the plate where the
+        /// next row begins and leaves 1.5 pt under an open folder against 3
+        /// between two tabs, so two open folders read as one block.
         static let groupEndGap = groupPlateFoot
 
         /// What a §3.4b row that has been closed once draws its icon at. The
@@ -268,22 +265,22 @@ extension Tokens {
 
         /// 17.5 pt to the favicon's leading edge (§3.4).
         ///
-        /// Measured correction, twice over. §3.4 says 12 pt to the favicon and
-        /// 40 pt to the title; M1 read ~15 / ~41 off the reference. Against the
-        /// capture's real scale — the traffic lights are 23 pt apart and 65.5 px
-        /// apart in the file, so 2.848 px/pt — they are 17.2 / 44.9, and the
-        /// rule is simpler than M1 inferred: the favicon is square-inset inside
-        /// the pill, the same 9.5 pt of padding leading as above and below, and
-        /// the title clears it by `rowIconGap`. Derived, so both follow the pill.
+        /// Measured, and not §3.4's 12 / 40. Against the capture's real scale
+        /// (the traffic lights are 23 pt and 65.5 px apart, so 2.848 px/pt) the
+        /// reference's favicon and title sit at 17.2 / 44.9: the favicon is
+        /// square-inset inside the pill, the same 9.5 pt of padding leading as
+        /// above and below, and the title clears it by `rowIconGap`. Derived,
+        /// so both follow the pill.
         static let rowFaviconInset = rowInset + (rowPillHeight - faviconSize) / 2
         /// 42.5 pt to the title's leading edge: §3.4's 45.5, less `rowTitleGap`.
         static let rowTitleInset = rowFaviconInset + faviconSize + rowTitleGap
         /// The row's trailing affordance (§3.4): close on hover, speaker when a
         /// tab is making noise.
         ///
-        /// A chip, not a bare glyph. Measured off the close-button reference: an ~18 pt rounded square with its own translucent fill and
-        /// an 11 pt `xmark` inside. A bare 16 pt glyph floating in the pill,
-        /// which is what this was, reads as part of the title.
+        /// A chip, not a bare glyph. Measured off the close-button reference: an
+        /// ~18 pt rounded square with its own translucent fill and an 11 pt
+        /// `xmark` inside. A bare glyph floating in the pill reads as part of
+        /// the title.
         static let rowTrailingChip = RoundedMetric(width: 18, height: 18, cornerRadius: 6)
         /// The glyph inside `rowTrailingChip`. Well short of the chip: the
         /// padding is what makes the chip read as a button.
@@ -292,9 +289,9 @@ extension Tokens {
         /// faded out, never ellipsised — the reference lets the last glyph
         /// dissolve rather than spending three characters on an `…`.
         ///
-        /// 12, not the 24 this shipped with. The fade is spent inside the
-        /// title's own box, on top of the slot reserved for the close chip, so
-        /// at 24 the ink read as solid only to 50 pt short of the pill's edge.
+        /// 12, not 24. The fade is spent inside the title's own box, on top of
+        /// the slot reserved for the close chip, so at 24 the ink reads as solid
+        /// only to 50 pt short of the pill's edge.
         static let rowTitleFade: CGFloat = 12
 
         // MARK: URL pill (§3.2)
@@ -312,19 +309,19 @@ extension Tokens {
         /// §3.2's sliders glyph, and not `glyphSize`. 16 pt is the size of a
         /// glyph that is its own button — the three §3.1 circles, the §3.5 bar
         /// — and this one sits inside a control that is already a landmark,
-        /// next to text at 13. At 16 it was the loudest thing in a pill whose
+        /// next to text at 13. At 16 it is the loudest thing in a pill whose
         /// job is to be quiet. It takes the §3.4 close button's chip on hover,
         /// so it is sized to sit in one the way that glyph does.
         static let pillGlyphSize: CGFloat = 13
         /// The same two glyphs on §3.2b's bar — 14, and its own number.
         ///
-        /// The bar's pill stands in a row of controls that are their own
-        /// buttons, so its glyphs started at `glyphSize` to agree with them.
-        /// They still read a step louder than the address between them: a glyph
-        /// inside a capsule is measured against what shares the capsule. 14 is
-        /// that step down, and not the column's 13 — this pill is 420 pt wide
-        /// with the ink at arm's length from the text, where the column's is
-        /// 244 with the two nearly touching.
+        /// Not `glyphSize`, though the bar's pill stands in a row of controls
+        /// that are their own buttons: at 16 the glyphs read a step louder than
+        /// the address between them, because a glyph inside a capsule is
+        /// measured against what shares the capsule. 14 is that step down, and
+        /// not the column's 13: this pill is 420 pt wide with the ink at arm's
+        /// length from the text, where the column's is 244 with the two nearly
+        /// touching.
         static let barPillGlyphSize: CGFloat = 14
 
         // MARK: Load line (§3.2c)
@@ -356,14 +353,13 @@ extension Tokens {
         /// 6, tuned by eye against the URL pill. The sides are an alignment —
         /// the tiles agree with the pill above and the rows below at
         /// `rowInset`. Top and bottom are a gap, and a gap is a judgement:
-        /// `rowInset` pushed the grid a visible step away from the pill it
-        /// belongs under, and the tiles' own gutter closed it up too far.
+        /// `rowInset` pushes the grid a visible step away from the pill it
+        /// belongs under, and the tiles' own gutter closes it up too far.
         static let essentialsVerticalInset: CGFloat = 6
         /// The gutter between two tiles side by side.
         ///
         /// 5, not `rowInset`. Two tiles a full row-inset apart read as separate
-        /// controls; the grid is one block of pinned sites. The ask was to
-        /// decrease the spacing between two pinned tabs beside each other.
+        /// controls; the grid is one block of pinned sites.
         static let essentialsTileGap: CGFloat = 5
         /// The gap between one row of tiles and the next.
         ///
@@ -375,10 +371,9 @@ extension Tokens {
         static let essentialsRowGap = essentialsVerticalInset
         /// The grid's inset from the sidebar's leading and trailing edges.
         ///
-        /// `rowInset`, so the tiles line up with everything else. It was 10 pt
-        /// against the URL pill's and the row pills' 8, which put the grid two
-        /// points proud of both — invisible one element at a time and obvious
-        /// down the length of the sidebar.
+        /// `rowInset`, so the tiles line up with everything else. Two points off
+        /// the URL pill's and the row pills' 8 is invisible one element at a
+        /// time and obvious down the length of the sidebar.
         static let essentialsInset = rowInset
         /// A pinned tile's icon is the same 16 pt favicon a row draws; the tile
         /// is roomy, the icon is not (measured 43 px).
@@ -388,25 +383,24 @@ extension Tokens {
 
         /// Sidebar toggle, back and reload: 28 pt circles. All three.
         ///
-        /// Retuned down from 35, which is what the reference measures — but the
-        /// reference's sidebar is 268 pt of a 2146 px capture, and Luna's rows,
-        /// type and favicons all landed smaller than that arithmetic predicted.
-        /// A 35 pt circle beside a 35 pt row pill is a control the same height
-        /// as the content above it, which is why it read as heavy. 28 is the
-        /// top bar's capsule item, the one control agreed to be the right size.
+        /// Not the reference's 35: its sidebar is 268 pt of a 2146 px capture,
+        /// and Luna's rows, type and favicons all land smaller than that
+        /// arithmetic predicts. A 35 pt circle beside a 35 pt row pill is a
+        /// control the same height as the content above it, and reads as heavy.
+        /// 28 is the top bar's capsule item, the one control agreed to be the
+        /// right size.
         static let controlCircle = RoundedMetric.circle(28)
         /// §3.1's three sidebar circles — toggle, back, reload.
         ///
         /// The URL pill's own height, so the sidebar's head is one stack of
-        /// equal-height controls. 28 pt beside a 34 pt pill read as small
+        /// equal-height controls. 28 pt beside a 34 pt pill reads as small
         /// buttons floating above a bigger one. The top bar keeps
         /// `controlCircle`: its capsule items are 28 and the back button has to
         /// match those.
         ///
         /// Derived rather than written down again, so it follows the pill.
         static let sidebarCircle = RoundedMetric.circle(urlPill.height)
-        /// The top bar's icon-only tab tile: 28 pt, radius 9. §3.1's sidebar
-        /// toggle used to borrow this; it does not any more.
+        /// The top bar's icon-only tab tile: 28 pt, radius 9.
         static let controlSquircle = RoundedMetric(width: 28, height: 28, cornerRadius: 9)
         /// 5 pt between back and reload — measured at 14 px. Tighter than
         /// `chromeGap`: the pair reads as one control, not two.
@@ -423,7 +417,7 @@ extension Tokens {
         /// Only the height and the radius are laid out with. The strip sizes
         /// the pill to the dots it holds — `SpaceDotsView.width(forDots:)` over
         /// `Metric.spaceDotPitch`, with the radius as the end inset — because a
-        /// fixed 56 pt holding two dots had to push them 28 pt apart to fill
+        /// fixed 56 pt holding two dots has to push them 28 pt apart to fill
         /// itself, which is four dot diameters of empty glass between two marks
         /// that mean "these are next to each other". The width is §1's quoted
         /// resting size, and what `TokenCheck` measures the radius against.
@@ -443,9 +437,8 @@ extension Tokens {
         /// point size and a favicon image's edge are different measurements
         /// that happen to agree today.
         ///
-        /// Down from 17 with `controlCircle`: a 17 pt glyph in a 28 pt circle
-        /// leaves 5.5 pt of padding and reads as a glyph that outgrew its
-        /// button. 16 is what the top bar has always drawn.
+        /// Not 17: a 17 pt glyph in a 28 pt `controlCircle` leaves 5.5 pt of
+        /// padding and reads as a glyph that outgrew its button.
         static let glyphSize: CGFloat = 16
 
         // MARK: Chrome gaps (§3.1, §3.2, §4)
@@ -486,9 +479,9 @@ extension Tokens {
         /// so they keep the reference's radius whichever corner the window wears.
         static let panelCornerRadius = windowCornerRadius
         /// A generic 8 pt inset for the panels that are not the content pane —
-        /// the Command Bar and the downloads list. There is no content-card gap
-        /// any more: the reference runs the page flush to the window's top,
-        /// bottom and trailing edges (§3.6).
+        /// the Command Bar and the downloads list. There is no content-card gap:
+        /// the reference runs the page flush to the window's top, bottom and
+        /// trailing edges (§3.6).
         static let panelInset: CGFloat = 8
         /// The narrowest §9.1's bar is allowed to be when it has grown out of
         /// an address pill (§3.2) rather than opening over the page.
@@ -496,20 +489,17 @@ extension Tokens {
         /// Measured off the row. A result row spends a fixed ~140 pt on things
         /// that do not shrink — two insets, the favicon, the stack's gaps, the
         /// Space dot and the Profile name §21.2 requires beside it — so a 264 pt
-        /// sidebar pill leaves about 120 pt for the title, and every row read
+        /// sidebar pill leaves about 120 pt for the title, and every row reads
         /// `OpenAI | Rese…`. At 360 the titles survive, and the bar overhangs
         /// the column onto the page, which a panel floating over a page may do.
         static let commandBarMinWidth: CGFloat = 360
         /// Both the top-bar layout's bar and the sidebar's control / utility rows (§3.1, §3.5, §4).
         static let topBarHeight: CGFloat = 52
 
-        // `scrimStrength` is gone, and it was the bug. §9.1's backdrop was built
-        // at 0.55 to keep the page "legible behind the bar", but `alphaValue` on
-        // an `NSVisualEffectView` does not thin a material — it cross-fades the
-        // blurred result back over the sharp original, so every step below 1.0
-        // bought a flat grey film over a page that was still perfectly readable.
-        // The legibility it was reaching for comes from the material, and the
-        // surface it belongs to is `GlassScrim.swift`.
+        // No scrim strength: `alphaValue` on an `NSVisualEffectView` does not
+        // thin a material, it cross-fades the blurred result back over the sharp
+        // original, so any value below 1.0 lays a flat grey film over a page
+        // that was readable anyway.
 
         // MARK: Settings window
 
@@ -527,14 +517,14 @@ extension Tokens {
         /// `SidebarResizeHandle`.
         static let resizeHandleHitWidth: CGFloat = 8
         /// §3.7's drawn handle, kept as a token because `TokenCheck` measures
-        /// it. The handle itself is no longer painted.
+        /// it. The handle itself is not painted.
         static let resizeHandle = RoundedMetric(width: 20, height: 32, cornerRadius: 10)
         /// §7.2: how close to the window's leading edge the pointer has to get
         /// before a hidden sidebar peeks out. Dia's, measured 2026-09-24 by
         /// hovering its window with the sidebar hidden: out at 3.5 pt, not at 4.
         ///
-        /// It was 4, then 24, then 44, because a strip inside a window edge
-        /// has to be aimed at — nothing stops the pointer there. 44 slid the
+        /// A strip this thin inside a window edge has to be aimed at, since
+        /// nothing stops the pointer there, and a wide one (44) slides the
         /// sidebar out over controls near the edge of the page. What makes 4
         /// work is the other half of Dia's rule: the pointer leaving the window
         /// across that edge counts too (`SidebarPeekEdgeView`), so shoving the

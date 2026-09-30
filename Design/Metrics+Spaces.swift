@@ -18,19 +18,19 @@ extension Tokens.Metric {
 
     /// Centre to centre between two Space dots.
     ///
-    /// A constant, and it used to be a division: the strip split the pill's
-    /// width by the number of Spaces, so two Spaces in a 56 pt pill stood 28 pt
-    /// apart and eight in a 96 pt pill stood 12 pt apart. A page indicator has
-    /// one spacing; the pill is what changes size.
+    /// A constant, not the pill's width divided by the number of Spaces, which
+    /// stands two Spaces in a 56 pt pill 28 pt apart and eight in a 96 pt pill
+    /// 12 pt apart. A page indicator has one spacing; the pill is what changes
+    /// size.
     ///
-    /// 14, not the two-diameter 12 a page control usually uses — at a 6 pt dot
-    /// that left 6 pt of clear space and three marks read as one dashed line.
+    /// 14, not the two-diameter 12 a page control usually uses: at a 6 pt dot
+    /// that leaves 6 pt of clear space and three marks read as one dashed line.
     static let spaceDotPitch: CGFloat = 14
 
     /// The most Spaces §3.5's strip shows at once.
     ///
-    /// The pill is sized to its dots, so twelve Spaces made a 160 pt strip in a
-    /// footer that also holds the Space pill and the library cylinder — at which
+    /// The pill is sized to its dots, so twelve Spaces would make a 160 pt strip
+    /// in a footer that also holds the Space pill and the library cylinder — at which
     /// point the dots are neither countable nor individually hittable. Three is
     /// the window: the Space you are in, the one behind and the one ahead, which
     /// is the set §30.9's swipe can reach from here. The rest of the run slides
@@ -39,18 +39,15 @@ extension Tokens.Metric {
 
     // MARK: - SPACES-SPEC D-S12's swipe, read out on §30.9's strip
 
-    /// The page is the ruler, so there is no constant here for one Space.
-    ///
-    /// Every number this used to be — 220, then 120 — was wrong at some sidebar
-    /// width, because the thing the gesture moves is a page and the §3.7 handle
-    /// makes a page anything from 250 to 420 pt wide. 120 against a 280 pt
-    /// column moved the page 2.33 pt for every point of finger, which is the
-    /// "it multiplies my swipe" this gesture was reported for twice. Damping the
-    /// system's acceleration did not touch it: the multiplier was this division.
-    ///
-    /// One page of hand is one page of column at every width, and half a page
-    /// commits. `SpaceSwipe.resolve` is handed the span for that reason. What a
-    /// short swipe costs is paid by `spaceFlickSpeed` instead.
+    // The page is the ruler, so there is no constant here for one Space. Any
+    // fixed distance is wrong at some sidebar width, because the gesture moves a
+    // page and the §3.7 handle makes a page anything from 250 to 420 pt wide:
+    // 120 against a 280 pt column moves the page 2.33 pt for every point of
+    // finger, a multiplier no damping of the system's acceleration touches.
+    //
+    // One page of hand is one page of column at every width, and half a page
+    // commits; `SpaceSwipe.resolve` is handed the span for that reason. What a
+    // short swipe costs is paid by `spaceFlickSpeed` instead.
 
     /// Where the system's acceleration starts being taken back off, in points
     /// of hand per second.
@@ -62,11 +59,10 @@ extension Tokens.Metric {
     /// slow drag is barely accelerated to begin with. So the curve is 1:1 at the
     /// bottom and bends over at the top — see `SpaceSwipeController.damped`.
     ///
-    /// 1600, and it was 900 as a hard clip for one build. Both halves were
-    /// wrong: a hard clip turns every event into exactly the ceiling, so the
+    /// Not a hard clip: that turns every event into exactly the ceiling, so the
     /// page travels at one fixed speed and the gesture is played back rather
-    /// than followed; and 900 pt/s is under a deliberate drag, so the clip fired
-    /// on the whole gesture. 1600 pt/s is about where a hand stops moving and
+    /// than followed. Not 900: that is under a deliberate drag, so it acts on
+    /// the whole gesture. 1600 pt/s is about where a hand stops moving and
     /// starts flicking. Stated as a speed rather than points per event so it
     /// means the same thing at 60 Hz and 120 Hz.
     static let spaceSwipeSpeed: CGFloat = 1600
@@ -76,11 +72,11 @@ extension Tokens.Metric {
     ///
     /// This is what pays for a page being a page wide. Half of a 280 pt column
     /// is 140 pt of finger, and a reflex performed dozens of times a day cannot
-    /// cost that; a distance threshold could only meet "one single fast swipe
-    /// should go to the next Space" by being short, which is what put the page
-    /// ahead of the hand. So a short stroke still moving when it ends is a page
-    /// turn, a long one that has come to rest is a page turn, and a short one
-    /// that has come to rest springs back.
+    /// cost that; a distance threshold could only meet "one fast swipe goes to
+    /// the next Space" by being short, which puts the page ahead of the hand.
+    /// So a short stroke still moving when it ends is a page turn, a long one
+    /// that has come to rest is a page turn, and a short one that has come to
+    /// rest springs back.
     ///
     /// Measured against the damped travel, not the raw delta, which is why it
     /// can be a plain number: `damped` holds the reported speed under
@@ -101,22 +97,20 @@ extension Tokens.Metric {
     /// one, in pages — and the sweep of §30.9's ring, because they are the same
     /// distance.
     ///
-    /// The ring is the threshold. It used to close a third of the way in while
-    /// the gesture committed at the end, so a user who did what the read-out
-    /// told them — push until the circle closes, let go — got nothing. When it
-    /// is full, letting go makes a Space; when it is not, it does not; panning
-    /// back empties it, which is how the gesture is called off.
+    /// The ring is the threshold, and must not close before the commit point, or
+    /// a user who pushes until the circle closes and lets go gets nothing. When
+    /// it is full, letting go makes a Space; when it is not, it does not;
+    /// panning back empties it, which is how the gesture is called off.
     ///
     /// One page of hand, twice what changing Space costs (`SpaceSwipe.resolve`
     /// commits a switch at half a page). That asymmetry is the only thing
     /// standing between a reflex off the end of the Spaces and a Space nobody
     /// asked for, so `TokenCheck` holds it.
     ///
-    /// It was three pages' worth and could not be performed: 360 pt against a
+    /// One page is also the most it can be: three pages (360 pt) against a
     /// damping ceiling of 1600 pt/s needs almost a quarter second of unbroken
-    /// saturated movement, and an ordinary swipe lasts a sixth. One page is the
-    /// most this can be and still be performable at the widest the §3.7 handle
-    /// goes — `TokenCheck.checkSpaceSwipe` checks it against that width.
+    /// saturated movement, and an ordinary swipe lasts a sixth.
+    /// `TokenCheck.checkSpaceSwipe` checks it at the widest the §3.7 handle goes.
     static let spaceCreateReach: CGFloat = 1
 
     /// How far the column is actually pushed by that page of hand, in pages —
@@ -148,10 +142,9 @@ extension Tokens.Metric {
 
     /// §30.9's ring, drawn around the sidebar's `+` disc.
     ///
-    /// One of these, and it used to be two: a 14 pt copy also stood in the §3.5
-    /// strip. The strip is a read-out of which Space, and a `+` in it is an
-    /// answer to a different question sitting in the middle of that answer — so
-    /// the strip is dots only, and the gesture is read where it is happening.
+    /// Only here, not also in the §3.5 strip: the strip is a read-out of which
+    /// Space, and a `+` in it answers a different question in the middle of
+    /// that answer, so the gesture is read where it is happening.
     ///
     /// 46 against a 34 pt disc leaves 6 pt of clear sidebar between the glass
     /// and the ring. Drawn outside rather than on the disc's own edge, for
@@ -162,17 +155,15 @@ extension Tokens.Metric {
     /// The ring's stroke.
     ///
     /// A ring reads by its weight against its own diameter, not by its width in
-    /// points: at the 1.5 pt the 14 pt strip mark used, a ring this size was a
-    /// hairline round a glass button, too thin to read how full it was. This is
-    /// the same tenth of a diameter at the size it is actually drawn.
+    /// points: at 1.5 pt a ring this size is a hairline round a glass button,
+    /// too thin to read how full it is. This is a tenth of the diameter.
     static let spaceCreateRingLine: CGFloat = 4
 
     /// The ring a chosen §6.2 swatch wears (`SpaceSwatchChip`).
     ///
-    /// Its own number. It borrowed `spaceCreateRingLine` for one build, which is
-    /// how thickening a gesture's progress ring would have resized a grid of
-    /// colours: this is a selection mark on a 28 pt disc, that is a read-out on
-    /// a 46 pt one.
+    /// Its own number, not `spaceCreateRingLine`: this is a selection mark on a
+    /// 28 pt disc, that is a read-out on a 46 pt one, and thickening one must
+    /// not resize the other.
     ///
     /// The disc inside is inset by twice it, so the ring is drawn outside the
     /// colour with a stroke's worth of air between — a border painted over the
@@ -190,8 +181,8 @@ extension Tokens.Metric {
     /// is twice what a §3.4 row takes.
     ///
     /// The row's 12 pt ramp ends against the pill's inner edge, where the eye
-    /// already expects the line to stop, and at 12 pt the last glyph here read
-    /// as a letter that had been cut rather than a name that ran out. 24 starts
+    /// already expects the line to stop, and at 12 pt the last glyph here reads
+    /// as a letter that has been cut rather than a name that ran out. 24 starts
     /// the dissolve about two characters early, so the tail thins rather than
     /// stopping.
     static let sidebarSpaceNameFade = 2 * rowTitleFade
@@ -207,7 +198,7 @@ extension Tokens.Metric {
     ///
     /// Two points under `menuSwatch`, and not for that one's reason. A swatch is
     /// a solid disc and reads at any size; a symbol is a line drawing, and at
-    /// 14 pt it was heavier than the word beside it. 12 pt sits just under the
+    /// 14 pt it is heavier than the word beside it. 12 pt sits just under the
     /// menu font's cap height.
     static let menuGlyph: CGFloat = 12
 }

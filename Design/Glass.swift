@@ -2,33 +2,19 @@
 //  Glass.swift
 //  Luna
 //
-//  THE ONLY FILE IN LUNA PERMITTED TO TOUCH LIQUID GLASS (contract rule 4,
+//  The only file in Luna permitted to touch Liquid Glass (contract rule 4,
 //  §0.3). Every other file asks for a style by name.
 //
-//  VERIFIED against the installed SDK, not remembered:
-//    MacOSX26.5.sdk/System/Library/Frameworks/AppKit.framework/.../NSGlassEffectView.h
+//  Checked against MacOSX26.5.sdk's NSGlassEffectView.h: `NSGlassEffectView`
+//  has `contentView`, `cornerRadius`, `tintColor` and `style` (`.regular` or
+//  `.clear`), and `NSGlassEffectContainerView` has `contentView` and `spacing`.
+//  There is no heavier style, so §2's "Liquid Glass, heavier" surfaces use
+//  `.regular` and take their weight from `Shadow.popover`. Both types arrive in
+//  macOS 26.0, the deployment target, so §8.4's `NSVisualEffectView` fallback
+//  is not built; the path that runs instead is Reduce Transparency's solid colour.
 //
-//      NS_ENUM NSGlassEffectViewStyle { Regular, Clear }
-//          NS_SWIFT_NAME(NSGlassEffectView.Style)  →  .regular / .clear
-//      @interface NSGlassEffectView : NSView          API_AVAILABLE(macos(26.0))
-//          contentView: __kindof NSView?   cornerRadius: CGFloat
-//          tintColor: NSColor?             style: NSGlassEffectView.Style
-//      @interface NSGlassEffectContainerView : NSView API_AVAILABLE(macos(26.0))
-//          contentView: __kindof NSView?   spacing: CGFloat
-//
-//  There is no `NSLiquidGlass*` type and no "heavy" or "thick" style: the SDK
-//  ships exactly the two above. Two consequences:
-//    · §2 asks for "Liquid Glass, heavier" where a surface floats above the
-//      chrome rather than being part of it. That style does not exist; those
-//      surfaces use `.regular` and get their weight from `Shadow.popover`.
-//    · The deployment target is macOS 26.0 and so is `NSGlassEffectView`, so
-//      §8.4's `NSVisualEffectView` fallback would be dead code and is not
-//      built. The path that does run is Reduce Transparency, which §2 requires
-//      to be solid colour.
-//
-//  §7's 1× adaptation lives in DisplayScale.swift. The only part of it here is
-//  the `optimised` parameter threaded through the style table; nothing else in
-//  Luna may read it.
+//  §7's 1× adaptation lives in DisplayScale.swift. Only its `optimised`
+//  parameter is threaded through the style table here; nothing else may read it.
 //
 
 import AppKit
@@ -104,21 +90,18 @@ enum Glass {
         return backing
     }
 
-    // THERE IS NO `scrim()`, and the gap is deliberate. Liquid Glass cannot
-    // blur in-window content: it composites what is behind the window, so
-    // over a live page it replaces the page and in fullscreen it goes
-    // near-black. §9.1's "blurred backdrop scrim" was therefore the one surface
-    // built from `NSVisualEffectView` at `.withinWindow`. It worked, and it was
-    // then cut — the Command Bar does not want a backdrop at all.
-    // `CommandBarPanel` floats over the page as it is, and its own full-window
-    // view still swallows the clicks. The finding is kept in `peekPlane`, where
-    // it still decides something.
+    // There is no `scrim()`, deliberately. Liquid Glass cannot blur in-window
+    // content: it composites what is behind the window, so over a live page it
+    // replaces the page and in fullscreen it goes near-black. The Command Bar
+    // wants no backdrop anyway: `CommandBarPanel` floats over the page as it is,
+    // and its own full-window view swallows the clicks. `peekPlane` is where
+    // the same limit still decides something.
 
     /// §7.2's peeked sidebar: the chrome plane, as a plane of its own.
     ///
     /// The window's own glass is behind the content pane, not in front of it,
-    /// so a sidebar sliding over the page had nothing under it and the page
-    /// showed through the gaps between its rows. This is the same `.sidebar`
+    /// so a sidebar sliding over the page would have nothing under it and the
+    /// page would show through the gaps between its rows. This is the same `.sidebar`
     /// material standing on its own in front of the pane, so the peeked sidebar
     /// wears over a website exactly the finish it wears over the wallpaper.
     ///

@@ -5,42 +5,15 @@
 //  §3.5's Space switcher — the strip of dots at the foot of the sidebar, and
 //  §30.9's swipe read out on it.
 //
-//  The dots are laid out from their centres, not from their slots, and that is
-//  the alignment fix. The strip used to hand each dot `width / count` rounded
-//  with `.integral`, which rounds each slot's leading edge down and its
-//  trailing edge up independently: three dots in a 56 pt pill came out in slots
-//  19, 20 and 19 wide, so the gaps measured 18 and 19 pt and the run sat half a
-//  point left of centre. At a 6 pt dot that is a sixth of the gap. The slots
-//  also overlapped by a point at every seam, which left `spaceID(at:)` —
-//  §6.6's drop target — ambiguous exactly where two Spaces meet.
+//  The dots are laid out from their centres on `Metric.spaceDotPitch`, not by
+//  dividing the pill into slots: `width / count` rounded per slot left three
+//  dots in 56 pt with 18 and 19 pt gaps, half a point off centre, and slots
+//  overlapping at the seams where `spaceID(at:)` must be unambiguous. The pill
+//  is sized to the run. Dots only — the `+` is read in the column.
 //
-//  `centres(count:in:)` lays the run out on `Metric.spaceDotPitch` instead and
-//  centres it, so every gap is the same whole number of points and the end
-//  margins are equal. The pill is then sized to the run rather than the run
-//  divided into the pill — a fixed 56 pt pill holding two dots had to stand
-//  them 28 pt apart to fill itself. Both are pure and static, so the claim is a
-//  test rather than a screenshot.
-//
-//  The strip is dots and only dots. §30.9's `+` stood at the end of it for one
-//  build: this strip answers which Space, and a `+` is an answer to a different
-//  question sitting in the middle of that answer. The gesture is read where it
-//  happens — `SpaceCreationView`, in the column.
-//
-//  Three dots at a time, and the rest of the run slides through them. A pill
-//  sized to its dots has no ceiling, and twelve Spaces filled the footer with
-//  marks too small to count and too narrow to hit. The strip is a window
-//  `Metric.spaceDotWindow` wide with the indicator held in the middle, and the
-//  run moves continuously rather than paging: `windowStart` is a fraction while
-//  a finger is down, so a swipe scrolls the strip by exactly as much as it
-//  scrolls the column. Dots leaving fade as they go and the pill clips what is
-//  left.
-//
-//  §8 requires the strip to work with Differentiate Without Colour on, so each
-//  dot carries the Space's name as tooltip and accessibility label and the
-//  group reports itself as a tab list with position and count. The window is a
-//  drawing decision and not an accessibility one: every dot stays an
-//  accessibility child at every count, because "three of twelve" is something
-//  the eye needs and VoiceOver does not.
+//  Three show at a time (`Metric.spaceDotWindow`; twelve were too small to count
+//  or hit), the indicator held in the middle and the run sliding continuously
+//  with the swipe. Every dot stays an accessibility child, named, for §8.
 //
 
 import AppKit
@@ -169,26 +142,17 @@ final class SpaceDotsView: NSView {
 
     // MARK: - Geometry
 
-    /// One pitch for the whole run, and the window centred in `width`.
+    /// One pitch for the whole run, and the window centred in `width`: every
+    /// gap is `Metric.spaceDotPitch` exactly and the end margins are equal, at
+    /// any count. `width` is a parameter so that can be tested without a window.
     ///
-    /// Every gap is `Metric.spaceDotPitch` exactly and the two end margins are
-    /// equal, at any count — which the old slot-per-dot-then-round arithmetic
-    /// could not do at a count that does not divide the pill evenly, and three
-    /// is one of those.
+    /// `start` is the index at the window's leading slot, fractional while a
+    /// swipe moves it. Centres outside the window come back outside `width`;
+    /// the pill clips them and `alpha(forDot:from:)` fades them.
     ///
-    /// `width` is a parameter rather than `bounds.width` so the claim can be
-    /// tested without a window.
-    ///
-    /// `start` is the index at the window's leading slot, and a `CGFloat`
-    /// because a swipe moves it by a fraction of a Space. Centres outside the
-    /// window come back outside `width`; the pill clips them and
-    /// `alpha(forDot:from:)` fades them, which is what makes the run slide
-    /// instead of re-dealing itself.
-    ///
-    /// The one rounding left is `first`, and against `width(forDots:)` it never
-    /// fires. It stays because this is handed a width, and a width it was not
-    /// given the arithmetic for is better half a point off centre than off the
-    /// pixel grid — a 6 pt dot across two pixels is a blurred dot.
+    /// `first` is rounded, though against `width(forDots:)` that never fires:
+    /// for a width it was not given, half a point off centre beats a 6 pt dot
+    /// blurred across two pixels.
     static func centres(
         count: Int,
         in width: CGFloat,

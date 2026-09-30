@@ -2,20 +2,17 @@
 //  ProfileStore.swift
 //  Luna
 //
-//  TODO.md §5.1: one `WKWebsiteDataStore` per Profile, and the only place
-//  Luna turns a `Profile` into one.
+//  TODO.md §5.1: one `WKWebsiteDataStore` per Space — the user's Profile —
+//  and the only place Luna turns a Space into one.
 //
 //  Two facts drive everything here:
-//    · WebKit can list identifiers (`allDataStoreIdentifiers`) but cannot tell
-//      us which Space owns which. The UUID ↔ profile mapping is ours to keep,
-//      and it lives in SQLite (`profiles.dataStoreIdentifier`). Losing that row
-//      orphans a cookie jar in `~/Library/WebKit/WebsiteDataStore/<UUID>/` —
-//      which is what `sweepOrphans(keeping:)` exists to notice.
+//    · WebKit lists identifiers (`allDataStoreIdentifiers`) but cannot say
+//      which Space owns which. That mapping is ours, in SQLite
+//      (`spaces.dataStoreIdentifier`); losing it orphans a cookie jar on disk,
+//      which `sweepOrphans(keeping:)` exists to notice.
 //    · `remove(forIdentifier:)` fails while any live `WKWebView` still uses
-//      the store, and a web view goes away when ARC says so rather than when
-//      the user clicks Delete. Removal is therefore a retry loop with a
-//      deferred queue (§3.2), and the loop lives in `BrowserKit` —
-//      `WebsiteDataStoreRemover` — where it can be tested without WebKit. This
+//      the store. Removal is a retry loop with a deferred queue (§3.2) in
+//      `BrowserKit`'s `WebsiteDataStoreRemover`, testable without WebKit; this
 //      type is the cache and the adapter, not the policy.
 //
 
@@ -62,10 +59,10 @@ final class ProfileStore {
     /// belongs in the signature, but it does not currently throw — and in
     /// particular it never throws for "WebKit still holds it". That case is
     /// queued in `UserDefaults` and finished by the next launch's
-    /// ``sweepOrphans(keeping:)``, because failing a Space deletion over a
-    /// directory that will be gone in thirty seconds helps nobody.
+    /// ``sweepOrphans(keeping:)``: a Space deletion must not fail over a
+    /// directory that will be gone in thirty seconds.
     func remove(_ space: Space) async throws {
-        // Drop our own reference FIRST — a cached store reference is itself one
+        // Drop our own reference first — a cached store reference is itself one
         // of the things that blocks removal. Ora's `profileCache` has no eviction
         // path, so even calling `remove(forIdentifier:)` would fail there forever.
         live[space.id] = nil

@@ -8,10 +8,10 @@
 //  Tokens.swift's claim to be the only file containing a colour value literally
 //  true.
 //
-//  The hex entry point deliberately did not move: `NSColor(srgb:alpha:)` and
-//  `dynamicColor` stay private inside Tokens.swift, so §8.1's rule is enforced
-//  by visibility rather than by review. `inkColor` is here because it takes
-//  alphas rather than hex.
+//  The hex entry point stays in Tokens.swift: `NSColor(srgb:alpha:)` and
+//  `dynamicColor` are private there, so §8.1's rule is enforced by visibility
+//  rather than by review. `inkColor` is here because it takes alphas rather
+//  than hex.
 //
 
 import AppKit
@@ -107,7 +107,7 @@ extension NSColor {
     ///     colour' = (f·other + (1 − f)·a·self) / alpha'
     ///
     /// in which the backdrop cancels out. At `a = 1` it reduces to the plain
-    /// mix, so every opaque caller is unchanged.
+    /// mix.
     func blended(toward other: NSColor, fraction: Double, in appearance: NSAppearance) -> NSColor {
         let from = srgbComponents(for: appearance)
         let to = other.srgbComponents(for: appearance)
@@ -274,12 +274,10 @@ extension Tokens {
     /// backing the fraction off until `text` still clears §21.4's 4.5:1, and
     /// dropping the wash entirely rather than shipping unreadable chrome.
     ///
-    /// The blend helper only. Deciding when to apply it, animating it over
-    /// `Motion.themeWash` and skipping it under Reduce Transparency (§2) are the
-    /// consuming view's job.
-    ///
-    /// Hand it `Surface.chromeFill` and the result stays translucent, so the
-    /// pill keeps its glass; hand it an opaque plane and you get an opaque fill.
+    /// Deciding when to apply it, animating it over `Motion.themeWash` and
+    /// skipping it under Reduce Transparency (§2) are the consuming view's job.
+    /// A translucent `fill` such as `Surface.chromeFill` gives a translucent
+    /// result, so the pill keeps its glass.
     ///
     /// - Parameters:
     ///   - tint: the page colour, already bridged from `RGBA`.

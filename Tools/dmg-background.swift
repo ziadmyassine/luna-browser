@@ -4,33 +4,15 @@
 //  Luna — §30.17
 //
 //  Draws the disk image's backdrop: the moon as a light source, an arrow
-//  between the two icons, and one line of type.
+//  between the two icons, and one line of type. The plane is artwork
+//  (`assets/dmg/dmg-background-*.jpg`); the chrome is drawn here because type
+//  that has been through a resampler is what a reader looks at closely.
 //
-//  The plane itself is artwork (`assets/dmg/dmg-background-*.jpg`) and the
-//  two pieces of chrome are drawn here, rather than baked in, because type
-//  that has been through a resampler is the one thing on this page a reader
-//  looks at closely.
-//
-//  Dark by default, with a chip under each icon label. Finder draws those two
-//  labels itself and takes no colour from us, so the ground under them is the
-//  only lever there is. Measured here on macOS 26, opening each image fresh
-//  under each appearance:
-//
-//    · a LIGHT system draws the labels BLACK whatever is behind them, so a
-//      bare dark plane is black on near-black;
-//    · a DARK system picks by what is behind them — black over a light ground,
-//      white over a dark one.
-//
-//  A light chip is therefore black text on both kinds of Mac, which is what
-//  lets the dark plane ship. A diffuse pool of light does the same thing and
-//  reads as a smudge; a capsule sized to the name reads as the app.
-//
-//  A disk image stores a single background picture, in the volume's
-//  `.DS_Store`, so there is no pair to switch between and nothing re-reads it
-//  when the appearance changes. `--light` builds the other plane.
-//
-//  Two representations in one TIFF, 1x and 2x: Finder picks by display, and a
-//  single-scale PNG is either soft on Retina or twice the size everywhere.
+//  A disk image stores one background, in the volume's `.DS_Store`, and
+//  nothing re-reads it when the appearance changes: dark is the default and
+//  `--light` builds the other plane. The TIFF holds 1x and 2x because Finder
+//  picks by display, and a single-scale PNG is soft on Retina or twice the
+//  size everywhere.
 //
 //  usage: swift Tools/dmg-background.swift out.tiff [--light]
 //
@@ -118,14 +100,14 @@ func drawArrow() {
     head.stroke()
 }
 
-/// Finder draws the two icon labels itself and takes no colour from us, but a
-/// dark system picks the ink from what is behind each one — so the only lever
-/// on a dark plane is the ground. A chip under each label is that lever drawn
-/// as something rather than apologised for: the same frosted capsule the app
-/// puts under a control, sized to the name and centred on the icon's column.
-///
-/// Measured: a light system draws the labels black whatever is behind them, so
-/// a chip is what makes a dark plane legible on both kinds of Mac.
+/// Finder draws the two icon labels itself and takes no colour from us.
+/// Measured on macOS 26, opening each image fresh: a light system draws them
+/// black whatever is behind them, so a bare dark plane is black on near-black;
+/// a dark system picks black over a light ground and white over a dark one.
+/// A light chip is therefore black text on both kinds of Mac, which is what
+/// lets the dark plane ship. A diffuse pool of light does the same and reads
+/// as a smudge; a capsule sized to the name, centred on the icon's column,
+/// reads as the app.
 func drawLabelChips() {
     let font = NSFont.systemFont(ofSize: 12, weight: .regular)
     for (slot, text) in [(appSlot, "Luna"), (applicationsSlot, "Applications")] {

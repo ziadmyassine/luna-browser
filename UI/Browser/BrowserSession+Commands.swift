@@ -2,7 +2,7 @@
 //  BrowserSession+Commands.swift
 //  Luna
 //
-//  The work behind §20.1's newer menu items: page zoom, a reload that means it,
+//  The work behind §20.1's page and tab menu items: page zoom, a reload that means it,
 //  copying the address, and the two bulk tab commands.
 //
 //  Here rather than in `BrowserSession+Tabs` because that file is the tab
@@ -51,13 +51,11 @@ extension BrowserSession {
     /// they have already decided.
     static let zoomLevels: [CGFloat] = [0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3]
 
-    /// Not persisted, and that is the honest version rather than the finished
-    /// one. Zoom lives on the `WKWebView`, so it survives as long as the tab
-    /// stays awake and is lost when §19.2 hibernates it. Per-site zoom is a
-    /// stored preference with its own row in Settings and its own rules about
-    /// which of a site's subdomains it covers; promising it here by quietly
-    /// remembering the number would be the harder half of that feature done
-    /// invisibly and the easy half not done at all.
+    /// Not persisted. Zoom lives on the `WKWebView`, so it survives as long as
+    /// the tab stays awake and is lost when §19.2 hibernates it. Per-site zoom
+    /// is a stored preference with its own row in Settings and its own rules
+    /// about which of a site's subdomains it covers; quietly remembering the
+    /// number here would do the hard half of that feature invisibly.
     var pageZoom: CGFloat {
         activeController?.webView?.pageZoom ?? 1
     }

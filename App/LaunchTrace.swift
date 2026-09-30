@@ -6,20 +6,16 @@
 //  `Tools/perf` cannot reach.
 //
 //  The harness times `posix_spawn` → first on-screen window, which
-//  `docs/PERF.md` is careful to call a lower bound: `AppDelegate` shows the
-//  window before it touches SQLite on purpose, so the session restore, the
-//  sidebar and the first page all land after the number stops. "To interactive"
-//  is the budget §19.1 actually states, and nothing was measuring it.
+//  `docs/PERF.md` calls a lower bound: `AppDelegate` shows the window before
+//  it touches SQLite, so the session restore, the sidebar and the first page
+//  land after the number stops. "To interactive" is the budget §19.1 states.
+//  `LUNA_PERF_READY` names a file, the milestones are written to it once the
+//  window has content, and the harness polls for the file as it polls for the
+//  window. Elapsed time comes from the kernel's record of when this process
+//  was `exec`ed, so it counts dyld and the Swift runtime.
 //
-//  This is the missing end of the tape. `LUNA_PERF_READY` names a file, the
-//  milestones are written to it once the window has content, and the harness
-//  polls for the file as it polls for the window. Two processes, one clock
-//  each: the elapsed time is computed from the kernel's own record of when this
-//  process was `exec`ed, so it counts dyld and the Swift runtime, which a
-//  stopwatch started in `main()` would miss.
-//
-//  Off costs one environment lookup, once. With `LUNA_PERF_READY` unset
-//  every `mark` is a load and a branch, and nothing is stored.
+//  Off costs one environment lookup, once; with `LUNA_PERF_READY` unset every
+//  `mark` is a load and a branch, and nothing is stored.
 //
 
 import Darwin

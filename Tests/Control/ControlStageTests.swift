@@ -274,7 +274,7 @@ extension ControlStageTests {
 
     /// Close Folder and Tabs from the folder's menu takes the outline away
     /// by itself: nothing forces a layout pass after it, as nothing does in
-    /// the window, and a click on the column used to be what finally did.
+    /// the window, so the outline must not wait for a click on the column.
     func testClosingTheFolderTakesItsOutlineWithNoFurtherPass() async throws {
         let (service, session) = try await makeService()
         let claude = ControlClient(rawName: "claude-code")

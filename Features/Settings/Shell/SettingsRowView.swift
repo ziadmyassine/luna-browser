@@ -2,21 +2,18 @@
 //  SettingsRowView.swift
 //  Luna
 //
-//  The views §4's widgets are made of: a control row, a card of rows, the rule
-//  between two of them, and the four controls the pane draws itself.
+//  The views §4's widgets are made of: a control row, a card of rows, and the
+//  rule between two of them. The controls inside a row are in
+//  `SettingsControls.swift`.
 //
-//  The disabled row is why a row is a custom view rather than a stack of
-//  `NSControl`s. §4 requires a disabled row to be "dimmed, still focusable, and
-//  still read by VoiceOver, with its reason as the accessibility help", and a
-//  disabled `NSControl` is none of those — AppKit drops it out of the key-view
-//  loop and VoiceOver skips it. So the control is disabled and the row becomes
-//  the focusable, labelled, helped element (§30.4).
+//  A row is a custom view because of the disabled row. §4 requires it to be
+//  "dimmed, still focusable, and still read by VoiceOver, with its reason as
+//  the accessibility help", and a disabled `NSControl` is none of those. So the
+//  control is disabled and the row becomes the focusable, labelled element.
 //
-//  Nothing here is glass. The pane is opaque because a form is read, not looked
-//  through; a card of `.control` glass on an opaque plane is a material with
-//  nothing to refract, and nine of them stacked down a pane was the whole
-//  window asking to be looked at. A card is `Surface.raised` with the usual
-//  hairline, and a control is `Surface.well` or `Surface.selected`.
+//  Nothing here is glass: a form is read, not looked through, and a stack of
+//  glass cards on an opaque plane is a material with nothing to refract. A
+//  card is `Surface.raised` with the usual hairline.
 //
 
 import AppKit
@@ -78,13 +75,11 @@ final class SettingsRowView: NSView {
 
     // MARK: - Layout
 
-    /// Explicit constraints, not a horizontal stack. A stack decides which
-    /// of its two views absorbs the spare width, and it decided differently for
-    /// a switch (which has an intrinsic size) than for a `SettingsChoice` (which
-    /// does not): the switch went to the trailing edge and the segments stayed
-    /// beside the label with the spare width spread between them. One rule
-    /// instead — the label starts at the card's text inset, the control ends at
-    /// it — written down rather than inferred.
+    /// Explicit constraints, not a horizontal stack. A stack gives the spare
+    /// width to a different view for a switch (which has an intrinsic size)
+    /// than for a `SettingsChoice` (which does not), so the two landed in
+    /// different places. One rule instead: the label starts at the card's
+    /// text inset and the control ends at it.
     private func build(text: [NSView], control: NSView?) {
         let labels = NSStackView(views: text)
         labels.orientation = .vertical
@@ -160,12 +155,10 @@ final class SettingsRowView: NSView {
     override var canBecomeKeyView: Bool { acceptsFirstResponder && !isHiddenOrHasHiddenAncestor }
 
     /// The ring is a keyboard affordance, and opening a window is not the
-    /// keyboard. A disabled row accepts first responder so VoiceOver and the
-    /// key loop can still reach it (§4), and AppKit repaid that by making the
-    /// first one the window's initial responder and drawing the accent ring
-    /// round it — a blue halo on a dimmed row, on a pane that uses no accent
-    /// colour anywhere. `GlassButton` solved this the same way: the ring comes
-    /// back the moment focus arrives from a key press.
+    /// keyboard. A disabled row accepts first responder (§4), so AppKit makes
+    /// the first one the window's initial responder and draws the accent ring
+    /// round it — a blue halo on a dimmed row, in a pane with no accent colour.
+    /// As in `GlassButton`, the ring comes back when focus arrives from a key.
     override func becomeFirstResponder() -> Bool {
         focusRingType = NSApp.currentEvent?.type == .keyDown ? .default : .none
         noteFocusRingMaskChanged()
@@ -277,18 +270,14 @@ final class SettingsRowGroupView: NSView {
         }
     }
 
-    /// The group's name, above the card and flush with the card's own edge,
-    /// one step down in ink: at full strength it was the same size, face and
-    /// colour as the row beneath it and the eye had to read both to find out
-    /// which was the label.
+    /// The group's name, above the card and one step down in ink: at full
+    /// strength it matched the row beneath it in size, face and colour, and the
+    /// eye had to read both to find the label.
     ///
-    /// Not the card's text inset, which is where it sat. Lining the name up
-    /// with the row titles below it looked like the tidier of the two and reads
-    /// as the worse one: the name then starts a `cardInset` inside the only
-    /// vertical rule the pane has — the edge every card is drawn to — so it
-    /// hangs in from nothing and sits closer to the card above it than to the
-    /// one it names. Starting it on that edge is what makes a name and its card
-    /// one block. The rows stay on their own inset; a label is not a row.
+    /// Flush with the card's own edge, not the card's text inset. On the text
+    /// inset it lines up with the row titles but hangs in from the only
+    /// vertical rule the pane has, and sits closer to the card above than to
+    /// the one it names. The rows stay on their own inset; a label is not a row.
     private static func header(_ title: String) -> NSView {
         let label = NSTextField(labelWithString: title)
         label.font = Tokens.TypeScale.settingsRow

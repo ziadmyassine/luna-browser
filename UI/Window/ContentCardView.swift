@@ -6,18 +6,14 @@
 //  does not (UI-SPEC §3.6, TODO.md §30.11). The pane owns its own edge
 //  constraints — one place computes the insets, and they animate for free.
 //
-//  There is no gap any more. §3.6's "inset 8 pt from the sidebar and from the
-//  window's top, right and bottom edges" is not what
-//  `inspiration/main-tab-bar-and-ui.png` does: the page runs flush to all three
-//  window edges and against the sidebar, with only its two leading corners
-//  rounded, at the window's own radius so they nest rather than leaving a
-//  crescent of glass inside each one. The floating read comes from the
-//  sidebar's glass, not from a moat. Under §4's bar the bar plays the
-//  sidebar's part, and the two corners against it are the rounded ones.
+//  No gap, despite §3.6's "inset 8 pt": as `inspiration/main-tab-bar-and-ui.png`
+//  does, the page runs flush to the window's edges and against the sidebar or
+//  §4's bar, with only the two corners against the chrome rounded, at the
+//  window's own radius so they nest. The floating read comes from the sidebar's
+//  glass, not from a moat.
 //
-//  The card is never translucent. A live web page behind glass is unreadable
-//  (UI-SPEC §2), which is why this is the one chrome surface that does not ask
-//  `Glass` for anything.
+//  The card is never translucent: a live web page behind glass is unreadable
+//  (UI-SPEC §2), so this is the one chrome surface that asks `Glass` for nothing.
 //
 
 import AppKit
@@ -181,15 +177,14 @@ final class ContentCardView: NSView {
             addSubview(view)
         }
         // Four edges at rest; trailing-pinned and width-driven only while a
-        // chrome transition is running.
+        // chrome transition is running (`beginGeometryTransition`).
         //
-        // The width is the interesting half (`beginGeometryTransition`) but
-        // must not be the resting state. A constant carries no relationship, so
-        // keeping it meant re-deriving it from `bounds` every layout pass, and
-        // a constraint constant written from inside `layout()` is not reliably
-        // picked up — the pass that reads it has already run. A window resized
-        // in one jump left the page at the old width with the pane's own grey
-        // showing beside it. Auto Layout keeps the resting case right free.
+        // The width must not be the resting state. A constant carries no
+        // relationship, so it would be re-derived from `bounds` every layout
+        // pass, and a constraint constant written from inside `layout()` is not
+        // reliably picked up — the pass that reads it has already run. A window
+        // resized in one jump left the page at the old width with the pane's
+        // own grey showing beside it.
         let leading = view.leadingAnchor.constraint(equalTo: leadingAnchor)
         contentLeading = leading
         let width = view.widthAnchor.constraint(equalToConstant: bounds.width)
@@ -211,12 +206,10 @@ final class ContentCardView: NSView {
 
     /// §3.2b's bar.
     ///
-    /// Pinned to all four edges, not to a 52 pt strip. The bar draws in the
-    /// strip and hit-tests only its own band, so a smaller frame would have been
-    /// the honest size — until the address pill grew a suggestion list hanging
-    /// below it. Hit testing stops at a superview's bounds, so a list drawn
-    /// outside a 52 pt host would be visible and unclickable. What keeps the
-    /// page's clicks is `PageChromeBar.hitTest`.
+    /// Pinned to all four edges, not to the bar's own strip: hit testing stops
+    /// at a superview's bounds, so anything the bar draws below its band would
+    /// be visible and unclickable. What keeps the page's clicks is
+    /// `PageChromeBar.hitTest`.
     ///
     /// The card clips it, so it takes the pane's rounded leading corners free.
     func setOverlay(_ view: NSView?) {
@@ -255,11 +248,10 @@ final class ContentCardView: NSView {
     ///
     /// The page runs under the bar, and WebKit is told how much of it the bar
     /// covers (`obscuredContentInsets`), which shrinks the page's viewport
-    /// without moving the web view. The web view used to move: its top edge
-    /// was a constraint animated with the bar, so it was resized a frame at a
-    /// time, the page redrew behind the edge and visibly bobbed, and on the
-    /// way open the pane's grey showed between the bar and a page that had not
-    /// caught up.
+    /// without moving the web view. Animating the web view's top edge with the
+    /// bar resized it a frame at a time: the page redrew behind the edge and
+    /// visibly bobbed, and on the way open the pane's grey showed between the
+    /// bar and a page that had not caught up.
     ///
     /// A new inset still moves the content by the difference, so the page is
     /// scrolled by the same amount in the same turn and stays where it is on
@@ -307,25 +299,16 @@ final class ContentCardView: NSView {
     // MARK: - Layout transitions
 
     /// Holds the page at one width for the length of a chrome transition, so it
-    /// re-flows once instead of once a frame.
+    /// re-flows once instead of once a frame. Hiding the sidebar changes the
+    /// page's width by 280 pt; told each frame's width, a page counting its own
+    /// `resize` events re-flowed 13 times hiding and 10 showing, and the slide
+    /// stuttered while the web process kept up.
     ///
-    /// Hiding the sidebar is the most expensive thing the chrome does: the page
-    /// changes width by 280 pt, and a web view told its new width twelve times
-    /// over 0.20 s re-flows twelve times. Measured with a page counting its own
-    /// `resize` events: 13 hiding, 10 showing. What the user sees is a column of
-    /// text jumping several times on the way and the slide stuttering while the
-    /// web process keeps up.
-    ///
-    /// So the page is held at the wider of the two widths for the whole slide
-    /// and the card's edge does all the moving. Hiding, that is the final width
-    /// — the page re-flows once, up front, and the card opens to reveal what was
-    /// clipped. Showing, it is the width the page already has — nothing re-flows
-    /// while anything is moving, the card's edge closes over the page, and
+    /// The page is held at the wider of the two widths, anchored to the
+    /// trailing edge, which does not move, and the card's edge does all the
+    /// moving. Hiding, that is the final width: the page re-flows once, up
+    /// front. Showing, it is the width the page already has, and
     /// `endGeometryTransition` narrows it once everything is still.
-    ///
-    /// Either way the page is anchored to the trailing edge, which does not
-    /// move, so its size is constant for the length of the animation and the
-    /// web process is not asked for anything.
     ///
     /// - Parameter duration: how long the caller's animation runs. A watchdog
     ///   hands the width back after it, so a dropped completion handler cannot
@@ -488,7 +471,7 @@ final class ContentCardView: NSView {
         guard let layer else { return }
         layer.backgroundColor = Tokens.Surface.base.cgColor
         // The glass edge (§3.6). The pane is opaque, so the chrome's
-        // material stops dead at its leading edge and the two planes met with
+        // material stops dead at its leading edge and the two planes meet with
         // nothing between them. `Line.border` is that edge — the same hairline
         // every other glass surface in the app carries, drawn on the side where
         // the page meets the chrome. It follows `maskedCorners`, so it runs

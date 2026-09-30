@@ -6,19 +6,14 @@
 //  sheet. One field for both nouns: a folder's name and a tab's are the same
 //  line of text in the same place, and the row is what knows which it is.
 //
-//  A folder arrives with no name worth keeping — it is made by a right-click
-//  and it has to be called something — so the first thing every new one needs
-//  is a name. A dialog for that puts a window in front of the list the folder
-//  has just appeared in, and the answer goes to a row the user can no longer
-//  see. Typing on the row is the same act with nothing in front of it, and it
-//  is what renaming a folder looks like everywhere else on the system.
-//
-//  §3.3's tiles and §4's strip keep the dialog, because neither draws the tab's
+//  A new folder's first need is a name, and a dialog for it puts a window in
+//  front of the list the folder has just appeared in. Typing on the row is the
+//  same act with nothing in front of it, as renaming a folder is elsewhere on
+//  the system. §3.3's tiles and §4's strip keep the dialog: neither draws the
 //  name as a line of text there is room to type on.
 //
 //  The field is hidden except while it is being typed into. It is not a second
-//  title: the row draws its name the way every other row draws one, and this
-//  comes out on top for the length of the edit.
+//  title; it comes out on top of the row's own for the length of the edit.
 //
 
 import AppKit
@@ -90,8 +85,8 @@ extension SidebarRowView: NSTextFieldDelegate {
         editor.currentEditor()?.selectAll(nil)
     }
 
-    /// §3.4b's *Emoji…*: the icon slot becomes a one-character field and macOS's
-    /// own palette opens over it.
+    /// §3.4b's Emoji… item: the icon slot becomes a one-character field and
+    /// macOS's own palette opens over it.
     ///
     /// The palette rather than a grid of Luna's own, because there are three
     /// thousand emoji and the user already knows where theirs are — it has a

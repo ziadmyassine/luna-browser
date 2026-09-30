@@ -9,7 +9,7 @@
 //  is a clean seam — nothing here touches the table, the pills or the gesture.
 //  Everything it decides is a fact about the row rather than about the list:
 //  which title outranks which, whether the trailing slot is the close chip or
-//  the speaker, and §3.4b's two new ones — how far a row steps in, and whether
+//  the speaker, and §3.4b's two — how far a row steps in, and whether
 //  it is dimmed.
 //
 
@@ -21,11 +21,9 @@ extension TabListController {
     func content(for row: Int) -> SidebarRowContent {
         switch list[row] {
         case .addTab:
-            // "New Tab", and it opens §9.1 rather than an empty page. The
-            // row used to be `+ Add Tab` and used to make a blank tab, which is
-            // the one tab nobody wants: the next thing you do with it is reach
-            // for the address bar. It now asks the question the blank tab was
-            // standing in for.
+            // "New Tab", and it opens §9.1 rather than an empty page: a blank
+            // tab is the one tab nobody wants, because the next thing you do
+            // with it is reach for the address bar.
             return SidebarRowContent(title: "New Tab", symbolName: "plus")
         case .separator, .groupEnd, .none:
             return SidebarRowContent()
@@ -45,7 +43,7 @@ extension TabListController {
     /// A Luna Control folder wears its app's icon and its name in the app's
     /// colour, and while it waits for the user, or is paused or stopped, that
     /// state's symbol in place of the icon. Its plate says when the agent is
-    /// working; the title's shimmer did, and lagged the whole row.
+    /// working, not a shimmer on the title, which lagged the whole row.
     private func groupContent(_ group: TabGroup) -> SidebarRowContent {
         let badge = controlBadges[group.id]
         let face = controlFaces[group.id]
@@ -83,7 +81,7 @@ extension TabListController {
         return SidebarRowContent(
             title: title.isEmpty ? URLPillView.domain(of: url) : title,
             // §3.4a: a chosen symbol replaces the favicon, so the row draws its symbol
-            // slot instead — which is the path `+ Add Tab` has always taken.
+            // slot instead — the path the New Tab row takes.
             symbolName: tab.customSymbolName ?? SidebarRowContent.siteFallbackSymbol,
             favicon: tab.customSymbolName == nil ? icons.favicon(for: url) : nil,
             hasUnread: tab.hasUnread,

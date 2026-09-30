@@ -3,24 +3,17 @@
 //  Luna
 //
 //  The token→CSS bridge (§4.4, §8.1). `BrowserKit` serves Luna's internal
-//  pages but cannot see `Design/` — it must not import AppKit — so the palette
-//  is generated here, from the same `Tokens` every view reads, and handed
-//  over as a block of CSS custom properties. A second hand-written palette in
-//  the page templates would be worse than none: it would look right on the day
-//  it was written and drift silently forever after.
-//
-//  Why this lives in `Features/` and not `Design/`: it is a consumer of the
-//  tokens, not one of them. Nothing here names a colour, and
-//  `InternalPageThemeTests` fails if the emitted variables ever stop matching
+//  pages but cannot see `Design/`, so the palette is generated here from the
+//  same `Tokens` every view reads and handed over as CSS custom properties. A
+//  hand-written palette in the templates would drift silently. It sits in
+//  `Features/` because it consumes tokens rather than defining them;
+//  `InternalPageThemeTests` fails if the variables stop matching
 //  `InternalPages.paletteVariables`.
 //
-//  Four variants, because the page picks rather than Swift. Light and dark
-//  (§8.8) and Increase Contrast (§21.2) are `prefers-*` media queries inside
-//  the page, which is the only hook that works: on macOS 26.5 Increase Contrast
-//  is not an `NSAppearance` (see `Design/Tokens.swift`), so a Swift-side branch
-//  has nothing to observe and no way to invalidate a page already on screen.
-//  The contrast values come from `Tokens.Ink`, which is how `TokenCheck`
-//  reaches the same branch.
+//  Four variants, chosen by `prefers-*` media queries inside the page: on macOS
+//  26.5 Increase Contrast is not an `NSAppearance` (Design/Tokens.swift), so a
+//  Swift-side branch could not invalidate a page already on screen. Contrast
+//  values come from `Tokens.Ink`, which is how `TokenCheck` reaches them too.
 //
 
 import AppKit

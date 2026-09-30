@@ -5,26 +5,16 @@
 //  §9.1's surface: "a floating rounded panel over the current tab, anchored
 //  ~20 % from the window top".
 //
-//  A view in the browser window rather than a child `NSPanel`. A second window
-//  would bring its own key-window dance, first-responder transfer and
-//  follow-the-parent bookkeeping on every move and resize, to buy something the
-//  bar does not need: it is modal over one window and dies with it.
+//  A view in the browser window rather than a child `NSPanel`: a second
+//  window brings its own key-window dance, first-responder transfer and
+//  follow-the-parent bookkeeping, for a bar that is modal over one window.
 //
-//  AND NO BACKDROP. §9.1 asked for a "blurred backdrop scrim" and Luna had one
-//  in two shapes, neither of which earned its keep. At `alphaValue = 0.55` an
-//  `NSVisualEffectView` does not thin — it cross-fades the blurred result back
-//  over the sharp original, so the bar sat on a grey film over a perfectly
-//  legible page. At full strength with §2's frost over it, the frost could be
-//  a sheet two thirds of the way to solid with the blur buried under it. The
-//  third version, the blur alone, was cut as well.
-//
-//  So the panel floats over the page as it is. This view still covers the
-//  window — it is what stops a click reaching the page and what carries §9.1's
-//  dismissal (`mouseDown` below) — it simply draws nothing while doing it.
-//  `Glass.scrim()` and `GlassScrim.swift` went with the plane. The finding that
-//  sent that surface to `NSVisualEffectView` in the first place, that glass
-//  composites what is behind the window and so replaces a page rather than
-//  blurring it, is kept where it still decides something: `Glass.peekPlane`.
+//  No backdrop, despite §9.1's "blurred backdrop scrim". An `NSVisualEffectView`
+//  at `alphaValue = 0.55` does not thin — it cross-fades the blur back over the
+//  sharp page, leaving a grey film; at full strength under §2's frost it was a
+//  near-solid sheet; the blur alone was cut too. This view still covers the
+//  window, to stop clicks reaching the page and carry §9.1's dismissal, and
+//  draws nothing.
 //
 
 import AppKit
@@ -187,10 +177,9 @@ final class CommandBarPanel: NSView {
     /// The region the bar belongs over: the page, not the window.
     ///
     /// The panel covers the whole window so nothing behind it is clickable, but
-    /// centring the bar in the window put it half a sidebar's width to the left
-    /// of where the user is looking. This
-    /// is `ContentCardView`'s frame, read live so it survives a resize and a
-    /// sidebar drag under an open bar.
+    /// centring the bar in the window put it half a sidebar's width to the left of
+    /// where the user is looking. This is `ContentCardView`'s frame, read live so
+    /// it survives a resize and a sidebar drag under an open bar.
     var contentRegion: (() -> NSRect)?
 
     init(frame frameRect: NSRect, resultsView: CommandBarResultsView, anchor: CommandBarAnchor? = nil) {
@@ -249,12 +238,9 @@ final class CommandBarPanel: NSView {
     /// reasons — one is what the panel is made of, the other is where each piece
     /// sits — and the second is the half that changes when a placement does.
     private func activateBodyConstraints() {
-        // Flush with the rows, not with their titles. Indenting the query
-        // by a favicon's width lined it up with the text it filters and left
-        // the panel with a visible notch out of its top-left corner — the
-        // field started a centimetre in from everything below it. The list's
-        // own leading edge is the panel's left margin, and that is where the
-        // query starts too.
+        // The result rows' own leading inset, so the input row starts where the
+        // list does. Indenting the whole row further left a visible notch out
+        // of the panel's top-left corner, a centimetre in from everything below.
         let rowInset = CommandBarMetrics.padding + Tokens.Metric.rowInset
         let top = body.topAnchor.constraint(equalTo: topAnchor, constant: 0)
         topAnchorConstraint = top
@@ -283,9 +269,8 @@ final class CommandBarPanel: NSView {
             // Centred in the input row, not stretched over it. An
             // `NSTextField` draws its single line at the top of whatever
             // frame it is given, so a 52 pt field put the placeholder hard
-            // against the panel's top edge, above the rounded corners — the
-            // misalignment the capture shows. The row is still 52 pt; the
-            // field is its own height inside it.
+            // against the panel's top edge, above the rounded corners. The row
+            // is still 52 pt; the field is its own height inside it.
             fieldCentre,
             // The mark takes the rows' icon column and the query starts where
             // their titles do — the same `rowInset` and the same gap the result
@@ -362,11 +347,11 @@ final class CommandBarPanel: NSView {
 
     /// §9.1's dismissal: a press anywhere but the bar closes it.
     ///
-    /// It lands here directly now that there is no backdrop in the way — this
-    /// view is empty but not absent, and `hitTest` answers with it for every
-    /// point the bar itself does not claim. `CommandBarPanelBody` stops the
-    /// presses that land on the panel, which is the only reason it is a
-    /// subclass — without it, clicking the bar's own background would dismiss it.
+    /// It lands here directly: this view is empty but not absent, and `hitTest`
+    /// answers with it for every point the bar itself does not claim.
+    /// `CommandBarPanelBody` stops the presses that land on the panel, which is the
+    /// only reason it is a subclass — without it, clicking the bar's own background
+    /// would dismiss it.
     override func mouseDown(with event: NSEvent) {
         onBackgroundClick?()
     }

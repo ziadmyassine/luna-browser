@@ -19,19 +19,17 @@ extension InternalPages {
     // MARK: - History (§6.4)
     //
     // History is the name everywhere the user meets it, the address included:
-    // an address bar is something people read, and a page whose title says
-    // History over a URL that says archive is two names for one thing. The
-    // stored state keeps the older word — a tab has an `archivedAt`, and
-    // `AutoArchive` is what puts it there — because that is a thing that
-    // happened to a tab, not a place the user goes. `luna://archive` still
-    // routes here (§4.4).
+    // a page whose title says History over a URL that says archive is two
+    // names for one thing. The stored state keeps the older word — a tab has
+    // an `archivedAt`, and `AutoArchive` puts it there — because that is a
+    // thing that happened to a tab, not a place the user goes.
+    // `luna://archive` still routes here (§4.4).
     //
-    // It is laid out like the §3.4 tab list rather than like a web page: a
-    // title and its filter on one line, then rounded rows carrying a favicon,
-    // a title and a subtitle, with the Restore affordance appearing on hover
-    // the way a row's trailing chip does. Before this it was a bare `<h1>`,
-    // a full-width field and a stack of hairline-separated lines — correct,
-    // and visibly not part of the same app as the window around it.
+    // Laid out like the §3.4 tab list rather than like a web page: a title and
+    // its filter on one line, then rounded rows carrying a favicon, a title
+    // and a subtitle, with Restore appearing on hover the way a row's trailing
+    // chip does. A bare `<h1>` over hairline-separated lines is correct and
+    // visibly not part of the same app as the window around it.
 
     @MainActor
     static func historyHTML() -> String {
@@ -153,17 +151,15 @@ extension InternalPages {
     /// whether it is ink or §8.1's danger — there is no colour in this file
     /// either.
     ///
-    /// Six glyphs, not one. Every kind used to wear the same exclamation in a
-    /// circle, which says nothing six times over. These are the distinctions
-    /// the sentence under them already makes: a network that is not there, a
-    /// name that did not resolve, a certificate that did not check out, a
-    /// request Luna stopped, and a site with no encryption to offer. The last
-    /// keeps the circle, because "something went wrong" is all that page
-    /// knows.
+    /// Six glyphs, not one exclamation in a circle, which says nothing six
+    /// times over. These are the distinctions the sentence under them already
+    /// makes: a network that is not there, a name that did not resolve, a
+    /// certificate that did not check out, a request Luna stopped, and a site
+    /// with no encryption to offer. The last keeps the circle, because
+    /// "something went wrong" is all that page knows.
     ///
     /// Stroked rather than filled, at the weight SF Symbols draw at this size,
-    /// so a mark on one of Luna's pages and a mark in Luna's chrome are the
-    /// same hand.
+    /// so a mark on Luna's pages and a mark in Luna's chrome are the same hand.
     private static func mark(for kind: InternalPageError.Kind) -> String {
         svg(paths(for: kind))
     }

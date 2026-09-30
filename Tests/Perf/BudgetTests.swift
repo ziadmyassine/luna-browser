@@ -171,20 +171,16 @@ final class BudgetTests: XCTestCase {
     /// §6.4's pop-out, opened from the History button: built, and then filled.
     ///
     /// Built is `present` and its layout, everything before `animateIn` — a
-    /// freeze the user sits through with nothing on screen to explain it.
-    /// Filled is until the list has its pages: a store query that lands after
-    /// the pop-out has started to open, so a slow one is an empty pop-out
-    /// rather than a frozen app. History is the one list in the app with no
-    /// ceiling on it; the store is asked for the newest
+    /// freeze with nothing on screen to explain it. Filled is until the list has
+    /// its pages, from a store query that lands after the pop-out starts to
+    /// open. History has no ceiling, so the store is asked for the newest
     /// `HistoryPanelController.limit` pages however long it is.
     ///
-    /// The first fill is recorded and not held to the budget. The query and
-    /// the list take 2–5 ms even then, timed inside the load; the other 125 ms
-    /// of a first fill, found by subtraction, pass before the load gets the
-    /// main thread at all, and are gone from the second open on.
-    ///
-    /// Budget is the command bar's 100 ms, for the same reason: both are a
-    /// surface that has to be there by the time the hand has finished asking.
+    /// The first fill is recorded, not held to the budget: the query and list
+    /// take 2–5 ms even then, and the other 125 ms pass before the load gets
+    /// the main thread at all, gone from the second open on. The budget is the
+    /// command bar's 100 ms: both have to be there by the time the hand has
+    /// finished asking.
     func testHistoryPanelPresentation() async throws {
         for count in [300, 5000] {
             let times = try await presentHistory(pages: count)

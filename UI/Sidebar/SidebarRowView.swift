@@ -3,27 +3,18 @@
 //  Luna
 //
 //  One 38 pt row (§3.4): `[status dot] [favicon 16] [title 13 pt] [trailing]`.
-//  `Archive` and `+ Add Tab` are the same view with a symbol instead of a
-//  favicon — §30.6 says they are first-class rows with identical metrics, so
-//  they are literally the same class.
+//  `New Tab` is the same class with a symbol for a favicon: §30.6 makes command
+//  rows first-class rows with identical metrics.
 //
 //  No background is drawn here. Unselected rows have none (§30.7), and the
-//  selected pill and the hover fill are two single glass views that the list
-//  moves between rows — see `TabListController`. That is what keeps a 40-row
-//  scroll at 120 fps: a reused row view owns four subviews, lays them out with
-//  arithmetic instead of constraints, and never allocates a glass effect.
+//  selected pill and the hover fill are single views the list moves between
+//  rows — see `TabListController`. That keeps a 40-row scroll at 120 fps: a
+//  reused row lays out its subviews with arithmetic, not constraints, and never
+//  allocates a glass effect.
 //
-//  Three spec deltas, all measured off `inspiration/main-tab-bar-and-ui.png`:
-//
-//  · §3.4's "favicon 12 pt from the pill's left edge, title 40 pt in" measures
-//    17.5 / 45.5 — the favicon is square-inset inside the pill and the title
-//    clears it by `rowIconGap`. The numbers live in `Metrics`, derived.
-//  · §3.4's "single line, tail-truncated" is wrong: the reference fades an
-//    over-long title out against the pill's trailing edge rather than spending
-//    three characters on an `…`. That is what `titleClip` and `fade` are for —
-//    the labels are laid out at their natural width inside a clipping box that
-//    carries a gradient mask, so the last glyph dissolves instead of being cut.
-//  · 13 pt, plain system font. See `Tokens.TypeScale.sidebarRow`.
+//  An over-long title fades out against the pill's trailing edge rather than
+//  spending three characters on `…`: the labels sit at natural width inside
+//  `titleClip`, masked by `fadeMask`. The insets are in `Metrics`.
 //
 
 import AppKit
@@ -100,9 +91,8 @@ final class SidebarRowView: NSView {
     var isSelected = false { didSet { refreshInk() } }
     var isHovered = false { didSet { refreshInk() } }
     private let icon = NSImageView()
-    // §3.4b's three. Internal rather than private only because Swift's
-    // `private` is file-scoped and `SidebarRowView+Group.swift` is the other
-    // half of this class; nothing outside that pair touches them.
+    // Internal rather than private because `SidebarRowView+Group.swift` is the
+    // other half of this class; nothing outside that pair touches it.
     /// §3.4b's fold mark. Not a button: the whole header folds, and a 16 pt
     /// glyph sitting inside the thing it is about, lighting its own chip and
     /// swelling under its own press, read as a second target on a row that has
@@ -157,16 +147,11 @@ final class SidebarRowView: NSView {
         titleClip.wantsLayer = true
         titleClip.layer?.masksToBounds = true
         shimmer.wantsLayer = true
-        // Hidden from the start, not from the first load. `updateShimmer`
-        // is what shows and hides this, and `configure` only calls it when
-        // `isLoading` changes — which is right for a recycled view, whose
-        // `content` describes the shimmer it is currently wearing, and wrong
-        // for a new one, which starts with `isLoading` false and an
-        // `NSTextField` that is visible by default. So a row built for a tab
-        // that never loads kept a full-strength copy of its own title sitting
-        // on top of the dimmer one, and the list came out in two inks with no
-        // pattern to them: which rows were bright depended on which came out
-        // of the reuse pool having once carried a load.
+        // Hidden from the start, not from the first load: `configure` calls
+        // `updateShimmer` only when `isLoading` changes, and a new
+        // `NSTextField` is visible by default. Left visible, a row that never
+        // loaded kept a full-strength copy of its title over the dimmer one,
+        // and which rows were bright depended on what the reuse pool handed back.
         shimmer.isHidden = true
         shimmerMask.startPoint = CGPoint(x: 0, y: 0.5)
         shimmerMask.endPoint = CGPoint(x: 1, y: 0.5)
@@ -266,19 +251,10 @@ final class SidebarRowView: NSView {
 
     // MARK: - Ink
 
-    /// §3.4's title ink.
-    ///
-    /// The selected row is the only bright title in the list, and hover is not
-    /// an input here — which is the point of the signature. Hover used to
-    /// promote the ink too, because there was no translucent fill to lift
-    /// instead; `hoverPill` is that fill. The list answers "which tab am I on"
-    /// by having exactly one title brighter than the rest, and a pointer
-    /// resting anywhere must not add a second.
-    ///
-    /// Colour is only half of it: a title also dims by being re-laid, which
-    /// is ``titleColumn``'s half and is deliberately not held still.
-    ///
-    /// Pure, so the rule can be asserted without a window to hover in.
+    /// §3.4's title ink. The selected row is the only bright title in the
+    /// list, and hover does not promote it: `hoverPill` answers the pointer,
+    /// and a pointer resting anywhere must not add a second bright title.
+    /// A title also dims by being re-laid, which is ``titleColumn``'s half.
     private func refreshInk() {
         title.textColor = content.tint ?? Self.titleInk(
             isSelected: isSelected,

@@ -107,9 +107,9 @@ extension BrowserSession {
     /// Where the selection goes when the tab showing is closed: the row
     /// under it in §3.4's list, or the row above it when it was the last one.
     ///
-    /// It used to be the most recently used tab in the Space, which is a
-    /// different question. Closing a run of tabs from the top sent the selection
-    /// down the list and the next `⌘W` closed that one instead, so the list
+    /// Not the most recently used tab in the Space, which is a different
+    /// question: closing a run of tabs from the top sent the selection down
+    /// the list and the next `⌘W` closed that one instead, so the list
     /// unravelled from two ends at once; and with §3.4 stacking today's tabs
     /// newest-first, the recent tab is often the one above.
     ///
@@ -171,9 +171,8 @@ extension BrowserSession {
     ///
     /// Not `allTabs`. A Space's tabs, its history and its cookie jar are one
     /// set of things, and a Work window offering a Personal tab is offering a
-    /// page that is signed in as somebody else. The bar used to list every
-    /// Space and tell them apart with a badge; since `v7` made the Space the
-    /// jar, the honest answer is not to offer the other one at all.
+    /// page that is signed in as somebody else. Since `v7` made the Space the
+    /// jar, the other Spaces are not offered at all, not even behind a badge.
     func tabsInActiveSpace(includeArchived: Bool) -> [Tab] {
         includeArchived ? tabs + archivedInActiveSpace : tabs
     }
@@ -259,9 +258,8 @@ extension BrowserSession {
     /// that must never happen silently. Ask before `moveTab`, and say
     /// ``crossProfileMoveWarning``.
     ///
-    /// Every move between Spaces crosses one now: a Space owns its jar (§9), so
-    /// the boundary is the Space. It used to be true only of the moves that
-    /// also changed profile, which was most of them and looked like a rule.
+    /// Every move between Spaces crosses one: a Space owns its jar (§9), so
+    /// the boundary is the Space.
     func moveCrossesProfileBoundary(_ id: UUID, toSpace spaceID: UUID) -> Bool {
         guard let tab = list.tab(id), space(spaceID) != nil else { return false }
         return tab.spaceID != spaceID
@@ -272,9 +270,8 @@ extension BrowserSession {
     /// comment (`// Profiles must be the same.`), and Zen allows it silently and
     /// it does not work (zen#11268).
     ///
-    /// "Profile" is the user's word for a Space (§9). The sentence is unchanged
-    /// because the fact it states is unchanged: the tab is moving into another
-    /// cookie jar.
+    /// "Profile" is the user's word for a Space (§9), and the fact the sentence
+    /// states holds: the tab is moving into another cookie jar.
     static let crossProfileMoveWarning = String(localized: """
     This Space uses a different profile. You could be logged out of an account if you're not \
     logged into it in the other profile.

@@ -3,23 +3,19 @@
 //  Luna
 //
 //  §22.6: one browser window, and everything that is built once per window.
+//  A sidebar, a top bar, a page bar and a Command Bar are per window, and the
+//  app holding one of each is what makes a second window's chrome overwrite
+//  the first one's.
 //
-//  All of this used to be fields on `AppDelegate`, which was honest while there
-//  was one window and became a lie the moment there were two: a sidebar, a top
-//  bar, a page bar and a Command Bar are per window, and the app holding one of
-//  each meant the second window's chrome overwrote the first window's.
+//  What stays on the app is what there is genuinely one of: the store, §9.3's
+//  use counts, §15's download manager and the Settings window.
+//  `AppDelegate+Windows.swift` assembles this; this is the box the assembly
+//  goes into, plus the two things only a window can answer — what is on its
+//  own content card, and which chrome it is wearing.
 //
-//  What stayed on the app is what there is genuinely one of: the store, §9.3's
-//  use counts, §15's download manager and the Settings window. `AppDelegate`
-//  still assembles this — see `AppDelegate+Windows.swift` — because that is
-//  what that file is for; this is the box the assembly goes into, plus the two
-//  things only a window can answer: what is on its own content card, and which
-//  chrome it is wearing.
-//
-//  `session` is a `let` and may be shared. Ordinary windows all hold the one
-//  session, because the tab list is a database and two copies of it would race
-//  each other onto disk; a §5.6 private window holds one of its own, which is
-//  what makes it private and what lets it be thrown away whole.
+//  `session` is a `let` and may be shared: ordinary windows hold the one
+//  session, because two copies of the tab list would race onto disk; a §5.6
+//  window holds its own, which is what lets it be thrown away whole.
 //
 
 import AppKit
@@ -111,8 +107,8 @@ final class BrowserWindow {
         let edge = Settings.sidebarEdge
         let state: ChromeState = switch Settings.chromeLayout {
         // A hidden sidebar stays hidden. `⌘S` and this setting are different
-        // decisions, and rebuilding the state from the layout alone put the
-        // column back on screen every time any preference changed.
+        // decisions, and rebuilding the state from the layout alone puts the
+        // column back on screen every time any preference changes.
         case .sidebar where controller.isSidebarCollapsed: .sidebarCollapsed(edge: edge)
         case .sidebar: .sidebar(
             width: sidebar?.preferredWidth ?? Tokens.Metric.sidebarWidth.default,

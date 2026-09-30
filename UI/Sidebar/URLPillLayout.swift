@@ -19,30 +19,23 @@ extension URLPillView {
     /// How big the pill's two glyphs are drawn, which is a fact about the pill
     /// they are in.
     ///
-    /// 14 on the bar, 13 in the column, and neither is `glyphSize`.
-    ///
-    /// 16 is the size of a glyph that is its own button — the §3.1 circles,
-    /// §3.2b's toggle and history cluster — and the bar's pair started there to
-    /// agree with the row of controls they sit in. What a glyph is measured
-    /// against, though, is what shares its surface: inside a capsule with an
-    /// address in it, 16 read as the loudest mark on the bar. The column's pill
-    /// makes the same argument a step further — `pillGlyphSize` is ink beside
+    /// 14 on the bar, 13 in the column, and neither is `glyphSize`: 16 is the
+    /// size of a glyph that is its own button (the §3.1 circles, §3.2b's
+    /// toggle and history cluster). A glyph is measured against what shares its
+    /// surface, and inside a capsule with an address in it 16 read as the
+    /// loudest mark on the bar. In the column, `pillGlyphSize` is ink beside
     /// text set at 13 with barely a finger's width between them.
     var glyphInk: CGFloat {
         centresText ? Tokens.Metric.barPillGlyphSize : Tokens.Metric.pillGlyphSize
     }
 
     /// How far that ink sits from its own end of the pill: the text's own
-    /// inset, on both pills.
-    ///
-    /// The column's used to be `pillGlyphInset`, two points tighter, on the
-    /// argument that a glyph is optically smaller than its box and can afford
-    /// to sit closer in. On §3.2b's 420 pt bar that reads as intended; in a
-    /// 240 pt column, with the capsule's corner curving away right behind it,
-    /// it reads as site settings falling off the end of the pill — which is
-    /// what it looked like. The bar is the one that reads right, so the column now
-    /// measures the same: whatever is at either end of a pill stands the same
+    /// inset, on both pills, so whatever is at either end stands the same
     /// distance in as the address does.
+    ///
+    /// Not `pillGlyphInset`, two points tighter: in a 240 pt column, with the
+    /// capsule's corner curving away right behind it, a glyph that close in
+    /// reads as site settings falling off the end of the pill.
     private var glyphInset: CGFloat { Tokens.Metric.pillTextInset }
 
     /// The glyph's hit target: the ink plus a gap's worth of padding, so a
@@ -100,15 +93,10 @@ extension URLPillView {
 
     // MARK: - Layout
 
-    /// §3.2's inset, which until now was silently `rowInset`: everything on the
-    /// pill — the address at one end, a glyph at either — stands
-    /// `pillTextInset` in from the edge nearest it. See `glyphInset`.
-    ///
-    /// The inset is the glyph's ink, and its hit box grows past it. The
-    /// number is measured to the mark the eye sees, so the box — which is
-    /// bigger than the glyph inside it — is placed by centring it on where the
-    /// glyph would have been rather than by being inset itself. Insetting the
-    /// box instead would move the glyph a further half-gap in.
+    /// §3.2's inset: everything on the pill — the address at one end, a glyph
+    /// at either — stands `pillTextInset` in from the edge nearest it. See
+    /// `glyphInset`, and `placeContents` for why the glyph's box is centred on
+    /// the ink rather than inset itself.
     override func layout() {
         super.layout()
         // Bounds-derived frames never animate — see `Motion.immediately`.
@@ -117,12 +105,10 @@ extension URLPillView {
             refreshGlassShape()
             // And the corner has to be re-cut. `cornerRadius` is half the
             // pill's height, `updateLayer` is where it is applied, and nothing
-            // marks a view for display merely because it was resized — so the
-            // radius was whatever the height happened to be the last time
-            // something else asked for a redraw. In the sidebar that was a pass
-            // during the column's first layout, at a fraction of the final
-            // height, and the pill stayed a rounded rectangle for the rest of
-            // the session. `wantsUpdateLayer` makes asking again nearly free.
+            // marks a view for display merely because it was resized. Without
+            // this, the sidebar's pill kept the radius from the column's first
+            // layout, at a fraction of the final height, and stayed a rounded
+            // rectangle. `wantsUpdateLayer` makes asking again nearly free.
             needsDisplay = true
         }
     }
@@ -194,7 +180,6 @@ extension URLPillView {
             // centring at all. What is centred is the address alone — or the
             // placeholder, measured the same way, which is the whole of what a
             // new tab shows.
-            //
             let text = min(ceil(textWidth), run)
             field.frame = NSRect(
                 x: margin.leading + max((run - text) / 2, 0),
@@ -204,13 +189,10 @@ extension URLPillView {
             ).integral
             return
         }
-        // The two reserved slots are gone. §3.2 held two further
-        // glyph-sized places open beside the sliders for AI and extension
-        // actions that are not built and that §16.4 puts in §4's action capsule
-        // anyway. They cost 42 pt, and in a column barely 200 pt wide — with a
-        // real control now at each end — that was most of the line: the short
-        // placeholder itself truncated, to `Search the…`. A slot held open for
-        // nothing is not worth a word of the address.
+        // No glyph-sized places held open beside the sliders for actions that
+        // are not built (§16.4 puts extensions in §4's action capsule). Two of
+        // them cost 42 pt, and in a column barely 200 pt wide, with a real
+        // control at each end, the placeholder itself truncated to `Search the…`.
         field.frame = NSRect(x: margin.leading, y: textY, width: run, height: height).integral
     }
 }

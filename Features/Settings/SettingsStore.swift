@@ -2,18 +2,15 @@
 //  SettingsStore.swift
 //  Luna
 //
-//  Luna's preferences, such as they are. One setting today — which chrome
-//  layout the window wears — and the shape for the rest.
+//  Luna's chrome preferences — layout, where the pill and the sidebar stand,
+//  the window corner, the §3.3a wells — in `UserDefaults`, like
+//  `SidebarResizeHandle.storedWidth`. The notification lets a running window
+//  follow a change made in the Settings window without either knowing about
+//  the other.
 //
-//  It exists because `⌘S` stopped meaning "swap the layout". Hiding the sidebar
-//  and choosing between the layouts are decisions taken at different rates —
-//  one a reflex several times a minute, the other a preference taken once — and
-//  a keystroke that did both meant the reflex silently changed the preference.
-//
-//  `UserDefaults`, like `SidebarResizeHandle.storedWidth`: Luna has no settings
-//  file and no reason to invent one for a single enum. The notification lets a
-//  running window follow a change made in the Settings window without either
-//  knowing about the other.
+//  The layout is a setting and not `⌘S`: hiding the sidebar is a reflex taken
+//  several times a minute and choosing a layout a preference taken once, and a
+//  keystroke that did both let the reflex silently change the preference.
 //
 
 import Foundation
@@ -144,21 +141,17 @@ enum Settings {
     /// `default` and `max`, and the minimum the column standing there actually
     /// needs.
     ///
-    /// `Metric.sidebarWidth.min` is §3.1's arithmetic, and §3.1 is only in the
-    /// column at full width in one of the four combinations these two settings
-    /// make. §3.2b takes the pill and the three circles with it onto the page
-    /// (`SidebarControlRow.showsButtons`), leaving a row that holds nothing but
-    /// the traffic lights' corner. A trailing column has no lights to clear at
-    /// all — macOS keeps them at the window's top-left, so a column on the
-    /// other edge does not contain them — and its toggle starts at `rowInset`
-    /// rather than 78 pt in, which is 86 pt off the head's 243. Either one puts
-    /// the head under §3.5's foot, and then the foot is the answer.
+    /// `Metric.sidebarWidth.min` is §3.1's arithmetic, which only holds when
+    /// §3.1's row is in the column at full width. With the pill on the page
+    /// (§3.2b) the row holds nothing but the traffic lights' corner, and a
+    /// trailing column has no lights to clear, so its toggle starts at
+    /// `rowInset` rather than 78 pt in. Either way §3.5's foot is the floor.
     ///
     /// Read, never written back: a width dragged to 190 with the pill on the
-    /// page is remembered as 190, reads as 250 while the pill is in the column,
-    /// and is 190 again when it leaves. Rewriting it on the way past would make
-    /// moving a setting twice a way of losing a width the user chose, which is
-    /// the rule `SidebarResizeHandle.storedWidth` already keeps for `⌘S`.
+    /// page reads as 250 while the pill is in the column and is 190 again when
+    /// it leaves. Rewriting it would make moving a setting twice a way of
+    /// losing a chosen width — the rule `SidebarResizeHandle.storedWidth`
+    /// keeps for `⌘S`.
     static var sidebarWidth: SpanMetric {
         sidebarWidth(searchBarOnPage: searchBarIsOnPage, edge: sidebarEdge)
     }

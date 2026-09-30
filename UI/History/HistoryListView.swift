@@ -3,29 +3,17 @@
 //  Luna
 //
 //  §6.4's rows, highlighted the way §9.1's are: one glass pill that moves,
-//  not a fill per row.
+//  not a fill per row. It is the same list of the same things as the Command
+//  Bar, so it highlights the same way: `.control` glass at `rowCornerRadius`,
+//  inset `rowInset`, sliding on §6's `selectedRowMove`. A rebuilt list places
+//  the pill without animating.
 //
-//  This is `CommandBarResultsView`'s behaviour, deliberately — the two lists are
-//  the same list of the same things over the same page, and a history panel that
-//  highlighted differently from the Command Bar would be two designs in one app.
-//  The pill is `.control` glass at `rowCornerRadius`, inset `rowInset` from each
-//  edge, and it slides on §6's `selectedRowMove`; a rebuilt list places it
-//  without animating, because a list that just changed has no continuity for a
-//  slide to describe.
+//  An `NSTableView`, not a stack of built rows. A stack of 162 rows, each six
+//  subviews and seven constraints in one Auto Layout engine, took 1163 ms to
+//  build before the pop-out could animate in, and 35 s at four figures. The
+//  table lays out only the dozen visible rows, however long the list.
 //
-//  **It is an `NSTableView`, and it used to be an `NSStackView` with a row in
-//  it per entry.** Every one of them was a built view — six subviews, three
-//  `NSTextField`s and seven constraints each — inside one stack that tied all
-//  of them into a single Auto Layout engine, and all of it was constructed
-//  before `PopoutController` let the pop-out animate in. Measured at 1163 ms
-//  for 162 rows, and 35 s for the four figures this list reaches: not a slow
-//  list, a frozen app, and getting worse than linearly. `NSTableView` recycles
-//  row views and lays out only what is visible, so the cost is the dozen rows
-//  the panel is tall however long the list is — the same reasoning
-//  `TabListController`'s header gives, for the same measurement.
-//
-//  Pointer and keyboard drive the same selection. The panel's filter field owns
-//  the keystrokes — it is what has focus — and hands ↓/↑/↩ down here.
+//  The panel's filter field owns the keystrokes and hands ↓/↑/↩ down here.
 //
 
 import AppKit
@@ -65,12 +53,10 @@ final class HistoryListView: NSView {
     override func layout() {
         super.layout()
         scroll.frame = bounds
-        // **The pill is placed from here as well as from the selection.** The
-        // list is filled by `panelDidAppear`, which runs before the pop-out has
-        // been laid out — so the first placement measures a table that has not
-        // been given its width yet, and the pill came up the width of a favicon
-        // and stayed there until the pointer moved it. The old stack-backed list
-        // placed it from `layout` for exactly this reason.
+        // The pill is placed from here as well as from the selection. The list
+        // is filled by `panelDidAppear`, before the pop-out has been laid out,
+        // so the first placement measures a table with no width yet and the
+        // pill came up the width of a favicon until the pointer moved it.
         scroll.layoutSubtreeIfNeeded()
         movePill(animated: false)
     }

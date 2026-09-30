@@ -2,33 +2,19 @@
 //  SidebarTabDrag.swift
 //  Luna
 //
-//  §6.6's reorder, as a gesture rather than as a system drag.
+//  §6.6's reorder, as a gesture rather than as a system drag. `NSTableView`'s
+//  drag session hands the pointer a snapshot that floats free in two
+//  dimensions, can leave the window, and leaves the list static but for a 2 pt
+//  rule; a sidebar tab has to be locked horizontally, carry its highlight, and
+//  show its landing place the moment it moves.
 //
-//  Not `NSTableView`'s drag and drop. AppKit's session hands the pointer a
-//  translucent snapshot that floats free in two dimensions, can be carried out
-//  of the window, and leaves the list static apart from a 2 pt insertion rule.
-//  A sidebar tab has one degree of freedom — it is somewhere in a column — and
-//  the ask is the column's: lock it horizontally, move the whole row including
-//  its highlight, and show its landing place the moment it starts moving. A
-//  dragging session exposes none of the three.
+//  The row is replaced by a lift — §3.4's selected pill, favicon and title —
+//  pinned to the sidebar's x and following the pointer's y, while the list opens
+//  a gap under it. Carried into the §3.3 grid it becomes a tile. A §3.4b group
+//  travels as its header, and the saved tier's rule comes out for every drag.
 //
-//  So the gesture is tracked here. The row is replaced by a lift — one view
-//  carrying §3.4's selected pill, the favicon and the title — pinned to the
-//  sidebar's x and following the pointer's y, while the list opens a gap under
-//  it. Carried up into the §3.3 grid the lift becomes a tile: same view, new
-//  geometry, animated on §6's `tabInsert`. Carried back down it is a row.
-//
-//  §3.4b put two more things in the air. A group can be dragged, and it
-//  travels as its header — the name is what the hand is on, and the tabs follow
-//  on the drop. And the saved tier's rule comes out for the length of every
-//  drag, whether or not anything is saved yet: the zone above it is somewhere a
-//  tab can be put, and a zone that is invisible until you have already used it
-//  is one nobody finds.
-//
-//  Nothing is committed until the mouse comes up. A live `reorderTab` per row
-//  crossed would be a dozen SQLite writes and a dozen undo entries for one
-//  gesture; the gap is drawn by offsetting the row views, which costs nothing
-//  and is discarded wholesale when the list reloads.
+//  Nothing is committed until the mouse comes up: a live `reorderTab` per row
+//  crossed would be a dozen SQLite writes and undo entries for one gesture.
 //
 
 import AppKit
@@ -105,11 +91,11 @@ final class SidebarTabDragController {
     /// grid is taken out of it for the length of the gesture, and put back by
     /// the drop.
     private var cargo: SidebarCargo?
-    /// Which gesture this is. The lift now travels to its landing place before
-    /// it hands over, so its completion runs a third of a second after the
-    /// mouse came up — long enough for a quick second drag to already be in the
-    /// air, and the teardown that follows a drop would pull the list out from
-    /// under it.
+    /// Which gesture this is. The lift travels to its landing place before it
+    /// hands over, so its completion runs a third of a second after the mouse
+    /// came up — long enough for a quick second drag to already be in the air,
+    /// and the teardown that follows a drop would pull the list out from under
+    /// it.
     private var gesture = 0
 
     init(host: NSView, grid: EssentialsGridView, list: TabListController, utility: SidebarUtilityBar) {
@@ -337,11 +323,9 @@ final class SidebarTabDragController {
         utility.highlightedSpaceID = nil
         switch target {
         case let .list(row, destination):
-            // One answer for a folder whether it is open or shut. A gap under a
-            // shut folder's header used to read as "beside it" and was left
-            // closed for that reason; the folder now opens on the drop, so that
-            // row is exactly where the tab is about to be, and the two states
-            // make the same movement.
+            // One answer for a folder whether it is open or shut: a shut folder
+            // opens on the drop, so the gap under its header is exactly where
+            // the tab is about to be.
             list.setGap(row: row)
             list.setGroupDrop(inside: destination.groupID)
         case let .essentials(index):
@@ -371,16 +355,11 @@ final class SidebarTabDragController {
         target = nil
         self.cargo = nil
 
-        // The move is committed before anything is revealed.
-        //
-        // The row and the tile the lift is standing in for are hidden, not
-        // gone, and they are hidden at the place the tab came from. Putting
-        // them back before the model has moved therefore shows the tab in the
-        // place it just left — for one frame in the grid, where it read as the
-        // tile darting off and then sliding back, and for the whole length of
-        // the settle when a row was carried up into the grid. Commit, then
-        // reveal: the tile is un-hidden where it now belongs, and there is
-        // nothing to slide.
+        // Commit, then reveal. The row and the tile the lift stands in for
+        // are hidden at the place the tab came from, so putting them back
+        // before the model moves shows the tab where it just left: a tile
+        // darting off and sliding back, or a whole settle's worth when a row
+        // was carried up into the grid.
         let mine = gesture
         let landed: @MainActor @Sendable () -> Void = { [weak self] in
             guard let self else { return }
@@ -394,10 +373,9 @@ final class SidebarTabDragController {
         }
 
         // Every landing the lift can reach is somewhere on screen, so it goes
-        // there before it hands over. It used to fade out wherever the hand
-        // let go of it, which for a drop into a folder was the whole of the
-        // movement: the tab vanished in mid-air and the folder was simply one
-        // row longer the next time you looked at it.
+        // there before it hands over. Faded out where the hand let go, a tab
+        // dropped into a folder vanished in mid-air and the folder was simply
+        // one row longer.
         guard let lift, let rest = restingPlace(for: landing) else {
             landed()
             lift?.drop()
@@ -412,7 +390,7 @@ final class SidebarTabDragController {
     ///
     /// The gap the list has opened, in every landing the list takes, shut
     /// folder and open one alike. The box round the folder stays up underneath
-    /// for the whole of it, because `landed` is what clears it and `landed` now
+    /// for the whole of it, because `landed` is what clears it and `landed`
     /// runs at the end.
     private func restingPlace(for landing: SidebarDropTarget?) -> NSRect? {
         switch landing {

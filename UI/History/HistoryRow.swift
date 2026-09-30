@@ -7,9 +7,7 @@
 //
 //  It is §3.4's shape rather than a new one — the sidebar's tab row, with a
 //  favicon, a title, a quieter subtitle and a fill that lifts on hover. The
-//  history panel is a view of the tab list; it should look like one. The filter
-//  above these rows was here too until this file ran out of room, and is now in
-//  `HistoryFilterField.swift`.
+//  history panel is a view of the tab list; it should look like one.
 //
 
 import AppKit
@@ -20,8 +18,8 @@ struct HistoryEntry: Identifiable, Sendable {
     let id: UUID
     let title: String
     /// Where the page is — the host, or the whole URL when there is no host to
-    /// take. Not the time: the two used to be one string, and see
-    /// ``HistoryTimestamp`` for what that cost.
+    /// take. Not the time, which is a label of its own; ``HistoryTimestamp``
+    /// says why.
     let subtitle: String
     /// When it was last visited, already formatted. See ``HistoryTimestamp``.
     let when: String
@@ -34,17 +32,11 @@ struct HistoryEntry: Identifiable, Sendable {
 
 /// When a page was last visited, in the width a 320 pt pop-out has for it.
 ///
-/// A cut date is worse than a coarse one. The row used to carry
-/// `"github.com · Sep 20, 2026 at 12:24 PM"` as one middle-truncated label, and
-/// at the panel's width the reader got `"github…:24 PM"` — a host you cannot
-/// identify and a time you cannot place. The full date and time measures 135 pt
-/// beside a 156 pt title and a 59 pt host in a text column 244 pt wide; there
-/// was never room for all three.
-///
-/// So the time is spent where it tells the reader something new. Today's tabs
-/// are the panel's business, and for those the day is not in question, so the
-/// row gives the clock. Anything older gives the date, and the year only once
-/// it is not this one. Every case fits.
+/// A cut date is worse than a coarse one. Host, full date and time as one
+/// middle-truncated label came out as `"github…:24 PM"`: the full date and
+/// time measures 135 pt beside a 156 pt title and a 59 pt host, in a text
+/// column 244 pt wide. So a visit from today gives the clock, an older one the
+/// date, and the year only once it is not this one. Every case fits.
 ///
 /// Pure and locale-taking, so the three branches can be asserted at a fixed
 /// date without waiting for a year to turn.
@@ -106,8 +98,8 @@ final class HistoryRowView: NSView {
     private let subtitle = NSTextField(labelWithString: "")
     private let when = NSTextField(labelWithString: "")
 
-    /// **Built empty and filled afterwards, because `HistoryListView` recycles
-    /// these.** A row that took its entry in `init` was a row per entry, and
+    /// Built empty and filled afterwards, because `HistoryListView` recycles
+    /// these. A row that took its entry in `init` would be a row per entry, and
     /// history has no ceiling on it.
     ///
     /// `translatesAutoresizingMaskIntoConstraints` stays on: an `NSTableView`
@@ -143,12 +135,9 @@ final class HistoryRowView: NSView {
         addSubview(stack)
 
         // `rowInset` is where the pill's edge is, not where the content
-        // starts. The row is the full width of the list and the highlight is
-        // inset `rowInset` into it, so content at that same number sits flush
-        // against the glass — the favicon touched the pill's left edge while
-        // the right end of it ran on empty, and the highlight read as shifted
-        // off the row. A second `panelInset` puts the content inside the pill,
-        // which is what `CommandBarResultsView` does with the same two numbers.
+        // starts: content at that same number sat flush against the glass and
+        // the highlight read as shifted off the row. A second `panelInset` puts
+        // it inside the pill, as `CommandBarResultsView` does.
         let inset = Tokens.Metric.rowInset + Tokens.Metric.panelInset
         NSLayoutConstraint.activate([
             stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
@@ -173,7 +162,7 @@ final class HistoryRowView: NSView {
         setAccessibilityHelp(String(localized: "Reopen this tab"))
     }
 
-    /// What this row is showing now. Everything the row is *made of* was built
+    /// What this row is showing now. Everything the row is made of was built
     /// once; this is the part that changes as the row is scrolled back into
     /// use under a different entry.
     func configure(_ entry: HistoryEntry, icon image: NSImage?) {
@@ -199,20 +188,14 @@ final class HistoryRowView: NSView {
     /// Who gives way, in a row that is always one label too wide.
     ///
     /// The time never does: it is the shortest of the three, it answers the
-    /// question the panel is for, and half a timestamp is a wrong one rather
-    /// than a shorter one. The host yields first (a clipped URL is still a URL)
-    /// and the title second — `CommandBarResultsView`'s order with a third
-    /// column in front of it.
+    /// question the panel is for, and half a timestamp is a wrong one. The host
+    /// yields first (a clipped URL is still a URL) and the title second —
+    /// `CommandBarResultsView`'s order with a third column in front of it. One
+    /// over `.defaultHigh` rather than `.required`, so a list laid out before
+    /// it has a width narrows quietly instead of breaking a constraint.
     ///
-    /// One over `.defaultHigh` rather than `.required`, so the time outranks
-    /// the title without out-arguing the row's own width: a list laid out
-    /// before it has been given one narrows quietly instead of breaking a
-    /// constraint.
-    ///
-    /// The hugging priorities are the other half. Slack goes to the lowest,
-    /// which is the host — so the time sits against the row's trailing edge and
-    /// the dates line up down the panel instead of stepping in and out with the
-    /// titles in front of them.
+    /// Slack goes to the host, the lowest hugger, so the time sits against the
+    /// trailing edge and the dates line up down the panel.
     private func applyTextPriorities() {
         let overTitle = NSLayoutConstraint.Priority(
             rawValue: NSLayoutConstraint.Priority.defaultHigh.rawValue + 1

@@ -4,26 +4,17 @@
 //
 //  §22.6: which window is standing where.
 //
-//  One session, several windows. The Spaces, the tab list and the web views
-//  belong to the session and are shared — two windows showing one Space draw
-//  the same column, because there is one database underneath and a second
-//  in-memory copy of it would be two answers to the same question, racing each
-//  other onto disk. What a window owns is only where it is standing: the Space
-//  it is showing, and the tab it has selected in each Space it has visited.
-//
-//  A private window is the other shape and is not here: it has its own session
-//  over its own throwaway store, so it shares nothing and needs none of this.
+//  The Spaces, the tab list and the web views belong to the session and are
+//  shared by its windows — there is one database underneath, and a second
+//  in-memory copy would race the first onto disk. A window owns only where it
+//  stands: the Space it shows and the tab it has selected in each Space it has
+//  visited. A private window has its own session and needs none of this.
 //
 //  `keyWindowID` is what the unqualified `activeTabID` and `activeSpaceID`
-//  mean. Those are the app's own commands talking — `⌘W`, `⌘R`, `⌘T` — and a
-//  command is always about the window the user is in. Chrome is the other
-//  caller and never uses them: a sidebar draws its own window, which is not
-//  the front one while another window is, so it asks by name.
-//
-//  A session that has never been given a window still answers every one of
-//  these. `keyWindowID` starts as a name nothing else holds and the focus for
-//  it is made on first write, which is what lets the model be driven with no
-//  chrome on it at all.
+//  mean: the app's commands (`⌘W`, `⌘R`, `⌘T`) are about the window the user
+//  is in. Chrome asks by name, because a sidebar draws its own window, which
+//  is not always the front one. A session with no window still answers:
+//  `keyWindowID` starts as a name nothing else holds, focused on first write.
 //
 
 import BrowserKit

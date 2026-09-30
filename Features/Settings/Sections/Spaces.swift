@@ -2,30 +2,10 @@
 //  Spaces.swift
 //  Luna
 //
-//  docs/SETTINGS-SPEC.md §3.7, and SPACES-SPEC §6.2/§6.4.
-//
-//  Nothing here is dimmed for a missing method. `BrowserSession` carries
-//  `renameSpace`, `reorderSpace`, `setIcon`, `setGradient`, `setProfile` and
-//  `deleteSpace(_:policy:)`, so every row that used to name the call it was
-//  waiting for is wired to it instead — the reason went, the row stayed (§30.4).
-//
-//  One card per Space, and the card is that Space's colour. The section was a
-//  column of identical grey cards six rows deep, where finding "the blue one"
-//  meant reading every heading — the one list in Luna where the twelve
-//  gradients were not doing the work they exist for. `SpaceCardView` heads each
-//  card with the Space's own pair at §8.2a's full intensity, its icon, its name
-//  and §9's fan-out line.
-//
-//  Two of the six rows went into the header's corner button. Icon and gradient
-//  were popups listing nouns — "Flask", "Mulberry" — for settings whose content
-//  is a picture; `SpaceAppearanceView` shows both as grids of themselves.
-//
-//  The one thing this section says that no other browser's does is the fan-out:
-//  Space → Profile is many-to-one, and nothing in Arc, Chrome or Firefox tells
-//  you so. "Work profile · shared with 3 Spaces" is the whole answer to "why am
-//  I still logged in over here" — the most-reported conceptual confusion in
-//  reviews of Arc and the oldest open one in Firefox's containers (§9). It sits
-//  on the card's head because it describes the Space, not a setting.
+//  docs/SETTINGS-SPEC.md §3.7, and SPACES-SPEC §6.2/§6.4: one card per Space,
+//  headed by that Space's own colour (`SpaceCardView`), holding its name,
+//  picture, position and deletion rows. Icon and gradient are behind the
+//  card's corner button (`SpaceAppearanceView`).
 //
 //  This section is the only one that rebuilds itself: creating, renaming,
 //  reordering or deleting a Space changes what the rows say and how many there
@@ -121,12 +101,9 @@ final class SpacesSection: SettingsSection {
     // MARK: One Space
 
     /// Internal, not private, so `SpacesSectionTests` can build the rows for a
-    /// synthetic Space without a running session — which is the only way to
-    /// assert that none of them is dimmed any more.
-    ///
-    /// Four rows, not six. §6.2's icon and gradient are on the card's
-    /// corner button; see `appearanceChoices` for the pair, and
-    /// `SpaceAppearanceView` for why a grid beat a popup for both.
+    /// synthetic Space without a running session and assert that none of them
+    /// is dimmed. §6.2's icon and gradient are on the card's corner button
+    /// instead; see `appearanceChoices`.
     func spaceRows(
         _ space: Space,
         at index: Int,
@@ -196,15 +173,13 @@ final class SpacesSection: SettingsSection {
             disabledReason: canDelete ? nil : String(localized: "A window must always have at least one Space.")
         ) { [weak self] in self?.delete(space) }
         // "cookies" and "logins" are on this row because deleting a Space is
-        // what deletes them now — the Profile row that used to answer for
-        // those words is gone, and the vocabulary people search with is not.
+        // what deletes them, and those are the words people search with.
         return (row, [title, space.name, "delete space", "remove space", "cookies", "logins"])
     }
 
-    /// What the card's head says under the name. It does not repeat the name:
-    /// the line above it is the name, and the fan-out only carried one because
-    /// the name it carried was the Profile's. The picker in `Spaces+Dialogs`
-    /// still needs one, which is why `fanOutLabel` keeps taking it.
+    /// What the card's head says under the name. It does not repeat the name,
+    /// which is the line above; the picker in `Spaces+Dialogs` does need it,
+    /// which is why `fanOutLabel` takes one.
     ///
     /// The same answer whether a session is running or not — a synthetic Space
     /// in a test has no Favorites, which is what the label should say.
@@ -215,7 +190,7 @@ final class SpacesSection: SettingsSection {
     // MARK: §6.2's appearance
 
     /// Every icon and every gradient a Space can take, for §2's search and for
-    /// the test that proves neither left the app when they left the row list.
+    /// the test that proves both are still reachable from the corner button.
     static var appearanceChoices: (gradients: [String], icons: [String]) {
         (SpaceAppearanceView.gradientNames, symbols.map(\.label))
     }
@@ -256,10 +231,9 @@ final class SpacesSection: SettingsSection {
         popover.contentViewController = controller
         popover.behavior = .transient
         // Below the button, not above it. `SpaceAppearanceButton` is not a
-        // flipped view, so `.maxY` is its top edge — and a card at the head
-        // of the pane put the grid off the top of the screen entirely, over
-        // whatever was behind the window. There is always pane below a card
-        // header; there is not always screen above one.
+        // flipped view, so `.maxY` is its top edge, and a card at the head of
+        // the pane put the grid off the top of the screen. There is always
+        // pane below a card header; there is not always screen above one.
         popover.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .minY)
         appearance = popover
     }

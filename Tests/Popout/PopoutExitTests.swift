@@ -2,17 +2,14 @@
 //  PopoutExitTests.swift
 //  LunaTests
 //
-//  §6.4's pop-out leaving, which used to be `removeFromSuperview()` and is now
-//  `animateIn` run backwards.
+//  §6.4's pop-out leaving: `animateIn` run backwards.
 //
-//  Three things can go wrong with an exit animation and none of them are
-//  visible at the speed it runs. It can fold back to a different corner from
-//  the one it grew out of, which reads as the panel sliding rather than
-//  closing. It can keep swallowing clicks while it fades, so the press on the
-//  button that closed it does nothing — the ordinary way anyone closes one of
-//  these, and the failure looks like a button that has stopped working. And it
-//  can fail to leave at all, which is a transparent sheet left over the page
-//  forever.
+//  Three things can go wrong with an exit animation, none visible at the speed
+//  it runs. It can fold back to a different corner from the one it grew out
+//  of, which reads as sliding rather than closing. It can keep swallowing
+//  clicks while it fades, so the press on the button that closed it does
+//  nothing. And it can fail to leave at all, leaving a transparent sheet over
+//  the page.
 //
 
 import XCTest

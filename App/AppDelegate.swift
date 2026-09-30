@@ -7,7 +7,7 @@
 //  Commands live in `BrowserCommands.swift`, the key map in `MainMenu.swift` —
 //  this file is lifecycle and wiring only.
 //
-//  Wave-2 integration points, all of them here and nowhere else:
+//  Integration points, all of them here and nowhere else:
 //      UI/Sidebar    SidebarViewController(session:)   §3
 //      UI/TopBar     TopBarView(session:)              §4
 //      UI/CommandBar CommandBarController(session:adaptive:)  ⌘T / ⌘L
@@ -79,7 +79,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// can answer is a machine that will not shut down.
     var isQuitConfirmed = false
     private(set) var isQuitFromLogOut = false
-    /// `⌘,`. One instance, re-shown rather than rebuilt.
     /// SETTINGS-SPEC §1's separate window. One instance, reused — `⌘,`
     /// opens it the first time and focuses it every time after, and it survives
     /// being closed because `isReleasedWhenClosed` is off.
@@ -128,8 +127,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // The gap between this and `menu` is AppKit's own: it is what
         // `-[NSApplication finishLaunching]` does between the two notifications,
         // and it is ~40 ms of every launch that no Luna code is in. It has a
-        // milestone of its own because without one it looks like ours — it was
-        // read as the cost of the line below for most of an afternoon.
+        // milestone of its own because without one it reads as the cost of the
+        // line below.
         LaunchTrace.mark("didFinish")
         // Before anything is opened: a second copy launched to open a page has
         // no business touching the database the running one is using.
@@ -202,11 +201,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #if !DEBUG
         SafariFavorites.shared.attach(to: session)
         #endif
-        // An empty Space opens nothing. It used to be handed a tab on the New
-        // Tab page so the content card had something in it; with that page gone
-        // there is nothing honest to put in a tab nobody asked for, and the
-        // column already says what to do — §3.3a's wells and §30.6's New Tab
-        // row, which opens §9.1 rather than a blank page.
+        // An empty Space opens nothing. There is nothing honest to put in a tab
+        // nobody asked for, and the column already says what to do — §3.3a's
+        // wells and §30.6's New Tab row, which opens §9.1 rather than a blank
+        // page.
         render()
         // A link that launched Luna, over the session it restored.
         openLinksFromLaunch()
@@ -227,19 +225,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// it.
     ///
     /// `BrowserStore.init` is synchronous — it creates the directory, opens the
-    /// pool and runs the migrator — so where it used to be called, it was main
-    /// thread time inside the launch, in series with a window it has nothing to
-    /// say about. Detached and started first, it runs while AppKit builds that
-    /// window instead.
+    /// pool and runs the migrator — and on the main thread it runs in series
+    /// with a window it has nothing to say about. Detached and started first,
+    /// it runs while AppKit builds that window instead.
     ///
-    /// Say what this bought: 10–20 ms of main thread, and no measurable
-    /// change in the launch total. Luna reaches interactive in ~280 ms and
-    /// over half of that is AppKit and dyld before any of this code runs
-    /// (`docs/PERF.md` has the tape), so moving our own work off the critical
-    /// path is worth doing and is not worth claiming a number for.
+    /// Measured: 10–20 ms of main thread, and no measurable change in the
+    /// launch total — Luna reaches interactive in ~280 ms, over half of it
+    /// AppKit and dyld before any of this code runs (`docs/PERF.md`).
     ///
-    /// Failures travel in the task and are presented where the old call threw,
-    /// in `startSession`, rather than being swallowed out here.
+    /// Failures travel in the task and are presented in `startSession`, rather
+    /// than being swallowed out here.
     private static func openStore() -> Task<BrowserStore, any Error> {
         let path = databaseURL
         return Task.detached(priority: .userInitiated) {
@@ -304,10 +299,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// `⌘S` and §3.1's toggle button: hide or show the sidebar, so the page
     /// takes the whole window.
     ///
-    /// It used to swap sidebar layout for top-bar layout, which meant a reflex
-    /// the user performs several times a minute silently changed a preference
-    /// they set once. The layout is now `Settings.chromeLayout` and lives in
-    /// the Settings window; this is only a reveal.
+    /// Only a reveal, never a switch of layout: a reflex the user performs
+    /// several times a minute must not change a preference they set once. The
+    /// layout is `Settings.chromeLayout`, set in the Settings window.
     func toggleSidebar() {
         front?.toggleSidebar()
     }
@@ -333,13 +327,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         true
     }
 
-    /// `recordVisit` buffers and `interactionState` dies with its WebContent
-    /// process, so quitting has real async work to do. `.terminateLater` is the
-    /// only way to do it — `applicationWillTerminate` cannot await.
+    /// Log out, restart or shut down is on its way — see `isQuitFromLogOut`.
     @objc private func powerOffIsComing() {
         isQuitFromLogOut = true
     }
 
+    /// `recordVisit` buffers and `interactionState` dies with its WebContent
+    /// process, so quitting has real async work to do. `.terminateLater` is the
+    /// only way to do it — `applicationWillTerminate` cannot await.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         // §3.1: ask first, and answer `.cancel` while the question is up.
         // `AppDelegate+Quit.swift` has why it cannot be `.terminateLater`.
@@ -391,17 +386,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// this property returns — before the first test method is entered and
     /// whether or not that test wanted a session.
     ///
-    /// Which means that until this branch existed, every test run in this
-    /// repo migrated and wrote the user's live database. Measured: the
-    /// schema-version row in `~/Library/Application Support/dev.novapps.luna/`
-    /// moved during this wave and its mtime tracked the test runs. A test that
-    /// carefully builds its own fixture store is not protected by doing so —
-    /// no test constructs that path, the app does, on their behalf.
-    ///
-    /// A throwaway directory per run is the fix, and it is here rather than in
-    /// the tests because there is no test to put it in: the offending open
-    /// happens in app launch. Internal, not private, so
-    /// `AppDelegateDatabaseTests` can assert the branch below actually fires.
+    /// Without the branch below, every test run migrates and writes the user's
+    /// live database — measured: the schema-version row's mtime in
+    /// `~/Library/Application Support/dev.novapps.luna/` tracked the test runs.
+    /// A test that builds its own fixture store is not protected by doing so:
+    /// the app opens this path on its behalf, at launch, which is why the
+    /// throwaway directory is chosen here and not in the tests. Internal, not
+    /// private, so `AppDelegateDatabaseTests` can assert the branch fires.
     static var databaseURL: URL {
         guard !isRunningTests else {
             return URL.temporaryDirectory

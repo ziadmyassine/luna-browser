@@ -5,27 +5,15 @@
 //  §3.5: `[Space pill] ··· [dots 56 × 22] ··· [downloads | history]`, pinned
 //  to the bottom at 52 pt, all three on one bottom edge.
 //
-//  The trailing circle opens the archive page, and is called History —
-//  that is what a user looking for a page they closed goes looking for, and
-//  "archive" is Luna's internal word for the same shelf. It carries a clock
-//  glyph for the same reason: a box means storage, a clock means "earlier".
+//  The trailing button opens the archive page and is called History, with a
+//  clock glyph: that is what someone looking for a page they closed looks for.
+//  Downloads is its pair in one cylinder, as in §4's action capsule — both are
+//  the shelf of what you already have — and `SidebarActionCapsule` says why one
+//  cylinder reads as a pair. Not in the §3.1 control row: a finished download
+//  is not an action on this page.
 //
-//  Downloads sits beside it, as its pair, in one cylinder. They are the
-//  same kind of thing — the shelf of what you already have, glanced at rather
-//  than worked in, both opening as a pop-out that stands on its own button —
-//  and §4's action capsule pairs the same two at the other end of the window,
-//  in one piece of glass. So does this: see `SidebarActionCapsule` for why two
-//  discs 5 pt apart read as two controls and one cylinder reads as a pair. The
-//  alternative home was the §3.1 control row at the head, which is where
-//  actions on this page live; a finished download is not one of those.
-//
-//  The pair is what set §1's sidebar minimum: three clusters and a centred pill
-//  need 190 pt, and `Metric.sidebarWidth` records the arithmetic. Below the
-//  width where the pill still fits between the outer two it is centred in what
-//  is left rather than in the bar — see `placeContents`.
-//
-//  The dots are the Space switcher (§30.9) and live in `SpaceDotsView.swift`;
-//  the Space pill that names them is `SidebarSpacePill.swift`.
+//  The pair set §1's sidebar minimum; `Metric.sidebarWidth` records the
+//  arithmetic. The dots are `SpaceDotsView.swift`, the pill `SidebarSpacePill.swift`.
 //
 
 import AppKit
@@ -47,12 +35,9 @@ final class SidebarUtilityBar: NSView {
     /// §6.1 from the same menu, and from §30.9's swipe past the last Space.
     var onNewSpace: (() -> Void)?
 
-    /// §3.5's Space pill, where the Profile avatar was: the active Space's
-    /// name, §9's picture when it has one, and §9's fan-out on its tooltip.
-    ///
-    /// The dots say which Space by colour and position alone, so the name has
-    /// to be somewhere in the column. It was a caption over the dots until the
-    /// Space got the same cylinder here that it has at the end of §4's bar.
+    /// §3.5's Space pill: the active Space's name, §9's picture when it has
+    /// one, and §9's fan-out on its tooltip. The dots say which Space by colour
+    /// and position alone, so the name has to be somewhere in the column.
     let spacePill = SidebarSpacePill()
     /// The same two glyphs §4's capsule uses, in the same order, so the pair is
     /// recognisably the same pair in both layouts.
@@ -78,8 +63,8 @@ final class SidebarUtilityBar: NSView {
             // The Space pop-out, the same one §4's bar opens from its name.
             SpacePopout.present(from: pillButton, content: spaceContent, alignedTo: pillButton)
         }
-        // The pill's edge was what cut off the dots outside §30.9's window of
-        // three; without the glass the strip still has to.
+        // With no glass of their own to clip them, the strip itself cuts off
+        // the dots outside §30.9's window of three.
         dots.layer?.masksToBounds = true
         dots.onSwitch = { [weak self] id in self?.onSwitchSpace?(id) }
         dots.onSetGradient = { [weak self] space, gradient in self?.onSetGradient?(space, gradient) }

@@ -2,29 +2,19 @@
 //  TrafficLightLayoutManager.swift
 //  Luna
 //
-//  THE single owner of the traffic lights' frames (TODO.md §7.7, UI-SPEC §3.1).
-//  Nothing else in the app may touch a standard window button's frame. Manual
-//  repositioning spread across view controllers is the #1 visual bug source in
-//  Arc-style browsers; the geometry therefore lives in a pure function that is
-//  unit-tested for every `ChromeState` (see `Tests/Window/`).
+//  The single owner of the traffic lights' frames (TODO.md §7.7, UI-SPEC §3.1):
+//  nothing else may touch a standard window button's frame. The geometry lives
+//  in a pure function, unit-tested for every `ChromeState` (`Tests/Window/`).
 //
 //  Measured on macOS 26 with a running probe, not assumed:
-//    · the buttons live in `NSTitlebarView`, 32 pt tall, unflipped;
-//    · they are 14 × 14 at x = 9 / 32 / 55 (23 pt apart), y = 9;
-//    · AppKit resets those frames on every window resize — which is exactly
-//      the bug. Re-application is not optional, so this class owns it.
-//    · neither `NSTitlebarView` nor `NSTitlebarContainerView` clips, but hit
-//      testing still stops at the container's bounds, so a button hung below the
-//      titlebar would draw and not click. `TrafficLightLayout` clamps instead.
-//    · fullscreen takes the titlebar out of the window entirely and hangs it
-//      off the top of the screen, to slide down on a hover. The lights go with
-//      it, and §3.1's sidebar is left with a hole where they were. So this class
-//      owns where they live as well as where they sit: see `TrafficLightStrip`.
-//    · that slide lays the three out again on the way past. Measured on the
-//      reveal and again on the hide: all three back at AppKit's own origins,
-//      still inside the strip, with no resize, no fullscreen transition and the
-//      titlebar's own frame unmoved — in fullscreen it is the container around
-//      it that travels. The buttons say so themselves and nothing else does.
+//    · the buttons are 14 × 14 at x = 9 / 32 / 55, y = 9, in a 32 pt unflipped
+//      `NSTitlebarView`, and AppKit resets their frames on every resize;
+//    · the titlebar container does not clip, but hit testing stops at its
+//      bounds, so `TrafficLightLayout` clamps rather than hang a button below;
+//    · fullscreen hangs the titlebar off the top of the screen, lights and all,
+//      so this class owns where they live as well (`TrafficLightStrip`);
+//    · that slide lays the three out again at AppKit's own origins, with no
+//      resize and the titlebar's frame unmoved; only the buttons announce it.
 //
 
 import AppKit
@@ -82,21 +72,19 @@ enum TrafficLightLayout {
     /// Where the standard window buttons belong, in their superview's
     /// (`NSTitlebarView`, bottom-left origin) coordinates.
     ///
-    /// The lights sit at the same place in every chrome layout: the sidebar's
-    /// control row and the top bar both start at the window's top-left, so
-    /// switching layout or collapsing the sidebar must not move them. A test
-    /// pins that down.
+    /// The same place in every chrome layout: the sidebar's control row and
+    /// the top bar both start at the window's top-left, so switching layout or
+    /// collapsing the sidebar must not move them.
     ///
-    /// `inset` is one number for both axes. It used to be a leading inset plus
-    /// a vertical centring in the control row, which put the lights 8 pt from
-    /// the window's leading edge and 18 pt from its top — unequal padding into
-    /// a corner. The reference insets them equally.
+    /// `inset` is one number for both axes, as the reference has it. A leading
+    /// inset plus a vertical centring in the control row put the lights 8 pt
+    /// from the leading edge and 18 pt from the top — unequal padding into a
+    /// corner.
     ///
-    /// `system.titlebarHeight` is whichever container holds the buttons, not
-    /// necessarily AppKit's titlebar: fullscreen takes that away and the lights
-    /// move into `TrafficLightStrip`. Both are unflipped with their top edge on
-    /// the window's, so one piece of arithmetic serves both — which is why the
-    /// container is measured rather than named.
+    /// `system.titlebarHeight` is whichever container holds the buttons:
+    /// AppKit's titlebar, or `TrafficLightStrip` in fullscreen. Both are
+    /// unflipped with their top edge on the window's, so one piece of
+    /// arithmetic serves both.
     ///
     /// - Returns: `nil` when the system owns the frames (page fullscreen, §3.6),
     ///   meaning "do not touch".
@@ -120,22 +108,18 @@ enum TrafficLightLayout {
     }
 }
 
-/// The lights' home in fullscreen, where AppKit's titlebar is not in the window
-/// any more: a strip along the window's top edge, the titlebar's own height, in
-/// front of the chrome so the three buttons sit on the sidebar rather than under
-/// it. It holds AppKit's real buttons, so they keep their real actions.
+/// The lights' home in fullscreen, where AppKit's titlebar is not in the
+/// window: a strip along the window's top edge, the titlebar's own height, in
+/// front of the chrome so the three buttons sit on the sidebar rather than
+/// under it. It holds AppKit's real buttons, so they keep their real actions.
 ///
-/// It hit-tests to nothing of its own. A plain view answers for every point
-/// inside its bounds, and this one lies across the top of §3.1's control row —
-/// so the sidebar's toggle would have stopped taking clicks the moment the
-/// window went fullscreen.
+/// It hit-tests to nothing of its own: it lies across the top of §3.1's
+/// control row, and a plain view answering for its whole bounds takes the
+/// sidebar toggle's clicks.
 ///
-/// It also groups the three for the pointer, which the titlebar did for them.
-/// A window button draws its glyph only when its superview answers
-/// `_mouseInGroup:` yes; out of AppKit's titlebar nothing did, so in fullscreen
-/// the three stayed blank circles under the pointer. Measured on macOS 26: the
-/// button asks its own superview, and the answer is all that changes the
-/// drawing.
+/// It groups the three for the pointer, as the titlebar does. Measured on
+/// macOS 26: a window button draws its glyph only when its own superview
+/// answers `_mouseInGroup:` yes, and without it the three stay blank circles.
 private final class TrafficLightStrip: NSView {
 
     /// A button was taken out of the strip. AppKit does that when it rebuilds
@@ -236,8 +220,8 @@ final class TrafficLightLayoutManager {
     ///
     /// Set inside the transaction that slides the sidebar, the lights ride in
     /// and out with it: they fade and move on its clock, from and to where it
-    /// is parked. Shown and hidden outright they arrived before the sidebar
-    /// did and left before it had gone.
+    /// is parked. Shown and hidden outright, they arrive before the sidebar
+    /// does and leave before it has gone.
     var isPeeking = false {
         didSet {
             guard isPeeking != oldValue else { return }
@@ -342,7 +326,7 @@ final class TrafficLightLayoutManager {
     ///
     /// So the placement is held rather than caught. A pass is three comparisons
     /// and writes nothing when nothing moved, which is the cost of all but one
-    /// of these; it stops on its own, and `⌘S` was doing exactly this by hand.
+    /// of these, and it stops on its own.
     private func holdPlacement() {
         holdUntil = Date().addingTimeInterval(Self.placementHold)
         guard !isHolding else { return }
@@ -377,19 +361,13 @@ final class TrafficLightLayoutManager {
             NSWindow.didResizeNotification,
             NSWindow.didEnterFullScreenNotification,
             NSWindow.didExitFullScreenNotification,
-            // The window arriving on screen. It is the one re-layout AppKit
-            // announces no other way, and the reason §3.1's row and the lights
-            // could disagree on a fresh window.
-            //
-            // Measured at launch, in the layout that shows it: the manager
-            // places the three at `trafficLightInset`, the window goes up, and
-            // the zoom button alone is back at AppKit's own origin — nine
-            // points high and nine points in, with close and miniaturize
-            // correct beside it. No resize, no titlebar frame change, and no
-            // frame-change notification from the button either, so none of the
-            // three observers above hears a thing. Re-placing on any later
-            // event sticks, which is why `⌘S` twice appeared to fix it: a
-            // chrome-state change re-applies.
+            // The window arriving on screen, the one re-layout AppKit
+            // announces no other way. Measured at launch: the manager places
+            // the three at `trafficLightInset`, the window goes up, and the
+            // zoom button alone is back at AppKit's own origin, nine points
+            // high and nine in. No resize, no titlebar frame change and no
+            // frame-change notification from the button, so none of the
+            // observers here hears it. Re-placing on any later event sticks.
             NSWindow.didChangeOcclusionStateNotification,
             // Key state: AppKit re-disables the yellow light on it in
             // fullscreen, which `applyPressability` undoes.
@@ -433,7 +411,7 @@ final class TrafficLightLayoutManager {
             }
         }
         // A theme change rebuilds the titlebar the same way. In fullscreen that
-        // was the lights gone until the next tab switch; the strip's own
+        // leaves the lights gone until the next tab switch; the strip's own
         // `onLoseButton` catches it too, and this covers a rebuild that lands
         // a frame after the change.
         appearanceObservation = NSApp.observe(\.effectiveAppearance) { [weak self] _, _ in

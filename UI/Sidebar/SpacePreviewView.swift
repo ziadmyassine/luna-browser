@@ -2,31 +2,18 @@
 //  SpacePreviewView.swift
 //  Luna
 //
-//  The Space on the other side of the swipe, drawn so it can be seen arriving.
+//  The Space on the other side of the swipe, drawn so it can be seen arriving
+//  from the edge the fingers are heading toward.
 //
-//  A page turn has to show the page. §30.9 used to lean the column 40 pt and
-//  dim it, which says "something is happening" and nothing else: the Space you
-//  were reaching for stayed invisible until the gesture had committed, so the
-//  choice was made blind. This is the other half of the motion — the incoming
-//  Space translating in from the edge the fingers are heading toward.
+//  A still, not the list: §3.4's list is one `NSTableView` bound to the active
+//  Space, and pointing it elsewhere would tear down the thing the user is about
+//  to be handed. Nothing here takes a click, and it is thrown away when the
+//  gesture ends, cross-faded by §6's `spaceSwitchCrossfade`.
 //
-//  It is a still, not the list. §3.4's list is one `NSTableView` bound to the
-//  active Space, and pointing it at a Space the window is not in would mean
-//  tearing down and rebuilding the thing the user is about to be handed. A page
-//  turn needs a picture: nothing here hovers, scrolls, closes a tab or takes a
-//  click, and it is thrown away the moment the gesture ends, cross-faded by
-//  §6's `spaceSwitchCrossfade`.
-//
-//  The picture is of the whole column, pinned tabs included. It used to be a
-//  flat run of rows built from every tab, which put the §3.3 tiles in as
-//  ordinary rows — so a Space with pinned tabs arrived looking like a Space
-//  without any and rearranged itself the moment the real column took over, and
-//  that correction is the one frame the cross-fade exists to hide. The grid is
-//  drawn as a grid, with `EssentialsGridView`'s own slot arithmetic.
-//
-//  Only what fits is drawn. A Space with sixty tabs is a Space whose first
-//  dozen rows are what identifies it at a glance, and drawing the other
-//  forty-eight into a view that lives for 300 ms is work nobody sees.
+//  It pictures the whole column — tiles as a grid, the §3.3a wells, the rule
+//  where `SidebarList` puts it — because anything drawn differently from the
+//  real column is a correction landing inside the cross-fade meant to hide one.
+//  Only the rows that fit are drawn; a view that lives 300 ms needs no more.
 //
 
 import AppKit
@@ -78,14 +65,11 @@ final class SpacePreviewView: NSView {
     ///     the live session first, §4.7's on-disk store after it. Nil draws the
     ///     same placeholder a cold row draws.
     ///
-    /// The still is drawn from `SidebarList.rows` rather than from a flat run of
-    /// tabs with a head bolted on. The head was written when §3.4 began with New
-    /// Tab and a rule under it; §3.4b put the rule *above* New Tab and takes it
-    /// away entirely for a Space with nothing saved, so a hard-coded head drew a
-    /// rule that was both in the wrong place and always there — one that
-    /// appeared for the length of a swipe and vanished when the real column
-    /// arrived. Asking the list means the still cannot disagree with it again,
-    /// and group headers come along for free.
+    /// Drawn from `SidebarList.rows`, not a flat run of tabs with a head bolted
+    /// on: a hard-coded head drew §3.4b's rule under New Tab and in every
+    /// Space, where the real column draws it above and only when something is
+    /// saved. Asking the list keeps the two from disagreeing, and brings group
+    /// headers along.
     func show(column: SidebarList, gradient: GradientPair, icon: (Tab) -> NSImage?) {
         wash.show(gradient)
         clear()
@@ -215,13 +199,10 @@ final class SpacePreviewView: NSView {
 /// One §3.3 tile of the still: the plate and the favicon, and nothing that
 /// makes a tile a control — no glow, no hover, no menu.
 ///
-/// The plate, and deliberately not the glass. A real tile is a `.dormant`
-/// `GlassButton`: at rest it wears `Surface.well` and a hairline, and the
-/// material only comes up under the pointer or on the tab you are on. Drawing
-/// the material here lit every tile in the Space you were swiping toward, so
-/// every pinned tab arrived looking selected — which is what "all the pinned
-/// tabs are highlighted" was. A still of a column nobody is pointing at has
-/// nothing lit in it.
+/// The plate, not the glass. A real tile is a `.dormant` `GlassButton`: at
+/// rest it wears `Surface.well` and a hairline, and the material comes up only
+/// under the pointer or on the current tab. Drawn with the material, every
+/// pinned tab in the arriving Space looked selected.
 @MainActor
 final class SpacePreviewTile: NSView {
 
@@ -340,13 +321,10 @@ final class SpacePreviewRow: NSView {
                 width: side,
                 height: side
             ).pixelAligned
-            // The same column and the same box a real row gives its title.
-            // A label draws its one line at the top of whatever frame it is
-            // given, so handing it the full row height put "New Tab" a third of
-            // a row above the favicon beside it — visible for the length of a
-            // swipe and corrected the moment the real list arrived. The box is
-            // the type's own height, centred, exactly as `SidebarRowView` does
-            // it.
+            // The same column and box a real row gives its title. A label
+            // draws its line at the top of its frame, so the full row height put
+            // "New Tab" a third of a row above its favicon; the box is the
+            // type's own height, centred, as in `SidebarRowView`.
             let column = SidebarRowView.titleColumn(
                 inRowOfWidth: bounds.width,
                 hasUnread: false,

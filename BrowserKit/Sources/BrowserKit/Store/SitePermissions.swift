@@ -3,15 +3,12 @@ import WebKit
 
 /// §3.2's site menu, as state the rest of the app can ask a synchronous question of.
 ///
-/// In memory first, SQLite afterwards. The two callers that matter cannot wait on a
-/// database: `ContentBlocker.apply(to:host:)` runs inside `decidePolicyFor`, and the
-/// Picture-in-Picture hand-off runs inside `activateTab`. So the whole table is read once
-/// at launch — it is a handful of rows, one per site the user has ever answered for — and
-/// every write updates the map before it is persisted.
-///
-/// Shaped after `ContentBlocker`'s own per-site exemptions for exactly that reason; the
-/// two are the same problem, and the blocking one is only separate because it was written
-/// first and its column is `NOT NULL`.
+/// In memory first, SQLite afterwards: `ContentBlocker.apply(to:host:)` runs inside
+/// `decidePolicyFor` and the Picture-in-Picture hand-off inside `activateTab`, and neither
+/// can wait on a database. The table, one row per site the user has answered for, is read
+/// once at launch, and every write updates the map before it is persisted.
+/// `ContentBlocker`'s per-site exemptions are the same shape for the same reason; they stay
+/// separate because their columns are `NOT NULL`.
 ///
 /// A private window (§5.6) gets an instance of its own from ``scope(for:)``: it reads
 /// through to ``shared``, so the user's standing answers still hold there, and it keeps

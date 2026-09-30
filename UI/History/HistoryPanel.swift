@@ -5,35 +5,16 @@
 //  §6.4's History, as a pop-out from the §3.5 History button — the same
 //  shape §3.2's site settings take from the sliders glyph.
 //
-//  It is the pages the Space has visited, newest first, like any browser's
-//  history. It was §6.3's archive of closed tabs, which is a different list:
-//  a page that was only ever open in a tab, never closed, was in history and
-//  not in the panel, so searching the panel for it found nothing. Closed tabs
-//  are still kept, and the Command Bar still brings one back.
+//  The pages the Space has visited, newest first. Not §6.3's archive of closed
+//  tabs: a page that was open but never closed is in history and not in the
+//  archive, so searching the archive for it found nothing. Closed tabs come
+//  back through the Command Bar and `luna://archive`.
 //
-//  Before that it was `luna://archive`, an internal page in a new tab. That is
-//  the wrong shape twice over: looking something up in your history is a
-//  glance, and a glance should not cost a tab you then have to close — and a
-//  page cannot be Liquid Glass. The page still exists and the route still
-//  works, and it still lists closed tabs; this is what §3.5's History button
-//  opens.
-//
-//  And then it was the Command Bar's shell, which was the same mistake one
-//  size smaller. Scrim, 640 pt body, centred over the page: a glance at a
-//  shelf took the whole page away and put a window-sized panel where the user
-//  was not looking. The Command Bar earns that — you summon it, and it is the
-//  thing you are doing. History is opened from a button, and a surface opened
-//  from a button belongs on it.
-//
-//  So: no scrim, a pop-out standing on the button, and the page still there
-//  behind it. What is left of the overlay is a transparent sheet that catches
-//  the click that dismisses it, which is exactly what an `NSMenu` puts up and
-//  for the same reason.
-//
-//  The sheet, the glass body, the two clamps and the spring are
-//  `PopoutPanelView`'s now — Downloads wanted the same surface, and the only
-//  thing that differed was which way it grows out of its button. What is left
-//  here is the header, the filter and the list.
+//  A pop-out standing on its button, with no scrim and the page still behind
+//  it. Not a new tab — a glance should not cost a tab, and a page cannot be
+//  Liquid Glass — and not the Command Bar's centred shell, because a surface
+//  opened from a button belongs on it. The sheet, glass body, clamps and spring
+//  are `PopoutPanelView`'s; this file is the header, the filter and the list.
 //
 
 import AppKit
@@ -83,7 +64,7 @@ final class HistoryPanel: PopoutPanelView {
     /// Replaces the list. Cheap enough to call on every keystroke — which is
     /// what it is called on — because `HistoryListView` recycles its rows, so
     /// this costs the dozen rows the panel is tall however long history is.
-    /// It was not, once: see that file's header for the measurement.
+    /// That file's header has the measurement.
     func setEntries(_ entries: [HistoryEntry]) {
         list.iconProvider = iconProvider
         list.setEntries(entries)
@@ -93,7 +74,7 @@ final class HistoryPanel: PopoutPanelView {
         needsLayout = true
     }
 
-    /// **An empty history and an empty search are not the same sentence.**
+    /// An empty history and an empty search are not the same sentence.
     /// "Pages you visit show up here" is an answer to "why is this blank";
     /// typed over a search that matched nothing it answers a question nobody
     /// asked, and reads as if history had emptied itself.

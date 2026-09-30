@@ -2,37 +2,18 @@
 //  EssentialsGridView.swift
 //  Luna
 //
-//  §3.3, and what the user calls pinned tabs: the grid of tiles directly
-//  under the URL pill. Icon only, no label (§30.5) — which is exactly why each
-//  tile carries an explicit VoiceOver label naming the site, never the URL
-//  (§8, §21.1).
+//  §3.3's pinned tabs: the grid of tiles directly under the URL pill. Icon only
+//  (§30.5), so each tile carries a VoiceOver label naming the site, never the
+//  URL (§8, §21.1).
 //
-//  The grid reshapes around how many tiles are in it. Two across was fixed,
-//  and a fixed number is wrong at both ends: one pinned tab sat in a half-width
-//  tile with a hole beside it, and eight made four rows of the narrowest column
-//  on screen. The shape is derived — see `columns` — so one tab is one wide
-//  tile, four are a single row, five are 3 + 2 and eight are 4 + 4.
+//  The shape is derived (`columns`): a fixed two across left one pinned tab
+//  beside a hole and put eight in four rows. The width flexes too, because §1's
+//  128 pt tile at a 280 pt sidebar sums to 288; height, radius, gap and icon
+//  size are the tokens (42 pt tall, 12 pt gap, 10 pt inset, 16 pt icon).
 //
-//  A pinned tab is a `.essential` tab. Pinning closes the page but keeps the
-//  tile, so clicking one wakes it again; the only way to remove a tile is to
-//  unpin it, by right-click or by dragging it back into the list. Both go
-//  through `BrowserSession.unpinTab`.
-//
-//  Nothing here is an AppKit drop target. A tile is moved by the same tracked
-//  gesture a list row is (`SidebarTabDrag.swift`), so during a drag the grid
-//  only says where its slots are, holds one open, and hides the tile in the
-//  air.
-//
-//  The tile you are on is lit, in that site's own colour. One glow for the
-//  whole grid, because only one tile can be the tab you are on — see
-//  `EssentialGlowView` and `FaviconTint`. It lies over the tiles and answers no
-//  hit test, so the tile underneath still takes the click.
-//
-//  Tile width flexes. §1's 128 pt tile is the intent at a 280 pt sidebar, but
-//  10 + 128 + 12 + 128 + 10 is 288 — wider than the sidebar it was measured
-//  from — and §1 says the column's content reflows when it is resized. The
-//  height, radius, gap and icon size are the tokens; the width is what is left.
-//  Measured: 42 pt tall, 10 pt outer inset, 12 pt gap, 16 pt icon.
+//  A tile is a `.essential` tab, unpinned only through `BrowserSession.unpinTab`.
+//  Nothing here is an AppKit drop target: tiles move by the gesture a list row
+//  uses (`SidebarTabDrag.swift`), and the grid only says where its slots are.
 //
 
 import AppKit
@@ -342,11 +323,9 @@ final class EssentialsGridView: NSView {
             let slot = dropIndex.map { index >= $0 ? index + 1 : index } ?? index
             let frame = slotRect(at: slot)
             // A tile that has just been built has nowhere to come from: its
-            // frame is the view's origin, the foot of the grid's leading edge,
-            // so an animated pass flew it up and across to its slot. That is
-            // what a pin looked like — the lift came to rest and a second tile
-            // then arrived from the corner to stand in it. It lands where it
-            // belongs and fades up there instead; the fade is `makeTile`'s.
+            // frame is the view's origin, so an animated pass flew it in from
+            // the grid's corner after the lift had come to rest. It lands where
+            // it belongs and fades up there instead; the fade is `makeTile`'s.
             guard arriving.remove(id) == nil else {
                 Tokens.Motion.immediately { tile.frame = frame }
                 continue

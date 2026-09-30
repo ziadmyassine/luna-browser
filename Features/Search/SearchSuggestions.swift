@@ -5,22 +5,16 @@
 //  §3.4's search suggestions: the completions the chosen engine offers while
 //  you are still typing.
 //
-//  This file exists so `UI/CommandBar` still cannot reach the network. §9.6 is
-//  enforced by `CommandBarPrivacyTests`, which greps every source under
-//  `UI/CommandBar` for a networking symbol; the fetch lives in `Features/`
-//  because of it, not around it. The Command Bar asks for `[String]` and is
-//  handed `[String]`.
+//  A file apart so `UI/CommandBar` still cannot reach the network: §9.6 is
+//  enforced by `CommandBarPrivacyTests`, which greps `UI/CommandBar` for a
+//  networking symbol. The Command Bar asks for `[String]` and is handed one.
 //
-//  What leaves the Mac, exactly. The query, to the engine already chosen in
-//  §3.4, over https, with no cookies, no cache and no credentials (see
-//  `session`). Nothing else: no identifier, no referrer, no history. Kagi and a
-//  custom engine have no endpoint here and so send nothing at all — see
-//  `SearchEngine.suggestTemplate`.
-//
-//  And how little of it. A pass is held for `debounce` before it may leave and
-//  the one in flight is cancelled the moment another keystroke arrives, so a
-//  typed word costs about one request rather than one per letter. Answers are
-//  remembered for the life of the window, which makes backspacing free.
+//  What leaves the Mac: the query, to the engine chosen in §3.4, over https,
+//  with no cookies, cache or credentials (`session`), and nothing else. Kagi
+//  and a custom engine have no endpoint and send nothing
+//  (`SearchEngine.suggestTemplate`). A pass waits `debounce` and is cancelled
+//  by the next keystroke, so a word costs about one request, and answers are
+//  kept for the life of the window, so backspacing is free.
 //
 
 import Foundation

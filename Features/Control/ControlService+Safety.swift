@@ -136,9 +136,9 @@ extension ControlService {
     }
 
     /// A paused client's call waits here until the user resumes or stops it,
-    /// or for `ControlApprovals.timeout`. Refused at once, as it used to be,
-    /// the agent read "paused" and gave up, so Resume had nothing to resume:
-    /// the capsule said "working" and nothing moved.
+    /// or for `ControlApprovals.timeout`. Not refused at once: the agent reads
+    /// "paused" as final and gives up, so Resume has nothing to resume and the
+    /// capsule says "working" while nothing moves.
     func waitWhilePaused(_ name: String) async {
         guard holds[name] == .paused, !stoppedAll else { return }
         let id = UUID()

@@ -54,15 +54,21 @@ public struct PasswordSaveRequest: Sendable {
 /// cannot carry storage, and §33's warning about the 4,000-line manager applies
 /// to the engine class most of all.
 ///
-/// # §14.8, rule by rule, and where each one is enforced
+/// Where each §14.8 rule is enforced:
 ///
-/// | Rule | Enforced |
-/// |---|---|
-/// | Never persist without an explicit user action | Nothing here writes. `PasswordSaveRequest` reaches the UI; only the user pressing Save calls `CredentialStore.save`. |
-/// | Never fill cross-origin, or an iframe whose origin differs from the page | ``isFrameTrusted(_:in:)``, against `WKFrameInfo.securityOrigin` — which WebKit fills in and the page cannot forge. |
-/// | Require a recent user gesture before filling | A fill only ever begins with a click on Luna's own native popover row. There is no code path from a page event to a filled field. |
-/// | Never expose credentials to page JavaScript | The password is read from the Keychain inside ``fill(_:with:)`` and passed to `callAsyncJavaScript` as a bound argument. It is never in a source string, never in `TabState`, never logged. |
-/// | Treat a fill after a redirect chain as suspicious | ``sawServerRedirect``, set by the navigation delegate and carried on the offer. |
+///  · Never persist without an explicit user action: nothing here writes;
+///    only the user pressing Save on a `PasswordSaveRequest` calls
+///    `CredentialStore.save`.
+///  · Never fill cross-origin: ``isFrameTrusted(_:in:)``, against
+///    `WKFrameInfo.securityOrigin`, which the page cannot forge.
+///  · Require a user gesture: a fill only begins with a click on Luna's
+///    native popover row; no code path leads from a page event to a filled
+///    field.
+///  · Never expose credentials to page JavaScript: the password is read inside
+///    ``fill(_:with:)`` and passed to `callAsyncJavaScript` as a bound
+///    argument, never in a source string, `TabState` or a log.
+///  · Treat a fill after a redirect chain as suspicious: ``sawServerRedirect``,
+///    set by the navigation delegate and carried on the offer.
 @MainActor
 public final class PasswordCoordinator {
 

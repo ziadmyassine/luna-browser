@@ -5,25 +5,16 @@
 //  §3.4b's folder menu: right-click a folder's header in §3.4's list, and the
 //  one item the column's empty plane carries.
 //
-//  Its own menu rather than a longer §3.4a. A folder and a tab are different
-//  nouns — one is a page, the other is a name around several — and half of
-//  §3.4a's items have no meaning on a folder at all: there is no address to
-//  copy, nothing to duplicate, no sound to mute, and pinning is the one thing
-//  §3.4b says a folder may never be. A menu that greyed out five of its eight
-//  items would teach the user to stop opening it.
+//  Its own menu rather than a longer §3.4a: half of §3.4a's items mean nothing
+//  on a folder — no address to copy, nothing to duplicate, no sound to mute,
+//  and a folder is never a tile — and a menu that greyed out five of its eight
+//  items would teach the user to stop opening it. A plain `NSMenu` with the
+//  glyphs in `attributedTitle`, for the reasons §3.4a records.
 //
-//  Five items in three groups: the two that change what the folder is, the
-//  one that pins it under §3.3's tiles, and the two that end it. A plain
-//  `NSMenu`, and the glyphs ride in `attributedTitle`, for the reasons §3.4a
-//  records.
-//
-//  Neither Rename nor Change Icon asks a question in a window. A folder is made
-//  by a right-click and named on its own row, so renaming it later is the same
-//  gesture the user already did once, and the icons are a submenu because a
-//  list of sixteen pictures is a thing to point at rather than a thing to
-//  answer. Only *Emoji…* ends in an ellipsis, and it earns it: macOS's own
-//  palette opens over the row, and until the user picks from it nothing has
-//  been decided.
+//  In the column, neither Rename nor Change Icon asks in a window: a folder is
+//  named on its own row, and sixteen icons are a thing to point at, so they are
+//  a submenu. Only "Emoji…" ends in an ellipsis, because nothing is decided
+//  until the palette it opens is picked from.
 //
 
 import AppKit
@@ -228,7 +219,7 @@ enum GroupMenu {
     /// does not resolve draws nothing at all, and a text field has no way to say
     /// which of the six thousand names it is.
     ///
-    /// Its own list again. A folder names a *body of work* — a project, a trip,
+    /// Its own list again. A folder names a body of work — a project, a trip,
     /// a shopping list — where a tab names a page and a Space names a mode, so
     /// the three vocabularies only touch at the edges. `folder` leads it because
     /// it is what a folder starts as.

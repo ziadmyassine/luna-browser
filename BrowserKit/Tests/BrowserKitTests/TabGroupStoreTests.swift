@@ -8,7 +8,7 @@
 //  The one rule worth a test on its own is `ON DELETE SET NULL`: removing a
 //  group must never remove pages. Everything else here is the ordinary
 //  round-trip, and the ordering self-heal that `groups(inSpace:)` deliberately
-//  does *not* do.
+//  does not do.
 //
 
 import BrowserKit

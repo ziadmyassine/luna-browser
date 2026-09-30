@@ -4,25 +4,17 @@
 //
 //  §22.6: chrome belongs to one window, and says so.
 //
-//  A sidebar, a top bar, a page bar and a Command Bar are built per window.
-//  The session they read is shared, so the questions that have one answer for
-//  the whole app — what Spaces there are, what is in the tab list, what a tab's
-//  title is — are asked of it directly, as they always were.
+//  A sidebar, a top bar, a page bar and a Command Bar are built per window
+//  over a shared session. What has one answer for the whole app — the Spaces,
+//  the tab list, a tab's title — is asked of the session directly. "Which tab
+//  is selected" and "which Space am I showing" are a window's own: asked of
+//  the session flatly they get the front window's answer, and a background
+//  window's column follows the selection in the window the user moved to.
 //
-//  The questions that do not are here. "Which tab is selected" and "which Space
-//  am I showing" are a window's own, and a view asking the session flatly gets
-//  the front window's answer: correct exactly while its own window is in front,
-//  and wrong the rest of the time — a background window's column following the
-//  selection in the window the user moved to.
-//
-//  So the four below shadow the session's spelling with the window's. A view
-//  adopts this and its existing `session.activeTabID` becomes `activeTabID`,
-//  which means the same thing it always meant on screen and now means it in
-//  every window at once.
-//
-//  `session` is internal on the adopters rather than private for the reason it
-//  is internal on `BrowserSession`'s own state: a protocol requirement cannot
-//  be fileprivate, and nothing outside the view reads it.
+//  So the members below shadow the session's spelling with the window's: an
+//  adopter's `session.activeTabID` becomes `activeTabID`. `session` is
+//  internal on the adopters because a protocol requirement cannot be
+//  fileprivate.
 //
 
 import BrowserKit

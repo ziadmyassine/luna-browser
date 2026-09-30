@@ -2,25 +2,18 @@
 //  QuitSheetView.swift
 //  Luna
 //
-//  §3.1's "are you sure?", as a surface rather than as an `NSAlert`.
+//  §3.1's "are you sure?". ⌘Q is next to ⌘W on every keyboard, and a slipped
+//  finger must not take the whole session out with no way back.
 //
-//  ⌘Q is next to ⌘W on every keyboard, and the two do wildly different things
-//  to a window full of tabs. Luna did not guard the one that closes
-//  everything, so a slipped finger took the whole session out with no way back.
+//  Not an `NSAlert`: that is a different application answering, a grey titled
+//  panel with a blue default button in a window whose chrome is glass. So this
+//  is §5's material and §3.4's fills, with the answers laid out as the
+//  reference lays them — the likely one on the trailing edge under Return, the
+//  way out beside it under Escape, and the one that also changes a setting held
+//  apart, because "and don't ask again" is a decision about every future quit.
 //
-//  Luna's own surface, not AppKit's. An `NSAlert` is four lines of code and it
-//  is a different application answering: a grey titled panel with a blue
-//  default button, in a window whose chrome is glass and whose accent colour
-//  does not exist. So this is §5's material and §3.4's fills, with the three
-//  answers laid out as the reference lays them — the likely one on the trailing
-//  edge under Return, the way out beside it under Escape, and the one that also
-//  changes a setting held apart at the other end, because "and don't ask again"
-//  is a decision about every future quit.
-//
-//  No backdrop; `CommandBarPanel`'s header has the measurements. A veil over
-//  the page separates the panel from the window it belongs to, and the material
-//  has an edge and a shadow of its own. What makes this modal is that it takes
-//  the keyboard and eats the clicks.
+//  No backdrop; `CommandBarPanel`'s header has the measurements. What makes
+//  this modal is that it takes the keyboard and eats the clicks.
 //
 
 import AppKit
@@ -42,14 +35,11 @@ enum QuitSheetMetrics {
     /// than a pane, and wide enough that a one-line caption is not set in a
     /// column.
     ///
-    /// The sheet is as wide as its answers are, and it has to be. A fixed
-    /// width was the first build and both numbers tried were short of the
-    /// three buttons — "Cancel" came out as "Can", then "Quit" came out as
-    /// "Qu", because a row that does not fit does not say so: Auto Layout
-    /// simply shaves the lowest-priority thing in it, which is a word. The
-    /// titles are localised, so no number chosen here is safe in every
-    /// language anyway. The row is measured and the panel takes that width,
-    /// with this as the minimum.
+    /// The sheet is as wide as its answers. Both fixed widths tried were short
+    /// of the three buttons — "Cancel" came out as "Can" — because Auto Layout
+    /// shaves the lowest-priority thing in a row that does not fit, which is a
+    /// word. The titles are localised, so no fixed number is safe: the row is
+    /// measured and the panel takes that width, with this as the minimum.
     static var minimumWidth: CGFloat { (Tokens.Metric.windowMinWidth * 3 / 4).rounded() }
     static var cornerRadius: CGFloat { Tokens.Metric.panelCornerRadius }
     static var padding: CGFloat { Tokens.Metric.chromeGapWide * 2 }
@@ -112,12 +102,10 @@ final class QuitSheetView: NSView {
         // must not be what makes the panel wide, or a Space with a lot of tabs
         // would stretch the sheet into a banner.
         caption.preferredMaxLayoutWidth = QuitSheetMetrics.minimumWidth - 2 * QuitSheetMetrics.padding
-        // The answers keep their words. A row that does not fit is a bug
-        // in the width above, and it has to look like one: at the default
-        // resistance the stack simply shaved the two short buttons until
-        // "Cancel" read "Can", which is a sheet that is wrong and does not say
-        // so. `SheetTests` measures the row against the panel for the same
-        // reason.
+        // The answers keep their words. A row that does not fit is a bug in
+        // the width above, and it has to look like one rather than shave
+        // "Cancel" to "Can". `SheetTests` measures the row against the panel
+        // for the same reason.
         for button in [stay, quit, quitForGood] {
             button.setContentCompressionResistancePriority(.required, for: .horizontal)
             button.setContentHuggingPriority(.required, for: .horizontal)

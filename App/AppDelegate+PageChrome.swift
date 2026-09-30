@@ -38,7 +38,7 @@ extension AppDelegate {
     }
 
     /// §20.1's `⌘L` belongs to whichever address bar is on screen — §3.2's in
-    /// the column, §3.2b's on the page, §4's in the top bar — and all three now
+    /// the column, §3.2b's on the page, §4's in the top bar — and all three
     /// answer it the same way: by handing the address to §9.1, which opens
     /// standing on the pill that asked (`CommandBarAnchor`).
     ///
@@ -47,9 +47,9 @@ extension AppDelegate {
     /// registered last and asks the two questions the others cannot — whether
     /// the page bar is showing, and whether the column's pill is on screen.
     ///
-    /// Without it `⌘L` did nothing in the sidebar layout: the top bar's claim
-    /// was the whole chain, it answered "not my layout", and the fallback in
-    /// `editLocation()` was never reached because the closure it tests for was
+    /// Without it `⌘L` does nothing in the sidebar layout: the top bar's claim
+    /// is the whole chain, it answers "not my layout", and the fallback in
+    /// `editLocation()` is never reached because the closure it tests for is
     /// not nil.
     func wireEditLocation(in window: BrowserWindow) {
         let previous = window.session.urlField(inWindow: window.id)
@@ -72,7 +72,7 @@ extension AppDelegate {
     /// Registered, not assigned, like every other observer on this session
     /// — and both halves are needed. The state observer carries the progress;
     /// the change observer carries the switch, which no tab state reports,
-    /// and without it the line kept counting the tab the user just left.
+    /// and without it the line keeps counting the tab the user just left.
     func wireLoadLine(in window: BrowserWindow) {
         let session = window.session
         let feed: @MainActor (UUID?) -> Void = { [weak window] tick in
@@ -82,8 +82,8 @@ extension AppDelegate {
                 return controller.setLoadProgress(nil, for: nil)
             }
             // A background tab's tick is not this line's business. The line
-            // describes the page the window is showing; a second tab loading
-            // behind it used to wipe it.
+            // describes the page the window is showing, and a second tab
+            // loading behind it would wipe it.
             guard tick == nil || tick == active else { return }
             // A cold tab has no state to read, and that is the honest answer:
             // nothing is loading in a tab that has no web view.

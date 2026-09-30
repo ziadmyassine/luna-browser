@@ -2,25 +2,17 @@
 //  Search.swift
 //  Luna
 //
-//  §23.1 §3.4, a group on the General page. The group that actually removes a hard-coded value: the engine
-//  was a constant inside `CommandBarURL.search(for:)` and is now
-//  `SearchSettings`, which the §3.2 URL pill and the §9.2 Command Bar both
-//  commit through — so they still cannot disagree about what a query means.
+//  §23.1 §3.4, a group on the General page: the search engine, custom URL and
+//  suggestions. The engine lives in `SearchSettings`, which the §3.2 URL pill
+//  and the §9.2 Command Bar both commit through, so they cannot disagree about
+//  what a query means.
 //
-//  §9.7 is the constraint that shaped the storage, not this file. The
-//  local-results path runs synchronously inside `controlTextDidChange` at a
-//  measured 9.6 ms median, and it must not acquire a `UserDefaults` read on the
-//  way. `SearchSettings` therefore holds the resolved value in memory behind a
-//  `Mutex` and this section writes through it: the in-memory half first, the
-//  persisted half second. Nothing here is on the keystroke path.
-//
-//  Suggestions are built, and default on. They fetch from the engine that
-//  is already chosen here and from nowhere else — see `SearchSuggestions`,
-//  which owns the one network call in the query path and states exactly what
-//  leaves the Mac.
-//
-//  A broken custom URL is reported by the field itself rather than by a
-//  sentence under it: red text means Luna is not using what is typed there.
+//  §9.7 shaped the storage: the local-results path runs synchronously inside
+//  `controlTextDidChange` at a measured 9.6 ms median and must not read
+//  `UserDefaults` on the way. `SearchSettings` holds the value in memory behind
+//  a `Mutex`, and this section writes the in-memory half first, the persisted
+//  half second. Suggestions fetch only from the engine chosen here; what leaves
+//  the Mac is stated on `SearchSuggestions`.
 //
 
 import AppKit
@@ -128,12 +120,10 @@ final class SearchSection: SettingsGroup {
     // MARK: Validity
 
     /// §3.4's "validated", as the field's own ink.
-    ///
-    /// A sentence under the row spelled out which engine searches went to and
-    /// what the custom URL needed, which is three lines to say what the popup
-    /// one row up already says. What it could not be replaced by is nothing:
-    /// a custom template without `%s` is silently ignored and searches fall
-    /// back to Google, so the field has to admit when Luna is not using it.
+///
+/// Not a sentence under the row: that repeated what the popup above already
+/// says. The field still has to admit when Luna is not using it, because a
+/// custom template without `%s` is ignored and searches fall back to Google.
     private func refreshValidity() {
         let setting = SearchSettings.current
         let broken = setting.engine == .custom

@@ -10,28 +10,9 @@
 //  appearance: macOS 26 has no high-contrast `NSAppearance` to resolve against
 //  (Tokens.swift's header).
 //
-//  Two ways to run it:
-//
-//    · In the app, Debug only. One line in `applicationDidFinishLaunching`:
-//          TokenCheck.run()
-//
-//    · Standalone, no app target and no test host — which is how it was run
-//      while these values were chosen:
-//          swiftc -swift-version 6 -strict-concurrency=complete \
-//                 -target arm64-apple-macos26.0 -DTOKENCHECK_MAIN \
-//                 -enable-upcoming-feature ExistentialAny \
-//                 Design/Tokens.swift Design/ColourMath.swift \
-//                 Design/Accessibility.swift Design/Metrics.swift \
-//                 Design/Motion.swift Design/Glass.swift \
-//                 Design/DisplayScale.swift Design/TokenCheck*.swift \
-//                 -o /tmp/tokencheck
-//          /tmp/tokencheck
-//      (`GradientBridge.swift` is excluded: it needs BrowserKit. `Glass.swift`
-//      is included because `DisplayScale.swift` needs it to compile; nothing
-//      below builds a glass view, so the binary still runs headless.)
-//
-//  Two companion files run in the same pass: `+Numbers` holds §1/§3's metrics
-//  and §6's budget, `+Effects` holds §2's wash, §5's shadow and §7's bloom.
+//  Runs in Debug builds through `TokenCheck.run()`, or standalone with no app
+//  target (`TokenCheckMain` has the command). `+Numbers` holds §1/§3's metrics
+//  and §6's budget, `+Effects` §2's wash, §5's shadow and §7's bloom.
 //
 
 #if DEBUG || TOKENCHECK_MAIN
@@ -398,6 +379,21 @@ extension TokenCheck {
 
 #if TOKENCHECK_MAIN
 
+/// The standalone runner, with no app target and no test host:
+///
+///     swiftc -swift-version 6 -strict-concurrency=complete \
+///            -target arm64-apple-macos26.0 -DTOKENCHECK_MAIN \
+///            -enable-upcoming-feature ExistentialAny \
+///            Design/Tokens.swift Design/ColourMath.swift \
+///            Design/Accessibility.swift Design/Metrics.swift \
+///            Design/Motion.swift Design/Glass.swift \
+///            Design/DisplayScale.swift Design/TokenCheck*.swift \
+///            -o /tmp/tokencheck
+///     /tmp/tokencheck
+///
+/// `GradientBridge.swift` is left out because it needs BrowserKit.
+/// `Glass.swift` is in because `DisplayScale.swift` needs it to compile;
+/// nothing here builds a glass view, so the binary still runs headless.
 @main
 enum TokenCheckMain {
     static func main() {

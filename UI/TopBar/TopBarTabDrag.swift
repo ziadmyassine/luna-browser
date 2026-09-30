@@ -3,40 +3,18 @@
 //  Luna
 //
 //  §6.6's reorder on §4's bar: pick a tab or a folder up, carry it along the
-//  run, put it down somewhere else.
+//  run, put it down somewhere else. `SidebarTabDrag` turned on its side, and for
+//  its reason it tracks the press itself rather than using an AppKit drag
+//  session. The lift is the column's `SidebarDragLiftView`, locked to the bar's
+//  line, morphing between a row and §3.3's tile as it crosses onto the plate.
 //
-//  The column's gesture turned on its side. `SidebarTabDrag` tracks the press
-//  itself rather than handing it to AppKit's drag session, because a session's
-//  snapshot floats free in two dimensions and the list stays still under it;
-//  the same is true here with the axes swapped. The lift is locked to the bar's
-//  line and follows the pointer's `x`, and the run opens a gap under it the
-//  moment it starts moving.
+//  A carried tab can move along its tier, into or out of a folder (past a
+//  header is inside it), onto or off the plate (keeping it), or to another
+//  Space by being held on one of the dots under the name. The plate's two
+//  landings (§3.3a) open only once the lift is brought to it: opened on pickup,
+//  they pushed every tab after the plate a hundred points out from under the hand.
 //
-//  The lift is the column's own — `SidebarDragLiftView`, carrying §3.4's
-//  selected pill, the favicon and the title — and it morphs between a row and
-//  §3.3's tile as it moves onto the plate, exactly as it does crossing the
-//  column's grid boundary. Same view, same shadow, same settle.
-//
-//  Three things can be done to a tab by carrying it, and they are the three the
-//  column offers:
-//
-//    · Along the run — a reorder inside its own tier.
-//    · Into a folder, or out of one — past a folder's header is inside it, the
-//      column's rule, and the column's box closes round the folder to say so.
-//    · Onto the plate or off it — onto it is keeping it, off it is not. Among
-//      §3.3's tiles it becomes one of them; inside a kept folder it joins
-//      that. A lift brought to the plate opens two landings on it, the
-//      column's two wells (§3.3a): an empty tile when nothing is pinned, and a
-//      dashed row at the end of §3.4b's tier where a tab dropped starts a new
-//      kept folder. Only brought to it: opened the moment a tab left the
-//      ground, they pushed every tab after the plate a hundred points along,
-//      out from under the hand that had just picked one of them up.
-//
-//  And a fourth, the column's dots: held over the Space's name, the dots come
-//  out, and a tab held on one goes to that Space.
-//
-//  Nothing is committed until the mouse comes up — one `reorderTab` for the
-//  gesture, one undo entry, not one per tab crossed.
+//  Nothing is committed until the mouse comes up: one `reorderTab`, one undo entry.
 //
 
 import AppKit
@@ -206,8 +184,8 @@ final class TopBarTabDragController {
     ///   - edge: the lift's leading edge, which is what the run answers to.
     private func resolve(_ lifted: TopBarLifted, at point: NSPoint, edge: NSPoint) -> Target? {
         // Over the Space's name the dots come out, and a tab held on one goes
-        // there. The rest of the name is no landing: it is the label on the
-        // plate, not a place on it.
+        // there. The rest of the name is no landing: it is a label, not a
+        // place.
         if case .tab = lifted {
             spaces.isAimedAt = spaces.contains(point, from: host)
             if spaces.isAimedAt {

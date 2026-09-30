@@ -5,13 +5,12 @@
 //  The controls §4's rows are filled with: the pushbutton, the text field and
 //  its cell, and §3.6's key chip. The switch is AppKit's (`SystemSwitch`).
 //
-//  Split out of `SettingsRowView.swift` for that file's length limit, along the
-//  seam it already had — above are the row and the containers it sits in, here
-//  are the things that go inside one.
+//  Separate from `SettingsRowView.swift`, which holds the row and the
+//  containers it sits in; these are the things that go inside one.
 //
-//  Each of these replaces an AppKit control rather than restyling it, and each
-//  says why at its own declaration. The common thread is that AppKit's bezels
-//  are the only bright plates in an otherwise dark pane.
+//  Each replaces an AppKit control rather than restyling it, and says why at
+//  its own declaration: AppKit's bezels are the only bright plates in an
+//  otherwise dark pane.
 //
 
 import AppKit
@@ -114,10 +113,8 @@ final class SettingsPushButton: NSButton {
 
     /// §3.4's two washes, the way round every other control in the app has
     /// them: the resting plate is the 6 %, the pointer takes it to 12 %, and
-    /// the press holds it there while the button swells. It used to be
-    /// inverted — `selected` at rest and `hover` under the pointer — so the
-    /// one button in Settings with a word on it was also the one that got
-    /// fainter when you went for it.
+    /// the press holds it there while the button swells. Inverted, the one
+    /// button in Settings with a word on it got fainter when you went for it.
     override func updateLayer() {
         guard let layer else { return }
         let lifted = isEnabled && (isHovering || isPressed)
@@ -195,8 +192,8 @@ final class SettingsTextField: NSTextField {
     }
 
     /// Set when what is typed here is not being used — a custom search
-    /// template with no `%s` in it. The ink carries it, because the alternative
-    /// was a sentence under the row saying the same thing in thirty words.
+    /// template with no `%s` in it. The ink carries it rather than a sentence
+    /// under the row saying the same thing in thirty words.
     var warns = false {
         didSet {
             guard warns != oldValue else { return }
@@ -305,10 +302,9 @@ final class SettingsTextFieldCell: NSTextFieldCell {
 /// `isFixed` is the whole of §3.6's "which of these can I change?". A
 /// shortcut the user can move is drawn by `SettingsShortcutRecorder`, which is
 /// this chip plus a click target: same well, same border, same corner. Drawn
-/// identically, a shortcut that is nobody's to move looked exactly like one
-/// that is, and the only way to find out was to click it. A fixed chip
-/// therefore drops the well and the border and prints flat, so the boxes down
-/// the right-hand side of the table are precisely the rows that are yours.
+/// identically, a fixed shortcut would look like a movable one until clicked,
+/// so a fixed chip drops the well and the border and prints flat — the boxes
+/// down the right-hand side of the table are precisely the rows that are yours.
 @MainActor
 final class SettingsKeyChip: NSView {
 

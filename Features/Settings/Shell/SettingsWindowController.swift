@@ -5,28 +5,17 @@
 //  §1/§2's window: an `NSWindow`, 720 × 520, resizable, with the section list
 //  on the left and an opaque detail pane on the right.
 //
-//  A window, not a sheet and not a `luna://` page (§1's three decisions): a
-//  sheet blocks the window you are trying to preview a setting against, and an
-//  internal page cannot host `NSGlassEffectView`, so it could not look like the
-//  rest of Luna. But not a free-standing one either: it is a child of the
-//  browser window it was opened from, so it opens over that window, travels
-//  with it, and goes into its fullscreen Space rather than onto the desktop.
+//  A window, not a sheet or a `luna://` page (§1): a sheet blocks the window
+//  you are previewing a setting against, and a page cannot host
+//  `NSGlassEffectView`. It is a child of the browser window it was opened from,
+//  so it travels with it and goes into its fullscreen Space.
 //
-//  `NSWindow.minSize` is not used. It is documented as ignored once the
-//  content view uses Auto Layout — verbatim in `NSWindow.h`, and the browser
-//  window learned it in M0 — so §1's 640 × 480 floor is a pair of
-//  `greaterThanOrEqualToConstant`s on the root view instead.
-//
-//  Every command here arrives through `MainMenu`. Luna installs no `NSEvent`
-//  monitor and overrides no `performKeyEquivalent` (§22.5); the `@objc` actions
-//  at the bottom are ordinary nil-targeted menu actions that reach this
-//  controller because an `NSWindowController` sits in its key window's
-//  responder chain.
-//
-//  It used to claim `switchToSpace(_:)` as well, to take `⌘1…⌘9` back from the
-//  Spaces menu. SPACES-SPEC §13.2 moved Spaces to `⌃1…⌃9`, at which point that
-//  shim made `⌃1` navigate sections instead of switching Space whenever this
-//  window was key. `⌘1…⌘9` now arrives from `AppDelegate.goToSidebarItem(_:)`.
+//  `NSWindow.minSize` is ignored once the content view uses Auto Layout
+//  (`NSWindow.h`), so §1's 640 × 480 floor is two `greaterThanOrEqualTo`
+//  constraints on the root view. Commands arrive through `MainMenu` (§22.5).
+//  Do not claim `switchToSpace(_:)` here: Spaces are `⌃1…⌃9` (SPACES-SPEC
+//  §13.2), and claiming it made `⌃1` navigate sections while this window was
+//  key.
 //
 
 import AppKit
@@ -80,7 +69,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private var hostClosing: NSObjectProtocol?
 
     convenience init(sync: SyncSettings = .shared) {
-        // All nine up front: §2's search has to know what is inside a section
+        // All of them up front: §2's search has to know what is inside a section
         // the user has not opened, and every later query is then a string
         // comparison.
         let sections = SettingsSectionRegistry.all.map { $0.init() } + [AccountSection(sync: sync)]
@@ -375,8 +364,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 extension SettingsWindowController {
 
     private func buildContent() -> NSView {
-        // The same shape the browser window is cut to. A Luna window has one
-        // radius, and Settings was wearing the system's instead.
+        // The same shape the browser window is cut to, not the system's: a
+        // Luna window has one radius.
         let root = WindowRootView()
         let column = buildColumn()
         column.translatesAutoresizingMaskIntoConstraints = false
@@ -430,7 +419,7 @@ extension SettingsWindowController {
         column.addSubview(list)
         let inset = Tokens.Metric.rowInset
         NSLayoutConstraint.activate([
-            // Clear of the traffic lights, which sit on this column now.
+            // Clear of the traffic lights, which sit on this column.
             search.topAnchor.constraint(
                 equalTo: column.topAnchor,
                 constant: Tokens.Metric.trafficLightInset + SettingsMetrics.groupGap
@@ -448,7 +437,7 @@ extension SettingsWindowController {
             list.leadingAnchor.constraint(equalTo: column.leadingAnchor),
             list.trailingAnchor.constraint(equalTo: column.trailingAnchor)
         ])
-        // The list stands at its own height — twelve rows at the sidebar's pitch —
+        // The list stands at its own height — its rows at the sidebar's pitch —
         // and keeps `paneInset` off the bottom of the column if it can.
         // Not required: `settingsMinHeight` is sized so it always can, and a
         // required constraint here would be one AppKit breaks, with a console

@@ -6,7 +6,6 @@
 //  §6.4's deletion dialog, clearing a Space's cookies — and the pure functions
 //  that write their sentences.
 //
-//  Split out of `Spaces.swift` when a Space grew six settings instead of one.
 //  The strings are `static` and free of AppKit on purpose: a dialog whose
 //  wording can only be checked by clicking it is one whose wording is never
 //  checked.
@@ -21,10 +20,9 @@ extension SpacesSection {
 
     // MARK: New Space (§6.1)
 
-    /// A button beside the section's heading, not a row in a card. As a row
-    /// it needed a card, and the card needed a heading, so the pane read
-    /// `Spaces` ▸ card ▸ `New Space` ▸ `[New Space]`. The heading names what
-    /// the cards below it are and this adds one; see `SettingsRow.heading`.
+    /// A button beside the section's heading, not a row in a card. A row would
+    /// need a card and the card a heading, so the pane would read `Spaces` ▸
+    /// card ▸ `New Space` ▸ `[New Space]`. See `SettingsRow.heading`.
     func newSpaceButton(session: BrowserSession?) -> (view: NSView, terms: [String]) {
         let title = String(localized: "New Space")
         let button = SettingsPushButton(title: title, isDestructive: false)
@@ -32,12 +30,8 @@ extension SpacesSection {
         return (button, [title, "add space", "create space", "new profile"])
     }
 
-    /// A name, and nothing else to decide.
-    ///
-    /// It asked which cookie jar to use until §9's `v7`: a Space could be put
-    /// on another Space's jar, which is the one question in this pane nobody
-    /// ever answered on purpose. Every Space has its own now, so the dialog is
-    /// a field.
+    /// A name, and nothing else to decide: every Space has its own cookie jar
+    /// (§9's `v7`), so there is no jar to choose.
     private func createSpace(session: BrowserSession?) {
         guard let session else { return }
         let field = NSTextField(frame: NSRect(origin: .zero, size: Tokens.Metric.urlPill.size))
@@ -140,12 +134,9 @@ extension SpacesSection {
         return (row, [title, "clear profile", "website data", "cookies", "sign out", "logout"])
     }
 
-    /// Signs one Space out of everything without deleting it.
-    ///
-    /// It asked which *profile* to clear until §9's `v7`, and warned that every
-    /// Space on it went at once — which was the whole hazard of sharing one.
-    /// A Space owns its jar now, so the question is which Space, and the answer
-    /// affects nothing else.
+    /// Signs one Space out of everything without deleting it. A Space owns its
+    /// jar (§9's `v7`), so the question is which Space, and the answer affects
+    /// nothing else.
     private func clearProfileData(_ spaces: [Space], session: BrowserSession?) {
         guard let session, let first = spaces.first else { return }
 
@@ -184,18 +175,11 @@ extension SpacesSection {
 
     // MARK: - The strings, as pure functions
 
-    /// §9's label, and the reason this section exists in the shape it does.
-    ///
     /// What a Space's own jar holds, for the one dialog that asks you to pick
-    /// between them.
+    /// between Spaces.
     ///
-    /// It was §9's fan-out — "shared with 3 Spaces" — and the answer to the
-    /// most-reported conceptual confusion in every review of Arc, predicted by
-    /// Mozilla in 2016: *"A user may open an account in one container and not
-    /// understand why they are not logged into the account on other
-    /// containers."* Luna answered it by explaining the sharing. `v7` answered
-    /// it by ending the sharing, so all that is left to say is whose tiles
-    /// these are.
+    /// Once §9's fan-out ("shared with 3 Spaces"). Since `v7` every Space has
+    /// its own jar, so all that is left to say is whose Favorites these are.
     static func fanOutLabel(spaceName: String, favorites: Int) -> String {
         String(localized: "\(spaceName) · \(favoritesLabel(favorites))")
     }
@@ -215,12 +199,9 @@ extension SpacesSection {
     /// Three clauses: what happens to the tabs, what happens to the logins, and
     /// that the whole thing is undoable.
     ///
-    /// The second one used to have two forms, because a shared cookie jar was
-    /// not deleted with the Space that named it — §6.4's example sentence
-    /// ("permanently deletes cookies … Spaces Research and Side Project also
-    /// use this profile and will be affected") states both halves at once and
-    /// was false in the one case the clause was written for. A Space owns its
-    /// jar now, so there is one true thing to say and this says it.
+    /// The logins clause has one form because a Space owns its jar (§9's `v7`).
+    /// §6.4's example sentence, which warns that other Spaces on the same
+    /// profile are affected, describes shared jars and no longer applies.
     static func deletionDetail(spaceName: String, tabs: Int, sites: Int?) -> String {
         var clauses: [String] = []
         switch tabs {
@@ -261,11 +242,9 @@ extension SpacesSection {
     /// emoji-first. Luna is symbols-only for now and that is named in the
     /// report rather than pretended away.
     ///
-    /// The first entry is the one a Space is born with. It was missing, and
-    /// it made the picker lie: `firstIndex(of:) ?? 0` showed "Grid" selected on
-    /// every Space that had never been re-iconed, which was all of them.
-    /// `SpaceAppearanceView` marks the icon a Space actually wears, so the same
-    /// gap showed up honestly instead — as a grid with nothing chosen in it.
+    /// The first entry is the one a Space is born with. Without it,
+    /// `firstIndex(of:) ?? 0` shows "Grid" selected on every Space that has
+    /// never been re-iconed.
     static let symbols: [(label: String, name: String)] = [
         (String(localized: "Moon"), BrowserSession.defaultSpaceSymbol),
         (String(localized: "Grid"), "square.grid.2x2"),
@@ -288,15 +267,12 @@ extension SpacesSection {
 
     /// `NSAlert.accessoryView` is laid out by the alert, which does not do Auto
     /// Layout for it — a stack with a frame is the shape that survives.
-    /// Internal for `body`'s reason: every dialog this section raises stands
-    /// its fields in one of these, and §9's Profile dialogs are next door.
+    /// Internal so `SettingsGroupingTests` can measure it.
     ///
-    /// The width is stated here because the stack takes it away. Adding a view
-    /// to an `NSStackView` turns that view's autoresizing mask off, so the
-    /// frame it was built with is dropped and Auto Layout sizes it to its own
-    /// content — and an empty `NSTextField`'s own content is nothing. Every
-    /// field in every dialog this pane raises came out a few points wide, tall
-    /// enough to be a field and too narrow to type a name into.
+    /// The width is stated here because the stack takes it away: adding a view
+    /// to an `NSStackView` turns its autoresizing mask off, Auto Layout then
+    /// sizes it to its content, and an empty `NSTextField` has none — every
+    /// field came out a few points wide.
     static func stack(_ views: [NSView]) -> NSView {
         let stack = NSStackView(views: views)
         stack.orientation = .vertical
@@ -306,7 +282,7 @@ extension SpacesSection {
             view.widthAnchor.constraint(equalToConstant: Tokens.Metric.urlPill.width).isActive = true
         }
         // Measured rather than counted: a popup and a field are not the same
-        // height, and the old arithmetic assumed they were.
+        // height.
         stack.frame = NSRect(origin: .zero, size: stack.fittingSize)
         return stack
     }

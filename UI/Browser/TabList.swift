@@ -2,46 +2,18 @@
 //  TabList.swift
 //  Luna
 //
-//  The coordinator's tab storage: every Space's ordered tabs and groups, and the
-//  rules that keep them ordered. Split out of `BrowserSession` because it is a
-//  data structure rather than policy — it decides nothing about web views,
-//  persistence or selection, which is why it can be tested on its own. The slot
-//  machinery §3.4b's groups need is next door in `TabList+Slots.swift`.
+//  The coordinator's tab storage: every Space's ordered tabs and groups, and
+//  the rules that keep them ordered. A data structure rather than policy — it
+//  decides nothing about web views, persistence or selection, so it can be
+//  tested on its own. §3.4b's slot machinery is in `TabList+Slots.swift`.
 //
-//  The invariant, which `BrowserSession` and the whole sidebar depend on:
-//  a Space's tabs are sorted essential → pinned → today, and inside each of the
-//  last two the order is the one §3.4 draws — the section's slots, with a
-//  group's tabs inline under it.
-//
-//  ## `order` counts three different things (§3.4b)
-//
-//  A section's **slots** are its loose tabs and its groups together, sharing one
-//  run of indices, because a group can stand between two loose tabs. So:
-//
-//    · a loose tab's `order` is its slot in `(space, kind)`;
-//    · a group's `order` is its slot in the same run;
-//    · a grouped tab's `order` is its place among that group's members.
-//
-//  Each run is dense and unique, which is what makes a drop index mean one
-//  thing and what makes a restored session come back the way it was left.
-//
-//  ## Favorites are per Profile, not per Space (spec §2, D-S2)
-//
-//  One more exception: `.essential` is numbered and resolved across every Space
-//  that shares a Profile, because a Favorite is a logged-in app tile and a tile
-//  that opens in a Space whose cookie jar never saw that login is a broken tile.
-//  Arc keys its Favorites container by profile — `topAppsContainerIDs` is a flat
-//  profile → container pair in its own `StorableSidebar.json` — and Luna's was the
-//  same shape until §9's `v7`. A Space owns its cookie jar now and nothing else
-//  does, so the tier that belonged to the jar belongs to the Space: everything
-//  here is per-Space, and there is no second key to resolve.
-//
-//  So the storage stays keyed by Space (an `.essential` row keeps the home Space
-//  it was created in, which is what the `tabs.spaceID` foreign key cascades on)
-//  and the resolution is keyed by Profile: `self[spaceID]` returns that Space's
-//  saved and today tabs plus the Profile's Favorites. `setProfiles` is how the
-//  list is told which Spaces share one; with no map it degrades to the old
-//  per-Space behaviour rather than losing tabs.
+//  The invariant `BrowserSession` and the sidebar depend on: a Space's tabs
+//  are sorted essential → pinned → today, and inside the last two in §3.4's
+//  drawn order, a group's tabs inline under it. `order` counts three runs
+//  (§3.4b): a loose tab's slot and a group's slot, shared in `(space, kind)`,
+//  and a grouped tab's place among its group's members. Each run is dense and
+//  unique, so a drop index means one thing and a restored session comes back
+//  as it was left. Favorites are per Space too (spec §2, `favorites(inSpace:)`).
 //
 
 import BrowserKit
@@ -71,14 +43,13 @@ struct TabList: Sendable {
     // this type and Swift's `private` is file-scoped.
     var bySpace: [UUID: [Tab]]
     var groupsBySpace: [UUID: [TabGroup]]
-    /// Space → Profile. Only Favorites care, but they care everywhere.
     init(_ bySpace: [UUID: [Tab]] = [:], groups: [UUID: [TabGroup]] = [:]) {
         self.bySpace = bySpace.mapValues(Self.sorted)
         groupsBySpace = groups
     }
 
     /// The Space's own saved and today tabs in the order §3.4 draws them — a
-    /// group's members inline under it — plus its Profile's Favorites in front.
+    /// group's members inline under it — plus its Favorites in front.
     subscript(spaceID: UUID) -> [Tab] {
         var result = favorites(inSpace: spaceID)
         for kind in Self.listedKinds {
@@ -102,7 +73,7 @@ struct TabList: Sendable {
     }
 
     /// The tab's position within the run its `order` counts — its group's
-    /// members, its section's slots, or the whole Profile's Favorites.
+    /// members, its section's slots, or the Space's Favorites.
     func indexInSection(of id: UUID) -> Int? {
         guard let tab = tab(id) else { return nil }
         if tab.kind == .essential {
@@ -133,8 +104,8 @@ struct TabList: Sendable {
     ///
     /// - Parameter newestFirst: false under §4's top bar, where the list is
     ///   read left to right and a new tab opens at the right-hand end, beside
-    ///   the tabs already open — the place every tab bar opens one. First on
-    ///   the bar was the far left, away from everything just opened.
+    ///   the tabs already open — the place every tab bar opens one, rather
+    ///   than the far left, away from everything just opened.
     static func openIndex(for kind: TabKind, newestFirst: Bool = true) -> Int? {
         kind == .today && newestFirst ? 0 : nil
     }
@@ -145,10 +116,8 @@ struct TabList: Sendable {
     /// `BrowserSession.favoritesCap`, which is policy and therefore not
     /// enforced here.
     ///
-    /// It was a Profile's tier, pooled across every Space sharing one, until
-    /// §9's `v7` gave each Space its own jar. A Favorite is a logged-in app
-    /// tile and it still belongs to the jar that holds the login; there is
-    /// simply nothing between the Space and its jar any more.
+    /// Per Space because a Favorite is a logged-in app tile and belongs to the
+    /// jar that holds the login, and since §9's `v7` a Space owns its jar.
     func favorites(inSpace spaceID: UUID) -> [Tab] {
         own(spaceID)
             .filter { $0.kind == .essential }
@@ -176,7 +145,7 @@ struct TabList: Sendable {
     // MARK: - Moving tabs
 
     /// Inserts into whichever run `tab` belongs to — its group's members if it
-    /// carries a `groupID`, the Profile's Favorites if it is `.essential`, else
+    /// carries a `groupID`, the Space's Favorites if it is `.essential`, else
     /// its section's slots — at `index`, or at the end of it.
     ///
     /// A grouped tab takes its group's `kind` and Space on the way in, so

@@ -6,11 +6,11 @@
 //  §23.2's importer during §30.17's first run, which is the only writer that
 //  does this today.
 //
-//  The case that was missing is the ordinary one: an import reuses a Space
-//  whenever it has imported from that browser before, or finds one already
-//  carrying the name it would have used. Those bookmarks land in a Space the
-//  session is already showing, and a sweep that only looked for *new* Spaces
-//  left them invisible until the next launch.
+//  The ordinary case matters most: an import reuses a Space whenever it has
+//  imported from that browser before, or finds one already carrying the name
+//  it would have used. Those bookmarks land in a Space the session is already
+//  showing, so a sweep that looks only for new Spaces leaves them invisible
+//  until the next launch.
 //
 
 import BrowserKit

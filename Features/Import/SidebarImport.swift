@@ -2,62 +2,33 @@
 //  SidebarImport.swift
 //  Luna — §23.2
 //
-//  The saved tabs two members of the Chromium family keep outside the Chromium
-//  profile, and which `ChromiumReader` would otherwise never see.
+//  The saved tabs Arc and Dia keep outside the Chromium profile, which
+//  `ChromiumReader` would otherwise never see: Arc writes no `Bookmarks` and
+//  Dia an empty one. Arc's sidebar is in `StorableSidebar.json` (753 KB, 118
+//  saved tabs, measured) and Dia's favourites per profile in
+//  `StorableProfileContainers.json`. For an Arc user the sidebar is the
+//  bookmarks; without these, an Arc import brings across only history.
 //
-//  `ChromiumImport` reads `Bookmarks`, because every Chromium browser writes
-//  it. Arc does not write it at all — there is no such file in its profile —
-//  and Dia writes an empty one. What each of them actually saves lives in its
-//  own JSON beside `User Data`:
-//
-//      Arc   StorableSidebar.json           the sidebar: pinned tabs and folders
-//      Dia   StorableProfileContainers.json its favourites, per profile
-//
-//  Measured on this Mac: Arc's file is 753 KB of plain JSON holding 118 saved
-//  tabs across four Arc Spaces, and Dia's holds 8 favourites. Before this, an
-//  Arc import reported `bookmarks + 0` and brought across nothing but history —
-//  which for an Arc user is the wrong half, because the sidebar *is* their
-//  bookmarks.
-//
-//  Both readers are lenient for `ChromiumReader.flatten`'s reason: the shape is
-//  the browser's private business and changes between releases, so an unknown
-//  key must cost one row rather than the whole import. Neither ever throws —
-//  a file Luna cannot make sense of is no saved tabs, not a failed import,
-//  because the `Bookmarks` half and the history have their own answers already.
-//
-//  Open windows are deliberately not read. Dia's file carries them beside its
-//  favourites (`container.window`) and they are working state rather than
-//  things kept — the same rule `exportBookmarksHTML` keeps when it leaves
-//  today's tabs out of an export.
-//
-//  These two keep their shape; every other source does not. Arc's sidebar has
-//  Spaces holding folders, which is §3.4b's own shape, and Dia's favourites are
-//  scoped to a profile exactly the way Luna's tiles are scoped to a Space — so
-//  both arrive as what they are. A Chromium `Bookmarks` tree has neither, and
-//  §3.4b's one-import-one-folder rule still governs it. `ProfileReader`'s
-//  `keepsItsOwnStructure` is the switch, and `BrowserImporter+Placement` has
-//  the two writers.
+//  Both readers are lenient for `ChromiumReader.flatten`'s reason and never
+//  throw: a file Luna cannot read is no saved tabs, not a failed import. Open
+//  windows are not read — working state, as today's tabs are to
+//  `exportBookmarksHTML`. Both keep their shape
+//  (`ProfileReader.keepsItsOwnStructure`); `BrowserImporter+Sidebar` writes it.
 //
 
 import Foundation
 
 /// Arc's `StorableSidebar.json`.
 ///
-/// The one source that arrives with a shape rather than a list. Arc has Spaces,
-/// each Space has a pinned tier, and that tier holds folders — which is §3.4b's
-/// own shape, so it is kept rather than flattened. Measured on this Mac: two
+/// Arc has Spaces, each with a pinned tier holding folders — §3.4b's own
+/// shape, so it is kept rather than flattened. Measured on this Mac: two
 /// Spaces, `School` and `Personal`, holding 118 saved tabs in seven folders,
 /// two of them nested.
 ///
-/// What is deliberately left behind:
-///
-/// · **The unpinned tier.** Those are the tabs Arc has open, which is working
-///   state rather than something kept — the rule the HTML export keeps when it
-///   leaves today's tabs out.
-/// · **Nesting past one level.** A Luna folder holds tabs, not other folders
-///   (§3.4b), so `IA ▸ Physics` becomes one folder called `IA / Physics`. The
-///   alternative is dropping either the outer name or the inner one, and the
-///   path is the only spelling that keeps both and cannot collide.
+/// Left behind: the unpinned tier, which is the tabs Arc has open; and nesting
+/// past one level, since a Luna folder holds only tabs (§3.4b) — `IA ▸ Physics`
+/// becomes one folder called `IA / Physics`, the only spelling that keeps both
+/// names and cannot collide.
 enum ArcSidebar {
 
     /// Every saved tab in the sidebar, tagged with the Arc Space and the folder

@@ -4,21 +4,17 @@
 //
 //  §23.1 §3.2, and the §7 glass row it exists for.
 //
-//  The preview tile is the point of this section. On the machine §7 was
-//  measured on — 1920 × 1080 at one point to one physical pixel — the
-//  difference between `.clear` and tinted `.regular` is the difference between
-//  chrome that reads as glass and chrome that reads as a smear. A setting you
-//  can only judge by closing the window is a setting nobody tunes, so the tile
-//  is rebuilt from `Glass.previewTile(size:optimised:)` on the same runloop
-//  turn as the segment change.
+//  The preview tile is the point of this section. On the display §7 was
+//  measured on — 1920 × 1080 at 1x — `.clear` and tinted `.regular` are the
+//  difference between glass and a smear, and a setting judged only by closing
+//  the window is one nobody tunes, so the tile is rebuilt from
+//  `Glass.previewTile(size:optimised:)` on the same runloop turn as the change.
 //
-//  Favicons are no longer a setting. §3.2 listed a switch; the sidebar has
-//  drawn them since M1 and nobody turns them off. A preference whose only
-//  honest default is "on" is one more row to read past.
+//  No favicon switch, though §3.2 lists one: a preference whose only honest
+//  default is "on" is one more row to read past.
 //
-//  Two rows answer only to the sidebar layout — where its search bar sits and
-//  which side it stands on — and are removed, not dimmed, under the top bar,
-//  whose tabs always start at its leading edge.
+//  The two sidebar-only rows (search bar position, side) are removed, not
+//  dimmed, under the top bar, whose tabs always start at its leading edge.
 //
 
 import AppKit
@@ -71,7 +67,7 @@ final class AppearanceSection: NSObject, SettingsSection {
     /// `applicationDidFinishLaunching`.
     ///
     /// The glass setting needs no equivalent: `Glass.optimisation` loads itself
-    /// from `appearance.glassOptimisation` on first access (agent D), so this
+    /// from `appearance.glassOptimisation` on first access, so this
     /// section only ever assigns it.
     static func applyStoredTheme() {
         NSApp.appearance = theme.appearance
@@ -81,10 +77,8 @@ final class AppearanceSection: NSObject, SettingsSection {
 
     /// §3.2: "a 160 × 72 sample of the real material".
     ///
-    /// The one length in B's four sections that is not a `Tokens.Metric`.
-    /// It is a §23.1 number with no row in §1's table and `Design/` is agent
-    /// D's; the report asks for `Tokens.Metric.glassPreviewTile` so this can
-    /// become a reference. Nothing else here writes a literal length.
+    /// A literal that duplicates `Tokens.Metric.glassPreviewTile` and should
+    /// become a reference to it; nothing else here writes a literal length.
     static let previewTileSize = NSSize(width: 160, height: 72)
 
     // MARK: Section

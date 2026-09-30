@@ -4,20 +4,19 @@ import WebKit
 
 // Deleting a profile's cookie jar (§3.2).
 //
-// This lives beside the `profiles` table rather than in `Engine/` because it is the disk
-// half of the same fact: the `dataStoreIdentifier` column says which stores should exist,
-// `WKWebsiteDataStore.allDataStoreIdentifiers` says which ones do, and the only correct
-// thing to do with the difference is reconcile it.
+// Beside the `profiles` table rather than in `Engine/` because it is the disk half of the
+// same fact: the `dataStoreIdentifier` column says which stores should exist,
+// `WKWebsiteDataStore.allDataStoreIdentifiers` says which ones do, and the difference is
+// reconciled here.
 //
-// Deletion is a retry loop, not a call. `removeDataStoreForIdentifier:` fails while any
-// `WKWebView` still holds the store, and a web view is released when ARC gets round to it
-// rather than when the user clicks Delete. Crest (MPL-2.0) and DuckDuckGo arrived at the
-// same shape independently: try, clear the data as a fallback so it goes even if the
-// directory survives, back off, and if it still will not go, write the identifier down
-// somewhere that outlives the process and the database and finish on a later launch.
+// Deletion is a retry loop, not a call: `removeDataStoreForIdentifier:` fails while any
+// `WKWebView` still holds the store, and a web view is released when ARC gets round to it.
+// So: try, clear the data as a fallback, back off, and if it still will not go, write the
+// identifier somewhere that outlives the process and the database and finish on a later
+// launch. Crest (MPL-2.0) and DuckDuckGo use the same shape.
 //
-// Everything WebKit-shaped is behind ``WebsiteDataStoreRegistry`` so the loop can be driven
-// against a store that refuses forever without needing a real one.
+// WebKit sits behind ``WebsiteDataStoreRegistry`` so the loop can be driven against a store
+// that refuses forever.
 
 private let log = Logger(subsystem: "dk.trego.Luna", category: "store.websiteData")
 
@@ -239,10 +238,9 @@ public final class WebsiteDataStoreRemover {
     /// strays. Call it at launch. This is also the drain for the deferred queue.
     ///
     /// Single pass, no backoff, on purpose. WebKit is the registry, so a stray that
-    /// refuses today is still listed tomorrow and costs nothing to find again — DuckDuckGo
-    /// leans on exactly this: *"If this fails, we are going to still clean them next time as
-    /// WebKit keeps track of all stores for us."* Backing off here would instead make a
-    /// launch with four stubborn orphans sit for half a minute before the window appears.
+    /// refuses today is still listed tomorrow and costs nothing to find again; DuckDuckGo
+    /// relies on the same property. Backing off here would make a launch with four stubborn
+    /// orphans sit for half a minute before the window appears.
     ///
     /// No fallback data clear either: clearing a store's data means instantiating it, which
     /// re-creates the directory this call is trying to be rid of. For an orphan — a store no

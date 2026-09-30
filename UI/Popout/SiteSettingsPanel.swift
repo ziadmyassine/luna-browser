@@ -5,14 +5,14 @@
 //  §3.2's site settings, as a pop-out from the glyph that opens them — the
 //  sliders on the URL pill, and on §4's selected tab.
 //
-//  It used to be an `NSMenu`. A menu cannot hold a switch, so every per-site
-//  answer was a checkmark you could not see until you opened it, and it was
-//  the one surface a chrome glyph opened that was not a pop-out: History and
-//  Downloads stand on their buttons in glass, and this dropped a system menu.
+//  Not an `NSMenu`: a menu cannot hold a switch, so every per-site answer was a
+//  checkmark you could not see until you opened it, and every other surface a
+//  chrome glyph opens is a glass pop-out standing on its button.
 //
 //  Top to bottom: what the connection is, the switches that are this site's
-//  answers, and the things you can do to the page and the site. The switches keep the pop-out up, because the next question is
-//  usually the one beside it; an action closes it, the way a menu item does.
+//  answers, and the things you can do to the page and the site. The switches
+//  keep the pop-out up, because the next question is usually the one beside
+//  it; an action closes it, the way a menu item does.
 //
 //  The rows are §3.4's, pitch and pill: a glyph at `rowFaviconInset`, the
 //  title a `rowIconGap` after it, and one pill that follows the pointer.

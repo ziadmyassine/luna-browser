@@ -2,29 +2,18 @@
 //  SettingsSectionList.swift
 //  Luna
 //
-//  §2's section list: eight rows, exactly one selected, always.
+//  §2's section list: one row per section, exactly one selected, always.
 //
-//  It is the browser's sidebar with sections where the tabs are: same
-//  material, pitch, pill, insets and springs. `SidebarRowView` and this class
-//  are two lists of one design, and every number below is the token that list
-//  reads.
+//  It is the browser's sidebar with sections where the tabs are — same
+//  material, pitch, pill, insets and springs — and every number below is the
+//  token the sidebar reads. The selection is a `RowPillView`, clear glass over
+//  the column's glass, so it reads as a raised surface rather than a grey
+//  band. Each symbol stands on a `SettingsSymbolTile`, black with a coloured
+//  glyph as macOS's own settings draw it; a `Surface.selected` square made the
+//  icons look like buttons.
 //
-//  Three things were not the sidebar before and are now:
-//
-//  · The fills are `RowPillView` — §3.4's glass, moved between rows, rather
-//    than a flat wash painted on whichever row was selected. Clear glass over
-//    the column's own glass is what makes the selection read as a raised
-//    surface instead of a grey band.
-//  · Each symbol stands on its tile (`SettingsSymbolTile`): black with a
-//    coloured glyph, as macOS's own settings draw them — not the
-//    `Surface.selected` square that sat under every glyph once and made the
-//    section icons look like buttons.
-//  · The sidebar's pitch: 38 pt of row around a 35 pt pill, not 34 around 31.
-//    The list is a third of an inch taller for it (`settingsMinHeight`).
-//
-//  Views laid out with arithmetic rather than constraints, for the reason the
-//  sidebar's rows are: ten fixed rows have nothing to solve, and the pills have
-//  to be placed in the same pass as the rows they are following.
+//  Laid out with arithmetic, as the sidebar's rows are: fixed rows have
+//  nothing to solve, and the pills are placed in the same pass as the rows.
 //
 
 import AppKit

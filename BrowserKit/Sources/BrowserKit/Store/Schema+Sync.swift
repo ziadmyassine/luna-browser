@@ -12,15 +12,14 @@ import GRDB
 
 extension Schema {
 
-    /// `v12` — sync's bookkeeping, and the `siteSettings` flags that used to be
-    /// added on first use.
+    /// `v12` — sync's bookkeeping, and the `siteSettings` flags.
     ///
-    /// The flags move here because a trigger cannot name a column that may not
-    /// exist yet. A database that already had some of them from the old
-    /// `ensure…Columns` keeps them and their answers; the types match what
-    /// those wrote. Every table lives in `luna.sqlite`, so wiping the database
-    /// wipes sync state with it. Idempotent on the live schema, like every
-    /// migration before it.
+    /// The flags are created here because a trigger cannot name a column that
+    /// may not exist yet. A database may already hold some of them, added on
+    /// first use by the earlier `ensure…Columns`; it keeps them and their
+    /// answers, and the types here match what those wrote. Every table lives in
+    /// `luna.sqlite`, so wiping the database wipes sync state with it.
+    /// Idempotent on the live schema, like every migration.
     static func prepareForSync(_ db: Database) throws {
         try addTheSiteFlags(db)
         if try !db.columns(in: "visits").map(\.name).contains("syncOrigin") {

@@ -26,10 +26,10 @@ final class FaviconTintTests: XCTestCase {
 
     /// A 32 pt icon painted by `body`, which is what a favicon arrives as.
     ///
-    /// **Painted into sRGB, not into a drawing handler.** A handler renders in
-    /// the *display's* profile, and the trip back to sRGB that `FaviconTint`
-    /// makes lifts a pure cyan's red channel to 0.09 on a P3 screen. Squared
-    /// chroma turns that rounding into a fifth of a vote, red and cyan stop
+    /// Painted into sRGB, not into a drawing handler. A handler renders in the
+    /// display's profile, and the trip back to sRGB that `FaviconTint` makes
+    /// lifts a pure cyan's red channel to 0.09 on a P3 screen. Squared chroma
+    /// turns that rounding into a fifth of a vote, red and cyan stop
     /// cancelling, and `testColoursThatCancelFallBackToTheInkAsWell` passes or
     /// fails by monitor. A real favicon arrives as a tagged PNG and is never
     /// resampled through the screen, so sRGB here is the honest fixture.

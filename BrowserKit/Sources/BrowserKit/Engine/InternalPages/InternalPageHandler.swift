@@ -4,29 +4,21 @@ import WebKit
 /// Serves `luna://` (§4.4). Registered once, centrally, in
 /// `WebViewFactory.makeConfiguration`.
 ///
-/// Verified against `WKURLSchemeTask.h` (MacOSX26.5.sdk), because the
-/// contract is all exceptions:
-/// - `didReceiveResponse` (Swift: `didReceive(_:)`) must be called at least
-///   once per task, before any
-///   data and before `didFinish`. Data before a response, a second response
-///   after completion, or any callback after `didFinish`/`didFailWithError`
-///   each raise an Objective-C exception, which is a crash and not a throw.
-/// - Failing to call `didFinish` raises nothing at all — that is what makes
-///   it dangerous. The resource simply never completes: a main-frame navigation
-///   spins forever, `didFinish` never reaches the navigation delegate, and the
-///   tab is wedged with no error to show. Every path below therefore ends in
-///   exactly one of `didFinish` or `didFailWithError`.
-/// - `stop(_:)`: "After your app is told to stop loading data for a URL scheme
-///   handler task it must not perform any callbacks for that task", and one
-///   made anyway raises an exception.
+/// The contract, from `WKURLSchemeTask.h` (MacOSX26.5.sdk), is all exceptions:
+/// - `didReceiveResponse` (Swift: `didReceive(_:)`) must be called once per task,
+///   before any data and before `didFinish`. Data before a response, a second
+///   response after completion, or any callback after `didFinish`/`didFailWithError`
+///   raises an Objective-C exception, which is a crash and not a throw.
+/// - Not calling `didFinish` raises nothing, which is what makes it dangerous: a
+///   main-frame navigation spins forever and the tab is wedged with no error to
+///   show. Every path below ends in exactly one of `didFinish` or `didFailWithError`.
+/// - A callback for a task after `stop(_:)` raises an exception.
 ///
-/// Which is why this handler is entirely synchronous. Everything it serves is
-/// either a string it builds in-process or bytes already in `FaviconService`'s
-/// memory cache, so the whole response is delivered inside `start(_:)`. Both
-/// protocol methods are `WK_SWIFT_UI_ACTOR`, so WebKit cannot interleave a
-/// `stop(_:)` with a `start(_:)` that has not returned — there is no window in
-/// which a stopped task could receive a callback. `stop(_:)` is a no-op because
-/// of that, not by omission; anything asynchronous added here has to bring the
+/// So this handler is entirely synchronous: everything it serves is a string built
+/// in-process or bytes already in `FaviconService`'s memory cache, delivered inside
+/// `start(_:)`. Both protocol methods are `WK_SWIFT_UI_ACTOR`, so WebKit cannot
+/// interleave a `stop(_:)` with a `start(_:)` that has not returned, and `stop(_:)`
+/// is a no-op for that reason. Anything asynchronous added here has to bring the
 /// cancellation set with it.
 @MainActor
 final class InternalPageHandler: NSObject, WKURLSchemeHandler {
@@ -67,12 +59,10 @@ final class InternalPageHandler: NSObject, WKURLSchemeHandler {
             // reaches here; anything else is a typo or a probe. Both get the
             // styled page rather than WebKit's default, which is the point of §4.5.
             //
-            // `dns`, not `generic`. "This page didn't load" says something
-            // went wrong on the way to `luna://nosuchthing`, and nothing did:
-            // there is no page at that address, which is what "Can't find that
-            // site — check the spelling" already says. The address is carried
-            // through so the page can show it; `offersRetry` is what keeps Try
-            // Again off a `luna://` one.
+            // `dns`, not `generic`: "This page didn't load" says something went
+            // wrong on the way to `luna://nosuchthing`, and nothing did — there
+            // is no page at that address, which is what "Can't find that site"
+            // says. `offersRetry` keeps Try Again off a `luna://` address.
             let error = InternalPageError(kind: .dns, url: url)
             respond(urlSchemeTask, html: InternalPages.errorHTML(error), status: 404)
         }

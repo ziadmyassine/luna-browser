@@ -9,18 +9,13 @@ import WebKit
 /// wrapper would hop for each call and buy nothing. The expensive half — parsing a
 /// filter list and encoding 80,000 rules to JSON — moves off in ``refresh()``.
 ///
-/// Measured on 2026-09-17, macOS 26 / Xcode 26.6, M-series:
-/// | list | rules | compile |
-/// |---|---|---|
-/// | EasyList | 81,268 | 2.89 s |
-/// | EasyPrivacy | 56,037 | 1.94 s |
-/// | Fanboy Annoyance | 49,087 | 2.01 s |
-///
-/// A compile does not block the main thread outright — a 10 ms timer kept firing
-/// throughout — but stalls it for up to 353 ms at a time, half of §19.1's 800 ms
-/// launch budget in one hitch. Looking an already-compiled list up by identifier
-/// costs 0.000 s. That gap is the design: launch looks lists up, and only an
-/// install or a scheduled update compiles.
+/// Measured on 2026-09-17 (macOS 26, Xcode 26.6, M-series): EasyList's 81,268 rules
+/// compile in 2.89 s, EasyPrivacy's 56,037 in 1.94 s, Fanboy Annoyance's 49,087 in
+/// 2.01 s. A compile does not block the main thread outright — a 10 ms timer kept
+/// firing throughout — but stalls it for up to 353 ms at a time, half of §19.1's
+/// 800 ms launch budget in one hitch. Looking an already-compiled list up by
+/// identifier costs 0.000 s. That gap is the design: launch looks lists up, and only
+/// an install or a scheduled update compiles.
 @MainActor
 public final class ContentBlocker {
 
@@ -103,11 +98,11 @@ public final class ContentBlocker {
     public func start(browserStore: BrowserStore?) {
         self.browserStore = browserStore
         Task { await loadCached() }
-        // §3.2's Local Network permission. Nine rules, so it is compiled on the spot —
+        // §3.2's Local Network permission. A few dozen rules, compiled on the spot —
         // the 2.9 s figure above belongs to the 80,000-rule filter lists, not to this.
         Task { await prepareLocalNetworkList() }
-        // §17.2's YouTube list. Twenty-three `css-display-none` rules, same order of
-        // magnitude as the nine above and compiled on the spot for the same reason.
+        // §17.2's YouTube list. About twenty `css-display-none` rules, compiled on
+        // the spot for the same reason.
         Task { await prepareYouTubeList() }
         if let browserStore {
             Task { [weak self] in
@@ -145,8 +140,8 @@ public final class ContentBlocker {
 
     /// How long after launch a refresh that is due waits before starting.
     ///
-    /// It was 5 s, which is not "after launch" — it is during the first page the
-    /// user asked for, and the refresh competes with it for the network and for
+    /// Not 5 s: that is not "after launch" but during the first page the user
+    /// asked for, and the refresh competes with it for the network and for
     /// the main thread. Nothing about a refresh is urgent: the cached lists are
     /// already attached by the time this is scheduled, so the only thing waiting
     /// is a list that is at most a day stale.
@@ -154,22 +149,19 @@ public final class ContentBlocker {
 
     /// What a machine with no compiled lists waits instead.
     ///
-    /// The grace above is affordable because the cached lists are already
-    /// attached while it runs — the only thing waiting is a list a day stale. On
-    /// a first run nothing is attached and nothing is blocked, so the wait is
-    /// not a day of staleness, it is half a minute of unfiltered browsing
-    /// (D14: lists are never bundled). Five seconds, as it was for everyone.
+    /// On a first run nothing is attached and nothing is blocked, so the grace
+    /// above would not be a day of staleness but half a minute of unfiltered
+    /// browsing (D14: lists are never bundled).
     static let firstRunDelay: TimeInterval = 5
 
     /// How long to wait before refreshing, given when the last one landed.
     ///
-    /// ``refreshInterval`` used to pick the delay and nothing else, so it was
-    /// not an interval at all: a launch inside the 24 hours slept a minute and
-    /// re-fetched all three lists anyway, and all the interval bought was that
-    /// an unchanged list skipped its compile. Upstream rebuilds several times a
-    /// day, so on a machine that relaunches Luna often a changed list meant the
-    /// full fetch, convert and compile again minutes after the last — ~1.8 MB
-    /// down and three multi-second compiles, most of them for nothing.
+    /// ``refreshInterval`` gates the refresh, not just the delay: a launch
+    /// inside the 24 hours that sleeps a minute and re-fetches anyway only
+    /// saves the compile of an unchanged list. Upstream rebuilds several times a
+    /// day, so on a machine that relaunches Luna often that is the full fetch,
+    /// convert and compile minutes after the last — ~1.8 MB down and three
+    /// multi-second compiles, most of them for nothing.
     ///
     /// Pure, and separate from the task that sleeps on it, so the schedule can
     /// be asserted without waiting a day for it.
@@ -300,7 +292,7 @@ public final class ContentBlocker {
     private func removeStaleIdentifiers() async {
         var keep = Set(Category.allCases.flatMap { identifiers(for: $0) })
         // Not a category's list, and it carries the same `luna-` prefix the sweep matches
-        // on — without this line every refresh deleted §3.2's Local Network rules.
+        // on — without this line every refresh deletes §3.2's Local Network rules.
         keep.insert(Self.localNetworkIdentifier)
         keep.insert(Self.youTubeIdentifier)
         guard let available = await store.availableIdentifiers() else { return }

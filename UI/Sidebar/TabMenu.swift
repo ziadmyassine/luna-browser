@@ -2,37 +2,18 @@
 //  TabMenu.swift
 //  Luna
 //
-//  §3.4a's tab menu: right-click a row in §3.4's list.
+//  §3.4a's tab menu: right-click a row in §3.4's list. In the reference's order
+//  and groups (`inspiration/tab-context-menu.png`): pin, §3.4b's folder,
+//  duplicate, copy link, the three that change what the row is, then close. Its
+//  missing items — Split, Chat, Move to Profile or Window, Bookmarks — are
+//  declined, not deferred: a menu listing what an app cannot do teaches the user
+//  to stop reading it. A tile gets no folder item; §3.3's grid holds no folders.
 //
-//  In the reference's own order and its groups: pin, §3.4b's save and group,
-//  duplicate, copy link, the three that change what the row is, then close. The
-//  reference (`inspiration/tab-context-menu.png`) has seventeen items; the ones
-//  still missing are declined rather than deferred — Split, Chat, Move to
-//  Profile, Move to Window and both Bookmarks rows are features Luna either does
-//  not have or reaches another way, and a menu listing what an app cannot do
-//  teaches the user to stop reading it. The groups stay even where they hold one
-//  item, because the grouping is what makes the list scannable.
-//
-//  The two §3.4b items are not on a §3.3 tile. A tile is already kept, by a tier
-//  that keeps it harder than the saved one does, and a group may not be pinned at
-//  all — so on a tile both would be offers to demote it.
-//
-//  A plain `NSMenu`: on macOS 26 that is the liquid-glass menu, drawn by AppKit
-//  with its own material, blur, keyboard and VoiceOver handling, and a
-//  hand-rolled panel would be a worse copy of all four.
-//
-//  The glyphs are in the titles, because `NSMenuItem.image` draws nothing here —
-//  measured with a five-way probe in a bare AppKit app, and not one appeared. An
-//  `NSTextAttachment` in `attributedTitle` does, and keeps the native highlight,
-//  the arrow keys and the key-equivalent column.
-//  `SidebarMenu.label(symbol:title:in:)` is the mechanism; a tab stop is what
-//  lines the words up in a column.
-//
-//  The menu is built per press and holds no row index. `NSTableView` recycles
-//  row views and moves them between rows, so an index captured when the menu was
-//  built is stale the moment a tab is inserted above it — the bug that once made
-//  pressing close on one tab mute the tab underneath. Every item closes over a
-//  `UUID`, the only identifier that cannot drift.
+//  A plain `NSMenu`, which on macOS 26 is the liquid-glass menu. Glyphs ride in
+//  the titles because `NSMenuItem.image` draws nothing here — see
+//  `SidebarMenu.label(symbol:title:in:)`. The menu is built per press and every
+//  item closes over a `UUID`, never a row index: `NSTableView` recycles row
+//  views, and a captured index once made closing one tab mute the tab under it.
 //
 
 import AppKit
@@ -88,8 +69,7 @@ enum TabMenu {
         menu.autoenablesItems = false
         let pinned = tab.kind == .essential
 
-        // §3.3: a tile leaves the grid the same way it entered it. The spec has promised
-        // this item since the grid was built and the menu never had it.
+        // §3.3: a tile leaves the grid the same way it entered it.
         if let pinning = pinned ? actions.unpin : actions.pin {
             menu.addItem(item(
                 pinned ? String(localized: "Unpin") : String(localized: "Pin"),
@@ -97,14 +77,10 @@ enum TabMenu {
                 action: pinning
             ))
         }
-        // §3.4b, and not on a tile: a tile is §3.3's grid, which is one tile per
-        // page and has no folders in it at all.
-        //
-        // There is no *Save* item any more, and its absence is the design. The
-        // tier under the tiles holds folders and nothing else, so "put this tab
-        // up there" and "put this tab in a folder" are now one act with one
-        // name — and *Remove from Folder*, at the foot of the same submenu, is
-        // the way back down.
+        // §3.4b, and not on a tile: §3.3's grid is one tile per page and has no
+        // folders. There is no Save item: the tier under the tiles holds folders
+        // and nothing else, so "put this tab up there" and "put this tab in a
+        // folder" are one act, and Remove from Folder is the way back down.
         if !pinned {
             menu.addItem(groupSubmenu(current: group, others: others, actions: actions))
         }
@@ -125,7 +101,7 @@ enum TabMenu {
 
         // The ellipsis follows the dialog. macOS reserves the trailing `…` for a command
         // that opens something before it commits, so the row that types its new name in
-        // place does not carry one and the two surfaces that still ask do.
+        // place does not carry one and the two surfaces that ask do.
         if let rename {
             menu.addItem(item(String(localized: "Rename"), symbol: "pencil", action: rename))
         } else {

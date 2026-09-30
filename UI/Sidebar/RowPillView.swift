@@ -3,7 +3,7 @@
 //  Luna
 //
 //  §3.4's two row fills. Split out of `TabListController.swift` to keep that
-//  file inside SwiftLint's length limit; nothing changed on the way across.
+//  file inside SwiftLint's length limit.
 //
 
 import AppKit
@@ -12,12 +12,10 @@ import AppKit
 /// plate round a hovered folder, which travels between folders on the same
 /// terms the hover lift travels between rows.
 ///
-/// Clear glass alone was not visible. The pill was `Glass.control` plus a
-/// hairline and nothing else, and `.clear` glass over the sidebar's own glass
-/// is very nearly the sidebar — a selected row read as unselected. `Tokens`
-/// has carried `Surface.selected` and `Surface.hover` for exactly this since
-/// M1; they were simply never asked for. Both are translucent washes, so the
-/// glass under them is still glass.
+/// Glass alone is not visible: `.clear` glass over the sidebar's own glass is
+/// very nearly the sidebar, and a selected row read as unselected. So the fills
+/// carry `Surface.selected` and `Surface.hover`, translucent washes that leave
+/// the glass under them still glass.
 @MainActor
 final class RowPillView: NSView {
 
@@ -26,11 +24,10 @@ final class RowPillView: NSView {
     /// pill shows through it.
     enum Role { case selected, hover, folder, working }
 
-    /// Kept for the callers that track the table's focus. It no longer
-    /// changes what is drawn: a selected row used to take an accent-coloured
-    /// border while the list had focus, and a blue ring around the current tab
-    /// is a system list, not this one. The selection reads as glass — the
-    /// material plus §3.4's wash — in every focus state.
+    /// Kept for the callers that track the table's focus, and changes nothing
+    /// drawn: a blue ring around the current tab is a system list, not this
+    /// one. The selection reads as glass — the material plus §3.4's wash — in
+    /// every focus state.
     var isFocused = false
 
     /// How far through its page the selected tab has been read, 0...1, or nil
@@ -272,18 +269,13 @@ extension RowPillView {
     /// Park the pill, or bring it back. A row with nothing selected and nothing
     /// hovered has no fill at all (§30.7).
     ///
-    /// `animated: false` is a cancel, not a shorter fade, which is why it does
-    /// not take the `alphaValue` short-cut the animated path does: the value
-    /// asked for may be the one a running animation is already heading to, and
-    /// the point of the call is that the pill has to be there now. §6's Space
-    /// switch needs it — the list under this pill is a different Space's by
-    /// then, and a fill still fading out of the Space you left is a glass pill
-    /// lying in the Space you arrived in with no row inside it.
-    ///
-    /// Clearing every animation is safe here because each one this view carries
-    /// — this fade, `move`'s spring, `stretch` — is one a cancel should end,
-    /// and `move` asks for an unanimated fade only on the branch that has just
-    /// cancelled the other two.
+    /// `animated: false` is a cancel, not a shorter fade, so it skips the
+    /// animated path's `alphaValue` short-cut: a running animation may already
+    /// be heading to the value asked for, and the pill has to be there now.
+    /// §6's Space switch needs it, or a fill still fading out of the Space you
+    /// left lies empty in the one you arrived in. Clearing every animation is
+    /// safe: each one this view carries — this fade, `move`'s spring,
+    /// `stretch` — is one a cancel should end.
     func fade(to alpha: CGFloat, animated: Bool = true) {
         guard animated else {
             return Tokens.Motion.immediately {

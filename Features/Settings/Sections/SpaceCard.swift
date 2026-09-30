@@ -2,34 +2,18 @@
 //  SpaceCard.swift
 //  Luna
 //
-//  §3.7's Space card: one card per Space, headed by that Space's own gradient.
+//  §3.7's Space card: one card per Space, headed by that Space's own gradient,
+//  so a Space can be found by its colour as it is in the sidebar.
 //
-//  A list of Spaces should be navigable by looking at it. The section used to
-//  be a column of identical grey cards, and finding "the blue one" meant
-//  reading every heading. The dot at the foot of the sidebar identifies a Space
-//  by its colour; so does the wash behind the column; so does its card now.
+//  The header carries §8.2a's `.full` intensity and §13.6's derived ink:
+//  `foreground(on:at:in:)` picks the ink that clears §21.4 against this pair in
+//  this theme, so Mint or Blush stays legible in dark mode. The name and the
+//  fan-out line share that ink at full strength — fading it to a secondary
+//  step lands under 4.5:1 — and differ by size and weight instead.
 //
-//  The header carries §8.2a's `.full` intensity and §13.6's derived ink, which
-//  is what those APIs are for: `foreground(on:at:in:)` picks the ink that clears
-//  §21.4 against this pair's stops in this theme, so a Space on Mint or Blush is
-//  legible in dark mode. That is the bug Zen ships.
-//
-//  The name and the fan-out line are set in the same ink at full strength. A
-//  subtitle would normally step down to `Text.secondary`, and there is no such
-//  step here: the ink was derived to clear 4.5:1, and fading it lands under the
-//  floor. Size and weight tell the two lines apart instead.
-//
-//  Neutral paints no plate at all, which is the rule the sidebar's wash already
-//  follows — a Space nobody has coloured has to be indistinguishable from no
-//  Space colour, or "no colour" is a thirteenth colour. The card painted
-//  neutral's desaturated grey as a plate, which is a light surface, which made
-//  §13.6 correctly derive black ink: one card wearing black text in a dark
-//  window. With no plate the header is the card's own surface and the ink is
-//  the chrome's.
-//
-//  The corner button opens §6.2's two appearance settings — the icon and the
-//  gradient — in the one place the Space is actually showing them. See
-//  `SpaceAppearanceView` for why they left the row list.
+//  Neutral paints no plate, as the sidebar's wash does: a neutral plate is a
+//  light surface, §13.6 then correctly derives black ink, and one card wears
+//  black text in a dark window. With no plate the ink is the chrome's.
 //
 
 import AppKit
@@ -274,10 +258,8 @@ final class SpaceAppearanceButton: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
-    /// §3.4's two washes and §6's swell — the answer every other button in
-    /// the app gives. It had none: a bare glyph that did nothing at all until
-    /// the popover appeared, which is the longest a button in Luna goes
-    /// without admitting it has been clicked.
+    /// §3.4's two washes and §6's swell, the answer every button in the app
+    /// gives. A bare glyph would give none until the popover appeared.
     private func refresh() {
         Tokens.Motion.wash(layer, to: isPressed
             ? Tokens.Surface.selected

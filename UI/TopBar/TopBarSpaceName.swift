@@ -2,27 +2,17 @@
 //  TopBarSpaceName.swift
 //  Luna
 //
-//  §4's Space switcher: the Space's name, at the head of the plate that holds
-//  its kept tabs.
+//  §4's Space switcher: the Space's name, in its own capsule at the bar's
+//  trailing end (`TopBarSpaceCapsule`).
 //
-//      [ Personal  ▢ ▢ ▢ ▢ ]
+//  Under the pointer the name steps up and §3.5's dots come out beneath it, one
+//  per Space. A click on a dot goes there; §30.9's two-finger swipe over the
+//  name goes to the next one, and the dots read the gesture out. They are
+//  hidden at rest because six dots say less than the one name they stand for.
 //
-//  The name is the control, and it is on the plate because the kept tabs are
-//  the Space's own — the name is the label on the shelf they stand on. Under
-//  the pointer the name steps up and §3.5's dots come out beneath it, one per
-//  Space, the column's own strip without its pill. A click on a dot goes there;
-//  §30.9's two-finger swipe over the name goes to the next one, and the dots
-//  read the gesture out while the fingers are down.
-//
-//  The dots are hidden at rest because a bar has words and no room: six dots
-//  say less than the one name they stand for, until the moment the hand is
-//  asking which of the others it can reach.
-//
-//  The name pops when a click changes it, because it is the only thing on the
-//  bar that says the whole window has moved. A swipe slides it instead: out of
-//  the capsule with the tabs, and in from the other side after them. Either
-//  way the capsule grows or shrinks to the new name rather than jumping to it
-//  (`widthMorph`), and the bar beside it follows.
+//  The name pops when a click changes it, as the only thing on the bar that
+//  says the whole window has moved; a swipe slides it instead. Either way the
+//  capsule's width morphs to the new name (`widthMorph`).
 //
 
 import AppKit
@@ -254,9 +244,8 @@ final class TopBarSpaceName: NSControl, TopBarThemed {
 
     // MARK: - §6.2 and §8.2, from the one place a Space is visible on this bar
 
-    /// A right-click opens the same pop-out a press does: the colours used
-    /// to be a native menu of thirteen colour names here, the one surface in
-    /// Luna a Space's colour was chosen from by reading.
+    /// A right-click opens the same pop-out a press does, not a native menu of
+    /// colour names: nowhere else is a Space's colour chosen by reading.
     override func menu(for event: NSEvent) -> NSMenu? {
         presentSpaces()
         return nil
@@ -432,8 +421,8 @@ extension TopBarSpaceName {
     }
 
     /// The release: the rest of the way on the speed the hand let go at, then
-    /// the switch. It used to snap back to rest and switch in the same frame,
-    /// which is two jumps where the column makes one movement.
+    /// the switch. Snapping back to rest and switching in the same frame is two
+    /// jumps where the column makes one movement.
     private func settle(_ state: SpaceSwipe, speed: CGFloat, committing: Bool) {
         var target = SpaceSwipe.rest
         var commit: (() -> Void)?

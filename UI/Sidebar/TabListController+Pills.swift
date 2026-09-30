@@ -3,21 +3,14 @@
 //  Luna
 //
 //  §3.4's two row fills — the selected one and the hovered one — and where they
-//  stand.
+//  stand. Two for the whole list, not one per row: fills that belong to the list
+//  can travel on §6's `selectedRowMove` spring, so the selection reads as one
+//  thing moving rather than two blinking, and §6.6's lift can borrow the one
+//  selected pill for a while.
 //
-//  There are two of them for the whole list, not one per row. A fill that
-//  belonged to its row would have to appear and disappear as the selection
-//  moved; two that belong to the list can travel, which is what §6's
-//  `selectedRowMove` spring is for and what makes the selection read as one
-//  thing moving rather than two things blinking. It is also what lets §6.6's
-//  lift borrow the selected pill: there is one of it, so it can be somewhere
-//  else for a while.
-//
-//  Split out of `TabListController.swift` when that file crossed SwiftLint's
-//  400-line limit, and this is the half that came out because it is the half
-//  with one subject. `selectionPill` and `hoverPill` are internal rather than
-//  private only because Swift's `private` is file-scoped; nothing outside this
-//  pair of files touches either.
+//  Split out of `TabListController.swift` for SwiftLint's 400-line limit, as the
+//  half with one subject. `selectionPill` and `hoverPill` are internal only
+//  because Swift's `private` is file-scoped; nothing outside the pair touches them.
 //
 
 import AppKit
@@ -31,15 +24,12 @@ extension TabListController {
     func movePills(animated: Bool = true) {
         // §6.6: while a lift is up the list's two fills stay parked, because
         // the lift is carrying §3.4's selected pill itself, and a second one
-        // lying in the row the tab came from is a ghost that follows the drag
-        // down the column and back up again.
+        // lying in the row the tab came from is a ghost that follows the drag.
         //
-        // Guarded here rather than at the call sites, and that is the whole
-        // fix. `setPillsHidden(true)` parks the fills once; every later request
-        // to move one brings them back, because `move(to:spec:)` ends by fading
-        // to 1. A drag is when the list is re-laid most — the §3.3 grid opens
-        // to a tile's height, §3.4b's rule comes out, the gap steps — and each
-        // of those passes reaches `table.onLayout`, which lands here.
+        // Guarded here rather than at the call sites: `move(to:spec:)` ends by
+        // fading to 1, so any later move un-parks them, and a drag is when the
+        // list is re-laid most — the §3.3 grid opens, §3.4b's rule comes out,
+        // the gap steps — each pass reaching `table.onLayout`, which lands here.
         guard !isDragging else { return }
         selectionPill.isFocused = table.window?.firstResponder === table
         let selected = table.selectedRow >= 0 ? table.selectedRow : nil

@@ -7,8 +7,6 @@
 //  the rest of that file wires closures and re-reads the session, and neither
 //  of those is arithmetic.
 //
-//  Nothing moved on the way across.
-//
 
 import AppKit
 import BrowserKit
@@ -45,17 +43,12 @@ extension SidebarViewController {
         }
     }
 
-    /// Every position is computed, and none is read back.
-    ///
-    /// This used to walk down the column asking each view where the one above
-    /// it had ended up — `pill.frame.minY`, `essentials.frame.minY`. Inside an
-    /// animated pass that read is a frame behind: setting a frame under
-    /// `allowsImplicitAnimation` routes it through the animator, and the getter
-    /// hands back the value the view still has. So on the pass where the grid
-    /// shrank, the scroll view under it was sized against the grid's old
-    /// bottom edge and stayed a tile-row short — an unpinned tab left a 47 pt
-    /// hole between the tiles and the list that only a window resize cleared.
-    /// The column's geometry is arithmetic; it is done here, once, in locals.
+    /// Every position is computed, and none is read back. Inside an animated
+    /// pass a frame getter is a frame behind — a frame set under
+    /// `allowsImplicitAnimation` goes through the animator — so reading
+    /// `essentials.frame.minY` sized the scroll view against the grid's old
+    /// bottom edge, and an unpinned tab left a 47 pt hole between the tiles and
+    /// the list that only a window resize cleared.
     private func layoutSubviews() {
         let bounds = view.bounds
         wash.frame = bounds
@@ -110,9 +103,8 @@ extension SidebarViewController {
 
         // Placed so its 8 pt hit strip is the sidebar's own inner 8 pt: hit
         // testing stops at a superview's bounds, so a handle centred on the
-        // divider would have half a dead hit area. The drawn glyph still
-        // overhangs into the §3.6 gap, which is where §3.7 wants it. Which edge
-        // is "inner" is the one the page is on, so it follows the column.
+        // divider would have half a dead hit area. Which edge is "inner" is
+        // the one the page is on, so it follows the column.
         let handleWidth = Tokens.Metric.resizeHandle.width
         let hit = Tokens.Metric.resizeHandleHitWidth
         handle.frame = NSRect(

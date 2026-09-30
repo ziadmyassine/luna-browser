@@ -48,7 +48,7 @@ extension AppDelegate {
     }
 
     /// `⌘W`. Archives rather than deletes (§6.3) — and is undoable (§6.7).
-    /// `⌘W`. With no page left open it closes the window instead, as every
+    /// With no page left open it closes the window instead, as every
     /// Mac browser does: a window showing nothing has nothing else to close.
     @objc func closeTab(_ sender: Any?) {
         guard let session, let active = session.activeTabID else {
@@ -123,18 +123,16 @@ extension AppDelegate {
     ///
     /// Not called `toggleSidebar(_:)`. That selector is `NSSplitViewController`'s,
     /// and something in the responder chain answers to it: the menu item
-    /// validated as enabled, the click went somewhere, and nothing happened.
-    /// Named for what it does, and the name is now ours.
+    /// validates as enabled, the click goes somewhere, and nothing happens.
     @objc func toggleSidebarVisibility(_ sender: Any?) {
         toggleSidebar()
     }
 
     /// `⌃1…⌃9` (§5.3, §13.2). The item's tag is its index in `session.spaces`.
     ///
-    /// It used to be `⌘1…⌘9`, which is "go to tab N" in Safari, Chrome,
-    /// Firefox, Edge and Arc. That namespace now belongs to
-    /// `goToSidebarItem(_:)`; Spaces moved one modifier over, where Arc and Dia
-    /// both put them.
+    /// Not `⌘1…⌘9`, which is "go to tab N" in Safari, Chrome, Firefox, Edge
+    /// and Arc, and belongs to `goToSidebarItem(_:)`. Spaces sit one modifier
+    /// over, where Arc and Dia both put them.
     @objc func switchToSpace(_ sender: Any?) {
         guard let session, let item = sender as? NSMenuItem,
               session.spaces.indices.contains(item.tag) else { return }
@@ -144,11 +142,9 @@ extension AppDelegate {
     /// `⌃⌥←` / `⌃⌥→`. Wraps, the same ring `selectAdjacentTab` walks.
     ///
     /// Not `⌘⌥←/→`, which SPACES-SPEC §13.2 asks for: that pair is already
-    /// shipped as Show Previous/Next Tab (§7.4, and `TODO.md` §20.1 lists it
-    /// under tabs in the same breath as it gives Spaces ⌃-number). One of the
-    /// two has to move and the spec contradicts itself about which; keeping the
-    /// tab binding and translating ⌘→⌃ keeps every Space command under one
-    /// modifier. Reported rather than decided quietly.
+    /// Show Previous/Next Tab (§7.4). One of the two has to move and the spec
+    /// contradicts itself about which; keeping the tab binding and translating
+    /// ⌘→⌃ keeps every Space command under one modifier.
     @objc func previousSpace(_ sender: Any?) {
         selectAdjacentSpace(offset: -1)
     }
@@ -172,9 +168,7 @@ extension AppDelegate {
     /// 26.5: the first key-equivalent match in menu-bar order consumes the
     /// event and nothing later ever sees it, disabled or not, so exactly one
     /// item can own `⌘1` and this is it. Forwarding is how Window ▸ Settings ▸
-    /// <section> keeps working while that window is key; `SettingsWindowController`
-    /// used to claim `switchToSpace(_:)` for the same reason, from the other
-    /// side of the same rule.
+    /// <section> keeps working while that window is key.
     @objc func goToSidebarItem(_ sender: Any?) {
         guard let item = sender as? NSMenuItem else { return }
         if let settings = NSApp.keyWindow?.windowController as? SettingsWindowController {

@@ -5,22 +5,16 @@
 //  Presents §6.4's panel, asks the store for the pages to put in it, and opens
 //  the one chosen.
 //
-//  History is the store's, not the session's: it is every visit the Space has
-//  made, which is far more than anything held in memory. So the list is a query
-//  — the newest pages when the field is empty, and a search of every title and
-//  address as it is typed, through the same index the Command Bar reads.
+//  History is the store's, not the session's: every visit the Space has made,
+//  far more than memory holds. So the list is a query — the newest pages when
+//  the field is empty, a search of titles and addresses through the Command
+//  Bar's index as it is typed — and only the Space you are in, as with its
+//  cookie jar (§9.2).
 //
-//  The Space you are in, and no other. What you visited in Personal is not in
-//  Work's list any more than Personal's cookies are in Work's jar (§9.2).
-//
-//  §6.4's panel is a pop-out from the button that opens it — see
-//  `HistoryPanel`'s header for why it is no longer centred over the page — so
-//  this takes the anchor view rather than a content region.
-//
-//  There are two such buttons now: §3.5's, at the foot of the sidebar, and its
-//  twin in §4's action capsule. They are at opposite ends of the window, so the
-//  caller says which way the pop-out grows and `PopoutController` does the
-//  rest.
+//  The pop-out stands on the button that opened it, so this takes the anchor
+//  view rather than a content region. The two buttons, §3.5's and its twin in
+//  §4's action capsule, are at opposite ends of the window, so the caller says
+//  which way the pop-out grows.
 //
 
 import AppKit

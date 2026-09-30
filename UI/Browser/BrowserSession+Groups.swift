@@ -3,25 +3,19 @@
 //  Luna
 //
 //  §3.4b's verbs: making a group, naming it, folding it, moving it across the
-//  rule, taking it apart, and moving one tab in or out of one.
+//  rule, taking it apart, and moving one tab in or out of one. Everything here
+//  is about a name around some tabs and decides nothing about a web view;
+//  where the rows end up is `TabList`'s, so none of this does arithmetic on an
+//  index.
 //
-//  Split out of `BrowserSession+Tabs.swift` for that file's length limit, and it
-//  is the right seam: everything here is about a *name around some tabs*, and
-//  nothing here decides anything about a web view. Where the rows end up is
-//  `TabList`'s, which is why none of this does arithmetic on an index.
+//  Three rules hold it together:
 //
-//  Two rules hold the whole thing together:
-//
-//    · A group's tier is its tabs' tier. Drag a group above the rule and its
-//      tabs are saved; drag it back and they are ordinary tabs again. So "is
-//      this tab saved" is one question with one answer wherever it is asked,
-//      and `closeTab` never has to look at a group to decide what a press means.
-//    · Removing a group removes a name, never a page. `ungroup` leaves every
-//      tab exactly where the group stood. The one command that does end the tabs
-//      says so — and archives them one at a time, where undo can reach them.
-//    · A folder goes with its last tab (`dropGroupIfEmptied`). The one empty
-//      folder is a new one, made from the sidebar's menu and waiting for its
-//      first tab.
+//    · A group's tier is its tabs' tier, so "is this tab saved" has one answer
+//      wherever it is asked and `closeTab` never looks at a group.
+//    · Removing a group removes a name, never a page. The one command that
+//      ends the tabs archives them one at a time, where undo can reach them.
+//    · A folder goes with its last tab (`dropGroupIfEmptied`); the one empty
+//      folder is a new one, waiting for its first tab.
 //
 
 import AppKit
@@ -175,7 +169,7 @@ extension BrowserSession {
 
     // MARK: - Taking one apart
 
-    /// Removes the name and leaves the tabs where it stood (§3.4b's *Ungroup*).
+    /// Removes the name and leaves the tabs where it stood (§3.4b's Ungroup).
     func ungroup(_ id: UUID) {
         guard let group = list.group(id) else { return }
         let members = list.members(ofGroup: id).map(\.id)
@@ -245,11 +239,11 @@ extension BrowserSession {
     /// Gathers every loose tab standing in the folder tier into one folder
     /// (§3.4b), in every Space. Nothing to do once there are none.
     ///
-    /// The tier held loose rows until §3.4b's second pass, so a database
-    /// written before it has them and they have nowhere legal to stand. They
-    /// are kept rather than demoted: the user put them up there deliberately,
-    /// and a folder called *Saved* is what that tier used to be called — the
-    /// name says where they came from and can be changed in one gesture.
+    /// A database written before §3.4b's second pass can have loose rows in
+    /// the tier, and they have nowhere legal to stand. They are kept rather
+    /// than demoted: the user put them up there deliberately. The folder is
+    /// named Saved, the tier's former name, so it says where they came from
+    /// and can be renamed in one gesture.
     func enfoldLooseSavedTabs() {
         for space in spaces {
             let loose = list[space.id].filter { $0.kind == .pinned && $0.groupID == nil }

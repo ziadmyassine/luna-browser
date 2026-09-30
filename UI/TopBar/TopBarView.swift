@@ -2,39 +2,19 @@
 //  TopBarView.swift
 //  Luna
 //
-//  The sidebar-off layout (UI-SPEC §4, TODO.md §30.12–30.14): one 50 pt
-//  bar spanning the window, with the page flush full-bleed below it. It is a
-//  second layout, not a collapsed sidebar — `ContentCardView` already knows
-//  that (`cardInsets` for `.topBar` has no gap and no corners).
+//  The sidebar-off layout (§4, TODO.md §30.12–30.14): one bar spanning the
+//  window, with the page flush full-bleed below it. A second layout, not a
+//  collapsed sidebar (`cardInsets` for `.topBar` has no gap and no corners).
 //
 //      [lights] [back · forward] [kept tabs] [open tabs …] [|] [capsule] [Space]
 //
-//  Back and forward stand before the tabs, as they do at the head of the
-//  sidebar. The plate holds the Space's kept tabs; the Space's name, which is
-//  the switcher, is a cylinder of its own after the action capsule. Between any
-//  two things on the bar there is one gap (`TopBarMetrics.gap`).
-//
-//  Nothing stands under the bar: the page runs flush to it. The address is
-//  edited from the tab on screen — a click opens the Command Bar on it, as
-//  `⌘L` does — and reload is `⌘R` and the site menu. A double-click on a tab
-//  renames it in place (`TopBarTabStrip+Rows`).
-//
-//  Four things are deliberately absent:
-//    · No sidebar toggle. There is no sidebar in this layout to hide, so
-//      the button was a control that either did nothing or silently changed a
-//      preference. `⌘S` still works wherever there is a sidebar; which chrome
-//      the window wears is Settings' decision (`Settings.chromeLayout`).
-//    · No reload button. The reference omits it; §4 makes reload `⌘R` and
-//      the site menu on the page.
-//    · No address bar on it. The active tab used to swell into a URL pill in
-//      the middle of the strip; a strip whose tabs carry their own titles has
-//      no room for a fourth shape. The tab on screen is the address.
-//    · No traffic-light layout. `TrafficLightLayoutManager` owns those
-//      frames for every window state (§7.7). The bar asks `TrafficLightSpace`
-//      where they landed and stands beside them on their centre line, as
-//      §3.1's row does — so the corner reads the same in either layout.
-//    · No page tint on the bar itself. §2: the chrome samples what is
-//      behind the window.
+//  The address is edited from the tab on screen: a click opens the Command Bar
+//  on it, as `⌘L` does. Deliberately absent: a sidebar toggle (there is no
+//  sidebar here to hide; `Settings.chromeLayout` decides the chrome), a reload
+//  button (§4 makes it `⌘R` and the site menu), an address pill (a strip of
+//  titled tabs has no room for a fourth shape), and a page tint (§2). The
+//  traffic lights are `TrafficLightLayoutManager`'s (§7.7); the bar stands
+//  beside them on their centre line, as §3.1's row does.
 //
 
 import AppKit
@@ -74,7 +54,7 @@ final class TopBarView: NSView, WindowScoped, TrafficLightNeighbour {
     /// `refreshExtensions`, as many as `fitExtensions` finds room for.
     var extensionActions: [TopBarActionItem] = [] { didSet { rebuildCapsule() } }
 
-    /// Where agent H's download popover points.
+    /// Where the downloads pop-out points.
     var downloadsAnchor: NSView? { capsule.view(for: Self.downloadsItem) }
 
     /// §5.0's flight lands on the button and the capsule catches it — the
@@ -113,14 +93,14 @@ final class TopBarView: NSView, WindowScoped, TrafficLightNeighbour {
         super.init(frame: .zero)
 
         wantsLayer = true
-        // The bar's height animates 0 → 52 during the §4.1 switch; without this
-        // its contents spill over the page on the way up.
+        // The bar's height animates up from 0 during the §4.1 switch; without
+        // this its contents spill over the page on the way up.
         clipsToBounds = true
         // No glass of its own: the bar stands on the window's plane, as the
         // sidebar does (`BrowserWindowController.buildContent`). A second
-        // sheet of glass over it ended in a visible line along the bar's
-        // bottom edge, and the notches the page's rounded top corners leave
-        // showed the plane, not the bar.
+        // sheet of glass over it draws a visible line along the bar's bottom
+        // edge, and the notches the page's rounded top corners leave show the
+        // plane, not the bar.
 
         buildControls()
         buildLayout()
@@ -160,8 +140,8 @@ final class TopBarView: NSView, WindowScoped, TrafficLightNeighbour {
     /// every hook on `BrowserSession` is a single closure — `AppDelegate`
     /// already owns `onChange`. So the bar chains rather than assigns: nothing
     /// it subscribes to displaces an existing subscriber, whatever order the
-    /// chrome is built in. See the report — this wants to be an add-observer
-    /// API before a third subscriber appears.
+    /// chrome is built in. This wants to be an add-observer API before a
+    /// third subscriber appears.
     private func subscribe(to session: BrowserSession) {
         let previousChange = session.onChange
         session.onChange = { [weak self] in
@@ -178,8 +158,8 @@ final class TopBarView: NSView, WindowScoped, TrafficLightNeighbour {
             previousTabState?(id, state)
             self?.apply(state, for: id)
         }
-        // `⌘L` is not claimed here. This layout has no address bar of its own
-        // any more, so the command falls through to whatever does — §3.2b's
+        // `⌘L` is not claimed here. This layout has no address bar of its own,
+        // so the command falls through to whatever does — §3.2b's
         // band when it is showing, and §9.1's Command Bar otherwise
         // (`AppDelegate.editLocation`). A layout that claimed the key and then
         // had nowhere to put the caret would be a dead shortcut.
@@ -231,8 +211,8 @@ final class TopBarView: NSView, WindowScoped, TrafficLightNeighbour {
             label: String(localized: "New Tab")
         ) { [weak self] in
             // §9.1, not a blank tab — the same answer §3.4's New Tab row and
-            // `⌘T` give. There is no New Tab page to land on any more, so a `+`
-            // that made a tab would be making an empty one.
+            // `⌘T` give. There is no New Tab page to land on, so a `+` that
+            // made a tab would be making an empty one.
             self?.presentCommandBar?(.newTab, nil)
         }
         let history = TopBarActionItem(
@@ -338,22 +318,17 @@ final class TopBarView: NSView, WindowScoped, TrafficLightNeighbour {
 
     /// Where the bar starts: after the traffic lights, `lightsGap` on.
     ///
-    /// Derived, not read off the live buttons. AppKit resets their origins
-    /// on every resize and `TrafficLightLayoutManager` puts them back a beat
-    /// later, so a bar that believed what it saw in between laid its first control against
-    /// the green light rather than a gap from it. `TrafficLightSpace` is the
-    /// shared answer, and §3.1's control row asks it the very same question.
+    /// Derived from `TrafficLightSpace`, which §3.1's control row asks too,
+    /// not read off the live buttons: AppKit resets their origins on every
+    /// resize and `TrafficLightLayoutManager` puts them back a beat later, and
+    /// what is read in between lays the first control against the green light.
+    /// Their centre line is a constant — `TopBarMetrics.lightsCentreOffset`.
     ///
-    /// The other half of standing beside them — their centre line — is a
-    /// constant and is set once; see `TopBarMetrics.lightsCentreOffset`.
-    ///
-    /// Measured in the window's coordinates, not the bar's own. The bar spans
-    /// the window from its leading edge whenever it is showing, but it is laid
-    /// out while it is still hidden in the sidebar's column too. A column
+    /// Measured in the window's coordinates, not the bar's own: the bar is laid
+    /// out while it is still hidden in the sidebar's column too, and a column
     /// parked off the leading edge puts the window's corner a column's width
-    /// into the bar, and a reserve read there stands the back button and the
-    /// pinned tabs that far in. Needing nothing of the bar's own frame is
-    /// also what lets `layout` read it before the constraints are solved.
+    /// into the bar. Needing nothing of the bar's own frame also lets `layout`
+    /// read it before the constraints are solved.
     private func updateTrafficLightReserve() {
         // No lights is no reserve: the bar starts its own inset from the edge,
         // as it ends its inset from the other.
@@ -370,9 +345,9 @@ final class TopBarView: NSView, WindowScoped, TrafficLightNeighbour {
 
     override func layout() {
         // Before the constraints are solved, not after. Changed once the
-        // subviews were placed, the new reserve waited for a pass nothing
-        // asked for: switched to from a hidden sidebar, whose lights were
-        // hidden, the back button and pinned tabs stayed under the lights.
+        // subviews are placed, the new reserve waits for a pass nothing asks
+        // for, and on a switch from a hidden sidebar, whose lights were hidden,
+        // the back button and pinned tabs stay under the lights.
         updateTrafficLightReserve()
         super.layout()
         fitExtensions()

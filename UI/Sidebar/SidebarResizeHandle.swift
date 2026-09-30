@@ -9,12 +9,9 @@
 //  §3.1's head needs more room than §3.5's foot, and §3.2b can take the head's
 //  buttons away. `Settings.sidebarWidth` is the one place that resolves it.
 //
-//  Nothing is drawn. §3.7 asked for a `◁|▷` glyph to fade in on hover, and
-//  on screen it read as a piece of UI that had come loose: a small floating
-//  mark over the page, unattached to either surface, appearing for no reason
-//  the user had asked for. The resize cursor already says the divider is
-//  draggable, which is what every native split view relies on, so the glyph is
-//  gone and the strip is the whole affordance.
+//  Nothing is drawn. A `◁|▷` glyph fading in on hover read as a piece of UI
+//  that had come loose over the page; the resize cursor already says the
+//  divider is draggable, which is all a native split view offers.
 //
 //  The width is reported out rather than applied here: the sidebar's width is a
 //  constraint on the window controller's chrome view (§4.1 animates it in the

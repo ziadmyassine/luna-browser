@@ -382,12 +382,10 @@ public final class TabController: NSObject {
         controller.addUserScript(
             WKUserScript(source: Self.scrollScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
         )
-        // §17.2. `documentStart` is load-bearing, not a preference: YouTube's
-        // bundle caches its own `JSON.parse` and `Response.prototype.text` on
-        // the way up, and a hook installed after it has run is measurably never
-        // called. Every frame, because a `youtube-nocookie` embed is a frame and
-        // plays the same pre-roll; the script's first act is to check its own
-        // hostname and leave.
+        // §17.2. `documentStart` is load-bearing, not a preference — see
+        // `ContentBlockerYouTube.swift`. Every frame, because a
+        // `youtube-nocookie` embed is a frame and plays the same pre-roll; the
+        // script's first act is to check its own hostname and leave.
         if youTubeScriptInstalled {
             controller.addUserScript(
                 WKUserScript(
@@ -423,15 +421,12 @@ public final class TabController: NSObject {
     /// strongly, so leaving them registered pins the web view — and a WebContent
     /// process with it — for as long as the configuration lives (§19.2).
     ///
-    /// Silence is something this does, not something it waits for. Unhooking the
-    /// view and letting go of it relies on a deallocated `WKWebView` closing its
-    /// page, which is true of the last reference and says nothing about the one
-    /// before it: WebKit's own async completions, a floating Picture-in-Picture
-    /// window, element fullscreen, a snapshot in flight can each outlive this
-    /// call by an unbounded amount, and the page plays for as long as one does.
-    /// Closing a pinned tab with a video running left the sound going in the
-    /// background with nothing on screen to stop it. Audio is the one leak a
-    /// user can hear, so it is turned off explicitly and first.
+    /// Audio is turned off explicitly and first rather than left to
+    /// deallocation: a `WKWebView` closes its page only when the last reference
+    /// goes, and WebKit's own async completions, a floating Picture-in-Picture
+    /// window, element fullscreen or a snapshot in flight can each outlive this
+    /// call by an unbounded amount. A closed pinned tab with a video running
+    /// kept its sound going with nothing on screen to stop it.
     ///
     /// Suspended rather than paused: suspending also refuses the page's own
     /// attempts to start again, and there is no resume to pair it with because
@@ -512,7 +507,7 @@ extension TabController {
 
 /// An extension rather than more of the class above: `TabController` is the
 /// engine class §33's 4,000-line warning is aimed at, and a type body has a
-/// length limit. Everything here is about what the tab currently *is* — its
+/// length limit. Everything here is about what the tab currently is — its
 /// published state, the colour behind the page, and the scripts every document
 /// gets — rather than about building or tearing down a web view.
 extension TabController {
@@ -561,11 +556,10 @@ extension TabController {
     /// lets the property be observed: a write wakes the observation, the
     /// observation publishes, and publishing writes nothing.
     ///
-    /// `publishState` wrote it too, which is what the old comment there called a
-    /// loop with no exit. It would in fact have stopped after one turn: WebKit's
-    /// setter coalesces, and assigning a value equal to the one it holds posts no
-    /// change at all (measured). The real cost was never the loop — it was that
-    /// the write forced a read of an answer WebKit had not worked out yet.
+    /// `publishState` must not write it. Not for fear of a loop — WebKit's setter
+    /// coalesces, and assigning a value equal to the one it holds posts no
+    /// change (measured) — but because the write forces a read of an answer
+    /// WebKit has not worked out yet.
     func matchBackgroundToTheme() {
         webView?.underPageBackgroundColor = webView?.themeColor
     }
@@ -589,10 +583,10 @@ extension TabController {
             // Read, never written. This is the colour the page is actually
             // painted on, which is what §3.2b's bar matches; it is written only by
             // `matchBackgroundToTheme` and by `resetPerDocumentState`, and observed
-            // like every other property here. This method used to assign it and
-            // read it back in the same statement, and that answer was behind:
-            // nil hands the question back to WebKit, which recomputes off the next
-            // paint, so the read returned the document that had just gone away.
+            // like every other property here. Assigning it and reading it back in
+            // the same statement gives an answer that is behind: nil hands the
+            // question back to WebKit, which recomputes off the next paint, so the
+            // read returns the document that has just gone away.
             // Measured on two local pages, A `#0a0a14` and B `#3a0a0a`: `didFinish`
             // for B reported A's `10,10,20`, and Back to A reported B's `58,10,10`.
             next.pageBackground = webView.underPageBackgroundColor
@@ -663,23 +657,19 @@ extension TabController {
     ///
     /// Media events do not bubble, so the listeners are registered in the capture phase;
     /// that is the only way one document-level listener sees every `<video>`.
+    ///
     /// It only speaks when the answer changes. This runs in every frame
     /// (`forMainFrameOnly: false`, because an embedded player lives in a
-    /// subframe), and it used to post from every one of them at document end to
-    /// say what silence already said: a page with ten ad iframes was ten
-    /// messages across the process boundary and ten `publishState` calls before
-    /// it had finished loading. `false` is what the tab already is — nothing
-    /// reaches `audibleFrames` until something says otherwise, and
-    /// `resetPerDocumentState` empties it on every navigation — so the opening
-    /// `post()` has nothing to report unless the frame is already making
-    /// noise, which is the autoplay case it is there for.
+    /// subframe), and posting from each at document end to say what silence
+    /// already says makes a page with ten ad iframes ten messages across the
+    /// process boundary and ten `publishState` calls before it has loaded.
+    /// `false` is what the tab already is — `resetPerDocumentState` empties
+    /// `audibleFrames` on every navigation — so the opening `post()` reports
+    /// only a frame already making noise, the autoplay case. The same latch
+    /// drops the `volumechange` ticks of a volume drag that do not cross zero.
     ///
-    /// The same latch pays again during playback: `volumechange` fires on every
-    /// tick of a volume drag, and all but the one that crosses zero say what the
-    /// last one did.
-    ///
-    /// Internal rather than private so `MediaScriptTests` can run it —
-    /// the same reason `scrollScript` is, and the same lesson behind it.
+    /// Internal rather than private so `MediaScriptTests` can run it — the
+    /// same reason `scrollScript` is.
     static let mediaScript = """
     (function () {
       var last = false;
@@ -711,21 +701,15 @@ extension TabController {
     /// blocked request happens, a sign-in form is very often in an iframe — so
     /// a news page with thirty ad frames is thirty injections of each.
     ///
-    /// This is one seam, not a saving. It was measured and it is a dead
-    /// heat: 31-frame page, two harness binaries interleaved, ten rounds
-    /// each, `+14.53 ms` merged against `+14.35 ms` split (`docs/PERF.md`).
-    /// Three `WKUserScript`s are not three compiles per frame — WebKit compiles
-    /// a source once and evaluates it per frame — and what the frame pays for is
-    /// the evaluating, which is the same code either way. What it buys is one
-    /// place that decides what every frame gets; do not read a speed claim into
-    /// it, and do not merge anything else hoping for one.
+    /// One seam, not a saving: measured as a dead heat on a 31-frame page, two
+    /// harness binaries interleaved over ten rounds each, `+14.53 ms` merged
+    /// against `+14.35 ms` split (`docs/PERF.md`). WebKit compiles a source once
+    /// and evaluates it per frame, and the evaluating is the same code either
+    /// way. Do not merge anything else in hoping for speed.
     ///
-    /// The `try`/`catch` is not new error-hiding. WebKit ran the three
-    /// independently, so one of them throwing left the other two installed;
-    /// joining them into one script is exactly what would have taken that away.
-    /// ``isolated(_:)`` puts it back and nothing else. They share no scope
-    /// either: each source is its own IIFE, as it was when WebKit held them
-    /// apart.
+    /// As three `WKUserScript`s, one throwing left the other two running;
+    /// ``isolated(_:)`` keeps that and does nothing else.
+    /// They share no scope either: each source is its own IIFE.
     static func documentEndScript() -> WKUserScript {
         var sources = [mediaScript, ContentBlocker.blockedCountScript]
         // §14: not injected at all when the feature is off, rather than

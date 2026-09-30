@@ -3,39 +3,18 @@
 //  Luna
 //
 //  The Space you have just made, while you are still looking at where it
-//  appeared.
+//  appeared. A Space is three decisions — name, colour, mark — all made in the
+//  first ten seconds, so they are asked here rather than left to Settings. Each
+//  is a plate with its heading inside (`SpaceEditorCard`); the form's own title
+//  sits at `rowInset`, on the cards' outer edge, because it belongs to the form.
 //
-//  A Space is three decisions, all made in the first ten seconds: what it is
-//  called, what colour it is, and what mark it carries. Creating one from
-//  §30.9's swipe used to hand back `Space 3` in the chrome's default grey and
-//  leave all three to a Settings window the user had no reason to open. Arc
-//  puts the name, the profile and the theme in the sidebar at the moment of
-//  creation, and is right about that.
+//  The Space already exists by the time this is on screen — the swipe made it —
+//  so `Create Space` keeps it and `Cancel` deletes it again. Escape keeps it:
+//  throwing away a Space just named and coloured, by habit, is the worse surprise.
 //
-//  Three decisions, three cards. The form was six loose pieces on one sheet of
-//  glass — label, field, label, grid, label, grid — separated by nothing but
-//  vertical gaps, and a gap is the weakest boundary a layout has: a heading a
-//  `chromeGapWide` above its own grid and a `chromeGap` below the grid before
-//  it is closer to the wrong one. Each decision is a plate with its heading
-//  inside it (`SpaceEditorCard`).
-//
-//  Two edges, both deliberate. The title and caption sit at `rowInset`, on the
-//  cards' outer edge, because the form's heading belongs to the form and not to
-//  the first plate in it; everything inside a card sits at
-//  `settingsControlInset` within its plate.
-//
-//  Two answers at the foot, and they are not the same answer twice. The Space
-//  already exists by the time this is on screen — the swipe made it — so
-//  `Create Space` keeps what is already there and `Cancel` deletes it again,
-//  which is what cancelling the making of a thing has to mean. Escape keeps
-//  it: the form is an editor, and a keystroke that throws away a Space the
-//  user has just named and coloured, by habit, is the worse of the two
-//  surprises.
-//
-//  The two grids are the ones §3.7's corner button opens (`SpaceAppearanceView`
-//  and its chips) — one picker, two hosts. They are laid out by hand rather
-//  than by the popover's fixed seven columns, because a sidebar is a width the
-//  user drags.
+//  The grids are `SpaceAppearanceView`'s chips — one picker, two hosts — laid
+//  out by hand rather than in the popover's fixed seven columns, because a
+//  sidebar is a width the user drags.
 //
 
 import AppKit
@@ -306,20 +285,15 @@ final class SpaceEditorView: NSView {
 
     /// How a run of fixed-size chips falls into the width a card has.
     ///
-    /// Balanced, not greedy. Filling each row before starting the next is what
-    /// a paragraph does and is wrong for a palette of fixed length: thirteen
-    /// colours six to a row leave one chip alone on a line of its own, and that
-    /// orphan is the first thing the eye finds. The rows are counted first and
-    /// the chips spread over them — six to a row becomes five, five and three.
+    /// Balanced, not greedy: thirteen colours six to a row leave one orphan on
+    /// a line of its own, so the rows are counted first and the chips spread
+    /// over them — five, five and three.
     ///
-    /// Justified across, and no further than square down. The chips are a fixed
-    /// 28 pt, so the spare width in a column the user can drag has nowhere to
-    /// go but between the columns, and spending it there puts the row's ends on
-    /// the card's own text edges. The rows follow that spacing rather than the
-    /// chrome's gap, because a block 30 pt apart across and 8 pt down is a
-    /// palette combed out — but only up to `chromeGapWide`. Past that, matching
-    /// the columns exactly would push the last row of icons the better part of
-    /// an inch clear of the first.
+    /// Justified across, so the spare width of a draggable column puts the
+    /// row's ends on the card's text edges. Rows follow that spacing, since
+    /// 30 pt across and 8 pt down reads as a palette combed out, but only up to
+    /// `chromeGapWide` — past it the last row of icons drifts the better part
+    /// of an inch clear of the first.
     private struct Grid {
         let columns: Int
         let rows: Int

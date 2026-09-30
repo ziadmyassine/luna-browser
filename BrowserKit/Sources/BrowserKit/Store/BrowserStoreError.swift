@@ -11,11 +11,10 @@ public enum BrowserStoreError: Error, Equatable, LocalizedError {
 
     /// A Space was written with a `dataStoreIdentifier` another Space already holds (§9).
     ///
-    /// One jar per Space is the whole of `v7`, and the column is `UNIQUE` — but GRDB's
-    /// upsert carries no conflict target, so SQLite resolves a uniqueness conflict on
-    /// *any* index by updating the row it collided with. A duplicate jar would therefore
-    /// not fail: it would quietly overwrite the other Space with this one, and a Space
-    /// would disappear. The refusal is explicit so that cannot happen.
+    /// The column is `UNIQUE`, but GRDB's upsert carries no conflict target, so SQLite
+    /// resolves a uniqueness conflict on any index by updating the row it collided with.
+    /// A duplicate jar would not fail: it would quietly overwrite the other Space, and a
+    /// Space would disappear. Hence an explicit refusal.
     case dataStoreIdentifierTaken(spaceID: UUID, by: UUID)
 
     public var errorDescription: String? {

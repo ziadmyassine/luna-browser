@@ -6,10 +6,6 @@
 //  chrome on screen is showing. Split out of `AppDelegate.swift` for its type
 //  body length.
 //
-//  `DownloadsSite` is why this is worth being one file: there are two chromes,
-//  and exactly one place that knows it. The flight, the list and `⌘⌥L` all ask
-//  it the same question.
-//
 
 import AppKit
 import BrowserKit
@@ -150,19 +146,14 @@ extension AppDelegate {
     /// is actually showing: §15.3's list, standing on the button the file was
     /// thrown at (§5.0) with the same row finishing on it.
     ///
-    /// One surface, both chromes. There used to be a second one — a panel that
-    /// floated outside the window above the top edge with a tail pointing down
-    /// into the top bar's button — and it was wrong twice over. In the sidebar
-    /// layout it appeared in the opposite corner of the screen from the button
-    /// it was describing, pointing at the sidebar toggle; and in the top bar
-    /// layout, where it was at least aimed correctly, it was a second card
-    /// saying what the list under it already said. A download that has just
-    /// been thrown at a button should be found *at* that button.
+    /// One surface, both chromes. Not a separate card floating above the
+    /// window with a tail into the top bar's button: in the sidebar layout it
+    /// stood in the opposite corner of the screen from the button it described,
+    /// and in the top bar layout it repeated what the list under it said.
     ///
     /// A list already standing open is left alone: `announce` is a no-op on a
-    /// panel that is up, and the row it is showing is this one — which is why
-    /// the item itself is not a parameter. The list reads the manager's items
-    /// for the Space it is standing in.
+    /// panel that is up, and the list reads the manager's items for its Space,
+    /// so the item itself is not a parameter.
     private func announceCompletion() {
         // A small file can finish before its icon lands, and the list opening
         // under a file still in the air cuts the throw short. The landing

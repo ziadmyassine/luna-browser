@@ -6,18 +6,14 @@
 //  the zip, check it, unpack it, check what came out, and put it where this
 //  bundle is. Nothing changes until every check has passed, and the only
 //  things ever removed are the scratch folder this makes and the `.old`
-//  bundle it sets aside.
+//  bundle it sets aside. The database, the defaults and the Keychain are not
+//  touched.
 //
-//  Only the bundle changes hands. The database, the defaults and the Keychain
-//  are not read, moved or rewritten here.
-//
-//  What is checked, and what is not yet. Luna signs ad hoc until there is a
-//  Developer ID certificate (TODO.md §24.4), so there is no team to hold a
-//  new build to — the check a signed app makes on its successor. What stands
-//  in for it: https to this repo's own download path, GitHub's SHA-256 of the
-//  zip, and a bundle inside with Luna's identifier and a newer version. Once
-//  Luna is signed, a code-signing requirement naming the team belongs in
-//  `verify`.
+//  Luna signs ad hoc until there is a Developer ID (TODO.md §24.4), so there
+//  is no team to hold a new build to. What stands in: https to this repo's own
+//  download path, GitHub's SHA-256 of the zip, and a bundle with Luna's
+//  identifier and a newer version. Once Luna is signed, a code-signing
+//  requirement naming the team belongs in `verify`.
 //
 
 import CryptoKit

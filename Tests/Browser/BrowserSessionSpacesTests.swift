@@ -2,23 +2,13 @@
 //  BrowserSessionSpacesTests.swift
 //  LunaTests
 //
-//  The Space lifecycle (spec §6) and the per-Profile Favorites tier (§2).
+//  The Space lifecycle (spec §6). These cover behaviour that is invisible when
+//  it breaks: every Space resolves to a cookie jar of its own, and deleting a
+//  Space destroys no tab and can be undone. The Favorites tier has its own
+//  file next door.
 //
-//  These cover behaviour that is invisible when it breaks:
-//
-//  · Two Spaces on one Profile must resolve to the same `WKWebsiteDataStore`
-//    — the whole point of many-Spaces-to-one-Profile, and unreachable from the
-//    app until `createSpace(name:)` existed.
-//  · `setProfile` must rebuild every web view. A `WKWebView`'s data store is
-//    fixed at construction, so a Space that changes Profile without a rebuild
-//    keeps writing the old Profile's cookies — Nook ships exactly that bug, and
-//    it is silent.
-//  · Deleting a Space must not destroy a tab, and must be undoable.
-//
-//  The per-Profile Favorites tier has its own file next door.
-//
-//  Two of them build real `WKWebsiteDataStore`s, because store identity is
-//  the assertion. They are the only slow tests in the file.
+//  The tests that build real `WKWebsiteDataStore`s do so because store
+//  identity is the assertion; they are the only slow tests in the file.
 //
 
 import BrowserKit
@@ -137,16 +127,13 @@ final class BrowserSessionSpacesTests: XCTestCase {
         XCTAssertEqual(persisted.map(\.order), [0, 1, 2])
     }
 
-    /// §8.2, as the owner settled it: a new Space is neutral, and colour is
-    /// something the user asks for.
+    /// §8.2: a new Space is neutral, and colour is something the user asks for.
     ///
-    /// This test used to assert the opposite — three Spaces, three pairs off
-    /// the palette — and that was the shipped behaviour for exactly as long as
-    /// it took to see it: the sidebar changed colour on its own, on a window
-    /// nobody had asked to look different, and the only way back was a menu
-    /// there was no reason to open. `Tokens.Gradient.next(after:)` still hands
-    /// out twelve distinct pairs and `SpaceGradientTests` still proves it; what
-    /// changed is that nothing calls it until the user picks one.
+    /// Handing each new Space a pair off the palette changed the sidebar's
+    /// colour on a window nobody had asked to look different, with the way back
+    /// in a menu there was no reason to open. `Tokens.Gradient.next(after:)`
+    /// still hands out twelve distinct pairs (`SpaceGradientTests`); nothing
+    /// calls it until the user picks one.
     func testNewSpacesAreNeutralUntilTheUserPicksAColour() async throws {
         let session = try await makeSession(try makeStore())
         let made = try await [
@@ -181,12 +168,9 @@ final class BrowserSessionSpacesTests: XCTestCase {
 
     // MARK: - Goal 7 · one Space, one cookie jar
 
-    /// What `v7` replaced goals 7 and 8 with. It used to be provable that two
-    /// Spaces sharing a Profile resolved to *one* `WKWebsiteDataStore`, and
-    /// that re-pointing a Space rebuilt every web view in it so no loaded tab
-    /// went on writing to the old jar. Nothing can share and nothing can be
-    /// re-pointed now, so the property worth holding is the other one: no two
-    /// Spaces ever resolve to the same store.
+    /// Goals 7 and 8 as `v7` restated them. Nothing can share a jar and nothing
+    /// can be re-pointed, so the property worth holding is that no two Spaces
+    /// ever resolve to the same store.
     func testEverySpaceResolvesToAStoreOfItsOwn() async throws {
         let session = try await makeSession(try makeStore())
         let home = try XCTUnwrap(session.spaces.first)
@@ -273,8 +257,8 @@ final class BrowserSessionSpacesTests: XCTestCase {
 
     /// Coming back to a Space the user had emptied must show it empty. Its
     /// rows are a §3.3 tile and a §3.4b row that has been closed once, and both
-    /// are places rather than pages: the fallback used to take the newest row
-    /// of any kind, so the walk itself loaded one.
+    /// are places rather than pages: a fallback that took the newest row of any
+    /// kind would load one on the walk itself.
     func testComingBackToAnEmptiedSpaceOpensNothing() async throws {
         let session = try await makeSession(try makeStore())
         let home = try XCTUnwrap(session.spaces.first)

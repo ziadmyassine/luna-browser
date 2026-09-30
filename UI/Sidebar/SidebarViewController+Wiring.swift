@@ -8,8 +8,8 @@
 //  Split out of `SidebarViewController.swift` when that class crossed
 //  SwiftLint's type-body limit, and it is the right seam: everything here is
 //  one closure being handed over and nothing here holds any state. The file it
-//  came out of is left with what the column *is* — its views, its layout and
-//  what it draws from the session.
+//  came out of keeps the column itself — its views, its layout and what it
+//  draws from the session.
 //
 
 import AppKit
@@ -25,7 +25,7 @@ extension SidebarViewController {
         // opens on the pill: the bar takes its place, at its width, and grows
         // down out of it (`CommandBarAnchor`). The field, the history, the
         // ranking and the list are all already there, and none of them would
-        // fit in a 260 pt column. §3.2b's pill now does exactly the same.
+        // fit in a 260 pt column. §3.2b's pill does the same.
         pill.onHandOff = { [weak self] in
             guard let self else { return }
             presentCommandBar?(.editCurrentURL, CommandBarAnchor(view: pill))

@@ -9,11 +9,9 @@
 //  (§11.1), so a bookmark becomes a `Tab` — a saved one, in a §3.4b folder
 //  named after the browser it came from.
 //
-//  The folder is the whole of this file's answer to "where did my bookmarks
-//  go". Before §3.4b there was nowhere to put them but the Space's two tiers,
-//  so a bookmarks bar arrived as loose Favorites tiles and everything else as a
-//  run of saved rows, mixed in with whatever the user had saved themselves.
-//  A folder keeps the import together, names it, and can be folded shut or
+//  The folder is this file's answer to "where did my bookmarks go": loose in
+//  the Space's two tiers they mix with what the user saved themselves. A
+//  folder keeps the import together, names it, and can be folded shut or
 //  taken apart in one gesture by anyone who does not want it.
 //
 
@@ -29,13 +27,10 @@ extension BrowserImporter {
     /// purpose: a user who deleted the ledger, or who imports the same sites
     /// from two browsers, still gets no duplicates.
     ///
-    /// One key, the URL alone. §23.2 asks for folder path plus URL as well, so
-    /// that a site bookmarked in two folders survives as two bookmarks — the
-    /// right answer for something with folders. Luna has none (§11.1 lists a
-    /// `bookmarks` table that is not created), so both copies land in one Space
-    /// as two identical rows, which is a duplicate by any reading. The folder
-    /// key was here and could never fire: it was ANDed with this one, and the
-    /// URL had already rejected the second copy.
+    /// One key, the URL alone, not §23.2's folder path plus URL: Luna has no
+    /// bookmark folders (§11.1's `bookmarks` table is not created), so a site
+    /// bookmarked in two folders would land as two identical rows in one
+    /// Space, which is a duplicate by any reading.
     /// - Parameter folder: what the §3.4b folder is called — the browser the
     ///   bookmarks came from, not the profile inside it. Two profiles of the
     ///   same browser share one folder, which is what "my Chrome bookmarks"
@@ -76,10 +71,9 @@ extension BrowserImporter {
             // Saved, every one of them, and a tile none of them. §3.4b's rule
             // is that a folder's tier is its tabs' tier and that §3.3's grid
             // holds one tab per tile, so a bookmark that became a Favorite
-            // would be a bookmark outside the folder the user was told to look
-            // in. The bar's first dozen used to land there; putting the import
-            // in one place is worth more than that shortcut, and dragging a
-            // row up into the grid is one gesture.
+            // would be outside the folder the user was told to look in, even
+            // for the bar's first dozen. Dragging a row into the grid is one
+            // gesture.
             try await store.upsert(Tab(
                 spaceID: spaceID,
                 kind: .pinned,
@@ -107,7 +101,7 @@ extension BrowserImporter {
     /// renamed is theirs now.
     ///
     /// It stands in §3.4b's saved tier, at the end of it. The slot is numbered
-    /// against the loose saved tabs *and* the saved folders together, because
+    /// against the loose saved tabs and the saved folders together, because
     /// §3.4b shares one run of indices between them.
     func folder(named name: String, inSpace spaceID: UUID) async throws -> TabGroup {
         let groups = try await store.groups(inSpace: spaceID)

@@ -4,46 +4,16 @@
 //
 //  §30.9 / SPACES-SPEC D-S12's two-finger sidebar swipe: slide sideways
 //  anywhere on the sidebar to change Space, and keep sliding past the last one
-//  to make a new one.
-//
-//  This file is the arithmetic; `SpaceSwipeController.swift` is the wiring.
-//  The two fail for different reasons and only one can be tested without a
-//  trackpad. `SpaceSwipe.resolve` is pure: given how far the fingers have
-//  travelled, which Space is active and how many there are, it says where the
-//  strip's indicator sits, how full the `+` ring is and what letting go would
-//  do. Every rule worth arguing about is in those twenty lines and is asserted
-//  by `SpaceSwipeTests`.
+//  to make a new one. This file is the arithmetic, pure and asserted by
+//  `SpaceSwipeTests`; `SpaceSwipeController.swift` is the wiring, which needs
+//  a trackpad's events to test.
 //
 //  The page is the ruler: one page of hand is one page of column, at whatever
-//  width the §3.7 handle has left the sidebar. There is no constant for "one
-//  Space" — `Metric.spaceSwipeSpeed` has the numbers and what went wrong with
-//  each of them.
-//
-//  One Space per gesture, however hard the flick. The travel used to
-//  accumulate without a ceiling, so a firm swipe from the first of two Spaces
-//  reached the second and kept going into the create zone past it.
-//
-//  Acceleration comes off before any of that runs. `scrollingDeltaX` is a
-//  distance the system has already scaled by how fast the fingers moved, so a
-//  page bound 1:1 to an undamped delta would sit three pages from the hand.
-//  `damped(_:since:at:)` bends rather than cutting — a hard ceiling low enough
-//  to catch a flick catches every event of an ordinary swipe too, and a page
-//  whose every frame is the ceiling travels at one fixed speed regardless of
-//  the hand.
-//
-//  Distance is not the only way to commit, which is what makes a page-wide
-//  page affordable: half a 280 pt column is 140 pt of finger, far too much for
-//  a reflex, so a release that is still moving turns the page however far it
-//  got (`Metric.spaceFlickSpeed`).
-//
-//  The ring is the threshold — it decides rather than promising. Full ring,
-//  let go, Space; short of full, nothing; pan back and it empties under the
-//  hand. It closed early in one build, which bought a more convincing way of
-//  being told the wrong thing.
-//
-//  Nothing is decided while the fingers are down. `.changed` only moves the
-//  read-out; the switch and the create both happen on `.ended`, so an
-//  overshoot is always recoverable.
+//  width the §3.7 handle has left the sidebar (`Metric.spaceSwipeSpeed`). One
+//  Space per gesture, however hard the flick; a release still moving turns the
+//  page however far it got (`Metric.spaceFlickSpeed`), since half a column is
+//  too much finger for a reflex. The ring is the threshold, not a promise, and
+//  nothing is decided until `.ended`, so an overshoot is always recoverable.
 //
 
 import AppKit
@@ -105,9 +75,9 @@ struct SpaceSwipe: Equatable {
             )
         }
 
-        // Forward, with a Space to go to. Capped at one page, so a hard
-        // flick arrives at the next Space rather than sailing through it — see
-        // the file header for what happened without this line.
+        // Forward, with a Space to go to. Capped at one page: uncapped, a firm
+        // swipe from the first of two Spaces reached the second and carried on
+        // into the create zone past it.
         guard activeIndex == count - 1 else {
             let travel = min(reach, 1)
             return SpaceSwipe(

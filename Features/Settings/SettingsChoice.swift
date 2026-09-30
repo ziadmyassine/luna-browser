@@ -11,9 +11,9 @@
 //  outline anywhere — bordering all three put the same weight on the two
 //  answers you did not give as on the one you did.
 //
-//  A segment is also as wide as its word. Every one used to be a fixed 140 pt,
-//  which put "Auto · Light · Dark" across half the pane and read as three
-//  buttons rather than one choice.
+//  A segment is as wide as its word, not a fixed width: 140 pt segments put
+//  "Auto · Light · Dark" across half the pane and read as three buttons
+//  rather than one choice.
 //
 
 import AppKit

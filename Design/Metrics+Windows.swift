@@ -4,7 +4,7 @@
 //
 //  Window and panel geometry: the browser window's size floor, §6.4's history
 //  panel and docs/SETTINGS-SPEC.md §1's Settings window. None of it is browser
-//  chrome, which is what Metrics.swift is for — and that file was at the
+//  chrome, which is what Metrics.swift is for — and that file is at the
 //  400-line limit.
 //
 
@@ -19,25 +19,23 @@ extension Tokens.Metric {
     /// not as an `NSSize` — `NSWindow.minSize` is ignored once the content is
     /// under Auto Layout.
     static let settingsDefaultWidth: CGFloat = 720
-    /// Kept 40 above the floor, as it was before the floor moved.
+    /// Kept 40 above the floor.
     static let settingsDefaultHeight: CGFloat = 600
     static let settingsMinWidth: CGFloat = 640
     /// The floor has to hold §2's twelve rows, and on the sidebar's 38 pt
     /// pitch they are 453 pt tall: 84 pt of search and its gaps above plus
     /// `chromeGapWide` below comes to 553. Below that the list runs past the
     /// bottom of the window it is constrained inside, which is a broken
-    /// constraint rather than a scroll — what §1's original 420 did to ten.
+    /// constraint rather than a scroll.
     static let settingsMinHeight: CGFloat = 560
 
     /// The section list. Fixed, and deliberately not `sidebarWidth` — that one
     /// is a `SpanMetric` because the user drags it (§3.7); a nine-row list has
     /// nothing to drag for.
     static let settingsListWidth: CGFloat = 230
-    // A section row has no metrics of its own any more: §2's list is the
-    // browser sidebar with sections where the tabs are, so it reads `rowHeight`,
+    // A section row has no metrics of its own: §2's list is the browser
+    // sidebar with sections where the tabs are, so it reads `rowHeight`,
     // `rowPillHeight`, `rowGap` and `rowInset` directly (`SettingsMetrics`).
-    // `settingsSectionRow` (34) and `settingsSectionIcon` (a 24 pt rounded
-    // square behind every glyph) are gone with the design they described.
     /// A control row inside a card, and the gap from one card to the next.
     static let settingsCardRow: CGFloat = 44
     static let settingsGroupGap: CGFloat = 24
@@ -77,7 +75,7 @@ extension Tokens.Metric {
 
     /// A section's tile (`SettingsSymbolTile`): in the list, 22 — the
     /// 16 pt glyph column with three points of tile round it, so a tile
-    /// sits where a symbol used to without moving the title; at the head of
+    /// takes a symbol's place without moving the title; at the head of
     /// the page, twice that, the size macOS gives a settings pane's own tile.
     static let settingsListTile: CGFloat = 22
     static let settingsPageTile: CGFloat = 44
@@ -106,11 +104,10 @@ extension Tokens.Metric {
     /// §6.4's History pop-out: the panel the §3.5 bottom-bar button opens,
     /// beside the button rather than over the page.
     ///
-    /// A sidebar's width and a bit, not the Command Bar's 640. It used to be the
-    /// Command Bar's, because the two looked like the same kind of surface —
-    /// centred over the page, behind a scrim, dismissed the same way. They are
-    /// not: the Command Bar is where you are looking when you summon it, and
-    /// History is a shelf you glance at beside the button you pressed.
+    /// A sidebar's width and a bit, not the Command Bar's 640. The two are not
+    /// the same kind of surface: the Command Bar is where you are looking when
+    /// you summon it, and History is a shelf you glance at beside the button you
+    /// pressed.
     ///
     /// 320 keeps a title and its `host · date` subtitle on one line at §1's
     /// 13 pt while staying visibly a panel next to the sidebar rather than a

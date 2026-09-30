@@ -73,9 +73,8 @@ extension ControlService {
 
     /// Takes back the session's folder from an earlier launch on its first
     /// call of this one, and follows the session's name. `folders` starts
-    /// empty, so until the session opened a new tab its work on the tabs
-    /// already in the folder left the folder's spark dark, and those tabs
-    /// did not count as its own.
+    /// empty, so without this its work on the tabs already in the folder
+    /// leaves the folder's spark dark, and those tabs do not count as its own.
     func adoptFolder(of client: ControlClient, in session: BrowserSession) {
         if folders[client.session] == nil, let group = folder(of: client, in: session) {
             take(group, for: client)
@@ -93,9 +92,8 @@ extension ControlService {
     /// Only a loose tab of today's: a saved tab, one in the user's own folder
     /// or one in another agent's stays where the user or that agent put it.
     ///
-    /// In the tab's own Space, which need not be the one in front: a tab in
-    /// another Space was left loose, and the user found it there afterwards
-    /// with no sign an agent had used it.
+    /// In the tab's own Space, which need not be the one in front, or a tab in
+    /// another Space stays loose with no sign an agent has used it.
     func enfold(_ id: UUID, for client: ControlClient, in session: BrowserSession) {
         guard let tab = session.tab(id), tab.kind == .today, tab.groupID == nil else { return }
         let current = folders[client.session].flatMap(session.group)

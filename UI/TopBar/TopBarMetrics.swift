@@ -10,15 +10,14 @@
 import AppKit
 
 /// §4 gives no gap table of its own, so the bar borrows §3.1's: 8 pt between
-/// tight neighbours, 16 pt between clusters. Both are derived from an existing
-/// token rather than written down again — there is no `chromeGap` token yet,
-/// and rule 2 forbids inventing one here.
+/// tight neighbours, 16 pt between clusters, both derived from `rowInset`
+/// rather than written down again.
 enum TopBarMetrics {
     /// §3.1's "gap 8", and the one gap between any two things on the bar but
     /// two open tabs (`tabGap`): the lights and the plate, the plate and the
-    /// first tab, the tabs and the capsule. It used to be three numbers — 8, 16, and 16 plus
-    /// whatever the run's own lead added — and the bar read as unevenly spaced
-    /// even where each number had its reason.
+    /// first tab, the tabs and the capsule. One number, not three: with 8, 16,
+    /// and 16 plus whatever the run's own lead added, the bar read as unevenly
+    /// spaced even where each number had its reason.
     static var gap: CGFloat { Tokens.Metric.rowInset }
     /// The bar's trailing inset, from the capsule to the window's edge.
     static var clusterGap: CGFloat { Tokens.Metric.rowInset * 2 }
@@ -29,8 +28,8 @@ enum TopBarMetrics {
     /// The height of everything standing on the bar's line: the capsule's, so
     /// the plate, the open tabs and the capsule are one height.
     static var lineHeight: CGFloat { capsuleItem.height + capsuleInset * 2 }
-    /// §4's plate: the Space's name and every kept tab, on one piece of glass
-    /// at the capsule's height. Its corner is a capsule item's squircle plus
+    /// §4's plate: every kept tab, on one piece of glass at the capsule's
+    /// height. Its corner is a capsule item's squircle plus
     /// the capsule's padding — the corner a padded tile inside it would run
     /// parallel to.
     static var plate: RoundedMetric {
@@ -41,16 +40,15 @@ enum TopBarMetrics {
     /// so the lit one fills the plate top to bottom and its ends meet the
     /// plate's ends exactly. At rest it is its icon on the plate; the glass
     /// and §3.3's light are what the pointer and the selection bring out.
-    ///
-    /// It was the grid's own 42 pt for one build, then the row pill's 35, then
-    /// a padded 28 inside the plate — which read as a box floating in a box.
+    /// Not a padded tile inside the plate, which read as a box floating in a
+    /// box.
     static var keptTile: RoundedMetric { plate }
     /// Every open tab's width, whatever its title — Dia's, measured off its
     /// tab strip on 2026-09-24: "New Tab" and "Roosta Deck Board" both 172 pt,
     /// 176 pt from one tab's start to the next. Sized to the title between 120
     /// and 180 pt, the bar was a row of different lengths that shifted every
-    /// time a page's title arrived; a longer title now fades, as it does in
-    /// the column.
+    /// time a page's title arrived. A longer title fades, as it does in the
+    /// column.
     static var tabWidth: CGFloat { 172 }
     /// Between two open tabs: Dia's, off the same measurement — 176 pt from
     /// one tab's start to the next, less the 172 pt tab. The bar's `gap`
@@ -88,9 +86,9 @@ enum TopBarMetrics {
 
     /// The bar's height: twice the traffic lights' centre line, so the bar's
     /// own middle is the lights' line and a tab standing on it has the same
-    /// room above as below — 7 pt each side of the 36 pt line. The bar was the
-    /// sidebar's 52 pt row (`topBarHeight`) until 2026-09-24, which left the
-    /// tabs 7 pt from the window's top edge and 9 pt from the page.
+    /// room above as below — 7 pt each side of the 36 pt line. Not the
+    /// sidebar's 52 pt row (`topBarHeight`), which left the tabs 7 pt from the
+    /// window's top edge and 9 pt from the page.
     static var barHeight: CGFloat {
         (Tokens.Metric.trafficLightInset + Tokens.Metric.trafficLightHeight / 2) * 2
     }

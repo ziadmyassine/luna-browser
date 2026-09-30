@@ -2,40 +2,19 @@
 //  LoadProgressLine.swift
 //  Luna
 //
-//  §3.2c: how far the page has loaded, drawn as a line under the address.
+//  §3.2c: how far the page has loaded, drawn as a line under the address. The
+//  same line on all three search bars (§3.2, §3.2b, §4): `loadLineHeight`
+//  thick, on the inside of the pill's bottom edge, the pill's whole width, cut
+//  at both ends by the capsule — the pill filling up, not a rule with its own
+//  rounded ends floating inside it. The host owns the frame; this owns when a
+//  progress bar may be on screen. With no pill on screen the window's top edge
+//  wears it (`LoadProgressHost`).
 //
-//  On the bottom of the search bar, wherever the search bar is. Luna has
-//  three of them — §3.2's in the column, §3.2b's on the page, §4's in the top
-//  bar — and the line is the same line on all three: `loadLineHeight` thick,
-//  lying on the inside of the pill's bottom edge, running the pill's whole
-//  width from the leading end, and cut at both ends by the capsule itself.
-//  The host owns the frame; this owns what is in it, so there is one set of
-//  rules about when a progress bar is allowed to be on screen rather than one
-//  per surface.
-//
-//  It is the pill filling up, not a rule drawn inside one. A line held clear of
-//  the bottom edge with its own rounded ends is a second object floating in the
-//  capsule. The reference measures the other thing: the blue run ends exactly
-//  where the capsule's bottom stroke begins, and its leading end is the
-//  corner's curve rather than a cap.
-//
-//  When no pill is on screen the window's top edge wears it — see
-//  `LoadProgressHost`. That is the sidebar layout with the sidebar hidden and
-//  the search bar still in the column: the address bar is parked off screen,
-//  and a load with nothing to show for it is the one case worth a fallback.
-//
-//  Three rules keep it honest, and all three are about not drawing:
-//
-//  1. A load under `reloadSkipThreshold` plays nothing. §7 wrote that rule
-//     down for the bloom and it is the same rule here: a cached reload is done
-//     before a progress bar could say anything true about it, and a 2 pt line
-//     flashing on every back-navigation is worse than no line at all.
-//  2. It never goes backwards. `estimatedProgress` can fall when a load
-//     commits a new document, and a bar that retreats reads as a fault in the
-//     page rather than a fact about it.
-//  3. It finishes before it leaves. The fill runs to full and then fades,
-//     so the last thing seen is a full line, not a bar that vanished at four
-//     fifths.
+//  Three rules, all about not drawing:
+//  1. A load under `reloadSkipThreshold` plays nothing, as §7's bloom does: a
+//     cached reload is done before a bar could say anything true about it.
+//  2. It never goes backwards, though `estimatedProgress` can fall on commit.
+//  3. It finishes before it leaves: the fill runs to full, then fades.
 //
 
 import AppKit

@@ -5,19 +5,18 @@
 //  §3.6's overrides: which keystroke each command actually wears, once the user
 //  has had their say.
 //
-//  `UserDefaults`, one key per command (`luna.shortcut.<id>`). One key rather
-//  than a single dictionary, so a command that is renamed, retired or not yet
-//  written simply has no key — a stored blob would have to be migrated, and the
-//  thing being migrated is a keystroke.
+//  `UserDefaults`, one key per command (`luna.shortcut.<id>`), so a command
+//  that is renamed, retired or not yet written simply has no key — a single
+//  stored dictionary would have to be migrated, and the thing being migrated
+//  is a keystroke.
 //
-//  An override is a full replacement, and an empty one is a real answer: three
-//  states, not two — no key at all (the default stands), a stored keystroke,
-//  and `none`, the user deliberately taking a shortcut away. The third is why
-//  the absence of a value cannot mean "no shortcut".
+//  An override is a full replacement, and there are three states: no key at
+//  all (the default stands), a stored keystroke, and `none`, the user
+//  deliberately taking a shortcut away — which is why the absence of a value
+//  cannot mean "no shortcut".
 //
-//  Nothing here touches a menu. `MainMenu` rebuilds itself when `didChange`
-//  arrives, which is the only way a binding reaches the menu bar — see
-//  `MainMenu.rebuild`.
+//  Nothing here touches a menu: `MainMenu.rebuild` runs when `didChange`
+//  arrives, and that is the only way a binding reaches the menu bar.
 //
 
 import AppKit

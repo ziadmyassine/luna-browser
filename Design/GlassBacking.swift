@@ -125,12 +125,11 @@ final class GlassBackingView: NSView {
     /// Framed by hand, never by `autoresizingMask`.
     ///
     /// A backing is built before its host has a size, so the glass inside it
-    /// starts at `.zero`, and autoresizing cannot scale a zero frame — it stayed
-    /// zero for the life of the window. Both consequences shipped: the sidebar
-    /// had glass over a strip at the bottom and nothing else, and the
-    /// `NSAutoresizingMaskLayoutConstraint`s AppKit derives from that stale
-    /// frame — `V:|-(6790)-[glass]` — joined the window's fitting size and
-    /// ratcheted it to 6800 pt tall, bottom bar far below the screen.
+    /// starts at `.zero`, and autoresizing cannot scale a zero frame, so it stays
+    /// zero for the life of the window. The sidebar then has glass over a strip
+    /// at the bottom and nothing else, and the `NSAutoresizingMaskLayoutConstraint`s
+    /// AppKit derives from the stale frame (`V:|-(6790)-[glass]`) join the
+    /// window's fitting size and ratchet it to 6800 pt tall.
     override func layout() {
         super.layout()
         // Actions off. A layout pass can run inside somebody else's animation
@@ -171,20 +170,17 @@ final class GlassBackingView: NSView {
 
     /// In fullscreen the chrome is a plate and the material stands down.
     ///
-    /// There is nothing behind the window to refract, so the glass on top was
-    /// not a refraction of anything — only a film that lifted the plane a few
-    /// steps and made its colour un-nameable. No value for the plane fixes that
-    /// while something else is painted over it, so the glass is hidden for the
-    /// length of fullscreen and `Tokens.Surface.fullScreenChrome` is the colour
+    /// There is nothing behind the window to refract, so glass over the plate is
+    /// only a film that lifts it a few steps and makes its colour un-nameable,
+    /// and no value for the plate fixes that while something is painted over it.
+    /// With the glass hidden, `Tokens.Surface.fullScreenChrome` is the colour
     /// exactly.
     ///
-    /// Only the surfaces with a backdrop: a control's glass in fullscreen is
-    /// still reading as raised above the plate, which is its job.
-    ///
-    /// And not the plane a peeked sidebar floats on. `rimmed` means "this
-    /// surface is over the page rather than part of the window's own chrome".
-    /// Flattening it made a panel meant to read as floating look like a hole cut
-    /// in the page, so it keeps its material in every window state.
+    /// Only the surfaces with a backdrop: a control's glass in fullscreen still
+    /// reads as raised above the plate, which is its job. Not the plane a peeked
+    /// sidebar floats on either (`rimmed`, over the page rather than part of the
+    /// window's chrome): flattened, a panel meant to read as floating looks like
+    /// a hole cut in the page.
     private var wantsFlatPlane: Bool { isWindowFullScreen && style.hasBackdrop && !rimmed }
 
     /// Whether this surface is in the window the user is working in.
@@ -224,7 +220,7 @@ final class GlassBackingView: NSView {
     /// The plane goes up on `will` and comes down on `did`.
     ///
     /// `styleMask` does not carry `.fullScreen` until the transition finishes,
-    /// so reading it on `didEnterFullScreen` left the sidebar black for the
+    /// so reading it on `didEnterFullScreen` leaves the sidebar black for the
     /// whole half-second zoom. Entering is driven by `willEnterFullScreen`,
     /// which fires before the first frame, and leaving by `didExitFullScreen`,
     /// so the plane is still there for the zoom back out.
@@ -379,7 +375,7 @@ final class GlassBackingView: NSView {
         // Otherwise frost: the chrome planes carry `Surface.frost` behind their
         // glass at all times, the same grey at half strength. The desktop still
         // refracts through, but through a surface rather than a hole, and it
-        // costs no darkening the way a heavier tint did.
+        // costs none of the darkening a heavier tint would.
         layer.backgroundColor = if wantsFlatPlane {
             Tokens.Surface.fullScreenChrome.cgColor
         } else if wantsOpaquePlane {

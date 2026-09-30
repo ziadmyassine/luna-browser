@@ -4,21 +4,17 @@
 //
 //  What the chrome says with the hand rather than the eye: a tab that has
 //  changed places, §30.9's ring closing, and the Space that comes of it.
+//  Beside Motion.swift for the same reason: gesture code asks for a tick by
+//  name instead of deciding what it feels like. This is the only file in Luna
+//  permitted to name `NSHapticFeedbackManager`.
 //
-//  In Design/ beside Motion.swift, for the same reason: a tick under the finger
-//  is feel, not behaviour, so gesture code asks for it by name instead of
-//  deciding what it feels like. This is the only file in Luna permitted to name
-//  `NSHapticFeedbackManager`.
+//  Measured: `NSHapticFeedbackPattern` ships exactly three cases in the macOS
+//  26.5 SDK (`.generic`, `.alignment`, `.levelChange`) with no intensity or
+//  duration, so the only decision is which of the three.
 //
-//  MEASURED, and it decides the API: `NSHapticFeedbackPattern` ships exactly
-//  three cases in the macOS 26.5 SDK — `.generic`, `.alignment`, `.levelChange`
-//  — with no intensity, no duration and no way to build one. The only decision
-//  is which of the three.
-//
-//  It is silent on most Macs, and that is not a failure. `defaultPerformer`
-//  only reaches hardware on a Force Touch trackpad and already honours System
-//  Settings ▸ Trackpad, so there is no setting to add and nothing to check
-//  before calling. Elsewhere it costs a method call and does nothing.
+//  `defaultPerformer` only reaches hardware on a Force Touch trackpad and
+//  already honours System Settings ▸ Trackpad, so there is no setting to add
+//  and nothing to check before calling.
 //
 
 import AppKit

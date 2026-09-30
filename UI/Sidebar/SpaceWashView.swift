@@ -3,32 +3,18 @@
 //  Luna
 //
 //  §8.2a's second intensity: the active Space's gradient, held at
-//  `Tokens.Gradient.washAlpha`, behind the whole sidebar. It is the reason two
-//  Spaces stop looking like the same window — the one visible gap the Spaces
-//  feature still had.
+//  `Tokens.Gradient.washAlpha`, behind the whole sidebar, so two Spaces stop
+//  looking like the same window.
 //
-//  It draws under everything and is not a second glass surface.
-//  `BrowserWindowController` already applies `Glass.sidebar` to the window's
-//  root plane; this is a tint laid on that material, which is why it paints
-//  translucent stops rather than the flattened ones `Tokens.Gradient.planes`
-//  returns. Getting it the wrong way round replaces the glass with a coloured
-//  plate — see `washStops`.
+//  A tint on the `Glass.sidebar` material `BrowserWindowController` already
+//  applies, not a second glass surface — hence translucent stops rather than
+//  `Tokens.Gradient.planes`' flattened ones, which would replace the glass with
+//  a coloured plate (see `washStops`).
 //
-//  §21.2 in full, and all three settings are live signals rather than an
-//  appearance:
-//
-//    · Reduce Transparency — the wash goes opaque, because there is no
-//      glass left to see through and a 16 % film over a solid plane is a
-//      smudge. `washStops` makes that decision, so this view has no branch.
-//    · Reduce Motion — a Space switch replaces the gradient outright
-//      instead of cross-fading it. `Tokens.Motion.animate` degrades to zero
-//      duration, so the layer lands on the new colours in the same frame.
-//    · Increase Contrast — not an `NSAppearance` on macOS 26.5, so the
-//      only way to hear about it is
-//      `NSWorkspace.accessibilityDisplayOptionsDidChangeNotification`. It
-//      matters here because Reduce Transparency arrives on the same
-//      notification, and without it a user turning that setting on would keep
-//      a translucent wash until the next Space switch.
+//  §21.2: under Reduce Transparency `washStops` goes opaque, and under Reduce
+//  Motion a switch replaces the gradient outright. Reduce Transparency is not an
+//  appearance; it arrives on `accessibilityDisplayOptionsDidChangeNotification`,
+//  without which the wash stayed translucent until the next Space switch.
 //
 
 import AppKit
@@ -82,23 +68,15 @@ final class SpaceWashView: NSView {
         apply(animated: !isFirst)
     }
 
-    /// While §30.9's swipe is in the hand: the Space you are in, blended
-    /// `mix` of the way toward the one you are sliding toward.
+    /// While §30.9's swipe is in the hand: the Space the indicator is leaving,
+    /// blended `mix` of the way toward the next. It moves with the fingers and
+    /// back when they stop, so an abandoned swipe reads as abandoned rather
+    /// than as a switch that did not take. Never animated: `mix` is the
+    /// animation, one frame per event.
     ///
-    /// The wash is the largest thing on screen saying which Space this is, so
-    /// it is the most honest place to show one arriving. It moves with the
-    /// fingers and back when they stop, which is what makes an abandoned swipe
-    /// read as abandoned rather than as a switch that did not take.
-    ///
-    /// Never animated: `mix` is the animation, one frame per event. `nil` or
-    /// `mix: 0` restores the active pair.
-    ///
-    /// A straight four-channel lerp, not `blended(toward:)`. That one is
-    /// alpha-correct for laying a translucent fill over a colour, so a target
-    /// of zero alpha contributes nothing — and sliding from a coloured Space
-    /// toward a neutral one would have shown no change at all, in the one
-    /// direction where the wash is what is going away. A cross-fade is two
-    /// layers, one of them leaving, and alpha is one of the things travelling.
+    /// A straight four-channel lerp, not `blended(toward:)`, which is
+    /// alpha-correct for a fill over a colour: a zero-alpha target contributes
+    /// nothing, so sliding toward a neutral Space showed no change at all.
     /// - Parameters:
     ///   - lower: the Space on the left of where the indicator currently is.
     ///   - upper: the one on its right. The two are the same pair whenever the
@@ -158,20 +136,13 @@ final class SpaceWashView: NSView {
     }
 
     /// The two stops the wash lands on — and neutral paints nothing at all.
+    /// `washStops`' desaturated neutral pair is a 16 % grey film over the
+    /// glass, and a Space nobody has coloured has to be indistinguishable from
+    /// no colour, or "no colour" is just a thirteenth colour.
     ///
-    /// `washStops` hands back a desaturated grey pair for neutral, which is a
-    /// 16 % grey film over the glass: a visibly greyer sidebar, not the sidebar
-    /// as it was before Spaces had colours. A Space nobody has coloured has to
-    /// be indistinguishable from no Space colour, or "no colour" is just a
-    /// thirteenth colour.
-    ///
-    /// Two clear stops rather than `isHidden`, so the cross-fade runs in both
-    /// directions: picking a colour fades up from nothing and "No Colour" fades
-    /// back down, instead of the layer snapping in and out under the tab list.
-    ///
-    /// A `static` taking the appearance, rather than a method reading
-    /// `effectiveAppearance`, so the neutral rule can be proved without a
-    /// window around it.
+    /// Two clear stops rather than `isHidden`, so the cross-fade runs both ways
+    /// instead of the layer snapping in and out under the tab list. Static and
+    /// given the appearance, so the neutral rule is tested without a window.
     static func washColors(for gradient: GradientPair, in appearance: NSAppearance) -> [NSColor] {
         guard !Tokens.Gradient.isNeutral(gradient) else { return [.clear, .clear] }
         let stops = Tokens.Gradient.washStops(gradient, in: appearance)

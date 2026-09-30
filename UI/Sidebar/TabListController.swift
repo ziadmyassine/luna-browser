@@ -2,22 +2,16 @@
 //  TabListController.swift
 //  Luna
 //
-//  The §3.4 list. An `NSTableView`, deliberately:
+//  The §3.4 list. An `NSTableView`, deliberately: §19.1 asks for 120 fps with
+//  40+ rows, and a table recycles row views, lays out only what is visible and,
+//  with a fixed `rowHeight`, never asks a row its height while scrolling — a
+//  stack of 40 live views in a scroll view re-lays the whole column per frame.
+//  It also gives arrow keys, type-ahead (`typeSelectStringFor`) and per-row
+//  VoiceOver for free (§7.4, §21.1). Not `NSOutlineView`: the Essentials grid is
+//  a header above the scroll view, not a parent node.
 //
-//  · §19.1 asks for 120 fps with 40+ rows. `NSTableView` recycles row views,
-//    lays out only what is visible, and — with a fixed `rowHeight` — never asks
-//    a row how tall it is while scrolling. A stack of 40 live views in a scroll
-//    view (what the SwiftUI browsers ship) re-lays the whole column per frame.
-//  · It hands us arrow-key traversal, type-ahead (`typeSelectStringFor`) and
-//    per-row VoiceOver for free — §7.4 and §21.1 in one decision.
-//  · `NSOutlineView` would add expand/collapse machinery for sections that do
-//    not expand or collapse. The Essentials grid is a header above the scroll
-//    view, not a parent node.
-//
-//  The selected pill and the hover fill are one view each, moved between rows,
-//  rather than a background per row. §6 asks the selected pill to move on a
-//  0.20 s spring, which only a single view can do, and it means a scroll
-//  allocates no glass at all.
+//  The selected pill and the hover fill are one view each, moved between rows:
+//  §6's 0.20 s spring needs a single view, and a scroll then allocates no glass.
 //
 
 import AppKit
@@ -26,10 +20,8 @@ import BrowserKit
 @MainActor
 final class TabListController: NSObject {
 
-    /// `SidebarScrollView`, not `NSScrollView`: §30.9's swipe is caught on the
-    /// sidebar's plane, and a scroll view consumes both axes — so without the
-    /// subclass the gesture would work everywhere except over the rows, which
-    /// is most of the column and all of the part a hand rests on.
+    /// `SidebarScrollView`, not `NSScrollView`, so §30.9's swipe works over the
+    /// rows too — see there.
     let scrollView: NSScrollView = SidebarScrollView()
 
     var onActivateTab: ((UUID) -> Void)?
@@ -212,16 +204,11 @@ final class TabListController: NSObject {
     // MARK: - Content
 
     /// The rows, and whether what changed is an edit to this list or a
-    /// different list entirely.
-    ///
-    /// A Space switch is the second, and it used to be treated as the
-    /// first. `apply` is §6's insert: it fades the outgoing rows over
-    /// `tabInsert`, which is exactly right when one tab closes and wrong for
-    /// every row at once — `NSTableView` keeps a row being removed on screen
-    /// for the length of its animation, so the Space you had just left stayed
-    /// drawn, fading, over the Space you had just arrived in. That is the flash
-    /// of old tabs. `SidebarViewController` is already cross-fading the whole
-    /// column for this; the rows must not bring a second transition to it.
+    /// different list entirely — a Space switch, `replacing`. `apply` fades
+    /// removed rows over `tabInsert`, and `NSTableView` keeps a removed row on
+    /// screen for its animation, so a switch diffed in left the old Space's
+    /// tabs fading over the new one. `SidebarViewController` already
+    /// cross-fades the whole column; the rows must not add a second transition.
     func show(
         saved: [SidebarSlot],
         today: [SidebarSlot],
@@ -239,12 +226,10 @@ final class TabListController: NSObject {
     /// the tabs: a §3.4b group folding, and a lift starting or ending — which
     /// brings the saved tier's rule out and puts it away again.
     /// - Parameter activeTabID: the selection to apply, or nothing at all to
-    ///   keep the one already on screen. Two different answers, which is why it
-    ///   is a double optional: `.some(nil)` is "no row is selected", and the
-    ///   single optional this used to take could not say it — a Space whose
-    ///   last page had just been closed handed over a nil that read as "leave
-    ///   it alone", so §3.4's pill stayed lying on the row the user had closed
-    ///   and the next `⌘W` let that row go.
+    ///   keep the one already on screen. A double optional because `.some(nil)`
+    ///   is "no row is selected": a single optional read a Space whose last
+    ///   page had just closed as "leave it alone", so §3.4's pill stayed on the
+    ///   closed row and the next `⌘W` let that row go.
     func rebuild(activeTabID: UUID?? = nil, replacing: Bool = false) {
         let next = SidebarList(
             saved: shown.saved,

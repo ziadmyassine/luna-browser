@@ -6,23 +6,14 @@
 //  with real phases, through the real controller, into a real session — the
 //  half `SpaceSwipeTests` cannot reach.
 //
-//  This was thought to need a trackpad and does not. The gesture reacts only to
-//  a scroll carrying an `NSEvent.Phase`, which no ordinary `NSEvent`
-//  initialiser produces — but `CGEvent(scrollWheelEvent2Source:…)` does, and
-//  its `timestamp` arrives as `NSEvent.timestamp` nanosecond for nanosecond. So
-//  both halves of what the gesture measures are controllable from a test: how
-//  far the fingers went, and how fast they were still going when they left.
+//  No trackpad is needed. The gesture reacts only to a scroll carrying an
+//  `NSEvent.Phase`, which `CGEvent(scrollWheelEvent2Source:…)` produces, and
+//  its `timestamp` arrives as `NSEvent.timestamp` exactly, so both distance
+//  and release speed are controllable from a test.
 //
-//  The defect these were written for: a Space could not be created. The create
-//  asked for three pages of travel, which against the damping ceiling needs
-//  longer than an ordinary stroke lasts, so the `+` closed — its ring cost a
-//  third of that — and the release made nothing, every time.
-//
-//  Reported again with one page in place of three: the ring still closed a
-//  third of the way in, so a hand that did what the read-out said still got
-//  nothing. The ring is the threshold now, and the two tests that matter are a
-//  stroke that fills it, which makes a Space however the fingers left, and a
-//  reflex that does not, which never does.
+//  The defect these guard: a create threshold beyond an ordinary stroke, so no
+//  Space could be made. The ring is the threshold: a stroke that fills it makes
+//  a Space however the fingers left, and a reflex that does not never does.
 //
 
 import AppKit
@@ -61,12 +52,10 @@ final class SpaceGestureTests: XCTestCase {
         XCTAssertEqual(session.spaces.count, before + 1)
     }
 
-    /// The same stroke, lifted while it was still moving, makes one too —
-    /// and that is a rule this deliberately reversed. A flick used to make
-    /// nothing however far it went, which reads as a statement about intent and
-    /// draws as a closed circle that means nothing: the ring had already told
-    /// the hand it was done. A read-out that is not the threshold is a read-out
-    /// of nothing, so the distance carries the whole guard now.
+    /// The same stroke, lifted while it was still moving, makes one too. The
+    /// closed ring has already told the hand it is done, and a read-out that is
+    /// not the threshold is a read-out of nothing, so the distance carries the
+    /// whole guard.
     func testAClosedRingMakesASpaceHoweverTheHandLeft() async throws {
         let (session, gestures) = try await sidebar()
         let before = session.spaces.count
@@ -75,11 +64,11 @@ final class SpaceGestureTests: XCTestCase {
         XCTAssertEqual(session.spaces.count, before + 1)
     }
 
-    /// …and the reflex it used to be the guard against still makes
-    /// nothing, because it never fills the ring. A flick off the end of the
-    /// Spaces is over in a handful of events, and against the damping ceiling
-    /// that is a quarter of a page — the `+` is barely in from the edge. This
-    /// is the test that has to hold for the one above to be safe.
+    /// …and a reflex still makes nothing, because it never fills the ring. A
+    /// flick off the end of the Spaces is over in a handful of events, and
+    /// against the damping ceiling that is a quarter of a page — the `+` is
+    /// barely in from the edge. This is the test that has to hold for the one
+    /// above to be safe.
     func testAReflexOffTheEndOfTheSpacesMakesNothing() async throws {
         let (session, gestures) = try await sidebar()
         let before = session.spaces.count
@@ -121,10 +110,9 @@ final class SpaceGestureTests: XCTestCase {
         try await eventually("the Space changed") { session.activeSpaceID != first }
     }
 
-    /// "A little swipe is too big a move." Two fifths of a page, let go of
-    /// gently, is a look at the next Space and not a move to it — the column
-    /// springs back. Under the old ruler this same hand travel was three and a
-    /// half Spaces and would have committed several times over.
+    /// Two fifths of a page, let go of gently, is a look at the next Space and
+    /// not a move to it — the column springs back. On a ruler that counted this
+    /// travel as three and a half Spaces, it committed several times over.
     func testASmallSlowSwipeStaysWhereItIs() async throws {
         let (session, gestures) = try await sidebar(spaces: 2)
         let first = session.activeSpaceID
@@ -143,10 +131,9 @@ final class SpaceGestureTests: XCTestCase {
 
     /// …and a sideways swipe is the swipe's, however much it wanders.
     ///
-    /// The units used to disagree. `drift` added the raw `scrollingDeltaY`
-    /// to a comparison against an offset the damping ceiling had already folded
-    /// down, so a brisk horizontal swipe lost to its own wobble and the list
-    /// kept the scroll. Both sides come through the same curve now.
+    /// Both sides of the comparison go through the damping curve. Raw
+    /// `scrollingDeltaY` against an offset the ceiling had already folded down
+    /// let a brisk horizontal swipe lose to its own wobble.
     func testASidewaysSwipeWithAWobbleIsStillASwipe() async throws {
         let (_, gestures) = try await sidebar()
         XCTAssertTrue(scrolled(gestures, dx: -60, dy: 20, events: 10), "a wobbly swipe was dropped")
@@ -159,10 +146,9 @@ final class SpaceGestureTests: XCTestCase {
     /// hand and about as long as a trackpad stroke lasts.
     ///
     /// The length is the test. Against the damping ceiling this carries a
-    /// little over one page, which is comfortably past what a create now costs
-    /// and comfortably short of the three pages it used to — so a stroke a real
-    /// hand performs separates the two thresholds, and lengthening it here
-    /// would quietly re-admit the bug.
+    /// little over one page: comfortably past what a create costs, and well
+    /// short of a three-page threshold. Lengthening it would let a threshold
+    /// no real hand reaches pass again.
     private func push(_ gestures: SidebarSpaceGestures, page: CGFloat, restingBeforeTheLift resting: Bool) {
         stroke(gestures, perEvent: -30, events: 15, hz: 60, restingBeforeTheLift: resting)
     }
@@ -286,10 +272,10 @@ final class SpaceGestureTests: XCTestCase {
     ///
     /// It has to be built as nothing rather than left alone. The rebuild is
     /// guarded on the answer changing, and the answer for "the Space past the
-    /// end" was nil, which is also the answer for "nothing has been shown yet"
-    /// — so the guard held and the still kept whichever Space the last stroke
-    /// had drawn on it. That is why this stroke is the second one: with a
-    /// clean still the bug does not show.
+    /// end" is nil, which is also the answer for "nothing has been shown yet"
+    /// — so a guard alone keeps whichever Space the last stroke drew on the
+    /// still. That is why this stroke is the second one: on a clean still the
+    /// bug does not show.
     func testTheSpacePastTheLastOneDrawsNothingAtAll() async throws {
         let (session, gestures) = try await sidebar(spaces: 2)
         let still = try XCTUnwrap(controller?.preview)

@@ -2,22 +2,13 @@
 //  Downloads.swift
 //  Luna
 //
-//  docs/SETTINGS-SPEC.md §3.5.
-//
-//  Two of the four rows here are disabled with a reason, and the reason is
-//  the same one: `DownloadManager` owns the destination decision and the item
-//  list, and it is not this milestone's file to edit. What is wired is what
-//  `Features/Downloads/DownloadItem.swift` can answer by itself — the folder
-//  (`DownloadDestination.folder`) and auto-open (`DownloadItem.finish()`).
-//  §30.4: a dimmed row that says why beats a switch that flips and does
-//  nothing.
+//  docs/SETTINGS-SPEC.md §3.5: where downloads land, and whether safe files
+//  open by themselves.
 //
 //  The folder is a pop-up, not an `NSPathControl`. The path control draws the
 //  folder's name hard against its leading edge and its chevron against the
-//  trailing one, and it is as wide as the row lets it be — so the word
-//  "Downloads" sat inches from the control it belonged to. A pop-up puts the
-//  name and the chevron together, and makes this row look like the two below
-//  it.
+//  trailing one, as wide as the row allows, so the name sat inches from its
+//  chevron. A pop-up keeps the two together and matches the row below.
 //
 
 import AppKit

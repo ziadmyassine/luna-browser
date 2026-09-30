@@ -104,11 +104,10 @@ final class QuitSheetButton: NSView {
             hintWell.trailingAnchor.constraint(equalTo: trailingAnchor),
             hintWell.topAnchor.constraint(equalTo: topAnchor),
             hintWell.bottomAnchor.constraint(equalTo: bottomAnchor),
-            // Dead centre of the cap, both ways. An optical nudge toward the
-            // leading edge was tried first, on the theory that the trailing half
-            // of the cap is curve rather than field, and what it looks like is a
-            // key that has slipped. `esc` and the return arrow are both marks in
-            // a capsule, and a mark in a capsule sits in the middle of it.
+            // Dead centre of the cap, both ways. Not nudged toward the leading
+            // edge for the curve of the trailing half: that looks like a key
+            // that has slipped. `esc` and the return arrow are both marks in a
+            // capsule, and a mark in a capsule sits in the middle of it.
             hint.centerXAnchor.constraint(equalTo: hintWell.centerXAnchor),
             hint.centerYAnchor.constraint(equalTo: hintWell.centerYAnchor),
             // Which leaves the inset to say how narrow the cap may get.

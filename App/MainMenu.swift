@@ -6,21 +6,16 @@
 //
 //  §22.5: every user-facing command is discoverable here, because a command
 //  that is only a keystroke is a command nobody finds. This file owns the
-//  structure — which menu a command is in and what it sits beside — and
-//  `BrowserCommand` owns the map of titles, selectors and keystrokes.
-//  `AppDelegate` implements the selectors (`BrowserCommands.swift`). Luna
-//  installs no event monitors and overrides no `performKeyEquivalent`.
+//  structure; `BrowserCommand` owns titles, selectors and keystrokes, and
+//  `BrowserCommands.swift` implements the selectors. Luna installs no event
+//  monitors and overrides no `performKeyEquivalent`.
 //
-//  Rebinding rebuilds the whole bar rather than editing an item in place
-//  (`rebuild`). Not caution: this file records two measured ways a live menu bar
-//  refuses a key equivalent — a ⌘-number added to one is stripped on the way in,
-//  and a duplicate ⌘-number erases the later item's key — both found by writing
-//  to a bar that was already installed. Building a fresh bar and assigning it is
-//  what launch does and is known to work.
+//  Rebinding rebuilds the whole bar (`rebuild`) rather than editing an item in
+//  place: a live menu bar strips a ⌘-number added to it and erases a duplicate
+//  ⌘-number's key (measured — see `setSidebarItems`, `settingsSectionsMenu`).
 //
-//  Cosmetic, verified in M0: AppKit auto-injects Writing Tools, AutoFill,
-//  Dictation and Emoji & Symbols into any menu titled "Edit". Do not add them
-//  by hand as well.
+//  AppKit injects Writing Tools, AutoFill, Dictation and Emoji & Symbols into
+//  any menu titled "Edit". Do not add them by hand as well.
 //
 
 import AppKit
@@ -71,9 +66,9 @@ enum MainMenu {
     ///
     /// `⌃1…⌃9`, not `⌘1…⌘9` (spec §13.2, D-S12). Plain ⌘-number means "go to
     /// tab N" in Safari, Chrome, Firefox, Edge and Arc; Arc puts Spaces on
-    /// ⌃-number, Dia on Ctrl-number and Vivaldi on ⌘⇧-number. Luna spent that
-    /// namespace on a feature 94% of Arc's daily users never used twice
-    /// (§13.1), so it goes back to `setSidebarItems`.
+    /// ⌃-number, Dia on Ctrl-number and Vivaldi on ⌘⇧-number. That namespace
+    /// is not spent on a feature 94% of Arc's daily users never used twice
+    /// (§13.1); it belongs to `setSidebarItems`.
     ///
     /// A tenth Space is listed and clickable, just without a shortcut — which
     /// is what every other browser does too.
@@ -99,25 +94,22 @@ enum MainMenu {
     }
 
     /// Rebuilds View ▸ Sidebar Items from the active Space's tabs — §13.2's
-    /// other half, and the "go to tab N" Luna did not have at all.
+    /// other half, "go to tab N".
     ///
     /// `⌘1…⌘9`, in the sidebar's own order (Favorites → Pinned → Today), so the
     /// number is the row the user is looking at.
     ///
-    /// A ⌘-number cannot be added to a live menu bar, and that is measured.
-    /// Instrumented on macOS 26.5 inside the running app: an item built with
-    /// `keyEquivalent == "1"` still reports `"1"` on the line before
-    /// `NSMenu.addItem` and `""` on the line after — modifier mask intact, key
-    /// gone, no error, no warning. `setSpaces` escapes it because its items are
-    /// ⌃-numbers, and the Settings sections because they are built during
-    /// `install`, before `app.mainMenu` is assigned. So the nine live from
-    /// `install` and are only ever renamed; growing the menu to fit the tab
-    /// count silently produces a menu with no shortcuts at all.
+    /// A ⌘-number cannot be added to a live menu bar. Measured on macOS 26.5
+    /// inside the running app: an item built with `keyEquivalent == "1"`
+    /// reports `"1"` on the line before `NSMenu.addItem` and `""` on the line
+    /// after — modifier mask intact, key gone, no error. (`setSpaces` escapes it
+    /// because its items are ⌃-numbers.) So the nine live from `install` and
+    /// are only ever renamed; growing the menu to fit the tab count produces a
+    /// menu with no shortcuts at all.
     ///
-    /// View also has to stay ahead of Window in the bar, which it does:
-    /// AppKit's key-equivalent search stops at the first match in menu-bar
-    /// order and consumes the event there, disabled or not, so whichever of
-    /// these two is found first is the only one that can ever run `⌘1`.
+    /// View has to stay ahead of Window in the bar: AppKit's key-equivalent
+    /// search stops at the first match in menu-bar order and consumes the event
+    /// there, disabled or not, so only the first can ever run `⌘1`.
     /// `AppDelegate.goToSidebarItem(_:)` forwards to the Settings window while
     /// that window is key, which is how Window ▸ Settings keeps its own `⌘1`.
     static func setSidebarItems(_ titles: [String], in app: NSApplication) {
@@ -126,10 +118,8 @@ enum MainMenu {
         // uses finds nothing at all — silently, because there is no menu to
         // fill and nothing to report.
         guard let menu = app.mainMenu.flatMap({ tagged(sidebarItemsTag, in: $0) })?.submenu else { return }
-        // The nine items are never created here. See the doc comment: an
-        // item carrying a ⌘-number loses its key equivalent on the way into a
-        // menu bar that is already live, so all nine exist from `install` and
-        // this only renames and hides them.
+        // The nine items are never created here — see the doc comment. This
+        // only renames and hides them.
         let names = titles.prefix(menu.items.count)
         for (index, entry) in menu.items.enumerated() {
             entry.isHidden = index >= names.count
@@ -240,9 +230,8 @@ enum MainMenu {
             [.separator()],
             items(.reader), items(.hideElements),
             [.separator()],
-            // §22.5: the downloads panel is only otherwise reachable from the
-            // top bar's button, which the sidebar layout does not show at all.
-            // ⌘⌥L is free in the §20.1 map and is what Safari uses.
+            // §22.5: the list both layouts' Downloads buttons open. ⌘⌥L is
+            // free in the §20.1 map and is what Safari uses.
             items(.showDownloads)
         ]))
     }
@@ -251,8 +240,8 @@ enum MainMenu {
         menu("History", flatten([
             items(.goBack), items(.goForward),
             [.separator()],
-            // §6.4's pop-out. It hangs off a button in both layouts and had no
-            // keystroke at all, which made it the one §22.5 violation left.
+            // §6.4's pop-out. It hangs off a button in both layouts, and §22.5
+            // wants it reachable from the menu bar too.
             items(.showHistory),
             [.separator()],
             [otherMacsMenu()]
@@ -301,17 +290,12 @@ enum MainMenu {
     /// SETTINGS-SPEC §2's `⌘F`, and the nine sections as clickable items with
     /// no key equivalent of their own.
     ///
-    /// They used to declare `⌘1…⌘9` and AppKit was already deleting them.
-    /// Measured on macOS 26.5: a ⌘-number duplicating one already in the menu
-    /// bar is erased, not shadowed — the earlier item in menu-bar order keeps
-    /// the key and the later one comes back with `keyEquivalent == ""`, no
-    /// error, no warning. View ▸ Sidebar Items is earlier than Window ▸
-    /// Settings, so re-declaring them here would print a shortcut the menu does
-    /// not have.
-    ///
-    /// That is also the receipt on the old Spaces binding: `setSpaces` wrote
-    /// `⌘1…⌘9` into a bar that was already live and already carried these nine,
-    /// so Luna's shipped `⌘1` for Spaces never worked.
+    /// Not `⌘1…⌘9`. Measured on macOS 26.5: a ⌘-number duplicating one
+    /// already in the menu bar is erased, not shadowed — the earlier item in
+    /// menu-bar order keeps the key and the later one comes back with
+    /// `keyEquivalent == ""`, no error, no warning. View ▸ Sidebar Items is
+    /// earlier than Window ▸ Settings, so declaring them here would print a
+    /// shortcut the menu does not have.
     ///
     /// The window still gets `⌘1…⌘9`: `AppDelegate.goToSidebarItem(_:)` forwards
     /// to it while it is key, and a hidden Sidebar Item still fires its key

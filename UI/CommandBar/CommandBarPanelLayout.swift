@@ -88,31 +88,22 @@ extension CommandBarPanel {
     }
 
     /// UI-SPEC §6 anchors the panel to a fraction of the surface it is over,
-    /// so a constant set once is wrong the moment the window is resized — or
-    /// the sidebar dragged — under an open bar. Both constants are re-derived
-    /// here, against the page rather than the window.
+    /// and the window resizes and the sidebar is dragged under an open bar, so
+    /// both constants are re-derived on every pass, against the page rather
+    /// than the window.
     ///
-    /// Derived before `super.layout()`, never after. The constraint pass that
-    /// places `body` runs inside `super.layout()`, and AppKit marks this view
-    /// clean the moment `layout()` returns — so a constant set on the way out
-    /// reaches nothing this pass and schedules no other, leaving the bar where
-    /// the stale constants put it until something else dirties the panel.
-    ///
-    /// Both constants start at zero, and zero is not a harmless place: it is
-    /// the window's top edge, centred on the window rather than on the page.
-    /// Measured in a 1200×800 window with the sidebar out, the first pass left
-    /// the bar at `(280, 740)` and the second put it at `(392, 551)` — 112 pt
-    /// to the left and 189 pt too high, held for as long as nothing asked for
-    /// another pass. That is the bar that flashed up and to the left.
+    /// Derived before `super.layout()`, never after. AppKit marks this view
+    /// clean the moment `layout()` returns, so a constant set on the way out
+    /// reaches nothing this pass and schedules no other. Both start at zero,
+    /// which is the window's top edge centred on the window: in a 1200×800
+    /// window that held the bar 112 pt to the left and 189 pt too high until
+    /// something else dirtied the panel.
     override func layout() {
-        // Anchored, there is no fraction to derive: the pill says where.
-        // Its rect is re-read on every pass for the same reason the floating
-        // bar re-derives its two constants — the window resizes and the sidebar
-        // is dragged while the bar is open, and the pill moves with both.
-        //
-        // `morph` runs each of them from the anchor's own value to the bar's,
-        // with the field held on the anchor's centre line throughout: the top
-        // rises by `inputRise` as the field's offset from it grows by the same.
+        // Anchored, there is no fraction to derive: the pill says where, and
+        // its rect is re-read every pass because the pill moves too. `morph`
+        // runs each constant from the anchor's value to the bar's, with the
+        // field held on the anchor's centre line: the top rises by `inputRise`
+        // as the field's offset from it grows by the same.
         if let rect = anchorRect {
             let width = anchoredWidth(for: rect)
             let open = morph
@@ -143,26 +134,19 @@ extension CommandBarPanel {
     }
 
     /// Everything the bar needs in place before it opens: added, laid out,
-    /// and drawn at the pill's own size, so that what the first composite
-    /// puts on screen is the capsule the user just clicked, in its place, with
-    /// their caret in it.
+    /// and drawn at the pill's own size, so the first composite is the capsule
+    /// the user just clicked, in its place, with their caret in it.
     ///
-    /// The first frame of a Command Bar is expensive in a way tuning does not
-    /// fix — a fresh `NSGlassEffectView` over a live web page, eight rows of
-    /// text, and a field taking the window's first responder. Measured from the
-    /// click to the commit that draws it: 65 ms, of which 20 is the commit and
-    /// 15 is `makeFirstResponder`. Four dropped frames, landing wherever this
-    /// is called.
+    /// The first frame is expensive in a way tuning does not fix: a fresh
+    /// `NSGlassEffectView` over a live page, eight rows of text, and a field
+    /// taking first responder. Measured from click to commit, 65 ms — 20 of it
+    /// the commit, 15 `makeFirstResponder` — which is four dropped frames. They
+    /// land here, before the animation and on a pill-sized bar, so the glass
+    /// the reveal grows is already built. Done on the reveal's first frame, at
+    /// full size under an alpha ramp, the bar stalled halfway open.
     ///
-    /// So they land before the animation rather than inside it, and they land
-    /// on a bar the size of a pill rather than on one the size of the list:
-    /// the glass the window server sets up here is the glass the reveal then
-    /// grows, so the reveal's own first frame has nothing left to build. The
-    /// bar that stalled in the middle was doing that work on frame one,
-    /// at full size, with an alpha ramp over the top of it.
-    ///
-    /// The floating bar keeps its fade, because it really is arriving out of
-    /// nothing — there is no pill under it to be the first frame.
+    /// The floating bar keeps its fade: there is no pill under it to be the
+    /// first frame.
     func prepareToOpen() {
         alphaValue = 1
         guard anchorRect != nil else {
@@ -209,49 +193,27 @@ extension CommandBarPanel {
         }
     }
 
-    /// `commandBarMorph`, spent on more glass rather than a new pane.
+    /// `commandBarMorph`, spent on more glass rather than a new pane: the glass
+    /// grows from the pill's frame and corner to the bar's, with the rows
+    /// already behind it. No scale and no fade — the pill was already on
+    /// screen and the bar is standing in it (`prepareToOpen`), so either would
+    /// shrink or dim the thing the user just clicked.
     ///
-    /// The floating bar scales up from 0.96 because it is arriving: there was
-    /// nothing there a moment ago. This one is not arriving — the pill it is
-    /// standing in was already on screen, at that corner and on that line — so
-    /// a scale would shrink and re-grow the thing the user just clicked. What
-    /// opens instead is the glass itself, from the pill's frame and corner out
-    /// to the bar's, with the rows already in place behind it.
-    ///
-    /// Width, place and corner with the height (`morph`). It was the height
-    /// alone, with the bar at its full width on the first frame; that was
-    /// invisible on a sidebar pill 32 pt narrower than its bar and a jump on
-    /// §4's tab, which is a third of the bar's width. Not the alpha: the bar
-    /// is already on screen in the anchor's place when this runs
-    /// (`prepareToOpen`), so a fade would be the thing the user is looking at
-    /// dimming and coming back.
-    ///
-    /// The glass has to grow, not a clip over it. Cutting the body's layer down
-    /// and animating the cut — a rounded `masksToBounds` on the presentation
-    /// layer, costing no layout at all — does not work over
-    /// `NSGlassEffectView`: the material composites outside the layer meant to
-    /// clip it, so the bar opened as eight rows of text floating over the
-    /// sidebar with no panel behind them.
+    /// Width, place and corner move with the height (`morph`); height alone was
+    /// a jump on §4's tab, which is a third of the bar's width. The glass itself
+    /// has to grow: a rounded `masksToBounds` clip does not hold
+    /// `NSGlassEffectView`, and the rows opened with no panel behind them.
     ///
     /// - Parameter height: the constraint holding the bar at the pill's height,
-    ///   installed by `prepareToOpen`. It is let go of at the end, because
-    ///   the list goes on changing size after the bar has opened — the
-    ///   engine's suggestions land, and every keystroke re-ranks the rows — and
-    ///   a required height frozen at what the opening pass asked for would clip
-    ///   everything that arrived after it. That is what a fullscreen page bar
-    ///   showed: an input row with an empty band under it, and the rows cut off
-    ///   below the glass.
+    ///   from `prepareToOpen`. Let go of at the end, because the list keeps
+    ///   changing size as suggestions land and keystrokes re-rank; held, it
+    ///   clipped a fullscreen page bar's rows below the glass.
     private func revealFromPill(_ height: NSLayoutConstraint) {
-        // Asked of the list, not of the body. The target has to be read
-        // now rather than when the bar was prepared — the store's answer has
-        // landed since, and that is what the bar was waiting for — but taking
-        // it off `body.frame` means letting the height constraint go, laying
-        // out, and putting it back, which resizes the glass twice for a number
-        // nobody sees. Measured, that round trip cost 26 ms on the frame the
-        // animation was about to start on. The list can simply be asked how
-        // tall it wants to be, which is the same arithmetic the two constraints
-        // below `results` do: the input row, the rows, and the panel's own
-        // bottom margin.
+        // Asked of the list rather than read off `body.frame`, which means
+        // letting the height constraint go, laying out and putting it back —
+        // 26 ms on the animation's first frame. Read here rather than in
+        // `prepareToOpen`, because the store's answer has landed since. The
+        // sum is the one the constraints below `results` make.
         let target = inputHeight + results.fittingSize.height + CommandBarMetrics.padding
         Tokens.Motion.animate(Tokens.Motion.commandBarMorph) { context in
             context.allowsImplicitAnimation = true
@@ -268,17 +230,10 @@ extension CommandBarPanel {
 
     // MARK: - Closing
 
-    /// `animateIn` run backwards, and one of each again: the floating bar
-    /// shrinks and fades the way it grew, and the anchored one closes back
-    /// down onto its pill.
-    ///
-    /// It used to be `removeFromSuperview()`, which is a bar that is there and
-    /// then is not. On the floating panel that reads as a window being shut
-    /// rather than a summoned thing going away; on the anchored one it is
-    /// worse, because the whole of what that bar is saying is "I am the pill
-    /// you clicked, opened up" — and a bar that vanishes to reveal the pill
-    /// underneath was never the pill at all. Whatever the way in argued, the
-    /// way out has to argue the same thing or it withdraws it.
+    /// `animateIn` run backwards: the floating bar shrinks and fades the way it
+    /// grew, and the anchored one closes back down onto its pill. Not a bare
+    /// `removeFromSuperview()` — a bar that vanishes to reveal the pill under
+    /// it was never the pill at all, which withdraws what the way in said.
     ///
     /// Takes the panel out of the window itself and calls `onClosed`, so a
     /// caller has nothing to remember. Reduce Motion needs no branch here
@@ -315,8 +270,7 @@ extension CommandBarPanel {
     /// anchored body is for (`activateBodyConstraints`): the rows go under the
     /// closing edge instead of shrinking with it.
     private func collapseToPill() {
-        // Whatever height it has *now*, which is not the same as the height it
-        // was heading for: `esc` pressed halfway through the reveal has to
+        // The height it has now, which is not the height it was heading for: `esc` pressed halfway through the reveal has to
         // close from where the glass got to, not jump to full size first.
         let current = revealConstraint?.constant ?? body.frame.height
         // A bar that never opened has nothing to close. It stands in the

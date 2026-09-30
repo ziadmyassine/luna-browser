@@ -13,25 +13,17 @@ import GRDB
 extension Schema {
 
     /// `v8` — a visit remembers the Space it happened in, and so does an adaptive
-    /// lesson (§9.2, §9.3).
+    /// lesson (§9.2, §9.3). With a cookie jar per Space (`v7`), a history shared
+    /// across Spaces tells one Space which accounts another is signed into.
     ///
-    /// `v7` gave every Space its own cookie jar, which made the leak this closes
-    /// visible: you are signed into one account in Work and another in Personal,
-    /// and the Command Bar was still offering every Space's history to both. A
-    /// jar that holds your logins and a history that names them are the same
-    /// secret told two ways.
-    ///
-    /// Everything already on disk was recorded while history was one shared pile,
-    /// and nothing in it says where it came from. It is given to the first Space
-    /// in the sidebar, which is where a database that has only ever had one Space
-    /// did all of its browsing, and is the only answer that does not throw the
-    /// history away. A second Space starts empty and fills up as it is used.
+    /// Rows already on disk say nothing about where they came from, so they go
+    /// to the first Space in the sidebar: where a single-Space database did all
+    /// its browsing, and the only answer that keeps the history.
     ///
     /// `visits.spaceID` is nullable because SQLite will not add a `NOT NULL`
     /// column that references another table, and `ON DELETE SET NULL` because a
     /// deleted Space must not take a year of history down with it. A visit left
-    /// without a Space appears in no Space's list, which is the right answer for a
-    /// Space that no longer exists.
+    /// without a Space appears in no Space's list.
     static func giveEverySpaceItsOwnHistory(_ db: Database) throws {
         let home = try UUID.fetchOne(db, sql: #"SELECT id FROM spaces ORDER BY "order", name LIMIT 1"#)
         try scopeVisitsToASpace(db, home: home)
@@ -44,8 +36,8 @@ extension Schema {
         if let home {
             try db.execute(sql: "UPDATE visits SET spaceID = ?", arguments: [home])
         }
-        // The frecency window, now that it is filtered before it is partitioned:
-        // one Space's visits to one place, newest first.
+        // The frecency window, filtered by Space before it is partitioned: one
+        // Space's visits to one place, newest first.
         try db.create(index: "visits_on_spaceID_placeId_at", on: "visits", columns: ["spaceID", "placeId", "at"])
     }
 

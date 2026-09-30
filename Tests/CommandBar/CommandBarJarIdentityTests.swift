@@ -3,24 +3,16 @@
 //  LunaTests
 //
 //  §9 / D-S8: "the identity behind a row's cookies must appear on every surface
-//  where tabs from different jars can meet". The answer here is that they do not
-//  meet. The bar is opened from inside a Space and offered that Space's things
-//  and nothing else, so there is no second jar in the list to tell apart.
+//  where tabs from different jars can meet". Here they do not meet: the bar is
+//  opened from inside a Space and offered that Space's things and nothing
+//  else. zen#14371 is the failure this prevents — two identical "Switch to tab"
+//  rows for two accounts, where picking wrong lands you in the other Space. A
+//  page you can only reach in Personal is not something Work should suggest,
+//  however well it is labelled.
 //
-//  The report this exists for is zen#14371 — two identical "Google Gemini —
-//  Switch to tab" rows, two accounts, no way to tell them apart, and picking
-//  wrong teleports you into the other Space. Luna answered it twice. First with
-//  a badge, a row per (URL, jar) and a Space name on each; then, once `v7` made
-//  the Space the cookie jar and `v8` gave it its own history, by not offering
-//  the other Space at all. A page you can only reach in Personal is not
-//  something Work should be suggesting, however well it is labelled.
-//
-//  So the boundary is upstream of the ranking now, and this file tests it at the
-//  two places it is drawn: `BrowserSession`, which decides what the bar is
-//  handed, and `CommandBarRanking`, which must still fold two ways to the same
-//  page inside one Space into one row.
-//
-//  The store's half — a visit in one Space being invisible from the other — is
+//  The boundary is tested where it is drawn: `BrowserSession`, which decides
+//  what the bar is handed, and `CommandBarRanking`, which must still fold two
+//  ways to the same page inside one Space into one row. The store's half is
 //  `StoreMigrationTests.aVisitInOneSpaceIsInvisibleFromTheOther`.
 //
 
@@ -82,8 +74,8 @@ final class CommandBarJarIdentityTests: XCTestCase {
         )
     }
 
-    /// And `⌘⇧T` reopens the last tab closed *here*, not the last one closed
-    /// anywhere: the keystroke means "undo the close I just did".
+    /// And `⌘⇧T` reopens the last tab closed in this Space, not the last one
+    /// closed anywhere: the keystroke means "undo the close I just did".
     func testReopeningTheLastClosedTabStaysInTheSpace() async throws {
         let session = try await makeSession()
         let closedInPersonal = session.newTab(url: url("https://mail.example/inbox"))
@@ -124,7 +116,7 @@ final class CommandBarJarIdentityTests: XCTestCase {
     }
 
     /// A history hit for a page that is open collapses onto the live tab
-    /// (§19.4) — the pre-existing behaviour, unchanged.
+    /// (§19.4).
     func testHistoryStillCollapsesOntoTheOpenTab() {
         let space = UUID()
         var sources = CommandBarSources()

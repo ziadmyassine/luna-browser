@@ -2,20 +2,15 @@
 //  SafariImport.swift
 //  Luna — §23.2
 //
-//  Safari is a different problem from the Chromium family, and the difference
-//  is not the file formats — those are easy. It is TCC.
+//  Safari's formats are easy; its directory is behind TCC. Measured
+//  2026-09-17: `ls ~/Library/Safari` returns "Operation not permitted" from an
+//  unsandboxed shell, so no entitlement or signing change fixes it — the user
+//  has to grant Full Disk Access, which cannot be prompted for.
 //
-//  Measured on this Mac, 2026-09-17: `ls ~/Library/Safari` returns
-//  "Operation not permitted" from an unsandboxed shell. That denial is TCC,
-//  not the App Sandbox, so no entitlement and no signing change fixes it — the
-//  user has to grant Full Disk Access in System Settings, which cannot be
-//  prompted for programmatically.
-//
-//  So §23.2's order is the right one and this is the second path:
-//  `NetscapeBookmarks` is how a Safari user actually gets their bookmarks in
-//  (File ▸ Export Bookmarks…, then pick the file). What is here runs only once
-//  `isReadable()` says the directory is readable — that is, only after the user
-//  has granted access for their own reasons.
+//  So §23.2's order stands: `NetscapeBookmarks` is how a Safari user gets their
+//  bookmarks in (File ▸ Export Bookmarks…). What is here runs only once
+//  `isReadable()` says the directory is readable, after the user has granted
+//  access for their own reasons.
 //
 
 import BrowserKit

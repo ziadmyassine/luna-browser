@@ -2,21 +2,17 @@
 //  main.swift
 //  luna-perf — the §19.1 harness
 //
-//  Three scenarios, all of them measuring the real thing:
+//  Six scenarios, each under its own `MARK`, all measuring the real thing.
+//  The three that make up the §19.1 budget:
 //
-//    seed   <db> <spaces> <tabs>   fills a Luna database so the launch and idle
-//                                  numbers are taken with a realistic session
-//    launch <app> <runs>           spawn → first on-screen window, and the idle
-//                                  cost of the app once it has restored
-//    tabs   <total> <spaces> <live> the headline budget: N tabs across M Spaces,
-//                                  `live` of them awake, measured across every
-//                                  WebKit process they spawn
+//    seed   <db> <spaces> <tabs>    fills a Luna database with a realistic session
+//    launch <app> <runs>            spawn → first window, then the idle cost once restored
+//    tabs   <total> <spaces> <live> N tabs across M Spaces, `live` of them awake,
+//                                   measured across every WebKit process they spawn
 //
-//  `tabs` links `BrowserKit` and drives the real `TabController`, so it
-//  measures Luna's engine rather than an approximation. What it does not have
-//  is Luna's chrome — the sidebar, the command bar, AppKit's own allocations.
-//  `launch` measures that half; §19.1's budget is the sum, and `docs/PERF.md`
-//  adds them up with the caveat stated.
+//  `tabs` drives the real `TabController` through `BrowserKit` but has none of
+//  Luna's chrome; `launch` measures that half, and `docs/PERF.md` adds the two
+//  up with the caveat stated.
 //
 
 import AppKit

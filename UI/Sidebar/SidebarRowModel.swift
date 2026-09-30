@@ -2,34 +2,19 @@
 //  SidebarRowModel.swift
 //  Luna
 //
-//  The §3.4 list, as data. Pure: no AppKit, no session, no side effects — so
-//  the two things that are genuinely easy to get wrong (which row is which tab,
-//  and which section a drop lands in) are asserted in `Tests/Sidebar/` instead
-//  of discovered by dragging a row in a running app.
+//  The §3.4 list, as data. Pure — no AppKit, no session — so which row is which
+//  tab and which section a drop lands in are asserted in `Tests/Sidebar/`
+//  instead of discovered by dragging a row in a running app.
 //
-//  The order, top to bottom (§3.4b):
+//  Top to bottom (§3.4b): saved slots, the rule, New Tab, today's slots. A slot
+//  is one top-level place: a loose tab, or a group with its tabs under it.
+//  `TabList` hands the slots over already arranged, because "which index does a
+//  drop mean" must have exactly one answer, in one file.
 //
-//      saved slots  →  the rule  →  New Tab  →  today's slots
-//
-//  A **slot** is one top-level place: a loose tab, or a group with its tabs
-//  under it. The two tiers are the same shape; what differs is what closing a
-//  tab in one means. `TabList` decides the order of the slots and hands them
-//  over already arranged, because "which index does a drop mean" must have
-//  exactly one answer and that answer is not in two files.
-//
-//  **The rule is not always there.** It marks the bottom of the saved tier, so
-//  with nothing saved there is no bottom to mark and no rule — the list simply
-//  starts at New Tab, which is where it started before §3.4b. A drag is the
-//  exception: the rule comes out for the length of one, because a zone you
-//  cannot see is a zone you cannot aim at.
-//
-//  `Archive` is no longer a row here. It was a second way into the page the
-//  bottom bar's button already opens, sitting under the pinned tiles where the
-//  eye lands first — a history button at the top of a list of live tabs. History
-//  belongs with the other standing destinations at the foot of the sidebar.
-//
-//  Essentials are not in this list; they are the §3.3 grid above the scroll
-//  view, and §3.4b's groups may not go there.
+//  The rule marks the bottom of the saved tier, so with nothing saved there is
+//  none — except during a drag, because a zone you cannot see is a zone you
+//  cannot aim at. Archive is not a row: the foot bar already opens it. Essentials
+//  are the §3.3 grid above the scroll view, and §3.4b's groups may not go there.
 //
 
 import BrowserKit

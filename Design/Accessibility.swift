@@ -3,19 +3,17 @@
 //  Luna
 //
 //  The display settings the chrome has to obey, read live. Split out of
-//  Tokens.swift for its length limit, and it earns the separation: nothing here
-//  is a colour, and half the app asks these questions without ever asking for a
-//  token.
+//  Tokens.swift: nothing here is a colour, and half the app asks these
+//  questions without asking for a token.
 //
-//  MEASURED on macOS 26.5, and it shapes every caller: Increase Contrast is not
-//  an `NSAppearance`. `NSAppearance(named: .accessibilityHighContrastAqua)`
-//  hands back the identical object as `.aqua` (verified with `===`), so no
-//  dynamic-colour provider can observe the setting and no `NSColor` is ever
-//  invalidated by it. `increaseContrast` below is the only live signal, which
-//  is why the tokens branch on it at resolve time — and why a view that draws
-//  text or hairlines must redraw on
+//  Measured on macOS 26.5: Increase Contrast is not an `NSAppearance`.
+//  `NSAppearance(named: .accessibilityHighContrastAqua)` returns the identical
+//  object as `.aqua` (`===`), so no dynamic-colour provider can observe the
+//  setting. `increaseContrast` below is the only live signal, which is why the
+//  tokens branch on it at resolve time and why a view that draws text or
+//  hairlines must redraw on
 //  `NSWorkspace.accessibilityDisplayOptionsDidChangeNotification` rather than
-//  on an appearance change. `Glass` is the worked example.
+//  on an appearance change, as `Glass` does.
 //
 
 import AppKit

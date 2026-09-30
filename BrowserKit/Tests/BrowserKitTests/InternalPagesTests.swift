@@ -219,9 +219,9 @@ struct InternalPagesTests {
         #expect(InternalPageError(kind: .dns, url: URL(string: "https://a.test/")!).offersRetry)
     }
 
-    /// The other button on an error page. §30.19's New Tab page used to be
-    /// where it went; with that gone it asks for the Command Bar, because a
-    /// page that cannot load is not somewhere to leave somebody standing.
+    /// The other button on an error page asks for the Command Bar, not §30.19's
+    /// New Tab page, which is gone: a page that cannot load is not somewhere to
+    /// leave somebody standing.
     @Test func anErrorPageOffersTheCommandBarAndNotAPageThatIsGone() {
         let html = InternalPages.errorHTML(InternalPageError(kind: .generic, url: nil))
         #expect(html.contains("luna://commandbar"))

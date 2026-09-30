@@ -2,31 +2,15 @@
 //  DownloadFlight.swift
 //  Luna
 //
-//  `docs/UI-SPEC.md` §5.0 — a download starting, as a thing that travels.
-//  The file's own icon leaves the page on an arc and lands in the Downloads
-//  button, the button's glass bulges as it catches it, and the §15.3 list opens
-//  underneath showing how far the bytes have got.
+//  §5.0: a download starting, as a thing that travels. The file's own icon
+//  leaves the page on an arc and lands in the Downloads button, the button's
+//  glass bulges as it catches it, and the §15.3 list opens underneath.
 //
-//  The whole point is that the button is in two different places. Luna has
-//  two chromes: §3.5 puts Downloads at the bottom-left corner of the window and
-//  §4 puts it at the top-right. A download that lands with a flash somewhere
-//  fixed teaches the user nothing; an arc that ends on the button they will
-//  later press to find the file teaches them where it went, and it has to be
-//  the same animation in both layouts or it teaches them twice. So nothing
-//  here knows which chrome is up — the caller hands over a landing point and
-//  the glass that owns it, and the arc is drawn between two points.
-//
-//  Keyframes sampled from the arc rather than a `CGPath`: a path wants the
-//  superlayer's geometry, and a layer-backed AppKit view may or may not have
-//  its geometry flipped depending on what it was added to. Each sample is
-//  placed as a view frame and read back off the layer (`keyframes(for:)`),
-//  so the arc is computed in view coordinates and the values are in the
-//  layer's. Position, size and fade are one group on one clock.
-//
-//  The arithmetic is separate from the view (`DownloadFlight`), because the
-//  arc is the part that can be wrong in a way nobody sees: turning the wrong
-//  way, missing the button, or flat between two points that share a line.
-//  `DownloadFlightTests` asserts it in both directions without a window.
+//  §3.5 puts the button bottom-left and §4 top-right, and the arc has to end
+//  on it in both, so nothing here knows which chrome is up: the caller hands
+//  over a landing point and the glass that owns it. The arithmetic
+//  (`DownloadFlight`) is apart from the view so `DownloadFlightTests` can
+//  assert it — turning the wrong way, missing the button — without a window.
 //
 //  §21.2: under Reduce Motion nothing flies and nothing bulges. The list still
 //  opens — that is information, not motion.
@@ -53,33 +37,26 @@ enum DownloadFlight {
 
     /// The size the icon shrinks to on the way: the glyph it lands on top of.
     ///
-    /// It arrives the size of the button's own mark, which is what makes the
-    /// landing read as the file going *into* the shelf rather than sitting on
-    /// it. Both numbers are already tokens, so the scale is their ratio and not
-    /// a third number.
+    /// Arriving at the size of the button's own mark is what makes the file
+    /// read as going into the shelf rather than sitting on it. Both numbers
+    /// are tokens, so the scale is their ratio and not a third number.
     static var landingScale: CGFloat { Tokens.Metric.glyphSize / Tokens.Metric.downloadsFileIcon }
 
     /// The quadratic's control point — the corner of the box the two points
     /// make, nudged the other way vertically.
     ///
-    /// This is the whole of why the flight reads as a throw, and it replaced a
-    /// midpoint lifted straight up. A lob to a button in the *bottom* corner
-    /// went up before it went down, which is a detour the eye follows as a
-    /// detour: the file left the page in the wrong direction and then came
-    /// back. The corner instead covers the ground first and turns into the
-    /// button at the end.
+    /// Not a midpoint lifted straight up: a lob to a button in the bottom
+    /// corner then leaves the page in the wrong direction and comes back. The
+    /// corner covers the ground first and turns into the button at the end.
     ///
-    /// Put algebraically, and this is the reason it needs no easing of its
-    /// own: with the control at `(landing.x, origin.y)` the curve is
+    /// With the control at `(landing.x, origin.y)` the curve is
     /// `x(t) = origin.x(1−t)² + landing.x(1−(1−t)²)` and
     /// `y(t) = origin.y(1−t²) + landing.y·t²` — horizontal speed decaying,
-    /// vertical accelerating as the square. That is a projectile, exactly, and
-    /// it falls out of the *path* rather than being painted on with a timing
-    /// curve. See `Motion.downloadFlight`, which is therefore linear.
+    /// vertical accelerating as the square. That is a projectile, so the path
+    /// needs no easing of its own and `Motion.downloadFlight` is linear.
     ///
-    /// The vertical nudge is away from the landing — up when the button is
-    /// below, down when it is above — so a throw gets a little wind-up and a
-    /// throw along one line still gets an arc.
+    /// The vertical nudge is away from the landing, so a throw gets a little
+    /// wind-up and a throw along one line still gets an arc.
     static func control(from origin: CGPoint, to landing: CGPoint) -> CGPoint {
         CGPoint(x: landing.x, y: origin.y + (landing.y <= origin.y ? minimumLift : -minimumLift))
     }
@@ -194,12 +171,9 @@ final class DownloadFlightView: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
     private func start() {
-        // The backing scale, or the icon flies blurred. A layer whose
-        // `contents` is an image renders at `contentsScale`, which starts at 1
-        // — so on every display Luna actually runs on, a 34 pt file icon was
-        // being drawn from a 34 px bitmap and scaled up. Nothing else in the
-        // chrome hits this because nothing else assigns an image to a layer
-        // directly.
+        // The backing scale, or the icon flies blurred: a layer whose
+        // `contents` is an image renders at `contentsScale`, which starts at 1,
+        // so a 34 pt icon is drawn from a 34 px bitmap and scaled up.
         ghost.layer?.contentsScale = window?.backingScaleFactor ?? 2
         // The chrome's one drop shadow (§5). The icon crosses an arbitrary
         // page on its way to the button — white, dark, an image — and its own
@@ -218,18 +192,17 @@ final class DownloadFlightView: NSView {
 
     /// The whole arc, handed to Core Animation in one piece.
     ///
-    /// It was driven a frame at a time from a display link, and on the first
-    /// download of a session the link did not fire: nothing else on screen was
-    /// changing, so no frame was coming, and the icon sat at the pointer for
-    /// two seconds and then arrived at once — measured, one tick 2.1 s after
-    /// the throw. An animation the render server runs needs nothing from the
-    /// main thread once it is added, busy or idle.
+    /// Not a display link: on a first download with nothing else on screen
+    /// changing, the link did not fire and the icon sat at the pointer for
+    /// 2.1 s, then arrived at once. The render server needs nothing from the
+    /// main thread once the animation is added.
     ///
-    /// Each sample is placed the way a frame is and read back off the layer,
-    /// so the values are in whatever geometry AppKit gave the layer and the
-    /// arc is still computed in this view's own coordinates. The model is
-    /// left at the landing, which is where the file is when the animation
-    /// comes off.
+    /// Sampled keyframes rather than a `CGPath`, which wants the superlayer's
+    /// geometry, and a layer-backed view's may or may not be flipped. Each
+    /// sample is placed the way a frame is and read back off the layer, so
+    /// the arc is computed in this view's coordinates and the values land in
+    /// the layer's. The model is left at the landing, where the file is when
+    /// the animation comes off.
     private func keyframes(for layer: CALayer) -> CAAnimationGroup {
         let steps = Self.keyframeCount
         var positions: [NSValue] = []

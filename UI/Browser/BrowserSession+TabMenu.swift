@@ -2,21 +2,15 @@
 //  BrowserSession+TabMenu.swift
 //  Luna
 //
-//  The four verbs §3.4a's context menu needed and the §6 lifecycle did not already have:
-//  duplicate, rename, change icon and mute. Pin, copy link and close were
-//  all already here (`pinTab`, `closeTab`) or are nothing to do with the session at all.
+//  The verbs §3.4a's context menu adds to the §6 lifecycle: duplicate, rename,
+//  change icon and mute — all about a tab's identity rather than where it sits
+//  in the list or whether it has a process.
 //
-//  Split out of `BrowserSession+Tabs.swift` for that file's length limit.
-//  Everything below is about a tab's identity — what it is called, what it looks
-//  like, whether it may make a sound — rather than where it sits in the list or
-//  whether it has a process.
-//
-//  Rename and Change Icon persist; Mute does not, and the asymmetry is
-//  deliberate. A name and an icon are decisions about the tab, and one that came
-//  back after a relaunch under the page's own name would have thrown one away. A
-//  mute is a decision about the noise a page is making now: a tab that came back
-//  silent on the next launch, with nothing on screen to say why, is a bug
-//  report.
+//  Rename and Change Icon persist; Mute does not, deliberately. A name and an
+//  icon are decisions about the tab, and one that came back after a relaunch
+//  under the page's own name would have thrown one away. A mute is about the
+//  noise a page is making now: a tab that came back silent on the next launch,
+//  with nothing on screen to say why, is a bug report.
 //
 
 import AppKit
@@ -183,7 +177,7 @@ extension BrowserSession {
     /// from any other.
     static let untitledGroupName = String(localized: "New Folder")
 
-    /// What §3.4b's tier used to be called, and what the folder holding the
-    /// rows it used to hold loose is named — see `enfoldLooseSavedTabs`.
+    /// §3.4b's tier's former name, given to the folder that gathers the rows
+    /// the tier once held loose — see `enfoldLooseSavedTabs`.
     static let legacySavedGroupName = String(localized: "Saved")
 }

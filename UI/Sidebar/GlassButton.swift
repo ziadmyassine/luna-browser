@@ -8,19 +8,11 @@
 //  a second implementation would be a second set of hover, focus-ring and
 //  VoiceOver bugs.
 //
-//  Hover lifts the fill, not the border (§3.1). It was the glyph alone
-//  (`Text.secondary` → `Text.primary`) for a long time, because Luna had no
-//  translucent hover colour to lift a surface with — `Surface.raised` and
-//  `glassFallback` are opaque planes and the `Line.*` tokens are line colours.
-//  `Surface.hover` and `Surface.selected` are this button's whole answer to a
-//  pointer: 6 % over the material on hover, 12 % under a press.
-//
-//  A press swells it (`Motion.controlPress`): the material grows a twentieth
-//  under the finger and springs back, which is what a Liquid Glass control does
-//  on macOS 26. A button whose material belongs to the surface around it
-//  (`GlassMode.none`) does not swell on its own — half a capsule growing inside
-//  the other half is not a press — and hands the gesture to whoever owns that
-//  capsule (`onPressChange`).
+//  Hover lifts the fill, not the border (§3.1): `Surface.hover`, 6 % over the
+//  material, and `Surface.selected`, 12 %, under a press. A press also swells
+//  the material (`Motion.controlPress`), as a Liquid Glass control does on
+//  macOS 26 — except under `GlassMode.none`, where the material is the capsule
+//  around it and the press goes to that capsule's owner (`onPressChange`).
 //
 
 import AppKit
@@ -49,10 +41,10 @@ final class GlassButton: NSView {
     var onInkChange: ((NSColor) -> Void)?
     /// §3.3: this button is the selected one — the active Essential.
     ///
-    /// Selection is the material, not a ring. It used to draw a 1 pt accent
-    /// border, which is the system-blue highlight Luna does not have anywhere
-    /// else. A `.dormant` button carries no glass until it is hovered or
-    /// selected; arriving at it is the highlight.
+    /// Selection is the material, not a ring: an accent border is the
+    /// system-blue highlight Luna has nowhere else. A `.dormant` button carries
+    /// no glass until it is hovered or selected; arriving at it is the
+    /// highlight.
     var isSelected = false {
         didSet {
             guard isSelected != oldValue else { return }
@@ -89,9 +81,8 @@ final class GlassButton: NSView {
         case dormant
         /// Never. The button is a bare glyph because something around it is
         /// already the material — §3.5's Downloads/History pair sit inside one
-        /// cylinder, and a second backing per button is what made the top bar's
-        /// capsule read as three separate bright circles before it was built
-        /// the same way (`TopBarActionCapsule`).
+        /// cylinder, and a second backing per button reads as separate bright
+        /// circles. `TopBarActionCapsule` is built the same way.
         case none
     }
 
@@ -104,10 +95,9 @@ final class GlassButton: NSView {
     /// The `.control` backing, built on demand.
     ///
     /// A dormant button that has never been hovered has no glass view at all.
-    /// That matters: a sidebar with eight pinned tiles used to stand up eight
-    /// live `NSGlassEffectView`s to hold at alpha 0, and every one of them
-    /// re-composites when the app comes back to the foreground — which is a
-    /// large part of what the sidebar's activation flash was made of.
+    /// Eight pinned tiles holding eight live `NSGlassEffectView`s at alpha 0
+    /// re-composite every one when the app comes back to the foreground, which
+    /// was a large part of the sidebar's activation flash.
     private var glass: NSView?
     /// §3.1's hover fill: a wash above the material and below the glyph, so
     /// it lifts the glass rather than replacing it. Its own view rather than
@@ -243,15 +233,12 @@ final class GlassButton: NSView {
         layer.cornerRadius = shape.cornerRadius
         layer.cornerCurve = shape.cornerCurve
         // No ring. Selection is `updateGlass`; keyboard focus is AppKit's
-        // own focus ring, drawn through `drawFocusRingMask` below. A border
-        // here used to be the accent-coloured highlight this app does not have.
+        // own focus ring, drawn through `drawFocusRingMask` below.
         //
         // A `.dormant` button keeps a plate instead: the §3.4 wash and the
         // same hairline every other glass surface carries, so a pinned tile is
-        // still a tile when it is not the one you are on. Dormant meant
-        // "invisible" for one build and the grid read as icons floating on the
-        // sidebar with nothing under them — which is not what the reference
-        // shows either.
+        // still a tile when it is not the one you are on. Without it the grid
+        // read as icons floating on the sidebar with nothing under them.
         let plated = glassMode == .dormant && showsWell
         layer.borderWidth = plated ? Tokens.Metric.hairline : 0
         layer.borderColor = plated ? Tokens.Line.border.cgColor : nil

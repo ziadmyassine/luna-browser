@@ -4,19 +4,16 @@
 //
 //  An emoji as a §3.4 row's glyph, for §3.4b's folders.
 //
-//  Sixteen SF Symbols is a vocabulary; an emoji is a name. A folder called
-//  "Trip" with an airplane on it is using the picture the way the symbol list
-//  intends, and a folder with the flag of the country the trip is to is doing
-//  something the list can never cover — so the picker offers both and the two
-//  live in the same field. `TabGroup.symbolName` therefore holds either an SF
-//  Symbol's name or the emoji itself, and which one it is is a question about
-//  the string rather than a second column on the row.
+//  Sixteen SF Symbols is a vocabulary; an emoji is a name. A folder with the
+//  flag of the country a trip is to is doing something the symbol list can
+//  never cover, so the picker offers both and they live in the same field:
+//  `TabGroup.symbolName` holds either a symbol's name or the emoji itself, and
+//  which one it is is a question about the string, not a second column.
 //
-//  Drawn rather than set as text, because the row's icon is an `NSImageView`
-//  and every other glyph in the column is an image. It is also why the image is
-//  cached: `SidebarRowContent` is `Equatable` and `NSImage` compares by
-//  identity, so a fresh one per refresh would make every folder row look
-//  changed — the same trap `SidebarIcons` documents.
+//  Drawn rather than set as text, because the row's icon is an `NSImageView`.
+//  The image is cached: `SidebarRowContent` is `Equatable` and `NSImage`
+//  compares by identity, so a fresh one per refresh would make every folder row
+//  look changed — the same trap `SidebarIcons` documents.
 //
 
 import AppKit

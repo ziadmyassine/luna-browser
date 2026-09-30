@@ -4,34 +4,18 @@
 //
 //  §3.4a's mute: silencing one tab without pausing it.
 //
-//  There is no public WebKit API for this. Safari's per-tab mute rides on
-//  `WKWebView._setPageMuted:`, which is SPI, and a private selector that
-//  disappears in a point release is a future crash rather than a feature. The
-//  two public calls that come close are the wrong shape:
-//  `pauseAllMediaPlayback()` stops the video as well as the sound, and
-//  `setAllMediaPlaybackSuspended(true)` also refuses to let it start again.
-//  Mute means keep playing quietly, which is a property of the media elements.
+//  No public WebKit API does this. Safari's per-tab mute is SPI
+//  (`_setPageMuted:`), `pauseAllMediaPlayback()` stops the video with the
+//  sound, and `setAllMediaPlaybackSuspended(true)` also refuses to restart it.
+//  So it is `muted` on the media elements, held by a capturing `volumechange`
+//  listener (media events do not bubble), a `MutationObserver` for players
+//  built after the fact, and a re-assert on `didCommit`, not `didFinish`, since
+//  an autoplaying page is loud before the load settles. Setting `muted` to its
+//  own value fires nothing, so the listener's re-assert does not loop.
 //
-//  Three things make that hold up on a real page rather than only on a `<video>` that was
-//  already in the DOM when the menu item fired:
-//
-//    · `volumechange` in the capture phase. Media events do not bubble, so one
-//      document-level listener only sees every element if it is registered capturing —
-//      the same finding `mediaScript` is built on. A player that un-mutes itself when the
-//      user un-mutes it in its own controls is put back.
-//    · A `MutationObserver` on the whole document. A `<video>` appended after the fact
-//      — which is every video on every site that builds its player in JavaScript — has to
-//      be caught on arrival, not on the one pass that ran when the item was clicked.
-//    · `didCommit`, not `didFinish`. A new document has new media elements at their
-//      own defaults, and an autoplaying page is making noise long before the load settles.
-//
-//  Setting `muted` to the value it already holds fires nothing, so the `volumechange`
-//  listener re-asserting the flag terminates instead of looping.
-//
-//  The script is installed only on tabs that have actually been muted — `evaluateJavaScript`
-//  on demand rather than a `WKUserScript` on every page — because un-installing a user
-//  script means `removeAllUserScripts()`, which would take §17's blocked-count script and
-//  §3.2b's scroll reporter with it.
+//  Evaluated on demand in muted tabs rather than installed as a `WKUserScript`:
+//  removing one means `removeAllUserScripts()`, which would take §17's
+//  blocked-count script and §3.2b's scroll reporter with it.
 //
 
 import WebKit
@@ -78,7 +62,7 @@ public extension TabController {
     /// does not reach subframes, so an embedded player in an iframe keeps playing. The
     /// sidebar's speaker badge does not have that limitation — `mediaScript` is injected
     /// `forMainFrameOnly: false` — so a muted tab can still report itself audible. That is
-    /// the truth rather than a bug in the badge, and it is named here rather than hidden.
+    /// the truth rather than a bug in the badge.
     private static func muteScript(_ muted: Bool) -> String {
         """
         (function (muted) {

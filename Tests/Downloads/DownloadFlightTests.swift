@@ -5,18 +5,14 @@
 //  §5.0's arc, asserted without a window — which is the only way it can be
 //  asserted at all.
 //
-//  The animation is 0.34 s long and happens in a corner nobody is looking
-//  at. Bowed the wrong way, short of the button, or flat between two nearby
-//  points: every one of those is a defect you have to catch in the act, and
-//  three of them look identical to "the download started and nothing happened"
-//  at the speed it runs. So the geometry is a pure function and this is where
-//  it is checked.
+//  The animation is 0.34 s long and happens in a corner nobody is looking at.
+//  Bowed the wrong way, short of the button, or flat between two nearby
+//  points: each is a defect you have to catch in the act, so the geometry is a
+//  pure function and this is where it is checked.
 //
-//  The two rows below are the two chromes, and they are here as coordinates
-//  rather than as a layout: §3.5 puts Downloads at the bottom-left corner
-//  of the window and §4 puts it at the top-right, so the same throw has to
-//  read as a throw going down-left and going up-right. That is the whole of
-//  "make sure it works in both positions".
+//  The two chromes are here as coordinates rather than as a layout: §3.5 puts
+//  Downloads at the bottom-left of the window and §4 at the top-right, so the
+//  same throw has to read going down-left and going up-right.
 //
 
 import XCTest

@@ -4,24 +4,17 @@
 //
 //  Everything the foot of the sidebar does to Spaces: §30.9's two-finger
 //  swipe and the page turn it drives, §6.1's create and the editor that follows
-//  it, and §6.2's one way into the Settings section that holds the rest.
+//  it, and §6.2's one way into the Settings section that holds the rest. Its own
+//  object because it is the only part of the column that is a gesture, with a
+//  middle in which nothing has happened yet.
 //
-//  Its own object rather than more of `SidebarViewController` because it is the
-//  only part of the column that is a gesture: it has a beginning, a middle in
-//  which nothing has happened yet, and an end that may or may not change the
-//  window. Laying views out and re-reading the session have no middle.
-//
-//  The swipe is a page turn, not a hint. The column used to lean 40 pt and dim,
-//  which says "something is happening" and nothing else — the Space being
-//  reached for stayed invisible until the gesture had committed, so the choice
-//  was made blind. The live column now translates a full width out while
-//  `SpacePreviewView` translates the neighbour in behind the fingers, and on
-//  release it settles to one side or the other. There is no resting position
-//  between two Spaces, so letting go half way is a decision.
+//  The swipe is a page turn: the live column translates a full width out while
+//  `SpacePreviewView` brings the neighbour in behind the fingers. A lean-and-dim
+//  hint left the Space being reached for invisible, so the choice was made
+//  blind. There is no resting position between two Spaces.
 //
 //  It holds no Spaces. Every frame asks the session afresh, so a Space created,
-//  deleted or reordered while a finger is down cannot leave the gesture
-//  pointing at one that is no longer there.
+//  deleted or reordered mid-gesture cannot leave it pointing at one that is gone.
 //
 
 import AppKit
@@ -52,13 +45,10 @@ final class SidebarSpaceGestures: WindowScoped {
     /// What the still is currently showing, so it is rebuilt when the swipe
     /// changes direction and not on every frame.
     ///
-    /// Three answers rather than an optional id, and the third is the point:
-    /// `blank` is the Space past the last one, which has no id and is not the
-    /// same thing as "nothing has been built yet". With one nil standing for
-    /// both, the blank still was never built — the rebuild was guarded on the
-    /// answer changing, and nil to nil is not a change — so the swipe off the
-    /// end of the strip kept drawing whichever Space the still had been left
-    /// holding, tiles and rows included.
+    /// Three answers rather than an optional id: `blank` is the Space past the
+    /// last one, which has no id and is not "nothing built yet". One nil for
+    /// both never built the blank still — nil to nil is not a change — so the
+    /// swipe off the end kept drawing whichever Space the still last held.
     private enum Showing: Equatable {
         case nothing
         /// The Space that does not exist yet.
@@ -69,18 +59,13 @@ final class SidebarSpaceGestures: WindowScoped {
     private var previewing: Showing = .nothing
     var editor: SpaceEditorView?
     /// True from the moment a create commits until the editor it opens is
-    /// closed.
+    /// closed, and the new Space's column stays out of sight meanwhile. The
+    /// editor is a form on the column's own plane, and a `New Tab` row and the
+    /// Profile's pins showed through it while it asked what the Space is called.
     ///
-    /// The new Space's column is not shown while its editor is up. The editor
-    /// is a form on the column's own plane rather than a sheet over it, and the
-    /// column behind it is three decisions from being anything — so a `New Tab`
-    /// row and whatever the Profile pinned into it showed through the form
-    /// asking what the Space is called. The column arrives when the form is
-    /// done, which is the first moment it says anything true.
-    ///
-    /// `SidebarViewController.refresh` reads it: creating a Space is a Space
-    /// switch, and a switch cross-fades the column back in.
-    /// Written by `+Editor.swift` alone; everything else only reads it.
+    /// `SidebarViewController.refresh` reads it, because a create is a Space
+    /// switch and a switch cross-fades the column back in. Only `+Editor.swift`
+    /// writes it.
     var isMakingSpace = false
     /// Whether §30.9's ring has already ticked in this gesture — see
     /// `Tokens.Haptics.latch`.
@@ -150,10 +135,8 @@ final class SidebarSpaceGestures: WindowScoped {
     /// a create — and one more if the hand backs off far enough to undo it
     /// and pushes out again.
     ///
-    /// It answers a threshold rather than announcing one. The ring used to
-    /// close two thirds of a page before the release could act on it, which
-    /// made this a warning; the ring is the threshold now, so it is a detent.
-    /// The retreat is worth feeling too: panning back empties the ring and
+    /// The ring is the release's threshold, so this is a detent rather than a
+    /// warning. The retreat is felt too: panning back empties the ring and
     /// calls the create off, and a hand that only feels the arming has been
     /// told half of it.
     ///
@@ -176,14 +159,10 @@ final class SidebarSpaceGestures: WindowScoped {
     /// The frames of the two borrowed views, and the transforms of everything
     /// that moves.
     ///
-    /// Nothing here ever animates, including on release. A frame is a
-    /// consequence of the column's layout and was never this gesture's to
-    /// animate (`Motion.immediately`), but the transforms used to be handed to
-    /// Core Animation on the way home while the rest of the read-out was not —
-    /// so the strip and the wash arrived at the new Space while the column was
-    /// still crossing to it. `SpaceSwipeSettle` tweens the travel instead and
-    /// calls this every frame, which leaves one way a frame of this gesture is
-    /// drawn.
+    /// Nothing here animates, including on release. Transforms handed to Core
+    /// Animation on the way home left the column still crossing after the
+    /// strip and the wash had arrived. `SpaceSwipeSettle` tweens the travel and
+    /// calls this every frame, so a frame of this gesture is drawn one way.
     private func turn(to travel: CGFloat) {
         let page = contentRect
         Tokens.Motion.immediately {
@@ -245,11 +224,9 @@ final class SidebarSpaceGestures: WindowScoped {
         // has a `New Tab` row on it (§30.6), and drawing one here said the
         // swipe was arriving somewhere rather than making somewhere.
         guard let target else { return preview.showBlank() }
-        // The same split §3 makes, made here too. `SidebarList` is what the
-        // real column divides a Space's tabs with, so the still is built from
-        // it rather than from a flat `session.list[…]` — which is what used to
-        // draw the §3.3 tiles as ordinary rows and let the pinned tabs arrive
-        // unpinned and then correct themselves.
+        // Built from `SidebarList`, as the real column is. A flat
+        // `session.list[…]` drew the §3.3 tiles as ordinary rows, and the
+        // pinned tabs arrived unpinned and then corrected themselves.
         let column = SidebarList(
             saved: session.list.drawnSlots(inSpace: target.id, kind: .pinned),
             today: session.list.drawnSlots(inSpace: target.id, kind: .today),

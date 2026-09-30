@@ -67,7 +67,7 @@ final class ShortcutBindingsTests: XCTestCase {
         }
     }
 
-    /// The commands this wave added, each with the keystroke it was asked for.
+    /// Each of these commands ships with its keystroke already bound.
     func testTheNewCommandsShipTheKeystrokesTheyWereGiven() {
         let expected: [(BrowserCommand, String)] = [
             (.forceReloadPage, "⌥⌘R"), (.reader, "⇧⌘R"), (.hideElements, "⇧⌘H"),

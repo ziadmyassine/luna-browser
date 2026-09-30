@@ -6,8 +6,7 @@
 //  needs a trailing affordance: §3.4's close/mute on a tab row, §3.2's sliders
 //  on the URL pill, §5's reveal-in-Finder on a downloads row.
 //
-//  It lived in `SidebarRowView.swift` until that file passed 400 lines. It is
-//  a separate class used by four callers, so it is a separate file.
+//  Its own file because it is its own class, with four callers.
 //
 
 import AppKit
@@ -16,27 +15,16 @@ import AppKit
 /// noise (§3.4). Its own accessibility element so VoiceOver can reach mute and
 /// archive without a mouse (§21.1).
 ///
-/// The chip is the pointer's, not the row's. §3.4 describes no chrome around
-/// the glyph; a first pass gave it a permanent translucent square, which put a
-/// grey tile on every row the pointer merely passed over. The square is the
-/// affordance for this control, so it appears when the pointer is on this
-/// control and not a moment before — glyph alone while the row is hovered, chip
-/// plus a "Close Tab" tip once you are actually on it.
+/// The chip is the pointer's, not the row's: it appears when the pointer is on
+/// this control and not a moment before. A permanent translucent square put a
+/// grey tile on every row the pointer merely passed over. Every one of these
+/// glyphs wears it, the two inside §3.2's pill included — lifting their ink
+/// instead made the same control answer two ways.
 ///
-/// And every one of these glyphs wears it. The two inside §3.2's pill lifted
-/// their ink instead for a while, on the argument that a rounded rectangle
-/// inside a capsule is two shapes. The reference for a non-glass button —
-/// three captures of a reload glyph at rest, under the pointer and under a
-/// press — is that chip, and it was asked for by name on "the close tab icon or
-/// site settings icon in the search bar". Same control, same affordance.
-///
-/// The fill is §3.4's pair: `Surface.hover` under the pointer, `Surface.selected`
-/// under a press, cross-fading on §6's `controlHover` — which is what the
-/// reference measures at, near enough (7.6 % and 12.8 % of white over a dark
-/// bar, against Luna's 6 and 12). It is painted by the view's own layer,
-/// under the image rather than over it: an `NSImageView` draws its image into
-/// that layer's contents, so a background is behind the glyph and a sublayer
-/// would be in front of it.
+/// The fill is §3.4's pair, cross-fading on §6's `controlHover`; the reference
+/// measures 7.6 % and 12.8 % of white over a dark bar, against Luna's 6 and 12.
+/// It is the view's own layer background, under the image: an `NSImageView`
+/// draws into that layer's contents, so a sublayer would be in front of it.
 @MainActor
 final class RowGlyphView: NSImageView {
 

@@ -61,19 +61,17 @@ final class SpaceSwipeController {
 
     /// Handles `event` if it is this gesture, and says so.
     ///
-    /// Momentum never decides anything and is not handed back either. A flick's
-    /// momentum phase keeps delivering deltas for up to a second after the
-    /// fingers have gone: counting them would commit — or create — long after
-    /// the hand stopped asking, and releasing them to the list would end a Space
-    /// switch with the list lurching sideways under the new Space's rows. So the
-    /// tail of a gesture this took is swallowed, and the tail of one it did not
-    /// is passed on untouched.
+    /// Momentum never decides anything. A flick's momentum phase keeps
+    /// delivering deltas for up to a second after the fingers have gone:
+    /// counted, they would commit long after the hand stopped asking, and
+    /// released to the list they would lurch it sideways under the new Space's
+    /// rows. So the tail of a gesture this took is swallowed, and any other
+    /// tail passes on untouched.
     ///
-    /// Every phase is seen, including the ones with no travel. The `.ended`
-    /// event of a horizontal swipe carries zero deltas, so a caller that routed
-    /// events here by axis would never deliver the event that commits the
-    /// gesture. That is also why `.ended` resets even when nothing was being
-    /// tracked: an untracked gesture still left travel in `offset`.
+    /// Every phase is seen, including those with no travel: a horizontal
+    /// swipe's `.ended` carries zero deltas, so routing by axis would never
+    /// deliver the commit. `.ended` resets even when nothing was tracked,
+    /// because an untracked gesture still left travel in `offset`.
     func scrollWheel(with event: NSEvent) -> Bool {
         guard event.momentumPhase.isEmpty else { return ownsMomentum }
         switch event.phase {
@@ -133,12 +131,10 @@ final class SpaceSwipeController {
         // negative one, and this is the single place the sign is flipped.
         let step = -Self.damped(event.scrollingDeltaX, since: lastEventTime, at: event.timestamp)
         let interval = Self.interval(since: lastEventTime, at: event.timestamp)
-        // Damped against damped. `drift` used to add the raw `scrollingDeltaY`
-        // to a comparison with an `offset` the ceiling had already folded down,
-        // so a brisk horizontal swipe with any wobble lost to its own wobble and
-        // the list kept the scroll. Both sides of the guard have to come through
-        // the same curve. Taken before `lastEventTime` moves, so both axes of
-        // one event are measured over one interval.
+        // Damped against damped: a raw `scrollingDeltaY` compared with an
+        // `offset` the ceiling had already folded down made a brisk horizontal
+        // swipe with any wobble lose to its own wobble. Taken before
+        // `lastEventTime` moves, so both axes of one event share one interval.
         drift += abs(Self.damped(event.scrollingDeltaY, since: lastEventTime, at: event.timestamp))
         let instant = step / CGFloat(interval)
         // The first event of a gesture has nothing to smooth against, and
@@ -159,29 +155,19 @@ final class SpaceSwipeController {
     }
 
     /// One event's `scrollingDeltaX`, with the system's acceleration bent back
-    /// off the top.
+    /// off the top. macOS scales a precise scroll by the fingers' speed, so the
+    /// same eighty points of hand arrive as eighty dragged and three hundred
+    /// flicked, and a page bound to that delta races out from under the fingers.
     ///
-    /// A trackpad does not report distance, it reports scaled distance: macOS
-    /// multiplies a precise scroll by how fast the fingers were moving, so the
-    /// same eighty points of hand arrive as eighty when dragged and as three
-    /// hundred when flicked, and a page bound to that delta races out from under
-    /// the fingers pushing it.
+    /// A bend, not a clip: every event of a real swipe lands above a hard
+    /// ceiling, so a clipped page travels at one fixed speed whatever the hand
+    /// does. `tanh` has slope 1 at the origin, so movement well under
+    /// `Metric.spaceSwipeSpeed` passes through as itself, and no corner for a
+    /// jittery hand to chatter across. The interval is clamped at both ends: a
+    /// first `.changed` has nothing to measure from, and a stalled frame would
+    /// hand one event the budget of ten.
     ///
-    /// The curve bends, it does not stop. This was a hard clip for one build,
-    /// which is worse than no damping at all: every event of a real swipe lands
-    /// above the ceiling, so every event comes back as exactly the ceiling and
-    /// the page travels at one fixed speed whatever the hand does. `tanh` is the
-    /// same ceiling with the corner taken off — slope 1 at the origin, so
-    /// movement well under `Metric.spaceSwipeSpeed` passes through as itself,
-    /// flattening smoothly rather than meeting an edge a jittery hand can
-    /// chatter across.
-    ///
-    /// The interval is clamped at both ends rather than trusted. A first
-    /// `.changed` has nothing to measure from, and a frame the app spent
-    /// elsewhere would hand one event the budget of ten.
-    ///
-    /// Internal rather than private so `SpaceSwipeTests` can assert the curve;
-    /// nothing outside this file calls it.
+    /// Internal rather than private so `SpaceSwipeTests` can assert the curve.
     static func damped(_ delta: CGFloat, since last: TimeInterval, at now: TimeInterval) -> CGFloat {
         let ceiling = Tokens.Metric.spaceSwipeSpeed * CGFloat(interval(since: last, at: now))
         guard ceiling > 0 else { return 0 }

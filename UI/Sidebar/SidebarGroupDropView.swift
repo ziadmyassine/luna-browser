@@ -6,25 +6,14 @@
 //  folder while a lift is aimed inside it.
 //
 //  The folder's whole extent, not its header — the name, the tabs already in
-//  it, and the gap the list has just opened for the one arriving. A folded
-//  folder's extent is its header alone, so one view answers both states and
-//  there is one mark to learn. Before this, an expanded folder said nothing at
-//  all: the tab it was about to swallow stepped in by `groupIndent` and that
-//  was the whole of it.
+//  it, and the gap the list has opened for the one arriving. A folded folder's
+//  extent is its header alone, so one view answers both states. One for the
+//  list rather than one per folder, because a lift is in one place.
 //
-//  One view for the list rather than one per folder, for §3.4's own reason —
-//  a lift is in one place, so a mark that travels is cheaper than a mark every
-//  row carries and never uses.
-//
-//  The dash is §3.3's. A dashed line is what Luna draws where a thing goes: in
-//  the grid's empty slot, in §3.3a's two wells, and now round the folder a tab
-//  is being filed into.
-//
-//  The fill is `Surface.selected` rather than `Surface.hover`, which is §3.4's
-//  own distinction between the two washes: hover says the pointer is over this,
-//  and a folder taking a drop is the chosen destination for the thing in the
-//  air. A hairline on one header was the whole of the answer before, and a
-//  folder is about to swallow the tab.
+//  The dash is §3.3's: a dashed line is what Luna draws where a thing goes. The
+//  fill is `Surface.selected` rather than `Surface.hover`, §3.4's distinction:
+//  hover says the pointer is over this, and a folder taking a drop is the
+//  chosen destination.
 //
 
 import AppKit

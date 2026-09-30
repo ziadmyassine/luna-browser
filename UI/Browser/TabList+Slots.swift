@@ -3,21 +3,17 @@
 //  Luna
 //
 //  §3.4b's groups, and the run of indices they share with the loose tabs around
-//  them. The other half of `TabList`, split off because the two subjects are
-//  genuinely different: that file is "where does a tab go", this one is "what is
-//  a place in the list".
+//  them. `TabList` is "where does a tab go"; this is "what is a place in the list".
 //
-//  A **slot** is one top-level position in a section: a loose tab, or a group.
-//  They are numbered together, because §3.4b lets a group stand between two
-//  loose tabs — so every mutation ends by rewriting a whole section's slots
-//  `0..<n` and handing back everything it touched. Renumbering only one of the
-//  two would leave the other's indices interleaved with values that no longer
-//  exist, and the arrangement on disk would stop matching the one on screen.
+//  A slot is one top-level position in a section: a loose tab, or a group.
+//  They are numbered together, because a group can stand between two loose
+//  tabs — so every mutation ends by rewriting a whole section's slots `0..<n`
+//  and handing back everything it touched. Renumbering only one of the two
+//  would leave the arrangement on disk out of step with the one on screen.
 //
-//  Nothing here reads `order` to decide an arrangement. `order` is the value
-//  being replaced: the array the caller built is the truth, and its positions
-//  are what get written. `slots(inSpace:kind:)` is the one place `order` is
-//  read, and it is a read.
+//  Nothing here reads `order` to decide an arrangement: the array the caller
+//  built is the truth, and its positions are what get written.
+//  `slots(inSpace:kind:)` is the one place `order` is read.
 //
 
 import BrowserKit
@@ -90,8 +86,8 @@ extension TabList {
 
     /// One section's top-level places, in the order §3.4 draws them.
     ///
-    /// `.essential` has none: §3.3's grid is a Profile's tier of tiles rather
-    /// than a Space's run of slots, and a group cannot be a tile at all.
+    /// `.essential` has none: §3.3's grid is a tier of tiles rather than a run
+    /// of slots, and a group cannot be a tile at all.
     func slots(inSpace spaceID: UUID, kind: TabKind) -> [TabSlot] {
         guard kind != .essential else { return [] }
         let loose = own(spaceID)
@@ -159,7 +155,7 @@ extension TabList {
     }
 
     /// Takes the group away and leaves its tabs where it stood, loose, in its
-    /// own order — §3.4b's *Ungroup*.
+    /// own order — §3.4b's Ungroup.
     ///
     /// Not a deletion of anything the user can see disappear: a group is a name
     /// around some tabs, so removing it removes the name. The command that does

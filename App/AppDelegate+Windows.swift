@@ -5,11 +5,9 @@
 //  §22.6: opening a window, filling it with chrome, and keeping track of which
 //  one the user is in.
 //
-//  `buildChrome` is the whole of what used to sit in the middle of
-//  `startSession`, unchanged except that it writes into a `BrowserWindow`
-//  instead of into the app. That is the point of the move: every one of these
-//  objects is per window, and the app holding one of each is what made a second
-//  window overwrite the first one's sidebar.
+//  `buildChrome` writes into a `BrowserWindow`, never into the app: every one
+//  of these objects is per window, and the app holding one of each is what
+//  makes a second window overwrite the first one's sidebar.
 //
 //  The front window is tracked rather than asked for. `NSApp.keyWindow` is nil
 //  while a sheet, a pop-out or the Settings window is up, and every command
@@ -61,7 +59,7 @@ extension AppDelegate {
     /// than exactly on top of it.
     ///
     /// Not `NSWindow.cascadeTopLeft(from:)`, which was measured doing nothing
-    /// here: it places the window's top-left *at* the point it is given and
+    /// here: it places the window's top-left at the point it is given and
     /// only offsets the one after that, so handing it the previous window's
     /// corner puts the new window exactly over it. The offset is Luna's.
     ///

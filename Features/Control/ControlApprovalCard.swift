@@ -10,14 +10,10 @@
 //  up when none are left.
 //
 //  It drops from the top edge of whatever page is in front
-//  (`ControlSurfaceView`), not only the agent's own, so it is seen the moment
-//  it arrives wherever the user is. It used to open only when the folder was
-//  clicked, and a raised hand on a sidebar row went unnoticed while the agent
-//  waited. Asking still takes nothing: no window becomes key, and the page
-//  keeps the keyboard.
-//
-//  It does not time out on screen: the request's own five minutes
-//  (`ControlApprovals.timeout`) are what end it unanswered.
+//  (`ControlSurfaceView`), not only the agent's own: a raised hand on a
+//  sidebar row alone goes unnoticed while the agent waits. No window becomes
+//  key, and the page keeps the keyboard. It does not time out on screen; the
+//  request's own five minutes (`ControlApprovals.timeout`) end it unanswered.
 //
 
 import AppKit

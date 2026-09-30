@@ -5,26 +5,16 @@
 //  §3.3: the light on the pinned tile you are on, in the colour of that
 //  site's own favicon — `FaviconTint` picks the colour, this draws it.
 //
-//  Three layers, each doing a different job. `ring` is a lit line just outside
-//  the tile's hairline; the shadow on that ring is the bloom carrying past it,
-//  derived from the border rather than a `shadowPath` so it follows the ring
-//  instead of the box; and `bleed` is the little of the colour that gets inside
-//  the glass, which is the difference between a ring round a tile and a tile
-//  that has been lit.
+//  `ring` is a lit line just outside the tile's hairline; its shadow, derived
+//  from the border rather than a `shadowPath`, is the bloom past it; `bleed` is
+//  the little colour that gets inside the glass, which makes a tile lit rather
+//  than ringed. Layers with a continuous corner, not a `CGPath`: no public API
+//  gives a squircle's outline, and a stroked arc pinches at the corners where
+//  the tile does not.
 //
-//  Layers with a continuous corner, not a `CGPath`. There is no public API for
-//  a squircle's outline — `CGPath(roundedRect:)` and `NSBezierPath` both give
-//  circular arcs — so a stroked path round a §3.3 tile pinches at the corners
-//  where the tile does not. A `CALayer` draws the real curve for nothing: set
-//  `cornerCurve`, give it a border, and the shape is the tile's.
-//
-//  It sits over the tile, not under it. Under was the first build and the bleed
-//  vanished: a selected tile carries `NSGlassEffectView`, which composites what
-//  is behind the window (`Glass.swift`), so everything in the window behind it
-//  is gone. The view answers no hit test — this is light.
-//
-//  One of these for the whole grid rather than one per tile: only one tile can
-//  be the tab you are on.
+//  Over the tile, not under it: a selected tile carries `NSGlassEffectView`,
+//  which composites what is behind the window, and a bleed under it vanished.
+//  One for the whole grid, since only one tile can be the tab you are on.
 //
 
 import AppKit
@@ -34,14 +24,11 @@ final class EssentialGlowView: NSView {
 
     /// 1.06 → 1: the light flares out and settles, it does not grow in.
     ///
-    /// Every other appear in Luna comes up from under 1 — §5's popover from
-    /// 0.94, the Command Bar from 0.96 — and this one cannot, because it is a
-    /// ring round a tile rather than a panel. Rendered at 0.88, 0.94, 1.00 and
-    /// 1.06 over a real tile: anything under 1 puts the lit ring inside the
-    /// tile's own hairline, with the grey line still showing outside it, and
-    /// what that reads as is a second smaller box drawn on the tile. Starting
-    /// wide, the ring is clear of the tile for the whole movement and the pop
-    /// is light flaring rather than a shape changing size.
+    /// Every other appear in Luna comes up from under 1, and this one cannot,
+    /// because it is a ring round a tile rather than a panel. Rendered at 0.88,
+    /// 0.94, 1.00 and 1.06 over a real tile: under 1 puts the lit ring inside
+    /// the tile's own hairline, which reads as a second smaller box drawn on
+    /// the tile. Starting wide, the ring is clear of the tile throughout.
     private static let flare = 1.06
 
     /// Whether the glow is on. `alphaValue` is the animated answer and is
@@ -104,22 +91,15 @@ final class EssentialGlowView: NSView {
 
     /// Lights the glow in `tint`, or puts it out when that is nil.
     ///
-    /// - Parameter blooming: play the appear — the light coming up under the
-    ///   tile — rather than simply being on. The grid passes true for a click
-    ///   and false for the pass that builds the sidebar, where nothing was
-    ///   clicked and a bloom on launch would announce a tab you did not pick.
-    ///
-    /// A click that moves the glow from one tile to another blooms from
-    /// nothing rather than from where it was: the frame has already jumped to
-    /// the new tile, and fading the remainder of the old light up to full there
-    /// reads as the glow having always been on.
-    ///
+    /// - Parameter blooming: play the appear rather than simply being on. True
+    ///   for a click; false for the pass that builds the sidebar, where a bloom
+    ///   on launch would announce a tab you did not pick. A glow moving to
+    ///   another tile blooms from nothing: its frame has already jumped, and
+    ///   fading the old light up there reads as having always been on.
     /// - Parameter animated: false puts the light where it belongs in this
-    ///   frame. §6's Space switch is the one caller that asks: the grid has
-    ///   been replaced wholesale, and `essentialGlow` outlasts
-    ///   `spaceSwitchCrossfade` by a third, so a light fading out of the Space
-    ///   you left is still burning over the Space you arrived in, on a tile
-    ///   that is no longer there. It is not the same light moving.
+    ///   frame, for §6's Space switch: `essentialGlow` outlasts
+    ///   `spaceSwitchCrossfade` by a third, so a fading light would still burn
+    ///   over the Space you arrived in, on a tile that is no longer there.
     func show(_ tint: NSColor?, blooming: Bool, animated: Bool = true) {
         if let tint { self.tint = tint }
         paint()

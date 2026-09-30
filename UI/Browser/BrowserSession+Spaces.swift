@@ -6,23 +6,14 @@
 //  re-icon, re-gradient, re-picture, delete — and the Favorites tier those
 //  operations have to keep whole.
 //
-//  Two things here are not obvious, and they are why the file exists:
-//
-//  · Deleting a Space never destroys a tab. `.archiveTabs` archives them and
-//    `.adopt(into:)` re-homes them; either way the rows move to a surviving
-//    Space before the Space row goes, because `tabs.spaceID` cascades and a
-//    cascade is not undoable. Vivaldi closes the tabs with no undo.
-//
-//  · A Space owns its cookie jar (§9, schema `v7`). It named a Profile row that
-//    several Spaces could share until then, and the operation that re-pointed
-//    one had to tear down every web view in it — a `WKWebView`'s data store is
-//    fixed at construction, so setting the field alone left every loaded tab
-//    writing to the old jar, which is Nook's `assign(spaceId:toProfile:)` and
-//    zen#15023. Nothing can re-point a Space now, so nothing has to.
-//
-//  Not here, deliberately: no window-close-on-last-tab rule. When one comes it
-//  is evaluated over the window, never the visible Space. zen#9272 took the
-//  other path and one user lost ~500 tabs; floorp#2152 is the same bug, open.
+//  · Deleting a Space never destroys a tab. Its tabs are archived or adopted
+//    into a surviving Space before the Space row goes, because `tabs.spaceID`
+//    cascades and a cascade is not undoable.
+//  · A Space owns its cookie jar (§9, schema `v7`), so nothing re-points one:
+//    a `WKWebView`'s data store is fixed at construction, and re-pointing
+//    leaves loaded tabs writing to the old jar (Nook, zen#15023).
+//  · No window-close-on-last-tab rule. If one comes it is evaluated over the
+//    window, never the visible Space: zen#9272 lost one user ~500 tabs.
 //
 
 import AppKit
@@ -55,11 +46,8 @@ extension BrowserSession {
 
     // MARK: - Create (§6.1)
 
-    /// A new Space, with a cookie jar of its own.
-    ///
-    /// Every Space gets its own and always did in practice: the sharing that
-    /// `profileID:` used to select was in the schema, reachable from one popup,
-    /// and gone with §9's `v7`. A new Space starts signed out of everything.
+    /// A new Space, with a cookie jar of its own, so it starts signed out of
+    /// everything.
     ///
     /// The Space lands next to the active one, not at the end (§13.10).
     @discardableResult
@@ -83,10 +71,10 @@ extension BrowserSession {
     /// Picks up what another part of the app wrote straight to the store —
     /// today, §23.2's importer during §30.17's first run.
     ///
-    /// Spaces *and* the tabs in them, because a Space is not the only thing an
-    /// import can land in: the second run from the same browser, or a first
+    /// Spaces and the tabs in them, because a new Space is not the only thing
+    /// an import can land in: the second run from the same browser, or a first
     /// run whose Space name already matched, writes into one this session is
-    /// already showing, and a sweep that only looked for new Spaces left those
+    /// already showing, and a sweep for new Spaces alone leaves those
     /// bookmarks invisible until the next launch.
     ///
     /// Additive on purpose. Nothing here removes, replaces or reloads a row it
@@ -198,55 +186,38 @@ extension BrowserSession {
 
     // MARK: - Launch
 
-    /// Deletes every `WKWebsiteDataStore` on disk that no Space names, and
-    /// drains the deferred-removal queue while it is there (spec §3.1, §3.2).
-    ///
     /// Redirects the sweep away from the disk, and the only way to run it
-    /// inside a test.
+    /// inside a test; the test receives the identifier set that decides which
+    /// stores survive.
     ///
-    /// A sink rather than a boolean, for two reasons:
-    ///
-    /// · The default is safe. Unset — the value the app always has — the sweep
-    ///   goes to the real `ProfileStore`, and only when the process is not a
-    ///   test run.
-    /// · "Sweep the real disk from a test" is unspellable. A flag the test
-    ///   flips would leave the disk reachable, and one test that forgot to put
-    ///   it back would arm it for every test after. Here, switching the guard
-    ///   off and pointing the sweep somewhere harmless are the same act: no
-    ///   argument to this API reaches
-    ///   `WKWebsiteDataStore.remove(forIdentifier:)`.
-    ///
-    /// What a test gains is the identifier set that was handed over, which is
-    /// what decides which stores survive.
+    /// A sink rather than a boolean. Unset — the value the app always has —
+    /// the sweep goes to the real `ProfileStore`, and only outside a test run.
+    /// A flag a test flips would leave the disk reachable, and one test that
+    /// forgot to put it back would arm it for every test after; here, switching
+    /// the guard off and pointing the sweep somewhere harmless are the same act.
     var orphanSweepSink: ((Set<UUID>) async -> Void)? {
         get { Self.sinks[ObjectIdentifier(self)] }
         set { Self.sinks[ObjectIdentifier(self)] = newValue }
     }
 
-    /// The one call that makes store deletion eventually consistent.
+    /// Deletes every `WKWebsiteDataStore` on disk that no Space names, and
+    /// drains the deferred-removal queue while it is there (spec §3.1, §3.2).
     ///
     /// `remove(forIdentifier:)` fails while any live `WKWebView` still uses the
-    /// store, and a web view goes away when ARC says so rather than when the
-    /// user clicks Delete — so a removal that loses that race is queued in
-    /// `UserDefaults` and finished here on the next launch. Without it the
-    /// queue is written and never read.
+    /// store, and a web view goes when ARC says so rather than when the user
+    /// clicks Delete — so a removal that loses that race is queued in
+    /// `UserDefaults` and finished here on the next launch. Cheap, because
+    /// WebKit is the registry: a delete that failed yesterday is still listed
+    /// today, so orphan recovery costs one diff (DuckDuckGo relies on the same).
     ///
-    /// Cheap, because WebKit is the registry: a delete that failed yesterday is
-    /// still listed today, so orphan recovery costs one diff. DuckDuckGo relies
-    /// on the same property.
-    ///
-    /// Launch work, not window work: once per process even though a
-    /// `BrowserSession` is per window, because a second window sweeping the
-    /// same disk would race the first one's removals. Detached from the launch
-    /// path so a slow WebKit answer never delays the first paint.
+    /// Once per process, not per session, because a second window sweeping the
+    /// same disk would race the first one's removals. Detached so a slow
+    /// WebKit answer never delays the first paint.
     func sweepOrphanedProfileStores() {
-        // Never from a test, unless the test has already routed the sweep away
-        // from the disk. This deletes every store on disk that the session's
-        // database does not name, and a test's database is a temporary file
-        // holding two rows — so a test that installed the lifecycle would delete
-        // the user's real cookie jars and call it orphan recovery. The only safe
-        // thing to key on is the harness: XCTest is loaded in a test run and in
-        // nothing else.
+        // Never from a test, unless the test has routed the sweep away from
+        // the disk: a test's database holds two rows, so the sweep would delete
+        // the user's real cookie jars. XCTest is loaded in a test run and in
+        // nothing else, so it is the one safe thing to key on.
         let sink = orphanSweepSink
         guard sink != nil || NSClassFromString("XCTestCase") == nil else { return }
         // Once per process — but only for the disk. Two windows racing each

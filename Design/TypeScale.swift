@@ -35,10 +35,9 @@ extension Tokens {
         /// Plain, not `monospacedDigit`: a page title is not a number, and
         /// monospaced digits visibly widen a title like "iPhone 18 Pro".
         static var sidebarRow: NSFont { .systemFont(ofSize: 13, weight: .regular) }
-        // §3.3a's two wells read this one too. There was a `sidebarHint` that
-        // forwarded to it — 12 pt semibold before that, a section label's
-        // weight on a sentence, the only bold type in §3 — and a token whose
-        // whole body is another token's name is a way for the two to drift.
+        // §3.3a's two wells read this one too, directly: a token whose whole
+        // body is another token's name is a way for the two to drift, and a
+        // semibold hint was a section label's weight on a sentence.
 
         /// 13 pt — the sidebar URL pill, at the same x-height as the rows.
         /// §1's 17 pt came from the same bad scale as the 15 pt above.
@@ -85,12 +84,9 @@ extension Tokens {
         /// 26 pt semibold — the title on one of Luna's own pages (§4.4):
         /// §4.5's failures, and nothing else yet.
         ///
-        /// A page is not chrome, and the chrome's face is what made these look
-        /// wrong. Internal pages were set entirely in `urlPill` and
-        /// `sectionLabel` — 13 pt and 12 pt — because those were what the CSS
-        /// bridge could reach, and the result read as a sidebar loose in the
-        /// window: correct type, at a size chosen for a 268 pt column, centred
-        /// in a thousand points of content.
+        /// A page is not chrome. Set in `urlPill` and `sectionLabel`, an
+        /// internal page read as a sidebar loose in the window: type sized for
+        /// a 268 pt column, centred in a thousand points of content.
         ///
         /// Plain, not `monospacedDigit`, for the same reason `sidebarRow` is.
         static var pageTitle: NSFont { .systemFont(ofSize: 26, weight: .semibold) }
@@ -108,31 +104,19 @@ extension Tokens {
         /// The weight an SF Symbol has to be set at to draw the same stroke as
         /// the glyphs beside it.
         ///
-        /// One nominal weight is not one apparent weight. SF Symbols are set to
-        /// a shared cap height, and a mark that is small for its height is
-        /// drawn heavier to stay legible at it. Measured at `glyphSize`, as the
-        /// median run of ink across the mark:
+        /// SF Symbols share a cap height, and a mark small for its height is
+        /// drawn heavier to stay legible. Median stroke at `glyphSize`, all at
+        /// `.regular`: `sidebar.leading` 1.25 pt, `plus` and
+        /// `arrow.down.to.line` 1.38, `arrow.clockwise` and
+        /// `clock.arrow.circlepath` 1.62, `chevron.backward` 2.00. The chevron
+        /// sits in a box 7.5 pt wide against its neighbours' 12 to 18.5, so at
+        /// their weight it is the heaviest line in the chrome; `.light` draws
+        /// it at 1.50, level with the top bar's median.
         ///
-        ///     sidebar.leading         1.25 pt
-        ///     plus                    1.38
-        ///     arrow.down.to.line      1.38
-        ///     arrow.clockwise         1.62
-        ///     clock.arrow.circlepath  1.62
-        ///     chevron.backward        2.00   ← at the same `.regular`
-        ///
-        /// Back is two short diagonals in a box 7.5 pt wide against its
-        /// neighbours' 12 to 18.5, and SF Symbols pays for that smallness in
-        /// stroke: at everyone else's weight it is the heaviest line in the
-        /// chrome. `.light` draws it at 1.50, between the sidebar toggle and
-        /// reload, and level with the top bar's median.
-        ///
-        /// This used to read `.semibold`, from measuring total ink — which said
-        /// the chevron was the faintest mark on the bar, because it is the
-        /// smallest. That correction took its stroke to 3.00, twice the reload
-        /// arrow's. Small is not the same as light.
-        ///
-        /// Nothing else here is small for its height, so nothing else is
-        /// corrected.
+        /// Measure stroke, not total ink. Total ink calls the chevron the
+        /// faintest mark because it is the smallest, and `.semibold` from that
+        /// took it to 3.00, twice the reload arrow. Nothing else here is small
+        /// for its height, so nothing else is corrected.
         static func glyphWeight(for symbolName: String) -> NSFont.Weight {
             symbolName.hasPrefix("chevron.") ? .light : .regular
         }

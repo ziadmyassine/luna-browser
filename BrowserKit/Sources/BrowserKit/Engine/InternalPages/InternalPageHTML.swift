@@ -4,21 +4,16 @@ import Foundation
 //  have.
 //
 //  There is not one colour or length value in this file. Every declaration
-//  reads `var(--luna-…)`, the custom properties are generated from
-//  `Design/Tokens.swift` by `Features/InternalPages/InternalPageTheme`, and the
-//  only fallbacks are CSS system colours and CSS keywords (`Canvas`,
-//  `CanvasText`, `GrayText`, `AccentColor`, `thin`, `medium`) — the OS's own
-//  values, never a second palette that can drift from Luna's.
-//  `InternalPagesTests.stylesheetCarriesNoLiterals` fails if a hex value, an
-//  `rgb(`, or an absolute length ever appears here.
+//  reads `var(--luna-…)`, generated from `Design/Tokens.swift` by
+//  `Features/InternalPages/InternalPageTheme`; the only fallbacks are the OS's
+//  own CSS system colours and keywords (`Canvas`, `CanvasText`, `GrayText`,
+//  `AccentColor`, `thin`, `medium`). `InternalPagesTests` fails on a hex
+//  value, an `rgb(` or an absolute length here.
 //
-//  Light and dark (§8.8) and Increase Contrast are not branched in Swift:
-//  `prefers-color-scheme` and `prefers-contrast` do it inside the page, which is
-//  the only hook that works — on macOS 26.5 Increase Contrast is not an
-//  `NSAppearance` at all (`Design/Tokens.swift` header), so there is nothing for
-//  a Swift-side branch to observe and nothing to invalidate. The palette ships
-//  all four variants and the page picks. Reduce Motion is
-//  `prefers-reduced-motion`, live for the same reason.
+//  Light and dark (§8.8), Increase Contrast and Reduce Motion are branched in
+//  the page by `prefers-*` media queries, not in Swift: on macOS 26.5 Increase
+//  Contrast is not an `NSAppearance` at all (`Design/Tokens.swift` header), so
+//  a Swift-side branch has nothing to observe.
 
 extension InternalPages {
 

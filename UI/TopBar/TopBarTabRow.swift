@@ -5,19 +5,15 @@
 //  An open tab, or a folder's header, on §4's bar: §3.4's own row, laid on its
 //  side.
 //
-//  Not a look-alike. The view inside is `SidebarRowView` — the same favicon at
-//  the same inset, the same title faded rather than cut, the same unread dot,
-//  loading shimmer, speaker, close glyph and folder chevron — configured from
-//  the same `SidebarRowContent`. The bar and the column draw one tab, so they
-//  draw it with one class. Like the column's rows it draws no fill of its own:
-//  the selected pill and the hover pill are two `RowPillView`s the strip moves
-//  between rows, and that is what makes the selection slide rather than blink.
+//  Not a look-alike: the view inside is `SidebarRowView`, configured from the
+//  same `SidebarRowContent`, so the bar and the column draw one tab with one
+//  class. It draws no fill of its own; the strip moves two `RowPillView`s
+//  between rows, which is what makes the selection slide rather than blink.
 //
-//  The host exists for one reason. A column row is the table's full width and
-//  paints its pill `rowInset` inside itself, so on a bar, where rows stand side
-//  by side, two neighbours' insets would overlap and the left one's margin
-//  would take the right one's clicks. The host is exactly the pill's box and
-//  carries the row a little outside it, so the hit area is what is drawn.
+//  The host is exactly the pill's box and carries the row a little outside it.
+//  A column row paints its pill `rowInset` inside itself, so side by side two
+//  neighbours' insets would overlap and the left one would take the right
+//  one's clicks.
 //
 
 import AppKit

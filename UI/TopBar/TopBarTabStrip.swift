@@ -3,39 +3,18 @@
 //  Luna
 //
 //  §4: the tab list, along a bar instead of down a column — drawn with the
-//  column's own parts.
+//  column's own parts. Kept tabs are §3.3's tiles (`GlassButton` in the grid's
+//  shape, lit by `EssentialGlowView`); open tabs and folders' headers are §3.4's
+//  rows (`SidebarRowView`, with the column's two `RowPillView`s sliding between
+//  them). Nothing on the bar is a copy of something in the sidebar.
 //
-//  Kept tabs are §3.3's tiles: `GlassButton` in the grid's shape, dormant until
-//  the pointer or the selection reaches it, with the grid's well, hairline and
-//  swell, and the tile you are on lit by the same `EssentialGlowView` in its
-//  site's own colour. Open tabs and folders' headers are §3.4's rows:
-//  `SidebarRowView` itself, with the column's two `RowPillView`s — the
-//  selected one and the hover one — sliding between them on the column's own
-//  springs. Nothing on the bar is a copy of something in the sidebar; it is the
-//  sidebar's thing, standing somewhere else.
+//  Two runs: kept on the left, on one plate of glass, and open on the right.
+//  `TopBarStripRun` holds the arrangement and where a drop lands; the frames are
+//  `+Layout`, the pills and the pointer `+Pills`. An open-tier folder stands on
+//  a plate of its own, so the folder is one object on the bar.
 //
-//  Two runs: kept on the left, on one plate of glass headed by the Space's
-//  name, and open on the right. `TopBarStripRun` holds the arrangement and
-//  where a drop lands; the frames are `+Layout`, the pills and the pointer
-//  `+Pills`.
-//
-//  A folder's tabs follow its header along the run, past a hairline divider,
-//  and an open-tier folder stands on a plate of its own, as the kept run
-//  stands on the Space's: the folder is one object on the bar. Folded and
-//  open are the column's own `isCollapsed`.
-//
-//  The strip scrolls horizontally when it overflows and the active tab is
-//  always scrolled back into view. An `NSScrollView` does the scrolling: it
-//  already has the elastic bounce, the trackpad handling and the 120 fps path
-//  §19.1 asks for, and a hand-rolled clipper would have none of them.
-//
-//  The run starts at the strip's leading edge, beside the lights and the
-//  back and forward pair; where it sits is not a setting.
-//
-//  Right-clicking opens the column's own menus — §3.4a on a tab, §3.4b on a
-//  folder — from the same bindings on `BrowserSession`. A name is asked for in
-//  a dialog rather than typed on the row: a bar row is as wide as its title,
-//  and there is no room past the end of it to type a longer one.
+//  An `NSScrollView` does the overflow scrolling, for the elastic bounce, the
+//  trackpad handling and the 120 fps path §19.1 asks for.
 //
 
 import AppKit
@@ -221,14 +200,14 @@ final class TopBarTabStrip: NSView, WindowScoped {
 
         content.setAccessibilityRole(.tabGroup)
         content.setAccessibilityLabel(String(localized: "Tabs"))
-        // Bottom to top: the plate, the fills, then the marks, then the name
-        // and the tabs as they arrive, and the light over all of them.
+        // Bottom to top: the plate, the fills, then the marks, then the tabs
+        // as they arrive, and the light over all of them.
         //
-        // The name above the fills and marks, not under them. They take no
+        // Controls above the fills and marks, not under them. They take no
         // click, but the window server's map of where a press moves the
         // window is built from frames and `mouseDownCanMoveWindow`, not from
-        // `hitTest` — so a parked pill lying over the name made a press on
-        // the name drag the window. The tabs were never under them.
+        // `hitTest`, so a parked pill lying over a control makes a press on it
+        // drag the window.
         for view in [plate, rule, selectionPill, hoverPill, slot, folderSlot, glow] as [NSView] {
             content.addSubview(view)
         }
@@ -451,10 +430,9 @@ extension TopBarTabStrip {
         for view in gone { content.addSubview(view, positioned: .below, relativeTo: selectionPill) }
         // A folder shutting is one movement: its tabs fade, the run slides,
         // and the plate morphs down to the name as the run does. Held at full
-        // width until the fade was over and then snapped to the name, it read
-        // as the bar lagging a beat behind the click; snapped first, it left
-        // the tabs flashing out on the bare bar. The tabs fade faster than
-        // the plate shrinks — `Motion.folderShutFade`.
+        // width until the fade is over, the bar lags a beat behind the click;
+        // snapped to the name first, the tabs flash out on the bare bar. The
+        // tabs fade faster than the plate shrinks — `Motion.folderShutFade`.
         let shutting = foldersShutting(leaving: goneRows, live: live)
         shuttingFolders.formUnion(shutting)
         shrinkingPlates.formUnion(shutting)

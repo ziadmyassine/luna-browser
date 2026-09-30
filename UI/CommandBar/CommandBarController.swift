@@ -2,26 +2,18 @@
 //  CommandBarController.swift
 //  Luna
 //
-//  §9.1's behaviour and §9.7's budget. "Everything is one keystroke away" is this
-//  file's job, and the keystroke it has to keep up with is the next one.
+//  §9.1's behaviour and §9.7's budget: "everything is one keystroke away", and
+//  the keystroke it has to keep up with is the next one.
 //
-//  §9.7 shapes everything below. Local results must be on screen within one
-//  frame of the keystroke, so `inputDidChange` does one thing synchronously:
-//  run `CommandBarRanking.merge` over arrays already in memory and hand them to
-//  the list. Nothing on that path awaits, opens a database connection or
-//  touches the disk. The `BrowserStore` query is issued as a task and merges in
-//  when it lands, and it may not move a row the user is standing on — once ↓ or
-//  ↑ has been pressed, late results may only be appended.
-//
-//  The field is never rewritten asynchronously. §9.4's autofill runs on the
-//  synchronous pass only. A list row moving a frame after you stopped typing is
-//  survivable; the text under your caret changing is not.
-//
-//  §9.6: there is no networking here, and `CommandBarPrivacyTests` enforces
-//  that by grep. §3.4's suggestions are fetched by `SearchSuggestions` over in
-//  `Features/Search` and arrive as a plain `[String]` — a third pass over the
-//  same merge, after the synchronous one and the history one, under exactly the
-//  same rule: it may not move a row the user is standing on.
+//  Local results must be on screen within one frame of the keystroke, so
+//  `inputDidChange` does one thing synchronously: `CommandBarRanking.merge`
+//  over arrays already in memory. Nothing on that path awaits or touches the
+//  disk. The `BrowserStore` query and §3.4's suggestions (`SearchSuggestions`)
+//  merge in when they land, and may not move a row the user is standing on.
+//  The field is never rewritten asynchronously — §9.4's autofill runs on the
+//  synchronous pass only: a row moving a frame late is survivable, the text
+//  under the caret changing is not. §9.6: no networking here, which
+//  `CommandBarPrivacyTests` enforces by grep.
 //
 
 import AppKit
@@ -154,8 +146,8 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
         // The pill going and the bar arriving are one swap at one corner: the
         // screen holds the frame it has until the panel is drawn, and what it
         // draws next is the same capsule in the same place with a caret in it.
-        // Hidden a turn earlier — which is where it used to be — that corner
-        // of the chrome is empty for as long as the panel takes to build.
+        // Hidden a turn earlier, that corner of the chrome is empty for as long
+        // as the panel takes to build.
         anchor?.view.isHidden = true
         openWhenReady()
         watchForSecondClick(on: anchor)
@@ -178,10 +170,9 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
     /// Two things happen between the click and a settled list, neither free:
     /// the panel's first composite (65 ms measured, see `prepareToOpen`) and
     /// the store's answer to the opening query (about 9 ms of SQLite, which
-    /// cannot start until the main thread lets go of it). Opening before both
-    /// have landed is the reported defect — the morph began on a list of open
-    /// tabs alone, the history arrived halfway through, and the rows re-ranked
-    /// under it.
+    /// cannot start until the main thread lets go of it). Opened before both
+    /// have landed, the morph began on a list of open tabs alone, the history
+    /// arrived halfway through, and the rows re-ranked under it.
     ///
     /// So the bar stands at the pill's size and waits for whichever comes
     /// first: the opening query landing, the first keystroke, or
@@ -278,9 +269,9 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
             self.sources.adaptive = self.adaptive.snapshot
             // Only when it could change the answer. `adaptiveRows` is
             // skipped for an empty query and an empty table matches no prefix,
-            // so on `⌘T` this was a second full merge and a second trip to
+            // so on `⌘T` it would be a second full merge and a second trip to
             // SQLite — 9 ms of store query, measured, on the first open of
-            // every session — for a list that came back byte for byte the
+            // every session — for a list that comes back byte for byte the
             // same, in the middle of opening the bar.
             guard !self.adaptive.snapshot.isEmpty, !field.typedText.isEmpty else { return }
             self.runQuery(field.typedText)
@@ -364,7 +355,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
         let visible = Array(rows.prefix(CommandBarMetrics.visibleRows))
         // Not while the bar is opening. Replacing the list rebuilds eight
         // row views and re-draws them under live glass, on the thread running
-        // the bar's own 0.18 s animation. The bar now waits for the store
+        // the bar's own 0.18 s animation. The bar waits for the store
         // before it opens (`openWhenReady`), so what still lands in this window
         // is the slow half — the engine's suggestions, over the network.
         guard panel?.isOpening != true else {

@@ -4,21 +4,15 @@
 //
 //  §5.0's read-out: how far a download has got, on the row in §15.3's list.
 //
-//  §3.2c's line, with a track under it, and the track is the difference.
-//  The address bar's load line has none, because the pill it lies in is the
-//  track — the eye can see how much capsule is left. A row has no such edge,
-//  so an accent line ending in the middle of nothing says how far the bytes
-//  have come and says nothing at all about how far they have to go, which is
-//  the half of the question the user is actually asking while they wait.
+//  §3.2c's line — same `loadLineHeight`, `Accent.tint` fill and
+//  `loadLineAdvance` travel, because two surfaces that answer "how far" should
+//  not be two designs — plus a track. The load line needs none because its
+//  pill is the track; a row has no such edge, and a line ending in the middle
+//  of nothing says nothing about how far the bytes have to go.
 //
-//  It is the same `loadLineHeight`, the same `Accent.tint` fill and the same
-//  `loadLineAdvance` travel as §3.2c, because a progress line is a progress
-//  line: two surfaces that both answer "how far" should not be two designs.
-//
-//  The fill only travels between two honest numbers. `Progress` is what
-//  WebKit hands us (§15.1a) and it can arrive in jumps or not at all; what must
-//  never happen is a bar that runs on a clock of its own, so this animates from
-//  where it is to where it has been told and nothing else.
+//  The fill only travels between two honest numbers. WebKit's `Progress`
+//  (§15.1a) can arrive in jumps or not at all, and a bar on a clock of its own
+//  lies, so this animates from where it is to where it has been told.
 //
 
 import AppKit

@@ -6,20 +6,14 @@
 //
 //  It is private by being separate rather than by being filtered. A normal
 //  window shares the app's one session, because the tab list is a database and
-//  two copies of it would race onto disk; this one gets a session of its own
-//  over a database of its own, in a throwaway directory that is deleted the
-//  moment the window closes. Nothing here has to remember to skip a write —
-//  history, tabs, Spaces and §9.3's use counts all land in a file that does not
-//  outlive the window.
+//  two copies of it would race onto disk; this one gets a session over a
+//  database of its own, in a throwaway directory deleted the moment the window
+//  closes. Nothing here has to remember to skip a write — history, tabs,
+//  Spaces and §9.3's use counts all land in a file that does not outlive it.
 //
-//  Cookies and storage are the other half and are WebKit's: the session is
-//  marked private and hands every Space a non-persistent data store, so the
-//  jar lives in memory and dies with the web views (`ProfileStore` is not
-//  consulted at all).
-//
-//  What that leaves is a window that cannot be restored, cannot be undone into
-//  the real session, and shows up in no search of the user's own history —
-//  because there is nothing to restore it from and nothing to search.
+//  Cookies and storage are WebKit's half: the session is marked private and
+//  hands every Space a non-persistent data store, so the jar lives in memory
+//  and dies with the web views (`ProfileStore` is not consulted at all).
 //
 
 import AppKit

@@ -62,11 +62,9 @@ enum Schema {
         // goes on routing (§4.4), but a row is a label as much as a link and
         // this one would read `archive` under a panel titled History.
         //
-        // `v9`'s rewrite again, because once was not enough: a migration runs
-        // on the database and an app runs on its own copy of the rows, so an
-        // older instance left open across the upgrade wrote its `luna://newtab`
-        // back afterwards. Nothing can produce one now, which is what makes
-        // repeating it worth doing rather than the first of several.
+        // `v9`'s rewrite again: an older instance left open across the upgrade wrote its
+        // `luna://newtab` rows back from its own copy. Nothing can produce one now, so
+        // this second pass is the last.
         migrator.registerMigration("v10") { db in
             try db.execute(sql: "UPDATE tabs SET url = 'luna://history' WHERE url = 'luna://archive'")
             try db.execute(sql: "UPDATE tabs SET url = 'about:blank' WHERE url = 'luna://newtab'")
@@ -82,29 +80,20 @@ enum Schema {
 
     /// `v7` — the Profile row goes, and a Space owns its own cookie jar (§9).
     ///
-    /// Space → Profile was many-to-one, and nothing in the product wanted the sharing
-    /// while everything in it had to explain the sharing: the fan-out line on every card,
-    /// the tooltip, three clauses in the delete dialog. One Space, one jar, one name.
+    /// A shared jar is split and one Space keeps it. Two Spaces cannot both go on
+    /// addressing one `WKWebsiteDataStore`, since that sharing is what this ends, so the
+    /// first in list order keeps the identifier and stays signed in, and the others get
+    /// fresh jars and start signed out; the only alternative is both losing it. A user who
+    /// never shared a profile sees no change.
     ///
-    /// A shared jar is split, and one Space keeps it. Two Spaces on one profile cannot
-    /// both go on addressing the same `WKWebsiteDataStore` — that is the sharing this
-    /// migration exists to end — so the first by the order they are listed in keeps the
-    /// identifier and stays signed in wherever it was, and the others are given fresh jars
-    /// and start signed out. There is no third option: the alternative to one of them
-    /// keeping it is both of them losing it. Anyone who never shared a profile, which is
-    /// everyone who never went looking for the setting, sees nothing change.
+    /// Favorites were scoped by `tabs.profileID`, and each also carries its home `spaceID`,
+    /// so the column is dropped rather than translated: a Favorite belongs to the Space it
+    /// was made in. Arc's cap of twelve becomes twelve per Space.
     ///
-    /// Favorites follow the row they are already on. They were scoped by `tabs.profileID`
-    /// and every one of them also carries its home `spaceID`, so the column is dropped
-    /// rather than translated: a Favorite belongs to the Space it was made in, which is
-    /// what the column would have said anyway once the profile it named held exactly one
-    /// Space. Arc's cap of twelve becomes twelve per Space.
-    ///
-    /// The two table rebuilds are why this reads as SQL rather than as GRDB's table
-    /// alterations: `spaces.profileID` is a foreign key into a table that is about to stop
-    /// existing, and SQLite carries foreign keys in the table definition. GRDB defers
-    /// foreign-key checks to the end of a migration's transaction, which is what lets
-    /// `tabs.spaceID` survive its table being replaced underneath it.
+    /// The table rebuilds are SQL rather than GRDB alterations because `spaces.profileID`
+    /// is a foreign key into a table about to stop existing, and SQLite carries foreign
+    /// keys in the table definition. GRDB defers foreign-key checks to the end of the
+    /// migration's transaction, which lets `tabs.spaceID` survive its table being replaced.
     static func giveEverySpaceItsOwnJar(_ db: Database) throws {
         guard try db.tableExists("profiles") else { return }
         try addTheJarColumns(db)
@@ -185,23 +174,16 @@ enum Schema {
 
     /// `v6` — tabs can be grouped, and a saved tab outlives its page (§3.4b).
     ///
-    /// One new table and two nullable-or-defaulted columns. No backfill anywhere, and that
-    /// is the design: nobody has a group yet, so `groupID` is nil for every row that
-    /// existed before this ran, and nobody has closed a saved tab yet, so `isDormant` is
-    /// false for all of them.
+    /// No backfill: no existing tab is in a group, so `groupID` is nil, and none is a
+    /// closed saved tab, so `isDormant` is false. The tier needs no column: `.pinned`
+    /// already meant "the run above today's tabs", so tabs a user placed there are found
+    /// saved rather than left below an empty new section.
     ///
-    /// The tier itself needs no column. `.pinned` already meant "the run above today's
-    /// tabs" and §3.4b only gives it the behaviour its name always claimed — so a user who
-    /// had deliberately placed tabs up there finds them saved, which is what putting them
-    /// there was for, rather than finding an empty new section and their tabs still below it.
+    /// `ON DELETE SET NULL` on `groupID`, not `CASCADE`: deleting a group must never delete
+    /// pages. The one command that does end the tabs (`closeGroup`) archives them itself
+    /// first, in Swift, where it can be undone.
     ///
-    /// `ON DELETE SET NULL` on `groupID`, not `CASCADE`. Deleting a group must never delete
-    /// pages: ungrouping is the whole of what removing a group means, and the one command
-    /// that does end the tabs (`closeGroup`) archives them itself first, in Swift, where it
-    /// can be undone.
-    ///
-    /// Idempotent on the live schema, like every migration above it: the migrator promises
-    /// this runs once, the file on disk promises nothing.
+    /// Idempotent on the live schema, like every migration here.
     static func letTheUserGroupAndSaveTabs(_ db: Database) throws {
         if try !db.tableExists("tabGroups") {
             try db.create(table: "tabGroups") { table in
@@ -237,8 +219,7 @@ enum Schema {
     /// downsamples before it gets here — so a row stays tens of kilobytes and
     /// the picture cannot outlive the profile it belongs to.
     ///
-    /// Idempotent on the live schema, like every migration above it: the
-    /// migrator promises this runs once, the file on disk promises nothing.
+    /// Idempotent on the live schema, like every migration here.
     static func letTheUserPictureAProfile(_ db: Database) throws {
         guard !(try db.columns(in: "profiles").map(\.name).contains("imageData")) else { return }
         try db.execute(sql: "ALTER TABLE profiles ADD COLUMN imageData BLOB")
@@ -246,15 +227,13 @@ enum Schema {
 
     /// `v4` — a tab carries the name and the icon the user gave it (§3.4a).
     ///
-    /// Two nullable columns and no backfill, which is the whole design. Nil means "the user
-    /// has not named this tab" and "the user has not chosen an icon", and the page's own title and
-    /// the site's own favicon are the answers — which is true for every tab that existed before
-    /// this column did and for every tab opened since. Seeding `customTitle` from `title` would
-    /// freeze whatever the page happened to be called at migration time into a name the user never
-    /// typed, and the first navigation would leave the row lying about the page it is showing.
+    /// Two nullable columns and no backfill. Nil means the user has not named the tab or
+    /// chosen an icon, so the page's own title and the site's favicon answer. Seeding
+    /// `customTitle` from `title` would freeze whatever the page was called at migration
+    /// time into a name the user never typed, and the first navigation would leave the row
+    /// lying about the page it is showing.
     ///
-    /// Idempotent on the live schema, like `v2` and `v3`: the migrator promises this runs once,
-    /// the file on disk promises nothing.
+    /// Idempotent on the live schema, like every migration here.
     static func letTheUserNameATab(_ db: Database) throws {
         let existing = try db.columns(in: "tabs").map(\.name)
         if !existing.contains("customTitle") {
@@ -267,16 +246,13 @@ enum Schema {
 
     /// `v3` — a pinned tile remembers the address it was pinned at (§3.3).
     ///
-    /// Nullable, and that is the whole design. Nil means "this tab has no home to go
-    /// back to", which is the truth for every tab that is not a tile and for every tile
-    /// that existed before this column did. Defaulting it to `url` on the way in would
-    /// invent a decision the user never took — the tab's current address is wherever the
-    /// site last walked, not the page they chose to keep — so the backfill below sets it
-    /// only for rows that are tiles, where "the address it is showing now" is the best
-    /// available reading of "the address it was pinned at", and leaves everything else nil.
+    /// Nullable: nil means "this tab has no home to go back to", true of every tab that is
+    /// not a tile. Defaulting it to `url` would invent a decision the user never took, since
+    /// the current address is wherever the site last walked, so the backfill sets it only
+    /// for tiles, where the address showing now is the best available reading of the one
+    /// it was pinned at.
     ///
-    /// Idempotent on the live schema, like `v2`: the migrator promises this runs once, the
-    /// file on disk promises nothing.
+    /// Idempotent on the live schema, like every migration here.
     static func rememberWhereATileWasPinned(_ db: Database) throws {
         guard !(try db.columns(in: "tabs").map(\.name).contains("pinnedURL")) else { return }
         try db.execute(sql: "ALTER TABLE tabs ADD COLUMN pinnedURL TEXT")
@@ -285,19 +261,17 @@ enum Schema {
 
     /// `v2` — Favorites move from per-Space to per-Profile (§2, decision D-S2).
     ///
-    /// Specified by the session layer, implemented here. A Favorite is a logged-in app tile,
-    /// so it belongs to the cookie jar that holds the login, not to the tab list it happens
-    /// to have been created in. Arc keys its Favorites container by profile
-    /// (`topAppsContainerIDs`) and this is the same key.
+    /// A Favorite is a logged-in app tile, so it belongs to the cookie jar that holds the
+    /// login, not to the tab list it was created in. Arc keys its Favorites container by
+    /// profile (`topAppsContainerIDs`) too.
     ///
-    /// Nothing in this migration deletes a row. The cap trim demotes overflow to
-    /// `pinned` instead, because two Spaces on one Profile pool their favourites and a user
-    /// who has never seen a cap should not lose tiles to one being introduced.
+    /// Nothing here deletes a row. The cap trim demotes overflow to `pinned`, because two
+    /// Spaces on one Profile pool their favourites and a user who has never seen a cap
+    /// should not lose tiles to one being introduced.
     ///
-    /// Safely re-runnable. GRDB records `v2` and runs each migration inside a transaction, so
-    /// a half-applied migration cannot be committed — but the column add is still guarded on
-    /// the live schema and every statement below is idempotent on its own, because "this can
-    /// only run once" is a promise about the migrator, not about the file on disk.
+    /// GRDB records `v2` and runs it in a transaction, but the column add is still guarded
+    /// on the live schema and every statement is idempotent on its own: "this can only run
+    /// once" is a promise about the migrator, not about the file on disk.
     static func scopeFavoritesToProfiles(_ db: Database) throws {
         let existing = try db.columns(in: "tabs").map(\.name)
         if !existing.contains("profileID") {
@@ -320,24 +294,17 @@ enum Schema {
         // definition, so a stray value here would be a second, disagreeing source of truth.
         try db.execute(sql: "UPDATE tabs SET profileID = NULL WHERE kind <> 'essential'")
 
-        // Arc caps Favorites at 12 per Profile. Pooling two Spaces' favourites can exceed it,
-        // so keep the twelve most recently active and demote the rest to pinned tabs in the
-        // Space they already live in. Demote, never delete: §13.7's whole argument is that
-        // this is the cheap place to beat Vivaldi, which closes tabs with no undo.
+        // Arc caps Favorites at 12 per Profile, and pooling two Spaces' favourites can
+        // exceed it, so keep the twelve most recently active and demote the rest to
+        // pinned tabs in the Space they already live in. Demote, never delete (§13.7).
         //
-        // `archivedAt IS NULL` appears twice and both are load-bearing. An archived
-        // Favorite is reachable: §2 says Favorites never auto-archive, but
-        // `deleteSpace(_:policy: .archiveTabs)` archives one when its Profile has no
-        // other Space to home it in. So:
-        //
-        //   · in the ranking, so an archived tile cannot displace a live one;
-        //   · in the outer `WHERE`, because without it an archived row falls out of the
-        //     ranked set, is caught by `NOT IN` and silently demoted — the filter that
-        //     protects it from being counted would be what demotes it.
-        //
-        // It also makes the SQL agree with the runtime: the session holds archived tabs
-        // in `session.archived` rather than in `TabList`, so `favorites(onProfile:)`
-        // already never counts them.
+        // `archivedAt IS NULL` appears twice. An archived Favorite can exist: §2 says
+        // Favorites never auto-archive, but `deleteSpace(_:policy: .archiveTabs)` archives
+        // one when its Profile has no other Space to home it in. The ranking filters it
+        // so an archived tile cannot displace a live one; the outer `WHERE` filters it
+        // because otherwise an archived row falls out of the ranked set, is caught by
+        // `NOT IN` and silently demoted. This matches the runtime, where
+        // `favorites(onProfile:)` never counts `session.archived`.
         try db.execute(sql: """
         UPDATE tabs SET kind = 'pinned', profileID = NULL
          WHERE kind = 'essential'

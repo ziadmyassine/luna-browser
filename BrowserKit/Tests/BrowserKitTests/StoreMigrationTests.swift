@@ -109,8 +109,8 @@ struct StoreMigrationTests {
 
     // MARK: - v12, sync (docs/SYNC-PLAN.md S2)
 
-    /// A trigger cannot name a column that may not exist yet, so the flags that
-    /// used to be added on first use exist from the migration on.
+    /// A trigger cannot name a column that may not exist yet, so the flags exist
+    /// from the migration on rather than being added on first use.
     @Test func v12CreatesTheSiteSettingsFlagColumnsUpFront() async throws {
         let store = try makeTemporaryStore()
         let columns = try await store.pool.read { db in
@@ -128,7 +128,7 @@ struct StoreMigrationTests {
             #expect(column.isNotNull)
             #expect(column.defaultValueSQL == "0")
         }
-        // Nothing adds a column on first use any more.
+        // Every permission has its column from the migration, not from first use.
         for permission in BrowserStore.SitePermission.allCases {
             #expect(columns[permission.rawValue] != nil, "no column for \(permission)")
         }

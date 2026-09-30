@@ -2,7 +2,7 @@
 //  TrafficLightReapplyTests.swift
 //  LunaTests
 //
-//  `TrafficLightLayoutManager` owns the three buttons' origins *against* AppKit,
+//  `TrafficLightLayoutManager` owns the three buttons' origins against AppKit,
 //  which puts them back at its own whenever it re-lays the titlebar. Where
 //  `ChromeLayoutTests` asserts what the geometry is, this asserts that it is
 //  re-applied — which is the half that breaks, because it breaks silently and
@@ -38,12 +38,11 @@ final class TrafficLightReapplyTests: XCTestCase {
 
     /// Puts all three back where AppKit would, without telling the manager.
     ///
-    /// The silent reset is what the tests using this are about, and it stopped
-    /// being the only kind: the manager now listens to the buttons themselves,
-    /// so a plain `setFrameOrigin` is answered before a test can look. They
-    /// stay muted afterwards, because turning the flag back on replays the move
-    /// that happened while it was off — which would be the manager hearing it
-    /// after all, one line later.
+    /// The silent reset is what the tests using this are about. The manager also
+    /// listens to the buttons themselves, so a plain `setFrameOrigin` is answered
+    /// before a test can look. They stay muted afterwards, because turning the flag
+    /// back on replays the move that happened while it was off — which would be the
+    /// manager hearing it after all, one line later.
     private func displaceSilently(_ lights: [NSButton]) {
         for (index, button) in lights.enumerated() {
             button.postsFrameChangedNotifications = false

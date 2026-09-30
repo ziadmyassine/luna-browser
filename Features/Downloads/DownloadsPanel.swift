@@ -5,25 +5,15 @@
 //  §15.3's downloads list, as a pop-out from the downloads button —
 //  §6.4's History surface, one size wider.
 //
-//  It used to be an `NSPanel`: a standard utility window with a table in it,
-//  on the argument that §30.15 made the completion popover the primary surface
-//  and this the secondary one, so it could afford to behave like every other
-//  Mac panel. On screen that argument does not survive contact. Pressing a
-//  button in Liquid Glass chrome and being handed a grey titled window with a
-//  row of push buttons is a different application answering; it takes focus off
-//  the page, it has to be closed rather than glanced away from, and it is the
-//  only surface in Luna that looks like it was built in 2012.
-//
-//  History had exactly this argument and came to the same place. The pop-out is
-//  the house shape for "what have I already got": it stands on the control that
+//  Not a utility `NSPanel` with a table in it: a grey titled window answering
+//  a press in glass chrome takes focus off the page and has to be closed
+//  rather than glanced away from. The pop-out stands on the control that
 //  opened it, the page stays where it was, and a click anywhere else is done
 //  with it.
 //
-//  §5's completion toast — an `NSPanel` floating outside the window with a
-//  tail pointing down into the top bar's button — used to sit alongside this,
-//  and is gone. It was aimed at one of Luna's two chromes and duplicated this
-//  panel in the other; a download now announces itself here, on the button it
-//  was thrown at, in both. See `AppDelegate.announceCompletion`.
+//  No separate completion toast either: one aimed at a single chrome
+//  duplicated this panel in the other. A download announces itself here, on
+//  the button it was thrown at, in both (`AppDelegate.announceCompletion`).
 //
 
 import AppKit

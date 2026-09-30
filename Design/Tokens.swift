@@ -2,54 +2,19 @@
 //  Tokens.swift
 //  Luna
 //
-//  THE ONLY FILE IN LUNA PERMITTED TO CONTAIN A COLOUR VALUE (§0.3, §8.1).
-//  Everything visual references a semantic token from here. No hex, no
-//  `NSColor.white`, no `.systemBlue` anywhere else. If a view needs a colour
-//  that isn't here yet, add a named token here first.
+//  The only file in Luna holding chrome colour values (§0.3, §8.1); the Space
+//  gradients live in SpacePalette.swift. No hex, `NSColor.white` or
+//  `.systemBlue` elsewhere. Names are semantic (`Surface.base`, never
+//  `gray900`), and every colour resolves live for light and dark. Prefer a
+//  system colour, which handles Increase Contrast and Reduce Transparency,
+//  and say why where a token is custom. Tokens are computed statics with no
+//  storage: do not "fix" this file with `@MainActor` or `nonisolated(unsafe)`.
 //
-//  Two rules for anything added below:
-//    1. Semantic names only. `Surface.base`, never `gray900`.
-//    2. Every colour resolves for light and dark (§8.1), live. Prefer a
-//       semantic system colour — it already handles Increase Contrast and
-//       Reduce Transparency (§21.2), which a hex value silently does not.
-//       Only go custom where the system has no right answer, and say why.
-//       Never sample `NSApp.effectiveAppearance` once at startup; a browser
-//       window changes appearance while running and a stale colour is a bug.
-//
-//  Concurrency: `NSColor` is `NS_SWIFT_SENDABLE`, its semantic class properties
-//  are nonisolated, and every token here is a computed static with no storage.
-//  Do not "fix" this file with `@MainActor` or `nonisolated(unsafe)`.
-//
-//  System-backed vs custom, at a glance:
-//    system  Surface.base, Text.primary, Accent.tint, Accent.danger
-//    custom  Surface.raised, Surface.glassFallback, Surface.fullScreenChrome,
-//            Surface.hover,
-//            Surface.selected, Surface.chromeFill, Surface.glassTint,
-//            Surface.frost, Surface.well,
-//            Text.secondary,
-//            Text.tertiary, Text.disabled, Line.border, Shadow.popover,
-//            Bloom.*
-//    hybrid  Line.hairline (`.separatorColor` normally, promoted by hand
-//            under Increase Contrast — see the comment there)
-//
-//  Opaque planes vs translucent washes: `Surface.base`/`raised`/`glassFallback`
-//  are planes and are opaque. `Surface.hover`/`selected`/`chromeFill` are washes
-//  that sit over Liquid Glass and must stay translucent, or the glass they cover
-//  stops being glass. `TokenCheck` asserts both halves.
-//
-//  MEASURED on macOS 26.5, and it changes how every token here is written:
-//  Increase Contrast is not an appearance. `NSAppearance(named:)` maps
-//  `.accessibilityHighContrastAqua` onto the identical object as `.aqua`
-//  (verified with `===`), and the same for the dark and vibrant pairs. A
-//  dynamic provider cannot see the setting and `NSColor` gets no appearance
-//  change to invalidate against, so the tokens below are computed statics that
-//  branch on `A11y` before building their dynamic colour — and a view must
-//  redraw itself when the setting flips. Observe
-//  `NSWorkspace.accessibilityDisplayOptionsDidChangeNotification` on
-//  `NSWorkspace.shared.notificationCenter`, as `Glass` does.
-//
-//  Ratios below are measured, not estimated: every one is re-derived by
-//  `TokenCheck` against the live SDK, in both themes and both contrast modes.
+//  Increase Contrast is not an appearance (measured on macOS 26.5): the
+//  high-contrast `NSAppearance` names return the identical object as `.aqua`
+//  and `.darkAqua`. So tokens branch on `A11y` before building their colour, a
+//  view redraws on `accessibilityDisplayOptionsDidChangeNotification` as
+//  `Glass` does, and `TokenCheck` re-derives every ratio quoted here.
 //
 
 import AppKit
@@ -100,7 +65,7 @@ enum Tokens {
         /// refraction, and the plane's colour stops being the colour you get.
         /// The material steps aside there (`GlassBackingView.wantsFlatPlane`)
         /// and this plate is the chrome, exactly. Light keeps `glassFallback`'s
-        /// grey: the ask was about the dark sidebar.
+        /// grey; only the dark value differs.
         static var fullScreenChrome: NSColor {
             dynamicColor(light: 0xE4_E4_E4, dark: 0x20_20_20)
         }
@@ -120,9 +85,7 @@ enum Tokens {
         ///
         /// Custom: AppKit has no translucent hover fill to borrow.
         /// `selectedContentBackgroundColor` is an opaque accent rectangle, which
-        /// §8.4 rules out ("never a hard blue rect"). Until this existed the
-        /// sidebar and the top bar could only brighten their glyphs on hover,
-        /// which is the half of the rule that shows least.
+        /// §8.4 rules out ("never a hard blue rect").
         static var hover: NSColor { inkColor("luna.surface.hover", Ink.hover) }
 
         /// §3.4's selected-row pill: the same wash at twice the lift, so a
@@ -152,13 +115,11 @@ enum Tokens {
         /// A well: the resting fill of a dormant chrome control — §3.2's URL
         /// pill and §3.3's pinned tiles.
         ///
-        /// Darker than the surface it is cut into, in both themes. It was
-        /// `hover`, which is ink and therefore white on dark, so a dormant tile
-        /// came out lighter than the sidebar and read as a raised plate — the
-        /// opposite of `inspiration/main-tab-bar-and-ui.png`, where the field
-        /// and the tiles are recessed wells with a lighter hairline on the edge.
-        /// This is black in both themes (`recessInkColor`); `Line.border`
-        /// catches the edge as before.
+        /// Darker than the surface it is cut into, in both themes: black ink
+        /// (`recessInkColor`), with `Line.border` catching the edge. Not
+        /// `hover`, which is white on dark and made a dormant tile a raised
+        /// plate — the opposite of `inspiration/main-tab-bar-and-ui.png`,
+        /// where the field and the tiles are recessed wells.
         static var well: NSColor { recessInkColor("luna.surface.well", Ink.well) }
 
         /// §2's chrome tint: what `Glass.Style.sidebar` / `.topBar` hand to
@@ -179,14 +140,12 @@ enum Tokens {
         /// §2's frost: `glassFallback` at partial alpha, painted behind the
         /// chrome's glass in every window state.
         ///
-        /// "Make the sidebar more opaque" is not "make the sidebar darker", and
-        /// raising `glassTint` to get it was the wrong lever — the tint is black
-        /// on dark, so more of it is a dimmer sidebar rather than a thicker one.
-        /// Frost is the right one: the same plane the chrome falls back to under
-        /// Reduce Transparency and in fullscreen, held at half strength. The
-        /// material still samples and refracts the desktop, but through a
-        /// surface rather than through a window, so the wallpaper reads as
-        /// behind the chrome instead of as the chrome.
+        /// A more opaque sidebar is not a darker one, so this is not done by
+        /// raising `glassTint`: the tint is black on dark, and more of it dims
+        /// the sidebar rather than thickening it. Frost is the fallback plane
+        /// held at half strength; the material still refracts the desktop, but
+        /// through a surface, so the wallpaper reads as behind the chrome
+        /// instead of as the chrome.
         ///
         /// Translucent by construction — an opaque frost is just the fallback
         /// plane.
@@ -252,13 +211,10 @@ enum Tokens {
         /// `.separatorColor` is the right value — it resolves to 9.8 % black /
         /// 9.8 % white, which is §1's "10 % white / 8 % black" hairline.
         ///
-        /// Qualified from M0: whether it tracks Increase Contrast could not be
-        /// verified, because the high-contrast appearances do not exist as
-        /// separate objects on macOS 26.5 (see the file header), so there is no
-        /// way to resolve the colour under the setting without toggling the real
-        /// one. §2's "promote every hairline to 20 %" is therefore done here by
-        /// hand. If AppKit already promotes it, this is redundant rather than
-        /// wrong.
+        /// Whether it tracks Increase Contrast cannot be verified without
+        /// toggling the real setting (see the file header), so §2's "promote
+        /// every hairline to 20 %" is done here by hand. If AppKit already
+        /// promotes it, this is redundant rather than wrong.
         static var hairline: NSColor {
             guard Tokens.A11y.increaseContrast else { return .separatorColor }
             return NSColor(name: "luna.line.hairline.contrast") { appearance in
@@ -282,27 +238,18 @@ enum Tokens {
     /// The §7 reload arc's gradient bands, inner edge to outer:
     /// `core` → `amber` → `mint` → `lavender`, white through to violet.
     ///
-    /// Measured, not chosen. Sampled from
-    /// `inspiration/refresh-animation-ui.mov` by ridge-tracking hue and chroma
-    /// across three frames (t ≈ 1.40 / 1.55 / 1.70 s), then tuned until a real
-    /// `CAGradientLayer` composite matched the clip to within ~1.2× saturation
-    /// per band. Do not round them, and do not "correct" them from the
-    /// `#EEECCA` / `#E1EBEF` / `#E2D0EE` triple §7 quotes — those are these
-    /// bands already composited over the clip's paper-white page, so adopting
-    /// them would apply the page twice. §7's prose also had mint and lavender
-    /// transposed; the order below is the corrected one.
+    /// Measured from `inspiration/refresh-animation-ui.mov` (three frames,
+    /// t ≈ 1.40 / 1.55 / 1.70 s) and tuned until a `CAGradientLayer` composite
+    /// matched the clip to ~1.2× saturation per band. Do not round them, and do
+    /// not "correct" them from the `#EEECCA` / `#E1EBEF` / `#E2D0EE` triple §7
+    /// quotes: those are these bands already composited over a white page.
+    /// §7's prose transposes mint and lavender; this order is right.
     ///
-    /// Theme-independent on purpose: do not add a dark variant. These are light
-    /// emitted over page content, not chrome — the arc is additive bloom over a
-    /// blurred snapshot of whatever the page happens to be, so it has no surface
-    /// to contrast against. A dark-mode set would make the same page bloom a
-    /// different colour depending on a system setting. `TokenCheck` asserts
-    /// every band resolves identically in light and dark, so that "fix" fails
-    /// the check instead of shipping.
-    ///
-    /// Increase Contrast is not consulted either: there is nothing here to read,
-    /// and §21.2's handle on this animation is Reduce Motion, which §7 turns
-    /// into "no blur, no arc" rather than into a louder arc.
+    /// No dark variant: this is light emitted over a blurred snapshot of the
+    /// page, not chrome, so the same page must bloom the same colour whatever
+    /// the system setting. `TokenCheck` asserts every band resolves identically
+    /// in both themes. Increase Contrast is not consulted either — there is
+    /// nothing to read, and §7 answers Reduce Motion with no arc at all.
     enum Bloom {
         /// #FFFFFF at 22 %. The flat inner core of the crescent.
         static var core: NSColor { NSColor(srgb: 0xFF_FF_FF, alpha: 0.22) }
@@ -356,9 +303,9 @@ private func dynamicColor(light: UInt32, dark: UInt32) -> NSColor {
 }
 
 private extension NSColor {
-    /// 0xRRGGBB, sRGB. The only hex entry point in the codebase, and private on
-    /// purpose: §8.1's "no literal hex outside this file" is then a matter of
-    /// visibility rather than of review. `alpha` defaults to opaque, for the
+    /// 0xRRGGBB, sRGB. The only hex entry point for chrome colours, and private
+    /// on purpose: §8.1's "no literal hex outside this file" is then a matter
+    /// of visibility rather than of review. `alpha` defaults to opaque, for the
     /// planes; `Bloom` passes its measured emission alphas.
     convenience init(srgb hex: UInt32, alpha: CGFloat = 1) {
         self.init(

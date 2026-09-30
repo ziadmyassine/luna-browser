@@ -6,30 +6,17 @@
 //  settings leading, reload trailing.
 //
 //  It is not an editable field on either surface. Both pills hand the whole job
-//  to §9.1, which grows out of the pill it was handed by (`CommandBarAnchor`)
-//  and already has the field, the history, the ranking, the autofill and the
-//  completions. §3.2b's pill used to edit in place with a list of search
-//  phrases under it — a second, thinner answer that knew nothing of open tabs,
-//  history or commands, and the only place in Luna where typing an address got
-//  you a different set of suggestions.
+//  to §9.1 (`CommandBarAnchor`), which has the field, the history, the ranking,
+//  the autofill and the completions; an editor in the pill would be a second,
+//  thinner set of suggestions that knows nothing of open tabs or commands.
 //
-//  Both ends are the pill's, on both surfaces. The page bar grew them first and
-//  owned them as siblings laid over the capsule; two implementations of "a
-//  glyph inside this pill" is two sets of the same hover, fade and inset bugs.
-//  A pill without an `onReload` does not show one, which is how §4's top bar
-//  keeps the pill it has always had.
+//  Both ends belong to the pill, on both surfaces, rather than being siblings laid
+//  over it: two implementations of "a glyph inside this pill" is two sets of the
+//  same hover, fade and inset bugs.
 //
-//  It does not take the page's colour. §2 made this the one page-derived tint
-//  in the app — the site's `themeColor` washed over `Surface.chromeFill` and
-//  clamped until the text still cleared §21.4 — and on screen the sidebar's one
-//  fixed landmark changed shade with every navigation. It is `Surface.well`
-//  now, in every state and on every page: the same recess a pinned tile rests
-//  in, so the head of the sidebar is one surface rather than two.
-//
-//  The pill carries its glass when it is being reached for and is a bordered
-//  well the rest of the time. Constant glass made it the brightest thing in the
-//  sidebar: a second lit surface directly under three lit circles, drawing the
-//  eye to an address the user already knows.
+//  It does not take the page's colour: a tinted pill made the sidebar's one fixed
+//  landmark change shade with every navigation. It is `Surface.well` in every
+//  state, the recess a pinned tile rests in. `glassTarget` says when it is lit.
 //
 
 import AppKit
@@ -116,7 +103,6 @@ final class URLPillView: NSView, PopoutShelf {
     /// §3.2b: the same pill, the other way round — the domain centred in a
     /// capsule rather than read down a column's leading edge. Which way round
     /// it goes is a fact about what the pill sits in.
-    ///
     var centresText = false {
         didSet {
             guard centresText != oldValue else { return }
@@ -131,7 +117,7 @@ final class URLPillView: NSView, PopoutShelf {
     /// What the pill is made of, which is a fact about what it is sitting in.
     enum Surface {
         /// §3.2: a bordered well cut into the sidebar's glass plane, lit only
-        /// while the pill is being used. See the file header for why it is not
+        /// while the pill is being used. See `glassTarget` for why it is not
         /// lit at rest.
         case well
         /// §3.2b, open: the material at rest and no plate under it — what
@@ -163,11 +149,9 @@ final class URLPillView: NSView, PopoutShelf {
         applyPlaceholder()
         addSubview(field)
 
-        // The same mark, size and hover as the buttons beside it on the bar.
-        // This was a drawn two-slider glyph at 13 pt from when it was a badge
-        // printed on a pill in a column; it is a control on a row of controls
-        // now, so it is an SF Symbol at `glyphSize` behaving exactly as the
-        // reload beside it does (`RowGlyphView`).
+        // The sliders glyph is a control on a row of controls, not a badge
+        // printed on the pill: an SF Symbol behaving exactly as the reload
+        // beside it does (`RowGlyphView`).
         for glyph in [sliders, reload, reading, extensionsGlyph] {
             glyph.isRound = true
             addSubview(glyph)
@@ -203,8 +187,7 @@ final class URLPillView: NSView, PopoutShelf {
     }
 
     /// §3.1: reload becomes a stop glyph for as long as the page is
-    /// loading. The same swap the sidebar's own circle made before the control
-    /// moved inside the pill.
+    /// loading.
     func setLoading(_ loading: Bool) {
         guard loading != isLoading else { return }
         isLoading = loading
@@ -260,9 +243,8 @@ final class URLPillView: NSView, PopoutShelf {
         let plated = surface == .well
         layer.backgroundColor = plated ? Tokens.Surface.well.cgColor : nil
         layer.borderWidth = plated ? Tokens.Metric.hairline : 0
-        // Never the accent. An editing pill used to take a system-blue
-        // ring; the material is what says the pill is live, the same way it
-        // does for a selected row and a pinned tile.
+        // Never an accent ring: the material is what says the pill is live,
+        // the same way it does for a selected row and a pinned tile.
         layer.borderColor = plated ? Tokens.Line.border.cgColor : nil
     }
 
@@ -271,9 +253,9 @@ final class URLPillView: NSView, PopoutShelf {
     /// The pill carries its glass when it is being reached for — hovered —
     /// and is a bordered plate on the sidebar's own plane the rest of the time.
     ///
-    /// Constant glass is what made it the brightest thing in the sidebar: a
-    /// second lit surface directly under three lit circles, with the eye drawn
-    /// to an address the user already knows.
+    /// Constant glass made it the brightest thing in the sidebar: a second lit
+    /// surface directly under three lit circles, drawing the eye to an address
+    /// the user already knows.
     ///
     /// There is no third state for "open": the pill does not open. §9.1 stands
     /// in its place while the address is being edited, and this view is hidden

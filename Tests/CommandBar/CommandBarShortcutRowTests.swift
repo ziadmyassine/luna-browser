@@ -102,8 +102,7 @@ final class CommandBarShortcutRowTests: XCTestCase {
     }
 
     /// "copy link" is half a title match for both Copy URL and Copy URL as
-    /// Markdown, and the plain one is what was asked for. Reported from the
-    /// running app, where Markdown was sitting on top.
+    /// Markdown, and the shorter title is the plain one, so it comes first.
     func testOfTwoKeywordMatchesTheShorterTitleComesFirst() {
         XCTAssertEqual(
             rows("copy link").map(\.action),

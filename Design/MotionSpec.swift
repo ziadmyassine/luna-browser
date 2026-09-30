@@ -59,17 +59,13 @@ struct MotionSpec: Sendable {
 
     /// Where a hand-driven animation has got to, 0…1, on this spec's curve.
     ///
-    /// §30.9's page turn is the case this exists for. On release the column,
-    /// the still, the §8.2a wash and the §3.5 dot strip all have to move
-    /// together, and only the first two are layer properties — the other two
-    /// are frames recomputed from a number. Animating what can be animated and
-    /// setting the rest outright is how the strip came to jump to its Space
-    /// while the column was still sliding there.
-    ///
-    /// So the number is tweened instead, and the read-out is applied the same
-    /// way it is while a finger is down. The curve is read off the same
-    /// `CAMediaTimingFunction` the animated half would have used rather than
-    /// approximated beside it.
+    /// For §30.9's page turn: on release the column, the still, the §8.2a wash
+    /// and the §3.5 dot strip move together, and the last two are frames
+    /// recomputed from a number rather than layer properties. Animating the
+    /// layers and setting the frames outright left the strip jumping to its
+    /// Space while the column was still sliding, so the number is tweened and
+    /// applied the way it is while a finger is down, on the same
+    /// `CAMediaTimingFunction` the layers would have used.
     ///
     /// Newton–Raphson on the unit bezier, falling back to bisection on the flat
     /// stretches where the derivative is too small to divide by. Four

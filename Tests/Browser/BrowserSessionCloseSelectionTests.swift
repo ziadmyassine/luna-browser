@@ -4,11 +4,10 @@
 //
 //  Where the selection lands when `⌘W` closes the tab you are looking at.
 //
-//  It used to be "the most recently used tab in the Space", which answers a
-//  different question. §3.4 stacks today's tabs newest-first, so the recent one
-//  is very often the row above — closing down a list walked it backwards —
-//  and closing a run of tabs from the top threw the selection somewhere in the
-//  middle, where the next `⌘W` closed a tab the user was not looking at.
+//  Not "the most recently used tab in the Space". §3.4 stacks today's tabs
+//  newest-first, so the recent one is often the row above: closing down a list
+//  walks it backwards, and closing a run from the top throws the selection into
+//  the middle, where the next `⌘W` closes a tab the user was not looking at.
 //
 //  The list's own order is the only thing the user can see, so these assert
 //  against that: the row below, and the row above only when there is no below.
@@ -74,9 +73,9 @@ final class BrowserSessionCloseSelectionTests: XCTestCase {
         XCTAssertEqual(session.activeTabID, rows[0])
     }
 
-    /// Walking `⌘W` down from the top closes the list in order. This is the one
-    /// that failed before: with the recent tab as the answer, the second close
-    /// took a tab from further down and the list came apart from both ends.
+    /// Walking `⌘W` down from the top closes the list in order. With the
+    /// recent tab as the answer, the second close took a tab from further down
+    /// and the list came apart from both ends.
     func testClosingRepeatedlyWalksDownTheList() async throws {
         let session = try await makeSession()
         let rows = try seed(session, count: 4)
@@ -95,8 +94,7 @@ final class BrowserSessionCloseSelectionTests: XCTestCase {
 
     /// A dimmed §3.4b row is not somewhere the selection may land on its own.
     /// It is a row whose page the user ended, so selecting it loads the page
-    /// again — and the row under the tab being closed was the one path that
-    /// still did.
+    /// again, and the row under a closed tab must not be a way round that.
     func testClosingTheLastTabSkipsARowThatWasAlreadyClosedOnce() async throws {
         let session = try await makeSession()
         let rows = try seed(session, count: 1)

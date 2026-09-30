@@ -5,27 +5,16 @@
 //  The rest of §30.9's gesture, after the fingers have gone: the page carried
 //  the remaining distance on the speed the hand let go at.
 //
-//  A settle is not a transition, it is the end of a movement somebody else
-//  started, and treating it as a transition is what made the swipe feel like
-//  two separate things joined at the release. `Motion.spaceSettle(across:at:)`
-//  is the timing half of that — the duration is the distance over the speed, so
-//  the page leaves the fingers at the speed the fingers had. This is the other
-//  half: one clock for the whole read-out.
+//  `Motion.spaceSettle(across:at:)` is the timing half — the duration is the
+//  distance over the speed, so the page leaves the fingers at their speed. This
+//  is the other half: one clock for the whole read-out. The column and the still
+//  are transforms, but the §3.5 strip is frames and the §8.2a wash a gradient;
+//  animating only the transforms left the strip and the wash arriving while the
+//  column was a third of the way there. So the travel is tweened, and applied
+//  the one way it is applied while a finger is down.
 //
-//  Everything §30.9 draws is a function of one number, and only some of those
-//  things are layer properties. The column and the still are transforms and
-//  animate themselves; the §3.5 dot strip is a row of frames recomputed from
-//  the travel, and the §8.2a wash is a gradient mixed from it. Animating the
-//  first two and setting the last two outright is what shipped, and it looked
-//  like the strip snapping to the Space it was heading for, and the sidebar
-//  changing colour, while the column was still a third of the way there.
-//
-//  So the number is tweened and the read-out is applied the one way it is
-//  applied while a finger is down.
-//
-//  A display link rather than a timer, for `DownloadFlightView`'s reason: this
-//  draws a frame, so it should be asked once per frame by the thing that draws
-//  them — and on a 120 Hz panel that is 120 times a second, not 60.
+//  A display link rather than a timer, for `DownloadFlightView`'s reason: it
+//  should be asked once per frame by the thing that draws them.
 //
 
 import AppKit
@@ -56,19 +45,12 @@ final class SpaceSwipeSettle {
     /// Travels from `from` to `to` on `spec`'s curve, handing every frame to
     /// `onFrame`, and calls `onArrival` once it is there.
     ///
-    /// `onArrival` runs exactly once and always, including when Reduce
-    /// Motion takes the journey away entirely and when a second release
-    /// replaces this one mid-flight. What waits on it is the Space switch, and
-    /// a switch that did not happen because an animation was interrupted is a
-    /// gesture the user performed and the app ignored.
-    ///
-    /// Which is why the arrival does not depend on the display link. A
-    /// `CADisplayLink` is a request to be called when a screen is about to
-    /// draw: a view in a window that is off screen, minimised or on a sleeping
-    /// display is not drawn, the link does not fire, and the journey never
-    /// ends. Hanging the commit off it makes the Space switch conditional on
-    /// the animation being watched. So the link paints and a deadline arrives,
-    /// whichever gets there first.
+    /// `onArrival` runs exactly once and always — under Reduce Motion, and when
+    /// a second release replaces this one mid-flight — because what waits on it
+    /// is the Space switch. So it does not depend on the display link: a link
+    /// does not fire for a window that is off screen, minimised or on a sleeping
+    /// display, and the switch would wait on the animation being watched. The
+    /// link paints and a deadline arrives, whichever gets there first.
     func run(
         from: SpaceSwipe,
         to: SpaceSwipe,

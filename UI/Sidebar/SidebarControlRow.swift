@@ -3,36 +3,18 @@
 //  Luna
 //
 //  §3.1, 52 pt: `[traffic lights] · [toggle] ··· [back · forward] [reload]`.
+//  Back grows a forward half when there is somewhere to go (`NavCluster`).
+//  Reload stays its own circle: §3.2b's 420 pt bar has room for it in the
+//  capsule, and this column's 200 pt pill has a domain in it already.
 //
-//  Back is no longer one button. It grows a forward half when there is
-//  somewhere forward to go, and the two share one capsule divided by a
-//  hairline — see `NavCluster`. Reload stays its own circle beside it: §3.2b's
-//  bar puts reload inside the capsule because it has a 420 pt one to put it
-//  in, and this column's pill is 200 pt with a domain already in it.
+//  The traffic lights are `TrafficLightLayoutManager`'s (§7.7). This row only
+//  leaves their space clear, derived from what AppKit never moves; reading
+//  their live origins is a race it loses on every resize.
 //
-//  The traffic lights are not laid out here. `TrafficLightLayoutManager` owns
-//  their frames for all six window states (§7.7); this row only leaves their
-//  space clear, by measuring what AppKit owns and never moves — the buttons'
-//  size and their spacing — and deriving the rest from `trafficLightInset`.
-//  Reading their live origins instead is a race this row loses on every
-//  resize; see `trafficLights`.
-//
-//  Two deliberate departures from §3.1's written order, both measured off
-//  `inspiration/main-tab-bar-and-ui.png`:
-//
-//  · the reference puts the toggle beside the traffic lights and pins
-//    back/reload to the trailing edge, not 16 pt after the toggle. §3.1's
-//    gap figure describes a cluster the reference does not have.
-//  · the toggle is the same circle as its two neighbours, not the squircle
-//    §3.1 quotes, and its glyph sits on the same centre line as the traffic
-//    lights — which is why this row asks the window for that line rather than
-//    centring in its own 52 pt.
-//
-//  The circle is `Metric.sidebarCircle`, the URL pill's own height, so the
-//  sidebar's head is one stack of equal-height controls rather than three small
-//  buttons above a bigger one. All three carry their glass at rest: the toggle
-//  is how you get the sidebar back, and a control you cannot see until the
-//  pointer sweeps over it is not one.
+//  Two departures from §3.1's written order, measured off
+//  `inspiration/main-tab-bar-and-ui.png`: back and reload are pinned to the
+//  trailing edge, and the toggle is the same `sidebarCircle` as they are,
+//  on the traffic lights' centre line.
 //
 
 import AppKit
@@ -47,10 +29,9 @@ final class SidebarControlRow: NSView, TrafficLightNeighbour {
     /// Reload, or stop while the page is loading.
     var onReloadOrStop: ((_ isLoading: Bool) -> Void)?
 
-    /// Always glass. It briefly carried its material on hover only; that
-    /// made the one control that brings a hidden sidebar back invisible until
-    /// the pointer found it, which is the wrong trade for the one button on
-    /// this row that is not reachable any other way.
+    /// Always glass, like its neighbours. Material on hover only makes the one
+    /// control that brings a hidden sidebar back invisible until the pointer
+    /// finds it, and it is not reachable any other way.
     private let toggle = GlassButton(
         shape: Tokens.Metric.sidebarCircle,
         symbolName: "sidebar.leading",

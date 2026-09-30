@@ -5,30 +5,16 @@
 //  §8.2's twelve curated Space gradients, the three intensities §8.2a uses them
 //  at, and the luminance-derived ink that keeps text on them readable.
 //
-//  The second and only other file holding colour values. §8.1's "no literal hex
-//  outside Tokens.swift" is about the chrome token system, and §8.2 asks for
-//  something that file cannot hold: the pairs are `GradientPair`, a BrowserKit
-//  value type that crosses the SQLite boundary, and they are data a user owns
-//  rather than a token. The rule is kept by the same mechanism — the hex entry
-//  point below is private and can only produce a `GradientPair`.
+//  The only colour values outside Tokens.swift: the pairs are `GradientPair`, a
+//  BrowserKit value that crosses the SQLite boundary and is data the user owns.
+//  §8.1's rule holds because the hex entry point below can only make a pair.
 //
-//  THE MEASURED CONSTRAINT THAT SHAPED THE PALETTE, and the whole of §13.6. A
-//  two-stop gradient can only carry one ink: white clears 4.5:1 only below
-//  relative luminance 0.183, black only above 0.175. A pair whose stops
-//  straddle that line has no legible ink for at least one stop. Every pair
-//  below is therefore a hue sweep at near-constant luminance, in one of three
-//  bands:
-//
-//      deep   L ≈ 0.115  → white ink, 6.3:1 worst
-//      mid    L ≈ 0.300  → black ink, 7.0:1 worst
-//      light  L ≈ 0.560  → black ink, 10.2:1 worst
-//
-//  The bands rotate deep → mid → light so consecutive Spaces differ in weight
-//  as well as hue, and `next(after:)` hands them out in that order.
-//
-//  Every ratio quoted here is re-derived from the live SDK by
-//  `SpaceGradientTests`, in both themes, for all twelve pairs. Do not round
-//  them.
+//  §13.6: a two-stop gradient carries one ink. White clears 4.5:1 only below
+//  luminance 0.183, black only above 0.175, so every pair is a hue sweep at
+//  near-constant luminance in one band — deep L ≈ 0.115 (white, 6.3:1 worst),
+//  mid L ≈ 0.300 (black, 7.0:1), light L ≈ 0.560 (black, 10.2:1). The bands
+//  rotate so consecutive Spaces differ in weight as well as hue.
+//  `SpaceGradientTests` re-derives every ratio in both themes; do not round.
 //
 
 import AppKit
@@ -68,7 +54,7 @@ extension Tokens {
         /// §21.4's floor, repeated here so `foreground` has no hidden constant.
         static let textFloor = 4.5
 
-        /// §8.2's twelve, in assignment order (contract: agent D publishes).
+        /// §8.2's twelve, in assignment order.
         ///
         /// Adding a thirteenth is safe — `next(after:)` reads the count — but it
         /// must be measured into one of the three bands first.
@@ -95,12 +81,11 @@ extension Tokens {
 
         /// §13.6's one click back to neutral, as a real pair rather than a nil.
         ///
-        /// Modelling neutral as an absence would mean a nil-gradient branch in
-        /// every surface that paints one, and the branch nobody writes is the
-        /// one that ships Zen's bug — it has an open issue for being unable to
-        /// unset a gradient at all. A desaturated grey pair instead: it washes
-        /// to nothing, its dot is visible in both themes, and every path below
-        /// treats it like any other pair.
+        /// Not a nil: that would mean a nil-gradient branch in every surface
+        /// that paints one, and the branch nobody writes is the one that ships
+        /// Zen's bug of being unable to unset a gradient at all. A desaturated
+        /// grey pair washes to nothing, its dot shows in both themes, and every
+        /// path below treats it like any other pair.
         ///
         /// Deliberately not in `spacePalette`, so `next(after:)` never assigns
         /// it. Returning to neutral is something the user does.
@@ -112,8 +97,7 @@ extension Tokens {
             gradient == neutral
         }
 
-        /// The next pair for a new Space, wrapping when all twelve are taken
-        /// (contract: agent D publishes; agent B's `createSpace` calls it).
+        /// The next pair for a new Space, wrapping when all twelve are taken.
         ///
         /// Least-used wins, palette order breaks the tie, so deleting a Space
         /// frees its pair for reuse without anyone tracking a cursor. Pairs
@@ -194,22 +178,16 @@ extension Tokens {
         /// Ink for text drawn on `gradient` at `intensity`, derived from that
         /// gradient's own luminance rather than from a fixed token.
         ///
-        /// Three candidates, in order of preference:
+        /// `Tokens.Text.primary` wherever it clears, so a washed sidebar still
+        /// looks like the rest of the app; then opaque white, then black, which
+        /// leave Increase Contrast nothing to add. Both stops must clear
+        /// `textFloor`, because a gradient moves under a row as the sidebar
+        /// resizes.
         ///
-        ///   1. `Tokens.Text.primary` — the chrome's own ink, preferred wherever
-        ///      it clears, so a washed sidebar still looks like the rest of the
-        ///      app.
-        ///   2. White, 3. Black — opaque, so they are the strongest ink
-        ///      available and Increase Contrast has nothing left to add.
-        ///
-        /// Both stops must clear `textFloor`, not just the one under the label:
-        /// a gradient moves under a row as the sidebar resizes.
-        ///
-        /// `appearance` is load-bearing. At `.full` the surface is opaque and
-        /// theme-independent, but `Text.primary` is not — black in light, white
-        /// in dark — so on a light pair (`Mint`, `Sand`, `Blush`, `Frost`)
-        /// candidate 1 clears in light and fails in dark, and this returns black
-        /// ink in dark mode. That is the case Zen ships unreadable.
+        /// `appearance` is load-bearing: at `.full` the surface is
+        /// theme-independent but `Text.primary` is not, so on a light pair
+        /// (`Mint`, `Sand`, `Blush`, `Frost`) this returns black ink in dark
+        /// mode. That is the case Zen ships unreadable.
         static func foreground(
             on gradient: GradientPair,
             at intensity: GradientIntensity = .full,
@@ -218,8 +196,6 @@ extension Tokens {
             let stops = planes(gradient, at: intensity, in: appearance)
             let white = NSColor(white: 1, alpha: 1)
             let black = NSColor(white: 0, alpha: 1)
-            // `Text.primary` first, so a surface that can keep the chrome's own
-            // ink does; only a gradient that defeats it falls through.
             let candidates = [Tokens.Text.primary, white, black]
             if let ink = candidates.first(where: { ratio($0, on: stops, in: appearance) >= textFloor }) {
                 return ink
@@ -244,9 +220,8 @@ extension Tokens {
     }
 }
 
-/// The frozen free function from the Wave 1 contract — agents B and C compile
-/// against this spelling. `Tokens.Gradient.foreground(on:at:in:)` is the same
-/// answer with the intensity spelled out.
+/// `Tokens.Gradient.foreground(on:at:in:)` at `.full`, under the shorter
+/// spelling `SpaceGradientTests` uses.
 func foreground(on gradient: GradientPair, appearance: NSAppearance) -> NSColor {
     Tokens.Gradient.foreground(on: gradient, at: .full, in: appearance)
 }

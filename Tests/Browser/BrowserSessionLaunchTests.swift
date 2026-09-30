@@ -6,22 +6,17 @@
 //  eventually consistent.
 //
 //  `remove(forIdentifier:)` fails while any live `WKWebView` still uses the
-//  store, and a web view goes away when ARC says so rather than when the user
-//  clicks Delete. A removal that loses that race is queued in `UserDefaults`
-//  and finished on the next launch, when nothing is holding anything — so if
-//  the sweep is never called, the queue is written and never read, and the
-//  feature is inert while looking implemented. Both halves need proving:
+//  store, so a removal that loses that race is queued in `UserDefaults` and
+//  finished on the next launch. If the sweep is never called, the queue is
+//  written and never read. Both halves need proving:
 //
 //  1. `installLifecycle()` reaches the sweep at all.
-//  2. The identifier set it hands over is the live one. That set is the
-//     whole decision — everything WebKit lists and the set does not name gets
-//     deleted — so an empty or stale set is not a weaker sweep, it is a sweep
-//     that takes the user's live cookie jars.
+//  2. The identifier set it hands over is the live one. Everything WebKit
+//     lists and the set does not name gets deleted, so a stale set takes the
+//     user's live cookie jars.
 //
-//  Neither test can reach the disk, and that is structural rather than
-//  careful: `orphanSweepSink` redirects the sweep and switching the guard off
-//  is the same act as pointing it somewhere harmless. There is no argument to
-//  that API that lets a test call `WKWebsiteDataStore.remove(forIdentifier:)`.
+//  Neither test can reach the disk: `orphanSweepSink` redirects the sweep, and
+//  no argument to that API lets a test call `remove(forIdentifier:)`.
 //
 
 import BrowserKit
@@ -69,9 +64,9 @@ final class BrowserSessionLaunchTests: XCTestCase {
     }
 
     /// The guard, from the other side: a test that sets nothing must not sweep,
-    /// because the default destination is the real disk. This is the case that
-    /// was one line from deleting the owner's cookie jars and reporting it as
-    /// orphan recovery.
+    /// because the default destination is the real disk. Without the guard, a
+    /// test is one line from deleting the Mac's real cookie jars and reporting
+    /// it as orphan recovery.
     func testTheSweepDoesNotRunInATestThatHasNotRedirectedIt() async throws {
         let store = try BrowserStore(path: directory.appending(path: "luna.sqlite"))
         let session = try await BrowserSession.restored(store: store)

@@ -5,18 +5,15 @@
 //  §3.1's guard on ⌘Q: what the sheet says, and the two-pass dance AppKit
 //  makes you do to put one up at all.
 //
-//  `applicationShouldTerminate` cannot wait for an answer: it is synchronous
-//  and has three replies. `.terminateLater` looks right and is not — it parks
-//  the app in a nested modal run loop, where the sheet's animation and tracking
-//  areas run inside a loop AppKit is holding open for a different purpose, and
-//  nothing else in Luna may happen until it is answered, including the
-//  `flush()` this file's neighbour still owes the store. So the first pass
-//  answers `.cancel`, puts the sheet up and returns; the answer calls
+//  `applicationShouldTerminate` is synchronous and cannot wait for an answer.
+//  Not `.terminateLater`: it parks the app in a nested modal run loop, where
+//  the sheet's animation and tracking areas run inside a loop AppKit holds open
+//  for another purpose, and nothing else in Luna may happen until it is
+//  answered — including the `flush()` still owed to the store. So the first
+//  pass answers `.cancel` and puts the sheet up; the answer calls
 //  `NSApp.terminate` again, and the second pass sees `isQuitConfirmed` and goes
-//  through to the flush.
-//
-//  The one thing that must not happen is asking twice, which is why the flag
-//  is set before the second `terminate` rather than after it.
+//  through to the flush. The flag is set before the second `terminate`, not
+//  after, so the question is never asked twice.
 //
 
 import AppKit
@@ -56,9 +53,9 @@ enum QuitConfirmation {
     ///
     /// Settings is a child of the browser window it was opened over, so it
     /// always stands in front of that one, centred on it — where the sheet
-    /// would also be centred. Put on the browser window, the question came up
+    /// would also be centred. Put on the browser window, the question comes up
     /// behind Settings, half hidden, taking the keyboard from a window that
-    /// did not have it. So it goes on Settings whenever Settings is the window
+    /// does not have it. So it goes on Settings whenever Settings is the window
     /// in use or is covering the one that would have held the sheet.
     static func asksOverSettings(settingsIsVisible: Bool, settingsIsKey: Bool, settingsCoversBrowser: Bool) -> Bool {
         settingsIsVisible && (settingsIsKey || settingsCoversBrowser)
@@ -81,19 +78,15 @@ extension AppDelegate {
     /// The window the sheet goes up on: the browser window, while it is one
     /// the user can see.
     ///
-    /// A closed window is still the window controller's window — `NSWindowController`
-    /// owns it whether or not it is on screen — so "there is a browser window"
-    /// and "there is a browser window to ask in" are different questions.
-    /// Asking the first one meant that with the browser window closed and
-    /// §23.1's Settings window still open, ⌘Q put the sheet on a window nobody
-    /// could see and cancelled the quit that was waiting for it: an app that
-    /// would not quit, with nothing on screen to say why. Miniaturised counts
-    /// as not visible for the same reason, and a quit with no window to ask in
-    /// goes straight through — the tabs it would be protecting were put away
-    /// when the window closed.
+    /// A closed window is still the window controller's window, so "there is a
+    /// browser window" and "there is a browser window to ask in" are different
+    /// questions. Asked the first way, with only §23.1's Settings window open,
+    /// ⌘Q puts the sheet on a window nobody can see and cancels the quit that
+    /// was waiting for it. Miniaturised counts as not visible for the same
+    /// reason, and a quit with no window to ask in goes straight through — the
+    /// tabs it would protect were put away when the window closed.
     ///
-    /// Whether to ask is still the browser window's question; where to ask is
-    /// `QuitConfirmation.asksOverSettings`.
+    /// Where to ask is `QuitConfirmation.asksOverSettings`.
     var quitSheetHost: NSWindow? {
         guard let window = browserWindow?.window, window.isVisible else { return nil }
         if let settings = settingsWindow?.window, QuitConfirmation.asksOverSettings(

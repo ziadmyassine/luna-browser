@@ -4,24 +4,15 @@
 //
 //  The two pieces `SpaceEditorView` is assembled from that are not already in
 //  the sidebar's kit: the plate a group of the form sits on, and the one
-//  labelled button at the foot of it.
+//  labelled button at the foot of it. Their own file because §3's column is
+//  laid out by hand and the layout is the long half.
 //
-//  A card, because three settings in a column are three settings and not a
-//  list. The form used to be a label, a field, a label, a grid, a label and
-//  another grid on the same glass, separated by vertical gaps — the weakest
-//  boundary a layout has. `Surface.chromeFill` with the chrome's own hairline
-//  round it is what the rest of Luna uses for a well (§3.2's pill, §3.3's
-//  tiles), so a group reads as one object.
+//  A card, because three settings on one glass, separated only by vertical
+//  gaps, have the weakest boundary a layout has. `Surface.chromeFill` with the
+//  chrome's hairline is what Luna uses for a well (§3.2's pill, §3.3's tiles).
 //
-//  A labelled button, because a bare tick is a guess: the circle carried
-//  `checkmark` and nothing else, and "it closes the form" and "it makes the
-//  Space" are both plausible readings. It is the only control in the sidebar
-//  that needs a word.
-//
-//  Its own file rather than `SpaceEditorView`'s, because §3's column is laid
-//  out by hand and the layout is the long half. A control that draws and tracks
-//  a pointer is read when something looks wrong; the arithmetic is read when
-//  something lands in the wrong place.
+//  A labelled button, because a bare `checkmark` reads as both "close the form"
+//  and "make the Space". It is the only control in the sidebar that needs a word.
 //
 
 import AppKit
@@ -190,16 +181,11 @@ final class SpaceEditorButton: NSView {
 
     override func mouseExited(with event: NSEvent) { isHovering = false }
 
-    /// Takes the focus as well as the press, which is what `NSButton` does and
-    /// what this had to grow because it is not one.
-    ///
-    /// The form's name field commits on Return and on losing the focus
-    /// (`sendsActionOnEndEditing`). With nothing here to lose it to, a name
-    /// typed and then confirmed with `Create Space` was never committed at
-    /// all: the field kept the focus through the click, the form closed, and
-    /// the Space kept the `Space N` the swipe gave it. It also makes the
-    /// keyboard path below reachable by pointer — until now the only way to
-    /// focus one of these was to Tab onto it.
+    /// Takes the focus as well as the press, as `NSButton` does. The form's
+    /// name field commits on losing the focus (`sendsActionOnEndEditing`), and
+    /// with nothing here to lose it to, a name typed and confirmed with
+    /// `Create Space` was never committed — the Space kept the swipe's
+    /// `Space N`. It also lets a click reach the keyboard path below.
     override func mouseDown(with event: NSEvent) {
         isPressed = true
         window?.makeFirstResponder(self)

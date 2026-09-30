@@ -2,9 +2,8 @@
 //  SpacesSectionTests.swift
 //  LunaTests
 //
-//  Goals 12 and 13 of the Spaces wave: the four Settings rows that are no
-//  longer dimmed for a missing method, the Space → Profile fan-out label, and
-//  §6.4's deletion dialog.
+//  Goals 12 and 13 of the Spaces wave: a Space's Settings rows are live, the
+//  card's Favorites label, and §6.4's deletion dialog.
 //
 //  The dialog strings are asserted as pure functions rather than by opening an
 //  `NSAlert`: wording that can only be checked by clicking it is wording nobody
@@ -23,9 +22,8 @@ final class SpacesSectionTests: XCTestCase {
 
     // MARK: - Goal 12: nothing is dimmed for a missing method
 
-    /// The rows whose `disabledReason` used to name the call they were waiting
-    /// for — "BrowserSession can create and delete Spaces, but cannot yet
-    /// rename or reorder one". The reason went; the row stayed (§30.4).
+    /// Name, position and picture are live: none is dimmed with a reason
+    /// naming a call `BrowserSession` lacks (§30.4).
     func testRenameReorderAndPictureAreAllLive() {
         let rows = Self.rowsForOneSpace()
         for title in ["Name", "Position in the sidebar", "Picture"] {
@@ -150,15 +148,13 @@ final class SpacesSectionTests: XCTestCase {
         XCTAssertEqual(SpacesSection.favoritesLabel(1), "1 Favorite")
     }
 
-    /// Settings' own list called the section "Spaces & Profiles" for as long as
-    /// there were two lists in it. There is one.
+    /// The section holds one list, so it carries one name.
     func testTheSectionIsNamedForTheOneThingItHolds() {
         XCTAssertEqual(SpacesSection.title, "Spaces")
     }
 
-    /// §2's search still finds a Space by the words a user would type for the
-    /// thing that used to be a Profile — the concept went, the vocabulary
-    /// people arrive with did not.
+    /// §2's search still finds a Space by the words people arrive with for a
+    /// profile, though Luna no longer has Profiles.
     func testSearchStillFindsASpaceByTheOldVocabulary() {
         let space = Self.space("Work")
         let terms = SpacesSection().spaceRows(space, at: 0, of: [space], session: nil)
@@ -180,13 +176,9 @@ final class SpacesSectionTests: XCTestCase {
         XCTAssertTrue(detail.contains("Undo"), detail)
     }
 
-    /// The clause that used to have two forms. A shared profile's jar was not
-    /// deleted with the Space that named it, so the sentence had to say whether
-    /// the cookies were going — and §6.4's example sentence promised the
-    /// deletion and the sharing in one breath, which was false in exactly the
-    /// case it existed for. There is one true thing to say now, and the part
-    /// worth holding is that it never overpromises: no other Space is signed
-    /// out, because no other Space could be.
+    /// The logins clause never overpromises: no other Space is signed out,
+    /// because each Space owns its jar and no other Space could be. §6.4's
+    /// example sentence, written for shared profiles, does not apply.
     func testTheDialogPromisesNothingAboutOtherSpaces() {
         let detail = SpacesSection.deletionDetail(spaceName: "Work", tabs: 12, sites: nil)
         XCTAssertTrue(detail.contains("No other Space is signed out"), detail)

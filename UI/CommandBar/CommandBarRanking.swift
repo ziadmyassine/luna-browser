@@ -4,19 +4,17 @@
 //
 //  §9.3, and nothing else. Pure functions over value types: given a query and a
 //  snapshot of every local source, produce the ordered, deduped list §9.2 asks
-//  for. No AppKit, no actor, no I/O — so `CommandBarRankingTests` can hand-compute
-//  an order and assert it, exactly the way `FrecencyRankingTests` does.
+//  for. No AppKit, no actor, no I/O, so `CommandBarRankingTests` can
+//  hand-compute an order and assert it.
 //
-//  Frecency is not reimplemented here. `BrowserStore` computes §9.3's
-//  `Σ (visitTypeWeight × recencyWeight)` over each place's ten most recent
-//  visits, in SQL, with its own tests; this file consumes `HistoryHit.score`
-//  and never second-guesses it. What it adds is the half the store cannot see:
-//  tier order across sources, dedupe, and adaptive input history.
+//  Frecency is not reimplemented here: this file consumes `BrowserStore`'s
+//  `HistoryHit.score` and never second-guesses it. What it adds is the half the
+//  store cannot see: tier order across sources, dedupe, and adaptive input
+//  history.
 //
-//  §9.7 is why this is pure. `merge` runs synchronously on the main actor
-//  inside `controlTextDidChange`, over arrays already in memory, so local
-//  results are on screen in the same frame as the keystroke. The store query is
-//  the only asynchronous part and merges in afterwards.
+//  §9.7 is why this is pure: `merge` runs synchronously on the main actor inside
+//  `controlTextDidChange`, so local results are on screen in the keystroke's own
+//  frame. The store query is the only asynchronous part and merges in after.
 //
 
 import BrowserKit
@@ -195,25 +193,13 @@ enum CommandBarRanking {
     /// with an `archivedAt` (§11.1).
     private static func tabRows(tokens: [String], sources: CommandBarSources) -> [CommandBarResult] {
         sources.tabs.compactMap { tab -> CommandBarResult? in
-            // Every tab the Space has, whether or not it has a page loaded.
-            //
-            // §3.4b's dormant rows were filtered out here, on the reasoning
-            // that a row whose page has been closed once is not an open tab —
-            // and it cost the bar the one search a user is most likely to run.
-            // A kept tab in a folder is dormant almost all of the time: that is
-            // what §3.4b's first press is for. So a pinned `Google` sitting in
-            // a folder called Google answered to nothing, and typing its name
-            // returned every archived search that mentioned it and no way to
-            // reach the tab itself.
-            //
-            // §19.2 drops the page of everything but the last few tabs anyway,
-            // so "is there a web view" was never the line between a tab you can
-            // switch to and one you cannot. Clicking a dimmed row in the column
-            // opens it where it stands (§3.4b), and so does this.
-            //
-            // Archived is the real line, and it is below: that row comes back
-            // as a reopen, which is a different question with a different
-            // answer.
+            // Every tab the Space has, whether or not it has a page loaded. A
+            // kept tab in a folder is dormant almost all of the time (§3.4b),
+            // and §19.2 drops the page of all but the last few tabs anyway.
+            // With dormant rows left out, a pinned `Google` answered to nothing
+            // and typing its name reached every archived search but the tab.
+            // The row opens the tab where it stands, as a click in the column
+            // does. Archived is the real line: that row comes back as a reopen.
             let archived = tab.archivedAt != nil
             // §3.4a: a renamed tab is found and shown under the name the user gave it.
             // Its own title is deliberately not also in the haystack — a tab you renamed
@@ -235,14 +221,9 @@ enum CommandBarRanking {
 
     /// What a tab row will do, in the subtitle's own slot — the same slot the
     /// search row uses to say `Search Google` rather than repeating the URL.
-    ///
-    /// It used to be the address, which is the one thing a row like this does
-    /// not need to say: the title has already named the tab, and every other
-    /// row in the list is also a line of title over a line of address, so the
-    /// row that was going to do something entirely different looked exactly
-    /// like the ones that were going to load a page. Reported as the bar not
-    /// showing `Switch to tab` when you type a tab's name — it was showing the
-    /// row and saying nothing about it.
+    /// Not the address: the title has already named the tab, and a line of
+    /// title over a line of address looks like every row that loads a page, so
+    /// the bar read as not offering the tab at all.
     ///
     /// Any open tab, whether or not its page is loaded: §19.2 drops cold pages
     /// and keeps the tabs, so "switch" means the row, not the process.
@@ -343,35 +324,31 @@ enum CommandBarRanking {
 
     /// §9.2 "merged and deduped". The best-ranked row for a URL wins its place —
     /// and, unless the query is itself an address, it inherits the open tab's
-    /// action when one exists, so a page that is both #1 by adaptive history and
-    /// already open switches to the live tab instead of loading a second copy of
-    /// it (§19.4).
+    /// action when one exists, so a page that is both first by adaptive history
+    /// and already open switches to the live tab instead of loading a second
+    /// copy of it (§19.4).
     ///
-    /// **An address you typed is never answered with a tab you already have.**
+    /// An address you typed is never answered with a tab you already have.
     /// `directURL`'s own tier says a guess must not outrank an instruction, and
-    /// adoption was doing exactly that from underneath: typing `google.com` with
-    /// google.com open put `Switch to tab` on the top row, so the one string
-    /// that unambiguously means "go here" was the one that would not. Type the
-    /// address and you get the page; type the tab's *name* — `google` — and the
-    /// open tab answers, because a name is a search of what you have.
+    /// adoption did exactly that: typing `google.com` with google.com open put
+    /// `Switch to tab` on the top row. Type the address and you get the page;
+    /// type the tab's name — `google` — and the open tab answers, because a name
+    /// is a search of what you have.
     ///
     /// One row per URL, flatly, because every row on offer is in one Space and
-    /// one cookie jar. This used to keep a row per (URL, jar) pair and was the
-    /// answer to zen#14371 — the same page open in two Spaces deduped into one
-    /// row whose "Switch to tab" teleported you into whichever the loop reached
-    /// last. The bar no longer offers the other Space at all, so two jars can no
-    /// longer meet in the list and there is nothing left to tell apart.
+    /// one cookie jar. A bar that offered another Space would need a row per
+    /// (URL, jar) again: zen#14371 was one row for a page open in two Spaces,
+    /// switching to whichever the loop reached last.
     private static func dedupe(_ rows: [CommandBarResult], adoptingOpenTabs: Bool) -> [CommandBarResult] {
         var slot: [String: Int] = [:]
         /// URLs whose kept row already carries a live tab's action.
         var live: Set<String> = []
         var out: [CommandBarResult] = []
         for row in rows {
-            // Only an open tab is worth inheriting. An archived one used to be
-            // adopted too, which quietly turned every history hit for a page
-            // the user had ever closed into `Reopen tab` — in a Space with a
-            // long archive that was the whole list, and none of those rows
-            // wanted to be a tab coming back out of the shelf.
+            // Only an open tab is worth inheriting. Adopting an archived one
+            // turns every history hit for a page the user ever closed into
+            // `Reopen tab`, which in a Space with a long archive is the whole
+            // list.
             let isTab = row.source == .openTab
             guard let index = slot[row.id] else {
                 slot[row.id] = out.count

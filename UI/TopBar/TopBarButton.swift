@@ -6,32 +6,16 @@
 //  bar's tabs are not this: they are the sidebar's own tile and row
 //  (`TopBarTabStrip`).
 //
-//  It is an `NSButton` on purpose. §20.2 wants a visible focus ring, the key
-//  view loop and space/return activation on every chrome control, and §21.1
-//  wants an `AXButton` with a label — `NSButton` ships all four, and a bare
-//  `NSView` would mean re-implementing them badly.
+//  An `NSButton` on purpose: §20.2's focus ring, key view loop and space/return
+//  activation and §21.1's labelled `AXButton` all come with it, and a bare
+//  `NSView` would re-implement them badly. The fill and the glyph are subviews,
+//  which draw over the cell, so the cell draws nothing and `hitTest` collapses
+//  the stack back onto the button.
 //
-//  The one structural consequence: the fill and the glyph are subviews, and a
-//  subview draws over the cell, so the cell is left drawing nothing at all.
-//  The stack is hover fill → glyph, bottom to top, and `hitTest` collapses it
-//  back onto the button so the decoration never eats a click.
-//
-//  It answers a press as well as a hover, on §3.4's two washes and §6's
-//  `controlPress` — the same answer `GlassButton` gives in the sidebar, so the
-//  toggle in one bar and the toggle in the other are the same control in the
-//  hand. The bar had only the hover half for several builds, so a click read
-//  as nothing happening until the page moved.
-//
-//  A button inside a capsule hands its press up (`ownsItsMaterial`): §4's
-//  action capsule applies one material for all its items, and half a capsule
-//  swelling inside the other half is not a press. `TopBarActionCapsule` takes
-//  the gesture over. That is `GlassButton.GlassMode.none`'s rule in the other
-//  bar.
-//
-//  Increase Contrast is not an appearance on macOS 26.5 (see the `Tokens`
-//  header), so nothing here invalidates on its own: `TopBarView` owns the one
-//  `NSWorkspace` observer for the whole bar and calls `applyTokens()` down the
-//  tree.
+//  It answers a hover and a press, as `GlassButton` does in the sidebar; inside
+//  §4's action capsule it hands the press up (`ownsItsMaterial`). Increase
+//  Contrast is not an appearance (see the `Tokens` header), so `TopBarView`
+//  owns the one observer and calls `applyTokens()` down the tree.
 //
 
 import AppKit
@@ -133,9 +117,10 @@ final class TopBarButton: NSButton {
 
     /// §3.4a's right-click, built when it is asked for.
     ///
-    /// Not `NSView.menu`, which is one menu assigned once: every item in a tab's menu
-    /// states that tab's current answer — whether it is pinned, whether it is muted — and
-    /// a menu held over from the last press would be checkmarks for another moment.
+    /// Not `NSView.menu`, which is one menu assigned once: every item in a
+    /// tab's menu states that tab's current answer — whether it is pinned,
+    /// whether it is muted — and a menu held over from the last press would be
+    /// checkmarks for another moment.
     var menuBuilder: (() -> NSMenu?)?
 
     override func menu(for event: NSEvent) -> NSMenu? {
@@ -242,15 +227,11 @@ final class TopBarButton: NSButton {
     /// an appearance change, and by `TopBarView` when the accessibility display
     /// options flip.
     func applyTokens() {
-        // §3.1 dims a disabled control. There is no `disabledAlpha` token, and
-        // the cell's own dimming is unavailable here (the glyph is a subview),
-        // so the dimmest ink tier stands in — it is a real token and it is the
-        // right direction. See the report: `Tokens.Text.disabled` is missing.
+        // §3.1 dims a disabled control. There is no `Tokens.Text.disabled`,
+        // and the cell's own dimming is unavailable here (the glyph is a
+        // subview), so the dimmest ink tier stands in.
         glyph.contentTintColor = isEnabled ? Tokens.Text.primary : Tokens.Text.tertiary
-        // §3.4's 6 % lift, and 12 % under a press. This used to borrow
-        // `Line.border` because the note said no hover token existed;
-        // `Surface.hover` is that token and it is the same 6 %, so the
-        // stand-in is gone.
+        // §3.4's 6 % lift, and 12 % under a press.
         refreshFill()
         needsDisplay = true
     }

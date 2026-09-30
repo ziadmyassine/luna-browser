@@ -90,28 +90,22 @@ public enum PasswordForms {
 
     /// Fills `form` with `username` / `password`.
     ///
-    /// `callAsyncJavaScript`, not `evaluateJavaScript`, and that is a
-    /// security requirement rather than a style preference. Arguments are
-    /// marshalled by WebKit and bound as real JS values, so the password never
-    /// appears inside a source string. Interpolating it would mean quoting it
-    /// correctly for JS — a password is exactly the kind of string that breaks
-    /// naive quoting — and would leave the secret in a script the page's own
-    /// error handlers and any `Function.prototype.toString` hook could read.
+    /// `callAsyncJavaScript`, not `evaluateJavaScript`, as a security
+    /// requirement: arguments are bound by WebKit as real JS values, so the
+    /// password never appears in a source string, where it would need quoting
+    /// a password is likely to break and could be read by the page's error
+    /// handlers or a `Function.prototype.toString` hook.
     ///
-    /// `in: frame` pins the fill to the frame that asked. §14.8 forbids filling
-    /// an iframe whose origin does not match the page, and the caller checks
-    /// that before reaching here; passing the frame makes it impossible for the
+    /// `in: frame` pins the fill to the frame that asked. The caller has
+    /// already applied §14.8's origin check; this makes it impossible for the
     /// fill to land anywhere else even so.
     ///
-    /// `.defaultClient`, not the page world. The detection script runs in the
-    /// page world because it has to see the page's DOM; the fill does not,
-    /// since the handles it follows are `data-luna-*` attributes, which are DOM
-    /// state and shared across worlds. In the client world the prototypes and
-    /// built-ins it relies on are ones the page cannot have patched, so a page
-    /// cannot hook `Object.getOwnPropertyDescriptor` or `Event` to observe the
-    /// fill. Verified against a page installing React's own swallowing value
-    /// setter: the fill lands and the page's `input`/`change` listeners still
-    /// fire, because events cross worlds.
+    /// `.defaultClient`, not the page world: the handles the fill follows are
+    /// `data-luna-*` attributes, which are shared across worlds, and in the
+    /// client world the page cannot have patched `Object.getOwnPropertyDescriptor`
+    /// or `Event` to observe the fill. Verified against a page installing
+    /// React's swallowing value setter: the fill lands and the page's
+    /// `input`/`change` listeners still fire, because events cross worlds.
     @MainActor
     public static func fill(
         _ form: Form,
@@ -175,7 +169,7 @@ extension PasswordForms {
     /// origin honestly — it is made in Swift against `WKScriptMessage.frameInfo`,
     /// which WebKit fills in and the page cannot touch.
     ///
-    /// Why the DOM is re-scanned rather than watched once. Login forms
+    /// The DOM is re-scanned rather than scanned once because login forms
     /// arrive late: behind a "Sign in" button, inside a modal, after a
     /// client-side route change. A one-shot scan at `documentEnd` misses most
     /// real sites, so a `MutationObserver` re-scans — debounced, because a busy
@@ -202,7 +196,7 @@ extension PasswordForms {
         var stamp = JSON.stringify(payload);
         if (payload.kind === 'submitted') {
           // A real `<button type="submit">` inside a `<form>` fires the click
-          // handler *and* the form's own submit event, so one sign-in arrives
+          // handler and the form's own submit event, so one sign-in arrives
           // twice and the chip is built twice over itself.
           //
           // Content alone cannot settle it — someone who mistypes and retries
@@ -234,7 +228,7 @@ extension PasswordForms {
         return s.visibility !== 'hidden' && s.display !== 'none' && s.opacity !== '0';
       };
 
-      // A username field is whatever sits closest *above* the password field.
+      // A username field is whatever sits closest above the password field.
       // Matching on name/id keywords alone fails on the many sites that call it
       // `login[identity]` or nothing at all; position is the more reliable
       // signal and the keywords only break ties.
@@ -276,13 +270,13 @@ extension PasswordForms {
         var passwordEl = passwords[0];
         var scope = passwordEl.form || passwordEl.closest('form') || document.body;
 
-        // **Re-count inside the form, not across the document.** `passwords`
-        // above is document-wide, which is right for "is there a login form
-        // here at all" and badly wrong for "is this a signup". A page holding
-        // a sign-in form *and* a change-password widget elsewhere — common on
-        // an account page, and on any site with a hidden modal — would make
-        // every form on it look like a signup, so Luna would offer to
-        // generate a new password instead of filling the saved one.
+        // Re-count inside the form, not across the document. `passwords` above
+        // is document-wide, which is right for "is there a login form here at
+        // all" and wrong for "is this a signup": a page holding a sign-in form
+        // and a change-password widget elsewhere, common on an account page or
+        // behind a hidden modal, would make every form on it look like a
+        // signup, and Luna would offer to generate a password instead of
+        // filling the saved one.
         var scoped = [].slice.call(scope.querySelectorAll('input[type="password"]')).filter(visible);
         if (!scoped.length) { scoped = [passwordEl]; }
 
@@ -319,7 +313,7 @@ extension PasswordForms {
         });
       };
 
-      // §14.4's trigger. Read at submit time — *before* the navigation — because
+      // §14.4's trigger. Read at submit time, before the navigation, because
       // afterwards the fields are gone. Nothing is persisted from this: it
       // reaches Swift, which shows a chip, and only the user pressing Save
       // writes anything (§14.8).
@@ -328,15 +322,13 @@ extension PasswordForms {
         var pass = scope.querySelector('[data-luna-field="password"]')
           || scope.querySelector('input[type="password"]');
         if (!pass || !pass.value) { return; }
-        // **The username needs the same fallback the password has.** The tag is
-        // only there if this form was scanned, and the form that is submitted
-        // is often not the one that was: the scan follows the *first* password
-        // field in the document, so a page with two forms leaves the second
-        // untagged until it is focused. A button-with-a-handler login — the
-        // ordinary SPA shape — can therefore submit having never been scanned.
-        // Without this, that saves a credential with an empty username: one
-        // the user cannot tell apart in the picker, and one that will not
-        // match what they type next time.
+        // The username needs the same fallback the password has. The tag is
+        // only there if this form was scanned, and the scan follows the first
+        // password field in the document, so on a page with two forms the
+        // second stays untagged until focused and a button-with-a-handler login
+        // can submit having never been scanned. Without the fallback that saves
+        // a credential with an empty username, which the user cannot tell
+        // apart in the picker and which will not match what they type next.
         var user = scope.querySelector('[data-luna-field="username"]') || findUsername(scope, pass);
         post({ kind: 'submitted', username: user ? user.value : '', password: pass.value });
       };

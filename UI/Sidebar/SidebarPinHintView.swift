@@ -3,35 +3,18 @@
 //  Luna
 //
 //  §3.3a: the dashed well a Space draws where its pinned things would be, in a
-//  Space that has not pinned any yet.
+//  Space that has not pinned any yet. The block stands in §3.3's grid and says a
+//  tab can be dropped there; the row stands where §3.4b's first folder will be.
 //
-//  Two of them, one shape each. The block stands in §3.3's grid and says a tab
-//  can be dropped there; the row stands under it, where §3.4b's first folder
-//  will be, and says the same about a folder.
+//  Each well is the missing thing, not a notice about it: a §3.3 tile's or a
+//  §3.4 pill's height and corner, and inside, a §3.4 row — the glyph in the
+//  favicon column, the line at `rowTitleInset`, fading at the trailing edge
+//  rather than ending in an ellipsis, the cross in the trailing slot.
 //
-//  Each well is the thing that is missing rather than a notice about it. The
-//  block takes a §3.3 tile's height and corner and stands in the slot the first
-//  pinned tab will stand in; the row takes a §3.4 pill's. Inside, both are a
-//  §3.4 row: the glyph in the favicon column at `faviconSize`, the line at
-//  `rowTitleInset` in the column's own face, the cross in the trailing slot
-//  every tab row keeps. So the two wells and every row under them put their
-//  glyph on one column and start their words on another.
-//
-//  And the line ends the way a row's title does — laid out at its natural width
-//  in a clipping box, dissolving against the trailing edge — rather than in an
-//  ellipsis. §3.4 does not spend three characters saying a name is longer than
-//  its row, and neither does a well in a narrow column.
-//
-//  Neither carries a fill at rest. Nothing else in §3 does — an unselected row
-//  has no background at all — and a well that was a dark recess at rest and a
-//  white wash under a lift was answering the pointer by changing material.
-//  Empty is drawn as a dashed line here, exactly as §3.3 draws its own drop
-//  outline, and `Surface.hover` is what arriving over one looks like.
-//
-//  It is not a button. The well is somewhere a lift lands — §6.6 already
-//  resolves both zones without being told about this view — so it answers a
-//  drop, not a press, and the only thing in it that takes the pointer is the
-//  cross.
+//  No fill at rest: a dark recess that turned into a white wash under a lift
+//  answered the pointer by changing material. Empty is a dashed line, as §3.3
+//  draws its drop outline. It is not a button — it answers a §6.6 drop, and
+//  only the cross takes a press.
 //
 
 import AppKit

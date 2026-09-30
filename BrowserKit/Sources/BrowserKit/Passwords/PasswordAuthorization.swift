@@ -1,21 +1,16 @@
 import Foundation
 import LocalAuthentication
 
-/// Touch ID — or the login password — in front of a fill (§14.8).
+/// Touch ID, or the login password, in front of a fill (§14.8). Without it a
+/// saved credential is readable by whoever is at an unlocked Mac, and
+/// "unlocked" covers a laptop left open for two minutes.
 ///
-/// Safari asks before it puts a saved password into a field, and the reason is
-/// not ceremony: a saved credential is readable by whoever is sitting at an
-/// unlocked Mac, and "unlocked" covers a laptop left open for two minutes.
-/// The gate costs a fingerprint and removes that whole class of problem.
+/// It runs before the Keychain read: `PasswordCoordinator.fill` asks here
+/// first and only then calls `CredentialStore.password(for:)`, so a refused or
+/// cancelled prompt means the secret was never fetched into the process.
 ///
-/// It runs before the Keychain read, not after. `PasswordCoordinator.fill`
-/// asks here first and only then calls `CredentialStore.password(for:)`, so a
-/// refused or cancelled prompt means the secret was never fetched into the
-/// process at all — there is nothing in memory to have leaked.
-///
-/// `LocalAuthentication` is not AppKit, so this belongs in `BrowserKit` with
-/// the rest of the decision-making rather than in `UI/` with the views
-/// (§25.5, `Tools/check-no-appkit.sh`).
+/// `LocalAuthentication` is not AppKit, so this lives in `BrowserKit` rather
+/// than `UI/` (§25.5, `Tools/check-no-appkit.sh`).
 @MainActor
 public enum PasswordAuthorization {
 

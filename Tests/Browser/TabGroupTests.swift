@@ -3,19 +3,15 @@
 //  LunaTests
 //
 //  §3.4b: named groups, the saved tier, and the two presses it takes to let a
-//  saved row go.
-//
-//  Three rules carry the whole feature, and each of them is silent when it
-//  breaks — the list simply arranges itself wrongly, or a page the user meant
-//  to keep is gone:
+//  saved row go. Each rule is silent when it breaks:
 //
 //  · A group's tier is its tabs' tier. Carry a group across the rule and its
 //    tabs go with it, so "is this saved" has one answer wherever it is asked.
 //  · A group and the loose tabs around it share one run of indices, so a group
 //    can stand between two of them — and moving either has to renumber both.
-//  · Removing a group removes a name. Only *Close Group* ends pages, and it
-//    ends them one at a time so undo can reach each one.
-//  · A folder goes with its last tab, and comes back with it on undo. The one
+//  · Removing a group removes a name. Only Close Group ends pages, one at a
+//    time so undo can reach each one.
+//  · A folder goes with its last tab and comes back with it on undo; the only
 //    empty folder is a new one, waiting for its first tab.
 //
 

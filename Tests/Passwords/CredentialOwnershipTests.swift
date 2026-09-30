@@ -4,24 +4,16 @@
 //
 //  Luna must only ever see items Luna wrote.
 //
-//  This is not a hypothetical. `CredentialStore` first scoped its queries with
-//  `kSecAttrService`, which is an attribute of `kSecClassGenericPassword` and
-//  is silently ignored on an internet password — so the filter did nothing
-//  and `baseQuery` matched on the host alone. On the machine this was found,
-//  Luna's picker was offering a `github.com` credential written by
-//  `git-credential-osxkeychain` a year before the feature existed, whose
-//  secret is a personal access token rather than a password.
+//  Not scoped by `kSecAttrService`: it is an attribute of
+//  `kSecClassGenericPassword`, silently ignored on an internet password, so a
+//  query filtered by it matches on host alone — and offered a `github.com`
+//  token written by `git-credential-osxkeychain`. With that query a fill types
+//  another app's token into a login form, `save` can rewrite another app's
+//  item, and `delete` ("never for this site") can destroy one.
 //
-//  Three things followed from that one mistake, and all three are what these
-//  tests exist to stop coming back:
-//
-//  · a fill would have typed another app's token into a login form;
-//  · `save` reuses the query, so an update could rewrite another app's item;
-//  · `delete` reuses it too, so "never for this site" could destroy one.
-//
-//  The tests write a deliberately foreign item — no creator code, exactly as
-//  another application's would look — under an RFC 2606 `.invalid` host, and
-//  assert Luna cannot see it.
+//  The tests write a deliberately foreign item — no creator code, as another
+//  application's would look — under an RFC 2606 `.invalid` host, and assert
+//  Luna cannot see it.
 //
 
 import Security

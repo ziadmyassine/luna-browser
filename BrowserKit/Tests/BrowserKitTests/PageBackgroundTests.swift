@@ -7,16 +7,14 @@ import WebKit
 /// which §3.2b's bar wears whenever the page itself has no answer for what is
 /// under the bar.
 ///
-/// It used to be assigned and read back in the same statement of `publishState`:
+/// It cannot be assigned and read back in the same statement of `publishState`:
 /// handing WebKit nil gives the question back to it, and it answers off the next
-/// paint, so the read came back with the document that had just gone away.
-/// Measured on two documents, `#0a0a14` then `#3a0a0a`: `didFinish` for the
-/// second reported the first's `10,10,20`, and Back to the first reported
-/// `58,10,10`. Nothing re-read it afterwards, so the answer only became right if
-/// some unrelated property happened to change late enough.
+/// paint, so the read returns the document that has just gone away. Measured on
+/// two documents, `#0a0a14` then `#3a0a0a`: `didFinish` for the second reported
+/// the first's `10,10,20`, and Back to the first reported `58,10,10`.
 ///
-/// These load real documents, because the whole of the bug was in when WebKit
-/// answers — a stubbed web view would have agreed with the broken code.
+/// These load real documents because the failure is in when WebKit answers; a
+/// stubbed web view would agree with the broken code.
 @Suite("Page background (§3.2b)")
 @MainActor
 struct PageBackgroundTests {
@@ -88,8 +86,8 @@ struct PageBackgroundTests {
 
     /// A colour handed to WebKit stays until it is taken back, so the document
     /// that offered a `theme-color` must not leave it painting the next one's
-    /// over-scroll. `publishState` used to re-assign on every publish and hide
-    /// this; it only reads now, so the clear has to be its own act.
+    /// over-scroll. `publishState` only reads the colour, so the clear has to be
+    /// its own act.
     @Test func aCommitTakesBackTheColourTheLastDocumentPinned() async {
         let controller = live()
         await load(controller, background: "#0a0a14")

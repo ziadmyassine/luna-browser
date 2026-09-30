@@ -2,25 +2,18 @@
 //  BrowserSession+Pinning.swift
 //  Luna
 //
-//  §3.3's half of the §6 lifecycle: what it means for a tab to be a tile.
+//  §3.3's half of the §6 lifecycle: what it means for a tab to be a tile. A
+//  tile's page can go away for two reasons, and the tile comes back
+//  differently depending on which:
 //
-//  Split out of `BrowserSession+Tabs.swift` for that file's length limit.
-//  Everything here turns on one distinction the rest of the lifecycle does not
-//  have to make: a tile's page can go away for two different reasons, and the
-//  tile comes back differently depending on which.
+//    · Filed away — pinning a tab that is not on screen, or the §19.2
+//      live-tab budget reclaiming a cold one. The blob stays, and clicking the
+//      tile lands where the user left off.
+//    · Closed — `⌘W` on a tile, a decision that the page is finished. The tile
+//      stays; the page goes back to `pinnedURL`, the link it was made from.
 //
-//    · Filed away — pinning a tab that is not the one on screen, or the
-//      §19.2 live-tab budget reclaiming a cold one. Nothing was decided about
-//      the page; it simply costs a WebContent process to keep. The blob stays,
-//      and clicking the tile lands where the user left off.
-//    · Closed — `⌘W` on a tile. That is a decision, and it is "I am
-//      finished with this page". The tile stays, because a tile is a place you
-//      keep; the page does not, so the tab goes back to `pinnedURL`, the link
-//      the tile was made from.
-//
-//  Both end with the page gone and the tile on screen, which is why they used
-//  to be one call and looked right until you closed a tile and clicked it
-//  again.
+//  Both end with the page gone and the tile on screen, so one call for both
+//  looks right until a closed tile is clicked again and comes back mid-page.
 //
 
 import AppKit
@@ -43,30 +36,23 @@ extension BrowserSession {
 
     /// Pins a tab into the §3.3 grid — the tiles under the URL pill.
     ///
-    /// Pinning closes the page and keeps the tab. The tile stays until the
-    /// user unpins it, and clicking one wakes the page again from the same
-    /// `interactionState` the tab was carrying, so a pinned tab costs a row in
-    /// SQLite and no WebContent process (§19.2). That is the whole behaviour:
-    /// there is no "close a pinned tab", because the tile is the tab.
+    /// Pinning closes the page and keeps the tab: clicking the tile wakes the
+    /// page from the same `interactionState`, so a pinned tab costs a row in
+    /// SQLite and no WebContent process (§19.2). There is no "close a pinned
+    /// tab", because the tile is the tab.
     ///
-    /// Except the page you are looking at. Dropping a web view saves a
-    /// WebContent process, which is right for a tab being filed away and wrong
-    /// for the one on screen: pinning the active tab blanked the content pane
-    /// under the pointer, mid-gesture, and the site just dragged up there had
-    /// to be re-loaded from the tile. A pinned tab that is the current tab
-    /// keeps its page, and `enforceLiveTabBudget` reclaims it later like any
-    /// other live tab.
+    /// Except the page on screen. Dropping its web view blanked the content
+    /// pane under the pointer, mid-gesture, and the site just dragged up had
+    /// to be reloaded from the tile. The current tab keeps its page, and
+    /// `enforceLiveTabBudget` reclaims it later like any other live tab.
     ///
     /// - Returns: false when nothing happened — the tab is already a Favorite,
-    ///   or the Profile is already holding Arc's twelve. Refusing is the whole
-    ///   behaviour at the cap: quietly evicting the oldest tile would throw away
-    ///   a login the user put there on purpose.
-    /// - Parameter selecting: make the tab current on the way in. §6.6's drag
-    ///   across the §3.3 boundary passes true — a tab you carried up there by
-    ///   hand is the tab you are pointing at, so it becomes the one on screen.
-    ///   Ordering matters: selection is taken before the pin, so the
-    ///   "except the page you are looking at" branch below is the one that
-    ///   runs and the live page is never torn down and rebuilt.
+    ///   or the Profile is already holding Arc's twelve. Evicting the oldest
+    ///   tile instead would throw away a login the user put there on purpose.
+    /// - Parameter selecting: make the tab current on the way in, as §6.6's
+    ///   drag across the §3.3 boundary does. Selection is taken before the
+    ///   pin, so the on-screen branch runs and the live page is never torn
+    ///   down and rebuilt.
     @discardableResult
     func pinTab(_ id: UUID, at index: Int = .max, selecting: Bool = false) -> Bool {
         guard allowsPinning else { return false }
@@ -74,8 +60,7 @@ extension BrowserSession {
         // Favorites are per Space (§2), so the cap is per Space too.
         if favorites(inSpace: tab.spaceID).count >= Self.favoritesCap { return false }
         if selecting { activateTab(id) }
-        // `reorderTab` is what changes a tab's kind, what registers the undo,
-        // and — since §3.4b gave the saved rows the same behaviour — what
+        // `reorderTab` is what changes a tab's kind, registers the undo and
         // records `pinnedURL`. It reads the row back after `activateTab` has
         // written it, so the home it keeps is the address the user was looking
         // at when they decided to keep it.
@@ -115,20 +100,14 @@ extension BrowserSession {
     }
 
     /// §3.3: `⌘W` on a tile. The tile stays — a pinned tab cannot be closed —
-    /// but the page is closed, and a closed page has nothing left to come back
-    /// to but the link the tile was made from.
-    ///
-    /// That is the whole distinction, and it is the one the user asked for: a
-    /// tile whose page merely went cold keeps its blob and returns you to where
-    /// you left off, and a tile you closed returns to `pinnedURL` — top of the
-    /// page, no back/forward history. Closing is what you do when you are
-    /// finished with the page; the tile is the place you keep, not the page you
-    /// happened to leave open in it.
+    /// but the page is closed, so it returns to `pinnedURL`: top of the page,
+    /// no back/forward history. A tile whose page merely went cold keeps its
+    /// blob instead. The tile is the place you keep, not the page you happened
+    /// to leave open in it.
     ///
     /// A tile from before schema `v3`'s backfill, or one whose home is somehow
     /// missing, is filed away instead of sent home. Nil means "no home", and
-    /// inventing one out of the current address would be a worse answer than
-    /// the behaviour that was already there.
+    /// inventing one out of the current address would be worse than filing it.
     func sendTileHome(_ id: UUID, in spaceID: UUID) {
         sendPageHome(id, in: spaceID, markingDormant: false)
     }
@@ -180,13 +159,12 @@ extension BrowserSession {
     /// both halves above: what differs between them is what happens to the
     /// row, never what happens to the selection.
     ///
-    /// Never onto the row it is leaving, and never onto a row that has already
-    /// been closed once. §3.4b's saved row takes two presses and `⌘W` is the
-    /// fast one: the fallback used to be "the first row in the Space", which
-    /// for a saved tab at the top of the column was the row that had just been
-    /// closed — so the second `⌘W` landed on it again and took it out of
-    /// Saved, half a second after the first. A dormant row is excluded for the
-    /// same reason wherever it stands: the selection sitting on one is the
+    /// Never onto the row it is leaving, and never onto a row that has already been
+    /// closed once. §3.4b's saved row takes two presses and `⌘W` is the fast one.
+    /// Not "the first row in the Space": for a saved tab at the top of the column
+    /// that is the row just closed, so the second `⌘W` landed on it again and took
+    /// it out of Saved, half a second after the first. A dormant row is excluded
+    /// for the same reason wherever it stands: the selection sitting on one is the
     /// second press already lined up.
     func releaseSelection(of id: UUID, in spaceID: UUID) {
         recentTabs.removeAll { $0 == id }
@@ -203,7 +181,7 @@ extension BrowserSession {
     /// rather than pages: the tile's page is put away (§19.2) and the dimmed
     /// row's was ended on purpose. Selecting either loads it, so neither is
     /// something Luna may choose for the user — only something the user can
-    /// click. Shared with `switchSpace`, which had the same hole.
+    /// click. Shared with `switchSpace`, which needs the same rule.
     func openableTabs(inSpace spaceID: UUID, besides id: UUID? = nil) -> [Tab] {
         list[spaceID].filter { $0.id != id && $0.kind != .essential && !$0.isDormant }
     }

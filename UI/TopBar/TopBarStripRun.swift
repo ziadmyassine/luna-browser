@@ -4,34 +4,16 @@
 //
 //  §4's run of tabs, as data: what the bar draws, in what order, which of the
 //  two shapes each tab takes, and where a drop between any two of them lands.
+//  Pure, like `SidebarRowModel`, so each rule — the hairline only with something
+//  on both sides of it, the gap under a folder's header meaning inside it — is
+//  asserted rather than squinted at in a screenshot.
 //
-//  Pure, the way `SidebarRowModel` is pure, and for the same reason. The
-//  arrangement is the part with rules in it — §3.3's tabs are bare icons, every
-//  other tab carries its title, the hairline only comes out when there is something
-//  on both sides of it, and the gap under a folder's header means *inside it*.
-//  Each of those is a sentence that can be asserted rather than squinted at in
-//  a screenshot, and the last one is a sentence §6.6's drag stakes a `reorderTab`
-//  on.
+//  Slot order inside each tier is the column's. An order the bar imposes, such
+//  as loose tabs before folders, is one a drop cannot express: a tab carried
+//  past a folder went back in front of it.
 //
-//  Two shapes rather than one per tier, and both are the column's. §3.3's grid
-//  draws as §3.3's tile: the tabs you keep there are recognised by their site
-//  rather than read. Every folder's tabs, kept or not, and today's tabs are
-//  §3.4's rows, with their titles, because they are the ones told apart by
-//  name.
-//
-//  Slot order inside each tier, which is the column's order. The bar drew loose
-//  tabs before folders for one build, on the grounds that a named pill in the
-//  middle of a run of icons breaks the run in two. That was fine while the run
-//  was read-only and wrong the moment it could be dragged: an order the bar
-//  imposes is an order a drop cannot express, so a tab carried past a folder
-//  went back in front of it and the gesture read as broken. Folders still land
-//  after the tabs in practice, because that is the order they were made in.
-//
-//  `excluding` is what a live drag is: the run without the thing in the air.
-//  The column hides a row and offsets the ones after it; a bar has one line and
-//  it is cheaper to ask for the run that is actually on screen — and it makes
-//  the drop index exactly what `reorderTab` wants, which counts the run with
-//  the tab already taken out of it.
+//  `excluding` is what a live drag is: the run without the thing in the air,
+//  which makes the drop index exactly what `reorderTab` wants.
 //
 
 import BrowserKit
@@ -39,9 +21,11 @@ import Foundation
 
 /// How a tab is drawn on §4's bar.
 enum TopBarTabStyle: Sendable, Equatable {
-    /// §3.3's tile — the grid's own, icon only. The grid's tabs.
+    /// §3.3's tile — the grid's own, icon only. The grid's tabs, which are
+    /// recognised by their site rather than read.
     case tile
-    /// §3.4's row — favicon and title. Every other tab.
+    /// §3.4's row — favicon and title. Every other tab, kept folder's or not,
+    /// because those are told apart by name.
     case row
 }
 

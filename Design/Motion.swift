@@ -79,23 +79,17 @@ extension Tokens {
         /// The sidebar content cross-fade that rides along with it.
         static let spaceSwitchCrossfade = MotionSpec(0.18)
 
-        /// §30.9's page, released, finishing its travel on its own — and the two
-        /// bounds the answer is held between.
+        /// §30.9's page, released, finishing its travel on its own.
         ///
-        /// A settle is not a transition, it is the rest of a movement the hand
-        /// started, and one fixed duration was wrong at both ends: let go a
-        /// tenth of a page from home and the column crawled the last 28 pt over
-        /// 0.18 s; flick from a standstill and it crossed a whole page in the
-        /// same 0.18 s.
+        /// Not a fixed duration: one was wrong at both ends — let go a tenth of
+        /// a page from home and the column crawled the last 28 pt over 0.18 s;
+        /// flick from a standstill and it crossed a whole page in the same
+        /// 0.18 s. The duration is the distance over the release speed, so the
+        /// page leaves the fingers at the speed the fingers had, held between
+        /// two bounds because a hard flick would otherwise land in one frame
+        /// and a release from a dead stop divides by nothing.
         ///
-        /// So the duration is the distance divided by the speed the hand let go
-        /// at — the page leaves the fingers at the speed the fingers had. The
-        /// bounds exist because the arithmetic has no floor and no ceiling: a
-        /// hard flick would land the page in a single frame, and a release from
-        /// a dead stop divides by nothing.
-        ///
-        /// Ease-out for the same reason: a page carrying momentum decelerates
-        /// into place, and never accelerates away from the hand that let it go.
+        /// Ease-out: a page carrying momentum decelerates into place.
         static func spaceSettle(across points: CGFloat, at speed: CGFloat) -> MotionSpec {
             guard speed > 0 else { return spaceSettleSlowest }
             let seconds = Double(points / speed)
@@ -151,10 +145,10 @@ extension Tokens {
         /// Command Bar in: scale 0.96 → 1.0 + fade, anchored 20 % from the top.
         static let commandBarIn = MotionSpec(response: 0.18, damping: 0.80, settling: 0.18)
         /// The Command Bar growing out of the pill or tab it replaces, and
-        /// folding back into it: width, place, height and corner together. It
-        /// ran on `commandBarIn` when only the height moved; with the width
-        /// moving too, 0.18 s on an ease-out read as a jump, so it takes longer
-        /// on a curve that starts as gently as it lands.
+        /// folding back into it: width, place, height and corner together. Not
+        /// `commandBarIn`: with the width moving, 0.18 s on an ease-out read as
+        /// a jump, so it takes longer on a curve that starts as gently as it
+        /// lands.
         static let commandBarMorph = MotionSpec(0.26, .easeInOut)
         /// Downloads popover in: scale 0.94 → 1.0, from the tail anchor (§5).
         static let popoverIn = MotionSpec(response: 0.20, damping: 0.80, settling: 0.20)
@@ -170,20 +164,16 @@ extension Tokens {
         /// §5.0's flight: the file's own icon leaving the page on an arc and
         /// landing in the Downloads button, wherever the layout has put it.
         ///
-        /// Linear, and that is not laziness — the physics is in the path.
-        /// `DownloadFlight.control` puts the quadratic's control point on the
-        /// corner of the box the two ends make, which makes `x` decay and `y`
-        /// accelerate as the square of the clock. That is a thrown object, and
-        /// a timing curve laid over the top of it is a second acceleration
-        /// fighting the first: on `easeInOut` the icon crept off the page,
-        /// hurried through the middle and then slowed down into the button —
-        /// the one moment it should be arriving with pace — which left the
-        /// catch answering nothing.
+        /// Linear, because the physics is in the path: `DownloadFlight.control`
+        /// already makes it a thrown object, and a timing curve on top is a
+        /// second acceleration fighting the first. On `easeInOut` the icon
+        /// slowed into the button, the one moment it should arrive with pace,
+        /// and the catch answered nothing.
         ///
-        /// 0.30 s of it, because the two layouts put the button in opposite
-        /// corners and the worst case is most of the window. Shorter is a
-        /// streak; longer and the file is still in the air after the eye has
-        /// gone back to the page.
+        /// 0.30 s because the two layouts put the button in opposite corners
+        /// and the worst case is most of the window. Shorter is a streak;
+        /// longer and the file is still in the air after the eye has gone back
+        /// to the page.
         static let downloadFlight = MotionSpec(0.30, .linear)
         /// The button catching it: the glass bulges as the file lands and
         /// springs back.
@@ -226,14 +216,11 @@ extension Tokens {
         /// not a spinner. 1.1 s per pass, repeating for as long as the tab is
         /// loading.
         ///
-        /// Legitimately exempt from §6's cap, which governs discrete transitions
-        /// — the time between a user's action and the interface settling. This
-        /// one never settles: its duration is a rate, not a delay, and nothing
-        /// is pending on it finishing. Squeezed under 0.35 s it would read as a
-        /// strobe on a row the user is trying to read. `TokenCheck` checks it by
-        /// value rather than by the budget list, so deleting the exemption fails
-        /// the check instead of quietly capping a loading indicator at a
-        /// flicker.
+        /// Exempt from §6's cap, which governs discrete transitions. This one
+        /// never settles: its duration is a rate, and squeezed under 0.35 s it
+        /// would strobe on a row the user is trying to read. `TokenCheck` holds
+        /// it by value rather than by the budget list, so deleting the
+        /// exemption fails the check instead of capping it at a flicker.
         ///
         /// Linear: a repeating ease-out pulses at the seam where it loops.
         /// Reduce Motion: do not run it — the title stays put (§21.2).
@@ -327,21 +314,16 @@ extension Tokens {
         /// painted by the control's own layer.
         ///
         /// `nil` is the resting state and fades the fill out. The colour is the
-        /// caller's — `Surface.hover` and `Surface.selected` are the two §3.4
-        /// names — and the timing is `controlHover` in both directions, because
-        /// hover is a state the pointer can scrub in and out of a dozen times a
-        /// second and none of those passes should linger.
+        /// caller's — `Surface.hover` or `Surface.selected` — and the timing is
+        /// `controlHover` both ways, because the pointer can scrub in and out a
+        /// dozen times a second.
         ///
-        /// A `CALayer` property rather than a view's `animator()`: the fill is on
-        /// the layer under the button's contents, the only place that is behind
-        /// an `NSImageView`'s image and in front of a glass backing. That means
-        /// the timing comes off a `CATransaction` rather than an
-        /// `NSAnimationContext`, and Reduce Motion has to be checked here.
-        ///
-        /// The fade is added explicitly. A view's backing layer takes no
-        /// implicit animation — its view answers every action with none — so
-        /// a transaction's duration alone left every button's own-layer wash
-        /// landing in one frame.
+        /// A `CALayer` property rather than a view's `animator()`: the layer
+        /// under the button's contents is the only place behind an
+        /// `NSImageView`'s image and in front of a glass backing. So Reduce
+        /// Motion has to be checked here, and the fade is added explicitly —
+        /// a view's backing layer takes no implicit animation, and a
+        /// transaction's duration alone landed every wash in one frame.
         @MainActor
         static func wash(_ layer: CALayer?, to colour: NSColor?, animated: Bool = true) {
             guard let layer else { return }
@@ -387,17 +369,12 @@ extension Tokens {
         /// A child-window surface leaving the way it arrived: §6's `popoverIn`
         /// fade run backwards, and then out of the window tree.
         ///
-        /// §14.3's credential picker and §14.4's save chip both fade in on
-        /// that spec and both used to be `orderOut(nil)` — on screen one frame
-        /// and gone the next, which reads as the panel having been dismissed
-        /// by something rather than by the user. The two are written here
-        /// rather than twice over there because the ending is the same ending:
-        /// the panel is a child of the browser window and has to stop being
-        /// one, whichever of them it is.
+        /// For §14.3's credential picker and §14.4's save chip. A bare
+        /// `orderOut(nil)` is on screen one frame and gone the next, which
+        /// reads as the panel dismissed by something other than the user.
         ///
-        /// Takes the panel out of the tree itself, so a caller that wants it
-        /// gone has nothing left to remember — and under Reduce Motion (§21.2)
-        /// that happens on the next statement.
+        /// Takes the panel out of the tree itself, so a caller has nothing left
+        /// to remember — and under Reduce Motion (§21.2) that happens at once.
         @MainActor
         static func fadePanelOut(_ panel: NSPanel) {
             guard !reduceMotion else { return close(panel) }

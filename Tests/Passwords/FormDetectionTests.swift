@@ -5,20 +5,16 @@
 //  §14.3's detection script, run in a real `WKWebView` against real form
 //  markup — not asserted against as a string.
 //
-//  The script is the part of §14 with the most heuristics and the least type
-//  checking. Both bugs found during its bring-up were invisible to every other
-//  kind of test:
+//  The script has the most heuristics and the least type checking in §14, and
+//  both failures these guard against are invisible to a unit test of the
+//  Swift side or a reading of the script:
 //
 //  · a page holding a login form and any second password field anywhere
 //    reported the login form as a signup, so Luna offered to generate a new
 //    password instead of filling the saved one;
 //  · a form submitted without having been scanned — the ordinary SPA shape,
-//    where the button is a `<button type="button">` with a handler — reported
-//    an empty username, which saves a credential the user cannot identify and
-//    that will not match next time.
-//
-//  Neither is reachable from a unit test of the Swift side, and neither would
-//  have been caught by reading the script.
+//    a `<button type="button">` with a handler — reported an empty username,
+//    which saves a credential the user cannot identify.
 //
 
 import WebKit
@@ -304,11 +300,11 @@ final class FormDetectionTests: XCTestCase {
     /// What a website's script sees, which is the page world — not the
     /// client world Luna's own `callAsyncJavaScript` runs in.
     ///
-    /// The measurement that matters is no longer "is the interface gone" but
-    /// "does the interface admit to an authenticator". A page that finds
-    /// `PublicKeyCredential` missing hides more than passkeys: GitHub's
-    /// sign-in page loads Google, Apple and the passkey button from one
-    /// fragment it fetches only when that interface exists (§14.10).
+    /// The measurement is not "is the interface gone" but "does the interface
+    /// admit to an authenticator". A page that finds `PublicKeyCredential`
+    /// missing hides more than passkeys: GitHub's sign-in page loads Google,
+    /// Apple and the passkey button from one fragment it fetches only when that
+    /// interface exists (§14.10).
     func testThePageSeesWebAuthnWithNoAuthenticatorBehindIt() async throws {
         guard !PasskeySupport.isAvailable else {
             throw XCTSkip("this build carries the entitlement, so nothing is suppressed")

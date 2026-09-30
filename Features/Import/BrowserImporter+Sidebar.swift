@@ -2,35 +2,18 @@
 //  BrowserImporter+Sidebar.swift
 //  Luna — §23.2
 //
-//  The other writer: the one for a source that arrives with a shape.
+//  The writer for a source that arrives with a shape: Arc's sidebar is §3.4b's
+//  Spaces, folders and saved tabs, Dia's favourites are §3.3's grid, and
+//  flattening either into one folder as `+Placement` does is work the user
+//  then undoes by hand.
 //
-//  `BrowserImporter+Placement` flattens a bookmarks tree into one §3.4b folder
-//  named after the browser, which is right for a Chromium `Bookmarks` file and
-//  for a Netscape export — neither has Spaces, and a folder per folder would
-//  scatter an import across a column the user has to go looking through.
-//
-//  Arc and Dia are not that. Arc's sidebar is Spaces holding folders holding
-//  saved tabs, which is §3.4b's own shape; Dia's favourites are a profile's
-//  one-click row, which is §3.3's grid scoped the way Luna scopes it. Throwing
-//  either away and rebuilding it as one flat folder is work the user then has
-//  to undo by hand.
-//
-//  Three things this file decides, all of them because Luna's shape and Arc's
-//  are near but not identical:
-//
-//  · **A Space per Arc Space, named after the browser it came from.** `Arc —
-//    School`, not `School`: `resolveTargetSpace` reuses a Space of the same
-//    name, and a user with a Space called Personal — which is Luna's own seed
-//    name — would have Arc's pins land in the middle of it. The prefix is the
-//    same one an imported profile already wears.
-//  · **One folder per Arc folder, named by its path.** A Luna folder holds
-//    tabs, not other folders, so `IA ▸ Physics` becomes `IA / Physics`. Both
-//    names survive and two folders called `Physics` under different parents
-//    cannot collide.
-//  · **Loose pins go in a folder named after the browser.** §3.4b's upper tier
-//    holds folders and nothing else, so a tab that was loose in Arc's pinned
-//    tier needs one, and the browser's name is what it is: the things that were
-//    loose in Arc.
+//  · A Space per Arc Space, named `Arc — School`, not `School`:
+//    `resolveTargetSpace` reuses a Space of the same name, so Arc's Personal
+//    would land inside Luna's own seed Space.
+//  · One folder per Arc folder, named by its path: a Luna folder holds only
+//    tabs, so `IA ▸ Physics` becomes `IA / Physics` and cannot collide.
+//  · Loose pins go in a folder named after the browser, because §3.4b's upper
+//    tier holds folders and nothing else.
 //
 
 import BrowserKit

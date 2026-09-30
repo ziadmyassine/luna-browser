@@ -5,18 +5,15 @@
 //  The thing under the pointer while a tab is being moved — see
 //  `SidebarTabDrag.swift` for the gesture that drives it.
 //
-//  It is the row, not a picture of the row. §3.4 draws a tab as a selected
-//  glass pill with a favicon and a title on it, and that is what this is: the
-//  same `RowPillView` the list moves between rows, with the same two pieces of
-//  content laid out at the same insets. The ask was the whole tab rectangle
-//  including its highlight, and the cheapest way to be sure of that is to build
-//  it out of the same parts rather than to snapshot them.
+//  The row, not a picture of the row: the same `RowPillView` the list moves
+//  between rows, with the same favicon and title at the same insets. Built
+//  from the same parts rather than snapshotted, it is sure to be the whole tab
+//  rectangle including its highlight.
 //
-//  The morph is why the title and icon are laid out by hand rather than by
-//  constraints. A §3.3 tile is the same pill at a different size with the title
-//  gone and the icon in the middle, so going from one to the other is two
-//  frames and an alpha inside one animation — nothing is created, destroyed or
-//  re-parented, which is what makes it read as one object changing shape.
+//  Laid out by hand rather than by constraints, for the morph. A §3.3 tile is
+//  the same pill at a different size with the title gone and the icon in the
+//  middle, so going from one to the other is two frames and an alpha inside one
+//  animation — nothing is created, destroyed or re-parented.
 //
 
 import AppKit

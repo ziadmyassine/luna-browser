@@ -4,21 +4,18 @@
 //
 //  A host → `NSImage` cache over `FaviconService`'s PNG bytes.
 //
-//  This is not a convenience: `SidebarRowContent` is `Equatable` so a reused
-//  row can skip reconfiguring itself, and `NSImage` compares by identity. A
-//  fresh `NSImage(data:)` per row per refresh would make every row look
-//  changed, every time — re-laying and re-decoding the whole visible list on
-//  every session change, which is exactly the §19.1 budget gone.
+//  Not a convenience: `SidebarRowContent` is `Equatable` so a reused row can
+//  skip reconfiguring itself, and `NSImage` compares by identity. A fresh
+//  `NSImage(data:)` per row per refresh would make every row look changed,
+//  re-laying and re-decoding the visible list on every session change — the
+//  §19.1 budget gone.
 //
-//  The lookup takes a URL, not a `Tab`, and that is the load-bearing part.
-//  A row's `Tab` is a snapshot the sidebar took at the last `notifyChange()`,
-//  and an in-tab navigation does not raise one — it writes the tab and
-//  publishes a `TabState`. Asking the snapshot for the host meant the row kept
-//  drawing the icon of the site it used to be on.
+//  The lookup takes a URL, not a `Tab`. A row's `Tab` is a snapshot from the
+//  last `notifyChange()`, which an in-tab navigation does not raise, so its
+//  host is the site the row used to be on.
 //
 //  One per `FaviconService`: a §5.6 private window has its own, owned by its
 //  session, so its hosts are never in `shared` and go when the window does.
-//  The static lookup is `shared`'s, for chrome no private window draws.
 //
 
 import AppKit

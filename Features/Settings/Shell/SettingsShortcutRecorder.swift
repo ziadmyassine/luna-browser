@@ -5,23 +5,16 @@
 //  §3.6's editable key chip: it prints a shortcut, and when you click it, it
 //  listens for the next one.
 //
-//  The one place in Luna that installs an `NSEvent` monitor, and the ban it
-//  steps around is worth restating. `BrowserCommands` forbids monitors because
-//  a command driven by one is invisible: not in a menu, not in the
-//  accessibility tree, impossible to discover (§22.5). Nothing is being
-//  commanded here — the monitor exists so the keystroke can be read instead of
-//  obeyed, which is what the menu bar would otherwise do with it. Without one,
-//  pressing ⇧⌘T over this control opens a tab.
+//  The one place in Luna that installs an `NSEvent` monitor. `BrowserCommands`
+//  forbids monitors because a command driven by one cannot be discovered
+//  (§22.5); nothing is commanded here — the monitor reads the keystroke
+//  instead of letting the menu bar obey it, so ⇧⌘T over this control does not
+//  open a tab. It is local, matches only `.keyDown`, and lives only between the
+//  click that starts recording and the keystroke, Escape or lost focus that
+//  ends it. `stop()` is idempotent and called from every exit.
 //
-//  It is local (this process), it matches only `.keyDown`, and it lives only
-//  between the click that starts recording and the keystroke, Escape, or lost
-//  focus that ends it. `stop()` is idempotent and is called from every exit,
-//  including the view leaving its window.
-//
-//  Escape cancels and ⌫ clears, which is the convention every other shortcut
-//  recorder on the platform uses. They are not recordable as shortcuts
-//  themselves — neither carries ⌘, ⌃ or ⌥, so `KeyBinding(event:)` would refuse
-//  them anyway.
+//  Escape cancels and ⌫ clears, as every recorder on the platform does.
+//  Neither carries ⌘, ⌃ or ⌥, so `KeyBinding(event:)` would refuse them anyway.
 //
 
 import AppKit

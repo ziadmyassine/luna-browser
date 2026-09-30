@@ -40,9 +40,8 @@ public struct GradientPair: Sendable, Hashable, Codable {
 
 /// Which sidebar section a tab lives in (§7.1, §3.4b).
 ///
-/// `.pinned` is the **saved** tier: the rows between §3.3's grid and the rule. It was
-/// only ever "the run above today's tabs" and it now carries the behaviour that makes the
-/// name true — closing one keeps the row and drops the page.
+/// `.pinned` is the saved tier: the rows between §3.3's grid and the rule. Closing one
+/// keeps the row and drops the page, which is the behaviour that makes the name true.
 public enum TabKind: String, Sendable, Codable {
     case essential, pinned, today
 
@@ -250,9 +249,8 @@ public struct Space: Identifiable, Sendable, Hashable, Codable {
     /// say which name belongs to which, so the mapping is ours to keep — losing this
     /// column orphans a jar in `~/Library/WebKit/WebsiteDataStore/`.
     ///
-    /// It used to live on a row of its own that several Spaces could point at. Nothing
-    /// in the product wanted the sharing and everything in it had to explain the
-    /// sharing, so `v6` gave every Space its own and the row went (§9).
+    /// Not a row of its own that several Spaces can point at: nothing in the product
+    /// wanted the sharing and everything in it had to explain it (`v6`, §9).
     public var dataStoreIdentifier: UUID
     /// The picture the user gave this Space, as PNG, or nil for none.
     ///
@@ -288,8 +286,8 @@ public struct Space: Identifiable, Sendable, Hashable, Codable {
 public extension UUID {
     /// `00000000-0000-0000-0000-000000000000`.
     ///
-    /// `WKWebsiteDataStore.dataStoreForIdentifier:` documents *"Throws exception if
-    /// identifier is 0"*. That is an Objective-C exception, which Swift cannot catch,
+    /// `WKWebsiteDataStore.dataStoreForIdentifier:` documents "Throws exception if
+    /// identifier is 0". That is an Objective-C exception, which Swift cannot catch,
     /// so a zero identifier is an uncatchable crash rather than an error a call site can
     /// handle. It is therefore checked at the persistence boundary, where it can still be
     /// turned into data, not at the WebKit boundary, where it can only be turned into a

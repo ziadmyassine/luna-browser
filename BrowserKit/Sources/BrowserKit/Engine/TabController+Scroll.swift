@@ -5,21 +5,16 @@ import WebKit
 /// painted in the page's own colour. And how far through the page the reader
 /// is, for the sidebar's selected row, which fills from its leading edge.
 ///
-/// WebKit publishes no scroll position on macOS. `WKWebView` has no
-/// `scrollView` outside UIKit and no KVO-able offset, so the only supported way
-/// to ask is to have the page tell us — the same shape `mediaScript` and
-/// `ContentBlocker.blockedCountScript` already use, and for the same reason.
+/// WebKit publishes no scroll position on macOS — no `scrollView` outside UIKit,
+/// no KVO-able offset — so the page tells us, the same shape `mediaScript` and
+/// `ContentBlocker.blockedCountScript` use. Nor does it publish a colour but the
+/// document's: `underPageBackgroundColor` is one answer for the whole page, so a
+/// bar taking it stays white all the way down a site whose next section is
+/// black. What is under the bar's bottom edge is asked in the same script.
 ///
-/// And it publishes no colour but the document's. `underPageBackgroundColor`
-/// is one answer for the whole page, so a bar taking it stayed white all the way
-/// down a site whose next section is black. What is actually under the bar's
-/// bottom edge is a question only the page can answer, so it is asked in the
-/// same script, on the same frame boundary.
-///
-/// Both are delivered through closures rather than `TabState`: a
-/// `TabState` change re-renders a sidebar row, and a scroll is not news to
-/// one. This fires on a frame boundary for as long as a drag lasts, so nothing
-/// that reads tab state may be woken by it.
+/// Both are delivered through closures rather than `TabState`: a `TabState`
+/// change re-renders a sidebar row, and this fires on a frame boundary for as
+/// long as a drag lasts, so nothing that reads tab state may be woken by it.
 extension TabController {
 
     static let scrollMessageName = "lunaScroll"
@@ -73,85 +68,55 @@ extension TabController {
     }
 
     /// Posts `window.scrollY` and the colour under the top of the viewport on a
-    /// frame boundary, once at document end and again on `pageshow`, so a bar
-    /// that is already showing learns where a restored page resumed and what it
-    /// resumed on.
+    /// frame boundary.
     ///
     /// `passive`, so the listener can never delay a scroll, and `capture`, so it
     /// also sees the app-shell sites that scroll an inner element rather than
     /// the document — `scroll` does not bubble, but it does capture.
     ///
-    /// Three points, and they have to agree. The bar is one colour across the
-    /// pane, so a top edge that is two colours has no right answer and the
-    /// sample says so; the bar then falls back to the document's own
-    /// background. Each point goes down the z-order rather than up the DOM:
-    /// `elementsFromPoint` gives everything painted at that pixel front to
-    /// back, and the walk stops at the first opaque background, because the
-    /// element on top is very often a transparent `<div>`.
-    ///
-    /// It was an ancestor walk first, which is wrong in the ordinary case: a
-    /// site with a sticky transparent header over a dark section answered
-    /// white. The header is what is under the point, its ancestors are the
-    /// body, and the dark section is a sibling painted behind it, which no walk
-    /// up the tree can reach. Measured on `getroosta.app`: the ancestor walk
-    /// said `255,255,255`, the stack says `12,12,13`.
+    /// Three points, and they have to agree: the bar is one colour across the
+    /// pane, so a top edge that is two colours has no right answer and the bar
+    /// falls back to the document's own background. Each point goes down the
+    /// z-order (`elementsFromPoint`) to the first opaque background, not up the
+    /// DOM: a transparent sticky header over a dark section is what is under
+    /// the point, its ancestors are the body, and the section is a sibling no
+    /// ancestor walk can reach. Measured on `getroosta.app`: an ancestor walk
+    /// says `255,255,255`, the stack `12,12,13`.
     ///
     /// Layers that are not opaque are mixed over the first opaque one behind
     /// them, as the screen mixes them: a translucent colour, and a gradient
-    /// running straight down or up, read where the sample line crosses its box.
-    /// Netflix is why: its header is a black shadow fading down over a body at
-    /// `20,20,20`, and stepping over the shadow answered the body's grey under
-    /// a header the screen shows near black. An element's own `opacity` scales
-    /// its layers the same way.
+    /// running straight down or up, read where the sample line crosses its box,
+    /// and an element's own `opacity` scales its layers. Netflix's header is a
+    /// black shadow over a `20,20,20` body, and stepping over the shadow answers
+    /// grey under a header the screen shows near black. Any other background
+    /// image cannot be read off one line, so it is stepped over rather than
+    /// ending the sample — ending it turns the bar white over `getroosta.app`'s
+    /// dark footer. A JPEG or a video cannot be see-through, so mixing stops
+    /// there; other pictures may be (that footer is a full-width `.webp`), so
+    /// they hide nothing.
     ///
-    /// Any other background image — a photo, a gradient at an angle, a radial
-    /// one — cannot be read off one line, so it is stepped over and the walk
-    /// goes on behind it. It used to end the sample there, which is "the bar
-    /// goes white over a black page": `getroosta.app` lays a hard-edged
-    /// `linear-gradient` (`div.horizon`) over `footer.night`, every sample came
-    /// back empty and the bar fell to the document's white. That gradient is
-    /// now read as well, so the bar is white over its white part and dark below
-    /// the edge.
+    /// A page can switch hit testing off. Netflix does while it scrolls, and
+    /// `elementsFromPoint` then finds nothing but `<html>` — measured, 1331 of
+    /// 1496 samples in one scroll answered grey under a black header. A body
+    /// that covers the point but is not in the stack is that state, so the
+    /// sample keeps the last colour it saw and asks again every 250 ms, up to
+    /// 5 s, until the page can be hit.
     ///
-    /// Behind a JPEG or a video nothing is on screen, since neither can be
-    /// see-through, so mixing stops there and only an opaque colour behind can
-    /// still answer. Netflix's signed-out page lays a red glow behind its hero
-    /// photo. Other pictures may be see-through — `getroosta.app`'s footer is a
-    /// full-width `.webp` over the horizon — so they hide nothing.
+    /// Sent once at document end and asked again at `load`, 0.25, 1 and 2.5 s
+    /// after document end and after `load`, and whenever the document's size
+    /// changes, at most every 0.3 s: most sites paint their header after
+    /// document end. Sent again on `pageshow`, because back and forward restore
+    /// a document from WebKit's page cache without re-running user scripts,
+    /// after `resetPerDocumentState` has cleared the colour.
     ///
-    /// A page can switch hit testing off. Netflix does while it scrolls and for
-    /// a moment after, and `elementsFromPoint` then finds nothing but `<html>`:
-    /// measured, 1331 of 1496 samples in one scroll answered the document's
-    /// grey under a black header. A body that covers the point but is not in
-    /// the stack is that state, so the sample keeps the last colour it saw and
-    /// asks again every 250 ms, up to 5 s, until the page can be hit.
+    /// The progress is the document's own scroll when it has one; otherwise the
+    /// last element that scrolled, as long as it is at least half the viewport
+    /// tall — an app-shell site's content pane, not a dropdown's list.
     ///
-    /// And a restored page says so itself. Back and forward are served from
-    /// WebKit's page cache, which restores the document without re-running user
-    /// scripts — so nothing posted, `resetPerDocumentState` had already cleared
-    /// the colour, and the bar wore the page it had just left until the next
-    /// scroll. The listeners are still live in a restored document, so
-    /// `pageshow` is the one event that covers both: it fires on every load
-    /// after this script is injected, and on every restore out of the cache.
-    ///
-    /// And a page that is still being built says so again. Document end is
-    /// before most sites have painted their header — styles, fonts and a
-    /// framework's first render all land later — so a sample taken only there
-    /// left the bar in the wrong colour until the first scroll. It asks again
-    /// at `load`, 0.25, 1 and 2.5 s after document end and after `load`, and
-    /// whenever the document's size changes, at most every 0.3 s.
-    ///
-    /// And how far through the page the reader is, for the sidebar's selected
-    /// row. The document's own scroll when it has one; otherwise the last
-    /// element that scrolled, as long as it is at least half the viewport tall —
-    /// an app-shell site's content pane, not a dropdown's list.
-    ///
-    /// Sampled at most every 4 pt of travel. `elementFromPoint` is a hit test,
-    /// and three of them per frame of every drag for a colour that cannot have
-    /// changed in four points is work the page pays for. A resize clears the
-    /// cache and asks again — the viewport's top edge moves without a scroll
-    /// when the bar changes height, and a responsive layout can put something
-    /// else under it. `pageshow` clears it for the same reason.
+    /// Sampled at most every 4 pt of travel: three hit tests per frame of every
+    /// drag, for a colour that cannot have changed in four points, is work the
+    /// page pays for. A resize and `pageshow` clear that cache, because the
+    /// viewport's top edge moves without a scroll when the bar changes height.
     static let scrollScript = """
     (function () {
       var h = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.lunaScroll;

@@ -3,25 +3,15 @@ import Foundation
 //  Luna's own pages (§4.4): the History page, and the error pages that
 //  replace WebKit's defaults (§4.5).
 //
-//  There was a third, `luna://newtab` — a search pill over a grid of Favorites,
-//  and what a tab with no address of its own opened. It is gone. Every route
-//  into it already opened §9.1's Command Bar instead: `⌘T`, the sidebar's own
-//  New Tab row, the top bar's `+`, and the page's own pill, which handed off
-//  rather than taking a second line of input. What was left was a page whose
-//  only job was to be somewhere to stand while the bar was open. A tab with no
-//  address is `about:blank` now, which is what it always was.
-//
-//  The gotcha §4.4 records, and the reason everything here is a URL: a
-//  `WKURLSchemeHandler` only fires for resources loaded *inside a document that
-//  itself came from that scheme*. An internal page injected with
-//  `loadHTMLString` into `about:blank` therefore cannot load a single
-//  sub-resource — no favicon, no stylesheet — and fails silently while looking
-//  like it worked. Every internal page is navigated to as `luna://…`.
+//  Every internal page is navigated to as `luna://…`, never injected: a
+//  `WKURLSchemeHandler` only fires for resources loaded inside a document that
+//  itself came from that scheme (§4.4's gotcha). A page put into `about:blank`
+//  with `loadHTMLString` cannot load a single sub-resource — no favicon, no
+//  stylesheet — and fails silently while looking like it worked.
 //
 //  No colour value lives in `BrowserKit` (contract rule 3). The palette is a
-//  block of CSS custom properties the app hands over in `palette`, generated
-//  from `Design/Tokens.swift` by `Features/InternalPages/InternalPageTheme`.
-//  Every rule reads `var(--luna-…, <CSS system colour>)`, so an unset palette
+//  block of CSS custom properties the app hands over in `palette`, and every
+//  rule reads `var(--luna-…, <CSS system colour>)`, so an unset palette
 //  degrades to the OS's own `Canvas`/`CanvasText` rather than to a second,
 //  drifting set of hex values.
 

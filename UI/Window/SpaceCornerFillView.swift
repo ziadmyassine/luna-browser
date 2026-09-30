@@ -4,24 +4,17 @@
 //
 //  The two corners `SpaceWashView` cannot reach.
 //
-//  Why this is a second view rather than a wider first one. `ContentCardView`
-//  rounds only its leading corners (§3.6), so in `.sidebar` the card leaves a
-//  `WindowCorner.radius` quarter-disc notch at its top-leading and bottom-leading
-//  corners. What shows through is `WindowRootView`'s plain `Glass.sidebar`: the
-//  sidebar's own wash never gets there, because the wash is a subview of the
-//  sidebar and `ChromeHostView` sets `masksToBounds = true` on the way in,
-//  which §7.2's slide needs. So the sidebar's colour stopped dead at its
-//  trailing edge and the two corners read as lighter notches against it.
+//  `ContentCardView` rounds only its leading corners (§3.6), so in `.sidebar`
+//  the card leaves a quarter-disc notch at each. The sidebar's wash cannot
+//  paint them: it is a subview of the sidebar, which `ChromeHostView` masks to
+//  its bounds for §7.2's slide, so the notches showed plain `Glass.sidebar` as
+//  lighter patches against the Space's colour.
 //
-//  This view is that patch and nothing else: it sits on the root plane below
-//  the card, and its mask is the two notches. Everything else it could paint is
-//  either covered by the opaque card or already painted by the sidebar's own
-//  wash, and painting there too would lay 16 % over 16 %.
-//
-//  It exists only in `.sidebar`. Collapsed and fullscreen have no rounded card
-//  corner, and §4's bar has no Space wash, so the glass in its two notches is
-//  already the bar's own — which is also why fullscreen keeps the flat `Surface.fullScreenChrome` plane it was given
-//  rather than picking up a Space's colour.
+//  This view sits on the root plane below the card, masked to the two notches;
+//  painting anywhere else would lay 16 % over the wash's 16 %. It exists only in
+//  `.sidebar`: collapsed and fullscreen have no rounded card corner, and §4's
+//  bar has no Space wash — which is also why fullscreen keeps its flat
+//  `Surface.fullScreenChrome` plane rather than picking up a Space's colour.
 //
 
 import AppKit
@@ -66,8 +59,8 @@ final class SpaceCornerFillView: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
-    /// Never hit-tests: it is two 25 pt corners of decoration on the plane the
-    /// page sits on.
+    /// Never hit-tests: it is two corners of decoration on the plane the page
+    /// sits on.
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
     /// The same pair the sidebar's wash is showing. Neutral paints nothing,
@@ -104,9 +97,11 @@ final class SpaceCornerFillView: NSView {
     /// A notch is the corner square minus the quarter disc the radius takes out
     /// of it: bounded by the card's own top (or bottom) edge, by the sidebar's
     /// trailing edge, and by the arc between them.
+    ///
     /// `static`, and taking its geometry rather than reading `bounds`, so the
     /// shape can be asserted in a test instead of eyeballed in a running window
     /// — the same reason `TrafficLightLayout` and `cardInsets` are pure.
+    ///
     /// A trailing sidebar's notches are this shape reflected about the window's
     /// vertical centre line — the same two corners, read the other way round —
     /// so the path is built once and mirrored rather than written twice.

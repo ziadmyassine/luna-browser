@@ -5,19 +5,16 @@
 //  One keystroke, as a value — the thing a menu item wears, the thing the user
 //  records in Settings, and the thing that has to survive a relaunch.
 //
-//  Shift is always in the mask, never in the letter. AppKit accepts two
-//  spellings of ⇧⌘T: `keyEquivalent "T"` with `.command`, or `"t"` with
-//  `[.command, .shift]`. The first is fine for a table written by hand and
-//  wrong for one a user can edit — the shift bit lives in two places, so a
-//  recorded keystroke and a declared default of the same shortcut compare
-//  unequal and the conflict check misses. Everything normalises to the second:
-//  the key is lowercased and shift is a modifier like the other three.
+//  Shift is always in the mask, never in the letter. AppKit accepts ⇧⌘T as
+//  `"T"` with `.command` or as `"t"` with `[.command, .shift]`; with the shift
+//  bit in two places, a recorded keystroke and a declared default of the same
+//  shortcut compare unequal and the conflict check misses. So the key is
+//  lowercased and shift is a modifier like the other three.
 //
 //  A shifted symbol keeps whatever the layout produced — ⇧⌘[ records as ⇧⌘{
-//  on a US keyboard, because that is the character AppKit will be matching
-//  against. It fires correctly; it is only the printed glyph that is the shifted
-//  one. Left alone deliberately: unshifting it needs `UCKeyTranslate` and a
-//  layout round-trip, which is a lot of machinery to make a label prettier.
+//  on a US keyboard, because that is the character AppKit matches against. It
+//  fires correctly and only the printed glyph is the shifted one; unshifting
+//  it needs `UCKeyTranslate` and a layout round-trip, too much for a label.
 //
 
 import AppKit
