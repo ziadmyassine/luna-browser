@@ -96,18 +96,28 @@ extension TabController {
     /// up the tree can reach. Measured on `getroosta.app`: the ancestor walk
     /// said `255,255,255`, the stack says `12,12,13`.
     ///
-    /// A background image means that element cannot answer, so it is skipped
-    /// and the walk goes on behind it. Ending the sample there is the bug
-    /// reported as "the bar goes white over a black page": `getroosta.app` lays
-    /// a two-stop `linear-gradient` (`div.horizon`) over `footer.night`, so
-    /// from roughly 6500 pt down every sample came back empty and the bar fell
-    /// to the document's background — white, over a footer measured at
-    /// `12,12,13`.
+    /// Layers that are not opaque are mixed over the first opaque one behind
+    /// them, as the screen mixes them: a translucent colour, and a gradient
+    /// running straight down or up, read where the sample line crosses its box.
+    /// Netflix is why: its header is a black shadow fading down over a body at
+    /// `20,20,20`, and stepping over the shadow answered the body's grey under
+    /// a header the screen shows near black. An element's own `opacity` scales
+    /// its layers the same way.
     ///
-    /// Giving up there never bought anything: "no answer" falls back to the
-    /// document's background, which is what the last entries of any stack are,
-    /// so stopping at the image only throws away the opaque surfaces painted
-    /// between it and the document.
+    /// Any other background image — a photo, a gradient at an angle, a radial
+    /// one — cannot be read off one line, so it is stepped over and the walk
+    /// goes on behind it. It used to end the sample there, which is "the bar
+    /// goes white over a black page": `getroosta.app` lays a hard-edged
+    /// `linear-gradient` (`div.horizon`) over `footer.night`, every sample came
+    /// back empty and the bar fell to the document's white. That gradient is
+    /// now read as well, so the bar is white over its white part and dark below
+    /// the edge.
+    ///
+    /// Behind a JPEG or a video nothing is on screen, since neither can be
+    /// see-through, so mixing stops there and only an opaque colour behind can
+    /// still answer. Netflix's signed-out page lays a red glow behind its hero
+    /// photo. Other pictures may be see-through — `getroosta.app`'s footer is a
+    /// full-width `.webp` over the horizon — so they hide nothing.
     ///
     /// And a restored page says so itself. Back and forward are served from
     /// WebKit's page cache, which restores the document without re-running user
@@ -132,19 +142,138 @@ extension TabController {
     (function () {
       var h = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.lunaScroll;
       if (!h) { return; }
+      var split = function (text) {
+        var parts = [];
+        var depth = 0;
+        var from = 0;
+        for (var i = 0; i < text.length; i++) {
+          var c = text.charAt(i);
+          if (c === '(') { depth++; } else if (c === ')') { depth--; } else if (c === ',' && depth === 0) {
+            parts.push(text.slice(from, i).trim());
+            from = i + 1;
+          }
+        }
+        parts.push(text.slice(from).trim());
+        return parts;
+      };
+      var rgba = function (text) {
+        if (text === 'transparent') { return [0, 0, 0, 0]; }
+        if (text.indexOf('rgb') !== 0) { return null; }
+        var parts = text.slice(text.indexOf('(') + 1, text.lastIndexOf(')')).split(',');
+        if (parts.length < 3) { return null; }
+        var alpha = parts.length > 3 ? parseFloat(parts[3]) : 1;
+        return [parseFloat(parts[0]), parseFloat(parts[1]), parseFloat(parts[2]), alpha];
+      };
+      var over = function (top, under) {
+        var alpha = top[3] + under[3] * (1 - top[3]);
+        if (alpha <= 0) { return [0, 0, 0, 0]; }
+        var mixed = [0, 1, 2].map(function (i) {
+          return (top[i] * top[3] + under[i] * under[3] * (1 - top[3])) / alpha;
+        });
+        mixed.push(alpha);
+        return mixed;
+      };
+      var between = function (a, b, f) {
+        var alpha = a[3] + (b[3] - a[3]) * f;
+        var mixed = [0, 1, 2].map(function (i) {
+          return alpha > 0 ? (a[i] * a[3] + (b[i] * b[3] - a[i] * a[3]) * f) / alpha : 0;
+        });
+        mixed.push(alpha);
+        return mixed;
+      };
+      var gradientAt = function (image, t, height) {
+        var match = /^linear-gradient\\((.*)\\)$/.exec(image);
+        if (!match) { return null; }
+        var args = split(match[1]);
+        if (/^to |deg$|turn$|rad$/.test(args[0])) {
+          var way = args.shift();
+          if (way === 'to top' || way === '0deg') {
+            t = 1 - t;
+          } else if (way !== 'to bottom' && way !== '180deg' && way !== '0.5turn') {
+            return null;
+          }
+        }
+        var stops = [];
+        for (var i = 0; i < args.length; i++) {
+          var close = args[i].lastIndexOf(')');
+          var colour = rgba(close < 0 ? args[i].split(' ')[0] : args[i].slice(0, close + 1));
+          var at = (close < 0 ? args[i].split(' ').slice(1).join(' ') : args[i].slice(close + 1)).trim();
+          if (!colour) { return null; }
+          var position = null;
+          if (/^-?[0-9.]+%$/.test(at)) {
+            position = parseFloat(at) / 100;
+          } else if (/^-?[0-9.]+px$/.test(at)) {
+            position = parseFloat(at) / height;
+          } else if (at !== '') {
+            return null;
+          }
+          stops.push({ colour: colour, at: position });
+        }
+        if (stops.length < 2) { return null; }
+        if (stops[0].at === null) { stops[0].at = 0; }
+        if (stops[stops.length - 1].at === null) { stops[stops.length - 1].at = 1; }
+        for (var j = 1; j < stops.length; j++) {
+          if (stops[j].at === null) {
+            var next = j;
+            while (stops[next].at === null) { next++; }
+            stops[j].at = stops[j - 1].at + (stops[next].at - stops[j - 1].at) / (next - j + 1);
+          }
+          stops[j].at = Math.max(stops[j].at, stops[j - 1].at);
+        }
+        if (t <= stops[0].at) { return stops[0].colour; }
+        for (var k = 0; k < stops.length - 1; k++) {
+          if (t < stops[k + 1].at) {
+            return between(stops[k].colour, stops[k + 1].colour, (t - stops[k].at) / (stops[k + 1].at - stops[k].at));
+          }
+        }
+        return stops[stops.length - 1].colour;
+      };
+      var imageAt = function (element, style, y) {
+        var size = style.backgroundSize || 'auto';
+        if (!/^(auto|auto auto|cover|contain|100%|100% 100%|100% auto|auto 100%)$/.test(size)) { return null; }
+        if (!element.getBoundingClientRect) { return null; }
+        var box = element.getBoundingClientRect();
+        if (!(box.height > 0)) { return null; }
+        var t = Math.min(Math.max((y - box.top) / box.height, 0), 1);
+        var layers = split(style.backgroundImage);
+        var result = [0, 0, 0, 0];
+        for (var i = layers.length - 1; i >= 0; i--) {
+          var layer = gradientAt(layers[i], t, box.height);
+          if (!layer) { return null; }
+          result = over(layer, result);
+        }
+        return result;
+      };
       var painted = function (x, y) {
         if (!document.elementsFromPoint) { return null; }
         var stack = document.elementsFromPoint(x, y);
+        var above = [];
+        var hidden = false;
         for (var i = 0; i < stack.length; i++) {
+          var tag = stack[i].tagName || '';
+          if (tag === 'VIDEO' || (tag === 'IMG' && /\\.jpe?g([?#]|$)/i.test(stack[i].currentSrc || ''))) {
+            hidden = true;
+            above = [];
+          }
           var style = window.getComputedStyle(stack[i]);
-          if (style.backgroundImage && style.backgroundImage !== 'none') { continue; }
-          var text = style.backgroundColor || '';
-          var open = text.indexOf('(');
-          if (open < 0) { continue; }
-          var parts = text.slice(open + 1, text.lastIndexOf(')')).split(',');
-          if (parts.length < 3) { continue; }
-          if (parts.length > 3 && parseFloat(parts[3]) < 0.99) { continue; }
-          return [parseFloat(parts[0]) / 255, parseFloat(parts[1]) / 255, parseFloat(parts[2]) / 255];
+          var layers = [];
+          if (!hidden && style.backgroundImage && style.backgroundImage !== 'none') {
+            var image = imageAt(stack[i], style, y);
+            if (image) { layers.push(image); }
+          }
+          var colour = rgba(style.backgroundColor || '');
+          if (colour) { layers.push(colour); }
+          var fade = parseFloat(style.opacity);
+          for (var j = 0; j < layers.length; j++) {
+            if (fade >= 0 && fade < 1) { layers[j] = layers[j].slice(0, 3).concat([layers[j][3] * fade]); }
+            if (layers[j][3] < 0.99) {
+              if (layers[j][3] > 0 && !hidden) { above.push(layers[j]); }
+              continue;
+            }
+            var result = layers[j];
+            for (var k = above.length - 1; k >= 0; k--) { result = over(above[k], result); }
+            return [0, 1, 2].map(function (c) { return Math.round(result[c]) / 255; });
+          }
         }
         return null;
       };

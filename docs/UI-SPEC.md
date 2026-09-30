@@ -660,14 +660,23 @@ column closes up over the pill's own 34 pt.
   `255,255,255` where the stack says `12,12,13`. The three have to **agree** — the bar is one colour
   across the whole pane, so a top edge that is two colours has no right answer, and the sample says
   nothing rather than picking one. Nothing means the document's own
-  background, which is what a centred card on a tinted page wanted anyway. A layer carrying a
-  background **image** cannot answer either, so the walk **steps over it** and keeps going down the
-  stack. It used to end the sample there, and that is the "the bar goes white over a black page" bug:
-  `getroosta.app` lays a two-stop `linear-gradient` (`div.horizon`) over `footer.night`, so from
-  roughly 6500 pt down every sample came back empty and the bar fell to the document's white — over a
-  footer measured at `12,12,13`, with the screen reading `13,13,14` under the bar. Stepping over
-  never loses anything: what "nothing" falls back to *is* the document's background, which is the
-  bottom of every stack, so giving up early only threw away the opaque surfaces painted between.
+  background, which is what a centred card on a tinted page wanted anyway. **Layers that are not
+  opaque are mixed over the first opaque one behind them**, the way the screen mixes them: a
+  translucent colour, and a gradient running straight down or up, read where the sample line crosses
+  its box; an element's own `opacity` scales its layers too. Netflix is why (2026-09-30): its header is
+  a black shadow, `linear-gradient(rgba(0,0,0,.8), transparent)` 80 pt tall, over a body at
+  `20,20,20`, and stepping over the shadow gave a dark-grey bar over a header the screen shows near
+  black. Mixed, the sample reads `5,5,5`. Any other background **image** — a photo, a gradient at an
+  angle, a radial one — cannot be read off one line, so the walk **steps over it** and keeps going
+  down the stack. It used to end the sample there, and that is the "the bar goes white over a black
+  page" bug: `getroosta.app` lays a hard-edged `linear-gradient` (`div.horizon`) over `footer.night`,
+  so from roughly 6500 pt down every sample came back empty and the bar fell to the document's white.
+  That gradient is now read as well, so the bar is white over its white part and dark below the
+  edge — measured against the screen in a real `WKWebView`, where stepping over it had been answering
+  dark over white at six points in a hundred. **Behind a JPEG or a video nothing is mixed**, since
+  neither can be see-through: Netflix's signed-out page lays a red glow behind its hero photo, and
+  mixed in, the bar went red over a dark photo. Any other picture may be see-through —
+  `getroosta.app`'s footer is a full-width `.webp` over the horizon — so it hides nothing.
   The change crosses on
   `Motion.themeWash`, the same 0.25 s a navigation changes it on. The hit tests are the cost, so the
   sample is skipped for moves under 4 pt and re-taken on a resize — the viewport's top edge moves

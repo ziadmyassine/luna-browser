@@ -1050,6 +1050,7 @@ Sixteen questions, answered in one sitting. **Where this log contradicts an olde
 | **Pinned tabs in Safari's Favorites** (2026-09-30, §31.10) | Off by default. Safari's own iCloud sync carries them to the iPhone; Luna has a hidden Safari make the one edit that starts an upload. |
 | **An extension's tab no longer crashes Luna** (2026-09-30, §16) | An extension asking for a tab's web view in another Space got it, and WebKit stopped the app; it is now given only the web views of its own Space. |
 | **A folder goes with its last tab** (2026-09-30, UI-SPEC §3.4b) | Closed, dragged out, pinned or moved to another Space, the last tab takes its folder with it, agents' folders included; a saved folder waits until its dimmed row is let go too. Undo and ⌘⇧T bring the folder back. Only *New Folder* makes an empty one. The pointer left on a row the folder took with it no longer crashes the sidebar when it moves on. |
+| **The bar reads shading over the page** (2026-09-30, UI-SPEC §3.2b) | See-through layers and top-to-bottom gradients are mixed over the colour behind them instead of skipped, so Netflix's bar is black like its menu (`5,5,5`, not the body's `20,20,20`). Nothing behind a JPEG or a video is mixed in. Checked against the screen on ten sites in a real `WKWebView`: getroosta.app is now right over its white horizon where it had said dark. |
 
 ---
 
