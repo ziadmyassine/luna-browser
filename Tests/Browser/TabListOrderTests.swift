@@ -83,6 +83,73 @@ final class TabListOrderTests: XCTestCase {
         XCTAssertNil(TabList.openIndex(for: .today, newestFirst: false))
     }
 
+    /// A tab opened from a page goes right above it, and several open in
+    /// the order they were asked for, the first highest.
+    func testATabOpenedFromAPageSitsAboveIt() {
+        var list = TabList()
+        list.addSpace(space)
+        for index in 0 ..< 3 { open(&list, "old-\(index)") }
+        let parent = list[space][1].id
+
+        openChild(&list, "first", from: parent)
+        openChild(&list, "second", from: parent)
+
+        XCTAssertEqual(
+            list[space].map(\.url.lastPathComponent), ["old-2", "first", "second", "old-1", "old-0"]
+        )
+    }
+
+    /// Under the top bar the same tab opens to the right of its page.
+    func testUnderTheTopBarATabOpenedFromAPageSitsToItsRight() {
+        var list = TabList()
+        list.addSpace(space)
+        for index in 0 ..< 3 { open(&list, "old-\(index)", newestFirst: false) }
+        let parent = list[space][1].id
+
+        openChild(&list, "child", from: parent, newestFirst: false)
+
+        XCTAssertEqual(list[space].map(\.url.lastPathComponent), ["old-0", "old-1", "child", "old-2"])
+    }
+
+    /// From a tab in a folder, the child joins the folder, above its page.
+    func testATabOpenedFromAFolderJoinsIt() throws {
+        var list = TabList()
+        list.addSpace(space)
+        open(&list, "loose")
+        let folder = TabGroup(spaceID: space, name: "Folder", kind: .today)
+        list.insertGroup(folder)
+        for index in 0 ..< 2 {
+            let tab = Tab(spaceID: space, url: URL(string: "https://example.com/in-\(index)")!, order: index, groupID: folder.id)
+            list.insert(tab)
+        }
+        let parent = try XCTUnwrap(list[space].first { $0.url.lastPathComponent == "in-1" }).id
+
+        openChild(&list, "child", from: parent)
+
+        XCTAssertEqual(list.members(ofGroup: folder.id).map(\.url.lastPathComponent), ["in-0", "child", "in-1"])
+    }
+
+    /// A Favorite or a saved row cannot have one of today's tabs beside it,
+    /// so a tab opened from one opens where any new tab does.
+    func testATabOpenedFromASavedRowOpensAtTheTop() {
+        var list = TabList()
+        list.addSpace(space)
+        open(&list, "saved", kind: .pinned)
+        XCTAssertNil(list.openIndex(openedFrom: list[space][0].id))
+    }
+
+    private func openChild(_ list: inout TabList, _ path: String, from parent: UUID, newestFirst: Bool = true) {
+        let beside = list.openIndex(openedFrom: parent, newestFirst: newestFirst)
+        let tab = Tab(
+            spaceID: space,
+            url: URL(string: "https://example.com/\(path)")!,
+            parentTabID: parent,
+            order: list.nextOrder(kind: .today, in: space),
+            groupID: beside?.groupID
+        )
+        list.insert(tab, at: beside?.index)
+    }
+
     private func open(_ list: inout TabList, _ path: String, kind: TabKind = .today, newestFirst: Bool = true) {
         let tab = Tab(
             spaceID: space,

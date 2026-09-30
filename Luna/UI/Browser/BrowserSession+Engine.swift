@@ -110,16 +110,16 @@ extension BrowserSession {
         from parent: UUID, url: URL?, configuration: WKWebViewConfiguration?, inBackground: Bool = false
     ) -> WKWebView? {
         let spaceID = tab(parent)?.spaceID ?? activeSpaceID
+        let beside = list.openIndex(openedFrom: parent, newestFirst: !opensTabsAtEnd)
         let child = Tab(
             spaceID: spaceID,
             kind: .today,
             url: url ?? Self.blankPage,
             parentTabID: parent,
-            order: list.nextOrder(kind: .today, in: spaceID)
+            order: list.nextOrder(kind: .today, in: spaceID),
+            groupID: beside?.groupID
         )
-        // Newest-first, like any other new tab — a popup that opened off the
-        // bottom of the scroll would be the one tab the user cannot see.
-        persistAll(list.insert(child, at: openIndex(for: .today)))
+        persistAll(list.insert(child, at: beside?.index ?? openIndex(for: .today)))
         // The popup's configuration already carries the controller; this one
         // is for the view the tab builds after it has been hibernated.
         let controller = TabController(

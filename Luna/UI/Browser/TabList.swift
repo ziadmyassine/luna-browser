@@ -110,6 +110,20 @@ struct TabList: Sendable {
         kind == .today && newestFirst ? 0 : nil
     }
 
+    /// Where a tab opened from a page belongs: against the tab it came from,
+    /// in its folder if it has one — above it in the sidebar, to its right
+    /// under the top bar. Closing the child then selects the row below it
+    /// (`rowBelow`), which in the sidebar is the page it was opened from.
+    ///
+    /// Nil when the opener is a Favorite or a saved row: a child is one of
+    /// today's tabs and cannot sit among those, so it opens where any new
+    /// tab does.
+    func openIndex(openedFrom parentID: UUID, newestFirst: Bool = true) -> (index: Int, groupID: UUID?)? {
+        guard let parent = tab(parentID), parent.kind == .today,
+              let index = indexInSection(of: parentID) else { return nil }
+        return (newestFirst ? index : index + 1, parent.groupID)
+    }
+
     // MARK: - Favorites (§2)
 
     /// Every Favorite in a Space, ordered — §3.3's tier itself. Capped by

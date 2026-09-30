@@ -109,6 +109,22 @@ final class BrowserSessionCloseSelectionTests: XCTestCase {
         XCTAssertNil(session.activeTabID, "closing the last tab woke a row the user had closed")
     }
 
+    /// A tab opened from a page sits right above it, so closing it goes back
+    /// to that page rather than to whatever was at the top of the list.
+    func testClosingATabOpenedFromAPageGoesBackToThatPage() async throws {
+        let session = try await makeSession()
+        let rows = try seed(session, count: 3)
+        session.activateTab(rows[1])
+
+        session.adoptPopup(from: rows[1], url: url("child"), configuration: nil)
+        let child = try XCTUnwrap(session.activeTabID)
+        XCTAssertEqual(session.tabs.map(\.id), [rows[0], child, rows[1], rows[2]], "the child did not open above its page")
+
+        session.closeTab(child)
+
+        XCTAssertEqual(session.activeTabID, rows[1], "closing the child did not go back to the page it came from")
+    }
+
     // MARK: - Helpers
 
     /// `count` today tabs, in list order top to bottom. They are inserted at
