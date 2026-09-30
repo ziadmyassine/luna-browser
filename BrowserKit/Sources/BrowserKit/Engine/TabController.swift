@@ -67,10 +67,9 @@ public final class TabController: NSObject {
     /// Markdown page is in, and the preferences it was last handed.
     public internal(set) var readingView = ReadingView.read
     var appliedReading: ReadingPreferences?
-    var pendingMarkdown: MarkdownDocument?
-    /// The document each history entry showed, for a Back that WebKit answers
-    /// from its page cache without the load `show` starts.
-    var markdownHistory: [WKBackForwardListItem: MarkdownDocument] = [:]
+    /// `markdownHistory`: the document each history entry showed, for a Back
+    /// that WebKit answers from its page cache without the load `show` starts.
+    var pendingMarkdown: MarkdownDocument?, markdownHistory: [WKBackForwardListItem: MarkdownDocument] = [:]
     var markdownFetch: Task<Void, Never>?
     var fetchText: @Sendable (URL) async throws -> Data = TabController.fetchMarkdownText
     /// Storage for `Reading/TabController+Editing.swift`: the editor's text
@@ -199,8 +198,7 @@ public final class TabController: NSObject {
     public func hibernate() {
         guard webView != nil else { return }
         // Closing the tab or the window and quitting all end here.
-        saveEdits()
-        flushEditor()
+        saveEditsBeforeClosing()
         savedInteractionState = captureInteractionState()
         detach()
         publishState()
