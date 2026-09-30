@@ -113,7 +113,6 @@ final class ExtensionsPanel: PopoutPanelView {
         // change, so a switch that is still sliding is not replaced mid-way.
         if items.map(\.id) == rows.map(\.item.id) {
             for (row, item) in zip(rows, items) { row.update(item) }
-            header.count = items.filter(\.isOn).count
             return
         }
         let hoveredID = hovered.flatMap { $0 < rows.count ? rows[$0].item.id : nil }
@@ -127,7 +126,6 @@ final class ExtensionsPanel: PopoutPanelView {
             list.addSubview(row)
             return row
         }
-        header.count = items.filter(\.isOn).count
         empty.isHidden = !items.isEmpty
         scroll.isHidden = items.isEmpty
         hovered = hoveredID.flatMap { id in rows.firstIndex { $0.item.id == id } }
@@ -218,16 +216,12 @@ final class ExtensionsPanel: PopoutPanelView {
 
 // MARK: - Header
 
-/// "Extensions", and how many are running here, at the site settings
-/// header's size and inset.
+/// "Extensions", at the site settings header's size and inset.
 @MainActor
 final class ExtensionsPanelHeader: NSView {
 
-    var count = 0 { didSet { detail.stringValue = String(localized: "\(count) on in this Space") } }
-
     private let glyph = NSImageView()
     private let title = NSTextField(labelWithString: String(localized: "Extensions"))
-    private let detail = NSTextField(labelWithString: "")
 
     init() {
         super.init(frame: .zero)
@@ -236,10 +230,7 @@ final class ExtensionsPanelHeader: NSView {
         glyph.contentTintColor = Tokens.Text.secondary
         title.font = Tokens.TypeScale.settingsHeading
         title.textColor = Tokens.Text.primary
-        detail.font = Tokens.TypeScale.sidebarRow
-        detail.textColor = Tokens.Text.tertiary
-        detail.alignment = .right
-        for view in [glyph, title, detail] { addSubview(view) }
+        for view in [glyph, title] { addSubview(view) }
         setAccessibilityElement(true)
         setAccessibilityRole(.staticText)
         setAccessibilityLabel(String(localized: "Extensions"))
@@ -256,12 +247,10 @@ final class ExtensionsPanelHeader: NSView {
         glyph.frame = NSRect(x: SiteSettingsMetrics.glyphX, y: (bounds.height - size) / 2, width: size, height: size)
         let height = title.intrinsicContentSize.height
         let end = bounds.width - SiteSettingsMetrics.glyphX
-        let detailWidth = ceil(detail.intrinsicContentSize.width)
-        detail.frame = NSRect(x: end - detailWidth, y: (bounds.height - height) / 2, width: detailWidth, height: height).integral
         title.frame = NSRect(
             x: SiteSettingsMetrics.titleX,
             y: (bounds.height - height) / 2,
-            width: max(end - detailWidth - Tokens.Metric.rowInset - SiteSettingsMetrics.titleX, 0),
+            width: max(end - SiteSettingsMetrics.titleX, 0),
             height: height
         ).integral
     }

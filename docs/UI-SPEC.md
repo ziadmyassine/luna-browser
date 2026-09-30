@@ -2446,7 +2446,7 @@ of this.
 **The pop-out** (`ExtensionsPanel`) is built like §3.2's site settings pop-out and stands beside it on
 every surface: the same width (`siteSettingsPanel`), header, switches and one pill sliding between
 rows. It lists every installed extension in install order — a row does not move when its switch is
-flipped — and the header says how many are on in this Space. A hairline stands under the header and
+flipped. A hairline stands under the header and
 over the footer, with a band's padding inside each, rule for rule as site settings has them.
 A row is the extension's icon, name and badge, a pin, and the switch that turns it on or off in this
 Space, where §3.2's site settings keep theirs. The pin stands before the switch: `pin.fill` at full
