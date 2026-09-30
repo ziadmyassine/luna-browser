@@ -379,6 +379,18 @@ extension SidebarGroupPlateTests {
         XCTAssertTrue(plate.superview == nil || plate.alphaValue < 0.01, "the closed folder's outline stayed")
     }
 
+    /// The pointer on a row the list no longer has: a folder that went with
+    /// its last tab took the rows under it. Moving the pointer on crashed
+    /// Luna, asking the table for a row past its end.
+    func testLeavingARowThatIsGoneDoesNotCrash() throws {
+        let controller = try list()
+        controller.setHovered(controller.list.rows.count - 1)
+        controller.show(saved: [], today: [.tab(looseTab)], essentials: [], activeTabID: looseTab.id)
+        controller.table.layoutSubtreeIfNeeded()
+        controller.setHovered(nil)
+        XCTAssertNil(controller.hoveredRow)
+    }
+
     /// A tinted plate the column no longer tracks is taken away on the next
     /// pass rather than left standing with nothing in it.
     func testAnOwnerlessAgentPlateIsSweptAway() throws {

@@ -332,7 +332,10 @@ final class TabListController: NSObject {
         guard row != hoveredRow else { return }
         let previous = hoveredRow
         hoveredRow = row
-        for index in [previous, row].compactMap({ $0 }) {
+        // `previous` can name a row that is gone: a folder that went with its
+        // last tab took rows from under the pointer, and asking the table for
+        // a row past its end throws.
+        for index in [previous, row].compactMap({ $0 }) where index < table.numberOfRows {
             guard let view = table.view(atColumn: 0, row: index, makeIfNecessary: false) as? SidebarRowView else {
                 continue
             }
