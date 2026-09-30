@@ -51,6 +51,9 @@ struct PageColourScriptTests {
       (__listeners[name] = __listeners[name] || []).push(fn);
     };
     window.requestAnimationFrame = function (fn) { __frame = fn; };
+    var __timers = [];
+    window.setTimeout = function (fn) { __timers.push(fn); return __timers.length; };
+    window.clearTimeout = function (id) { if (id) { __timers[id - 1] = null; } };
     window.getComputedStyle = function (layer) { return layer; };
     window.webkit = { messageHandlers: { lunaScroll: {
       postMessage: function (message) { __posts.push(message); }
@@ -61,7 +64,13 @@ struct PageColourScriptTests {
     };
     function __fire(name) {
       var listeners = __listeners[name] || [];
-      for (var i = 0; i < listeners.length; i++) { listeners[i](); }
+      for (var i = 0; i < listeners.length; i++) { listeners[i]({}); }
+      if (__frame) { var frame = __frame; __frame = null; frame(); }
+    }
+    function __runTimers() {
+      var due = __timers;
+      __timers = [];
+      for (var i = 0; i < due.length; i++) { if (due[i]) { due[i](); } }
       if (__frame) { var frame = __frame; __frame = null; frame(); }
     }
     function __lastTop() {
@@ -82,7 +91,9 @@ struct PageColourScriptTests {
             context.evaluateScript(TabController.scrollScript)
         }
 
-        func paint(_ layers: [Layer]) {
+        /// - Parameter blind: the page as Netflix leaves it mid-scroll, where the
+        ///   hit test reaches nothing, not even the body.
+        func paint(_ layers: [Layer], blind: Bool = false) {
             let written = layers.map { layer in
                 let box = layer.box.map {
                     ", getBoundingClientRect: function () { return { top: \($0.top), height: \($0.height) }; }"
@@ -92,10 +103,30 @@ struct PageColourScriptTests {
             }
             .joined(separator: ", ")
             context.evaluateScript("__stack = [\(written)];")
+            if !blind { context.evaluateScript("if (document.body) { __stack.push(document.body); }") }
         }
 
         func fire(_ event: String) {
             context.evaluateScript("__fire('\(event)');")
+        }
+
+        /// A page whose `<body>` covers the sample line, which is what lets the
+        /// script tell a hit test that found nothing from a page with nothing.
+        func giveABody() {
+            context.evaluateScript(
+                "document.body = { tagName: 'BODY', backgroundColor: 'rgba(0, 0, 0, 0)', backgroundImage: 'none', opacity: '1', "
+                    + "getBoundingClientRect: function () { return { left: 0, right: 800, top: 0, bottom: 5000 }; } };"
+                    + "__stack.push(document.body);"
+            )
+        }
+
+        func scroll(to y: Int) {
+            context.evaluateScript("window.scrollY = \(y);")
+            fire("scroll")
+        }
+
+        func runTimers() {
+            context.evaluateScript("__runTimers();")
         }
 
         var posts: Int {
@@ -257,6 +288,46 @@ struct PageColourScriptTests {
             Layer(colour: "rgba(0, 0, 0, 0)", image: "linear-gradient(red, blue)")
         ])
         #expect(page.answer == nil)
+    }
+
+    /// Netflix turns hit testing off for its page while it scrolls, and for a
+    /// moment after. `elementsFromPoint` then finds nothing but `<html>`, and
+    /// the walk answered the document's grey under a header the screen shows
+    /// black — for 1331 of 1496 samples in one measured scroll. A body that
+    /// covers the point and is not in the stack is that state: the bar keeps
+    /// what it had.
+    @Test func aPageThatCannotBeHitKeepsTheLastColour() {
+        let page = Page([Layer(colour: "rgb(0, 0, 0)")])
+        page.giveABody()
+        #expect(page.answer == [0, 0, 0])
+        page.paint([Layer(colour: "rgb(20, 20, 20)", tag: "HTML")], blind: true)
+        page.scroll(to: 100)
+        #expect(page.answer == [0, 0, 0], "a blind hit test was taken for the page's colour")
+    }
+
+    /// And asks again once the page can be hit, rather than waiting for the
+    /// next scroll: the scroll that went blind is usually the last one.
+    @Test func aBlindSampleIsAskedAgainOnceThePageCanBeHit() {
+        let page = Page([Layer(colour: "rgb(0, 0, 0)")])
+        page.giveABody()
+        page.paint([Layer(colour: "rgb(20, 20, 20)", tag: "HTML")], blind: true)
+        page.scroll(to: 100)
+        page.paint([Layer(colour: "rgb(12, 12, 13)")])
+        page.runTimers()
+        #expect(page.answer == [12, 12, 13], "nothing asked again after the page could be hit")
+    }
+
+    /// A body that does not reach the point is not blindness: a short page
+    /// under a tall window hits only `<html>` below its end, and `<html>` is
+    /// the answer there.
+    @Test func belowAShortBodyTheDocumentStillAnswers() {
+        let page = Page([Layer(colour: "rgb(0, 0, 0)")])
+        page.context.evaluateScript(
+            "document.body = { getBoundingClientRect: function () { return { left: 0, right: 800, top: -200, bottom: 2 }; } };"
+        )
+        page.paint([Layer(colour: "rgb(20, 20, 20)", tag: "HTML")], blind: true)
+        page.scroll(to: 100)
+        #expect(page.answer == [20, 20, 20])
     }
 
     /// The other bug: Back and Forward are served from WebKit's page cache,

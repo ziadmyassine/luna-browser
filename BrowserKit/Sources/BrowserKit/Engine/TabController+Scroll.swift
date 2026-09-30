@@ -119,6 +119,13 @@ extension TabController {
     /// photo. Other pictures may be see-through — `getroosta.app`'s footer is a
     /// full-width `.webp` over the horizon — so they hide nothing.
     ///
+    /// A page can switch hit testing off. Netflix does while it scrolls and for
+    /// a moment after, and `elementsFromPoint` then finds nothing but `<html>`:
+    /// measured, 1331 of 1496 samples in one scroll answered the document's
+    /// grey under a black header. A body that covers the point but is not in
+    /// the stack is that state, so the sample keeps the last colour it saw and
+    /// asks again every 250 ms, up to 5 s, until the page can be hit.
+    ///
     /// And a restored page says so itself. Back and forward are served from
     /// WebKit's page cache, which restores the document without re-running user
     /// scripts — so nothing posted, `resetPerDocumentState` had already cleared
@@ -247,6 +254,11 @@ extension TabController {
       var painted = function (x, y) {
         if (!document.elementsFromPoint) { return null; }
         var stack = document.elementsFromPoint(x, y);
+        var body = document.body;
+        if (body && body.getBoundingClientRect && stack.indexOf(body) < 0) {
+          var page = body.getBoundingClientRect();
+          if (x >= page.left && x < page.right && y >= page.top && y < page.bottom) { return undefined; }
+        }
         var above = [];
         var hidden = false;
         for (var i = 0; i < stack.length; i++) {
@@ -283,6 +295,7 @@ extension TabController {
         var found = null;
         for (var i = 1; i <= 3; i++) {
           var colour = painted(width * i / 4, y);
+          if (colour === undefined) { return undefined; }
           if (!colour) { return null; }
           if (found && (found[0] !== colour[0] || found[1] !== colour[1] || found[2] !== colour[2])) {
             return null;
@@ -293,10 +306,25 @@ extension TabController {
       };
       var lastY = null;
       var lastTop = null;
+      var retry = null;
+      var retries = 0;
       var top = function (y) {
         if (lastY !== null && Math.abs(y - lastY) < 4) { return lastTop; }
+        var seen = sample();
+        if (seen === undefined) {
+          window.clearTimeout(retry);
+          if (retries < 20) {
+            retry = window.setTimeout(function () {
+              retries++;
+              lastY = null;
+              schedule();
+            }, 250);
+          }
+          return lastTop;
+        }
+        retries = 0;
         lastY = y;
-        lastTop = sample();
+        lastTop = seen;
         return lastTop;
       };
       var inner = null;
@@ -322,6 +350,7 @@ extension TabController {
       };
       window.addEventListener('scroll', function (event) {
         if (event.target && event.target.nodeType === 1) { inner = event.target; }
+        retries = 0;
         schedule();
       }, { passive: true, capture: true });
       window.addEventListener('resize', function () {

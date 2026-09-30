@@ -677,6 +677,11 @@ column closes up over the pill's own 34 pt.
   neither can be see-through: Netflix's signed-out page lays a red glow behind its hero photo, and
   mixed in, the bar went red over a dark photo. Any other picture may be see-through —
   `getroosta.app`'s footer is a full-width `.webp` over the horizon — so it hides nothing.
+  **A page that cannot be hit keeps the last colour.** Netflix switches hit testing off while it
+  scrolls and for a moment after, so `elementsFromPoint` finds only `<html>`: 1331 of 1496 samples in
+  one measured scroll answered the document's grey under its black header. A `<body>` that covers the
+  point but is not in the stack is that state; the sample keeps what it had and asks again every
+  250 ms, for up to 5 s, until the page can be hit.
   The change crosses on
   `Motion.themeWash`, the same 0.25 s a navigation changes it on. The hit tests are the cost, so the
   sample is skipped for moves under 4 pt and re-taken on a resize — the viewport's top edge moves
