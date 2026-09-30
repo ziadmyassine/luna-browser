@@ -113,9 +113,10 @@ extension TabController {
 
     private func renderEdit(_ text: String) {
         let name = markdownDocument?.url.lastPathComponent ?? ""
+        let image = markdownDocument.flatMap { MarkdownLocalImages.resolver(for: $0.url) }
         webView?.callAsyncJavaScript(
             "if (window.__lunaEditRender) { window.__lunaEditRender(preview, rows); }",
-            arguments: ["preview": MarkdownHTML(markdown: text, fileName: name).html, "rows": Self.editorRows(text)],
+            arguments: ["preview": MarkdownHTML(markdown: text, fileName: name, image: image).html, "rows": Self.editorRows(text)],
             in: nil,
             in: .defaultClient
         )

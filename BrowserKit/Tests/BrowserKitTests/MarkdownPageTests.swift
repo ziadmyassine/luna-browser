@@ -50,6 +50,25 @@ final class MarkdownPageTests: XCTestCase {
         XCTAssertEqual(width, 1, "the sibling image did not load")
     }
 
+    /// The page is a simulated load, which has no read access to the folder,
+    /// so the picture goes in as data — and only what a file opened directly
+    /// could have read: its own folder and below, in the raster formats.
+    func testOnlyPicturesInTheDocumentsFolderAreWrittenIn() throws {
+        let png = Data([0x89, 0x50, 0x4E, 0x47])
+        let inner = folder.appending(path: "docs")
+        try FileManager.default.createDirectory(at: inner, withIntermediateDirectories: true)
+        try png.write(to: inner.appending(path: "shot.png"))
+        try png.write(to: folder.appending(path: "outside.png"))
+        try Data("<svg/>".utf8).write(to: inner.appending(path: "logo.svg"))
+        let image = try XCTUnwrap(MarkdownLocalImages.resolver(for: inner.appending(path: "README.md")))
+
+        XCTAssertEqual(image("shot.png"), "data:image/png;base64,\(png.base64EncodedString())")
+        XCTAssertNil(image("../outside.png"), "a picture outside the document's folder was read")
+        XCTAssertNil(image("logo.svg"))
+        XCTAssertNil(image("https://example.com/shot.png"))
+        XCTAssertNil(MarkdownLocalImages.resolver(for: try XCTUnwrap(URL(string: "https://example.com/README.md"))))
+    }
+
     func testAReloadReadsTheFileAgain() async throws {
         let file = try write("# One")
         controller.load(file)

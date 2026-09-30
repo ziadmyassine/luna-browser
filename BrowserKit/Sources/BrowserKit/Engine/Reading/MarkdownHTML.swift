@@ -23,9 +23,12 @@ public struct MarkdownHTML: Sendable, Equatable {
     public let title: String
     public let headings: [Heading]
 
-    public init(markdown: String, fileName: String) {
+    /// - Parameter image: what to put in `src` for a safe image source instead
+    ///   of the source itself, or nil to keep it (`MarkdownLocalImages`).
+    public init(markdown: String, fileName: String, image: ((String) -> String?)? = nil) {
         let document = Document(parsing: markdown, options: [.disableSmartOpts])
         var writer = HTMLWriter(source: markdown)
+        writer.image = image
         writer.visit(document)
         html = writer.out
         headings = writer.headings
@@ -79,6 +82,7 @@ private struct HTMLWriter: MarkupVisitor {
     private var alignments: [Table.ColumnAlignment?] = []
     /// Blank-ness of each source line (1-based through `line - 1`), for list tightness.
     private let blankLines: [Bool]
+    var image: ((String) -> String?)?
 
     init(source: String) {
         blankLines = source.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline)
@@ -288,7 +292,8 @@ private struct HTMLWriter: MarkupVisitor {
             out += alt
             return
         }
-        out += "<img src=\"\(HTML.escape(source))\" alt=\"\(alt)\"\(titleAttribute(image.title))>"
+        let shown = self.image?(source) ?? source
+        out += "<img src=\"\(HTML.escape(shown))\" alt=\"\(alt)\"\(titleAttribute(image.title))>"
     }
 
     private func titleAttribute(_ title: String?) -> String {

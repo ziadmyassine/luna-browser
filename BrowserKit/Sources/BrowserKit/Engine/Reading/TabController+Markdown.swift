@@ -112,7 +112,9 @@ extension TabController {
 
     static func markdownPage(_ document: MarkdownDocument) -> String {
         let name = document.url.lastPathComponent
-        let rendered = MarkdownHTML(markdown: document.text, fileName: name)
+        let rendered = MarkdownHTML(
+            markdown: document.text, fileName: name, image: MarkdownLocalImages.resolver(for: document.url)
+        )
         // 230 words a minute, the usual figure for reading on screen.
         let minutes = max(1, document.text.split { $0.isWhitespace }.count / 230)
         let entries = rendered.headings.filter { (2 ... 3).contains($0.level) }.map {

@@ -185,7 +185,11 @@ struct MarkdownHTMLTests {
             ms = min(ms, Double(clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID) - start) / 1e6)
         }
         print("MarkdownHTML: 5,000-line README rendered in \(String(format: "%.1f", ms)) ms (best of 5)")
-        #expect(ms < 100)
+        // Unoptimised, which is how tests build: measured 70 to 133 ms of CPU
+        // time between a quiet Mac, a busy one and the CI runner, and 35 ms in
+        // a release build. 100 failed the runner on every push; 200 still
+        // catches a render that has become several times slower.
+        #expect(ms < 200)
     }
 
     static func largeReadme(lines: Int) -> String {
