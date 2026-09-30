@@ -159,7 +159,8 @@ extension BrowserSession {
             allTabs(includeArchived: false),
             now: Date(),
             hours: TabLifecycle.autoArchiveHours,
-            excluding: activeTabID
+            excluding: activeTabID,
+            activity: TabLifecycle.liveActivity(in: self)
         )
     }
 

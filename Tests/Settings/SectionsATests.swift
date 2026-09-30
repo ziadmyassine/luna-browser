@@ -213,7 +213,8 @@ final class SectionsATests: XCTestCase {
 
     /// §6.3 spells "never" as zero hours, and the popup has to say so in words.
     func testAutoArchiveTitlesCoverEveryChoiceIncludingNever() {
-        XCTAssertEqual(AutoArchive.choices.map(GeneralSection.hoursTitle), ["6 hours", "12 hours", "24 hours", "Never"])
+        let titles = ["6 hours", "12 hours", "24 hours", "7 days", "30 days", "Never"]
+        XCTAssertEqual(AutoArchive.choices.map(GeneralSection.hoursTitle), titles)
         XCTAssertTrue(AutoArchive.choices.contains(AutoArchive.defaultHours))
         XCTAssertEqual(AutoArchive.defaultHours, 0, "tabs are cleaned up on their own only when the user asks for it")
     }

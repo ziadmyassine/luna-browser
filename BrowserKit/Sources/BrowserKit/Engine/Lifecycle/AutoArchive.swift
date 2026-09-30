@@ -13,7 +13,7 @@ public enum AutoArchive {
     public static let retention: TimeInterval = 30 * 24 * 60 * 60
 
     /// The user-settable thresholds. `never` is 0 hours.
-    public static let choices: [Double] = [6, 12, 24, 0]
+    public static let choices: [Double] = [6, 12, 24, 7 * 24, 30 * 24, 0]
     /// Never: a tab stays open until the user closes it. Arc's 12 hours put
     /// tabs away that were still wanted, and a browser that cleans up on its
     /// own is something to switch on rather than something to find out about.
@@ -39,18 +39,21 @@ public enum AutoArchive {
     /// Exempt: pinned and Essentials (`.pinned`, `.essential` — §6.3 calls
     /// the latter Favorites), anything already archived, Luna's own pages (see
     /// `isWorthArchiving`), and the tab the user is looking at, however long ago
-    /// it was last marked active.
+    /// it was last marked active. Also anything in `activity` that
+    /// `TabActivity.mustStayOpen` says to keep — the rule hibernation uses.
     public static func idleTabs(
         _ tabs: [Tab],
         now: Date,
         hours: Double,
-        excluding activeID: UUID? = nil
+        excluding activeID: UUID? = nil,
+        activity: [TabActivity] = []
     ) -> [UUID] {
         guard hours > 0 else { return [] }  // "never"
         let cutoff = now.addingTimeInterval(-hours * 60 * 60)
+        let kept = Set(activity.filter(\.mustStayOpen).map(\.id))
         return tabs
             .filter { $0.kind == .today && $0.archivedAt == nil }
-            .filter { $0.id != activeID && $0.lastActiveAt <= cutoff }
+            .filter { $0.id != activeID && !kept.contains($0.id) && $0.lastActiveAt <= cutoff }
             .filter(isWorthArchiving)
             .map(\.id)
     }
