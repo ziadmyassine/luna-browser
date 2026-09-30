@@ -12,6 +12,7 @@
 //
 
 import AppKit
+import BrowserKit
 import XCTest
 @testable import Luna
 
@@ -87,6 +88,15 @@ final class SettingsDefaultsTests: XCTestCase {
         XCTAssertTrue(defaults.bool(forKey: "advanced.webInspector"), "WebViewFactory.isWebInspectorEnabled defaults on")
         XCTAssertFalse(defaults.bool(forKey: "downloads.autoOpen"), "§3.5: auto-open defaults off on purpose")
         XCTAssertFalse(defaults.bool(forKey: "blocking.httpsOnly"))
+        XCTAssertEqual(ReadingPreferences.stored(in: defaults), ReadingPreferences())
+    }
+
+    func testReadingPreferencesAreInTheTable() {
+        let keys = Set(SettingsDefaults.keys)
+        let reading = ReadingPreferences.Key.self
+        for key in [reading.typeface, reading.size, reading.width, reading.page, reading.outline, reading.wrap] {
+            XCTAssertTrue(keys.contains(key), "\(key) is not in the table")
+        }
     }
 }
 

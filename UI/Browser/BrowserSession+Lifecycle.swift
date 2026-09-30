@@ -155,15 +155,7 @@ final class TabLifecycle {
         guard let session else { return }
         let now = Date()
 
-        let live = session.controllers.compactMap { (id, controller) -> TabActivity? in
-            guard controller.webView != nil, let tab = session.tab(id) else { return nil }
-            return TabActivity(
-                id: id,
-                lastActiveAt: tab.lastActiveAt,
-                isAudible: controller.state.isPlayingAudio,
-                hasUnsavedInput: dirtyTabIDs.contains(id)
-            )
-        }
+        let live = liveActivity()
         let doomed = policy.tabsToHibernate(
             live: live,
             mru: session.recentTabs,
@@ -179,13 +171,33 @@ final class TabLifecycle {
             }
         }
 
-        archiveIdleTabs(now: now)
+        archiveIdleTabs(now: now, activity: live)
 
         // The 30-day purge is not a per-minute job.
         if now.timeIntervalSince(lastPurge) > 60 * 60 {
             lastPurge = now
             purgeExpiredArchive(now: now)
         }
+    }
+
+    /// Every tab holding a web view, as §19.2's policy and §6.3's sweep see it.
+    private func liveActivity() -> [TabActivity] {
+        guard let session else { return [] }
+        return session.controllers.compactMap { (id, controller) -> TabActivity? in
+            guard controller.webView != nil, let tab = session.tab(id) else { return nil }
+            return TabActivity(
+                id: id,
+                lastActiveAt: tab.lastActiveAt,
+                isAudible: controller.state.isPlayingAudio,
+                hasUnsavedInput: dirtyTabIDs.contains(id)
+            )
+        }
+    }
+
+    /// For ⌥⌘K, which asks the sweep's question early. Empty before the pass
+    /// is installed.
+    static func liveActivity(in session: BrowserSession) -> [TabActivity] {
+        installed[ObjectIdentifier(session)]?.liveActivity() ?? []
     }
 
     private func hibernate(_ id: UUID) {
@@ -199,21 +211,22 @@ final class TabLifecycle {
 
     // MARK: - §6.3 auto-archive
 
-    /// 6 / 12 / 24 hours, or never. No settings UI exists yet (§23), so the key
-    /// is read straight from defaults and the default is §6.3's 12 hours.
+    /// One of `AutoArchive.choices`, set in Settings › General and re-read on
+    /// every pass.
     static let autoArchiveHoursKey = "luna.autoArchiveHours"
 
     static var autoArchiveHours: Double {
         UserDefaults.standard.object(forKey: autoArchiveHoursKey) as? Double ?? AutoArchive.defaultHours
     }
 
-    private func archiveIdleTabs(now: Date) {
+    private func archiveIdleTabs(now: Date, activity: [TabActivity]) {
         guard let session else { return }
         let doomed = AutoArchive.idleTabs(
             session.allTabs(includeArchived: false),
             now: now,
             hours: Self.autoArchiveHours,
-            excluding: session.activeTabID
+            excluding: session.activeTabID,
+            activity: activity
         )
         guard !doomed.isEmpty else { return }
         // `closeTab` is §6.3's archive — same soft delete as ⌘W, so the row

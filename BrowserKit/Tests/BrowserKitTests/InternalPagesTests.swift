@@ -149,15 +149,23 @@ struct InternalPagesTests {
     /// other half — that the generator defines all of them.
     @Test func stylesheetOnlyReadsPromisedVariables() {
         let declared = Set(InternalPages.paletteVariables)
+        // The reading sheet is the palette's other reader. What it defines for
+        // itself (`--luna-reading-width` and the like) is not the palette's.
+        let reading = ReadingStyle.css(palette: "")
+        let local = Set(
+            reading.components(separatedBy: "--luna-").dropFirst()
+                .filter { $0.prefix { $0 != ";" && $0 != ")" }.contains(":") }
+                .map { "--luna-" + $0.prefix { $0 != ":" } }
+        )
         let used = Set(
-            InternalPages.stylesheet
+            (InternalPages.stylesheet + reading)
                 .components(separatedBy: "var(")
                 .dropFirst()
                 .map { String($0.prefix { $0 != "," && $0 != ")" && $0 != " " }) }
                 // `--fav` is set inline per element by the favicon markup, not
                 // by the palette; only the palette's own names are the contract.
                 .filter { $0.hasPrefix("--luna-") }
-        )
+        ).subtracting(local.subtracting(declared))
         #expect(used.subtracting(declared).isEmpty, "stylesheet reads undeclared: \(used.subtracting(declared))")
         #expect(declared.subtracting(used).isEmpty, "declared but never read: \(declared.subtracting(used))")
     }

@@ -58,6 +58,30 @@ final class LocalFileReloadTests: XCTestCase {
         XCTAssertEqual(text, "version: two", "the reload showed the text as it was first read")
     }
 
+    /// The text is shown by a load Luna starts itself, which must still leave
+    /// a history entry: Back from the next page returns to it, and a reload
+    /// there still reads the disk.
+    func testBackReturnsToATextFileAndReloadStillReadsIt() async throws {
+        let file = folder.appending(path: "config.yaml")
+        try "version: one".write(to: file, atomically: true, encoding: .utf8)
+        let controller = TabController(id: UUID(), dataStore: .nonPersistent())
+        controller.activate()
+        controller.load(file)
+        var text = try await bodyText(in: controller)
+        XCTAssertEqual(text, "version: one")
+
+        controller.load(try write("next"))
+        _ = try await version(in: controller)
+        controller.webView?.goBack()
+        text = try await bodyText(in: controller)
+        XCTAssertEqual(text, "version: one", "Back skipped the text file")
+
+        try "version: two".write(to: file, atomically: true, encoding: .utf8)
+        controller.reload()
+        text = try await bodyText(in: controller)
+        XCTAssertEqual(text, "version: two", "the reload after Back showed the text as it was first read")
+    }
+
     func testOnlyPagesOnThisMacSkipTheCache() {
         for local in ["file:///tmp/a.html", "http://localhost:3000/", "http://127.0.0.1:8000/x", "http://app.localhost/",
                       "https://shop.test/", "http://[::1]:8080/"] {

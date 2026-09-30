@@ -301,9 +301,11 @@ final class GeneralSection: NSObject, SettingsSection {
         }
     }
 
-    /// `AutoArchive` spells "never" as 0 hours (§6.3).
+    /// `AutoArchive` spells "never" as 0 hours (§6.3); whole days read as days.
     static func hoursTitle(_ hours: Double) -> String {
-        hours > 0 ? "\(Int(hours)) hours" : "Never"
+        guard hours > 0 else { return "Never" }
+        let whole = Int(hours)
+        return whole > 24 && whole % 24 == 0 ? "\(whole / 24) days" : "\(whole) hours"
     }
 
     /// Read on every ⌘Q.

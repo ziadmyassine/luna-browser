@@ -73,6 +73,25 @@ final class SyncedDefaultsTests: XCTestCase {
         try await XCTAssertOutbox([:])
     }
 
+    /// Reading preferences are the user's, not the Mac's: they follow them.
+    func testReadingPreferencesSync() async throws {
+        var preferences = ReadingPreferences()
+        preferences.typeface = .sans
+        preferences.size = 22
+        preferences.width = .narrow
+        preferences.page = .night
+        preferences.outline = false
+        preferences.wrap = false
+        preferences.store(in: defaults)
+        try await record()
+
+        let keys = ReadingPreferences.Key.self
+        try await XCTAssertOutbox([
+            keys.typeface: false, keys.size: false, keys.width: false,
+            keys.page: false, keys.outline: false, keys.wrap: false
+        ])
+    }
+
     /// Either would weaken another Mac's security without anyone at it choosing to.
     func testControlAndRequireTouchIDNeverSync() async throws {
         let control = "advanced.allowControl", touchID = PasswordSettings.Key.requireAuthentication

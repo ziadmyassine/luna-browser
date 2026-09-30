@@ -15,6 +15,8 @@ final class SiteSettingsController: PopoutController {
     /// Set by `toggle(in:from:edge:content:)` before the panel is built.
     private var edge: PopoutEdge = .below
     private var content = SiteSettingsContent(heading: "")
+    /// What VoiceOver calls the panel: the Reading pop-out is this one too.
+    var label = String(localized: "Site Settings")
     /// Where the keyboard was before the pop-out took it for its arrow keys.
     private weak var focusBefore: NSResponder?
     private weak var focused: PopoutPanelView?
@@ -26,7 +28,7 @@ final class SiteSettingsController: PopoutController {
     }
 
     override func makePanel(in root: NSView) -> PopoutPanelView {
-        let panel = SiteSettingsPanel(frame: root.bounds, edge: edge, content: content)
+        let panel = SiteSettingsPanel(frame: root.bounds, edge: edge, content: content, label: label)
         panel.onAction = { [weak self] action in
             self?.dismiss()
             action.run()

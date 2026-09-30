@@ -227,6 +227,11 @@ public enum HTML {
     /// Text content and quoted attribute values. `&` first, or the other
     /// replacements' own ampersands get double-escaped.
     public static func escape(_ text: String) -> String {
+        // Most text has nothing to escape, and a Markdown page calls this once
+        // per text run: skip the five copies then.
+        guard text.utf8.contains(where: { $0 == 0x26 || $0 == 0x3C || $0 == 0x3E || $0 == 0x22 || $0 == 0x27 }) else {
+            return text
+        }
         var out = text.replacingOccurrences(of: "&", with: "&amp;")
         out = out.replacingOccurrences(of: "<", with: "&lt;")
         out = out.replacingOccurrences(of: ">", with: "&gt;")

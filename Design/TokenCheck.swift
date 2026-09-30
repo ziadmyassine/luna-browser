@@ -111,7 +111,7 @@ enum TokenCheck {
             return ["only \(appearances.count)/2 appearances resolved — the SDK renamed one"]
         }
         let colours = checkResolution() + checkTextContrast() + checkSurfaceSeparation()
-            + checkLines() + checkIncreaseContrast() + checkFills()
+            + checkLines() + checkIncreaseContrast() + checkFills() + checkReading()
         let effects = checkWash() + checkBloom() + checkShadow() + checkGlassOptimisation()
         return colours + effects + checkMetrics() + checkMotion()
     }
@@ -351,6 +351,42 @@ extension TokenCheck {
                 let quietest = Tokens.Ink.tertiary.alpha(contrast: contrast, dark: isDark)
                 if dim >= quietest {
                     failures.append("Ink.disabled (\(dim)) is not dimmer than Ink.tertiary (\(quietest)) — §21.4's exemption assumes it is")
+                }
+            }
+        }
+        return failures
+    }
+
+    /// A reading page is body text for as long as someone reads, so its
+    /// primary text is held to WCAG's 7:1 rather than §21.4's 4.5. Secondary,
+    /// tertiary and every syntax colour keep 4.5, in both contrast modes. Each
+    /// page is measured in its own theme, whatever the system's; dark syntax
+    /// also on dark Match, which is the same plane as Night today.
+    static func checkReading() -> [String] {
+        var failures: [String] = []
+        for page in Tokens.Reading.Page.allCases {
+            guard let appearance = page.appearance else { return ["\(page) has no appearance"] }
+            let plane = page.background
+            if plane.srgbComponents(for: appearance).alpha < 1 {
+                failures.append("Reading.\(page) background is translucent — a page must be opaque")
+            }
+            var inks = [("text", page.text, 7.0)] + page.syntax.all.map { ("syntax.\($0.0)", $0.1, textFloor) }
+            for contrast in [false, true] {
+                inks += [("secondary", page.secondary(contrast: contrast), textFloor),
+                         ("tertiary", page.tertiary(contrast: contrast), textFloor)]
+            }
+            for (name, ink, floor) in inks {
+                let ratio = ink.contrastRatio(over: plane, in: appearance)
+                if ratio < floor {
+                    failures.append(String(format: "Reading.%@ %@ is %.2f:1 — needs %.1f:1", "\(page)", name, ratio, floor))
+                }
+            }
+        }
+        if let dark = appearances.last?.1 {
+            for (name, ink) in Tokens.Reading.Syntax.dark.all {
+                let ratio = ink.contrastRatio(over: Tokens.Surface.base, in: dark)
+                if ratio < textFloor {
+                    failures.append(String(format: "Reading.syntax.%@ on dark Match is %.2f:1", name, ratio))
                 }
             }
         }

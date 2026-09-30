@@ -119,6 +119,10 @@ final class PageChromeBar: NSView, TrafficLightNeighbour {
             guard let self else { return }
             SiteMenu.present(from: pill.siteMenuAnchor)
         }
+        pill.onReading = { [weak self] in
+            guard let self else { return }
+            ReadingMenu.present(from: pill.readingAnchor)
+        }
         shelf.isHidden = true
         shelf.onPin = { [weak self] id, anchor in self?.onExtension?(id, anchor) }
         shelf.onExtensions = { [weak self] anchor in self?.onExtensions?(anchor) }

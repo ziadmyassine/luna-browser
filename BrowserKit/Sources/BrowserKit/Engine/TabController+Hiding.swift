@@ -33,10 +33,12 @@ extension TabController {
         endPicking()
     }
 
-    /// The reader and the picker were both things done to a document that has gone.
+    /// The reader, the picker and the Markdown document were all things done to a document that has gone.
     func forgetPageTools() {
+        isArticle = false
         readerIsOn = false
         endPicking()
+        adoptPendingMarkdown()
     }
 
     func installHiddenStyle(into controller: WKUserContentController, host: String?) {

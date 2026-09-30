@@ -40,6 +40,23 @@ final class URLPillView: NSView, PopoutShelf {
 
     /// The leading sliders glyph (§3.2's site settings).
     var onSiteMenu: (() -> Void)?
+    /// The Aa glyph before reload, which opens the Reading pop-out.
+    var onReading: (() -> Void)?
+    /// Whether the tab on show is a reading page, and so wears the Aa glyph.
+    var showsReading = false {
+        didSet {
+            guard showsReading != oldValue else { return }
+            reading.isHidden = !showsReading
+            needsLayout = true
+        }
+    }
+    /// A Markdown document's editor holds text its file does not have yet.
+    var isEdited = false {
+        didSet {
+            guard isEdited != oldValue else { return }
+            show(url: displayedURL)
+        }
+    }
     /// Reload, or stop while the page is loading — the trailing glyph. Nil
     /// means there is no such glyph: §4's top bar has its own reload button
     /// beside the pill, and a second one inside it would be two.
@@ -61,6 +78,7 @@ final class URLPillView: NSView, PopoutShelf {
     /// opens from the control that was pressed, and the pill's glass up and
     /// down (`PopoutShelf`).
     var siteMenuAnchor: NSView { sliders }
+    var readingAnchor: NSView { reading }
 
     // Not `private`: `URLPillLayout.swift` places both. See its header.
     let field = NSTextField(labelWithString: "")
@@ -72,6 +90,7 @@ final class URLPillView: NSView, PopoutShelf {
     // two materials, and the reference draws no bubble around either.
     let sliders = RowGlyphView()
     let reload = RowGlyphView()
+    let reading = RowGlyphView()
     /// §16.4, in the sidebar's pill: the extensions button in the trailing
     /// slot and the pinned extensions to its left — `URLPillExtensions.swift`.
     /// Off on §3.2b's pill, whose bar has a cylinder of its own for them.
@@ -149,10 +168,12 @@ final class URLPillView: NSView, PopoutShelf {
         // printed on a pill in a column; it is a control on a row of controls
         // now, so it is an SF Symbol at `glyphSize` behaving exactly as the
         // reload beside it does (`RowGlyphView`).
-        for glyph in [sliders, reload, extensionsGlyph] {
+        for glyph in [sliders, reload, reading, extensionsGlyph] {
             glyph.isRound = true
             addSubview(glyph)
         }
+        reading.isHidden = true
+        reading.onActivate = { [weak self] in self?.onReading?() }
         extensionsGlyph.isHidden = true
         extensionsGlyph.onActivate = { [weak self] in
             guard let self else { return }
@@ -212,6 +233,7 @@ final class URLPillView: NSView, PopoutShelf {
             label: isLoading ? String(localized: "Stop") : String(localized: "Reload"),
             pointSize: glyphInk
         )
+        reading.configure(symbolName: ReadingMenu.Glyph.header, label: String(localized: "Reading"), pointSize: glyphInk)
         extensionsGlyph.configure(symbolName: ExtensionsSymbol.name, label: ExtensionsSymbol.label, pointSize: glyphInk)
         needsLayout = true
     }
@@ -220,7 +242,7 @@ final class URLPillView: NSView, PopoutShelf {
 
     private func refresh() {
         field.textColor = Tokens.Text.primary
-        for glyph in [sliders, reload, extensionsGlyph] { glyph.tint = Tokens.Text.secondary }
+        for glyph in [sliders, reload, reading, extensionsGlyph] { glyph.tint = Tokens.Text.secondary }
         needsDisplay = true
     }
 

@@ -63,13 +63,16 @@ extension URLPillView {
     /// the gap between it and the address.
     private var glyphRun: CGFloat { glyphInset + glyphInk + Tokens.Metric.chromeGap }
 
+    /// The Aa glyph's chip, standing just inside the trailing glyph.
+    var readingRun: CGFloat { showsReading ? chipWidth : 0 }
+
     /// What the text keeps clear at each end.
     private var margins: (leading: CGFloat, trailing: CGFloat) {
         // A pill with both is symmetric, which is what lets §3.2b centre the
         // address in the capsule rather than in the space one glyph leaves.
-        guard slidersLead else { return (Tokens.Metric.pillTextInset, glyphRun) }
-        guard showsExtensions else { return (glyphRun, glyphRun) }
-        return (glyphRun, glyphRun + CGFloat(fittingPins) * chipWidth)
+        guard slidersLead else { return (Tokens.Metric.pillTextInset, glyphRun + readingRun) }
+        guard showsExtensions else { return (glyphRun, glyphRun + readingRun) }
+        return (glyphRun, glyphRun + readingRun + CGFloat(fittingPins) * chipWidth)
     }
 
     /// The chip's box, height and width, for a pill of this height — see
@@ -85,7 +88,7 @@ extension URLPillView {
     /// sliders' run and the button's come out of the rest, and the pins share
     /// what is left, one chip each.
     var fittingPins: Int {
-        let room = bounds.width * (1 - Tokens.Metric.pinnedExtensionsAddressShare) - 2 * glyphRun
+        let room = bounds.width * (1 - Tokens.Metric.pinnedExtensionsAddressShare) - 2 * glyphRun - readingRun
         return ExtensionShelfFit.count(extensionPins.count, room: room, pitch: chipWidth)
     }
 
@@ -177,7 +180,10 @@ extension URLPillView {
             height: box
         ).integral
         reload.frame = NSRect(x: trailingX, y: boxY, width: chip, height: box).integral
-        placeExtensions(trailingX: trailingX, y: boxY, chip: NSSize(width: chip, height: box))
+        // Off reload's rounded frame, not rounded itself: `integral` grows a
+        // box that starts on a half point, and two grown boxes overlapped.
+        reading.frame = reload.frame.offsetBy(dx: -reload.frame.width, dy: 0)
+        placeExtensions(trailingX: trailingX, pinsEnd: trailingX - readingRun, y: boxY, chip: NSSize(width: chip, height: box))
 
         let margin = margins
         let run = max(bounds.width - margin.leading - margin.trailing, 0)

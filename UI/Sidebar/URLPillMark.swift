@@ -43,7 +43,8 @@ extension URLPillView {
     /// here now (see `URLPillView.onHandOff`).
     func show(url: URL?) {
         displayedURL = url
-        field.stringValue = Self.label(of: url)
+        let label = Self.label(of: url)
+        field.stringValue = isEdited ? String(localized: "\(label) — Edited") : label
         needsLayout = true
         field.setAccessibilityValue(url?.absoluteString ?? "")
     }

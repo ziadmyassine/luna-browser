@@ -46,19 +46,32 @@ struct SiteSettingsContent {
         var run: () -> Void
     }
 
+    /// A row whose answer is a control of its own — segments, swatches — laid
+    /// out at the trailing end where a switch row puts its switch.
+    struct Control {
+        var title: String
+        var symbol: String
+        var view: NSView
+    }
+
     enum Connection { case secure, insecure }
 
     /// The header's words. The connection when there is one to speak of, the
     /// host otherwise.
     var heading: String
     var connection: Connection?
+    /// The header's glyph when the pop-out is not about a connection.
+    var symbol: String?
+    /// Bands of control rows, above the switches.
+    var controls: [[Control]] = []
     var toggles: [Toggle] = []
     /// Each inner list is a band, with a hairline between bands.
     var actions: [[Action]] = []
 
     /// How tall the panel is with all of this in it.
     var height: CGFloat {
-        let bands = (toggles.isEmpty ? [] : [toggles.count]) + actions.map(\.count).filter { $0 > 0 }
+        let bands = controls.map(\.count).filter { $0 > 0 } + (toggles.isEmpty ? [] : [toggles.count])
+            + actions.map(\.count).filter { $0 > 0 }
         let rows = bands.reduce(0) { total, count in
             total + CGFloat(count) * SiteSettingsMetrics.rowHeight + 2 * SiteSettingsMetrics.bandPadding
         }
@@ -77,7 +90,7 @@ final class SiteSettingsPanel: PopoutPanelView {
     private let pill = RowPillView(role: .selected)
     private var hovered: Int?
 
-    init(frame frameRect: NSRect, edge: PopoutEdge, content: SiteSettingsContent) {
+    init(frame frameRect: NSRect, edge: PopoutEdge, content: SiteSettingsContent, label: String = String(localized: "Site Settings")) {
         super.init(
             frame: frameRect,
             size: CGSize(width: SiteSettingsMetrics.width, height: content.height),
@@ -88,7 +101,7 @@ final class SiteSettingsPanel: PopoutPanelView {
         body.addSubview(pill)
         build(content)
         body.setAccessibilityRole(.group)
-        body.setAccessibilityLabel(String(localized: "Site Settings"))
+        body.setAccessibilityLabel(label)
         body.setAccessibilityElement(true)
     }
 
@@ -105,10 +118,10 @@ final class SiteSettingsPanel: PopoutPanelView {
 
     private func build(_ content: SiteSettingsContent) {
         var y: CGFloat = 0
-        let header = SiteSettingsHeader(heading: content.heading, connection: content.connection)
+        let header = SiteSettingsHeader(heading: content.heading, connection: content.connection, symbol: content.symbol)
         place(header, at: &y, height: SiteSettingsMetrics.headerHeight)
 
-        var bands: [[SiteSettingsRow]] = []
+        var bands: [[SiteSettingsRow]] = content.controls.filter { !$0.isEmpty }.map { $0.map(SiteSettingsRow.init(control:)) }
         if !content.toggles.isEmpty {
             bands.append(content.toggles.map { SiteSettingsRow(toggle: $0) })
         }
@@ -202,12 +215,12 @@ final class SiteSettingsHeader: NSView {
     private let glyph = NSImageView()
     let title = NSTextField(labelWithString: "")
 
-    init(heading: String, connection: SiteSettingsContent.Connection?) {
+    init(heading: String, connection: SiteSettingsContent.Connection?, symbol override: String? = nil) {
         super.init(frame: .zero)
         let symbol = switch connection {
         case .secure: SiteMenu.Glyph.secure
         case .insecure: SiteMenu.Glyph.insecure
-        case nil: SiteMenu.Glyph.site
+        case nil: override ?? SiteMenu.Glyph.site
         }
         glyph.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
         glyph.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: Tokens.Metric.faviconSize, weight: .regular)
@@ -247,8 +260,9 @@ final class SiteSettingsHeader: NSView {
 
 // MARK: - Row
 
-/// A switch row or an action row. A row, not a button (CLAUDE.md): the pill
-/// is the panel's and follows the pointer, and nothing here swells.
+/// A switch, control or action row. A row, not a button (CLAUDE.md): the pill
+/// is the panel's and follows the pointer, and nothing here swells. A control
+/// row's own buttons answer for themselves.
 @MainActor
 final class SiteSettingsRow: NSView {
 
@@ -259,6 +273,7 @@ final class SiteSettingsRow: NSView {
     private(set) var isUnderPointer = false
 
     let toggle: SystemSwitch?
+    let control: NSView?
     private let glyph = NSImageView()
     private let title = NSTextField(labelWithString: "")
 
@@ -268,13 +283,24 @@ final class SiteSettingsRow: NSView {
         toggle.translatesAutoresizingMaskIntoConstraints = true
         toggle.setAccessibilityLabel(content.title)
         self.toggle = toggle
+        control = nil
         super.init(frame: .zero)
         dress(title: content.title, symbol: content.symbol)
         addSubview(toggle)
     }
 
+    init(control content: SiteSettingsContent.Control) {
+        toggle = nil
+        control = content.view
+        content.view.translatesAutoresizingMaskIntoConstraints = true
+        super.init(frame: .zero)
+        dress(title: content.title, symbol: content.symbol)
+        addSubview(content.view)
+    }
+
     init(action: SiteSettingsContent.Action) {
         toggle = nil
+        control = nil
         super.init(frame: .zero)
         dress(title: action.title, symbol: action.symbol)
         setAccessibilityElement(true)
@@ -320,6 +346,14 @@ final class SiteSettingsRow: NSView {
                 ).integral
                 end = x - Tokens.Metric.rowInset
             }
+            if let control {
+                // The switch's inset, measured to the control's own height.
+                let size = control.fittingSize
+                let inset = (Tokens.Metric.rowPillHeight - size.height) / 2
+                let x = bounds.width - Tokens.Metric.rowInset - inset - size.width
+                control.frame = NSRect(x: x, y: (bounds.height - size.height) / 2, width: size.width, height: size.height).integral
+                end = x - Tokens.Metric.rowInset
+            }
             let height = title.intrinsicContentSize.height
             title.frame = NSRect(
                 x: SiteSettingsMetrics.titleX,
@@ -332,6 +366,7 @@ final class SiteSettingsRow: NSView {
 
     /// What a click, Return or Space does: flips the switch, or runs the action.
     func choose() {
+        guard control == nil else { return }
         if let toggle {
             toggle.isOn.toggle()
             toggle.onChange?(toggle.isOn)
@@ -346,6 +381,9 @@ final class SiteSettingsRow: NSView {
         guard let superview, frame.contains(point) else { return nil }
         if let toggle, toggle.frame.contains(convert(point, from: superview)) {
             return toggle
+        }
+        if let control, control.frame.contains(convert(point, from: superview)) {
+            return control.hitTest(convert(point, from: superview)) ?? self
         }
         return self
     }

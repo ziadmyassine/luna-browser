@@ -30,6 +30,7 @@ enum SiteMenu {
     ///   with — the sidebar's search bar, which the glyph sits in.
     static func present(from anchor: NSView, alignedTo aligned: NSView? = nil) {
         guard let window = anchor.window else { return }
+        ReadingMenu.controller.dismiss()
         controller.alignsLeadingEdgeTo = aligned
         let edge: PopoutEdge = anchor.convert(anchor.bounds, to: nil).midY > window.contentLayoutRect.midY
             ? .below

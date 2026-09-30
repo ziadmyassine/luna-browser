@@ -89,6 +89,8 @@ extension TabController: WKNavigationDelegate {
         // §17, main frame only — a sub-frame does not change the site the user is
         // on, and re-scoping the rule lists for one would disable blocking for the
         // whole page.
+        // A Markdown fetch still in flight would land over whatever was asked for since.
+        if navigationAction.targetFrame?.isMainFrame ?? false { markdownFetch?.cancel() }
         if navigationAction.targetFrame?.isMainFrame ?? false,
            decidedMainFrame(navigationAction, to: url, in: webView, decisionHandler: decisionHandler) {
             return
@@ -128,13 +130,22 @@ extension TabController: WKNavigationDelegate {
         decisionHandler: @escaping @MainActor @Sendable (WKNavigationResponsePolicy) -> Void
     ) {
         onNavigationResponse?(navigationResponse)
+        if navigationResponse.isForMainFrame, interceptMarkdown(navigationResponse.response, in: webView) {
+            decisionHandler(.cancel)
+            return
+        }
         // A text file on this Mac WebKit has no viewer for — YAML, TOML, an
         // `.env` — is shown as the text it is. Handed to the downloader it was
         // copied into Downloads, which is not opening a file already here.
         if navigationResponse.isForMainFrame, !navigationResponse.canShowMIMEType,
            let url = navigationResponse.response.url, let text = Self.localText(at: url) {
             decisionHandler(.cancel)
-            webView.load(text, mimeType: "text/plain", characterEncodingName: "utf-8", baseURL: url)
+            // Simulated, not `load(_:mimeType:…baseURL:)`: a substitute-data
+            // load adds no history entry, so Back skipped the file.
+            let response = URLResponse(
+                url: url, mimeType: "text/plain", expectedContentLength: text.count, textEncodingName: "utf-8"
+            )
+            webView.loadSimulatedRequest(URLRequest(url: url), response: response, responseData: text)
             return
         }
         // `value(forHTTPHeaderField:)`, not `allHeaderFields[…]` — the latter is a
@@ -203,6 +214,8 @@ extension TabController: WKNavigationDelegate {
         savedInteractionState = webView.interactionState as? Data
         fallbackURL = webView.url ?? fallbackURL
         refreshFavicon()
+        startMarkdownPage()
+        probeForArticle()
     }
 
     /// §14.8's redirect flag starts clean here, and only here.
@@ -219,6 +232,8 @@ extension TabController: WKNavigationDelegate {
     /// redirect in that navigation, which is exactly the boundary wanted.
     public func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         passwords.sawServerRedirect = false
+        // Before the response: a reload reads the file then, and must read this.
+        saveEdits()
         publishState()
     }
 

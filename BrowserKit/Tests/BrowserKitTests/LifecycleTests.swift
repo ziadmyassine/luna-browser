@@ -146,6 +146,26 @@ struct AutoArchiveTests {
         #expect(AutoArchive.isWorthArchiving(page))
     }
 
+    /// §5.12: the same two exemptions hibernation keeps. Stopping the music or
+    /// dropping a half-typed reply is as visible from the archive as from sleep.
+    @Test("a tab playing audio or holding unsaved input is never archived")
+    func audibleAndDirtyTabsAreExempt() {
+        let playing = tab(.today, hoursIdle: 99)
+        let typing = tab(.today, hoursIdle: 99)
+        let idle = tab(.today, hoursIdle: 99)
+        let activity = [
+            TabActivity(id: playing.id, lastActiveAt: playing.lastActiveAt, isAudible: true),
+            TabActivity(id: typing.id, lastActiveAt: typing.lastActiveAt, hasUnsavedInput: true),
+            TabActivity(id: idle.id, lastActiveAt: idle.lastActiveAt)
+        ]
+        #expect(AutoArchive.idleTabs([playing, typing, idle], now: now, hours: 12, activity: activity) == [idle.id])
+    }
+
+    @Test("the choices run from 6 hours to 30 days, and never")
+    func choicesIncludeWeekAndMonth() {
+        #expect(AutoArchive.choices == [6, 12, 24, 7 * 24, 30 * 24, 0])
+    }
+
     @Test("never (0 hours) archives nothing")
     func neverMeansNever() {
         #expect(AutoArchive.idleTabs([tab(.today, hoursIdle: 10_000)], now: now, hours: 0).isEmpty)

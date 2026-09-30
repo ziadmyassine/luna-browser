@@ -87,6 +87,90 @@ final class PageToolsTests: XCTestCase {
         XCTAssertEqual(readerIsGone, true)
     }
 
+    private func article(_ property: String) async throws -> String? {
+        try await page("getComputedStyle(document.getElementById('luna-reader'))['\(property)']") as? String
+    }
+
+    /// Reader starts from the stored preferences and follows a change without
+    /// being turned off and on again.
+    func testReaderFollowsTheReadingPreferences() async throws {
+        try await load(Self.article)
+        _ = await toggleReader()
+        let isShared = try await page("document.getElementById('luna-reader').classList.contains('luna-reading')") as? Bool
+        XCTAssertEqual(isShared, true)
+        let width = try await article("maxWidth")
+        XCTAssertEqual(width, "\(ReadingPreferences.stored().width.points)px")
+
+        var preferences = ReadingPreferences()
+        preferences.width = .narrow
+        preferences.size = 22
+        controller.applyReadingPreferences(preferences)
+        for _ in 0 ..< 50 where try await article("maxWidth") != "580px" {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        let narrow = try await article("maxWidth")
+        XCTAssertEqual(narrow, "580px")
+        let size = try await article("fontSize")
+        XCTAssertEqual(size, "22px")
+    }
+
+    /// A page colour repaints the reading surface from its own variables; Match
+    /// keeps the app's. The palette is a stand-in with one distinct value per
+    /// variable, so a computed colour says which variable it came from.
+    func testReaderPaintsThePageColour() async throws {
+        let saved = InternalPages.palette
+        defer { InternalPages.palette = saved }
+        InternalPages.palette = ":root{--luna-surface-base:rgb(1 1 1);--luna-text-primary:rgb(2 2 2);" +
+            "--luna-reading-sepia-bg:rgb(246 239 226);--luna-reading-sepia-text:rgb(67 52 34);" +
+            "--luna-reading-night-bg:rgb(30 30 30);--luna-reading-night-text:rgb(221 221 221);" +
+            "--luna-syntax-kw:light-dark(rgb(3 3 3),rgb(4 4 4))}"
+        try await load(Self.article)
+        _ = await toggleReader()
+        _ = try await page(
+            "var s = document.createElement('span'); s.className = 'tok-kw'; s.textContent = 'let';" +
+                "document.getElementById('luna-reader').appendChild(s); 1"
+        )
+        let body = { try await self.page("getComputedStyle(document.body).backgroundColor") as? String }
+        let text = { try await self.article("color") }
+        let keyword = { try await self.page("getComputedStyle(document.querySelector('.tok-kw')).color") as? String }
+
+        let expectations: [(ReadingPreferences.Page, String, String)] = [
+            (.sepia, "rgb(246, 239, 226)", "rgb(67, 52, 34)"),
+            (.night, "rgb(30, 30, 30)", "rgb(221, 221, 221)"),
+            (.match, "rgb(1, 1, 1)", "rgb(2, 2, 2)")
+        ]
+        let syntaxes: [ReadingPreferences.Page: String] = [.sepia: "rgb(3, 3, 3)", .night: "rgb(4, 4, 4)"]
+        for (colour, background, ink) in expectations {
+            var preferences = ReadingPreferences()
+            preferences.page = colour
+            controller.applyReadingPreferences(preferences)
+            for _ in 0 ..< 50 where try await body() != background {
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            let painted = try await body()
+            XCTAssertEqual(painted, background, "\(colour) background")
+            let written = try await text()
+            XCTAssertEqual(written, ink, "\(colour) text")
+            // A fixed page fixes the scheme, so the syntax colour follows the
+            // page rather than the system.
+            if let syntax = syntaxes[colour] {
+                let highlighted = try await keyword()
+                XCTAssertEqual(highlighted, syntax, "\(colour) keyword")
+            }
+        }
+    }
+
+    /// Preferences touch only a reading page; an ordinary one is left alone.
+    func testReadingPreferencesLeaveAnOrdinaryPageAlone() async throws {
+        try await load(Self.article)
+        var preferences = ReadingPreferences()
+        preferences.width = .narrow
+        controller.applyReadingPreferences(preferences)
+        try await Task.sleep(for: .milliseconds(100))
+        let marked = try await page("document.documentElement.hasAttribute('data-luna-width')") as? Bool
+        XCTAssertEqual(marked, false)
+    }
+
     // MARK: - Hiding
 
     private static let banners = """

@@ -49,17 +49,36 @@ public final class TabController: NSObject {
 
     /// Whether §17.2's YouTube script is in the current script set — see
     /// `refreshUserScriptsIfNeeded(host:)`, which is the only thing that reads it.
-    private var youTubeScriptInstalled = false
+    private var youTubeScriptInstalled = false, fileSeedInstalled = false
     /// Whether `FileStorageSeed`'s script is in the set — only while the tab is
     /// on a `file:` page.
-    private var fileSeedInstalled = false
     /// The hidden-elements stylesheet in the current script set, empty when there is
     /// none — see `TabController+Hiding.swift`.
     var hiddenStyleInstalled = ""
     /// Storage for `TabController+Reader.swift` and `TabController+Hiding.swift`,
     /// which cannot carry their own.
-    var readerIsOn = false
+    var readerIsOn = false { didSet { publishState() } }
+    /// Storage for `probeForArticle`.
+    var isArticle = false { didSet { publishState() } }
     var picking: ElementPicking?
+    /// Storage for `Reading/TabController+Markdown.swift`.
+    public internal(set) var markdownDocument: MarkdownDocument? { didSet { publishState() } }
+    /// Storage for `Reading/TabController+Reading.swift`: the view the
+    /// Markdown page is in, and the preferences it was last handed.
+    public internal(set) var readingView = ReadingView.read
+    var appliedReading: ReadingPreferences?
+    /// `markdownHistory`: the document each history entry showed, for a Back
+    /// that WebKit answers from its page cache without the load `show` starts.
+    var pendingMarkdown: MarkdownDocument?, markdownHistory: [WKBackForwardListItem: MarkdownDocument] = [:]
+    var markdownFetch: Task<Void, Never>?
+    var fetchText: @Sendable (URL) async throws -> Data = TabController.fetchMarkdownText
+    /// Storage for `Reading/TabController+Editing.swift`: the editor's text
+    /// while it differs from the file, the pending autosave, whether saving
+    /// stopped over a change on disk, and Edit's own undo list.
+    var editedText: String? { didSet { publishState() } }
+    var autosave: Task<Void, Never>?
+    var saveHalted = false
+    let editUndo = UndoManager()
     private static let recoveryLimit = 3
     private static let recoveryWindow: TimeInterval = 60
 
@@ -143,6 +162,7 @@ public final class TabController: NSObject {
         super.init()
         messageRelay.owner = self
         passwords.tab = self
+        followReadingPreferences()
     }
 
     // MARK: - Lifecycle
@@ -170,6 +190,8 @@ public final class TabController: NSObject {
     /// After this the tab holds a `TabState` and a `Data` blob and nothing else.
     public func hibernate() {
         guard webView != nil else { return }
+        // Closing the tab or the window and quitting all end here.
+        saveEditsBeforeClosing()
         savedInteractionState = captureInteractionState()
         detach()
         publishState()
@@ -295,6 +317,7 @@ public final class TabController: NSObject {
             controller.add(messageRelay, name: name)
         }
         attachPicker(to: controller, relay: messageRelay)
+        attachReading(to: controller, relay: messageRelay)
         installUserScripts(into: controller, host: state.url?.host(), isFile: (state.url ?? fallbackURL)?.isFileURL ?? false)
 
         // WebKit posts these on the main thread; `assumeIsolated` states that instead of
@@ -437,6 +460,7 @@ public final class TabController: NSObject {
         controller.removeScriptMessageHandler(forName: ContentBlocker.youTubeMessageName)
         controller.removeScriptMessageHandler(forName: Self.popupMessageName)
         detachPicker(from: controller)
+        controller.removeScriptMessageHandler(forName: Self.readingMessageName, contentWorld: .defaultClient)
 
         // Picture-in-Picture and element fullscreen outlive their web view: without this
         // a hibernated tab leaves a floating video playing with nothing behind it.
@@ -498,6 +522,9 @@ extension TabController {
     /// A new document owns neither the old title nor the old tint, and none of the old
     /// frames are still making noise.
     func resetPerDocumentState() {
+        // First: its storage publishes on every set, and a publish re-reads
+        // WebKit's colour, which still answers for the document that went away.
+        forgetPageTools()
         state.title = ""
         state.themeColor = nil
         state.pageBackground = nil
@@ -512,7 +539,6 @@ extension TabController {
         setTopColour(nil)
         setScrollProgress(nil)
         audibleFrames.removeAll()
-        forgetPageTools()
         // The interstitial bypass is good for the one navigation it was granted
         // for. Leaving it set would quietly allowlist the site for as long as the
         // tab lives (§4.5).
@@ -546,6 +572,7 @@ extension TabController {
 
     func publishState() {
         var next = state
+        next.isArticle = webView != nil && isArticle
         if let webView {
             next.url = webView.url ?? next.url
             // Keep the last non-empty title: a page's title arrives after its first
@@ -571,6 +598,8 @@ extension TabController {
             next.pageBackground = webView.underPageBackgroundColor
                 .flatMap { ColorBridge.rgba(from: $0.cgColor) }
             next.isPlayingAudio = !audibleFrames.isEmpty
+            next.isReading = markdownDocument != nil || readerIsOn
+            next.isEdited = editedText != nil
         } else {
             // A cold tab keeps its identity (url, title, tint) and loses everything that
             // only a live process can answer.
@@ -579,6 +608,8 @@ extension TabController {
             next.canGoBack = false
             next.canGoForward = false
             next.isPlayingAudio = false
+            next.isReading = false
+            next.isEdited = false
         }
         guard next != state else { return }
         state = next
@@ -723,13 +754,22 @@ extension TabController {
     /// Past the cache for a page on this Mac (`NavigationPolicy.isLocalDevelopment`).
     /// A text file shown by `localText` is loaded again instead: its page is
     /// the text as it was read, and reloading that shows the same copy.
+    /// A Markdown document from the web is fetched again: WebKit's reload
+    /// would show the page Luna rendered from the first copy.
     public func reload() {
-        guard let url = webView?.url, NavigationPolicy.isLocalDevelopment(url) else { webView?.reload(); return }
+        guard let url = webView?.url, NavigationPolicy.isLocalDevelopment(url) || markdownDocument != nil
+        else { webView?.reload(); return }
         reloadFromOrigin()
     }
 
     public func reloadFromOrigin() {
         guard let webView else { return }
-        if let url = webView.url, Self.isLocalText(url) { Self.load(url, into: webView) } else { webView.reloadFromOrigin() }
+        if let document = markdownDocument, !document.url.isFileURL {
+            fetchMarkdown(at: document.url, into: webView)
+        } else if let url = webView.url, Self.isLocalText(url) {
+            Self.load(url, into: webView)
+        } else {
+            webView.reloadFromOrigin()
+        }
     }
 }

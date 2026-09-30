@@ -21,6 +21,11 @@ public struct TabActivity: Sendable, Equatable {
     /// `BrowserSession+Lifecycle`'s script for exactly what it detects.
     public var hasUnsavedInput: Bool
 
+    /// Playing audio or holding unsaved input: closing the web view would stop
+    /// the one or drop the other, and neither comes back from
+    /// `interactionState`. Hibernation and auto-archive both keep these.
+    public var mustStayOpen: Bool { isAudible || hasUnsavedInput }
+
     public init(id: UUID, lastActiveAt: Date, isAudible: Bool = false, hasUnsavedInput: Bool = false) {
         self.id = id
         self.lastActiveAt = lastActiveAt
@@ -64,10 +69,9 @@ public struct HibernationPolicy: Sendable, Equatable {
         activeID: UUID?,
         underMemoryPressure: Bool = false
     ) -> Set<UUID> {
-        // Audio and unsaved input survive memory pressure: stopping the music
-        // or dropping a half-typed reply is a bug the user can see, and neither
-        // comes back from `interactionState`.
-        var keep = Set(live.filter { $0.isAudible || $0.hasUnsavedInput }.map(\.id))
+        // `mustStayOpen` survives memory pressure: stopping the music or
+        // dropping a half-typed reply is a bug the user can see.
+        var keep = Set(live.filter(\.mustStayOpen).map(\.id))
         if let activeID { keep.insert(activeID) }
         guard !underMemoryPressure else { return keep }
         keep.formUnion(mru.prefix(liveBudget))
