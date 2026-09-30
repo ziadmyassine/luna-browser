@@ -140,7 +140,12 @@ extension TabController: WKNavigationDelegate {
         if navigationResponse.isForMainFrame, !navigationResponse.canShowMIMEType,
            let url = navigationResponse.response.url, let text = Self.localText(at: url) {
             decisionHandler(.cancel)
-            webView.load(text, mimeType: "text/plain", characterEncodingName: "utf-8", baseURL: url)
+            // Simulated, not `load(_:mimeType:…baseURL:)`: a substitute-data
+            // load adds no history entry, so Back skipped the file.
+            let response = URLResponse(
+                url: url, mimeType: "text/plain", expectedContentLength: text.count, textEncodingName: "utf-8"
+            )
+            webView.loadSimulatedRequest(URLRequest(url: url), response: response, responseData: text)
             return
         }
         // `value(forHTTPHeaderField:)`, not `allHeaderFields[…]` — the latter is a
