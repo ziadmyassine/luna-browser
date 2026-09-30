@@ -527,6 +527,9 @@ extension TabController {
     /// A new document owns neither the old title nor the old tint, and none of the old
     /// frames are still making noise.
     func resetPerDocumentState() {
+        // First: its storage publishes on every set, and a publish re-reads
+        // WebKit's colour, which still answers for the document that went away.
+        forgetPageTools()
         state.title = ""
         state.themeColor = nil
         state.pageBackground = nil
@@ -541,7 +544,6 @@ extension TabController {
         setTopColour(nil)
         setScrollProgress(nil)
         audibleFrames.removeAll()
-        forgetPageTools()
         // The interstitial bypass is good for the one navigation it was granted
         // for. Leaving it set would quietly allowlist the site for as long as the
         // tab lives (§4.5).
