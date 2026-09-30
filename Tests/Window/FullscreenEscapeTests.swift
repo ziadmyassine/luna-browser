@@ -7,6 +7,7 @@
 //
 
 import AppKit
+import BrowserKit
 import XCTest
 @testable import Luna
 
@@ -48,6 +49,20 @@ final class FullscreenEscapeTests: XCTestCase {
     /// The toast's glyph is a real SF Symbol, or the pill shows none.
     func testTheToastHasItsGlyph() {
         XCTAssertNotNil(NSImage(systemSymbolName: "escape", accessibilityDescription: nil))
+    }
+
+    /// Hiding mode ends on one Escape that reaches the window, and that press
+    /// is not also the first of the two that leave fullscreen.
+    func testEscapeEndsHidingModeFirst() async throws {
+        let directory = URL.temporaryDirectory.appending(path: "luna-tests-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let session = try await BrowserSession.restored(store: BrowserStore(path: directory.appending(path: "luna.sqlite")))
+        _ = session.newTab(url: URL(string: "https://example.com/"))
+        session.toggleHidingElements()
+        XCTAssertTrue(session.isPickingElements, "the picker did not start")
+        XCTAssertTrue(LunaWindow.escapeEndsHiding(in: session))
+        XCTAssertFalse(session.isPickingElements, "one Escape left hiding mode running")
+        XCTAssertFalse(LunaWindow.escapeEndsHiding(in: session), "an Escape with nothing to end was swallowed")
     }
 
     /// Out of fullscreen Escape is AppKit's as before.

@@ -347,6 +347,9 @@ Vertical order, top to bottom:
     had already closed threw the window out. The first press shows §5c's toast, "Press Esc again to
     exit full screen"; a second while it is down (`toastDwell`, 1.6 s) leaves (`LunaWindow`,
     `DoubleEscape`). A video in fullscreen is WebKit's own window, and one Escape still ends it.
+    Hiding mode comes first: one Escape ends it wherever the keyboard is, in fullscreen or not. The
+    picker hears Escape only while the page has focus, and from the sidebar or a pop-out the press
+    reached the window and was taken for the first of the two.
   - **Fading out, they take no press.** A shield covers the three until the fade has run, so a close
     button on its way out cannot close the window. Their actions are left alone: AppKit greys a
     window button whose action it did not set.

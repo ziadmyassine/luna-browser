@@ -31,6 +31,7 @@ final class LunaWindow: NSWindow {
     /// out of fullscreen, so it takes two: the first says so, the second
     /// leaves. A video in fullscreen is WebKit's own window and is not this.
     override func cancelOperation(_ sender: Any?) {
+        if let session = (NSApp.delegate as? AppDelegate)?.session, Self.escapeEndsHiding(in: session) { return }
         guard styleMask.contains(.fullScreen) else { return super.cancelOperation(sender) }
         if escape.press() {
             PageToast.escapeAgain.putAway(in: self)
@@ -38,6 +39,20 @@ final class LunaWindow: NSWindow {
         } else {
             PageToast.escapeAgain.show(in: self)
         }
+    }
+}
+
+extension LunaWindow {
+
+    /// One Escape ends hiding mode, wherever the keyboard is. The picker hears
+    /// Escape in the page, and only while the page has focus; from the sidebar
+    /// or a pop-out it came here instead and, in fullscreen, was taken for the
+    /// first of the two presses that leave.
+    /// - Returns: whether it did.
+    static func escapeEndsHiding(in session: BrowserSession) -> Bool {
+        guard session.isPickingElements else { return false }
+        session.activeController?.stopPickingElements()
+        return true
     }
 }
 

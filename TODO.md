@@ -1061,6 +1061,7 @@ Sixteen questions, answered in one sitting. **Where this log contradicts an olde
 | **The bar finds a page's colour as the page finishes loading** (2026-09-30, UI-SPEC §3.2b) | The colour was sampled once at document end, before most sites paint their header, and not again until a scroll. It is asked again at `load`, 0.25, 1 and 2.5 s later, and when the document changes size. |
 | **Site settings keep their rows on a page that is not a site** (2026-09-30, UI-SPEC §3.2a) | On the new tab page, `about:blank` or a local file the pop-out was its heading alone, and glass that small is drawn lighter than every other pop-out (measured: full thickness from 107 pt tall). It now keeps the actions that need no site — Reader and Hide where they work, Share and Copy Link for a file, More Settings — and is at least 107 pt. |
 | **Two Escapes to leave fullscreen** (2026-09-30, UI-SPEC §3.1) | One Escape nothing else took left fullscreen (`NSWindow.cancelOperation`). The first now shows a toast, "Press Esc again to exit full screen", and a second within 1.6 s leaves. Video fullscreen is unchanged. |
+| **One Escape ends hiding mode, fullscreen or not** (2026-09-30, UI-SPEC §3.1) | The picker heard Escape only while the page had focus; from the sidebar or a pop-out the press reached the window, which in fullscreen took it for the first of the two that leave. The window now ends hiding mode first. |
 
 ---
 
