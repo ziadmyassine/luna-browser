@@ -51,7 +51,8 @@ enum SiteMenu {
     ///   sheet points at too — the pop-out is gone by the time Share fires.
     static func content(from anchor: NSView) -> SiteSettingsContent {
         guard let page = current else {
-            return SiteSettingsContent(heading: String(localized: "No site settings for this page"))
+            let url = session?.activeTabID.flatMap { session?.tab($0)?.url }
+            return withoutSite(url: url, tools: pageTools(), from: anchor)
         }
         var content = SiteSettingsContent(heading: page.host)
         if let secure = isSecure(page) {
@@ -73,15 +74,38 @@ enum SiteMenu {
                 .init(title: String(localized: "Clear Cookies"), symbol: Glyph.cookies) {
                     clear(SiteData.cookies, host: page.host, thenReload: true)
                 },
-                // Privacy is where this pop-out's switches have their global
-                // side: blocking, its exceptions and site data. Advanced is a
-                // group on General now, which says nothing about a site.
-                .init(title: String(localized: "More Settings…"), symbol: Glyph.advanced) {
-                    (NSApp.delegate as? AppDelegate)?.showSettings(section: SiteMenu.moreSettingsSection)
-                }
+                moreSettings()
             ]
         ]
         return content
+    }
+
+    /// A page with no host has no per-site answers, but it keeps the actions
+    /// that need no site. A pop-out that was only its heading is a 52 pt strip
+    /// of glass, and the system draws glass that small thinner and lighter:
+    /// measured at this width, full thickness from 107 pt tall, which a heading
+    /// and one band of one row reach exactly.
+    static func withoutSite(url: URL?, tools: [SiteSettingsContent.Action], from anchor: NSView) -> SiteSettingsContent {
+        var content = SiteSettingsContent(heading: String(localized: "No site settings for this page"))
+        // A file on this Mac can be shared and its address copied; `luna:`
+        // and `about:` pages are addresses of Luna's own, and mean nothing
+        // anywhere else.
+        let sendable = url.flatMap { ["http", "https", "file"].contains($0.scheme?.lowercased() ?? "") ? $0 : nil }
+        content.actions = [
+            tools,
+            sendable.map { [share($0, from: anchor), copyLink($0)] } ?? [],
+            [moreSettings()]
+        ]
+        return content
+    }
+
+    /// Privacy is where this pop-out's switches have their global side:
+    /// blocking, its exceptions and site data. Advanced is a group on General
+    /// now, which says nothing about a site.
+    private static func moreSettings() -> SiteSettingsContent.Action {
+        .init(title: String(localized: "More Settings…"), symbol: Glyph.advanced) {
+            (NSApp.delegate as? AppDelegate)?.showSettings(section: SiteMenu.moreSettingsSection)
+        }
     }
 
     /// This site's switches, in the order the pop-out shows them.

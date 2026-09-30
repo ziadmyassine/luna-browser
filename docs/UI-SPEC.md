@@ -571,6 +571,13 @@ Three bands, top to bottom:
   `Text.primary` (`Accent.secureText`).
 - **Measured off the reference:** the rows' glyphs stand 1/16 of the panel's width in and their titles
   3/16, which at `rowFaviconInset`'s 17.5 makes the panel 280 wide. Its height is its rows.
+- **A page that is not a site keeps its actions (2026-09-30).** `luna:new-tab`, `about:blank` and a file
+  on this Mac have no host and so no switches, and the pop-out was its heading alone, "No site settings
+  for this page". That is a 52 pt strip of glass, and `NSGlassEffectView` draws small glass thinner and
+  lighter: measured at this width, 161 → 134 brightness over one background from 44 to 107 pt tall and
+  134 from there up — the difference that was plain beside the Extensions pop-out. It now keeps what
+  needs no site: Show Reader and Hide Something… where they work, Share… and Copy Link for a file, and
+  More Settings…, which with the heading is 107 pt.
 
 - **Per-site is the whole point.** "Block ads" as a global preference is a decision made once and then
   fought with on the four sites it breaks. These answers are taken about *this* site, where the problem

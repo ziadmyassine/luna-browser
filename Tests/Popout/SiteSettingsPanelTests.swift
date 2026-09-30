@@ -80,11 +80,23 @@ final class SiteSettingsPanelTests: XCTestCase {
         override var acceptsFirstResponder: Bool { true }
     }
 
-    /// A page with no host has a header and nothing else.
-    func testAPageThatIsNotASiteIsOnlyAHeader() {
-        let content = SiteSettingsContent(heading: "No site settings for this page")
-        XCTAssertEqual(content.height, SiteSettingsMetrics.headerHeight)
-        XCTAssertTrue(panel(content).rows.isEmpty)
+    /// Where `NSGlassEffectView` at the pop-out's width reaches its full
+    /// thickness: measured 161 → 150 → 137 → 134 brightness over one
+    /// background at 44, 80, 101 and 107 pt tall, and 134 from there up.
+    private static let fullGlassHeight: CGFloat = 107
+
+    /// A page with no host keeps the actions that need no site. Only its
+    /// heading, it was a strip of glass the system drew lighter than every
+    /// other pop-out.
+    func testAPageThatIsNotASiteKeepsItsActionsAndItsGlass() throws {
+        let newTab = SiteMenu.withoutSite(url: URL(string: "luna:new-tab"), tools: [], from: NSView())
+        XCTAssertEqual(newTab.actions.flatMap { $0 }.map(\.title), ["More Settings…"])
+        XCTAssertGreaterThanOrEqual(newTab.height, Self.fullGlassHeight, "the pop-out is small enough for thin glass")
+        XCTAssertEqual(panel(newTab).rows.count, 1)
+
+        let file = URL(fileURLWithPath: "/tmp/README.md")
+        let local = SiteMenu.withoutSite(url: file, tools: [], from: NSView())
+        XCTAssertEqual(local.actions.flatMap { $0 }.map(\.title), ["Share…", "Copy Link", "More Settings…"])
     }
 
     /// The switch is the Mac's, and the row around it is its target too.
