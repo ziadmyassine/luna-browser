@@ -46,7 +46,7 @@ being pressed.
 
 ## One toast
 
-**News over the page is a `PageToast`** (`UI/Toast/PageToast.swift`) — the
+**News over the page is a `PageToast`** (`Luna/UI/Toast/PageToast.swift`) — the
 glass pill that drops from under the bar ("Link copied", "Zoom 125 %",
 "Pop-up blocked"). Do not build another panel, chip or banner for it.
 
@@ -63,7 +63,7 @@ Full rules: `docs/UI-SPEC.md` §5c.
 
 - Nothing exceeds 0.35 s except the two cases `docs/UI-SPEC.md` §6 marks.
 - Everything degrades to instant under Reduce Motion. The helpers in
-  `Design/Motion.swift` already check it; hand-rolled `CATransaction`s do not.
+  `Luna/Design/Motion.swift` already check it; hand-rolled `CATransaction`s do not.
 - Bounds-derived frames must land on the frame that changed them — wrap them in
   `Tokens.Motion.immediately`. A state (a fill, a ring, an ink) cross-fades.
 
@@ -76,10 +76,9 @@ Full rules: `docs/UI-SPEC.md` §5c.
 - `make lint` is `--strict`, so a warning fails it, and CI gates on it — the
   tree is at zero violations and the job has no `continue-on-error`. Run it
   before you push rather than finding out from the runner.
-- **Do not run `make fmt` casually.** The repo has never been through
-  swiftformat, so it rewrites all but a handful of the tree — measured at 325
-  of 329 files on 2026-09-21. CI does not run it, and a diff that size buries
-  whatever change it is sitting on top of.
+- **There is no formatter.** swiftformat was never run here and would have
+  rewritten 325 of 329 files (measured 2026-09-21), so its config and `make fmt`
+  were removed. SwiftLint is the style gate; match the code around you.
 - Every push and pull request runs `.github/workflows/ci.yml`: the AppKit guard
   on Linux, then `make gen` and both test suites on a macOS runner.
 - `BrowserKit/` imports no AppKit; `Tools/check-no-appkit.sh` enforces it.
@@ -89,11 +88,11 @@ Full rules: `docs/UI-SPEC.md` §5c.
 
 ## Design tokens
 
-- Colours, lengths and timings come from `Design/` — `Tokens.Surface`,
+- Colours, lengths and timings come from `Luna/Design/` — `Tokens.Surface`,
   `Tokens.Text`, `Tokens.Line`, `Tokens.Metric`, `Tokens.Motion`. Do not write a
   literal where a token exists, and do not add a token without the measurement
   that produced it.
-- `Design/TokenCheck*.swift` asserts the invariants between them at launch. If a
+- `Luna/Design/TokenCheck*.swift` asserts the invariants between them at launch. If a
   new token has a relationship to an old one, say so there.
 
 ## Comments
@@ -111,7 +110,7 @@ arrived at.
   edge" earns its lines — someone will otherwise re-inset it. "Originally this
   was a popover, then it became a panel" does not.
 - **Justify a number once, beside the number.** A view that uses a metric
-  points at `Design/Metrics*.swift`; it does not re-derive it. `SpaceSwipe`
+  points at `Luna/Design/Metrics*.swift`; it does not re-derive it. `SpaceSwipe`
   carried a 96-line header re-arguing constants defined in
   `Metrics+Spaces.swift`.
 - **A file header names what the file holds** and, if it is not obvious, why it

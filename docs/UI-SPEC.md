@@ -634,7 +634,7 @@ Three bands, top to bottom:
 
 How a reading page is set. Same `SiteSettingsPanel`, row for row, so everything above about the
 panel's material, 280 pt width, 52 pt header, 38 pt rows, 17.5 pt glyph column and 45.5 pt title
-inset holds here; `UI/Popout/ReadingMenu.swift` supplies the content.
+inset holds here; `Luna/UI/Popout/ReadingMenu.swift` supplies the content.
 
 - **The glyph.** `textformat.size`, a `RowGlyphView` on the URL pill between the address and reload
   (sliders < address < Aa < reload, measured by minX). It shows on a Markdown document, on a page with
@@ -2297,7 +2297,7 @@ the rest. Luna ships both renditions (`Assets.car` carries the icon under
 on Default the light tile appears in light mode. A dark tile on a light Mac is
 that setting, not a missing variant.
 
-**First run** (`Features/Onboarding/`, §30.17–30.18) is a window over the
+**First run** (`Luna/Features/Onboarding/`, §30.17–30.18) is a window over the
 browser, not a sheet in front of it: the session is restoring behind it, and a
 gate before the thing the gate is about is a form with no context. Closing it
 is an answer, and it never asks twice (`OnboardingState.hasRun`).
@@ -2509,7 +2509,7 @@ what Luna does not support. A runtime request is Allow or Don't Allow for the wh
 
 ## 5c. Toasts — one pill for news over the page
 
-**Luna has one toast: `PageToast`** (`UI/Toast/PageToast.swift`). Anything that tells the user
+**Luna has one toast: `PageToast`** (`Luna/UI/Toast/PageToast.swift`). Anything that tells the user
 something happened, over the page, is one of these — never a panel, chip or banner of its own.
 
 - **Shape.** A glass pill (`Glass.popover`), `Tokens.Agent.capsuleHeight` tall, fully round, centred
@@ -2623,7 +2623,7 @@ instant under Reduce Motion.
 >    composites the five snapshot strips in reverse vertical order.
 > With both fixed the arc measured correctly over a flat grey page (white 164 → amber → mint → lavender
 > over base 138), and a sub-0.15 s reload correctly drew nothing.
-> `Features/Reload/` is built, tested and deliberately left **unreferenced** — it is dead code by choice,
+> `Luna/Features/Reload/` is built, tested and deliberately left **unreferenced** — it is dead code by choice,
 > not by oversight, so a future view-hierarchy audit does not "fix" it back in. The spec below is kept
 > because the transcription work is done and the arc colours were sampled from the reference video; it is
 > a record, not a task. Reviving it is wiring, not rebuilding.

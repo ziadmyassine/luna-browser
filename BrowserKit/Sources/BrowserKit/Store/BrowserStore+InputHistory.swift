@@ -20,7 +20,7 @@ public struct InputHistoryEntry: Sendable, Hashable {
 // its writer, and the whole of the store's involvement in §9.3's adaptive half.
 //
 // The `useCount` arithmetic is deliberately not here. §9.3's recurrence is a
-// ranking rule, it lives with the rest of the ranking in `UI/CommandBar`, and it
+// ranking rule, it lives with the rest of the ranking in `Luna/UI/CommandBar`, and it
 // is applied against an in-memory copy of this table — because §9.7 gives the
 // Command Bar one frame per keystroke and that is not enough to ask SQLite. The
 // table is small (one row per string the user actually typed and chose from), so

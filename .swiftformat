@@ -1,3 +1,0 @@
---swiftversion 6.0
---indent 4
---exclude Luna.xcodeproj,DerivedData,.build,BrowserKit/.build,inspiration

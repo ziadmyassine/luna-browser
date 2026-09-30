@@ -68,7 +68,7 @@ public protocol TabControllerDelegate: AnyObject {
     // MARK: - §14's password UI
     //
     // The engine finds the form and holds the secrets; the popover and the chip
-    // are AppKit and live in `UI/Passwords/`. These three are how one reaches
+    // are AppKit and live in `Luna/UI/Passwords/`. These three are how one reaches
     // the other. They default to no-ops like the rest of the optional set, so a
     // host that has not built the UI simply never offers to fill — which is a
     // browser without autofill, not a broken one.

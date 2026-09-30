@@ -5,8 +5,8 @@
 //  §3.4's search suggestions: the completions the chosen engine offers while
 //  you are still typing.
 //
-//  A file apart so `UI/CommandBar` still cannot reach the network: §9.6 is
-//  enforced by `CommandBarPrivacyTests`, which greps `UI/CommandBar` for a
+//  A file apart so `Luna/UI/CommandBar` still cannot reach the network: §9.6 is
+//  enforced by `CommandBarPrivacyTests`, which greps `Luna/UI/CommandBar` for a
 //  networking symbol. The Command Bar asks for `[String]` and is handed one.
 //
 //  What leaves the Mac: the query, to the engine chosen in §3.4, over https,

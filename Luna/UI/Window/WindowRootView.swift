@@ -14,7 +14,7 @@ import AppKit
 
 /// The window's corner as the Appearance setting has it: the reference's by
 /// default, the one macOS gives its own windows when `Settings.macWindowCorners`
-/// is on (`Design/Metrics.swift` has both measurements).
+/// is on (`Luna/Design/Metrics.swift` has both measurements).
 ///
 /// The content pane's corners are this too. The pane is flush against three of
 /// the window's edges, so any other radius leaves a crescent of glass showing

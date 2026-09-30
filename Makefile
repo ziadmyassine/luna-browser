@@ -1,6 +1,6 @@
 XCODEBUILD := xcodebuild -project Luna.xcodeproj -scheme Luna -derivedDataPath DerivedData
 
-.PHONY: gen build run test lint fmt check dmg signed
+.PHONY: gen build run test lint check dmg signed
 
 gen:
 	xcodegen generate
@@ -30,10 +30,10 @@ IDENTITY := Developer ID Application: NovApps ApS (FUUYR6KRSH)
 
 signed:
 	$(XCODEBUILD) -configuration Release build
-	cp Signing/Luna_Developer_ID.provisionprofile $(SIGNED_APP)/Contents/embedded.provisionprofile
+	cp Config/Signing/Luna_Developer_ID.provisionprofile $(SIGNED_APP)/Contents/embedded.provisionprofile
 	codesign --force --options runtime --timestamp --sign "$(IDENTITY)" $(SIGNED_APP)/Contents/MacOS/luna-control
 	codesign --force --options runtime --timestamp --sign "$(IDENTITY)" \
-		--entitlements Signing/Luna.entitlements $(SIGNED_APP)
+		--entitlements Config/Signing/Luna.entitlements $(SIGNED_APP)
 
 test:
 	swift test --package-path BrowserKit
@@ -41,9 +41,6 @@ test:
 
 lint:
 	swiftlint lint --quiet --strict
-
-fmt:
-	swiftformat .
 
 check: lint
 	Tools/check-no-appkit.sh

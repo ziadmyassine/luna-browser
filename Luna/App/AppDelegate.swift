@@ -8,10 +8,10 @@
 //  this file is lifecycle and wiring only.
 //
 //  Integration points, all of them here and nowhere else:
-//      UI/Sidebar    SidebarViewController(session:)   §3
-//      UI/TopBar     TopBarView(session:)              §4
-//      UI/CommandBar CommandBarController(session:adaptive:)  ⌘T / ⌘L
-//      Features/Downloads  DownloadManager             session.onDownload
+//      Luna/UI/Sidebar    SidebarViewController(session:)   §3
+//      Luna/UI/TopBar     TopBarView(session:)              §4
+//      Luna/UI/CommandBar CommandBarController(session:adaptive:)  ⌘T / ⌘L
+//      Luna/Features/Downloads  DownloadManager             session.onDownload
 //
 
 import AppKit

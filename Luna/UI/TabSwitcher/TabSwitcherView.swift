@@ -18,7 +18,7 @@
 
 import AppKit
 
-/// The switcher's geometry. `Design/` has no switcher entry, so every value
+/// The switcher's geometry. `Luna/Design/` has no switcher entry, so every value
 /// that can be is derived from an existing `Tokens.Metric`, as
 /// `CommandBarMetrics` and `QuitSheetMetrics` are.
 enum TabSwitcherMetrics {

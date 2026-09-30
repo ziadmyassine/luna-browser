@@ -3,15 +3,15 @@
 //  Luna
 //
 //  The token→CSS bridge (§4.4, §8.1). `BrowserKit` serves Luna's internal
-//  pages but cannot see `Design/`, so the palette is generated here from the
+//  pages but cannot see `Luna/Design/`, so the palette is generated here from the
 //  same `Tokens` every view reads and handed over as CSS custom properties. A
 //  hand-written palette in the templates would drift silently. It sits in
-//  `Features/` because it consumes tokens rather than defining them;
+//  `Luna/Features/` because it consumes tokens rather than defining them;
 //  `InternalPageThemeTests` fails if the variables stop matching
 //  `InternalPages.paletteVariables`.
 //
 //  Four variants, chosen by `prefers-*` media queries inside the page: on macOS
-//  26.5 Increase Contrast is not an `NSAppearance` (Design/Tokens.swift), so a
+//  26.5 Increase Contrast is not an `NSAppearance` (Luna/Design/Tokens.swift), so a
 //  Swift-side branch could not invalidate a page already on screen. Contrast
 //  values come from `Tokens.Ink`, which is how `TokenCheck` reaches them too.
 //
@@ -149,7 +149,7 @@ enum InternalPageTheme {
     // MARK: - Lengths, type and motion
     //
     // Theme-independent, so they are declared once in the rest block. Straight
-    // from `Design/Metrics.swift` and `Design/Motion.swift`: an internal page is
+    // from `Luna/Design/Metrics.swift` and `Luna/Design/Motion.swift`: an internal page is
     // still Luna's UI, and §1's ratios do not get a second set of numbers just
     // because they are being spelled in CSS.
 

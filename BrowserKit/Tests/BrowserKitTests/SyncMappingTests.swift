@@ -201,7 +201,7 @@ struct SyncMappingTests {
 }
 
 /// One fully populated value of every synced type, so each mapper writes every field it
-/// knows. `SyncSchemaFileTests` checks the same records against `CloudKit/Schema.ckdb`.
+/// knows. `SyncSchemaFileTests` checks the same records against `Config/CloudKit/Schema.ckdb`.
 enum SyncSamples {
 
     static let now = Date(timeIntervalSince1970: 1_790_000_000)

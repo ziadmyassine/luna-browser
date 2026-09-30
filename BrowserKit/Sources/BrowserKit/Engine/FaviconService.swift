@@ -49,7 +49,7 @@ public final class FaviconService {
     // Rule 1 keeps AppKit out of `BrowserKit`, and AppKit is the only thing on this
     // machine that rasterises SVG (`NSImage` reads one; ImageIO returns an empty
     // source for it). So the renderer is set once at assembly by
-    // `Features/Favicons/VectorIconRasterizer` — the same shape of seam as
+    // `Luna/Features/Favicons/VectorIconRasterizer` — the same shape of seam as
     // `InternalPages.content`.
 
     /// Draws vector icon bytes into a PNG whose longest edge is the given number of

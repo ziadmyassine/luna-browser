@@ -2,7 +2,7 @@
 //  OnboardingMetrics.swift
 //  Luna — §30.17
 //
-//  Where first run's two panes are, derived rather than invented: `Design/`
+//  Where first run's two panes are, derived rather than invented: `Luna/Design/`
 //  has no onboarding entry, and contract rule 2 forbids inlining one.
 //
 

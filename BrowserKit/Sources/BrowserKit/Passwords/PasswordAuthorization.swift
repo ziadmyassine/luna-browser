@@ -10,7 +10,7 @@ import LocalAuthentication
 /// cancelled prompt means the secret was never fetched into the process.
 ///
 /// `LocalAuthentication` is not AppKit, so this lives in `BrowserKit` rather
-/// than `UI/` (§25.5, `Tools/check-no-appkit.sh`).
+/// than `Luna/UI/` (§25.5, `Tools/check-no-appkit.sh`).
 @MainActor
 public enum PasswordAuthorization {
 

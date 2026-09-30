@@ -4,15 +4,15 @@ import Foundation
 //  have.
 //
 //  There is not one colour or length value in this file. Every declaration
-//  reads `var(--luna-…)`, generated from `Design/Tokens.swift` by
-//  `Features/InternalPages/InternalPageTheme`; the only fallbacks are the OS's
+//  reads `var(--luna-…)`, generated from `Luna/Design/Tokens.swift` by
+//  `Luna/Features/InternalPages/InternalPageTheme`; the only fallbacks are the OS's
 //  own CSS system colours and keywords (`Canvas`, `CanvasText`, `GrayText`,
 //  `AccentColor`, `thin`, `medium`). `InternalPagesTests` fails on a hex
 //  value, an `rgb(` or an absolute length here.
 //
 //  Light and dark (§8.8), Increase Contrast and Reduce Motion are branched in
 //  the page by `prefers-*` media queries, not in Swift: on macOS 26.5 Increase
-//  Contrast is not an `NSAppearance` at all (`Design/Tokens.swift` header), so
+//  Contrast is not an `NSAppearance` at all (`Luna/Design/Tokens.swift` header), so
 //  a Swift-side branch has nothing to observe.
 
 extension InternalPages {

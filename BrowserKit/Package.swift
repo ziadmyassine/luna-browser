@@ -43,7 +43,7 @@ let package = Package(
             swiftSettings: swiftSettings
         ),
         // The app's trusted-input stage, run from a link to
-        // `Features/Control/ControlStage.swift`: AppKit is allowed in tests,
+        // `Luna/Features/Control/ControlStage.swift`: AppKit is allowed in tests,
         // and this is the one place the stage can run without launching Luna.
         .testTarget(
             name: "ControlStageTests",

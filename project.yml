@@ -41,7 +41,7 @@ targets:
       base:
         PRODUCT_NAME: Luna
         PRODUCT_BUNDLE_IDENTIFIER: dev.novapps.luna
-        INFOPLIST_FILE: App/Info.plist
+        INFOPLIST_FILE: Luna/App/Info.plist
         # Names the Icon Composer bundle below, minus its .icon extension.
         # actool compiles it into Assets.car and writes CFBundleIconName for us.
         ASSETCATALOG_COMPILER_APPICON_NAME: luna
@@ -55,15 +55,15 @@ targets:
           DEAD_CODE_STRIPPING: "YES"
           DEPLOYMENT_POSTPROCESSING: "YES"
     sources:
-      - path: App
+      - path: Luna/App
         excludes:
           - Info.plist
       # Referenced so it shows up in Xcode, never copied into Resources.
-      - path: App/Info.plist
+      - path: Luna/App/Info.plist
         buildPhase: none
-      - path: UI
-      - path: Design
-      - path: Features
+      - path: Luna/UI
+      - path: Luna/Design
+      - path: Luna/Features
       # The icon stays with the rest of the artwork rather than moving into the
       # app sources; it is a build input, not code.
       - path: assets/icon/final/luna.icon
@@ -98,7 +98,7 @@ targets:
         PRODUCT_NAME: luna-control
         SKIP_INSTALL: "YES"
     sources:
-      - path: Helpers/luna-control
+      - path: Luna/Helpers/luna-control
     dependencies:
       - package: BrowserKit
         product: LunaControl
@@ -111,8 +111,8 @@ targets:
         # The app supplies its own Info.plist; a test bundle has nothing to
         # supply, so it needs the generated one the base settings turn off.
         GENERATE_INFOPLIST_FILE: "YES"
-    # Tests live at the repo root, not under UI/: the app target compiles that
-    # whole path, so a test file there would ship inside the app.
+    # Tests live beside Luna/, not in it: the app target compiles its folders
+    # whole, so a test file inside one would ship inside the app.
     sources:
       - path: Tests
     dependencies:

@@ -151,9 +151,6 @@ jobs:
 
 # Deliberately absent:
 #
-#   * **swiftformat.** It has never been run here, so it fails all but a handful
-#     of the tree and switching it on is a whole-repo rewrite, not a check. That
-#     belongs in one deliberate commit on a quiet tree; with several agents
-#     writing into this tree at once it is the worst diff to land by surprise.
-#     `CLAUDE.md` carries the measurement, so it goes stale in one place.
+#   * **swiftformat.** It was never run here and would rewrite nearly the
+#     whole tree, so the repo has no formatter; `CLAUDE.md` says why.
 #   * **A release job.** See the header: §24.4's certificate first.

@@ -55,7 +55,7 @@ struct CommandBarSources: Sendable {
     /// file is neither.
     var settings: [SettingsEntry] = []
     /// §3.4's suggestions, already fetched and parsed by
-    /// `Features/Search/SearchSuggestions`. Strings, not URLs: the engine
+    /// `Luna/Features/Search/SearchSuggestions`. Strings, not URLs: the engine
     /// template turns them into one here, exactly as it does for a typed query,
     /// so a suggestion cannot carry a destination Luna did not build.
     var suggestions: [String] = []

@@ -83,7 +83,7 @@ possible. There is nothing for the user to allow.
 **Consequence for the UI, and it is not negotiable:** Luna must never say or
 imply "use your existing passwords", never offer to import from Safari, and
 never show an empty list in a way that reads as "you have no saved passwords".
-`Features/Settings/Sections/Passwords.swift` states the limitation in so many
+`Luna/Features/Settings/Sections/Passwords.swift` states the limitation in so many
 words, and that paragraph is load-bearing copy, not filler.
 
 ### The iCloud Passwords extension is not a way round it
@@ -143,7 +143,7 @@ the first version of this section got it wrong:
   URL, and no rewriting of destination content.
 
   The first criterion — `http` and `https` declared in `CFBundleURLTypes` —
-  was **not** met until this was written. `App/Info.plist` had no
+  was **not** met until this was written. `Luna/App/Info.plist` had no
   `CFBundleURLTypes` key at all, which also meant LaunchServices never listed
   Luna as a browser: `NSWorkspace.urlsForApplications(toOpen:)` for an `https`
   URL returned Safari, Dia and Chrome and not Luna, so §3.1's "Set as Default"

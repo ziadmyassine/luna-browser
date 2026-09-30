@@ -24,7 +24,7 @@ does not do it.
 
 - Bundle ID `dev.novapps.luna` (was `dk.novapps.luna`), matching the App ID
   `FUUYR6KRSH.dev.novapps.luna` and container `iCloud.dev.novapps.luna`.
-- `Signing/Luna.entitlements`: `com.apple.application-identifier`,
+- `Config/Signing/Luna.entitlements`: `com.apple.application-identifier`,
   `com.apple.developer.team-identifier`,
   `com.apple.developer.icloud-container-identifiers` = [`iCloud.dev.novapps.luna`],
   `com.apple.developer.icloud-services` = [`CloudKit`],
@@ -35,8 +35,8 @@ does not do it.
   app signed with `Developer ID Application: NovApps ApS (FUUYR6KRSH)`,
   Hardened Runtime and a secure timestamp. `make build`, `make test` and CI
   stay ad-hoc. The profile is never committed (`*.provisionprofile` is
-  ignored); it lives at `Signing/Luna_Developer_ID.provisionprofile`.
-- `Luna --cloudkit-probe` (`App/CloudKitProbe.swift`): runs before
+  ignored); it lives at `Config/Signing/Luna_Developer_ID.provisionprofile`.
+- `Luna --cloudkit-probe` (`Luna/App/CloudKitProbe.swift`): runs before
   `NSApplication` exists, so no window, Dock icon or focus change. Prints the
   sandbox state and entitlements read from its own signature, the current
   `https` handler and whether Luna is among the registered `https` handlers,
@@ -99,7 +99,7 @@ keychain (`8DE756B7…`); two had been created minutes apart. A profile whose
 before signing:
 
 ```
-security cms -D -i Signing/Luna_Developer_ID.provisionprofile -o p.plist
+security cms -D -i Config/Signing/Luna_Developer_ID.provisionprofile -o p.plist
 plutil -extract DeveloperCertificates.0 raw p.plist | base64 -d | shasum
 security find-identity -v -p codesigning
 ```
@@ -129,4 +129,4 @@ in Settings ▸ General.
 - Hardened Runtime is on in the signed build. A web page asking for the
   camera or microphone needs `com.apple.security.device.camera` and
   `com.apple.security.device.audio-input` under it (§24.4); neither is in
-  `Signing/Luna.entitlements` yet.
+  `Config/Signing/Luna.entitlements` yet.

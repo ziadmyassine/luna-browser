@@ -164,11 +164,11 @@ public enum InternalPages {
 
     // MARK: - App-supplied seams
     //
-    // `BrowserKit` cannot reach `Design/` (no AppKit) or the tab list, so the
+    // `BrowserKit` cannot reach `Luna/Design/` (no AppKit) or the tab list, so the
     // two things internal pages need from outside are set once at assembly by
-    // `Features/InternalPages/InternalPagesInstaller`.
+    // `Luna/Features/InternalPages/InternalPagesInstaller`.
 
-    /// CSS custom properties generated from `Design/Tokens.swift`.
+    /// CSS custom properties generated from `Luna/Design/Tokens.swift`.
     @MainActor public static var palette = ""
 
     /// The archived tabs `luna://history` renders, read live.

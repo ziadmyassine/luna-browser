@@ -2,7 +2,7 @@
 import Foundation
 import Testing
 
-/// `CloudKit/Schema.ckdb` against what the mappers write (docs/SYNC-PLAN.md §2, S4).
+/// `Config/CloudKit/Schema.ckdb` against what the mappers write (docs/SYNC-PLAN.md §2, S4).
 ///
 /// Production has no just-in-time schema and can only grow, so a field a mapper writes
 /// that the schema lacks fails every save, and a field declared with the wrong encryption
@@ -23,7 +23,7 @@ struct SyncSchemaFileTests {
         .deletingLastPathComponent()   // Tests
         .deletingLastPathComponent()   // BrowserKit
         .deletingLastPathComponent()   // repository root
-        .appending(path: "CloudKit/Schema.ckdb")
+        .appending(path: "Config/CloudKit/Schema.ckdb")
 
     /// Record type → field → declaration. System fields (`"___…"`) and `GRANT`s are skipped.
     static func parse(_ text: String) -> [String: [String: Field]] {

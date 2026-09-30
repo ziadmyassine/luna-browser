@@ -4,7 +4,7 @@ import Foundation
 // under Swift 6, so it never leaves `SyncCloudKit.swift`; everything else — mapping,
 // merging, the coordinator — sees this value instead.
 
-/// One field value, in the five types `CloudKit/Schema.ckdb` uses.
+/// One field value, in the five types `Config/CloudKit/Schema.ckdb` uses.
 public enum SyncValue: Sendable, Hashable, Codable {
     case string(String)
     case int(Int64)

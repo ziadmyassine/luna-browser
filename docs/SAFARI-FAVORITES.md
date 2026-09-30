@@ -4,7 +4,7 @@ Settings ▸ iCloud ▸ Safari ▸ **Show pinned tabs in Safari's Favorites** pu
 and pinned tabs straight into Safari's Favorites, one bookmark each, beside the user's own. Safari's own
 iCloud sync takes them to the iPhone, where they are on Safari's start page. Off by default.
 
-Code: `Features/SafariFavorites/` — `SafariBookmarksDocument` (the edit), `SafariBookmarksFile` (the lock,
+Code: `Luna/Features/SafariFavorites/` — `SafariBookmarksDocument` (the edit), `SafariBookmarksFile` (the lock,
 the guarded write, the wake-up), `SafariFavorites` (what goes in, when, and the status the Settings page
 shows). Tests: `Tests/SafariFavorites/`.
 

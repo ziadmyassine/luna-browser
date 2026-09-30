@@ -20,8 +20,8 @@
       "layers" : [
         {
           "glass" : true,
-          "image-name" : "luna-icon-v3-transparent 2.png",
-          "name" : "luna-icon-v3-transparent 2",
+          "image-name" : "luna-moon.png",
+          "name" : "luna-moon",
           "position" : {
             "scale" : 0.9,
             "translation-in-points" : [

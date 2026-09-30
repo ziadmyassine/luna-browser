@@ -6,7 +6,7 @@
 //  address bars is the one on screen.
 //
 //  A file of its own because `AppDelegate.swift` is the app's assembly seam and
-//  already the longest file in `App/`; this is a seam within it, not a new
+//  already the longest file in `Luna/App/`; this is a seam within it, not a new
 //  responsibility.
 //
 

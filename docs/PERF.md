@@ -138,7 +138,7 @@ Two instruments now, because the old one could only see half of it.
 first on-screen window owned by that pid, polled at 1 ms through
 `CGWindowListCopyWindowInfo`, with a database seeded to 40 tabs across 3 Spaces.
 
-**From inside**, new: `App/LaunchTrace` writes a file the moment the window has the
+**From inside**, new: `Luna/App/LaunchTrace` writes a file the moment the window has the
 restored session in it, and the harness polls for that file exactly as it polls for
 the window. That is "to interactive", which is the budget §19.1 actually states and
 which nothing was measuring — the previous version of this file asked for "one line

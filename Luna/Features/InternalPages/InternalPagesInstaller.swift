@@ -12,7 +12,7 @@
 //  navigates to it any more. `luna://archive`, the address it had before the
 //  rename, resolves here too.
 //
-//  `BrowserKit` cannot reach the tab list or `Design/`, so the three things
+//  `BrowserKit` cannot reach the tab list or `Luna/Design/`, so the three things
 //  internal pages need from the app are set here, once, and read live
 //  afterwards. Everything captures the session weakly: these are process-wide
 //  statics and a strong capture would outlive the window.

@@ -12,7 +12,7 @@ import Foundation
 
 extension Tokens.Metric {
 
-    // MARK: Settings window (§23.1 §1 — consumed by `Features/Settings/Shell`)
+    // MARK: Settings window (§23.1 §1 — consumed by `Luna/Features/Settings/Shell`)
 
     /// Same four-scalar shape as the browser window below, for the same reason:
     /// the minimum is applied as two `greaterThanOrEqualToConstant` constraints,

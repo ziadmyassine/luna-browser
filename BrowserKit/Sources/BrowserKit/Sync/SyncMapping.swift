@@ -5,7 +5,7 @@ import Foundation
 // Every writer takes `stored`, the last record known under that name, and goes through
 // `SyncRecord(writing:…)`, which is where the §31.9 versioning rules live. User content
 // goes in encrypted fields; only structure (ids, kind, position, dates) travels plain.
-// `CloudKit/Schema.ckdb` must declare every field written here, which
+// `Config/CloudKit/Schema.ckdb` must declare every field written here, which
 // `SyncSchemaFileTests` checks.
 
 /// A `siteSettings` row as it syncs. Each flag is tri-state: nil means nobody answered.

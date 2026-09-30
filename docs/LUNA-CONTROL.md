@@ -23,8 +23,8 @@ MCP client ──stdio──▶ Luna.app/Contents/MacOS/luna-control ──Unix 
   MCP handshake and answers every tool call with an error saying how to fix it.
   It connects on the next call once Luna is back. It never launches Luna.
 - Code: `BrowserKit/Sources/LunaControl` (protocol, tools, socket, relay,
-  page scripts; Foundation only), `Features/Control` (the app side),
-  `UI/Browser/BrowserSession+Control.swift` (tabs and folders).
+  page scripts; Foundation only), `Luna/Features/Control` (the app side),
+  `Luna/UI/Browser/BrowserSession+Control.swift` (tabs and folders).
 
 ## Setup
 
@@ -202,7 +202,7 @@ push the user's recent tabs out of the live-tab budget.
 
 `click`, `type`, `key` and pointer `drag`s are real input: the page's events
 have `isTrusted` set, so editors that ignore script (Google Docs and the like)
-take them. `Features/Control/ControlStage.swift` lends the tab to a borderless
+take them. `Luna/Features/Control/ControlStage.swift` lends the tab to a borderless
 window at (-20000, -20000) for the length of one call. The window can never
 become key or main, ignores the mouse, is excluded from the Window menu and
 Exposé, and is ordered in without activating Luna. Events are built with
@@ -277,7 +277,7 @@ all.
 
 Whoever connects controls a browser that is signed in as the user, with every
 cookie in every non-private Space. That is why it is opt-in, and why every
-call passes one gate in Luna (`Features/Control/ControlService+Safety.swift`)
+call passes one gate in Luna (`Luna/Features/Control/ControlService+Safety.swift`)
 before it runs. `tabs_list` and `wait` go through it too.
 
 ### Who can connect
@@ -455,7 +455,7 @@ in a windowless page in `ControlScriptsTests.testUploadSetsFilesAndFiresChange`.
   and hand it to the user.
 - Screenshots, at any `scale` or `region`, and every `gif` frame draw those
   fields as dots (`-webkit-text-security`) for the picture and put them back
-  after (`Features/Control/ControlCapture.swift`, tested in
+  after (`Luna/Features/Control/ControlCapture.swift`, tested in
   `ControlCaptureTests`). Fields inside iframes and shadow roots are not
   reached. A recording is written only when the agent exports it, to Luna's
   user-only Control folder; it holds whatever else the page showed.

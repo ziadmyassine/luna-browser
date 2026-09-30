@@ -384,10 +384,10 @@ extension TokenCheck {
 ///     swiftc -swift-version 6 -strict-concurrency=complete \
 ///            -target arm64-apple-macos26.0 -DTOKENCHECK_MAIN \
 ///            -enable-upcoming-feature ExistentialAny \
-///            Design/Tokens.swift Design/ColourMath.swift \
-///            Design/Accessibility.swift Design/Metrics.swift \
-///            Design/Motion.swift Design/Glass.swift \
-///            Design/DisplayScale.swift Design/TokenCheck*.swift \
+///            Luna/Design/Tokens.swift Luna/Design/ColourMath.swift \
+///            Luna/Design/Accessibility.swift Luna/Design/Metrics.swift \
+///            Luna/Design/Motion.swift Luna/Design/Glass.swift \
+///            Luna/Design/DisplayScale.swift Luna/Design/TokenCheck*.swift \
 ///            -o /tmp/tokencheck
 ///     /tmp/tokencheck
 ///

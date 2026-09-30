@@ -144,7 +144,7 @@ extension Glass {
 // MARK: - Detection
 
 /// §7's storage and its two notification observers. Not part of the published
-/// API — everything outside `Design/` goes through `Glass`.
+/// API — everything outside `Luna/Design/` goes through `Glass`.
 @MainActor
 enum DisplayScale {
 

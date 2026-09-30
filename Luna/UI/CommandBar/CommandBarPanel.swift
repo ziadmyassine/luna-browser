@@ -21,7 +21,7 @@ import AppKit
 
 /// The panel's geometry.
 ///
-/// Every value is derived from an existing `Tokens.Metric`, because `Design/`
+/// Every value is derived from an existing `Tokens.Metric`, because `Luna/Design/`
 /// has no command-bar entry yet and contract rule 2 forbids inlining one. The
 /// one value with no token is called out below.
 enum CommandBarMetrics {

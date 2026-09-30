@@ -5,10 +5,10 @@
 //  The app's half of the token→CSS contract (§4.4, §8.1). `BrowserKit`'s
 //  `InternalPagesTests` checks that the stylesheet reads only variables the
 //  generator promises; this checks that the generator delivers them, and that
-//  the values really come from `Design/Tokens.swift` rather than from a
+//  the values really come from `Luna/Design/Tokens.swift` rather than from a
 //  snapshot somebody pasted in.
 //
-//  The failure this exists to catch is silent: a token changes in `Design/`,
+//  The failure this exists to catch is silent: a token changes in `Luna/Design/`,
 //  the chrome follows it, and Luna's own pages keep the old colour forever
 //  because nothing ever compared them.
 //
@@ -37,7 +37,7 @@ final class InternalPageThemeTests: XCTestCase {
     /// §8.8: every colour resolves for light and dark, and the page picks
     /// with `prefers-color-scheme` — so both blocks have to be there.
     /// §21.2's Increase Contrast is `prefers-contrast`, for the reason
-    /// `Design/Tokens.swift` records: on macOS 26.5 it is not an `NSAppearance`,
+    /// `Luna/Design/Tokens.swift` records: on macOS 26.5 it is not an `NSAppearance`,
     /// so no Swift-side branch can see it.
     func testShipsAllFourVariants() {
         let css = InternalPageTheme.css()
@@ -71,7 +71,7 @@ final class InternalPageThemeTests: XCTestCase {
         }
     }
 
-    /// Lengths come from `Design/Metrics.swift`, not from a second set of
+    /// Lengths come from `Luna/Design/Metrics.swift`, not from a second set of
     /// numbers that happens to agree today (§1).
     func testLengthsTrackTheMetricTokens() {
         let css = InternalPageTheme.css()

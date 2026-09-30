@@ -26,7 +26,7 @@ enum QuitAnswer: Equatable, Sendable {
     case stay
 }
 
-/// The sheet's geometry. Every value is an existing `Tokens.Metric`: `Design/`
+/// The sheet's geometry. Every value is an existing `Tokens.Metric`: `Luna/Design/`
 /// has no quit-sheet entry, and contract rule 2 forbids inlining one — the
 /// same reason `CommandBarMetrics` and `PopoutMetrics` read the way they do.
 enum QuitSheetMetrics {

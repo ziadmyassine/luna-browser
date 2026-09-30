@@ -532,7 +532,7 @@ device-local.
 3. **§5.2 "auto-archive after override"** — listed as part of the Space model; it
    does not exist. Still wanted, now scoped in S5.
 4. **§8.2's twelve gradients** — built, in three bands measured against the
-   §21.4 contrast floor. `Design/SpacePalette.swift`.
+   §21.4 contrast floor. `Luna/Design/SpacePalette.swift`.
 5. **`WKProcessPool`** — must not appear anywhere, per-Space or shared.
    Deprecated since macOS 12.0: *"Creating and using multiple instances of
    WKProcessPool no longer has any effect."* Nook carries comments claiming a

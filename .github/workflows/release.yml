@@ -46,9 +46,9 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" App/Info.plist
-          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $GITHUB_RUN_NUMBER" App/Info.plist
-          /usr/libexec/PlistBuddy -c "Add :LunaReleaseBuild bool true" App/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" Luna/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $GITHUB_RUN_NUMBER" Luna/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :LunaReleaseBuild bool true" Luna/App/Info.plist
 
       - name: Generate the project
         run: make gen

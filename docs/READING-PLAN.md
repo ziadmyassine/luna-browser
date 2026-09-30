@@ -46,14 +46,14 @@ Markdown-only: loading, renderer, Source and Edit views, saving.
 BrowserKit `Engine/Reading/`: `ReadingPreferences`, `ReadingStyle`,
 `ReadingScript`, `TabController+Reading`, `MarkdownHTML`, `MarkdownSource`,
 `SyntaxHighlighter`, `MarkdownDocument`.
-App: `UI/Popout/ReadingMenu.swift`, `Design/Tokens+Reading.swift`, pill, toast,
+App: `Luna/UI/Popout/ReadingMenu.swift`, `Luna/Design/Tokens+Reading.swift`, pill, toast,
 settings defaults, sync, theme.
 
 ## Key mechanics
 
 - Preferences: `reading.typeface|size|width|page|outline|wrap`, `Key` enum like
-  `PopupPolicy.Key`; registered in `Features/Settings/Shell/SettingsDefaults.swift`
-  and `Features/Sync/SyncedDefaults.swift`. View mode belongs to the tab.
+  `PopupPolicy.Key`; registered in `Luna/Features/Settings/Shell/SettingsDefaults.swift`
+  and `Luna/Features/Sync/SyncedDefaults.swift`. View mode belongs to the tab.
 - Loading: local — branch in `decidePolicyFor navigationResponse` before the
   `canShowMIMEType` fallback (`TabController+Delegates.swift` ~131) for main-frame
   file URLs conforming to `net.daringfireball.markdown`. Web — `text/markdown`,
@@ -69,7 +69,7 @@ settings defaults, sync, theme.
   live preview beside it. Preview updates by replacing the preview DOM only —
   never assign `textarea.value` after load, or the undo stack is lost. Undo is
   WebKit's native text undo through the responder chain (`undo:`/`redo:` in
-  `App/BrowserCommand.swift:131-133`).
+  `Luna/App/BrowserCommand.swift:131-133`).
 - Save: `NSFileCoordinator`; restore detected line endings (textarea normalises
   CRLF); compare modification date with the one read at load — if the file
   changed on disk, keep both safe (reload offer via prompt, never overwrite

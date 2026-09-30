@@ -15,7 +15,7 @@ Work style: every step starts with a failing test, then the smallest code that p
   - typed and bookmarked history (§31.5b)
   - open tabs across devices (§31.6)
 - Bookmarks and boosts do not exist yet. Zones are designed so they can join later; do not build them.
-- **Per-site zoom is not persisted today** (`UI/Browser/BrowserSession+Commands.swift`, the `pageZoom` comment). It gets a reserved schema field and no code.
+- **Per-site zoom is not persisted today** (`Luna/UI/Browser/BrowserSession+Commands.swift`, the `pageZoom` comment). It gets a reserved schema field and no code.
 - Cookies, logins and website storage never sync. URLs, titles and other user content go in `encryptedValues`.
 - Local-first. Luna works fully with iCloud off or unavailable, and a failure shows as a quiet status line, never a modal.
 - `BrowserKit/` imports no AppKit (`Tools/check-no-appkit.sh`). CloudKit and CryptoKit are allowed there.
@@ -24,11 +24,11 @@ Work style: every step starts with a failing test, then the smallest code that p
 
 ## Facts from the code that shape the design
 
-1. **The session writes its in-memory copy back to disk.** `BrowserSession.write(tab)` (`UI/Browser/BrowserSession+Tabs.swift`) saves the whole row through the `enqueue` write chain. An incoming change applied only to the database would be overwritten by the next local write. Incoming changes must therefore go through that chain (step S10).
+1. **The session writes its in-memory copy back to disk.** `BrowserSession.write(tab)` (`Luna/UI/Browser/BrowserSession+Tabs.swift`) saves the whole row through the `enqueue` write chain. An incoming change applied only to the database would be overwritten by the next local write. Incoming changes must therefore go through that chain (step S10).
 2. **Some `siteSettings` columns are created on first use** by `ensurePermissionColumns` (`BrowserStore+SitePermissions.swift`) and `ensureBlockingColumns` (`Blocking/BrowserStore+Blocking.swift`). A trigger cannot name a column that may not exist, so v12 creates them up front.
 3. **`places.id` and `visits.id` are local AUTOINCREMENT integers.** They are never reused on one Mac, but they differ between Macs.
 4. **Tab rows are written on every activation and navigation** (`lastActiveAt`, `interactionState`). Change tracking must ignore the columns that only matter on this Mac.
-5. **Settings live in `UserDefaults`,** spread across the app. The default table is in `Features/Settings/Shell/SettingsDefaults.swift`; other keys are in `SettingsStore.swift`, `General.swift`, `Appearance.swift`, `Downloads.swift`, `PasswordSettings.swift`, `PopupPolicy.swift`, `ContentBlocker.swift` and `WebViewFactory.swift`. Remaps are `luna.shortcut.<commandID>` strings (`App/KeyBindings.swift`).
+5. **Settings live in `UserDefaults`,** spread across the app. The default table is in `Luna/Features/Settings/Shell/SettingsDefaults.swift`; other keys are in `SettingsStore.swift`, `General.swift`, `Appearance.swift`, `Downloads.swift`, `PasswordSettings.swift`, `PopupPolicy.swift`, `ContentBlocker.swift` and `WebViewFactory.swift`. Remaps are `luna.shortcut.<commandID>` strings (`Luna/App/KeyBindings.swift`).
 6. **The Keychain does not depend on the bundle ID.** `CredentialStore` marks Luna's items with `kSecAttrCreator` `'Luna'`, a constant (`BrowserKit/Sources/BrowserKit/Passwords/CredentialStore.swift`). The item ACLs follow the code signature, so the first Developer ID launch may ask for Keychain access to items written by the ad-hoc build. That is expected; check it by hand in S0.
 
 ---
@@ -59,9 +59,9 @@ Work style: every step starts with a failing test, then the smallest code that p
 | `Sync/DefaultsSync.swift` | Diffs `UserDefaults` against the `syncedDefaults` table. |
 | `Store/Schema+Sync.swift` | The v12 migration and triggers. |
 | `Store/BrowserStore+Sync.swift` | Reads the outbox, seeds zones, applies incoming changes, stores system fields. |
-| `Features/Sync/SyncedDefaults.swift` (app) | The allowlist, and applying incoming settings with the right notifications. |
-| `App/AppDelegate+Sync.swift` (app) | The entitlement gate, starting the engine, fetching on activate. |
-| `UI/Browser/BrowserSession+Sync.swift` (app) | Applies incoming changes to the in-memory session. |
+| `Luna/Features/Sync/SyncedDefaults.swift` (app) | The allowlist, and applying incoming settings with the right notifications. |
+| `Luna/App/AppDelegate+Sync.swift` (app) | The entitlement gate, starting the engine, fetching on activate. |
+| `Luna/UI/Browser/BrowserSession+Sync.swift` (app) | Applies incoming changes to the in-memory session. |
 
 **The seam (tests run without iCloud, and CI has no signing)**
 - The adapter translates each `CKSyncEngine.Event` into a coordinator call that takes plain values:
@@ -160,7 +160,7 @@ Favorites and pinned tabs are `tabs.kind` values in one table with foreign keys.
 
 ---
 
-## 2. Schema: commit `CloudKit/Schema.ckdb`
+## 2. Schema: commit `Config/CloudKit/Schema.ckdb`
 
 **Encryption rule:** user content goes in `encryptedValues`. Only structure is plain: `schemaVersion`, `modifiedAt`, id strings, `kind`, `position`, `createdAt`, `archivedAt`.
 - References are plain STRING ids, never `CKRecord.Reference`, which brings cascade and sharing behaviour Luna does not want.
@@ -278,8 +278,8 @@ DEFINE SCHEMA
 ```
 xcrun cktool save-token --type management    # token: CloudKit Console › Settings › Tokens
 xcrun cktool export-schema   --team-id FUUYR6KRSH --container-id iCloud.dev.novapps.luna --environment development --output-file /tmp/current.ckdb
-xcrun cktool validate-schema --team-id FUUYR6KRSH --container-id iCloud.dev.novapps.luna --environment development --file CloudKit/Schema.ckdb
-xcrun cktool import-schema   --team-id FUUYR6KRSH --container-id iCloud.dev.novapps.luna --environment development --file CloudKit/Schema.ckdb
+xcrun cktool validate-schema --team-id FUUYR6KRSH --container-id iCloud.dev.novapps.luna --environment development --file Config/CloudKit/Schema.ckdb
+xcrun cktool import-schema   --team-id FUUYR6KRSH --container-id iCloud.dev.novapps.luna --environment development --file Config/CloudKit/Schema.ckdb
 ```
 - Check the flags with `xcrun cktool help import-schema`.
 - Keep the exported `Users` type in the committed file: merge `/tmp/current.ckdb`'s `Users` block into `Schema.ckdb`.
@@ -366,7 +366,7 @@ Push: `CKSyncEngine` needs the push entitlement (H2) to hear other Macs' changes
 - It is not in `Tests/Design/ButtonFeedbackTests.swift`; that file's header says why.
 - Accessibility: role radio button, value on while its page is showing; label "iCloud, <name>, <status>".
 
-**The account page** (`Features/Settings/Sections/Account.swift`), opened by the row. Rows in order:
+**The account page** (`Luna/Features/Settings/Sections/Account.swift`), opened by the row. Rows in order:
 1. **Sync with iCloud**: a `SystemSwitch`, off by default.
 2. The status line, in secondary text.
 3. Five zone switches (`SystemSwitch`): Spaces, tabs and Favorites · Site settings · Settings and shortcuts · Typed history · Tabs on other Macs. They are disabled while the master switch is off, and Typed history is also disabled while Spaces is off.
@@ -381,7 +381,7 @@ Push: `CKSyncEngine` needs the push entitlement (H2) to hear other Macs' changes
 - the account page in §3
 - the "Sync — not even a disabled row" line removed from §9.
 
-**Settings that sync** (allowlist in `Features/Sync/SyncedDefaults.swift`):
+**Settings that sync** (allowlist in `Luna/Features/Sync/SyncedDefaults.swift`):
 - appearance: `appearance.theme`, `luna.chromeLayout`, `luna.tabsPosition`, `luna.searchBarPlacement`, `luna.macWindowCorners`
 - search: `search.engine`, `search.customEngineURL`, `search.suggestions`, `search.settingsResults`, `search.shortcutResults`
 - general: `luna.autoArchiveHours`, the confirm-quit key (`General.swift`), `downloads.autoOpen`
@@ -400,7 +400,7 @@ Push: `CKSyncEngine` needs the push entitlement (H2) to hear other Macs' changes
 
 **Outgoing settings:** on `UserDefaults.didChangeNotification`, debounced by 1 s, diff the allowlist against `syncedDefaults`.
 
-**Tabs on other Macs (§31.6, §30.21):** a "Tabs on Other Macs" submenu in the History menu (`App/MainMenu.swift` `historyMenu()`).
+**Tabs on other Macs (§31.6, §30.21):** a "Tabs on Other Macs" submenu in the History menu (`Luna/App/MainMenu.swift` `historyMenu()`).
 - One section per Mac, named with its device name.
 - Macs whose `updatedAt` is more than 30 days old are hidden, and so is this Mac.
 - This Mac publishes its own tabs on app activation and when its set of tabs changes, at most once a minute.
@@ -418,26 +418,26 @@ Each step begins by writing the failing test(s) named, then the code.
 | S1 | Value boundary and CloudKit canary | `CloudKitBoundaryTests`: `encryptedValues` round-trips on a `CKRecord` created with no container; `encodeSystemFields` round-trips and keeps `recordChangeTag`; a record rebuilt from system fields with only known keys set reports only those in `changedKeys()`; `CKError(.serverRecordChanged)` with a server record is readable; `SyncRecord` ↔ `CKRecord` keeps every field and its encryption | `Sync/SyncRecord.swift`, conversion half of `Sync/SyncCloudKit.swift` | none |
 | S2 | Schema v12 | `StoreMigrationTests`: v12 creates the six `siteSettings` flag columns up front; creates every sync table and `visits.syncOrigin`; a v11 fixture migrates; migrating twice is harmless | `Store/Schema+Sync.swift`, `Store/Schema.swift` (register `v12`); delete `ensurePermissionColumns` and `ensureBlockingColumns` and their calls | none |
 | S3 | Triggers and outbox | `SyncOutboxTests`: renaming a Space with the zone on gives one row; a change to only `lastActiveAt` or `interactionState` gives none; `applyingRemote = 1` gives none; the zone off gives none; deleting a Space adds deletes for its tabs; a typed visit gives a History row and a link visit none; turning a zone on seeds every row (History: last 90 days only) | `Schema+Sync.swift`, `Store/BrowserStore+Sync.swift` | none |
-| S4 | Record mapping and the committed schema file | `SyncMappingTests`: round-trip for each type; `url`/`title`/`host`/`name`/`value`/`tabs`/`visits` only in encrypted fields; a newer `schemaVersion` is kept; an unknown field is never set. `SyncSchemaFileTests`: parse `CloudKit/Schema.ckdb` (located via `#filePath`) and assert every field each mapper writes is declared, with matching `ENCRYPTED` | `Sync/SyncMapping.swift`, `CloudKit/Schema.ckdb` | **H1a** |
+| S4 | Record mapping and the committed schema file | `SyncMappingTests`: round-trip for each type; `url`/`title`/`host`/`name`/`value`/`tabs`/`visits` only in encrypted fields; a newer `schemaVersion` is kept; an unknown field is never set. `SyncSchemaFileTests`: parse `Config/CloudKit/Schema.ckdb` (located via `#filePath`) and assert every field each mapper writes is declared, with matching `ENCRYPTED` | `Sync/SyncMapping.swift`, `Config/CloudKit/Schema.ckdb` | **H1a** |
 | S5 | Secret and site record names | `SyncSecretTests`: the same secret and host give the same name; a different secret gives a different name; the name never contains the host; nothing keyed is sent before the secret is settled; a race resolves to the server's secret | `Sync/SyncSecret.swift` | none |
 | S6 | Applying incoming changes | `SyncApplyTests`: Spaces, then groups, then tabs in one batch; a missing parent is parked and applied when it arrives; deletions applied; a newer pending local edit is skipped; history replaces visits by `syncOrigin`; a visit for an unknown Space is dropped; an incoming Space gets a fresh non-zero `dataStoreIdentifier`; nothing reaches the outbox | `BrowserStore+Sync.swift` | none |
 | S7 | Merge rules | `SyncMergeTests`: one test per row of §3, including the archive-against-activity rule, the site-settings field merge, the turn-on reconciliation and dropping the seed Space | `Sync/SyncMerge.swift` | none |
 | S8 | Coordinator, seam and fake | `SyncCoordinatorTests` with `FakeSyncEngine`: outbox becomes pending changes; the batch is built from current rows (a row that is gone is removed from pending); a successful save clears the outbox row only if `changedAt` has not moved; `serverRecordChanged` merges and re-queues; `unknownItem` deletes locally; `zoneNotFound` saves the zone again; `quotaExceeded`, offline and no-account set the status; state is saved on `stateUpdated` and handed back on start; sign-out wipes; switching account wipes and turns the master off; zones deleted elsewhere turn sync off; Remove All deletes the zones and wipes | `Sync/SyncCoordinator.swift`, `Sync/SyncEngineControl.swift`, `Sync/SyncStatus.swift`, `BrowserKit/Tests/BrowserKitTests/FakeSyncEngine.swift` | none |
-| S9 | Settings and shortcuts | `SyncedDefaultsTests` (app tests, `Tests/Settings/`): an allowlisted change reaches the outbox; a key outside the allowlist does not; `advanced.allowControl` and require-Touch-ID never sync; an incoming value is written and posts both notifications; an incoming value is not echoed back; a removed key deletes its record | `Sync/DefaultsSync.swift`, `Features/Sync/SyncedDefaults.swift` | none |
-| S10 | The session applies incoming changes | `SessionRemoteChangeTests` (`Tests/Browser/`): a remote rename, reorder or new tab updates `TabList`; the store write runs on `enqueue` after an already-queued stale write; a live tab keeps its URL; a remote Space delete goes through the session's teardown and jar-removal path with no undo; a 13th Favorite is demoted and not sent back; a remote archive loses to later local activity | `UI/Browser/BrowserSession+Sync.swift` | none |
-| S11 | Live engine, wiring, gate and probe self-test | `SyncGateTests` (app tests): the unsigned test host reports "iCloud sync needs the signed build" and never constructs `CKContainer`; sync off means no engine; activation calls `fetchChanges` only when sync is on | adapter half of `Sync/SyncCloudKit.swift`; `App/AppDelegate+Sync.swift`; `App/CloudKitProbe.swift` extended to save, fetch and delete one record of each type in a throwaway zone (keep the probe; it is the Production schema check) | **H1b, H2**, then `make signed` and `Luna --cloudkit-probe` must print ok for all eight types |
-| S12 | Tabs on other Macs | `DevicePresenceTests`: capped at 50; private, `about:blank` and `luna://` tabs skipped; at most one publish a minute; this Mac excluded; Macs older than 30 days hidden; the History menu's "Tabs on Other Macs" lists the others and opens a tab on click | presence code in `Sync/SyncCoordinator.swift`; `App/MainMenu.swift` | none |
-| S13 | Account row and page | `SettingsAccountRowTests`: the row sits under the search field and above General; it is not in `SettingsSectionRegistry.all` (⌘ numbering unchanged); shows `NSFullUserName()`; falls back to initials without a picture; the subtitle says iCloud and the tooltip follows each `SyncStatus`; it is dressed as a list row (no plate, no border, the list's pills, no swell); clicking opens the account page and fades the list pill. `AccountSectionTests`: master off by default; zone switches disabled while off; History disabled without Spaces; the cookie line is present; Remove goes through `SettingsHost.confirm`; the master switch is disabled when the gate says unavailable | `Features/Settings/Shell/SettingsAccountRow.swift`, `Features/Settings/Sections/Account.swift`, `Features/Settings/Shell/SettingsWindowController.swift` / `SettingsSectionList.swift` (placement), `Tests/Design/ButtonFeedbackTests.swift` | none |
+| S9 | Settings and shortcuts | `SyncedDefaultsTests` (app tests, `Tests/Settings/`): an allowlisted change reaches the outbox; a key outside the allowlist does not; `advanced.allowControl` and require-Touch-ID never sync; an incoming value is written and posts both notifications; an incoming value is not echoed back; a removed key deletes its record | `Sync/DefaultsSync.swift`, `Luna/Features/Sync/SyncedDefaults.swift` | none |
+| S10 | The session applies incoming changes | `SessionRemoteChangeTests` (`Tests/Browser/`): a remote rename, reorder or new tab updates `TabList`; the store write runs on `enqueue` after an already-queued stale write; a live tab keeps its URL; a remote Space delete goes through the session's teardown and jar-removal path with no undo; a 13th Favorite is demoted and not sent back; a remote archive loses to later local activity | `Luna/UI/Browser/BrowserSession+Sync.swift` | none |
+| S11 | Live engine, wiring, gate and probe self-test | `SyncGateTests` (app tests): the unsigned test host reports "iCloud sync needs the signed build" and never constructs `CKContainer`; sync off means no engine; activation calls `fetchChanges` only when sync is on | adapter half of `Sync/SyncCloudKit.swift`; `Luna/App/AppDelegate+Sync.swift`; `Luna/App/CloudKitProbe.swift` extended to save, fetch and delete one record of each type in a throwaway zone (keep the probe; it is the Production schema check) | **H1b, H2**, then `make signed` and `Luna --cloudkit-probe` must print ok for all eight types |
+| S12 | Tabs on other Macs | `DevicePresenceTests`: capped at 50; private, `about:blank` and `luna://` tabs skipped; at most one publish a minute; this Mac excluded; Macs older than 30 days hidden; the History menu's "Tabs on Other Macs" lists the others and opens a tab on click | presence code in `Sync/SyncCoordinator.swift`; `Luna/App/MainMenu.swift` | none |
+| S13 | Account row and page | `SettingsAccountRowTests`: the row sits under the search field and above General; it is not in `SettingsSectionRegistry.all` (⌘ numbering unchanged); shows `NSFullUserName()`; falls back to initials without a picture; the subtitle says iCloud and the tooltip follows each `SyncStatus`; it is dressed as a list row (no plate, no border, the list's pills, no swell); clicking opens the account page and fades the list pill. `AccountSectionTests`: master off by default; zone switches disabled while off; History disabled without Spaces; the cookie line is present; Remove goes through `SettingsHost.confirm`; the master switch is disabled when the gate says unavailable | `Luna/Features/Settings/Shell/SettingsAccountRow.swift`, `Luna/Features/Settings/Sections/Account.swift`, `Luna/Features/Settings/Shell/SettingsWindowController.swift` / `SettingsSectionList.swift` (placement), `Tests/Design/ButtonFeedbackTests.swift` | none |
 | S14 | Docs and the two-Mac run | None: this step is documentation | Write the what-syncs table, the §31.9 rule, the schema, the Privacy Policy text for §31.11 and the §31.12 checklist into `docs/SYNC.md`; update `docs/SETTINGS-SPEC.md`; apply the TODO corrections below | **H3.** Ask the user first: a test Apple ID or theirs? |
 
 **By hand**
-- **H1a:** get a management token for `cktool`, export the current Development schema, merge in `Users`, then validate and import `CloudKit/Schema.ckdb` into Development (commands in §2).
+- **H1a:** get a management token for `cktool`, export the current Development schema, merge in `Users`, then validate and import `Config/CloudKit/Schema.ckdb` into Development (commands in §2).
 - **H1b:** CloudKit Console › Schema › Deploy Schema Changes to Production. Do this only after S8 is green, because it cannot be undone.
 - **H2:** in the developer portal:
   1. Turn on Push Notifications for App ID `dev.novapps.luna`.
-  2. Regenerate the Developer ID profile into `Signing/Luna_Developer_ID.provisionprofile`.
+  2. Regenerate the Developer ID profile into `Config/Signing/Luna_Developer_ID.provisionprofile`.
   3. Check that its certificate matches the signing identity (the `security cms` / `shasum` check in `docs/SYNC.md`).
-  4. Add `com.apple.developer.aps-environment = production` to `Signing/Luna.entitlements`.
+  4. Add `com.apple.developer.aps-environment = production` to `Config/Signing/Luna.entitlements`.
 - **H3:** a second Mac on the same Apple ID, running the signed build. It is not notarised yet (§24.4), so open it past Gatekeeper. Run the §31.12 checklist:
   - create, rename, reorder and delete Spaces, tabs, groups and Favorites on both Macs
   - edit offline on both, then reconnect
@@ -460,7 +460,7 @@ These can run as separate agents at the same time, because they touch different 
 | Wave | Steps in parallel | Why they don't collide |
 |---|---|---|
 | 1 | S1 (`Sync/SyncRecord.swift`, `Sync/SyncCloudKit.swift`) · S2 then S3 (one agent: `Store/Schema+Sync.swift`, `Store/Schema.swift`, `Store/BrowserStore+Sync.swift`, the two `ensure*` files) · S5 (`Sync/SyncSecret.swift`) | Separate files. S2 and S3 share `Schema+Sync.swift`, so they are one agent in sequence. |
-| 2 | S4 (`Sync/SyncMapping.swift`, `CloudKit/Schema.ckdb`) · S7 (`Sync/SyncMerge.swift`) | Both need only S1's `SyncRecord`. H1a can start as soon as S4 is merged. |
+| 2 | S4 (`Sync/SyncMapping.swift`, `Config/CloudKit/Schema.ckdb`) · S7 (`Sync/SyncMerge.swift`) | Both need only S1's `SyncRecord`. H1a can start as soon as S4 is merged. |
 | 3 | S6 (`BrowserStore+Sync.swift`, needs S3 and S4) · S13's UI shell (`SettingsAccountRow.swift`, `Account.swift`, against a stub `SyncStatus`) | S13's wiring to the real coordinator waits for S8. |
 | 4 | S8 (needs S3–S7) | One agent; it touches the coordinator only. |
 | 5 | S9 (settings files) · S10 (`BrowserSession+Sync.swift`) · S12 (presence and `MainMenu.swift`) | Separate files. Each adds only its own closure hook to the coordinator; merge those one at a time. |

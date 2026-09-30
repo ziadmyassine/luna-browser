@@ -123,7 +123,7 @@ enum Measure {
     /// Milliseconds from now until Luna writes its launch tape to `path`, or nil
     /// on timeout.
     ///
-    /// This is "to interactive", and it is the app's own answer. `App/LaunchTrace`
+    /// This is "to interactive", and it is the app's own answer. `Luna/App/LaunchTrace`
     /// writes the file once the window has the restored session in it; the elapsed
     /// times inside it are measured from `exec`, so they include dyld and the Swift
     /// runtime, which a stopwatch started in `main()` cannot see. The file is written

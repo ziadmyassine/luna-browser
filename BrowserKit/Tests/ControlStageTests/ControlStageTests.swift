@@ -1,5 +1,5 @@
 // The app's `ControlStage` under `swift test`: `ControlStage.swift` here is a
-// link to `Features/Control/ControlStage.swift`, so these run the production
+// link to `Luna/Features/Control/ControlStage.swift`, so these run the production
 // stage, not a copy. Kept out of BrowserKit's sources, which take no AppKit.
 //
 // Trusted input from an off-screen window that never becomes key, against a

@@ -170,7 +170,7 @@ struct InternalPagesTests {
         #expect(declared.subtracting(used).isEmpty, "declared but never read: \(declared.subtracting(used))")
     }
 
-    /// §8.1: no colour or absolute length value outside `Design/`. A second
+    /// §8.1: no colour or absolute length value outside `Luna/Design/`. A second
     /// palette in the page templates is worse than no palette — it looks right
     /// on the day it is written and drifts silently ever after.
     @Test func stylesheetCarriesNoLiterals() {

@@ -1,9 +1,6 @@
 # Community defaults. Opt-in rules stay off until one earns its place.
 included:
-  - App
-  - UI
-  - Design
-  - Features
+  - Luna
   - BrowserKit/Sources
   - BrowserKit/Tests
   - Tests
@@ -16,7 +13,7 @@ excluded:
   - inspiration
 
 disabled_rules:
-  - todo # TODO.md is the plan; in-code TODOs are fine while milestones land.
+  - todo # The plan is the GitHub issues; in-code TODOs are fine while milestones land.
 
 line_length:
   warning: 140
