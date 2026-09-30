@@ -78,6 +78,29 @@ struct ExtensionHostTests {
         manager.tearDown()
     }
 
+    /// A tab's web view goes to WebKit only when it was built with this Space's
+    /// controller. WebKit reads the controller back off the view without
+    /// checking it, and a view made without one crashed the app inside
+    /// `tabs.query` after a permission prompt.
+    @Test func aTabsWebViewIsHandedOverOnlyWithItsSpacesController() async throws {
+        let space = UUID()
+        let dataStore = WKWebsiteDataStore(forIdentifier: UUID())
+        defer { Self.remove(dataStore) }
+        let host = ExtensionHost(spaceID: space, dataStore: dataStore)
+        let wired = TabController(id: UUID(), dataStore: .nonPersistent(), webExtensionController: host.controller)
+        let bare = TabController(id: UUID(), dataStore: .nonPersistent())
+        wired.activate()
+        bare.activate()
+        let browser = LiveTabsBrowser(space: space, controllers: [wired, bare])
+        host.browser = browser
+        let context = WKWebExtensionContext(for: try await WKWebExtension(resourceBaseURL: Self.fixture))
+        try host.controller.load(context)
+        defer { try? host.controller.unload(context) }
+
+        #expect(ExtensionTab(id: wired.id, host: host).webView(for: context) === wired.webView)
+        #expect(ExtensionTab(id: bare.id, host: host).webView(for: context) == nil, "a view with no controller reached WebKit")
+    }
+
     /// A new install runs in the Space it was installed from and nowhere else
     /// until the user says so (docs/EXTENSIONS.md §3.1).
     @Test func enablesANewInstallInItsOwnSpaceOnly() async throws {
@@ -155,5 +178,34 @@ private final class FakeBrowser: ExtensionBrowser {
         tabs.append(tab)
         if let url { opened.append(url) }
         return tab.id
+    }
+}
+
+/// One window whose tabs are live controllers the test built.
+@MainActor
+private final class LiveTabsBrowser: ExtensionBrowser {
+    let space: UUID
+    let window = UUID()
+    let controllers: [TabController]
+    let tabs: [Tab]
+
+    init(space: UUID, controllers: [TabController]) {
+        self.space = space
+        self.controllers = controllers
+        tabs = controllers.map { Tab(id: $0.id, spaceID: space, url: URL(string: "about:blank")!) }
+    }
+
+    func extensionWindows(inSpace space: UUID) -> (ids: [UUID], focused: UUID?) {
+        space == self.space ? ([window], window) : ([], nil)
+    }
+
+    func extensionTabs(inSpace space: UUID) -> [Tab] { space == self.space ? tabs : [] }
+    func activeTabID(inWindow window: UUID) -> UUID? { tabs.first?.id }
+    func controller(for id: UUID) -> TabController? { controllers.first { $0.id == id } }
+    func activateTab(_ id: UUID) {}
+    func closeTab(_ id: UUID) {}
+    func loadURL(_ url: URL, inTab id: UUID) {}
+    func openExtensionTab(url: URL?, inSpace space: UUID, configuration: WKWebViewConfiguration?, activate: Bool) -> UUID? {
+        nil
     }
 }

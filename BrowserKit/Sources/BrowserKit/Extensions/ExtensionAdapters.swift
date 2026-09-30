@@ -37,7 +37,15 @@ final class ExtensionTab: NSObject, WKWebExtensionTab {
         tab?.parentTabID.flatMap { host?.tabAdapter($0) }
     }
 
-    func webView(for context: WKWebExtensionContext) -> WKWebView? { live?.webView }
+    /// Only a web view built with this context's controller. WebKit reads the
+    /// controller back off the view's configuration without checking it, and a
+    /// view made without one — before extensions were on for its Space — took
+    /// the app down inside `tabs.query` after a permission prompt.
+    func webView(for context: WKWebExtensionContext) -> WKWebView? {
+        guard let view = live?.webView, let controller = context.webExtensionController,
+              view.configuration.webExtensionController === controller else { return nil }
+        return view
+    }
 
     func title(for context: WKWebExtensionContext) -> String? {
         live.map(\.state.title).flatMap { $0.isEmpty ? nil : $0 } ?? tab?.title
