@@ -134,6 +134,10 @@ final class MarkdownEditorTests: XCTestCase {
     func testCommandSIsLeftToTheSidebarOutsideEdit() async throws {
         try await openInEdit("# Hello")
         controller.setReadingView(.read)
+        // A focused WKWebView claims every key equivalent to offer it to the
+        // page, and hands back what the page leaves; that is WebKit's answer,
+        // not the override's, so the view is unfocused to ask only Luna's.
+        window.makeFirstResponder(nil)
         XCTAssertFalse(try view().performKeyEquivalent(with: commandS()))
     }
 
