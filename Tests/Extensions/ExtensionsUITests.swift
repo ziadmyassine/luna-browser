@@ -368,6 +368,12 @@ extension ExtensionsUITests {
             view.subviews.flatMap { ($0 as? NSTextField).map { [$0.stringValue] } ?? [] + labels($0) }
         }
         XCTAssertFalse(labels(card).contains(details.summary), "the description is Details' to show")
+        XCTAssertTrue(card.access.isHidden, "the card still says what the extension can reach")
+        let blocked = ExtensionCardView(ExtensionCardView.Model(
+            info: info, isPinned: false, isOnHere: true, hereName: "Home", setOnHere: { _ in },
+            blocker: "Needs Apple's approval for Luna", showDetails: { _ in }, remove: {}, setPinned: { _ in }
+        ))
+        XCTAssertFalse(blocked.access.isHidden, "an extension that cannot work lost its warning")
         XCTAssertEqual(card.remove.accessibilityLabel(), "Remove “Luna Fixture”")
         XCTAssertTrue(card.remove.accessibilityPerformPress())
         XCTAssertTrue(removed)

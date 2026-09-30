@@ -8,11 +8,12 @@
 //
 //  Headed by the extension's own face, as §3.7's Space card is headed by the
 //  Space's gradient: a list of extensions is found by looking at it. Under the
-//  head, what it can reach, and one line of controls — Details, which opens
-//  the rest (`ExtensionDetailsView`, where its description is), its pin, and
+//  head, one line of controls — Details, which opens the rest
+//  (`ExtensionDetailsView`, where its description and reach are), its pin, and
 //  Remove. The switches and rows a card used to carry made each extension a
-//  page tall, and its description, two lines on every card, made the grid a
-//  wall of text.
+//  page tall, and its description and reach, a line or two on every card, made
+//  the grid a wall of text. Only an extension that cannot work in Luna keeps a
+//  line between, in red, because that is news before Details is opened.
 //
 
 import AppKit
@@ -41,8 +42,12 @@ final class ExtensionCardView: NSView {
     private let icon = NSImageView()
     private let name = NSTextField(labelWithString: "")
     private let detail = NSTextField(labelWithString: "")
-    private let access = NSTextField(labelWithString: "")
+    /// Only for an extension that cannot work in Luna: the reason, in red.
+    let access = NSTextField(labelWithString: "")
     private let accessGlyph = NSImageView()
+    /// The foot's top: under the warning when there is one, else under the head.
+    private var controlsUnderWarning: NSLayoutConstraint?
+    private var controlsUnderHead: NSLayoutConstraint?
     /// On or off in the Space the front window shows — the pop-out's switch.
     /// Every other Space is in the Spaces menu on the card's foot.
     let toggle: SystemSwitch
@@ -98,18 +103,18 @@ final class ExtensionCardView: NSView {
         detail.font = Tokens.TypeScale.settingsCaption
         detail.textColor = Tokens.Text.secondary
         detail.lineBreakMode = .byTruncatingTail
-        accessGlyph.image = NSImage(systemSymbolName: "globe", accessibilityDescription: nil)
+        accessGlyph.image = NSImage(systemSymbolName: "exclamationmark.triangle", accessibilityDescription: nil)
         accessGlyph.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: Tokens.Metric.pillGlyphSize - 2, weight: .regular)
-        accessGlyph.contentTintColor = Tokens.Text.tertiary
-        access.stringValue = model.blocker ?? Self.access(model.info)
+        accessGlyph.contentTintColor = Tokens.Accent.danger
+        access.stringValue = model.blocker ?? ""
         access.font = Tokens.TypeScale.settingsCaption
-        access.textColor = model.blocker == nil ? Tokens.Text.tertiary : Tokens.Accent.danger
+        access.textColor = Tokens.Accent.danger
         access.maximumNumberOfLines = 1
         access.lineBreakMode = .byTruncatingTail
-        if model.blocker != nil {
-            accessGlyph.image = NSImage(systemSymbolName: "exclamationmark.triangle", accessibilityDescription: nil)
-            accessGlyph.contentTintColor = Tokens.Accent.danger
-        }
+        let warns = model.blocker != nil
+        for view in [accessGlyph, access] { view.isHidden = !warns }
+        controlsUnderWarning?.isActive = warns
+        controlsUnderHead?.isActive = !warns
         wire(model)
         setAccessibilityElement(true)
         setAccessibilityRole(.group)
@@ -175,7 +180,6 @@ final class ExtensionCardView: NSView {
             // The controls stand on the card's foot, so two cards side by side
             // line theirs up whatever their descriptions run to.
             detailsButton.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: inset - SettingsMetrics.controlInset / 2),
-            detailsButton.topAnchor.constraint(equalTo: access.bottomAnchor, constant: gap),
             detailsButton.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -(inset - SettingsMetrics.controlInset / 2)),
             detailsButton.trailingAnchor.constraint(lessThanOrEqualTo: pin.leadingAnchor, constant: -lineGap),
             remove.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -(inset - SettingsMetrics.controlInset / 2)),
@@ -183,6 +187,11 @@ final class ExtensionCardView: NSView {
             pin.trailingAnchor.constraint(equalTo: remove.leadingAnchor, constant: -lineGap),
             pin.centerYAnchor.constraint(equalTo: detailsButton.centerYAnchor)
         ])
+        controlsUnderWarning = detailsButton.topAnchor.constraint(equalTo: access.bottomAnchor, constant: gap)
+        controlsUnderHead = detailsButton.topAnchor.constraint(equalTo: icon.bottomAnchor, constant: gap + lineGap)
+        // `dress` ran before these existed, and hid the warning if there is none.
+        controlsUnderWarning?.isActive = !access.isHidden
+        controlsUnderHead?.isActive = access.isHidden
     }
 
     /// "1.4 · Chrome Web Store". The number alone: with the word "Version"

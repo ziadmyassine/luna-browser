@@ -524,10 +524,10 @@ rows, a page tall per extension. A card is:
   switch at the head for the Space the front window shows; the icon dims when it
   is off there. The description is Details' to show: two lines of it on every
   card made the grid a wall of text *(2026-09-30)*;
-- what it can reach, one line with a globe: *Every website*, *example.com*, *3 websites* —
-  or, for an extension known not to work in Luna, why in a few words in red
-  (`ExtensionCompatibility` — Apple's iCloud Passwords: *Needs Apple's approval
-  for Luna*);
+- no line of what it can reach: that is Details' to say, and *Every website* on every
+  card was noise *(2026-09-30)*. Only an extension known not to work in Luna has a line
+  there, why in a few words in red (`ExtensionCompatibility` — Apple's iCloud Passwords:
+  *Needs Apple's approval for Luna*);
 - one line of controls on the card's foot, so two cards side by side line them
   up: **Details**, the **pin**, held lit while pinned, and **Remove** (a trash
   glyph), which asks first. It replaced a **⋯** menu *(2026-09-30)*: everything
@@ -555,7 +555,7 @@ With none installed, one card says so under the add card.
 |---|---|---|
 | User-agent | Popup: Default · Safari · Chrome · Custom | `WebViewFactory` UA string |
 | Show Develop menu | Toggle, on by default | `DevelopMenu.isShown`, which rebuilds `MainMenu` |
-| Enable Web Inspector | Toggle | `WKWebView.isInspectable`, and `WebInspector` (Inspect Element, the Develop menu's inspector items; TODO.md D10's exception) |
+| Enable Web Inspector | Toggle | `WKWebView.isInspectable`, and `WebInspector` (Inspect Element, the Develop menu's inspector items; D10's exception, docs/DECISIONS.md) |
 | Restore all settings to defaults | Button, confirms, requires the word to be typed | every key below |
 | Reveal the database in Finder | Button | `NSWorkspace.activateFileViewerSelecting` |
 
@@ -606,8 +606,8 @@ made on a developer's Mac has no stamp: it says a newer one is out and offers **
 the release page. Without that, a development build would replace itself with the last release the
 first time it launched.
 
-**Not checked yet: who signed it.** Luna signs ad hoc until a Developer ID certificate exists (TODO.md
-§24.4), so there is no team to hold a new build to. Once there is, `UpdateSwap.verify` adds a
+**Not checked yet: who signed it.** Luna signs ad hoc until a Developer ID certificate exists
+(§24.4), so there is no team to hold a new build to. Once there is, `UpdateSwap.verify` adds a
 code-signing requirement naming the team. Until then, a release downloaded in a browser asks before it
 opens the first time; the updater's own downloads are not quarantined.
 
