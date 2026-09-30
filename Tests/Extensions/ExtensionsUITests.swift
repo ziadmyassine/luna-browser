@@ -8,6 +8,7 @@
 
 import AppKit
 @testable import BrowserKit
+import WebKit
 import XCTest
 @testable import Luna
 
@@ -335,4 +336,40 @@ private enum FixtureExtensionFiles {
       });
     });
     """
+}
+
+/// Removing: the one menu every surface's extension button opens, and the
+/// Settings card's Remove.
+extension ExtensionsUITests {
+
+    /// A right-click on an extension, on any bar or in the pop-out, offers its
+    /// pin and Remove; one off in this Space has no button to pin.
+    func testTheExtensionMenuOffersPinAndRemove() {
+        let titles = { (menu: NSMenu) in menu.items.filter { !$0.isSeparatorItem }.map(\.title) }
+        XCTAssertEqual(titles(ExtensionMenu.make(for: item("abc"))), ["Pin to the Bar", "Remove “ABC”…"])
+        XCTAssertEqual(titles(ExtensionMenu.make(for: item("abc", pinned: true))), ["Unpin from the Bar", "Remove “ABC”…"])
+        var off = item("abc")
+        off.isOn = false
+        XCTAssertEqual(titles(ExtensionMenu.make(for: off)), ["Remove “ABC”…"])
+    }
+
+    /// The card in Settings has Remove where its menu was, and leaves the
+    /// description to Details.
+    func testTheSettingsCardHasRemoveAndNoDescription() async throws {
+        let folder = try fixture()
+        let details = ExtensionDetails(try await WKWebExtension(resourceBaseURL: folder), directory: folder)
+        let info = ExtensionInfo(id: "abc", source: .local, details: details, enabledSpaces: [], grants: [:])
+        var removed = false
+        let card = ExtensionCardView(ExtensionCardView.Model(
+            info: info, isPinned: false, isOnHere: true, hereName: "Home", setOnHere: { _ in }, blocker: nil,
+            showDetails: { _ in }, remove: { removed = true }, setPinned: { _ in }
+        ))
+        func labels(_ view: NSView) -> [String] {
+            view.subviews.flatMap { ($0 as? NSTextField).map { [$0.stringValue] } ?? [] + labels($0) }
+        }
+        XCTAssertFalse(labels(card).contains(details.summary), "the description is Details' to show")
+        XCTAssertEqual(card.remove.accessibilityLabel(), "Remove “Luna Fixture”")
+        XCTAssertTrue(card.remove.accessibilityPerformPress())
+        XCTAssertTrue(removed)
+    }
 }

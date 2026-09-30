@@ -157,27 +157,15 @@ final class ExtensionsPanelRow: NSView {
     // MARK: - Menu
 
     override func menu(for event: NSEvent) -> NSMenu? {
-        let menu = NSMenu()
-        if item.isOn {
-            let pinItem = NSMenuItem(
-                title: item.isPinned ? String(localized: "Unpin from the Bar") : String(localized: "Pin to the Bar"),
-                action: #selector(togglePin),
-                keyEquivalent: ""
-            )
-            pinItem.target = self
-            menu.addItem(pinItem)
-        }
         let power = NSMenuItem(
             title: item.isOn ? String(localized: "Turn Off in This Space") : String(localized: "Turn On in This Space"),
             action: #selector(flip),
             keyEquivalent: ""
         )
         power.target = self
-        menu.addItem(power)
-        return menu
+        return ExtensionMenu.make(for: item, extra: [power])
     }
 
-    @objc private func togglePin() { onPin?(!item.isPinned) }
     @objc private func flip() { onSwitch?(!item.isOn) }
 
     // MARK: - Pointer

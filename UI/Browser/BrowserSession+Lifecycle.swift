@@ -72,6 +72,11 @@ final class TabLifecycle {
         await installed[ObjectIdentifier(session)]?.snapshot(for: id)
     }
 
+    /// Whether the tab holds form input that putting it to sleep would lose.
+    static func hasUnsavedInput(_ id: UUID, in session: BrowserSession) -> Bool {
+        installed[ObjectIdentifier(session)]?.hasUnsavedInput(id) ?? false
+    }
+
     static func install(in session: BrowserSession) {
         let key = ObjectIdentifier(session)
         guard installed[key] == nil else { return }

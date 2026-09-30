@@ -31,13 +31,23 @@ struct TopBarActionItem {
     var image: NSImage?
     /// VoiceOver label and tooltip. These buttons are icon-only (§8, §21.1).
     var label: String
+    /// What a right-click on it offers, if anything.
+    var menu: (() -> NSMenu?)?
     var action: () -> Void
 
-    init(id: String, symbolName: String, image: NSImage? = nil, label: String, action: @escaping () -> Void) {
+    init(
+        id: String,
+        symbolName: String,
+        image: NSImage? = nil,
+        label: String,
+        menu: (() -> NSMenu?)? = nil,
+        action: @escaping () -> Void
+    ) {
         self.id = id
         self.symbolName = symbolName
         self.image = image
         self.label = label
+        self.menu = menu
         self.action = action
     }
 }
@@ -131,6 +141,7 @@ final class TopBarActionCapsule: NSView, PopoutShelf {
         button.icon = item.image ?? TopBarButton.symbol(item.symbolName)
         button.setAccessibilityLabel(item.label)
         button.toolTip = item.label
+        button.menuBuilder = item.menu
     }
 
     /// §6 `controlPress`, on behalf of whichever item is down.

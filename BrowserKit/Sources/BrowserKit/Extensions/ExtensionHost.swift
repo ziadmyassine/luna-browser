@@ -15,9 +15,17 @@ public final class ExtensionHost: NSObject {
     public let spaceID: UUID
     public let controller: WKWebExtensionController
     let backgroundStore: WKWebsiteDataStore
+    /// The Space's own store: the sites `chrome.browsingData` may clear.
+    let dataStore: WKWebsiteDataStore
 
     weak var browser: (any ExtensionBrowser)?
     weak var ui: (any ExtensionUI)?
+    weak var services: (any ExtensionServices)?
+    /// History and closed tabs for the shim's answers.
+    var store: BrowserStore?
+    /// Where hosts for native messaging are found (docs/EXTENSIONS.md §5).
+    var native = ExtensionNative(ownFolder: URL.applicationSupportDirectory.appending(path: "NativeMessagingHosts"))
+    let shim = ExtensionShimState()
     /// A runtime prompt was answered; the manager persists the new grants.
     var onGrantsChanged: ((String, ExtensionGrants) -> Void)?
 
@@ -44,6 +52,7 @@ public final class ExtensionHost: NSObject {
     ///   names the controller's storage, so it has to be the same every launch.
     init(spaceID: UUID, dataStore: WKWebsiteDataStore) {
         self.spaceID = spaceID
+        self.dataStore = dataStore
         let identifier = dataStore.identifier ?? UUID()
         backgroundStore = WKWebsiteDataStore(forIdentifier: Self.backgroundStoreIdentifier(forSpaceStore: identifier))
 
@@ -118,6 +127,9 @@ public final class ExtensionHost: NSObject {
         guard let context = contexts.removeValue(forKey: id) else { return }
         try? controller.unload(context)
         loaded[id] = nil
+        shim.release(id)
+        // Its ports read as gone only once WebKit has had a turn.
+        DispatchQueue.main.async { MainActor.assumeIsolated { ExtensionNative.stopOrphans() } }
     }
 
     /// New grants on a loaded context, replacing the old ones outright so a
@@ -125,6 +137,7 @@ public final class ExtensionHost: NSObject {
     func apply(_ grants: ExtensionGrants, to id: String) {
         guard let context = contexts[id] else { return }
         grants.apply(to: context)
+        context.setPermissionStatus(.grantedExplicitly, for: .nativeMessaging)
         loaded[id]?.grants = grants
     }
 
@@ -136,9 +149,15 @@ public final class ExtensionHost: NSObject {
         context.baseURL = URL(string: "webkit-extension://\(id)/")!
         context.isInspectable = WebViewFactory.isWebInspectorEnabled
         grants.apply(to: context)
+        // The shim reaches Luna by native messaging, so every extension has
+        // it from WebKit, here and in `apply`; an app on this Mac only answers
+        // one whose own manifest asked (`asksForNative`).
+        context.setPermissionStatus(.grantedExplicitly, for: .nativeMessaging)
         try controller.load(context)
         contexts[id] = context
         loaded[id] = (directory, grants)
+        if shim.loadsThisRun.contains(id) { shim.loadedBefore.insert(id) }
+        shim.loadsThisRun.insert(id)
         return context
     }
 

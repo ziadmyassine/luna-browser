@@ -21,6 +21,11 @@ public final class ExtensionManager {
         didSet { for host in hosts.values { host.ui = ui } }
     }
 
+    /// What the shim asks that only the app can answer — see ``ExtensionServices``.
+    public weak var services: (any ExtensionServices)? {
+        didSet { for host in hosts.values { host.services = services } }
+    }
+
     private let store: BrowserStore
     private let library: ExtensionLibrary
     private var hosts: [UUID: ExtensionHost] = [:]
@@ -55,6 +60,9 @@ public final class ExtensionManager {
         let host = ExtensionHost(spaceID: spaceID, dataStore: dataStore)
         host.browser = browser
         host.ui = ui
+        host.services = services
+        host.store = store
+        host.native = ExtensionNative(ownFolder: library.nativeHostsFolder)
         host.onGrantsChanged = { [weak self] id, grants in self?.remember(grants, for: id, inSpace: spaceID) }
         hosts[spaceID] = host
         host.sync()
@@ -132,8 +140,12 @@ public final class ExtensionManager {
 
     /// What pressing the extension's button does: WebKit runs the action and,
     /// if it has one, asks ``ExtensionUI/presentPopup(for:extensionID:spaceID:)``.
+    /// An extension that asked for its side panel to open on a press gets that
+    /// instead, as in Chrome.
     public func performAction(for id: String, tab: UUID?, inSpace spaceID: UUID) {
         guard let host = hosts[spaceID], let context = host.contexts[id] else { return }
+        host.shim.lastPress[id] = Date()
+        if host.opensPanelOnPress(id) { return host.openPanel(context) }
         context.performAction(for: tab.flatMap(host.tabAdapter))
     }
 
@@ -202,6 +214,7 @@ public final class ExtensionManager {
         }
         try await store.deleteExtension(id: id)
         try await library.remove(id)
+        ExtensionHost.forgetShimState(of: id)
     }
 
     // MARK: - Per Space (§16.6)
@@ -248,6 +261,14 @@ public final class ExtensionManager {
 
     private func load(_ id: String, into host: ExtensionHost, grants: ExtensionGrants) async {
         guard let directory = try? library.directory(for: id) else { return }
+        // Off the main actor: the first launch after the shim changes reads
+        // and rewrites every script and page an extension ships. An extension
+        // it could not be written into still loads, as WebKit alone runs it.
+        do {
+            try await library.prepare(id)
+        } catch {
+            NSLog("Luna: the shim was not written into extension %@: %@", id, error.localizedDescription)
+        }
         do {
             try await host.load(id, from: directory, grants: grants)
         } catch {

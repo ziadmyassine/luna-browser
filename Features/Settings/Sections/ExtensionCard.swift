@@ -8,9 +8,11 @@
 //
 //  Headed by the extension's own face, as §3.7's Space card is headed by the
 //  Space's gradient: a list of extensions is found by looking at it. Under the
-//  head, what it says it does, what it can reach, and one line of controls —
-//  Details, which opens the rest (`ExtensionDetailsView`), its pin, and a menu.
-//  The switches and rows a card used to carry made each extension a page tall.
+//  head, what it can reach, and one line of controls — Details, which opens
+//  the rest (`ExtensionDetailsView`, where its description is), its pin, and
+//  Remove. The switches and rows a card used to carry made each extension a
+//  page tall, and its description, two lines on every card, made the grid a
+//  wall of text.
 //
 
 import AppKit
@@ -30,7 +32,8 @@ final class ExtensionCardView: NSView {
         /// the whole reason is in Details. See `ExtensionCompatibility`.
         let blocker: String?
         let showDetails: (NSView) -> Void
-        let moreMenu: () -> NSMenu
+        /// Asks first; the section owns the confirmation.
+        let remove: () -> Void
         let setPinned: (Bool) -> Void
     }
 
@@ -38,7 +41,6 @@ final class ExtensionCardView: NSView {
     private let icon = NSImageView()
     private let name = NSTextField(labelWithString: "")
     private let detail = NSTextField(labelWithString: "")
-    private let summary = NSTextField(wrappingLabelWithString: "")
     private let access = NSTextField(labelWithString: "")
     private let accessGlyph = NSImageView()
     /// On or off in the Space the front window shows — the pop-out's switch.
@@ -46,7 +48,7 @@ final class ExtensionCardView: NSView {
     let toggle: SystemSwitch
     let detailsButton = ExtensionCardButton(symbol: "info.circle", title: String(localized: "Details"), label: String(localized: "Details"))
     let pin: ExtensionCardButton
-    let more = ExtensionCardButton(symbol: "ellipsis", label: String(localized: "More"))
+    let remove = ExtensionCardButton(symbol: "trash", label: String(localized: "Remove"))
 
     init(_ model: Model) {
         toggle = SystemSwitch(isOn: model.isOnHere)
@@ -96,13 +98,6 @@ final class ExtensionCardView: NSView {
         detail.font = Tokens.TypeScale.settingsCaption
         detail.textColor = Tokens.Text.secondary
         detail.lineBreakMode = .byTruncatingTail
-        summary.stringValue = details.map { $0.summary.isEmpty ? String(localized: "No description.") : $0.summary }
-            ?? String(localized: "Luna couldn’t read this extension’s files.")
-        summary.font = Tokens.TypeScale.settingsCaption
-        summary.textColor = Tokens.Text.secondary
-        summary.maximumNumberOfLines = 2
-        summary.lineBreakMode = .byWordWrapping
-        summary.cell?.truncatesLastVisibleLine = true
         accessGlyph.image = NSImage(systemSymbolName: "globe", accessibilityDescription: nil)
         accessGlyph.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: Tokens.Metric.pillGlyphSize - 2, weight: .regular)
         accessGlyph.contentTintColor = Tokens.Text.tertiary
@@ -132,26 +127,19 @@ final class ExtensionCardView: NSView {
         }
         pin.isOn = model.isPinned
         pin.onActivate = { model.setPinned(!model.isPinned) }
-        more.menuBuilder = { [weak self] in
-            let menu = model.moreMenu()
-            guard let self else { return menu }
-            let open = MenuAction.item(String(localized: "Details…")) { [weak self] in
-                guard let self else { return }
-                model.showDetails(detailsButton)
-            }
-            menu.insertItem(.separator(), at: 0)
-            menu.insertItem(open, at: 0)
-            return menu
-        }
+        remove.onActivate = model.remove
+        let removeLabel = String(localized: "Remove “\(name.stringValue)”")
+        remove.toolTip = removeLabel
+        remove.setAccessibilityLabel(removeLabel)
     }
 
     private func build() {
-        let views: [NSView] = [icon, name, detail, summary, accessGlyph, access, toggle, detailsButton, pin, more]
+        let views: [NSView] = [icon, name, detail, accessGlyph, access, toggle, detailsButton, pin, remove]
         for view in views {
             view.translatesAutoresizingMaskIntoConstraints = false
             card.addSubview(view)
         }
-        for label in [name, detail, summary, access] {
+        for label in [name, detail, access] {
             label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         }
         let inset = SettingsMetrics.cardInset
@@ -177,16 +165,12 @@ final class ExtensionCardView: NSView {
             detail.trailingAnchor.constraint(lessThanOrEqualTo: toggle.leadingAnchor, constant: -gap),
             detail.topAnchor.constraint(equalTo: icon.centerYAnchor, constant: lineGap / 2),
 
-            summary.leadingAnchor.constraint(equalTo: icon.leadingAnchor),
-            summary.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -inset),
-            summary.topAnchor.constraint(equalTo: icon.bottomAnchor, constant: gap + lineGap),
-
             accessGlyph.leadingAnchor.constraint(equalTo: icon.leadingAnchor),
             accessGlyph.firstBaselineAnchor.constraint(equalTo: access.firstBaselineAnchor),
             accessGlyph.widthAnchor.constraint(equalToConstant: Tokens.Metric.pillGlyphSize),
             access.leadingAnchor.constraint(equalTo: accessGlyph.trailingAnchor, constant: lineGap * 2),
             access.trailingAnchor.constraint(lessThanOrEqualTo: card.trailingAnchor, constant: -inset),
-            access.topAnchor.constraint(greaterThanOrEqualTo: summary.bottomAnchor, constant: gap),
+            access.topAnchor.constraint(equalTo: icon.bottomAnchor, constant: gap + lineGap),
 
             // The controls stand on the card's foot, so two cards side by side
             // line theirs up whatever their descriptions run to.
@@ -194,9 +178,9 @@ final class ExtensionCardView: NSView {
             detailsButton.topAnchor.constraint(equalTo: access.bottomAnchor, constant: gap),
             detailsButton.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -(inset - SettingsMetrics.controlInset / 2)),
             detailsButton.trailingAnchor.constraint(lessThanOrEqualTo: pin.leadingAnchor, constant: -lineGap),
-            more.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -(inset - SettingsMetrics.controlInset / 2)),
-            more.centerYAnchor.constraint(equalTo: detailsButton.centerYAnchor),
-            pin.trailingAnchor.constraint(equalTo: more.leadingAnchor, constant: -lineGap),
+            remove.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -(inset - SettingsMetrics.controlInset / 2)),
+            remove.centerYAnchor.constraint(equalTo: detailsButton.centerYAnchor),
+            pin.trailingAnchor.constraint(equalTo: remove.leadingAnchor, constant: -lineGap),
             pin.centerYAnchor.constraint(equalTo: detailsButton.centerYAnchor)
         ])
     }

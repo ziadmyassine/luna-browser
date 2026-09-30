@@ -157,7 +157,7 @@ final class ExtensionsSection: NSObject, SettingsSection {
             },
             blocker: ExtensionCompatibility.shortBlocker(for: info.id),
             showDetails: { [weak self] anchor in self?.showDetails(info.id, from: anchor) },
-            moreMenu: { [weak self] in self?.moreMenu(for: info.id) ?? NSMenu() },
+            remove: { [weak self] in self?.remove(info.id) },
             setPinned: { ExtensionsCenter.shared.setPinned($0, info.id) }
         )
         let terms = [name, info.details?.summary ?? "", "pin", "space", "details", "remove", "reload"]
@@ -214,45 +214,6 @@ final class ExtensionsSection: NSObject, SettingsSection {
         return actions
     }
 
-    /// The card's ⋯: everything the card has no button for, with Details at
-    /// the head (`ExtensionCardView` puts it there).
-    private func moreMenu(for id: String) -> NSMenu {
-        let menu = NSMenu()
-        guard let info = current(id) else { return menu }
-        let spaces = center.session?.spaces ?? []
-        if spaces.count > 1 {
-            if info.enabledSpaces.count < spaces.count {
-                menu.addItem(MenuAction.item(String(localized: "Turn On in Every Space")) {
-                    Self.setEverywhere(true, id, spaces: spaces)
-                })
-            }
-            if !info.enabledSpaces.isEmpty {
-                menu.addItem(MenuAction.item(String(localized: "Turn Off in Every Space")) {
-                    Self.setEverywhere(false, id, spaces: spaces)
-                })
-            }
-            menu.addItem(.separator())
-        }
-        switch info.source {
-        case .webStore:
-            menu.addItem(MenuAction.item(String(localized: "Open in Chrome Web Store")) { Self.openStorePage(id) })
-        case .local:
-            menu.addItem(MenuAction.item(String(localized: "Reload from Its Folder")) {
-                Task { await ExtensionsCenter.shared.reload(id) }
-            })
-        }
-        menu.addItem(.separator())
-        let name = info.details?.name ?? id
-        menu.addItem(MenuAction.item(String(localized: "Remove “\(name)”…")) { [weak self] in self?.remove(id) })
-        return menu
-    }
-
-    private static func setEverywhere(_ isOn: Bool, _ id: String, spaces: [Space]) {
-        Task {
-            for space in spaces { try? await ExtensionsCenter.shared.setEnabled(isOn, id, inSpace: space.id) }
-        }
-    }
-
     /// In a Luna tab: the listing is where its reviews, its changelog and its
     /// developer are, none of which the manifest carries.
     private static func openStorePage(_ id: String) {
@@ -261,13 +222,7 @@ final class ExtensionsSection: NSObject, SettingsSection {
     }
 
     private func remove(_ id: String) {
-        let name = current(id)?.details?.name ?? id
-        guard SettingsHost.confirm(
-            String(localized: "Remove “\(name)”?"),
-            String(localized: "It is removed from every Space, with everything it stored."),
-            action: String(localized: "Remove")
-        ) else { return }
-        Task { try? await ExtensionsCenter.shared.uninstall(id) }
+        ExtensionMenu.confirmRemove(id, name: current(id)?.details?.name ?? id)
     }
 }
 

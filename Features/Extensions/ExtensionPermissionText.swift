@@ -91,6 +91,9 @@ enum ExtensionPermissionText {
         (["cookies"], String(localized: "Read and change cookies on the sites it can reach")),
         (["privacy"], String(localized: "Change your privacy settings")),
         (["topSites"], String(localized: "See the sites you visit most")),
+        (["sessions"], String(localized: "See and reopen tabs you closed")),
+        (["browsingData"], String(localized: "Delete cookies and other site data")),
+        (["tabGroups"], String(localized: "Group your tabs into folders")),
         (["management"], String(localized: "Manage your other extensions"))
     ]
 }

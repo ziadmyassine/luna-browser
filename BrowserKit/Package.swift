@@ -32,6 +32,8 @@ let package = Package(
                 .product(name: "GRDB", package: "GRDB.swift"),
                 .product(name: "Markdown", package: "swift-markdown")
             ],
+            // The extension shim, written into installed extensions (ExtensionShim.swift).
+            resources: [.copy("Resources/ExtensionShim.js")],
             swiftSettings: swiftSettings
         ),
         .target(name: "LunaControl", swiftSettings: swiftSettings),

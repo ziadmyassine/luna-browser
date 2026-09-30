@@ -520,16 +520,19 @@ too. UI-SPEC §5b has the rest of the design.
 `ExtensionCardGrid`). The first version gave each one a full-width card of switch
 rows, a page tall per extension. A card is:
 - the extension's icon (32 pt), name, version number and source ("3.3.0 · Chrome
-  Web Store" — with the word *Version* in front, the source was cut off), and its
-  description in two lines at most, with a switch at the head for the Space the
-  front window shows; the icon dims when it is off there;
+  Web Store" — with the word *Version* in front, the source was cut off), with a
+  switch at the head for the Space the front window shows; the icon dims when it
+  is off there. The description is Details' to show: two lines of it on every
+  card made the grid a wall of text *(2026-09-30)*;
 - what it can reach, one line with a globe: *Every website*, *example.com*, *3 websites* —
-  or, for an extension known not to work in Luna, *Can't work in Luna* in red
-  (`ExtensionCompatibility` — Apple's iCloud Passwords);
+  or, for an extension known not to work in Luna, why in a few words in red
+  (`ExtensionCompatibility` — Apple's iCloud Passwords: *Needs Apple's approval
+  for Luna*);
 - one line of controls on the card's foot, so two cards side by side line them
-  up: **Details**, the **pin**, held lit while pinned, and **⋯**: Details…, Turn
-  On / Off in Every Space (with more than one Space), Open in Chrome Web Store
-  or Reload from Its Folder, and Remove….
+  up: **Details**, the **pin**, held lit while pinned, and **Remove** (a trash
+  glyph), which asks first. It replaced a **⋯** menu *(2026-09-30)*: everything
+  else that menu held — Turn On / Off in Every Space, Chrome Web Store, Reload —
+  is in Details already.
 
 **Details** (`ExtensionDetailsView`) opens a popover under the card with what the
 card leaves out: the whole description, the whole reason it can't work if it
@@ -539,6 +542,9 @@ Reload and Remove…. The card's foot used to carry a Spaces button reading
 "Off everywhere" whose menu ticked the Spaces: a state read by opening a menu,
 worded as if the extension were broken. A row of switches is the site settings
 pop-out's answer to the same question.
+
+The same Remove is on a right-click of the extension anywhere else it stands:
+its pinned button on every bar, and its row in the pop-out (`ExtensionMenu`).
 
 The foot's three are `ExtensionCardButton`: glyph and word on no plate of their
 own, with §3.4's hover and press washes and the swell, in the button register.

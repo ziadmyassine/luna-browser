@@ -61,11 +61,13 @@ extension TopBarView {
                 id: Self.pinPrefix + item.id,
                 symbolName: ExtensionsSymbol.name,
                 image: ExtensionBadge.composite(item.icon ?? ExtensionsSymbol.image, badge: item.badge),
-                label: item.badge.isEmpty ? item.name : "\(item.name), \(item.badge)"
-            ) { [weak self] in
-                guard let self, let anchor = extensionAnchor(item.id) else { return }
-                ExtensionsCenter.shared.perform(item.id, in: session, window: windowID, from: anchor)
-            }
+                label: item.badge.isEmpty ? item.name : "\(item.name), \(item.badge)",
+                menu: { ExtensionMenu.make(for: item) },
+                action: { [weak self] in
+                    guard let self, let anchor = extensionAnchor(item.id) else { return }
+                    ExtensionsCenter.shared.perform(item.id, in: session, window: windowID, from: anchor)
+                }
+            )
         }
         // Assigned every time: the capsule keeps its buttons and re-dresses
         // them when the count has not changed, so a badge is cheap.

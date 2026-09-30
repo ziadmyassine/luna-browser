@@ -8,31 +8,46 @@
 //
 
 import Foundation
+import Security
 
 enum ExtensionCompatibility {
 
-    /// Apple's iCloud Passwords, for Chrome and for Edge. It does nothing on its
-    /// own: every request goes over native messaging to Apple's
-    /// `PasswordManagerBrowserExtensionHelper`. Luna has no native messaging yet
-    /// (TODO §14.7), and it would not help: macOS kills that helper at launch
-    /// unless a browser Apple allows started it. Checked 2026-09-25 by starting
-    /// it from a shell — SIGKILL before it read a byte (TODO §14 has the rest).
+    /// Apple's iCloud Passwords, for Chrome and for Edge. Every request goes
+    /// over native messaging to Apple's `PasswordManagerBrowserExtensionHelper`,
+    /// whose parent launch constraint (read from its signature, 2026-09-30)
+    /// lets it run only under a browser holding `webBrowserEntitlement` or one
+    /// of about forty it names; under any other it is killed at launch. Search
+    /// runs it because Apple granted Search the entitlement.
     static let iCloudPasswords: Set<String> = [
         "pejdijmoenmkgeppbflobdenhhabjlaj",
         "mfbcdcnpokpoajjciilocoachedjkima"
     ]
 
+    static let webBrowserEntitlement = "com.apple.developer.web-browser.public-key-credential"
+
+    /// Read from this build's own signature, so the card stops saying so the
+    /// day a build signed with the entitlement runs.
+    static let hasWebBrowserEntitlement: Bool = {
+        guard let task = SecTaskCreateFromSelf(nil) else { return false }
+        return SecTaskCopyValueForEntitlement(task, webBrowserEntitlement as CFString, nil) as? Bool == true
+    }()
+
+    private static func isBlocked(_ id: String) -> Bool {
+        iCloudPasswords.contains(id) && !hasWebBrowserEntitlement
+    }
+
     /// The reason in a few words, for a line that has one line: a card.
     static func shortBlocker(for id: String) -> String? {
-        guard iCloudPasswords.contains(id) else { return nil }
-        return String(localized: "Can’t work in Luna")
+        guard isBlocked(id) else { return nil }
+        return String(localized: "Needs Apple’s approval for Luna")
     }
 
     static func blocker(for id: String) -> String? {
-        guard iCloudPasswords.contains(id) else { return nil }
+        guard isBlocked(id) else { return nil }
         return String(localized: """
-        Can’t work in Luna. It needs Apple’s passwords helper, which macOS only lets Safari, Chrome, \
-        Edge and Firefox use. Luna’s own password manager is the way to fill iCloud passwords here.
+        Can’t work in Luna yet. It needs Apple’s passwords helper, and macOS only lets browsers that Apple \
+        has approved start it. Luna has everything else it needs, so it will work once Apple approves Luna. \
+        Until then, Luna’s own password manager is the way to fill passwords here.
         """)
     }
 }

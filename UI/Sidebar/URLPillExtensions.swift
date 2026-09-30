@@ -33,6 +33,7 @@ extension URLPillView {
                 label: pin.badge.isEmpty ? pin.name : "\(pin.name), \(pin.badge)"
             )
             glyph.tint = Tokens.Text.secondary
+            glyph.menu = ExtensionMenu.make(for: pin)
             glyph.onActivate = { [weak self, weak glyph] in
                 guard let self, let glyph else { return }
                 onExtension?(pin.id, glyph)

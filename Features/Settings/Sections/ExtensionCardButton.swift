@@ -2,8 +2,8 @@
 //  ExtensionCardButton.swift
 //  Luna
 //
-//  The small controls on an extension's card in Settings: the Spaces it runs
-//  in, its pin, and its "more" menu. A glyph, a word, or both, on no plate of
+//  The small controls on an extension's card in Settings: Details, its pin,
+//  and Remove. A glyph, a word, or both, on no plate of
 //  its own — the card is the surface, and three bordered buttons on a card a
 //  third of the pane wide read as a form.
 //
@@ -18,8 +18,6 @@ import AppKit
 final class ExtensionCardButton: NSView {
 
     var onActivate: (() -> Void)?
-    /// Opens under the button instead of `onActivate` when set.
-    var menuBuilder: (() -> NSMenu)?
 
     var isOn = false { didSet { if isOn != oldValue { refresh() } } }
 
@@ -143,10 +141,7 @@ final class ExtensionCardButton: NSView {
     }
 
     private func activate() {
-        guard let menuBuilder else { return onActivate?() ?? () }
-        // Its top edge a gap under the button's bottom one.
-        let below = isFlipped ? bounds.maxY + Tokens.Metric.rowGap : -Tokens.Metric.rowGap
-        menuBuilder().popUp(positioning: nil, at: NSPoint(x: 0, y: below), in: self)
+        onActivate?()
     }
 
     override var mouseDownCanMoveWindow: Bool { false }

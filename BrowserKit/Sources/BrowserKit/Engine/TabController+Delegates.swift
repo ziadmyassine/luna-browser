@@ -75,7 +75,9 @@ extension TabController: WKNavigationDelegate {
             decisionHandler(.allow)
             return
         }
-        if openedInNewTab(navigationAction, url: url) {
+        // A link that opens its own tab, or an extension's sign-in coming back
+        // (`chrome.identity`), whose address is the answer: nothing loads here.
+        if openedInNewTab(navigationAction, url: url) || ExtensionAuthFlows.finish(url, fromTab: id) {
             decisionHandler(.cancel)
             return
         }

@@ -88,12 +88,28 @@ words, and that paragraph is load-bearing copy, not filler.
 
 ### The iCloud Passwords extension is not a way round it
 
-Verified separately, and recorded in TODO.md §14's constraint table: the
-official iCloud Passwords browser extension's native-messaging helper is
-allowlisted to specific browsers by **signing identifier and team identifier**
-since macOS 15.4, and from 15.5 the host only talks to known browsers. Chrome,
-Edge and Firefox are on that list. A new browser is not, and there is no
-published way to apply. Do not design around it.
+Not today. The official iCloud Passwords browser extension talks over native
+messaging to `PasswordManagerBrowserExtensionHelper`, and that helper carries a
+**parent launch constraint** in its code signature. Decoded 2026-09-30 (slot 9
+of its signature superblob, read with `openssl asn1parse`), it lets the helper
+run only when the process starting it either
+
+- holds `com.apple.developer.web-browser.public-key-credential` — the same
+  apply-only entitlement passkeys need (§4, TODO §14.10), or
+- is one of about forty browsers named by signing identifier and team
+  identifier (Chrome, Edge, Firefox, Arc and Dia, Brave, Vivaldi, Opera, Orion,
+  Zen, Comet, Atlas and others).
+
+Anything else — Luna's ad-hoc Debug build, and its Developer ID build until the
+entitlement is in its profile — has the helper killed at launch. Search
+(driceroland/Search) runs the extension because Apple granted it the
+entitlement. Luna has everything else it needs since 2026-09-30: native
+messaging (`ExtensionNative`) finds Apple's host manifest in
+`/Library/Google/Chrome/NativeMessagingHosts/`, starts the helper, and speaks
+Chrome's framing, and the shim keeps the worker's port alive the way Chrome
+does. Filing §14.10's request is therefore also the iCloud Passwords request.
+Never start the helper through another app that has the entitlement: that is
+getting round a platform security control, not a fix.
 
 ---
 

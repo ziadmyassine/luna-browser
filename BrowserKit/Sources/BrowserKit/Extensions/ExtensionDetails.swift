@@ -24,19 +24,25 @@ public struct ExtensionDetails: Sendable, Hashable {
     @MainActor
     init(_ webExtension: WKWebExtension, directory: URL) {
         let manifest = webExtension.manifest
+        // What Luna wrote into the manifest for the shim is not the extension's to ask for.
+        let added = ExtensionShim.addedPermissions(in: directory)
         name = webExtension.displayName ?? directory.lastPathComponent
         version = webExtension.displayVersion ?? webExtension.version ?? ""
         summary = webExtension.displayDescription ?? ""
-        permissions = webExtension.requestedPermissions.map(\.rawValue).sorted()
+        // WebKit drops the names it does not know; the ones the shim answers
+        // for are the extension's to ask for all the same, and the prompt's to show.
+        let answered = { (key: String) in Set(manifest[key] as? [String] ?? []).intersection(ExtensionHost.shimPermissions) }
+        permissions = Set(webExtension.requestedPermissions.map(\.rawValue)).subtracting(added)
+            .union(answered("permissions")).sorted()
         hostPatterns = webExtension.allRequestedMatchPatterns.map(\.string).sorted()
-        optionalPermissions = webExtension.optionalPermissions.map(\.rawValue).sorted()
+        optionalPermissions = Set(webExtension.optionalPermissions.map(\.rawValue)).union(answered("optional_permissions")).sorted()
         optionalHostPatterns = webExtension.optionalPermissionMatchPatterns.map(\.string).sorted()
 
         let known = Set(webExtension.requestedPermissions.union(webExtension.optionalPermissions).map(\.rawValue))
         let declared = ["permissions", "optional_permissions"].flatMap { manifest[$0] as? [String] ?? [] }
         // Host patterns may sit in `permissions` in MV2; they are not permissions.
         unsupportedPermissions = Set(declared.filter { !$0.contains(":") && $0 != "<all_urls>" })
-            .subtracting(known).sorted()
+            .subtracting(known).subtracting(ExtensionHost.shimPermissions).sorted()
         iconData = Self.icon(manifest["icons"] as? [String: String], in: directory)
     }
 

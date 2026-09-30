@@ -60,6 +60,7 @@ final class ExtensionsCenter: ExtensionUI {
         guard let manager = session.extensions else { return }
         self.session = session
         manager.ui = self
+        manager.services = self
         announce()
     }
 

@@ -173,8 +173,9 @@ extension ExtensionHost: WKWebExtensionControllerDelegate {
 
     // MARK: - Native messaging (§14.7, docs/EXTENSIONS.md §5)
 
-    /// Refused until §14.7's bridge exists: an answer at once beats an
-    /// extension waiting on a reply that never comes (§6 Q7).
+    /// `runtime.sendNativeMessage`. To "luna": the APIs WebKit lacks, answered
+    /// by the shim's other half. To anything else: a Chrome native messaging
+    /// host on this Mac, spoken to the way Chrome would.
     public func webExtensionController(
         _ controller: WKWebExtensionController,
         sendMessage message: Any,
@@ -182,15 +183,71 @@ extension ExtensionHost: WKWebExtensionControllerDelegate {
         for extensionContext: WKWebExtensionContext,
         replyHandler: @escaping (Any?, (any Error)?) -> Void
     ) {
-        replyHandler(nil, ExtensionError.notAvailable("Native messaging"))
+        nonisolated(unsafe) let message = message
+        nonisolated(unsafe) let reply = replyHandler
+        guard let name = applicationIdentifier, name != ExtensionShim.application else {
+            Task { reply(await answerShim(message, from: extensionContext), nil) }
+            return
+        }
+        guard asksForNative(extensionContext) else { return reply(nil, Self.nativeRefusal) }
+        let id = extensionContext.uniqueIdentifier
+        let native = native
+        Task {
+            do {
+                nonisolated(unsafe) let answer = try await native.send(message, to: name, from: id)
+                reply(answer, nil)
+            } catch {
+                // An extension asking for an app that isn't there, over and
+                // over, is answered slowly once it has asked a dozen times in a
+                // second, so a retry loop can't swamp Luna.
+                let key = id + "\u{2192}" + name, now = Date()
+                shim.nativeFailures[key] = (shim.nativeFailures[key] ?? []).filter { now.timeIntervalSince($0) < 1 } + [now]
+                if (shim.nativeFailures[key]?.count ?? 0) > Self.nativeRetriesPerSecond { try? await Task.sleep(for: .seconds(1)) }
+                reply(nil, error)
+            }
+        }
     }
 
+    /// `runtime.connectNative`, and the two ports the shim opens to Luna
+    /// itself: one for a worker's WebSocket, and one it lets go of at once,
+    /// opened only to find what every port shares.
     public func webExtensionController(
         _ controller: WKWebExtensionController,
         connectUsing port: WKWebExtension.MessagePort,
         for extensionContext: WKWebExtensionContext,
         completionHandler: @escaping ((any Error)?) -> Void
     ) {
-        completionHandler(ExtensionError.notAvailable("Native messaging"))
+        switch port.applicationIdentifier {
+        case ExtensionSocket.name:
+            ExtensionSocket.connect(port, from: extensionContext.uniqueIdentifier)
+            completionHandler(nil)
+        case ExtensionShim.application:
+            completionHandler(nil)
+        default:
+            guard asksForNative(extensionContext) else { return completionHandler(Self.nativeRefusal) }
+            do {
+                try native.connect(port, from: extensionContext.uniqueIdentifier)
+                completionHandler(nil)
+            } catch {
+                completionHandler(error)
+            }
+        }
+    }
+
+    static let nativeRetriesPerSecond = 12
+
+    private static var nativeRefusal: ExtensionNative.Refused {
+        ExtensionNative.Refused(why: "Access to native messaging requires the nativeMessaging permission.")
+    }
+
+    /// Its own manifest asked to talk to apps on this Mac, and the user did not
+    /// refuse it: WebKit's grant, which every extension has for the shim's
+    /// sake, does not say.
+    private func asksForNative(_ context: WKWebExtensionContext) -> Bool {
+        let id = context.uniqueIdentifier
+        let added = loaded[id].map { ExtensionShim.addedPermissions(in: $0.directory) } ?? []
+        let named = context.webExtension.requestedPermissions.union(context.webExtension.optionalPermissions)
+        let refused = loaded[id]?.grants.deniedPermissions.contains(WKWebExtension.Permission.nativeMessaging.rawValue) ?? false
+        return named.contains(.nativeMessaging) && !added.contains(WKWebExtension.Permission.nativeMessaging.rawValue) && !refused
     }
 }

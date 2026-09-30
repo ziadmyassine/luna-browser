@@ -43,6 +43,9 @@ final class DownloadItem {
     /// from an account signed in over here is not the other account's business
     /// (§9.2). Nil only for a download with no session behind it.
     let spaceID: UUID?
+    /// The name an extension asked for (`chrome.downloads`), over the server's.
+    let requestedName: String?
+    let startedAt = Date()
     /// The session the page was in: a retry goes back through its cookies and
     /// nobody else's, and a §5.6 window takes its rows with it when it closes.
     private(set) weak var session: BrowserSession?
@@ -63,12 +66,14 @@ final class DownloadItem {
         pageURL: URL?,
         filename: String,
         spaceID: UUID?,
-        session: BrowserSession? = nil
+        session: BrowserSession? = nil,
+        requestedName: String? = nil
     ) {
         self.request = request
         self.pageURL = pageURL
         self.filename = filename
         self.spaceID = spaceID
+        self.requestedName = requestedName
         self.session = session
         isPrivate = session?.isPrivate ?? false
     }

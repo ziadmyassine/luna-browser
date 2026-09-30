@@ -2485,7 +2485,9 @@ Space, where §3.2's site settings keep theirs. The pin stands before the switch
 ink while pinned, and when not, it comes out only under the pointer, so a list of switches is not
 also a column of grey pins. Off, a row dims its icon as a closed tab does and has no pin. Choosing a
 row that is on closes the pop-out and runs the extension, so its popup opens on the same button;
-choosing one that is off turns it on. Right-click offers Pin or Unpin and Turn On or Off. A new
+choosing one that is off turns it on. Right-click offers Pin or Unpin, Turn On or Off, and
+Remove…, which asks first; a pinned button on any bar offers Pin or Unpin and Remove… the same
+way (`ExtensionMenu`, one menu for every surface). A new
 install is not pinned: the bar is the user's to fill. The list scrolls
 past `extensionsPanelRows` (8, §9.1's count). The footer is **Manage Extensions…**, or **Add
 Extensions…** when the Space has none, over a two-line empty state. Both open Settings ▸ Extensions.
@@ -2493,13 +2495,13 @@ Extensions…** when the Space has none, over a two-line empty state. Both open 
 **Settings ▸ Extensions** (SETTINGS-SPEC §3.8): a card to add one — a field for a Chrome Web Store
 link that says under itself what happened, and Choose… for a folder, `.zip` or `.crx` — then the
 extensions as small cards two to a row, each headed by its icon at `extensionCardIcon` (32 pt), with
-its description, what it can reach, and on its foot Details, its pin and a ⋯ menu. A new install
+what it can reach, and on its foot Details, its pin and Remove. A new install
 runs in the Space the front window shows, and is not pinned. Each card also carries a switch for the
 Space the front window shows, the pop-out's switch; Details has a switch for every Space, with the
 whole description and everything it may do (SETTINGS-SPEC §3.8). An extension known not to work in
 Luna says so on its card, in red, where the access line would be, and why in Details
-(`ExtensionCompatibility`): Apple's iCloud Passwords needs a helper macOS only lets Safari, Chrome,
-Edge and Firefox start.
+(`ExtensionCompatibility`): Apple's iCloud Passwords needs a helper macOS only lets approved browsers
+start, and the card stops saying so once Luna is signed with Apple's web-browser entitlement.
 
 **Prompts** are the system's alert with the extension's icon, because consent is not the place to be
 novel. The install prompt lists what the extension can do in Chrome's words, where it will run, and

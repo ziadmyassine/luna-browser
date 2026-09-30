@@ -98,22 +98,27 @@ final class DownloadManager {
     ///   - spaceID: the Space the page was in, which is the list the file will
     ///     appear in (§9.2).
     ///   - session: the session the page was in. See `DownloadItem.session`.
+    ///   - filename: the name an extension asked for, which the server's does not replace.
+    @discardableResult
     func begin(
         _ download: WKDownload,
         pageURL: URL? = nil,
         inSpace spaceID: UUID? = nil,
-        session: BrowserSession? = nil
-    ) {
-        let suggested = download.originalRequest?.url?.lastPathComponent ?? DownloadDestination.fallbackName
+        session: BrowserSession? = nil,
+        filename: String? = nil
+    ) -> DownloadItem {
+        let suggested = filename ?? download.originalRequest?.url?.lastPathComponent ?? DownloadDestination.fallbackName
         let item = DownloadItem(
             request: download.originalRequest,
             pageURL: pageURL ?? download.originatingFrame.request.url,
             filename: DownloadDestination.sanitize(suggested),
             spaceID: spaceID,
-            session: session
+            session: session,
+            requestedName: filename
         )
         adopt(download, for: item)
         add(item)
+        return item
     }
 
     /// Puts a row at the head of the list.
@@ -317,7 +322,7 @@ private final class DownloadTask: NSObject, WKDownloadDelegate {
         suggestedFilename: String
     ) async -> URL? {
         let name = DownloadDestination.sanitize(
-            suggestedFilename.isEmpty ? item.filename : suggestedFilename
+            item.requestedName ?? (suggestedFilename.isEmpty ? item.filename : suggestedFilename)
         )
 
         // §15.4 — ask before writing anything that runs when it is opened.

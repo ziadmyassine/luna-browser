@@ -67,6 +67,7 @@ public struct ExtensionLibrary: Sendable {
             }
             let manifest = staging.appending(path: "manifest.json")
             guard FileManager.default.fileExists(atPath: manifest.path) else { throw Failure.noManifest }
+            for name in ExtensionShim.reservedNames { try? FileManager.default.removeItem(at: staging.appending(path: name)) }
             return StagedExtension(id: id ?? localID(manifest: manifest), source: source, directory: staging)
         } catch {
             try? FileManager.default.removeItem(at: staging)
@@ -85,6 +86,16 @@ public struct ExtensionLibrary: Sendable {
             try manager.moveItem(at: staged.directory, to: destination)
         }
         return destination
+    }
+
+    /// Writes the shim into an installed extension (``ExtensionShim``).
+    func prepare(_ id: String) async throws {
+        try ExtensionShim.prepare(try directory(for: id))
+    }
+
+    /// Luna's own folder of native messaging host manifests, beside the library.
+    var nativeHostsFolder: URL {
+        root.deletingLastPathComponent().appending(path: "NativeMessagingHosts", directoryHint: .isDirectory)
     }
 
     public func discard(_ staged: StagedExtension) async {
