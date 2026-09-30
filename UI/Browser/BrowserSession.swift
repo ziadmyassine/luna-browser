@@ -285,6 +285,10 @@ final class BrowserSession {
     /// that came back with a folder half open would be a folder in a state
     /// nobody left it in.
     var folderPeeks: Set<UUID> = []
+    /// Folders taken away with their last tab (`dropGroupIfEmptied`), so a
+    /// tab reopened out of one brings it back. This launch only: the row on
+    /// disk is gone, and a tab reopened after a relaunch comes back loose.
+    var emptiedGroups: [UUID: TabGroup] = [:]
     /// §3.4b folders whose Luna Control client is working in them right now,
     /// which the sidebar marks. Written only by `BrowserSession+Control.swift`.
     var controlledGroupIDs: Set<UUID> = []

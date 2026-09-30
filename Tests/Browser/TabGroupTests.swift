@@ -15,6 +15,8 @@
 //    can stand between two of them — and moving either has to renumber both.
 //  · Removing a group removes a name. Only *Close Group* ends pages, and it
 //    ends them one at a time so undo can reach each one.
+//  · A folder goes with its last tab, and comes back with it on undo. The one
+//    empty folder is a new one, waiting for its first tab.
 //
 
 import BrowserKit
@@ -261,7 +263,8 @@ final class TabGroupTests: XCTestCase {
     }
 
     /// A group belongs to the Space it was made in, so a tab carried out of
-    /// that Space leaves the group rather than dragging it along.
+    /// that Space leaves the group rather than dragging it along — and, the
+    /// last one out, takes the emptied group with it.
     func testATabMovedToAnotherSpaceLeavesItsGroup() async throws {
         let session = try await makeSession()
         let id = session.newTab(url: url("a"))
@@ -271,7 +274,73 @@ final class TabGroupTests: XCTestCase {
         session.moveTab(id, toSpace: other.id)
 
         XCTAssertNil(session.tab(id)?.groupID)
-        XCTAssertTrue(session.members(ofGroup: group).isEmpty)
+        XCTAssertNil(session.group(group))
+    }
+
+    // MARK: - Emptied
+
+    /// A folder of today's tabs goes when its last tab is closed, and undo
+    /// brings back the folder with the tab in it.
+    func testAFolderGoesWithItsLastTab() async throws {
+        let session = try await makeSession()
+        let first = session.newTab(url: url("a"))
+        let second = session.newTab(url: url("b"))
+        let group = try XCTUnwrap(session.createGroup(name: "Work", containing: [first, second]))
+
+        session.closeTab(first)
+        XCTAssertNotNil(session.group(group), "one tab is still in it")
+
+        session.undoManager.removeAllActions()
+        session.closeTab(second)
+        XCTAssertNil(session.group(group))
+
+        session.undoManager.undo()
+        XCTAssertEqual(session.group(group)?.name, "Work")
+        XCTAssertEqual(session.members(ofGroup: group).map(\.id), [second])
+    }
+
+    /// A saved folder's tab closed once is still in it, dimmed, so the folder
+    /// stays; it goes when the row does.
+    func testASavedFolderStaysUntilItsLastTabIsRemoved() async throws {
+        let session = try await makeSession()
+        let id = session.newTab(url: url("a"))
+        session.setTabSaved(true, tab: id)
+        let group = try XCTUnwrap(session.tab(id)?.groupID)
+
+        session.closeTab(id)
+        XCTAssertNotNil(session.group(group))
+
+        session.closeTab(id)
+        XCTAssertNil(session.group(group))
+    }
+
+    /// Dragging the last tab out takes the folder away; undo puts the tab back
+    /// in it.
+    func testDraggingTheLastTabOutRemovesTheFolder() async throws {
+        let session = try await makeSession()
+        let id = session.newTab(url: url("a"))
+        let group = try XCTUnwrap(session.createGroup(name: "Work", containing: [id]))
+
+        session.undoManager.removeAllActions()
+        session.moveTab(id, toGroup: nil)
+        XCTAssertNil(session.group(group))
+        XCTAssertNil(session.tab(id)?.groupID)
+
+        session.undoManager.undo()
+        XCTAssertNotNil(session.group(group))
+        XCTAssertEqual(session.tab(id)?.groupID, group)
+    }
+
+    /// A folder made from the sidebar's menu starts empty and stays so,
+    /// whatever happens to the tabs around it.
+    func testANewEmptyFolderStays() async throws {
+        let session = try await makeSession()
+        let id = session.newTab(url: url("a"))
+        let group = try XCTUnwrap(session.createGroup(name: "Later"))
+
+        session.closeTab(id)
+
+        XCTAssertNotNil(session.group(group))
     }
 
     /// The column reads the tiers already arranged, group tabs inline under

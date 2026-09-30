@@ -1391,6 +1391,11 @@ inside.
   window in front of the list the folder has just appeared in and asks about a row the user
   can no longer see. Escape leaves it called *New Folder* — a name nobody chose still beats
   a row that cannot be told from any other.
+- **A folder goes with its last tab** (2026-09-30). When the last tab leaves — closed, dragged
+  out, pinned, moved to another Space — the folder is removed too, the agents' folders included.
+  A saved folder's tab closed once is still in it, dimmed, so that folder stays until the row
+  itself is let go. Undo, and ⌘⇧T on the tab, bring the folder back with the tab in it. The one
+  empty folder is a new one from *New Folder*, waiting for its first tab.
 - **Renamed the same way, and re-iconned from a submenu.** The folder menu's *Rename* opens
   that same field; *Change Icon ▸* lists the sixteen with the current one ticked. Neither
   carries an ellipsis, because neither opens anything before it commits.

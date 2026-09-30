@@ -19,6 +19,9 @@
 //    · Removing a group removes a name, never a page. `ungroup` leaves every
 //      tab exactly where the group stood. The one command that does end the tabs
 //      says so — and archives them one at a time, where undo can reach them.
+//    · A folder goes with its last tab (`dropGroupIfEmptied`). The one empty
+//      folder is a new one, made from the sidebar's menu and waiting for its
+//      first tab.
 //
 
 import AppKit
@@ -70,6 +73,7 @@ extension BrowserSession {
         guard !trimmed.isEmpty else { return nil }
         let members = tabs.compactMap { list.tab($0) }.filter { $0.kind != .essential }
         let tier = TabGroup.sanitised(kind ?? members.first?.kind ?? .today)
+        let left = Set(members.compactMap(\.groupID))
         // Only a loose tab has a slot to hand over. `indexInSection` counts a
         // grouped tab's place among its siblings, which is not a position in
         // this section at all — so a group made out of one is appended.
@@ -77,6 +81,7 @@ extension BrowserSession {
         let group = TabGroup(spaceID: activeSpaceID, name: trimmed, symbolName: symbolName, kind: tier)
         persistAll(list.insertGroup(group, at: slot))
         for member in members { gather(member.id, into: group) }
+        for old in left { dropGroupIfEmptied(old) }
         registerUndo("New Folder") { $0.ungroup(group.id) }
         notifyChange()
         // After the column has the row, never before: what this is for is the
@@ -253,6 +258,34 @@ extension BrowserSession {
             persistAll(list.insertGroup(group, at: 0))
             for tab in loose { gather(tab.id, into: group) }
         }
+    }
+
+    // MARK: - Emptied
+
+    /// Removes a folder whose last tab has just left it — closed for good,
+    /// dragged out, moved to another Space. A saved folder's tab closed once
+    /// is still in it, dimmed, so the folder stays until the row itself goes.
+    ///
+    /// Called with the folder the tab was in, after it left, never as a sweep:
+    /// a folder just made from the sidebar's menu is empty too, and is waiting
+    /// for its first tab.
+    ///
+    /// - Returns: the folder removed, for the caller's undo to put back
+    ///   (`restoreGroup`) before the tab goes back into it.
+    @discardableResult
+    func dropGroupIfEmptied(_ id: UUID?) -> TabGroup? {
+        guard let id, let group = list.group(id), list.members(ofGroup: id).isEmpty else { return nil }
+        persistAll(list.removeGroup(id))
+        forgetGroup(id)
+        emptiedGroups[id] = group
+        return group
+    }
+
+    /// Puts back a folder `dropGroupIfEmptied` removed, where it stood.
+    func restoreGroup(_ group: TabGroup?) {
+        guard let group, list.group(group.id) == nil else { return }
+        emptiedGroups[group.id] = nil
+        persistAll(list.insertGroup(group, at: group.order))
     }
 
     // MARK: - Plumbing

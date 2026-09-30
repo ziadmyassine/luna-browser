@@ -85,6 +85,7 @@ extension BrowserSession {
         tab.archivedAt = Date()
         forget(id)
         persistAll(list.remove(id))
+        dropGroupIfEmptied(tab.groupID)
         // §6.3's shelf is for pages. One of Luna's own is not a page you can
         // come back to, so its row goes rather than being kept for thirty days
         // — see `AutoArchive.isWorthArchiving`. Undo still reopens it: the
@@ -224,7 +225,11 @@ extension BrowserSession {
         tab.kind = destination?.kind ?? kind
         tab.groupID = destination?.id
         persistAll(list.insert(Self.keepingWhatItIsFor(tab, wasKept: oldKind.keepsTabWhenPageCloses), at: index))
-        registerUndo("Move Tab") { $0.reorderTab(id, to: oldIndex, kind: oldKind, group: oldGroup) }
+        let emptied = dropGroupIfEmptied(oldGroup)
+        registerUndo("Move Tab") { session in
+            session.restoreGroup(emptied)
+            session.reorderTab(id, to: oldIndex, kind: oldKind, group: oldGroup)
+        }
         notifyChange()
     }
 
@@ -299,9 +304,11 @@ extension BrowserSession {
         tab.spaceID = spaceID
         tab.order = list.nextOrder(kind: tab.kind, in: spaceID)
         persistAll(list.insert(tab))
+        let emptied = dropGroupIfEmptied(oldGroup)
         releaseTab(id, inSpace: from) { self.recentTabs.first { self.list.tab($0)?.spaceID == from } }
         registerUndo("Move Tab to Space") { session in
             session.moveTab(id, toSpace: from)
+            session.restoreGroup(emptied)
             session.reorderTab(id, to: oldIndex, kind: oldKind, group: oldGroup)
         }
         notifyChange()
@@ -322,6 +329,9 @@ extension BrowserSession {
             restored.kind = .pinned
         }
         archived.removeAll { $0.id == tab.id }
+        // Back into the folder it was closed out of, the folder too if it went
+        // with it.
+        restoreGroup(restored.groupID.flatMap { emptiedGroups[$0] })
         persistAll(list.insert(restored, at: index))
         registerUndo("Close Tab") { $0.closeTab(restored.id) }
         activateTab(restored.id)
