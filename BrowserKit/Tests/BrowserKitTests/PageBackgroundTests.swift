@@ -33,8 +33,10 @@ struct PageBackgroundTests {
 
     /// True once `condition` holds, or after `seconds` — polled rather than slept
     /// through, so a fast machine does not wait and a slow one is not flaky.
+    /// Twenty, not five: on CI, with every suite loading pages at once, the
+    /// first paint took longer than five (measured: the suite ran 13 s there).
     @discardableResult
-    private func settle(within seconds: Double = 5, until condition: () -> Bool) async -> Bool {
+    private func settle(within seconds: Double = 20, until condition: () -> Bool) async -> Bool {
         let deadline = Date().addingTimeInterval(seconds)
         while Date() < deadline {
             if condition() { return true }

@@ -7,8 +7,20 @@ import Testing
 /// The helper's pipe, the socket and Luna's session end to end: what an MCP
 /// client writes to `luna-control` reaches the performer, and the answer
 /// comes back — and with nothing listening, the helper still answers.
+///
+/// Every wait for a reply happens on a thread of its own (`offPool`). The
+/// relay answers through Swift tasks, and a test blocked on a read inside
+/// the cooperative pool holds one of the threads those tasks need: on CI's
+/// three-core runner a few of them at once took the whole pool, and the test
+/// run stopped for good.
 @Suite("Luna Control relay", .serialized)
 struct ControlRelayTests {
+
+    private static func offPool<T: Sendable>(_ body: @escaping @Sendable () -> T) async -> T {
+        await withCheckedContinuation { continuation in
+            Thread.detachNewThread { continuation.resume(returning: body()) }
+        }
+    }
 
     /// A short path: `sun_path` holds 104 bytes and the test runner's
     /// temporary directory can use most of them.
@@ -18,7 +30,7 @@ struct ControlRelayTests {
 
     /// The relay on a thread with a pipe for stdin and one for stdout, the
     /// way an MCP client runs it.
-    private final class Harness {
+    private final class Harness: @unchecked Sendable {
         let input: (read: Int32, write: Int32)
         let output: (read: Int32, write: Int32)
         let reader: LineReader
@@ -36,9 +48,15 @@ struct ControlRelayTests {
             Thread.detachNewThread { relay.run(input: stdin) }
         }
 
-        func ask(_ message: JSONValue) -> JSONValue? {
-            ControlSocket.writeLine(message.encoded(), to: input.write)
-            return reader.next().flatMap(JSONValue.parse)
+        func ask(_ message: JSONValue) async -> JSONValue? {
+            await ControlRelayTests.offPool { [self] in
+                ControlSocket.writeLine(message.encoded(), to: input.write)
+                return reader.next().flatMap(JSONValue.parse)
+            }
+        }
+
+        func nextReply() async -> JSONValue? {
+            await ControlRelayTests.offPool { [self] in reader.next().flatMap(JSONValue.parse) }
         }
 
         func finish() {
@@ -55,7 +73,7 @@ struct ControlRelayTests {
         ["jsonrpc": "2.0", "id": .int(id), "method": "tools/call", "params": ["name": .string(tool), "arguments": args]]
     }
 
-    @Test func roundTripsThroughTheSocket() throws {
+    @Test func roundTripsThroughTheSocket() async throws {
         let path = socketPath()
         let listener = try ControlListener(path: path) { call, client in
             .text("\(client.displayName) asked for \(ControlAudit.tool(of: call.command))")
@@ -72,24 +90,24 @@ struct ControlRelayTests {
 
         let harness = Harness(socket: path)
         defer { harness.finish() }
-        #expect(harness.ask(Self.initialize)?["result"]?["serverInfo"]?["name"] == "luna")
+        #expect(await harness.ask(Self.initialize)?["result"]?["serverInfo"]?["name"] == "luna")
         // Named before the reply is written, so Settings can already show it.
         #expect(listener.clientNames == ["test-agent"])
-        let reply = harness.ask(Self.call(2, "screenshot"))
+        let reply = await harness.ask(Self.call(2, "screenshot"))
         #expect(reply?["id"] == 2)
         #expect(reply?["result"]?["content"]?.debugText == "Test Agent asked for screenshot")
     }
 
-    @Test func answersByItselfUntilLunaIsThereAndThenIntroducesTheClient() throws {
+    @Test func answersByItselfUntilLunaIsThereAndThenIntroducesTheClient() async throws {
         let path = socketPath()
         let harness = Harness(socket: path)
         defer { harness.finish() }
 
         // Nothing is listening: the handshake still works and a call says why it cannot.
-        #expect(harness.ask(Self.initialize)?["result"]?["protocolVersion"] == "2025-06-18")
-        let listed = harness.ask(["jsonrpc": "2.0", "id": 2, "method": "tools/list"])
+        #expect(await harness.ask(Self.initialize)?["result"]?["protocolVersion"] == "2025-06-18")
+        let listed = await harness.ask(["jsonrpc": "2.0", "id": 2, "method": "tools/list"])
         #expect(listed?["result"]?["tools"] != nil)
-        let refused = harness.ask(Self.call(3, "tabs_list"))
+        let refused = await harness.ask(Self.call(3, "tabs_list"))
         #expect(refused?["result"]?["isError"] == true)
         #expect(refused?["result"]?["content"]?.debugText == ControlRelay.unreachable)
 
@@ -98,7 +116,7 @@ struct ControlRelayTests {
         // passed on, so the next line out is the call's own.
         let listener = try ControlListener(path: path) { _, client in .text(client.displayName) }
         defer { listener.stop() }
-        let reply = harness.ask(Self.call(4, "tabs_list"))
+        let reply = await harness.ask(Self.call(4, "tabs_list"))
         #expect(reply?["id"] == 4)
         #expect(reply?["result"]?["content"]?.debugText == "Test Agent")
     }
@@ -106,7 +124,7 @@ struct ControlRelayTests {
     /// Two sessions of one app are two agents to Luna: each helper names its
     /// session, the same one again after Luna comes back, and the title the
     /// user knows it by as soon as there is one.
-    @Test func eachHelperTellsLunaWhichSessionItServes() throws {
+    @Test func eachHelperTellsLunaWhichSessionItServes() async throws {
         let projects = URL.temporaryDirectory.appending(path: "lc-\(UUID().uuidString.prefix(8))")
         let transcript = projects.appending(path: "projects/-Users-me-app/abc.jsonl")
         try FileManager.default.createDirectory(at: transcript.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -123,15 +141,15 @@ struct ControlRelayTests {
         defer { listener.stop() }
         let harness = Harness(socket: path, tag: tag)
         defer { harness.finish() }
-        _ = harness.ask(Self.initialize)
-        _ = harness.ask(Self.call(2, "tabs_list"))
+        _ = await harness.ask(Self.initialize)
+        _ = await harness.ask(Self.call(2, "tabs_list"))
         #expect(listener.clients.map(\.session) == ["abc"])
         #expect(seen.withLock { $0.last?.sessionName } == nil)
 
         let title = #"{"type":"ai-title","aiTitle":"Fix the sidebar","sessionId":"abc"}"#
         try Data((#"{"type":"user"}"# + "\n" + title + "\n").utf8).write(to: transcript)
-        Thread.sleep(forTimeInterval: ControlSessionTag.Transcript.interval + 0.1)
-        _ = harness.ask(Self.call(3, "tabs_list"))
+        try await Task.sleep(for: .seconds(ControlSessionTag.Transcript.interval + 0.1))
+        _ = await harness.ask(Self.call(3, "tabs_list"))
         #expect(seen.withLock { $0.last?.session } == "abc")
         #expect(seen.withLock { $0.last?.sessionName } == "Fix the sidebar")
     }
@@ -150,7 +168,7 @@ struct ControlRelayTests {
     /// Luna quitting while a call waits, as one waiting for the user's
     /// approval does, answers it at once rather than leaving the client to
     /// its own timeout.
-    @Test func aCallLunaWentAwayDuringIsAnswered() throws {
+    @Test func aCallLunaWentAwayDuringIsAnswered() async throws {
         let path = socketPath()
         let listener = try ControlListener(path: path) { _, _ in
             try? await Task.sleep(for: .seconds(60))
@@ -158,13 +176,13 @@ struct ControlRelayTests {
         }
         let harness = Harness(socket: path)
         defer { harness.finish() }
-        #expect(harness.ask(Self.initialize)?["result"] != nil)
+        #expect(await harness.ask(Self.initialize)?["result"] != nil)
 
         ControlSocket.writeLine(Self.call(2, "tab_open").encoded(), to: harness.input.write)
-        Thread.sleep(forTimeInterval: 0.2)
+        try await Task.sleep(for: .milliseconds(200))
         let started = Date()
         listener.stop()
-        let reply = harness.reader.next().flatMap(JSONValue.parse)
+        let reply = await harness.nextReply()
         #expect(reply?["id"] == 2)
         #expect(reply?["result"]?["isError"] == true)
         #expect(reply?["result"]?["content"]?.debugText == ControlRelay.unreachable)
