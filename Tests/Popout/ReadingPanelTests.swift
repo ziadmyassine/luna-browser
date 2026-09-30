@@ -81,7 +81,10 @@ final class ReadingPanelTests: XCTestCase {
             let control = try XCTUnwrap(row.control)
             let title = try XCTUnwrap(row.subviews.compactMap { $0 as? NSTextField }.first)
             let textEnd = SiteSettingsMetrics.titleX + title.intrinsicContentSize.width
-            XCTAssertGreaterThanOrEqual(control.frame.minX, textEnd, "\(title.stringValue) runs under its control")
+            // The row ends the title a row inset short of its control, so the
+            // text has to fit before that, not merely before the control.
+            let room = control.frame.minX - Tokens.Metric.rowInset
+            XCTAssertLessThanOrEqual(textEnd, room, "\(title.stringValue) truncates beside its control")
             XCTAssertLessThanOrEqual(control.frame.maxX, row.bounds.maxX - Tokens.Metric.rowInset)
         }
     }

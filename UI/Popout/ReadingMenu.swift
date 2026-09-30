@@ -108,7 +108,9 @@ enum ReadingMenu {
     ) -> SiteSettingsContent.Control {
         let views: [ReadingView] = editable ? [.read, .source, .edit] : [.read, .source]
         let labels = [String(localized: "Read"), String(localized: "Source"), String(localized: "Edit")]
-        let choice = SettingsChoice(labels: Array(labels.prefix(views.count)))
+        // At the settings inset, Read · Source · Edit takes the room "View"
+        // needs in a 280 pt row and the title truncates; the chrome gap fits both.
+        let choice = SettingsChoice(labels: Array(labels.prefix(views.count)), inset: Tokens.Metric.chromeGap)
         choice.selectedIndex = views.firstIndex(of: view) ?? 0
         choice.onSelect = { setView(views[$0]) }
         return .init(title: String(localized: "View"), symbol: Glyph.view, view: choice)

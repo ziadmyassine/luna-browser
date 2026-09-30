@@ -42,10 +42,14 @@ final class SettingsChoice: NSView {
     /// Each segment drawn as a symbol, its label kept for VoiceOver and the
     /// tooltip — for a choice whose words do not fit where it stands.
     private let symbols: [String]?
+    /// Padding either side of each label, narrower where a row must share its
+    /// width with a title.
+    private let inset: CGFloat
 
-    init(labels: [String], fonts: [NSFont]? = nil, symbols: [String]? = nil) {
+    init(labels: [String], fonts: [NSFont]? = nil, symbols: [String]? = nil, inset: CGFloat = SettingsMetrics.controlInset) {
         self.fonts = fonts
         self.symbols = symbols
+        self.inset = inset
         super.init(frame: .zero)
         setAccessibilityRole(.radioGroup)
         stack.orientation = .horizontal
@@ -69,7 +73,7 @@ final class SettingsChoice: NSView {
     func setLabels(_ labels: [String], selected: Int) {
         for button in buttons { stack.removeArrangedSubview(button); button.removeFromSuperview() }
         buttons = labels.enumerated().map { index, label in
-            let button = SettingsChoiceButton(title: label, font: fonts?[index], symbol: symbols?[index])
+            let button = SettingsChoiceButton(title: label, font: fonts?[index], symbol: symbols?[index], inset: inset)
             button.onActivate = { [weak self] in
                 self?.selectedIndex = index
                 self?.onSelect?(index)
@@ -123,7 +127,7 @@ final class SettingsChoiceButton: NSView {
     /// - Parameters:
     ///   - font: the label's face, when the face is the answer.
     ///   - symbol: drawn in place of the title, which becomes the tooltip.
-    init(title: String, font: NSFont? = nil, symbol: String? = nil) {
+    init(title: String, font: NSFont? = nil, symbol: String? = nil, inset: CGFloat = SettingsMetrics.controlInset) {
         super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerCurve = .continuous
@@ -141,7 +145,6 @@ final class SettingsChoiceButton: NSView {
         }
         content.translatesAutoresizingMaskIntoConstraints = false
         addSubview(content)
-        let inset = SettingsMetrics.controlInset
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: SettingsMetrics.controlHeight),
             content.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
