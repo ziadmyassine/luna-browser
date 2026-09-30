@@ -118,6 +118,28 @@ final class PageBarInsetTests: XCTestCase {
         XCTAssertEqual(page.obscuredContentInsets.top, Tokens.Metric.pageBar)
     }
 
+    /// WebKit's inspector docked beside the page runs its full height, and its
+    /// toolbar was under the bar; it is told what the bar covers. Docked below
+    /// the page it is nowhere near the bar and is told nothing.
+    func testADockedInspectorBesideThePageStartsBelowTheBar() {
+        let card = ContentCardView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
+        let page = WKWebView(frame: .zero)
+        card.setContent(page)
+        card.setContentTopInset(Tokens.Metric.pageBar, animated: false)
+        let inspector = FakeInspectorWebView(frame: NSRect(x: 500, y: 0, width: 300, height: 600))
+        card.addSubview(inspector)
+        XCTAssertEqual(inspector.obscuredContentInsets.top, Tokens.Metric.pageBar, "the side inspector ran under the bar")
+
+        inspector.frame = NSRect(x: 0, y: 0, width: 800, height: 250)
+        XCTAssertEqual(inspector.obscuredContentInsets.top, 0, "the inspector below the page was pushed down")
+
+        inspector.frame = NSRect(x: 500, y: 0, width: 300, height: 600)
+        card.setContentTopInset(0, animated: false)
+        XCTAssertEqual(inspector.obscuredContentInsets.top, 0, "the bar went and the inspector kept its gap")
+        inspector.removeFromSuperview()
+        XCTAssertFalse(page.translatesAutoresizingMaskIntoConstraints, "the page did not get its edges back")
+    }
+
     /// The page is scrolled by the change, so it stays still on screen —
     /// except the bar opening at the top of a document, which is the page
     /// making room.
@@ -164,3 +186,7 @@ final class PageBarColourTests: XCTestCase {
         XCTAssertEqual(plane.blueComponent, 0, accuracy: 0.01)
     }
 }
+
+/// Stands in for WebKit's docked inspector, which the card finds by its class
+/// name.
+private final class FakeInspectorWebView: WKWebView {}

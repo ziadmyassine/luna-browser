@@ -3,7 +3,7 @@
 //  Luna
 //
 //  The web content's host: an opaque pane filling everything the chrome
-//  does not (UI-SPEC §3.6, TODO.md §30.11). The pane owns its own edge
+//  does not (UI-SPEC §3.6, §30.11). The pane owns its own edge
 //  constraints — one place computes the insets, and they animate for free.
 //
 //  No gap, despite §3.6's "inset 8 pt": as `inspiration/main-tab-bar-and-ui.png`
@@ -124,6 +124,8 @@ final class ContentCardView: NSView {
     /// is docked in the card (`followFrames`).
     private var contentEdges: [NSLayoutConstraint] = []
     private var contentFollowsFrames = false
+    /// WebKit's docked inspector, told how much of it §3.2b's bar covers.
+    private weak var dockedInspector: WKWebView?
     private var pageBarInset: CGFloat = 0
     /// Cancels the watchdog when a transition ends the ordinary way.
     private var transitionWatchdog: Task<Void, Never>?
@@ -263,6 +265,7 @@ final class ContentCardView: NSView {
         pageBarInset = inset
         agentLayer?.topInset = inset
         applyTopInset(holdingPage: animated ? change : 0)
+        coverInspector()
     }
 
     /// The inset, on whatever the pane is holding. A view that is not a web
@@ -346,43 +349,6 @@ final class ContentCardView: NSView {
             contentWidth?.isActive = false
             contentLeading?.isActive = true
             layoutSubtreeIfNeeded()
-        }
-    }
-
-    // MARK: - A docked Web Inspector
-
-    /// WebKit docks its inspector by adding a view beside the page and setting
-    /// both frames itself. The page's constraints put it back over the
-    /// inspector on the next pass (measured: a 1000 × 700 page on top of a
-    /// 1000 × 500 inspector), so while one is docked the page is sized by frame.
-    /// Watching the card rather than the commands also catches Inspect Element
-    /// and the inspector's own close button.
-    override func didAddSubview(_ subview: NSView) {
-        super.didAddSubview(subview)
-        if Self.isDockedInspector(subview) { followFrames(true) }
-    }
-
-    override func willRemoveSubview(_ subview: NSView) {
-        super.willRemoveSubview(subview)
-        if Self.isDockedInspector(subview) { followFrames(false) }
-    }
-
-    private static func isDockedInspector(_ view: NSView) -> Bool {
-        view is WKWebView && view.className.contains("Inspector")
-    }
-
-    private func followFrames(_ on: Bool) {
-        guard let content, on != contentFollowsFrames else { return }
-        contentFollowsFrames = on
-        if on {
-            endGeometryTransition()
-            NSLayoutConstraint.deactivate(contentEdges + [contentWidth].compactMap { $0 })
-            content.translatesAutoresizingMaskIntoConstraints = true
-            content.autoresizingMask = [.width, .height]
-        } else {
-            content.translatesAutoresizingMaskIntoConstraints = false
-            NSLayoutConstraint.activate(contentEdges)
-            needsLayout = true
         }
     }
 
@@ -488,4 +454,74 @@ final class ContentCardView: NSView {
     /// The page is not a window drag handle. Without this, dragging any
     /// non-interactive part of a web page would move the window.
     override var mouseDownCanMoveWindow: Bool { false }
+}
+
+// MARK: - A docked Web Inspector
+
+extension ContentCardView {
+
+    /// WebKit docks its inspector by adding a view beside the page and setting
+    /// both frames itself. The page's constraints put it back over the
+    /// inspector on the next pass (measured: a 1000 × 700 page on top of a
+    /// 1000 × 500 inspector), so while one is docked the page is sized by frame.
+    /// Watching the card rather than the commands also catches Inspect Element
+    /// and the inspector's own close button.
+    override func didAddSubview(_ subview: NSView) {
+        super.didAddSubview(subview)
+        guard Self.isDockedInspector(subview) else { return }
+        followFrames(true)
+        dockedInspector = subview as? WKWebView
+        subview.postsFrameChangedNotifications = true
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(inspectorMoved), name: NSView.frameDidChangeNotification, object: subview
+        )
+        coverInspector()
+    }
+
+    override func willRemoveSubview(_ subview: NSView) {
+        super.willRemoveSubview(subview)
+        guard Self.isDockedInspector(subview) else { return }
+        followFrames(false)
+        NotificationCenter.default.removeObserver(self, name: NSView.frameDidChangeNotification, object: subview)
+        dockedInspector = nil
+    }
+
+    @objc private func inspectorMoved() { coverInspector() }
+
+    /// Docked beside the page, the inspector runs the card's full height and
+    /// its toolbar sat under §3.2b's bar, so it is told what the bar covers the
+    /// way the page is. Docked below the page it reaches nowhere near the bar
+    /// and is told nothing. Recomputed on every move, because WebKit sets the
+    /// frame itself when the inspector changes side.
+    private func coverInspector() {
+        guard let inspector = dockedInspector else { return }
+        let top = isFlipped ? inspector.frame.minY : bounds.height - inspector.frame.maxY
+        let covered = max(0, pageBarInset - top)
+        guard inspector.obscuredContentInsets.top != covered else { return }
+        var insets = inspector.obscuredContentInsets
+        insets.top = covered
+        inspector.obscuredContentInsets = insets
+    }
+
+    private static func isDockedInspector(_ view: NSView) -> Bool {
+        view is WKWebView && view.className.contains("Inspector")
+    }
+
+    fileprivate func followFrames(_ on: Bool) {
+        guard let content, on != contentFollowsFrames else { return }
+        contentFollowsFrames = on
+        if on {
+            endGeometryTransition()
+            NSLayoutConstraint.deactivate(contentEdges + [contentWidth].compactMap { $0 })
+            content.translatesAutoresizingMaskIntoConstraints = true
+            content.autoresizingMask = [.width, .height]
+        } else {
+            content.translatesAutoresizingMaskIntoConstraints = false
+            // A card being torn down lets go of the page before the inspector,
+            // and edges to a view no longer in it raise.
+            guard content.superview === self else { return }
+            NSLayoutConstraint.activate(contentEdges)
+            needsLayout = true
+        }
+    }
 }
