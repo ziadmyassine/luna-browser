@@ -2,7 +2,7 @@
 import Foundation
 import Testing
 
-/// Row ↔ `SyncRecord`, one mapper per record type (docs/SYNC-PLAN.md §1–§2, S4).
+/// Row ↔ `SyncRecord`, one mapper per record type (docs/plans/SYNC-PLAN.md §1–§2, S4).
 @Suite("Sync record mapping (§31.2)")
 struct SyncMappingTests {
 

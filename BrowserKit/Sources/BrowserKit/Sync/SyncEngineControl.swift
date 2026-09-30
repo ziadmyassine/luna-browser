@@ -1,6 +1,6 @@
 import Foundation
 
-// The seam between `SyncCoordinator` and `CKSyncEngine` (docs/SYNC-PLAN.md §1, The seam),
+// The seam between `SyncCoordinator` and `CKSyncEngine` (docs/plans/SYNC-PLAN.md §1, The seam),
 // and the plain values the engine's events are translated into. Constructing a
 // `CKSyncEngine` without the iCloud entitlement crashes, so tests and CI drive the
 // coordinator through `FakeSyncEngine` instead.

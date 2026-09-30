@@ -2,7 +2,7 @@
 //  SessionRemoteChangeTests.swift
 //  LunaTests
 //
-//  Changes from other Macs applied to the running session (docs/SYNC-PLAN.md S10):
+//  Changes from other Macs applied to the running session (docs/plans/SYNC-PLAN.md S10):
 //  the in-memory list follows, the store write queues behind this Mac's own, and
 //  the §3 rules that only the session can apply hold.
 //

@@ -1,7 +1,7 @@
 import Foundation
 import GRDB
 
-// The `syncedDefaults` mirror of the allowlisted `UserDefaults` keys (docs/SYNC-PLAN.md §5).
+// The `syncedDefaults` mirror of the allowlisted `UserDefaults` keys (docs/plans/SYNC-PLAN.md §5).
 // The triggers on it fill the outbox, so a setting is queued like any row; the app owns the
 // allowlist and the defaults themselves (`SyncedDefaults`).
 

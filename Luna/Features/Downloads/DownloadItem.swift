@@ -3,7 +3,7 @@
 //  Luna
 //
 //  One download, plus the three decisions that are pure functions and therefore
-//  testable without a network, a web view or a disk (TODO.md §15.1a, §15.4):
+//  testable without a network, a web view or a disk (§15.1a, §15.4):
 //  what the file is called, where it goes when that name is taken, and whether
 //  it is the kind of file we stop and ask about.
 //

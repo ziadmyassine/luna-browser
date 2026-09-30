@@ -2,7 +2,7 @@
 //  Passwords.swift
 //  Luna
 //
-//  docs/SETTINGS-SPEC.md §3.10 / TODO.md §14, a group on the Privacy &
+//  docs/SETTINGS-SPEC.md §3.10 / §14, a group on the Privacy &
 //  Passwords page: where passwords go, the switches, and passkeys.
 //
 //  This section replaces a "deliberately not here" entry, because §14.1's

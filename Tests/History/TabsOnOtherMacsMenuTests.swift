@@ -2,7 +2,7 @@
 //  TabsOnOtherMacsMenuTests.swift
 //  LunaTests
 //
-//  History ▸ Tabs on Other Macs (docs/SYNC-PLAN.md §5, S12): one section per
+//  History ▸ Tabs on Other Macs (docs/plans/SYNC-PLAN.md §5, S12): one section per
 //  Mac, and a click opens the tab here. Which Macs are listed is decided in
 //  BrowserKit (`DevicePresenceTests`); this is the menu half.
 //

@@ -3,7 +3,7 @@ import Foundation
 import GRDB
 import Testing
 
-/// The triggers that turn local writes into `syncOutbox` rows (docs/SYNC-PLAN.md S3).
+/// The triggers that turn local writes into `syncOutbox` rows (docs/plans/SYNC-PLAN.md S3).
 @Suite("Sync outbox triggers (§31)")
 struct SyncOutboxTests {
 

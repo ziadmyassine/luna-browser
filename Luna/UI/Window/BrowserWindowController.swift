@@ -2,7 +2,7 @@
 //  BrowserWindowController.swift
 //  Luna
 //
-//  The floating browser window (UI-SPEC §3.6/§4, TODO.md §30.1): no titlebar,
+//  The floating browser window (UI-SPEC §3.6/§4, §30.1): no titlebar,
 //  no toolbar, rounded at `WindowCorner.radius`, detached, with the wallpaper
 //  visible around it.
 //  It hosts exactly two things — a chrome view (the sidebar or the top bar,

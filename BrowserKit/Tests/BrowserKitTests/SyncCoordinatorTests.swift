@@ -4,7 +4,7 @@ import GRDB
 import Synchronization
 import Testing
 
-/// The coordinator driven through `FakeSyncEngine` (docs/SYNC-PLAN.md S8). Nothing here
+/// The coordinator driven through `FakeSyncEngine` (docs/plans/SYNC-PLAN.md S8). Nothing here
 /// constructs a `CKContainer` or `CKSyncEngine`.
 @Suite("Sync coordinator (§31)")
 struct SyncCoordinatorTests {

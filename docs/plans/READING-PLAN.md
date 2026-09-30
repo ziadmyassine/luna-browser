@@ -1,7 +1,6 @@
 # Reading surface — Markdown reader and editor (18.9), shared with Reader (18.3)
 
-Build plan. Design mockup: https://claude.ai/artifact/YTX4rZLZFc9PPKWMDhwf3V
-(boards "Reading pop-out (Aa)", "Site settings", "Dark", "Source", "Edit", "Sepia").
+Build plan. The design mockup was a private board; the decisions taken from it are below.
 
 ## Owner decisions (2026-09-29)
 

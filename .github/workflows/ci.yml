@@ -2,7 +2,7 @@ name: CI
 
 # **CI only.** Releases are `release.yml`, run by a version tag. Luna still
 # signs ad-hoc (`CODE_SIGN_IDENTITY: "-"` in project.yml); signing, notarisation
-# and the DMG are TODO.md §24.4–§24.6 and wait on a Developer ID certificate, so
+# and the DMG are §24.4–§24.6 and wait on a Developer ID certificate, so
 # a release downloaded in a browser asks before it opens the first time. The
 # in-app updater's own downloads are not quarantined (SETTINGS-SPEC §3.10).
 #

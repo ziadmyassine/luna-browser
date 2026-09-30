@@ -396,7 +396,7 @@ extension MainMenu {
     /// re-sends it after a rebind.
     private static var otherMacs: [SyncDevice] = []
 
-    /// History ▸ Tabs on Other Macs (docs/SYNC-PLAN.md §5): one section per
+    /// History ▸ Tabs on Other Macs (docs/plans/SYNC-PLAN.md §5): one section per
     /// Mac, already filtered by `SyncCoordinator.otherMacs`.
     static func setOtherMacs(_ macs: [SyncDevice], in app: NSApplication) {
         otherMacs = macs

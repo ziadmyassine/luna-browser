@@ -1,6 +1,6 @@
 import Foundation
 
-// The conflict rules of docs/SYNC-PLAN.md §3. Pure: the coordinator decides when to ask,
+// The conflict rules of docs/plans/SYNC-PLAN.md §3. Pure: the coordinator decides when to ask,
 // the store and the session carry the answer out.
 
 public enum SyncMerge {

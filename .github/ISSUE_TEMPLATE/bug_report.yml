@@ -1,0 +1,50 @@
+name: Bug report
+description: Something in Luna does not work as it should.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead. A screenshot or screen recording helps.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to make it happen
+      description: The steps from a fresh window, and the website if it is about one.
+      placeholder: |
+        1. Open …
+        2. Click …
+    validations:
+      required: true
+  - type: input
+    id: luna
+    attributes:
+      label: Luna version or commit
+      description: Luna ▸ About Luna, or the commit you built from.
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: macOS 26.1
+    validations:
+      required: true
+  - type: dropdown
+    id: layout
+    attributes:
+      label: Layout
+      options:
+        - Sidebar
+        - Top bar
+        - Full screen
+        - Not sure
+  - type: textarea
+    id: crash
+    attributes:
+      label: Crash report
+      description: If Luna quit, paste the crash report (it opens after a crash, or find it in Console ▸ Crash Reports).
+      render: text

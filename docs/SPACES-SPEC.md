@@ -1,7 +1,7 @@
 # Spaces — the model, the behaviour and the scope (§5, §7, §8)
 
 Written 2026-09-18. This is the source of truth for Spaces, Profiles and the
-sidebar hierarchy. Where it disagrees with §5/§7's older lines in `TODO.md`,
+sidebar hierarchy. Where it disagrees with §5/§7's older lines in the plan,
 this wins; the corrections are called out in §11 so nothing is lost silently.
 
 Status re-checked against the code on 2026-09-21: S1 is built, S2's gradients
@@ -74,7 +74,7 @@ Profile, and every Space sharing that Profile shares its Favorites.
 **This is decision D-S2, and it is built.** `TabList` still stores
 `[UUID: [Tab]]` keyed by Space — an `.essential` row keeps the Space it was
 promoted in — but resolves them per Profile, so every Space sharing that Profile
-lists the same tiles (`TabList.favorites(onProfile:)`). `TODO.md` §46's "global,
+lists the same tiles (`TabList.favorites(onProfile:)`). §46's "global,
 survives Space switching" is the wrong half of it: global across a Profile, not
 across the app. Arc's answer is per-Profile, and Zen independently lands near it
 by stripping a tab's workspace id when it is promoted to Essential
@@ -163,7 +163,7 @@ so log it and move on.
 
 ### 3.3 Changing a Space's Profile
 
-`TODO.md` §5.5 says the default store "cannot be adopted into one later". True of
+§5.5 says the default store "cannot be adopted into one later". True of
 WebKit, **but Luna never uses the default store** — `ProfileStore.dataStore(for:)`
 always calls `WKWebsiteDataStore(forIdentifier:)`. So Luna's real migration is
 identified → identified, which is a materially easier problem. §5.5's framing is
@@ -521,7 +521,7 @@ device-local.
 
 ---
 
-## 11. Corrections to `TODO.md`
+## 11. Corrections to the plan (§5, §7)
 
 1. **§46 "Favorite … global, survives Space switching"** — global across a
    Profile, not across the app. Favorites are **per Profile** (§2).

@@ -2,7 +2,7 @@
 //  AccountSectionTests.swift
 //  LunaTests
 //
-//  The iCloud page (docs/SYNC-PLAN.md §5): what is on, what is disabled and
+//  The iCloud page (docs/plans/SYNC-PLAN.md §5): what is on, what is disabled and
 //  why, and that the one destructive button asks first. Driven through
 //  `SyncSettings`, so nothing here needs CloudKit.
 //

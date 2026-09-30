@@ -107,7 +107,7 @@ struct StoreMigrationTests {
         #expect(try await store.tabs(inSpace: space.id, includeArchived: true).isEmpty)
     }
 
-    // MARK: - v12, sync (docs/SYNC-PLAN.md S2)
+    // MARK: - v12, sync (docs/plans/SYNC-PLAN.md S2)
 
     /// A trigger cannot name a column that may not exist yet, so the flags exist
     /// from the migration on rather than being added on first use.

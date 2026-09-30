@@ -2,7 +2,7 @@
 //  SyncGateTests.swift
 //  LunaTests
 //
-//  The app's half of iCloud sync (docs/SYNC-PLAN.md S11): the entitlement
+//  The app's half of iCloud sync (docs/plans/SYNC-PLAN.md S11): the entitlement
 //  gate, and the coordinator hooked up to Settings, the session and the
 //  History menu. The test host is unsigned, so anything that constructed a
 //  `CKContainer` here would crash the run; past the gate, an engine that

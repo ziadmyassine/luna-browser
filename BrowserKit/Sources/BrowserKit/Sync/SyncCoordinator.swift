@@ -1,7 +1,7 @@
 import Foundation
 import GRDB
 
-// All of sync's decisions (docs/SYNC-PLAN.md §1, §3, §4): the outbox becomes the engine's
+// All of sync's decisions (docs/plans/SYNC-PLAN.md §1, §3, §4): the outbox becomes the engine's
 // pending changes, a batch is built from the rows as they are now, and each engine event
 // arrives here as plain values. The engine is behind `SyncEngineControl`, so none of this
 // needs iCloud to test.

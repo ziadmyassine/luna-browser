@@ -1,7 +1,7 @@
 import CryptoKit
 import Foundation
 
-/// The per-account secret that site record names are keyed by (docs/SYNC-PLAN.md §1,
+/// The per-account secret that site record names are keyed by (docs/plans/SYNC-PLAN.md §1,
 /// Record IDs). It lives in the `Meta` zone, so every Mac on the account derives the
 /// same name for a host, and the server never sees the host in the clear: a plain hash
 /// of a hostname falls to a dictionary of hostnames.
@@ -89,7 +89,7 @@ public struct SyncSecretState: Sendable {
     }
 
     /// A secret from the server, fetched or carried by a `serverRecordChanged` failure.
-    /// The server always wins (docs/SYNC-PLAN.md §3).
+    /// The server always wins (docs/plans/SYNC-PLAN.md §3).
     public mutating func received(_ record: SyncRecord) {
         guard let secret = SyncSecret(record: record) else { return }
         settled = secret

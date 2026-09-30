@@ -3,7 +3,7 @@ import Foundation
 import Synchronization
 import Testing
 
-/// Tabs on Other Macs (docs/SYNC-PLAN.md S12, §5): this Mac's Device record going up, and
+/// Tabs on Other Macs (docs/plans/SYNC-PLAN.md S12, §5): this Mac's Device record going up, and
 /// other Macs' coming down. Driven through `FakeSyncEngine`.
 @Suite("Device presence (§31.6)")
 struct DevicePresenceTests {

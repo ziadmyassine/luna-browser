@@ -3,7 +3,7 @@ import Foundation
 import GRDB
 import Testing
 
-/// Applying a batch of incoming records to the store (docs/SYNC-PLAN.md S6).
+/// Applying a batch of incoming records to the store (docs/plans/SYNC-PLAN.md S6).
 @Suite("Sync apply (§31)")
 struct SyncApplyTests {
 
@@ -244,7 +244,7 @@ struct SyncApplyTests {
         #expect(stored.3 == "Space")
     }
 
-    // MARK: The seed Space (docs/SYNC-PLAN.md §9)
+    // MARK: The seed Space (docs/plans/SYNC-PLAN.md §9)
 
     private func seededStore() async throws -> (BrowserStore, UUID) {
         let (store, seed) = try await makeTemporaryStoreWithSpace()

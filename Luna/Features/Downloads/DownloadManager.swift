@@ -2,7 +2,7 @@
 //  DownloadManager.swift
 //  Luna
 //
-//  TODO.md §15.1/§15.3/§15.4 — the `WKDownloadDelegate` plumbing, the
+//  §15.1/§15.3/§15.4 — the `WKDownloadDelegate` plumbing, the
 //  quarantine record, and the confirmation for files that run when you open
 //  them. Wave 1 already decided whether something is a download
 //  (`NavigationPolicy.shouldDownload`, which is also where §15.4's
@@ -16,7 +16,7 @@
 //     `tasks` dictionary below is the strong reference that keeps it alive, and
 //     the only reason that dictionary exists.
 //
-//  2. `decideDestinationUsing` takes no `Bool` on macOS 26.5. TODO.md §15.1
+//  2. `decideDestinationUsing` takes no `Bool` on macOS 26.5. §15.1
 //     records a trap — "must answer `(url, true)`; the second value grants the
 //     sandbox extension" — that came from an older SDK. Verified against
 //     `MacOSX26.5.sdk/.../WKDownloadDelegate.h`: the protocol's one required
@@ -262,7 +262,7 @@ final class DownloadManager {
     /// Writes the `com.apple.quarantine` record so Gatekeeper still protects the
     /// user.
     ///
-    /// Luna is not sandboxed (TODO.md §22.1, D8) — the App Sandbox is what
+    /// Luna is not sandboxed (§22.1, D8) — the App Sandbox is what
     /// normally has the OS stamp downloads for you. Without this, a `.dmg`
     /// Luna downloads opens with no "downloaded from the internet" check at
     /// all, which is a security regression against every other browser.

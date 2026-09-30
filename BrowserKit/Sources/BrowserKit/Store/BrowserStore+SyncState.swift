@@ -1,7 +1,7 @@
 import Foundation
 import GRDB
 
-// The coordinator's reads and writes of sync bookkeeping (docs/SYNC-PLAN.md §1, v12
+// The coordinator's reads and writes of sync bookkeeping (docs/plans/SYNC-PLAN.md §1, v12
 // tables), and building an outgoing record from the row it stands for. Apart from
 // `BrowserStore+Sync.swift`, which is the incoming half.
 
@@ -225,7 +225,7 @@ extension BrowserStore {
     }
 }
 
-/// The `syncMeta` keys (docs/SYNC-PLAN.md §1, v12 tables).
+/// The `syncMeta` keys (docs/plans/SYNC-PLAN.md §1, v12 tables).
 enum SyncMetaKey {
     /// `CKSyncEngine.State.Serialization`, rewritten on every state update.
     static let engineState = "engineState"
@@ -238,7 +238,7 @@ enum SyncMetaKey {
     static let fetchedOnce = "fetchedOnce"
 }
 
-/// Outbox keys ↔ record names (docs/SYNC-PLAN.md §1, Record IDs).
+/// Outbox keys ↔ record names (docs/plans/SYNC-PLAN.md §1, Record IDs).
 enum SyncKeys {
 
     /// SQLite's `hex(id)` of a UUID blob, which the triggers key rows by.

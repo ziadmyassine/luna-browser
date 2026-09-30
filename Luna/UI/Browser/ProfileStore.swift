@@ -2,7 +2,7 @@
 //  ProfileStore.swift
 //  Luna
 //
-//  TODO.md §5.1: one `WKWebsiteDataStore` per Space — the user's Profile —
+//  §5.1: one `WKWebsiteDataStore` per Space — the user's Profile —
 //  and the only place Luna turns a Space into one.
 //
 //  Two facts drive everything here:

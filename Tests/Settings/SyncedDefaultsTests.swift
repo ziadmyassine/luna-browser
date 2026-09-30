@@ -2,7 +2,7 @@
 //  SyncedDefaultsTests.swift
 //  LunaTests
 //
-//  docs/SYNC-PLAN.md S9: which settings reach iCloud, and what an incoming one
+//  docs/plans/SYNC-PLAN.md S9: which settings reach iCloud, and what an incoming one
 //  does here. Every test runs against its own defaults suite and database, so
 //  none of them touches the running app's settings.
 //

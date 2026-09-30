@@ -195,7 +195,7 @@ public enum WebViewFactory {
         // §18.8: must stay empty to match Safari. `[.audio]` blocks the programmatic
         // `play()` an SPA navigation makes outside a user gesture, which breaks YouTube.
         configuration.mediaTypesRequiringUserActionForPlayback = []
-        // D10's second exception (TODO.md): native Picture in Picture is off in every
+        // D10's second exception (docs/DECISIONS.md): native Picture in Picture is off in every
         // WKWebView but Safari's, and the public property is iOS-only — set on the
         // configuration it raises. Checked first, so a WebKit without it loses PiP, not the app.
         if configuration.preferences.responds(to: NSSelectorFromString("_setAllowsPictureInPictureMediaPlayback:")) {

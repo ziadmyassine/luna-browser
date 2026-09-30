@@ -2,7 +2,7 @@
 //  Account.swift
 //  Luna
 //
-//  The iCloud page the account row opens (docs/SYNC-PLAN.md §5), and
+//  The iCloud page the account row opens (docs/plans/SYNC-PLAN.md §5), and
 //  `SyncSettings`, the one thing it and the row know about sync. The page
 //  is not in `SettingsSectionRegistry.all`: it has no ⌘-number and no line in
 //  the list.

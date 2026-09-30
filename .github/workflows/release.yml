@@ -12,7 +12,7 @@ name: Release
 # stamp, and only says a newer one is out.
 #
 # Still ad-hoc signed (project.yml): there is no Developer ID certificate yet
-# (TODO.md §24.4). A copy downloaded in a browser is quarantined and macOS
+# (§24.4). A copy downloaded in a browser is quarantined and macOS
 # asks before opening it the first time; an update the app fetches itself
 # carries no quarantine, and is checked against the zip's SHA-256 instead.
 

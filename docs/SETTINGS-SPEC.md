@@ -271,7 +271,7 @@ account row (`SettingsAccountRow`), in the style of Raycast's:
   is no permission prompt.
 - **The name** (`NSFullUserName()`) in `settingsAccountName`, 13 pt semibold,
   and under it **one line** in `settingsCaption`: `SyncStatus`'s line — "iCloud
-  sync off", "Synced 2 minutes ago", or a §4 line from docs/SYNC-PLAN.md.
+  sync off", "Synced 2 minutes ago", or a §4 line from docs/plans/SYNC-PLAN.md.
 - **A button, not a list row.** It is outside the section list, so it follows
   CLAUDE.md's "Buttons answer": `Surface.hover` under the pointer,
   `Surface.selected` and the press swell under the finger. While its page is

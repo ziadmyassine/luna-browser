@@ -6,7 +6,7 @@
 //  custom zone, reports the default-browser state, and exits without showing
 //  a window. `--cloudkit-probe-records` then saves, fetches and deletes one
 //  record of each of Luna's types in a throwaway zone: the check that the
-//  Production schema takes everything sync sends (docs/SYNC-PLAN.md S11).
+//  Production schema takes everything sync sends (docs/plans/SYNC-PLAN.md S11).
 //  Only meaningful in a `make signed` build; the ad-hoc build has no iCloud
 //  entitlements. §31.1's results and verdict: docs/SYNC.md.
 //

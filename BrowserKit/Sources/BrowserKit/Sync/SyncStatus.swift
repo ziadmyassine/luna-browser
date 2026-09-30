@@ -1,6 +1,6 @@
 import Foundation
 
-/// What the account row's subtitle and the account page say about sync (docs/SYNC-PLAN.md §4).
+/// What the account row's subtitle and the account page say about sync (docs/plans/SYNC-PLAN.md §4).
 /// Every state is a quiet line, never a modal.
 public enum SyncStatus: Sendable, Equatable {
     case needsSignedBuild

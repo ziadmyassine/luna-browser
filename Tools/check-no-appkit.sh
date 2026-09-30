@@ -1,6 +1,6 @@
 #!/bin/sh
 # BrowserKit is the engine layer: Foundation + WebKit only, so an iOS companion
-# stays possible (TODO.md §25.5). AppKit types belong in Luna/UI/ or Luna/Design/.
+# stays possible (§25.5). AppKit types belong in Luna/UI/ or Luna/Design/.
 set -eu
 src="$(cd "$(dirname "$0")/.." && pwd)/BrowserKit/Sources"
 [ -d "$src" ] || { echo "check-no-appkit: $src does not exist"; exit 1; }
@@ -15,7 +15,7 @@ hits=$(find "$src" -name '*.swift' | while IFS= read -r f; do
 done)
 
 if [ -n "$hits" ]; then
-	echo "check-no-appkit: AppKit leaked into BrowserKit (TODO.md §25.5)."
+	echo "check-no-appkit: AppKit leaked into BrowserKit (§25.5)."
 	echo "$hits" | sed 's/^/  /'
 	echo "Move the UI type into Luna/UI/ or Luna/Design/ and keep BrowserKit on Foundation + WebKit."
 	exit 1

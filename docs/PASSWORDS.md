@@ -1,6 +1,6 @@
 # Passwords, autofill & passkeys — what is actually reachable
 
-**TODO.md §14.1's spike, and its answer.** Read this before writing any UI copy
+**§14.1's spike, and its answer.** Read this before writing any UI copy
 about passwords, and before promising anything in marketing or onboarding.
 
 Measured on **macOS 26 (Darwin 27.0.0)** on 2026-09-19, against a binary signed

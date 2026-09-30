@@ -1,0 +1,23 @@
+name: Feature request
+description: Something Luna should do that it does not.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you want to do
+      description: The thing you are trying to do, and what gets in the way today.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How Luna could do it
+      description: Optional. How another browser does it is useful too.
+  - type: checkboxes
+    id: searched
+    attributes:
+      label: Checked
+      options:
+        - label: I searched the existing issues and this is not one of them.
+          required: true

@@ -2,7 +2,7 @@
 //  SettingsAccountRowTests.swift
 //  LunaTests
 //
-//  The account row at the head of Settings' column (docs/SYNC-PLAN.md §5):
+//  The account row at the head of Settings' column (docs/plans/SYNC-PLAN.md §5):
 //  where it stands, what it says, and that it opens the iCloud page without
 //  becoming a numbered section.
 //

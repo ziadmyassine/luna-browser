@@ -2,7 +2,7 @@
 import Foundation
 import Testing
 
-/// The per-account secret and the site record names keyed by it (docs/SYNC-PLAN.md §1, S5).
+/// The per-account secret and the site record names keyed by it (docs/plans/SYNC-PLAN.md §1, S5).
 @Suite("Sync secret and site record names (§31.2)")
 struct SyncSecretTests {
 

@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security problem
+    url: https://github.com/ziadmyassine/luna-browser/security/policy
+    about: Please do not report security problems in a public issue.
+  - name: Project board
+    url: https://github.com/users/ziadmyassine/projects/2
+    about: Everything already planned, in progress and done.

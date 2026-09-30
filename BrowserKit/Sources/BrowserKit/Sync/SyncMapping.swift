@@ -1,6 +1,6 @@
 import Foundation
 
-// Row ↔ `SyncRecord`, one mapper per record type (docs/SYNC-PLAN.md §1–§2). Pure.
+// Row ↔ `SyncRecord`, one mapper per record type (docs/plans/SYNC-PLAN.md §1–§2). Pure.
 //
 // Every writer takes `stored`, the last record known under that name, and goes through
 // `SyncRecord(writing:…)`, which is where the §31.9 versioning rules live. User content
@@ -79,7 +79,7 @@ public struct SyncHistoryEntry: Sendable, Hashable {
     }
 
     public var deviceID: UUID
-    /// `places.id` on the Mac that wrote it; see Record IDs in docs/SYNC-PLAN.md §1.
+    /// `places.id` on the Mac that wrote it; see Record IDs in docs/plans/SYNC-PLAN.md §1.
     public var placeID: Int64
     public var url: URL
     public var title: String

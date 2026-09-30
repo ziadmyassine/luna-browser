@@ -1,6 +1,6 @@
 import Foundation
 
-// The record the sync core works on (docs/SYNC-PLAN.md §1). `CKRecord` is not `Sendable`
+// The record the sync core works on (docs/plans/SYNC-PLAN.md §1). `CKRecord` is not `Sendable`
 // under Swift 6, so it never leaves `SyncCloudKit.swift`; everything else — mapping,
 // merging, the coordinator — sees this value instead.
 
@@ -25,7 +25,7 @@ public struct SyncField: Sendable, Hashable, Codable {
     }
 }
 
-/// The CloudKit zones, one per switch on the account page (docs/SYNC-PLAN.md §1, Zones).
+/// The CloudKit zones, one per switch on the account page (docs/plans/SYNC-PLAN.md §1, Zones).
 public enum SyncZone: String, Sendable, CaseIterable {
     case spaces = "Spaces"
     case sites = "Sites"
@@ -70,7 +70,7 @@ public struct SyncRecord: Sendable, Hashable, Codable {
 
 extension SyncRecord {
 
-    /// The version this Luna writes (the §31.9 rules: docs/SYNC-PLAN.md §2, Schema versioning).
+    /// The version this Luna writes (the §31.9 rules: docs/plans/SYNC-PLAN.md §2, Schema versioning).
     static let currentSchemaVersion: Int64 = 1
 
     /// A write of `fields` over `stored`, the last record known for this name. It keeps

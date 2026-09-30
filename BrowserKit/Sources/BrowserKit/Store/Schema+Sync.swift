@@ -2,7 +2,7 @@
 //  Schema+Sync.swift
 //  BrowserKit
 //
-//  `v12`, the tables iCloud sync keeps its state in (docs/SYNC-PLAN.md §1).
+//  `v12`, the tables iCloud sync keeps its state in (docs/plans/SYNC-PLAN.md §1).
 //  Beside the rest of the schema rather than in it because `Schema` is at
 //  SwiftLint's type-body limit.
 //
@@ -54,7 +54,7 @@ extension Schema {
 
 /// Change tracking is triggers rather than store hooks because triggers catch
 /// every writer, foreign-key cascades included, and the outbox they fill
-/// survives a crash (docs/SYNC-PLAN.md §1).
+/// survives a crash (docs/plans/SYNC-PLAN.md §1).
 enum SyncSQL {
 
     /// A table whose rows are records, and the columns another Mac would see.
@@ -158,7 +158,7 @@ enum SyncSQL {
     }
 
     /// What turning `zone` on queues: every row it covers, except that history
-    /// goes back only 90 days (docs/SYNC-PLAN.md §1).
+    /// goes back only 90 days (docs/plans/SYNC-PLAN.md §1).
     static func seed(_ zone: SyncZone) -> [String] {
         let rows = tracked.filter { $0.zone == zone }.map { item in
             """

@@ -4,7 +4,7 @@ import GRDB
 import Synchronization
 import Testing
 
-/// The turn-on fetch's last rule (docs/SYNC-PLAN.md §3, "Turning sync on"): a row whose
+/// The turn-on fetch's last rule (docs/plans/SYNC-PLAN.md §3, "Turning sync on"): a row whose
 /// system fields prove iCloud once had it, and which a fresh full fetch did not bring back,
 /// was deleted on another Mac while this one was off.
 @Suite("Sync full fetch (§31)")

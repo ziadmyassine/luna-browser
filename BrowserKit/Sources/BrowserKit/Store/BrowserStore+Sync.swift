@@ -1,7 +1,7 @@
 import Foundation
 import GRDB
 
-/// One local change waiting to be sent (docs/SYNC-PLAN.md §1).
+/// One local change waiting to be sent (docs/plans/SYNC-PLAN.md §1).
 struct SyncOutboxEntry: Sendable, Hashable, Codable, FetchableRecord {
     var recordType: String
     var localKey: String
@@ -63,7 +63,7 @@ public struct SyncChangeSet: Sendable {
 extension BrowserStore {
 
     /// Applies a fetched batch in one transaction with the echo guard up, so none of it
-    /// reaches the outbox (docs/SYNC-PLAN.md §1).
+    /// reaches the outbox (docs/plans/SYNC-PLAN.md §1).
     ///
     /// Spaces, groups, site settings, history and the settings mirror are applied here.
     /// Devices and the secret have their own owners, and a type this Luna does not know is left alone

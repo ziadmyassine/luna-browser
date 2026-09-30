@@ -2,7 +2,7 @@
 //  SyncedDefaults.swift
 //  Luna
 //
-//  Which settings sync (docs/SYNC-PLAN.md §5), recording them into the
+//  Which settings sync (docs/plans/SYNC-PLAN.md §5), recording them into the
 //  store's mirror, and applying the ones that arrive from another Mac.
 //
 

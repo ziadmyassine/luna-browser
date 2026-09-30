@@ -2,7 +2,7 @@
 import Foundation
 import Testing
 
-/// `Config/CloudKit/Schema.ckdb` against what the mappers write (docs/SYNC-PLAN.md §2, S4).
+/// `Config/CloudKit/Schema.ckdb` against what the mappers write (docs/plans/SYNC-PLAN.md §2, S4).
 ///
 /// Production has no just-in-time schema and can only grow, so a field a mapper writes
 /// that the schema lacks fails every save, and a field declared with the wrong encryption

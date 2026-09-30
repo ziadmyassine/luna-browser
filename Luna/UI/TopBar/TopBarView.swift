@@ -2,7 +2,7 @@
 //  TopBarView.swift
 //  Luna
 //
-//  The sidebar-off layout (§4, TODO.md §30.12–30.14): one bar spanning the
+//  The sidebar-off layout (§4, §30.12–30.14): one bar spanning the
 //  window, with the page flush full-bleed below it. A second layout, not a
 //  collapsed sidebar (`cardInsets` for `.topBar` has no gap and no corners).
 //

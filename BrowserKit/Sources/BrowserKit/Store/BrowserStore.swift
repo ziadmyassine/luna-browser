@@ -158,7 +158,7 @@ public actor BrowserStore {
         _ = try await pool.write { db in try Space.deleteOne(db, key: spaceID) }
     }
 
-    /// The seed Space's name. Sync's first fetch tells an untouched seed by it (docs/SYNC-PLAN.md §3).
+    /// The seed Space's name. Sync's first fetch tells an untouched seed by it (docs/plans/SYNC-PLAN.md §3).
     static let seedSpaceName = "Personal"
 
     /// One default Space, so a first run is never an empty window.

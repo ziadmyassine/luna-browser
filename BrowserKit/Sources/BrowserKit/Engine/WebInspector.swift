@@ -5,7 +5,7 @@ import WebKit
 /// Safari's Develop menu.
 ///
 /// Every call here is SPI, and this file is the written exception to D10
-/// (TODO.md). The public `isInspectable` only lets another app attach:
+/// (docs/DECISIONS.md). The public `isInspectable` only lets another app attach:
 /// measured on macOS 27, it adds nothing to the page's right-click menu and
 /// offers no way to open the inspector. Each selector is checked before it
 /// is sent, so a WebKit that drops one loses the command, not the app.

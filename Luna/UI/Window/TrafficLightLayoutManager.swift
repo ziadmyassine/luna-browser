@@ -2,7 +2,7 @@
 //  TrafficLightLayoutManager.swift
 //  Luna
 //
-//  The single owner of the traffic lights' frames (TODO.md §7.7, UI-SPEC §3.1):
+//  The single owner of the traffic lights' frames (§7.7, UI-SPEC §3.1):
 //  nothing else may touch a standard window button's frame. The geometry lives
 //  in a pure function, unit-tested for every `ChromeState` (`Tests/Window/`).
 //

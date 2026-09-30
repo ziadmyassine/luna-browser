@@ -9,7 +9,7 @@
 //  profile → container pair — and caps the tier at twelve; Zen strips a tab's
 //  workspace id when it is promoted to Essential, landing near the same place
 //  from the other side. Luna's `TabList` was keyed by Space with `.essential`
-//  inside it, so Favorites were per Space while `TODO.md` §46 claimed they were
+//  inside it, so Favorites were per Space while §46 claimed they were
 //  global. Both were wrong.
 //
 //  The behaviour these assert, in one line each: two Spaces on one Profile see

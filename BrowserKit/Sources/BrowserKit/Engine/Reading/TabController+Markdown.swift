@@ -4,7 +4,7 @@ import WebKit
 /// A Markdown document opened in the tab: caught at its response, rendered in
 /// Swift and loaded as a page of Luna's own under the document's URL, so the
 /// address stays the file or the web address it came from. Phase 4 of
-/// docs/READING-PLAN.md.
+/// docs/plans/READING-PLAN.md.
 ///
 /// The page is loaded rather than rendered in place: a web host's CSP would
 /// govern a page built inside its response, and a `luna://` page would lose

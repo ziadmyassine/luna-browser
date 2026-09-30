@@ -1,7 +1,7 @@
 import CloudKit
 import Foundation
 
-// The only file that touches `CKRecord` or `CKSyncEngine` (docs/SYNC-PLAN.md §1): the
+// The only file that touches `CKRecord` or `CKSyncEngine` (docs/plans/SYNC-PLAN.md §1): the
 // conversion between `CKRecord` and `SyncRecord`, and `SyncCloudKitEngine`, the live
 // `SyncEngineControl`.
 //

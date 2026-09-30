@@ -2,7 +2,7 @@
 //  AppDelegate+Sync.swift
 //  Luna
 //
-//  iCloud sync's app half (docs/SYNC-PLAN.md §1, §4, S11): the entitlement
+//  iCloud sync's app half (docs/plans/SYNC-PLAN.md §1, §4, S11): the entitlement
 //  gate, and `AppSync`, which builds the coordinator over the main store and
 //  hooks it to Settings, the session, the settings mirror and the History
 //  menu. Private windows have stores of their own and never get one.

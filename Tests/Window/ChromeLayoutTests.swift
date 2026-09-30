@@ -2,7 +2,7 @@
 //  ChromeLayoutTests.swift
 //  LunaTests
 //
-//  TODO.md §7.7: "write a single `TrafficLightLayoutManager` and unit-test its
+//  §7.7: "write a single `TrafficLightLayoutManager` and unit-test its
 //  output for the window states rather than nudging frames in 4 different view
 //  controllers". This is that test, and the reason the geometry is a pure
 //  function rather than a pile of `setFrameOrigin` calls.

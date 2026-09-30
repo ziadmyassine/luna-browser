@@ -21,7 +21,7 @@ design, and prior art.
 
 Question 1 is two-thirds impossible and one-third a different company.
 Question 2 defeats its own motivation twice over. Both stated motivations are
-better served by things already in `TODO.md`: **§4.6** (per-site UA override)
+better served by things already planned: **§4.6** (per-site UA override)
 and **§16** (`WKWebExtension`).
 
 ---

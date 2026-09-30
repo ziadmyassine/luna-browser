@@ -1,6 +1,6 @@
 # Extensions — how the other browsers do it, and what Luna should build
 
-**TODO.md ★ P4 / §16's research, before any code.** Read this before starting
+**P4 / §16's research, before any code.** Read this before starting
 §16.1, and before writing any copy that promises an extension works.
 
 Researched 2026-09-24 from source (Search, Nook, Ora, Zen), from the macOS 26.5

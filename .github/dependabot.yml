@@ -1,0 +1,12 @@
+# Keeps the Swift packages (GRDB, swift-markdown) and the CI actions current,
+# one pull request a week at most for each.
+version: 2
+updates:
+  - package-ecosystem: swift
+    directory: /BrowserKit
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

@@ -1,7 +1,7 @@
 import Foundation
 import GRDB
 
-// Tabs on Other Macs (docs/SYNC-PLAN.md §5, S12): this Mac's one Device record going up,
+// Tabs on Other Macs (docs/plans/SYNC-PLAN.md §5, S12): this Mac's one Device record going up,
 // and the other Macs' records kept in `syncPresence`, because the engine delivers only
 // changes and they would be gone after a relaunch otherwise.
 

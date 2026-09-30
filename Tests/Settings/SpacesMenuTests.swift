@@ -181,7 +181,7 @@ final class SpacesMenuTests: XCTestCase {
     // MARK: - Previous / next
 
     /// §13.2 asks for `⌘⌥←/→` here. It is already Show Previous/Next Tab
-    /// (§7.4, and `TODO.md` §20.1 lists it under tabs in the same line that
+    /// (§7.4, and §20.1 lists it under tabs in the same line that
     /// gives Spaces ⌃-number), so the spec contradicts itself and the shipped
     /// binding wins. Spaces get the ⌘→⌃ translation, which keeps every Space
     /// command under one modifier. If this test is changed, the tab bindings

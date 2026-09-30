@@ -2,7 +2,7 @@
 //  BrowserSession+Sync.swift
 //  Luna
 //
-//  Changes from other Macs, applied to the running session (docs/SYNC-PLAN.md
+//  Changes from other Macs, applied to the running session (docs/plans/SYNC-PLAN.md
 //  S10). In the app this is the coordinator's `applyInbound`: the session writes
 //  its whole in-memory row back on every change, so a change that reached only
 //  the database would be overwritten by the next local write.

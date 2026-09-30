@@ -2,7 +2,7 @@
 import Foundation
 import Testing
 
-/// The conflict rules, one test per row of docs/SYNC-PLAN.md §3 (S7).
+/// The conflict rules, one test per row of docs/plans/SYNC-PLAN.md §3 (S7).
 @Suite("Sync merge rules (§31.4)")
 struct SyncMergeTests {
 
