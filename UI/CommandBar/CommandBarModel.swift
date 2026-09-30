@@ -381,10 +381,24 @@ struct SearchEngineSetting: Sendable, Hashable {
     var shortcutResults: Bool = true
 
     /// Where to ask for suggestions, or nil when they are off, the engine has
-    /// no endpoint, or the query is empty.
+    /// no endpoint, or the query is empty or private (§9.6). Every suggestion
+    /// request is built here, so this is where the privacy guard sits.
     func suggestURL(for query: String) -> URL? {
-        guard suggestions, !query.isEmpty, let template = engine.suggestTemplate else { return nil }
+        guard suggestions, !query.isEmpty, !Self.isPrivate(query), let template = engine.suggestTemplate
+        else { return nil }
         return Self.url(from: template, searching: query)
+    }
+
+    /// A local path (`/…`, `~…`, `file:`) or a word carrying userinfo — text
+    /// then `@` with no `/` before it, as in `user:pass@host` or an address.
+    /// A bare `@handle` has no userinfo and is an ordinary query.
+    static func isPrivate(_ query: String) -> Bool {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.hasPrefix("/") || trimmed.hasPrefix("~") || trimmed.lowercased().hasPrefix("file:") { return true }
+        return trimmed.split(whereSeparator: \.isWhitespace).contains { word in
+            guard let at = word.firstIndex(of: "@"), at != word.startIndex else { return false }
+            return !word[..<at].contains("/")
+        }
     }
 
     /// Usable only once it carries the placeholder and parses as an http

@@ -166,6 +166,23 @@ final class SectionsATests: XCTestCase {
         XCTAssertEqual(url?.absoluteString.contains("a%20b"), true)
     }
 
+    /// §9.6: a string that carries a credential or names something on this
+    /// Mac never leaves it, whatever engine is chosen. `@` counts only with
+    /// text before it and no `/` before it, so a handle in an ordinary query
+    /// (`swift @MainActor`) still suggests.
+    func testCredentialsAndLocalPathsAreNeverSentForSuggestions() {
+        let engine = SearchEngineSetting(engine: .duckDuckGo)
+        for query in [
+            "user:pass@example.com", "user@example.com/x", "mail me@example.com",
+            "/Users/me/secret.txt", "~/x", "  ~/Documents", "file:///etc/hosts", "FILE:/x"
+        ] {
+            XCTAssertNil(engine.suggestURL(for: query), query)
+        }
+        for query in ["swift @MainActor", "@luna", "github.com/a@b", "a / b", "weather ~ today"] {
+            XCTAssertNotNil(engine.suggestURL(for: query), query)
+        }
+    }
+
     /// One parser for all three engines, asserted against the shape each of
     /// them actually returns.
     func testTheOpenSearchPayloadIsParsedAndDeduplicated() {
