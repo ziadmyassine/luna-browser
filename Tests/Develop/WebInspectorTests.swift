@@ -46,7 +46,12 @@ final class WebInspectorTests: XCTestCase {
             webView.frame.insetBy(dx: 1, dy: 1).intersects(inspector.frame),
             "after a resize the page \(webView.frame) covers the inspector \(inspector.frame)"
         )
-        XCTAssertEqual(webView.frame.width, card.bounds.width, accuracy: 1, "the page did not follow the window")
+        // WebKit docks on whichever side it was last left on, which is kept in
+        // the app's defaults, and the tests share those: beside the page, the
+        // two fill the width together; below it, the page has it all.
+        let beside = inspector.frame.height > card.bounds.height - 1
+        let room = card.bounds.width - (beside ? inspector.frame.width : 0)
+        XCTAssertEqual(webView.frame.width, room, accuracy: 1, "the page did not follow the window")
 
         WebInspector.close(for: webView)
         for _ in 0..<30 where WebInspector.isVisible(for: webView) { try await Task.sleep(for: .milliseconds(100)) }

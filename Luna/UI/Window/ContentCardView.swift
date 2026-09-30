@@ -518,8 +518,9 @@ extension ContentCardView {
         } else {
             content.translatesAutoresizingMaskIntoConstraints = false
             // A card being torn down lets go of the page before the inspector,
-            // and edges to a view no longer in it raise.
-            guard content.superview === self else { return }
+            // and edges to a view no longer in it raise. Inside, not directly
+            // in: WebKit may hold the page in a view of its own while docked.
+            guard content.isDescendant(of: self) else { return }
             NSLayoutConstraint.activate(contentEdges)
             needsLayout = true
         }
