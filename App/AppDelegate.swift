@@ -195,6 +195,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let control = ControlService(session: session)
         control.update()
         self.control = control
+        // Signed builds only. macOS keeps one Full Disk Access switch per app
+        // ID, for one signature: a Debug build or test host reaching into
+        // ~/Library/Safari (they share the signed build's defaults) takes the
+        // switch over for itself, off, and the signed build loses access.
+        #if !DEBUG
+        SafariFavorites.shared.attach(to: session)
+        #endif
         // An empty Space opens nothing. It used to be handed a tab on the New
         // Tab page so the content card had something in it; with that page gone
         // there is nothing honest to put in a tab nobody asked for, and the

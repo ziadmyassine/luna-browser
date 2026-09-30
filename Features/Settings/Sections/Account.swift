@@ -71,6 +71,10 @@ final class AccountSection: SettingsSection {
     /// rebuilds it: the iCloud data card's rows fix their enabled state when
     /// made (`SettingsRowView`). Anything else updates in place.
     private var builtSigned: Bool?
+    /// Shown only while Safari's bookmarks cannot be written for want of Full
+    /// Disk Access.
+    private var safariAccess: NSView?
+    private var safariObserver: NSObjectProtocol?
 
     convenience init() {
         self.init(sync: .shared)
@@ -84,6 +88,11 @@ final class AccountSection: SettingsSection {
         observer = NotificationCenter.default.addObserver(forName: SyncSettings.didChange, object: sync, queue: nil) { [weak self] _ in
             MainActor.assumeIsolated { self?.syncChanged() }
         }
+        safariObserver = NotificationCenter.default.addObserver(
+            forName: SafariFavorites.didChange, object: nil, queue: nil
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.showSafariAccess() }
+        }
     }
 
     var searchIndex: [String] { body.searchIndex }
@@ -91,6 +100,7 @@ final class AccountSection: SettingsSection {
     func filter(_ query: String) {
         self.query = query
         body.filter(query)
+        showSafariAccess()
     }
 
     /// "Synced 2 minutes ago" goes stale while the window is closed.
@@ -130,8 +140,13 @@ final class AccountSection: SettingsSection {
             AccountSyncCard.cookieNote(Self.cookieLine),
             terms: [Self.cookieLine, "cookies", "logins", "passwords"]
         )
+        body.card(String(localized: "Safari"), [safariRow()])
+        let access = safariAccessNote()
+        body.loose(access, terms: ["full disk access", "safari", "privacy"])
+        safariAccess = access
         body.card(String(localized: "iCloud data"), [manageRow(), removeRow()])
         body.filter(query)
+        showSafariAccess()
 
         self.body.view.removeFromSuperview()
         self.body = body
@@ -142,6 +157,33 @@ final class AccountSection: SettingsSection {
             body.view.topAnchor.constraint(equalTo: view.topAnchor),
             body.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
+    }
+
+    /// docs/SAFARI-FAVORITES.md: the pinned tabs, as bookmarks in Safari's
+    /// Favorites that Safari's own iCloud sync takes to the iPhone.
+    private func safariRow() -> (view: NSView, terms: [String]) {
+        let title = String(localized: "Show pinned tabs in Safari’s Favorites")
+        let row = SettingsRow.toggle(title, value: SafariFavorites.shared.isOn) { on in SafariFavorites.shared.isOn = on }
+        return (row, [title, "safari", "iphone", "favorites", "bookmarks", "pinned"])
+    }
+
+    private func safariAccessNote() -> NSView {
+        let open = SettingsPushButton(title: String(localized: "Open Privacy Settings…"), isDestructive: false)
+        open.onActivate = {
+            if let url = URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_AllFiles") {
+                NSWorkspace.shared.open(url)
+            }
+        }
+        return SettingsRow.heading(String(localized: "Turn on Full Disk Access for Luna so it can reach Safari."), accessory: open)
+    }
+
+    /// Only while the switch is on and Full Disk Access is what stands in the way.
+    private func showSafariAccess() {
+        guard let safariAccess else { return }
+        let needed = SafariFavorites.shared.isOn && SafariFavorites.shared.status == .needsAccess
+        let needle = query.lowercased()
+        let matches = needle.isEmpty || ["full disk access", "safari", "privacy"].contains { $0.contains(needle) }
+        safariAccess.isHidden = !needed || !matches
     }
 
     private func manageRow() -> (view: NSView, terms: [String]) {

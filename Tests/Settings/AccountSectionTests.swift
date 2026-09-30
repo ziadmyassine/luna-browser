@@ -25,7 +25,8 @@ final class AccountSectionTests: XCTestCase {
     }
 
     private func syncSwitch(_ section: AccountSection) throws -> SystemSwitch {
-        let all = descendants(of: section.view, ofType: SystemSwitch.self)
+        let card = try XCTUnwrap(descendants(of: section.view, ofType: AccountSyncCard.self).first)
+        let all = descendants(of: card, ofType: SystemSwitch.self)
         XCTAssertEqual(all.count, 1, "the zones are checks, not more switches")
         return try XCTUnwrap(all.first)
     }
