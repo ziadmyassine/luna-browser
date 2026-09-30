@@ -144,7 +144,7 @@ final class PageChromeController: WindowScoped {
         // §3.2c. Nil for a tab with no live web view, which is a tab that has
         // nothing to be loading.
         bar.pill.setLoad(state, for: activeTabID)
-        bar.pill.showsReading = state.map { $0.isReading || $0.isArticle } ?? false
+        bar.pill.showsReading = URLPillView.showsReading(for: state)
         bar.pill.isEdited = state?.isEdited ?? false
         bar.setPageColour(state?.pageBackground)
         bar.update(
@@ -165,7 +165,7 @@ final class PageChromeController: WindowScoped {
         listen(to: id)
         bar.show(url: state.url)
         bar.pill.setLoad(state, for: id)
-        bar.pill.showsReading = state.isReading || state.isArticle
+        bar.pill.showsReading = URLPillView.showsReading(for: state)
         bar.pill.isEdited = state.isEdited
         bar.setPageColour(state.pageBackground)
         bar.update(canGoBack: state.canGoBack, canGoForward: state.canGoForward, isLoading: state.isLoading)

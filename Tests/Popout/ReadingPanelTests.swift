@@ -217,6 +217,15 @@ final class ReadingPanelTests: XCTestCase {
         return pill
     }
 
+    /// Aa only where its settings change the page: Reader and Markdown, not an
+    /// ordinary site that happens to read as an article.
+    func testTheGlyphIsOnlyOnReadingPages() {
+        XCTAssertTrue(URLPillView.showsReading(for: TabState(isReading: true)))
+        XCTAssertFalse(URLPillView.showsReading(for: TabState(isArticle: true)), "an article page wore Aa")
+        XCTAssertFalse(URLPillView.showsReading(for: TabState()))
+        XCTAssertFalse(URLPillView.showsReading(for: nil))
+    }
+
     func testTheGlyphsRunSlidersAddressReadingReload() {
         let pill = pill(reading: true)
         XCTAssertFalse(pill.reading.isHidden)

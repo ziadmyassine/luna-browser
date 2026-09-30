@@ -29,6 +29,11 @@ final class URLPillView: NSView, PopoutShelf {
     var onSiteMenu: (() -> Void)?
     /// The Aa glyph before reload, which opens the Reading pop-out.
     var onReading: (() -> Void)?
+    /// Whether the tab wears the Aa glyph: only where its settings change the
+    /// page, which is Reader and a Markdown document. An ordinary site that
+    /// merely reads as an article does not; Reader is on ⇧⌘R and in site settings.
+    static func showsReading(for state: TabState?) -> Bool { state?.isReading ?? false }
+
     /// Whether the tab on show is a reading page, and so wears the Aa glyph.
     var showsReading = false {
         didSet {

@@ -1,8 +1,8 @@
 # Luna — UI specification
 
 > **Status:** agreed 2026-09-17. This is the build contract for the visual layer.
-> Derived from `inspiration/` by measurement, plus the decisions in §32 of `TODO.md`.
-> **Where this conflicts with §7, §8 or §30 of `TODO.md`, this document wins** — it is measured from
+> Derived from `inspiration/` by measurement, plus the decisions in §32 (`docs/DECISIONS.md`).
+> **Where this conflicts with plan issues §7, §8 or §30, this document wins** — it is measured from
 > Martin's actual reference, and §30 itself says the reference outranks the written sections.
 
 ## 0. Scope
@@ -599,7 +599,7 @@ Three bands, top to bottom:
   — a muted background autoplay banner popping out over the screen is the feature at its worst. Coming
   back to the tab always puts the video back in the page, permission or not.
   > **None of it works unless WebKit's PiP is on**, and in a third-party `WKWebView` it is off: every
-  > video reports it cannot float. `WebViewFactory` turns it on under D10's PiP exception (TODO.md).
+  > video reports it cannot float. `WebViewFactory` turns it on under D10's PiP exception (`docs/DECISIONS.md`).
   > View ▸ Picture in Picture (⇧⌘P) floats the page's video by hand through the same door, muted or
   > paused videos included, with no site permission — that switch is about the automatic path.
 - **Local Network is a content rule list, and a page served *from* the local network is exempt.** macOS
@@ -637,10 +637,11 @@ panel's material, 280 pt width, 52 pt header, 38 pt rows, 17.5 pt glyph column a
 inset holds here; `Luna/UI/Popout/ReadingMenu.swift` supplies the content.
 
 - **The glyph.** `textformat.size`, a `RowGlyphView` on the URL pill between the address and reload
-  (sliders < address < Aa < reload, measured by minX). It shows on a Markdown document, on a page with
-  Reader on, and on a page Reader would find an article on — Reader's own scoring, run once per load
-  after `didFinish` in `.defaultClient` (`TabController.probeForArticle`), so the glyph never offers
-  Reader on a page Reader would then call empty.
+  (sliders < address < Aa < reload, measured by minX). It shows only where its settings change the
+  page: on a Markdown document and with Reader on (`URLPillView.showsReading(for:)`). It used to show
+  on any page Reader would find an article on too (`TabController.probeForArticle`), and an Aa on an
+  ordinary site whose font and page it cannot change read as broken (2026-09-30). Reader on such a
+  page is ⇧⌘R and site settings' Show Reader; the article probe still decides whether those offer it.
 - **Rows.** Markdown: View (Read · Source, plus Edit for a local UTF-8 file), then Font, Text Size,
   Width, Page; Outline and Wrap Long Lines switches; Show in Finder / Open With… for a local file, Save
   to Downloads / Copy Markdown for a web one. Reader on: the four style rows only. Article page with
@@ -2581,7 +2582,7 @@ instant under Reduce Motion.
 > is opening: asynchronous results that land inside that window are held, and applied *append-only* the
 > moment it closes — a row the bar opened with never moves. The bar also waits, standing at the pill's
 > own size, until the store has answered the query it is opening with (100 ms at the outside), so what
-> the morph grows around is the list it is going to keep. See TODO.md §9.7.
+> the morph grows around is the list it is going to keep. See §9.7.
 
 > **Hover and press are a fill and a shape, on every button Luna draws.** Hover is `Surface.hover`
 > over whatever the control is made of; a press is `Surface.selected` — the same wash at twice the lift

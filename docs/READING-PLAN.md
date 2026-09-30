@@ -18,8 +18,9 @@ Build plan. Design mockup: https://claude.ai/artifact/YTX4rZLZFc9PPKWMDhwf3V
 4. Undo and redo ALWAYS work in the editor with ⌘Z / ⇧⌘Z (and the Edit menu),
    survive autosave, ⌘S and switching views, and win over Luna's window-level
    ⌘Z (restore hidden element / closed tab) while the editor has focus.
-5. Aa shows on Markdown documents and while Reader is on; Phase 7 adds article
-   pages.
+5. Aa shows on Markdown documents and while Reader is on. Phase 7 added article
+   pages; that was taken back on 2026-09-30, since Aa on an ordinary site changes
+   nothing there. Reader on an article page is ⇧⌘R and site settings.
 
 ## Architecture
 
