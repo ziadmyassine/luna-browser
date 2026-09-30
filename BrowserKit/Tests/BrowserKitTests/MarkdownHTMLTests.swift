@@ -175,13 +175,15 @@ struct MarkdownHTMLTests {
     @Test func aLargeReadmeRendersQuickly() {
         let markdown = Self.largeReadme(lines: 5_000)
         _ = render(markdown)
-        let clock = ContinuousClock()
-        var best = Duration.seconds(10)
+        // This thread's CPU time, not the wall clock: the suites run in
+        // parallel, and on a busy runner the wall clock measured 150 ms for a
+        // render that takes 70 alone.
+        var ms = Double.infinity
         for _ in 0..<5 {
-            let elapsed = clock.measure { _ = render(markdown) }
-            best = min(best, elapsed)
+            let start = clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID)
+            _ = render(markdown)
+            ms = min(ms, Double(clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID) - start) / 1e6)
         }
-        let ms = Double(best.components.attoseconds) / 1e15 + Double(best.components.seconds) * 1000
         print("MarkdownHTML: 5,000-line README rendered in \(String(format: "%.1f", ms)) ms (best of 5)")
         #expect(ms < 100)
     }
