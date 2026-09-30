@@ -7,7 +7,7 @@ import WebKit
 /// `WKWebExtensionController`. The probe's worker calls APIs WebKit lacks and
 /// a native host that echoes, and reports each answer by opening a tab whose
 /// address carries it.
-@Suite("Extension shim and native messaging", .serialized)
+@Suite("Extension shim and native messaging", .serialized, .timeLimit(.minutes(1)))
 @MainActor
 struct ExtensionShimTests {
 
@@ -61,6 +61,21 @@ struct ExtensionShimTests {
 
         let reply = try await native.send(["word": "ping"], to: Self.hostName, from: allowed) as? [String: Any]
         #expect(reply?["word"] as? String == "ping")
+    }
+
+    /// A host that answers before it is asked: the reply waits for `readOne`
+    /// rather than being dropped, which left a send waiting for good.
+    @Test func aReplyThatArrivesFirstIsKept() async throws {
+        let program = temporaryDirectory().appending(path: "early.pl")
+        try FileManager.default.createDirectory(at: program.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(Self.earlyHost.utf8).write(to: program)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: program.path)
+        let pipe = NativeHostPipe(program: program, origin: "chrome-extension://early/")
+        try pipe.start()
+        defer { pipe.stop() }
+        try await Task.sleep(for: .milliseconds(500))
+        let reply = try await pipe.readOne() as? [String: Any]
+        #expect(reply?["word"] as? String == "early")
     }
 
     // MARK: - End to end
@@ -206,6 +221,15 @@ struct ExtensionShimTests {
       read(STDIN, my $body, $size);
       print $length . $body;
     }
+    """
+
+    /// Answers once, unasked, then waits.
+    static let earlyHost = """
+    #!/usr/bin/perl
+    binmode STDOUT; $| = 1;
+    my $body = '{"word":"early"}';
+    print pack("V", length($body)) . $body;
+    while (read(STDIN, my $rest, 1)) {}
     """
 
     static func write(manifest: String, background: String, extra: [String: String] = [:]) throws -> URL {

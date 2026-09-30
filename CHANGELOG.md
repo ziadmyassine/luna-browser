@@ -7,6 +7,7 @@ under Unreleased; a release will take the entries since the last one.
 
 ### 2026-10-01
 
+- **A native messaging host that answers quickly is heard** (§16): a reply that arrived before Luna was listening for it was dropped, and `sendNativeMessage` waited for good.
 - **A docked inspector's top really is below the page bar now** (UI-SPEC §3.2b): WebKit reset the cover every time it docked or sized the inspector, so the fix of 2026-09-30 never held.
 
 ### 2026-09-30

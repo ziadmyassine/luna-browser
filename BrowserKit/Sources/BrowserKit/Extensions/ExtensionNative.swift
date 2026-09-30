@@ -178,6 +178,11 @@ final class NativeHostPipe: @unchecked Sendable {
     private let lock = NSLock()
     private var buffer = Data()
     private var waiters: [CheckedContinuation<Reply, any Error>] = []
+    /// Replies that came before anyone asked for one. A host can answer
+    /// before `readOne` is called; dropping that reply left `send` waiting on
+    /// a host that had nothing more to say.
+    private var unclaimed: [Any] = []
+    private var ended = false
 
     /// A host's reply, which is JSON and so safe to hand across threads.
     private struct Reply: @unchecked Sendable { let message: Any? }
@@ -238,8 +243,14 @@ final class NativeHostPipe: @unchecked Sendable {
     }
 
     func readOne() async throws -> Any? {
-        let reply = try await withCheckedThrowingContinuation { continuation in
-            lock.withLock { waiters.append(continuation) }
+        let reply = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Reply, any Error>) in
+            let ready: Result<Reply, any Error>? = lock.withLock {
+                if !unclaimed.isEmpty { return .success(Reply(message: unclaimed.removeFirst())) }
+                if ended { return .failure(ExtensionNative.Refused(why: "Native host has exited.")) }
+                waiters.append(continuation)
+                return nil
+            }
+            if let ready { continuation.resume(with: ready) }
         }
         return reply.message
     }
@@ -264,7 +275,9 @@ final class NativeHostPipe: @unchecked Sendable {
                 for message in messages where !waiters.isEmpty {
                     handed.append((waiters.removeFirst(), message))
                 }
-                return (handed, Array(messages.dropFirst(handed.count)), _onMessage)
+                let rest = Array(messages.dropFirst(handed.count))
+                if _onMessage == nil { unclaimed.append(contentsOf: rest) }
+                return (handed, rest, _onMessage)
             }
         for (continuation, message) in handed { continuation.resume(returning: Reply(message: message)) }
         for message in rest { listener?(message) }
@@ -275,6 +288,7 @@ final class NativeHostPipe: @unchecked Sendable {
             defer {
                 waiters = []
                 _onExit = nil
+                ended = true
             }
             return (waiters, _onExit)
         }
