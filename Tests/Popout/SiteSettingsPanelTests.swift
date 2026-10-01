@@ -57,6 +57,36 @@ final class SiteSettingsPanelTests: XCTestCase {
         XCTAssertEqual(panel.rows.count, 3)
     }
 
+    /// §4.6: the user agent is a row at the foot of the switches' band, not a band
+    /// of its own, and picking a mode keeps it for the site and fetches the page again.
+    func testTheUserAgentRowSitsWithTheSwitchesAndKeepsTheChoice() throws {
+        let scope = SitePermissions.scope(for: .nonPersistent())
+        var reloads = 0
+        var content = sample()
+        content.toggleControls = [SiteMenu.userAgent(host: "chrome-only.example", scope: scope) { reloads += 1 }]
+        let expected = SiteSettingsMetrics.headerHeight
+            + 4 * SiteSettingsMetrics.rowHeight
+            + 4 * SiteSettingsMetrics.bandPadding
+            + 2 * Tokens.Metric.hairline
+        XCTAssertEqual(content.height, expected)
+        XCTAssertEqual(panel(content).rows.count, 4)
+
+        let popup = try XCTUnwrap(content.toggleControls.first?.view as? ChoicePopUp)
+        XCTAssertEqual(popup.itemTitles, ["Default", "Luna", "Safari", "Chrome", "Custom"])
+        XCTAssertEqual(popup.indexOfSelectedItem, 0, "a site with no choice of its own follows Settings")
+
+        popup.selectItem(at: 3)
+        popup.sendAction(popup.action, to: popup.target)
+        XCTAssertEqual(scope.userAgentMode(forHost: "chrome-only.example"), .chrome)
+        XCTAssertEqual(reloads, 1)
+        let reopened = try XCTUnwrap(SiteMenu.userAgent(host: "chrome-only.example", scope: scope).view as? ChoicePopUp)
+        XCTAssertEqual(reopened.indexOfSelectedItem, 3)
+
+        reopened.selectItem(at: 0)
+        reopened.sendAction(reopened.action, to: reopened.target)
+        XCTAssertNil(scope.userAgentMode(forHost: "chrome-only.example"))
+    }
+
     /// The pop-out borrows the keyboard for its arrow keys and gives it back
     /// when it closes, so Escape and Space reach the page again.
     func testClosingThePopOutGivesTheKeyboardBack() throws {

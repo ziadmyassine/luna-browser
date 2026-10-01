@@ -24,7 +24,7 @@ public enum WebViewFactory {
     /// AppleWebKit/605.1.15 (KHTML, like Gecko)`, which carries no `Version/` and no
     /// `Safari/` token at all. Sites that sniff for Safari then serve a fallback page
     /// or refuse outright, so the Safari tokens come first and `Luna/` trails them the
-    /// way `Edg/` and `CriOS/` do. Per-site overrides are §4.6's job, not M0's.
+    /// way `Edg/` and `CriOS/` do. A site can be given another (`SitePermissions.userAgentMode`).
     ///
     /// `Version/` tracks the Safari whose web-compat profile we inherit (§26) — review
     /// it on each macOS release rather than letting it rot.
@@ -116,14 +116,25 @@ public enum WebViewFactory {
         }
     }
 
-    /// Re-reads both Advanced settings onto a web view that already exists.
+    /// What `WKWebView.customUserAgent` should be on a page of `host`: the site's own
+    /// choice when it has one, Settings' otherwise.
+    @MainActor
+    public static func customUserAgent(forHost host: String?, in scope: SitePermissions) -> String? {
+        customUserAgent(for: scope.userAgentMode(forHost: host) ?? userAgentMode)
+    }
+
+    /// Re-reads both Advanced settings onto a web view that already exists, keeping
+    /// the user agent of the site it is on.
     ///
     /// `customUserAgent` takes effect on the next navigation, not on the page
     /// already loaded — WebKit sends the UA with the request. The Settings window
     /// says so rather than pretending the change is instant.
     @MainActor
     public static func applyAdvancedSettings(to webView: WKWebView) {
-        webView.customUserAgent = customUserAgent(for: userAgentMode)
+        webView.customUserAgent = customUserAgent(
+            forHost: webView.url?.host(percentEncoded: false),
+            in: .scope(for: webView.configuration.websiteDataStore)
+        )
         webView.isInspectable = isWebInspectorEnabled
         WebInspector.setDeveloperExtras(isWebInspectorEnabled, on: webView)
     }

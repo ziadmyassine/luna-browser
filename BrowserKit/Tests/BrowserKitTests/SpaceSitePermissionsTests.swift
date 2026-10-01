@@ -185,8 +185,10 @@ struct SpaceSitePermissionsTests {
                 try String.fetchOne(db, sql: "SELECT sql FROM sqlite_master WHERE name = 'sync_siteSettings_update'")
             )
         }
+        // `userAgent` is `v15`'s.
         #expect(columns == [
-            "host", "zoom", "updatedAt", "automaticPictureInPicture", "savePasswords", "blockingDisabled", "insecureAllowed"
+            "host", "zoom", "updatedAt", "automaticPictureInPicture", "savePasswords", "blockingDisabled", "insecureAllowed",
+            "userAgent"
         ])
         let update = try #require(trigger, "sync's update trigger is back")
         #expect(update.contains("savePasswords"))

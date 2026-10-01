@@ -40,6 +40,10 @@ extension TabController: WKNavigationDelegate {
             return true
         }
         applyPopupMode(to: webView)
+        // §4.6. Measured: set here, it is the user agent this very request goes out
+        // with, in the header and in `navigator.userAgent`.
+        let agent = WebViewFactory.customUserAgent(forHost: url.host(percentEncoded: false), in: sitePermissions)
+        if webView.customUserAgent != agent { webView.customUserAgent = agent }
         ContentBlocker.shared.apply(
             to: webView.configuration.userContentController, host: url.host(), scope: sitePermissions
         )

@@ -200,8 +200,9 @@ struct StoreMigrationTests {
             )
         }
         #expect(origins == [nil])
-        // v12's nine and v13's camera, microphone and location, less the five v14 moved.
-        #expect(columnCount == 7)
+        // v12's nine and v13's camera, microphone and location, less the five v14 moved,
+        // and v15's user agent.
+        #expect(columnCount == 8)
         // Turning sync on for the first time is what uploads old rows, not the migration.
         #expect(try await store.syncOutbox().isEmpty)
     }

@@ -44,6 +44,9 @@ public final class SitePermissions {
     /// §18.2's zoom per site, on the app's instance and a private window's; a Space's
     /// reads the app's (`SitePermissions+SiteSettings.swift`).
     var zooms: [String: Double] = [:]
+    /// §4.6's user agent per site, kept the same way. A private window's nil is its own
+    /// "as in Settings", which the app's choice must not show through.
+    var userAgents: [String: WebViewFactory.UserAgentMode?] = [:]
 
     /// `ContentBlocker`'s two per-site answers, as a private instance overrides them.
     /// The shared answers stay in `ContentBlocker`; see its `isDisabled(forHost:in:)`.
@@ -119,11 +122,13 @@ public final class SitePermissions {
             let loaded = try? await browserStore.sitePermissions()
             let bySpace = try? await browserStore.spaceSitePermissions()
             let zoomed = try? await browserStore.siteZooms()
+            let agents = try? await browserStore.siteUserAgents()
             guard let self else { return }
             // Under anything answered while the read was out, which is newer.
             answers.merge(loaded ?? [:], uniquingKeysWith: Self.keepingGiven)
             spaceAnswers.merge(bySpace ?? [:]) { given, read in given.merging(read, uniquingKeysWith: Self.keepingGiven) }
             zooms.merge(zoomed ?? [:]) { given, _ in given }
+            userAgents.merge((agents ?? [:]).mapValues { .some($0) }) { given, _ in given }
         }
     }
 

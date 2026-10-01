@@ -108,9 +108,9 @@ These four come before everything else, in this order. Two of them reverse earli
 > the microphone, the location, the local network and pop-ups are answered per
 > Space: a yes to a call site in Work is not a yes in Personal. They live in
 > `spaceSitePermissions`, keyed on `(spaceID, host)` and deleted with the Space.
-> Zoom, the blocking exemption, the HTTPS exception, the password offer and
-> automatic Picture in Picture are about how Luna behaves rather than what a site
-> may do, and stay one answer per site in `siteSettings`. `v14` copied every
+> Zoom, the user agent, the blocking exemption, the HTTPS exception, the password
+> offer and automatic Picture in Picture are about how Luna behaves rather than
+> what a site may do, and stay one answer per site in `siteSettings`. `v14` copied every
 > answer already given into every Space, so the upgrade changed nothing anyone
 > had said. A private window keeps its own answers in memory and reads the shared
 > ones, but no Space's: it is no Space's jar.

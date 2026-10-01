@@ -558,6 +558,7 @@ Three bands, top to bottom:
 | Block Ads & Trackers — switch | **per site** | `ContentBlocker.isDisabled(forHost:)` / `setDisabled(_:forHost:)` |
 | Automatic Picture-in-Picture — switch | **per site**, default on | `SitePermissions` → `TabController.enterAutomaticPictureInPicture` |
 | Local Network — switch | **per site**, default off | `SitePermissions` → a `WKContentRuleList` that refuses private-network loads |
+| User Agent — popup: Default · Luna · Safari · Chrome · Custom | **per site**, every Space; Default follows Settings ▸ Advanced | `SitePermissions.userAgentMode` → `WKWebView.customUserAgent`, set in `decidePolicyFor` so the page's own request carries it; choosing reloads. The one control row in the switches' band (`SiteSettingsContent.toggleControls`), Settings' bare `NSPopUpButton` |
 | Share… | page | `NSSharingServicePicker.show(relativeTo:of:preferredEdge:)`, from the sliders glyph |
 | Copy Link | page | `NSPasteboard` — URL **and** string, so a plain text field gets the address |
 | Clear Cache / Clear Cookies | **per site** | `WKWebsiteDataStore.dataRecords`, filtered to this site's registrable domain |

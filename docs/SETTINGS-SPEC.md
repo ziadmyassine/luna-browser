@@ -553,7 +553,7 @@ With none installed, one card says so under the add card.
 ### 3.9 Advanced
 | Control | Type | Wired to |
 |---|---|---|
-| User-agent | Popup: Default · Safari · Chrome · Custom | `WebViewFactory` UA string |
+| User-agent | Popup: Default · Safari · Chrome · Custom | `WebViewFactory` UA string; a site can be given its own in the site pop-out (§4.6), where this one is "Default" and this Default is "Luna" |
 | Show Develop menu | Toggle, on by default | `DevelopMenu.isShown`, which rebuilds `MainMenu` |
 | Enable Web Inspector | Toggle | `WKWebView.isInspectable`, and `WebInspector` (Inspect Element, the Develop menu's inspector items; D10's exception, docs/DECISIONS.md) |
 | Restore all settings to defaults | Button, confirms, requires the word to be typed | every key below |

@@ -62,6 +62,7 @@ enum SiteMenu {
                 : String(localized: "Connection is Not Secure")
         }
         content.toggles = toggles(host: page.host)
+        content.toggleControls = [userAgent(host: page.host)]
         let blocked = session?.activeTabID.flatMap { session?.controller(for: $0) }?.popups.blocked ?? []
         content.actions = [
             blockedBand(blocked) { url in session?.newTab(url: url) },
@@ -170,7 +171,7 @@ enum SiteMenu {
         var webView: WKWebView?
     }
 
-    private static var session: BrowserSession? { (NSApp.delegate as? AppDelegate)?.session }
+    static var session: BrowserSession? { (NSApp.delegate as? AppDelegate)?.session }
 
     /// See `share(_:from:)`. One at a time: the sheet is modal, so the previous
     /// one is always finished with by the time the next is asked for.
@@ -343,6 +344,8 @@ enum SiteMenu {
         static let camera = "video"
         static let microphone = "mic"
         static let location = "location"
+        /// §4.6's user agent: the identity the browser gives the site.
+        static let userAgent = "person.text.rectangle"
         static let blockedPopup = "arrow.up.forward.app"
         static let cache = "internaldrive"
         static let cookies = "trash"
@@ -358,7 +361,7 @@ enum SiteMenu {
         static let site = SidebarRowContent.siteFallbackSymbol
 
         static let all = [
-            share, link, blocking, pictureInPicture, localNetwork, popups, camera, microphone, location, blockedPopup,
+            share, link, blocking, pictureInPicture, localNetwork, popups, camera, microphone, location, userAgent, blockedPopup,
             cache, cookies, reader, hide, advanced, secure, insecure, site
         ]
     }

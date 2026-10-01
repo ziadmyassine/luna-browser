@@ -13,7 +13,9 @@
 //
 //  Absent on purpose: list rows (`CredentialRowView`, `PopoverActionRowView`,
 //  `SettingsAccountRow`), which answer with a hover wash only, and the
-//  approval card and §14.4's chip, which are `SettingsPushButton`s.
+//  approval card and §14.4's chip, which are `SettingsPushButton`s. Also
+//  absent: the bare `NSPopUpButton`s of Settings and the site pop-out's user
+//  agent row (`ChoicePopUp`), which AppKit draws and highlights itself.
 //
 
 import XCTest

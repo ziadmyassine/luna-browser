@@ -65,12 +65,16 @@ struct SiteSettingsContent {
     /// Bands of control rows, above the switches.
     var controls: [[Control]] = []
     var toggles: [Toggle] = []
+    /// Control rows at the foot of the switches' band: a per-site answer with
+    /// more than two values (§4.6's user agent).
+    var toggleControls: [Control] = []
     /// Each inner list is a band, with a hairline between bands.
     var actions: [[Action]] = []
 
     /// How tall the panel is with all of this in it.
     var height: CGFloat {
-        let bands = controls.map(\.count).filter { $0 > 0 } + (toggles.isEmpty ? [] : [toggles.count])
+        let switches = toggles.count + toggleControls.count
+        let bands = controls.map(\.count).filter { $0 > 0 } + (switches == 0 ? [] : [switches])
             + actions.map(\.count).filter { $0 > 0 }
         let rows = bands.reduce(0) { total, count in
             total + CGFloat(count) * SiteSettingsMetrics.rowHeight + 2 * SiteSettingsMetrics.bandPadding
@@ -122,8 +126,8 @@ final class SiteSettingsPanel: PopoutPanelView {
         place(header, at: &y, height: SiteSettingsMetrics.headerHeight)
 
         var bands: [[SiteSettingsRow]] = content.controls.filter { !$0.isEmpty }.map { $0.map(SiteSettingsRow.init(control:)) }
-        if !content.toggles.isEmpty {
-            bands.append(content.toggles.map { SiteSettingsRow(toggle: $0) })
+        if !content.toggles.isEmpty || !content.toggleControls.isEmpty {
+            bands.append(content.toggles.map { SiteSettingsRow(toggle: $0) } + content.toggleControls.map(SiteSettingsRow.init(control:)))
         }
         for band in content.actions where !band.isEmpty {
             bands.append(band.map { action in
