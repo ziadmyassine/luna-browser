@@ -95,8 +95,12 @@ jobs:
       # settings make them fail without a code change (4 of the last 30
       # runs). They stay in `make test`; run them on a Mac before changing
       # Luna Control (docs/LUNA-CONTROL.md, "Trusted input").
+      #
+      # Through `run-sampling-hangs.sh`: a run whose output stops for four
+      # minutes prints every test thread's stack and fails, rather than
+      # sitting out the job's limit with nothing to show for it.
       - name: BrowserKit tests
-        run: swift test --package-path BrowserKit --skip ControlStageTests
+        run: Tools/run-sampling-hangs.sh 240 swift test --package-path BrowserKit --skip ControlStageTests
 
       - name: Luna tests
         # Runs even when the engine half failed. Two separate answers are worth
@@ -112,7 +116,7 @@ jobs:
         # has no "My Mac" to mean, and an ambiguous destination is a confusing
         # failure to read from a log.
         run: |
-          xcodebuild \
+          Tools/run-sampling-hangs.sh 240 xcodebuild \
             -project Luna.xcodeproj \
             -scheme Luna \
             -configuration Debug \
