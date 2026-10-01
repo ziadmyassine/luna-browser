@@ -10,6 +10,7 @@ titled with that number.
 - [DECISIONS.md](DECISIONS.md): settled decisions and the decision log
 - [PRIVACY.md](PRIVACY.md): every way data leaves your Mac
 - [FAQ.md](FAQ.md): common questions and known issues
+- [SHORTCUTS.md](SHORTCUTS.md): the default keys, checked against web apps' own shortcuts
 
 ## Specifications
 
