@@ -90,8 +90,13 @@ jobs:
 
       # The two halves of `make test`, split so a failure arrives with a name
       # instead of as one red cross laid over both layers.
+      # Without ControlStageTests: they send real clicks and keys through the
+      # window server, and the runner's stray pointer events and display
+      # settings make them fail without a code change (4 of the last 30
+      # runs). They stay in `make test`; run them on a Mac before changing
+      # Luna Control (docs/LUNA-CONTROL.md, "Trusted input").
       - name: BrowserKit tests
-        run: swift test --package-path BrowserKit
+        run: swift test --package-path BrowserKit --skip ControlStageTests
 
       - name: Luna tests
         # Runs even when the engine half failed. Two separate answers are worth

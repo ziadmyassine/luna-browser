@@ -210,6 +210,11 @@ Exposé, and is ordered in without activating Luna. Events are built with
 so the user's pointer does not move. The tab goes back to having no window
 when the call ends.
 
+`ControlStageTests` (BrowserKit) prove all of this with real events, so they
+need a real window server and a pointer nobody touches. CI skips them: run
+`swift test --package-path BrowserKit --filter ControlStageTests` on a Mac,
+hands off the mouse, before changing anything under "Trusted input".
+
 - Only a tab in no window is staged. A tab the user has on screen is never
   taken, since that would take their first responder; it gets page events
   instead, the agent's own tabs as well as the user's.
