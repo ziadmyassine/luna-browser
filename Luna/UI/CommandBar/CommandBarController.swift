@@ -260,6 +260,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
         // Space is the cookie jar since `v7`, so a row from the Space next door
         // is a page signed in as somebody else.
         sources.tabs = session.tabsInActiveSpace(includeArchived: true)
+        sources.activeSite = session.activeSite
         sources.adaptive = adaptive.snapshot
         sources.history = []
         // Not in `init` with the settings register: a shortcut can be rebound
@@ -446,6 +447,8 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
             } else {
                 _ = session.newTab(url: url, kind: .today, adopting: preloaded)
             }
+        case let .copy(answer):
+            copy(answer)
         case .unarchiveTab, .command, .runCommand, .openSettings:
             onExternalAction?(action)
         }
@@ -532,9 +535,17 @@ extension CommandBarController {
     }
 }
 
-// MARK: - §21.1 VoiceOver
+// MARK: - §21.1 VoiceOver, and a quick answer copied
 
 extension CommandBarController {
+
+    /// Return on a sum or a conversion: the answer goes on the clipboard, and
+    /// the toast says so, since nothing else on screen changes.
+    fileprivate func copy(_ answer: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(answer, forType: .string)
+        PageToast.answerCopied(answer).show()
+    }
 
     /// §21.1: the result count on every change, so a VoiceOver user is not left
     /// arrowing through a list whose size they have no way to know.

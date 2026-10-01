@@ -10,7 +10,6 @@
 
 import BrowserKit
 import Foundation
-import WebKit
 
 /// The spans History ▸ Clear History… offers, Safari's four.
 enum HistoryClearRange: CaseIterable {
@@ -68,19 +67,6 @@ extension BrowserSession {
         try? await store.deleteHistory(ofSite: site, inSpace: space)
         announceHistoryChange()
         await Self.removeWebsiteData(ofSite: site, from: dataStore(forSpace: space))
-    }
-
-    /// Every record WebKit keeps for the site. A record's `displayName` is its
-    /// registrable domain, so `apple.com`'s holds `developer.apple.com`'s
-    /// cookies too; the suffix match is for a host with no registrable domain
-    /// (`localhost`), whose record is named by the host itself.
-    static func removeWebsiteData(ofSite site: String, from store: WKWebsiteDataStore) async {
-        let types = WKWebsiteDataStore.allWebsiteDataTypes()
-        let records = await store.dataRecords(ofTypes: types).filter {
-            $0.displayName == site || $0.displayName.hasSuffix(".\(site)")
-        }
-        guard !records.isEmpty else { return }
-        await store.removeData(ofTypes: types, for: records)
     }
 
     private func announceHistoryChange() {

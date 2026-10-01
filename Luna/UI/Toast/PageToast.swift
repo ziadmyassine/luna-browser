@@ -69,6 +69,17 @@ struct PageToast: Equatable {
     static func websiteDataCleared(_ host: String) -> PageToast {
         PageToast(symbol: "trash", text: String(localized: "Website data cleared"), detail: host)
     }
+
+    /// §9.2's Clear Cookies, from the Command Bar.
+    static func cookiesCleared(_ site: String) -> PageToast {
+        PageToast(symbol: "trash", text: String(localized: "Cookies cleared"), detail: site)
+    }
+
+    /// §9.2's maths and units: Return put the answer on the clipboard.
+    static func answerCopied(_ answer: String) -> PageToast {
+        PageToast(symbol: "doc.on.clipboard", text: String(localized: "Answer copied"), detail: answer)
+    }
+
     /// ⌘S in a Markdown editor. Autosave says nothing.
     static let saved = PageToast(symbol: "checkmark", text: String(localized: "Saved"))
     /// §19.3: the tab in front lost its web process and Luna rebuilt the page.

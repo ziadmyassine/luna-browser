@@ -45,6 +45,9 @@ struct CommandBarSources: Sendable {
     /// synchronous one. Already scoped to the Space by the query.
     var history: [HistoryHit] = []
     var commands: [AppCommand] = AppCommand.allCases
+    /// The registrable domain of the page in the active tab, or nil when it
+    /// shows no site. Clear Cookies is offered only with one.
+    var activeSite: String?
     /// §20.1's menu commands, as rows the bar can offer — see
     /// `ShortcutResults`. Snapshotted by the controller when the bar opens,
     /// because a binding can be rebound and a command can stop applying.
@@ -95,6 +98,9 @@ enum CommandBarRanking {
         let tokens = query.lowercased().split(separator: " ").map(String.init)
 
         var rows: [CommandBarResult] = []
+        if let answer = QuickAnswer.answer(for: query) {
+            rows.append(answerRow(answer))
+        }
         rows.append(contentsOf: adaptiveRows(query: query, sources: sources))
         if let url = CommandBarURL.direct(from: query) {
             rows.append(directRow(url))
@@ -122,12 +128,16 @@ enum CommandBarRanking {
     /// instead of searching. A query reads as an address only while §9.4 can
     /// complete it from the best page, as `gith` completes `github.com`; that
     /// page keeps the top row, or autofill would have nothing to complete from.
+    ///
+    /// An answer stays above it: the search is the second reading of `5+5`.
     private static func searchFirst(_ rows: [CommandBarResult], query: String) -> [CommandBarResult] {
-        guard let index = rows.firstIndex(where: { $0.source == .search }), index > 0 else { return rows }
+        let answers = rows.prefix { $0.source == .answer }.count
+        guard let index = rows.firstIndex(where: { $0.source == .search }), index > answers else { return rows }
         var rest = rows
         let search = rest.remove(at: index)
-        guard autofill(query: query, results: rest) == nil else { return rows }
-        return [search] + rest
+        guard autofill(query: query, results: Array(rest.dropFirst(answers))) == nil else { return rows }
+        rest.insert(search, at: answers)
+        return rest
     }
 
     /// §9.4's completion: the top URL-bearing row, if what the user typed is a
@@ -253,15 +263,33 @@ enum CommandBarRanking {
     private static func commandRows(tokens: [String], sources: CommandBarSources) -> [CommandBarResult] {
         guard !tokens.isEmpty else { return [] }
         return sources.commands.compactMap { command in
-            guard matches(tokens, command.title) else { return nil }
+            var subtitle = ""
+            if command == .clearCookies {
+                guard let site = sources.activeSite else { return nil }
+                subtitle = site
+            }
+            let named = matches(tokens, command.title)
+            guard named || command.keywords.contains(where: { matches(tokens, $0) }) else { return nil }
             return CommandBarResult(
-                source: .command,
+                source: named ? .command : .keywordShortcut,
                 title: command.title,
-                subtitle: "",
+                subtitle: subtitle,
                 action: .command(command),
                 symbolName: command.symbolName
             )
         }
+    }
+
+    /// The answer on the row's first line, the question under it, and what
+    /// Return does with it, so the row says it copies rather than opens.
+    private static func answerRow(_ answer: QuickAnswer) -> CommandBarResult {
+        CommandBarResult(
+            source: .answer,
+            title: answer.value,
+            subtitle: "\(answer.question) — Return copies the answer",
+            action: .copy(answer.value),
+            symbolName: answer.isConversion ? "arrow.left.arrow.right" : "equal"
+        )
     }
 
     /// The floor: whatever else happened, a non-empty query can always be

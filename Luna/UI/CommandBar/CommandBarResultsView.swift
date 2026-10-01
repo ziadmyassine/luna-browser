@@ -297,6 +297,7 @@ private final class CommandBarRowView: NSView {
 
     private var sourceDescription: String {
         switch result.source {
+        case .answer: "answer"
         case .adaptive: "frequently chosen"
         case .directURL: "open address"
         case .openTab: "open tab"

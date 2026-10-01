@@ -52,11 +52,8 @@ extension AppDelegate {
             // Not resuming the session: a row in §9's list is a place to go,
             // not a tab to pick up where it was left. See `unarchiveTab`.
             session?.unarchiveTab(id, resumingSession: false)
-        case .command(.toggleSidebar):
-            toggleSidebar()
-        case .command(.newSpace):
-            guard let session else { return }
-            Task { try? await session.createSpace(name: String(localized: "New Space")) }
+        case let .command(command):
+            perform(command)
         case let .runCommand(id):
             // Nil-targeted, exactly as the menu item would send it: the bar has
             // already dismissed and handed the keyboard back, so the chain this
@@ -65,9 +62,26 @@ extension AppDelegate {
             NSApp.sendAction(command.action, to: nil, from: nil)
         case let .openSettings(section):
             showSettings(section: section)
-        case .activateTab, .open:
+        case .activateTab, .open, .copy:
             // The bar performs these itself; they never reach here.
             break
+        }
+    }
+
+    /// §9.2's app commands.
+    private func perform(_ command: AppCommand) {
+        switch command {
+        case .toggleSidebar:
+            toggleSidebar()
+        case .newSpace:
+            guard let session else { return }
+            Task { try? await session.createSpace(name: String(localized: "New Space")) }
+        case .clearCookies:
+            guard let session else { return }
+            Task {
+                guard let site = await session.clearCookiesOfActiveSite() else { return }
+                PageToast.cookiesCleared(site).show()
+            }
         }
     }
 

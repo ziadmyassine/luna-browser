@@ -13,7 +13,8 @@
 //  needing a network call, so the call lives outside this module:
 //  `Luna/Features/Search/SearchSuggestions` fetches them and the controller hands
 //  the finished strings in as another local array. What this module does with a
-//  query is one of three things — activate a tab, open a URL, run a command.
+//  query is one of four things — activate a tab, open a URL, run a command, or
+//  put a quick answer on the clipboard.
 //
 
 import BrowserKit
@@ -41,18 +42,34 @@ enum CommandBarAction: Sendable, Hashable {
     /// `Sendable` and free of AppKit, and the id is what
     /// `AppDelegate.showSettings(section:)` already takes.
     case openSettings(String)
+    /// Put a quick answer on the clipboard (§9.2's maths and units).
+    case copy(String)
 }
 
-/// §9.2's "app commands". Two, because two are what §9.2 names and the rest of
-/// the surface they would drive (Spaces UI, cookie clearing) is not built yet.
+/// §9.2's "app commands": the three it names. The rest of the menu bar reaches
+/// the bar through `ShortcutResults`.
 enum AppCommand: String, Sendable, Hashable, CaseIterable {
     case newSpace
     case toggleSidebar
+    /// The site in the active tab: its cookies and storage in the Space's jar,
+    /// as the site pop-out's Clear Cookies. Offered only while a tab shows a
+    /// site — see `CommandBarSources.activeSite`.
+    case clearCookies
 
     var title: String {
         switch self {
         case .newSpace: "New Space"
         case .toggleSidebar: "Toggle Sidebar"
+        case .clearCookies: "Clear Cookies"
+        }
+    }
+
+    /// What else finds the command, lowercased. A match here alone ranks it
+    /// below the search row (`CommandBarSource.keywordShortcut`).
+    var keywords: [String] {
+        switch self {
+        case .clearCookies: ["clear site data", "website data", "sign out of this site"]
+        case .newSpace, .toggleSidebar: []
         }
     }
 
@@ -61,6 +78,7 @@ enum AppCommand: String, Sendable, Hashable, CaseIterable {
         switch self {
         case .newSpace: "square.stack.3d.up"
         case .toggleSidebar: "sidebar.left"
+        case .clearCookies: "trash"
         }
     }
 }
@@ -71,8 +89,11 @@ enum AppCommand: String, Sendable, Hashable, CaseIterable {
 /// — `Comparable` is synthesised from declaration order, and `CommandBarRanking`
 /// sorts on it before it looks at any score.
 enum CommandBarSource: Sendable, Hashable, Comparable, CaseIterable {
+    /// A sum or a conversion, answered (`QuickAnswer`). Above everything: a
+    /// query that parses as one has no other reading worth the top row.
+    case answer
     /// §9.3: "adaptive matches rank above all frecency results." Literally all
-    /// of them, which is why this case is first.
+    /// of them, which is why only an answer comes before it.
     case adaptive
     /// The user typed something unambiguous. A guess must not outrank an instruction.
     case directURL
@@ -95,8 +116,8 @@ enum CommandBarSource: Sendable, Hashable, Comparable, CaseIterable {
     /// tier holds only while the query reads as an address; otherwise
     /// `CommandBarRanking.searchFirst` lifts the row to the top.
     case search
-    /// A menu command, or a Settings section, that the query reached only
-    /// through its keywords — nothing in its own name answered.
+    /// A command, or a Settings section, that the query reached only through
+    /// its keywords — nothing in its own name answered.
     ///
     /// Below the search row, and that is the whole reason these two cases
     /// exist. `google` is a keyword of §3.4's Search section and the name of a
