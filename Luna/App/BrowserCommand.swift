@@ -165,7 +165,8 @@ struct BrowserCommand: Identifiable {
     )
     static let toggleFavorite = BrowserCommand(
         "toggleFavorite", "Add to Favorites", #selector(AppDelegate.toggleFavorite(_:)), [KeyBinding("d")],
-        symbol: "star", keywords: ["favourite", "bookmark"]
+        // §3.4a's Pin and Unpin are this command: a pinned tab is a Favorite.
+        symbol: "star", keywords: ["favourite", "bookmark", "pin tab", "unpin tab"]
     )
     static let reloadPage = BrowserCommand(
         "reloadPage", "Reload Page", #selector(AppDelegate.reloadPage(_:)), [KeyBinding("r")],
@@ -298,18 +299,52 @@ struct BrowserCommand: Identifiable {
     /// families are absent on purpose — see `KeyBindings.reserved`.
     static let all: [BrowserCommand] = [
         settings,
-        newTab, newWindow, newPrivateWindow, openLocation, openFile, duplicateTab, resetPinnedTab, closeTab, closeAllTabs, cleanUpTabs,
+        newTab, newWindow, newPrivateWindow, openLocation, openFile, duplicateTab, resetPinnedTab,
+        renameTab, muteSite, moveToFolder, newFolder, closeTab, closeAllTabs, cleanUpTabs,
         reopenArchivedTab, closeWindow,
         undo, redo, cut, copy, paste, selectAll, find, findNext, findPrevious, useSelectionForFind,
         copyURL, copyMarkdown,
         toggleSidebar, toggleFavorite, reloadPage, forceReloadPage, stopLoading, openBlockedPopup,
-        zoomIn, zoomOut, actualSize, pictureInPicture, reader, hideElements, showDownloads,
+        zoomIn, zoomOut, actualSize, pictureInPicture, reader, siteSettings, hideElements, showDownloads,
         goBack, goForward, showHistory,
         showWebInspector, showJavaScriptConsole, showPageSource, startElementSelection, disableJavaScript, emptyCaches,
         previousTab, nextTab, previousSpace, nextSpace, minimize, searchSettings
     ]
 
     static func command(id: String) -> BrowserCommand? { all.first { $0.id == id } }
+}
+
+// MARK: - §20.2's tab commands
+
+/// An extension so the struct's body stays inside SwiftLint's limit; the
+/// table above lists these in menu order with the rest.
+extension BrowserCommand {
+
+    /// §20.2: §3.4a's tab menu, from the keyboard. Each runs the verb the menu
+    /// runs, on the tab in front. Two ship with a key: ⌃M is Firefox's Mute
+    /// Tab, and ⌥⌘N sits beside ⌘N and ⇧⌘N for the third thing Luna makes.
+    /// The rest have no convention to follow and wait for the user's own.
+    static let renameTab = BrowserCommand(
+        "renameTab", "Rename Tab…", #selector(AppDelegate.renameActiveTab(_:)),
+        symbol: "pencil", keywords: ["name tab", "title"]
+    )
+    static let muteSite = BrowserCommand(
+        "muteSite", "Mute Site", #selector(AppDelegate.toggleSiteMute(_:)), [KeyBinding("m", .control)],
+        symbol: "speaker.slash", keywords: ["mute tab", "unmute", "sound", "audio", "silence"]
+    )
+    static let moveToFolder = BrowserCommand(
+        "moveToFolder", "Move to Folder…", #selector(AppDelegate.moveActiveTabToFolder(_:)),
+        symbol: "folder", keywords: ["add to folder", "group", "tab group"]
+    )
+    static let newFolder = BrowserCommand(
+        "newFolder", "New Folder", #selector(AppDelegate.newTabFolder(_:)), [KeyBinding("n", [.command, .option])],
+        symbol: "folder.badge.plus", keywords: ["new group", "tab group"]
+    )
+    /// §3.2a's pop-out, from whichever address bar the window is showing.
+    static let siteSettings = BrowserCommand(
+        "siteSettings", "Site Settings…", #selector(AppDelegate.openSiteSettings(_:)),
+        symbol: SiteMenu.Glyph.advanced, keywords: ["permissions", "camera", "microphone", "site", "website"]
+    )
 }
 
 // MARK: - §9.2's shortcut rows

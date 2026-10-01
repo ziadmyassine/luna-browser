@@ -260,6 +260,7 @@ extension AppDelegate: NSMenuItemValidation {
             ?? validateNavigation(menuItem, in: session)
             ?? validatePageCommand(menuItem, in: session)
             ?? validateDevelopCommand(menuItem, in: session)
+            ?? validateTabCommand(menuItem, in: session)
             ?? validateSessionCommand(menuItem, in: session)
     }
 

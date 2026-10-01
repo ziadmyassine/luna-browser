@@ -82,6 +82,14 @@ extension TopBarTabStrip {
         present(.editCurrentURL, anchor)
     }
 
+    /// §20.2's Rename Tab…, on the tab's own row of the bar. False when the
+    /// bar is not on screen or the tab is a tile, which has no name to type on.
+    func beginRenaming(_ id: UUID) -> Bool {
+        guard window != nil, !isHiddenOrHasHiddenAncestor, let row = rows[id] else { return false }
+        beginRenaming(id, on: row)
+        return true
+    }
+
     /// A double-click on a tab: the column's name field, on the tab's own row,
     /// opened on the name the row is showing.
     private func beginRenaming(_ id: UUID, on row: TopBarTabRow) {

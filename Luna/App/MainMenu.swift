@@ -186,6 +186,8 @@ enum MainMenu {
             [item(.newTab)], items(.newWindow), items(.newPrivateWindow), items(.openLocation), items(.openFile),
             [.separator()],
             items(.duplicateTab), items(.resetPinnedTab),
+            // §20.2: the rest of §3.4a's tab menu, for the tab in front.
+            items(.renameTab), items(.muteSite), items(.moveToFolder), items(.newFolder),
             [.separator()],
             items(.closeTab), items(.closeAllTabs), items(.cleanUpTabs), items(.reopenArchivedTab),
             [.separator()],
@@ -233,7 +235,7 @@ enum MainMenu {
             [.separator()],
             items(.pictureInPicture),
             [.separator()],
-            items(.reader), items(.hideElements),
+            items(.reader), items(.siteSettings), items(.hideElements),
             [.separator()],
             // §22.5: the list both layouts' Downloads buttons open. ⌘⌥L is
             // free in the §20.1 map and is what Safari uses.

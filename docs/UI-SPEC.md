@@ -1270,6 +1270,14 @@ to reimplement keyboard navigation, VoiceOver and Reduce Transparency.
 > scannable at a glance: the one that files the tab away, the one that copies it, the three that
 > change what it *is*, the one that ends it.
 
+- **Every item has a command too (§20.2)**, for the tab in front: File ▸ Rename Tab…, Mute Site
+  (`⌃M`, Firefox's key; it reads Unmute Site when it will unmute), Move to Folder… and New Folder
+  (`⌥⌘N`), and View ▸ Site Settings…. They are `BrowserCommand`s, so Settings ▸ Shortcuts and the
+  Command Bar list them, and the three without a key take one there. Each runs the menu's own verb:
+  Rename opens the row's name field (the dialog only where the tab has no row on screen), Move to
+  Folder… pops the folder submenu up on its own, and Site Settings… opens §3.2a's pop-out on whichever
+  address bar is on screen and is dimmed when none is. Pin is `⌘D`, Add to Favorites, which the
+  Command Bar also finds as "pin".
 - **One menu, both halves of the sidebar.** A §3.3 tile is a tab, so a tile gets this menu too, with
   *Pin* reading **Unpin** — which is the item §3.3 has promised since the grid was built and never
   had. A shorter, second answer to the same right-click would be two menus, not one.

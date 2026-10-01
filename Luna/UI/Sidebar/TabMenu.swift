@@ -151,6 +151,13 @@ enum TabMenu {
             keyEquivalent: ""
         )
         parent.attributedTitle = SidebarMenu.label(symbol: "folder", title: parent.title)
+        parent.submenu = folderMenu(current: current, others: others, actions: actions)
+        return parent
+    }
+
+    /// The folder submenu's items on their own, for §20.2's Move to Folder…
+    /// command, which pops them up with no menu around them.
+    static func folderMenu(current: TabGroup?, others: [TabGroup], actions: Actions) -> NSMenu {
         let submenu = NSMenu()
         submenu.autoenablesItems = false
         submenu.addItem(item(
@@ -170,8 +177,7 @@ enum TabMenu {
                 actions.setGroup(nil)
             })
         }
-        parent.submenu = submenu
-        return parent
+        return submenu
     }
 
     /// One item, with the reference's glyph beside its word.
@@ -207,7 +213,7 @@ enum TabMenu {
     /// there are three outcomes and only two of them are a name: a typed name, a cleared
     /// name, and a cancel. Returning `String?` would collapse the last two into each other
     /// and a cancelled dialog would silently rename the tab to nothing.
-    private static func askName(for tab: Tab, then commit: (String?) -> Void) {
+    static func askName(for tab: Tab, then commit: (String?) -> Void) {
         let field = NSTextField(frame: NSRect(origin: .zero, size: Tokens.Metric.urlPill.size))
         field.stringValue = tab.customTitle ?? ""
         // The page's own title as the placeholder, so the field shows what clearing it

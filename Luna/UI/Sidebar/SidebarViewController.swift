@@ -339,6 +339,24 @@ final class SidebarViewController: NSViewController, WindowScoped {
         pill.window != nil && !pill.isHiddenOrHasHiddenAncestor
     }
 
+    /// §20.2's Site Settings…: the pop-out a click on the pill's glyph opens.
+    func openSiteMenu() {
+        pill.onSiteMenu?()
+    }
+
+    /// §20.2's Rename Tab…, on the tab's own row. False when the column is not
+    /// on screen or the tab has no row in it; the caller asks in a dialog.
+    func beginRenaming(tab id: UUID) -> Bool {
+        guard view.window != nil, !view.isHiddenOrHasHiddenAncestor else { return false }
+        return list.beginRenaming(tab: id)
+    }
+
+    /// The tab's row, when the column is on screen and the tab has one.
+    func rowView(forTab id: UUID) -> NSView? {
+        guard view.window != nil, !view.isHiddenOrHasHiddenAncestor else { return nil }
+        return list.rowView(forTab: id)
+    }
+
     /// §7.4's `⌘⌥←/→`, for the window's key map.
     func selectAdjacentTab(offset: Int) {
         list.selectAdjacentTab(offset: offset)

@@ -70,9 +70,14 @@ extension TabListController {
     /// a title the user can no longer read. Typing the page's title back, or
     /// clearing the field, is how the name goes back to the page; `renameTab`
     /// is where both of those are read.
-    func beginRenaming(tab id: UUID) {
-        guard let row = list.row(of: id), let tab = list.tab(at: row) else { return }
+    ///
+    /// - Returns: false when the tab has no row to type on — a tile, or a tab
+    ///   inside a folded folder — and the caller asks in a dialog instead.
+    @discardableResult
+    func beginRenaming(tab id: UUID) -> Bool {
+        guard let row = list.row(of: id), let tab = list.tab(at: row) else { return false }
         beginRenaming(atRow: row, showing: tab.customTitle ?? tab.title)
+        return true
     }
 
     /// §3.4b's *Emoji…*, on a folder's own row.
@@ -84,6 +89,13 @@ extension TabListController {
     private func beginRenaming(atRow row: Int, showing name: String) {
         guard let view = rowView(at: row) else { return }
         view.beginEditing(name)
+    }
+
+    /// The row showing tab `id`, scrolled into view, for a menu to stand on.
+    func rowView(forTab id: UUID) -> NSView? {
+        guard let row = list.row(of: id) else { return nil }
+        table.scrollRowToVisible(row)
+        return table.view(atColumn: 0, row: row, makeIfNecessary: true)
     }
 
     /// The row's view, scrolled to and ready to take the keyboard.

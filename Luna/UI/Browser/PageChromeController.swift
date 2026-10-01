@@ -107,6 +107,12 @@ final class PageChromeController: WindowScoped {
         bar.pill.handOff()
     }
 
+    /// §20.2's Site Settings…: the pop-out a click on the pill's glyph opens.
+    func openSiteMenu() {
+        guard isActive else { return }
+        bar.pill.onSiteMenu?()
+    }
+
     func setActive(_ active: Bool, animated: Bool) {
         guard active != isActive else { return }
         isActive = active

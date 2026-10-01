@@ -121,6 +121,35 @@ extension BrowserSession {
         notifyChange()
     }
 
+    // MARK: - From the keyboard (§20.2)
+
+    /// The folders of the front window's Space, in the order the column draws
+    /// them: the kept tier's, then the day's.
+    var foldersInActiveSpace: [TabGroup] {
+        [TabKind.pinned, .today].flatMap { slots(inTier: $0, inWindow: keyWindowID) }.compactMap { slot in
+            guard case let .group(group, _) = slot else { return nil }
+            return group
+        }
+    }
+
+    /// §3.4a's folder submenu for `id`, on its own, for Move to Folder…. Nil
+    /// for a tile, which §3.3's grid keeps out of folders.
+    func folderMenu(forTab id: UUID) -> NSMenu? {
+        guard let tab = list.tab(id), tab.kind != .essential else { return nil }
+        let current = tab.groupID.flatMap { list.group($0) }
+        return TabMenu.folderMenu(
+            current: current,
+            others: foldersInActiveSpace.filter { $0.id != current?.id },
+            actions: tabMenuActions(for: id)
+        )
+    }
+
+    /// New Folder: around the tab in front, as the menu's New Folder is
+    /// around its tab, or empty when there is none or it is a tile.
+    func newFolder(around id: UUID?) {
+        createGroup(name: Self.untitledGroupName, containing: id.map { [$0] } ?? [])
+    }
+
     // MARK: - The menu
 
     /// §3.4a's verbs, bound to one tab.
