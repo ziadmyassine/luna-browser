@@ -370,11 +370,15 @@ extension ControlSurfaceView {
         }
     }
 
-    /// Shown, a gap under the bar, or under the question if one is down;
-    /// hidden, wholly under the bar it slides out of.
+    /// Shown, a gap under the bar, or under the question if one is down, or
+    /// under §18.1's find field if it would land on it; hidden, wholly under
+    /// the bar it slides out of.
     private func toastTopConstant(for view: NSView, shown: Bool) -> CGFloat {
         guard shown else { return topInset - view.fittingSize.height }
-        let below = sheet.map { topInset - ControlApprovalCardView.hiddenTop + $0.fittingSize.height } ?? topInset
+        var below = sheet.map { topInset - ControlApprovalCardView.hiddenTop + $0.fittingSize.height } ?? topInset
+        if toastMeetsFindBar(width: view.fittingSize.width) {
+            below = max(below, findBarTopConstant(shown: true) + Tokens.Metric.capsuleHeight)
+        }
         return below + Tokens.Metric.chromeGap
     }
 }

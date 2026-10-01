@@ -63,6 +63,9 @@ extension Tokens {
         static var commandBarRow: NSFont { .systemFont(ofSize: 14, weight: .regular) }
         /// 12 pt semibold — section labels.
         static var sectionLabel: NSFont { .monospacedDigitSystemFont(ofSize: 12, weight: .semibold) }
+        /// 13 pt, tabular — §18.1's "3 of 12", beside a field at `urlPill`'s
+        /// size. Tabular so the figures do not shift as the match moves on.
+        static var findCount: NSFont { .monospacedDigitSystemFont(ofSize: 13, weight: .regular) }
         /// 14 pt — the §5 downloads filename.
         static var downloadFilename: NSFont { .monospacedDigitSystemFont(ofSize: 14, weight: .regular) }
         /// 7 pt bold, tabular — §16.4's badge on a pinned extension's icon.

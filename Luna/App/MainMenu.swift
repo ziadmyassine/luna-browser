@@ -201,6 +201,11 @@ enum MainMenu {
             [.separator()],
             items(.selectAll),
             [.separator()],
+            // §18.1, where every Mac app keeps it.
+            [submenu(menu("Find", flatten([
+                items(.find), items(.findNext), items(.findPrevious), [.separator()], items(.useSelectionForFind)
+            ])))],
+            [.separator()],
             // §11.2's two: the address the user is looking at, plain or wrapped
             // in the link syntax every notes app in the dock understands.
             items(.copyURL), items(.copyMarkdown)
@@ -287,8 +292,10 @@ enum MainMenu {
         ]))
     }
 
-    /// SETTINGS-SPEC §2's `⌘F`, and the nine sections as clickable items with
-    /// no key equivalent of their own.
+    /// Search Settings, and the nine sections as clickable items with no key
+    /// equivalent of their own. SETTINGS-SPEC §2's `⌘F` is Edit ▸ Find ▸
+    /// Find…, which the Settings window answers while it is key — see
+    /// `BrowserCommands+Find.swift`.
     ///
     /// Not `⌘1…⌘9`. Measured on macOS 26.5: a ⌘-number duplicating one
     /// already in the menu bar is erased, not shadowed — the earlier item in

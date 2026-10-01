@@ -2541,6 +2541,39 @@ something happened, over the page, is one of these — never a panel, chip or ba
   chip (two lines, Save / Never / Not Now) and Luna Control's approval card. Those are prompts, and
   keep their own surfaces.
 
+## 5d. Find in page — ⌘F (§18.1)
+
+`⌘F` opens a find field over the page in front (`FindBarView`, run by the window's `FindController`).
+
+- **Shape.** The toast's glass (`Glass.popover`, `capsuleHeight`, fully round, the page's appearance)
+  in the page's top trailing corner: `pageBarInset` from the trailing edge, `chromeGap` under the bar,
+  so under §3.2b's bar it hangs below the extensions cylinder. `findBarWidth` (340 pt) wide; a pane
+  narrower than that squeezes the field, never the capsule off the page. It drops in and goes back up
+  on `Motion.agentSheet`, as a toast does. A toast that would land on it drops under it instead.
+- **Content.** A magnifier, the query at `TypeScale.urlPill` with *Find on Page* as its placeholder,
+  the count at `TypeScale.findCount` and `Text.secondary` ("3 of 12", "3 of 1000+", "No matches"), and
+  three `controlCircle` `GlassButton`s touching, as `NavCluster`'s halves do: up (previous), down
+  (next), close. They have no glass of their own, so the capsule swells for their press. Up and down
+  dim when nothing was found.
+- **Keys.** Typing searches as it goes. Return is next, Shift-Return previous, `⌘G` / `⇧⌘G` the same
+  from anywhere in the window, Escape closes — in the field, or in the page while the field is open.
+  `⌘F` on an open field puts the keyboard back in it with the query selected. `⌘E` makes the
+  selection the query and opens the field on it without taking the keyboard. Closing gives the page
+  the keyboard back if the field had it; the last match stays selected, as in every Mac find.
+- **Which page.** The field belongs to the page it was opened over: switching tabs closes it. The
+  query stays, so `⌘F` on the next tab starts from it. A new page under an open field keeps the
+  query and drops the count, and Return searches the new page — searching on arrival would scroll a
+  page nobody has looked at yet.
+- **The engine.** WebKit's public `find(_:configuration:)`: it selects the match and scrolls to it, and
+  says only found or not. There is no public highlight on every match and no public count; the count
+  is a read-only script (`TabController.findCountScript`) that is only shown when it agrees with the
+  match WebKit selected.
+- **The menu.** Edit ▸ Find: Find…, Find Next, Find Previous, Use Selection for Find — the Mac's
+  keys, fixed like Cut and Copy. `⌘F` is also the Settings window's search; Find… owns the key and
+  the Settings window answers it while it is key. Window ▸ Settings ▸ Search Settings has no key.
+- **The find pasteboard.** The query is written to the Mac's shared find pasteboard, so `⌘G` in
+  another app finds the same words; a private window reads it and never writes it.
+
 ## 6. Motion
 
 Nothing exceeds **0.35 s** except the cases marked, which are not discrete transitions: §7's

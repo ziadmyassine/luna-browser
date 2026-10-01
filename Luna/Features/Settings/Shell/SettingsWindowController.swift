@@ -335,10 +335,17 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     // MARK: - §22.5's commands, all of them menu items
 
-    /// `⌘F`. Declared in `MainMenu` under Window ▸ Settings; nil-targeted, so it
-    /// is dimmed everywhere except here.
+    /// Window ▸ Settings ▸ Search Settings; nil-targeted, so it is dimmed
+    /// everywhere except here.
     @objc func focusSettingsSearch(_ sender: Any?) {
         window?.makeFirstResponder(search)
+    }
+
+    /// `⌘F`. Edit ▸ Find ▸ Find… is the first `⌘F` in menu order and AppKit
+    /// stops at the first match, so this window claims its selector while it
+    /// is key, as it does `closeTab(_:)` for `⌘W` below. Find here is the search.
+    @objc func findInPage(_ sender: Any?) {
+        focusSettingsSearch(sender)
     }
 
     /// `⌘W`. "Close Tab" is the first `⌘W` in menu order and AppKit stops at

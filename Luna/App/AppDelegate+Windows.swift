@@ -162,6 +162,9 @@ extension AppDelegate {
         wireTabSwitcher(in: window)
         wireHistory(in: window)
         wireDownloads(in: window)
+        window.find = FindController(
+            session: session, windowID: window.id, surface: controller.controlSurface, isPrivate: window.isPrivate
+        )
     }
 
     /// §3.5's Space strip, at the head of §4's bar. The same four verbs the

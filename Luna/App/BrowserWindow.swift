@@ -43,6 +43,8 @@ final class BrowserWindow {
     var commandBar: CommandBarController?
     var tabSwitcher: TabSwitcherController?
     var historyPanel: HistoryPanelController?
+    /// §18.1's find in page, over whichever page this window is showing.
+    var find: FindController?
     /// The session registration that redraws this window. Held here so a closed
     /// window stops being called without anyone having to remember to say so.
     var observation: ObservationToken?
@@ -154,6 +156,7 @@ final class BrowserWindow {
         observation = nil
         loadLineObservations = []
         historyPanel = nil
+        find = nil
         commandBar = nil
         tabSwitcher?.cancel()
         tabSwitcher = nil

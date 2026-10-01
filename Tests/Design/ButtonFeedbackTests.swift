@@ -279,6 +279,22 @@ final class ButtonFeedbackTests: XCTestCase {
         }
     }
 
+    /// §18.1's find field: previous, next and close are bare glyphs on the
+    /// capsule's glass, so the capsule swells for each.
+    func testTheFindFieldSwellsForItsButtons() {
+        let bar = FindBarView()
+        bar.frame = NSRect(origin: .zero, size: NSSize(width: Tokens.Metric.findBarWidth, height: Tokens.Metric.capsuleHeight))
+        bar.layoutSubtreeIfNeeded()
+        for button in [bar.previous, bar.next, bar.close] {
+            button.isEnabled = true
+            button.mouseDown(with: mouse(.leftMouseDown, in: button))
+            XCTAssertEqual(scale(of: button), 1, accuracy: 0.001, "a find button swelled inside the capsule")
+            XCTAssertEqual(scale(of: bar), Tokens.Motion.pressSwell, accuracy: 0.001, "the find capsule did not answer")
+            button.mouseUp(with: mouse(.leftMouseUp, in: button))
+            XCTAssertEqual(scale(of: bar), 1, accuracy: 0.001, "the find capsule stayed swollen")
+        }
+    }
+
     /// §4's Space dots stand under the name on the plate, without the
     /// column's pill — and still answer a press, on the strip that holds them.
     func testASpaceDotOnTheBarAnswersAPress() throws {

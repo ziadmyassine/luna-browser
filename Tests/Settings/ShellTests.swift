@@ -456,8 +456,13 @@ final class SettingsMenuTests: XCTestCase {
         XCTAssertEqual(settings.keyEquivalent, ",")
         XCTAssertEqual(settings.keyEquivalentModifierMask, .command)
 
+        // §2's ⌘F is Edit ▸ Find ▸ Find…, the first ⌘F in the bar, which
+        // this window answers while it is key (`FindCommandTests`). A second
+        // ⌘F here would be printed and never fire.
         let search = try XCTUnwrap(items.first { $0.title == "Search Settings" })
-        XCTAssertEqual(search.keyEquivalent, "f")
+        XCTAssertEqual(search.keyEquivalent, "")
+        let find = try XCTUnwrap(items.first { $0.title == "Find…" })
+        XCTAssertEqual(find.keyEquivalent, "f")
 
         // One item per section, tagged with its index — and no key equivalent
         // of its own, because AppKit was already taking it away.

@@ -254,6 +254,7 @@ extension AppDelegate: NSMenuItemValidation {
             return true
         }
         if let agents = validateStopAllAgents(menuItem) { return agents }
+        if let find = validateFindCommand(menuItem) { return find }
         guard let session else { return false }
         return validateFavoriteToggle(menuItem, in: session)
             ?? validateNavigation(menuItem, in: session)

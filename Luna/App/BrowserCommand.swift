@@ -140,6 +140,24 @@ struct BrowserCommand: Identifiable {
         symbol: "doc.on.clipboard", keywords: ["copy link", "markdown"]
     )
 
+    /// §18.1. The Mac's own Find keys, so fixed like Cut and Copy. ⌘F is the
+    /// Settings window's search as well — see `BrowserCommands+Find.swift`.
+    static let find = BrowserCommand(
+        "find", "Find…", #selector(AppDelegate.findInPage(_:)), [KeyBinding("f")], customisable: false,
+        symbol: "text.magnifyingglass", keywords: ["find in page", "find on page", "search page"]
+    )
+    static let findNext = BrowserCommand(
+        "findNext", "Find Next", #selector(AppDelegate.findNextInPage(_:)), [KeyBinding("g")], customisable: false
+    )
+    static let findPrevious = BrowserCommand(
+        "findPrevious", "Find Previous", #selector(AppDelegate.findPreviousInPage(_:)),
+        [KeyBinding("g", [.command, .shift])], customisable: false
+    )
+    static let useSelectionForFind = BrowserCommand(
+        "useSelectionForFind", "Use Selection for Find", #selector(AppDelegate.useSelectionForFind(_:)),
+        [KeyBinding("e")], customisable: false
+    )
+
     // MARK: - View
 
     static let toggleSidebar = BrowserCommand(
@@ -266,9 +284,12 @@ struct BrowserCommand: Identifiable {
     static let minimize = BrowserCommand(
         "minimize", "Minimize", #selector(NSWindow.performMiniaturize(_:)), [KeyBinding("m")], customisable: false
     )
+    /// No key of its own: ⌘F is Find…, which the Settings window answers by
+    /// focusing its search. Kept in the table, and in Window ▸ Settings, so the
+    /// search is reachable from the menu bar too.
     static let searchSettings = BrowserCommand(
         "searchSettings", "Search Settings", #selector(SettingsWindowController.focusSettingsSearch(_:)),
-        [KeyBinding("f")], customisable: false
+        customisable: false
     )
 
     // MARK: - The table
@@ -279,7 +300,8 @@ struct BrowserCommand: Identifiable {
         settings,
         newTab, newWindow, newPrivateWindow, openLocation, openFile, duplicateTab, resetPinnedTab, closeTab, closeAllTabs, cleanUpTabs,
         reopenArchivedTab, closeWindow,
-        undo, redo, cut, copy, paste, selectAll, copyURL, copyMarkdown,
+        undo, redo, cut, copy, paste, selectAll, find, findNext, findPrevious, useSelectionForFind,
+        copyURL, copyMarkdown,
         toggleSidebar, toggleFavorite, reloadPage, forceReloadPage, stopLoading, openBlockedPopup,
         zoomIn, zoomOut, actualSize, pictureInPicture, reader, hideElements, showDownloads,
         goBack, goForward, showHistory,

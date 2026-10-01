@@ -5,8 +5,9 @@
 //  Luna Control's layer over the page (docs/LUNA-CONTROL.md): the question an
 //  agent is waiting on, dropping from the top edge of whatever page is in
 //  front; the capsule at the foot of a page an agent is working on, with
-//  Take Over; the agent's pointer where it last acted; and the page toasts
-//  (`PageToast`), which drop from the same edge. One view in the
+//  Take Over; the agent's pointer where it last acted; the page toasts
+//  (`PageToast`), which drop from the same edge; and §18.1's find field in
+//  the top trailing corner (`FindBarView`). One view in the
 //  content card, above the page and under §3.2b's bar, so it is over every
 //  tab without belonging to any of them.
 //
@@ -32,7 +33,9 @@ final class ControlSurfaceView: NSView {
     /// under it.
     var topInset: CGFloat = 0 {
         didSet {
-            guard topInset != oldValue, let sheet, sliding == 0 else { return }
+            guard topInset != oldValue else { return }
+            if findBar != nil { findBarTop?.constant = findBarTopConstant(shown: true) }
+            guard let sheet, sliding == 0 else { return }
             sheetTop?.constant = topConstant(for: sheet, shown: true)
         }
     }
@@ -66,6 +69,9 @@ final class ControlSurfaceView: NSView {
     var toastDismissal: Task<Void, Never>?
     /// When the toast that is down goes back up, unless the pointer holds it.
     var toastDeadline: Date?
+    /// §18.1's find field, and its top edge (`ControlSurfaceView+Find`).
+    var findBar: FindBarView?
+    var findBarTop: NSLayoutConstraint?
     /// Each agent session's newest call, stacked up from the bottom trailing
     /// corner, lowest first (`ControlActivityPill`).
     var activityPills: [ControlActivityPill] = []

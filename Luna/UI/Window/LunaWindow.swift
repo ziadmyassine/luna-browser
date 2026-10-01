@@ -31,7 +31,9 @@ final class LunaWindow: NSWindow {
     /// out of fullscreen, so it takes two: the first says so, the second
     /// leaves. A video in fullscreen is WebKit's own window and is not this.
     override func cancelOperation(_ sender: Any?) {
-        if let session = (NSApp.delegate as? AppDelegate)?.session, Self.escapeEndsHiding(in: session) { return }
+        let app = NSApp.delegate as? AppDelegate
+        if let session = app?.session, Self.escapeEndsHiding(in: session) { return }
+        if Self.escapeClosesFind(app?.windows.first { $0.controller.window === self }?.find) { return }
         guard styleMask.contains(.fullScreen) else { return super.cancelOperation(sender) }
         if escape.press() {
             PageToast.escapeAgain.putAway(in: self)
@@ -52,6 +54,19 @@ extension LunaWindow {
     static func escapeEndsHiding(in session: BrowserSession) -> Bool {
         guard session.isPickingElements else { return false }
         session.activeController?.stopPickingElements()
+        return true
+    }
+}
+
+extension LunaWindow {
+
+    /// One Escape closes §18.1's find field with the keyboard in the page, as
+    /// it does with the keyboard in the field — and is then not the first of
+    /// the two that leave fullscreen either.
+    /// - Returns: whether it did.
+    static func escapeClosesFind(_ find: FindController?) -> Bool {
+        guard let find, find.isOpen else { return false }
+        find.close()
         return true
     }
 }
