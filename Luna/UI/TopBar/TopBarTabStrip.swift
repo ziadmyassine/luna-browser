@@ -66,6 +66,9 @@ final class TopBarTabStrip: NSView, WindowScoped {
     /// The dashed row at the end of §3.4b's tier, where a tab dropped starts a
     /// kept folder.
     let folderSlot = TopBarSlotOutline()
+    /// Where a file or link dragged over the window would open — see
+    /// `TopBarTabStrip+DropMark.swift`.
+    let dropMark = TopBarSlotOutline()
 
     var run = TopBarStripRun()
     var tiles: [UUID: GlassButton] = [:]
@@ -208,7 +211,7 @@ final class TopBarTabStrip: NSView, WindowScoped {
         // window is built from frames and `mouseDownCanMoveWindow`, not from
         // `hitTest`, so a parked pill lying over a control makes a press on it
         // drag the window.
-        for view in [plate, rule, selectionPill, hoverPill, slot, folderSlot, glow] as [NSView] {
+        for view in [plate, rule, selectionPill, hoverPill, slot, folderSlot, dropMark, glow] as [NSView] {
             content.addSubview(view)
         }
         for pill in [selectionPill, hoverPill] { pill.alphaValue = 0 }

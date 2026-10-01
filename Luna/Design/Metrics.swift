@@ -558,6 +558,16 @@ extension Tokens {
         /// not lift it, and near enough that a deliberate pull is answered at
         /// once.
         static let dragThreshold: CGFloat = 4
+        /// §6.6: how far clear of its column — or of the window — a lifted
+        /// tab's pointer has to go before the tab leaves the list, as a window
+        /// of its own or as a link for another app (`TabTearOff`). Chromium
+        /// tears a tab off its strip at 15 px of travel across it
+        /// (`kVerticalDetachMagnetism`). Luna's reorder is locked to the
+        /// column and a tab torn off by a hand that drifted while reordering
+        /// is a window nobody asked for, so it waits for a whole row's pitch
+        /// outside, which no reorder ever needs to cover: the list is the
+        /// column.
+        static let tabTearOffDistance: CGFloat = rowHeight
 
     }
 }

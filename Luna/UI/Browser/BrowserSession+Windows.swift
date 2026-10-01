@@ -134,6 +134,27 @@ extension BrowserSession {
         notifyChange()
     }
 
+    // MARK: - A tab changing windows
+
+    /// §6.6's tear-off: `id` goes on `window`'s card and comes off every other
+    /// window's, which moves on to the row beside it as a closed tab's window
+    /// does. The page is not reloaded — its web view belongs to the session
+    /// and goes wherever it is shown.
+    ///
+    /// The tab stays in every window's list. The list is the Space's, and
+    /// every window onto the Space draws the same one (§22.6); what moves is
+    /// which window is showing the page.
+    func showTab(_ id: UUID, onlyInWindow window: UUID) {
+        guard let tab = list.tab(id) else { return }
+        let others = windowFocus.filter { $0.key != window && $0.value.tabBySpace[tab.spaceID] == id }.keys
+        if !others.isEmpty {
+            let next = rowBelow(id, in: tab.spaceID)
+            for other in others { windowFocus[other]?.tabBySpace[tab.spaceID] = next }
+        }
+        windowFocus[window, default: WindowFocus(spaceID: tab.spaceID)].spaceID = tab.spaceID
+        activateTab(id, inWindow: window)
+    }
+
     // MARK: - A tab going away
 
     /// Moves every window's selection off `id`, wherever it is selected.

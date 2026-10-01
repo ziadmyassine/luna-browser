@@ -52,3 +52,12 @@ extension TopBarView {
         drag = controller
     }
 }
+
+// MARK: - Where a dropped page opens
+
+extension TopBarView: DropMarking {
+
+    func markDrop(at point: NSPoint?) -> SidebarDestination? { strip.markDrop(at: point) }
+
+    func clearDropMark() { strip.clearDropMark() }
+}

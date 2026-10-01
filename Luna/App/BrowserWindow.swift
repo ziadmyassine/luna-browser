@@ -50,6 +50,9 @@ final class BrowserWindow {
     var observation: ObservationToken?
     /// §3.2c's window-edge line. Two tokens — see `wireLoadLine`.
     var loadLineObservations: [ObservationToken] = []
+    /// Where a file or link dragged over the window opens if it is let go of
+    /// now — nil for where a new tab opens anyway (§6.6).
+    private(set) var dropLanding: SidebarDestination?
 
     /// - Parameter controller: made by the caller, because the launch puts a
     ///   window on screen before there is a session to put in it — §19.1's
@@ -143,6 +146,33 @@ final class BrowserWindow {
         // §3.2c's third listener: the window only wears the load line when
         // neither of the two above is showing an address.
         controller.setSearchBarOnPage(onPage)
+    }
+
+    // MARK: - §6.6's drop mark
+
+    /// The list on screen, which draws the mark: none while the sidebar is
+    /// hidden, which leaves nothing to draw it in.
+    private var dropMarker: (any DropMarking)? {
+        switch controller.chromeState {
+        case .topBar: topBar
+        case .sidebar: sidebar
+        case .fullscreen: Settings.chromeLayout == .topBar ? topBar : sidebar
+        case .sidebarCollapsed: nil
+        }
+    }
+
+    /// A file or link dragged over the window, at `point`, or gone (nil).
+    /// - Parameter overChrome: over the sidebar or the bar, where the mark
+    ///   can follow the pointer; over the card it stands where a new tab
+    ///   opens.
+    func markDrop(at point: NSPoint?, overChrome: Bool) {
+        guard let point else {
+            sidebar?.clearDropMark()
+            topBar?.clearDropMark()
+            dropLanding = nil
+            return
+        }
+        dropLanding = dropMarker?.markDrop(at: overChrome ? point : nil)
     }
 
     // MARK: - Going away

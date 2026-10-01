@@ -78,6 +78,12 @@ final class TabListController: NSObject {
     /// `SidebarGroupDropView`. One for the list, like the two pills, and for
     /// the same reason: a lift is in one place.
     let groupDrop = SidebarGroupDropView()
+    /// Where a file or link dragged over the window would open — the same
+    /// dashed box, a row tall, in the gap the list opens for it. See
+    /// `TabListController+DropMark.swift`.
+    let dropMark = SidebarGroupDropView()
+    /// The list has opened a gap for a file or a link rather than for a lift.
+    var isMarkingDrop = false
     /// Live per-tab state, pushed in by `BrowserSession.onTabStateChange`.
     var liveStates: [UUID: TabState] = [:]
     /// Muted tabs (§3.4a), mirrored from `BrowserSession.mutedTabIDs` so a row can draw
@@ -182,6 +188,7 @@ final class TabListController: NSObject {
             table.addSubview(pill, positioned: .below, relativeTo: nil)
         }
         table.addSubview(groupDrop, positioned: .below, relativeTo: nil)
+        table.addSubview(dropMark, positioned: .below, relativeTo: nil)
     }
 
     /// No scroller at all, which `.overlay` is not: overlay draws over the

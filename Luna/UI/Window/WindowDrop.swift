@@ -23,7 +23,12 @@ enum WindowDrop {
     static let types: [NSPasteboard.PasteboardType] = [.fileURL, .URL]
 
     /// The pages on a dragged pasteboard, in the order they were dragged.
+    ///
+    /// None on a tab torn out of a list (`TabTearOff`): it carries its link for
+    /// other apps, and opening that link here would be a second copy of a tab
+    /// the drag is moving. Where it lands is the tear-off's to decide.
     static func pages(on pasteboard: NSPasteboard) -> [URL] {
+        guard pasteboard.types?.contains(TabTearOff.tabType) != true else { return [] }
         let urls = pasteboard.readObjects(forClasses: [NSURL.self]) as? [URL] ?? []
         return AppDelegate.pages(in: urls)
     }
@@ -36,6 +41,14 @@ enum WindowDrop {
         return [NSDragOperation.copy, .link, .generic].first { offered.contains($0) } ?? []
     }
 
+    /// `operation(for:)`, telling `report` where a drag Luna would open is —
+    /// or nil, for one it would not.
+    static func hover(_ info: any NSDraggingInfo, report: ((NSPoint?) -> Void)?) -> NSDragOperation {
+        let operation = operation(for: info)
+        report?(operation.isEmpty ? nil : info.draggingLocation)
+        return operation
+    }
+
     /// - Returns: whether the drop was taken.
     static func perform(_ info: any NSDraggingInfo, open: (([URL]) -> Void)?) -> Bool {
         let pages = pages(on: info.draggingPasteboard)
@@ -43,4 +56,16 @@ enum WindowDrop {
         open(pages)
         return true
     }
+}
+
+/// A window's list, which can show where pages dropped on the window will
+/// open: the sidebar's rows or §4's run (§6.6).
+@MainActor
+protocol DropMarking: AnyObject {
+    /// Shows where pages dropped at `point` would open, and answers it.
+    /// - Parameter point: in the window's coordinates, or nil for anywhere
+    ///   off the list — the empty card, the page bar.
+    /// - Returns: the landing, or nil for where a new tab opens anyway.
+    func markDrop(at point: NSPoint?) -> SidebarDestination?
+    func clearDropMark()
 }

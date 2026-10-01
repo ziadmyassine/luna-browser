@@ -40,6 +40,10 @@ final class ChromeHostView: NSView {
         didSet { onDropPages == nil ? unregisterDraggedTypes() : registerForDraggedTypes(WindowDrop.types) }
     }
 
+    /// A file or link is over the chrome, at this point in the window, or
+    /// has left it (nil) — for §6.6's mark of where it will open.
+    var onDropHover: ((NSPoint?) -> Void)?
+
     private var sidebar: NSView?
     private var topBar: NSView?
 
@@ -125,7 +129,19 @@ final class ChromeHostView: NSView {
     override func mouseExited(with event: NSEvent) { onPointerInside?(false) }
 
     override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
-        WindowDrop.operation(for: sender)
+        WindowDrop.hover(sender, report: onDropHover)
+    }
+
+    override func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        WindowDrop.hover(sender, report: onDropHover)
+    }
+
+    override func draggingExited(_ sender: (any NSDraggingInfo)?) {
+        onDropHover?(nil)
+    }
+
+    override func draggingEnded(_ sender: any NSDraggingInfo) {
+        onDropHover?(nil)
     }
 
     override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {

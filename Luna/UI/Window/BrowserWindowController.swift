@@ -342,6 +342,9 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         card.setContent(view)
     }
 
+    /// A file or link over the card, for §6.6's mark (`ContentCardView.onDropHover`).
+    var onDropHover: ((NSPoint?) -> Void)? { get { card.onDropHover } set { card.onDropHover = newValue } }
+
     /// Files and web links dropped on the card anywhere the page is not.
     var onDropPages: (([URL]) -> Void)? {
         get { card.onDropPages }

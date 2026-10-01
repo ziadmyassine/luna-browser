@@ -98,6 +98,10 @@ final class ContentCardView: NSView {
         didSet { onDropPages == nil ? unregisterDraggedTypes() : registerForDraggedTypes(WindowDrop.types) }
     }
 
+    /// A file or link is over the card, at this point in the window, or has
+    /// left it (nil) — for §6.6's mark of where it will open.
+    var onDropHover: ((NSPoint?) -> Void)?
+
     /// top, leading, bottom, trailing — in that order, always.
     private var edges: [NSLayoutConstraint] = []
     private var content: NSView?
@@ -156,7 +160,19 @@ final class ContentCardView: NSView {
     }
 
     override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
-        WindowDrop.operation(for: sender)
+        WindowDrop.hover(sender, report: onDropHover)
+    }
+
+    override func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        WindowDrop.hover(sender, report: onDropHover)
+    }
+
+    override func draggingExited(_ sender: (any NSDraggingInfo)?) {
+        onDropHover?(nil)
+    }
+
+    override func draggingEnded(_ sender: any NSDraggingInfo) {
+        onDropHover?(nil)
     }
 
     override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
@@ -167,7 +183,10 @@ final class ContentCardView: NSView {
 
     func setContent(_ view: NSView?) {
         guard view !== content else { return }
-        content?.removeFromSuperview()
+        // Only if it is still here. A page another window has since taken
+        // (§6.6's tear-off) is that window's now, and removing it would take
+        // it off the card it moved to.
+        if content?.superview === self { content?.removeFromSuperview() }
         content = view
         guard let view else { return }
         view.translatesAutoresizingMaskIntoConstraints = false

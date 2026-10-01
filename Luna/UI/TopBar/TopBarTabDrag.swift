@@ -15,6 +15,7 @@
 //  they pushed every tab after the plate a hundred points out from under the hand.
 //
 //  Nothing is committed until the mouse comes up: one `reorderTab`, one undo entry.
+//  Pulled down off the bar, a tab leaves it as AppKit's drag (`TabTearOff`).
 //
 
 import AppKit
@@ -30,6 +31,10 @@ final class TopBarTabDragController {
     var onDropGroup: ((_ id: UUID, _ kind: TabKind, _ index: Int) -> Void)?
     /// A tab dropped on one of the Space's dots.
     var onDropOnSpace: ((_ id: UUID, _ space: UUID) -> Void)?
+    /// A tab pulled clear of the bar (`TabTearOff`): the lift is already down,
+    /// and the tab leaves as AppKit's drag. Nil keeps every tab on the bar,
+    /// as a §5.6 window does — its session goes with its one window.
+    var onTearOff: ((TabTearOff.Request) -> Void)?
     /// False in a §5.6 private window, where nothing can be kept, so the kept
     /// run is not a landing place at all — see `BrowserSession.allowsPinning`.
     var allowsPinning = true
@@ -70,6 +75,7 @@ final class TopBarTabDragController {
         move(lifted, to: start.x - grab, pointer: start)
 
         var cancelled = false
+        var tornOff: NSEvent?
         loop: while let next = window.nextEvent(matching: [.leftMouseDragged, .leftMouseUp, .keyDown]) {
             switch next.type {
             case .keyDown:
@@ -79,11 +85,44 @@ final class TopBarTabDragController {
             case .leftMouseUp:
                 break loop
             default:
+                if leavesTheBar(lifted, at: next.locationInWindow, in: window) {
+                    tornOff = next
+                    break loop
+                }
                 let point = host.convert(next.locationInWindow, from: nil)
                 move(lifted, to: point.x - grab, pointer: point)
             }
         }
-        finish(lifted, cancelled: cancelled)
+        let size = lift?.frame.size ?? origin.size
+        let shown = content
+        finish(lifted, cancelled: cancelled || tornOff != nil)
+        if let tornOff, case let .tab(id) = lifted {
+            let point = host.convert(tornOff.locationInWindow, from: nil)
+            // Under the hand, held where it was held — see the column's copy.
+            let held = NSRect(
+                x: point.x - grab,
+                y: point.y - (start.y - origin.minY),
+                width: size.width,
+                height: size.height
+            )
+            onTearOff?(TabTearOff.Request(
+                tabID: id, content: shown, view: host, frame: held, axis: .horizontal, press: press.locationInWindow,
+                event: tornOff
+            ))
+        }
+    }
+
+    /// Whether the hand has pulled a tab off the bar — down into the page, or
+    /// out of the window — far enough that it is no longer reordering it. A
+    /// §3.4b folder never leaves: its name stays with the rest of its tabs.
+    private func leavesTheBar(_ lifted: TopBarLifted, at point: NSPoint, in window: NSWindow) -> Bool {
+        guard onTearOff != nil, case .tab = lifted, let content = window.contentView else { return false }
+        return TabTearOff.hasTornOff(
+            pointer: point,
+            run: host.convert(host.bounds, to: nil),
+            along: .horizontal,
+            window: content.convert(content.bounds, to: nil)
+        )
     }
 
     // MARK: - The gesture

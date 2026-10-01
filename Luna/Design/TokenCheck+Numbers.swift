@@ -50,6 +50,11 @@ extension TokenCheck {
         if !(Tokens.Metric.chromeGap < list && list < Tokens.Metric.settingsGroupGap) {
             failures.append("Metric.settingsListGap is not between Metric.chromeGap and Metric.settingsGroupGap")
         }
+        // A tear-off that came sooner than a lift would leave the list before
+        // the tab had moved in it at all.
+        if !(Tokens.Metric.tabTearOffDistance > Tokens.Metric.dragThreshold) {
+            failures.append("Metric.tabTearOffDistance is not past Metric.dragThreshold")
+        }
         // The monogram stands in a favicon's place, so it is the favicon's
         // square or every row it is in steps out of the column.
         let monogram = Tokens.Metric.monogramTile

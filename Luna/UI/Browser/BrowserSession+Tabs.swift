@@ -124,7 +124,7 @@ extension BrowserSession {
     /// read straight off it — tiles and dimmed rows excluded, for
     /// `openableTabs`' reason: closing a tab must not load the one below it.
     /// The tab being closed stays in, because its own place is the question.
-    private func rowBelow(_ id: UUID, in spaceID: UUID) -> UUID? {
+    func rowBelow(_ id: UUID, in spaceID: UUID) -> UUID? {
         let rows = list[spaceID].filter { $0.id == id || ($0.kind != .essential && !$0.isDormant) }
         guard let index = rows.firstIndex(where: { $0.id == id }) else { return nil }
         return (rows.dropFirst(index + 1).first ?? rows[..<index].last)?.id
@@ -237,6 +237,36 @@ extension BrowserSession {
             session.reorderTab(id, to: oldIndex, kind: oldKind, group: oldGroup)
         }
         notifyChange()
+    }
+
+    /// Opens pages as new tabs where §6.6's drop mark showed them landing, in
+    /// order — or, with no landing, where a new tab opens. Not an undoable
+    /// move: to the user they opened there, and a first ⌘Z after a drop that
+    /// put them back at the head of the list would undo something they never
+    /// saw happen.
+    ///
+    /// Each is put in place before the next is made. The landing was read off
+    /// the list before any of them existed, and a tab moved in by `reorderTab`
+    /// is counted on the list without itself — so with one new tab in it at a
+    /// time, that is the list the landing was read from.
+    @discardableResult
+    func openTabs(_ pages: [URL], at landing: SidebarDestination?) -> [UUID] {
+        guard let landing else { return pages.map { newTab(url: $0) } }
+        undoManager.disableUndoRegistration()
+        defer { undoManager.enableUndoRegistration() }
+        if let folder = landing.groupID { setGroupCollapsed(false, forGroup: folder) }
+        // A loose landing in the saved tier is a new folder (`reorderTab`), and
+        // several pages dropped there at once are one folder, not one each.
+        if landing.kind == .pinned, landing.groupID == nil {
+            let ids = pages.map { newTab(url: $0) }
+            createGroup(name: Self.untitledGroupName, kind: .pinned, containing: ids, at: landing.index)
+            return ids
+        }
+        return pages.enumerated().map { offset, page in
+            let id = newTab(url: page)
+            reorderTab(id, to: landing.index + offset, kind: landing.kind, group: landing.groupID)
+            return id
+        }
     }
 
     /// The bookkeeping a tab needs when it crosses into or out of a tier that

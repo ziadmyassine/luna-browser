@@ -85,7 +85,7 @@ extension TabListController {
     /// a working tab's outline over the pills, whose fill would cover its rim.
     func sendPillsToBack() {
         let fills = Array(tabGlows.values) + [selectionPill, hoverPill] + Array(controlPlates.values)
-            + [groupPlate, groupDrop]
+            + [groupPlate, groupDrop, dropMark]
         for fill in fills where fill.superview === table {
             table.addSubview(fill, positioned: .below, relativeTo: nil)
         }

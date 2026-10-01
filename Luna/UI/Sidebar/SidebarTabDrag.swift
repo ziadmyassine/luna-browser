@@ -16,6 +16,9 @@
 //  Nothing is committed until the mouse comes up: a live `reorderTab` per row
 //  crossed would be a dozen SQLite writes and undo entries for one gesture.
 //
+//  Pulled clear of the column, a tab leaves the list after all — as AppKit's
+//  drag, from that point on, to another window or app (`TabTearOff`).
+//
 
 import AppKit
 import BrowserKit
@@ -74,6 +77,10 @@ final class SidebarTabDragController {
     var onDropInEssentials: ((_ id: UUID, _ index: Int, _ wasPinned: Bool) -> Void)?
     /// Dropped on a §3.5 Space dot.
     var onDropOnSpace: ((UUID, UUID) -> Void)?
+    /// A tab pulled clear of the column (`TabTearOff`): the lift is already
+    /// down, and the tab leaves as AppKit's drag. Nil keeps every tab in the
+    /// list, as a §5.6 window does — its session goes with its one window.
+    var onTearOff: ((TabTearOff.Request) -> Void)?
     /// False in a §5.6 private window — see `BrowserSession.allowsPinning`.
     /// §3.3's grid is then not a landing place at all, which is the honest
     /// answer: a zone that lights up and refuses the drop is worse than one
@@ -156,6 +163,7 @@ final class SidebarTabDragController {
         var grabOffset = start.y - origin.midY
         var lifted = false
         var cancelled = false
+        var tornOff: NSEvent?
 
         loop: while let next = window.nextEvent(matching: [.leftMouseDragged, .leftMouseUp, .keyDown]) {
             switch next.type {
@@ -175,6 +183,10 @@ final class SidebarTabDragController {
                     grabOffset = start.y - origin.midY
                     begin(cargo: cargo, content: content, from: origin)
                 }
+                if leavesTheList(cargo, at: next.locationInWindow, in: window) {
+                    tornOff = next
+                    break loop
+                }
                 move(to: NSPoint(x: point.x, y: point.y - grabOffset))
             }
         }
@@ -183,7 +195,10 @@ final class SidebarTabDragController {
             self.cargo = nil
             return false
         }
-        finish(cargo: cargo, cancelled: cancelled)
+        // Read before `finish` takes the lift down.
+        let grip = NSRect(origin: NSPoint(x: start.x - origin.minX, y: start.y - origin.minY), size: (lift?.frame ?? origin).size)
+        finish(cargo: cargo, cancelled: cancelled || tornOff != nil)
+        handOver(cargo, tornOff: tornOff, grip: grip, content: content, press: event)
         return true
     }
 
@@ -437,5 +452,36 @@ final class SidebarTabDragController {
         grid.dropIndex = nil
         grid.draggedID = nil
         grid.isAwaitingDrop = false
+    }
+}
+
+// MARK: - Leaving the list
+
+extension SidebarTabDragController {
+
+    /// Whether the hand has pulled a tab out of the column — sideways, or out
+    /// of the window — far enough that it is no longer reordering it. A §3.4b
+    /// folder never leaves: its name stays with the rest of its tabs.
+    private func leavesTheList(_ cargo: SidebarCargo, at point: NSPoint, in window: NSWindow) -> Bool {
+        guard onTearOff != nil, case .tab = cargo, let content = window.contentView else { return false }
+        return TabTearOff.hasTornOff(
+            pointer: point,
+            run: host.convert(host.bounds, to: nil),
+            along: .vertical,
+            window: content.convert(content.bounds, to: nil)
+        )
+    }
+
+    /// Gives a torn-off tab to `onTearOff`, standing under the hand.
+    /// - Parameter grip: where the press was inside the lift (`origin`), and
+    ///   the lift's size. The lift stayed in the column; the tab leaving it
+    ///   goes with the pointer, held where it was held.
+    private func handOver(_ cargo: SidebarCargo, tornOff: NSEvent?, grip: NSRect, content: SidebarRowContent, press: NSEvent) {
+        guard let tornOff, case let .tab(id, _) = cargo else { return }
+        let point = host.convert(tornOff.locationInWindow, from: nil)
+        let held = NSRect(origin: NSPoint(x: point.x - grip.minX, y: point.y - grip.minY), size: grip.size)
+        onTearOff?(TabTearOff.Request(
+            tabID: id, content: content, view: host, frame: held, axis: .vertical, press: press.locationInWindow, event: tornOff
+        ))
     }
 }

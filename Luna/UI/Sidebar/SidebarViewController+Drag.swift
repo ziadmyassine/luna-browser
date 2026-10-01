@@ -73,3 +73,18 @@ extension SidebarViewController {
         drag = controller
     }
 }
+
+// MARK: - Where a dropped page opens
+
+extension SidebarViewController: DropMarking {
+
+    /// Over the rows the mark follows the pointer; anywhere else in the window
+    /// it stands where a new tab opens.
+    func markDrop(at point: NSPoint?) -> SidebarDestination? {
+        let rows = list.scrollView
+        let overRows = point.map { rows.bounds.contains(rows.convert($0, from: nil)) } ?? false
+        return list.markDrop(atY: overRows ? point.map { view.convert($0, from: nil).y } : nil, in: view)
+    }
+
+    func clearDropMark() { list.clearDropMark() }
+}

@@ -85,11 +85,13 @@ extension AppDelegate {
     /// does: it is the window the user was last in, and a link landing in some
     /// other window behind it is a link they have to go looking for. A drop
     /// (`WindowDrop`) opens in the window it landed on.
-    func open(_ pages: [URL], in window: BrowserWindow) {
+    /// - Parameter landing: where in the list they go — §6.6's mark, for a
+    ///   drop — or nil for where a new tab opens.
+    func open(_ pages: [URL], in window: BrowserWindow, at landing: SidebarDestination? = nil) {
         // The session's verbs act on its key window, and the tabs belong in
         // this one's Space.
         window.session.setKeyWindow(window.id)
-        let tabs = pages.map { window.session.newTab(url: $0) }
+        let tabs = window.session.openTabs(pages, at: landing)
         if let last = tabs.last { window.session.activateTab(last) }
         window.controller.window?.makeKeyAndOrderFront(nil)
         NSApp.activate()

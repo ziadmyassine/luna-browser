@@ -78,7 +78,9 @@ extension AppDelegate {
     }
 
     /// Takes a new window into the app: on screen, on the list, and in front.
-    func adopt(_ window: BrowserWindow) {
+    /// - Parameter frame: where it stands, for a window that has somewhere to
+    ///   be (§6.6's tear-off); nil cascades it off the one before.
+    func adopt(_ window: BrowserWindow, frame: NSRect? = nil) {
         windows.append(window)
         buildChrome(in: window)
         window.controller.onBecameKey = { [weak self, weak window] in
@@ -97,10 +99,15 @@ extension AppDelegate {
         // After `showWindow`, not before it: AppKit gives a window its frame on
         // the way on screen — its own cascade for a second window of the same
         // app — and a frame set before that is overwritten without a word. A
-        // slot arranged on this screen setup goes back there (§22.6); only a
+        // torn-off tab's window goes where it was dropped; otherwise a slot
+        // arranged on this screen setup goes back there (§22.6), and only a
         // window with nowhere to go back to cascades.
-        let restored = window.controller.window.map { WindowFrameMemory.shared.restore($0) } ?? false
-        if !restored { cascade(window.controller, after: previous) }
+        if let frame {
+            window.controller.window?.setFrame(frame, display: true)
+        } else {
+            let restored = window.controller.window.map { WindowFrameMemory.shared.restore($0) } ?? false
+            if !restored { cascade(window.controller, after: previous) }
+        }
         NSApp.activate()
     }
 
@@ -143,10 +150,16 @@ extension AppDelegate {
         session.bringBackHiddenWhenUndoRunsOut()
         let openDropped: ([URL]) -> Void = { [weak self, weak window] pages in
             guard let self, let window else { return }
-            self.open(pages, in: window)
+            // Read, then taken down before the tabs arrive: a list rebuilt
+            // with the gap still open lays the new rows out round it.
+            let landing = window.dropLanding
+            window.markDrop(at: nil, overChrome: false)
+            self.open(pages, in: window, at: landing)
         }
         window.chrome.onDropPages = openDropped
         controller.onDropPages = openDropped
+        window.chrome.onDropHover = { [weak window] point in window?.markDrop(at: point, overChrome: true) }
+        controller.onDropHover = { [weak window] point in window?.markDrop(at: point, overChrome: false) }
         sidebar.onSpaceGradientChange = { [weak controller] gradient in
             controller?.setSpaceGradient(gradient)
         }
@@ -167,6 +180,7 @@ extension AppDelegate {
         window.find = FindController(
             session: session, windowID: window.id, surface: controller.controlSurface, isPrivate: window.isPrivate
         )
+        wireTearOff(in: window)
     }
 
     /// §3.5's Space strip, at the head of §4's bar. The same four verbs the
