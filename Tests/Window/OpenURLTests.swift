@@ -44,13 +44,81 @@ final class OpenURLTests: XCTestCase {
         )
     }
 
-    /// `Info.plist` claims exactly `LocalFileTypes`: Finder offers Luna only
-    /// what it claims, and the open handler takes only what is on the list.
+    /// `Info.plist` claims exactly `LocalFileTypes` and `WebLocationFile`:
+    /// Finder offers Luna only what it claims, and the open handler takes only
+    /// what is on the lists.
     func testInfoPlistClaimsTheListedTypes() throws {
         let types = try XCTUnwrap(Bundle.main.object(forInfoDictionaryKey: "CFBundleDocumentTypes") as? [[String: Any]])
         let claimed = types.flatMap { $0["LSItemContentTypes"] as? [String] ?? [] }
-        XCTAssertEqual(Set(claimed), Set(LocalFileTypes.identifiers))
+        XCTAssertEqual(Set(claimed), Set(LocalFileTypes.identifiers + WebLocationFile.identifiers))
         XCTAssertTrue(claimed.contains(UTType.html.identifier), "\(claimed)")
+    }
+
+    /// The App Store and Finder's Applications view file Luna under this.
+    func testInfoPlistNamesTheCategory() {
+        XCTAssertEqual(
+            Bundle.main.object(forInfoDictionaryKey: "LSApplicationCategoryType") as? String,
+            "public.app-category.productivity"
+        )
+    }
+
+    // MARK: - Saved links
+
+    private var folder: URL!
+
+    override func setUpWithError() throws {
+        folder = URL.temporaryDirectory.appending(path: "luna-weblocs-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    }
+
+    override func tearDownWithError() throws {
+        try? FileManager.default.removeItem(at: folder)
+    }
+
+    private func write(_ name: String, _ contents: Data) throws -> URL {
+        let file = folder.appending(path: name)
+        try contents.write(to: file)
+        return file
+    }
+
+    private func plist(_ link: String, format: PropertyListSerialization.PropertyListFormat) throws -> Data {
+        try PropertyListSerialization.data(fromPropertyList: ["URL": link], format: format, options: 0)
+    }
+
+    /// A `.webloc`, binary or XML — Finder has written both over the years —
+    /// opens the address inside it, not the file.
+    func testAWeblocOpensTheAddressItHolds() throws {
+        let binary = try write("Example.webloc", plist("https://example.com/page?q=1", format: .binary))
+        let xml = try write("Other.webloc", plist("http://example.org/", format: .xml))
+        XCTAssertEqual(AppDelegate.pages(in: [binary, xml]), [url("https://example.com/page?q=1"), url("http://example.org/")])
+    }
+
+    func testAnInetlocAndAWindowsShortcutOpenTheirAddresses() throws {
+        let inetloc = try write("Old.inetloc", plist("https://example.net/", format: .xml))
+        let shortcut = try write(
+            "Shortcut.url",
+            Data("[DEFAULT]\r\nBASEURL=https://wrong.example/\r\n[InternetShortcut]\r\nURL=https://example.com/win\r\nIconIndex=0\r\n".utf8)
+        )
+        XCTAssertEqual(AppDelegate.pages(in: [inetloc, shortcut]), [url("https://example.net/"), url("https://example.com/win")])
+    }
+
+    /// A saved link to anything but the web, or a file that is not one at
+    /// all, opens nothing.
+    func testASavedLinkOffTheWebOpensNothing() throws {
+        let mail = try write("Mail.inetloc", plist("mailto:someone@example.com", format: .xml))
+        let local = try write("Local.webloc", plist("file:///etc/hosts", format: .xml))
+        let script = try write("Script.webloc", plist("javascript:alert(1)", format: .binary))
+        let broken = try write("Broken.webloc", Data("not a property list".utf8))
+        let missing = folder.appending(path: "Missing.webloc")
+        XCTAssertEqual(AppDelegate.pages(in: [mail, local, script, broken, missing]), [])
+    }
+
+    func testRecognisesSavedLinksByExtension() {
+        XCTAssertTrue(WebLocationFile.handles(url("file:///Users/someone/Example.webloc")))
+        XCTAssertTrue(WebLocationFile.handles(url("file:///Users/someone/Example.inetloc")))
+        XCTAssertTrue(WebLocationFile.handles(url("file:///Users/someone/Example.url")))
+        XCTAssertFalse(WebLocationFile.handles(url("file:///Users/someone/page.html")))
+        XCTAssertFalse(WebLocationFile.handles(url("https://example.com/a.webloc")))
     }
 
     /// With no other Luna running, a launch to open a page is this Luna's own.

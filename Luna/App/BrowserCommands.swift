@@ -42,7 +42,7 @@ extension AppDelegate {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
-        panel.allowedContentTypes = LocalFileTypes.identifiers.compactMap(UTType.init)
+        panel.allowedContentTypes = (LocalFileTypes.identifiers + WebLocationFile.identifiers).compactMap(UTType.init)
         guard panel.runModal() == .OK else { return }
         application(NSApp, open: panel.urls)
     }

@@ -3,10 +3,12 @@
 //  Luna
 //
 //  A web link or a file another app hands to Luna — Finder, Mail,
-//  `open -a Luna`, or a drop on the window (`WindowDrop`) — opens as a tab. The files are `LocalFileTypes`. `Info.plist` has claimed `http` and `https`
-//  all along, and with nothing here to take the link, macOS passed it on to the
-//  default browser. It claims HTML documents too now; before it did, a file
-//  opened "with Luna" was dropped here and nothing opened at all.
+//  `open -a Luna`, or a drop on the window (`WindowDrop`) — opens as a tab.
+//  The files are `LocalFileTypes`, and a saved link (`WebLocationFile`) opens
+//  the address in it. `Info.plist` has claimed `http` and `https` all along,
+//  and with nothing here to take the link, macOS passed it on to the default
+//  browser. It claims HTML documents too now; before it did, a file opened
+//  "with Luna" was dropped here and nothing opened at all.
 //
 
 import AppKit
@@ -34,12 +36,15 @@ extension AppDelegate {
         open(pages, in: window)
     }
 
-    /// Only what `Info.plist` claims: web links, and the files in
-    /// `LocalFileTypes`. Anything else that reaches here was meant for another app.
+    /// Only what `Info.plist` claims: web links, the files in
+    /// `LocalFileTypes`, and a saved link (`WebLocationFile`), which opens the
+    /// address it holds rather than the file. Anything else that reaches here
+    /// was meant for another app.
     static func pages(in urls: [URL]) -> [URL] {
-        urls.filter { url in
-            if url.isFileURL { return LocalFileTypes.opens(url) }
-            return ["http", "https"].contains(url.scheme?.lowercased())
+        urls.compactMap { url in
+            if WebLocationFile.handles(url) { return WebLocationFile.link(in: url) }
+            if url.isFileURL { return LocalFileTypes.opens(url) ? url : nil }
+            return ["http", "https"].contains(url.scheme?.lowercased()) ? url : nil
         }
     }
 
