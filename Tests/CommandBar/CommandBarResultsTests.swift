@@ -67,6 +67,24 @@ final class CommandBarSelectionPillTests: XCTestCase {
         XCTAssertEqual(try pill(in: view).frame, row(0, in: view))
     }
 
+    /// The rows are refilled, not rebuilt (§9.7, docs/PERF.md): a click on a
+    /// row that has been handed another result opens that result, and the row
+    /// shows it.
+    func testARefilledRowIsTheNewResult() throws {
+        let view = list(["apple", "openai", "github"])
+        let rowsBefore = view.subviews.flatMap(\.subviews).filter { !($0 is NSStackView) }
+        view.setResults([result("zed"), result("kagi")], selecting: nil)
+        view.layoutSubtreeIfNeeded()
+        let rows = try XCTUnwrap(view.subviews.compactMap { $0 as? NSStackView }.first).arrangedSubviews
+        XCTAssertEqual(rows.count, 2)
+        XCTAssertTrue(rows.allSatisfy { row in rowsBefore.contains { $0 === row } }, "the rows were built again")
+        var opened: [String] = []
+        view.onActivate = { opened.append($0.title) }
+        rows[1].mouseUp(with: NSEvent())
+        XCTAssertEqual(opened, ["kagi"])
+        XCTAssertEqual(rows[1].accessibilityLabel(), "kagi, history")
+    }
+
     /// A rebuilt list does not leave the highlight behind. The list is replaced
     /// on every keystroke and again when the history lands; a pill moved from
     /// `setResults` is placed against rows not yet laid out at their new size,

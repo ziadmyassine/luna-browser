@@ -12,7 +12,7 @@ Tools/perf/run.sh tabs       # the 40-tab memory budget only
 Tools/perf/run.sh launch     # cold launch, to interactive, + the idle cost of a restore
 Tools/perf/run.sh page       # what Luna's own stack adds to a page load
 Tools/perf/run.sh blocking   # §17.1's fetch-convert-compile, against a heartbeat
-Tools/perf/run.sh ui         # command bar + sidebar frame cost (the opt-in XCTests)
+Tools/perf/run.sh ui         # command bar, a keystroke in it, sidebar frame cost (the opt-in XCTests)
 ```
 
 ## Scoreboard
@@ -30,6 +30,7 @@ from rather than pretending to a trend.
 | Luna's own cost per page load | 09-19, M1 Pro: **+5.9 ms** over one frame, **+7.9 ms** over eleven, all in `TabController.attach` | no budget; stated |
 | §17.1's list refresh | 09-19, M1 Pro: **13.0 s**, worst stall **166 ms**, 0.6 s of main thread — now once a day rather than most launches | no budget; stated |
 | New-tab command bar < 100 ms | 09-17, M4: **54.7 ms** first, **8.8 ms** median | **PASS** |
+| §9.7 keystroke to local rows ≤ 16 ms | 10-01, M1 Pro, under load: **8.6–13.4 ms** median, **17.5–23.2 ms** p95 | **PASS at the median**; p95 held to 33 ms — see *Command bar* |
 | **40 tabs / 3 Spaces / 6 live < 3.5 GB RSS** | 09-17, M4: **165–310 MB RSS, 785–842 MB footprint** | **PASS, ~4× headroom** |
 | Sidebar frame ≤ 8.33 ms (120 fps) | 09-17, M4: **0.05 ms** median, **0.97 ms** p95 | **PASS, 8× headroom** |
 | §19.4: no web view for an unselected tab | both days: **0 WebKit processes** with 40 tabs restored | **PASS, on the real app** |
@@ -392,6 +393,43 @@ notices, so it is asserted separately.
 rest — that is AppKit loading the panel's views and the field editor once — and it is still
 comfortably inside budget, which is the number that matters because it is the one the user
 feels on the first `⌘T` of a session.
+
+### A keystroke, to rows on screen (§9.7)
+
+`Tests/Perf/BudgetTests.testCommandBarKeystroke` opens the real bar over a store of 3,000
+visited pages (60 sites, one to four visits each over four months, about one in seven
+typed) with 40 open tabs, and types seven words into it a key at a time through
+`NSWindow.sendEvent`. Two clocks start at the key-down:
+
+- **local rows**: until the synchronous half (§9.7's in-memory merge) has run and the window
+  has laid out and drawn the rows it put up;
+- **with the store's rows**: until the store's answer for that exact query has been merged
+  (`CommandBarController.historyAnswered`) and laid out and drawn in turn — the moment the
+  list stops changing under the hand.
+
+The first word is the session's first typing and is reported apart; the budget is for the
+other six words, 42 keys. 2026-10-01, MacBook Pro M1 Pro, 16 GB, macOS 27.0, Debug, **with
+a load average of 12–27 from other builds running beside it**, so read these as a busy Mac:
+
+| | local rows, median | p95 | with the store's rows, median | p95 | first word, worst key |
+|---|---|---|---|---|---|
+| rows built anew per key (before) | 10.4–11.3 ms | 25.5–29.1 ms | 33.0–35.9 ms | 52–69 ms | 33–56 ms |
+| rows refilled in place (now) | **8.6–13.4 ms** | **17.5–23.2 ms** | **31.4–37.4 ms** | **41–55 ms** | 20–24 ms, once 108 ms |
+
+**Budgets: local rows 16 ms at the median and 33 ms at p95; with the store's rows 50 ms at
+the median and 100 ms at p95.** One frame is §9.7's figure for a typical key; the p95 gets
+two because the slow keys are not ours to make faster (below). The store's half is the
+FTS5 prefix query plus §9.3's ranking — about 20 ms over these 3,000 pages — and a second
+refill of the rows when it lands.
+
+Where a key's time went, timed inside `runQuery`: the merge is **0.3–1 ms**. Rebuilding the
+eight row views was **3–15 ms**, and it happened twice per key, once for the local rows and
+once when the store answered, so `CommandBarResultsView` now keeps its rows and refills
+them; that took about 2 ms off the median and 6 off the p95. What is left of a slow key is
+not in the controller: the first two or three keys after the bar opens spend 15–40 ms inside
+`sendEvent`, of which `inputDidChange` — merge, rows and all — is 2–9 ms, and the rest is
+AppKit's on either side of it, which this test cannot divide further. The keys after them
+cost 5–9 ms in all.
 
 ## Sidebar
 

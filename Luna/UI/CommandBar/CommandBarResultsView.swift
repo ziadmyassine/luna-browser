@@ -3,9 +3,11 @@
 //  Luna
 //
 //  §9.2's result list. A plain stack of rows, not an `NSTableView`: the list is
-//  capped at `CommandBarMetrics.visibleRows` so it never scrolls, which means
-//  view reuse would buy nothing and cost a data source, a delegate and a row
-//  identity scheme that §9.7 would then have to keep honest.
+//  capped at `CommandBarMetrics.visibleRows` so it never scrolls, and a table
+//  would cost a data source, a delegate and a row identity scheme that §9.7
+//  would then have to keep honest. The rows are refilled in place rather than
+//  built again: eight new rows were 3–15 ms of every keystroke, twice per key
+//  once the store answered (docs/PERF.md, Command bar).
 //
 //  Selection is carried by `CommandBarResult.id` — a normalised URL — and never
 //  by an index. §9.7: "results must never reorder under the user's cursor while
@@ -87,7 +89,7 @@ final class CommandBarResultsView: NSView {
         results = new
         selectedID = id ?? new.first?.id
 
-        if contentChanged { rebuildRows() }
+        if contentChanged { refillRows() }
         // §6's `selectedRowMove` describes one thing: the highlight travelling
         // from one row to another in a list that is standing still — ↓ and ↑.
         // A list that has just been rebuilt has no continuity for a slide to
@@ -117,11 +119,20 @@ final class CommandBarResultsView: NSView {
 
     // MARK: - Rows
 
-    private func rebuildRows() {
-        for view in rows.arrangedSubviews { view.removeFromSuperview() }
-        for result in results {
+    private func refillRows() {
+        var built = rows.arrangedSubviews.compactMap { $0 as? CommandBarRowView }
+        while built.count > results.count { built.removeLast().removeFromSuperview() }
+        for (index, result) in results.enumerated() {
+            if index < built.count {
+                built[index].configure(result, favicon: iconProvider?(result))
+                continue
+            }
             let row = CommandBarRowView(result: result, favicon: iconProvider?(result))
-            row.onClick = { [weak self] in self?.onActivate?(result) }
+            // The row's result as it is when clicked, not as it was built.
+            row.onClick = { [weak self, weak row] in
+                guard let result = row?.result else { return }
+                self?.onActivate?(result)
+            }
             rows.addArrangedSubview(row)
             row.widthAnchor.constraint(equalTo: rows.widthAnchor).isActive = true
         }
@@ -160,7 +171,7 @@ final class CommandBarResultsView: NSView {
 @MainActor
 private final class CommandBarRowView: NSView {
 
-    let result: CommandBarResult
+    private(set) var result: CommandBarResult
     var onClick: (() -> Void)?
 
     var isSelected = false {
@@ -174,7 +185,7 @@ private final class CommandBarRowView: NSView {
     private let icon = NSImageView()
     /// §4.7's cached icon for this result, or nil for a command and for a site
     /// Luna has never fetched one from.
-    private let favicon: NSImage?
+    private var favicon: NSImage?
     private let title = NSTextField(labelWithString: "")
     private let subtitle = NSTextField(labelWithString: "")
 
@@ -203,6 +214,26 @@ private final class CommandBarRowView: NSView {
         setAccessibilityElement(true)
     }
 
+    /// The row, showing another result. Everything that depends on the result
+    /// is set here and in `build`'s first half, and nothing else.
+    func configure(_ result: CommandBarResult, favicon: NSImage?) {
+        self.result = result
+        self.favicon = favicon
+        fill()
+        applyTokens()
+        setAccessibilityLabel(accessibilityText)
+    }
+
+    private func fill() {
+        // A site's icon is its own colours, not chrome ink — so a favicon is
+        // never a template and `applyTokens` leaves its tint alone.
+        icon.image = favicon ?? NSImage(systemSymbolName: result.symbolName, accessibilityDescription: nil)
+        favicon?.isTemplate = false
+        if favicon != nil { icon.contentTintColor = nil }
+        title.stringValue = result.title
+        subtitle.stringValue = result.subtitle
+    }
+
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
@@ -214,14 +245,9 @@ private final class CommandBarRowView: NSView {
     }
 
     private func build() {
-        // A site's icon is its own colours, not chrome ink — so a favicon is
-        // never a template and `applyTokens` leaves its tint alone.
-        icon.image = favicon ?? NSImage(systemSymbolName: result.symbolName, accessibilityDescription: nil)
-        favicon?.isTemplate = false
+        fill()
         icon.imageScaling = .scaleProportionallyUpOrDown
-        title.stringValue = result.title
         title.lineBreakMode = .byTruncatingTail
-        subtitle.stringValue = result.subtitle
         subtitle.lineBreakMode = .byTruncatingMiddle
         // No Space badge. Every row in the list is a row of the Space the bar
         // was opened in, so a chip naming it would be the same chip on every

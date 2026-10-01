@@ -2,8 +2,8 @@
 //  BudgetTests.swift
 //  LunaTests
 //
-//  The two §19.1 budgets that only exist inside the app: the `⌘T` command bar
-//  (< 100 ms) and the sidebar at 120 fps. The other two — cold launch and the
+//  The §19.1 budgets that only exist inside the app: the `⌘T` command bar
+//  (< 100 ms), §9.7's keystroke in it, and the sidebar at 120 fps. The other two — cold launch and the
 //  40-tab memory ceiling — are measured against real processes by
 //  `Tools/perf`, because neither is observable from inside a test host.
 //
@@ -24,7 +24,7 @@ final class BudgetTests: XCTestCase {
     /// Optional, and torn down only if it exists: `XCTSkipUnless` below aborts
     /// `setUp` before this is assigned, and `tearDown` still runs. A skipped
     /// test that takes the suite down with it is worse than no test.
-    private var directory: URL?
+    var directory: URL?
 
     /// The opt-in is a file, not an environment variable, because
     /// `xcodebuild test` does not pass its environment to a hosted unit test's
@@ -52,7 +52,7 @@ final class BudgetTests: XCTestCase {
     /// `print` from a test host does not reach `xcodebuild`'s log, so the number
     /// goes to a file `run.sh` can read. Without this the measurement exists
     /// only inside a process that has already exited.
-    private func record(_ line: String) {
+    func record(_ line: String) {
         print(line)
         let path = ProcessInfo.processInfo.environment["LUNA_PERF_OUT"] ?? Self.defaultOutput
         let url = URL(fileURLWithPath: path)
@@ -66,13 +66,13 @@ final class BudgetTests: XCTestCase {
         }
     }
 
-    private func percentile(_ values: [Double], _ fraction: Double) -> Double {
+    func percentile(_ values: [Double], _ fraction: Double) -> Double {
         guard !values.isEmpty else { return 0 }
         let sorted = values.sorted()
         return sorted[min(sorted.count - 1, Int(Double(sorted.count) * fraction))]
     }
 
-    private func window() -> NSWindow {
+    func window() -> NSWindow {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1440, height: 900),
             styleMask: [.titled, .resizable],

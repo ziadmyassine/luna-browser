@@ -71,7 +71,7 @@ run_blocking() {
 }
 
 run_ui() {
-    echo "== §19.1 command bar (budget 100 ms) and sidebar frame cost (budget 8.33 ms) =="
+    echo "== §19.1 command bar (budget 100 ms), a keystroke in it (§9.7) and sidebar frame cost (budget 8.33 ms) =="
     cd "$ROOT"
     # The opt-in is a marker file: `xcodebuild test` does not hand its
     # environment to a hosted unit test's host app, so an env var never arrives

@@ -57,6 +57,11 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
     /// word typed quickly had them queued up on every reader the pool has.
     private var historyTask: Task<Void, Never>?
 
+    /// The query whose history answer is in the list, or nil while the newest
+    /// one's is still out. `BudgetTests.testCommandBarKeystroke` stops its
+    /// second clock on it: an answer that changes no visible row still lands.
+    private(set) var historyAnswered: String?
+
     /// True once the user has moved the highlight with ↓/↑. From that moment
     /// asynchronous results may only be appended (§9.7).
     private var selectionIsUserDriven = false
@@ -299,6 +304,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
         panel?.showMark(for: typed)
 
         sources.history = []
+        historyAnswered = nil
         sources.suggestions = SearchSuggestions.shared.cached(for: typed) ?? []
         let local = CommandBarRanking.merge(query: typed, sources: sources, limit: CommandBarMetrics.visibleRows)
         apply(local, appendOnly: false)
@@ -315,6 +321,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
             guard let self, token == self.generation, self.panel?.field.typedText == typed else { return }
             self.sources.history = hits
             self.remerge(typed)
+            self.historyAnswered = typed
             // The list the bar will open with is now complete.
             self.openBar()
         }
@@ -382,20 +389,6 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
         guard let (rows, _) = deferredRows else { return }
         deferredRows = nil
         apply(rows, appendOnly: true)
-    }
-
-    /// §21.1: the result count on every change, so a VoiceOver user is not left
-    /// arrowing through a list whose size they have no way to know.
-    private func announce(count: Int) {
-        guard let body = panel?.body else { return }
-        NSAccessibility.post(
-            element: body,
-            notification: .announcementRequested,
-            userInfo: [
-                .announcement: count == 1 ? "1 result" : "\(count) results",
-                .priority: NSAccessibilityPriorityLevel.medium.rawValue
-            ]
-        )
     }
 
     // MARK: - Keyboard
@@ -536,5 +529,24 @@ extension CommandBarController {
         }
         let page = contentRegion?().size ?? panel?.window?.contentView?.bounds.size ?? .zero
         session.topHit.want(url, inSpace: activeSpaceID, size: page, session: session)
+    }
+}
+
+// MARK: - §21.1 VoiceOver
+
+extension CommandBarController {
+
+    /// §21.1: the result count on every change, so a VoiceOver user is not left
+    /// arrowing through a list whose size they have no way to know.
+    fileprivate func announce(count: Int) {
+        guard let body = panel?.body else { return }
+        NSAccessibility.post(
+            element: body,
+            notification: .announcementRequested,
+            userInfo: [
+                .announcement: count == 1 ? "1 result" : "\(count) results",
+                .priority: NSAccessibilityPriorityLevel.medium.rawValue
+            ]
+        )
     }
 }
