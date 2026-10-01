@@ -35,6 +35,10 @@ struct DevicePermissionTests {
         }
     }
 
+    private nonisolated static let hasLocationQuestion = ProcessInfo.processInfo.isOperatingSystemAtLeast(
+        OperatingSystemVersion(majorVersion: 27, minorVersion: 0, patchVersion: 0)
+    )
+
     private func tab(answering answer: Bool?) -> (TabController, Asker) {
         let controller = TabController(id: UUID(), dataStore: .nonPersistent())
         let asker = Asker(answer: answer)
@@ -100,8 +104,10 @@ struct DevicePermissionTests {
     }
 
     /// WebKit only asks a delegate that answers to this exact selector, so a
-    /// misspelt Swift name would leave location refused without a word.
-    @Test func theLocationQuestionReachesTheController() {
+    /// misspelt Swift name would leave location refused without a word. The
+    /// method is macOS 27's, so on 26 there is nothing to answer to.
+    @Test(.enabled(if: Self.hasLocationQuestion))
+    func theLocationQuestionReachesTheController() {
         let controller = TabController(id: UUID(), dataStore: .nonPersistent())
         let selector = NSSelectorFromString("webView:requestGeolocationPermissionForOrigin:initiatedByFrame:decisionHandler:")
         #expect(controller.responds(to: selector))

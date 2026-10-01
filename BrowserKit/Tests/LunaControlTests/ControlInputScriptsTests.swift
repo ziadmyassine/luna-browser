@@ -21,6 +21,8 @@ struct ControlInputScriptsTests {
     <div id="bin" style="position:absolute;left:200px;top:100px;width:80px;height:80px">Bin</div>
     <div id="ed" contenteditable="true" aria-label="Notes" style="position:absolute;left:300px;top:200px">ab</div>
     <div id="menu" style="position:absolute;left:0;top:200px;width:80px;height:30px">Menu</div>
+    <select id="list" size="2" aria-label="List" style="position:absolute;left:400px;top:0">
+      <option>One</option><option>Two</option></select>
     <script>
       window.seen = [];
       const note = e => seen.push(e.type + ':' + (e.button ?? '') + (e.metaKey ? ':meta' : ''));
@@ -121,13 +123,18 @@ struct ControlInputScriptsTests {
     /// While the stage drives a page, a context menu or a native popup would
     /// open on the user's screen: their default actions are prevented, and
     /// the page's own listeners still run.
+    ///
+    /// The mouse-down goes to a list box, which the stage guards as it does
+    /// every `select`. Sent to the drop-down, the two unguarded presses opened
+    /// its real menu: macOS 26's WebKit opens one for a scripted press, and
+    /// the menu's own event loop held the main thread until CI's time limit.
     @Test func stageModePreventsNativePopupsAndLiftsAfter() async throws {
         let webView = try await loaded()
         let fire = """
         [new MouseEvent('contextmenu', {bubbles: true, cancelable: true}),
          new MouseEvent('mousedown', {bubbles: true, cancelable: true}),
          new DragEvent('dragstart', {bubbles: true, cancelable: true})]
-          .map((e, i) => [go, plan, card][i].dispatchEvent(e)).join(',')
+          .map((e, i) => [go, list, card][i].dispatchEvent(e)).join(',')
         """
         #expect(try await webView.evaluateJavaScript(fire) as? String == "true,true,true")
         _ = try await run(webView, "stage", ["on": true])
