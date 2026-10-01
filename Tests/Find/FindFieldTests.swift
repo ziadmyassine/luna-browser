@@ -58,6 +58,24 @@ final class FindFieldTests: XCTestCase {
         XCTAssertTrue(bar.hasFocus, "⌘F left the keyboard where it was")
     }
 
+    /// A dark site painted on a wrapper over a white `body`: the field sits
+    /// under the bar, so it reads the colour there as the bar does, and wears
+    /// dark glass rather than the document's white.
+    func testTheFieldTakesTheColourUnderTheBarNotTheDocuments() async throws {
+        let dark = """
+        <body style="margin:0;background:#fff">\
+        <div style="background:#202124;color:#eee;min-height:3000px">moon</div></body>
+        """
+        webView.loadHTMLString(dark, baseURL: URL(string: "https://example.invalid/dark"))
+        let tab = try XCTUnwrap(session.activeTabID(inWindow: window.id))
+        let page = try XCTUnwrap(session.controller(for: tab))
+        try await settle()
+        try await waitFor { page.topColour != nil && page.state.pageBackground != nil }
+        find.open()
+        let bar = try XCTUnwrap(find.bar)
+        XCTAssertEqual(bar.appearance?.name, .darkAqua, "light glass over a dark page")
+    }
+
     func testTypingSearchesAndCountsAndReturnSteps() async throws {
         find.open()
         let bar = try XCTUnwrap(find.bar)

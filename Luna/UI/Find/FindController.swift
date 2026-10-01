@@ -91,7 +91,7 @@ final class FindController: WindowScoped {
             let bar = makeBar()
             bar.query = query
             bar.show(nil)
-            bar.setPageColour(controller.state.pageBackground.map(NSColor.init))
+            bar.setPageColour(Self.colourUnder(controller))
             self.bar = bar
             tabID = tab
             page = Self.page(controller.state.url)
@@ -207,6 +207,14 @@ final class FindController: WindowScoped {
 
     // MARK: - The page under it
 
+    /// What the page shows under the bar, which is where the capsule sits: the
+    /// bar's own rule (`PageChromeBar.refreshPlane`). The document's background
+    /// alone is the wrong question on a page that paints its colour on a
+    /// wrapper, a dark site over a white `body`, and put light glass on it.
+    static func colourUnder(_ controller: TabController) -> NSColor? {
+        (controller.topColour ?? controller.state.pageBackground).map(NSColor.init)
+    }
+
     private func followSelection() {
         guard isOpen, activeTabID != tabID else { return }
         let hadFocus = bar?.hasFocus ?? false
@@ -218,7 +226,7 @@ final class FindController: WindowScoped {
 
     private func follow(_ id: UUID, _ state: TabState) {
         guard let bar, id == tabID else { return }
-        bar.setPageColour(state.pageBackground.map(NSColor.init))
+        if let controller = session.controller(for: id) { bar.setPageColour(Self.colourUnder(controller)) }
         let now = Self.page(state.url)
         guard now != page else { return }
         page = now
