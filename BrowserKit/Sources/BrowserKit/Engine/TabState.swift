@@ -26,6 +26,9 @@ public struct TabState: Sendable, Equatable {
     public var pageBackground: RGBA?
     public var hasOnlySecureContent: Bool
     public var isPlayingAudio: Bool
+    /// Something in this document has been audible, playing now or not: the
+    /// page holding the Mac's Now Playing, and its play/pause keys, once it has.
+    public var hasPlayedAudio: Bool
     /// §17.8: the page's camera and microphone, which the tab's row shows while on.
     public var camera: CaptureState
     public var microphone: CaptureState
@@ -49,6 +52,7 @@ public struct TabState: Sendable, Equatable {
         pageBackground: RGBA? = nil,
         hasOnlySecureContent: Bool = false,
         isPlayingAudio: Bool = false,
+        hasPlayedAudio: Bool = false,
         camera: CaptureState = .off,
         microphone: CaptureState = .off,
         isReading: Bool = false,
@@ -66,6 +70,7 @@ public struct TabState: Sendable, Equatable {
         self.pageBackground = pageBackground
         self.hasOnlySecureContent = hasOnlySecureContent
         self.isPlayingAudio = isPlayingAudio
+        self.hasPlayedAudio = hasPlayedAudio
         self.camera = camera
         self.microphone = microphone
         self.isReading = isReading

@@ -29,6 +29,7 @@ final class ScriptMessageRelay: NSObject, WKScriptMessageHandler {
         case PasswordForms.messageName: owner?.passwords.handle(message)
         case TabController.pickMessageName: owner?.handlePickMessage(message)
         case TabController.readingMessageName: owner?.handleReadingMessage(message)
+        case TabController.pictureInPictureMessageName: owner?.handlePictureInPictureMessage(message)
         default: break
         }
     }

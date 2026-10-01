@@ -213,6 +213,15 @@ struct BrowserCommand: Identifiable {
         [KeyBinding("p", [.command, .shift])],
         symbol: "pip", keywords: ["pip", "float video", "floating video"]
     )
+    /// §18.4a. Every window, private ones too; no shortcut, as no browser has one.
+    static let muteAllTabs = BrowserCommand(
+        "muteAllTabs", "Mute All Tabs", #selector(AppDelegate.muteAllTabs(_:)),
+        symbol: "speaker.slash", keywords: ["silence", "sound", "audio", "quiet"]
+    )
+    static let unmuteAllTabs = BrowserCommand(
+        "unmuteAllTabs", "Unmute All Tabs", #selector(AppDelegate.unmuteAllTabs(_:)),
+        symbol: "speaker.wave.2", keywords: ["sound", "audio"]
+    )
     /// Safari's keys for both: ⇧⌘R is Reader, and forcing a refresh is ⌥⌘R.
     static let reader = BrowserCommand(
         "reader", "Reader", #selector(AppDelegate.toggleReader(_:)), [KeyBinding("r", [.command, .shift])],
@@ -319,7 +328,7 @@ struct BrowserCommand: Identifiable {
         undo, redo, cut, copy, paste, selectAll, find, findNext, findPrevious, useSelectionForFind,
         copyURL, copyMarkdown,
         toggleSidebar, toggleFavorite, reloadPage, forceReloadPage, stopLoading, openBlockedPopup,
-        zoomIn, zoomOut, actualSize, pictureInPicture, reader, siteSettings, hideElements, showDownloads,
+        zoomIn, zoomOut, actualSize, pictureInPicture, muteAllTabs, unmuteAllTabs, reader, siteSettings, hideElements, showDownloads,
         goBack, goForward, showHistory, clearHistory,
         showWebInspector, showJavaScriptConsole, showPageSource, startElementSelection, disableJavaScript, emptyCaches,
         previousTab, nextTab, previousSpace, nextSpace, minimize, searchSettings,

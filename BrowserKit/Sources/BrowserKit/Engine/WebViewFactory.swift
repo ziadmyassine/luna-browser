@@ -209,6 +209,15 @@ public enum WebViewFactory {
         // §18.8: must stay empty to match Safari. `[.audio]` blocks the programmatic
         // `play()` an SPA navigation makes outside a user gesture, which breaks YouTube.
         configuration.mediaTypesRequiringUserActionForPlayback = []
+        // §18.4a: throttled, not suspended, once a tab leaves the window. Suspended,
+        // a page whose music the user paused stopped running about 25 s later and
+        // stayed stopped — its timers silent for 65 of 90 s — so the play key, which
+        // WebKit hands to that page's process, had nothing to answer it. Throttled,
+        // the same page was still answering a script in 6 ms after 90 s. An idle page left in
+        // the background costs about one timer a second this way (66 of a 16 ms
+        // interval's 3,750 in a minute, against 9). Only settable here: changed on a
+        // running web view it reads back and has no effect (measured, macOS 26).
+        configuration.preferences.inactiveSchedulingPolicy = .throttle
         // D10's second exception (docs/DECISIONS.md): native Picture in Picture is off in every
         // WKWebView but Safari's, and the public property is iOS-only — set on the
         // configuration it raises. Checked first, so a WebKit without it loses PiP, not the app.

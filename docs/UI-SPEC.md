@@ -605,6 +605,20 @@ Three bands, top to bottom:
   > video reports it cannot float. `WebViewFactory` turns it on under D10's PiP exception (`docs/DECISIONS.md`).
   > View ▸ Picture in Picture (⇧⌘P) floats the page's video by hand through the same door, muted or
   > paused videos included, with no site permission — that switch is about the automatic path.
+  > Both reach a video in an embedded player: each subframe with a video reports itself, and the
+  > scripts run there too (`callAsyncJavaScript` with the frame), in a world the page cannot see.
+  > The floating window's "back to tab" selects the tab the video came from — in a window already
+  > showing it, else the front window, moved to the tab's Space — and brings Luna forward. It is
+  > read as the video leaving Picture in Picture still playing; the window's close button pauses it.
+- **Mute All Tabs / Unmute All Tabs** (View menu and the Command Bar) mute every awake tab in every
+  window, private ones too, or let every muted one speak; a cold tab wakes unmuted, as a mute does
+  not survive a relaunch either. A toast says which.
+- **The play/pause keys and Now Playing are WebKit's**: the last page to play audibly registers with
+  the system for Luna, and a key press goes to that page's process. Luna keeps that page there to
+  answer — the tab that last played is not hibernated, paused or not, short of critical memory
+  pressure — and every web view is created throttled rather than suspended in the background
+  (`WebViewFactory`), because a suspended page had nothing to answer the key with (measured
+  2026-10-01: a paused page out of the window stopped running ~25 s after the pause).
 - **Local Network is a content rule list, and a page served *from* the local network is exempt.** macOS
   asks an app once whether it may reach the LAN; a browser has to ask per site, and WebKit exposes no
   per-origin hook. What a rule list does well is refuse the loads: a page that has not been given the
@@ -2561,7 +2575,7 @@ something happened, over the page, is one of these — never a panel, chip or ba
   Picture in Picture, Reader, hiding parts of a page, a page Luna reloaded because its web
   process died (§19.3, front tab only), and §17's blocked pop-ups
   (`PageToast.popupBlocked`, Open and Always Allow; it was a floating chip with a placement setting
-  until 2026-09-29), and §15.5's slow PDF (`PageToast.openingPDF`, Download: a PDF of 10 MB or more
+  until 2026-09-29), Mute All / Unmute All, and §15.5's slow PDF (`PageToast.openingPDF`, Download: a PDF of 10 MB or more
   as it starts, or one of unknown size still arriving after 3 s).
 - **Not a toast:** a question that needs reading and more than two answers — §14.4's save-password
   chip (two lines, Save / Never / Not Now) and Luna Control's approval card. Those are prompts, and

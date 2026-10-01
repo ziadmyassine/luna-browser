@@ -24,16 +24,25 @@ public struct TabActivity: Sendable, Equatable {
     /// `BrowserSession+Lifecycle`'s script for exactly what it detects.
     public var hasUnsavedInput: Bool
 
+    /// The tab whose media last played, paused or not (§18.4a). Its page is
+    /// what the Mac's play/pause keys reach, and a page that has been put to
+    /// sleep answers neither. Kept through a memory warning, not a critical one:
+    /// a paused song is worth less than the processes the system would kill.
+    public var holdsNowPlaying: Bool
+
     /// Playing audio or holding unsaved input: closing the web view would stop
     /// the one or drop the other, and neither comes back from
     /// `interactionState`. Hibernation and auto-archive both keep these.
     public var mustStayOpen: Bool { isAudible || hasUnsavedInput }
 
-    public init(id: UUID, lastActiveAt: Date, isAudible: Bool = false, hasUnsavedInput: Bool = false) {
+    public init(
+        id: UUID, lastActiveAt: Date, isAudible: Bool = false, hasUnsavedInput: Bool = false, holdsNowPlaying: Bool = false
+    ) {
         self.id = id
         self.lastActiveAt = lastActiveAt
         self.isAudible = isAudible
         self.hasUnsavedInput = hasUnsavedInput
+        self.holdsNowPlaying = holdsNowPlaying
     }
 }
 
@@ -96,6 +105,7 @@ public struct HibernationPolicy: Sendable, Equatable {
         // dropping a half-typed reply is a bug the user can see.
         var keep = Set(live.filter(\.mustStayOpen).map(\.id))
         if let activeID { keep.insert(activeID) }
+        if pressure != .critical { keep.formUnion(live.filter(\.holdsNowPlaying).map(\.id)) }
         switch pressure {
         case .normal: keep.formUnion(mru.prefix(liveBudget))
         case .warning: keep.formUnion(mru.prefix(pressureBudget))

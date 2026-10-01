@@ -204,6 +204,7 @@ extension BrowserSession: TabControllerDelegate {
             noteVisit(url, title: state.title, tabID: id)
         }
 
+        noteNowPlaying(id, state)
         notifyTabState(id, state)
         // The dot is drawn from the tab list, which a `TabState` does not touch.
         if becameUnread { notifyChange() }

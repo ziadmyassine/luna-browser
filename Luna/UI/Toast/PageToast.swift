@@ -126,6 +126,12 @@ struct PageToast: Equatable {
         }
     }
 
+    static func allTabs(muted: Bool) -> PageToast {
+        muted
+            ? PageToast(symbol: "speaker.slash", text: String(localized: "All tabs muted"))
+            : PageToast(symbol: "speaker.wave.2", text: String(localized: "All tabs unmuted"))
+    }
+
     static func reader(_ answer: ReaderAnswer) -> PageToast {
         switch answer {
         case .on: PageToast(symbol: "doc.plaintext", text: String(localized: "Reader on"))

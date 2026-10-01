@@ -236,7 +236,7 @@ enum MainMenu {
             [.separator()],
             items(.zoomIn), items(.zoomOut), items(.actualSize),
             [.separator()],
-            items(.pictureInPicture),
+            items(.pictureInPicture), items(.muteAllTabs), items(.unmuteAllTabs),
             [.separator()],
             items(.reader), items(.siteSettings), items(.hideElements),
             [.separator()],

@@ -150,6 +150,28 @@ extension BrowserSession {
         createGroup(name: Self.untitledGroupName, containing: id.map { [$0] } ?? [])
     }
 
+    /// Window ▸ Mute All Tabs: every tab that is awake, which is every tab that
+    /// can make a sound. A cold tab wakes up unmuted, for the reason a mute
+    /// does not survive a relaunch — it answers the noise happening now.
+    func muteAllTabs() {
+        let awake = Set(controllers.filter { $0.value.webView != nil }.keys).subtracting(mutedTabIDs)
+        guard !awake.isEmpty else { return }
+        mutedTabIDs.formUnion(awake)
+        for id in awake { controllers[id]?.isMuted = true }
+        notifyChange()
+    }
+
+    func unmuteAllTabs() {
+        guard !mutedTabIDs.isEmpty else { return }
+        for id in mutedTabIDs { controllers[id]?.isMuted = false }
+        mutedTabIDs.removeAll()
+        notifyChange()
+    }
+
+    var canMuteAllTabs: Bool {
+        controllers.contains { $0.value.webView != nil && !mutedTabIDs.contains($0.key) }
+    }
+
     // MARK: - The menu
 
     /// §3.4a's verbs, bound to one tab.

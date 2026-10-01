@@ -36,6 +36,8 @@ public final class TabController: NSObject {
     /// Frames currently making sound, keyed by frame URL. A tab is audible if any of
     /// them is — an embedded player lives in a subframe.
     var audibleFrames: Set<String> = []
+    /// Any of them has been, since this document committed (`TabState.hasPlayedAudio`).
+    var playedAudio = false
 
     /// §3.4a's mute. The answer; the page script that enforces it is in
     /// `TabController+Mute.swift`, which is also the only thing that writes this.
@@ -82,6 +84,9 @@ public final class TabController: NSObject {
     /// Storage for `TabController+PDF.swift`: the PDF the main frame is receiving,
     /// the wait before saying it is slow, and whether the document on screen is one.
     var arrivingPDF: PDFArrival?, pdfPatience: Task<Void, Never>?, showsPDF = false
+    /// Storage for `TabController+PictureInPicture.swift`: the subframes that
+    /// have reported a video.
+    var videoFrames: [WKFrameInfo] = []
     private static let recoveryLimit = 3, recoveryWindow: TimeInterval = 60
 
     static let mediaMessageName = "lunaMedia"
@@ -335,6 +340,7 @@ public final class TabController: NSObject {
         attachPicker(to: controller, relay: messageRelay)
         attachReading(to: controller, relay: messageRelay)
         attachClipboard(to: controller, relay: messageRelay)
+        attachPictureInPicture(to: controller, relay: messageRelay)
         installUserScripts(into: controller, host: state.url?.host(), isFile: (state.url ?? fallbackURL)?.isFileURL ?? false)
 
         // WebKit posts these on the main thread; `assumeIsolated` states that instead of
@@ -381,6 +387,7 @@ public final class TabController: NSObject {
         }
 
         controller.addUserScript(Self.documentEndScript())
+        controller.addUserScript(Self.pictureInPictureUserScript)
         // §14.10: hides `PublicKeyCredential` until Apple grants the
         // entitlement, so sites offer a password instead of a passkey button
         // that cannot work. Returns nil — and injects nothing — once it is
@@ -459,6 +466,7 @@ public final class TabController: NSObject {
         for observation in observations { observation.invalidate() }
         observations.removeAll()
         audibleFrames.removeAll()
+        playedAudio = false
 
         view.stopLoading()
         view.navigationDelegate = nil
@@ -470,6 +478,7 @@ public final class TabController: NSObject {
         detachPicker(from: controller)
         controller.removeScriptMessageHandler(forName: Self.readingMessageName, contentWorld: .defaultClient)
         detachClipboard(from: controller)
+        controller.removeScriptMessageHandler(forName: Self.pictureInPictureMessageName, contentWorld: .defaultClient)
 
         // Picture-in-Picture and element fullscreen outlive their web view: without this
         // a hibernated tab leaves a floating video playing with nothing behind it.
@@ -548,6 +557,7 @@ extension TabController {
         setTopColour(nil)
         setScrollProgress(nil)
         audibleFrames.removeAll()
+        playedAudio = false
         // The interstitial bypass is good for the one navigation it was granted
         // for. Leaving it set would quietly allowlist the site for as long as the
         // tab lives (§4.5).
@@ -565,6 +575,7 @@ extension TabController {
         var next = state
         next.isArticle = webView != nil && isArticle
         next.isPDF = webView != nil && showsPDF
+        next.hasPlayedAudio = webView != nil && playedAudio
         if let webView {
             next.url = webView.url ?? next.url
             // Keep the last non-empty title: a page's title arrives after its first
@@ -635,63 +646,6 @@ extension TabController {
               let body = message.body as? [String: Any], let count = body["count"] as? Int else { return }
         ContentBlocker.shared.setYouTubeBlockedCount(count, tab: id)
     }
-
-    func handleMediaMessage(_ message: WKScriptMessage) {
-        guard let body = message.body as? [String: Any],
-              let audible = body["audible"] as? Bool
-        else { return }
-        let frame = message.frameInfo.isMainFrame
-            ? "" : (message.frameInfo.request.url?.absoluteString ?? "subframe")
-        // Only when the set actually moved. `publishState` reads eight properties
-        // off the web view and converts two colours, and a message that says what
-        // the last one said is not news — the script below already drops most of
-        // those, and this is the half of the guard that does not trust a page.
-        let changed = audible ? audibleFrames.insert(frame).inserted : audibleFrames.remove(frame) != nil
-        guard changed else { return }
-        publishState()
-    }
-
-    /// Reports whether any media element in the frame is audible — playing, unmuted
-    /// and above zero volume. `requestMediaPlaybackState()` would call a muted autoplay
-    /// video "playing" and put a speaker badge on half the sidebar.
-    ///
-    /// Media events do not bubble, so the listeners are registered in the capture phase;
-    /// that is the only way one document-level listener sees every `<video>`.
-    ///
-    /// It only speaks when the answer changes. This runs in every frame
-    /// (`forMainFrameOnly: false`, because an embedded player lives in a
-    /// subframe), and posting from each at document end to say what silence
-    /// already says makes a page with ten ad iframes ten messages across the
-    /// process boundary and ten `publishState` calls before it has loaded.
-    /// `false` is what the tab already is — `resetPerDocumentState` empties
-    /// `audibleFrames` on every navigation — so the opening `post()` reports
-    /// only a frame already making noise, the autoplay case. The same latch
-    /// drops the `volumechange` ticks of a volume drag that do not cross zero.
-    ///
-    /// Internal rather than private so `MediaScriptTests` can run it — the
-    /// same reason `scrollScript` is.
-    static let mediaScript = """
-    (function () {
-      var last = false;
-      var post = function () {
-        var h = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.lunaMedia;
-        if (!h) { return; }
-        var audible = false;
-        var media = document.querySelectorAll('video, audio');
-        for (var i = 0; i < media.length; i++) {
-          var m = media[i];
-          if (!m.paused && !m.muted && m.volume > 0) { audible = true; break; }
-        }
-        if (audible === last) { return; }
-        last = audible;
-        h.postMessage({ audible: audible });
-      };
-      ['play', 'playing', 'pause', 'ended', 'volumechange', 'emptied'].forEach(function (name) {
-        document.addEventListener(name, post, true);
-      });
-      post();
-    })();
-    """
 
     /// The document-end scripts every frame on the page gets, as one
     /// `WKUserScript` rather than three.

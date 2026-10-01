@@ -55,6 +55,12 @@ extension BrowserSession {
         }
     }
 
+    /// The floating window's "back to tab". Which window it lands in is the
+    /// app's question — see `AppDelegate.returnToTab`.
+    func tabControllerDidReturnFromPictureInPicture(_ controller: TabController) {
+        (NSApp.delegate as? AppDelegate)?.returnToTab(controller.id, in: self)
+    }
+
     private func allowsAutomaticPictureInPicture(_ id: UUID) -> Bool {
         sitePermissions.isAllowed(
             .automaticPictureInPicture,

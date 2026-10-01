@@ -275,6 +275,10 @@ final class BrowserSession {
     /// says otherwise can be read as a load finishing. Written only by
     /// `BrowserSession+Unread.swift`.
     var loadingTabIDs: Set<UUID> = []
+
+    /// The tab whose media played last, paused since or not — see
+    /// `BrowserSession+NowPlaying.swift`, the only writer.
+    var nowPlayingTabID: UUID?
     /// §3.4b: tabs still shown under their folder while it is folded — the
     /// one the user was on when they folded it, and any they have gone to
     /// inside it since. See `BrowserSession+Groups`'s "Folded, but showing".

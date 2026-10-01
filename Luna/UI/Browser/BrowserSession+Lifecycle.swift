@@ -199,7 +199,8 @@ final class TabLifecycle {
                 id: id,
                 lastActiveAt: max(tab.lastActiveAt, leftAt[id] ?? .distantPast),
                 isAudible: controller.state.isPlayingAudio,
-                hasUnsavedInput: dirtyTabIDs.contains(id)
+                hasUnsavedInput: dirtyTabIDs.contains(id),
+                holdsNowPlaying: session.nowPlayingTabID == id
             )
         }
     }

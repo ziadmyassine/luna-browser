@@ -121,6 +121,10 @@ public protocol TabControllerDelegate: AnyObject {
     /// §15.5: a PDF big enough, or slow enough, that the viewer will sit empty
     /// for a while. `downloadArrivingPDFInstead` is the offer to make.
     func tabController(_ controller: TabController, isSlowToOpen pdf: PDFArrival)
+
+    /// §18.4a: the Picture in Picture window's "back to tab" was pressed for a
+    /// video from this tab. Select it, in its window and Space.
+    func tabControllerDidReturnFromPictureInPicture(_ controller: TabController)
 }
 
 public extension TabControllerDelegate {
@@ -179,4 +183,6 @@ public extension TabControllerDelegate {
     func tabController(_ controller: TabController, markdownChangedOnDisk url: URL) {}
 
     func tabController(_ controller: TabController, isSlowToOpen pdf: PDFArrival) {}
+
+    func tabControllerDidReturnFromPictureInPicture(_ controller: TabController) {}
 }
