@@ -139,6 +139,7 @@ extension TabListController {
             y: displayedRect(ofRow: header).minY,
             width: table.bounds.width,
             height: CGFloat(rows) * Tokens.Metric.tabRowHeight
+                + Tokens.Metric.groupHeaderRowHeight - Tokens.Metric.tabRowHeight
         ).insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.tabRowPillInset)
         box.size.height += foot
         return box

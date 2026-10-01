@@ -221,7 +221,7 @@ extension Tokens {
         /// How much of a §3.4b folder's header still means "beside this folder"
         /// rather than "in it", for §6.6's lift.
         ///
-        /// 10 of the row's 39. Every other row in the list is split at its
+        /// 10 of the header row's 43. Every other row in the list is split at its
         /// middle, because its two halves mean the same kind of thing — before
         /// this row, after this row. A folder's header does not: the lower part
         /// is the one gesture that puts a tab inside the folder and the upper
@@ -242,12 +242,21 @@ extension Tokens {
         /// them by this much on every side, it reads as a heavier, taller
         /// block than the row it is lighting.
         static let groupMemberTrailingInset = rowInset
-        /// How far the plate reaches below the last tab's pill: the room it
-        /// keeps at the tab's side (`groupMemberTrailingInset`), so a folder's
-        /// last tab has the same margin to the plate below it as beside it,
-        /// rather than the header icon's 7.5 pt, which matches the room above
-        /// the folder rather than the room round the tab.
-        static let groupPlateFoot = groupMemberTrailingInset
+        /// A §3.4b folder's own row: a tab row and 4 pt more, so its plate is
+        /// 39 tall against a tab pill's 35.
+        ///
+        /// Measured at a tab's pitch, the plate kept 9 pt above the folder's
+        /// icon, against 9.5 round a favicon and 17.5 under an open folder's
+        /// last tab: folded it sat tighter than a tab, and open it was twice
+        /// as deep at the foot as at the head. The 4 pt goes to the header, so
+        /// folding still moves only the plate's bottom edge.
+        static let groupHeaderRowHeight = tabRowHeight + 4
+        /// How far the plate reaches below the last tab's pill. With the
+        /// favicon's own 9.5 it leaves 13.5 under the last tab's icon, against
+        /// the 11.5 the taller header leaves over the folder's: the same room
+        /// at both ends, give or take the icons' sizes. It was the 8 at the
+        /// tab's side, which left the foot twice the head.
+        static let groupPlateFoot: CGFloat = 4
         /// The room an open, non-empty §3.4b folder leaves under its last tab.
         ///
         /// The plate reaches `groupPlateFoot` below that tab's pill, which is

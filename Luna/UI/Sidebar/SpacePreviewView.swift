@@ -129,11 +129,13 @@ final class SpacePreviewView: NSView {
             return SpacePreviewRow(title: String(localized: "New Tab"), icon: Self.plus, isDimmed: true)
         case .group:
             guard let group = column.group(at: row) else { return SpacePreviewRule() }
-            return SpacePreviewRow(
+            let header = SpacePreviewRow(
                 title: group.name,
                 icon: NSImage(systemSymbolName: group.symbolName, accessibilityDescription: nil),
                 isDimmed: true
             )
+            header.isFolder = true
+            return header
         case .tab:
             guard let tab = column.tab(at: row) else { return SpacePreviewRule() }
             return SpacePreviewRow(
@@ -186,6 +188,7 @@ final class SpacePreviewView: NSView {
             let height = switch row {
             case is SpacePreviewRule: Tokens.Metric.separatorRowHeight
             case is SpacePreviewGap: Tokens.Metric.groupEndGap
+            case let row as SpacePreviewRow where row.isFolder: Tokens.Metric.groupHeaderRowHeight
             default: Tokens.Metric.tabRowHeight
             }
             top -= height
@@ -281,6 +284,8 @@ final class SpacePreviewRow: NSView {
     private let title = NSTextField(labelWithString: "")
 
     private let indent: CGFloat
+    /// A folder's header, which stands `groupHeaderRowHeight` tall in the list.
+    var isFolder = false
 
     init(title text: String, icon image: NSImage?, isDimmed: Bool, indent: CGFloat = 0) {
         self.indent = indent

@@ -64,9 +64,9 @@ final class SidebarGroupPlateTests: XCTestCase {
         XCTAssertNil(controller.groupPlateBox())
     }
 
-    /// A folded folder's hover is the plate too, and it is exactly the hover
-    /// pill a loose tab gets — same box, same corners — with no foot because
-    /// there is no room under it.
+    /// A folded folder's hover is the plate too: the hover pill a loose tab
+    /// gets, as wide and as round, and as much taller as the folder's row is
+    /// (`groupHeaderRowHeight`), with no foot because there is no room under it.
     func testAFoldedHeaderTakesThePlateAndNoHoverPill() throws {
         trip.isCollapsed = true
         let controller = try list()
@@ -78,7 +78,13 @@ final class SidebarGroupPlateTests: XCTestCase {
         XCTAssertEqual(controller.hoverPill.alphaValue, 0, accuracy: 0.01)
         XCTAssertEqual(controller.groupPlate.alphaValue, 1, accuracy: 0.01)
         XCTAssertEqual(controller.groupPlate.frame, controller.pillBox(ofRow: header))
-        XCTAssertEqual(controller.groupPlate.frame.size, tabHover.size, "the folder's plate is not a tab hover's size")
+        XCTAssertEqual(controller.groupPlate.frame.width, tabHover.width, "the folder's plate is not a tab hover's width")
+        XCTAssertEqual(
+            controller.groupPlate.frame.height - tabHover.height,
+            Tokens.Metric.groupHeaderRowHeight - Tokens.Metric.tabRowHeight,
+            accuracy: 0.01,
+            "the folded plate is not the folder row's own pill"
+        )
         XCTAssertEqual(controller.groupPlate.layer?.cornerRadius ?? 0, Tokens.Metric.rowCornerRadius, accuracy: 0.01)
     }
 
@@ -189,16 +195,22 @@ final class SidebarGroupPlateTests: XCTestCase {
         XCTAssertEqual(controller.hoverPill.alphaValue, 0, accuracy: 0.01)
     }
 
-    /// The last tab has the same room to the plate below it as beside it, and
-    /// the plate stops short of the next row by as much as a pill does.
-    func testTheLastTabHasTheSameRoomBelowAsBeside() throws {
+    /// An open plate has as much room over the folder's icon as under its last
+    /// tab's, give or take the two icons' sizes, and stops short of the next
+    /// row by as much as a pill does. The foot was twice the head.
+    func testAnOpenFolderHasTheSameRoomAtItsHeadAsAtItsFoot() throws {
         let controller = try list()
         let header = try XCTUnwrap(controller.list.row(ofGroup: trip.id))
         controller.setHovered(header)
         let plate = controller.groupPlate.frame
         let lastPill = controller.pillBox(ofRow: header + 3)
-        XCTAssertEqual(plate.maxY - lastPill.maxY, plate.maxX - lastPill.maxX, accuracy: 0.01)
-        XCTAssertEqual(plate.maxY - lastPill.maxY, Tokens.Metric.rowInset, accuracy: 0.01)
+        // The folder symbol draws about 15 pt of its 20 pt box; a favicon
+        // fills its 16. What is compared is the room round what is drawn.
+        let drawnFolder: CGFloat = 15
+        let head = controller.table.rect(ofRow: header).midY - drawnFolder / 2 - plate.minY
+        let foot = plate.maxY - (lastPill.midY + Tokens.Metric.faviconSize / 2)
+        XCTAssertEqual(head, foot, accuracy: 2.01, "head \(head), foot \(foot)")
+        XCTAssertEqual(plate.maxY - lastPill.maxY, Tokens.Metric.groupPlateFoot, accuracy: 0.01)
         let next = try XCTUnwrap(controller.list.row(ofGroup: work.id))
         XCTAssertEqual(plate.maxY, controller.table.rect(ofRow: next).minY - Tokens.Metric.tabRowPillInset, accuracy: 0.01)
         XCTAssertLessThan(plate.maxY, controller.pillBox(ofRow: next).minY, "the plate lies under the next pill")

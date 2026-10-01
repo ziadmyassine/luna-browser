@@ -34,6 +34,7 @@ extension TabListController: NSTableViewDelegate {
         switch list[row] {
         case .separator: Tokens.Metric.separatorRowHeight
         case .groupEnd: Tokens.Metric.groupEndGap
+        case .group: Tokens.Metric.groupHeaderRowHeight
         default: Tokens.Metric.tabRowHeight
         }
     }
