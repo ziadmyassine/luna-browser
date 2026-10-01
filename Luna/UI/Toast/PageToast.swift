@@ -65,6 +65,10 @@ struct PageToast: Equatable {
     static let codeCopied = PageToast(symbol: "doc.on.doc", text: String(localized: "Code copied"))
     static let markdownTextCopied = PageToast(symbol: "doc.on.doc", text: String(localized: "Markdown copied"))
     static let cachesEmptied = PageToast(symbol: "trash", text: String(localized: "Caches emptied"))
+
+    static func websiteDataCleared(_ host: String) -> PageToast {
+        PageToast(symbol: "trash", text: String(localized: "Website data cleared"), detail: host)
+    }
     /// ⌘S in a Markdown editor. Autosave says nothing.
     static let saved = PageToast(symbol: "checkmark", text: String(localized: "Saved"))
     /// §19.3: the tab in front lost its web process and Luna rebuilt the page.

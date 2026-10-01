@@ -275,3 +275,37 @@ final class SiteMenuBlockedTests: XCTestCase {
         XCTAssertEqual(rows.last, "2 more sites")
     }
 }
+
+/// §17.5: Clear Website Data takes everything the site keeps in the tab's store,
+/// and nothing any other site keeps.
+@MainActor
+final class SiteMenuWebsiteDataTests: XCTestCase {
+
+    private func cookie(_ domain: String) throws -> HTTPCookie {
+        try XCTUnwrap(HTTPCookie(properties: [
+            .domain: domain, .path: "/", .name: "session", .value: "1", .secure: "TRUE",
+            .expires: Date().addingTimeInterval(3600)
+        ]))
+    }
+
+    func testARecordIsTheSitesWhenTheHostIsItOrUnderIt() {
+        XCTAssertTrue(SiteMenu.isRecord("apple.com", of: "apple.com"))
+        XCTAssertTrue(SiteMenu.isRecord("apple.com", of: "www.apple.com"))
+        XCTAssertFalse(SiteMenu.isRecord("apple.com", of: "pineapple.com"))
+        XCTAssertFalse(SiteMenu.isRecord("www.apple.com", of: "apple.com"))
+    }
+
+    func testClearingTakesOnlyThatSitesData() async throws {
+        let store = WKWebsiteDataStore.nonPersistent()
+        await store.httpCookieStore.setCookie(try cookie("clear.example"))
+        await store.httpCookieStore.setCookie(try cookie("keep.example"))
+
+        let removed = await SiteMenu.removeWebsiteData(of: "www.clear.example", from: store)
+        XCTAssertTrue(removed)
+        let left = await store.httpCookieStore.allCookies().map(\.domain)
+        XCTAssertEqual(left, ["keep.example"])
+
+        let again = await SiteMenu.removeWebsiteData(of: "www.clear.example", from: store)
+        XCTAssertFalse(again, "nothing left to clear is not a clear")
+    }
+}

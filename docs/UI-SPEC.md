@@ -563,7 +563,7 @@ Three bands, top to bottom:
 | "12 blocked on this page" — a band of one row, only when blocking is on here and caught something | page, reset by each new page | `ContentBlocker.blockedCount(tab:)`, §17.4's heuristic. Choosing it puts the sites up in the same pop-out (`blockedHosts(tab:)`), most often blocked first, eight at most and a row for the rest. Nothing on the address pill |
 | Share… | page | `NSSharingServicePicker.show(relativeTo:of:preferredEdge:)`, from the sliders glyph |
 | Copy Link | page | `NSPasteboard` — URL **and** string, so a plain text field gets the address |
-| Clear Cache / Clear Cookies | **per site** | `WKWebsiteDataStore.dataRecords`, filtered to this site's registrable domain |
+| Clear Website Data | **per site**, in the tab's Space | every type in `WKWebsiteDataStore.allWebsiteDataTypes()` (cookies, storage, caches, service workers) for the records of this site's registrable domain; reloads the page and says so in a toast. One action, replacing Clear Cache and Clear Cookies (#108). Tracking prevention is WebKit's own and always on; the pop-out does not say so |
 | More Settings… | app | opens Settings ▸ Privacy & Passwords, where blocking, its exceptions and site data are (was Advanced, which became a group on General) |
 
 - **It stands centred across its glyph**, not hung from the glyph's leading edge, and is kept inside

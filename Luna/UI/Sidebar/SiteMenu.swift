@@ -73,11 +73,8 @@ enum SiteMenu {
             pageTools(),
             [share(page.url, from: anchor), copyLink(page.url)],
             [
-                .init(title: String(localized: "Clear Cache"), symbol: Glyph.cache) {
-                    clear(SiteData.caches, host: page.host, thenReload: true)
-                },
-                .init(title: String(localized: "Clear Cookies"), symbol: Glyph.cookies) {
-                    clear(SiteData.cookies, host: page.host, thenReload: true)
+                .init(title: String(localized: "Clear Website Data"), symbol: Glyph.websiteData) {
+                    clearWebsiteData(host: page.host)
                 },
                 moreSettings()
             ]
@@ -294,41 +291,39 @@ enum SiteMenu {
         if reload { webView.reload() }
     }
 
-    /// The two clears the pop-out offers. Split the way the user means it:
-    /// Clear Cache should not sign you out, and Clear Cookies should.
-    private enum SiteData {
-        static let caches: Set<String> = [
-            WKWebsiteDataTypeDiskCache,
-            WKWebsiteDataTypeMemoryCache,
-            WKWebsiteDataTypeOfflineWebApplicationCache
-        ]
-        static let cookies: Set<String> = [
-            WKWebsiteDataTypeCookies,
-            WKWebsiteDataTypeLocalStorage,
-            WKWebsiteDataTypeSessionStorage,
-            WKWebsiteDataTypeIndexedDBDatabases
-        ]
-    }
-
-    /// This site's records only. `WKWebsiteDataRecord.displayName` is the
-    /// registrable domain — `apple.com` for `www.apple.com` — so a host matches
-    /// its own record and every record it is a subdomain of, and nothing else.
+    /// Everything the site keeps in the tab's data store, cookies, storage, caches and
+    /// service workers alike, so the next load meets the site as if for the first time.
+    /// Not asked about first, like every row of the pop-out; the toast says it happened.
     ///
-    /// The store is the tab's, not `.default()`: a Space with its own
-    /// Profile has its own `WKWebsiteDataStore` (§5.1), and clearing the wrong
-    /// one would report success and change nothing.
-    private static func clear(_ types: Set<String>, host: String, thenReload reload: Bool) {
+    /// The store is the tab's, not `.default()`: each Space has its own
+    /// `WKWebsiteDataStore` (§5.1), and clearing the wrong one would report success
+    /// and change nothing.
+    private static func clearWebsiteData(host: String) {
         guard let session, let id = session.activeTabID,
               let webView = session.controller(for: id)?.webView
         else { return }
-        let store = webView.configuration.websiteDataStore
+        let window = session.hostWindow
         Task {
-            let records = await store.dataRecords(ofTypes: types)
-            let mine = records.filter { host == $0.displayName || host.hasSuffix(".\($0.displayName)") }
-            guard !mine.isEmpty else { return }
-            await store.removeData(ofTypes: types, for: mine)
-            if reload { webView.reload() }
+            guard await removeWebsiteData(of: host, from: webView.configuration.websiteDataStore) else { return }
+            webView.reload()
+            PageToast.websiteDataCleared(host).show(in: window)
         }
+    }
+
+    /// Whether anything was there to remove.
+    static func removeWebsiteData(of host: String, from store: WKWebsiteDataStore) async -> Bool {
+        let types = WKWebsiteDataStore.allWebsiteDataTypes()
+        let mine = await store.dataRecords(ofTypes: types).filter { isRecord($0.displayName, of: host) }
+        guard !mine.isEmpty else { return false }
+        await store.removeData(ofTypes: types, for: mine)
+        return true
+    }
+
+    /// `WKWebsiteDataRecord.displayName` is the registrable domain — `apple.com` for
+    /// `www.apple.com` — so a host matches its own record and every record it is a
+    /// subdomain of, and nothing else.
+    static func isRecord(_ displayName: String, of host: String) -> Bool {
+        host == displayName || host.hasSuffix(".\(displayName)")
     }
 
     // MARK: - The glyphs
@@ -355,8 +350,7 @@ enum SiteMenu {
         /// §4.6's user agent: the identity the browser gives the site.
         static let userAgent = "person.text.rectangle"
         static let blockedPopup = "arrow.up.forward.app"
-        static let cache = "internaldrive"
-        static let cookies = "trash"
+        static let websiteData = "trash"
         static let reader = "doc.plaintext"
         static let hide = "eye.slash"
         /// The sliders that open the pop-out in the first place (§3.2), which is as close
@@ -370,7 +364,7 @@ enum SiteMenu {
 
         static let all = [
             share, link, blocking, blocked, pictureInPicture, localNetwork, popups, camera, microphone, location, clipboard, userAgent,
-            blockedPopup, cache, cookies, reader, hide, advanced, secure, insecure, site
+            blockedPopup, websiteData, reader, hide, advanced, secure, insecure, site
         ]
     }
 }
