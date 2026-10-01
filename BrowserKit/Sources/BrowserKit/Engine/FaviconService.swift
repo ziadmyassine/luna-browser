@@ -71,11 +71,20 @@ public final class FaviconService {
     }
 
     public static var defaultDirectory: URL {
+        appCachesDirectory.appending(path: "Favicons")
+    }
+
+    /// The app's own folder in Caches, or a throwaway one under a test run.
+    /// Luna's tests run inside a copy of the app with the same bundle
+    /// identifier, so the real folder is the user's: on 2026-10-01 it was
+    /// found emptied right after a test run, and every tab's favicon with it.
+    public static var appCachesDirectory: URL {
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+            return URL.temporaryDirectory.appending(path: "luna-tests-caches-\(ProcessInfo.processInfo.processIdentifier)")
+        }
         let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
             ?? URL.temporaryDirectory
-        return caches
-            .appending(path: Bundle.main.bundleIdentifier ?? "dev.novapps.luna")
-            .appending(path: "Favicons")
+        return caches.appending(path: Bundle.main.bundleIdentifier ?? "dev.novapps.luna")
     }
 
     /// Cached PNG bytes, nil if unknown. Never touches the network.

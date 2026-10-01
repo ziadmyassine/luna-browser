@@ -127,11 +127,7 @@ final class TabLifecycle {
 
     private init(session: BrowserSession) {
         self.session = session
-        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
-            ?? URL.temporaryDirectory
-        snapshots = SnapshotStore(directory: caches
-            .appending(path: Bundle.main.bundleIdentifier ?? "dev.novapps.luna")
-            .appending(path: "snapshots"))
+        snapshots = SnapshotStore(directory: FaviconService.appCachesDirectory.appending(path: "snapshots"))
 
         observation = session.addChangeObserver { [weak self] in self?.sessionDidChange() }
 

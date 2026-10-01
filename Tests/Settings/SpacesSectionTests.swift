@@ -265,6 +265,15 @@ final class AppDelegateDatabaseTests: XCTestCase {
         XCTAssertNotEqual(AppDelegate.databaseURL, AppDelegate.databaseURL)
     }
 
+    /// The same for the cache folder: the host shares the app's bundle
+    /// identifier, so its favicons and tab snapshots would land in, and be
+    /// cleared from, the user's own.
+    func testTheTestHostNeverTouchesTheRealCaches() {
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.path ?? "~/Library/Caches"
+        XCTAssertFalse(FaviconService.defaultDirectory.path.hasPrefix(caches), FaviconService.defaultDirectory.path)
+        XCTAssertFalse(FaviconService.appCachesDirectory.path.hasPrefix(caches), FaviconService.appCachesDirectory.path)
+    }
+
     /// A second Luna hands off to the running one and quits (§19.7), but the
     /// test host is not a second Luna: it has its own database and runs beside
     /// the Luna in use. Handing off here would quit the host mid-run.
