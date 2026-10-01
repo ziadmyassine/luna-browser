@@ -266,6 +266,8 @@ final class SpaceDotsView: NSView {
     ///
     /// Nothing wears the ring while the `+` is showing: the gesture has left
     /// the Spaces that exist, so there is no destination for a ring to mark.
+    /// Nor with one Space: the ring tells one dot from the others, and a lone
+    /// dot has none to be told from.
     private func applyTravel() {
         guard let activeSpaceID, spaces.contains(where: { $0.id == activeSpaceID }) else { return }
         let indicator = self.indicator
@@ -273,7 +275,7 @@ final class SpaceDotsView: NSView {
         for (index, dot) in dots.enumerated() {
             dot.isActive = dot.space.id == activeSpaceID
             dot.presence = max(0, 1 - abs(CGFloat(index) - indicator))
-            dot.wearsRing = index == landing
+            dot.wearsRing = index == landing && dots.count > 1
         }
         // The run slides with the finger, so every frame of the swipe is a
         // placement — not a repaint of dots that stayed where they were.

@@ -101,8 +101,8 @@ extension Tokens {
         ///
         /// Least-used wins, palette order breaks the tie, so deleting a Space
         /// frees its pair for reuse without anyone tracking a cursor. Pairs
-        /// outside the palette (a custom one, `neutral`, or the legacy
-        /// `GradientPair.defaultSpace`) are ignored rather than counted, so one
+        /// outside the palette (a custom one, or `neutral`) are ignored rather
+        /// than counted, so one
         /// Space on a custom colour does not push every later Space off by one.
         static func next(after used: [GradientPair]) -> GradientPair {
             var counts: [GradientPair: Int] = [:]

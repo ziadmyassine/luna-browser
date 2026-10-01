@@ -29,12 +29,13 @@ public struct GradientPair: Sendable, Hashable, Codable {
         self.end = end
     }
 
-    /// The gradient `seedIfEmpty()` gives the first Space. Seed data, not a design token:
-    /// a Space's gradient is the user's from the moment they pick one, and §8.2's curated
-    /// palette lives in `Design` where the rest of the colour does.
+    /// The gradient `seedIfEmpty()` gives the first Space: no colour, the
+    /// same greys as `Tokens.Gradient.neutral`, so a first run opens on plain
+    /// chrome and colour is something the user adds. Seed data, not a design
+    /// token; `TokenCheck` asserts the two pairs are equal.
     public static let defaultSpace = GradientPair(
-        start: RGBA(r: 0.45, g: 0.38, b: 0.92, a: 1),
-        end: RGBA(r: 0.24, g: 0.65, b: 0.94, a: 1)
+        start: RGBA(r: 0x8C / 255, g: 0x91 / 255, b: 0x99 / 255, a: 1),
+        end: RGBA(r: 0xA4 / 255, g: 0xA9 / 255, b: 0xB1 / 255, a: 1)
     )
 }
 

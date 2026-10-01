@@ -215,6 +215,14 @@ final class SpaceDotsLayoutTests: XCTestCase {
         XCTAssertTrue(dots.allSatisfy { !$0.wearsRing })
     }
 
+    /// One Space is one dot, and a ring around it would mark it out from
+    /// nothing. A second Space brings the ring back.
+    func testALoneDotWearsNoRing() {
+        XCTAssertTrue(Self.strip(spaces: 1).subviews.compactMap { $0 as? SpaceDotView }.allSatisfy { !$0.wearsRing })
+        let two = Self.strip(spaces: 2).subviews.compactMap { $0 as? SpaceDotView }
+        XCTAssertEqual(two.filter(\.wearsRing).count, 1)
+    }
+
     // MARK: - Bits
 
     /// What `SpaceDotsView.intrinsicContentSize` hands back for `count`.

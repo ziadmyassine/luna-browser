@@ -92,9 +92,16 @@ enum TokenCheck {
             return ["only \(appearances.count)/2 appearances resolved — the SDK renamed one"]
         }
         let colours = checkResolution() + checkTextContrast() + checkSurfaceSeparation()
-            + checkLines() + checkIncreaseContrast() + checkFills() + checkReading()
+            + checkLines() + checkIncreaseContrast() + checkFills() + checkReading() + checkSeedGradient()
         let effects = checkWash() + checkBloom() + checkShadow() + checkGlassOptimisation()
         return colours + effects + checkMetrics() + checkMotion()
+    }
+
+    /// BrowserKit seeds the first Space and cannot see `Design`, so it keeps
+    /// its own copy of No Colour's greys; a first run opens neutral only while
+    /// the two agree.
+    private static func checkSeedGradient() -> [String] {
+        Tokens.Gradient.isNeutral(.defaultSpace) ? [] : ["the first Space's seed gradient is not No Colour"]
     }
 
     /// Trips a debug assertion listing every failure.
