@@ -103,6 +103,27 @@ These four come before everything else, in this order. Two of them reverse earli
 > today is **folders**, so §4 of the spec designs the sidebar as a node tree now
 > and ships folders later (S6): retrofitting a tree onto a flat list with real
 > user data is the expensive version of that work.
+>
+> **Per-Space site answers (#25, 2026-10-01, decided by Martin).** The camera,
+> the microphone, the location, the local network and pop-ups are answered per
+> Space: a yes to a call site in Work is not a yes in Personal. They live in
+> `spaceSitePermissions`, keyed on `(spaceID, host)` and deleted with the Space.
+> Zoom, the blocking exemption, the HTTPS exception, the password offer and
+> automatic Picture in Picture are about how Luna behaves rather than what a site
+> may do, and stay one answer per site in `siteSettings`. `v14` copied every
+> answer already given into every Space, so the upgrade changed nothing anyone
+> had said. A private window keeps its own answers in memory and reads the shared
+> ones, but no Space's: it is no Space's jar.
+>
+> **The per-Space answers do not sync.** Pop-ups and the local network did, as
+> fields of `SiteSetting`. Carrying them per Space needs a new CloudKit record
+> type, which is a Production schema deploy that can never be taken back, and it
+> would sit in the Sites zone pointing at a Space in the Spaces zone, so a Mac
+> that syncs one and not the other would park it forever. The camera, the
+> microphone and the location never synced. `SiteSetting` keeps declaring the two
+> retired fields; an older Luna still writes them and this one leaves them alone.
+> If they should follow the user after all, the shape is a `SpaceSiteSetting`
+> record in the Spaces zone.
 ### §14 — 14. Apple Passwords, autofill & forms
 
 **Goal:** the user keeps using **Apple's Passwords / iCloud Keychain** — we do not build a password manager and we do not become a second place their secrets live. What we build is the bridge. Read §14.1 before writing any UI copy: part of this is blocked by Apple, and which part decides what we can promise.

@@ -9,29 +9,28 @@ import Foundation
 // `SyncSchemaFileTests` checks.
 
 /// A `siteSettings` row as it syncs. Each flag is tri-state: nil means nobody answered.
+///
+/// The record also declares `localNetwork` and `popups`, which an older Luna writes.
+/// They are per Space now (`Schema.keepSiteAnswersPerSpace`) and a Space's answers do
+/// not sync, so this Luna neither reads nor writes them, and a save leaves them as they
+/// are on the server.
 public struct SyncSiteSetting: Sendable, Hashable {
     public var host: String
     public var automaticPictureInPicture: Bool?
-    public var localNetwork: Bool?
     public var savePasswords: Bool?
-    public var popups: Bool?
     public var blockingDisabled: Bool?
     public var insecureAllowed: Bool?
 
     public init(
         host: String,
         automaticPictureInPicture: Bool? = nil,
-        localNetwork: Bool? = nil,
         savePasswords: Bool? = nil,
-        popups: Bool? = nil,
         blockingDisabled: Bool? = nil,
         insecureAllowed: Bool? = nil
     ) {
         self.host = host
         self.automaticPictureInPicture = automaticPictureInPicture
-        self.localNetwork = localNetwork
         self.savePasswords = savePasswords
-        self.popups = popups
         self.blockingDisabled = blockingDisabled
         self.insecureAllowed = insecureAllowed
     }
@@ -39,9 +38,7 @@ public struct SyncSiteSetting: Sendable, Hashable {
     /// The column names, which are also the field names.
     static var flags: [(String, WritableKeyPath<SyncSiteSetting, Bool?>)] { [
         ("automaticPictureInPicture", \.automaticPictureInPicture),
-        ("localNetwork", \.localNetwork),
         ("savePasswords", \.savePasswords),
-        ("popups", \.popups),
         ("blockingDisabled", \.blockingDisabled),
         ("insecureAllowed", \.insecureAllowed)
     ] }

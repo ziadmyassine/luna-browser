@@ -45,6 +45,8 @@ final class ProfileStore {
             return .nonPersistent()
         }
         let store = WKWebsiteDataStore(forIdentifier: space.dataStoreIdentifier)
+        // A site's camera, network and pop-up answers were given to this jar's identity.
+        SitePermissions.bind(store, toSpace: space.id)
         live[space.id] = store
         return store
     }

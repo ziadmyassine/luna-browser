@@ -78,6 +78,9 @@ enum Schema {
         migrator.registerMigration("v13") { db in
             try rememberDeviceAnswers(db)
         }
+        migrator.registerMigration("v14") { db in
+            try keepSiteAnswersPerSpace(db)
+        }
         return migrator
     }
 

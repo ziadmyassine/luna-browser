@@ -182,20 +182,20 @@ struct SyncCoordinatorTests {
         let (store, sync, _) = try await started([.sites])
         let secret = SyncSecret(bytes: Data(repeating: 7, count: 32))
         try await sync.fetched(modifications: [fetched(secret.record(stored: nil))], deletions: [])
-        try await store.setSitePermission(.localNetwork, allowed: true, host: "example.com")
+        try await store.setSitePermission(.savePasswords, allowed: true, host: "example.com")
         try await sync.pushOutbox()
         let name = secret.siteRecordName(forHost: "example.com")
         #expect(engine.pending.contains(.save(name, in: .sites)))
         let saved = try await sync.records(for: [.save(name, in: .sites)]).map { fetched($0) }
         try await sync.sent(saved: saved)
-        try await store.setSitePermission(.localNetwork, allowed: false, host: "example.com")
+        try await store.setSitePermission(.savePasswords, allowed: false, host: "example.com")
         try await sync.pushOutbox()
         let attempt = try await sync.records(for: [.save(name, in: .sites)])
         engine.sent(attempt)
 
         try await sync.sent(failed: attempt.map { SyncSaveFailure(record: $0, error: .unknownItem) })
 
-        #expect(try await store.sitePermissions()[.localNetwork]?["example.com"] == false)
+        #expect(try await store.sitePermissions()[.savePasswords]?["example.com"] == false)
         #expect(engine.pending.contains(.save(name, in: .sites)))
         #expect(try await sync.records(for: [.save(name, in: .sites)]).first?.systemFields == nil)
     }
@@ -432,7 +432,7 @@ extension SyncCoordinatorTests {
             applyDevices: { change in devices.withLock { $0.append(change) } }
         )
         try await sync.enable(zones: [.settings, .devices, .sites])
-        try await store.setSitePermission(.localNetwork, allowed: true, host: "example.com")
+        try await store.setSitePermission(.savePasswords, allowed: true, host: "example.com")
         try await sync.pushOutbox()
         #expect(!engine.pending.contains { $0.zone == .sites }, "nothing keyed by the secret before it settles")
 
@@ -459,7 +459,7 @@ extension SyncCoordinatorTests {
     /// wait until the server has accepted it.
     @Test func aMissingSecretIsProposedAndSettlesOnSave() async throws {
         let (store, sync, _) = try await started([.sites])
-        try await store.setSitePermission(.localNetwork, allowed: true, host: "example.com")
+        try await store.setSitePermission(.savePasswords, allowed: true, host: "example.com")
         try await sync.fetchFinished()
         #expect(engine.pending.contains(.save("secret", in: .meta)))
         #expect(!engine.pending.contains { $0.zone == .sites })

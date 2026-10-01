@@ -195,6 +195,27 @@ final class BrowserSessionSpacesTests: XCTestCase {
         await removeStores(in: session)
     }
 
+    /// A site's camera answer is given to one Space's jar: its tabs and the site
+    /// menu read that Space's answers, and the Space takes them when it goes.
+    func testEachSpaceAnswersForItsOwnSites() async throws {
+        let session = try await makeSession(try makeStore())
+        let home = try XCTUnwrap(session.spaces.first)
+        let work = try await session.createSpace(name: "Work")
+
+        let scope = SitePermissions.scope(for: session.dataStore(forSpace: work.id))
+        XCTAssertEqual(scope.spaceID, work.id, "a tab in Work answers with Work's answers")
+        scope.setAllowed(true, .camera, forHost: "meet.example")
+
+        session.switchSpace(work.id)
+        XCTAssertEqual(session.sitePermissions.answer(.camera, forHost: "meet.example"), true)
+        session.switchSpace(home.id)
+        XCTAssertNil(session.sitePermissions.answer(.camera, forHost: "meet.example"), "Home is still asked")
+
+        try await session.deleteSpace(work.id, policy: .archiveTabs)
+        XCTAssertNil(SitePermissions.shared.forSpace(work.id).answer(.camera, forHost: "meet.example"))
+        await removeStores(in: session)
+    }
+
     // MARK: - Goal 9 · deleting a Space never destroys tabs
 
     func testDeleteSpaceArchivesItsTabsAndUndoRestoresThem() async throws {

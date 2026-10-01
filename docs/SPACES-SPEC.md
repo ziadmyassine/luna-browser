@@ -424,13 +424,14 @@ Add:
 | Link-routing rule (§25.3) | **missing** | Arc: `{ rules: [], defaultDestination: { space: { mostRecent } } }` |
 | Content blocking | global | Ora does it per-Space and it is the best part of that codebase |
 | Cookie policy | — | **Incompatible with shared Profiles.** `httpCookieStore.setCookiePolicy` is a property of the *data store*, so a policy set on a shared Profile applies to every Space on it. Per-Space cookie policy must go through a content rule list instead. |
-| Site permissions | **undecided** | See below |
+| Site permissions | **per Space** for camera, microphone, location, local network and pop-ups; the rest per site | `v14`; docs/DECISIONS.md §5 |
 
-**Permissions need a decision now.** Firefox shipped per-container permission
+**Permissions needed a decision.** Firefox shipped per-container permission
 isolation and left it **off by default**, so camera access granted in Work leaks
 to Personal. Chrome's is genuinely per-profile. Luna's `siteSettings` table
 (§11.1) — if it is keyed on host alone, Luna has silently chosen Firefox's weaker
-behaviour while claiming real isolation. Key it on `(profileID, host)`.
+behaviour while claiming real isolation. Key it on `(profileID, host)`. Done in
+`v14` for the five answers about what a site may reach (#25).
 
 **No automatic per-site Profile routing in v1.** Firefox built it twice — once as
 an extension with a two-second cancellation heuristic that leaks (#2019, #920,
@@ -491,9 +492,8 @@ rather than by naming which.
 
 **S3 — the Profile boundary. Mostly done.** `createSpace(name:profileID:)`,
 `setProfile` with a full web-view rebuild, the move-across-Profiles warning and
-the deletion dialog are built. Two are not: the `fetchData`/`restoreData` spike
-(§3.3), and `siteSettings`, still keyed on `host` alone — so a permission granted
-in one Profile is granted in all of them.
+the deletion dialog are built. One is not: the `fetchData`/`restoreData` spike
+(§3.3). Site permissions are per Space since `v14` (#25).
 
 **S4 — the tree.** `SidebarNode` migration, shipped holding only tabs. Folders
 become a case, not a migration.

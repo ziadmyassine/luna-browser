@@ -78,6 +78,7 @@ extension BrowserSession {
         // First: the Space's extension host holds its background store, and a
         // store still held cannot be removed.
         await extensions?.removeSpace(space.id)
+        SitePermissions.shared.forgetSpace(space.id)
         try await profileStore.remove(space)
     }
 

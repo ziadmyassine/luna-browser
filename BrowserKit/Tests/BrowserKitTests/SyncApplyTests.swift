@@ -211,7 +211,7 @@ struct SyncApplyTests {
         let tab = Tab(spaceID: space.id, url: URL(string: "https://a.example")!)
         let secret = SyncSecret(bytes: Data(repeating: 7, count: 32))
         let site = fetched(SyncMapping.record(
-            for: SyncSiteSetting(host: "example.com", localNetwork: true, blockingDisabled: true),
+            for: SyncSiteSetting(host: "example.com", savePasswords: false, blockingDisabled: true),
             secret: secret, modifiedAt: Date(), stored: nil
         ))
         let visits = history(3, url: "https://remote.example", visits: [.init(spaceID: localID, at: Date(), kind: "typed")])
@@ -220,7 +220,7 @@ struct SyncApplyTests {
 
         #expect(try await store.syncOutbox().isEmpty)
         #expect(try await count(store, "SELECT applyingRemote FROM syncControl") == 0)
-        #expect(try await store.sitePermissions()[.localNetwork]?["example.com"] == true)
+        #expect(try await store.sitePermissions()[.savePasswords]?["example.com"] == false)
         #expect(try await store.blockingExemptions().blockingDisabled.contains("example.com"))
         #expect(try await count(store, "SELECT COUNT(*) FROM syncRecords WHERE localKey = 'example.com'") == 1)
     }

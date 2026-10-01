@@ -21,17 +21,20 @@ struct PrivateSiteAnswersTests {
 
     @Test func permissionsReadThroughAndWriteOnlyToThePrivateScope() {
         let main = SitePermissions()
-        main.setAllowed(true, .localNetwork, forHost: "printer.example")
+        main.setAllowed(false, .automaticPictureInPicture, forHost: "video.example")
         let scoped = SitePermissions(fallback: main)
 
-        #expect(scoped.isAllowed(.localNetwork, forHost: "printer.example"))
+        #expect(!scoped.isAllowed(.automaticPictureInPicture, forHost: "video.example"))
 
-        scoped.setAllowed(false, .localNetwork, forHost: "printer.example")
+        scoped.setAllowed(true, .automaticPictureInPicture, forHost: "video.example")
         scoped.setAllowed(false, .savePasswords, forHost: "bank.example")
-        #expect(!scoped.isAllowed(.localNetwork, forHost: "printer.example"))
+        scoped.setAllowed(true, .localNetwork, forHost: "printer.example")
+        #expect(scoped.isAllowed(.automaticPictureInPicture, forHost: "video.example"))
         #expect(!scoped.isAllowed(.savePasswords, forHost: "bank.example"))
-        #expect(main.isAllowed(.localNetwork, forHost: "printer.example"))
+        #expect(scoped.isAllowed(.localNetwork, forHost: "printer.example"))
+        #expect(!main.isAllowed(.automaticPictureInPicture, forHost: "video.example"))
         #expect(main.isAllowed(.savePasswords, forHost: "bank.example"))
+        #expect(!main.isAllowed(.localNetwork, forHost: "printer.example"))
         #expect(main.answeredHosts(.savePasswords).isEmpty)
     }
 

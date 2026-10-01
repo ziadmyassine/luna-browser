@@ -153,8 +153,8 @@ struct SyncMergeTests {
 
     @Test func aSetSiteFlagBeatsAnUnsetOneInEitherDirection() throws {
         let secret = SyncSamples.secret
-        let mine = SyncSiteSetting(host: "example.com", popups: true)
-        let theirs = SyncSiteSetting(host: "example.com", localNetwork: true)
+        let mine = SyncSiteSetting(host: "example.com", automaticPictureInPicture: false)
+        let theirs = SyncSiteSetting(host: "example.com", savePasswords: false)
         let server = SyncMapping.record(for: theirs, secret: secret, modifiedAt: later, stored: nil)
         let local = SyncMapping.record(for: mine, secret: secret, modifiedAt: now, stored: nil)
 
@@ -162,25 +162,25 @@ struct SyncMergeTests {
             Issue.record("expected a save"); return
         }
         let site = try #require(SyncMapping.siteSetting(from: merged))
-        #expect(site.popups == true)
-        #expect(site.localNetwork == true)
+        #expect(site.automaticPictureInPicture == false)
+        #expect(site.savePasswords == false)
     }
 
     @Test func whenBothMacsSetAFlagTheNewerOneWins() throws {
         let secret = SyncSamples.secret
         let server = SyncMapping.record(
-            for: SyncSiteSetting(host: "example.com", popups: false),
+            for: SyncSiteSetting(host: "example.com", savePasswords: false),
             secret: secret, modifiedAt: earlier, stored: nil
         )
         let local = SyncMapping.record(
-            for: SyncSiteSetting(host: "example.com", popups: true),
+            for: SyncSiteSetting(host: "example.com", savePasswords: true),
             secret: secret, modifiedAt: now, stored: nil
         )
 
         guard case .save(let merged) = SyncMerge.resolve(local: local, changedAt: now, server: server) else {
             Issue.record("expected a save"); return
         }
-        #expect(SyncMapping.siteSetting(from: merged)?.popups == true)
+        #expect(SyncMapping.siteSetting(from: merged)?.savePasswords == true)
         #expect(SyncMerge.resolve(local: local, changedAt: earlier.addingTimeInterval(-1), server: server) == .takeServer)
     }
 

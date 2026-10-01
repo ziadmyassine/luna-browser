@@ -98,7 +98,7 @@ struct SyncOutboxTests {
     @Test func theZoneOffGivesNone() async throws {
         let (store, spaceID) = try await makeTemporaryStoreWithSpace()
         try await store.upsert(Tab(spaceID: spaceID, url: URL(string: "https://example.com")!))
-        try await store.setSitePermission(.localNetwork, allowed: true, host: "example.com")
+        try await store.setSitePermission(.savePasswords, allowed: false, host: "example.com")
         try await store.recordVisit(
             url: URL(string: "https://example.com")!, title: "", kind: .typed, at: Date(), inSpace: spaceID
         )

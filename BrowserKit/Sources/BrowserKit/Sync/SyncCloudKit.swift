@@ -168,8 +168,7 @@ public enum SyncProbe {
             pinnedURL: url, customTitle: "Probe", customSymbolName: "star", groupID: group.id
         )
         let site = SyncSiteSetting(
-            host: "example.com", automaticPictureInPicture: true, localNetwork: false, savePasswords: true,
-            popups: false, blockingDisabled: true, insecureAllowed: false
+            host: "example.com", automaticPictureInPicture: true, savePasswords: true, blockingDisabled: true, insecureAllowed: false
         )
         let visit = SyncHistoryEntry.Visit(spaceID: space.id, at: now, kind: "typed")
         let device = SyncDevice(id: UUID(), name: "Probe", tabs: [SyncDevice.OpenTab(spaceID: space.id, url: url, title: "Probe")])

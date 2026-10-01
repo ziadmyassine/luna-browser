@@ -445,8 +445,10 @@ final class BrowserSession {
         return profileStore.dataStore(for: space)
     }
 
-    /// Whose per-site answers this window reads and writes: §5.6's own, or the app's.
-    var sitePermissions: SitePermissions { isPrivate ? .scope(for: privateDataStore) : .shared }
+    /// Whose per-site answers this window reads and writes: §5.6's own, or the active Space's.
+    var sitePermissions: SitePermissions {
+        isPrivate ? .scope(for: privateDataStore) : SitePermissions.shared.forSpace(activeSpaceID)
+    }
 
     /// Whose hidden page parts this window wears and adds to, for the same reason.
     var hiddenElements: HiddenElements { isPrivate ? .scope(for: privateDataStore) : .shared }

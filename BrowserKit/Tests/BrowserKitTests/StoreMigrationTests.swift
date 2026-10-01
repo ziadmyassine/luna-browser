@@ -117,7 +117,7 @@ struct StoreMigrationTests {
             Dictionary(uniqueKeysWithValues: try db.columns(in: "siteSettings").map { ($0.name, $0) })
         }
         // Nullable: absent is "nobody has answered", which is not a refusal.
-        for name in ["automaticPictureInPicture", "localNetwork", "savePasswords", "popups", "camera", "microphone", "location"] {
+        for name in ["automaticPictureInPicture", "savePasswords"] {
             let column = try #require(columns[name], "missing \(name)")
             #expect(column.type == "BOOLEAN")
             #expect(!column.isNotNull)
@@ -128,8 +128,9 @@ struct StoreMigrationTests {
             #expect(column.isNotNull)
             #expect(column.defaultValueSQL == "0")
         }
-        // Every permission has its column from the migration, not from first use.
-        for permission in BrowserStore.SitePermission.allCases {
+        // Every shared permission has its column from the migration, not from first use;
+        // `SpaceSitePermissionsTests` checks the per-Space table's.
+        for permission in BrowserStore.SitePermission.allCases where !permission.isPerSpace {
             #expect(columns[permission.rawValue] != nil, "no column for \(permission)")
         }
     }
@@ -166,14 +167,17 @@ struct StoreMigrationTests {
     }
 
     /// A database from before sync, including a flag column added the old way
-    /// (`ensureBlockingColumns`) and the answers already written into it.
+    /// (`ensureBlockingColumns`) and the answers already written into it. `v14` then
+    /// copies the local-network answer into the one Space.
     @Test func aV11DatabaseMigrates() async throws {
         let path = temporaryDatabasePath()
         try FileManager.default.createDirectory(at: path.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let space = Space(name: "Personal", symbolName: "moon", gradient: .defaultSpace)
         do {
             let pool = try DatabasePool(path: path.path)
             try Schema.migrator().migrate(pool, upTo: "v11")
             try await pool.write { db in
+                try space.insert(db)
                 try db.execute(sql: "ALTER TABLE siteSettings ADD COLUMN blockingDisabled BOOLEAN NOT NULL DEFAULT 0")
                 try db.execute(sql: "ALTER TABLE siteSettings ADD COLUMN localNetwork BOOLEAN")
                 try db.execute(
@@ -188,7 +192,7 @@ struct StoreMigrationTests {
 
         let store = try BrowserStore(path: path)
         #expect(try await store.blockingExemptions().blockingDisabled == ["old.example"])
-        #expect(try await store.sitePermissions()[.localNetwork] == ["old.example": true])
+        #expect(try await store.spaceSitePermissions()[space.id]?[.localNetwork] == ["old.example": true])
         let (origins, columnCount) = try await store.pool.read { db in
             (
                 try Row.fetchAll(db, sql: "SELECT syncOrigin FROM visits").map { $0["syncOrigin"] as String? },
@@ -196,8 +200,8 @@ struct StoreMigrationTests {
             )
         }
         #expect(origins == [nil])
-        // v12's nine, and v13's camera, microphone and location.
-        #expect(columnCount == 12)
+        // v12's nine and v13's camera, microphone and location, less the five v14 moved.
+        #expect(columnCount == 7)
         // Turning sync on for the first time is what uploads old rows, not the migration.
         #expect(try await store.syncOutbox().isEmpty)
     }

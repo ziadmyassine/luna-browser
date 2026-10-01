@@ -100,7 +100,7 @@ Work style: every step starts with a failing test, then the smallest code that p
   - **spaces:** `name`, `symbolName`, `gradient`, `order`
   - **tabGroups:** `spaceID`, `name`, `symbolName`, `kind`, `order`
   - **tabs:** `spaceID`, `groupID`, `kind`, `order`, `archivedAt`, `url`, `title`, `customTitle`, `customSymbolName`, `pinnedURL`
-  - **siteSettings:** every column except `updatedAt`
+  - **siteSettings:** every column except `updatedAt`. The per-Space answers (`spaceSitePermissions`, `v14`) are local-only.
   - **visits:** `AFTER INSERT` when `NEW.type IN ('typed','bookmarked') AND NEW.syncOrigin IS NULL`. The outbox key is `placeId`.
 - Local-only columns, which never trigger:
   - tabs: `interactionState`, `lastActiveAt`, `hasUnread`, `faviconKey`, `themeColor`, `isDormant`, `parentTabID`
@@ -268,6 +268,7 @@ DEFINE SCHEMA
 |---|---|
 | `SiteSetting` flags | `INT64` as tri-state: absent means unset, 0 means off, 1 means on |
 | `SiteSetting.zoom` | Reserved and never written until per-site zoom is persisted |
+| `SiteSetting.localNetwork`, `SiteSetting.popups` | Retired by `v14`, which made them per Space. Still declared, since Production cannot drop a field; only an older Luna writes them, and a newer one leaves them alone |
 | `Setting.value` | A property list holding one value; the record is deleted when the key is removed |
 | `HistoryEntry.visits` | JSON `[{spaceID, at, kind}]`: the newest 10 typed or bookmarked visits from this Mac only |
 | `Device.tabs` | JSON `[{spaceID, url, title}]`, at most 50; private, `about:blank` and `luna://` tabs are skipped |
@@ -305,7 +306,7 @@ A save that fails with `serverRecordChanged` is merged into the server's record 
 | TabGroup | Last writer wins. Delete beats edit, and its tabs fall back to loose (`ON DELETE SET NULL`), as they do locally. |
 | Tab | Last writer wins. Delete beats edit. An incoming `archivedAt` is ignored if this Mac's `lastActiveAt` is later, and the unarchived state is sent back, so one Mac's idle clock never archives a tab in use on another. An incoming `url`/`title` is **not** applied to a tab with a live web view on this Mac; structural fields still are. Clashing `position` values heal through the existing renumber-on-load (ties broken by `createdAt`). `parentTabID` stays local. |
 | Favorites | Union, because each Favorite is its own record. More than 12 arriving in a Space: the extras are demoted to pinned locally, deterministically by (`position`, `createdAt`), and the demotion is not sent back. |
-| SiteSetting | The four permission flags, field by field: a set value beats an unset one. If both are set, the newer `modifiedAt` wins. `blockingDisabled` and `insecureAllowed` are always written as 0 or 1 and follow the newer record (last writer wins): they are `NOT NULL` locally, so with set-beats-unset, once any Mac turned blocking off for a site no Mac could turn it back on. |
+| SiteSetting | The two permission flags (`automaticPictureInPicture`, `savePasswords`), field by field: a set value beats an unset one. If both are set, the newer `modifiedAt` wins. `blockingDisabled` and `insecureAllowed` are always written as 0 or 1 and follow the newer record (last writer wins): they are `NOT NULL` locally, so with set-beats-unset, once any Mac turned blocking off for a site no Mac could turn it back on. |
 | Setting | Last writer wins per key. |
 | HistoryEntry, Device | One writer per record, so they never conflict. If one ever does, local wins. |
 | SyncSecret | The server always wins. |

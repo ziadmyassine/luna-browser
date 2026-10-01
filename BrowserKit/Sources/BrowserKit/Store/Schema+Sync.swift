@@ -57,9 +57,8 @@ extension Schema {
     /// `v13` — a site's answers for the camera, the microphone and the location (§17.8).
     ///
     /// Nullable for the reason the other permissions are: no row means the site asks.
-    /// Not among `SyncSQL`'s synced columns, so an answer about this Mac's camera stays
-    /// on this Mac, and an incoming `SiteSetting` (which writes only the synced
-    /// columns) leaves them alone.
+    /// Never among `SyncSQL`'s synced columns, so an answer about this Mac's camera
+    /// stayed on this Mac. `v14` moves the three to `spaceSitePermissions`.
     static func rememberDeviceAnswers(_ db: Database) throws {
         let existing = Set(try db.columns(in: "siteSettings").map(\.name))
         for name in ["camera", "microphone", "location"] where !existing.contains(name) {
@@ -106,10 +105,9 @@ enum SyncSQL {
         ),
         Tracked(
             table: "siteSettings", recordType: "SiteSetting", zone: .sites, key: { "\($0).host" },
-            synced: [
-                "zoom", "automaticPictureInPicture", "localNetwork", "savePasswords", "popups",
-                "blockingDisabled", "insecureAllowed"
-            ]
+            // Not `localNetwork` or `popups`: they are per Space since `v14`, and a Space's
+            // answers do not sync (docs/DECISIONS.md, "Per-Space site answers").
+            synced: ["zoom", "automaticPictureInPicture", "savePasswords", "blockingDisabled", "insecureAllowed"]
         ),
         // `DefaultsSync` mirrors the allowlisted defaults here, so a setting
         // gets the same zone guard, echo guard and turn-on seed as a row.
