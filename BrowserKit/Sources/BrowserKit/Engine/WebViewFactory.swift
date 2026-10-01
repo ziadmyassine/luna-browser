@@ -143,6 +143,9 @@ public enum WebViewFactory {
         dataStore: WKWebsiteDataStore = .default(),
         webExtensionController: WKWebExtensionController? = nil
     ) -> WKWebView {
+        if let spare = takeSpare(dataStore: dataStore, webExtensionController: webExtensionController) {
+            return spare
+        }
         let configuration = makeConfiguration(dataStore: dataStore)
         configuration.webExtensionController = webExtensionController
         return makeWebView(configuration: configuration)

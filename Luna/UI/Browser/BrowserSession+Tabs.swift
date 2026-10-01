@@ -41,9 +41,12 @@ extension BrowserSession {
         notifyChange()
     }
 
+    /// - Parameter preloaded: a page already loading for `url` in this Space
+    ///   (`TopHitPreload`), which becomes the tab instead of a fresh load.
     @discardableResult
-    func newTab(url: URL?, kind: TabKind = .today) -> UUID {
+    func newTab(url: URL?, kind: TabKind = .today, adopting preloaded: TabController? = nil) -> UUID {
         let tab = Tab(
+            id: preloaded?.id ?? UUID(),
             spaceID: activeSpaceID,
             kind: kind,
             url: url ?? Self.blankPage,
@@ -53,7 +56,11 @@ extension BrowserSession {
         // A URL Luna opens on the user's behalf is a typed visit; a link click
         // reaches us through the engine instead (§9.3).
         if url != nil { pendingVisitKind[tab.id] = .typed }
+        if let preloaded { adopt(preloaded) }
         activateTab(tab.id)
+        // What it did while nobody was listening — its title, its address, a
+        // finished load and so the visit — is reported now.
+        if let preloaded { tabController(preloaded, didChange: preloaded.state) }
         return tab.id
     }
 

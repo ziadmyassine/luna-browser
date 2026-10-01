@@ -40,6 +40,14 @@ extension BrowserSession {
         return controller
     }
 
+    /// Takes in a controller built before its tab existed, so `ensureController`
+    /// finds it rather than starting the page again.
+    func adopt(_ controller: TabController) {
+        controller.delegate = self
+        relayScrollProgress(of: controller)
+        controllers[controller.id] = controller
+    }
+
     /// Hibernates the tab and drops its controller entirely: for a tab that is
     /// going away, or changing profile, rather than one merely going cold.
     func discardController(_ id: UUID) {
@@ -49,7 +57,7 @@ extension BrowserSession {
         controller.delegate = nil
     }
 
-    /// §19.2: the active tab plus the last three stay awake, and so does
+    /// §19.2: the active tab plus the last seven stay awake, and so does
     /// anything making noise. Everything else loses its web view — and with it
     /// its WebContent process — while keeping its title, icon and blob.
     /// §19.2's budget, applied the moment a new web view is created.

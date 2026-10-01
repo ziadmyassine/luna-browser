@@ -10,7 +10,7 @@ import Testing
 struct HibernationPolicyTests {
 
     private let now = Date()
-    private let policy = HibernationPolicy(liveBudget: 4, idleThreshold: 300)
+    private let policy = HibernationPolicy(liveBudget: 4, idleThreshold: 300, pressureBudget: 2)
 
     /// ids[0] is active and most recently used; ids[5] is the coldest.
     private func scenario(
@@ -60,23 +60,34 @@ struct HibernationPolicyTests {
         #expect(policy.tabsToHibernate(live: live, mru: ids, activeID: ids[0], now: now).isEmpty)
     }
 
-    /// Pressure collapses the budget to the active tab — but never takes the
-    /// music or a half-typed reply with it.
-    @Test("memory pressure keeps only the active tab, audio and unsaved input")
+    /// Critical pressure collapses the budget to the active tab — but never
+    /// takes the music or a half-typed reply with it.
+    @Test("critical memory pressure keeps only the active tab, audio and unsaved input")
     func memoryPressure() {
         let (ids, live) = scenario(audible: [5], dirty: [4])
         let doomed = policy.tabsToHibernate(
-            live: live, mru: ids, activeID: ids[0], now: now, underMemoryPressure: true
+            live: live, mru: ids, activeID: ids[0], now: now, pressure: .critical
         )
         #expect(Set(doomed) == Set(ids[1...3]))
     }
 
-    /// Pressure ignores the 5-minute grace period; that is the whole point of it.
+    /// A warning keeps the tabs one switch away, so the first request for
+    /// memory does not make every tab switch a reload.
+    @Test("a memory warning keeps the most recent tabs")
+    func memoryWarning() {
+        let (ids, live) = scenario(idle: 0)
+        let doomed = policy.tabsToHibernate(
+            live: live, mru: ids, activeID: ids[0], now: now, pressure: .warning
+        )
+        #expect(Set(doomed) == Set(ids[2...]))
+    }
+
+    /// Pressure ignores the idle grace period; that is the whole point of it.
     @Test("memory pressure ignores the idle threshold")
     func memoryPressureIgnoresIdle() {
         let (ids, live) = scenario(idle: 0)
         let doomed = policy.tabsToHibernate(
-            live: live, mru: ids, activeID: ids[0], now: now, underMemoryPressure: true
+            live: live, mru: ids, activeID: ids[0], now: now, pressure: .critical
         )
         #expect(doomed.count == 5)
     }

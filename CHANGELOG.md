@@ -7,6 +7,8 @@ under Unreleased; a release will take the entries since the last one.
 
 ### 2026-10-01
 
+- **Pages open sooner from the command bar** (§19): while the bar completes the address of a site you have been to, that page loads out of sight, and Return opens it already loaded (measured: BBC 513 → 5 ms, Apple 568 → 6 ms, GitHub 349 → 5 ms from Return to loaded). A guess you do not choose is dropped when the bar closes. Luna also keeps one web view ready for the next new tab, so a page it did not guess starts 20–35 ms sooner.
+- **Fewer tabs reload when you go back to them** (§19.2): eight tabs stay awake instead of four, a tab you left sleeps after 30 minutes instead of 5, counted from when you left it rather than when you opened it, and a first memory warning keeps your three most recent tabs instead of only the one in front.
 - **Websites can ask for the camera, microphone and location** (§17.8): a toast asks "Use the camera?" with the site's name, and Allow or Don't Allow is remembered for that site. The tab shows a camera or microphone while one is on, and clicking it turns them off. The site settings pop-out has a switch for each answer you have given. Before this, every request was refused without a word. Location needs macOS 27.
 - **Only one Luna runs at a time** (§19.7): opening Luna again, or a second copy of it, brings the running one forward instead of starting a second window that could not open your data. If the data still cannot open, Luna says so in plain words instead of showing SQLite's error.
 - **A tab opened from a page opens right above it** (§6.5): in its folder if it has one, and to its right under the top bar. Closing it goes back to the page it came from, instead of the new tab going to the top of the list.

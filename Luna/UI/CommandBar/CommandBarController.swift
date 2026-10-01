@@ -118,6 +118,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
         guard let root = window.contentView else { return }
         if panel != nil { dismiss() }
         self.mode = mode
+        if mode.opensNewTab { prepareNewTab() }
         self.anchor = anchor
         selectionIsUserDriven = false
         refreshSources()
@@ -234,6 +235,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
         historyTask = nil
         deferredRows = nil
         SearchSuggestions.shared.cancel()
+        session.topHit.cancel()
         // Hand the keyboard back to the page, or the user is typing into nothing.
         // Not to a rename: the tab's name field has it, and a page given focus
         // on the way there took it straight back and ended the rename.
@@ -364,6 +366,7 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
         }
         resultsView.setResults(visible, selecting: selection)
         announce(count: resultsView.results.count)
+        preloadTopHit()
     }
 
     /// The bar has opened: add whatever landed while it was opening, without
@@ -427,14 +430,16 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
         if let url = result.url, let typed = panel?.field.typedText {
             adaptive.record(typed: typed, url: url, inSpace: activeSpaceID)
         }
+        // Taken before `dismiss`, which lets go of a preload nobody chose.
+        let preloaded = session.topHit.take(result.url, inSpace: session.activeSpaceID)
         // Dismiss before acting: the action can move first responder, focus the
         // page or open a window, and none of that should happen underneath a
         // panel that is still on screen.
         dismiss()
-        perform(result.action)
+        perform(result.action, preloaded: preloaded)
     }
 
-    private func perform(_ action: CommandBarAction) {
+    private func perform(_ action: CommandBarAction, preloaded: TabController? = nil) {
         switch action {
         case let .activateTab(id):
             activateTab(id)
@@ -442,12 +447,11 @@ final class CommandBarController: NSObject, CommandBarInputDelegate, WindowScope
             // §9.1: `⌘L` and a pill both edit this tab's address; only `⌘T`
             // asks for a new one. A new tab is the only sensible answer when
             // there is no tab to edit.
-            if mode.opensNewTab {
-                _ = session.newTab(url: url, kind: .today)
-            } else if let id = activeTabID, let controller = session.controller(for: id) {
+            if !mode.opensNewTab, let id = activeTabID, let controller = session.controller(for: id) {
+                preloaded?.hibernate()
                 controller.load(url)
             } else {
-                _ = session.newTab(url: url, kind: .today)
+                _ = session.newTab(url: url, kind: .today, adopting: preloaded)
             }
         case .unarchiveTab, .command, .runCommand, .openSettings:
             onExternalAction?(action)
@@ -500,5 +504,37 @@ extension CommandBarController {
     fileprivate func stopWatchingForSecondClick() {
         if let secondClickMonitor { NSEvent.removeMonitor(secondClickMonitor) }
         secondClickMonitor = nil
+    }
+}
+
+// MARK: - The new tab, started before Return
+
+extension CommandBarController {
+
+    /// A new tab is a Return away: its web view can be starting now.
+    fileprivate func prepareNewTab() {
+        WebViewFactory.prepareSpare(
+            dataStore: session.dataStore(forSpace: activeSpaceID),
+            webExtensionController: session.extensionController(forSpace: activeSpaceID)
+        )
+    }
+
+    /// Hands the session the page Return would open, when it is a site the
+    /// user has been to and the field is completing its address — the one
+    /// guess good enough to spend a load on (`TopHitPreload`). The loading
+    /// itself is the session's: nothing in the bar touches the network.
+    fileprivate func preloadTopHit() {
+        guard mode.opensNewTab || activeTabID == nil,
+              let top = resultsView.results.first, top.id == resultsView.selectedID,
+              top.source == .history || top.source == .adaptive,
+              case let .open(url) = top.action,
+              let typed = panel?.field.typedText,
+              CommandBarRanking.autofill(query: typed, results: [top]) != nil
+        else {
+            session.topHit.cancel()
+            return
+        }
+        let page = contentRegion?().size ?? panel?.window?.contentView?.bounds.size ?? .zero
+        session.topHit.want(url, inSpace: activeSpaceID, size: page, session: session)
     }
 }

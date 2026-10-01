@@ -247,6 +247,8 @@ final class BrowserSession {
         set { windowFocus[keyWindowID, default: WindowFocus(spaceID: lastUsedSpaceID)].tabBySpace = newValue }
     }
     var controllers: [UUID: TabController] = [:]
+    /// The command bar's top hit, loading before Return is pressed.
+    let topHit = TopHitPreload()
     /// Most-recently-used first. Drives §19.2's "keep the active tab + last N".
     var recentTabs: [UUID] = []
     var faviconPNG: [UUID: Data] = [:]
@@ -307,9 +309,9 @@ final class BrowserSession {
     /// Serialises tab writes — see `enqueue` in `BrowserSession+Tabs.swift`.
     var writeChain: Task<Void, Never>?
 
-    /// §19.2: the active tab plus the last three. Anything playing audio is
-    /// exempt as well, checked live.
-    static let liveTabBudget = 4
+    /// §19.2: the active tab plus the last seven — `HibernationPolicy` has
+    /// why eight. Anything playing audio is exempt as well, checked live.
+    static let liveTabBudget = 8
     private static let activeSpaceKey = "luna.activeSpaceID"
     /// What a tab with no URL of its own opens, which is only a popup —
     /// `window.open()` with nothing to open. `about:blank` is what the web

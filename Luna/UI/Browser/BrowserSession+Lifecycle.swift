@@ -30,6 +30,7 @@
 
 import AppKit
 import BrowserKit
+import UniformTypeIdentifiers
 import WebKit
 
 extension BrowserSession {
@@ -42,6 +43,7 @@ extension BrowserSession {
     /// profile lifecycle.
     func installLifecycle() {
         TabLifecycle.install(in: self)
+        WebViewFactory.keepsSpare = true
         sweepOrphanedProfileStores()
     }
 }
@@ -63,7 +65,7 @@ final class TabLifecycle {
     /// calls when a new web view is created. A no-op until the pass is
     /// installed, which `AppDelegate` does before the first tab exists.
     static func enforceBudget(in session: BrowserSession) {
-        installed[ObjectIdentifier(session)]?.sweep(underMemoryPressure: false)
+        installed[ObjectIdentifier(session)]?.sweep(pressure: .normal)
     }
 
     /// The tab's last §6.8 snapshot, for the `⌃⇥` switcher. Nil before the
@@ -114,6 +116,8 @@ final class TabLifecycle {
     private var instrumented: Set<ObjectIdentifier> = []
     /// Which tab the last snapshot-on-blur was taken against.
     private var lastActiveID: UUID?
+    /// When each tab was last left, which is where its idleness starts.
+    private var leftAt: [UUID: Date] = [:]
     private var lastPurge = Date.distantPast
 
     static let formMessageName = "lunaForm"
@@ -134,20 +138,20 @@ final class TabLifecycle {
         // `[weak self]`: the timer retains its block, so a strong capture would
         // be a cycle that outlives the window.
         let timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.sweep(underMemoryPressure: false) }
+            MainActor.assumeIsolated { self?.sweep(pressure: .normal) }
         }
         // §19.6: a timer that insists on an exact fire time is a timer that
         // wakes an idle Mac. This one has no deadline worth defending.
         timer.tolerance = 30
         self.timer = timer
 
-        // §19.2: under pressure, do not wait for the 5-minute threshold.
+        // §19.2: under pressure, do not wait for the idle threshold.
         let source = DispatchSource.makeMemoryPressureSource(eventMask: [.warning, .critical], queue: .main)
         source.setEventHandler { [weak self] in
             MainActor.assumeIsolated {
                 guard let self else { return }
                 let critical = source.data.contains(.critical)
-                self.sweep(underMemoryPressure: true, skipSnapshots: critical)
+                self.sweep(pressure: critical ? .critical : .warning, skipSnapshots: critical)
             }
         }
         source.resume()
@@ -156,9 +160,10 @@ final class TabLifecycle {
 
     // MARK: - The sweep
 
-    func sweep(underMemoryPressure: Bool, skipSnapshots: Bool = false) {
+    func sweep(pressure: MemoryPressure, skipSnapshots: Bool = false) {
         guard let session else { return }
         let now = Date()
+        if pressure != .normal { WebViewFactory.dropSpare() }
 
         let live = liveActivity()
         let doomed = policy.tabsToHibernate(
@@ -166,7 +171,7 @@ final class TabLifecycle {
             mru: session.recentTabs,
             activeID: session.activeTabID,
             now: now,
-            underMemoryPressure: underMemoryPressure
+            pressure: pressure
         )
         for id in doomed {
             if skipSnapshots {
@@ -192,7 +197,7 @@ final class TabLifecycle {
             guard controller.webView != nil, let tab = session.tab(id) else { return nil }
             return TabActivity(
                 id: id,
-                lastActiveAt: tab.lastActiveAt,
+                lastActiveAt: max(tab.lastActiveAt, leftAt[id] ?? .distantPast),
                 isAudible: controller.state.isPlayingAudio,
                 hasUnsavedInput: dirtyTabIDs.contains(id)
             )
@@ -212,6 +217,7 @@ final class TabLifecycle {
         controller.hibernate()
         session.cacheSession(of: controller)
         dirtyTabIDs.remove(id)
+        leftAt[id] = nil
     }
 
     // MARK: - §6.3 auto-archive
@@ -284,16 +290,24 @@ final class TabLifecycle {
         let snapshots = snapshots
         Task {
             let image = try? await webView.takeSnapshot(configuration: configuration)
-            if let png = image.flatMap(Self.pngData) {
+            // Encoded off the main thread: this runs as the next tab starts
+            // loading, and WebKit's first navigation callback for it waits on
+            // the main thread.
+            if let cgImage = image?.cgImage(forProposedRect: nil, context: nil, hints: nil),
+               let png = await Self.pngData(cgImage) {
                 await snapshots.store(png, for: id)
             }
             then?()
         }
     }
 
-    private static func pngData(_ image: NSImage) -> Data? {
-        guard let tiff = image.tiffRepresentation, let bitmap = NSBitmapImageRep(data: tiff) else { return nil }
-        return bitmap.representation(using: .png, properties: [:])
+    @concurrent
+    private static func pngData(_ image: CGImage) async -> Data? {
+        let data = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(data, UTType.png.identifier as CFString, 1, nil)
+        else { return nil }
+        CGImageDestinationAddImage(destination, image, nil)
+        return CGImageDestinationFinalize(destination) ? data as Data : nil
     }
 
     // MARK: - Selection changes
@@ -305,7 +319,10 @@ final class TabLifecycle {
         guard active != lastActiveID else { return }
         // §6.8: "on blur". The outgoing tab is still live at this point, which
         // is the only moment its snapshot is cheap and possible.
-        if let previous = lastActiveID { captureSnapshot(of: previous) }
+        if let previous = lastActiveID {
+            leftAt[previous] = Date()
+            captureSnapshot(of: previous)
+        }
         lastActiveID = active
     }
 

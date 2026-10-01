@@ -452,6 +452,49 @@ which buys a jump-free slide at the cost of showing a stale page during it.
 - The lifecycle sweep is a single 60 s `Timer` with **30 s tolerance**, so it coalesces
   with other wake-ups instead of demanding one of its own.
 
+## Page loads: what a WebKit browser can still start early
+
+Measured 2026-10-01 on an Apple M1 Pro, macOS 27.0, against the real web, with a
+throwaway harness that builds every web view from `WebViewFactory` and gives each round a
+fresh `nonPersistent()` store. Medians of 7 to 11 rounds, arms rotated per round.
+
+**Luna's own stack is not the cost.** On local pages its configuration, scripts and
+observers add about 7 ms to a load (the `page` scenario above).
+
+**What did nothing in a `WKWebView`:**
+
+- **`<link rel=preconnect>`** 250 ms before navigating, standing in for a pointer resting on
+  a link: commit within noise of no preconnect on Wikipedia, BBC, Hacker News and GitHub.
+- **Speculation rules.** `HTMLScriptElement.supports('speculationrules')` answers `true`,
+  but neither `prefetch` nor `prerender` changed the next click: Wikipedia 268 → 247 ms,
+  BBC 204 → 198 ms, MDN 75 → 102 ms. `relList.supports('prefetch')` is `false`.
+
+**What works:**
+
+Return to loaded, in ms:
+
+| Page | Cold | Preloaded at page size | Preloaded at no size |
+|---|---|---|---|
+| Wikipedia, WebKit | 360 | 3 | 1,758 |
+| Wikipedia, Safari | 383 | 6 | 19,219 |
+| Apple | 548 | 3 | 3 |
+| The Verge | 1,841 | 1,128 | 1,151 |
+| BBC (earlier run) | 513 | — | 5 |
+| GitHub (earlier run) | 349 | — | 5 |
+
+- **Loading the command bar's top hit before Return** (`TopHitPreload`), started 0.6 s
+  before Return, as typing gives it. **It has to load at the size it will be shown at**:
+  a zero-size web view stalls some sites (the Wikipedia rows above). Its
+  `inactiveSchedulingPolicy` made no difference either way.
+- **One spare web view** (`WebViewFactory+Spare`) that has loaded an empty document:
+  commit 20–35 ms sooner, finish 25–60 ms sooner (Wikipedia, The Verge, BBC, Apple). A
+  view that is built but loads nothing gained nothing, and was slower on three of four
+  sites. The empty document leaves no back-list entry.
+
+**Tab switching.** A hibernated tab reloads its page, so §19.2's budget went from 4 live tabs
+to 8 and its idle threshold from 5 to 30 minutes, measured from when the tab was left. At
+the 808 MB measured for 6 live tabs, eight is about 1.1 GB, inside §19.1's 3.5 GB.
+
 ## Corrections to §19
 
 - **§19.1 states its memory budget in RSS.** RSS is the wrong unit for a multi-process
