@@ -211,6 +211,7 @@ final class SidebarGroupPlateTests: XCTestCase {
         let foot = plate.maxY - (lastPill.midY + Tokens.Metric.faviconSize / 2)
         XCTAssertEqual(head, foot, accuracy: 2.01, "head \(head), foot \(foot)")
         XCTAssertEqual(plate.maxY - lastPill.maxY, Tokens.Metric.groupPlateFoot, accuracy: 0.01)
+        XCTAssertEqual(plate.maxX - lastPill.maxX, plate.maxY - lastPill.maxY, accuracy: 0.01, "the side is not the foot")
         let next = try XCTUnwrap(controller.list.row(ofGroup: work.id))
         XCTAssertEqual(plate.maxY, controller.table.rect(ofRow: next).minY - Tokens.Metric.tabRowPillInset, accuracy: 0.01)
         XCTAssertLessThan(plate.maxY, controller.pillBox(ofRow: next).minY, "the plate lies under the next pill")

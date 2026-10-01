@@ -230,18 +230,17 @@ extension Tokens {
         /// and 10 pt is still twice `dragThreshold` for the boundary above it.
         static let groupDropEdge: CGFloat = 10
         /// How much sooner a tab inside a §3.4b folder ends its pill, and so
-        /// its trailing glyphs, than a loose tab: `rowInset`, the room a loose
-        /// tab keeps from the column's edge, so a folder's tab stands off the
-        /// folder's plate exactly as a loose one stands off the sidebar. Not
-        /// 4 pt, Dia's gap round its row highlights: next to the column's own 8
-        /// the lit tab looks pressed against the plate. The leading side
+        /// its trailing glyphs, than a loose tab: `groupPlateFoot`, so a
+        /// folder's tab stands as far off the plate's side as its last tab
+        /// stands off the plate's foot. It was the column's own 8, which with
+        /// the 4 pt foot left the side twice the bottom. The leading side
         /// already stands `groupIndent` in.
         ///
         /// The plate itself stands no further out than the pills it holds: a
-        /// folded folder's plate is exactly a tab's hover pill. Grown past
-        /// them by this much on every side, it reads as a heavier, taller
-        /// block than the row it is lighting.
-        static let groupMemberTrailingInset = rowInset
+        /// folded folder's plate is a tab's hover pill. Grown past them by
+        /// this much on every side, it reads as a heavier, taller block than
+        /// the row it is lighting.
+        static let groupMemberTrailingInset = groupPlateFoot
         /// A §3.4b folder's own row: a tab row and 4 pt more, so its plate is
         /// 39 tall against a tab pill's 35.
         ///
@@ -251,11 +250,12 @@ extension Tokens {
         /// as deep at the foot as at the head. The 4 pt goes to the header, so
         /// folding still moves only the plate's bottom edge.
         static let groupHeaderRowHeight = tabRowHeight + 4
-        /// How far the plate reaches below the last tab's pill. With the
-        /// favicon's own 9.5 it leaves 13.5 under the last tab's icon, against
-        /// the 11.5 the taller header leaves over the folder's: the same room
-        /// at both ends, give or take the icons' sizes. It was the 8 at the
-        /// tab's side, which left the foot twice the head.
+        /// How far the plate reaches below the last tab's pill, and beside a
+        /// folder's tabs (`groupMemberTrailingInset`). With the favicon's own
+        /// 9.5 it leaves 13.5 under the last tab's icon, against the 11.5 the
+        /// taller header leaves over the folder's: the same room at both ends,
+        /// give or take the icons' sizes. It was 8, which left the foot twice
+        /// the head.
         static let groupPlateFoot: CGFloat = 4
         /// The room an open, non-empty §3.4b folder leaves under its last tab.
         ///
