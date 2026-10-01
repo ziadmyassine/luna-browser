@@ -617,11 +617,11 @@ extension TabController {
         }
     }
 
-    /// §17.4's count, from `ContentBlocker`'s page script. A heuristic by
-    /// necessity: WebKit exposes no blocked-load callback.
+    /// §17.4's count, from `ContentBlocker`'s page script, one load at a time. A
+    /// heuristic by necessity: WebKit exposes no blocked-load callback.
     func handleBlockedMessage(_ message: WKScriptMessage) {
-        guard let body = message.body as? [String: Any], let count = body["count"] as? Int else { return }
-        ContentBlocker.shared.setBlockedCount(count, tab: id)
+        guard let body = message.body as? [String: Any], let address = body["url"] as? String else { return }
+        ContentBlocker.shared.noteBlockedLoad(host: URL(string: address)?.host(percentEncoded: false), tab: id)
     }
 
     /// §17.2's YouTube script, reporting its running total. Main frame only: on a watch

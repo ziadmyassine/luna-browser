@@ -560,6 +560,7 @@ Three bands, top to bottom:
 | Local Network — switch | **per site**, default off | `SitePermissions` → a `WKContentRuleList` that refuses private-network loads |
 | Camera, Microphone, Location, Clipboard — switches | **per site, per Space**; shown only once the site has been answered | `SitePermissions`; the camera's toast asks first (§17.8, and §18.8 for a page reading the clipboard) |
 | User Agent — popup: Default · Luna · Safari · Chrome · Custom | **per site**, every Space; Default follows Settings ▸ Advanced | `SitePermissions.userAgentMode` → `WKWebView.customUserAgent`, set in `decidePolicyFor` so the page's own request carries it; choosing reloads. The one control row in the switches' band (`SiteSettingsContent.toggleControls`), Settings' bare `NSPopUpButton` |
+| "12 blocked on this page" — a band of one row, only when blocking is on here and caught something | page, reset by each new page | `ContentBlocker.blockedCount(tab:)`, §17.4's heuristic. Choosing it puts the sites up in the same pop-out (`blockedHosts(tab:)`), most often blocked first, eight at most and a row for the rest. Nothing on the address pill |
 | Share… | page | `NSSharingServicePicker.show(relativeTo:of:preferredEdge:)`, from the sliders glyph |
 | Copy Link | page | `NSPasteboard` — URL **and** string, so a plain text field gets the address |
 | Clear Cache / Clear Cookies | **per site** | `WKWebsiteDataStore.dataRecords`, filtered to this site's registrable domain |

@@ -71,7 +71,10 @@ public final class ContentBlocker {
     /// `localNetworkList` is: the code that fills it lives in
     /// `ContentBlockerYouTube.swift` and `private` is file-scoped.
     var youTubeList: WKContentRuleList?
-    private var blockedCounts: [UUID: Int] = [:]
+    /// §17.4's blocked loads per tab, by host: what the site pop-out counts and lists.
+    /// By host rather than by address, so a page that keeps loading ads keeps a map the
+    /// size of its ad networks rather than of its scroll.
+    private var blockedLoads: [UUID: [String: Int]] = [:]
     /// §17.2's YouTube ads, counted separately from the heuristic above because they are
     /// not failed loads and there is nothing heuristic about them — the page says it
     /// dropped an ad schedule or seeked past an ad, and that is a fact.
@@ -464,28 +467,42 @@ extension ContentBlocker {
     ///
     /// It is a heuristic, and it is the honest ceiling of the public API.
     /// ponytail: heuristic count; replace if WebKit ever ships a real blocked-load callback.
+    ///
+    /// One message per blocked load, from every frame, each naming its address: the tab
+    /// adds them up, since a running total per frame would have frames overwriting one
+    /// another.
     public static let blockedCountScript = """
     (function () {
-      var seen = 0;
       document.addEventListener('error', function (event) {
         var target = event.target;
         if (!target || !target.src) { return; }
         var source = target.src;
         setTimeout(function () {
           if (performance.getEntriesByName(source).length > 0) { return; }
-          seen++;
           var handler = window.webkit && window.webkit.messageHandlers
             && window.webkit.messageHandlers.lunaBlocked;
-          if (handler) { handler.postMessage({ count: seen, url: source }); }
+          if (handler) { handler.postMessage({ url: source }); }
         }, 0);
       }, true);
     })();
     """
 
-    public func blockedCount(tab: UUID) -> Int { (blockedCounts[tab] ?? 0) + (youTubeCounts[tab] ?? 0) }
+    public func blockedCount(tab: UUID) -> Int {
+        (blockedLoads[tab]?.values.reduce(0, +) ?? 0) + (youTubeCounts[tab] ?? 0)
+    }
 
-    /// Call with the running total the page reports; it resets itself on navigation.
-    public func setBlockedCount(_ count: Int, tab: UUID) { blockedCounts[tab] = count }
+    /// The hosts blocked in this tab's page, most often blocked first. The YouTube
+    /// script's ads are not loads, and a report with no host has none to show, so both
+    /// are in the count only.
+    public func blockedHosts(tab: UUID) -> [(host: String, count: Int)] {
+        (blockedLoads[tab] ?? [:]).filter { !$0.key.isEmpty }.map { (host: $0.key, count: $0.value) }
+            .sorted { $0.count != $1.count ? $0.count > $1.count : $0.host < $1.host }
+    }
+
+    /// One load the page reports blocked.
+    public func noteBlockedLoad(host: String?, tab: UUID) {
+        blockedLoads[tab, default: [:]][host ?? "", default: 0] += 1
+    }
 
     /// The same contract as ``setBlockedCount(_:tab:)``, for §17.2's YouTube script.
     /// Summed into ``blockedCount(tab:)`` rather than folded into the same slot, because
@@ -494,12 +511,12 @@ extension ContentBlocker {
     public func setYouTubeBlockedCount(_ count: Int, tab: UUID) { youTubeCounts[tab] = count }
 
     public func resetBlockedCount(tab: UUID) {
-        blockedCounts[tab] = 0
+        blockedLoads[tab] = nil
         youTubeCounts[tab] = 0
     }
 
     public func forgetTab(_ tab: UUID) {
-        blockedCounts[tab] = nil
+        blockedLoads[tab] = nil
         youTubeCounts[tab] = nil
     }
 }

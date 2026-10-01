@@ -64,7 +64,11 @@ enum SiteMenu {
         content.toggles = toggles(host: page.host)
         content.toggleControls = [userAgent(host: page.host)]
         let blocked = session?.activeTabID.flatMap { session?.controller(for: $0) }?.popups.blocked ?? []
+        let caught = session?.activeTabID.map {
+            blockedLine(tab: $0, host: page.host, scope: session?.sitePermissions ?? .shared, from: anchor)
+        } ?? []
         content.actions = [
+            caught,
             blockedBand(blocked) { url in session?.newTab(url: url) },
             pageTools(),
             [share(page.url, from: anchor), copyLink(page.url)],
@@ -339,6 +343,8 @@ enum SiteMenu {
         static let share = "square.and.arrow.up"
         static let link = "link"
         static let blocking = "hand.raised"
+        /// §17.4's count of what was blocked, and each site in its list.
+        static let blocked = "nosign"
         static let pictureInPicture = "pip"
         static let localNetwork = "network"
         static let popups = "macwindow.on.rectangle"
@@ -363,7 +369,7 @@ enum SiteMenu {
         static let site = SidebarRowContent.siteFallbackSymbol
 
         static let all = [
-            share, link, blocking, pictureInPicture, localNetwork, popups, camera, microphone, location, clipboard, userAgent,
+            share, link, blocking, blocked, pictureInPicture, localNetwork, popups, camera, microphone, location, clipboard, userAgent,
             blockedPopup, cache, cookies, reader, hide, advanced, secure, insecure, site
         ]
     }

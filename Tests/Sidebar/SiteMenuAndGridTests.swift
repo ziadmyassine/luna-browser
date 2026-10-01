@@ -237,3 +237,41 @@ final class SiteMenuMoreSettingsTests: XCTestCase {
         XCTAssertEqual(SettingsSectionRegistry.index(ofID: SiteMenu.moreSettingsSection), privacy)
     }
 }
+
+/// §17.4: one line of the pop-out says how much was blocked on the page, and
+/// behind it the sites, most often blocked first, a few at most.
+@MainActor
+final class SiteMenuBlockedTests: XCTestCase {
+
+    func testTheLineSaysHowManyInPlainWords() {
+        XCTAssertEqual(SiteMenu.blockedTitle(1), "1 blocked on this page")
+        XCTAssertEqual(SiteMenu.blockedTitle(12), "12 blocked on this page")
+    }
+
+    func testTheLineIsThereOnlyWhenSomethingWasBlockedAndBlockingIsOn() {
+        let anchor = NSView()
+        let scope = SitePermissions.scope(for: .nonPersistent())
+        let tab = UUID()
+        defer { ContentBlocker.shared.forgetTab(tab) }
+        XCTAssertTrue(SiteMenu.blockedLine(tab: tab, host: "news.example", scope: scope, from: anchor).isEmpty)
+
+        ContentBlocker.shared.noteBlockedLoad(host: "ads.example", tab: tab)
+        XCTAssertEqual(
+            SiteMenu.blockedLine(tab: tab, host: "news.example", scope: scope, from: anchor).map(\.title),
+            ["1 blocked on this page"]
+        )
+
+        ContentBlocker.shared.setDisabled(true, forHost: "news.example", in: scope)
+        XCTAssertTrue(SiteMenu.blockedLine(tab: tab, host: "news.example", scope: scope, from: anchor).isEmpty)
+    }
+
+    func testTheListShowsTheMostBlockedSitesAndHowManyMore() {
+        let hosts = (1 ... 10).map { (host: "ads\($0).example", count: 11 - $0) }
+        let list = SiteMenu.blockedList(count: 55, hosts: hosts)
+        XCTAssertEqual(list.heading, "55 blocked on this page")
+        let rows = list.actions.flatMap { $0 }.map(\.title)
+        XCTAssertEqual(rows.count, SiteMenu.blockedHostLimit + 1)
+        XCTAssertEqual(rows.first, "ads1.example · 10")
+        XCTAssertEqual(rows.last, "2 more sites")
+    }
+}
