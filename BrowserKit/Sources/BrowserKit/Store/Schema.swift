@@ -213,14 +213,13 @@ enum Schema {
         try db.execute(sql: "CREATE INDEX IF NOT EXISTS tabs_on_groupID ON tabs(groupID)")
     }
 
-    /// `v5` — a profile carries the picture the user gave it (§9).
+    /// `v5` — a profile carried a picture the user gave it.
     ///
-    /// One nullable blob and no backfill: nil means "no picture", which is true
-    /// of every profile that existed before the column did, and the glyph on
-    /// §3.5's avatar is what nil draws. The bytes are what the sidebar shows
-    /// rather than what the user picked — the app crops to a square and
-    /// downsamples before it gets here — so a row stays tens of kilobytes and
-    /// the picture cannot outlive the profile it belongs to.
+    /// Pictures are gone from the app, and nothing reads or writes the column
+    /// any more — here, or on `spaces`, where `v7` copied it. It stays rather
+    /// than going by a table rebuild: a column nobody reads costs nothing, and
+    /// `spaces` cannot drop it while `v12`'s sync trigger on an existing
+    /// database still names it.
     ///
     /// Idempotent on the live schema, like every migration here.
     static func letTheUserPictureAProfile(_ db: Database) throws {

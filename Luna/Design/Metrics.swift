@@ -111,7 +111,7 @@ extension Tokens {
         /// The minimum is arithmetic. The sidebar's two 52 pt rows are the
         /// widest things in it, and both stop fitting well before the list does:
         ///
-        ///     §3.5, foot   inset 8 + avatar 34 + gap 8 + dots 56 + gap 8
+        ///     §3.5, foot   inset 8 + Space pill 34 + gap 8 + dots 56 + gap 8
         ///                  + the 68 pt Downloads/History cylinder + inset 8 = 190
         ///     §3.1, head   lights 18+60 + gap 16 + toggle 34 = 128, and the
         ///                  history cluster starts at W − (8 + 34 + 5 + 68);
@@ -410,7 +410,7 @@ extension Tokens {
         /// (52 px left, 51.5 px top) and unequal padding into a corner is the
         /// first thing the eye catches.
         static let trafficLightInset: CGFloat = 18
-        /// Profile avatar and archive: 34 pt circles.
+        /// §3.5's foot: the Space pill's height, and the Downloads and History circles.
         static let bottomCircle = RoundedMetric.circle(34)
         /// The Space switcher (§3.5): 22 tall, radius 11.
         ///

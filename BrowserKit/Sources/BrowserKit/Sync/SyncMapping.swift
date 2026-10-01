@@ -129,8 +129,7 @@ public enum SyncMapping {
             "position": plain(.int(Int64(space.order))),
             "name": secret(.string(space.name)),
             "symbolName": secret(.string(space.symbolName)),
-            "gradient": secret(json(space.gradient).flatMap { String(bytes: $0, encoding: .utf8) }.map { .string($0) }),
-            "image": secret(space.imageData.map { .bytes($0) })
+            "gradient": secret(json(space.gradient).flatMap { String(bytes: $0, encoding: .utf8) }.map { .string($0) })
         ])
     }
 
@@ -142,7 +141,7 @@ public enum SyncMapping {
         else { return nil }
         return Space(
             id: id, name: name, symbolName: symbolName, gradient: gradient,
-            imageData: bytes(record["image"]), order: int(record["position"]) ?? 0
+            order: int(record["position"]) ?? 0
         )
     }
 

@@ -20,7 +20,6 @@ struct SyncMappingTests {
         #expect(back.name == space.name)
         #expect(back.symbolName == space.symbolName)
         #expect(back.gradient == space.gradient)
-        #expect(back.imageData == space.imageData)
         #expect(back.order == space.order)
     }
 
@@ -209,8 +208,7 @@ enum SyncSamples {
     static let spaceID = UUID()
 
     static let space = Space(
-        id: spaceID, name: "Work", symbolName: "briefcase", gradient: .defaultSpace,
-        imageData: Data([0x89, 0x50, 0x4E, 0x47]), order: 2
+        id: spaceID, name: "Work", symbolName: "briefcase", gradient: .defaultSpace, order: 2
     )
 
     static let group = TabGroup(spaceID: spaceID, name: "Reading", symbolName: "book", kind: .pinned, isCollapsed: true, order: 1)

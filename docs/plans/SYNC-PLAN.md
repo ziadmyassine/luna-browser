@@ -97,7 +97,7 @@ Work style: every step starts with a failing test, then the smallest code that p
   `WHEN (SELECT applyingRemote FROM syncControl) = 0 AND EXISTS (SELECT 1 FROM syncZones WHERE zone = '<zone>' AND enabled)`
 - Update triggers are `AFTER UPDATE OF <synced columns>` and also require `OLD.c IS NOT NEW.c` for at least one synced column, because GRDB's upsert sets every column.
 - Synced columns, which cause outbox rows:
-  - **spaces:** `name`, `symbolName`, `gradient`, `imageData`, `order`
+  - **spaces:** `name`, `symbolName`, `gradient`, `order`
   - **tabGroups:** `spaceID`, `name`, `symbolName`, `kind`, `order`
   - **tabs:** `spaceID`, `groupID`, `kind`, `order`, `archivedAt`, `url`, `title`, `customTitle`, `customSymbolName`, `pinnedURL`
   - **siteSettings:** every column except `updatedAt`
@@ -272,7 +272,7 @@ DEFINE SCHEMA
 | `HistoryEntry.visits` | JSON `[{spaceID, at, kind}]`: the newest 10 typed or bookmarked visits from this Mac only |
 | `Device.tabs` | JSON `[{spaceID, url, title}]`, at most 50; private, `about:blank` and `luna://` tabs are skipped |
 | `Space.gradient` | The JSON of `GradientPair` |
-| `Space.image` | The existing `imageData` bytes |
+| `Space.image` | Unused since Space pictures were removed: neither written nor read. A deployed field cannot be deleted, so it stays in the schema |
 
 **Import (Development only), then deploy by hand**
 ```

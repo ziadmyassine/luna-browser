@@ -253,14 +253,6 @@ public struct Space: Identifiable, Sendable, Hashable, Codable {
     /// Not a row of its own that several Spaces can point at: nothing in the product
     /// wanted the sharing and everything in it had to explain it (`v6`, §9).
     public var dataStoreIdentifier: UUID
-    /// The picture the user gave this Space, as PNG, or nil for none.
-    ///
-    /// In the row rather than beside it: a file on disk is a second thing to keep in
-    /// step with what it belongs to, and every operation here already knows how to keep
-    /// one row honest — deleting the Space deletes it, and nothing can leave an orphan
-    /// behind. It stays small because the app that writes it crops and downsamples
-    /// first; the column holds what is drawn, not what was chosen.
-    public var imageData: Data?
     public var order: Int
 
     public init(
@@ -269,7 +261,6 @@ public struct Space: Identifiable, Sendable, Hashable, Codable {
         symbolName: String,
         gradient: GradientPair,
         dataStoreIdentifier: UUID = UUID(),
-        imageData: Data? = nil,
         order: Int = 0
     ) {
         self.id = id
@@ -277,7 +268,6 @@ public struct Space: Identifiable, Sendable, Hashable, Codable {
         self.symbolName = symbolName
         self.gradient = gradient
         self.dataStoreIdentifier = dataStoreIdentifier
-        self.imageData = imageData
         self.order = order
     }
 }
@@ -316,7 +306,7 @@ public extension Space {
     /// Minting a new one loses nothing recoverable: a zero identifier addresses no store
     /// on disk, because nothing could ever have created one under it. Everything else
     /// about the Space — its `id`, which every tab references and which is the only one
-    /// §10 allows to sync, its name, its colour and its picture — survives. The user gets
+    /// §10 allows to sync, its name, its colour and its icon — survives. The user gets
     /// an empty cookie jar for that Space instead of a crash.
     func repairingDataStoreIdentifier() -> Space {
         guard !hasUsableDataStoreIdentifier else { return self }

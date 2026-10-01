@@ -1593,8 +1593,7 @@ all three on one bottom edge.
 
 > **The Space pill replaced the Profile avatar (2026-09-24).** It is the active Space's name in a capsule
 > of `.control` glass, `bottomCircle` tall — the same cylinder the Space has at the end of §4's bar — set
-> in `TypeScale.topBarSpaceName` with `sidebarSpacePillPad` either side. §9's picture, when the Space has
-> one, sits round in the capsule's leading end and the name follows it. The pill is sized to its whole
+> in `TypeScale.topBarSpaceName` with `sidebarSpacePillPad` either side. The pill is sized to its whole
 > name as §4's is, with the same `nameCeiling`, and is never narrower than one `bottomCircle`. The dots
 > stay centred while that leaves them room and move along when it does not; only a name that would leave
 > the dots no room at all fades, on `sidebarSpaceNameFade`. **Capping the pill at the centred dots was

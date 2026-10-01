@@ -15,8 +15,9 @@ struct SyncSchemaFileTests {
         var isEncrypted: Bool
     }
 
-    /// Declared but deliberately never written.
-    private static let reserved: Set = ["SiteSetting.zoom"]
+    /// Declared but deliberately never written. `Space.image` held Space pictures, which
+    /// are gone; Production cannot drop a field, so the declaration stays.
+    private static let reserved: Set = ["SiteSetting.zoom", "Space.image"]
 
     private static let schemaURL = URL(filePath: #filePath)
         .deletingLastPathComponent()   // BrowserKitTests

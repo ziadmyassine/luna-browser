@@ -4,7 +4,7 @@
 //
 //  docs/SETTINGS-SPEC.md §3.7, and SPACES-SPEC §6.2/§6.4: one card per Space,
 //  headed by that Space's own colour (`SpaceCardView`), holding its name,
-//  picture, position and deletion rows. Icon and gradient are behind the
+//  position and deletion rows. Icon and gradient are behind the
 //  card's corner button (`SpaceAppearanceView`).
 //
 //  This section is the only one that rebuilds itself: creating, renaming,
@@ -70,7 +70,6 @@ final class SpacesSection: SettingsSection {
                 SpaceCardView(
                     space: space,
                     subtitle: Self.fanOut(space, session: session),
-                    picture: ProfilePicture.image(from: space.imageData),
                     rows: rows.map(\.view),
                     onAppearance: { [weak self] anchor in
                         self?.editAppearance(of: space, from: anchor, session: session)
@@ -112,7 +111,6 @@ final class SpacesSection: SettingsSection {
     ) -> [(view: NSView, terms: [String])] {
         [
             nameRow(space, session: session),
-            pictureRow(space, session: session),
             positionRow(space, at: index, count: spaces.count, session: session),
             deleteRow(space, canDelete: spaces.count > 1)
         ]

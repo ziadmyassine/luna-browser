@@ -160,7 +160,7 @@ public enum SyncProbe {
     public static func records(inZone zoneName: String) -> [CKRecord] {
         let now = Date()
         let secret = SyncSecret.generate()
-        let space = Space(name: "Probe", symbolName: "moon", gradient: .defaultSpace, imageData: Data([0x89, 0x50]), order: 1)
+        let space = Space(name: "Probe", symbolName: "moon", gradient: .defaultSpace, order: 1)
         let group = TabGroup(spaceID: space.id, name: "Probe", symbolName: "folder", kind: .pinned, order: 1)
         let url = URL(string: "https://example.com/")!
         let tab = Tab(

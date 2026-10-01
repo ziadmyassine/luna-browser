@@ -3,7 +3,7 @@
 //  Luna
 //
 //  The Space half of the coordinator (spec §6): create, rename, reorder,
-//  re-icon, re-gradient, re-picture, delete — and the Favorites tier those
+//  re-icon, re-gradient, delete — and the Favorites tier those
 //  operations have to keep whole.
 //
 //  · Deleting a Space never destroys a tab. Its tabs are archived or adopted
@@ -147,15 +147,6 @@ extension BrowserSession {
 
     func setGradient(_ gradient: GradientPair, forSpace id: UUID) async throws {
         try await mutateSpace(id) { $0.gradient = gradient }
-    }
-
-    /// The picture §3.5's Space pill wears, or nil to take it off again.
-    ///
-    /// The bytes are already cropped and downsampled by the time they arrive —
-    /// see `ProfilePicture`, which is where a chosen file becomes something
-    /// worth persisting. This is the write, not the policy.
-    func setImage(_ data: Data?, forSpace id: UUID) async throws {
-        try await mutateSpace(id) { $0.imageData = data }
     }
 
     /// Moves a Space to `index` and renumbers the rest.

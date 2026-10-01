@@ -35,8 +35,8 @@ final class SidebarUtilityBar: NSView {
     /// §6.1 from the same menu, and from §30.9's swipe past the last Space.
     var onNewSpace: (() -> Void)?
 
-    /// §3.5's Space pill: the active Space's name, §9's picture when it has
-    /// one, and §9's fan-out on its tooltip. The dots say which Space by colour
+    /// §3.5's Space pill: the active Space's name, and §9's fan-out on its
+    /// tooltip. The dots say which Space by colour
     /// and position alone, so the name has to be somewhere in the column.
     let spacePill = SidebarSpacePill()
     /// The same two glyphs §4's capsule uses, in the same order, so the pair is
@@ -134,13 +134,12 @@ final class SidebarUtilityBar: NSView {
         )
     }
 
-    /// The active Space, on §3.5's pill: its picture, its name, and what its
-    /// own jar holds.
+    /// The active Space, on §3.5's pill: its name, and what its own jar holds.
     ///
     /// `fanOut` is the line Settings puts on the Space's card, so the two
     /// places that answer this question answer it in the same words.
-    func show(spaceName: String?, fanOut: String?, picture: Data? = nil) {
-        spacePill.show(name: spaceName, picture: ProfilePicture.image(from: picture))
+    func show(spaceName: String?, fanOut: String?) {
+        spacePill.show(name: spaceName)
         spacePill.button.setAccessibilityLabel(
             spaceName.map { String(localized: "Space: \($0)") } ?? String(localized: "Space")
         )

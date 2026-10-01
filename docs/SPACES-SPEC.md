@@ -467,21 +467,12 @@ Anything that does put two Spaces in one list in future owes D-S8 its label
 back, because the Space colour alone does not tell you whose cookies you are
 about to use.
 
-**A Profile can carry a picture, and §3.5's Space pill wears it.** A name in a
-tooltip is read; a face is recognised, which is the difference that matters for
-a control the user is glancing at rather than reading. It is set from the
-Profile's card in §6.2 and taken off from the same row.
-
-What is stored is not what was chosen. A picture arrives from a photo library
-at thousands of points and megabytes, and is drawn in a 26 pt circle at the end
-of the Space pill — so the
-app crops the middle square and downsamples to `ProfilePicture.side` (three
-times the circle) before anything is persisted, and the column holds the PNG
-that is drawn. Cropped rather than fitted, because a portrait letterboxed into
-a circle shows two bands of background where a face should be. It lives in the
-profile row (`v5`, nullable, no backfill) rather than in a file beside it: a
-file is a second thing to keep in step, and this way the picture cannot outlive
-the Profile or be left behind by a delete.
+**A Space has no picture.** Its name, colour and icon say which Space you are
+in. A picture could once be set on the Space's card and was worn on §3.5's
+Space pill; it was removed on 2026-10-01. The `imageData` column it was kept in
+(`v5`, copied onto `spaces` by `v7`) stays in the database unread, and the
+`image` field stays in the CloudKit schema unwritten, because a deployed field
+cannot be deleted.
 
 ---
 

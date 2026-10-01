@@ -5,8 +5,7 @@
 //  §3.5's Space pill: the active Space's name in a capsule of glass at the
 //  leading end of the sidebar's foot, the same cylinder §4's bar ends on
 //  (`TopBarSpaceCapsule`). The dots stand on their own in the middle of the
-//  foot, so here the pill is only the name, with §9's picture ahead of it when
-//  the Space has one.
+//  foot, so here the pill is only the name.
 //
 //  The capsule is a `GlassButton` stretched wide, so hover, press and focus are
 //  that button's. The name is drawn inside the button, so it swells with it.
@@ -29,8 +28,6 @@ final class SidebarSpacePill: NSView {
     /// the name. Internal for `SidebarSpacePillTests`.
     let clip = NSView()
     let label = NSTextField(labelWithString: "")
-    /// §9's picture, hidden when the Space has none. Internal for `ProfilePictureTests`.
-    let portrait = NSImageView()
     private let fadeMask = CAGradientLayer()
 
     override init(frame frameRect: NSRect) {
@@ -44,11 +41,6 @@ final class SidebarSpacePill: NSView {
         clip.addSubview(label)
         fadeMask.startPoint = CGPoint(x: 0, y: 0.5)
         fadeMask.endPoint = CGPoint(x: 1, y: 0.5)
-        portrait.imageScaling = .scaleProportionallyUpOrDown
-        portrait.wantsLayer = true
-        portrait.layer?.masksToBounds = true
-        portrait.isHidden = true
-        button.addSubview(portrait)
         button.addSubview(clip)
         addSubview(button)
         button.onInkChange = { [weak self] ink in self?.label.textColor = ink }
@@ -60,14 +52,12 @@ final class SidebarSpacePill: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
-    func show(name: String?, picture: NSImage?) {
+    func show(name: String?) {
         label.stringValue = name ?? ""
-        portrait.image = picture
-        portrait.isHidden = picture == nil
         needsLayout = true
     }
 
-    /// The whole name, its padding and the picture if there is one — sized
+    /// The whole name and its padding — sized
     /// the way §4's Space cylinder is, with the same ceiling on the name
     /// (`TopBarMetrics.nameCeiling`) — and never narrower than the circle this
     /// replaced: a one-letter name in a pill thinner than the Downloads button
@@ -75,20 +65,8 @@ final class SidebarSpacePill: NSView {
     var naturalWidth: CGFloat {
         let name = min(Self.textWidth(label.stringValue), TopBarMetrics.nameCeiling)
         let height = Tokens.Metric.bottomCircle.height
-        return max(ceil(nameLead + name + Tokens.Metric.sidebarSpacePillPad), height)
+        return max(ceil(2 * Tokens.Metric.sidebarSpacePillPad + name), height)
     }
-
-    /// Where the name starts: at the pill's padding, or after the picture.
-    /// The picture fills the circle at the pill's end, so the name starts
-    /// where that circle stops.
-    private var nameLead: CGFloat {
-        portrait.isHidden ? Tokens.Metric.sidebarSpacePillPad : Tokens.Metric.bottomCircle.height
-    }
-
-    /// The picture sits in the capsule's end the way a glyph sits in a circle
-    /// of glass: a ring of material round it, as thick as §4's capsule leaves
-    /// round its items (`TopBarMetrics.capsuleInset`).
-    private static var pictureInset: CGFloat { TopBarMetrics.capsuleInset }
 
     /// What the glyphs measure, which is not what the field reports: the cell
     /// keeps 2 pt of its own either side and `intrinsicContentSize` counts
@@ -113,18 +91,14 @@ final class SidebarSpacePill: NSView {
 
     private func placeContents() {
         button.frame = bounds
-        let inset = Self.pictureInset
-        let side = max(bounds.height - 2 * inset, 0)
-        portrait.frame = NSRect(x: inset, y: inset, width: side, height: side)
-        portrait.layer?.cornerRadius = side / 2
-
+        let lead = Tokens.Metric.sidebarSpacePillPad
         let natural = ceil(Self.textWidth(label.stringValue))
-        let room = max(bounds.width - nameLead - Tokens.Metric.sidebarSpacePillPad, 0)
+        let room = max(bounds.width - 2 * lead, 0)
         let shown = min(natural, room)
         // Centred in its room, which is the room exactly unless the pill is
         // held at its one-circle minimum around a short name.
         let box = NSRect(
-            x: nameLead + (room - shown) / 2,
+            x: lead + (room - shown) / 2,
             y: 0,
             width: shown,
             height: bounds.height
@@ -157,8 +131,8 @@ final class SidebarSpacePill: NSView {
         clip.layer?.mask = fadeMask
     }
 
-    /// The name and the picture are the button's face, not controls of their
-    /// own, so a press anywhere on the pill is the button's.
+    /// The name is the button's face, not a control of its own, so a press
+    /// anywhere on the pill is the button's.
     override func hitTest(_ point: NSPoint) -> NSView? {
         super.hitTest(point) == nil ? nil : button
     }

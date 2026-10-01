@@ -22,11 +22,11 @@ final class SpacesSectionTests: XCTestCase {
 
     // MARK: - Goal 12: nothing is dimmed for a missing method
 
-    /// Name, position and picture are live: none is dimmed with a reason
-    /// naming a call `BrowserSession` lacks (§30.4).
-    func testRenameReorderAndPictureAreAllLive() {
+    /// Name and position are live: neither is dimmed with a reason naming a
+    /// call `BrowserSession` lacks (§30.4).
+    func testRenameAndReorderAreLive() {
         let rows = Self.rowsForOneSpace()
-        for title in ["Name", "Position in the sidebar", "Picture"] {
+        for title in ["Name", "Position in the sidebar"] {
             let row = rows.first { $0.accessibilityLabel() == title || Self.title(of: $0) == title }
             XCTAssertNotNil(row, "no row titled “\(title)”")
             // `SettingsRowView.acceptsFirstResponder` is `!isEnabled`: §4 puts a
@@ -159,7 +159,7 @@ final class SpacesSectionTests: XCTestCase {
         let space = Self.space("Work")
         let terms = SpacesSection().spaceRows(space, at: 0, of: [space], session: nil)
             .flatMap(\.terms)
-        for word in ["picture", "profile picture", "cookies"] {
+        for word in ["cookies", "logins"] {
             XCTAssertTrue(terms.contains(word), "“\(word)” finds nothing: \(terms)")
         }
     }

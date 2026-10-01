@@ -11,7 +11,6 @@
 //
 
 import AppKit
-import BrowserKit
 import XCTest
 @testable import Luna
 
@@ -97,15 +96,5 @@ final class SettingsGroupingTests: XCTestCase {
             field.frame.height + Tokens.Metric.rowGap + picker.frame.height,
             accuracy: 0.5
         )
-    }
-
-    // MARK: - §6.2's card
-
-    /// §9's picture is a row on the Space's own card. It was a row on a
-    /// Profile's card until `v7` deleted the Profile and moved the column.
-    func testASpaceCardCarriesThePictureRow() {
-        let space = Space(name: "Personal", symbolName: "moon", gradient: .defaultSpace)
-        let rows = SpacesSection().spaceRows(space, at: 0, of: [space], session: nil)
-        XCTAssertTrue(rows.contains { $0.terms.contains("picture") }, "§9's picture row is missing")
     }
 }

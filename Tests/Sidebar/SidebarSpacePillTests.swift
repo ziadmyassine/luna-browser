@@ -140,4 +140,27 @@ final class SidebarSpacePillTests: XCTestCase {
             narrow.bounds.width - Tokens.Metric.sidebarSpacePillPad + 0.5
         )
     }
+
+    // MARK: - What it says
+
+    /// The control that took the Profile avatar's place says Space, in its
+    /// accessibility label, its tooltip and the header of its own menu.
+    func testThePillSaysSpaceRatherThanProfile() throws {
+        let bar = foot("Personal")
+        bar.show(spaceName: "Personal", fanOut: "3 Favorites")
+        let button = bar.spacePill.button
+        let label = try XCTUnwrap(button.accessibilityLabel())
+        let tip = try XCTUnwrap(button.toolTip)
+        for text in [label, tip] {
+            XCTAssertTrue(text.contains("Personal"), text)
+            XCTAssertFalse(text.lowercased().contains("profile"), text)
+        }
+        let space = Space(name: "Personal", symbolName: "person", gradient: .defaultSpace)
+        let panel = SpacePanel(frame: NSRect(x: 0, y: 0, width: 1000, height: 900), edge: .above, content: SpacePanelContent(
+            spaces: [space], activeID: space.id, switchTo: { _ in }, setGradient: { _, _ in }, edit: {}, new: {}
+        ))
+        let titles = panel.rows.compactMap { $0.accessibilityLabel() }
+        XCTAssertFalse(titles.contains { $0.lowercased().contains("profile") }, "\(titles)")
+        XCTAssertTrue(titles.contains { $0.contains("Edit “Personal”") }, "\(titles)")
+    }
 }

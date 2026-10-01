@@ -91,7 +91,7 @@ enum SyncSQL {
     private static let tracked = [
         Tracked(
             table: "spaces", recordType: "Space", zone: .spaces, key: byID,
-            synced: ["name", "symbolName", "gradient", "imageData", "order"]
+            synced: ["name", "symbolName", "gradient", "order"]
         ),
         Tracked(
             table: "tabGroups", recordType: "TabGroup", zone: .spaces, key: byID,

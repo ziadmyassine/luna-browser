@@ -264,7 +264,7 @@ account row (`SettingsAccountRow`), in the style of Raycast's:
 - **Its own rounded plate**, as wide as the search field above it,
   `settingsCardRow` tall, `rowCornerRadius` corners and a `Line.border`
   hairline.
-- **An avatar circle** (`bottomCircle`, the sidebar's own avatar size) holding
+- **An avatar circle** (`bottomCircle`, the sidebar foot's circle) holding
   the macOS login picture, read from the local OpenDirectory record
   (`kODAttributeTypeJPEGPhoto`). Without one, the initials of the first and
   last word of the name on `Accent.tint`. Contacts is never touched, so there

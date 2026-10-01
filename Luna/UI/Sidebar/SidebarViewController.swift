@@ -253,14 +253,12 @@ final class SidebarViewController: NSViewController, WindowScoped {
             replacing: switchingSpace
         )
         utility.show(spaces: session.spaces, activeSpaceID: activeSpaceID)
-        // §3.5's pill names the Space and wears its picture — the strip beside
-        // it identifies a Space by colour alone, and a name and a face are
-        // what a glance actually reads.
+        // §3.5's pill names the Space — the strip beside it identifies a Space
+        // by colour alone, and a name is what a glance actually reads.
         let active = session.space(activeSpaceID)
         utility.show(
             spaceName: active?.name,
-            fanOut: active.map { SpacesSection.fanOut($0, session: session) },
-            picture: active?.imageData
+            fanOut: active.map { SpacesSection.fanOut($0, session: session) }
         )
         refreshActiveTab()
         if makingSpace {

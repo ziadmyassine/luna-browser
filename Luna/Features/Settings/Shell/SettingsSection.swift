@@ -103,7 +103,7 @@ enum SettingsMetrics {
     static let sectionPillHeight = Tokens.Metric.rowPillHeight
 
     /// The account row above the list: a card row's height, holding the
-    /// sidebar's own avatar circle (`bottomCircle`) with the same margin on
+    /// sidebar foot's circle (`bottomCircle`) as its avatar, with the same margin on
     /// all four sides.
     static let accountRowHeight = Tokens.Metric.settingsCardRow
     static let accountAvatar = Tokens.Metric.bottomCircle.height
