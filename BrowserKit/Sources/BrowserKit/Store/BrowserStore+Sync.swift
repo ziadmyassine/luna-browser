@@ -279,13 +279,18 @@ private enum SyncApply {
     }
 
     /// The whole record, not a merge: a flag it leaves out is unset. The two blocking
-    /// flags are `NOT NULL`, so unset is 0 for them.
+    /// flags are `NOT NULL`, so unset is 0 for them. A record with no zoom was only ever
+    /// written by a Luna that did not keep one, and leaves this Mac's alone.
     private static func writeSite(_ record: SyncRecord, _ db: Database) throws -> Outcome {
         guard let site = SyncMapping.siteSetting(from: record) else { return .skipped }
         let flags = SyncSiteSetting.flags
-        let names = flags.map(\.0)
-        let values: [(any DatabaseValueConvertible)?] = flags.map { name, path in
+        var names = flags.map(\.0)
+        var values: [(any DatabaseValueConvertible)?] = flags.map { name, path in
             site[keyPath: path] ?? (SyncSiteSetting.followTheNewerRecord.contains(name) ? false : nil)
+        }
+        if let zoom = site.zoom {
+            names.append("zoom")
+            values.append(zoom)
         }
         try db.execute(
             sql: """

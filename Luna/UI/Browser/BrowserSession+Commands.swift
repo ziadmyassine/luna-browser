@@ -51,16 +51,12 @@ extension BrowserSession {
     /// they have already decided.
     static let zoomLevels: [CGFloat] = [0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3]
 
-    /// Not persisted. Zoom lives on the `WKWebView`, so it survives as long as
-    /// the tab stays awake and is lost when §19.2 hibernates it. Per-site zoom
-    /// is a stored preference with its own row in Settings and its own rules
-    /// about which of a site's subdomains it covers; quietly remembering the
-    /// number here would do the hard half of that feature invisibly.
     var pageZoom: CGFloat {
         activeController?.webView?.pageZoom ?? 1
     }
 
-    /// Moves `steps` rungs up or down the ladder from wherever the page is now.
+    /// Moves `steps` rungs up or down the ladder from wherever the page is now,
+    /// and keeps the new zoom for the site (§18.2).
     func zoomPage(by steps: Int) {
         guard let webView = activeController?.webView else { return }
         let levels = Self.zoomLevels
@@ -71,14 +67,31 @@ extension BrowserSession {
         let nearest = levels.indices.min { abs(levels[$0] - current) < abs(levels[$1] - current) } ?? 0
         let next = min(max(nearest + steps, 0), levels.count - 1)
         guard levels[next] != current else { return }
-        webView.pageZoom = levels[next]
-        PageToast.zoom(levels[next]).show(in: hostWindow)
+        setSiteZoom(levels[next])
     }
 
+    /// Actual Size: back to 100 %, and the site forgets its zoom.
     func resetPageZoom() {
-        guard let webView = activeController?.webView else { return }
-        webView.pageZoom = 1
-        PageToast.zoom(1).show(in: hostWindow)
+        setSiteZoom(1)
+    }
+
+    /// The zoom goes to every open tab on the same site, not only the one in
+    /// front, so two tabs of one site never disagree about its size. A page
+    /// with no host is zoomed but has no site to keep it for.
+    private func setSiteZoom(_ zoom: CGFloat) {
+        guard let controller = activeController, let webView = controller.webView else { return }
+        let host = webView.url?.host(percentEncoded: false).flatMap { $0.isEmpty ? nil : $0 }
+        webView.pageZoom = zoom
+        if let host {
+            controller.sitePermissions.setZoom(Double(zoom), forHost: host)
+            for tab in allTabs(includeArchived: false) {
+                guard let other = self.controller(for: tab.id), other !== controller,
+                      other.webView?.url?.host(percentEncoded: false) == host
+                else { continue }
+                other.applySiteZoom()
+            }
+        }
+        PageToast.zoom(zoom, host: host).show(in: hostWindow)
     }
 
     var canZoom: Bool { activeController?.webView != nil }

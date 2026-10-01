@@ -57,8 +57,10 @@ public enum SyncMerge {
 
     /// Field by field: a permission the local record leaves out is unset and never clears
     /// the server's. The two blocking flags are always written and go with the newer record.
+    /// `zoom` goes with the newer record too, unless that record has none: one written by
+    /// an older Luna, which never sets it.
     private static func siteSetting(_ local: SyncRecord, over server: SyncRecord, serverIsNewer: Bool) -> Outcome {
-        let flags = Set(SyncSiteSetting.flags.map(\.0))
+        let flags = Set(SyncSiteSetting.flags.map(\.0) + ["zoom"])
         let taken = local.fields.filter { name, _ in
             guard flags.contains(name), serverIsNewer else { return true }
             return server.fields[name]?.value == nil && !SyncSiteSetting.followTheNewerRecord.contains(name)

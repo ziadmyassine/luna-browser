@@ -240,6 +240,7 @@ extension TabController: WKNavigationDelegate {
         // `didFinish` because the audio of an autoplaying page starts long before the
         // load settles (§3.4a).
         reapplyMute()
+        applySiteZoom()
         publishState()
     }
 

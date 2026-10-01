@@ -203,6 +203,7 @@ extension BrowserStore {
         guard let row = try Row.fetchOne(db, sql: "SELECT * FROM siteSettings WHERE host = ?", arguments: [host]) else { return nil }
         var site = SyncSiteSetting(host: host)
         for (name, path) in SyncSiteSetting.flags { site[keyPath: path] = row[name] }
+        site.zoom = row["zoom"]
         return site
     }
 

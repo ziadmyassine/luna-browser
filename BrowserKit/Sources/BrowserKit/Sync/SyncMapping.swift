@@ -10,6 +10,10 @@ import Foundation
 
 /// A `siteSettings` row as it syncs. Each flag is tri-state: nil means nobody answered.
 ///
+/// `zoom` is nil only in a record no Mac running this version has written. A row always
+/// has one (`NOT NULL DEFAULT 1`), so it is always sent, and 1 is how "this site has no
+/// zoom" travels: an Actual Size on one Mac has to reach the others.
+///
 /// The record also declares `localNetwork` and `popups`, which an older Luna writes.
 /// They are per Space now (`Schema.keepSiteAnswersPerSpace`) and a Space's answers do
 /// not sync, so this Luna neither reads nor writes them, and a save leaves them as they
@@ -20,15 +24,18 @@ public struct SyncSiteSetting: Sendable, Hashable {
     public var savePasswords: Bool?
     public var blockingDisabled: Bool?
     public var insecureAllowed: Bool?
+    public var zoom: Double?
 
     public init(
         host: String,
         automaticPictureInPicture: Bool? = nil,
         savePasswords: Bool? = nil,
         blockingDisabled: Bool? = nil,
-        insecureAllowed: Bool? = nil
+        insecureAllowed: Bool? = nil,
+        zoom: Double? = nil
     ) {
         self.host = host
+        self.zoom = zoom
         self.automaticPictureInPicture = automaticPictureInPicture
         self.savePasswords = savePasswords
         self.blockingDisabled = blockingDisabled
@@ -206,7 +213,7 @@ public enum SyncMapping {
     // MARK: SiteSetting
 
     /// An unset flag is left out rather than cleared, so it never erases an answer
-    /// another Mac gave (§3: a set value beats an unset one). `zoom` is reserved.
+    /// another Mac gave (§3: a set value beats an unset one).
     public static func record(
         for site: SyncSiteSetting, secret key: SyncSecret, modifiedAt: Date, stored: SyncRecord?
     ) -> SyncRecord {
@@ -215,6 +222,7 @@ public enum SyncMapping {
             guard let flag = site[keyPath: path] else { continue }
             fields[name] = secret(.int(flag ? 1 : 0))
         }
+        if let zoom = site.zoom { fields["zoom"] = secret(.double(zoom)) }
         return SyncRecord(writing: "SiteSetting", name: key.siteRecordName(forHost: site.host), zone: .sites, over: stored, fields: fields)
     }
 
@@ -224,6 +232,7 @@ public enum SyncMapping {
         for (name, path) in SyncSiteSetting.flags {
             site[keyPath: path] = int(record[name]).map { $0 != 0 }
         }
+        site.zoom = double(record["zoom"])
         return site
     }
 
@@ -294,6 +303,10 @@ public enum SyncMapping {
 
     private static func int(_ value: SyncValue?) -> Int? {
         if case .int(let int) = value { Int(int) } else { nil }
+    }
+
+    private static func double(_ value: SyncValue?) -> Double? {
+        if case .double(let double) = value { double } else { nil }
     }
 
     private static func date(_ value: SyncValue?) -> Date? {

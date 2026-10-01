@@ -15,7 +15,7 @@ Work style: every step starts with a failing test, then the smallest code that p
   - typed and bookmarked history (§31.5b)
   - open tabs across devices (§31.6)
 - Bookmarks and boosts do not exist yet. Zones are designed so they can join later; do not build them.
-- **Per-site zoom is not persisted today** (`Luna/UI/Browser/BrowserSession+Commands.swift`, the `pageZoom` comment). It gets a reserved schema field and no code.
+- **Per-site zoom** (§18.2, #114) is kept in `siteSettings.zoom` and syncs in the `SiteSetting` record's `zoom` field.
 - Cookies, logins and website storage never sync. URLs, titles and other user content go in `encryptedValues`.
 - Local-first. Luna works fully with iCloud off or unavailable, and a failure shows as a quiet status line, never a modal.
 - `BrowserKit/` imports no AppKit (`Tools/check-no-appkit.sh`). CloudKit and CryptoKit are allowed there.
@@ -267,7 +267,7 @@ DEFINE SCHEMA
 | Field | Contents |
 |---|---|
 | `SiteSetting` flags | `INT64` as tri-state: absent means unset, 0 means off, 1 means on |
-| `SiteSetting.zoom` | Reserved and never written until per-site zoom is persisted |
+| `SiteSetting.zoom` | `DOUBLE`, always written by a Luna that keeps zoom (1 means the site has none). Absent only in a record no such Luna has written, and then it leaves the local zoom alone |
 | `SiteSetting.localNetwork`, `SiteSetting.popups` | Retired by `v14`, which made them per Space. Still declared, since Production cannot drop a field; only an older Luna writes them, and a newer one leaves them alone |
 | `Setting.value` | A property list holding one value; the record is deleted when the key is removed |
 | `HistoryEntry.visits` | JSON `[{spaceID, at, kind}]`: the newest 10 typed or bookmarked visits from this Mac only |
@@ -306,7 +306,7 @@ A save that fails with `serverRecordChanged` is merged into the server's record 
 | TabGroup | Last writer wins. Delete beats edit, and its tabs fall back to loose (`ON DELETE SET NULL`), as they do locally. |
 | Tab | Last writer wins. Delete beats edit. An incoming `archivedAt` is ignored if this Mac's `lastActiveAt` is later, and the unarchived state is sent back, so one Mac's idle clock never archives a tab in use on another. An incoming `url`/`title` is **not** applied to a tab with a live web view on this Mac; structural fields still are. Clashing `position` values heal through the existing renumber-on-load (ties broken by `createdAt`). `parentTabID` stays local. |
 | Favorites | Union, because each Favorite is its own record. More than 12 arriving in a Space: the extras are demoted to pinned locally, deterministically by (`position`, `createdAt`), and the demotion is not sent back. |
-| SiteSetting | The two permission flags (`automaticPictureInPicture`, `savePasswords`), field by field: a set value beats an unset one. If both are set, the newer `modifiedAt` wins. `blockingDisabled` and `insecureAllowed` are always written as 0 or 1 and follow the newer record (last writer wins): they are `NOT NULL` locally, so with set-beats-unset, once any Mac turned blocking off for a site no Mac could turn it back on. |
+| SiteSetting | The two permission flags (`automaticPictureInPicture`, `savePasswords`), field by field: a set value beats an unset one. If both are set, the newer `modifiedAt` wins. `blockingDisabled` and `insecureAllowed` are always written as 0 or 1 and follow the newer record (last writer wins): they are `NOT NULL` locally, so with set-beats-unset, once any Mac turned blocking off for a site no Mac could turn it back on. `zoom` is always written too and follows the newer record that has one, so Actual Size on one Mac reaches the others. |
 | Setting | Last writer wins per key. |
 | HistoryEntry, Device | One writer per record, so they never conflict. If one ever does, local wins. |
 | SyncSecret | The server always wins. |
@@ -493,7 +493,7 @@ These can run as separate agents at the same time, because they touch different 
 - **§31.4:** replace "deletions = tombstones with a 30-day grace" with "deletions: stored system fields are the evidence (`unknownItem` on an edit to a deleted record deletes it locally); no tombstone records". Also say that Favorites are a union because each is its own record.
 - **§31.7:** replace "account switch (wipe local sync state and re-seed on identity change)" with "account switch: wipe local sync state, keep local data, and turn sync off until the user turns it on again. Nothing is uploaded to the new account automatically."
 - **§31.2:** the zones are `Spaces` (Spaces, groups, tabs, Favorites), `Sites`, `Settings`, `History`, `Devices` and `Meta`. `Bookmarks` and `Boosts` join later.
-- **§31.5:** zoom is not synced until per-site zoom is persisted (a reserved field exists). Name the settings allowlist and its exclusions.
+- **§31.5:** per-site zoom syncs with the site's other settings. Name the settings allowlist and its exclusions.
 - **§31.10:** settings live behind the account row, not a numbered page.
 - **§30.21:** its home is History › Tabs on Other Macs.
 - **§32 table:** the bundle is now `dev.novapps.luna`.

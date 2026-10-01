@@ -105,7 +105,7 @@ struct SyncMappingTests {
 
         #expect(record.fields["savePasswords"] == SyncField(.int(0), encrypted: true))
         #expect(record.fields["automaticPictureInPicture"] == nil)
-        #expect(record.fields["zoom"] == nil, "reserved until per-site zoom is persisted")
+        #expect(record.fields["zoom"] == nil, "a record from a Luna that keeps no zoom")
         #expect(try #require(SyncMapping.siteSetting(from: record)) == site)
     }
 
@@ -224,7 +224,8 @@ enum SyncSamples {
     )
 
     static let site = SyncSiteSetting(
-        host: "example.com", automaticPictureInPicture: true, savePasswords: false, blockingDisabled: true, insecureAllowed: true
+        host: "example.com", automaticPictureInPicture: true, savePasswords: false, blockingDisabled: true, insecureAllowed: true,
+        zoom: 1.25
     )
 
     static let setting = SyncSetting(key: "luna.shortcut.newTab", value: Data("<plist/>".utf8))

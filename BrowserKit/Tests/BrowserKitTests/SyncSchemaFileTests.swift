@@ -15,11 +15,10 @@ struct SyncSchemaFileTests {
         var isEncrypted: Bool
     }
 
-    /// Declared but deliberately never written: `zoom` until per-site zoom is persisted,
-    /// the two answers `v14` made per Space, which only an older Luna still writes, and
-    /// `Space.image`, from the Space pictures that are gone. Production cannot drop a
-    /// field, so each declaration stays.
-    private static let reserved: Set = ["SiteSetting.zoom", "SiteSetting.localNetwork", "SiteSetting.popups", "Space.image"]
+    /// Declared but deliberately never written: the two answers `v14` made per Space,
+    /// which only an older Luna still writes, and `Space.image`, from the Space pictures
+    /// that are gone. Production cannot drop a field, so each declaration stays.
+    private static let reserved: Set = ["SiteSetting.localNetwork", "SiteSetting.popups", "Space.image"]
 
     private static let schemaURL = URL(filePath: #filePath)
         .deletingLastPathComponent()   // BrowserKitTests

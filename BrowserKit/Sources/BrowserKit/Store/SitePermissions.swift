@@ -21,13 +21,13 @@ public final class SitePermissions {
 
     public static let shared = SitePermissions()
 
-    private enum Role {
+    enum Role {
         case app
         case space(UUID, app: SitePermissions)
         case privateWindow(app: SitePermissions)
     }
 
-    private let role: Role
+    let role: Role
 
     /// The app's cross-Space answers, or a private window's every answer; a Space's
     /// instance keeps nothing here. Answered hosts only: absent means "nobody has said",
@@ -39,7 +39,11 @@ public final class SitePermissions {
     /// site menu that shows the answer hold the same one.
     private var spaces: [UUID: SitePermissions] = [:]
     /// Nil on a private instance, which is what keeps its writes off disk.
-    private weak var store: BrowserStore?
+    weak var store: BrowserStore?
+
+    /// §18.2's zoom per site, on the app's instance and a private window's; a Space's
+    /// reads the app's (`SitePermissions+SiteSettings.swift`).
+    var zooms: [String: Double] = [:]
 
     /// `ContentBlocker`'s two per-site answers, as a private instance overrides them.
     /// The shared answers stay in `ContentBlocker`; see its `isDisabled(forHost:in:)`.
@@ -114,10 +118,12 @@ public final class SitePermissions {
         Task { [weak self] in
             let loaded = try? await browserStore.sitePermissions()
             let bySpace = try? await browserStore.spaceSitePermissions()
+            let zoomed = try? await browserStore.siteZooms()
             guard let self else { return }
             // Under anything answered while the read was out, which is newer.
             answers.merge(loaded ?? [:], uniquingKeysWith: Self.keepingGiven)
             spaceAnswers.merge(bySpace ?? [:]) { given, read in given.merging(read, uniquingKeysWith: Self.keepingGiven) }
+            zooms.merge(zoomed ?? [:]) { given, _ in given }
         }
     }
 

@@ -75,8 +75,9 @@ struct PageToast: Equatable {
         PageToast(symbol: "square.and.arrow.down", text: String(localized: "Saved to Downloads"), detail: name)
     }
 
-    static func zoom(_ level: CGFloat) -> PageToast {
-        PageToast(symbol: "magnifyingglass", text: String(localized: "Zoom \(Int((level * 100).rounded())) %"))
+    /// The host says whose zoom it now is: Luna keeps it for the site (§18.2).
+    static func zoom(_ level: CGFloat, host: String? = nil) -> PageToast {
+        PageToast(symbol: "magnifyingglass", text: String(localized: "Zoom \(Int((level * 100).rounded())) %"), detail: host)
     }
 
     static func favorite(added: Bool) -> PageToast {

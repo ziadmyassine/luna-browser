@@ -113,6 +113,12 @@ final class PageToastTests: XCTestCase {
         XCTAssertEqual(PageToast.archived(4).text, "4 tabs archived")
     }
 
+    /// §18.2: the zoom is kept for the site, so the toast names whose it is.
+    func testZoomNamesTheSiteItIsKeptFor() {
+        XCTAssertEqual(PageToast.zoom(1.5, host: "example.com").detail, "example.com")
+        XCTAssertNil(PageToast.zoom(1).detail)
+    }
+
     /// The Reading pop-out's two: the saved file's name rides in `detail`.
     func testReadingSaysWhatItSavedAndCopied() {
         let saved = PageToast.savedToDownloads("README.md")
