@@ -265,6 +265,14 @@ final class AppDelegateDatabaseTests: XCTestCase {
         XCTAssertNotEqual(AppDelegate.databaseURL, AppDelegate.databaseURL)
     }
 
+    /// A second Luna hands off to the running one and quits (§19.7), but the
+    /// test host is not a second Luna: it has its own database and runs beside
+    /// the Luna in use. Handing off here would quit the host mid-run.
+    func testTheTestHostDoesNotHandOffToARunningLuna() {
+        let delegate = AppDelegate()
+        XCTAssertFalse(delegate.handOffToRunningLuna())
+    }
+
     /// The shipping app is unchanged: without the environment key the path is
     /// Application Support, exactly as before.
     func testTheShippingPathIsStillApplicationSupport() throws {

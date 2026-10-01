@@ -275,8 +275,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             LaunchTrace.mark("chrome")
             openForBusiness(session: session, store: store)
         } catch {
-            NSApp.presentError(error)
+            Self.presentStoreFailure(error)
         }
+    }
+
+    /// Luna's data would not open. The raw error was SQLite's own sentence
+    /// ("database is locked — while executing SELECT * FROM sqlite_master")
+    /// over a window with no chrome; this says what the user can do, and the
+    /// error itself goes to the log (§19.7).
+    static func presentStoreFailure(_ error: any Error) {
+        NSLog("Luna: could not open its data: %@", String(describing: error))
+        let alert = NSAlert()
+        alert.alertStyle = .critical
+        alert.messageText = String(localized: "Luna could not open your tabs and history")
+        alert.informativeText = String(
+            localized: "Another copy of Luna may be using them. Quit every copy of Luna, then open it again."
+        )
+        alert.addButton(withTitle: String(localized: "Quit Luna"))
+        alert.runModal()
+        NSApp.terminate(nil)
     }
 
     /// Re-reads the session. Structural only — a tab's progress and title reach

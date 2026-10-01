@@ -43,27 +43,37 @@ extension AppDelegate {
         }
     }
 
-    /// Launched to open something while another Luna is already running.
+    /// Launched while another Luna is already running (§19.7).
     ///
     /// This Mac has several copies of the app on disk — a release build, a
     /// debug build, old ones in the Trash — and LaunchServices opens a file
     /// "with Luna" in whichever copy it resolves, starting it if that is not
-    /// the one running. That was a second Luna with a second window on the
-    /// same database: two writers on one store. So this copy gives the pages
-    /// to the running one and quits, before it has opened anything.
+    /// the one running; `open -n` starts a second one outright. A second Luna
+    /// is a second window on the same database, and its open failed with
+    /// SQLite's "database is locked" and a window with no chrome. So this copy
+    /// gives the running one its pages, or just brings it forward, and quits
+    /// before it has opened anything.
+    ///
+    /// Not under XCTest: the test host has a database of its own
+    /// (`databaseURL`) and must run beside the Luna in use.
     ///
     /// Returns whether it did, in which case launch goes no further.
     func handOffToRunningLuna() -> Bool {
-        guard let pages = linksBeforeLaunch, !pages.isEmpty,
+        guard !Self.isRunningTests,
               let bundleID = Bundle.main.bundleIdentifier,
               let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
-                .first(where: { $0 != .current }),
+                .first(where: { $0 != .current && !$0.isTerminated }),
               let location = running.bundleURL
         else { return false }
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = true
-        NSWorkspace.shared.open(pages, withApplicationAt: location, configuration: configuration) { _, _ in
+        let quit: @Sendable (NSRunningApplication?, (any Error)?) -> Void = { _, _ in
             Task { @MainActor in NSApp.terminate(nil) }
+        }
+        if let pages = linksBeforeLaunch, !pages.isEmpty {
+            NSWorkspace.shared.open(pages, withApplicationAt: location, configuration: configuration, completionHandler: quit)
+        } else {
+            NSWorkspace.shared.openApplication(at: location, configuration: configuration, completionHandler: quit)
         }
         return true
     }
