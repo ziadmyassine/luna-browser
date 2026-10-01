@@ -249,7 +249,7 @@ enum MainMenu {
             [.separator()],
             // §6.4's pop-out. It hangs off a button in both layouts, and §22.5
             // wants it reachable from the menu bar too.
-            items(.showHistory),
+            items(.showHistory), items(.clearHistory),
             [.separator()],
             [otherMacsMenu()]
         ]))

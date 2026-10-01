@@ -109,6 +109,12 @@ extension AppDelegate {
         showHistoryList()
     }
 
+    /// §11.3. Asks which span, then clears it from the front window's Space,
+    /// whether or not its History pop-out is open.
+    @objc func clearHistory(_ sender: Any?) {
+        historyPanel?.clearHistory()
+    }
+
     /// Whichever button the layout on screen is showing, exactly as
     /// `showDownloadsList` picks its own. A collapsed sidebar is still the
     /// sidebar layout — its button is parked off-screen and the pop-out falls
@@ -150,7 +156,7 @@ extension AppDelegate {
             return session.canZoom && session.pageZoom > (BrowserSession.zoomLevels.first ?? 1)
         case #selector(resetZoom(_:)):
             return session.canZoom && session.pageZoom != 1
-        case #selector(showHistory(_:)):
+        case #selector(showHistory(_:)), #selector(clearHistory(_:)):
             return historyPanel != nil
         default:
             return validatePageTool(item, in: session)

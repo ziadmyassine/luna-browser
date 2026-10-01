@@ -177,8 +177,10 @@ class PopoutController: NSObject {
     /// a field handles its own first, because it has a query to clear.
     private func installEscapeMonitor() {
         escapeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            // 53 is `esc`. `charactersIgnoringModifiers` is empty for it.
-            guard event.keyCode == 53, let self, isPresented else { return event }
+            // 53 is `esc`. `charactersIgnoringModifiers` is empty for it. A
+            // modal alert raised from the pop-out (History's Clear History…)
+            // owns its own `esc`, which is its Cancel button.
+            guard event.keyCode == 53, NSApp.modalWindow == nil, let self, isPresented else { return event }
             MainActor.assumeIsolated { self.dismiss() }
             return nil
         }

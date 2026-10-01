@@ -4,12 +4,12 @@
 //
 //  §6.4's row is one label too wide for a 320 pt pop-out, and the label that
 //  used to lose the argument was the one saying when — the panel's whole
-//  point. `HistoryTimestamp` is what keeps the stamp short enough to survive;
-//  these assert that it picks the right branch and stays inside the width the
-//  row has for it.
+//  point. `HistoryTimestamp` keeps the row's stamp to the clock and names the
+//  day in the header over it (§11.3); these assert the branches it picks and
+//  that the stamp stays inside the width the row has for it.
 //
-//  Fixed dates and an injected `now`: the three branches are a midnight and a
-//  year boundary apart, and neither is worth waiting for. The dates are built
+//  Fixed dates and an injected `now`: the branches are midnights and a year
+//  boundary apart, and none is worth waiting for. The dates are built
 //  in `Calendar.current` and checked against locally-built formatters rather
 //  than against English strings — the branch is the decision under test, and a
 //  machine set to another language still has to take the same one.
@@ -41,21 +41,35 @@ final class HistoryTimestampTests: XCTestCase {
         return formatter
     }
 
-    /// Today is the panel's business — a page you were on a minute ago and
-    /// want back — so the day is not in question and the stamp spends its
-    /// width on the clock.
-    func testAPageVisitedTodayIsStampedWithTheTimeAlone() {
-        let when = date(2026, 9, 20)
-        let stamp = HistoryTimestamp.string(for: when, now: date(2026, 9, 20, 17, 0), calendar: calendar)
-        XCTAssertEqual(stamp, clock.string(from: when))
+    /// The day is the header's (§11.3), so a row spends its width on the clock
+    /// whatever day it is under.
+    func testARowIsStampedWithTheTimeAlone() {
+        for when in [date(2026, 9, 20), date(2025, 12, 31, 23, 59)] {
+            XCTAssertEqual(HistoryTimestamp.string(for: when), clock.string(from: when))
+        }
     }
 
-    /// Late last night is not this morning, however few hours ago it was.
-    func testYesterdayIsADateEvenAnHourBeforeMidnight() {
-        let when = date(2026, 9, 19, 23, 30)
-        let stamp = HistoryTimestamp.string(for: when, now: date(2026, 9, 20, 0, 30), calendar: calendar)
-        XCTAssertEqual(stamp, reference(template: "d MMM").string(from: when))
-        XCTAssertNotEqual(stamp, clock.string(from: when))
+    /// Late last night is yesterday, however few hours ago it was.
+    func testTheHeaderNamesTodayAndYesterdayByCalendarDay() {
+        let now = date(2026, 9, 20, 0, 30)
+        XCTAssertEqual(HistoryTimestamp.day(for: date(2026, 9, 20, 0, 10), now: now, calendar: calendar), String(localized: "Today"))
+        XCTAssertEqual(HistoryTimestamp.day(for: date(2026, 9, 19, 23, 30), now: now, calendar: calendar), String(localized: "Yesterday"))
+    }
+
+    /// Inside a week a weekday names one day; from seven days back it would
+    /// name today's weekday too, so the date takes over.
+    func testTheHeaderNamesTheWeekdayForTheRestOfTheWeek() {
+        let now = date(2026, 9, 20)
+        let weekday = reference(template: "EEEE")
+        for back in 2...6 {
+            let when = date(2026, 9, 20 - back)
+            XCTAssertEqual(HistoryTimestamp.day(for: when, now: now, calendar: calendar), weekday.string(from: when))
+        }
+        let weekAgo = date(2026, 9, 13)
+        XCTAssertEqual(
+            HistoryTimestamp.day(for: weekAgo, now: now, calendar: calendar),
+            reference(template: "EEEE d MMMM").string(from: weekAgo)
+        )
     }
 
     /// The year is only worth its width once it is not this one.
@@ -64,24 +78,21 @@ final class HistoryTimestampTests: XCTestCase {
         let thisYear = date(2026, 1, 3)
         let lastYear = date(2025, 12, 31)
         XCTAssertEqual(
-            HistoryTimestamp.string(for: thisYear, now: now, calendar: calendar),
-            reference(template: "d MMM").string(from: thisYear)
+            HistoryTimestamp.day(for: thisYear, now: now, calendar: calendar),
+            reference(template: "EEEE d MMMM").string(from: thisYear)
         )
         XCTAssertEqual(
-            HistoryTimestamp.string(for: lastYear, now: now, calendar: calendar),
-            reference(template: "d MMM y").string(from: lastYear)
+            HistoryTimestamp.day(for: lastYear, now: now, calendar: calendar),
+            reference(template: "EEEE d MMMM y").string(from: lastYear)
         )
     }
 
-    /// The point of all three branches. §6.4's panel is 320 pt wide, which
-    /// leaves a 244 pt text column shared with a title and a host; the stamp
-    /// never gives way, so it has to be a stamp that fits. The old
-    /// `"Sep 20, 2026 at 12:24 PM"` measured 135 pt of it on its own.
+    /// The stamp never gives way in its row, so it has to be a stamp that
+    /// fits: §6.4's panel leaves a 244 pt text column shared with a title and
+    /// a host. The old `"Sep 20, 2026 at 12:24 PM"` measured 135 pt of it.
     func testEveryStampFitsTheWidthTheRowWillNotTakeBackFromIt() {
-        let now = date(2026, 9, 20)
-        let sampled = [date(2026, 9, 20), date(2026, 9, 19), date(2025, 12, 31), date(2025, 11, 11, 23, 59)]
-        for when in sampled {
-            let stamp = HistoryTimestamp.string(for: when, now: now, calendar: calendar)
+        for when in [date(2026, 9, 20), date(2026, 9, 19, 23, 59), date(2025, 11, 11, 10, 0)] {
+            let stamp = HistoryTimestamp.string(for: when)
             let width = (stamp as NSString).size(withAttributes: [.font: Tokens.TypeScale.rowTimestamp]).width
             XCTAssertLessThan(width, 80, "\(stamp) is \(width) pt — wider than the row can spare")
         }

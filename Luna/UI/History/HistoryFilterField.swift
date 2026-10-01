@@ -10,7 +10,8 @@
 //  the thing above them all that narrows the list.
 //
 //  The field has focus for as long as the pop-out is up, so it is where ↓/↑/↩
-//  arrive; it hands each of them down to the list, which is what they mean.
+//  and the delete keys arrive; it hands each of them down to the list, which
+//  is what they mean.
 //
 
 import AppKit
@@ -27,6 +28,9 @@ final class HistoryFilterField: NSView, NSTextFieldDelegate {
     var onMoveSelection: ((Int) -> Void)?
     /// `↩` on the highlighted row.
     var onCommit: (() -> Void)?
+    /// `⌫` or `⌦` (false) and `⌘⌫` (true). Returns whether the list deleted
+    /// pages with it; when it did not, the key edits the query as usual.
+    var onDeleteKey: ((_ command: Bool) -> Bool)?
 
     private let field = NSTextField()
 
@@ -121,6 +125,10 @@ final class HistoryFilterField: NSView, NSTextFieldDelegate {
             onMoveSelection?(-1)
         case #selector(NSResponder.insertNewline(_:)):
             onCommit?()
+        case #selector(NSResponder.deleteBackward(_:)), #selector(NSResponder.deleteForward(_:)):
+            return onDeleteKey?(false) ?? false
+        case #selector(NSResponder.deleteToBeginningOfLine(_:)):
+            return onDeleteKey?(true) ?? false
         case #selector(NSResponder.cancelOperation(_:)):
             // The query first, the panel second: `esc` on a filtered list means
             // "show me everything again", and only then "close".

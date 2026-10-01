@@ -21,7 +21,7 @@ import BrowserKit
 import Foundation
 
 @MainActor
-final class AdaptiveHistory {
+final class AdaptiveHistory: NSObject {
 
     private struct Key: Hashable {
         var typed: String
@@ -38,6 +38,18 @@ final class AdaptiveHistory {
 
     init(store: BrowserStore) {
         self.store = store
+        super.init()
+        // A page deleted from history (§11.3) takes its lessons with it in the
+        // store, and the copy here would go on ranking it first. Dropped rather
+        // than patched: the next `⌘T` reads the table again.
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(historyDidChange), name: BrowserSession.historyDidChange, object: store
+        )
+    }
+
+    @objc private func historyDidChange() {
+        loaded = nil
+        entries = [:]
     }
 
     /// What `CommandBarRanking` reads, synchronously, on every keystroke.

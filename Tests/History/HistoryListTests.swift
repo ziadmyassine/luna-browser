@@ -63,14 +63,17 @@ final class HistoryListTests: XCTestCase {
         return found
     }
 
-    private func pill(in list: HistoryListView) throws -> RowPillView {
-        try XCTUnwrap(descendants(of: list, ofType: RowPillView.self).first, "the list has no selection pill")
+    /// The highlight, not the hover pill parked beside it for marking (§11.3).
+    private func pill(in list: HistoryListView) -> RowPillView {
+        let pill = list.selection
+        XCTAssertTrue(descendants(of: list, ofType: RowPillView.self).contains(pill), "the list has no selection pill")
+        return pill
     }
 
     /// The pill is the list's width less `rowInset` each side — never the
     /// width of whatever the table happened to be when the list was filled.
     func testTheSelectionPillSpansTheRowOnceTheListHasBeenLaidOut() throws {
-        let pill = try pill(in: list(showing: entries(30)))
+        let pill = pill(in: list(showing: entries(30)))
         XCTAssertEqual(
             pill.frame.width,
             Self.width - 2 * Tokens.Metric.rowInset,
@@ -83,13 +86,32 @@ final class HistoryListTests: XCTestCase {
     func testTheSelectionPillSitsOnTheSelectedRow() throws {
         let list = list(showing: entries(30))
         let table = try XCTUnwrap(descendants(of: list, ofType: NSTableView.self).first)
-        let pill = try pill(in: list)
+        let pill = pill(in: list)
         XCTAssertEqual(
             pill.frame,
             table.rect(ofRow: 0).insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.rowPillInset),
             "the pill is not on the row it is highlighting"
         )
         XCTAssertEqual(pill.alphaValue, 1, "the pill is placed but not shown")
+    }
+
+    /// A day's header is a row of the table but not a page: the pill skips it
+    /// and lands on the first page under it (§11.3).
+    func testTheSelectionPillSkipsADaysHeader() throws {
+        let dated = entries(3).enumerated().map { index, entry in
+            HistoryEntry(
+                id: entry.id, title: entry.title, subtitle: entry.subtitle, when: entry.when,
+                host: entry.host, url: entry.url, day: index == 0 ? "Today" : "Yesterday"
+            )
+        }
+        let list = list(showing: dated)
+        let table = try XCTUnwrap(descendants(of: list, ofType: NSTableView.self).first)
+        XCTAssertEqual(table.numberOfRows, 5, "two headers and three pages")
+        XCTAssertEqual(table.rect(ofRow: 0).height, Tokens.Metric.historyDayHeaderHeight)
+        XCTAssertEqual(
+            pill(in: list).frame,
+            table.rect(ofRow: 1).insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.rowPillInset)
+        )
     }
 
     /// The point of the table. A thousand pages is days of ordinary use, and

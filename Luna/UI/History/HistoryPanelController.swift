@@ -11,6 +11,10 @@
 //  Bar's index as it is typed — and only the Space you are in, as with its
 //  cookie jar (§9.2).
 //
+//  Deleting (§11.3) is asked of the session and answered by loading the list
+//  again; the row menu and the two questions it can ask are in
+//  `HistoryMenu.swift`.
+//
 //  The pop-out stands on the button that opened it, so this takes the anchor
 //  view rather than a content region. The two buttons, §3.5's and its twin in
 //  §4's action capsule, are at opposite ends of the window, so the caller says
@@ -33,6 +37,16 @@ final class HistoryPanelController: PopoutController {
     /// The query in flight. A newer keystroke cancels it, so a slow answer to an
     /// old query never lands over the answer to the current one.
     private var loading: Task<Void, Never>?
+    /// What the field holds, so a delete can ask the same question again.
+    private var query = ""
+    /// The newest delete, which waits for any before it. Tests await it.
+    private(set) var deleting: Task<Void, Never>?
+
+    /// Asks which span Clear History… clears, nil for Cancel. A seam, so a test
+    /// can answer without a modal loop.
+    var askClearRange: @MainActor (_ spaceName: String) -> HistoryClearRange? = HistoryMenu.askClearRange(spaceName:)
+    /// Asks before forgetting a site, which signs the Space out of it.
+    var confirmForget: @MainActor (_ site: String, _ spaceName: String) -> Bool = HistoryMenu.confirmForget(site:spaceName:)
 
     init(session: BrowserSession) {
         self.session = session
@@ -65,6 +79,8 @@ final class HistoryPanelController: PopoutController {
         }
         panel.onFilter = { [weak self] text in self?.load(text) }
         panel.onChoose = { [weak self] entry in self?.open(entry.url) }
+        panel.onDelete = { [weak self] pages in self?.delete(pages) }
+        panel.menuProvider = { [weak self] pages in self.map { HistoryMenu.build(for: pages, controller: $0) } }
         return panel
     }
 
@@ -83,11 +99,47 @@ final class HistoryPanelController: PopoutController {
 
     private func load(_ text: String) {
         loading?.cancel()
-        let query = text.trimmingCharacters(in: .whitespaces)
-        loading = Task { [weak self, session] in
+        query = text.trimmingCharacters(in: .whitespaces)
+        loading = Task { [weak self, session, query] in
             let pages = await session.browsingHistory(matching: query, limit: Self.limit)
             guard !Task.isCancelled, let panel = self?.presented as? HistoryPanel else { return }
-            panel.setEntries(pages.map(Self.entry))
+            let now = Date()
+            panel.setEntries(pages.map { Self.entry($0, now: now) })
+        }
+    }
+
+    // MARK: - Deleting (§11.3)
+
+    func delete(_ pages: [HistoryEntry]) {
+        run { session in await session.deleteHistory(of: pages.map(\.url)) }
+    }
+
+    /// History ▸ Clear History…, and the row menu's. Works with the pop-out
+    /// closed too: the menu bar's item does not open it.
+    func clearHistory() {
+        guard let range = askClearRange(spaceName) else { return }
+        run { session in await session.clearHistory(range) }
+    }
+
+    /// The site's pages and its website data, in this Space.
+    func forgetSite(_ site: String) {
+        guard confirmForget(site, spaceName) else { return }
+        run { session in await session.forgetSite(site) }
+    }
+
+    private var spaceName: String {
+        session.space(session.activeSpaceID)?.name ?? ""
+    }
+
+    /// Runs one delete after the last, then asks for the list again.
+    private func run(_ work: @escaping (BrowserSession) async -> Void) {
+        let previous = deleting
+        deleting = Task { [weak self, session] in
+            await previous?.value
+            await work(session)
+            guard let self, isPresented else { return }
+            load(query)
+            await loading?.value
         }
     }
 
@@ -110,7 +162,7 @@ final class HistoryPanelController: PopoutController {
     /// The host and the time are two strings, not one: the row sets them as
     /// separate labels so that the one which has to give way is the host. See
     /// `HistoryTimestamp`.
-    private static func entry(_ page: HistoryHit) -> HistoryEntry {
+    private static func entry(_ page: HistoryHit, now: Date) -> HistoryEntry {
         let host = page.url.host() ?? page.url.absoluteString
         return HistoryEntry(
             id: UUID(),
@@ -118,7 +170,8 @@ final class HistoryPanelController: PopoutController {
             subtitle: host,
             when: page.lastVisit.map { HistoryTimestamp.string(for: $0) } ?? "",
             host: page.url.host() ?? "",
-            url: page.url
+            url: page.url,
+            day: page.lastVisit.map { HistoryTimestamp.day(for: $0, now: now) } ?? ""
         )
     }
 }

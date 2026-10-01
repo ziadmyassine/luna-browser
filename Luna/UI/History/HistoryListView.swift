@@ -13,7 +13,9 @@
 //  build before the pop-out could animate in, and 35 s at four figures. The
 //  table lays out only the dozen visible rows, however long the list.
 //
-//  The panel's filter field owns the keystrokes and hands ↓/↑/↩ down here.
+//  The panel's filter field owns the keystrokes and hands ↓/↑/↩ and the delete
+//  keys down here. Day headers and marking several rows (§11.3) are in
+//  `HistoryListView+Marks.swift`.
 //
 
 import AppKit
@@ -25,14 +27,42 @@ final class HistoryListView: NSView {
     var onActivate: ((HistoryEntry) -> Void)?
     /// An entry's icon, asked for as each row is filled.
     var iconProvider: ((HistoryEntry) -> NSImage?)?
+    /// These pages are to be deleted: the marked ones, or the one a key or a
+    /// menu was aimed at.
+    var onDelete: (([HistoryEntry]) -> Void)?
+    /// The right-click menu for `pages` — the marked ones when the row clicked
+    /// is among them, the row alone otherwise.
+    var menuProvider: ((_ pages: [HistoryEntry]) -> NSMenu?)?
 
     private(set) var entries: [HistoryEntry] = []
+    /// The highlighted page: where the pointer or ↓/↑ last stood, and what ↩
+    /// opens.
     private(set) var selectedID: UUID?
+    /// The pages marked with ⌘-click, ⇧-click or ⌘A, which the delete keys and
+    /// the menu act on together.
+    var markedIDs: Set<UUID> = []
+    /// Where a ⇧-click range starts: the last row ⌘-clicked or ⇧-clicked.
+    var anchorID: UUID?
 
+    /// What the table shows, headers and pages in order.
+    enum Item {
+        case day(String)
+        case page(HistoryEntry)
+    }
+    private(set) var items: [Item] = []
+    /// Each page's row in `items`.
+    var rowOfEntry: [UUID: Int] = [:]
+
+    let table = NSTableView()
     private let scroll = NSScrollView()
-    private let table = NSTableView()
-    private let selection = RowPillView(role: .selected)
+    /// The highlight. Parked while rows are marked: each marked row then has a
+    /// pill of its own, and `hover` stands where the pointer is.
+    let selection = RowPillView(role: .selected)
+    let hover = RowPillView(role: .hover)
+    /// The marked rows' pills, by page.
+    var markPills: [UUID: RowPillView] = [:]
     private static let rowIdentifier = NSUserInterfaceItemIdentifier("history.row")
+    private static let dayIdentifier = NSUserInterfaceItemIdentifier("history.day")
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -58,7 +88,7 @@ final class HistoryListView: NSView {
         // so the first placement measures a table with no width yet and the
         // pill came up the width of a favicon until the pointer moved it.
         scroll.layoutSubtreeIfNeeded()
-        movePill(animated: false)
+        movePills(animated: false)
     }
 
     // MARK: - Content
@@ -68,11 +98,31 @@ final class HistoryListView: NSView {
         entries = new
         selectedID = new.first?.id
         guard changed else { return applySelection(animated: true) }
+        items = Self.items(grouping: new)
+        rowOfEntry = [:]
+        for (row, item) in items.enumerated() {
+            if case .page(let entry) = item { rowOfEntry[entry.id] = row }
+        }
+        markedIDs.formIntersection(rowOfEntry.keys)
+        if let anchor = anchorID, rowOfEntry[anchor] == nil { anchorID = nil }
         table.reloadData()
         // A list that has just been replaced has no continuity for a slide to
         // describe, and the rows the pill would be sliding between are not the
         // same rows.
         applySelection(animated: false)
+    }
+
+    /// A header wherever the day changes. The entries come newest first, so
+    /// one day's pages are already together.
+    private static func items(grouping entries: [HistoryEntry]) -> [Item] {
+        var items: [Item] = []
+        var day: String?
+        for entry in entries {
+            if !entry.day.isEmpty, entry.day != day { items.append(.day(entry.day)) }
+            day = entry.day
+            items.append(.page(entry))
+        }
+        return items
     }
 
     // MARK: - Selection
@@ -90,7 +140,12 @@ final class HistoryListView: NSView {
         let current = entries.firstIndex { $0.id == selectedID } ?? 0
         let next = min(max(current + offset, 0), entries.count - 1)
         select(entries[next].id, animated: true)
-        table.scrollRowToVisible(next)
+        if let row = rowOfEntry[entries[next].id] {
+            // The first page of a day brings its header into view with it.
+            let above = row > 0 && { if case .day = items[row - 1] { true } else { false } }()
+            table.scrollRowToVisible(above ? row - 1 : row)
+            table.scrollRowToVisible(row)
+        }
     }
 
     /// `↩`.
@@ -99,28 +154,20 @@ final class HistoryListView: NSView {
         onActivate?(entry)
     }
 
-    private func applySelection(animated: Bool) {
+    func applySelection(animated: Bool) {
         for row in 0..<table.numberOfRows {
-            guard let view = table.view(atColumn: 0, row: row, makeIfNecessary: false) as? HistoryRowView
+            guard let view = table.view(atColumn: 0, row: row, makeIfNecessary: false) as? HistoryRowView,
+                  let id = view.entry?.id
             else { continue }
-            view.isSelected = view.entry?.id == selectedID
+            view.isSelected = id == selectedID || markedIDs.contains(id)
         }
-        movePill(animated: animated)
+        movePills(animated: animated)
     }
 
-    /// One pill for the whole list, standing behind the rows inside the table's
-    /// own document view — so it scrolls with the rows for free, and a scroll
-    /// costs it nothing.
-    private func movePill(animated: Bool) {
-        guard let index = entries.firstIndex(where: { $0.id == selectedID }), index < table.numberOfRows
-        else {
-            selection.fade(to: 0, animated: animated)
-            return
-        }
-        selection.move(
-            to: table.rect(ofRow: index).insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.rowPillInset),
-            spec: animated ? Tokens.Motion.selectedRowMove : nil
-        )
+    /// The fill's box for a page's row, or nil when it has none on screen.
+    func pillBox(of id: UUID?) -> NSRect? {
+        guard let id, let row = rowOfEntry[id], row < table.numberOfRows else { return nil }
+        return table.rect(ofRow: row).insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.rowPillInset)
     }
 
     // MARK: - Build
@@ -141,8 +188,10 @@ final class HistoryListView: NSView {
         table.allowsEmptySelection = true
         table.dataSource = self
         table.delegate = self
-        selection.fade(to: 0, animated: false)
-        table.addSubview(selection, positioned: .below, relativeTo: nil)
+        for pill in [selection, hover] {
+            pill.fade(to: 0, animated: false)
+            table.addSubview(pill, positioned: .below, relativeTo: nil)
+        }
     }
 
     private func buildScroll() {
@@ -173,31 +222,57 @@ final class HistoryListView: NSView {
 
 extension HistoryListView: NSTableViewDataSource, NSTableViewDelegate {
 
-    func numberOfRows(in tableView: NSTableView) -> Int { entries.count }
+    func numberOfRows(in tableView: NSTableView) -> Int { items.count }
+
+    func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
+        guard items.indices.contains(row), case .day = items[row] else { return Tokens.Metric.rowHeight }
+        return Tokens.Metric.historyDayHeaderHeight
+    }
 
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
-        let view = table.makeView(withIdentifier: Self.rowIdentifier, owner: self) as? HistoryRowView
-            ?? makeRow()
-        let entry = entries[row]
-        view.configure(entry, icon: iconProvider?(entry))
-        view.isSelected = entry.id == selectedID
-        // AppKit adds each new row view on top of everything already in the
-        // table, the pill included, so the pill is put back underneath as the
-        // rows that would cover it arrive.
-        table.addSubview(selection, positioned: .below, relativeTo: nil)
+        defer {
+            // AppKit adds each new row view on top of everything already in
+            // the table, the pills included, so they are put back underneath
+            // as the rows that would cover them arrive.
+            for pill in [selection, hover] + Array(markPills.values) {
+                table.addSubview(pill, positioned: .below, relativeTo: nil)
+            }
+        }
+        switch items[row] {
+        case .day(let day):
+            let view = table.makeView(withIdentifier: Self.dayIdentifier, owner: self) as? HistoryDayHeaderView
+                ?? makeDayHeader()
+            view.configure(day)
+            return view
+        case .page(let entry):
+            let view = table.makeView(withIdentifier: Self.rowIdentifier, owner: self) as? HistoryRowView
+                ?? makeRow()
+            view.configure(entry, icon: iconProvider?(entry))
+            view.isSelected = entry.id == selectedID || markedIDs.contains(entry.id)
+            return view
+        }
+    }
+
+    private func makeDayHeader() -> HistoryDayHeaderView {
+        let view = HistoryDayHeaderView()
+        view.identifier = Self.dayIdentifier
         return view
     }
 
     private func makeRow() -> HistoryRowView {
         let view = HistoryRowView()
         view.identifier = Self.rowIdentifier
-        view.onClick = { [weak self, weak view] in
+        view.onClick = { [weak self, weak view] modifiers in
             guard let entry = view?.entry else { return }
-            self?.onActivate?(entry)
+            self?.click(entry, modifiers: modifiers)
         }
         view.onHover = { [weak self, weak view] in
             guard let entry = view?.entry else { return }
             self?.select(entry.id, animated: true)
+        }
+        view.onMenu = { [weak self, weak view] in
+            guard let self, let entry = view?.entry else { return nil }
+            return menuProvider?(pages(aimedAt: entry))
         }
         return view
     }

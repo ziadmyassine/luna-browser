@@ -79,6 +79,8 @@ enum Schema {
             try rememberDeviceAnswers(db)
         }
         registerSiteMigrations(in: &migrator)
+        // `v17` — `SyncSQL`'s triggers again, for `sync_visits_delete` (§11.3).
+        migrator.registerMigration("v17", migrate: addTheTriggersSinceV12)
         return migrator
     }
 
@@ -365,38 +367,6 @@ enum Schema {
         // is still a tab (§6.3 keeps its title/url/favicon), and a second copy of that row is
         // a second truth to keep in sync. `⌘⇧A` (§6.4) reads this.
         try db.execute(sql: "CREATE VIEW archive AS SELECT * FROM tabs WHERE archivedAt IS NOT NULL")
-    }
-
-    private static func createHistory(_ db: Database) throws {
-        try db.create(table: "places") { table in
-            // INTEGER PRIMARY KEY, i.e. the rowid — FTS5 external content indexes it directly.
-            table.autoIncrementedPrimaryKey("id")
-            table.column("url", .text).notNull().unique()
-            table.column("host", .text).notNull().indexed()
-            table.column("title", .text).notNull().defaults(to: "")
-            table.column("lastVisit", .datetime).notNull().indexed()
-            table.column("visitCount", .integer).notNull().defaults(to: 0)
-        }
-        // §9.3 ranks from the 10 most recent visits per place, so frecency is derived from
-        // this table rather than cached on `places`. A stored score is a score that goes stale.
-
-        try db.create(table: "visits") { table in
-            table.autoIncrementedPrimaryKey("id")
-            table.column("placeId", .integer).notNull().references("places", onDelete: .cascade)
-            table.column("at", .datetime).notNull()
-            table.column("type", .text).notNull()
-            table.column("fromVisitId", .integer).references("visits", onDelete: .setNull)
-        }
-        // Exactly the access pattern of the frecency window: partition by place, newest first.
-        try db.create(index: "visits_on_placeId_at", on: "visits", columns: ["placeId", "at"])
-
-        // §11.2. `synchronize` installs the triggers that keep the index honest; without it
-        // every write path has to remember to reindex, and one day one of them will not.
-        try db.create(virtualTable: "placeSearch", using: FTS5()) { table in
-            table.synchronize(withTable: "places")
-            table.column("title")
-            table.column("url")
-        }
     }
 
     private static func createCommandBarAndSiteSettings(_ db: Database) throws {

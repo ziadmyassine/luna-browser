@@ -32,6 +32,12 @@ extension Schema {
         try db.execute(sql: "INSERT OR IGNORE INTO syncControl (id, applyingRemote) VALUES (1, 0)")
     }
 
+    /// `SyncSQL.triggers` on a database that already has `v12`'s: each is
+    /// `IF NOT EXISTS`, so only a trigger added since is created.
+    static func addTheTriggersSinceV12(_ db: Database) throws {
+        for statement in SyncSQL.triggers { try db.execute(sql: statement) }
+    }
+
     /// The permissions (`BrowserStore.SitePermission`) are nullable: the default
     /// is the permission's, not the column's, and a `NOT NULL DEFAULT 0` would
     /// record a refusal for every site that has a zoom level set. The blocking
@@ -168,7 +174,28 @@ enum SyncSQL {
         WHEN \(guarded(.history)) AND NEW.type IN ('typed', 'bookmarked') AND NEW.syncOrigin IS NULL
         BEGIN \(record("HistoryEntry", key: "CAST(NEW.placeId AS TEXT)", zone: .history, isDelete: false)) END
         """)
+        statements.append(historyDeleteTrigger)
         return statements
+    }
+
+    /// Deleting a visit this Mac sent (§11.3) sends the entry again without it,
+    /// or deletes the entry once none of this Mac's typed or bookmarked visits
+    /// to the place is left — the same visits `historyEntry` builds it from.
+    /// Per row, so a delete of several visits to one place ends on the answer
+    /// for the last of them.
+    private static var historyDeleteTrigger: String {
+        let sent = "type IN ('typed', 'bookmarked') AND syncOrigin IS NULL AND spaceID IS NOT NULL"
+        return """
+        CREATE TRIGGER IF NOT EXISTS sync_visits_delete AFTER DELETE ON visits
+        WHEN \(guarded(.history)) AND OLD.type IN ('typed', 'bookmarked') AND OLD.syncOrigin IS NULL
+          AND OLD.spaceID IS NOT NULL
+        BEGIN
+        INSERT INTO syncOutbox (recordType, localKey, zone, isDelete, changedAt)
+        VALUES ('HistoryEntry', CAST(OLD.placeId AS TEXT), '\(SyncZone.history.rawValue)',
+                NOT EXISTS (SELECT 1 FROM visits WHERE placeId = OLD.placeId AND \(sent)), \(now))
+        ON CONFLICT (recordType, localKey) DO UPDATE SET isDelete = excluded.isDelete, changedAt = excluded.changedAt;
+        END
+        """
     }
 
     /// What turning `zone` on queues: every row it covers, except that history

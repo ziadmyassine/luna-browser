@@ -229,6 +229,11 @@ struct BrowserCommand: Identifiable {
     static let showHistory = BrowserCommand(
         "showHistory", "Show History…", #selector(AppDelegate.showHistory(_:)), [KeyBinding("y")], symbol: "clock.arrow.circlepath"
     )
+    /// §11.3. No shortcut, as in Safari: it is one Return away from deleting.
+    static let clearHistory = BrowserCommand(
+        "clearHistory", "Clear History…", #selector(AppDelegate.clearHistory(_:)),
+        symbol: "clock.badge.xmark", keywords: ["delete history", "forget history"]
+    )
 
     // MARK: - Develop
 
@@ -306,7 +311,7 @@ struct BrowserCommand: Identifiable {
         copyURL, copyMarkdown,
         toggleSidebar, toggleFavorite, reloadPage, forceReloadPage, stopLoading, openBlockedPopup,
         zoomIn, zoomOut, actualSize, pictureInPicture, reader, siteSettings, hideElements, showDownloads,
-        goBack, goForward, showHistory,
+        goBack, goForward, showHistory, clearHistory,
         showWebInspector, showJavaScriptConsole, showPageSource, startElementSelection, disableJavaScript, emptyCaches,
         previousTab, nextTab, previousSpace, nextSpace, minimize, searchSettings,
         showWelcome

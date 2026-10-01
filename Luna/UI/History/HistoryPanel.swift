@@ -37,6 +37,16 @@ final class HistoryPanel: PopoutPanelView {
     var onFilter: ((String) -> Void)?
     /// A row was chosen: its page opens.
     var onChoose: ((HistoryEntry) -> Void)?
+    /// These pages are to be deleted (§11.3).
+    var onDelete: (([HistoryEntry]) -> Void)? {
+        get { list.onDelete }
+        set { list.onDelete = newValue }
+    }
+    /// A row's right-click menu, for the pages it acts on.
+    var menuProvider: (([HistoryEntry]) -> NSMenu?)? {
+        get { list.menuProvider }
+        set { list.menuProvider = newValue }
+    }
     /// An entry's icon, asked for at the moment the row is built. The panel
     /// holds no session of its own.
     var iconProvider: ((HistoryEntry) -> NSImage?)?
@@ -87,6 +97,26 @@ final class HistoryPanel: PopoutPanelView {
     /// What the list holds, in order.
     var shownEntries: [HistoryEntry] { list.entries }
 
+    /// The day headers, in order.
+    var shownDays: [String] {
+        list.items.compactMap { if case .day(let day) = $0 { day } else { nil } }
+    }
+
+    /// The pages marked to be deleted together.
+    var markedEntries: [HistoryEntry] { list.entries.filter { list.markedIDs.contains($0.id) } }
+
+    /// `⌘A` marks every page rather than selecting the query's text. It is
+    /// taken here, before the Edit menu's Select All reaches the field: the
+    /// window offers a key equivalent to its views before its menu.
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard modifiers == .command, event.charactersIgnoringModifiers == "a", !list.isEmpty else {
+            return super.performKeyEquivalent(with: event)
+        }
+        list.markAll()
+        return true
+    }
+
     func focusFilter() {
         window?.makeFirstResponder(field)
     }
@@ -109,6 +139,7 @@ final class HistoryPanel: PopoutPanelView {
         // they mean. §9.1's bar does exactly this.
         field.onMoveSelection = { [weak self] offset in self?.list.move(by: offset) }
         field.onCommit = { [weak self] in self?.list.activateSelection() }
+        field.onDeleteKey = { [weak self] command in self?.list.deleteKey(command: command) ?? false }
 
         // The list brings its own scroll view — it is a table, and a table
         // that is not in one does not recycle anything.

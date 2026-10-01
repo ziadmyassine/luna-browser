@@ -116,6 +116,12 @@ extension Tokens.Metric {
     /// are few of them.
     static let historyPanel = CGSize(width: 320, height: 420)
 
+    /// The header over one day's pages (§11.3): `TypeScale.sectionLabel`'s
+    /// line, 15 pt by `NSLayoutManager.defaultLineHeight(for:)`, with
+    /// `panelInset` above it to part it from the day before and `rowGap` below
+    /// so it reads as belonging to the rows under it.
+    static let historyDayHeaderHeight: CGFloat = panelInset + 15 + rowGap
+
     /// §5's downloads pop-out, the same surface one size wider.
     ///
     /// A filename is longer than a page title and cannot be shortened the way a

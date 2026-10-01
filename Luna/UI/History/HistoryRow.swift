@@ -28,25 +28,39 @@ struct HistoryEntry: Identifiable, Sendable {
     let host: String
     /// What choosing the row opens.
     let url: URL
+    /// The header of the day it belongs under (§11.3), already formatted.
+    /// Entries in a row with the same `day` are one group; empty is no header.
+    var day: String = ""
 }
 
-/// When a page was last visited, in the width a 320 pt pop-out has for it.
+/// When a page was last visited, as its row and its day's header write it.
 ///
-/// A cut date is worse than a coarse one. Host, full date and time as one
-/// middle-truncated label came out as `"github…:24 PM"`: the full date and
-/// time measures 135 pt beside a 156 pt title and a 59 pt host, in a text
-/// column 244 pt wide. So a visit from today gives the clock, an older one the
-/// date, and the year only once it is not this one. Every case fits.
+/// The header carries the day, so the row carries only the clock. A row once
+/// carried both, and host, date and time as one middle-truncated label came
+/// out as `"github…:24 PM"` in the 320 pt pop-out.
 ///
-/// Pure and locale-taking, so the three branches can be asserted at a fixed
-/// date without waiting for a year to turn.
+/// Pure and locale-taking, so each branch can be asserted at a fixed date.
 enum HistoryTimestamp {
 
+    static func string(for date: Date) -> String { clock.string(from: date) }
+
+    /// The header over a day's pages: Today, Yesterday, the weekday for the
+    /// five days before that — inside a week a weekday names one day — and
+    /// the date further back, with the year only once it is not this one.
+    ///
     /// - Parameter now: today, injectable for the tests.
-    static func string(for date: Date, now: Date = Date(), calendar: Calendar = .current) -> String {
-        if calendar.isDate(date, inSameDayAs: now) { return clock.string(from: date) }
-        let sameYear = calendar.component(.year, from: date) == calendar.component(.year, from: now)
-        return (sameYear ? day : dayAndYear).string(from: date)
+    static func day(for date: Date, now: Date = Date(), calendar: Calendar = .current) -> String {
+        let daysAgo = calendar.dateComponents(
+            [.day], from: calendar.startOfDay(for: date), to: calendar.startOfDay(for: now)
+        ).day ?? 0
+        switch daysAgo {
+        case ...0: return String(localized: "Today")
+        case 1: return String(localized: "Yesterday")
+        case 2...6: return weekday.string(from: date)
+        default:
+            let sameYear = calendar.component(.year, from: date) == calendar.component(.year, from: now)
+            return (sameYear ? fullDate : fullDateAndYear).string(from: date)
+        }
     }
 
     /// `setLocalizedDateFormatFromTemplate`, not a literal format: the template
@@ -64,15 +78,21 @@ enum HistoryTimestamp {
         return formatter
     }()
 
-    private static let day = formatter(template: "d MMM")
-    private static let dayAndYear = formatter(template: "d MMM y")
+    private static let weekday = formatter(template: "EEEE")
+    private static let fullDate = formatter(template: "EEEE d MMMM")
+    private static let fullDateAndYear = formatter(template: "EEEE d MMMM y")
 }
 
 /// One row of the panel.
 @MainActor
 final class HistoryRowView: NSView {
 
-    var onClick: (() -> Void)?
+    /// A click, with the modifiers held: ⌘ and ⇧ mark rows rather than open
+    /// one (§11.3).
+    var onClick: ((NSEvent.ModifierFlags) -> Void)?
+    /// A right-click: the menu for this row, from the list, which knows what
+    /// else is marked.
+    var onMenu: (() -> NSMenu?)?
     /// The pointer arrived on this row. §9.1's list moves one pill rather than
     /// filling a row, so the row reports and the list decides.
     var onHover: (() -> Void)?
@@ -251,11 +271,15 @@ final class HistoryRowView: NSView {
 
     override func mouseUp(with event: NSEvent) {
         guard bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
-        onClick?()
+        onClick?(event.modifierFlags.intersection(.deviceIndependentFlagsMask))
+    }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        onMenu?()
     }
 
     override func accessibilityPerformPress() -> Bool {
-        onClick?()
+        onClick?([])
         return true
     }
 }
