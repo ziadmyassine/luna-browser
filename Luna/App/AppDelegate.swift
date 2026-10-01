@@ -122,6 +122,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // §3.6: a rebound shortcut rebuilds the bar. Before the first window.
         observeShortcutChanges()
         installTabSwitcherKeys()
+        // Before launch finishes: a Services request can be what launched Luna,
+        // and it is delivered as soon as there is a provider to take it.
+        NSApp.servicesProvider = LunaServices { [weak self] pages in self?.application(NSApp, open: pages) }
         LaunchTrace.mark("menu")
     }
 
