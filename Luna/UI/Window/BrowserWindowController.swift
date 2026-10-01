@@ -135,11 +135,10 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         self.init(remembersFrame: true)
     }
 
-    /// - Parameter remembersFrame: whether this window is the one that restores
-    ///   and saves the remembered frame. Exactly one is (§22.6): an autosave
-    ///   name is per name, not per window, so several windows sharing one open
-    ///   on top of each other and the last to close overwrites the rest. The
-    ///   others cascade off the front window instead.
+    /// - Parameter remembersFrame: whether this window takes a slot in
+    ///   `WindowFrameMemory` (§22.6), which puts it where that slot last stood
+    ///   on this screen setup and keeps track of it from here on. Off for a
+    ///   test's window, which has nowhere to be put back to.
     convenience init(remembersFrame: Bool) {
         let window = LunaWindow(
             contentRect: NSRect(
@@ -157,8 +156,8 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
 
         self.init(window: window)
 
-        // Set after `center()` so a remembered frame wins over the default placement.
-        if remembersFrame { windowFrameAutosaveName = "LunaBrowserWindow" }
+        // After `center()`, so a remembered frame wins over the default placement.
+        if remembersFrame { WindowFrameMemory.shared.register(window) }
         window.delegate = self
         buildContent(in: window)
         trafficLights = TrafficLightLayoutManager(window: window)

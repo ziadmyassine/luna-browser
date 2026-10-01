@@ -2741,6 +2741,13 @@ Total in the clip: **~2.3 s**, which is a gesture-driven mobile interaction.
   state a cold launch leaves too (§19.4) — Luna has no New Tab page to put in a window nobody has asked
   a question of yet, and §3.4's New Tab row and §3.3a's wells already say what to do with an empty one.
   It lands `windowCascadeStep` down and across from the window it came out of, clamped to that screen.
+- **Each window's frame is remembered per screen setup** (`WindowFrameMemory`). A window holds a slot,
+  the lowest number no other open window has; the first is 0. Its frame is saved under the slot and
+  the setup — the displays' frames, so the same desk with the same monitors is the same setup — and put
+  back when that setup is in use again: at launch, at `⌘N` (in place of the cascade), or when a display
+  is plugged back in. A frame whose display has gone is moved onto the main screen at its own size,
+  shrunk only to fit; no window is ever placed off screen. Nothing is saved in fullscreen, or for the
+  moves AppKit makes while it rehouses windows from a display that has just gone.
 - **A tab that goes away is released in every window.** Closing, unpinning or carrying a tab into another
   Space moves the selection off it wherever it was selected — a window behind this one would otherwise
   keep pointing at a row that is no longer there, and put its page back on screen the moment it came

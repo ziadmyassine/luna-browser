@@ -44,7 +44,7 @@ extension AppDelegate {
     /// a window and would otherwise get silence.
     func openBrowserWindow(isPrivate: Bool) {
         guard let session = front?.session else { return }
-        let controller = BrowserWindowController(remembersFrame: windows.isEmpty)
+        let controller = BrowserWindowController()
         if isPrivate {
             Task { await openPrivateWindow(in: controller) }
             return
@@ -95,10 +95,12 @@ extension AppDelegate {
         let previous = windows.dropLast().last?.controller
         window.controller.showWindow(self)
         // After `showWindow`, not before it: AppKit gives a window its frame on
-        // the way on screen — the autosaved one, or its own cascade for a
-        // second window of the same app — and a frame set before that is
-        // overwritten without a word.
-        cascade(window.controller, after: previous)
+        // the way on screen — its own cascade for a second window of the same
+        // app — and a frame set before that is overwritten without a word. A
+        // slot arranged on this screen setup goes back there (§22.6); only a
+        // window with nowhere to go back to cascades.
+        let restored = window.controller.window.map { WindowFrameMemory.shared.restore($0) } ?? false
+        if !restored { cascade(window.controller, after: previous) }
         NSApp.activate()
     }
 
