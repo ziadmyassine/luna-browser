@@ -259,10 +259,39 @@ struct BlockingTests {
         #expect(exemptions.insecureAllowed == ["old.example.net"])
     }
 
+    /// HTTPS-first, with HTTPS-only off: every http address is tried over https,
+    /// and one that fails falls back to http with no page in between.
+    @Test func httpsFirstUpgradesAndFallsBackQuietly() throws {
+        let blocker = ContentBlocker(store: Self.temporaryRuleStore(), defaults: scratchDefaults())
+        let http = URL(string: "http://slow.example.com/fag")!
+        let https = URL(string: "https://slow.example.com/fag")!
+        #expect(blocker.httpsDecision(for: http) == .upgrade(https))
+
+        #expect(blocker.httpsFirstFallback(for: https) == http)
+        #expect(blocker.httpsDecision(for: http) == .proceed, "a failed https was tried again")
+        #expect(
+            blocker.httpsDecision(for: URL(string: "http://slow.example.com/other")!) == .proceed,
+            "the host's other pages were tried again in the same session"
+        )
+        #expect(blocker.httpsFirstFallback(for: URL(string: "https://unrelated.example.com/")!) == nil)
+    }
+
+    /// A site whose https redirects to http: the second ask for the same
+    /// address is the bounce, and goes through rather than looping.
+    @Test func httpsFirstLetsAnHTTPSToHTTPRedirectThrough() throws {
+        let blocker = ContentBlocker(store: Self.temporaryRuleStore(), defaults: scratchDefaults())
+        let http = URL(string: "http://bouncy.example.com/")!
+        let start = Date()
+        #expect(blocker.httpsDecision(for: http, at: start) == .upgrade(URL(string: "https://bouncy.example.com/")!))
+        #expect(blocker.httpsDecision(for: http, at: start.addingTimeInterval(0.5)) == .proceed)
+        // Followed again much later, a link to another site is still upgraded.
+        let other = URL(string: "http://steady.example.com/")!
+        _ = blocker.httpsDecision(for: other, at: start)
+        #expect(blocker.httpsDecision(for: other, at: start.addingTimeInterval(60)) != .proceed)
+    }
+
     @Test func httpsOnlyUpgradesExceptWhereItCannotWork() throws {
         let blocker = ContentBlocker(store: Self.temporaryRuleStore(), defaults: scratchDefaults())
-        #expect(blocker.httpsDecision(for: URL(string: "http://example.com/a")!) == .proceed)
-
         blocker.isHTTPSOnlyEnabled = true
         let upgraded = URL(string: "https://example.com/a?b=1")!
         #expect(blocker.httpsDecision(for: URL(string: "http://example.com/a?b=1")!) == .upgrade(upgraded))
@@ -277,6 +306,8 @@ struct BlockingTests {
 
         blocker.allowInsecure(host: "Legacy.example.org")
         #expect(blocker.httpsDecision(for: URL(string: "http://legacy.example.org/x")!) == .proceed)
+        // HTTPS-only shows the downgrade page instead of falling back.
+        #expect(blocker.httpsFirstFallback(for: upgraded) == nil)
     }
 
     // MARK: - §17.1's schedule

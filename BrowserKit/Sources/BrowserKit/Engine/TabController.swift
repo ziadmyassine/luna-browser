@@ -258,6 +258,11 @@ public final class TabController: NSObject {
     /// outside `BrowserKit` can write it.
     public internal(set) var bypassedURL: URL?
 
+    /// An https address HTTPS-first is waiting on, until the site answers or
+    /// `httpsFirstPatience` runs out (§17.6). Here for the same reason as
+    /// `bypassedURL`; the logic is in `TabController+Delegates`.
+    var awaitingUpgrade: URL?
+
     /// Where §8.1's tracking strip last sent this tab, until that page commits;
     /// `decidePolicyFor` reads it to break a redirect loop.
     var lastTrackingStrip: URL?

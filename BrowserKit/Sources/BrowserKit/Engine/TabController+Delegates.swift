@@ -56,9 +56,40 @@ extension TabController: WKNavigationDelegate {
            url != bypassedURL {
             decisionHandler(.cancel)
             load(upgraded)
+            awaitUpgrade(upgraded, in: webView)
             return true
         }
         return false
+    }
+
+    /// HTTPS-first's patience: an upgraded load the site has not answered in
+    /// `httpsFirstPatience` is given up for the http address. Under HTTPS-only
+    /// the load runs its course and its failure shows the downgrade page.
+    private func awaitUpgrade(_ upgraded: URL, in webView: WKWebView) {
+        guard !ContentBlocker.shared.isHTTPSOnlyEnabled else { return }
+        awaitingUpgrade = upgraded
+        Task { @MainActor [weak self, weak webView] in
+            try? await Task.sleep(for: .seconds(ContentBlocker.httpsFirstPatience))
+            guard let self, let webView, self.awaitingUpgrade == upgraded else { return }
+            self.awaitingUpgrade = nil
+            guard let origin = ContentBlocker.shared.httpsFirstFallback(for: upgraded) else { return }
+            webView.stopLoading()
+            self.load(origin)
+        }
+    }
+
+    /// An upgraded load that failed outright, HTTPS-first: the http address
+    /// instead, with no error page and nothing reported.
+    /// - Returns: whether it took the failure.
+    private func fellBackFromUpgrade(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        guard !(nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled),
+              let failing = nsError.userInfo[NSURLErrorFailingURLErrorKey] as? URL,
+              let origin = ContentBlocker.shared.httpsFirstFallback(for: failing)
+        else { return false }
+        awaitingUpgrade = nil
+        load(origin)
+        return true
     }
 
     private func decidePolicy(
@@ -132,6 +163,8 @@ extension TabController: WKNavigationDelegate {
         decisionHandler: @escaping @MainActor @Sendable (WKNavigationResponsePolicy) -> Void
     ) {
         onNavigationResponse?(navigationResponse)
+        // The site answered the upgrade, so HTTPS-first stops waiting on it.
+        if navigationResponse.isForMainFrame { awaitingUpgrade = nil }
         if navigationResponse.isForMainFrame, interceptMarkdown(navigationResponse.response, in: webView) {
             decisionHandler(.cancel)
             return
@@ -260,7 +293,7 @@ extension TabController: WKNavigationDelegate {
         didFailProvisionalNavigation navigation: WKNavigation!,
         withError error: Error
     ) {
-        guard reportNavigationFailure(error) else { return }
+        guard !fellBackFromUpgrade(error), reportNavigationFailure(error) else { return }
         presentErrorPage(for: error, in: webView)
     }
 

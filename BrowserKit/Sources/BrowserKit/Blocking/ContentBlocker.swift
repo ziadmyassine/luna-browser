@@ -79,6 +79,13 @@ public final class ContentBlocker {
     /// https URL → the http URL it was upgraded from, so a failure can be told apart from
     /// an ordinary one. Bounded: this is a breadcrumb, not a history.
     var upgrades: [String: URL] = [:]
+    /// When each of `upgrades` was made, so an https address that sends Luna
+    /// straight back to http is told from a link followed twice.
+    var upgradedAt: [String: Date] = [:]
+    /// Hosts whose https failed this session under HTTPS-first, loaded over
+    /// http from then on. In memory: a site that mends its https is tried
+    /// again on the next launch.
+    var httpOnlyHosts: Set<String> = []
     weak var browserStore: BrowserStore?
     private var refreshTask: Task<Void, Never>?
 
