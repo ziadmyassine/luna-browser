@@ -7,6 +7,27 @@ under Unreleased; a release will take the entries since the last one.
 
 ### 2026-10-01
 
+- **A page that went blank while the Mac slept is reloaded** (§19.3): Luna checks the tabs in front when it becomes active or the Mac wakes, reloads a page whose process died, and says "Page reloaded".
+- **Each window keeps its place per screen setup** (§22.6): Luna remembers where each of its windows was for each arrangement of displays, and never opens a window off screen after a display is unplugged.
+- **Tab commands in the menus** (§20.2): Rename Tab, Mute Site (⌃M), Move to Folder, New Folder (⌥⌘N) and Site Settings can be found in the menus and the Command Bar and given shortcuts in Settings.
+- **Onboarding asks for a theme and offers to be your default browser** (§23.3): first run lets you choose Light, Dark or Auto, asks macOS to make Luna your default browser when you finish, and can be opened again from Help ▸ Welcome to Luna.
+- **Pull a tab out into its own window** (§6.6): drag a tab well clear of the sidebar or the top bar and it opens in a new window without reloading, or drop it into another app to hand over its link; a dashed box shows where a dragged file or link will open.
+- **An unread dot on tabs that changed while you were away** (§7.3): a tab you are not looking at shows a dot when its page finishes loading or its title changes, and the dot goes when you open it.
+- **A letter instead of a globe** (§4.7): a site with no icon shows its first letter on the Space's colour.
+- **Each site keeps its zoom** (§18.2): Luna opens a site's pages at the zoom you last chose there, on every Mac you sync; Actual Size forgets it.
+- **A site can have its own browser identity** (§4.6): the site settings pop-out can make one site see Luna as Safari or Chrome.
+- **A website asks before it reads what you copied** (§18.8): a toast asks, like the camera, and the answer is kept for that site in each Space.
+- **How much was blocked on the page** (§17.4): the site settings pop-out says how many ads and trackers were blocked, and from which sites.
+- **One "Clear Website Data"** (§17.5): replaces Clear Cache and Clear Cookies in the site pop-out and removes everything the site stored in this Space.
+- **Saved web links open in Luna** (§22.2): .webloc, .inetloc and .url files open from Finder, a drop on the window or Open File, and macOS files Luna under Productivity.
+- **Services ▸ Open in Luna and Search with Luna** (§22.4): select a link or some text in any app to open it in a new tab.
+- **Help ▸ Luna Help opens Luna's FAQ in a tab** (§22.5) instead of saying help isn't available.
+- **VoiceOver reads the window in order** (§21.1): sidebar or top bar, then the page bar, then the page, with named groups for Favorites, tabs and the controls around them.
+- **History by day, and deleting from it** (§11.3): ⌘Y groups pages by day; ⌘-click or ⇧-click several and delete them, clear the last hour, today or everything, or forget a site including its cookies and website data.
+- **Sums and conversions in the Command Bar** (§9.2): "5*12" or "5 km in miles" shows the answer on the top row and Return copies it; "clear cookies" clears the current site's cookies.
+- **A keystroke reaches the Command Bar's rows faster** (§9.7): the result rows are refilled in place rather than rebuilt, about 6 ms off the slowest keystrokes.
+- **Print with ⌘P, and PDFs you can download** (§15.5): File ▸ Print works on every page; a PDF in a tab offers Download PDF and Print in the site pop-out, and a big or slow PDF shows a toast with Download.
+- **Mute all tabs, and Picture in Picture for embedded videos** (§18.4a): View ▸ Mute All Tabs; PiP reaches videos in embedded players and its "back to tab" goes to the right tab; the play/pause keys keep reaching music paused in a background tab.
 - **Every http link is tried over https first** (§17.6): as Chrome does, and quietly — if the site's https fails or has not answered in 3 seconds, the http address loads instead, and that site is not tried over https again until Luna restarts. A site that answers only on https (mitsdu.dk) used to hang until the connection timed out. HTTPS-Only Mode still shows a warning page instead of falling back.
 - **Folders sit evenly in the sidebar** (§3.4b): a folder's row is 4 pt taller, so its icon has a little more room than a tab's favicon, and an open folder's plate keeps as much room over the folder as under its last tab, and as much beside its tabs as under them. The foot was twice the head.
 - **Find on a page with ⌘F** (§18.1): a glass field in the page's top-right corner, with the count ("3 of 12"), Return and Shift-Return or ⌘G and ⇧⌘G to step, ⌘E to find the selection, and Escape to close. In Settings, ⌘F still searches the settings.
