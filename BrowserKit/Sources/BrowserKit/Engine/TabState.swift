@@ -35,6 +35,8 @@ public struct TabState: Sendable, Equatable {
     public var isEdited: Bool
     /// Reader would find an article on this page (`probeForArticle`).
     public var isArticle: Bool
+    /// The main frame is a PDF in WebKit's viewer (`TabController+PDF.swift`).
+    public var isPDF: Bool
 
     public init(
         url: URL? = nil,
@@ -51,7 +53,8 @@ public struct TabState: Sendable, Equatable {
         microphone: CaptureState = .off,
         isReading: Bool = false,
         isEdited: Bool = false,
-        isArticle: Bool = false
+        isArticle: Bool = false,
+        isPDF: Bool = false
     ) {
         self.url = url
         self.title = title
@@ -68,6 +71,7 @@ public struct TabState: Sendable, Equatable {
         self.isReading = isReading
         self.isEdited = isEdited
         self.isArticle = isArticle
+        self.isPDF = isPDF
     }
 }
 

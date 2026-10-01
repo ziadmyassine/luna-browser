@@ -115,6 +115,15 @@ struct BrowserCommand: Identifiable {
         "closeWindow", "Close Window", #selector(NSWindow.performClose(_:)),
         [KeyBinding("w", [.command, .shift])], customisable: false, symbol: "macwindow"
     )
+    /// §15.5. Offered only while the tab shows a PDF from the web.
+    static let downloadPDF = BrowserCommand(
+        "downloadPDF", "Download PDF", #selector(AppDelegate.downloadPDF(_:)),
+        symbol: "arrow.down.doc", keywords: ["save pdf", "pdf"]
+    )
+    /// Every Mac's ⌘P. A PDF in the viewer prints as its own pages.
+    static let printPage = BrowserCommand(
+        "printPage", "Print…", #selector(AppDelegate.printPage(_:)), [KeyBinding("p")], symbol: "printer"
+    )
 
     // MARK: - Edit
 
@@ -306,7 +315,7 @@ struct BrowserCommand: Identifiable {
         settings,
         newTab, newWindow, newPrivateWindow, openLocation, openFile, duplicateTab, resetPinnedTab,
         renameTab, muteSite, moveToFolder, newFolder, closeTab, closeAllTabs, cleanUpTabs,
-        reopenArchivedTab, closeWindow,
+        reopenArchivedTab, closeWindow, downloadPDF, printPage,
         undo, redo, cut, copy, paste, selectAll, find, findNext, findPrevious, useSelectionForFind,
         copyURL, copyMarkdown,
         toggleSidebar, toggleFavorite, reloadPage, forceReloadPage, stopLoading, openBlockedPopup,

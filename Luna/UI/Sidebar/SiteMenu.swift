@@ -212,15 +212,35 @@ enum SiteMenu {
         }
     }
 
-    /// Reader and the picker, titled for what pressing them will do now.
+    /// Reader and the picker, titled for what pressing them will do now; for a
+    /// PDF, which has neither, the file itself.
     private static func pageTools() -> [SiteSettingsContent.Action] {
-        guard let session, session.canUsePageTools else { return [] }
+        guard let session else { return [] }
+        if session.activeController?.state.isPDF == true { return pdfTools(session) }
+        guard session.canUsePageTools else { return [] }
         let reader = session.isReaderOn ? String(localized: "Hide Reader") : String(localized: "Show Reader")
         let hide = session.isPickingElements ? String(localized: "Stop Hiding") : String(localized: "Hide Something…")
         return [
             .init(title: reader, symbol: Glyph.reader) { [weak session] in session?.toggleReader() },
             .init(title: hide, symbol: Glyph.hide) { [weak session] in session?.toggleHidingElements() }
         ]
+    }
+
+    /// §15.5: the PDF in the viewer, to Downloads or to the printer. A file on
+    /// this Mac is already where Downloads would put it.
+    private static func pdfTools(_ session: BrowserSession) -> [SiteSettingsContent.Action] {
+        var tools: [SiteSettingsContent.Action] = []
+        if session.canDownloadActivePDF {
+            tools.append(.init(title: String(localized: "Download PDF"), symbol: Glyph.download) { [weak session] in
+                session?.downloadActivePDF()
+            })
+        }
+        if session.canPrint {
+            tools.append(.init(title: String(localized: "Print…"), symbol: Glyph.print) { [weak session] in
+                session?.printActivePage()
+            })
+        }
+        return tools
     }
 
     /// §17.2's per-site exemption, read the way round a user thinks about it:
@@ -353,6 +373,8 @@ enum SiteMenu {
         static let websiteData = "trash"
         static let reader = "doc.plaintext"
         static let hide = "eye.slash"
+        static let download = "arrow.down.doc"
+        static let print = "printer"
         /// The sliders that open the pop-out in the first place (§3.2), which is as close
         /// as the family comes to "the rest of the settings are through here".
         static let advanced = "slider.horizontal.3"
@@ -364,7 +386,7 @@ enum SiteMenu {
 
         static let all = [
             share, link, blocking, blocked, pictureInPicture, localNetwork, popups, camera, microphone, location, clipboard, userAgent,
-            blockedPopup, websiteData, reader, hide, advanced, secure, insecure, site
+            blockedPopup, websiteData, reader, hide, download, print, advanced, secure, insecure, site
         ]
     }
 }

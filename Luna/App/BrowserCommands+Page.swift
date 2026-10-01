@@ -88,6 +88,17 @@ extension AppDelegate {
         session?.togglePictureInPicture()
     }
 
+    // MARK: - Print and PDF (§15.5)
+
+    /// `⌘P`.
+    @objc func printPage(_ sender: Any?) {
+        session?.printActivePage()
+    }
+
+    @objc func downloadPDF(_ sender: Any?) {
+        session?.downloadActivePDF()
+    }
+
     // MARK: - Reader and hiding
 
     /// `⇧⌘R`.
@@ -163,7 +174,8 @@ extension AppDelegate {
         }
     }
 
-    /// Reader and the picker, ticked while on so the menu says how to get back out.
+    /// Reader and the picker, ticked while on so the menu says how to get back
+    /// out; Print and Download PDF.
     private func validatePageTool(_ item: NSMenuItem, in session: BrowserSession) -> Bool? {
         switch item.action {
         case #selector(toggleReader(_:)):
@@ -172,6 +184,10 @@ extension AppDelegate {
         case #selector(toggleHidingElements(_:)):
             item.state = session.isPickingElements ? .on : .off
             return session.canUsePageTools
+        case #selector(printPage(_:)):
+            return session.canPrint
+        case #selector(downloadPDF(_:)):
+            return session.canDownloadActivePDF
         default:
             return nil
         }

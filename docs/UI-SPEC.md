@@ -2561,7 +2561,8 @@ something happened, over the page, is one of these — never a panel, chip or ba
   Picture in Picture, Reader, hiding parts of a page, a page Luna reloaded because its web
   process died (§19.3, front tab only), and §17's blocked pop-ups
   (`PageToast.popupBlocked`, Open and Always Allow; it was a floating chip with a placement setting
-  until 2026-09-29).
+  until 2026-09-29), and §15.5's slow PDF (`PageToast.openingPDF`, Download: a PDF of 10 MB or more
+  as it starts, or one of unknown size still arriving after 3 s).
 - **Not a toast:** a question that needs reading and more than two answers — §14.4's save-password
   chip (two lines, Save / Never / Not Now) and Luna Control's approval card. Those are prompts, and
   keep their own surfaces.

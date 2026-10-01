@@ -79,8 +79,10 @@ public final class TabController: NSObject {
     var autosave: Task<Void, Never>?
     var saveHalted = false
     let editUndo = UndoManager()
-    private static let recoveryLimit = 3
-    private static let recoveryWindow: TimeInterval = 60
+    /// Storage for `TabController+PDF.swift`: the PDF the main frame is receiving,
+    /// the wait before saying it is slow, and whether the document on screen is one.
+    var arrivingPDF: PDFArrival?, pdfPatience: Task<Void, Never>?, showsPDF = false
+    private static let recoveryLimit = 3, recoveryWindow: TimeInterval = 60
 
     static let mediaMessageName = "lunaMedia"
 
@@ -562,6 +564,7 @@ extension TabController {
     func publishState() {
         var next = state
         next.isArticle = webView != nil && isArticle
+        next.isPDF = webView != nil && showsPDF
         if let webView {
             next.url = webView.url ?? next.url
             // Keep the last non-empty title: a page's title arrives after its first

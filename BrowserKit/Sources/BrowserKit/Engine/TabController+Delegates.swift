@@ -197,6 +197,7 @@ extension TabController: WKNavigationDelegate {
             isForMainFrame: navigationResponse.isForMainFrame
         )
         decisionHandler(download ? .download : .allow)
+        if navigationResponse.isForMainFrame, !download { noteMainFrameResponse(navigationResponse.response) }
     }
 
     /// The contents of a local text file, or nil for anything else. Capped at
@@ -239,6 +240,7 @@ extension TabController: WKNavigationDelegate {
 
     public func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         resetPerDocumentState()
+        commitArrivingPDF()
         // A new document starts unmuted however the tab is set: `muted` is a property of
         // the media elements, and these are new ones. Re-asserted here rather than at
         // `didFinish` because the audio of an autoplaying page starts long before the
@@ -249,6 +251,7 @@ extension TabController: WKNavigationDelegate {
     }
 
     public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        forgetArrivingPDF()
         publishState()
         // Cheap, and it is the only copy §19.3 can recover from once the process dies.
         savedInteractionState = webView.interactionState as? Data
@@ -298,6 +301,7 @@ extension TabController: WKNavigationDelegate {
         didFailProvisionalNavigation navigation: WKNavigation!,
         withError error: Error
     ) {
+        forgetArrivingPDF()
         guard !fellBackFromUpgrade(error), reportNavigationFailure(error) else { return }
         presentErrorPage(for: error, in: webView)
     }
@@ -306,6 +310,7 @@ extension TabController: WKNavigationDelegate {
     /// Replacing it with an error page would throw away content the user can
     /// already read, so this one only reports.
     public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        forgetArrivingPDF()
         _ = reportNavigationFailure(error)
     }
 

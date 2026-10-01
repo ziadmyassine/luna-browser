@@ -134,6 +134,27 @@ struct PageToast: Equatable {
         }
     }
 
+    /// §15.5: a PDF the viewer will show nothing of for a while. The size
+    /// when the server gave one, because "48 MB" is what tells the user to
+    /// take the offer.
+    static func openingPDF(_ pdf: PDFArrival, download: @escaping @MainActor () -> Void) -> PageToast {
+        let text = pdf.expectedLength.map {
+            String(localized: "Opening a \(ByteCountFormatter.string(fromByteCount: $0, countStyle: .file)) PDF")
+        } ?? String(localized: "This PDF is still loading")
+        let name = pdf.url.lastPathComponent
+        return PageToast(
+            symbol: "doc.richtext",
+            text: text,
+            detail: name.isEmpty || name == "/" ? pdf.url.host(percentEncoded: false) : name,
+            actions: [Action(
+                title: String(localized: "Download"),
+                label: String(localized: "Download the PDF instead"),
+                toolTip: String(localized: "Stop opening it here and save it to Downloads"),
+                run: download
+            )]
+        )
+    }
+
     static let hidingStarted = PageToast(
         symbol: "eye.slash", text: String(localized: "Click anything to hide it. ⌘Z brings each one back. Esc to stop.")
     )

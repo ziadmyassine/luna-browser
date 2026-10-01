@@ -14,9 +14,11 @@ import BrowserKit
 extension BrowserSession {
 
     /// A web page or a file. Nothing Luna draws itself has an article to read
-    /// or a banner to hide, and a cold tab has no page to act on yet.
+    /// or a banner to hide, a cold tab has no page to act on yet, and a PDF is
+    /// WebKit's viewer, which runs no script.
     var canUsePageTools: Bool {
-        guard let url = activeURL, activeController?.webView != nil else { return false }
+        guard let url = activeURL, let controller = activeController, controller.webView != nil,
+              !controller.state.isPDF else { return false }
         return ["http", "https", "file"].contains(url.scheme?.lowercased() ?? "")
     }
 

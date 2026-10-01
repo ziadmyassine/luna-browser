@@ -191,7 +191,10 @@ enum MainMenu {
             [.separator()],
             items(.closeTab), items(.closeAllTabs), items(.cleanUpTabs), items(.reopenArchivedTab),
             [.separator()],
-            items(.closeWindow)
+            items(.closeWindow),
+            // Where every Mac app keeps Print: last.
+            [.separator()],
+            items(.downloadPDF), items(.printPage)
         ]))
     }
 

@@ -117,6 +117,10 @@ public protocol TabControllerDelegate: AnyObject {
     /// The Markdown file being edited changed on disk since it was read.
     /// Saving has stopped; `resolveDiskConflict` restarts it either way.
     func tabController(_ controller: TabController, markdownChangedOnDisk url: URL)
+
+    /// §15.5: a PDF big enough, or slow enough, that the viewer will sit empty
+    /// for a while. `downloadArrivingPDFInstead` is the offer to make.
+    func tabController(_ controller: TabController, isSlowToOpen pdf: PDFArrival)
 }
 
 public extension TabControllerDelegate {
@@ -173,4 +177,6 @@ public extension TabControllerDelegate {
     func tabController(_ controller: TabController, didCopyCode code: String) {}
 
     func tabController(_ controller: TabController, markdownChangedOnDisk url: URL) {}
+
+    func tabController(_ controller: TabController, isSlowToOpen pdf: PDFArrival) {}
 }
