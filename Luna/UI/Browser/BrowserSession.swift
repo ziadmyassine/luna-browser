@@ -128,6 +128,10 @@ final class BrowserSession {
         // §3.2's Automatic Picture-In-Picture, before the observers run: the
         // selection has already moved by the time anything is told about it.
         handOffPictureInPicture(to: activeTabID)
+        // §7.3's dot, also before them: every way a tab reaches a window ends
+        // here, and a row drawn from the snapshot before the clear would keep
+        // its dot on the page being read.
+        clearUnreadOnScreen()
         onChange?()
         extensions?.sync()
         // Snapshot: an observer may unregister itself from inside its callback.
@@ -267,6 +271,10 @@ final class BrowserSession {
     /// came back silent after a relaunch with nothing on screen to say why would be a
     /// bug report, not a feature. See `setMuted(_:tab:)`.
     var mutedTabIDs: Set<UUID> = []
+    /// Tabs whose last reported `TabState` was loading, so the report that
+    /// says otherwise can be read as a load finishing. Written only by
+    /// `BrowserSession+Unread.swift`.
+    var loadingTabIDs: Set<UUID> = []
     /// §3.4b: tabs still shown under their folder while it is folded — the
     /// one the user was on when they folded it, and any they have gone to
     /// inside it since. See `BrowserSession+Groups`'s "Folded, but showing".

@@ -160,8 +160,11 @@ extension BrowserSession: TabControllerDelegate {
 
     func tabController(_ controller: TabController, didChange state: TabState) {
         let id = controller.id
+        let finishedLoad = noteLoading(id, isLoading: state.isLoading, isLive: controller.webView != nil)
+        var becameUnread = false
         if var tab = tab(id) {
             var changed = false
+            var retitled = false
             if let url = state.url, tab.url != url {
                 // A different site is a different mark. `faviconPNG` is this
                 // session's answer for the tab and it outlives the page it was
@@ -177,10 +180,17 @@ extension BrowserSession: TabControllerDelegate {
             if !state.title.isEmpty, tab.title != state.title {
                 tab.title = state.title
                 changed = true
+                retitled = true
             }
             if tab.themeColor != state.themeColor {
                 tab.themeColor = state.themeColor
                 changed = true
+            }
+            // A title that changes during a load is part of that load, which
+            // speaks for itself when it finishes.
+            if finishedLoad || (retitled && !state.isLoading), markUnread(&tab) {
+                changed = true
+                becameUnread = true
             }
             if changed { write(tab) }
         }
@@ -195,6 +205,8 @@ extension BrowserSession: TabControllerDelegate {
         }
 
         notifyTabState(id, state)
+        // The dot is drawn from the tab list, which a `TabState` does not touch.
+        if becameUnread { notifyChange() }
     }
 
     func tabController(
