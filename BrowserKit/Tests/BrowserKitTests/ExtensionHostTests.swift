@@ -131,6 +131,14 @@ struct ExtensionHostTests {
         #expect(later.enabledSpaces == [spaceA, spaceC], "a new Space did not start with it on, or turned B back on")
         #expect(later.grants[spaceC] == later.grants[spaceA])
 
+        // Off in every Space: a new Space follows them and leaves it off.
+        for space in [spaceA, spaceC] { try await manager.setEnabled(false, extension: request.id, inSpace: space) }
+        let spaceD = try await store.insertSpace(named: "Quiet")
+        let quietStore = WKWebsiteDataStore(forIdentifier: UUID())
+        defer { Self.remove(quietStore) }
+        await manager.addSpace(spaceD, dataStore: quietStore)
+        #expect(manager.extensions.first?.enabledSpaces.isEmpty == true, "a new Space turned on what every Space had off")
+
         manager.tearDown()
         try await manager.uninstall(request.id)
         #expect(manager.extensions.isEmpty)

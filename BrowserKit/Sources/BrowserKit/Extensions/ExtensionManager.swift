@@ -92,14 +92,18 @@ public final class ExtensionManager {
         }
     }
 
-    /// A Space made after `start`, or one brought back: everything installed is
-    /// on in it, with the answers given at install, as in every Space unless it
-    /// was switched off there (§16.6). The host is made here rather than with
-    /// the Space's first web view, because only `start` and a switch load
-    /// contexts into one.
+    /// A Space made after `start`, or one brought back: it follows the Spaces
+    /// already there (§16.6). An extension on in any of them is on here, with
+    /// the answers given at install; one switched off in every Space stays off,
+    /// because a new Space turning back on what the user turned off everywhere
+    /// undoes their choice. The host is made here rather than with the Space's
+    /// first web view, because only `start` and a switch load contexts into one.
     public func addSpace(_ spaceID: UUID, dataStore: WKWebsiteDataStore) async {
         _ = host(forSpace: spaceID, dataStore: dataStore)
-        let missing = extensions.filter { installed[$0.id]?.spaces[spaceID] == nil }
+        let missing = extensions.filter { info in
+            let rows = installed[info.id]?.spaces ?? [:]
+            return rows[spaceID] == nil && (rows.isEmpty || rows.values.contains(where: \.isEnabled))
+        }
         for (index, info) in missing.enumerated() {
             if index > 0 { try? await Task.sleep(for: Self.launchStagger) }
             try? await setEnabled(true, extension: info.id, inSpace: spaceID)

@@ -102,7 +102,8 @@ leaves §16.6 as Luna's to invent.
    exists. This is also how §16.6 (per-Space enable) works at all — one
    controller cannot load a context for some web views and not others.
    Cost: an extension enabled in three Spaces runs three workers. A new install
-   is on in every Space, and so is everything installed in a Space made later;
+   is on in every Space, and a Space made later follows the Spaces already
+   there: on if it is on in any of them, off if it is off in all of them;
    each Space has its own switch (decided 2026-10-01; until then a new install
    ran in the current Space only).
 2. **Every Space gets a controller from launch**, extensions or not (~1 MB, no

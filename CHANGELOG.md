@@ -8,7 +8,7 @@ under Unreleased; a release will take the entries since the last one.
 ### 2026-10-01
 
 - **A Space's site answers are its own** (§5.9): Allow or Don't Allow for the camera, microphone, location, local network and pop-ups now counts only in the Space where you gave it, so a work account's camera does not carry over to a personal one. Answers given before are copied into every Space. Zoom, the ad blocker's exceptions and "never save passwords here" stay the same in every Space. A private window asks again.
-- **A new extension runs in every Space** (§16.6), including Spaces made later, and can be switched off in any of them in Settings.
+- **A new extension runs in every Space** (§16.6) and can be switched off in any of them in Settings. A Space made later copies the others: an extension switched off everywhere stays off there too.
 - **An extension card's warning keeps its words** (SETTINGS-SPEC §3.8): beside a card without a warning, the red line shrank to its triangle alone.
 - **A new Luna starts with no colour** (§5.11): the first Space is named Personal in No Colour, and its dot wears no ring while it is the only Space.
 - **Spaces no longer have a picture** (§5): the Picture row in Settings ▸ Spaces is gone.
