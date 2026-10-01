@@ -73,6 +73,14 @@ final class AppearanceSection: NSObject, SettingsSection {
         NSApp.appearance = theme.appearance
     }
 
+    /// Stores `theme` and puts it on the app at once. Settings' row and first
+    /// run's theme page both answer through here, so they are one setting.
+    static func setTheme(_ theme: Theme) {
+        UserDefaults.standard.set(theme.rawValue, forKey: themeKey)
+        // Nil is meaningful: it hands the choice back to System Settings.
+        NSApp.appearance = theme.appearance
+    }
+
     // MARK: The §7 preview tile
 
     /// §3.2: "a 160 × 72 sample of the real material".
@@ -141,10 +149,7 @@ final class AppearanceSection: NSObject, SettingsSection {
             options: options.map(\.title),
             selected: options.firstIndex(of: Self.theme) ?? 0
         ) { index in
-            let theme = options[index]
-            UserDefaults.standard.set(theme.rawValue, forKey: Self.themeKey)
-            // Nil is meaningful: it hands the choice back to System Settings.
-            NSApp.appearance = theme.appearance
+            Self.setTheme(options[index])
         }
     }
 

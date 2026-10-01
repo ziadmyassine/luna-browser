@@ -321,7 +321,9 @@ enum MainMenu {
     }
 
     private static func helpMenu() -> NSMenu {
-        menu("Help", [plain("\(appName) Help", #selector(NSApplication.showHelp(_:)), "?")])
+        // §30.17's first run, which is also where the import and the theme are
+        // offered side by side.
+        menu("Help", items(.showWelcome) + [.separator(), plain("\(appName) Help", #selector(NSApplication.showHelp(_:)), "?")])
     }
 
     // MARK: - Construction

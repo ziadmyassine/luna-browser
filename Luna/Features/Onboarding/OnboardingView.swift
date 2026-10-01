@@ -31,6 +31,10 @@ final class OnboardingView: NSView {
     private let back = OnboardingButton(title: String(localized: "Back"), isPreferred: false)
     private let badge = NSImageView()
     private let empty = NSTextField(labelWithString: "")
+    /// The theme page's answer: Settings ▸ Appearance's own control, writing
+    /// the same setting, under the mark — which is drawn for the appearance it
+    /// is on, so the choice shows itself as it is made.
+    let themeChoice = SettingsChoice(labels: AppearanceSection.Theme.allCases.map(\.title))
     private let list: OnboardingImportList
     private var page: OnboardingPage = .welcome
     private var isImporting = false
@@ -60,10 +64,11 @@ final class OnboardingView: NSView {
         proceed.onActivate = { [weak self] in self?.advance() }
         back.onActivate = { [weak self] in self?.retreat() }
         list.onChoiceChanged = { [weak self] in self?.refreshButtons() }
+        themeChoice.onSelect = { index in AppearanceSection.setTheme(AppearanceSection.Theme.allCases[index]) }
 
         for view in [left, right] as [NSView] { addSubview(view) }
         for view in [title, body, back, proceed] as [NSView] { left.addSubview(view) }
-        for view in [badge, empty, list] as [NSView] { right.content.addSubview(view) }
+        for view in [badge, empty, list, themeChoice] as [NSView] { right.content.addSubview(view) }
         show(.welcome, animated: false)
         applyTokens()
     }
@@ -103,17 +108,25 @@ final class OnboardingView: NSView {
         show(previous, animated: true)
     }
 
+    var currentPage: OnboardingPage { page }
+
     private func show(_ page: OnboardingPage, animated: Bool) {
         self.page = page
         title.stringValue = page.title
         body.stringValue = page.body
         refreshButtons()
+        if page == .theme {
+            themeChoice.selectedIndex = AppearanceSection.Theme.allCases.firstIndex(of: AppearanceSection.theme) ?? 0
+            themeChoice.isHidden = false
+        }
         needsLayout = true
         layoutSubtreeIfNeeded()
         guard animated else {
             badge.alphaValue = page == .transfer ? 0 : 1
             list.alphaValue = page == .transfer ? 1 : 0
             empty.alphaValue = list.alphaValue
+            themeChoice.alphaValue = page == .theme ? 1 : 0
+            themeChoice.isHidden = page != .theme
             return
         }
         crossFade()
@@ -131,7 +144,7 @@ final class OnboardingView: NSView {
                 view.layer?.setAffineTransform(CGAffineTransform(translationX: 0, y: -lift))
             }
         }
-        Tokens.Motion.animate(Tokens.Motion.layoutSwitch) { context in
+        Tokens.Motion.animate(Tokens.Motion.layoutSwitch, { context in
             context.allowsImplicitAnimation = true
             for view in [title, body] as [NSView] {
                 view.animator().alphaValue = 1
@@ -140,7 +153,15 @@ final class OnboardingView: NSView {
             badge.animator().alphaValue = page == .transfer ? 0 : 1
             list.animator().alphaValue = page == .transfer ? 1 : 0
             empty.animator().alphaValue = page == .transfer ? 1 : 0
-        }
+            themeChoice.animator().alphaValue = page == .theme ? 1 : 0
+        }, completion: { [weak self] in
+            // Out of the way once faded, or its segments would still take a
+            // press on a page that does not show them.
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.themeChoice.isHidden = self.page != .theme
+            }
+        })
     }
 
     private func refreshButtons() {
@@ -218,6 +239,14 @@ final class OnboardingView: NSView {
             y: inner.midY - side / 2,
             width: side,
             height: side
+        ).integral
+        // Under the mark by the page's margin, centred on it.
+        let choice = themeChoice.fittingSize
+        themeChoice.frame = NSRect(
+            x: inner.midX - choice.width / 2,
+            y: badge.frame.minY - margin - choice.height,
+            width: choice.width,
+            height: choice.height
         ).integral
         // The full pane, not an inset one: `OnboardingImportList` stands its
         // own cards in from the sides, and a scroll view that stops short of

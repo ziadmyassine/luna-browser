@@ -265,21 +265,24 @@ final class GeneralSection: NSObject, SettingsSection {
     }
 
     private func defaultBrowserRow() -> NSView {
-        setDefault.onActivate = { [weak self] in self?.setAsDefault() }
+        setDefault.onActivate = { [weak self] in
+            Self.askToBeDefault { self?.refreshStatus() }
+        }
         return SettingsRow.accessory("Default browser", subtitle: nil, accessory: setDefault)
     }
 
     /// Both schemes, because a handler for `https` alone still leaves plain
     /// `http` links opening elsewhere. macOS shows its own confirmation sheet;
-    /// Luna must not draw a second one.
-    private func setAsDefault() {
+    /// Luna must not draw a second one. This row and the end of first run
+    /// both ask through here.
+    static func askToBeDefault(then done: @escaping @MainActor () -> Void = {}) {
         let bundle = Bundle.main.bundleURL
         NSWorkspace.shared.setDefaultApplication(at: bundle, toOpenURLsWithScheme: "https") { _ in
             // Back on the main actor before the second call: `NSWorkspace` is
             // not `Sendable`, so it is fetched again here rather than captured.
             Task { @MainActor in
                 NSWorkspace.shared.setDefaultApplication(at: bundle, toOpenURLsWithScheme: "http") { _ in
-                    Task { @MainActor in self.refreshStatus() }
+                    Task { @MainActor in done() }
                 }
             }
         }

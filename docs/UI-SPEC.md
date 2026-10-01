@@ -2308,7 +2308,9 @@ that setting, not a missing variant.
 **First run** (`Luna/Features/Onboarding/`, §30.17–30.18) is a window over the
 browser, not a sheet in front of it: the session is restoring behind it, and a
 gate before the thing the gate is about is a form with no context. Closing it
-is an answer, and it never asks twice (`OnboardingState.hasRun`).
+is an answer, and it never asks twice on its own (`OnboardingState.hasRun`);
+Help ▸ **Welcome to Luna** (a `BrowserCommand`, so the Command Bar has it too)
+puts it up again from the first page.
 
 | | |
 |---|---|
@@ -2318,7 +2320,18 @@ is an answer, and it never asks twice (`OnboardingState.hasRun`).
 | Answers | `Back` over the preferred one, both the column's width, in the same place on every page |
 | Lights | `TrafficLightLayoutManager(pinningLightsIn:)`, all three, two of them dim — §7.7's one owner, so they land where every other Luna window's do |
 
-- **Three pages**: welcome, transfer, done. The words live in `OnboardingPage`
+- **Four pages**: welcome, theme, transfer, done. There is no page for Spaces —
+  a new Luna starts with one, Personal, in no colour — and none for the default
+  browser.
+- **The theme page is Settings ▸ Appearance's Theme**, the same `SettingsChoice`
+  (Auto · Light · Dark) writing the same key through `AppearanceSection.setTheme`,
+  under the mark. The mark is drawn for the appearance it is on, so the choice
+  shows itself as it is made, and nothing else on the page needs to.
+- **Finishing asks macOS to make Luna the default browser**, once, as the last
+  page's button closes the window — the system's own question, the one Settings ▸
+  General's button asks (`GeneralSection.askToBeDefault`), and not asked when Luna
+  already is. The close button is "not now" to that too.
+- The words live in `OnboardingPage`
   and nowhere else, because §30.18's copy warning — the reference promises
   "bookmarks, history, and **extensions**" and Luna can import none of the
   third — is a promise that gets broken in a string literal nobody is looking

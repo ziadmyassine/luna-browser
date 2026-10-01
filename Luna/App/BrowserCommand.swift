@@ -308,7 +308,8 @@ struct BrowserCommand: Identifiable {
         zoomIn, zoomOut, actualSize, pictureInPicture, reader, siteSettings, hideElements, showDownloads,
         goBack, goForward, showHistory,
         showWebInspector, showJavaScriptConsole, showPageSource, startElementSelection, disableJavaScript, emptyCaches,
-        previousTab, nextTab, previousSpace, nextSpace, minimize, searchSettings
+        previousTab, nextTab, previousSpace, nextSpace, minimize, searchSettings,
+        showWelcome
     ]
 
     static func command(id: String) -> BrowserCommand? { all.first { $0.id == id } }
@@ -344,6 +345,12 @@ extension BrowserCommand {
     static let siteSettings = BrowserCommand(
         "siteSettings", "Site Settings…", #selector(AppDelegate.openSiteSettings(_:)),
         symbol: SiteMenu.Glyph.advanced, keywords: ["permissions", "camera", "microphone", "site", "website"]
+    )
+
+    /// §30.17's first run, again, from Help.
+    static let showWelcome = BrowserCommand(
+        "showWelcome", "Welcome to Luna", #selector(AppDelegate.showWelcome(_:)),
+        symbol: "hand.wave", keywords: ["onboarding", "first run", "setup", "import", "theme"]
     )
 }
 

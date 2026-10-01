@@ -32,14 +32,18 @@ final class OnboardingCopyTests: XCTestCase {
         }
     }
 
-    /// Three pages, each with something to say and a way on.
+    /// Four pages, each with something to say and a way on. No page makes
+    /// Spaces and none asks about the default browser: a new Luna has its one
+    /// Space already, and finishing asks macOS (`OnboardingFlowTests`).
     func testEveryPageIsWrittenAndLeadsSomewhere() {
         for page in OnboardingPage.allCases {
             XCTAssertFalse(page.title.isEmpty)
             XCTAssertFalse(page.body.isEmpty)
             XCTAssertFalse(page.continueTitle.isEmpty)
         }
-        XCTAssertEqual(OnboardingPage.welcome.next, .transfer)
+        XCTAssertEqual(OnboardingPage.allCases, [.welcome, .theme, .transfer, .finish])
+        XCTAssertEqual(OnboardingPage.welcome.next, .theme)
+        XCTAssertEqual(OnboardingPage.theme.next, .transfer)
         XCTAssertEqual(OnboardingPage.transfer.next, .finish)
         XCTAssertNil(OnboardingPage.finish.next)
         XCTAssertNil(OnboardingPage.welcome.previous, "there is nothing behind the first page")

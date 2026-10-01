@@ -7,7 +7,8 @@
 //  A window rather than a sheet over the browser: the browser window is
 //  restoring a session behind it, and a sheet would pin the user to a form
 //  before they have seen the thing the form is about. Closing it is an answer
-//  — "not now" — and it never asks again.
+//  — "not now" — and it never asks again on its own; Help ▸ Welcome to Luna
+//  puts it back up.
 //
 
 import AppKit
@@ -28,8 +29,18 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
     /// The import has run — whatever it wrote is in the store and the live
     /// session has not heard about it.
     var onImportFinished: (() -> Void)?
+    /// Asks macOS to make Luna the default browser. A seam so a test can count
+    /// the request without changing the Mac's real default.
+    private let askToBeDefault: @MainActor () -> Void
 
-    init(store: BrowserStore, sources: [DetectedSource]) {
+    /// - Parameter askToBeDefault: run once, as the last page's button closes
+    ///   the window. Not on the close button, which is "not now".
+    init(
+        store: BrowserStore,
+        sources: [DetectedSource],
+        askToBeDefault: @escaping @MainActor () -> Void = OnboardingWindowController.askToBeDefault
+    ) {
+        self.askToBeDefault = askToBeDefault
         // Filtered once, here, so the screen and the import agree about what
         // this Mac has on it.
         let installed = sources.filter { OnboardingImportList.isInstalled($0.source) }
@@ -109,9 +120,18 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
         return NSPoint(x: frame.midX - size.width / 2, y: frame.midY - size.height / 2)
     }
 
+    /// The last page's button. The window goes first, so macOS's own
+    /// question about the default browser is the only thing on screen.
     private func finish() {
         markAsRun()
         close()
+        askToBeDefault()
+    }
+
+    /// Nothing to ask when Luna already opens the Mac's links.
+    static func askToBeDefault() {
+        guard !GeneralSection.isDefaultBrowser else { return }
+        GeneralSection.askToBeDefault()
     }
 
     func windowWillClose(_ notification: Notification) {

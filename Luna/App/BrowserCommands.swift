@@ -253,6 +253,8 @@ extension AppDelegate: NSMenuItemValidation {
         if menuItem.action == #selector(showAbout(_:)) || menuItem.action == #selector(checkForUpdates(_:)) {
             return true
         }
+        // First run needs the store it imports into, and nothing else.
+        if menuItem.action == #selector(showWelcome(_:)) { return store != nil }
         if let agents = validateStopAllAgents(menuItem) { return agents }
         if let find = validateFindCommand(menuItem) { return find }
         guard let session else { return false }
