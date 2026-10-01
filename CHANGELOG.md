@@ -7,6 +7,7 @@ under Unreleased; a release will take the entries since the last one.
 
 ### 2026-10-01
 
+- **Find on a page with ⌘F** (§18.1): a glass field in the page's top-right corner, with the count ("3 of 12"), Return and Shift-Return or ⌘G and ⇧⌘G to step, ⌘E to find the selection, and Escape to close. In Settings, ⌘F still searches the settings.
 - **A Space's site answers are its own** (§5.9): Allow or Don't Allow for the camera, microphone, location, local network and pop-ups now counts only in the Space where you gave it, so a work account's camera does not carry over to a personal one. Answers given before are copied into every Space. Zoom, the ad blocker's exceptions and "never save passwords here" stay the same in every Space. A private window asks again.
 - **A new extension runs in every Space** (§16.6) and can be switched off in any of them in Settings. A Space made later copies the others: an extension switched off everywhere stays off there too.
 - **An extension card's warning keeps its words** (SETTINGS-SPEC §3.8): beside a card without a warning, the red line shrank to its triangle alone.
