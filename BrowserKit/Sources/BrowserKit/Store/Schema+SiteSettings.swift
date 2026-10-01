@@ -20,6 +20,9 @@ extension Schema {
         migrator.registerMigration("v15") { db in
             try rememberSiteUserAgents(db)
         }
+        migrator.registerMigration("v16") { db in
+            try rememberClipboardAnswers(db)
+        }
     }
 
     /// `v15` — §4.6's per-site user agent: a `WebViewFactory.UserAgentMode` raw value,

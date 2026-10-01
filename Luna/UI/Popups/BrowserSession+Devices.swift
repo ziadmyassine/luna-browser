@@ -2,8 +2,8 @@
 //  BrowserSession+Devices.swift
 //  Luna
 //
-//  §17.8: a page asking for the camera, the microphone or the location, put
-//  to the user as a toast with Allow and Don't Allow. Whether to ask at all,
+//  §17.8: a page asking for the camera, the microphone or the location, and
+//  §18.8's clipboard, put to the user as a toast with Allow and Don't Allow. Whether to ask at all,
 //  and keeping the answer for the site, is `TabController.decide`'s, under
 //  test in BrowserKit; this only asks.
 //
@@ -47,15 +47,17 @@ private final class AnswerOnce {
 
 extension PageToast {
 
-    /// "Use the camera?" with the site beside it, and the two answers. Going away
-    /// unanswered answers nil.
+    /// "Use the camera?" or "Read the clipboard?" with the site beside it, and the two
+    /// answers. Going away unanswered answers nil.
     static func deviceRequest(
         _ permissions: [BrowserStore.SitePermission],
         host: String,
         answer: @escaping @MainActor (Bool?) -> Void
     ) -> PageToast {
         let wants = Set(permissions)
-        let (symbol, text): (String, String) = if wants.contains(.location) {
+        let (symbol, text): (String, String) = if wants.contains(.clipboard) {
+            ("doc.on.clipboard", String(localized: "Read the clipboard?"))
+        } else if wants.contains(.location) {
             ("location", String(localized: "Use your location?"))
         } else if wants == [.camera, .microphone] {
             ("video", String(localized: "Use the camera and microphone?"))

@@ -22,7 +22,7 @@ in comments and docs point at.
 | D9 | Minimum OS = **macOS 26** | Native Liquid Glass materials do most of the §30.1/§30.2/§30.11 chrome for us instead of hand-stacked `NSVisualEffectView`; `WKWebExtension` (15.4+) is included either way. Narrower audience accepted — early adopters of a new browser skew current. | macOS 15.4 / 14 |
 | D10 | No private SPI in shipping code | Stability + upgradability | `_WKWebsiteDataStore`, `_WKDownload` etc. |
 | | | **Exception, 2026-09-28, decided by Martin: the Web Inspector.** WebKit has no public way to open its inspector inside the app; `isInspectable` only lets Safari's Develop menu attach, and adds nothing to the right-click menu (measured). `BrowserKit/Engine/WebInspector.swift` sends `developerExtrasEnabled` (Inspect Element) and `_inspector` show / showConsole / showResources / toggleElementSelection / close, each checked with `responds(to:)` first, so a WebKit without them loses the commands, not the app. Only while Settings ▸ Advanced ▸ Web Inspector is on. Nothing else is covered by this exception. | |
-| | | **Exception, 2026-09-28, decided by Martin: Picture in Picture.** Native PiP is off in every `WKWebView` but Safari's: a video reports `webkitSupportsPresentationMode('picture-in-picture')` false and `requestPictureInPicture()` throws NotSupportedError, so §3.2's automatic PiP had never floated anything. The public `allowsPictureInPictureMediaPlayback` is iOS-only (set on the configuration it raises). `WebViewFactory.makeConfiguration` sets the private `WKPreferences` key of the same name, checked with `responds(to:)` first. Measured with it on: the system PiP window opens from app-run script with no click, also from a page already out of the window (the tab switch). Only this one preference; clipboard is still undecided (§18.8). | |
+| | | **Exception, 2026-09-28, decided by Martin: Picture in Picture.** Native PiP is off in every `WKWebView` but Safari's: a video reports `webkitSupportsPresentationMode('picture-in-picture')` false and `requestPictureInPicture()` throws NotSupportedError, so §3.2's automatic PiP had never floated anything. The public `allowsPictureInPictureMediaPlayback` is iOS-only (set on the configuration it raises). `WebViewFactory.makeConfiguration` sets the private `WKPreferences` key of the same name, checked with `responds(to:)` first. Measured with it on: the system PiP window opens from app-run script with no click, also from a page already out of the window (the tab switch). Only this one preference. The clipboard needed none: see "Clipboard reads ask, like the camera" below (§18.8). | |
 | D11 | **Sync over iCloud (CloudKit private database, `CKSyncEngine`)** | No servers, no accounts, no support burden, data stays in the user's own iCloud; matches the Apple-native positioning | Custom sync backend (cost + privacy surface + an account system we said we wouldn't build) |
 | D12 | **Open source under GPL-3.0-or-later**, licence file added at publication *(revised 2026-09-17, was: closed source)* | Matches Nook and Ora exactly, which makes reuse of their work legal instead of forbidden (§33), and makes "audit us yourself" the strongest form of the zero-telemetry claim (D16). GPL also forces anyone who forks Luna to stay open. Note that copyright does not stop a fork using the **name** — trademark does, and that is a separate, later decision. | MIT/Apache-2.0 (no reuse of GPL prior art); proprietary (rejected) |
 | D13 | **Both layouts ship in v1** — sidebar layout *and* top-bar layout (§30.12) | It is a core part of Martin's reference, not a stretch goal | Sidebar-only v1 |
@@ -124,6 +124,27 @@ These four come before everything else, in this order. Two of them reverse earli
 > retired fields; an older Luna still writes them and this one leaves them alone.
 > If they should follow the user after all, the shape is a `SpaceSiteSetting`
 > record in the Spaces zone.
+>
+> **Clipboard reads ask, like the camera (#118, 2026-10-01, decided by Martin).**
+> A page reading the clipboard (`navigator.clipboard.readText()` and `read()`,
+> `document.execCommand('paste')`) is asked about with the camera's toast, "Read
+> the clipboard?", Allow and Don't Allow, and the answer is kept per site per
+> Space (`SitePermission.clipboard`, `v16`). It shows as a switch in the site
+> pop-out once given. Writing on a click is not asked about, and neither is the
+> user's own ⌘V. No private preference was needed. Measured on macOS 27 in a
+> plain `WKWebView`: all three reads pop WebKit's own one-item "Paste" menu at the
+> page and hand over nothing unless it is clicked, every time, with nothing the
+> app can hear or remember, and text the same site copied is read back with no
+> menu at all. The SDK has no clipboard preference, no `WKUIDelegate` method and
+> no permission query for it (`navigator.permissions.query({name:
+> 'clipboard-read'})` throws). `javaScriptCanAccessClipboard` and
+> `DOMPasteAllowed` are private and would only remove the menu. So Luna replaces
+> the three calls in the page (`TabController+Clipboard.swift`) with ones that ask
+> it through a reply handler, and reads the pasteboard itself for a site that may,
+> only for the tab in front in the key window. `execCommand('paste')` cannot wait
+> for a question, so it returns false and Luna performs Edit ▸ Paste on the page
+> once the site may. A page that reaches the originals some other way gets
+> WebKit's menu, which still asks every time.
 ### §14 — 14. Apple Passwords, autofill & forms
 
 **Goal:** the user keeps using **Apple's Passwords / iCloud Keychain** — we do not build a password manager and we do not become a second place their secrets live. What we build is the bridge. Read §14.1 before writing any UI copy: part of this is blocked by Apple, and which part decides what we can promise.

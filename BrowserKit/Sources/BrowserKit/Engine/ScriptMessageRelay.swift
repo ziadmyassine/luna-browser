@@ -33,3 +33,16 @@ final class ScriptMessageRelay: NSObject, WKScriptMessageHandler {
         }
     }
 }
+
+/// The one handler a page waits on an answer from (§18.8's clipboard), registered with
+/// `addScriptMessageHandler(_:contentWorld:name:)`.
+extension ScriptMessageRelay: WKScriptMessageHandlerWithReply {
+
+    func userContentController(
+        _ userContentController: WKUserContentController,
+        didReceive message: WKScriptMessage
+    ) async -> (Any?, String?) {
+        guard message.name == TabController.clipboardMessageName, let owner else { return (nil, nil) }
+        return (await owner.handleClipboardMessage(message), nil)
+    }
+}

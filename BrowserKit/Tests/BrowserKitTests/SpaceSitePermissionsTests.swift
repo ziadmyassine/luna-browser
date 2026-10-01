@@ -205,7 +205,8 @@ struct SpaceSitePermissionsTests {
                 try db.foreignKeys(on: "spaceSitePermissions")
             )
         }
-        #expect(Set(columns.keys) == ["spaceID", "host", "camera", "microphone", "location", "localNetwork", "popups"])
+        // `clipboard` is `v16`'s.
+        #expect(Set(columns.keys) == ["spaceID", "host", "camera", "microphone", "location", "localNetwork", "popups", "clipboard"])
         // Nullable: absent is "nobody has answered", which is not a refusal.
         for permission in BrowserStore.SitePermission.allCases where permission.isPerSpace {
             let column = try #require(columns[permission.rawValue], "no column for \(permission)")

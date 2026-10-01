@@ -68,6 +68,12 @@ public protocol TabControllerDelegate: AnyObject {
         directories: Bool
     ) async -> [URL]?
 
+    /// §18.8: a site that may read the clipboard is reading it. The pasteboard by MIME
+    /// type, an image as base64 and an empty clipboard as an empty map; for `.paste`,
+    /// Edit ▸ Paste on the page and an empty map. Nil refuses: the tab is not the one
+    /// in front of the user, or the clipboard is not the host's to read.
+    func tabController(_ controller: TabController, readsClipboard request: ClipboardRequest) async -> [String: String]?
+
     // MARK: - §14's password UI
     //
     // The engine finds the form and holds the secrets; the popover and the chip
@@ -146,6 +152,9 @@ public extension TabControllerDelegate {
         chooseFilesAllowingMultiple multiple: Bool,
         directories: Bool
     ) async -> [URL]? { nil }
+
+    /// Fail closed, like the camera.
+    func tabController(_ controller: TabController, readsClipboard request: ClipboardRequest) async -> [String: String]? { nil }
 
     func tabController(_ controller: TabController, wantsToOfferCredentials offer: PasswordOffer) {}
 

@@ -36,6 +36,10 @@ extension BrowserStore {
         case camera
         case microphone
         case location
+        /// §18.8: the page may read what was copied. Asked the way the camera is, and
+        /// absent, the site is asked (`TabController+Clipboard.swift`). Writing is not
+        /// asked about: a page may put something on the clipboard under a click.
+        case clipboard
 
         /// What the permission is when nobody has answered for this site.
         ///
@@ -52,7 +56,7 @@ extension BrowserStore {
             // Absent means the mode decides, which is what "not allowed" does.
             case .popups: false
             // Absent means ask, and nothing is handed over before the answer.
-            case .camera, .microphone, .location: false
+            case .camera, .microphone, .location, .clipboard: false
             }
         }
 
@@ -63,7 +67,7 @@ extension BrowserStore {
         /// about how Luna behaves, not about what the site may do, and hold everywhere.
         public var isPerSpace: Bool {
             switch self {
-            case .camera, .microphone, .location, .localNetwork, .popups: true
+            case .camera, .microphone, .location, .localNetwork, .popups, .clipboard: true
             case .automaticPictureInPicture, .savePasswords: false
             }
         }

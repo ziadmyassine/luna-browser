@@ -558,6 +558,7 @@ Three bands, top to bottom:
 | Block Ads & Trackers — switch | **per site** | `ContentBlocker.isDisabled(forHost:)` / `setDisabled(_:forHost:)` |
 | Automatic Picture-in-Picture — switch | **per site**, default on | `SitePermissions` → `TabController.enterAutomaticPictureInPicture` |
 | Local Network — switch | **per site**, default off | `SitePermissions` → a `WKContentRuleList` that refuses private-network loads |
+| Camera, Microphone, Location, Clipboard — switches | **per site, per Space**; shown only once the site has been answered | `SitePermissions`; the camera's toast asks first (§17.8, and §18.8 for a page reading the clipboard) |
 | User Agent — popup: Default · Luna · Safari · Chrome · Custom | **per site**, every Space; Default follows Settings ▸ Advanced | `SitePermissions.userAgentMode` → `WKWebView.customUserAgent`, set in `decidePolicyFor` so the page's own request carries it; choosing reloads. The one control row in the switches' band (`SiteSettingsContent.toggleControls`), Settings' bare `NSPopUpButton` |
 | Share… | page | `NSSharingServicePicker.show(relativeTo:of:preferredEdge:)`, from the sliders glyph |
 | Copy Link | page | `NSPasteboard` — URL **and** string, so a plain text field gets the address |

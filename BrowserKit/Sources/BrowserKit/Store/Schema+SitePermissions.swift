@@ -2,8 +2,8 @@
 //  Schema+SitePermissions.swift
 //  BrowserKit
 //
-//  `v14`, the per-Space site answers. Beside the rest of the schema rather than
-//  in it because `Schema` is at SwiftLint's type-body limit.
+//  `v14` and `v16`, the per-Space site answers. Beside the rest of the schema
+//  rather than in it because `Schema` is at SwiftLint's type-body limit.
 //
 
 import Foundation
@@ -54,5 +54,12 @@ extension Schema {
             try db.execute(sql: "ALTER TABLE siteSettings DROP COLUMN \(name)")
         }
         for statement in SyncSQL.triggers { try db.execute(sql: statement) }
+    }
+
+    /// `v16` — §18.8's clipboard answer, per Space like the camera's. Nullable for the
+    /// same reason: no answer means the site asks. Not synced, as no per-Space answer is.
+    static func rememberClipboardAnswers(_ db: Database) throws {
+        guard try !db.columns(in: "spaceSitePermissions").map(\.name).contains("clipboard") else { return }
+        try db.execute(sql: "ALTER TABLE spaceSitePermissions ADD COLUMN clipboard BOOLEAN")
     }
 }

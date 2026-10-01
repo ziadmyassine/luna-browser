@@ -126,6 +126,12 @@ public final class TabController: NSObject {
 
     private let messageRelay = ScriptMessageRelay()
 
+    /// The relay's names in the page world, added on attach and taken off on detach.
+    private static let relayedMessageNames = [
+        mediaMessageName, ContentBlocker.blockedMessageName, scrollMessageName, PasswordForms.messageName,
+        ContentBlocker.youTubeMessageName, popupMessageName
+    ]
+
     /// §14's password state for this tab: the form the page is showing, the
     /// frame it lives in, and the §14.8 gate every fill passes through.
     ///
@@ -320,14 +326,13 @@ public final class TabController: NSObject {
         let controller = webView.configuration.userContentController
         // Adding a name that is already registered raises `NSInvalidArgumentException`;
         // removing one that is not is a no-op. Always pay the cheap call.
-        for name in [Self.mediaMessageName, ContentBlocker.blockedMessageName,
-                     Self.scrollMessageName, PasswordForms.messageName,
-                     ContentBlocker.youTubeMessageName, Self.popupMessageName] {
+        for name in Self.relayedMessageNames {
             controller.removeScriptMessageHandler(forName: name)
             controller.add(messageRelay, name: name)
         }
         attachPicker(to: controller, relay: messageRelay)
         attachReading(to: controller, relay: messageRelay)
+        attachClipboard(to: controller, relay: messageRelay)
         installUserScripts(into: controller, host: state.url?.host(), isFile: (state.url ?? fallbackURL)?.isFileURL ?? false)
 
         // WebKit posts these on the main thread; `assumeIsolated` states that instead of
@@ -387,6 +392,7 @@ public final class TabController: NSObject {
         controller.addUserScript(
             WKUserScript(source: Self.popupScript, injectionTime: .atDocumentStart, forMainFrameOnly: false)
         )
+        controller.addUserScript(Self.clipboardUserScript())
         // Main frame only: an ad iframe scrolling itself is not the page moving,
         // and §3.2b's bar collapses on the page moving.
         controller.addUserScript(
@@ -458,14 +464,10 @@ public final class TabController: NSObject {
 
         let controller = view.configuration.userContentController
         controller.removeAllUserScripts()
-        controller.removeScriptMessageHandler(forName: Self.mediaMessageName)
-        controller.removeScriptMessageHandler(forName: ContentBlocker.blockedMessageName)
-        controller.removeScriptMessageHandler(forName: Self.scrollMessageName)
-        controller.removeScriptMessageHandler(forName: PasswordForms.messageName)
-        controller.removeScriptMessageHandler(forName: ContentBlocker.youTubeMessageName)
-        controller.removeScriptMessageHandler(forName: Self.popupMessageName)
+        for name in Self.relayedMessageNames { controller.removeScriptMessageHandler(forName: name) }
         detachPicker(from: controller)
         controller.removeScriptMessageHandler(forName: Self.readingMessageName, contentWorld: .defaultClient)
+        detachClipboard(from: controller)
 
         // Picture-in-Picture and element fullscreen outlive their web view: without this
         // a hibernated tab leaves a floating video playing with nothing behind it.

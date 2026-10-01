@@ -138,21 +138,22 @@ enum SiteMenu {
         ] + devices(host: host)
     }
 
-    /// §17.8's answers, each only once it has been given: until then the site asks,
-    /// and a switch would have to show an off that is really "not asked yet". Off
-    /// turns a device that is on off at once, rather than at the next call.
+    /// §17.8's answers and §18.8's clipboard, each only once it has been given: until
+    /// then the site asks, and a switch would have to show an off that is really "not
+    /// asked yet". Off turns a device that is on off at once, rather than at the next call.
     private static func devices(host: String) -> [SiteSettingsContent.Toggle] {
         let scope = session?.sitePermissions ?? .shared
         let rows: [(BrowserStore.SitePermission, String, String)] = [
             (.camera, String(localized: "Camera"), Glyph.camera),
             (.microphone, String(localized: "Microphone"), Glyph.microphone),
-            (.location, String(localized: "Location"), Glyph.location)
+            (.location, String(localized: "Location"), Glyph.location),
+            (.clipboard, String(localized: "Clipboard"), Glyph.clipboard)
         ]
         return rows.compactMap { permission, title, symbol in
             guard let answer = scope.answer(permission, forHost: host) else { return nil }
             return .init(title: title, symbol: symbol, isOn: answer) { on in
                 scope.setAllowed(on, permission, forHost: host)
-                guard !on, permission != .location,
+                guard !on, permission == .camera || permission == .microphone,
                       let id = session?.activeTabID, let controller = session?.controller(for: id) else { return }
                 controller.stopCapture(camera: permission == .camera, microphone: permission == .microphone)
             }
@@ -344,6 +345,7 @@ enum SiteMenu {
         static let camera = "video"
         static let microphone = "mic"
         static let location = "location"
+        static let clipboard = "doc.on.clipboard"
         /// §4.6's user agent: the identity the browser gives the site.
         static let userAgent = "person.text.rectangle"
         static let blockedPopup = "arrow.up.forward.app"
@@ -361,8 +363,8 @@ enum SiteMenu {
         static let site = SidebarRowContent.siteFallbackSymbol
 
         static let all = [
-            share, link, blocking, pictureInPicture, localNetwork, popups, camera, microphone, location, userAgent, blockedPopup,
-            cache, cookies, reader, hide, advanced, secure, insecure, site
+            share, link, blocking, pictureInPicture, localNetwork, popups, camera, microphone, location, clipboard, userAgent,
+            blockedPopup, cache, cookies, reader, hide, advanced, secure, insecure, site
         ]
     }
 }
