@@ -116,6 +116,15 @@ extension AppDelegate {
         showSettings(section: AboutSection.id)
     }
 
+    /// Help ▸ Luna Help. Luna ships no Help Book; the questions people ask
+    /// are answered in `docs/FAQ.md`, and the copy on GitHub is the current one.
+    static let helpPage = URL(string: "https://github.com/ziadmyassine/luna-browser/blob/main/docs/FAQ.md")!
+
+    /// Opens `helpPage` as a tab, the way a link from another app opens.
+    @objc func showLunaHelp(_ sender: Any?) {
+        application(NSApp, open: [Self.helpPage])
+    }
+
     // MARK: - Layout and Spaces
 
     /// `⌘S` (§8): hides and shows the sidebar. Not the layout switch —
@@ -250,7 +259,9 @@ extension AppDelegate: NSMenuItemValidation {
         // dimmed `⌘,` on a slow first run would be a bug, not a safeguard.
         if menuItem.action == #selector(showSettings(_:)) { return true }
         // About and its update check are Settings too, for the same reason.
-        if menuItem.action == #selector(showAbout(_:)) || menuItem.action == #selector(checkForUpdates(_:)) {
+        // Help opens a tab, and a link from another app is kept until launch
+        // has a window for it.
+        if [#selector(showAbout(_:)), #selector(checkForUpdates(_:)), #selector(showLunaHelp(_:))].contains(menuItem.action) {
             return true
         }
         // First run needs the store it imports into, and nothing else.

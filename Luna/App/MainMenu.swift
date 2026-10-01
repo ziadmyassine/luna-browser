@@ -320,10 +320,12 @@ enum MainMenu {
         return menu("Settings", entries)
     }
 
+    /// AppKit puts its search field at the top, and with no Help Book it
+    /// searches the menus.
     private static func helpMenu() -> NSMenu {
         // §30.17's first run, which is also where the import and the theme are
         // offered side by side.
-        menu("Help", items(.showWelcome) + [.separator(), plain("\(appName) Help", #selector(NSApplication.showHelp(_:)), "?")])
+        menu("Help", items(.showWelcome) + [.separator(), plain("\(appName) Help", #selector(AppDelegate.showLunaHelp(_:)), "?")])
     }
 
     // MARK: - Construction
