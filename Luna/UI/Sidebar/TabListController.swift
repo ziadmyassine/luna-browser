@@ -59,6 +59,9 @@ final class TabListController: NSObject {
     private var isRevealingSaved = false
     /// A private window's own (§5.6) — see `BrowserSession.icons`.
     var icons = SidebarIcons.shared
+    /// The Space's colour, which a site with no favicon wears its monogram
+    /// on (§4.7). Set before `show`, which redraws with it.
+    var spaceGradient = Tokens.Gradient.neutral
     /// Tabs shown under their folded folder — `BrowserSession.folderPeeks`.
     /// Set before `show`, which rebuilds with it.
     var peekingTabIDs: Set<UUID> = []

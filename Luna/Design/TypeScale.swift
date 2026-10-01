@@ -68,6 +68,11 @@ extension Tokens {
         static var findCount: NSFont { .monospacedDigitSystemFont(ofSize: 13, weight: .regular) }
         /// 14 pt — the §5 downloads filename.
         static var downloadFilename: NSFont { .monospacedDigitSystemFont(ofSize: 14, weight: .regular) }
+        /// §4.7's monogram letter. Measured: SF Pro's cap height at 10 pt is
+        /// 7.05, under the 9.2 of the row title beside it, so the letter never
+        /// outweighs the name, and it leaves 4.5 pt of colour above and below
+        /// in the 16 pt tile, clear of its 3.6 pt corners.
+        static var monogram: NSFont { .systemFont(ofSize: 10, weight: .semibold) }
         /// 7 pt bold, tabular — §16.4's badge on a pinned extension's icon.
         /// At 8 a two-digit count covered two thirds of the 16 pt icon and the
         /// icon stopped reading as the extension; 7 still reads at 2×.

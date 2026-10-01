@@ -55,10 +55,13 @@ final class HistoryPanelController: PopoutController {
         // §4.7's on-disk cache by host: most of these pages have no tab, and
         // that cache is where their icons are.
         panel.iconProvider = { [weak session] entry in
-            guard !entry.host.isEmpty,
-                  let data = session?.favicons.favicon(forHost: entry.host)
-            else { return nil }
-            return NSImage(data: data)
+            guard let session else { return nil }
+            if !entry.host.isEmpty, let data = session.favicons.favicon(forHost: entry.host) {
+                return NSImage(data: data)
+            }
+            // History is the Space's own (§6.4), so its monograms wear its colour.
+            let gradient = session.space(session.activeSpaceID)?.gradient ?? Tokens.Gradient.neutral
+            return SiteMonogram.image(for: entry.url, on: gradient)
         }
         panel.onFilter = { [weak self] text in self?.load(text) }
         panel.onChoose = { [weak self] entry in self?.open(entry.url) }
