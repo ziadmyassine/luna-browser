@@ -50,8 +50,10 @@ struct WebViewSpareTests {
         tab.restore(interactionState: nil, fallbackURL: page)
         tab.activate()
         #expect(tab.webView === spare)
-        await settle { spare.url == page && !spare.isLoading }
-        #expect(spare.url == page, "the tab kept the spare's empty document")
+        // macOS 26 writes the fragment back as `%23typed`, 27 as `#typed`.
+        let arrived = { spare.url?.absoluteString.hasSuffix("typed") == true }
+        await settle { arrived() && !spare.isLoading }
+        #expect(arrived(), "the tab kept the spare's empty document")
         tab.hibernate()
     }
 
