@@ -34,8 +34,8 @@ struct SidebarRowContent: Equatable {
         case close
     }
 
-    /// What a tab row draws when its page is not on a site — a site with no favicon
-    /// wears its `SiteMonogram` — and the user has chosen no icon of their own (§3.4a).
+    /// What a tab row draws when the site has no favicon and the user has chosen no icon
+    /// of their own (§3.4a).
     static let siteFallbackSymbol = "globe"
 
     var title: String = ""

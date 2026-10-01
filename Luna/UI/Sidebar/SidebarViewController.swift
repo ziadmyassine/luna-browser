@@ -217,7 +217,6 @@ final class SidebarViewController: NSViewController, WindowScoped {
         if let space = session.space(activeSpaceID) {
             wash.show(space.gradient)
             onSpaceGradientChange?(space.gradient)
-            (essentials.spaceGradient, list.spaceGradient) = (space.gradient, space.gradient)
         }
         // `replacing:` is the same claim `lastHeadHeight = nil` makes, made to
         // the two halves of the column. Both of them animate a tab leaving —

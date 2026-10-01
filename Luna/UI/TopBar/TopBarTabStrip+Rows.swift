@@ -152,9 +152,6 @@ extension TopBarTabStrip {
         return row
     }
 
-    /// The colour a site with no favicon wears its monogram on (§4.7).
-    var spaceGradient: GradientPair { session.space(activeSpaceID)?.gradient ?? Tokens.Gradient.neutral }
-
     /// The column's `tabContent`, for a row on the bar: the live title over the
     /// stored one and the user's name over both, the close glyph on the row
     /// the pointer is on and the speaker on one making sound.
@@ -184,7 +181,7 @@ extension TopBarTabStrip {
         return SidebarRowContent(
             title: title.isEmpty ? URLPillView.domain(of: url) : title,
             symbolName: tab.customSymbolName ?? SidebarRowContent.siteFallbackSymbol,
-            favicon: tab.customSymbolName == nil ? session.icons.mark(for: url, on: spaceGradient) : nil,
+            favicon: tab.customSymbolName == nil ? session.icons.favicon(for: url) : nil,
             hasUnread: tab.hasUnread,
             isLoading: state?.isLoading ?? false,
             trailing: trailing,

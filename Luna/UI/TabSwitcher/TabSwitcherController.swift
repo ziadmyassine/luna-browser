@@ -195,9 +195,7 @@ final class TabSwitcherController: NSObject, WindowScoped {
         let page = live.isEmpty ? (tab?.title ?? "") : live
         let named = tab?.customTitle ?? page
         let title = named.isEmpty ? (tab?.url.host() ?? tab?.url.absoluteString ?? "") : named
-        let gradient = tab.flatMap { session.space($0.spaceID)?.gradient } ?? Tokens.Gradient.neutral
-        let mark = session.favicon(for: id) ?? SiteMonogram.image(for: tab?.url, on: gradient)
-        return TabSwitcherItem(id: id, title: title, favicon: mark)
+        return TabSwitcherItem(id: id, title: title, favicon: session.favicon(for: id))
     }
 
     /// A fresh picture of every tab with a page loaded, and §6.8's stored one

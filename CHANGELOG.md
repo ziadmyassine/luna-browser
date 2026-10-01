@@ -13,7 +13,6 @@ under Unreleased; a release will take the entries since the last one.
 - **Onboarding asks for a theme and offers to be your default browser** (§23.3): first run lets you choose Light, Dark or Auto, asks macOS to make Luna your default browser when you finish, and can be opened again from Help ▸ Welcome to Luna.
 - **Pull a tab out into its own window** (§6.6): drag a tab well clear of the sidebar or the top bar and it opens in a new window without reloading, or drop it into another app to hand over its link; a dashed box shows where a dragged file or link will open.
 - **An unread dot on tabs that changed while you were away** (§7.3): a tab you are not looking at shows a dot when its page finishes loading or its title changes, and the dot goes when you open it.
-- **A letter instead of a globe** (§4.7): a site with no icon shows its first letter on the Space's colour.
 - **Each site keeps its zoom** (§18.2): Luna opens a site's pages at the zoom you last chose there, on every Mac you sync; Actual Size forgets it.
 - **A site can have its own browser identity** (§4.6): the site settings pop-out can make one site see Luna as Safari or Chrome.
 - **A website asks before it reads what you copied** (§18.8): a toast asks, like the camera, and the answer is kept for that site in each Space.

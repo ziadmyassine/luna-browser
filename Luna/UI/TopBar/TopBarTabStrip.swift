@@ -319,8 +319,7 @@ final class TopBarTabStrip: NSView, WindowScoped {
         // §3.4a: the icon the user chose outranks the site's — the grid's rule.
         if let symbol = tab.customSymbolName {
             tile.setSymbol(symbol)
-        } else if let icon = session.icons.favicon(for: tab.url) ?? session.favicon(for: tab.id)
-            ?? SiteMonogram.image(for: tab.url, on: spaceGradient) {
+        } else if let icon = session.icons.favicon(for: tab.url) ?? session.favicon(for: tab.id) {
             tile.setImage(icon)
         }
         let name = tab.listTitle.isEmpty ? URLPillView.domain(of: tab.url) : tab.listTitle

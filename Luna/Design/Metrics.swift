@@ -159,15 +159,6 @@ extension Tokens {
         /// 16 pt. Measured at 44 px in `inspiration/main-tab-bar-and-ui.png`,
         /// for both a list row's favicon and an Essentials tile's icon.
         static let faviconSize: CGFloat = 16
-        /// §4.7's monogram, which stands in a favicon's square when a site has
-        /// none. Rounded as a Mac app icon is, since that is the shape a site's
-        /// own touch icon arrives in: Apple's icon template is an 824 px tile
-        /// with 185.4 px corners, 22.5 % of the side, which is 3.6 pt here.
-        static let monogramTile = RoundedMetric(
-            width: faviconSize,
-            height: faviconSize,
-            cornerRadius: faviconSize * 185.4 / 824
-        )
         static let rowCornerRadius: CGFloat = 12
         /// The vertical breathing space between two row pills (§3.4). Measured:
         /// 109 px of pitch minus a 100 px pill is 9 px, or 3 pt at the

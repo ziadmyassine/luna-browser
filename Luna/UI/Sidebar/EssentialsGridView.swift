@@ -112,9 +112,6 @@ final class EssentialsGridView: NSView {
     /// tint, for the same reason `+Layout.swift` reads `order` — Swift's
     /// `private` is file-scoped and this class is three files.
     var tabs: [Tab] = []
-    /// The Space's colour, for a tile whose site has no favicon (§4.7). Set
-    /// before `show`, which re-reads every tile's icon.
-    var spaceGradient = Tokens.Gradient.neutral
     /// Keyed by tab, not an array, so a tile survives a pin, an unpin or a
     /// reorder and can animate from where it was to where it belongs. A rebuilt
     /// array of fresh views has nowhere to animate from, which made pinning a
@@ -178,7 +175,7 @@ final class EssentialsGridView: NSView {
             for tab in tabs {
                 guard let tile = tiles[tab.id] else { continue }
                 tile.isSelected = tab.id == activeTabID
-                if let icon = SidebarIcons.mark(for: tab, on: spaceGradient) { tile.setImage(icon) }
+                if let icon = SidebarIcons.favicon(for: tab) { tile.setImage(icon) }
             }
             // The tabs are the same; which one you are on may not be, and on
             // this path nothing else would notice.
@@ -218,7 +215,7 @@ final class EssentialsGridView: NSView {
             // the only place either can be re-read.
             if let symbol = tab.customSymbolName {
                 tile.setSymbol(symbol)
-            } else if let icon = SidebarIcons.mark(for: tab, on: spaceGradient) {
+            } else if let icon = SidebarIcons.favicon(for: tab) {
                 tile.setImage(icon)
             }
             tile.setAccessibilityLabel(Self.siteName(for: tab))
@@ -379,7 +376,7 @@ final class EssentialsGridView: NSView {
         return SidebarRowContent(
             title: Self.siteName(for: tab),
             symbolName: tab.customSymbolName ?? SidebarRowContent.siteFallbackSymbol,
-            favicon: tab.customSymbolName == nil ? SidebarIcons.mark(for: tab, on: spaceGradient) : nil
+            favicon: tab.customSymbolName == nil ? SidebarIcons.favicon(for: tab) : nil
         )
     }
 }

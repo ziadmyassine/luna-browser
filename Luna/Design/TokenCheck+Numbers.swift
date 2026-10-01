@@ -55,12 +55,6 @@ extension TokenCheck {
         if !(Tokens.Metric.tabTearOffDistance > Tokens.Metric.dragThreshold) {
             failures.append("Metric.tabTearOffDistance is not past Metric.dragThreshold")
         }
-        // The monogram stands in a favicon's place, so it is the favicon's
-        // square or every row it is in steps out of the column.
-        let monogram = Tokens.Metric.monogramTile
-        if monogram.width != Tokens.Metric.faviconSize || monogram.height != Tokens.Metric.faviconSize {
-            failures.append("Metric.monogramTile is not Metric.faviconSize square")
-        }
         return failures + checkRoundedMetrics() + checkPositiveMetrics()
             + checkSpaceSwipe() + checkRowInsets()
     }
@@ -76,8 +70,7 @@ extension TokenCheck {
             ("bottomCircle", Tokens.Metric.bottomCircle), ("spaceDotsPill", Tokens.Metric.spaceDotsPill),
             ("rowTrailingChip", Tokens.Metric.rowTrailingChip),
             ("resizeHandle", Tokens.Metric.resizeHandle),
-            ("glassPreviewTile", Tokens.Metric.glassPreviewTile),
-            ("monogramTile", Tokens.Metric.monogramTile)
+            ("glassPreviewTile", Tokens.Metric.glassPreviewTile)
         ]
         for (name, metric) in rounded {
             if metric.width <= 0 || metric.height <= 0 {
