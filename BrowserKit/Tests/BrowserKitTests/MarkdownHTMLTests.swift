@@ -186,10 +186,12 @@ struct MarkdownHTMLTests {
         }
         print("MarkdownHTML: 5,000-line README rendered in \(String(format: "%.1f", ms)) ms (best of 5)")
         // Unoptimised, which is how tests build: measured 70 to 133 ms of CPU
-        // time between a quiet Mac, a busy one and the CI runner, and 35 ms in
-        // a release build. 100 failed the runner on every push; 200 still
-        // catches a render that has become several times slower.
-        #expect(ms < 200)
+        // time on a quiet Mac and a busy one, and 35 ms in a release build;
+        // 200 catches a render that has become several times slower. CI's
+        // three-core runner measured up to 216 ms (2026-10-01) even as thread
+        // CPU time, so there it only catches a render gone badly wrong.
+        let budget: Double = ProcessInfo.processInfo.environment["CI"] == nil ? 200 : 1_000
+        #expect(ms < budget)
     }
 
     static func largeReadme(lines: Int) -> String {
