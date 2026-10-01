@@ -13,6 +13,7 @@ Tools/perf/run.sh launch     # cold launch, to interactive, + the idle cost of a
 Tools/perf/run.sh page       # what Luna's own stack adds to a page load
 Tools/perf/run.sh blocking   # §17.1's fetch-convert-compile, against a heartbeat
 Tools/perf/run.sh ui         # command bar, a keystroke in it, sidebar frame cost (the opt-in XCTests)
+Tools/ranking-check.sh       # §9.3's 30-page ranking check, against this Mac's history, read-only
 ```
 
 ## Scoreboard
@@ -30,6 +31,7 @@ from rather than pretending to a trend.
 | Luna's own cost per page load | 09-19, M1 Pro: **+5.9 ms** over one frame, **+7.9 ms** over eleven, all in `TabController.attach` | no budget; stated |
 | §17.1's list refresh | 09-19, M1 Pro: **13.0 s**, worst stall **166 ms**, 0.6 s of main thread — now once a day rather than most launches | no budget; stated |
 | New-tab command bar < 100 ms | 09-17, M4: **54.7 ms** first, **8.8 ms** median | **PASS** |
+| §9.3 the page meant is first after 2 characters, ≥ 90 % | 10-01, the owner's history: **27 %** (its site: 40 %) | **FAIL** — see *§9.3's ranking* |
 | §9.7 keystroke to local rows ≤ 16 ms | 10-01, M1 Pro, under load: **8.6–13.4 ms** median, **17.5–23.2 ms** p95 | **PASS at the median**; p95 held to 33 ms — see *Command bar* |
 | **40 tabs / 3 Spaces / 6 live < 3.5 GB RSS** | 09-17, M4: **165–310 MB RSS, 785–842 MB footprint** | **PASS, ~4× headroom** |
 | Sidebar frame ≤ 8.33 ms (120 fps) | 09-17, M4: **0.05 ms** median, **0.97 ms** p95 | **PASS, 8× headroom** |
@@ -430,6 +432,47 @@ not in the controller: the first two or three keys after the bar opens spend 15�
 `sendEvent`, of which `inputDidChange` — merge, rows and all — is 2–9 ms, and the rest is
 AppKit's on either side of it, which this test cannot divide further. The keys after them
 cost 5–9 ms in all.
+
+### §9.3's ranking, against a real history
+
+§9.3's acceptance: after a week of use, the page meant is the first row for at least 90 % of
+2-character queries. `Tools/ranking-check.sh [luna.sqlite]` checks it on a real database
+without writing to it (a read-only SQLite backup, copied again before the store opens it).
+`Tests/CommandBar/RankingCheckTests` takes the 30 newest pages the user typed or chose their
+way to, less search results pages, and types each one's host without `www.`, cut to 2, 3 and
+4 characters, into the real ranking: `BrowserStore.searchHistory` and
+`CommandBarRanking.merge` over the Space's tabs, adaptive lessons, commands and settings,
+without the network's suggestions. The pages and the misses are printed on the Mac it runs on
+and recorded nowhere; these are the counts.
+
+2026-10-01, the owner's history: 29,055 pages, 72,610 visits, 3,444 of them typed, 33
+adaptive lessons, 22 open tabs and 333 closed ones.
+
+| first row is | at 2 characters | by 3 | by 4 |
+|---|---|---|---|
+| the page | **8 / 30 (27 %)** | 12 / 30 (40 %) | 13 / 30 (43 %) |
+| a page of its site | 12 / 30 (40 %) | 21 / 30 (70 %) | 24 / 30 (80 %) |
+
+**It fails the 90 %.** The 22 misses at two characters:
+
+- **16: the search row led.** It leads unless §9.4 can complete the query from the top row
+  (§32a), and in 14 of the 16 the top row was an open or closed tab that holds the two
+  letters anywhere in its title or address — `fa` inside a path, `uo` inside a Drive file
+  id — so there was nothing to complete from. Tabs are matched by substring and rank above
+  history, and with 333 closed tabs two letters match most of them. In the other
+  two the best history page matched the letters somewhere other than its host.
+- **5: an adaptive lesson led**: four to another page of the same site (`gi` has learned one
+  GitHub repository and three misses wanted other GitHub pages; `it` learned a site's front
+  page and the miss wanted its sign-in page), one to another site.
+- **1: an open tab of another site led.**
+
+What would fix most of it is the rule Firefox's address bar uses: two letters that begin the
+host of a page in history put that host first, ahead of tabs matched in the middle of a word.
+Simulated on the same 30 — the most frecent history page whose host starts with the two
+letters, put first — the site is the first row for **22 / 30 (73 %)**. Matching tabs by the start of a word or a host label,
+as the history index already does, rather than anywhere in the string, is the other half.
+
+On this history a query's sources, store search and merge take **14 ms** at the median.
 
 ## Sidebar
 
