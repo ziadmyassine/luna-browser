@@ -115,15 +115,6 @@ struct BrowserCommand: Identifiable {
         "closeWindow", "Close Window", #selector(NSWindow.performClose(_:)),
         [KeyBinding("w", [.command, .shift])], customisable: false, symbol: "macwindow"
     )
-    /// §15.5. Offered only while the tab shows a PDF from the web.
-    static let downloadPDF = BrowserCommand(
-        "downloadPDF", "Download PDF", #selector(AppDelegate.downloadPDF(_:)),
-        symbol: "arrow.down.doc", keywords: ["save pdf", "pdf"]
-    )
-    /// Every Mac's ⌘P. A PDF in the viewer prints as its own pages.
-    static let printPage = BrowserCommand(
-        "printPage", "Print…", #selector(AppDelegate.printPage(_:)), [KeyBinding("p")], symbol: "printer"
-    )
 
     // MARK: - Edit
 
@@ -214,14 +205,6 @@ struct BrowserCommand: Identifiable {
         symbol: "pip", keywords: ["pip", "float video", "floating video"]
     )
     /// §18.4a. Every window, private ones too; no shortcut, as no browser has one.
-    static let muteAllTabs = BrowserCommand(
-        "muteAllTabs", "Mute All Tabs", #selector(AppDelegate.muteAllTabs(_:)),
-        symbol: "speaker.slash", keywords: ["silence", "sound", "audio", "quiet"]
-    )
-    static let unmuteAllTabs = BrowserCommand(
-        "unmuteAllTabs", "Unmute All Tabs", #selector(AppDelegate.unmuteAllTabs(_:)),
-        symbol: "speaker.wave.2", keywords: ["sound", "audio"]
-    )
     /// Safari's keys for both: ⇧⌘R is Reader, and forcing a refresh is ⌥⌘R.
     static let reader = BrowserCommand(
         "reader", "Reader", #selector(AppDelegate.toggleReader(_:)), [KeyBinding("r", [.command, .shift])],
