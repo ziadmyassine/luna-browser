@@ -65,6 +65,7 @@ extension BrowserSession {
         try await store.upsert(space)
         try await renumberSpaces()
         switchSpace(space.id)
+        startExtensions(inSpace: space.id)
         return space
     }
 
@@ -88,6 +89,7 @@ extension BrowserSession {
             for space in arrived {
                 spaces.append(space)
                 list.addSpace(space.id)
+                startExtensions(inSpace: space.id)
             }
         }
         var adopted = 0

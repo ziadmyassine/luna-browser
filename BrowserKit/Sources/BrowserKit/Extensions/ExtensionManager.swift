@@ -92,6 +92,20 @@ public final class ExtensionManager {
         }
     }
 
+    /// A Space made after `start`, or one brought back: everything installed is
+    /// on in it, with the answers given at install, as in every Space unless it
+    /// was switched off there (§16.6). The host is made here rather than with
+    /// the Space's first web view, because only `start` and a switch load
+    /// contexts into one.
+    public func addSpace(_ spaceID: UUID, dataStore: WKWebsiteDataStore) async {
+        _ = host(forSpace: spaceID, dataStore: dataStore)
+        let missing = extensions.filter { installed[$0.id]?.spaces[spaceID] == nil }
+        for (index, info) in missing.enumerated() {
+            if index > 0 { try? await Task.sleep(for: Self.launchStagger) }
+            try? await setEnabled(true, extension: info.id, inSpace: spaceID)
+        }
+    }
+
     /// A Space is being deleted: its contexts go, and so does the extension
     /// storage under its controller. Its database rows cascade with the Space.
     public func removeSpace(_ spaceID: UUID) async {
@@ -182,10 +196,13 @@ public final class ExtensionManager {
         await library.discard(request.staged)
     }
 
-    /// Installs with the user's answer, enabled in `spaceID` only (§3.1).
-    /// Whatever the request listed and `granting` leaves out is recorded as refused.
-    /// An update keeps every other Space's answers and reloads it where it runs.
+    /// Installs with the user's answer, given in `spaceID`. A new install is on
+    /// in every Space, each with that answer (§16.6); whatever the request
+    /// listed and `granting` leaves out is recorded as refused. An update keeps
+    /// every other Space's answers and on or off, and reloads it where it runs.
     public func install(_ request: ExtensionInstallRequest, granting: ExtensionGrants, inSpace spaceID: UUID) async throws {
+        let isNew = installed[request.id] == nil
+        let everySpace = isNew ? try await store.spaces().map(\.id) : []
         for host in hosts.values { host.unload(request.id) }
         let directory = try await library.commit(request.staged)
         var grants = granting
@@ -197,11 +214,21 @@ public final class ExtensionManager {
 
         var entry = installed[request.id] ?? Installed(record: record, spaces: [:])
         entry.spaces[spaceID] = row
+        for space in everySpace where space != spaceID {
+            let elsewhere = ExtensionSpaceRecord(extensionID: request.id, spaceID: space, isEnabled: true, grants: grants)
+            try await store.saveExtensionSpace(elsewhere)
+            entry.spaces[space] = elsewhere
+        }
         entry.details = await Self.details(directory)
         installed[request.id] = entry
+        // One Space at a time, spaced as `start` spaces them: loads close
+        // together failed some workers for good (§4).
+        var loaded = 0
         for (space, row) in entry.spaces where row.isEnabled {
             guard let host = hosts[space] else { continue }
+            if loaded > 0 { try? await Task.sleep(for: Self.launchStagger) }
             await load(request.id, into: host, grants: row.grants)
+            loaded += 1
         }
     }
 

@@ -69,7 +69,7 @@ final class ExtensionsEmptyCard: NSView {
         title.textColor = Tokens.Text.primary
         let text = NSTextField(wrappingLabelWithString: String(localized: """
         Paste a link from the Chrome Web Store above, or choose one you have on this Mac. \
-        It runs in the Space you are in; pin it to put its button on the bar.
+        It runs in every Space; pin it to put its button on the bar.
         """))
         text.font = Tokens.TypeScale.settingsCaption
         text.textColor = Tokens.Text.secondary

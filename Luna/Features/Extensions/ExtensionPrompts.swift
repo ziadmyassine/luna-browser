@@ -17,26 +17,22 @@ import BrowserKit
 @MainActor
 enum ExtensionInstallPrompt {
 
-    /// Whether the user said yes to installing `request` in the Space named.
-    static func run(
-        _ request: ExtensionInstallRequest,
-        spaceName: String,
-        on window: NSWindow?
-    ) async -> Bool {
+    /// Whether the user said yes to installing `request`.
+    static func run(_ request: ExtensionInstallRequest, on window: NSWindow?) async -> Bool {
         let details = request.details
         let alert = NSAlert()
         alert.icon = details.iconData.flatMap(NSImage.init(data:)) ?? ExtensionsSymbol.image
         alert.messageText = request.isUpdate
             ? String(localized: "Update “\(details.name)”?")
             : String(localized: "Add “\(details.name)”?")
-        alert.informativeText = informativeText(for: details, spaceName: spaceName)
+        alert.informativeText = informativeText(for: details, isUpdate: request.isUpdate)
         alert.addButton(withTitle: request.isUpdate ? String(localized: "Update") : String(localized: "Add Extension"))
         alert.addButton(withTitle: String(localized: "Cancel"))
         guard await answer(alert, on: window) == .alertFirstButtonReturn else { return false }
         return true
     }
 
-    static func informativeText(for details: ExtensionDetails, spaceName: String) -> String {
+    static func informativeText(for details: ExtensionDetails, isUpdate: Bool) -> String {
         var parts: [String] = []
         let lines = ExtensionPermissionText.lines(permissions: details.permissions, hostPatterns: details.hostPatterns)
         if lines.isEmpty {
@@ -44,7 +40,10 @@ enum ExtensionInstallPrompt {
         } else {
             parts.append(String(localized: "It will be able to:") + "\n" + lines.map { "• \($0)" }.joined(separator: "\n"))
         }
-        parts.append(String(localized: "It will run in \(spaceName). You can turn it on in other Spaces in Settings."))
+        // An update runs where the extension already ran.
+        if !isUpdate {
+            parts.append(String(localized: "It will run in every Space. You can turn it off in any of them in Settings."))
+        }
         if !details.unsupportedPermissions.isEmpty {
             let missing = details.unsupportedPermissions.joined(separator: ", ")
             parts.append(String(localized: "Luna does not support some of what it uses (\(missing)), so parts of it may not work."))

@@ -32,6 +32,19 @@ extension BrowserSession {
             ExtensionsCenter.shared.announce()
         }
     }
+
+    /// A Space made, brought back or imported after launch runs what is
+    /// installed, as every Space does until it is switched off there (§16.6).
+    /// Not awaited: the Space is on screen before its extensions, which load
+    /// one at a time.
+    func startExtensions(inSpace spaceID: UUID) {
+        guard let extensions else { return }
+        let dataStore = dataStore(forSpace: spaceID)
+        Task {
+            await extensions.addSpace(spaceID, dataStore: dataStore)
+            ExtensionsCenter.shared.announce()
+        }
+    }
 }
 
 extension BrowserSession: ExtensionBrowser {

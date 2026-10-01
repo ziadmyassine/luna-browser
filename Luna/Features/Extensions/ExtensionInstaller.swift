@@ -56,9 +56,8 @@ enum ExtensionInstaller {
 
     private static var notReady: String { String(localized: "Extensions are still starting. Try again in a moment.") }
 
-    /// Unpacks and reads it, asks, then installs in the Space the front
-    /// browser window is showing — docs/EXTENSIONS.md §3.1: a new install runs
-    /// in one Space.
+    /// Unpacks and reads it, asks, then installs: on in every Space, with the
+    /// answers given here (docs/EXTENSIONS.md §3.1).
     private static func install(from prepare: () async throws -> ExtensionInstallRequest, window: NSWindow?) async -> Outcome {
         guard let session = ExtensionsCenter.shared.session, let manager = ExtensionsCenter.shared.manager else {
             return .failed(notReady)
@@ -70,8 +69,7 @@ enum ExtensionInstaller {
             return .failed(String(localized: "Luna couldn’t add it: \(error.localizedDescription)"))
         }
         let space = session.activeSpaceID
-        let spaceName = session.space(space)?.name ?? String(localized: "this Space")
-        guard await ExtensionInstallPrompt.run(request, spaceName: spaceName, on: window) else {
+        guard await ExtensionInstallPrompt.run(request, on: window) else {
             await manager.cancelInstall(request)
             return .cancelled
         }

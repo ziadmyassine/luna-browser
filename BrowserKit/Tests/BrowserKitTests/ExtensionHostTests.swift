@@ -101,9 +101,10 @@ struct ExtensionHostTests {
         #expect(ExtensionTab(id: bare.id, host: host).webView(for: context) == nil, "a view with no controller reached WebKit")
     }
 
-    /// A new install runs in the Space it was installed from and nowhere else
-    /// until the user says so (docs/EXTENSIONS.md §3.1).
-    @Test func enablesANewInstallInItsOwnSpaceOnly() async throws {
+    /// A new install is on in every Space, each with the answers given at
+    /// install, and each can be switched off on its own; a Space made later
+    /// starts with it on too (§16.6).
+    @Test func enablesANewInstallInEverySpace() async throws {
         let (store, spaceA) = try await makeTemporaryStoreWithSpace()
         let spaceB = try await store.insertSpace(named: "Work")
         let manager = ExtensionManager(store: store, library: ExtensionLibrary(root: temporaryDirectory()))
@@ -113,14 +114,24 @@ struct ExtensionHostTests {
         try await manager.install(request, granting: refusing, inSpace: spaceA)
 
         let info = try #require(manager.extensions.first)
-        #expect(info.enabledSpaces == [spaceA])
+        #expect(info.enabledSpaces == [spaceA, spaceB])
         #expect(info.grants[spaceA]?.deniedPatterns == ["https://example.com/*"])
+        #expect(info.grants[spaceB] == info.grants[spaceA], "the other Space did not get the install's answers")
 
-        try await manager.setEnabled(true, extension: request.id, inSpace: spaceB)
-        let both = try #require(manager.extensions.first)
-        #expect(both.enabledSpaces == [spaceA, spaceB])
-        #expect(both.grants[spaceB] == both.grants[spaceA], "enabling elsewhere carries the install's answers")
+        try await manager.setEnabled(false, extension: request.id, inSpace: spaceB)
+        #expect(manager.extensions.first?.enabledSpaces == [spaceA])
+        let saved = try #require(try await store.installedExtensions().first?.1)
+        #expect(Set(saved.filter(\.isEnabled).map(\.spaceID)) == [spaceA], "the switch was not saved")
 
+        let spaceC = try await store.insertSpace(named: "Play")
+        let dataStore = WKWebsiteDataStore(forIdentifier: UUID())
+        defer { Self.remove(dataStore) }
+        await manager.addSpace(spaceC, dataStore: dataStore)
+        let later = try #require(manager.extensions.first)
+        #expect(later.enabledSpaces == [spaceA, spaceC], "a new Space did not start with it on, or turned B back on")
+        #expect(later.grants[spaceC] == later.grants[spaceA])
+
+        manager.tearDown()
         try await manager.uninstall(request.id)
         #expect(manager.extensions.isEmpty)
         #expect(try await store.installedExtensions().isEmpty)

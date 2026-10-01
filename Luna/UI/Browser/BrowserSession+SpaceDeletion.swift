@@ -106,6 +106,8 @@ extension BrowserSession {
         list.addSpace(restored.id)
         try await store.upsert(restored)
         try await renumberSpaces()
+        // Its extension rows went with it; it comes back with them on.
+        startExtensions(inSpace: restored.id)
 
         for tab in snapshot.tabs + snapshot.archivedTabs {
             var open = tab

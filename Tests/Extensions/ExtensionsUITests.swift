@@ -338,8 +338,9 @@ private enum FixtureExtensionFiles {
     """
 }
 
-/// Removing: the one menu every surface's extension button opens, and the
-/// Settings card's Remove.
+/// Removing, from the one menu every surface's extension button opens and
+/// from the Settings card; the card's warning line; and where a new extension
+/// runs.
 extension ExtensionsUITests {
 
     /// A right-click on an extension, on any bar or in the pop-out, offers its
@@ -432,5 +433,31 @@ extension ExtensionsUITests {
         XCTAssertEqual(blocked.detailsButton.frame.minY, plain.detailsButton.frame.minY, accuracy: 0.5)
         // A card with no warning and nobody beside it keeps no room for one.
         XCTAssertLessThan(alone.frame.height, blocked.frame.height - blocked.access.frame.height + 0.5)
+    }
+
+    /// §16.6: added from one Space, an extension is on in every Space, a
+    /// Space made afterwards starts with it on, and each Space switches it
+    /// off on its own.
+    func testANewExtensionIsOnInEverySpace() async throws {
+        let store = try BrowserStore(path: directory.appending(path: "\(UUID().uuidString).sqlite"))
+        let session = try await BrowserSession.restored(store: store)
+        let home = session.activeSpaceID
+        let work = try await session.createSpace(name: "Work").id
+        let manager = try XCTUnwrap(session.extensions)
+        ExtensionsCenter.shared.attach(session)
+
+        let request = try await manager.prepareInstall(from: try fixture())
+        try await ExtensionsCenter.shared.install(request, granting: request.grantingEverything, inSpace: work)
+        let spaces = { manager.extensions.first { $0.id == request.id }?.enabledSpaces ?? [] }
+        XCTAssertEqual(spaces(), [home, work], "not on in the Space it was not added from")
+
+        let play = try await session.createSpace(name: "Play").id
+        let deadline = Date().addingTimeInterval(10)
+        while !spaces().contains(play), Date() < deadline { try await Task.sleep(for: .milliseconds(50)) }
+        XCTAssertEqual(spaces(), [home, work, play], "a new Space did not start with it on")
+
+        try await ExtensionsCenter.shared.setEnabled(false, request.id, inSpace: home)
+        XCTAssertEqual(spaces(), [work, play])
+        try await ExtensionsCenter.shared.uninstall(request.id)
     }
 }
