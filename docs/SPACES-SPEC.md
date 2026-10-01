@@ -134,7 +134,7 @@ Three consequences:
 3. **A cached store reference is itself what blocks removal.** Ora's
    `BrowserEngine.profileCache` has no eviction path, so even if it called
    `remove(forIdentifier:)` it would fail for every space forever. Luna's
-   `ProfileStore.remove` already drops its cache entry first. Keep that first.
+   `SpaceJarStore.remove` already drops its cache entry first. Keep that first.
 
 ### 3.2 Deletion is a retry loop, not a call
 
@@ -164,7 +164,7 @@ so log it and move on.
 ### 3.3 Changing a Space's Profile
 
 §5.5 says the default store "cannot be adopted into one later". True of
-WebKit, **but Luna never uses the default store** — `ProfileStore.dataStore(for:)`
+WebKit, **but Luna never uses the default store** — `SpaceJarStore.dataStore(for:)`
 always calls `WKWebsiteDataStore(forIdentifier:)`. So Luna's real migration is
 identified → identified, which is a materially easier problem. §5.5's framing is
 stale and is corrected in §11.

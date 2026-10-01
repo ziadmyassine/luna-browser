@@ -184,7 +184,7 @@ extension BrowserSession {
     /// stores survive.
     ///
     /// A sink rather than a boolean. Unset — the value the app always has —
-    /// the sweep goes to the real `ProfileStore`, and only outside a test run.
+    /// the sweep goes to the real `SpaceJarStore`, and only outside a test run.
     /// A flag a test flips would leave the disk reachable, and one test that
     /// forgot to put it back would arm it for every test after; here, switching
     /// the guard off and pointing the sweep somewhere harmless are the same act.
@@ -221,13 +221,13 @@ extension BrowserSession {
             Self.hasSweptOrphanStores = true
         }
         let store = store
-        let profileStore = profileStore
+        let spaceJars = spaceJars
         Task {
             // The set is the whole decision: everything WebKit lists and this
             // does not name is deleted. An empty or stale set is not a weaker
             // sweep, it is one that takes the user's live cookie jars.
             guard let live = try? await store.liveDataStoreIdentifiers() else { return }
-            guard let sink else { return await profileStore.sweepOrphans(keeping: live) }
+            guard let sink else { return await spaceJars.sweepOrphans(keeping: live) }
             await sink(live)
         }
     }

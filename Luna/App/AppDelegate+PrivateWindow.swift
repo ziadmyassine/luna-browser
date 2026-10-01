@@ -13,7 +13,7 @@
 //
 //  Cookies and storage are WebKit's half: the session is marked private and
 //  hands every Space a non-persistent data store, so the jar lives in memory
-//  and dies with the web views (`ProfileStore` is not consulted at all).
+//  and dies with the web views (`SpaceJarStore` is not consulted at all).
 //
 
 import AppKit

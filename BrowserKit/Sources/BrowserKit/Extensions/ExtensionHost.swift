@@ -96,7 +96,7 @@ public final class ExtensionHost: NSObject {
     }
 
     /// Where a Space's background pages keep their data: a store of their own,
-    /// derived from the Space's so it needs no column. `ProfileStore` keeps and
+    /// derived from the Space's so it needs no column. `SpaceJarStore` keeps and
     /// removes it alongside the Space's, or the orphan sweep would delete it.
     public nonisolated static func backgroundStoreIdentifier(forSpaceStore identifier: UUID) -> UUID {
         var bytes = Array(SHA256.hash(data: Data("luna.extensions.background".utf8) + withUnsafeBytes(of: identifier.uuid) {

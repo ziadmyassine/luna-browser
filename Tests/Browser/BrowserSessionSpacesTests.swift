@@ -339,7 +339,7 @@ final class BrowserSessionSpacesTests: XCTestCase {
         // the app and pure waiting in a test.
         session.tearDown()
         for space in session.spaces {
-            try? await session.profileStore.remove(space)
+            try? await session.spaceJars.remove(space)
         }
     }
 }

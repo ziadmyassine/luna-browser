@@ -2718,7 +2718,7 @@ Total in the clip: **~2.3 s**, which is a gesture-driven mobile interaction.
   own session over its own database in a throwaway directory, and one non-persistent
   `WKWebsiteDataStore` shared by every Space in it. So no code path has to remember to skip a write —
   history, tabs, Spaces and §9.3's use counts all land in a file that does not outlive the window, and
-  `ProfileStore` is never asked for a jar. The directory is deleted when the window closes; anything a
+  `SpaceJarStore` is never asked for a jar. The directory is deleted when the window closes; anything a
   crash leaves behind is swept at the next launch.
   > **It is told apart by §8.2a's wash**, like any other Space: its one Space is named *Private* and wears
   > a fixed gradient from §8.2's palette. Nothing is added to the chrome to say so — the column already

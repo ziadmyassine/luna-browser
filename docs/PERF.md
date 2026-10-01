@@ -42,7 +42,7 @@ within ten seconds.
 ## The headline: 40 tabs, 3 Spaces, 6 live
 
 `Tools/perf/tabs` builds the real thing: three identified `WKWebsiteDataStore`s (one per
-Space, as `ProfileStore` does), six real `TabController`s loading six real sites, one of
+Space, as `SpaceJarStore` does), six real `TabController`s loading six real sites, one of
 them in a window and five awake off-screen — which is exactly Luna's shape — and 34 cold
 tabs held as `Tab` values carrying real `interactionState` blobs.
 

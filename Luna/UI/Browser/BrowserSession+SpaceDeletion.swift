@@ -79,7 +79,7 @@ extension BrowserSession {
         // store still held cannot be removed.
         await extensions?.removeSpace(space.id)
         SitePermissions.shared.forgetSpace(space.id)
-        try await profileStore.remove(space)
+        try await spaceJars.remove(space)
     }
 
     /// Everything `deleteSpace` has to put back. Held by the undo closure only.

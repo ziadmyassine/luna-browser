@@ -212,7 +212,7 @@ final class BrowserSession {
     /// written outside this session's own store.
     let isPrivate: Bool
     let store: BrowserStore
-    let profileStore = ProfileStore()
+    let spaceJars = SpaceJarStore()
     /// §16's extensions: one controller per Space. Nil in a private session,
     /// where no extension runs, as in Chrome's incognito by default.
     private(set) var extensions: ExtensionManager?
@@ -433,7 +433,7 @@ final class BrowserSession {
 
     /// The data store every tab in this Space is built against.
     func dataStore(forSpace spaceID: UUID) -> WKWebsiteDataStore {
-        // §5.6: nothing this window loads reaches disk, and `ProfileStore` —
+        // §5.6: nothing this window loads reaches disk, and `SpaceJarStore` —
         // which is the thing that makes a jar on disk — is never asked.
         guard !isPrivate else { return privateDataStore }
         guard let space = space(spaceID) else {
@@ -442,7 +442,7 @@ final class BrowserSession {
             // not mean.
             return .nonPersistent()
         }
-        return profileStore.dataStore(for: space)
+        return spaceJars.dataStore(for: space)
     }
 
     /// Whose per-site answers this window reads and writes: §5.6's own, or the active Space's.

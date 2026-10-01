@@ -1,8 +1,8 @@
 //
-//  ProfileStore.swift
+//  SpaceJarStore.swift
 //  Luna
 //
-//  §5.1: one `WKWebsiteDataStore` per Space — the user's Profile —
+//  §5.1: one `WKWebsiteDataStore` per Space — the Space's cookie jar —
 //  and the only place Luna turns a Space into one.
 //
 //  Two facts drive everything here:
@@ -19,10 +19,10 @@
 import BrowserKit
 import WebKit
 
-/// Profile → `WKWebsiteDataStore`, cached so two tabs in one profile genuinely
-/// share a cookie jar and two tabs in different profiles genuinely do not.
+/// Space → `WKWebsiteDataStore`, cached so two tabs in one Space genuinely
+/// share a cookie jar and two tabs in different Spaces genuinely do not.
 @MainActor
-final class ProfileStore {
+final class SpaceJarStore {
 
     private var live: [UUID: WKWebsiteDataStore] = [:]
     private let remover: WebsiteDataStoreRemover
@@ -31,13 +31,13 @@ final class ProfileStore {
         self.remover = remover
     }
 
-    /// The store backing `profile`. Identified (never `.default()`): the default
+    /// The store backing `space`. Identified (never `.default()`): the default
     /// store has no identifier and cannot be adopted into one later (§5.5).
     ///
     /// The all-zero identifier never gets here — `BrowserStore` repairs it on read
     /// (§3.1) — but this is the call that would crash un-catchably if one ever did,
     /// so it checks anyway and answers with a non-persistent store: the safe wrong
-    /// answer, because it leaks nothing into a profile the user did not mean.
+    /// answer, because it leaks nothing into a Space the user did not mean.
     func dataStore(for space: Space) -> WKWebsiteDataStore {
         if let existing = live[space.id] { return existing }
         guard space.hasUsableDataStoreIdentifier else {
@@ -51,9 +51,9 @@ final class ProfileStore {
         return store
     }
 
-    /// Deletes a profile's cookies, storage and caches from disk (§3.2).
+    /// Deletes a Space's cookies, storage and caches from disk (§3.2).
     ///
-    /// - Precondition: every `WKWebView` in this profile has been torn down. This
+    /// - Precondition: every `WKWebView` in this Space has been torn down. This
     ///   call drops the cache entry, which is the one reference it owns; it
     ///   cannot release the caller's.
     ///

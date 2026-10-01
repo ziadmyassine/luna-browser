@@ -17,7 +17,7 @@ private let log = Logger(subsystem: "dk.trego.Luna", category: "store.jars")
 
 public extension BrowserStore {
 
-    /// The live `dataStoreIdentifier` set, for `ProfileStore.sweepOrphans(keeping:)`.
+    /// The live `dataStoreIdentifier` set, for `SpaceJarStore.sweepOrphans(keeping:)`.
     ///
     /// Reads through ``spaces()`` so a repaired identifier counts as live: sweeping against
     /// the raw column would treat a just-repaired Space's new store as an orphan.
