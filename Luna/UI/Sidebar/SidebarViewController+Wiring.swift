@@ -129,6 +129,7 @@ extension SidebarViewController {
             if let state = session.controller(for: id)?.state { list.update(id, state: state) }
             onToggleMute?(id)
         }
+        list.onStopDevices = { [weak self] id in self?.session.controller(for: id)?.stopCapture() }
     }
 
     @objc private func extensionsDidChange() { refreshExtensions() }

@@ -27,6 +27,7 @@ extension TopBarTabStrip {
             switch trailing {
             case .close: session.closeTab(tab.id)
             case let .audio(muted): session.setMuted(!muted, tab: tab.id)
+            case .devices: session.controller(for: tab.id)?.stopCapture()
             case .none: break
             }
         }
@@ -160,6 +161,8 @@ extension TopBarTabStrip {
         let isSelected = tab.id == activeID
         let trailing: SidebarRowContent.Trailing = if hoveredID == tab.id {
             .close
+        } else if let devices = SidebarRowContent.Trailing.inUse(state) {
+            devices
         } else if state?.isPlayingAudio == true || muted {
             .audio(muted: muted)
         } else if isSelected {

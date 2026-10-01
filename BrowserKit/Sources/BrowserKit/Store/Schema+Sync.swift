@@ -52,6 +52,22 @@ extension Schema {
     }
 }
 
+extension Schema {
+
+    /// `v13` — a site's answers for the camera, the microphone and the location (§17.8).
+    ///
+    /// Nullable for the reason the other permissions are: no row means the site asks.
+    /// Not among `SyncSQL`'s synced columns, so an answer about this Mac's camera stays
+    /// on this Mac, and an incoming `SiteSetting` (which writes only the synced
+    /// columns) leaves them alone.
+    static func rememberDeviceAnswers(_ db: Database) throws {
+        let existing = Set(try db.columns(in: "siteSettings").map(\.name))
+        for name in ["camera", "microphone", "location"] where !existing.contains(name) {
+            try db.execute(sql: "ALTER TABLE siteSettings ADD COLUMN \(name) BOOLEAN")
+        }
+    }
+}
+
 /// Change tracking is triggers rather than store hooks because triggers catch
 /// every writer, foreign-key cascades included, and the outbox they fill
 /// survives a crash (docs/plans/SYNC-PLAN.md §1).

@@ -17,6 +17,23 @@ import WebKit
 /// long as a drag lasts, so nothing that reads tab state may be woken by it.
 extension TabController {
 
+    /// Hands WebKit the site's own `theme-color` to paint behind the page — the
+    /// colour over-scroll and the gap before first paint show — or nil, which
+    /// gives the question back to WebKit and its computed answer.
+    ///
+    /// Written where the answer changes, never off a read. This and
+    /// `resetPerDocumentState`'s clear are the only two writes, which is what
+    /// lets the property be observed: a write wakes the observation, the
+    /// observation publishes, and publishing writes nothing.
+    ///
+    /// `publishState` must not write it. Not for fear of a loop — WebKit's setter
+    /// coalesces, and assigning a value equal to the one it holds posts no
+    /// change (measured) — but because the write forces a read of an answer
+    /// WebKit has not worked out yet.
+    func matchBackgroundToTheme() {
+        webView?.underPageBackgroundColor = webView?.themeColor
+    }
+
     static let scrollMessageName = "lunaScroll"
 
     func handleScrollMessage(_ message: WKScriptMessage) {

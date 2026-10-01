@@ -26,6 +26,9 @@ public struct TabState: Sendable, Equatable {
     public var pageBackground: RGBA?
     public var hasOnlySecureContent: Bool
     public var isPlayingAudio: Bool
+    /// §17.8: the page's camera and microphone, which the tab's row shows while on.
+    public var camera: CaptureState
+    public var microphone: CaptureState
     /// A Markdown document or Reader: a page the Reading pop-out restyles.
     public var isReading: Bool
     /// A Markdown document's editor holds text the file does not have yet.
@@ -44,6 +47,8 @@ public struct TabState: Sendable, Equatable {
         pageBackground: RGBA? = nil,
         hasOnlySecureContent: Bool = false,
         isPlayingAudio: Bool = false,
+        camera: CaptureState = .off,
+        microphone: CaptureState = .off,
         isReading: Bool = false,
         isEdited: Bool = false,
         isArticle: Bool = false
@@ -58,6 +63,8 @@ public struct TabState: Sendable, Equatable {
         self.pageBackground = pageBackground
         self.hasOnlySecureContent = hasOnlySecureContent
         self.isPlayingAudio = isPlayingAudio
+        self.camera = camera
+        self.microphone = microphone
         self.isReading = isReading
         self.isEdited = isEdited
         self.isArticle = isArticle

@@ -134,7 +134,28 @@ enum SiteMenu {
                 host: host,
                 thenReload: false
             )
+        ] + devices(host: host)
+    }
+
+    /// §17.8's answers, each only once it has been given: until then the site asks,
+    /// and a switch would have to show an off that is really "not asked yet". Off
+    /// turns a device that is on off at once, rather than at the next call.
+    private static func devices(host: String) -> [SiteSettingsContent.Toggle] {
+        let scope = session?.sitePermissions ?? .shared
+        let rows: [(BrowserStore.SitePermission, String, String)] = [
+            (.camera, String(localized: "Camera"), Glyph.camera),
+            (.microphone, String(localized: "Microphone"), Glyph.microphone),
+            (.location, String(localized: "Location"), Glyph.location)
         ]
+        return rows.compactMap { permission, title, symbol in
+            guard let answer = scope.answer(permission, forHost: host) else { return nil }
+            return .init(title: title, symbol: symbol, isOn: answer) { on in
+                scope.setAllowed(on, permission, forHost: host)
+                guard !on, permission != .location,
+                      let id = session?.activeTabID, let controller = session?.controller(for: id) else { return }
+                controller.stopCapture(camera: permission == .camera, microphone: permission == .microphone)
+            }
+        }
     }
 
     // MARK: - The page
@@ -319,6 +340,9 @@ enum SiteMenu {
         static let pictureInPicture = "pip"
         static let localNetwork = "network"
         static let popups = "macwindow.on.rectangle"
+        static let camera = "video"
+        static let microphone = "mic"
+        static let location = "location"
         static let blockedPopup = "arrow.up.forward.app"
         static let cache = "internaldrive"
         static let cookies = "trash"
@@ -334,7 +358,7 @@ enum SiteMenu {
         static let site = SidebarRowContent.siteFallbackSymbol
 
         static let all = [
-            share, link, blocking, pictureInPicture, localNetwork, popups, blockedPopup,
+            share, link, blocking, pictureInPicture, localNetwork, popups, camera, microphone, location, blockedPopup,
             cache, cookies, reader, hide, advanced, secure, insecure, site
         ]
     }

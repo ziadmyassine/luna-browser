@@ -72,6 +72,13 @@ public final class SitePermissions {
         return answer(permission, host) ?? permission.defaultsToAllowed
     }
 
+    /// The user's answer for this site, or nil when they have not given one — which is
+    /// what tells a site that may ask (§17.8) from one that was told no.
+    public func answer(_ permission: BrowserStore.SitePermission, forHost host: String?) -> Bool? {
+        guard let host = ContentBlocker.normalise(host) else { return nil }
+        return answer(permission, host)
+    }
+
     private func answer(_ permission: BrowserStore.SitePermission, _ host: String) -> Bool? {
         answers[permission]?[host] ?? fallback?.answer(permission, host)
     }

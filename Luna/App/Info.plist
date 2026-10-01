@@ -22,6 +22,14 @@
 	<string>Luna asks Safari to send your pinned tabs to iCloud, so they appear in Safari’s Favorites on your iPhone.</string>
 	<key>NSDownloadsFolderUsageDescription</key>
 	<string>Luna saves the files you download to your Downloads folder.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>A website you allow, such as a video call, can use the camera.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>A website you allow, such as a video call, can use the microphone.</string>
+	<key>NSLocationUsageDescription</key>
+	<string>A website you allow, such as a map, can see where you are.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>A website you allow, such as a map, can see where you are.</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>

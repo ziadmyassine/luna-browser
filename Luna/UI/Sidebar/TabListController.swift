@@ -27,6 +27,8 @@ final class TabListController: NSObject {
     var onActivateTab: ((UUID) -> Void)?
     var onCloseTab: ((UUID) -> Void)?
     var onToggleMute: ((UUID) -> Void)?
+    /// §17.8: the row's camera or microphone was pressed.
+    var onStopDevices: ((UUID) -> Void)?
     var onAddTab: (() -> Void)?
     /// §3.4b: the chevron on a group header, or Enter on one.
     var onToggleGroup: ((UUID) -> Void)?

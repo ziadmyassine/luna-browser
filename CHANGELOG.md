@@ -7,6 +7,7 @@ under Unreleased; a release will take the entries since the last one.
 
 ### 2026-10-01
 
+- **Websites can ask for the camera, microphone and location** (§17.8): a toast asks "Use the camera?" with the site's name, and Allow or Don't Allow is remembered for that site. The tab shows a camera or microphone while one is on, and clicking it turns them off. The site settings pop-out has a switch for each answer you have given. Before this, every request was refused without a word. Location needs macOS 27.
 - **Only one Luna runs at a time** (§19.7): opening Luna again, or a second copy of it, brings the running one forward instead of starting a second window that could not open your data. If the data still cannot open, Luna says so in plain words instead of showing SQLite's error.
 - **A tab opened from a page opens right above it** (§6.5): in its folder if it has one, and to its right under the top bar. Closing it goes back to the page it came from, instead of the new tab going to the top of the list.
 - **A native messaging host that answers quickly is heard** (§16): a reply that arrived before Luna was listening for it was dropped, and `sendNativeMessage` waited for good.

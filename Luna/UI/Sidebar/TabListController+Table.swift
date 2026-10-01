@@ -107,6 +107,7 @@ extension TabListController: NSTableViewDelegate {
         switch trailing {
         case .close: onCloseTab?(id)
         case .audio: onToggleMute?(id)
+        case .devices: onStopDevices?(id)
         case .none: break
         }
     }

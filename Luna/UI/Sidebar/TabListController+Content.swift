@@ -73,6 +73,8 @@ extension TabListController {
         let trailing: SidebarRowContent.Trailing
         if hoveredRow.flatMap({ list[$0] }) == .tab(tab.id) {
             trailing = .close
+        } else if let devices = SidebarRowContent.Trailing.inUse(state) {
+            trailing = devices
         } else if state?.isPlayingAudio == true || muted {
             trailing = .audio(muted: muted)
         } else {
@@ -93,5 +95,16 @@ extension TabListController {
             trailingInset: list.group(ofTab: tab.id) == nil ? 0 : Tokens.Metric.groupMemberTrailingInset,
             isDormant: tab.isDormant
         )
+    }
+}
+
+extension SidebarRowContent.Trailing {
+
+    /// §17.8: the camera while it is on, else the microphone; nil while neither is.
+    /// Paused counts as on: the page still holds the device and can take it back.
+    static func inUse(_ state: TabState?) -> Self? {
+        guard let state else { return nil }
+        if state.camera != .off { return .devices(camera: true) }
+        return state.microphone != .off ? .devices(camera: false) : nil
     }
 }

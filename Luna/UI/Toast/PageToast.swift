@@ -35,6 +35,10 @@ struct PageToast: Equatable {
     /// middle before the text gives way.
     var detail: String?
     var actions: [Action] = []
+    /// The toast went without one of its words being pressed: its dwell ran out,
+    /// it was put away, or another toast took its place. For a question something
+    /// is waiting on (§17.8's camera), which has to hear no rather than nothing.
+    var onUnanswered: (@MainActor () -> Void)?
 
     init(symbol: String, text: String, detail: String? = nil, actions: [Action] = []) {
         self.symbol = symbol
@@ -169,6 +173,8 @@ final class PageToastView: NSView {
     private(set) var buttons: [PopoutTextButton] = []
     /// The dwell of the toast it is showing, for the hover to restart.
     var dwell = Tokens.Motion.toastDwell
+    /// The showing toast's `onUnanswered`, until a word is pressed.
+    private var unanswered: (@MainActor () -> Void)?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -208,7 +214,17 @@ final class PageToastView: NSView {
 
     var text: String { label.stringValue }
 
+    /// Going up with its question still open.
+    func leaveUnanswered() {
+        let pending = unanswered
+        unanswered = nil
+        pending?()
+    }
+
     func configure(_ toast: PageToast) {
+        let replaced = unanswered
+        unanswered = toast.onUnanswered
+        replaced?()
         let size = NSImage.SymbolConfiguration(pointSize: label.font?.pointSize ?? 13, weight: .medium)
         icon.image = NSImage(systemSymbolName: toast.symbol, accessibilityDescription: nil)?
             .withSymbolConfiguration(size)
@@ -227,6 +243,7 @@ final class PageToastView: NSView {
             )
             button.toolTip = action.toolTip
             button.onActivate = { [weak self] in
+                self?.unanswered = nil
                 action.run()
                 self?.onActed?()
             }
@@ -339,6 +356,7 @@ extension ControlSurfaceView {
 
     func hideToast() {
         guard let view = toast, let top = toastTop else { return }
+        view.leaveUnanswered()
         toastDismissal?.cancel()
         toastDeadline = nil
         toast = nil

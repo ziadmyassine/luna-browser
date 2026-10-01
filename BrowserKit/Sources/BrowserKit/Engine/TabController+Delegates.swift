@@ -420,10 +420,20 @@ extension TabController: WKUIDelegate {
         type: WKMediaCaptureType,
         decisionHandler: @escaping @MainActor @Sendable (WKPermissionDecision) -> Void
     ) {
-        guard let delegate else { decisionHandler(.deny); return }
         // §18.8: this path is why the private `mediaDevicesEnabled` preference is never
         // set — it works without it, and setting it crashes the WebContent process.
-        let url = URL(string: "\(origin.protocol)://\(origin.host)")
-        Task { decisionHandler(await delegate.tabController(self, requestMediaCapture: type, origin: url)) }
+        Task { decisionHandler(await decide(DeviceRequest.permissions(for: type), host: origin.host)) }
+    }
+
+    /// §17.8's location. WebKit asks here from macOS 27; before that it has no public
+    /// question to put, and a page's request is refused.
+    @available(macOS 27.0, *)
+    public func webView(
+        _ webView: WKWebView,
+        requestGeolocationPermissionFor origin: WKSecurityOrigin,
+        initiatedByFrame frame: WKFrameInfo,
+        decisionHandler: @escaping @MainActor @Sendable (WKPermissionDecision) -> Void
+    ) {
+        Task { decisionHandler(await decide([.location], host: origin.host)) }
     }
 }

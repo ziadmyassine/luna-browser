@@ -75,6 +75,9 @@ enum Schema {
         migrator.registerMigration("v12") { db in
             try prepareForSync(db)
         }
+        migrator.registerMigration("v13") { db in
+            try rememberDeviceAnswers(db)
+        }
         return migrator
     }
 

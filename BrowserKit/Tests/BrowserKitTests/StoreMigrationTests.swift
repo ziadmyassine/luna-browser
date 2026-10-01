@@ -117,7 +117,7 @@ struct StoreMigrationTests {
             Dictionary(uniqueKeysWithValues: try db.columns(in: "siteSettings").map { ($0.name, $0) })
         }
         // Nullable: absent is "nobody has answered", which is not a refusal.
-        for name in ["automaticPictureInPicture", "localNetwork", "savePasswords", "popups"] {
+        for name in ["automaticPictureInPicture", "localNetwork", "savePasswords", "popups", "camera", "microphone", "location"] {
             let column = try #require(columns[name], "missing \(name)")
             #expect(column.type == "BOOLEAN")
             #expect(!column.isNotNull)
@@ -196,7 +196,8 @@ struct StoreMigrationTests {
             )
         }
         #expect(origins == [nil])
-        #expect(columnCount == 9)
+        // v12's nine, and v13's camera, microphone and location.
+        #expect(columnCount == 12)
         // Turning sync on for the first time is what uploads old rows, not the migration.
         #expect(try await store.syncOutbox().isEmpty)
     }

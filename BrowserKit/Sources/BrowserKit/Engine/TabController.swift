@@ -344,7 +344,7 @@ public final class TabController: NSObject {
             // WebKit answers this off a paint, so it lands after the navigation
             // callbacks rather than in them — see `publishState`.
             webView.observe(\.underPageBackgroundColor, options: [.new]) { republish($0, $1) }
-        ]
+        ] + deviceObservations(of: webView, republish: republish)
         self.webView = webView
     }
 
@@ -547,23 +547,6 @@ extension TabController {
         delegate?.tabControllerDidDismissPasswordUI(self)
     }
 
-    /// Hands WebKit the site's own `theme-color` to paint behind the page — the
-    /// colour over-scroll and the gap before first paint show — or nil, which
-    /// gives the question back to WebKit and its computed answer.
-    ///
-    /// Written where the answer changes, never off a read. This and
-    /// `resetPerDocumentState`'s clear are the only two writes, which is what
-    /// lets the property be observed: a write wakes the observation, the
-    /// observation publishes, and publishing writes nothing.
-    ///
-    /// `publishState` must not write it. Not for fear of a loop — WebKit's setter
-    /// coalesces, and assigning a value equal to the one it holds posts no
-    /// change (measured) — but because the write forces a read of an answer
-    /// WebKit has not worked out yet.
-    func matchBackgroundToTheme() {
-        webView?.underPageBackgroundColor = webView?.themeColor
-    }
-
     func publishState() {
         var next = state
         next.isArticle = webView != nil && isArticle
@@ -592,6 +575,7 @@ extension TabController {
             next.pageBackground = webView.underPageBackgroundColor
                 .flatMap { ColorBridge.rgba(from: $0.cgColor) }
             next.isPlayingAudio = !audibleFrames.isEmpty
+            next.takeDevices(from: webView)
             next.isReading = markdownDocument != nil || readerIsOn
             next.isEdited = editedText != nil
         } else {
@@ -602,6 +586,7 @@ extension TabController {
             next.canGoBack = false
             next.canGoForward = false
             next.isPlayingAudio = false
+            next.takeDevices(from: nil)
             next.isReading = false
             next.isEdited = false
         }

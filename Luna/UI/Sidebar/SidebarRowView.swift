@@ -27,6 +27,9 @@ struct SidebarRowContent: Equatable {
         case none
         /// §3.4: click-to-mute.
         case audio(muted: Bool)
+        /// §17.8: the page has the camera or the microphone on; click to turn them off.
+        /// Ahead of the speaker, because a call is audible as a matter of course.
+        case devices(camera: Bool)
         /// Revealed on hover (§3.4).
         case close
     }
@@ -237,6 +240,13 @@ final class SidebarRowView: NSView {
             trailing.configure(
                 symbolName: muted ? "speaker.slash.fill" : "speaker.wave.2.fill",
                 label: muted ? "Unmute tab" : "Mute tab",
+                pointSize: Tokens.Metric.rowTrailingGlyph
+            )
+        case let .devices(camera):
+            trailing.isHidden = false
+            trailing.configure(
+                symbolName: camera ? "video.fill" : "mic.fill",
+                label: camera ? "Turn off the camera" : "Turn off the microphone",
                 pointSize: Tokens.Metric.rowTrailingGlyph
             )
         case .close:

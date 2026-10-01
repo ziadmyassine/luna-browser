@@ -27,6 +27,12 @@ extension BrowserStore {
         /// §17: pop-ups open here whatever the blocking mode says. Written by the
         /// pop-up chip's Always Allow and the site menu's switch.
         case popups
+        /// §17.8: the page may turn on the camera, the microphone, or ask where this
+        /// Mac is. Written by the toast's Allow and Don't Allow and by the site menu;
+        /// absent, the site is asked. Local to this Mac (`Schema.rememberDeviceAnswers`).
+        case camera
+        case microphone
+        case location
 
         /// What the permission is when nobody has answered for this site.
         ///
@@ -42,6 +48,8 @@ extension BrowserStore {
             case .savePasswords: true
             // Absent means the mode decides, which is what "not allowed" does.
             case .popups: false
+            // Absent means ask, and nothing is handed over before the answer.
+            case .camera, .microphone, .location: false
             }
         }
     }

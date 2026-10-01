@@ -52,11 +52,14 @@ public protocol TabControllerDelegate: AnyObject {
         defaultText: String?
     ) async -> String?
 
+    /// §17.8: the page at `host` wants the camera, the microphone or the location, and
+    /// has no answer for this site yet. True or false is the user's answer, which the
+    /// controller keeps; nil is no answer (unseen, or dismissed), a no for now only.
     func tabController(
         _ controller: TabController,
-        requestMediaCapture type: WKMediaCaptureType,
-        origin: URL?
-    ) async -> WKPermissionDecision
+        wantsAccessTo permissions: [BrowserStore.SitePermission],
+        forHost host: String
+    ) async -> Bool?
 
     /// A page's `<input type=file>`: the files the user picked, or nil for Cancel.
     func tabController(
@@ -134,9 +137,9 @@ public extension TabControllerDelegate {
     /// Fail closed: a browser with no permission UI must not hand out the camera.
     func tabController(
         _ controller: TabController,
-        requestMediaCapture type: WKMediaCaptureType,
-        origin: URL?
-    ) async -> WKPermissionDecision { .deny }
+        wantsAccessTo permissions: [BrowserStore.SitePermission],
+        forHost host: String
+    ) async -> Bool? { nil }
 
     func tabController(
         _ controller: TabController,
