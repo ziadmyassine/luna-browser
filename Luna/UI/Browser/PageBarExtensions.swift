@@ -73,6 +73,7 @@ final class PageBarExtensionShelf: NSView {
         }
         extensionsButton.onPressChange = { [weak self] pressed in self?.setPressed(pressed) }
         addSubview(extensionsButton)
+        setAccessibilityElement(true)
         setAccessibilityRole(.group)
         setAccessibilityLabel(ExtensionsSymbol.label)
     }

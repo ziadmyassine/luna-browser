@@ -143,6 +143,7 @@ final class SidebarViewController: NSViewController, WindowScoped {
         ] {
             root.addSubview(subview)
         }
+        root.readsLast = [handle]
         view = root
     }
 

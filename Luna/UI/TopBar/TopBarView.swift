@@ -102,6 +102,10 @@ final class TopBarView: NSView, WindowScoped, TrafficLightNeighbour {
         // edge, and the notches the page's rounded top corners leave show the
         // plane, not the bar.
 
+        setAccessibilityElement(true)
+        setAccessibilityRole(.toolbar)
+        setAccessibilityLabel(String(localized: "Top bar"))
+
         buildControls()
         buildLayout()
         rebuildCapsule()
@@ -121,6 +125,10 @@ final class TopBarView: NSView, WindowScoped, TrafficLightNeighbour {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("Luna builds its chrome in code")
+    }
+
+    override func accessibilityChildren() -> [Any]? {
+        super.accessibilityChildren().map { AccessibilityOrder.reading($0) }
     }
 
     // MARK: - Build

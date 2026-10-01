@@ -100,6 +100,7 @@ final class BrowserWindow {
     func toggleSidebar() {
         guard controller.canCollapseSidebar else { return }
         controller.setSidebarCollapsed(!controller.isSidebarCollapsed)
+        pageChrome?.setSidebarShown(!controller.isSidebarCollapsed)
     }
 
     /// Puts the window into whichever chrome `Settings.chromeLayout` names.
@@ -124,6 +125,8 @@ final class BrowserWindow {
         // The handle drags the divider, and which way is "wider" depends on
         // which side the column is on.
         sidebar?.sidebarEdge = edge
+        let sidebarShown = if case .sidebar = state { true } else { false }
+        pageChrome?.setSidebarShown(sidebarShown)
         guard state != controller.chromeState else { return }
         chrome.setLayout(state)
         if animated {

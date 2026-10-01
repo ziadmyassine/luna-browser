@@ -149,7 +149,8 @@ final class EssentialsGridView: NSView {
         hint.onDismiss = { [weak self] in self?.onDismissHint?() }
         addSubview(hint)
         addSubview(glow)
-        setAccessibilityLabel("Essentials")
+        setAccessibilityElement(true)
+        setAccessibilityLabel(String(localized: "Favorites"))
         setAccessibilityRole(.group)
     }
 

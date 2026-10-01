@@ -47,6 +47,16 @@ final class WindowRootView: NSView {
     /// window.
     weak var frontmost: NSView?
 
+    /// What VoiceOver reads first, in this order — see `AccessibilityOrder`.
+    /// Empty for a window whose drawing order is already its reading order.
+    var accessibilityLeads: [NSView] = []
+
+    override func accessibilityChildren() -> [Any]? {
+        let children = super.accessibilityChildren()
+        guard let children, !accessibilityLeads.isEmpty else { return children }
+        return AccessibilityOrder.led(children, by: accessibilityLeads)
+    }
+
     // After the add rather than in `didAddSubview`: a reorder made from
     // inside that callback is undone by the add it is answering.
     override func addSubview(_ view: NSView) {

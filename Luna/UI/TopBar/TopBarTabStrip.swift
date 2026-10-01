@@ -201,6 +201,7 @@ final class TopBarTabStrip: NSView, WindowScoped {
             scrollView.trailingAnchor.constraint(equalTo: trailingAnchor)
         ])
 
+        content.setAccessibilityElement(true)
         content.setAccessibilityRole(.tabGroup)
         content.setAccessibilityLabel(String(localized: "Tabs"))
         // Bottom to top: the plate, the fills, then the marks, then the tabs

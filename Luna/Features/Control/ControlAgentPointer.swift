@@ -56,6 +56,12 @@ final class ControlAgentPointer: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
+    /// Not its name tag either: the pointer stands on the page at alpha 0
+    /// between actions, and an ignored view's children are still read — as an
+    /// empty line of text at the page's corner. The working capsule says who
+    /// is acting.
+    override func accessibilityChildren() -> [Any]? { [] }
+
     private func buildArrow() {
         let path = CGMutablePath()
         path.addLines(between: Self.outline.map { CGPoint(x: $0.x + Self.tip.x, y: $0.y + Self.tip.y) })

@@ -4,7 +4,7 @@
 //
 //  Every button in Luna answers a press, and this is the register of them: a
 //  new button type that does not swell fails here. See CLAUDE.md, "Buttons
-//  answer".
+//  answer". `ButtonLabelTests` keeps the same list for VoiceOver.
 //
 //  The swell is asserted, not the wash. The wash lands in different places per
 //  control — a plate, a subview, a gradient's ring — while `Motion.swell`

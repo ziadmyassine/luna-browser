@@ -227,6 +227,24 @@ final class SidebarRootView: NSView {
 
     /// Returns true when the swipe took the event.
     var onScroll: ((NSEvent) -> Bool)?
+    /// Read after the rest of the column — see `AccessibilityOrder.reading`.
+    var readsLast: [NSView] = []
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        setAccessibilityElement(true)
+        setAccessibilityRole(.group)
+        setAccessibilityLabel(String(localized: "Sidebar"))
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("Luna builds its chrome in code; there is no nib to decode.")
+    }
+
+    override func accessibilityChildren() -> [Any]? {
+        super.accessibilityChildren().map { AccessibilityOrder.reading($0, last: readsLast) }
+    }
 
     override func scrollWheel(with event: NSEvent) {
         guard onScroll?(event) != true else { return }

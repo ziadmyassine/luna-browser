@@ -247,6 +247,13 @@ final class ContentCardView: NSView {
         ])
     }
 
+    /// §3.2b's bar is drawn over the page and read before it.
+    override func accessibilityChildren() -> [Any]? {
+        let children = super.accessibilityChildren()
+        guard let children, let overlay else { return children }
+        return AccessibilityOrder.led(children, by: [overlay])
+    }
+
     /// Luna Control's layer, over the four edges like the bar, and under it.
     func setAgentLayer(_ view: ControlSurfaceView) {
         agentLayer = view

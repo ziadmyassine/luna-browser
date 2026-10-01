@@ -72,8 +72,9 @@ final class NavCluster: NSView {
             half.onPressChange = { [weak self] pressed in self?.setPressed(pressed) }
         }
         for view in [back, divider, forward] { addSubview(view) }
+        setAccessibilityElement(true)
         setAccessibilityRole(.group)
-        setAccessibilityLabel(String(localized: "History"))
+        setAccessibilityLabel(String(localized: "Back and Forward"))
         applyForward(animated: false)
     }
 

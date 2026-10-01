@@ -101,6 +101,11 @@ final class PageChromeController: WindowScoped {
     /// Whether this bar is the address bar on screen — `⌘L`'s question.
     var isOnScreen: Bool { isActive }
 
+    /// What the bar's sidebar toggle will do, for VoiceOver to say.
+    func setSidebarShown(_ shown: Bool) {
+        bar.setSidebarShown(shown)
+    }
+
     /// §20.1's `⌘L`: the same hand-off a click on the pill makes.
     func beginEditing() {
         guard isActive else { return }

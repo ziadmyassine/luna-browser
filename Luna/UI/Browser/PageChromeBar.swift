@@ -98,6 +98,9 @@ final class PageChromeBar: NSView, TrafficLightNeighbour {
         shelf.onExtensions = { [weak self] anchor in self?.onExtensions?(anchor) }
         for view in buttons + [pill, shelf] { addSubview(view) }
         wirePill()
+        setAccessibilityElement(true)
+        setAccessibilityRole(.toolbar)
+        setAccessibilityLabel(String(localized: "Page bar"))
         applyPlane(animated: false)
         watchForTheLights() // The one thing that moves without resizing this view.
     }
@@ -105,6 +108,16 @@ final class PageChromeBar: NSView, TrafficLightNeighbour {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
+    }
+
+    override func accessibilityChildren() -> [Any]? {
+        super.accessibilityChildren().map { AccessibilityOrder.reading($0) }
+    }
+
+    /// Hides the sidebar while it is showing, and shows it while it is hidden
+    /// or while the top bar has the window, so it says which.
+    func setSidebarShown(_ shown: Bool) {
+        toggle.setAccessibilityLabel(shown ? String(localized: "Hide Sidebar") : String(localized: "Show Sidebar"))
     }
 
     /// The pill hands the address to §9.1, which opens standing on it.

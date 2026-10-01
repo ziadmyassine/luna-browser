@@ -59,6 +59,7 @@ final class OnboardingImportList: NSView {
         content.translatesAutoresizingMaskIntoConstraints = true
         for row in rows { content.addSubview(row) }
         addSubview(scroll)
+        setAccessibilityElement(true)
         setAccessibilityRole(.group)
         setAccessibilityLabel(String(localized: "Browsers to bring across"))
     }

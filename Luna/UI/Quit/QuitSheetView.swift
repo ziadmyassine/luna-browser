@@ -117,6 +117,7 @@ final class QuitSheetView: NSView {
 
         layOut()
         applyTokens()
+        setAccessibilityElement(true)
         setAccessibilityRole(.group)
         setAccessibilityLabel(String(localized: "Quit Luna?"))
     }

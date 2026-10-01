@@ -147,6 +147,11 @@ final class GlassButton: NSView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
+    /// None. The label says what the button is; the glyph inside it would
+    /// otherwise be read as a child with the symbol's own description —
+    /// "end" for Downloads, a sentence about a clock for History.
+    override func accessibilityChildren() -> [Any]? { [] }
+
     // MARK: - Content
 
     /// Swaps the glyph — reload → stop while loading (§3.1), speaker → speaker

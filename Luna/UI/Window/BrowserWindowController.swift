@@ -321,6 +321,8 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         // sidebar over the page, and once it has arrived it is the thing the
         // pointer is on.
         root.addSubview(view, positioned: .above, relativeTo: peekBackdrop)
+        // Drawn over the card, and read before it (`AccessibilityOrder`).
+        (root as? WindowRootView)?.accessibilityLeads = [view, card]
         NSLayoutConstraint.activate([
             peekBackdrop.topAnchor.constraint(equalTo: view.topAnchor),
             peekBackdrop.leadingAnchor.constraint(equalTo: view.leadingAnchor),

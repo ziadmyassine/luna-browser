@@ -37,6 +37,7 @@ final class TopBarSpaceCapsule: NSView {
             spaceName.topAnchor.constraint(equalTo: topAnchor),
             spaceName.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
+        setAccessibilityElement(true)
         setAccessibilityRole(.group)
         setAccessibilityLabel(String(localized: "Space"))
     }

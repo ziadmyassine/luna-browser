@@ -68,6 +68,7 @@ final class TopBarActionCapsule: NSView, PopoutShelf {
         wantsLayer = true
         layer?.cornerCurve = .continuous
         Glass.apply(.control, to: self, cornerRadius: height / 2)
+        setAccessibilityElement(true)
         setAccessibilityRole(.group)
         setAccessibilityLabel(String(localized: "Actions"))
     }

@@ -47,6 +47,7 @@ final class SidebarActionCapsule: NSView {
             button.onPressChange = { [weak self] pressed in self?.setPressed(pressed) }
             addSubview(button)
         }
+        setAccessibilityElement(true)
         setAccessibilityRole(.group)
         setAccessibilityLabel(String(localized: "Library"))
     }
