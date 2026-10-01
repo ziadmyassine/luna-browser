@@ -45,7 +45,7 @@ public final class TabController: NSObject {
 
     /// §19.3 guard: a page that kills its own WebContent process on load would otherwise
     /// make us rebuild it forever.
-    private var recoveries: [Date] = []
+    private(set) var recoveries: [Date] = []
 
     /// Whether §17.2's YouTube script is in the current script set — see
     /// `refreshUserScriptsIfNeeded(host:)`, which is the only thing that reads it.

@@ -86,6 +86,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// §30.17's first-run window, alive only while it is on screen.
     /// `AppDelegate+Onboarding.swift` puts it up.
     var onboarding: OnboardingWindowController?
+    /// §19.3's heartbeat on activation and wake. Installed once there is a session.
+    var processHealth: ProcessHealthWatch?
     /// §15.3's list. `BrowserCommands` opens it as well as the two buttons, and
     /// `AppDelegate+Downloads.swift` builds it, so it is neither private nor
     /// `private(set)`.
@@ -191,6 +193,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // memory-pressure source. Before the first tab, so the budget is never
         // briefly unenforced.
         session.installLifecycle()
+        processHealth = ProcessHealthWatch { [weak self] in self?.windows.map(\.session) ?? [] }
         let control = ControlService(session: session)
         control.update()
         self.control = control

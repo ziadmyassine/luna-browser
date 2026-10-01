@@ -2534,7 +2534,8 @@ something happened, over the page, is one of these — never a panel, chip or ba
 - **VoiceOver** hears every toast as a high-priority announcement.
 - **Adding one** is a `static` on `PageToast` and a `.show(in:)` call. Current ones: link and markdown
   copied, zoom, Favorites, archived tabs, JavaScript and user agent (Develop menu), caches emptied,
-  Picture in Picture, Reader, hiding parts of a page, and §17's blocked pop-ups
+  Picture in Picture, Reader, hiding parts of a page, a page Luna reloaded because its web
+  process died (§19.3, front tab only), and §17's blocked pop-ups
   (`PageToast.popupBlocked`, Open and Always Allow; it was a floating chip with a placement setting
   until 2026-09-29).
 - **Not a toast:** a question that needs reading and more than two answers — §14.4's save-password

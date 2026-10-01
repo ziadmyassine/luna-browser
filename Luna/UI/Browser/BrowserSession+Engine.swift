@@ -241,6 +241,7 @@ extension BrowserSession: TabControllerDelegate {
 
     func tabControllerDidRecoverFromProcessTermination(_ controller: TabController) {
         notifyChange()
+        newsOfRecovery(of: controller.id)?.show(in: hostWindow)
     }
 
     // MARK: - JavaScript dialogs
