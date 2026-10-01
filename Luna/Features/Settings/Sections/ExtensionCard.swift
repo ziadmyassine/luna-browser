@@ -42,14 +42,15 @@ final class ExtensionCardView: NSView {
     private let icon = NSImageView()
     private let name = NSTextField(labelWithString: "")
     private let detail = NSTextField(labelWithString: "")
-    /// Only for an extension that cannot work in Luna: the reason, in red.
+    /// Only for an extension that cannot work in Luna: the reason, in red,
+    /// after a warning triangle.
     let access = NSTextField(labelWithString: "")
-    private let accessGlyph = NSImageView()
-    /// The foot's top: under the warning when there is one, else under the head.
+    let accessGlyph = NSImageView()
+    /// Keeps the foot below the warning, while there is one. The foot is
+    /// never pinned to what is above it: see `build`.
     private var controlsUnderWarning: NSLayoutConstraint?
-    private var controlsUnderHead: NSLayoutConstraint?
     /// On or off in the Space the front window shows — the pop-out's switch.
-    /// Every other Space is in the Spaces menu on the card's foot.
+    /// Every other Space has its switch in Details.
     let toggle: SystemSwitch
     let detailsButton = ExtensionCardButton(symbol: "info.circle", title: String(localized: "Details"), label: String(localized: "Details"))
     let pin: ExtensionCardButton
@@ -106,19 +107,22 @@ final class ExtensionCardView: NSView {
         accessGlyph.image = NSImage(systemSymbolName: "exclamationmark.triangle", accessibilityDescription: nil)
         accessGlyph.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: Tokens.Metric.pillGlyphSize - 2, weight: .regular)
         accessGlyph.contentTintColor = Tokens.Accent.danger
-        access.stringValue = model.blocker ?? ""
+        let warns = model.blocker != nil
+        // A blocker with no words still warns in words: a triangle alone
+        // reads as a card that failed to draw.
+        let reason = model.blocker.flatMap { $0.isEmpty ? nil : $0 } ?? String(localized: "Can’t work in Luna")
+        access.stringValue = warns ? reason : ""
         access.font = Tokens.TypeScale.settingsCaption
         access.textColor = Tokens.Accent.danger
         access.maximumNumberOfLines = 1
         access.lineBreakMode = .byTruncatingTail
-        let warns = model.blocker != nil
         for view in [accessGlyph, access] { view.isHidden = !warns }
         controlsUnderWarning?.isActive = warns
-        controlsUnderHead?.isActive = !warns
         wire(model)
         setAccessibilityElement(true)
         setAccessibilityRole(.group)
-        setAccessibilityLabel([name.stringValue, detail.stringValue].joined(separator: ", "))
+        let spoken = [name.stringValue, detail.stringValue] + (warns ? [access.stringValue] : [])
+        setAccessibilityLabel(spoken.joined(separator: ", "))
     }
 
     /// The controls on the card's head and foot.
@@ -171,7 +175,7 @@ final class ExtensionCardView: NSView {
             detail.topAnchor.constraint(equalTo: icon.centerYAnchor, constant: lineGap / 2),
 
             accessGlyph.leadingAnchor.constraint(equalTo: icon.leadingAnchor),
-            accessGlyph.firstBaselineAnchor.constraint(equalTo: access.firstBaselineAnchor),
+            accessGlyph.centerYAnchor.constraint(equalTo: access.centerYAnchor),
             accessGlyph.widthAnchor.constraint(equalToConstant: Tokens.Metric.pillGlyphSize),
             access.leadingAnchor.constraint(equalTo: accessGlyph.trailingAnchor, constant: lineGap * 2),
             access.trailingAnchor.constraint(lessThanOrEqualTo: card.trailingAnchor, constant: -inset),
@@ -179,6 +183,7 @@ final class ExtensionCardView: NSView {
 
             // The controls stand on the card's foot, so two cards side by side
             // line theirs up whatever their descriptions run to.
+            detailsButton.topAnchor.constraint(greaterThanOrEqualTo: icon.bottomAnchor, constant: gap + lineGap),
             detailsButton.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: inset - SettingsMetrics.controlInset / 2),
             detailsButton.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -(inset - SettingsMetrics.controlInset / 2)),
             detailsButton.trailingAnchor.constraint(lessThanOrEqualTo: pin.leadingAnchor, constant: -lineGap),
@@ -187,11 +192,18 @@ final class ExtensionCardView: NSView {
             pin.trailingAnchor.constraint(equalTo: remove.leadingAnchor, constant: -lineGap),
             pin.centerYAnchor.constraint(equalTo: detailsButton.centerYAnchor)
         ])
-        controlsUnderWarning = detailsButton.topAnchor.constraint(equalTo: access.bottomAnchor, constant: gap)
-        controlsUnderHead = detailsButton.topAnchor.constraint(equalTo: icon.bottomAnchor, constant: gap + lineGap)
-        // `dress` ran before these existed, and hid the warning if there is none.
+        controlsUnderWarning = detailsButton.topAnchor.constraint(greaterThanOrEqualTo: access.bottomAnchor, constant: gap)
+        // `dress` ran before this existed, and hid the warning if there is none.
         controlsUnderWarning?.isActive = !access.isHidden
-        controlsUnderHead?.isActive = access.isHidden
+        // The foot keeps its distance from what is above it as a minimum, and
+        // the card is as short as that allows. A row's two cards are one height
+        // (`ExtensionCardGrid`): with the foot pinned to the head, a card with
+        // a warning beside one without could only match it by crushing the
+        // warning's text to nothing, which left its triangle alone on a line.
+        // The shorter card opens the room above its foot instead.
+        let snug = card.heightAnchor.constraint(equalToConstant: 0)
+        snug.priority = .defaultLow
+        snug.isActive = true
     }
 
     /// "1.4 · Chrome Web Store". The number alone: with the word "Version"

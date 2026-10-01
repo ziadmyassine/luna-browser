@@ -378,4 +378,59 @@ extension ExtensionsUITests {
         XCTAssertTrue(card.remove.accessibilityPerformPress())
         XCTAssertTrue(removed)
     }
+
+    /// The red line of an extension that cannot work in Luna reads as one
+    /// line — triangle and reason, centred on each other — beside a card that
+    /// has none. A row's two cards are one height, and that used to crush the
+    /// reason to nothing and leave the triangle alone above Details.
+    func testTheWarningKeepsItsWordsBesideACardWithout() async throws {
+        let folder = try fixture()
+        let details = ExtensionDetails(try await WKWebExtension(resourceBaseURL: folder), directory: folder)
+        let info = ExtensionInfo(id: "abc", source: .webStore, details: details, enabledSpaces: [], grants: [:])
+        func card(_ blocker: String?) -> ExtensionCardView {
+            ExtensionCardView(ExtensionCardView.Model(
+                info: info, isPinned: false, isOnHere: true, hereName: "Home", setOnHere: { _ in },
+                blocker: blocker, showDetails: { _ in }, remove: {}, setPinned: { _ in }
+            ))
+        }
+        let reason = "Needs Apple’s approval for Luna"
+        let long = String(repeating: "A reason far longer than the card is wide. ", count: 4)
+        let (blocked, plain, unworded, lengthy, alone) = (card(reason), card(nil), card(""), card(long), card(nil))
+        let grid = ExtensionCardGrid(cards: [blocked, plain, unworded, lengthy, alone])
+        let host = NSView(frame: NSRect(x: 0, y: 0, width: 600, height: 800))
+        host.addSubview(grid)
+        NSLayoutConstraint.activate([
+            grid.leadingAnchor.constraint(equalTo: host.leadingAnchor),
+            grid.trailingAnchor.constraint(equalTo: host.trailingAnchor),
+            grid.topAnchor.constraint(equalTo: host.topAnchor)
+        ])
+        host.layoutSubtreeIfNeeded()
+
+        let inset = SettingsMetrics.cardInset
+        for warned in [blocked, unworded, lengthy] {
+            // Alignment rects: a label's frame carries a 2 pt margin each side.
+            let glyph = warned.accessGlyph.alignmentRect(forFrame: warned.accessGlyph.frame)
+            let label = warned.access.alignmentRect(forFrame: warned.access.frame)
+            XCTAssertFalse(warned.access.stringValue.isEmpty, "a warning with no words")
+            XCTAssertGreaterThan(label.width, 0, "the reason was squeezed to no width")
+            XCTAssertGreaterThanOrEqual(label.height, warned.access.intrinsicContentSize.height - 0.5, "the reason was crushed")
+            XCTAssertEqual(glyph.midY, label.midY, accuracy: 1, "the triangle is not on the reason's line")
+            XCTAssertEqual(glyph.minX, inset, accuracy: 0.5)
+            XCTAssertGreaterThan(label.minX, glyph.maxX)
+            XCTAssertLessThanOrEqual(label.maxX, warned.bounds.width - inset + 0.5, "the reason ran past the card")
+            XCTAssertLessThanOrEqual(
+                warned.detailsButton.frame.maxY, label.minY - Tokens.Metric.chromeGap + 0.5,
+                "Details is not below the warning"
+            )
+        }
+        XCTAssertEqual(blocked.access.stringValue, reason)
+        XCTAssertEqual(unworded.access.stringValue, String(localized: "Can’t work in Luna"))
+        XCTAssertTrue(plain.access.isHidden)
+        XCTAssertTrue(plain.accessGlyph.isHidden)
+        // Side by side, one height, and the foot of each on the same line.
+        XCTAssertEqual(blocked.frame.height, plain.frame.height, accuracy: 0.5)
+        XCTAssertEqual(blocked.detailsButton.frame.minY, plain.detailsButton.frame.minY, accuracy: 0.5)
+        // A card with no warning and nobody beside it keeps no room for one.
+        XCTAssertLessThan(alone.frame.height, blocked.frame.height - blocked.access.frame.height + 0.5)
+    }
 }
