@@ -33,6 +33,28 @@ struct WebViewSpareTests {
         tab.hibernate()
     }
 
+    /// The route every new tab and every waking tab takes: a cold controller
+    /// told its address, then activated. The spare's `about:blank` once read
+    /// as a page already there, and the tab stayed empty.
+    @Test("a tab woken with only its address loads that address into the spare")
+    func wokenTabLoadsIntoTheSpare() async throws {
+        WebViewFactory.keepsSpare = true
+        defer { WebViewFactory.keepsSpare = false; WebViewFactory.dropSpare() }
+        let store = WKWebsiteDataStore.nonPersistent()
+        WebViewFactory.prepareSpare(dataStore: store, webExtensionController: nil)
+        let spare = try #require(WebViewFactory.spareWebView)
+        await settle { !spare.isLoading }
+
+        let page = URL(string: "about:blank#typed")!
+        let tab = TabController(id: UUID(), dataStore: store)
+        tab.restore(interactionState: nil, fallbackURL: page)
+        tab.activate()
+        #expect(tab.webView === spare)
+        await settle { spare.url == page && !spare.isLoading }
+        #expect(spare.url == page, "the tab kept the spare's empty document")
+        tab.hibernate()
+    }
+
     @Test("a tab in another Space builds its own, and the spare stays")
     func otherSpaceBuildsItsOwn() async throws {
         WebViewFactory.keepsSpare = true

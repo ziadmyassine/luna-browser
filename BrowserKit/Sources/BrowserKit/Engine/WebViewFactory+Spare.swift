@@ -73,6 +73,14 @@ extension WebViewFactory {
         return webView
     }
 
+    /// True of a view nothing has been loaded into: one just built, whose
+    /// `url` is nil, and the spare, whose empty document reads `about:blank`.
+    @MainActor
+    static func showsNothingYet(_ webView: WKWebView) -> Bool {
+        guard let url = webView.url else { return true }
+        return url.absoluteString == "about:blank" && webView.backForwardList.backList.isEmpty
+    }
+
     @MainActor
     private static func scheduleRefill(dataStore: WKWebsiteDataStore, webExtensionController: WKWebExtensionController?) {
         guard keepsSpare else { return }

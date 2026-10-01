@@ -228,7 +228,7 @@ public final class TabController: NSObject {
         if url.scheme?.lowercased() == InternalPages.scheme { expectedInternalLoad = url }
         // Luna's own loads arrive as `.other`, the type the tab-under guard refuses.
         popups.disarm()
-        let webView = ensureWebView(restoringSession: false)
+        let webView = ensureWebView(restoringSession: false, loadingFallback: false)
         Self.load(url, into: webView)
     }
 
@@ -285,8 +285,10 @@ public final class TabController: NSObject {
 
     // MARK: - Web view plumbing
 
+    /// - Parameter loadingFallback: false when the caller loads a page of its
+    ///   own straight after, which would otherwise start the same page twice.
     @discardableResult
-    private func ensureWebView(restoringSession: Bool) -> WKWebView {
+    private func ensureWebView(restoringSession: Bool, loadingFallback: Bool = true) -> WKWebView {
         if let webView { return webView }
         let webView = WebViewFactory.makeWebView(dataStore: dataStore, webExtensionController: webExtensionController)
         attach(webView)
@@ -295,8 +297,11 @@ public final class TabController: NSObject {
         }
         // Covers a fresh tab and a blob WebKit silently refused. Setting
         // `interactionState` drives the navigation itself, so loading as well would
-        // fetch the same page twice.
-        if webView.url == nil, let url = fallbackURL ?? state.url {
+        // fetch the same page twice. Not `url == nil`: the factory's spare has
+        // shown an empty document, so a view nothing has been loaded into can
+        // read `about:blank`, and that test left every new tab given the spare
+        // blank.
+        if loadingFallback, WebViewFactory.showsNothingYet(webView), let url = fallbackURL ?? state.url {
             Self.load(url, into: webView)
         }
         publishState()
