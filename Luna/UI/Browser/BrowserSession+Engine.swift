@@ -32,6 +32,7 @@ extension BrowserSession {
         )
         controller.delegate = self
         relayScrollProgress(of: controller)
+        relayWebStoreOffer(of: controller)
         controller.restore(interactionState: tab.interactionState, fallbackURL: tab.url)
         // §3.4a: a muted tab that went cold comes back muted. The controller is new, so
         // it starts at the default and has to be told.
@@ -130,6 +131,7 @@ extension BrowserSession {
         )
         controller.delegate = self
         relayScrollProgress(of: controller)
+        relayWebStoreOffer(of: controller)
         controllers[child.id] = controller
         let webView: WKWebView?
         if let configuration {

@@ -81,4 +81,41 @@ struct WebViewFactoryTests {
             #expect(configuration.preferences.javaScriptCanOpenWindowsAutomatically == opens, "\(mode)")
         }
     }
+
+    // MARK: - The Chrome Web Store's scoped Chrome UA
+
+    private static let extensionID = "cjpalhdlnbpafiamejdnhcphjbkeiagm"
+
+    /// Every page of the store, old host and new, is sent Chrome's UA whatever
+    /// §3.9's mode is — host-scoped, not only the detail page — so Google's own
+    /// "Add to Chrome" button stays live.
+    @Test func theChromeWebStoreGetsChromesUserAgent() {
+        let onStore = [
+            "https://chromewebstore.google.com/detail/ublock-origin/\(Self.extensionID)",
+            "https://chromewebstore.google.com/search/ublock",
+            "https://chromewebstore.google.com/",
+            "https://chrome.google.com/webstore/detail/ublock-origin/\(Self.extensionID)"
+        ]
+        for text in onStore {
+            #expect(WebViewFactory.userAgent(for: URL(string: text), mode: .default)
+                == WebViewFactory.chromeUserAgent, "\(text)")
+        }
+    }
+
+    /// Off the store, §3.9's mode decides, exactly as `customUserAgent` does.
+    @Test func offTheStoreTheModeDecides() {
+        let page = URL(string: "https://example.com/")
+        #expect(WebViewFactory.userAgent(for: page, mode: .default) == nil)
+        #expect(WebViewFactory.userAgent(for: page, mode: .safari) == WebViewFactory.customUserAgent(for: .safari))
+        #expect(WebViewFactory.userAgent(for: page, mode: .chrome) == WebViewFactory.chromeUserAgent)
+    }
+
+    /// The override is narrow: https only, and `chrome.google.com` is the store
+    /// only under `/webstore`.
+    @Test func theStoreOverrideIsHttpsAndPathScoped() {
+        let insecure = URL(string: "http://chromewebstore.google.com/detail/ublock-origin/\(Self.extensionID)")
+        #expect(WebViewFactory.userAgent(for: insecure, mode: .default) == nil)
+        let google = URL(string: "https://chrome.google.com/")
+        #expect(WebViewFactory.userAgent(for: google, mode: .default) == nil)
+    }
 }
