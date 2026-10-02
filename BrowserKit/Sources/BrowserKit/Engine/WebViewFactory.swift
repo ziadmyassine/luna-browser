@@ -97,6 +97,34 @@ public enum WebViewFactory {
         set { UserDefaults.standard.set(newValue, forKey: Key.webInspector) }
     }
 
+    /// The store's own host. The old `chrome.google.com/webstore` now redirects
+    /// to it; both are matched so the UA is right before the redirect lands.
+    static let webStoreHost = "chromewebstore.google.com"
+
+    /// Whether `host` is the Chrome Web Store's own. The button-hijack script
+    /// (`TabController+WebStore.swift`) is gated on this; `userAgent(for:)` is
+    /// wider, taking the old `/webstore` path too.
+    static func isWebStoreHost(_ host: String?) -> Bool {
+        host?.lowercased() == webStoreHost
+    }
+
+    /// Whether `url` is a Chrome Web Store page.
+    static func isWebStore(_ url: URL?) -> Bool {
+        guard let url, url.scheme == "https", let host = url.host()?.lowercased() else { return false }
+        return host == webStoreHost
+            || (host == "chrome.google.com" && url.pathComponents.starts(with: ["/", "webstore"]))
+    }
+
+    /// The UA a destination should be sent: Chrome's on the Chrome Web Store so
+    /// Google's "Add to Chrome" button keeps working (docs/EXTENSIONS.md §4),
+    /// and §3.9's mode everywhere else. A narrow per-site override, not §4.6's
+    /// general one. Recomputed from the destination on every main-frame
+    /// navigation (`decidedMainFrame`), so leaving the store restores the UA
+    /// without a leave toggle to strand a session on Chrome's.
+    public static func userAgent(for destination: URL?, mode: UserAgentMode = userAgentMode) -> String? {
+        isWebStore(destination) ? chromeUserAgent : customUserAgent(for: mode)
+    }
+
     /// What `WKWebView.customUserAgent` should be for `mode`.
     ///
     /// - Returns: nil for Default — and for a Custom mode with nothing typed in —

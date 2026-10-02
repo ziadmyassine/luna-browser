@@ -149,6 +149,18 @@ final class BrowserSession {
         }
     }
 
+    /// Forwards the Chrome Web Store button-hijack's two signals to the offer,
+    /// which cancels or runs its toast fallback (`WebStoreOffer`).
+    func relayWebStoreOffer(of controller: TabController) {
+        let id = controller.id
+        controller.onWebStoreButtonReady = { [weak controller] url in
+            WebStoreOffer.shared.buttonReady(url: url, tab: id) { controller?.webStoreButtonAdded() }
+        }
+        controller.onWebStoreAddRequested = { [weak controller] url in
+            WebStoreOffer.shared.add(url: url, tab: id) { controller?.webStoreButtonAdded() }
+        }
+    }
+
     // MARK: - Collaborators the app plugs in
 
     /// `⌘T`, and every address pill that hands the job over. The first argument
