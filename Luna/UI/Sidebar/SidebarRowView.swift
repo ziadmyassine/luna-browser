@@ -356,12 +356,11 @@ final class SidebarRowView: NSView {
         Tokens.Motion.immediately { placeContents() }
     }
 
-    /// Where the row's contents are centred. An open folder's header is
-    /// centred on the pill it would have, which stands `groupPlateFoot` under
-    /// the plate's top edge as the first tab's stands that far under it, rather
-    /// than on the taller row: the room over the name and under it then match.
+    /// Where the row's contents are centred. A folder's name stands the same
+    /// distance under its row's top whether the folder is open, when the row
+    /// is `groupHeaderOpenRowHeight`, or folded, so a fold never moves it.
     var contentMidY: CGFloat {
-        bounds.height / 2 - (content.disclosure == .expanded ? Tokens.Metric.groupHeaderOpenDrop : 0)
+        content.disclosure == nil ? bounds.height / 2 : bounds.height - Tokens.Metric.groupHeaderRowHeight / 2
     }
 
     private func placeContents() {

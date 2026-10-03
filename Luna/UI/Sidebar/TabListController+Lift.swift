@@ -139,10 +139,16 @@ extension TabListController {
             y: displayedRect(ofRow: header).minY,
             width: table.bounds.width,
             height: CGFloat(rows) * Tokens.Metric.tabRowHeight
-                + Tokens.Metric.groupHeaderRowHeight - Tokens.Metric.tabRowHeight
+                + headerHeight(ofGroup: id) - Tokens.Metric.tabRowHeight
         ).insetBy(dx: Tokens.Metric.rowInset, dy: Tokens.Metric.tabRowPillInset)
         box.size.height += foot
         return box
+    }
+
+    /// A folder's own row: shorter while tabs stand under it, so the first of
+    /// them sits close under the name — see `Metric.groupHeaderOpenRowHeight`.
+    func headerHeight(ofGroup id: UUID) -> CGFloat {
+        list.rows.contains(.groupEnd(id)) ? Tokens.Metric.groupHeaderOpenRowHeight : Tokens.Metric.groupHeaderRowHeight
     }
 
     /// The rows a folder's own tabs occupy, which is every tab row under its

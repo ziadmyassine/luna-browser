@@ -88,26 +88,6 @@ final class SidebarGroupPlateTests: XCTestCase {
         XCTAssertEqual(controller.groupPlate.layer?.cornerRadius ?? 0, Tokens.Metric.rowCornerRadius, accuracy: 0.01)
     }
 
-    /// Unfolding moves only the bottom edge, so the two plates differ by the
-    /// three tab rows and the foot and by nothing else.
-    func testFoldedAndOpenPlatesShareSidesAndTop() throws {
-        let open = try list()
-        open.setHovered(try XCTUnwrap(open.list.row(ofGroup: trip.id)))
-        trip.isCollapsed = true
-        let folded = try list()
-        folded.setHovered(try XCTUnwrap(folded.list.row(ofGroup: trip.id)))
-        let (big, small) = (open.groupPlate.frame, folded.groupPlate.frame)
-        XCTAssertEqual(big.minX, small.minX)
-        XCTAssertEqual(big.maxX, small.maxX)
-        XCTAssertEqual(big.minY, small.minY, "the top edge moved")
-        XCTAssertEqual(big.height - small.height, 3 * Tokens.Metric.tabRowHeight + Tokens.Metric.groupPlateFoot, accuracy: 0.01)
-        for controller in [open, folded] { controller.groupPlate.updateLayer() }
-        // Folded, the plate is a tab-sized pill and rounds like one; open, it
-        // holds pills `groupPlateFoot` inside it and rounds round them.
-        XCTAssertEqual(folded.groupPlate.layer?.cornerRadius ?? 0, Tokens.Metric.rowCornerRadius, accuracy: 0.01)
-        XCTAssertEqual(open.groupPlate.layer?.cornerRadius ?? 0, Tokens.Metric.groupPlateCornerRadius, accuracy: 0.01)
-    }
-
     func testUnfoldingStretchesThePlateOnTheRowsClock() throws {
         trip.isCollapsed = true
         let controller = try list()
@@ -210,7 +190,10 @@ final class SidebarGroupPlateTests: XCTestCase {
         // The folder symbol draws about 15 pt of its 20 pt box; a favicon
         // fills its 16. What is compared is the room round what is drawn.
         let drawnFolder: CGFloat = 15
-        let head = controller.table.rect(ofRow: header).midY - drawnFolder / 2 - plate.minY
+        let row = try XCTUnwrap(controller.table.view(atColumn: 0, row: header, makeIfNecessary: true) as? SidebarRowView)
+        row.layoutSubtreeIfNeeded()
+        let middle = controller.table.convert(NSPoint(x: 0, y: row.contentMidY), from: row).y
+        let head = middle - drawnFolder / 2 - plate.minY
         let foot = plate.maxY - (lastPill.midY + Tokens.Metric.faviconSize / 2)
         XCTAssertEqual(head, foot, accuracy: 2.01, "head \(head), foot \(foot)")
         XCTAssertEqual(plate.maxY - lastPill.maxY, Tokens.Metric.groupPlateFoot, accuracy: 0.01)
@@ -322,20 +305,49 @@ final class SidebarGroupPlateTests: XCTestCase {
 /// Where the plate stands across the column and against the list's top edge.
 extension SidebarGroupPlateTests {
 
-    /// Every gap in an open folder is the gap between two pills: the name's
-    /// room above and below matches, and the last tab's foot is the same room.
-    func testAnOpenFolderNameHasTheSameRoomAboveAndBelow() throws {
-        let controller = try list()
-        let header = try XCTUnwrap(controller.list.row(ofGroup: trip.id))
-        controller.setHovered(header)
-        let plate = controller.groupPlate.frame
-        let row = try XCTUnwrap(controller.table.view(atColumn: 0, row: header, makeIfNecessary: true) as? SidebarRowView)
-        row.layoutSubtreeIfNeeded()
-        let middle = controller.table.convert(NSPoint(x: 0, y: row.contentMidY), from: row).y
-        let firstPill = controller.pillBox(ofRow: header + 1)
-        let above = middle - plate.minY
-        let below = firstPill.minY - middle
-        XCTAssertEqual(above, below, accuracy: 0.51, "above \(above), below \(below)")
+    /// Unfolding moves only the bottom edge, so the two plates differ by the
+    /// three tab rows and the foot and by nothing else.
+    func testFoldedAndOpenPlatesShareSidesAndTop() throws {
+        let open = try list()
+        open.setHovered(try XCTUnwrap(open.list.row(ofGroup: trip.id)))
+        trip.isCollapsed = true
+        let folded = try list()
+        folded.setHovered(try XCTUnwrap(folded.list.row(ofGroup: trip.id)))
+        let (big, small) = (open.groupPlate.frame, folded.groupPlate.frame)
+        XCTAssertEqual(big.minX, small.minX)
+        XCTAssertEqual(big.maxX, small.maxX)
+        XCTAssertEqual(big.minY, small.minY, "the top edge moved")
+        XCTAssertEqual(
+            big.height - small.height,
+            3 * Tokens.Metric.tabRowHeight + Tokens.Metric.groupPlateFoot
+                + Tokens.Metric.groupHeaderOpenRowHeight - Tokens.Metric.groupHeaderRowHeight,
+            accuracy: 0.01
+        )
+        for controller in [open, folded] { controller.groupPlate.updateLayer() }
+        // Folded, the plate is a tab-sized pill and rounds like one; open, it
+        // holds pills `groupPlateFoot` inside it and rounds round them.
+        XCTAssertEqual(folded.groupPlate.layer?.cornerRadius ?? 0, Tokens.Metric.rowCornerRadius, accuracy: 0.01)
+        XCTAssertEqual(open.groupPlate.layer?.cornerRadius ?? 0, Tokens.Metric.groupPlateCornerRadius, accuracy: 0.01)
+    }
+
+    /// The name leads its tabs: the first one sits closer under it than one
+    /// tab sits under the next, and folding never moves the name. At a full
+    /// row's pitch it read as a heading floating over the folder.
+    func testAnOpenFolderNameSitsCloseOverItsTabsAndStaysPutWhenFolded() throws {
+        func nameMiddle(_ controller: TabListController) throws -> CGFloat {
+            let header = try XCTUnwrap(controller.list.row(ofGroup: trip.id))
+            let row = try XCTUnwrap(controller.table.view(atColumn: 0, row: header, makeIfNecessary: true) as? SidebarRowView)
+            row.layoutSubtreeIfNeeded()
+            return controller.table.convert(NSPoint(x: 0, y: row.contentMidY), from: row).y
+        }
+        let open = try list()
+        let header = try XCTUnwrap(open.list.row(ofGroup: trip.id))
+        let toFirstTab = open.pillBox(ofRow: header + 1).midY - (try nameMiddle(open))
+        let toNextTab = open.pillBox(ofRow: header + 2).midY - open.pillBox(ofRow: header + 1).midY
+        XCTAssertLessThan(toFirstTab, toNextTab - 4, "the name floats over its first tab")
+        let openName = try nameMiddle(open)
+        trip.isCollapsed = true
+        XCTAssertEqual(try nameMiddle(try list()), openName, accuracy: 0.01, "folding moved the name")
     }
 
     /// The plate's sides are a loose tab's, and a folder's tabs keep their

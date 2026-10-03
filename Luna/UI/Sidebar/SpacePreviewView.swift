@@ -135,6 +135,7 @@ final class SpacePreviewView: NSView {
                 isDimmed: true
             )
             header.isFolder = true
+            header.isOpenFolder = column.rows.contains(.groupEnd(group.id))
             return header
         case .tab:
             guard let tab = column.tab(at: row) else { return SpacePreviewRule() }
@@ -188,7 +189,8 @@ final class SpacePreviewView: NSView {
             let height = switch row {
             case is SpacePreviewRule: Tokens.Metric.separatorRowHeight
             case is SpacePreviewGap: Tokens.Metric.groupEndGap
-            case let row as SpacePreviewRow where row.isFolder: Tokens.Metric.groupHeaderRowHeight
+            case let row as SpacePreviewRow where row.isFolder:
+                row.isOpenFolder ? Tokens.Metric.groupHeaderOpenRowHeight : Tokens.Metric.groupHeaderRowHeight
             default: Tokens.Metric.tabRowHeight
             }
             top -= height
@@ -286,6 +288,8 @@ final class SpacePreviewRow: NSView {
     private let indent: CGFloat
     /// A folder's header, which stands `groupHeaderRowHeight` tall in the list.
     var isFolder = false
+    /// An open folder's header, whose row is `groupHeaderOpenRowHeight`.
+    var isOpenFolder = false
 
     init(title text: String, icon image: NSImage?, isDimmed: Bool, indent: CGFloat = 0) {
         self.indent = indent

@@ -442,6 +442,10 @@ extension TabListController {
                 case let .insert(offset, _, _): table.insertRows(at: [offset], withAnimation: effect)
                 }
             }
+            // A folder's own row changes height as it opens or folds, and the
+            // diff never touches it: the row is the same row either way.
+            let headers = list.rows.indices.filter { if case .group = list.rows[$0] { true } else { false } }
+            table.noteHeightOfRows(withIndexesChanged: IndexSet(headers))
             table.endUpdates()
         } completion: { [weak self] in
             // Once more with the rows settled. A Luna Control folder closed

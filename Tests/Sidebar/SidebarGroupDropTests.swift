@@ -25,7 +25,10 @@ final class SidebarGroupDropTests: XCTestCase {
     private let space = UUID()
     private var group = TabGroup(spaceID: UUID(), name: "Trip", order: 0)
     /// What a folder's own row stands taller than a tab's.
+    /// What a folder's own row stands taller than a tab's, folded…
     private let headerExtra = Tokens.Metric.groupHeaderRowHeight - Tokens.Metric.tabRowHeight
+    /// …and open, where it is shorter.
+    private let openHeaderExtra = Tokens.Metric.groupHeaderOpenRowHeight - Tokens.Metric.tabRowHeight
 
     /// Three tabs in the folder, plus the one arriving from outside it, plus
     /// the foot an open folder's plate takes into the room under it.
@@ -37,7 +40,7 @@ final class SidebarGroupDropTests: XCTestCase {
         controller.setGap(row: header + 2)
         XCTAssertEqual(
             controller.groupDrop.frame.height,
-            5 * Tokens.Metric.tabRowHeight - 2 * Tokens.Metric.tabRowPillInset + Tokens.Metric.groupPlateFoot + headerExtra,
+            5 * Tokens.Metric.tabRowHeight - 2 * Tokens.Metric.tabRowPillInset + Tokens.Metric.groupPlateFoot + openHeaderExtra,
             accuracy: 0.51,
             "the box does not reach round the folder and the tab going into it"
         )
@@ -55,7 +58,7 @@ final class SidebarGroupDropTests: XCTestCase {
         controller.setGap(row: header + 3)
         XCTAssertEqual(
             controller.groupDrop.frame.height,
-            4 * Tokens.Metric.tabRowHeight - 2 * Tokens.Metric.tabRowPillInset + Tokens.Metric.groupPlateFoot + headerExtra,
+            4 * Tokens.Metric.tabRowHeight - 2 * Tokens.Metric.tabRowPillInset + Tokens.Metric.groupPlateFoot + openHeaderExtra,
             accuracy: 0.51
         )
     }
