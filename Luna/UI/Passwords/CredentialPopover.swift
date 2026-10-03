@@ -124,9 +124,18 @@ final class CredentialPopover {
         // second display with a different scale.
         let onScreen = host.convertToScreen(webView.convert(Self.viewRect(for: offered.fieldRect, in: webView), to: nil))
 
-        panel.setFrame(Self.frame(under: onScreen, size: size, on: host.screen), display: false)
-        content.frame = CGRect(origin: .zero, size: size)
-        panel.contentView = content
+        let frame = Self.frame(under: onScreen, size: size, on: host.screen)
+        panel.setFrame(frame, display: false)
+        // In a plain container, so the picker's own layer can be scaled about
+        // a corner: a window's content view is AppKit's to place.
+        let container = NSView(frame: CGRect(origin: .zero, size: size))
+        content.frame = container.bounds
+        content.autoresizingMask = [.width, .height]
+        container.addSubview(content)
+        panel.contentView = container
+        // Transparent before it is on screen. Faded after, the panel and its
+        // shadow were drawn whole for a frame first — a flash, then the fade.
+        panel.alphaValue = Tokens.A11y.reduceMotion ? 1 : 0
 
         // A child window travels with the browser window and dies with it, so
         // the picker can never be left floating over the desktop pointing at a
@@ -149,7 +158,14 @@ final class CredentialPopover {
            CredentialPopoverView.fingerprint(for: offer, inline: inline) == .inline {
             awaitTouch(on: content, site: offer.site)
         }
-        content.animateIn()
+        // Grows out of the field: from the corner nearest it, which is the top
+        // when the picker hangs below and the bottom when it had to go above.
+        content.animateIn(growingDown: frame.maxY <= onScreen.minY + 0.5)
+        Tokens.Motion.animate(Tokens.Motion.popoverIn) { _ in
+            panel.animator().alphaValue = 1
+        } completion: {
+            MainActor.assumeIsolated { panel.invalidateShadow() }
+        }
     }
 
     // MARK: - Touch ID on the row
@@ -278,7 +294,9 @@ final class CredentialPopover {
         panel.becomesKeyOnlyIfNeeded = true
         panel.hidesOnDeactivate = true
         panel.collectionBehavior = [.transient, .ignoresCycle]
-        panel.animationBehavior = .utilityWindow
+        // None of AppKit's own: `animateIn` is the entrance, and a system
+        // window animation on top of it doubled it.
+        panel.animationBehavior = .none
         return panel
     }
 

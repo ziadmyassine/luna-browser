@@ -319,20 +319,28 @@ final class CredentialPopoverView: NSView {
         return CGSize(width: width, height: max(height, Tokens.Metric.passwordPopover.height))
     }
 
-    /// A fade, and nothing else.
+    /// §6's popover entrance: a spring from `foldedScale` to full size about
+    /// the corner standing on the field, while `CredentialPopover` fades the
+    /// panel up. The pop-out unfolds out of its button the same way.
     ///
-    /// This view is created milliseconds before it is shown, so it has nowhere
-    /// to animate from: anything that moves it on the way in starts at a
-    /// position that was never meaningful. That is the "it spawns at the side
-    /// and then goes there" bug this codebase has grown three times already,
-    /// and the standing rule is that a fresh view is placed with animation off
-    /// and only faded up. The panel is already at its final frame when this
-    /// runs; only the opacity changes.
-    func animateIn() {
-        guard !Tokens.A11y.reduceMotion else { return }
-        alphaValue = 0
-        Tokens.Motion.animate(Tokens.Motion.popoverIn) { _ in
-            animator().alphaValue = 1
-        }
+    /// Scale only, never position. The panel is already at its final frame
+    /// when this runs, and a fresh view that moved on its way in would start
+    /// from a place that was never meaningful — the "it spawns at the side and
+    /// then goes there" bug this codebase has grown three times already.
+    func animateIn(growingDown: Bool) {
+        guard !Tokens.A11y.reduceMotion, let layer,
+              let spring = Tokens.Motion.popoverIn.springAnimation(keyPath: "transform.scale")
+        else { return }
+        let frame = layer.frame
+        let corner = CGPoint(x: 0, y: growingDown ? 1 : 0)
+        layer.anchorPoint = corner
+        layer.position = CGPoint(x: frame.minX + frame.width * corner.x, y: frame.minY + frame.height * corner.y)
+        spring.fromValue = Self.foldedScale
+        spring.toValue = 1.0
+        layer.add(spring, forKey: "pickerIn")
     }
+
+    /// §6's 0.96, as the pop-out folds: near enough to full size that it
+    /// reads as the same list arriving rather than a small thing growing.
+    private static let foldedScale: CGFloat = 0.96
 }
