@@ -7,6 +7,7 @@ under Unreleased; a release will take the entries since the last one.
 
 ### 2026-10-01
 
+- **Typing the start of a site you visit takes you there** (§9.3): the Command Bar puts that site on the top row and fills in its address, so Return opens it; "Search … for …" is right under it, and text that starts no site you visit still searches first. Measured on a real history: the right site first for 27 of 30 sites after two letters, up from 15.
 - **A page that went blank while the Mac slept is reloaded** (§19.3): Luna checks the tabs in front when it becomes active or the Mac wakes, reloads a page whose process died, and says "Page reloaded".
 - **Each window keeps its place per screen setup** (§22.6): Luna remembers where each of its windows was for each arrangement of displays, and never opens a window off screen after a display is unplugged.
 - **Tab commands in the menus** (§20.2): Rename Tab, Mute Site (⌃M), Move to Folder, New Folder (⌥⌘N) and Site Settings can be found in the menus and the Command Bar and given shortcuts in Settings.
