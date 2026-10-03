@@ -367,28 +367,23 @@ final class PopoverActionRowView: PickerRowView {
 
 // MARK: - The fingerprint
 
-/// The Touch ID symbol in red on a white disc. The system's own
-/// `LAAuthenticationView` draws its fingerprint faint and pink, and on the
-/// accent-filled chosen row it all but disappeared; the disc keeps the red
-/// legible on the accent and on the glass alike.
+/// The picker's fingerprint: the Touch ID symbol, bold and red. The system's
+/// own `LAAuthenticationView` draws its fingerprint faint and pink, and on the
+/// accent-filled chosen row it all but disappeared. It answers the sensor:
+/// a finger accepted turns it into a green tick, one refused shakes it.
 @MainActor
 final class TouchIDBadge: NSView {
 
     static let side: CGFloat = 28
 
+    private let glyph = NSImageView()
+
     init() {
         super.init(frame: .zero)
-        wantsLayer = true
-        layer?.backgroundColor = NSColor.white.cgColor
-        layer?.cornerRadius = Self.side / 2
         translatesAutoresizingMaskIntoConstraints = false
         setAccessibilityIdentifier(CredentialRowView.biometricIdentifier)
 
-        let config = NSImage.SymbolConfiguration(pointSize: 18, weight: .medium)
-        let glyph = NSImageView(
-            image: NSImage(systemSymbolName: "touchid", accessibilityDescription: nil)?
-                .withSymbolConfiguration(config) ?? NSImage()
-        )
+        glyph.image = Self.symbol("touchid")
         glyph.contentTintColor = Tokens.Accent.danger
         glyph.translatesAutoresizingMaskIntoConstraints = false
         addSubview(glyph)
@@ -403,5 +398,29 @@ final class TouchIDBadge: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
+    }
+
+    private static func symbol(_ name: String) -> NSImage {
+        let config = NSImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
+        return NSImage(systemSymbolName: name, accessibilityDescription: nil)?.withSymbolConfiguration(config) ?? NSImage()
+    }
+
+    /// The finger was accepted: the fingerprint turns into a tick, in the
+    /// green the Mac uses for "this is fine", as Touch ID's own sheet does.
+    func succeed() {
+        let tick = Self.symbol("checkmark.circle.fill")
+        glyph.contentTintColor = Tokens.Accent.secure
+        guard !Tokens.A11y.reduceMotion else {
+            glyph.image = tick
+            return
+        }
+        glyph.setSymbolImage(tick, contentTransition: .replace.downUp)
+        glyph.addSymbolEffect(.bounce)
+    }
+
+    /// The finger was refused; the sensor is listening again.
+    func refuse() {
+        guard !Tokens.A11y.reduceMotion else { return }
+        glyph.addSymbolEffect(.wiggle)
     }
 }

@@ -46,7 +46,7 @@ final class CredentialPopoverView: NSView {
     /// The account a finger on the sensor fills: the chosen row, or the last
     /// account chosen while the choice is on the row that leaves the list.
     private var touchIndex = 0 { didSet { if touchIndex != oldValue { placeTouchID() } } }
-    private var touchView: NSView?
+    private var touchView: TouchIDBadge?
     private var touchPlacement: [NSLayoutConstraint] = []
 
     var touchCredential: Credential? {
@@ -194,6 +194,9 @@ final class CredentialPopoverView: NSView {
         addSubview(badge)
         placeTouchID()
     }
+
+    func touchSucceeded() { touchView?.succeed() }
+    func touchRefused() { touchView?.refuse() }
 
     private func placeTouchID() {
         guard let touchView, rows.indices.contains(touchIndex) else { return }

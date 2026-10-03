@@ -84,8 +84,22 @@ final class CredentialPopover {
     private var touchStand: NSView?
     private var resignObserver: (any NSObjectProtocol)?
 
+    /// Set once a finger has picked: the tick is showing and the fill is on
+    /// its way, and nothing else may be taken in the moment before it goes.
+    private var isFinishing = false
+
+    /// How long the tick stays before the picker goes: the length of the
+    /// symbol's replace transition, so it lands before the fade starts.
+    static let tickLinger: TimeInterval = 0.35
+
+    /// How many refused fingers the sensor listens again after. Touch ID locks
+    /// itself after five; three refusals here is the user's cue to click.
+    static let touchRetries = 3
+
+    private var touchesLeft = 0
+
     private var acceptsPick: Bool {
-        pickingByKeyboard || Date().timeIntervalSince(shownAt) >= Self.pointerGrace
+        !isFinishing && (pickingByKeyboard || Date().timeIntervalSince(shownAt) >= Self.pointerGrace)
     }
 
     // MARK: - Presenting
@@ -193,8 +207,15 @@ final class CredentialPopover {
     /// where the picker covers it; the fingerprint the user sees is the
     /// picker's own `TouchIDBadge`.
     private func awaitTouch(on content: CredentialPopoverView, site: String, in host: NSWindow) {
-        let context = LAContext()
         content.showTouchID()
+        touchesLeft = Self.touchRetries
+        armTouch(site: site, in: host)
+    }
+
+    /// One request to the sensor, and what its answer does to the picker.
+    private func armTouch(site: String, in host: NSWindow) {
+        touchStand?.removeFromSuperview()
+        let context = LAContext()
         let stand = LAAuthenticationView(context: context, controlSize: .small)
         stand.setAccessibilityElement(false)
         host.contentView?.addSubview(stand)
@@ -203,14 +224,31 @@ final class CredentialPopover {
         touchContext = context
         let reason = String(localized: "fill your saved password for \(site)")
         let request = ObjectIdentifier(context)
-        context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { granted, _ in
+        context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { granted, error in
+            let refused = (error as? LAError)?.code == .authenticationFailed
             Task { @MainActor [weak self] in
-                guard granted, let self, let current = touchContext, ObjectIdentifier(current) == request,
-                      let credential = view?.touchCredential
-                else { return }
-                dismiss()
-                onPick?(credential, true)
+                guard let self, let current = touchContext, ObjectIdentifier(current) == request else { return }
+                if granted {
+                    touched()
+                } else if refused, touchesLeft > 0, let host = touchStand?.window {
+                    touchesLeft -= 1
+                    view?.touchRefused()
+                    armTouch(site: site, in: host)
+                }
             }
+        }
+    }
+
+    /// A finger was accepted: the tick, the fill, and then the picker goes.
+    private func touched() {
+        guard let credential = view?.touchCredential, let shown = panel else { return }
+        touchContext = nil
+        isFinishing = true
+        view?.touchSucceeded()
+        onPick?(credential, true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.tickLinger) { [weak self] in
+            guard let self, panel === shown else { return }
+            dismiss()
         }
     }
 
@@ -269,6 +307,7 @@ final class CredentialPopover {
     }
 
     func dismiss() {
+        isFinishing = false
         touchContext?.invalidate()
         touchContext = nil
         touchStand?.removeFromSuperview()
