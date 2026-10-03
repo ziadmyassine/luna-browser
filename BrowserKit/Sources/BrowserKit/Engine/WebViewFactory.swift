@@ -151,6 +151,16 @@ public enum WebViewFactory {
         customUserAgent(for: scope.userAgentMode(forHost: host) ?? userAgentMode)
     }
 
+    /// The one answer for a destination: Chrome's on the Chrome Web Store, whatever
+    /// else is chosen, because its own button is the point of being there; then the
+    /// site's choice, then Settings'.
+    @MainActor
+    public static func customUserAgent(for destination: URL?, in scope: SitePermissions) -> String? {
+        isWebStore(destination)
+            ? chromeUserAgent
+            : customUserAgent(forHost: destination?.host(percentEncoded: false), in: scope)
+    }
+
     /// Re-reads both Advanced settings onto a web view that already exists, keeping
     /// the user agent of the site it is on.
     ///
@@ -160,8 +170,7 @@ public enum WebViewFactory {
     @MainActor
     public static func applyAdvancedSettings(to webView: WKWebView) {
         webView.customUserAgent = customUserAgent(
-            forHost: webView.url?.host(percentEncoded: false),
-            in: .scope(for: webView.configuration.websiteDataStore)
+            for: webView.url, in: .scope(for: webView.configuration.websiteDataStore)
         )
         webView.isInspectable = isWebInspectorEnabled
         WebInspector.setDeveloperExtras(isWebInspectorEnabled, on: webView)
