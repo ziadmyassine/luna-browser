@@ -148,7 +148,7 @@ extension BrowserSession {
             controller.load(url ?? Self.blankPage)
             webView = nil
         }
-        if !inBackground { activeTabBySpace[spaceID] = child.id }
+        if inBackground { unseenBackgroundTabIDs.insert(child.id) } else { activeTabBySpace[spaceID] = child.id }
         promote(child.id)
         enforceLiveTabBudget()
         notifyChange()
@@ -166,6 +166,7 @@ extension BrowserSession: TabControllerDelegate {
         var becameUnread = false
         if var tab = tab(id) {
             var changed = false
+            let oldTitle = tab.title
             var retitled = false
             if let url = state.url, tab.url != url {
                 // A different site is a different mark. `faviconPNG` is this
@@ -188,9 +189,7 @@ extension BrowserSession: TabControllerDelegate {
                 tab.themeColor = state.themeColor
                 changed = true
             }
-            // A title that changes during a load is part of that load, which
-            // speaks for itself when it finishes.
-            if finishedLoad || (retitled && !state.isLoading), markUnread(&tab) {
+            if isNews(id, finishedLoad: finishedLoad, from: retitled ? oldTitle : nil, to: state), markUnread(&tab) {
                 changed = true
                 becameUnread = true
             }

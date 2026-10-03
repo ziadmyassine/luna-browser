@@ -287,6 +287,9 @@ final class BrowserSession {
     /// says otherwise can be read as a load finishing. Written only by
     /// `BrowserSession+Unread.swift`.
     var loadingTabIDs: Set<UUID> = []
+    /// Links opened behind the tab in front that nobody has looked at yet,
+    /// until their first load ends. Written only by `BrowserSession+Unread.swift`.
+    var unseenBackgroundTabIDs: Set<UUID> = []
 
     /// The tab whose media played last, paused since or not — see
     /// `BrowserSession+NowPlaying.swift`, the only writer.

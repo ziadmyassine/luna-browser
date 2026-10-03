@@ -60,6 +60,40 @@ final class UnreadTabTests: XCTestCase {
         XCTAssertTrue(try unread(inbox, in: session), "a new title on a tab nobody is looking at has no dot")
     }
 
+    /// A relaunch restores and reloads tabs behind the one in front, and a
+    /// hibernated tab wakes the same way: a load finishing on a tab that was
+    /// not opened in the background is not news. Every tab of a relaunched
+    /// list used to come back dotted.
+    func testALoadFinishingOnATabThatWasNotJustOpenedIsNotNews() async throws {
+        let session = try await makeSession()
+        let page = session.newTab(url: url("page"))
+        let controller = try XCTUnwrap(session.controller(for: page))
+        session.newTab(url: url("elsewhere"))
+
+        session.tabController(controller, didChange: TabState(url: url("page"), title: "Page", isLoading: true))
+        session.tabController(controller, didChange: TabState(url: url("page"), title: "Page", isLoading: false))
+        XCTAssertFalse(try unread(page, in: session), "a reload behind the tab in front was dotted")
+    }
+
+    /// A page renaming itself is not news unless the name carries a count that rose.
+    func testOnlyARisingCountInTheTitleIsNews() async throws {
+        let session = try await makeSession()
+        let page = session.newTab(url: url("page"))
+        let controller = try XCTUnwrap(session.controller(for: page))
+        session.tabController(controller, didChange: TabState(url: url("page"), title: "Exchange", isLoading: false))
+        session.newTab(url: url("elsewhere"))
+
+        session.tabController(controller, didChange: TabState(url: url("page"), title: "Exchange within Europe", isLoading: false))
+        XCTAssertFalse(try unread(page, in: session), "a page tidying its title was dotted")
+        session.tabController(controller, didChange: TabState(url: url("page"), title: "(2) Exchange", isLoading: false))
+        XCTAssertTrue(try unread(page, in: session))
+
+        XCTAssertFalse(BrowserSession.countRose(from: "(3) Inbox", to: "(1) Inbox"), "a count going down is news")
+        XCTAssertTrue(BrowserSession.countRose(from: "Inbox (2)", to: "Inbox (5)"))
+        XCTAssertTrue(BrowserSession.countRose(from: "Chat", to: "[4] Chat"))
+        XCTAssertFalse(BrowserSession.countRose(from: "Chat", to: "Chat 2026"), "a year in a title read as a count")
+    }
+
     func testATitleArrivingDuringALoadWaitsForTheLoad() async throws {
         let session = try await makeSession()
         let front = session.newTab(url: url("front"))

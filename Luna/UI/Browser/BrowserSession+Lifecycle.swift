@@ -45,6 +45,7 @@ extension BrowserSession {
         TabLifecycle.install(in: self)
         WebViewFactory.keepsSpare = true
         sweepOrphanedProfileStores()
+        clearUnreadFromBeforeTheRule()
     }
 }
 
