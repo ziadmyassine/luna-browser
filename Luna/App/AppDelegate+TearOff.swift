@@ -23,12 +23,14 @@ extension AppDelegate {
     /// window on it would lose its pages the moment the first one closed.
     func wireTearOff(in window: BrowserWindow) {
         guard !window.isPrivate else { return }
-        let tearOff: (TabTearOff.Request) -> Void = { [weak self, weak window] request in
+        // Not named `tearOff`: Xcode 26 reads the call inside as the constant
+        // being declared rather than the method.
+        let handOff: (TabTearOff.Request) -> Void = { [weak self, weak window] request in
             guard let self, let window else { return }
-            tearOff(request, from: window)
+            self.tearOff(request, from: window)
         }
-        window.sidebar?.drag?.onTearOff = tearOff
-        window.topBar?.drag?.onTearOff = tearOff
+        window.sidebar?.drag?.onTearOff = handOff
+        window.topBar?.drag?.onTearOff = handOff
     }
 
     private func tearOff(_ request: TabTearOff.Request, from source: BrowserWindow) {
