@@ -90,7 +90,7 @@ final class SidebarGroupPlateTests: XCTestCase {
 
     /// Unfolding moves only the bottom edge, so the two plates differ by the
     /// three tab rows and the foot and by nothing else.
-    func testFoldedAndOpenPlatesShareSidesTopAndCorners() throws {
+    func testFoldedAndOpenPlatesShareSidesAndTop() throws {
         let open = try list()
         open.setHovered(try XCTUnwrap(open.list.row(ofGroup: trip.id)))
         trip.isCollapsed = true
@@ -102,7 +102,10 @@ final class SidebarGroupPlateTests: XCTestCase {
         XCTAssertEqual(big.minY, small.minY, "the top edge moved")
         XCTAssertEqual(big.height - small.height, 3 * Tokens.Metric.tabRowHeight + Tokens.Metric.groupPlateFoot, accuracy: 0.01)
         for controller in [open, folded] { controller.groupPlate.updateLayer() }
-        XCTAssertEqual(open.groupPlate.layer?.cornerRadius, folded.groupPlate.layer?.cornerRadius)
+        // Folded, the plate is a tab-sized pill and rounds like one; open, it
+        // holds pills `groupPlateFoot` inside it and rounds round them.
+        XCTAssertEqual(folded.groupPlate.layer?.cornerRadius ?? 0, Tokens.Metric.rowCornerRadius, accuracy: 0.01)
+        XCTAssertEqual(open.groupPlate.layer?.cornerRadius ?? 0, Tokens.Metric.groupPlateCornerRadius, accuracy: 0.01)
     }
 
     func testUnfoldingStretchesThePlateOnTheRowsClock() throws {
@@ -272,9 +275,9 @@ final class SidebarGroupPlateTests: XCTestCase {
         XCTAssertEqual(controller.groupPlate.alphaValue, 1, accuracy: 0.01)
         XCTAssertEqual(
             controller.groupPlate.layer?.cornerRadius ?? 0,
-            Tokens.Metric.rowCornerRadius,
+            Tokens.Metric.groupPlateCornerRadius,
             accuracy: 0.01,
-            "the plate's corners are not a row pill's"
+            "the plate's corners do not nest round the pills inside it"
         )
     }
 
@@ -318,6 +321,22 @@ final class SidebarGroupPlateTests: XCTestCase {
 
 /// Where the plate stands across the column and against the list's top edge.
 extension SidebarGroupPlateTests {
+
+    /// Every gap in an open folder is the gap between two pills: the name's
+    /// room above and below matches, and the last tab's foot is the same room.
+    func testAnOpenFolderNameHasTheSameRoomAboveAndBelow() throws {
+        let controller = try list()
+        let header = try XCTUnwrap(controller.list.row(ofGroup: trip.id))
+        controller.setHovered(header)
+        let plate = controller.groupPlate.frame
+        let row = try XCTUnwrap(controller.table.view(atColumn: 0, row: header, makeIfNecessary: true) as? SidebarRowView)
+        row.layoutSubtreeIfNeeded()
+        let middle = controller.table.convert(NSPoint(x: 0, y: row.contentMidY), from: row).y
+        let firstPill = controller.pillBox(ofRow: header + 1)
+        let above = middle - plate.minY
+        let below = firstPill.minY - middle
+        XCTAssertEqual(above, below, accuracy: 0.51, "above \(above), below \(below)")
+    }
 
     /// The plate's sides are a loose tab's, and a folder's tabs keep their
     /// pills clear of its trailing edge.

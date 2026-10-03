@@ -356,6 +356,14 @@ final class SidebarRowView: NSView {
         Tokens.Motion.immediately { placeContents() }
     }
 
+    /// Where the row's contents are centred. An open folder's header is
+    /// centred on the pill it would have, which stands `groupPlateFoot` under
+    /// the plate's top edge as the first tab's stands that far under it, rather
+    /// than on the taller row: the room over the name and under it then match.
+    var contentMidY: CGFloat {
+        bounds.height / 2 - (content.disclosure == .expanded ? Tokens.Metric.groupHeaderOpenDrop : 0)
+    }
+
     private func placeContents() {
         // §3.4b: a folder's header stands at the column's own left edge and its
         // tabs step in by `groupIndent`, so the indent alone says what is inside
@@ -365,7 +373,7 @@ final class SidebarRowView: NSView {
         let glyph = Self.iconSlot(for: content)
         icon.frame = NSRect(
             x: Tokens.Metric.rowFaviconInset + indent - (glyph - Tokens.Metric.faviconSize) / 2,
-            y: (bounds.height - glyph) / 2,
+            y: contentMidY - glyph / 2,
             width: glyph,
             height: glyph
         ).pixelAligned
@@ -373,7 +381,7 @@ final class SidebarRowView: NSView {
         let dotSize = Tokens.Metric.spaceDot
         dot.frame = NSRect(
             x: Tokens.Metric.rowTitleInset + indent,
-            y: (bounds.height - dotSize) / 2,
+            y: contentMidY - dotSize / 2,
             width: dotSize,
             height: dotSize
         ).pixelAligned
@@ -393,7 +401,7 @@ final class SidebarRowView: NSView {
         let height = title.intrinsicContentSize.height
         let box = NSRect(
             x: column.x,
-            y: (bounds.height - height) / 2,
+            y: contentMidY - height / 2,
             width: column.width - chevronReserve,
             height: height
         ).integral

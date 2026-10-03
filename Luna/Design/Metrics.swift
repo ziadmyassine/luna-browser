@@ -250,6 +250,17 @@ extension Tokens {
         /// as deep at the foot as at the head. The 4 pt goes to the header, so
         /// folding still moves only the plate's bottom edge.
         static let groupHeaderRowHeight = tabRowHeight + 4
+        /// How far an open folder's name sits below its row's middle: half the
+        /// header's extra height, which puts it in the middle of a tab-sized
+        /// pill standing `groupPlateFoot` under the plate's top, as every other
+        /// pill in the folder stands that far from its neighbour. Measured
+        /// before: 12 pt over the name against 16 under it. Folded, the name
+        /// stays centred in its 39 pt plate.
+        static let groupHeaderOpenDrop = (groupHeaderRowHeight - tabRowHeight) / 2
+        /// An open folder's plate corner: the tab pill's corner plus the room
+        /// round it, so the pill inside nests in the plate. The same radius a
+        /// `groupPlateFoot` inside looked pinched at the corners.
+        static let groupPlateCornerRadius = rowCornerRadius + groupPlateFoot
         /// How far the plate reaches below the last tab's pill, and beside a
         /// folder's tabs (`groupMemberTrailingInset`). With the favicon's own
         /// 9.5 it leaves 13.5 under the last tab's icon, against the 11.5 the

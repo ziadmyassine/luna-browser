@@ -100,6 +100,10 @@ extension TabListController {
     /// sliding; the plate is already standing where it is going by then, and
     /// placing it again would snap the stretch to its end.
     private func placePlate(_ plate: RowPillView, in box: NSRect?, animated: Bool) {
+        if let box {
+            plate.cornerRadius = box.height > Tokens.Metric.groupHeaderRowHeight
+                ? Tokens.Metric.groupPlateCornerRadius : Tokens.Metric.rowCornerRadius
+        }
         let shown = plate.frame
         guard let box, plate.alphaValue == 1,
               box.minX == shown.minX, box.minY == shown.minY, box.width == shown.width else {

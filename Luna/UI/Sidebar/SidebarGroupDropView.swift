@@ -29,7 +29,7 @@ final class SidebarGroupDropView: NSView {
         // would come out at a different pitch on every folder.
         layerContentsRedrawPolicy = .duringViewResize
         layer?.cornerCurve = .continuous
-        layer?.cornerRadius = Tokens.Metric.rowCornerRadius
+        layer?.cornerRadius = Tokens.Metric.groupPlateCornerRadius
         alphaValue = 0
         isHidden = true
     }

@@ -61,7 +61,7 @@ extension SidebarRowView: NSTextFieldDelegate {
         let right = isPickingEmoji ? icon.maxX : contentWidth - 2 * Tokens.Metric.rowInset - reserve
         editor.frame = NSRect(
             x: x,
-            y: (bounds.height - height) / 2,
+            y: contentMidY - height / 2,
             width: max(right - x, 0),
             height: height
         ).integral
