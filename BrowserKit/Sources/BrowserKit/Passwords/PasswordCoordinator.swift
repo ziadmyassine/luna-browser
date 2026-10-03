@@ -28,7 +28,7 @@ public struct PasswordSuggestion: Sendable {
     public let site: String
 }
 
-/// §14.4's chip. Nothing is written until the user presses Save.
+/// §14.4's offer. Nothing is written until the user presses Save.
 public struct PasswordSaveRequest: Sendable {
     public enum Kind: Sendable {
         /// No credential for this site+username yet.
@@ -88,7 +88,7 @@ public final class PasswordCoordinator {
     /// provisional navigation, and read when an offer is built.
     var sawServerRedirect = false
 
-    /// The last submit the page reported, awaiting the §14.4 chip's answer.
+    /// The last submit the page reported, awaiting the answer to §14.4's offer.
     private var pendingSave: PasswordSaveRequest?
 
     /// A password that went out and has not yet been judged. Only a sign-in
@@ -116,7 +116,7 @@ public final class PasswordCoordinator {
     }
 
     /// How long a sent password waits for its page to settle. Past this the
-    /// user has moved on, and a chip would be asking about something else.
+    /// user has moved on, and a toast would be asking about something else.
     static let submitPatience: TimeInterval = 45
 
     /// How long a name from a first step is carried to the password step.
@@ -315,7 +315,7 @@ public final class PasswordCoordinator {
     private func offerToSave(_ held: HeldSubmit) {
         let (username, password, url, site) = (held.username, held.password, held.url, held.site)
         guard let tab else { return }
-        // "Never for this site" (§14.4), in the same `siteSettings` row every
+        // "Never" (§14.4), in the same `siteSettings` row every
         // other per-site answer lives in.
         guard tab.sitePermissions.isAllowed(.savePasswords, forHost: url.host()) else { return }
 
@@ -324,7 +324,7 @@ public final class PasswordCoordinator {
             let match = existing.first { $0.username == username }
             // Same username and same password: the user signed in with what
             // is already saved, so there is nothing to ask about. This is the
-            // overwhelmingly common case, and a chip here would train the user
+            // overwhelmingly common case, and an offer here would train the user
             // to dismiss the one that matters.
             if let match, await CredentialStore.shared.password(for: match) == password { return }
 
@@ -349,7 +349,7 @@ public final class PasswordCoordinator {
         return await CredentialStore.shared.save(request.credential)
     }
 
-    /// "Never for this site" — persisted as a per-site answer so the chip never
+    /// "Never" — persisted as a per-site answer so the offer never
     /// comes back for this host (§14.4, §11.1).
     public func declineForever(_ request: PasswordSaveRequest) {
         pendingSave = nil

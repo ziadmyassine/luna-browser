@@ -189,6 +189,37 @@ final class CredentialPopoverTests: XCTestCase {
                       "§14.8's redirect warning went missing")
     }
 
+    // MARK: - §14.4's offer
+
+    /// A toast with two words: Save and Never. Letting it go is Not Now, and
+    /// is heard as such so nothing is remembered.
+    func testTheSaveOfferIsAToastWithTwoAnswers() {
+        let request = PasswordSaveRequest(
+            kind: .save, site: "microsoftonline.com", username: "ada@example.com", isInsecure: false,
+            password: "hunter2", originURL: nil
+        )
+        var heard: [String] = []
+        let toast = PageToast.savePassword(
+            request, save: { heard.append("save") }, never: { heard.append("never") }, unanswered: { heard.append("not now") }
+        )
+        XCTAssertEqual(toast.text, "Save password?")
+        XCTAssertEqual(toast.detail, "ada@example.com · microsoftonline.com")
+        XCTAssertEqual(toast.actions.map(\.title), ["Save", "Never"])
+        toast.actions.forEach { $0.run() }
+        toast.onUnanswered?()
+        XCTAssertEqual(heard, ["save", "never", "not now"])
+    }
+
+    func testAnUpdateSaysSoAndAnInsecurePageIsNamed() {
+        let request = PasswordSaveRequest(
+            kind: .update, site: "example.com", username: "", isInsecure: true, password: "x", originURL: nil
+        )
+        let toast = PageToast.savePassword(request, save: {}, never: {}, unanswered: {})
+        XCTAssertEqual(toast.text, "Update password?")
+        XCTAssertEqual(toast.actions.first?.title, "Update")
+        XCTAssertEqual(toast.detail, "example.com · not encrypted")
+    }
+
     /// The page measures a field from its own viewport, which starts under
     /// §3.2b's bar when the bar covers the top of the web view. The picker has
     /// to add that back or it points above the field.

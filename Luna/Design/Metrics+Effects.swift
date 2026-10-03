@@ -31,9 +31,9 @@ extension Tokens.Metric {
     /// The most rows shown before the list scrolls. Past five a picker stops
     /// being a glance and starts being a list to read.
     static let passwordPopoverMaxRows = 5
-    /// §14.4's save chip. Wider than the picker: a sentence and three buttons
-    /// rather than a username.
-    static let passwordChip = RoundedMetric(width: 360, height: 92, cornerRadius: 14)
+    /// Luna Control's approval card. Wider than the picker: a sentence and
+    /// its buttons rather than a username.
+    static let approvalCard = RoundedMetric(width: 360, height: 92, cornerRadius: 14)
 
     // MARK: Reload bloom (§7)
 

@@ -23,7 +23,7 @@ extension BrowserStore {
         case localNetwork
         /// Luna may offer to save a password for this site (§14.4).
         ///
-        /// Written only by "Never for this site" on the save chip, so a row
+        /// Written only by "Never for this site" on the save toast, so a row
         /// here is always an explicit refusal — which is why the default is
         /// yes and absence means "has not said no".
         case savePasswords

@@ -24,7 +24,7 @@ public enum PasswordSettings {
         set { UserDefaults.standard.set(newValue, forKey: Key.enabled) }
     }
 
-    /// §14.4's chip.
+    /// §14.4's offer to save.
     public static var offersToSave: Bool {
         get { UserDefaults.standard.object(forKey: Key.offerToSave) as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: Key.offerToSave) }

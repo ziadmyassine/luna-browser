@@ -2576,10 +2576,11 @@ something happened, over the page, is one of these — never a panel, chip or ba
   process died (§19.3, front tab only), and §17's blocked pop-ups
   (`PageToast.popupBlocked`, Open and Always Allow; it was a floating chip with a placement setting
   until 2026-09-29), Mute All / Unmute All, and §15.5's slow PDF (`PageToast.openingPDF`, Download: a PDF of 10 MB or more
-  as it starts, or one of unknown size still arriving after 3 s).
-- **Not a toast:** a question that needs reading and more than two answers — §14.4's save-password
-  chip (two lines, Save / Never / Not Now) and Luna Control's approval card. Those are prompts, and
-  keep their own surfaces.
+  as it starts, or one of unknown size still arriving after 3 s), and §14.4's offer to save a
+  password (`PageToast.savePassword`: the account and site as detail, Save and Never; leaving it
+  unanswered is Not Now — it was a three-button chip in the window's corner until 2026-10-03).
+- **Not a toast:** a question that needs reading and more than two answers — Luna Control's
+  approval card. That is a prompt, and keeps its own surface.
 
 ## 5d. Find in page — ⌘F (§18.1)
 
@@ -2633,7 +2634,7 @@ instant under Reduce Motion.
 | Command Bar in / out | 0.18 s spring, scale 0.96 ↔ 1.0 + fade, anchored 20 % from window top |
 | Command Bar in / out, on a pill | the same 0.18 s spent on the glass's height, pill ↔ list (§9.1) |
 | Pop-out in / out (§6.4) | the same spring, 0.96 ↔ 1.0 + fade, pivoting on the button's corner both ways |
-| Panel fade in / out (§14.3, §14.4) | `popoverIn`, and the same fade backwards on the way out |
+| Panel fade in / out (§14.3) | `popoverIn`, and the same fade backwards on the way out |
 | Tab insert / remove | 0.22 s spring height + fade, no list jump |
 | Top-bar folder shutting (§4) | tabs fade in 0.10 s ease-out while the plate morphs down on the 0.22 s tab spring |
 | Row hover fill | 0.12 s ease-out |

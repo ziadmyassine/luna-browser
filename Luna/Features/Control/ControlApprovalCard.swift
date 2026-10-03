@@ -45,7 +45,7 @@ final class ControlApprovalCard {
         }
         surface.showSheet(view)
         guard isNew else { return }
-        // §21.1, as the save-password chip does: a sheet that only appears is
+        // §21.1: a sheet that only appears is
         // one a VoiceOver user is never told about.
         NSAccessibility.post(element: view, notification: .announcementRequested, userInfo: [
             .announcement: view.headline,
@@ -67,7 +67,7 @@ final class ControlApprovalCardView: NSView {
         super.init(frame: .zero)
         wantsLayer = true
         translatesAutoresizingMaskIntoConstraints = false
-        Glass.apply(.popover, to: self, cornerRadius: Tokens.Metric.passwordChip.cornerRadius).pinToEdges()
+        Glass.apply(.popover, to: self, cornerRadius: Tokens.Metric.approvalCard.cornerRadius).pinToEdges()
         build(request, waiting: waiting, onAnswer: onAnswer)
     }
 
@@ -83,13 +83,13 @@ final class ControlApprovalCardView: NSView {
 
     /// How far the sheet runs up under the page's top edge: its own corner,
     /// so only its lower corners show.
-    static let hiddenTop = Tokens.Metric.passwordChip.cornerRadius
+    static let hiddenTop = Tokens.Metric.approvalCard.cornerRadius
     private static let padding = NSEdgeInsets(top: 12 + hiddenTop, left: 16, bottom: 12, right: 16)
     static var sideInsets: CGFloat { padding.left + padding.right }
-    /// The save-password chip's width, which is also where the text wraps.
+    /// The card's width, which is also where the text wraps.
     /// Sized to its widest line instead, a short question made a sheet too
     /// narrow to read as one.
-    static var width: CGFloat { Tokens.Metric.passwordChip.width }
+    static var width: CGFloat { Tokens.Metric.approvalCard.width }
     private static var textWidth: CGFloat { width - sideInsets }
 
     private func build(

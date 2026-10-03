@@ -55,7 +55,8 @@ glass pill that drops from under the bar ("Link copied", "Zoom 125 %",
   give (Open, Always Allow) goes in `actions`, and the toast then waits
   longer and holds while the pointer is on it.
 - A question with more than two answers, or more than one line, is a prompt,
-  not a toast — the save-password chip and Luna Control's approval card.
+  not a toast — Luna Control's approval card. Saving a password is a toast:
+  Save and Never, and letting it go is Not Now.
 
 Full rules: `docs/UI-SPEC.md` §5c.
 

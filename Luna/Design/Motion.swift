@@ -369,7 +369,7 @@ extension Tokens {
         /// A child-window surface leaving the way it arrived: §6's `popoverIn`
         /// fade run backwards, and then out of the window tree.
         ///
-        /// For §14.3's credential picker and §14.4's save chip. A bare
+        /// For §14.3's credential picker. A bare
         /// `orderOut(nil)` is on screen one frame and gone the next, which
         /// reads as the panel dismissed by something other than the user.
         ///

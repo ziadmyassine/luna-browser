@@ -122,6 +122,53 @@ final class SignInStepsTests: XCTestCase {
         XCTAssertEqual(username, "ada@example.com")
     }
 
+    /// Microsoft's shape: the page fades its form in, so the name box is
+    /// still transparent when it takes focus, and handles Return itself. The
+    /// name has to be caught from the typing and the key, not the focus.
+    func testANameTypedIntoAFadingBoxIsStillSent() async throws {
+        let (webView, sink) = load("""
+        <form><input type="email" name="loginfmt" autocomplete="username webauthn" style="opacity:0"></form>
+        """)
+        _ = await loaded(sink)
+        _ = try await webView.evaluateJavaScript("""
+        (function () {
+          var box = document.querySelector('input');
+          box.focus();
+          box.style.opacity = '1';
+          box.value = 'ada@example.com';
+          box.dispatchEvent(new Event('input', { bubbles: true }));
+          box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+          return 1;
+        })()
+        """)
+        let event = await wait(sink) { if case .identified = $0 { return true } else { return false } }
+        guard case let .identified(username)? = event else { return XCTFail("the name step was not reported") }
+        XCTAssertEqual(username, "ada@example.com")
+    }
+
+    /// Microsoft's password step shows the name as text and keeps it in a box
+    /// moved off screen, marked as the username for password managers.
+    func testThePasswordStepReadsTheNameKeptOffScreen() async throws {
+        let (webView, sink) = load("""
+        <form onsubmit="return false">
+        <input type="email" name="loginfmt" autocomplete="username" value="grace@example.com"
+          style="position:absolute; left:-10000px; opacity:0">
+        <div>grace@example.com</div>
+        <input type="password" name="passwd"><button type="button">Sign in</button></form>
+        """)
+        _ = await loaded(sink)
+        _ = try await webView.evaluateJavaScript("""
+        (function () {
+          document.querySelector('input[type=password]').value = 'hunter2';
+          document.querySelector('button').click();
+          return 1;
+        })()
+        """)
+        let event = await wait(sink) { if case .submitted = $0 { return true } else { return false } }
+        guard case let .submitted(username, _)? = event else { return XCTFail("no submit reported") }
+        XCTAssertEqual(username, "grace@example.com")
+    }
+
     /// A sign-in done in place takes its form away; that is reported apart
     /// from the caret merely leaving it.
     func testAFormTakenAwayIsReportedAsGone() async throws {

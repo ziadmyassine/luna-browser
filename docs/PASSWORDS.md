@@ -353,7 +353,7 @@ Safari:
 - **Saving is offered once the sign-in took.** A password that goes out is
   held. A new document without a password box (given a second to build a late
   one), or a form taken away in place and not put back within 1.5 s, is a
-  sign-in that took, and only then does the chip come up. A page that comes
+  sign-in that took, and only then does the save toast come up. A page that comes
   back with its password box refused it, and nothing is asked. After 45 s the
   held password is dropped.
 - **A click in the first half second is refused.** A page can move its field,
@@ -365,7 +365,7 @@ Safari:
 
 | Rule | Enforced in |
 |---|---|
-| Never persist without an explicit user action | `PasswordCoordinator` never writes; only `confirmSave`, called by the chip's button, does — and the chip is only offered once the sign-in took |
+| Never persist without an explicit user action | `PasswordCoordinator` never writes; only `confirmSave`, called by the toast's Save, does — and the toast is only offered once the sign-in took |
 | Never fill cross-origin, or an iframe whose origin differs from the page | `PasswordCoordinator.isFrameTrusted`, against `WKFrameInfo.securityOrigin` — scheme, host **and** port, not eTLD+1 |
 | Require a recent user gesture before filling | There is no code path from a page event to a filled field; a fill begins only with a click on Luna's own popover (refused in its first half second) or Return on a row the arrow keys chose |
 | Never expose credentials to page JavaScript | `callAsyncJavaScript` with bound arguments, never string interpolation |

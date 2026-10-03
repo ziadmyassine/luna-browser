@@ -187,7 +187,7 @@ final class BrowserSession {
     /// left to stall invisibly.
     var onDownload: ((WKDownload) -> Void)?
 
-    /// §14's two floating panels — the credential picker and the save chip.
+    /// §14's credential picker.
     /// One property, so neither can be presented without the other being
     /// reachable to dismiss. The behaviour is in
     /// `Luna/UI/Passwords/BrowserSession+Passwords.swift`.
