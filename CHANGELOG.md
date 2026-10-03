@@ -7,6 +7,7 @@ under Unreleased; a release will take the entries since the last one.
 
 ### 2026-10-03
 
+- **The password list looks like Safari's, and Touch ID fills from it** (§14.3): the first account is chosen in your accent colour with a red fingerprint, and a finger on Touch ID fills it with no extra dialog; sites show their own icon or a coloured key. The list now hangs just under the field instead of over it, also on zoomed pages, and its top corners are no longer cut off.
 - **Saved passwords appear under the sign-in box, as in Safari** (§14.3): also on the name-only first step of Microsoft, Google and Apple sign-ins, and when the page puts the cursor there itself; ↓ and ↑ choose an account, Return fills it, Escape puts the list away. The account you chose on the first step comes first on the password step.
 - **Luna asks to save a password only once the sign-in worked** (§14.4): a password the site refused is no longer offered, and a password typed on its own page is saved under the name from the step before, including Microsoft's.
 - **Saving a password is a toast** (§14.4): "Save password?" drops from under the bar with your account and the site, and Save or Never; letting it go is Not Now. It replaces the three-button panel in the window's corner.

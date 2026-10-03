@@ -321,7 +321,8 @@ copied from Safari is the *shape*, all of which is free:
 | The site's favicon | from §4.7's cache, falling back to a key glyph |
 | Account and "Password for site" on two lines, no header | one account can be right on one site and wrong on a lookalike |
 | ↓ ↑ to choose, Return to take, Escape to put away | while the caret is in the page; Return only takes a row the arrow keys chose, so a picker that opened under a resting pointer never eats the Return meant for the form |
-| A fingerprint on the row | says what the click costs before it is spent |
+| A fingerprint on the row, red | says what the click costs before it is spent |
+| The first account chosen, in the accent | Safari's chosen row; with Touch ID it is `LAAuthenticationView`, so a finger on the sensor fills that row with no dialog (`CredentialPopover.awaitTouch`). It is armed only while Luna is the app in front, and called off when the list goes, a row is clicked or Luna loses focus; a click still asks through the usual dialog |
 | "All saved passwords…" | **not** Safari's "Other Passwords for this site" — Luna cannot read those, and a row promising a list it cannot fetch would be a lie in the one piece of chrome that has to be trustworthy |
 
 Touch ID is `LocalAuthentication`, which needs no entitlement and works in a
@@ -367,7 +368,7 @@ Safari:
 |---|---|
 | Never persist without an explicit user action | `PasswordCoordinator` never writes; only `confirmSave`, called by the toast's Save, does — and the toast is only offered once the sign-in took |
 | Never fill cross-origin, or an iframe whose origin differs from the page | `PasswordCoordinator.isFrameTrusted`, against `WKFrameInfo.securityOrigin` — scheme, host **and** port, not eTLD+1 |
-| Require a recent user gesture before filling | There is no code path from a page event to a filled field; a fill begins only with a click on Luna's own popover (refused in its first half second) or Return on a row the arrow keys chose |
+| Require a recent user gesture before filling | There is no code path from a page event to a filled field; a fill begins only with a click on Luna's own popover (refused in its first half second), Return on a row the arrow keys chose, or a finger on Touch ID while the list is up |
 | Never expose credentials to page JavaScript | `callAsyncJavaScript` with bound arguments, never string interpolation |
 | Treat a fill after a redirect chain as suspicious | `sawServerRedirect`, set in `didReceiveServerRedirect…`, cleared in `didStartProvisionalNavigation`, shown in the popover |
 | Match on eTLD+1 with a public-suffix list, never a substring | `PublicSuffix`, with the PSL's own algorithm including wildcards and exceptions |

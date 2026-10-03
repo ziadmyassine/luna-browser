@@ -26,30 +26,60 @@ final class CredentialPopoverView: NSView {
     private let onAcceptGenerated: (String) -> Void
     private let stack = NSStackView()
     private var rows: [PickerRowView] = []
+    private let fingerprint: CredentialRowView.Fingerprint
 
-    /// The row Return or a click would take, if any.
+    /// The chosen row: the first when the picker opens, as Safari's, then
+    /// wherever the pointer or the arrow keys put it.
     private(set) var selectedIndex: Int? {
         didSet {
             for (index, row) in rows.enumerated() { row.isSelected = index == selectedIndex }
+            if let selectedIndex, rows[selectedIndex] is CredentialRowView { touchIndex = selectedIndex }
         }
     }
 
     /// Whether the selection was made with the arrow keys. Only then does
-    /// Return take it: a picker that opened under a resting pointer has a
-    /// row highlighted that the user never chose, and the Return they meant
-    /// for the page's own button must not fill instead.
+    /// Return take it: the row chosen when the picker opens is one the user
+    /// never chose, and the Return they meant for the page's own button must
+    /// not fill instead.
     private(set) var selectionIsFromKeyboard = false
 
+    /// The account a finger on the sensor fills: the chosen row, or the last
+    /// account chosen while the choice is on the row that leaves the list.
+    private var touchIndex = 0 { didSet { if touchIndex != oldValue { placeTouchID() } } }
+    private var touchView: NSView?
+    private var touchPlacement: [NSLayoutConstraint] = []
+
+    var touchCredential: Credential? {
+        (rows.indices.contains(touchIndex) ? rows[touchIndex] as? CredentialRowView : nil)?.credential
+    }
+
+    /// - Parameter inlineTouchID: whether the picker will hang its live Touch
+    ///   ID view on the chosen row (see `CredentialPopover`).
     init(
         content: CredentialPopover.Content,
+        inlineTouchID: Bool = false,
         onPick: @escaping (Credential) -> Void,
         onAcceptGenerated: @escaping (String) -> Void
     ) {
         self.content = content
         self.onPick = onPick
         self.onAcceptGenerated = onAcceptGenerated
+        if case let .saved(offer) = content {
+            fingerprint = Self.fingerprint(for: offer, inline: inlineTouchID)
+        } else {
+            fingerprint = .none
+        }
         super.init(frame: .zero)
         build()
+    }
+
+    /// What the rows say about Touch ID. With the live view, a finger fills
+    /// even a name-only step, which asks for nothing but is quicker that way;
+    /// without it, only a row whose pick will prompt shows the symbol.
+    static func fingerprint(for offer: PasswordOffer, inline: Bool) -> CredentialRowView.Fingerprint {
+        guard PasswordSettings.requiresAuthentication else { return .none }
+        if inline { return .inline }
+        return offer.fillsUsernameOnly ? .none : .symbol
     }
 
     /// The offer, when there is one. `nil` for §14.5's generated password,
@@ -94,7 +124,7 @@ final class CredentialPopoverView: NSView {
         case let .saved(offer):
             let pick: (Credential) -> Void = { [weak self] in self?.onPick($0) }
             for credential in offer.credentials.prefix(Tokens.Metric.passwordPopoverMaxRows) {
-                add(CredentialRowView(credential: credential, showsBiometric: !offer.fillsUsernameOnly, onPick: pick))
+                add(CredentialRowView(credential: credential, fingerprint: fingerprint, onPick: pick))
             }
             // Safari's picker ends with a way out of it, and so does this one —
             // otherwise a user whose account is not in the list has nowhere to
@@ -113,6 +143,7 @@ final class CredentialPopoverView: NSView {
         }
 
         if let caution = cautionLine() { stack.addArrangedSubview(caution) }
+        if !rows.isEmpty { selectedIndex = 0 }
 
         setAccessibilityElement(true)
         setAccessibilityRole(.group)
@@ -126,12 +157,11 @@ final class CredentialPopoverView: NSView {
         rows.append(row)
         row.onHover = { [weak self] inside in
             guard let self else { return }
-            if inside {
-                selectionIsFromKeyboard = false
-                selectedIndex = index
-            } else if selectedIndex == index, !selectionIsFromKeyboard {
-                selectedIndex = nil
-            }
+            // The pointer leaving keeps the choice, as a menu's does: the
+            // chosen row is also where a finger on the sensor goes.
+            guard inside else { return }
+            selectionIsFromKeyboard = false
+            selectedIndex = index
         }
         stack.addArrangedSubview(row)
         row.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
@@ -139,16 +169,44 @@ final class CredentialPopoverView: NSView {
 
     // MARK: - The keyboard
 
-    /// ↓ from nothing selects the first row and ↑ the last, as a menu does;
-    /// past either end the selection stays put.
+    /// The first arrow takes the row already chosen into the keyboard's hands
+    /// rather than skipping past it; after that the arrows move, and past
+    /// either end the selection stays put.
     func moveSelection(by step: Int) {
         guard !rows.isEmpty else { return }
-        selectionIsFromKeyboard = true
+        defer { selectionIsFromKeyboard = true }
         guard let current = selectedIndex else {
             selectedIndex = step > 0 ? 0 : rows.count - 1
             return
         }
+        guard selectionIsFromKeyboard else { return }
         selectedIndex = min(max(current + step, 0), rows.count - 1)
+    }
+
+    // MARK: - Touch ID
+
+    /// Hangs the picker's live Touch ID view at the trailing end of the
+    /// account a finger would fill, in the room that row left for it.
+    func showTouchID(_ view: NSView) {
+        touchView?.removeFromSuperview()
+        touchView = view
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.setAccessibilityIdentifier(CredentialRowView.biometricIdentifier)
+        addSubview(view)
+        placeTouchID()
+    }
+
+    private func placeTouchID() {
+        guard let touchView, rows.indices.contains(touchIndex) else { return }
+        NSLayoutConstraint.deactivate(touchPlacement)
+        let side = CredentialRowView.fingerprintSide
+        touchPlacement = [
+            touchView.widthAnchor.constraint(equalToConstant: side),
+            touchView.heightAnchor.constraint(equalToConstant: side),
+            touchView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            touchView.centerYAnchor.constraint(equalTo: rows[touchIndex].centerYAnchor)
+        ]
+        NSLayoutConstraint.activate(touchPlacement)
     }
 
     /// Takes the row the arrow keys chose. False when they chose none, so the
@@ -246,9 +304,17 @@ final class CredentialPopoverView: NSView {
     // MARK: - Sizing
 
     /// The panel's size, measured from the content rather than assumed.
+    ///
+    /// Measured at the width it will be shown at. Measured unconstrained, a
+    /// caution line was laid out on one line and then wrapped to two in the
+    /// panel, and the extra line pushed the glass's rounded top out of the
+    /// window — the picker looked cut off at its top corners.
     func fittingPopoverSize() -> CGSize {
         let width = Tokens.Metric.passwordPopover.width
-        layoutSubtreeIfNeeded()
+        let pin = stack.widthAnchor.constraint(equalToConstant: width)
+        pin.isActive = true
+        defer { pin.isActive = false }
+        stack.layoutSubtreeIfNeeded()
         let height = stack.fittingSize.height
         return CGSize(width: width, height: max(height, Tokens.Metric.passwordPopover.height))
     }

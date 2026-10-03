@@ -7,7 +7,8 @@
 //
 //  §2's rule: no system blue in Luna's chrome. No accent selection, no accent
 //  focus ring, no blue default button. `tint` covers the few places macOS owns
-//  the answer, and §3.1's quit sheet is the one documented exception.
+//  the answer, and §3.1's quit sheet and §14.3's password picker are the two
+//  documented exceptions.
 //
 
 import AppKit
@@ -48,11 +49,13 @@ extension Tokens {
         /// System-backed because the accent is a System Settings choice and is
         /// not always blue, so only AppKit knows what stays legible on it.
         ///
-        /// The exception is the quit sheet alone. It is the only surface where
-        /// one of the answers destroys the session, and the default answer has
-        /// to be unmistakable rather than one wash-step louder than its
-        /// neighbour. Selected tabs, focus rings and hovered rows are
-        /// still ink and material.
+        /// The quit sheet is the only surface where one of the answers
+        /// destroys the session, and the default answer has to be unmistakable
+        /// rather than one wash-step louder than its neighbour. §14.3's
+        /// password picker is the other: it stands in for the system's own
+        /// autofill menu, whose chosen row is the accent, and its chosen row is
+        /// the one a finger on Touch ID fills. Selected tabs, focus rings and
+        /// hovered rows are still ink and material.
         static var onTint: NSColor { .alternateSelectedControlTextColor }
     }
 }

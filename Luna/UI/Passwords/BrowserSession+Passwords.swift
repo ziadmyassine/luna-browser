@@ -37,11 +37,11 @@ extension BrowserSession {
 
     func tabController(_ controller: TabController, wantsToOfferCredentials offer: PasswordOffer) {
         guard controller.id == activeTabID, let webView = controller.webView else { return }
-        passwordUI.popover.onPick = { [weak controller] credential in
+        passwordUI.popover.onPick = { [weak controller] credential, authenticated in
             // The fill re-checks the site at the moment it runs, so a page that
             // navigated between the offer and this click cannot collect the
             // credential (§14.8).
-            Task { await controller?.passwords.fill(credential) }
+            Task { await controller?.passwords.fill(credential, authenticated: authenticated) }
         }
         passwordUI.popover.onClose = { [weak controller] in controller?.passwords.pickerClosed() }
         passwordUI.popover.present(.saved(offer), over: webView)

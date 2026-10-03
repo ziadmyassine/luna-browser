@@ -368,7 +368,11 @@ public final class PasswordCoordinator {
     /// user gesture §14.8 requires. The Keychain read happens here, one field
     /// fill later the string is out of scope, and it is never stored on the
     /// coordinator, the tab or the state.
-    public func fill(_ credential: Credential) async {
+    ///
+    /// - Parameter authenticated: the user already proved who they are for
+    ///   this pick — a finger on the sensor through the picker's own Touch ID
+    ///   view — so no second prompt is shown.
+    public func fill(_ credential: Credential, authenticated: Bool = false) async {
         isOffering = false
         guard let webView = tab?.webView, let requested = form else { return }
         // Re-checked at the moment of the fill, not only when the offer was
@@ -388,7 +392,9 @@ public final class PasswordCoordinator {
 
         // Touch ID before the Keychain read, so a cancelled prompt means
         // the password was never fetched into this process at all.
-        guard await PasswordAuthorization.confirmFill(for: credential.site) else { return }
+        if !authenticated {
+            guard await PasswordAuthorization.confirmFill(for: credential.site) else { return }
+        }
 
         // That prompt is modal and can sit there as long as the user likes,
         // which is ample time for the page underneath to navigate or re-render.

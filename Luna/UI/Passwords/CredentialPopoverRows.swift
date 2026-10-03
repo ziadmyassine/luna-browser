@@ -18,7 +18,9 @@ import BrowserKit
 // MARK: - The shared row
 
 /// One selectable line of the picker. A list row, not a button: it highlights
-/// and does not swell (see `CLAUDE.md`).
+/// and does not swell (see `CLAUDE.md`). The chosen row is filled with the
+/// accent and its words turn to `Accent.onTint`, as the system's own autofill
+/// menu draws it — the second of `Tokens.Accent.onTint`'s exceptions.
 @MainActor
 class PickerRowView: NSView {
 
@@ -35,7 +37,7 @@ class PickerRowView: NSView {
         super.init(frame: .zero)
         wantsLayer = true
         highlight.wantsLayer = true
-        highlight.layer?.backgroundColor = Tokens.Surface.hover.cgColor
+        highlight.layer?.backgroundColor = Tokens.Accent.tint.cgColor
         highlight.layer?.cornerRadius = 7
         highlight.layer?.cornerCurve = .continuous
         highlight.alphaValue = 0
@@ -60,8 +62,15 @@ class PickerRowView: NSView {
             Tokens.Motion.animate(Tokens.Motion.rowHover) { _ in
                 highlight.animator().alphaValue = isSelected ? 1 : 0
             }
+            inkDidChange()
         }
     }
+
+    /// Ink for a label on this row: `onTint` over the accent, `normal` off it.
+    func ink(_ normal: NSColor) -> NSColor { isSelected ? Tokens.Accent.onTint : normal }
+
+    /// The selection changed; a row recolours its words here.
+    func inkDidChange() {}
 
     func activate() { action() }
 
@@ -99,14 +108,30 @@ final class CredentialRowView: PickerRowView {
     /// guessing at image ordering.
     static let biometricIdentifier = "password-row-biometric"
 
-    private let credential: Credential
+    /// What the row's trailing end says about Touch ID.
+    enum Fingerprint {
+        /// No prompt will come.
+        case none
+        /// A prompt will come when the row is picked: the system's symbol.
+        case symbol
+        /// Room for the picker's live Touch ID view, which a finger on the
+        /// sensor answers without a dialog. The picker places it.
+        case inline
+    }
 
-    /// - Parameter showsBiometric: whether picking this row asks for Touch ID.
-    ///   Not on a name-only step, which fills no password.
-    init(credential: Credential, showsBiometric: Bool, onPick: @escaping (Credential) -> Void) {
+    let credential: Credential
+    private let title = NSTextField(labelWithString: "")
+    private let subtitle = NSTextField(labelWithString: "")
+
+    init(credential: Credential, fingerprint: Fingerprint, onPick: @escaping (Credential) -> Void) {
         self.credential = credential
         super.init { onPick(credential) }
-        build(showsBiometric: showsBiometric)
+        build(fingerprint: fingerprint)
+    }
+
+    override func inkDidChange() {
+        title.textColor = ink(Tokens.Text.primary)
+        subtitle.textColor = ink(Tokens.Text.secondary)
     }
 
     @available(*, unavailable)
@@ -114,62 +139,64 @@ final class CredentialRowView: PickerRowView {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
     }
 
-    /// The site's own mark, exactly as the sidebar draws it, and the generic
-    /// key only when there is none. A row that looks like the site is a row the
-    /// user recognises without reading it.
+    /// The site's own mark in colour, and a coloured key tile when there is
+    /// none. A row that looks like the site is a row the user recognises
+    /// without reading it.
     private func makeGlyph() -> NSImageView {
         let glyph = NSImageView()
         glyph.translatesAutoresizingMaskIntoConstraints = false
         glyph.imageScaling = .scaleProportionallyUpOrDown
-        if let favicon = Self.favicon(for: credential) {
-            glyph.image = favicon
-            glyph.wantsLayer = true
-            glyph.layer?.cornerRadius = 3
-            glyph.layer?.cornerCurve = .continuous
-            glyph.layer?.masksToBounds = true
-        } else {
-            glyph.image = NSImage(systemSymbolName: "key.fill", accessibilityDescription: nil)
-            glyph.contentTintColor = Tokens.Text.secondary
-        }
+        glyph.image = Self.favicon(for: credential) ?? Self.keyTile
+        glyph.wantsLayer = true
+        glyph.layer?.cornerRadius = 6
+        glyph.layer?.cornerCurve = .continuous
+        glyph.layer?.masksToBounds = true
         return glyph
     }
 
-    /// The username. An empty one is a real saved credential — plenty of sites
+    /// A key on the accent, for a site whose own mark Luna has not cached.
+    /// Drawn per appearance, so it follows the user's accent colour.
+    static let keyTile = NSImage(size: CGSize(width: 24, height: 24), flipped: false) { rect in
+        let tile = NSBezierPath(roundedRect: rect, xRadius: 6, yRadius: 6)
+        NSGradient(starting: Tokens.Accent.tint.blended(withFraction: 0.25, of: .white) ?? Tokens.Accent.tint,
+                   ending: Tokens.Accent.tint)?.draw(in: tile, angle: -90)
+        let config = NSImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
+            .applying(.init(paletteColors: [.white]))
+        if let key = NSImage(systemSymbolName: "key.fill", accessibilityDescription: nil)?.withSymbolConfiguration(config) {
+            key.draw(in: CGRect(
+                x: rect.midX - key.size.width / 2, y: rect.midY - key.size.height / 2,
+                width: key.size.width, height: key.size.height
+            ))
+        }
+        return true
+    }
+
+    /// The username over what the row is and for which site, in Safari's
+    /// words. An empty username is a real saved credential — plenty of sites
     /// have only a password — so it gets a name rather than an empty row the
-    /// pointer cannot find.
-    private func makeTitle() -> NSTextField {
-        let title = NSTextField(labelWithString: credential.username.isEmpty
-            ? String(localized: "(no username)")
-            : credential.username)
+    /// pointer cannot find. The site is there because one saved account can be
+    /// the right one on `github.com` and the wrong one on a page that merely
+    /// looks like it.
+    private func styleLabels() {
+        title.stringValue = credential.username.isEmpty ? String(localized: "(no username)") : credential.username
         title.font = Tokens.TypeScale.sidebarRow
-        title.textColor = Tokens.Text.primary
-        title.lineBreakMode = .byTruncatingMiddle
-        title.translatesAutoresizingMaskIntoConstraints = false
-        return title
-    }
-
-    /// What the row is and for which site, in Safari's words. One saved
-    /// account can be the right one on `github.com` and the wrong one on a
-    /// page that merely looks like it; §14.8 already refuses the cross-site
-    /// fill, and this says the same thing where the user can read it.
-    private func makeSubtitle() -> NSTextField {
-        let subtitle = NSTextField(labelWithString: String(localized: "Password for \(credential.site)"))
+        subtitle.stringValue = String(localized: "Password for \(credential.site)")
         subtitle.font = Tokens.TypeScale.settingsCaption
-        subtitle.textColor = Tokens.Text.secondary
-        subtitle.lineBreakMode = .byTruncatingMiddle
-        subtitle.translatesAutoresizingMaskIntoConstraints = false
-        return subtitle
+        for label in [title, subtitle] {
+            label.lineBreakMode = .byTruncatingMiddle
+            label.translatesAutoresizingMaskIntoConstraints = false
+        }
+        inkDidChange()
     }
 
-    private func build(showsBiometric: Bool) {
+    private func build(fingerprint: Fingerprint) {
         let glyph = makeGlyph()
-        let title = makeTitle()
-        let subtitle = makeSubtitle()
+        styleLabels()
 
         addSubview(glyph)
         addSubview(title)
         addSubview(subtitle)
-        activateConstraints(glyph: glyph, title: title, subtitle: subtitle, showsBiometric: showsBiometric)
+        activateConstraints(glyph: glyph, fingerprint: fingerprint)
 
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
@@ -179,15 +206,15 @@ final class CredentialRowView: PickerRowView {
     /// Where the row's pieces sit, and the two the fingerprint displaces.
     /// Split from `build` for its length limit; the arithmetic is the half that
     /// changes when a placement does.
-    private func activateConstraints(glyph: NSView, title: NSView, subtitle: NSView, showsBiometric: Bool) {
+    private func activateConstraints(glyph: NSView, fingerprint: Fingerprint) {
         var constraints: [NSLayoutConstraint] = [
-            heightAnchor.constraint(equalToConstant: 42),
+            heightAnchor.constraint(equalToConstant: Self.height),
             glyph.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
             glyph.centerYAnchor.constraint(equalTo: centerYAnchor),
-            glyph.widthAnchor.constraint(equalToConstant: 16),
-            glyph.heightAnchor.constraint(equalToConstant: 16),
-            title.leadingAnchor.constraint(equalTo: glyph.trailingAnchor, constant: 9),
-            title.topAnchor.constraint(equalTo: topAnchor, constant: 6),
+            glyph.widthAnchor.constraint(equalToConstant: 24),
+            glyph.heightAnchor.constraint(equalToConstant: 24),
+            title.leadingAnchor.constraint(equalTo: glyph.trailingAnchor, constant: 10),
+            title.bottomAnchor.constraint(equalTo: centerYAnchor, constant: 1),
             subtitle.leadingAnchor.constraint(equalTo: title.leadingAnchor),
             subtitle.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 1)
         ]
@@ -195,30 +222,42 @@ final class CredentialRowView: PickerRowView {
         // The fingerprint says what the click will cost before it is spent —
         // a prompt nobody expected is the thing that makes people distrust a
         // picker. Absent entirely when no prompt will come, rather than drawn
-        // dim: a symbol that means nothing is worse than no symbol.
-        if showsBiometric, PasswordSettings.requiresAuthentication {
+        // dim: a symbol that means nothing is worse than no symbol. Red, as
+        // the Mac draws Touch ID.
+        let trailing: CGFloat
+        switch fingerprint {
+        case .none:
+            trailing = 12
+        case .inline:
+            trailing = Self.fingerprintSide + 20
+        case .symbol:
+            trailing = Self.fingerprintSide + 20
+            let config = NSImage.SymbolConfiguration(pointSize: 20, weight: .regular)
             let biometric = NSImageView(
-                image: NSImage(systemSymbolName: "touchid", accessibilityDescription: nil) ?? NSImage()
+                image: NSImage(systemSymbolName: "touchid", accessibilityDescription: nil)?
+                    .withSymbolConfiguration(config) ?? NSImage()
             )
-            biometric.contentTintColor = Tokens.Text.secondary
+            biometric.contentTintColor = Tokens.Accent.danger
             biometric.translatesAutoresizingMaskIntoConstraints = false
             biometric.setAccessibilityIdentifier(Self.biometricIdentifier)
             addSubview(biometric)
             constraints += [
-                biometric.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
-                biometric.centerYAnchor.constraint(equalTo: centerYAnchor),
-                biometric.widthAnchor.constraint(equalToConstant: 15),
-                title.trailingAnchor.constraint(lessThanOrEqualTo: biometric.leadingAnchor, constant: -8),
-                subtitle.trailingAnchor.constraint(lessThanOrEqualTo: biometric.leadingAnchor, constant: -8)
-            ]
-        } else {
-            constraints += [
-                title.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -12),
-                subtitle.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -12)
+                biometric.centerXAnchor.constraint(equalTo: trailingAnchor, constant: -(12 + Self.fingerprintSide / 2)),
+                biometric.centerYAnchor.constraint(equalTo: centerYAnchor)
             ]
         }
+        constraints += [
+            title.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -trailing),
+            subtitle.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -trailing)
+        ]
         NSLayoutConstraint.activate(constraints)
     }
+
+    static let height: CGFloat = 46
+
+    /// The Touch ID mark's box: `LAAuthenticationView` at `.small` measures
+    /// 32 pt and the symbol is drawn to match it.
+    static let fingerprintSide: CGFloat = 32
 
     /// The site's icon from the favicon cache §4.7 already fills.
     ///
@@ -246,10 +285,12 @@ final class CredentialRowView: PickerRowView {
 @MainActor
 final class GeneratedPasswordRowView: PickerRowView {
 
+    private let value: NSTextField
+
     init(password: String, width: CGFloat, onAccept: @escaping (String) -> Void) {
+        value = NSTextField(wrappingLabelWithString: password)
         super.init { onAccept(password) }
 
-        let value = NSTextField(wrappingLabelWithString: password)
         value.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
         value.textColor = Tokens.Text.primary
         value.lineBreakMode = .byCharWrapping
@@ -272,6 +313,8 @@ final class GeneratedPasswordRowView: PickerRowView {
         setAccessibilityHelp(password.map(String.init).joined(separator: " "))
     }
 
+    override func inkDidChange() { value.textColor = ink(Tokens.Text.primary) }
+
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
@@ -285,16 +328,17 @@ final class GeneratedPasswordRowView: PickerRowView {
 @MainActor
 final class PopoverActionRowView: PickerRowView {
 
+    private let glyph: NSImageView
+    private let label: NSTextField
+
     init(title: String, symbol: String, onActivate: @escaping () -> Void) {
+        glyph = NSImageView(image: NSImage(systemSymbolName: symbol, accessibilityDescription: nil) ?? NSImage())
+        label = NSTextField(labelWithString: title)
         super.init(action: onActivate)
 
-        let glyph = NSImageView(
-            image: NSImage(systemSymbolName: symbol, accessibilityDescription: nil) ?? NSImage()
-        )
         glyph.contentTintColor = Tokens.Text.secondary
         glyph.translatesAutoresizingMaskIntoConstraints = false
 
-        let label = NSTextField(labelWithString: title)
         label.font = Tokens.TypeScale.sidebarRow
         label.textColor = Tokens.Text.secondary
         label.lineBreakMode = .byTruncatingTail
@@ -304,10 +348,10 @@ final class PopoverActionRowView: PickerRowView {
         addSubview(label)
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: 30),
-            glyph.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            glyph.centerXAnchor.constraint(equalTo: leadingAnchor, constant: 24),
             glyph.centerYAnchor.constraint(equalTo: centerYAnchor),
             glyph.widthAnchor.constraint(equalToConstant: 16),
-            label.leadingAnchor.constraint(equalTo: glyph.trailingAnchor, constant: 9),
+            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 46),
             label.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -12),
             label.centerYAnchor.constraint(equalTo: centerYAnchor)
         ])
@@ -320,5 +364,10 @@ final class PopoverActionRowView: PickerRowView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("Luna builds its chrome in code; there is no nib to decode.")
+    }
+
+    override func inkDidChange() {
+        glyph.contentTintColor = ink(Tokens.Text.secondary)
+        label.textColor = ink(Tokens.Text.secondary)
     }
 }

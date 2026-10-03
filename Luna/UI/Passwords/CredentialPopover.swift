@@ -19,8 +19,10 @@
 //
 
 import AppKit
-import WebKit
 import BrowserKit
+import LocalAuthentication
+import LocalAuthenticationEmbeddedUI
+import WebKit
 
 @MainActor
 final class CredentialPopover {
@@ -48,7 +50,10 @@ final class CredentialPopover {
 
     /// The user picked a saved credential. The caller fills — this view never
     /// touches a password, and never asks for one.
-    var onPick: ((Credential) -> Void)?
+    ///
+    /// `authenticated` is true when a finger on the sensor picked it through
+    /// the live Touch ID view, which was the prompt; the fill asks no other.
+    var onPick: ((_ credential: Credential, _ authenticated: Bool) -> Void)?
 
     /// The user accepted §14.5's generated password.
     var onAcceptGenerated: ((String) -> Void)?
@@ -69,6 +74,13 @@ final class CredentialPopover {
     private var shownAt = Date.distantPast
     private var pickingByKeyboard = false
 
+    /// The live Touch ID request behind the chosen row's fingerprint. Called
+    /// off the moment the picker goes, a row is clicked, or Luna stops being
+    /// the app in front: a request outliving its view is one macOS may
+    /// answer with a dialog of its own, over whatever the user went to.
+    private var touchContext: LAContext?
+    private var resignObserver: (any NSObjectProtocol)?
+
     private var acceptsPick: Bool {
         pickingByKeyboard || Date().timeIntervalSince(shownAt) >= Self.pointerGrace
     }
@@ -87,12 +99,14 @@ final class CredentialPopover {
         guard let host = webView.window else { return }
         if case let .saved(offer) = offered, offer.credentials.isEmpty { return }
 
+        let inline: Bool = if case .saved = offered { Self.canTouchInline } else { false }
         let content = CredentialPopoverView(
             content: offered,
+            inlineTouchID: inline,
             onPick: { [weak self] credential in
                 guard let self, acceptsPick else { return }
                 dismiss()
-                onPick?(credential)
+                onPick?(credential, false)
             },
             onAcceptGenerated: { [weak self] password in
                 guard let self, acceptsPick else { return }
@@ -124,7 +138,47 @@ final class CredentialPopover {
         shownAt = Date()
 
         installKeyMonitor(typingInto: webView)
+        // The panel hides with the app (`hidesOnDeactivate`); the offer goes
+        // with it rather than waiting, hidden, with a request open.
+        resignObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didResignActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.dismiss() }
+        }
+        if case let .saved(offer) = offered, content.touchCredential != nil,
+           CredentialPopoverView.fingerprint(for: offer, inline: inline) == .inline {
+            awaitTouch(on: content, site: offer.site)
+        }
         content.animateIn()
+    }
+
+    // MARK: - Touch ID on the row
+
+    /// Whether a finger can answer here: Touch ID set up and in reach. A Mac
+    /// without it, or with its lid shut, keeps the symbol and the dialog.
+    private static var canTouchInline: Bool {
+        NSApp.isActive && LAContext().canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil)
+    }
+
+    /// Puts the system's own Touch ID view on the chosen row and asks the
+    /// sensor, as Safari's autofill does. While `LAAuthenticationView` is on
+    /// screen the request shows no dialog: the red fingerprint is the prompt,
+    /// and a finger on the sensor fills the account it sits on.
+    private func awaitTouch(on content: CredentialPopoverView, site: String) {
+        let context = LAContext()
+        content.showTouchID(LAAuthenticationView(context: context, controlSize: .small))
+        touchContext = context
+        let reason = String(localized: "fill your saved password for \(site)")
+        let request = ObjectIdentifier(context)
+        context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { granted, _ in
+            Task { @MainActor [weak self] in
+                guard granted, let self, let current = touchContext, ObjectIdentifier(current) == request,
+                      let credential = view?.touchCredential
+                else { return }
+                dismiss()
+                onPick?(credential, true)
+            }
+        }
     }
 
     /// Repositions a picker that is already up, because the field it points at
@@ -145,22 +199,35 @@ final class CredentialPopover {
         }
     }
 
-    /// A field's rect, which the page measures from the top-left of its own
-    /// viewport, in the web view's coordinates. The viewport starts below
-    /// whatever covers the web view's top — §3.2b's bar runs over the page
-    /// and says so in `obscuredContentInsets` — so the rect is moved down by
-    /// that much, or the picker points one bar's height above the field.
+    /// A field's rect, which the page measures in CSS pixels from the
+    /// top-left of its own viewport, in the web view's coordinates.
+    ///
+    /// Three things stand between the two. The viewport starts below whatever
+    /// covers the web view's top — §3.2b's bar runs over the page and says so
+    /// in `obscuredContentInsets`. A CSS pixel is `pageZoom × magnification`
+    /// points, and §18.2 keeps a zoom per site. And `WKWebView` is flipped:
+    /// measuring from the bottom put the picker at the field's mirror image,
+    /// which on a sign-in centred on the page is a little above the field and
+    /// over it.
     static func viewRect(for field: CGRect, in webView: NSView) -> CGRect {
-        let covered = (webView as? WKWebView)?.obscuredContentInsets ?? NSEdgeInsetsZero
+        let web = webView as? WKWebView
+        let covered = web?.obscuredContentInsets ?? NSEdgeInsetsZero
+        let scale = (web?.pageZoom ?? 1) * (web?.magnification ?? 1)
+        let height = field.height * scale
+        let top = covered.top + field.minY * scale
         return CGRect(
-            x: field.minX + covered.left,
-            y: webView.bounds.height - covered.top - field.maxY,
-            width: field.width,
-            height: field.height
+            x: covered.left + field.minX * scale,
+            y: webView.isFlipped ? top : webView.bounds.height - top - height,
+            width: field.width * scale,
+            height: height
         )
     }
 
     func dismiss() {
+        touchContext?.invalidate()
+        touchContext = nil
+        if let resignObserver { NotificationCenter.default.removeObserver(resignObserver) }
+        resignObserver = nil
         if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
         keyMonitor = nil
         view = nil

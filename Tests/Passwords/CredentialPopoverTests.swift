@@ -116,12 +116,25 @@ final class CredentialPopoverTests: XCTestCase {
         XCTAssertFalse(hasIdentifier("password-row-biometric", in: view))
     }
 
-    /// A name-only first step fills the name and reads no password, so no
-    /// prompt comes and no fingerprint says one will.
-    func testANameOnlyStepDrawsNoFingerprint() {
+    /// What the rows say about Touch ID. With the live view a finger fills
+    /// any row; without it, only a pick that will prompt shows the symbol — a
+    /// name-only step reads no password and so promises no prompt.
+    func testTheFingerprintFollowsWhatAPickWillAsk() {
         PasswordSettings.requiresAuthentication = true
-        let view = laidOut(.saved(offer(nameOnly: true)))
-        XCTAssertFalse(hasIdentifier("password-row-biometric", in: view))
+        XCTAssertEqual(CredentialPopoverView.fingerprint(for: offer(), inline: true), .inline)
+        XCTAssertEqual(CredentialPopoverView.fingerprint(for: offer(), inline: false), .symbol)
+        XCTAssertEqual(CredentialPopoverView.fingerprint(for: offer(nameOnly: true), inline: false), CredentialRowView.Fingerprint.none)
+        PasswordSettings.requiresAuthentication = false
+        XCTAssertEqual(CredentialPopoverView.fingerprint(for: offer(), inline: true), CredentialRowView.Fingerprint.none)
+    }
+
+    /// The first account is chosen when the picker opens, as Safari's is: it
+    /// is the one a finger on the sensor fills.
+    func testTheFirstAccountIsChosenOnOpening() {
+        let view = laidOut(.saved(offer(usernames: ["ada", "grace"])))
+        XCTAssertEqual(view.selectedIndex, 0)
+        XCTAssertEqual(view.touchCredential?.username, "ada")
+        XCTAssertFalse(view.selectionIsFromKeyboard, "Return must not take a row nobody chose")
     }
 
     // MARK: - The keyboard
@@ -148,13 +161,18 @@ final class CredentialPopoverTests: XCTestCase {
         XCTAssertEqual(picked, 0)
     }
 
-    /// The selection stops at the ends rather than wrapping or falling off.
+    /// The first arrow takes the chosen row rather than skipping it; then the
+    /// selection moves and stops at the ends rather than wrapping. A finger
+    /// stays with the last account chosen when the way out is chosen.
     func testTheSelectionStopsAtTheEnds() {
         let view = laidOut(.saved(offer(usernames: ["ada", "grace"])))
         view.moveSelection(by: -1)
-        XCTAssertEqual(view.selectedIndex, 2, "↑ from nothing chooses the last row, the way out")
+        XCTAssertEqual(view.selectedIndex, 0)
+        view.moveSelection(by: 1)
+        view.moveSelection(by: 1)
         view.moveSelection(by: 1)
         XCTAssertEqual(view.selectedIndex, 2)
+        XCTAssertEqual(view.touchCredential?.username, "grace")
         view.moveSelection(by: -5)
         XCTAssertEqual(view.selectedIndex, 0)
     }
@@ -223,11 +241,18 @@ final class CredentialPopoverTests: XCTestCase {
     /// The page measures a field from its own viewport, which starts under
     /// §3.2b's bar when the bar covers the top of the web view. The picker has
     /// to add that back or it points above the field.
+    ///
+    /// `WKWebView` is flipped, so the rect is measured from its top — from the
+    /// bottom it was the field's mirror image, over the field on a centred
+    /// sign-in — and a zoomed page's CSS pixels are bigger than points.
     func testThePickerPointsBelowWhateverCoversThePage() {
         let web = WKWebView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
+        XCTAssertTrue(web.isFlipped)
         let field = CGRect(x: 100, y: 40, width: 200, height: 30)
-        XCTAssertEqual(CredentialPopover.viewRect(for: field, in: web), CGRect(x: 100, y: 530, width: 200, height: 30))
+        XCTAssertEqual(CredentialPopover.viewRect(for: field, in: web), CGRect(x: 100, y: 40, width: 200, height: 30))
         web.obscuredContentInsets = NSEdgeInsets(top: 52, left: 0, bottom: 0, right: 0)
-        XCTAssertEqual(CredentialPopover.viewRect(for: field, in: web), CGRect(x: 100, y: 478, width: 200, height: 30))
+        XCTAssertEqual(CredentialPopover.viewRect(for: field, in: web), CGRect(x: 100, y: 92, width: 200, height: 30))
+        web.pageZoom = 1.25
+        XCTAssertEqual(CredentialPopover.viewRect(for: field, in: web), CGRect(x: 125, y: 102, width: 250, height: 37.5))
     }
 }
