@@ -23,7 +23,10 @@ extension TabListController {
     func markDrop(atY y: CGFloat?, in space: NSView) -> SidebarDestination? {
         // A lift is up, and the gap is the lift's.
         guard !isDragging || isMarkingDrop else { return nil }
-        var landing = y.map { landing(atY: $0, in: space) }
+        // Not `y.map { landing(atY:) }`: Xcode 26 reads the name as the
+        // variable being declared and fails to type the closure.
+        var landing: (row: Int, destination: SidebarDestination)?
+        if let y { landing = self.landing(atY: y, in: space) }
         // §5.6 keeps nothing, so the saved tier is no landing in a private window.
         if !allowsPinning, landing?.destination.kind != .today { landing = nil }
         let row = landing?.row ?? openingGapRow()
